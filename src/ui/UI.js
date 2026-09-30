@@ -419,15 +419,27 @@ export class UI {
       el.lastChild.style.display = b.angry ? 'none' : '';
     }
     // review bubbles follow their bear for a while
-    for (let i = this.reviewBubbles.length - 1; i >= 0; i--) {
+    for (let i = 0; i < this.reviewBubbles.length; i++) {
       const rb = this.reviewBubbles[i];
       rb.t -= dt;
       const b = rb.bear;
       if (b) { rb.x = b.x; rb.y = b.y + 2.6 * b.def.scale + 0.3; rb.z = b.z; }
       const p = this.screenOf(rb.x, rb.y, rb.z);
+      // stack bubbles that would overlap an earlier one
+      let dy = 0;
+      for (let j = 0; j < i; j++) {
+        const o = this.reviewBubbles[j];
+        if (o.sx === undefined) continue;
+        if (Math.abs(o.sx - p.x) < 170 && Math.abs(o.sy - (p.y - dy)) < 38) dy += 40;
+      }
+      rb.dy = rb.dy === undefined ? dy : rb.dy + (dy - rb.dy) * Math.min(1, dt * 6);
+      rb.sx = p.x; rb.sy = p.y - rb.dy;
       rb.el.style.left = `${Math.round(p.x)}px`;
-      rb.el.style.top = `${Math.round(p.y)}px`;
+      rb.el.style.top = `${Math.round(p.y - rb.dy)}px`;
       if (rb.t < 0.4 && !rb.gone) { rb.gone = true; rb.el.classList.add('gone'); }
+    }
+    for (let i = this.reviewBubbles.length - 1; i >= 0; i--) {
+      const rb = this.reviewBubbles[i];
       if (rb.t <= 0) { rb.el.remove(); this.reviewBubbles.splice(i, 1); }
     }
   }

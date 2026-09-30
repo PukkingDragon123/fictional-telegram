@@ -1,5 +1,7 @@
 # The Bear Must Eat
 
+![Rush hour at Reynard's pond](docs/screenshot.png)
+
 A cozy-but-cheeky incremental sandbox game that mixes 3D and 2D pixel art. You are **Reynard**, a greedy fox with a top hat and monocle who runs an all-you-can-eat fish pond in the Canadian wilderness.
 
 Every weekday at **5 PM** the steam whistle blows at *Bear St. Holdings*, the office tower on the mountain. Waves of bears in suits, neckties and hard hats (plus janitors, interns, a lumberjack and the polar-bear CEO) run down the switchback trail, cannonball into your pond and eat your fish. Happy bears throw coins out of their briefcases and leave 5-star reviews. Hungry bears rampage, smash your stuff and post 0-star reviews. If your rating drops below 1.0, the pond gets shut down.
