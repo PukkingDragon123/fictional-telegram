@@ -2562,7 +2562,7 @@ function _debugRenderSfx(name, seconds = 4, opts = {}) {
   if (!def) return Promise.reject(new Error('unknown sfx ' + name));
   return renderOffline(seconds, (ctx, rig) => {
     const bus = rig.buses.sfx;
-    def.fn(ctx, bus.dry, { when: 0.02, volume: num(opts.volume, 1) * (opts.raw ? 1 : def.g), pitch: num(opts.pitch, 1), pan: num(opts.pan, 0), rev: bus.wet });
+    def.fn(ctx, bus.dry, { when: 0.02, volume: num(opts.volume, 1) * (opts.raw ? 1 : def.g), pitch: clamp(num(opts.pitch, 1), 0.25, 4), pan: num(opts.pan, 0), rev: bus.wet });
   });
 }
 

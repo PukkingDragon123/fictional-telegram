@@ -170,6 +170,17 @@ const offline = await (async () => {
       // pitch/volume/pan options must survive too
       out.opts = analyze(await audio._debugRenderSfx('coin', 2, { volume: 0.5, pitch: 1.5, pan: -0.7 }));
       try { await audio._debugRenderSfx('nope', 1); out.unknownRejected = false; } catch (e) { out.unknownRejected = true; }
+      // extreme pitch / volume options must stay finite, bounded and warning-free
+      out.sweep = {};
+      for (const n of audio.sfxNames) {
+        let nan = 0, peak = 0;
+        for (const pitch of [0.25, 4]) {
+          const r = analyze(await audio._debugRenderSfx(n, 3, { pitch, volume: 1 }));
+          nan += r.nan;
+          peak = Math.max(peak, r.peak);
+        }
+        out.sweep[n] = { nan, peak };
+      }
       // worst-case pile-up: the loudest sounds all at once, with and without the final soft limiter
       const pile = ['roar', 'bigsplash', 'smash', 'fanfare', 'whistle', 'discover', 'levelup', 'coins', 'gate', 'bell', 'honk', 'growl'];
       out.pileRaw = analyze(await audio._debugRenderMix(pile, 4, { safety: false, volume: 2 }));
@@ -210,6 +221,10 @@ check('levels', 'UI: hover quieter than click', P('hover') < P('click'), `${P('h
 check('levels', 'UI: click is quiet (< 0.4)', P('click') < 0.4, P('click').toFixed(3));
 check('levels', 'frequent tick sounds stay well below the big moments (hammer < 0.5, footsteps < 0.7)', P('hammer') < 0.5 && P('footsteps') < 0.7, `${P('hammer').toFixed(3)} / ${P('footsteps').toFixed(3)}`);
 check('levels', 'big moments louder than UI', Math.min(P('bigsplash'), P('roar'), P('fanfare'), P('smash')) > 2 * P('click'));
+{
+  const bad = Object.entries(offline.sweep).filter(([, r]) => r.nan > 0 || r.peak > 1.3 || r.peak < 0.01);
+  check('pitch', 'every SFX at pitch 0.25x and 4x is finite, audible and bounded (peak 0.01..1.3)', bad.length === 0, bad.map(([n, r]) => `${n}:${r.peak.toFixed(2)}`).join(' '));
+}
 check('limiter', '12 loud sounds at volume 2, raw chain, exceed full scale (so the limiter is doing real work)', offline.pileRaw.peak > 1.0, offline.pileRaw.peak.toFixed(3));
 check('limiter', 'same pile-up through the safety limiter stays below 0.96', offline.pileSafe.peak < 0.96 && offline.pileSafe.peak > 0.5 && offline.pileSafe.nan === 0, offline.pileSafe.peak.toFixed(3));
 check('limiter', 'pile-up at volume 2 also stays below 0.96 and is not silenced', offline.pileSafeLoud.peak < 0.96 && offline.pileSafeLoud.rms > offline.pileSafe.rms, `${offline.pileSafeLoud.peak.toFixed(3)} (rms ${offline.pileSafeLoud.rms.toFixed(3)} vs ${offline.pileSafe.rms.toFixed(3)})`);

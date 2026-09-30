@@ -108,6 +108,7 @@ export class UI {
     game.on('coins', () => { this.popCoins(); this.refreshPanelSoon(); });
     game.on('research', () => this.refreshPanelSoon());
     game.on('tool', (t) => this.onTool(t));
+    game.on('dig', () => { if (game.tool.kind === 'dig') this.onTool(game.tool); });
   }
 
   // ------------------------------------------------------------ DOM

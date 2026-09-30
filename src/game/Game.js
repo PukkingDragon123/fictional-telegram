@@ -439,26 +439,36 @@ export class Game {
     return null;
   }
 
-  dig(x, z) {
+  // Dig one tile. With `batch`, the (expensive) terrain rebuild waits for
+  // applyDigs() so dragging a long line stays smooth.
+  dig(x, z, batch = false) {
     const why = this.canDig(x, z);
-    if (why) { this.ui?.toast(why, 'bad'); this.audio.play('error', { volume: 0.35 }); return false; }
+    if (why) { if (!batch) { this.ui?.toast(why, 'bad'); this.audio.play('error', { volume: 0.35 }); } return false; }
     const cost = this.digCost();
     if (!this.spend(cost)) return false;
     const g = this.grid;
     g.kind[z * g.w + x] = KIND.WATER;
     this.state.digCount++;
-    refreshWaterHeights(g);
-    this.world.rebuildTerrain();
-    // clutter on that tile disappears
     for (const c of this.world.clutter) if (Math.floor(c.x) === x && Math.floor(c.z) === z) c.removed = true;
-    this.world.buildClutter();
-    for (const s of this.structures.list) if (Math.abs(s.x - x) <= 1 && Math.abs(s.z - z) <= 1) this.structures.buildMesh(s);
-    this.onTopologyChanged();
+    (this._dug ||= []).push([x, z]);
     this.particles.debris(x + 0.5, 0.2, z + 0.5, 12, [0x6a4a2a, 0x8a6a44, 0x4a3a28]);
     this.particles.splash(x + 0.5, z + 0.5, 10, 0.8);
     this.audio.play('dig', { volume: 0.6 });
-    this.emit('dig');
+    if (!batch) this.applyDigs();
     return true;
+  }
+
+  applyDigs() {
+    const dug = this._dug;
+    if (!dug || !dug.length) return;
+    this._dug = [];
+    refreshWaterHeights(this.grid);
+    this.world.rebuildTerrain();
+    this.world.buildClutter();
+    for (const s of this.structures.list)
+      if (dug.some(([x, z]) => Math.abs(s.x - x) <= 1 && Math.abs(s.z - z) <= 1)) this.structures.buildMesh(s);
+    this.onTopologyChanged();
+    this.emit('dig');
   }
 
   demolishAt(x, z) {

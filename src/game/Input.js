@@ -233,13 +233,17 @@ export class Input {
     game.ghostLine = null;
     const tool = game.tool;
     if (tool.kind === 'dig') {
+      if (tiles.length === 1) { game.dig(tiles[0].x, tiles[0].z); return; }
       let n = 0;
-      for (const t of tiles) {
-        if (game.canDig(t.x, t.z)) continue;
-        if (!game.canAfford(game.digCost())) break;
-        if (game.dig(t.x, t.z)) n++;
-      }
-      if (!n && tiles.length === 1) game.dig(tiles[0].x, tiles[0].z);
+      // repeat passes so tiles further from the water become diggable as the line grows
+      for (let pass = 0; pass < 3; pass++)
+        for (const t of tiles) {
+          if (game.canDig(t.x, t.z)) continue;
+          if (!game.canAfford(game.digCost())) { if (!n) game.ui?.toast('Not enough coins!', 'bad'); break; }
+          if (game.dig(t.x, t.z, true)) n++;
+        }
+      game.applyDigs();
+      if (n > 1) game.ui?.toast(`Dug ${n} tiles`);
       return;
     }
     if (tool.kind === 'build') {
