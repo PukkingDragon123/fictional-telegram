@@ -257,4 +257,42 @@ export function lanternModel() {
   return { body, glow };
 }
 
+export function chairModel() {
+  const v = new VoxelModel();
+  const R = 0xc8322a, RD = 0xa02620;
+  for (let x = -2; x <= 2; x++) { v.set(x, 3, -1, R); v.set(x, 3, 0, R); v.set(x, 3, 1, R); }
+  for (let y = 0; y <= 2; y++) { v.set(-2, y, 1, RD); v.set(2, y, 1, RD); v.set(-2, y, -2, RD); v.set(2, y, -2, RD); }
+  for (let y = 4; y <= 8; y++) for (let x = -2; x <= 2; x++) if ((x + 2) % 2 === 0 || y === 8) v.set(x, y, -2 - Math.floor((y - 4) / 3), R);
+  v.box(-3, 5, -1, -3, 5, 2, RD); v.box(3, 5, -1, 3, 5, 2, RD);
+  v.set(-3, 4, 2, RD); v.set(3, 4, 2, RD);
+  return v;
+}
+
+export function picnicModel() {
+  const v = new VoxelModel();
+  const W = 0x9a6a40, WD = 0x7a5030;
+  for (let x = -4; x <= 3; x++) for (let z = -2; z <= 1; z++) v.set(x, 4, z, (x + z) % 2 ? 0xd83a30 : 0xf6f2ea);
+  for (const x of [-4, 3]) { v.box(x, 0, -2, x, 3, -2, WD); v.box(x, 0, 1, x, 3, 1, WD); }
+  v.box(-4, 2, -4, 3, 2, -4, W); v.box(-4, 2, 3, 3, 2, 3, W);
+  for (const x of [-3, 2]) { v.set(x, 1, -4, WD); v.set(x, 0, -4, WD); v.set(x, 1, 3, WD); v.set(x, 0, 3, WD); }
+  v.set(-1, 5, 0, 0xffc83a); v.set(1, 5, -1, 0x8a5aa0);
+  return v;
+}
+
+export function flagpoleModel() {
+  const v = new VoxelModel();
+  v.box(-1, 0, -1, 1, 0, 1, 0x8a847c);
+  for (let y = 1; y <= 22; y++) v.set(0, y, 0, 0xd8d8d8);
+  v.set(0, 23, 0, 0xe8c040);
+  const RED = 0xd52b1e, WHITE = 0xf6f4f0;
+  const leaf = ['..#..', '#####', '.###.', '#####', '..#..', '..#..'];
+  for (let y = 0; y < 6; y++)
+    for (let x = 0; x < 12; x++) {
+      let c = x < 3 || x > 8 ? RED : WHITE;
+      if (x >= 3 && x <= 8) { const row = leaf[5 - y]; const li = x - 3; if (li < 5 && row[li] === '#') c = RED; }
+      v.set(1 + x, 16 + y, 0, c);
+    }
+  return v;
+}
+
 export { seaweedModel, cattailModel, lilypadModel, willowModel };

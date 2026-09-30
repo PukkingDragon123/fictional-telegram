@@ -547,7 +547,8 @@ export class BearSystem {
             const stars = b.review ? b.review.stars : 3;
             const tip = stars >= 5 ? 0.25 : stars >= 4 ? 0.1 : 0;
             const tm = game.mods.tipMult;
-            const total = Math.round((b.coins * (1 + tip * tm) + b.tips * tm) * game.mods.payMult);
+            const charm = 1 + game.structures.charm() / 100;
+            const total = Math.round((b.coins * (1 + tip * tm) + b.tips * tm) * game.mods.payMult * charm);
             game.earn(total, b);
           }
         }

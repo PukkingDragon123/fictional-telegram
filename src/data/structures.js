@@ -79,10 +79,24 @@ export const STRUCTURES = {
     aerator: { radius: 4, boost: 0.6 }, hp: 3, smashable: true,
   },
   lantern: {
-    name: 'Lantern', icon: 'bulb', cost: 20, place: 'landOrPlatform', category: 'decor',
-    desc: 'A cosy lantern. Pure decoration (the fox likes it).', hp: 1, smashable: true,
+    name: 'Lantern', icon: 'sparkle', cost: 20, place: 'landOrPlatform', category: 'decor', charm: 1,
+    desc: 'A cosy lantern that glows at night. Charm +1%.', hp: 1, smashable: true,
+  },
+  chair: {
+    name: 'Muskoka Chair', icon: 'home', cost: 30, place: 'landOrPlatform', category: 'decor', charm: 2,
+    desc: 'The classic red cottage chair. Charm +2% on every bill.', hp: 1, smashable: true,
+  },
+  picnic: {
+    name: 'Picnic Table', icon: 'home', cost: 45, place: 'landOrPlatform', category: 'decor', charm: 3,
+    desc: 'Checkered tablecloth, no ants (yet). Charm +3%.', hp: 2, smashable: true,
+  },
+  flag: {
+    name: 'Flag Pole', icon: 'maple', cost: 60, place: 'landOrPlatform', category: 'decor', charm: 4,
+    desc: 'The red maple leaf, proudly flying. Bears get patriotic: charm +4%.', hp: 2, smashable: true,
   },
 };
+
+export const CHARM_CAP = 30;
 
 export const BUILD_CATEGORIES = [
   { id: 'nature', name: 'Nature' },

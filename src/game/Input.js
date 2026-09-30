@@ -62,7 +62,7 @@ export class Input {
     if (g.occ[i] === -2) return 2.6;
     const s = g.structAt(x, z);
     if (s) {
-      const tall = { willow: 2.6, maple: 3.2, lodge: 0.9, fence: 1.2, platform: 0.7, feeder: 1.5, bughotel: 1, lantern: 1.1, beehive: 1.1, dam: 0.3, gate: 0.9 };
+      const tall = { willow: 2.6, maple: 3.2, lodge: 0.9, fence: 1.2, platform: 0.7, feeder: 1.5, bughotel: 1, lantern: 1.1, beehive: 1.1, dam: 0.3, gate: 0.9, chair: 0.8, picnic: 0.5, flag: 2.3 };
       h = Math.max(h, (tall[s.type] ?? 0.2) + (g.kind[i] === 3 && s.type !== 'platform' ? -0.1 : 0));
       if (s.type === 'platform') h = 0.7;
     }

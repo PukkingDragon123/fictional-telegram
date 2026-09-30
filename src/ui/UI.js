@@ -797,7 +797,8 @@ export class UI {
     tabs.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { this.click(); this.panelTab = b.dataset.tab; this.renderPanel(); }));
     const body = this.hud['p-body'];
     const hasLodge = game.structures.list.some((s) => s.type === 'lodge' && s.built);
-    let html = '<div class="grid">';
+    let html = this.panelTab === 'decor' ? `<div class="lab-info">Decor adds <b>charm</b>: a bonus on every bill. Current charm: <b style="color:var(--gold)">+${game.structures.charm()}%</b> (max +30%).</div>` : '';
+    html += '<div class="grid">';
     for (const [type, d] of Object.entries(STRUCTURES)) {
       if (d.category !== this.panelTab) continue;
       const unlocked = game.isStructureUnlocked(type);

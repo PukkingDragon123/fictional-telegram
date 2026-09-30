@@ -2,7 +2,7 @@
 // dams/fences/platforms), blueprints for beaver jobs, production (seaweed,
 // honey, syrup, berries, bugs), contraptions, damage and serialization.
 import * as THREE from 'three';
-import { STRUCTURES } from '../data/structures.js';
+import { STRUCTURES, CHARM_CAP } from '../data/structures.js';
 import { KIND, WATER_Y, N4 } from '../world/grid.js';
 import { voxelMaterial, addGrain } from '../core/voxel.js';
 import * as SM from '../entities/structureModels.js';
@@ -299,6 +299,13 @@ export class StructureSystem {
         break;
       }
       case 'aerator': add(cachedGeo('aerator', () => SM.aeratorModel())); break;
+      case 'chair': add(cachedGeo('chair', () => SM.chairModel())); break;
+      case 'picnic': add(cachedGeo('picnic', () => SM.picnicModel())); break;
+      case 'flag': {
+        const fl = add(cachedGeo('flag', () => SM.flagpoleModel()));
+        fl.name = 'flag';
+        break;
+      }
       case 'lantern': {
         const lm = SM.lanternModel();
         add(cachedGeo('lantern', () => lm.body));
@@ -375,6 +382,13 @@ export class StructureSystem {
     let n = 0;
     for (const s of this.list) if (s.type === type && s.built) n++;
     return n;
+  }
+
+  // decor charm: +% on every bill (capped)
+  charm() {
+    let c = 0;
+    for (const s of this.list) if (s.built && s.def.charm) c += s.def.charm;
+    return Math.min(CHARM_CAP, c);
   }
 
   aeratorBoost(x, z) {
@@ -460,6 +474,7 @@ export class StructureSystem {
         s.obj.rotation.x = Math.cos(this.time * 0.9 + s.seed) * 0.05;
       }
       if (s.type === 'lilypad' && s.obj) s.obj.position.y = this.baseY(s) + Math.sin(this.time * 1.5 + s.seed) * 0.01;
+      if (s.type === 'flag' && s.obj) s.obj.rotation.y = Math.sin(this.time * 0.7 + s.seed) * 0.35;
     }
   }
 
