@@ -1,19 +1,35 @@
 /**
  * The Bear Must Eat - procedural audio engine.
  *
- * 100% synthesised with the Web Audio API: oscillators, generated noise buffers,
- * Karplus-Strong pluck buffers and a generated-impulse convolution reverb.
- * No audio files, no dependencies.
+ * 100% synthesised with the Web Audio API: oscillators, generated noise buffers, Karplus-Strong pluck
+ * buffers and a generated-impulse convolution reverb. No audio files, no dependencies.
  *
  *   import audio from './audio/audio.js';
- *   addEventListener('pointerdown', () => audio.unlock());     // any user gesture
- *   audio.play('coin', { volume: 0.8, pitch: 1.1, pan: -0.3, delay: 0.05 });
- *   audio.setMusic('day');                                     // 'title'|'day'|'rush'|'night'|null
- *   audio.setAmbience({ hour, night });                        // cheap, call every frame
  *
- * Every SFX builder is a pure function of (ctx, destination, opts) that returns the
- * absolute end time of the sound, so the exact same code renders into an
- * OfflineAudioContext (see _debugRenderSfx / _debugRenderMusic / _debugRenderAmbience).
+ *   audio.unlock()                       create/resume the AudioContext. Call from a user gesture; idempotent.
+ *                                        (The module also hooks pointerdown/pointerup/touchend/click/keydown
+ *                                        itself, so iOS Safari and interruption recovery work regardless.)
+ *   audio.play(name, { volume = 1, pitch = 1, pan = 0, delay = 0 })
+ *                                        silent no-op while locked / muted / tab hidden / unknown name; never throws.
+ *   audio.setMuted(bool)  audio.isMuted()  audio.toggleMute() -> bool        localStorage 'tbme.muted'
+ *   audio.setVolumes({ master, sfx, music, ambience })  audio.getVolumes()   0..1, localStorage 'tbme.volumes'
+ *   audio.setMusic('title' | 'day' | 'rush' | 'night' | null)                 1.5 s crossfade, same mood = no-op
+ *   audio.setAmbience({ hour: 0..24, night: 0..1 })                           cheap, call it every frame
+ *   audio.update(dt)                     optional per-frame hook (gives the scheduler extra chances to run)
+ *
+ * SFX names: click hover open close error buy coin coins plop splash bigsplash bubble chomp nibble heart hatch
+ *   discover research levelup place build hammer demolish dig gate whistle bell footsteps jump growl roar smash
+ *   review_good review_bad loon honk bees day_start day_end warning gameover fanfare
+ *
+ * Architecture
+ *   - SFX builders are pure functions (ctx, destination, opts) -> absolute end time, so the very same code renders
+ *     into an OfflineAudioContext: audio._debugRenderSfx / _debugRenderMix / _debugRenderMusic /
+ *     _debugRenderAmbience (used by tools/audio-check.mjs).
+ *   - Chain: buses (sfx / music / ambience, each with a dry and a reverb-send gain) -> master ->
+ *     DynamicsCompressor (gentle limiting) -> soft-knee safety limiter -> destination.
+ *   - Voice limiting per SFX name and globally (48); every voice disconnects its nodes when its last source ends.
+ *   - Music and random ambience events are scheduled by a lookahead scheduler (setInterval 25 ms, 120 ms ahead of
+ *     ctx.currentTime); it pauses while muted or while the tab is hidden, and the context is suspended meanwhile.
  */
 
 /* ========================================================================== *
@@ -210,11 +226,17 @@ function makeCurve(n, fn) {
   for (let i = 0; i < n; i++) c[i] = fn((i / (n - 1)) * 2 - 1);
   return c;
 }
-/** transparent safety net after the compressor: identity below 0.8, soft knee towards ~0.95 */
-const SAFE_CURVE = makeCurve(2049, (x) => {
-  const a = Math.abs(x);
-  if (a <= 0.8) return x;
-  return Math.sign(x) * (0.8 + 0.16 * Math.tanh((a - 0.8) / 0.16));
+/**
+ * Transparent safety limiter after the compressor. A WaveShaper only sees inputs in [-1, 1], so the chain is
+ * gain 0.5 -> shaper -> gain 2: the curve below is defined for the *pre-attenuated* signal and behaves like
+ * a soft-knee limiter over input +-2 (+6 dB over full scale): identity up to 0.7, then a tanh knee that
+ * settles at 0.95.
+ */
+const SAFE_CURVE = makeCurve(4097, (x) => {
+  const v = x * 2;
+  const a = Math.abs(v);
+  const y = a <= 0.7 ? a : 0.7 + 0.25 * Math.tanh((a - 0.7) / 0.25);
+  return (Math.sign(v) * y) / 2;
 });
 
 const resCache = new WeakMap();
@@ -561,9 +583,9 @@ function sfxClose(ctx, dest, o) {
 
 function sfxError(ctx, dest, o) {
   const v = new Voice(ctx, dest, o, 0.06, 0.04);
-  v.tone({ type: 'triangle', f: 208, f2: 178, gl: 0.1, a: 0.004, hold: 0.04, rel: 0.13, peak: 0.34, lp: 1100 });
-  v.tone({ t: 0.12, type: 'triangle', f: 156, f2: 124, gl: 0.16, a: 0.004, hold: 0.06, rel: 0.24, peak: 0.38, lp: 900 });
-  v.tone({ t: 0.12, type: 'square', f: 156, f2: 124, gl: 0.16, a: 0.004, hold: 0.04, rel: 0.16, peak: 0.07, lp: 500 });
+  v.tone({ type: 'triangle', f: 277, f2: 237, gl: 0.1, a: 0.004, hold: 0.04, rel: 0.13, peak: 0.34, lp: 1600 });
+  v.tone({ t: 0.12, type: 'triangle', f: 208, f2: 165, gl: 0.16, a: 0.004, hold: 0.06, rel: 0.24, peak: 0.38, lp: 1400 });
+  v.tone({ t: 0.12, type: 'square', f: 208, f2: 165, gl: 0.16, a: 0.004, hold: 0.04, rel: 0.16, peak: 0.08, lp: 800 });
   return v.end;
 }
 
@@ -749,10 +771,10 @@ function sfxLevelUp(ctx, dest, o) {
 
 function sfxPlace(ctx, dest, o) {
   const v = new Voice(ctx, dest, o, 0.05, 0.08);
-  v.tone({ f: 170, f2: 68, gl: 0.09, a: 0.002, rel: 0.2, peak: 0.55 });
-  v.tone({ type: 'triangle', f: 430, f2: 250, gl: 0.03, a: 0.001, rel: 0.08, peak: 0.16 });
-  v.noise({ buf: 'brown', ft: 'lowpass', f: 650, q: 0.5, a: 0.002, rel: 0.12, peak: 0.6 });
-  v.noise({ buf: 'pink', f: 1700, q: 1, bursts: [[0, 0.5, 0.02]] });
+  v.tone({ f: 190, f2: 78, gl: 0.09, a: 0.002, rel: 0.2, peak: 0.45 });
+  v.tone({ type: 'triangle', f: 480, f2: 270, gl: 0.03, a: 0.001, rel: 0.09, peak: 0.34 });
+  v.noise({ buf: 'brown', ft: 'lowpass', f: 900, q: 0.5, a: 0.002, rel: 0.12, peak: 0.7 });
+  v.noise({ buf: 'pink', f: 1700, q: 1, bursts: [[0, 0.9, 0.02]] });
   return v.end;
 }
 
@@ -833,8 +855,8 @@ function sfxWhistle(ctx, dest, o) {
   vib.frequency.value = 5.3;
   const vibG = v.gn(7);
   vib.connect(vibG);
-  // two-tone: a fifth (A3 + E4) with a faint octave on top
-  [[220, 1], [329.63, 0.9], [440, 0.32]].forEach(([f0, amp]) => {
+  // two-tone: a perfect fourth (D4 + G4) with a faint octave on top
+  [[293.66, 1], [392, 0.9], [587.33, 0.3]].forEach(([f0, amp]) => {
     const f = f0 * k;
     const os = v.osc('sine', t, T + 0.05);
     const sw = v.osc('sawtooth', t, T + 0.05);
@@ -846,24 +868,24 @@ function sfxWhistle(ctx, dest, o) {
       vibG.connect(s.detune);
     }
     sw.detune.value = 3;
-    const g1 = v.gn(0.5 * amp), g2 = v.gn(0.14 * amp), sf = v.flt('lowpass', f * 4.2, 0.4);
+    const g1 = v.gn(0.42 * amp), g2 = v.gn(0.22 * amp), sf = v.flt('lowpass', f * 6, 0.4);
     os.connect(g1);
     g1.connect(lp);
     sw.connect(sf);
     sf.connect(g2);
     g2.connect(lp);
     // air resonating in the pipe
-    const n = v.nsrc('pink', t, T + 0.05), nb = v.flt('bandpass', f * 2, 14), ng = v.gn(2.2 * amp);
+    const n = v.nsrc('pink', t, T + 0.05), nb = v.flt('bandpass', f * 2, 10), ng = v.gn(7 * amp);
     n.connect(nb);
     nb.connect(ng);
     ng.connect(lp);
   });
   // steam "pfff" at the start + constant hiss
-  const s = v.nsrc('white', t, T + 0.05), sb = v.flt('bandpass', 3400, 0.7), sg = v.gn(0);
+  const s = v.nsrc('white', t, T + 0.05), sb = v.flt('bandpass', 3400, 1.4), sg = v.gn(0);
   sg.gain.setValueAtTime(0.0001, t);
-  sg.gain.linearRampToValueAtTime(0.16, t + 0.03);
-  sg.gain.exponentialRampToValueAtTime(0.04, t + 0.5);
-  sg.gain.setValueAtTime(0.04, t + L);
+  sg.gain.linearRampToValueAtTime(0.6, t + 0.03);
+  sg.gain.exponentialRampToValueAtTime(0.13, t + 0.5);
+  sg.gain.setValueAtTime(0.13, t + L);
   sg.gain.exponentialRampToValueAtTime(0.0003, t + T);
   s.connect(sb);
   sb.connect(sg);
@@ -884,9 +906,9 @@ function sfxBell(ctx, dest, o) {
 
 function sfxFootsteps(ctx, dest, o) {
   const v = new Voice(ctx, dest, o, 0.02, 0.18);
-  v.tone({ f: 108, f2: 56, gl: 0.08, a: 0.003, rel: 0.16, peak: 0.55 });
-  v.noise({ buf: 'brown', ft: 'lowpass', f: 380, q: 0.5, a: 0.003, rel: 0.11, peak: 0.55 });
-  v.noise({ buf: 'pink', f: 1300, q: 0.8, bursts: [[0.005, 0.2, 0.03]] });
+  v.tone({ f: 150, f2: 68, gl: 0.07, a: 0.003, rel: 0.14, peak: 0.5 });
+  v.noise({ buf: 'brown', ft: 'lowpass', f: 700, q: 0.5, a: 0.003, rel: 0.1, peak: 0.7 });
+  v.noise({ buf: 'pink', f: 1100, q: 0.9, bursts: [[0.004, 0.5, 0.035]] }); // dry leaves / dirt
   return v.end;
 }
 
@@ -1263,7 +1285,7 @@ const SFX = {
   hover: { fn: sfxHover, max: 3, gap: 0.05, g: 1.57 },
   open: { fn: sfxOpen, max: 3, gap: 0.05, g: 1 },
   close: { fn: sfxClose, max: 3, gap: 0.05, g: 1.78 },
-  error: { fn: sfxError, max: 3, gap: 0.1, g: 0.86 },
+  error: { fn: sfxError, max: 3, gap: 0.1, g: 0.84 },
   buy: { fn: sfxBuy, max: 4, gap: 0.05, g: 1.32 },
   coin: { fn: sfxCoin, max: 8, gap: 0.015, g: 1.49 },
   coins: { fn: sfxCoins, max: 3, gap: 0.08, g: 1.79 },
@@ -1278,15 +1300,15 @@ const SFX = {
   discover: { fn: sfxDiscover, max: 2, gap: 0.3, g: 0.83 },
   research: { fn: sfxResearch, max: 2, gap: 0.2, g: 1.29 },
   levelup: { fn: sfxLevelUp, max: 2, gap: 0.3, g: 0.77 },
-  place: { fn: sfxPlace, max: 3, gap: 0.05, g: 1.56 },
+  place: { fn: sfxPlace, max: 3, gap: 0.05, g: 1.4 },
   build: { fn: sfxBuild, max: 3, gap: 0.1, g: 1.18 },
   hammer: { fn: sfxHammer, max: 4, gap: 0.03, g: 1.57 },
   demolish: { fn: sfxDemolish, max: 3, gap: 0.08, g: 1.61 },
   dig: { fn: sfxDig, max: 3, gap: 0.08, g: 1.16 },
   gate: { fn: sfxGate, max: 2, gap: 0.1, g: 0.71 },
-  whistle: { fn: sfxWhistle, max: 1, gap: 1, g: 0.77 },
+  whistle: { fn: sfxWhistle, max: 1, gap: 1, g: 0.51 },
   bell: { fn: sfxBell, max: 2, gap: 0.1, g: 0.93 },
-  footsteps: { fn: sfxFootsteps, max: 6, gap: 0.03, g: 1.28 },
+  footsteps: { fn: sfxFootsteps, max: 6, gap: 0.03, g: 1.26 },
   jump: { fn: sfxJump, max: 4, gap: 0.04, g: 0.96 },
   growl: { fn: sfxGrowl, max: 3, gap: 0.1, g: 0.62 },
   roar: { fn: sfxRoar, max: 2, gap: 0.2, g: 0.59 },
@@ -2064,7 +2086,7 @@ const REVERB_RETURN = 0.55;
 
 /**
  * sfx/music/amb buses each have a dry and a wet (reverb send) gain that follow the same volume.
- * master -> DynamicsCompressor (gentle limiting) -> [transparent safety soft-clip] -> destination
+ * master -> DynamicsCompressor (gentle limiting) -> [transparent soft-knee safety limiter] -> destination
  */
 function createRig(ctx, opts = {}) {
   const res = getRes(ctx);
@@ -2076,12 +2098,16 @@ function createRig(ctx, opts = {}) {
   comp.attack.value = 0.005;
   comp.release.value = 0.25;
   master.connect(comp);
-  let safe = null, last = comp;
+  let last = comp;
   if (opts.safety !== false) {
-    safe = ctx.createWaveShaper();
+    const pre = ctx.createGain(), safe = ctx.createWaveShaper(), post = ctx.createGain();
+    pre.gain.value = 0.5;
+    post.gain.value = 2;
     safe.curve = SAFE_CURVE;
-    comp.connect(safe);
-    last = safe;
+    comp.connect(pre);
+    pre.connect(safe);
+    safe.connect(post);
+    last = post;
   }
   last.connect(ctx.destination);
 
@@ -2105,7 +2131,7 @@ function createRig(ctx, opts = {}) {
     wet.connect(revIn);
     return { dry, wet };
   };
-  return { ctx, master, comp, safe, revIn, revOut, buses: { sfx: bus(), music: bus(), amb: bus() } };
+  return { ctx, master, comp, last, revIn, revOut, buses: { sfx: bus(), music: bus(), amb: bus() } };
 }
 
 /** push volume settings into the rig (tc = smoothing time constant, 0 = immediate) */
@@ -2314,24 +2340,31 @@ function tick() {
 
 /* ---- public API -------------------------------------------------------- */
 
+/**
+ * Call from any user gesture (pointerdown / keydown / click ...). Creates the AudioContext on first use and
+ * resumes it inside the gesture (required by iOS Safari and Chrome's autoplay policy). Safe to call any number of
+ * times; later calls only recover a context that the system suspended or interrupted.
+ */
 function unlock() {
   try {
     const ctx = ensureContext();
     if (!ctx) return;
-    if (ctx.state !== 'running') safeResume();
     if (!S.unlocked) {
       S.unlocked = true;
+      safeResume();
       try {
         // iOS Safari: a started (silent) source inside the gesture fully unlocks output
-        const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource();
-        s.buffer = b;
-        s.connect(ctx.destination);
-        s.start(0);
+        const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource();
+        src.buffer = b;
+        src.connect(ctx.destination);
+        src.start(0);
       } catch (e) {
         /* ignore */
       }
       syncMusic();
       syncRun();
+    } else if (wantRunning() && ctx.state !== 'running') {
+      safeResume(); // e.g. iOS 'interrupted' after a phone call / backgrounding
     }
   } catch (e) {
     /* never throw */
@@ -2356,7 +2389,7 @@ function play(name, opts) {
     const def = SFX[name];
     if (!def) return;
     const o = opts || {};
-    const volume = clamp(num(o.volume, 1), 0, 4);
+    const volume = clamp(num(o.volume, 1), 0, 2);
     if (volume < 0.0005) return;
     const pitch = clamp(num(o.pitch, 1), 0.1, 8);
     const pan = clamp(num(o.pan, 0), -1, 1);
@@ -2467,29 +2500,44 @@ if (HAS_DOC) {
     syncRun();
   });
 
-  // Belt and braces: unlock() is idempotent, so also hook the gestures that count as user activation on
-  // touch devices (iOS only unlocks audio on touchend/click, not on pointerdown). Removed once running.
-  const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
+  // Belt and braces: unlock() is idempotent, so also hook the gestures that count as user activation on touch
+  // devices (iOS only unlocks audio on touchend/click, not on pointerdown) and use them to recover from system
+  // interruptions later on. Nearly free: the handler returns immediately while the context is healthy.
   const onGesture = () => {
-    unlock();
-    if (S.ctx && S.ctx.state === 'running') for (const g of GESTURES) window.removeEventListener(g, onGesture, true);
+    if (!S.unlocked || (S.ctx && wantRunning() && S.ctx.state !== 'running')) unlock();
   };
-  for (const g of GESTURES) window.addEventListener(g, onGesture, { capture: true, passive: true });
+  for (const g of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(g, onGesture, { capture: true, passive: true });
 }
 
 /* ---- debug / verification helpers ---------------------------------------- */
 
-function renderOffline(seconds, build) {
+function renderOffline(seconds, build, safety) {
   const OAC = typeof window !== 'undefined' ? window.OfflineAudioContext || window.webkitOfflineAudioContext : null;
   if (!OAC) return Promise.reject(new Error('OfflineAudioContext unavailable'));
   const ctx = new OAC(2, Math.ceil(seconds * OFFLINE_SR), OFFLINE_SR);
-  const rig = createRig(ctx, { safety: false });
+  // by default the safety limiter is bypassed so headroom problems of the sounds themselves stay visible
+  const rig = createRig(ctx, { safety: !!safety });
   applyRigVolumes(rig, DEFAULT_VOLUMES, 0, false);
   build(ctx, rig);
   return ctx.startRendering();
 }
 
-/** render one SFX through the full master chain (default volumes, no safety clipper) */
+/** render several SFX at once (worst-case pile-up); `opts.safety` adds the final soft limiter to the chain */
+function _debugRenderMix(names, seconds = 4, opts = {}) {
+  return renderOffline(
+    seconds,
+    (ctx, rig) => {
+      const bus = rig.buses.sfx;
+      for (const n of names) {
+        const def = SFX[n];
+        if (def) def.fn(ctx, bus.dry, { when: 0.02, volume: num(opts.volume, 1) * def.g, pitch: 1, pan: 0, rev: bus.wet });
+      }
+    },
+    opts.safety,
+  );
+}
+
+/** render one SFX through the full master chain (default volumes, no safety limiter) */
 function _debugRenderSfx(name, seconds = 4, opts = {}) {
   const def = SFX[name];
   if (!def) return Promise.reject(new Error('unknown sfx ' + name));
@@ -2585,7 +2633,7 @@ function _debugLevel() {
   if (!S.analyser) {
     S.analyser = c.createAnalyser();
     S.analyser.fftSize = 2048;
-    S.rig.comp.connect(S.analyser);
+    S.rig.last.connect(S.analyser); // what actually reaches the speakers
     return { rms: 0, peak: 0 };
   }
   const d = new Float32Array(S.analyser.fftSize);
@@ -2615,6 +2663,7 @@ export const audio = {
   sfxNames: SFX_NAMES,
   moods: MOOD_NAMES,
   _debugRenderSfx,
+  _debugRenderMix,
   _debugRenderMusic,
   _debugRenderAmbience,
   _debugState,

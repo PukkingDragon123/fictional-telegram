@@ -34,7 +34,7 @@ const FRAME = [
 function frameURL(p) {
   const c = document.createElement('canvas');
   c.width = c.height = 12;
-  const x = c.getContext('2d');
+  const x = c.getContext('2d', { willReadFrequently: true });
   for (let r = 0; r < 12; r++)
     for (let k = 0; k < 12; k++) {
       const ch = FRAME[r][k];
@@ -396,7 +396,7 @@ export class UI {
     for (const b of this.bubbles.values()) {
       const el = b.bubble;
       if (!el) continue;
-      const show = b.visible && !['commute', 'commuteUp', 'queued'].includes(b.state) && b.goal?.kind !== 'leave' && b.state !== 'pay';
+      const show = b.visible && b.state !== 'commute' && b.state !== 'commuteUp' && b.state !== 'queued' && b.goal?.kind !== 'leave' && b.state !== 'pay';
       if (!show) { if (el.style.display !== 'none') el.style.display = 'none'; continue; }
       if (el.style.display === 'none') el.style.display = '';
       const p = this.screenOf(b.x, b.y + 2.35 * b.def.scale + 0.2, b.z);

@@ -116,9 +116,10 @@ export class FishSystem {
     return region < 0 || g.region[tz * g.w + tx] === region;
   }
 
+  // Spatial hash (one bucket per tile), reusing bucket arrays between frames.
   rebuildHash() {
     const h = this.hash;
-    h.clear();
+    for (const a of h.values()) a.length = 0;
     const W = this.game.grid.w;
     for (const f of this.list) {
       const k = Math.floor(f.z) * W + Math.floor(f.x);
@@ -128,14 +129,8 @@ export class FishSystem {
     }
   }
 
-  neighbors(x, z, cb) {
-    const W = this.game.grid.w;
-    const tx = Math.floor(x), tz = Math.floor(z);
-    for (let dz = -1; dz <= 1; dz++)
-      for (let dx = -1; dx <= 1; dx++) {
-        const a = this.hash.get((tz + dz) * W + tx + dx);
-        if (a) for (const o of a) cb(o);
-      }
+  bucket(tx, tz) {
+    return this.hash.get(tz * this.game.grid.w + tx);
   }
 
   onTopologyChanged() {
@@ -304,12 +299,19 @@ export class FishSystem {
 
       // --- separation
       let sx = 0, sz = 0;
-      this.neighbors(f.x, f.z, (o) => {
-        if (o === f || o === f.mate) return;
-        const dx = f.x - o.x, dz = f.z - o.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 < 0.3 && d2 > 1e-6) { const d = Math.sqrt(d2); sx += dx / d * (0.55 - d); sz += dz / d * (0.55 - d); }
-      });
+      const ftx = Math.floor(f.x), ftz = Math.floor(f.z);
+      for (let bz = -1; bz <= 1; bz++)
+        for (let bx = -1; bx <= 1; bx++) {
+          const a = this.bucket(ftx + bx, ftz + bz);
+          if (!a) continue;
+          for (let j = 0; j < a.length; j++) {
+            const o = a[j];
+            if (o === f || o === f.mate) continue;
+            const dx = f.x - o.x, dz = f.z - o.z;
+            const d2 = dx * dx + dz * dz;
+            if (d2 < 0.3 && d2 > 1e-6) { const d = Math.sqrt(d2); sx += dx / d * (0.55 - d); sz += dz / d * (0.55 - d); }
+          }
+        }
       if (sx || sz) desired = blendAngle(desired, Math.atan2(sz, sx), Math.min(0.5, Math.hypot(sx, sz) * 1.5));
 
       // --- wall avoidance (probe ahead)

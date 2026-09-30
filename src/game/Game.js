@@ -479,6 +479,7 @@ export class Game {
       d.removed = true;
       g.deco[i] = -1;
       this.world.buildDecos();
+      this.onTopologyChanged();
       this.particles.debris(x + 0.5, 1.2, z + 0.5, 22, d.type === 'boulder' ? [0x9c918c, 0x8b817c] : [0x2b5634, 0x3a6b3c, 0x6b4a2f, 0xc0392b]);
       this.audio.play('demolish', { volume: 0.6 });
       this.ui?.floatTextAt(x + 0.5, 1.4, z + 0.5, `-${cost}`, '#ffb0a0');

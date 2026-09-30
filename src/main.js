@@ -83,6 +83,29 @@ function adaptQuality(dt) {
   }
 }
 
+// ---- warm caches while the title screen is up, in small idle chunks, so
+// nothing is built for the first time mid-game (bear meshes, sprite images)
+Promise.all([import('./entities/bearModels.js'), import('./data/bears.js'), import('./ui/sprites.js')]).then(([bm, bd, sp]) => {
+  const jobs = [];
+  for (const id of Object.keys(bd.BEAR_TYPES)) jobs.push(() => bm.bearGeometries(id, bd.BEAR_TYPES[id]));
+  for (const name of Object.keys(sp.SPRITES)) {
+    if (name.startsWith('fox_')) continue;
+    jobs.push(() => { sp.spriteURL(name, 1); sp.spriteURL(name, 2); });
+  }
+  for (const e of sp.FOX_EXPRESSIONS) jobs.push(() => { sp.foxPortraitURL(e, 2); sp.foxPortraitURL(e, 3); });
+  // 3D-rendered panel icons (fish, buildings, bears)
+  import('./data/species.js').then(({ SPECIES }) => { for (const s2 of SPECIES) jobs.push(() => ui.icons.fish(s2)); });
+  import('./data/structures.js').then(({ STRUCTURES }) => { for (const t of Object.keys(STRUCTURES)) jobs.push(() => ui.icons.structure(t, game.structures)); });
+  for (const id of Object.keys(bd.BEAR_TYPES)) jobs.push(() => ui.icons.bear(id));
+  const next = () => {
+    const t0 = performance.now();
+    while (jobs.length && performance.now() - t0 < 8) jobs.shift()();
+    window.__warmLeft = jobs.length;
+    if (jobs.length) setTimeout(next, 16);
+  };
+  setTimeout(next, 300);
+});
+
 // ---- main loop
 let last = performance.now();
 function frame(now) {

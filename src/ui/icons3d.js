@@ -76,7 +76,7 @@ export class Icons3D {
     // flip + outline
     const cv = document.createElement('canvas');
     cv.width = size; cv.height = size;
-    const ctx = cv.getContext('2d');
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
     const img = ctx.createImageData(size, size);
     const A = (x, y) => (x < 0 || y < 0 || x >= size || y >= size ? 0 : px[((size - 1 - y) * size + x) * 4 + 3]);
     const oc = new THREE.Color(outline);

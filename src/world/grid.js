@@ -136,36 +136,50 @@ export class Grid {
     return this.region[z * this.w + x];
   }
 
+  // Passability snapshot for pathfinding (0 blocked, 1 land, 2 water),
+  // rebuilt lazily whenever the topology version changes.
+  bearPassMap() {
+    if (this._passVer === this.version && this._pass) return this._pass;
+    const { w, h } = this;
+    const pass = this._pass || new Uint8Array(w * h);
+    for (let z = 0; z < h; z++)
+      for (let x = 0; x < w; x++) {
+        const i = z * w + x;
+        pass[i] = this.bearPassable(x, z) ? (this.kind[i] === KIND.WATER ? 2 : 1) : 0;
+      }
+    this._pass = pass;
+    this._passVer = this.version;
+    return pass;
+  }
+
   // Dijkstra (8-neighbour, no corner cutting) from a set of start tiles over
   // bear-passable tiles. Water costs more. Returns Float32Array of distances.
   bearField(starts, out) {
     const { w, h } = this;
     const n = w * h;
+    const pass = this.bearPassMap();
     const dist = out || new Float32Array(n);
     dist.fill(Infinity);
-    // simple bucketed queue (costs are small multiples of 1 / 1.4 / 1.6)
-    const heap = new MinHeap();
-    for (const i of starts) {
-      dist[i] = 0;
-      heap.push(i, 0);
-    }
+    const heap = this._heap || (this._heap = new FloatHeap(n * 4));
+    heap.clear();
+    for (const i of starts) { dist[i] = 0; heap.push(i, 0); }
     while (heap.size) {
-      const [c, cd] = heap.pop();
+      const cd = heap.topValue();
+      const c = heap.pop();
       if (cd > dist[c]) continue;
-      const cx = c % w, cz = (c / w) | 0;
+      const cx = c % w, cz = (c - cx) / w;
       for (let k = 0; k < 8; k++) {
         const dx = N8[k][0], dz = N8[k][1];
         const nx = cx + dx, nz = cz + dz;
-        if (!this.bearPassable(nx, nz)) continue;
-        if (dx !== 0 && dz !== 0 && (!this.bearPassable(cx + dx, cz) || !this.bearPassable(cx, cz + dz))) continue;
+        if (nx < 0 || nz < 0 || nx >= w || nz >= h) continue;
         const ni = nz * w + nx;
+        const p = pass[ni];
+        if (!p) continue;
+        if (dx !== 0 && dz !== 0 && (!pass[cz * w + nx] || !pass[nz * w + cx])) continue;
         let cost = dx !== 0 && dz !== 0 ? 1.414 : 1;
-        if (this.kind[ni] === KIND.WATER) cost *= 1.5;
+        if (p === 2) cost *= 1.5;
         const nd = cd + cost;
-        if (nd < dist[ni]) {
-          dist[ni] = nd;
-          heap.push(ni, nd);
-        }
+        if (nd < dist[ni]) { dist[ni] = nd; heap.push(ni, nd); }
       }
     }
     return dist;
@@ -174,12 +188,13 @@ export class Grid {
   // Step downhill on a distance field from tile (x,z). Returns [nx,nz] or null.
   descend(field, x, z) {
     const { w } = this;
+    const pass = this.bearPassMap();
     let best = field[z * w + x], bx = -1, bz = -1;
     for (let k = 0; k < 8; k++) {
       const dx = N8[k][0], dz = N8[k][1];
       const nx = x + dx, nz = z + dz;
       if (!this.inb(nx, nz)) continue;
-      if (dx !== 0 && dz !== 0 && (!this.bearPassable(x + dx, z) || !this.bearPassable(x, z + dz))) continue;
+      if (dx !== 0 && dz !== 0 && (!pass[z * w + nx] || !pass[nz * w + x])) continue;
       const d = field[nz * w + nx];
       if (d < best - 1e-4) { best = d; bx = nx; bz = nz; }
     }
@@ -197,6 +212,49 @@ export class Grid {
     let c = 0;
     for (let i = 0; i < this.kind.length; i++) if (this.kind[i] === KIND.WATER) c++;
     return c;
+  }
+}
+
+// Allocation-free binary min-heap of (int key, float value).
+export class FloatHeap {
+  constructor(cap) { this.k = new Int32Array(cap); this.v = new Float32Array(cap); this.size = 0; }
+  clear() { this.size = 0; }
+  topValue() { return this.v[0]; }
+  push(key, val) {
+    if (this.size >= this.k.length) this.grow();
+    const k = this.k, v = this.v;
+    let i = this.size++;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (v[p] <= val) break;
+      k[i] = k[p]; v[i] = v[p];
+      i = p;
+    }
+    k[i] = key; v[i] = val;
+  }
+  pop() {
+    const k = this.k, v = this.v;
+    const top = k[0];
+    const n = --this.size;
+    if (n > 0) {
+      const lk = k[n], lv = v[n];
+      let i = 0;
+      while (true) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i, mv = lv;
+        if (l < n && v[l] < mv) { m = l; mv = v[l]; }
+        if (r < n && v[r] < mv) { m = r; mv = v[r]; }
+        if (m === i) break;
+        k[i] = k[m]; v[i] = v[m];
+        i = m;
+      }
+      k[i] = lk; v[i] = lv;
+    }
+    return top;
+  }
+  grow() {
+    const k = new Int32Array(this.k.length * 2); k.set(this.k); this.k = k;
+    const v = new Float32Array(this.v.length * 2); v.set(this.v); this.v = v;
   }
 }
 

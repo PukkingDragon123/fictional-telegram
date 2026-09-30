@@ -18,6 +18,8 @@ function heldGeo(sp, golden) {
 }
 
 let nextId = 1;
+const PATIENCE_STATES = new Set(['walk', 'hunt', 'search', 'walkDirect']);
+const CLOSING_STATES = new Set(['walk', 'hunt', 'search']);
 
 export class BearSystem {
   constructor(game) {
@@ -281,12 +283,34 @@ export class BearSystem {
     b.path = null;
   }
 
+  // One shared field from the trail entry, reused by every bear heading home.
+  entryField() {
+    const g = this.grid;
+    if (this._entryVer !== g.version || !this._entryField) {
+      const [ex, ez] = this.entryTile;
+      this._entryField = g.bearField([this.tileIdx(ex, ez)], this._entryField);
+      this._entryVer = g.version;
+    }
+    return this._entryField;
+  }
+
   beginLeave(b) {
     if (!b.review) this.finishReview(b);
-    const [bx, bz] = this.tileOf(b);
-    const field = this.fieldFrom(bx, bz);
-    const [ex, ez] = this.entryTile;
-    b.path = this.pathTo(field, ex, ez);
+    const g = this.grid;
+    const field = this.entryField();
+    let [cx, cz] = this.tileOf(b);
+    b.path = null;
+    if (isFinite(field[this.tileIdx(cx, cz)])) {
+      const path = [];
+      let guard = 0;
+      while (field[this.tileIdx(cx, cz)] > 0 && guard++ < 400) {
+        const n = g.descend(field, cx, cz);
+        if (!n) break;
+        [cx, cz] = n;
+        path.push([cx, cz]);
+      }
+      b.path = path;
+    }
     b.goal = { kind: 'leave' };
     b.pathI = 0;
     b.state = b.path ? 'walk' : 'walkDirect';
@@ -326,8 +350,9 @@ export class BearSystem {
         }
         continue;
       }
-      if (rushOver && !b.angry && ['walk', 'hunt', 'search'].includes(b.state) && b.goal?.kind !== 'leave' && b.goal?.kind !== 'smash') {
-        b.patience = Math.min(b.patience, 0.01);
+      if (rushOver && !b.angry && CLOSING_STATES.has(b.state) && b.goal?.kind !== 'leave' && b.goal?.kind !== 'smash') {
+        // closing time: everyone wraps up, staggered so they don't all decide in one frame
+        if (!b.closing) { b.closing = true; b.patience = Math.min(b.patience, 0.2 + ((b.id * 0.37) % 1) * 3); }
       }
       this.step(b, dt);
       if (b.removed) {
@@ -363,8 +388,7 @@ export class BearSystem {
     const game = this.game;
     const g = this.grid;
     b.t -= dt;
-    const patienceStates = ['walk', 'hunt', 'search', 'walkDirect'];
-    if (!b.angry && patienceStates.includes(b.state) && b.goal?.kind !== 'leave') {
+    if (!b.angry && PATIENCE_STATES.has(b.state) && b.goal?.kind !== 'leave') {
       b.patience -= dt * (b.state === 'search' ? 1.6 : 1);
       if (b.patience <= 0) {
         b.patience = 0;

@@ -78,6 +78,45 @@ try {
   await page.waitForTimeout(300);
   const pageErrs = await page.evaluate(() => window.__spriteErrors || []);
   if (pageErrs.length) console.log('page validation:', pageErrs);
+  // Runtime API checks in the real browser (canvas output is pixel exact, caches, fallbacks).
+  const apiErrs = await page.evaluate(async () => {
+    const m = await import('/src/ui/sprites.js');
+    const errs = [];
+    const expect = (ok, msg) => { if (!ok) errs.push(msg); };
+    const hex = (d, i) => '#' + [d[i], d[i + 1], d[i + 2]].map((v) => v.toString(16).padStart(2, '0')).join('');
+    for (const name of Object.keys(m.SPRITES)) {
+      const s = m.SPRITES[name];
+      for (const sc of [1, 3]) {
+        const cv = m.spriteCanvas(name, sc);
+        expect(cv.width === s.w * sc && cv.height === s.h * sc, `${name}@${sc}: canvas ${cv.width}x${cv.height}`);
+        const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+        for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+          const ch = s.rows[y][x];
+          for (const [ox, oy] of [[0, 0], [sc - 1, sc - 1]]) {
+            const i = ((y * sc + oy) * cv.width + (x * sc + ox)) * 4;
+            if (ch === '.') { if (d[i + 3] !== 0) { errs.push(`${name}@${sc} (${x},${y}) should be transparent`); return errs; } }
+            else if (d[i + 3] !== 255 || hex(d, i) !== s.pal[ch].toLowerCase()) { errs.push(`${name}@${sc} (${x},${y}) is ${hex(d, i)} not ${s.pal[ch]}`); return errs; }
+          }
+        }
+      }
+    }
+    expect(m.spriteCanvas('coin', 3) === m.spriteCanvas('coin', 3), 'spriteCanvas not cached');
+    const u = m.spriteURL('coin', 2);
+    expect(u.startsWith('data:image/png;base64,') && u === m.spriteURL('coin', 2), 'spriteURL not a cached PNG data URL');
+    const img = m.spriteImg('star', 2, 'hud');
+    expect(/class="px hud"/.test(img) && /width="24"/.test(img) && /height="24"/.test(img) && /image-rendering:pixelated/.test(img) && /alt=""/.test(img), 'spriteImg markup: ' + img);
+    expect(/class="px"/.test(m.spriteImg('coin')) && /width="24"/.test(m.spriteImg('coin')), 'spriteImg defaults (scale 2, no extra class)');
+    expect(m.foxPortraitURL() === m.spriteURL('fox_smug', 4), 'foxPortraitURL default is not smug@4');
+    expect(m.foxPortraitURL('nonsense') === m.foxPortraitURL('smug'), 'unknown expression should fall back to smug');
+    for (const e of m.FOX_EXPRESSIONS) expect(m.spriteCanvas('fox_' + e, 4).width === 128, `fox_${e}@4 not 128px`);
+    let ph;
+    try { ph = m.spriteCanvas('definitely_not_a_sprite', 2); m.spriteURL('nope'); m.spriteImg('nope', 3); } catch (e) { errs.push('unknown name threw: ' + e.message); }
+    expect(ph && ph.width === 24, 'placeholder should be 12x12 at 1x');
+    expect(!m.hasSprite('nope') && !m.hasSprite('toString') && m.hasSprite('fox'), 'hasSprite');
+    expect(m.spriteCanvas('coin', 0).width === 12 && m.spriteCanvas('coin', 2.7).width === 24, 'scale normalisation');
+    return errs;
+  });
+  console.log(apiErrs.length ? 'BROWSER API ERRORS:\n  ' + apiErrs.join('\n  ') : 'browser API checks OK');
   await page.screenshot({ path: out, fullPage: true });
   if (logs.length) console.log(logs.slice(0, 30).join('\n'));
   console.log('wrote', path.relative(ROOT, out));

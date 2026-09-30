@@ -165,6 +165,11 @@ const offline = await (async () => {
       // pitch/volume/pan options must survive too
       out.opts = analyze(await audio._debugRenderSfx('coin', 2, { volume: 0.5, pitch: 1.5, pan: -0.7 }));
       try { await audio._debugRenderSfx('nope', 1); out.unknownRejected = false; } catch (e) { out.unknownRejected = true; }
+      // worst-case pile-up: the loudest sounds all at once, with and without the final soft limiter
+      const pile = ['roar', 'bigsplash', 'smash', 'fanfare', 'whistle', 'discover', 'levelup', 'coins', 'gate', 'bell', 'honk', 'growl'];
+      out.pileRaw = analyze(await audio._debugRenderMix(pile, 4, { safety: false }));
+      out.pileSafe = analyze(await audio._debugRenderMix(pile, 4, { safety: true }));
+      out.pileSafeLoud = analyze(await audio._debugRenderMix(pile, 4, { safety: true, volume: 2 }));
       return out;
     }),
   );
@@ -200,6 +205,9 @@ check('levels', 'UI: hover quieter than click', P('hover') < P('click'), `${P('h
 check('levels', 'UI: click is quiet (< 0.2)', P('click') < 0.2, P('click').toFixed(3));
 check('levels', 'hammer/footsteps are quiet ticks (< 0.35)', P('hammer') < 0.2 && P('footsteps') < 0.35, `${P('hammer').toFixed(3)} / ${P('footsteps').toFixed(3)}`);
 check('levels', 'big moments louder than UI', Math.min(P('bigsplash'), P('roar'), P('fanfare'), P('smash')) > 2 * P('click'));
+check('limiter', '12 loud sounds at once, raw chain, would exceed full scale (limiter is needed)', offline.pileRaw.peak > 1.0, offline.pileRaw.peak.toFixed(3));
+check('limiter', 'same pile-up through the safety limiter stays below 0.96', offline.pileSafe.peak < 0.96 && offline.pileSafe.peak > 0.5 && offline.pileSafe.nan === 0, offline.pileSafe.peak.toFixed(3));
+check('limiter', 'pile-up at volume 2 also stays below 0.96 and is not silenced', offline.pileSafeLoud.peak < 0.96 && offline.pileSafeLoud.rms > offline.pileSafe.rms, `${offline.pileSafeLoud.peak.toFixed(3)} (rms ${offline.pileSafeLoud.rms.toFixed(3)} vs ${offline.pileSafe.rms.toFixed(3)})`);
 check('levels', 'options: volume/pitch/pan render non-silent', offline.opts.peak > 0.02 && offline.opts.nan === 0, offline.opts.peak.toFixed(3));
 
 for (const [mood, r] of Object.entries(offline.music)) {
@@ -223,8 +231,12 @@ check('ambience:beds', 'wind + water beds audible but gentle', offline.beds.rms 
 /* -------------------------------------------------------------- 2. LIVE */
 
 let liveInfo = null;
-if (!NO_LIVE) {
+/** the whole live stage; results are collected in `rec` so a retry (page reload) starts clean */
+async function liveStage(handle) {
+  const rec = [];
+  const chk = (name, ok, detail = '') => rec.push({ name, ok: !!ok, detail: String(detail) });
   const { page, problems, ctx } = await openPage();
+  handle.ctx = ctx;
   const timeout = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout: ' + label)), ms))]);
 
   // --- before any gesture
@@ -243,8 +255,8 @@ if (!NO_LIVE) {
     o.state = a._debugState();
     return o;
   });
-  check('live', 'calls before unlock() never throw', pre.threw === false, pre.threw);
-  check('live', 'no AudioContext before unlock()', pre.state.ctxState === 'none' && pre.state.stats.voices === 0, JSON.stringify(pre.state.stats));
+  chk('calls before unlock() never throw', pre.threw === false, pre.threw);
+  chk('no AudioContext before unlock()', pre.state.ctxState === 'none' && pre.state.stats.voices === 0, JSON.stringify(pre.state.stats));
 
   // --- a real user gesture (the test page unlocks on pointerdown)
   await page.mouse.click(30, 30);
@@ -395,6 +407,33 @@ if (!NO_LIVE) {
       await sleep(2200);
       ok('setMusic(null) fades everything out', st().mood === null && st().fading === 0, `mood ${st().mood} fading ${st().fading}`);
 
+      // --- headroom on the real output: rush music + night ambience + a dozen loud sounds at once
+      audio.setMusic('rush');
+      window.__amb.hour = 23;
+      window.__amb.night = 1;
+      audio._debugLevel();
+      await sleep(1800);
+      const peakOf = async (ms) => {
+        let p = 0;
+        const t0 = performance.now();
+        while (performance.now() - t0 < ms) {
+          p = Math.max(p, audio._debugLevel().peak);
+          await sleep(12);
+        }
+        return p;
+      };
+      const calm = await peakOf(1000);
+      for (const nme of ['roar', 'bigsplash', 'smash', 'fanfare', 'whistle', 'discover', 'levelup', 'coins', 'gate', 'bell', 'honk', 'growl']) audio.play(nme, { volume: 2 });
+      const loud = await peakOf(2200);
+      info.livePeakCalm = calm;
+      info.livePeakLoud = loud;
+      ok('live output: music + ambience alone is comfortable (peak < 0.5)', calm > 0.02 && calm < 0.5, calm.toFixed(3));
+      ok('live output: dozen loud sounds at volume 2 never exceed 0.96 (no digital clipping)', loud <= 0.96 && loud > 0.3, loud.toFixed(3));
+      audio.setMusic(null);
+      window.__amb.hour = 12;
+      window.__amb.night = 0;
+      await sleep(2200);
+
       // --- ambience: cheap per-frame call
       audio.setVolumes({ ambience: 0.6 });
       const vBefore = st().stats.voices;
@@ -473,10 +512,20 @@ if (!NO_LIVE) {
     150000,
     'live stage',
   );
-  for (const r of live.out) check('live', r.name, r.ok, r.detail);
-  liveInfo = live.info;
-  check('live', 'no console/page errors', problems.length === 0, problems.join(' | '));
-  await ctx.close();
+  for (const r of live.out) chk(r.name, r.ok, r.detail);
+  chk('no console/page errors', problems.length === 0, problems.join(' | '));
+  return { rec, info: live.info };
+}
+
+if (!NO_LIVE) {
+  const handle = {};
+  const stage = await withRetry('live', async () => {
+    if (handle.ctx) await handle.ctx.close().catch(() => {});
+    return liveStage(handle);
+  });
+  await handle.ctx.close().catch(() => {});
+  for (const r of stage.rec) check('live', r.name, r.ok, r.detail);
+  liveInfo = stage.info;
 }
 
 /* ------------------------------------------------- 2b. self-unlock (no page help) */
@@ -565,7 +614,11 @@ console.log('\nAMBIENCE (8 s offline, beds + forced events)');
 console.log(pad('state', 13) + rpad('peak', 7) + rpad('rms', 8));
 for (const [n, r] of Object.entries(offline.amb)) console.log(pad(n, 13) + rpad(f2(r.peak), 7) + rpad(f2(r.rms, 4), 8));
 console.log(pad('beds only', 13) + rpad(f2(offline.beds.peak), 7) + rpad(f2(offline.beds.rms, 4), 8));
-if (liveInfo) console.log(`\nsetAmbience() cost: ${(liveInfo.ambCallMs * 1000).toFixed(2)} us per call`);
+console.log(`pile-up of 12 loud SFX: raw chain peak ${offline.pileRaw.peak.toFixed(2)} -> with safety limiter ${offline.pileSafe.peak.toFixed(2)} (volume 2: ${offline.pileSafeLoud.peak.toFixed(2)})`);
+if (liveInfo) {
+  console.log(`live output peak: ${liveInfo.livePeakCalm.toFixed(3)} (rush music + night ambience) / ${liveInfo.livePeakLoud.toFixed(3)} (+ 12 loud SFX at volume 2)`);
+  console.log(`setAmbience() cost: ${(liveInfo.ambCallMs * 1000).toFixed(2)} us per call`);
+}
 
 const groups = new Map();
 for (const r of results) {
