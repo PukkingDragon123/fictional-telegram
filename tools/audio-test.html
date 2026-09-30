@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio test bench - The Bear Must Eat</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { font: 14px/1.45 system-ui, sans-serif; background: #10171e; color: #dfe8ee; margin: 16px; max-width: 980px; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #8fb3c8; margin: 18px 0 6px; }
+      button { font: inherit; background: #22323f; color: inherit; border: 1px solid #38505f; border-radius: 6px; padding: 5px 10px; margin: 0 4px 6px 0; cursor: pointer; }
+      button:hover { background: #2d4353; }
+      button.on { background: #3b7a57; border-color: #5fb888; }
+      label { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; }
+      input[type='range'] { width: 140px; }
+      #state, #log { color: #9db4c2; font-size: 12px; }
+      #log { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>The Bear Must Eat - audio test bench</h1>
+    <p>Procedural Web Audio, no assets. Click any button to unlock audio. <span id="state"></span></p>
+
+    <h2>Sound effects</h2>
+    <div id="sfx"></div>
+
+    <h2>Music (crossfades over 1.5 s)</h2>
+    <div id="music"></div>
+
+    <h2>Ambience</h2>
+    <label>hour <input id="hour" type="range" min="0" max="24" step="0.1" value="11" /> <span id="hourv">11.0</span></label>
+    <label>night <input id="night" type="range" min="0" max="1" step="0.01" value="0" /> <span id="nightv">0.00</span></label>
+
+    <h2>Volumes</h2>
+    <div id="vols"></div>
+    <button id="mute">Mute</button>
+
+    <h2>Log</h2>
+    <div id="log"></div>
+
+    <script type="module">
+      import audio from '/src/audio/audio.js';
+      window.audio = audio;
+
+      const $ = (id) => document.getElementById(id);
+      const log = (s) => { $('log').textContent = s; };
+
+      // any gesture unlocks the context (safe to call repeatedly)
+      addEventListener('pointerdown', () => audio.unlock());
+      addEventListener('keydown', () => audio.unlock());
+
+      for (const name of audio.sfxNames) {
+        const b = document.createElement('button');
+        b.textContent = name;
+        b.onclick = () => { audio.unlock(); audio.play(name); log('play(' + name + ')'); };
+        $('sfx').appendChild(b);
+      }
+
+      const moodBtns = {};
+      for (const m of [...audio.moods, null]) {
+        const b = document.createElement('button');
+        b.textContent = m || 'off';
+        b.onclick = () => {
+          audio.unlock();
+          audio.setMusic(m);
+          for (const [k, el] of Object.entries(moodBtns)) el.classList.toggle('on', k === String(m));
+        };
+        moodBtns[String(m)] = b;
+        $('music').appendChild(b);
+      }
+
+      const amb = { hour: 11, night: 0 };
+      const pushAmb = () => { $('hourv').textContent = amb.hour.toFixed(1); $('nightv').textContent = amb.night.toFixed(2); };
+      $('hour').oninput = (e) => { amb.hour = +e.target.value; pushAmb(); };
+      $('night').oninput = (e) => { amb.night = +e.target.value; pushAmb(); };
+      // like the game loop: call every frame
+      (function frame() { audio.setAmbience(amb); audio.update(1 / 60); requestAnimationFrame(frame); })();
+
+      const vols = audio.getVolumes();
+      for (const k of Object.keys(vols)) {
+        const l = document.createElement('label');
+        l.innerHTML = k + ' <input type="range" min="0" max="1" step="0.01"> <span></span>';
+        const r = l.querySelector('input'), s = l.querySelector('span');
+        r.value = vols[k];
+        s.textContent = (+vols[k]).toFixed(2);
+        r.oninput = () => { audio.setVolumes({ [k]: +r.value }); s.textContent = (+r.value).toFixed(2); };
+        $('vols').appendChild(l);
+      }
+      const muteBtn = $('mute');
+      const paintMute = () => { muteBtn.textContent = audio.isMuted() ? 'Unmute' : 'Mute'; muteBtn.classList.toggle('on', audio.isMuted()); };
+      muteBtn.onclick = () => { audio.unlock(); audio.toggleMute(); paintMute(); };
+      paintMute();
+
+      setInterval(() => {
+        const s = audio._debugState();
+        $('state').textContent = `[ctx ${s.ctxState}, mood ${s.mood || '-'}, voices ${s.liveVoices}, timer ${s.timer ? 'on' : 'off'}]`;
+      }, 500);
+
+      window.__audioReady = true;
+    </script>
+  </body>
+</html>

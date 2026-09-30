@@ -1,0 +1,10 @@
+[
+  {"wait": 800},
+  {"eval": "(()=>{const g=__game; g.state.coins=900; g.research('r_perch'); g.research('r_beavers'); g.buyFish('perch',3); g.placeStructure('seaweed',26,34); __step(5); g.save(); return {day:g.state.day, coins:g.state.coins, fish:g.fish.count, res:g.state.research, structs:g.structures.list.length}})()"},
+  {"eval": "location.href='http://localhost:5173/?autostart=continue&notut=1'"},
+  {"wait": 9000},
+  {"eval": "(()=>{const g=__game; return {day:g.state.day, coins:g.state.coins, fish:g.fish.count, res:g.state.research, structs:g.structures.list.length, hour:g.state.hour.toFixed(2)}})()"},
+  {"eval": "(()=>{const g=__game; g.state.rating=0.9; g.state.hour=16.99; for(let i=0;i<30;i++) __step(5); return g.state.phase})()"},
+  {"wait": 4000},
+  {"shot": "over1"}
+]

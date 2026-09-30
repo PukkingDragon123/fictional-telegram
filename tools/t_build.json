@@ -1,0 +1,15 @@
+[
+  {"wait": 500},
+  {"eval": "(()=>{const g=__game; g.state.coins=5000; for (const r of ['r_beavers','r_dams','r_fences','r_gates','r_platforms','r_feeder','r_lilypad','r_flowers','r_willow','r_bees']) g.research(r); return g.state.research.length})()"},
+  {"eval": "(()=>{const g=__game, gr=g.grid; let lodge=null; for (let z=28;z<40&&!lodge;z++) for (let x=18;x<26&&!lodge;x++) { if (g.structures.canPlace('lodge',x,z).ok) lodge=[x,z]; } g.placeStructure('lodge', lodge[0], lodge[1]); const col=28; const placed=[]; for (let z=20; z<50; z++) { if (gr.isWater(col,z)) { const ok=g.placeStructure('dam', col, z); placed.push(z+':'+ok);} } return {lodge, placed, beavers: g.beavers.count()}})()"},
+  {"eval": "__step(25)"},
+  {"eval": "(()=>{const g=__game; return {regions: g.grid.regionSizes, jobs: g.beavers.pendingJobs().length, built: g.structures.list.filter(s=>s.type==='dam'&&s.built).length}})()"},
+  {"eval": "(()=>{const r=__game.rig; r.wupp=r.wuppGoal=0.04; r.lookAt(27,34,true); __game.state.hour=12;})()"},
+  {"wait": 4000},
+  {"shot": "build2"},
+  {"eval": "(()=>{const g=__game; let dug=0; for (let x=34;x<40;x++){ if(g.dig(x,34)) dug++; } g.placeStructure('willow',36,30); g.placeStructure('beehive',37,30); g.placeStructure('platform',33,36); g.placeStructure('feeder',34,31); g.placeStructure('flowers',38,31); return {dug, water: g.grid.countWater(), cap: g.fish.capacity()}})()"},
+  {"eval": "__step(20)"},
+  {"eval": "(()=>{const r=__game.rig; r.lookAt(35,33,true);})()"},
+  {"wait": 4000},
+  {"shot": "build3"}
+]
