@@ -27,12 +27,12 @@ export const STRUCTURES = {
   },
   beehive: {
     name: 'Beehive', icon: 'hive', cost: 60, place: 'nearWillow', category: 'food', unlock: 'r_bees',
-    desc: 'Makes honey for bears with a sweet tooth. Must be within 2 tiles of a willow.',
+    desc: 'Makes honey for bears with a sweet tooth. Must be within 2 tiles of a willow (a platform works too).',
     food: { kind: 'honey', max: 4, regen: 1 / 20 }, hp: 3, smashable: true,
   },
   berries: {
-    name: 'Blueberry Bush', icon: 'berry', cost: 40, place: 'land', category: 'food', unlock: 'r_berries',
-    desc: 'Wild blueberries. Tourist bears and cubs can\'t resist them.',
+    name: 'Blueberry Bush', icon: 'berry', cost: 40, place: 'landOrPlatform', category: 'food', unlock: 'r_berries',
+    desc: 'Wild blueberries for tourists and cubs. Grow them on a platform so rampaging bears can\'t trample them.',
     food: { kind: 'berries', max: 5, regen: 1 / 15 }, hp: 2, smashable: true,
   },
   maple: {
@@ -65,7 +65,7 @@ export const STRUCTURES = {
   },
   platform: {
     name: 'Stilt Platform', icon: 'platform', cost: 35, place: 'any', category: 'beaver', unlock: 'r_platforms', builder: 'beaver', buildTime: 6, drag: true,
-    desc: 'A raised deck. Bears can\'t climb it, anything on top is rampage-proof, and fish hide underneath.',
+    desc: 'A raised deck for rampage-proof farming: bears snack from the edge but can\'t smash what\'s on top. Fish hide underneath.',
     blocksBear: true, shelter: true, supports: true, hp: 99, smashable: false,
   },
   feeder: {

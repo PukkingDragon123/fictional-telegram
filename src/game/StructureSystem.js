@@ -72,7 +72,7 @@ export class StructureSystem {
         if (onPlatform) break;
         if (!shore || occ) return { ok: false, reason: 'Needs the shoreline or a platform' }; break;
       case 'nearWillow': {
-        if (t.water || occ) return { ok: false, reason: 'Must be on empty land' };
+        if (!onPlatform && (t.water || occ)) return { ok: false, reason: 'Must be on empty land or a platform' };
         if (!this.list.some((s) => s.type === 'willow' && s.built && Math.max(Math.abs(s.x - x), Math.abs(s.z - z)) <= 2))
           return { ok: false, reason: 'Must be within 2 tiles of a willow tree' };
         break;
