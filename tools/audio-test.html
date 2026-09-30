@@ -46,9 +46,12 @@
       const $ = (id) => document.getElementById(id);
       const log = (s) => { $('log').textContent = s; };
 
-      // any gesture unlocks the context (safe to call repeatedly)
-      addEventListener('pointerdown', () => audio.unlock());
-      addEventListener('keydown', () => audio.unlock());
+      // any gesture unlocks the context (safe to call repeatedly). The module also self-unlocks on gestures;
+      // add ?nounlock to the URL to rely on that alone (used by tools/audio-check.mjs).
+      if (!/nounlock/.test(location.search)) {
+        addEventListener('pointerdown', () => audio.unlock());
+        addEventListener('keydown', () => audio.unlock());
+      }
 
       for (const name of audio.sfxNames) {
         const b = document.createElement('button');
@@ -71,6 +74,7 @@
       }
 
       const amb = { hour: 11, night: 0 };
+      window.__amb = amb; // the frame loop below feeds this to audio.setAmbience() every frame (tests drive it)
       const pushAmb = () => { $('hourv').textContent = amb.hour.toFixed(1); $('nightv').textContent = amb.night.toFixed(2); };
       $('hour').oninput = (e) => { amb.hour = +e.target.value; pushAmb(); };
       $('night').oninput = (e) => { amb.night = +e.target.value; pushAmb(); };

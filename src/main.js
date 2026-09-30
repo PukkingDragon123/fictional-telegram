@@ -61,11 +61,34 @@ const startGame = (choice) => {
 if (params.has('autostart')) { document.getElementById('title-root').innerHTML = ''; startGame(params.get('autostart') === 'continue' ? 'continue' : 'new'); }
 else ui.showTitle(startGame);
 
+// ---- adaptive quality: if the device struggles, cheapen shadows
+const perf = { t: 0, frames: 0, level: 0, checks: 0 };
+function adaptQuality(dt) {
+  perf.t += dt;
+  perf.frames++;
+  if (perf.t < 4) return;
+  const fps = perf.frames / perf.t;
+  perf.t = 0; perf.frames = 0; perf.checks++;
+  if (perf.checks < 2 || navigator.webdriver) return; // skip the shader-compile warmup and automated tests
+  if (fps < 38 && perf.level === 0) {
+    perf.level = 1;
+    game.sky.sun.shadow.mapSize.set(1024, 1024);
+    game.sky.sun.shadow.map?.dispose();
+    game.sky.sun.shadow.map = null;
+    game.world.decoGroup.children.forEach((m) => { m.castShadow = false; });
+  } else if (fps < 24 && perf.level === 1) {
+    perf.level = 2;
+    game.renderer.renderer.shadowMap.enabled = false;
+    game.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+  }
+}
+
 // ---- main loop
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  adaptQuality(dt);
   if (mode === 'title') {
     titleT += dt;
     game.rig.goal.x = 28 + Math.sin(titleT * 0.07) * 5;
@@ -91,6 +114,7 @@ requestAnimationFrame(frame);
 
 // debug handles (handy for testing in the console)
 window.__game = game;
+import('./data/research.js').then((m) => { window.__data = m; });
 window.__step = (sec, dt = 0.05) => {
   for (let t = 0; t < sec; t += dt) { game.update(dt); ui.update(dt); }
   return { hour: +game.state.hour.toFixed(2), phase: game.state.phase, coins: game.state.coins, fish: game.fish.count, bears: game.bears.list.length, rating: +game.state.rating.toFixed(2) };

@@ -95,10 +95,7 @@ export class BeaverSystem {
       } else if (b.state === 'go') {
         const s = b.job.s;
         if (s.removed || (b.job.kind === 'build' && s.built)) { this.release(b); continue; }
-        // stand next to the tile centre, offset so multiple beavers don't overlap
-        const tx = s.x + 0.5 - Math.cos(b.heading) * 0.45, tz = s.z + 0.5 - Math.sin(b.heading) * 0.45;
         if (this.moveToward(b, s.x + 0.5, s.z + 0.5, dt, 2.3 * speedMult ** 0.5, 0.7)) { b.state = 'work'; b.t = 0; }
-        void tx; void tz;
       } else if (b.state === 'work') {
         const s = b.job.s;
         if (s.removed) { this.release(b); continue; }

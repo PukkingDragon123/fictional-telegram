@@ -8,6 +8,7 @@ import { SPECIES, SPECIES_BY_ID, HYBRIDS } from '../data/species.js';
 import { STRUCTURES, BUILD_CATEGORIES } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES } from '../data/research.js';
 import { BEAR_TYPES, WANT_INFO } from '../data/bears.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -120,6 +121,7 @@ export class UI {
           <div class="pill ia" id="h-rating" title="Your rating (tap for reviews)"><span id="h-stars"></span><b id="h-ratingv">3.0</b></div>
         </div>
         <div class="clock ia" id="clock">
+          <img class="px cfox" id="c-fox" alt="" width="44" height="44">
           <div class="ct"><b id="c-day">MONDAY</b> · DAY <b id="c-dayn">1</b></div>
           <div class="tm" id="c-time">9:00 AM</div>
           <div class="bar"><i id="c-fill"></i></div>
@@ -132,6 +134,7 @@ export class UI {
             <button class="btn" data-s="2">2x</button>
             <button class="btn" data-s="3">3x</button>
           </div>
+          <button class="icon-btn" id="b-cam" title="Follow the bears (F)">${ico('camera', 2)}</button>
           <button class="icon-btn" id="b-snd" title="Sound">${ico('speaker_on', 2)}</button>
           <button class="icon-btn" id="b-menu" title="Menu">${ico('menu', 2)}</button>
         </div>
@@ -164,7 +167,7 @@ export class UI {
       <div id="title-root"></div>
     `;
     const h = this.hud;
-    for (const id of ['h-coinv', 'h-fishv', 'h-fishc', 'h-stars', 'h-ratingv', 'c-day', 'c-dayn', 'c-time', 'c-fill', 'c-sub', 'c-bell', 'clock', 'bag', 'toolhint', 'guests', 'g-list', 'g-note', 'g-count', 'panel', 'p-title', 'p-tabs', 'p-body', 'p-coins', 'toasts', 'tip', 'modal', 'modal-card', 'fox', 'fox-face', 'fox-say', 'fox-ok', 'h-coins'])
+    for (const id of ['c-fox', 'h-coinv', 'h-fishv', 'h-fishc', 'h-stars', 'h-ratingv', 'c-day', 'c-dayn', 'c-time', 'c-fill', 'c-sub', 'c-bell', 'clock', 'bag', 'toolhint', 'guests', 'g-list', 'g-note', 'g-count', 'panel', 'p-title', 'p-tabs', 'p-body', 'p-coins', 'toasts', 'tip', 'modal', 'modal-card', 'fox', 'fox-face', 'fox-say', 'fox-ok', 'h-coins'])
       h[id] = document.getElementById(id);
     // events
     $('#toolbar').addEventListener('click', (e) => {
@@ -195,6 +198,7 @@ export class UI {
       this.click();
     });
     $('#b-menu').addEventListener('click', () => { this.click(); this.showMenu(); });
+    $('#b-cam').addEventListener('click', () => { this.click(); this.followBear(); });
     $('#h-rating').addEventListener('click', () => { this.click(); this.openPanel('reviews'); });
     h['c-bell'].addEventListener('click', () => this.game.ringBell());
     $('#g-tog').addEventListener('click', () => {
@@ -281,6 +285,7 @@ export class UI {
     this.setText('c-sub', sub);
     const bw = `${Math.round((game.foodBag.count / game.foodBag.max) * 100)}%`;
     if (h.bag.style.width !== bw) h.bag.style.width = bw;
+    this.updateFoxFace(dt);
     // bubbles & floaters
     this.updateBubbles(dt);
     this.updateFloaters(dt);
@@ -288,6 +293,22 @@ export class UI {
     this.updateGhost();
     this.tipT -= dt;
     if (this.foxAutoT > 0) { this.foxAutoT -= dt; if (this.foxAutoT <= 0 && this.foxCurrent?.auto) this.foxNext(); }
+  }
+
+  // little fox face on the clock reacting to what happens
+  foxMood(expr, t = 1.6) {
+    this.foxMoodState = { expr, t };
+  }
+
+  updateFoxFace(dt) {
+    const st = this.game.state;
+    let expr = st.phase === 'night' || st.phase === 'morning' ? 'sleepy' : st.phase === 'rush' ? 'greedy' : st.rating < 1.8 ? 'worried' : 'smug';
+    const m = this.foxMoodState;
+    if (m && m.t > 0) { m.t -= dt; expr = m.expr; }
+    if (this.lastFoxExpr !== expr) {
+      this.lastFoxExpr = expr;
+      this.hud['c-fox'].src = foxPortraitURL(expr, 2);
+    }
   }
 
   setText(id, v) {
@@ -412,6 +433,8 @@ export class UI {
   }
 
   showReviewBubble(b, r) {
+    if (r.stars >= 5 && !(this.foxMoodState?.t > 0.5)) this.foxMood('laugh', 1.4);
+    if (r.stars <= 1) this.foxMood('angry', 1.6);
     const el = document.createElement('div');
     el.className = 'rb' + (r.stars <= 1 ? ' bad' : '');
     el.innerHTML = `<div class="st">${starsHTML(r.stars, 1)}</div>${esc(r.text)}`;
@@ -445,6 +468,7 @@ export class UI {
   }
 
   flyCoins(b, amount) {
+    this.foxMood('greedy', 1.8);
     const start = this.screenOf(b.x, b.y + 1.8 * b.def.scale, b.z);
     const target = this.hud['h-coins'].getBoundingClientRect();
     const tx = target.left + 18, ty = target.top + target.height / 2;
@@ -517,11 +541,20 @@ export class UI {
     const st = this.game.state;
     const step = TUTORIAL[n];
     if (!step) return;
-    this.foxSay(step.text, step.expr, {
-      pulse: step.pulse,
-      hideOk: false,
-      onOk: () => { if (!step.wait && st.tutorial === n) { this.game.advanceTutorial(); } },
-    });
+    const msg = {
+      text: step.text, expr: step.expr, pulse: step.pulse, tut: n, wait: !!step.wait,
+      onOk: () => { if (!step.wait && st.tutorial === n) this.game.advanceTutorial(); },
+    };
+    const cur = this.foxCurrent;
+    if (cur && cur.tut === n - 1 && cur.wait) {
+      // the awaited action just happened: swap straight to the next step
+      this.foxCurrent = null;
+      this.foxQueue.unshift(msg);
+      this.foxNext();
+      return;
+    }
+    this.foxQueue.push(msg);
+    if (!this.foxCurrent) this.foxNext();
   }
 
   tipOnce(key, text, expr = 'smug') {
@@ -535,6 +568,8 @@ export class UI {
   onDayStart(wave) {
     this.renderGuests(wave);
     const st = this.game.state;
+    if (st.day > 1 && this.game.fish.count < 4 && !this.game.isDayOff())
+      this.foxSay('The pond is nearly <b>empty</b>! Buy fish in the <b>Fish</b> shop and feed them so they breed before 5 PM, or the bears will riot.', 'worried', { pulse: 'shop' });
     if (st.day > 1) this.banner(`${this.game.weekday().toUpperCase()} · DAY ${st.day}`, this.game.isDayOff() ? 'Day off!' : 'Rise & shine');
     const types = new Set(wave.bears.map((b) => b.type));
     if (types.has('janitor')) this.tipOnce('janitor', 'A <b>Janitor</b> is coming tonight. Janitors want <b>seaweed salad</b> with their fish. Make sure the pond has plenty of seaweed!', 'wink');
@@ -587,15 +622,25 @@ export class UI {
   }
 
   onRampage(b) {
+    this.foxMood('shocked', 2.5);
     this.toast(`${ico('bolt', 1)} ${esc(b.name)} (${esc(b.def.name)}) is RAMPAGING!`, 'bad');
   }
 
   followBear() {
     const rig = this.game.rig;
     const bears = this.game.bears.list.filter((b) => b.visible);
-    if (!bears.length) return;
+    if (!bears.length) {
+      if (rig.follow) { rig.follow = null; this.toast('Camera free'); return; }
+      // nobody around yet: look at the mountain office
+      rig.lookAt(30, 14);
+      rig.wuppGoal = Math.max(rig.wuppGoal, 0.08);
+      this.toast(this.game.state.phase === 'rush' ? 'Here they come!' : 'Bear St. Holdings, up on the mountain');
+      return;
+    }
     this.followIdx = ((this.followIdx || 0) + 1) % bears.length;
-    rig.follow = bears[this.followIdx];
+    const b = bears[this.followIdx];
+    rig.follow = b;
+    this.toast(`Following ${esc(b.name)} (${esc(b.def.name)})`);
   }
 
   // ------------------------------------------------------------ tools
@@ -651,6 +696,7 @@ export class UI {
     if (tab) this.panelTab = tab;
     else if (name === 'build' && !this.panelTab) this.panelTab = 'nature';
     this.hud.panel.classList.remove('hidden');
+    this.hud.panel.classList.toggle('wide', name === 'lab');
     this.hud.tip.classList.add('hidden');
     for (const b of document.querySelectorAll('#toolbar .tool')) if (b.dataset.panel) b.classList.toggle('active', b.dataset.panel === name);
     this.renderPanel();
@@ -862,6 +908,19 @@ export class UI {
   renderReviews() {
     const st = this.game.state;
     this.setTitle('newspaper', 'Reviews');
+    const tabs = this.hud['p-tabs'];
+    const tab = this.panelTab === 'trophies' ? 'trophies' : 'reviews';
+    tabs.innerHTML = `<button class="btn small ${tab === 'reviews' ? 'on' : ''}" data-tab="reviews">${ico('newspaper', 1)} Reviews</button><button class="btn small ${tab === 'trophies' ? 'on' : ''}" data-tab="trophies">${ico('trophy', 1)} Trophies ${st.achievements.length}/${ACHIEVEMENTS.length}</button>`;
+    tabs.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { this.click(); this.panelTab = b.dataset.tab; this.renderPanel(); }));
+    if (tab === 'trophies') {
+      let th = '<div class="grid">';
+      for (const a of ACHIEVEMENTS) {
+        const got = st.achievements.includes(a.id);
+        th += `<div class="card ${got ? 'sel' : 'locked'}"><div class="top">${ico(got ? 'trophy' : 'lock', 2)}<div class="nm">${esc(a.name)}</div></div><div class="ds">${esc(a.desc)}</div><div class="row"><span class="cost">${ico('coin', 1)}${a.reward}</span><span class="own">${got ? 'DONE' : ''}</span></div></div>`;
+      }
+      this.hud['p-body'].innerHTML = th + '</div>';
+      return;
+    }
     let html = `<div class="news"><div class="mast">THE BEAR STREET JOURNAL<small>RESTAURANT REVIEWS · ${esc(this.game.weekday().toUpperCase())} EDITION</small></div>
       <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:6px">${starsHTML(st.rating, 2)} <b style="font-size:20px;font-family:var(--font2)">${st.rating.toFixed(2)}</b></div>
       <div class="lab-info" style="text-align:center">${st.rating < 1.8 ? '<b style="color:var(--bad)">DANGER: below 1.0 and the pond gets shut down!</b>' : 'Keep your rating above 1.0 or Reynard\'s is shut down.'}</div>`;
@@ -887,6 +946,18 @@ export class UI {
     this.hud.fox.style.visibility = '';
     this.hud.modal.classList.add('hidden');
     this.hud['modal-card'].innerHTML = '';
+  }
+
+  // In-page yes/no box (native confirm() is unavailable in some embeds)
+  confirmBox(text, onYes, { yes = 'Yes', no = 'Cancel' } = {}) {
+    const html = `<h2 class="center">Are you sure?</h2><p class="center">${text}</p>
+      <div class="btns"><button class="btn red" id="cf-yes">${esc(yes)}</button><button class="btn gold" id="cf-no">${esc(no)}</button></div>`;
+    this.showModal(html, {
+      onBind: (c) => {
+        $('#cf-yes', c).onclick = () => { this.click(); this.closeModal(); onYes(); };
+        $('#cf-no', c).onclick = () => { this.click(); this.closeModal(); };
+      },
+    });
   }
 
   showReport(r) {
@@ -922,6 +993,7 @@ export class UI {
   }
 
   showDiscovery(sp) {
+    this.foxMood('laugh', 3);
     const html = `
       <h1 style="color:var(--gold2)">NEW BREED DISCOVERED!</h1>
       <div class="big-icon"><img class="px shine" src="${this.icons.fish(sp)}" width="160" height="160" alt=""></div>
@@ -1044,10 +1116,10 @@ export class UI {
         const rt = $('#m-retire', c);
         if (rt) rt.onclick = () => { this.closeModal(); game.retire(); };
         $('#m-reset', c).onclick = () => {
-          if (!confirm('Start a brand new pond? Your current progress will be lost.')) return;
-          this.closeModal();
-          game.newGame();
-          this.tutorialStep(0);
+          this.confirmBox('Start a brand new pond? Your current progress will be lost.', () => {
+            game.newGame();
+            this.tutorialStep(0);
+          }, { yes: 'Start over' });
         };
       },
     });
@@ -1087,8 +1159,8 @@ export class UI {
     const cont = $('#t-cont', root);
     if (cont) cont.onclick = () => done('continue');
     $('#t-new', root).onclick = () => {
-      if (has && !confirm('Start a new pond? Your saved game will be replaced.')) return;
-      done('new');
+      if (!has) { done('new'); return; }
+      this.confirmBox('Start a new pond? Your saved game will be replaced.', () => done('new'), { yes: 'New pond' });
     };
     $('#t-help', root).onclick = () => { this.click(); this.showHelp(); };
   }

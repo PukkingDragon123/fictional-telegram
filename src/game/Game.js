@@ -19,6 +19,7 @@ import { SPECIES, SPECIES_BY_ID } from '../data/species.js';
 import { STRUCTURES } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, computeMods } from '../data/research.js';
 import { WEEKDAYS } from '../data/bears.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
 import { clamp } from '../core/rng.js';
 
 const SAVE_KEY = 'tbme.save.v1';
@@ -74,7 +75,7 @@ export class Game {
   freshState() {
     return {
       coins: 60, day: 1, hour: 9, phase: 'day', rating: 3.0, reviews: [], research: [], discovered: ['bluegill'],
-      speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false,
+      speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false, achievements: [],
     };
   }
 
@@ -124,6 +125,26 @@ export class Game {
   }
 
   // ------------------------------------------------------------ helpers
+  speciesById(id) { return SPECIES_BY_ID[id]; }
+  speciesCount() { return SPECIES.length; }
+
+  checkAchievements() {
+    const st = this.state;
+    for (const a of ACHIEVEMENTS) {
+      if (st.achievements.includes(a.id)) continue;
+      let ok = false;
+      try { ok = a.test(this); } catch { ok = false; }
+      if (!ok) continue;
+      st.achievements.push(a.id);
+      st.coins += a.reward;
+      this.emit('coins', { delta: a.reward });
+      this.audio.play('levelup', { volume: 0.5 });
+      this.ui?.toast(`TROPHY: <b>${a.name}</b> +${a.reward} coins`, 'gold');
+      this.ui?.foxMood('laugh', 1.5);
+      break; // one per check keeps toasts readable
+    }
+  }
+
   isUnlocked(rid) { return !rid || rid === 'start' || this.state.research.includes(rid); }
   isStructureUnlocked(type) { const d = STRUCTURES[type]; return d && this.isUnlocked(d.unlock); }
   speciesUnlocked(id) {
@@ -409,6 +430,8 @@ export class Game {
     if (g.deco[i] >= 0) return 'Clear the tree/rock first';
     if (g.occ[i] !== -1) return 'Something is built here';
     if (!g.hasWaterNeighbor(x, z)) return 'Must be next to the pond';
+    const entry = this.bears.entryTile;
+    if (Math.max(Math.abs(x - entry[0]), Math.abs(z - entry[1])) <= 1) return 'Keep the trail clear for customers!';
     if (x >= HUT.x - 1 && x <= HUT.x + 3 && z >= HUT.z - 1 && z <= HUT.z + 4) return 'Too close to the hut';
     return null;
   }
@@ -537,6 +560,9 @@ export class Game {
     this.particles.update(simDt || dt * 0.5);
     this.audio.setAmbience({ hour: st.hour, night: this.sky.state.night });
     this.audio.update(dt);
+    // trophies
+    this.achT = (this.achT || 0) + realDt;
+    if (this.achT > 1 && this.started && st.phase !== 'gameover') { this.achT = 0; this.checkAchievements(); }
     // autosave
     this.saveT += realDt;
     if (this.saveT > 25 && st.phase !== 'gameover') { this.saveT = 0; this.save(); }

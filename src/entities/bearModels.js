@@ -280,6 +280,7 @@ export class BearRig {
     m.castShadow = true;
     m.position.set(0, 1.35, 0.72);
     m.rotation.set(0, Math.PI / 2, Math.PI / 2.4);
+    m.scale.setScalar(0.8);
     this.body.add(m);
     this.held = m;
   }

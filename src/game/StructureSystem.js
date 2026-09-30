@@ -52,6 +52,8 @@ export class StructureSystem {
     const t = this.tileInfo(x, z);
     if (!def || !t) return { ok: false, reason: 'Out of bounds' };
     if (!t.meadow) return { ok: false, reason: 'Outside your land' };
+    const entry = this.game.bears?.entryTile;
+    if (entry && Math.max(Math.abs(x - entry[0]), Math.abs(z - entry[1])) <= 1) return { ok: false, reason: 'Keep the trail clear for customers!' };
     if (t.deco) return { ok: false, reason: 'A tree or rock is in the way (demolish it first)' };
     const occ = t.occ >= 0 ? this.byId.get(t.occ) : null;
     if (t.occ === -2) return { ok: false, reason: 'That\'s the hut!' };
@@ -294,7 +296,6 @@ export class StructureSystem {
         const arm = add(cachedGeo('feederArm', () => fm.arm));
         arm.name = 'arm';
         arm.position.set(0, 1.62, 0);
-        arm.geometry.translate?.(0, 0, 0);
         break;
       }
       case 'aerator': add(cachedGeo('aerator', () => SM.aeratorModel())); break;

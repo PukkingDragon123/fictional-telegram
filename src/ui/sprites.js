@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 const PAL = {
   k: '#1a1420', // outline (near-black plum)
-  K: '#3a3046', // soft black (black fur tips, hat shading)
+  K: '#46384d', // soft black (black fur tips, noses)
   1: '#29253a', // ink
   2: '#45425a', // charcoal
   3: '#666884', // slate
@@ -30,6 +30,7 @@ const PAL = {
   p: '#ff8d72', // salmon highlight
   o: '#e0662a', // fox orange
   O: '#b84a1e', // fox orange shade
+  D: '#8a3416', // deep rust (fox brows)
   q: '#f28a3c', // orange light
   Q: '#ffbe78', // peach
   y: '#ffd23f', // gold
@@ -169,15 +170,20 @@ const HEART = [
   '............',
 ];
 def('heart', HEART);
-def('heart_broken', patch(HEART, [[4, 2, [
-  '_..',
-  '.k.',
-  'k..',
-  '.k.',
-  'k..',
-  '.k.',
-  'k..',
-]]]));
+def('heart_broken', [
+  '............',
+  '..ppr.......',
+  '.pwprr..rrr.',
+  '.prrrr.rrrrR',
+  '.rrrr.rrrrrR',
+  '.rrrrr.rrrRR',
+  '..rrr.rrrRR.',
+  '...rrr.rRR..',
+  '....r.rRR...',
+  '......RR....',
+  '............',
+  '............',
+]);
 
 // --- pond life & resources --------------------------------------------------
 const FISH = [
@@ -247,8 +253,8 @@ def('syrup', [
   '..yaaaaaaaaaAA..',
   '..yccccrcccCAA..',
   '..yccrcrcrcCAA..',
+  '..ycrrrrrrrCAA..',
   '..yccrrrrrcCAA..',
-  '..ycccrrrccCAA..',
   '..yccccrcccCAA..',
   '..yaaaaaaaaaAA..',
   '..aaaaaaaaaAAA..',
@@ -860,20 +866,20 @@ def('bolt', [
 // --- pond building -------------------------------------------------------------
 def('dam', [
   '................',
-  '...M......M.....',
-  '..bMbbbbbbMbbb..',
-  '.bbllbbbbbllbbb.',
-  '.HHhhhhhhhhhhhm.',
-  '.HmmmmmmmmmmmmM.',
-  '.hMMMMMMMMMMMMM.',
-  '.hhhhhhhhhhhhHH.',
-  '.mmmmmmmmmmmmmH.',
-  '.MMMMMMMMMMMMMh.',
-  '.HHhhhhhhhhhhhm.',
-  '.HmmmmmmmmmmmmM.',
-  '.hMMMMMMMMMMMMM.',
-  '..MMMMMMMMMMMM..',
-  '................',
+  '...M........h...',
+  '.lbbMbbbbbbbhbl.',
+  '..hhhhhhhhhhhh..',
+  '..mmmmmmmmmhHCh.',
+  '..mmmmmmmmmhCHh.',
+  '..MMMMMMMMMMhh..',
+  '.hhhhhhhhhhhh...',
+  '.mmmmmmmmmhHCh..',
+  '.mmmmmmmmmhCHh..',
+  '.MMMMMMMMMMhh...',
+  '..hhhhhhhhhhhh..',
+  '..mmmmmmmmmhHCh.',
+  '..mmmmmmmmmhCHh.',
+  '..MMMMMMMMMMhh..',
   '................',
 ]);
 
@@ -1032,18 +1038,18 @@ def('cattail', [
 
 def('willow', [
   '................',
-  '.....ffffff.....',
-  '...fffYffffff...',
-  '..ffYfffyfffgf..',
-  '.ffffffffffffgg.',
-  '.fgfffyffffgfgg.',
-  '.fgf.fgmgfg.fgg.',
-  '.fg.fg.mm.gf.fg.',
-  '.fy.fg.mm.gy.fg.',
-  '.f..fg.mm.gf..g.',
-  '.f...y.mm.g...g.',
-  '.....g.mm.g.....',
-  '.......mm.......',
+  '.....fffYff.....',
+  '...ffYfffffgg...',
+  '..fffffyfffffg..',
+  '.ffyffffffffggg.',
+  '.fgfgfgMmgfgfgg.',
+  '.f.f.g.Mm.g.f.g.',
+  '.f.y.f.Mm.f.f.g.',
+  '.f.f.g.Mm.g.y.g.',
+  '.y.f.f.Mm.f.f.f.',
+  '...f.g.Mm.f.y...',
+  '...y...Mm...f...',
+  '.......Mm.......',
   '......MmmM......',
   '................',
   '................',
@@ -1092,17 +1098,17 @@ def('tree', [
   '.......fg.......',
   '......fggG......',
   '.....ffggGG.....',
-  '....GfgggGGG....',
-  '.....fgggGG.....',
-  '....ffggggGG....',
-  '...GfggggggGG...',
-  '....fggggggG....',
+  '....fggggGGG....',
+  '.....GggggG.....',
+  '....fgggggGG....',
   '...ffgggggggG...',
   '..fgggggggggGG..',
-  '.FGGGGGGGGGGGGF.',
+  '....GgggggGG....',
+  '...fggggggggG...',
+  '..ffgggggggggG..',
+  '.fggggggggggggG.',
   '.......Mm.......',
   '.......Mm.......',
-  '................',
   '................',
 ]);
 
@@ -1361,43 +1367,237 @@ def('eye', [
   '............',
 ]);
 
+// --- Reynard, small --------------------------------------------------------------
+def('fox', [
+  '......3221......',
+  '.K....3221....K.',
+  '.KK...yyya...KK.',
+  '.KiO.322221.OiK.',
+  '.OiiOOOOOOOOiiO.',
+  '.OoqqqqQqqqqqoO.',
+  '.Oqaaaqqqqqqqqo.',
+  '.OqakaqqqkkqqqO.',
+  '.cqaaaqqqqqqqqc.',
+  '.ccyqqqqqqqqqcc.',
+  '.cccaqqqqqqqccc.',
+  '..ccccqqqqcccc..',
+  '...cccqKKqccc...',
+  '....cckkkkcc....',
+  '.....CCwCCC.....',
+  '................',
+]);
+
+// ===========================================================================
+// BEARS (16x16 head & shoulders) - shared head, recoloured fur + outfits
+// fur slots: m base, M shade, h light, H muzzle
+// ===========================================================================
+const BEAR_HEAD = [
+  '................',
+  '..mMm......mMm..',
+  '..mMmmmmmmmmMm..',
+  '.hmmmmmmmmmmmmm.',
+  '.hmmmkmmmmkmmmM.',
+  '.mmmmmHHHHmmmmM.',
+  '.mmmmHH11HHmmmM.',
+  '.mmmmHHMMHHmmmM.',
+  '..mmmmHHHHmmmM..',
+  '...MmmmmmmmmM...',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+];
+const FUR = {
+  brown: {},
+  cinnamon: { m: '#c47a3a', M: '#8a4e24', h: '#e3a462', H: '#f4d29c' },
+  black: { m: '#4d4760', M: '#322d42', h: '#6b6584', H: '#c4a07e' },
+  grizzly: { m: '#8c6848', M: '#5c412c', h: '#c2a077', H: '#dcbf95' },
+  polar: { m: '#e4e8f0', M: '#aab2c6', h: '#ffffff', H: '#cfd6e4' },
+  cub: { m: '#b67c46', M: '#7c512e', h: '#dca468', H: '#f4d6a2' },
+  dark: { m: '#7a5236', M: '#4e3220', h: '#a06f4a', H: '#cfa77e' },
+};
+function bear(name, fur, patches, pal = {}) {
+  def(name, patch(BEAR_HEAD, patches), { pal: { ...FUR[fur], ...pal } });
+}
+
+bear('bear_office', 'brown', [[0, 10, [
+  '..jnnwwrrwwnnj..',
+  '.jnnnNwrrwNnnnj.',
+  'jnnnnNwrrwNnwnnj',
+  'nnnnnnNrrNnnnnnn',
+  'nnnnnnNrRNnnnnnn',
+  'nnnnnnnNNnnnnnnn',
+]]]);
+
+bear('bear_intern', 'cinnamon', [
+  [6, 0, ['.hm']],
+  [0, 10, [
+    '...wwwwwwwwww...',
+    '..wwwbwwwwbwww..',
+    '.6wwwwbwwbwwww6.',
+    '66wwwwwbbwwwww66',
+    '66wwwwyyyywwww66',
+    '66wwwwyaaywwww66',
+  ]],
+]);
+
+bear('bear_janitor', 'brown', [
+  [1, 0, ['...45555554...', '..4555y55554..', '.455555555554.', '.333333333333.']],
+  [0, 10, [
+    '..66BB6666BB66..',
+    '.666by6666yb666.',
+    '6666bbbbbbbb6666',
+    '666bbbBBBBbbb666',
+    '666bbbbbbbbbb666',
+    '66bbbbbbbbbbbb66',
+  ]],
+]);
+
+bear('bear_accountant', 'black', [
+  [4, 3, ['555..555', '5k5555k5', '555..555']],
+  [0, 10, [
+    '..wwwwrRRrwwww..',
+    '.wwggwwwwwwggww.',
+    'wwgggGwwwwGgggww',
+    'wwggggGwwGggggww',
+    'wgggfggGGggfgggw',
+    'wggggggggggggggw',
+  ]],
+]);
+
+bear('bear_construction', 'brown', [
+  [1, 0, ['...YYyyyyya...', '._YYyyyyyyya_.', '.Yyyyyyyyyyya.', 'aaaaaaaaaaaaaA']],
+  [0, 10, [
+    '..ooobbbbbbooo..',
+    '.ooooobbbbooooo.',
+    'YYYYYYbbbbYYYYYY',
+    'ooooooobbooooooo',
+    'OoooooobbooooooO',
+    'YYYYYYYbbYYYYYYY',
+  ]],
+]);
+
+bear('bear_boss', 'grizzly', [
+  [1, 0, ['....332222....', '.__33222221__.', '.__11111111__.', '32222222222221']],
+  [5, 3, ['.h..h']],
+  [0, 10, [
+    '..424wwRRww424..',
+    '.24241wRRw14242.',
+    '2242421RR1242422',
+    '2242422yR2242422',
+    '2242422RR2242422',
+    '2242422222242422',
+  ]],
+]);
+
+bear('bear_ceo', 'polar', [
+  [2, 0, ['..32222221..', '__rrrrrrrr__', '322222222221']],
+  [9, 3, ['.y.', 'y.y', '.y.', '..a', '...a', '...a']],
+  [0, 10, [
+    '..222w1KK1w222..',
+    '.2223wwwwww3222.',
+    '222223wwww3r2222',
+    '2222223ww3222222',
+    '2222222332222222',
+    '2222222222222222',
+  ]],
+]);
+
+def('bear_cub', [
+  '....yyy55rrr....',
+  '.......55.......',
+  '......rryy......',
+  '....bbrryygg....',
+  '..mMbbrryyggMm..',
+  '..mmccccccccmm..',
+  '..hmmmmmmmmmmm..',
+  '..hmmwkmmwkmmm..',
+  '..mmmkkHHkkmmm..',
+  '..mmmHH11HHmmm..',
+  '..mpmHHMMHHmpm..',
+  '...mmmHHHHmmm...',
+  '....mmmmmmmm....',
+  '....iiiiiiii....',
+  '...iiiiyyiiii...',
+  '...iiiiiiiiii...',
+], { pal: FUR.cub });
+
+bear('bear_tourist', 'brown', [
+  [3, 4, ['1L1111L111']], [4, 5, ['11....11']],
+  [0, 10, [
+    '..tttKttttKttt..',
+    '.toottKttKttoot.',
+    'ttwtttKttKtttwot',
+    'totttt3333ttttot',
+    'tttto33lb33tottt',
+    'ttott333333ttott',
+  ]],
+]);
+
+bear('bear_critic', 'dark', [
+  [3, 0, ['.....32......', '.3322222222..', '32222222222_.']],
+  [4, 3, ['kk']], [9, 3, ['MMM']],
+  [0, 9, [
+    '...MmmmmmmmmM...',
+    '..prrrrrrrrrrR..',
+    '.CRRRRRRRRRRRRC.',
+    'CCCCccccccrRcCCC',
+    'Cw555wCcccrRcCCC',
+    'CwwwwwyCccRrcCCC',
+    'Cw555wCcccccCCCC',
+  ]],
+]);
+
+bear('bear_lumberjack', 'brown', [
+  [2, 0, ['.....cc.....', '._gGgGgGgG_.', 'gGgGgGgGgGgG', 'cCcCcCcCcCcC']],
+  [0, 10, [
+    '..rr11ccc11rr...',
+    '.rrr11rcr11rrr1.',
+    'rrrr11rrr11rrr11',
+    '1111rr111rr1111r',
+    '1111rr111rr1111r',
+    'rrrr11rrr11rrr11',
+  ]],
+]);
+
 // ===========================================================================
 // REYNARD THE FOX
 // ===========================================================================
-const FOX_PAL = { K: '#46384d', 1: '#241f30', 2: '#3d3850', 3: '#5c5774', D: '#8a3416' };
 const FOX_BASE = [
-    '................................',
-    '..............332221............',
-    '.....K........322221............',
-    '....KKK......322221...K.........',
-    '....KKKK.....Yyyyya..KKK........',
-    '...KOiIo.....aaaaAA.ooIK........',
-    '...OoiiIo.33222222.oooiO........',
-    '...Oociioo.1111111111.ooO.......',
-    '...OoccooqOOOOOOOOOOOOqooO......',
-    '...OocoqqqqqQQqqqqqqqqqooO......',
-    '...OoqqqqaYaaqqqqqqqqqqoO.......',
-    '...OoqqqaLqqqaqqqqqqqQQqo.......',
-    '...OoqqqakkkkaqqqkkkqqqQQo......',
-    '...OooqqayykyaqqqykyqqqqqQo.....',
-    '...Ooooqayykyaoooykyqqqqqqo3K...',
-    '...OoooooaaaaooooookcccooooKKK..',
-    '..cOooooyoooooooooookcccccccC...',
-    '.cccooooaooooooooooookkkkkkc....',
-    '..CcccoyOoooooooooOOOkwwwwk.....',
-    '.cCccccacccccccccccccckwkk......',
-    '...CCccycccccccccccccCCCC.......',
-    '.....CCaCccccccccCCCC...........',
-    '.....xxxxyccprrRRrrRcxxxx.......',
-    '....zxxxxXacrR.RR.rRXxxxxx......',
-    '...zzxxxxxXycccccccXxxxxxxx.....',
-    '..zzxxxxxxxXacccccXxxxxxxxxx....',
-    '.zzxxxxxxxxxXycccXxxxxxxxxxxx...',
-    '.zxxxxxxxxxxxXaccXxxxxxxxxxxxx..',
-    '.zxxxxxxxxxxxxXcXxxxxxxxxxxxxxx.',
-    '.zxxxxxxxxxxxxxXyxxxxxxxxxxxxxx.',
-    '.xxxxxxxxxxxxxxXxxxxxxxxxxxxxxx.',
-    '.xxxxxxxxxxxxxxXxyxxxxxxxxxxxxx.',
+  '................................',
+  '..............332221............',
+  '.....K........322221............',
+  '....KKK......322221...K.........',
+  '....KKKK.....Yyyyya..KKK........',
+  '...KOiIo.....aaaaAA.ooIK........',
+  '...OoiiIo.33222222.oooiO........',
+  '...Oociioo.1111111111.ooO.......',
+  '...OoccooqOOOOOOOOOOOOqooO......',
+  '...OocoqqqqqQQqqqqqqqqqooO......',
+  '...OoqqqqaYaaqqqqqqqqqqoO.......',
+  '...OoqqqaLqqqaqqqqqqqQQqo.......',
+  '...OoqqqakkkkaqqqkkkqqqQQo......',
+  '...OooqqayykyaqqqykyqqqqqQo.....',
+  '...Ooooqayykyaoooykyqqqqqqo3K...',
+  '...OoooooaaaaooooookcccooooKKK..',
+  '..cOooooyoooooooooookcccccccC...',
+  '.cccooooaooooooooooookkkkkkc....',
+  '..CcccoyOoooooooooOOOkwwwwk.....',
+  '.cCccccacccccccccccccckwkk......',
+  '...CCccycccccccccccccCCCC.......',
+  '.....CCaCccccccccCCCC...........',
+  '.....xxxxyccprrRRrrRcxxxx.......',
+  '....zxxxxXacrR.RR.rRXxxxxx......',
+  '...zzxxxxxXycccccccXxxxxxxx.....',
+  '..zzxxxxxxxXacccccXxxxxxxxxx....',
+  '.zzxxxxxxxxxXycccXxxxxYyxxxxx...',
+  '.zxxxxxxxxxxxXaccXxxxxyaxxxxxX..',
+  '.zxxxxxxxxxxxxXcXxxxxXXXXXxxxxX.',
+  '.zxxxxxxxxxxxxxXyxxxxxxxxxxxxxX.',
+  '.xxxxxxxxxxxxxxXxxxxxxxxxxxxxxX.',
+  '.xxxxxxxxxxxxxxXxyxxxxxxxxxxxxX.',
 ];
 
 const FOX_PATCHES = {
@@ -1411,13 +1611,13 @@ const FOX_PATCHES = {
     [9, 11, ['wYYy', 'Yyay', 'yyaa', 'yaAa']],
     [16, 10, ['.kkk.', 'kYyak', 'kyyak', 'kyaak', '.kkk.']],
     [9, 8, ['kkkk']], [17, 8, ['kkk']],
-    [19, 15, ['k........', '.kkkkkkkc', '.kwwwwwwk', '..kIIIIk.', '.Lki.iIk.'.replace('.i.', 'iiI'), '.lCkkkk..', '.L.......']],
+    [19, 15, ['k........', '.kkkkkkkc', '.kwwwwwwk', '..kIIIIk.', '.LkiiiIk.', '.lCkkkk..', '.L.......']],
     [25, 6, ['.Y.', 'YwY', '.Y.']],
   ],
   // hat pops up, ears flatten, wide eyes with pin pupils, little O mouth
   shocked: [
-    [1, 2, ['...._....', '...___...', 'KKK____..', 'KKOoiIo..', '.KOoiiIo.']],
-    [19, 3, ['..._....', '..___KKK', '.ooiIoKK', 'oooiiOK.']],
+    [1, 2, ['...._....', '...___...', '.K._____.', 'KOooiIo..', '.OooiiIo.']],
+    [19, 3, ['..._...', '..___.K', '.ooiioK', 'oooiOO.']],
     [10, 0, ['....332221..', '....322221..', '...322221_..', '...Yyyyya...', '...aaaaAA...', '33222222_...', '_1111111111k', '.__________.']],
     [9, 11, ['wyyy', 'yyky', 'yyyy', 'ayya']],
     [17, 10, ['kkk', 'wyy', 'yky', 'yyy', 'aya']],
@@ -1430,10 +1630,10 @@ const FOX_PATCHES = {
     [17, 12, ['qkq', 'kqk', 'qqq']], [20, 13, ['L', 'l']],
     [19, 16, ['.kkkkkkkc', '.kwwwwwkc', '..kIIIkC.', '..kiiIk..', '...kkk...']],
   ],
-  // monocle eye cocked open, the other winks; gleam on the fang
+  // cool half-lidded monocle eye, the other winks shut; a sparkle
   wink: [
-    [9, 8, ['.kk.', 'k..k']], [9, 13, ['yyky']], [9, 14, ['OOOO']],
-    [17, 11, ['Dqq', 'qkk', 'kqq', 'qqq']],
+    [9, 9, ['DDDD']], [9, 13, ['yyky']], [9, 14, ['OOOO']],
+    [16, 12, ['.kkq', 'kqqk', 'qqqq']],
     [27, 8, ['.w.', 'wYw', '.w.']],
   ],
   // furrowed V brows, glare, gritted teeth, anger mark
@@ -1446,7 +1646,7 @@ const FOX_PATCHES = {
   // brows pinched up, sweat drop, wobbly mouth
   worried: [
     [9, 9, ['kk']], [11, 8, ['kk']], [16, 8, ['kk']], [18, 9, ['kkk']],
-    [9, 11, ['kkkk', 'yyyy', 'kkyy', 'yyyy']], [17, 11, ['kkk', 'yyy', 'kky', 'yyy']],
+    [9, 11, ['Lqkk', 'kkyy', 'kyyy', 'ayya']], [17, 11, ['kqq', 'ykk', 'kyy', 'yya']],
     [19, 15, ['o........', '.c.......', '..kckckcc', 'OOokckcC.', '...cccc..']],
     [26, 8, ['.L', 'Ll', 'lb']],
   ],
@@ -1458,7 +1658,7 @@ const FOX_PATCHES = {
     [27, 0, ['LLLL', '..L.', '.L..', 'LLLL']], [26, 5, ['LLLLL', '...L.', '..L..', '.L...', 'LLLLL']],
   ],
 };
-for (const [e, p] of Object.entries(FOX_PATCHES)) def('fox_' + e, patch(FOX_BASE, p), { pal: FOX_PAL });
+for (const [e, p] of Object.entries(FOX_PATCHES)) def('fox_' + e, patch(FOX_BASE, p));
 
 // ===========================================================================
 // BUILD
@@ -1498,16 +1698,18 @@ const PLACEHOLDER = build({
   ol: 0,
   pal: { m: '#d14fb4' },
   rows: [
-    'kkkkkkkkkk',
-    'kmmmmmmmmk',
-    'kmmwwwwmmk',
-    'kmww..wwmk',
-    'kmmmm.wwmk',
-    'kmmmwwwmmk',
-    'kmmmwwmmmk',
-    'kmmmmmmmmk',
-    'kmmmwwmmmk',
-    'kkkkkkkkkk',
+    '............',
+    '.kkkkkkkkkk.',
+    '.kmmmmmmmmk.',
+    '.kmmwwwwmmk.',
+    '.kmwwmmwwmk.',
+    '.kmmmmmwwmk.',
+    '.kmmmmwwmmk.',
+    '.kmmmwwmmmk.',
+    '.kmmmmmmmmk.',
+    '.kmmmwwmmmk.',
+    '.kkkkkkkkkk.',
+    '............',
   ],
 });
 
@@ -1530,9 +1732,13 @@ function normScale(scale) {
   return s >= 1 ? s : 1;
 }
 
+function cacheKey(name, scale) {
+  return (hasSprite(name) ? name : '\0?') + '@' + scale;
+}
+
 export function spriteCanvas(name, scale = 1) {
   scale = normScale(scale);
-  const key = name + '@' + scale;
+  const key = cacheKey(name, scale);
   const hit = canvasCache.get(key);
   if (hit) return hit;
   const s = getSprite(name);
@@ -1561,7 +1767,7 @@ export function spriteCanvas(name, scale = 1) {
 
 export function spriteURL(name, scale = 1) {
   scale = normScale(scale);
-  const key = name + '@' + scale;
+  const key = cacheKey(name, scale);
   let url = urlCache.get(key);
   if (!url) {
     url = spriteCanvas(name, scale).toDataURL('image/png');

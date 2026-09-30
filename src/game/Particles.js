@@ -9,6 +9,7 @@ const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const _c = new THREE.Color();
 const _e = new THREE.Euler();
+const UP = new THREE.Vector3(0, 1, 0);
 
 class VoxelPool {
   constructor(scene, max, material) {
@@ -87,10 +88,10 @@ class VoxelPool {
       let s = this.size[i];
       if (f & 16) s *= 1 + (1 - t) * 2.2;
       s *= Math.min(1, t * 4);
-      if (f & 8) s *= 0.55 + 0.45 * Math.sin(time * 6 + i * 2.1) > 0.25 ? 1 : 0.35;
+      if (f & 8) s *= Math.sin(time * 6 + i * 2.1) > -0.35 ? 1 : 0.3;
       _p.set(this.px[i], this.py[i], this.pz[i]);
       if (f & 4) { _s.set(s, s * 0.25, s * 0.8); _e.set(Math.sin(this.rot[i]) * 0.6, this.rot[i], 0); _q.setFromEuler(_e); }
-      else { _s.set(s, s, s); _q.setFromAxisAngle(_p.set(0, 1, 0), this.rot[i]); _p.set(this.px[i], this.py[i], this.pz[i]); }
+      else { _s.set(s, s, s); _q.setFromAxisAngle(UP, this.rot[i]); }
       _m.compose(_p, _q, _s);
       mesh.setMatrixAt(i, _m);
       col[i * 3] = this.r[i]; col[i * 3 + 1] = this.g[i]; col[i * 3 + 2] = this.b[i];

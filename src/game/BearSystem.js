@@ -9,7 +9,7 @@ import { buildFishGeometry } from '../entities/fishModels.js';
 import { WATER_Y, KIND } from '../world/grid.js';
 import { pick, clamp, angleDiff, damp } from '../core/rng.js';
 
-const COIN_PER_MEAL = 6;
+const COIN_PER_MEAL = 7;
 const heldFishGeo = new Map();
 function heldGeo(sp, golden) {
   const k = sp.id + (golden ? '*' : '');
@@ -48,9 +48,9 @@ export class BearSystem {
     if (dow === 6) return { dayOff: true, bears: [] };
     const r = game.state.rating;
     const ratingF = r >= 4.5 ? 1.3 : r >= 4 ? 1.15 : r >= 3 ? 1 : r >= 2 ? 0.85 : 0.7;
-    let n = 2 + day * 0.72 + Math.max(0, day - 10) * 0.45;
+    let n = 3 + day * 0.8 + Math.max(0, day - 10) * 0.45;
     n = Math.round(n * ratingF * game.mods.bearMult);
-    n = clamp(n, 2, 64);
+    n = clamp(n, 3, 64);
     const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day);
     const bears = [];
     const species = game.availableSpecies();
@@ -579,8 +579,11 @@ export class BearSystem {
     // leap into water / hop out
     if ((ntx !== ctx || ntz !== ctz) && !ignoreBlock) {
       const fromWater = g.isWater(ctx, ctz), toWater = g.isWater(ntx, ntz);
-      if (!fromWater && toWater) { this.startJump(b, nx + (dx / d) * 0.6, nz + (dz / d) * 0.6, true); return true; }
-      if (fromWater && !toWater) { this.startJump(b, nx + (dx / d) * 0.3, nz + (dz / d) * 0.3, false); return true; }
+      // land inside the tile we just checked (never hop over a dam or fence)
+      const lx = Math.min(ntx + 0.85, Math.max(ntx + 0.15, nx + (dx / d) * 0.5));
+      const lz = Math.min(ntz + 0.85, Math.max(ntz + 0.15, nz + (dz / d) * 0.5));
+      if (!fromWater && toWater) { this.startJump(b, lx, lz, true); return true; }
+      if (fromWater && !toWater) { this.startJump(b, lx, lz, false); return true; }
     }
     b.x = nx; b.z = nz;
     return true;

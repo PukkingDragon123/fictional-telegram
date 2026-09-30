@@ -140,9 +140,9 @@ function makeNoiseBuffers(ctx) {
 /** Generated stereo impulse response: soft cabin/forest room, ~1.7 s, darkening tail. */
 function makeImpulse(ctx) {
   const sr = ctx.sampleRate;
-  const len = Math.floor(sr * 2.0);
+  const len = Math.floor(sr * 1.7);
   const buf = ctx.createBuffer(2, len, sr);
-  const rt60 = 1.7;
+  const rt60 = 1.45;
   for (let ch = 0; ch < 2; ch++) {
     const d = buf.getChannelData(ch);
     let lp = 0, lp2 = 0;
@@ -376,14 +376,6 @@ class Voice {
     return this.begin(s, t, t + dur, Math.random() * (buf.duration - 0.1));
   }
 
-  /** keep the voice alive (silently) until absolute time `until` */
-  hold(until) {
-    const o = this.osc('sine', this.t0, Math.max(0.01, until - this.t0));
-    const g = this.gn(0);
-    o.connect(g);
-    g.connect(this.out);
-  }
-
   /** enveloped oscillator */
   tone(p) {
     const ctx = this.ctx, k = this.k;
@@ -600,7 +592,7 @@ function sfxCoin(ctx, dest, o) {
 
 function sfxCoins(ctx, dest, o) {
   const v = new Voice(ctx, dest, o, 0.22, 0.03);
-  let t = 0, gap = 0.105;
+  let t = 0, gap = 0.092;
   for (let i = 0; i < 8; i++) {
     const f = pick([1319, 1568, 1760, 2093, 2349, 2637, 3136]);
     const amp = 1 - i * 0.05;
@@ -609,7 +601,7 @@ function sfxCoins(ctx, dest, o) {
     t += gap * rr(0.85, 1.15);
     gap *= 0.86;
   }
-  v.bell({ t: t + 0.02, f: 3136, parts: SOFT, peak: 0.12, rel: 0.4 });
+  v.bell({ t: t + 0.02, f: 3136, parts: SOFT, peak: 0.12, rel: 0.32 });
   return v.end;
 }
 
@@ -717,9 +709,9 @@ function sfxDiscover(ctx, dest, o) {
     v.tone({ t, type: 'triangle', f, a: 0.003, rel: 0.22, peak: 0.16 });
   });
   [1046.5, 1318.5, 1568, 2093].forEach((f) => {
-    v.tone({ t: 0.5, type: 'square', f, a: 0.012, hold: 0.35, rel: 0.85, peak: 0.055, lp: 3600 });
-    v.tone({ t: 0.5, f, a: 0.012, hold: 0.3, rel: 0.95, peak: 0.1 });
-    v.tone({ t: 0.5, f: f * 1.005, a: 0.012, hold: 0.2, rel: 0.8, peak: 0.04 });
+    v.tone({ t: 0.5, type: 'square', f, a: 0.012, hold: 0.28, rel: 0.6, peak: 0.055, lp: 3600 });
+    v.tone({ t: 0.5, f, a: 0.012, hold: 0.26, rel: 0.7, peak: 0.1 });
+    v.tone({ t: 0.5, f: f * 1.005, a: 0.012, hold: 0.18, rel: 0.6, peak: 0.04 });
   });
   for (let i = 0; i < 10; i++) {
     v.tone({ t: 0.5 + i * 0.085 + rr(0, 0.04), f: pick([2093, 2637, 3136, 3520, 4186]), a: 0.003, rel: 0.25, peak: 0.06 * (1 - i / 14) });
@@ -1099,9 +1091,9 @@ function sfxReviewBad(ctx, dest, o) {
     lp.connect(g);
     g.connect(v.out);
   };
-  wah(0, 233.08, 0.25);
-  wah(0.28, 220, 0.25);
-  wah(0.56, 207.65, 0.7, 196, true);
+  wah(0, 233.08, 0.22);
+  wah(0.25, 220, 0.22);
+  wah(0.5, 207.65, 0.55, 196, true);
   return v.end;
 }
 
@@ -1109,11 +1101,11 @@ function sfxReviewBad(ctx, dest, o) {
 
 function sfxLoon(ctx, dest, o) {
   const v = new Voice(ctx, dest, o, 0.6, 0.03);
-  const t = v.t0, k = v.k, T = 2.65;
+  const t = v.t0, k = v.k, T = 2.45;
   // the wail: rises about an octave, hangs, then lifts again at the end
-  const pts = [[0, 500], [0.12, 560], [0.55, 860], [0.9, 830], [1.4, 880], [1.85, 1090], [2.25, 1180], [2.6, 1020]];
+  const pts = [[0, 500], [0.12, 560], [0.5, 860], [0.85, 830], [1.3, 880], [1.7, 1090], [2.05, 1180], [2.4, 1020]];
   const eg = v.gn(0);
-  env(eg.gain, t, 0.35, 0.36, 1.65, 0.6);
+  env(eg.gain, t, 0.35, 0.36, 1.5, 0.55);
   const lp = v.flt('lowpass', 3200, 0.3);
   lp.connect(eg);
   eg.connect(v.out);
@@ -1338,6 +1330,14 @@ function triad(key, scale, d, size = 3) {
 function toRange(m, lo) {
   return lo + ((((m - lo) % 12) + 12) % 12);
 }
+/** the note with the pitch class of `m` that is closest to `ref`, inside [lo, hi] (smooth bass lines) */
+function nearOct(m, ref, lo, hi) {
+  let best = -1;
+  for (let n = lo; n <= hi; n++) {
+    if ((((n - m) % 12) + 12) % 12 === 0 && (best < 0 || Math.abs(n - ref) < Math.abs(best - ref))) best = n;
+  }
+  return best < 0 ? toRange(m, lo) : best;
+}
 /** compact voicing of a chord inside [lo, lo+12), ascending */
 function voicing(chord, lo) {
   return chord.map((m) => toRange(m, lo)).sort((a, b) => a - b);
@@ -1380,9 +1380,15 @@ function makeProg(pool) {
  * Motif-aware pentatonic melody: mostly stepwise moves, first note of each bar snaps to a
  * chord tone, motifs are sometimes repeated (transposed onto the new chord).
  */
-function makeMelody(pitches, start) {
+const STEPS_UP = [-1, 0, 1, 1, 1, 2, 2, 3];
+const STEPS_DOWN = [-3, -2, -2, -1, -1, -1, 0, 1];
+const STEPS_FREE = [-2, -1, -1, 0, 1, 1, 2];
+
+function makeMelody(pitches, centerMidi) {
   const last = pitches.length - 1;
-  const st = { idx: start != null ? start : pitches.length >> 1, motif: null };
+  let mid = 0;
+  for (let i = 0; i <= last; i++) if (Math.abs(pitches[i] - centerMidi) < Math.abs(pitches[mid] - centerMidi)) mid = i;
+  const st = { idx: mid, motif: null };
   const nearest = (idx, pcs) => {
     for (let d = 0; d <= last; d++) {
       for (const j of [idx - d, idx + d]) if (j >= 0 && j <= last && pcs.includes(pitches[j] % 12)) return j;
@@ -1393,7 +1399,16 @@ function makeMelody(pitches, start) {
     /** rhythm = step positions in a 16-step bar -> [{ s, len, m }] */
     bar(rhythm, pcs, opt = {}) {
       const reuse = st.motif && st.motif.length === rhythm.length && chance(opt.reuse != null ? opt.reuse : 0.4);
-      const deltas = reuse ? st.motif : rhythm.map(() => pick([-2, -1, -1, 0, 1, 1, 2, 3]));
+      let sim = st.idx;
+      const deltas = reuse
+        ? st.motif
+        : rhythm.map(() => {
+            // gravity: mostly stepwise, but drift back towards the home register instead of wandering off
+            const pull = (mid - sim) / (last / 2 || 1);
+            const d = pick(pull > 0.35 ? STEPS_UP : pull < -0.35 ? STEPS_DOWN : STEPS_FREE);
+            sim = clamp(sim + d, 0, last);
+            return d;
+          });
       let idx = st.idx;
       const evs = [];
       for (let j = 0; j < rhythm.length; j++) {
@@ -1602,7 +1617,7 @@ function moodTitle(ctx, out) {
   const sd = 60 / 68 / 4;
   const prog = makeProg(PROG_MAJOR);
   const pent = pentRange(key % 12, 'major', 62, 86);
-  const mel = makeMelody(pent, 3);
+  const mel = makeMelody(pent, 71);
   const echo = makeEcho(ctx, out, sd * 3, 0.4, 2600, 0.5);
   let evs = {}, bar = 0, sparkle = -1;
   return {
@@ -1635,10 +1650,10 @@ function moodDay(ctx, out) {
   const key = 55, scale = SC.major; // G major
   const sd = 60 / 90 / 4;
   const prog = makeProg(PROG_MAJOR);
-  const pent = pentRange(key % 12, 'major', 67, 91);
-  const mel = makeMelody(pent, 4);
+  const pent = pentRange(key % 12, 'major', 62, 86);
+  const mel = makeMelody(pent, 72);
   const echo = makeEcho(ctx, out, sd * 3, 0.28, 2400, 0.45);
-  let chord = null, keys = null, evs = {}, bar = 0, sparkle = null, quiet = false;
+  let chord = null, keys = null, evs = {}, bar = 0, sparkle = null, quiet = false, bassRoot = 43;
   const strum = (t, notes, vol) =>
     notes.forEach((m, j) => INS.pluck(ctx, out, t + j * 0.022, m, 1.0, vol, { wet: 0.3, lp: 2600, sends: [[echo.in, 0.15]], pan: rr(-0.15, 0.15) }));
   return {
@@ -1650,6 +1665,7 @@ function moodDay(ctx, out) {
       if (s === 0) {
         chord = triad(key, scale, prog.next());
         keys = voicing(chord, 55);
+        bassRoot = nearOct(chord[0], bassRoot, 38, 50); // smooth bass line: nearest octave to the last root (>= 73 Hz)
         quiet = bar > 0 && bar % 8 === 0 && chance(0.35); // occasional drums-out bar
         evs = {};
         if (chance(0.62)) {
@@ -1667,11 +1683,12 @@ function moodDay(ctx, out) {
         else if (chance(0.22)) INS.shaker(ctx, out, T, 0.035);
       }
       // plucked bass
-      const root = toRange(chord[0], 38);
+      const root = bassRoot;
+      const third = (((chord[1] - chord[0]) % 12) + 12) % 12; // 3 or 4 semitones: stays in the key
       if (s === 0) INS.bass(ctx, out, T, root, sd * 5, 0.42);
       else if (s === 6 && chance(0.55)) INS.bass(ctx, out, T, root + 7, sd * 2, 0.3);
       else if (s === 8) INS.bass(ctx, out, T, root, sd * 4, 0.36);
-      else if (s === 14 && chance(0.4)) INS.bass(ctx, out, T, root + pick([2, 4, 7, 12]), sd * 2, 0.3);
+      else if (s === 14 && chance(0.4)) INS.bass(ctx, out, T, root + pick([third, 7, 12]), sd * 2, 0.3);
       // guitar-ish strums
       if (s === 0) strum(T, keys, 0.18);
       else if (s === 6 && chance(0.7)) strum(T, keys.slice(1), 0.11);
@@ -1694,9 +1711,9 @@ function moodRush(ctx, out) {
   const key = 45, scale = SC.minor; // A minor
   const sd = 60 / 140 / 4;
   const prog = makeProg(PROG_MINOR);
-  const pent = pentRange(key % 12, 'minor', 69, 88);
-  const mel = makeMelody(pent, 2);
-  let chord = null, stabs = null, stabPat = [2, 6, 10, 14], bassPat = BASS_PATS[0], evs = {}, bar = 0, run = false;
+  const pent = pentRange(key % 12, 'minor', 64, 84);
+  const mel = makeMelody(pent, 74);
+  let chord = null, stabs = null, stabPat = [2, 6, 10, 14], bassPat = BASS_PATS[0], evs = {}, bar = 0, run = false, bassRoot = 45;
   return {
     stepDur: sd,
     nodes: [],
@@ -1705,6 +1722,7 @@ function moodRush(ctx, out) {
       if (s === 0) {
         chord = triad(key, scale, prog.next());
         stabs = voicing(chord, 57);
+        bassRoot = nearOct(chord[0], bassRoot, 40, 52);
         stabPat = chance(0.5) ? [3, 6, 9, 12, 14] : [2, 6, 10, 14];
         bassPat = pick(BASS_PATS);
         evs = {};
@@ -1723,7 +1741,7 @@ function moodRush(ctx, out) {
       if (s === 14 && chance(0.4)) INS.hat(ctx, out, t, 0.1, true);
       // walking bass on 8ths
       if (s % 2 === 0) {
-        const root = toRange(chord[0], 40);
+        const root = bassRoot;
         const third = (((chord[1] - chord[0]) % 12) + 12) % 12, fifth = (((chord[2] - chord[0]) % 12) + 12) % 12;
         const tok = bassPat[s >> 1];
         const m = tok === 'r' ? root : tok === 't' ? root + third : tok === 'f' ? root + fifth : root + 12;
@@ -1744,7 +1762,7 @@ function moodNight(ctx, out) {
   const sd = 60 / 56 / 4;
   const prog = makeProg(PROG_LYDIAN);
   const pent = pentRange(0, 'major', 72, 96);
-  const mel = makeMelody(pent, 3);
+  const mel = makeMelody(pent, 81);
   const echo = makeEcho(ctx, out, sd * 6, 0.45, 2200, 0.55);
   let chord = null, evs = {}, bar = 0;
   return {
@@ -1841,17 +1859,13 @@ function createBeds(ctx, bus) {
     return n;
   };
   const out = mk(ctx.createGain());
-  out.gain.value = 0.5;
+  out.gain.value = 0.6;
   const rumble = mk(ctx.createBiquadFilter()); // keep sub-bass rumble out of small speakers
   rumble.type = 'highpass';
   rumble.frequency.value = 110;
   rumble.Q.value = 0.5;
   out.connect(rumble);
-  rumble.connect(bus.dry);
-  const wetSend = mk(ctx.createGain());
-  wetSend.gain.value = 0.12;
-  rumble.connect(wetSend);
-  wetSend.connect(bus.wet);
+  rumble.connect(bus.dry); // dry only: keeps the reverb tail idle when nothing else plays
   const loopSrc = (kind) => {
     const s = mk(ctx.createBufferSource());
     s.buffer = res.noise[kind];
@@ -1871,59 +1885,60 @@ function createBeds(ctx, bus) {
     g.gain.value = v;
     return g;
   };
-  const lfo = (freq, depth, target) => {
-    const o = mk(ctx.createOscillator());
-    o.frequency.value = freq;
-    const g = gain(depth);
-    o.connect(g);
-    g.connect(target);
-    o.start(0);
-    return o;
-  };
-  // wind: slow swells of band-passed brown noise + a faint airy whistle layer
+  // Slow random drifts. Audio-rate LFOs on AudioParams are comparatively expensive, so instead the
+  // scheduler tick nudges each parameter towards a new random target every few seconds.
+  let windScale = 1, lapScale = 1;
+  const mods = [];
+  const wander = (param, base, depth, t0, t1) => mods.push({ p: param, base, depth, t0, t1, next: 0 });
+  // wind: swells of band-passed brown noise + a faint airy whistle layer
   const wind = gain(0.7);
   const wSrc = loopSrc('brown'), wBp = filt('bandpass', 380, 0.6);
   wSrc.connect(wBp);
   wBp.connect(wind);
   wind.connect(out);
-  lfo(0.06, 0.3, wind.gain);
-  lfo(0.09, 170, wBp.frequency);
   const air = gain(0.14);
   const aSrc = loopSrc('pink'), aBp = filt('bandpass', 1200, 1.4);
   aSrc.connect(aBp);
   aBp.connect(air);
   air.connect(wind);
-  lfo(0.05, 0.12, air.gain);
-  lfo(0.13, 400, aBp.frequency);
   // water: slow lapping swells + a little high ripple
   const lap = gain(0.15);
   const lSrc = loopSrc('pink'), lLp = filt('lowpass', 850, 0.4);
   lSrc.connect(lLp);
   lLp.connect(lap);
   lap.connect(out);
-  lfo(0.29, 0.08, lap.gain);
-  lfo(0.47, 0.04, lap.gain);
   const rip = gain(0.03);
   const rSrc = loopSrc('white'), rBp = filt('bandpass', 3200, 1.8);
   rSrc.connect(rBp);
   rBp.connect(rip);
   rip.connect(out);
-  lfo(0.35, 0.02, rip.gain);
-  const setTarget = (param, v, t, tc) => {
-    try {
-      param.setTargetAtTime(v, t, tc);
-    } catch (e) {
-      param.value = v;
-    }
-  };
+  wander(wind.gain, () => 0.7 * windScale, 0.3, 3, 7);
+  wander(wBp.frequency, () => 380, 170, 4, 9);
+  wander(air.gain, () => 0.14 * windScale, 0.11, 4, 9);
+  wander(aBp.frequency, () => 1200, 400, 5, 11);
+  wander(lap.gain, () => 0.15 * lapScale, 0.075, 1.2, 2.6);
+  wander(rip.gain, () => 0.03 * lapScale, 0.02, 1.5, 3);
   return {
     out,
     nodes,
-    /** calmer water/wind at night; smooth, throttled by the caller */
+    /** calmer water/wind at night (takes effect on the next drift step) */
     setLevels(night) {
-      const t = ctx.currentTime;
-      setTarget(wind.gain, 0.7 * (1 - 0.3 * night), t, 1.5);
-      setTarget(lap.gain, 0.15 * (1 - 0.15 * night), t, 1.5);
+      windScale = 1 - 0.3 * night;
+      lapScale = 1 - 0.15 * night;
+    },
+    /** advance the random drifts; cheap, call from the scheduler tick */
+    update(now) {
+      for (const m of mods) {
+        if (now < m.next) continue;
+        const dur = rr(m.t0, m.t1);
+        const target = Math.max(0.0001, m.base() + rr(-1, 1) * m.depth);
+        try {
+          m.p.setTargetAtTime(target, now, dur * 0.4);
+        } catch (e) {
+          m.p.value = target;
+        }
+        m.next = now + dur;
+      }
     },
   };
 }
@@ -2132,12 +2147,25 @@ const S = {
   fading: [], // moods fading out
   timer: 0,
   suspendTimer: 0,
+  suspending: false, // a ctx.suspend() is in flight (state still reads 'running' until it lands)
   live: [], // sounding SFX: { name, end }
   counts: {},
   lastStart: {},
   amb: newAmbState(),
   analyser: null,
 };
+
+let warned = false;
+/** a real bug in a timer/builder must not fail silently, but must never spam the console either */
+function reportOnce(e) {
+  if (warned) return;
+  warned = true;
+  try {
+    console.warn('[audio]', e);
+  } catch (err) {
+    /* no console */
+  }
+}
 
 const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 const wantRunning = () => S.unlocked && !S.muted && !S.hidden;
@@ -2197,7 +2225,8 @@ function syncRun() {
       S.suspendTimer = 0;
     }
     if (on) {
-      if (ctx.state !== 'running') safeResume();
+      // resume() queues behind an in-flight suspend(), so mute -> quick unmute always ends up running
+      if (ctx.state !== 'running' || S.suspending) safeResume();
       S.amb.lastTick = ctx.currentTime;
       startTimer();
       syncMusic();
@@ -2207,10 +2236,15 @@ function syncRun() {
         S.suspendTimer = 0;
         if (!wantRunning() && S.ctx && S.ctx.state === 'running') {
           try {
+            S.suspending = true;
+            const done = () => {
+              S.suspending = false;
+            };
             const p = S.ctx.suspend();
-            if (p && p.catch) p.catch(noop);
+            if (p && p.then) p.then(done, done);
+            else done();
           } catch (e) {
-            /* ignore */
+            S.suspending = false;
           }
         }
       }, 300);
@@ -2265,13 +2299,16 @@ function tick() {
         m.nextTime += m.gen.stepDur;
       }
     }
-    if (S.beds && S.vols.ambience > 0.01 && S.vols.master > 0.01) {
-      const A = S.amb;
-      ambStep(ctx, S.rig.buses.amb, A, now, clamp(now - A.lastTick, 0, 0.25));
+    if (S.beds) {
+      S.beds.update(now);
+      if (S.vols.ambience > 0.01 && S.vols.master > 0.01) {
+        const A = S.amb;
+        ambStep(ctx, S.rig.buses.amb, A, now, clamp(now - A.lastTick, 0, 0.25));
+      }
     }
     S.amb.lastTick = now;
   } catch (e) {
-    /* never throw from a timer */
+    reportOnce(e); /* never throw from a timer */
   }
 }
 
@@ -2342,6 +2379,7 @@ function play(name, opts) {
     try {
       end = def.fn(ctx, bus.dry, { when, volume: volume * def.g, pitch, pan, rev: bus.wet });
     } catch (e) {
+      reportOnce(e);
       if (lastVoice) lastVoice.dispose(); // half-built graph -> release it
       return;
     }
@@ -2407,7 +2445,7 @@ function setAmbience(p) {
     if (h === h) A.hour = ((h % 24) + 24) % 24;
     if (n === n) A.night = n < 0 ? 0 : n > 1 ? 1 : n;
     const t = nowMs();
-    if (t - A.lastApply < 250) return;
+    if (t - A.lastApply < 250) return; // throttle the (already trivial) bed update
     A.lastApply = t;
     if (S.beds) S.beds.setLevels(A.night);
   } catch (e) {
@@ -2415,8 +2453,12 @@ function setAmbience(p) {
   }
 }
 
+/**
+ * Optional per-frame hook. The lookahead scheduler already runs on its own timer; calling tick() here as well
+ * just gives it extra chances to run when the timer is starved by a busy main thread (tick is idempotent).
+ */
 function update() {
-  /* reserved per-frame hook: everything time-critical runs on the lookahead scheduler */
+  if (S.timer) tick();
 }
 
 if (HAS_DOC) {
@@ -2424,6 +2466,15 @@ if (HAS_DOC) {
     S.hidden = !!document.hidden;
     syncRun();
   });
+
+  // Belt and braces: unlock() is idempotent, so also hook the gestures that count as user activation on
+  // touch devices (iOS only unlocks audio on touchend/click, not on pointerdown). Removed once running.
+  const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
+  const onGesture = () => {
+    unlock();
+    if (S.ctx && S.ctx.state === 'running') for (const g of GESTURES) window.removeEventListener(g, onGesture, true);
+  };
+  for (const g of GESTURES) window.addEventListener(g, onGesture, { capture: true, passive: true });
 }
 
 /* ---- debug / verification helpers ---------------------------------------- */
@@ -2448,7 +2499,21 @@ function _debugRenderSfx(name, seconds = 4, opts = {}) {
   });
 }
 
-/** render `seconds` of a music mood (scheduled up-front, no crossfade) */
+/**
+ * Calls pump(now) every 100 ms of *rendered* time (OfflineAudioContext.suspend), so generators are driven
+ * just-in-time exactly like the live lookahead scheduler instead of building the whole graph up front.
+ */
+function driveOffline(ctx, seconds, pump) {
+  pump(0);
+  for (let t = 0.1; t < seconds - 0.05; t += 0.1) {
+    ctx.suspend(t).then(() => {
+      pump(t);
+      ctx.resume();
+    });
+  }
+}
+
+/** render `seconds` of a music mood (no crossfade), scheduled with the same lookahead as the live engine */
 function _debugRenderMusic(mood, seconds = 8) {
   if (!MOODS[mood]) return Promise.reject(new Error('unknown mood ' + mood));
   return renderOffline(seconds, (ctx, rig) => {
@@ -2456,10 +2521,12 @@ function _debugRenderMusic(mood, seconds = 8) {
     m.dry.gain.value = 1;
     m.wet.gain.value = 1;
     let i = 0, t = 0.05;
-    while (t < seconds) {
-      m.gen.step(i++, t);
-      t += m.gen.stepDur;
-    }
+    driveOffline(ctx, seconds, (now) => {
+      while (t < now + LOOKAHEAD && t < seconds) {
+        m.gen.step(i++, t);
+        t += m.gen.stepDur;
+      }
+    });
   });
 }
 
@@ -2468,12 +2535,18 @@ function _debugRenderAmbience(seconds = 8, o = {}) {
   const hour = num(o.hour, 12), night = clamp(num(o.night, 0), 0, 1);
   return renderOffline(seconds, (ctx, rig) => {
     const bus = rig.buses.amb;
-    if (o.beds !== false) createBeds(ctx, bus);
-    if (o.events === false) return;
+    const beds = o.beds !== false ? createBeds(ctx, bus) : null;
+    if (beds) beds.setLevels(night);
     const A = newAmbState();
     A.hour = hour;
     A.night = night;
-    for (let t = 0; t < seconds - 0.1; t += TICK_MS / 1000) ambStep(ctx, bus, A, t, TICK_MS / 1000);
+    let last = 0;
+    driveOffline(ctx, seconds, (now) => {
+      if (beds) beds.update(now);
+      if (o.events !== false) ambStep(ctx, bus, A, now, now - last);
+      last = now;
+    });
+    if (o.events === false) return;
     if (o.force !== false) {
       const f = ambFactors(hour, night);
       if (f.day > 0.2) ambBird(ctx, bus, 0.5);
@@ -2486,6 +2559,7 @@ function _debugRenderAmbience(seconds = 8, o = {}) {
 
 function _debugState() {
   const c = S.ctx;
+  if (c) prune(c.currentTime); // the live-voice list is pruned lazily, report the true count
   return {
     ctxState: c ? c.state : 'none',
     currentTime: c ? c.currentTime : 0,
@@ -2497,6 +2571,7 @@ function _debugState() {
     mood: S.cur ? S.cur.name : null,
     fading: S.fading.length,
     liveVoices: S.live.length,
+    amb: { hour: S.amb.hour, night: S.amb.night, crickets: S.amb.crickets.map((k) => +k.next.toFixed(2)) },
     timer: !!S.timer,
     stats: { ...stats },
     volumes: getVolumes(),

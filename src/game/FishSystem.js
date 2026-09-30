@@ -10,6 +10,7 @@ import { angleDiff, clamp } from '../core/rng.js';
 
 const HUNGER_RATE = 1 / 95; // per second -> starving after ~95 s
 const GROW_TIME = 36; // seconds from fry to adult
+export const FISH_SCALE = 0.8;
 const TAU = Math.PI * 2;
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -406,6 +407,10 @@ export class FishSystem {
   hatch(e) {
     const game = this.game;
     const sp = SPECIES_BY_ID[e.species];
+    // an overcrowded pond can't support more fry
+    const room = this.capacity() - this.list.length;
+    if (room <= 0) { game.particles.bubbles(e.x, e.y + 0.1, e.z, 3); return; }
+    e.count = Math.min(e.count, room);
     for (let k = 0; k < e.count; k++) {
       const a = Math.random() * TAU;
       let x = e.x + Math.cos(a) * 0.2, z = e.z + Math.sin(a) * 0.2;
@@ -419,6 +424,7 @@ export class FishSystem {
     }
     game.particles.bubbles(e.x, e.y + 0.1, e.z, 5);
     game.audio.play('hatch', { volume: 0.35 });
+    game.ui?.floatTextAt(e.x, 0.25, e.z, `+${e.count} fry`, e.golden ? '#ffe070' : '#b8ffb0');
     game.stats.hatched += e.count;
     game.onFishBorn(sp, e);
   }
@@ -515,12 +521,11 @@ export class FishSystem {
   render() {
     fishUniforms.uWaterColor.value.copy(this.game.sky.state.waterShallow);
     for (const e of this.meshes.values()) e.n = 0;
-    const night = this.game.sky.state.night;
     for (const f of this.list) {
       const e = this.meshFor(f.sp, f.golden);
       if (e.n >= e.cap) continue;
       const grow = f.adult ? 1 : 0.42 + 0.58 * (f.age / GROW_TIME);
-      const s = f.sp.size * grow;
+      const s = f.sp.size * grow * FISH_SCALE;
       _e.set(0, -f.heading, 0);
       _e.z = (f.pitch || 0);
       _e.x = clamp(-(f.turn || 0) * 0.08, -0.4, 0.4);
@@ -558,7 +563,6 @@ export class FishSystem {
         this.game.particles.sparkle(g.x, g.y + 0.25, g.z, 1, 0xfff2a0);
       }
     }
-    void night;
   }
 
   // ------------------------------------------------------------ save
