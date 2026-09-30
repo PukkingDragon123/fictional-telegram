@@ -283,3 +283,6 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 }
 
 body.at-title .hud, body.at-title .guests, body.at-title .toolbar, body.at-title .toolhint { display: none !important; }
+/* the fox steps aside while a panel is open */
+#panel:not(.hidden) ~ #fox { opacity: 0; pointer-events: none; }
+#fox { transition: opacity .15s; }

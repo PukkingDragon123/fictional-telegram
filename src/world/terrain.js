@@ -15,9 +15,9 @@ const KIND_COLORS = {
   [KIND.ROCK]: [0x857f7a, 0x8f8983, 0x7a7571],
   [KIND.SNOW]: [0xeef3f7, 0xe4ebf1, 0xf5f8fb],
   [KIND.FOREST]: [0x4d6f33, 0x557a38, 0x46672f],
-  [KIND.TRAIL]: [0x9c7b52, 0xa6845a, 0x91724b],
+  [KIND.TRAIL]: [0xb08c5a, 0xb89462, 0xa88452],
 };
-const CLIFF = { [KIND.ROCK]: 0x6f6a66, [KIND.SNOW]: 0x9aa3ab, [KIND.TRAIL]: 0x7a5f40, default: 0x7b5a3a };
+const CLIFF = { [KIND.ROCK]: 0x6f6a66, [KIND.SNOW]: 0x9aa3ab, [KIND.TRAIL]: 0x6c6660, default: 0x7b5a3a };
 
 function topColor(grid, x, z) {
   const i = z * grid.w + x;
@@ -130,7 +130,7 @@ export function buildTerrainGeometry(grid) {
       quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0], [tcol(c00), tcol(c01), tcol(c11), tcol(c10)]);
       // side faces where neighbour is lower
       let sideHex = CLIFF[k] ?? CLIFF.default;
-      if (!grid.meadow[i] && y > 3 && k === KIND.FOREST) sideHex = 0x6e655c;
+      if (!grid.meadow[i] && y > 0.6 && k === KIND.FOREST) sideHex = 0x746e67;
       const topHex = topColor(grid, x, z);
       const sides = [
         [1, 0, [1, 0, 0]],

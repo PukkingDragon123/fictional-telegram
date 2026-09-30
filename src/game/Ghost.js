@@ -55,6 +55,7 @@ export class Ghost {
 
   // structure model previews at entries
   showModels(type, entries) {
+    if (!type) { for (const m of this.models) m.visible = false; return; }
     const proto = this.protoFor(type);
     while (this.models.length < entries.length) {
       const g = new THREE.Group();

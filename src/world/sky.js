@@ -123,6 +123,13 @@ export class Sky {
     lerpHex(a.dp, b.dp, t, s.waterDeep);
     lerpHex(a.tint, b.tint, t, s.skyTint);
     s.aurora = a.aur + (b.aur - a.aur) * t;
+    if (s.aurora > 0.01) {
+      // northern lights wash the landscape in slowly shifting green / violet
+      const k = 0.5 + 0.5 * Math.sin(time * 0.23) * Math.sin(time * 0.071 + 1.3);
+      this._tmp.setRGB(0.25 + 0.35 * (1 - k), 0.95, 0.55 + 0.45 * (1 - k));
+      this.hemi.color.lerp(this._tmp, 0.22 * s.aurora);
+      this.hemi.intensity += 0.18 * s.aurora;
+    }
     const night = hour < 6 ? 1 : hour < 7.5 ? 1 - (hour - 6) / 1.5 : hour > 19.5 ? Math.min(1, (hour - 19.5) / 1.5) : 0;
     s.night = night;
     u.uNight.value = night;

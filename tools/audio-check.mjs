@@ -33,6 +33,8 @@ const CHROMIUM = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/ch
 
 /* ------------------------------------------------------------------ server */
 
+const MAIN_PORT = process.env.AUDIO_CHECK_MAIN_PORT || '5173';
+const OWN_PORT = process.env.AUDIO_CHECK_OWN_PORT || '5199';
 const reachable = async (url) => {
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(2500) });
@@ -46,12 +48,12 @@ let server = null;
 async function resolveUrl() {
   const given = opt('--url');
   if (given) return given;
-  const main = 'http://localhost:5173/tools/audio-test.html';
+  const main = `http://localhost:${MAIN_PORT}/tools/audio-test.html`;
   if (await reachable(main)) return main;
-  const own = 'http://localhost:5199/tools/audio-test.html';
+  const own = `http://localhost:${OWN_PORT}/tools/audio-test.html`;
   if (await reachable(own)) return own;
-  console.log('dev server not reachable on :5173 - starting vite on :5199');
-  server = spawn('npx', ['vite', '--port', '5199', '--strictPort'], { cwd: ROOT, stdio: 'ignore', detached: true });
+  console.log(`dev server not reachable on :${MAIN_PORT} - starting vite on :${OWN_PORT}`);
+  server = spawn('npx', ['vite', '--port', OWN_PORT, '--strictPort'], { cwd: ROOT, stdio: 'ignore', detached: true });
   for (let i = 0; i < 60; i++) {
     if (await reachable(own)) return own;
     await new Promise((r) => setTimeout(r, 500));
@@ -106,6 +108,9 @@ const browser = await chromium.launch({
 const IGNORED_CONSOLE = /Failed to load resource|\[vite\]|favicon/i;
 async function openPage(initScript, pageUrl = url) {
   const ctx = await browser.newContext({ viewport: { width: 900, height: 700 } });
+  // The test page does not need HMR. Without the client it can never be hot-reloaded mid-run when the (shared)
+  // dev server restarts or re-optimises dependencies because somebody edited other files.
+  await ctx.route('**/@vite/client', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
   const page = await ctx.newPage();
   const problems = [];
   page.on('console', (m) => {
@@ -167,7 +172,7 @@ const offline = await (async () => {
       try { await audio._debugRenderSfx('nope', 1); out.unknownRejected = false; } catch (e) { out.unknownRejected = true; }
       // worst-case pile-up: the loudest sounds all at once, with and without the final soft limiter
       const pile = ['roar', 'bigsplash', 'smash', 'fanfare', 'whistle', 'discover', 'levelup', 'coins', 'gate', 'bell', 'honk', 'growl'];
-      out.pileRaw = analyze(await audio._debugRenderMix(pile, 4, { safety: false }));
+      out.pileRaw = analyze(await audio._debugRenderMix(pile, 4, { safety: false, volume: 2 }));
       out.pileSafe = analyze(await audio._debugRenderMix(pile, 4, { safety: true }));
       out.pileSafeLoud = analyze(await audio._debugRenderMix(pile, 4, { safety: true, volume: 2 }));
       return out;
@@ -205,7 +210,7 @@ check('levels', 'UI: hover quieter than click', P('hover') < P('click'), `${P('h
 check('levels', 'UI: click is quiet (< 0.2)', P('click') < 0.2, P('click').toFixed(3));
 check('levels', 'hammer/footsteps are quiet ticks (< 0.35)', P('hammer') < 0.2 && P('footsteps') < 0.35, `${P('hammer').toFixed(3)} / ${P('footsteps').toFixed(3)}`);
 check('levels', 'big moments louder than UI', Math.min(P('bigsplash'), P('roar'), P('fanfare'), P('smash')) > 2 * P('click'));
-check('limiter', '12 loud sounds at once, raw chain, would exceed full scale (limiter is needed)', offline.pileRaw.peak > 1.0, offline.pileRaw.peak.toFixed(3));
+check('limiter', '12 loud sounds at volume 2, raw chain, exceed full scale (so the limiter is doing real work)', offline.pileRaw.peak > 1.0, offline.pileRaw.peak.toFixed(3));
 check('limiter', 'same pile-up through the safety limiter stays below 0.96', offline.pileSafe.peak < 0.96 && offline.pileSafe.peak > 0.5 && offline.pileSafe.nan === 0, offline.pileSafe.peak.toFixed(3));
 check('limiter', 'pile-up at volume 2 also stays below 0.96 and is not silenced', offline.pileSafeLoud.peak < 0.96 && offline.pileSafeLoud.rms > offline.pileSafe.rms, `${offline.pileSafeLoud.peak.toFixed(3)} (rms ${offline.pileSafeLoud.rms.toFixed(3)} vs ${offline.pileSafe.rms.toFixed(3)})`);
 check('levels', 'options: volume/pitch/pan render non-silent', offline.opts.peak > 0.02 && offline.opts.nan === 0, offline.opts.peak.toFixed(3));
@@ -614,7 +619,7 @@ console.log('\nAMBIENCE (8 s offline, beds + forced events)');
 console.log(pad('state', 13) + rpad('peak', 7) + rpad('rms', 8));
 for (const [n, r] of Object.entries(offline.amb)) console.log(pad(n, 13) + rpad(f2(r.peak), 7) + rpad(f2(r.rms, 4), 8));
 console.log(pad('beds only', 13) + rpad(f2(offline.beds.peak), 7) + rpad(f2(offline.beds.rms, 4), 8));
-console.log(`pile-up of 12 loud SFX: raw chain peak ${offline.pileRaw.peak.toFixed(2)} -> with safety limiter ${offline.pileSafe.peak.toFixed(2)} (volume 2: ${offline.pileSafeLoud.peak.toFixed(2)})`);
+console.log(`pile-up of 12 loud SFX: peak ${offline.pileSafe.peak.toFixed(2)} through the safety limiter; at volume 2 ${offline.pileRaw.peak.toFixed(2)} raw -> ${offline.pileSafeLoud.peak.toFixed(2)} limited`);
 if (liveInfo) {
   console.log(`live output peak: ${liveInfo.livePeakCalm.toFixed(3)} (rush music + night ambience) / ${liveInfo.livePeakLoud.toFixed(3)} (+ 12 loud SFX at volume 2)`);
   console.log(`setAmbience() cost: ${(liveInfo.ambCallMs * 1000).toFixed(2)} us per call`);

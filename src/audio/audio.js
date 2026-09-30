@@ -105,9 +105,9 @@ let lastVoice = null;
 
 function makeNoiseBuffers(ctx) {
   const sr = ctx.sampleRate;
-  const N = Math.floor(sr * 3); // 3 s, loopable
   const F = Math.floor(sr * 0.2); // crossfade length
-  const make = (fill) => {
+  const make = (fill, seconds = 3) => {
+    const N = Math.floor(sr * seconds); // loopable
     const raw = new Float32Array(N + F);
     fill(raw);
     const buf = ctx.createBuffer(1, N, sr);
@@ -127,7 +127,7 @@ function makeNoiseBuffers(ctx) {
   return {
     white: make((raw) => {
       for (let i = 0; i < raw.length; i++) raw[i] = Math.random() * 2 - 1;
-    }),
+    }, 1.5),
     pink: make((raw) => {
       let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
       for (let i = 0; i < raw.length; i++) {
@@ -2117,7 +2117,10 @@ function createRig(ctx, opts = {}) {
   hp.frequency.value = 320;
   hp.Q.value = 0.5;
   const conv = ctx.createConvolver();
-  conv.buffer = res.ir;
+  const attachReverb = () => {
+    if (!conv.buffer) conv.buffer = res.ir; // (silent until then)
+  };
+  if (!opts.deferReverb) attachReverb();
   const revOut = ctx.createGain();
   revOut.gain.value = REVERB_RETURN;
   revIn.connect(hp);
@@ -2131,7 +2134,7 @@ function createRig(ctx, opts = {}) {
     wet.connect(revIn);
     return { dry, wet };
   };
-  return { ctx, master, comp, last, revIn, revOut, buses: { sfx: bus(), music: bus(), amb: bus() } };
+  return { ctx, master, comp, last, revIn, revOut, attachReverb, buses: { sfx: bus(), music: bus(), amb: bus() } };
 }
 
 /** push volume settings into the rig (tc = smoothing time constant, 0 = immediate) */
@@ -2211,10 +2214,25 @@ function ensureContext() {
     }
   }
   S.ctx = ctx;
-  S.rig = createRig(ctx, { safety: true });
+  S.rig = createRig(ctx, { safety: true, deferReverb: true });
   applyRigVolumes(S.rig, S.vols, 0, S.muted || S.hidden);
-  S.beds = createBeds(ctx, S.rig.buses.amb);
   S.amb.lastTick = ctx.currentTime;
+  // The one-time buffer generation (reverb impulse, noise for the ambience beds) takes tens of milliseconds:
+  // keep it out of the user-gesture handler, in two small timer tasks. Until then: no reverb / no beds.
+  setTimeout(() => {
+    try {
+      if (S.rig && S.ctx === ctx) S.rig.attachReverb();
+    } catch (e) {
+      reportOnce(e);
+    }
+    setTimeout(() => {
+      try {
+        if (S.ctx === ctx && !S.beds) S.beds = createBeds(ctx, S.rig.buses.amb);
+      } catch (e) {
+        reportOnce(e);
+      }
+    }, 0);
+  }, 0);
   return ctx;
 }
 

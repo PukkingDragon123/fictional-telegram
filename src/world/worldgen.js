@@ -152,9 +152,16 @@ export function generateWorld(seed = 1337) {
       const i = z * w + x;
       const k = grid.kind[i];
       const r = hash2(x, z, 99);
+      if (k === KIND.FOREST && z < MEADOW.z0) {
+        // mountain slopes: sparse alpine conifers (no canopy blocks on slopes)
+        const hgt = grid.height[i];
+        const dens = hgt > 5 ? 0.22 : 0.42;
+        if (r < dens) addDeco(hash2(x, z, 5) < 0.6 ? 'spruce' : hgt < 3 && hash2(x, z, 6) < 0.3 ? 'birch' : 'pine', x, z, { far: meadowDist(x, z) > 3 });
+        continue;
+      }
       if (k === KIND.FOREST) {
         const md = meadowDist(x, z);
-        const band = z < MEADOW.z0 ? 4 : 3;
+        const band = 3;
         if (md > band) {
           // deep forest: rendered as a lumpy canopy mesh, with the odd tree poking out
           canopy.push(i);

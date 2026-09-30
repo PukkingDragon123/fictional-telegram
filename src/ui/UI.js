@@ -585,6 +585,7 @@ export class UI {
 
   renderGuests(wave) {
     const h = this.hud;
+    const lunch = this.game.lunch || [];
     if (!wave || wave.dayOff) {
       h['g-list'].innerHTML = `<div class="gr">${ico('bear_happy', 1)} Nobody! Bears' day off.</div>`;
       h['g-count'].textContent = '';
@@ -606,6 +607,7 @@ export class UI {
       const pref = g.prefer ? `<img class="px" src="${this.icons.fish(SPECIES_BY_ID[g.prefer])}" width="20" height="20" title="Wants ${esc(SPECIES_BY_ID[g.prefer].name)}" alt="">` : '';
       html += `<div class="gr"><img class="px" src="${this.icons.bear(g.type)}" width="24" height="24" alt=""><span class="n">x${g.n}</span><span>${esc(d.name)}</span><span class="w">${pref}${wants}</span></div>`;
     }
+    if (lunch.length) html = `<div class="gr" style="color:var(--muted)">${ico('clock', 1)}<span>12:30 lunch break: ${lunch.length} bear${lunch.length > 1 ? 's' : ''}</span></div>` + html;
     h['g-list'].innerHTML = html;
     h['g-count'].textContent = `(${wave.bears.length})`;
     const notes = [];
@@ -618,7 +620,16 @@ export class UI {
   onRushStart(wave) {
     this.banner('5:00 PM · THE WHISTLE BLOWS', 'Bears are off work!');
     this.game.rig.shake = 0.3;
-    if (this.game.state.day === 1) this.foxSay('Here they come, running down the mountain! Watch them cannonball in. Tap a bear to see what it wants.', 'greedy', { auto: 6 });
+    if (this.game.state.day === 1) {
+      this.foxSay('Here they come, running down the mountain! Watch them cannonball in. Tap a bear to see what it wants.', 'greedy', { auto: 7 });
+      // a little cutscene: follow the first bear down the trail, then hand the camera back
+      const rig = this.game.rig;
+      setTimeout(() => {
+        const first = this.game.bears.list.find((b) => b.visible);
+        if (first && !rig.follow) { rig.follow = first; rig.wuppGoal = Math.max(rig.wuppGoal, 0.06); }
+        setTimeout(() => { if (rig.follow === first) rig.follow = null; }, 9000);
+      }, 900);
+    }
   }
 
   onRampage(b) {

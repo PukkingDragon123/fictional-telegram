@@ -108,6 +108,27 @@ export class BearSystem {
     this.waveActive = true;
   }
 
+  // A couple of bears sneak out on their lunch break (mid-day customers).
+  planLunch(day) {
+    if (day < 2 || (day - 1) % 7 >= 5) return [];
+    const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day && !d.boss && d.item !== 'lunchbox');
+    const n = day >= 6 ? 2 : 1;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const [type, d] = types[Math.floor(Math.random() * types.length)];
+      out.push({ type, wants: [...(d.wants || [])], prefer: null, delay: 0.5 + i * 2.5, lunch: true });
+    }
+    return out;
+  }
+
+  startLunch(list) {
+    for (const p of list) {
+      const b = this.spawnBear(p);
+      b.lunch = true;
+      b.appetite = Math.max(1, b.appetite - 1);
+    }
+  }
+
   spawnBear(p) {
     const def = BEAR_TYPES[p.type];
     const [a0, a1] = def.appetite;
@@ -711,9 +732,14 @@ export class BearSystem {
   }
 
   render(dt) {
+    // big waves: drop bear shadows to keep draw calls in check
+    let vis = 0;
+    for (const b of this.list) if (b.visible) vis++;
+    const shadows = vis <= 24;
     for (const b of this.list) {
       if (!b.visible || !b.rig) continue;
       const r = b.rig;
+      if (r.shadows !== shadows) { r.shadows = shadows; for (const m of r.meshes) m.castShadow = shadows; }
       r.root.position.set(b.x, b.y, b.z);
       r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);
       const sw = Math.sin(b.phase);

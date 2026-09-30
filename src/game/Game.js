@@ -203,6 +203,8 @@ export class Game {
     st.hour = 9;
     this.resetDayStats();
     this.wave = this.bears.planWave(st.day);
+    this.lunch = this.bears.planLunch(st.day);
+    this.lunchDone = false;
     this.audio.setMusic('day');
     if (!first) this.audio.play('day_start', { volume: 0.4 });
     this.emit('day', { day: st.day });
@@ -539,6 +541,13 @@ export class Game {
       }
     } else if (st.phase === 'day') {
       st.hour += simDt * (8 / this.dayLength());
+      if (!this.lunchDone && st.hour >= 12.5 && this.lunch?.length) {
+        this.lunchDone = true;
+        this.bears.startLunch(this.lunch);
+        const d = this.bears.list.find((b) => b.lunch);
+        this.ui?.toast(`Lunch break! ${d ? d.name + ' from ' + d.dept : 'Someone'} sneaks out for a snack.`, 'gold');
+        this.audio.play('bell', { volume: 0.3, pitch: 1.3 });
+      }
       if (st.hour >= RUSH_HOUR) this.startRush();
     } else if (st.phase === 'rush') {
       st.hour = Math.min(20.2, st.hour + simDt * 0.03);
