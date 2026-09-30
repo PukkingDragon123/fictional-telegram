@@ -207,7 +207,7 @@ export class UI {
       g.classList.toggle('collapsed');
       $('#g-tog').textContent = g.classList.contains('collapsed') ? '+' : '-';
     });
-    $('#p-close').addEventListener('click', () => { this.click(); this.closePanel(); });
+    $('#p-close').addEventListener('click', () => { this.closePanel(); this.closeSound(); });
     h['fox-ok'].addEventListener('click', () => { this.click(); this.foxNext(); });
     h.modal.addEventListener('click', (e) => { if (e.target === h.modal && this.modalDismissable) this.closeModal(); });
     if (window.innerWidth < 760) h.guests.classList.add('collapsed');
@@ -217,6 +217,7 @@ export class UI {
   }
 
   click() { this.game.audio.play('click', { volume: 0.35 }); }
+  closeSound() { this.game.audio.play('close', { volume: 0.35 }); }
 
   renderSpeed() {
     const st = this.game.state;
@@ -743,7 +744,7 @@ export class UI {
 
   closeTop() {
     if (!this.hud.modal.classList.contains('hidden') && this.modalDismissable) { this.closeModal(); return true; }
-    if (this.panel) { this.closePanel(); return true; }
+    if (this.panel) { this.closePanel(); this.closeSound(); return true; }
     if (this.game.tool.kind !== 'feed') { this.game.setTool({ kind: 'feed' }); return true; }
     return false;
   }

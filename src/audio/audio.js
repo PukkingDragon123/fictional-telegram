@@ -1465,6 +1465,10 @@ function mv(ctx, out, t, vol, wet, ex) {
   stats.notes++;
   return new Voice(ctx, out.dry, { when: t, volume: vol, rev: out.wet, sends: ex && ex.sends, pan: ex && ex.pan }, wet, 0);
 }
+// "human" feel: melodic notes land a few ms late and vary in velocity, percussion only varies in velocity
+const late = (t) => t + rr(0, 0.014);
+const vel = (v) => v * rr(0.85, 1.1);
+const vel2 = (v) => v * rr(0.8, 1.15);
 
 /** tempo-synced feedback echo living inside a mood */
 function makeEcho(ctx, out, time, fb, lpf, level) {
@@ -1526,13 +1530,14 @@ const INS = {
   },
 
   pluck(ctx, out, t, midi, dur, vol, o = {}) {
-    const v = mv(ctx, out, t, 1, o.wet != null ? o.wet : 0.3, o);
-    v.pluck({ midi, dur, peak: vol, lp: o.lp, rel: o.rel });
+    const tt = late(t);
+    const v = mv(ctx, out, tt, 1, o.wet != null ? o.wet : 0.3, o);
+    v.pluck({ midi, dur, peak: vel(vol), lp: o.lp, rel: o.rel });
     return v;
   },
 
   bass(ctx, out, t, midi, dur, vol) {
-    const v = mv(ctx, out, t, vol, 0.04);
+    const v = mv(ctx, out, t, vel(vol), 0.04);
     const f = mtof(midi), hold = Math.max(0, dur - 0.1);
     v.tone({ type: 'triangle', f, a: 0.004, hold, rel: 0.25, peak: 0.6, lp: 900, lp2: 380, lpt: 0.18 });
     v.tone({ f, a: 0.004, hold, rel: 0.25, peak: 0.5 });
@@ -1549,39 +1554,39 @@ const INS = {
   },
 
   kick(ctx, out, t, vol) {
-    const v = mv(ctx, out, t, vol, 0);
+    const v = mv(ctx, out, t, vel(vol), 0);
     v.tone({ f: 135, f2: 46, gl: 0.11, a: 0.001, rel: 0.28, peak: 1 });
     v.noise({ buf: 'pink', ft: 'lowpass', f: 300, q: 0.5, bursts: [[0, 0.7, 0.02]] });
     return v;
   },
 
   snare(ctx, out, t, vol) {
-    const v = mv(ctx, out, t, vol, 0.12);
+    const v = mv(ctx, out, t, vel(vol), 0.12);
     v.noise({ buf: 'white', f: 1900, q: 0.7, a: 0.001, rel: 0.16, peak: 2.2 });
     v.tone({ type: 'triangle', f: 210, f2: 150, gl: 0.08, a: 0.001, rel: 0.12, peak: 0.5 });
     return v;
   },
 
   hat(ctx, out, t, vol, open) {
-    const v = mv(ctx, out, t, vol, 0.05);
+    const v = mv(ctx, out, t, vel2(vol), 0.05);
     v.noise({ buf: 'white', ft: 'highpass', f: 7500, q: 0.5, a: 0.001, rel: open ? 0.22 : 0.05, peak: 0.9 });
     return v;
   },
 
   shaker(ctx, out, t, vol) {
-    const v = mv(ctx, out, t, vol, 0.05);
+    const v = mv(ctx, out, t, vel2(vol), 0.05);
     v.noise({ buf: 'white', f: 6500, q: 0.9, a: 0.012, rel: 0.06, peak: 1.6 });
     return v;
   },
 
   glock(ctx, out, t, midi, vol, o = {}) {
-    const v = mv(ctx, out, t, vol, o.wet != null ? o.wet : 0.5, o);
+    const v = mv(ctx, out, late(t), vel(vol), o.wet != null ? o.wet : 0.5, o);
     v.bell({ f: mtof(midi), parts: GLOCK, peak: 1, rel: o.rel || 1.1 });
     return v;
   },
 
   celesta(ctx, out, t, midi, vol, o = {}) {
-    const v = mv(ctx, out, t, vol, o.wet != null ? o.wet : 0.7, o);
+    const v = mv(ctx, out, late(t), vel(vol), o.wet != null ? o.wet : 0.7, o);
     v.bell({ f: mtof(midi), parts: CELESTA, peak: 1, rel: o.rel || 2.4 });
     return v;
   },
@@ -1941,9 +1946,21 @@ function createBeds(ctx, bus) {
   wander(aBp.frequency, () => 1200, 400, 5, 11);
   wander(lap.gain, () => 0.15 * lapScale, 0.075, 1.2, 2.6);
   wander(rip.gain, () => 0.03 * lapScale, 0.02, 1.5, 3);
+  let connected = true;
   return {
     out,
     nodes,
+    /** disconnect from the graph while the ambience volume is zero: nothing gets processed then */
+    setEnabled(on) {
+      if (on === connected) return;
+      connected = on;
+      try {
+        if (on) rumble.connect(bus.dry);
+        else rumble.disconnect();
+      } catch (e) {
+        /* ignore */
+      }
+    },
     /** calmer water/wind at night (takes effect on the next drift step) */
     setLevels(night) {
       windScale = 1 - 0.3 * night;
@@ -2026,7 +2043,7 @@ function ambLoon(ctx, bus, t) {
 }
 
 function ambPlip(ctx, bus, t) {
-  return sfxBubble(ctx, bus.dry, { when: t, volume: rr(0.15, 0.3), pitch: rr(0.8, 1.2), pan: rr(-0.8, 0.8), rev: bus.wet });
+  return sfxBubble(ctx, bus.dry, { when: t, volume: rr(0.3, 0.6) * SFX.bubble.g, pitch: rr(0.8, 1.2), pan: rr(-0.8, 0.8), rev: bus.wet });
 }
 
 /** event rates (per second) and levels derived from the clock + darkness */
@@ -2199,6 +2216,10 @@ function reportOnce(e) {
 
 const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 const wantRunning = () => S.unlocked && !S.muted && !S.hidden;
+const AUDIBLE = 0.001; // slider positions below this count as "off": skip the synthesis work entirely
+const sfxOn = () => S.vols.master > AUDIBLE && S.vols.sfx > AUDIBLE;
+const musicOn = () => S.vols.master > AUDIBLE && S.vols.music > AUDIBLE;
+const ambienceOn = () => S.vols.master > AUDIBLE && S.vols.ambience > AUDIBLE;
 
 function ensureContext() {
   if (S.ctx) return S.ctx;
@@ -2228,7 +2249,10 @@ function ensureContext() {
     }
     setTimeout(() => {
       try {
-        if (S.ctx === ctx && !S.beds) S.beds = createBeds(ctx, S.rig.buses.amb);
+        if (S.ctx === ctx && !S.beds) {
+          S.beds = createBeds(ctx, S.rig.buses.amb);
+          S.beds.setEnabled(ambienceOn());
+        }
       } catch (e) {
         reportOnce(e);
       }
@@ -2334,7 +2358,9 @@ function tick() {
       }
     }
     const m = S.cur;
-    if (m) {
+    if (m && !musicOn()) {
+      m.nextTime = now + 0.05; // music slider at zero: no notes, no CPU; picks up again when raised
+    } else if (m) {
       if (m.nextTime < now - 0.35) m.nextTime = now + 0.05; // main thread stalled: resync instead of a note burst
       const horizon = now + LOOKAHEAD;
       let guard = 0;
@@ -2346,7 +2372,7 @@ function tick() {
     }
     if (S.beds) {
       S.beds.update(now);
-      if (S.vols.ambience > 0.01 && S.vols.master > 0.01) {
+      if (ambienceOn()) {
         const A = S.amb;
         ambStep(ctx, S.rig.buses.amb, A, now, clamp(now - A.lastTick, 0, 0.25));
       }
@@ -2403,7 +2429,7 @@ function prune(now) {
 function play(name, opts) {
   try {
     const ctx = S.ctx;
-    if (!ctx || !S.unlocked || S.muted || S.hidden) return;
+    if (!ctx || !S.unlocked || S.muted || S.hidden || !sfxOn()) return;
     if (ctx.state !== 'running' && nowMs() > S.resumeUntil) return;
     const def = SFX[name];
     if (!def) return;
@@ -2471,6 +2497,7 @@ function setVolumes(v) {
     }
     lsSet(LS_VOLUMES, JSON.stringify(S.vols));
     if (S.rig) applyRigVolumes(S.rig, S.vols, 0.03, S.muted || S.hidden || !S.unlocked);
+    if (S.beds) S.beds.setEnabled(ambienceOn());
   } catch (e) {
     /* never throw */
   }
@@ -2645,15 +2672,15 @@ function _debugState() {
   };
 }
 
-/** current output level (RMS/peak of the last analyser window) - for live smoke tests */
+/** current output level (RMS/peak of the last analyser window, compressor gain reduction in dB) - for live tests */
 function _debugLevel() {
   const c = S.ctx;
-  if (!c || !S.rig) return { rms: 0, peak: 0 };
+  if (!c || !S.rig) return { rms: 0, peak: 0, reduction: 0 };
   if (!S.analyser) {
     S.analyser = c.createAnalyser();
     S.analyser.fftSize = 2048;
     S.rig.last.connect(S.analyser); // what actually reaches the speakers
-    return { rms: 0, peak: 0 };
+    return { rms: 0, peak: 0, reduction: 0 };
   }
   const d = new Float32Array(S.analyser.fftSize);
   S.analyser.getFloatTimeDomainData(d);
@@ -2663,7 +2690,7 @@ function _debugLevel() {
     const a = Math.abs(d[i]);
     if (a > p) p = a;
   }
-  return { rms: Math.sqrt(s / d.length), peak: p };
+  return { rms: Math.sqrt(s / d.length), peak: p, reduction: S.rig.comp.reduction }; // reduction: compressor gain change in dB
 }
 
 export const audio = {

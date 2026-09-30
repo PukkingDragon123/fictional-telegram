@@ -391,6 +391,26 @@ async function liveStage(handle) {
       audio.setVolumes({ master: 0.8, sfx: 0.9, music: 0.5, ambience: 0.6 });
       ok('volumes restored to defaults', JSON.stringify(audio.getVolumes()) === JSON.stringify({ master: 0.8, sfx: 0.9, music: 0.5, ambience: 0.6 }));
 
+      // --- sliders at zero switch the synthesis off (no CPU for things nobody can hear)
+      audio.setVolumes({ sfx: 0 });
+      const vz = st().stats.voices;
+      audio.play('coin');
+      ok('sfx slider at 0: play() builds nothing', st().stats.voices === vz);
+      audio.setVolumes({ sfx: 0.9 });
+      audio.play('coin');
+      ok('sfx slider raised again: sounds return', st().stats.voices === vz + 1);
+      audio.setVolumes({ music: 0 });
+      audio.setMusic('rush');
+      await sleep(300);
+      const nz = st().stats.notes;
+      await sleep(700);
+      ok('music slider at 0: generator schedules no notes', st().stats.notes === nz && st().mood === 'rush', `+${st().stats.notes - nz}`);
+      audio.setVolumes({ music: 0.5 });
+      await sleep(900);
+      ok('music slider raised again: notes flow', st().stats.notes - nz > 10, `+${st().stats.notes - nz}`);
+      audio.setMusic(null);
+      await sleep(2000);
+
       // --- music
       audio.setMusic('day');
       await sleep(400);
