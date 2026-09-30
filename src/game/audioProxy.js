@@ -1,6 +1,7 @@
 // Forwards to src/audio/audio.js when present; silent no-op otherwise.
 // (import.meta.glob keeps the build working even if the module is missing.)
 const noop = () => {};
+const pending = {}; // music/ambience requested before the module loaded
 const proxy = {
   ready: false,
   unlock: noop,
@@ -10,8 +11,9 @@ const proxy = {
   toggleMute: () => false,
   setVolumes: noop,
   getVolumes: () => ({ master: 0.8, sfx: 0.9, music: 0.5, ambience: 0.6 }),
-  setMusic: noop,
-  setAmbience: noop,
+  setMusic: (mood) => { pending.music = mood; },
+  getMusic: () => pending.music ?? null,
+  setAmbience: (o) => { pending.ambience = o; },
   update: noop,
 };
 
@@ -26,7 +28,8 @@ if (load) {
         if (typeof a[k] === 'function') proxy[k] = (...args) => { try { return a[k](...args); } catch { return undefined; } };
       }
       proxy.ready = true;
-      if (proxy._pendingMusic !== undefined) proxy.setMusic(proxy._pendingMusic);
+      if ('music' in pending) proxy.setMusic(pending.music);
+      if (pending.ambience) proxy.setAmbience(pending.ambience);
     })
     .catch(noop);
 }

@@ -28,8 +28,9 @@
  *   - Chain: buses (sfx / music / ambience, each with a dry and a reverb-send gain) -> master ->
  *     DynamicsCompressor (gentle limiting) -> soft-knee safety limiter -> destination.
  *   - Voice limiting per SFX name and globally (48); every voice disconnects its nodes when its last source ends.
- *   - Music and random ambience events are scheduled by a lookahead scheduler (setInterval 25 ms, 120 ms ahead of
- *     ctx.currentTime); it pauses while muted or while the tab is hidden, and the context is suspended meanwhile.
+ *   - Music and random ambience events are scheduled by a lookahead scheduler (setInterval 25 ms, 250 ms ahead of
+ *     ctx.currentTime, so main-thread hitches don't glitch the rhythm); it pauses while muted or while the tab is
+ *     hidden, and the context is suspended meanwhile.
  */
 
 /* ========================================================================== *
@@ -40,7 +41,7 @@ const LS_MUTED = 'tbme.muted';
 const LS_VOLUMES = 'tbme.volumes';
 const DEFAULT_VOLUMES = Object.freeze({ master: 0.8, sfx: 0.9, music: 0.5, ambience: 0.6 });
 
-const LOOKAHEAD = 0.12; // seconds of music scheduled ahead of the audio clock
+const LOOKAHEAD = 0.25; // seconds of music scheduled ahead of the audio clock (absorbs main-thread hitches)
 const TICK_MS = 25; // scheduler tick
 const XFADE = 1.5; // music crossfade, seconds
 const MAX_VOICES = 48; // global cap of concurrently sounding SFX
@@ -96,7 +97,11 @@ function loadVolumes() {
 }
 
 // debug counters (also used by the leak check in tools/audio-check.mjs)
-const stats = { voices: 0, disposed: 0, notes: 0, dropped: 0 };
+const stats = { voices: 0, disposed: 0, notes: 0, dropped: 0, droppedBy: {} };
+const drop = (name) => {
+  stats.dropped++;
+  stats.droppedBy[name] = (stats.droppedBy[name] || 0) + 1;
+};
 let lastVoice = null;
 
 /* ========================================================================== *
@@ -1279,7 +1284,14 @@ function sfxFanfare(ctx, dest, o) {
   return v.end;
 }
 
-/* ---- table: name -> { fn, max concurrent, min gap between starts } -------- */
+/*
+ * ---- table: name -> { fn, max, gap, g } ------------------------------------------------------------------
+ *  fn   builder (ctx, destination, opts) -> absolute end time
+ *  max  concurrently sounding voices of this name        gap  minimum seconds between two starts
+ *  g    calibrated level trim (applied on top of opts.volume). Calibrated with the default sliders so that at
+ *       volume 1 UI ticks peak around 0.1-0.3, everyday sounds around 0.5 and big moments around 0.7; the game's
+ *       own volume values scale from there. Re-derive with a level sweep if a builder is changed.
+ */
 
 const SFX = {
   click: { fn: sfxClick, max: 4, gap: 0.03, g: 4.1 },
@@ -1292,7 +1304,7 @@ const SFX = {
   coins: { fn: sfxCoins, max: 3, gap: 0.08, g: 3.06 },
   plop: { fn: sfxPlop, max: 6, gap: 0.02, g: 3.27 },
   splash: { fn: sfxSplash, max: 6, gap: 0.03, g: 3.33 },
-  bigsplash: { fn: sfxBigSplash, max: 3, gap: 0.12, g: 1.89 },
+  bigsplash: { fn: sfxBigSplash, max: 3, gap: 0.12, g: 1.55 },
   bubble: { fn: sfxBubble, max: 6, gap: 0.02, g: 3.53 },
   chomp: { fn: sfxChomp, max: 4, gap: 0.03, g: 2.2 },
   nibble: { fn: sfxNibble, max: 5, gap: 0.02, g: 5.8 },
@@ -1301,7 +1313,7 @@ const SFX = {
   discover: { fn: sfxDiscover, max: 2, gap: 0.3, g: 1.35 },
   research: { fn: sfxResearch, max: 2, gap: 0.2, g: 2.32 },
   levelup: { fn: sfxLevelUp, max: 2, gap: 0.3, g: 1.25 },
-  place: { fn: sfxPlace, max: 3, gap: 0.05, g: 2.61 },
+  place: { fn: sfxPlace, max: 3, gap: 0.05, g: 2.3 },
   build: { fn: sfxBuild, max: 3, gap: 0.1, g: 1.95 },
   hammer: { fn: sfxHammer, max: 4, gap: 0.03, g: 8.79 },
   demolish: { fn: sfxDemolish, max: 3, gap: 0.08, g: 2.98 },
@@ -1312,8 +1324,8 @@ const SFX = {
   footsteps: { fn: sfxFootsteps, max: 6, gap: 0.03, g: 2.49 },
   jump: { fn: sfxJump, max: 4, gap: 0.04, g: 1.81 },
   growl: { fn: sfxGrowl, max: 3, gap: 0.1, g: 0.98 },
-  roar: { fn: sfxRoar, max: 2, gap: 0.2, g: 0.85 },
-  smash: { fn: sfxSmash, max: 3, gap: 0.08, g: 2.01 },
+  roar: { fn: sfxRoar, max: 2, gap: 0.2, g: 0.8 },
+  smash: { fn: sfxSmash, max: 3, gap: 0.08, g: 1.83 },
   review_good: { fn: sfxReviewGood, max: 4, gap: 0.05, g: 1.77 },
   review_bad: { fn: sfxReviewBad, max: 3, gap: 0.1, g: 1.03 },
   loon: { fn: sfxLoon, max: 2, gap: 1, g: 0.52 },
@@ -2239,6 +2251,14 @@ function ensureContext() {
   S.rig = createRig(ctx, { safety: true, deferReverb: true });
   applyRigVolumes(S.rig, S.vols, 0, S.muted || S.hidden);
   S.amb.lastTick = ctx.currentTime;
+  try {
+    // the system may suspend/interrupt us (autoplay policy, iOS calls...): try to come back on our own
+    ctx.onstatechange = () => {
+      if (wantRunning() && !S.suspending && ctx.state !== 'running' && ctx.state !== 'closed') safeResume();
+    };
+  } catch (e) {
+    /* ignore */
+  }
   // The one-time buffer generation (reverb impulse, noise for the ambience beds) takes tens of milliseconds:
   // keep it out of the user-gesture handler, in two small timer tasks. Until then: no reverb / no beds.
   setTimeout(() => {
@@ -2365,7 +2385,9 @@ function tick() {
       const horizon = now + LOOKAHEAD;
       let guard = 0;
       while (m.nextTime < horizon && guard++ < 40) {
-        m.gen.step(m.i, Math.max(m.nextTime, now));
+        // A step that is already clearly late (main thread stalled) is skipped instead of being played in a
+        // flam-like burst; bar starts always run so chords/motifs stay in sync with the bar grid.
+        if (m.nextTime > now - 0.06 || (m.i & 15) === 0) m.gen.step(m.i, Math.max(m.nextTime, now + 0.01));
         m.i++;
         m.nextTime += m.gen.stepDur;
       }
@@ -2443,12 +2465,12 @@ function play(name, opts) {
     const when = now + delay + 0.004;
     prune(now);
     if (S.live.length >= MAX_VOICES || (S.counts[name] || 0) >= def.max) {
-      stats.dropped++;
+      drop(name);
       return;
     }
     const last = S.lastStart[name];
     if (last != null && Math.abs(when - last) < def.gap) {
-      stats.dropped++;
+      drop(name);
       return;
     }
     S.lastStart[name] = when;
@@ -2560,12 +2582,16 @@ if (HAS_DOC) {
 function renderOffline(seconds, build, safety) {
   const OAC = typeof window !== 'undefined' ? window.OfflineAudioContext || window.webkitOfflineAudioContext : null;
   if (!OAC) return Promise.reject(new Error('OfflineAudioContext unavailable'));
-  const ctx = new OAC(2, Math.ceil(seconds * OFFLINE_SR), OFFLINE_SR);
-  // by default the safety limiter is bypassed so headroom problems of the sounds themselves stay visible
-  const rig = createRig(ctx, { safety: !!safety });
-  applyRigVolumes(rig, DEFAULT_VOLUMES, 0, false);
-  build(ctx, rig);
-  return ctx.startRendering();
+  try {
+    const ctx = new OAC(2, Math.ceil(clamp(num(seconds, 4), 0.05, 120) * OFFLINE_SR), OFFLINE_SR);
+    // by default the safety limiter is bypassed so headroom problems of the sounds themselves stay visible
+    const rig = createRig(ctx, { safety: !!safety });
+    applyRigVolumes(rig, DEFAULT_VOLUMES, 0, false);
+    build(ctx, rig);
+    return ctx.startRendering();
+  } catch (e) {
+    return Promise.reject(e);
+  }
 }
 
 /** render several SFX at once (worst-case pile-up); `opts.safety` adds the final soft limiter to the chain */
@@ -2667,7 +2693,7 @@ function _debugState() {
     liveVoices: S.live.length,
     amb: { hour: S.amb.hour, night: S.amb.night, crickets: S.amb.crickets.map((k) => +k.next.toFixed(2)) },
     timer: !!S.timer,
-    stats: { ...stats },
+    stats: { ...stats, droppedBy: { ...stats.droppedBy } },
     volumes: getVolumes(),
   };
 }
