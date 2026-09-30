@@ -399,9 +399,19 @@ export class BearSystem {
         }
       }
     }
-    if (this.waveActive && this.list.length === 0) {
-      this.waveActive = false;
-      game.onWaveComplete();
+    // the evening can start once every customer has left the pond (they can
+    // finish the walk back up the mountain on their own)
+    if (this.waveActive) {
+      let active = 0;
+      for (const b of this.list) {
+        if (b.lunch) continue;
+        if (b.state === 'commuteUp' || b.state === 'walkDirect' || b.goal?.kind === 'leave') continue;
+        active++;
+      }
+      if (active === 0) {
+        this.waveActive = false;
+        game.onWaveComplete();
+      }
     }
   }
 

@@ -270,7 +270,7 @@ export class UI {
       sub = game.isDayOff() ? `Sunday: bears' day off (${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')})` : `Bears off work in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
       h['c-bell'].classList.toggle('hidden', game.isDayOff() || !!game.transition);
     } else if (st.phase === 'rush') {
-      const left = game.bears.remaining();
+      const left = game.bears.list.filter((b) => !b.lunch && b.state !== 'commuteUp' && b.goal?.kind !== 'leave').length;
       fill = 1;
       sub = `RUSH HOUR! ${left} bear${left === 1 ? '' : 's'} left`;
       h['c-bell'].classList.add('hidden');

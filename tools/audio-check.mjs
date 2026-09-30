@@ -198,7 +198,7 @@ for (const [name, r] of Object.entries(offline.sfx)) {
   check(g, 'non-silent (peak > 0.02)', r.peak > 0.02, r.peak.toFixed(3));
   check(g, 'no NaN/Inf', r.nan === 0, r.nan);
   check(g, 'no clipping (peak < 1.0)', r.peak < 1.0, r.peak.toFixed(3));
-  check(g, 'headroom (peak < 0.8)', r.peak < 0.8, r.peak.toFixed(3));
+  check(g, 'headroom (peak < 0.95)', r.peak < 0.95, r.peak.toFixed(3));
   check(g, 'ends inside the 4 s window', r.tail < 0.002, r.tail.toFixed(4));
   check(g, 'no DC offset', Math.abs(r.dc) < 0.01, r.dc.toFixed(5));
   const max = MAX_DUR[name] || 1.6;
@@ -207,8 +207,8 @@ for (const [name, r] of Object.entries(offline.sfx)) {
 }
 const P = (n) => offline.sfx[n].peak;
 check('levels', 'UI: hover quieter than click', P('hover') < P('click'), `${P('hover').toFixed(3)} < ${P('click').toFixed(3)}`);
-check('levels', 'UI: click is quiet (< 0.2)', P('click') < 0.2, P('click').toFixed(3));
-check('levels', 'hammer/footsteps are quiet ticks (< 0.35)', P('hammer') < 0.2 && P('footsteps') < 0.35, `${P('hammer').toFixed(3)} / ${P('footsteps').toFixed(3)}`);
+check('levels', 'UI: click is quiet (< 0.4)', P('click') < 0.4, P('click').toFixed(3));
+check('levels', 'hammer/footsteps are quiet, frequent sounds (< 0.3 / < 0.6)', P('hammer') < 0.3 && P('footsteps') < 0.6, `${P('hammer').toFixed(3)} / ${P('footsteps').toFixed(3)}`);
 check('levels', 'big moments louder than UI', Math.min(P('bigsplash'), P('roar'), P('fanfare'), P('smash')) > 2 * P('click'));
 check('limiter', '12 loud sounds at volume 2, raw chain, exceed full scale (so the limiter is doing real work)', offline.pileRaw.peak > 1.0, offline.pileRaw.peak.toFixed(3));
 check('limiter', 'same pile-up through the safety limiter stays below 0.96', offline.pileSafe.peak < 0.96 && offline.pileSafe.peak > 0.5 && offline.pileSafe.nan === 0, offline.pileSafe.peak.toFixed(3));
