@@ -405,12 +405,13 @@ class Voice {
     const a = p.a != null ? p.a : 0.005, hold = p.hold || 0, rel = p.rel != null ? p.rel : 0.2;
     const dur = a + hold + rel;
     const o = this.osc(p.type || 'sine', t, dur + 0.03);
-    const f0 = p.f * k;
+    const nyq = ctx.sampleRate * 0.47;
+    const f0 = Math.min(p.f * k, nyq);
     o.frequency.setValueAtTime(f0, t);
     if (p.f2) {
-      const gt = t + (p.gl != null ? p.gl : dur);
-      if (p.lin) o.frequency.linearRampToValueAtTime(p.f2 * k, gt);
-      else o.frequency.exponentialRampToValueAtTime(p.f2 * k, gt);
+      const gt = t + (p.gl != null ? p.gl : dur), f1 = Math.min(p.f2 * k, nyq);
+      if (p.lin) o.frequency.linearRampToValueAtTime(f1, gt);
+      else o.frequency.exponentialRampToValueAtTime(f1, gt);
     }
     if (p.det) o.detune.value = p.det;
     if (p.vr) {
@@ -1294,7 +1295,7 @@ const SFX = {
   bigsplash: { fn: sfxBigSplash, max: 3, gap: 0.12, g: 1.89 },
   bubble: { fn: sfxBubble, max: 6, gap: 0.02, g: 3.53 },
   chomp: { fn: sfxChomp, max: 4, gap: 0.03, g: 2.2 },
-  nibble: { fn: sfxNibble, max: 5, gap: 0.02, g: 3.78 },
+  nibble: { fn: sfxNibble, max: 5, gap: 0.02, g: 5.8 },
   heart: { fn: sfxHeart, max: 4, gap: 0.05, g: 1.2 },
   hatch: { fn: sfxHatch, max: 4, gap: 0.05, g: 2.22 },
   discover: { fn: sfxDiscover, max: 2, gap: 0.3, g: 1.35 },
@@ -1302,7 +1303,7 @@ const SFX = {
   levelup: { fn: sfxLevelUp, max: 2, gap: 0.3, g: 1.25 },
   place: { fn: sfxPlace, max: 3, gap: 0.05, g: 2.61 },
   build: { fn: sfxBuild, max: 3, gap: 0.1, g: 1.95 },
-  hammer: { fn: sfxHammer, max: 4, gap: 0.03, g: 4 },
+  hammer: { fn: sfxHammer, max: 4, gap: 0.03, g: 8.79 },
   demolish: { fn: sfxDemolish, max: 3, gap: 0.08, g: 2.98 },
   dig: { fn: sfxDig, max: 3, gap: 0.08, g: 1.93 },
   gate: { fn: sfxGate, max: 2, gap: 0.1, g: 1.24 },
@@ -2037,7 +2038,7 @@ function ambFactors(hour, night) {
     bird: 0.42 * day,
     cricket: smooth(0.3, 0.75, night),
     owl: 0.05 * smooth(0.6, 0.95, night),
-    loon: 0.02 * Math.max(dusk * 0.6, smooth(0.35, 0.8, night)),
+    loon: 0.012 * Math.max(dusk * 0.6, smooth(0.35, 0.8, night)), // rarer than the game's own scripted loons
   };
 }
 
@@ -2409,7 +2410,7 @@ function play(name, opts) {
     const o = opts || {};
     const volume = clamp(num(o.volume, 1), 0, 2);
     if (volume < 0.0005) return;
-    const pitch = clamp(num(o.pitch, 1), 0.1, 8);
+    const pitch = clamp(num(o.pitch, 1), 0.25, 4); // keeps every partial below Nyquist
     const pan = clamp(num(o.pan, 0), -1, 1);
     const delay = clamp(num(o.delay, 0), 0, 60);
     const now = ctx.currentTime;

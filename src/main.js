@@ -52,7 +52,7 @@ const startGame = (choice) => {
     game.newGame();
     game.rig.wuppGoal = 0.055;
     game.rig.lookAt(28.5, 36);
-    if (!params.has('notut')) setTimeout(() => ui.tutorialStep(0), 600);
+    if (!params.has('notut')) setTimeout(() => ui.startTutorialIfNew(), 600);
   } else {
     ui.toast(`Welcome back! Day ${game.state.day}`, 'good');
   }

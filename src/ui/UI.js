@@ -569,6 +569,13 @@ export class UI {
     if (!this.foxCurrent) this.foxNext();
   }
 
+  // veterans (who already closed or retired a pond) skip the tutorial
+  startTutorialIfNew() {
+    const lg = this.game.legacy;
+    if (lg.best || lg.tails || lg.retired) { this.game.state.tutorial = TUTORIAL.length; return; }
+    this.tutorialStep(0);
+  }
+
   tipOnce(key, text, expr = 'smug') {
     const tips = this.game.state.tips;
     if (tips[key]) return;
@@ -1049,7 +1056,7 @@ export class UI {
       <div class="btns"><button class="btn gold big" id="m-new">Open a new pond</button></div>`;
     this.showModal(html, {
       dismissable: false,
-      onBind: (c) => { $('#m-new', c).onclick = () => { this.click(); this.closeModal(); game.newGame(); this.tutorialStep(game.state.tutorial); }; },
+      onBind: (c) => { $('#m-new', c).onclick = () => { this.click(); this.closeModal(); game.newGame(); this.startTutorialIfNew(); }; },
     });
   }
 
@@ -1142,7 +1149,7 @@ export class UI {
         $('#m-reset', c).onclick = () => {
           this.confirmBox('Start a brand new pond? Your current progress will be lost.', () => {
             game.newGame();
-            this.tutorialStep(0);
+            this.startTutorialIfNew();
           }, { yes: 'Start over' });
         };
       },

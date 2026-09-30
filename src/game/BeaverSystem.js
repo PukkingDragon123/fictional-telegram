@@ -38,6 +38,11 @@ export class BeaverSystem {
     return b;
   }
 
+  clear() {
+    for (const b of this.list) this.group.remove(b.rig.root);
+    this.list.length = 0;
+  }
+
   removeForLodge(lodge) {
     for (const b of [...this.list]) {
       if (b.lodge !== lodge) continue;

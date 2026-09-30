@@ -94,6 +94,7 @@ export class Game {
     this.stats = this.freshStats();
     this.mods = computeMods([], this.legacy.tails);
     this.bears.clear();
+    this.beavers.clear();
     for (const s of [...this.structures.list]) this.structures.remove(s, { silent: true });
     for (const f of [...this.fish.list]) this.fish.remove(f);
     this.fish.eggs.length = 0;
@@ -642,6 +643,8 @@ export class Game {
     this.stats = { ...this.freshStats(), ...data.stats };
     this.mods = computeMods(this.state.research, this.legacy.tails);
     this.grid.computeRegions();
+    this.bears.clear();
+    this.beavers.clear();
     this.structures.load(data.structures);
     this.grid.computeRegions();
     this.fish.load(data.fish);
