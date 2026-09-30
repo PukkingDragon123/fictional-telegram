@@ -721,13 +721,14 @@ export class BearSystem {
   show(b) {
     if (b.rig) return;
     b.rig = new BearRig(b.typeId, b.def);
+    b.rig.personalize(b.id * 7.31);
     this.group.add(b.rig.root);
     b.visible = true;
     this.game.ui?.attachBearBubble(b);
   }
 
   hide(b) {
-    if (b.rig) this.group.remove(b.rig.root);
+    if (b.rig) { this.group.remove(b.rig.root); b.rig.ownMat?.dispose(); }
     b.visible = false;
     this.game.ui?.detachBearBubble(b);
   }

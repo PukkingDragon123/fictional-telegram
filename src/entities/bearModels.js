@@ -269,8 +269,19 @@ export class BearRig {
   setMaterial(kind) {
     if (this.matState === kind) return;
     this.matState = kind;
-    const m = bearMaterials()[kind];
+    const m = kind === 'normal' && this.ownMat ? this.ownMat : bearMaterials()[kind];
     for (const mesh of this.meshes) mesh.material = m;
+  }
+
+  // slight per-bear tint so a big wave doesn't look like a clone army
+  personalize(seed) {
+    const r = (Math.sin(seed * 12.9898) * 43758.5453) % 1;
+    const k = 0.9 + Math.abs(r) * 0.2;
+    const warm = ((Math.abs(r) * 7.13) % 1 - 0.5) * 0.08;
+    this.ownMat = addGrain(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    this.ownMat.color.setRGB(k * (1 + warm), k, k * (1 - warm));
+    this.matState = null;
+    this.setMaterial('normal');
   }
 
   hold(geo) {
