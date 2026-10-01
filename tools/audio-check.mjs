@@ -126,7 +126,7 @@ async function openPage(initScript, pageUrl = url) {
 /* ----------------------------------------------------------- 1. OFFLINE */
 
 // expected max audible length (s, incl. reverb tail); default 1.6 covers the "0.05-1.5 s" SFX brief
-const MAX_DUR = { discover: 2.1, whistle: 2.8, loon: 3.2, fanfare: 2.6, gameover: 2.6, day_start: 2.4, day_end: 2.6 };
+const MAX_DUR = { discover: 2.1, whistle: 2.8, loon: 3.2, fanfare: 2.6, gameover: 2.6, day_start: 2.4, day_end: 2.6, fox_laugh: 2.1, fox_snore: 1.9, reveal_epic: 2.0, reveal_legendary: 3.4, offwork: 2.3, cinema: 2.5, sleep: 3.5, sunrise: 3.2, grade_bad: 2.3 };
 
 const offline = await (async () => {
   const { page, problems, ctx } = await openPage();

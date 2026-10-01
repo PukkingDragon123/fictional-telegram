@@ -7,7 +7,9 @@ import { pineModel, mapleModel, birchModel, boulderModel, tuftModel, flowerModel
 import { officeModel, hutModel } from './buildings.js';
 import { voxelMaterial, linearRGB } from '../core/voxel.js';
 import { fbm2, hash2 } from '../core/rng.js';
-import { WATER_Y } from './grid.js';
+import { WATER_Y, KIND } from './grid.js';
+import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
+import { buildNatureAtlas } from '../art/natureArt.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -74,6 +76,7 @@ export class World {
     scene.add(this.water);
 
     this.buildSkirt();
+    this.canopyTiles = gen.canopy;
     this.buildCanopy(gen.canopy);
     this.decoGroup = new THREE.Group();
     scene.add(this.decoGroup);
@@ -153,8 +156,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     const W = g.w * 2, H = g.h * 2;
     const top = new Float32Array(W * H).fill(-99);
     const col = new Int32Array(W * H);
-    const greens = [0x2b5634, 0x2f5e3a, 0x274e30, 0x345f36, 0x23483f, 0x2a5a44];
-    const autumn = [0xb8322a, 0xd9701f, 0xe2a232, 0xc9661d, 0xe0bd45];
+    const greens = [0x1f4229, 0x23482d, 0x1c3c27, 0x284a2b, 0x1b3833, 0x204636];
+    const autumn = [0x7a2a22, 0x8e4a1c, 0x8a6428, 0x7e4418, 0x84702e];
     for (const i of tiles) {
       const x = i % g.w, z = (i / g.w) | 0;
       const base = g.height[i];
@@ -211,46 +214,89 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     this.canopy = mesh;
   }
 
-  buildDecos() {
-    for (const c of [...this.decoGroup.children]) {
-      this.decoGroup.remove(c);
-      c.dispose?.();
+  // Shared nature atlas (2D pixel trees, foliage, rocks, water plants).
+  natureFrames() {
+    if (!this.nat) {
+      const a = buildNatureAtlas();
+      this.nat = { frames: a.frames, tex: pixelTexture(a.canvas) };
     }
-    const groups = new Map();
-    this.decos.forEach((d, i) => {
-      if (d.removed) return;
-      const far = !!d.far;
-      const chunk = `${Math.floor(d.x / 20)}_${Math.floor(d.z / 20)}`;
-      const k = `${d.type}|${d.variant}|${far ? 1 : 0}|${chunk}`;
-      if (!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(i);
-    });
-    this.modelCache = this.modelCache || new Map();
-    for (const [k, list] of groups) {
-      const [type, variantS, farS] = k.split('|');
-      const variant = +variantS, far = farS === '1';
-      const mk = `${type}|${variant}|${far}`;
-      let geo = this.modelCache.get(mk);
-      if (!geo) {
-        const vm = decoModel(type, variant, far);
-        geo = vm.build({ pivot: [0.5, 0, 0.5], scale: far ? 0.2 : 0.1, ao: type === 'boulder' });
-        this.modelCache.set(mk, geo);
+    return this.nat;
+  }
+
+  frame(name, i = 0) {
+    const f = this.natureFrames().frames[name];
+    return f ? f[i % f.length] : null;
+  }
+
+  treeSprite(d) {
+    const h = hash2(d.x, d.z, 17);
+    const ground = this.grid.height[d.z * this.grid.w + d.x];
+    switch (d.type) {
+      case 'pine': return h < 0.5 ? 'pine_0' : 'pine_1';
+      case 'spruce':
+        if (ground > 6) return h < 0.5 ? 'spruce_snow_0' : 'spruce_snow_1';
+        return ['spruce_0', 'spruce_1', 'spruce_2'][Math.floor(h * 3)];
+      case 'maple': return ['maple_red', 'maple_orange', 'maple_scarlet'][d.variant % 3];
+      case 'birch': return h < 0.4 ? 'birch_0' : h < 0.8 ? 'birch_1' : 'aspen_0';
+      case 'boulder': return h < 0.4 ? 'boulder_0' : h < 0.75 ? 'boulder_1' : 'mossrock';
+      default: return null;
+    }
+  }
+
+  buildDecos() {
+    for (const c of [...this.decoGroup.children]) this.decoGroup.remove(c);
+    const { tex } = this.natureFrames();
+    const g = this.grid;
+    if (!this.treeBatch) {
+      this.treeBatch = new SpriteBatch(tex, { max: 6000, lit: true, castShadow: true, receiveShadow: true, name: 'trees' });
+    }
+    const B = this.treeBatch;
+    B.clear();
+    const items = [];
+    for (const d of this.decos) {
+      if (d.removed) continue;
+      const name = this.treeSprite(d);
+      const f = name && this.frame(name);
+      if (!f) continue;
+      const rock = d.type === 'boulder';
+      const jx = (hash2(d.x, d.z, 3) - 0.5) * 0.3, jz = (hash2(d.x, d.z, 4) - 0.5) * 0.3;
+      const dark = d.far ? 0.9 : 1;
+      items.push({ f, x: d.x + 0.5 + jx, y: g.height[d.z * g.w + d.x], z: d.z + 0.5 + jz, o: { texels: 24, scale: d.scale * (rock ? 1 : 1.05), sway: rock ? 0 : 0.5, phase: hash2(d.x, d.z, 9) * 6.28, flip: d.rot % 2 === 1 && !rock, tint: [dark, dark, dark * 1.02] } });
+    }
+    // deep forest: crowns poke up out of the dark undergrowth canopy
+    for (const i of this.canopyTiles || []) {
+      const x = i % g.w, z = (i / g.w) | 0;
+      const n = hash2(x, z, 23) < 0.55 ? 2 : 1;
+      for (let k = 0; k < n; k++) {
+        const r = hash2(x * 3 + k, z, 31);
+        const au = fbm2(x * 0.16, z * 0.16, 91);
+        let name;
+        if (au > 0.62 && r < 0.6) name = ['maple_red', 'maple_orange', 'maple_scarlet'][Math.floor(hash2(x, z + k, 7) * 3)];
+        else if (r < 0.45) name = ['spruce_0', 'spruce_1', 'spruce_2'][Math.floor(hash2(x + k, z, 8) * 3)];
+        else if (r < 0.85) name = r < 0.65 ? 'pine_0' : 'pine_1';
+        else name = r < 0.93 ? 'birch_0' : 'aspen_0';
+        const f = this.frame(name);
+        const dk = 0.72 + hash2(x, z, 41 + k) * 0.18;
+        items.push({ f, x: x + 0.25 + hash2(x, z, 50 + k) * 0.5, y: g.height[i] + 0.6, z: z + 0.25 + hash2(x, z, 60 + k) * 0.5, o: { texels: 24, scale: 0.95 + hash2(x, z, 70 + k) * 0.35, sway: 0.4, phase: r * 6.28, flip: r > 0.5, tint: [dk * 0.95, dk, dk * 1.04] } });
       }
-      const mesh = new THREE.InstancedMesh(geo, voxelMaterial(), list.length);
-      list.forEach((di, j) => {
-        const d = this.decos[di];
-        const y = this.grid.height[d.z * this.grid.w + d.x];
-        _q.setFromAxisAngle(UP, (d.rot * Math.PI) / 2);
-        _s.setScalar(d.scale);
-        _p.set(d.x + 0.5, y, d.z + 0.5);
-        _m.compose(_p, _q, _s);
-        mesh.setMatrixAt(j, _m);
-      });
-      mesh.castShadow = !far;
-      mesh.receiveShadow = true;
-      mesh.computeBoundingSphere();
-      mesh.userData.decoIdx = list;
-      this.decoGroup.add(mesh);
+    }
+    // draw back to front so the dither/alpha-test edges sort nicely
+    items.sort((a, b) => a.z - b.z);
+    for (const it of items) B.push(it.f, it.x, it.y, it.z, it.o);
+    B.commit();
+    this.decoGroup.add(B.mesh);
+  }
+
+  clutterSprite(c, k) {
+    const h = hash2(Math.floor(c.x * 7), Math.floor(c.z * 7), 5 + k);
+    switch (c.type) {
+      case 'tuft': return h < 0.62 ? `tuft_${Math.floor(h * 6.4) % 4}` : h < 0.82 ? `tallgrass_${h < 0.72 ? 0 : 1}` : h < 0.9 ? 'clover' : 'dandelion';
+      case 'fireweed': return h < 0.75 ? 'fireweed' : 'aster';
+      case 'lupine': return ['lupine_purple', 'lupine_blue', 'lupine_pink'][Math.floor(h * 3)];
+      case 'daisy': return h < 0.45 ? 'daisy' : h < 0.75 ? 'susan' : h < 0.9 ? 'dandelion' : 'trillium';
+      case 'fern': return h < 0.5 ? 'fern_0' : 'fern_1';
+      case 'mushroom': return h < 0.5 ? 'mushroom_red' : 'mushroom_brown';
+      default: return c.type;
     }
   }
 
@@ -258,35 +304,95 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     if (this.clutterGroup) this.scene.remove(this.clutterGroup);
     this.clutterGroup = new THREE.Group();
     this.scene.add(this.clutterGroup);
-    const byType = new Map();
+    const g = this.grid;
+    const { tex } = this.natureFrames();
+    if (!this.clutterBatch) {
+      this.clutterBatch = new SpriteBatch(tex, { max: 9000, lit: true, castShadow: false, receiveShadow: true, name: 'clutter' });
+      this.flatBatch = new SpriteBatch(tex, { max: 1500, lit: true, castShadow: false, receiveShadow: true, renderOrder: 11, name: 'flatnature' });
+    }
+    const B = this.clutterBatch, F = this.flatBatch;
+    B.clear();
+    F.clear();
+    const free = (i) => g.kind[i] !== KIND.WATER && g.deco[i] !== -3 && g.occ[i] < 0;
+    const items = [];
+    const add = (name, x, z, o) => {
+      const f = this.frame(name);
+      if (!f) return;
+      const tx = Math.floor(x), tz = Math.floor(z);
+      items.push({ f, x, y: g.height[tz * g.w + tx], z, o: { texels: 24, ...o } });
+    };
     for (const c of this.clutter) {
       if (c.removed) continue;
       const tx = Math.floor(c.x), tz = Math.floor(c.z);
-      const i = tz * this.grid.w + tx;
-      if (this.grid.kind[i] === 3 || this.grid.deco[i] >= 0 || this.grid.deco[i] === -3 || this.grid.occ[i] >= 0) continue;
-      if (!byType.has(c.type)) byType.set(c.type, []);
-      byType.get(c.type).push(c);
+      const i = tz * g.w + tx;
+      if (!free(i) || g.deco[i] >= 0) continue;
+      const name = this.clutterSprite(c, 0);
+      const grassy = c.type === 'tuft' || c.type === 'fern';
+      add(name, c.x, c.z, { sway: grassy ? 1.4 : 1.1, phase: c.rot * 3, flip: c.rot > Math.PI, scale: 0.9 + (c.rot % 1) * 0.25 });
+      // second, offset tuft so meadows read lush
+      if (c.type === 'tuft' && hash2(tx, tz, 77) < 0.35) add(`tuft_${Math.floor(hash2(tx, tz, 78) * 4)}`, c.x + 0.28, c.z + 0.18, { sway: 1.4, phase: c.rot * 2 + 1, flip: c.rot < 2 });
     }
-    for (const [type, list] of byType) {
-      const variants = type === 'tuft' ? 3 : 1;
-      for (let v = 0; v < variants; v++) {
-        const items = list.filter((_, i) => i % variants === v);
-        if (!items.length) continue;
-        const vm = type === 'tuft' ? tuftModel(v + 1) : flowerModel(type, v + 1);
-        const geo = vm.build({ pivot: [0.5, 0, 0.5], ao: false });
-        const mesh = new THREE.InstancedMesh(geo, voxelMaterial(), items.length);
-        items.forEach((c, j) => {
-          _q.setFromAxisAngle(UP, c.rot);
-          _s.setScalar(1);
-          _p.set(c.x, this.grid.height[Math.floor(c.z) * this.grid.w + Math.floor(c.x)], c.z);
-          _m.compose(_p, _q, _s);
-          mesh.setMatrixAt(j, _m);
-        });
-        mesh.receiveShadow = true;
-        mesh.computeBoundingSphere();
-        this.clutterGroup.add(mesh);
+    const removedTiles = new Set();
+    for (const c of this.clutter) if (c.removed) removedTiles.add(Math.floor(c.z) * g.w + Math.floor(c.x));
+    // small details: pebbles, rocks, logs, stumps, pinecones and fallen leaves
+    for (let z = 0; z < g.h; z++)
+      for (let x = 0; x < g.w; x++) {
+        const i = z * g.w + x;
+        if (!free(i) || g.deco[i] >= 0) continue;
+        const k = g.kind[i];
+        const r = hash2(x, z, 201), r2 = hash2(x, z, 202);
+        const px = x + 0.2 + hash2(x, z, 203) * 0.6, pz = z + 0.2 + hash2(x, z, 204) * 0.6;
+        if (removedTiles.has(i)) continue;
+        if (k === KIND.ROCK || k === KIND.SAND) {
+          if (r < 0.35) add(`pebble_${Math.floor(r2 * 4)}`, px, pz, {});
+          else if (r < 0.48) add(`rock_${Math.floor(r2 * 3)}`, px, pz, {});
+        } else if (k === KIND.FOREST) {
+          if (r < 0.06) add(r2 < 0.5 ? 'log_0' : 'log_1', px, pz, { flip: r2 > 0.25 && r2 < 0.75 });
+          else if (r < 0.1) add('stump', px, pz, {});
+          else if (r < 0.2) add('pinecone', px, pz, {});
+          else if (r < 0.32) add(['leaf_red', 'leaf_orange', 'leaf_yellow', 'leaf_brown'][Math.floor(r2 * 4)], px, pz, { mode: 1 });
+          else if (r < 0.37) add(r2 < 0.6 ? 'bush_0' : 'blueberry', px, pz, { sway: 0.6 });
+        } else if (k === KIND.GRASS) {
+          if (r < 0.025) add(`rock_${Math.floor(r2 * 3)}`, px, pz, {});
+          else if (r < 0.05) add(`pebble_${Math.floor(r2 * 4)}`, px, pz, {});
+          else if (r < 0.065 && !g.meadow[i]) add(r2 < 0.5 ? 'bush_1' : 'sumac', px, pz, { sway: 0.6 });
+          else if (r < 0.075) add(['leaf_red', 'leaf_orange', 'leaf_yellow'][Math.floor(r2 * 3)], px, pz, { mode: 1 });
+        }
       }
+    // shore and water plants
+    const isW = (x, z) => g.inb(x, z) && g.kind[z * g.w + x] === KIND.WATER;
+    for (let z = MEADOW.z0; z < MEADOW.z1; z++)
+      for (let x = MEADOW.x0; x < MEADOW.x1; x++) {
+        const i = z * g.w + x;
+        if (g.occ[i] >= 0) continue;
+        const r = hash2(x, z, 301), r2 = hash2(x, z, 302);
+        const px = x + 0.15 + hash2(x, z, 303) * 0.7, pz = z + 0.15 + hash2(x, z, 304) * 0.7;
+        if (isW(x, z)) {
+          const nearShore = !isW(x + 1, z) || !isW(x - 1, z) || !isW(x, z + 1) || !isW(x, z - 1);
+          const y = WATER_Y + 0.02;
+          if (nearShore && r < 0.1) {
+            const f = this.frame(r2 < 0.4 ? `cattail_${r2 < 0.2 ? 0 : 1}` : r2 < 0.8 ? `reeds_${r2 < 0.6 ? 0 : 1}` : 'wildrice');
+            items.push({ f, x: px, y: WATER_Y - 0.25, z: pz, o: { texels: 24, sway: 1.2, phase: r * 9, flip: r2 > 0.5 } });
+          } else if (r < 0.07 || (nearShore && r < 0.2)) {
+            const name = r2 < 0.45 ? 'lilypad_0' : r2 < 0.85 ? 'lilypad_1' : 'duckweed';
+            const f = this.frame(name);
+            F.push(f, px, y, pz, { texels: 24, mode: 1, ax: 0.5, ay: 0.5, rot: r * 6.28, sway: 0 });
+            if (name !== 'duckweed' && r2 < 0.25) F.push(this.frame(r2 < 0.12 ? 'lilyflower_pink' : 'lilyflower_white'), px, y + 0.03, pz, { texels: 24, mode: 1, ax: 0.5, ay: 0.5 });
+          }
+        } else if (g.kind[i] !== KIND.WATER && g.deco[i] < 0 && free(i)) {
+          const shore = isW(x + 1, z) || isW(x - 1, z) || isW(x, z + 1) || isW(x, z - 1);
+          if (shore && r < 0.22) add(r2 < 0.5 ? 'cattail_0' : r2 < 0.8 ? 'reeds_1' : 'tallgrass_1', px, pz, { sway: 1.2, phase: r * 9, flip: r2 > 0.5 });
+          else if (shore && r < 0.45) add(`pebble_${Math.floor(r2 * 4)}`, px, pz, {});
+        }
+      }
+    items.sort((a, b) => a.z - b.z);
+    for (const it of items) {
+      if (it.o.mode === 1) F.push(it.f, it.x, it.y + 0.02, it.z, { ...it.o, ax: 0.5, ay: 0.5, rot: hash2(Math.floor(it.x * 9), Math.floor(it.z * 9), 1) * 6.28 });
+      else B.push(it.f, it.x, it.y, it.z, it.o);
     }
+    B.commit();
+    F.commit();
+    this.clutterGroup.add(B.mesh, F.mesh);
   }
 
   buildLandmarks() {

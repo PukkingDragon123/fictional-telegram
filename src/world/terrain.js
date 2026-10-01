@@ -228,11 +228,29 @@ export function buildTerrainGeometry(grid) {
     vi += 4;
   };
   const Hs = (x, z) => (grid.inb(x, z) ? grid.height[z * w + x] : BASE_Y);
+  const isW = (x, z) => grid.inb(x, z) && grid.kind[z * w + x] === KIND.WATER;
+  // pond floors are smoothed into a gentle bowl: each corner takes the mean
+  // depth of the water tiles touching it (no stair-stepped slabs underwater)
+  const CW = w + 1;
+  const cornerH = new Float32Array(CW * (h + 1));
+  for (let cz = 0; cz <= h; cz++)
+    for (let cx = 0; cx <= w; cx++) {
+      let sum = 0, n = 0;
+      for (const [tx, tz] of [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]]) if (isW(tx, tz)) { sum += grid.height[tz * w + tx]; n++; }
+      cornerH[cz * CW + cx] = n ? sum / n : 0;
+    }
+  const CH = (cx, cz) => cornerH[cz * CW + cx];
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++) {
       const i = z * w + x;
       const y = grid.height[i];
       const k = grid.kind[i];
+      if (k === KIND.WATER) {
+        const c00 = 0.92, f = [c00, c00, c00];
+        const a = [x, CH(x, z), z], b = [x, CH(x, z + 1), z + 1], c = [x + 1, CH(x + 1, z + 1), z + 1], d = [x + 1, CH(x + 1, z), z];
+        quad(a, b, c, d, [0, 1, 0], [f, f, f, f], 0);
+        continue;
+      }
       // simple corner AO on top face: darker where neighbours are higher
       const ao = (dx, dz) => {
         const hs = [Hs(x + dx, z), Hs(x, z + dz), Hs(x + dx, z + dz)];
@@ -248,7 +266,13 @@ export function buildTerrainGeometry(grid) {
       const rocky = k === KIND.ROCK || k === KIND.SNOW || (!grid.meadow[i] && y > 0.6);
       const sides = [[1, 0, [1, 0, 0]], [-1, 0, [-1, 0, 0]], [0, 1, [0, 0, 1]], [0, -1, [0, 0, -1]]];
       for (const [dx, dz, n] of sides) {
-        const ny = Hs(x + dx, z + dz);
+        let ny = Hs(x + dx, z + dz);
+        if (isW(x + dx, z + dz)) {
+          // bank down to the smoothed pond floor (overlaps slightly below it)
+          const ex = dx === 1 ? x + 1 : x, ez = dz === 1 ? z + 1 : z;
+          const e0 = dx !== 0 ? CH(ex, z) : CH(x, ez), e1 = dx !== 0 ? CH(ex, z + 1) : CH(x + 1, ez);
+          ny = Math.min(ny, e0, e1) - 0.05;
+        }
         if (ny >= y) continue;
         const y0 = Math.max(ny, BASE_Y), y1 = y;
         const lo = [0.62, 0.62, 0.66], hi = [0.95, 0.95, 0.95];
@@ -347,7 +371,7 @@ void main() {
   // aurora reflection at night
   float au = uAurora * (0.5 + 0.5 * sin(q.x * 0.35 + t * 0.3 + sin(q.y * 0.2) * 2.0));
   col += vec3(0.05, 0.35, 0.22) * au * 0.35;
-  float alpha = mix(0.62, 0.86, smoothstep(0.1, 1.0, shore));
+  float alpha = mix(0.4, 0.7, smoothstep(0.1, 1.0, shore));
   alpha = max(alpha, foam * 0.85);
   gl_FragColor = vec4(col, alpha);
 }

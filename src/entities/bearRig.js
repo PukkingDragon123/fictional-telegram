@@ -14,6 +14,7 @@
 import * as THREE from 'three';
 import { VoxelModel, addGrain, shade, mix, linearRGB } from '../core/voxel.js';
 import { mulberry32 } from '../core/rng.js';
+import { BEAR_TYPES } from '../data/bears.js';
 import { BearFace, FACE_REGIONS, FACE_QUADS, FACE_W, FACE_H, FACE_INFO, FACE_EXPRESSIONS } from './bearFace.js';
 
 export { FACE_EXPRESSIONS };
@@ -1044,7 +1045,7 @@ export function preloadBearGeometries(types) {
   for (const id of Object.keys(list)) { bearRigGeometry(id, list[id]); n++; }
   return n;
 }
-let _types = null;
+let _types = BEAR_TYPES;
 export function registerBearTypes(types) { _types = types; }
 
 // ------------------------------------------------------------------ materials
@@ -1732,7 +1733,7 @@ export class BearRig {
     this.topAnchor = anchor(B.hat, 0, G.hatTop + 1.2, 0.3);
 
     this.meshes = [this.body];
-    this.shadows = true;
+    this._shadows = true;
     this.matState = 'normal';
     this.ownMat = null;
     this.held = null;
@@ -1871,6 +1872,15 @@ export class BearRig {
     const a = side === 'L' ? this.handAnchorL : this.handAnchorR;
     a.updateWorldMatrix(true, false);
     return out.setFromMatrixPosition(a.matrixWorld);
+  }
+
+  get shadows() { return this._shadows; }
+  set shadows(on) {
+    on = !!on;
+    if (on === this._shadows) return;
+    this._shadows = on;
+    for (const m of this.meshes) m.castShadow = on;
+    if (this.held) this.held.traverse((o) => { if (o.isMesh) o.castShadow = on; });
   }
 
   // extra squash impulse (e.g. a hit): positive = squash down

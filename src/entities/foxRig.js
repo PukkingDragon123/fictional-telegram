@@ -20,10 +20,12 @@ import {
 const VS = 0.05; // world units per voxel
 const FV = 0.025; // fine voxels (monocle, chain, props)
 
-/** Seat surface height (world units) Reynard's bottom rests on in the sit_* animations (root stays on the floor, centred on the seat). */
-export const FOX_SEAT_HEIGHT = 0.36;
-/** Desk / keyboard surface height (world units) that sit_type and sit_doze are posed for. */
-export const FOX_DESK_HEIGHT = 0.64;
+/** Seat surface height (world units) the sit_* animations are posed for: matches the lab chair cushion (labScene anchors.foxSeat.seatHeight = 0.5). The root stays on the floor, centred on the seat. */
+export const FOX_SEAT_SURFACE = 0.5;
+/** Hip (pelvis joint) height above the root when seated, world units. */
+export const FOX_SEAT_HEIGHT = FOX_SEAT_SURFACE + 0.13;
+/** Desk / keyboard surface height (world units) that sit_type and sit_doze are posed for (the lab desk top is at 0.8). */
+export const FOX_DESK_HEIGHT = 0.8;
 /** Distance in front of the root (+Z, world units) of the keyboard centre for sit_type. */
 export const FOX_KEYBOARD_Z = 0.36;
 
@@ -1384,7 +1386,7 @@ export class FoxRig {
 // Arms: ik(arm, xOut, y, z) targets the paw centre in chest space (x = outward).
 const ANIMS = {};
 const def = (name, o) => { ANIMS[name] = o; };
-const SEAT_HIP = FOX_SEAT_HEIGHT / VS + 2.6; // hip joint height when seated (voxels)
+const SEAT_HIP = FOX_SEAT_HEIGHT / VS; // hip joint height when seated (voxels)
 const DESK_Y = FOX_DESK_HEIGHT / VS; // desk top (voxels, root space)
 
 function life(t, p, amt = 1) {

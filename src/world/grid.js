@@ -15,7 +15,7 @@ export const KIND = {
 export const WATER_Y = -0.1; // water surface height
 export const FLOOR_DEEP = -1.05;
 export const FLOOR_SHALLOW = -0.78;
-export const FISH_Y = -0.46; // typical swimming depth
+export const FISH_Y = -0.34; // typical swimming depth
 
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];

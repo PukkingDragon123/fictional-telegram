@@ -1,0 +1,348 @@
+/* CorpClock: BEAR ST. HOLDINGS employee time clock (top centre of the HUD).
+   Everything is scoped under .cclock / .cclock-vignette. */
+
+.cclock {
+  --cc-case: #3a4152;
+  --cc-case2: #2b3040;
+  --cc-hi: #6c7690;
+  --cc-edge: #12141c;
+  --cc-ink: #d8deea;
+  --cc-dim: #8e98b0;
+  --cc-acc: #7fb2e8;
+  --cc-work: #4a5874;
+  --cc-work2: #3e4a64;
+  --cc-lunch: #5c7a52;
+  --cc-past: rgba(8, 10, 18, 0.55);
+  --cc-led: #ff3a26;
+  --cc-ledbg: #140707;
+  --cc-cap: 20px;
+  position: relative;
+  width: 360px;
+  max-width: 96vw;
+  box-sizing: border-box;
+  padding-top: 9px;
+  font-family: var(--font2, 'Silkscreen', 'Pixelify Sans', monospace);
+  color: var(--cc-ink);
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 1;
+  image-rendering: pixelated;
+}
+.cclock *, .cclock *::before, .cclock *::after { box-sizing: border-box; }
+.cclock img.px { image-rendering: pixelated; vertical-align: middle; flex: none; }
+
+/* ------------------------------------------------ plaque */
+.cclock-plaque {
+  position: absolute; left: 50%; top: 0; z-index: 3;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px;
+  height: 17px; padding: 0 7px;
+  background: linear-gradient(#f1d27a 0 2px, #d9ac4a 2px calc(100% - 3px), #9c6e24 calc(100% - 3px));
+  border: 2px solid #3a2410;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 245, 200, 0.35);
+  color: #3a2410;
+  font-size: 9px; letter-spacing: 1px; white-space: nowrap;
+}
+.cclock-plaque span { display: flex; align-items: center; gap: 4px; text-shadow: 0 1px 0 rgba(255, 240, 190, 0.55); }
+.cclock-plaque i { width: 3px; height: 3px; background: #6a4a1c; box-shadow: inset 1px 1px 0 #fff0b0; }
+.cclock-paw { display: block; flex: none; }
+
+/* ------------------------------------------------ case */
+.cclock-case {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 8px 5px 6px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px),
+    linear-gradient(var(--cc-case), var(--cc-case2));
+  border: 2px solid var(--cc-edge);
+  box-shadow:
+    inset 0 2px 0 var(--cc-hi), inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    inset 2px 0 0 rgba(255, 255, 255, 0.06), inset -2px 0 0 rgba(0, 0, 0, 0.25),
+    0 3px 0 rgba(0, 0, 0, 0.45);
+  transition: background-color 0.4s;
+}
+/* rivets */
+.cclock-case::before, .cclock-case::after {
+  content: ''; position: absolute; top: 3px; width: 3px; height: 3px;
+  background: var(--cc-hi); box-shadow: 0 calc(100% + 0px) 0 transparent, inset -1px -1px 0 rgba(0, 0, 0, 0.5);
+}
+.cclock-case::before { left: 3px; }
+.cclock-case::after { right: 3px; }
+
+.cclock-dialwrap {
+  flex: none; position: relative; z-index: 1;
+  width: 86px; height: 86px;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.45));
+}
+.cclock-dial { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
+.cclock-main { flex: 1 1 auto; min-width: 0; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 3px; }
+
+/* top row */
+.cclock-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; height: 16px; }
+.cclock-status { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 10px; letter-spacing: 0.5px; color: var(--cc-acc); white-space: nowrap; overflow: hidden; text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6); }
+.cclock-sico { display: flex; flex: none; }
+.cclock-sico:empty { display: none; }
+.cclock-stext { display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; }
+.cclock-smile { display: inline-block; flex: none; }
+.cclock-date { flex: none; font-size: 9px; color: var(--cc-dim); letter-spacing: 0.5px; white-space: nowrap; }
+
+/* schedule strip */
+.cclock-strip { display: flex; align-items: stretch; gap: 2px; height: 16px; }
+.cclock-cap {
+  flex: none; width: var(--cc-cap); display: flex; align-items: center; justify-content: center;
+  font-size: 8px; background: var(--cc-edge); color: var(--cc-dim); border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.cclock-out { width: auto; min-width: var(--cc-cap); padding: 0 2px; gap: 1px; background: #2a1414; border-color: #6a2a20; }
+.cclock-out img.px { width: 10px; height: 10px; }
+.cclock-segs {
+  position: relative; flex: 1 1 auto; min-width: 0; display: flex; overflow: hidden;
+  border: 1px solid var(--cc-edge); background: var(--cc-edge);
+}
+.cclock-seg {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 2px;
+  min-width: 0; overflow: hidden; font-size: 8px; letter-spacing: 0.5px; white-space: nowrap;
+  color: rgba(255, 255, 255, 0.7);
+  background: repeating-linear-gradient(90deg, var(--cc-work) 0 6px, var(--cc-work2) 6px 7px);
+  flex-grow: 0; flex-shrink: 0;
+}
+.cclock-seg + .cclock-seg { border-left: 1px solid var(--cc-edge); }
+.cclock-lunch { background: var(--cc-lunch); color: #eaf5d8; }
+.cclock-lunch img.px { width: 10px; height: 10px; opacity: 0.85; }
+.cclock-past {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(135deg, var(--cc-past) 0 3px, rgba(0, 0, 0, 0.35) 3px 5px);
+  transition: width 0.3s linear;
+}
+.cclock-now {
+  position: absolute; top: -1px; bottom: -1px; left: 0; z-index: 2; width: 0; pointer-events: none;
+  transition: left 0.3s linear;
+}
+.cclock-now::before { /* the needle */
+  content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 2px;
+  background: #fff; box-shadow: 0 0 0 1px var(--cc-edge), 0 0 6px rgba(255, 255, 255, 0.6);
+}
+.cclock-now i { /* the arrow head */
+  position: absolute; left: -3px; top: 0; width: 6px; height: 3px;
+  background: #fff; clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.cclock-off {
+  position: absolute; inset: 0; z-index: 3; display: none; align-items: center; justify-content: center;
+  background: repeating-linear-gradient(90deg, #4f8a52 0 6px, #467c49 6px 7px);
+  color: #f0ffd8; font-size: 8px; letter-spacing: 0.5px; white-space: nowrap;
+}
+.cclock-off span { display: flex; align-items: center; gap: 3px; }
+.cclock-off img.px { width: 10px; height: 10px; }
+
+/* hour labels under the strip */
+.cclock-ticks { position: relative; height: 8px; margin: -1px calc(var(--cc-cap) + 3px) 0 calc(var(--cc-cap) + 3px); }
+.cclock-ticks span {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-family: var(--font, monospace); font-size: 8px; color: var(--cc-dim); white-space: nowrap;
+}
+.cclock-ticks .t0 { transform: translateX(-35%); }
+.cclock-ticks .t3 { transform: translateX(-65%); color: #ff8070; }
+
+/* bottom row: LED + bell */
+.cclock-bot { display: flex; align-items: stretch; gap: 5px; height: 28px; }
+.cclock-led {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 0 6px; background: var(--cc-ledbg);
+  border: 2px solid var(--cc-edge);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 3px 6px rgba(0, 0, 0, 0.7);
+}
+.cclock-ledl { font-size: 8px; letter-spacing: 0.5px; color: var(--cc-led); opacity: 0.85; white-space: nowrap; overflow: hidden; }
+.cclock-ledv { position: relative; display: flex; align-items: center; justify-content: flex-end; flex: none; }
+.cclock-seg7 { display: block; height: 22px; image-rendering: pixelated; filter: drop-shadow(0 0 3px var(--cc-led)); }
+.cclock-word { display: none; font-family: var(--font2, monospace); font-size: 13px; font-weight: 400; color: var(--cc-led); text-shadow: 0 0 5px var(--cc-led); letter-spacing: 1px; white-space: nowrap; }
+.cclock.is-word .cclock-seg7 { display: none; }
+.cclock.is-word .cclock-word { display: block; }
+.cclock[data-led='amber'] { --cc-led: #ffc23a; }
+.cclock[data-led='green'] { --cc-led: #7dff7a; }
+.cclock[data-led='dim'] { --cc-led: #8f9ac8; }
+
+.cclock-bell {
+  flex: none; display: flex; align-items: center; gap: 3px; padding: 0 5px 1px;
+  font: inherit; font-size: 7px; line-height: 1.05; text-align: left; color: #fff6c8; cursor: pointer;
+  background: linear-gradient(#5cae5c 0 2px, #3f8a45 2px calc(100% - 3px), #255a2e calc(100% - 3px));
+  border: 2px solid #12241a; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 1px 1px 0 #12241a;
+}
+.cclock-bell:hover { filter: brightness(1.12); }
+.cclock-bell:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45); }
+.cclock-bell:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.cclock-bell.is-hidden { display: none; }
+.cclock-bell img.px { width: 14px; height: 14px; }
+
+/* hazard stripes overlay (red stages) */
+.cclock-stripes {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0;
+  background: repeating-linear-gradient(135deg, rgba(255, 196, 0, 0.16) 0 8px, rgba(0, 0, 0, 0.2) 8px 16px);
+  border: 3px solid transparent;
+  transition: opacity 0.4s;
+}
+
+/* hazard tape below the clock */
+.cclock-tape {
+  position: relative; display: none; height: 13px; margin: -1px 6px 0; overflow: hidden;
+  background: repeating-linear-gradient(135deg, #ffcf1f 0 7px, #1a1420 7px 14px);
+  border: 2px solid #1a1420; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+.cclock-tape span {
+  position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px; height: 100%;
+  white-space: nowrap; animation: cclock-tape 9s linear infinite;
+}
+.cclock-tape b {
+  font-weight: 400; font-size: 8px; color: #1a1420; letter-spacing: 1px;
+  background: #ffcf1f; padding: 0 3px; line-height: 9px;
+}
+.cclock-tape img.px { width: 9px; height: 9px; }
+@keyframes cclock-tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* stamp + flash */
+.cclock-stamp {
+  position: absolute; left: 50%; top: 52%; z-index: 6; pointer-events: none; opacity: 0;
+  padding: 3px 9px 2px; font-size: 18px; letter-spacing: 2px; white-space: nowrap;
+  border: 3px solid currentColor; background: rgba(255, 255, 255, 0.08);
+  transform: translate(-50%, -50%) rotate(-8deg) scale(2.4);
+}
+.cclock-stamp.is-red { color: #ff3624; text-shadow: 0 0 6px rgba(255, 40, 20, 0.7); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.4); background: rgba(40, 0, 0, 0.75); }
+.cclock-stamp.is-blue { color: #8fd0ff; background: rgba(8, 20, 40, 0.8); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5); }
+.cclock-stamp.is-on { animation: cclock-stamp 2.4s cubic-bezier(.2, .9, .3, 1.2) forwards; }
+.cclock-stamp.is-blue.is-on { animation-duration: 1.45s; }
+@keyframes cclock-stamp {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(2.4); }
+  12% { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scale(0.92); }
+  18% { transform: translate(-50%, -50%) rotate(-8deg) scale(1.04); }
+  24%, 80% { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(1); }
+}
+.cclock-flash { position: absolute; inset: 9px 0 0; z-index: 5; pointer-events: none; opacity: 0; background: #fff; }
+.cclock.is-alarm .cclock-flash { animation: cclock-flash 0.5s steps(2) 4; }
+.cclock.is-alarm .cclock-case { animation: cclock-shake 0.12s linear 14; }
+@keyframes cclock-flash { 0% { opacity: 0.85; background: #fff; } 50% { opacity: 0.5; background: #ff2a18; } 100% { opacity: 0; } }
+
+/* ------------------------------------------------ stages */
+/* calm: corporate grey/blue (defaults) */
+.cclock--lunch, .cclock.is-lunch { --cc-acc: #b8e89a; }
+.cclock.is-lunch .cclock-lunch {
+  background: repeating-linear-gradient(90deg, #7db85e 0 6px, #6ea852 6px 7px);
+  color: #fff; text-shadow: 1px 1px 0 #2a4a1c;
+  box-shadow: inset 0 0 0 1px #d8ff9a, 0 0 8px #b8ff7a;
+  animation: cclock-lunch 1.6s ease-in-out infinite;
+}
+.cclock.is-lunch .cclock-lunch img.px { opacity: 1; }
+@keyframes cclock-lunch { 50% { filter: brightness(1.18); } }
+
+.cclock--amber {
+  --cc-case: #5a4a2c; --cc-case2: #3e321c; --cc-hi: #9a7c40; --cc-acc: #ffc23a; --cc-dim: #c8a868;
+  --cc-work: #6a5530; --cc-work2: #5a4626;
+}
+.cclock--amber .cclock-status { animation: cclock-blink 1s steps(1) infinite; }
+
+.cclock--red, .cclock--critical {
+  --cc-case: #5e1c1a; --cc-case2: #3e0e0e; --cc-hi: #a83a30; --cc-edge: #1a0606; --cc-acc: #ffdc3a;
+  --cc-dim: #e8a090; --cc-ink: #ffe8e0; --cc-work: #7a2a24; --cc-work2: #64201c; --cc-lunch: #6a4a3a;
+}
+.cclock--red .cclock-stripes, .cclock--critical .cclock-stripes { opacity: 1; }
+.cclock--red .cclock-tape, .cclock--critical .cclock-tape { display: block; }
+.cclock--red .cclock-case { animation: cclock-jitter 3.2s steps(1) infinite; }
+.cclock--red .cclock-status, .cclock--critical .cclock-status { color: #ffdc3a; }
+.cclock--critical { --cc-case: #8a1612; --cc-case2: #4a0808; --cc-hi: #e0483a; }
+.cclock--critical .cclock-case { animation: cclock-pulse 0.8s ease-in-out infinite, cclock-shake 0.2s linear infinite; }
+.cclock--critical .cclock-status { animation: cclock-blink 0.5s steps(1) infinite; }
+.cclock--critical .cclock-tape span { animation-duration: 4.5s; }
+.cclock--critical .cclock-seg7 { animation: cclock-ledpulse 0.5s steps(1) infinite; }
+
+.cclock--offwork {
+  --cc-case: #a01a10; --cc-case2: #600a06; --cc-hi: #ff6a50; --cc-acc: #fff; --cc-ink: #fff;
+}
+.cclock--offwork .cclock-stripes { opacity: 1; }
+
+.cclock--feeding {
+  --cc-case: #5a3a22; --cc-case2: #3e2616; --cc-hi: #946038; --cc-acc: #ffb060; --cc-dim: #d0a070;
+  --cc-work: #5e4430; --cc-work2: #4e3828;
+}
+.cclock--closed, .cclock--over {
+  --cc-case: #232838; --cc-case2: #181b28; --cc-hi: #3c4460; --cc-acc: #9aa6d8; --cc-dim: #6a7498; --cc-ink: #b8c0dc;
+  --cc-work: #2e3448; --cc-work2: #262b3c; --cc-lunch: #2e3a3a;
+}
+.cclock--closed .cclock-dialwrap, .cclock--over .cclock-dialwrap { filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.45)) brightness(0.92); }
+.cclock--over { --cc-acc: #c86a6a; }
+.cclock--morning { --cc-case: #3e5068; --cc-case2: #2c3a50; --cc-hi: #7a96b8; --cc-acc: #ffd88a; }
+.cclock--sunday {
+  --cc-case: #2f5a3a; --cc-case2: #22442a; --cc-hi: #5e9a66; --cc-acc: #d8ff9a; --cc-dim: #a8d0a0; --cc-ink: #eaffda;
+}
+.cclock--sunday .cclock-off { display: flex; }
+.cclock--sunday .cclock-now, .cclock--sunday .cclock-past { display: none; }
+.cclock--sunday .cclock-out { background: #1e3a22; border-color: #4a7a4c; }
+
+@keyframes cclock-blink { 50% { opacity: 0.45; } }
+@keyframes cclock-ledpulse { 50% { filter: drop-shadow(0 0 6px var(--cc-led)) brightness(1.4); } }
+@keyframes cclock-shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-1px, 0); }
+  50% { transform: translate(1px, 1px); }
+  75% { transform: translate(0, -1px); }
+}
+@keyframes cclock-jitter {
+  0%, 92%, 100% { transform: translate(0, 0); }
+  93% { transform: translate(-1px, 0); }
+  95% { transform: translate(1px, 0); }
+  97% { transform: translate(0, 1px); }
+}
+@keyframes cclock-pulse {
+  0%, 100% { box-shadow: inset 0 2px 0 var(--cc-hi), 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 0 rgba(255, 30, 10, 0); }
+  50% { box-shadow: inset 0 2px 0 var(--cc-hi), 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 14px rgba(255, 30, 10, 0.85); }
+}
+
+/* ------------------------------------------------ full-screen red edge vignette */
+.cclock-vignette {
+  position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0;
+  box-shadow: inset 0 0 90px 24px rgba(220, 16, 8, 0.85);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(150, 0, 0, 0.35) 100%);
+  transition: opacity 0.6s;
+}
+.cclock-vignette.is-dim { opacity: 0.22; }
+.cclock-vignette.is-on { opacity: 1; animation: cclock-vig 0.8s ease-in-out infinite; }
+.cclock-vignette.is-flash { opacity: 1; animation: cclock-vigflash 0.5s steps(2) 5; }
+@keyframes cclock-vig { 0%, 100% { opacity: 0.35; } 30% { opacity: 0.9; } 45% { opacity: 0.55; } 60% { opacity: 0.85; } }
+@keyframes cclock-vigflash { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 0; } }
+
+/* ------------------------------------------------ compact (phones) */
+.cclock.is-compact { --cc-cap: 15px; padding-top: 8px; }
+.cclock.is-compact .cclock-plaque { height: 15px; font-size: 7px; padding: 0 5px; gap: 3px; }
+.cclock.is-compact .cclock-case { gap: 5px; padding: 6px 5px 4px 4px; }
+.cclock.is-compact .cclock-dialwrap { width: 62px; height: 62px; }
+.cclock.is-compact .cclock-main { gap: 2px; }
+.cclock.is-compact .cclock-top { height: 13px; }
+.cclock.is-compact .cclock-status { font-size: 8px; }
+.cclock.is-compact .cclock-date { font-size: 7px; }
+.cclock.is-compact .cclock-strip { height: 13px; }
+.cclock.is-compact .cclock-seg, .cclock.is-compact .cclock-off { font-size: 6px; }
+.cclock.is-compact .cclock-seg span { overflow: hidden; }
+.cclock.is-compact .cclock-lunch img.px { display: none; }
+.cclock.is-compact .cclock-cap { font-size: 6px; }
+.cclock.is-compact .cclock-out img.px { width: 8px; height: 8px; }
+.cclock.is-compact .cclock-out img.px:last-child { display: none; }
+.cclock.is-compact .cclock-ticks span { font-size: 7px; }
+.cclock.is-compact .cclock-bot { height: 22px; gap: 3px; }
+.cclock.is-compact .cclock-led { padding: 0 4px; gap: 3px; }
+.cclock.is-compact .cclock-ledl { font-size: 6px; }
+.cclock.is-compact .cclock-seg7 { height: 16px; width: auto !important; }
+.cclock.is-compact .cclock-word { font-size: 10px; }
+.cclock.is-compact .cclock-bell { font-size: 6px; padding: 0 3px; }
+.cclock.is-compact .cclock-bell img.px { width: 11px; height: 11px; }
+.cclock.is-compact .cclock-stamp { font-size: 14px; }
+.cclock.is-compact .cclock-tape { height: 11px; }
+
+@media (max-width: 520px) {
+  .cclock { width: min(92vw, 300px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cclock *, .cclock *::before, .cclock *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; }
+  .cclock-vignette.is-on { animation: none; opacity: 0.7; }
+  .cclock-vignette.is-flash { animation: none; }
+}

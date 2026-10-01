@@ -3842,6 +3842,769 @@ for (const e of Object.keys(FOX_EXPR)) {
   });
 }
 
+//@@NEW_BEGIN@@
+// --- shared pixel font (bold 5x6 caps) --------------------------------------
+const FONT = {
+  w: 5,
+  sp: 1,
+  g: {
+    A: ['.###.', '##.##', '##.##', '#####', '##.##', '##.##'],
+    B: ['####.', '##.##', '####.', '##.##', '##.##', '####.'],
+    C: ['.####', '##...', '##...', '##...', '##...', '.####'],
+    D: ['####.', '##.##', '##.##', '##.##', '##.##', '####.'],
+    E: ['#####', '##...', '####.', '##...', '##...', '#####'],
+    F: ['#####', '##...', '####.', '##...', '##...', '##...'],
+    G: ['.####', '##...', '##.##', '##.##', '##.##', '.####'],
+    I: ['####', '.##.', '.##.', '.##.', '.##.', '####'],
+    J: ['...##', '...##', '...##', '...##', '##.##', '.###.'],
+    K: ['##..#', '##.##', '####.', '####.', '##.##', '##..#'],
+    L: ['##...', '##...', '##...', '##...', '##...', '#####'],
+    M: ['#...#', '##.##', '#####', '#.#.#', '#.#.#', '#...#'],
+    O: ['.###.', '##.##', '##.##', '##.##', '##.##', '.###.'],
+    P: ['####.', '##.##', '##.##', '####.', '##...', '##...'],
+    R: ['####.', '##.##', '##.##', '####.', '##.##', '##.##'],
+    S: ['.####', '##...', '.###.', '...##', '...##', '####.'],
+    U: ['##.##', '##.##', '##.##', '##.##', '##.##', '.###.'],
+    V: ['##.##', '##.##', '##.##', '##.##', '.###.', '..#..'],
+    W: ['#...#', '#...#', '#.#.#', '#.#.#', '#####', '.#.#.'],
+    '!': ['##', '##', '##', '##', '..', '##'],
+    '+': ['.....', '..#..', '..#..', '#####', '..#..', '..#..'],
+    ' ': ['...', '...', '...', '...', '...', '...'],
+  },
+};
+function textW(str, font = FONT) {
+  let w = 0;
+  for (const c of str) w += (font.g[c] || font.g[' '])[0].length + font.sp;
+  return w - font.sp;
+}
+// scale a glyph's rows by an integer factor
+const scaleRows = (rows, k) => rows.flatMap((r) => Array(k).fill(r.split('').map((c) => c.repeat(k)).join('')));
+const P20 = (rows, w = 20) => rows.map((r) => r.padEnd(w, '.'));
+
+// ===========================================================================
+// STICKERS (die-cut: 2px white border + 1px soft shadow)
+// ===========================================================================
+function dieCut(p, bw = 2) {
+  const P = p.pad(bw, bw, bw + 1, bw + 1);
+  const W = P.w, H = P.h;
+  const m = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (P.a(x, y) > 40) m[y * W + x] = 1;
+  const rg = new Uint8Array(W * H);
+  const r2 = (bw + 0.5) * (bw + 0.5);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (!m[y * W + x]) continue;
+      for (let dy = -bw; dy <= bw; dy++)
+        for (let dx = -bw; dx <= bw; dx++) {
+          if (dx * dx + dy * dy > r2) continue;
+          const X = x + dx, Y = y + dy;
+          if (X >= 0 && Y >= 0 && X < W && Y < H) rg[Y * W + X] = 1;
+        }
+    }
+  const out = new Pix(W, H);
+  const inR = (x, y) => x >= 0 && y >= 0 && x < W && y < H && rg[y * W + x];
+  // soft shadow: region shifted 1px down-right
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) if (!inR(x, y) && inR(x - 1, y - 1)) out.put(x, y, INK, inR(x, y - 1) || inR(x - 1, y) ? 92 : 56);
+  const WH = [255, 255, 255], EDGE = [232, 228, 238];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (!rg[y * W + x]) continue;
+      // outermost ring on the lower-right reads as the paper's thickness
+      const edge = !inR(x + 1, y) || !inR(x, y + 1);
+      out.put(x, y, edge && (!inR(x + 1, y + 1)) ? EDGE : WH);
+    }
+  return out.draw(P);
+}
+const spx = (name) => SPRITES[name].px.clone();
+function sticker(name, fn) {
+  draw(name, () => dieCut(fn()));
+}
+// add a cute face to a Pix: eyes at (ex0, ey) / (ex1, ey), smile centred at mx
+function cuteFace(p, ex0, ex1, ey, mx, my, blush = true) {
+  const K = [42, 26, 20], W = [255, 255, 255], B = [255, 128, 150];
+  for (const ex of [ex0, ex1]) {
+    p.put(ex, ey, W); p.put(ex + 1, ey, K); p.put(ex, ey + 1, K); p.put(ex + 1, ey + 1, K);
+  }
+  p.put(mx - 1, my, K); p.put(mx + 1, my, K); p.put(mx, my + 1, K);
+  if (blush) {
+    p.over(ex0 - 2, ey + 2, B, 190); p.over(ex0 - 1, ey + 2, B, 190);
+    p.over(ex1 + 2, ey + 2, B, 190); p.over(ex1 + 3, ey + 2, B, 190);
+  }
+  return p;
+}
+
+sticker('sticker_star', () => cuteFace(spx('star'), 7, 11, 10, 10, 13));
+sticker('sticker_heart', () => cuteFace(spx('heart'), 6, 12, 7, 10, 10));
+sticker('sticker_fish', () => spx('fish'));
+sticker('sticker_maple', () => spx('maple'));
+sticker('sticker_crown', () => spx('crown'));
+sticker('sticker_bear', () => spx('bear'));
+sticker('sticker_egg', () => cuteFace(spx('egg'), 7, 11, 11, 10, 14));
+
+sticker('sticker_smiley', () => {
+  const g = new Grid(20, 20).ellipse(10, 10, 9, 9, 'Y');
+  for (const ex of [7, 12]) g.set(ex, 6, 'w').set(ex, 7, 'K').set(ex, 8, 'K');
+  g.set(4, 10, 'p').set(5, 10, 'p').set(14, 10, 'p').set(15, 10, 'p');
+  g.stamp(5, 11, ['K........K', '.KKKKKKKK.', '..KrrrrK..', '...KKKK...']);
+  return render(g, { Y: 'yellow.R', p: 'pink:3', K: '#2a1a14', w: '#ffffff', r: 'red:3' });
+});
+
+sticker('sticker_paw', () => {
+  const g = new Grid(20, 20);
+  g.ellipse(10, 13.2, 5.6, 4.6, 'P');
+  g.ellipse(3.8, 8.2, 2.2, 2.7, 'T').ellipse(7.8, 4.4, 2.3, 2.8, 'U').ellipse(12.2, 4.4, 2.3, 2.8, 'V').ellipse(16.2, 8.2, 2.2, 2.7, 'X');
+  return render(g, { P: 'pink.R@pad', T: 'pink.R@t1', U: 'pink.R@t2', V: 'pink.R@t3', X: 'pink.R@t4' });
+});
+
+sticker('sticker_thumb', () => {
+  const g = Grid.from(P20([
+    '....................',
+    '.........SS.........',
+    '........SSSS........',
+    '........SSSS........',
+    '.......SSSS.........',
+    '.......SSSS.........',
+    '......SSSSS.........',
+    '.CCC.SSSSSSSSSSSSS..',
+    '.CCC.SSSSSSSSSSSSSS.',
+    '.CCC.SSSSSSkkkkkkkS.',
+    '.CCC.SSSSSSSSSSSSSS.',
+    '.CCC.SSSSSSkkkkkkkS.',
+    '.CCC.SSSSSSSSSSSSSS.',
+    '.CCC.SSSSSSkkkkkkS..',
+    '.CCC.SSSSSSSSSSSSS..',
+    '.CCC.SSSSSSkkkkkS...',
+    '.CCC..SSSSSSSSSSS...',
+    '....................',
+  ]));
+  g.set(2, 8, 'c').set(2, 9, 'c');
+  return render(g, { S: 'yellow.R', C: 'blue.x', c: 'blue:5' });
+});
+
+sticker('sticker_rainbow', () => {
+  const g = new Grid(22, 15);
+  const bands = 'roygbp';
+  for (let y = 0; y < 15; y++)
+    for (let x = 0; x < 22; x++) {
+      const d = Math.hypot(x + 0.5 - 11, y + 0.5 - 13);
+      const i = Math.floor(10.5 - d);
+      if (i >= 0 && i < 6 && y < 13) g.set(x, y, bands[i]);
+    }
+  for (const cx of [3.2, 18.8]) {
+    g.ellipse(cx, 11.8, 3.2, 2.4, 'W').ellipse(cx - 1.6, 12.6, 2.2, 1.8, 'W').ellipse(cx + 1.8, 12.6, 2.2, 1.8, 'W');
+  }
+  return render(g, { r: 'red:3', o: 'orange:3', y: 'yellow:3', g: 'leaf:4', b: 'blue:3', p: 'purple:4', W: 'white.R' });
+});
+
+sticker('sticker_coffee', () => {
+  const g = Grid.from(P20([
+    '......s...s.........',
+    '.....s...s..........',
+    '......s...s.........',
+    '....................',
+    '..MMMMMMMMMMMMM.....',
+    '..MccccccccccdM.....',
+    '..MMMMMMMMMMMMMMMM..',
+    '..MMMMMMMMMMMMM..MM.',
+    '..MMMMHHMHHMMMM...M.',
+    '..MMMMHHHHHMMMM...M.',
+    '..MMMMMHHHMMMMM..MM.',
+    '..MMMMMMHMMMMMMMMM..',
+    '..MMMMMMMMMMMMM.....',
+    '...MMMMMMMMMMM......',
+    '.PPPPPPPPPPPPPPPP...',
+    '..PPPPPPPPPPPPPP....',
+  ]));
+  return render(g, { M: 'red.x@mug', H: 'cream:4', c: 'syrup:2', d: 'syrup:3', P: 'cream.y', s: 'white:2!' });
+});
+
+sticker('sticker_wow', () => {
+  const W = 27, H = 21, cx = 13.5, cy = 10.5;
+  const g = new Grid(W, H);
+  const pts = [];
+  for (let i = 0; i < 24; i++) {
+    const a = (i * Math.PI) / 12, rr = i % 2 ? 0.74 : 1;
+    pts.push([cx + Math.cos(a) * 13.2 * rr, cy + Math.sin(a) * 10.2 * rr]);
+  }
+  g.poly(pts, 'Y');
+  const tx = Math.round(cx - textW('WOW!') / 2);
+  const t = new Grid(W, H).text(tx, 7, 'WOW!', FONT, 'r');
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (t.get(x, y) !== 'r') continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1]]) if (t.get(x + dx, y + dy) === '.' && g.get(x + dx, y + dy) !== '.') g.set(x + dx, y + dy, dx + dy === 2 || dy === 1 ? 'q' : 'Q');
+    }
+  for (let i = 0; i < t.c.length; i++) if (t.c[i] === 'r') g.c[i] = 'r';
+  for (const [x, y] of [[5, 5], [21, 4], [4, 15], [22, 16]]) g.set(x, y, 'o');
+  return render(g, { Y: 'yellow.R', r: 'parch:5', Q: 'red:2', q: 'red:1', o: 'orange:4' });
+});
+
+sticker('sticker_good', () => {
+  const W = 27, H = 17;
+  const g = new Grid(W, H);
+  g.rect(1, 0, W - 2, H, 'G').rect(0, 1, W, H - 2, 'G');
+  g.text(Math.round(W / 2 - textW('GOOD') / 2), 2, 'GOOD', FONT, 't');
+  g.text(Math.round(W / 2 - textW('JOB') / 2), 9, 'JOB', FONT, 't');
+  g.set(2, 3, 'y').set(W - 3, 3, 'y').set(2, H - 4, 'y').set(W - 3, H - 4, 'y');
+  return render(g, { G: 'green.f', t: 'parch:4', y: 'gold:4' });
+});
+
+// ===========================================================================
+// RUBBER STAMPS (rough ink)
+// ===========================================================================
+const STAMP_INK = { red: [196, 44, 40], green: [44, 132, 70], blue: [44, 88, 178], amber: [200, 128, 22] };
+function inkStamp(w, h, paint, ink, seed, angle = -0.07) {
+  const src = new Grid(w, h);
+  paint(src);
+  const r = rng(seed);
+  // value noise for uneven ink
+  const nW = Math.ceil(w / 4) + 2, nH = Math.ceil(h / 4) + 2;
+  const nz = Array.from({ length: nW * nH }, () => r());
+  const noise = (x, y) => {
+    const fx = x / 4, fy = y / 4, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+    const v = (i, j) => nz[Math.min(nH - 1, j) * nW + Math.min(nW - 1, i)];
+    return (v(ix, iy) * (1 - tx) + v(ix + 1, iy) * tx) * (1 - ty) + (v(ix, iy + 1) * (1 - tx) + v(ix + 1, iy + 1) * tx) * ty;
+  };
+  const cx = w / 2, cy = h / 2, ca = Math.cos(angle), sa = Math.sin(angle);
+  const m = new Uint8Array(w * h), T8 = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+      const sx = Math.floor(cx + dx * ca + dy * sa), sy = Math.floor(cy - dx * sa + dy * ca);
+      const ch = src.get(sx, sy);
+      if (ch !== '.') m[y * w + x] = 1;
+      if (ch === 't') T8[y * w + x] = 1;
+    }
+  const p = new Pix(w, h);
+  const dark = mix(ink, INK, 0.35);
+  const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && m[y * w + x];
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const on = at(x, y), clean = on && T8[y * w + x];
+      const edge = on && (!at(x - 1, y) || !at(x + 1, y) || !at(x, y - 1) || !at(x, y + 1));
+      const near = !on && (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1));
+      const n = noise(x, y), q = r();
+      if (on) {
+        if (!clean && (q < 0.02 + (n < 0.22 ? 0.06 : 0) || (edge && q < 0.07))) continue;
+        const a = Math.round(255 * ((clean ? 0.8 : 0.7) + (clean ? 0.2 : 0.3) * n));
+        p.put(x, y, n > 0.78 ? dark : ink, a);
+      } else if (near && q < 0.035) p.put(x, y, ink, 140);
+    }
+  return p;
+}
+function ringPaint(g, cx, cy, ro, ri) {
+  for (let y = 0; y < g.h; y++)
+    for (let x = 0; x < g.w; x++) {
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+      if (d <= ro && d > ri) g.set(x, y, '#');
+    }
+}
+function gradeStamp(name, letter, plus, ink) {
+  draw(name, () =>
+    inkStamp(42, 42, (g) => {
+      ringPaint(g, 21, 21, 20.4, 18.2);
+      ringPaint(g, 21, 21, 16.9, 15.9);
+      const L = scaleRows(FONT.g[letter], 2);
+      const lw = L[0].length + (plus ? 6 : 0);
+      const x0 = Math.round(21 - lw / 2);
+      g.stamp(x0, 15, L.map((r) => r.replace(/#/g, 't')));
+      if (plus) g.stamp(x0 + L[0].length + 1, 17, ['..t..', '..t..', 'ttttt', '..t..', '..t..']);
+      // little stars left/right
+      for (const sx of [7, 34]) g.stamp(sx - 1, 20, ['.#.', '###', '.#.']);
+    }, ink, hashStr(name), 0),
+  );
+}
+gradeStamp('stamp_Aplus', 'A', true, STAMP_INK.green);
+gradeStamp('stamp_A', 'A', false, STAMP_INK.green);
+gradeStamp('stamp_B', 'B', false, STAMP_INK.blue);
+gradeStamp('stamp_C', 'C', false, STAMP_INK.amber);
+gradeStamp('stamp_D', 'D', false, STAMP_INK.amber);
+gradeStamp('stamp_F', 'F', false, STAMP_INK.red);
+
+function wordStamp(name, word, ink = STAMP_INK.red) {
+  draw(name, () => {
+    const tw = textW(word);
+    const w = Math.max(42, tw + 14), h = 20;
+    return inkStamp(w, h, (g) => {
+      // double border with rounded corners
+      g.rect(1, 0, w - 2, 2, '#').rect(1, h - 2, w - 2, 2, '#').rect(0, 1, 2, h - 2, '#').rect(w - 2, 1, 2, h - 2, '#');
+      g.rect(3, 3, w - 6, 1, '#').rect(3, h - 4, w - 6, 1, '#').rect(3, 3, 1, h - 6, '#').rect(w - 4, 3, 1, h - 6, '#');
+      g.set(0, 0, '.').set(w - 1, 0, '.').set(0, h - 1, '.').set(w - 1, h - 1, '.');
+      g.text(Math.round(w / 2 - tw / 2), 7, word, FONT, 't');
+    }, ink, hashStr(name), 0);
+  });
+}
+wordStamp('stamp_approved', 'APPROVED');
+wordStamp('stamp_paid', 'PAID');
+wordStamp('stamp_seeme', 'SEE ME!');
+wordStamp('stamp_overdue', 'OVERDUE');
+wordStamp('stamp_closed', 'CLOSED');
+wordStamp('stamp_offwork', 'OFF WORK');
+
+// ===========================================================================
+// EGGS (hatching ceremony): egg_<rarity>_<stage>
+// ===========================================================================
+const EGG_W = 24, EGG_H = 30, EGG_CX = 12, EGG_CY = 17.6;
+const EGG_KEYS = {
+  common: { E: 'cream.R@sh', d: 'syrup.R@sh', D: 'cinnamon.R@sh' },
+  uncommon: { E: 'mint.R@sh', d: 'leaf.R@sh', D: 'green.R@sh' },
+  rare: { E: 'sky.R@sh', d: 'blue.R@sh', D: 'white.R@sh' },
+  epic: { E: 'purple.R@sh', d: 'lilac:5', D: 'yellow:4', s: 'lilac:3' },
+  legendary: { E: 'gold.R@sh', d: 'red.R@sh', D: 'gold:1', r: 'rose:3', b: 'blue:4', g: 'mint:4' },
+};
+const EGG_PATTERN = {
+  common(g, r) {
+    for (let i = 0; i < 46; i++) {
+      const x = Math.floor(3 + r() * 18), y = Math.floor(5 + r() * 23);
+      if (g.get(x, y) !== 'E' || (x < 9 && y < 12 && r() < 0.7)) continue;
+      g.set(x, y, r() < 0.4 ? 'D' : 'd');
+      if (r() < 0.3 && g.get(x + 1, y) === 'E') g.set(x + 1, y, 'd');
+      if (r() < 0.15 && g.get(x, y + 1) === 'E') g.set(x, y + 1, 'd');
+    }
+  },
+  uncommon(g, r) {
+    // a curling vine with leaves around the belly, plus a sprig on top
+    const vy = (x) => 18 + Math.sin(x * 0.7) * 1.6;
+    for (let x = 2; x < 22; x++) if (g.get(x, Math.round(vy(x))) === 'E') g.set(x, Math.round(vy(x)), 'D');
+    const leaf = [['.dd', 'dd.'], ['dd.', '.dd']];
+    for (let x = 4, k = 0; x < 20; x += 3, k++) {
+      const y = Math.round(vy(x)) + (k % 2 ? 1 : -2);
+      leaf[k % 2].forEach((row, j) => {
+        for (let i = 0; i < 3; i++) if (row[i] === 'd' && g.get(x + i - 1, y + j) === 'E') g.set(x + i - 1, y + j, 'd');
+      });
+    }
+    for (const [x, y] of [[12, 7], [13, 7], [11, 8], [12, 8], [14, 9], [9, 11], [10, 11], [15, 12], [16, 12], [7, 24], [8, 24], [15, 25], [16, 24]])
+      if (g.get(x, y) === 'E') g.set(x, y, 'd');
+  },
+  rare(g) {
+    for (const [y0, ph] of [[12, 0], [19, 1.6], [25, 0.8]]) {
+      for (let x = 0; x < EGG_W; x++) {
+        const y = Math.round(y0 + Math.sin(x * 0.9 + ph) * 1.2);
+        for (const yy of [y, y + 1]) if (g.get(x, yy) === 'E') g.set(x, yy, 'd');
+        if (Math.sin(x * 0.9 + ph) < -0.7 && g.get(x, y - 1) === 'E') g.set(x, y - 1, 'D');
+      }
+    }
+  },
+  epic(g, r) {
+    const spark = (x, y, big) => {
+      const pts = big ? [[0, -2], [0, -1], [-2, 0], [-1, 0], [1, 0], [2, 0], [0, 1], [0, 2]] : [[0, -1], [-1, 0], [1, 0], [0, 1]];
+      for (const [dx, dy] of pts) if (g.get(x + dx, y + dy) === 'E') g.set(x + dx, y + dy, 's');
+      if (g.get(x, y) === 'E') g.set(x, y, 'd');
+    };
+    spark(15, 10, true); spark(8, 17, true); spark(15, 22, true);
+    spark(10, 9, false); spark(17, 16, false); spark(6, 24, false); spark(11, 25, false);
+    for (let i = 0; i < 10; i++) {
+      const x = Math.floor(4 + r() * 16), y = Math.floor(6 + r() * 21);
+      if (g.get(x, y) === 'E') g.set(x, y, 'D');
+    }
+  },
+  legendary(g) {
+    // jewelled band
+    for (let x = 0; x < EGG_W; x++) for (const y of [24, 26]) if (g.get(x, y) === 'E') g.set(x, y, 'D');
+    for (const [x, c] of [[6, 'b'], [9, 'r'], [12, 'g'], [15, 'r'], [18, 'b']]) {
+      if (g.get(x, 25) === 'E') g.set(x, 25, c);
+      if (g.get(x + 1, 25) === 'E') g.set(x + 1, 25, '+');
+    }
+    // maple-leaf emblem
+    g.stamp(7, 11, [
+      '.....d.....',
+      '...d.d.d...',
+      '...ddddd...',
+      'd..ddddd..d',
+      '.ddddddddd.',
+      '..ddddddd..',
+      '...ddddd...',
+      '.....d.....',
+      '.....d.....',
+    ].map((row) => row.replace(/\./g, '.')));
+  },
+};
+function eggBase(rar) {
+  const g = eggShape(new Grid(EGG_W, EGG_H), EGG_CX, EGG_CY, 9, 13, 10.4, 'E');
+  EGG_PATTERN[rar](g, rng(hashStr(rar)));
+  return g;
+}
+const isShell = (ch) => ch !== '.' && ch !== 'k' && ch !== 'L';
+function eggSprite(rar, stage) {
+  const key = { ...EGG_KEYS[rar], L: '#fff6c0', l: '#ffe98a' };
+  draw(`egg_${rar}_${stage}`, () => {
+    let g = eggBase(rar);
+    if (stage === 1) {
+      const pts = [[15, 6], [14, 8], [16, 10], [13, 12], [14, 14], [12, 15]];
+      for (let i = 1; i < pts.length; i++) {
+        const t = new Grid(EGG_W, EGG_H).line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], '#');
+        for (let j = 0; j < t.c.length; j++) if (t.c[j] === '#' && isShell(g.c[j])) g.c[j] = 'k';
+      }
+      g.set(16, 9, 'k');
+    }
+    let rays = null;
+    if (stage === 2) {
+      const zz = [0, -2, 1, -1, 2, -2, 0, 2, -1];
+      const crack = new Grid(EGG_W, EGG_H);
+      for (let i = 0; i < zz.length - 1; i++) crack.line(1 + i * 3, 15 + zz[i], 1 + (i + 1) * 3, 15 + zz[i + 1], '#');
+      // a branch running down
+      crack.line(13, 16, 11, 19, '#').line(11, 19, 12, 21, '#');
+      const glow = [];
+      for (let j = 0; j < crack.c.length; j++) {
+        if (crack.c[j] !== '#' || !isShell(g.c[j])) continue;
+        g.c[j] = 'L';
+        glow.push(j);
+      }
+      for (const j of glow) {
+        const x = j % EGG_W, y = (j / EGG_W) | 0;
+        for (const [dx, dy] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
+          const ch = g.get(x + dx, y + dy);
+          if (isShell(ch)) g.set(x + dx, y + dy, dy < 0 ? 'k' : 'l');
+        }
+      }
+      rays = glow;
+    }
+    if (stage === 3) {
+      const crackY = (x) => 15.5 + [0, 1, 2, 1][x % 4] - 1;
+      const cap = new Grid(EGG_W, EGG_H);
+      const bottom = new Grid(EGG_W, EGG_H);
+      for (let y = 0; y < EGG_H; y++)
+        for (let x = 0; x < EGG_W; x++) {
+          const ch = g.get(x, y);
+          if (ch === '.') continue;
+          (y >= crackY(x) ? bottom : cap).set(x, y, ch);
+        }
+      // hollow interior seen from slightly above
+      for (let y = 0; y < EGG_H; y++)
+        for (let x = 0; x < EGG_W; x++) {
+          const dx = (x + 0.5 - EGG_CX) / 7.4, dy = (y + 0.5 - 17.2) / 2.3;
+          if (dx * dx + dy * dy <= 1) bottom.set(x, y, dy < 0.2 ? 'I' : 'J');
+        }
+      // tipped cap floating up and to the right
+      const out = new Grid(EGG_W, EGG_H);
+      for (let y = 0; y < EGG_H; y++)
+        for (let x = 0; x < EGG_W; x++) {
+          const ch = cap.get(x, y);
+          if (ch !== '.') out.set(x + 1, y - 4 - Math.round((x - 12) * 0.13), ch);
+        }
+      // the cap's broken lower edge shows its hollow underside
+      for (let x = 0; x < EGG_W; x++) {
+        let yb = -1;
+        for (let y = EGG_H - 1; y >= 0; y--) if (out.get(x, y) !== '.') { yb = y; break; }
+        if (yb >= 0) out.set(x, yb, 'J');
+      }
+      for (let i = 0; i < out.c.length; i++) if (bottom.c[i] !== '.') out.c[i] = bottom.c[i];
+      g = out;
+      key.I = EGG_KEYS[rar].E.split('.')[0].split(':')[0] + ':2';
+      key.J = EGG_KEYS[rar].E.split('.')[0].split(':')[0] + ':1';
+    }
+    let p = render(g, key);
+    if (rays) {
+      // light leaking out: soft halo and rays from the crack ends
+      const lt = [255, 243, 163];
+      for (const [x0, y0, dx, dy] of [[0, 15, -1, -0.4], [23, 15, 1, -0.5], [0, 15, -1, 0.3], [23, 14, 1, 0.4]]) {
+        for (let s = 1; s < 4; s++) {
+          const x = Math.round(x0 + dx * s), y = Math.round(y0 + dy * s);
+          if (!p.a(x, y)) p.over(x, y, lt, 200 - s * 45);
+        }
+      }
+      for (const [x, y] of [[12, 1], [5, 4], [19, 4], [2, 9], [22, 9]]) if (!p.a(x, y)) p.over(x, y, lt, 170);
+    }
+    if (stage === 3) {
+      const lt = [255, 246, 192];
+      for (const [x, y, a] of [[4, 12, 220], [19, 15, 200], [7, 9, 150], [3, 16, 140], [21, 19, 160], [11, 13, 120]]) if (!p.a(x, y)) p.over(x, y, lt, a);
+    }
+    return p;
+  });
+}
+for (const rar of ['common', 'uncommon', 'rare', 'epic', 'legendary']) for (let st = 0; st < 4; st++) eggSprite(rar, st);
+
+// ===========================================================================
+// B&W EMOTES (12x12) for comic speech bubbles
+// ===========================================================================
+const EMO_KEY = { K: '#141414', w: '#ffffff', g: '#9a9a9a', l: '#d4d4d4', d: '#505050' };
+function emo(name, rows) {
+  icon('emo_' + name, EMO_KEY, P20(rows, 12).slice(0, 12).concat(Array(Math.max(0, 12 - rows.length)).fill('............')), { ol: false });
+}
+emo('heart', [
+  '............',
+  '..KKK..KKK..',
+  '.KKwKKKKKKK.',
+  '.KwKKKKKKKK.',
+  '.KKKKKKKKKK.',
+  '.KKKKKKKKKK.',
+  '..KKKKKKKK..',
+  '...KKKKKK...',
+  '....KKKK....',
+  '.....KK.....',
+  '............',
+  '............',
+]);
+emo('anger', [
+  '............',
+  '...KK..KK...',
+  '...KK..KK...',
+  '.KKKK..KKKK.',
+  '.KKK....KKK.',
+  '............',
+  '............',
+  '.KKK....KKK.',
+  '.KKKK..KKKK.',
+  '...KK..KK...',
+  '...KK..KK...',
+  '............',
+]);
+emo('sweat', [
+  '.....KK.....',
+  '.....KK.....',
+  '....KwwK....',
+  '....KwwK....',
+  '...KwwwwK...',
+  '..KwwwwwwK..',
+  '..KwKwwwlK..',
+  '..KwKwwwlK..',
+  '..KwwwwllK..',
+  '...KwwllK...',
+  '....KKKK....',
+  '............',
+]);
+emo('exclaim', [
+  '...KKKKKK...',
+  '...KwwwwK...',
+  '...KwwwwK...',
+  '....KwwK....',
+  '....KwwK....',
+  '....KwlK....',
+  '.....KK.....',
+  '............',
+  '....KKKK....',
+  '....KwlK....',
+  '....KKKK....',
+  '............',
+]);
+emo('question', [
+  '...KKKKKK...',
+  '..KKKKKKKK..',
+  '..KKK..KKK..',
+  '.......KKK..',
+  '......KKK...',
+  '.....KKK....',
+  '.....KK.....',
+  '.....KK.....',
+  '............',
+  '.....KK.....',
+  '.....KK.....',
+  '............',
+]);
+emo('music', [
+  '............',
+  '....KKKKKKK.',
+  '....KKKKKKK.',
+  '....K.....K.',
+  '....K.....K.',
+  '....K.....K.',
+  '....K.....K.',
+  '..KKK...KKK.',
+  '.KKKK..KKKK.',
+  '.KKKK..KKKK.',
+  '..KK....KK..',
+  '............',
+]);
+emo('zzz', [
+  '......KKKKKK',
+  '......KKKKKK',
+  '.........KK.',
+  '........KK..',
+  '.......KK...',
+  '......KKKKKK',
+  '......KKKKKK',
+  'KKKK........',
+  '...K........',
+  '..K.........',
+  '.K..........',
+  'KKKK........',
+]);
+emo('skull', [
+  '...KKKKKK...',
+  '..KwwwwwwK..',
+  '.KwwwwwwwlK.',
+  '.KwKKwwKKlK.',
+  '.KwKKwwKKlK.',
+  '.KwwwKKwwlK.',
+  '..KwwwwwlK..',
+  '...KwKKwK...',
+  '...KKKKKK...',
+  'K..........K',
+  '.KK......KK.',
+  '...KK..KK...',
+]);
+emo('dollar', [
+  '.....KK.....',
+  '...KKKKKK...',
+  '..KKKKKKKK..',
+  '..KKK.KK....',
+  '..KKKKKK....',
+  '...KKKKKK...',
+  '....KKKKKK..',
+  '.....KK.KK..',
+  '..KKKKKKKK..',
+  '...KKKKKK...',
+  '.....KK.....',
+  '............',
+]);
+emo('sparkle', [
+  '.....K......',
+  '.....K......',
+  '....KKK.....',
+  '....KKK.....',
+  '.KKKKKKKKK..',
+  '....KKK.....',
+  '....KKK...K.',
+  '.....K...KKK',
+  '.....K....K.',
+  '.K..........',
+  'KKK.........',
+  '.K..........',
+]);
+emo('idea', [
+  '....KKKK....',
+  '...KwwwwK...',
+  '..KwwKwwwK..',
+  '..KwKwwwwK..',
+  '..KwwwwwwK..',
+  '..KwwwwwlK..',
+  '...KwwwlK...',
+  '....KwlK....',
+  '....KKKK....',
+  '....KllK....',
+  '....KKKK....',
+  '.....KK.....',
+]);
+emo('tear', [
+  '............',
+  '..K......K..',
+  '...KKKKKK...',
+  '............',
+  '.......K....',
+  '......KwK...',
+  '......KwK...',
+  '.....KwwwK..',
+  '.....KwKlK..',
+  '.....KwllK..',
+  '......KKK...',
+  '............',
+]);
+const FACE = (rows) => rows;
+emo('stareyes', FACE([
+  '...KKKKKK...',
+  '..KwwwwwwK..',
+  '.KwKwwwwKwK.',
+  'KwKKKwwKKKwK',
+  'KwwKwwwwKwwK',
+  'KwwwwwwwwwwK',
+  'KwwKKKKKKwwK',
+  'KwwwKddKwwwK',
+  '.KwwwKKwwwK.',
+  '..KwwwwwwK..',
+  '...KKKKKK...',
+  '............',
+]));
+emo('drool', FACE([
+  '...KKKKKK...',
+  '..KwwwwwwK..',
+  '.KwKwwwwKwK.',
+  'KwKwKwwKwKwK',
+  'KwwwwwwwwwwK',
+  'KwwwwwwwwwwK',
+  'KwKKKKKKKwwK',
+  '.KKddddKKwK.',
+  '..KKKKKKwK..',
+  '...KwKKKK...',
+  '...KwK......',
+  '....K.......',
+]));
+emo('think', [
+  '............',
+  '.......KKKK.',
+  '......KwwwwK',
+  '......KwwwwK',
+  '......KwwwlK',
+  '.......KKKK.',
+  '...KKK......',
+  '..KwwlK.....',
+  '...KKK......',
+  '.KK.........',
+  'KwlK........',
+  '.KK.........',
+]);
+emo('hungry', [
+  '.K.K.K....K.',
+  '.K.K.K...KK.',
+  '.K.K.K...KK.',
+  '.KKKKK..KKK.',
+  '..KKK...KKK.',
+  '...K....KKK.',
+  '...K.....KK.',
+  '...K.....K..',
+  '...K.....K..',
+  '...K.....K..',
+  '..KKK...KKK.',
+  '..KKK...KKK.',
+]);
+emo('fish', [
+  '............',
+  '............',
+  '....KKKKK...',
+  'K.KKwwwwwKK.',
+  'KKwwwwwwKwwK',
+  'KwKwwwwwwwwK',
+  'KKwwwllllwK.',
+  'K.KKllllKK..',
+  '....KKKKK...',
+  '............',
+  '............',
+  '............',
+]);
+emo('bone', [
+  '............',
+  '.KK......KK.',
+  'KwwK....KwwK',
+  'KwwwKKKKwwwK',
+  '.KwwwwwwwwK.',
+  '.KwwwwwwwlK.',
+  'KwwlKKKKKllK',
+  'KwlK....KllK',
+  '.KK......KK.',
+  '............',
+  '............',
+  '............',
+]);
+emo('angry_face', FACE([
+  '...KKKKKK...',
+  '..KwwwwwwK..',
+  '.KKKwwwwKKK.',
+  'KwwwKwwKwwwK',
+  'KwwKKwwKKwwK',
+  'KwwKKwwKKwwK',
+  'KwwwwwwwwwwK',
+  'KwwwKKKKwwwK',
+  '.KwKwwwwKwK.',
+  '..KwwwwwwK..',
+  '...KKKKKK...',
+  '............',
+]));
+emo('happy_face', FACE([
+  '...KKKKKK...',
+  '..KwwwwwwK..',
+  '.KwwwwwwwwK.',
+  'KwwKwwwwKwwK',
+  'KwKwKwwKwKwK',
+  'KwwwwwwwwwwK',
+  'KwKKKKKKKKwK',
+  'KwwKddddKwwK',
+  '.KwwKKKKwwK.',
+  '..KwwwwwwK..',
+  '...KKKKKK...',
+  '............',
+]));
+
+//@@NEW_END@@
 //@@ART_END@@
 
 // ===========================================================================

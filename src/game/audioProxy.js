@@ -15,6 +15,8 @@ const proxy = {
   getMusic: () => pending.music ?? null,
   setAmbience: (o) => { pending.ambience = o; },
   update: noop,
+  babble: () => 0,
+  stopBabble: noop,
 };
 
 const mods = import.meta.glob('../audio/audio.js');

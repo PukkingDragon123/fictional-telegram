@@ -260,7 +260,7 @@ function buildLine() {
     const type = sheet ? S.type : id;
     const rig = makeBear(type, i * 7.31 + 1);
     let x, y = 0, z;
-    if (sheet) { x = (i % 4 - 1.5) * 1.62; y = -Math.floor(i / 4) * 1.32 * BEAR_TYPES[type].scale; z = 0; }
+    if (sheet) { x = (i % 4 - 1.5) * 1.62; y = (3 - Math.floor(i / 4)) * 2.3 * BEAR_TYPES[type].scale; z = 0; }
     else if (S.zoom === 'lineup') { x = (i - (ids.length - 1) / 2) * 2.45; z = 0; }
     else { const row = i < 6 ? 0 : 1; const n = row ? ids.length - 6 : 6; x = ((row ? i - 6 : i) - (n - 1) / 2) * 2.5; z = row ? -2.3 : 0.2; }
     const home = new THREE.Vector3(x, y, z);
@@ -433,8 +433,8 @@ function layout() {
   }
   // cameras
   const cs = BEAR_TYPES[S.type].scale;
-  closeCam.wupp = closeCam.wuppGoal = +(Q.get('wupp') || (0.0068 * Math.max(0.75, cs) * 720 / H) * (mode === 'close' ? 1 : 1.12));
-  if (mode === 'sheet') lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || 5.9 / (H / ps));
+  closeCam.wupp = closeCam.wuppGoal = +(Q.get('wupp') || (0.0068 * Math.max(0.75, cs) * 720 / H) * (mode === "close" ? 1.25 : 1.4));
+  if (mode === 'sheet') lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || 10.6 * Math.max(0.72, BEAR_TYPES[S.type].scale) / (H / ps));
   else lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || (mode === 'lineup' ? 0.045 : Math.max(0.03, 16.5 / (lw / ps))));
   if (mode === 'sheet') lineCam.pitch = THREE.MathUtils.degToRad(+(Q.get('lpitch') || 6));
   else lineCam.pitch = THREE.MathUtils.degToRad(+(Q.get('lpitch') || 44));
@@ -450,7 +450,7 @@ function aimCameras(dt) {
     const focus = Q.get('focus');
     closeCam.target.y = Math.max(r.y, WATER_Y - 0.9 * cs) + (focus === 'head' ? 1.45 : focus === 'feet' ? 0.4 : 1.02) * cs;
   }
-  if (S.zoom === 'sheet') { lineCam.lookAt(0, 0, true); lineCam.target.y = -0.6; }
+  if (S.zoom === 'sheet') { lineCam.lookAt(0, 0, true); lineCam.target.y = 7.0 * BEAR_TYPES[S.type].scale; }
   else { lineCam.lookAt(0, S.water || S.pose === 'swim' || S.pose === 'cannonball' ? 2 : -0.6, true); lineCam.target.y = 0.8; }
   closeCam.update(dt, closeR);
   lineCam.update(dt, lineR);

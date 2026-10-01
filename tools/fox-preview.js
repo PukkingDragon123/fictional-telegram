@@ -6,7 +6,7 @@
 //   ?mode=grid             every expression on its own fox (close-up grid)
 import * as THREE from 'three';
 import { FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H, MOUTH_KINDS } from '../src/entities/foxFace.js';
-import { FoxRig, FOX_SEAT_HEIGHT, FOX_DESK_HEIGHT, FOX_KEYBOARD_Z } from '../src/entities/foxRig.js';
+import { FoxRig, FOX_SEAT_SURFACE, FOX_DESK_HEIGHT, FOX_KEYBOARD_Z } from '../src/entities/foxRig.js';
 import { PixelRenderer } from '../src/core/pixelRenderer.js';
 import { CameraRig } from '../src/core/cameraRig.js';
 import { VoxelModel, voxelMaterial } from '../src/core/voxel.js';
@@ -113,7 +113,7 @@ function makeScenery(scene) {
   g.add(lab);
   const S = 0.025;
   const chair = vox((v) => {
-    const top = Math.round(FOX_SEAT_HEIGHT / S) - 1;
+    const top = Math.round(FOX_SEAT_SURFACE / S) - 1;
     for (let x = -8; x <= 7; x++) for (let z = -10; z <= 5; z++) { v.set(x, top, z, 0x3a3048); v.set(x, top - 1, z, 0x2a2236); }
     for (let x = -7; x <= 6; x++) for (let y = top + 1; y <= top + 20; y++) { v.set(x, y, -11, y > top + 17 ? 0x4a3d5c : 0x3a3048); v.set(x, y, -12, 0x2a2236); }
     for (let y = 2; y < top - 1; y++) { v.set(-1, y, -3, 0x8a8aa0); v.set(0, y, -3, 0x9a9ab0); v.set(-1, y, -2, 0x7a7a90); v.set(0, y, -2, 0x8a8aa0); }
@@ -230,18 +230,22 @@ function rigPreview() {
     labelEl.innerHTML = `${anim}<small>filmstrip, dt ${dtS}s</small>`;
   } else if (mode === 'grid') {
     const names = params.get('names') ? params.get('names').split(',') : EXPRESSION_NAMES;
-    const cols = num('cols', 6), gx = 0.95, gz = 1.4;
+    // shelves: each row stacked vertically so the big hats don't overlap the row behind
+    const cols = num('cols', 9), gx = 1.0, gy = 2.05;
+    const rows = Math.ceil(names.length / cols);
     names.forEach((name, i) => {
       const c = i % cols, r = Math.floor(i / cols);
-      const f = spawnFox((c - (cols - 1) / 2) * gx, r * gz);
+      const f = spawnFox((c - (cols - 1) / 2) * gx, 0);
+      f.root.position.y = -r * gy;
       f.setExpression(name);
       f.play(params.get('anim') || 'idle', { fade: 0 });
       sim(f, 0.5);
       labels.push({ f, text: name });
     });
-    const rows = Math.ceil(names.length / cols);
-    cam.goal.set(0, 0, (rows - 1) * gz * 0.5); cam.target.copy(cam.goal);
-    cams.grid = { wupp: 0.0095, y: 0.9, pitch: 14 };
+    scenery.group.visible = false;
+    scene.background = new THREE.Color(0x9fcbe6);
+    cam.goal.set(0, 0, 0); cam.target.copy(cam.goal);
+    cams.grid = { wupp: Math.max((cols * gx + 0.2) / 640, (rows * gy + 0.1) / 360) * num('gridzoom', 1), y: 1.05 - ((rows - 1) * gy) / 2, pitch: 6 };
     setCam(params.get('zoom') || 'grid');
   } else {
     main = spawnFox(0, 0);

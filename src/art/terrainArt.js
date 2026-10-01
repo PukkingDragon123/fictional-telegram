@@ -200,7 +200,7 @@ const TILES = {
   sand() {
     const t = new Tex();
     const P = pals(['#bca46e', '#c3ab74', '#cab27a', '#d1b981', '#d8c088']);
-    base(t, P, 41, { oct: [[4, 0.4], [8, 0.35], [16, 0.25]], dither: 0.9 });
+    base(t, P, 41, { oct: [[4, 0.25], [8, 0.35], [16, 0.4]], dither: 0.9, spread: 0.65 });
     // grain
     scatter(90, 42, (x, y, R) => t.blend(x, y, R() < 0.5 ? hx('#a89060') : hx('#e8d4a0'), 0.55));
     // ripple lines left by water, gentle
@@ -321,12 +321,12 @@ const TILES = {
     // forest floor: needles + leaf litter over a mossy dark base
     const t = new Tex();
     const P = pals(['#44602e', '#4a6731', '#506e34', '#577537', '#5e7c3a']);
-    base(t, P, 91, { oct: [[3, 0.5], [6, 0.3], [12, 0.2]] });
+    base(t, P, 91, { oct: [[4, 0.3], [8, 0.35], [16, 0.35]], spread: 0.6, dither: 0.8 });
     // brown litter patches
     for (let y = 0; y < T; y++)
       for (let x = 0; x < T; x++) {
-        const n = fbm(x, y, 92, [[4, 0.6], [8, 0.4]]);
-        if (n > 0.56) t.blend(x, y, hx('#6a5a34'), clamp((n - 0.56) * 4, 0, 0.6));
+        const n = fbm(x, y, 92, [[6, 0.5], [12, 0.5]]);
+        if (n > 0.58) t.blend(x, y, hx('#6a5a34'), clamp((n - 0.58) * 3, 0, 0.4));
       }
     // pine needles: short thin strokes in random directions
     const needles = pals(['#6e5a30', '#7e6434', '#8e6e3a', '#627032']);

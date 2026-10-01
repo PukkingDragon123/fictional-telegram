@@ -1398,6 +1398,7 @@ const DEFS = {
     gill: { s: 0.2, n0: 0.55, n1: -0.72, bulge: 0.02 },
     barbels: [[[0.055, -0.016], [0.055, -0.04]], [[0.072, -0.02], [0.074, -0.046]], [[0.09, -0.025], [0.093, -0.05]]],
     scutes: { s0: 0.18, s1: 0.6, step: 0.052, w: 0.022, h: 0.018 },
+    flop: { open: 0 }, // underslung mouth: no jaw drop
     pats: [
       { op: 'plates', s0: 0.2, s1: 0.76, step: 0.05, n: 0.15, big: true },
       { op: 'plates', s0: 0.26, s1: 0.66, step: 0.06, n: -0.58 },

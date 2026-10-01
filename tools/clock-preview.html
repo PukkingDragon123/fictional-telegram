@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>CorpClock Preview</title>
+<style>
+  @font-face {
+    font-family: 'TBME Digits'; font-style: normal; font-weight: 400 700; font-display: swap;
+    src: url('/node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+    unicode-range: U+0030-0039;
+  }
+  :root {
+    --font: 'TBME Digits', 'Pixelify Sans', 'Trebuchet MS', system-ui, sans-serif;
+    --font2: 'Silkscreen', 'Pixelify Sans', monospace;
+  }
+  html, body { margin: 0; min-height: 100%; font-family: var(--font); color: #fff; }
+  body { background: radial-gradient(circle at 50% 60%, #3f7a3a 0 20%, transparent 21%), repeating-linear-gradient(45deg, #2e5a2a 0 12px, #336230 12px 24px); min-height: 100vh; }
+  #hud { display: flex; justify-content: center; padding: 8px 0; }
+  #ctl { position: fixed; left: 8px; right: 8px; bottom: 8px; background: rgba(0,0,0,.8); border: 1px solid #3a6; padding: 8px; font: 12px/1.4 monospace; }
+  #ctl.min > :not(.t) { display: none; }
+  #ctl .t { cursor: pointer; color: #7f9; }
+  #ctl button { font: 11px monospace; margin: 2px 2px 0 0; background: #123; color: #cfe; border: 1px solid #3a6; cursor: pointer; }
+  #ctl button.on { background: #3a6; color: #000; }
+  #ctl input[type=range] { width: 100%; }
+  #log { color: #9b9; height: 32px; overflow: hidden; white-space: pre; }
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<div id="ctl">
+  <div class="t">CONTROLS ▾</div>
+  <div>hour <b id="hv">9:00</b> <input id="hour" type="range" min="0" max="24" step="0.01" value="10.5" /></div>
+  <div id="phases">phase:
+    <button data-p="morning">morning</button><button data-p="day">day</button><button data-p="rush">rush</button><button data-p="evening">evening</button><button data-p="night">night</button><button data-p="gameover">gameover</button>
+  </div>
+  <div>jump: <button data-h="10.5">10:30</button><button data-h="12.4">lunch</button><button data-h="15.5">amber</button><button data-h="16.4">red</button><button data-h="16.85">&lt;15m</button><button data-h="16.97">→5PM</button>
+    | <button id="run">run: off</button><button id="sun">sunday: off</button><button id="snd">log sfx: on</button></div>
+  <div id="log"></div>
+</div>
+<script type="module" src="./clock-preview.js"></script>
+</body>
+</html>
