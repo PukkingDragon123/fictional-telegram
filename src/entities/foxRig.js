@@ -925,8 +925,16 @@ export class FoxRig {
   }
 
   // ---------------------------------------------------------------- update
+  // fixed small substeps keep the jiggle springs stable on slow frames
   update(dt) {
     dt = clamp(dt || 0, 0, 0.1);
+    if (dt <= 1 / 50) return this._update1(dt);
+    let left = dt, out;
+    while (left > 1e-5) { const s = Math.min(left, 1 / 60); out = this._update1(s); left -= s; }
+    return out;
+  }
+
+  _update1(dt) {
     this.time += dt;
     const cur = this._cur;
     cur.t += dt * cur.speed;

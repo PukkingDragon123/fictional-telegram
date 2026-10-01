@@ -957,7 +957,12 @@ export class Game {
       pushers.push({ x: b.x, y: b.y, z: b.z, r: 0.9 * b.def.scale });
     }
     for (const bv of this.beavers.list) { if (pushers.length >= 8) break; pushers.push({ x: bv.x, y: bv.y || 0, z: bv.z, r: 0.5 }); }
-    updateSpriteUniforms(rig.camera, { time: this.time, wind: this.wind, sunDir: this.sky.state.sunDir, pushers });
+    // foliage in front of whoever the camera is about goes see-through
+    const csh = this.cine?.active && this.cine.shot;
+    const cut = csh && csh.kind === 'close' && csh.bear?.visible
+      ? { x: csh.bear.x, z: csh.bear.z, r: 1.7 * csh.bear.def.scale, k: 1 }
+      : { x: this.fox.x, z: this.fox.z, r: 0.9, k: 0.75 };
+    updateSpriteUniforms(rig.camera, { time: this.time, wind: this.wind, sunDir: this.sky.state.sunDir, pushers, cut });
     this.particles.setBrightness(1 - this.sky.state.night * 0.45);
     if (this.overrideScene) this.renderer.render(this.overrideScene, this.overrideRig || rig);
     else this.renderer.render(this.scene, rig);

@@ -437,21 +437,13 @@ def('bubble_tail', { w: 12, h: 9, slice: [0, 0, 0, 0], fixed: true }, (b) =>
 );
 
 // thought (cloud) bubble: scalloped edge, period 6 so it tiles
-def('bubble_think', { w: 24, h: 24, slice: [9, 9, 9, 9], repeat: 'round' }, (b) => {
-  const W = 24, H = 24;
-  const lobes = [];
-  for (let t = 3; t <= 21; t += 6) lobes.push([t, 5], [t, 19], [5, t], [19, t]);
-  const inner = (x, y) => x >= 4 && y >= 4 && x < W - 4 && y < H - 4;
-  const m = (x, y) => inner(x, y) || lobes.some(([cx, cy]) => Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= 3.9);
-  bevel(b, (x, y) => x >= 0 && y >= 0 && x < W && y < H && m(x, y), (d, l, x, y) => {
-    if (d <= 1) return '#141414';
-    // inner notches between lobes
-    return '#ffffff';
-  });
-  // ink between the lobes for a scalloped look
-  for (let t = 0; t <= 24; t += 6) {
-    for (const [x, y] of [[t, 3], [t, 20], [3, t], [20, t]]) if (b.a(x, y)) b.set(x, y, '#141414');
-  }
+def('bubble_think', { w: 32, h: 32, slice: [12, 12, 12, 12], repeat: 'round' }, (b) => {
+  const W = 32, H = 32, e = 5.5, r = 4.6;
+  const lobes = [[e + 0.8, e + 0.8], [W - e - 0.8, e + 0.8], [e + 0.8, H - e - 0.8], [W - e - 0.8, H - e - 0.8]];
+  for (const t of [8, 16, 24]) lobes.push([t, e], [t, H - e], [e, t], [W - e, t]);
+  const inner = (x, y) => x >= 6 && y >= 6 && x < W - 6 && y < H - 6;
+  const m = (x, y) => x >= 0 && y >= 0 && x < W && y < H && (inner(x, y) || lobes.some(([cx, cy]) => Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= r));
+  bevel(b, m, (d, l) => (d <= 1 ? '#141414' : d === 2 && l < 0 ? '#e4e4ea' : '#ffffff'));
   return b;
 });
 def('think_tail', { w: 10, h: 10, slice: [0, 0, 0, 0], fixed: true }, (b) => {

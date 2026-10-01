@@ -59,9 +59,13 @@ export class Cinematic {
         g.timeScale = 0.3;
         g.audio.play('cinema', { volume: 0.5 });
         break;
-      case 'close':
-        rig.wuppGoal = opts.zoom || 0.022;
+      case 'close': {
+        // a hard cut: snap straight onto the bear, tight
+        rig.wupp = rig.wuppGoal = opts.zoom || 0.016;
+        const b = opts.bear;
+        if (b) { rig.goal.set(b.x, Math.max(0, b.y) + 0.8 * b.def.scale, b.z); rig.target.copy(rig.goal); }
         break;
+      }
       case 'wide':
         rig.wuppGoal = 0.05;
         break;
@@ -153,7 +157,7 @@ export class Cinematic {
         }
         if (sh.t > 1.6) {
           const q = this.focusQueue.shift();
-          if (q && q.bear.visible) { this.cut('close', { bear: q.bear, dur: 3, zoom: 0.024 }); break; }
+          if (q && q.bear.visible) { this.cut('close', { bear: q.bear, dur: 3, zoom: 0.018 }); break; }
           const eater = bears.find((b) => b.state === 'eat' && !this.seen.has(b.id + ':' + b.eaten.toFixed(1)));
           if (eater && sh.t > 2.2) {
             this.seen.add(eater.id + ':' + eater.eaten.toFixed(1));
@@ -161,7 +165,7 @@ export class Cinematic {
             break;
           }
           const angry = bears.find((b) => b.angry && b.state === 'smash');
-          if (angry && sh.t > 2.2) { this.cut('close', { bear: angry, dur: 2.4, zoom: 0.026 }); break; }
+          if (angry && sh.t > 2.2) { this.cut('close', { bear: angry, dur: 2.4, zoom: 0.02 }); break; }
         }
         break;
       }

@@ -2,7 +2,7 @@
 // WebGL renderer, with a crisp 1px dark outline. Cached per key.
 import * as THREE from 'three';
 import { fishIconURL } from '../game/fishSprites.js';
-import { BearRig } from '../entities/bearModels.js';
+import { BearRig } from '../entities/bearRig.js';
 import { BEAR_TYPES } from '../data/bears.js';
 import { voxelMaterial } from '../core/voxel.js';
 
@@ -111,12 +111,11 @@ export class Icons3D {
     const key = `bear:${typeId}:${full ? 1 : 0}`;
     if (this.cache.has(key)) return this.cache.get(key);
     const rig = new BearRig(typeId, BEAR_TYPES[typeId]);
-    rig.armR.rotation.x = -0.25;
-    let obj = rig.root;
-    if (!full) {
-      // head & shoulders: drop the legs
-      rig.root.remove(rig.legL); rig.root.remove(rig.legR);
-    }
+    if (!full) rig.setLegsVisible?.(false);
+    rig.setFace?.('happy', { hold: 0 });
+    for (let i = 0; i < 6; i++) rig.pose('idle', 0.1);
+    rig.update?.(0.1);
+    const obj = rig.root;
     obj.rotation.y = 0;
     return this.renderObject(key, obj, { size: full ? 48 : 36, yaw: 0.35, pitch: 0.15, pad: 1.02 });
   }

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { BEAR_TYPES, FIRST_NAMES, DEPARTMENTS, WANT_INFO, REVIEWS, WANT_COMPLAINTS, LINES, BEAR_WANT_LINES } from '../data/bears.js';
 import { BEAUTY_PER_BEAR } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
-import { BearRig } from '../entities/bearModels.js';
+import { BearRig } from '../entities/bearRig.js';
 import { makeFishQuad } from './fishQuad.js';
 import { WATER_Y, KIND } from '../world/grid.js';
 import { pick, clamp, angleDiff, damp } from '../core/rng.js';
@@ -505,7 +505,7 @@ export class BearSystem {
           game.audio.play(b.chomps === 3 ? 'crunch' : 'squelch', { volume: 0.5, pitch: 1.1 - scale * 0.15 + Math.random() * 0.15 });
           game.audio.play('chomp', { volume: 0.35, pitch: 1.15 - scale * 0.2 });
           game.particles.word(b.chomps === 1 ? 'chomp' : b.chomps === 2 ? (Math.random() < 0.5 ? 'munch' : 'nom') : 'chomp', mp.x, mp.y + 0.35, mp.z, { size: 0.26 + scale * 0.06 });
-          if (b.rig?.held) { const q = b.rig.held.scale; q.setScalar(Math.max(0.35, 1 - b.chomps * 0.22)); b.rig.held.userData.wiggle = 1.6 - b.chomps * 0.4; }
+          if (b.rig?.held) { const q = b.rig.held.scale; q.setScalar((b.rig.held.userData.baseScale || 1) * Math.max(0.35, 1 - b.chomps * 0.22)); b.rig.held.userData.wiggle = 1.6 - b.chomps * 0.4; }
           b.rig?.setFace?.(b.chomps % 2 ? 'chomp_open' : 'chomp_closed', { hold: 0.2 });
           if (game.cine) game.cine.onChomp?.(b);
         }
@@ -753,7 +753,7 @@ export class BearSystem {
     b.chomps = 0;
     b.gotGoldenNow = f.g && (f.g.morph === 'golden' || f.g.morph === 'rainbow');
     if (b.gotGoldenNow && game.day) game.day.golden++;
-    b.rig.hold(makeFishQuad(game, f));
+    this.holdWorld(b, makeFishQuad(game, f));
     b.state = 'eat';
     b.t = 1.26;
     b.fish = null;
@@ -829,78 +829,50 @@ export class BearSystem {
     let vis = 0;
     for (const b of this.list) if (b.visible) vis++;
     const shadows = vis <= 24;
+    const rdt = Math.max(1e-4, dt || 0.016);
     for (const b of this.list) {
       if (!b.visible || !b.rig) continue;
       const r = b.rig;
-      if (r.shadows !== shadows) { r.shadows = shadows; for (const m of r.meshes) m.castShadow = shadows; }
+      if (r.shadows !== shadows) r.shadows = shadows;
+      // measured speed (world units / s) drives the gait cadence
+      const px = b._rx ?? b.x, pz = b._rz ?? b.z;
+      const inst = Math.hypot(b.x - px, b.z - pz) / rdt;
+      b._rx = b.x; b._rz = b.z;
+      b._spd = (b._spd ?? 0) + (Math.min(inst, 8) - (b._spd ?? 0)) * Math.min(1, rdt * 10);
       r.root.position.set(b.x, b.y, b.z);
       r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);
-      const sw = Math.sin(b.phase);
-      let legA = 0, armA = 0, armRA = 0, bob = 0, lean = 0, armSpread = 0;
-      if (b.moving) {
-        const amp = b.inWater ? 0.45 : 0.8;
-        legA = sw * amp;
-        armA = -sw * amp * 0.8;
-        armRA = -sw * amp * 0.35;
-        bob = Math.abs(Math.cos(b.phase)) * 0.07;
-        lean = b.state === 'commute' ? 0.22 : 0.1;
-      } else {
-        bob = Math.sin(this.time * 2 + b.id) * 0.015;
-      }
-      if (b.lunge > 0) {
-        armA = armRA = -1.9;
-        lean = 0.45;
-        legA = 0.5;
-      } else if (b.state === 'eat' || b.state === 'snack') {
-        armA = armRA = -2.1 + Math.sin(this.time * 18) * 0.12;
-        bob = Math.abs(Math.sin(this.time * 9)) * 0.04;
-        lean = -0.05;
-      } else if (b.state === 'yummy') {
-        armA = -0.9 + Math.sin(this.time * 14) * 0.25;
-        armRA = -0.9 - Math.sin(this.time * 14) * 0.25;
-        bob = Math.abs(Math.sin(this.time * 10)) * 0.08;
-        lean = -0.12;
-      } else if (b.state === 'toss') {
-        const k = clamp(1 - b.t / 0.55, 0, 1);
-        armRA = k < 0.5 ? -2.2 * (k / 0.5) : -2.2 - (k - 0.5) * 2;
-        armA = -0.4;
-        lean = -0.2 * k;
-      } else if (b.state === 'pay') {
-        armRA = -1.4;
-        armA = -0.4;
-        lean = -0.05;
-      } else if (b.state === 'smash') {
-        const k = clamp(1 - b.t / 0.9, 0, 1);
-        armA = armRA = k < 0.5 ? -2.8 * (k / 0.5) : -2.8 + (k - 0.5) * 5.2;
-        lean = k < 0.5 ? -0.15 : 0.3;
-      } else if (b.angry && (b.moving || b.state === 'stomp')) {
-        armA = -2.4 + Math.sin(this.time * 14) * 0.5;
-        armRA = -2.4 - Math.sin(this.time * 14) * 0.5;
-        armSpread = 0.4;
-      } else if (b.state === 'search') {
-        armA = -0.3; armRA = -0.3;
-      }
-      let flipX = 0;
+      let pose = 'idle';
+      const o = { speed: b.moving ? b._spd : 0, inWater: !!b.inWater };
       if (b.jump) {
-        const t = Math.min(1, b.jump.t);
-        if (b.jump.into) {
-          armA = armRA = -2.9;
-          legA = 0.9;
-          if (b.jump.flip) flipX = t * Math.PI * 2;
-          else flipX = t * 1.35;
-        }
-      }
-      r.legL.rotation.x = legA;
-      r.legR.rotation.x = -legA;
-      r.armL.rotation.x = armA;
-      r.armR.rotation.x = armRA;
-      r.armL.rotation.z = -armSpread;
-      r.armR.rotation.z = armSpread;
-      r.body.position.y = bob;
-      r.body.rotation.x = lean;
-      r.root.rotateX(flipX);
+        if (b.jump.into) { pose = 'cannonball'; o.t01 = clamp(b.jump.t, 0, 1); }
+        else pose = 'run';
+      } else if (b.lunge > 0) pose = 'lunge';
+      else if (b.state === 'eat' || b.state === 'snack') pose = 'eat';
+      else if (b.state === 'yummy') pose = 'yummy';
+      else if (b.state === 'toss') pose = 'toss';
+      else if (b.state === 'pay') pose = 'pay';
+      else if (b.state === 'smash') pose = 'smash';
+      else if (b.angry && !b.moving) pose = 'angry_stomp';
+      else if (b.moving) pose = b.inWater ? 'swim' : b.angry || b._spd > 2.2 ? 'run' : 'walk';
+      else if (b.state === 'search') pose = 'search';
+      else if (b.inWater) pose = 'swim';
+      r.pose(pose, rdt, o);
+      r.update?.(rdt);
       if (!b.angry && r.matState === 'angry') r.setMaterial('normal');
     }
+  }
+
+  // held objects live inside the rig's scaled skeleton: undo that scale so a
+  // fish quad keeps its world size
+  holdWorld(b, obj) {
+    b.rig.hold(obj);
+    if (!obj || obj.isBufferGeometry) return;
+    b.rig.root.updateMatrixWorld(true);
+    const s = new THREE.Vector3();
+    obj.parent?.getWorldScale(s);
+    const k = 1 / Math.max(1e-3, s.x);
+    obj.userData.baseScale = k;
+    obj.scale.setScalar(k);
   }
 
   // ------------------------------------------------------------ misc

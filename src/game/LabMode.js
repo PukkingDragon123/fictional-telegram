@@ -57,7 +57,7 @@ export class LabMode {
   }
 
   onResearched(r) {
-    this.fox?.play('laugh_evil', { loop: false, onDone: () => this.fox?.play('sit_type', { loop: true }) });
+    this.fox?.play('sit_laugh', { loop: false, onDone: () => this.fox?.play('sit_type', { loop: true }) });
     this.fox?.setExpression('laugh', { hold: 1.8 });
     this.game.audio.play('fox_laugh', { volume: 0.5 });
     this.lastR = r;
@@ -74,10 +74,11 @@ export class LabMode {
     this.scene = sc;
     if (FoxMod?.FoxRig) {
       try {
-        this.fox = new FoxMod.FoxRig({ shadows: true });
+        this.fox = new FoxMod.FoxRig({ shadows: false });
         const seat = this.lab.anchors.foxSeat;
         this.fox.root.position.copy(seat.position);
-        this.fox.root.rotation.y = seat.rotationY || 0;
+        this.fox.root.rotation.y = this.seatYaw = seat.rotationY || 0;
+        this.fox.root.scale.setScalar(0.8);
         sc.add(this.fox.root);
       } catch (e) { console.warn('FoxRig failed', e); this.fox = null; }
     }
@@ -91,8 +92,22 @@ export class LabMode {
     rig.goal.copy(anchor.target);
     rig.wuppGoal = wupp;
     rig.yawGoal = anchor.yaw || 0;
+    rig.pitchGoal = anchor.pitch ?? THREE.MathUtils.degToRad(44);
     rig.minWupp = 0.001; rig.maxWupp = 1;
-    if (instant) { rig.target.copy(anchor.target); rig.wupp = wupp; rig.yaw = rig.yawGoal; }
+    if (instant) { rig.target.copy(anchor.target); rig.wupp = wupp; rig.yaw = rig.yawGoal; rig.pitch = rig.pitchGoal; }
+  }
+
+  setBeams(on) {
+    this.lab?.group.traverse((o) => { if (o.name === 'windowBeams') o.visible = on; });
+  }
+
+  // medium shot on Reynard standing in front of his chair
+  frameFox() {
+    const seat = this.lab.anchors.foxSeat.position;
+    const ov = this.lab.anchors.camOverview;
+    const target = new THREE.Vector3(seat.x - 0.7, 0.45, seat.z + 0.75);
+    this.frame({ target, fit: { w: 4.8, h: 3.0 }, yaw: ov.yaw || 0, pitch: THREE.MathUtils.degToRad(28) });
+    this.setBeams(false);
   }
 
   // ------------------------------------------------------------ flow
@@ -124,6 +139,8 @@ export class LabMode {
     game.overrideScene = this.scene;
     game.overrideRig = this.rig;
     this.lab.setNight?.(game.sky.state.night > 0.4);
+    this.standing = false;
+    this.setBeams(true);
     if (this.fox) { this.fox.play('sit_doze', { loop: true, fade: 0 }); this.fox.setExpression('asleep'); }
     game.audio.setMusic('lab');
     game.audio.play('fox_snore', { volume: 0.35 });
@@ -210,7 +227,7 @@ export class LabMode {
 
   chat() {
     const expr = pick(['smug', 'scheming', 'wink', 'greedy', 'proud']);
-    this.fox?.play(pick(['talk', 'shrug', 'point', 'count_coins', 'idle_scheme']), { loop: false, onDone: () => this.fox?.play('sit', { loop: true }) });
+    this.fox?.play(pick(['talk', 'shrug', 'point', 'laugh_evil', 'idle_scheme', 'count_coins']), { loop: false, onDone: () => this.fox?.play('idle', { loop: true }) });
     this.say(pick(LINES.chat), expr);
   }
 
@@ -221,7 +238,7 @@ export class LabMode {
     this.q('hint')?.classList.add('hidden');
     this.game.audio.play('fox_startle', { volume: 0.6 });
     if (this.fox) {
-      this.fox.play('wake_startle', { loop: false, onDone: () => this.fox?.play('sit', { loop: true }) });
+      this.fox.play('wake_startle', { loop: false, onDone: () => { this.standing = true; this.fox?.play('idle', { loop: true }); this.fox?.setExpression('embarrassed', { hold: 1.5 }); } });
     }
   }
 
@@ -234,6 +251,8 @@ export class LabMode {
     this.q('say')?.classList.add('hidden');
     this.frame(this.lab.anchors.camScreen);
     this.game.audio.play('crt_on', { volume: 0.4 });
+    this.standing = false;
+    this.setBeams(true);
     this.fox?.play('sit_type', { loop: true });
     this.fox?.setExpression('scheming');
     this.tree = ui.makeLabTree(host, () => this.closeTree());
@@ -252,9 +271,10 @@ export class LabMode {
     this.q('tree')?.classList.add('hidden');
     if (this.state !== 'leaving') {
       this.q('opts')?.classList.remove('hidden');
-      this.frame(this.lab.anchors.camOverview);
       this.game.audio.play('crt_off', { volume: 0.35 });
-      this.fox?.play('sit', { loop: true });
+      this.standing = true;
+      this.fox?.play('idle', { loop: true });
+      this.frameFox();
       if (this.lastR) { this.say(pick(LINES.research), 'proud'); this.lastR = null; }
     }
   }
@@ -305,6 +325,8 @@ export class LabMode {
     }
     if (this.state === 'waking' && this.t > 1.5) {
       this.state = 'awake';
+      if (!this.standing) { this.standing = true; this.fox?.play('idle', { loop: true, fade: 0.25 }); }
+      this.frameFox();
       this.say(pick(LINES.wake) + ' ' + pick(LINES.greet), 'embarrassed');
       this.q('opts')?.classList.remove('hidden');
     }
@@ -317,6 +339,25 @@ export class LabMode {
     }
     this.lab?.update(dt, this.time);
     if (this.lab?.drawIdleScreen && !this.tree) this.lab.drawIdleScreen(this.time);
+    // awake: hop off the chair and stand in front of it facing the visitor;
+    // back to the desk for research
+    if (this.fox) {
+      const fr = this.fox.root;
+      const seat = this.lab.anchors.foxSeat.position;
+      let yaw = this.seatYaw || 0, tx = seat.x, tz = seat.z;
+      if (this.standing && !this.tree) {
+        const cam = this.rig.camera.position;
+        const dx = cam.x - seat.x, dz = cam.z - seat.z, d = Math.hypot(dx, dz) || 1;
+        tx = seat.x - 0.7 + (dx / d) * 0.75; tz = seat.z + (dz / d) * 0.75;
+        yaw = Math.atan2(dx, dz);
+      }
+      const k = Math.min(1, dt * 6);
+      fr.position.x += (tx - fr.position.x) * k;
+      fr.position.z += (tz - fr.position.z) * k;
+      let d = yaw - fr.rotation.y;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      fr.rotation.y += d * k;
+    }
     this.fox?.update(dt);
     this.rig.update(dt, r);
   }

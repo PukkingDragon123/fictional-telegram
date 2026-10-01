@@ -89,9 +89,9 @@ function adaptQuality(dt) {
 
 // ---- warm caches while the title screen is up, in small idle chunks, so
 // nothing is built for the first time mid-game (bear meshes, sprite images)
-Promise.all([import('./entities/bearModels.js'), import('./data/bears.js'), import('./ui/sprites.js')]).then(([bm, bd, sp]) => {
+Promise.all([import('./entities/bearRig.js'), import('./data/bears.js'), import('./ui/sprites.js')]).then(([bm, bd, sp]) => {
   const jobs = [];
-  for (const id of Object.keys(bd.BEAR_TYPES)) jobs.push(() => bm.bearGeometries(id, bd.BEAR_TYPES[id]));
+  for (const id of Object.keys(bd.BEAR_TYPES)) jobs.push(() => bm.bearRigGeometry(id, bd.BEAR_TYPES[id]));
   for (const name of Object.keys(sp.SPRITES)) {
     if (name.startsWith('fox_')) continue;
     jobs.push(() => { sp.spriteURL(name, 1); sp.spriteURL(name, 2); });

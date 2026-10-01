@@ -2,7 +2,7 @@
 // Canada geese flying over, fireflies, falling maple leaves, chimney smoke,
 // and the office whistle steam at 5 PM.
 import * as THREE from 'three';
-import { FoxRig } from '../entities/critterModels.js';
+import { FoxRig } from '../entities/foxRig.js';
 import { SpriteBatch, SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { WATER_Y } from '../world/grid.js';
 import { HUT, OFFICE } from '../world/worldgen.js';
@@ -17,7 +17,10 @@ const _s = new THREE.Vector3(1, 1, 1);
 export class Fox {
   constructor(game) {
     this.game = game;
-    this.rig = new FoxRig();
+    this.rig = new FoxRig({ shadows: true });
+    this.rig.root.scale.setScalar(0.85);
+    this.anim = null;
+    this.fidgetT = 8;
     game.scene.add(this.rig.root);
     this.home = { x: HUT.x + 1.5, z: HUT.z + 3.55 };
     this.x = this.home.x; this.z = this.home.z; this.y = 0.12;
@@ -128,23 +131,34 @@ export class Fox {
       }
     }
     this.y = damp(this.y, g.surfaceY(Math.floor(this.x), Math.floor(this.z)) + (Math.hypot(this.x - this.home.x, this.z - this.home.z) < 0.9 ? 0.12 : 0), 12, dt);
-    // pose
+    // pose: pick an animation for the expressive fox rig
     const r = this.rig;
-    if (moving) this.phase += dt * 16;
-    const sw = moving ? Math.sin(this.phase) : 0;
-    let armL = -sw * 0.7, armR = sw * 0.7, bob = moving ? Math.abs(Math.cos(this.phase)) * 0.06 : Math.sin(this.time * 2.2) * 0.012;
-    let hop = 0;
-    if (this.mood === 'throw') { const k = Math.max(0, this.moodT / 0.4); armR = -2.6 * k; }
-    else if (this.mood === 'cheer') { armL = armR = -2.8 + Math.sin(this.time * 18) * 0.25; hop = Math.abs(Math.sin(this.time * 9)) * 0.25; }
-    else if (this.mood === 'panic') { armL = -2.6 + Math.sin(this.time * 22) * 0.6; armR = -2.6 - Math.sin(this.time * 22) * 0.6; hop = Math.abs(Math.sin(this.time * 14)) * 0.1; }
-    else if (this.mood === 'greedy' || (phase === 'rush' && !moving)) { armL = -1.2 + Math.sin(this.time * 10) * 0.25; armR = -1.2 - Math.sin(this.time * 10) * 0.25; }
-    r.root.position.set(this.x, this.y + hop, this.z);
+    r.root.position.set(this.x, this.y, this.z);
     r.root.rotation.set(0, Math.PI / 2 - this.heading, 0);
-    r.legL.rotation.x = sw * 0.8;
-    r.legR.rotation.x = -sw * 0.8;
-    r.armL.rotation.x = armL;
-    r.armR.rotation.x = armR;
-    r.body.position.y = bob;
+    let want = 'idle', opts = {};
+    if (this.bed?.stage === 'yawn') want = 'yawn';
+    else if (moving) { want = this.target && Math.hypot(this.target.x - this.x, this.target.z - this.z) > 2.5 ? 'run' : 'walk'; }
+    else if (this.mood === 'throw') want = 'throw';
+    else if (this.mood === 'cheer') want = 'cheer';
+    else if (this.mood === 'panic') want = 'panic';
+    else if (this.mood === 'greedy') want = 'greedy';
+    else if (phase === 'rush') want = 'count_coins';
+    else {
+      // idle fidgets: scheming, monocle polishing, the odd sneeze
+      this.fidgetT -= dt;
+      if (this.fidget && r.current === this.fidget && !r._cur?.done) want = this.fidget;
+      else if (this.fidget && this.anim === this.fidget) this.fidget = null;
+      if (this.fidgetT <= 0) {
+        this.fidgetT = 9 + Math.random() * 12;
+        this.fidget = ['idle_scheme', 'polish_monocle', 'stretch', 'laugh_evil', 'sneeze', 'think', 'count_coins'][Math.floor(Math.random() * 7)];
+        want = this.fidget;
+      }
+    }
+    if (want !== this.anim) {
+      r.play(want, { fade: 0.15, ...opts });
+      this.anim = want;
+    }
+    r.update(dt);
     if (!moving && this.mood === 'idle' && !this.target && Math.hypot(this.x - this.home.x, this.z - this.home.z) < 0.5) {
       // face the pond / camera
       this.heading += angleDiff(this.heading, Math.PI / 2 + Math.sin(this.time * 0.3) * 0.6) * Math.min(1, dt * 2);

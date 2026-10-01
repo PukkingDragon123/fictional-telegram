@@ -96,6 +96,7 @@ export class CameraRig {
     if (Math.abs(angleDiff(this.yaw, this.yawGoal)) < 0.0005) this.yaw = this.yawGoal;
     this.wupp = Math.exp(damp(Math.log(this.wupp), Math.log(this.wuppGoal), 12, dt));
 
+    if (this.pitchGoal != null) this.pitch = damp(this.pitch, this.pitchGoal, 6, dt);
     const cam = this.camera;
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
     let tx = this.target.x, tz = this.target.z;

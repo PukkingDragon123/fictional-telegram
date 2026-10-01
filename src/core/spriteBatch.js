@@ -23,11 +23,15 @@ export const SPRITE_UNIFORMS = {
   uHeightComp: { value: 1.39 },
   uFlatComp: { value: 1.44 },
   uPush: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -99, 0, 0)) },
+  // see-through cutout: foliage in front of (x, z) within radius fades (x, z, radius, strength)
+  uCut: { value: new THREE.Vector4(0, 0, 0, 0) },
 };
 
 const _v = new THREE.Vector3();
 // Call once per frame before rendering.
-export function updateSpriteUniforms(camera, { time = 0, wind = 1, sunDir = null, pushers = null } = {}) {
+export function updateSpriteUniforms(camera, { time = 0, wind = 1, sunDir = null, pushers = null, cut = null } = {}) {
+  if (cut) SPRITE_UNIFORMS.uCut.value.set(cut.x, cut.z, cut.r, cut.k ?? 1);
+  else SPRITE_UNIFORMS.uCut.value.set(0, 0, 0, 0);
   const e = camera.matrixWorld.elements;
   SPRITE_UNIFORMS.uCamRight.value.set(e[0], e[1], e[2]).normalize();
   SPRITE_UNIFORMS.uCamUp.value.set(e[4], e[5], e[6]).normalize();
@@ -69,6 +73,7 @@ uniform float uWind;
 uniform float uHeightComp;
 uniform float uFlatComp;
 uniform vec4 uPush[8];
+uniform vec4 uCut;
 varying vec3 vSTint;
 varying float vSAlpha;
 varying float vSEmis;
@@ -155,6 +160,12 @@ vec3 objectTangent = vec3(1.0, 0.0, 0.0);
 }
 vSTint = aTint;
 vSAlpha = aParams.w;
+if (uCut.z > 0.0 && aParams.x > 0.0) {
+  vec2 cd = aPos.xz - uCut.xy;
+  float cdd = length(cd);
+  float front = dot(cd, normalize(uCamBack.xz + vec2(1e-5)));
+  if (cdd < uCut.z && front > -0.15) vSAlpha *= 1.0 - uCut.w * 0.8 * (1.0 - smoothstep(uCut.z * 0.55, uCut.z, cdd));
+}
 vSEmis = aExtra.z;
 `);
 }

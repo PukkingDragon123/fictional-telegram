@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UI Frames</title>
+<style>
+  @font-face { font-family: 'Pixelify Sans'; src: url('/node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
+  @font-face { font-family: 'Pixelify Sans'; src: url('/node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
+  @font-face { font-family: 'Silkscreen'; src: url('/node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: #5f8f4a; color: #2a1a14; font-family: 'Pixelify Sans', system-ui, sans-serif;
+    background-image: radial-gradient(#6c9c55 1px, transparent 1px); background-size: 8px 8px; }
+  h1 { font-family: 'Silkscreen', monospace; font-size: 22px; margin: 0 0 8px; color: #fff3a3; text-shadow: 2px 2px 0 #1f3f2c; }
+  h2 { font-family: 'Silkscreen', monospace; font-size: 14px; margin: 18px 0 8px; color: #fbf0d0; text-shadow: 2px 2px 0 #1f3f2c; font-weight: 400; }
+  img, canvas { image-rendering: pixelated; }
+  .row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .sheet { display: flex; flex-wrap: wrap; gap: 10px; }
+  .fc { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: #fbf0d0; }
+  .ribbon { display: flex; align-items: center; justify-content: center; font-family: 'Silkscreen', monospace; color: #fbf0d0; font-size: 14px; text-shadow: 1px 1px 0 #1f3f2c; padding: 0 4px; }
+  .btn { font-family: 'Silkscreen', monospace; color: #fbf0d0; font-size: 12px; text-shadow: 1px 1px 0 rgba(0,0,0,.4); background: none; cursor: pointer; padding: 0 6px; }
+  .slot { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; }
+  .lbl { font-size: 11px; color: #4a2f1d; }
+  .sb { display: inline-flex; gap: 2px; align-items: center; padding: 0 2px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./ui-preview.js"></script>
+</body>
+</html>
