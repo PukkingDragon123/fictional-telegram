@@ -52,7 +52,9 @@ export class Cinematic {
         g.rig.shake = 0.6;
         break;
       case 'trail':
-        rig.wuppGoal = 0.036;
+        // tracking shot on the lead bear, a little ahead of it
+        rig.wuppGoal = 0.022;
+        if (opts.bear) { rig.goal.set(opts.bear.x, opts.bear.y + 0.6, opts.bear.z); rig.target.copy(rig.goal); }
         break;
       case 'splash':
         rig.wuppGoal = 0.026;
@@ -128,7 +130,8 @@ export class Cinematic {
       case 'trail': {
         const b = sh.bear;
         if (!b || !b.visible) { this.cut('wide'); break; }
-        rig.goal.set(b.x, b.y, b.z);
+        const ahead = 1.2;
+        rig.goal.set(b.x + Math.cos(b.heading) * ahead, b.y + 0.6, b.z + Math.sin(b.heading) * ahead);
         if (b.jump && b.jump.into) { this.cut('splash', { bear: b }); break; }
         if (sh.t > 9 || (b.state !== 'commute' && !b.jump && sh.t > 1)) this.cut('wide');
         break;
