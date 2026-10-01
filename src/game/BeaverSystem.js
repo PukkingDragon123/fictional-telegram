@@ -23,6 +23,15 @@ export const CLEAR = {
 };
 const JOBS_PER_BERRY = 3;
 
+// beaver tool levels: what each upgrade lets the crew tear down
+export const BEAVER_LEVELS = [
+  null,
+  { name: 'Teeth', icon: 'beaver', desc: 'Weeds, small trees, the forest edge' },
+  { name: 'Steel Teeth + Pickaxe', icon: 'hammer', desc: 'Boulders and swamp trees', price: 150 },
+  { name: 'Chainsaw + Dynamite', icon: 'bolt', desc: 'Giant mushrooms, mountain rocks', price: 420 },
+  { name: 'Golden Hard Hats', icon: 'crown', desc: 'Everything, twice as fast', price: 900 },
+];
+
 export class BeaverSystem {
   constructor(game) {
     this.game = game;
@@ -106,6 +115,19 @@ export class BeaverSystem {
     return null;
   }
 
+  // tool level needed to clear this tile
+  levelFor(x, z, k = this.clearKind(x, z)) {
+    const g = this.game.grid;
+    const i = z * g.w + x;
+    const bio = g.biome ? g.biome[i] : 0;
+    if (k === 'weed' || k === 'tree') return 1;
+    if (k === 'boulder') return g.kind[i] === KIND.ROCK || z < 21 ? 3 : 2;
+    if (k === 'forest') return bio === BIOME.MUSHROOM ? 3 : bio === BIOME.SWAMP ? 2 : 1;
+    return 1;
+  }
+
+  level() { return this.game.state.beaverLevel || 1; }
+
   // forest/decos must touch your land (or a tile already queued for clearing)
   canClear(x, z) {
     const g = this.game.grid;
@@ -113,6 +135,8 @@ export class BeaverSystem {
     if (!k) return { ok: false, reason: 'nothing' };
     const i = z * g.w + x;
     if (this.clears.has(i)) return { ok: false, reason: 'queued' };
+    const need = this.levelFor(x, z, k);
+    if (need > this.level()) return { ok: false, reason: 'level', need, kind: k };
     if (g.meadow[i]) return { ok: true, kind: k };
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, nz = z + dz;
@@ -305,7 +329,7 @@ export class BeaverSystem {
         if (job.kind === 'clear') {
           const c = job.c;
           if (!this.clears.has(c.i)) { this.release(b); continue; }
-          c.progress += (dt * speedMult) / CLEAR[c.kind].time;
+          c.progress += (dt * speedMult * (1 + 0.35 * (this.level() - 1))) / CLEAR[c.kind].time;
           b.chipT = (b.chipT || 0) - dt;
           if (b.chipT <= 0) {
             b.chipT = 0.28;

@@ -260,7 +260,7 @@ export function buildTerrainGeometry(grid) {
   const smoothT = (x, z) => {
     if (!grid.inb(x, z)) return false;
     const i = z * w + x, k = grid.kind[i];
-    return !grid.meadow[i] && k !== KIND.WATER && grid.occ[i] !== -2;
+    return !grid.meadow[i] && k !== KIND.WATER && k !== KIND.TRAIL && grid.occ[i] !== -2 && z >= 22 && !(grid.biome && grid.biome[i] === 4);
   };
   const landH = new Float32Array(CW * (h + 1));
   for (let cz = 0; cz <= h; cz++)

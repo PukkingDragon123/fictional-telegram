@@ -83,7 +83,7 @@ if (params.has('autostart')) { document.getElementById('title-root').innerHTML =
 else if (showTitleMenu) {
   try {
     titleMenu = showTitleMenu(document.getElementById('title-root'), {
-      hasSave: game.hasSave(), onStart: startGame,
+      hasSave: game.hasSave(), onStart: (c) => ui.wipeTransition('iris', () => startGame(c), { inDur: 0.55, hold: 0.25, outDur: 0.7 }),
       sfx: (n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) }),
       icon: (n, sc) => ui.icon(n, sc),
       onSound: (on) => game.audio.setMuted(!on),

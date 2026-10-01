@@ -454,3 +454,21 @@ body.cine .campad, body.at-title .campad, body.lab-mode .campad { opacity: 0; po
 body.blueprint .campad { bottom: 150px; }
 @media (max-width: 640px) { .cp-pan { display: none; } .campad { bottom: 86px; } }
 .campad.locked { display: none; }
+.trackchip { position: absolute; top: calc(10px + var(--safe-t, 0px)); left: 50%; transform: translate(-50%, -150%); display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #fffbea; border: 3px solid #1a1420; box-shadow: 0 3px 0 #1a1420; z-index: 20; cursor: pointer; transition: transform .35s cubic-bezier(.3, 1.6, .5, 1); font-family: var(--font2); font-size: 18px; color: #1a1420; }
+.trackchip.on { transform: translate(-50%, 0); }
+.trackchip i { font-style: normal; margin-left: 6px; opacity: .6; }
+body.cine .trackchip { display: none; }
+.eggtag { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 3px; padding: 1px 6px 1px 3px; background: #fffbea; border: 2px solid #1a1420; box-shadow: 0 2px 0 #1a1420, inset 0 -3px 0 var(--rc, #d8d2c0); font-family: var(--font2); font-size: 18px; color: #1a1420; pointer-events: auto; cursor: pointer; z-index: 6; white-space: nowrap; }
+.eggtag.ready { background: #fff2a0; animation: eggtag-bob .5s ease-in-out infinite alternate; }
+@keyframes eggtag-bob { from { margin-top: 0; } to { margin-top: -6px; } }
+body.cine .eggtag, body.at-title .eggtag, body.blueprint .eggtag { display: none; }
+
+/* day card: a paper slip that drops in, then flips away */
+.daycard { position: fixed; left: 50%; top: 22%; z-index: 70; pointer-events: none; transform: translate(-50%, 0); background: #f3e7cf; color: #1a1420; border: 3px solid #1a1420; box-shadow: 4px 4px 0 #1a1420; padding: 10px 26px 8px; text-align: center; font-family: var(--font-title, monospace); animation: daycard-in .55s cubic-bezier(.2,1.6,.4,1) both; }
+.daycard b { display: block; font-size: 44px; line-height: 1; letter-spacing: 2px; }
+.daycard i { display: block; font-style: normal; font-size: 18px; opacity: .75; margin-top: 2px; }
+.daycard.out { animation: daycard-out .5s ease-in both; }
+@keyframes daycard-in { from { transform: translate(-50%, -140%) rotate(-8deg); opacity: 0; } to { transform: translate(-50%, 0) rotate(-2deg); opacity: 1; } }
+@keyframes daycard-out { from { transform: translate(-50%, 0) rotate(-2deg) scaleY(1); opacity: 1; } to { transform: translate(-50%, -30%) rotate(4deg) scaleY(0); opacity: 0; } }
+body.at-title .daycard, body.cine .daycard { display: none; }
+body.ebuy-open .pointer-hand:not(.ebuy-ptr) { display: none; }

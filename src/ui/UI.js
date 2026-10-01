@@ -14,12 +14,13 @@ import { STRUCTURES, BUILD_CATEGORIES, CHARM_CAP } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES, UNLOCKS_BUILD, UNLOCKS_SPECIES } from '../data/research.js';
 import { WANT_INFO } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
-import { sizeLabel } from '../game/genes.js';
+import { sizeLabel, hatchCard as hatchCardFor } from '../game/genes.js';
 
 // optional components (built by separate modules; the UI degrades gracefully)
 const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js'], { eager: true });
 import.meta.glob('./fonts.css', { eager: true });
 import { Blueprint } from './Blueprint.js';
+import { Transition } from './Transition.js';
 import { injectPaperCSS, openPaper, setPaperSfx } from './paper.js';
 import { Tutorial } from '../game/Tutorial.js';
 const C = (name) => comp[`./${name}.js`] || null;
@@ -66,6 +67,7 @@ const TOOLS = [
   { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish', feature: 'pet' },
   { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
   { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
+  { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: send beavers to trees, rocks & weeds', feature: 'clear' },
   { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: "Reynard's lab", feature: 'lab' },
   { panel: 'dex', icon: 'book', label: 'Fishdex', key: 8, title: 'Fishdex', feature: 'dex' },
   { panel: 'reviews', icon: 'newspaper', label: 'Reviews', key: 9, title: 'Reviews', feature: 'reviews' },
@@ -245,6 +247,7 @@ export class UI {
   // ------------------------------------------------------------ v3 components
   initV3() {
     const game = this.game;
+    try { this.trans = new Transition(); } catch (e) { console.warn('transition', e); }
     try { injectPaperCSS(); setPaperSfx((n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) })); } catch (e) { console.warn('paper', e); }
     const sfx = (n, o) => game.audio.play(n, { volume: 0.35, ...(o || {}) });
     const icon = (n, sc = 2) => (hasSprite(n) ? ico(n, sc) : '');
@@ -289,6 +292,62 @@ export class UI {
   }
 
   icon(name, sc = 2) { return hasSprite(name) ? ico(name, sc) : ''; }
+
+  // ------------------------------------------------------------ creature cam
+  // the nearest creature under the pointer: bears, beavers, the moose, fish, pond birds
+  pickCreature(sx, sy) {
+    const game = this.game;
+    const cands = [];
+    for (const b of game.bears.list) if (b.visible) cands.push({ kind: 'bear', ent: b, y: b.y + 1.1 * b.def.scale, label: b.def.boss ? b.def.name : b.name, zoom: b.def.boss ? 0.03 : 0.02 });
+    for (const b of game.beavers.list) cands.push({ kind: 'beaver', ent: b, y: b.y + 0.3, label: 'Beaver', zoom: 0.014 });
+    const a = game.delivery.active;
+    if (a) cands.push({ kind: 'moose', ent: a, y: a.y + 1, label: 'Moose Express', zoom: 0.022 });
+    for (const f of game.fish.list) if (!f.held) cands.push({ kind: 'fish', ent: f, y: f.y, label: f.name || f.sp.name, zoom: 0.013 });
+    for (const l of game.ambient.loons || []) if (l.placed && !l.dive) cands.push({ kind: 'bird', ent: l, y: 0, label: l.kind === 'loon' ? 'Loon' : 'Mallard', zoom: 0.014 });
+    let best = null, bd = Infinity;
+    for (const c of cands) {
+      const p = this.screenOf(c.ent.x, c.y, c.ent.z);
+      const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
+      const r = c.kind === 'fish' || c.kind === 'bird' ? 14 : c.kind === 'beaver' ? 22 : 34; // small things need a precise tap (feeding stays easy)
+      if (d < r * r && d < bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+
+  // lock the camera onto something that moves; any manual pan frees it
+  trackEntity(ent, { zoom = 0.02, label = '', kind = '' } = {}) {
+    const game = this.game;
+    const rig = game.rig;
+    this.tracking = { ent, label, kind };
+    rig.follow = { get x() { return ent.x; }, get z() { return ent.z; } };
+    rig.wuppGoal = Math.max(rig.minWupp, Math.min(rig.maxWupp, zoom));
+    this.flashTransition?.('zoom');
+    if (!this.trackChip) {
+      const c = document.createElement('div');
+      c.className = 'trackchip';
+      c.addEventListener('click', () => this.stopTracking());
+      this.root.appendChild(c);
+      this.trackChip = c;
+    }
+    this.trackChip.innerHTML = `${hasSprite('camera') ? ico('camera', 2) : ''}<b>${esc(label)}</b><i>✕</i>`;
+    this.trackChip.classList.add('on');
+    game.audio.play('click', { volume: 0.35, pitch: 1.3 });
+  }
+
+  stopTracking() {
+    if (!this.tracking) return;
+    if (this.game.rig.follow && !this.game.rig.follow.isBear) this.game.rig.follow = null;
+    this.tracking = null;
+    this.trackChip?.classList.remove('on');
+  }
+
+  updateTracking() {
+    const t = this.tracking;
+    if (!t) return;
+    const rig = this.game.rig;
+    const gone = (t.kind === 'bear' && !t.ent.visible) || (t.kind === 'moose' && this.game.delivery.active !== t.ent) || (t.kind === 'fish' && t.ent.dead) || !rig.follow;
+    if (gone) { if (rig.follow) rig.follow = null; this.tracking = null; this.trackChip?.classList.remove('on'); }
+  }
 
   // on-screen camera pad: zoom in/out, pan (hold to keep moving), recenter
   buildCamPad() {
@@ -391,29 +450,44 @@ export class UI {
     if (el) { el.classList.remove('unlock-pop'); void el.offsetWidth; el.classList.add('unlock-pop'); }
   }
 
-  // a bouncing pixel pointer at a tool / the clock; returns a remover
-  pointAt(target) {
+  // pixel transitions: quick flash for camera snaps, full wipe for scene changes
+  flashTransition(kind = 'zoom', opts) { try { this.trans?.flash(kind, opts); } catch { /* ignore */ } }
+  wipeTransition(kind = 'blocks', mid, opts) {
+    if (!this.trans) { mid?.(); return Promise.resolve(); }
+    return this.trans.wipe(kind, mid, opts);
+  }
+
+  // a bouncing pixel pointer at a tool / the clock / a css selector; returns a remover
+  pointAt(target, { cls = '' } = {}) {
     let el = null;
-    if (target.startsWith('tool:')) {
+    if (target instanceof Element) el = target;
+    else if (target.startsWith('sel:')) el = document.querySelector(target.slice(4));
+    else if (target.startsWith('tool:')) {
       const k = target.slice(5);
       el = document.querySelector(`#toolbar [data-panel="${k}"], #toolbar [data-tool="${k}"]`);
     } else if (target === 'clock') el = this.hud.clockwrap;
     if (!el) return () => {};
     const p = document.createElement('div');
-    p.className = 'pointer-hand';
+    p.className = `pointer-hand ${cls}`;
     p.innerHTML = hasSprite('cursor_hand') ? ico('cursor_hand', 3) : '<b>▼</b>';
     document.body.appendChild(p);
+    const sel = typeof target === 'string' && target.startsWith('sel:') ? target.slice(4) : null;
     const place = () => {
+      if (sel && !el.isConnected) {
+        const n = document.querySelector(sel);
+        if (n) { el.classList.remove('pulse'); el = n; el.classList.add('pulse'); }
+      }
       const r = el.getBoundingClientRect();
       const up = r.top > window.innerHeight / 2;
       p.classList.toggle('down', up);
       p.style.left = `${r.left + r.width / 2}px`;
       p.style.top = up ? `${r.top - 6}px` : `${r.bottom + 6}px`;
     };
-    place();
-    const iv = setInterval(place, 250);
+    let raf = 0, alive = true;
+    const loop = () => { if (!alive) return; place(); raf = requestAnimationFrame(loop); };
+    loop();
     el.classList.add('pulse');
-    const rm = () => { clearInterval(iv); p.remove(); el.classList.remove('pulse'); };
+    const rm = () => { alive = false; cancelAnimationFrame(raf); p.remove(); el.classList.remove('pulse'); };
     this.pointers.push(rm);
     return rm;
   }
@@ -467,11 +541,23 @@ export class UI {
       onClose: () => this.closeEBuy(),
     });
     this.ebuyHost = host;
+    document.body.classList.add('ebuy-open');
     game.audio.play('crt_on', { volume: 0.35 });
+    this.flashTransition('iris', { dur: 0.36, color: '#1a1420', peak: 0.6 });
+    // tutorial: once the listing is open, the hand points right at Buy It Now
+    if (focus && game.tutorialOnly) {
+      clearTimeout(this.ebuyPtrT);
+      this.ebuyPtrT = setTimeout(() => {
+        if (this.ebuy && host.querySelector('.eb-buy')) this.ebuyPtr = this.pointAt('sel:.ebuy-host .eb-buy', { cls: 'ebuy-ptr' });
+      }, 900);
+    }
   }
 
   closeEBuy() {
     clearTimeout(this.ebuyExitT);
+    clearTimeout(this.ebuyPtrT);
+    this.ebuyPtr?.(); this.ebuyPtr = null;
+    document.body.classList.remove('ebuy-open');
     if (this.ebuy) this.game.audio.play('crt_off', { volume: 0.3 });
     this.ebuy?.close?.();
     this.ebuy = null;
@@ -533,6 +619,8 @@ export class UI {
     this.notifier?.update?.(dt);
     this.blueprint.update(dt);
     this.updateFloaters(dt);
+    this.updateTracking();
+    this.updateEggTags();
     this.updateGhost();
     const night = st.phase === 'night';
     if (night !== this.lastNight) { this.lastNight = night; h.nightui.classList.toggle('hidden', !night); }
@@ -637,6 +725,74 @@ export class UI {
     } else {
       this.simpleHatch(opened.map((o) => o.card), finish);
     }
+  }
+
+  // pond eggs: a little paper tag above each bought egg with its timer
+  updateEggTags() {
+    const game = this.game;
+    const eggs = game.fish.eggs.filter((e) => e.bought);
+    (this.eggTags ||= new Map());
+    for (const [e, el] of this.eggTags) if (!eggs.includes(e)) { el.remove(); this.eggTags.delete(e); }
+    for (const e of eggs) {
+      let el = this.eggTags.get(e);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'eggtag';
+        el.addEventListener('click', (ev) => { ev.stopPropagation(); this.tapPondEgg(e); });
+        this.overlay.appendChild(el);
+        this.eggTags.set(e, el);
+      }
+      const p = this.screenOf(e.x, 0.45, e.z);
+      el.style.display = p.visible === false ? 'none' : '';
+      el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -100%)`;
+      const txt = e.ready ? 'TAP!' : `${Math.floor(e.t / 60)}:${String(Math.ceil(e.t) % 60).padStart(2, '0')}`;
+      if (el.dataset.t !== txt) {
+        el.dataset.t = txt;
+        el.innerHTML = `${hasSprite('egg') ? ico('egg', 1) : ''}<b>${txt}</b>`;
+        el.classList.toggle('ready', !!e.ready);
+        el.style.setProperty('--rc', RARITIES[e.rarity || 0].color);
+      }
+    }
+  }
+
+  pickPondEgg(sx, sy) {
+    let best = null, bd = 26 * 26;
+    for (const e of this.game.fish.eggs) {
+      if (!e.bought) continue;
+      const p = this.screenOf(e.x, e.y, e.z);
+      const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
+
+  // tap a pond egg: not ready -> how long; ready -> the hatch ceremony, then the fish swims out
+  tapPondEgg(e) {
+    const game = this.game;
+    if (this.busy || game.inputLocked) return;
+    if (!e.ready) {
+      this.click();
+      this.say({ getWorldPos: (v) => v.set(e.x, 0.5, e.z) }, `${Math.ceil(e.t)}s more!`, { dur: 1.4, key: 'eggt', size: 's' });
+      return;
+    }
+    const sp = SPECIES_BY_ID[e.species];
+    const g = e.genes[0];
+    const st = game.state;
+    const card = hatchCardFor(e.species, g, { isNewSpecies: !st.discovered.includes(e.species), isNewMorph: g.morph !== 'normal' && !st.morphsSeen.includes(`${e.species}:${g.morph}`), value: Math.round(sp.meal * sp.value * 7) });
+    this.busy++;
+    const EH = C('EggHatch');
+    const finish = () => {
+      this.busy = Math.max(0, this.busy - 1);
+      const born = game.fish.hatchNow(e);
+      if (born[0]) { game.rig.lookAt(born[0].x, born[0].z); game.particles.splash(born[0].x, born[0].z, 10, 0.8); }
+      game.emit('eggHatched', born[0] || null);
+    };
+    if (EH?.playEggHatch) {
+      const wasPaused = st.paused;
+      st.paused = true;
+      EH.playEggHatch(this.hud['ceremony-root'], [card], { fishCanvas: (id, o) => fishCanvasFor(id, o || {}), icon: (n, sc) => ico(n, sc), sfx: (n, o) => game.audio.play(n, { volume: 0.5, ...(o || {}) }), rarities: RARITIES })
+        .catch(() => {}).finally(() => { st.paused = wasPaused; finish(); });
+    } else finish();
   }
 
   simpleHatch(cards, done) {
@@ -924,6 +1080,10 @@ export class UI {
   // ------------------------------------------------------------ phases
   onDayStart() {
     const st = this.game.state;
+    try {
+      const sub = this.game.isDayOff() ? 'Sunday · no bears' : st.day === 1 ? 'Build day' : (this.game.wave?.bears?.some((b) => b.boss) ? 'BOSS BEAR!' : `${this.game.wave?.bears?.length || 0} bears booked`);
+      if (!this.game.tutorialOnly && (st.tutorialDone || this.game.skipTutorial || st.day > 1)) this.trans?.dayCard(`Day ${st.day}`, sub);
+    } catch { /* ignore */ }
     if (st.day > 1 && this.game.fish.count < 3 && !this.game.isDayOff()) this.foxSay('Pond\'s empty! Buy eggs on e-Buy!', 'worried');
     if (this.game.isDayOff()) this.tipOnce('sunday', 'Sunday! No bears today.', 'sleepy');
     if (st.day === 2) this.tipOnce('day2', 'Bears come at 5 today! Berries = fewer fish eaten.', 'greedy');
@@ -988,9 +1148,8 @@ export class UI {
     } else if (t.kind === 'dig') {
       html = `${ico('shovel', 1)} <b>Dig</b> next to the pond to expand it <span class="k">${ico('coin', 1)}${g.digCost()}</span> per tile · drag for a line`;
     } else if (t.kind === 'clear') {
-      const B = game.beavers;
-      ghost.showTiles(tiles.map((p) => ({ ...p, ok: B.canClear(p.x, p.z).ok || B.clears.has(p.z * game.grid.w + p.x) })));
-      ghost.showModels(null, []);
+      const lv = g.beavers.level();
+      html = `${ico('bang', 1)} <b>Destroy</b>: tap or drag over trees, rocks &amp; weeds to send beavers <span class="k">${ico('beaver', 1)} tools Lv${lv}</span>`;
     } else if (t.kind === 'remove') {
       html = `${ico('trash', 1)} <b>Remove</b>: tap a structure (50% refund) or clear a tree/rock (${ico('coin', 1)}10)`;
     } else if (t.kind === 'hand') {
@@ -1023,6 +1182,10 @@ export class UI {
       const entries = tiles.map((p) => ({ ...p, ok: game.structures.canPlace(t.type, p.x, p.z).ok }));
       ghost.showTiles(entries);
       ghost.showModels(t.type, entries);
+    } else if (t.kind === 'clear') {
+      const B = game.beavers;
+      ghost.showTiles(tiles.map((p) => ({ ...p, ok: B.canClear(p.x, p.z).ok || B.clears.has(p.z * game.grid.w + p.x) })));
+      ghost.showModels(null, []);
     } else if (t.kind === 'dig') {
       ghost.showTiles(tiles.map((p) => ({ ...p, ok: !game.canDig(p.x, p.z) })));
       ghost.showModels(null, []);
@@ -1353,6 +1516,7 @@ export class UI {
     const finish = () => { this.busy = Math.max(0, this.busy - 1); done?.(); };
     this.busy++;
     this.closePanel();
+    this.flashTransition('rain', { dur: 0.6, color: '#1a1420', peak: 0.7 });
     if (FS?.showFinanceSheet) {
       FS.showFinanceSheet(this.hud['ceremony-root'], r, {
         icon: (n, s) => ico(n, s),

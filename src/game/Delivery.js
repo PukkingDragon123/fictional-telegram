@@ -93,6 +93,12 @@ export class Delivery {
     path.push({ x: (end.x + d.x) / 2, y: 0, z: (end.z + d.z) / 2 + 1 }, { x: d.x - 1.2, y: 0, z: d.z + 0.6 });
     this.active = { rig, orders, path, i: 0, x: path[0].x, y: path[0].y, z: path[0].z, state: 'ride', t: 0, heading: 0 };
     rig.play?.('ride', { loop: true });
+    // the camera rides along (any manual pan frees it again)
+    const ui = this.game.ui;
+    if (ui && !this.game.cine?.active && !ui.blueprint?.open && !this.game.lab?.active && this.game.state.phase !== 'rush') {
+      this.prevCam = { x: this.game.rig.goal.x, z: this.game.rig.goal.z, wupp: this.game.rig.wuppGoal };
+      setTimeout(() => { if (this.active && !ui.ebuy) ui.trackEntity(this.active, { label: 'Moose Express', kind: 'moose', zoom: 0.024 }); }, 400);
+    }
     this.game.audio.play('bell', { volume: 0.3, pitch: 1.8 });
   }
 
@@ -152,6 +158,9 @@ export class Delivery {
       if (a.t > 0.9 && !a.waved) { a.waved = true; r.play?.('wave', { loop: false }); game.say?.(this.speaker(), pick(['Sign here! ...nah.', 'Fresh from e-Buy!', 'Handle with care!', 'Have a moose-tastic day!']), { voice: 'moose', mood: 'happy', dur: 2 }); }
       if (a.t > 2.4) {
         a.state = 'leave'; a.t = 0;
+        // stop riding along; settle on the parcels
+        const ui = game.ui;
+        if (ui?.tracking?.kind === 'moose') { ui.stopTracking(); game.rig.lookAt(this.dropPoint.x, this.dropPoint.z); game.rig.wuppGoal = 0.026; }
         r.play?.('ride_away', { loop: false, onDone: () => r.play?.('ride', { loop: true }) });
         a.path = a.path.slice().reverse();
         a.i = 1;
@@ -218,6 +227,13 @@ export class Delivery {
           const e = game.fish.addBoughtEgg(it.species, it.genes, it.t, w);
           if (e) game.particles.sparkle(w.x, WATER_Y + 0.2, w.z, 8, 0xfff2a0);
         }, 350 + eggs * 120);
+      } else if (it.kind === 'upgrade') {
+        game.state.beaverLevel = Math.max(game.state.beaverLevel || 1, it.level);
+        game.particles.confetti(p.x, p.y + 0.6, p.z, 30);
+        game.audio.play('levelup', { volume: 0.5 });
+        game.notify(`Beaver tools Lv${it.level}! They can tear down more now.`, 'excited');
+        for (const b of game.beavers.list) b.cheerT = 1.2;
+        game.emit('beavers', game.beavers.count());
       } else {
         const inv = (game.state.inventory ||= {});
         inv[it.type] = (inv[it.type] || 0) + (it.qty || 1);

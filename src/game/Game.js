@@ -22,7 +22,7 @@ import { FishSystem, GROW_TIME } from './FishSystem.js';
 import { FoodSystem } from './FoodSystem.js';
 import { StructureSystem } from './StructureSystem.js';
 import { BearSystem } from './BearSystem.js';
-import { BeaverSystem } from './BeaverSystem.js';
+import { BeaverSystem, BEAVER_LEVELS } from './BeaverSystem.js';
 import { Delivery } from './Delivery.js';
 import { Fox, Ambient } from './Ambient.js';
 import audio from './audioProxy.js';
@@ -103,7 +103,7 @@ export class Game {
       coins: 120, day: 1, hour: 9, phase: 'day', rating: 3.0, reviews: [], research: [], discovered: ['bluegill'], morphsSeen: [],
       speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false, achievements: [],
       eggTray: [], bestNet: 0, grades: [],
-      inventory: {}, landmarks: [], unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
+      inventory: {}, landmarks: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
     };
   }
 
@@ -355,6 +355,14 @@ export class Game {
       if (it.once && (st.inventory[it.type] || this.structures.countBuilt(it.type))) continue;
       L.push({ id: 'item_' + it.type, cat: it.cat, kind: 'item', type: it.type, qty: it.qty || 1, title: it.title, sub: def?.name || it.sub, price: it.price, oldPrice: it.oldPrice, badges: it.badges || [], seller: it.seller, locked, eta: 'Moose Express' });
     }
+    // beaver tool upgrades: the next one is buyable, later ones show locked
+    const lvl = st.beaverLevel || 1;
+    for (let n = 2; n < BEAVER_LEVELS.length; n++) {
+      if (n <= lvl) continue;
+      const B = BEAVER_LEVELS[n];
+      const locked = n > lvl + 1 ? { reason: `Need Lv${n - 1} first`, icon: 'lock' } : !this.beavers.count() ? { reason: 'Hire beavers first', icon: 'beaver' } : null;
+      L.push({ id: 'upg_beaver' + n, cat: 'gear', kind: 'upgrade', level: n, type: 'lodge', title: `BEAVER TOOLS Lv${n}: ${B.name}!! (${B.desc})`, sub: `Beaver tools Lv${n}`, price: B.price, oldPrice: B.price * 4, badges: ['hot'], seller: { name: 'BuckTooth Bros', stars: 4.9, sold: 300 + n * 40 }, locked, eta: 'Moose Express' });
+    }
     // the rest of the catalogue: every plant, decor piece, gadget and
     // restaurant kit, including the ones you can't have yet (greyed + why)
     const handmade = new Set(SHOP_ITEMS.map((it) => it.type));
@@ -386,7 +394,9 @@ export class Game {
     if (this.state.coins < cost) { this.audio.play('error', { volume: 0.4 }); return false; }
     this.spend(cost, listing.kind === 'egg' ? 'eggs' : 'shop');
     this.audio.play('buy', { volume: 0.5 });
-    if (listing.kind === 'egg') {
+    if (listing.kind === 'upgrade') {
+      this.delivery.order([{ kind: 'upgrade', level: listing.level }], { label: listing.title });
+    } else if (listing.kind === 'egg') {
       const e = this.state.shop.find((x) => x.id === listing.id);
       if (e) e.sold = true;
       const rarity = rarityOf(listing.genes.stars);
@@ -924,6 +934,7 @@ export class Game {
     const r = B.queueClear(x, z);
     if (r.ok) { this.audio.play('paper', { volume: 0.3, pitch: 1.2 }); return true; }
     if (r.reason === 'far') this.notify('Too far! Start from the edge of your land.', 'no');
+    else if (r.reason === 'level') this.notify(`Need Lv${r.need} beaver tools! Upgrade on e-Buy.`, 'no');
     this.audio.play('error', { volume: 0.3 });
     return false;
   }

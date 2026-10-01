@@ -294,9 +294,17 @@ export class Input {
       else if (tool.kind === 'nurture') game.nurtureFish(f);
       return;
     }
-    // default: feed / interact
-    const bear = game.ui?.pickBear(sx, sy);
-    if (bear) { game.ui.showBearInfo(bear); return; }
+    // pond eggs: tap to check / hatch
+    const egg = game.ui?.pickPondEgg?.(sx, sy);
+    if (egg && game.tool.kind === 'feed') { game.ui.tapPondEgg(egg); return; }
+    // default: feed / interact. Tapping a creature zooms in and tracks it.
+    const cr = game.ui?.pickCreature?.(sx, sy);
+    if (cr && game.tool.kind === 'feed') {
+      game.ui.trackEntity(cr.ent, cr);
+      if (cr.kind === 'bear') game.ui.showBearInfo?.(cr.ent);
+      else if (cr.kind === 'fish') game.ui.showFishInfo?.(cr.ent);
+      return;
+    }
     if (t.x >= HUT.x && t.x < HUT.x + 3 && t.z >= HUT.z && t.z < HUT.z + 3) { game.ui?.openPanel('lab'); return; }
     const s = game.structures.structureAtTile(t.x, t.z);
     if (s && game.tapStructure(s)) return;

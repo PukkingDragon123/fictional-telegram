@@ -351,6 +351,12 @@ export class FishSystem {
       const e = this.eggs[i];
       e.t -= dt;
       if (Math.random() < dt * 0.6) game.particles.bubbles(e.x, e.y + 0.05, e.z, 1);
+      // bought eggs wait for you to tap them (then the hatch ceremony plays)
+      if (e.bought) {
+        if (e.t <= 0 && !e.ready) { e.ready = true; e.t = 0; game.audio.play('egg_crack', { volume: 0.4, pitch: 1.3 }); game.emit('eggReady', e); }
+        if (e.ready) { e.t = 0; if (Math.random() < dt * 3) game.particles.sparkle(e.x, WATER_Y + 0.15, e.z, 1, 0xfff2a0); }
+        continue;
+      }
       if (e.t <= 0) {
         this.eggs.splice(i, 1);
         this.hatch(e);
@@ -437,10 +443,20 @@ export class FishSystem {
     if (e.bought) game.onEggHatched?.(e, born);
   }
 
+  hatchNow(e) {
+    const i = this.eggs.indexOf(e);
+    if (i < 0) return [];
+    this.eggs.splice(i, 1);
+    const before = this.list.length;
+    this.hatch(e);
+    return this.list.slice(before);
+  }
+
   // place a bought egg in the pond (it hatches after its timer)
   addBoughtEgg(species, genes, t, at = null) {
     const p = at || this.randomWaterPoint();
     if (!p) return null;
+    if (this.game.quickEggs) t = Math.min(t, 10);
     const rarity = Math.max(0, Math.min(4, genes.stars - 1));
     const hex = RARITIES[rarity].color.replace('#', '');
     const col = [parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255].map((v) => 0.6 + v * 0.6);
@@ -624,7 +640,7 @@ export class FishSystem {
       const wob = e.t < 4 ? Math.sin(this.time * 18 + e.x) * 0.15 : Math.sin(this.time * 3 + e.x) * 0.04;
       if (e.bought) {
         const c = e.rarityColor || [1, 1, 1];
-        const pulse = 1 + Math.sin(this.time * 4 + e.x) * 0.05 + (e.t < 4 ? Math.abs(Math.sin(this.time * 14)) * 0.15 : 0);
+        const pulse = 1 + Math.sin(this.time * 4 + e.x) * 0.05 + (e.ready ? 0.15 + Math.abs(Math.sin(this.time * 9)) * 0.2 : e.t < 4 ? Math.abs(Math.sin(this.time * 14)) * 0.15 : 0);
         B.push(eggFr, e.x, e.y + 0.03, e.z, { texels: FISH_TPU, scale: 1.6 * pulse, mode: 1, ax: 0.5, ay: 0.5, rot: wob, tint: c, emissive: e.rarity >= 2 ? 0.3 : 0.1 });
       } else B.push(eggFr, e.x, e.y + 0.02, e.z, { texels: FISH_TPU, mode: 1, ax: 0.5, ay: 0.5, rot: wob, tint: [0.9, 0.95, 1] });
     }

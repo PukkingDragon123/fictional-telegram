@@ -68,6 +68,7 @@ export class Blueprint {
     game.audio.play('paper', { volume: 0.5 });
     game.audio.play('whoosh', { volume: 0.25, pitch: 1.4 });
     document.body.classList.add('blueprint');
+    this.ui.flashTransition?.('rain', { dur: 0.5, color: '#2a5f9e', peak: 0.55 });
     this.savedPitch = game.rig.pitch;
     game.rig.pitchGoal = (58 * Math.PI) / 180;
     const force = this.ui.bpForce;
@@ -84,6 +85,7 @@ export class Blueprint {
     this.open = false;
     game.audio.play('close', { volume: 0.4 });
     document.body.classList.remove('blueprint');
+    this.ui.flashTransition?.('rain', { dur: 0.4, color: '#f3e7cf', peak: 0.4 });
     game.rig.pitchGoal = this.savedPitch ?? (44 * Math.PI) / 180;
     game.setTool({ kind: 'feed' });
     this.el?.classList.add('out');

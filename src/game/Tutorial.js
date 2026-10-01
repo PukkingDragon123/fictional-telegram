@@ -130,6 +130,7 @@ export class Tutorial {
     game.ui?.blueprint?.exit();
     ptr = game.ui?.pointAt?.('tool:ebuy');
     const egg = game.ebuyListings().find((l) => l.kind === 'egg' && !l.locked);
+    game.quickEggs = true; // the tutorial egg is a quick one so nobody waits around
     this.force('ebuy', { ebuyFocus: egg?.id });
     this.fox('Now: fish eggs!', { wait: false, dur: 3 });
     this.nag(() => 'e-Buy ▸ buy an egg!');
@@ -139,7 +140,19 @@ export class Tutorial {
     ptr?.();
     await this.until('delivered', (o) => o.items.some((it) => it.kind === 'egg'));
     await wait(1.2);
-    await this.fox('It hatches in the pond soon!', { mood: 'happy' });
+    this.fox('See the timer? Wait for it…', { wait: false, mood: 'happy', dur: 3 });
+    if (!game.fish.eggs.some((e) => e.bought && e.ready)) await this.until('eggReady');
+    game.quickEggs = false;
+    const ready = game.fish.eggs.find((e) => e.bought && e.ready);
+    if (ready) { game.ui?.stopTracking?.(); game.rig.lookAt(ready.x, ready.z); }
+    await wait(0.6);
+    ptr = game.ui?.pointAt?.('sel:.eggtag.ready');
+    this.fox('Ready! Tap the egg!', { wait: false, mood: 'excited', dur: 4 });
+    this.nag(() => 'Tap the egg!');
+    await this.until('eggHatched');
+    this.stopNag();
+    ptr?.();
+    await wait(0.6);
 
     // ---- feeding
     game.unlockFeature('feed');
