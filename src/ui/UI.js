@@ -839,7 +839,8 @@ export class UI {
     const sp = SPECIES_BY_ID[e.species];
     const st = game.state;
     const genes = (e.genes || []).filter(Boolean).slice(0, Math.max(1, e.count || 1));
-    if (!genes.length) genes.push(rollGenesFor(e.species, game.mods));
+    // one card per fish that will come out (old saves may be missing some genes)
+    while (genes.length < Math.max(1, e.count || 1)) genes.push(rollGenesFor(e.species, game.mods));
     const cards = genes.map((g) => hatchCardFor(e.species, g, { isNewSpecies: !st.discovered.includes(e.species), isNewMorph: g.morph !== 'normal' && !st.morphsSeen.includes(`${e.species}:${g.morph}`), value: Math.round(sp.meal * sp.value * 7) }));
     e.genes = genes;
     const card = cards[0];

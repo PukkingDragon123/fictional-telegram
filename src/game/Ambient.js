@@ -72,8 +72,7 @@ export class Fox {
     egg.position.set(0.03, 0.15, 0); egg.scale.set(1, 1.25, 1);
     g.add(box, straw, egg);
     g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-    g.visible = false;
-    this.game.scene.add(g);
+    g.scale.setScalar(1.15);
     this._crate = g;
     return g;
   }
@@ -90,6 +89,8 @@ export class Fox {
       if (Math.hypot(this.x - e.px, this.z - (e.pz + 0.5)) < 0.45 || e.t > 10) {
         e.stage = 'carry'; e.t = 0;
         game.audio.play('grab', { volume: 0.4 });
+        // balanced on top of his hat, so you can see it from any side
+        game.scene.add(crate);
         e.w = game.fish.randomWaterPoint() || { x: this.x, z: this.z - 3 };
         this.goToward(e.w.x, e.w.z);
         if (!this.target) this.target = { x: this.x, z: this.z };
@@ -97,9 +98,9 @@ export class Fox {
       }
     } else if (e.stage === 'carry') {
       crate.visible = true;
-      const h = this.handPos();
-      crate.position.set(h.x, this.y + 0.85 + Math.sin(this.time * 9) * 0.03, h.z);
-      crate.rotation.y = Math.PI / 2 - this.heading;
+      const top = this.rig.headTop ? this.rig.headTop(this._crateV || (this._crateV = new THREE.Vector3())) : { x: this.x, y: this.y + 1.6, z: this.z };
+      crate.position.set(top.x, top.y + 0.02 + Math.abs(Math.sin(this.time * 9)) * 0.03, top.z);
+      crate.rotation.set(0, Math.PI / 2 - this.heading, Math.sin(this.time * 4.5) * 0.08);
       if (!this.target || e.t > 12) {
         e.stage = 'throw'; e.t = 0;
         this.heading = Math.atan2(e.w.z - this.z, e.w.x - this.x);
@@ -108,7 +109,7 @@ export class Fox {
     } else if (e.stage === 'throw') {
       if (e.t > 0.35 && !e.thrown) {
         e.thrown = true;
-        crate.visible = false;
+        game.scene.remove(crate);
         game.audio.play('whoosh', { volume: 0.35, pitch: 1.2 });
         game.delivery.dropEggs(this.x, this.y + 0.5, this.z, e.items, e.w);
       }
