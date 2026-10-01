@@ -6,6 +6,9 @@ import { STRUCTURES, CHARM_CAP } from '../data/structures.js';
 import { KIND, WATER_Y, N4 } from '../world/grid.js';
 import { voxelMaterial, addGrain } from '../core/voxel.js';
 import * as SM from '../entities/structureModels.js';
+const decorMods = import.meta.glob('../entities/decorModels.js', { eager: true });
+const DM = decorMods['../entities/decorModels.js'] || null;
+const DECOR_SET = new Set(DM?.DECOR_TYPES || []);
 
 export const PLATFORM_DECK_Y = 0.6;
 const geoCache = new Map();
@@ -239,6 +242,51 @@ export class StructureSystem {
     this.tint(s);
   }
 
+  addDecor(s, obj, add) {
+    const depth = DM.WATER_DECOR?.has(s.type) ? this.depthVox(s) : 10;
+    const seed = s.preview ? 1 : (s.seed % 4) + 1;
+    const key = `dec:${s.type}:${seed}:${depth}`;
+    let dm;
+    try { dm = DM.decorModel(s.type, { seed, depth }); } catch (e) { console.warn('decor', s.type, e); return false; }
+    if (!dm || !dm.body) return false;
+    add(cachedGeo(key, () => dm.body, { scale: 0.1 }));
+    if (dm.glow) add(cachedGeo(key + 'g', () => dm.glow, { scale: 0.1, ao: false }), this.glowMat, { shadow: false, tint: false });
+    const parts = [];
+    (dm.parts || []).forEach((pt, i) => {
+      const holder = new THREE.Group();
+      holder.position.set((pt.pivot[0] - 0.5) * 0.1, pt.pivot[1] * 0.1, (pt.pivot[2] - 0.5) * 0.1);
+      const mk = (vm, mat, glow) => {
+        const geo = cachedGeo(`${key}p${i}${glow ? 'g' : ''}`, () => vm, { pivot: pt.pivot, scale: 0.1, ao: !glow });
+        const m = new THREE.Mesh(geo, mat);
+        m.castShadow = !glow;
+        m.receiveShadow = !glow;
+        m.userData.tintable = !glow;
+        holder.add(m);
+      };
+      if (pt.model) mk(pt.model, voxelMaterial(), false);
+      if (pt.glow) mk(pt.glow, this.glowMat, true);
+      obj.add(holder);
+      parts.push({ holder, anim: pt.anim, axis: pt.axis || (pt.anim === 'rotateY' ? 'y' : 'z'), speed: pt.speed ?? 1, phase: (pt.phase || 0) + (s.seed % 7) * 0.9, y0: holder.position.y });
+    });
+    if (parts.length) obj.userData.parts = parts;
+    return true;
+  }
+
+  // animate decor parts: pinwheels spin, flags wave, lanterns bob, flames flicker
+  animateParts(obj, t) {
+    for (const p of obj.userData.parts) {
+      const h = p.holder, tt = t * p.speed + p.phase;
+      switch (p.anim) {
+        case 'spin': case 'rotateY': h.rotation[p.axis] = tt; break;
+        case 'sway': h.rotation[p.axis] = Math.sin(tt) * 0.15; break;
+        case 'wave': h.rotation.y = Math.sin(tt) * 0.22; h.rotation.z = Math.sin(tt * 1.7) * 0.05; break;
+        case 'bob': h.position.y = p.y0 + Math.sin(tt) * 0.03; h.rotation.z = Math.sin(tt * 0.8) * 0.06; break;
+        case 'flicker': { const n = Math.sin(tt * 7.3) * 0.5 + Math.sin(tt * 13.1) * 0.3 + Math.sin(tt * 3.1) * 0.2; h.scale.set(1 - n * 0.05, 1 + n * 0.15, 1 - n * 0.05); break; }
+        default: break;
+      }
+    }
+  }
+
   makeObject(s) {
     const obj = new THREE.Group();
     const d = s.def;
@@ -252,7 +300,9 @@ export class StructureSystem {
     };
     const variant = s.seed % 3;
     let mask = 0;
-    switch (s.type) {
+    if (DECOR_SET.has(s.type) && this.addDecor(s, obj, add)) {
+      // detailed decor model (with animated parts)
+    } else switch (s.type) {
       case 'seaweed': add(cachedGeo(`sw${variant}`, () => SM.seaweedModel(variant + 1, 1.25))); break;
       case 'cattail': add(cachedGeo(`ct${variant}`, () => SM.cattailModel(variant + 1))); break;
       case 'lilypad': add(cachedGeo(`lp${variant}`, () => SM.lilypadModel(variant + 1, variant !== 2)), undefined, { shadow: false }); break;
@@ -440,6 +490,7 @@ export class StructureSystem {
     const game = this.game;
     const mods = game.mods;
     for (const s of this.list) {
+      if (s.obj?.userData.parts) this.animateParts(s.obj, this.time);
       if (!s.built) { this.updateVisual(s); continue; }
       if (s.popT > 0 && s.obj) {
         s.popT = Math.max(0, s.popT - dt);
@@ -498,7 +549,7 @@ export class StructureSystem {
         s.obj.rotation.x = Math.cos(this.time * 0.9 + s.seed) * 0.05;
       }
       if (s.type === 'lilypad' && s.obj) s.obj.position.y = this.baseY(s) + Math.sin(this.time * 1.5 + s.seed) * 0.01;
-      if (s.type === 'flag' && s.obj) s.obj.rotation.y = Math.sin(this.time * 0.7 + s.seed) * 0.35;
+      if (s.type === 'flag' && s.obj && !s.obj.userData.parts) s.obj.rotation.y = Math.sin(this.time * 0.7 + s.seed) * 0.35;
     }
   }
 
