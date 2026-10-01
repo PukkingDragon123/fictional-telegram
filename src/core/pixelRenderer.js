@@ -71,6 +71,77 @@ uniform vec3 flashColor;
 uniform vec3 iris; // x, y (screen px), radius (px); radius < 0 = off
 uniform float time;
 uniform float blueprint;
+// thick fog over the unexplored areas: a world-space mask (1 texel = 1 tile),
+// marched along each pixel's view ray through a billowy slab of cloud
+uniform sampler2D fogTex;
+uniform vec2 fogSize;
+uniform float fogOn;
+uniform float fogTop;
+uniform mat4 invVP;
+uniform vec3 camDir;
+uniform vec3 fogLight;
+uniform vec3 fogShade;
+
+float fhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float fnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(fhash(i), fhash(i + vec2(1.0, 0.0)), u.x), mix(fhash(i + vec2(0.0, 1.0)), fhash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float ffbm(vec2 p) { return fnoise(p) * 0.55 + fnoise(p * 2.03 + 7.1) * 0.3 + fnoise(p * 4.1 + 3.3) * 0.15; }
+// fogTex: r = density, g = ground height / 25.5 (the fog hugs hills)
+float fogDensity(vec3 q) {
+  // domain-warp the lookup so area outlines aren't perfect circles
+  vec2 wq = q.xz + (vec2(fnoise(q.xz * 0.075 + vec2(time * 0.01, 0.0)), fnoise(q.xz * 0.075 + 5.2)) - 0.5) * 7.0;
+  vec2 t = texture2D(fogTex, wq / fogSize).rg;
+  float m = t.r;
+  if (m < 0.004) return 0.0;
+  float n = ffbm(q.xz * 0.17 + vec2(time * 0.018, time * 0.011));
+  float edge = smoothstep(0.12, 0.75, m + (n - 0.5) * 0.6);
+  float top = t.g * 25.5 + fogTop * (0.72 + 0.45 * n) * (0.35 + 0.65 * smoothstep(0.15, 0.85, m));
+  return edge * smoothstep(top, top - 1.2, q.y);
+}
+vec4 fogAt(vec2 lp, vec2 uv) {
+  float z = texture2D(tDepth, uv).x;
+  if (z > 0.99999) return vec4(0.0);
+  vec4 wp = invVP * vec4(uv * 2.0 - 1.0, z * 2.0 - 1.0, 1.0);
+  vec3 P = wp.xyz / wp.w;
+  float cy = max(0.08, -camDir.y);
+  float gh = texture2D(fogTex, P.xz / fogSize).g * 25.5;
+  float tTop = clamp((gh + fogTop * 1.25 - P.y) / cy, 0.0, 30.0);
+  if (tTop <= 0.0) return vec4(0.0);
+  // cheap reject: no fog anywhere near this ray
+  vec3 qa = P - camDir * tTop;
+  if (texture2D(fogTex, P.xz / fogSize).r + texture2D(fogTex, qa.xz / fogSize).r + texture2D(fogTex, mix(P.xz, qa.xz, 0.5) / fogSize).r < 0.003) return vec4(0.0);
+  float tau = 0.0, hitY = -99.0;
+  vec2 hitXZ = P.xz;
+  const int N = 10;
+  float st = tTop / float(N);
+  for (int i = 0; i < N; i++) {
+    float t = tTop - (float(i) + 0.5) * st;
+    vec3 q = P - camDir * t;
+    float d = fogDensity(q);
+    if (d > 0.3 && hitY < -90.0) { hitY = q.y; hitXZ = q.xz; }
+    tau += d * st;
+  }
+  // anything standing inside a fogged area is swallowed whole, however tall
+  vec2 pw = P.xz + (vec2(fnoise(P.xz * 0.075 + vec2(time * 0.01, 0.0)), fnoise(P.xz * 0.075 + 5.2)) - 0.5) * 7.0;
+  float cover = smoothstep(0.55, 0.95, texture2D(fogTex, pw / fogSize).r);
+  if (tau < 0.002 && cover < 0.01) return vec4(0.0);
+  if (hitY < -90.0 && cover > 0.01) { hitY = P.y; hitXZ = P.xz; }
+  float dith = fract(52.9829189 * fract(dot(lp, vec2(0.06711056, 0.00583715))));
+  float a = max(1.0 - exp(-tau * 2.2), cover);
+  a = clamp(floor(a * 4.0 + dith * 0.999) / 4.0, 0.0, 1.0);
+  // billows: lit tops, a light from the top-left, chunky 4-tone shading
+  vec2 dr = vec2(time * 0.018, time * 0.011);
+  float hg = texture2D(fogTex, hitXZ / fogSize).g * 25.5;
+  float s = hitY > -90.0 ? clamp((hitY - hg + 0.6) / fogTop, 0.0, 1.0) : 0.3;
+  float g = ffbm(hitXZ * 0.17 + dr + vec2(-0.35, -0.35)) - ffbm(hitXZ * 0.17 + dr);
+  float big = ffbm(hitXZ * 0.06 + dr * 0.5);
+  float sh = clamp(0.18 + 0.5 * s + g * 3.4 + (big - 0.5) * 0.5, 0.0, 1.0);
+  sh = floor(sh * 4.0 + dith * 0.85) / 4.0;
+  return vec4(mix(fogShade, fogLight, sh), a);
+}
 
 float D(vec2 p) { return texture2D(tDepth, (p + 0.5) / rtSize).x * depthRange; }
 vec3 C(vec2 p) { return texture2D(tColor, (p + 0.5) / rtSize).rgb; }
@@ -94,6 +165,11 @@ void main() {
   vec2 buv = (lp - 0.5) / rtSize;
   vec3 bl = texture2D(tBloom, buv).rgb;
   col += bl * bloomAmt;
+  if (fogOn > 0.5) {
+    vec4 fg = fogAt(lp, (lp + 0.5) / rtSize);
+    col = mix(col, fg.rgb, fg.a);
+    bl *= 1.0 - fg.a;
+  }
   // cozy grade: lifted cool shadows, warm gain, gentle contrast
   float l = dot(col, vec3(0.299, 0.587, 0.114));
   col = mix(vec3(l), col, saturation);
@@ -194,6 +270,14 @@ export class PixelRenderer {
         flashColor: { value: new THREE.Color(1, 1, 1) },
         iris: { value: new THREE.Vector3(0, 0, -1) },
         time: { value: 0 },
+        fogTex: { value: null },
+        fogSize: { value: new THREE.Vector2(1, 1) },
+        fogOn: { value: 0 },
+        fogTop: { value: 7.6 },
+        invVP: { value: new THREE.Matrix4() },
+        camDir: { value: new THREE.Vector3(0, -1, 0) },
+        fogLight: { value: new THREE.Vector3(0.95, 0.94, 0.9) },
+        fogShade: { value: new THREE.Vector3(0.62, 0.64, 0.74) },
       },
       depthTest: false,
       depthWrite: false,
@@ -249,6 +333,20 @@ export class PixelRenderer {
   // Iris wipe: radius in CSS px around a CSS-px point (null/negative = off)
   setBlueprint(k) { this.postMat.uniforms.blueprint.value = k; }
 
+  // fog of the unexplored: a DataTexture mask over the w x h tile grid (null = off)
+  setFog(tex, w, h) {
+    const u = this.postMat.uniforms;
+    u.fogTex.value = tex;
+    u.fogSize.value.set(w || 1, h || 1);
+    u.fogOn.value = tex ? 1 : 0;
+  }
+  setFogColors(light, shade) {
+    const u = this.postMat.uniforms;
+    u.fogLight.value.set(light[0], light[1], light[2]);
+    u.fogShade.value.set(shade[0], shade[1], shade[2]);
+  }
+  setFogEnabled(on) { const u = this.postMat.uniforms; u.fogOn.value = on && u.fogTex.value ? 1 : 0; }
+
   setIris(cssX, cssY, radius) {
     const u = this.postMat.uniforms.iris.value;
     if (radius == null || radius < 0) { u.z = -1; return; }
@@ -263,6 +361,10 @@ export class PixelRenderer {
     u.subpixel.value.copy(cameraRig.subpixel);
     u.depthRange.value = cam.far - cam.near;
     u.time.value = performance.now() / 1000;
+    if (u.fogOn.value) {
+      u.invVP.value.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse);
+      u.camDir.value.set(0, 0, -1).transformDirection(cam.matrixWorld);
+    }
     r.setRenderTarget(this.rt);
     r.render(scene, cam);
     if (this.bloomOn) {

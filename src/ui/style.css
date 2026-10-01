@@ -472,3 +472,9 @@ body.cine .eggtag, body.at-title .eggtag, body.blueprint .eggtag { display: none
 @keyframes daycard-out { from { transform: translate(-50%, 0) rotate(-2deg) scaleY(1); opacity: 1; } to { transform: translate(-50%, -30%) rotate(4deg) scaleY(0); opacity: 0; } }
 body.at-title .daycard, body.cine .daycard { display: none; }
 body.ebuy-open .pointer-hand:not(.ebuy-ptr) { display: none; }
+
+/* v7: bug-farm boost chips, nest tags */
+.chip.fx { background: color-mix(in srgb, var(--fx) 28%, #fffbea); border-color: color-mix(in srgb, var(--fx) 70%, #1a1420); }
+.chip.bugc img.px { vertical-align: middle; margin-right: 2px; }
+.nesttag { --rc: #e8d8a0; }
+p.small { font-size: 15px; opacity: .8; margin: 4px 0; }

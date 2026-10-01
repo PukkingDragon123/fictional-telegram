@@ -1,0 +1,122 @@
+/* DeliveryTracker (src/ui/DeliveryTracker.js): Moose Express luggage tags on the left edge. */
+.dt {
+  position: absolute; left: calc(14px + env(safe-area-inset-left, 0px)); top: calc(116px + env(safe-area-inset-top, 0px)); z-index: 18;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none;
+  font-family: var(--font-body); font-size: 16px; line-height: 16px; color: #3b2414;
+  -webkit-user-select: none; user-select: none; -webkit-font-smoothing: none; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
+}
+.dt *, .dt *::before, .dt *::after { box-sizing: border-box; }
+.dt img { display: block; image-rendering: pixelated; max-width: none; }
+.dt-list { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+/* ---- the tag */
+.dt-tag {
+  position: relative; display: block; flex: none; width: 210px; height: 105px; margin: 0; padding: 0; border: 0; background: none;
+  color: #3b2414; font: inherit; text-align: left; cursor: pointer; pointer-events: auto; outline: none;
+  transform-origin: 18px 52px; transform: rotate(var(--r, 0deg)); transition: transform .16s, height .25s ease-in, margin .25s ease-in;
+  -webkit-tap-highlight-color: transparent;
+}
+.dt-tag:hover { transform: rotate(calc(var(--r, 0deg) - 3deg)) translateX(3px); }
+.dt-tag:focus-visible .dt-paper { outline: 3px dashed #2c60b2; outline-offset: 3px; }
+.dt-hidden { display: none; }
+.dt-paper { position: absolute; inset: 0; background: no-repeat 0 0 / 100% 100%; image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgba(30, 16, 8, .4)); }
+.dt-string {
+  position: absolute; z-index: 1; right: calc(100% - 19px); top: 51px; width: calc(33px + env(safe-area-inset-left, 0px)); height: 3px;
+  background: repeating-linear-gradient(90deg, #e0c08c 0 3px, #a87c4c 3px 6px); box-shadow: 0 3px 0 rgba(30, 16, 8, .25);
+}
+.dt-string::after { content: ''; position: absolute; right: -2px; top: -3px; width: 6px; height: 9px; background: #a87c4c; box-shadow: inset 3px 0 0 #e0c08c; }
+
+/* moose window with a faint postmark ring */
+.dt-ico { position: absolute; left: 41px; top: 9px; width: 54px; height: 54px; display: grid; place-items: center; }
+.dt-ico::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px dashed rgba(59, 36, 20, .16); background: rgba(255, 250, 235, .32); }
+.dt-win { position: relative; width: 48px; height: 48px; overflow: hidden; }
+.dt-strip { position: absolute; left: 0; top: 0; animation: dt-run var(--dur, .5s) steps(var(--n, 2)) infinite; }
+@keyframes dt-run { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+/* text */
+.dt-txt { position: absolute; left: 100px; right: 12px; top: 10px; display: flex; flex-direction: column; }
+.dt-lbl { display: flex; align-items: baseline; gap: 5px; height: 14px; font-size: 16px; line-height: 14px; color: #7a5c40; white-space: nowrap; }
+.dt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dt-cnt { flex: none; font-family: var(--font-title); font-weight: 400; font-size: 18px; line-height: 14px; color: #3b2414; }
+.dt-ph { margin-top: 4px; height: 18px; font-family: var(--font-title); font-size: 18px; line-height: 18px; color: var(--pc, #3b2414); white-space: nowrap; transform-origin: 0 50%; }
+.dt-eta { height: 28px; font-family: var(--font-title); font-size: 36px; line-height: 30px; color: #3b2414; white-space: nowrap; text-shadow: 0 2px 0 rgba(255, 255, 255, .4); }
+.dt-p-packing { --pc: #9c5a14; }
+.dt-p-riding { --pc: #2c60b2; }
+.dt-p-arriving { --pc: #c23a2c; }
+.dt-p-delivered { --pc: #237a34; }
+.dt-p-arriving .dt-eta { animation: dt-hurry .8s steps(1) infinite; }
+@keyframes dt-hurry { 50% { color: #c23a2c; } }
+
+/* road: parcel -> dashed route -> mailbox, moose head marker */
+.dt-road { position: absolute; left: 40px; right: 11px; bottom: 9px; height: 28px; }
+.dt-start { position: absolute; left: 0; bottom: 2px; }
+.dt-box { position: absolute; right: 0; bottom: 0; transform-origin: 30% 100%; }
+.dt-line { position: absolute; left: 20px; right: 28px; bottom: 7px; height: 3px; background: repeating-linear-gradient(90deg, #a89070 0 6px, transparent 6px 9px); }
+.dt-done { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%); background: repeating-linear-gradient(90deg, #c23a2c 0 6px, transparent 6px 9px); transition: width .3s linear; }
+.dt-mk { position: absolute; bottom: 4px; left: calc(20px + var(--p, 0) * (100% - 48px) - 13px); transition: left .3s linear, opacity .3s; }
+.dt-p-riding .dt-mk img { animation: dt-bob .3s steps(2) infinite; }
+.dt-p-arriving .dt-mk img { animation: dt-hop .45s ease-in-out infinite; }
+.dt-p-delivered .dt-mk { opacity: 0; }
+.dt-p-delivered .dt-box { animation: dt-flag .55s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes dt-bob { 50% { transform: translateY(-2px); } }
+@keyframes dt-hop { 0%, 100% { transform: none; } 45% { transform: translateY(-5px); } }
+@keyframes dt-flag { 0% { transform: scale(1); } 35% { transform: scale(1.25, .8); } 70% { transform: scale(.92, 1.12) rotate(-4deg); } 100% { transform: none; } }
+
+/* delivered: round check-mark postmark + a little note */
+.dt-stamp {
+  position: absolute; left: 100px; top: 41px; width: 36px; height: 36px; border-radius: 50%; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  color: #237a34; border: 3px solid #237a34; box-shadow: 0 0 0 3px rgba(255, 250, 235, .6), 0 0 0 6px #237a34;
+  transform: rotate(-12deg); opacity: 0; mix-blend-mode: multiply;
+  -webkit-mask: var(--pp-speck) 0 0 / 96px 96px; mask: var(--pp-speck) 0 0 / 96px 96px;
+}
+.dt-stamp svg { display: block; }
+.dt-stamp b { display: none; }
+.dt-thx { position: absolute; left: 146px; top: 50px; font-size: 16px; line-height: 14px; color: #237a34; opacity: 0; transform: rotate(-4deg); }
+.dt-p-delivered .dt-stamp { opacity: .9; animation: dt-stamp .38s cubic-bezier(.5, 0, .8, .4) both; }
+.dt-p-delivered .dt-thx { opacity: 1; animation: dt-thx .5s cubic-bezier(.3, 1.6, .5, 1) .25s both; }
+@keyframes dt-stamp { 0% { transform: rotate(-30deg) scale(2.6); opacity: 0; } 62% { transform: rotate(-12deg) scale(1.08, .9); opacity: .95; } 100% { transform: rotate(-12deg); opacity: .9; } }
+@keyframes dt-thx { 0% { opacity: 0; transform: translateY(6px) rotate(-4deg); } 100% { opacity: 1; transform: rotate(-4deg); } }
+
+/* "+N more" slip */
+.dt-more {
+  margin: -2px 0 0 26px; padding: 3px 9px 4px; font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #3b2414;
+  background: #fbf3dc; border: 3px solid #3b2414; box-shadow: inset 0 -3px 0 #e2cfa0, 0 3px 0 rgba(30, 16, 8, .4); transform: rotate(-2deg);
+}
+.dt-more[hidden] { display: none; }
+
+/* motion */
+.dt-in { animation: dt-in .6s cubic-bezier(.25, 1.1, .4, 1) both; }
+@keyframes dt-in {
+  0% { transform: translateX(-250px) rotate(-28deg); }
+  58% { transform: translateX(5px) rotate(calc(var(--r, 0deg) + 7deg)); }
+  78% { transform: rotate(calc(var(--r, 0deg) - 3deg)); }
+  100% { transform: rotate(var(--r, 0deg)); }
+}
+.dt-more.dt-in { animation-name: dt-inm; }
+@keyframes dt-inm { 0% { transform: translateX(-200px) rotate(-12deg); } 100% { transform: rotate(-2deg); } }
+.dt-bump { animation: dt-bump .7s ease-out; }
+@keyframes dt-bump {
+  0% { transform: rotate(var(--r, 0deg)); } 18% { transform: rotate(calc(var(--r, 0deg) + 9deg)); } 40% { transform: rotate(calc(var(--r, 0deg) - 6deg)); }
+  62% { transform: rotate(calc(var(--r, 0deg) + 3deg)); } 82% { transform: rotate(calc(var(--r, 0deg) - 1deg)); } 100% { transform: rotate(var(--r, 0deg)); }
+}
+.dt-more.dt-bump { animation-name: dt-bumpm; }
+@keyframes dt-bumpm { 50% { transform: rotate(-2deg) scale(1.15); } }
+.dt-stampin { animation: dt-stampin .36s cubic-bezier(.5, 0, .8, .4) both; }
+@keyframes dt-stampin { 0% { transform: scale(2.2) rotate(-10deg); opacity: 0; } 65% { transform: scale(.94, 1.08); opacity: 1; } 100% { transform: none; } }
+.dt-swap { animation: dt-swap .4s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes dt-swap { 0% { transform: scale(.3) rotate(-12deg); } 100% { transform: none; } }
+.dt-tap { animation: dt-tap .28s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes dt-tap { 40% { transform: rotate(var(--r, 0deg)) scale(.95, 1.05) translateX(3px); } }
+.dt-out { animation: dt-out .55s cubic-bezier(.45, 0, .75, .55) forwards; pointer-events: none; }
+@keyframes dt-out {
+  0% { transform: rotate(var(--r, 0deg)); }
+  22% { transform: translateX(10px) rotate(calc(var(--r, 0deg) + 7deg)); }
+  45% { transform: translateX(-20px) translateY(-6px) rotate(-8deg); opacity: 1; }
+  100% { transform: translateX(-250px) translateY(-34px) rotate(-38deg); opacity: .4; }
+}
+.dt-out.dt-collapse { height: 0 !important; margin-top: -6px; visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dt *, .dt-tag { animation: none !important; transition: none !important; }
+}

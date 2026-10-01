@@ -135,6 +135,7 @@ export class BeaverSystem {
     if (!k) return { ok: false, reason: 'nothing' };
     const i = z * g.w + x;
     if (this.clears.has(i)) return { ok: false, reason: 'queued' };
+    if (this.game.zones?.fogAt(x, z) > 0.45) return { ok: false, reason: 'fog' };
     const need = this.levelFor(x, z, k);
     if (need > this.level()) return { ok: false, reason: 'level', need, kind: k };
     if (g.meadow[i]) return { ok: true, kind: k };
@@ -177,6 +178,22 @@ export class BeaverSystem {
       if (g.inb(nx, nz) && g.meadow[nz * g.w + nx]) return true;
     }
     return false;
+  }
+
+  // a villager's homestead appears when the fog lifts: clear it in one go (no pay)
+  clearInstant(x, z) {
+    const game = this.game;
+    const g = game.grid;
+    const w = game.world;
+    if (!g.inb(x, z)) return false;
+    const i = z * g.w + x;
+    if (g.isWater(x, z) || g.occ[i] === -2 || g.occ[i] >= 0) return false;
+    let did = false;
+    if (g.kind[i] === KIND.FOREST) { g.kind[i] = KIND.GRASS; did = true; this.dirtyLand = true; }
+    if (g.deco[i] >= 0) { const d = w.decos[g.deco[i]]; if (d) d.removed = true; g.deco[i] = -1; did = true; this.dirtyDecos = true; }
+    if (!g.meadow[i]) { g.meadow[i] = 1; did = true; this.dirtyLand = true; }
+    if (did) { w.landVersion++; this.rebuildT = 0; }
+    return did;
   }
 
   finishClear(j) {

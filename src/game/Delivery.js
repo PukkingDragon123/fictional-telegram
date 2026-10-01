@@ -48,20 +48,77 @@ export class Delivery {
     game.scene.add(this.group);
     this.nextId = 1;
     this.wait = 0;
+    this.recent = []; // delivered orders shown briefly in the tracker
   }
 
   get dropPoint() { return { x: HUT.x + 1.5, z: HUT.z + 4.8 }; }
 
   // items: [{ kind: 'egg', species, genes, t } | { kind: 'item', type, qty, label }]
+  // Every order is first packed at the e-Buy warehouse (a few seconds per
+  // item), then the moose rides it over. tracker() reports each order's
+  // phase and ETA for the HUD.
   order(items, { label = 'Package', fast = false } = {}) {
-    const o = { id: this.nextId++, items, label };
+    const n = items.reduce((a, it) => a + (it.qty || 1), 0);
+    const fragile = items.some((it) => it.kind === 'egg' || it.kind === 'bird');
+    const packT = fast ? 2 : Math.min(30, 7 + n * 2.5 + (fragile ? 3 : 0) + Math.random() * 3);
+    const o = { id: this.nextId++, items, label, packT, packTotal: packT };
     this.queue.push(o);
-    if (!this.active && this.wait <= 0) this.wait = fast ? 1.5 : 5 + Math.random() * 4;
     this.game.emit('ordered', o);
     return o;
   }
 
   pending() { return this.queue.length + (this.active ? this.active.orders.length : 0); }
+
+  // length of the courier's route (cached), for ETAs
+  routeLength() {
+    if (this._routeLen) return this._routeLen;
+    const path = this.buildPath();
+    let L = 0;
+    for (let i = 1; i < path.length; i++) L += Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z);
+    this._routeLen = L;
+    return L;
+  }
+
+  buildPath() {
+    const trail = this.game.world.trail;
+    const path = trail.slice(Math.floor(trail.length * 0.5)).map((p) => ({ x: p[0], y: p[1], z: p[2] }));
+    const end = path[path.length - 1];
+    const d = this.dropPoint;
+    path.push({ x: (end.x + d.x) / 2, y: 0, z: (end.z + d.z) / 2 + 1 }, { x: d.x - 1.2, y: 0, z: d.z + 0.6 });
+    return path;
+  }
+
+  // [{ id, label, phase: packing|riding|arriving|delivered, eta (s, -1 = after sunrise), progress, count }]
+  tracker() {
+    const out = [];
+    const ride = this.routeLength() / SPEED + 3;
+    const canRide = this.canRide();
+    const a = this.active;
+    let wait = 0; // a queued order also waits for the courier that's already out
+    if (a) {
+      let rem = 0;
+      if (a.state === 'ride') {
+        for (let i = a.i; i < a.path.length; i++) {
+          const p0 = i === a.i ? a : a.path[i - 1];
+          rem += Math.hypot(a.path[i].x - p0.x, a.path[i].z - p0.z);
+        }
+      }
+      const eta = a.state === 'ride' ? rem / SPEED + 1.5 : a.state === 'brake' ? 1.2 : 0.6;
+      const phase = a.state === 'ride' && rem > 9 ? 'riding' : 'arriving';
+      const prog = 0.35 + 0.65 * Math.max(0, Math.min(1, 1 - (eta - 1) / ride));
+      if (a.state !== 'leave') for (const o of a.orders) out.push({ id: o.id, label: o.label, phase, eta, progress: prog, count: o.items.length });
+      wait = a.state === 'leave' ? rem / SPEED : eta + this.routeLength() / SPEED;
+    }
+    for (const o of this.queue) {
+      const pk = Math.max(0, o.packT);
+      const eta = canRide ? Math.max(pk, wait) + ride : -1;
+      const prog = 0.35 * (1 - pk / (o.packTotal || 1));
+      out.push({ id: o.id, label: o.label, phase: 'packing', eta, progress: prog, count: o.items.length });
+    }
+    for (const p of this.parcels) out.push({ id: p.order.id, label: p.order.label, phase: 'delivered', eta: 0, progress: 1, count: p.order.items.length });
+    for (const d of this.recent) if (!out.some((o) => o.id === d.id)) out.push(d);
+    return out;
+  }
 
   makeCourier() {
     if (C3?.MooseCourier) {
@@ -83,19 +140,19 @@ export class Delivery {
   }
 
   start() {
-    const trail = this.game.world.trail;
     const rig = this.makeCourier();
     this.group.add(rig.root);
-    const orders = this.queue.splice(0, 3);
-    const path = trail.slice(Math.floor(trail.length * 0.5)).map((p) => ({ x: p[0], y: p[1], z: p[2] }));
-    const end = path[path.length - 1];
-    const d = this.dropPoint;
-    path.push({ x: (end.x + d.x) / 2, y: 0, z: (end.z + d.z) / 2 + 1 }, { x: d.x - 1.2, y: 0, z: d.z + 0.6 });
+    // everything that's packed rides together (up to 3 parcels)
+    const orders = [];
+    for (let i = 0; i < this.queue.length && orders.length < 3; i++) if (this.queue[i].packT <= 0) orders.push(this.queue[i]);
+    this.queue = this.queue.filter((o) => !orders.includes(o));
+    const path = this.buildPath();
     this.active = { rig, orders, path, i: 0, x: path[0].x, y: path[0].y, z: path[0].z, state: 'ride', t: 0, heading: 0 };
     rig.play?.('ride', { loop: true });
     // the camera rides along (any manual pan frees it again)
     const ui = this.game.ui;
-    if (ui && !this.game.cine?.active && !ui.blueprint?.open && !this.game.lab?.active && this.game.state.phase !== 'rush') {
+    const idle = performance.now() - (this.game.rig.userCamT || 0) > 6000; // never yank a camera the player is using
+    if (ui && idle && !this.game.cine?.active && !ui.blueprint?.open && !this.game.lab?.active && this.game.state.phase !== 'rush') {
       this.prevCam = { x: this.game.rig.goal.x, z: this.game.rig.goal.z, wupp: this.game.rig.wuppGoal };
       setTimeout(() => { if (this.active && !ui.ebuy) ui.trackEntity(this.active, { label: 'Moose Express', kind: 'moose', zoom: 0.024 }); }, 400);
     }
@@ -104,13 +161,14 @@ export class Delivery {
 
   update(dt) {
     const game = this.game;
+    for (const o of this.queue) o.packT -= dt;
     if (!this.active) {
-      if (this.queue.length && this.canRide()) {
-        this.wait -= dt;
-        if (this.wait <= 0) this.start();
-      }
+      this.wait -= dt;
+      if (this.wait <= 0 && this.canRide() && this.queue.some((o) => o.packT <= 0)) this.start();
     } else this.updateCourier(dt);
     this.updateParcels(dt);
+    for (const d of this.recent) d.t -= dt;
+    this.recent = this.recent.filter((d) => d.t > 0);
   }
 
   updateCourier(dt) {
@@ -129,7 +187,7 @@ export class Delivery {
         a.i += 1;
         if (a.i >= a.path.length) {
           if (a.state === 'ride') { a.state = 'brake'; a.t = 0; r.play?.('brake', { loop: false }); game.audio.play('whoosh', { volume: 0.3, pitch: 0.7 }); game.particles.dust(a.x, 0.1, a.z, 6); }
-          else { this.group.remove(r.root); r.dispose?.(); this.active = null; this.wait = 2 + Math.random() * 2; return; }
+          else { this.group.remove(r.root); r.dispose?.(); this.active = null; this.wait = 1; return; }
         }
       } else {
         a.x += (dx / dist) * step; a.z += (dz / dist) * step;
@@ -147,7 +205,7 @@ export class Delivery {
         game.audio.play('whoosh', { volume: 0.4 });
         const d = this.dropPoint;
         for (const [k, o] of a.orders.entries()) {
-          const kind = o.items.some((it) => it.kind === 'egg') ? 'egg_crate' : 'box';
+          const kind = o.items.some((it) => it.kind === 'egg' || it.kind === 'bird') ? 'egg_crate' : 'box';
           const obj = this.makePackage(kind);
           this.group.add(obj);
           const tx = d.x + (k - (a.orders.length - 1) / 2) * 0.9, tz = d.z + (Math.random() - 0.5) * 0.5;
@@ -227,6 +285,9 @@ export class Delivery {
           const e = game.fish.addBoughtEgg(it.species, it.genes, it.t, w);
           if (e) game.particles.sparkle(w.x, WATER_Y + 0.2, w.z, 8, 0xfff2a0);
         }, 350 + eggs * 120);
+      } else if (it.kind === 'bird') {
+        // the crate flaps open and out waddles your new duck/goose
+        game.livestock?.spawnBought(it.breed, it.sex);
       } else if (it.kind === 'upgrade') {
         game.state.beaverLevel = Math.max(game.state.beaverLevel || 1, it.level);
         game.particles.confetti(p.x, p.y + 0.6, p.z, 30);
@@ -241,16 +302,17 @@ export class Delivery {
         game.emit('inventory', inv);
       }
     }
+    this.recent.push({ id: p.order.id, label: p.order.label, phase: 'delivered', eta: 0, progress: 1, count: p.order.items.length, t: 2.5 });
     game.emit('delivered', p.order);
   }
 
   serialize() {
     const all = [...this.queue, ...(this.active ? this.active.orders : []), ...this.parcels.map((p) => p.order)];
-    return all.map((o) => ({ items: o.items, label: o.label }));
+    return all.map((o) => ({ items: o.items, label: o.label, packT: Math.max(0, o.packT || 0) }));
   }
 
   load(list) {
-    this.queue = (list || []).map((o) => ({ id: this.nextId++, items: o.items, label: o.label }));
+    this.queue = (list || []).map((o) => ({ id: this.nextId++, items: o.items, label: o.label, packT: o.packT || 3, packTotal: Math.max(3, o.packT || 3) }));
     this.wait = 3;
   }
 }

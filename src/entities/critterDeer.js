@@ -4,6 +4,7 @@
 //   const d = new DeerGuy();  scene.add(d.root);
 //   d.play('sit_chair');   // lounge (pose matches makeLawnChair() placed at the root)
 //   d.play('laugh');       // seated or standing variants follow d.seated
+//   d.play('talk');        // chatting loop for dialogue (seated or standing)
 //   d.onEvent = (name) => {};   // 'sip' | 'ahh' | 'slap' | 'clink' | 'step'
 //
 // Units: 1 voxel = 0.05. Root at the feet, facing +Z. ~1.35 tall (1.42 with the cap).
@@ -420,6 +421,43 @@ def('walk', {
     p.armR.rx = -sn * 0.5; p.foreR.rx = -0.3 - max(0, sn) * 0.4; p.armR.rz = -0.1;
     p.tail.rx = 0.3 + abs(cs) * 0.2;
     steps(s, ph, rig);
+  },
+});
+
+// Dialogue loop (villager chats): easygoing gestures with the free right paw, can in the left,
+// mouth flapping in short phrases. Works standing or lounging (follows d.seated).
+const talkHash = (k) => { const x = Math.sin(k * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+def('talk', {
+  loop: true, expr: 'neutral',
+  fn(t, p, f, s, rig) {
+    const w = sw(rig);
+    rig.life(t, p, 0.7);
+    seat(p, rig, w);
+    // mouth: syllables in ~2.6 s phrases with little pauses
+    const on = t % 3.2 < 2.6;
+    const h = talkHash(Math.floor(t * 7.5));
+    f.mouth = !on ? 'smile' : h < 0.38 ? 'open' : h < 0.7 ? 'grin' : h < 0.84 ? 'o' : 'smile';
+    // gestures: open-palm explain -> thumb over the shoulder ("this guy") -> shrug with the can
+    const T = t % 6.4;
+    const expl = win(T, 0.2, 2.2, 0.3, 0.3), thumb = win(T, 2.5, 3.8, 0.25, 0.3), shrug = win(T, 4.2, 5.8, 0.25, 0.3);
+    holdCan(rig, p, shrug * 0.8);
+    rig.reach(p, 1, 2.2 + shrug * 2.4, 2.4 + shrug * 2.6, 5.2 + shrug * 0.4, [0.9, -0.5, -0.6], 1);
+    p.wristL.rx = 0.25 - shrug * 0.2; p.handL = 'fist';
+    let x = w > 0.5 ? 5.6 : 5.2, y = w > 0.5 ? -1.5 : 0.2, z = w > 0.5 ? 3.2 : 2.6;
+    x = lerp(x, 6.4, expl); y = lerp(y, 4.0 + sin(t * 5) * 0.4, expl); z = lerp(z, 6.2, expl);
+    x = lerp(x, 6.2, thumb); y = lerp(y, 8.2, thumb); z = lerp(z, 1.6, thumb);
+    x = lerp(x, 6.8, shrug); y = lerp(y, 4.6, shrug); z = lerp(z, 4.0, shrug);
+    rig.reach(p, -1, x, y, z, [1, -0.5, -0.4]);
+    p.handR = thumb > 0.5 ? 'thumb' : expl > 0.4 || shrug > 0.4 ? 'open' : 'relax';
+    p.wristR.rz = -expl * 0.35 - shrug * 0.4; p.wristR.rx = -0.1 - thumb * 0.5;
+    p.chest.ry += expl * 0.1 - thumb * 0.12;
+    p.chest.s *= 1 + shrug * 0.03; p.armL.rz += shrug * 0.1; p.armR.rz -= shrug * 0.1;
+    p.head.rx += (on ? sin(t * 7) * 0.035 : 0) - shrug * 0.06;
+    p.head.rz += sin(t * 1.3) * 0.07 + shrug * 0.12;
+    p.head.ry += thumb * -0.25;
+    if (thumb > 0.5) f.look = [-0.8, 0];
+    if (shrug > 0.5) { f.brows = 'up'; f.eyes = 'half'; }
+    else if (expl > 0.5 && on) f.brows = 'up';
   },
 });
 

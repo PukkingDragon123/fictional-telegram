@@ -225,6 +225,7 @@ if (mode === 'strip') {
   for (const k of Object.keys(CHARS)) link('▶ ' + k, () => { location.search = 'char=' + k + '&showreel=1'; });
   link('filmstrip', () => { location.search = 'mode=strip&char=beaver&anim=chop&n=6&dt=0.08&face=55&yaw=0&pitch=12'; });
   link('props', () => { location.search = 'mode=props'; });
+  link('livestock ▸', () => { location.href = './livestock-preview.html'; }); // ducks / geese / chicks / nests
   document.body.appendChild(bar);
 } else if (mode === 'props') {
   const items = [];

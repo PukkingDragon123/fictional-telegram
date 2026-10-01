@@ -43,8 +43,41 @@ export const STRUCTURES = {
   },
   bughotel: {
     name: 'Bug Hotel', icon: 'bughotel', cost: 70, place: 'landOrPlatform', category: 'nature', unlock: 'r_bughotel',
-    desc: 'A cosy stack of logs and pinecones. Spawns lots of dragonflies.',
+    desc: 'A cosy stack of logs and pinecones. Ladybugs, bumblebees & pill bugs check in. Luck boost nearby.',
     bugs: { max: 4, every: 6 }, hp: 2, smashable: true, beauty: 1,
+  },
+  // ------------------------------------------------------------ bug farms & nests (livestock)
+  tallgrass: {
+    sprite: ['farm_tallgrass', 'farm_tallgrass_1'], name: 'Tall Grass Patch', icon: 'bug', cost: 20, place: 'landOrPlatform', category: 'farm',
+    desc: 'Crickets & grasshoppers move in. Everything nearby grows faster.', hp: 1, smashable: true, beauty: 0.5,
+  },
+  compost: {
+    sprite: ['farm_compost'], name: 'Compost Heap', icon: 'bug', cost: 30, place: 'land', category: 'farm',
+    desc: 'Worms, mealworms & juicy grubs. Growth + size boost nearby. Smells like profit.', hp: 2, smashable: true,
+  },
+  butterflybush: {
+    sprite: ['farm_butterflybush'], name: 'Butterfly Bush', icon: 'flower', cost: 45, place: 'landOrPlatform', category: 'farm', unlock: 'day:3',
+    desc: 'Monarchs, bumblebees & ladybugs. Charm + breeding boost nearby.', hp: 1, smashable: true, beauty: 2,
+  },
+  bogpool: {
+    sprite: ['farm_bogpool'], flat: true, name: 'Bog Pool', icon: 'pond', cost: 60, place: 'land', category: 'farm', unlock: 'zone_swamp',
+    desc: 'Granny Ribbit\'s recipe. Mayflies, damselflies & water striders: big breeding boost nearby.', hp: 2, smashable: false,
+  },
+  rottinglog: {
+    sprite: ['farm_rottinglog'], name: 'Rotting Log', icon: 'tree', cost: 55, place: 'land', category: 'farm', unlock: 'zone_swamp',
+    desc: 'Stag beetles, June bugs... and sometimes a Rhino Beetle. Size boost nearby.', hp: 3, smashable: true,
+  },
+  glowmeadow: {
+    sprite: ['farm_glowmeadow'], name: 'Firefly Meadow', icon: 'lantern', cost: 80, place: 'landOrPlatform', category: 'farm', unlock: 'zone_mush',
+    desc: 'Fireflies (and rare Luna Moths) at night. Eggs nearby hatch much faster.', hp: 1, smashable: true, beauty: 2, light: true,
+  },
+  duck_nest: {
+    name: 'Duck Nest', icon: 'egg', cost: 35, place: 'shore', category: 'farm', nest: { kind: 'duck', cap: 4, eggs: 5 },
+    desc: 'A cosy reed nest by the water. Home for up to 4 ducks; hens lay eggs here.', hp: 2, smashable: true, beauty: 0.5,
+  },
+  goose_nest: {
+    name: 'Goose Nest', icon: 'egg', cost: 60, place: 'shore', category: 'farm', nest: { kind: 'goose', cap: 3, eggs: 4 },
+    desc: 'A big straw nest. Home for up to 3 geese. Geese chase rampaging bears!', hp: 3, smashable: true, beauty: 0.5,
   },
   // ------------------------------------------------------------ bear snacks
   berries: {
@@ -311,6 +344,7 @@ export const BUILD_CATEGORIES = [
   { id: 'beaver', name: 'Beaver Works' },
   { id: 'contraption', name: 'Contraptions' },
   { id: 'decor', name: 'Decor' },
+  { id: 'farm', name: 'Bugs & Birds' },
 ];
 
 // Snack kinds bears can eat (meal points come from each structure's food.meal).

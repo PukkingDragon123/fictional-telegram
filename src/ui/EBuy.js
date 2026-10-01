@@ -121,6 +121,7 @@ function imgSrc(image) {
 // ---------------------------------------------------------------- data
 const CATS = [
   { id: 'eggs', name: 'Eggs', icon: 'egg' },
+  { id: 'farm', name: 'Farm', icon: 'bug' },
   { id: 'plants', name: 'Plants', icon: 'berry' },
   { id: 'decor', name: 'Decor', icon: 'gnome' },
   { id: 'restaurant', name: 'Restaurant', icon: 'chair' },
@@ -143,6 +144,7 @@ const BADGES = {
 };
 const REVIEWS = {
   eggs: ['10/10 egg would buy again', 'it hatched. i cried.', 'egg arrived as egg. 5 stars', 'my son is now a fish', 'smells like profit', 'wow. just wow.'],
+  farm: ['duck arrived. duck is judging me', 'HONK HONK HONK (5 stars)', 'worms were very worm', 'my geese now run the pond', 'quack.'],
   plants: ['bush is very bush', 'ate it. no regrets', 'grew 2 berries & a dream', 'leafy. green. 10/10'],
   decor: ['my pond is now ✨aesthetic✨', 'gnome stares at me. love it', 'bears said "nice". high praise'],
   restaurant: ['bears sat on it. it held', 'fancy!! like a real restaurant', 'chair 10/10 would sit'],

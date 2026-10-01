@@ -12,6 +12,35 @@ const DECOR_SET = new Set(DM?.DECOR_TYPES || []);
 const restMods = import.meta.glob('../entities/restaurantModels.js', { eager: true });
 const RM = restMods['../entities/restaurantModels.js'] || null;
 import { SpriteBatch } from '../core/spriteBatch.js';
+const nestMods = import.meta.glob('../entities/critterNest.js', { eager: true });
+const NM = nestMods['../entities/critterNest.js'] || null;
+
+// a woven nest (the livestock rig module draws a nicer one with eggs)
+function fallbackNest(kind) {
+  const g = new THREE.Group();
+  const big = kind === 'goose' ? 1.25 : 1;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24 * big, 0.08 * big, 6, 14), new THREE.MeshLambertMaterial({ color: 0xb8904a }));
+  ring.rotation.x = Math.PI / 2; ring.position.y = 0.07; ring.castShadow = true;
+  const bed = new THREE.Mesh(new THREE.CircleGeometry(0.22 * big, 12), new THREE.MeshLambertMaterial({ color: 0x8a6a36 }));
+  bed.rotation.x = -Math.PI / 2; bed.position.y = 0.04;
+  g.add(ring, bed);
+  const eggs = [];
+  const egeo = new THREE.SphereGeometry(0.06 * big, 8, 6);
+  for (let i = 0; i < 6; i++) {
+    const e = new THREE.Mesh(egeo, new THREE.MeshLambertMaterial({ color: kind === 'goose' ? 0xf4f0e6 : 0xdde8c8 }));
+    const a = i * 1.1;
+    e.position.set(Math.cos(a) * 0.1 * big * (i ? 1 : 0), 0.09, Math.sin(a) * 0.1 * big * (i ? 1 : 0));
+    e.scale.set(1, 1.25, 1); e.visible = false; e.castShadow = true;
+    g.add(e); eggs.push(e);
+  }
+  return {
+    root: g,
+    setEggs(n) { eggs.forEach((e, i) => { e.visible = i < n; }); },
+    setGolden(i, on) { if (eggs[i]) eggs[i].material.color.setHex(on ? 0xffd040 : kind === 'goose' ? 0xf4f0e6 : 0xdde8c8); },
+    setBrooding() {},
+    update() {},
+  };
+}
 import { blinkOn } from '../world/world.js';
 
 export const PLATFORM_DECK_Y = 0.6;
@@ -397,7 +426,13 @@ export class StructureSystem {
     };
     const variant = s.seed % 3;
     let mask = 0;
-    if (d.sprite && this.spriteFrame(s)) {
+    if (d.nest) {
+      let n = null;
+      try { n = NM?.makeNest ? NM.makeNest(d.nest.kind) : null; } catch (e) { console.warn('nest', e); }
+      if (!n) n = fallbackNest(d.nest.kind);
+      obj.add(n.root);
+      if (!s.preview) { s.nestRig = n; n.setEggs?.((s.eggs || []).length); }
+    } else if (d.sprite && this.spriteFrame(s)) {
       // drawn as a 2D sprite by renderSprites(); the group stays empty
     } else if (RM?.RESTAURANT_TYPES?.includes(s.type) && this.addRestaurant(s, obj, add)) {
       // beaver-built restaurant furniture
@@ -617,7 +652,7 @@ export class StructureSystem {
         if (d.food.kind === 'syrup' && s.stock >= 1 && Math.random() < dt * 0.5)
           game.particles.lit.spawn(s.x + 0.5, 1.0, s.z + 0.5 + 0.2, 0, -0.3, 0, 0.8, 0.04, 0xb8621a, 1, 0, 0);
       }
-      if (d.bugs) {
+      if (d.bugs && !game.bugs) {
         s.timer -= dt;
         if (s.timer <= 0) {
           s.timer = d.bugs.every / mods.bugMult;

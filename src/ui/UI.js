@@ -17,9 +17,12 @@ import { ACHIEVEMENTS } from '../data/achievements.js';
 import { sizeLabel, hatchCard as hatchCardFor } from '../game/genes.js';
 
 // optional components (built by separate modules; the UI degrades gracefully)
-const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js'], { eager: true });
+const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js'], { eager: true });
 import.meta.glob('./fonts.css', { eager: true });
 import { Blueprint } from './Blueprint.js';
+import { natureCanvas } from '../art/natureArt.js';
+import { BREEDS, KIND_INFO } from '../data/livestock.js';
+import { BUG_BY_ID, BUG_FARMS, EFFECTS, BUG_RARITY } from '../data/bugs.js';
 import { Transition } from './Transition.js';
 import { injectPaperCSS, openPaper, setPaperSfx } from './paper.js';
 import { Tutorial } from '../game/Tutorial.js';
@@ -302,13 +305,16 @@ export class UI {
     for (const b of game.beavers.list) cands.push({ kind: 'beaver', ent: b, y: b.y + 0.3, label: 'Beaver', zoom: 0.014 });
     const a = game.delivery.active;
     if (a) cands.push({ kind: 'moose', ent: a, y: a.y + 1, label: 'Moose Express', zoom: 0.022 });
+    for (const b of game.ambient?.birds || []) if (b.state !== 'away' && b.state !== 'out') cands.push({ kind: 'songbird', ent: b, y: game.grid.groundAt(b.x, b.z) + b.y + 0.25, label: b.sp, zoom: 0.012 });
+    for (const b of game.livestock?.list || []) cands.push({ kind: 'livestock', ent: b, y: b.y + 0.45, label: b.name, zoom: 0.016 });
+    for (const v of game.villagers?.list || []) if (v.rig?.root.visible) cands.push({ kind: 'npc', ent: v, y: v.y + 0.9, label: v.name, zoom: 0.02 });
     for (const f of game.fish.list) if (!f.held) cands.push({ kind: 'fish', ent: f, y: f.y, label: f.name || f.sp.name, zoom: 0.013 });
     for (const l of game.ambient.loons || []) if (l.placed && !l.dive) cands.push({ kind: 'bird', ent: l, y: 0, label: l.kind === 'loon' ? 'Loon' : 'Mallard', zoom: 0.014 });
     let best = null, bd = Infinity;
     for (const c of cands) {
       const p = this.screenOf(c.ent.x, c.y, c.ent.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
-      const r = c.kind === 'fish' || c.kind === 'bird' ? 14 : c.kind === 'beaver' ? 22 : 34; // small things need a precise tap (feeding stays easy)
+      const r = c.kind === 'fish' || c.kind === 'bird' ? 14 : c.kind === 'songbird' ? 18 : c.kind === 'beaver' || c.kind === 'livestock' ? 22 : c.kind === 'npc' ? 40 : 34; // small things need a precise tap (feeding stays easy)
       if (d < r * r && d < bd) { bd = d; best = c; }
     }
     return best;
@@ -381,6 +387,14 @@ export class UI {
   }
 
   // a click anywhere advances a bubble that's waiting for one
+  comp(name) { return C(name); }
+
+  bubbleWaiting() {
+    const B = this.bubbles;
+    if (!B?.busy) return false;
+    return (B.list || []).some((b) => b.wait && !b.closing && !b.choices);
+  }
+
   advanceBubble() {
     const B = this.bubbles;
     if (!B?.busy) return false;
@@ -566,13 +580,16 @@ export class UI {
   }
 
   listingImage(l) {
-    const key = l.kind === 'egg' ? `fish:${l.species}:${l.genes.morph}` : `st:${l.type}`;
+    const key = l.kind === 'egg' ? `fish:${l.species}:${l.genes.morph}` : l.kind === 'bird' ? `bird:${l.breed}` : `st:${l.type}`;
     (this._limg ||= new Map());
     if (this._limg.has(key)) return this._limg.get(key);
     let img = null;
     try {
       if (l.kind === 'egg') img = fishCanvasFor(l.species, { morph: l.genes.morph, scale: 3 });
-      else {
+      else if (l.kind === 'bird') {
+        const goose = BREEDS[l.breed]?.kind === 'goose';
+        img = natureCanvas(goose ? 'goose_swim' : 'mallard_swim', 0, 5).toDataURL();
+      } else {
         const html = this.blueprint.icon(l.type);
         const m = html.match(/src="([^"]+)"/);
         img = m ? m[1] : null;
@@ -622,9 +639,45 @@ export class UI {
     this.updateTracking();
     this.updateEggTags();
     this.updateGhost();
+    this.updateDeliveryTracker(dt);
+    this.updateNestTags();
     const night = st.phase === 'night';
     if (night !== this.lastNight) { this.lastNight = night; h.nightui.classList.toggle('hidden', !night); }
     this.tipT -= dt;
+  }
+
+  // the Moose Express tags under the coins: packing -> on the road -> delivered, with a countdown
+  updateDeliveryTracker(dt) {
+    const game = this.game;
+    this.trackerT = (this.trackerT || 0) - dt;
+    if (this.trackerT > 0) return;
+    this.trackerT = 0.25;
+    const DT = C('DeliveryTracker');
+    if (!DT?.DeliveryTracker || !game.isOpen('ebuy')) return;
+    if (!this.dtracker) {
+      try {
+        this.dtracker = new DT.DeliveryTracker(this.root, {
+          icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
+          sfx: (n, o) => game.audio.play(n, { volume: 0.3, ...(o || {}) }),
+          onClick: (id) => this.onTrackerClick(id),
+        });
+      } catch (e) { console.warn('DeliveryTracker', e); this.dtracker = null; return; }
+    }
+    try { this.dtracker.update(game.delivery.tracker()); } catch (e) { console.warn(e); }
+  }
+
+  onTrackerClick(id) {
+    const game = this.game;
+    const a = game.delivery.active;
+    if (a && a.orders.some((o) => o.id === id)) { this.trackEntity(a, { label: 'Moose Express', kind: 'moose', zoom: 0.024 }); return; }
+    const o = game.delivery.queue.find((q) => q.id === id);
+    if (o) {
+      const eta = game.delivery.tracker().find((t) => t.id === id)?.eta ?? -1;
+      this.notify(eta < 0 ? 'Packed! Moose rides at sunrise.' : `Still packing! ~${Math.ceil(eta)}s`, 'happy');
+      return;
+    }
+    const d = game.delivery.dropPoint;
+    game.rig.lookAt(d.x, d.z);
   }
 
   updateClock() {}
@@ -1087,6 +1140,7 @@ export class UI {
     if (st.day > 1 && this.game.fish.count < 3 && !this.game.isDayOff()) this.foxSay('Pond\'s empty! Buy eggs on e-Buy!', 'worried');
     if (this.game.isDayOff()) this.tipOnce('sunday', 'Sunday! No bears today.', 'sleepy');
     if (st.day === 2) this.tipOnce('day2', 'Bears come at 5 today! Berries = fewer fish eaten.', 'greedy');
+    if (st.day === 2) setTimeout(() => this.tipOnce('ducks', 'Ducks & geese on e-Buy ▸ Farm! They lay eggs and eat bugs.', 'excited'), 9000);
     if (st.day === 4) this.tipOnce('beauty', 'Pretty pond = more bears. Decorate!', 'smug');
   }
 
@@ -1182,6 +1236,7 @@ export class UI {
       const entries = tiles.map((p) => ({ ...p, ok: game.structures.canPlace(t.type, p.x, p.z).ok }));
       ghost.showTiles(entries);
       ghost.showModels(t.type, entries);
+      if (tiles[0]) game.bugs?.previewRing(t.type, tiles[tiles.length - 1].x, tiles[tiles.length - 1].z);
     } else if (t.kind === 'clear') {
       const B = game.beavers;
       ghost.showTiles(tiles.map((p) => ({ ...p, ok: B.canClear(p.x, p.z).ok || B.clears.has(p.z * game.grid.w + p.x) })));
@@ -1293,7 +1348,7 @@ export class UI {
         <div class="top"><span class="fishbox ${unlocked ? '' : 'sil'}">${fishImg(sp.id, { scale: 2 })}</span><div><div class="nm">${unlocked ? esc(sp.name) : '???'}</div><div class="lt">${unlocked ? esc(sp.latin) : 'Unknown species'}</div></div></div>
         <div class="ds">${unlocked ? esc(sp.desc) : 'Research it in the Lab to stock its eggs.'}</div>
         <div class="row"><span class="stat">Meal <b>${sp.meal}</b></span><span class="stat">Value <b>x${sp.value}</b></span><span class="rtag" style="background:${rar.color}">${rar.name}</span></div>
-        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${price}</span>` : `<span class="req">${ico('lock', 1)} Lab: ${esc(req ? req.name : '?')}</span>`}<span class="own">IN POND: ${counts[sp.id] || 0}</span></div>
+        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${price}</span>` : `<span class="req">${ico('lock', 1)} ${req ? 'Lab: ' + esc(req.name) : esc(game.lockReason(sp.unlock) || '?')}</span>`}<span class="own">IN POND: ${counts[sp.id] || 0}</span></div>
       </div>`;
     }
     html += '</div>';
@@ -1325,7 +1380,7 @@ export class UI {
       html += `<div class="card ${unlocked ? 'clickable' : 'locked'} ${game.tool.kind === 'build' && game.tool.type === type ? 'sel' : ''}" data-build="${type}">
         <div class="top"><span class="iconbox f-slot_gold ${unlocked ? '' : 'sil'}">${ico(d.icon, 2)}</span><div><div class="nm">${unlocked ? esc(d.name) : '???'}</div>${d.builder === 'beaver' ? `<div class="lt">${ico('beaver', 1)} beaver-built</div>` : d.beauty ? `<div class="lt">${ico('beauty', 1)} +${d.beauty} beauty</div>` : ''}</div></div>
         <div class="ds">${unlocked ? esc(d.desc) : 'Classified. Research it in the Lab.'}</div>
-        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${d.cost}</span>${needsLodge ? '<span class="req">needs a Beaver Lodge</span>' : ''}` : `<span class="req">${ico('lock', 1)} Lab: ${esc(req ? req.name : '?')}</span>`}<span class="own">BUILT: ${game.structures.countBuilt(type)}</span></div>
+        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${d.cost}</span>${needsLodge ? '<span class="req">needs a Beaver Lodge</span>' : ''}` : `<span class="req">${ico('lock', 1)} ${req ? 'Lab: ' + esc(req.name) : esc(game.lockReason(d.unlock) || '?')}</span>`}<span class="own">BUILT: ${game.structures.countBuilt(type)}</span></div>
       </div>`;
     }
     html += '</div>';
@@ -1665,6 +1720,109 @@ export class UI {
         $('#m-pet', c).onclick = () => { game.nurtureFish(f); };
       },
     });
+  }
+
+  // little pixel pictures for cards (nature-atlas sprites)
+  natImg(name, scale = 3, frame = 0) {
+    try {
+      const c = natureCanvas(name, frame, scale);
+      if (c && c.width > scale * 2) return `<img class="px" src="${c.toDataURL()}" alt="">`;
+    } catch { /* ignore */ }
+    return '';
+  }
+  bugImg(id, scale = 3) { return this.natImg(`bugicon_${id}`, scale) || this.natImg(`bug_${id}`, scale + 1) || ico('bug', scale); }
+
+  effectChips(aura, scale = 1) {
+    return Object.entries(aura || {}).filter(([, v]) => v > 0.005).map(([k, v]) => {
+      const E = EFFECTS[k];
+      return `<span class="chip fx" style="--fx:${E.color}">${hasSprite(E.icon) ? ico(E.icon, scale) : ''} +${Math.round(v * 100)}% ${esc(E.name)}</span>`;
+    }).join('');
+  }
+
+  showLivestockInfo(b) {
+    const game = this.game;
+    const B = BREEDS[b.breed], K = KIND_INFO[b.kind];
+    const adult = b.age >= 1;
+    const pic = this.natImg(b.kind === 'goose' ? 'goose_swim' : 'mallard_swim', 5) || ico('egg', 4);
+    const boosts = Object.keys(b.boost || {}).map((k) => `<span class="chip fx" style="--fx:${EFFECTS[k].color}">${ico(EFFECTS[k].icon, 1)} ${esc(EFFECTS[k].name)} ${Math.ceil(b.boost[k])}s</span>`).join('');
+    const aura = game.bugs ? { ...game.bugs.auraAt(b.x, b.z) } : {};
+    const hunger = b.hunger < 0.3 ? 'Full' : b.hunger < 0.6 ? 'Peckish' : b.hunger < 0.85 ? 'Hungry!' : 'STARVING (needs bugs!)';
+    const html = `
+      <div class="big-icon">${pic}</div>
+      <h2 class="center">${esc(b.name)} the ${esc(B.name)}${adult ? '' : ` ${K.baby.toLowerCase()}`}</h2>
+      <div class="chips center"><span class="chip ${b.sex === 'm' ? 'm' : 'f'}">${b.sex === 'm' ? (b.kind === 'goose' ? '♂ Gander' : '♂ Drake') : '♀ Hen'}</span><span class="chip">Size ${Math.round(b.size * 100)}%</span>${b.golden ? '<span class="chip shimmer">Golden blood</span>' : ''}</div>
+      <div class="kv"><span>Hunger</span><b>${hunger}</b>${adult ? '' : `<span>Grown up</span><b>${Math.floor(b.age * 100)}%</b>`}<span>Mood</span><b>${b.happy > 0.7 ? 'Delighted' : b.happy > 0.4 ? 'Content' : 'Grumpy'}</b><span>Home</span><b>${b.nest ? esc(b.nest.def.name) : 'No nest!'}</b></div>
+      ${boosts ? `<div class="chips center">${boosts}</div>` : ''}
+      ${Object.values(aura).some((v) => v > 0.005) ? `<p class="center small">Bug farm boosts here:</p><div class="chips center">${this.effectChips(aura)}</div>` : '<p class="center small">Eats bugs! Build bug farms nearby.</p>'}
+      <div class="btns"><button class="btn green" id="m-ok">OK</button></div>`;
+    this.showModal(html, { onBind: (c) => { $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); }; } });
+  }
+
+  showNestCard(s) {
+    const game = this.game;
+    const L = game.livestock;
+    const eggs = s.eggs || [];
+    const res = L.residents(s);
+    const value = eggs.reduce((a, e) => a + L.eggValue(e), 0);
+    const eggList = eggs.map((e) => `<span class="chip ${e.golden ? 'shimmer' : ''}">${ico('egg', 1)} ${e.golden ? 'GOLDEN ' : ''}${esc(BREEDS[e.breed].name)} ${e.fertile ? `hatches ${Math.max(0, Math.ceil(e.t))}s` : '(no drake: sell it)'}</span>`).join('') || '<span class="chip">No eggs yet</span>';
+    const html = `
+      <h2 class="center">${esc(s.def.name)}</h2>
+      <p class="center small">${res.length}/${s.def.nest.cap} living here${res.length ? ': ' + res.map((b) => esc(b.name)).join(', ') : ''}</p>
+      <div class="chips center">${eggList}</div>
+      <p class="center small">Leave eggs to hatch babies, or sell them now.</p>
+      <div class="btns"><button class="btn ${eggs.length ? 'gold' : ''}" id="m-sell" ${eggs.length ? '' : 'disabled'}>${ico('coin', 1)} Collect & sell (${value})</button><button class="btn green" id="m-ok">OK</button></div>`;
+    this.showModal(html, {
+      onBind: (c) => {
+        $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); };
+        $('#m-sell', c).onclick = () => { if (L.collect(s)) { this.closeModal(); } };
+      },
+    });
+  }
+
+  showFarmCard(s) {
+    const game = this.game;
+    const info = game.bugs.farmInfo(s);
+    if (!info) return;
+    const d = info.def;
+    const kinds = info.kinds.map((b) => `<span class="chip bugc" title="${esc(b.desc)}">${this.bugImg(b.id, 2)} ${esc(b.name)}${b.night ? ' 🌙' : ''}</span>`).join('');
+    const html = `
+      <h2 class="center">${esc(s.def.name)}</h2>
+      <p class="center small">${info.alive}/${d.max} bugs living here${d.night ? ' (they come out at night)' : ''}</p>
+      <div class="chips center">${kinds}</div>
+      <p class="center small">While it has bugs, everything in the circle gets:</p>
+      <div class="chips center">${this.effectChips(d.aura) || '<span class="chip">Food for ducks & geese</span>'}</div>
+      <div class="btns"><button class="btn green" id="m-ok">OK</button></div>`;
+    this.showModal(html, { onBind: (c) => { $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); }; } });
+  }
+
+  // paper tags over nests: egg count + next hatch
+  updateNestTags() {
+    const game = this.game;
+    const nests = game.livestock ? game.livestock.nests().filter((s) => (s.eggs || []).length) : [];
+    (this.nestTags ||= new Map());
+    for (const [s, el] of this.nestTags) if (!nests.includes(s)) { el.remove(); this.nestTags.delete(s); }
+    for (const s of nests) {
+      let el = this.nestTags.get(s);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'eggtag nesttag';
+        el.addEventListener('click', (ev) => { ev.stopPropagation(); this.showNestCard(s); });
+        this.overlay.appendChild(el);
+        this.nestTags.set(s, el);
+      }
+      const p = this.screenOf(s.x + 0.5, game.grid.groundAt(s.x + 0.5, s.z + 0.5) + 0.7, s.z + 0.5);
+      el.style.display = p.visible === false || game.lab?.active ? 'none' : '';
+      el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -100%)`;
+      const eggs = s.eggs;
+      const next = eggs.filter((e) => e.fertile).reduce((a, e) => Math.min(a, e.t), Infinity);
+      const gold = eggs.some((e) => e.golden);
+      const txt = `${eggs.length}${Number.isFinite(next) ? ' · ' + Math.floor(next / 60) + ':' + String(Math.ceil(next) % 60).padStart(2, '0') : ''}`;
+      if (el.dataset.t !== txt) {
+        el.dataset.t = txt;
+        el.innerHTML = `${hasSprite('egg') ? ico('egg', 1) : ''}<b>${txt}</b>`;
+        el.classList.toggle('ready', gold);
+      }
+    }
   }
 
   showMenu() {

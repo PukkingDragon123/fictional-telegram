@@ -2,10 +2,14 @@
 //   /tools/fish-preview.html                 full sheet (animated, from the atlas)
 //   ?dev=bluegill,pike&s=8&f=0,4&morph=gold  zoom on individual frames
 //   ?slots=bluegill&f=0&s=16                 false-colour semantic slot view
+//   ?new=1&s=4&bg=water,paper                showcase of the newer species
+//        (&f=4 flop frame, &frames=1 every frame + fry, &morphs=id,id morph rows)
 import * as FA from '/src/art/fishArt.js';
 import { SPECIES, MORPH_IDS } from '/src/data/species.js';
 
 const q = new URLSearchParams(location.search);
+const NEW_SPECIES = ['sabertooth', 'crappie', 'rockbass', 'creekchub', 'dace', 'drum', 'goldeye', 'cisco', 'bullhead', 'catfish',
+  'bowfin', 'gar', 'paddlefish', 'eel', 'bulltrout', 'cutthroat', 'coho', 'pinksalmon', 'kokanee', 'browntrout', 'goldentrout'];
 const app = document.getElementById('app');
 const errEl = document.getElementById('err');
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -46,8 +50,49 @@ if (q.get('dev')) {
   const p = el('div', 'panel paper');
   for (const id of q.get('slots').split(',')) p.appendChild(cell(FA._debugSlots(id, +(q.get('f') || 0), q.get('fry') === '1', +(q.get('s') || 16)), id));
   app.appendChild(p);
+} else if (q.get('new')) {
+  showcase();
 } else {
   sheet();
+}
+
+// ---------------------------------------------------------------- new species showcase (static, for screenshots)
+function showcase() {
+  const s = +(q.get('s') || 4);
+  const f = +(q.get('f') || 0);
+  const ids = (q.get('ids') || NEW_SPECIES.join(',')).split(',');
+  for (const bg of (q.get('bg') || 'water').split(',')) {
+    app.appendChild(el('h2', null, `${ids.length} species &middot; frame ${f} &middot; ${s}x &middot; ${bg}`));
+    const p = el('div', 'panel ' + bg);
+    const g = el('div', 'grid');
+    for (const id of ids) g.appendChild(cell(copy(FA.fishCanvas(id, { frame: f, scale: s })), id));
+    p.appendChild(g);
+    app.appendChild(p);
+  }
+  if (q.get('frames')) {
+    app.appendChild(el('h2', null, 'Swim 0-3, flop 4, fry 0-1 (3x)'));
+    const p = el('div', 'panel water');
+    for (const id of ids) {
+      const row = el('div', 'mrow');
+      row.appendChild(el('div', 'rl', id));
+      for (let k = 0; k < 5; k++) row.appendChild(cell(copy(FA.fishCanvas(id, { frame: k, scale: 3 })), 'f' + k));
+      for (let k = 0; k < 2; k++) row.appendChild(cell(copy(FA.fishCanvas(id, { frame: k, fry: true, scale: 3 })), 'fry' + k));
+      p.appendChild(row);
+    }
+    app.appendChild(p);
+  }
+  const ms = q.get('morphs') ? q.get('morphs').split(',') : [];
+  if (ms.length) {
+    app.appendChild(el('h2', null, 'Morphs (3x)'));
+    const p = el('div', 'panel water');
+    for (const id of ms) {
+      const row = el('div', 'mrow');
+      row.appendChild(el('div', 'rl', id));
+      for (const m of MORPH_IDS) row.appendChild(cell(copy(FA.fishCanvas(id, { morph: m, scale: 3 })), m));
+      p.appendChild(row);
+    }
+    app.appendChild(p);
+  }
 }
 
 // ---------------------------------------------------------------- full sheet
@@ -87,7 +132,7 @@ function sheet() {
     });
   }
 
-  const MORPH_SPECIES = ['bluegill', 'perch', 'rainbow', 'pike', 'mapleKoi'];
+  const MORPH_SPECIES = ['bluegill', 'perch', 'rainbow', 'pike', 'mapleKoi', 'catfish', 'sabertooth'];
   section('Morphs (3x)', 'water', (p) => {
     for (const id of MORPH_SPECIES) {
       const row = el('div', 'mrow');
@@ -148,7 +193,7 @@ function sheet() {
   }
 
   section('Detail (6x): swim frames 0-3 + flop', 'paper', (p) => {
-    for (const id of ['bluegill', 'brook', 'walleye', 'sturgeon']) {
+    for (const id of ['bluegill', 'brook', 'walleye', 'sturgeon', 'eel', 'sabertooth']) {
       const row = el('div', 'row');
       for (let f = 0; f < 5; f++) row.appendChild(cell(copy(FA.fishCanvas(id, { frame: f, scale: 6 })), `${id} f${f}`));
       p.appendChild(row);

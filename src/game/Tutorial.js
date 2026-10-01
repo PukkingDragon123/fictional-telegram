@@ -211,7 +211,8 @@ export class Tutorial {
   }
 
   update() {
-    if (this.follow) { const f = this.game.fox; this.game.rig.lookAt(f.x, f.z + 0.6); }
+    // keep the fox in view, but the player can always look around (we wait until they stop)
+    if (this.follow && performance.now() - (this.game.rig.userCamT || 0) > 7000) { const f = this.game.fox; this.game.rig.lookAt(f.x, f.z + 0.6); }
   }
 
   // later unlocks that come from playing, not the tour

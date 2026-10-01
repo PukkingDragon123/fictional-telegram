@@ -5248,6 +5248,31 @@ reg('beaver_swim', () => wb(BEAVER, ['swim0', 'swim1'], BEAVER_PAL, { noShade: '
 reg('owl_idle', () => critter(OWL, ['idle0', 'idle1'], OWL_PAL));
 reg('owl_blink', () => critter(OWL, ['half', 'shut', 'half'], OWL_PAL));
 reg('firefly_big', () => bigFireflyFrames().map(centre));
+
+// ===========================================================================
+// Extra sprite modules (src/art/extra/*.js). Each exports
+//   EXTRA_SPRITES = { name: () => [{ w, h, data: Uint8ClampedArray(w*h*4) RGBA, ax, ay }, ...] }
+// Plain RGBA frames, so they can be drawn anywhere; a name that already exists
+// here is replaced (that is how the songbirds got redrawn).
+// ===========================================================================
+function rgbaFrame(f) {
+  const p = new Px(f.w, f.h);
+  const d = f.data;
+  for (let i = 0; i < f.w * f.h; i++) {
+    const a = d[i * 4 + 3];
+    if (!a) continue;
+    p.c[i] = (d[i * 4] << 16) | (d[i * 4 + 1] << 8) | d[i * 4 + 2];
+    p.a[i] = a;
+  }
+  return { px: p, ax: f.ax ?? f.w / 2, ay: f.ay ?? f.h };
+}
+const EXTRA_MODS = import.meta.glob('./extra/*.js', { eager: true });
+for (const m of Object.values(EXTRA_MODS)) {
+  for (const [name, fn] of Object.entries(m.EXTRA_SPRITES || {})) {
+    delete ALIAS[name];
+    reg(name, () => fn().map(rgbaFrame));
+  }
+}
 export const NATURE_NAMES = Object.keys(REG);
 
 // ===========================================================================

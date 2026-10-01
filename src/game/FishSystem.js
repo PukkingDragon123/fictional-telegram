@@ -184,12 +184,14 @@ export class FishSystem {
       const hardy = this.hasTrait(f, 'hardy');
       const hungerK = (this.hasTrait(f, 'glutton') ? 2 : 1) * (hardy ? 0.7 : 1);
       f.hunger = Math.min(1, f.hunger + dt * HUNGER_RATE * hungerK * (f.adult ? 1 : 0.8) * (night ? 0.3 : 1));
+      const aura = game.bugs ? game.bugs.auraAt(f.x, f.z) : null;
       if (!f.adult) {
-        f.age += dt * sp.growth * mods.growthMult * (f.hunger < 0.7 ? 1 : 0.35) * (hardy ? 1.5 : 1) * loved;
+        f.age += dt * sp.growth * mods.growthMult * (f.hunger < 0.7 ? 1 : 0.35) * (hardy ? 1.5 : 1) * loved * (1 + (aura ? aura.growth : 0) + (f.bugGrow > 0 ? 0.3 : 0));
         if (f.age >= GROW_TIME) { f.adult = true; game.onFishGrew?.(f); }
       }
-      f.loveT -= dt * (f.bugBoost > 0 ? 1.8 : 1) * (1 + game.structures.aeratorBoost(f.x, f.z)) * (this.hasTrait(f, 'fertile') ? 1.5 : 1) * (loved > 1 ? 1.5 : 1) * (night ? 0.5 : 1);
+      f.loveT -= dt * (f.bugBoost > 0 ? 1.8 : 1) * (1 + game.structures.aeratorBoost(f.x, f.z)) * (this.hasTrait(f, 'fertile') ? 1.5 : 1) * (loved > 1 ? 1.5 : 1) * (night ? 0.5 : 1) * (1 + (aura ? aura.breed : 0));
       f.bugBoost = Math.max(0, f.bugBoost - dt);
+      if (f.bugGrow > 0) f.bugGrow -= dt;
       if (f.held) { f.phase += dt * 22; continue; }
       if (f.jump) { this.updateJump(f, dt); continue; }
 
@@ -349,7 +351,7 @@ export class FishSystem {
     // eggs
     for (let i = this.eggs.length - 1; i >= 0; i--) {
       const e = this.eggs[i];
-      e.t -= dt;
+      e.t -= dt * (1 + (game.bugs ? game.bugs.auraAt(e.x, e.z).hatch : 0));
       if (Math.random() < dt * 0.6) game.particles.bubbles(e.x, e.y + 0.05, e.z, 1);
       // bought eggs wait for you to tap them (then the hatch ceremony plays)
       if (e.bought) {
@@ -406,7 +408,8 @@ export class FishSystem {
     const floor = g.groundAt(mx, mz);
     const nurtured = a.love > 0.2 || b.love > 0.2;
     const genes = [];
-    for (let k = 0; k < count; k++) genes.push(breedGenes(kid, a, b, mods, { nurtured }));
+    const aura = game.bugs ? game.bugs.auraAt(mx, mz) : null;
+    for (let k = 0; k < count; k++) genes.push(breedGenes(kid, a, b, mods, { nurtured, sizeBoost: aura ? aura.size : 0, luckBoost: aura ? aura.luck : 0 }));
     this.eggs.push({ x: mx, z: mz, y: floor + 0.02, species: kid, count, genes, t: 90 + Math.random() * 40, total: 110, hybrid, region: a.region, parents: [a.sp.id, b.sp.id] });
     game.particles.hearts(mx, WATER_Y + 0.3, mz, 3);
     game.world.sim.disturb(mx, mz, 0.25, 0.12);
@@ -505,7 +508,8 @@ export class FishSystem {
     if (t >= 0.5 && !j.ate) {
       j.ate = true;
       if (!j.bug.dead) {
-        this.game.food.eatBug(j.bug);
+        const bsp = this.game.food.eatBug(j.bug);
+        if (bsp?.effect === 'growth') f.bugGrow = 40;
         f.hunger = Math.max(0, f.hunger - 0.45 * this.game.mods.foodMult);
         f.bugBoost = 30;
         this.game.particles.sparkle(f.x, f.y + 0.1, f.z, 4, 0xd8ffa0);

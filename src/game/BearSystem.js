@@ -832,6 +832,18 @@ export class BearSystem {
     if (b.def.boss) this.bossIntro(b);
   }
 
+  // a goose charged at it: the rampage is over, the bear legs it
+  scareOff(b) {
+    if (!b.angry || b.def.boss) return false;
+    b.rampLeft = 0;
+    b.angry = false;
+    b.rig?.setMaterial('normal');
+    this.say(b, pick(['AAAH! GOOSE!', 'Not the goose!!', 'HONK?! I\'m out.', 'Call my lawyer!']), null, null, 2);
+    this.game.audio.play('whoosh', { volume: 0.4, pitch: 1.4 });
+    this.beginLeave(b);
+    return true;
+  }
+
   // a boss arrives: roar, screen shake, everyone looks
   bossIntro(b) {
     const game = this.game;

@@ -7,6 +7,7 @@ import { SpriteBatch, SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { WATER_Y } from '../world/grid.js';
 import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { angleDiff, damp } from '../core/rng.js';
+import { WILD_BIRDS, BIRD_RARITY_WEIGHT } from '../data/birds.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -184,9 +185,8 @@ export class Ambient {
     this.frames = nat.frames;
     this.batch = new SpriteBatch(nat.tex, { max: 256, lit: true, castShadow: true, receiveShadow: true, renderOrder: 13, name: 'critters' });
     game.scene.add(this.batch.mesh);
+    // no wild ducks/loons on the pond any more: ducks & geese are your livestock now
     this.loons = [];
-    for (let i = 0; i < 2; i++) this.loons.push({ kind: 'loon', x: 0, z: 0, heading: Math.random() * 6, dive: 0, call: 0, t: 5 + Math.random() * 10, placed: false, seed: Math.random() * 10 });
-    for (let i = 0; i < 2; i++) this.loons.push({ kind: 'mallard', x: 0, z: 0, heading: Math.random() * 6, dive: 0, call: 0, t: 3 + Math.random() * 6, placed: false, seed: Math.random() * 10 });
     this.birds = [];
     for (let i = 0; i < 7; i++) this.birds.push(this.newBird(true));
     this.flutter = [];
@@ -208,6 +208,28 @@ export class Ambient {
   }
 
   onRushStart() { this.whistleT = 3; }
+
+  // which wild bird turns up: rarer ones are... rarer; what you've built attracts some
+  pickBird(night = false) {
+    const game = this.game;
+    if (!this._likeT || game.time - this._likeT > 10) {
+      this._likeT = game.time;
+      this._have = new Set(game.structures.list.filter((s) => s.built && !s.removed).map((s) => s.type));
+    }
+    let tot = 0;
+    const ws = [];
+    for (const b of WILD_BIRDS) {
+      if (!this.frames[`${b.id}_idle`]?.length) continue;
+      if (!!b.night !== !!night) continue;
+      let w = BIRD_RARITY_WEIGHT[b.rarity];
+      if (b.like.some((t) => this._have.has(t))) w *= 3;
+      ws.push([b.id, w]); tot += w;
+    }
+    if (!ws.length) return pick(SONGBIRDS);
+    let x = Math.random() * tot;
+    for (const [id, w] of ws) { x -= w; if (x <= 0) return id; }
+    return ws[0][0];
+  }
 
   newBird(initial) {
     return { sp: pick(SONGBIRDS), x: 0, z: 0, y: 0, state: initial ? 'land' : 'away', t: initial ? rand(0, 6) : rand(8, 25), vx: 0, vz: 0, vy: 0, face: 1, seed: Math.random() * 9, hop: 0, placed: false };
@@ -311,20 +333,29 @@ export class Ambient {
       else this.draw(`${l.kind}_swim`, Math.floor(T * 2.2 + l.seed), l.x, WATER_Y - 0.06 + bob, l.z, { flip: l.face < 0 });
     }
 
-    // ---- songbirds: hop, peck, scatter
+    // ---- songbirds: hop, peck, scatter (birdhouses & baths bring more)
+    this.birdCountT = (this.birdCountT || 0) - dt;
+    if (this.birdCountT <= 0) {
+      this.birdCountT = 10;
+      let extra = 0;
+      for (const s of game.structures.list) if (s.built && s.def.birds) extra += s.def.birds;
+      const want = Math.min(15, 7 + extra);
+      while (this.birds.length < want) this.birds.push(this.newBird(false));
+    }
     const dayish = night < 0.55;
     for (let i = 0; i < this.birds.length; i++) {
       const b = this.birds[i];
       b.t -= dt;
       if (b.state === 'away') {
-        if (b.t <= 0 && dayish) {
+        const owl = !dayish && Math.random() < 0.08;
+        if (b.t <= 0 && (dayish || owl)) {
           const p = this.meadowPoint();
           if (p) {
             // fly in from off to the side and land on the target
             const a = Math.random() * Math.PI * 2;
             b.tx = p.x; b.tz = p.z;
             b.x = p.x + Math.cos(a) * 14; b.z = p.z + Math.sin(a) * 14; b.y = 7;
-            b.state = 'in'; b.sp = pick(SONGBIRDS);
+            b.state = 'in'; b.sp = this.pickBird(!dayish); b.night = !dayish;
           } else b.t = 5;
         }
         continue;
@@ -340,7 +371,7 @@ export class Ambient {
       } else {
         // on the ground
         const th = this.threat(b.x, b.z);
-        if (th < 1.8 || !dayish) {
+        if (th < 1.8 || (!dayish && !b.night) || (dayish && b.night)) {
           const a = Math.atan2(b.z - game.fox.z, b.x - game.fox.x) + rand(-0.6, 0.6);
           b.state = 'out'; b.vx = Math.cos(a) * 4; b.vz = Math.sin(a) * 4; b.vy = 2.5; b.face = this.faceOf(b.vx, b.vz, b.face);
           parts.feathers?.(b.x, 0.2 + g.groundAt(b.x, b.z), b.z, 2);

@@ -24,10 +24,17 @@ import { StructureSystem } from './StructureSystem.js';
 import { BearSystem } from './BearSystem.js';
 import { BeaverSystem, BEAVER_LEVELS } from './BeaverSystem.js';
 import { Delivery } from './Delivery.js';
+import { BugSystem } from './BugSystem.js';
+import { ZONE_INFO } from '../data/zones.js';
+import { ZoneSystem } from './Zones.js';
+import { Villagers } from './Villagers.js';
+import { Livestock } from './Livestock.js';
 import { Fox, Ambient } from './Ambient.js';
 import audio from './audioProxy.js';
 import { SPECIES, SPECIES_BY_ID, MORPHS, MUTATIONS, RARITIES } from '../data/species.js';
 import { STRUCTURES, CHARM_CAP } from '../data/structures.js';
+import { BREEDS } from '../data/livestock.js';
+import { BIRD_BY_ID, BIRD_BOUNTY, WILD_BIRDS } from '../data/birds.js';
 import { RESEARCH, RESEARCH_BY_ID, computeMods } from '../data/research.js';
 import { WEEKDAYS } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
@@ -66,6 +73,7 @@ export class Game {
     this.mods = computeMods([], this.legacy.tails);
     this.structures = new StructureSystem(this);
     this.food = new FoodSystem(this);
+    this.bugs = new BugSystem(this);
     this.fish = new FishSystem(this);
     this.beavers = new BeaverSystem(this);
     this.delivery = new Delivery(this);
@@ -76,6 +84,9 @@ export class Game {
     };
     this.fox = new Fox(this);
     this.ambient = new Ambient(this);
+    this.livestock = new Livestock(this);
+    this.zones = new ZoneSystem(this);
+    this.villagers = new Villagers(this);
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -103,7 +114,7 @@ export class Game {
       coins: 120, day: 1, hour: 9, phase: 'day', rating: 3.0, reviews: [], research: [], discovered: ['bluegill'], morphsSeen: [],
       speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false, achievements: [],
       eggTray: [], bestNet: 0, grades: [],
-      inventory: {}, landmarks: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
+      inventory: {}, landmarks: [], zones: [], villagers: {}, birdsSpotted: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
     };
   }
 
@@ -146,6 +157,10 @@ export class Game {
       const f = this.fish.spawn('bluegill', p.x, p.z, { adult: true, hunger: 0.3, g });
       if (f) { f.name = name; f.loveT = 6 + Math.random() * 4; }
     }
+    this.bugs.load(null);
+    this.livestock?.clear();
+    this.zones.onLoad();
+    this.villagers.onLoad();
     this.onTopologyChanged();
     this.startDay(true);
     this.started = true;
@@ -183,7 +198,19 @@ export class Game {
     }
   }
 
-  isUnlocked(rid) { return !rid || rid === 'start' || this.state.research.includes(rid); }
+  isUnlocked(rid) {
+    if (!rid || rid === 'start') return true;
+    if (rid.startsWith('day:')) return this.state.day >= +rid.slice(4);
+    if (rid.startsWith('zone_')) return (this.state.zones || []).includes(rid.slice(5));
+    return this.state.research.includes(rid);
+  }
+  // why something is still locked, in a few words
+  lockReason(rid) {
+    if (!rid || this.isUnlocked(rid)) return null;
+    if (rid.startsWith('day:')) return `Day ${rid.slice(4)}`;
+    if (rid.startsWith('zone_')) { const Z = ZONE_INFO[rid.slice(5)]; return Z ? `Meet ${Z.npcName}` : 'Explore the forest'; }
+    return 'Research';
+  }
   isStructureUnlocked(type) { const d = STRUCTURES[type]; return d && this.isUnlocked(d.unlock) && (!d.landmark || this.state.landmarks.includes(d.landmark)); }
   speciesUnlocked(id) {
     const sp = SPECIES_BY_ID[id];
@@ -222,6 +249,8 @@ export class Game {
     for (const s of this.structures.list) if (s.built) b += (s.def.beauty || 0) + (s.def.comfort || 0) * 0.7;
     for (const f of this.fish.list) if (f.g.traits.includes('sparkly')) b += 1;
     if (this.fish.list.some((f) => f.sp.id === 'grayling')) b += 2;
+    b += this.bugs?.charmBonus || 0; // butterflies!
+    b += this.livestock?.beauty?.() || 0; // happy ducks & geese
     return Math.round(b * this.mods.beautyMult * 10) / 10;
   }
   // restaurant pull: neon signs & grills bring extra customers
@@ -301,14 +330,19 @@ export class Game {
           if (!inside && g.inb(x, z) && g.meadow[z * g.w + x]) touch = true;
         }
       if (!touch) continue;
-      this.state.landmarks.push(L.id);
-      this.applyLandmarkMods();
-      this.audio.play('discover', { volume: 0.6 });
-      this.particles.confetti(L.x + L.w / 2, g.height[L.z * g.w + L.x] + 2, L.z + L.d / 2, 50);
-      this.ui?.onLandmark?.(L, LANDMARK_PERKS[L.id]);
-      this.emit('landmark', L);
-      this.save();
+      this.discoverLandmark(L);
     }
+  }
+
+  discoverLandmark(L, { quiet = false } = {}) {
+    const g = this.grid;
+    if (this.state.landmarks.includes(L.id)) return;
+    this.state.landmarks.push(L.id);
+    this.applyLandmarkMods();
+    this.particles.confetti(L.x + L.w / 2, g.height[L.z * g.w + L.x] + 2, L.z + L.d / 2, 50);
+    if (!quiet) { this.audio.play('discover', { volume: 0.6 }); this.ui?.onLandmark?.(L, LANDMARK_PERKS[L.id]); }
+    this.emit('landmark', L);
+    this.save();
   }
 
   applyLandmarkMods() {
@@ -363,16 +397,18 @@ export class Game {
       const locked = n > lvl + 1 ? { reason: `Need Lv${n - 1} first`, icon: 'lock' } : !this.beavers.count() ? { reason: 'Hire beavers first', icon: 'beaver' } : null;
       L.push({ id: 'upg_beaver' + n, cat: 'gear', kind: 'upgrade', level: n, type: 'lodge', title: `BEAVER TOOLS Lv${n}: ${B.name}!! (${B.desc})`, sub: `Beaver tools Lv${n}`, price: B.price, oldPrice: B.price * 4, badges: ['hot'], seller: { name: 'BuckTooth Bros', stars: 4.9, sold: 300 + n * 40 }, locked, eta: 'Moose Express' });
     }
+    // ducks & geese (live birds come in a crate)
+    this.livestock?.ebuyListings?.(L);
     // the rest of the catalogue: every plant, decor piece, gadget and
     // restaurant kit, including the ones you can't have yet (greyed + why)
     const handmade = new Set(SHOP_ITEMS.map((it) => it.type));
-    const catOf = { food: 'plants', nature: 'plants', decor: 'decor', contraption: 'gear', restaurant: 'restaurant' };
+    const catOf = { food: 'plants', nature: 'plants', decor: 'decor', contraption: 'gear', restaurant: 'restaurant', farm: 'farm' };
     for (const [type, def] of Object.entries(STRUCTURES)) {
       const cat = catOf[def.category];
       if (!cat || handmade.has(type) || type === 'lodge') continue;
       let locked = null;
       if (def.landmark && !st.landmarks.includes(def.landmark)) locked = { reason: 'Find the ' + (LANDMARKS.find((x) => x.id === def.landmark)?.name || 'landmark'), icon: 'map' };
-      else if (!this.isUnlocked(def.unlock)) locked = { reason: 'Lab: ' + (RESEARCH_BY_ID[def.unlock]?.name || 'research'), icon: 'flask' };
+      else if (!this.isUnlocked(def.unlock)) locked = RESEARCH_BY_ID[def.unlock] ? { reason: 'Lab: ' + RESEARCH_BY_ID[def.unlock].name, icon: 'flask' } : { reason: this.lockReason(def.unlock), icon: 'map' };
       const price = Math.max(5, Math.round(def.cost * 1.15));
       L.push({ id: 'item_' + type, cat, kind: 'item', type, qty: 1, title: autoTitle(type, def), sub: def.name, price, oldPrice: Math.round(price * (2.5 + (type.length % 5))), badges: def.beauty >= 3 ? ['hot'] : [], seller: { name: pickSeller(type), stars: 4 + (type.length % 10) / 10, sold: 50 + type.length * 37 }, locked, eta: 'Moose Express' });
     }
@@ -382,7 +418,7 @@ export class Game {
     for (const sp of SPECIES) {
       if (pool.has(sp.id) || sp.unlock === 'hybrid' || teasers >= 8) continue;
       teasers++;
-      L.push({ id: 'lockegg_' + sp.id, cat: 'eggs', kind: 'egg', species: sp.id, genes: { morph: 'normal', stars: 1 + Math.min(4, sp.tier || 0), traits: [], size: 1 }, title: `${sp.name} egg ??? (coming soon)`, sub: sp.name, price: sp.price, rarity: RARITIES[Math.min(4, sp.tier || 0)].id, badges: ['new'], seller: { name: pickSeller(sp.id), stars: 4.8, sold: 0 }, locked: { reason: 'Lab: ' + (RESEARCH_BY_ID[sp.unlock]?.name || 'research'), icon: 'flask' }, eta: 'Moose Express' });
+      L.push({ id: 'lockegg_' + sp.id, cat: 'eggs', kind: 'egg', species: sp.id, genes: { morph: 'normal', stars: 1 + Math.min(4, sp.tier || 0), traits: [], size: 1 }, title: `${sp.name} egg ??? (coming soon)`, sub: sp.name, price: sp.price, rarity: RARITIES[Math.min(4, sp.tier || 0)].id, badges: ['new'], seller: { name: pickSeller(sp.id), stars: 4.8, sold: 0 }, locked: RESEARCH_BY_ID[sp.unlock] ? { reason: 'Lab: ' + RESEARCH_BY_ID[sp.unlock].name, icon: 'flask' } : { reason: this.lockReason(sp.unlock) || 'Coming soon', icon: 'map' }, eta: 'Moose Express' });
     }
     return L;
   }
@@ -394,16 +430,22 @@ export class Game {
     if (this.state.coins < cost) { this.audio.play('error', { volume: 0.4 }); return false; }
     this.spend(cost, listing.kind === 'egg' ? 'eggs' : 'shop');
     this.audio.play('buy', { volume: 0.5 });
-    if (listing.kind === 'upgrade') {
-      this.delivery.order([{ kind: 'upgrade', level: listing.level }], { label: listing.title });
+    if (listing.kind === 'bird') {
+      const B = BREEDS[listing.breed];
+      const items = listing.pair ? [{ kind: 'bird', breed: listing.breed, sex: 'm' }, { kind: 'bird', breed: listing.breed, sex: 'f' }] : [{ kind: 'bird', breed: listing.breed, sex: listing.sex || 'f' }];
+      for (let k = 1; k < qty; k++) items.push(...items.slice(0, listing.pair ? 2 : 1).map((it) => ({ ...it })));
+      this.delivery.order(items, { label: `${B.name}${listing.pair ? ' pair' : ' hen'}${qty > 1 ? ' ×' + qty : ''}`, fast: !!this.tutorialOnly });
+    } else if (listing.kind === 'upgrade') {
+      this.delivery.order([{ kind: 'upgrade', level: listing.level }], { label: `Beaver tools Lv${listing.level}`, fast: !!this.tutorialOnly });
     } else if (listing.kind === 'egg') {
       const e = this.state.shop.find((x) => x.id === listing.id);
       if (e) e.sold = true;
       const rarity = rarityOf(listing.genes.stars);
-      this.delivery.order([{ kind: 'egg', species: listing.species, genes: listing.genes, t: EGG_TIMES[rarity] / this.hatchSpeed() }], { label: listing.title });
+      this.delivery.order([{ kind: 'egg', species: listing.species, genes: listing.genes, t: EGG_TIMES[rarity] / this.hatchSpeed() }], { label: `${SPECIES_BY_ID[listing.species]?.name || 'Fish'} egg`, fast: !!this.tutorialOnly });
       this.stats.fishBought++;
     } else {
-      this.delivery.order([{ kind: 'item', type: listing.type, qty: (listing.qty || 1) * qty }], { label: listing.title });
+      const n = (listing.qty || 1) * qty;
+      this.delivery.order([{ kind: 'item', type: listing.type, qty: n }], { label: `${STRUCTURES[listing.type]?.name || 'Parcel'}${n > 1 ? ' ×' + n : ''}`, fast: !!this.tutorialOnly });
     }
     this.unlockFeature('ebuy', { quiet: true });
     this.save();
@@ -741,6 +783,8 @@ export class Game {
   }
 
   onStructureBuilt(s) {
+    if (s.def.nest) this.livestock?.onNestBuilt(s);
+    this.bugs?.showRing(s, 6);
     this.particles.popIn(s.x + 0.5, this.structures.baseY(s), s.z + 0.5, 1);
     this.particles.word('built', s.x + 0.5, this.structures.baseY(s) + 1.3, s.z + 0.5, { size: 0.28 });
     this.audio.play('pop_in', { volume: 0.5 });
@@ -934,6 +978,7 @@ export class Game {
     const r = B.queueClear(x, z);
     if (r.ok) { this.audio.play('paper', { volume: 0.3, pitch: 1.2 }); return true; }
     if (r.reason === 'far') this.notify('Too far! Start from the edge of your land.', 'no');
+    else if (r.reason === 'fog') this.notify('Too foggy! Clear right up to the fog and it lifts.', 'no');
     else if (r.reason === 'level') this.notify(`Need Lv${r.need} beaver tools! Upgrade on e-Buy.`, 'no');
     this.audio.play('error', { volume: 0.3 });
     return false;
@@ -1064,8 +1109,28 @@ export class Game {
     return true;
   }
 
+  // tapped a wild bird: add it to the bird log (Professor Hoot pays for new ones)
+  spotBird(b) {
+    const info = BIRD_BY_ID[b.sp];
+    if (!info) return;
+    const list = (this.state.birdsSpotted ||= []);
+    const anchor = { getWorldPos: (v) => v.set(b.x, this.grid.groundAt(b.x, b.z) + b.y + 0.7, b.z) };
+    this.audio.play('bird_chirp', { volume: 0.35, pitch: 1.2 });
+    if (list.includes(info.id)) { this.say(anchor, info.name, { mood: 'happy', dur: 1.6, size: 's', key: 'bird' }); return; }
+    list.push(info.id);
+    const hoot = (this.state.zones || []).includes('tower');
+    const pay = hoot ? BIRD_BOUNTY[info.rarity] : 3;
+    this.earnMisc(pay, 'tips');
+    this.particles.sparkle(b.x, this.grid.groundAt(b.x, b.z) + 0.4, b.z, 6, 0xfff2a0);
+    this.say(anchor, `NEW BIRD! ${info.name}`, { mood: 'excited', dur: 2.4, size: 'm', key: 'bird' });
+    this.notify(`Bird log ${list.length}/${WILD_BIRDS.length}! +${pay}${hoot ? ' (Hoot\'s bounty)' : ''}`, 'happy');
+    this.emit('birdSpotted', info);
+  }
+
   tapStructure(s) {
     if (s.def.gate) { this.structures.toggleGate(s); this.onTopologyChanged(); return true; }
+    if (s.def.nest && s.built) { this.ui?.showNestCard?.(s); return true; }
+    if (this.bugs?.farmDef(s) && s.built && (s.def.category === 'farm' || s.type === 'bughotel')) { this.bugs.showRing(s, 6); this.ui?.showFarmCard?.(s); return true; }
     return false;
   }
 
@@ -1131,6 +1196,8 @@ export class Game {
     if (st.phase !== 'gameover') {
       this.structures.update(simPhase);
       this.food.update(simPhase);
+      this.bugs.update(simPhase);
+      this.livestock.update(simPhase);
       this.fish.update(simPhase);
       this.bears.update(st.phase === 'evening' ? dt : simDt);
       this.beavers.update(simPhase);
@@ -1139,6 +1206,8 @@ export class Game {
     }
     this.fox.update(dt);
     this.ambient.update(dt);
+    this.zones.update(dt);
+    this.villagers.update(dt);
     this.cine?.update(realDt);
     this.tutorial?.update(realDt);
     this.lab?.update(realDt);
@@ -1178,6 +1247,7 @@ export class Game {
       : { x: this.fox.x, z: this.fox.z, r: 0.9, k: 0.75 };
     updateSpriteUniforms(rig.camera, { time: this.time, wind: this.wind, sunDir: this.sky.state.sunDir, pushers, cut });
     this.particles.setBrightness(1 - this.sky.state.night * 0.45);
+    this.renderer.setFogEnabled(!this.overrideScene && !this.titleMode);
     if (this.overrideScene) this.renderer.render(this.overrideScene, this.overrideRig || rig);
     else this.renderer.render(this.scene, rig);
   }
@@ -1201,7 +1271,7 @@ export class Game {
     return {
       v: 3, state: st, stats: this.stats, water, land, removedDecos, structures: this.structures.serialize(),
       beavers: this.beavers.serialize(), delivery: this.delivery.serialize(),
-      fish: this.fish.serialize(), food: this.food.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
+      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
     };
   }
 
@@ -1247,6 +1317,10 @@ export class Game {
     this.beavers.refreshCounts();
     this.beavers.loadClears(data.beavers?.clears);
     this.delivery.load(data.delivery);
+    this.bugs.load(data.bugs);
+    this.livestock?.load(data.livestock);
+    this.zones.onLoad();
+    this.villagers.onLoad();
     this.applyLandmarkMods();
     this.world.landVersion++;
     if (data.cam) { this.rig.lookAt(data.cam[0], data.cam[1], true); this.rig.wupp = this.rig.wuppGoal = data.cam[2]; this.rig.yaw = this.rig.yawGoal = data.cam[3] || 0; }

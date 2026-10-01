@@ -81,7 +81,8 @@ export class Input {
 
   onDown(e) {
     this.game.audio.unlock();
-    if (this.game.ui?.advanceBubble?.()) return;
+    // in the fox room / cutscenes there's no camera to drag: any press advances the bubble
+    if ((this.game.lab?.active || this.game.inputLocked) && this.game.ui?.advanceBubble?.()) return;
     if (this.game.lab?.active) { const q = this.local(e); this.game.lab.onCanvasClick(q.x, q.y); return; }
     if (this.game.inputLocked) { this.game.cine?.onTap?.(); return; }
     this.canvas.setPointerCapture?.(e.pointerId);
@@ -95,6 +96,8 @@ export class Input {
       return;
     }
     if (e.button === 1 || e.button === 2) { this.drag = { mode: 'pan', x: p.x, y: p.y }; return; }
+    // a talking bubble is waiting: a tap advances it, a drag still moves the camera
+    if (this.game.ui?.bubbleWaiting?.()) { this.drag = { mode: 'maybe', x: p.x, y: p.y, bubble: true }; return; }
     const tk = this.tool().kind;
     if (tk === 'hand' || tk === 'nurture') {
       const f = this.game.ui?.pickFish(p.x, p.y, 34);
@@ -128,6 +131,7 @@ export class Input {
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       if (this.pinch.d > 0) this.game.rig.zoom(this.pinch.d / d);
       this.game.rig.panPixels(mx - this.pinch.mx, my - this.pinch.my, this.game.renderer);
+      this.game.rig.userCamT = performance.now();
       this.pinch.d = d; this.pinch.mx = mx; this.pinch.my = my;
       return;
     }
@@ -137,6 +141,7 @@ export class Input {
     if (this.drag.mode === 'maybe' && Math.hypot(p.x - ptr.sx, p.y - ptr.sy) > TAP_DIST) this.drag.mode = 'pan';
     if (this.drag.mode === 'pan') {
       this.game.rig.panPixels(dx, dy, this.game.renderer);
+      this.game.rig.userCamT = performance.now();
     } else if (this.drag.mode === 'line') {
       const t = this.pickTile(p.x, p.y);
       if (Math.hypot(p.x - ptr.sx, p.y - ptr.sy) > TAP_DIST) this.drag.moved = true;
@@ -169,6 +174,7 @@ export class Input {
     if (drag && drag.mode === 'pet') return;
     if (cancel || !drag) { this.game.ghostLine = null; return; }
     const p = this.local(e);
+    if (drag.bubble) { if (drag.mode === 'maybe') this.game.ui?.advanceBubble?.(); return; }
     if (drag.mode === 'maybe' && performance.now() - ptr.t < 900) this.tap(p.x, p.y, ptr.button);
     else if (drag.mode === 'line') this.commitLine(drag);
   }
@@ -233,15 +239,17 @@ export class Input {
     e.preventDefault();
     if (this.game.inputLocked) return;
     const f = Math.exp(Math.sign(e.deltaY) * Math.min(0.25, Math.abs(e.deltaY) * 0.0022));
-    this.game.rig.zoom(f);
+    const p = this.local(e);
+    this.game.rig.zoomAt(f, p.x, p.y, this.game.renderer);
+    this.game.rig.userCamT = performance.now();
   }
 
   onKey(e, down) {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     if (down && !this.game.inputLocked) {
       const k = e.key;
-      if (k === '+' || k === '=' || k === 'e' || k === 'E') this.game.rig.zoom(0.8);
-      else if (k === '-' || k === '_' || k === 'q' || k === 'Q') this.game.rig.zoom(1.25);
+      if (k === 'z' || k === 'Z' || k === 'PageUp') this.game.rig.zoom(0.8);
+      else if (k === 'x' || k === 'X' || k === 'PageDown') this.game.rig.zoom(1.25);
     }
     const k = e.key.toLowerCase();
     if (down) {
@@ -249,8 +257,8 @@ export class Input {
       if (this.keys.has(k)) return;
       this.keys.add(k);
       const ui = this.game.ui;
-      if (k === 'q') this.game.rig.rotate(-1);
-      else if (k === 'e') this.game.rig.rotate(1);
+      if (k === 'q') { this.game.rig.rotate(-1); this.game.rig.userCamT = performance.now(); }
+      else if (k === 'e') { this.game.rig.rotate(1); this.game.rig.userCamT = performance.now(); }
       else if (k === 'escape') { if (!ui?.closeTop()) this.game.setTool({ kind: 'feed' }); }
       else if (k === ' ') { e.preventDefault(); ui?.togglePause(); }
       else if (k === '+' || k === '=') this.game.rig.zoom(0.8);
@@ -271,8 +279,9 @@ export class Input {
     if (k.has('d') || k.has('arrowright')) r += 1;
     if (k.has('a') || k.has('arrowleft')) r -= 1;
     if (f || r) {
-      const sp = 14 * this.game.rig.wupp / 0.07 * dt;
+      const sp = 14 * this.game.rig.wupp / 0.07 * dt * (k.has('shift') ? 2.2 : 1);
       this.game.rig.panRelative(f * sp, r * sp);
+      this.game.rig.userCamT = performance.now();
     }
   }
 
@@ -299,8 +308,11 @@ export class Input {
     if (egg && game.tool.kind === 'feed') { game.ui.tapPondEgg(egg); return; }
     // default: feed / interact. Tapping a creature zooms in and tracks it.
     const cr = game.ui?.pickCreature?.(sx, sy);
+    if (cr && cr.kind === 'npc') { game.villagers.open(cr.ent); return; }
+    if (cr && cr.kind === 'songbird') { game.spotBird(cr.ent); return; }
     if (cr && game.tool.kind === 'feed') {
       game.ui.trackEntity(cr.ent, cr);
+      if (cr.kind === 'livestock') game.ui.showLivestockInfo?.(cr.ent);
       if (cr.kind === 'bear') game.ui.showBearInfo?.(cr.ent);
       else if (cr.kind === 'fish') game.ui.showFishInfo?.(cr.ent);
       return;

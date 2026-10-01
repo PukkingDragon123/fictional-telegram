@@ -14,6 +14,7 @@ const TABS = [
   { id: 'food', icon: 'berry', name: 'Plants' },
   { id: 'restaurant', icon: 'picnic', name: 'Restaurant', beaver: true },
   { id: 'beaver', icon: 'dam', name: 'Beaver works', beaver: true },
+  { id: 'farm', icon: 'bug', name: 'Bugs & Birds' },
   { id: 'nature', icon: 'seaweed', name: 'Pond' },
   { id: 'decor', icon: 'gnome', name: 'Decor' },
   { id: 'contraption', icon: 'gear', name: 'Gadgets' },

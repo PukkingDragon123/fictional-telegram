@@ -67,9 +67,9 @@ export function rollGenes(speciesId, mods, { luck = 1, sex = null } = {}) {
 }
 
 // Offspring genes from two parents (a, b are fish with .g)
-export function breedGenes(speciesId, a, b, mods, { nurtured = false } = {}) {
+export function breedGenes(speciesId, a, b, mods, { nurtured = false, sizeBoost = 0, luckBoost = 0 } = {}) {
   const ga = a.g || rollGenes(a.sp.id, mods), gb = b.g || rollGenes(b.sp.id, mods);
-  const luck = nurtured ? 1.6 : 1;
+  const luck = (nurtured ? 1.6 : 1) * (1 + luckBoost * 1.5);
   const inheritMorph = () => {
     const pm = [ga.morph, gb.morph].filter((m) => m !== 'normal');
     if (pm.length && Math.random() < 0.38 * pm.length) return pm[Math.floor(Math.random() * pm.length)];
@@ -77,7 +77,7 @@ export function breedGenes(speciesId, a, b, mods, { nurtured = false } = {}) {
   };
   const g = {
     sex: Math.random() < 0.5 ? 'M' : 'F',
-    size: +Math.max(0.8, Math.min(1.45, (ga.size + gb.size) / 2 + (Math.random() - 0.45) * 0.14 * luck)).toFixed(2),
+    size: +Math.max(0.8, Math.min(1.45 + sizeBoost * 0.25, (ga.size + gb.size) / 2 + (Math.random() - 0.45) * 0.14 * luck + sizeBoost * 0.12)).toFixed(2),
     morph: inheritMorph(),
     traits: pickTraits(mods, luck, [...ga.traits, ...gb.traits]),
     mut: [ga.mut, gb.mut].filter(Boolean).find(() => Math.random() < 0.3) || pickMutation(mods, luck * 0.6),

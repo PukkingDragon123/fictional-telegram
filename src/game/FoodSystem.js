@@ -71,8 +71,13 @@ export class FoodSystem {
 
   eatPellet(p) { p.eaten = true; }
 
-  // --- bugs
+  // --- bugs (the BugSystem owns them now; these stay for older callers)
   spawnBug(source) {
+    if (this.game.bugs) return this.game.bugs.spawnFrom(source);
+    return this.spawnBugLegacy(source);
+  }
+
+  spawnBugLegacy(source) {
     const a = Math.random() * Math.PI * 2;
     const b = {
       source, x: source.x + 0.5 + Math.cos(a), z: source.z + 0.5 + Math.sin(a), y: 0.6 + Math.random() * 0.6,
@@ -84,6 +89,7 @@ export class FoodSystem {
   }
 
   nearestDippingBug(x, z, r, region) {
+    if (this.game.bugs) return this.game.bugs.nearestDipping(x, z, r, region);
     let best = null, bd = r * r;
     for (const b of this.bugs) {
       if (b.dead || b.targeted || b.dipping <= 0 || b.y > WATER_Y + 0.5) continue;
@@ -96,6 +102,7 @@ export class FoodSystem {
   }
 
   eatBug(b) {
+    if (this.game.bugs && b.sp) return this.game.bugs.eat(b, 'fish');
     b.dead = true;
     b.source.bugCount = Math.max(0, (b.source.bugCount || 1) - 1);
     this.game.stats.bugsEaten++;

@@ -70,6 +70,22 @@ export class CameraRig {
     this.wuppGoal = clamp(this.wuppGoal * factor, this.minWupp, this.maxWupp);
   }
 
+  // zoom keeping the ground point under the cursor in place
+  zoomAt(factor, cssX, cssY, renderer) {
+    const before = this.wuppGoal;
+    this.zoom(factor);
+    const k = this.wuppGoal / before;
+    if (Math.abs(k - 1) < 1e-4 || !renderer) return;
+    const p = this.screenToGround(cssX, cssY, renderer, 0, new THREE.Vector3());
+    if (!Number.isFinite(p.x)) return;
+    // the camera moves from the cursor's point towards the current centre by the zoom ratio
+    const gx = this.follow ? this.follow.x : this.goal.x, gz = this.follow ? this.follow.z : this.goal.z;
+    if (this.follow) return; // tracking something: zoom on it instead
+    this.goal.x = p.x + (gx - p.x) * k;
+    this.goal.z = p.z + (gz - p.z) * k;
+    this.clampGoal();
+  }
+
   rotate(steps) {
     this.yawGoal += steps * Math.PI / 4;
   }
