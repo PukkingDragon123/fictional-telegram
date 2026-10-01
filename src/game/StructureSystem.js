@@ -13,6 +13,10 @@ const restMods = import.meta.glob('../entities/restaurantModels.js', { eager: tr
 const RM = restMods['../entities/restaurantModels.js'] || null;
 import { SpriteBatch } from '../core/spriteBatch.js';
 const nestMods = import.meta.glob('../entities/critterNest.js', { eager: true });
+const tankMods = import.meta.glob('../entities/glassTank.js', { eager: true });
+const TM = tankMods['../entities/glassTank.js'] || null;
+import { fallbackTank } from './Tanks.js';
+import { decalsFor } from '../entities/structureDecals.js';
 const NM = nestMods['../entities/critterNest.js'] || null;
 
 // a woven nest (the livestock rig module draws a nicer one with eggs)
@@ -164,6 +168,7 @@ export class StructureSystem {
   remove(s, { silent = false } = {}) {
     if (s.removed) return;
     s.removed = true;
+    if (s.def.tank) this.game.tanks?.onRemoved(s);
     const g = this.grid;
     if (s.platform) {
       const p = this.byId.get(s.platform);
@@ -426,7 +431,13 @@ export class StructureSystem {
     };
     const variant = s.seed % 3;
     let mask = 0;
-    if (d.nest) {
+    if (d.tank) {
+      let t = null;
+      try { t = TM?.makeGlassTank ? TM.makeGlassTank() : null; } catch (e) { console.warn('tank', e); }
+      if (!t) t = fallbackTank();
+      obj.add(t.root);
+      if (!s.preview) s.tankRig = t;
+    } else if (d.nest) {
       let n = null;
       try { n = NM?.makeNest ? NM.makeNest(d.nest.kind) : null; } catch (e) { console.warn('nest', e); }
       if (!n) n = fallbackNest(d.nest.kind);
@@ -434,7 +445,7 @@ export class StructureSystem {
       if (!s.preview) { s.nestRig = n; n.setEggs?.((s.eggs || []).length); }
     } else if (d.sprite && this.spriteFrame(s)) {
       // drawn as a 2D sprite by renderSprites(); the group stays empty
-    } else if (RM?.RESTAURANT_TYPES?.includes(s.type) && this.addRestaurant(s, obj, add)) {
+    } else if (RM?.RESTAURANT_TYPES?.includes(d.model || s.type) && this.addRestaurant(s, obj, add)) {
       // beaver-built restaurant furniture
     } else if (DECOR_SET.has(s.type) && this.addDecor(s, obj, add)) {
       // detailed decor model (with animated parts)
@@ -498,6 +509,13 @@ export class StructureSystem {
         add(cachedGeo('lanternG', () => lm.glow, { ao: false }), this.glowMat, { shadow: false, tint: false });
         break;
       }
+    }
+    // 2D pixel details on the 3D builds: menus, posters, labels, signs
+    if (s.built && !s.preview) {
+      try {
+        const dec = decalsFor(s.type, { seed: s.seed, depth: s.type === 'lodge' ? this.depthVox(s) : undefined });
+        if (dec) obj.add(dec);
+      } catch (e) { console.warn('decals', s.type, e); }
     }
     if (!s.built) {
       obj.traverse((o) => { if (o.isMesh) { o.material = ghostMat; o.castShadow = false; o.userData.tintable = false; } });

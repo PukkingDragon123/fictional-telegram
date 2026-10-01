@@ -12,6 +12,9 @@ import { angleDiff, clamp } from '../core/rng.js';
 
 const HUNGER_RATE = 1 / 150; // per second -> starving after ~150 s
 export const GROW_TIME = 70; // seconds from fry to adult
+const DATE_TIME = 7; // breeding stage 1: the date
+const FERT_TIME = 6; // stage 3: dad hovering over the clutch
+const SPOIL_TIME = 90; // unfertilized clutches fizzle out
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
 
@@ -193,6 +196,7 @@ export class FishSystem {
       f.bugBoost = Math.max(0, f.bugBoost - dt);
       if (f.bugGrow > 0) f.bugGrow -= dt;
       if (f.held) { f.phase += dt * 22; continue; }
+      if (f.tank) { this.game.tanks?.updateFish(f, dt); continue; }
       if (f.jump) { this.updateJump(f, dt); continue; }
 
       const maxSpeed = 0.9 * sp.speed * (f.adult ? 1 : 1.15);
@@ -226,11 +230,39 @@ export class FishSystem {
         desired = Math.atan2(dz, dx);
         targetSpeed = maxSpeed * (d > 1 ? 1 : 0.5);
         turnRate = 4;
-        f.courtT -= dt;
-        if (d < 0.5 && f.id < m.id) this.mate(f, m);
-        else if (f.courtT <= 0 || m.region !== f.region) { f.state = 'wander'; f.mate = null; m.mate = null; if (m.state === 'court') m.state = 'wander'; }
+        if (f.dateT > 0) {
+          // stage 1, the date: they swim little loops around each other
+          f.dateT -= dt;
+          desired = Math.atan2(dz, dx) + Math.PI * 0.42;
+          targetSpeed = maxSpeed * 0.55;
+          turnRate = 5;
+          if (Math.random() < dt * 1.6) game.particles.hearts(f.x, WATER_Y + 0.25, f.z, 1);
+          if (f.dateT <= 0 && f.id < m.id) this.mate(f, m);
+          else if (m.region !== f.region) { f.state = 'wander'; f.mate = null; m.mate = null; f.dateT = m.dateT = 0; if (m.state === 'court') m.state = 'wander'; }
+        } else {
+          f.courtT -= dt;
+          if (d < 0.6) { f.dateT = m.dateT = DATE_TIME; game.emit('fishDate', { a: f, b: m }); }
+          else if (f.courtT <= 0 || m.region !== f.region) { f.state = 'wander'; f.mate = null; m.mate = null; if (m.state === 'court') m.state = 'wander'; }
+        }
+      } else if (f.state === 'fertilize' && f.eggs && !f.eggs.dead) {
+        // stage 3: dad swims over the clutch and fertilizes it
+        const e = f.eggs;
+        const dx = e.x - f.x, dz = e.z - f.z;
+        const d = Math.hypot(dx, dz);
+        desired = Math.atan2(dz, dx) + (d < 0.4 ? Math.PI * 0.5 : 0);
+        targetSpeed = maxSpeed * (d > 0.6 ? 1 : 0.3);
+        turnRate = 5;
+        f.fertT = (f.fertT || 0) + dt;
+        if (d < 0.55) {
+          e.fertP = (e.fertP || 0) + dt;
+          if (Math.random() < dt * 4) game.particles.bubbles(e.x, e.y + 0.1, e.z, 1);
+          if (e.fertP >= FERT_TIME) this.fertilize(e, f);
+        }
+        if (f.fertT > 45 || e.stage !== 'laid') { f.state = 'wander'; f.eggs = null; f.fertT = 0; }
       } else {
-        if (f.state === 'court') f.state = 'wander';
+        if (f.state === 'court' || f.state === 'fertilize') f.state = 'wander';
+        // scared off mid-job? dad goes back to his eggs
+        if (f.eggs && f.eggs.stage === 'laid' && !f.eggs.dead && (f.fertT || 0) < 45 && f.fleeT <= 0) f.state = 'fertilize';
         f.thinkT -= dt;
         if (f.thinkT <= 0) {
           f.thinkT = 0.35 + Math.random() * 0.3;
@@ -348,23 +380,45 @@ export class FishSystem {
       if (f.love > 0.3 && Math.random() < dt * 0.25) game.particles.hearts(f.x, WATER_Y + 0.25, f.z, 1);
     }
 
-    // eggs
+    // eggs: laid -> fertilized (by dad) -> incubating -> ready; every egg waits for a tap
     for (let i = this.eggs.length - 1; i >= 0; i--) {
       const e = this.eggs[i];
-      e.t -= dt * (1 + (game.bugs ? game.bugs.auraAt(e.x, e.z).hatch : 0));
-      if (Math.random() < dt * 0.6) game.particles.bubbles(e.x, e.y + 0.05, e.z, 1);
-      // bought eggs wait for you to tap them (then the hatch ceremony plays)
-      if (e.bought) {
-        if (e.t <= 0 && !e.ready) { e.ready = true; e.t = 0; game.audio.play('egg_crack', { volume: 0.4, pitch: 1.3 }); game.emit('eggReady', e); }
-        if (e.ready) { e.t = 0; if (Math.random() < dt * 3) game.particles.sparkle(e.x, WATER_Y + 0.15, e.z, 1, 0xfff2a0); }
-        continue;
-      }
-      if (e.t <= 0) {
-        this.eggs.splice(i, 1);
-        this.hatch(e);
-      }
+      this.tickEgg(e, dt, i);
     }
     this.updateBones(dt);
+  }
+
+  // one egg clutch, any stage
+  tickEgg(e, dt, i = this.eggs.indexOf(e)) {
+    const game = this.game;
+    e.stage ||= 'incubate';
+    if (e.stage === 'laid') {
+      e.age = (e.age || 0) + dt;
+      if (Math.random() < dt * 0.4) game.particles.bubbles(e.x, e.y + 0.05, e.z, 1);
+      // nobody came to fertilize it: it fizzles away
+      if (e.age > SPOIL_TIME) {
+        if (i >= 0) this.eggs.splice(i, 1);
+        e.dead = true;
+        game.particles.bubbles(e.x, e.y + 0.1, e.z, 6);
+      }
+      return;
+    }
+    if (!e.ready) e.t -= dt * (1 + (game.bugs ? game.bugs.auraAt(e.x, e.z).hatch : 0));
+    if (Math.random() < dt * 0.6) game.particles.bubbles(e.x, e.y + 0.05, e.z, 1);
+    if (e.t <= 0 && !e.ready) { e.ready = true; e.t = 0; game.audio.play('egg_crack', { volume: 0.4, pitch: 1.3 }); game.emit('eggReady', e); }
+    if (e.ready) { e.t = 0; if (Math.random() < dt * 3) game.particles.sparkle(e.x, WATER_Y + 0.15, e.z, 1, 0xfff2a0); }
+  }
+
+  fertilize(e, dad) {
+    const game = this.game;
+    e.stage = 'incubate';
+    e.t = 80 + Math.random() * 40;
+    e.total = e.t;
+    e.fertP = FERT_TIME;
+    if (dad) { dad.state = 'wander'; dad.eggs = null; dad.fertT = 0; }
+    game.particles.sparkle(e.x, WATER_Y + 0.2, e.z, 8, 0xd8ffa0);
+    game.audio.play('heart', { volume: 0.35, pitch: 1.3 });
+    game.emit('eggFertilized', e);
   }
 
   findMate(f) {
@@ -392,6 +446,7 @@ export class FishSystem {
     const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
     a.state = b.state = 'wander';
     a.mate = b.mate = null;
+    a.dateT = b.dateT = 0;
     const cd = (sp) => (130 + Math.random() * 70) / (sp.breed * mods.breedMult);
     a.loveT = cd(a.sp); b.loveT = cd(b.sp);
     a.hunger = Math.min(1, a.hunger + 0.12); b.hunger = Math.min(1, b.hunger + 0.12);
@@ -405,12 +460,18 @@ export class FishSystem {
     }
     const count = 1 + (Math.random() < 0.25 ? 1 : 0) + mods.clutchBonus;
     const g = game.grid;
-    const floor = g.groundAt(mx, mz);
     const nurtured = a.love > 0.2 || b.love > 0.2;
     const genes = [];
     const aura = game.bugs ? game.bugs.auraAt(mx, mz) : null;
     for (let k = 0; k < count; k++) genes.push(breedGenes(kid, a, b, mods, { nurtured, sizeBoost: aura ? aura.size : 0, luckBoost: aura ? aura.luck : 0 }));
-    this.eggs.push({ x: mx, z: mz, y: floor + 0.02, species: kid, count, genes, t: 90 + Math.random() * 40, total: 110, hybrid, region: a.region, parents: [a.sp.id, b.sp.id] });
+    // stage 2: mum lays the clutch; dad has to come and fertilize it (stage 3)
+    const mom = a.g?.sex === 'F' ? a : b.g?.sex === 'F' ? b : a;
+    const dad = mom === a ? b : a;
+    const ex = mom.x, ez = mom.z;
+    const egg = { x: ex, z: ez, y: g.groundAt(ex, ez) + 0.02, species: kid, count, genes, t: 0, total: 110, hybrid, region: mom.region, parents: [a.sp.id, b.sp.id], stage: 'laid', age: 0, fertP: 0 };
+    this.eggs.push(egg);
+    if (dad && !dad.dead) { dad.state = 'fertilize'; dad.eggs = egg; dad.fertT = 0; dad.mate = null; }
+    game.particles.bubbles(ex, egg.y + 0.1, ez, 6);
     game.particles.hearts(mx, WATER_Y + 0.3, mz, 3);
     game.world.sim.disturb(mx, mz, 0.25, 0.12);
     game.audio.play('heart', { volume: 0.45 });
@@ -463,7 +524,7 @@ export class FishSystem {
     const rarity = Math.max(0, Math.min(4, genes.stars - 1));
     const hex = RARITIES[rarity].color.replace('#', '');
     const col = [parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255].map((v) => 0.6 + v * 0.6);
-    const e = { x: p.x, z: p.z, y: this.game.grid.groundAt(p.x, p.z) + 0.02, species, count: 1, genes: [genes], t, total: t, bought: true, rarity, rarityColor: col, region: this.game.grid.regionAt(p.x, p.z) };
+    const e = { x: p.x, z: p.z, y: this.game.grid.groundAt(p.x, p.z) + 0.02, species, count: 1, genes: [genes], t, total: t, bought: true, stage: 'incubate', rarity, rarityColor: col, region: this.game.grid.regionAt(p.x, p.z) };
     this.eggs.push(e);
     this.game.particles.splash(p.x, p.z, 8, 0.6);
     return e;
@@ -531,7 +592,7 @@ export class FishSystem {
   nearestFor(x, z, region, prefer = null, maxD = 30) {
     let best = null, bd = maxD * maxD;
     for (const f of this.list) {
-      if (f.region !== region || f.jump || f.tagged || f.held) continue;
+      if (f.region !== region || f.jump || f.tagged || f.held || f.tank) continue;
       if (this.game.structures.isSheltered(f.x, f.z, f)) continue;
       const dx = f.x - x, dz = f.z - z;
       let d = dx * dx + dz * dz;
@@ -542,7 +603,7 @@ export class FishSystem {
     return best;
   }
 
-  catchable(f) { return !f.dead && !f.jump && !f.tagged && !f.held; }
+  catchable(f) { return !f.dead && !f.jump && !f.tagged && !f.held && !f.tank; }
 
   mealValue(f) { return f.sp.meal * mealMult(f.g) * (f.adult ? 1 : 0.35); }
   coinValue(f) { return f.sp.meal * f.sp.value * valueMult(f.g) * (f.adult ? 1 : 0.35); }
@@ -627,6 +688,7 @@ export class FishSystem {
         const k = clamp((WATER_Y - y) / 0.9, 0, 1) * 0.7;
         o.tint = [1 + (wt[0] - 1) * k, 1 + (wt[1] - 1) * k, 1 + (wt[2] - 1) * k];
       } else o.tint = null;
+      if (f.tank) { o.scale = (o.scale ?? 1) * 0.36; o.tint = [0.88, 0.96, 1.04]; o.sway = 0; }
       if (mu && mu.fx !== 'none') {
         const t = mu.tint, base = o.tint || [1, 1, 1];
         o.tint = [base[0] * t[0], base[1] * t[1], base[2] * t[2]];
@@ -646,7 +708,12 @@ export class FishSystem {
         const c = e.rarityColor || [1, 1, 1];
         const pulse = 1 + Math.sin(this.time * 4 + e.x) * 0.05 + (e.ready ? 0.15 + Math.abs(Math.sin(this.time * 9)) * 0.2 : e.t < 4 ? Math.abs(Math.sin(this.time * 14)) * 0.15 : 0);
         B.push(eggFr, e.x, e.y + 0.03, e.z, { texels: FISH_TPU, scale: 1.6 * pulse, mode: 1, ax: 0.5, ay: 0.5, rot: wob, tint: c, emissive: e.rarity >= 2 ? 0.3 : 0.1 });
-      } else B.push(eggFr, e.x, e.y + 0.02, e.z, { texels: FISH_TPU, mode: 1, ax: 0.5, ay: 0.5, rot: wob, tint: [0.9, 0.95, 1] });
+      } else {
+        // laid (not fertilized yet) = pale pink, incubating = clear, ready = bouncing glow
+        const pulse = e.ready ? 1.15 + Math.abs(Math.sin(this.time * 9)) * 0.25 : 1;
+        const tint = e.stage === 'laid' ? [1.15, 0.85, 0.95] : [0.9, 0.95, 1];
+        B.push(eggFr, e.x, e.y + 0.02, e.z, { texels: FISH_TPU, mode: e.tank ? 2 : 1, ax: 0.5, ay: 0.5, rot: wob, tint, scale: (e.tank ? 0.6 : 1) * pulse, emissive: e.ready ? 0.25 : 0 });
+      }
     }
     // bones
     for (const b of this.bones) {
@@ -681,8 +748,8 @@ export class FishSystem {
   // ------------------------------------------------------------ save
   serialize() {
     return {
-      fish: this.list.map((f) => [f.sp.id, +f.x.toFixed(2), +f.z.toFixed(2), f.adult ? 1 : 0, +f.age.toFixed(1), +f.hunger.toFixed(2), f.g, f.tagged ? 1 : 0, +f.love.toFixed(2), f.name || 0]),
-      eggs: this.eggs.map((e) => [e.species, +e.x.toFixed(2), +e.z.toFixed(2), e.count, +e.t.toFixed(1), e.genes, e.hybrid ? 1 : 0, e.bought ? 1 : 0, +(e.total || 0).toFixed(1)]),
+      fish: this.list.map((f) => [f.sp.id, +f.x.toFixed(2), +f.z.toFixed(2), f.adult ? 1 : 0, +f.age.toFixed(1), +f.hunger.toFixed(2), f.g, f.tagged ? 1 : 0, +f.love.toFixed(2), f.name || 0, f.tank ? [f.tank.x, f.tank.z] : 0]),
+      eggs: this.eggs.map((e) => [e.species, +e.x.toFixed(2), +e.z.toFixed(2), e.count, +e.t.toFixed(1), e.genes, e.hybrid ? 1 : 0, e.bought ? 1 : 0, +(e.total || 0).toFixed(1), e.stage === 'laid' ? 0 : 1, e.ready ? 1 : 0, e.tank ? [e.tank.x, e.tank.z] : 0]),
     };
   }
 
@@ -691,14 +758,20 @@ export class FishSystem {
     this.byId.clear();
     this.eggs.length = 0;
     this.bones.length = 0;
-    for (const [id, x, z, adult, age, hunger, g, tagged, love, name] of data.fish || []) {
+    const tankAt = (xz) => (xz ? this.game.structures.list.find((s) => s.def.tank && s.x === xz[0] && s.z === xz[1]) : null);
+    for (const [id, x, z, adult, age, hunger, g, tagged, love, name, tk] of data.fish || []) {
       const genes = g && typeof g === 'object' ? g : rollGenes(id, this.game.mods);
-      const f = this.spawn(id, x, z, { adult: !!adult, hunger, g: genes });
-      if (f) { f.age = age; f.tagged = !!tagged; f.love = love || 0; f.name = name || null; }
+      const tank = tankAt(tk);
+      const f = tank ? this.spawn(id, x, z, { adult: !!adult, hunger, g: genes }) : this.spawn(id, x, z, { adult: !!adult, hunger, g: genes });
+      if (f) { f.age = age; f.tagged = !!tagged; f.love = love || 0; f.name = name || null; if (tank) this.game.tanks?.put(f, tank, { quiet: true }); }
     }
-    for (const [species, x, z, count, t, genes, hybrid, bought, total] of data.eggs || []) {
-      if (bought && Array.isArray(genes)) { const e = this.addBoughtEgg(species, genes[0], t, { x, z }); if (e) e.total = total || t; continue; }
-      this.eggs.push({ species, x, z, y: this.game.grid.groundAt(x, z) + 0.02, count, t, genes: Array.isArray(genes) ? genes : null, hybrid: !!hybrid, region: this.game.grid.regionAt(x, z) });
+    for (const [species, x, z, count, t, genes, hybrid, bought, total, fert = 1, ready = 0, tk = 0] of data.eggs || []) {
+      if (bought && Array.isArray(genes) && !tk) { const e = this.addBoughtEgg(species, genes[0], t, { x, z }); if (e) { e.total = total || t; if (ready) e.ready = true; } continue; }
+      const gs = Array.isArray(genes) ? genes : [rollGenes(species, this.game.mods)];
+      const e = { species, x, z, y: this.game.grid.groundAt(x, z) + 0.02, count, t, total: total || 110, genes: gs, hybrid: !!hybrid, region: this.game.grid.regionAt(x, z), stage: fert ? 'incubate' : 'laid', age: 0, ready: !!ready };
+      const tank = tankAt(tk);
+      if (tank) { e.tank = tank; e.y = this.game.tanks?.floorY(tank) ?? e.y; e.region = -1; }
+      this.eggs.push(e);
     }
 
     this.onTopologyChanged();

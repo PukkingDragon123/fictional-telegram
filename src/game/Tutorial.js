@@ -17,6 +17,20 @@ export class Tutorial {
   }
 
   // Resolves when `ev` fires (and passes `pred`, if given)
+  // the parcel lands: point at it until it's unboxed
+  async unboxStep(pred) {
+    const game = this.game;
+    const landed = () => game.delivery.waiting().some((p) => pred(p.order));
+    if (!landed()) await this.until('parcelLanded', (p) => pred(p.order));
+    await wait(0.5);
+    const ptr = game.ui?.pointAt?.('sel:.parceltag');
+    this.fox('A parcel! Tap the box to unbox it!', { wait: false, mood: 'excited', dur: 4 });
+    this.nag(() => 'Tap the box!');
+    await this.until('delivered', pred);
+    this.stopNag();
+    ptr?.();
+  }
+
   until(ev, pred = null) {
     return new Promise((res) => {
       const fn = (d) => {
@@ -97,7 +111,7 @@ export class Tutorial {
     this.force(null);
     ptr?.();
     this.fox('Moose Express is on it!', { wait: false, mood: 'happy', dur: 2.5 });
-    await this.until('delivered', (o) => o.items.some((it) => it.type === 'lodge'));
+    await this.unboxStep((o) => o.items.some((it) => it.type === 'lodge'));
     await wait(0.8);
 
     // ---- build mode: place the lodge
@@ -138,7 +152,7 @@ export class Tutorial {
     this.stopNag();
     this.force(null);
     ptr?.();
-    await this.until('delivered', (o) => o.items.some((it) => it.kind === 'egg'));
+    await this.unboxStep((o) => o.items.some((it) => it.kind === 'egg'));
     await wait(1.2);
     this.fox('See the timer? Wait for it…', { wait: false, mood: 'happy', dur: 3 });
     if (!game.fish.eggs.some((e) => e.bought && e.ready)) await this.until('eggReady');

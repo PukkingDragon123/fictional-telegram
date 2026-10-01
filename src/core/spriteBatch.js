@@ -282,6 +282,19 @@ export class SpriteBatch {
     this.dirty = true;
   }
 
+  // recolour one sprite in place (no rebuild)
+  setTint(i, t) {
+    if (i < 0 || i >= this.count) return;
+    this.attr.aTint.array.set([t[0], t[1], t[2]], i * 3);
+    this.dirty = true;
+  }
+
+  setEmissive(i, e) {
+    if (i < 0 || i >= this.count) return;
+    this.attr.aExtra.array[i * 4 + 2] = e;
+    this.dirty = true;
+  }
+
   commit() {
     if (!this.dirty) return;
     this.dirty = false;

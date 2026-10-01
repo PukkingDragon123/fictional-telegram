@@ -210,6 +210,18 @@ export class Input {
     const w = this.worldPoint(p.x, p.y, -0.1);
     const g = game.grid;
     let x = w.x, z = w.z;
+    // dropped onto a glass tank: in it goes
+    const ts = game.structures.structureAtTile(Math.floor(x), Math.floor(z));
+    if (ts?.def.tank && ts.built) {
+      f.held = false;
+      if (game.tanks.put(f, ts)) return;
+    }
+    if (f.tank) {
+      // carried out of a tank: into the pond if dropped on water, otherwise back home
+      const tank = f.tank;
+      if (g.fishPassable(Math.floor(x), Math.floor(z))) { f.tank = null; game.tanks.visual(tank); }
+      else { f.held = false; game.tanks.put(f, tank, { quiet: true }); return; }
+    }
     if (!g.fishPassable(Math.floor(x), Math.floor(z))) {
       const q = game.fish.nearestWater(x, z);
       if (q) { x = q.x; z = q.z; }
@@ -294,8 +306,31 @@ export class Input {
     if (!g.inb(t.x, t.z)) return;
     if (tool.kind === 'build') { game.placeStructure(tool.type, t.x, t.z, { free: !!tool.free }); return; }
     if (tool.kind === 'dig') { game.dig(t.x, t.z); return; }
-    if (tool.kind === 'clear') { game.clearAt(t.x, t.z); return; }
+    if (tool.kind === 'clear') {
+      // a single tap on one of your builds knocks it down too (half refund); drags only clear nature
+      const st = game.structures.structureAtTile(t.x, t.z);
+      if (st && !st.def.landmark) { game.demolishAt(t.x, t.z); return; }
+      game.clearAt(t.x, t.z);
+      return;
+    }
     if (tool.kind === 'remove') { game.demolishAt(t.x, t.z); return; }
+    if (tool.kind === 'tank') {
+      // tank tool: a fish in a tank goes back to the pond, a pond fish goes into the nearest tank
+      const ts = game.structures.structureAtTile(t.x, t.z);
+      const f = game.ui?.pickFish(sx, sy, 34);
+      if (f) {
+        if (f.tank) game.tanks.release(f);
+        else {
+          const s = game.tanks.nearestWithRoom(f.x, f.z);
+          if (!s) { game.notify(game.tanks.list().length ? 'All tanks are full!' : 'Build a Glass Tank first! (Build ▸ Gadgets)', 'no'); return; }
+          game.tanks.put(f, s);
+        }
+        return;
+      }
+      if (ts?.def.tank) { game.ui?.showTankCard?.(ts); return; }
+      game.ui?.toast('Tap a fish to move it into a tank (or back out)');
+      return;
+    }
     if (tool.kind === 'tag' || tool.kind === 'nurture' || tool.kind === 'hand') {
       const f = game.ui?.pickFish(sx, sy, 34);
       if (!f) { game.ui?.toast(tool.kind === 'tag' ? 'Tap a fish to tag it DO NOT EAT' : tool.kind === 'hand' ? 'Press and drag a fish to carry it' : 'Tap (or hold) a fish to pet it'); return; }
@@ -303,6 +338,9 @@ export class Input {
       else if (tool.kind === 'nurture') game.nurtureFish(f);
       return;
     }
+    // parcels on the ground: tap to unbox
+    const parcel = game.ui?.pickParcel?.(sx, sy);
+    if (parcel && game.tool.kind === 'feed') { game.ui.unboxParcel(parcel); return; }
     // pond eggs: tap to check / hatch
     const egg = game.ui?.pickPondEgg?.(sx, sy);
     if (egg && game.tool.kind === 'feed') { game.ui.tapPondEgg(egg); return; }
@@ -356,7 +394,13 @@ export class Input {
     if (game.tool.kind === 'remove') { for (const t of tiles) game.demolishAt(t.x, t.z); return; }
     const tool = game.tool;
     if (tool.kind === 'clear') {
-      if (tiles.length === 1) { game.clearAt(tiles[0].x, tiles[0].z); return; }
+      if (tiles.length === 1) {
+        // a single tap on one of your builds knocks it down too (half refund); drags only clear nature
+        const st = game.structures.structureAtTile(tiles[0].x, tiles[0].z);
+        if (st && !st.def.landmark) { game.demolishAt(tiles[0].x, tiles[0].z); return; }
+        game.clearAt(tiles[0].x, tiles[0].z);
+        return;
+      }
       let n = 0;
       for (let pass = 0; pass < 3; pass++) for (const t of tiles) if (game.beavers.queueClear(t.x, t.z).ok) n++;
       if (n) game.audio.play('paper', { volume: 0.3 });

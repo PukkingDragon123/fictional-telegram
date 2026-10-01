@@ -29,6 +29,7 @@ import { ZONE_INFO } from '../data/zones.js';
 import { ZoneSystem } from './Zones.js';
 import { Villagers } from './Villagers.js';
 import { Livestock } from './Livestock.js';
+import { Tanks } from './Tanks.js';
 import { Fox, Ambient } from './Ambient.js';
 import audio from './audioProxy.js';
 import { SPECIES, SPECIES_BY_ID, MORPHS, MUTATIONS, RARITIES } from '../data/species.js';
@@ -85,6 +86,7 @@ export class Game {
     this.fox = new Fox(this);
     this.ambient = new Ambient(this);
     this.livestock = new Livestock(this);
+    this.tanks = new Tanks(this);
     this.zones = new ZoneSystem(this);
     this.villagers = new Villagers(this);
     this.ui = null;
@@ -441,8 +443,14 @@ export class Game {
       const e = this.state.shop.find((x) => x.id === listing.id);
       if (e) e.sold = true;
       const rarity = rarityOf(listing.genes.stars);
-      this.delivery.order([{ kind: 'egg', species: listing.species, genes: listing.genes, t: EGG_TIMES[rarity] / this.hatchSpeed() }], { label: `${SPECIES_BY_ID[listing.species]?.name || 'Fish'} egg`, fast: !!this.tutorialOnly });
-      this.stats.fishBought++;
+      // one egg per unit bought: the listed egg, then siblings from the same clutch
+      const eggs = [];
+      for (let k = 0; k < qty; k++) {
+        const genes = k === 0 ? listing.genes : { ...listing.genes, traits: [...(listing.genes.traits || [])], sex: Math.random() < 0.5 ? 'M' : 'F' };
+        eggs.push({ kind: 'egg', species: listing.species, genes, t: EGG_TIMES[rarity] / this.hatchSpeed() });
+      }
+      this.delivery.order(eggs, { label: `${SPECIES_BY_ID[listing.species]?.name || 'Fish'} egg${qty > 1 ? ' ×' + qty : ''}`, fast: !!this.tutorialOnly });
+      this.stats.fishBought += qty;
     } else {
       const n = (listing.qty || 1) * qty;
       this.delivery.order([{ kind: 'item', type: listing.type, qty: n }], { label: `${STRUCTURES[listing.type]?.name || 'Parcel'}${n > 1 ? ' ×' + n : ''}`, fast: !!this.tutorialOnly });
@@ -627,7 +635,7 @@ export class Game {
     // night breeding: well-fed couples lay a clutch
     const fish = this.fish;
     const room = () => fish.capacity() - fish.population();
-    const singles = fish.list.filter((f) => f.adult && f.hunger < 0.6);
+    const singles = fish.list.filter((f) => f.adult && f.hunger < 0.6 && !f.tank);
     const used = new Set();
     for (const a of singles) {
       if (used.has(a) || room() <= 1) continue;
@@ -638,7 +646,13 @@ export class Game {
     }
     // eggs in the pond hatch, fry grow
     const before = new Set(fish.list);
-    for (let i = fish.eggs.length - 1; i >= 0; i--) { const e = fish.eggs.splice(i, 1)[0]; fish.hatch(e); }
+    // overnight the dads do their job and the eggs incubate; they still wait for your tap
+    for (const e of fish.eggs) {
+      if (e.stage === 'laid') fish.fertilize(e, null);
+      e.t = Math.max(0, (e.t || 0) - T);
+      if (e.t <= 0 && !e.ready) { e.ready = true; on.eggsReady = (on.eggsReady || 0) + 1; }
+    }
+    for (const f of fish.list) if (f.state === 'fertilize') { f.state = 'wander'; f.eggs = null; }
     for (const f of fish.list) {
       if (!before.has(f)) on.hatched.push({ speciesId: f.sp.id, morph: f.g.morph, rarity: rarityOf(f.g.stars), name: f.sp.name });
       if (!f.adult) {
@@ -1130,6 +1144,7 @@ export class Game {
   tapStructure(s) {
     if (s.def.gate) { this.structures.toggleGate(s); this.onTopologyChanged(); return true; }
     if (s.def.nest && s.built) { this.ui?.showNestCard?.(s); return true; }
+    if (s.def.tank && s.built) { this.ui?.showTankCard?.(s); return true; }
     if (this.bugs?.farmDef(s) && s.built && (s.def.category === 'farm' || s.type === 'bughotel')) { this.bugs.showRing(s, 6); this.ui?.showFarmCard?.(s); return true; }
     return false;
   }
@@ -1198,6 +1213,7 @@ export class Game {
       this.food.update(simPhase);
       this.bugs.update(simPhase);
       this.livestock.update(simPhase);
+      this.tanks.update(simPhase);
       this.fish.update(simPhase);
       this.bears.update(st.phase === 'evening' ? dt : simDt);
       this.beavers.update(simPhase);
@@ -1269,7 +1285,7 @@ export class Game {
     if (['report', 'bedtime', 'night'].includes(st.phase)) { st.phase = 'day'; st.hour = 9; st.day = this.state.day + 1; }
     if (st.phase === 'dawn' || st.phase === 'morning') { st.phase = 'day'; st.hour = 9; }
     return {
-      v: 3, state: st, stats: this.stats, water, land, removedDecos, structures: this.structures.serialize(),
+      v: 3, state: st, stats: this.stats, water, land, removedDecos, removedClutter: this.world.clutter.filter((c) => c.type === 'none').map((c) => [Math.floor(c.x), Math.floor(c.z)]), structures: this.structures.serialize(),
       beavers: this.beavers.serialize(), delivery: this.delivery.serialize(),
       fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
     };
@@ -1293,6 +1309,7 @@ export class Game {
     for (let i = 0; i < g.w * g.h; i++) if (g.meadow[i] && g.kind[i] === KIND.WATER) g.kind[i] = KIND.GRASS;
     for (const i of data.water) g.kind[i] = KIND.WATER;
     refreshWaterHeights(g);
+    for (const [x, z] of data.removedClutter || []) this.world.removeClutter?.(x, z);
     for (const i of data.removedDecos || []) {
       const d = this.world.decos[i];
       if (d) { d.removed = true; g.deco[d.z * g.w + d.x] = -1; }

@@ -229,6 +229,29 @@ export class Delivery {
     r.update?.(dt);
   }
 
+  // eggs hop out of (x,y,z) and arc into the pond
+  dropEggs(x, y, z, items, near = null) {
+    const game = this.game;
+    const g = game.grid;
+    items.forEach((it, k) => {
+      let w = null;
+      if (near) {
+        for (let n = 0; n < 8 && !w; n++) {
+          const qx = near.x + (Math.random() - 0.5) * 2.4, qz = near.z + (Math.random() - 0.5) * 2.4;
+          if (g.isWater(Math.floor(qx), Math.floor(qz)) && g.meadow[Math.floor(qz) * g.w + Math.floor(qx)]) w = { x: qx, z: qz };
+        }
+      }
+      w ||= game.fish.randomWaterPoint();
+      if (!w) return;
+      game.particles.spawnArc?.(x, y + 0.4, z, w.x, WATER_Y, w.z);
+      setTimeout(() => {
+        const e = game.fish.addBoughtEgg(it.species, it.genes, it.t, w);
+        if (e) { game.particles.sparkle(w.x, WATER_Y + 0.2, w.z, 8, 0xfff2a0); game.particles.splash(w.x, w.z, 6, 0.5); }
+        game.emit('eggInPond', e);
+      }, 350 + k * 160);
+    });
+  }
+
   // something the bubble system can follow
   speaker() {
     const a = this.active;
@@ -259,12 +282,30 @@ export class Delivery {
         // squash bounce then pop open
         const s = 1 + Math.sin(p.t * 18) * 0.25 * Math.max(0, 1 - p.t * 2);
         p.obj.scale.set(1 / Math.sqrt(s), s, 1 / Math.sqrt(s));
-        if (p.t > 0.9) this.openParcel(p, i);
+        // then it sits there waiting for you to tap it and unbox it
+        if (p.t > 0.9) { p.state = 'wait'; p.t = 0; p.obj.scale.set(1, 1, 1); game.emit('parcelLanded', p); }
+      } else if (p.state === 'wait') {
+        // an impatient little hop every few seconds
+        const k = (p.t % 3.2);
+        const hop = k < 0.35 ? Math.sin((k / 0.35) * Math.PI) : 0;
+        p.obj.position.y = p.y + hop * 0.12;
+        p.obj.rotation.z = hop * 0.12 * Math.sin(p.t * 20);
       }
       p.obj.position.set(p.x, p.y, p.z);
       p.obj.rotation.y = p.state === 'fly' ? p.rot : p.obj.rotation.y;
     }
   }
+
+  // tapped + unboxed: what's inside comes out (eggs go to the fox, who carries them to the pond)
+  unbox(p) {
+    const i = this.parcels.indexOf(p);
+    if (i < 0 || p.opened) return false;
+    p.opened = true;
+    this.openParcel(p, i);
+    return true;
+  }
+
+  waiting() { return this.parcels.filter((p) => p.state === 'wait' && !p.opened); }
 
   openParcel(p, i) {
     const game = this.game;
@@ -273,18 +314,15 @@ export class Delivery {
     game.particles.puff(p.x, p.y + 0.3, p.z, 12, 0.4);
     game.particles.confetti(p.x, p.y + 0.4, p.z, 18);
     game.audio.play('pop_in', { volume: 0.5 });
-    let eggs = 0;
+    const eggItems = p.order.items.filter((it) => it.kind === 'egg');
+    if (eggItems.length) {
+      // Reynard picks the egg crate up and carries it down to the water
+      if (game.fox?.carryEggs) game.fox.carryEggs(p.x, p.z, eggItems);
+      else this.dropEggs(p.x, p.y, p.z, eggItems);
+    }
     for (const it of p.order.items) {
       if (it.kind === 'egg') {
-        // eggs hop out and arc into the pond
-        const w = game.fish.randomWaterPoint();
-        if (!w) continue;
-        eggs++;
-        game.particles.spawnArc?.(p.x, p.y + 0.4, p.z, w.x, WATER_Y, w.z);
-        setTimeout(() => {
-          const e = game.fish.addBoughtEgg(it.species, it.genes, it.t, w);
-          if (e) game.particles.sparkle(w.x, WATER_Y + 0.2, w.z, 8, 0xfff2a0);
-        }, 350 + eggs * 120);
+        continue;
       } else if (it.kind === 'bird') {
         // the crate flaps open and out waddles your new duck/goose
         game.livestock?.spawnBought(it.breed, it.sex);

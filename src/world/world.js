@@ -1,5 +1,6 @@
 // Assembles the static world meshes: terrain, water, trees, clutter, buildings.
 import * as THREE from 'three';
+import { hutDecals } from '../entities/structureDecals.js';
 import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW } from './worldgen.js';
 const landmarkMods = import.meta.glob('../entities/landmarkModels.js', { eager: true });
 const LM = landmarkMods['../entities/landmarkModels.js'] || null;
@@ -346,7 +347,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       if (d.type === 'greatwillow' && name === 'maple_scarlet') d.scale = 3;
       const jx = (hash2(d.x, d.z, 3) - 0.5) * 0.3, jz = (hash2(d.x, d.z, 4) - 0.5) * 0.3;
       const dark = d.far ? 0.9 : 1;
-      items.push({ f, x: d.x + 0.5 + jx, y: g.surfaceAtVisual(d.x + 0.5 + jx, d.z + 0.5 + jz), z: d.z + 0.5 + jz, o: { texels: 24, scale: d.scale * (rock ? 1 : 1.05), sway: rock ? 0 : 0.5, phase: hash2(d.x, d.z, 9) * 6.28, flip: d.rot % 2 === 1 && !rock, tint: [dark, dark, dark * 1.02] } });
+      items.push({ tile: d.z * g.w + d.x, f, x: d.x + 0.5 + jx, y: g.surfaceAtVisual(d.x + 0.5 + jx, d.z + 0.5 + jz), z: d.z + 0.5 + jz, o: { texels: 24, scale: d.scale * (rock ? 1 : 1.05), sway: rock ? 0 : 0.5, phase: hash2(d.x, d.z, 9) * 6.28, flip: d.rot % 2 === 1 && !rock, tint: [dark, dark, dark * 1.02] } });
     }
     // the big forest: every forest tile carries 1-3 procedural trees (by biome),
     // darker the deeper you go so the edge of your land reads clearly
@@ -378,12 +379,17 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
           const dk = Math.max(0.62, 1 - Math.min(ld, 12) * 0.03) * (0.9 + hash2(x, z, 41 + k) * 0.1);
           const glow = name.startsWith('giantshroom_glow') ? 0.35 : 0;
           const tx2 = x + 0.25 + hash2(x, z, 50 + k) * 0.5, tz2 = z + 0.25 + hash2(x, z, 60 + k) * 0.5;
-          items.push({ f, x: tx2, y: g2.surfaceAtVisual(tx2, tz2), z: tz2, o: { texels: 24, scale: sc, sway, phase: r * 6.28, flip: r > 0.5, emissive: glow, tint: [dk * 0.96, dk, dk * 1.05] } });
+          items.push({ tile: i, f, x: tx2, y: g2.surfaceAtVisual(tx2, tz2), z: tz2, o: { texels: 24, scale: sc, sway, phase: r * 6.28, flip: r > 0.5, emissive: glow, tint: [dk * 0.96, dk, dk * 1.05] } });
         }
       }
     // draw back to front so the dither/alpha-test edges sort nicely
     items.sort((a, b) => a.z - b.z);
-    for (const it of items) B.push(it.f, it.x, it.y, it.z, it.o);
+    this.treeTiles = new Map();
+    for (const it of items) {
+      const bi = B.push(it.f, it.x, it.y, it.z, it.o);
+      if (it.tile != null && bi >= 0) { let l = this.treeTiles.get(it.tile); if (!l) this.treeTiles.set(it.tile, (l = [])); l.push([bi, it.o.tint || [1, 1, 1], it.o.emissive || 0]); }
+    }
+    this.applyMarks(B, this.treeTiles);
     B.commit();
     this.decoGroup.add(B.mesh);
   }
@@ -422,8 +428,9 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       const f = this.frame(name);
       if (!f) return;
       const tx = Math.floor(x), tz = Math.floor(z);
-      items.push({ f, x, y: g.surfaceAtVisual(x, z), z, o: { texels: 24, ...o } });
+      items.push({ tile: tz * g.w + tx, f, x, y: g.surfaceAtVisual(x, z), z, o: { texels: 24, ...o } });
     };
+    this._clutterMap = null;
     for (const c of this.clutter) {
       if (c.removed) continue;
       const tx = Math.floor(c.x), tz = Math.floor(c.z);
@@ -489,13 +496,60 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
         }
       }
     items.sort((a, b) => a.z - b.z);
+    this.clutterTiles = new Map();
+    this.flatTiles = new Map();
+    const rec = (m, tile, bi, tint, em = 0) => { if (bi < 0) return; let l = m.get(tile); if (!l) m.set(tile, (l = [])); l.push([bi, tint || [1, 1, 1], em]); };
     for (const it of items) {
-      if (it.o.mode === 1) F.push(it.f, it.x, it.y + 0.02, it.z, { ...it.o, ax: 0.5, ay: 0.5, rot: hash2(Math.floor(it.x * 9), Math.floor(it.z * 9), 1) * 6.28 });
-      else B.push(it.f, it.x, it.y, it.z, it.o);
+      if (it.o.mode === 1) rec(this.flatTiles, it.tile, F.push(it.f, it.x, it.y + 0.02, it.z, { ...it.o, ax: 0.5, ay: 0.5, rot: hash2(Math.floor(it.x * 9), Math.floor(it.z * 9), 1) * 6.28 }), it.o.tint);
+      else rec(this.clutterTiles, it.tile, B.push(it.f, it.x, it.y, it.z, it.o), it.o.tint);
     }
+    this.applyMarks(B, this.clutterTiles);
+    this.applyMarks(F, this.flatTiles);
     B.commit();
     F.commit();
     this.clutterGroup.add(B.mesh, F.mesh);
+  }
+
+  // Destroy tool: everything the beavers are told to tear down glows red
+  applyMarks(B, map, prev = null) {
+    if (!map) return;
+    const marked = this.marked || new Set();
+    const RED = [2.1, 0.42, 0.36];
+    if (prev) for (const t of prev) if (!marked.has(t)) for (const [bi, tint, em] of map.get(t) || []) { B.setTint(bi, tint); B.setEmissive(bi, em || 0); }
+    for (const t of marked) for (const [bi] of map.get(t) || []) { B.setTint(bi, RED); B.setEmissive(bi, 0.22); }
+  }
+
+  setMarked(set) {
+    const prev = this.marked || new Set();
+    this.marked = new Set(set);
+    if (this.treeBatch && this.treeTiles) { this.applyMarks(this.treeBatch, this.treeTiles, prev); this.treeBatch.commit(); }
+    if (this.clutterBatch && this.clutterTiles) { this.applyMarks(this.clutterBatch, this.clutterTiles, prev); this.applyMarks(this.flatBatch, this.flatTiles, prev); this.clutterBatch.commit(); this.flatBatch.commit(); }
+  }
+
+  // anything small on a tile (flowers, tufts, ferns, pebbles, logs...) that can be cleared
+  clutterOn(x, z) {
+    const g = this.grid;
+    if (!this._clutterMap) {
+      this._clutterMap = new Map();
+      for (const c of this.clutter) { if (c.removed) continue; const k = Math.floor(c.z) * g.w + Math.floor(c.x); let l = this._clutterMap.get(k); if (!l) this._clutterMap.set(k, (l = [])); l.push(c); }
+    }
+    return this._clutterMap.get(z * g.w + x) || null;
+  }
+
+  hasClutter(x, z) {
+    const g = this.grid;
+    const i = z * g.w + x;
+    if (this.clutterOn(x, z)?.length) return true;
+    return (this.clutterTiles?.get(i)?.length || 0) + (this.flatTiles?.get(i)?.length || 0) > 0;
+  }
+
+  removeClutter(x, z) {
+    const g = this.grid;
+    const l = this.clutterOn(x, z) || [];
+    for (const c of l) c.removed = true;
+    // a removed marker also hides the procedural pebbles/leaves/bushes of the tile
+    this.clutter.push({ type: 'none', x: x + 0.5, z: z + 0.5, y: g.height[z * g.w + x], rot: 0, removed: true });
+    this._clutterMap = null;
   }
 
   buildLandmarks() {
@@ -518,6 +572,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     hb.castShadow = true; hb.receiveShadow = true;
     const hw = new THREE.Mesh(hut.glow.build({ scale: 0.1, ao: false }), this.glowMat);
     hg.add(hb, hw);
+    try { hg.add(hutDecals()); } catch (e) { console.warn('hut decals', e); }
     hg.position.set(HUT.x, 0, HUT.z);
     this.scene.add(hg);
     this.hut = hg;

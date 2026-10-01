@@ -20,6 +20,7 @@ export const CLEAR = {
   tree: { time: 2.6, pay: 4, anim: 'chop', label: 'wood' },
   boulder: { time: 3.6, pay: 3, anim: 'hammer', label: 'stone' },
   weed: { time: 1.2, pay: 1, anim: 'plow', label: 'weeds' },
+  clutter: { time: 0.9, pay: 1, anim: 'plow', label: 'flowers' },
 };
 const JOBS_PER_BERRY = 3;
 
@@ -112,6 +113,8 @@ export class BeaverSystem {
       return 'tree';
     }
     if (g.kind[i] === KIND.FOREST && z >= 21) return 'forest';
+    // flowers, tufts, ferns, pebbles... anything small goes too
+    if (g.kind[i] !== KIND.WATER && g.occ[i] < 0 && this.game.world.hasClutter?.(x, z)) return 'clutter';
     return null;
   }
 
@@ -120,7 +123,7 @@ export class BeaverSystem {
     const g = this.game.grid;
     const i = z * g.w + x;
     const bio = g.biome ? g.biome[i] : 0;
-    if (k === 'weed' || k === 'tree') return 1;
+    if (k === 'weed' || k === 'tree' || k === 'clutter') return 1;
     if (k === 'boulder') return g.kind[i] === KIND.ROCK || z < 21 ? 3 : 2;
     if (k === 'forest') return bio === BIOME.MUSHROOM ? 3 : bio === BIOME.SWAMP ? 2 : 1;
     return 1;
@@ -214,6 +217,13 @@ export class BeaverSystem {
       game.particles.debris(cx, gy + 1.2, cz, 18, [0x2b5634, 0x3a6b3c, 0x6b4a2f, 0x8a6a44]);
       game.particles.word?.('pow', cx, gy + 1.6, cz, { size: 0.3, life: 0.8 });
       game.audio.play('demolish', { volume: 0.5, pitch: 0.9 + Math.random() * 0.2 });
+    } else if (j.kind === 'clutter') {
+      w.removeClutter(j.x, j.z);
+      g.meadow[i] = 1;
+      w.landVersion++;
+      this.dirtyLand = true;
+      game.particles.debris(cx, gy + 0.2, cz, 8, [0xd84a6a, 0xf0d040, 0x6a8a3a, 0x9a7aca]);
+      game.audio.play('pet', { volume: 0.4, pitch: 1.3 });
     } else {
       const d = w.decos[g.deco[i]];
       if (d) d.removed = true;
@@ -458,6 +468,7 @@ export class BeaverSystem {
   // flat X markers on tiles queued for clearing
   renderMarkers() {
     const game = this.game;
+    game.world.setMarked?.(this.clears.keys());
     const P = game.particles;
     if (!P?.tex) return;
     if (!this.markers) {

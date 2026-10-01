@@ -71,6 +71,10 @@ export const STRUCTURES = {
     sprite: ['farm_glowmeadow'], name: 'Firefly Meadow', icon: 'lantern', cost: 80, place: 'landOrPlatform', category: 'farm', unlock: 'zone_mush',
     desc: 'Fireflies (and rare Luna Moths) at night. Eggs nearby hatch much faster.', hp: 1, smashable: true, beauty: 2, light: true,
   },
+  glasstank: {
+    name: 'Glass Tank', icon: 'tank', cost: 75, place: 'land', category: 'contraption', tank: { cap: 4 },
+    desc: 'Keep fish apart from the pond: safe from bears, fed for you, and they only breed with tank mates. Use the Tank tool to move fish in and out.', hp: 3, smashable: true, beauty: 1,
+  },
   duck_nest: {
     name: 'Duck Nest', icon: 'egg', cost: 35, place: 'shore', category: 'farm', nest: { kind: 'duck', cap: 4, eggs: 5 },
     desc: 'A cosy reed nest by the water. Home for up to 4 ducks; hens lay eggs here.', hp: 2, smashable: true, beauty: 0.5,

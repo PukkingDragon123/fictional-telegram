@@ -478,3 +478,10 @@ body.ebuy-open .pointer-hand:not(.ebuy-ptr) { display: none; }
 .chip.bugc img.px { vertical-align: middle; margin-right: 2px; }
 .nesttag { --rc: #e8d8a0; }
 p.small { font-size: 15px; opacity: .8; margin: 4px 0; }
+.eggtag.laid { background: #ffe4ee; --rc: #ff7ab0; }
+.eggtag i { font-style: normal; font-size: 14px; opacity: .75; margin-left: 2px; }
+.parceltag { --rc: #c8925a; }
+.tanklist { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.tankrow { display: flex; align-items: center; gap: 6px; padding: 3px 6px; background: rgba(160, 210, 230, .25); border: 2px solid rgba(26, 20, 32, .25); }
+.tankrow b { flex: 1; }
+.tankrow .btn { padding: 2px 8px; font-size: 15px; }

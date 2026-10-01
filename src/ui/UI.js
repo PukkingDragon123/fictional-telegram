@@ -14,10 +14,10 @@ import { STRUCTURES, BUILD_CATEGORIES, CHARM_CAP } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES, UNLOCKS_BUILD, UNLOCKS_SPECIES } from '../data/research.js';
 import { WANT_INFO } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
-import { sizeLabel, hatchCard as hatchCardFor } from '../game/genes.js';
+import { sizeLabel, hatchCard as hatchCardFor, rollGenes as rollGenesFor } from '../game/genes.js';
 
 // optional components (built by separate modules; the UI degrades gracefully)
-const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js'], { eager: true });
+const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js'], { eager: true });
 import.meta.glob('./fonts.css', { eager: true });
 import { Blueprint } from './Blueprint.js';
 import { natureCanvas } from '../art/natureArt.js';
@@ -68,6 +68,7 @@ const TOOLS = [
   { tool: 'hand', icon: 'hand', label: 'Carry', key: 2, title: 'Carry a fish', feature: 'hand' },
   { tool: 'tag', icon: 'tag', label: 'Tag', key: 3, title: 'DO NOT EAT tag', feature: 'tag' },
   { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish', feature: 'pet' },
+  { tool: 'tank', icon: 'tank', label: 'Tank', key: 0, title: 'Glass tank: tap a fish to move it in / out of a tank', feature: 'hand' },
   { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
   { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
   { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: send beavers to trees, rocks & weeds', feature: 'clear' },
@@ -195,7 +196,7 @@ export class UI {
         this.closePanel();
         this.game.setTool(cur === b.dataset.tool && cur !== 'feed' ? { kind: 'feed' } : { kind: b.dataset.tool });
       } else if (b.dataset.panel) {
-        if (b.dataset.panel === 'lab') { this.openLab(); return; }
+        if (b.dataset.panel === 'lab') { if (this.panel === 'lab') this.closePanel(); else this.openLab(); return; }
         if (this.panel === b.dataset.panel) this.closePanel();
         else this.openPanel(b.dataset.panel);
       }
@@ -510,7 +511,7 @@ export class UI {
     const game = this.game;
     const eggs = o.items.filter((it) => it.kind === 'egg').length;
     const items = o.items.filter((it) => it.kind === 'item');
-    if (eggs) this.notify(eggs > 1 ? `${eggs} eggs in the pond!` : 'Egg in the pond!', 'happy');
+    if (eggs) this.notify(eggs > 1 ? `${eggs} eggs! I'll carry them to the pond.` : 'An egg! I\'ll take it to the pond.', 'happy');
     else if (items.length) {
       const d = STRUCTURES[items[0].type];
       this.notify(`${d ? d.name : 'Package'}! It's in Build ▸ Parcels.`, 'excited');
@@ -641,6 +642,7 @@ export class UI {
     this.updateGhost();
     this.updateDeliveryTracker(dt);
     this.updateNestTags();
+    this.updateParcelTags();
     const night = st.phase === 'night';
     if (night !== this.lastNight) { this.lastNight = night; h.nightui.classList.toggle('hidden', !night); }
     this.tipT -= dt;
@@ -783,7 +785,7 @@ export class UI {
   // pond eggs: a little paper tag above each bought egg with its timer
   updateEggTags() {
     const game = this.game;
-    const eggs = game.fish.eggs.filter((e) => e.bought);
+    const eggs = game.fish.eggs;
     (this.eggTags ||= new Map());
     for (const [e, el] of this.eggTags) if (!eggs.includes(e)) { el.remove(); this.eggTags.delete(e); }
     for (const e of eggs) {
@@ -795,15 +797,20 @@ export class UI {
         this.overlay.appendChild(el);
         this.eggTags.set(e, el);
       }
-      const p = this.screenOf(e.x, 0.45, e.z);
-      el.style.display = p.visible === false ? 'none' : '';
+      const p = e.tank ? this.screenOf(e.tank.x + 0.5, (game.structures.baseY?.(e.tank) || 0) + 1.15, e.tank.z + 0.5) : this.screenOf(e.x, 0.45, e.z);
+      el.style.display = p.visible === false || game.lab?.active ? 'none' : '';
       el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -100%)`;
-      const txt = e.ready ? 'TAP!' : `${Math.floor(e.t / 60)}:${String(Math.ceil(e.t) % 60).padStart(2, '0')}`;
+      // stages: laid (waiting for dad) -> fertilizing -> incubating timer -> TAP!
+      const mm = (t) => `${Math.floor(t / 60)}:${String(Math.ceil(t) % 60).padStart(2, '0')}`;
+      const stage = e.ready ? 'ready' : e.stage === 'laid' ? (e.fertP > 0 ? 'fert' : 'laid') : 'inc';
+      const txt = stage === 'ready' ? 'TAP!' : stage === 'laid' ? 'Laid ♡' : stage === 'fert' ? `Fertilizing ${Math.round((e.fertP / 6) * 100)}%` : mm(e.t);
       if (el.dataset.t !== txt) {
         el.dataset.t = txt;
-        el.innerHTML = `${hasSprite('egg') ? ico('egg', 1) : ''}<b>${txt}</b>`;
-        el.classList.toggle('ready', !!e.ready);
-        el.style.setProperty('--rc', RARITIES[e.rarity || 0].color);
+        el.innerHTML = `${hasSprite('egg') ? ico('egg', 1) : ''}<b>${txt}</b>${e.count > 1 ? `<i>×${e.count}</i>` : ''}`;
+        el.classList.toggle('ready', stage === 'ready');
+        el.classList.toggle('laid', stage === 'laid' || stage === 'fert');
+        const best = Math.max(...(e.genes || [{ stars: 1 }]).map((g) => g?.stars || 1));
+        el.style.setProperty('--rc', RARITIES[e.rarity ?? Math.max(0, Math.min(4, best - 1))].color);
       }
     }
   }
@@ -811,7 +818,7 @@ export class UI {
   pickPondEgg(sx, sy) {
     let best = null, bd = 26 * 26;
     for (const e of this.game.fish.eggs) {
-      if (!e.bought) continue;
+      if (e.tank) continue;
       const p = this.screenOf(e.x, e.y, e.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
       if (d < bd) { bd = d; best = e; }
@@ -825,25 +832,30 @@ export class UI {
     if (this.busy || game.inputLocked) return;
     if (!e.ready) {
       this.click();
-      this.say({ getWorldPos: (v) => v.set(e.x, 0.5, e.z) }, `${Math.ceil(e.t)}s more!`, { dur: 1.4, key: 'eggt', size: 's' });
+      const line = e.stage === 'laid' ? (e.fertP > 0 ? 'Dad is fertilizing them...' : 'Waiting for dad to fertilize!') : `${Math.ceil(e.t)}s more!`;
+      this.say({ getWorldPos: (v) => (e.tank ? v.set(e.tank.x + 0.5, 1.3, e.tank.z + 0.5) : v.set(e.x, 0.5, e.z)) }, line, { dur: 1.6, key: 'eggt', size: 's' });
       return;
     }
     const sp = SPECIES_BY_ID[e.species];
-    const g = e.genes[0];
     const st = game.state;
-    const card = hatchCardFor(e.species, g, { isNewSpecies: !st.discovered.includes(e.species), isNewMorph: g.morph !== 'normal' && !st.morphsSeen.includes(`${e.species}:${g.morph}`), value: Math.round(sp.meal * sp.value * 7) });
+    const genes = (e.genes || []).filter(Boolean).slice(0, Math.max(1, e.count || 1));
+    if (!genes.length) genes.push(rollGenesFor(e.species, game.mods));
+    const cards = genes.map((g) => hatchCardFor(e.species, g, { isNewSpecies: !st.discovered.includes(e.species), isNewMorph: g.morph !== 'normal' && !st.morphsSeen.includes(`${e.species}:${g.morph}`), value: Math.round(sp.meal * sp.value * 7) }));
+    e.genes = genes;
+    const card = cards[0];
     this.busy++;
     const EH = C('EggHatch');
     const finish = () => {
       this.busy = Math.max(0, this.busy - 1);
       const born = game.fish.hatchNow(e);
-      if (born[0]) { game.rig.lookAt(born[0].x, born[0].z); game.particles.splash(born[0].x, born[0].z, 10, 0.8); }
+      if (e.tank) game.tanks?.adopt(born, e.tank);
+      if (born[0]) { game.rig.lookAt(born[0].x, born[0].z); if (!born[0].tank) game.particles.splash(born[0].x, born[0].z, 10, 0.8); }
       game.emit('eggHatched', born[0] || null);
     };
     if (EH?.playEggHatch) {
       const wasPaused = st.paused;
       st.paused = true;
-      EH.playEggHatch(this.hud['ceremony-root'], [card], { fishCanvas: (id, o) => fishCanvasFor(id, o || {}), icon: (n, sc) => ico(n, sc), sfx: (n, o) => game.audio.play(n, { volume: 0.5, ...(o || {}) }), rarities: RARITIES })
+      EH.playEggHatch(this.hud['ceremony-root'], cards.length ? cards : [card], { fishCanvas: (id, o) => fishCanvasFor(id, o || {}), icon: (n, sc) => ico(n, sc), sfx: (n, o) => game.audio.play(n, { volume: 0.5, ...(o || {}) }), rarities: RARITIES })
         .catch(() => {}).finally(() => { st.paused = wasPaused; finish(); });
     } else finish();
   }
@@ -1251,18 +1263,20 @@ export class UI {
   }
 
   // ------------------------------------------------------------ lab
-  openLab() {
+  // the toolbar opens the research tree right here; tapping the hut still walks you into the lab
+  openLab({ house = false } = {}) {
     const game = this.game;
     if (game.inputLocked) return;
     this.closePanel();
-    if (game.lab?.open) { game.lab.open(); return; }
+    if (house && game.lab?.open) { game.lab.open(); return; }
     this.labFallback = true;
     this.openPanel('lab');
+    this.labFallback = false;
   }
 
   // ------------------------------------------------------------ panels
   openPanel(name, tab) {
-    if (name === 'lab' && this.game.lab?.open && !this.labFallback) { this.openLab(); return; }
+    if (name === 'lab' && this.game.lab?.open && !this.labFallback) { this.openLab({ house: true }); return; }
     if (name === 'ebuy' || name === 'shop') { if (this.ebuy) this.closeEBuy(); else { this.closePanel(); this.openEBuy(); } return; }
     if (name === 'build') { if (this.blueprint.open) this.blueprint.exit(); else { this.closePanel(); this.closeEBuy(); this.blueprint.enter(tab); } return; }
     this.panel = name;
@@ -1758,6 +1772,34 @@ export class UI {
     this.showModal(html, { onBind: (c) => { $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); }; } });
   }
 
+  showTankCard(s) {
+    const game = this.game;
+    const T = game.tanks;
+    const fish = T.fishIn(s);
+    const eggs = game.fish.eggs.filter((e) => e.tank === s);
+    const rows = fish.map((f) => `<div class="tankrow"><span class="fishbox">${fishImg(f.sp.id, { morph: f.g.morph, scale: 1 })}</span><b>${esc(f.name || f.sp.name)}</b><span class="chip ${f.g.sex === 'M' ? 'm' : 'f'}">${f.g.sex === 'M' ? '♂' : '♀'}</span>${f.adult ? '' : '<span class="chip">fry</span>'}${f.dateT > 0 ? '<span class="chip fx" style="--fx:#ff7ab0">on a date ♡</span>' : f.state === 'fertilize' ? '<span class="chip fx" style="--fx:#6cd04a">fertilizing</span>' : ''}<button class="btn" data-out="${f.id}">To pond</button></div>`).join('') || '<p class="center small">Empty! Use the Tank tool (or carry a fish here with the hand).</p>';
+    const eggLine = eggs.length ? `<div class="chips center">${eggs.map((e) => `<span class="chip ${e.ready ? 'shimmer' : ''}">${ico('egg', 1)} ${e.ready ? 'Ready: tap!' : e.stage === 'laid' ? 'Laid, being fertilized' : Math.ceil(e.t) + 's'}</span>`).join('')}</div>` : '';
+    const html = `
+      <h2 class="center">${ico('tank', 2)} ${esc(s.def.name)}</h2>
+      <p class="center small">${fish.length}/${s.def.tank.cap} fish · safe from bears · fed for you · tank mates breed with each other only</p>
+      <div class="tanklist">${rows}</div>
+      ${eggLine}
+      <div class="btns">${eggs.some((e) => e.ready) ? `<button class="btn gold" id="m-hatch">${ico('egg', 1)} Hatch eggs</button>` : ''}<button class="btn green" id="m-ok">OK</button></div>`;
+    this.showModal(html, {
+      onBind: (c) => {
+        $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); };
+        c.querySelectorAll('[data-out]').forEach((b) => b.addEventListener('click', () => {
+          const f = fish.find((x) => String(x.id) === b.dataset.out);
+          if (f) T.release(f);
+          this.click();
+          this.showTankCard(s);
+        }));
+        const h = $('#m-hatch', c);
+        if (h) h.onclick = () => { this.closeModal(); const e = eggs.find((x) => x.ready); if (e) this.tapPondEgg(e); };
+      },
+    });
+  }
+
   showNestCard(s) {
     const game = this.game;
     const L = game.livestock;
@@ -1793,6 +1835,81 @@ export class UI {
       <div class="chips center">${this.effectChips(d.aura) || '<span class="chip">Food for ducks & geese</span>'}</div>
       <div class="btns"><button class="btn green" id="m-ok">OK</button></div>`;
     this.showModal(html, { onBind: (c) => { $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); }; } });
+  }
+
+  // delivered parcels wait on the ground with a TAP! tag
+  updateParcelTags() {
+    const game = this.game;
+    const list = game.delivery.waiting();
+    (this.parcelTags ||= new Map());
+    for (const [p, el] of this.parcelTags) if (!list.includes(p)) { el.remove(); this.parcelTags.delete(p); }
+    for (const p of list) {
+      let el = this.parcelTags.get(p);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'eggtag ready parceltag';
+        el.innerHTML = `${hasSprite('mailbox') ? ico('mailbox', 1) : ''}<b>TAP!</b>`;
+        el.addEventListener('click', (ev) => { ev.stopPropagation(); this.unboxParcel(p); });
+        this.overlay.appendChild(el);
+        this.parcelTags.set(p, el);
+      }
+      const q = this.screenOf(p.x, p.y + 0.75, p.z);
+      el.style.display = q.visible === false || game.lab?.active ? 'none' : '';
+      el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -100%)`;
+    }
+  }
+
+  pickParcel(sx, sy) {
+    let best = null, bd = 34 * 34;
+    for (const p of this.game.delivery.waiting()) {
+      const q = this.screenOf(p.x, p.y + 0.2, p.z);
+      const d = (q.x - sx) ** 2 + (q.y - sy) ** 2;
+      if (d < bd) { bd = d; best = p; }
+    }
+    return best;
+  }
+
+  // what's in the box, for the unboxing ceremony
+  unboxItems(order) {
+    const out = [];
+    const add = (key, mk) => { const o = out.find((x) => x.key === key); if (o) o.qty++; else out.push({ key, qty: 1, ...mk() }); };
+    for (const it of order.items) {
+      if (it.kind === 'egg') {
+        add('egg:' + it.species, () => {
+          const sp = SPECIES_BY_ID[it.species];
+          let image = null;
+          try { image = fishCanvasFor(it.species, { morph: it.genes?.morph || 'normal', scale: 3 }); } catch { /* ignore */ }
+          return { name: `${sp?.name || 'Fish'} egg`, image, iconName: 'egg', rarity: Math.max(0, Math.min(4, (it.genes?.stars || 1) - 1)), sub: 'Reynard carries it to the pond', kind: 'egg' };
+        });
+      } else if (it.kind === 'bird') {
+        add('bird:' + it.breed, () => ({ name: BREEDS[it.breed]?.name || 'Bird', image: this.listingImage({ kind: 'bird', breed: it.breed }), iconName: 'egg', sub: 'Waddles out to find a nest', kind: 'bird' }));
+      } else if (it.kind === 'upgrade') {
+        add('upg' + it.level, () => ({ name: `Beaver tools Lv${it.level}`, image: null, iconName: 'hammer', sub: 'Your beavers can clear more!', kind: 'upgrade', rarity: 3 }));
+      } else {
+        const d = STRUCTURES[it.type];
+        const o = out.find((x) => x.key === 'st:' + it.type);
+        if (o) { o.qty += it.qty || 1; continue; }
+        out.push({ key: 'st:' + it.type, qty: it.qty || 1, name: d?.name || 'Parcel', image: this.listingImage({ kind: 'item', type: it.type }), iconName: d?.icon || 'mailbox', sub: 'Goes to Build ▸ Parcels', kind: 'item' });
+      }
+    }
+    return out;
+  }
+
+  unboxParcel(p) {
+    const game = this.game;
+    if (!p || p.opened || this.unboxing) return;
+    const U = C('Unbox');
+    const done = () => { this.unboxing = false; game.delivery.unbox(p); };
+    if (!U?.playUnbox) { game.particles.confetti(p.x, p.y + 0.4, p.z, 18); done(); return; }
+    this.unboxing = true;
+    const st = game.state;
+    const wasPaused = st.paused;
+    st.paused = true;
+    U.playUnbox(this.hud['ceremony-root'] || this.root, this.unboxItems(p.order), {
+      icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
+      sfx: (n, o) => game.audio.play(n, { volume: 0.45, ...(o || {}) }),
+      label: p.order.label,
+    }).catch(() => {}).finally(() => { st.paused = wasPaused; done(); });
   }
 
   // paper tags over nests: egg count + next hatch

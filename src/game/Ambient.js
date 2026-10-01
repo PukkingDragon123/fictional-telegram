@@ -57,6 +57,65 @@ export class Fox {
     this.target = { x: tx, z: tz };
   }
 
+  // fetch an egg crate from a parcel and toss the eggs into the pond
+  carryEggs(px, pz, items) {
+    (this.errands ||= []).push({ px, pz, items, stage: 'fetch', t: 0 });
+  }
+
+  crateMesh() {
+    if (this._crate) return this._crate;
+    const g = new THREE.Group();
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.26), new THREE.MeshLambertMaterial({ color: 0xd8b070 }));
+    const straw = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.22), new THREE.MeshLambertMaterial({ color: 0xf0d890 }));
+    straw.position.y = 0.11;
+    const egg = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshLambertMaterial({ color: 0xf6f0dc }));
+    egg.position.set(0.03, 0.15, 0); egg.scale.set(1, 1.25, 1);
+    g.add(box, straw, egg);
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    g.visible = false;
+    this.game.scene.add(g);
+    this._crate = g;
+    return g;
+  }
+
+  updateErrands(dt) {
+    const E = this.errands;
+    if (!E?.length || this.bed) return;
+    const e = E[0];
+    const game = this.game;
+    const crate = this.crateMesh();
+    e.t += dt;
+    if (e.stage === 'fetch') {
+      if (!this.target || e.t > 8) this.target = { x: e.px, z: e.pz + 0.5 };
+      if (Math.hypot(this.x - e.px, this.z - (e.pz + 0.5)) < 0.45 || e.t > 10) {
+        e.stage = 'carry'; e.t = 0;
+        game.audio.play('grab', { volume: 0.4 });
+        e.w = game.fish.randomWaterPoint() || { x: this.x, z: this.z - 3 };
+        this.goToward(e.w.x, e.w.z);
+        if (!this.target) this.target = { x: this.x, z: this.z };
+        game.say?.({ getWorldPos: (v) => v.set(this.x, this.y + 1.75, this.z) }, e.items.length > 1 ? `${e.items.length} eggs! Careful...` : 'Careful... careful...', { voice: 'fox', mood: 'happy', dur: 1.8, size: 's' });
+      }
+    } else if (e.stage === 'carry') {
+      crate.visible = true;
+      const h = this.handPos();
+      crate.position.set(h.x, this.y + 0.85 + Math.sin(this.time * 9) * 0.03, h.z);
+      crate.rotation.y = Math.PI / 2 - this.heading;
+      if (!this.target || e.t > 12) {
+        e.stage = 'throw'; e.t = 0;
+        this.heading = Math.atan2(e.w.z - this.z, e.w.x - this.x);
+        this.react('throw', 0.9);
+      }
+    } else if (e.stage === 'throw') {
+      if (e.t > 0.35 && !e.thrown) {
+        e.thrown = true;
+        crate.visible = false;
+        game.audio.play('whoosh', { volume: 0.35, pitch: 1.2 });
+        game.delivery.dropEggs(this.x, this.y + 0.5, this.z, e.items, e.w);
+      }
+      if (e.t > 1) { E.shift(); this.react('cheer', 1); }
+    }
+  }
+
   react(mood, t = 1.2) {
     if (this.bed) return;
     this.mood = mood;
@@ -110,11 +169,12 @@ export class Fox {
     this.time += dt;
     const g = this.game.grid;
     if (this.bed) this.updateBed(dt);
+    this.updateErrands(dt);
     this.moodT -= dt;
     if (this.moodT <= 0 && this.mood !== 'idle') this.mood = 'idle';
     let moving = false;
     const phase = this.game.state.phase;
-    if (!this.target && this.mood === 'idle' && !this.bed) {
+    if (!this.target && this.mood === 'idle' && !this.bed && !this.errands?.length) {
       const far = Math.hypot(this.home.x - this.x, this.home.z - this.z);
       if (far > 1 && Math.random() < dt * 0.15) this.target = { ...this.home };
     }

@@ -1355,6 +1355,21 @@ icon('pond', { W: 'water.r@w', w: 'water:5', v: 'water:4', G: 'leaf.r@g', s: 'sa
   return g.rows();
 });
 
+// a glass fish tank on a wooden stand (the Tank tool / Glass Tank build)
+icon('tank', { G: 'glass.x@g', g: 'glass:4', W: 'water.r@w', w: 'water:5', D: 'wood.F@stand', d: 'dwood:1', F: 'orange.R@fish', f: 'orange:2', e: '#1a1420', s: 'sand.r@s', p: 'leaf.r@p' }, () => {
+  const g = new Grid(20, 20);
+  g.rect(2, 3, 16, 11, 'G');
+  g.rect(3, 5, 14, 8, 'W');
+  g.rect(3, 12, 14, 1, 's');
+  g.line(4, 6, 8, 6, 'w').line(11, 9, 14, 9, 'w');
+  g.set(5, 11, 'p').set(5, 10, 'p').set(6, 9, 'p').set(14, 11, 'p').set(14, 10, 'p');
+  g.rect(9, 8, 4, 2, 'F').set(13, 8, 'f').set(13, 9, 'f').set(8, 8, 'f').set(8, 9, 'f').set(11, 8, 'e');
+  g.line(3, 4, 7, 4, 'g');
+  g.rect(1, 14, 18, 2, 'D');
+  g.rect(2, 16, 2, 3, 'd').rect(16, 16, 2, 3, 'd');
+  return g.rows();
+});
+
 // --- tools & objects ---------------------------------------------------------
 icon('hammer', { S: 'steel.R@head', s: 'steel:2', f: 'steel:4', W: 'lwood.x@h', G: 'leather.x@grip', g: 'leather:2' }, () => {
   const g = new Grid(20, 20);
