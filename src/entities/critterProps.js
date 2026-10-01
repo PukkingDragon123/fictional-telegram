@@ -1,7 +1,7 @@
 // Voxel props for the critters: Moose Express packages, Daisy Beer can and
 // cooler, classic striped folding lawn chair. Fine 0.025 voxels, geometry is
 // built lazily and shared (cached) between all copies: don't dispose it.
-// Every maker returns a THREE.Group, origin at the bottom centre, front = +Z.
+// Every maker returns a THREE.Group, origin at the bottom centre (the can: its centre), front = +Z.
 import * as THREE from 'three';
 import { FV, VoxelModel, rbox, ell, tone, hash3, buildGeo, matFor } from './critterKit.js';
 
@@ -56,7 +56,7 @@ function boxModel() {
   const zf = D - 1;
   for (let x = 1; x <= 3; x++) for (let y = 1; y <= 4; y++) v.set(x, y, zf + 0, K.label);
   for (let x = 1; x <= 3; x++) v.set(x, 4, zf, K.blue);
-  v.set(2, 3, zf, K.red); v.set(1, 2, zf, K.ink); v.set(3, 2, zf, K.ink); v.set(2, 1, zf, K.ink);
+  v.set(2, 3, zf, K.red); v.set(1, 2, zf, 0x9a9aa8); v.set(2, 2, zf, 0x9a9aa8); v.set(1, 1, zf, 0x9a9aa8);
   // a little "this way up" mark on the side
   v.set(-W, 4, 0, K.red); v.set(-W, 3, 0, K.red); v.set(-W, 4, -1, K.red); v.set(-W, 4, 1, K.red);
   return v;
@@ -85,8 +85,8 @@ function crateModel() {
     }
   for (const [x, z] of [[-W, -1], [W - 1, 1], [1, -D], [-2, D - 1]]) v.set(x, 5, z, K.straw);
   // speckled eggs
-  for (const [ex, ez, tilt] of [[-2.5, -1.2, 0], [0.5, 1.1, 1], [2.4, -1.4, 0], [-0.4, -1.6, 1]]) {
-    ell(v, ex, 5.6, ez, 1.35, 1.75, 1.35, (x, y, z) => (hash3(x * 3, y, z + tilt) < 0.16 ? K.speck : y > 6 && x < ex ? K.egg : hash3(x, y, z) < 0.3 ? K.eggD : K.egg));
+  for (const [ex, ez, tilt] of [[-2.2, -1.0, 0], [1.4, 1.2, 1], [1.6, -1.8, 2]]) {
+    ell(v, ex, 6.0, ez, 1.7, 2.1, 1.7, (x, y, z) => (hash3(x * 3 + tilt, y, z) < 0.2 ? K.speck : y >= 7 && x < ex ? 0xfffaf0 : y < 5 ? K.eggD : K.egg));
   }
   return v;
 }

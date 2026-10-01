@@ -2478,8 +2478,8 @@ const PEEK_GESTURES = [
   },
   (u, p, f) => { // a-ha! finger up
     const w = win(u, 0, 0.85, 0.12, 0.3);
-    peekPaw(p, p.aR, w, 4.6, 10.4 + sin(u * 20) * 0.3 * w, 5.6, PE, [1, -0.8, 0]);
-    p.aR.wx = -2.5 * w; p.pawR = w > 0.4 ? 'point' : 'relax';
+    peekPaw(p, p.aR, w, 8.6, 12.4 + sin(u * 20) * 0.3 * w, 6.4, PE, [1, -0.8, 0]);
+    p.aR.wx = 0.2 * w; p.pawR = w > 0.4 ? 'point' : 'relax';
     f.browLift += 1.4 * w;
   },
   (u, p) => { // both paws up, explaining
@@ -2532,8 +2532,8 @@ def('peek_no', {
     peekPaw(p, p.aL);
     const w = K(t, [[0, 0], [0.22, 1.08, 'out'], [0.32, 1, 'io']]);
     const wag = sin(t * 13) * smooth((t - 0.2) / 0.15);
-    peekPaw(p, p.aR, w, 4.4 + wag * 1.2, 10.2 + abs(wag) * 0.25, 6.4, PE, [1, -0.8, 0]);
-    p.aR.wx = -2.5 * w; p.aR.wz = wag * 0.45 * w;
+    peekPaw(p, p.aR, w, 8.8 + wag * 1.2, 12.2 - abs(wag) * 0.4, 6.8, PE, [1, -0.8, 0]);
+    p.aR.wx = 0.15 * w; p.aR.wz = wag * 0.6 * w;
     p.pawR = w > 0.4 ? 'point' : 'relax';
     p.hRy += -sin(t * 6.5) * 0.14 * w; p.hRz += 0.12 * w + sin(t * 6.5) * 0.04;
     p.hRx -= 0.06 * w; p.chRz = -0.05 * w;
@@ -2553,14 +2553,16 @@ def('peek_excited', {
     const B = 0.34, u = (t / B) % 1;
     const hop = sin(u * PI);
     const w = smooth(t / 0.2);
-    p.y = (0.6 + hop * 2.2) * w;
+    p.y = (-0.4 + hop * 1.9) * w;
     p.sq = 1 + (hop - 0.45) * 0.12 * w;
     p.hSq = 1 + (hop - 0.5) * 0.05 * w;
     const wig = sin(t * 18) * 0.6;
-    peekPaw(p, p.aL, w, 5.6 + wig * 0.4, 14.5 + wig, 3.6, PE, [1, -0.2, -0.6]);
-    peekPaw(p, p.aR, w, 5.6 - wig * 0.4, 14.5 - wig, 3.6, PE, [1, -0.2, -0.6]);
-    p.aL.st = p.aR.st = 1.4;
-    p.aL.wx = p.aR.wx = -0.3; p.aL.wz = sin(t * 18) * 0.4; p.aR.wz = -sin(t * 18) * 0.4;
+    for (const [arm, sg] of [[p.aL, 1], [p.aR, -1]]) {
+      peekPaw(p, arm);
+      arm.ik = 1 - w; // blend to FK: arms straight up, wiggling
+      arm.sw = -2.6 + wig * 0.25 * sg; arm.ra = -0.5 - hop * 0.15; arm.el = 0.35 + wig * 0.2 * sg; arm.tw = 0;
+      arm.wx = -0.2; arm.wz = sin(t * 18) * 0.4 * sg; arm.shY = 1.1 + hop * 0.6;
+    }
     p.pawL = p.pawR = w > 0.5 ? 'open' : 'relax';
     p.hRx += -0.08 - hop * 0.05; p.hRz += sin(t / B * PI) * 0.1;
     p.eL.fl = p.eR.fl = -0.25 + hop * 0.35; p.eL.sp = p.eR.sp = 0.05;
@@ -2606,8 +2608,10 @@ def('wave_bye', {
     peekPaw(p, p.aL);
     const w = K(t, [[0, 0], [0.22, 1, 'back'], [1.15, 1], [1.5, 0, 'io']]);
     const wv = sin((t - 0.2) * 15) * win(t, 0.2, 1.15, 0.08, 0.15);
-    peekPaw(p, p.aR, w, 6.2 + wv * 1.3, 11 + abs(wv) * 0.3, 5.2, PE, [1, -0.6, -0.4]);
-    p.aR.wx = -0.4 * w; p.aR.wz = wv * 0.5 * w;
+    peekPaw(p, p.aR);
+    p.aR.ik = 1 - w; // FK wave beside the head
+    p.aR.sw = -2.4; p.aR.ra = -0.5 + wv * 0.3; p.aR.el = 0.55 + wv * 0.2; p.aR.tw = 0;
+    p.aR.wx = 0; p.aR.wz = wv * 0.5;
     p.pawR = w > 0.4 ? 'open' : 'relax';
     p.hRz += 0.14 * w - wv * 0.05; p.chRz = -0.06 * w;
     p.tSide += wv * 0.4;

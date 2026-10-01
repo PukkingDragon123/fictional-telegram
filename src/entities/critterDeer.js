@@ -70,7 +70,7 @@ function headModel() {
   // snout
   rbox(v, -2, 1, 0, 3, 3, 5, 1.1, (x, y, z) => (y >= 3 ? tone(x, y, z, C.furL, C.fur, C.furL) : tone(x, y, z, C.cream, C.creamD, C.cream, 0.08, 0)));
   // nose
-  v.set(-1, 3, 6, C.noseL); v.set(0, 3, 6, C.nose); v.set(-1, 2, 6, C.nose); v.set(0, 2, 6, C.nose);
+  v.set(-1, 3, 6, C.noseL); v.set(0, 3, 6, C.nose);
   // little antler nubs poking out from under the cap
   for (const x of [-4, 3]) { v.set(x, 9, -1, C.antler); v.set(x, 10, -1, C.antlerD); }
   return v;
@@ -91,7 +91,7 @@ function earModel() {
 }
 function capModel() {
   const v = new VoxelModel();
-  rbox(v, -5, 4, 0, 3, -5, 3, 1.6, (x, y, z) => (z >= 2 ? tone(x, y, z, C.cap, C.capD, C.capL, 0.06, 0.06) : y === 0 ? C.meshD : (x * 3 + y * 5 + z * 7) % 4 === 0 ? C.meshD : C.mesh));
+  rbox(v, -5, 4, 0, 3, -5, 3, 1.6, (x, y, z) => (z >= -1 ? tone(x, y, z, C.cap, C.capD, C.capL, 0.06, 0.06) : y === 0 ? C.meshD : (x * 3 + y * 5 + z * 7) % 4 === 0 ? C.meshD : C.mesh));
   // brim
   for (let x = -5; x <= 4; x++)
     for (let z = 4; z <= 8; z++) {
@@ -151,9 +151,9 @@ const cache = geoCache(() => {
 
 // ------------------------------------------------------------------ face
 const FACE = {
-  w: 40, h: 18, eyes: [{ x: 12, y: 9 }, { x: 28, y: 9 }], rx: 4.4, ry: 5.4, style: 'bead', lash: false,
-  blush: [{ x: 5, y: 15 }, { x: 35, y: 15 }], blushW: 3,
-  mw: 16, mh: 12, mx: 8, my: 5, mstyle: 'deer', mHalf: 4,
+  w: 40, h: 20, eyes: [{ x: 12, y: 10 }, { x: 28, y: 10 }], rx: 4.8, ry: 5.8, style: 'bead', lash: false,
+  blush: [{ x: 5, y: 17 }, { x: 35, y: 17 }], blushW: 3,
+  mw: 16, mh: 12, mx: 8, my: 2, mstyle: 'deer', mHalf: 4,
   pal: { b: '#7a4a24', i: '#5a3018', I: '#b0703a' },
 };
 const EXPRS = {
@@ -172,7 +172,7 @@ export class DeerGuy extends BipedRig {
     this.joint('cap', this.head, 0, 8.4, -0.2);
     this.mesh(G.cap, this.cap);
     this.face = new CritterFace(FACE);
-    this.facePlane(this.face.eyes.tex, this.head, FACE.w, FACE.h, 0, 8.6 - FACE.h / 8, 4);
+    this.facePlane(this.face.eyes.tex, this.head, FACE.w, FACE.h, 0, 8.8 - FACE.h / 8, 4);
     this.facePlane(this.face.mouth.tex, this.head, FACE.mw, FACE.mh, 0, 3 - FACE.mh / 8, 6);
     // the can (left hand)
     this.can = makeDaisyBeerCan();
@@ -351,8 +351,8 @@ def('cheers', {
     seat(p, rig, w);
     const up = K(t, [[0, 0], [0.4, 1, 'back'], [1.5, 1], [1.95, 0, 'io']]);
     const clink = pulse(t, 0.55, 0.2);
-    rig.reach(p, 1, lerp(2.6, 2.2, up), lerp(0.6, 10.6, up) + clink * 0.6, lerp(4.2, 6.6, up) + clink * 0.8, [1, -0.3, -0.6]);
-    p.wristL.rx = lerp(0.25, -0.9, up); p.wristL.rz = 0.1;
+    rig.reach(p, 1, lerp(2.2, 3.4, up), lerp(2.4, 13.6, up) + clink * 0.6, lerp(5.2, 5.6, up) + clink * 0.8, [1, -0.3, -0.6]);
+    p.wristL.rx = lerp(0.25, 0.4, up); p.wristL.rz = 0.1;
     p.handL = 'fist';
     relaxR(rig, p, w > 0.5);
     if (w < 0.5) { rig.reach(p, -1, 5.4, 4.2, 1.6, [1, -0.4, -0.5]); p.handR = 'fist'; }

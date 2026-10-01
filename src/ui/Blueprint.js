@@ -9,11 +9,11 @@ import { spriteImg, hasSprite } from './sprites.js';
 import './blueprint.css';
 
 const TABS = [
-  { id: 'inv', icon: 'box', name: 'Parcels' },
-  { id: 'clear', icon: 'axe', name: 'Clear land', feature: 'clear' },
+  { id: 'inv', icon: 'mailbox', name: 'Parcels' },
+  { id: 'clear', icon: 'tree', name: 'Clear land', feature: 'clear' },
   { id: 'food', icon: 'berry', name: 'Plants' },
-  { id: 'restaurant', icon: 'table', name: 'Restaurant', beaver: true },
-  { id: 'beaver', icon: 'beaver', name: 'Beaver works', beaver: true },
+  { id: 'restaurant', icon: 'picnic', name: 'Restaurant', beaver: true },
+  { id: 'beaver', icon: 'dam', name: 'Beaver works', beaver: true },
   { id: 'nature', icon: 'seaweed', name: 'Pond' },
   { id: 'decor', icon: 'gnome', name: 'Decor' },
   { id: 'contraption', icon: 'gear', name: 'Gadgets' },
@@ -138,14 +138,14 @@ export class Blueprint {
     const box = this.el.querySelector('.bp-items');
     const tool = game.tool;
     if (this.tab === 'clear' || this.tab === 'dig' || this.tab === 'remove') {
-      const info = { clear: ['axe', 'Drag over trees, rocks & weeds'], dig: ['shovel', `Drag to dig  ${this.tico('coin', 1)}${game.digCost()}`], remove: ['trash', 'Tap a build to remove'] }[this.tab];
+      const info = { clear: ['tree', 'Drag over trees, rocks & weeds'], dig: ['shovel', `Drag to dig  ${this.tico('coin', 1)}${game.digCost()}`], remove: ['trash', 'Tap a build to remove'] }[this.tab];
       box.innerHTML = `<div class="bp-mode">${this.tico(info[0], 3)}<span>${info[1]}</span>${this.tab === 'clear' ? `<span class="bp-sub">${this.tico('beaver', 1)} ×${game.beavers.count()} &nbsp; ${this.tico('berry', 1)} = pay</span>` : ''}</div>`;
       this.selectTabTool();
       return;
     }
     const items = this.itemsFor(this.tab);
     if (!items.length) {
-      box.innerHTML = `<div class="bp-mode">${this.tico('box', 3)}<span>Empty! Shop on e-Buy</span></div>`;
+      box.innerHTML = `<div class="bp-mode">${this.tico('mailbox', 3)}<span>Empty! ${this.tico('shop', 2)}</span></div>`;
       return;
     }
     const beaverless = !this.hasBeavers();

@@ -9,7 +9,7 @@ import { WATER_Y } from '../world/grid.js';
 const mods = import.meta.glob('../entities/critters3d.js', { eager: true });
 const C3 = mods['../entities/critters3d.js'] || null;
 
-const SPEED = 5.2;
+const SPEED = 6.5;
 
 function fallbackPackage(kind) {
   const g = new THREE.Group();
@@ -87,7 +87,7 @@ export class Delivery {
     const rig = this.makeCourier();
     this.group.add(rig.root);
     const orders = this.queue.splice(0, 3);
-    const path = trail.map((p) => ({ x: p[0], y: p[1], z: p[2] }));
+    const path = trail.slice(Math.floor(trail.length * 0.5)).map((p) => ({ x: p[0], y: p[1], z: p[2] }));
     const end = path[path.length - 1];
     const d = this.dropPoint;
     path.push({ x: (end.x + d.x) / 2, y: 0, z: (end.z + d.z) / 2 + 1 }, { x: d.x - 1.2, y: 0, z: d.z + 0.6 });

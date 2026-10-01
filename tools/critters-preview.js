@@ -11,7 +11,7 @@ import { CameraRig } from '../src/core/cameraRig.js';
 import { VoxelModel, voxelMaterial } from '../src/core/voxel.js';
 
 const params = new URLSearchParams(location.search);
-const mode = params.get('mode') || 'rig';
+const mode = params.get('mode') || (params.has('char') ? 'rig' : 'lineup');
 const num = (k, d) => (params.has(k) ? +params.get(k) : d);
 const STEP = 1 / 60;
 
@@ -82,10 +82,10 @@ const EXTRAS = {
   cooler: () => (M.makeCooler ? M.makeCooler() : new THREE.Group()),
 };
 // which extras each animation wants: [name, x, z, yaw]
-function extrasFor(ck, anim) {
+function extrasFor(ck, anim, rig) {
   if (ck === 'beaver' && anim === 'chop') return [['tree', 0, (M.BEAVER_CHOP_DIST || 0.34) + 0.18, 0]];
   if ((ck === 'beaver' || ck.startsWith('duck')) && anim === 'swim') return [['water', 0, 0, 0]];
-  if (ck === 'deer' && (anim === 'sit_chair' || anim === 'stand' || params.get('seated') === '1')) return [['chair', 0, 0, 0], ['cooler', 0.62, 0.15, -0.4]];
+  if (ck === 'deer' && (anim === 'sit_chair' || anim === 'stand' || (rig && rig.seated) || params.get('seated') === '1')) return [['chair', 0, 0, 0], ['cooler', 0.62, 0.15, -0.4]];
   return [];
 }
 
@@ -154,7 +154,7 @@ function addActor(ck, x, z, anim) {
 function playOn(a, anim, fade = 0.25) {
   a.rig.play(anim, { fade, restart: true });
   for (const e of a.extras) scene.remove(e);
-  a.extras = extrasFor(a.ck, anim).map(([n, x, z, yaw]) => {
+  a.extras = extrasFor(a.ck, anim, a.rig).map(([n, x, z, yaw]) => {
     const o = EXTRAS[n]();
     const ry = a.rig.root.rotation.y;
     o.position.add(new THREE.Vector3(a.rig.root.position.x + x * Math.cos(ry) + z * Math.sin(ry), 0, a.rig.root.position.z - x * Math.sin(ry) + z * Math.cos(ry)));
@@ -213,8 +213,19 @@ if (mode === 'strip') {
     if (a) { a.showreel = params.get('showreel') !== '0'; labels.push({ a, text: k }); }
     x += xs[k] || 0.8;
   }
-  cams.lineup = { wupp: 0.008, y: 0.6, pitch: 20 };
+  cams.lineup = { wupp: 0.0085, y: 0.55, pitch: 22 };
+  cams.game = { wupp: 0.03, y: 0.3, pitch: 44 };
+  cam.goal.x = cam.target.x = num('cx', 0.25);
   setCam(params.get('zoom') || 'lineup');
+  // compact toolbar: zoom + links
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;left:8px;top:8px;display:flex;gap:4px;flex-wrap:wrap;max-width:70vw';
+  const link = (text, fn) => { const b = document.createElement('button'); b.textContent = text; b.onclick = fn; b.style.cssText = 'background:#3b3158;color:#fff4e0;border:1px solid #5d4d86;border-radius:3px;padding:3px 7px;font:12px Trebuchet MS;cursor:pointer'; bar.appendChild(b); };
+  link('close', () => setCam('lineup')); link('game distance', () => setCam('game'));
+  for (const k of Object.keys(CHARS)) link('▶ ' + k, () => { location.search = 'char=' + k + '&showreel=1'; });
+  link('filmstrip', () => { location.search = 'mode=strip&char=beaver&anim=chop&n=6&dt=0.08&face=55&yaw=0&pitch=12'; });
+  link('props', () => { location.search = 'mode=props'; });
+  document.body.appendChild(bar);
 } else if (mode === 'props') {
   const items = [];
   if (M.makePackage) for (const k of ['box', 'egg_crate', 'envelope']) items.push(M.makePackage(k));
@@ -226,7 +237,8 @@ if (mode === 'strip') {
   cams.props = { wupp: 0.0035, y: 0.25, pitch: 25 };
   setCam(params.get('zoom') || 'props');
 } else {
-  main = addActor(charKey, 0, 0, params.get('anim'));
+  main = addActor(charKey, 0, 0, params.get('from') || params.get('anim'));
+  if (params.get('from')) { sim(main.rig, num('fromT', 1.5)); playOn(main, params.get('anim') || main.rig.anims[0]); }
   main.showreel = params.get('showreel') === '1';
   if (params.get('expr')) main.rig.setExpression(params.get('expr'));
   if (params.has('t')) sim(main.rig, num('t', 0));
@@ -253,6 +265,9 @@ if (main) {
   for (const c of Object.keys(cams)) btn(s3, c, () => setCam(c));
   btn(s3, '⟲ 45°', () => { cam.yawGoal += Math.PI / 4; });
   btn(s3, '⟳ 45°', () => { cam.yawGoal -= Math.PI / 4; });
+  const s5 = section('Filmstrip');
+  btn(s5, 'filmstrip of current', () => { location.search = `mode=strip&char=${charKey}&anim=${main.rig.current}&n=6&dt=0.15&face=40&yaw=0&pitch=12`; });
+  btn(s5, 'lineup', () => { location.search = ''; });
   const s4 = section('Toys');
   btn(s4, 'showreel', () => { main.showreel = !main.showreel; main.reelT = 0; });
   btn(s4, 'freeze', () => { frozen = !frozen; });

@@ -287,7 +287,7 @@ export class FoxNotifier {
       else if (n === 'slip') this._sfx('jump', { volume: 0.18, pitch: 0.75 });
     };
 
-    const cam = (this.camera = new THREE.PerspectiveCamera(21, 1, 0.5, 20));
+    const cam = (this.camera = new THREE.PerspectiveCamera(23, 1, 0.5, 20));
     // The canvas bottom ray grazes the paws on the edge; the camera sits a bit lower than his eyes.
     const E = new THREE.Vector3(0, -0.15, FOX_PEEK_REACH + 0.05);
     const dist = 4.6, up = 0.5;
@@ -304,7 +304,7 @@ export class FoxNotifier {
       vertexShader: POST_VERT, fragmentShader: POST_FRAG,
       uniforms: {
         tColor: { value: this.rt.texture }, tDepth: { value: this.rt.depthTexture },
-        size: { value: new THREE.Vector2(2, 2) }, ink: { value: new THREE.Color(0x2b1631) },
+        size: { value: new THREE.Vector2(2, 2) }, ink: { value: new THREE.Color(0x150910) },
         cNear: { value: cam.near }, cFar: { value: cam.far },
       },
       depthTest: false, depthWrite: false, transparent: false,

@@ -43,13 +43,15 @@ function bodyModel(c, hen) {
   };
   ell(v, 0, 1.5, 0, 4.6, 3.6, 6.4, col);
   ell(v, 0, 2.2, 3.4, 3.6, 3.2, 3.4, col);
-  // tail, tipped up
+  // tail, tipped up (drake: black with a white fringe and a curl)
   for (let z = -9; z <= -6; z++) {
     const d = -6 - z;
-    for (let x = -2 + (d > 2 ? 1 : 0); x <= 1 - (d > 2 ? 1 : 0); x++)
-      for (let y = 2 + d; y <= 3 + d; y++) v.set(x, y, z, hen ? (hash3(x, y, z) < 0.3 ? c.bodyD : c.tail) : y === 2 + d && d < 2 ? c.tailW : c.tail);
+    for (let x = -2 + (d > 1 ? 1 : 0); x <= 1 - (d > 1 ? 1 : 0); x++) {
+      v.set(x, 2 + d, z, hen ? (hash3(x, d, z) < 0.3 ? c.bodyD : c.tail) : d >= 2 ? c.tailW : c.tail);
+      if (d <= 1) v.set(x, 3 + d, z, hen ? c.tail : c.tail);
+    }
   }
-  if (!hen) { v.set(-1, 6, -7, c.tail); v.set(0, 6, -7, c.tail); v.set(0, 7, -6, c.tail); } // drake curl
+  if (!hen) { v.set(-1, 6, -7, c.tail); v.set(-1, 7, -6, c.tail); } // drake curl
   return v;
 }
 function headModel(c, hen) {
@@ -196,7 +198,7 @@ def('idle', {
     p.head.ry = K(t % 5, [[0, 0], [1.5, 0], [1.7, 0.6], [2.8, 0.6], [3.0, -0.4], [4.2, -0.4], [4.4, 0]]);
     p.head.rx = sin(t * 1.3) * 0.06;
     const sh = pulse(t % 7, 5.5, 0.4); // little feather ruffle
-    p.mover.rz = sin(t * 40) * 0.06 * sh; p.wingL.rz -= sh * 0.25; p.wingR.rz += sh * 0.25;
+    p.mover.rz = sin(t * 40) * 0.06 * sh; p.wingL.rz += sh * 0.3; p.wingR.rz -= sh * 0.3;
   },
 });
 
@@ -210,7 +212,7 @@ def('waddle', {
     p.mover.y = abs(cs) * 0.25;
     p.body.rx = -0.08;
     p.head.z = abs(sn) * 0.15; p.head.rx = 0.08 - abs(cs) * 0.08; p.head.rz = -sn * 0.1;
-    p.wingL.rz -= abs(sn) * 0.1; p.wingR.rz += abs(sn) * 0.1;
+    p.wingL.rz += abs(sn) * 0.12; p.wingR.rz -= abs(sn) * 0.12;
     steps(s, ph, rig);
   },
 });
@@ -241,7 +243,7 @@ def('quack', {
     p.jaw.rx = q * 0.75; p.bill.rx = -q * 0.18;
     p.body.rx = -0.12 * q; p.body.s = 1 + q * 0.08;
     p.mover.y = q * 0.3;
-    p.wingL.rz -= q * 0.35; p.wingR.rz += q * 0.35;
+    p.wingL.rz += q * 0.35; p.wingR.rz -= q * 0.35;
     p.mover.rz = sin(t * 3) * 0.03;
     if (beat(s, 'q', t, T, 0.12)) rig._emit('quack');
   },
@@ -251,7 +253,7 @@ def('flap', {
   loop: true,
   fn(t, p, f, s, rig) {
     const fl = sin(t * 26);
-    p.wingL.rz = -1.1 - fl * 0.8; p.wingR.rz = 1.1 + fl * 0.8;
+    p.wingL.rz = 1.2 + fl * 0.8; p.wingR.rz = -1.2 - fl * 0.8;
     p.wingL.rx = p.wingR.rx = -0.4;
     p.body.rx = -0.5; p.head.rx = 0.4; p.head.z = -0.1;
     p.mover.y = 0.3 + abs(sin(t * 6)) * 1.0;
@@ -284,7 +286,7 @@ def('chase_flee', {
     const ph = (t / 0.22) * TAU, sn = sin(ph), cs = cos(ph);
     legs(p, ph, 1.1);
     const fl = sin(t * 30);
-    p.wingL.rz = -0.9 - fl * 0.7; p.wingR.rz = 0.9 + fl * 0.7;
+    p.wingL.rz = 1.0 + fl * 0.75; p.wingR.rz = -1.0 - fl * 0.75;
     p.mover.y = abs(cs) * 0.5;
     p.mover.rz = sn * 0.12; p.mover.ry = sin(t * 5) * 0.15;
     p.body.rx = 0.25; p.head.rx = -0.2; p.head.z = 0.4 + abs(sn) * 0.1;

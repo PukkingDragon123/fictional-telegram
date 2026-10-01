@@ -554,7 +554,7 @@ def('swim', {
     p.head.rx = -1.15 + sn * 0.03; p.head.rz = sin(t * 1.2) * 0.08; p.head.z = 0.4;
     p.legL.rx = 0.8 + sn * 0.7; p.legR.rx = 0.8 - sn * 0.7;
     arm(p, ARM_L, 1, 0.9 + cs * 0.6, 0.5, 0.6); arm(p, ARM_R, -1, 0.9 - cs * 0.6, 0.5, 0.6);
-    p.tail0.rx = 0.25 + sn * 0.3; p.tail.rx = sn * 0.5;
+    p.tail0.rx = -1.15 + sn * 0.2; p.tail.rx = sn * 0.45;
     p.mover.rz = cs * 0.04;
     f.mouth = 'smile';
     if (beat(s, 'spl', t, 1.1, 0.3)) rig._emit('splash');

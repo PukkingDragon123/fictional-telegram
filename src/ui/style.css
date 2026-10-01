@@ -432,3 +432,7 @@ html, body { font-size: 16px; -webkit-font-smoothing: none; font-smooth: never; 
 .lab-ico { width: 70px; height: 70px; display: grid; place-items: center; background: #fffbea; border: 3px solid #1a1420; box-shadow: 0 4px 0 #1a1420; cursor: pointer; animation: unlock-pop .5s cubic-bezier(.3, 1.8, .5, 1) both; }
 .lab-ico:nth-child(2) { animation-delay: .08s; }
 .lab-ico:hover { transform: translateY(-4px) rotate(-5deg); }
+
+body.blueprint .pointer-hand { display: none; }
+body.cine .fox-notifier, body.cine .bigclock-host, body.cine .hud-right, body.at-title .fox-notifier { opacity: 0 !important; pointer-events: none !important; }
+body.cine .hud-left { opacity: 0; }

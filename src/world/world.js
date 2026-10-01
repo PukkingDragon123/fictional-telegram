@@ -64,6 +64,8 @@ export class World {
     this.terrainMat = makeTerrainMaterial(this.uniforms);
     this.terrain = new THREE.Mesh(buildTerrainGeometry(this.grid), this.terrainMat);
     this.terrain.receiveShadow = true;
+    // bears walk the trail on the smoothed slope surface
+    for (const tp of this.trail) tp[1] = this.grid.surfaceAtVisual(tp[0], tp[2]);
     this.terrain.castShadow = true;
     scene.add(this.terrain);
 
@@ -344,7 +346,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       if (d.type === 'greatwillow' && name === 'maple_scarlet') d.scale = 3;
       const jx = (hash2(d.x, d.z, 3) - 0.5) * 0.3, jz = (hash2(d.x, d.z, 4) - 0.5) * 0.3;
       const dark = d.far ? 0.9 : 1;
-      items.push({ f, x: d.x + 0.5 + jx, y: g.height[d.z * g.w + d.x], z: d.z + 0.5 + jz, o: { texels: 24, scale: d.scale * (rock ? 1 : 1.05), sway: rock ? 0 : 0.5, phase: hash2(d.x, d.z, 9) * 6.28, flip: d.rot % 2 === 1 && !rock, tint: [dark, dark, dark * 1.02] } });
+      items.push({ f, x: d.x + 0.5 + jx, y: g.surfaceAtVisual(d.x + 0.5 + jx, d.z + 0.5 + jz), z: d.z + 0.5 + jz, o: { texels: 24, scale: d.scale * (rock ? 1 : 1.05), sway: rock ? 0 : 0.5, phase: hash2(d.x, d.z, 9) * 6.28, flip: d.rot % 2 === 1 && !rock, tint: [dark, dark, dark * 1.02] } });
     }
     // the big forest: every forest tile carries 1-3 procedural trees (by biome),
     // darker the deeper you go so the edge of your land reads clearly
@@ -375,7 +377,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
           if (!f) continue;
           const dk = Math.max(0.62, 1 - Math.min(ld, 12) * 0.03) * (0.9 + hash2(x, z, 41 + k) * 0.1);
           const glow = name.startsWith('giantshroom_glow') ? 0.35 : 0;
-          items.push({ f, x: x + 0.25 + hash2(x, z, 50 + k) * 0.5, y: g2.height[i], z: z + 0.25 + hash2(x, z, 60 + k) * 0.5, o: { texels: 24, scale: sc, sway, phase: r * 6.28, flip: r > 0.5, emissive: glow, tint: [dk * 0.96, dk, dk * 1.05] } });
+          const tx2 = x + 0.25 + hash2(x, z, 50 + k) * 0.5, tz2 = z + 0.25 + hash2(x, z, 60 + k) * 0.5;
+          items.push({ f, x: tx2, y: g2.surfaceAtVisual(tx2, tz2), z: tz2, o: { texels: 24, scale: sc, sway, phase: r * 6.28, flip: r > 0.5, emissive: glow, tint: [dk * 0.96, dk, dk * 1.05] } });
         }
       }
     // draw back to front so the dither/alpha-test edges sort nicely
@@ -419,7 +422,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       const f = this.frame(name);
       if (!f) return;
       const tx = Math.floor(x), tz = Math.floor(z);
-      items.push({ f, x, y: g.height[tz * g.w + tx], z, o: { texels: 24, ...o } });
+      items.push({ f, x, y: g.surfaceAtVisual(x, z), z, o: { texels: 24, ...o } });
     };
     for (const c of this.clutter) {
       if (c.removed) continue;

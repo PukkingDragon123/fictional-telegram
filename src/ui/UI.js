@@ -360,7 +360,7 @@ export class UI {
     if (!el) return () => {};
     const p = document.createElement('div');
     p.className = 'pointer-hand';
-    p.innerHTML = hasSprite('pointer') ? ico('pointer', 3) : '<b>▼</b>';
+    p.innerHTML = hasSprite('cursor_hand') ? ico('cursor_hand', 3) : '<b>▼</b>';
     document.body.appendChild(p);
     const place = () => {
       const r = el.getBoundingClientRect();

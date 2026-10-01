@@ -239,10 +239,10 @@ export class LabMode {
     el.className = 'labui';
     el.innerHTML = `
       <div class="lab-top" data-h="top"><span data-h="back"></span></div>
-      <div class="lab-hint" data-h="hint">${this.game.ui?.icon?.('pointer', 2) || '👆'}</div>
+      <div class="lab-hint" data-h="hint">${this.game.ui?.icon?.('cursor_hand', 3) || '👆'}</div>
       <div class="lab-opts hidden" data-h="opts">
-        <button class="lab-ico" data-a="research" title="Research">${this.game.ui?.icon?.('lab', 3) || 'R'}</button>
-        <button class="lab-ico" data-a="chat" title="Chat">${this.game.ui?.icon?.('chat', 3) || '...'}</button>
+        <button class="lab-ico" data-a="research" title="Research">${this.game.ui?.icon?.('flask', 3) || 'R'}</button>
+        <button class="lab-ico" data-a="chat" title="Chat">${this.game.ui?.icon?.('speech', 3) || '...'}</button>
       </div>
       <div class="lab-tree hidden" data-h="tree"></div>`;
     root.appendChild(el);

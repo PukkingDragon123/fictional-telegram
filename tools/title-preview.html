@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Title preview</title>
+    <style>html, body { margin: 0; background: #1a1220; overflow: hidden; }</style>
+  </head>
+  <body>
+    <!-- Title screen preview: the real Game + UI, with TitleScene + TitleMenu.
+         ?t=12        fast-forward the scene clock (seconds) before showing
+         ?manual=1    no rAF loop: drive with window.__adv(sec) / window.__render()
+         ?menu=0      hide the menu overlay      ?save=1  pretend a save exists
+         ?gag=1       start with a gag right away -->
+    <canvas id="game"></canvas>
+    <div id="overlay"></div>
+    <div id="ui"></div>
+    <script type="module" src="./title-preview.js"></script>
+  </body>
+</html>

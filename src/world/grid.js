@@ -79,6 +79,18 @@ export class Grid {
   }
 
   // Bilinear-ish ground height at world position (floor for water tiles)
+  // visual ground height including smoothed slopes (for placing sprites)
+  surfaceAtVisual(wx, wz) {
+    const x = Math.floor(wx), z = Math.floor(wz);
+    if (!this.inb(x, z)) return 0;
+    if (this.slopeH && this.isSlope?.(x, z) && this.height[z * this.w + x] > 0.01) {
+      const CW = this.w + 1, fx = wx - x, fz = wz - z, L = this.slopeH;
+      const a = L[z * CW + x], b = L[z * CW + x + 1], c = L[(z + 1) * CW + x], d = L[(z + 1) * CW + x + 1];
+      return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
+    }
+    return this.height[z * this.w + x];
+  }
+
   groundAt(wx, wz) {
     const x = Math.floor(wx), z = Math.floor(wz);
     return this.surfaceY(x, z);

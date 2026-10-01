@@ -136,7 +136,7 @@ const terrainVert = (shader) => {
 };
 
 export function makeTerrainMaterial(uniforms) {
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = uniforms.uTime;
     shader.uniforms.uWaterY = { value: WATER_Y };
@@ -254,11 +254,65 @@ export function buildTerrainGeometry(grid) {
       cornerH[cz * CW + cx] = n ? sum / n : 0;
     }
   const CH = (cx, cz) => cornerH[cz * CW + cx];
+  // wild land (mountain, forest hills) is smoothed into slopes instead of
+  // stair-stepped terraces: corners take the mean height of the land tiles
+  // around them. Your land (the meadow) and the trail stay crisp and flat.
+  const smoothT = (x, z) => {
+    if (!grid.inb(x, z)) return false;
+    const i = z * w + x, k = grid.kind[i];
+    return !grid.meadow[i] && k !== KIND.WATER && grid.occ[i] !== -2;
+  };
+  const landH = new Float32Array(CW * (h + 1));
+  for (let cz = 0; cz <= h; cz++)
+    for (let cx = 0; cx <= w; cx++) {
+      let sum = 0, n = 0, mx = -99;
+      for (const [tx, tz] of [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]]) {
+        if (!grid.inb(tx, tz)) continue;
+        const ti = tz * w + tx;
+        if (grid.kind[ti] === KIND.WATER) continue;
+        const hh = grid.height[ti];
+        // never sink below a flat (unsmoothed) neighbour: keeps the meadow/trail edges sealed
+        if (!smoothT(tx, tz)) mx = Math.max(mx, hh);
+        sum += hh; n++;
+      }
+      landH[cz * CW + cx] = n ? Math.max(sum / n, mx === -99 ? -99 : Math.min(mx, sum / n + 0.5)) : 0;
+    }
+  const LH = (cx, cz) => landH[cz * CW + cx];
+  // remember the smoothed surface so sprites (trees, rocks) sit on the slope
+  grid.slopeH = landH;
+  grid.isSlope = smoothT;
+  const _e1 = [0, 0, 0], _e2 = [0, 0, 0];
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++) {
       const i = z * w + x;
       const y = grid.height[i];
       const k = grid.kind[i];
+      if (smoothT(x, z) && y > 0.01) {
+        const a = [x, LH(x, z), z], b = [x, LH(x, z + 1), z + 1], c = [x + 1, LH(x + 1, z + 1), z + 1], d = [x + 1, LH(x + 1, z), z];
+        _e1[0] = c[0] - a[0]; _e1[1] = c[1] - a[1]; _e1[2] = c[2] - a[2];
+        _e2[0] = d[0] - b[0]; _e2[1] = d[1] - b[1]; _e2[2] = d[2] - b[2];
+        // normal = e2 x e1 (pointing up)
+        let nx = _e2[1] * _e1[2] - _e2[2] * _e1[1], ny = _e2[2] * _e1[0] - _e2[0] * _e1[2], nz = _e2[0] * _e1[1] - _e2[1] * _e1[0];
+        if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
+        const nl = Math.hypot(nx, ny, nz) || 1;
+        const steep = 1 - ny / nl;
+        const rocky = k === KIND.ROCK || k === KIND.SNOW;
+        const shade = 1 - steep * 0.25;
+        const f = [shade, shade, shade];
+        quad(a, b, c, d, [nx / nl, ny / nl, nz / nl], [f, f, f, f], rocky && steep > 0.35 ? 1 : 0);
+        // seal against flat neighbours (trail / meadow) that sit lower
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nxx = x + dx, nzz = z + dz;
+          if (!grid.inb(nxx, nzz) || smoothT(nxx, nzz) || grid.kind[nzz * w + nxx] === KIND.WATER) continue;
+          const ny0 = grid.height[nzz * w + nxx];
+          let P, Q;
+          if (dx === 1) { P = d; Q = c; } else if (dx === -1) { P = b; Q = a; } else if (dz === 1) { P = c; Q = b; } else { P = a; Q = d; }
+          if (Math.max(P[1], Q[1]) <= ny0 + 0.01) continue;
+          const lo = [0.62, 0.62, 0.66], hi = [0.95, 0.95, 0.95];
+          quad([P[0], ny0, P[2]], [Q[0], ny0, Q[2]], [Q[0], Q[1], Q[2]], [P[0], P[1], P[2]], [dx, 0, dz], [lo, lo, hi, hi], 1);
+        }
+        continue;
+      }
       if (k === KIND.WATER) {
         const c00 = 0.92, f = [c00, c00, c00];
         const a = [x, CH(x, z), z], b = [x, CH(x, z + 1), z + 1], c = [x + 1, CH(x + 1, z + 1), z + 1], d = [x + 1, CH(x + 1, z), z];

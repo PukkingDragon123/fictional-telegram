@@ -118,7 +118,7 @@ void main() {
     // blueprint paper: everything washed into cyanotype blues
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
     vec3 bp = mix(vec3(0.07, 0.2, 0.45), vec3(0.78, 0.92, 1.0), smoothstep(0.05, 0.95, lum));
-    col = mix(col, bp, blueprint * 0.8);
+    col = mix(col, bp, blueprint * 0.55);
   }
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>

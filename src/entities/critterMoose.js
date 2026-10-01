@@ -545,7 +545,7 @@ def('toss_package', {
       const o = rig._held;
       if (o) { if (o.parent) o.parent.remove(o); rig.gripR.add(o); o.position.set(0, -0.08, 0.02); o.rotation.set(0, 0, 0); rig._heldWhere = 'hand'; }
     }
-    if (beat(s, 'rel', t, 99, 1.07)) rig._toss();
+    if (beat(s, 'rel', t, 99, 1.11)) rig._toss();
     f.mouth = t > 1.0 && t < 1.5 ? 'open' : t > 1.5 ? 'grin' : 'flat';
     if (t > 1.5) f.expr = 'happy';
   },
