@@ -16,6 +16,7 @@ export const FACE_REGIONS = {
   eyes: { x: 0, y: 0, w: 26, h: 14 },
   upper: { x: 0, y: 16, w: 14, h: 6 },
   lower: { x: 16, y: 16, w: 10, h: 4 },
+  band: { x: 0, y: 23, w: 32, h: 7 }, // armband lettering (bosses with an armband)
 };
 // where the planes sit on the head, in body voxel coordinates
 export const FACE_QUADS = {
@@ -25,7 +26,7 @@ export const FACE_QUADS = {
 };
 
 export const FACE_EXPRESSIONS = ['neutral', 'happy', 'hungry', 'excited', 'chomp_open', 'chomp_closed', 'yummy', 'love',
-  'angry', 'furious', 'sad', 'shocked', 'sleepy', 'disgusted', 'smug', 'cheer'];
+  'angry', 'furious', 'sad', 'shocked', 'sleepy', 'disgusted', 'smug', 'cheer', 'roar', 'dizzy', 'content'];
 
 // jaw: how far the 3D jaw opens (0..1). blink: auto-blink allowed. anim: has animated frames.
 export const FACE_INFO = {
@@ -45,6 +46,18 @@ export const FACE_INFO = {
   disgusted: { jaw: 0.25, blink: true },
   smug: { jaw: 0, blink: true },
   cheer: { jaw: 0.9, blink: false, anim: true },
+  roar: { jaw: 1, blink: false, anim: true },
+  dizzy: { jaw: 0.3, blink: false, anim: true },
+  content: { jaw: 0, blink: false, anim: true },
+};
+// palette keys that also light up the emissive (glow) map
+const GLOW_KEYS = new Set(['Q', 'q', 'X', 'Y']);
+const FONT = {
+  S: ['###', '#..', '###', '..#', '###'], E: ['###', '#..', '##.', '#..', '###'], C: ['###', '#..', '#..', '#..', '###'],
+  U: ['#.#', '#.#', '#.#', '#.#', '###'], R: ['##.', '#.#', '##.', '#.#', '#.#'], I: ['###', '.#.', '.#.', '.#.', '###'],
+  T: ['###', '.#.', '.#.', '.#.', '.#.'], Y: ['#.#', '#.#', '.#.', '.#.', '.#.'], A: ['.#.', '#.#', '###', '#.#', '#.#'],
+  D: ['##.', '#.#', '#.#', '#.#', '##.'], O: ['###', '#.#', '#.#', '#.#', '###'], N: ['#.#', '###', '###', '#.#', '#.#'],
+  B: ['##.', '#.#', '##.', '#.#', '##.'], P: ['##.', '#.#', '##.', '#..', '#..'], L: ['#..', '#..', '#..', '#..', '###'],
 };
 
 const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
@@ -85,6 +98,14 @@ export class BearFace {
    * @param {number} [o.glasses] frame colour
    * @param {number} [o.shades] lens colour
    * @param {number} [o.monocle] ring colour
+   * @param {boolean} [o.boss] scary-cute boss variants of angry / furious / roar
+   * @param {number} [o.glow] glowing-eye colour (adds an emissive map: this.glowTexture)
+   * @param {boolean} [o.scar] scar over the left eye
+   * @param {number} [o.halfmoon] half-moon reading glasses frame colour
+   * @param {boolean} [o.icy] icy auditor stare
+   * @param {number} [o.markings] glowing spirit markings colour (eyes glow too)
+   * @param {string} [o.band] armband lettering
+   * @param {boolean} [o.goldTooth]
    */
   constructor(o) {
     this.o = o;
@@ -127,14 +148,37 @@ export class BearFace {
       z: '#6a7a9a',
       O: hex(o.monocle ?? 0xe8c040),
       o: '#fff2b0',
+      Q: hex(o.glow ?? 0xff3030),
+      q: hex(mixHex(o.glow ?? 0xff3030, 0x000000, 0.35)),
+      X: '#fffbe8',
+      Y: hex(o.markings ?? 0x5ff8ff),
+      J: '#e9a6a0',
+      j: '#9a4a4a',
+      h: hex(o.halfmoon ?? 0xd8b860),
+      N: '#203048',
     };
+    if (o.glow || o.markings) {
+      // emissive map: glowing pixels in colour, everything else black
+      const g = (this.glowCanvas = document.createElement('canvas'));
+      g.width = FACE_W; g.height = FACE_H;
+      this.gctx = g.getContext('2d');
+      const gt = (this.glowTexture = new THREE.CanvasTexture(g));
+      gt.magFilter = THREE.NearestFilter; gt.minFilter = THREE.NearestFilter; gt.generateMipmaps = false; gt.colorSpace = THREE.SRGBColorSpace;
+    }
+    // spirit bears: the eyes themselves glow
+    this.eyeMap = o.markings ? { K: 'Q', W: 'X', w: 'X' } : null;
     this.key = '';
     this.expr = 'neutral';
   }
 
   px(x, y, c) {
+    if (this.eyeMap && y < 14 && this.eyeMap[c]) c = this.eyeMap[c];
     this.ctx.fillStyle = this.pal[c] || c;
     this.ctx.fillRect(x, y, 1, 1);
+    if (this.gctx) {
+      this.gctx.fillStyle = GLOW_KEYS.has(c) ? this.pal[c] : '#000';
+      this.gctx.fillRect(x, y, 1, 1);
+    }
   }
 
   rect(x, y, w, h, c) {
@@ -180,15 +224,97 @@ export class BearFace {
     this.key = key;
     this.expr = s.expr;
     this.ctx.clearRect(0, 0, FACE_W, FACE_H);
-    const fn = DRAW[s.expr] || DRAW.neutral;
-    fn(this, { blink, frame, lx: s.lookX | 0, ly: s.lookY | 0, cub: !!this.o.cub });
+    if (this.gctx) this.gctx.clearRect(0, 0, FACE_W, FACE_H);
+    const st = { blink, frame, lx: s.lookX | 0, ly: s.lookY | 0, cub: !!this.o.cub };
+    const fn = (this.o.boss && BOSS_DRAW[s.expr]) || (this.o.icy && ICY_DRAW[s.expr]) || DRAW[s.expr] || DRAW.neutral;
+    fn(this, st);
+    this.extras(s.expr, st);
     this.texture.needsUpdate = true;
+    if (this.glowTexture) this.glowTexture.needsUpdate = true;
     return true;
+  }
+
+  // always-on decorations drawn over every expression
+  extras(expr, st) {
+    const o = this.o;
+    if (o.scar) {
+      // diagonal scar through the left brow and cheek (the eye survived)
+      for (const [x, y] of [[4, 0], [5, 1], [5, 2], [6, 3], [8, 10], [8, 11], [9, 12], [9, 13]]) this.px(x, y, 'J');
+      this.px(4, 2, 'j'); this.px(6, 2, 'j'); this.px(7, 11, 'j'); this.px(9, 11, 'j');
+    }
+    if (o.markings) {
+      // spirit warpaint: forehead diamond, cheek lines
+      for (const [x, y] of [[12, 0], [13, 0], [11, 1], [14, 1], [12, 2], [13, 2]]) this.px(x, y, 'Y');
+      this.e2(1, 10, 'Y'); this.e2(0, 11, 'Y'); this.e2(2, 11, 'Y'); this.e2(1, 12, 'Y');
+      if (st.frame % 8 < 4) this.e2(1, 11, 'X');
+    }
+    if (o.goldTooth && FACE_INFO[expr]?.jaw > 0.2) this.u(10, 5, 'O');
+    if (o.band) {
+      const r = FACE_REGIONS.band;
+      const text = o.band.toUpperCase();
+      const w = text.length * 4 - 1;
+      let x = r.x + Math.max(0, Math.floor((r.w - w) / 2));
+      for (const ch of text) {
+        const g = FONT[ch];
+        if (g) for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j][i] === '#') this.px(x + i, r.y + 1 + j, 'K');
+        x += 4;
+      }
+    }
+  }
+
+  // ---- boss pieces -----------------------------------------------------------
+  // thick, angry brows (V) and glowing slit eyes
+  bossBrows(raise = 0) {
+    this.pair(['BBB.....', 'BBBBBB..', '.BBBBBBB', '...BBBBB'], 1, 2 - raise);
+  }
+
+  glowEyes(st, kind = 'slit') {
+    if (kind === 'slit') {
+      this.pair(['QQ....', 'QQQQ..', 'qQXXQQ', '.qQQQ.'], 3, 6);
+    } else {
+      // big round furious glare
+      this.pair(['.QQQQ.', 'QQXXQQ', 'QXXXXQ', 'QQXXQQ', '.QQQQ.'], 3, 5);
+      if (st.frame % 2) { this.e2(2, 7, 'q'); this.e2(9, 7, 'q'); }
+    }
+  }
+
+  // gritted teeth with long fangs (closed jaw)
+  fangGrin() {
+    this.u2(1, 4, 'M');
+    for (let x = 1; x <= 12; x++) this.u(x, 5, 'H');
+    for (const x of [5, 8]) this.u(x, 5, 'M');
+    this.u2(3, 4, 'H');
+    for (let x = 0; x <= 9; x++) { this.l(x, 0, 'H'); this.l(x, 1, 'M'); }
+    for (const x of [3, 6]) this.l(x, 0, 'M');
+    this.l2(1, 1, 'H');
+  }
+
+  // open roaring mouth: dark maw, big fangs top and bottom
+  maw() {
+    this.u(6, 3, 'M'); this.u(7, 3, 'M');
+    for (let x = 1; x <= 12; x++) { this.u(x, 4, x === 1 || x === 12 ? 'M' : 'I'); this.u(x, 5, 'I'); }
+    this.u2(2, 4, 'H'); this.u2(2, 5, 'H'); this.u2(3, 5, 'H');
+    for (let x = 4; x <= 9; x++) this.u(x, 5, x === 4 || x === 9 ? 'H' : 'I');
+    for (let x = 0; x <= 9; x++) this.l(x, 0, 'I');
+    for (let x = 2; x <= 7; x++) this.l(x, 1, 'T');
+    this.l(4, 1, 't'); this.l(5, 1, 't');
+    this.l2(0, 0, 'M'); this.l2(1, 0, 'H'); this.l2(1, 1, 'H'); this.l2(0, 1, 'M');
+    for (let x = 0; x <= 9; x++) this.l(x, 2, 'M');
+  }
+
+  drool(st, side = 1) {
+    const f = st.frame % 8;
+    const x = side > 0 ? 9 : 0;
+    this.l(x, 1, 'D');
+    if (f >= 1) this.l(x, 2, 'D');
+    if (f >= 3) this.l(x, 3, 'c');
+    if (f >= 5 && f < 7) this.l(x - side, 3, 'c');
   }
 
   // ---- eyes ----------------------------------------------------------------
   lensUnder() {
     const o = this.o;
+    if (o.halfmoon) this.pair(['.LLLLLLL.', '.LLLLLLL.', '..LLLLL..'], 2, 9);
     if (o.glasses) this.pair(['.LLLLL.', 'LLLLLLL', 'LLLLLLL', 'LLLLLLL', 'LLLLLLL', 'LLLLLLL', '.LLLLL.'], 3, 3);
     if (o.monocle) this.spr(['.LLLLL.', 'LLLLLLL', 'LLLLLLL', 'LLLLLLL', 'LLLLLLL', 'LLLLLLL', '.LLLLL.'], 16, 3);
   }
@@ -217,6 +343,13 @@ export class BearFace {
       }
       for (let x = 10; x <= 15; x++) this.e(x, 5, 'Z');
       this.e2(2, 5, 'Z'); this.e2(1, 5, 'Z');
+    }
+    if (o.halfmoon) {
+      // half-moon reading glasses perched low on the snout
+      this.pair(['hhhhhhhhh', 'h.......h', '.h.....h.', '..hhhhh..'], 2, 8);
+      for (let x = 11; x <= 14; x++) this.e(x, 9, 'h');
+      this.e2(1, 8, 'h'); this.e2(0, 8, 'h');
+      this.e2(4, 10, 'W');
     }
     if (o.monocle) {
       this.spr(['..OOOOO..', '.O.....O.', 'O.......O', 'O.......O', 'O.......O', 'O.......O', 'O.......O', '.O.....O.', '..OOOOO..'], 15, 2);
@@ -560,4 +693,98 @@ const DRAW = {
     F.openTop({ fangs: false });
     F.lowerLip({ tongue: true });
   },
+};
+
+// ---------------------------------------------------------------- new (v3)
+DRAW.roar = (F, st) => {
+  F.lensUnder();
+  F.pair(EYE.furious, 4, 6);
+  F.px(6, 7, 'W'); F.px(19, 7, 'W');
+  F.pair(['BB.....', 'BBBB...', '.BBBBB.', '...BBB.'], 2, 2);
+  F.eyewear('furious');
+  F.maw();
+  F.drool(st, 1);
+};
+
+DRAW.dizzy = (F, st) => {
+  F.lensUnder();
+  // spinning spiral eyes
+  const SP = [['KKKK.', '...K.', '.K.K.', '.KKK.', '.....'], ['.KKKK', '.K...', '.K.K.', '.KKK.', '.....'],
+    ['.....', '.KKK.', '.K.K.', '.K...', '.KKKK'], ['.....', '.KKK.', '.K.K.', '...K.', 'KKKK.']];
+  const a = SP[st.frame % 4], b = SP[(st.frame + 2) % 4];
+  F.spr(a, 4, 5); F.spr(b, 17, 5, true);
+  F.eyewear('dizzy');
+  // wobbly mouth + sweat
+  F.philtrum();
+  for (let x = 1; x <= 8; x++) F.l(x, (x + st.frame) % 3 === 0 ? 1 : 0, 'M');
+  F.e(23, 2, 'c'); F.e(23, 3, 'C');
+  // little stars
+  const k = st.frame % 4;
+  F.e(1 + k * 2, 0, 'S'); F.e(20 - k * 2, 1, 'S');
+};
+
+DRAW.content = (F, st) => {
+  F.lensUnder();
+  F.happyEyes({ ...st, blink: true });
+  F.blush(true);
+  F.eyewear('content');
+  F.philtrum();
+  F.u2(1, 4, 'M'); F.u2(2, 5, 'M');
+  for (let x = 1; x <= 8; x++) F.l(x, 0, 'M');
+  F.l(4, 1, 'T'); F.l(5, 1, 'T');
+  if (st.frame % 16 < 8) { F.e(24, 0, 'W'); F.e(23, 1, 'W'); } // a little contented sparkle
+};
+
+// Scary-cute boss variants (fangs, glowing eyes, thick brows, drool)
+const BOSS_DRAW = {
+  neutral(F, st) {
+    (F.o.icy ? ICY_DRAW.neutral : DRAW.neutral)(F, st);
+    // stern, heavy brows even when calm (not the serene spirit bear)
+    if (!F.o.markings && !F.o.icy) F.pair(['BBBB....', '.BBBBBB.', '....BBB.'], 2, 1);
+    if (F.o.goldTooth) { F.l(6, 0, 'O'); F.l(7, 0, 'M'); }
+  },
+  angry(F, st) {
+    F.lensUnder();
+    F.glowEyes(st, 'slit');
+    F.bossBrows();
+    F.eyewear('angry');
+    F.fangGrin();
+    F.drool(st, 1);
+  },
+  furious(F, st) {
+    for (let y = 0; y <= 13; y++)
+      for (let x = 0; x <= 25; x++) if ((x + y) % 2 === 0 && (y < 2 || ((x < 3 || x > 22) && y > 7))) F.px(x, y, 'F');
+    F.lensUnder();
+    F.glowEyes(st, 'round');
+    F.bossBrows(1);
+    if (st.frame % 2 === 0) F.spr(['.V.V.', 'VV.VV', '.....', 'VV.VV', '.V.V.'], 20, 0);
+    F.eyewear('furious');
+    F.maw();
+    F.drool(st, 1); F.drool({ frame: st.frame + 4 }, -1);
+  },
+  roar(F, st) {
+    F.lensUnder();
+    F.glowEyes(st, 'round');
+    F.bossBrows(1);
+    F.eyewear('furious');
+    F.maw();
+    F.drool(st, 1); F.drool({ frame: st.frame + 3 }, -1);
+  },
+};
+
+// Polar auditor: a cold, half-lidded, unimpressed stare
+const ICY_DRAW = {
+  neutral(F, st) {
+    F.lensUnder();
+    if (st.blink) F.blinkEyes(st);
+    else {
+      F.spr(['BBBBB', 'NNNNN', 'NcNNN', '.NNN.'], 4, 6); F.spr(['BBBBB', 'NNNNN', 'NcNNN', '.NNN.'], 17, 6, true);
+      F.px(5, 7, 'w'); F.px(20, 7, 'w');
+    }
+    F.pair(['BBBBBB', '....BB'], 3, 3);
+    F.eyewear('neutral');
+    F.philtrum();
+    for (let x = 2; x <= 7; x++) F.l(x, 0, 'M');
+  },
+  smug(F, st) { ICY_DRAW.neutral(F, st); F.e(19, 2, 'B'); F.e(20, 1, 'B'); F.e(21, 1, 'B'); },
 };

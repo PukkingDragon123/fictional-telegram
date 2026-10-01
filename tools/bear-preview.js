@@ -1,6 +1,7 @@
 // Bear rig preview: a big close-up of one bear plus a lineup of every type at
 // game zoom, with pose / face / type buttons and an eating showreel.
-// URL: ?pose=eat&type=boss&zoom=close|lineup|both|sheet&face=love&reel=1
+// URL: ?pose=eat&type=boss&zoom=close|lineup|both|sheet|bosses&face=love&reel=1
+//      zoom=bosses: the four boss bears in a row with everyday bears between them for scale
 //      &water=1&speed=1.6&paused=1&t=0.5&ps=2&yaw=-0.4&pitch=28&wupp=0.009&ui=0&mat=angry&rot=0.3
 // Console: __prev.step(seconds), __prev.set({ pose, type, face, reel, water, zoom })
 import * as THREE from 'three';
@@ -11,6 +12,8 @@ import { BearRig, BEAR_POSES, FACE_EXPRESSIONS, POSE_DURATION, preloadBearGeomet
 
 const Q = new URLSearchParams(location.search);
 const TYPES = Object.keys(BEAR_TYPES);
+const NORMAL = TYPES.filter((t) => !BEAR_TYPES[t].hp);
+const BOSS_LINE = (Q.get('line') || 'jogger,shareholder,office,enforcer,grandma,auditor,foreman_cub,spirit,hipster').split(',').filter((t) => BEAR_TYPES[t]);
 const S = {
   pose: Q.get('pose') || 'idle',
   type: Q.get('type') || 'office',
@@ -245,6 +248,7 @@ function makeBear(type, seed) {
 }
 let closeBear = null;
 const line = [];
+let lineWidth = 16;
 function buildClose() {
   if (closeBear) { closeStage.scene.remove(closeBear.rig.root); closeBear.rig.dispose(); }
   const rig = makeBear(S.type, 3.3);
@@ -255,14 +259,26 @@ function buildLine() {
   for (const b of line) { lineStage.scene.remove(b.rig.root); b.rig.dispose(); }
   line.length = 0;
   const sheet = S.zoom === 'sheet';
-  const ids = sheet ? FACE_EXPRESSIONS : TYPES;
+  const bosses = S.zoom === 'bosses';
+  const ids = sheet ? FACE_EXPRESSIONS : bosses ? BOSS_LINE : NORMAL;
+  // rows laid out by bear width so the giants don't overlap
+  const perRow = sheet ? 5 : bosses || S.zoom === 'lineup' ? 99 : 8;
+  const W = (t) => 1.25 * BEAR_TYPES[t].scale + 1.05;
+  const rowW = [];
+  ids.forEach((id, i) => { const r = Math.floor(i / perRow); rowW[r] = (rowW[r] || 0) + (sheet ? 0 : W(id)); });
+  const cursor = rowW.map((w) => -w / 2);
+  lineWidth = Math.max(...rowW, 1);
   ids.forEach((id, i) => {
     const type = sheet ? S.type : id;
     const rig = makeBear(type, i * 7.31 + 1);
     let x, y = 0, z;
-    if (sheet) { x = (i % 4 - 1.5) * 1.62; y = (3 - Math.floor(i / 4)) * 2.3 * BEAR_TYPES[type].scale; z = 0; }
-    else if (S.zoom === 'lineup') { x = (i - (ids.length - 1) / 2) * 2.45; z = 0; }
-    else { const row = i < 6 ? 0 : 1; const n = row ? ids.length - 6 : 6; x = ((row ? i - 6 : i) - (n - 1) / 2) * 2.5; z = row ? -2.3 : 0.2; }
+    if (sheet) { x = (i % 5 - 2) * 1.62; y = (3 - Math.floor(i / 5)) * 2.3 * BEAR_TYPES[type].scale; z = 0; }
+    else {
+      const r = Math.floor(i / perRow);
+      x = cursor[r] + W(id) / 2; cursor[r] += W(id);
+      z = 0.2 - r * 2.4;
+      if (bosses && BEAR_TYPES[id].hp) z = -0.6;
+    }
     const home = new THREE.Vector3(x, y, z);
     rig.root.position.copy(home);
     lineStage.scene.add(rig.root);
@@ -321,8 +337,14 @@ function handleEvents(b) {
       const p = rig.handPos('R', new THREE.Vector3()); p.y += 0.3;
       b.bits.burst(p, 9, [0xf2c230, 0xffe070, 0xd8a020], { speed: 1.4, up: 4, life: 1.0 });
     } else if (e === 'slam' || e === 'stomp') {
+      const sc = BEAR_TYPES[rig.typeId].scale;
       const p = rig.root.position.clone(); p.y = 0.05;
-      b.bits.burst(p, e === 'slam' ? 12 : 4, [0xb8a078, 0xd8c8a0, 0x9a8a60], { speed: 2.4, up: 1.2, life: 0.5 });
+      if (e === 'slam') p.add(new THREE.Vector3(0, 0, 0.9 * sc).applyQuaternion(rig.root.quaternion));
+      b.bits.burst(p, (e === 'slam' ? 12 : 4) * Math.ceil(sc), [0xb8a078, 0xd8c8a0, 0x9a8a60], { speed: 2.4 * Math.sqrt(sc), up: 1.2 * Math.sqrt(sc), life: 0.5, size: Math.sqrt(sc) });
+      if (b === closeBear && e === 'slam') { bubble(b, 'SLAM!!', 0.6); shake = Math.max(shake, 0.12 * sc); }
+      if (b === closeBear && e === 'stomp' && sc > 2) shake = Math.max(shake, 0.05 * sc);
+    } else if (e === 'roar') {
+      if (b === closeBear) { bubble(b, 'ROOAAR!!', 0.9); shake = Math.max(shake, 0.07 * BEAR_TYPES[rig.typeId].scale); }
     }
   }
 }
@@ -358,6 +380,7 @@ function runReel(b, dt) {
 
 // ------------------------------------------------------------------ pose driving
 const loopT = new WeakMap();
+let shake = 0;
 function drivePose(b, dt) {
   const rig = b.rig;
   let lt = (loopT.get(b) ?? b.t) + dt;
@@ -395,8 +418,8 @@ function drivePose(b, dt) {
     const k = ((lt % cyc) + cyc) % cyc;
     rig.pose(name, dt, { t01: Math.min(1, k / dur), speed: 0, inWater: water });
   } else {
-    const moving = ['walk', 'run', 'sad', 'search', 'angry_stomp'].includes(name);
-    rig.pose(name, dt, { speed: moving ? S.speed * (name === 'run' ? 1.8 : 1) : 0, inWater: water });
+    const moving = ['walk', 'run', 'sad', 'search', 'angry_stomp', 'charge'].includes(name);
+    rig.pose(name, dt, { speed: moving ? S.speed * (name === 'run' || name === 'charge' ? 1.8 : 1) * Math.max(1, BEAR_TYPES[rig.typeId].scale * 0.7) : 0, inWater: water });
   }
 }
 
@@ -419,7 +442,7 @@ function layout() {
   const mode = S.zoom;
   let cw = 0, lw = 0;
   if (mode === 'close') cw = W;
-  else if (mode === 'lineup' || mode === 'sheet') lw = W;
+  else if (mode === 'lineup' || mode === 'sheet' || mode === 'bosses') lw = W;
   else { cw = Math.round(W * 0.42); lw = W - cw; }
   closeWrap.style.display = cw ? 'block' : 'none';
   lineWrap.style.display = lw ? 'block' : 'none';
@@ -435,7 +458,8 @@ function layout() {
   const cs = BEAR_TYPES[S.type].scale;
   closeCam.wupp = closeCam.wuppGoal = +(Q.get('wupp') || (0.0068 * Math.max(0.75, cs) * 720 / H) * (mode === "close" ? 1.25 : 1.4));
   if (mode === 'sheet') lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || 10.6 * Math.max(0.72, BEAR_TYPES[S.type].scale) / (H / ps));
-  else lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || (mode === 'lineup' ? 0.045 : Math.max(0.03, 16.5 / (lw / ps))));
+  else if (mode === 'bosses') lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || Math.max(0.02, (lineWidth + 2.5) / (lw / ps)));
+  else lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || (mode === 'lineup' ? Math.max(0.045, (lineWidth + 2) / (lw / ps)) : Math.max(0.03, 20.5 / (lw / ps))));
   if (mode === 'sheet') lineCam.pitch = THREE.MathUtils.degToRad(+(Q.get('lpitch') || 6));
   else lineCam.pitch = THREE.MathUtils.degToRad(+(Q.get('lpitch') || 44));
 }
@@ -451,7 +475,14 @@ function aimCameras(dt) {
     closeCam.target.y = Math.max(r.y, WATER_Y - 0.9 * cs) + (focus === 'head' ? 1.45 : focus === 'feet' ? 0.4 : 1.02) * cs;
   }
   if (S.zoom === 'sheet') { lineCam.lookAt(0, 0, true); lineCam.target.y = 7.0 * BEAR_TYPES[S.type].scale; }
+  else if (S.zoom === 'bosses') { lineCam.lookAt(0, -0.4, true); lineCam.target.y = +(Q.get('ty') || 2.4); }
   else { lineCam.lookAt(0, S.water || S.pose === 'swim' || S.pose === 'cannonball' ? 2 : -0.6, true); lineCam.target.y = 0.8; }
+  // screen shake on roars / slams (close-up only)
+  if (shake > 0 && closeBear) {
+    shake = Math.max(0, shake - dt * 0.6);
+    closeCam.target.x += (Math.random() - 0.5) * shake;
+    closeCam.target.y += (Math.random() - 0.5) * shake;
+  }
   closeCam.update(dt, closeR);
   lineCam.update(dt, lineR);
 }
@@ -489,7 +520,7 @@ const rows = [
   }),
   row('face', [[null, 'auto'], ...FACE_EXPRESSIONS.map((f) => [f, f])], () => S.face, (k) => { S.face = k; for (const b of [closeBear, ...line]) if (!k) b.rig.setFace(null); }),
   row('type', TYPES.map((t) => [t, t]), () => S.type, (k) => { S.type = k; buildClose(); if (S.zoom === 'sheet') buildLine(); layout(); }),
-  row('view', [['both', 'both'], ['close', 'close-up'], ['lineup', 'lineup'], ['sheet', 'face sheet']], () => S.zoom, (k) => { S.zoom = k; buildLine(); layout(); }),
+  row('view', [['both', 'both'], ['close', 'close-up'], ['lineup', 'lineup'], ['bosses', 'BOSSES'], ['sheet', 'face sheet']], () => S.zoom, (k) => { S.zoom = k; buildLine(); layout(); }),
   row('misc', [['water', 'water'], ['pause', 'pause'], ['angry', 'angry mat'], ['flash', 'flash']], () => null, (k) => {
     if (k === 'water') S.water = !S.water;
     if (k === 'pause') S.paused = !S.paused;
@@ -516,14 +547,14 @@ if (S.mat !== 'normal') for (const b of [closeBear, ...line]) b.rig.setMaterial(
 const info = document.getElementById('info');
 
 function simulate(dt) {
-  if (S.zoom !== 'lineup' && S.zoom !== 'sheet') stepBear(closeBear, dt);
+  if (S.zoom !== 'lineup' && S.zoom !== 'sheet' && S.zoom !== 'bosses') stepBear(closeBear, dt);
   if (S.zoom !== 'close') for (const b of line) stepBear(b, dt);
   bitsClose.update(dt); bitsLine.update(dt);
 }
 
 function render(dt) {
   aimCameras(dt);
-  if (S.zoom !== 'lineup' && S.zoom !== 'sheet') closeR.render(closeStage.scene, closeCam);
+  if (S.zoom !== 'lineup' && S.zoom !== 'sheet' && S.zoom !== 'bosses') closeR.render(closeStage.scene, closeCam);
   if (S.zoom !== 'close') lineR.render(lineStage.scene, lineCam);
   // speech bubbles
   for (const b of [closeBear, ...line]) {

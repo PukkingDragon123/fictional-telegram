@@ -46,9 +46,11 @@ export class BearSystem {
     const r = game.state.rating;
     const ratingF = r >= 4.5 ? 1.25 : r >= 4 ? 1.1 : r >= 3 ? 1 : r >= 2 ? 0.85 : 0.7;
     const beautyBears = Math.min(6, Math.floor(game.beauty() / BEAUTY_PER_BEAR));
-    let n = (1 + day * 0.42 + Math.max(0, day - 12) * 0.25) * ratingF + beautyBears + game.mods.bearBonus;
-    n = clamp(Math.round(n), 1, 40);
-    const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day);
+    // day 1 is a building day: no customers yet
+    if (day === 1) return { dayOff: false, buildDay: true, bears: [] };
+    let n = (1.5 + day * 0.75 + Math.max(0, day - 10) * 0.4) * ratingF + beautyBears + game.mods.bearBonus + (game.extraBears?.() || 0);
+    n = clamp(Math.round(n), 2, 48);
+    const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day && !d.boss);
     const bears = [];
     const species = game.availableSpecies();
     const addBear = (typeId, extra = {}) => {
@@ -66,8 +68,6 @@ export class BearSystem {
         const cubs = 1 + (Math.random() < 0.5 ? 1 : 0);
         for (let c = 0; c < cubs; c++) addBear('cub');
       }
-    } else if (day === 1) {
-      addBear('intern');
     } else {
       for (let i = 0; i < n; i++) {
         let tot = 0;
@@ -87,15 +87,26 @@ export class BearSystem {
         addBear('ceo', { prefer: best, wants });
       }
     }
+    // boss bears: a big scary one every few days once they're unlocked
+    const bosses = Object.entries(BEAR_TYPES).filter(([, d]) => d.boss && d.fromDay <= day);
+    if (bosses.length && dow !== 5 && (day % 4 === 1 || Math.random() < 0.18)) {
+      const seen = game.state.bossesSeen || [];
+      const fresh = bosses.filter(([id]) => !seen.includes(id));
+      const [bid] = fresh.length ? fresh[0] : pick(bosses);
+      addBear(bid, { boss: true });
+    }
     // stagger arrivals in little groups
     let t = 0.8;
     bears.sort(() => Math.random() - 0.5);
     const ceo = bears.findIndex((b) => b.type === 'ceo');
     if (ceo >= 0) bears.push(bears.splice(ceo, 1)[0]);
+    const boss = bears.findIndex((b) => b.boss);
+    if (boss >= 0) bears.push(bears.splice(boss, 1)[0]);
     for (const b of bears) {
       b.delay = t;
       t += Math.random() < 0.35 ? 0.45 : 1.3 + Math.random() * 1.8;
       if (b.type === 'ceo') b.delay += 3;
+      if (b.boss) b.delay += 5;
     }
     return { dayOff: false, bears };
   }

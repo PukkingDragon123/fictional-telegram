@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { FoxRig } from '../entities/foxRig.js';
 import { SpriteBatch, SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { WATER_Y } from '../world/grid.js';
-import { HUT, OFFICE } from '../world/worldgen.js';
+import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { angleDiff, damp } from '../core/rng.js';
 
 const _m = new THREE.Matrix4();
@@ -190,7 +190,7 @@ export class Ambient {
     this.birds = [];
     for (let i = 0; i < 7; i++) this.birds.push(this.newBird(true));
     this.flutter = [];
-    for (let i = 0; i < 6; i++) this.flutter.push({ kind: i < 4 ? (i % 2 ? 'monarch' : 'bluebutterfly') : 'bee', x: rand(14, 46), y: 0.8, z: rand(26, 50), tx: 0, tz: 0, t: 0, seed: Math.random() * 9 });
+    for (let i = 0; i < 6; i++) this.flutter.push({ kind: i < 4 ? (i % 2 ? 'monarch' : 'bluebutterfly') : 'bee', x: rand(MEADOW.x0 + 6, MEADOW.x1 - 6), y: 0.8, z: rand(MEADOW.z0 + 5, MEADOW.z1 - 5), tx: 0, tz: 0, t: 0, seed: Math.random() * 9 });
     this.dragons = [];
     for (let i = 0; i < 3; i++) this.dragons.push({ x: 30, z: 36, y: 0.5, vx: 0, vz: 0, t: 0, placed: false, seed: Math.random() * 9 });
     this.frogs = [];
@@ -200,8 +200,8 @@ export class Ambient {
     this.flockT = 25 + Math.random() * 20;
     this.mapleSpots = [];
     game.world.decos.forEach((d) => { if (d.type === 'maple' && !d.far) this.mapleSpots.push(d); });
-    this.treeSpots = game.world.decos.filter((d) => !d.far && d.type !== 'boulder' && d.x > 10 && d.x < 50 && d.z > 22 && d.z < 54);
-    this.flowerSpots = game.world.clutter.filter((c) => c.type !== 'tuft' && c.type !== 'fern' && c.x > 10 && c.x < 50 && c.z > 22 && c.z < 54);
+    this.treeSpots = game.world.decos.filter((d) => !d.far && d.type !== 'boulder' && d.x > MEADOW.x0 + 2 && d.x < MEADOW.x1 - 2 && d.z > MEADOW.z0 + 1 && d.z < MEADOW.z1 - 1 && ['maple','birch','pine','spruce'].includes(d.type));
+    this.flowerSpots = game.world.clutter.filter((c) => c.type !== 'tuft' && c.type !== 'fern' && c.x > MEADOW.x0 + 2 && c.x < MEADOW.x1 - 2 && c.z > MEADOW.z0 + 1 && c.z < MEADOW.z1 - 1);
     this.shore = [];
     this.shoreT = 0;
     this.whistleT = 0;
@@ -216,7 +216,7 @@ export class Ambient {
   meadowPoint() {
     const g = this.game.grid;
     for (let k = 0; k < 20; k++) {
-      const x = rand(12, 48), z = rand(25, 52);
+      const x = rand(MEADOW.x0 + 4, MEADOW.x1 - 4), z = rand(MEADOW.z0 + 4, MEADOW.z1 - 3);
       const i = Math.floor(z) * g.w + Math.floor(x);
       if (!g.isWater(Math.floor(x), Math.floor(z)) && g.occ[i] < 0 && g.deco[i] < 0) return { x, z };
     }
@@ -226,8 +226,8 @@ export class Ambient {
   scanShore() {
     const g = this.game.grid;
     this.shore.length = 0;
-    for (let z = 22; z < 54; z++)
-      for (let x = 10; x < 50; x++) {
+    for (let z = MEADOW.z0 + 1; z < MEADOW.z1 - 1; z++)
+      for (let x = MEADOW.x0 + 2; x < MEADOW.x1 - 2; x++) {
         if (g.isWater(x, z) || g.occ[z * g.w + x] >= 0 || g.deco[z * g.w + x] >= 0) continue;
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (g.isWater(x + dx, z + dz)) { this.shore.push({ x: x + 0.5 + dx * 0.3, z: z + 0.5 + dz * 0.3, wx: x + dx + 0.5, wz: z + dz + 0.5 }); break; }
       }
@@ -483,7 +483,7 @@ export class Ambient {
 
     // fireflies at night over the meadow
     if (night > 0.4 && Math.random() < dt * 6 * night) {
-      const x = 12 + Math.random() * 36, z = 24 + Math.random() * 28;
+      const x = MEADOW.x0 + 4 + Math.random() * (MEADOW.x1 - MEADOW.x0 - 8), z = MEADOW.z0 + 3 + Math.random() * (MEADOW.z1 - MEADOW.z0 - 6);
       if (!g.isWater(Math.floor(x), Math.floor(z))) parts.firefly(x, 0.4 + Math.random() * 1.2, z);
     }
     // falling maple leaves
@@ -492,8 +492,9 @@ export class Ambient {
       const cols = [[0xc0392b, 0xd9482f, 0xe0603a], [0xe07b24, 0xf0902c, 0xe8a030], [0xe8a93a, 0xf3c14b, 0xd65a28]][d.variant % 3];
       parts.leaf(d.x + 0.5 + (Math.random() - 0.5) * 2, 2.5 + Math.random() * 1.5, d.z + 0.5 + (Math.random() - 0.5) * 2, cols[Math.floor(Math.random() * 3)]);
     }
-    // chimney smoke
+    // chimney smoke (the hut, plus any landmark cabins out in the woods)
     if (Math.random() < dt * 3) parts.smoke(HUT.x + 0.75, 3.1, HUT.z + 0.75, night > 0.5 ? 0x8a8aa0 : 0xc8c4c0);
+    for (const sp of game.world.smokePoints || []) if (Math.random() < dt * 2) parts.smoke(sp[0], sp[1], sp[2], night > 0.5 ? 0x8a8aa0 : 0xc8c4c0);
     // lab flask bubbles
     if (Math.random() < dt * 1.5) game.particles.glow.spawn(HUT.x + 1.95, 2.75, HUT.z + 0.35, 0, 0.5, 0, 0.8, 0.05, 0x7cff9a, 0, 0.5, 32);
     // office whistle steam

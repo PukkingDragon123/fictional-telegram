@@ -210,7 +210,7 @@ export class Grid {
 
   countWater() {
     let c = 0;
-    for (let i = 0; i < this.kind.length; i++) if (this.kind[i] === KIND.WATER) c++;
+    for (let i = 0; i < this.kind.length; i++) if (this.kind[i] === KIND.WATER && this.meadow[i]) c++;
     return c;
   }
 }

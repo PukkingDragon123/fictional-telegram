@@ -70,6 +70,7 @@ uniform float flash;
 uniform vec3 flashColor;
 uniform vec3 iris; // x, y (screen px), radius (px); radius < 0 = off
 uniform float time;
+uniform float blueprint;
 
 float D(vec2 p) { return texture2D(tDepth, (p + 0.5) / rtSize).x * depthRange; }
 vec3 C(vec2 p) { return texture2D(tColor, (p + 0.5) / rtSize).rgb; }
@@ -112,6 +113,12 @@ void main() {
     vec2 q = floor(gl_FragCoord.xy / px) * px + px * 0.5;
     float dq = length(q - iris.xy);
     col *= step(dq, iris.z);
+  }
+  if (blueprint > 0.001) {
+    // blueprint paper: everything washed into cyanotype blues
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+    vec3 bp = mix(vec3(0.07, 0.2, 0.45), vec3(0.78, 0.92, 1.0), smoothstep(0.05, 0.95, lum));
+    col = mix(col, bp, blueprint * 0.8);
   }
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
@@ -173,6 +180,7 @@ export class PixelRenderer {
         outlineTint: { value: new THREE.Vector3(0.36, 0.3, 0.42) },
         highlightAmt: { value: 0.12 },
         screenSize: { value: new THREE.Vector2(1, 1) },
+        blueprint: { value: 0 },
         vignette: { value: 0.3 },
         vignetteColor: { value: new THREE.Vector3(0.55, 0.42, 0.62) },
         saturation: { value: 1.1 },
@@ -239,6 +247,8 @@ export class PixelRenderer {
   }
 
   // Iris wipe: radius in CSS px around a CSS-px point (null/negative = off)
+  setBlueprint(k) { this.postMat.uniforms.blueprint.value = k; }
+
   setIris(cssX, cssY, radius) {
     const u = this.postMat.uniforms.iris.value;
     if (radius == null || radius < 0) { u.z = -1; return; }

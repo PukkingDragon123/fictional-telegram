@@ -20,11 +20,14 @@ import { BearFace, FACE_REGIONS, FACE_QUADS, FACE_W, FACE_H, FACE_INFO, FACE_EXP
 export { FACE_EXPRESSIONS };
 export const VS = 0.625; // world units per model unit (voxel = 0.0625 world units)
 export const BEAR_POSES = ['idle', 'walk', 'run', 'swim', 'cannonball', 'lunge', 'grab', 'eat', 'yummy', 'toss', 'pay',
-  'angry_stomp', 'smash', 'search', 'cheer', 'talk', 'sad', 'wave', 'sit'];
+  'angry_stomp', 'smash', 'search', 'cheer', 'talk', 'sad', 'wave', 'sit',
+  'roar', 'slam', 'charge', 'stagger', 'calm', 'boss_intro'];
 // default durations of the one-shot poses (seconds) when no t01 is passed
-export const POSE_DURATION = { cannonball: 0.7, lunge: 0.34, grab: 0.36, eat: 1.4, yummy: 0.9, toss: 0.5, pay: 1.5, smash: 0.9 };
+export const POSE_DURATION = { cannonball: 0.7, lunge: 0.34, grab: 0.36, eat: 1.4, yummy: 0.9, toss: 0.5, pay: 1.5, smash: 0.9,
+  roar: 1.5, slam: 1.15, stagger: 0.9, boss_intro: 2.6 };
 const ONE_SHOT = new Set(Object.keys(POSE_DURATION));
-const FADE = { cannonball: 0.1, lunge: 0.08, grab: 0.1, eat: 0.14, toss: 0.12, smash: 0.12, run: 0.18, walk: 0.18, sit: 0.3, swim: 0.2 };
+const FADE = { cannonball: 0.1, lunge: 0.08, grab: 0.1, eat: 0.14, toss: 0.12, smash: 0.12, run: 0.18, walk: 0.18, sit: 0.3, swim: 0.2,
+  roar: 0.12, slam: 0.1, charge: 0.14, stagger: 0.04, calm: 0.4, boss_intro: 0.08 };
 
 const BLACK = 0x1a1410;
 const SHOE = 0x1e1a1e;
@@ -107,8 +110,19 @@ const lumOf = (c) => (((c >> 16) & 255) * 0.299 + ((c >> 8) & 255) * 0.587 + (c 
 function lookOf(d) {
   const L = { d };
   L.cub = d.scale < 0.7;
-  L.outfit = d.straps ? 'coveralls' : d.vest ? 'hivis' : d.flannel ? 'flannel' : d.hawaiian ? 'hawaiian'
-    : d.suit === d.shirt ? (d.tie ? 'shirt' : 'tshirt') : d.monocle ? 'tux' : 'jacket';
+  L.boss = !!(d.boss && d.hp);
+  L.outfit = d.outfit || (d.straps ? 'coveralls' : d.vest ? 'hivis' : d.flannel ? 'flannel' : d.hawaiian ? 'hawaiian'
+    : d.suit === d.shirt ? (d.tie ? 'shirt' : 'tshirt') : d.monocle ? 'tux' : 'jacket');
+  // proportions (voxels); defaults are the classic office bear
+  const SH = d.shape || {};
+  L.T = { cx: 0, cy: 13.6, cz: 0, rx: 7.1, ry: 5.2, rz: 5.1, p: 2.4, taper: 0.42, taperY: 14.6, ...SH.torso };
+  L.BL = { cx: 0, cy: 12.3, cz: 2.3, rx: 6.2, ry: 4.4, rz: 5.3, p: 2.2, ...SH.belly };
+  L.hump = SH.hump || null;
+  L.arm = { rx: 2.2, ry: 5.3, rz: 2.25, cy: 12.6, ...SH.arm };
+  L.leg = { rx: 2.35, rz: 2.3, ...SH.leg };
+  L.off = { ...(SH.off || {}) };
+  L.neckY = Math.round(L.T.cy + L.T.ry - 1.6 - 0.2);
+  L.bz = L.BL.cz + L.BL.rz - 7.6; // how far the belly front sticks out past the classic one
   L.fur = d.fur;
   L.furLight = d.furLight;
   L.furDark = lumOf(d.fur) > 0.8 ? 0xd4d4cc : shade(d.fur, 0.78);
@@ -120,21 +134,54 @@ function lookOf(d) {
   L.suitDark = d.suitDark;
   L.shirt = d.shirt;
   L.lapel = d.monocle ? 0x2e2e36 : shade(d.suitDark, 0.92);
-  L.pants = d.hawaiian ? 0xcdb58a : d.flannel ? 0x2c3d5e : d.vest ? 0x3a4c6c : d.straps ? d.suit
-    : L.outfit === 'shirt' ? 0x3e4660 : L.outfit === 'tshirt' ? d.suitDark : d.suitDark;
-  L.shorts = d.hawaiian || L.cub;
+  L.pants = d.hawaiian ? 0xcdb58a : d.flannel ? (d.beard ? 0x24304a : 0x2c3d5e) : d.vest ? 0x3a4c6c : d.straps ? d.suit
+    : L.outfit === 'shirt' ? 0x3e4660 : L.outfit === 'tshirt' ? d.suitDark
+    : L.outfit === 'threepiece' || L.outfit === 'tracksuit' ? d.suit : L.outfit === 'trench' ? 0x34343e
+    : L.outfit === 'cardigan' ? (d.skirt ?? d.suitDark) : L.outfit === 'fur' ? d.fur : d.suitDark;
+  L.shorts = d.hawaiian || L.cub || L.outfit === 'cardigan';
   L.boots = d.vest || d.flannel;
-  L.barefoot = L.cub;
+  L.barefoot = L.cub || L.outfit === 'fur';
   L.sandals = d.hawaiian;
-  L.shoe = L.boots ? 0x6a4424 : SHOE;
-  L.sleeve = d.flannel ? d.suit : d.vest ? d.shirt : d.straps ? mix(d.suit, 0xe8eef4, 0.45) : d.suit;
+  L.shoe = d.sneakers ?? (L.boots ? (d.beard ? 0x8a5a30 : 0x6a4424) : L.outfit === 'cardigan' ? 0x5a2a34 : SHOE);
+  L.sleeve = d.flannel ? d.suit : d.vest ? d.shirt : d.straps ? mix(d.suit, 0xe8eef4, 0.45) : L.outfit === 'fur' ? d.fur : d.suit;
   L.shortSleeve = L.outfit === 'shirt' || L.outfit === 'tshirt' || d.hawaiian || d.vest;
   L.rolled = d.flannel || d.straps;
-  L.cuff = L.outfit === 'jacket' || L.outfit === 'tux';
+  L.cuff = L.outfit === 'jacket' || L.outfit === 'tux' || L.outfit === 'threepiece';
   L.gold = 0xe8c040;
-  L.belly = L.cub ? 1.04 : d.item === 'cane' ? 1.1 : d.cigar ? 1.12 : L.outfit === 'shirt' ? 0.92 : 1;
-  L.headScale = L.cub ? 1.14 : 1;
+  L.belly = SH.bellyScale ?? (L.boss ? 1 : L.cub ? 1.04 : d.item === 'cane' ? 1.1 : d.cigar ? 1.12 : L.outfit === 'shirt' ? 0.92 : 1);
+  L.headScale = SH.headScale ?? (L.cub ? 1.14 : 1);
+  // emissive voxels (meshed into a separate unlit mesh)
+  L.glow = new Set();
+  L.aurora = [0x5ff0a0, 0x48e8c8, 0x52d8ff, 0x7aa0ff, 0xb07aff, 0xff7ad8];
+  if (d.aurora) for (const c of L.aurora) L.glow.add(c);
+  if (d.markings) { L.glow.add(d.markings); L.glow.add(shade(d.markings, 0.8)); }
+  if (L.boss && d.cigar) L.glow.add(0xff6a20);
+  // per-bear tint channels: 1 = fur, 2 = accessory (see personalize())
+  L.chan = new Map();
+  for (const c of [L.fur, L.furLight, L.furDark, L.furTuft, d.grizzle, d.grizzle != null ? mix(d.fur, d.grizzle, 0.5) : null]) if (c != null) L.chan.set(c, 1);
+  const acc = [d.tie, d.bowtie, d.scarf, d.lanyard, d.accent, d.itemColor, d.hat && d.hat !== 'hardhat' && d.hat !== 'tophat' ? d.hatColor : null];
+  if (L.outfit === 'cardigan' || L.outfit === 'tracksuit') acc.push(d.suit, d.suitDark);
+  if (d.flannel && d.beard) acc.push(d.suit);
+  if (!L.boss) for (const c of acc) {
+    if (c == null) continue;
+    for (const f of [1, 0.62, 0.7, 0.75, 0.78, 0.8, 0.85, 0.86, 0.88, 0.9, 0.92, 0.93, 1.18, 1.25, 1.3]) { const h = shade(c, f); if (!L.chan.has(h)) L.chan.set(h, 2); }
+  }
   return L;
+}
+
+// per-type bind pose: the classic skeleton plus shape offsets (voxels)
+function bindOf(L, abs = {}) {
+  const out = [];
+  for (let i = 0; i < NB; i++) {
+    const nm = BONE_DEFS[i][0], p = PARENT[i];
+    if (abs[nm]) { out.push(abs[nm].clone()); continue; }
+    const o = L.off[nm];
+    const v = BIND[i].clone();
+    if (p >= 0) v.sub(BIND[p]).add(out[p]);
+    if (o) v.x += o[0], v.y += o[1], v.z += o[2];
+    out.push(v);
+  }
+  return out;
 }
 
 // Colour of the torso/belly at a voxel (applies to the whole body union)
@@ -145,13 +192,56 @@ function outfitColor(L, x, y, z) {
   switch (L.outfit) {
     case 'jacket':
     case 'tux': {
+      const n = L.neckY - 17;
       let c = d.suit;
       if (d.pinstripe && ((x + 30) % 3 === 0)) c = d.pinstripe;
-      const vw = (y - 10.4) * 0.52;
-      if (front && y >= 11 && ax <= vw) return d.shirt;
-      if (front && y >= 11 && ax <= vw + 1.6 && y <= 17.5) return L.lapel;
+      const vw = (y - 10.4 - n) * 0.52;
+      if (front && y >= 11 + n && ax <= vw) return d.shirt;
+      if (front && y >= 11 + n && ax <= vw + 1.6 && y <= 17.5 + n) return L.lapel;
       if (y <= 8) c = shade(c, 0.9);
       return c;
+    }
+    case 'threepiece': {
+      // open jacket (gold pinstripes) over a waistcoat over a shirt
+      const N = L.neckY;
+      let c = d.suit;
+      if (d.pinstripe && ((x + z + 60) % 3 === 0)) c = d.pinstripe;
+      const wv = 3.4 + (y - 8) * 0.24;
+      if (front && y >= 7 && ax <= wv) {
+        if (y >= N - 3 && ax <= (y - (N - 3.6)) * 0.75) return d.shirt;
+        if (y <= 7 && ax >= 1) return c; // waistcoat points
+        return ax > wv - 0.9 ? shade(d.waistcoat, 0.8) : d.waistcoat;
+      }
+      if (front && y >= N - 6 && ax <= wv + 1.8) return L.lapel;
+      if (y <= 8) c = shade(c, 0.9);
+      return c;
+    }
+    case 'trench': {
+      const N = L.neckY;
+      if (y === 11 || y === 12) return y === 12 ? shade(d.suit, 0.66) : shade(d.suit, 0.6); // belt
+      if (front && y >= N - 3 && ax <= (y - (N - 3.6)) * 0.62) return d.shirt;
+      if (front && y >= N - 7 && ax <= (y - (N - 7.4)) * 0.6 + 1.7) return shade(d.suit, 0.8);
+      if (front && x === 2 && y < N - 6) return shade(d.suit, 0.72); // double-breasted flap edge
+      return y <= 9 ? shade(d.suit, 0.94) : d.suit;
+    }
+    case 'tracksuit': {
+      const N = L.neckY;
+      if (y >= N) return d.suitDark; // collar
+      if (y <= 8) return d.suitDark; // hem band
+      if (ax >= 5 && (z === 0 || z === -1)) return d.stripe; // side stripes
+      if (front && x === 0) return shade(d.suit, 1.3); // zipper
+      return d.suit;
+    }
+    case 'cardigan': {
+      if (front && ax <= 1 && y >= 9) return d.shirt; // blouse in the gap
+      if (y <= 8) return shade(d.suit, 0.85); // ribbed hem
+      return (x + 40) % 2 === 0 ? d.suit : shade(d.suit, 0.92);
+    }
+    case 'fur': {
+      const N = L.neckY;
+      if (y >= N && y <= N + 1 && ax <= 5 && z >= -4) return d.shirt; // just a collar...
+      if (front && y >= 12 && y < N && ax <= (N - y) * 0.9 + 1) return L.furLight; // chest blaze
+      return L.fur;
     }
     case 'shirt':
       return d.shirt;
@@ -198,13 +288,15 @@ function outfitColor(L, x, y, z) {
 const TORSO = { cx: 0, cy: 13.6, cz: 0, rx: 7.1, ry: 5.2, rz: 5.1, p: 2.4 };
 const BELLY = { cx: 0, cy: 12.3, cz: 2.3, rx: 6.2, ry: 4.4, rz: 5.3, p: 2.2 };
 
-function inTorso(x, y, z) {
-  const t = TORSO;
-  const rx = t.rx - Math.max(0, y + 0.5 - 14.6) * 0.42;
-  return se(x, y + 0.5, z, t.cx, t.cy, t.cz, rx, t.ry, t.rz, t.p) <= 1;
+function inTorso(x, y, z, L) {
+  const t = L ? L.T : TORSO;
+  const rx = t.rx - Math.max(0, y + 0.5 - (t.taperY ?? 14.6)) * (t.taper ?? 0.42);
+  if (se(x, y + 0.5, z, t.cx, t.cy, t.cz, rx, t.ry, t.rz, t.p) <= 1) return true;
+  const h = L && L.hump;
+  return !!h && se(x, y + 0.5, z, 0, h.cy, h.cz, h.rx, h.ry, h.rz, 2.2) <= 1;
 }
-function bellyD(x, y, z) {
-  const b = BELLY;
+function bellyD(x, y, z, L) {
+  const b = L ? L.BL : BELLY;
   return se(x, y + 0.5, z, b.cx, b.cy, b.cz, b.rx, b.ry, b.rz, b.p);
 }
 
@@ -212,10 +304,11 @@ function bellyD(x, y, z) {
 function buildBody(L) {
   const d = L.d;
   const v = new VoxelModel();
-  for (let x = -9; x <= 9; x++)
-    for (let y = 7; y <= 19; y++)
-      for (let z = -7; z <= 9; z++)
-        if (inTorso(x, y, z) || bellyD(x, y, z) <= 1) v.set(x, y, z, 1);
+  for (let x = -14; x <= 14; x++)
+    for (let y = 4; y <= 25; y++)
+      for (let z = -12; z <= 14; z++)
+        if (inTorso(x, y, z, L) || bellyD(x, y, z, L) <= 1) v.set(x, y, z, 1);
+  const N = L.neckY, n = N - 17;
   v.paint((x, y, z) => outfitColor(L, x, y, z));
   const dec = new Map(); // "x,y,z" -> colour for protruding details
   const put = (x, y, z, c) => { v.set(x, y, z, c); dec.set(`${x},${y},${z}`, c); };
@@ -229,17 +322,23 @@ function buildBody(L) {
       // buttons below the V, a pocket square, collar points
       const btn = L.outfit === 'tux' ? 0x0c0c0e : shade(d.suitDark, 0.7);
       surf(0, 10, btn); surf(0, 8, btn);
+      if (n > 0) surf(0, 12, btn);
       if (L.outfit === 'tux') {
         // shirt studs + gold watch chain across the belly
         surf(0, 13, 0x101010); surf(0, 15, 0x101010);
         for (const [x, y] of [[1, 10], [2, 10], [3, 11], [4, 11], [5, 12]]) surf(x, y, L.gold);
       }
       // breast pocket + pocket square
-      for (let x = 3; x <= 5; x++) surf(x, 14, shade(d.suitDark, 0.85));
+      for (let x = 3; x <= 5; x++) surf(x + (n > 1 ? 1 : 0), 14 + n, shade(d.suitDark, 0.85));
       const sq = d.pinstripe ? 0xd83040 : L.outfit === 'tux' ? 0xffffff : d.scarf ? 0xe0c040 : 0xffffff;
-      surf(4, 15, sq, 1); surf(3, 15, sq, 1); surf(4, 16, sq, 1);
+      const px = n > 1 ? 1 : 0;
+      surf(4 + px, 15 + n, sq, 1); surf(3 + px, 15 + n, sq, 1); surf(4 + px, 16 + n, sq, 1);
       // shirt collar points under the chin
-      for (const sx of [-1, 1]) { surf(sx * 1, 17, 0xffffff, 1); surf(sx * 2, 17, 0xffffff, 1); surf(sx * 2, 16, 0xffffff); }
+      for (const sx of [-1, 1]) { surf(sx * 1, 17 + n, 0xffffff, 1); surf(sx * 2, 17 + n, 0xffffff, 1); surf(sx * 2, 16 + n, 0xffffff); }
+      if (d.armband) {
+        // a lapel pin and a radio clip for the security detail
+        surf(-4 - px, 15 + n, 0xd8dce4, 1); surf(-4 - px, 14 + n, 0x2a2a30, 1);
+      }
       if (L.outfit === 'tux') {
         // coat tails are on the hips; darker hem at the back
         for (let x = -5; x <= 5; x++) surfBack(x, 9, d.suitDark);
@@ -283,6 +382,72 @@ function buildBody(L) {
       for (let x = -1; x <= 1; x++) { surf(x, 17, 0xe8e0d0); surf(x, 16, x === 0 ? 0xe8e0d0 : null ?? 0xe8e0d0); }
       break;
     }
+    case 'threepiece': {
+      // gold buttons down the waistcoat, gold watch chain, fob watch, pocket square
+      for (let y = 8; y <= N - 4; y += 2) surf(0, y, L.gold, 1);
+      const chain = d.watch ?? L.gold;
+      for (const [x, y] of [[1, 11], [2, 10], [3, 10], [4, 10], [5, 11], [-1, 11], [-2, 10], [-3, 10]]) surf(x, y, chain, 1);
+      const zw = frontZ(v, 5, 9);
+      if (zw != null) { put(5, 9, zw + 1, chain); put(6, 9, zw + 1, 0xfff4c0); put(5, 8, zw + 1, chain); put(6, 8, zw + 1, chain); put(6, 10, zw, chain); }
+      for (let x = 5; x <= 7; x++) surf(x, 15 + n, shade(d.suitDark, 0.8));
+      surf(6, 16 + n, 0xd83040, 1); surf(5, 16 + n, 0xd83040, 1); surf(6, 17 + n, 0xe86070, 1);
+      for (const sx of [-1, 1]) { surf(sx, N, 0xffffff, 1); surf(sx * 2, N, 0xffffff, 1); surf(sx * 2, N - 1, 0xffffff); }
+      // lapel flower
+      surf(-6, 15 + n, 0xf0f0f0, 1); surf(-6, 16 + n, 0xf0f0f0, 1); surf(-7, 16 + n, 0xfff0a0, 1);
+      break;
+    }
+    case 'trench': {
+      // two columns of buttons, belt buckle, epaulettes, popped collar
+      for (const bx of [-3, 2]) for (let y = 13; y <= N - 7; y += 3) surf(bx, y, 0x2a2a30, 1);
+      for (const x of [-1, 0, 1]) surf(x, 11, 0x9a9aa4, 1);
+      surf(-1, 12, 0x9a9aa4, 1); surf(1, 12, 0x9a9aa4, 1); surf(0, 12, shade(d.suit, 0.6), 1);
+      for (const sx of [-1, 1]) for (let x = 3; x <= 6; x++) {
+        let top = null;
+        for (let y = 26; y >= 10; y--) if (v.has(sx * x, y, 0)) { top = y; break; }
+        if (top != null) { put(sx * x, top + 1, 0, shade(d.suit, 0.78)); put(sx * x, top + 1, 1, shade(d.suit, 0.78)); if (x === 4) put(sx * x, top + 2, 0, 0x2a2a30); }
+      }
+      for (let x = -6; x <= 6; x++)
+        for (let z = -5; z <= 3; z++) {
+          const q = (x / 6.4) ** 2 + ((z + 0.8) / 4.6) ** 2;
+          if (q > 1 || q < 0.55) continue;
+          if (z > 1 && Math.abs(x) <= 3) continue;
+          for (let y = N; y <= N + 2 + (z < -2 ? 1 : 0); y++) put(x, y, z, y === N ? shade(d.suit, 0.85) : d.suit);
+        }
+      break;
+    }
+    case 'tracksuit': {
+      // zip pull, little logo, white piping over the shoulders
+      surf(0, N - 1, 0xe0e0e8, 1); surf(0, N - 2, 0xc0c0c8, 1);
+      surf(3, 15, d.stripe); surf(4, 15, d.accent ?? d.stripe); surf(3, 14, d.accent ?? d.stripe);
+      break;
+    }
+    case 'cardigan': {
+      // buttons on the cardigan edge, blouse collar, pearls
+      for (let y = 9; y <= 15; y += 2) surf(2, y, 0xf4ecd8, 1);
+      for (const sx of [-1, 1]) { surf(sx, N, 0xffffff, 1); surf(sx * 2, N, 0xffffff, 1); }
+      for (let x = -4; x <= 4; x++) {
+        const y = N - 1 - Math.round((1 - (x / 4.6) ** 2) * 2.2);
+        const z = frontZ(v, x, y);
+        if (z != null) put(x, y, z + 1, x % 2 ? (d.pearls ?? 0xf8f4ec) : shade(d.pearls ?? 0xf8f4ec, 0.92));
+      }
+      // a brooch
+      surf(-3, 14, 0xd84a6a, 1); surf(-3, 15, 0xe8c040);
+      break;
+    }
+    case 'fur': {
+      // glowing spirit markings: ovoid formlines on the chest, a chevron down the belly
+      const mk = d.markings ?? 0x5ff8ff, mk2 = shade(mk, 0.8);
+      for (const sx of [-1, 1])
+        for (let x = 1; x <= 7; x++)
+          for (let y = 12; y <= N; y++) {
+            const q = ((x - 4) / 2.9) ** 2 + ((y - (N - 3.6)) / 2.1) ** 2;
+            if (q > 1 || q < 0.45) continue;
+            surf(sx * x, y, mk);
+          }
+      for (const sx of [-1, 1]) { surf(sx * 4, N - 4, mk2); surf(sx * 4, N - 3, mk); }
+      for (let y = 7; y <= 11; y++) { const w = (11 - y) * 0.5; surf(-Math.round(w), y, mk2); surf(Math.round(w), y, mk2); }
+      break;
+    }
     case 'hawaiian': {
       // open collar showing chest fluff
       for (let y = 14; y <= 18; y++) {
@@ -295,23 +460,23 @@ function buildBody(L) {
   }
   if (d.bowtie) {
     const bt = d.bowtie, btk = shade(bt, 0.75);
-    const zs = frontZ(v, 0, 17);
+    const zs = frontZ(v, 0, N);
     if (zs != null) {
       const z = zs + 1;
-      put(0, 17, z, btk);
-      for (const sx of [-1, 1]) { put(sx, 17, z, bt); put(sx * 2, 17, z, bt); put(sx * 2, 18, z - 1, bt); put(sx * 2, 16, z - 1, bt); put(sx * 3, 17, z - 1, shade(bt, 0.88)); }
+      put(0, N, z, btk);
+      for (const sx of [-1, 1]) { put(sx, N, z, bt); put(sx * 2, N, z, bt); put(sx * 2, N + 1, z - 1, bt); put(sx * 2, N - 1, z - 1, bt); put(sx * 3, N, z - 1, shade(bt, 0.88)); }
     }
   }
   if (d.scarf) {
     // thick scarf around the neck
     for (let x = -8; x <= 8; x++)
       for (let z = -8; z <= 9; z++)
-        for (let y = 16; y <= 18; y++) {
+        for (let y = N - 1; y <= N + 1; y++) {
           if (!v.has(x, y, z)) continue;
           const out = !v.has(x + 1, y, z) || !v.has(x - 1, y, z) || !v.has(x, y, z + 1) || !v.has(x, y, z - 1);
           if (out) v.set(x, y, z, (x + z + y) % 3 === 0 ? shade(d.scarf, 0.85) : d.scarf);
         }
-    for (let x = -5; x <= 5; x++) { const z = frontZ(v, x, 17); if (z != null) put(x, 17, z + 1, x % 2 ? d.scarf : shade(d.scarf, 0.88)); }
+    for (let x = -5; x <= 5; x++) { const z = frontZ(v, x, N); if (z != null) put(x, N, z + 1, x % 2 ? d.scarf : shade(d.scarf, 0.88)); }
   }
 
   // split: belly = front bulge (jiggles), torso = the rest
@@ -319,8 +484,8 @@ function buildBody(L) {
   for (const [k, c] of v.vox) {
     const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
     const isDec = dec.has(`${x},${y},${z}`);
-    const inB = bellyD(x, y, z) <= 1 && z >= 1 && !(y >= 16 && !isDec && inTorso(x, y, z));
-    const decB = isDec && bellyD(x, y, z - 1) <= 1.08 && y <= 15;
+    const inB = bellyD(x, y, z, L) <= 1 && z >= 1 && !(y >= N - 1 && !isDec && inTorso(x, y, z, L));
+    const decB = isDec && bellyD(x, y, z - 1, L) <= 1.08 && y <= N - 2;
     (inB || decB ? belly : torso).set(x, y, z, c);
   }
   return { torso, belly };
@@ -330,9 +495,36 @@ function buildPelvis(L) {
   const d = L.d;
   const v = new VoxelModel();
   const pants = L.pants;
-  fillSE(v, 0, 8.6, -0.2, 6.4, 2.9, 4.9, 2.6, (x, y) => (y <= 6 ? shade(pants, 0.92) : pants));
-  const noJacket = L.outfit !== 'jacket' && L.outfit !== 'tux';
-  if (noJacket && L.outfit !== 'coveralls') {
+  const prx = 6.4 * Math.max(1, L.T.rx / 7.1), prz = 4.9 * Math.max(1, L.T.rz / 5.1);
+  fillSE(v, 0, 8.6, -0.2, prx, 2.9, prz, 2.6, (x, y, z) => {
+    let c = y <= 6 ? shade(pants, 0.92) : pants;
+    if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 3 === 0) c = d.pinstripe;
+    if (L.outfit === 'tracksuit' && Math.abs(x) >= prx - 1.2) c = d.stripe;
+    return c;
+  });
+  const belted = ['shirt', 'tshirt', 'hivis', 'flannel', 'hawaiian'].includes(L.outfit);
+  if (L.outfit === 'trench' || L.outfit === 'cardigan') {
+    // long coat skirt / A-line skirt, flaring out
+    const coat = L.outfit === 'trench';
+    const c0 = coat ? d.suit : L.pants;
+    const yb = coat ? 2 : 4;
+    for (let y = yb; y <= 10; y++) {
+      const k = (10 - y) / (10 - yb);
+      const rx = prx + 0.2 + k * (coat ? 1.6 : 1.2), rz = prz + 0.4 + k * (coat ? 1.4 : 1.0);
+      for (let x = -Math.ceil(rx); x <= Math.ceil(rx); x++)
+        for (let z = -Math.ceil(rz) - 1; z <= Math.ceil(rz); z++) {
+          const q = (x / rx) ** 2 + ((z + 0.2) / rz) ** 2;
+          if (q > 1 || q < (y <= 8 ? 0.62 : 0)) continue;
+          if (coat && y <= 7 && x === 0 && z > 0) continue; // front slit
+          if (coat && y <= 5 && x === 0 && z < 0) continue; // back vent
+          let c = y === yb ? shade(c0, 0.8) : c0;
+          if (coat && x === 2 && z > 0 && y > yb) c = shade(c0, 0.72);
+          if (!coat && y === yb + 1 && (x + z) % 2 === 0) c = shade(c0, 1.2);
+          v.set(x, y, z, c);
+        }
+    }
+  }
+  if (belted) {
     // belt with a buckle
     const belt = d.flannel ? 0x4a2a14 : d.vest ? 0x5a3a1a : 0x2a1e1a;
     v.paint((x, y, z, c) => (y === 10 ? belt : c));
@@ -367,28 +559,37 @@ function buildLeg(L, side) {
   const cx = side * 3;
   const pants = L.pants;
   const fur = L.fur;
-  fillSE(v, cx, 5.2, 0, 2.35, 4.2, 2.3, 3, (x, y) => {
+  const lrx = L.leg.rx, lrz = L.leg.rz;
+  fillSE(v, cx, 5.2, 0, lrx, 4.2, lrz, 3, (x, y, z) => {
     if (L.shorts && y <= 4) return fur;
     if (y === 2) return shade(pants, 0.85);
+    if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 3 === 0) return d.pinstripe;
+    if (L.outfit === 'tracksuit' && side * (x - cx) >= lrx - 0.9 && (z === 0 || z === -1)) return d.stripe;
     return pants;
   }, (x, y) => y >= 2);
   // foot / shoe with a rounded toe
   const shoe = L.barefoot || L.sandals ? fur : L.shoe;
-  for (let x = cx - 2; x <= cx + 2; x++)
+  const fw = lrx > 2.6 ? 3 : 2, ft = lrz > 2.6 ? 5 : 4;
+  for (let x = cx - fw; x <= cx + fw; x++)
     for (let y = 0; y <= 2; y++)
-      for (let z = -2; z <= 4; z++) {
-        const edgeX = x === cx - 2 || x === cx + 2;
-        if (z === 4 && (edgeX || y === 2)) continue;
+      for (let z = -2; z <= ft; z++) {
+        const edgeX = x === cx - fw || x === cx + fw;
+        if (z === ft && (edgeX || y === 2)) continue;
         if (z === -2 && edgeX && y === 2) continue;
-        if (y === 2 && z >= 3) continue;
+        if (y === 2 && z >= ft - 1) continue;
         let c = shoe;
-        if (y === 0) c = L.barefoot || L.sandals ? (L.sandals ? 0x8a5a2a : L.pad) : 0x2a2224;
+        if (y === 0) c = L.barefoot || L.sandals ? (L.sandals ? 0x8a5a2a : L.pad) : d.sneakers ? (z % 2 ? 0xf0f0f0 : d.accent ?? 0xd0d0d0) : 0x2a2224;
         if (L.boots && y === 2) c = shade(L.shoe, 0.8);
         v.set(x, y, z, c);
       }
-  if (!L.barefoot && !L.sandals && !L.boots) {
-    v.set(cx - 1, 1, 4, 0x70707a); v.set(cx, 1, 4, 0x55555e); // shoe shine
+  if (d.sneakers) {
+    // laces + a swoosh-ish accent
+    v.set(cx, 2, 1, 0xffffff); v.set(cx, 2, 2, d.accent ?? 0xd0d0d0);
+    v.set(cx + side * fw, 1, 1, d.accent ?? 0x3a8ad0); v.set(cx + side * fw, 1, 2, d.accent ?? 0x3a8ad0);
+  } else if (!L.barefoot && !L.sandals && !L.boots) {
+    v.set(cx - 1, 1, ft, 0x70707a); v.set(cx, 1, ft, 0x55555e); // shoe shine
   }
+  if (L.barefoot && L.boss) for (let x = cx - fw + 1; x <= cx + fw - 1; x += 2) v.set(x, 0, ft + 1, 0xe8e4dc); // claws
   if (L.boots) { v.set(cx - 1, 1, 4, 0x8a5a30); v.set(cx, 1, 4, 0x8a5a30); v.set(cx + 1, 1, 4, 0x8a5a30); v.set(cx, 2, 2, 0xe8c070); v.set(cx, 2, 1, 0xe8c070); }
   if (L.sandals) { v.set(cx - 1, 1, 2, 0x8a5a2a); v.set(cx, 1, 3, 0x8a5a2a); v.set(cx + 1, 1, 2, 0x8a5a2a); v.set(cx, 1, 2, 0x8a5a2a); }
   if (L.barefoot) {
@@ -405,31 +606,53 @@ function buildArm(L, side) {
   const v = new VoxelModel();
   const cx = side * 8.3, cz = 0.8;
   const fur = L.fur;
-  const sleeveEnd = L.shortSleeve ? 13 : L.rolled ? 11 : 10;
-  fillSE(v, cx, 12.6, cz, 2.2, 5.3, 2.25, 2.4, (x, y, z) => {
-    if (y <= 9) return fur; // paw
+  const A = L.arm;
+  const pt = Math.round(A.cy - A.ry + 2.7), pd = pt - 10; // paw top (classic: 10)
+  const sleeveEnd = (L.shortSleeve ? 13 : L.rolled ? 11 : 10) + pd;
+  const mk = d.markings;
+  fillSE(v, cx, A.cy, cz, A.rx, A.ry, A.rz, 2.4, (x, y, z) => {
+    if (y < pt) return fur; // paw
     if (y < sleeveEnd) return fur; // forearm fur (short / rolled sleeves)
-    if (L.cuff && y === 10) return 0xffffff;
-    if (L.rolled && y === 11) return d.flannel ? d.suitDark : shade(L.sleeve, 0.85);
+    if (L.outfit === 'fur') return mk && (y === pt + 1 || y === pt + 3 || (y === pt + 6 && side * (x - cx) > 0)) ? (y === pt + 3 ? shade(mk, 0.8) : mk) : fur;
+    if (L.cuff && y === pt) return 0xffffff;
+    if (L.rolled && y === pt + 1) return d.flannel ? d.suitDark : shade(L.sleeve, 0.85);
+    if ((L.outfit === 'tracksuit' || L.outfit === 'cardigan') && y === pt) return shade(d.suit, 0.8);
+    if (L.outfit === 'trench' && y === pt + 1) return shade(d.suit, 0.66);
     let c = L.sleeve;
+    if (L.outfit === 'tracksuit' && side * (x - cx) >= A.rx - 0.7) c = d.stripe;
+    if (L.outfit === 'cardigan' && (y + 40) % 2 === 0) c = shade(d.suit, 0.92);
     if (d.flannel) {
       const zs = Math.floor((z + 40) / 2) % 2, ys = Math.floor((y + 40) / 2) % 2;
       c = zs && ys ? d.suitDark : zs || ys ? shade(d.suit, 0.62) : d.suit;
     }
     if (d.hawaiian) c = outfitColor(L, x, y, z);
-    if (d.pinstripe && ((z + 30) % 3 === 0)) c = d.pinstripe;
+    if (d.pinstripe && (L.outfit === 'threepiece' ? (x + z + 60) % 3 === 0 : (z + 30) % 3 === 0)) c = d.pinstripe;
     if (L.shortSleeve && y === sleeveEnd) c = shade(c, 0.88);
     return c;
   });
   // paw pad on the palm (inner-front) + little claws
   const ix = side > 0 ? Math.floor(cx - 1) : Math.ceil(cx + 1);
-  v.set(ix, 8, 2, L.pad); v.set(ix, 9, 2, L.pad); v.set(Math.round(cx), 8, 3, L.pad);
+  const pz = Math.round(cz + A.rz - 0.25);
+  v.set(ix, pt - 2, pz - 1, L.pad); v.set(ix, pt - 1, pz - 1, L.pad); v.set(Math.round(cx), pt - 2, pz, L.pad);
   if (L.cuff) {
     // cufflink on the outside of the cuff
-    const ox = side > 0 ? Math.ceil(cx + 2) : Math.floor(cx - 2);
-    v.set(ox, 10, 1, L.gold);
+    const ox = side > 0 ? Math.ceil(cx + A.rx - 0.2) : Math.floor(cx - A.rx + 0.2);
+    v.set(ox, pt, 1, L.gold);
   }
+  if (L.outfit === 'trench') v.set(side > 0 ? Math.ceil(cx + A.rx - 0.2) : Math.floor(cx - A.rx + 0.2), pt + 1, 1, 0x9a9aa4);
   if (L.cub) { v.set(Math.round(cx), 7, 1, L.furLight); }
+  if (L.boss) {
+    // big claws peeking out of the paw
+    const yb = Math.round(A.cy - A.ry) + 1;
+    for (const dx of [-1, 0, 1]) v.set(Math.round(cx) + dx, yb, pz + 1, 0xece6da);
+  }
+  if (d.armband && side < 0) {
+    // square security armband (text decal goes on it, see faceGeometry)
+    const x0 = Math.round(cx - A.rx), x1 = Math.round(cx + A.rx), z0 = Math.round(cz - A.rz), z1 = Math.round(cz + A.rz);
+    const y0 = pt + 4, y1 = pt + 6;
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) v.set(x, y, z, y === y0 || y === y1 ? shade(d.armband, 0.85) : d.armband);
+    L.band = { x0: x0 - 0.5, x1: x1 + 0.5, z0: z0 - 0.5, z1: z1 + 0.5, y0, y1: y1 + 1 };
+  }
   return v;
 }
 
@@ -484,9 +707,45 @@ function buildHead(L) {
     // pencil tucked behind the ear
     for (let z = -2; z <= 4; z++) v.set(9, 26, z, z === 4 ? 0x2a2a2a : z === 3 ? 0xe8c890 : z === -2 ? 0xf08a9a : 0xf2c230);
   }
-  if (!d.hat) {
+  if (d.halfmoon) {
+    for (const sx of [-1, 1]) { v.set(sx * 8, 24, 5, d.halfmoon); v.set(sx * 8, 24, 6, d.halfmoon); v.set(sx * 7, 24, 7, d.halfmoon); }
+    // little chain hanging from one temple
+    for (const [x, y, z] of [[8, 23, 4], [9, 22, 4], [9, 21, 3], [9, 20, 3]]) v.set(x, y, z, shade(d.halfmoon, 0.8));
+  }
+  if (L.boss && d.cigar) {
+    // heavy jowls
+    for (const sx of [-1, 1]) fillSE(v, sx * 6.6, 20.2, 3.6, 2.6, 2.3, 2.6, 2.2, (x, y) => (y <= 19 ? L.furTuft : fur));
+    // a thicker cigar
+    for (let z = 9; z <= 13; z++) { v.set(4, 20, z, z === 13 ? 0x9a9a9a : 0x7a4a22); v.set(4, 21, z, z === 13 ? 0xb0b0b0 : 0x6a3e1c); }
+    v.set(4, 20, 14, 0xff6a20); v.set(4, 21, 14, 0xff6a20); v.set(4, 20, 11, 0xc8a040); v.set(4, 21, 11, 0xc8a040);
+  }
+  if (d.beard) {
+    // hipster beard on the cheeks and under the muzzle
+    for (const [k, c] of [...v.vox]) {
+      const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
+      if (c === fur && y <= 21 && z >= 1 && Math.abs(x) >= 3) v.vox.set(k, (x + y + z) % 3 ? d.beard : shade(d.beard, 1.2));
+    }
+    for (const sx of [-1, 1]) { v.set(sx * 4, 18, 8, d.beard); v.set(sx * 3, 17, 8, d.beard); v.set(sx * 4, 17, 7, d.beard); v.set(sx * 3, 18, 9, d.beard); }
+    for (let x = -2; x <= 2; x++) v.set(x, 21, 10, shade(d.beard, 1.15)); // moustache
+    v.set(-3, 21, 9, d.beard); v.set(3, 21, 9, d.beard); v.set(-3, 20, 9, d.beard); v.set(3, 20, 9, d.beard);
+  }
+  if (d.buzzcut) {
+    // flat-top
+    for (const [k, c] of [...v.vox]) {
+      const y = ((k >> 10) & 1023) - 512;
+      if (y >= 29) v.vox.delete(k);
+      else if (y === 28 && c === fur) v.vox.set(k, L.furDark);
+    }
+  }
+  if (d.earpiece) {
+    // coiled security earpiece wire down to the collar
+    for (const [x, y, z] of [[9, 25, 1], [9, 24, 0], [10, 23, 0], [9, 22, -1], [10, 21, -1], [9, 20, -2], [10, 19, -2], [9, 18, -2], [8, 17, -2]]) v.set(x, y, z, d.earpiece);
+    v.set(9, 26, 1, 0x2a2a30); v.set(8, 26, 2, 0x2a2a30);
+  }
+  if (!d.hat && !d.buzzcut) {
     // cowlick
     v.set(0, 30, 1, L.furTuft); v.set(1, 31, 1, L.furTuft); v.set(-1, 30, 2, fur); v.set(1, 30, 0, fur);
+    if (d.markings) { v.set(0, 29, 6, d.markings); v.set(0, 30, 5, d.markings); v.set(-1, 29, 6, shade(d.markings, 0.8)); v.set(1, 29, 6, shade(d.markings, 0.8)); }
   }
   return v;
 }
@@ -505,6 +764,18 @@ function buildJaw(L) {
       }
   // chin fluff
   v.set(0, 17, 8, light); v.set(-1, 17, 7, light); v.set(1, 17, 7, light);
+  const d = L.d;
+  if (d.beard) {
+    for (let x = -3; x <= 3; x++) for (let y = 15; y <= 17; y++) for (let z = 5; z <= 9; z++) {
+      if (Math.abs(x) === 3 && y === 15) continue;
+      if (y === 15 && z >= 9) continue;
+      v.set(x, y, z, (x + y + z) % 3 ? d.beard : shade(d.beard, 1.2));
+    }
+  }
+  if (L.boss) {
+    // lower fangs
+    v.set(-2, 20, 8, 0xfffaf0); v.set(2, 20, 8, 0xfffaf0);
+  }
   return v;
 }
 
@@ -521,8 +792,9 @@ function buildEar(L, side) {
         const dd = Math.pow(Math.abs(lx) / 2.75, 2.2) + Math.pow(Math.abs(ly) / 2.65, 2.2) + Math.pow(Math.abs(z - cz) / 1.55, 2.2);
         if (dd > 1) continue;
         const inner = z >= cz + 0.6 && Math.abs(lx) <= 1.4 && ly <= 1.2 && ly >= -1.9;
-        v.set(x, y, z, inner ? L.innerEar : L.fur);
+        v.set(x, y, z, inner ? L.d.markings ?? L.innerEar : L.fur);
       }
+  if (L.d.scar && side < 0) { v.set(Math.round(cx - 1), 32, 0, null); v.set(Math.round(cx - 1), 32, -1, null); v.set(Math.round(cx - 1), 31, 0, null); } // torn ear
   // fuzzy tuft on the rim
   v.set(Math.round(cx - side * 0.2), 32, 0, L.furTuft);
   v.set(Math.round(cx - side * 1.3), 32, -1, L.furTuft);
@@ -563,9 +835,44 @@ function buildHat(L) {
     case 'tophat':
       disk(30, 5.4, 4.9, (x, z, q) => (q > 0.7 ? shade(hc, 1.25) : hc));
       for (const sx of [-1, 1]) for (let z = -2; z <= 2; z++) v.set(sx * 6, 31, z, hc);
-      for (let y = 31; y <= 38; y++) disk(y, 3.5, 3.3, y <= 32 ? 0xa01e2a : y === 38 ? shade(hc, 1.3) : hc);
+      for (let y = 31; y <= 38; y++) disk(y, 3.5, 3.3, y <= 32 ? (d.hatBand ?? 0xa01e2a) : y === 38 ? shade(hc, 1.3) : hc);
+      if (d.hatBand) { v.set(3, 32, 3, 0xfff0a0); v.set(4, 32, 2, d.hatBand); v.set(4, 31, 2, shade(d.hatBand, 0.8)); } // gold buckle
       top = 39;
       break;
+    case 'headband': {
+      // sweatband just above the brows (ring hugging the head)
+      for (let y = 28; y <= 29; y++)
+        for (let x = -10; x <= 10; x++)
+          for (let z = -9; z <= 10; z++) {
+            const q = se(x, y + 0.5, z, 0, 23.5, 0.3, 8.4, 6.5, 6.8, 2.5);
+            const plate = Math.abs(x) <= 6 && z >= 0 && z <= 8 && y <= 28;
+            if (q <= 1 && !plate) continue;
+            if (plate && z !== 8) continue;
+            if (!plate && q > 1.22) continue;
+            v.set(x, y, z, y === 29 && Math.abs(x) <= 2 && z > 4 ? 0xffffff : hc);
+          }
+      top = 32.4;
+      break;
+    }
+    case 'beanie':
+      // slouchy beanie, ribbed cuff, slumped back
+      fillSE(v, 0, 28.6, -0.2, 8.8, 4.8, 7.4, 2.4, (x, y) => (y <= 28 ? ((x + 40) % 2 ? shade(hc, 0.82) : shade(hc, 0.9)) : (x + y) % 2 ? hc : shade(hc, 0.95)), (x, y) => y >= 27);
+      fillSE(v, 0, 32.4, -3.6, 5.6, 3.0, 4.4, 2.2, (x, y) => ((x + y) % 2 ? hc : shade(hc, 0.95)));
+      v.set(5, 28, 7, 0x2a2a2a); v.set(6, 28, 6, 0x2a2a2a); v.set(5, 27, 7, 0xf0f0f0); // tiny label
+      top = 35;
+      break;
+    case 'bun': {
+      // curly grey hair-do with a bun on top
+      fillSE(v, 0, 28.2, 0.0, 8.0, 4.0, 6.9, 2.3, (x, y, z) => (hash3(x, y, z, 3) < 0.35 ? shade(hc, 0.86) : hc), (x, y, z) => y >= 28 && !(z >= 5 && y <= 29 && Math.abs(x) <= 5));
+      for (let i = 0; i < 14; i++) {
+        const a = i / 14 * Math.PI * 2;
+        v.set(Math.round(Math.cos(a) * 7.6), 28 + (i % 2), Math.round(Math.sin(a) * 6.4), shade(hc, i % 2 ? 1.05 : 0.9));
+      }
+      fillSE(v, 0, 33.6, -0.6, 2.8, 2.4, 2.8, 2.1, (x, y, z) => (hash3(x, y, z, 5) < 0.4 ? shade(hc, 0.86) : hc));
+      v.set(2, 34, 2, 0xe86a8a); v.set(3, 34, 1, 0xe86a8a); v.set(2, 35, 1, 0xf08aa8); // flower pin
+      top = 36;
+      break;
+    }
     case 'hardhat':
       fillSE(v, 0, 29.4, 0.5, 7.4, 4.3, 7.1, 2.2, (x, y, z) => ((x === 0 && y >= 32) ? shade(hc, 0.86) : hc), (x, y) => y >= 29);
       for (let x = -6; x <= 6; x++) for (let z = 6; z <= 9; z++) { if (Math.abs(x) >= 5 && z >= 8) continue; v.set(x, 29, z, shade(hc, 0.92)); }
@@ -622,26 +929,41 @@ function buildTie(L, body) {
     if (z == null || (z2 != null && z2 > z)) z = z2;
     return z;
   };
-  if (d.tie) {
+  const n = L.neckY - 17;
+  if (d.tie && d.aurora) {
+    // long flowing tie in northern-lights colours
+    const A = L.aurora;
+    for (let y = n + 4; y <= 17 + n; y++) {
+      const z0 = surfZ(0, Math.max(y, n + 7));
+      if (z0 == null) continue;
+      const z = z0 + 1 + (y < n + 7 ? 1 : 0);
+      const w = y >= 16 + n ? 1 : y <= n + 5 ? 0 : y <= n + 7 ? 1 : 1;
+      const ci = Math.min(A.length - 1, Math.floor((17 + n - y) / 2.3));
+      for (let x = -w; x <= w; x++) v.set(x, y, z, y >= 16 + n ? A[0] : (x + y) % 4 === 0 ? A[Math.min(A.length - 1, ci + 1)] : A[ci]);
+      if (y === n + 4) { v.set(-1, y, z, null); v.set(1, y, z, null); }
+    }
+  } else if (d.tie) {
     const tc = d.tie, td = shade(d.tie, 0.78);
-    for (let y = 9; y <= 17; y++) {
+    const yLo = L.outfit === 'threepiece' ? 13 + n : L.outfit === 'trench' ? 14 + n : 9 + n;
+    for (let y = yLo; y <= 17 + n; y++) {
       const z0 = surfZ(0, y);
       if (z0 == null) continue;
       const z = z0 + 1;
-      const w = y >= 16 ? 1 : y <= 9 ? 0 : 1;
+      const w = y >= 16 + n ? 1 : y <= 9 + n ? 0 : 1;
       for (let x = -w; x <= w; x++) {
         let c = ((y + x) % 3 === 0) ? td : tc;
-        if (y >= 16) c = y === 17 ? td : tc; // knot
+        if (y >= 16 + n) c = y === 17 + n ? td : tc; // knot
         v.set(x, y, z, c);
       }
-      if (y === 10) { v.set(-1, y, z, null); v.set(1, y, z, null); v.set(0, y, z, tc); }
+      if (y === 10 + n) { v.set(-1, y, z, null); v.set(1, y, z, null); v.set(0, y, z, tc); }
     }
     // tie clip
-    const zc = surfZ(0, 13);
-    if (zc != null) for (let x = -1; x <= 1; x++) v.set(x, 13, zc + 1, x === 1 ? 0xf0f0f0 : L.gold);
+    const zc = surfZ(0, 13 + n);
+    if (zc != null && yLo <= 13 + n) for (let x = -1; x <= 1; x++) v.set(x, 13 + n, zc + 1, x === 1 ? 0xf0f0f0 : L.gold);
+    if (L.outfit === 'threepiece') { const zp = surfZ(0, 15 + n); if (zp != null) v.set(0, 15 + n, zp + 1, 0xfff0a0); } // diamond tie pin
   }
   if (d.lanyard) {
-    for (let y = 13; y <= 17; y++) {
+    for (let y = 13 + n; y <= 17 + n; y++) {
       for (const sx of [-1, 1]) {
         const x = sx * (y >= 16 ? 3 : 2);
         const z = surfZ(x, y);
@@ -753,6 +1075,65 @@ function buildItem(L, item) {
       v.set(x0, 9, 3, L.gold); v.set(x0, 9, 2, L.gold); v.set(x0, 10, 2, 0xf0d070); v.set(x0, 9, 1, L.gold);
       break;
     }
+    case 'moneybag': {
+      // fat burlap sack of coins with a gold $
+      mode = 'hang';
+      const sack = 0xc8a46a, sk = 0xa8844a;
+      for (let z = 0; z <= 2; z++) v.set(x0, 8, z, 0x7a5a30);
+      fillSE(v, x0, 3.2, 1, 3.2, 3.4, 3.4, 2.2, (x, y, z) => (hash3(x, y, z, 9) < 0.25 ? sk : sack));
+      v.box(x0 - 1, 6, 0, x0 + 1, 7, 2, 0x8a6a3a);
+      for (const [dx, dy] of [[0, 5], [0, 1], [-1, 4], [0, 4], [1, 3], [0, 3], [-1, 2], [0, 2], [1, 2], [-1, 3]]) {
+        if ((dx === -1 && dy === 2) || (dx === 1 && dy === 4)) continue;
+        v.set(x0 + 3 + 1, dy, 1 + dx, L.gold);
+      }
+      v.set(x0 - 1, 7, 3, L.gold); v.set(x0, 8, 3, 0xf8e070); // a coin peeking out
+      break;
+    }
+    case 'clipboard': {
+      // auditor's clipboard: board, paper, steel clip, red ticks
+      for (let y = 6; y <= 14; y++)
+        for (let z = 2; z <= 8; z++) {
+          v.set(x0 - 1, y, z, 0x8a5a30);
+          if (y <= 13 && z >= 3 && z <= 7) v.set(x0, y, z, (y === 11 || y === 9 || y === 7) && z >= 4 && z <= 6 ? 0x9ab0d0 : 0xffffff);
+        }
+      v.set(x0, 12, 6, 0xd83a3a); v.set(x0, 10, 4, 0xd83a3a); v.set(x0, 8, 5, 0xd83a3a);
+      for (let z = 4; z <= 6; z++) { v.set(x0, 14, z, 0xb8bcc4); v.set(x0, 15, z, 0x8a8e96); }
+      break;
+    }
+    case 'bottle': {
+      // sports water bottle
+      mode = 'level';
+      for (let y = 5; y <= 12; y++)
+        for (let x = x0 - 1; x <= x0 + 1; x++)
+          for (let z = 2; z <= 4; z++) {
+            if (Math.abs(x - x0) === 1 && (z === 2 || z === 4)) continue;
+            v.set(x, y, z, y >= 11 ? 0xf0f0f0 : y === 8 || y === 7 ? L.d.accent ?? 0x3ad0c0 : 0x7ac8f0);
+          }
+      v.set(x0, 13, 3, 0x3a3a3a); v.set(x0, 14, 3, 0x3a3a3a);
+      break;
+    }
+    case 'handbag': {
+      mode = 'hang';
+      const hb = L.d.itemColor ?? 0x8a2a3a, hk = shade(hb, 0.75);
+      for (let y = 4; y <= 8; y++) { v.set(x0, y, -1, 0x3a1a1a); v.set(x0, y, 3, 0x3a1a1a); }
+      for (let z = -1; z <= 3; z++) v.set(x0, 8, z, 0x3a1a1a);
+      for (let y = 0; y <= 4; y++)
+        for (let z = -3; z <= 5; z++)
+          for (let x = x0 - 1; x <= x0 + 1; x++) {
+            if (y === 4 && (z === -3 || z === 5)) continue;
+            v.set(x, y, z, y === 4 ? hk : y === 0 ? hk : hb);
+          }
+      v.set(x0 + 2, 3, 1, L.gold); v.set(x0 + 2, 3, 2, L.gold); v.set(x0 + 2, 2, 1, 0xfff0a0);
+      break;
+    }
+    case 'blueprint': {
+      // rolled-up blueprint tube under the arm
+      mode = 'level';
+      for (let z = -3; z <= 6; z++)
+        for (const [dx, dy] of [[0, 8], [-1, 8], [1, 8], [0, 9], [0, 7]]) v.set(x0 + dx, dy, z, z === -3 || z === 6 ? 0xdce8f8 : (z + 40) % 3 === 0 ? 0x2a5aa8 : 0x3a6ac0);
+      v.set(x0, 8, 7, 0xf0f0f0);
+      break;
+    }
     case 'camera': {
       mode = 'hang';
       for (let y = 6; y <= 8; y++) v.set(x0, y, 1, 0x3a2a2a);
@@ -810,7 +1191,8 @@ const FACE_UV = FACES.map((F, f) => {
   return { ua, va, cu: F.c.map((c) => c[ua]), cv: F.c.map((c) => c[va]) };
 });
 
-function meshPart(vox, out, bone, { hide = null, aoSolid = null, deepAO = true } = {}) {
+function meshPart(vox, out, bone, { hide = null, aoSolid = null, deepAO = true, shift = null, glow = null, outG = null, chan = null } = {}) {
+  const sx0 = shift ? shift[0] : 0, sy0 = shift ? shift[1] : 0, sz0 = shift ? shift[2] : 0;
   const deep = deepAO ? 1 : 0;
   const solid = aoSolid || ((k) => vox.has(k));
   const groups = new Map();
@@ -890,21 +1272,24 @@ function meshPart(vox, out, bone, { hide = null, aoSolid = null, deepAO = true }
         const oy = axis === 1 ? layer : axis === 0 ? uc : vc;
         const oz = axis === 2 ? layer : vc;
         const rgb = linearRGB(hex), tint = FACE_TINT[f];
-        const vi = out.pos.length / 3;
+        const O = glow && outG && glow.has(hex) ? outG : out;
+        const ch = chan ? chan.get(hex) || 0 : 0;
+        const vi = O.pos.length / 3;
         for (let ci = 0; ci < 4; ci++) {
           const c = F.c[ci];
           const p = [ox + c[0], oy + c[1], oz + c[2]];
           p[UV.ua] = [ox, oy, oz][UV.ua] + c[UV.ua] * w;
           p[UV.va] = [ox, oy, oz][UV.va] + c[UV.va] * h;
-          out.pos.push((p[0] - 0.5) * 0.1, p[1] * 0.1, (p[2] - 0.5) * 0.1);
-          out.nor.push(F.n[0], F.n[1], F.n[2]);
-          const br = AO_CURVE[(pat >> (ci * 2)) & 3] * tint;
+          O.pos.push((p[0] - 0.5 + sx0) * 0.1, (p[1] + sy0) * 0.1, (p[2] - 0.5 + sz0) * 0.1);
+          O.nor.push(F.n[0], F.n[1], F.n[2]);
+          const br = O === out ? AO_CURVE[(pat >> (ci * 2)) & 3] * tint : 0.82 + 0.18 * AO_CURVE[(pat >> (ci * 2)) & 3];
           b[ci] = br;
-          out.col.push(rgb[0] * br, rgb[1] * br, rgb[2] * br);
-          out.si.push(bone);
+          O.col.push(rgb[0] * br, rgb[1] * br, rgb[2] * br);
+          O.si.push(bone);
+          O.tint.push(ch);
         }
-        if (b[0] + b[2] > b[1] + b[3]) out.idx.push(vi + 1, vi + 2, vi + 3, vi + 1, vi + 3, vi);
-        else out.idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+        if (b[0] + b[2] > b[1] + b[3]) O.idx.push(vi + 1, vi + 2, vi + 3, vi + 1, vi + 3, vi);
+        else O.idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
       }
   }
 }
@@ -925,28 +1310,9 @@ const OCCLUDERS = {
 };
 const AO_FROM = { torso: ['belly', 'head'], belly: ['torso'], head: ['hat'], pelvis: ['torso', 'belly'], hat: ['head'] };
 
-function mergeSkinned(parts) {
-  const byName = new Map(parts.filter((p) => p.name).map((p) => [p.name, p.model.vox]));
-  const out = { pos: [], nor: [], col: [], si: [], idx: [] };
-  const counts = {};
-  for (const p of parts) {
-    if (!p.model || !p.model.vox.size) continue;
-    const vox = p.model.vox;
-    const occ = (OCCLUDERS[p.name] || []).map(([n, m]) => [byName.get(n), m]).filter((o) => o[0] && o[0].size);
-    const hide = occ.length ? (x, y, z, n) => {
-      for (const [ov, m] of occ) {
-        let all = true;
-        for (let k = 0; k < m; k++) if (!ov.has(KEY(x + n[0] * k, y + n[1] * k, z + n[2] * k))) { all = false; break; }
-        if (all) return true;
-      }
-      return false;
-    } : null;
-    const aoFrom = (AO_FROM[p.name] || []).map((n) => byName.get(n)).filter(Boolean);
-    const aoSolid = aoFrom.length ? (k) => vox.has(k) || aoFrom.some((m) => m.has(k)) : null;
-    const t0 = out.idx.length;
-    meshPart(vox, out, p.bone, { hide, aoSolid });
-    counts[p.name || p.bone] = (out.idx.length - t0) / 3;
-  }
+const KOFF = (d) => d[0] + d[1] * 1024 + d[2] * 1048576; // key offset (fields never carry)
+
+function toGeometry(out) {
   const nv = out.pos.length / 3;
   const si = new Uint16Array(nv * 4), sw = new Float32Array(nv * 4);
   for (let i = 0; i < nv; i++) { si[i * 4] = out.si[i]; sw[i * 4] = 1; }
@@ -954,20 +1320,55 @@ function mergeSkinned(parts) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(out.pos, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(out.nor, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(out.col, 3));
+  geo.setAttribute('tint', new THREE.Float32BufferAttribute(out.tint, 1));
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
   geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
   geo.setIndex(nv > 65535 ? new THREE.Uint32BufferAttribute(out.idx, 1) : new THREE.Uint16BufferAttribute(out.idx, 1));
   geo.computeBoundingBox();
   geo.computeBoundingSphere();
+  return geo;
+}
+
+// parts: { name, bone, model, shift? (voxels, float) }; L (optional) adds glow + tint channels
+function mergeSkinned(parts, L = null) {
+  const byName = new Map(parts.filter((p) => p.name).map((p) => [p.name, p]));
+  const out = { pos: [], nor: [], col: [], si: [], idx: [], tint: [] };
+  const outG = { pos: [], nor: [], col: [], si: [], idx: [], tint: [] };
+  const counts = {};
+  const rs = (p) => (p.shift ? p.shift.map(Math.round) : [0, 0, 0]);
+  for (const p of parts) {
+    if (!p.model || !p.model.vox.size) continue;
+    const vox = p.model.vox;
+    const me = rs(p);
+    const rel = (o) => { const r = rs(o); return [me[0] - r[0], me[1] - r[1], me[2] - r[2]]; };
+    const occ = (OCCLUDERS[p.name] || []).map(([n, m]) => [byName.get(n), m]).filter((o) => o[0] && o[0].model.vox.size)
+      .map(([o, m]) => [o.model.vox, m, rel(o)]);
+    const hide = occ.length ? (x, y, z, n) => {
+      for (const [ov, m, d] of occ) {
+        let all = true;
+        for (let k = 0; k < m; k++) if (!ov.has(KEY(x + n[0] * k + d[0], y + n[1] * k + d[1], z + n[2] * k + d[2]))) { all = false; break; }
+        if (all) return true;
+      }
+      return false;
+    } : null;
+    const aoFrom = (AO_FROM[p.name] || []).map((n) => byName.get(n)).filter(Boolean).map((o) => [o.model.vox, KOFF(rel(o))]);
+    const aoSolid = aoFrom.length ? (k) => vox.has(k) || aoFrom.some(([m, ko]) => m.has(k + ko)) : null;
+    const t0 = out.idx.length + outG.idx.length;
+    meshPart(vox, out, p.bone, { hide, aoSolid, shift: p.shift, glow: L && L.glow.size ? L.glow : null, outG, chan: L ? L.chan : null });
+    counts[p.name || p.bone] = (out.idx.length + outG.idx.length - t0) / 3;
+  }
+  const geo = toGeometry(out);
   geo.userData.partTris = counts;
+  geo.userData.glow = outG.idx.length ? toGeometry(outG) : null;
   return geo;
 }
 
 // ------------------------------------------------------------------ geometry
 const geoCache = new Map();
 
-function faceGeometry() {
+function faceGeometry(L = null, bind = null) {
   // eyes on the head plate, upper lip on the muzzle, lower lip on the jaw
+  const dh = bind ? [bind[B.head].x - BIND[B.head].x, bind[B.head].y - BIND[B.head].y, bind[B.head].z - BIND[B.head].z] : [0, 0, 0];
   const quads = [
     { r: FACE_REGIONS.eyes, ...FACE_QUADS.eyes, bone: B.head },
     { r: FACE_REGIONS.upper, ...FACE_QUADS.upper, bone: B.head },
@@ -975,16 +1376,34 @@ function faceGeometry() {
   ];
   const pos = [], nor = [], uv = [], si = [], sw = [], idx = [];
   const eps = 0.07;
-  quads.forEach((q, i) => {
+  const quad = (corners, n, u0, u1, v0, v1, bone) => {
+    const b = pos.length / 3;
+    for (const c of corners) pos.push(c[0] * 0.1, c[1] * 0.1, c[2] * 0.1);
+    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); si.push(bone, 0, 0, 0); sw.push(1, 0, 0, 0); }
+    uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+  };
+  quads.forEach((q) => {
     const u0 = q.r.x / FACE_W, u1 = (q.r.x + q.r.w) / FACE_W;
     const v1 = 1 - q.r.y / FACE_H, v0 = 1 - (q.r.y + q.r.h) / FACE_H;
-    const z = (q.z + eps) * 0.1;
-    pos.push(q.x0 * 0.1, q.y0 * 0.1, z, q.x1 * 0.1, q.y0 * 0.1, z, q.x1 * 0.1, q.y1 * 0.1, z, q.x0 * 0.1, q.y1 * 0.1, z);
-    for (let k = 0; k < 4; k++) { nor.push(0, 0, 1); si.push(q.bone, 0, 0, 0); sw.push(1, 0, 0, 0); }
-    uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
-    const b = i * 4;
-    idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    const z = q.z + eps + dh[2];
+    const x0 = q.x0 + dh[0], x1 = q.x1 + dh[0], y0 = q.y0 + dh[1], y1 = q.y1 + dh[1];
+    quad([[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], [0, 0, 1], u0, u1, v0, v1, q.bone);
   });
+  if (L && L.band && bind) {
+    // armband text wraps around the back, outside and front of the left arm
+    const r = FACE_REGIONS.band, bd = L.band;
+    const da = [bind[B.armL].x - BIND[B.armL].x, bind[B.armL].y - BIND[B.armL].y, bind[B.armL].z - BIND[B.armL].z];
+    const X0 = bd.x0 + da[0] - eps, X1 = bd.x1 + da[0], Z0 = bd.z0 + da[2] - eps, Z1 = bd.z1 + da[2] + eps;
+    const Y0 = bd.y0 + da[1] + 0.12, Y1 = bd.y1 + da[1] - 0.12;
+    const wB = X1 - X0, wO = Z1 - Z0, wF = X1 - X0, tot = wB + wO + wF;
+    const U = (k) => (r.x + r.w * k) / FACE_W;
+    const v1 = 1 - r.y / FACE_H, v0 = 1 - (r.y + r.h) / FACE_H;
+    const k1 = wB / tot, k2 = (wB + wO) / tot;
+    quad([[X1, Y0, Z0], [X0, Y0, Z0], [X0, Y1, Z0], [X1, Y1, Z0]], [0, 0, -1], U(0), U(k1), v0, v1, B.armL);
+    quad([[X0, Y0, Z0], [X0, Y0, Z1], [X0, Y1, Z1], [X0, Y1, Z0]], [-1, 0, 0], U(k1), U(k2), v0, v1, B.armL);
+    quad([[X0, Y0, Z1], [X1, Y0, Z1], [X1, Y1, Z1], [X0, Y1, Z1]], [0, 0, 1], U(k2), U(1), v0, v1, B.armL);
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
@@ -1001,39 +1420,74 @@ function coinSpots() {
   return [BIND[B.coin0], BIND[B.coin1], BIND[B.coin2]];
 }
 
+// grizzled fur: sprinkle lighter guard-hair tips over the fur voxels
+function grizzle(model, L, seed) {
+  const g = L.d.grizzle;
+  if (!g || !model) return model;
+  const gc = mix(L.fur, g, 0.5);
+  model.paint((x, y, z, c) => (c === L.fur && hash3(x, y, z, seed) < 0.11 ? gc : c));
+  return model;
+}
+
 export function bearRigGeometry(typeId, def) {
   let g = geoCache.get(typeId);
   if (g) return g;
   const L = lookOf(def);
+  const shaped = !!def.shape;
+  const A = L.arm;
+  const pawDy = Math.round(A.cy - A.ry - 7.3);
+  if (pawDy) { L.off.item = [0, pawDy, 0]; L.off.wallet = [0, pawDy, 0]; }
   const body = buildBody(L);
+  const tieV = buildTie(L, body);
+  const abs = {};
+  if (shaped) {
+    abs.belly = new THREE.Vector3(L.BL.cx, L.BL.cy, L.BL.cz);
+    let zt = 4.9;
+    for (let z = 20; z >= -5; z--) if (body.torso.has(0, L.neckY, z) || body.belly.has(0, L.neckY, z)) { zt = z + 0.9; break; }
+    abs.tie = new THREE.Vector3(0, L.neckY - 0.2, zt);
+  }
+  const bind = bindOf(L, abs);
+  const sh = (b) => [bind[b].x - BIND[b].x, bind[b].y - BIND[b].y, bind[b].z - BIND[b].z];
   const hatInfo = buildHat(L);
   const item = def.item ? buildItem(L, def.item) : null;
+  const gz = (m, i) => grizzle(m, L, i);
   const parts = [
-    { name: 'pelvis', bone: B.hips, model: buildPelvis(L) },
-    { name: 'torso', bone: B.spine, model: body.torso },
-    { name: 'belly', bone: B.belly, model: body.belly },
-    { name: 'tie', bone: B.tie, model: buildTie(L, body) },
-    { name: 'head', bone: B.head, model: buildHead(L) },
-    { name: 'jaw', bone: B.jaw, model: buildJaw(L) },
-    { name: 'earL', bone: B.earL, model: buildEar(L, -1) },
-    { name: 'earR', bone: B.earR, model: buildEar(L, 1) },
-    { name: 'hat', bone: B.hat, model: hatInfo.hat },
-    { name: 'armL', bone: B.armL, model: buildArm(L, -1) },
-    { name: 'armR', bone: B.armR, model: buildArm(L, 1) },
-    { name: 'legL', bone: B.legL, model: buildLeg(L, -1) },
-    { name: 'legR', bone: B.legR, model: buildLeg(L, 1) },
-    { name: 'tail', bone: B.tail, model: buildTail(L) },
-    { name: 'wallet', bone: B.wallet, model: buildWallet(L) },
+    { name: 'pelvis', bone: B.hips, model: gz(buildPelvis(L), 1) },
+    { name: 'torso', bone: B.spine, model: gz(body.torso, 2) },
+    { name: 'belly', bone: B.belly, model: gz(body.belly, 3) },
+    { name: 'tie', bone: B.tie, model: tieV },
+    { name: 'head', bone: B.head, model: gz(buildHead(L), 4), shift: sh(B.head) },
+    { name: 'jaw', bone: B.jaw, model: buildJaw(L), shift: sh(B.jaw) },
+    { name: 'earL', bone: B.earL, model: gz(buildEar(L, -1), 5), shift: sh(B.earL) },
+    { name: 'earR', bone: B.earR, model: gz(buildEar(L, 1), 6), shift: sh(B.earR) },
+    { name: 'hat', bone: B.hat, model: hatInfo.hat, shift: sh(B.hat) },
+    { name: 'armL', bone: B.armL, model: gz(buildArm(L, -1), 7), shift: sh(B.armL) },
+    { name: 'armR', bone: B.armR, model: gz(buildArm(L, 1), 8), shift: sh(B.armR) },
+    { name: 'legL', bone: B.legL, model: gz(buildLeg(L, -1), 9), shift: sh(B.legL) },
+    { name: 'legR', bone: B.legR, model: gz(buildLeg(L, 1), 10), shift: sh(B.legR) },
+    { name: 'tail', bone: B.tail, model: gz(buildTail(L), 11), shift: sh(B.tail) },
+    { name: 'wallet', bone: B.wallet, model: buildWallet(L), shift: sh(B.wallet) },
   ];
-  if (def.hat === 'propeller') parts.push({ name: 'prop', bone: B.prop, model: buildProp() });
+  if (def.hat === 'propeller') parts.push({ name: 'prop', bone: B.prop, model: buildProp(), shift: sh(B.prop) });
   if (item) {
-    parts.push({ name: 'item', bone: B.item, model: item.v });
-    if (item.lid) parts.push({ name: 'lid', bone: B.lid, model: item.lid });
+    parts.push({ name: 'item', bone: B.item, model: item.v, shift: sh(B.item) });
+    if (item.lid) parts.push({ name: 'lid', bone: B.lid, model: item.lid, shift: sh(B.lid) });
   }
   coinSpots().forEach((c, i) => parts.push({ bone: B.coin0 + i, model: buildCoin(c) }));
-  [B.steam0, B.steam1, B.steam2].forEach((b) => parts.push({ bone: b, model: buildPuff(BIND[b]) }));
-  const geo = mergeSkinned(parts);
-  g = { geo, look: L, hatTop: hatInfo.top, itemMode: item ? item.mode : 'none', tris: geo.index.count / 3 };
+  [B.steam0, B.steam1, B.steam2].forEach((b) => parts.push({ bone: b, model: buildPuff(BIND[b]), shift: sh(b) }));
+  const geo = mergeSkinned(parts, L);
+  const glowGeo = geo.userData.glow;
+  // generous culling bounds (spins, raised arms, props) around the real extent
+  const bb = geo.boundingBox.clone();
+  bb.min.x -= 0.6; bb.max.x += 0.6; bb.min.z -= 0.6; bb.max.z += 0.8; bb.max.y += 1.0; bb.min.y -= 0.2;
+  const bs = bb.getBoundingSphere(new THREE.Sphere());
+  const shapedFace = shaped && (sh(B.head).some((v) => v !== 0) || L.band);
+  g = {
+    geo, glowGeo, look: L, bind, hatTop: hatInfo.top, itemMode: item ? item.mode : 'none',
+    tris: geo.index.count / 3 + (glowGeo ? glowGeo.index.count / 3 : 0),
+    faceGeo: shapedFace ? faceGeometry(L, bind) : null,
+    bounds: { box: bb, sphere: bs },
+  };
   geoCache.set(typeId, g);
   return g;
 }
@@ -1059,6 +1513,129 @@ function sharedMats() {
     };
   }
   return mats;
+}
+
+// Per-bear tint on top of the grain: fur tone (channel 1) and accessory hue (channel 2),
+// read from the 'tint' vertex attribute baked by the mesher.
+function addTint(mat) {
+  const prev = mat.onBeforeCompile;
+  const U = (mat.userData.tint = { uFur: { value: new THREE.Color(1, 1, 1) }, uHue: { value: 0 } });
+  mat.onBeforeCompile = (shader, r) => {
+    if (prev) prev(shader, r);
+    shader.uniforms.uFur = U.uFur;
+    shader.uniforms.uHue = U.uHue;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float tint;\nvarying float vTint;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTint = tint;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uFur;\nuniform float uHue;\nvarying float vTint;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+if (vTint > 0.5 && vTint < 1.5) diffuseColor.rgb *= uFur;
+else if (vTint > 1.5 && uHue != 0.0) {
+  const vec3 hk = vec3(0.57735);
+  float hc = cos(uHue), hs = sin(uHue);
+  vec3 col = diffuseColor.rgb;
+  diffuseColor.rgb = max(vec3(0.0), col * hc + cross(hk, col) * hs + hk * dot(hk, col) * (1.0 - hc));
+}`);
+  };
+  mat.customProgramCacheKey = () => 'grain-tint';
+  return mat;
+}
+
+// ------------------------------------------------------------------ aura
+// Spirit-bear aura: rising glowing wisps + two waving northern-lights curtains.
+// Lives in the rig's scaler (model units: 0.1 = 1 voxel).
+const _m4 = new THREE.Matrix4(), _qa = new THREE.Quaternion(), _sa = new THREE.Vector3(), _pa = new THREE.Vector3();
+class Aura {
+  constructor(L, seed = 1) {
+    this.group = new THREE.Group();
+    this.group.name = 'bearAura';
+    const cols = L.aurora;
+    const n = 30;
+    const r = mulberry32(seed * 7919 + 13);
+    const box = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    this.wmat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    this.wisps = new THREE.InstancedMesh(box, this.wmat, n);
+    this.wisps.frustumCulled = false;
+    this.p = [];
+    const c = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      this.p.push({ a: r() * Math.PI * 2, rad: 0.95 + r() * 0.55, y: r() * 3.8, sp: 0.35 + r() * 0.5, w: (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.7), s: 0.9 + r() * 0.9 });
+      this.wisps.setColorAt(i, c.setHex(cols[i % cols.length]));
+    }
+    this.group.add(this.wisps);
+    // northern-lights curtains made of separate vertical rays (one quad each)
+    this.seg = 16;
+    this.ribbons = [];
+    this.rmat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    for (let k = 0; k < 2; k++) {
+      const g = new THREE.BufferGeometry();
+      const nq = this.seg;
+      const pos = new Float32Array(nq * 4 * 3), col = new Float32Array(nq * 4 * 3), idx = [];
+      for (let i = 0; i < nq; i++) {
+        const u = i / (nq - 1);
+        const lo = c.setHex(cols[(i + k * 2) % 3]).convertSRGBToLinear();
+        const hi = new THREE.Color(k ? 0x5a2ad8 : 0x8a3ad8).convertSRGBToLinear().multiplyScalar(0.18);
+        for (const [j, cc] of [[0, lo], [1, lo], [2, hi], [3, hi]]) col.set([cc.r, cc.g, cc.b], (i * 4 + j) * 3);
+        const a = i * 4;
+        idx.push(a, a + 1, a + 2, a, a + 2, a + 3);
+        void u;
+      }
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.setIndex(idx);
+      const m = new THREE.Mesh(g, this.rmat);
+      m.frustumCulled = false;
+      m.renderOrder = 6;
+      this.group.add(m);
+      this.ribbons.push(m);
+    }
+    this.t = r() * 10;
+    this.update(0);
+  }
+
+  update(dt, energy = 1) {
+    this.t += dt;
+    const t = this.t;
+    for (let i = 0; i < this.p.length; i++) {
+      const q = this.p[i];
+      q.y += dt * q.sp * (0.6 + energy * 0.6);
+      q.a += dt * q.w;
+      if (q.y > 3.9) { q.y = 0; q.rad = 0.95 + ((i * 0.37 + t) % 0.55); }
+      const life = q.y / 3.9;
+      const sc = Math.sin(life * Math.PI) * q.s * (0.8 + 0.4 * energy);
+      const rr = q.rad * (1 - life * 0.35);
+      _pa.set(Math.cos(q.a) * rr, q.y + 0.1, Math.sin(q.a) * rr * 0.85 - 0.1);
+      _sa.setScalar(Math.max(1e-3, sc));
+      _m4.compose(_pa, _qa.identity(), _sa);
+      this.wisps.setMatrixAt(i, _m4);
+    }
+    this.wisps.instanceMatrix.needsUpdate = true;
+    this.ribbons.forEach((m, k) => {
+      const pos = m.geometry.attributes.position;
+      const nq = this.seg, span = 3.0 + k * 0.8, w = span / nq * 0.55;
+      for (let i = 0; i < nq; i++) {
+        const u = i / (nq - 1);
+        const x = (u - 0.5) * span;
+        const wav = Math.sin(t * (1.1 + k * 0.3) + u * 6 + k * 2);
+        const y0 = 1.55 + k * 0.3 + Math.sin(u * Math.PI) * 0.55 + wav * 0.12;
+        const z = -0.8 - k * 0.32 - Math.sin(u * Math.PI) * 0.4 + Math.cos(t * 0.8 + u * 5) * 0.12;
+        const h = (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2.1 + i * 1.7 + k))) * (0.75 + 0.45 * energy) * (0.6 + 0.4 * Math.sin(u * Math.PI));
+        const sl = 0.12 * wav; // rays lean with the wave
+        const a = i * 4;
+        pos.setXYZ(a, x - w, y0, z); pos.setXYZ(a + 1, x + w, y0, z);
+        pos.setXYZ(a + 2, x + w + sl, y0 + h, z - 0.2); pos.setXYZ(a + 3, x - w + sl, y0 + h, z - 0.2);
+      }
+      pos.needsUpdate = true;
+    });
+    this.rmat.opacity = 0.42 + 0.14 * Math.sin(t * 1.7) + 0.15 * (energy - 1);
+  }
+
+  dispose() {
+    this.group.parent?.remove(this.group);
+    this.wisps.geometry.dispose(); this.wmat.dispose(); this.rmat.dispose();
+    for (const m of this.ribbons) m.geometry.dispose();
+  }
 }
 
 // ------------------------------------------------------------------ pose frame
@@ -1096,7 +1673,7 @@ class Frame {
   look(x, y) { this.a[X_LOOKX] = x; this.a[X_LOOKY] = y; }
   // Point a limb (arm) at a target in bind-space voxels; stretch scales the arm.
   aim(b, tx, ty, tz, stretch = 1, len = ARM_LEN) {
-    const o = b * CH, a = this.a, bp = BIND[b];
+    const o = b * CH, a = this.a, bp = (this.bind || BIND)[b];
     let dx = tx - (bp.x + a[o + 3]), dy = ty - (bp.y + a[o + 4]), dz = tz - (bp.z + a[o + 5]);
     const l = Math.hypot(dx, dy, dz) || 1;
     dx /= l; dy /= l; dz /= l;
@@ -1196,8 +1773,8 @@ const POSES = {
         c.face = w > 0.6 ? 'smug' : c.face;
       } else if (fid.kind === 'pat') {
         const pat = Math.abs(Math.sin(c.time * 9));
-        F.aim(B.armL, -3.2, 11.5 + pat * 1.2, 8.3, 0.5);
-        F.aim(B.armR, 3.2, 11.5 + (1 - pat) * 1.2, 8.3, 0.5);
+        F.aim(B.armL, -3.2, 11.5 + pat * 1.2, 8.3 + c.bz, 0.5);
+        F.aim(B.armR, 3.2, 11.5 + (1 - pat) * 1.2, 8.3 + c.bz, 0.5);
         F.mulS(B.belly, 1 + 0.03 * pat, 1 - 0.02 * pat, 1 + 0.03 * pat);
         c.face = 'happy';
       } else if (fid.kind === 'stretch') {
@@ -1331,7 +1908,7 @@ const POSES = {
     F.ar(B.spine, 0.35 * reach - 0.06 * clutch, 0, 0);
     F.ar(B.head, 0.12 * reach - 0.06 * clutch, 0, 0);
     // reach forward & down, then clutch to the chest (where eat holds it)
-    const hx = 0, hy = lerp(11, 18.3, clutch), hz = lerp(14, 9.9, clutch);
+    const hx = 0, hy = lerp(11, 18.3 + c.hy, clutch), hz = lerp(14 + c.bz, 9.9 + c.bz + c.hz, clutch);
     F.hold(hx, hy, hz);
     F.ap(B.armL, 1.4 * clutch, 0.5 * clutch, 2.4 * clutch); F.ap(B.armR, -1.4 * clutch, 0.5 * clutch, 2.4 * clutch);
     const spread = lerp(4.2, 3.1, clutch);
@@ -1368,11 +1945,12 @@ const POSES = {
     c.rig._setChomps(n);
     const raise = smooth(0, 0.18, t);
     // hold the fish right under the mouth; it hops up into each bite
-    const hy = lerp(15.5, 18.3, raise) + nod * 0.5 + squash * 0.8;
-    F.hold(0, hy, 9.9 + squash * 0.3);
+    const hy = lerp(15.5, 18.3 + c.hy, raise) + nod * 0.5 + squash * 0.8;
+    const hz = 9.9 + squash * 0.3 + c.bz + c.hz;
+    F.hold(0, hy, hz);
     F.ap(B.armL, 1.5, 0.6, 2.6); F.ap(B.armR, -1.5, 0.6, 2.6);
-    F.aim(B.armL, -3.1, hy - 0.3, 9.4, 0.9);
-    F.aim(B.armR, 3.1, hy - 0.3, 9.4, 0.9);
+    F.aim(B.armL, -3.1, hy - 0.3, hz - 0.5, 0.9);
+    F.aim(B.armR, 3.1, hy - 0.3, hz - 0.5, 0.9);
     // head: lean back to open, then CHOMP down onto the fish
     F.ar(B.head, 0.1 - 0.22 * -nod * (nod < 0 ? 1 : 0) + 0.3 * Math.max(0, nod), 0, 0);
     if (nod < 0) F.ar(B.head, 0.22 * nod, 0, 0);
@@ -1405,8 +1983,8 @@ const POSES = {
     F.ar(B.head, -0.1, 0.1 * wig, 0.2 * Math.sin(t * w * 0.5 + 0.7));
     // rub the tummy in circles with both paws
     const a = t * w;
-    F.aim(B.armR, 2.2 + Math.cos(a) * 1.8, 12.2 + Math.sin(a) * 1.8, 8.6, 0.7);
-    F.aim(B.armL, -2.2 - Math.cos(a + 1.2) * 1.6, 12.2 + Math.sin(a + 1.2) * 1.6, 8.6, 0.7);
+    F.aim(B.armR, 2.2 + Math.cos(a) * 1.8, 12.2 + Math.sin(a) * 1.8, 8.6 + c.bz, 0.7);
+    F.aim(B.armL, -2.2 - Math.cos(a + 1.2) * 1.6, 12.2 + Math.sin(a + 1.2) * 1.6, 8.6 + c.bz, 0.7);
     F.mulS(B.belly, 1 + 0.035 * Math.sin(a * 2), 1 - 0.025 * Math.sin(a * 2), 1 + 0.04 * Math.sin(a * 2));
     F.r(B.tail, 0, 0, Math.sin(t * 30) * 0.6);
     F.r(B.earL, 0, 0, 0.12 * wig); F.r(B.earR, 0, 0, 0.12 * wig);
@@ -1648,8 +2226,8 @@ const POSES = {
     F.mulS(B.belly, 1.07 + 0.03 * br, 1.05 + 0.02 * br, 1.1 + 0.04 * br);
     const pat = Math.max(0, Math.sin(t * 5.5));
     const pat2 = Math.max(0, Math.sin(t * 5.5 + 2.2));
-    F.aim(B.armL, -3.8, 11 + pat * 1.4, 8.8, 0.6);
-    F.aim(B.armR, 3.8, 11 + pat2 * 1.4, 8.8, 0.6);
+    F.aim(B.armL, -3.8, 11 + pat * 1.4, 8.8 + c.bz, 0.6);
+    F.aim(B.armR, 3.8, 11 + pat2 * 1.4, 8.8 + c.bz, 0.6);
     F.ar(B.head, 0.04 + 0.03 * br, 0, 0.08 * Math.sin(t * 0.8));
     F.r(B.tail, 0, 0, 0);
     F.s(B.tail, 1, 0.6, 1);
@@ -1658,8 +2236,191 @@ const POSES = {
   },
 };
 
+
+// ------------------------------------------------------------------ boss poses
+// (usable by every bear, tuned for the big ones)
+function blendRest(F, c, w, which = 3) {
+  if (w >= 1) return;
+  for (const [b, i] of [[B.armL, 0], [B.armR, 1]]) {
+    if (!(which & (i + 1))) continue;
+    const oo = b * CH, o = c.restArms[i];
+    for (let k = 0; k < 9; k++) F.a[oo + k] = lerp(o[k], F.a[oo + k], w);
+  }
+}
+
+// rear back, chest out, arms flung wide, head forward, jaw HUGE (k = 0..1)
+function roarBody(F, c, k, t) {
+  if (k <= 0) return;
+  const tr = Math.sin(t * 47) * 0.022 * k, tr2 = Math.sin(t * 31 + 1) * 0.028 * k;
+  F.ar(B.spine, -0.4 * k + tr, tr2, 0);
+  F.ar(B.hips, -0.12 * k, 0, 0);
+  F.mulS(B.spine, 1 + 0.05 * k, 1 + 0.03 * k, 1 + 0.1 * k);
+  F.mulS(B.belly, 1 + 0.04 * k, 1, 1 + 0.07 * k);
+  F.ar(B.head, 0.12 * k + Math.sin(t * 23) * 0.05 * k, Math.sin(t * 6.5) * 0.14 * k, Math.sin(t * 17) * 0.05 * k);
+  F.ap(B.head, 0, 0.2 * k, 1.1 * k);
+  F.mulS(B.jaw, 1 + 0.18 * k, 1 + 0.25 * k, 1 + 0.22 * k);
+  F.mulS(B.head, 1 + 0.03 * k, 1 + 0.05 * k, 1);
+  const sh = Math.sin(t * 13) * 0.8 * k;
+  F.aim(B.armL, -15, 21.5 + sh, 6.5, 0.5);
+  F.aim(B.armR, 15, 21.5 - sh, 6.5, 0.5);
+  blendRest(F, c, k);
+  F.r(B.earL, 0.55 * k, 0, 0.35 * k); F.r(B.earR, 0.55 * k, 0, -0.35 * k);
+  F.ap(B.base, 0, 0.5 * k, -0.6 * k);
+  F.r(B.tail, 0.5 * k, 0, Math.sin(t * 30) * 0.3 * k);
+  F.jaw(1.3 * k);
+}
+
+Object.assign(POSES, {
+  roar(F, c) {
+    const t = c.t01 * POSE_DURATION.roar;
+    idleBreath(F, c, 0.5);
+    // anticipation: hunch in, head down, fists in
+    const a = smooth(0, 0.32, t) * (1 - smooth(0.34, 0.48, t));
+    F.ar(B.spine, 0.28 * a, 0, 0);
+    F.ar(B.head, 0.3 * a, 0, 0);
+    F.sq(B.base, 1 - 0.08 * a);
+    F.aim(B.armL, -4.5, 12, 8 + c.bz, 0.6); F.aim(B.armR, 4.5, 12, 8 + c.bz, 0.6);
+    blendRest(F, c, a);
+    const k = smooth(0.32, 0.46, t) * (1 - smooth(1.18, 1.5, t));
+    if (k > 0) roarBody(F, c, easeOutBack(Math.min(1, k)), c.time);
+    c.face = t < 0.38 ? 'angry' : t < 1.3 ? 'roar' : 'angry';
+    if (t >= 0.42) c.rig._event('roar');
+  },
+
+  slam(F, c) {
+    const t = c.t01 * POSE_DURATION.slam;
+    const up = smooth(0, 0.42, t), down = smooth(0.42, 0.52, t), rec = smooth(0.8, 1.15, t);
+    const hi = up * (1 - down), lo = down * (1 - rec);
+    // both paws overhead, then down into the dirt in front
+    const ux = 3.2, uy = 32.5, uz = -2.5, dx = 4.6, dy = 0.5, dz = 13 + c.bz;
+    F.aim(B.armL, -lerp(ux, dx, down), lerp(uy, dy, down), lerp(uz, dz, down), 0.9);
+    F.aim(B.armR, lerp(ux, dx, down), lerp(uy, dy, down), lerp(uz, dz, down), 0.9);
+    blendRest(F, c, up * (1 - rec));
+    const shake = t > 0.52 && t < 0.82 ? Math.sin(t * 95) * 0.035 * (1 - (t - 0.52) / 0.3) : 0;
+    F.ar(B.spine, -0.4 * hi + 0.95 * lo + shake, 0, shake);
+    F.ar(B.hips, -0.06 * hi + 0.32 * lo, 0, 0);
+    F.ar(B.head, -0.32 * hi - 0.45 * lo, 0, 0);
+    F.ap(B.base, 0, 1.6 * hi - 2.0 * lo, 1.4 * lo);
+    F.sq(B.base, 1 + 0.1 * hi - 0.12 * lo);
+    F.r(B.legL, 0.55 * lo, 0, -0.3 * lo); F.r(B.legR, 0.55 * lo, 0, 0.3 * lo);
+    F.ap(B.legL, 0, 0.4 * hi, 0); F.ap(B.legR, 0, 0.4 * hi, 0);
+    F.r(B.earL, 0.4 * lo, 0, 0.2 * lo); F.r(B.earR, 0.4 * lo, 0, -0.2 * lo);
+    F.jaw(0.2 * hi + 0.9 * lo);
+    c.face = t < 0.44 ? 'angry' : t < 0.85 ? 'furious' : 'angry';
+    if (t >= 0.5) c.rig._event('slam');
+  },
+
+  charge(F, c) {
+    const amp = Math.max(0.5, c.moveAmp);
+    const s = Math.sin(c.phase), co = Math.cos(c.phase);
+    const air = Math.abs(s);
+    gaitLegs(F, c, 1.15 * amp, 2.1 * amp);
+    // big forward lean, arms pumping low like a galloping bear
+    F.r(B.armL, 1.3 * amp * s - 0.75, 0, -0.34);
+    F.r(B.armR, -1.3 * amp * s - 0.75, 0, 0.34);
+    F.ap(B.armL, 0, 0.3 * air, 0.6); F.ap(B.armR, 0, 0.3 * air, 0.6);
+    const hop = air * 2.3 * amp * c.P.bounce;
+    F.ap(B.base, 0, hop - 0.6, 0.9 * Math.sin(2 * c.phase) * amp);
+    const contact = Math.pow(1 - air, 6);
+    F.sq(B.base, 1 + 0.06 * air * amp - 0.17 * contact * amp);
+    F.ar(B.hips, 0.22 * amp, 0.15 * s * amp, 0.05 * s * amp);
+    F.ar(B.spine, 0.5 * amp, -0.18 * s * amp, -0.05 * s * amp);
+    F.ar(B.head, -0.38 * amp + 0.08 * Math.cos(2 * c.phase - 0.9), 0.08 * s * amp, 0.06 * co * amp);
+    F.ap(B.head, 0, -0.3, 0.6);
+    F.r(B.earL, 0.45, 0, 0.25); F.r(B.earR, 0.45, 0, -0.25);
+    F.r(B.tail, 0.4, 0, 0.5 * s);
+    F.jaw(0.55 + 0.25 * air);
+    F.a[X_PROPSPIN] = 30;
+    c.face = 'furious';
+  },
+
+  stagger(F, c) {
+    const t = c.t01 * POSE_DURATION.stagger;
+    const hk = smooth(0, 0.05, t) * (1 - smooth(0.08, 0.55, t));
+    const wob = Math.exp(-3.6 * t) * Math.sin(t * 15);
+    F.ar(B.spine, -0.45 * hk + 0.06 * wob, 0.12 * wob, 0.16 * wob);
+    F.ar(B.hips, -0.1 * hk, 0, -0.06 * wob);
+    F.ar(B.head, -0.45 * hk, 0.3 * wob, -0.24 * wob);
+    F.ap(B.base, 0.6 * wob, 0, -2.2 * hk - 0.5 * (1 - smooth(0.4, 0.9, t)));
+    F.ar(B.base, 0, 0, 0.1 * wob);
+    const w = smooth(0, 0.06, t) * (1 - smooth(0.55, 0.9, t));
+    F.aim(B.armL, -12, 20 + 4 * Math.sin(t * 21), 4.5, 0.5);
+    F.aim(B.armR, 12, 18 - 4 * Math.sin(t * 21 + 1), 5.5, 0.5);
+    blendRest(F, c, w);
+    F.r(B.legL, 0.5 * hk - 0.15 * wob, 0, -0.1); F.r(B.legR, -0.35 * hk + 0.15 * wob, 0, 0.1);
+    F.sq(B.base, 1 - 0.1 * hk);
+    F.r(B.earL, -0.2, 0, 0.5 * wob); F.r(B.earR, -0.2, 0, 0.5 * wob);
+    F.look(2 * Math.sin(t * 9), 0);
+    c.face = t < 0.22 ? 'shocked' : 'dizzy';
+  },
+
+  calm(F, c) {
+    // satisfied: plop down, lean back, pat the full belly
+    const t = c.t;
+    const plop = smooth(0.15, 0.32, t) * (1 - smooth(0.32, 0.6, t));
+    F.ap(B.base, 0, -4.9, 0.8);
+    F.sq(B.base, 1 - 0.1 * plop);
+    F.r(B.legL, -1.45, 0.3, -0.24); F.r(B.legR, -1.45, -0.3, 0.24);
+    F.ap(B.legL, 0, 0.6, 0.5); F.ap(B.legR, 0, 0.6, 0.5);
+    const sighT = (t + c.P.phase) % 5.2, sigh = Math.sin(clamp(sighT / 1.6, 0, 1) * Math.PI);
+    const sway = Math.sin(t * 0.9);
+    F.ar(B.hips, -0.16, 0, 0);
+    F.ar(B.spine, -0.2 - 0.08 * sigh, 0, 0.05 * sway);
+    const br = Math.sin(t * 1.6);
+    F.mulS(B.belly, 1.1 + 0.03 * br + 0.06 * sigh, 1.06 + 0.02 * br, 1.12 + 0.04 * br + 0.07 * sigh);
+    const pL = Math.max(0, Math.sin(t * 4.4)), pR = Math.max(0, Math.sin(t * 4.4 + Math.PI));
+    const patting = 1 - sigh * 0.8;
+    F.aim(B.armL, -3.6, 11.4 + pL * 1.8 * patting, 9 + c.bz, 0.6);
+    F.aim(B.armR, 3.6, 11.4 + pR * 1.8 * patting, 9 + c.bz, 0.6);
+    F.ar(B.head, -0.06 - 0.18 * sigh, 0, 0.12 * Math.sin(t * 0.7));
+    F.r(B.tail, 0, 0, 0); F.s(B.tail, 1, 0.6, 1);
+    F.r(B.earL, 0, 0, 0.15 * sway); F.r(B.earR, 0, 0, 0.15 * sway);
+    if (pL > 0.95 || pR > 0.95) c.rig._event('pat', true);
+    c.face = 'content';
+  },
+
+  boss_intro(F, c) {
+    const t = c.t01 * POSE_DURATION.boss_intro;
+    idleBreath(F, c);
+    // A: hunched low...
+    const low = 1 - smooth(0.3, 0.62, t);
+    F.ar(B.spine, 0.5 * low, 0, 0);
+    F.ar(B.head, 0.45 * low, 0, 0);
+    F.ap(B.base, 0, -1.4 * low, 0);
+    F.sq(B.base, 1 - 0.08 * low + 0.1 * smooth(0.4, 0.55, t) * (1 - smooth(0.55, 0.75, t)));
+    // C: double-biceps flex with pumps
+    const w1 = smooth(0.5, 0.72, t) * (1 - smooth(1.25, 1.4, t));
+    const pump = Math.max(0, Math.sin((t - 0.72) * Math.PI * 2 * 2.2)) * w1;
+    // D: "most muscular" crunch
+    const w2 = smooth(1.3, 1.45, t) * (1 - smooth(1.68, 1.82, t));
+    const ax = lerp(13.5, 4.6, w2 / Math.max(1e-3, w1 + w2)), ay = lerp(24 + pump, 9.5, w2 / Math.max(1e-3, w1 + w2)), az = lerp(1, 9.5 + c.bz, w2 / Math.max(1e-3, w1 + w2));
+    F.aim(B.armL, -ax, ay, az, 0.5);
+    F.aim(B.armR, ax, ay, az, 0.5);
+    const wa = Math.max(w1, w2);
+    // E/F: stomp + roar
+    const k = smooth(1.92, 2.04, t) * (1 - smooth(2.38, 2.6, t));
+    blendRest(F, c, wa);
+    for (const b of [B.armL, B.armR]) F.mulS(b, 1 + 0.2 * pump + 0.08 * w2, 1 - 0.04 * pump, 1 + 0.2 * pump + 0.08 * w2);
+    F.mulS(B.spine, 1 + 0.05 * w1 + 0.1 * w2, 1, 1 + 0.07 * w1);
+    F.ar(B.spine, -0.12 * w1 + 0.28 * w2, 0, 0);
+    F.ar(B.head, -0.12 * w1 + 0.15 * w2, (t < 1.0 ? -0.35 : 0.35) * w1, 0);
+    const trem = w2 * Math.sin(t * 60) * 0.03;
+    F.ar(B.spine, trem, 0, trem);
+    const lift = smooth(1.72, 1.86, t) * (1 - smooth(1.86, 1.93, t));
+    F.r(B.legR, -1.0 * lift, 0, 0.1 * lift);
+    F.ap(B.legR, 0, 1.6 * lift, 0);
+    F.ap(B.base, 0, 0.5 * lift, 0);
+    F.ar(B.hips, 0, 0, -0.08 * lift);
+    if (t >= 1.92) c.rig._event('stomp');
+    roarBody(F, c, k > 0 ? easeOutBack(Math.min(1, k)) : 0, c.time);
+    if (t >= 2.0) c.rig._event('roar');
+    c.face = t < 0.6 ? 'smug' : t < 1.3 ? 'angry' : t < 1.94 ? 'furious' : t < 2.45 ? 'roar' : 'angry';
+  },
+});
+
 // ------------------------------------------------------------------ rig
 const _wp = new THREE.Vector3();
+const _aH = new THREE.Vector3(), _aB = new THREE.Vector3();
 
 export class BearRig {
   constructor(typeId, def) {
@@ -1677,11 +2438,12 @@ export class BearRig {
 
     // skeleton
     const bones = (this.bones = []);
+    const BB = (this.bind = G.bind || BIND);
     for (let i = 0; i < NB; i++) {
       const b = new THREE.Bone();
       b.name = BONE_DEFS[i][0];
       const p = PARENT[i];
-      const bp = BIND[i], pp = p >= 0 ? BIND[p] : _v1.set(0, 0, 0);
+      const bp = BB[i], pp = p >= 0 ? BB[p] : _v1.set(0, 0, 0);
       b.position.set((bp.x - pp.x) * 0.1, (bp.y - pp.y) * 0.1, (bp.z - pp.z) * 0.1);
       const nm = b.name;
       b.rotation.order = nm.startsWith('arm') || nm.startsWith('leg') ? 'XZY' : 'YXZ';
@@ -1702,20 +2464,50 @@ export class BearRig {
     this.skeleton = new THREE.Skeleton(bones);
     this.body.bind(this.skeleton);
     // generous culling bounds (spins, raised arms, props)
-    this.body.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1.8, 0.2), 3.1);
-    this.body.boundingBox = new THREE.Box3(new THREE.Vector3(-1.4, -0.2, -1.2), new THREE.Vector3(1.4, 4.1, 1.6));
+    if (def.shape) {
+      this.body.boundingSphere = G.bounds.sphere.clone();
+      this.body.boundingBox = G.bounds.box.clone();
+    } else {
+      this.body.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1.8, 0.2), 3.1);
+      this.body.boundingBox = new THREE.Box3(new THREE.Vector3(-1.4, -0.2, -1.2), new THREE.Vector3(1.4, 4.1, 1.6));
+    }
 
     // face
-    this.face = new BearFace({ fur: def.fur, furLight: def.furLight, cub: G.look.cub, glasses: def.glasses, shades: def.shades, monocle: def.monocle });
+    const boss = G.look.boss;
+    this.isBoss = boss;
+    this.face = new BearFace({
+      fur: def.fur, furLight: def.furLight, cub: G.look.cub, glasses: def.glasses, shades: def.shades, monocle: def.monocle,
+      boss, glow: boss ? def.glow ?? 0xff3030 : null, scar: def.scar, halfmoon: def.halfmoon, icy: def.icy, markings: def.markings,
+      band: def.armband ? 'SECURITY' : null, goldTooth: boss && !!def.cigar,
+    });
     this.faceMat = new THREE.MeshLambertMaterial({ map: this.face.texture, transparent: true, alphaTest: 0.5 });
+    if (this.face.glowTexture) { this.faceMat.emissiveMap = this.face.glowTexture; this.faceMat.emissive.setRGB(1, 1, 1); }
+    this._faceGlow = this.face.glowTexture ? 1 : 0;
     if (!sharedFaceGeo) sharedFaceGeo = faceGeometry();
-    this.faceMesh = new THREE.SkinnedMesh(sharedFaceGeo, this.faceMat);
+    this.faceMesh = new THREE.SkinnedMesh(G.faceGeo || sharedFaceGeo, this.faceMat);
     this.faceMesh.name = 'bearFace';
     this.faceMesh.bind(this.skeleton, this.body.bindMatrix);
     this.faceMesh.boundingSphere = this.body.boundingSphere;
     this.faceMesh.boundingBox = this.body.boundingBox;
     this.faceMesh.castShadow = false;
     this.scaler.add(this.body, this.faceMesh);
+    // emissive voxels (spirit markings, aurora tie, cigar ember)
+    this.glowMesh = null;
+    if (G.glowGeo) {
+      this.glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+      this.glowMesh = new THREE.SkinnedMesh(G.glowGeo, this.glowMat);
+      this.glowMesh.name = 'bearGlow';
+      this.glowMesh.bind(this.skeleton, this.body.bindMatrix);
+      this.glowMesh.boundingSphere = this.body.boundingSphere;
+      this.glowMesh.boundingBox = this.body.boundingBox;
+      this.glowMesh.castShadow = true;
+      this.scaler.add(this.glowMesh);
+    }
+    this.aura = null;
+    if (def.aurora) {
+      this.aura = new Aura(G.look, (typeId.length * 31) | 0);
+      this.scaler.add(this.aura.group);
+    }
 
     // anchors (children of bones); scale undoes VS so props are in world units x bear scale
     const anchor = (bone, x, y, z) => {
@@ -1733,6 +2525,7 @@ export class BearRig {
     this.topAnchor = anchor(B.hat, 0, G.hatTop + 1.2, 0.3);
 
     this.meshes = [this.body];
+    if (this.glowMesh) this.meshes.push(this.glowMesh);
     this._shadows = true;
     this.matState = 'normal';
     this.ownMat = null;
@@ -1756,9 +2549,12 @@ export class BearRig {
     this.Ffrom = new Frame();
     this.Fout = new Frame();
     this.Frest = new Frame();
+    for (const f of [this.F, this.Ffrom, this.Fout, this.Frest]) f.bind = this.bind;
     this._lastT01 = 0;
     this._eventsFired = new Set();
-    this.ctx = { rig: this, t: 0, t01: 0, speed: 0, moveAmp: 0, phase: 0, swimT: 0, inWater: false, time: 0, params: {}, P: this.P, face: 'neutral', restArms: [new Float32Array(9), new Float32Array(9)] };
+    this.ctx = { rig: this, t: 0, t01: 0, speed: 0, moveAmp: 0, phase: 0, swimT: 0, inWater: false, time: 0, params: {}, P: this.P, face: 'neutral', restArms: [new Float32Array(9), new Float32Array(9)],
+      // shape offsets (voxels) so hold / pat targets follow fat bellies and raised heads
+      bz: Math.max(0, G.look.bz), hy: this.bind[B.head].y - BIND[B.head].y, hz: Math.max(0, this.bind[B.head].z - BIND[B.head].z) * 0.6 };
     this.Frest.reset();
     for (let k = 0; k < 9; k++) { this.ctx.restArms[0][k] = this.Frest.a[B.armL * CH + k]; this.ctx.restArms[1][k] = this.Frest.a[B.armR * CH + k]; }
     this._look = { x: 0, y: 0, tx: 0, ty: 0, t: 1 + Math.random() * 2 };
@@ -1775,6 +2571,8 @@ export class BearRig {
       squash: new Spring(260, 13),
       itemX: new Spring(0, 2.2), itemZ: new Spring(0, 2.2),
     };
+    for (const k in this.sp) { this.sp[k].k0 = this.sp[k].k; this.sp[k].c0 = this.sp[k].c; }
+    this._springF = 1;
     this._acc = {
       head: { p: new THREE.Vector3(), v: new THREE.Vector3(), a: new THREE.Vector3(), ok: false },
       belly: { p: new THREE.Vector3(), v: new THREE.Vector3(), a: new THREE.Vector3(), ok: false },
@@ -1806,18 +2604,25 @@ export class BearRig {
     const m = sharedMats();
     this.body.material = kind === 'normal' ? this.ownMat || m.normal : m[kind] || m.normal;
     const fc = this.faceMat.color, fe = this.faceMat.emissive;
-    if (kind === 'angry') { fc.setRGB(1.4, 0.7, 0.65); fe.setRGB(0, 0, 0); } else if (kind === 'flash') { fc.setRGB(2.2, 2.2, 2.2); fe.setRGB(0.25, 0.25, 0.25); } else { fc.setRGB(1, 1, 1); fe.setRGB(0, 0, 0); }
+    const g = this._faceGlow;
+    if (kind === 'angry') { fc.setRGB(1.4, 0.7, 0.65); fe.setRGB(g, g, g); } else if (kind === 'flash') { fc.setRGB(2.2, 2.2, 2.2); fe.setScalar(Math.max(g, 0.25)); } else { fc.setRGB(1, 1, 1); fe.setRGB(g, g, g); }
   }
 
   // slight per-bear tint / size / personality so a wave isn't a clone army
   personalize(seed) {
     const r = mulberry32(Math.floor(Math.abs(seed) * 9973 + 0.5) ^ 0x5bd1e995);
-    const k = 0.92 + r() * 0.16;
-    const warm = (r() - 0.5) * 0.09;
-    if (!this.ownMat) this.ownMat = addGrain(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    const boss = this.isBoss;
+    const k = 0.95 + r() * 0.1;
+    const warm = (r() - 0.5) * 0.06;
+    if (!this.ownMat) this.ownMat = addTint(addGrain(new THREE.MeshLambertMaterial({ vertexColors: true })));
     this.ownMat.color.setRGB(k * (1 + warm), k, k * (1 - warm));
+    // fur tone (lighter / darker, warmer / cooler) and a new accessory colour (hue spin)
+    const tone = boss ? 0.97 + r() * 0.06 : 0.86 + r() * 0.24, fw = (r() - 0.5) * (boss ? 0.04 : 0.16);
+    this.ownMat.userData.tint.uFur.value.setRGB(tone * (1 + fw), tone * (1 + fw * 0.2), tone * (1 - fw * 1.2));
+    const hr = r();
+    this.ownMat.userData.tint.uHue.value = boss || hr < 0.25 ? 0 : (hr - 0.25) / 0.75 * Math.PI * 2;
     const P = this.P;
-    P.size = 0.955 + r() * 0.09;
+    P.size = boss ? 0.97 + r() * 0.06 : 0.92 + r() * 0.16;
     P.chub = 0.93 + r() * 0.17;
     P.bounce = 0.8 + r() * 0.4;
     P.flip = ['flip', 'flip', 'twirl', 'tuck'][Math.floor(r() * 4)];
@@ -1899,6 +2704,9 @@ export class BearRig {
     this.root.parent?.remove(this.root);
     this.faceMat.dispose();
     this.face.texture.dispose();
+    this.face.glowTexture?.dispose();
+    this.glowMat?.dispose();
+    this.aura?.dispose();
     this.ownMat?.dispose();
     this.skeleton.dispose();
   }
@@ -1911,7 +2719,8 @@ export class BearRig {
     const c = this.ctx;
     const oneShot = ONE_SHOT.has(name);
     let restart = false;
-    if (name !== this.cur) {
+    const switched = name !== this.cur;
+    if (switched) {
       const prev = this.cur;
       this.Ffrom.copy(this.Fout);
       this.fadeT = 0;
@@ -1922,6 +2731,7 @@ export class BearRig {
       if (this.faceHold === -1) { this.faceOverride = null; this.faceHold = 0; }
       if (prev === 'cannonball') this._land();
       if (name === 'lunge' || name === 'grab') this.sp.squash.kick(1.2);
+      if (name === 'stagger') this._hit();
     } else this.t += dt;
     let t01 = params.t01;
     if (oneShot) {
@@ -1932,24 +2742,28 @@ export class BearRig {
     if (restart) {
       this._eventsFired.clear();
       if (name === 'eat') this.chomps = 0;
+      if (name === 'stagger' && !switched) this._hit();
     }
     this.time += dt;
     // gait phase follows distance travelled
     const speed = params.speed ?? 0;
     const sc = this.def.scale * this.P.size;
-    const stride = (name === 'run' ? 2.3 : name === 'sad' ? 1.3 : 1.35) * sc;
+    const fast = name === 'run' || name === 'charge';
+    const stride = (name === 'run' ? 2.3 : name === 'charge' ? 2.6 : name === 'sad' ? 1.3 : 1.35) * sc;
     let cad = speed / stride;
     if (name === 'run') cad = clamp(cad, 1.25, 2.3);
+    else if (name === 'charge') cad = clamp(cad, 1.1, 2.2);
     else if (speed > 0.02) cad = clamp(cad, 0.55, 1.75);
     const moveAmp = clamp(speed / (0.9 * sc), 0, 1);
-    c.moveAmp = name === 'run' ? Math.max(0.5, moveAmp) : moveAmp;
+    c.moveAmp = fast ? Math.max(0.5, moveAmp) : moveAmp;
     const prevPhase = this.phase;
-    if (name === 'run' || c.moveAmp > 0.02) this.phase += dt * cad * Math.PI * 2;
+    if (fast || c.moveAmp > 0.02) this.phase += dt * cad * Math.PI * 2;
     this.swimT += dt * (4.2 + Math.min(1, speed / 2) * 3.2);
     // footfall events
-    if (Math.floor(prevPhase / Math.PI) !== Math.floor(this.phase / Math.PI) && (name === 'walk' || name === 'run' || name === 'angry_stomp' || name === 'sad' || name === 'search')) {
-      this._event(name === 'angry_stomp' ? 'stomp' : 'step', true);
+    if (Math.floor(prevPhase / Math.PI) !== Math.floor(this.phase / Math.PI) && (name === 'walk' || fast || name === 'angry_stomp' || name === 'sad' || name === 'search')) {
+      this._event(name === 'angry_stomp' || name === 'charge' ? 'stomp' : 'step', true);
       if (name === 'run') this.sp.squash.kick(-0.5 * this.P.bounce);
+      if (name === 'charge') { this.sp.squash.kick(-0.9); this.sp.bellyS.kick(-2.5); }
       if (name === 'angry_stomp') this.sp.squash.kick(-1.2);
     }
     if (name === 'angry_stomp' && c.moveAmp <= 0.1) {
@@ -1983,6 +2797,8 @@ export class BearRig {
     out = this.Fout;
 
     this._applyFrame(out, dt, name);
+    if (this.aura) this.aura.update(dt, name === 'roar' || name === 'boss_intro' || name === 'slam' || name === 'charge' ? 1.6 : name === 'calm' ? 0.7 : 1);
+    if (this.glowMat) this.glowMat.color.setScalar(0.92 + 0.12 * Math.sin(this.time * 2.6 + this.P.phase));
     // face timers are part of the pose tick unless update() already ran this frame
     if (this._tickedByUpdate) this._tickedByUpdate = false;
     else { this._tickFace(dt); this._tickedByPose = true; }
@@ -1997,7 +2813,9 @@ export class BearRig {
     }
     this.events.push(name);
     if (name === 'release' && this.held) this.held.visible = false;
-    if (name === 'slam') { this.sp.squash.kick(-2.2); this.sp.hatY.kick(9); }
+    if (name === 'slam') { this.sp.squash.kick(-2.2); this.sp.hatY.kick(9); this.sp.bellyS.kick(-5); this.sp.earLz.kick(5); this.sp.earRz.kick(-5); }
+    if (name === 'roar') { this.sp.hatY.kick(11); this.sp.hatX.kick(-4); this.sp.bellyS.kick(3); this.sp.earLx.kick(5); this.sp.earRx.kick(5); this.sp.tieX.kick(-6); }
+    if (name === 'stomp' && (this.cur === 'boss_intro')) { this.sp.squash.kick(-2.6); this.sp.hatY.kick(8); this.sp.bellyS.kick(-5); }
     if (this.onEvent) this.onEvent(name, this);
   }
 
@@ -2013,6 +2831,15 @@ export class BearRig {
     }
   }
 
+  // a hit reaction impulse (stagger)
+  _hit() {
+    this._lastHitT = this.time;
+    this.sp.squash.kick(2.2);
+    this.sp.hatY.kick(13); this.sp.hatX.kick(6);
+    this.sp.earLz.kick(-7); this.sp.earRz.kick(7);
+    this.sp.bellyS.kick(5); this.sp.tieX.kick(-7);
+  }
+
   _land() {
     this.sp.squash.kick(-5.2);
     this.sp.hatY.kick(16);
@@ -2022,9 +2849,14 @@ export class BearRig {
   }
 
   _applyScale() {
-    const s = VS * this.def.scale * this.P.size;
+    const sc = this.def.scale * this.P.size;
+    const s = VS * sc;
     this.scaler.scale.set(s, s, s);
     this.restScale[B.belly] = this.look.belly * this.P.chub;
+    // big bears wobble slower (and keep the same wobble size): k ~ 1/size, damping ratio kept
+    const f = Math.pow(Math.max(1, sc), 0.9);
+    this._springF = f;
+    for (const k in this.sp) { const S = this.sp[k]; S.k = S.k0 / f; S.c = S.c0 / Math.sqrt(f); }
   }
 
   _updateLook(dt, name) {
@@ -2115,8 +2947,9 @@ export class BearRig {
     const inv = 1 / Math.max(0.3, this.def.scale * this.P.size);
     const sub = dt > 0 ? Math.max(1, Math.ceil(dt / (1 / 120))) : 0;
     const h = sub ? dt / sub : 0;
-    const aH = this._measure('head', bones[B.head], dt, rq, inv);
-    const aB = this._measure('belly', bones[B.belly], dt, rq, inv);
+    const kf = 1 / this._springF;
+    const aH = _aH.copy(this._measure('head', bones[B.head], dt, rq, inv)).multiplyScalar(kf);
+    const aB = _aB.copy(this._measure('belly', bones[B.belly], dt, rq, inv)).multiplyScalar(kf);
     const aI = this._measure('hand', bones[B.item], dt, rq, inv);
     const S = this.sp;
     for (let i = 0; i < sub; i++) {
@@ -2172,7 +3005,7 @@ export class BearRig {
     arm.getWorldQuaternion(_q2);
     _q1.copy(this.root.quaternion).invert().multiply(_q2); // arm orientation in bear space
     const g = 9.8;
-    const Lp = mode === 'hang' ? 0.32 : 0.5;
+    const Lp = (mode === 'hang' ? 0.32 : 0.5) * this._springF;
     const X = this.sp.itemX, Z = this.sp.itemZ;
     for (let i = 0; i < sub; i++) {
       if (mode === 'hang') {
@@ -2184,7 +3017,7 @@ export class BearRig {
       } else {
         // stay upright with a little lag
         X.step(h, -acc.z * 0.05); Z.step(h, acc.x * 0.05);
-        X.k = 60; X.c = 9; Z.k = 60; Z.c = 9;
+        X.k = 60 / this._springF; X.c = 9 / Math.sqrt(this._springF); Z.k = X.k; Z.c = X.c;
       }
     }
     X.x = clamp(X.x, -1.3, 1.3); Z.x = clamp(Z.x, -1.0, 1.0);

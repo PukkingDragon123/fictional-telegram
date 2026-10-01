@@ -110,6 +110,59 @@ export class LabMode {
     this.setBeams(false);
   }
 
+  // ------------------------------------------------------------ tutorial
+  // New game: we open straight inside the fox's room. Black screen, iris opens
+  // on Reynard typing at his computer, the camera dollies out to the room.
+  enterTutorial() {
+    const game = this.game;
+    this.build();
+    this.active = true;
+    this.tutorial = true;
+    this.state = 'tut';
+    this.t = 0;
+    game.inputLocked = false;
+    game.state.paused = true;
+    this.saved = { x: game.rig.goal.x, z: game.rig.goal.z, wupp: game.rig.wuppGoal, yaw: game.rig.yawGoal };
+    game.overrideScene = this.scene;
+    game.overrideRig = this.rig;
+    this.lab.setNight?.(false);
+    this.standing = false;
+    this.setBeams(true);
+    // start tight on the fox at the desk, then pull back
+    const seat = this.lab.anchors.foxSeat.position;
+    this.frame({ target: new THREE.Vector3(seat.x, 0.9, seat.z), fit: { w: 2.2, h: 1.3 }, yaw: (this.lab.anchors.camOverview.yaw || 0) + 0.5, pitch: THREE.MathUtils.degToRad(30) }, true);
+    this.fox?.play('sit_type', { loop: true, fade: 0 });
+    this.fox?.setExpression?.('scheming');
+    this.irisT = 0;
+    this.game.renderer.setIris(window.innerWidth / 2, window.innerHeight / 2, 1);
+    game.audio.setMusic('lab');
+    game.audio.play('iris', { volume: 0.5 });
+    this.buildUI();
+    this.q('hint')?.classList.add('hidden');
+    this.q('top')?.classList.add('hidden');
+    setTimeout(() => this.frame(this.lab.anchors.camOverview), 900);
+  }
+
+  // Reynard spins round, hops off the chair and faces the camera
+  tutorialStand() {
+    return new Promise((res) => {
+      this.game.audio.play('fox_startle', { volume: 0.5 });
+      this.fox?.play('wake_startle', { loop: false });
+      setTimeout(() => { this.standing = true; this.fox?.play('idle', { loop: true, fade: 0.25 }); this.frameFox(); res(); }, 1300);
+    });
+  }
+
+  // "Follow me!": he strolls out through the open front of the diorama, the
+  // iris closes on him and we cut to the hut door outside
+  walkOut() {
+    return new Promise((res) => {
+      this.walking = { t: 0, res };
+      this.standing = false;
+      this.fox?.play('walk', { loop: true, fade: 0.2 });
+      this.game.audio.play('footsteps', { volume: 0.4 });
+    });
+  }
+
   // ------------------------------------------------------------ flow
   enter() {
     const game = this.game;
@@ -158,11 +211,11 @@ export class LabMode {
     this.closeTree();
   }
 
-  finishExit() {
+  finishExit(fromTutorial = false) {
     const game = this.game;
     game.overrideScene = null;
     game.overrideRig = null;
-    game.renderer.setIris(0, 0, -1);
+    if (!fromTutorial) game.renderer.setIris(0, 0, -1);
     const s = this.saved;
     game.rig.freeBounds = false;
     game.rig.goal.set(s.x, 0, s.z);
@@ -185,17 +238,19 @@ export class LabMode {
     const el = document.createElement('div');
     el.className = 'labui';
     el.innerHTML = `
-      <div class="lab-top"><div class="lab-title f-ribbon_green">REYNARD'S SECRET LAB</div><button class="btn red small" data-a="exit">Leave</button></div>
-      <div class="lab-hint" data-h="hint">Click Reynard to wake him up</div>
-      <div class="lab-say f-parchment hidden" data-h="say"><b>Reynard</b><p></p></div>
+      <div class="lab-top" data-h="top"><span data-h="back"></span></div>
+      <div class="lab-hint" data-h="hint">${this.game.ui?.icon?.('pointer', 2) || '👆'}</div>
       <div class="lab-opts hidden" data-h="opts">
-        <button class="btn big" data-a="research">Research</button>
-        <button class="btn" data-a="chat">Chat</button>
-        <button class="btn red" data-a="exit">Leave</button>
+        <button class="lab-ico" data-a="research" title="Research">${this.game.ui?.icon?.('lab', 3) || 'R'}</button>
+        <button class="lab-ico" data-a="chat" title="Chat">${this.game.ui?.icon?.('chat', 3) || '...'}</button>
       </div>
       <div class="lab-tree hidden" data-h="tree"></div>`;
     root.appendChild(el);
     this.ui = el;
+    // pixel arrow back (no text)
+    const back = this.game.ui?.arrowButton?.('left') || Object.assign(document.createElement('button'), { textContent: '◀', className: 'btn small' });
+    back.dataset.a = 'exit';
+    this.q('back')?.replaceWith(back);
     document.body.classList.add('lab-mode');
     el.addEventListener('click', (e) => {
       const a = e.target.closest('[data-a]')?.dataset.a;
@@ -209,20 +264,18 @@ export class LabMode {
 
   q(h) { return this.ui?.querySelector(`[data-h="${h}"]`); }
 
-  say(text, expr = null) {
-    const box = this.q('say');
-    if (!box) return;
-    box.classList.remove('hidden');
-    const p = box.querySelector('p');
-    p.textContent = '';
-    this.sayText = text;
-    this.sayShown = 0;
-    this.sayT = 0;
+  // B&W comic bubble above Reynard's head
+  foxAnchor() {
+    return { getWorldPos: (v) => { if (this.fox?.headTop) { this.fox.headTop(v); v.y += 0.25; } else v.set(0, 1.6, 0); return v; } };
+  }
+
+  say(text, expr = null, opts = {}) {
+    const h = this.game.say(this.foxAnchor(), text, { voice: 'fox', key: 'labfox', size: 'm', ...opts });
     if (this.fox) {
       this.fox.talk?.(text);
       if (expr) this.fox.setExpression(expr, { hold: 2.5 });
     }
-    this.game.audio.babble?.('fox', text, { volume: 0.35 });
+    return h;
   }
 
   chat() {
@@ -319,6 +372,32 @@ export class LabMode {
       r.setIris(window.innerWidth / 2, window.innerHeight / 2, R * (1 - k) * (1 - k) + 1);
       if (k >= 1) this.finishExit();
     }
+    if (this.state === 'tut') {
+      this.irisT = Math.min(1, (this.irisT || 0) + dt / 1.4);
+      const R = Math.hypot(window.innerWidth, window.innerHeight);
+      const k = this.irisT;
+      if (k < 1) r.setIris(window.innerWidth / 2, window.innerHeight / 2, R * k * k * k);
+      else if (!this.irisDone) { this.irisDone = true; r.setIris(0, 0, -1); }
+    }
+    if (this.walking && this.fox) {
+      const w = this.walking;
+      w.t += dt;
+      const fr = this.fox.root;
+      fr.position.z += dt * 1.1;
+      fr.rotation.y += (0 - fr.rotation.y) * Math.min(1, dt * 6);
+      const R = Math.hypot(window.innerWidth, window.innerHeight);
+      if (w.t > 1.6) {
+        const k = Math.min(1, (w.t - 1.6) / 0.8);
+        const sp = this.rig.worldToScreen ? this.rig.worldToScreen(fr.position.clone().setY(0.8), r) : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        r.setIris(sp.x, sp.y, R * (1 - k) * (1 - k) + 1);
+        if (k >= 1) {
+          this.walking = null;
+          this.tutorial = false;
+          this.finishExit(true);
+          w.res();
+        }
+      }
+    }
     if (this.state === 'doze') {
       this.snoreT -= dt;
       if (this.snoreT <= 0) { this.snoreT = 2.4 + Math.random(); game.audio.play('fox_snore', { volume: 0.2 }); }
@@ -329,13 +408,6 @@ export class LabMode {
       this.frameFox();
       this.say(pick(LINES.wake) + ' ' + pick(LINES.greet), 'embarrassed');
       this.q('opts')?.classList.remove('hidden');
-    }
-    // typewriter text
-    const box = this.q('say');
-    if (box && this.sayText && this.sayShown < this.sayText.length) {
-      this.sayT += dt * 45;
-      const n = Math.min(this.sayText.length, Math.floor(this.sayT));
-      if (n !== this.sayShown) { this.sayShown = n; box.querySelector('p').textContent = this.sayText.slice(0, n); }
     }
     this.lab?.update(dt, this.time);
     if (this.lab?.drawIdleScreen && !this.tree) this.lab.drawIdleScreen(this.time);

@@ -5,40 +5,40 @@
 export const STRUCTURES = {
   // ------------------------------------------------------------ nature
   seaweed: {
-    name: 'Seaweed', icon: 'seaweed', cost: 15, place: 'water', category: 'nature',
+    sprite: ['seaweed_0', 'seaweed_1', 'seaweed_2'], underwater: true, name: 'Seaweed', icon: 'seaweed', cost: 15, place: 'water', category: 'nature',
     desc: 'Fish graze on it between meals. Janitor bears want seaweed salad.',
     food: { kind: 'seaweed', max: 6, regen: 0.1 }, hp: 2, smashable: true,
   },
   duckweed: {
-    name: 'Duckweed', icon: 'duckweed', cost: 10, place: 'water', category: 'nature', unlock: 'r_duckweed',
+    sprite: ['duckweed'], flat: true, name: 'Duckweed', icon: 'duckweed', cost: 10, place: 'water', category: 'nature', unlock: 'r_duckweed',
     desc: 'A floating carpet of tiny leaves. Fry love to nibble it and hide underneath.',
     food: { kind: 'seaweed', max: 3, regen: 0.14 }, shelterFry: true, hp: 1, smashable: true, beauty: 0.5,
   },
   cattail: {
-    name: 'Cattails', icon: 'cattail', cost: 20, place: 'shore', category: 'nature',
+    sprite: ['cattailpatch', 'cattail_0'], name: 'Cattails', icon: 'cattail', cost: 20, place: 'shore', category: 'nature',
     desc: 'Attracts dragonflies. Fish leap out of the water to snack on them (breeding boost!).',
     bugs: { max: 2, every: 11 }, hp: 2, smashable: true, beauty: 0.5,
   },
   reeds: {
-    name: 'River Reeds', icon: 'reeds', cost: 18, place: 'shore', category: 'nature', unlock: 'r_duckweed',
+    sprite: ['reeds_0', 'reeds_1'], name: 'River Reeds', icon: 'reeds', cost: 18, place: 'shore', category: 'nature', unlock: 'r_duckweed',
     desc: 'Tall rustling reeds. Songbirds perch on them and damselflies hatch here.',
     bugs: { max: 1, every: 9 }, birds: 1, hp: 2, smashable: true, beauty: 1,
   },
   lilypad: {
-    name: 'Lily Pads', icon: 'lilypad', cost: 30, place: 'water', category: 'nature', unlock: 'r_lilypad',
+    sprite: ['lilypad_0', 'lilypad_1'], flat: true, name: 'Lily Pads', icon: 'lilypad', cost: 30, place: 'water', category: 'nature', unlock: 'r_lilypad',
     desc: 'Attracts bugs and frogs, and gives fish a shady hiding spot bears can\'t see into.',
     bugs: { max: 2, every: 14 }, shelter: true, hp: 1, smashable: true, beauty: 1.5,
   },
   flowers: {
-    name: 'Wildflowers', icon: 'flower', cost: 15, place: 'landOrPlatform', category: 'nature', unlock: 'r_flowers',
+    sprite: ['flowerbed_0', 'flowerbed_1', 'flowerbed_2', 'flowerbed_3'], variants: true, name: 'Wildflowers', icon: 'flower', cost: 15, place: 'landOrPlatform', category: 'nature', unlock: 'r_flowers',
     desc: 'Fireweed & lupines. Each bed boosts beehives within 3 tiles by +40%.', hp: 1, smashable: true, beauty: 2,
   },
   fern: {
-    name: 'Fern Patch', icon: 'fern', cost: 12, place: 'landOrPlatform', category: 'nature', unlock: 'r_flowers',
+    sprite: ['fern_0', 'fern_1'], variants: true, name: 'Fern Patch', icon: 'fern', cost: 12, place: 'landOrPlatform', category: 'nature', unlock: 'r_flowers',
     desc: 'Lush ostrich ferns. Cheap, cheerful, and very forest-y.', hp: 1, smashable: true, beauty: 1,
   },
   willow: {
-    name: 'Weeping Willow', icon: 'willow', cost: 90, place: 'land', category: 'nature', unlock: 'r_willow',
+    sprite: ['greatwillow'], spriteScale: 0.38, name: 'Weeping Willow', icon: 'willow', cost: 90, place: 'land', category: 'nature', unlock: 'r_willow',
     desc: 'A graceful willow. Bees only nest near willows: required for beehives.', hp: 99, smashable: false, blocksBear: true, beauty: 4,
   },
   bughotel: {
@@ -48,29 +48,117 @@ export const STRUCTURES = {
   },
   // ------------------------------------------------------------ bear snacks
   berries: {
-    name: 'Blueberry Bush', icon: 'berry', cost: 30, place: 'landOrPlatform', category: 'food',
+    sprite: ['blueberry', 'blueberry_picked'], name: 'Blueberry Bush', icon: 'berry', cost: 30, place: 'landOrPlatform', category: 'food',
     desc: 'Wild blueberries. Every bear loves a side of berries, and each serving fills them up a little. Grow them on a platform so rampagers can\'t trample them.',
     food: { kind: 'berries', max: 6, regen: 1 / 14, meal: 0.6 }, hp: 2, smashable: true, beauty: 1,
   },
   beehive: {
-    name: 'Beehive', icon: 'hive', cost: 60, place: 'nearWillow', category: 'food', unlock: 'r_bees',
+    sprite: ['beehive_tree'], name: 'Beehive', icon: 'hive', cost: 60, place: 'nearWillow', category: 'food', unlock: 'r_bees',
     desc: 'Makes honey for bears with a sweet tooth. Must be within 2 tiles of a willow (a platform works too).',
     food: { kind: 'honey', max: 4, regen: 1 / 20, meal: 0.8 }, hp: 3, smashable: true, beauty: 1,
   },
   wildrice: {
-    name: 'Wild Rice', icon: 'wildrice', cost: 45, place: 'water', category: 'food', unlock: 'r_wildrice',
+    sprite: ['wildriceplot', 'wildrice'], name: 'Wild Rice', icon: 'wildrice', cost: 45, place: 'water', category: 'food', unlock: 'r_wildrice',
     desc: 'Manoomin, the good berry of the lakes. Grows in the shallows; bears slurp it like noodles.',
     food: { kind: 'rice', max: 5, regen: 1 / 16, meal: 0.7 }, hp: 2, smashable: true, beauty: 1,
   },
   mushrooms: {
-    name: 'Mushroom Log', icon: 'mushroom', cost: 55, place: 'landOrPlatform', category: 'food', unlock: 'r_mushrooms',
+    sprite: ['mushlog'], name: 'Mushroom Log', icon: 'mushroom', cost: 55, place: 'landOrPlatform', category: 'food', unlock: 'r_mushrooms',
     desc: 'A mossy log sprouting chanterelles. Fancy bears pay extra for foraged mushrooms.',
     food: { kind: 'mushroom', max: 4, regen: 1 / 18, meal: 0.7 }, hp: 2, smashable: true, beauty: 1,
   },
   maple: {
-    name: 'Sugar Maple', icon: 'maple', cost: 120, place: 'land', category: 'food', unlock: 'r_maple',
+    sprite: ['sugarmaple', 'maple_red'], name: 'Sugar Maple', icon: 'maple', cost: 120, place: 'land', category: 'food', unlock: 'r_maple',
     desc: 'A tapped sugar maple dripping with syrup. Lumberjack bears go wild for it.',
     food: { kind: 'syrup', max: 3, regen: 1 / 26, meal: 1 }, hp: 99, smashable: false, blocksBear: true, beauty: 3,
+  },
+  raspberry: {
+    name: 'Raspberry Cane', icon: 'berry', cost: 40, place: 'landOrPlatform', category: 'food',
+    desc: 'Plump red raspberries. Bears go back for seconds.', sprite: ['raspberry', 'raspberry_picked'],
+    food: { kind: 'berries', max: 7, regen: 1 / 12, meal: 0.7 }, hp: 2, smashable: true, beauty: 1.2,
+  },
+  strawberry: {
+    name: 'Strawberry Patch', icon: 'berry', cost: 35, place: 'landOrPlatform', category: 'food',
+    desc: 'Low and sweet. Grows fast.', sprite: ['strawberry', 'strawberry_picked'],
+    food: { kind: 'berries', max: 5, regen: 1 / 9, meal: 0.5 }, hp: 1, smashable: true, beauty: 1.5,
+  },
+  saskatoon: {
+    name: 'Saskatoon Bush', icon: 'berry', cost: 60, place: 'landOrPlatform', category: 'food', unlock: 'r_berries',
+    desc: 'Prairie superfruit. Fills a bear right up.', sprite: ['saskatoon', 'saskatoon_picked'],
+    food: { kind: 'berries', max: 8, regen: 1 / 13, meal: 0.9 }, hp: 3, smashable: true, beauty: 1.5,
+  },
+  cranberry: {
+    name: 'Cranberry Bog', icon: 'berry', cost: 45, place: 'shore', category: 'food', landmark: 'swampshack',
+    desc: 'Tart little gems from the swamp. Needs the shoreline.', sprite: ['cranberry', 'cranberry_picked'],
+    food: { kind: 'berries', max: 9, regen: 1 / 11, meal: 0.6 }, hp: 2, smashable: true, beauty: 1.5,
+  },
+  cloudberry: {
+    name: 'Cloudberry', icon: 'berry', cost: 80, place: 'landOrPlatform', category: 'food', landmark: 'firetower',
+    desc: 'Rare golden berries from the north. Bears tip extra.', sprite: ['cloudberry', 'cloudberry_picked'],
+    food: { kind: 'berries', max: 6, regen: 1 / 15, meal: 1.1 }, hp: 2, smashable: true, beauty: 2.5,
+  },
+  elderberry: {
+    name: 'Elderberry', icon: 'berry', cost: 55, place: 'landOrPlatform', category: 'food', landmark: 'mushhut',
+    desc: 'Dark and mysterious. Grows by magic mushrooms.', sprite: ['elderberry', 'elderberry_picked'],
+    food: { kind: 'berries', max: 8, regen: 1 / 12, meal: 0.8 }, hp: 2, smashable: true, beauty: 2,
+  },
+  goldenberry: {
+    name: 'Goldenberry', icon: 'berry', cost: 200, place: 'landOrPlatform', category: 'food', landmark: 'willowshrine',
+    desc: 'Blessed by the Great Willow. Glows at night. Bears weep with joy.', sprite: ['goldenberry', 'goldenberry_picked'],
+    food: { kind: 'berries', max: 6, regen: 1 / 10, meal: 1.6 }, hp: 3, smashable: true, beauty: 5,
+  },
+  // ------------------------------------------------------------ restaurant (beaver-built)
+  bar: {
+    name: 'Daisy Beer Bar', icon: 'bar', cost: 220, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 12, size: [3, 1],
+    desc: 'A proper bar with Daisy Beer on tap. Bears linger and tip.', comfort: 6, beauty: 4, hp: 99, smashable: false,
+  },
+  picnictable: {
+    name: 'Picnic Table', icon: 'picnic', cost: 40, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 5, size: [2, 1],
+    desc: 'Seats a family of bears.', comfort: 2, beauty: 1, hp: 3, smashable: true,
+  },
+  roundtable: {
+    name: 'Bistro Table', icon: 'table', cost: 55, place: 'landOrPlatform', category: 'restaurant', builder: 'beaver', buildTime: 5,
+    desc: 'Checkered cloth, two chairs. Romantic.', comfort: 2, beauty: 1.5, hp: 2, smashable: true,
+  },
+  umbrellatable: {
+    name: 'Parasol Table', icon: 'umbrella', cost: 75, place: 'landOrPlatform', category: 'restaurant', builder: 'beaver', buildTime: 6,
+    desc: 'Shade for sunburnt bears.', comfort: 3, beauty: 2, hp: 2, smashable: true,
+  },
+  bbq: {
+    name: 'BBQ Grill', icon: 'bbq', cost: 90, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 6,
+    desc: 'Sizzle sizzle. Bears smell it from the office.', comfort: 3, beauty: 1, bearBonus: 0.5, hp: 3, smashable: true,
+  },
+  hangout: {
+    name: 'Campfire Hangout', icon: 'campfire', cost: 120, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 9, size: [2, 2],
+    desc: 'Log benches round a crackling fire. The cozy heart of the place.', comfort: 5, beauty: 3, hp: 99, smashable: false,
+  },
+  hammock: {
+    name: 'Hammock', icon: 'hammock', cost: 60, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 5,
+    desc: 'Nap spot. Very relaxing.', comfort: 3, beauty: 1.5, hp: 2, smashable: true,
+  },
+  menuboard: {
+    name: 'Menu Board', icon: 'sign', cost: 25, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 3,
+    desc: 'Today\'s special: FISH. Bears decide faster.', comfort: 1, beauty: 0.5, hp: 2, smashable: true,
+  },
+  beercooler: {
+    name: 'Daisy Cooler', icon: 'cooler', model: 'cooler', cost: 45, place: 'landOrPlatform', category: 'restaurant', builder: 'beaver', buildTime: 3,
+    desc: 'Ice cold Daisy Beer. Happy bears tip.', comfort: 2, beauty: 0.5, hp: 2, smashable: true,
+  },
+  neonsign: {
+    name: 'Neon Sign', icon: 'neon', cost: 150, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 8, size: [3, 1],
+    desc: 'BEAR\'S DINER in buzzing neon. Draws a crowd.', comfort: 1, beauty: 3, bearBonus: 1, hp: 3, smashable: true,
+  },
+  tikitorch: {
+    name: 'Tiki Torch', icon: 'torch', cost: 20, place: 'landOrPlatform', category: 'restaurant', builder: 'beaver', buildTime: 3,
+    desc: 'Flickery and festive.', comfort: 0.5, beauty: 1, hp: 1, smashable: true,
+  },
+  planterbox: {
+    name: 'Planter Box', icon: 'flower', cost: 25, place: 'landOrPlatform', category: 'restaurant', builder: 'beaver', buildTime: 3,
+    desc: 'Flowers in a box. Classy.', comfort: 0.5, beauty: 1.5, hp: 1, smashable: true,
+  },
+  jukebox: {
+    name: 'Jukebox', icon: 'music', cost: 180, place: 'land', category: 'restaurant', builder: 'beaver', buildTime: 8,
+    desc: 'Plays the hits. Bears dance a little.', comfort: 4, beauty: 2, hp: 3, smashable: true,
   },
   // ------------------------------------------------------------ beaver works
   lodge: {
@@ -219,6 +307,7 @@ export const BEAUTY_PER_BEAR = 10; // every N beauty brings one more customer
 export const BUILD_CATEGORIES = [
   { id: 'nature', name: 'Nature' },
   { id: 'food', name: 'Bear Snacks' },
+  { id: 'restaurant', name: 'Restaurant' },
   { id: 'beaver', name: 'Beaver Works' },
   { id: 'contraption', name: 'Contraptions' },
   { id: 'decor', name: 'Decor' },

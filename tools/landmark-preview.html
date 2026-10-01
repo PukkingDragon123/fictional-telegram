@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Landmark preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #2a3a2a; overflow: hidden; font: 11px/1.2 monospace; color: #fff; }
+  canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #labels div { position: fixed; transform: translate(-50%, 0); background: rgba(20, 14, 24, 0.7); padding: 1px 4px; border-radius: 3px; pointer-events: none; white-space: nowrap; }
+  #ui { position: fixed; left: 8px; top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  #ui button { font: inherit; background: #2a2036; color: #f4e8d0; border: 2px solid #5a4a6a; padding: 4px 8px; cursor: pointer; }
+  #ui button.on { background: #5a4a6a; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<div id="ui">
+  <button id="day">Day</button><button id="night">Night</button>
+  <button id="setL">Landmarks</button><button id="setR">Restaurant</button>
+  <button id="seats">Seats</button><button id="rot">Rotate</button>
+</div>
+<script type="module" src="./landmark-preview.js"></script>
+</body>
+</html>

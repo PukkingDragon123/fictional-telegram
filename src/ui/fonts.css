@@ -1,0 +1,58 @@
+/* Pixel fonts for "The Bear Must Eat" (v3).
+ *
+ *   --font-title : m6x11plus by Daniel Linssen. Chunky, friendly, very legible
+ *                  (the Balatro font). Titles, numbers, buttons, shouts.
+ *   --font-body  : m5x7 by Daniel Linssen. Small, round, cute; dialogue/body.
+ *   Credit/licence: src/assets/fonts/FONTS_LICENSE.txt
+ *
+ * CRISP SIZES (integer multiples of the design pixel; anything else blurs):
+ *   m6x11plus : 18px, 36px, 54px, 72px   (1 font px = 1/18 em; caps 11px tall @1x)
+ *   m5x7      : 16px, 32px, 48px, 64px   (1 font px = 1/16 em; caps 7px tall @1x)
+ * At the game's 2x UI scale use title 36px / body 32px; for small HUD labels
+ * use title 18px / body 16px. Use line-height in whole px (e.g. 1em) and avoid
+ * letter-spacing that isn't a multiple of the font pixel.
+ */
+@font-face {
+  font-family: 'TBME Title';
+  src: url('../assets/fonts/m6x11plus.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'TBME Body';
+  src: url('../assets/fonts/m5x7.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  --font-title: 'TBME Title', 'Silkscreen', ui-monospace, monospace;
+  --font-body: 'TBME Body', 'TBME Title', ui-monospace, monospace;
+  /* crisp sizes, for convenience */
+  --ft-title-1: 18px;
+  --ft-title-2: 36px;
+  --ft-title-3: 54px;
+  --ft-body-1: 16px;
+  --ft-body-2: 32px;
+  --ft-body-3: 48px;
+}
+
+.ft-title,
+.ft-body {
+  font-weight: 400;
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  font-smooth: never;
+  text-rendering: optimizeSpeed;
+  font-kerning: none;
+  font-variant-ligatures: none;
+}
+.ft-title { font-family: var(--font-title); font-size: var(--ft-title-2); line-height: 1; }
+.ft-body { font-family: var(--font-body); font-size: var(--ft-body-2); line-height: 0.75; }
+.ft-title.ft-1 { font-size: var(--ft-title-1); }
+.ft-title.ft-3 { font-size: var(--ft-title-3); }
+.ft-body.ft-1 { font-size: var(--ft-body-1); }
+.ft-body.ft-3 { font-size: var(--ft-body-3); }

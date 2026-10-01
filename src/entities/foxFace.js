@@ -777,6 +777,9 @@ export const EXPRESSIONS = {
   mwaha: { eye: 'narrow', brow: 'angry', mouth: 'mwaha', glint: 1, look: [0, -0.4] },
   excited: { eye: 'shiny', brow: 'raised', mouth: 'grin', blush: 1 },
   determined: { eye: 'narrow', brow: 'furrow', mouth: 'smirk', look: [0, 0] },
+  // notifier moods
+  tsk: { eye: 'closed', brow: 'raised', mouth: 'smirk', glint: 1 },
+  alarmed: { eye: 'wide', brow: 'worried', mouth: 'o_big', sweat: 2 },
 };
 export const EXPRESSION_NAMES = Object.keys(EXPRESSIONS);
 

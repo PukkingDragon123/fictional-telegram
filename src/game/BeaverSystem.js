@@ -1,9 +1,27 @@
-// Beaver helpers: live in lodges, swim/waddle to blueprints and build them,
-// repair smashed things, and head home at night.
+// Beaver crew: live in lodges and do all the heavy lifting. They build
+// blueprints, repair smashed things, and clear the forest. Clearing means
+// chopping trees, rolling away rocks and plowing weeds, and every cleared tile
+// becomes your land and pays out in wood money. They work for berries: every
+// few jobs a beaver trots off to a berry bush for a snack, and with no berries
+// around it sulks until you plant some.
 import * as THREE from 'three';
-import { BeaverRig } from '../entities/critterModels.js';
-import { WATER_Y } from '../world/grid.js';
+import * as OLD from '../entities/critterModels.js';
+import { WATER_Y, KIND } from '../world/grid.js';
+import { BIOME, LANDMARKS } from '../world/worldgen.js';
 import { angleDiff, damp } from '../core/rng.js';
+import { SpriteBatch } from '../core/spriteBatch.js';
+
+const mods = import.meta.glob('../entities/critters3d.js', { eager: true });
+const C3 = mods['../entities/critters3d.js'] || null;
+
+// what clearing each kind of thing takes and pays
+export const CLEAR = {
+  forest: { time: 3.2, pay: 5, anim: 'chop', label: 'wood' },
+  tree: { time: 2.6, pay: 4, anim: 'chop', label: 'wood' },
+  boulder: { time: 3.6, pay: 3, anim: 'hammer', label: 'stone' },
+  weed: { time: 1.2, pay: 1, anim: 'plow', label: 'weeds' },
+};
+const JOBS_PER_BERRY = 3;
 
 export class BeaverSystem {
   constructor(game) {
@@ -12,6 +30,11 @@ export class BeaverSystem {
     this.group = new THREE.Group();
     game.scene.add(this.group);
     this.time = 0;
+    this.clears = new Map(); // tile index -> clear job
+    this.markers = null;
+    this.rebuildT = 0;
+    this.dirtyLand = false;
+    this.sulkNagT = 0;
   }
 
   count() { return this.list.length; }
@@ -26,38 +49,162 @@ export class BeaverSystem {
     for (const s of this.game.structures.list) if (s.type === 'lodge' && s.built) this.onLodgeBuilt(s);
   }
 
+  makeRig() {
+    if (C3?.BeaverRig) {
+      try { return new C3.BeaverRig(); } catch (e) { console.warn('BeaverRig failed', e); }
+    }
+    return new OLD.BeaverRig();
+  }
+
   spawn(lodge) {
-    const rig = new BeaverRig();
+    const rig = this.makeRig();
     this.group.add(rig.root);
     const b = {
       lodge, rig, x: lodge.x + 0.5 + (Math.random() - 0.5) * 0.6, z: lodge.z + 0.5 + (Math.random() - 0.5) * 0.6, y: 0,
       heading: Math.random() * 6.28, state: 'idle', job: null, t: Math.random() * 2, phase: 0, moving: false, wander: null,
+      jobs: 0, hungry: false, anim: null, seed: Math.random() * 9,
     };
+    rig.onEvent = (name) => this.onRigEvent(b, name);
     this.list.push(b);
     this.game.particles.splash(b.x, b.z, 6, 0.6);
+    this.game.emit('beavers', this.list.length);
     return b;
   }
 
   clear() {
     for (const b of this.list) this.group.remove(b.rig.root);
     this.list.length = 0;
+    this.clears.clear();
+    this.renderMarkers();
   }
 
   removeForLodge(lodge) {
     for (const b of [...this.list]) {
       if (b.lodge !== lodge) continue;
-      if (b.job) b.job.assigned = null;
+      if (b.job) this.unassign(b.job);
       this.group.remove(b.rig.root);
       this.list.splice(this.list.indexOf(b), 1);
     }
   }
 
-  pendingJobs() {
-    return this.game.structures.list.filter((s) => !s.built && s.def.builder === 'beaver');
+  // ------------------------------------------------------------ clearing
+  // what (if anything) on this tile can be cleared
+  clearKind(x, z) {
+    const g = this.game.grid;
+    if (!g.inb(x, z)) return null;
+    const i = z * g.w + x;
+    if (g.occ[i] === -2) return null;
+    if (g.deco[i] >= 0) {
+      const d = this.game.world.decos[g.deco[i]];
+      if (!d || d.removed) return null;
+      if (d.type === 'greatwillow') return null;
+      if (d.type === 'boulder') return 'boulder';
+      if (d.type === 'weed') return 'weed';
+      return 'tree';
+    }
+    if (g.kind[i] === KIND.FOREST && z >= 21) return 'forest';
+    return null;
+  }
+
+  // forest/decos must touch your land (or a tile already queued for clearing)
+  canClear(x, z) {
+    const g = this.game.grid;
+    const k = this.clearKind(x, z);
+    if (!k) return { ok: false, reason: 'nothing' };
+    const i = z * g.w + x;
+    if (this.clears.has(i)) return { ok: false, reason: 'queued' };
+    if (g.meadow[i]) return { ok: true, kind: k };
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, nz = z + dz;
+      if (!g.inb(nx, nz)) continue;
+      const ni = nz * g.w + nx;
+      if (g.meadow[ni] || this.clears.has(ni)) return { ok: true, kind: k };
+    }
+    return { ok: false, reason: 'far' };
+  }
+
+  queueClear(x, z) {
+    const c = this.canClear(x, z);
+    if (!c.ok) return c;
+    const g = this.game.grid;
+    const i = z * g.w + x;
+    this.clears.set(i, { i, x, z, kind: c.kind, progress: 0, assigned: null, order: this.clears.size });
+    this.renderMarkers();
+    return c;
+  }
+
+  cancelClear(x, z) {
+    const g = this.game.grid;
+    const i = z * g.w + x;
+    const j = this.clears.get(i);
+    if (!j) return false;
+    if (j.assigned) { const b = j.assigned; this.release(b); }
+    this.clears.delete(i);
+    this.renderMarkers();
+    return true;
+  }
+
+  // a clear job is reachable once one of its neighbours is your land
+  reachable(j) {
+    const g = this.game.grid;
+    if (g.meadow[j.i]) return true;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = j.x + dx, nz = j.z + dz;
+      if (g.inb(nx, nz) && g.meadow[nz * g.w + nx]) return true;
+    }
+    return false;
+  }
+
+  finishClear(j) {
+    const game = this.game;
+    const g = game.grid;
+    const w = game.world;
+    const i = j.i;
+    const cx = j.x + 0.5, cz = j.z + 0.5;
+    const gy = g.height[i];
+    const def = CLEAR[j.kind];
+    if (j.kind === 'forest') {
+      g.kind[i] = KIND.GRASS;
+      g.meadow[i] = 1;
+      w.clutter.push({ type: Math.random() < 0.5 ? 'stump' : 'tuft', x: cx + (Math.random() - 0.5) * 0.4, z: cz + (Math.random() - 0.5) * 0.4, y: gy, rot: Math.random() * 6 });
+      if (Math.random() < 0.6) w.clutter.push({ type: 'tuft', x: cx + 0.3, z: cz - 0.2, y: gy, rot: Math.random() * 6 });
+      w.landVersion++;
+      this.dirtyLand = true;
+      game.particles.debris(cx, gy + 1.2, cz, 18, [0x2b5634, 0x3a6b3c, 0x6b4a2f, 0x8a6a44]);
+      game.particles.word?.('pow', cx, gy + 1.6, cz, { size: 0.3, life: 0.8 });
+      game.audio.play('demolish', { volume: 0.5, pitch: 0.9 + Math.random() * 0.2 });
+    } else {
+      const d = w.decos[g.deco[i]];
+      if (d) d.removed = true;
+      g.deco[i] = -1;
+      g.meadow[i] = 1;
+      w.landVersion++;
+      this.dirtyDecos = true;
+      if (j.kind === 'tree') { game.particles.debris(cx, gy + 1.2, cz, 16, [0x2b5634, 0x3a6b3c, 0x6b4a2f]); w.clutter.push({ type: 'stump', x: cx, z: cz, y: gy, rot: 0 }); this.dirtyLand = true; }
+      else if (j.kind === 'boulder') game.particles.debris(cx, gy + 0.4, cz, 14, [0x9c918c, 0x8b817c, 0x6a625e]);
+      else game.particles.debris(cx, gy + 0.2, cz, 10, [0x5a7a2a, 0x8a6a3a, 0x6a8a3a]);
+      game.audio.play(j.kind === 'weed' ? 'pet' : 'demolish', { volume: 0.45 });
+    }
+    game.particles.puff(cx, gy + 0.3, cz, 8, 0.35);
+    game.particles.coins(cx, gy + 0.8, cz, Math.min(6, def.pay));
+    game.earnMisc?.(def.pay, 'clearing');
+    game.ui?.floatTextAt(cx, gy + 1.4, cz, `+${def.pay}`, '#ffe9a0');
+    game.stats.cleared = (game.stats.cleared || 0) + 1;
+    this.clears.delete(i);
+    this.renderMarkers();
+    game.checkLandmarks?.();
+    game.emit('cleared', j);
+  }
+
+  // ------------------------------------------------------------ jobs
+  unassign(job) {
+    if (job.kind === 'clear') { if (job.c.assigned) job.c.assigned = null; }
+    else if (job.s && job.s.assigned) job.s.assigned = null;
   }
 
   findJob(b) {
-    const structs = this.game.structures;
+    const game = this.game;
+    const structs = game.structures;
     let best = null, bd = Infinity;
     for (const s of structs.list) {
       if (s.built || s.def.builder !== 'beaver' || (s.assigned && s.assigned !== b)) continue;
@@ -65,13 +212,34 @@ export class BeaverSystem {
       if (d < bd) { bd = d; best = s; }
     }
     if (best) return { kind: 'build', s: best };
-    // repairs
     for (const s of structs.list) {
       if (!s.built || s.hp >= s.maxHp || s.maxHp >= 90 || (s.assigned && s.assigned !== b)) continue;
       const d = Math.hypot(s.x + 0.5 - b.x, s.z + 0.5 - b.z);
       if (d < bd) { bd = d; best = s; }
     }
-    return best ? { kind: 'repair', s: best } : null;
+    if (best) return { kind: 'repair', s: best };
+    let bc = null;
+    for (const c of this.clears.values()) {
+      if (c.assigned || !this.reachable(c)) continue;
+      const d = Math.hypot(c.x + 0.5 - b.x, c.z + 0.5 - b.z) + c.order * 0.05;
+      if (d < bd) { bd = d; bc = c; }
+    }
+    return bc ? { kind: 'clear', c: bc } : null;
+  }
+
+  berrySource(b) {
+    let best = null, bd = Infinity;
+    for (const s of this.game.structures.list) {
+      if (!s.built || s.removed || !s.def.food || s.def.food.kind !== 'berries' || s.stock < 1) continue;
+      const d = Math.hypot(s.x + 0.5 - b.x, s.z + 0.5 - b.z);
+      if (d < bd) { bd = d; best = s; }
+    }
+    return best;
+  }
+
+  jobTarget(job) {
+    if (job.kind === 'clear') return { x: job.c.x + 0.5, z: job.c.z + 0.5 };
+    return { x: job.s.x + 0.5, z: job.s.z + 0.5 };
   }
 
   update(dt) {
@@ -79,64 +247,108 @@ export class BeaverSystem {
     const game = this.game;
     const g = game.grid;
     const speedMult = game.mods.buildSpeed;
+    const night = game.state.phase === 'night' || game.state.phase === 'bedtime';
+    let sulking = 0;
     for (const b of this.list) {
       b.moving = false;
       if (b.lodge.removed) continue;
       if (b.state === 'idle') {
         b.t -= dt;
         if (b.t <= 0) {
-          b.t = 0.6 + Math.random() * 0.6;
-          const job = this.findJob(b);
-          if (job) {
-            b.job = job;
-            job.s.assigned = b;
-            b.state = 'go';
-          } else if (!b.wander || Math.random() < 0.3) {
-            const a = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 1.6;
-            b.wander = { x: b.lodge.x + 0.5 + Math.cos(a) * r, z: b.lodge.z + 0.5 + Math.sin(a) * r };
+          b.t = 0.5 + Math.random() * 0.5;
+          if (b.hungry) {
+            const s = this.berrySource(b);
+            if (s) { b.state = 'snack'; b.snack = s; b.wander = null; }
+            else { b.sulk = true; }
           }
+          if (b.state === 'idle' && !night && !(b.hungry && b.jobs >= JOBS_PER_BERRY * 2)) {
+            const job = this.findJob(b);
+            if (job) {
+              b.job = job;
+              if (job.kind === 'clear') job.c.assigned = b; else job.s.assigned = b;
+              b.state = 'go';
+              b.sulk = false;
+            } else if (!b.wander || Math.random() < 0.3) {
+              const a = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 1.8;
+              b.wander = { x: b.lodge.x + 0.5 + Math.cos(a) * r, z: b.lodge.z + 0.5 + Math.sin(a) * r };
+            }
+          } else if (night) b.wander = { x: b.lodge.x + 0.5, z: b.lodge.z + 0.5 };
         }
-        if (b.wander) this.moveToward(b, b.wander.x, b.wander.z, dt, 0.8, 0.3);
+        if (b.wander) this.moveToward(b, b.wander.x, b.wander.z, dt, 0.9, 0.3);
+        if (b.sulk) sulking++;
+      } else if (b.state === 'snack') {
+        const s = b.snack;
+        if (!s || s.removed || s.stock < 1) { b.state = 'idle'; b.t = 0.3; continue; }
+        if (this.moveToward(b, s.x + 0.5, s.z + 0.5, dt, 3.4, 0.6)) { b.state = 'munch'; b.t = 0; game.audio.play('nibble', { volume: 0.35, pitch: 1.4 }); }
+      } else if (b.state === 'munch') {
+        b.t += dt;
+        if (Math.random() < dt * 5) game.particles.debris(b.x, b.y + 0.4, b.z, 1, [0x4a3a90, 0x6a50c0, 0xc03050]);
+        if (b.t > 1.6) {
+          if (game.structures.consume(b.snack, 1)) { b.jobs = 0; b.hungry = false; b.sulk = false; game.particles.hearts(b.x, b.y + 0.7, b.z, 2); game.audio.play('bear_yum', { volume: 0.2, pitch: 2.2 }); }
+          b.state = 'idle'; b.t = 0.4; b.snack = null; b.cheerT = 0.6;
+        }
       } else if (b.state === 'go') {
-        const s = b.job.s;
-        if (s.removed || (b.job.kind === 'build' && s.built)) { this.release(b); continue; }
-        if (this.moveToward(b, s.x + 0.5, s.z + 0.5, dt, 3.6 * speedMult ** 0.5, 0.55)) {
+        const job = b.job;
+        if (job.kind !== 'clear' && (job.s.removed || (job.kind === 'build' && job.s.built))) { this.release(b); continue; }
+        if (job.kind === 'clear' && !this.clears.has(job.c.i)) { this.release(b); continue; }
+        const tg = this.jobTarget(job);
+        const stop = job.kind === 'clear' ? 0.7 : 0.55;
+        if (this.moveToward(b, tg.x, tg.z, dt, 3.8 * speedMult ** 0.5, stop)) {
           b.state = 'work'; b.t = 0; b.cloudT = 0;
-          game.audio.play('build_cloud', { volume: 0.4, pitch: 0.95 + Math.random() * 0.15 });
+          if (job.kind !== 'clear') game.audio.play('build_cloud', { volume: 0.4, pitch: 0.95 + Math.random() * 0.15 });
         }
       } else if (b.state === 'work') {
-        const s = b.job.s;
-        if (s.removed) { this.release(b); continue; }
-        b.heading += angleDiff(b.heading, Math.atan2(s.z + 0.5 - b.z, s.x + 0.5 - b.x)) * Math.min(1, dt * 6);
+        const job = b.job;
+        const tg = this.jobTarget(job);
+        b.heading += angleDiff(b.heading, Math.atan2(tg.z - b.z, tg.x - b.x)) * Math.min(1, dt * 6);
         b.t += dt;
-        b.cloudT = (b.cloudT || 0) - dt;
-        if (b.cloudT <= 0) {
-          // cartoon fight cloud: whacks, planks and nails flying everywhere
-          b.cloudT = 0.09;
-          game.particles.buildCloud(s.x + 0.5, game.structures.baseY(s), s.z + 0.5, b.job.kind === 'build' ? 1 : 0.7);
-        }
-        if (b.t > 0.22) {
-          b.t = 0;
-          game.audio.play(Math.random() < 0.5 ? 'hammer' : 'nail', { volume: 0.2, pitch: 0.9 + Math.random() * 0.5 });
-          if (Math.random() < 0.3) game.particles.word(['pow', 'bonk', 'bam'][Math.floor(Math.random() * 3)], s.x + 0.5 + (Math.random() - 0.5), game.structures.baseY(s) + 1.1, s.z + 0.5, { size: 0.22, life: 0.6 });
-          if (Math.random() < 0.25) game.audio.play('saw', { volume: 0.15 });
-        }
-        if (b.job.kind === 'build') {
-          s.progress += (dt * speedMult) / s.def.buildTime;
-          if (s.progress >= 1) {
-            game.structures.onBuilt(s);
-            game.onStructureBuilt(s);
-            s.popT = 0.45; // squash & stretch pop-in
+        if (job.kind === 'clear') {
+          const c = job.c;
+          if (!this.clears.has(c.i)) { this.release(b); continue; }
+          c.progress += (dt * speedMult) / CLEAR[c.kind].time;
+          b.chipT = (b.chipT || 0) - dt;
+          if (b.chipT <= 0) {
+            b.chipT = 0.28;
+            const gy = g.height[c.i];
+            if (c.kind === 'weed') game.particles.dust(tg.x, gy + 0.1, tg.z, 2);
+            else game.particles.debris(tg.x, gy + 0.5, tg.z, 3, c.kind === 'boulder' ? [0x9c918c, 0x8b817c] : [0xc8a06a, 0x8a6a44, 0xe0c090]);
+            game.audio.play(c.kind === 'boulder' ? 'hammer' : c.kind === 'weed' ? 'dig' : 'chip', { volume: 0.18, pitch: 0.9 + Math.random() * 0.4 });
+            if (Math.random() < 0.15) game.particles.word?.(['bonk', 'pow'][Math.floor(Math.random() * 2)], tg.x, gy + 1.1, tg.z, { size: 0.2, life: 0.5 });
+          }
+          if (c.progress >= 1) {
+            this.finishClear(c);
             this.release(b);
-            b.cheerT = 0.8;
+            this.paid(b);
           }
         } else {
-          game.structures.repair(s, dt * 1.5 * speedMult);
-          if (s.hp >= s.maxHp) this.release(b);
+          const s = job.s;
+          if (s.removed) { this.release(b); continue; }
+          b.cloudT = (b.cloudT || 0) - dt;
+          if (b.cloudT <= 0) {
+            b.cloudT = 0.09;
+            game.particles.buildCloud(s.x + 0.5, game.structures.baseY(s), s.z + 0.5, job.kind === 'build' ? 1 : 0.7);
+          }
+          if (b.t > 0.22) {
+            b.t = 0;
+            game.audio.play(Math.random() < 0.5 ? 'hammer' : 'nail', { volume: 0.2, pitch: 0.9 + Math.random() * 0.5 });
+            if (Math.random() < 0.3) game.particles.word(['pow', 'bonk', 'bam'][Math.floor(Math.random() * 3)], s.x + 0.5 + (Math.random() - 0.5), game.structures.baseY(s) + 1.1, s.z + 0.5, { size: 0.22, life: 0.6 });
+            if (Math.random() < 0.25) game.audio.play('saw', { volume: 0.15 });
+          }
+          if (job.kind === 'build') {
+            s.progress += (dt * speedMult) / s.def.buildTime;
+            if (s.progress >= 1) {
+              game.structures.onBuilt(s);
+              game.onStructureBuilt(s);
+              s.popT = 0.45;
+              this.release(b);
+              this.paid(b);
+            }
+          } else {
+            game.structures.repair(s, dt * 1.5 * speedMult);
+            if (s.hp >= s.maxHp) this.release(b);
+          }
         }
       }
-      // night: go home
-      if (game.state.phase === 'night' && b.state === 'idle') b.wander = { x: b.lodge.x + 0.5, z: b.lodge.z + 0.5 };
       // y: swim in water, waddle on land
       const tx = Math.floor(b.x), tz = Math.floor(b.z);
       const inWater = g.isWater(tx, tz);
@@ -147,10 +359,37 @@ export class BeaverSystem {
       b.y = damp(b.y, gy, 10, dt);
       b.inWater = inWater;
     }
+    // hungry crew with no berries: the fox nags (rarely)
+    this.sulkNagT -= dt;
+    if (sulking && this.sulkNagT <= 0) {
+      this.sulkNagT = 45;
+      game.notify?.('Beavers work for berries! Plant a berry bush.', 'warn');
+    }
+    // batched world rebuilds after clearing
+    this.rebuildT -= dt;
+    if ((this.dirtyLand || this.dirtyDecos) && this.rebuildT <= 0) {
+      this.rebuildT = 0.8;
+      game.world.buildDecos();
+      if (this.dirtyLand) { game.world.rebuildTerrain(); game.world.buildClutter(); }
+      this.dirtyLand = this.dirtyDecos = false;
+      game.onTopologyChanged();
+      game.onLandChanged?.();
+    }
+  }
+
+  // every finished job counts toward the next berry payment
+  paid(b) {
+    b.jobs++;
+    if (b.jobs >= JOBS_PER_BERRY) b.hungry = true;
+    b.cheerT = 0.8;
+  }
+
+  onRigEvent(b, name) {
+    if (name === 'step' && Math.random() < 0.3) this.game.particles.dust(b.x, b.y + 0.02, b.z, 1);
   }
 
   release(b) {
-    if (b.job && b.job.s.assigned === b) b.job.s.assigned = null;
+    if (b.job) this.unassign(b.job);
     b.job = null;
     b.state = 'idle';
     b.t = 0.2;
@@ -172,18 +411,52 @@ export class BeaverSystem {
     return false;
   }
 
-  render() {
+  // flat X markers on tiles queued for clearing
+  renderMarkers() {
+    const game = this.game;
+    const P = game.particles;
+    if (!P?.tex) return;
+    if (!this.markers) {
+      this.markers = new SpriteBatch(P.tex, { max: 2048, lit: false, renderOrder: 21, name: 'clearmarks' });
+      game.scene.add(this.markers.mesh);
+    }
+    const M = this.markers;
+    M.clear();
+    const fr = P.atlas.frames.tagmark?.[0] || P.atlas.frames.ring?.[0];
+    const g = game.grid;
+    for (const c of this.clears.values()) {
+      const y = g.height[c.i] + (c.kind === 'forest' || c.kind === 'tree' ? 2.2 : 0.8);
+      M.push(fr, c.x + 0.5, y, c.z + 0.5, { mode: 2, ax: 0.5, ay: 0, h: 0.32, w: 0.32 * fr.w / fr.h, tint: this.reachable(c) ? [1, 0.85, 0.4] : [0.7, 0.7, 0.75] });
+    }
+    M.commit();
+  }
+
+  render(dt = 1 / 60) {
     for (const b of this.list) {
       const r = b.rig;
+      r.root.position.set(b.x, b.y, b.z);
+      r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);
+      if (r.play) {
+        let want = 'idle';
+        if (b.state === 'work') want = b.job?.kind === 'clear' ? CLEAR[b.job.c.kind].anim : 'hammer';
+        else if (b.state === 'munch') want = 'eat_berry';
+        else if (b.moving) want = b.inWater ? 'swim' : 'run';
+        else if (b.cheerT > 0) want = 'cheer';
+        else if (b.sulk) want = 'idle';
+        else if (this.game.state.phase === 'night') want = 'sleep';
+        if (b.cheerT > 0) b.cheerT -= dt;
+        if (want !== b.anim) { r.play(want, { loop: true, fade: 0.15 }); b.anim = want; }
+        r.update(dt);
+        continue;
+      }
+      // legacy voxel beaver: hand-animated
       let hop = 0;
       if (b.moving && !b.inWater) hop = Math.abs(Math.sin(b.phase)) * 0.12;
-      if (b.cheerT > 0) { b.cheerT -= 1 / 60; hop = Math.abs(Math.sin(b.cheerT * 12)) * 0.3; }
-      r.root.position.set(b.x, b.y + hop, b.z);
-      r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);
+      if (b.cheerT > 0) { b.cheerT -= dt; hop = Math.abs(Math.sin(b.cheerT * 12)) * 0.3; }
+      r.root.position.y = b.y + hop;
       const sq = b.moving ? 1 + Math.sin(b.phase * 2) * 0.08 : 1;
       r.root.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
-      r.root.visible = b.state !== 'work' || Math.sin(this.time * 30) > 0.2;
-      if (b.state === 'work') {
+      if (b.state === 'work' || b.state === 'munch') {
         r.body.rotation.x = Math.sin(this.time * 22) * 0.18;
         r.tail.rotation.x = -0.3 + Math.abs(Math.sin(this.time * 11)) * 0.7;
       } else if (b.moving) {
@@ -197,9 +470,16 @@ export class BeaverSystem {
     }
   }
 
-  serialize() { return this.list.length; }
-}
+  serialize() {
+    return { n: this.list.length, clears: [...this.clears.values()].map((c) => [c.x, c.z]) };
+  }
 
-function structuresTop(game, s) {
-  return game.structures.baseY(s) + 0.5;
+  loadClears(list) {
+    for (const [x, z] of list || []) {
+      const g = this.game.grid;
+      const k = this.clearKind(x, z);
+      if (k) this.clears.set(z * g.w + x, { i: z * g.w + x, x, z, kind: k, progress: 0, assigned: null, order: this.clears.size });
+    }
+    this.renderMarkers();
+  }
 }

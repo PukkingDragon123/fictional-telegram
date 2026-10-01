@@ -76,8 +76,8 @@ export class Input {
   tool() { return this.game.tool; }
   isLineTool() {
     const t = this.tool();
-    if (t.kind === 'dig') return true;
-    return t.kind === 'build' && STRUCTURES[t.type]?.drag;
+    if (t.kind === 'dig' || t.kind === 'clear') return true;
+    return t.kind === 'build' && STRUCTURES[t.type]?.drag && !t.free;
   }
 
   onDown(e) {
@@ -263,8 +263,9 @@ export class Input {
     const tool = game.tool;
     const g = game.grid;
     if (!g.inb(t.x, t.z)) return;
-    if (tool.kind === 'build') { game.placeStructure(tool.type, t.x, t.z); return; }
+    if (tool.kind === 'build') { game.placeStructure(tool.type, t.x, t.z, { free: !!tool.free }); return; }
     if (tool.kind === 'dig') { game.dig(t.x, t.z); return; }
+    if (tool.kind === 'clear') { game.clearAt(t.x, t.z); return; }
     if (tool.kind === 'remove') { game.demolishAt(t.x, t.z); return; }
     if (tool.kind === 'tag' || tool.kind === 'nurture' || tool.kind === 'hand') {
       const f = game.ui?.pickFish(sx, sy, 34);
@@ -313,6 +314,13 @@ export class Input {
     const tiles = this.lineTiles(drag.start, drag.end);
     game.ghostLine = null;
     const tool = game.tool;
+    if (tool.kind === 'clear') {
+      if (tiles.length === 1) { game.clearAt(tiles[0].x, tiles[0].z); return; }
+      let n = 0;
+      for (let pass = 0; pass < 3; pass++) for (const t of tiles) if (game.beavers.queueClear(t.x, t.z).ok) n++;
+      if (n) game.audio.play('paper', { volume: 0.3 });
+      return;
+    }
     if (tool.kind === 'dig') {
       if (tiles.length === 1) { game.dig(tiles[0].x, tiles[0].z); return; }
       let n = 0;

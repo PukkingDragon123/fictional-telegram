@@ -117,7 +117,7 @@ export function buildSurfaceTexture(grid, tex) {
     for (let x = 0; x < w; x++) {
       const o = (z * w + x) * 4;
       data[o] = surfaceOf(grid, x, z) * 16;
-      data[o + 1] = 0; data[o + 2] = 0; data[o + 3] = 255;
+      data[o + 1] = grid.meadow[z * w + x] ? 255 : 0; data[o + 2] = 0; data[o + 3] = 255;
     }
   if (!tex) {
     tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
@@ -147,6 +147,7 @@ export function makeTerrainMaterial(uniforms) {
     shader.uniforms.uGridSize = uniforms.uGridSize;
     shader.uniforms.uSim = uniforms.uSim;
     shader.uniforms.uSimRect = uniforms.uSimRect;
+    shader.uniforms.uBlueprint = uniforms.uBlueprint;
     terrainVert(shader);
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -164,6 +165,7 @@ uniform sampler2D uSurf;
 uniform vec2 uGridSize;
 uniform sampler2D uSim;
 uniform vec4 uSimRect;
+uniform float uBlueprint;
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn2(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -208,6 +210,18 @@ vec3 surfTex(int id, vec2 p) {
     float depth = clamp((uWaterY - vWPos.y) / 1.0, 0.0, 1.0);
     diffuseColor.rgb *= mix(vec3(0.62, 0.78, 0.8), vec3(0.36, 0.52, 0.64), depth);
     diffuseColor.rgb += c * uCaustic * vec3(0.2, 0.28, 0.24) * (1.0 - depth * 0.5);
+  }
+  if (uBlueprint > 0.001) {
+    // blueprint mode: chalky tile grid, your land bright, the wild dim
+    vec2 tq = (floor(vWPos.xz) + 0.5) / uGridSize;
+    float mine = texture2D(uSurf, tq).g;
+    vec2 f = fract(vWPos.xz);
+    float px = 1.0 / 24.0;
+    float line = (f.x < px || f.y < px) ? 1.0 : 0.0;
+    float major = (mod(floor(vWPos.x), 5.0) < 0.5 && f.x < px * 2.0) || (mod(floor(vWPos.z), 5.0) < 0.5 && f.y < px * 2.0) ? 1.0 : 0.0;
+    vec3 bp = diffuseColor.rgb * mix(0.45, 1.0, mine);
+    bp += vec3(0.9, 0.97, 1.0) * max(line * 0.35, major * 0.6) * mix(0.35, 1.0, mine);
+    diffuseColor.rgb = mix(diffuseColor.rgb, bp, uBlueprint);
   }
 }`,
       );

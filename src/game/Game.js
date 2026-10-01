@@ -15,7 +15,7 @@ import { CameraRig } from '../core/cameraRig.js';
 import { World } from '../world/world.js';
 import { Sky } from '../world/sky.js';
 import { KIND, WATER_Y } from '../world/grid.js';
-import { refreshWaterHeights, MEADOW, HUT } from '../world/worldgen.js';
+import { refreshWaterHeights, MEADOW, HUT, WORLD_W, WORLD_H, LANDMARKS } from '../world/worldgen.js';
 import { Particles } from './Particles.js';
 import { updateSpriteUniforms } from '../core/spriteBatch.js';
 import { FishSystem, GROW_TIME } from './FishSystem.js';
@@ -23,9 +23,10 @@ import { FoodSystem } from './FoodSystem.js';
 import { StructureSystem } from './StructureSystem.js';
 import { BearSystem } from './BearSystem.js';
 import { BeaverSystem } from './BeaverSystem.js';
+import { Delivery } from './Delivery.js';
 import { Fox, Ambient } from './Ambient.js';
 import audio from './audioProxy.js';
-import { SPECIES, SPECIES_BY_ID, MORPHS } from '../data/species.js';
+import { SPECIES, SPECIES_BY_ID, MORPHS, MUTATIONS, RARITIES } from '../data/species.js';
 import { STRUCTURES, CHARM_CAP } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, computeMods } from '../data/research.js';
 import { WEEKDAYS } from '../data/bears.js';
@@ -33,11 +34,11 @@ import { ACHIEVEMENTS } from '../data/achievements.js';
 import { clamp } from '../core/rng.js';
 import { rollGenes, rarityOf, hatchCard, valueMult } from './genes.js';
 
-const SAVE_KEY = 'tbme.save.v2';
+const SAVE_KEY = 'tbme.save.v3';
 const LEGACY_KEY = 'tbme.legacy.v1';
 export const RUSH_HOUR = 17;
 export const LUNCH = [12, 13];
-const EGG_TIMES = [10, 16, 26, 38, 55]; // seconds to hatch by rarity
+const EGG_TIMES = [40, 60, 85, 115, 150]; // seconds for a pond egg to hatch, by rarity
 
 function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } }
@@ -67,6 +68,7 @@ export class Game {
     this.food = new FoodSystem(this);
     this.fish = new FishSystem(this);
     this.beavers = new BeaverSystem(this);
+    this.delivery = new Delivery(this);
     this.bears = new BearSystem(this);
     this.world.sim.blocked = (x, z) => {
       const s = this.structures.structureAtTile(x, z);
@@ -85,8 +87,8 @@ export class Game {
     this.timeScale = 1; // cinematic slow-mo
     this.inputLocked = false;
     this.wind = 1;
-    this.rig.setBounds({ minX: MEADOW.x0 + 2, maxX: MEADOW.x1 - 2, minZ: 9, maxZ: MEADOW.z1 - 2 });
-    this.rig.lookAt(29, 36, true);
+    this.rig.setBounds({ minX: 8, maxX: WORLD_W - 8, minZ: 9, maxZ: WORLD_H - 6 });
+    this.rig.lookAt(MEADOW.x0 + 21, 36, true);
     this.running = false;
     this.started = false;
     this.grid.computeRegions();
@@ -98,9 +100,10 @@ export class Game {
 
   freshState() {
     return {
-      coins: 60, day: 1, hour: 9, phase: 'day', rating: 3.0, reviews: [], research: [], discovered: ['bluegill'], morphsSeen: [],
+      coins: 120, day: 1, hour: 9, phase: 'day', rating: 3.0, reviews: [], research: [], discovered: ['bluegill'], morphsSeen: [],
       speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false, achievements: [],
       eggTray: [], bestNet: 0, grades: [],
+      inventory: {}, landmarks: [], unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
     };
   }
 
@@ -111,7 +114,7 @@ export class Game {
   resetDayStats() {
     this.day = {
       coins: 0, served: 0, happy: 0, rampages: 0, eaten: this.stats.fishEaten, hatched: this.stats.hatched, reviews: [], ratingStart: this.state.rating, discoveries: [],
-      income: { bills: 0, tips: 0, snacks: 0, trophies: 0, refunds: 0 }, expense: { eggs: 0, builds: 0, research: 0, digging: 0, clearing: 0 }, stars: [], smashed: 0, golden: 0,
+      income: { bills: 0, tips: 0, snacks: 0, trophies: 0, refunds: 0, clearing: 0 }, expense: { eggs: 0, builds: 0, research: 0, digging: 0, clearing: 0, shop: 0 }, stars: [], smashed: 0, golden: 0,
     };
   }
 
@@ -181,7 +184,7 @@ export class Game {
   }
 
   isUnlocked(rid) { return !rid || rid === 'start' || this.state.research.includes(rid); }
-  isStructureUnlocked(type) { const d = STRUCTURES[type]; return d && this.isUnlocked(d.unlock); }
+  isStructureUnlocked(type) { const d = STRUCTURES[type]; return d && this.isUnlocked(d.unlock) && (!d.landmark || this.state.landmarks.includes(d.landmark)); }
   speciesUnlocked(id) {
     const sp = SPECIES_BY_ID[id];
     if (!sp) return false;
@@ -204,7 +207,7 @@ export class Game {
   dayLength() {
     if (this.isDayOff()) return 90;
     const d = this.state.day;
-    return d === 1 ? 210 : d <= 3 ? 190 : 170;
+    return d === 1 ? 240 : d <= 3 ? 200 : 180;
   }
   secondsToRush() {
     if (this.state.phase !== 'day') return 0;
@@ -215,17 +218,19 @@ export class Game {
 
   // beauty -> bigger bills and more customers
   beauty() {
-    let b = 0;
-    for (const s of this.structures.list) if (s.built && s.def.beauty) b += s.def.beauty;
+    let b = this.mods.beautyFlat || 0;
+    for (const s of this.structures.list) if (s.built) b += (s.def.beauty || 0) + (s.def.comfort || 0) * 0.7;
     for (const f of this.fish.list) if (f.g.traits.includes('sparkly')) b += 1;
     if (this.fish.list.some((f) => f.sp.id === 'grayling')) b += 2;
     return Math.round(b * this.mods.beautyMult * 10) / 10;
   }
+  // restaurant pull: neon signs & grills bring extra customers
+  extraBears() { let n = 0; for (const s of this.structures.list) if (s.built && s.def.bearBonus) n += s.def.bearBonus; return Math.floor(n); }
   charmPct() { return Math.min(CHARM_CAP, Math.floor(this.beauty() * 1.5)); }
 
   canAfford(c) { return this.state.coins >= c; }
   spend(c, kind = null) {
-    if (this.state.coins < c) { this.audio.play('error', { volume: 0.5 }); this.ui?.toast('Not enough coins!', 'bad'); return false; }
+    if (this.state.coins < c) { this.audio.play('error', { volume: 0.5 }); this.notify('Not enough coins!', 'no'); return false; }
     this.state.coins -= c;
     if (kind && this.day) this.day.expense[kind] = (this.day.expense[kind] || 0) + c;
     this.emit('coins', { delta: -c });
@@ -248,6 +253,146 @@ export class Game {
     this.ui?.flyCoins(bear, amount);
     this.fox.react('cheer', 1.4);
     this.emit('coins', { delta: amount });
+  }
+
+  // coins from anything that isn't a bear's bill (clearing land, landmarks...)
+  earnMisc(amount, kind = 'refunds') {
+    if (amount <= 0) return;
+    if (kind === 'clearing' && this.state.landmarks.includes('lumberhut')) amount *= 2;
+    this.state.coins += amount;
+    this.state.totalEarned += amount;
+    this.stats.coinsEarned += amount;
+    if (this.day) { this.day.coins += amount; this.day.income[kind] = (this.day.income[kind] || 0) + amount; }
+    this.audio.play('coin', { volume: 0.35, pitch: 1 + Math.random() * 0.2 });
+    this.emit('coins', { delta: amount });
+  }
+
+  // Reynard pops up in the corner to tell you something
+  notify(text, mood = 'info', opts = {}) {
+    if (this.ui?.notify) return this.ui.notify(text, mood, opts);
+    this.ui?.toast?.(text, mood === 'no' || mood === 'warn' ? 'bad' : 'gold');
+    return null;
+  }
+
+  // speech bubble above anything that can tell us where it is
+  say(anchor, text, opts = {}) {
+    return this.ui?.say?.(anchor, text, opts) || null;
+  }
+
+  // progressive unlocks: tools/UI appear one by one
+  isOpen(feature) { return this.state.unlocked.includes(feature) || this.skipTutorial; }
+  unlockFeature(feature, { quiet = false } = {}) {
+    if (this.state.unlocked.includes(feature)) return false;
+    this.state.unlocked.push(feature);
+    this.emit('unlock', feature);
+    this.ui?.onUnlock?.(feature, quiet);
+    return true;
+  }
+
+  // landmarks deep in the forest open up once your land reaches them
+  checkLandmarks() {
+    const g = this.grid;
+    for (const L of LANDMARKS) {
+      if (this.state.landmarks.includes(L.id)) continue;
+      let touch = false;
+      for (let z = L.z - 1; z <= L.z + L.d && !touch; z++)
+        for (let x = L.x - 1; x <= L.x + L.w && !touch; x++) {
+          const inside = x >= L.x && x < L.x + L.w && z >= L.z && z < L.z + L.d;
+          if (!inside && g.inb(x, z) && g.meadow[z * g.w + x]) touch = true;
+        }
+      if (!touch) continue;
+      this.state.landmarks.push(L.id);
+      this.applyLandmarkMods();
+      this.audio.play('discover', { volume: 0.6 });
+      this.particles.confetti(L.x + L.w / 2, g.height[L.z * g.w + L.x] + 2, L.z + L.d / 2, 50);
+      this.ui?.onLandmark?.(L, LANDMARK_PERKS[L.id]);
+      this.emit('landmark', L);
+      this.save();
+    }
+  }
+
+  applyLandmarkMods() {
+    const m = this.mods;
+    const lm = this.state.landmarks || [];
+    if (lm.includes('firetower')) { this.rig.maxWupp = 0.16; m.patienceMult = (m.patienceMult || 1) * 1.2; }
+    if (lm.includes('lumberhut')) m.beaverBonus = (m.beaverBonus || 0) + 1;
+    if (lm.includes('willowshrine')) m.beautyFlat = (m.beautyFlat || 0) + 15;
+    if (lm.includes('swampshack')) m.mutationMult = (m.mutationMult || 1) * 1.6;
+    if (lm.includes('mushhut')) m.hatchSpeed = (m.hatchSpeed || 1) * 1.35;
+  }
+
+  // ------------------------------------------------------------ e-Buy
+  // today's listings: eggs (genes pre-rolled, what you see is what you get),
+  // plant seeds and decor for the blueprint inventory, and gear
+  ebuyListings() {
+    const st = this.state;
+    if (st.shopDay !== st.day || !st.shop?.length) {
+      st.shopDay = st.day;
+      const pool = this.availableSpecies();
+      const n = 5 + Math.min(5, Math.floor(st.day / 2));
+      st.shop = [];
+      for (let i = 0; i < n; i++) {
+        const sp = pool[Math.floor(Math.random() * pool.length)];
+        const luck = i === 0 ? 1.6 : 1;
+        const g = rollGenes(sp, this.mods, { luck });
+        const rarity = rarityOf(g.stars);
+        const mu = g.mut ? MUTATIONS[g.mut] : null;
+        st.shop.push({ id: 'egg' + st.day + '_' + i, species: sp, g, sold: false, title: eggTitle(SPECIES_BY_ID[sp], g, rarity, mu), off: 2 + Math.random() * 6, last: Math.random() < 0.3, sold0: Math.floor(30 + Math.random() * 2000) });
+      }
+    }
+    const L = [];
+    for (const e of st.shop) {
+      if (e.sold) continue;
+      const sp = SPECIES_BY_ID[e.species];
+      const rarity = rarityOf(e.g.stars);
+      const mu = e.g.mut ? MUTATIONS[e.g.mut] : null;
+      const price = Math.max(8, Math.round(sp.price * (0.8 + rarity * 0.45) * (mu ? Math.sqrt(mu.value) : 1)));
+      L.push({ id: e.id, cat: 'eggs', kind: 'egg', species: e.species, genes: e.g, title: e.title, sub: sp.name, price, oldPrice: Math.round(price * (e.off || 3)), rarity: RARITIES[rarity].id, mutation: mu ? { id: e.g.mut, name: mu.name, color: mu.color, mult: mu.value } : null, badges: [rarity >= 2 ? 'hot' : null, e.last ? 'last' : null, mu ? 'new' : null].filter(Boolean), seller: { name: pickSeller(e.id), stars: 4 + (e.sold0 % 10) / 10, sold: e.sold0 || 100 }, eta: 'Moose Express' });
+    }
+    for (const it of SHOP_ITEMS) {
+      const def = STRUCTURES[it.type];
+      const locked = it.unlock && !this.isUnlocked(it.unlock) ? { reason: 'Needs research', icon: 'lab' } : it.landmark && !st.landmarks.includes(it.landmark) ? { reason: 'Find the ' + it.landmarkName, icon: 'map' } : null;
+      if (it.once && (st.inventory[it.type] || this.structures.countBuilt(it.type))) continue;
+      L.push({ id: 'item_' + it.type, cat: it.cat, kind: 'item', type: it.type, qty: it.qty || 1, title: it.title, sub: def?.name || it.sub, price: it.price, oldPrice: it.oldPrice, badges: it.badges || [], seller: it.seller, locked, eta: 'Moose Express' });
+    }
+    return L;
+  }
+
+  // returns true on success; the package arrives later by moose
+  ebuyBuy(listing, qty = 1) {
+    if (listing.locked) { this.notify('Not yet!', 'no'); return false; }
+    const cost = listing.price * qty;
+    if (this.state.coins < cost) { this.audio.play('error', { volume: 0.4 }); return false; }
+    this.spend(cost, listing.kind === 'egg' ? 'eggs' : 'shop');
+    this.audio.play('buy', { volume: 0.5 });
+    if (listing.kind === 'egg') {
+      const e = this.state.shop.find((x) => x.id === listing.id);
+      if (e) e.sold = true;
+      const rarity = rarityOf(listing.genes.stars);
+      this.delivery.order([{ kind: 'egg', species: listing.species, genes: listing.genes, t: EGG_TIMES[rarity] / this.hatchSpeed() }], { label: listing.title });
+      this.stats.fishBought++;
+    } else {
+      this.delivery.order([{ kind: 'item', type: listing.type, qty: (listing.qty || 1) * qty }], { label: listing.title });
+    }
+    this.unlockFeature('ebuy', { quiet: true });
+    this.save();
+    return true;
+  }
+
+  // a bought egg hatched in the pond: show off what came out
+  onEggHatched(e, born) {
+    const f = born[0];
+    if (!f) return;
+    const st = this.state;
+    if (!st.discovered.includes(e.species)) { st.discovered.push(e.species); this.day?.discoveries.push(e.species); }
+    const mk = `${e.species}:${f.g.morph}`;
+    if (f.g.morph !== 'normal' && !st.morphsSeen.includes(mk)) st.morphsSeen.push(mk);
+    this.stats.eggsHatched++;
+    const rarity = rarityOf(f.g.stars);
+    this.particles.sparkle(e.x, 0.4, e.z, 10 + rarity * 6, 0xfff2a0);
+    if (rarity >= 3) this.particles.confetti(e.x, 0.6, e.z, 30);
+    this.audio.play(['reveal_common', 'reveal_common', 'reveal_rare', 'reveal_epic', 'reveal_legendary'][rarity], { volume: 0.45 });
+    this.ui?.onFishHatched?.(f, rarity);
   }
 
   // ------------------------------------------------------------ phases
@@ -656,6 +801,7 @@ export class Game {
   }
 
   feedAt(x, z) {
+    this.emit('fed', { x, z });
     const bag = this.foodBag;
     if (bag.count < 1) { this.audio.play('error', { volume: 0.3 }); this.ui?.toast('Food bag empty, it refills over time', 'bad'); return; }
     bag.count -= 1;
@@ -726,19 +872,22 @@ export class Game {
     return ok;
   }
 
-  placeStructure(type, x, z) {
+  placeStructure(type, x, z, { free = false } = {}) {
     const def = STRUCTURES[type];
-    if (!def || !this.isStructureUnlocked(type)) return false;
+    const inv = this.state.inventory;
+    if (free && !(inv[type] > 0)) free = false;
+    if (!def || (!free && !this.isStructureUnlocked(type))) return false;
     if (def.builder === 'beaver' && !this.structures.list.some((s) => s.type === 'lodge' && s.built)) {
-      this.ui?.toast('You need a Beaver Lodge first!', 'bad');
+      this.notify('Need beavers first!', 'no');
       this.audio.play('error', { volume: 0.4 });
       return false;
     }
     const chk = this.structures.canPlace(type, x, z);
-    if (!chk.ok) { this.ui?.toast(chk.reason, 'bad'); this.audio.play('error', { volume: 0.4 }); return false; }
-    if (!this.spend(def.cost, 'builds')) return false;
-    const s = this.structures.place(type, x, z);
-    if (!s) { this.state.coins += def.cost; return false; }
+    if (!chk.ok) { this.notify(chk.reason, 'no'); this.audio.play('error', { volume: 0.4 }); return false; }
+    if (free) { inv[type]--; if (inv[type] <= 0) { delete inv[type]; if (this.tool?.free) this.setTool({ kind: 'feed' }); } this.emit('inventory', inv); }
+    else if (!this.spend(def.cost, 'builds')) return false;
+    const s = this.structures.place(type, x, z, { free });
+    if (!s) { if (free) inv[type] = (inv[type] || 0) + 1; else this.state.coins += def.cost; return false; }
     this.audio.play('place', { volume: 0.5 });
     this.particles.dust(x + 0.5, this.structures.baseY(s) + 0.1, z + 0.5, 5);
     if (this.grid.isWater(x, z)) this.particles.splash(x + 0.5, z + 0.5, 6, 0.6);
@@ -746,6 +895,18 @@ export class Game {
     if (s.built && (def.blocksBear || def.blocksFish)) this.onTopologyChanged();
     this.emit('built', s);
     return true;
+  }
+
+  // mark a tree / forest tile / rock / weed for the beavers (tap again to cancel)
+  clearAt(x, z) {
+    const B = this.beavers;
+    if (!B.count()) { this.notify('Need beavers first!', 'no'); return false; }
+    if (B.cancelClear(x, z)) { this.audio.play('close', { volume: 0.3 }); return true; }
+    const r = B.queueClear(x, z);
+    if (r.ok) { this.audio.play('paper', { volume: 0.3, pitch: 1.2 }); return true; }
+    if (r.reason === 'far') this.notify('Too far! Start from the edge of your land.', 'no');
+    this.audio.play('error', { volume: 0.3 });
+    return false;
   }
 
   canDig(x, z) {
@@ -894,7 +1055,7 @@ export class Game {
         else if (tr.kind === 'dawn') this.finishDawn();
       }
     } else if (st.phase === 'day') {
-      st.hour += simDt * (8 / this.dayLength());
+      if (!this.tutorialHold) st.hour += simDt * (8 / this.dayLength());
       if (!this.lunchDone && st.hour >= LUNCH[0] && this.lunch?.length) {
         this.lunchDone = true;
         this.bears.startLunch(this.lunch);
@@ -923,11 +1084,13 @@ export class Game {
       this.fish.update(simPhase);
       this.bears.update(st.phase === 'evening' ? dt : simDt);
       this.beavers.update(simPhase);
+      this.delivery.update(calm ? dt : simDt || 0);
       this.updateEggs(calm ? simPhase : simDt);
     }
     this.fox.update(dt);
     this.ambient.update(dt);
     this.cine?.update(realDt);
+    this.tutorial?.update(realDt);
     this.lab?.update(realDt);
     this.particles.update(simDt || dt * 0.5);
     this.world.sim.update(simDt || dt * 0.5, this.wind);
@@ -946,9 +1109,10 @@ export class Game {
     this.sky.setShadowExtent(this.renderer.rtW * rig.wupp * 0.75);
     this.world.update(this.time, this.sky, rig.camera);
     this.fish.render();
+    this.structures.renderSprites();
     this.food.render();
     this.bears.render(realDt);
-    this.beavers.render();
+    this.beavers.render(realDt);
     const pushers = this._pushers || (this._pushers = []);
     pushers.length = 0;
     pushers.push({ x: this.fox.x, y: this.fox.y, z: this.fox.z, r: 0.7 });
@@ -971,9 +1135,13 @@ export class Game {
   // ------------------------------------------------------------ save / load
   serialize() {
     const g = this.grid;
-    const water = [];
-    for (let z = MEADOW.z0; z < MEADOW.z1; z++)
-      for (let x = MEADOW.x0; x < MEADOW.x1; x++) if (g.kind[z * g.w + x] === KIND.WATER) water.push(z * g.w + x);
+    const water = [], land = [];
+    for (let i = 0; i < g.w * g.h; i++) {
+      if (!g.meadow[i]) continue;
+      if (g.kind[i] === KIND.WATER) water.push(i);
+      const x = i % g.w, z = (i / g.w) | 0;
+      if (x < MEADOW.x0 || x >= MEADOW.x1 || z < MEADOW.z0 || z >= MEADOW.z1) land.push(i);
+    }
     const removedDecos = [];
     this.world.decos.forEach((d, i) => { if (d.removed) removedDecos.push(i); });
     const st = { ...this.state };
@@ -981,7 +1149,8 @@ export class Game {
     if (['report', 'bedtime', 'night'].includes(st.phase)) { st.phase = 'day'; st.hour = 9; st.day = this.state.day + 1; }
     if (st.phase === 'dawn' || st.phase === 'morning') { st.phase = 'day'; st.hour = 9; }
     return {
-      v: 2, state: st, stats: this.stats, water, removedDecos, structures: this.structures.serialize(),
+      v: 3, state: st, stats: this.stats, water, land, removedDecos, structures: this.structures.serialize(),
+      beavers: this.beavers.serialize(), delivery: this.delivery.serialize(),
       fish: this.fish.serialize(), food: this.food.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
     };
   }
@@ -998,13 +1167,10 @@ export class Game {
     if (!raw) return false;
     let data;
     try { data = JSON.parse(raw); } catch { return false; }
-    if (!data || data.v !== 2) return false;
+    if (!data || data.v !== 3) return false;
     const g = this.grid;
-    for (let z = MEADOW.z0; z < MEADOW.z1; z++)
-      for (let x = MEADOW.x0; x < MEADOW.x1; x++) {
-        const i = z * g.w + x;
-        if (g.kind[i] === KIND.WATER) g.kind[i] = KIND.GRASS;
-      }
+    for (const i of data.land || []) { if (g.kind[i] === KIND.FOREST) g.kind[i] = KIND.GRASS; g.meadow[i] = 1; }
+    for (let i = 0; i < g.w * g.h; i++) if (g.meadow[i] && g.kind[i] === KIND.WATER) g.kind[i] = KIND.GRASS;
     for (const i of data.water) g.kind[i] = KIND.WATER;
     refreshWaterHeights(g);
     for (const i of data.removedDecos || []) {
@@ -1029,6 +1195,10 @@ export class Game {
     this.food.load(data.food);
     this.onTopologyChanged();
     this.beavers.refreshCounts();
+    this.beavers.loadClears(data.beavers?.clears);
+    this.delivery.load(data.delivery);
+    this.applyLandmarkMods();
+    this.world.landVersion++;
     if (data.cam) { this.rig.lookAt(data.cam[0], data.cam[1], true); this.rig.wupp = this.rig.wuppGoal = data.cam[2]; this.rig.yaw = this.rig.yawGoal = data.cam[3] || 0; }
     this.started = true;
     this.startDay(true);
@@ -1040,6 +1210,40 @@ export class Game {
     try { return { tails: 0, best: 0, ...(JSON.parse(safeGet(LEGACY_KEY) || '{}')) }; } catch { return { tails: 0, best: 0 }; }
   }
   saveLegacy() { safeSet(LEGACY_KEY, JSON.stringify(this.legacy)); }
+}
+
+// what Reynard gets for reaching each landmark
+export const LANDMARK_PERKS = {
+  firetower: { icon: 'binoculars', line: 'I can see bears coming for miles! Zoom out further, and bears wait longer.' },
+  lumberhut: { icon: 'axe', line: 'Lumber prices! Clearing pays double, and +1 beaver per lodge.' },
+  willowshrine: { icon: 'heart', line: 'The Great Willow blesses the pond. +15 beauty!' },
+  mushhut: { icon: 'mushroom', line: 'Magic spores! Eggs hatch 35% faster.' },
+  swampshack: { icon: 'sparkle', line: 'Swamp water is... weird. Mutations happen way more often.' },
+};
+
+// things e-Buy sells besides eggs (delivered into your blueprint inventory)
+const SHOP_ITEMS = [
+  { type: 'lodge', cat: 'gear', title: 'BEAVER CREW!! hard workers (2 beavers + lodge)', price: 60, oldPrice: 999, badges: ['hot'], once: true, seller: { name: 'BuckTooth Bros', stars: 4.9, sold: 812 } },
+  { type: 'berries', cat: 'plants', title: 'Blueberry bush seeds (beavers LOVE these)', price: 25, oldPrice: 80, badges: ['new'], qty: 1, seller: { name: 'Berry Mom', stars: 4.8, sold: 3100 } },
+  { type: 'flowers', cat: 'plants', title: 'Flower bed kit - pretty = more bears', price: 18, oldPrice: 50, seller: { name: 'Petal Pusher', stars: 4.6, sold: 920 } },
+  { type: 'seaweed', cat: 'plants', title: 'Seaweed starter (fish snack + hiding)', price: 12, oldPrice: 30, seller: { name: 'Kelp Kelly', stars: 4.4, sold: 410 } },
+  { type: 'beehive', cat: 'plants', title: 'Beehive w/ REAL bees (honey!!)', price: 70, oldPrice: 300, unlock: 'r_bees', seller: { name: 'Buzzwell', stars: 4.7, sold: 230 } },
+  { type: 'gnome', cat: 'decor', title: 'Garden gnome (cursed? no refunds)', price: 22, oldPrice: 66, badges: ['sale'], seller: { name: 'GnomeDepot', stars: 3.9, sold: 666 } },
+  { type: 'pinwheel', cat: 'decor', title: 'Spinny pinwheel - bears go wow', price: 15, oldPrice: 40, seller: { name: 'WindyCity', stars: 4.5, sold: 1200 } },
+  { type: 'stonelantern', cat: 'decor', title: 'Stone lantern (glows at night!)', price: 35, oldPrice: 120, seller: { name: 'Zen Den', stars: 4.8, sold: 340 } },
+  { type: 'floatlantern', cat: 'decor', title: 'Floating lanterns x3 MAGICAL', price: 40, oldPrice: 160, seller: { name: 'Zen Den', stars: 4.8, sold: 290 } },
+  { type: 'moose', cat: 'decor', title: 'Life-size moose statue (not my cousin)', price: 90, oldPrice: 400, badges: ['hot'], seller: { name: 'Moose Express', stars: 5, sold: 77 } },
+  { type: 'hatchery', cat: 'gear', title: 'Egg incubator - hatch faster', price: 80, oldPrice: 250, unlock: 'r_hatchery', seller: { name: 'EggCellent', stars: 4.7, sold: 150 } },
+];
+const SELLERS = ['xX_FishLord_Xx', 'grandma_trout', 'BigPondEnergy', 'eggs4u_ca', 'NotAScam_Fish', 'Canuck_Carp', 'reel_deal', 'fin_tastic'];
+function pickSeller(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0; return SELLERS[Math.abs(h) % SELLERS.length]; }
+function eggTitle(sp, g, rarity, mu) {
+  const n = sp.name.toUpperCase();
+  if (mu && rarity >= 3) return `!!! ${mu.name.toUpperCase()} ${n} EGG !!! (not clickbait)`;
+  if (mu) return `${mu.name} ${sp.name} egg?!? u won't believe it`;
+  if (rarity >= 3) return `RARE?! ${sp.name} egg - LAST ONE`;
+  if (rarity >= 2) return `${sp.name} egg (shiny vibes) 🔥`;
+  return [`${sp.name} egg, fresh, no questions`, `Totally normal ${sp.name} egg`, `${sp.name} egg - mom says it's special`][Math.floor(Math.random() * 3)];
 }
 
 export { RESEARCH, SPECIES, STRUCTURES };

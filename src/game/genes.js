@@ -2,7 +2,7 @@
 // rating that decides the egg's rarity tier (common .. legendary).
 // Bought eggs roll fresh genes; bred eggs inherit from both parents with a
 // little mutation, so careful breeding (and nurturing) pays off.
-import { SPECIES_BY_ID, MORPHS, MORPH_IDS, TRAITS, TRAIT_IDS, RARITIES } from '../data/species.js';
+import { SPECIES_BY_ID, MORPHS, MORPH_IDS, TRAITS, TRAIT_IDS, RARITIES, MUTATIONS, MUTATION_IDS } from '../data/species.js';
 
 const SIZE_LABELS = [[0.92, 'S'], [1.06, 'M'], [1.2, 'L'], [99, 'XL']];
 export function sizeLabel(m) { for (const [t, l] of SIZE_LABELS) if (m < t) return l; return 'XL'; }
@@ -17,6 +17,16 @@ function pickMorph(mods, luck = 1) {
     r -= c;
   }
   return 'normal';
+}
+
+export function pickMutation(mods, luck = 1) {
+  let r = Math.random();
+  for (const id of MUTATION_IDS.slice().reverse()) {
+    const c = MUTATIONS[id].chance * (mods?.mutationMult || 1) * luck;
+    if (r < c) return id;
+    r -= c;
+  }
+  return null;
 }
 
 function pickTraits(mods, luck = 1, inherited = []) {
@@ -38,6 +48,7 @@ export function starsFor(speciesId, g) {
   let score = (sp?.tier || 0) * 0.8;
   score += (g.size - 1) * 5;
   score += MORPHS[g.morph]?.stars || 0;
+  score += (g.mut && MUTATIONS[g.mut]?.stars) || 0;
   for (const t of g.traits) score += TRAITS[t]?.good ? 0.8 : -0.4;
   return Math.max(1, Math.min(5, Math.round(1 + score)));
 }
@@ -49,6 +60,7 @@ export function rollGenes(speciesId, mods, { luck = 1, sex = null } = {}) {
     size: +(0.86 + Math.random() * 0.26 + (Math.random() < 0.12 * luck ? 0.14 : 0)).toFixed(2),
     morph: pickMorph(mods, luck),
     traits: pickTraits(mods, luck),
+    mut: pickMutation(mods, luck),
   };
   g.stars = starsFor(speciesId, g);
   return g;
@@ -68,6 +80,7 @@ export function breedGenes(speciesId, a, b, mods, { nurtured = false } = {}) {
     size: +Math.max(0.8, Math.min(1.45, (ga.size + gb.size) / 2 + (Math.random() - 0.45) * 0.14 * luck)).toFixed(2),
     morph: inheritMorph(),
     traits: pickTraits(mods, luck, [...ga.traits, ...gb.traits]),
+    mut: [ga.mut, gb.mut].filter(Boolean).find(() => Math.random() < 0.3) || pickMutation(mods, luck * 0.6),
   };
   g.stars = starsFor(speciesId, g);
   return g;
@@ -77,13 +90,13 @@ export function rarityOf(stars) { return Math.max(0, Math.min(4, stars - 1)); }
 
 export function valueMult(g) {
   if (!g) return 1;
-  let v = g.size * (MORPHS[g.morph]?.value || 1);
+  let v = g.size * (MORPHS[g.morph]?.value || 1) * ((g.mut && MUTATIONS[g.mut]?.value) || 1);
   if (g.traits.includes('chonky')) v *= 1.35;
   return v;
 }
 export function mealMult(g) {
   if (!g) return 1;
-  let v = 0.7 + g.size * 0.3;
+  let v = (0.7 + g.size * 0.3) * (g.mut === 'titan' ? 2 : g.mut === 'tiny' ? 0.6 : 1);
   if (g.traits.includes('chonky')) v *= 1.35;
   return v;
 }
@@ -96,8 +109,9 @@ export function hatchCard(speciesId, g, { isNewSpecies = false, isNewMorph = fal
     morph: { id: g.morph, name: MORPHS[g.morph]?.name || 'Wild Type' },
     sex: g.sex, size: { label: sizeLabel(g.size), mult: g.size },
     traits: g.traits.map((t) => ({ id: t, name: TRAITS[t].name, desc: TRAITS[t].desc, good: TRAITS[t].good, icon: TRAITS[t].icon })),
+    mutation: g.mut ? { id: g.mut, ...MUTATIONS[g.mut] } : null,
     stars: g.stars, isNewSpecies, isNewMorph, value,
   };
 }
 
-export { RARITIES, MORPH_IDS };
+export { RARITIES, MORPH_IDS, MUTATIONS };

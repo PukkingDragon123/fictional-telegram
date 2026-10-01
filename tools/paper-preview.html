@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Paper Preview</title>
+<style>
+  @font-face { font-family: 'TBME Digits'; font-style: normal; font-weight: 400 700; font-display: swap;
+    src: url('/node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2'); unicode-range: U+0030-0039; }
+  :root { --bg: #2c190d; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #2c190d; } }
+  :root[data-theme="dark"] { --bg: #2c190d; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: #fdf4d8; font-family: 'TBME Digits', 'Pixelify Sans', system-ui, sans-serif; }
+  body { padding: 16px; box-sizing: border-box; }
+  #desk { position: fixed !important; inset: 0; z-index: -1; }
+  h1 { font-size: 26px; margin: 4px 0 2px; color: #ffd23f; text-shadow: 0 3px 0 #2a1a14; }
+  h2 { font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: #f0cf98; margin: 26px 0 10px; text-shadow: 0 2px 0 #2a1a14; }
+  .grid { display: flex; flex-wrap: wrap; gap: 18px; }
+  .sw { width: 200px; }
+  .sw .paper { height: 140px; filter: drop-shadow(0 4px 0 rgba(0,0,0,.4)); }
+  .sw small { display: block; margin-top: 8px; font-size: 13px; color: #f0cf98; text-shadow: 0 2px 0 #2a1a14; }
+  .tex img { display: block; image-rendering: pixelated; filter: drop-shadow(0 4px 0 rgba(0,0,0,.4)); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; }
+  .card { position: relative; padding: 26px 22px; min-width: 300px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btns button { font-family: inherit; font-size: 16px; padding: 7px 14px; border: 3px solid #2a1a14; background: #fbf3dc; color: #3b2414; box-shadow: 0 3px 0 #2a1a14; cursor: pointer; }
+  .btns button:hover { background: #fff; }
+  #hudbox { position: relative; height: 170px; width: 340px; }
+</style>
+</head>
+<body>
+<div id="desk" class="paper paper--wood"></div>
+<h1>Paper kit</h1>
+<h2>Modals</h2>
+<div class="btns" id="modals"></div>
+<h2>End of day</h2>
+<div class="btns" id="reports"></div>
+<h2>HUD</h2>
+<div class="row"><div id="hudbox"></div><div class="btns" id="hudbtns"></div></div>
+<h2>Paper classes (tiled)</h2>
+<div class="grid" id="tiles"></div>
+<h2>Sized textures (paperTexture)</h2>
+<div class="row tex" id="sized"></div>
+<h2>Props</h2>
+<div class="row" id="props"></div>
+<h2>Helpers</h2>
+<div class="row" id="helpers"></div>
+<script type="module" src="./paper-preview.js"></script>
+</body>
+</html>

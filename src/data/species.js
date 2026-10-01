@@ -248,6 +248,23 @@ export const MORPHS = {
 };
 export const MORPH_IDS = Object.keys(MORPHS);
 
+// Mutations: rare, flashy egg-roll bonuses on top of the morph. They push the
+// fish's rarity up and multiply its value. tint = sprite colour multiplier,
+// scale = size multiplier, fx = particle effect the fish trails.
+export const MUTATIONS = {
+  tiny: { name: 'Tiny', chance: 0.05, value: 0.9, stars: 0, color: '#9ad0ff', tint: [1, 1, 1], scale: 0.6, fx: 'none' },
+  frozen: { name: 'Frozen', chance: 0.035, value: 2, stars: 1, color: '#8ee8ff', tint: [0.75, 0.95, 1.35], scale: 1, fx: 'frost' },
+  candy: { name: 'Candy', chance: 0.03, value: 2, stars: 1, color: '#ff8ad8', tint: [1.35, 0.85, 1.15], scale: 1, fx: 'sprinkles' },
+  hot: { name: 'Hot', chance: 0.025, value: 2.5, stars: 1, color: '#ff6a2a', tint: [1.4, 0.8, 0.6], scale: 1, fx: 'flame' },
+  zombie: { name: 'Zombie', chance: 0.02, value: 1.8, stars: 1, color: '#8ad050', tint: [0.8, 1.25, 0.7], scale: 1, fx: 'stink' },
+  shiny: { name: 'Shiny', chance: 0.015, value: 3, stars: 2, color: '#fff27a', tint: [1.2, 1.15, 0.95], scale: 1, fx: 'sparkle' },
+  titan: { name: 'Titan', chance: 0.012, value: 3.5, stars: 2, color: '#c0a070', tint: [1, 1, 1], scale: 1.9, fx: 'stomp' },
+  doge: { name: 'Doge', chance: 0.01, value: 4, stars: 2, color: '#f0b040', tint: [1.35, 1.1, 0.65], scale: 1.05, fx: 'wow' },
+  doublehot: { name: 'Double Hot', chance: 0.006, value: 5, stars: 3, color: '#ff2a2a', tint: [1.6, 0.6, 0.45], scale: 1.1, fx: 'bigflame' },
+  galaxy: { name: 'Galaxy', chance: 0.003, value: 8, stars: 3, color: '#a070ff', tint: [0.8, 0.7, 1.5], scale: 1.1, fx: 'stars' },
+};
+export const MUTATION_IDS = Object.keys(MUTATIONS);
+
 // Personality traits a fish can be born with (0-2 each).
 export const TRAITS = {
   fertile: { name: 'Fertile', icon: 'heart', desc: 'Breeds 50% more often.', good: true },

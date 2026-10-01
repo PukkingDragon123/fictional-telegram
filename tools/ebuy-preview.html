@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>e-Buy Preview</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: 'Pixelify Sans', sans-serif; }
+  /* fake game world behind the overlay */
+  body {
+    background:
+      radial-gradient(circle at 30% 40%, #3f7a3a 0 8%, transparent 9%),
+      radial-gradient(circle at 70% 65%, #2f6a8a 0 14%, transparent 15%),
+      repeating-linear-gradient(45deg, #2e5a2a 0 12px, #336230 12px 24px);
+  }
+  #wrap { position: fixed; inset: 0; }
+  body.phone #wrap { inset: auto; left: 50%; top: 50%; width: 390px; height: 780px; transform: translate(-50%, -50%); outline: 6px solid #111; border-radius: 26px; overflow: hidden; }
+  #dev { position: fixed; left: 4px; bottom: 4px; z-index: 100; font: 12px/1.3 monospace; color: #cfe; background: rgba(0,0,0,.82); border: 1px solid #3a6; padding: 4px 6px; max-width: 300px; }
+  #dev.min > :not(.t) { display: none; }
+  #dev .t { cursor: pointer; color: #7f9; }
+  #dev button { font: 11px monospace; margin: 2px 2px 0 0; background: #123; color: #cfe; border: 1px solid #3a6; cursor: pointer; }
+  #dev #log { margin-top: 4px; max-height: 90px; overflow: auto; color: #9b9; white-space: pre; }
+  #closed { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #fff; font: 20px 'Pixelify Sans', sans-serif; }
+  #closed button { font: inherit; padding: 6px 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<div id="closed"><div>shop closed (onClose)</div><button id="reopen">reopen</button></div>
+<div id="dev" class="min">
+  <div class="t">DEV ▾</div>
+  <div>
+    coins: <b id="cv"></b><br>
+    <button data-a="c+">+500</button><button data-a="c-">-500</button><button data-a="c0">0</button><button data-a="cbig">99,999</button><br>
+    <button data-a="phone">toggle phone</button><button data-a="fail">force fail: off</button><button data-a="sound">sound: off</button><br>
+    <button data-a="restock">restock</button><button data-a="unlock">unlock all</button><button data-a="close">close()</button>
+  </div>
+  <div id="log"></div>
+</div>
+<script type="module" src="./ebuy-preview.js"></script>
+</body>
+</html>

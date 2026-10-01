@@ -1,0 +1,56 @@
+/* BigClock: the big cute pixel wall clock (top-right). */
+.bclock {
+  display: inline-block;
+  pointer-events: auto;
+  line-height: 0;
+  transition: opacity 0.2s steps(4), transform 0.2s steps(4);
+}
+.bclock.bclock-hidden { opacity: 0; transform: translateY(-12px); pointer-events: none; }
+.bclock-btn {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+  transform-origin: 50% 90%;
+  -webkit-tap-highlight-color: transparent;
+  filter: drop-shadow(0 4px 0 rgba(42, 26, 20, 0.28));
+}
+.bclock-btn:focus-visible { outline: 2px dashed #2a1a14; outline-offset: 2px; }
+.bclock-cv {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.bclock-btn:hover { transform: translateY(-2px); }
+.bclock-btn.bclock-squash { animation: bclock-squash 0.32s cubic-bezier(0.3, 0.8, 0.4, 1.3); }
+@keyframes bclock-squash {
+  0% { transform: scale(1, 1); }
+  25% { transform: scale(1.12, 0.84); }
+  55% { transform: scale(0.94, 1.08); }
+  80% { transform: scale(1.03, 0.98); }
+  100% { transform: scale(1, 1); }
+}
+.bclock-pulse .bclock-cv { animation: bclock-pulse 1.1s steps(2) infinite; transform-origin: 50% 70%; }
+@keyframes bclock-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.bclock-wobble .bclock-cv { animation: bclock-wobble 0.9s steps(1) infinite; transform-origin: 50% 92%; }
+@keyframes bclock-wobble {
+  0%, 100% { transform: rotate(0); }
+  12% { transform: rotate(-4deg) scale(1.03); }
+  25% { transform: rotate(3deg); }
+  37% { transform: rotate(-2deg); }
+  50% { transform: rotate(0) scale(1.04); }
+}
+.bclock-ring .bclock-cv { animation: bclock-ring 0.12s steps(1) infinite; transform-origin: 50% 92%; }
+@keyframes bclock-ring {
+  0% { transform: translate(-2px, 0) rotate(-3deg); }
+  50% { transform: translate(2px, -2px) rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bclock-cv { animation: none !important; }
+}

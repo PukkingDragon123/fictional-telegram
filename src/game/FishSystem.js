@@ -3,7 +3,7 @@
 // eggs -> fry -> adults, genetics (size, morphs, traits) and cross-breeding
 // discoveries. Rendered as 2D pixel sprites (src/art/fishArt.js) in one batch.
 import * as THREE from 'three';
-import { SPECIES_BY_ID, HYBRIDS, MORPHS } from '../data/species.js';
+import { SPECIES_BY_ID, HYBRIDS, MORPHS, MUTATIONS, RARITIES } from '../data/species.js';
 import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
 import { fishAtlas, FISH_TPU } from './fishSprites.js';
 import { rollGenes, breedGenes, valueMult, mealMult } from './genes.js';
@@ -94,7 +94,7 @@ export class FishSystem {
     const tiles = [];
     for (let z = 0; z < g.h; z++)
       for (let x = 0; x < g.w; x++) {
-        if (!g.fishPassable(x, z)) continue;
+        if (!g.fishPassable(x, z) || !g.meadow[z * g.w + x]) continue;
         if (region >= 0 && g.region[z * g.w + x] !== region) continue;
         tiles.push([x, z]);
       }
@@ -384,7 +384,7 @@ export class FishSystem {
     const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
     a.state = b.state = 'wander';
     a.mate = b.mate = null;
-    const cd = (sp) => (40 + Math.random() * 20) / (sp.breed * mods.breedMult);
+    const cd = (sp) => (130 + Math.random() * 70) / (sp.breed * mods.breedMult);
     a.loveT = cd(a.sp); b.loveT = cd(b.sp);
     a.hunger = Math.min(1, a.hunger + 0.12); b.hunger = Math.min(1, b.hunger + 0.12);
     a.heading += Math.PI * 0.7; b.heading -= Math.PI * 0.7;
@@ -395,13 +395,13 @@ export class FishSystem {
       if (h && Math.random() < 0.3 * mods.hybridMult) { kid = h; hybrid = true; }
       else kid = Math.random() < 0.5 ? a.sp.id : b.sp.id;
     }
-    const count = 1 + (Math.random() < 0.5 ? 1 : 0) + mods.clutchBonus;
+    const count = 1 + (Math.random() < 0.25 ? 1 : 0) + mods.clutchBonus;
     const g = game.grid;
     const floor = g.groundAt(mx, mz);
     const nurtured = a.love > 0.2 || b.love > 0.2;
     const genes = [];
     for (let k = 0; k < count; k++) genes.push(breedGenes(kid, a, b, mods, { nurtured }));
-    this.eggs.push({ x: mx, z: mz, y: floor + 0.02, species: kid, count, genes, t: 22 + Math.random() * 10, hybrid, region: a.region, parents: [a.sp.id, b.sp.id] });
+    this.eggs.push({ x: mx, z: mz, y: floor + 0.02, species: kid, count, genes, t: 90 + Math.random() * 40, total: 110, hybrid, region: a.region, parents: [a.sp.id, b.sp.id] });
     game.particles.hearts(mx, WATER_Y + 0.3, mz, 3);
     game.world.sim.disturb(mx, mz, 0.25, 0.12);
     game.audio.play('heart', { volume: 0.45 });
@@ -434,6 +434,39 @@ export class FishSystem {
     game.ui?.floatTextAt(e.x, 0.25, e.z, `+${born.length} fry`, special ? '#ffe070' : '#b8ffb0');
     game.stats.hatched += born.length;
     game.onFishBorn(sp, e, born);
+    if (e.bought) game.onEggHatched?.(e, born);
+  }
+
+  // place a bought egg in the pond (it hatches after its timer)
+  addBoughtEgg(species, genes, t, at = null) {
+    const p = at || this.randomWaterPoint();
+    if (!p) return null;
+    const rarity = Math.max(0, Math.min(4, genes.stars - 1));
+    const hex = RARITIES[rarity].color.replace('#', '');
+    const col = [parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255].map((v) => 0.6 + v * 0.6);
+    const e = { x: p.x, z: p.z, y: this.game.grid.groundAt(p.x, p.z) + 0.02, species, count: 1, genes: [genes], t, total: t, bought: true, rarity, rarityColor: col, region: this.game.grid.regionAt(p.x, p.z) };
+    this.eggs.push(e);
+    this.game.particles.splash(p.x, p.z, 8, 0.6);
+    return e;
+  }
+
+  // flashy trails for mutated fish
+  mutationFx(f, mu) {
+    const P = this.game.particles;
+    const r = Math.random();
+    const y = Math.max(f.y, WATER_Y) + 0.15;
+    switch (mu.fx) {
+      case 'flame': if (r < 0.04) P.smoke(f.x, WATER_Y + 0.05, f.z, 0xff8a40); break;
+      case 'bigflame': if (r < 0.1) P.smoke(f.x, WATER_Y + 0.05, f.z, r < 0.05 ? 0xff4020 : 0xffb040); break;
+      case 'sparkle': if (r < 0.04) P.sparkle(f.x, y, f.z, 1, 0xfff2a0); break;
+      case 'stars': if (r < 0.05) P.sparkle(f.x, y, f.z, 1, r < 0.025 ? 0xc0a0ff : 0x80e0ff); break;
+      case 'sprinkles': if (r < 0.04) P.confetti?.(f.x, y, f.z, 2); break;
+      case 'frost': if (r < 0.03) P.sparkle(f.x, y, f.z, 1, 0xc8f4ff); break;
+      case 'stink': if (r < 0.02) P.smoke(f.x, WATER_Y + 0.05, f.z, 0x90c060); break;
+      case 'wow': if (r < 0.004) P.word?.('wow', f.x, y + 0.3, f.z, { size: 0.2, life: 0.9 }); else if (r < 0.03) P.sparkle(f.x, y, f.z, 1, 0xffd060); break;
+      case 'stomp': if (r < 0.01) this.game.world.sim.disturb(f.x, f.z, 0.4, 0.2); break;
+      default: break;
+    }
   }
 
   // ------------------------------------------------------------ bug jumps
@@ -559,7 +592,8 @@ export class FishSystem {
       const sd = Math.cos(f.heading) * rx + Math.sin(f.heading) * rz;
       if (sd > 0.12) f.flip = false; else if (sd < -0.12) f.flip = true;
       const grow = f.adult ? 1 : fry ? 1 : 0.62 + 0.38 * (f.age / GROW_TIME);
-      const scale = f.g.size * grow;
+      const mu = f.g.mut ? MUTATIONS[f.g.mut] : null;
+      const scale = f.g.size * grow * (mu ? mu.scale : 1);
       o.texels = FISH_TPU; o.scale = scale; o.mode = 0; o.ax = 0.5; o.ay = 0.5;
       o.flip = f.flip; o.sway = 0; o.phase = f.seed; o.bend = f.held ? 0 : Math.min(1.2, 0.35 + f.speed * 0.5);
       o.alpha = f.g.morph === 'ghost' ? 0.62 : 1;
@@ -573,16 +607,26 @@ export class FishSystem {
         const k = clamp((WATER_Y - y) / 0.9, 0, 1) * 0.7;
         o.tint = [1 + (wt[0] - 1) * k, 1 + (wt[1] - 1) * k, 1 + (wt[2] - 1) * k];
       } else o.tint = null;
+      if (mu && mu.fx !== 'none') {
+        const t = mu.tint, base = o.tint || [1, 1, 1];
+        o.tint = [base[0] * t[0], base[1] * t[1], base[2] * t[2]];
+        if (mu.fx === 'shiny' || mu.fx === 'galaxy' || mu.fx === 'stars' || mu.fx === 'sparkle') o.emissive = Math.max(o.emissive, 0.2);
+        this.mutationFx(f, mu);
+      }
       B.push(fr, x, y, z, o);
       if (f.g.morph !== 'normal' && Math.random() < 0.02) {
         if (f.g.morph === 'golden' || f.g.morph === 'rainbow') game.particles.sparkle(f.x, f.y + 0.2, f.z, 1, f.g.morph === 'golden' ? 0xfff2a0 : 0xd8c8ff);
       }
     }
-    // egg clutches on the pond floor
+    // egg clutches on the pond floor (bought eggs are bigger and glow by rarity)
     const eggFr = this.atlas.extra('eggs');
     for (const e of this.eggs) {
       const wob = e.t < 4 ? Math.sin(this.time * 18 + e.x) * 0.15 : Math.sin(this.time * 3 + e.x) * 0.04;
-      B.push(eggFr, e.x, e.y + 0.02, e.z, { texels: FISH_TPU, mode: 1, ax: 0.5, ay: 0.5, rot: wob, tint: [0.9, 0.95, 1] });
+      if (e.bought) {
+        const c = e.rarityColor || [1, 1, 1];
+        const pulse = 1 + Math.sin(this.time * 4 + e.x) * 0.05 + (e.t < 4 ? Math.abs(Math.sin(this.time * 14)) * 0.15 : 0);
+        B.push(eggFr, e.x, e.y + 0.03, e.z, { texels: FISH_TPU, scale: 1.6 * pulse, mode: 1, ax: 0.5, ay: 0.5, rot: wob, tint: c, emissive: e.rarity >= 2 ? 0.3 : 0.1 });
+      } else B.push(eggFr, e.x, e.y + 0.02, e.z, { texels: FISH_TPU, mode: 1, ax: 0.5, ay: 0.5, rot: wob, tint: [0.9, 0.95, 1] });
     }
     // bones
     for (const b of this.bones) {
@@ -618,7 +662,7 @@ export class FishSystem {
   serialize() {
     return {
       fish: this.list.map((f) => [f.sp.id, +f.x.toFixed(2), +f.z.toFixed(2), f.adult ? 1 : 0, +f.age.toFixed(1), +f.hunger.toFixed(2), f.g, f.tagged ? 1 : 0, +f.love.toFixed(2), f.name || 0]),
-      eggs: this.eggs.map((e) => [e.species, +e.x.toFixed(2), +e.z.toFixed(2), e.count, +e.t.toFixed(1), e.genes, e.hybrid ? 1 : 0]),
+      eggs: this.eggs.map((e) => [e.species, +e.x.toFixed(2), +e.z.toFixed(2), e.count, +e.t.toFixed(1), e.genes, e.hybrid ? 1 : 0, e.bought ? 1 : 0, +(e.total || 0).toFixed(1)]),
     };
   }
 
@@ -632,9 +676,11 @@ export class FishSystem {
       const f = this.spawn(id, x, z, { adult: !!adult, hunger, g: genes });
       if (f) { f.age = age; f.tagged = !!tagged; f.love = love || 0; f.name = name || null; }
     }
-    for (const [species, x, z, count, t, genes, hybrid] of data.eggs || []) {
+    for (const [species, x, z, count, t, genes, hybrid, bought, total] of data.eggs || []) {
+      if (bought && Array.isArray(genes)) { const e = this.addBoughtEgg(species, genes[0], t, { x, z }); if (e) e.total = total || t; continue; }
       this.eggs.push({ species, x, z, y: this.game.grid.groundAt(x, z) + 0.02, count, t, genes: Array.isArray(genes) ? genes : null, hybrid: !!hybrid, region: this.game.grid.regionAt(x, z) });
     }
+
     this.onTopologyChanged();
   }
 }

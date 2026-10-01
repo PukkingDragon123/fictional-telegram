@@ -1,6 +1,8 @@
 // Assembles the static world meshes: terrain, water, trees, clutter, buildings.
 import * as THREE from 'three';
-import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H } from './worldgen.js';
+import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW } from './worldgen.js';
+const landmarkMods = import.meta.glob('../entities/landmarkModels.js', { eager: true });
+const LM = landmarkMods['../entities/landmarkModels.js'] || null;
 import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture } from './terrain.js';
 import { WaterSim } from './waterSim.js';
 import { pineModel, mapleModel, birchModel, boulderModel, tuftModel, flowerModel } from './models.js';
@@ -30,6 +32,15 @@ function decoModel(type, variant, far) {
   }
 }
 
+// neon-sign buzz: mostly on, with the odd flicker and the occasional burst
+function hash1(n) { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); }
+export function blinkOn(t) {
+  const k = Math.floor(t * 8);
+  if (hash1(k) < 0.12) return false;
+  if (hash1(Math.floor(t / 2)) < 0.2 && k % 2) return false;
+  return true;
+}
+
 export class World {
   constructor(scene, seed = 1337) {
     this.scene = scene;
@@ -38,7 +49,8 @@ export class World {
     this.decos = gen.decos;
     this.clutter = gen.clutter;
     this.trail = gen.trail;
-    this.sim = new WaterSim(this.grid, MEADOW, 4);
+    this.landVersion = 0;
+    this.sim = new WaterSim(this.grid, SIM_RECT, 4);
     this.surfTex = buildSurfaceTexture(this.grid);
     this.uniforms = {
       uTime: { value: 0 },
@@ -46,7 +58,8 @@ export class World {
       uSurf: { value: this.surfTex },
       uGridSize: { value: new THREE.Vector2(this.grid.w, this.grid.h) },
       uSim: { value: this.sim.tex },
-      uSimRect: { value: new THREE.Vector4(MEADOW.x0, MEADOW.z0, MEADOW.x1 - MEADOW.x0, MEADOW.z1 - MEADOW.z0) },
+      uBlueprint: { value: 0 },
+      uSimRect: { value: new THREE.Vector4(SIM_RECT.x0, SIM_RECT.z0, SIM_RECT.x1 - SIM_RECT.x0, SIM_RECT.z1 - SIM_RECT.z0) },
     };
     this.terrainMat = makeTerrainMaterial(this.uniforms);
     this.terrain = new THREE.Mesh(buildTerrainGeometry(this.grid), this.terrainMat);
@@ -76,13 +89,12 @@ export class World {
     scene.add(this.water);
 
     this.buildSkirt();
-    this.canopyTiles = gen.canopy;
-    this.buildCanopy(gen.canopy);
     this.decoGroup = new THREE.Group();
     scene.add(this.decoGroup);
     this.buildDecos();
     this.buildClutter();
     this.buildLandmarks();
+    this.buildMapLandmarks();
   }
 
   // Endless forest canopy around the playable map so the edges never show.
@@ -239,7 +251,77 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       case 'maple': return ['maple_red', 'maple_orange', 'maple_scarlet'][d.variant % 3];
       case 'birch': return h < 0.4 ? 'birch_0' : h < 0.8 ? 'birch_1' : 'aspen_0';
       case 'boulder': return h < 0.4 ? 'boulder_0' : h < 0.75 ? 'boulder_1' : 'mossrock';
+      case 'greatwillow': return this.frame('greatwillow') ? 'greatwillow' : 'maple_scarlet';
+      case 'weed': { const n = `weed_${d.variant % 4}`; return this.frame(n) ? n : d.variant % 2 ? 'tallgrass_1' : 'fern_1'; }
+      case 'stump': return this.frame('stump_1') ? (d.variant % 2 ? 'stump_1' : 'stump') : 'stump';
       default: return null;
+    }
+  }
+
+  // BFS distance (tiles) from your land, for forest darkening
+  landDistance() {
+    const g = this.grid, n = g.w * g.h;
+    if (this._landDist && this._landDistV === this.landVersion) return this._landDist;
+    const d = new Float32Array(n).fill(99);
+    const q = [];
+    for (let i = 0; i < n; i++) if (g.meadow[i]) { d[i] = 0; q.push(i); }
+    for (let h = 0; h < q.length; h++) {
+      const c = q[h], cx = c % g.w, cz = (c / g.w) | 0;
+      if (d[c] >= 14) continue;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + dx, nz = cz + dz;
+        if (nx < 0 || nz < 0 || nx >= g.w || nz >= g.h) continue;
+        const ni = nz * g.w + nx;
+        if (d[ni] > d[c] + 1) { d[ni] = d[c] + 1; q.push(ni); }
+      }
+    }
+    this._landDist = d;
+    this._landDistV = this.landVersion;
+    return d;
+  }
+
+  // voxel landmarks hidden in the forest (fire tower, lumber hut, shrine...)
+  buildMapLandmarks() {
+    this.landmarkObjs = {};
+    if (!LM?.landmarkModel) return;
+    for (const L of LANDMARKS) {
+      let m;
+      try { m = LM.landmarkModel(L.id, { seed: 3 }); } catch (e) { console.warn('landmark', L.id, e); continue; }
+      if (!m?.body) continue;
+      const grp = new THREE.Group();
+      const body = new THREE.Mesh(m.body.build({ pivot: [0.5, 0, 0.5], scale: 0.1 }), voxelMaterial());
+      body.castShadow = true; body.receiveShadow = true;
+      grp.add(body);
+      if (m.glow) grp.add(new THREE.Mesh(m.glow.build({ pivot: [0.5, 0, 0.5], scale: 0.1, ao: false }), this.glowMat));
+      const parts = [];
+      (m.parts || []).forEach((pt) => {
+        const holder = new THREE.Group();
+        holder.position.set((pt.pivot[0] - 0.5) * 0.1, pt.pivot[1] * 0.1, (pt.pivot[2] - 0.5) * 0.1);
+        if (pt.model) { const mm = new THREE.Mesh(pt.model.build({ pivot: pt.pivot, scale: 0.1 }), voxelMaterial()); mm.castShadow = true; holder.add(mm); }
+        if (pt.glow) holder.add(new THREE.Mesh(pt.glow.build({ pivot: pt.pivot, scale: 0.1, ao: false }), this.glowMat));
+        grp.add(holder);
+        parts.push({ holder, anim: pt.anim, axis: pt.axis || (pt.anim === 'rotateY' ? 'y' : 'z'), speed: pt.speed ?? 1, phase: pt.phase || 0, amp: pt.amp ?? 1, y0: holder.position.y });
+      });
+      const y = this.grid.height[L.z * this.grid.w + L.x];
+      grp.position.set(L.x + L.w / 2, y, L.z + L.d / 2);
+      if (m.smoke) (this.smokePoints ||= []).push(...m.smoke.map(([x, yy, z]) => [x + L.x + L.w / 2, yy + y, z + L.z + L.d / 2]));
+      grp.userData.parts = parts;
+      this.scene.add(grp);
+      this.landmarkObjs[L.id] = grp;
+    }
+  }
+
+  animateLandmarks(t) {
+    for (const grp of Object.values(this.landmarkObjs || {})) {
+      for (const p of grp.userData.parts) {
+        const h = p.holder, tt = t * p.speed + p.phase;
+        if (p.anim === 'spin' || p.anim === 'rotateY') h.rotation[p.axis] = tt;
+        else if (p.anim === 'sway') h.rotation[p.axis] = Math.sin(tt) * 0.15 * p.amp;
+        else if (p.anim === 'wave') h.rotation.y = Math.sin(tt) * 0.22;
+        else if (p.anim === 'bob') h.position.y = p.y0 + Math.sin(tt) * 0.03 * p.amp;
+        else if (p.anim === 'blink') h.visible = blinkOn(tt);
+        else if (p.anim === 'flicker') { const n = Math.sin(tt * 7.3) * 0.5 + Math.sin(tt * 13.1) * 0.3; h.scale.set(1, 1 + n * 0.15, 1); }
+      }
     }
   }
 
@@ -248,7 +330,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     const { tex } = this.natureFrames();
     const g = this.grid;
     if (!this.treeBatch) {
-      this.treeBatch = new SpriteBatch(tex, { max: 6000, lit: true, castShadow: true, receiveShadow: true, name: 'trees' });
+      this.treeBatch = new SpriteBatch(tex, { max: 30000, lit: true, castShadow: true, receiveShadow: true, name: 'trees' });
     }
     const B = this.treeBatch;
     B.clear();
@@ -258,28 +340,44 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       const name = this.treeSprite(d);
       const f = name && this.frame(name);
       if (!f) continue;
-      const rock = d.type === 'boulder';
+      const rock = d.type === 'boulder' || d.type === 'stump';
+      if (d.type === 'greatwillow' && name === 'maple_scarlet') d.scale = 3;
       const jx = (hash2(d.x, d.z, 3) - 0.5) * 0.3, jz = (hash2(d.x, d.z, 4) - 0.5) * 0.3;
       const dark = d.far ? 0.9 : 1;
       items.push({ f, x: d.x + 0.5 + jx, y: g.height[d.z * g.w + d.x], z: d.z + 0.5 + jz, o: { texels: 24, scale: d.scale * (rock ? 1 : 1.05), sway: rock ? 0 : 0.5, phase: hash2(d.x, d.z, 9) * 6.28, flip: d.rot % 2 === 1 && !rock, tint: [dark, dark, dark * 1.02] } });
     }
-    // deep forest: crowns poke up out of the dark undergrowth canopy
-    for (const i of this.canopyTiles || []) {
-      const x = i % g.w, z = (i / g.w) | 0;
-      const n = hash2(x, z, 23) < 0.55 ? 2 : 1;
-      for (let k = 0; k < n; k++) {
-        const r = hash2(x * 3 + k, z, 31);
-        const au = fbm2(x * 0.16, z * 0.16, 91);
-        let name;
-        if (au > 0.62 && r < 0.6) name = ['maple_red', 'maple_orange', 'maple_scarlet'][Math.floor(hash2(x, z + k, 7) * 3)];
-        else if (r < 0.45) name = ['spruce_0', 'spruce_1', 'spruce_2'][Math.floor(hash2(x + k, z, 8) * 3)];
-        else if (r < 0.85) name = r < 0.65 ? 'pine_0' : 'pine_1';
-        else name = r < 0.93 ? 'birch_0' : 'aspen_0';
-        const f = this.frame(name);
-        const dk = 0.72 + hash2(x, z, 41 + k) * 0.18;
-        items.push({ f, x: x + 0.25 + hash2(x, z, 50 + k) * 0.5, y: g.height[i] + 0.6, z: z + 0.25 + hash2(x, z, 60 + k) * 0.5, o: { texels: 24, scale: 0.95 + hash2(x, z, 70 + k) * 0.35, sway: 0.4, phase: r * 6.28, flip: r > 0.5, tint: [dk * 0.95, dk, dk * 1.04] } });
+    // the big forest: every forest tile carries 1-3 procedural trees (by biome),
+    // darker the deeper you go so the edge of your land reads clearly
+    const g2 = this.grid;
+    const landDist = this.landDistance();
+    const pickF = (names, r) => { for (let k = 0; k < names.length; k++) { const n = names[(Math.floor(r * names.length) + k) % names.length]; if (this.frame(n)) return n; } return 'pine_0'; };
+    for (let z = 21; z < g2.h; z++)
+      for (let x = 0; x < g2.w; x++) {
+        const i = z * g2.w + x;
+        if (g2.kind[i] !== KIND.FOREST || g2.deco[i] >= 0 || g2.occ[i] === -2) continue;
+        const bio = g2.biome ? g2.biome[i] : 0;
+        const ld = landDist[i];
+        const n = bio === BIOME.SWAMP ? (hash2(x, z, 23) < 0.5 ? 1 : 0) : hash2(x, z, 23) < 0.6 ? 2 : 1;
+        for (let k = 0; k < Math.max(1, n); k++) {
+          const r = hash2(x * 3 + k, z, 31);
+          let name, sway = 0.4, sc = 0.95 + hash2(x, z, 70 + k) * 0.35;
+          if (bio === BIOME.SWAMP) { name = r < 0.55 ? pickF(['cypress_0', 'cypress_1'], r * 2) : r < 0.75 ? pickF(['deadtree_0', 'deadtree_1'], r) : pickF(['swampreeds_0', 'swampgrass_0', 'pine_1'], r); }
+          else if (bio === BIOME.MUSHROOM) { name = r < 0.5 ? pickF(['giantshroom_red_0', 'giantshroom_red_1', 'giantshroom_brown_0', 'giantshroom_glow_0', 'giantshroom_glow_1'], r * 2) : r < 0.7 ? pickF(['shroomcluster_0', 'shroomcluster_1', 'shroomcluster_2'], r) : pickF(['spruce_0', 'pine_0', 'birch_1'], r); sway = 0.15; }
+          else if (bio === BIOME.WILLOW) name = r < 0.5 ? 'birch_0' : r < 0.8 ? 'aspen_0' : 'birch_1';
+          else {
+            const au = fbm2(x * 0.16, z * 0.16, 91);
+            if (au > 0.62 && r < 0.6) name = ['maple_red', 'maple_orange', 'maple_scarlet'][Math.floor(hash2(x, z + k, 7) * 3)];
+            else if (r < 0.45) name = ['spruce_0', 'spruce_1', 'spruce_2'][Math.floor(hash2(x + k, z, 8) * 3)];
+            else if (r < 0.85) name = r < 0.65 ? 'pine_0' : 'pine_1';
+            else name = r < 0.93 ? 'birch_0' : 'aspen_0';
+          }
+          const f = this.frame(name);
+          if (!f) continue;
+          const dk = Math.max(0.62, 1 - Math.min(ld, 12) * 0.03) * (0.9 + hash2(x, z, 41 + k) * 0.1);
+          const glow = name.startsWith('giantshroom_glow') ? 0.35 : 0;
+          items.push({ f, x: x + 0.25 + hash2(x, z, 50 + k) * 0.5, y: g2.height[i], z: z + 0.25 + hash2(x, z, 60 + k) * 0.5, o: { texels: 24, scale: sc, sway, phase: r * 6.28, flip: r > 0.5, emissive: glow, tint: [dk * 0.96, dk, dk * 1.05] } });
+        }
       }
-    }
     // draw back to front so the dither/alpha-test edges sort nicely
     items.sort((a, b) => a.z - b.z);
     for (const it of items) B.push(it.f, it.x, it.y, it.z, it.o);
@@ -296,6 +394,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       case 'daisy': return h < 0.45 ? 'daisy' : h < 0.75 ? 'susan' : h < 0.9 ? 'dandelion' : 'trillium';
       case 'fern': return h < 0.5 ? 'fern_0' : 'fern_1';
       case 'mushroom': return h < 0.5 ? 'mushroom_red' : 'mushroom_brown';
+      case 'glowcap': return this.frame('glowcap_0') ? `glowcap_${Math.floor(h * 3)}` : 'mushroom_red';
+      case 'swampgrass': return this.frame('swampgrass_0') ? `swampgrass_${Math.floor(h * 3)}` : 'tallgrass_0';
       default: return c.type;
     }
   }
@@ -435,6 +535,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
 
   update(time, sky, camera) {
     this.uniforms.uTime.value = time;
+    this.animateLandmarks(time);
     const s = sky.state;
     const wu = this.waterUniforms;
     wu.uSunDir.value.copy(s.sunDir);

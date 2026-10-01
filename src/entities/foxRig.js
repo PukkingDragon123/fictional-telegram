@@ -28,6 +28,10 @@ export const FOX_SEAT_HEIGHT = FOX_SEAT_SURFACE + 0.13;
 export const FOX_DESK_HEIGHT = 0.8;
 /** Distance in front of the root (+Z, world units) of the keyboard centre for sit_type. */
 export const FOX_KEYBOARD_Z = 0.36;
+/** Height above the root (world units) of the "screen edge" the peek_* / climb_* animations hold on to: elbows and paws rest on it, everything below is meant to be cut off (FoxNotifier puts its canvas bottom here). */
+export const FOX_PEEK_EDGE = 0.4;
+/** How far (world units, along +Z from the root) the paws reach over that edge in the peek poses. */
+export const FOX_PEEK_REACH = 0.24;
 
 // ------------------------------------------------------------------ palette
 const C = {
@@ -954,6 +958,7 @@ export class FoxRig {
     // 1) animation pose
     const p = this._pose, f = this._freq;
     p.reset(); resetFaceReq(f);
+    if (def.lookW != null) p.lookW = def.lookW;
     def.fn(t, p, f, cur.state, this, dt);
     this._talkAccents(p, dt);
     // 2) frame + crossfade
@@ -2358,5 +2363,279 @@ def('dizzy', {
     p.eL.fl = 0.3 + sin(a) * 0.3; p.eR.fl = 0.3 - sin(a) * 0.3;
     p.tSide = sin(a * 2) * 0.5;
     p.hatRz = sin(a + 1.5) * 0.25;
+  },
+});
+
+// ---------------------------------------------------------------- notifier: peeking over the screen edge
+// The fox hangs on a horizontal "screen edge" at FOX_PEEK_EDGE (root space). Only the head, arms and upper
+// torso are above it, so these poses are authored to read from the front. p.y raises the whole body.
+const PE = FOX_PEEK_EDGE / VS - HIP_Y - WAIST; // edge height in chest space at p.y = 0 (voxels)
+const PEEK_REST = [4.9, PE + 1.3, 4.6]; // paw resting on the edge (outward, up, forward)
+const PEEK_POLE = [1, -0.55, -0.15];
+
+// Paw on the edge, or blended toward (x, y, z) with weight w. `ey` = the edge's chest-space height.
+function peekPaw(p, arm, w = 0, x = 0, y = 0, z = 0, ey = PE, pole = PEEK_POLE) {
+  const r = PEEK_REST;
+  const ry = r[1] + (ey - PE);
+  p.ik(arm, lerp(r[0], x, w), lerp(ry, y, w), lerp(r[2], z, w), pole[0], pole[1], pole[2]);
+  arm.wx = lerp(1.25, arm.wx, w); // paws droop over the edge
+  arm.st = 1.5;
+}
+
+// Lower body dangling (hidden), tail curled up behind the shoulders, breathing.
+function peekBase(t, p, live = 1) {
+  const br = sin(t * 2.3);
+  p.breath = br * live;
+  p.lean = 0.07;
+  p.chRx = 0.03 + br * 0.012 * live;
+  p.hRx = 0.02 - br * 0.016 * live;
+  p.aL.shY = p.aR.shY = br * 0.18 * live;
+  p.lL.sw = 0.35 + sin(t * 1.3) * 0.18; p.lR.sw = 0.25 + sin(t * 1.3 + 2) * 0.18;
+  p.lL.kn = 0.7 + sin(t * 1.7) * 0.2; p.lR.kn = 0.7 + sin(t * 1.7 + 1.4) * 0.2;
+  p.tLift = 1.3 + sin(t * 1.1) * 0.08; p.tCurl = 0.55;
+  p.tSide = 0.55 + sin(t * 1.6) * 0.5 * live; p.tCurlSide = 0.5 + sin(t * 1.6 - 1.1) * 0.6 * live;
+  p.eL.sp = p.eR.sp = 0.16;
+  p.pawL = p.pawR = 'relax';
+}
+
+// Random ear twitches + glances (cheap state machine in s).
+function peekTwitch(t, p, f, s) {
+  if (s.tw === undefined) { s.tw = t + 0.8 + Math.random() * 1.5; s.twS = 1; }
+  if (t > s.tw + 0.5) { s.tw = t + 0.9 + Math.random() * 2.4; s.twS = Math.random() < 0.5 ? 1 : -1; s.twK = Math.random() < 0.3; }
+  const e = pulse(t, s.tw, 0.16) - pulse(t, s.tw + 0.16, 0.2) * 0.4;
+  const ear = s.twS > 0 ? p.eL : p.eR;
+  ear.fl += e * 0.65; ear.tw += e * 0.35;
+  if (s.twK) { const o = s.twS > 0 ? p.eR : p.eL; o.fl += pulse(t, s.tw + 0.1, 0.16) * 0.5; }
+  if (s.gl === undefined) s.gl = t + 2.5 + Math.random() * 2;
+  if (t > s.gl + 1.4) { s.gl = t + 3 + Math.random() * 3; s.glD = Math.random() < 0.5 ? 1 : -1; }
+  const g = win(t, s.gl, s.gl + 1.1, 0.12, 0.2);
+  if (g > 0.01) { f.look = [(s.glD || 1) * 0.9 * g, 0.1]; p.hRy += (s.glD || 1) * 0.16 * g; }
+}
+
+def('climb_up', {
+  dur: 1.55, expr: 'determined', next: 'peek_idle', nextFade: 0.3, lookW: 0.4,
+  fn(t, p, f, s, rig) {
+    // body height: hop up, catch the edge, two heaves, pop over the top, settle
+    const y = K(t, [[0, -40], [0.26, -15, 'out'], [0.36, -16.5, 'io'], [0.66, -8, 'out'], [0.8, -9.6, 'io'], [1.06, 1.8, 'out'], [1.24, -0.5, 'io'], [1.42, 0, 'io']]);
+    p.y = y;
+    peekBase(t, p, 0.3);
+    const ey = PE - y; // edge height in chest space
+    const effort = win(t, 0.3, 1.0, 0.08, 0.12);
+    // paws: reach up during the hop, slap onto the edge (left first)
+    for (const [arm, tg] of [[p.aL, 0.2], [p.aR, 0.27]]) {
+      const reach = 1 - smooth((t - tg + 0.06) / 0.06);
+      const slap = pulse(t, tg, 0.08);
+      peekPaw(p, arm, reach, 4.2, ey + 3.5 - slap, 3.2, ey);
+      arm.ty += slap * 0.8;
+      arm.st = 1.75;
+      arm.shY = effort * 0.9 * (1 + sin(t * 31) * 0.15);
+    }
+    p.pawL = t > 0.2 ? 'relax' : 'open'; p.pawR = t > 0.27 ? 'relax' : 'open';
+    // straining: legs kick, body wiggles, head shakes, ears flat
+    p.lL.sw = -0.6 + sin(t * 26) * 0.9 * effort; p.lR.sw = -0.6 + sin(t * 26 + PI) * 0.9 * effort;
+    p.lL.kn = 0.9 + sin(t * 26 + 1) * 0.6; p.lR.kn = 0.9 + sin(t * 26 + PI + 1) * 0.6;
+    p.roll = sin(t * 13) * 0.05 * effort; p.chRz = -sin(t * 13) * 0.06 * effort;
+    p.hRy += sin(t * 37) * 0.05 * effort; p.hRx += -0.12 * effort;
+    p.lean += 0.06 * effort;
+    p.eL.fl += 0.6 * effort; p.eR.fl += 0.6 * effort; p.eL.sp += 0.2 * effort; p.eR.sp += 0.2 * effort;
+    p.tPuff = 1 + 0.2 * effort;
+    // squash & stretch on the heaves and the pop
+    p.sq = 1 + pulse(t, 0.0, 0.3) * 0.12 + pulse(t, 0.52, 0.18) * 0.06 + pulse(t, 0.92, 0.2) * 0.1 - pulse(t, 1.14, 0.2) * 0.1;
+    p.hSq = 1 - pulse(t, 1.14, 0.2) * 0.08;
+    if (t < 0.3) { f.mouth = 'o'; f.eyeL = f.eyeR = 'open'; }
+    else if (t < 1.05) { f.mouth = 'grit'; f.eyeL = f.eyeR = Math.floor(t * 6) % 3 === 0 ? 'squint' : 'narrow'; f.sweat = 1; f.browL = f.browR = 'furrow'; }
+    else { f.expr = 'happy'; }
+    once(s, 'gL', t >= 0.2, () => rig._emit('grab'));
+    once(s, 'gR', t >= 0.27, () => rig._emit('grab'));
+    once(s, 'h1', t >= 0.42, () => rig._emit('heave'));
+    once(s, 'h2', t >= 0.86, () => rig._emit('heave'));
+    once(s, 'up', t >= 1.08, () => rig._emit('peek'));
+  },
+});
+
+def('peek_idle', {
+  loop: true, expr: 'neutral', lookW: 0.6,
+  fn(t, p, f, s) {
+    peekBase(t, p);
+    peekPaw(p, p.aL); peekPaw(p, p.aR);
+    // little paw drum on the edge now and then
+    const dr = max(0, sin(t * 0.7 + 1)) ** 10;
+    p.aR.ty += abs(sin(t * 16)) * 0.9 * dr;
+    p.hRz += sin(t * 0.9) * 0.07;
+    p.hRx += sin(t * 1.8) * 0.02;
+    p.tSide += sin(t * 3.1) * 0.15;
+    peekTwitch(t, p, f, s);
+  },
+});
+
+// talking gestures for the peek (blend from the paw on the edge)
+const PEEK_GESTURES = [
+  (u, p) => { // open paw out to the side
+    const w = win(u, 0, 0.95, 0.18, 0.3);
+    peekPaw(p, p.aR, w, 6.4, 6.4 + sin(u * 6) * 0.4, 6, PE, [1, -0.6, -0.3]);
+    p.aR.wx = -0.6 * w; p.pawR = w > 0.5 ? 'open' : 'relax';
+    p.hRz -= 0.06 * w;
+  },
+  (u, p, f) => { // a-ha! finger up
+    const w = win(u, 0, 0.85, 0.12, 0.3);
+    peekPaw(p, p.aR, w, 4.6, 10.4 + sin(u * 20) * 0.3 * w, 5.6, PE, [1, -0.8, 0]);
+    p.aR.wx = -2.5 * w; p.pawR = w > 0.4 ? 'point' : 'relax';
+    f.browLift += 1.4 * w;
+  },
+  (u, p) => { // both paws up, explaining
+    const w = win(u, 0, 1.0, 0.2, 0.3), b = sin(u * 9) * 0.6 * w;
+    peekPaw(p, p.aL, w, 5.2, 4.8 + b, 6.6, PE, [1, -0.5, -0.4]);
+    peekPaw(p, p.aR, w, 5.2, 4.8 - b, 6.6, PE, [1, -0.5, -0.4]);
+    p.aL.wx = p.aR.wx = -0.5 * w;
+    p.pawL = p.pawR = w > 0.5 ? 'open' : 'relax';
+  },
+  (u, p) => { // paw on chest ("moi?")
+    const w = win(u, 0, 0.8, 0.18, 0.3);
+    peekPaw(p, p.aR, w, -0.3, 4.4, 5.6, PE, [1, -0.7, 0.2]);
+    p.aR.wz = 1.2 * w; p.aR.wx = 0; p.pawR = w > 0.5 ? 'open' : 'relax';
+    p.hRz -= 0.1 * w;
+  },
+  (u, p) => { // tap the edge for emphasis
+    const w = win(u, 0, 0.7, 0.1, 0.25), c = abs(sin(u * 11)) * w;
+    peekPaw(p, p.aL, w, 4, PE + 1.2 + c * 2.2, 5.4);
+    p.pawL = w > 0.4 ? 'fist' : 'relax';
+    p.hRx += c * 0.06;
+  },
+];
+
+def('peek_talk', {
+  loop: true, expr: 'neutral', gibber: true, lookW: 0.6,
+  fn(t, p, f, s) {
+    peekBase(t, p, 0.7);
+    peekPaw(p, p.aL); peekPaw(p, p.aR);
+    if (s.gT === undefined || t >= s.gT + s.gD) {
+      s.gT = t; s.gD = 1 + Math.random() * 0.7;
+      let g = Math.floor(Math.random() * PEEK_GESTURES.length);
+      if (g === s.g) g = (g + 1) % PEEK_GESTURES.length;
+      s.g = g;
+    }
+    PEEK_GESTURES[s.g](t - s.gT, p, f);
+    // head bob with the syllables
+    const bob = abs(sin(t * 7.5));
+    p.hRx += bob * 0.07 - 0.03; p.y += bob * 0.25;
+    p.hRy += sin(t * 1.3) * 0.12; p.hRz += sin(t * 2.1) * 0.05;
+    p.chRy += sin(t * 1.3 + 0.5) * 0.06;
+    p.eL.fl += sin(t * 5.1) * 0.08; p.eR.fl += sin(t * 4.3 + 1) * 0.08;
+    p.tSide += sin(t * 4) * 0.2;
+  },
+});
+
+def('peek_no', {
+  loop: true, expr: 'tsk', lookW: 0.5,
+  fn(t, p, f) {
+    peekBase(t, p, 0.6);
+    peekPaw(p, p.aL);
+    const w = K(t, [[0, 0], [0.22, 1.08, 'out'], [0.32, 1, 'io']]);
+    const wag = sin(t * 13) * smooth((t - 0.2) / 0.15);
+    peekPaw(p, p.aR, w, 4.4 + wag * 1.2, 10.2 + abs(wag) * 0.25, 6.4, PE, [1, -0.8, 0]);
+    p.aR.wx = -2.5 * w; p.aR.wz = wag * 0.45 * w;
+    p.pawR = w > 0.4 ? 'point' : 'relax';
+    p.hRy += -sin(t * 6.5) * 0.14 * w; p.hRz += 0.12 * w + sin(t * 6.5) * 0.04;
+    p.hRx -= 0.06 * w; p.chRz = -0.05 * w;
+    p.eL.sp += 0.15; p.eR.sp += 0.15;
+    // "tsk tsk": peek one eye open now and then
+    const peekEye = max(0, sin(t * 1.4 - 1)) ** 6;
+    if (peekEye > 0.4) { f.eyeL = 'open'; f.look = [0, 0.3]; }
+    f.mouth = Math.floor(t * 6.5) % 2 ? 'smirk' : 'smirk_big';
+    p.tSide += sin(t * 6.5) * 0.25;
+  },
+});
+
+def('peek_excited', {
+  loop: true, expr: 'excited', lookW: 0.4,
+  fn(t, p, f, s, rig) {
+    peekBase(t, p, 0.4);
+    const B = 0.34, u = (t / B) % 1;
+    const hop = sin(u * PI);
+    const w = smooth(t / 0.2);
+    p.y = (0.6 + hop * 2.2) * w;
+    p.sq = 1 + (hop - 0.45) * 0.12 * w;
+    p.hSq = 1 + (hop - 0.5) * 0.05 * w;
+    const wig = sin(t * 18) * 0.6;
+    peekPaw(p, p.aL, w, 5.6 + wig * 0.4, 14.5 + wig, 3.6, PE, [1, -0.2, -0.6]);
+    peekPaw(p, p.aR, w, 5.6 - wig * 0.4, 14.5 - wig, 3.6, PE, [1, -0.2, -0.6]);
+    p.aL.st = p.aR.st = 1.4;
+    p.aL.wx = p.aR.wx = -0.3; p.aL.wz = sin(t * 18) * 0.4; p.aR.wz = -sin(t * 18) * 0.4;
+    p.pawL = p.pawR = w > 0.5 ? 'open' : 'relax';
+    p.hRx += -0.08 - hop * 0.05; p.hRz += sin(t / B * PI) * 0.1;
+    p.eL.fl = p.eR.fl = -0.25 + hop * 0.35; p.eL.sp = p.eR.sp = 0.05;
+    p.tPuff = 1.25; p.tLift += 0.25; p.tSide = sin(t * 16) * 0.8; p.tCurlSide = sin(t * 16 - 1) * 0.7;
+    f.mouth = hop > 0.5 ? 'laugh' : 'grin';
+    const k = Math.floor(t / B);
+    if (s.k !== undefined && k !== s.k) rig._emit('hop');
+    s.k = k;
+  },
+});
+
+def('peek_warn', {
+  loop: true, expr: 'alarmed', lookW: 0.35,
+  fn(t, p, f, s, rig) {
+    peekBase(t, p, 0.5);
+    peekPaw(p, p.aL); p.pawL = 'fist'; p.aL.ty -= 0.3;
+    const w = K(t, [[0, 0], [0.16, 1.1, 'out'], [0.26, 1, 'io']]);
+    const ph = max(0, t - 0.25);
+    const jab = abs(sin(ph * 9)) * smooth(ph / 0.1);
+    // point out toward the play field (Reynard's right = the screen's left), up a bit
+    peekPaw(p, p.aR, w, 9.2 + jab * 1.3, 8.6 + jab * 0.4, 6 + jab * 0.6, PE, [0.3, -1, -0.2]);
+    p.aR.wx = -0.25 * w; p.aR.st = 1.6;
+    p.pawR = w > 0.4 ? 'point' : 'relax';
+    // look over there, then back at you, urgently
+    const lk = sin(t * 3.2) > -0.2 ? 1 : 0;
+    p.hRy += -0.32 * w * lk + sin(t * 31) * 0.02; p.chRy += -0.12 * w;
+    p.hRx -= 0.05; p.hRz += 0.06 * jab;
+    p.y += jab * 0.35;
+    p.eL.fl = p.eR.fl = 0.75; p.eL.sp = p.eR.sp = 0.3;
+    p.tPuff = 1.4; p.tSide += sin(t * 22) * 0.4; p.tLift += 0.2;
+    f.mouth = Math.floor(t * 4) % 3 === 2 ? 'scream' : 'o_big';
+    f.blink = false;
+    const k = Math.floor((ph * 9) / PI);
+    if (s.k !== undefined && k !== s.k) rig._emit('jab');
+    s.k = k;
+  },
+});
+
+def('wave_bye', {
+  dur: 1.5, expr: 'happy', next: 'peek_idle', lookW: 0.6,
+  fn(t, p, f) {
+    peekBase(t, p, 0.6);
+    peekPaw(p, p.aL);
+    const w = K(t, [[0, 0], [0.22, 1, 'back'], [1.15, 1], [1.5, 0, 'io']]);
+    const wv = sin((t - 0.2) * 15) * win(t, 0.2, 1.15, 0.08, 0.15);
+    peekPaw(p, p.aR, w, 6.2 + wv * 1.3, 11 + abs(wv) * 0.3, 5.2, PE, [1, -0.6, -0.4]);
+    p.aR.wx = -0.4 * w; p.aR.wz = wv * 0.5 * w;
+    p.pawR = w > 0.4 ? 'open' : 'relax';
+    p.hRz += 0.14 * w - wv * 0.05; p.chRz = -0.06 * w;
+    p.tSide += wv * 0.4;
+    if (t > 0.5 && t < 1.1) f.expr = 'wink';
+  },
+});
+
+def('climb_down', {
+  dur: 1.0, expr: 'wink', next: null, lookW: 0.4,
+  fn(t, p, f, s, rig) {
+    const y = K(t, [[0, 0], [0.14, 1.6, 'out'], [0.48, -15, 'in'], [0.56, -14, 'out'], [1.0, -44, 'in']]);
+    p.y = y;
+    peekBase(t, p, 0.2);
+    const ey = PE - y;
+    // paws cling to the edge while sliding, then slip off and fly up as he drops
+    const slip = smooth((t - 0.5) / 0.12);
+    for (const arm of [p.aL, p.aR]) {
+      peekPaw(p, arm, slip, 3.4, 14 + 6 * slip, 2.6, ey);
+      arm.st = 1.85;
+    }
+    p.pawL = p.pawR = slip > 0.5 ? 'open' : 'relax';
+    p.sq = 1 + pulse(t, 0, 0.18) * -0.08 + pulse(t, 0.14, 0.34) * 0.12;
+    p.hRx += -0.15 * slip;
+    p.eL.fl = p.eR.fl = -0.3 * smooth((t - 0.14) / 0.2);
+    p.tLift += 0.6 * slip;
+    p.lL.sw = p.lR.sw = -0.2; p.lL.kn = p.lR.kn = 0.2;
+    if (t > 0.16) { f.expr = 'happy'; f.mouth = t > 0.5 ? 'o' : 'grin'; }
+    once(s, 'hop', t > 0.08, () => rig._emit('hop'));
+    once(s, 'slip', t > 0.5, () => rig._emit('slip'));
   },
 });

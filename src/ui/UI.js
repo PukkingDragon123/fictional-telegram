@@ -3,6 +3,7 @@
 // build, fishdex, reviews), modals, fox dialogue, toasts, comic speech
 // bubbles above bears, cinematic letterbox, night overlay, and hooks for the
 // big components (egg hatching, daily ledger, morning summary, lab tree).
+import { OFFICE } from '../world/worldgen.js';
 import * as THREE from 'three';
 import { spriteImg, spriteURL, foxPortraitURL, hasSprite } from './sprites.js';
 import { Icons3D } from './icons3d.js';
@@ -786,7 +787,7 @@ export class UI {
     const bears = this.game.bears.list.filter((b) => b.visible);
     if (!bears.length) {
       if (rig.follow) { rig.follow = null; this.toast('Camera free'); return; }
-      rig.lookAt(30, 14);
+      rig.lookAt(OFFICE.x, 14);
       rig.wuppGoal = Math.max(rig.wuppGoal, 0.07);
       this.toast(this.game.state.phase === 'rush' ? 'Here they come!' : 'Bear St. Holdings, up on the mountain');
       return;

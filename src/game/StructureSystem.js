@@ -9,6 +9,10 @@ import * as SM from '../entities/structureModels.js';
 const decorMods = import.meta.glob('../entities/decorModels.js', { eager: true });
 const DM = decorMods['../entities/decorModels.js'] || null;
 const DECOR_SET = new Set(DM?.DECOR_TYPES || []);
+const restMods = import.meta.glob('../entities/restaurantModels.js', { eager: true });
+const RM = restMods['../entities/restaurantModels.js'] || null;
+import { SpriteBatch } from '../core/spriteBatch.js';
+import { blinkOn } from '../world/world.js';
 
 export const PLATFORM_DECK_Y = 0.6;
 const geoCache = new Map();
@@ -37,6 +41,15 @@ export class StructureSystem {
     this.glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: 0xffffff });
     game.grid.getStruct = (id) => this.byId.get(id) || null;
     this.time = 0;
+    this.sprites = null; // 2D plant sprites (nature atlas), built lazily
+  }
+
+  // footprint tiles of a (possibly multi-tile) structure anchored at x,z
+  footprint(type, x, z) {
+    const [w, d] = STRUCTURES[type]?.size || [1, 1];
+    const out = [];
+    for (let k = 0; k < d; k++) for (let j = 0; j < w; j++) out.push([x + j, z + k]);
+    return out;
   }
 
   get grid() { return this.game.grid; }
@@ -52,12 +65,20 @@ export class StructureSystem {
   canPlace(type, x, z) {
     const def = STRUCTURES[type];
     const g = this.grid;
+    if (def?.size) {
+      for (const [tx, tz] of this.footprint(type, x, z).slice(1)) {
+        const ti = this.tileInfo(tx, tz);
+        if (!ti || !ti.meadow) return { ok: false, reason: 'Outside your land' };
+        if (ti.deco) return { ok: false, reason: 'Clear it first!' };
+        if (ti.water || ti.occ !== -1) return { ok: false, reason: 'Not enough room' };
+      }
+    }
     const t = this.tileInfo(x, z);
     if (!def || !t) return { ok: false, reason: 'Out of bounds' };
-    if (!t.meadow) return { ok: false, reason: 'Outside your land' };
+    if (!t.meadow) return { ok: false, reason: 'Not your land yet!' };
     const entry = this.game.bears?.entryTile;
     if (entry && Math.max(Math.abs(x - entry[0]), Math.abs(z - entry[1])) <= 1) return { ok: false, reason: 'Keep the trail clear for customers!' };
-    if (t.deco) return { ok: false, reason: 'A tree or rock is in the way (demolish it first)' };
+    if (t.deco) return { ok: false, reason: 'Clear it first!' };
     const occ = t.occ >= 0 ? this.byId.get(t.occ) : null;
     if (t.occ === -2) return { ok: false, reason: 'That\'s the hut!' };
     const onPlatform = occ && occ.def.supports && occ.built && !occ.top;
@@ -100,9 +121,10 @@ export class StructureSystem {
     if (s.platform) {
       chk.onPlatform.top = s.id;
     } else {
-      g.occ[z * g.w + x] = s.id;
+      for (const [tx, tz] of this.footprint(type, x, z)) g.occ[tz * g.w + tx] = s.id;
     }
     this.list.push(s);
+    this.spritesDirty = true;
     this.byId.set(s.id, s);
     this.buildMesh(s);
     this.refreshNeighbors(s);
@@ -118,10 +140,11 @@ export class StructureSystem {
       const p = this.byId.get(s.platform);
       if (p && p.top === s.id) p.top = 0;
     } else {
-      g.occ[s.z * g.w + s.x] = -1;
+      for (const [tx, tz] of this.footprint(s.type, s.x, s.z)) if (g.occ[tz * g.w + tx] === s.id) g.occ[tz * g.w + tx] = -1;
       if (s.top) { const t = this.byId.get(s.top); if (t) this.remove(t, { silent: true }); }
     }
     if (s.obj) { this.group.remove(s.obj); }
+    this.spritesDirty = true;
     this.list.splice(this.list.indexOf(s), 1);
     this.byId.delete(s.id);
     this.refreshNeighbors(s);
@@ -242,6 +265,79 @@ export class StructureSystem {
     this.tint(s);
   }
 
+  addRestaurant(s, obj, add) {
+    const key = `rest:${s.type}`;
+    let m;
+    try { m = RM.restaurantModel(s.def.model || s.type, { seed: 1 }); } catch (e) { console.warn('restaurant', s.type, e); return false; }
+    if (!m?.body) return false;
+    add(cachedGeo(key, () => m.body, { scale: 0.1 }));
+    if (m.glow) add(cachedGeo(key + 'g', () => m.glow, { scale: 0.1, ao: false }), this.glowMat, { shadow: false, tint: false });
+    const parts = [];
+    (m.parts || []).forEach((pt, i) => {
+      const holder = new THREE.Group();
+      holder.position.set((pt.pivot[0] - 0.5) * 0.1, pt.pivot[1] * 0.1, (pt.pivot[2] - 0.5) * 0.1);
+      if (pt.model) { const mm = new THREE.Mesh(cachedGeo(`${key}p${i}`, () => pt.model, { pivot: pt.pivot, scale: 0.1 }), voxelMaterial()); mm.castShadow = true; mm.userData.tintable = true; holder.add(mm); }
+      if (pt.glow) holder.add(new THREE.Mesh(cachedGeo(`${key}p${i}g`, () => pt.glow, { pivot: pt.pivot, scale: 0.1, ao: false }), this.glowMat));
+      obj.add(holder);
+      parts.push({ holder, anim: pt.anim, axis: pt.axis || (pt.anim === 'rotateY' ? 'y' : 'z'), speed: pt.speed ?? 1, phase: (pt.phase || 0) + (s.seed % 7) * 0.9, amp: pt.amp ?? 1, y0: holder.position.y });
+    });
+    if (parts.length) obj.userData.parts = parts;
+    s.noRotate = true;
+    s.seats = m.seats || [];
+    return true;
+  }
+
+  // ------------------------------------------------------------ 2D plant sprites
+  natureFrames() { return this.game.world.natureFrames(); }
+
+  // which nature sprite a plant structure shows right now
+  spriteFrame(s) {
+    const names = s.def.sprite;
+    if (!names) return null;
+    const { frames } = this.natureFrames();
+    const berry = names[1] && names[1].endsWith('_picked');
+    let list = names;
+    if (berry) list = s.stock >= 1 || s.preview ? [names[0]] : [names[1], names[0]];
+    else if (s.def.variants || s.def.underwater) list = [names[s.seed % names.length], ...names];
+    for (const n of list) if (frames[n]) return { name: n, f: frames[n][0], frames: frames[n] };
+    if (!berry || !frames[names[0]]) return null;
+    return { name: names[0], f: frames[names[0]][0], frames: frames[names[0]] };
+  }
+
+  renderSprites() {
+    const game = this.game;
+    if (!this.sprites) {
+      const { tex } = this.natureFrames();
+      this.sprites = new SpriteBatch(tex, { max: 2048, lit: true, castShadow: true, receiveShadow: true, renderOrder: 12, name: 'plants' });
+      game.scene.add(this.sprites.mesh);
+    }
+    const B = this.sprites;
+    B.clear();
+    const g = this.grid;
+    for (const s of this.list) {
+      if (s.removed || !s.def.sprite) continue;
+      const fr = this.spriteFrame(s);
+      if (!fr) continue;
+      const by = this.baseY(s);
+      const cx = s.x + 0.5, cz = s.z + 0.5;
+      let sc = (s.def.spriteScale || 1) * (0.92 + (s.seed % 13) / 80);
+      let sy = 1;
+      if (s.popT > 0) { const k = 1 - s.popT / 0.45; sy = 1 + Math.sin(k * Math.PI * 2.5) * 0.35 * (1 - k); }
+      if (!s.built) sy *= 0.25 + 0.75 * s.progress;
+      if (s.type === 'seaweed') sy *= 0.45 + 0.55 * (s.stock / s.def.food.max);
+      const dmg = s.hp < s.maxHp * 0.99 && s.maxHp < 90;
+      const tint = !s.built ? [0.6, 0.85, 1.25] : dmg ? [1.2, 0.65, 0.6] : null;
+      const o = { texels: 24, scale: sc, sx: 1 / Math.sqrt(sy), sy, sway: s.def.flat ? 0 : s.def.underwater ? 1.2 : 0.7, phase: s.seed, flip: s.seed % 2 === 1, tint, alpha: s.built ? 1 : 0.55 };
+      if (s.def.flat) { o.mode = 1; o.ax = 0.5; o.ay = 0.5; o.rot = (s.seed % 628) / 100; B.push(fr.f, cx, WATER_Y + 0.02, cz, o); }
+      else if (s.def.underwater) { o.tint = [0.75, 0.9, 1]; B.push(fr.frames[Math.floor(this.time * 2 + s.seed) % fr.frames.length], cx, g.height[s.z * g.w + s.x], cz, o); }
+      else {
+        if (s.type === 'goldenberry') o.emissive = 0.25 + this.game.sky.state.night * 0.4;
+        B.push(fr.f, cx, by, cz, o);
+      }
+    }
+    B.commit();
+  }
+
   addDecor(s, obj, add) {
     const depth = DM.WATER_DECOR?.has(s.type) ? this.depthVox(s) : 10;
     const seed = s.preview ? 1 : (s.seed % 4) + 1;
@@ -278,9 +374,10 @@ export class StructureSystem {
       const h = p.holder, tt = t * p.speed + p.phase;
       switch (p.anim) {
         case 'spin': case 'rotateY': h.rotation[p.axis] = tt; break;
-        case 'sway': h.rotation[p.axis] = Math.sin(tt) * 0.15; break;
+        case 'sway': h.rotation[p.axis] = Math.sin(tt) * 0.15 * (p.amp ?? 1); break;
+        case 'blink': h.visible = blinkOn(tt); break;
         case 'wave': h.rotation.y = Math.sin(tt) * 0.22; h.rotation.z = Math.sin(tt * 1.7) * 0.05; break;
-        case 'bob': h.position.y = p.y0 + Math.sin(tt) * 0.03; h.rotation.z = Math.sin(tt * 0.8) * 0.06; break;
+        case 'bob': h.position.y = p.y0 + Math.sin(tt) * 0.03 * (p.amp ?? 1); h.rotation.z = Math.sin(tt * 0.8) * 0.06; break;
         case 'flicker': { const n = Math.sin(tt * 7.3) * 0.5 + Math.sin(tt * 13.1) * 0.3 + Math.sin(tt * 3.1) * 0.2; h.scale.set(1 - n * 0.05, 1 + n * 0.15, 1 - n * 0.05); break; }
         default: break;
       }
@@ -300,7 +397,11 @@ export class StructureSystem {
     };
     const variant = s.seed % 3;
     let mask = 0;
-    if (DECOR_SET.has(s.type) && this.addDecor(s, obj, add)) {
+    if (d.sprite && this.spriteFrame(s)) {
+      // drawn as a 2D sprite by renderSprites(); the group stays empty
+    } else if (RM?.RESTAURANT_TYPES?.includes(s.type) && this.addRestaurant(s, obj, add)) {
+      // beaver-built restaurant furniture
+    } else if (DECOR_SET.has(s.type) && this.addDecor(s, obj, add)) {
       // detailed decor model (with animated parts)
     } else switch (s.type) {
       case 'seaweed': add(cachedGeo(`sw${variant}`, () => SM.seaweedModel(variant + 1, 1.25))); break;
@@ -367,7 +468,8 @@ export class StructureSystem {
       obj.traverse((o) => { if (o.isMesh) { o.material = ghostMat; o.castShadow = false; o.userData.tintable = false; } });
     }
     if (s.preview) return obj;
-    obj.position.set(s.x + 0.5, this.baseY(s), s.z + 0.5);
+    const [fw, fd] = d.size || [1, 1];
+    obj.position.set(s.x + fw / 2, this.baseY(s), s.z + fd / 2);
     if (s.type === 'lodge') {
       // face the entrance toward land
       const g = this.grid;
@@ -375,7 +477,7 @@ export class StructureSystem {
         const [dx, dz] = N4[k];
         if (g.inb(s.x + dx, s.z + dz) && !g.isWater(s.x + dx, s.z + dz)) { obj.rotation.y = Math.atan2(dx, dz); break; }
       }
-    } else if (!d.connect && s.type !== 'platform' && s.type !== 'beehive' && s.type !== 'maple') {
+    } else if (!d.connect && !s.noRotate && !d.size && s.type !== 'platform' && s.type !== 'beehive' && s.type !== 'maple') {
       obj.rotation.y = ((s.seed % 4) * Math.PI) / 2;
     }
     return obj;

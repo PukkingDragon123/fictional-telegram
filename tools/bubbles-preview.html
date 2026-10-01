@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bubbles + BigClock Preview</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #2b4a2a; color: #fbf0d0; font-family: var(--font-body); font-size: 32px; line-height: 22px; -webkit-font-smoothing: none; }
+  h2 { font-family: var(--font-title); font-weight: 400; font-size: 36px; line-height: 36px; margin: 22px 16px 10px; color: #ffd23f; text-shadow: 2px 2px 0 #1a2a18; }
+  .stage { position: relative; height: 560px; margin: 0 16px; overflow: hidden; border: 4px solid #1a2a18;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 6px, rgba(0,0,0,.05) 6px 8px),
+      radial-gradient(ellipse at 50% 120%, #4f8a3e 0 45%, transparent 46%),
+      linear-gradient(#9fd0e8 0 46%, #79b85a 46% 100%); image-rendering: pixelated; }
+  .stage.dark { background: linear-gradient(#2c3460 0 46%, #355f34 46%); }
+  .char { position: absolute; width: 64px; height: 64px; margin-left: -32px; margin-top: -64px; }
+  .char img { display: block; width: 64px; height: 64px; image-rendering: pixelated; }
+  .char .shadow { position: absolute; left: 12px; bottom: -6px; width: 40px; height: 8px; background: rgba(0,0,0,.25); border-radius: 50%; z-index: -1; }
+  .lab { position: absolute; transform: translate(-50%, 6px); font-size: 16px; line-height: 12px; color: #1a2a18; white-space: nowrap; }
+  .ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 16px; }
+  .ctl button.t { font-family: var(--font-body); font-size: 32px; line-height: 20px; padding: 4px 10px 8px; background: #fbf0d0; color: #2a1a14; border: 2px solid #2a1a14; cursor: pointer; }
+  .clocks { display: flex; flex-wrap: wrap; gap: 18px; margin: 0 16px; align-items: flex-end; }
+  .clocks .cell { background: #e9d7ae; border: 2px solid #2a1a14; padding: 10px 10px 6px; color: #2a1a14; text-align: center; }
+  .clocks .cell .l { font-size: 16px; line-height: 12px; margin-top: 4px; }
+  .live { display: flex; gap: 20px; align-items: center; margin: 14px 16px; background: #e9d7ae; color: #2a1a14; border: 2px solid #2a1a14; padding: 12px; }
+  .live input { width: 340px; }
+  .fonts { margin: 0 16px; background: #fff; color: #161114; padding: 12px 16px; border: 2px solid #161114; }
+  .fonts div { margin: 6px 0; white-space: nowrap; overflow: hidden; }
+  .fonts .m { font-family: monospace; font-size: 11px; color: #777; line-height: 12px; }
+  .phone { width: 390px; }
+  #corner { position: absolute; right: 12px; top: 10px; }
+</style>
+</head>
+<body>
+<h2>Bubbles</h2>
+<div class="stage" id="stage"><div id="corner"></div></div>
+<div class="ctl" id="ctl"></div>
+<h2>Arrow buttons</h2>
+<div class="ctl" id="arrows"></div>
+<h2>Big clock</h2>
+<div class="clocks" id="clocks"></div>
+<div class="live" id="live"></div>
+<h2>Fonts (crisp sizes)</h2>
+<div class="fonts" id="fonts"></div>
+<div style="height:60px"></div>
+<script type="module" src="./bubbles-preview.js"></script>
+</body>
+</html>
