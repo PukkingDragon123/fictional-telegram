@@ -279,6 +279,7 @@ export class Ambient {
 
     // ---- loons and mallards paddle, dive and call
     for (const l of this.loons) {
+      if (game.titleMode) break; // the title has its own 3D ducks
       if (!l.placed && !this.placeLoon(l)) continue;
       l.t -= dt;
       if (l.dive > 0) {

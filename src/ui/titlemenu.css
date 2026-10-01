@@ -95,7 +95,8 @@
 .tm--out .tm-credit { animation: tm-fade .3s reverse both; }
 /* ---------- portrait / narrow: sign on top, tags at the bottom */
 @media (max-aspect-ratio: 5/4) {
-  .tm-col { left: 50%; margin-left: -159px; height: 100%; justify-content: space-between; padding-bottom: 42px; box-sizing: border-box; }
+  .tm-col { left: 50%; margin-left: -159px; height: 100%; justify-content: flex-start; padding-bottom: 36px; box-sizing: border-box; }
+  .tm-btns { margin-top: auto; }
   .tm-sign { padding-top: max(24px, 4vh); }
   .tm-rope { height: calc(max(24px, 4vh) + 12px); }
 }

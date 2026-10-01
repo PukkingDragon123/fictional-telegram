@@ -436,3 +436,4 @@ html, body { font-size: 16px; -webkit-font-smoothing: none; font-smooth: never; 
 body.blueprint .pointer-hand { display: none; }
 body.cine .fox-notifier, body.cine .bigclock-host, body.cine .hud-right, body.at-title .fox-notifier { opacity: 0 !important; pointer-events: none !important; }
 body.cine .hud-left { opacity: 0; }
+body.at-title .hud, body.at-title .toolbar, body.at-title .hud-right { opacity: 0 !important; pointer-events: none !important; }

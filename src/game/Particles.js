@@ -180,7 +180,8 @@ class FxPool {
       if (f & FX.GROW) s *= 0.6 + (1 - t) * 0.9;
       let fi = p.frame;
       if (p.fps > 0) fi = (f & FX.ONCE) ? Math.min(p.fr.length - 1, Math.floor((1 - t) * p.maxLife * p.fps)) : Math.floor(time * p.fps + p.seed * 3) % p.fr.length;
-      const fr = p.fr[fi % p.fr.length];
+      const fr = p.fr[(fi | 0) % p.fr.length] || p.fr[0];
+      if (!fr) continue;
       const k = p.bright || p.emissive ? 1 : amb;
       opt.w = s * fr.w / fr.h; opt.h = s;
       opt.mode = f & FX.FLAT ? 1 : f & FX.UPRIGHT ? 0 : 2;

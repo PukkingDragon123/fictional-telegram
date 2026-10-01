@@ -53,12 +53,13 @@ const TitleScene = titleMods['./game/TitleScene.js']?.TitleScene;
 const showTitleMenu = titleMods['./ui/TitleMenu.js']?.showTitleMenu;
 let titleScene = null, titleMenu = null;
 if (TitleScene && !params.has('autostart')) {
-  try { titleScene = new TitleScene(game); titleScene.start(); } catch (e) { console.warn('TitleScene failed', e); titleScene = null; }
+  try { titleScene = new TitleScene(game); titleScene.start(); game.titleMode = true; } catch (e) { console.warn('TitleScene failed', e); titleScene = null; }
 }
 const startGame = (choice) => {
   mode = 'play';
   try { titleScene?.stop(); } catch (e) { console.warn(e); }
   titleScene = null;
+  game.titleMode = false;
   titleMenu?.close?.();
   titleMenu = null;
   document.body.classList.remove('at-title');
@@ -85,7 +86,8 @@ else if (showTitleMenu) {
       hasSave: game.hasSave(), onStart: startGame,
       sfx: (n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) }),
       icon: (n, sc) => ui.icon(n, sc),
-      onSound: () => game.audio.toggleMute(),
+      onSound: (on) => game.audio.setMuted(!on),
+      isMuted: () => game.audio.isMuted(),
     });
   } catch (e) { console.warn('TitleMenu failed', e); ui.showTitle(startGame); }
 } else ui.showTitle(startGame);
@@ -150,7 +152,7 @@ function frame(now) {
       game.rig.goal.z = 34 + Math.cos(titleT * 0.05) * 2;
       game.state.hour = 17.4 + Math.sin(titleT * 0.05) * 0.4;
     }
-    game.fish.update(dt);
+    if (!titleScene) game.fish.update(dt);
     game.structures.update(dt);
     game.food.update(dt);
     game.fox.update(dt);

@@ -42,8 +42,8 @@ const CHAIR_Y = -0.25; // chair feet below the water surface (WATER_Y = -0.1)
 const FOX_ROT = 0.3; // chair facing offsets from "towards the camera" (radians)
 const DEER_ROT = -0.42;
 const PITCH = 17; // degrees
-const SUN_EL = 0.2; // sun elevation (radians): long shadows
-const SKY_D = 6.2; // distance of the sky curtain behind the focus point
+const SUN_EL = 0.3; // sun elevation (radians): long shadows
+const SKY_D = 3.4; // distance of the sky curtain behind the focus point
 
 // ---------------------------------------------------------------- sky curtain
 const SKY_VERT = /* glsl */ `
@@ -54,6 +54,7 @@ const SKY_FRAG = /* glsl */ `
 uniform float uTime;
 uniform vec2 uSun;
 uniform float uPx;
+uniform float uTop;
 varying vec3 vL;
 float h11(float p) { p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
 float n11(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h11(i), h11(i + 1.0), f); }
@@ -92,7 +93,8 @@ void main() {
   vec2 fc = gl_FragCoord.xy;
   float dith = bayer(fc) - 0.5;
   // banded, dithered sunset gradient (height above the horizon, world units)
-  float y = p.y + dith * 0.55;
+  float sk = 11.0 / max(uTop, 0.5); // sky features scale with the visible sky height
+  float y = p.y * sk + dith * 0.55;
   vec3 c0 = vec3(1.00, 0.86, 0.52), c1 = vec3(1.00, 0.66, 0.40), c2 = vec3(0.98, 0.50, 0.46), c3 = vec3(0.86, 0.40, 0.58), c4 = vec3(0.52, 0.32, 0.62), c5 = vec3(0.26, 0.22, 0.50);
   float yb = floor(y / 0.42) * 0.42; // chunky bands
   vec3 col = c0;
@@ -102,19 +104,19 @@ void main() {
   col = mix(col, c4, smoothstep(6.2, 9.0, yb));
   col = mix(col, c5, smoothstep(9.0, 13.0, yb));
   // sun glow (warmer + brighter towards the sun)
-  vec2 ds = (p - uSun) * vec2(0.8, 1.0);
+  vec2 ds = (p - uSun) * vec2(0.8, 1.0) * sk;
   float dsun = length(ds);
-  float glow = exp(-dsun * 0.42);
+  float glow = exp(-dsun * 0.3);
   float gq = floor((glow + dith * 0.12) * 7.0) / 7.0;
   col = mix(col, vec3(1.0, 0.82, 0.5), gq * 0.75);
   col += vec3(0.25, 0.14, 0.04) * gq;
   // clouds: long stratus streaks, pink-lit undersides, violet tops
   for (int k = 0; k < 4; k++) {
     float fk = float(k);
-    float cy = 2.6 + fk * 1.9 + 0.5 * h11(fk * 9.0);
-    float sx = p.x * (0.16 + 0.05 * fk) + uTime * (0.02 + 0.008 * fk) + fk * 13.0;
+    float cy = 3.6 + fk * 1.9 + 0.5 * h11(fk * 9.0);
+    float sx = p.x * sk * (0.16 + 0.05 * fk) * 0.6 + uTime * (0.02 + 0.008 * fk) + fk * 13.0;
     float thick = (n11(sx) * 0.9 + n11(sx * 2.7) * 0.45 - 0.62) * (0.9 + 0.25 * fk);
-    float dy = p.y - cy - (n11(sx * 0.5 + 4.0) - 0.5) * 0.7;
+    float dy = p.y * sk - cy - (n11(sx * 0.5 + 4.0) - 0.5) * 0.7;
     if (thick > 0.0 && abs(dy) < thick) {
       float u = clamp(dy / max(thick, 0.001) * 0.5 + 0.5, 0.0, 1.0); // 0 = underside
       vec3 lit = mix(vec3(1.0, 0.72, 0.52), vec3(1.0, 0.9, 0.7), glow);
@@ -124,41 +126,42 @@ void main() {
     }
   }
   // the sun disc, sliced by thin cloud lines
-  float r = 1.15;
+  float r = 1.6;
   if (dsun < r) {
     vec3 sc = mix(vec3(2.4, 2.0, 1.25), vec3(1.9, 1.25, 0.6), smoothstep(0.0, r, dsun + dith * 0.3));
-    float slice = step(0.82, fract((p.y - uSun.y) * 1.3 + 0.35)) * step(uSun.y - r * 0.9, p.y) * step(p.y, uSun.y + 0.1);
+    float slice = step(0.82, fract((p.y - uSun.y) * sk * 1.3 + 0.35)) * step(-r * 0.9, (p.y - uSun.y) * sk) * step((p.y - uSun.y) * sk, 0.1);
     col = mix(sc, col * 1.1, slice * 0.8);
   }
   // birds: tiny "v" shapes drifting
   for (int k = 0; k < 3; k++) {
     float fk = float(k);
-    vec2 b = vec2(mod(uTime * (0.35 + fk * 0.08) + fk * 9.0, 40.0) - 20.0 + uSun.x * 0.5, 4.6 + fk * 0.7 + sin(uTime * 0.7 + fk) * 0.2);
+    vec2 b = vec2(mod(uTime * (0.25 + fk * 0.05) + fk * 5.0, 20.0) - 10.0 + uSun.x * 0.5, (6.6 + fk * 0.9 + sin(uTime * 0.7 + fk) * 0.2) / sk);
     vec2 q = (p - b) / (uPx * 1.0);
     float flap = step(0.0, sin(uTime * 6.0 + fk * 2.0));
     if (abs(q.y + abs(q.x) * (flap > 0.5 ? -0.7 : 0.25)) < 0.75 && abs(q.x) < 3.2) col = mix(col, vec3(0.32, 0.18, 0.32), 0.85);
   }
   // distant mountains, hazy in the warm light
   float mx = p.x * 0.11;
-  float mh = 2.3 + 1.6 * n11(mx) + 0.8 * n11(mx * 2.3 + 7.0) + 0.25 * abs(fract(mx * 3.0) - 0.5);
-  if (p.y < mh) {
+  float mh = 1.25 + 0.9 * n11(mx) + 0.45 * n11(mx * 2.3 + 7.0) + 0.15 * abs(fract(mx * 3.0) - 0.5);
+  float ym = p.y * sk / 3.7;
+  if (ym < mh) {
     vec3 mc = mix(vec3(0.84, 0.48, 0.6), vec3(0.98, 0.66, 0.6), glow * 0.8);
-    if (p.y > mh - 0.18 && dith > -0.2) mc = mix(mc, vec3(1.0, 0.82, 0.62), 0.5 + glow * 0.4);
+    if (ym > mh - 0.18 && dith > -0.2) mc = mix(mc, vec3(1.0, 0.82, 0.62), 0.5 + glow * 0.4);
     // snow caps on the tallest peaks
-    if (mh > 3.9 && p.y > mh - 0.5) mc = mix(mc, vec3(1.0, 0.86, 0.78), 0.55);
+    if (mh > 2.25 && ym > mh - 0.3) mc = mix(mc, vec3(1.0, 0.86, 0.78), 0.55);
     col = mc;
   }
   // far forest (pink-violet) and near forest (deep plum), backlit rims
-  float hf = 0.9 + 0.4 * n11(p.x * 0.3) + pines(p.x, 0.62, 0.8, 1.7, 3.0);
+  float hf = 0.45 + 0.2 * n11(p.x * 0.3) + pines(p.x, 0.36, 0.35, 0.8, 3.0);
   if (p.y < hf) {
     vec3 fc2 = mix(vec3(0.6, 0.36, 0.5), vec3(0.72, 0.42, 0.5), glow);
-    if (p.y > hf - 0.07) fc2 = mix(fc2, vec3(1.0, 0.7, 0.5), 0.5 + glow * 0.5);
+    if (p.y > hf - 0.05) fc2 = mix(fc2, vec3(1.0, 0.7, 0.5), 0.5 + glow * 0.5);
     col = fc2;
   }
-  float hn = 0.25 + 0.3 * n11(p.x * 0.5 + 11.0) + pines(p.x + 0.31, 0.5, 0.9, 2.1, 17.0);
+  float hn = 0.12 + 0.15 * n11(p.x * 0.5 + 11.0) + pines(p.x + 0.31, 0.3, 0.3, 0.95, 17.0);
   if (p.y < hn) {
     vec3 nc = vec3(0.30, 0.17, 0.28);
-    if (p.y > hn - 0.06) nc = mix(nc, vec3(0.95, 0.55, 0.42), 0.35 + glow * 0.6);
+    if (p.y > hn - 0.04) nc = mix(nc, vec3(0.95, 0.55, 0.42), 0.35 + glow * 0.6);
     // a few twinkly windows / fireflies in the dark woods
     float fx = floor(p.x / (uPx * 2.0)), fy = floor(p.y / (uPx * 2.0));
     float tw = h11(fx * 3.7 + fy * 11.3);
@@ -277,17 +280,19 @@ export class TitleScene {
     game.state.hour = 18.25;
     game.state.phase = 'day';
     game.fox.rig.root.visible = false; // our own Reynard lounges instead
+    this._saved.fishVisible = game.fish.batch?.mesh?.visible;
+    if (game.fish.batch?.mesh) game.fish.batch.mesh.visible = false; // big 2D fish read oddly at this low angle
 
     // --- majestic grade: bloom, warm pink haze, purple vignette
     R.bloomStrength = 0.78;
     R.brightPass.mat.uniforms.threshold.value = 0.74;
     U.haze.value = 0.3;
     U.hazeColor.value.set(1.0, 0.7, 0.58);
-    U.vignette.value = 0.48;
+    U.vignette.value = 0.4;
     U.vignetteColor.value.set(0.42, 0.24, 0.5);
-    U.saturation.value = 1.16;
-    U.grade.value.set(1.07, 0.99, 0.92);
-    U.lift.value.set(0.05, 0.012, 0.07);
+    U.saturation.value = 1.08;
+    U.grade.value.set(1.1, 1.0, 0.88);
+    U.lift.value.set(0.035, 0.012, 0.045);
     U.contrast.value = 1.06;
     U.outlineTint.value.set(0.4, 0.26, 0.4);
     wu.uGlint.value.set(0xffe2a0);
@@ -298,17 +303,18 @@ export class TitleScene {
     // --- camera
     rig.freeBounds = true;
     rig.follow = null;
-    rig.dist = 16; // keep the (low-pitched) camera inside the meadow, not inside the hills
+    rig.dist = 24; // keep the (low-pitched) camera inside the meadow, not inside the hills
     rig.minWupp = Math.min(rig.minWupp, 0.008);
     rig.yaw = rig.yawGoal = YAW;
     rig.pitch = THREE.MathUtils.degToRad(PITCH);
     rig.pitchGoal = rig.pitch;
-    rig.wupp = rig.wuppGoal = 0.03;
+    rig.wupp = rig.wuppGoal = 0.017;
     this._camFocus = new THREE.Vector3(SEAT.x, 0, SEAT.z);
     this._updateCamera(0, true);
 
     this._buildSky();
     this._buildActors();
+    this._hideForeground(true);
     this._initBeats();
   }
 
@@ -321,6 +327,7 @@ export class TitleScene {
     if (s.skyOwn) game.sky.update = s.skyOwn; else delete game.sky.update;
     game.state.hour = s.hour; game.state.phase = s.phase;
     game.fox.rig.root.visible = s.foxVisible;
+    if (game.fish.batch?.mesh) game.fish.batch.mesh.visible = s.fishVisible ?? true;
     R.bloomStrength = s.bloomStrength;
     R.brightPass.mat.uniforms.threshold.value = s.threshold;
     for (const k of ['haze', 'vignette', 'saturation', 'contrast', 'outlineAmt', 'highlightAmt']) U[k].value = s.u[k];
@@ -330,6 +337,7 @@ export class TitleScene {
     rig.wupp = s.wupp; rig.wuppGoal = s.wuppGoal; rig.yaw = s.yaw; rig.yawGoal = s.yawGoal;
     rig.pitch = s.pitch; rig.pitchGoal = s.pitchGoal; rig.dist = s.dist;
     rig.target.copy(s.target); rig.goal.copy(s.goal);
+    this._hideForeground(false);
     // remove our actors
     for (const w of this.words) { this.group.remove(w.sprite); w.sprite.material.dispose(); }
     this.words.length = 0;
@@ -341,6 +349,27 @@ export class TitleScene {
     });
     this.fishMesh?.material?.map?.dispose?.();
     this.group = null;
+  }
+
+  // Trees between the camera and the diorama would block the view at this low
+  // pitch: hide them (temporarily flagged as removed) while the title is up.
+  // stop() un-flags exactly those again, so call it before game.load().
+  _hideForeground(on) {
+    const world = this.game.world;
+    if (on) {
+      const R = this.right, F = this.fwd, s = this.seatPos;
+      this._hidden = [];
+      for (const d of world.decos) {
+        if (d.removed) continue;
+        const dx = d.x + 0.5 - s.x, dz = d.z + 0.5 - s.z;
+        const f = dx * F.x + dz * F.z, r = dx * R.x + dz * R.z;
+        if (f < -0.8 && f > -26 && r > -9 - f * 0.25 && r < 7 - f * 0.25) { d.removed = true; this._hidden.push(d); }
+      }
+    } else {
+      for (const d of this._hidden || []) d.removed = false;
+      this._hidden = null;
+    }
+    try { world.buildDecos(); } catch { /* keep going */ }
   }
 
   // ============================================================ sky + lighting
@@ -360,20 +389,20 @@ export class TitleScene {
       sky.state.sunDir.copy(dir);
       const p = sky.sun.target.position;
       sky.sun.position.set(p.x + dir.x * 90, p.y + dir.y * 90, p.z + dir.z * 90);
-      sky.sun.color.setHex(0xffa468);
-      sky.sun.intensity = 2.25;
-      sky.hemi.color.setHex(0xc89ad0);
-      sky.hemi.groundColor.setHex(0x6a4a44);
-      sky.hemi.intensity = 1.12;
-      sky.state.skyTint.setHex(0xffa894);
-      sky.state.waterShallow.lerp(col.setHex(0x4a8c96), 0.5);
-      sky.state.waterDeep.lerp(col.setHex(0x3a4a86), 0.5);
+      sky.sun.color.setHex(0xffc488);
+      sky.sun.intensity = 2.9;
+      sky.hemi.color.setHex(0xd8a8c8);
+      sky.hemi.groundColor.setHex(0x7a5a40);
+      sky.hemi.intensity = 1.25;
+      sky.state.skyTint.setHex(0xffc49a);
+      sky.state.waterShallow.lerp(col.setHex(0x58a0a0), 0.6);
+      sky.state.waterDeep.lerp(col.setHex(0x4a5a98), 0.6);
       sky.state.night = 0;
     };
   }
 
   _buildSky() {
-    this.skyUniforms = { uTime: { value: 0 }, uSun: { value: new THREE.Vector2(-5.2, 3.6) }, uPx: { value: 0.03 } };
+    this.skyUniforms = { uTime: { value: 0 }, uSun: { value: new THREE.Vector2(-5.2, 3.6) }, uPx: { value: 0.03 }, uTop: { value: 3 } };
     const geo = new THREE.PlaneGeometry(90, 40, 1, 1);
     geo.translate(0, 40 / 2 - 3, 0);
     const mat = new THREE.ShaderMaterial({ vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, uniforms: this.skyUniforms });
@@ -419,9 +448,9 @@ export class TitleScene {
       return { base, tilt, content, chair, rx: 0, vx: 0, rot };
     };
     const faceRot = YAW; // +Z facing the camera
-    this.foxChair = mkChair('orange', seat, faceRot + FOX_ROT);
+    this.foxChair = mkChair('green', seat, faceRot + FOX_ROT);
     const deerPos = at(seat, 1.38, 0.12);
-    this.deerChair = mkChair('blue', deerPos, faceRot + DEER_ROT);
+    this.deerChair = mkChair('yellow', deerPos, faceRot + DEER_ROT);
 
     // Reynard
     const fox = (this.fox = new FoxRig({ shadows: true }));
@@ -466,10 +495,10 @@ export class TitleScene {
 
     // ducks: a drake and two hens paddling about
     this.ducks = [];
-    const homes = [at(seat, -2.6, -2.6), at(seat, -1.8, -3.4), at(seat, -3.4, -2.0)];
+    const homes = [at(seat, -2.2, -2.3), at(seat, -1.4, -3.0), at(seat, -3.0, -1.8)];
     ['m', 'f', 'f'].forEach((sex, i) => {
       const d = new Duck({ sex });
-      d.root.scale.setScalar(SCALE * (i === 0 ? 1 : 0.92));
+      d.root.scale.setScalar(SCALE * (i === 0 ? 1.45 : 1.32)); // a bit chunkier than life so they read
       g.add(d.root);
       d.play('swim', { fade: 0 });
       const h = homes[i];
@@ -640,7 +669,7 @@ export class TitleScene {
         st.mode = 'leap'; st.t = 0;
         st.from = new THREE.Vector3(st.x, st.y, st.z);
         const C = this._chaseCenter();
-        st.to = new THREE.Vector3(lerp(st.x, C.x, 0.55) - F.x * 0.2, -0.3, lerp(st.z, C.z, 0.55) - F.z * 0.2);
+        st.to = new THREE.Vector3(lerp(st.x, C.x, 0.55) - F.x * 0.2, -0.2, lerp(st.z, C.z, 0.55) - F.z * 0.2);
         this.foxChair.vx -= 4.5; // the chair rocks
         for (const d of this.ducks) { d.mode = 'scatter'; d.t = 0; d.d.play('chase_flee', { fade: 0.1 }); }
         this._word('QUACK!', 'quack', tip.x - R.x * 0.3, 0.5, tip.z - R.z * 0.3, { size: 1, life: 1 });
@@ -712,17 +741,17 @@ export class TitleScene {
 
   _chaseCenter() {
     const s = this.seatPos, R = this.right, F = this.fwd;
-    return new THREE.Vector3(s.x + R.x * 0.55 - F.x * 1.75, 0, s.z + R.z * 0.55 - F.z * 1.75);
+    return new THREE.Vector3(s.x + R.x * 0.45 - F.x * 2.35, 0, s.z + R.z * 0.45 - F.z * 2.35);
   }
   _chasePoint(a, out = new THREE.Vector3()) {
     const C = this._chaseCenter(), R = this.right, F = this.fwd;
-    const ca = Math.cos(a) * 1.55, sa = Math.sin(a) * 0.75;
+    const ca = Math.cos(a) * 1.7, sa = Math.sin(a) * 0.65;
     return out.set(C.x + R.x * ca + F.x * sa, 0, C.z + R.z * ca + F.z * sa);
   }
   _chaseAngleOf(x, z) {
     const C = this._chaseCenter(), R = this.right, F = this.fwd;
     const dx = x - C.x, dz = z - C.z;
-    return Math.atan2((dx * F.x + dz * F.z) / 0.75, (dx * R.x + dz * R.z) / 1.55);
+    return Math.atan2((dx * F.x + dz * F.z) / 0.65, (dx * R.x + dz * R.z) / 1.7);
   }
 
   // ------------------------------------------------------------ fox
@@ -745,7 +774,7 @@ export class TitleScene {
       }
       if (u >= 1) { st.mode = 'stand'; st.landed = false; }
     } else if (st.mode === 'stand') {
-      fox.root.position.y = lerp(fox.root.position.y, -0.3, 1 - Math.exp(-dt * 8));
+      fox.root.position.y = lerp(fox.root.position.y, -0.2, 1 - Math.exp(-dt * 8));
       if (Math.random() < dt * 3) this.game.world.sim.disturb(st.x + rand(-0.15, 0.15), st.z + rand(-0.15, 0.15), 0.18, 0.05);
       const d = this.ducks[0];
       if (d && this.gag?.phase === 'panic') st.rot = angLerp(st.rot, Math.atan2(d.x - st.x, d.z - st.z), 1 - Math.exp(-dt * 6));
@@ -755,7 +784,7 @@ export class TitleScene {
       const dx = p.x - st.x, dz = p.z - st.z;
       if (dx * dx + dz * dz > 1e-6) st.rot = angLerp(st.rot, Math.atan2(dx, dz), 1 - Math.exp(-dt * 10));
       st.x = p.x; st.z = p.z;
-      fox.root.position.set(st.x, -0.3, st.z);
+      fox.root.position.set(st.x, -0.2, st.z);
       this.game.world.sim.wake(st.x, st.z, 2.4, 0.3, dt);
     } else if (st.mode === 'walkback') {
       // wade back to the front of the chair, then hop in
@@ -768,10 +797,10 @@ export class TitleScene {
           const sp = Math.min(d, dt * 1.05);
           st.x += (dx / d) * sp; st.z += (dz / d) * sp;
           st.rot = angLerp(st.rot, Math.atan2(dx, dz), 1 - Math.exp(-dt * 8));
-          fox.root.position.set(st.x, -0.3, st.z);
+          fox.root.position.set(st.x, -0.2, st.z);
           this.game.world.sim.wake(st.x, st.z, 1.2, 0.25, dt);
         } else {
-          st.hop = { t: 0, from: new THREE.Vector3(st.x, -0.3, st.z), r0: st.rot };
+          st.hop = { t: 0, from: new THREE.Vector3(st.x, -0.2, st.z), r0: st.rot };
           fox.play('sit', { fade: 0.25 });
         }
       } else {
@@ -867,7 +896,7 @@ export class TitleScene {
         // sneak up from the water side of the chair, a little fan of beaks
         const off = [[-0.32, -0.12], [-0.22, -0.4], [-0.52, -0.32]][st.slot] || [0, 0];
         tx = tip.x + R.x * off[0] + F.x * off[1]; tz = tip.z + R.z * off[0] + F.z * off[1];
-        spd = 0.55;
+        spd = 0.85;
         if (Math.hypot(tx - st.x, tz - st.z) < 0.08) { st.mode = 'peck'; d.play('peck', { fade: 0.15 }); }
       } else if (st.mode === 'peck') {
         tx = st.x; tz = st.z; spd = 0;
@@ -1134,7 +1163,12 @@ export class TitleScene {
     if (instant) rig.pitch = rig.pitchGoal;
     // push in over the first ~25 s, then breathe
     const push = smooth(T / 26);
-    rig.wuppGoal = lerp(0.03, 0.0215, push) * (1 + Math.sin(T * 0.07) * 0.025);
+    const rr = this.game.renderer;
+    const tall = (rr.rtW || 16) / (rr.rtH || 9) < 1; // phones in portrait: closer in
+    rig.wuppGoal = lerp(0.018, 0.0145, push) * (tall ? 0.72 : 1) * (1 + Math.sin(T * 0.07) * 0.025);
+    // keep the near plane below the bottom of the screen at this low pitch
+    const hh0 = ((rr.rtH || 300) * rig.wupp) / 2;
+    rig.dist = Math.max(24, (hh0 * Math.cos(rig.pitch) + 0.8) / Math.sin(rig.pitch));
     if (instant) rig.wupp = rig.wuppGoal;
     // focus between the chairs, drifting a little towards the chase
     const s = this.seatPos || this._camFocus, R = this.right || new THREE.Vector3(Math.cos(YAW), 0, -Math.sin(YAW));
@@ -1162,7 +1196,8 @@ export class TitleScene {
       const hh = (renderer.rtH || 300) * rig.wupp * 0.5;
       const pitch = rig.pitch;
       const topH = (hh + 0.35 * Math.cos(pitch) - SKY_D * Math.sin(pitch)) / Math.cos(pitch);
-      this.skyUniforms.uSun.value.set(-viewW * 0.22 - shift, Math.max(1.6, topH * 0.55));
+      this.skyUniforms.uTop.value = Math.max(0.8, topH);
+      this.skyUniforms.uSun.value.set(-viewW * 0.08 - shift * 0.5, Math.max(0.5, topH * 0.58));
     }
   }
 

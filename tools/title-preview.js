@@ -55,7 +55,7 @@ let mode = 'title';
 function tick(dt) {
   if (mode === 'title') {
     title.update(dt);
-    game.fish.update(dt);
+    // (fish are hidden while the title is up; skip their sim so no "discovered" popups fire)
     game.structures.update(dt);
     game.food.update(dt);
     game.fox.update(dt);
@@ -67,7 +67,7 @@ function tick(dt) {
     ui.update(dt);
   }
 }
-window.__adv = (sec, dt = 1 / 30) => { for (let t = 0; t < sec; t += dt) tick(dt); return { T: +title.T.toFixed(2), gag: title.gag?.phase || null, fox: title.foxSt?.mode }; };
+window.__adv = (sec, dt = 1 / 30) => { for (let t = 0; t < sec; t += dt) { tick(dt); game.rig.update(dt, game.renderer); } return { T: +title.T.toFixed(2), gag: title.gag?.phase || null, fox: title.foxSt?.mode }; };
 window.__render = () => game.render(1 / 30);
 window.__title = title;
 window.__game = game;
