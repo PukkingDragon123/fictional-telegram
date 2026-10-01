@@ -19,8 +19,8 @@ export class CameraRig {
     this.dist = 110;
     this.wupp = 0.045; // world units per low-res pixel
     this.wuppGoal = 0.045;
-    this.minWupp = 0.018;
-    this.maxWupp = 0.1;
+    this.minWupp = 0.011;
+    this.maxWupp = 0.14;
     this.subpixel = new THREE.Vector2();
     this.bounds = { minX: 10, maxX: 50, minZ: 8, maxZ: 56 };
     this.shake = 0;

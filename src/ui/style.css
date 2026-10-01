@@ -421,7 +421,7 @@ html, body { font-size: 16px; -webkit-font-smoothing: none; font-smooth: never; 
 @keyframes tool-pulse { 50% { transform: translateY(-6px) scale(1.08); } }
 
 /* e-Buy fills the screen over the game */
-.ebuy-host { position: absolute; inset: 0; z-index: 35; pointer-events: auto; }
+.ebuy-host { position: absolute; inset: 0; z-index: 45; pointer-events: auto; }
 
 /* lab: pixel arrow back + icon buttons, no text */
 .labui .lab-top { position: absolute; top: 12px; left: 12px; pointer-events: auto; }
@@ -437,3 +437,20 @@ body.blueprint .pointer-hand { display: none; }
 body.cine .fox-notifier, body.cine .bigclock-host, body.cine .hud-right, body.at-title .fox-notifier { opacity: 0 !important; pointer-events: none !important; }
 body.cine .hud-left { opacity: 0; }
 body.at-title .hud, body.at-title .toolbar, body.at-title .hud-right { opacity: 0 !important; pointer-events: none !important; }
+.tool.shake { animation: bp-shake .35s; }
+
+/* camera pad: zoom + pan, bottom-left */
+.campad { position: absolute; left: 10px; bottom: calc(10px + var(--safe-b, 0px)); display: flex; align-items: flex-end; gap: 8px; z-index: 14; pointer-events: auto; transition: opacity .3s; }
+.cp-zoom { display: flex; flex-direction: column; gap: 4px; }
+.cp-pan { display: grid; grid-template-columns: repeat(3, 32px); grid-template-rows: repeat(3, 32px); gap: 2px; }
+.cp-pan .up { grid-column: 2; grid-row: 1; } .cp-pan .left { grid-column: 1; grid-row: 2; } .cp-pan .home { grid-column: 2; grid-row: 2; }
+.cp-pan .right { grid-column: 3; grid-row: 2; } .cp-pan .down { grid-column: 2; grid-row: 3; }
+.cp { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; background: #fffbea; border: 2px solid #1a1420; box-shadow: 0 2px 0 #1a1420; cursor: pointer; image-rendering: pixelated; touch-action: none; }
+.cp-zoom .cp { width: 38px; height: 38px; }
+.cp:hover { transform: translateY(-2px); }
+.cp:active { transform: translateY(1px); box-shadow: 0 1px 0 #1a1420; background: #ffe9a8; }
+.cp-pan .cp { opacity: .85; }
+body.cine .campad, body.at-title .campad, body.lab-mode .campad { opacity: 0; pointer-events: none; }
+body.blueprint .campad { bottom: 150px; }
+@media (max-width: 640px) { .cp-pan { display: none; } .campad { bottom: 86px; } }
+.campad.locked { display: none; }

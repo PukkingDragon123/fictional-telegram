@@ -355,6 +355,27 @@ export class Game {
       if (it.once && (st.inventory[it.type] || this.structures.countBuilt(it.type))) continue;
       L.push({ id: 'item_' + it.type, cat: it.cat, kind: 'item', type: it.type, qty: it.qty || 1, title: it.title, sub: def?.name || it.sub, price: it.price, oldPrice: it.oldPrice, badges: it.badges || [], seller: it.seller, locked, eta: 'Moose Express' });
     }
+    // the rest of the catalogue: every plant, decor piece, gadget and
+    // restaurant kit, including the ones you can't have yet (greyed + why)
+    const handmade = new Set(SHOP_ITEMS.map((it) => it.type));
+    const catOf = { food: 'plants', nature: 'plants', decor: 'decor', contraption: 'gear', restaurant: 'restaurant' };
+    for (const [type, def] of Object.entries(STRUCTURES)) {
+      const cat = catOf[def.category];
+      if (!cat || handmade.has(type) || type === 'lodge') continue;
+      let locked = null;
+      if (def.landmark && !st.landmarks.includes(def.landmark)) locked = { reason: 'Find the ' + (LANDMARKS.find((x) => x.id === def.landmark)?.name || 'landmark'), icon: 'map' };
+      else if (!this.isUnlocked(def.unlock)) locked = { reason: 'Lab: ' + (RESEARCH_BY_ID[def.unlock]?.name || 'research'), icon: 'flask' };
+      const price = Math.max(5, Math.round(def.cost * 1.15));
+      L.push({ id: 'item_' + type, cat, kind: 'item', type, qty: 1, title: autoTitle(type, def), sub: def.name, price, oldPrice: Math.round(price * (2.5 + (type.length % 5))), badges: def.beauty >= 3 ? ['hot'] : [], seller: { name: pickSeller(type), stars: 4 + (type.length % 10) / 10, sold: 50 + type.length * 37 }, locked, eta: 'Moose Express' });
+    }
+    // fish you haven't unlocked yet: a teaser of what the lab can get you
+    const pool = new Set(this.availableSpecies());
+    let teasers = 0;
+    for (const sp of SPECIES) {
+      if (pool.has(sp.id) || sp.unlock === 'hybrid' || teasers >= 8) continue;
+      teasers++;
+      L.push({ id: 'lockegg_' + sp.id, cat: 'eggs', kind: 'egg', species: sp.id, genes: { morph: 'normal', stars: 1 + Math.min(4, sp.tier || 0), traits: [], size: 1 }, title: `${sp.name} egg ??? (coming soon)`, sub: sp.name, price: sp.price, rarity: RARITIES[Math.min(4, sp.tier || 0)].id, badges: ['new'], seller: { name: pickSeller(sp.id), stars: 4.8, sold: 0 }, locked: { reason: 'Lab: ' + (RESEARCH_BY_ID[sp.unlock]?.name || 'research'), icon: 'flask' }, eta: 'Moose Express' });
+    }
     return L;
   }
 
@@ -872,7 +893,7 @@ export class Game {
     return ok;
   }
 
-  placeStructure(type, x, z, { free = false } = {}) {
+  placeStructure(type, x, z, { free = false, quiet = false } = {}) {
     const def = STRUCTURES[type];
     const inv = this.state.inventory;
     if (free && !(inv[type] > 0)) free = false;
@@ -888,9 +909,7 @@ export class Game {
     else if (!this.spend(def.cost, 'builds')) return false;
     const s = this.structures.place(type, x, z, { free });
     if (!s) { if (free) inv[type] = (inv[type] || 0) + 1; else this.state.coins += def.cost; return false; }
-    this.audio.play('place', { volume: 0.5 });
-    this.particles.dust(x + 0.5, this.structures.baseY(s) + 0.1, z + 0.5, 5);
-    if (this.grid.isWater(x, z)) this.particles.splash(x + 0.5, z + 0.5, 6, 0.6);
+    this.placeFx(s, quiet);
     if (s.built) this.onStructureBuilt(s);
     if (s.built && (def.blocksBear || def.blocksFish)) this.onTopologyChanged();
     this.emit('built', s);
@@ -907,6 +926,26 @@ export class Game {
     if (r.reason === 'far') this.notify('Too far! Start from the edge of your land.', 'no');
     this.audio.play('error', { volume: 0.3 });
     return false;
+  }
+
+  // cartoon "plonk!": squash & stretch pop, a dust puff ring, little stars,
+  // a POP! word and a rising-pitch pop when you paint several in a row
+  placeFx(s, quiet = false) {
+    const [fw, fd] = s.def.size || [1, 1];
+    const cx = s.x + fw / 2, cz = s.z + fd / 2, y = this.structures.baseY(s);
+    s.popT = 0.45;
+    const now = performance.now();
+    this._plonk = now - (this._plonkT || 0) < 600 ? Math.min(12, (this._plonk || 0) + 1) : 0;
+    this._plonkT = now;
+    const pitch = 1 + this._plonk * 0.06;
+    this.audio.play('pop_in', { volume: quiet ? 0.3 : 0.5, pitch });
+    if (!quiet || this._plonk % 3 === 0) this.audio.play('place', { volume: 0.3, pitch });
+    this.particles.puff(cx, y + 0.15, cz, 8 + fw * 3, 0.32);
+    this.particles.dust(cx, y + 0.1, cz, 6);
+    this.particles.stars?.(cx, y + 0.8, cz, 5);
+    if (this.grid.isWater(s.x, s.z)) { this.particles.splash(cx, cz, 8, 0.7); this.world.sim.disturb(cx, cz, 0.6, 0.35); }
+    if (!quiet || this._plonk === 0) this.particles.word?.('pow', cx, y + 1.3, cz, { size: 0.26, life: 0.7 });
+    this.rig.shake = Math.max(this.rig.shake, 0.08 + fw * 0.04);
   }
 
   canDig(x, z) {
@@ -1237,6 +1276,12 @@ const SHOP_ITEMS = [
 ];
 const SELLERS = ['xX_FishLord_Xx', 'grandma_trout', 'BigPondEnergy', 'eggs4u_ca', 'NotAScam_Fish', 'Canuck_Carp', 'reel_deal', 'fin_tastic'];
 function pickSeller(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0; return SELLERS[Math.abs(h) % SELLERS.length]; }
+function autoTitle(type, def) {
+  const n = def.name;
+  const t = [`${n} (bears LOVE this)`, `${n} - limited edition!!`, `BRAND NEW ${n} 🔥`, `${n}, slightly used by a moose`, `${n} - 5 stars, would build again`];
+  let h = 0; for (const c of type) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return t[Math.abs(h) % t.length];
+}
 function eggTitle(sp, g, rarity, mu) {
   const n = sp.name.toUpperCase();
   if (mu && rarity >= 3) return `!!! ${mu.name.toUpperCase()} ${n} EGG !!! (not clickbait)`;

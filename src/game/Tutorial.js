@@ -89,8 +89,12 @@ export class Tutorial {
     game.unlockFeature('coins');
     game.unlockFeature('ebuy');
     let ptr = game.ui?.pointAt?.('tool:ebuy');
-    this.fox('Order a crew on e-Buy!', { wait: false, dur: 4 });
+    this.force('ebuy', { ebuyFocus: 'item_lodge' });
+    this.fox('Order a BEAVER CREW on e-Buy!', { wait: false, dur: 5, mood: 'excited' });
+    this.nag(() => 'Tap e-Buy! Beaver crew!');
     await this.until('ordered', (o) => o.items.some((it) => it.type === 'lodge'));
+    this.stopNag();
+    this.force(null);
     ptr?.();
     this.fox('Moose Express is on it!', { wait: false, mood: 'happy', dur: 2.5 });
     await this.until('delivered', (o) => o.items.some((it) => it.type === 'lodge'));
@@ -99,23 +103,39 @@ export class Tutorial {
     // ---- build mode: place the lodge
     game.unlockFeature('build');
     ptr = game.ui?.pointAt?.('tool:build');
-    this.fox('Place the lodge by the water!', { wait: false, dur: 4 });
+    this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'lodge', free: true } });
+    this.fox('Place the lodge in the water by the shore!', { wait: false, dur: 5 });
+    this.nag(() => 'Build ▸ tap the shore water!');
     await this.until('built', (s) => s.type === 'lodge');
+    this.stopNag();
+    this.force(null);
+    game.ui?.blueprint?.exit();
     ptr?.();
     await wait(1);
     await this.fox('Beavers! They work for berries.', { mood: 'happy' });
     game.unlockFeature('clear');
     await this.fox('Clear trees = more land + money!', { mood: 'excited' });
     ptr = game.ui?.pointAt?.('tool:build');
+    this.force('build', { bpTab: 'clear' });
+    this.fox('Build ▸ drag over the trees at the edge!', { wait: false, dur: 5 });
+    this.nag(() => 'Drag over trees by your land!');
     await this.until('cleared');
+    this.stopNag();
+    this.force(null);
     ptr?.();
     await this.fox('Ka-ching!', { wait: false, mood: 'excited', dur: 1.5 });
     await wait(1.5);
 
     // ---- buy a fish egg
+    game.ui?.blueprint?.exit();
     ptr = game.ui?.pointAt?.('tool:ebuy');
+    const egg = game.ebuyListings().find((l) => l.kind === 'egg' && !l.locked);
+    this.force('ebuy', { ebuyFocus: egg?.id });
     this.fox('Now: fish eggs!', { wait: false, dur: 3 });
+    this.nag(() => 'e-Buy ▸ buy an egg!');
     await this.until('ordered', (o) => o.items.some((it) => it.kind === 'egg'));
+    this.stopNag();
+    this.force(null);
     ptr?.();
     await this.until('delivered', (o) => o.items.some((it) => it.kind === 'egg'));
     await wait(1.2);
@@ -142,6 +162,24 @@ export class Tutorial {
     this.active = false;
     game.save();
   }
+
+  // only one thing works until you do it (others shake + fox says "not yet")
+  force(feature, { ebuyFocus = null, bpTab = null, bpSelect = null } = {}) {
+    const game = this.game;
+    game.tutorialOnly = feature;
+    if (game.ui) {
+      game.ui.ebuyFocus = ebuyFocus;
+      game.ui.bpForce = bpTab ? { tab: bpTab, select: bpSelect } : null;
+    }
+  }
+
+  // gentle reminders if the player dawdles
+  nag(text) {
+    this.stopNag();
+    this.nagT = setInterval(() => { if (!this.game.ui?.ebuy && !this.game.ui?.blueprint?.open) this.game.notify(text(), 'info'); }, 14000);
+  }
+
+  stopNag() { clearInterval(this.nagT); this.nagT = null; }
 
   irisOpen(x, y, z) {
     const game = this.game;

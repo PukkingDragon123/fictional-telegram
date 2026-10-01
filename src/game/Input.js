@@ -76,8 +76,7 @@ export class Input {
   tool() { return this.game.tool; }
   isLineTool() {
     const t = this.tool();
-    if (t.kind === 'dig' || t.kind === 'clear') return true;
-    return t.kind === 'build' && STRUCTURES[t.type]?.drag && !t.free;
+    return t.kind === 'dig' || t.kind === 'clear' || t.kind === 'build' || t.kind === 'remove';
   }
 
   onDown(e) {
@@ -107,7 +106,10 @@ export class Input {
     }
     if (this.isLineTool()) {
       const t = this.pickTile(p.x, p.y);
-      this.drag = { mode: 'line', start: t, end: t, moved: false };
+      const tk2 = this.tool();
+      // builds (except walls like dams/fences) and clearing paint along the drag path
+      const paint = (tk2.kind === 'build' && !STRUCTURES[tk2.type]?.drag) || tk2.kind === 'clear' || tk2.kind === 'remove';
+      this.drag = { mode: 'line', start: t, end: t, moved: false, paint, path: [t], seen: new Set([t.x + ',' + t.z]) };
       this.updateLine();
     } else {
       this.drag = { mode: 'maybe', x: p.x, y: p.y };
@@ -138,7 +140,19 @@ export class Input {
     } else if (this.drag.mode === 'line') {
       const t = this.pickTile(p.x, p.y);
       if (Math.hypot(p.x - ptr.sx, p.y - ptr.sy) > TAP_DIST) this.drag.moved = true;
-      this.drag.end = t;
+      const d = this.drag;
+      if (d.paint) {
+        // walk tile by tile from the last painted tile so fast drags leave no gaps
+        let last = d.path[d.path.length - 1];
+        let guard = 0;
+        while ((last.x !== t.x || last.z !== t.z) && guard++ < 60) {
+          const nx = last.x + Math.sign(t.x - last.x), nz = last.z + Math.sign(t.z - last.z);
+          last = { x: nx, z: nz };
+          const key = nx + ',' + nz;
+          if (!d.seen.has(key)) { d.seen.add(key); d.path.push(last); }
+        }
+      }
+      d.end = t;
       this.updateLine();
     }
     if (e.pointerType === 'mouse') this.onHover(p.x, p.y, true);
@@ -224,6 +238,11 @@ export class Input {
 
   onKey(e, down) {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    if (down && !this.game.inputLocked) {
+      const k = e.key;
+      if (k === '+' || k === '=' || k === 'e' || k === 'E') this.game.rig.zoom(0.8);
+      else if (k === '-' || k === '_' || k === 'q' || k === 'Q') this.game.rig.zoom(1.25);
+    }
     const k = e.key.toLowerCase();
     if (down) {
       this.game.audio.unlock();
@@ -307,13 +326,14 @@ export class Input {
   updateLine() {
     const d = this.drag;
     if (!d || d.mode !== 'line') return;
-    this.game.ghostLine = this.lineTiles(d.start, d.end);
+    this.game.ghostLine = d.paint ? d.path.slice(-80) : this.lineTiles(d.start, d.end);
   }
 
   commitLine(drag) {
     const game = this.game;
-    const tiles = this.lineTiles(drag.start, drag.end);
+    const tiles = drag.paint ? drag.path.slice(0, 80) : this.lineTiles(drag.start, drag.end);
     game.ghostLine = null;
+    if (game.tool.kind === 'remove') { for (const t of tiles) game.demolishAt(t.x, t.z); return; }
     const tool = game.tool;
     if (tool.kind === 'clear') {
       if (tiles.length === 1) { game.clearAt(tiles[0].x, tiles[0].z); return; }
@@ -337,14 +357,18 @@ export class Input {
       return;
     }
     if (tool.kind === 'build') {
-      if (tiles.length === 1) { game.placeStructure(tool.type, tiles[0].x, tiles[0].z); return; }
+      const free = !!tool.free;
+      if (tiles.length === 1) { game.placeStructure(tool.type, tiles[0].x, tiles[0].z, { free }); return; }
       let placed = 0;
+      const [fw, fd] = STRUCTURES[tool.type].size || [1, 1];
       for (const t of tiles) {
+        if (free && !(game.state.inventory[tool.type] > 0)) break;
         if (!game.structures.canPlace(tool.type, t.x, t.z).ok) continue;
-        if (!game.canAfford(STRUCTURES[tool.type].cost)) { game.ui?.toast('Out of coins!', 'bad'); break; }
-        if (game.placeStructure(tool.type, t.x, t.z)) placed++;
+        if (!free && !game.canAfford(STRUCTURES[tool.type].cost)) { game.notify('Out of coins!', 'no'); break; }
+        if (game.placeStructure(tool.type, t.x, t.z, { free, quiet: true })) placed++;
+        if (fw > 1 || fd > 1) continue;
       }
-      if (placed > 1) game.ui?.toast(`Placed ${placed} ${STRUCTURES[tool.type].name}s`);
+      if (placed > 1) { game.audio.play('coins', { volume: 0.3 }); game.ui?.floatTextAt(tiles[tiles.length - 1].x + 0.5, 1.2, tiles[tiles.length - 1].z + 0.5, `×${placed}`, '#fff3a0'); }
     }
   }
 

@@ -340,6 +340,9 @@ export class BeaverSystem {
               game.structures.onBuilt(s);
               game.onStructureBuilt(s);
               s.popT = 0.45;
+              game.particles.word?.('built', s.x + 0.5, game.structures.baseY(s) + 1.4, s.z + 0.5, { size: 0.3, life: 1 });
+              game.particles.stars?.(s.x + 0.5, game.structures.baseY(s) + 0.9, s.z + 0.5, 8);
+              game.audio.play('pop_in', { volume: 0.5 });
               this.release(b);
               this.paid(b);
             }

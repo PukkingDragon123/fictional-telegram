@@ -3,7 +3,8 @@
 // build, fishdex, reviews), modals, fox dialogue, toasts, comic speech
 // bubbles above bears, cinematic letterbox, night overlay, and hooks for the
 // big components (egg hatching, daily ledger, morning summary, lab tree).
-import { OFFICE } from '../world/worldgen.js';
+import { OFFICE, MEADOW } from '../world/worldgen.js';
+const MEADOW_C = { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 - 2 };
 import * as THREE from 'three';
 import { spriteImg, spriteURL, foxPortraitURL, hasSprite } from './sprites.js';
 import { Icons3D } from './icons3d.js';
@@ -176,6 +177,13 @@ export class UI {
     $('#toolbar').addEventListener('click', (e) => {
       const b = e.target.closest('.tool');
       if (!b || this.game.inputLocked) return;
+      const only = this.game.tutorialOnly;
+      if (only && b.dataset.feature !== only) {
+        b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+        this.game.audio.play('error', { volume: 0.3 });
+        this.notify('Not yet! Follow the hand!', 'no');
+        return;
+      }
       this.click();
       if (b.dataset.tool) {
         const cur = this.game.tool.kind;
@@ -271,6 +279,7 @@ export class UI {
     }
     this.blueprint = new Blueprint(this);
     this.pointers = [];
+    this.buildCamPad();
     game.on('unlock', () => this.refreshUnlocks());
     game.on('inventory', () => this.blueprint.render());
     game.on('cleared', () => this.blueprint.open && this.blueprint.tab === 'clear' && this.blueprint.render());
@@ -280,6 +289,37 @@ export class UI {
   }
 
   icon(name, sc = 2) { return hasSprite(name) ? ico(name, sc) : ''; }
+
+  // on-screen camera pad: zoom in/out, pan (hold to keep moving), recenter
+  buildCamPad() {
+    const game = this.game;
+    const pad = document.createElement('div');
+    pad.className = 'campad';
+    const b = (cls, icon, title) => `<button class="cp ${cls}" title="${title}">${hasSprite(icon) ? ico(icon, 2) : ''}</button>`;
+    pad.innerHTML = `<div class="cp-zoom">${b('zin', 'zoom_in', 'Zoom in (E / wheel)')}${b('zout', 'zoom_out', 'Zoom out (Q / wheel)')}</div>
+      <div class="cp-pan">${b('up', 'arrow_up', 'Pan (WASD)')}${b('left', 'arrow_left', 'Pan')}${b('home', 'home', 'Back to the pond')}${b('right', 'arrow_right', 'Pan')}${b('down', 'arrow_down', 'Pan')}</div>`;
+    this.root.appendChild(pad);
+    const act = {
+      zin: () => game.rig.zoom(0.94), zout: () => game.rig.zoom(1.065),
+      up: () => game.rig.panRelative(0.5 * game.rig.wupp / 0.04, 0), down: () => game.rig.panRelative(-0.5 * game.rig.wupp / 0.04, 0),
+      left: () => game.rig.panRelative(0, -0.5 * game.rig.wupp / 0.04), right: () => game.rig.panRelative(0, 0.5 * game.rig.wupp / 0.04),
+      home: () => { game.rig.lookAt(MEADOW_C.x, MEADOW_C.z); game.rig.wuppGoal = 0.04; },
+    };
+    for (const btn of pad.querySelectorAll('.cp')) {
+      const k = [...btn.classList].find((c) => act[c]);
+      let iv = null;
+      const stop = () => { clearInterval(iv); iv = null; };
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (game.inputLocked) return;
+        this.click();
+        act[k]();
+        if (k !== 'home') iv = setInterval(act[k], 33);
+      });
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, stop);
+    }
+    this.campad = pad;
+  }
 
   // a click anywhere advances a bubble that's waiting for one
   advanceBubble() {
@@ -337,6 +377,7 @@ export class UI {
     document.getElementById('toolbar')?.classList.toggle('empty', !anyTool);
     this.hud.hudhost?.classList.toggle('locked', !game.isOpen('coins'));
     this.hud.clockwrap?.classList.toggle('locked', !game.isOpen('clock'));
+    this.campad?.classList.toggle('locked', !game.isOpen('ebuy'));
     this.clock?.setVisible?.(game.isOpen('clock'));
     this.hudc?.setVisible?.(game.isOpen('coins'), 'coins');
     this.hudc?.setVisible?.(game.isOpen('rating'), 'rating');
@@ -403,8 +444,9 @@ export class UI {
     this.game.rig.lookAt(L.x + L.w / 2, L.z + L.d / 2);
   }
 
-  openEBuy() {
+  openEBuy(focus = null) {
     const game = this.game;
+    focus = focus || this.ebuyFocus || null;
     const E = C('EBuy');
     if (!E?.openEBuy || this.ebuy) return;
     const host = document.createElement('div');
@@ -412,12 +454,14 @@ export class UI {
     this.root.appendChild(host);
     const listings = () => game.ebuyListings().map((l) => ({ ...l, image: this.listingImage(l) }));
     this.ebuy = E.openEBuy(host, {
-      listings: listings(), coins: game.state.coins,
+      listings: listings(), coins: game.state.coins, focus,
       icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
       sfx: (n) => game.audio.play(n, { volume: 0.35 }),
       onBuy: (l, qty) => {
         const ok = game.ebuyBuy(l, qty);
         setTimeout(() => this.ebuy?.refresh({ coins: game.state.coins, listings: listings() }), 50);
+        // order placed: show the receipt for a moment, then back to the pond
+        if (ok) { clearTimeout(this.ebuyExitT); this.ebuyExitT = setTimeout(() => this.closeEBuy(), 2600); }
         return ok;
       },
       onClose: () => this.closeEBuy(),
@@ -427,6 +471,8 @@ export class UI {
   }
 
   closeEBuy() {
+    clearTimeout(this.ebuyExitT);
+    if (this.ebuy) this.game.audio.play('crt_off', { volume: 0.3 });
     this.ebuy?.close?.();
     this.ebuy = null;
     this.ebuyHost?.remove();

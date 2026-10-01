@@ -70,8 +70,12 @@ export class Blueprint {
     document.body.classList.add('blueprint');
     this.savedPitch = game.rig.pitch;
     game.rig.pitchGoal = (58 * Math.PI) / 180;
+    const force = this.ui.bpForce;
+    if (force?.tab) this.tab = force.tab;
     this.build();
     this.render();
+    if (force?.select) { game.setTool(force.select); this.render(); }
+    else this.selectTabTool();
   }
 
   exit() {
@@ -110,7 +114,9 @@ export class Blueprint {
 
   visibleTabs() {
     const game = this.game;
+    const force = this.ui.bpForce;
     return TABS.filter((t) => {
+      if (force?.tab && t.id !== force.tab) return false;
       if (t.feature && !game.isOpen(t.feature)) return false;
       if (t.id === 'inv') return true;
       if (t.id === 'clear') return this.hasBeavers();

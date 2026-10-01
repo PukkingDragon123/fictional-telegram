@@ -180,6 +180,15 @@ class EBuy {
     this._timers = new Set();
     this._build();
     this._sfx('crt_on');
+    // open straight onto one listing (the tutorial points you at it)
+    if (o.focus) {
+      const l = this._byId(o.focus);
+      if (l) {
+        this.cat = l.cat;
+        this._renderGrid();
+        this._later(() => this._openDetail(l), 450);
+      }
+    }
   }
 
   // ------------------------------------------------------------ utils
