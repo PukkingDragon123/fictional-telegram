@@ -1,7 +1,11 @@
-// Voxel particles (lit + glowing), expanding ripple rings, and camera-facing
-// pixel-art sprite particles (hearts, stars, notes...). All instanced.
+// Effects: chunky voxel debris (dirt, wood chips) plus 2D pixel-sprite
+// particles (droplets, cartoon blood, hearts, stars, coins, puffs, comic
+// words, build clouds...) and flat decals (splats) that fade out later.
+// Water hits disturb the height-field simulation so splashes make real waves.
 import * as THREE from 'three';
 import { WATER_Y } from '../world/grid.js';
+import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
+import { buildFxAtlas } from './fxAtlas.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -69,15 +73,12 @@ class VoxelPool {
           this.kill(i); i--; continue;
         }
       }
-      if (f & 2) {
-        // floats: stop at water surface / ground
-        const gy = groundAt ? groundAt(this.px[i], this.pz[i]) : 0;
-        const floor = gy < WATER_Y ? WATER_Y + 0.01 : gy + 0.02;
-        if (this.py[i] <= floor) { this.py[i] = floor; this.vy[i] = 0; this.vx[i] *= 0.9; this.vz[i] *= 0.9; this.grav[i] = 0; this.spin[i] *= 0.8; }
-      }
       if (f & 64) {
         const gy = groundAt ? Math.max(groundAt(this.px[i], this.pz[i]), WATER_Y) : 0;
-        if (this.py[i] < gy + this.size[i] * 0.5 && this.vy[i] < 0) { this.py[i] = gy + this.size[i] * 0.5; this.vy[i] *= -0.45; this.vx[i] *= 0.7; this.vz[i] *= 0.7; }
+        if (this.py[i] < gy + this.size[i] * 0.5 && this.vy[i] < 0) {
+          if (gy <= WATER_Y + 0.001 && onWaterHit) { onWaterHit(this.px[i], this.pz[i]); this.kill(i); i--; continue; }
+          this.py[i] = gy + this.size[i] * 0.5; this.vy[i] *= -0.45; this.vx[i] *= 0.7; this.vz[i] *= 0.7;
+        }
       }
     }
     const mesh = this.mesh;
@@ -88,10 +89,8 @@ class VoxelPool {
       let s = this.size[i];
       if (f & 16) s *= 1 + (1 - t) * 2.2;
       s *= Math.min(1, t * 4);
-      if (f & 8) s *= Math.sin(time * 6 + i * 2.1) > -0.35 ? 1 : 0.3;
       _p.set(this.px[i], this.py[i], this.pz[i]);
-      if (f & 4) { _s.set(s, s * 0.25, s * 0.8); _e.set(Math.sin(this.rot[i]) * 0.6, this.rot[i], 0); _q.setFromEuler(_e); }
-      else { _s.set(s, s, s); _q.setFromAxisAngle(UP, this.rot[i]); }
+      _s.set(s, s, s); _q.setFromAxisAngle(UP, this.rot[i]);
       _m.compose(_p, _q, _s);
       mesh.setMatrixAt(i, _m);
       col[i * 3] = this.r[i]; col[i * 3 + 1] = this.g[i]; col[i * 3 + 2] = this.b[i];
@@ -102,233 +101,242 @@ class VoxelPool {
   }
 }
 
-// --------------------------------------------------------------- sprites
-const SPRITE_DEFS = {
-  heart: ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'],
-  star: ['...#...', '..###..', '#######', '.#####.', '.##.##.', '##...##'],
-  note: ['..####', '..#..#', '..#..#', '###.##', '###.##'],
-  zzz: ['####', '..#.', '.#..', '####'],
-  bang: ['##', '##', '##', '##', '..', '##'],
-  anger: ['#.#.#', '.#.#.', '#...#', '.#.#.', '#.#.#'],
-  sparkle: ['..#..', '..#..', '##.##', '..#..', '..#..'],
-  drop: ['..#..', '.###.', '#####', '#####', '.###.'],
-  coin: ['.###.', '##.##', '#.#.#', '##.##', '.###.'],
-  question: ['.###.', '#...#', '...#.', '..#..', '.....', '..#..'],
-  honey: ['.###.', '#####', '#####', '.###.'],
-  fish: ['.##..#', '######', '.##..#'],
-};
-const SPRITE_COLORS = {
-  heart: ['#ff5a8a', '#ffb0c8'], star: ['#ffd23a', '#fff2a0'], note: ['#ffffff', '#c8f0ff'], zzz: ['#cfe0ff', '#ffffff'],
-  bang: ['#ff4a3a', '#ffe060'], anger: ['#ff3a2a', '#ff8a6a'], sparkle: ['#fff6c0', '#ffffff'], drop: ['#8ad0ff', '#ffffff'],
-  coin: ['#ffc83a', '#fff0a0'], question: ['#ffffff', '#ffe080'], honey: ['#f0a020', '#ffd060'], fish: ['#8ac8ff', '#ffffff'],
+// --------------------------------------------------------------- 2D sprite particles
+export const FX = {
+  BOUNCE: 1, WATER: 2, FLOAT: 4, STICK: 8, FADE: 16, POP: 32, WOBBLE: 64, FLAT: 128, UPRIGHT: 256, SHRINK: 512, GROW: 1024, WATERSPLAT: 2048, ONCE: 4096,
 };
 
-function buildAtlas() {
-  const names = Object.keys(SPRITE_DEFS);
-  const cell = 10;
-  const cols = 4;
-  const rows = Math.ceil(names.length / cols);
-  const cv = document.createElement('canvas');
-  cv.width = cols * cell; cv.height = rows * cell;
-  const ctx = cv.getContext('2d');
-  const uv = {};
-  names.forEach((n, i) => {
-    const rowsDef = SPRITE_DEFS[n];
-    const h = rowsDef.length, w = rowsDef[0].length;
-    const ox = (i % cols) * cell + Math.floor((cell - w) / 2), oy = Math.floor(i / cols) * cell + Math.floor((cell - h) / 2);
-    const [c1, c2] = SPRITE_COLORS[n];
-    // outline
-    ctx.fillStyle = '#1a1420';
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (rowsDef[y][x] === '#') ctx.fillRect(ox + x - 1, oy + y - 1, 3, 3);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (rowsDef[y][x] === '#') {
-      ctx.fillStyle = y === 0 || (y === 1 && x < w / 2) ? c2 : c1;
-      ctx.fillRect(ox + x, oy + y, 1, 1);
-    }
-    uv[n] = [(i % cols) / cols, 1 - (Math.floor(i / cols) + 1) / rows, 1 / cols, 1 / rows];
-  });
-  const tex = new THREE.CanvasTexture(cv);
-  tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return { tex, uv };
-}
-
-class SpritePool {
-  constructor(scene, max) {
+class FxPool {
+  constructor(scene, atlas, tex, max, { lit = false, renderOrder = 21 } = {}) {
     this.max = max;
-    const { tex, uv } = buildAtlas();
-    this.uv = uv;
-    const geo = new THREE.PlaneGeometry(1, 1);
-    const inst = new THREE.InstancedBufferGeometry();
-    inst.index = geo.index;
-    inst.attributes.position = geo.attributes.position;
-    inst.attributes.uv = geo.attributes.uv;
-    this.aPos = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3);
-    this.aUV = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4);
-    this.aSize = new THREE.InstancedBufferAttribute(new Float32Array(max), 1);
-    for (const a of [this.aPos, this.aUV, this.aSize]) a.setUsage(THREE.DynamicDrawUsage);
-    inst.setAttribute('iPos', this.aPos);
-    inst.setAttribute('iUV', this.aUV);
-    inst.setAttribute('iSize', this.aSize);
-    inst.instanceCount = 0;
-    this.geo = inst;
-    const mat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex } },
-      vertexShader: /* glsl */ `
-        attribute vec3 iPos; attribute vec4 iUV; attribute float iSize;
-        varying vec2 vUv;
-        void main() {
-          vUv = iUV.xy + uv * iUV.zw;
-          vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-          vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-          vec3 wp = iPos + (right * position.x + up * position.y) * iSize;
-          gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
-        }`,
-      fragmentShader: /* glsl */ `
-        uniform sampler2D map; varying vec2 vUv;
-        void main() { vec4 c = texture2D(map, vUv); if (c.a < 0.5) discard; gl_FragColor = c; }`,
-    });
-    this.mesh = new THREE.Mesh(inst, mat);
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 20;
-    scene.add(this.mesh);
+    this.atlas = atlas;
+    this.batch = new SpriteBatch(tex, { max, lit, castShadow: false, receiveShadow: lit, renderOrder, name: 'fx' });
+    scene.add(this.batch.mesh);
     this.list = [];
+    this.brightness = 1;
   }
 
-  spawn(name, x, y, z, { vy = 0.8, life = 1.2, size = 0.35, vx = 0, vz = 0, wobble = 0 } = {}) {
-    if (this.list.length >= this.max) return;
-    this.list.push({ name, x, y, z, vx, vy, vz, life, maxLife: life, size, wobble, seed: Math.random() * 10 });
+  spawn(name, x, y, z, o = {}) {
+    const fr = this.atlas.frames[name];
+    if (!fr) return null;
+    if (this.list.length >= this.max) this.list.shift();
+    const p = {
+      fr, x, y, z, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, grav: o.grav || 0, drag: o.drag || 0,
+      life: o.life ?? 1, maxLife: o.life ?? 1, size: o.size || 0.2, fps: o.fps || 0, frame: o.frame || 0,
+      rot: o.rot ?? 0, spin: o.spin || 0, flags: o.flags || 0, tint: o.tint || null, emissive: o.emissive || 0,
+      seed: Math.random() * 10, onStick: o.onStick || null, bright: o.bright ?? false, flip: !!o.flip,
+    };
+    this.list.push(p);
+    return p;
   }
 
-  update(dt, time) {
+  update(dt, time, env) {
     const L = this.list;
     let n = 0;
     for (let i = 0; i < L.length; i++) {
       const p = L[i];
       p.life -= dt;
       if (p.life <= 0) continue;
-      p.x += (p.vx + Math.sin(time * 4 + p.seed) * p.wobble) * dt;
-      p.y += p.vy * dt;
-      p.z += p.vz * dt;
-      p.vy *= 1 - dt * 0.8;
+      const f = p.flags;
+      const d = 1 - Math.min(1, p.drag * dt);
+      p.vx *= d; p.vz *= d; p.vy = p.vy * d - p.grav * dt;
+      if (f & FX.WOBBLE) { p.vx += Math.sin(time * 3 + p.seed) * dt * 0.9; p.vz += Math.cos(time * 2.6 + p.seed * 1.3) * dt * 0.9; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      p.rot += p.spin * dt;
+      if (f & (FX.BOUNCE | FX.WATER | FX.FLOAT | FX.STICK)) {
+        const gy = env.groundAt ? env.groundAt(p.x, p.z) : 0;
+        const wet = gy < WATER_Y;
+        const surf = wet ? WATER_Y + (env.waterAt ? env.waterAt(p.x, p.z) * 0.1 : 0) : gy;
+        if (p.y <= surf + 0.01 && p.vy <= 0) {
+          if (wet) {
+            if (f & FX.FLOAT) { p.y = surf + 0.01; p.vy = 0; p.vx *= 0.92; p.vz *= 0.92; p.grav = 0; p.spin *= 0.85; }
+            else if (f & (FX.WATER | FX.STICK)) {
+              env.onWater?.(p.x, p.z, p.size, !!(f & FX.WATERSPLAT));
+              continue;
+            } else if (f & FX.BOUNCE) { env.onWater?.(p.x, p.z, p.size * 0.5, false); continue; }
+          } else if (f & FX.STICK) {
+            if (p.onStick) p.onStick(p.x, gy, p.z);
+            continue;
+          } else if (f & FX.BOUNCE) {
+            p.y = surf + 0.01; p.vy *= -0.42; p.vx *= 0.6; p.vz *= 0.6; p.spin *= 0.6;
+            if (Math.abs(p.vy) < 0.25) { p.vy = 0; p.grav = 0; p.vx *= 0.5; p.vz *= 0.5; }
+          } else if (f & FX.FLOAT) { p.y = surf + 0.01; p.vy = 0; p.grav = 0; p.vx *= 0.85; p.vz *= 0.85; }
+        }
+      }
       L[n++] = p;
     }
     L.length = n;
-    const pos = this.aPos.array, uvs = this.aUV.array, sz = this.aSize.array;
+    const B = this.batch;
+    B.clear();
+    const amb = this.brightness;
+    const opt = {};
     for (let i = 0; i < n; i++) {
       const p = L[i];
-      const t = p.life / p.maxLife;
-      pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z;
-      const u = this.uv[p.name] || this.uv.star;
-      uvs[i * 4] = u[0]; uvs[i * 4 + 1] = u[1]; uvs[i * 4 + 2] = u[2]; uvs[i * 4 + 3] = u[3];
-      const pop = t > 0.85 ? 1 + (t - 0.85) * 3 : 1;
-      sz[i] = p.size * Math.min(1, t * 5) * pop;
+      const t = p.life / p.maxLife; // 1 -> 0
+      const f = p.flags;
+      let s = p.size;
+      if (f & FX.POP) { const a = 1 - t; s *= a < 0.12 ? 0.4 + (a / 0.12) * 0.9 : a < 0.25 ? 1.3 - ((a - 0.12) / 0.13) * 0.3 : 1; }
+      if (f & FX.SHRINK) s *= Math.min(1, t * 2.5);
+      if (f & FX.GROW) s *= 0.6 + (1 - t) * 0.9;
+      let fi = p.frame;
+      if (p.fps > 0) fi = (f & FX.ONCE) ? Math.min(p.fr.length - 1, Math.floor((1 - t) * p.maxLife * p.fps)) : Math.floor(time * p.fps + p.seed * 3) % p.fr.length;
+      const fr = p.fr[fi % p.fr.length];
+      const k = p.bright || p.emissive ? 1 : amb;
+      opt.w = s * fr.w / fr.h; opt.h = s;
+      opt.mode = f & FX.FLAT ? 1 : f & FX.UPRIGHT ? 0 : 2;
+      opt.ax = 0.5; opt.ay = opt.mode === 0 ? 0 : 0.5;
+      opt.rot = p.rot;
+      opt.alpha = f & FX.FADE ? Math.min(1, t * 3) : 1;
+      opt.emissive = p.emissive;
+      opt.flip = p.flip;
+      opt.tint = p.tint ? [p.tint[0] * k, p.tint[1] * k, p.tint[2] * k] : [k, k, k];
+      B.push(fr, p.x, p.y, p.z, opt);
     }
-    this.geo.instanceCount = n;
-    this.aPos.needsUpdate = this.aUV.needsUpdate = this.aSize.needsUpdate = true;
-  }
-}
-
-// --------------------------------------------------------------- ripples
-class RipplePool {
-  constructor(scene, max) {
-    this.max = max;
-    const geo = new THREE.RingGeometry(0.86, 1, 20, 1);
-    geo.rotateX(-Math.PI / 2);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-    this.mesh = new THREE.InstancedMesh(geo, mat, max);
-    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3);
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 11;
-    this.mesh.count = 0;
-    scene.add(this.mesh);
-    this.list = [];
-  }
-  spawn(x, z, size = 1, life = 1.2, strength = 0.35) {
-    if (this.list.length >= this.max) this.list.shift();
-    this.list.push({ x, z, size, life, maxLife: life, strength });
-  }
-  update(dt) {
-    const L = this.list;
-    let n = 0;
-    for (const r of L) { r.life -= dt; if (r.life > 0) L[n++] = r; }
-    L.length = n;
-    const col = this.mesh.instanceColor.array;
-    for (let i = 0; i < n; i++) {
-      const r = L[i];
-      const t = 1 - r.life / r.maxLife;
-      const s = r.size * (0.2 + t * 0.9);
-      _m.makeScale(s, 1, s);
-      _m.setPosition(r.x, WATER_Y + 0.012, r.z);
-      this.mesh.setMatrixAt(i, _m);
-      const a = (1 - t) * r.strength;
-      col[i * 3] = a; col[i * 3 + 1] = a; col[i * 3 + 2] = a;
-    }
-    this.mesh.count = n;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.mesh.instanceColor.needsUpdate = true;
+    B.commit();
   }
 }
 
 // --------------------------------------------------------------- facade
 export class Particles {
   constructor(scene) {
-    this.lit = new VoxelPool(scene, 2600, new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    this.lit = new VoxelPool(scene, 1600, new THREE.MeshLambertMaterial({ color: 0xffffff }));
     this.lit.mesh.castShadow = false;
-    this.glow = new VoxelPool(scene, 700, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    this.sprites = new SpritePool(scene, 220);
-    this.ripples = new RipplePool(scene, 220);
+    this.glow = new VoxelPool(scene, 300, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    this.atlas = buildFxAtlas();
+    this.tex = pixelTexture(this.atlas.canvas);
+    this.fx = new FxPool(scene, this.atlas, this.tex, 1400, { renderOrder: 21 });
+    this.decals = new FxPool(scene, this.atlas, this.tex, 260, { lit: true, renderOrder: 9 });
     this.time = 0;
     this.groundAt = null;
+    this.sim = null; // WaterSim (set by the game)
+    this.env = {
+      groundAt: (x, z) => (this.groundAt ? this.groundAt(x, z) : 0),
+      waterAt: (x, z) => (this.sim ? this.sim.heightAt(x, z) : 0),
+      onWater: (x, z, size, bloody) => {
+        this.sim?.disturb(x, z, Math.max(0.15, size * 0.8), 0.12 + size * 0.4);
+        if (bloody) this.decal('splat_water', x, WATER_Y + 0.02, z, 0.35 + Math.random() * 0.25, 5 + Math.random() * 3, [1, 1, 1]);
+        else if (Math.random() < 0.5) this.fx.spawn('drop_s', x, WATER_Y + 0.05, z, { vy: 1.2, grav: 7, life: 0.35, size: 0.06, vx: (Math.random() - 0.5), vz: (Math.random() - 0.5) });
+      },
+    };
   }
+
+  setBrightness(b) { this.fx.brightness = b; }
 
   update(dt) {
     this.time += dt;
-    const hit = (x, z) => this.ripples.spawn(x, z, 0.25, 0.6, 0.25);
+    const hit = (x, z) => this.sim?.disturb(x, z, 0.18, 0.08);
     this.lit.update(dt, this.time, hit, this.groundAt);
     this.glow.update(dt, this.time, hit, this.groundAt);
-    this.sprites.update(dt, this.time);
-    this.ripples.update(dt);
+    this.fx.update(dt, this.time, this.env);
+    this.decals.update(dt, this.time, this.env);
   }
 
-  ripple(x, z, size = 1, life = 1.2, strength = 0.35) { this.ripples.spawn(x, z, size, life, strength); }
-  sprite(name, x, y, z, opts) { this.sprites.spawn(name, x, y, z, opts); }
+  // ---- low level
+  spawnFx(name, x, y, z, opts) { return this.fx.spawn(name, x, y, z, opts); }
+  decal(name, x, y, z, size = 0.4, life = 20, tint = null) {
+    return this.decals.spawn(name, x, y + 0.012, z, { size, life, flags: FX.FLAT | FX.FADE, rot: Math.random() * 6.28, tint });
+  }
 
+  // legacy ring ripple -> real waves in the simulation
+  ripple(x, z, size = 1, life = 1.2, strength = 0.35) { this.sim?.disturb(x, z, size * 0.35, strength * 0.5); }
+
+  // camera-facing icon particles (hearts, anger, question...)
+  sprite(name, x, y, z, { vy = 0.8, life = 1.2, size = 0.35, vx = 0, vz = 0, wobble = 0 } = {}) {
+    const map = { note: 'music', drop: 'drop' };
+    this.fx.spawn(map[name] || name, x, y, z, { vx, vy, vz, drag: 0.8, life, size, flags: FX.POP | FX.FADE | (wobble ? FX.WOBBLE : 0), bright: true });
+  }
+
+  word(id, x, y, z, { size = 0.34, life = 1.1, vy = 1.1 } = {}) {
+    this.fx.spawn('word_' + id, x, y, z, { vy, drag: 2.4, life, size, flags: FX.POP | FX.FADE, rot: (Math.random() - 0.5) * 0.35, bright: true });
+  }
+
+  // ---- water
   splash(x, z, n = 14, power = 1) {
-    const L = this.lit;
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, sp = (0.4 + Math.random() * 1.2) * power;
-      L.spawn(x, WATER_Y + 0.05, z, Math.cos(a) * sp, (2 + Math.random() * 2.5) * power, Math.sin(a) * sp,
-        0.7 + Math.random() * 0.5, 0.05 + Math.random() * 0.06 * power, Math.random() < 0.5 ? 0xffffff : 0xbfe8f0, 9, 0.5, 1);
+      const a = Math.random() * Math.PI * 2, sp = (0.4 + Math.random() * 1.3) * power;
+      this.fx.spawn(Math.random() < 0.6 ? 'drop' : 'drop_s', x, WATER_Y + 0.05, z, {
+        vx: Math.cos(a) * sp, vy: (2 + Math.random() * 2.6) * power, vz: Math.sin(a) * sp, grav: 9, drag: 0.4,
+        life: 1.4, size: (0.07 + Math.random() * 0.06) * Math.min(1.6, power), flags: FX.WATER, bright: true,
+      });
     }
-    this.ripple(x, z, 0.8 * power, 1.1, 0.4);
-    this.ripple(x, z, 1.4 * power, 1.6, 0.25);
+    this.sim?.disturb(x, z, 0.3 + 0.25 * power, 0.35 * power);
   }
 
   bigSplash(x, z) {
-    this.splash(x, z, 46, 1.7);
-    const L = this.lit;
-    for (let i = 0; i < 16; i++) {
+    this.splash(x, z, 44, 1.7);
+    for (let i = 0; i < 14; i++) {
       const a = Math.random() * Math.PI * 2;
-      L.spawn(x + Math.cos(a) * 0.3, WATER_Y + 0.1, z + Math.sin(a) * 0.3, Math.cos(a) * 0.4, 5 + Math.random() * 2.5, Math.sin(a) * 0.4,
-        1.0, 0.12 + Math.random() * 0.08, 0xeaf8ff, 11, 0.3, 1);
+      this.fx.spawn('drop', x + Math.cos(a) * 0.3, WATER_Y + 0.1, z + Math.sin(a) * 0.3, {
+        vx: Math.cos(a) * 0.5, vy: 5 + Math.random() * 2.5, vz: Math.sin(a) * 0.5, grav: 11, drag: 0.3, life: 1.6, size: 0.15 + Math.random() * 0.08, flags: FX.WATER, bright: true,
+      });
     }
-    this.ripple(x, z, 2.6, 2.2, 0.35);
+    this.sim?.disturb(x, z, 1.1, 1.3);
+    this.word('splash', x, 1.5, z, { size: 0.36 });
   }
 
   bubbles(x, y, z, n = 3) {
     for (let i = 0; i < n; i++)
-      this.lit.spawn(x + (Math.random() - 0.5) * 0.2, y, z + (Math.random() - 0.5) * 0.2, 0, 0.5 + Math.random() * 0.4, 0,
-        Math.max(0.2, (WATER_Y - y) / 0.6), 0.04 + Math.random() * 0.03, 0xe8fbff, -0.2, 0.5, 32);
+      this.fx.spawn(Math.random() < 0.3 ? 'bubble_l' : 'bubble', x + (Math.random() - 0.5) * 0.2, y, z + (Math.random() - 0.5) * 0.2, {
+        vy: 0.5 + Math.random() * 0.4, life: Math.max(0.2, (WATER_Y - y) / 0.6), size: 0.07 + Math.random() * 0.04, flags: FX.WOBBLE, bright: true,
+      });
   }
 
+  // ---- rewards
   coins(x, y, z, n = 8) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 1.8;
-      this.lit.spawn(x, y, z, Math.cos(a) * sp, 4 + Math.random() * 3, Math.sin(a) * sp, 1.1 + Math.random() * 0.4, 0.13, Math.random() < 0.3 ? 0xfff0a0 : 0xffc83a, 14, 0.2, 64, 12);
+      this.fx.spawn('coin', x, y, z, { vx: Math.cos(a) * sp, vy: 4 + Math.random() * 3, vz: Math.sin(a) * sp, grav: 14, drag: 0.2, life: 1.3 + Math.random() * 0.4, size: 0.2, fps: 10, flags: FX.BOUNCE | FX.FADE, bright: true, emissive: 0.2 });
     }
   }
 
+  sparkle(x, y, z, n = 6, color = 0xfff2a0) {
+    _c.set(color);
+    const tint = [_c.r * 1.2, _c.g * 1.2, _c.b * 1.2];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 0.4 + Math.random() * 0.9;
+      this.fx.spawn('sparkle', x, y, z, { vx: Math.cos(a) * sp, vy: 0.8 + Math.random() * 1.2, vz: Math.sin(a) * sp, grav: 1.5, drag: 1.5, life: 0.6 + Math.random() * 0.5, size: 0.14, fps: 8, flags: FX.FADE | FX.POP, tint, emissive: 0.8 });
+    }
+  }
+
+  confetti(x, y, z, n = 40) {
+    const cols = [[1, 0.36, 0.36], [1, 0.82, 0.23], [0.36, 0.8, 1], [0.48, 1, 0.54], [1, 0.54, 0.88], [1, 1, 1]];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 3;
+      this.fx.spawn(Math.random() < 0.3 ? 'star' : 'petal', x, y, z, { vx: Math.cos(a) * sp, vy: 3 + Math.random() * 4, vz: Math.sin(a) * sp, grav: 5, drag: 1.2, life: 1.6 + Math.random(), size: 0.1 + Math.random() * 0.06, spin: (Math.random() - 0.5) * 12, flags: FX.WOBBLE | FX.FADE, tint: cols[i % cols.length], bright: true });
+    }
+  }
+
+  hearts(x, y, z, n = 3) {
+    for (let i = 0; i < n; i++)
+      this.fx.spawn(i % 2 ? 'heart_s' : 'heart', x + (Math.random() - 0.5) * 0.4, y, z + (Math.random() - 0.5) * 0.4, { vy: 0.7 + Math.random() * 0.5, drag: 0.8, life: 1.2 + Math.random() * 0.4, size: 0.22 + Math.random() * 0.1, flags: FX.POP | FX.FADE | FX.WOBBLE, bright: true });
+  }
+
+  stars(x, y, z, n = 6) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      this.fx.spawn('star', x, y, z, { vx: Math.cos(a) * 1.4, vy: 1.2 + Math.random(), vz: Math.sin(a) * 1.4, grav: 3, drag: 1.5, life: 0.9, size: 0.18, spin: 6, flags: FX.POP | FX.FADE, bright: true, emissive: 0.3 });
+    }
+  }
+
+  // ---- gore (cartoony!)
+  blood(x, y, z, n = 10, dir = null, power = 1) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = (0.6 + Math.random() * 1.6) * power;
+      let vx = Math.cos(a) * sp, vz = Math.sin(a) * sp;
+      if (dir) { vx = vx * 0.5 + dir.x * sp * 1.2; vz = vz * 0.5 + dir.z * sp * 1.2; }
+      this.fx.spawn(Math.random() < 0.55 ? 'blood' : 'blood_s', x, y, z, {
+        vx, vy: 1.5 + Math.random() * 2.5 * power, vz, grav: 10, drag: 0.4, life: 2, size: 0.07 + Math.random() * 0.07, flags: FX.STICK | FX.WATERSPLAT,
+        onStick: (px, gy, pz) => { if (Math.random() < 0.6) this.decal(Math.random() < 0.7 ? 'splat_s' : 'splat', px, gy, pz, 0.14 + Math.random() * 0.2, 16 + Math.random() * 8); },
+      });
+    }
+    // chunks of fish
+    for (let i = 0; i < Math.ceil(n / 4); i++) {
+      const a = Math.random() * Math.PI * 2;
+      this.fx.spawn('chunk', x, y, z, { vx: Math.cos(a) * 1.2, vy: 2 + Math.random() * 2, vz: Math.sin(a) * 1.2, grav: 10, life: 2, size: 0.1, spin: 8, flags: FX.BOUNCE | FX.FADE | FX.WATER });
+    }
+  }
+
+  // ---- building / ground
   debris(x, y, z, n = 14, colors = [0x8f5b2e, 0x6b4a2f, 0xc49060]) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.5;
@@ -337,37 +345,66 @@ export class Particles {
     }
   }
 
-  dust(x, y, z, n = 3, color = 0xcdbf9a) {
+  dust(x, y, z, n = 3) {
     for (let i = 0; i < n; i++)
-      this.lit.spawn(x + (Math.random() - 0.5) * 0.3, y + 0.05, z + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.4, (Math.random() - 0.5) * 0.6,
-        0.5 + Math.random() * 0.3, 0.08 + Math.random() * 0.06, color, 0, 2, 16);
+      this.fx.spawn('dust', x + (Math.random() - 0.5) * 0.3, y + 0.08, z + (Math.random() - 0.5) * 0.3, {
+        vx: (Math.random() - 0.5) * 0.6, vy: 0.35 + Math.random() * 0.35, vz: (Math.random() - 0.5) * 0.6, drag: 2, life: 0.55 + Math.random() * 0.25, size: 0.16 + Math.random() * 0.1, fps: 5, flags: FX.FADE | FX.ONCE,
+      });
   }
 
-  smoke(x, y, z, color = 0xb8b4b0) {
-    this.lit.spawn(x + (Math.random() - 0.5) * 0.1, y, z + (Math.random() - 0.5) * 0.1, 0.15 + Math.random() * 0.1, 0.6 + Math.random() * 0.3, (Math.random() - 0.5) * 0.1,
-      2.2 + Math.random(), 0.1 + Math.random() * 0.05, color, 0, 0.3, 16);
+  puff(x, y, z, n = 8, size = 0.35) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      this.fx.spawn('dust', x, y, z, { vx: Math.cos(a) * 1.6, vy: 0.4 + Math.random() * 0.5, vz: Math.sin(a) * 1.6, drag: 3, life: 0.6, size: size * (0.7 + Math.random() * 0.5), fps: 5, flags: FX.FADE | FX.ONCE });
+    }
+  }
+
+  smoke(x, y, z) {
+    this.fx.spawn('smoke', x + (Math.random() - 0.5) * 0.1, y, z + (Math.random() - 0.5) * 0.1, { vx: 0.15 + Math.random() * 0.1, vy: 0.55 + Math.random() * 0.3, vz: (Math.random() - 0.5) * 0.1, drag: 0.3, life: 2.4 + Math.random(), size: 0.18 + Math.random() * 0.08, flags: FX.FADE | FX.GROW | FX.WOBBLE });
+  }
+
+  // cartoon fight cloud while beavers build: returns nothing, spawn repeatedly
+  buildCloud(x, y, z, scale = 1) {
+    this.fx.spawn('cloud', x + (Math.random() - 0.5) * 0.15, y + 0.45 * scale, z + (Math.random() - 0.5) * 0.15, { life: 0.3, size: 0.8 * scale * (0.9 + Math.random() * 0.25), fps: 12, rot: (Math.random() - 0.5) * 0.3, flags: FX.POP, flip: Math.random() < 0.5 });
+    if (Math.random() < 0.5) {
+      const a = Math.random() * Math.PI * 2;
+      this.fx.spawn(Math.random() < 0.7 ? 'plank' : 'nail', x, y + 0.5 * scale, z, { vx: Math.cos(a) * 2, vy: 2.5 + Math.random() * 2, vz: Math.sin(a) * 2, grav: 10, life: 1, size: 0.1, spin: 14, flags: FX.BOUNCE | FX.FADE });
+    }
+    if (Math.random() < 0.18) this.fx.spawn('star', x + (Math.random() - 0.5) * 0.6, y + 0.9 * scale, z, { vy: 1, life: 0.5, size: 0.14, spin: 8, flags: FX.POP | FX.FADE, bright: true });
+  }
+
+  popIn(x, y, z, scale = 1) {
+    this.puff(x, y + 0.1, z, 10, 0.3 * scale);
+    this.stars(x, y + 0.6 * scale, z, 7);
+    this.sparkle(x, y + 0.5 * scale, z, 8, 0xfff6c0);
   }
 
   leaf(x, y, z, color) {
-    this.lit.spawn(x, y, z, (Math.random() - 0.5) * 0.4, -0.35 - Math.random() * 0.2, (Math.random() - 0.5) * 0.4, 14 + Math.random() * 8, 0.11, color, 0, 0.1, 2 | 4 | 32, 1.2);
+    _c.set(color);
+    this.fx.spawn('leaf', x, y, z, { vx: (Math.random() - 0.5) * 0.4, vy: -0.35 - Math.random() * 0.2, vz: (Math.random() - 0.5) * 0.4, life: 14 + Math.random() * 8, size: 0.09, fps: 3, spin: 1.5, flags: FX.FLOAT | FX.WOBBLE | FX.FADE, tint: [_c.r * 1.6, _c.g * 1.6, _c.b * 1.6] });
   }
 
-  sparkle(x, y, z, n = 6, color = 0xfff2a0) {
+  feathers(x, y, z, n = 4) {
+    for (let i = 0; i < n; i++)
+      this.fx.spawn('feather', x, y, z, { vx: (Math.random() - 0.5) * 1.5, vy: 0.5 + Math.random(), vz: (Math.random() - 0.5) * 1.5, grav: 0.8, drag: 2, life: 2.5, size: 0.1, spin: 3, flags: FX.WOBBLE | FX.FADE | FX.FLOAT });
+  }
+
+  shells(x, y, z, n = 8) {
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 0.4 + Math.random() * 0.9;
-      this.glow.spawn(x, y, z, Math.cos(a) * sp, 0.8 + Math.random() * 1.2, Math.sin(a) * sp, 0.6 + Math.random() * 0.5, 0.06, color, 1.5, 1.5, 0);
+      const a = Math.random() * Math.PI * 2;
+      this.fx.spawn('shell', x, y, z, { vx: Math.cos(a) * 1.2, vy: 1.5 + Math.random() * 1.5, vz: Math.sin(a) * 1.2, grav: 8, life: 1.2, size: 0.07, spin: 10, flags: FX.BOUNCE | FX.FADE | FX.WATER });
     }
   }
 
   firefly(x, y, z) {
-    this.glow.spawn(x, y, z, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.3, 6 + Math.random() * 5, 0.06, 0xd8ff6a, 0, 0.2, 8 | 32);
+    this.fx.spawn('firefly', x, y, z, { vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.1, vz: (Math.random() - 0.5) * 0.3, life: 6 + Math.random() * 5, size: 0.07, flags: FX.WOBBLE | FX.FADE, emissive: 1.4, tint: [1, 1, 0.8] });
   }
 
-  confetti(x, y, z, n = 40) {
-    const cols = [0xff5a5a, 0xffd23a, 0x5ad0ff, 0x7aff8a, 0xff8ae0, 0xffffff];
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 3;
-      this.glow.spawn(x, y, z, Math.cos(a) * sp, 3 + Math.random() * 4, Math.sin(a) * sp, 1.6 + Math.random(), 0.08, cols[i % cols.length], 5, 1.2, 4 | 32, 5);
-    }
+  zzz(x, y, z) {
+    this.fx.spawn('zzz', x, y, z, { vx: 0.2, vy: 0.4, life: 1.8, size: 0.16, flags: FX.POP | FX.FADE | FX.WOBBLE, bright: true });
+  }
+
+  notes(x, y, z, n = 2) {
+    for (let i = 0; i < n; i++) this.fx.spawn('music', x + (Math.random() - 0.5) * 0.3, y, z, { vx: (Math.random() - 0.5) * 0.4, vy: 0.6, life: 1.4, size: 0.2, flags: FX.POP | FX.FADE | FX.WOBBLE, bright: true });
   }
 }

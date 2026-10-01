@@ -6,6 +6,8 @@ import { Game } from './game/Game.js';
 import { UI } from './ui/UI.js';
 import { Input } from './game/Input.js';
 import { Ghost } from './game/Ghost.js';
+import { Cinematic } from './game/Cinematic.js';
+import { LabMode } from './game/LabMode.js';
 
 const canvas = document.getElementById('game');
 const game = new Game(canvas);
@@ -17,6 +19,8 @@ const ui = new UI(game);
 game.ui = ui;
 game.input = new Input(game, canvas);
 game.ghost = new Ghost(game);
+game.cine = new Cinematic(game);
+game.lab = new LabMode(game);
 
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -36,7 +40,7 @@ for (let i = 0; i < 10; i++) {
   const p = game.fish.randomWaterPoint();
   if (p) game.fish.spawn(['bluegill', 'perch', 'brook', 'sockeye', 'aurora'][i % 5], p.x, p.z, { adult: true });
 }
-game.rig.wupp = game.rig.wuppGoal = 0.05;
+game.rig.wupp = game.rig.wuppGoal = 0.042;
 game.rig.lookAt(28, 34, true);
 let titleT = 0;
 window.addEventListener('pointerdown', () => { if (mode === 'title') { game.audio.unlock(); game.audio.setMusic('title'); } }, { once: true });
@@ -50,7 +54,7 @@ const startGame = (choice) => {
   if (choice === 'continue') loaded = game.load();
   if (!loaded) {
     game.newGame();
-    game.rig.wuppGoal = 0.055;
+    game.rig.wuppGoal = 0.04;
     game.rig.lookAt(28.5, 36);
     if (!params.has('notut')) setTimeout(() => ui.startTutorialIfNew(), 600);
   } else {

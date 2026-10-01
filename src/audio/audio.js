@@ -514,6 +514,34 @@ class Voice {
     return g;
   }
 
+  /**
+   * rustling noise: a randomly flickering envelope with a swell shape (paper, pen strokes, saw, flopping fish...).
+   * peakAt = where the swell peaks (0..1 of dur), rise/fall = curve exponents, flicker = random dips (0..1)
+   */
+  rustle(p) {
+    const ctx = this.ctx, k = this.k;
+    const t = this.t0 + (p.t || 0), dur = p.dur, n = p.n || 24;
+    const s = this.nsrc(p.buf || 'white', t, dur + 0.05);
+    const f0 = clamp(p.f * k, 10, ctx.sampleRate * 0.45);
+    const f = this.flt(p.ft || 'bandpass', f0, p.q != null ? p.q : 1);
+    if (p.f2) {
+      f.frequency.setValueAtTime(f0, t);
+      f.frequency.exponentialRampToValueAtTime(clamp(p.f2 * k, 10, ctx.sampleRate * 0.45), t + dur);
+    }
+    const g = this.gn(0);
+    const at = p.peakAt != null ? p.peakAt : 0.35, fl = p.flicker != null ? p.flicker : 0.6;
+    g.gain.setValueAtTime(0.0001, t);
+    for (let i = 1; i <= n; i++) {
+      const x = i / n;
+      const shape = x < at ? Math.pow(x / at, p.rise || 1) : Math.pow(Math.max(0, 1 - (x - at) / (1 - at)), p.fall || 1.5);
+      g.gain.linearRampToValueAtTime(Math.max(0.0001, p.peak * shape * (1 - fl * Math.random())), t + x * dur);
+    }
+    s.connect(f);
+    f.connect(g);
+    g.connect(this.out);
+    return g;
+  }
+
   /** additive inharmonic bell / glockenspiel hit */
   bell(p) {
     const parts = p.parts || BELL;
@@ -844,15 +872,18 @@ function sfxGate(ctx, dest, o) {
 
 /* ---- factory whistle & bell -------------------------------------------- */
 
-function sfxWhistle(ctx, dest, o) {
-  const v = new Voice(ctx, dest, o, 0.5, 0.008);
-  const t = v.t0, k = v.k, L = 1.35, T = L + 0.55;
-  const lp = v.flt('lowpass', 2300, 0.4); // a little distant
+/**
+ * Steam whistle pipes: sine + saw + a little air per pipe, through a soft low-pass ("a little distant"), with the
+ * steam "pfff" at the start. o = { L (blow length s), tail (s), notes [[Hz, level]], lpf (Hz), level }
+ */
+function steamWhistle(v, o) {
+  const t = v.t0, k = v.k, L = o.L, T = L + o.tail, lv = o.level;
+  const lp = v.flt('lowpass', o.lpf, 0.4);
   const eg = v.gn(0);
   eg.gain.setValueAtTime(0.0001, t);
-  eg.gain.linearRampToValueAtTime(0.28, t + 0.07);
-  eg.gain.linearRampToValueAtTime(0.4, t + 0.4);
-  eg.gain.setValueAtTime(0.4, t + L);
+  eg.gain.linearRampToValueAtTime(0.28 * lv, t + 0.07);
+  eg.gain.linearRampToValueAtTime(0.4 * lv, t + 0.4);
+  eg.gain.setValueAtTime(0.4 * lv, t + L);
   eg.gain.exponentialRampToValueAtTime(0.0003, t + T);
   lp.connect(eg);
   eg.connect(v.out);
@@ -861,8 +892,7 @@ function sfxWhistle(ctx, dest, o) {
   vib.frequency.value = 5.3;
   const vibG = v.gn(7);
   vib.connect(vibG);
-  // two-tone: a perfect fourth (D4 + G4) with a faint octave on top
-  [[293.66, 1], [392, 0.9], [587.33, 0.3]].forEach(([f0, amp]) => {
+  o.notes.forEach(([f0, amp]) => {
     const f = f0 * k;
     const os = v.osc('sine', t, T + 0.05);
     const sw = v.osc('sawtooth', t, T + 0.05);
@@ -889,13 +919,19 @@ function sfxWhistle(ctx, dest, o) {
   // steam "pfff" at the start + constant hiss
   const s = v.nsrc('white', t, T + 0.05), sb = v.flt('bandpass', 3400, 1.4), sg = v.gn(0);
   sg.gain.setValueAtTime(0.0001, t);
-  sg.gain.linearRampToValueAtTime(0.6, t + 0.03);
-  sg.gain.exponentialRampToValueAtTime(0.13, t + 0.5);
-  sg.gain.setValueAtTime(0.13, t + L);
+  sg.gain.linearRampToValueAtTime(0.6 * lv, t + 0.03);
+  sg.gain.exponentialRampToValueAtTime(0.13 * lv, t + 0.5);
+  sg.gain.setValueAtTime(0.13 * lv, t + L);
   sg.gain.exponentialRampToValueAtTime(0.0003, t + T);
   s.connect(sb);
   sb.connect(sg);
   sg.connect(lp);
+}
+
+function sfxWhistle(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.5, 0.008);
+  // two-tone: a perfect fourth (D4 + G4) with a faint octave on top
+  steamWhistle(v, { L: 1.35, tail: 0.55, notes: [[293.66, 1], [392, 0.9], [587.33, 0.3]], lpf: 2300, level: 1 });
   return v.end;
 }
 
@@ -1086,42 +1122,10 @@ function sfxReviewGood(ctx, dest, o) {
 
 function sfxReviewBad(ctx, dest, o) {
   const v = new Voice(ctx, dest, o, 0.1, 0.02);
-  const k = v.k;
   // sad trombone: falling semitones, "wah" filter on each note
-  const wah = (t, f, d, f2, vib) => {
-    const tt = v.t0 + t;
-    const os = v.osc('sawtooth', tt, d + 0.1), sq = v.osc('square', tt, d + 0.1);
-    for (const s of [os, sq]) {
-      s.frequency.setValueAtTime(f * k, tt);
-      if (f2) s.frequency.exponentialRampToValueAtTime(f2 * k, tt + d);
-    }
-    sq.detune.value = 4;
-    if (vib) {
-      const l = v.osc('sine', tt, d + 0.1);
-      l.frequency.value = 5.2;
-      const lg = v.gn(0);
-      lg.gain.setValueAtTime(0, tt);
-      lg.gain.linearRampToValueAtTime(28, tt + d * 0.7);
-      l.connect(lg);
-      lg.connect(os.detune);
-      lg.connect(sq.detune);
-    }
-    const lp = v.flt('lowpass', 300, 3);
-    lp.frequency.setValueAtTime(300, tt);
-    lp.frequency.exponentialRampToValueAtTime(1500, tt + d * 0.35);
-    lp.frequency.exponentialRampToValueAtTime(420, tt + d);
-    const g = v.gn(0);
-    env(g.gain, tt, 0.035, 0.32, d * 0.55, d * 0.45);
-    const gs = v.gn(0.5);
-    os.connect(lp);
-    sq.connect(gs);
-    gs.connect(lp);
-    lp.connect(g);
-    g.connect(v.out);
-  };
-  wah(0, 233.08, 0.22);
-  wah(0.25, 220, 0.22);
-  wah(0.5, 207.65, 0.55, 196, true);
+  wahNote(v, 0, 233.08, 0.22);
+  wahNote(v, 0.25, 220, 0.22);
+  wahNote(v, 0.5, 207.65, 0.55, 196, true);
   return v.end;
 }
 
@@ -1284,6 +1288,1302 @@ function sfxFanfare(ctx, dest, o) {
   return v.end;
 }
 
+/* ---- voices: formant "babble" synthesis ----------------------------------------------------------------
+ * A band-limited sawtooth (the glottal buzz) feeds three parallel band-pass resonators (the formants). Vowel
+ * quality = formant frequencies, consonants = a burst / hiss in front or a formant glide out of a closed mouth.
+ * Everything talking in the game (single syllables, laughs, yawns and the babble API) is built from this. */
+
+/** vowel formants F1..F3 (Hz) of an adult-sized mouth */
+const VOWELS = {
+  a: [800, 1250, 2600], // "ah"
+  e: [560, 1900, 2650], // "eh"
+  i: [320, 2250, 3050], // "ee"
+  o: [520, 930, 2600], // "oh"
+  u: [350, 830, 2450], // "oo"
+  x: [700, 1720, 2550], // "a" as in "cat"
+  n: [610, 1200, 2500], // neutral "uh"
+};
+const VOWEL_KEYS = Object.keys(VOWELS);
+const NASAL_M = [270, 1000, 2300];
+
+/**
+ * What a consonant letter does in front of its vowel.
+ *   burst / hiss / breath: [kind, centre Hz, Q, length s, level]      glide / nasal: [kind, starting formants]
+ */
+const CONS = {
+  p: ['burst', 900, 0.9, 0.016, 0.5],
+  b: ['burst', 620, 0.9, 0.014, 0.36],
+  t: ['burst', 4300, 1.6, 0.014, 0.5],
+  d: ['burst', 3200, 1.2, 0.012, 0.36],
+  k: ['burst', 1900, 1.3, 0.02, 0.55],
+  g: ['burst', 1300, 1.2, 0.016, 0.4],
+  s: ['hiss', 6300, 1.8, 0.05, 0.4],
+  z: ['hiss', 5700, 1.6, 0.042, 0.34],
+  f: ['hiss', 4800, 0.6, 0.042, 0.28],
+  v: ['hiss', 4200, 0.6, 0.034, 0.24],
+  j: ['hiss', 3300, 1.2, 0.038, 0.32],
+  h: ['breath', 1800, 0.8, 0.032, 0.42],
+  m: ['nasal', NASAL_M],
+  n: ['nasal', [270, 1400, 2450]],
+  l: ['glide', [400, 1050, 2650]],
+  r: ['glide', [430, 1250, 1650]],
+  w: ['glide', VOWELS.u],
+  y: ['glide', VOWELS.i],
+};
+const CONS_LIKE = { c: 'k', q: 'k', x: 's' };
+const TALK_CONS = ['m', 'n', 'b', 'p', 'd', 't', 'k', 'g', 'w', 'y', 'l', 'h', 's', 'z', 'f', 'j'];
+
+/**
+ * Character voices. f0 = base pitch (Hz), size = mouth/formant scale, rate = relative syllable speed,
+ * lp = roundness (low-pass Hz, 0 = open), rough = growl depth, att = attack, breath = airiness, trim = loudness.
+ */
+const VOICES = {
+  fox: { f0: 330, size: 1.1, rate: 1, lp: 0, rough: 0, att: 0.008, breath: 0.02, trim: 1, vow: 'eiaxeoa' },
+  bear: { f0: 126, size: 0.86, rate: 0.94, lp: 2500, rough: 0, att: 0.013, breath: 0.03, trim: 1, vow: 'ouanoau' },
+  cub: { f0: 540, size: 1.26, rate: 1.12, lp: 0, rough: 0, att: 0.006, breath: 0.015, trim: 1, vow: 'iexaie' },
+  ceo: { f0: 84, size: 0.74, rate: 0.7, lp: 2100, rough: 0.55, att: 0.02, breath: 0.05, trim: 1, vow: 'ouanou' },
+};
+const BABBLE_VOICES = Object.freeze(Object.keys(VOICES));
+
+/**
+ * One voiced sound.  p = {
+ *   t, dur           start offset and voiced length (s); the release follows
+ *   f0               Hz, or a contour [[t, Hz], ...] (exponential glides between points)
+ *   form             [[t, [F1, F2, F3]], ...] formant keyframes         size  formant scale (mouth size)
+ *   peak, att, rel   envelope                                            vr / vc / vd  vibrato Hz / cents / delay s
+ *   breath           noise mixed in     rough  growl depth 0..1 (rr = growl Hz)    lp  low-pass Hz    bright  F3 level
+ * }
+ */
+function vocal(v, p) {
+  const ctx = v.ctx, k = v.k, sr = ctx.sampleRate;
+  const t = v.t0 + (p.t || 0), dur = p.dur;
+  const att = p.att != null ? p.att : 0.01, rel = p.rel != null ? p.rel : 0.045;
+  const total = dur + rel + 0.03;
+  const pts = Array.isArray(p.f0) ? p.f0 : [[0, p.f0]];
+  const hz = (f) => clamp(f * k, 20, sr * 0.4);
+  const o = v.osc('sawtooth', t, total);
+  o.frequency.setValueAtTime(hz(pts[0][1]), t);
+  for (let i = 1; i < pts.length; i++) o.frequency.exponentialRampToValueAtTime(hz(pts[i][1]), t + pts[i][0]);
+  if (p.vr) {
+    const l = v.osc('sine', t, total);
+    l.frequency.value = p.vr;
+    const lg = v.gn(0);
+    lg.gain.setValueAtTime(0, t);
+    lg.gain.linearRampToValueAtTime(p.vc || 20, t + (p.vd != null ? p.vd : 0.12));
+    l.connect(lg);
+    lg.connect(o.detune);
+  }
+  let src = o;
+  if (p.rough) {
+    // gravel: amplitude flutter of the buzz
+    const am = v.gn(1 - p.rough * 0.5);
+    const l = v.osc('sine', t, total);
+    l.frequency.value = p.rr || 34;
+    const lg = v.gn(p.rough * 0.5);
+    l.connect(lg);
+    lg.connect(am.gain);
+    o.connect(am);
+    src = am;
+  }
+  // a sawtooth excites a formant more the higher its pitch: compensate so loudness stays even across pitches
+  let fm = 0;
+  for (const q of pts) fm += q[1];
+  fm = Math.max(40, (fm / pts.length) * k);
+  const sum = v.gn(0);
+  env(sum.gain, t, att, p.peak * Math.sqrt(140 / fm), Math.max(0, dur - att), rel);
+  let head = sum;
+  if (p.lp) {
+    const lp = v.flt('lowpass', p.lp, 0.5);
+    sum.connect(lp);
+    head = lp;
+  }
+  head.connect(p.dest || v.out);
+  const sc = (p.size || 1) * Math.pow(k, 0.3);
+  const gains = [1, 0.62, 0.38 * (p.bright != null ? p.bright : 1)], qs = p.q || [5, 7, 9];
+  const fmt = (f) => clamp(f * sc, 10, sr * 0.45);
+  for (let j = 0; j < 3; j++) {
+    const b = v.flt('bandpass', fmt(p.form[0][1][j]), qs[j]);
+    for (let i = 1; i < p.form.length; i++) b.frequency.exponentialRampToValueAtTime(fmt(p.form[i][1][j]), t + p.form[i][0]);
+    const g = v.gn(gains[j]);
+    src.connect(b);
+    b.connect(g);
+    g.connect(sum);
+  }
+  if (p.breath) {
+    const n = v.nsrc('white', t, total), nb = v.flt('bandpass', fmt(p.form[0][1][1]), 1.2), ng = v.gn(p.breath);
+    n.connect(nb);
+    nb.connect(ng);
+    ng.connect(sum);
+  }
+}
+
+const NOISE_K = 2.6; // consonant noise level relative to the voiced peak
+
+/**
+ * A syllable: optional consonant + vowel, in the character voice s.P.
+ *   s = { P, c (consonant letter), vw (vowel key), f0 (Hz | contour), dur, peak, rel, size, breath, vr, vc, vd, bright, form }
+ * `form` (keyframes) replaces the vowel lookup for glides that need custom shapes.
+ */
+function speak(v, t, s) {
+  const P = s.P, size = P.size * (s.size || 1), nsize = Math.sqrt(size);
+  const cons = s.c ? CONS[CONS_LIKE[s.c] || s.c] : null;
+  const target = s.vf || VOWELS[s.vw] || VOWELS.a;
+  let lead = 0, form = [[0, target]];
+  if (cons) {
+    if (cons[0] === 'glide' || cons[0] === 'nasal') {
+      form = [[0, cons[1]], [Math.min(0.05, s.dur * 0.5), target]];
+    } else {
+      const kind = cons[0], f = cons[1], q = cons[2], len = cons[3], lv = cons[4];
+      if (kind === 'burst') v.noise({ t, buf: 'white', f: f * nsize, q, bursts: [[0, lv * s.peak * NOISE_K, len]] });
+      else v.noise({ t, buf: kind === 'breath' ? 'pink' : 'white', f: f * nsize, q, a: 0.006, hold: len * 0.3, rel: len * 0.7, peak: lv * s.peak * NOISE_K });
+      lead = len * (kind === 'burst' ? 0.45 : 0.6);
+    }
+  }
+  vocal(v, {
+    t: t + lead, dur: s.dur, f0: s.f0, form: s.form || form, size, peak: s.peak, att: s.att != null ? s.att : P.att, rel: s.rel,
+    lp: P.lp, rough: P.rough, breath: s.breath != null ? s.breath : P.breath, vr: s.vr, vc: s.vc, vd: s.vd, bright: s.bright,
+  });
+}
+
+/** a random vowel of the voice's favourite set, blended with a second one so repeated calls never repeat exactly */
+function randVowel(P) {
+  const a = VOWELS[P.vow[(Math.random() * P.vow.length) | 0]], b = VOWELS[pick(VOWEL_KEYS)], m = rr(0, 0.4);
+  return a.map((f, i) => (f + (b[i] - f) * m) * rr(0.95, 1.05));
+}
+
+/** one random "word-ish" syllable of a character (fox_talk / bear_talk) */
+function talkSyllable(v, name) {
+  const P = VOICES[name];
+  const f = P.f0 * rr(0.84, 1.22), dur = rr(0.075, 0.135);
+  const arc = pick([[1, 1.03, 0.97], [0.96, 1.05, 1.1], [1.06, 1.04, 0.9], [1, 1.09, 1.0]]);
+  speak(v, 0, {
+    P, c: chance(0.7) ? pick(TALK_CONS) : null, vf: randVowel(P), dur, peak: 0.5, rel: 0.05,
+    f0: [[0, f * arc[0]], [dur * 0.35, f * arc[1]], [dur, f * arc[2]]],
+  });
+}
+
+/* ---- the babble planner: text -> timeline of syllables ------------------------------------------ */
+
+const BABBLE_MAX = 1500; // characters considered per call
+const LETTER_RE = /[\p{L}\p{N}]/u;
+
+/**
+ * Turns a text into a list of syllable events (one per letter/digit; spaces and punctuation only make gaps).
+ * Deterministic in timing so `total` is exactly what the caller is told; pitch/loudness get an intonation:
+ * a question rises at the end, an exclamation is louder and higher, a statement falls, commas lift slightly.
+ * -> { evs: [{ t, dur, rel, c, vw, pm, g, arc }], total }
+ */
+function planBabble(voice, text, cps) {
+  const P = VOICES[voice];
+  if (!P) return null;
+  const chars = Array.from(String(text == null ? '' : text).slice(0, BABBLE_MAX));
+  const period = 1 / (clamp(cps, 2, 40) * P.rate);
+  const sents = [], evs = [];
+  let cur = null, word = null, shift = 0, pause = 0, t = 0;
+  for (let ci = 0; ci < chars.length; ci++) {
+    const ch = chars[ci];
+    if (LETTER_RE.test(ch)) {
+      if (!cur || cur.closed) {
+        cur = { evs: [], kind: '', closed: false };
+        sents.push(cur);
+      }
+      if (!word) {
+        word = [];
+        shift = clamp(shift * 0.6 + rr(-1.6, 1.6), -3, 3);
+      }
+      t += pause * period;
+      pause = 0;
+      const ev = { t, ch: ch.toLowerCase(), upper: ch !== ch.toLowerCase(), word, wi: word.length, shift, sent: cur, si: cur.evs.length, phraseEnd: false };
+      word.push(ev);
+      cur.evs.push(ev);
+      evs.push(ev);
+      t += period;
+    } else if ((ch === "'" || ch === '’') && word && ci + 1 < chars.length && LETTER_RE.test(chars[ci + 1])) {
+      continue; // don't => one word
+    } else {
+      word = null;
+      if (ch === ',' || ch === ';' || ch === ':' || ch === '—' || ch === '–') {
+        pause = Math.max(pause, 2.2);
+        if (evs.length) evs[evs.length - 1].phraseEnd = true;
+      } else if (ch === '.' || ch === '!' || ch === '?' || ch === '…' || ch === '\n') {
+        pause = Math.max(pause, ch === '\n' ? 4 : 4.5);
+        if (cur) {
+          cur.closed = true;
+          if (ch === '!') cur.kind = '!';
+          else if (ch === '?') cur.kind = cur.kind === '!' ? '!' : '?';
+          else if (!cur.kind) cur.kind = '.';
+        }
+      } else if (/\s/.test(ch)) pause = Math.max(pause, 0.45);
+      else pause = Math.max(pause, 0.3);
+    }
+  }
+  const rel = clamp(period * 0.5, 0.02, 0.06);
+  for (const ev of evs) {
+    const c0 = ev.ch, isV = 'aeiou'.includes(c0);
+    // vowel quality from the letter; consonants borrow the vowel that follows (or precedes) them in the word
+    let vw = null, c = null;
+    if (isV) vw = c0 === 'a' && chance(0.3) ? 'x' : c0;
+    else if (c0 === 'y' && ev.wi > 0) vw = 'i';
+    else {
+      c = /[a-z]/.test(c0) ? c0 : null;
+      const w = ev.word;
+      for (let d = 1; d <= 3 && !vw; d++) {
+        const nx = w[ev.wi + d];
+        if (nx && 'aeiou'.includes(nx.ch)) vw = nx.ch;
+      }
+      for (let d = 1; d <= 2 && !vw; d++) {
+        const pv = w[ev.wi - d];
+        if (pv && 'aeiou'.includes(pv.ch)) vw = pv.ch;
+      }
+      if (!vw) vw = c ? 'n' : VOWEL_KEYS[c0.charCodeAt(0) % VOWEL_KEYS.length];
+    }
+    // intonation
+    const s = ev.sent, L = s.evs.length, x = L > 1 ? ev.si / (L - 1) : 1;
+    let semi = ev.shift + (((c0.charCodeAt(0) * 7) % 5) - 2) * 0.45 + rr(-0.35, 0.35), g = 1, arc = 0;
+    if (ev.wi === 0) {
+      semi += 1.5;
+      g *= 1.15;
+    } else if (ev.wi === 1) semi += 0.5;
+    if (s.kind === '?') {
+      semi += 5.5 * smooth(0.5, 1, x);
+      if (x > 0.8) arc = 1;
+    } else if (s.kind === '!') {
+      semi += 1 + 2.5 * smooth(0.55, 1, x);
+      g *= 1.18 + 0.3 * smooth(0.5, 1, x);
+      arc = x > 0.85 ? -1 : 0;
+    } else if (s.kind === '.') semi -= 0.8 * x + 2.6 * smooth(0.75, 1, x);
+    else semi -= 0.5 * x;
+    if (ev.phraseEnd) {
+      semi += 1.2;
+      arc = 1;
+    }
+    if (ev.upper && ev.word.length > 1 && ev.word.every((e) => e.upper)) g *= 1.3;
+    if (!isV) g *= 0.88;
+    ev.pm = Math.pow(2, semi / 12);
+    ev.g = g;
+    ev.arc = arc;
+    ev.vw = vw;
+    ev.c = c;
+    ev.dur = clamp(period * (isV ? 0.78 : 0.62), 0.03, 0.17);
+    ev.rel = rel;
+    if (ev.t > 0) ev.t = Math.max(0, ev.t + rr(-0.04, 0.04) * period);
+  }
+  const last = evs[evs.length - 1];
+  return { evs, total: last ? last.t + last.dur + rel : 0, rel };
+}
+
+/** builds one planned syllable at absolute time `when` (shared by the live scheduler and the offline renderer) */
+function babbleSyllable(ctx, dest, when, ev, name, pitch, volume, rev) {
+  const P = VOICES[name];
+  const v = new Voice(ctx, dest, { when, volume: volume * ev.g * P.trim, pitch: pitch * ev.pm, rev }, 0.05, 0);
+  const f = P.f0, d = ev.dur;
+  const c = ev.arc > 0 ? [0.97, 1.1] : ev.arc < 0 ? [1.05, 0.9] : [1.02, 0.97];
+  speak(v, 0, { P, c: ev.c, vw: ev.vw, dur: d, peak: 0.5, rel: ev.rel, f0: [[0, f * c[0]], [d, f * c[1]]] });
+  return v;
+}
+
+/* ---- voice SFX ------------------------------------------------------------------------------- */
+
+function sfxFoxTalk(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.06);
+  talkSyllable(v, 'fox');
+  return v.end;
+}
+
+function sfxBearTalk(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.06);
+  talkSyllable(v, 'bear');
+  return v.end;
+}
+
+/** Reynard's evil "mwa-ha-ha-haaa": a long wind-up, three barks stepping down, one drawn-out wobbly finish */
+function sfxFoxLaugh(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.2, 0.03);
+  const P = VOICES.fox;
+  const pk = 0.5;
+  speak(v, 0, { P, c: 'm', vw: 'a', dur: 0.27, peak: pk, rel: 0.07, f0: [[0, 240], [0.08, 335], [0.27, 285]], vr: 6, vc: 25, vd: 0.12 });
+  [[0.34, 335], [0.5, 295], [0.66, 260]].forEach(([tt, f]) => {
+    speak(v, tt, { P, c: 'h', vw: 'a', dur: 0.09, peak: pk, rel: 0.05, f0: [[0, f * 1.06], [0.09, f * 0.92]] });
+  });
+  speak(v, 0.82, { P, c: 'h', vw: 'a', dur: 0.34, peak: pk, rel: 0.16, f0: [[0, 235], [0.12, 250], [0.34, 190]], vr: 6.4, vc: 45, vd: 0.12 });
+  return v.end;
+}
+
+/** cartoon snore: a rattly breath in that swells and climbs, then a thin nasal whistle out */
+function sfxFoxSnore(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.12, 0.04);
+  const t = v.t0, k = v.k, T1 = 0.6;
+  const rat = v.osc('sawtooth', t, T1 + 0.15);
+  rat.frequency.setValueAtTime(36 * k, t);
+  rat.frequency.linearRampToValueAtTime(62 * k, t + T1);
+  const rf = v.flt('bandpass', 300 * k, 1.5);
+  rf.frequency.setValueAtTime(300 * k, t);
+  rf.frequency.exponentialRampToValueAtTime(700 * k, t + T1);
+  const rg = v.gn(0);
+  env(rg.gain, t, 0.32, 0.9, 0.12, 0.16);
+  rat.connect(rf);
+  rf.connect(rg);
+  rg.connect(v.out);
+  v.noise({ buf: 'pink', f: 500, f2: 1100, gl: T1, q: 1, a: 0.34, hold: 0.1, rel: 0.16, peak: 0.7 });
+  // out again: a whistling nostril
+  v.tone({ t: 0.74, f: 900, f2: 760, gl: 0.6, a: 0.14, hold: 0.22, rel: 0.34, peak: 0.3, vr: 5.2, vc: 24, vd: 0.2, lp: 2200 });
+  v.noise({ t: 0.74, buf: 'pink', f: 1500, q: 3.5, a: 0.16, hold: 0.22, rel: 0.34, peak: 0.2 });
+  return v.end;
+}
+
+/** "haaaAAAaah": mouth opens wide, pitch climbs and sags, breath all over it */
+function sfxFoxYawn(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.16, 0.04);
+  const P = VOICES.fox;
+  vocal(v, {
+    dur: 0.72, f0: [[0, 250], [0.3, 380], [0.55, 340], [1.0, 185]], size: P.size * 0.95, peak: 0.5, att: 0.3, rel: 0.5, breath: 0.4,
+    form: [[0, VOWELS.n], [0.36, VOWELS.a], [0.7, VOWELS.a], [1.1, VOWELS.o]], vr: 5.4, vc: 32, vd: 0.35,
+  });
+  v.noise({ buf: 'pink', f: 1400, q: 0.7, a: 0.16, hold: 0.06, rel: 0.4, peak: 0.16 });
+  return v.end;
+}
+
+/** the little springy boing shared by startles, pops and brawls */
+function boing(v, t, f, dur, peak) {
+  const k = v.k, tt = v.t0 + t;
+  const os = v.osc('sine', tt, dur + 0.05), ot = v.osc('triangle', tt, dur + 0.05);
+  const g = v.gn(0);
+  env(g.gain, tt, 0.006, peak, dur * 0.2, dur * 0.8);
+  for (const s of [os, ot]) {
+    s.frequency.setValueAtTime(f * 0.62 * k, tt);
+    s.frequency.exponentialRampToValueAtTime(f * 1.5 * k, tt + dur * 0.28);
+    s.frequency.exponentialRampToValueAtTime(f * k, tt + dur);
+  }
+  const l = v.osc('sine', tt, dur + 0.05);
+  l.frequency.value = 16;
+  const lg = v.gn(0);
+  lg.gain.setValueAtTime(240, tt + 0.01);
+  lg.gain.exponentialRampToValueAtTime(6, tt + dur);
+  l.connect(lg);
+  lg.connect(os.detune);
+  lg.connect(ot.detune);
+  const tg = v.gn(0.3);
+  os.connect(g);
+  ot.connect(tg);
+  tg.connect(g);
+  g.connect(v.out);
+}
+
+/** "hwah!" - sharp gasp, a squeaked-up vowel, then a spring boing */
+function sfxFoxStartle(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.1, 0.05);
+  v.noise({ buf: 'pink', f: 2300, q: 0.8, a: 0.004, hold: 0.02, rel: 0.05, peak: 0.55 });
+  vocal(v, {
+    t: 0.025, dur: 0.17, f0: [[0, 430], [0.05, 760], [0.17, 660]], size: 1.1, peak: 0.55, att: 0.006, rel: 0.07,
+    form: [[0, VOWELS.n], [0.05, VOWELS.a], [0.17, VOWELS.x]], breath: 0.12, vr: 9, vc: 30, vd: 0.05,
+  });
+  boing(v, 0.17, 330, 0.34, 0.11);
+  return v.end;
+}
+
+/** happy low "mmmm-MM!" of a bear with a full belly */
+function sfxBearYum(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.08, 0.04);
+  const P = VOICES.bear;
+  vocal(v, {
+    dur: 0.42, f0: [[0, 112], [0.2, 146], [0.42, 138]], size: P.size, peak: 0.55, att: 0.04, rel: 0.1, lp: 1300,
+    form: [[0, NASAL_M], [0.22, [380, 1050, 2400]], [0.42, [330, 1000, 2350]]], vr: 6, vc: 20, vd: 0.15,
+  });
+  vocal(v, {
+    t: 0.4, dur: 0.2, f0: [[0, 168], [0.06, 178], [0.2, 150]], size: P.size, peak: 0.6, att: 0.012, rel: 0.14, lp: 1900,
+    form: [[0, [340, 1000, 2400]], [0.09, [560, 1000, 2500]], [0.2, [400, 1000, 2400]]],
+  });
+  return v.end;
+}
+
+/** cartoon burp: a very low, falling, rattling "uuuurp" and a wet little pop */
+function sfxBurp(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.06, 0.06);
+  vocal(v, {
+    dur: 0.36, f0: [[0, 74], [0.12, 60], [0.36, 38]], size: 0.9, peak: 0.6, att: 0.02, rel: 0.09, breath: 0.1, rough: 0.6, rr: 47,
+    form: [[0, VOWELS.u], [0.12, [560, 1000, 2400]], [0.36, VOWELS.o]], q: [4, 5, 7],
+  });
+  v.noise({ t: 0.37, buf: 'pink', ft: 'lowpass', f: 900, q: 1, bursts: [[0, 1.3, 0.024]] });
+  v.tone({ t: 0.37, f: 380, f2: 140, gl: 0.03, a: 0.002, rel: 0.06, peak: 0.34 });
+  return v.end;
+}
+
+/** three bears going "yaaaay!" */
+function sfxBearCheer(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.16, 0.03);
+  const P = VOICES.bear;
+  [[0, 1], [0.035, 1.12], [0.07, 0.84]].forEach(([tt, m], i) => {
+    const f = 150 * m;
+    vocal(v, {
+      t: tt, dur: 0.56, f0: [[0, f * 0.9], [0.14, f * 1.3], [0.56, f * 1.18]], size: P.size * (i === 2 ? 0.9 : 1), peak: i === 2 ? 0.34 : 0.4, att: 0.03, rel: 0.2, lp: 2800,
+      form: [[0, VOWELS.i], [0.12, VOWELS.a], [0.42, VOWELS.a], [0.56, VOWELS.e]], vr: 5.8, vc: 26, vd: 0.2, breath: 0.03,
+    });
+  });
+  return v.end;
+}
+
+/* ---- paper & office ------------------------------------------------------------------------------ */
+
+/** the nib touches down and scribbles back and forth; every call scribbles differently */
+function sfxPen(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.03, 0.1);
+  v.noise({ buf: 'pink', f: 1300, q: 1.2, bursts: [[0, 0.22, 0.008]] });
+  const n = ri(3, 6), fc = rr(3000, 4800);
+  let t = 0.012;
+  for (let i = 0; i < n; i++) {
+    const d = rr(0.032, 0.062), up = i % 2 === 0;
+    v.rustle({ t, dur: d, f: fc * (up ? 0.8 : 1.25), f2: fc * (up ? 1.3 : 0.8), q: 1.3, n: 9, peak: rr(0.4, 0.7), peakAt: 0.45, flicker: 0.5 });
+    t += d * rr(0.75, 1);
+  }
+  return v.end;
+}
+
+/** a sheet dragged over the desk: soft "shhh" with a crinkly top and a few creases */
+function sfxPaper(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.04, 0.08);
+  const d = rr(0.3, 0.38);
+  v.rustle({ buf: 'pink', dur: d, f: 900, f2: 2400, q: 0.5, n: 26, peak: 0.55, peakAt: 0.4, flicker: 0.35, rise: 0.8, fall: 1.2 });
+  v.rustle({ dur: d, f: 3200, f2: 5200, q: 0.7, n: 40, peak: 0.6, peakAt: 0.35, flicker: 0.85, rise: 1, fall: 1.4 });
+  for (let i = 0; i < 4; i++) v.noise({ t: rr(0.03, d * 0.9), buf: 'white', ft: 'highpass', f: rr(4500, 7000), q: 0.6, bursts: [[0, rr(0.2, 0.45), 0.008]] });
+  return v.end;
+}
+
+/** rubber stamp: a heavy, soft THUNK, then the desk answers with a low resonance and rattling pens and clips */
+function sfxStamp(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.06, 0.04);
+  v.tone({ f: 150, f2: 66, gl: 0.07, a: 0.001, rel: 0.22, peak: 0.6 });
+  v.tone({ type: 'triangle', f: 330, f2: 160, gl: 0.05, a: 0.001, rel: 0.12, peak: 0.55, lp: 1100 });
+  v.noise({ buf: 'pink', ft: 'lowpass', f: 1100, q: 0.5, a: 0.001, rel: 0.09, peak: 1.2 });
+  v.noise({ buf: 'pink', f: 420, q: 0.8, a: 0.001, rel: 0.07, peak: 0.9 });
+  v.noise({ buf: 'pink', f: 1600, q: 0.9, bursts: [[0, 0.75, 0.02]] }); // wooden handle "tock"
+  v.tone({ t: 0.006, f: 196, a: 0.002, rel: 0.17, peak: 0.2 });
+  let t = 0.04;
+  for (let i = 0; i < 6; i++) {
+    const a = 1 - i / 7, f = rr(1400, 4200);
+    v.tone({ t, f, f2: f * 0.8, gl: 0.02, a: 0.001, rel: 0.03, peak: 0.07 * a });
+    v.noise({ t, buf: 'white', f: f * 1.1, q: 2, bursts: [[0, 0.25 * a, 0.01]] });
+    t += rr(0.022, 0.05);
+  }
+  return v.end;
+}
+
+/** sticker: a fingertip slap, then a tiny stick-slip peel of the backing */
+function sfxSticker(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.03, 0.06);
+  v.noise({ buf: 'white', f: 1900, q: 0.8, bursts: [[0, 0.9, 0.022]] });
+  v.tone({ f: 300, f2: 170, gl: 0.03, a: 0.001, rel: 0.05, peak: 0.34 });
+  v.noise({ buf: 'pink', ft: 'lowpass', f: 600, q: 0.5, a: 0.001, rel: 0.04, peak: 0.5 });
+  const bs = [];
+  for (let i = 0; i < 8; i++) bs.push([i * 0.011, 0.14 + i * 0.03, 0.009]);
+  v.noise({ t: 0.085, buf: 'white', ft: 'highpass', f: 3200, f2: 5200, gl: 0.09, q: 0.6, bursts: bs });
+  v.tone({ t: 0.19, f: 2400, f2: 3000, gl: 0.01, a: 0.001, rel: 0.02, peak: 0.05 });
+  return v.end;
+}
+
+/** page flip: air under the page, a flutter, and it lands with a soft pat */
+function sfxPage(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.04, 0.06);
+  v.noise({ buf: 'pink', f: 600, f2: 3000, gl: 0.17, q: 0.7, a: 0.05, hold: 0.02, rel: 0.12, peak: 0.5 });
+  v.rustle({ t: 0.03, dur: 0.16, f: 2600, f2: 4800, q: 0.6, n: 26, peak: 0.45, peakAt: 0.5, flicker: 0.7 });
+  v.noise({ t: 0.19, buf: 'white', ft: 'highpass', f: 2800, q: 0.6, bursts: [[0, 0.55, 0.02]] });
+  v.tone({ t: 0.192, f: 200, f2: 120, gl: 0.04, a: 0.002, rel: 0.06, peak: 0.16 });
+  return v.end;
+}
+
+/** a burst of keyboard clacks at a human rhythm; sometimes it ends on a heavier space bar */
+function sfxTyping(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.03, 0.05);
+  const n = ri(6, 10);
+  let t = 0;
+  for (let i = 0; i < n; i++) {
+    const heavy = i === n - 1 && chance(0.5);
+    const a = heavy ? 1 : rr(0.6, 1), f = heavy ? rr(0.6, 0.7) : rr(0.85, 1.3);
+    v.noise({ t, buf: 'white', f: 3000 * f, q: 1.1, bursts: [[0, 1.1 * a, 0.012], [0.05, 0.4 * a, 0.01]] }); // key down, key up
+    v.tone({ t, type: 'triangle', f: 1300 * f, f2: 820 * f, gl: 0.02, a: 0.001, rel: 0.03, peak: 0.2 * a });
+    v.tone({ t, f: 210 * f, f2: 140 * f, gl: 0.03, a: 0.001, rel: 0.045, peak: 0.12 * a });
+    t += rr(0.04, 0.11) * (chance(0.18) ? 1.7 : 1);
+  }
+  return v.end;
+}
+
+/** terminal blip */
+function sfxBeep(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.04, 0.02);
+  v.tone({ type: 'square', f: 1180, f2: 1260, gl: 0.01, a: 0.002, hold: 0.045, rel: 0.02, peak: 0.13, lp: 3600 });
+  v.tone({ f: 1180, f2: 1260, gl: 0.01, a: 0.002, hold: 0.045, rel: 0.03, peak: 0.2 });
+  v.noise({ buf: 'white', f: 4000, q: 1, bursts: [[0, 0.05, 0.006]] });
+  return v.end;
+}
+
+/** CRT power-on: relay THUNK, the degauss "bwoOOom" wobbling and settling, a rising flyback whine, phosphor fizz */
+function sfxCrtOn(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.08, 0.02);
+  const t = v.t0, k = v.k;
+  v.tone({ f: 135, f2: 56, gl: 0.06, a: 0.001, rel: 0.2, peak: 0.7 });
+  v.noise({ buf: 'pink', f: 1500, q: 1, bursts: [[0, 0.8, 0.014], [0.035, 0.4, 0.01]] });
+  const hum = v.osc('sine', t + 0.04, 0.8), hum2 = v.osc('triangle', t + 0.04, 0.8);
+  hum.frequency.value = 110 * k;
+  hum2.frequency.value = 220 * k;
+  const am = v.gn(0.5), lfo = v.osc('sine', t + 0.04, 0.8), lg = v.gn(0);
+  lfo.frequency.value = 11;
+  lg.gain.setValueAtTime(0.5, t + 0.04);
+  lg.gain.exponentialRampToValueAtTime(0.01, t + 0.6);
+  lfo.connect(lg);
+  lg.connect(am.gain);
+  const h2 = v.gn(0.9), hg = v.gn(0);
+  env(hg.gain, t + 0.04, 0.02, 0.3, 0.05, 0.4);
+  hum.connect(am);
+  hum2.connect(h2);
+  h2.connect(am);
+  am.connect(hg);
+  hg.connect(v.out);
+  v.tone({ t: 0.06, f: 900, f2: 4800, gl: 0.55, a: 0.3, hold: 0.25, rel: 0.5, peak: 0.12, lp: 7000 });
+  v.tone({ t: 0.06, type: 'triangle', f: 450, f2: 2400, gl: 0.55, a: 0.3, hold: 0.25, rel: 0.45, peak: 0.06 });
+  v.noise({ t: 0.05, buf: 'white', ft: 'highpass', f: 6000, q: 0.5, a: 0.25, hold: 0.2, rel: 0.4, peak: 0.08 });
+  v.noise({ t: 0.78, buf: 'pink', f: 3000, q: 1, bursts: [[0, 0.3, 0.008]] }); // picture is up
+  return v.end;
+}
+
+/** CRT power-off: click, thunk, the picture collapsing into a dot with a falling whistle, one last faint glow */
+function sfxCrtOff(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.08, 0.02);
+  v.noise({ buf: 'pink', f: 2200, q: 1, bursts: [[0, 0.6, 0.01]] });
+  v.tone({ f: 190, f2: 78, gl: 0.05, a: 0.001, rel: 0.12, peak: 0.42 });
+  v.tone({ t: 0.015, f: 5200, f2: 230, gl: 0.17, a: 0.004, hold: 0.04, rel: 0.09, peak: 0.16 });
+  v.tone({ t: 0.015, type: 'triangle', f: 2600, f2: 115, gl: 0.17, a: 0.004, hold: 0.04, rel: 0.09, peak: 0.08 });
+  v.noise({ t: 0.02, buf: 'white', ft: 'highpass', f: 4500, f2: 2000, gl: 0.2, q: 0.5, a: 0.006, rel: 0.2, peak: 0.16 });
+  v.bell({ t: 0.2, f: 2637, parts: SOFT, peak: 0.05, rel: 0.4 });
+  return v.end;
+}
+
+/* ---- eggs & reveals ------------------------------------------------------------------------------ */
+
+/** the egg rocks: two hollow shell knocks, the second a little lower */
+function sfxEggWobble(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.06, 0.08);
+  const rock = (t, f, a) => {
+    v.tone({ t, f, f2: f * 0.7, gl: 0.05, a: 0.001, rel: 0.09, peak: 0.42 * a });
+    v.tone({ t, type: 'triangle', f: f * 2.3, f2: f * 1.6, gl: 0.03, a: 0.001, rel: 0.04, peak: 0.12 * a });
+    v.noise({ t, buf: 'pink', f: 1100, q: 1.2, bursts: [[0, 0.3 * a, 0.012]] });
+  };
+  rock(0, 430, 1);
+  rock(0.15, 380, 0.85);
+  v.noise({ t: 0.05, buf: 'pink', ft: 'lowpass', f: 700, q: 0.5, a: 0.03, hold: 0.06, rel: 0.12, peak: 0.12 }); // scuffing the straw
+  return v.end;
+}
+
+/** a crack races across the shell (pitch = crack stage) */
+function sfxEggCrack(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.08, 0.06);
+  v.noise({ buf: 'white', f: 2600, q: 1.1, bursts: [[0, 1.3, 0.012], [0.02, 0.8, 0.01], [0.038, 1, 0.009]] });
+  v.tone({ f: 1300, f2: 700, gl: 0.03, a: 0.001, rel: 0.07, peak: 0.28 });
+  v.tone({ type: 'triangle', f: 3100, f2: 2200, gl: 0.03, a: 0.001, rel: 0.04, peak: 0.08 });
+  const cr = [];
+  for (let i = 0; i < 9; i++) cr.push([0.05 + i * 0.022 + rr(0, 0.012), rr(0.25, 0.7) * (1 - i / 11), 0.008]);
+  v.noise({ buf: 'white', f: 3600, q: 0.9, bursts: cr.map((b) => [b[0], b[1] * 1.6, b[2]]) });
+  for (let i = 0; i < 4; i++) v.tone({ t: 0.06 + i * 0.045 + rr(0, 0.02), f: rr(2500, 5200), a: 0.001, rel: 0.03, peak: 0.05 });
+  return v.end;
+}
+
+/** the egg bursts: a pop, shell shards tinkling everywhere, then a sparkle rising out of it */
+function sfxEggBurst(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.3, 0.02);
+  v.tone({ f: 620, f2: 110, gl: 0.07, a: 0.001, rel: 0.16, peak: 0.6 });
+  v.noise({ buf: 'white', f: 2600, f2: 900, gl: 0.12, q: 0.7, a: 0.001, rel: 0.16, peak: 1 });
+  v.noise({ buf: 'pink', ft: 'lowpass', f: 600, q: 0.5, a: 0.001, rel: 0.12, peak: 0.6 });
+  for (let i = 0; i < 14; i++) v.tone({ t: 0.03 + i * 0.028 + rr(0, 0.02), f: rr(1800, 6200), a: 0.001, rel: rr(0.05, 0.14), peak: 0.09 * (1 - i / 18) });
+  [1568, 2093, 2637, 3136, 3951].forEach((f, i) => v.bell({ t: 0.09 + i * 0.06, f, parts: GLOCK, peak: 0.16, rel: 0.7 }));
+  v.noise({ t: 0.05, buf: 'white', ft: 'highpass', f: 7000, q: 0.5, a: 0.01, rel: 0.6, peak: 0.12 });
+  return v.end;
+}
+
+/** brass section: detuned saw pairs through a low-pass that opens with the attack */
+function brassChord(v, t, midis, hold, rel, peak, lp2 = 3600) {
+  for (const m of midis) {
+    const f = mtof(m);
+    v.tone({ t, type: 'sawtooth', f, a: 0.025, hold, rel, peak, lp: 600, lp2, lpt: 0.09, q: 1, det: -6 });
+    v.tone({ t, type: 'sawtooth', f, a: 0.025, hold, rel, peak: peak * 0.8, lp: 600, lp2, lpt: 0.09, q: 1, det: 6 });
+  }
+}
+
+/** timpani: a pitched skin thump */
+function timpani(v, t, f, peak, rel = 0.6) {
+  v.tone({ t, f: f * 1.28, f2: f, gl: 0.07, a: 0.002, rel, peak: peak * 0.75 });
+  v.tone({ t, type: 'triangle', f: f * 2.4, f2: f * 1.8, gl: 0.09, a: 0.002, rel: rel * 0.45, peak: peak * 0.5, lp: 900 });
+  v.noise({ t, buf: 'pink', ft: 'lowpass', f: 520, q: 0.5, a: 0.001, rel: 0.07, peak: peak * 1.1 });
+}
+
+/** crash cymbal (a = attack, rel = decay) */
+function cymbal(v, t, peak, rel, a = 0.004) {
+  v.noise({ t, buf: 'white', ft: 'highpass', f: 5200, q: 0.6, a, rel, peak });
+  v.noise({ t, buf: 'white', f: 8500, q: 0.9, a, rel: rel * 0.8, peak: peak * 0.7 });
+}
+
+/**
+ * a little choir: detuned saws through a vowel filter bank that morphs `from` -> `to` while the chord swells in and out
+ * (t, dur, peak in the usual voice-relative units)
+ */
+function choir(v, t, midis, dur, peak, from = VOWELS.o, to = VOWELS.a) {
+  const k = v.k, tt = v.t0 + t, rel = dur * 0.8, total = dur + rel + 0.05, att = dur * 0.55;
+  const mix = v.gn(0);
+  env(mix.gain, tt, att, peak, Math.max(0, dur - att), rel);
+  mix.connect(v.out);
+  const bus = v.gn(1);
+  const gains = [1, 0.5, 0.25], qs = [6, 8, 10];
+  for (let j = 0; j < 3; j++) {
+    const b = v.flt('bandpass', from[j], qs[j]);
+    b.frequency.setValueAtTime(from[j], tt);
+    b.frequency.exponentialRampToValueAtTime(to[j], tt + dur * 0.7);
+    const g = v.gn(gains[j]);
+    bus.connect(b);
+    b.connect(g);
+    g.connect(mix);
+  }
+  const vib = v.osc('sine', tt, total), vg = v.gn(0);
+  vib.frequency.value = 5.2;
+  vg.gain.setValueAtTime(0, tt);
+  vg.gain.linearRampToValueAtTime(14, tt + dur * 0.6);
+  vib.connect(vg);
+  midis.forEach((m) => {
+    for (const d of [-9, 8]) {
+      const s = v.osc('sawtooth', tt, total), sg = v.gn(0.5 / Math.sqrt(midis.length * 2));
+      s.frequency.value = mtof(m) * k;
+      s.detune.value = d + rr(-3, 3);
+      vg.connect(s.detune);
+      s.connect(sg);
+      sg.connect(bus);
+    }
+  });
+}
+
+/** common reveal: a friendly two-note "ta-da" */
+function sfxRevealCommon(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.22, 0.01);
+  v.bell({ t: 0, f: 784, parts: SOFT, peak: 0.24, rel: 0.5 });
+  v.tone({ t: 0, type: 'triangle', f: 784, a: 0.004, rel: 0.22, peak: 0.12 });
+  v.bell({ t: 0.12, f: 1047, parts: GLOCK, peak: 0.32, rel: 0.8 });
+  v.tone({ t: 0.12, type: 'triangle', f: 1047, a: 0.004, rel: 0.3, peak: 0.12 });
+  v.tone({ t: 0.16, f: 3136, a: 0.003, rel: 0.25, peak: 0.05 });
+  return v.end;
+}
+
+/** rare reveal: a harp-like arpeggio landing on a glowing chord */
+function sfxRevealRare(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.3, 0.01);
+  [392, 493.88, 587.33, 783.99, 987.77].forEach((f, i) => {
+    v.bell({ t: i * 0.075, f, parts: SOFT, peak: 0.22, rel: 0.6 });
+    v.tone({ t: i * 0.075, type: 'triangle', f, a: 0.003, rel: 0.24, peak: 0.1 });
+  });
+  [783.99, 987.77, 1174.66, 1568].forEach((f) => v.bell({ t: 0.38, f, parts: GLOCK, peak: 0.16, rel: 1.1 }));
+  v.noise({ t: 0.38, buf: 'white', ft: 'highpass', f: 6500, q: 0.5, a: 0.02, rel: 0.7, peak: 0.08 });
+  return v.end;
+}
+
+/** epic reveal: brass "ba-ba-BAAA" over timpani, a cymbal crash, bells glittering on top */
+function sfxRevealEpic(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.3, 0.008);
+  timpani(v, 0, 98, 0.4);
+  [0, 0.13, 0.26].forEach((t) => brassChord(v, t, [60, 64, 67], 0.05, 0.09, 0.05));
+  timpani(v, 0.42, 98, 0.5, 0.9);
+  brassChord(v, 0.42, [60, 64, 67, 72, 76, 79], 0.5, 0.7, 0.04);
+  cymbal(v, 0.42, 0.22, 1.3);
+  [1046.5, 1318.5, 1568, 2093, 2637].forEach((f, i) => v.bell({ t: 0.6 + i * 0.11, f, parts: GLOCK, peak: 0.13, rel: 0.9 }));
+  return v.end;
+}
+
+/** legendary reveal: a sub boom and a rising shimmer, then the choir swells over full brass, cymbals and glitter */
+function sfxRevealLegendary(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.4, 0.008);
+  v.tone({ f: 96, f2: 48, gl: 0.9, a: 0.01, rel: 0.9, peak: 0.34 });
+  v.tone({ type: 'triangle', f: 192, f2: 96, gl: 0.9, a: 0.01, rel: 0.7, peak: 0.16, lp: 700 });
+  v.noise({ buf: 'pink', f: 300, f2: 3200, gl: 0.9, q: 0.8, a: 0.7, hold: 0.05, rel: 0.2, peak: 0.45 });
+  [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568, 2093, 2637].forEach((f, i) => v.bell({ t: 0.15 + i * 0.09, f, parts: GLOCK, peak: 0.13, rel: 0.7 }));
+  choir(v, 0.95, [48, 55, 60, 64, 67, 72], 1.5, 0.42);
+  timpani(v, 0.95, 82, 0.55, 1.1);
+  brassChord(v, 0.95, [55, 60, 64, 67, 72], 0.3, 1.0, 0.035);
+  cymbal(v, 0.95, 0.26, 1.7);
+  [1046.5, 1318.5, 1568, 2093].forEach((f) => v.bell({ t: 0.95, f: f * 2, parts: GLOCK, peak: 0.1, rel: 1.6 }));
+  for (let i = 0; i < 18; i++) v.tone({ t: 1.05 + i * 0.1 + rr(0, 0.06), f: pick([2093, 2637, 3136, 3520, 4186, 5274]), a: 0.002, rel: 0.3, peak: 0.07 * (1 - i / 22) });
+  return v.end;
+}
+
+/** a star lands: bubble pop into a bright ding (pitch rises with every star) */
+function sfxStarPop(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.2, 0.01);
+  v.tone({ f: 700, f2: 1900, gl: 0.03, a: 0.001, rel: 0.05, peak: 0.24 });
+  v.noise({ buf: 'white', f: 4000, q: 1.2, bursts: [[0, 0.2, 0.008]] });
+  v.bell({ t: 0.02, f: 1568, parts: GLOCK, peak: 0.34, rel: 0.6 });
+  v.tone({ t: 0.02, f: 3136, a: 0.002, rel: 0.3, peak: 0.08 });
+  return v.end;
+}
+
+/** soft UI ding */
+function sfxChip(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.12, 0.02);
+  v.bell({ f: 1760, parts: SOFT, peak: 0.24, rel: 0.4 });
+  v.noise({ buf: 'white', f: 5000, q: 1, bursts: [[0, 0.06, 0.006]] });
+  return v.end;
+}
+
+/* ---- the office clock ---------------------------------------------------------------------------- */
+
+/** one click of a wall clock: a sharp tick, a tiny case resonance (f = pitch scale) */
+function clockClick(v, f, a, body) {
+  v.noise({ buf: 'white', f: 3600 * f, q: 1.4, bursts: [[0, 0.8 * a, 0.006]] });
+  v.tone({ f: 2000 * f, f2: 1500 * f, gl: 0.012, a: 0.0008, rel: 0.02, peak: 0.25 * a });
+  v.tone({ f: 640 * f, f2: 520 * f, gl: 0.03, a: 0.001, rel: 0.05, peak: 0.16 * body });
+}
+
+function sfxTick(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.03, 0.02);
+  clockClick(v, 1, 1, 1);
+  return v.end;
+}
+
+function sfxTock(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.03, 0.02);
+  clockClick(v, 0.72, 0.9, 1.4);
+  return v.end;
+}
+
+/** lub-DUB */
+function sfxHeartbeat(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.03);
+  const thump = (t, f, a) => {
+    v.tone({ t, f, f2: f * 0.55, gl: 0.09, a: 0.006, rel: 0.16, peak: 0.7 * a });
+    v.tone({ t, type: 'triangle', f: f * 2.8, f2: f * 1.5, gl: 0.07, a: 0.006, rel: 0.1, peak: 0.42 * a, lp: 700 }); // so small speakers hear it too
+    v.noise({ t, buf: 'pink', ft: 'lowpass', f: 480, q: 0.5, a: 0.004, rel: 0.08, peak: 0.9 * a });
+  };
+  thump(0, 82, 1);
+  thump(0.19, 96, 0.8);
+  return v.end;
+}
+
+/** office alarm bell: an inharmonic bell hammered ~26 times a second by the clapper, for about 1.2 s */
+function sfxAlarm(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.12, 0.02);
+  const t = v.t0, k = v.k, D = 1.1;
+  const am = v.gn(0.58), lfo = v.osc('sawtooth', t, D + 0.4), lg = v.gn(-0.42);
+  lfo.frequency.value = 26;
+  lfo.connect(lg);
+  lg.connect(am.gain); // each clapper strike: full level, then a fast fall
+  const eg = v.gn(0);
+  env(eg.gain, t, 0.004, 1, D - 0.2, 0.22);
+  am.connect(eg);
+  eg.connect(v.out);
+  [[1, 1], [2.32, 0.55], [4.25, 0.35], [6.63, 0.2]].forEach(([r, a]) => {
+    for (const d of [1, 1.006]) {
+      const f = 1020 * r * d * k;
+      if (f > ctx.sampleRate * 0.42) continue;
+      const os = v.osc('sine', t, D + 0.4), og = v.gn(0.16 * a);
+      os.frequency.value = f;
+      os.connect(og);
+      og.connect(am);
+    }
+  });
+  const cl = [];
+  for (let i = 0; i * 0.0385 < D - 0.1; i++) cl.push([i * 0.0385, 0.22 * Math.min(1, (D - 0.1 - i * 0.0385) / 0.3), 0.012]);
+  v.noise({ buf: 'white', ft: 'highpass', f: 3200, q: 0.5, bursts: cl }); // clatter of the hammer
+  return v.end;
+}
+
+/** cheery hand bell: a shaken "ding-a-ling-a-ling" that rings out */
+function sfxLunchBell(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.22, 0.02);
+  let t = 0;
+  for (let i = 0; i < 9; i++) {
+    const f = i % 2 ? 2349 : 2093, a = 0.2 * (1 - i * 0.04);
+    v.bell({ t, f: f * rr(0.99, 1.01), parts: BELL, peak: a, rel: 0.42 });
+    v.noise({ t, buf: 'white', f: 5200, q: 0.8, bursts: [[0, 0.1, 0.006]] });
+    t += rr(0.058, 0.09);
+  }
+  v.bell({ t: t + 0.06, f: 2093, parts: BELL, peak: 0.24, rel: 0.95 });
+  v.bell({ t: t + 0.2, f: 2637, parts: BELL, peak: 0.18, rel: 0.95 });
+  return v.end;
+}
+
+/** 5 PM: a chiming factory steam whistle (C major!) and a distant crowd going "wooo" */
+function sfxOffwork(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.5, 0.008);
+  steamWhistle(v, { L: 1.05, tail: 0.65, notes: [[261.63, 1], [329.63, 0.9], [392, 0.55]], lpf: 2300, level: 1 });
+  for (let i = 0; i < 6; i++) {
+    const f = i % 2 ? rr(300, 360) : rr(190, 230);
+    vocal(v, {
+      t: 0.3 + rr(0, 0.5), dur: rr(0.4, 0.6), f0: [[0, f], [0.25, f * 1.3], [0.7, f * 1.22]], size: i % 2 ? 1.1 : 0.9, peak: 0.34, att: 0.12, rel: 0.35, lp: 1800,
+      form: [[0, VOWELS.u], [0.2, VOWELS.o], [0.6, VOWELS.o]], vr: 5.5, vc: 24, vd: 0.2, breath: 0.05,
+    });
+  }
+  return v.end;
+}
+
+/* ---- eating (cartoon gore, played for laughs) --------------------------------------------------- */
+
+/** juicy bite: teeth break the skin, a wet resonant slosh slides down, a few bubbles pop */
+function sfxSquelch(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.1);
+  v.noise({ buf: 'white', f: 2200, q: 1, bursts: [[0, 0.7, 0.012], [0.02, 0.4, 0.01]] });
+  v.rustle({ buf: 'pink', t: 0.01, dur: 0.27, f: 1800, f2: 420, q: 4, n: 26, peak: 0.9, peakAt: 0.15, flicker: 0.75, fall: 1.1 });
+  v.tone({ t: 0.02, type: 'sawtooth', f: 220, f2: 85, gl: 0.26, a: 0.008, hold: 0.06, rel: 0.14, peak: 0.16, lp: 700, vr: 34, vc: 420, vd: 0.02 });
+  [[0.07, 0.25], [0.15, 0.2], [0.23, 0.13]].forEach(([t, a]) => {
+    const f = rr(280, 540);
+    v.tone({ t, f, f2: f * 2.3, gl: 0.04, a: 0.002, rel: 0.06, peak: a });
+  });
+  return v.end;
+}
+
+/** bone crunch: a sharp CRACK with a low knock, then grinding grains and a final splinter */
+function sfxCrunch(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.08);
+  v.tone({ f: 210, f2: 70, gl: 0.06, a: 0.001, rel: 0.12, peak: 0.55 });
+  v.noise({ buf: 'white', f: 1700, q: 0.7, bursts: [[0, 1.5, 0.02], [0.012, 1.2, 0.016]] });
+  v.tone({ type: 'square', f: 760, f2: 520, gl: 0.02, a: 0.001, rel: 0.035, peak: 0.12, lp: 2200 });
+  const cr = [];
+  for (let i = 0; i < 12; i++) cr.push([0.04 + i * 0.024 + rr(0, 0.014), rr(0.5, 1.2) * (1 - i / 16), rr(0.01, 0.02)]);
+  v.noise({ buf: 'white', f: 1400, q: 0.8, bursts: cr });
+  v.noise({ buf: 'pink', f: 380, q: 0.7, a: 0.02, hold: 0.15, rel: 0.12, peak: 0.9 });
+  v.noise({ t: 0.34, buf: 'white', f: 2600, q: 1, bursts: [[0, 0.8, 0.014]] });
+  v.tone({ t: 0.34, f: 900, f2: 500, gl: 0.03, a: 0.001, rel: 0.05, peak: 0.1 });
+  return v.end;
+}
+
+/** a pass-by whoosh: pink noise through a band-pass that sweeps f0 -> f1 (40%) -> f2 while the level swells and dies away */
+function swish(v, t, dur, f0, f1, f2, peak, q = 1, buf = 'pink') {
+  const k = v.k, tt = v.t0 + t;
+  const s = v.nsrc(buf, tt, dur + 0.05), b = v.flt('bandpass', f0 * k, q);
+  b.frequency.setValueAtTime(clamp(f0 * k, 10, 20000), tt);
+  b.frequency.exponentialRampToValueAtTime(clamp(f1 * k, 10, 20000), tt + dur * 0.4);
+  b.frequency.exponentialRampToValueAtTime(clamp(f2 * k, 10, 20000), tt + dur);
+  const g = v.gn(0);
+  env(g.gain, tt, dur * 0.4, peak, dur * 0.05, dur * 0.55);
+  s.connect(b);
+  b.connect(g);
+  g.connect(v.out);
+}
+
+/** a bone flung through the air, tumbling */
+function sfxBoneToss(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.08);
+  const t = v.t0, k = v.k, T = 0.42;
+  const s = v.nsrc('pink', t, T + 0.05), b = v.flt('bandpass', 600 * k, 1.2);
+  b.frequency.setValueAtTime(600 * k, t);
+  b.frequency.exponentialRampToValueAtTime(2600 * k, t + 0.16);
+  b.frequency.exponentialRampToValueAtTime(800 * k, t + T);
+  const am = v.gn(0.7), l = v.osc('sine', t, T + 0.05), lg = v.gn(0.3);
+  l.frequency.value = 15; // the tumble
+  l.connect(lg);
+  lg.connect(am.gain);
+  const g = v.gn(0);
+  env(g.gain, t, 0.08, 0.7, 0.06, T - 0.14);
+  s.connect(b);
+  b.connect(am);
+  am.connect(g);
+  g.connect(v.out);
+  return v.end;
+}
+
+/** a bone bouncing on hard ground: hollow "tok"s and dull thuds, quicker and quieter every time */
+function sfxBoneClatter(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.06, 0.06);
+  let t = 0, gap = 0.13, a = 1;
+  for (let i = 0; i < 5; i++) {
+    const f = rr(620, 1000);
+    v.tone({ t, f, f2: f * 0.72, gl: 0.04, a: 0.001, rel: 0.06, peak: 0.42 * a });
+    v.tone({ t, type: 'triangle', f: f * 2.4, f2: f * 1.9, gl: 0.03, a: 0.001, rel: 0.03, peak: 0.1 * a });
+    v.noise({ t, buf: 'pink', f: 1400, q: 1.1, bursts: [[0, 0.5 * a, 0.012]] });
+    v.noise({ t, buf: 'pink', ft: 'lowpass', f: 500, q: 0.5, bursts: [[0, 0.4 * a, 0.03]] });
+    t += gap;
+    gap *= rr(0.62, 0.74);
+    a *= 0.62;
+  }
+  v.tone({ t: t + 0.02, f: rr(1200, 1600), f2: 900, gl: 0.02, a: 0.001, rel: 0.03, peak: 0.05 });
+  return v.end;
+}
+
+/** cartoon splat: a fat wet slap, a gurgling spread, a few droplets */
+function sfxBloodSplat(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.08, 0.08);
+  v.tone({ f: 260, f2: 85, gl: 0.06, a: 0.001, rel: 0.14, peak: 0.6 });
+  v.noise({ buf: 'pink', f: 1300, q: 0.7, a: 0.002, hold: 0.01, rel: 0.09, peak: 1.1 });
+  v.rustle({ t: 0.02, buf: 'pink', dur: 0.28, f: 2400, f2: 500, q: 3.5, n: 26, peak: 0.85, peakAt: 0.1, flicker: 0.7, fall: 1.3 });
+  for (let i = 0; i < 5; i++) {
+    const f = rr(500, 1400);
+    v.tone({ t: 0.12 + i * 0.05 + rr(0, 0.03), f, f2: f * rr(1.6, 2.4), gl: 0.03, a: 0.002, rel: 0.05, peak: 0.12 * (1 - i / 6) });
+  }
+  return v.end;
+}
+
+/* ---- building ------------------------------------------------------------------------------------ */
+
+/** the cartoon fight cloud: a scuffling dust ball with rapid whacks, bonks, zips, squeaks and boings, ending in a POW */
+function sfxBuildCloud(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.06, 0.04);
+  const D = 1.0;
+  v.rustle({ buf: 'pink', dur: D, f: 700, f2: 1300, q: 0.7, n: 60, peak: 0.5, peakAt: 0.5, flicker: 0.85, rise: 0.4, fall: 0.6 });
+  let t = 0.03;
+  while (t < D - 0.08) {
+    const a = rr(0.6, 1) * 1.5;
+    switch (ri(0, 5)) {
+      case 0: // whack
+        v.noise({ t, buf: 'white', f: rr(1500, 2600), q: 1.2, bursts: [[0, 0.9 * a, 0.02]] });
+        v.tone({ t, f: rr(500, 800), f2: 260, gl: 0.03, a: 0.001, rel: 0.05, peak: 0.2 * a });
+        break;
+      case 1: { // bonk
+        const f = rr(240, 420);
+        v.tone({ t, f, f2: f * 0.5, gl: 0.06, a: 0.002, rel: 0.1, peak: 0.42 * a });
+        v.tone({ t, type: 'triangle', f: f * 2.2, f2: f * 1.1, gl: 0.05, a: 0.002, rel: 0.05, peak: 0.12 * a });
+        break;
+      }
+      case 2: { // zip
+        const up = chance(0.5), f = rr(300, 600), f2 = rr(1800, 3000);
+        v.tone({ t, f: up ? f : f2, f2: up ? f2 : f, gl: rr(0.07, 0.12), a: 0.004, rel: 0.05, peak: 0.13 * a });
+        break;
+      }
+      case 3: // slap
+        v.noise({ t, buf: 'white', ft: 'highpass', f: 3000, q: 0.5, bursts: [[0, 0.7 * a, 0.012]] });
+        v.tone({ t, f: 190, f2: 110, gl: 0.03, a: 0.001, rel: 0.05, peak: 0.2 * a });
+        break;
+      case 4: { // boing
+        const f = rr(200, 400);
+        v.tone({ t, f, f2: f * 2, gl: 0.08, a: 0.003, rel: 0.09, peak: 0.16 * a, vr: 20, vc: 200, vd: 0.02 });
+        break;
+      }
+      default: { // squeak
+        const f = rr(900, 1400);
+        v.tone({ t, f, f2: rr(1500, 2400), gl: 0.05, a: 0.005, rel: 0.05, peak: 0.1 * a });
+      }
+    }
+    t += rr(0.045, 0.095);
+  }
+  v.tone({ t: D - 0.1, f: 220, f2: 70, gl: 0.1, a: 0.002, rel: 0.25, peak: 0.42 });
+  v.noise({ t: D - 0.1, buf: 'white', f: 1800, f2: 500, gl: 0.2, q: 0.7, a: 0.002, rel: 0.3, peak: 0.75 });
+  v.bell({ t: D - 0.02, f: 2637, parts: GLOCK, peak: 0.12, rel: 0.4 });
+  return v.end;
+}
+
+/** something pops into existence: a bubble pop, a rising bloop and a springy landing */
+function sfxPopIn(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.1, 0.06);
+  v.noise({ buf: 'white', f: 2400, q: 1, bursts: [[0, 0.5, 0.008]] });
+  v.tone({ f: 260, f2: 900, gl: 0.045, a: 0.002, rel: 0.09, peak: 0.42 });
+  boing(v, 0.03, 420, 0.3, 0.26);
+  v.bell({ t: 0.05, f: 1568, parts: SOFT, peak: 0.08, rel: 0.3 });
+  return v.end;
+}
+
+/** hand saw: push - pull - push, the teeth rasping */
+function sfxSaw(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.06);
+  const k = v.k;
+  const stroke = (t, d, f0, f1, a) => {
+    const tt = v.t0 + t;
+    const s = v.nsrc('white', tt, d + 0.05), b = v.flt('bandpass', f0 * k, 1.4);
+    b.frequency.setValueAtTime(f0 * k, tt);
+    b.frequency.linearRampToValueAtTime(f1 * k, tt + d);
+    const am = v.gn(0.5), l = v.osc('sawtooth', tt, d + 0.05), lg = v.gn(0.5);
+    l.frequency.value = rr(78, 92);
+    l.connect(lg);
+    lg.connect(am.gain);
+    const g = v.gn(0);
+    env(g.gain, tt, d * 0.15, a, d * 0.55, d * 0.3);
+    s.connect(b);
+    b.connect(am);
+    am.connect(g);
+    g.connect(v.out);
+    v.tone({ t, type: 'triangle', f: 300, f2: 340, gl: d, a: d * 0.2, hold: d * 0.4, rel: d * 0.4, peak: 0.05, vr: 7, vc: 30 }); // the blade flexes
+  };
+  stroke(0, 0.24, 1500, 2400, 0.6);
+  stroke(0.26, 0.24, 2600, 1700, 0.55);
+  stroke(0.52, 0.24, 1500, 2300, 0.5);
+  return v.end;
+}
+
+/** a little hammer taps a nail: steel "tink" over a wood thunk, then again a bit deeper as it sinks */
+function sfxNail(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.06, 0.1);
+  v.noise({ buf: 'white', f: 4200, q: 1.5, bursts: [[0, 0.5, 0.005]] });
+  v.bell({ f: 3520, parts: [[1, 1, 1], [2.32, 0.5, 0.5], [3.9, 0.25, 0.3]], peak: 0.28, rel: 0.12 });
+  v.tone({ f: 420, f2: 300, gl: 0.03, a: 0.001, rel: 0.04, peak: 0.16 });
+  v.noise({ t: 0.09, buf: 'white', f: 3000, q: 1.5, bursts: [[0, 0.35, 0.005]] });
+  v.bell({ t: 0.09, f: 2960, parts: [[1, 1, 1], [2.32, 0.4, 0.5]], peak: 0.18, rel: 0.09 });
+  v.tone({ t: 0.09, f: 330, f2: 230, gl: 0.03, a: 0.001, rel: 0.05, peak: 0.16 });
+  return v.end;
+}
+
+/* ---- nature & fish ------------------------------------------------------------------------------- */
+
+/** a songbird: one of six little songs, different every time (pitch = the bird's size) */
+function sfxBirdChirp(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.2, 0.06);
+  const base = rr(2600, 4200);
+  const chirp = (t, f, f2, d, a, vr) => {
+    v.tone({ t, f, f2, gl: d * 0.85, a: 0.006, hold: d * 0.25, rel: d * 0.6, peak: a, vr: vr || 0, vc: 60, vd: 0.02 });
+    v.tone({ t, f: f * 2, f2: f2 * 2, gl: d * 0.85, a: 0.006, hold: d * 0.2, rel: d * 0.5, peak: a * 0.18 });
+  };
+  switch (ri(0, 5)) {
+    case 0: // sparrow "chip-chip-chip"
+      for (let i = 0; i < 3; i++) chirp(i * rr(0.09, 0.12), base, base * rr(1.15, 1.3), 0.05, 0.26);
+      break;
+    case 1: // "tweet-tweet": two rising whistles
+      chirp(0, base * 0.85, base * 1.3, 0.11, 0.26);
+      chirp(0.2, base * 0.95, base * 1.4, 0.12, 0.26);
+      break;
+    case 2: { // trill
+      const n = ri(7, 11);
+      for (let i = 0; i < n; i++) chirp(i * 0.045, base * (i % 2 ? 1.14 : 1), base * (i % 2 ? 1.1 : 1.04), 0.035, 0.2);
+      break;
+    }
+    case 3: // sweet descending "fee-bee"
+      chirp(0, base * 1.2, base * 1.16, 0.2, 0.26, 7);
+      chirp(0.27, base * 0.94, base * 0.88, 0.24, 0.26, 7);
+      break;
+    case 4: // chickadee "chick-a-dee-dee"
+      chirp(0, base * 0.9, base * 1.1, 0.045, 0.24);
+      chirp(0.08, base * 1.3, base * 1.2, 0.045, 0.2);
+      for (let i = 0; i < ri(2, 3); i++) chirp(0.19 + i * 0.12, base * 0.8, base * 0.72, 0.09, 0.24);
+      break;
+    default: { // warble
+      let t = 0, f = base;
+      for (let i = 0; i < 6; i++) {
+        const f2 = base * rr(0.8, 1.3);
+        chirp(t, f, f2, rr(0.05, 0.09), 0.22, 30);
+        f = f2;
+        t += rr(0.07, 0.11);
+      }
+    }
+  }
+  return v.end;
+}
+
+/** "rrRIB - bit": two croaks, each a rattle of pulses through a resonant throat sac */
+function sfxFrogCroak(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.12, 0.08);
+  const k = v.k;
+  const croak = (t, p0, p1, r0, r1, dur, peak) => {
+    const tt = v.t0 + t;
+    const os = v.osc('sawtooth', tt, dur + 0.05);
+    os.frequency.setValueAtTime(p0 * k, tt);
+    os.frequency.linearRampToValueAtTime(p1 * k, tt + dur);
+    const g = v.gn(0);
+    env(g.gain, tt, 0.012, peak, dur * 0.55, dur * 0.3);
+    [[1, 5.5, 1], [1.7, 6, 0.5]].forEach(([m, q, a]) => {
+      const b = v.flt('bandpass', r0 * m * k, q), ga = v.gn(a);
+      b.frequency.setValueAtTime(r0 * m * k, tt);
+      b.frequency.exponentialRampToValueAtTime(r1 * m * k, tt + dur * 0.9);
+      os.connect(b);
+      b.connect(ga);
+      ga.connect(g);
+    });
+    g.connect(v.out);
+  };
+  croak(0, 52, 68, 420, 760, 0.2, 1.6);
+  croak(0.21, 92, 74, 900, 1150, 0.13, 1.8);
+  return v.end;
+}
+
+/** a water drop: the bubble resonance sweeps up, a smaller echo follows in the stone room */
+function sfxWaterDrip(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.3, 0.15);
+  const f = rr(700, 1100);
+  v.tone({ f, f2: f * 2.1, gl: 0.05, a: 0.001, rel: 0.11, peak: 0.34 });
+  v.tone({ f: f * 2, f2: f * 4, gl: 0.05, a: 0.001, rel: 0.05, peak: 0.06 });
+  v.noise({ buf: 'white', f: 3500, q: 1.5, bursts: [[0, 0.1, 0.004]] });
+  v.tone({ t: 0.17, f: f * 1.15, f2: f * 2.4, gl: 0.05, a: 0.001, rel: 0.09, peak: 0.09 });
+  return v.end;
+}
+
+/** a fish on dry land: wet slaps that slow down and fade as it tires */
+function sfxFishFlop(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.08);
+  let t = 0, gap = 0.1, a = 1;
+  for (let i = 0; i < 5; i++) {
+    v.tone({ t, f: rr(170, 230), f2: 90, gl: 0.05, a: 0.001, rel: 0.09, peak: 0.42 * a });
+    v.noise({ t, buf: 'pink', f: rr(1000, 1700), q: 0.8, a: 0.001, hold: 0.008, rel: 0.05, peak: 0.9 * a });
+    v.rustle({ t: t + 0.01, dur: 0.07, f: 3200, f2: 1600, q: 1, n: 7, peak: 0.4 * a, peakAt: 0.2, flicker: 0.6 });
+    t += gap * rr(0.8, 1.2);
+    gap *= 1.16;
+    a *= 0.8;
+  }
+  return v.end;
+}
+
+/** a pat on the head and a happy, rolled little trill */
+function sfxPet(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.1, 0.05);
+  const t = v.t0 + 0.09, k = v.k;
+  v.noise({ buf: 'pink', ft: 'lowpass', f: 700, q: 0.5, a: 0.004, rel: 0.05, peak: 0.7 });
+  v.tone({ f: 210, f2: 140, gl: 0.04, a: 0.003, rel: 0.06, peak: 0.24 });
+  const os = v.osc('sine', t, 0.36), h2 = v.osc('sine', t, 0.36);
+  os.frequency.setValueAtTime(600 * k, t);
+  os.frequency.exponentialRampToValueAtTime(980 * k, t + 0.22);
+  h2.frequency.setValueAtTime(1200 * k, t);
+  h2.frequency.exponentialRampToValueAtTime(1960 * k, t + 0.22);
+  const am = v.gn(0.6), l = v.osc('sine', t, 0.36), lg = v.gn(0.4), hg = v.gn(0.22), g = v.gn(0);
+  l.frequency.value = 24; // the rolled "r"
+  l.connect(lg);
+  lg.connect(am.gain);
+  env(g.gain, t, 0.03, 0.26, 0.1, 0.16);
+  os.connect(am);
+  h2.connect(hg);
+  hg.connect(am);
+  am.connect(g);
+  g.connect(v.out);
+  return v.end;
+}
+
+/** label maker: key click, the printing motor zipping along, a snip of the cutter */
+function sfxTag(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.04, 0.05);
+  v.noise({ buf: 'white', f: 2600, q: 1.2, bursts: [[0, 0.8, 0.008]] });
+  v.tone({ f: 900, f2: 600, gl: 0.02, a: 0.001, rel: 0.03, peak: 0.16 });
+  v.tone({ t: 0.05, type: 'square', f: 70, f2: 115, gl: 0.16, a: 0.006, hold: 0.12, rel: 0.05, peak: 0.5, lp: 1500, lp2: 2500, lpt: 0.16, ft: 'bandpass', q: 2.2 });
+  v.noise({ t: 0.26, buf: 'white', ft: 'highpass', f: 3500, q: 0.6, bursts: [[0, 0.7, 0.01]] });
+  v.tone({ t: 0.26, f: 2800, f2: 2000, gl: 0.012, a: 0.001, rel: 0.02, peak: 0.08 });
+  return v.end;
+}
+
+/** picking something up: a quick rising whoosh and a tiny snap */
+function sfxGrab(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.03, 0.08);
+  v.noise({ buf: 'pink', f: 500, f2: 3000, gl: 0.12, q: 1, a: 0.03, hold: 0.01, rel: 0.09, peak: 0.6 });
+  v.tone({ t: 0.09, f: 620, f2: 900, gl: 0.03, a: 0.002, rel: 0.05, peak: 0.12 });
+  return v.end;
+}
+
+/** letting go: a falling whoosh, then a soft landing */
+function sfxDrop(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.08);
+  v.noise({ buf: 'pink', f: 2600, f2: 500, gl: 0.1, q: 1, a: 0.01, rel: 0.08, peak: 0.4 });
+  v.tone({ t: 0.1, f: 240, f2: 120, gl: 0.05, a: 0.002, rel: 0.1, peak: 0.36 });
+  v.noise({ t: 0.1, buf: 'pink', ft: 'lowpass', f: 900, q: 0.5, a: 0.002, rel: 0.07, peak: 0.9 });
+  v.noise({ t: 0.1, buf: 'pink', f: 1500, q: 1, bursts: [[0, 0.3, 0.012]] });
+  return v.end;
+}
+
+/* ---- transitions & jingles ----------------------------------------------------------------------- */
+
+/** scene whoosh: a big body of air sweeping past */
+function sfxWhoosh(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.12, 0.05);
+  swish(v, 0, 0.6, 250, 3200, 500, 0.75, 0.9);
+  swish(v, 0.05, 0.5, 900, 4200, 1200, 0.25, 1.4, 'white');
+  return v.end;
+}
+
+/** iris wipe: the circle closes with a falling whistle-swoosh and a soft blip */
+function sfxIris(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.1, 0.03);
+  swish(v, 0, 0.5, 3600, 1600, 300, 0.6, 1.6);
+  v.tone({ f: 1400, f2: 230, gl: 0.5, a: 0.03, hold: 0.25, rel: 0.2, peak: 0.16, vr: 6, vc: 20 });
+  v.tone({ t: 0.5, f: 520, f2: 260, gl: 0.06, a: 0.003, rel: 0.1, peak: 0.24 });
+  v.noise({ t: 0.5, buf: 'pink', f: 1800, q: 1, bursts: [[0, 0.25, 0.01]] });
+  return v.end;
+}
+
+/** "dun dun DUUN": two short orchestra hits, then a huge one with timpani and a cymbal */
+function sfxCinema(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.35, 0.008);
+  const hit = (t, midis, hold, rel, amp, timp) => {
+    brassChord(v, t, midis, hold, rel, 0.05 * amp, 3000);
+    for (const m of midis) v.tone({ t, type: 'sawtooth', f: mtof(m) * 2, a: 0.03, hold, rel, peak: 0.012 * amp, lp: 1800, det: 4 }); // strings
+    timpani(v, t, timp, 0.4 * amp, rel);
+  };
+  hit(0, [43, 50, 55, 58], 0.12, 0.22, 0.85, 98);
+  hit(0.4, [43, 50, 55, 58], 0.12, 0.22, 0.9, 98);
+  hit(0.8, [36, 48, 51, 55, 60], 0.5, 0.9, 1.15, 82);
+  cymbal(v, 0.8, 0.24, 1.4);
+  return v.end;
+}
+
+const MUSICBOX = [[1, 1, 1], [4, 0.2, 0.42], [6.3, 0.07, 0.22]];
+
+/** a music-box lullaby winding down */
+function sfxSleep(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.55, 0.01);
+  [[84, 0], [81, 0.3], [77, 0.6], [79, 0.95], [81, 1.3], [79, 1.7], [77, 2.2]].forEach(([m, t], i) => {
+    v.bell({ t, f: mtof(m), parts: MUSICBOX, peak: 0.24 * (1 - i * 0.05), rel: 1.4 });
+    v.noise({ t, buf: 'white', f: 6000, q: 1, bursts: [[0, 0.03, 0.004]] }); // the pin plucking the comb
+  });
+  v.tone({ f: mtof(53), a: 0.8, hold: 1.3, rel: 1.2, peak: 0.03, lp: 600 });
+  return v.end;
+}
+
+/** warm morning chime: a glow swells up under a climbing string of bells */
+function sfxSunrise(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.45, 0.01);
+  [60, 64, 67, 72].forEach((m) => {
+    v.tone({ f: mtof(m), a: 0.9, hold: 0.9, rel: 1.3, peak: 0.04, lp: 1400 });
+    v.tone({ type: 'triangle', f: mtof(m), a: 0.9, hold: 0.9, rel: 1.3, peak: 0.03, lp: 1000 });
+  });
+  [72, 76, 79, 84, 88].forEach((m, i) => {
+    v.bell({ t: 0.25 + i * 0.17, f: mtof(m), parts: SOFT, peak: 0.2, rel: 1.1 });
+    v.tone({ t: 0.25 + i * 0.17, type: 'triangle', f: mtof(m), a: 0.004, rel: 0.4, peak: 0.07 });
+  });
+  [1046.5, 1318.5, 1568, 2093].forEach((f) => v.bell({ t: 1.2, f, parts: GLOCK, peak: 0.09, rel: 1.4 }));
+  v.noise({ t: 1.2, buf: 'white', ft: 'highpass', f: 6500, q: 0.5, a: 0.05, rel: 1.0, peak: 0.05 });
+  return v.end;
+}
+
+/** happy grade: "ba-da-da-DAAA" on a bouncy marimba with a sparkling chord */
+function sfxGradeGood(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.25, 0.01);
+  const xylo = (t, f, rel, peak) => {
+    v.tone({ t, type: 'triangle', f, a: 0.002, rel, peak });
+    v.tone({ t, f: f * 4, a: 0.002, rel: rel * 0.3, peak: peak * 0.3 });
+    v.noise({ t, buf: 'white', f: 3500, q: 1, bursts: [[0, 0.06, 0.005]] });
+  };
+  [[392, 0], [523.25, 0.1], [659.25, 0.2], [783.99, 0.3]].forEach(([f, t]) => xylo(t, f, 0.16, 0.2));
+  [1046.5, 1318.5, 1568].forEach((f) => {
+    xylo(0.44, f, 0.6, 0.16);
+    v.bell({ t: 0.44, f: f * 2, parts: GLOCK, peak: 0.07, rel: 0.9 });
+  });
+  v.tone({ t: 0.44, f: 130.8, f2: 98, gl: 0.3, a: 0.004, rel: 0.5, peak: 0.14 });
+  for (let i = 0; i < 6; i++) v.tone({ t: 0.5 + i * 0.07, f: pick([3136, 3520, 4186, 4699]), a: 0.002, rel: 0.2, peak: 0.05 });
+  return v.end;
+}
+
+/** trombone "wah": a saw+square pair through a low-pass that opens and closes (d = length, f2 = slide target, vib = vibrato) */
+function wahNote(v, t, f, d, f2, vib, peak = 0.32) {
+  const k = v.k, tt = v.t0 + t;
+  const os = v.osc('sawtooth', tt, d + 0.1), sq = v.osc('square', tt, d + 0.1);
+  for (const s of [os, sq]) {
+    s.frequency.setValueAtTime(f * k, tt);
+    if (f2) s.frequency.exponentialRampToValueAtTime(f2 * k, tt + d);
+  }
+  sq.detune.value = 4;
+  if (vib) {
+    const l = v.osc('sine', tt, d + 0.1);
+    l.frequency.value = 5.2;
+    const lg = v.gn(0);
+    lg.gain.setValueAtTime(0, tt);
+    lg.gain.linearRampToValueAtTime(28, tt + d * 0.7);
+    l.connect(lg);
+    lg.connect(os.detune);
+    lg.connect(sq.detune);
+  }
+  const lp = v.flt('lowpass', 300, 3);
+  lp.frequency.setValueAtTime(300, tt);
+  lp.frequency.exponentialRampToValueAtTime(1500, tt + d * 0.35);
+  lp.frequency.exponentialRampToValueAtTime(420, tt + d);
+  const g = v.gn(0);
+  env(g.gain, tt, 0.035, peak, d * 0.55, d * 0.45);
+  const gs = v.gn(0.5);
+  os.connect(lp);
+  sq.connect(gs);
+  gs.connect(lp);
+  lp.connect(g);
+  g.connect(v.out);
+}
+
+/** sad grade: "wah - wah - wah - waaaah" */
+function sfxGradeBad(ctx, dest, o) {
+  const v = new Voice(ctx, dest, o, 0.14, 0.02);
+  wahNote(v, 0, 261.63, 0.24);
+  wahNote(v, 0.3, 246.94, 0.24);
+  wahNote(v, 0.6, 233.08, 0.24);
+  wahNote(v, 0.9, 220, 0.85, 196, true, 0.36);
+  return v.end;
+}
+
 /*
  * ---- table: name -> { fn, max, gap, g } ------------------------------------------------------------------
  *  fn   builder (ctx, destination, opts) -> absolute end time
@@ -1336,6 +2636,71 @@ const SFX = {
   warning: { fn: sfxWarning, max: 2, gap: 0.15, g: 2.04 },
   gameover: { fn: sfxGameOver, max: 1, gap: 1, g: 1.67 },
   fanfare: { fn: sfxFanfare, max: 1, gap: 1, g: 2.18 },
+  // ---- voices
+  fox_talk: { fn: sfxFoxTalk, max: 4, gap: 0.04, g: 4.77 },
+  bear_talk: { fn: sfxBearTalk, max: 4, gap: 0.04, g: 3.2 },
+  fox_laugh: { fn: sfxFoxLaugh, max: 1, gap: 0.5, g: 3.68 },
+  fox_snore: { fn: sfxFoxSnore, max: 1, gap: 0.5, g: 0.68 },
+  fox_yawn: { fn: sfxFoxYawn, max: 1, gap: 0.5, g: 2.96 },
+  fox_startle: { fn: sfxFoxStartle, max: 2, gap: 0.15, g: 2.65 },
+  bear_yum: { fn: sfxBearYum, max: 2, gap: 0.2, g: 1.86 },
+  burp: { fn: sfxBurp, max: 2, gap: 0.2, g: 1.39 },
+  bear_cheer: { fn: sfxBearCheer, max: 2, gap: 0.3, g: 2.3 },
+  // ---- paper & office
+  pen: { fn: sfxPen, max: 3, gap: 0.06, g: 2.45 },
+  paper: { fn: sfxPaper, max: 2, gap: 0.1, g: 1.4 },
+  stamp: { fn: sfxStamp, max: 2, gap: 0.12, g: 2.04 },
+  sticker: { fn: sfxSticker, max: 3, gap: 0.08, g: 3.55 },
+  page: { fn: sfxPage, max: 2, gap: 0.12, g: 1.3 },
+  typing: { fn: sfxTyping, max: 2, gap: 0.1, g: 1.2 },
+  beep: { fn: sfxBeep, max: 3, gap: 0.05, g: 1.54 },
+  crt_on: { fn: sfxCrtOn, max: 1, gap: 0.5, g: 2 },
+  crt_off: { fn: sfxCrtOff, max: 1, gap: 0.5, g: 2.72 },
+  // ---- eggs & reveals
+  egg_wobble: { fn: sfxEggWobble, max: 2, gap: 0.1, g: 1.43 },
+  egg_crack: { fn: sfxEggCrack, max: 3, gap: 0.08, g: 3.86 },
+  egg_burst: { fn: sfxEggBurst, max: 2, gap: 0.2, g: 2.62 },
+  reveal_common: { fn: sfxRevealCommon, max: 2, gap: 0.3, g: 1.14 },
+  reveal_rare: { fn: sfxRevealRare, max: 2, gap: 0.3, g: 0.89 },
+  reveal_epic: { fn: sfxRevealEpic, max: 1, gap: 0.5, g: 1.35 },
+  reveal_legendary: { fn: sfxRevealLegendary, max: 1, gap: 0.5, g: 1.13 },
+  star_pop: { fn: sfxStarPop, max: 4, gap: 0.08, g: 2.17 },
+  chip: { fn: sfxChip, max: 4, gap: 0.04, g: 3.06 },
+  // ---- the office clock
+  tick: { fn: sfxTick, max: 3, gap: 0.05, g: 1.89 },
+  tock: { fn: sfxTock, max: 3, gap: 0.05, g: 2.43 },
+  heartbeat: { fn: sfxHeartbeat, max: 2, gap: 0.2, g: 0.99 },
+  alarm: { fn: sfxAlarm, max: 1, gap: 0.5, g: 1.49 },
+  lunch_bell: { fn: sfxLunchBell, max: 1, gap: 0.5, g: 1.77 },
+  offwork: { fn: sfxOffwork, max: 1, gap: 1, g: 0.83 },
+  // ---- eating
+  squelch: { fn: sfxSquelch, max: 4, gap: 0.05, g: 2.47 },
+  crunch: { fn: sfxCrunch, max: 4, gap: 0.05, g: 2.68 },
+  bone_toss: { fn: sfxBoneToss, max: 3, gap: 0.08, g: 2.46 },
+  bone_clatter: { fn: sfxBoneClatter, max: 3, gap: 0.1, g: 2.07 },
+  blood_splat: { fn: sfxBloodSplat, max: 4, gap: 0.06, g: 2.46 },
+  // ---- building
+  build_cloud: { fn: sfxBuildCloud, max: 2, gap: 0.3, g: 1.37 },
+  pop_in: { fn: sfxPopIn, max: 4, gap: 0.06, g: 2.03 },
+  saw: { fn: sfxSaw, max: 2, gap: 0.2, g: 3.01 },
+  nail: { fn: sfxNail, max: 4, gap: 0.04, g: 1.62 },
+  // ---- nature & fish
+  bird_chirp: { fn: sfxBirdChirp, max: 4, gap: 0.08, g: 1.43 },
+  frog_croak: { fn: sfxFrogCroak, max: 3, gap: 0.15, g: 0.85 },
+  water_drip: { fn: sfxWaterDrip, max: 4, gap: 0.05, g: 2.21 },
+  fish_flop: { fn: sfxFishFlop, max: 3, gap: 0.12, g: 1.62 },
+  pet: { fn: sfxPet, max: 3, gap: 0.1, g: 1.58 },
+  tag: { fn: sfxTag, max: 3, gap: 0.1, g: 1.23 },
+  grab: { fn: sfxGrab, max: 4, gap: 0.05, g: 3.3 },
+  drop: { fn: sfxDrop, max: 4, gap: 0.05, g: 1.08 },
+  // ---- transitions & jingles
+  whoosh: { fn: sfxWhoosh, max: 3, gap: 0.1, g: 2.09 },
+  iris: { fn: sfxIris, max: 2, gap: 0.3, g: 1.64 },
+  cinema: { fn: sfxCinema, max: 1, gap: 1, g: 1.57 },
+  sleep: { fn: sfxSleep, max: 1, gap: 1, g: 1.43 },
+  sunrise: { fn: sfxSunrise, max: 1, gap: 1, g: 1.12 },
+  grade_good: { fn: sfxGradeGood, max: 1, gap: 0.5, g: 1.11 },
+  grade_bad: { fn: sfxGradeBad, max: 1, gap: 0.5, g: 1.01 },
 };
 const SFX_NAMES = Object.freeze(Object.keys(SFX));
 
@@ -1347,6 +2712,7 @@ const SC = {
   major: [0, 2, 4, 5, 7, 9, 11],
   minor: [0, 2, 3, 5, 7, 8, 10],
   lydian: [0, 2, 4, 6, 7, 9, 11],
+  hminor: [0, 2, 3, 5, 7, 8, 11], // harmonic minor: the raised seventh makes the villain's V chord major
 };
 const PENT = { major: [0, 2, 4, 7, 9], minor: [0, 3, 5, 7, 10] };
 
@@ -1376,6 +2742,12 @@ function nearOct(m, ref, lo, hi) {
 /** compact voicing of a chord inside [lo, lo+12), ascending */
 function voicing(chord, lo) {
   return chord.map((m) => toRange(m, lo)).sort((a, b) => a - b);
+}
+/** sorted midi pitches of a scale (semitone offsets from the key's pitch class) between lo and hi */
+function scaleRange(keyPc, scale, lo, hi) {
+  const out = [];
+  for (let m = lo; m <= hi; m++) if (scale.includes((((m - keyPc) % 12) + 12) % 12)) out.push(m);
+  return out;
 }
 /** sorted midi pitches of a pentatonic scale between lo and hi */
 function pentRange(keyPc, type, lo, hi) {
@@ -1644,6 +3016,148 @@ const INS = {
     }
     return v;
   },
+
+  /** FM electric piano: a bright tine that mellows within a fraction of a second */
+  epiano(ctx, out, t, midi, dur, vol, o = {}) {
+    const v = mv(ctx, out, late(t), vel(vol), o.wet != null ? o.wet : 0.4, o);
+    const f = mtof(midi), t0 = v.t0, T = dur + 0.6;
+    const car = v.osc('sine', t0, T), mod = v.osc('sine', t0, T), mg = v.gn(0);
+    car.frequency.value = f;
+    mod.frequency.value = f;
+    mg.gain.setValueAtTime(f * 1.5, t0);
+    mg.gain.exponentialRampToValueAtTime(f * 0.18, t0 + 0.4);
+    mod.connect(mg);
+    mg.connect(car.frequency);
+    const g = v.gn(0);
+    env(g.gain, t0, 0.004, 0.5, Math.max(0, dur - 0.05), 0.5);
+    car.connect(g);
+    g.connect(v.out);
+    v.tone({ f: f * 7.01, a: 0.001, rel: 0.09, peak: 0.05 }); // tine ping
+    return v;
+  },
+
+  /** vibraphone: a soft bell with a slow tremolo */
+  vibes(ctx, out, t, midi, vol, o = {}) {
+    const rel = o.rel || 1.8, vv = vel(vol);
+    const v = mv(ctx, out, late(t), vv, o.wet != null ? o.wet : 0.45, o);
+    v.bell({ f: mtof(midi), parts: [[1, 1, 1], [4, 0.14, 0.35], [10, 0.05, 0.18]], peak: 1, rel });
+    const l = v.osc('sine', v.t0, rel + 0.3), lg = v.gn(vv * 0.22);
+    l.frequency.value = 5;
+    l.connect(lg);
+    lg.connect(v.out.gain);
+    return v;
+  },
+
+  /** music-box tine and the tick of the pin that plucks it */
+  musicbox(ctx, out, t, midi, vol, o = {}) {
+    const v = mv(ctx, out, late(t), vel(vol), o.wet != null ? o.wet : 0.7, o);
+    v.bell({ f: mtof(midi), parts: MUSICBOX, peak: 1, rel: o.rel || 1.9 });
+    v.noise({ buf: 'white', f: 6500, q: 1, bursts: [[0, 0.05, 0.004]] });
+    return v;
+  },
+
+  /** synth bass: saw + square with a resonant filter pluck and a sine sub */
+  synthbass(ctx, out, t, midi, dur, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.03);
+    const f = mtof(midi), hold = Math.max(0, dur - 0.1);
+    v.tone({ type: 'sawtooth', f, a: 0.005, hold, rel: 0.12, peak: 0.42, lp: 1500, lp2: 240, lpt: 0.22, q: 5, det: -6 });
+    v.tone({ type: 'square', f, a: 0.005, hold, rel: 0.12, peak: 0.22, lp: 900, lp2: 220, lpt: 0.2, q: 3, det: 6 });
+    v.tone({ f, a: 0.005, hold, rel: 0.14, peak: 0.42 });
+    return v;
+  },
+
+  /** staccato pizzicato: the sneaky voice of the lab */
+  pizz(ctx, out, t, midi, vol, o = {}) {
+    const v = mv(ctx, out, late(t), vel(vol), o.wet != null ? o.wet : 0.25, o);
+    const f = mtof(midi);
+    v.tone({ type: 'triangle', f, a: 0.002, rel: 0.11, peak: 0.6, lp: 3200, lp2: 800, lpt: 0.09 });
+    v.tone({ f: f * 2, a: 0.002, rel: 0.05, peak: 0.12 });
+    v.noise({ buf: 'white', f: 3000, q: 1, bursts: [[0, 0.06, 0.006]] });
+    return v;
+  },
+
+  /** theremin: slow portamento, deep vibrato, ooooOOOoooh */
+  theremin(ctx, out, t, midi, dur, vol, o = {}) {
+    const v = mv(ctx, out, t, vol, o.wet != null ? o.wet : 0.55, o);
+    const f = mtof(midi);
+    v.tone({ f: f * 0.93, f2: f, gl: 0.16, a: 0.25, hold: dur * 0.5, rel: dur * 0.45, peak: 0.5, vr: 5.6, vc: 38, vd: 0.35, lp: 1700 });
+    v.tone({ f: f * 1.86, f2: f * 2, gl: 0.16, a: 0.3, hold: dur * 0.4, rel: dur * 0.4, peak: 0.06 });
+    return v;
+  },
+
+  /** a bubbling beaker */
+  bloop(ctx, out, t, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.25, { pan: rr(-0.6, 0.6) });
+    const f = rr(380, 720);
+    v.tone({ f, f2: f * 2.3, gl: 0.05, a: 0.002, rel: 0.09, peak: 0.6 });
+    return v;
+  },
+
+  /** dust on the record */
+  crackle(ctx, out, t, vol) {
+    const v = mv(ctx, out, t, vol * rr(0.4, 1), 0);
+    v.noise({ buf: 'white', ft: 'highpass', f: rr(2500, 6000), q: 0.5, bursts: [[0, 1, rr(0.002, 0.006)]] });
+    return v;
+  },
+
+  /** a soft, dull hand clap */
+  clap(ctx, out, t, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.15);
+    v.noise({ buf: 'pink', f: 1300, q: 0.9, bursts: [[0, 0.8, 0.012], [0.011, 0.7, 0.012], [0.024, 0.9, 0.06]] });
+    return v;
+  },
+
+  /** side-stick "click" of a bossa nova rhythm section */
+  rim(ctx, out, t, vol) {
+    const v = mv(ctx, out, t, vel2(vol), 0.08);
+    v.tone({ f: 1750, f2: 1500, gl: 0.01, a: 0.001, rel: 0.02, peak: 0.5 });
+    v.tone({ type: 'triangle', f: 480, f2: 400, gl: 0.02, a: 0.001, rel: 0.03, peak: 0.25 });
+    v.noise({ buf: 'white', f: 2800, q: 1.2, bursts: [[0, 0.8, 0.008]] });
+    return v;
+  },
+
+  /** oompah tuba: short, round and a little bit silly */
+  tuba(ctx, out, t, midi, dur, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.05);
+    const f = mtof(midi);
+    v.tone({ type: 'triangle', f, f2: f * 0.985, gl: dur, a: 0.008, hold: dur * 0.35, rel: dur * 0.5 + 0.03, peak: 0.6, lp: 900 });
+    v.tone({ f, a: 0.008, hold: dur * 0.35, rel: dur * 0.5 + 0.03, peak: 0.5 });
+    v.noise({ buf: 'pink', f: 500, q: 0.8, bursts: [[0, 0.25, 0.02]] });
+    return v;
+  },
+
+  /** brass section stab (a chord) */
+  brass(ctx, out, t, midis, dur, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.1);
+    const s = 1 / Math.sqrt(midis.length);
+    for (const m of midis) {
+      const f = mtof(m);
+      v.tone({ type: 'sawtooth', f, a: 0.012, hold: dur * 0.45, rel: dur * 0.55 + 0.03, peak: 0.5 * s, lp: 550, lp2: 3400, lpt: 0.045, q: 1, det: -7 });
+      v.tone({ type: 'sawtooth', f, a: 0.012, hold: dur * 0.45, rel: dur * 0.55 + 0.03, peak: 0.4 * s, lp: 550, lp2: 3000, lpt: 0.05, q: 1, det: 7 });
+    }
+    return v;
+  },
+
+  /** a single brassy melody note (with a little vibrato once it has settled) */
+  horn(ctx, out, t, midi, dur, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.12);
+    const f = mtof(midi);
+    v.tone({ type: 'sawtooth', f, a: 0.02, hold: dur * 0.5, rel: dur * 0.4 + 0.03, peak: 0.5, lp: 700, lp2: 3000, lpt: 0.06, det: -5, vr: 5.5, vc: 14, vd: 0.15 });
+    v.tone({ type: 'sawtooth', f, a: 0.02, hold: dur * 0.5, rel: dur * 0.4 + 0.03, peak: 0.35, lp: 700, lp2: 2600, lpt: 0.06, det: 5, vr: 5.5, vc: 14, vd: 0.15 });
+    return v;
+  },
+
+  crash(ctx, out, t, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.15);
+    cymbal(v, 0, 1, 1.5);
+    return v;
+  },
+
+  timp(ctx, out, t, midi, vol) {
+    const v = mv(ctx, out, t, vel(vol), 0.12);
+    timpani(v, 0, mtof(midi), 1, 0.55);
+    return v;
+  },
 };
 
 /* ========================================================================== *
@@ -1835,12 +3349,291 @@ function moodNight(ctx, out) {
   };
 }
 
-const MOODS = { title: moodTitle, day: moodDay, rush: moodRush, night: moodNight };
+/* ---- the extra moods ------------------------------------------------------------------------------ */
+
+const RH_MORNING = [[0, 6, 10], [0, 8], [2, 8, 12], [0, 4, 8, 12], [0, 6, 8, 14], [4, 10], [0, 10, 12]];
+
+/** Morning: fingerpicked guitar and a sleepy melody in F major - warm, open and sparse enough for the birds */
+function moodMorning(ctx, out) {
+  const key = 53, scale = SC.major;
+  const sd = 60 / 76 / 4;
+  const prog = makeProg(PROG_MAJOR);
+  const pent = pentRange(key % 12, 'major', 65, 89);
+  const mel = makeMelody(pent, 77);
+  const echo = makeEcho(ctx, out, sd * 6, 0.3, 2200, 0.4);
+  let chord = null, keys = null, evs = {}, bar = 0, bassRoot = 41, twinkle = -1;
+  return {
+    stepDur: sd,
+    nodes: echo.nodes,
+    step(i, t) {
+      const s = i & 15;
+      if (s === 0) {
+        chord = triad(key, scale, prog.next());
+        keys = voicing(chord, 57);
+        bassRoot = nearOct(chord[0], bassRoot, 40, 52);
+        INS.pad(ctx, out, t, chord.map((m) => toRange(m, 50)), sd * 16, 0.5, { att: 1.8, rel: 2.2, lp: 700, wet: 0.6 });
+        evs = {};
+        if (chance(0.7)) {
+          const list = mel.bar(pick(RH_MORNING), chord.map((m) => m % 12), { reuse: 0.5, endPcs: bar % 4 === 3 ? [key % 12, (key + 7) % 12] : null });
+          for (const e of list) evs[e.s] = e;
+        }
+        twinkle = chance(0.25) ? pick([6, 10, 14]) : -1;
+        bar++;
+      }
+      // fingerpicked arpeggio in eighth notes: bass - up - down
+      if ((s & 1) === 0) {
+        const j = s >> 1, seq = [bassRoot, keys[0], keys[1], keys[2], bassRoot + 7, keys[2], keys[1], keys[0]];
+        const bass = j === 0 || j === 4;
+        INS.pluck(ctx, out, t, seq[j], bass ? 1.6 : 0.9, bass ? 0.34 : j === 2 || j === 6 ? 0.3 : 0.23, {
+          wet: 0.3, lp: bass ? 1400 : 2400, sends: [[echo.in, bass ? 0 : 0.08]], pan: bass ? -0.15 : rr(-0.3, 0.3),
+        });
+      }
+      // a soft brush on the off-beats
+      if (s === 4 || s === 12) INS.shaker(ctx, out, t, 0.05);
+      else if (s % 4 === 2 && chance(0.5)) INS.shaker(ctx, out, t, 0.025);
+      const e = evs[s];
+      if (e) INS.pluck(ctx, out, t, e.m, Math.min(e.len * sd, 2.4), 0.6, { wet: 0.42, lp: 3000, sends: [[echo.in, 0.3]], pan: rr(0, 0.3) });
+      if (s === twinkle) INS.glock(ctx, out, t, pick(pent.slice(-8)), 0.13, { sends: [[echo.in, 0.3]], pan: rr(-0.5, 0.5) });
+    },
+  };
+}
+
+const PROG_LAB = [[0, 3, 4, 0], [0, 5, 4, 4], [0, 3, 5, 4], [0, 4, 0, 5], [0, 1, 4, 0], [0, 5, 3, 4]];
+const RH_LAB = [[0, 3, 6, 8, 11], [0, 2, 6, 8, 10, 14], [3, 6, 10, 12], [0, 6, 8], [2, 3, 6, 10, 14], [0, 3, 8, 11, 14]];
+// bass patterns: [step, interval token, length in steps]  (r root, o octave, f fifth, t third, b flat seventh, s fourth)
+const LAB_BASS = [
+  [[0, 'r', 5], [6, 'r', 2], [8, 'o', 2], [10, 'f', 4], [14, 's', 2]],
+  [[0, 'r', 3], [3, 'r', 2], [6, 'f', 2], [8, 'r', 3], [12, 'o', 2], [14, 'b', 2]],
+  [[0, 'r', 4], [4, 'f', 2], [7, 'r', 1], [8, 'r', 3], [11, 't', 2], [14, 'f', 2]],
+];
+const LAB_STEP = { r: 0, o: 12, f: 7, b: 10, s: 5 };
+
+/** Lab: lo-fi evil-genius groove in D harmonic minor - swung drums, minor-major-seventh keys, a sneaky pizzicato, theremin, bubbling beakers */
+function moodLab(ctx, out) {
+  const key = 50, scale = SC.hminor;
+  const sd = 60 / 86 / 4;
+  const prog = makeProg(PROG_LAB);
+  const pitches = scaleRange(key % 12, scale, 64, 86);
+  const mel = makeMelody(pitches, 73);
+  const echo = makeEcho(ctx, out, sd * 3, 0.34, 1800, 0.4);
+  let chord = null, keys = null, evs = {}, bar = 0, bassRoot = 38, bassPat = LAB_BASS[0], third = 3, creep = false, ooh = false, sparkle = -1;
+  return {
+    stepDur: sd,
+    nodes: echo.nodes,
+    step(i, t) {
+      const s = i & 15;
+      const T = t + (s & 1 ? sd * 0.24 : 0); // lazy lo-fi swing
+      if (s === 0) {
+        const deg = prog.next();
+        chord = triad(key, scale, deg);
+        keys = voicing(triad(key, scale, deg, 4), 57);
+        bassRoot = nearOct(chord[0], bassRoot, 36, 47);
+        third = (((chord[1] - chord[0]) % 12) + 12) % 12;
+        bassPat = pick(LAB_BASS);
+        creep = bar % 4 === 3 && chance(0.55); // the villain tiptoes up the stairs
+        ooh = bar % 4 === 1 && chance(0.6);
+        sparkle = chance(0.22) ? pick([3, 6, 10, 13]) : -1;
+        evs = {};
+        if (chance(0.66)) {
+          const list = mel.bar(pick(RH_LAB), chord.map((m) => m % 12), { reuse: 0.5, endPcs: bar % 4 === 3 ? [key % 12, (key + 7) % 12] : null });
+          for (const e of list) evs[e.s] = e;
+        }
+        if (ooh) INS.theremin(ctx, out, t, chord[2] + 12, sd * 11, 0.17, { sends: [[echo.in, 0.3]], pan: 0.2 });
+        bar++;
+      }
+      // dusty drums
+      if (s === 0) INS.kick(ctx, out, T, 0.32);
+      else if (s === 7 && chance(0.5)) INS.kick(ctx, out, T, 0.19);
+      else if (s === 10) INS.kick(ctx, out, T, 0.24);
+      if (s === 4 || s === 12) INS.clap(ctx, out, T, 0.15);
+      if (s % 2 === 0) INS.hat(ctx, out, T, s % 4 === 2 ? 0.05 : 0.036, false);
+      else if (chance(0.25)) INS.hat(ctx, out, T, 0.02, false);
+      if (s === 14 && chance(0.3)) INS.hat(ctx, out, T, 0.05, true);
+      if (chance(0.3)) INS.crackle(ctx, out, T, 0.03);
+      // bass: syncopated, with an occasional chromatic creep
+      for (const [st, tok, len] of bassPat) {
+        if (st !== s || (creep && s >= 12)) continue;
+        INS.synthbass(ctx, out, T, bassRoot + (tok === 't' ? third : LAB_STEP[tok]), sd * len, 0.3);
+      }
+      if (creep && s >= 12) INS.synthbass(ctx, out, t, bassRoot + (s - 12), sd * 1.6, 0.28);
+      // keys: minor-major sevenths on the off-beats
+      if (s === 0 || s === 6 || s === 10) keys.forEach((m, j) => INS.epiano(ctx, out, T + j * 0.012, m, sd * (s === 0 ? 5 : 2.4), 0.13, { sends: [[echo.in, 0.2]], pan: -0.2 }));
+      // the sneaky lead
+      const e = evs[s];
+      if (e) INS.pizz(ctx, out, T, e.m, 0.4, { sends: [[echo.in, 0.3]], pan: rr(0, 0.35) });
+      if (s === sparkle) INS.glock(ctx, out, T, pick(pitches) + 12, 0.1, { sends: [[echo.in, 0.4]], pan: rr(-0.5, 0.5) });
+      if ((s & 1) && chance(0.07)) INS.bloop(ctx, out, T, 0.12);
+    },
+  };
+}
+
+const PROG_FEAST = [[0, 3, 4, 0], [0, 4, 0, 4], [0, 5, 4, 0], [0, 3, 0, 4], [0, 6, 4, 0]];
+const RH_FEAST = [[0, 2, 4, 6, 8, 10, 12, 14], [0, 3, 4, 7, 8, 11, 12], [0, 2, 4, 8, 10, 12, 14], [0, 4, 6, 8, 12, 14], [0, 2, 3, 4, 8, 10, 11, 12], [0, 2, 4, 6, 8, 12]];
+
+/** Feast: a comedic, slightly frantic cinematic march - oompah tuba, brass "pah"s, marching snare with rolls, crashing cymbals */
+function moodFeast(ctx, out) {
+  const key = 50, scale = SC.hminor;
+  const sd = 60 / 150 / 4;
+  const prog = makeProg(PROG_FEAST);
+  const pitches = scaleRange(key % 12, scale, 62, 86);
+  const mel = makeMelody(pitches, 74);
+  let chord = null, stabs = null, evs = {}, bar = 0, bassRoot = 38, roll = false, run = false;
+  return {
+    stepDur: sd,
+    nodes: [],
+    step(i, t) {
+      const s = i & 15;
+      if (s === 0) {
+        chord = triad(key, scale, prog.next());
+        stabs = voicing(chord, 57);
+        bassRoot = nearOct(chord[0], bassRoot, 38, 49);
+        roll = bar % 4 === 3;
+        run = roll && chance(0.5);
+        evs = {};
+        if (chance(0.9)) {
+          const list = mel.bar(pick(RH_FEAST), chord.map((m) => m % 12), { reuse: 0.55, endPcs: bar % 4 === 3 ? [key % 12, (key + 7) % 12] : null });
+          for (const e of list) evs[e.s] = e;
+        }
+        if (bar % 4 === 0) {
+          INS.crash(ctx, out, t, 0.11);
+          INS.timp(ctx, out, t, bassRoot + 12, 0.28);
+        }
+        bar++;
+      }
+      // the march: kick on 1 and 3, tuba on the beat, brass "pah" in between
+      if (s === 0 || s === 8) INS.kick(ctx, out, t, 0.34);
+      if (s === 0) INS.tuba(ctx, out, t, bassRoot, sd * 4, 0.4);
+      else if (s === 8) INS.tuba(ctx, out, t, bassRoot + 7, sd * 4, 0.36);
+      else if (s === 4 || s === 12) INS.brass(ctx, out, t, stabs, sd * 3, 0.32);
+      if (roll && s >= 8) INS.snare(ctx, out, t, 0.12 + (s - 8) * 0.02);
+      else if (s === 4 || s === 12) INS.snare(ctx, out, t, 0.28);
+      else if ((s === 6 || s === 14 || s === 15) && chance(0.6)) INS.snare(ctx, out, t, 0.1);
+      if (s % 2 === 0) INS.hat(ctx, out, t, s % 4 === 2 ? 0.07 : 0.04, false);
+      // the melody: staccato brass, with a chromatic scramble at the end of every fourth bar
+      const e = evs[s];
+      if (e) INS.horn(ctx, out, t, e.m, Math.min(e.len, 3) * sd * 0.8, 0.32);
+      if (run && s >= 12) INS.horn(ctx, out, t, 74 + (s - 12), sd * 0.8, 0.26);
+    },
+  };
+}
+
+const PROG_SHEET = [[1, 4, 0, 5], [0, 5, 1, 4], [0, 3, 1, 4], [2, 5, 1, 4], [0, 2, 3, 4], [3, 4, 0, 0]];
+const RH_SHEET = [[0, 6, 10], [0, 8], [2, 8, 12], [0, 4, 10], [4, 10, 14], [0, 6, 8, 14]];
+
+/** Sheet: calm office bossa nova - rim-click clave, dotted bass, electric-piano comping, vibes and a hint of strings */
+function moodSheet(ctx, out) {
+  const key = 53, scale = SC.major;
+  const sd = 60 / 104 / 4;
+  const prog = makeProg(PROG_SHEET);
+  const pent = pentRange(key % 12, 'major', 65, 86);
+  const mel = makeMelody(pent, 74);
+  const echo = makeEcho(ctx, out, sd * 6, 0.22, 2000, 0.3);
+  let chord = null, keys = null, evs = {}, bar = 0, bassRoot = 41;
+  return {
+    stepDur: sd,
+    nodes: echo.nodes,
+    step(i, t) {
+      const s = i & 15;
+      if (s === 0) {
+        const deg = prog.next(), ch7 = triad(key, scale, deg, 4);
+        chord = triad(key, scale, deg);
+        keys = voicing(ch7, 55);
+        bassRoot = nearOct(chord[0], bassRoot, 36, 47);
+        INS.pad(ctx, out, t, ch7.map((m) => toRange(m, 48)), sd * 16, 0.24, { att: 1.2, rel: 1.8, lp: 650, wet: 0.5 });
+        evs = {};
+        if (chance(0.65)) {
+          const list = mel.bar(pick(RH_SHEET), chord.map((m) => m % 12), { reuse: 0.4, endPcs: bar % 4 === 3 ? [key % 12, (key + 7) % 12] : null });
+          for (const e of list) evs[e.s] = e;
+        }
+        bar++;
+      }
+      const even = (bar & 1) === 0; // bar was incremented: this is the 2-bar clave cycle
+      // bossa bass: dotted quarter + eighth
+      if (s === 0) INS.bass(ctx, out, t, bassRoot, sd * 5, 0.26);
+      else if (s === 6) INS.bass(ctx, out, t, bassRoot + 7, sd * 2, 0.2);
+      else if (s === 8) INS.bass(ctx, out, t, bassRoot, sd * 5, 0.22);
+      else if (s === 14) INS.bass(ctx, out, t, bassRoot + 7, sd * 2, 0.19);
+      // rim-click clave over two bars, shaker in eighths
+      if (even ? s === 0 || s === 6 || s === 12 : s === 4 || s === 10) INS.rim(ctx, out, t, 0.11);
+      if (s % 2 === 0) INS.shaker(ctx, out, t, s % 4 === 0 ? 0.045 : 0.03);
+      // electric-piano comping on the syncopations
+      if (even ? s === 0 || s === 6 || s === 10 : s === 2 || s === 6 || s === 12) {
+        keys.forEach((m, j) => INS.epiano(ctx, out, t + j * 0.01, m, sd * 2.5, 0.11, { sends: [[echo.in, 0.15]], pan: -0.15 }));
+      }
+      const e = evs[s];
+      if (e) INS.vibes(ctx, out, t, e.m, 0.3, { sends: [[echo.in, 0.3]], pan: rr(0, 0.3) });
+    },
+  };
+}
+
+// lullaby cells: [step in the 12-step bar, pentatonic steps above the bar's anchor note]
+const CELLS_SLEEP = [
+  [[0, 0], [4, 1], [8, 0]], // rock
+  [[0, 0], [4, 1], [8, 2]], // climb
+  [[0, 2], [4, 1], [8, 0]], // fall
+  [[0, 0], [4, 2], [8, 1]], // arch
+  [[0, 0], [8, 1]], // long - short
+  [[0, 1], [6, 0], [8, -1]], // sigh
+  [[0, 0], [4, 0], [6, 1], [8, 2]], // gathering
+];
+const CADENCE_SLEEP = [[[0, 2], [4, 1], [8, 0]], [[0, 1], [4, 1], [8, 0]], [[0, 2], [6, 1], [8, 0]]]; // ends of phrases: settle down onto the tonic
+
+/** Sleep: a very soft music-box lullaby in waltz time (12 sixteenth steps per bar) over a warm hum */
+function moodSleep(ctx, out) {
+  const key = 53, scale = SC.major;
+  const sd = 60 / 62 / 4;
+  const prog = makeProg(PROG_MAJOR);
+  const pent = pentRange(key % 12, 'major', 72, 96);
+  const mid = pent.findIndex((m) => m >= 81);
+  const echo = makeEcho(ctx, out, sd * 4, 0.42, 2400, 0.5);
+  let chord = null, cell = CELLS_SLEEP[0], evs = {}, bar = 0, idx = mid, rested = false;
+  return {
+    stepDur: sd,
+    bar: 12,
+    nodes: echo.nodes,
+    step(i, t) {
+      const s = i % 12;
+      if (s === 0) {
+        chord = triad(key, scale, prog.next());
+        INS.pad(ctx, out, t, [toRange(chord[0], 41), toRange(chord[2], 48)], sd * 12, 0.26, { att: 1.6, rel: 2, lp: 380, wet: 0.5 });
+        evs = {};
+        if (rested || !chance(0.1)) {
+          rested = false;
+          // anchor: the chord tone closest to where the tune is now, pulled back towards the middle of the box
+          const pcs = chord.map((m) => m % 12), home = clamp(idx + (idx > mid ? -1 : idx < mid ? 1 : 0), mid - 3, mid + 2);
+          let anchor = idx;
+          for (let d = 0; d < 4; d++) {
+            const c = [home + d, home - d].find((j) => j >= 0 && j < pent.length && pcs.includes(pent[j] % 12));
+            if (c != null) {
+              anchor = c;
+              break;
+            }
+          }
+          const cadence = bar % 4 === 3;
+          if (cadence) cell = pick(CADENCE_SLEEP);
+          else if (!chance(0.4)) cell = pick(CELLS_SLEEP);
+          if (cadence) anchor = pent.findIndex((m) => m % 12 === key % 12 && Math.abs(m - 81) <= 6);
+          anchor = clamp(anchor, mid - 3, mid + 2);
+          for (const [st, up] of cell) {
+            idx = clamp(anchor + up, mid - 4, mid + 4);
+            evs[st] = pent[idx];
+          }
+        } else rested = true; // a bar of just the rocking left hand, never two in a row
+        bar++;
+      }
+      // a rocking left hand: root - fifth - third, very soft
+      if (s === 0 || s === 4 || s === 8) INS.musicbox(ctx, out, t, toRange(chord[s === 0 ? 0 : s === 4 ? 2 : 1], 60), 0.09, { sends: [[echo.in, 0.3]], pan: -0.2 });
+      if (evs[s]) INS.musicbox(ctx, out, t, evs[s], 0.22, { sends: [[echo.in, 0.5]], pan: rr(0, 0.3) });
+    },
+  };
+}
+
+const MOODS = { title: moodTitle, day: moodDay, rush: moodRush, night: moodNight, morning: moodMorning, lab: moodLab, feast: moodFeast, sheet: moodSheet, sleep: moodSleep };
 const MOOD_NAMES = Object.freeze(Object.keys(MOODS));
 
 /** instantiate a mood on a music bus: gains start at 0 (see fadeMood) */
 // per-mood loudness trim so every mood sits at a similar perceived level
-const MOOD_LEVEL = { title: 1.6, day: 0.85, rush: 1.0, night: 1.5 };
+const MOOD_LEVEL = { title: 1.6, day: 0.85, rush: 1.0, night: 1.5, morning: 1.9, lab: 0.95, feast: 1.3, sheet: 0.85, sleep: 1.3 };
 
 function createMood(name, ctx, bus) {
   const dry = ctx.createGain(), wet = ctx.createGain(); // crossfade gains (0 -> 1)
@@ -2208,6 +4001,7 @@ const S = {
   suspendTimer: 0,
   suspending: false, // a ctx.suspend() is in flight (state still reads 'running' until it lands)
   live: [], // sounding SFX: { name, end }
+  babbles: [], // talking characters: { name, plan, i, t0, pitch, volume, voices }
   counts: {},
   lastStart: {},
   amb: newAmbState(),
@@ -2321,6 +4115,7 @@ function syncRun() {
       syncMusic();
     } else {
       stopTimer();
+      S.babbles.length = 0; // a line of dialogue must not resume mid-sentence after a mute / tab switch
       S.suspendTimer = setTimeout(() => {
         S.suspendTimer = 0;
         if (!wantRunning() && S.ctx && S.ctx.state === 'running') {
@@ -2377,6 +4172,7 @@ function tick() {
         S.fading.splice(i, 1);
       }
     }
+    pumpBabbles(ctx, now);
     const m = S.cur;
     if (m && !musicOn()) {
       m.nextTime = now + 0.05; // music slider at zero: no notes, no CPU; picks up again when raised
@@ -2387,7 +4183,7 @@ function tick() {
       while (m.nextTime < horizon && guard++ < 40) {
         // A step that is already clearly late (main thread stalled) is skipped instead of being played in a
         // flam-like burst; bar starts always run so chords/motifs stay in sync with the bar grid.
-        if (m.nextTime > now - 0.06 || (m.i & 15) === 0) m.gen.step(m.i, Math.max(m.nextTime, now + 0.01));
+        if (m.nextTime > now - 0.06 || m.i % (m.gen.bar || 16) === 0) m.gen.step(m.i, Math.max(m.nextTime, now + 0.01));
         m.i++;
         m.nextTime += m.gen.stepDur;
       }
@@ -2485,6 +4281,80 @@ function play(name, opts) {
     }
     S.live.push({ name, end: num(end, when + 1) });
     S.counts[name] = (S.counts[name] || 0) + 1;
+  } catch (e) {
+    /* never throw */
+  }
+}
+
+/* ---- babble: talking characters --------------------------------------------------------------------- */
+
+/** schedules the syllables of every talking character that fall inside the lookahead window */
+function pumpBabbles(ctx, now) {
+  const B = S.babbles;
+  if (!B.length) return;
+  const bus = S.rig.buses.sfx, horizon = now + LOOKAHEAD;
+  for (let j = B.length - 1; j >= 0; j--) {
+    const b = B[j], evs = b.plan.evs;
+    let guard = 0;
+    while (b.i < evs.length && b.t0 + evs[b.i].t < horizon && guard++ < 24) {
+      const ev = evs[b.i++], at = b.t0 + ev.t;
+      if (at < now - 0.04) continue; // already in the past (stalled main thread): skip it, stay in sync with the text
+      b.voices.push(babbleSyllable(ctx, bus.dry, Math.max(at, now + 0.004), ev, b.name, b.pitch, b.volume, bus.wet));
+    }
+    if (b.voices.length > 12) b.voices = b.voices.filter((v) => v.end > now);
+    if (b.i >= evs.length && now > b.t0 + b.plan.total + 0.1) B.splice(j, 1);
+  }
+}
+
+/** quick fade-out of everything a talking character has scheduled */
+function hushBabble(b, now) {
+  for (const v of b.voices) {
+    try {
+      v.out.gain.cancelScheduledValues(now);
+      v.out.gain.setTargetAtTime(0, now, 0.008);
+    } catch (e) {
+      /* voice already gone */
+    }
+  }
+}
+
+/**
+ * Animal-Crossing style gibberish for a line of dialogue: one syllable per letter, longer pauses at . , ! ?
+ * A new line of the same voice replaces its previous one, up to three characters talk at once.
+ * Returns how many seconds the line takes (also while muted or locked, so callers can time their text boxes).
+ */
+function babble(voice, text, opts) {
+  try {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const name = typeof voice === 'string' ? voice : '';
+    const plan = planBabble(name, text, num(o.cps, 16));
+    if (!plan) return 0;
+    const ctx = S.ctx;
+    const volume = clamp(num(o.volume, 1), 0, 2), pitch = clamp(num(o.pitch, 1), 0.25, 4);
+    if (!plan.evs.length || !ctx || !S.unlocked || S.muted || S.hidden || !sfxOn() || volume < 0.0005) return plan.total;
+    if (ctx.state !== 'running' && nowMs() > S.resumeUntil) return plan.total;
+    const now = ctx.currentTime;
+    for (let j = S.babbles.length - 1; j >= 0; j--) {
+      if (S.babbles[j].name === name) {
+        hushBabble(S.babbles[j], now);
+        S.babbles.splice(j, 1);
+      }
+    }
+    while (S.babbles.length >= 3) hushBabble(S.babbles.shift(), now);
+    S.babbles.push({ name, plan, i: 0, t0: now + 0.02, pitch, volume, voices: [] });
+    pumpBabbles(ctx, now);
+    return plan.total;
+  } catch (e) {
+    return 0; /* never throw */
+  }
+}
+
+/** shut everybody up (scene change, skipped dialogue) */
+function stopBabble() {
+  try {
+    const now = S.ctx ? S.ctx.currentTime : 0;
+    for (const b of S.babbles) hushBabble(b, now);
+    S.babbles.length = 0;
   } catch (e) {
     /* never throw */
   }
@@ -2619,6 +4489,17 @@ function _debugRenderSfx(name, seconds = 4, opts = {}) {
   });
 }
 
+/** render a line of babble through the full master chain (o = { cps, pitch, volume, seconds, raw }) */
+function _debugRenderBabble(voice, text, o = {}) {
+  const plan = planBabble(String(voice), text, num(o.cps, 16));
+  if (!plan) return Promise.reject(new Error('unknown voice ' + voice));
+  const pitch = clamp(num(o.pitch, 1), 0.25, 4), volume = clamp(num(o.volume, 1), 0, 2);
+  return renderOffline(num(o.seconds, plan.total + 0.6), (ctx, rig) => {
+    const bus = rig.buses.sfx;
+    for (const ev of plan.evs) babbleSyllable(ctx, bus.dry, 0.04 + ev.t, ev, voice, pitch, volume, bus.wet);
+  });
+}
+
 /**
  * Calls pump(now) every 100 ms of *rendered* time (OfflineAudioContext.suspend), so generators are driven
  * just-in-time exactly like the live lookahead scheduler instead of building the whole graph up front.
@@ -2691,6 +4572,7 @@ function _debugState() {
     mood: S.cur ? S.cur.name : null,
     fading: S.fading.length,
     liveVoices: S.live.length,
+    babbling: S.babbles.length,
     amb: { hour: S.amb.hour, night: S.amb.night, crickets: S.amb.crickets.map((k) => +k.next.toFixed(2)) },
     timer: !!S.timer,
     stats: { ...stats, droppedBy: { ...stats.droppedBy } },
@@ -2730,14 +4612,18 @@ export const audio = {
   setMusic,
   setAmbience,
   update,
+  babble,
+  stopBabble,
   isUnlocked: () => S.unlocked,
   getMusic: () => S.want,
   sfxNames: SFX_NAMES,
   moods: MOOD_NAMES,
+  voices: BABBLE_VOICES,
   _debugRenderSfx,
   _debugRenderMix,
   _debugRenderMusic,
   _debugRenderAmbience,
+  _debugRenderBabble,
   _debugState,
   _debugLevel,
 };

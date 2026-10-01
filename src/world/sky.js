@@ -35,17 +35,17 @@ void main() {
 
 // keyframes over the day (hour -> look)
 const KEYS = [
-  { h: 0, sun: 0x7f9ae8, sunI: 0.45, sky: 0x323d6e, gnd: 0x151a26, hemiI: 0.62, top: 0x050a22, bot: 0x14204a, sh: 0x1a4560, dp: 0x0e2442, tint: 0x203060, aur: 1 },
-  { h: 5.5, sun: 0x9a8ad0, sunI: 0.6, sky: 0x4a4a80, gnd: 0x252030, hemiI: 0.62, top: 0x1a2250, bot: 0x6a4a78, sh: 0x2a5a70, dp: 0x163050, tint: 0x6a5080, aur: 0.3 },
-  { h: 7, sun: 0xffb48a, sunI: 1.5, sky: 0xb0c0e8, gnd: 0x4a4a3a, hemiI: 0.95, top: 0x6a8ad0, bot: 0xf2c0a0, sh: 0x2f8082, dp: 0x244a78, tint: 0xf0b8a0, aur: 0 },
-  { h: 9, sun: 0xfff0d8, sunI: 2.3, sky: 0xc4dcff, gnd: 0x5b6a3a, hemiI: 1.1, top: 0x74ade6, bot: 0xd8ecf6, sh: 0x2f8a88, dp: 0x24507e, tint: 0xc8e0f0, aur: 0 },
-  { h: 12.5, sun: 0xffffff, sunI: 2.6, sky: 0xd0e4ff, gnd: 0x5e6e3b, hemiI: 1.2, top: 0x62a4ea, bot: 0xcfe8f8, sh: 0x2f8e8a, dp: 0x245282, tint: 0xd0e8f8, aur: 0 },
-  { h: 15.5, sun: 0xfff0d2, sunI: 2.45, sky: 0xd8dcf0, gnd: 0x5e6a3a, hemiI: 1.1, top: 0x6aa2e0, bot: 0xe8e4d8, sh: 0x2f8a86, dp: 0x244f80, tint: 0xe0e0e0, aur: 0 },
-  { h: 17, sun: 0xffc27c, sunI: 2.55, sky: 0xf2d4b4, gnd: 0x66603e, hemiI: 1.12, top: 0xe6996a, bot: 0xffd9a0, sh: 0x3a8a80, dp: 0x2e4a78, tint: 0xffc890, aur: 0 },
-  { h: 18.4, sun: 0xff8a5e, sunI: 2.0, sky: 0xcfa4ba, gnd: 0x524640, hemiI: 0.98, top: 0x7c5aa6, bot: 0xff9468, sh: 0x356e78, dp: 0x2c3c6e, tint: 0xff9a80, aur: 0 },
-  { h: 19.6, sun: 0x9c7cd4, sunI: 0.8, sky: 0x6a6aa8, gnd: 0x2c2c40, hemiI: 0.7, top: 0x262c66, bot: 0x8a5a8c, sh: 0x2f5a72, dp: 0x1c3460, tint: 0x7060a0, aur: 0.2 },
-  { h: 21, sun: 0x8aa8ff, sunI: 0.55, sky: 0x3a4a82, gnd: 0x1a1f2c, hemiI: 0.62, top: 0x0a1030, bot: 0x1c2a58, sh: 0x1e4a66, dp: 0x10284a, tint: 0x203868, aur: 1 },
-  { h: 24, sun: 0x7f9ae8, sunI: 0.45, sky: 0x323d6e, gnd: 0x151a26, hemiI: 0.62, top: 0x050a22, bot: 0x14204a, sh: 0x1a4560, dp: 0x0e2442, tint: 0x203060, aur: 1 },
+  { h: 0, sun: 0x8fa8ff, sunI: 0.55, sky: 0x40508a, gnd: 0x1e2232, hemiI: 0.8, top: 0x050a22, bot: 0x14204a, sh: 0x1a4a66, dp: 0x0e2644, tint: 0x203060, aur: 1 },
+  { h: 5.5, sun: 0xa890d8, sunI: 0.7, sky: 0x5a5290, gnd: 0x2a2436, hemiI: 0.8, top: 0x1a2250, bot: 0x6a4a78, sh: 0x2a5a74, dp: 0x163052, tint: 0x6a5080, aur: 0.3 },
+  { h: 7, sun: 0xffb488, sunI: 1.45, sky: 0xc4b8ea, gnd: 0x5c4c3c, hemiI: 1.15, top: 0x6a8ad0, bot: 0xf2c0a0, sh: 0x3a8c8a, dp: 0x285480, tint: 0xf0b8a0, aur: 0 },
+  { h: 9, sun: 0xfff0d2, sunI: 1.85, sky: 0xbcd6ff, gnd: 0x6c7a46, hemiI: 1.5, top: 0x74ade6, bot: 0xd8ecf6, sh: 0x3a9894, dp: 0x2a5a8a, tint: 0xc8e0f0, aur: 0 },
+  { h: 12.5, sun: 0xfff7e6, sunI: 2.0, sky: 0xc4dcff, gnd: 0x707e48, hemiI: 1.55, top: 0x62a4ea, bot: 0xcfe8f8, sh: 0x3a9c96, dp: 0x2a5c8e, tint: 0xd0e8f8, aur: 0 },
+  { h: 15.5, sun: 0xffe8c4, sunI: 2.0, sky: 0xd2d6f2, gnd: 0x76724a, hemiI: 1.48, top: 0x6aa2e0, bot: 0xe8e4d8, sh: 0x3a9890, dp: 0x2a5a8a, tint: 0xe0e0e0, aur: 0 },
+  { h: 17, sun: 0xffc47e, sunI: 2.1, sky: 0xf0c8cc, gnd: 0x7c6646, hemiI: 1.38, top: 0xe6996a, bot: 0xffd9a0, sh: 0x48968a, dp: 0x345282, tint: 0xffc890, aur: 0 },
+  { h: 18.4, sun: 0xff8c60, sunI: 1.8, sky: 0xcaa2cc, gnd: 0x5c4842, hemiI: 1.2, top: 0x7c5aa6, bot: 0xff9468, sh: 0x3c747e, dp: 0x2e4072, tint: 0xff9a80, aur: 0 },
+  { h: 19.6, sun: 0xa080d8, sunI: 0.9, sky: 0x6e6cac, gnd: 0x302e44, hemiI: 0.9, top: 0x262c66, bot: 0x8a5a8c, sh: 0x2f5c76, dp: 0x1c3662, tint: 0x7060a0, aur: 0.2 },
+  { h: 21, sun: 0x8fa8ff, sunI: 0.6, sky: 0x40508a, gnd: 0x1e2232, hemiI: 0.8, top: 0x0a1030, bot: 0x1c2a58, sh: 0x1e4c68, dp: 0x10284c, tint: 0x203868, aur: 1 },
+  { h: 24, sun: 0x8fa8ff, sunI: 0.55, sky: 0x40508a, gnd: 0x1e2232, hemiI: 0.8, top: 0x050a22, bot: 0x14204a, sh: 0x1a4a66, dp: 0x0e2644, tint: 0x203060, aur: 1 },
 ];
 
 const cA = new THREE.Color(), cB = new THREE.Color();

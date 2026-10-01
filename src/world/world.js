@@ -1,7 +1,8 @@
 // Assembles the static world meshes: terrain, water, trees, clutter, buildings.
 import * as THREE from 'three';
 import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H } from './worldgen.js';
-import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture } from './terrain.js';
+import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture } from './terrain.js';
+import { WaterSim } from './waterSim.js';
 import { pineModel, mapleModel, birchModel, boulderModel, tuftModel, flowerModel } from './models.js';
 import { officeModel, hutModel } from './buildings.js';
 import { voxelMaterial, linearRGB } from '../core/voxel.js';
@@ -35,9 +36,15 @@ export class World {
     this.decos = gen.decos;
     this.clutter = gen.clutter;
     this.trail = gen.trail;
+    this.sim = new WaterSim(this.grid, MEADOW, 4);
+    this.surfTex = buildSurfaceTexture(this.grid);
     this.uniforms = {
       uTime: { value: 0 },
       uCaustic: { value: 1 },
+      uSurf: { value: this.surfTex },
+      uGridSize: { value: new THREE.Vector2(this.grid.w, this.grid.h) },
+      uSim: { value: this.sim.tex },
+      uSimRect: { value: new THREE.Vector4(MEADOW.x0, MEADOW.z0, MEADOW.x1 - MEADOW.x0, MEADOW.z1 - MEADOW.z0) },
     };
     this.terrainMat = makeTerrainMaterial(this.uniforms);
     this.terrain = new THREE.Mesh(buildTerrainGeometry(this.grid), this.terrainMat);
@@ -57,6 +64,10 @@ export class World {
       uSkyTint: { value: new THREE.Color(0xd0e8f8) },
       uNight: { value: 0 },
       uAurora: { value: 0 },
+      uSim: this.uniforms.uSim,
+      uSimRect: this.uniforms.uSimRect,
+      uSunDir: { value: new THREE.Vector3(0.3, 0.8, 0.5) },
+      uViewDir: { value: new THREE.Vector3(0, 0.7, 0.7) },
     };
     this.water = new THREE.Mesh(buildWaterGeometry(this.grid), makeWaterMaterial(this.waterUniforms));
     this.water.renderOrder = 10;
@@ -193,7 +204,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
     geo.setIndex(new THREE.Uint32BufferAttribute(idx, 1));
     geo.computeBoundingSphere();
-    const mesh = new THREE.Mesh(geo, this.terrainMat);
+    const mesh = new THREE.Mesh(geo, voxelMaterial());
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.scene.add(mesh);
@@ -311,12 +322,20 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     this.water.geometry.dispose();
     this.water.geometry = buildWaterGeometry(this.grid);
     buildShoreTexture(this.grid, this.shoreTex);
+    buildSurfaceTexture(this.grid, this.surfTex);
+    this.sim.refreshMask();
+    this.sim.resetLand();
   }
 
-  update(time, sky) {
+  update(time, sky, camera) {
     this.uniforms.uTime.value = time;
     const s = sky.state;
     const wu = this.waterUniforms;
+    wu.uSunDir.value.copy(s.sunDir);
+    if (camera) {
+      const e = camera.matrixWorld.elements;
+      wu.uViewDir.value.set(e[8], e[9], e[10]).normalize();
+    }
     wu.uShallow.value.copy(s.waterShallow);
     wu.uDeep.value.copy(s.waterDeep);
     wu.uSkyTint.value.copy(s.skyTint);

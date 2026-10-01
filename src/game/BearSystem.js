@@ -2,20 +2,15 @@
 // trail, cannonball into the pond, chase fish, snack on honey/syrup/berries/
 // seaweed, pay coins + leave reviews, or rampage and smash stuff.
 import * as THREE from 'three';
-import { BEAR_TYPES, FIRST_NAMES, DEPARTMENTS, WANT_INFO, REVIEWS, WANT_COMPLAINTS } from '../data/bears.js';
+import { BEAR_TYPES, FIRST_NAMES, DEPARTMENTS, WANT_INFO, REVIEWS, WANT_COMPLAINTS, LINES, BEAR_WANT_LINES } from '../data/bears.js';
+import { BEAUTY_PER_BEAR } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { BearRig } from '../entities/bearModels.js';
-import { buildFishGeometry } from '../entities/fishModels.js';
+import { makeFishQuad } from './fishQuad.js';
 import { WATER_Y, KIND } from '../world/grid.js';
 import { pick, clamp, angleDiff, damp } from '../core/rng.js';
 
 const COIN_PER_MEAL = 7;
-const heldFishGeo = new Map();
-function heldGeo(sp, golden) {
-  const k = sp.id + (golden ? '*' : '');
-  if (!heldFishGeo.has(k)) heldFishGeo.set(k, buildFishGeometry(sp, golden).geo);
-  return heldFishGeo.get(k);
-}
 
 let nextId = 1;
 const PATIENCE_STATES = new Set(['walk', 'hunt', 'search', 'walkDirect']);
@@ -49,28 +44,30 @@ export class BearSystem {
     const dow = (day - 1) % 7;
     if (dow === 6) return { dayOff: true, bears: [] };
     const r = game.state.rating;
-    const ratingF = r >= 4.5 ? 1.3 : r >= 4 ? 1.15 : r >= 3 ? 1 : r >= 2 ? 0.85 : 0.7;
-    let n = 3 + day * 0.8 + Math.max(0, day - 10) * 0.45;
-    n = Math.round(n * ratingF * game.mods.bearMult);
-    n = clamp(n, 3, 64);
+    const ratingF = r >= 4.5 ? 1.25 : r >= 4 ? 1.1 : r >= 3 ? 1 : r >= 2 ? 0.85 : 0.7;
+    const beautyBears = Math.min(6, Math.floor(game.beauty() / BEAUTY_PER_BEAR));
+    let n = (1 + day * 0.42 + Math.max(0, day - 12) * 0.25) * ratingF + beautyBears + game.mods.bearBonus;
+    n = clamp(Math.round(n), 1, 40);
     const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day);
     const bears = [];
     const species = game.availableSpecies();
     const addBear = (typeId, extra = {}) => {
       const d = BEAR_TYPES[typeId];
       const b = { type: typeId, wants: [...(d.wants || [])], prefer: null, ...extra };
-      if (!extra.prefer && day >= 4 && species.length > 1 && Math.random() < 0.18 && !d.boss) b.prefer = pick(species);
+      if (!extra.prefer && day >= 5 && species.length > 1 && Math.random() < 0.15 && !d.boss) b.prefer = pick(species);
       bears.push(b);
       return b;
     };
     if (dow === 5 && day >= 6) {
       // Saturday family picnic: parents + cubs
-      const fams = Math.max(2, Math.round(n / 2.5));
+      const fams = Math.max(1, Math.round(n / 2.5));
       for (let i = 0; i < fams; i++) {
         addBear(pick(['office', 'tourist', 'intern', 'office']).replace('tourist', day >= 9 ? 'tourist' : 'office'));
         const cubs = 1 + (Math.random() < 0.5 ? 1 : 0);
         for (let c = 0; c < cubs; c++) addBear('cub');
       }
+    } else if (day === 1) {
+      addBear('intern');
     } else {
       for (let i = 0; i < n; i++) {
         let tot = 0;
@@ -80,24 +77,24 @@ export class BearSystem {
         for (const [tid, d] of types) { x -= d.weight; if (x <= 0) { id = tid; break; } }
         addBear(id);
       }
-      if (day >= 7 && Math.random() < 0.3) {
+      if (day >= 9 && Math.random() < 0.3) {
         const best = species.slice().sort((a, b) => SPECIES_BY_ID[b].value - SPECIES_BY_ID[a].value)[0];
         addBear('critic', { prefer: best });
       }
-      if (dow === 4 && day >= 5) {
+      if (dow === 4 && day >= 12) {
         const best = species.slice().sort((a, b) => SPECIES_BY_ID[b].value * SPECIES_BY_ID[b].meal - SPECIES_BY_ID[a].value * SPECIES_BY_ID[a].meal)[0];
         const wants = game.isUnlocked('r_bees') ? ['honey'] : [];
         addBear('ceo', { prefer: best, wants });
       }
     }
     // stagger arrivals in little groups
-    let t = 0.5;
+    let t = 0.8;
     bears.sort(() => Math.random() - 0.5);
     const ceo = bears.findIndex((b) => b.type === 'ceo');
     if (ceo >= 0) bears.push(bears.splice(ceo, 1)[0]);
     for (const b of bears) {
       b.delay = t;
-      t += Math.random() < 0.35 ? 0.35 : 1.1 + Math.random() * 1.6;
+      t += Math.random() < 0.35 ? 0.45 : 1.3 + Math.random() * 1.8;
       if (b.type === 'ceo') b.delay += 3;
     }
     return { dayOff: false, bears };
@@ -110,9 +107,9 @@ export class BearSystem {
 
   // A couple of bears sneak out on their lunch break (mid-day customers).
   planLunch(day) {
-    if (day < 2 || (day - 1) % 7 >= 5) return [];
+    if (day < 2 || (day - 1) % 7 >= 5 || Math.random() > 0.6) return [];
     const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day && !d.boss && d.item !== 'lunchbox');
-    const n = day >= 6 ? 2 : 1;
+    const n = day >= 8 && Math.random() < 0.4 ? 2 : 1;
     const out = [];
     for (let i = 0; i < n; i++) {
       const [type, d] = types[Math.floor(Math.random() * types.length)];
@@ -135,12 +132,13 @@ export class BearSystem {
     const b = {
       id: nextId++, typeId: p.type, def, name: pick(FIRST_NAMES), dept: def.critic ? 'The Bear Street Journal' : p.type === 'ceo' ? 'Chairman' : pick(DEPARTMENTS),
       x: this.trail[0][0], y: this.trail[0][1], z: this.trail[0][2], heading: Math.PI / 2, speed: 0,
-      state: 'queued', t: p.delay, appetite: a0 + Math.floor(Math.random() * (a1 - a0 + 1)), eaten: 0, coins: 0, tips: 0,
+      state: 'queued', t: p.delay, appetite: Math.round((a0 + Math.random() * (a1 - a0)) * 2) / 2, eaten: 0, coins: 0, tips: 0,
       wants: p.wants.map((k) => ({ kind: k, done: false })), prefer: p.prefer,
       patience: def.patience * this.game.mods.patienceMult, maxPatience: def.patience * this.game.mods.patienceMult,
       trailD: 0, path: null, pathI: 0, goal: null, fish: null, struct: null,
       rampLeft: 0, angry: false, inWater: false, region: -1, phase: Math.random() * 6, gotGolden: false, preferMiss: 0,
       rig: null, visible: false, flip: Math.random() < 0.55, jump: null, searchT: 0, stuckT: 0, lastX: 0, lastZ: 0, bubble: null,
+      snackCoins: 0, lastAte: null, said: {}, sayT: 2 + Math.random() * 4,
     };
     if (p.type === 'cub') b.appetite = 1;
     this.list.push(b);
@@ -205,42 +203,46 @@ export class BearSystem {
     const field = this.fieldFrom(bx, bz);
     b.goal = null; b.fish = null; b.struct = null; b.path = null;
     if (b.angry) return this.decideSmash(b, field);
-    // 1) fish
-    if (b.eaten < b.appetite) {
+    const hungry = b.eaten < b.appetite;
+    // 1) best fish
+    let fishPick = null, fishScore = Infinity;
+    if (hungry) {
       const fishSys = this.game.fish;
-      let best = null, bs = Infinity;
       for (const f of fishSys.list) {
-        if (f.jump || this.game.structures.isSheltered(f.x, f.z)) continue;
+        if (!fishSys.catchable(f) || this.game.structures.isSheltered(f.x, f.z, f)) continue;
         const d = field[this.tileIdx(Math.floor(f.x), Math.floor(f.z))];
         if (!isFinite(d)) continue;
-        let s = d;
-        if (b.prefer && f.sp.id !== b.prefer) s += 25;
-        if (!f.adult) s += 6;
-        s += Math.random() * 3;
-        if (s < bs) { bs = s; best = f; }
-      }
-      if (best) {
-        if (b.inWater && best.region === b.region) { b.fish = best; b.state = 'hunt'; return; }
-        const path = this.pathTo(field, Math.floor(best.x), Math.floor(best.z));
-        if (path) { b.goal = { kind: 'fish' }; b.fish = best; b.path = path; b.pathI = 0; b.state = 'walk'; return; }
+        let sc = d;
+        if (b.prefer && f.sp.id !== b.prefer) sc += 25;
+        if (!f.adult) sc += 6;
+        sc += Math.random() * 3;
+        if (sc < fishScore) { fishScore = sc; fishPick = f; }
       }
     }
-    // 2) wants
-    for (const w of b.wants) {
-      if (w.done) continue;
-      const cand = this.game.structures.list.filter((s) => s.built && s.def.food && s.def.food.kind === w.kind && s.stock >= 1);
-      let best = null, bp = null, bd = Infinity;
-      for (const s of cand) {
-        const spot = this.approachTile(field, s);
-        if (!spot) continue;
-        if (spot.d < bd) { bd = spot.d; best = s; bp = spot; }
-      }
-      if (best) {
-        b.goal = { kind: 'snack', want: w }; b.struct = best;
-        b.path = this.pathTo(field, bp.x, bp.z) || [];
-        b.pathI = 0; b.state = 'walk';
-        return;
-      }
+    // 2) best snack (wants first, then any side dish while still hungry)
+    let snack = null, snackSpot = null, snackScore = Infinity, snackWant = null;
+    const structs = this.game.structures.list;
+    for (const st of structs) {
+      if (!st.built || !st.def.food || st.stock < 1 || st.def.food.kind === 'seaweed' && !b.wants.some((w) => w.kind === 'seaweed' && !w.done)) continue;
+      const want = b.wants.find((w) => !w.done && w.kind === st.def.food.kind) || null;
+      if (!want && !hungry) continue;
+      if (!want && b.snacks >= 3) continue;
+      const spot = this.approachTile(field, st);
+      if (!spot) continue;
+      let sc = spot.d + (want ? -12 : 0) + (b.lastAte === 'fish' ? -5 : 4) + Math.random() * 3;
+      if (sc < snackScore) { snackScore = sc; snack = st; snackSpot = spot; snackWant = want; }
+    }
+    if (snack && (snackWant || !fishPick || snackScore < fishScore)) {
+      b.goal = { kind: 'snack', want: snackWant }; b.struct = snack;
+      b.path = this.pathTo(field, snackSpot.x, snackSpot.z) || [];
+      b.pathI = 0; b.state = 'walk';
+      return;
+    }
+    if (fishPick) {
+      const best = fishPick;
+      if (b.inWater && best.region === b.region) { b.fish = best; b.state = 'hunt'; return; }
+      const path = this.pathTo(field, Math.floor(best.x), Math.floor(best.z));
+      if (path) { b.goal = { kind: 'fish' }; b.fish = best; b.path = path; b.pathI = 0; b.state = 'walk'; return; }
     }
     // 3) nothing left to do
     if (b.eaten >= b.appetite && b.wants.every((w) => w.done)) { this.beginPay(b); return; }
@@ -294,6 +296,8 @@ export class BearSystem {
     game.rig.shake = Math.max(game.rig.shake, 0.7);
     game.particles.sprite('anger', b.x, b.y + 2.6 * b.def.scale, b.z, { vy: 0.6, life: 1.4, size: 0.5 });
     game.onRampage(b);
+    this.say(b, pick(LINES.angry), 'emo_anger');
+    b.rig?.setFace?.('furious');
     this.decide(b);
   }
 
@@ -438,6 +442,9 @@ export class BearSystem {
           b.trailD = this.trailTotal;
           const end = this.trail[this.trail.length - 1];
           b.x = end[0]; b.z = end[2]; b.y = end[1];
+          const want = b.wants.find((w) => !w.done);
+          if (want && Math.random() < 0.8) this.say(b, BEAR_WANT_LINES[want.kind] || 'Hmm?', null, WANT_INFO[want.kind]?.icon);
+          else if (Math.random() < 0.55 || game.cine?.active) this.say(b, pick(LINES.arrive), Math.random() < 0.4 ? 'emo_exclaim' : null);
           this.decide(b);
         } else this.placeOnTrail(b, dt);
         break;
@@ -458,7 +465,7 @@ export class BearSystem {
       }
       case 'hunt': {
         const f = b.fish;
-        if (!f || f.dead || f.region !== b.region || game.structures.isSheltered(f.x, f.z)) {
+        if (!f || !game.fish.catchable(f) || f.region !== b.region || game.structures.isSheltered(f.x, f.z, f)) {
           b.fish = game.fish.nearestFor(b.x, b.z, b.region, b.prefer);
           if (!b.fish) { this.decide(b); break; }
         }
@@ -488,15 +495,50 @@ export class BearSystem {
         break;
       }
       case 'eat': {
-        if (!b.chomped1 && b.t < 0.95) { b.chomped1 = true; game.audio.play('chomp', { volume: 0.6, pitch: 1.15 - scale * 0.2 }); }
-        if (!b.chomped2 && b.t < 0.45) {
-          b.chomped2 = true;
-          game.audio.play('chomp', { volume: 0.55, pitch: 1.05 - scale * 0.2 });
-          game.particles.debris(b.x + Math.sin(b.heading) * 0.5, b.y + 1.4 * scale, b.z + Math.cos(b.heading) * 0.5, 4, [0xe8e0d0, 0xffffff, 0xc8c0b0]);
+        // three juicy chomps
+        const k = 3 - Math.ceil(b.t / 0.42);
+        while ((b.chomps || 0) < Math.min(3, k)) {
+          b.chomps = (b.chomps || 0) + 1;
+          const mp = this.mouthPos(b);
+          const dir = { x: Math.sin(b.heading) * 0.8, z: Math.cos(b.heading) * 0.8 };
+          game.particles.blood(mp.x, mp.y, mp.z, 7 + b.chomps * 2, dir, 0.9);
+          game.audio.play(b.chomps === 3 ? 'crunch' : 'squelch', { volume: 0.5, pitch: 1.1 - scale * 0.15 + Math.random() * 0.15 });
+          game.audio.play('chomp', { volume: 0.35, pitch: 1.15 - scale * 0.2 });
+          game.particles.word(b.chomps === 1 ? 'chomp' : b.chomps === 2 ? (Math.random() < 0.5 ? 'munch' : 'nom') : 'chomp', mp.x, mp.y + 0.35, mp.z, { size: 0.26 + scale * 0.06 });
+          if (b.rig?.held) { const q = b.rig.held.scale; q.setScalar(Math.max(0.35, 1 - b.chomps * 0.22)); b.rig.held.userData.wiggle = 1.6 - b.chomps * 0.4; }
+          b.rig?.setFace?.(b.chomps % 2 ? 'chomp_open' : 'chomp_closed', { hold: 0.2 });
+          if (game.cine) game.cine.onChomp?.(b);
         }
         if (b.t <= 0) {
+          b.chomps = 0;
+          b.state = 'yummy';
+          b.t = 0.9;
+          const hp = this.headTop(b);
+          game.particles.word(b.gotGoldenNow ? 'gold' : 'yum', hp.x, hp.y + 0.1, hp.z, { size: 0.36, life: 1.3 });
+          game.particles.hearts(hp.x, hp.y - 0.2, hp.z, 2);
+          game.audio.play('bear_yum', { volume: 0.5, pitch: 1.1 - scale * 0.2 });
+          b.rig?.setFace?.('yummy', { hold: 1.2 });
+          if (Math.random() < 0.55) this.say(b, pick(b.gotGoldenNow ? LINES.golden : LINES.yum), 'emo_happy_face');
+          b.gotGoldenNow = false;
+        }
+        break;
+      }
+      case 'yummy': {
+        if (b.t <= 0) { b.state = 'toss'; b.t = 0.55; b.tossed = false; }
+        break;
+      }
+      case 'toss': {
+        if (!b.tossed && b.t < 0.3) {
+          b.tossed = true;
+          const hp = this.headTop(b);
+          const back = { x: -Math.sin(b.heading), z: -Math.cos(b.heading) };
+          if (b.heldFish) game.fish.tossBone(b.heldFish, hp.x, hp.y - 0.3, hp.z, back.x * 2.2 + (Math.random() - 0.5), 4.2 + Math.random(), back.z * 2.2 + (Math.random() - 0.5));
+          b.heldFish = null;
           b.rig.hold(null);
-          b.chomped1 = b.chomped2 = false;
+          game.audio.play('bone_toss', { volume: 0.4 });
+          if (Math.random() < 0.25) { game.audio.play('burp', { volume: 0.35, pitch: 1.15 - scale * 0.25 }); game.particles.word('burp', hp.x, hp.y, hp.z, { size: 0.24 }); }
+        }
+        if (b.t <= 0) {
           if (b.eaten >= b.appetite) this.decide(b);
           else { b.state = 'hunt'; b.fish = null; }
         }
@@ -504,14 +546,27 @@ export class BearSystem {
       }
       case 'snack': {
         if (b.t <= 0) {
-          const s = b.struct;
-          if (s && !s.removed && game.structures.consume(s, 1)) {
-            b.goal.want.done = true;
-            const info = WANT_INFO[b.goal.want.kind];
-            b.tips += info.bonus * b.def.pay;
-            game.audio.play('review_good', { volume: 0.25, pitch: 1.4 });
-            game.particles.sprite('heart', b.x, b.y + 2.4 * scale, b.z, { vy: 0.7, life: 1, size: 0.3 });
-            if (b.goal.want.kind === 'honey') game.audio.play('bees', { volume: 0.3 });
+          const st = b.struct;
+          if (st && !st.removed && game.structures.consume(st, 1)) {
+            const food = st.def.food;
+            const meal = (food.meal ?? 0.5) * game.mods.snackMealMult;
+            b.eaten += meal;
+            b.snacks = (b.snacks || 0) + 1;
+            b.lastAte = 'snack';
+            b.snackCoins += meal * COIN_PER_MEAL * 0.9 * b.def.pay;
+            const want = b.goal.want || b.wants.find((w) => !w.done && w.kind === food.kind);
+            if (want) {
+              want.done = true;
+              const info = WANT_INFO[want.kind];
+              if (info) b.tips += info.bonus * b.def.pay;
+            }
+            game.stats.snacksServed++;
+            game.audio.play('review_good', { volume: 0.22, pitch: 1.4 });
+            game.audio.play('bear_yum', { volume: 0.3, pitch: 1.25 - scale * 0.2 });
+            const hp = this.headTop(b);
+            game.particles.hearts(hp.x, hp.y - 0.2, hp.z, 2);
+            if (Math.random() < 0.6) this.say(b, pick(LINES.snack), null, food.kind === 'rice' ? 'wildrice' : food.kind === 'berries' ? 'berry' : food.kind);
+            if (food.kind === 'honey') game.audio.play('bees', { volume: 0.3 });
           }
           this.decide(b);
         }
@@ -523,7 +578,7 @@ export class BearSystem {
         const hx = b.x + Math.cos(b.searchH) * 0.5, hz = b.z + Math.sin(b.searchH) * 0.5;
         if (!this.moveToward(b, hx, hz, dt, 1.4, false)) b.searchH += Math.PI * 0.7;
         if (b.searchT <= 0) { this.decide(b); if (b.state === 'search') b.searchT = 2; }
-        if (Math.random() < dt * 0.4) game.particles.sprite('question', b.x, b.y + 2.5 * scale, b.z, { vy: 0.4, life: 1, size: 0.35 });
+        if (Math.random() < dt * 0.35) this.say(b, pick(['Fish?', 'Hello?', 'Anyone?', 'Hmm...']), 'emo_question', null, 1.6);
         break;
       }
       case 'smash': {
@@ -557,9 +612,11 @@ export class BearSystem {
             const stars = b.review ? b.review.stars : 3;
             const tip = stars >= 5 ? 0.25 : stars >= 4 ? 0.1 : 0;
             const tm = game.mods.tipMult;
-            const charm = 1 + game.structures.charm() / 100;
-            const total = Math.round((b.coins * (1 + tip * tm) + b.tips * tm) * game.mods.payMult * charm);
-            game.earn(total, b);
+            const charm = 1 + game.charmPct() / 100;
+            const k = game.mods.payMult * charm;
+            const bills = b.coins * k, snacks = b.snackCoins * k, tips = (b.coins * tip * tm + b.tips * tm) * k;
+            const total = Math.round(bills + snacks + tips);
+            game.earn(total, b, { bills: Math.round(bills), snacks: Math.round(snacks), tips: total - Math.round(bills) - Math.round(snacks) });
           }
         }
         if (b.t <= 0) this.beginLeave(b);
@@ -687,12 +744,18 @@ export class BearSystem {
     b.eaten += meal * (miss ? 0.6 : 1);
     if (miss) b.preferMiss++;
     b.coins += game.fish.coinValue(f) * COIN_PER_MEAL * b.def.pay * game.mods.fishValueMult;
-    if (f.golden) b.gotGolden = true;
+    if (f.g && (f.g.morph === 'golden' || f.g.morph === 'rainbow')) b.gotGolden = true;
+    if (f.g?.traits.includes('lucky')) b.tips += 4 * b.def.pay;
     game.fish.remove(f);
     game.stats.fishEaten++;
-    b.rig.hold(heldGeo(f.sp, f.golden));
+    b.heldFish = f;
+    b.lastAte = 'fish';
+    b.chomps = 0;
+    b.gotGoldenNow = f.g && (f.g.morph === 'golden' || f.g.morph === 'rainbow');
+    if (b.gotGoldenNow && game.day) game.day.golden++;
+    b.rig.hold(makeFishQuad(game, f));
     b.state = 'eat';
-    b.t = 1.25;
+    b.t = 1.26;
     b.fish = null;
     game.particles.splash(f.x, f.z, 10, 0.8);
     game.audio.play('splash', { volume: 0.4 });
@@ -725,6 +788,24 @@ export class BearSystem {
         game.particles.splash(b.x, b.z, 8, 0.6);
       }
     }
+  }
+
+  mouthPos(b) {
+    if (b.rig?.mouthPos) return b.rig.mouthPos(this._mp || (this._mp = new THREE.Vector3()));
+    const s = b.def.scale;
+    return { x: b.x + Math.sin(b.heading) * 0.45 * s, y: b.y + 1.35 * s, z: b.z + Math.cos(b.heading) * 0.45 * s };
+  }
+
+  headTop(b) {
+    if (b.rig?.headTop) return b.rig.headTop(this._ht || (this._ht = new THREE.Vector3()));
+    const s = b.def.scale;
+    return { x: b.x, y: b.y + 2.1 * s, z: b.z };
+  }
+
+  // comic speech bubble above a bear: text and/or a B&W emote and/or an item icon
+  say(b, text, emote = null, item = null, dur = 2.2) {
+    if (!b.visible) return;
+    this.game.ui?.bearSay?.(b, { text, emote, item, dur });
   }
 
   // ------------------------------------------------------------ render
@@ -774,6 +855,16 @@ export class BearSystem {
         armA = armRA = -2.1 + Math.sin(this.time * 18) * 0.12;
         bob = Math.abs(Math.sin(this.time * 9)) * 0.04;
         lean = -0.05;
+      } else if (b.state === 'yummy') {
+        armA = -0.9 + Math.sin(this.time * 14) * 0.25;
+        armRA = -0.9 - Math.sin(this.time * 14) * 0.25;
+        bob = Math.abs(Math.sin(this.time * 10)) * 0.08;
+        lean = -0.12;
+      } else if (b.state === 'toss') {
+        const k = clamp(1 - b.t / 0.55, 0, 1);
+        armRA = k < 0.5 ? -2.2 * (k / 0.5) : -2.2 - (k - 0.5) * 2;
+        armA = -0.4;
+        lean = -0.2 * k;
       } else if (b.state === 'pay') {
         armRA = -1.4;
         armA = -0.4;

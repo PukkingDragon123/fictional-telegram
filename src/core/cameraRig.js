@@ -17,10 +17,10 @@ export class CameraRig {
     this.yawGoal = 0;
     this.pitch = THREE.MathUtils.degToRad(44);
     this.dist = 110;
-    this.wupp = 0.07; // world units per low-res pixel
-    this.wuppGoal = 0.07;
-    this.minWupp = 0.028;
-    this.maxWupp = 0.12;
+    this.wupp = 0.045; // world units per low-res pixel
+    this.wuppGoal = 0.045;
+    this.minWupp = 0.018;
+    this.maxWupp = 0.1;
     this.subpixel = new THREE.Vector2();
     this.bounds = { minX: 10, maxX: 50, minZ: 8, maxZ: 56 };
     this.shake = 0;
@@ -60,6 +60,7 @@ export class CameraRig {
   }
 
   clampGoal() {
+    if (this.freeBounds) return;
     const b = this.bounds;
     this.goal.x = clamp(this.goal.x, b.minX, b.maxX);
     this.goal.z = clamp(this.goal.z, b.minZ, b.maxZ);
@@ -87,8 +88,10 @@ export class CameraRig {
       this.goal.z = this.follow.z;
       this.clampGoal();
     }
-    this.target.x = damp(this.target.x, this.goal.x, 10, dt);
-    this.target.z = damp(this.target.z, this.goal.z, 10, dt);
+    const k = this.freeBounds ? 6 : 10;
+    this.target.x = damp(this.target.x, this.goal.x, k, dt);
+    this.target.y = damp(this.target.y, this.goal.y, k, dt);
+    this.target.z = damp(this.target.z, this.goal.z, k, dt);
     this.yaw += angleDiff(this.yaw, this.yawGoal) * (1 - Math.exp(-9 * dt));
     if (Math.abs(angleDiff(this.yaw, this.yawGoal)) < 0.0005) this.yaw = this.yawGoal;
     this.wupp = Math.exp(damp(Math.log(this.wupp), Math.log(this.wuppGoal), 12, dt));

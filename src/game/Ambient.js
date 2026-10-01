@@ -54,18 +54,63 @@ export class Fox {
   }
 
   react(mood, t = 1.2) {
+    if (this.bed) return;
     this.mood = mood;
     this.moodT = t;
+  }
+
+  // bedtime: walk home, yawn, go inside; zzz from the hut window
+  goToBed() {
+    this.bed = { stage: 'walk', t: 0 };
+    this.target = { x: this.home.x, z: this.home.z - 0.2 };
+    this.mood = 'idle';
+    this.asleep = false;
+  }
+
+  wakeUp() {
+    this.bed = null;
+    this.asleep = false;
+    this.rig.root.visible = true;
+    this.x = this.home.x; this.z = this.home.z + 0.3;
+    this.heading = Math.PI / 2;
+    this.mood = 'cheer'; this.moodT = 1.2;
+    this.game.particles.puff(this.x, 0.2, this.z, 6, 0.25);
+    this.game.audio.play('fox_yawn', { volume: 0.4 });
+  }
+
+  updateBed(dt) {
+    const b = this.bed;
+    b.t += dt;
+    if (b.stage === 'walk') {
+      if (!this.target || b.t > 7) { b.stage = 'yawn'; b.t = 0; this.game.audio.play('fox_yawn', { volume: 0.45 }); this.game.ui?.foxBubble?.('*yaaawn*'); }
+    } else if (b.stage === 'yawn') {
+      this.heading = Math.PI / 2;
+      if (b.t > 1.6) { b.stage = 'enter'; b.t = 0; this.target = { x: HUT.x + 1.5, z: HUT.z + 2.4 }; }
+    } else if (b.stage === 'enter') {
+      if (b.t > 0.9) {
+        b.stage = 'asleep'; b.t = 0;
+        this.rig.root.visible = false;
+        this.asleep = true;
+        this.game.audio.play('fox_snore', { volume: 0.35 });
+      }
+    } else if (b.stage === 'asleep') {
+      if (b.t > 1.3) {
+        b.t = 0;
+        this.game.particles.zzz(HUT.x + 2.3, 2.3, HUT.z + 2.9);
+        if (Math.random() < 0.5) this.game.audio.play('fox_snore', { volume: 0.25 });
+      }
+    }
   }
 
   update(dt) {
     this.time += dt;
     const g = this.game.grid;
+    if (this.bed) this.updateBed(dt);
     this.moodT -= dt;
     if (this.moodT <= 0 && this.mood !== 'idle') this.mood = 'idle';
     let moving = false;
     const phase = this.game.state.phase;
-    if (!this.target && this.mood === 'idle') {
+    if (!this.target && this.mood === 'idle' && !this.bed) {
       const far = Math.hypot(this.home.x - this.x, this.home.z - this.z);
       if (far > 1 && Math.random() < dt * 0.15) this.target = { ...this.home };
     }

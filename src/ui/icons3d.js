@@ -1,7 +1,7 @@
 // Renders voxel models into small pixel-art icons (data URLs) using the main
 // WebGL renderer, with a crisp 1px dark outline. Cached per key.
 import * as THREE from 'three';
-import { buildFishGeometry } from '../entities/fishModels.js';
+import { fishIconURL } from '../game/fishSprites.js';
 import { BearRig } from '../entities/bearModels.js';
 import { BEAR_TYPES } from '../data/bears.js';
 import { voxelMaterial } from '../core/voxel.js';
@@ -96,11 +96,7 @@ export class Icons3D {
   }
 
   fish(sp, golden = false) {
-    const key = `fish:${sp.id}:${golden ? 1 : 0}`;
-    if (this.cache.has(key)) return this.cache.get(key);
-    const { geo } = buildFishGeometry(sp, golden);
-    const m = new THREE.Mesh(geo, voxelMaterial());
-    return this.renderObject(key, m, { size: 40, yaw: -0.35, pitch: 0.4 });
+    return fishIconURL(sp.id, { morph: golden ? 'golden' : 'normal', scale: 2 });
   }
 
   structure(type, structures) {

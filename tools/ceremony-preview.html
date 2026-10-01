@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Ceremony Preview</title>
+<style>
+  /* same font stack as the game (src/ui/style.css) */
+  @font-face {
+    font-family: 'TBME Digits'; font-style: normal; font-weight: 400 700; font-display: swap;
+    src: url('/node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+    unicode-range: U+0030-0039;
+  }
+  :root { --bg: #0f1a24; color-scheme: dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f1a24; } }
+  :root[data-theme="dark"] { --bg: #0f1a24; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: #f4f1e8;
+    font-family: 'TBME Digits', 'Pixelify Sans', 'Trebuchet MS', system-ui, sans-serif; }
+  body { -webkit-user-select: none; user-select: none; }
+  button { font-family: 'TBME Digits', 'Pixelify Sans', system-ui, sans-serif; color: #f4f1e8; cursor: pointer; }
+  #bg { position: fixed; inset: 0; background: #20303c url('/docs/screenshot.png') center / cover no-repeat; image-rendering: pixelated; }
+  /* mimic the game's #ui root: pointer-events none, border-box everything */
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; font-size: 15px; }
+  #ui * { box-sizing: border-box; }
+  #panel { position: fixed; left: 8px; top: 8px; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; max-width: min(560px, calc(100vw - 16px));
+    background: rgba(14, 24, 34, .9); padding: 10px; box-shadow: 0 0 0 2px #e8f0f4, 0 0 0 4px #1a1420; }
+  #panel h1 { width: 100%; margin: 0 0 2px; font-size: 16px; font-weight: 700; color: #ffc83a; }
+  #panel .grp { width: 100%; font-size: 12px; color: #9fb3c2; margin-top: 4px; }
+  #panel button { background: #2c465a; border: 0; padding: 6px 10px; font-size: 14px; box-shadow: 0 0 0 2px #1a1420, inset 0 2px 0 #4a6a82; }
+  #panel button:hover { background: #36566e; }
+  #panel label { font-size: 13px; display: inline-flex; gap: 4px; align-items: center; }
+  #log { position: fixed; right: 8px; bottom: 8px; z-index: 5; width: 230px; max-height: 40vh; overflow: hidden; font: 11px/1.3 monospace;
+    color: #cfe; background: rgba(0, 0, 0, .55); padding: 6px 8px; white-space: pre; }
+  #status { width: 100%; font-size: 12px; color: #9fb3c2; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="panel">
+  <h1>Ceremony preview</h1>
+  <div class="grp">Egg hatch</div>
+  <button data-run="egg:0">Common</button>
+  <button data-run="egg:1">Uncommon</button>
+  <button data-run="egg:2">Rare</button>
+  <button data-run="egg:3">Epic</button>
+  <button data-run="egg:4">Legendary</button>
+  <button data-run="eggs">All 5 eggs</button>
+  <div class="grp">End of day</div>
+  <button data-run="ledger:good">Ledger: A+ day</button>
+  <button data-run="ledger:bad">Ledger: F day</button>
+  <button data-run="ledger:mid">Ledger: B day</button>
+  <div class="grp">Morning</div>
+  <button data-run="night">While you slept…</button>
+  <button data-run="night:quiet">Quiet night</button>
+  <div class="grp">Options</div>
+  <label><input type="checkbox" id="snd" checked> sound</label>
+  <label><input type="checkbox" id="auto" checked> idle auto-advance</label>
+  <div id="status"></div>
+</div>
+<div id="log"></div>
+<div id="ui"></div>
+<script type="module" src="./ceremony-preview.js"></script>
+</body>
+</html>

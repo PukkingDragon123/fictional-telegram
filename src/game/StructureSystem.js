@@ -385,10 +385,25 @@ export class StructureSystem {
   }
 
   // decor charm: +% on every bill (capped)
-  charm() {
-    let c = 0;
-    for (const s of this.list) if (s.built && s.def.charm) c += s.def.charm;
-    return Math.min(CHARM_CAP, c);
+  charm() { return this.game.charmPct(); }
+
+  sprinklerBoost(t) {
+    let b = 1;
+    for (const s of this.list) {
+      if (s.type !== 'sprinkler' || !s.built) continue;
+      if (Math.abs(s.x - t.x) <= 3 && Math.abs(s.z - t.z) <= 3) b += s.def.sprinkler.boost;
+    }
+    return Math.min(2.2, b);
+  }
+
+  nearestShelter(x, z, r = 6) {
+    let best = null, bd = r * r;
+    for (const s of this.list) {
+      if (!s.built || !(s.def.shelter || s.def.shelterFry)) continue;
+      const d = (s.x + 0.5 - x) ** 2 + (s.z + 0.5 - z) ** 2;
+      if (d < bd) { bd = d; best = s; }
+    }
+    return best;
   }
 
   aeratorBoost(x, z) {
@@ -402,9 +417,10 @@ export class StructureSystem {
   }
 
   // fish under platforms / lily pads are hidden from bears
-  isSheltered(x, z) {
+  isSheltered(x, z, f = null) {
     const s = this.grid.structAt(Math.floor(x), Math.floor(z));
-    return !!(s && s.built && s.def.shelter);
+    if (!s || !s.built) return false;
+    return !!(s.def.shelter || (s.def.shelterFry && f && !f.adult));
   }
 
   smashTargets() {
@@ -425,6 +441,13 @@ export class StructureSystem {
     const mods = game.mods;
     for (const s of this.list) {
       if (!s.built) { this.updateVisual(s); continue; }
+      if (s.popT > 0 && s.obj) {
+        s.popT = Math.max(0, s.popT - dt);
+        const k = 1 - s.popT / 0.45;
+        const y = 1 + Math.sin(k * Math.PI * 2.5) * 0.35 * (1 - k);
+        s.obj.scale.set(1 / Math.sqrt(y), y, 1 / Math.sqrt(y));
+        if (s.popT === 0) s.obj.scale.set(1, 1, 1);
+      }
       const d = s.def;
       if (d.food) {
         let mult = mods.produceMult;
@@ -435,6 +458,7 @@ export class StructureSystem {
           if (Math.random() < dt * 0.9) game.particles.lit.spawn(s.x + 0.5 + (Math.random() - 0.5), 0.8 + Math.random() * 0.4, s.z + 0.5 + (Math.random() - 0.5), 0, 0, 0, 1.6, 0.05, Math.random() < 0.5 ? 0xffd23a : 0x2a2010, 0, 0.5, 32);
         }
         const before = s.stock;
+        mult *= this.sprinklerBoost(s);
         s.stock = Math.min(d.food.max, s.stock + d.food.regen * mult * dt * (game.state.phase === 'night' ? 0.5 : 1));
         if (Math.floor(before) !== Math.floor(s.stock) || s.type === 'seaweed') this.updateVisual(s);
         if (d.food.kind === 'syrup' && s.stock >= 1 && Math.random() < dt * 0.5)

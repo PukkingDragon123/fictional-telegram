@@ -100,23 +100,35 @@ export class BeaverSystem {
       } else if (b.state === 'go') {
         const s = b.job.s;
         if (s.removed || (b.job.kind === 'build' && s.built)) { this.release(b); continue; }
-        if (this.moveToward(b, s.x + 0.5, s.z + 0.5, dt, 2.3 * speedMult ** 0.5, 0.7)) { b.state = 'work'; b.t = 0; }
+        if (this.moveToward(b, s.x + 0.5, s.z + 0.5, dt, 3.6 * speedMult ** 0.5, 0.55)) {
+          b.state = 'work'; b.t = 0; b.cloudT = 0;
+          game.audio.play('build_cloud', { volume: 0.4, pitch: 0.95 + Math.random() * 0.15 });
+        }
       } else if (b.state === 'work') {
         const s = b.job.s;
         if (s.removed) { this.release(b); continue; }
         b.heading += angleDiff(b.heading, Math.atan2(s.z + 0.5 - b.z, s.x + 0.5 - b.x)) * Math.min(1, dt * 6);
         b.t += dt;
-        if (b.t > 0.28) {
+        b.cloudT = (b.cloudT || 0) - dt;
+        if (b.cloudT <= 0) {
+          // cartoon fight cloud: whacks, planks and nails flying everywhere
+          b.cloudT = 0.09;
+          game.particles.buildCloud(s.x + 0.5, game.structures.baseY(s), s.z + 0.5, b.job.kind === 'build' ? 1 : 0.7);
+        }
+        if (b.t > 0.22) {
           b.t = 0;
-          game.audio.play('hammer', { volume: 0.18, pitch: 0.9 + Math.random() * 0.4 });
-          game.particles.debris(s.x + 0.5, structuresTop(game, s), s.z + 0.5, 2, [0xc49060, 0x8f5b2e]);
+          game.audio.play(Math.random() < 0.5 ? 'hammer' : 'nail', { volume: 0.2, pitch: 0.9 + Math.random() * 0.5 });
+          if (Math.random() < 0.3) game.particles.word(['pow', 'bonk', 'bam'][Math.floor(Math.random() * 3)], s.x + 0.5 + (Math.random() - 0.5), game.structures.baseY(s) + 1.1, s.z + 0.5, { size: 0.22, life: 0.6 });
+          if (Math.random() < 0.25) game.audio.play('saw', { volume: 0.15 });
         }
         if (b.job.kind === 'build') {
           s.progress += (dt * speedMult) / s.def.buildTime;
           if (s.progress >= 1) {
             game.structures.onBuilt(s);
             game.onStructureBuilt(s);
+            s.popT = 0.45; // squash & stretch pop-in
             this.release(b);
+            b.cheerT = 0.8;
           }
         } else {
           game.structures.repair(s, dt * 1.5 * speedMult);
@@ -163,8 +175,14 @@ export class BeaverSystem {
   render() {
     for (const b of this.list) {
       const r = b.rig;
-      r.root.position.set(b.x, b.y, b.z);
+      let hop = 0;
+      if (b.moving && !b.inWater) hop = Math.abs(Math.sin(b.phase)) * 0.12;
+      if (b.cheerT > 0) { b.cheerT -= 1 / 60; hop = Math.abs(Math.sin(b.cheerT * 12)) * 0.3; }
+      r.root.position.set(b.x, b.y + hop, b.z);
       r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);
+      const sq = b.moving ? 1 + Math.sin(b.phase * 2) * 0.08 : 1;
+      r.root.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
+      r.root.visible = b.state !== 'work' || Math.sin(this.time * 30) > 0.2;
       if (b.state === 'work') {
         r.body.rotation.x = Math.sin(this.time * 22) * 0.18;
         r.tail.rotation.x = -0.3 + Math.abs(Math.sin(this.time * 11)) * 0.7;

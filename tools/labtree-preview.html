@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>LabTree Preview</title>
+<style>
+  /* same font setup as src/ui/style.css (digits from Silkscreen) */
+  @font-face {
+    font-family: 'TBME Digits';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+    unicode-range: U+0030-0039;
+  }
+  :root {
+    --font: 'TBME Digits', 'Pixelify Sans', 'Trebuchet MS', system-ui, sans-serif;
+    --font2: 'Silkscreen', 'Pixelify Sans', monospace;
+    color-scheme: dark;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1b2a1e; font-family: var(--font); }
+  /* fake game world behind the overlay */
+  body {
+    background:
+      radial-gradient(circle at 30% 40%, #3f7a3a 0 8%, transparent 9%),
+      radial-gradient(circle at 70% 65%, #2f6a8a 0 14%, transparent 15%),
+      repeating-linear-gradient(45deg, #2e5a2a 0 12px, #336230 12px 24px);
+  }
+  #wrap { position: fixed; inset: 0; }
+  #dev {
+    position: fixed; left: 4px; top: 4px; z-index: 100; font: 12px/1.3 monospace; color: #cfe;
+    background: rgba(0,0,0,.82); border: 1px solid #3a6; padding: 4px 6px; max-width: 290px;
+  }
+  #dev.min > :not(.t) { display: none; }
+  #dev .t { cursor: pointer; color: #7f9; }
+  #dev button { font: 11px monospace; margin: 2px 2px 0 0; background: #123; color: #cfe; border: 1px solid #3a6; cursor: pointer; }
+  #dev #log { margin-top: 4px; max-height: 120px; overflow: auto; color: #9b9; white-space: pre; }
+  #closed { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #fff; font: 20px 'Pixelify Sans', sans-serif; }
+  #closed button { font: inherit; padding: 6px 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<div id="closed"><div>Lab closed (onClose called)</div><button id="reopen">Reopen lab</button></div>
+<div id="dev" class="min">
+  <div class="t">DEV ▾</div>
+  <div>
+    <button data-a="coins+">+500 coins</button><button data-a="coins-">-500</button><button data-a="coins0">0 coins</button>
+    <button data-a="rnd">research random</button><button data-a="reset">reset</button><button data-a="all">all done</button>
+    <button data-a="sound">sound: off</button><button data-a="sel">select r_sturgeon</button>
+  </div>
+  <div id="log"></div>
+</div>
+<script type="module" src="./labtree-preview.js"></script>
+</body>
+</html>

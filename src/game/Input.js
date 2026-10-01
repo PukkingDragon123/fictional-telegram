@@ -82,6 +82,8 @@ export class Input {
 
   onDown(e) {
     this.game.audio.unlock();
+    if (this.game.lab?.active) { const q = this.local(e); this.game.lab.onCanvasClick(q.x, q.y); return; }
+    if (this.game.inputLocked) { this.game.cine?.onTap?.(); return; }
     this.canvas.setPointerCapture?.(e.pointerId);
     const p = this.local(e);
     this.pointers.set(e.pointerId, { x: p.x, y: p.y, sx: p.x, sy: p.y, t: performance.now(), button: e.button, type: e.pointerType });
@@ -93,6 +95,15 @@ export class Input {
       return;
     }
     if (e.button === 1 || e.button === 2) { this.drag = { mode: 'pan', x: p.x, y: p.y }; return; }
+    const tk = this.tool().kind;
+    if (tk === 'hand' || tk === 'nurture') {
+      const f = this.game.ui?.pickFish(p.x, p.y, 34);
+      if (f) {
+        if (tk === 'hand') this.grabFish(f, p);
+        else { this.drag = { mode: 'pet', fish: f, x: p.x, y: p.y }; this.game.nurtureFish(f); }
+        return;
+      }
+    }
     if (this.isLineTool()) {
       const t = this.pickTile(p.x, p.y);
       this.drag = { mode: 'line', start: t, end: t, moved: false };
@@ -118,6 +129,8 @@ export class Input {
       return;
     }
     if (!this.drag) return;
+    if (this.drag.mode === 'grab') { this.moveGrab(p); return; }
+    if (this.drag.mode === 'pet') { this.drag.x = p.x; this.drag.y = p.y; return; }
     if (this.drag.mode === 'maybe' && Math.hypot(p.x - ptr.sx, p.y - ptr.sy) > TAP_DIST) this.drag.mode = 'pan';
     if (this.drag.mode === 'pan') {
       this.game.rig.panPixels(dx, dy, this.game.renderer);
@@ -137,14 +150,73 @@ export class Input {
     if (this.pinch) { if (this.pointers.size < 2) this.pinch = null; this.drag = null; return; }
     const drag = this.drag;
     this.drag = null;
+    if (drag && drag.mode === 'grab') { this.dropFish(drag, this.local(e)); return; }
+    if (drag && drag.mode === 'pet') return;
     if (cancel || !drag) { this.game.ghostLine = null; return; }
     const p = this.local(e);
     if (drag.mode === 'maybe' && performance.now() - ptr.t < 900) this.tap(p.x, p.y, ptr.button);
     else if (drag.mode === 'line') this.commitLine(drag);
   }
 
+  // ---- hand tool: pick a fish up, carry it, drop it anywhere in the pond
+  grabFish(f, p) {
+    const game = this.game;
+    f.held = true;
+    f.state = 'wander';
+    if (f.mate) { f.mate.mate = null; f.mate.state = 'wander'; f.mate = null; }
+    this.drag = { mode: 'grab', fish: f, x: p.x, y: p.y };
+    game.particles.splash(f.x, f.z, 8, 0.7);
+    game.audio.play('grab', { volume: 0.5 });
+    game.audio.play('fish_flop', { volume: 0.4 });
+    this.moveGrab(p);
+  }
+
+  moveGrab(p) {
+    const d = this.drag;
+    const f = d.fish;
+    if (!f || f.dead) { this.drag = null; return; }
+    const w = this.worldPoint(p.x, p.y, 0.7);
+    f.x = w.x; f.z = w.z; f.y = 0.7 + Math.sin(performance.now() / 90) * 0.05;
+    d.x = p.x; d.y = p.y;
+    if (Math.random() < 0.12) this.game.particles.fx.spawn('drop', f.x, f.y - 0.1, f.z, { vy: -0.5, grav: 9, life: 1, size: 0.07, flags: 2, bright: true });
+    if (Math.random() < 0.03) this.game.audio.play('fish_flop', { volume: 0.25, pitch: 0.9 + Math.random() * 0.3 });
+  }
+
+  dropFish(d, p) {
+    const game = this.game;
+    const f = d.fish;
+    if (!f || f.dead) return;
+    const w = this.worldPoint(p.x, p.y, -0.1);
+    const g = game.grid;
+    let x = w.x, z = w.z;
+    if (!g.fishPassable(Math.floor(x), Math.floor(z))) {
+      const q = game.fish.nearestWater(x, z);
+      if (q) { x = q.x; z = q.z; }
+      game.ui?.floatTextAt(x, 0.6, z, 'Plop!', '#bfe8ff');
+    }
+    f.held = false;
+    f.x = x; f.z = z; f.y = -0.3;
+    f.region = g.regionAt(x, z);
+    f.fleeT = 0.6; f.state = 'flee';
+    game.particles.splash(x, z, 12, 0.8);
+    game.audio.play('splash', { volume: 0.5, pitch: 1.2 });
+    game.audio.play('drop', { volume: 0.4 });
+  }
+
+  // continuous petting while the pointer is held on a fish
+  update(dt) {
+    const d = this.drag;
+    if (d && d.mode === 'pet') {
+      const f = d.fish;
+      if (!f || f.dead) { this.drag = null; return; }
+      const near = this.game.ui?.pickFish(d.x, d.y, 40);
+      if (near === f) this.game.nurtureFish(f);
+    }
+  }
+
   onWheel(e) {
     e.preventDefault();
+    if (this.game.inputLocked) return;
     const f = Math.exp(Math.sign(e.deltaY) * Math.min(0.25, Math.abs(e.deltaY) * 0.0022));
     this.game.rig.zoom(f);
   }
@@ -163,13 +235,15 @@ export class Input {
       else if (k === ' ') { e.preventDefault(); ui?.togglePause(); }
       else if (k === '+' || k === '=') this.game.rig.zoom(0.8);
       else if (k === '-' || k === '_') this.game.rig.zoom(1.25);
-      else if (/^[1-8]$/.test(k)) ui?.hotkey(+k);
+      else if (/^[1-9]$/.test(k)) ui?.hotkey(+k);
       else if (k === 'b') this.game.ringBell();
       else if (k === 'f') ui?.followBear();
     } else this.keys.delete(k);
   }
 
   updateKeys(dt) {
+    this.update(dt);
+    if (this.game.inputLocked) return;
     const k = this.keys;
     let f = 0, r = 0;
     if (k.has('w') || k.has('arrowup')) f += 1;
@@ -192,6 +266,13 @@ export class Input {
     if (tool.kind === 'build') { game.placeStructure(tool.type, t.x, t.z); return; }
     if (tool.kind === 'dig') { game.dig(t.x, t.z); return; }
     if (tool.kind === 'remove') { game.demolishAt(t.x, t.z); return; }
+    if (tool.kind === 'tag' || tool.kind === 'nurture' || tool.kind === 'hand') {
+      const f = game.ui?.pickFish(sx, sy, 34);
+      if (!f) { game.ui?.toast(tool.kind === 'tag' ? 'Tap a fish to tag it DO NOT EAT' : tool.kind === 'hand' ? 'Press and drag a fish to carry it' : 'Tap (or hold) a fish to pet it'); return; }
+      if (tool.kind === 'tag') game.tagFish(f);
+      else if (tool.kind === 'nurture') game.nurtureFish(f);
+      return;
+    }
     // default: feed / interact
     const bear = game.ui?.pickBear(sx, sy);
     if (bear) { game.ui.showBearInfo(bear); return; }

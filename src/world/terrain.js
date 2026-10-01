@@ -1,52 +1,138 @@
-// Terrain mesh (voxel columns per tile) with a pixel-noise shader for grain,
-// plus the water surface with animated pixel ripples, foam and sparkles.
+// Terrain mesh (voxel columns per tile) textured with 2D pixel-art tiles, and
+// the water surface driven by the height-field simulation (waterSim.js).
+//
+// Terrain: every top face samples a pixel texture chosen from a per-tile
+// "surface" map (grass, autumn grass, dirt, shore sand, pond floor, rock,
+// snow, trail, forest floor). The lookup is jittered at texel resolution so
+// borders between surfaces become ragged, dithered pixel edges instead of a
+// tile grid. Cliffs/banks use a vertical rock or soil texture. Vertex colours
+// only carry ambient occlusion.
 import * as THREE from 'three';
 import { KIND, WATER_Y } from './grid.js';
 import { hash2, fbm2 } from '../core/rng.js';
-import { linearRGB, mix } from '../core/voxel.js';
 
 const BASE_Y = -4;
 
-const KIND_COLORS = {
-  [KIND.GRASS]: [0x6e993b, 0x6f9a3c, 0x6d983a],
-  [KIND.SAND]: [0xc8b27a, 0xd1bb82, 0xbca872],
-  [KIND.DIRT]: [0x8a6a44, 0x94734b, 0x80623e],
-  [KIND.WATER]: [0x8a7f5a, 0x7f7552, 0x938760], // pond floor (silt/pebbles)
-  [KIND.ROCK]: [0x857f7a, 0x8f8983, 0x7a7571],
-  [KIND.SNOW]: [0xeef3f7, 0xe4ebf1, 0xf5f8fb],
-  [KIND.FOREST]: [0x4d6f33, 0x557a38, 0x46672f],
-  [KIND.TRAIL]: [0xb08c5a, 0xb89462, 0xa88452],
-};
-const CLIFF = { [KIND.ROCK]: 0x6f6a66, [KIND.SNOW]: 0x9aa3ab, [KIND.TRAIL]: 0x6c6660, default: 0x7b5a3a };
+// surface ids (must match SURF_NAMES order)
+export const SURF = { GRASS: 0, AUTUMN: 1, DIRT: 2, SAND: 3, POND: 4, ROCK: 5, SNOW: 6, TRAIL: 7, FOREST: 8, CLIFF: 9 };
+export const SURF_NAMES = ['grass', 'grass_autumn', 'dirt', 'sand', 'pondfloor', 'cliff', 'snow', 'trail', 'forest', 'cliff'];
 
-function topColor(grid, x, z) {
-  const i = z * grid.w + x;
-  const k = grid.kind[i];
-  const pal = KIND_COLORS[k] || KIND_COLORS[KIND.GRASS];
-  let c = pal[Math.floor(hash2(x, z, 3) * pal.length)];
-  if (k === KIND.GRASS || k === KIND.FOREST) {
-    // sandy rim along the shore
-    let shore = 0;
-    for (let dz = -1; dz <= 1; dz++)
-      for (let dx = -1; dx <= 1; dx++) if (grid.isWater(x + dx, z + dz)) shore++;
-    if (shore > 0) c = mix(c, 0xb7a06b, Math.min(0.75, 0.35 + shore * 0.1));
-    // patchy autumn tint in the meadow (smooth low-frequency patches)
-    const n = fbm2(x * 0.12, z * 0.12, 17);
-    if (n > 0.55) c = mix(c, 0x94983c, Math.min(0.35, (n - 0.55) * 2.2));
-    else if (n < 0.38) c = mix(c, 0x5d8a36, Math.min(0.3, (0.38 - n) * 2));
+// ------------------------------------------------------------------ atlas
+// Procedural stand-in textures (used until src/art/terrainArt.js is present).
+function fallbackAtlas() {
+  const S = 48;
+  const cv = document.createElement('canvas');
+  cv.width = S * 4; cv.height = S * 3;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  const tiles = {};
+  const pals = {
+    grass: ['#6da53f', '#7bb347', '#5f9638', '#8cc453', '#4f8534'],
+    grass_autumn: ['#9aa545', '#a9b04c', '#8a963c', '#c0b85a', '#c8743a'],
+    dirt: ['#8a6444', '#7a583c', '#9a7450', '#6a4c34', '#a88a64'],
+    sand: ['#d8c28a', '#cbb47c', '#e4d09a', '#b8a06c', '#9c8c70'],
+    pondfloor: ['#7c7a52', '#6e6c48', '#8a885c', '#5e5c3e', '#a09a78'],
+    cliff: ['#8a8680', '#7a7670', '#9a968e', '#66625e', '#6f8a5a'],
+    snow: ['#eef3f8', '#e2eaf2', '#f8fbff', '#d0dcea', '#ffffff'],
+    trail: ['#b8946a', '#a8845c', '#c4a07a', '#94744e', '#8a8a86'],
+    forest: ['#5c6a36', '#4e5c30', '#6a7a3e', '#7a5a34', '#8a4a2a'],
+  };
+  let k = 0;
+  for (const [name, pal] of Object.entries(pals)) {
+    const ox = (k % 4) * S, oy = Math.floor(k / 4) * S;
+    k++;
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const n = hash2(x + ox, y + oy, 11);
+        const m = fbm2(x * 0.15 + ox, y * 0.15 + oy, 5);
+        let c = pal[0];
+        if (m > 0.6) c = pal[1];
+        else if (m < 0.38) c = pal[2];
+        if (n > 0.93) c = pal[3];
+        else if (n < 0.025) c = pal[4];
+        ctx.fillStyle = c;
+        ctx.fillRect(ox + x, oy + y, 1, 1);
+      }
+    tiles[name] = { x: ox, y: oy, w: S, h: S };
   }
-  if (k === KIND.WATER) {
-    const deep = grid.height[i] < -0.7;
-    c = deep ? mix(c, 0x6f7a58, 0.35) : c;
-  }
-  if (k === KIND.ROCK && grid.height[i] > 11) c = mix(c, 0xdfe6ec, 0.35);
-  return c;
+  return { canvas: cv, tiles };
 }
 
+let atlasTex = null;
+const rectUniform = { value: Array.from({ length: 10 }, () => new THREE.Vector4(0, 0, 1, 1)) };
+const atlasUniform = { value: null };
+
+function applyAtlas(atlas) {
+  const cv = atlas.canvas;
+  if (atlasTex) atlasTex.dispose();
+  atlasTex = new THREE.CanvasTexture(cv);
+  atlasTex.magFilter = THREE.NearestFilter;
+  atlasTex.minFilter = THREE.NearestFilter;
+  atlasTex.generateMipmaps = false;
+  atlasTex.colorSpace = THREE.SRGBColorSpace;
+  atlasTex.flipY = false;
+  atlasTex.needsUpdate = true;
+  atlasUniform.value = atlasTex;
+  SURF_NAMES.forEach((name, i) => {
+    const t = atlas.tiles[name] || atlas.tiles.grass || { x: 0, y: 0, w: cv.width, h: cv.height };
+    rectUniform.value[i].set(t.x / cv.width, t.y / cv.height, t.w / cv.width, t.h / cv.height);
+  });
+}
+
+applyAtlas(fallbackAtlas());
+// swap in the real pixel art when the module is available
+const artMods = import.meta.glob('../art/terrainArt.js');
+if (artMods['../art/terrainArt.js']) {
+  artMods['../art/terrainArt.js']().then((m) => {
+    try { const a = m.buildTerrainAtlas?.(); if (a?.canvas) applyAtlas(a); } catch { /* keep fallback */ }
+  }).catch(() => {});
+}
+
+// ------------------------------------------------------------------ surface map
+export function surfaceOf(grid, x, z) {
+  const i = z * grid.w + x;
+  const k = grid.kind[i];
+  switch (k) {
+    case KIND.WATER: return SURF.POND;
+    case KIND.SAND: return SURF.SAND;
+    case KIND.DIRT: return SURF.DIRT;
+    case KIND.ROCK: return SURF.ROCK;
+    case KIND.SNOW: return SURF.SNOW;
+    case KIND.TRAIL: return SURF.TRAIL;
+    case KIND.FOREST: return SURF.FOREST;
+    default: break;
+  }
+  // meadow grass: sandy rim along the water, patches of autumn grass
+  let shore = false;
+  for (let dz = -1; dz <= 1 && !shore; dz++)
+    for (let dx = -1; dx <= 1; dx++) if (grid.isWater(x + dx, z + dz)) { shore = true; break; }
+  if (shore) return SURF.SAND;
+  const n = fbm2(x * 0.12, z * 0.12, 17);
+  return n > 0.58 ? SURF.AUTUMN : SURF.GRASS;
+}
+
+export function buildSurfaceTexture(grid, tex) {
+  const { w, h } = grid;
+  const data = tex ? tex.image.data : new Uint8Array(w * h * 4);
+  for (let z = 0; z < h; z++)
+    for (let x = 0; x < w; x++) {
+      const o = (z * w + x) * 4;
+      data[o] = surfaceOf(grid, x, z) * 16;
+      data[o + 1] = 0; data[o + 2] = 0; data[o + 3] = 255;
+    }
+  if (!tex) {
+    tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+  }
+  tex.needsUpdate = true;
+  return tex;
+}
+
+// ------------------------------------------------------------------ terrain material
 const terrainVert = (shader) => {
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNor;')
-    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);');
+    .replace('#include <common>', '#include <common>\nattribute float aSide;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vSide;')
+    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;');
 };
 
 export function makeTerrainMaterial(uniforms) {
@@ -55,6 +141,12 @@ export function makeTerrainMaterial(uniforms) {
     shader.uniforms.uTime = uniforms.uTime;
     shader.uniforms.uWaterY = { value: WATER_Y };
     shader.uniforms.uCaustic = uniforms.uCaustic;
+    shader.uniforms.uAtlas = atlasUniform;
+    shader.uniforms.uRects = rectUniform;
+    shader.uniforms.uSurf = uniforms.uSurf;
+    shader.uniforms.uGridSize = uniforms.uGridSize;
+    shader.uniforms.uSim = uniforms.uSim;
+    shader.uniforms.uSimRect = uniforms.uSimRect;
     terrainVert(shader);
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -62,10 +154,25 @@ export function makeTerrainMaterial(uniforms) {
         `#include <common>
 varying vec3 vWPos;
 varying vec3 vWNor;
+varying float vSide;
 uniform float uTime;
 uniform float uWaterY;
 uniform float uCaustic;
+uniform sampler2D uAtlas;
+uniform vec4 uRects[10];
+uniform sampler2D uSurf;
+uniform vec2 uGridSize;
+uniform sampler2D uSim;
+uniform vec4 uSimRect;
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float vn2(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
+vec3 surfTex(int id, vec2 p) {
+  vec4 r = uRects[id];
+  vec2 t = fract(p / 2.0);            // one 48px texture covers 2x2 tiles
+  t = (floor(t * 48.0) + 0.5) / 48.0; // snap to texels
+  return texture2D(uAtlas, r.xy + t * r.zw).rgb;
+}
 `,
       )
       .replace(
@@ -73,39 +180,49 @@ float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32);
         `#include <color_fragment>
 {
   vec3 an = abs(vWNor);
-  vec2 cell = an.y > 0.5 ? vWPos.xz : (an.x > 0.5 ? vWPos.zy : vWPos.xy);
-  vec2 q = floor(cell * 10.0 + 0.001);
-  float n = h21(q);
-  float n2 = h21(floor(cell * 5.0 + 0.001) + 17.0);
-  float grain = (n - 0.5) * 0.14 + (n2 - 0.5) * 0.08;
-  if (an.y < 0.5) {
-    // strata on cliffs
-    float s = h21(vec2(floor(vWPos.y * 10.0), floor((vWPos.x + vWPos.z) * 2.0)));
-    grain += (s - 0.5) * 0.12;
+  vec3 tex;
+  if (an.y > 0.5) {
+    // jittered surface lookup -> ragged, dithered borders between surfaces
+    vec2 p = vWPos.xz;
+    vec2 tp = floor(p * 24.0) / 24.0;
+    vec2 j = vec2(h21(tp) - 0.5, h21(tp + 7.3) - 0.5) * 0.28 + (vec2(vn2(p * 1.9), vn2(p * 1.9 + 4.1)) - 0.5) * 0.7;
+    vec2 q = (floor(p + j) + 0.5) / uGridSize;
+    int id = int(texture2D(uSurf, q).r * 255.0 / 16.0 + 0.5);
+    tex = surfTex(id, p);
+  } else {
+    vec2 sp = an.x > 0.5 ? vec2(vWPos.z, vWPos.y) : vec2(vWPos.x, vWPos.y);
+    int id = vSide > 0.5 ? 9 : 2;
+    tex = surfTex(id, sp * vec2(1.0, 1.0));
+    // grassy lip along the top edge of banks
+    if (vSide < 0.5 && fract(vWPos.y) > 0.0) {}
   }
-  diffuseColor.rgb *= 1.0 + grain;
+  diffuseColor.rgb *= tex * 1.12;
   if (vWPos.y < uWaterY - 0.02) {
-    // underwater: caustics + tint
-    vec2 cp = floor(vWPos.xz * 10.0) / 10.0;
+    // underwater: tint + caustics that follow the simulated ripples
+    vec2 cp = floor(vWPos.xz * 24.0) / 24.0;
+    vec2 suv = (cp - uSimRect.xy) / uSimRect.zw;
+    vec3 s = texture2D(uSim, suv).rgb - 0.5;
     float c1 = sin(cp.x * 3.1 + uTime * 1.3 + sin(cp.y * 2.3 + uTime * 0.7) * 1.5);
     float c2 = sin(cp.y * 3.7 - uTime * 1.1 + sin(cp.x * 1.9 - uTime * 0.9) * 1.5);
-    float c = smoothstep(0.75, 1.0, abs(c1 * c2));
-    diffuseColor.rgb = diffuseColor.rgb * vec3(0.4, 0.56, 0.66);
-    diffuseColor.rgb += c * uCaustic * vec3(0.22, 0.3, 0.26);
+    float c = smoothstep(0.72, 1.0, abs(c1 * c2)) + smoothstep(0.04, 0.12, length(s.gb)) * 0.6;
+    float depth = clamp((uWaterY - vWPos.y) / 1.0, 0.0, 1.0);
+    diffuseColor.rgb *= mix(vec3(0.62, 0.78, 0.8), vec3(0.36, 0.52, 0.64), depth);
+    diffuseColor.rgb += c * uCaustic * vec3(0.2, 0.28, 0.24) * (1.0 - depth * 0.5);
   }
 }`,
       );
   };
+  mat.customProgramCacheKey = () => 'terrain2';
   return mat;
 }
 
 export function buildTerrainGeometry(grid) {
   const { w, h } = grid;
-  const pos = [], nor = [], col = [], idx = [];
+  const pos = [], nor = [], col = [], side = [], idx = [];
   let vi = 0;
-  const quad = (a, b, c, d, n, rgb) => {
+  const quad = (a, b, c, d, n, rgb, sd) => {
     pos.push(...a, ...b, ...c, ...d);
-    for (let k = 0; k < 4; k++) nor.push(n[0], n[1], n[2]);
+    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); side.push(sd); }
     for (let k = 0; k < 4; k++) col.push(rgb[k][0], rgb[k][1], rgb[k][2]);
     idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
     vi += 4;
@@ -116,56 +233,38 @@ export function buildTerrainGeometry(grid) {
       const i = z * w + x;
       const y = grid.height[i];
       const k = grid.kind[i];
-      const tc = linearRGB(topColor(grid, x, z));
       // simple corner AO on top face: darker where neighbours are higher
       const ao = (dx, dz) => {
         const hs = [Hs(x + dx, z), Hs(x, z + dz), Hs(x + dx, z + dz)];
         let occ = 0;
         for (const v of hs) if (v > y + 0.01) occ++;
-        return [1, 0.86, 0.76, 0.68][occ];
+        return [1, 0.84, 0.74, 0.66][occ];
       };
+      const tint = k === KIND.WATER ? 0.92 : 1;
+      const g = (f) => [f * tint, f * tint, f * tint];
       const c00 = ao(-1, -1), c10 = ao(1, -1), c11 = ao(1, 1), c01 = ao(-1, 1);
-      const tcol = (f) => [tc[0] * f, tc[1] * f, tc[2] * f];
-      // top face (CCW from above): (x,z) -> (x,z+1) -> (x+1,z+1) -> (x+1,z)
-      quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0], [tcol(c00), tcol(c01), tcol(c11), tcol(c10)]);
-      // side faces where neighbour is lower
-      let sideHex = CLIFF[k] ?? CLIFF.default;
-      if (!grid.meadow[i] && y > 0.6 && k === KIND.FOREST) sideHex = 0x746e67;
-      const topHex = topColor(grid, x, z);
-      const sides = [
-        [1, 0, [1, 0, 0]],
-        [-1, 0, [-1, 0, 0]],
-        [0, 1, [0, 0, 1]],
-        [0, -1, [0, 0, -1]],
-      ];
+      quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0], [g(c00), g(c01), g(c11), g(c10)], 0);
+      // rock/snow/mountain sides use the cliff texture, meadow & pond banks use soil
+      const rocky = k === KIND.ROCK || k === KIND.SNOW || (!grid.meadow[i] && y > 0.6);
+      const sides = [[1, 0, [1, 0, 0]], [-1, 0, [-1, 0, 0]], [0, 1, [0, 0, 1]], [0, -1, [0, 0, -1]]];
       for (const [dx, dz, n] of sides) {
         const ny = Hs(x + dx, z + dz);
         if (ny >= y) continue;
         const y0 = Math.max(ny, BASE_Y), y1 = y;
-        // lip: top 0.1 of the side keeps the top colour (grass overhang)
-        const lip = Math.min(0.1, y1 - y0);
-        const sc = linearRGB(k === KIND.WATER ? 0x8a7a55 : sideHex);
-        const lc = linearRGB(k === KIND.WATER ? 0x8a7a55 : mix(topHex, 0x000000, 0.12));
-        const dark = [sc[0] * 0.8, sc[1] * 0.8, sc[2] * 0.8];
-        const faces = [
-          [y1 - lip, y1, lc, lc],
-          [y0, y1 - lip, dark, sc],
-        ];
-        for (const [a0, a1, cb, ct] of faces) {
-          if (a1 - a0 <= 0.0001) continue;
-          let A, B, C, D;
-          if (dx === 1) { A = [x + 1, a0, z + 1]; B = [x + 1, a0, z]; C = [x + 1, a1, z]; D = [x + 1, a1, z + 1]; }
-          else if (dx === -1) { A = [x, a0, z]; B = [x, a0, z + 1]; C = [x, a1, z + 1]; D = [x, a1, z]; }
-          else if (dz === 1) { A = [x, a0, z + 1]; B = [x + 1, a0, z + 1]; C = [x + 1, a1, z + 1]; D = [x, a1, z + 1]; }
-          else { A = [x + 1, a0, z]; B = [x, a0, z]; C = [x, a1, z]; D = [x + 1, a1, z]; }
-          quad(A, B, C, D, n, [cb, cb, ct, ct]);
-        }
+        const lo = [0.62, 0.62, 0.66], hi = [0.95, 0.95, 0.95];
+        let A, B, C, D;
+        if (dx === 1) { A = [x + 1, y0, z + 1]; B = [x + 1, y0, z]; C = [x + 1, y1, z]; D = [x + 1, y1, z + 1]; }
+        else if (dx === -1) { A = [x, y0, z]; B = [x, y0, z + 1]; C = [x, y1, z + 1]; D = [x, y1, z]; }
+        else if (dz === 1) { A = [x, y0, z + 1]; B = [x + 1, y0, z + 1]; C = [x + 1, y1, z + 1]; D = [x, y1, z + 1]; }
+        else { A = [x + 1, y0, z]; B = [x, y0, z]; C = [x, y1, z]; D = [x + 1, y1, z]; }
+        quad(A, B, C, D, n, [lo, lo, hi, hi], rocky ? 1 : 0);
       }
     }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('aSide', new THREE.Float32BufferAttribute(side, 1));
   g.setIndex(new THREE.Uint32BufferAttribute(idx, 1));
   g.computeBoundingSphere();
   return g;
@@ -174,57 +273,82 @@ export function buildTerrainGeometry(grid) {
 // ---------------------------------------------------------------- water
 
 const waterVert = /* glsl */ `
+uniform sampler2D uSim;
+uniform vec4 uSimRect;
 varying vec3 vWPos;
-#include <common>
-#include <fog_pars_vertex>
+varying vec3 vSimV;
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
+  vec2 suv = (wp.xz - uSimRect.xy) / uSimRect.zw;
+  vec3 s = texture2D(uSim, suv).rgb;
+  wp.y += (s.r - 0.5) * 0.11;
+  vSimV = s;
   vWPos = wp.xyz;
-  vec4 mvPosition = viewMatrix * wp;
-  gl_Position = projectionMatrix * mvPosition;
+  gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `;
 
 const waterFrag = /* glsl */ `
 uniform float uTime;
 uniform sampler2D uShore;
+uniform sampler2D uSim;
+uniform vec4 uSimRect;
 uniform vec2 uGridSize;
 uniform vec3 uShallow;
 uniform vec3 uDeep;
 uniform vec3 uFoam;
 uniform vec3 uGlint;
 uniform vec3 uSkyTint;
+uniform vec3 uSunDir;
+uniform vec3 uViewDir;
 uniform float uNight;
 uniform float uAurora;
 varying vec3 vWPos;
+varying vec3 vSimV;
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 void main() {
-  vec2 q = floor(vWPos.xz * 10.0) / 10.0 + 0.05;
-  float shore = texture2D(uShore, q / uGridSize).r; // 0 at land, 1 deep
+  vec2 q = floor(vWPos.xz * 24.0) / 24.0 + 1.0 / 48.0;   // pixel-snapped
+  vec2 suv = (q - uSimRect.xy) / uSimRect.zw;
+  vec3 s = texture2D(uSim, suv).rgb - 0.5;
+  // small procedural capillary waves on top of the simulation
+  float t = uTime;
+  vec2 cap = vec2(sin(q.x * 3.7 + q.y * 1.3 + t * 1.6) + sin(q.y * 4.3 - t * 1.2),
+                  cos(q.y * 3.1 - q.x * 1.7 + t * 1.3) + cos(q.x * 5.1 + t * 0.9)) * 0.01;
+  vec2 slope = s.gb * 1.9 + cap;
+  vec3 N = normalize(vec3(-slope.x, 1.0, -slope.y));
+  // refraction: wobble the shore/depth lookup with the surface slope
+  vec2 rq = q + slope * 0.35;
+  float shore = texture2D(uShore, rq / uGridSize).r; // 0 at land, 1 deep
   vec3 col = mix(uShallow, uDeep, smoothstep(0.0, 1.0, shore));
-  // slow colour drift like the reference (teal <-> violet)
-  float drift = sin(q.x * 0.21 + uTime * 0.05) * sin(q.y * 0.17 - uTime * 0.04);
-  col = mix(col, col * vec3(0.9, 0.95, 1.12), 0.5 + 0.5 * drift);
-  // pixel ripple lines
-  float r1 = sin(q.x * 2.2 + q.y * 0.9 + uTime * 1.1) + sin(q.y * 2.6 - q.x * 0.7 - uTime * 0.8);
-  float line = step(1.82, r1);
-  col += line * uGlint * 0.07;
+  float drift = sin(q.x * 0.21 + t * 0.05) * sin(q.y * 0.17 - t * 0.04);
+  col = mix(col, col * vec3(0.9, 0.96, 1.1), 0.5 + 0.5 * drift);
+  // sky reflection on slopes facing away (fresnel-ish), quantised in bands
+  float base = max(uViewDir.y, 0.2);
+  float fres = clamp((base - max(dot(N, uViewDir), 0.0)) * 5.0, -1.0, 1.0);
+  col = mix(col, uSkyTint * 1.1, 0.1 + clamp(floor(fres * 3.0) / 3.0, 0.0, 1.0) * 0.35);
+  col *= 1.0 - clamp(floor(-fres * 3.0) / 3.0, 0.0, 1.0) * 0.12;
+  // crest / trough shading
+  float hh = s.r;
+  col *= 1.0 + clamp(floor(hh * 26.0) / 26.0, -0.2, 0.25) * 1.3;
+  // sun glints (pixel-crisp)
+  vec3 H = normalize(uSunDir + uViewDir);
+  float spec = pow(max(dot(N, H), 0.0), 90.0);
+  col += step(0.45, spec) * uGlint * (0.55 - uNight * 0.3) + step(0.12, spec) * uGlint * 0.08;
   // sparkles
-  vec2 cell = floor(vWPos.xz * 10.0);
-  float s = h21(cell + floor(uTime * 1.5));
-  float spark = step(0.9985, s) * (0.6 + 0.4 * sin(uTime * 9.0 + s * 40.0));
-  col += spark * uGlint * 0.5;
-  // foam at the shore
-  float foamN = h21(cell * 0.5 + floor(uTime * 2.0) * 0.37);
-  float foamEdge = 0.05 + 0.035 * sin(uTime * 2.0 + q.x * 3.0 + q.y * 2.0);
+  vec2 cell = floor(vWPos.xz * 24.0);
+  float sp = h21(cell + floor(t * 1.5));
+  col += step(0.9988, sp) * (0.6 + 0.4 * sin(t * 9.0 + sp * 40.0)) * uGlint * 0.5;
+  // foam at the shore and on steep crests
+  float foamN = h21(cell * 0.5 + floor(t * 2.0) * 0.37);
+  float foamEdge = 0.05 + 0.035 * sin(t * 2.0 + q.x * 3.0 + q.y * 2.0) + max(0.0, hh) * 0.6;
   float foam = step(shore, foamEdge) * step(0.45, foamN);
-  col = mix(col, uFoam, foam * 0.6);
-  // sky reflection tint (sunset / aurora at night)
-  col = mix(col, uSkyTint, 0.06);
-  float au = uAurora * (0.5 + 0.5 * sin(q.x * 0.35 + uTime * 0.3 + sin(q.y * 0.2) * 2.0));
+  foam = max(foam, step(0.1, hh) * step(0.6, foamN) * (1.0 - smoothstep(0.3, 0.9, shore)));
+  col = mix(col, uFoam, foam * 0.7);
+  // aurora reflection at night
+  float au = uAurora * (0.5 + 0.5 * sin(q.x * 0.35 + t * 0.3 + sin(q.y * 0.2) * 2.0));
   col += vec3(0.05, 0.35, 0.22) * au * 0.35;
-  float alpha = mix(0.6, 0.84, smoothstep(0.1, 1.0, shore));
-  alpha = max(alpha, foam * 0.8);
+  float alpha = mix(0.62, 0.86, smoothstep(0.1, 1.0, shore));
+  alpha = max(alpha, foam * 0.85);
   gl_FragColor = vec4(col, alpha);
 }
 `;
@@ -239,16 +363,23 @@ export function makeWaterMaterial(uniforms) {
   });
 }
 
-export function buildWaterGeometry(grid) {
+// Subdivided per-tile quads so the surface can be displaced by the sim.
+export function buildWaterGeometry(grid, sub = 3) {
   const { w, h } = grid;
   const pos = [], idx = [];
   let vi = 0;
+  const step = 1 / sub;
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++) {
       if (grid.kind[z * w + x] !== KIND.WATER) continue;
-      pos.push(x, WATER_Y, z, x, WATER_Y, z + 1, x + 1, WATER_Y, z + 1, x + 1, WATER_Y, z);
-      idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
-      vi += 4;
+      for (let j = 0; j <= sub; j++)
+        for (let i = 0; i <= sub; i++) pos.push(x + i * step, WATER_Y, z + j * step);
+      for (let j = 0; j < sub; j++)
+        for (let i = 0; i < sub; i++) {
+          const a = vi + j * (sub + 1) + i;
+          idx.push(a, a + sub + 1, a + sub + 2, a, a + sub + 2, a + 1);
+        }
+      vi += (sub + 1) * (sub + 1);
     }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -267,7 +398,6 @@ export function buildShoreTexture(grid, tex) {
       const i = z * w + x;
       if (grid.kind[i] !== KIND.WATER) { dist[i] = 0; q.push(i); }
     }
-  // chamfer BFS
   let head = 0;
   while (head < q.length) {
     const c = q[head++];

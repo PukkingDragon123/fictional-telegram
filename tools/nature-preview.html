@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nature Sprites</title>
+<style>
+  :root { --bg: #5f8a3a; --panel: #52792f; --ink: #f6f1df; --dim: #d8e6b8; --line: #3f5f25; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 13px/1.3 ui-monospace, Menlo, Consolas, monospace; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: 1px; }
+  h2 { font-size: 14px; margin: 22px 0 10px; color: #ffe38a; letter-spacing: 1px; text-transform: uppercase; }
+  .sub { color: var(--dim); }
+  .grid { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
+  .cell { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 6px 6px 4px; background: var(--panel); border: 1px solid var(--line); min-width: 64px; }
+  .cell canvas { image-rendering: pixelated; display: block; }
+  .cell .lbl { font-size: 11px; margin-top: 4px; text-align: center; }
+  .cell .sz { font-size: 10px; color: var(--dim); }
+  .scene { display: block; image-rendering: pixelated; border: 2px solid var(--line); max-width: 100%; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 12px; }
+  .tiles canvas { image-rendering: pixelated; display: block; border: 1px solid var(--line); }
+  .errors { color: #ffb3a0; white-space: pre-wrap; }
+  .ok { color: #d7ffa0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./nature-preview.js"></script>
+</body>
+</html>

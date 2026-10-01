@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fish Sprites</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #14222b; --ink: #e8f0f4; --dim: #8aa2b0; --gold: #ffd23f;
+    --water: #1f5360; --water2: #163f4b; --paper: #f2e6cb; --paper2: #e7d6b2; --paperInk: #5a4230;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 18px 16px 48px; background: var(--bg); color: var(--ink); font-family: 'Silkscreen', ui-monospace, monospace; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: 1px; font-weight: 700; }
+  h2 { font-size: 13px; margin: 26px 0 8px; color: var(--gold); letter-spacing: 1px; font-weight: 400; }
+  .sub { color: var(--dim); font-size: 11px; line-height: 1.5; }
+  .panel { padding: 14px; border: 2px solid #0b1418; border-radius: 4px; overflow-x: auto; }
+  .water { background: radial-gradient(120% 90% at 30% 0%, #2a6a78 0%, var(--water) 45%, var(--water2) 100%); }
+  .paper { background: var(--paper); color: var(--paperInk); box-shadow: inset 0 0 0 3px var(--paper2); }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 40px; }
+  .cell .lbl { font-size: 9px; opacity: 0.85; white-space: nowrap; }
+  canvas.px { image-rendering: pixelated; display: block; }
+  .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .mrow { display: flex; gap: 14px; align-items: flex-end; margin-bottom: 10px; }
+  .mrow .rl { width: 92px; font-size: 10px; color: var(--dim); align-self: center; }
+  .errors { color: #ff8d72; white-space: pre-wrap; font-family: monospace; font-size: 12px; }
+  .atlas { max-width: 100%; height: auto; image-rendering: pixelated; background: #0e1a20; border: 1px solid #0b1418; }
+</style>
+</head>
+<body>
+<h1>Fish sprites</h1>
+<div class="sub" id="sub">src/art/fishArt.js</div>
+<div class="errors" id="err"></div>
+<div id="app"></div>
+<script type="module" src="./fish-preview.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reynard's Lab preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #16111d; overflow: hidden; font: 13px/1.3 monospace; color: #f4e8d0; }
+  canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #ui { position: fixed; left: 12px; top: 12px; display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100vw - 24px); }
+  #ui button { font: inherit; background: #2a2036; color: #f4e8d0; border: 2px solid #5a4a6a; padding: 5px 10px; cursor: pointer; }
+  #ui button.on { background: #5a2a6a; border-color: #e8c040; }
+  #info { position: fixed; left: 12px; bottom: 10px; opacity: 0.75; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <button data-cam="camOverview" class="on">Overview</button>
+  <button data-cam="camScreen">Screen</button>
+  <button data-cam="camFox">Fox</button>
+  <button id="night">Night</button>
+  <button id="bed">Fox: desk</button>
+  <button id="yaw">Yaw hints: on</button>
+</div>
+<div id="info"></div>
+<script type="module" src="./lab-preview.js"></script>
+</body>
+</html>
