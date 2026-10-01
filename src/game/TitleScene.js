@@ -23,8 +23,7 @@
 import * as THREE from 'three';
 import { FoxRig, FOX_SEAT_SURFACE } from '../entities/foxRig.js';
 import { DeerGuy, Duck, makeLawnChair, makeDaisyBeerCan, makeCooler, LAWN_CHAIR_SEAT } from '../entities/critters3d.js';
-import { buildFishGeometry } from '../entities/fishModels.js';
-import { SPECIES_BY_ID } from '../data/species.js';
+import { fishCanvasFor, FISH_TPU } from './fishSprites.js';
 import { WATER_Y } from '../world/grid.js';
 import { FX } from './Particles.js';
 
@@ -266,7 +265,7 @@ export class TitleScene {
     this._saved = {
       hour: game.state.hour, phase: game.state.phase,
       wupp: rig.wupp, wuppGoal: rig.wuppGoal, minWupp: rig.minWupp, yaw: rig.yaw, yawGoal: rig.yawGoal,
-      pitch: rig.pitch, pitchGoal: rig.pitchGoal, target: rig.target.clone(), goal: rig.goal.clone(), freeBounds: rig.freeBounds, follow: rig.follow,
+      pitch: rig.pitch, pitchGoal: rig.pitchGoal, dist: rig.dist, target: rig.target.clone(), goal: rig.goal.clone(), freeBounds: rig.freeBounds, follow: rig.follow,
       bloomStrength: R.bloomStrength, threshold: R.brightPass.mat.uniforms.threshold.value,
       u: {}, glint: wu.uGlint.value.clone(), foxVisible: game.fox.rig.root.visible,
       skyOwn: Object.prototype.hasOwnProperty.call(game.sky, 'update') ? game.sky.update : null,
@@ -299,6 +298,7 @@ export class TitleScene {
     // --- camera
     rig.freeBounds = true;
     rig.follow = null;
+    rig.dist = 16; // keep the (low-pitched) camera inside the meadow, not inside the hills
     rig.minWupp = Math.min(rig.minWupp, 0.008);
     rig.yaw = rig.yawGoal = YAW;
     rig.pitch = THREE.MathUtils.degToRad(PITCH);
@@ -328,7 +328,7 @@ export class TitleScene {
     game.world.waterUniforms.uGlint.value.copy(s.glint);
     rig.freeBounds = s.freeBounds; rig.follow = s.follow; rig.minWupp = s.minWupp;
     rig.wupp = s.wupp; rig.wuppGoal = s.wuppGoal; rig.yaw = s.yaw; rig.yawGoal = s.yawGoal;
-    rig.pitch = s.pitch; rig.pitchGoal = s.pitchGoal;
+    rig.pitch = s.pitch; rig.pitchGoal = s.pitchGoal; rig.dist = s.dist;
     rig.target.copy(s.target); rig.goal.copy(s.goal);
     // remove our actors
     for (const w of this.words) { this.group.remove(w.sprite); w.sprite.material.dispose(); }
@@ -339,7 +339,7 @@ export class TitleScene {
     this.group.traverse((o) => {
       if (o === this.skyMesh) { o.geometry.dispose(); o.material.dispose(); }
     });
-    this.fishMesh?.geometry?.dispose?.();
+    this.fishMesh?.material?.map?.dispose?.();
     this.group = null;
   }
 
@@ -484,14 +484,19 @@ export class TitleScene {
     this.dfly.scale.setScalar(1.15);
     g.add(this.dfly);
     this.dflySt = null;
-    const sp = SPECIES_BY_ID.sockeye || SPECIES_BY_ID.bluegill;
-    if (sp) {
-      const { geo } = buildFishGeometry(sp);
-      this.fishMesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+    try {
+      const cv = fishCanvasFor('sockeye', { scale: 1 });
+      const tex = new THREE.CanvasTexture(cv);
+      tex.magFilter = tex.minFilter = THREE.NearestFilter;
+      tex.generateMipmaps = false;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      this.fishMesh = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, alphaTest: 0.5 }));
+      this.fishMesh.userData.w = (cv.width / FISH_TPU) * 1.1;
+      this.fishMesh.userData.h = (cv.height / FISH_TPU) * 1.1;
       this.fishMesh.visible = false;
-      this.fishMesh.castShadow = true;
+      this.fishMesh.renderOrder = 12;
       g.add(this.fishMesh);
-    }
+    } catch { this.fishMesh = null; }
     this.fishSt = null;
     this.words = [];
   }
@@ -1028,7 +1033,7 @@ export class TitleScene {
     if (!this.game.grid.isWater(Math.floor(a.x), Math.floor(a.z))) return;
     const dir = Math.random() < 0.5 ? 1 : -1;
     const b = new THREE.Vector3(a.x + R.x * 0.9 * dir, WATER_Y, a.z + R.z * 0.9 * dir);
-    this.fishSt = { t: 0, a, b };
+    this.fishSt = { t: 0, a, b, dir };
     this.game.particles.splash(a.x, a.z, 6, 0.5);
     this._sfx('fish_flop', { volume: 0.12 });
   }
@@ -1049,10 +1054,9 @@ export class TitleScene {
     m.visible = true;
     m.position.lerpVectors(st.a, st.b, u);
     m.position.y = WATER_Y + Math.sin(u * Math.PI) * 0.75 - 0.05;
-    const dx = st.b.x - st.a.x, dz = st.b.z - st.a.z;
-    m.rotation.set(0, Math.atan2(-dz, dx), 0);
-    m.rotateZ(Math.cos(u * Math.PI) * 1.1);
-    m.scale.setScalar(1.25);
+    // nose up on the way out, nose down on the way back in
+    m.material.rotation = Math.cos(u * Math.PI) * 0.9 * st.dir;
+    m.scale.set(m.userData.w * st.dir, m.userData.h, 1);
   }
 
   // ------------------------------------------------------------ comic words

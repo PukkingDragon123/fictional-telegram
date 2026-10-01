@@ -74,7 +74,7 @@
 .tm-ico { display: inline-flex; }
 /* ---------- sound stamp */
 .tm-snd {
-  position: fixed; right: 18px; top: 18px; width: 48px; height: 48px; pointer-events: auto; cursor: pointer;
+  position: relative; margin-top: -6px; width: 48px; height: 48px; pointer-events: auto; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   background: #fdf4d8; border: 3px solid #3b2414; border-radius: 50%;
   box-shadow: 0 0 0 3px #fdf4d8 inset, 0 0 0 6px #c8955a inset, 0 3px 0 #3b2414; transform: rotate(-6deg);

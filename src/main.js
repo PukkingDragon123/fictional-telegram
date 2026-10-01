@@ -47,8 +47,20 @@ window.addEventListener('pointerdown', () => { if (mode === 'title') { game.audi
 
 document.body.classList.add('at-title');
 const params = new URLSearchParams(location.search);
+// cozy title scene (Reynard + the Daisy Beer deer + ducks) and its paper menu
+const titleMods = import.meta.glob(['./game/TitleScene.js', './ui/TitleMenu.js'], { eager: true });
+const TitleScene = titleMods['./game/TitleScene.js']?.TitleScene;
+const showTitleMenu = titleMods['./ui/TitleMenu.js']?.showTitleMenu;
+let titleScene = null, titleMenu = null;
+if (TitleScene && !params.has('autostart')) {
+  try { titleScene = new TitleScene(game); titleScene.start(); } catch (e) { console.warn('TitleScene failed', e); titleScene = null; }
+}
 const startGame = (choice) => {
   mode = 'play';
+  try { titleScene?.stop(); } catch (e) { console.warn(e); }
+  titleScene = null;
+  titleMenu?.close?.();
+  titleMenu = null;
   document.body.classList.remove('at-title');
   let loaded = false;
   if (choice === 'continue') loaded = game.load();
@@ -67,7 +79,16 @@ const startGame = (choice) => {
   game.running = true;
 };
 if (params.has('autostart')) { document.getElementById('title-root').innerHTML = ''; startGame(params.get('autostart') === 'continue' ? 'continue' : 'new'); }
-else ui.showTitle(startGame);
+else if (showTitleMenu) {
+  try {
+    titleMenu = showTitleMenu(document.getElementById('title-root'), {
+      hasSave: game.hasSave(), onStart: startGame,
+      sfx: (n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) }),
+      icon: (n, sc) => ui.icon(n, sc),
+      onSound: () => game.audio.toggleMute(),
+    });
+  } catch (e) { console.warn('TitleMenu failed', e); ui.showTitle(startGame); }
+} else ui.showTitle(startGame);
 
 // ---- adaptive quality: if the device struggles, cheapen shadows
 const perf = { t: 0, frames: 0, level: 0, checks: 0 };
@@ -122,10 +143,13 @@ function frame(now) {
   adaptQuality(dt);
   if (mode === 'title') {
     titleT += dt;
-    game.rig.goal.x = 28 + Math.sin(titleT * 0.07) * 5;
-    game.rig.goal.z = 34 + Math.cos(titleT * 0.05) * 2;
     game.state.phase = 'day';
-    game.state.hour = 17.4 + Math.sin(titleT * 0.05) * 0.4;
+    if (titleScene) titleScene.update(dt);
+    else {
+      game.rig.goal.x = 68 + Math.sin(titleT * 0.07) * 5;
+      game.rig.goal.z = 34 + Math.cos(titleT * 0.05) * 2;
+      game.state.hour = 17.4 + Math.sin(titleT * 0.05) * 0.4;
+    }
     game.fish.update(dt);
     game.structures.update(dt);
     game.food.update(dt);
