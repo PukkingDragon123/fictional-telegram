@@ -11,6 +11,23 @@
 // fixed seed, small things (flowers, birds, bugs) are hand-authored pixel
 // strings. Nothing is drawn at import time: buildNatureAtlas() renders every
 // frame on first call, packs them into one power-of-two atlas and caches it.
+//
+// v3 additions (bigger map, new biomes): mushroom forest (giant fly agaric,
+// bolete with a door, glowing caps), swamp (cypress, tamarack, dead trees,
+// sedge, bog pads, algae, pitcher plant, bubbles), water & land details
+// (puddles, ripples, rapids, stepping stones, river rocks), weeds & plowed
+// soil, demolish leftovers, the Great Willow landmark, berry bushes with
+// full/_picked states, buildable plants and more critters.
+//  - Anchors: grounded sprites bottom centre (ay = h), flat ones (water
+//    surface / ground decals: bogpad, algae, puddle, ripplering, rapids,
+//    steppingstone, plowed, chips, bubbles) and flying ones at the centre.
+//  - Glow (glow shrooms, glowcaps, goldenberry, firefly_big, willow lanterns):
+//    the game alpha-tests at 0.5, so halos are dithered opaque motes
+//    (alpha >= 150), never smooth alpha. Emissive pixels are near-white
+//    unshaded colours, ready for an unlit / additive pass if wanted.
+//  - Aliases (build_berrybush_*, appletree_bare) share their target's
+//    frames: they are packed once and point at the same atlas rects.
+//  - Atlas cap is 4096 (power of two); the full v3 set packs into 1024x512.
 
 export const NATURE_TEXELS_PER_UNIT = 24;
 
@@ -3754,7 +3771,7 @@ function rippleFrames() {
 function rapidsFrames(W, H, seed) {
   const R = mulberry(seed);
   const caps = [];
-  for (let i = 0; i < Math.round(W / 6); i++) caps.push([W * 0.1 + R() * W * 0.8, H * 0.3 + R() * H * 0.4, 3 + R() * 3.5, R() * 6]);
+  for (let i = 0; i < Math.round(W / 4.5); i++) caps.push([W * 0.08 + R() * W * 0.84, H * 0.28 + R() * H * 0.44, 3.4 + R() * 3.8, R() * 6]);
   // streaks: [lane y, start x, length]
   const streaks = [];
   for (let i = 0; i < Math.round(W / 4); i++) streaks.push([Math.floor(1 + R() * (H - 2)), R() * W, 2 + Math.floor(R() * 5)]);
@@ -3783,8 +3800,8 @@ function rapidsFrames(W, H, seed) {
           const d = 1 - Math.hypot(x + 0.5 - bx, (y + 0.5 - by) * 1.5) / r;
           if (d > foam) { foam = d; ny = (y + 0.5 - by) / r; }
         }
-        foam = foam * Math.min(1, e * 2) + (hash(x + f * 5, y, seed) - 0.5) * 0.35;
-        if (foam < 0.12) continue;
+        foam = foam * Math.min(1, e * 2.2) + (hash(x + f * 5, y, seed) - 0.5) * 0.3;
+        if (foam < 0.08) continue;
         p.set(x, y, pick(WATER.foam, foam * 1.2 + 0.2 - ny * 0.9), 245);
       }
     // spray droplets
@@ -3814,13 +3831,13 @@ function steppingStone(W, H, seed, o = {}) {
       if (!top && !side) continue;
       if (side) {
         const wet = !shape(x, y - 1);
-        p.set(x, y, wet ? pick(WATER.river, -0.95) : pick(WATER.river, -0.55 - ((x + 0.5 - cx) / rx) * 0.25));
+        p.set(x, y, wet ? pick(RIVERSTONE, -0.95) : pick(RIVERSTONE, -0.55 - ((x + 0.5 - cx) / rx) * 0.25));
         continue;
       }
       const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry;
-      let v = 0.45 - nx * 0.35 - ny * 0.3 + (hash(x, y, seed) - 0.5) * 0.25;
+      let v = 0.3 - nx * 0.45 - ny * 0.4 + (hash(x, y, seed) - 0.5) * 0.3 + (hash(x >> 1, y >> 1, seed + 1) < 0.15 ? -0.3 : 0);
       if (Math.hypot(nx, ny) > 0.85) v -= 0.2;
-      p.set(x, y, pick(WATER.river, v));
+      p.set(x, y, pick(RIVERSTONE, v));
     }
   // moss or lichen dab
   if (o.moss) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -3829,8 +3846,8 @@ function steppingStone(W, H, seed, o = {}) {
     if (d < 3 && hash(x, y, seed + 3) < 0.75) p.set(x, y, MOSS[clamp(Math.round(4 - d), 1, 5)]);
   }
   // wet speckles and a sheen
-  p.set(Math.round(cx - rx * 0.4), Math.round(cy - ry * 0.4), WATER.river[7]);
-  p.set(Math.round(cx - rx * 0.4) + 1, Math.round(cy - ry * 0.4), WATER.river[6]);
+  p.set(Math.round(cx - rx * 0.4), Math.round(cy - ry * 0.4), RIVERSTONE[7]);
+  p.set(Math.round(cx - rx * 0.4) + 1, Math.round(cy - ry * 0.4), RIVERSTONE[6]);
   outline(p, { k: 0.5, lit: 0.4 });
   // foam lapping at the upstream (left) side
   for (let y = 0; y < H; y++) {
@@ -4408,7 +4425,7 @@ function elderberryBush(picked) {
   const leaves = bushSprite(W, H - 5, seed, LEAF_FRESH, { n: 4, cy: 0.56, ry: 0.46, leaf: 3, bias: 0.6, r: 0.36 });
   p.blit(leaves, 0, 3);
   // umbels: flat-topped sprays of tiny berries on red stalks
-  const umbels = [[8, 9, 4.5], [20, 7, 5], [26, 14, 3.5], [13, 15, 3.5]];
+  const umbels = [[8, 13, 4.5], [20, 11, 5], [26, 18, 3.5], [13, 20, 3.5]];
   const stalk = hx('#b8404e');
   for (const [ux, uy, r] of umbels) {
     if (picked) {
@@ -4762,6 +4779,213 @@ function sunflower() {
 }
 
 // ===========================================================================
+// v3 critters: heron, turtle, beaver, owl, big firefly
+// ===========================================================================
+const HERON_PAL = { k: '#1e1a24', w: '#f4f2ec', g: '#b8bcc8', s: '#5a5e70', b: '#6e86a8', B: '#4a5e80', u: '#c8ccd6', r: '#9a5a3a', l: '#8a7a4a', L: '#5a4e30',
+  y: '#f2c838', Y: '#b08a20', e: '#141018', f: '#dce8f0', F: '#7a98a8', o: '#e8f6ff' };
+const HERON_BODY = [
+  '.......bbbbbggg...........',
+  '.....bbBbbbbbgg...........',
+  '....bbBBbbbbbbu...........',
+  '...bbBBBbbbbbbu...........',
+  '..bbBBBBbbbbbbu...........',
+  '..bBBBBbbbbbbuu...........',
+  '.BBBBBbbbbbbbuu...........',
+  '.BBBBbbbbbbbuu............',
+  'BBBbbbbbbbbuuu............',
+  'BBbbbBbbbbuuu.............',
+  '.B..BBbbbrruu.............',
+  '.....BBBrrr...............',
+];
+const HERON_LEGS = [
+  '........rl.l..............',
+  '........l..l..............',
+  '........l..l..............',
+  '........l..l..............',
+  '........l..l..............',
+  '........L..l..............',
+  '........l..L..............',
+  '........l..l..............',
+  '........l..l..............',
+  '........l..l..............',
+  '........L..l..............',
+  '........l..l..............',
+  '.......ll.ll..............',
+  '......l.ll.ll.............',
+];
+const HERON_NECK = [
+  '...........gwwwk..........',
+  '...........ggg............',
+  '..........sgg.............',
+  '.........sgg..............',
+  '.........sgg..............',
+  '.........gsg..............',
+  '..........gsg.............',
+  '...........gsg............',
+  '...........ggsg...........',
+  '...........gggsg..........',
+];
+const HERON_HEAD = [
+  '..........kkk.............',
+  '.......kkkkwwkk...........',
+  '.....kk...wwwwekyyy.......',
+  '..........wwwwwyyyyyY.....',
+];
+const HERON = {
+  idle0: [...HERON_HEAD, ...HERON_NECK, ...HERON_BODY, ...HERON_LEGS],
+  idle1: ['..........................', ...HERON_HEAD.map((r) => r.replace('e', 'w')), ...HERON_NECK.slice(0, 9), ...HERON_BODY, ...HERON_LEGS],
+  fish0: [
+    ...Array(6).fill('..........................'),
+    '...........kkk............',
+    '........kkkkwwkk..........',
+    '...........wwwwekyyy......',
+    '...........wwwwwyyyyY.....',
+    '............gwwk..........',
+    '...........sggg...........',
+    '...........sgg............',
+    '...........ggsg...........',
+    ...HERON_BODY, ...HERON_LEGS],
+  fish1: [
+    ...Array(14).fill('..........................'),
+    '.......bbbbbgg............',
+    '.....bbBbbbbbsgg..........',
+    '....bbBBbbbbbbusgg........',
+    '...bbBBBbbbbbbu.gsgg......',
+    '..bbBBBBbbbbbbu...gsgg....',
+    '..bBBBBbbbbbbuu.....gsg...',
+    '.BBBBBbbbbbbbuu......gsg..',
+    '.BBBBbbbbbbbuu.......kgsk.',
+    'BBBbbbbbbbbuuu.......kwwk.',
+    'BBbbbBbbbbuuu........wwew.',
+    '.B..BBbbbrruu........wwyy.',
+    '.....BBBrrr...........yy..',
+    '........rl.l..........yy..',
+    '........l..l..........Y...',
+    '........l..l.........o.o..',
+    '........l..l........o...o.',
+    ...HERON_LEGS.slice(4)],
+  fish2: [
+    '..........kkk.............',
+    '.......kkkkwwkk.....f.....',
+    '.....kk...wwwwekyyyfFf....',
+    '..........wwwwwyyyyyFf....',
+    '...........gwwwk...fFf....',
+    '...........ggg......F.....',
+    ...HERON_NECK.slice(2), ...HERON_BODY, ...HERON_LEGS],
+};
+
+const TURTLE_PAL = { ...WATERLINE, s: '#3e4a2a', S: '#2a3420', y: '#a8a050', r: '#d0402a', R: '#8a2a20', h: '#2e4a2a', Y: '#e8d050', e: '#141018', l: '#2e4a2a' };
+const TURTLE = {
+  swim0: [
+    '.....sSSSs..........',
+    '...sSySSySSs........',
+    '..sSSSySSSySs....hY.',
+    '.rRrRrRrRrRrRr..hYhhe',
+    '~~-~~~-~~~-~~~-~hhYh~',
+    '..-~~..-~~...-~~-~..',
+  ],
+  swim1: [
+    '.....sSSSs..........',
+    '...sSySSySSs........',
+    '..sSSSySSSySs.......',
+    '.rRrRrRrRrRrRr...hYh.',
+    '~-~~~-~~~-~~~-~~hYhhe',
+    '.-~~..-~~...-~~..-~..',
+  ],
+  sun0: [
+    '......sSSSs..........',
+    '....sSySSySSs........',
+    '...sSSSySSSySs...hY..',
+    '..sSSySSSSySSSs.hYhhe',
+    '..rRrRrRrRrRrRr.hhYh.',
+    '.YyYyYyYyYyYyYyhh....',
+    '..ll.........ll......',
+    '.ll...........ll.....',
+  ],
+  sun1: [
+    '......sSSSs......hY..',
+    '....sSySSySSs...hYhhe',
+    '...sSSSySSSySs.hhYh..',
+    '..sSSySSSSySSSshh....',
+    '..rRrRrRrRrRrRr......',
+    '.YyYyYyYyYyYyYy......',
+    '..ll.........ll......',
+    '.ll...........ll.....',
+  ],
+};
+const BEAVER_PAL = { ...WATERLINE, n: '#5a3a24', N: '#8a5a36', b: '#4a3020', B: '#7a5236', k: '#1a1214', e: '#141018' };
+const BEAVER = {
+  swim0: [
+    '..............nn......',
+    '.............nNNnn....',
+    '...bbbb.....nNNeNNnk..',
+    '..bBBBBBb..nNNNNNNNkk.',
+    '~~bBBBBBb~~nNNNNNNnn~~',
+    '~-~~-~~-~~-~~-~~-~~-~~',
+    '.-....-~~...-~~.-....-',
+  ],
+  swim1: [
+    '......................',
+    '..............nn......',
+    '...bbbb......nNNnn....',
+    '..bBBBBBb...nNNeNNnk..',
+    '~~bBBBBBb~~nNNNNNNNkk~',
+    '~-~~-~~-~~-~~-~~-~~-~~',
+    '..-...-~~...-~~.-...-.',
+  ],
+};
+const OWL_PAL = { b: '#7a5a3e', B: '#4e3828', c: '#eadcc0', C: '#b89c78', F: '#5a4030', f: '#cfb088', E: '#ffcc30', e: '#141018', w: '#ffffff', k: '#e0c870', K: '#9a8040', t: '#d8b050' };
+const OWL_BODY = [
+  'bBcbCcbCcbCbBb',
+  'bBbCcbCcbCcBBb',
+  'bBcbCcbCcbCbBb',
+  'bBbCcbCcbCcBBb',
+  '.BcbCcbCcbCbB.',
+  '.BBCcbCcbCcBB.',
+  '..BBbCbCbCBB..',
+  '...tt....tt...',
+];
+const owlFace = (eyes) => [
+  'bbFFFFbbFFFFbb',
+  ...eyes,
+  'bbFFFFfKFFFFbb',
+  'bbbFFFFFFFFbbb',
+];
+const OWL_OPEN = ['bFfEEfFFfEEfFb', 'bFEweEffEweEFb', 'bFEeeEffEeeEFb', 'bFfEEfkkfEEfFb'];
+const OWL = {
+  idle0: ['.B..........B.', '.Bb........bB.', '.bbbbbbbbbbbb.', ...owlFace(OWL_OPEN), ...OWL_BODY],
+  idle1: ['..............', 'BB..........BB', '.bbbbbbbbbbbb.', ...owlFace(['bFfEEfFFfEEfFb', 'bFEewEffEewEFb', 'bFEeeEffEeeEFb', 'bFfEEfkkfEEfFb']), ...OWL_BODY],
+  half: ['.B..........B.', '.Bb........bB.', '.bbbbbbbbbbbb.', ...owlFace(['bFfBBfFFfBBfFb', 'bFBBBBffBBBBFb', 'bFEeeEffEeeEFb', 'bFfEEfkkfEEfFb']), ...OWL_BODY],
+  shut: ['.B..........B.', '.Bb........bB.', '.bbbbbbbbbbbb.', ...owlFace(['bFffffFFffffFb', 'bFBBBBffBBBBFb', 'bFfffffffffffb', 'bFffffkkffffFb']), ...OWL_BODY],
+};
+const BIGFLY = {
+  off: [
+    '..vvv.......',
+    '.vVVvv......',
+    'vVVVVvv.....',
+    '.vvkkkkkhh..',
+    '.ggkKkKkkhe.',
+    'gggkkkkkk...',
+    '.gg.l.l.l...',
+  ],
+};
+BIGFLY.on = BIGFLY.off.map((r) => r.replace(/g/g, 'Y'));
+function bigFireflyFrames() {
+  const pal = { ...GLASS(150), k: '#3a3024', K: '#5a4a34', h: '#e04a3a', e: '#141018', g: '#8a9a4a', Y: '#f4ff7a', l: '#2a2420' };
+  return ['off', 'on'].map((n, i) => {
+    const src = art(BIGFLY[n], pal, { ground: false, k: 0.6, lit: 0.5, auto: 0.5, noShade: 'vVkKeYl' });
+    const q = new Px(src.w + 8, src.h + 8);
+    q.blit(src, 4, 4);
+    if (i) {
+      aura(q, 4.5, hx('#d8ff70'), 0.7, (x, y) => q.get(x, y) === hx('#f4ff7a'), { hi: hx('#f8ffc0') });
+      // brightest core pixel
+      for (let y = 0; y < q.h; y++) for (let x = 0; x < q.w; x++) if (q.on(x, y) && q.get(x, y) === hx('#f4ff7a') && hash(x, y, 3) < 0.4) q.set(x, y, hx('#ffffe0'));
+    }
+    return q;
+  });
+}
+
+// ===========================================================================
 // Registry
 // ===========================================================================
 // name -> () => Array<{ px: Px, ax, ay }>
@@ -5012,6 +5236,18 @@ reg('beehive_tree', () => [0, 1].map((f) => ground(beehiveTree(f))));
 reg('sapling_1', () => [ground(stakedSapling())]);
 reg('pumpkinpatch', () => [ground(pumpkinPatch())]);
 reg('sunflower', () => [ground(sunflower())]);
+
+// ===========================================================================
+// v3: critters
+// ===========================================================================
+reg('heron_idle', () => critter(HERON, ['idle0', 'idle1'], HERON_PAL));
+reg('heron_fish', () => critter(HERON, ['fish0', 'fish1', 'fish2'], HERON_PAL));
+reg('turtle_swim', () => wb(TURTLE, ['swim0', 'swim1'], TURTLE_PAL).map(ground));
+reg('turtle_sun', () => critter(TURTLE, ['sun0', 'sun1'], TURTLE_PAL));
+reg('beaver_swim', () => wb(BEAVER, ['swim0', 'swim1'], BEAVER_PAL, { noShade: 'k' }).map(ground));
+reg('owl_idle', () => critter(OWL, ['idle0', 'idle1'], OWL_PAL));
+reg('owl_blink', () => critter(OWL, ['half', 'shut', 'half'], OWL_PAL));
+reg('firefly_big', () => bigFireflyFrames().map(centre));
 export const NATURE_NAMES = Object.keys(REG);
 
 // ===========================================================================
@@ -5060,6 +5296,7 @@ function allFrames() {
   return FRAMES;
 }
 
+const ATLAS_MAX = 4096;
 let ATLAS = null;
 export function buildNatureAtlas() {
   if (ATLAS) return ATLAS;
@@ -5085,11 +5322,15 @@ export function buildNatureAtlas() {
     }
     return pos;
   };
+  // Grows power-of-two up to ATLAS_MAX (4096; v3 raised it from 2048 for the
+  // bigger map's sprites, the Great Willow included). With everything in v3
+  // it currently packs into 1024x512, so there is plenty of headroom and a
+  // single texture is kept (world.js binds one atlas texture).
   let W = 256, H = 256, pos = null;
   while (!(pos = pack(W, H))) {
     if (W <= H) W *= 2;
     else H *= 2;
-    if (W > 2048 || H > 2048) throw new Error('natureArt: atlas overflow');
+    if (W > ATLAS_MAX || H > ATLAS_MAX) throw new Error('natureArt: atlas overflow');
   }
   const canvas = makeCanvas(W, H);
   const ctx = ctx2d(canvas);

@@ -152,13 +152,15 @@ export class Hud {
     for (const p of parts) {
       if (this.shown[p] === !!on) continue;
       this.shown[p] = !!on;
-      if (p === 'coins') this.show(this.$.hang, on, 'hud2-drop', 'hud2-lift');
+      if (p === 'coins') {
+        this.show(this.$.hang, on, 'hud2-drop', 'hud2-lift');
+        if (on) setTimeout(() => this.kick(0.3), 380);
+      }
       else if (p === 'rating') {
         this.show(this.$.stars, on, 'hud2-pop', 'hud2-out');
         if (on) this.starEls.forEach((s, i) => { s.style.animationDelay = `${120 + i * 70}ms`; this.pulse(s, 'hud2-in'); });
       } else this.updateCharmVis();
     }
-    if (on && (!part || part === 'coins')) setTimeout(() => this.kick(0.3), 380);
   }
 
   destroy() { cancelAnimationFrame(this.raf); this.el.remove(); }
@@ -238,7 +240,7 @@ export class Hud {
 
   // swing: damped spring on the tag's angle (radians)
   kick(v) {
-    this.vel += v * 6;
+    this.vel += v * 4;
     if (!this.raf) { this.last = performance.now(); this.raf = requestAnimationFrame((t) => this.step(t)); }
   }
   step(t) {

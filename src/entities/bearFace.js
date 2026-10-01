@@ -753,7 +753,7 @@ const BOSS_DRAW = {
   },
   furious(F, st) {
     for (let y = 0; y <= 13; y++)
-      for (let x = 0; x <= 25; x++) if ((x + y) % 2 === 0 && (y < 2 || ((x < 3 || x > 22) && y > 7))) F.px(x, y, 'F');
+      for (let x = 0; x <= 25; x++) if ((x + y) % 2 === 0 && (x < 3 || x > 22) && y > 7) F.px(x, y, 'F');
     F.lensUnder();
     F.glowEyes(st, 'round');
     F.bossBrows(1);

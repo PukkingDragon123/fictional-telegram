@@ -192,7 +192,7 @@ const labels = [];
 let main = null;
 if (mode === 'strip') {
   const anim = params.get('anim') || 'idle';
-  const n = num('n', 8), dtS = num('dt', 0.15), t0 = num('t0', 0), gap = num('gap', H * 1.25 + 0.15);
+  const n = num('n', 8), dtS = num('dt', 0.15), t0 = num('t0', 0), gap = num('gap', H * 0.9 + 0.15);
   for (let i = 0; i < n; i++) {
     const a = addActor(charKey, (i - (n - 1) / 2) * gap, 0, anim);
     if (params.get('expr')) a.rig.setExpression(params.get('expr'));
@@ -201,7 +201,7 @@ if (mode === 'strip') {
     a.frozen = true;
     labels.push({ a, text: (t0 + i * dtS).toFixed(2) + 's' });
   }
-  cams.strip = { wupp: (n * gap + 0.3) / (innerWidth / 3), y: H * 0.5, pitch: 14 };
+  cams.strip = { wupp: (n * gap + 0.2) / (innerWidth / 3) * 1.0, y: H * 0.5, pitch: 14 };
   setCam(params.get('zoom') || 'strip');
   labelEl.innerHTML = `${charKey}: ${anim}<small>filmstrip, dt ${dtS}s</small>`;
 } else if (mode === 'lineup') {

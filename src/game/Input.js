@@ -82,6 +82,7 @@ export class Input {
 
   onDown(e) {
     this.game.audio.unlock();
+    if (this.game.ui?.advanceBubble?.()) return;
     if (this.game.lab?.active) { const q = this.local(e); this.game.lab.onCanvasClick(q.x, q.y); return; }
     if (this.game.inputLocked) { this.game.cine?.onTap?.(); return; }
     this.canvas.setPointerCapture?.(e.pointerId);

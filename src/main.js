@@ -41,7 +41,7 @@ for (let i = 0; i < 10; i++) {
   if (p) game.fish.spawn(['bluegill', 'perch', 'brook', 'sockeye', 'aurora'][i % 5], p.x, p.z, { adult: true });
 }
 game.rig.wupp = game.rig.wuppGoal = 0.042;
-game.rig.lookAt(28, 34, true);
+game.rig.lookAt(68, 34, true);
 let titleT = 0;
 window.addEventListener('pointerdown', () => { if (mode === 'title') { game.audio.unlock(); game.audio.setMusic('title'); } }, { once: true });
 
@@ -53,12 +53,16 @@ const startGame = (choice) => {
   let loaded = false;
   if (choice === 'continue') loaded = game.load();
   if (!loaded) {
+    if (params.has('notut')) game.skipTutorial = true;
     game.newGame();
     game.rig.wuppGoal = 0.04;
-    game.rig.lookAt(28.5, 36);
-    if (!params.has('notut')) setTimeout(() => ui.startTutorialIfNew(), 600);
+    game.rig.lookAt(68.5, 36);
+    if (!params.has('notut')) ui.startTutorialIfNew();
+    else ui.refreshUnlocks();
   } else {
-    ui.toast(`Welcome back! Day ${game.state.day}`, 'good');
+    if (!game.state.tutorialDone && !game.skipTutorial) game.skipTutorial = true;
+    ui.refreshUnlocks();
+    setTimeout(() => ui.notify(`Welcome back! Day ${game.state.day}`, 'happy'), 800);
   }
   game.running = true;
 };

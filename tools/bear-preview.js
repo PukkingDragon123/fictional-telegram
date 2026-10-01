@@ -272,7 +272,7 @@ function buildLine() {
     const type = sheet ? S.type : id;
     const rig = makeBear(type, i * 7.31 + 1);
     let x, y = 0, z;
-    if (sheet) { x = (i % 5 - 2) * 1.62; y = (3 - Math.floor(i / 5)) * 2.3 * BEAR_TYPES[type].scale; z = 0; }
+    if (sheet) { const ks = Math.max(1, BEAR_TYPES[type].scale); x = (i % 5 - 2) * 1.62 * ks; y = (3 - Math.floor(i / 5)) * 2.3 * BEAR_TYPES[type].scale; z = 0; }
     else {
       const r = Math.floor(i / perRow);
       x = cursor[r] + W(id) / 2; cursor[r] += W(id);
@@ -457,7 +457,7 @@ function layout() {
   // cameras
   const cs = BEAR_TYPES[S.type].scale;
   closeCam.wupp = closeCam.wuppGoal = +(Q.get('wupp') || (0.0068 * Math.max(0.75, cs) * 720 / H) * (mode === "close" ? 1.25 : 1.4));
-  if (mode === 'sheet') lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || 10.6 * Math.max(0.72, BEAR_TYPES[S.type].scale) / (H / ps));
+  if (mode === 'sheet') lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || Math.max(10.6 * Math.max(0.72, BEAR_TYPES[S.type].scale) / (H / ps), 9.4 * Math.max(1, BEAR_TYPES[S.type].scale) / (lw / ps)));
   else if (mode === 'bosses') lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || Math.max(0.02, (lineWidth + 2.5) / (lw / ps)));
   else lineCam.wupp = lineCam.wuppGoal = +(Q.get('lwupp') || (mode === 'lineup' ? Math.max(0.045, (lineWidth + 2) / (lw / ps)) : Math.max(0.03, 20.5 / (lw / ps))));
   if (mode === 'sheet') lineCam.pitch = THREE.MathUtils.degToRad(+(Q.get('lpitch') || 6));

@@ -386,3 +386,49 @@ body.lab-trans .hud, body.lab-trans .toolbar, body.lab-trans .eggtray, body.lab-
 
 /* the cutscene has its own letterbox; keep the alarm vignette out of it */
 body.cine .cclock-vignette { opacity: 0 !important; }
+
+/* ================================================================ v3 */
+/* new pixel fonts (m5x7 / m6x11plus by Daniel Linssen) */
+:root { --font: var(--font-body, 'Pixelify Sans'), 'Pixelify Sans', sans-serif; --font2: var(--font-title, 'Pixelify Sans'), 'Pixelify Sans', sans-serif; }
+html, body { font-size: 16px; -webkit-font-smoothing: none; font-smooth: never; }
+
+/* progressive UI: tools and HUD pieces only exist once unlocked */
+.tool.locked { display: none !important; }
+.toolbar.empty { opacity: 0; pointer-events: none; transform: translate(-50%, 140%); }
+.toolbar { transition: transform .45s cubic-bezier(.3, 1.6, .5, 1), opacity .3s; }
+.tool { width: 58px; height: 58px; }
+.tool span { display: none; }
+.tool-new { animation: tool-new .8s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes tool-new { 0% { transform: scale(0) rotate(-30deg); } 60% { transform: scale(1.35) rotate(8deg); } 100% { transform: scale(1); } }
+.hud-left.locked, .bigclock-host.locked { opacity: 0; pointer-events: none; transform: scale(.4); }
+.hud-left, .bigclock-host { transition: opacity .3s, transform .45s cubic-bezier(.3, 1.6, .5, 1); transform-origin: top center; }
+.unlock-pop { animation: unlock-pop .7s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes unlock-pop { 0% { transform: scale(.2); } 55% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.bigclock-host { pointer-events: auto; margin-left: auto; }
+.hud-right { position: absolute; top: calc(8px + var(--safe-t, 0px)); right: 8px; }
+.hud .bigclock-host { position: absolute; top: calc(6px + var(--safe-t, 0px)); right: 56px; }
+.menubtn { width: 40px; height: 40px; display: grid; place-items: center; background: #fffbea; border: 3px solid #1a1420; box-shadow: 0 3px 0 #1a1420; padding: 0; image-rendering: pixelated; }
+.menubtn:hover { transform: translateY(-2px) rotate(-4deg); }
+.menubtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #1a1420; }
+
+/* the tutorial pointer: a bouncing pixel hand */
+.pointer-hand { position: fixed; z-index: 60; pointer-events: none; transform: translate(-50%, 0); animation: ptr-bob .6s ease-in-out infinite alternate; filter: drop-shadow(2px 2px 0 #1a1420); }
+.pointer-hand.down { transform: translate(-50%, -100%) scaleY(-1); animation-name: ptr-bob-d; }
+.pointer-hand b { font-size: 36px; color: #fff; -webkit-text-stroke: 2px #1a1420; }
+@keyframes ptr-bob { from { margin-top: 0; } to { margin-top: 10px; } }
+@keyframes ptr-bob-d { from { margin-top: 0; } to { margin-top: -10px; } }
+.tool.pulse { animation: tool-pulse .8s ease-in-out infinite; }
+@keyframes tool-pulse { 50% { transform: translateY(-6px) scale(1.08); } }
+
+/* e-Buy fills the screen over the game */
+.ebuy-host { position: absolute; inset: 0; z-index: 35; pointer-events: auto; }
+
+/* lab: pixel arrow back + icon buttons, no text */
+.labui .lab-top { position: absolute; top: 12px; left: 12px; pointer-events: auto; }
+.labui .lab-top.hidden { display: none; }
+.labui .lab-hint { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); animation: ptr-bob .6s ease-in-out infinite alternate; pointer-events: none; }
+.labui .lab-opts { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 14px; pointer-events: auto; }
+.labui .lab-opts.hidden { display: none; }
+.lab-ico { width: 70px; height: 70px; display: grid; place-items: center; background: #fffbea; border: 3px solid #1a1420; box-shadow: 0 4px 0 #1a1420; cursor: pointer; animation: unlock-pop .5s cubic-bezier(.3, 1.8, .5, 1) both; }
+.lab-ico:nth-child(2) { animation-delay: .08s; }
+.lab-ico:hover { transform: translateY(-4px) rotate(-5deg); }

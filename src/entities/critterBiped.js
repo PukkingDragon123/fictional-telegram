@@ -63,6 +63,11 @@ export class BipedRig extends CritterRig {
     armIK(p, 'arm' + n, 'fore' + n, [side * D.SH[0], D.SH[1], D.SH[2]], [side * x, y, z], D.L_UP, D.L_FORE, [pole[0] * side, pole[1], pole[2]], w);
     // IK solves for a right-handed basis; mirror the twist for the right side so FK conventions match
   }
+  /** Mover-space point (y, z) -> chest space [y, z] (X rotations of mover, hips, chest). */
+  toChest(p, y, z, out = [0, 0]) {
+    const D = this.D;
+    return intoChain(y, z, [[p.mover.y, p.mover.z, p.mover.rx], [D.HIP_Y + p.hips.y, p.hips.z, p.hips.rx], [D.WAIST + p.chest.y, p.chest.z, p.chest.rx]], out);
+  }
   /** Chest-space position (y, z) of a point given in head space (x ignored), following the head's rx. */
   headPoint(p, hy, hz, out = [0, 0]) {
     const D = this.D, a = p.head.rx;

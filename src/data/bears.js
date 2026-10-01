@@ -100,7 +100,7 @@ export const BEAR_TYPES = {
   // boss: true + hp (hits to calm down). weight 0: the game schedules them.
   shareholder: {
     name: 'The Shareholder', job: 'Majority Stake', icon: 'bear_shareholder',
-    fur: 0x6a4224, furLight: 0xc49a6c, suit: 0x2e2836, suitDark: 0x1e1a24, shirt: 0xf4f0e6, tie: 0xe8b830, pinstripe: 0x8a7034,
+    fur: 0x6a4224, furLight: 0xc49a6c, suit: 0x2e2836, suitDark: 0x1e1a24, shirt: 0xf4f0e6, tie: 0xe8b830, pinstripe: 0x7a6432,
     outfit: 'threepiece', waistcoat: 0x6a1e2a, grizzle: 0xd8c0a0, scar: true, cigar: true, watch: 0xf0c848,
     hat: 'tophat', hatColor: 0x1a161c, hatBand: 0xd8a830, item: 'moneybag', scale: 2.6, appetite: [10, 13], patience: 40, pay: 3.4, speed: 0.8, fromDay: 5, weight: 0,
     boss: true, hp: 7, reviewWeight: 4, rampage: 4, glow: 0xffb020,
@@ -113,7 +113,7 @@ export const BEAR_TYPES = {
   },
   enforcer: {
     name: 'Kodiak Enforcer', job: 'Head of Security', icon: 'bear_enforcer',
-    fur: 0x5a3a20, furLight: 0xa88058, suit: 0x262833, suitDark: 0x1a1b24, shirt: 0xf2f2ee, tie: 0x101014, shades: 0x0a0a10,
+    fur: 0x5a3a20, furLight: 0xa88058, suit: 0x30344a, suitDark: 0x20232f, shirt: 0xf2f2ee, tie: 0x101014, shades: 0x0a0a10,
     earpiece: 0xd8dce4, armband: 0xf2c230, buzzcut: true,
     hat: null, item: null, scale: 2.8, appetite: [12, 15], patience: 32, pay: 3.0, speed: 0.95, fromDay: 9, weight: 0,
     boss: true, hp: 9, reviewWeight: 4, rampage: 6, glow: 0xff3030,
@@ -121,7 +121,7 @@ export const BEAR_TYPES = {
       torso: { rx: 10.6, ry: 6.8, rz: 6.2, cy: 14.6, p: 3.6, taper: -0.34, taperY: 13 },
       belly: { rx: 7.4, ry: 4.4, rz: 5.6, cy: 11.8, cz: 2.2 },
       arm: { rx: 3.1, rz: 3.1, ry: 6.6, cy: 12.0 }, off: { armL: [-4.9, 2.6, 0.2], armR: [4.9, 2.6, 0.2], legL: [-1.5, 0, 0], legR: [1.5, 0, 0], head: [0, 0.6, 1.6] },
-      leg: { rx: 2.9, rz: 2.8 }, headScale: 0.86,
+      leg: { rx: 2.9, rz: 2.8 }, headScale: 0.8,
     },
   },
   auditor: {

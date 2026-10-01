@@ -16,7 +16,11 @@ import { ACHIEVEMENTS } from '../data/achievements.js';
 import { sizeLabel } from '../game/genes.js';
 
 // optional components (built by separate modules; the UI degrades gracefully)
-const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js'], { eager: true });
+const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js'], { eager: true });
+import.meta.glob('./fonts.css', { eager: true });
+import { Blueprint } from './Blueprint.js';
+import { injectPaperCSS, openPaper, setPaperSfx } from './paper.js';
+import { Tutorial } from '../game/Tutorial.js';
 const C = (name) => comp[`./${name}.js`] || null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -53,19 +57,19 @@ const TUTORIAL = [
   { expr: 'smug', text: 'Coins buy research in my secret <b>Lab</b> (tap my hut). New fish, beavers, dams, gadgets... Now go make me rich!', pulse: 'lab' },
 ];
 
+// toolbar: each tool only appears once it's unlocked (game.isOpen(feature))
 const TOOLS = [
-  { tool: 'feed', icon: 'food', label: 'Feed', key: 1, title: 'Feed fish' },
-  { tool: 'hand', icon: 'hand', label: 'Carry', key: 2, title: 'Pick up a fish and carry it somewhere else' },
-  { tool: 'tag', icon: 'tag', label: 'Tag', key: 3, title: 'Tag a fish DO NOT EAT' },
-  { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish: faster growth and better genes' },
-  { panel: 'shop', icon: 'shop', label: 'Eggs', key: 5, title: 'Egg shop' },
-  { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Build' },
-  { tool: 'dig', icon: 'shovel', label: 'Dig', key: 7, title: 'Dig: expand the pond' },
-  { tool: 'remove', icon: 'trash', label: 'Remove', key: 8, title: 'Remove structures / clear trees' },
-  { panel: 'lab', icon: 'flask', label: 'Lab', key: 9, title: "Reynard's secret lab" },
-  { panel: 'dex', icon: 'book', label: 'Fishdex', title: 'Fishdex' },
-  { panel: 'reviews', icon: 'newspaper', label: 'Reviews', title: 'Reviews' },
+  { tool: 'feed', icon: 'food', label: 'Feed', key: 1, title: 'Feed fish', feature: 'feed' },
+  { tool: 'hand', icon: 'hand', label: 'Carry', key: 2, title: 'Carry a fish', feature: 'hand' },
+  { tool: 'tag', icon: 'tag', label: 'Tag', key: 3, title: 'DO NOT EAT tag', feature: 'tag' },
+  { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish', feature: 'pet' },
+  { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
+  { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
+  { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: "Reynard's lab", feature: 'lab' },
+  { panel: 'dex', icon: 'book', label: 'Fishdex', key: 8, title: 'Fishdex', feature: 'dex' },
+  { panel: 'reviews', icon: 'newspaper', label: 'Reviews', key: 9, title: 'Reviews', feature: 'reviews' },
 ];
+const stripTags = (t) => String(t).replace(/<[^>]+>/g, '');
 
 export class UI {
   constructor(game) {
@@ -87,6 +91,7 @@ export class UI {
     this.busy = 0; // a ceremony / sheet is on screen
     this.applyFrames();
     this.buildDOM();
+    this.initV3();
     game.on('coins', () => { this.popCoins(); this.refreshPanelSoon(); });
     game.on('research', () => this.refreshPanelSoon());
     game.on('tool', (t) => this.onTool(t));
@@ -138,29 +143,17 @@ export class UI {
     const r = this.root;
     r.innerHTML = `
       <div class="hud">
-        <div class="hud-left">
-          <div class="plaque coins f-plaque" id="h-coins" title="Coins">${ico('coin', 2)}<b id="h-coinv">0</b></div>
-          <div class="plaque f-plaque" id="h-fish" title="Fish in pond / capacity">${ico('fish', 2)}<b id="h-fishv">0</b><span class="sub" id="h-fishc"></span></div>
-          <div class="plaque ia f-plaque" id="h-rating" title="Your rating (tap for reviews)"><span id="h-stars"></span><b id="h-ratingv">3.0</b></div>
-          <div class="plaque f-plaque" id="h-beauty" title="Beauty: prettier ponds attract more bears and bigger bills">${ico('beauty', 2)}<b id="h-beautyv">0</b><span class="sub" id="h-beautyc"></span></div>
+        <div class="hud-left" id="hudhost">
+          <div class="plaque coins f-plaque fallback-hud" id="h-coins" title="Coins">${ico('coin', 2)}<b id="h-coinv">0</b></div>
         </div>
-        <div class="clockwrap" id="clockwrap"></div>
+        <div class="bigclock-host" id="clockwrap"></div>
         <div class="hud-right">
-          <div class="seg" id="speed">
-            <button class="rbtn" data-s="0" title="Pause (Space)">${ico('pause', 1)}</button>
-            <button class="rbtn" data-s="1">1x</button>
-            <button class="rbtn" data-s="2">2x</button>
-            <button class="rbtn" data-s="3">3x</button>
-          </div>
-          <button class="rbtn big" id="b-cam" title="Follow the bears (F)">${ico('camera', 2)}</button>
-          <button class="rbtn big" id="b-snd" title="Sound">${ico('speaker_on', 2)}</button>
-          <button class="rbtn big" id="b-menu" title="Menu">${ico('menu', 2)}</button>
+          <button class="menubtn" id="b-menu" title="Menu">${ico('menu', 2)}</button>
         </div>
       </div>
-      <div class="eggtray f-wood" id="eggtray"></div>
       <div class="toolhint hidden f-tooltip" id="toolhint"></div>
       <div class="toolbar f-wood" id="toolbar">
-        ${TOOLS.map((t) => `<button class="tool f-slot_gold ${t.tool === 'feed' ? 'active' : ''}" ${t.tool ? `data-tool="${t.tool}"` : `data-panel="${t.panel}"`} title="${esc(t.title)}${t.key ? ` (${t.key})` : ''}">${ico(t.icon, 2)}<span>${t.label}</span>${t.tool === 'feed' ? '<i class="bag"><b id="bag"></b></i>' : ''}${t.tool === 'tag' ? '<em class="cnt" id="tagcnt"></em>' : ''}</button>`).join('')}
+        ${TOOLS.map((t) => `<button class="tool f-slot_gold ${t.tool === 'feed' ? 'active' : ''}" data-feature="${t.feature}" ${t.tool ? `data-tool="${t.tool}"` : `data-panel="${t.panel}"`} title="${esc(t.title)}${t.key ? ` (${t.key})` : ''}">${ico(t.icon, 2)}${t.tool === 'feed' ? '<i class="bag"><b id="bag"></b></i>' : ''}${t.tool === 'tag' ? '<em class="cnt" id="tagcnt"></em>' : ''}</button>`).join('')}
       </div>
       <div class="panel hidden f-parchment" id="panel">
         <div class="panel-head f-ribbon_green"><h2 id="p-title"></h2><span class="coins-mini">${ico('coin', 1)}<span id="p-coins"></span></span><button class="xbtn" id="p-close" title="Close (Esc)">${ico('cross', 1)}</button></div>
@@ -178,9 +171,8 @@ export class UI {
       <div id="title-root"></div>
     `;
     const h = this.hud;
-    for (const id of ['h-coinv', 'h-fishv', 'h-fishc', 'h-stars', 'h-ratingv', 'h-beautyv', 'h-beautyc', 'clockwrap', 'bag', 'tagcnt', 'toolhint', 'eggtray', 'panel', 'p-title', 'p-tabs', 'p-body', 'p-coins', 'toasts', 'tip', 'modal', 'modal-card', 'fox', 'fox-face', 'fox-say', 'fox-ok', 'h-coins', 'cineui', 'cinetitle', 'nightui', 'ceremony-root'])
+    for (const id of ['h-coinv', 'clockwrap', 'hudhost', 'bag', 'tagcnt', 'toolhint', 'panel', 'p-title', 'p-tabs', 'p-body', 'p-coins', 'toasts', 'tip', 'modal', 'modal-card', 'fox', 'fox-face', 'fox-say', 'fox-ok', 'h-coins', 'cineui', 'cinetitle', 'nightui', 'ceremony-root'])
       h[id] = document.getElementById(id);
-    this.buildClock();
     $('#toolbar').addEventListener('click', (e) => {
       const b = e.target.closest('.tool');
       if (!b || this.game.inputLocked) return;
@@ -195,39 +187,16 @@ export class UI {
         else this.openPanel(b.dataset.panel);
       }
     });
-    $('#speed').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-s]');
-      if (!b) return;
-      this.click();
-      const s = +b.dataset.s;
-      if (s === 0) this.togglePause();
-      else { this.game.state.paused = false; this.game.setSpeed(s); }
-      this.renderSpeed();
-    });
-    $('#b-snd').addEventListener('click', () => {
-      const m = this.game.audio.toggleMute();
-      $('#b-snd').innerHTML = ico(m ? 'speaker_off' : 'speaker_on', 2);
-      this.click();
-    });
     $('#b-menu').addEventListener('click', () => { this.click(); this.showMenu(); });
-    $('#b-cam').addEventListener('click', () => { this.click(); this.followBear(); });
-    $('#h-rating').addEventListener('click', () => { this.click(); this.openPanel('reviews'); });
     $('#p-close').addEventListener('click', () => { this.closePanel(); this.closeSound(); });
     h['fox-ok'].addEventListener('click', () => { this.click(); this.foxNext(); });
     h.modal.addEventListener('click', (e) => { if (e.target === h.modal && this.modalDismissable) this.closeModal(); });
-    h.eggtray.addEventListener('click', (e) => {
-      const slot = e.target.closest('[data-egg]');
-      if (slot) this.tapEgg(+slot.dataset.egg);
-      else if (e.target.closest('.eslot.empty')) { this.click(); this.openPanel('shop'); }
-    });
     const ff = $('#ffbtn');
     const setFF = (v) => { this.game.cine?.toggleFast(v); ff.classList.toggle('on', v); };
     ff.addEventListener('pointerdown', (e) => { e.preventDefault(); setFF(true); });
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) ff.addEventListener(ev, () => setFF(false));
     $('#nightskip').addEventListener('click', () => { this.click(); this.game.hurryNight(); });
     h.nightui.addEventListener('click', (e) => { if (e.target === h.nightui) this.game.hurryNight(); });
-    $('#b-snd').innerHTML = ico(this.game.audio.isMuted() ? 'speaker_off' : 'speaker_on', 2);
-    this.renderSpeed();
   }
 
   buildClock() {
@@ -251,26 +220,245 @@ export class UI {
   click() { this.game.audio.play('click', { volume: 0.35 }); }
   closeSound() { this.game.audio.play('close', { volume: 0.35 }); }
 
-  renderSpeed() {
-    const st = this.game.state;
-    for (const b of document.querySelectorAll('#speed [data-s]')) {
-      const s = +b.dataset.s;
-      b.classList.toggle('on', s === 0 ? st.paused : !st.paused && st.speed === s);
-    }
-  }
+  renderSpeed() { /* speed lives on the big clock now */ }
 
   togglePause() {
     const st = this.game.state;
     st.paused = !st.paused;
-    this.renderSpeed();
-    this.toast(st.paused ? 'Paused' : 'Resumed');
   }
 
   hotkey(n) {
     const t = TOOLS.find((x) => x.key === n);
-    if (!t) return;
+    if (!t || !this.game.isOpen(t.feature)) return;
     const sel = t.tool ? `[data-tool="${t.tool}"]` : `[data-panel="${t.panel}"]`;
     document.querySelector(`#toolbar ${sel}`)?.click();
+  }
+
+  // ------------------------------------------------------------ v3 components
+  initV3() {
+    const game = this.game;
+    try { injectPaperCSS(); setPaperSfx((n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) })); } catch (e) { console.warn('paper', e); }
+    const sfx = (n, o) => game.audio.play(n, { volume: 0.35, ...(o || {}) });
+    const icon = (n, sc = 2) => (hasSprite(n) ? ico(n, sc) : '');
+    const B = C('Bubbles');
+    if (B?.Bubbles) {
+      try {
+        this.bubbles = new B.Bubbles(this.root, {
+          project: (v) => {
+            const rig = game.overrideRig || game.rig;
+            return rig.worldToScreen(v, game.renderer);
+          },
+          sfx, icon,
+          babble: (voice, text) => game.audio.babble?.(voice === 'moose' || voice === 'beaver' ? 'cub' : voice === 'deer' ? 'fox' : voice, text, { volume: 0.3 }) || 0,
+        });
+      } catch (e) { console.warn('Bubbles failed', e); }
+    }
+    const FN = C('FoxNotifier');
+    if (FN?.FoxNotifier) {
+      try { this.notifier = new FN.FoxNotifier(document.body, { sfx, babble: (t) => game.audio.babble?.('fox', t, { volume: 0.3 }) }); } catch (e) { console.warn('FoxNotifier failed', e); }
+    }
+    const H = C('Hud');
+    if (H?.Hud) {
+      try {
+        this.hudHost = this.hud.hudhost;
+        this.hudHost.querySelector('.fallback-hud')?.remove();
+        this.hudc = new H.Hud(this.hudHost, { icon, sfx });
+      } catch (e) { console.warn('Hud failed', e); this.hudc = null; }
+    }
+    const BC = C('BigClock');
+    if (BC?.BigClock) {
+      try { this.clock = new BC.BigClock(this.hud.clockwrap, { onSpeed: (n) => { game.state.paused = false; game.setSpeed(n); }, sfx, icon }); } catch (e) { console.warn('BigClock failed', e); }
+    }
+    this.blueprint = new Blueprint(this);
+    this.pointers = [];
+    game.on('unlock', () => this.refreshUnlocks());
+    game.on('inventory', () => this.blueprint.render());
+    game.on('cleared', () => this.blueprint.open && this.blueprint.tab === 'clear' && this.blueprint.render());
+    game.on('delivered', (o) => this.onDelivered(o));
+    game.on('beavers', () => this.blueprint.render());
+    this.refreshUnlocks();
+  }
+
+  icon(name, sc = 2) { return hasSprite(name) ? ico(name, sc) : ''; }
+
+  // a click anywhere advances a bubble that's waiting for one
+  advanceBubble() {
+    const B = this.bubbles;
+    if (!B?.busy) return false;
+    const w = (B.list || []).filter((b) => b.wait && !b.closing && !b.choices);
+    if (!w.length) return false;
+    B._advance(w[w.length - 1]);
+    return true;
+  }
+
+  arrowButton(dir = 'left') {
+    const B = C('Bubbles');
+    if (B?.pixelArrowButton) return B.pixelArrowButton(dir, { size: 2 });
+    const b = document.createElement('button');
+    b.className = 'btn small';
+    b.textContent = dir === 'left' ? '◀' : '▶';
+    return b;
+  }
+
+  // comic bubble above anything in the world (or a screen point)
+  say(anchor, text, opts = {}) {
+    if (this.bubbles) return this.bubbles.say(anchor, text, opts);
+    this.toastRaw(esc(text));
+    return { done: Promise.resolve(), close() {}, setText() {} };
+  }
+
+  // Reynard climbs into the corner and tells you something
+  notify(text, mood = 'info', { dur } = {}) {
+    text = stripTags(text);
+    const now = performance.now();
+    if (this.lastNote && this.lastNote.text === text && now - this.lastNote.t < 2500) return null;
+    this.lastNote = { text, t: now };
+    const d = dur || Math.min(6, 2.2 + text.length * 0.05);
+    const n = this.notifier;
+    if (n && this.bubbles) {
+      n.show({ mood, dur: d + 0.6 }).then?.(() => {});
+      n.talk?.(text);
+      const bm = mood === 'no' ? 'angry' : mood === 'warn' ? 'scared' : mood === 'happy' || mood === 'excited' ? 'excited' : 'normal';
+      return this.bubbles.say(() => n.anchor(), text, { voice: 'fox', mood: bm, dur: d, key: 'notify', size: 's' });
+    }
+    this.toastRaw(esc(text), mood === 'no' || mood === 'warn' ? 'bad' : '');
+    return null;
+  }
+
+  // show/hide HUD pieces and tools as the game unlocks them
+  refreshUnlocks() {
+    const game = this.game;
+    for (const b of document.querySelectorAll('#toolbar .tool')) {
+      const on = game.isOpen(b.dataset.feature);
+      if (on && b.classList.contains('locked')) { b.classList.add('tool-new'); setTimeout(() => b.classList.remove('tool-new'), 900); }
+      b.classList.toggle('locked', !on);
+    }
+    const anyTool = [...document.querySelectorAll('#toolbar .tool')].some((b) => !b.classList.contains('locked'));
+    document.getElementById('toolbar')?.classList.toggle('empty', !anyTool);
+    this.hud.hudhost?.classList.toggle('locked', !game.isOpen('coins'));
+    this.hud.clockwrap?.classList.toggle('locked', !game.isOpen('clock'));
+    this.clock?.setVisible?.(game.isOpen('clock'));
+    this.hudc?.setVisible?.(game.isOpen('coins'), 'coins');
+    this.hudc?.setVisible?.(game.isOpen('rating'), 'rating');
+  }
+
+  onUnlock(feature, quiet) {
+    this.refreshUnlocks();
+    if (quiet) return;
+    this.game.audio.play('pop_in', { volume: 0.5 });
+    const el = feature === 'clock' ? this.hud.clockwrap : feature === 'coins' ? this.hud.hudhost : document.querySelector(`#toolbar [data-feature="${feature}"]`);
+    if (el) { el.classList.remove('unlock-pop'); void el.offsetWidth; el.classList.add('unlock-pop'); }
+  }
+
+  // a bouncing pixel pointer at a tool / the clock; returns a remover
+  pointAt(target) {
+    let el = null;
+    if (target.startsWith('tool:')) {
+      const k = target.slice(5);
+      el = document.querySelector(`#toolbar [data-panel="${k}"], #toolbar [data-tool="${k}"]`);
+    } else if (target === 'clock') el = this.hud.clockwrap;
+    if (!el) return () => {};
+    const p = document.createElement('div');
+    p.className = 'pointer-hand';
+    p.innerHTML = hasSprite('pointer') ? ico('pointer', 3) : '<b>▼</b>';
+    document.body.appendChild(p);
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      const up = r.top > window.innerHeight / 2;
+      p.classList.toggle('down', up);
+      p.style.left = `${r.left + r.width / 2}px`;
+      p.style.top = up ? `${r.top - 6}px` : `${r.bottom + 6}px`;
+    };
+    place();
+    const iv = setInterval(place, 250);
+    el.classList.add('pulse');
+    const rm = () => { clearInterval(iv); p.remove(); el.classList.remove('pulse'); };
+    this.pointers.push(rm);
+    return rm;
+  }
+
+  onDelivered(o) {
+    const game = this.game;
+    const eggs = o.items.filter((it) => it.kind === 'egg').length;
+    const items = o.items.filter((it) => it.kind === 'item');
+    if (eggs) this.notify(eggs > 1 ? `${eggs} eggs in the pond!` : 'Egg in the pond!', 'happy');
+    else if (items.length) {
+      const d = STRUCTURES[items[0].type];
+      this.notify(`${d ? d.name : 'Package'}! It's in Build ▸ Parcels.`, 'excited');
+    }
+    this.blueprint.render();
+  }
+
+  // a bought egg hatched: brag above the spot
+  onFishHatched(f, rarity) {
+    const mu = f.g.mut ? ` ${f.g.mut === 'doublehot' ? 'DOUBLE HOT' : f.g.mut.toUpperCase()}` : '';
+    const morph = f.g.morph !== 'normal' ? ` ${MORPHS[f.g.morph].name}` : '';
+    const label = `${['', '', 'Rare!', 'EPIC!', 'LEGENDARY!!'][rarity]}${mu}${morph} ${f.sp.name}`.trim();
+    const mood = rarity >= 3 ? 'shout' : rarity >= 2 || mu ? 'excited' : 'happy';
+    this.say({ getWorldPos: (v) => v.set(f.x, 0.9, f.z) }, label, { mood, dur: 3.2, size: rarity >= 3 ? 'l' : 'm', key: 'hatch' + f.id });
+  }
+
+  onLandmark(L, perk) {
+    this.notify(`${L.name}! ${perk?.line || ''}`, 'excited', { dur: 6 });
+    this.game.rig.lookAt(L.x + L.w / 2, L.z + L.d / 2);
+  }
+
+  openEBuy() {
+    const game = this.game;
+    const E = C('EBuy');
+    if (!E?.openEBuy || this.ebuy) return;
+    const host = document.createElement('div');
+    host.className = 'ebuy-host';
+    this.root.appendChild(host);
+    const listings = () => game.ebuyListings().map((l) => ({ ...l, image: this.listingImage(l) }));
+    this.ebuy = E.openEBuy(host, {
+      listings: listings(), coins: game.state.coins,
+      icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
+      sfx: (n) => game.audio.play(n, { volume: 0.35 }),
+      onBuy: (l, qty) => {
+        const ok = game.ebuyBuy(l, qty);
+        setTimeout(() => this.ebuy?.refresh({ coins: game.state.coins, listings: listings() }), 50);
+        return ok;
+      },
+      onClose: () => this.closeEBuy(),
+    });
+    this.ebuyHost = host;
+    game.audio.play('crt_on', { volume: 0.35 });
+  }
+
+  closeEBuy() {
+    this.ebuy?.close?.();
+    this.ebuy = null;
+    this.ebuyHost?.remove();
+    this.ebuyHost = null;
+  }
+
+  listingImage(l) {
+    const key = l.kind === 'egg' ? `fish:${l.species}:${l.genes.morph}` : `st:${l.type}`;
+    (this._limg ||= new Map());
+    if (this._limg.has(key)) return this._limg.get(key);
+    let img = null;
+    try {
+      if (l.kind === 'egg') img = fishCanvasFor(l.species, { morph: l.genes.morph, scale: 3 });
+      else {
+        const html = this.blueprint.icon(l.type);
+        const m = html.match(/src="([^"]+)"/);
+        img = m ? m[1] : null;
+      }
+    } catch { img = null; }
+    this._limg.set(key, img);
+    return img;
+  }
+
+  clockSections() {
+    const g = this.game;
+    if (g.isDayOff()) return [{ from: 0, to: 24, kind: 'off' }];
+    const bears = !(g.wave && g.wave.buildDay);
+    const out = [{ from: 21, to: 9, kind: 'night' }, { from: 9, to: 12, kind: 'work' }];
+    out.push({ from: 12, to: 13, kind: g.lunch?.length ? 'lunch' : 'work' });
+    out.push({ from: 13, to: 17, kind: 'work' });
+    out.push({ from: 17, to: 21, kind: bears ? 'rush' : 'off' });
+    return out;
   }
 
   // ------------------------------------------------------------ per frame
@@ -281,65 +469,31 @@ export class UI {
     const target = st.coins;
     if (Math.abs(this.dispCoins - target) < 0.5) this.dispCoins = target;
     else this.dispCoins += (target - this.dispCoins) * Math.min(1, dt * 8);
-    this.setText('h-coinv', fmt(Math.round(this.dispCoins)));
-    this.setText('p-coins', fmt(st.coins));
-    const pop = game.fish.population(), cap = game.fish.capacity();
-    this.setText('h-fishv', `${game.fish.count}`);
-    this.setText('h-fishc', `/ ${cap}${pop >= cap ? ' FULL' : ''}`);
-    const r = Math.round(st.rating * 10) / 10;
-    if (this.lastHUD.rating !== r) {
-      this.lastHUD.rating = r;
-      h['h-stars'].innerHTML = starsHTML(st.rating, 1);
-      h['h-ratingv'].textContent = r.toFixed(1);
-      h['h-ratingv'].style.color = r < 1.8 ? 'var(--bad)' : r >= 4 ? 'var(--good)' : '';
-    }
+    if (this.hudc) this.hudc.set({ coins: Math.round(st.coins), rating: game.isOpen('rating') ? st.rating : null, charm: game.charmPct() });
+    else this.setText('h-coinv', fmt(Math.round(this.dispCoins)));
     this.hudT = (this.hudT || 0) - dt;
     if (this.hudT <= 0) {
       this.hudT = 0.5;
-      this.setText('h-beautyv', `${game.beauty()}`);
-      this.setText('h-beautyc', `+${game.charmPct()}%`);
       this.setText('tagcnt', `${game.tagLimit() - game.tagsUsed()}`);
-      this.renderEggTray();
+      Tutorial.progress(game);
     }
-    this.updateClock(dt);
+    if (this.clock) {
+      try { this.clock.update(dt, { hour: st.hour, phase: st.phase, day: st.day, weekday: game.weekday(), speed: st.speed, paused: st.paused, sections: this.clockSections() }); } catch { /* ignore */ }
+    }
     const bw = `${Math.round((game.foodBag.count / game.foodBag.max) * 100)}%`;
-    if (h.bag.style.width !== bw) h.bag.style.width = bw;
+    if (h.bag && h.bag.style.width !== bw) h.bag.style.width = bw;
     this.updateSays(dt);
+    this.bubbles?.update(dt);
+    this.notifier?.update?.(dt);
+    this.blueprint.update(dt);
     this.updateFloaters(dt);
     this.updateGhost();
-    this.updateEggTimers();
     const night = st.phase === 'night';
     if (night !== this.lastNight) { this.lastNight = night; h.nightui.classList.toggle('hidden', !night); }
     this.tipT -= dt;
-    if (this.foxAutoT > 0) { this.foxAutoT -= dt; if (this.foxAutoT <= 0 && this.foxCurrent?.auto) this.foxNext(); }
   }
 
-  updateClock(dt) {
-    const game = this.game;
-    const st = game.state;
-    if (this.corp) {
-      try {
-        this.corp.update(dt, { hour: st.hour, phase: st.phase, day: st.day, weekday: game.weekday(), dayOff: game.isDayOff(), secondsToRush: game.secondsToRush() / Math.max(1, st.speed), lunchStart: 12, lunchEnd: 13, open: 9, close: 17 });
-      } catch { /* ignore */ }
-      return;
-    }
-    const h = this.hud;
-    this.setText('c-day', game.weekday().toUpperCase());
-    this.setText('c-dayn', String(st.day));
-    this.setText('c-time', clockText(st.hour));
-    let fill = 1, sub = '';
-    if (st.phase === 'day') {
-      fill = (st.hour - 9) / 8;
-      const s = Math.max(0, Math.ceil(game.secondsToRush() / Math.max(1, st.speed)));
-      sub = game.isDayOff() ? 'Sunday: office closed' : st.hour >= 12 && st.hour < 13 ? 'LUNCH BREAK' : `OFF WORK IN ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-      h['c-bell'].classList.toggle('hidden', game.isDayOff() || !!game.transition);
-    } else {
-      sub = st.phase === 'rush' ? 'FEEDING TIME!' : st.phase === 'night' ? 'Closed for the night' : 'Closed';
-      h['c-bell'].classList.add('hidden');
-    }
-    h['c-fill'].style.width = `${Math.round(Math.min(1, Math.max(0, fill)) * 100)}%`;
-    this.setText('c-sub', sub);
-  }
+  updateClock() {}
 
   foxMood(expr, t = 1.6) { this.foxMoodState = { expr, t }; }
 
@@ -507,57 +661,25 @@ export class UI {
   // ------------------------------------------------------------ comic speech bubbles (bears)
   attachBearBubble() { /* bubbles are created on demand by bearSay */ }
   detachBearBubble(b) {
+    if (this.bubbles) { this.bubbles.clear((x) => x.key === 'bear' + b.id); this.says.delete(b.id); return; }
     const s = this.says.get(b.id);
     if (s) { s.el.remove(); this.says.delete(b.id); }
   }
 
+  bearAnchor(b) {
+    return { getWorldPos: (v) => (b.visible ? v.set(b.x, b.y + 2.25 * b.def.scale + 0.25, b.z) : v.set(0, -999, 0)) };
+  }
+
   bearSay(b, { text = null, emote = null, item = null, dur = 2.2 } = {}) {
-    let s = this.says.get(b.id);
-    if (!s) {
-      const el = document.createElement('div');
-      el.className = 'sb';
-      this.overlay.appendChild(el);
-      s = { el, bear: b, t: 0 };
-      this.says.set(b.id, s);
-    }
-    let html = '';
-    if (emote && hasSprite(emote)) html += `<span class="emo">${ico(emote, 2)}</span>`;
-    else if (emote) html += `<span class="emo txt">${emote === 'emo_anger' ? '#!' : emote === 'emo_question' ? '?' : '!'}</span>`;
-    if (item) html += `<span class="item">${ico(item, 2)}</span>`;
-    if (text) html += '<span class="tx"></span>';
-    s.el.innerHTML = html;
-    s.el.classList.remove('out', 'pop');
-    void s.el.offsetWidth;
-    s.el.classList.add('pop');
-    s.el.classList.toggle('angry', emote === 'emo_anger');
-    s.t = dur + (text ? text.length * 0.03 : 0);
-    s.text = text || '';
-    s.shown = 0;
-    s.typeT = 0;
-    s.span = text ? s.el.querySelector('.tx') : null;
-    if (text) this.game.audio.babble?.(b.def.boss ? 'ceo' : b.def.scale < 0.7 ? 'cub' : 'bear', text, { volume: 0.25 });
+    if (!this.bubbles) return;
+    const mood = emote === 'emo_anger' || b.angry ? 'angry' : emote === 'emo_sweat' ? 'scared' : emote === 'emo_heart' || emote === 'emo_drool' ? 'happy' : b.def.boss ? 'shout' : 'normal';
+    const voice = text ? (b.def.boss ? 'ceo' : b.def.scale < 0.7 ? 'cub' : 'bear') : null;
+    const h = this.bubbles.say(this.bearAnchor(b), text || '', { emote: hasSprite(emote) ? emote : null, item: hasSprite(item) ? item : null, dur: dur + (text ? text.length * 0.03 : 0), voice, mood, key: 'bear' + b.id, size: text ? 's' : 's' });
+    this.says.set(b.id, { t: dur, h });
   }
 
   updateSays(dt) {
-    for (const [id, s] of this.says) {
-      const b = s.bear;
-      s.t -= dt;
-      if (s.span && s.shown < s.text.length) {
-        s.typeT += dt * 40;
-        const n = Math.min(s.text.length, Math.floor(s.typeT));
-        if (n !== s.shown) { s.shown = n; s.span.textContent = s.text.slice(0, n); }
-      }
-      if (!b.visible || s.t <= 0) {
-        if (!s.el.classList.contains('out')) { s.el.classList.add('out'); s.dieT = 0.25; }
-        s.dieT -= dt;
-        if (s.dieT <= 0) { s.el.remove(); this.says.delete(id); }
-        continue;
-      }
-      const p = this.screenOf(b.x, b.y + 2.25 * b.def.scale + 0.25, b.z);
-      if (!p.visible) { s.el.style.display = 'none'; continue; }
-      s.el.style.display = '';
-      s.el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -100%)`;
-    }
+    for (const [id, s] of this.says) { s.t -= dt; if (s.t <= -1) this.says.delete(id); }
     // idle status bubbles: cravings, impatience
     this.statusT = (this.statusT || 0) - dt;
     if (this.statusT <= 0) {
@@ -639,8 +761,9 @@ export class UI {
   flyCoins(b, amount) {
     this.foxMood('greedy', 1.8);
     const start = this.screenOf(b.x, b.y + 1.8 * b.def.scale, b.z);
-    const target = this.hud['h-coins'].getBoundingClientRect();
-    const tx = target.left + 18, ty = target.top + target.height / 2;
+    let tx, ty;
+    if (this.hudc?.coinTarget) ({ x: tx, y: ty } = this.hudc.coinTarget());
+    else { const target = (this.hud['h-coins'] || this.hud.hudhost).getBoundingClientRect(); tx = target.left + 18; ty = target.top + target.height / 2; }
     const n = Math.min(12, 3 + Math.floor(amount / 6));
     const url = spriteURL('coin', 2);
     for (let i = 0; i < n; i++) {
@@ -661,7 +784,13 @@ export class UI {
   }
 
   // ------------------------------------------------------------ toasts, banners
+  // old-style toasts now come from Reynard in the corner
   toast(text, kind = '') {
+    if (this.notifier && this.bubbles) { this.notify(text, kind === 'bad' ? 'no' : kind === 'gold' ? 'excited' : 'info'); return; }
+    this.toastRaw(text, kind);
+  }
+
+  toastRaw(text, kind = '') {
     const el = document.createElement('div');
     el.className = `toast f-parchment ${kind}`;
     el.innerHTML = text;
@@ -681,11 +810,14 @@ export class UI {
 
   // ------------------------------------------------------------ fox dialogue
   foxSay(text, expr = 'smug', opts = {}) {
-    this.foxQueue.push({ text, expr, ...opts });
-    if (!this.foxCurrent) this.foxNext();
+    const mood = ['worried', 'shocked', 'angry'].includes(expr) ? 'warn' : ['laugh', 'greedy', 'excited'].includes(expr) ? 'excited' : 'info';
+    this.notify(text, mood, { dur: Math.min(7, 2.5 + stripTags(text).length * 0.045) });
   }
 
-  foxBubble(text) { this.toast(`${ico('fox', 1)} <i>${esc(text)}</i>`); }
+  foxBubble(text) {
+    const f = this.game.fox;
+    this.say({ getWorldPos: (v) => v.set(f.x, f.y + 1.75, f.z) }, text, { voice: 'fox', dur: 2.2, key: 'fox' });
+  }
 
   foxNext() {
     const cur = this.foxCurrent;
@@ -730,9 +862,10 @@ export class UI {
   }
 
   startTutorialIfNew() {
-    const lg = this.game.legacy;
-    if (lg.best || lg.tails || lg.retired) { this.game.state.tutorial = TUTORIAL.length; return; }
-    this.tutorialStep(0);
+    const game = this.game;
+    if (game.state.tutorialDone || game.skipTutorial) { this.refreshUnlocks(); return; }
+    game.tutorial = new Tutorial(game);
+    game.tutorial.run().catch((e) => { console.warn('tutorial failed', e); game.skipTutorial = true; game.tutorialHold = false; this.refreshUnlocks(); });
   }
 
   tipOnce(key, text, expr = 'smug') {
@@ -745,29 +878,25 @@ export class UI {
   // ------------------------------------------------------------ phases
   onDayStart() {
     const st = this.game.state;
-    if (st.day > 1 && this.game.fish.count < 3 && !this.game.isDayOff())
-      this.foxSay('The pond is nearly <b>empty</b>! Buy <b>eggs</b> in the Egg shop and feed your fish so they breed before 5 PM, or the bears will riot.', 'worried', { pulse: 'shop' });
-    if (this.game.isDayOff()) this.tipOnce('sunday', 'Sunday! The bears are at home watching hockey. No customers today: time to breed fish and build. Heh.', 'sleepy');
-    if (st.day === 2) this.tipOnce('day2', 'Pro tip: <b>blueberry bushes</b> (Build > Bear Snacks) feed the bears too, so they eat fewer fish. Plant them on a platform and rampagers can\'t smash them!', 'greedy');
-    if (st.day === 3 && !st.research.includes('r_beavers')) this.tipOnce('beavers', 'Bears keep eating my breeding fish... <b>Hire Beavers</b> in the Lab to build <b>dams</b> and wall off a safe nursery!', 'wink');
-    if (st.day === 4) this.tipOnce('beauty', '<b>Decor</b> makes the pond beautiful. Beauty attracts more customers and bigger bills. Mwahaha.', 'smug');
+    if (st.day > 1 && this.game.fish.count < 3 && !this.game.isDayOff()) this.foxSay('Pond\'s empty! Buy eggs on e-Buy!', 'worried');
+    if (this.game.isDayOff()) this.tipOnce('sunday', 'Sunday! No bears today.', 'sleepy');
+    if (st.day === 2) this.tipOnce('day2', 'Bears come at 5 today! Berries = fewer fish eaten.', 'greedy');
+    if (st.day === 4) this.tipOnce('beauty', 'Pretty pond = more bears. Decorate!', 'smug');
   }
 
   onRushStart() {
     this.closePanel();
     this.closeModal();
-    this.foxQueue.length = 0;
-    if (this.foxCurrent) { this.foxCurrent = null; this.hud.fox.classList.add('hidden'); }
+    this.blueprint?.exit();
+    this.closeEBuy();
   }
 
   onRampage(b) {
     this.foxMood('shocked', 2.5);
-    this.toast(`${ico('bolt', 1)} ${esc(b.name)} (${esc(b.def.name)}) is RAMPAGING!`, 'bad');
+    this.notify(`${b.def.boss ? b.def.name : b.name} is RAMPAGING!`, 'warn');
   }
 
-  onBedtime() {
-    this.toast(`${ico('moon', 1)} Reynard heads home to bed...`);
-  }
+  onBedtime() {}
 
   setCinematic(on) {
     document.body.classList.toggle('cine', on);
@@ -812,6 +941,10 @@ export class UI {
       html = `${ico(d.icon, 1)} <b>${esc(d.name)}</b> <span class="k">${ico('coin', 1)}${d.cost}</span> ${d.drag ? '· drag to place a line' : '· tap to place'}`;
     } else if (t.kind === 'dig') {
       html = `${ico('shovel', 1)} <b>Dig</b> next to the pond to expand it <span class="k">${ico('coin', 1)}${g.digCost()}</span> per tile · drag for a line`;
+    } else if (t.kind === 'clear') {
+      const B = game.beavers;
+      ghost.showTiles(tiles.map((p) => ({ ...p, ok: B.canClear(p.x, p.z).ok || B.clears.has(p.z * game.grid.w + p.x) })));
+      ghost.showModels(null, []);
     } else if (t.kind === 'remove') {
       html = `${ico('trash', 1)} <b>Remove</b>: tap a structure (50% refund) or clear a tree/rock (${ico('coin', 1)}10)`;
     } else if (t.kind === 'hand') {
@@ -821,7 +954,8 @@ export class UI {
     } else if (t.kind === 'nurture') {
       html = `${ico('nurture', 1)} <b>Pet</b>: tap or hold a fish. Nurtured fish grow faster, breed sooner and pass on better genes`;
     }
-    hint.innerHTML = html + (html ? ' <button class="btn small green" id="th-x">Done</button>' : '');
+    if (this.blueprint?.open || t.kind === 'hand' || t.kind === 'nurture' || t.kind === 'tag') html = '';
+    hint.innerHTML = html + (html ? ' <button class="btn small green" id="th-x">✕</button>' : '');
     hint.classList.toggle('hidden', !html);
     const x = $('#th-x', hint);
     if (x) x.onclick = () => { this.click(); this.game.setTool({ kind: 'feed' }); };
@@ -833,7 +967,7 @@ export class UI {
     const ghost = game.ghost;
     if (!ghost) return;
     const t = game.tool;
-    if (!['build', 'dig', 'remove'].includes(t.kind)) { ghost.clear(); return; }
+    if (!['build', 'dig', 'remove', 'clear'].includes(t.kind)) { ghost.clear(); return; }
     let tiles = game.ghostLine;
     if (!tiles) {
       const ht = game.input?.currentHoverTile();
@@ -865,6 +999,8 @@ export class UI {
   // ------------------------------------------------------------ panels
   openPanel(name, tab) {
     if (name === 'lab' && this.game.lab?.open && !this.labFallback) { this.openLab(); return; }
+    if (name === 'ebuy' || name === 'shop') { if (this.ebuy) this.closeEBuy(); else { this.closePanel(); this.openEBuy(); } return; }
+    if (name === 'build') { if (this.blueprint.open) this.blueprint.exit(); else { this.closePanel(); this.closeEBuy(); this.blueprint.enter(tab); } return; }
     this.panel = name;
     if (tab) this.panelTab = tab;
     else if (name === 'build' && !BUILD_CATEGORIES.some((c) => c.id === this.panelTab)) this.panelTab = 'nature';
@@ -887,8 +1023,10 @@ export class UI {
   }
 
   closeTop() {
-    if (this.game.lab?.active) { this.game.lab.close(); return true; }
-    if (!this.hud.modal.classList.contains('hidden') && this.modalDismissable) { this.closeModal(); return true; }
+    if (this.game.lab?.active) { this.game.lab.exit?.(); return true; }
+    if (this.ebuy) { this.closeEBuy(); return true; }
+    if (this.blueprint?.open) { this.blueprint.exit(); return true; }
+    if ((this.paperModal || !this.hud.modal.classList.contains('hidden')) && this.modalDismissable) { this.closeModal(); return true; }
     if (this.panel) { this.closePanel(); this.closeSound(); return true; }
     if (this.game.tool.kind !== 'feed') { this.game.setTool({ kind: 'feed' }); return true; }
     return false;
@@ -1122,19 +1260,31 @@ export class UI {
   }
 
   // ------------------------------------------------------------ modals
-  showModal(html, { dismissable = true, onBind, cls = '' } = {}) {
-    const m = this.hud.modal;
-    this.hud.fox.style.visibility = 'hidden';
-    const card = this.hud['modal-card'];
-    card.className = `modal f-parchment ${cls}`;
-    card.innerHTML = html;
-    m.classList.remove('hidden');
+  // every popup is a real piece of paper (letter, note, mail, book...)
+  showModal(html, { dismissable = true, onBind, cls = '', kind = null } = {}) {
+    if (this.paperModal) { const old = this.paperModal; this.paperModal = null; old.close?.(); }
+    const k = kind || (cls.includes('gameover') ? 'notebook' : cls.includes('menu') ? 'book' : 'letter');
+    let p;
+    try {
+      p = openPaper({ kind: k, html, dismissable, root: this.root, onClose: () => { if (this.paperModal === p) this.paperModal = null; } });
+    } catch (e) {
+      console.warn('paper modal', e);
+      const m = this.hud.modal, card = this.hud['modal-card'];
+      card.className = `modal f-parchment ${cls}`;
+      card.innerHTML = html;
+      m.classList.remove('hidden');
+      this.modalDismissable = dismissable;
+      onBind?.(card);
+      return;
+    }
+    this.paperModal = p;
     this.modalDismissable = dismissable;
-    if (onBind) onBind(card);
+    p.el.classList.add(...cls.split(' ').filter(Boolean));
+    onBind?.(p.body);
   }
 
   closeModal() {
-    this.hud.fox.style.visibility = '';
+    if (this.paperModal) { const p = this.paperModal; this.paperModal = null; p.close?.(); return; }
     this.hud.modal.classList.add('hidden');
     this.hud['modal-card'].innerHTML = '';
   }

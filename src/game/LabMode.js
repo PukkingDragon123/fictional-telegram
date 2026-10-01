@@ -266,7 +266,7 @@ export class LabMode {
 
   // B&W comic bubble above Reynard's head
   foxAnchor() {
-    return { getWorldPos: (v) => { if (this.fox?.headTop) { this.fox.headTop(v); v.y += 0.25; } else v.set(0, 1.6, 0); return v; } };
+    return { getWorldPos: (v) => { if (this.fox?.headTop) { this.fox.headTop(v); v.y -= 0.05; } else v.set(0, 1.6, 0); return v; } };
   }
 
   say(text, expr = null, opts = {}) {
@@ -413,7 +413,7 @@ export class LabMode {
     if (this.lab?.drawIdleScreen && !this.tree) this.lab.drawIdleScreen(this.time);
     // awake: hop off the chair and stand in front of it facing the visitor;
     // back to the desk for research
-    if (this.fox) {
+    if (this.fox && !this.walking) {
       const fr = this.fox.root;
       const seat = this.lab.anchors.foxSeat.position;
       let yaw = this.seatYaw || 0, tx = seat.x, tz = seat.z;

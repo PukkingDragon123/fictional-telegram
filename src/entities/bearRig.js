@@ -157,15 +157,28 @@ function lookOf(d) {
   if (d.markings) { L.glow.add(d.markings); L.glow.add(shade(d.markings, 0.8)); }
   if (L.boss && d.cigar) L.glow.add(0xff6a20);
   // per-bear tint channels: 1 = fur, 2 = accessory (see personalize())
-  L.chan = new Map();
-  for (const c of [L.fur, L.furLight, L.furDark, L.furTuft, d.grizzle, d.grizzle != null ? mix(d.fur, d.grizzle, 0.5) : null]) if (c != null) L.chan.set(c, 1);
+  const furSet = new Map();
+  for (const c of [L.fur, L.furLight, L.furDark, L.furTuft, d.grizzle, d.grizzle != null ? mix(d.fur, d.grizzle, 0.5) : null]) if (c != null) furSet.set(c, 1);
   const acc = [d.tie, d.bowtie, d.scarf, d.lanyard, d.accent, d.itemColor, d.hat && d.hat !== 'hardhat' && d.hat !== 'tophat' ? d.hatColor : null];
   if (L.outfit === 'cardigan' || L.outfit === 'tracksuit') acc.push(d.suit, d.suitDark);
   if (d.flannel && d.beard) acc.push(d.suit);
-  if (!L.boss) for (const c of acc) {
-    if (c == null) continue;
-    for (const f of [1, 0.62, 0.7, 0.75, 0.78, 0.8, 0.85, 0.86, 0.88, 0.9, 0.92, 0.93, 1.18, 1.25, 1.3]) { const h = shade(c, f); if (!L.chan.has(h)) L.chan.set(h, 2); }
-  }
+  const accs = L.boss ? [] : acc.filter((c) => c != null && lumOf(c) > 0.06);
+  // "is this hex a shade of one of the accessory colours?" (cached)
+  const isShadeOf = (h, c) => {
+    const hr = (h >> 16) & 255, hg = (h >> 8) & 255, hb = h & 255, cr = (c >> 16) & 255, cg = (c >> 8) & 255, cb = c & 255;
+    const f = (hr + hg + hb) / Math.max(1, cr + cg + cb);
+    if (f < 0.55 || f > 1.4) return false;
+    return Math.abs(hr - cr * f) <= 4 && Math.abs(hg - cg * f) <= 4 && Math.abs(hb - cb * f) <= 4;
+  };
+  const cache = new Map();
+  L.chan = {
+    get(h) {
+      let v = cache.get(h);
+      if (v === undefined) { v = furSet.get(h) || (accs.some((c) => isShadeOf(h, c)) ? 2 : 0); cache.set(h, v); }
+      return v;
+    },
+    has(h) { return this.get(h) > 0; },
+  };
   return L;
 }
 
@@ -205,7 +218,7 @@ function outfitColor(L, x, y, z) {
       // open jacket (gold pinstripes) over a waistcoat over a shirt
       const N = L.neckY;
       let c = d.suit;
-      if (d.pinstripe && ((x + z + 60) % 3 === 0)) c = d.pinstripe;
+      if (d.pinstripe && ((x + z + 60) % 4 === 0)) c = d.pinstripe;
       const wv = 3.4 + (y - 8) * 0.24;
       if (front && y >= 7 && ax <= wv) {
         if (y >= N - 3 && ax <= (y - (N - 3.6)) * 0.75) return d.shirt;
@@ -426,7 +439,7 @@ function buildBody(L) {
       for (let y = 9; y <= 15; y += 2) surf(2, y, 0xf4ecd8, 1);
       for (const sx of [-1, 1]) { surf(sx, N, 0xffffff, 1); surf(sx * 2, N, 0xffffff, 1); }
       for (let x = -4; x <= 4; x++) {
-        const y = N - 1 - Math.round((1 - (x / 4.6) ** 2) * 2.2);
+        const y = N - 2 - Math.round((1 - (x / 4.6) ** 2) * 2.2);
         const z = frontZ(v, x, y);
         if (z != null) put(x, y, z + 1, x % 2 ? (d.pearls ?? 0xf8f4ec) : shade(d.pearls ?? 0xf8f4ec, 0.92));
       }
@@ -498,7 +511,7 @@ function buildPelvis(L) {
   const prx = 6.4 * Math.max(1, L.T.rx / 7.1), prz = 4.9 * Math.max(1, L.T.rz / 5.1);
   fillSE(v, 0, 8.6, -0.2, prx, 2.9, prz, 2.6, (x, y, z) => {
     let c = y <= 6 ? shade(pants, 0.92) : pants;
-    if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 3 === 0) c = d.pinstripe;
+    if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 4 === 0) c = d.pinstripe;
     if (L.outfit === 'tracksuit' && Math.abs(x) >= prx - 1.2) c = d.stripe;
     return c;
   });
@@ -514,12 +527,12 @@ function buildPelvis(L) {
       for (let x = -Math.ceil(rx); x <= Math.ceil(rx); x++)
         for (let z = -Math.ceil(rz) - 1; z <= Math.ceil(rz); z++) {
           const q = (x / rx) ** 2 + ((z + 0.2) / rz) ** 2;
-          if (q > 1 || q < (y <= 8 ? 0.62 : 0)) continue;
+          if (q > 1) continue;
           if (coat && y <= 7 && x === 0 && z > 0) continue; // front slit
           if (coat && y <= 5 && x === 0 && z < 0) continue; // back vent
           let c = y === yb ? shade(c0, 0.8) : c0;
           if (coat && x === 2 && z > 0 && y > yb) c = shade(c0, 0.72);
-          if (!coat && y === yb + 1 && (x + z) % 2 === 0) c = shade(c0, 1.2);
+          if (!coat && y === yb + 1) c = shade(c0, 1.25); // a lighter trim band
           v.set(x, y, z, c);
         }
     }
@@ -563,7 +576,7 @@ function buildLeg(L, side) {
   fillSE(v, cx, 5.2, 0, lrx, 4.2, lrz, 3, (x, y, z) => {
     if (L.shorts && y <= 4) return fur;
     if (y === 2) return shade(pants, 0.85);
-    if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 3 === 0) return d.pinstripe;
+    if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 4 === 0) return d.pinstripe;
     if (L.outfit === 'tracksuit' && side * (x - cx) >= lrx - 0.9 && (z === 0 || z === -1)) return d.stripe;
     return pants;
   }, (x, y) => y >= 2);
@@ -626,7 +639,7 @@ function buildArm(L, side) {
       c = zs && ys ? d.suitDark : zs || ys ? shade(d.suit, 0.62) : d.suit;
     }
     if (d.hawaiian) c = outfitColor(L, x, y, z);
-    if (d.pinstripe && (L.outfit === 'threepiece' ? (x + z + 60) % 3 === 0 : (z + 30) % 3 === 0)) c = d.pinstripe;
+    if (d.pinstripe && (L.outfit === 'threepiece' ? (x + z + 60) % 4 === 0 : (z + 30) % 3 === 0)) c = d.pinstripe;
     if (L.shortSleeve && y === sleeveEnd) c = shade(c, 0.88);
     return c;
   });
@@ -863,7 +876,7 @@ function buildHat(L) {
       break;
     case 'bun': {
       // curly grey hair-do with a bun on top
-      fillSE(v, 0, 28.2, 0.0, 8.0, 4.0, 6.9, 2.3, (x, y, z) => (hash3(x, y, z, 3) < 0.35 ? shade(hc, 0.86) : hc), (x, y, z) => y >= 28 && !(z >= 5 && y <= 29 && Math.abs(x) <= 5));
+      fillSE(v, 0, 28.2, 0.0, 8.0, 4.0, 6.9, 2.3, (x, y, z) => ((x + z + 40) % 4 === 0 && y >= 30 ? shade(hc, 0.86) : hc), (x, y, z) => y >= 28 && !(z >= 5 && y <= 29 && Math.abs(x) <= 5));
       for (let i = 0; i < 14; i++) {
         const a = i / 14 * Math.PI * 2;
         v.set(Math.round(Math.cos(a) * 7.6), 28 + (i % 2), Math.round(Math.sin(a) * 6.4), shade(hc, i % 2 ? 1.05 : 0.9));
@@ -2258,7 +2271,8 @@ function roarBody(F, c, k, t) {
   F.mulS(B.belly, 1 + 0.04 * k, 1, 1 + 0.07 * k);
   F.ar(B.head, 0.12 * k + Math.sin(t * 23) * 0.05 * k, Math.sin(t * 6.5) * 0.14 * k, Math.sin(t * 17) * 0.05 * k);
   F.ap(B.head, 0, 0.2 * k, 1.1 * k);
-  F.mulS(B.jaw, 1 + 0.18 * k, 1 + 0.25 * k, 1 + 0.22 * k);
+  const big = c.rig.isBoss ? 1.6 : 1;
+  F.mulS(B.jaw, 1 + 0.18 * k * big, 1 + 0.25 * k * big, 1 + 0.22 * k * big);
   F.mulS(B.head, 1 + 0.03 * k, 1 + 0.05 * k, 1);
   const sh = Math.sin(t * 13) * 0.8 * k;
   F.aim(B.armL, -15, 21.5 + sh, 6.5, 0.5);
@@ -2292,15 +2306,15 @@ Object.assign(POSES, {
     const up = smooth(0, 0.42, t), down = smooth(0.42, 0.52, t), rec = smooth(0.8, 1.15, t);
     const hi = up * (1 - down), lo = down * (1 - rec);
     // both paws overhead, then down into the dirt in front
-    const ux = 3.2, uy = 32.5, uz = -2.5, dx = 4.6, dy = 0.5, dz = 13 + c.bz;
+    const ux = 3.2, uy = 32.5, uz = -2.5, dx = 4.8, dy = 0.5, dz = 12.5 + c.bz;
     F.aim(B.armL, -lerp(ux, dx, down), lerp(uy, dy, down), lerp(uz, dz, down), 0.9);
     F.aim(B.armR, lerp(ux, dx, down), lerp(uy, dy, down), lerp(uz, dz, down), 0.9);
     blendRest(F, c, up * (1 - rec));
     const shake = t > 0.52 && t < 0.82 ? Math.sin(t * 95) * 0.035 * (1 - (t - 0.52) / 0.3) : 0;
-    F.ar(B.spine, -0.4 * hi + 0.95 * lo + shake, 0, shake);
-    F.ar(B.hips, -0.06 * hi + 0.32 * lo, 0, 0);
-    F.ar(B.head, -0.32 * hi - 0.45 * lo, 0, 0);
-    F.ap(B.base, 0, 1.6 * hi - 2.0 * lo, 1.4 * lo);
+    F.ar(B.spine, -0.36 * hi + 0.62 * lo + shake, 0, shake);
+    F.ar(B.hips, -0.06 * hi + 0.16 * lo, 0, 0);
+    F.ar(B.head, -0.3 * hi - 0.42 * lo, 0, 0);
+    F.ap(B.base, 0, 1.6 * hi - 1.8 * lo, 1.0 * lo);
     F.sq(B.base, 1 + 0.1 * hi - 0.12 * lo);
     F.r(B.legL, 0.55 * lo, 0, -0.3 * lo); F.r(B.legR, 0.55 * lo, 0, 0.3 * lo);
     F.ap(B.legL, 0, 0.4 * hi, 0); F.ap(B.legR, 0, 0.4 * hi, 0);
@@ -2393,14 +2407,16 @@ Object.assign(POSES, {
     const pump = Math.max(0, Math.sin((t - 0.72) * Math.PI * 2 * 2.2)) * w1;
     // D: "most muscular" crunch
     const w2 = smooth(1.3, 1.45, t) * (1 - smooth(1.68, 1.82, t));
-    const ax = lerp(13.5, 4.6, w2 / Math.max(1e-3, w1 + w2)), ay = lerp(24 + pump, 9.5, w2 / Math.max(1e-3, w1 + w2)), az = lerp(1, 9.5 + c.bz, w2 / Math.max(1e-3, w1 + w2));
+    const mw = w2 / Math.max(1e-3, w1 + w2);
+    const ax = lerp(15.5, 4.6, mw), ay = lerp(19.5 + pump * 1.5, 9.5, mw), az = lerp(2.5, 9.5 + c.bz, mw);
     F.aim(B.armL, -ax, ay, az, 0.5);
     F.aim(B.armR, ax, ay, az, 0.5);
     const wa = Math.max(w1, w2);
     // E/F: stomp + roar
     const k = smooth(1.92, 2.04, t) * (1 - smooth(2.38, 2.6, t));
     blendRest(F, c, wa);
-    for (const b of [B.armL, B.armR]) F.mulS(b, 1 + 0.2 * pump + 0.08 * w2, 1 - 0.04 * pump, 1 + 0.2 * pump + 0.08 * w2);
+    for (const b of [B.armL, B.armR]) F.mulS(b, 1 + 0.32 * pump + 0.12 * w2, 1 - 0.08 * pump, 1 + 0.32 * pump + 0.12 * w2);
+    if (w1 > 0) { F.ar(B.armL, 0, 0, 0.35 * w1 * (1 - mw)); F.ar(B.armR, 0, 0, -0.35 * w1 * (1 - mw)); } // fists curl up
     F.mulS(B.spine, 1 + 0.05 * w1 + 0.1 * w2, 1, 1 + 0.07 * w1);
     F.ar(B.spine, -0.12 * w1 + 0.28 * w2, 0, 0);
     F.ar(B.head, -0.12 * w1 + 0.15 * w2, (t < 1.0 ? -0.35 : 0.35) * w1, 0);

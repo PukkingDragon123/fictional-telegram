@@ -14,6 +14,8 @@
   .grid { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
   .cell { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 6px 6px 4px; background: var(--panel); border: 1px solid var(--line); min-width: 64px; }
   .cell canvas { image-rendering: pixelated; display: block; }
+  .cell.water { background: #2e6280; }
+  .cell.night { background: #1e2244; }
   .cell .lbl { font-size: 11px; margin-top: 4px; text-align: center; }
   .cell .sz { font-size: 10px; color: var(--dim); }
   .scene { display: block; image-rendering: pixelated; border: 2px solid var(--line); max-width: 100%; }

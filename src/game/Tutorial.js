@@ -60,7 +60,7 @@ export class Tutorial {
     L.enterTutorial();
     await wait(2.4);
     await L.tutorialStand();
-    await this.lab('Oh! You\'re here!', 'surprised', 'excited');
+    await this.lab('Oh! You\'re here!', 'shocked', 'excited');
     await this.lab('I\'m Reynard. Fish tycoon.', 'smug');
     L.fox?.play('laugh_evil', { loop: false, onDone: () => L.fox?.play('idle', { loop: true }) });
     await this.lab('Bears in suits eat here at 5. We sell them FISH!', 'scheming', 'happy');
@@ -146,11 +146,10 @@ export class Tutorial {
   irisOpen(x, y, z) {
     const game = this.game;
     return new Promise((res) => {
-      let t = 0;
+      const t0 = performance.now();
       const R = Math.hypot(window.innerWidth, window.innerHeight);
       const step = () => {
-        t += 1 / 60;
-        const k = Math.min(1, t / 1.1);
+        const k = Math.min(1, (performance.now() - t0) / 1100);
         const p = game.rig.worldToScreen({ x, y, z }, game.renderer);
         game.renderer.setIris(p.x, p.y, R * k * k + 1);
         if (k < 1) requestAnimationFrame(step);

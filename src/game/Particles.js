@@ -118,7 +118,7 @@ class FxPool {
 
   spawn(name, x, y, z, o = {}) {
     const fr = this.atlas.frames[name];
-    if (!fr) return null;
+    if (!fr || !fr.length || !fr[0]) return null;
     if (this.list.length >= this.max) this.list.shift();
     const p = {
       fr, x, y, z, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, grav: o.grav || 0, drag: o.drag || 0,

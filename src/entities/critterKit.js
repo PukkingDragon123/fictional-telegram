@@ -374,10 +374,7 @@ export class CritterRig {
     if (this._userExpr && this._userHoldT > 0) { this._userHoldT -= dt; if (this._userHoldT <= 0) this._userExpr = null; }
     // 1) pose
     const p = this._p, f = this._f;
-    for (const j of this._joints) { const q = p[j.name]; q.rx = q.ry = q.rz = q.x = q.y = q.z = 0; q.s = 1; }
-    for (const n of this._scalarNames) p.k[n] = this._scalars[n];
-    for (const k in p.vis) p.vis[k] = false;
-    p.hand = null;
+    this._resetPose(p);
     f.expr = f.eyes = f.mouth = f.brows = f.blush = f.tear = f.look = null; f.blink = true;
     def.fn(t, p, f, cur.state, this, dt);
     // 2) flatten + crossfade
@@ -417,6 +414,31 @@ export class CritterRig {
   }
 
   _post() {}
+
+  _resetPose(p) {
+    for (const j of this._joints) { const q = p[j.name]; q.rx = q.ry = q.rz = q.x = q.y = q.z = 0; q.s = 1; }
+    for (const n of this._scalarNames) p.k[n] = this._scalars[n];
+    for (const k in p.vis) p.vis[k] = false;
+    p.hand = p.handL = p.handR = null;
+  }
+  /** Blend two pose builders inside an animation: fa(p) at w = 0, fb(p) at w = 1. Hands / props come from the dominant side. */
+  mixPose(p, w, fa, fb) {
+    const A = this._mixA || (this._mixA = new Float32Array(this._n));
+    this._resetPose(p); fa(p);
+    let i = 0;
+    for (const j of this._joints) { const q = p[j.name]; A[i++] = q.rx; A[i++] = q.ry; A[i++] = q.rz; A[i++] = q.x; A[i++] = q.y; A[i++] = q.z; A[i++] = q.s; }
+    for (const n of this._scalarNames) A[i++] = p.k[n];
+    const hL = p.handL, hR = p.handR, vis = { ...p.vis };
+    this._resetPose(p); fb(p);
+    i = 0;
+    for (const j of this._joints) {
+      const q = p[j.name];
+      q.rx = A[i] + (q.rx - A[i]) * w; i++; q.ry = A[i] + (q.ry - A[i]) * w; i++; q.rz = A[i] + (q.rz - A[i]) * w; i++;
+      q.x = A[i] + (q.x - A[i]) * w; i++; q.y = A[i] + (q.y - A[i]) * w; i++; q.z = A[i] + (q.z - A[i]) * w; i++; q.s = A[i] + (q.s - A[i]) * w; i++;
+    }
+    for (const n of this._scalarNames) { p.k[n] = A[i] + (p.k[n] - A[i]) * w; i++; }
+    if (w < 0.5) { p.handL = hL; p.handR = hR; for (const k in p.vis) p.vis[k] = false; Object.assign(p.vis, vis); }
+  }
 
   _secondary(dt) {
     if (!this._jiggles.length) return;

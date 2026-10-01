@@ -376,6 +376,7 @@ export class BearSystem {
     const rushOver = game.state.hour >= 19.6;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const b = this.list[i];
+      if (b.introT > 0) continue; // bosses pose before stomping in
       if (b.state === 'queued') {
         b.t -= dt;
         if (b.t <= 0) {
@@ -824,9 +825,34 @@ export class BearSystem {
     if (b.rig) return;
     b.rig = new BearRig(b.typeId, b.def);
     b.rig.personalize(b.id * 7.31);
+    b.rig.onEvent = (name) => this.onRigEvent(b, name);
     this.group.add(b.rig.root);
     b.visible = true;
     this.game.ui?.attachBearBubble(b);
+    if (b.def.boss) this.bossIntro(b);
+  }
+
+  // a boss arrives: roar, screen shake, everyone looks
+  bossIntro(b) {
+    const game = this.game;
+    b.introT = 2.6;
+    const seen = (game.state.bossesSeen ||= []);
+    if (!seen.includes(b.typeId)) seen.push(b.typeId);
+    game.audio.play('roar', { volume: 0.8, pitch: 0.75 });
+    game.rig.shake = Math.max(game.rig.shake, 1);
+    game.cine?.focusQueue?.unshift({ kind: 'rampage', bear: b });
+    game.notify?.(`BOSS! ${b.def.name}!`, 'warn', { dur: 3 });
+    setTimeout(() => this.say(b, pick(['ROOOAR!', 'WHO RUNS THIS DUMP?', 'I\'M HERE FOR THE BUFFET.', 'FEED ME. NOW.']), 'emo_anger', null, 2.6), 900);
+  }
+
+  onRigEvent(b, name) {
+    const game = this.game;
+    if (name === 'slam' || (name === 'stomp' && b.def.boss)) {
+      game.rig.shake = Math.max(game.rig.shake, b.def.boss ? 0.6 : 0.25);
+      game.particles.dust(b.x, b.y + 0.05, b.z, b.def.boss ? 10 : 4);
+      if (b.def.boss) game.world.sim.disturb(b.x, b.z, 1.2, 0.5);
+      if (name === 'slam') game.audio.play('smash', { volume: 0.5, pitch: 0.7 });
+    } else if (name === 'roar') game.audio.play('roar', { volume: 0.6, pitch: 0.8 });
   }
 
   hide(b) {
@@ -854,7 +880,8 @@ export class BearSystem {
       r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);
       let pose = 'idle';
       const o = { speed: b.moving ? b._spd : 0, inWater: !!b.inWater };
-      if (b.jump) {
+      if (b.introT > 0) { b.introT -= rdt; pose = 'boss_intro'; }
+      else if (b.jump) {
         if (b.jump.into) { pose = 'cannonball'; o.t01 = clamp(b.jump.t, 0, 1); }
         else pose = 'run';
       } else if (b.lunge > 0) pose = 'lunge';
@@ -863,8 +890,8 @@ export class BearSystem {
       else if (b.state === 'toss') pose = 'toss';
       else if (b.state === 'pay') pose = 'pay';
       else if (b.state === 'smash') pose = 'smash';
-      else if (b.angry && !b.moving) pose = 'angry_stomp';
-      else if (b.moving) pose = b.inWater ? 'swim' : b.angry || b._spd > 2.2 ? 'run' : 'walk';
+      else if (b.angry && !b.moving) pose = b.def.boss ? 'slam' : 'angry_stomp';
+      else if (b.moving) pose = b.inWater ? 'swim' : b.angry ? (b.def.boss ? 'charge' : 'run') : b._spd > 2.2 ? 'run' : 'walk';
       else if (b.state === 'search') pose = 'search';
       else if (b.inWater) pose = 'swim';
       r.pose(pose, rdt, o);
