@@ -113,7 +113,7 @@ export class Tutorial {
     const game = this.game;
     if (Classroom) {
       try {
-        if (!this.classroom) this.classroom = new Classroom(game);
+        if (!this.classroom) this.classroom = game.classroom ||= new Classroom(game);
         game.ui?.foodPicker?.hide?.();
         const t = this.teacher;
         if (t?.visible) { try { t.clearChalk(); await t.hide(); } catch { /* ignore */ } }

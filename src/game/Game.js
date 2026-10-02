@@ -1285,6 +1285,7 @@ export class Game {
     this.cine?.update(realDt);
     this.tutorial?.update(realDt);
     this.lab?.update(realDt);
+    this.classroom?.update(realDt);
     this.particles.update(simDt || dt * 0.5);
     this.world.sim.update(simDt || dt * 0.5, this.wind);
     this.audio.setAmbience({ hour: st.hour, night: this.sky.state.night });
@@ -1345,7 +1346,7 @@ export class Game {
     return {
       v: 3, state: st, stats: this.stats, water, land, removedDecos, removedClutter: this.world.clutter.filter((c) => c.type === 'none').map((c) => [Math.floor(c.x), Math.floor(c.z)]), structures: this.structures.serialize(),
       beavers: this.beavers.serialize(), delivery: this.delivery.serialize(),
-      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), land: this.landAnimals.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
+      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), landAnimals: this.landAnimals.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
     };
   }
 
@@ -1394,7 +1395,7 @@ export class Game {
     this.delivery.load(data.delivery);
     this.bugs.load(data.bugs);
     this.livestock?.load(data.livestock);
-    this.landAnimals.load(data.land);
+    this.landAnimals.load(data.landAnimals);
     this.zones.onLoad();
     this.villagers.onLoad();
     this.applyLandmarkMods();
