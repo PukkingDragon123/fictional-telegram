@@ -138,12 +138,18 @@ export class Tutorial {
   async unboxStep(pred) {
     const game = this.game;
     const landed = () => game.delivery.waiting().some((p) => pred(p.order));
+    // listen for the unboxing right away: a quick tap must not slip past us
+    const delivered = this.until('delivered', pred);
     if (!landed()) await this.until('parcelLanded', (p) => pred(p.order));
+    let done = false;
+    delivered.then(() => { done = true; });
     await wait(0.5);
+    if (done) return;
     const stop = this.pointAt('sel:.parceltag');
     this.teach('A parcel! <b>Tap the box</b> to unbox it!', { target: 'sel:.parceltag', dur: 4, mood: 'excited' });
     this.nag(() => 'Tap the box!');
-    await this.until('delivered', pred);
+    this.stage = 'until:delivered';
+    await delivered;
     this.stopNag();
     stop?.();
   }
