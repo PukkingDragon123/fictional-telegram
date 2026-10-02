@@ -12,8 +12,8 @@ import { VoxelModel } from '../core/voxel.js';
 const VS = 0.05; // rig voxels
 const FV = 0.025; // fine voxels
 
-export const FOX_OUTFITS = ['default', 'teacher', 'chef'];
-export const FOX_PROPS = ['pointer', 'chalk', 'ladle'];
+export const FOX_OUTFITS = ['default', 'teacher', 'chef', 'pajamas'];
+export const FOX_PROPS = ['pointer', 'chalk', 'ladle', 'toothbrush'];
 
 // ------------------------------------------------------------------ palette
 const P = {
@@ -41,6 +41,10 @@ const P = {
   steel: 0xc8ced8, steelD: 0x949caa, steelDD: 0x6c7484, steelL: 0xf0f4fa,
   soup: 0xf2cf7a, soupD: 0xd8a84a, carrot: 0xf07a2a, herb: 0x5aa83c,
   plinth: 0x5a3a24, plinthD: 0x40281a, plinthL: 0x7a5232,
+  // pajamas: soft blue flannel with cream stripes, navy piping, a cosy red nightcap
+  pj: 0x86b4e4, pjD: 0x6a98cc, pjL: 0x9ec6f0, pjS: 0xf6eedc, pjSD: 0xe2d6bc, pjP: 0x34508e, pjB: 0xfdf8ec,
+  cap: 0xd8463e, capD: 0xb03432, capL: 0xec6a58, capS: 0xf6eedc, pom: 0xfdfaf0, pomD: 0xe6dccc,
+  brush: 0x4aa8e8, brushD: 0x2f7ab8, brushL: 0x8ad0ff, bristle: 0xf8fcff, bristleT: 0x9ad8ff, foam: 0xffffff, foamD: 0xe4eef8,
 };
 
 // ------------------------------------------------------------------ voxel helpers
@@ -366,6 +370,103 @@ function goldCupModel() {
   return v;
 }
 
+// ------------------------------------------------------------------ pajamas
+// Striped flannel: vertical cream stripes on soft blue, with a little flannel noise.
+const flannel = (x, y, z, ax = x) => {
+  if (((ax % 3) + 3) % 3 === 0) return hash3(x, y, z) < 0.15 ? P.pjSD : P.pjS;
+  return tone(x, y, z, P.pj, P.pjD, P.pjL, 0.12, 0.1);
+};
+function pajamaTopModel() {
+  const v = new VoxelModel();
+  const col = (x, y, z) => {
+    const fx = x + 0.5;
+    if (z >= 1 && y >= 3 && Math.abs(fx) <= (y - 2.6) * 0.7) return creamT(x, y, z); // little V at the collar
+    if (z >= 1 && y >= 3 && Math.abs(fx) <= (y - 2.6) * 0.7 + 1) return P.pjP; // piping
+    if (y === -2) return P.pjP; // hem piping
+    if (z >= 2 && x === 0 && y < 3) return P.pjP; // button placket
+    return flannel(x, y, z, z <= -3 ? x : x);
+  };
+  torsoShell(v, col);
+  for (const y of [2, 0]) v.set(0, y, 5, P.pjB);
+  // breast pocket with a stitched fish
+  for (const x of [-4, -3, -2]) v.set(x, 2, 4, P.pjP);
+  v.set(-3, 3, 4, P.pjS);
+  // rounded collar flaps
+  v.set(-3, 5, 4, P.pjP); v.set(-2, 5, 4, P.pjL); v.set(1, 5, 4, P.pjL); v.set(2, 5, 4, P.pjP);
+  return v;
+}
+function pjUpper() {
+  const v = new VoxelModel();
+  rbox(v, -1, 1, -4, 1, -1, 1, 0.9, (x, y, z) => flannel(x, y, z, x + z));
+  return v;
+}
+function pjFore() {
+  const v = new VoxelModel();
+  rbox(v, -1, 1, -3, 0, -1, 1, 0.8, (x, y, z) => (y === -3 ? P.pjP : flannel(x, y, z, x + z)));
+  return v;
+}
+// pajama trousers over the fox's legs (same silhouettes as foxRig thigh / shin, feet stay furry socks)
+function pjThigh() {
+  const v = new VoxelModel();
+  rbox(v, -2, 1, -3, 1, -2, 1, 1.2, (x, y, z) => flannel(x, y, z, x + z));
+  return v;
+}
+function pjShin() {
+  const v = new VoxelModel();
+  const S = (x, y, z) => tone(x, y, z, P.sock, P.sockD, P.sockL);
+  rbox(v, -2, 1, -2, 0, -2, 1, 1.0, (x, y, z) => (y === -2 ? P.pjP : flannel(x, y, z, x + z)));
+  rbox(v, -2, 1, -3, -2, -2, 3, 0.8, (x, y, z) => (y === -2 && z <= 1 ? P.pjP : S(x, y, z)));
+  for (const x of [-1, 0]) v.set(x, -2, 3, P.sockD);
+  v.set(-2, -3, 3, P.sockL); v.set(1, -3, 3, P.sockL); v.set(-1, -3, 4, P.sock); v.set(0, -3, 4, P.sock);
+  return v;
+}
+// Nightcap: fluffy cuff + the lower cone; the floppy tip with its pompom swings (capTipModel).
+function nightcapModel() {
+  const v = new VoxelModel();
+  for (let y = 0; y <= 1; y++)
+    for (let x = -5; x <= 4; x++)
+      for (let z = -5; z <= 4; z++) {
+        const d = Math.hypot(x + 0.5, z + 0.5);
+        if (d > 4.6) continue;
+        v.set(x, y, z, hash3(x, y, z) < 0.3 ? P.pomD : P.capS);
+      }
+  for (let y = 2; y <= 6; y++) {
+    const r = 4.1 - (y - 2) * 0.62;
+    for (let x = -5; x <= 4; x++)
+      for (let z = -5; z <= 4; z++) {
+        const dx = x + 0.5, dz = z + 0.5 + (y - 2) * 0.25;
+        if (Math.hypot(dx, dz) > r) continue;
+        v.set(x, y, z, dx < -1.2 ? P.capL : dx > 1.6 ? P.capD : tone(x, y, z, P.cap, P.capD, P.capL, 0.12, 0.1));
+      }
+  }
+  return v;
+}
+function capTipModel() {
+  const v = new VoxelModel();
+  for (let y = 0; y >= -6; y--) {
+    const r = 1.5 - (-y) * 0.15;
+    for (let x = -2; x <= 1; x++)
+      for (let z = -2; z <= 1; z++) {
+        if (Math.hypot(x + 0.5, z + 0.5) > r + 0.2) continue;
+        v.set(x, y, z, x < 0 ? P.capL : tone(x, y, z, P.cap, P.capD, P.cap, 0.15, 0));
+      }
+  }
+  rbox(v, -2, 1, -10, -7, -2, 1, 1.3, (x, y, z) => (hash3(x, y, z) < 0.3 || x > 0 ? P.pomD : P.pom));
+  return v;
+}
+// Toothbrush: blue handle, white bristles facing +z with a blob of foamy paste.
+function toothbrushModel() {
+  const v = new VoxelModel();
+  const sq = (y, c) => { for (const x of [-1, 0]) for (const z of [-1, 0]) v.set(x, y, z, typeof c === 'function' ? c(x, y, z) : c); };
+  for (let y = 3; y >= -9; y--) sq(y, (x, yy, z) => (x < 0 && z === 0 ? P.brushL : yy % 4 === 0 ? P.bristle : P.brush));
+  sq(-10, P.brushD);
+  for (let y = -11; y >= -15; y--) sq(y, (x) => (x < 0 ? P.brushL : P.brush));
+  for (let y = -11; y >= -15; y--) for (const x of [-1, 0]) { v.set(x, y, 1, P.bristle); v.set(x, y, 2, (x + y) & 1 ? P.bristleT : P.bristle); }
+  // foam blob
+  for (const [x, y, z] of [[-1, -12, 3], [0, -12, 3], [-1, -13, 3], [0, -13, 3], [-1, -14, 3], [0, -14, 3], [-1, -13, 4], [0, -12, 4], [-2, -13, 3], [1, -14, 3], [0, -15, 3]]) v.set(x, y, z, (x + y + z) & 1 ? P.foam : P.foamD);
+  return v;
+}
+
 // ------------------------------------------------------------------ cached geometry
 const GEO = new Map();
 function geo(key, build, pivot, scale) {
@@ -414,6 +515,22 @@ export function outfitParts(name) {
       tassel: null,
     };
   }
+  if (name === 'pajamas') {
+    return {
+      hat: geo('j_hat', nightcapModel, [0, 0, 0], VS),
+      hatTop: 7.5,
+      hatTilt: [-0.12, 0, 0.14],
+      earSpread: 0.55, // ears tuck out under the cuff
+      torso: geo('j_torso', pajamaTopModel, [0, 0, 0], VS),
+      upperL: geo('j_up', pjUpper, [0.5, 0, 0.5], VS), upperR: geo('j_up', pjUpper, [0.5, 0, 0.5], VS),
+      foreL: geo('j_fo', pjFore, [0.5, 0, 0.5], VS), foreR: geo('j_fo', pjFore, [0.5, 0, 0.5], VS),
+      thigh: geo('j_th', pjThigh, [0, 0, 0], VS), shin: geo('j_sh', pjShin, [0, 0, 0], VS),
+      noMonocle: true,
+      tassel: null,
+      // floppy tip of the cap: hangs from the cone's top on its own pendulum, flopped over to his left
+      dangle: { geo: geo('j_tip', capTipModel, [0, 0, 0], VS), pivot: [0, 6.6 * VS, -1.0 * VS], tilt: 0.8 },
+    };
+  }
   return null;
 }
 
@@ -422,6 +539,7 @@ const PROP_DEF = {
   pointer: { build: pointerModel, pivot: [0, 0, 0], tip: [0, -25.4, 0], len: 25.4 },
   chalk: { build: chalkModel, pivot: [0, 0, 0], tip: [0, -6.2, 0], len: 6.2 },
   ladle: { build: ladleModel, pivot: [0, 0, 0], tip: [0, -14.5, 5], len: 15 },
+  toothbrush: { build: toothbrushModel, pivot: [0, 0, 0], tip: [0, -13, 2], len: 13 },
 };
 
 /** Geometry + metadata of a hand prop: { geo, tip (Vector3, prop space), axis (unit Vector3), len (world units) }. */

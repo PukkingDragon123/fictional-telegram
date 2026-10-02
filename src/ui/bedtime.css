@@ -1,0 +1,26 @@
+/* Bedtime cutscene (src/game/Bedtime.js): HUD hidden, skip button, iris + black overlay. */
+body.bedtime-mode .hud, body.bedtime-mode .hud-left, body.bedtime-mode .hud-right, body.bedtime-mode .toolbar,
+body.bedtime-mode .eggtray, body.bedtime-mode .toolhint, body.bedtime-mode .fox, body.bedtime-mode .panel,
+body.bedtime-mode .campad, body.bedtime-mode .fox-notifier, body.bedtime-mode .bigclock-host, body.bedtime-mode .trackchip,
+body.bedtime-mode .eggtag, body.bedtime-mode .daycard, body.bedtime-mode .labui, body.bedtime-mode .cclock-vignette,
+body.bedtime-mode .tch-layer, body.bedtime-mode .tch-bubbles, body.bedtime-mode .bubbles, body.bedtime-mode .toast, body.bedtime-mode .tm {
+  opacity: 0 !important; pointer-events: none !important;
+}
+
+.bt-skip {
+  position: fixed; right: 14px; top: 14px; z-index: 96;
+  font: 16px/1 var(--font-body, monospace); color: #f4e8d0; letter-spacing: 1px;
+  background: #241a36; border: 2px solid #6a5a9a; box-shadow: 0 3px 0 #120c1e, inset 0 0 0 2px #342a50;
+  padding: 7px 12px 6px; cursor: pointer; image-rendering: pixelated; opacity: 0.82;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.bt-skip:hover { opacity: 1; transform: translateY(-1px); }
+.bt-skip:active { transform: translateY(2px); box-shadow: 0 1px 0 #120c1e, inset 0 0 0 2px #342a50; }
+.bt-skip.gone { opacity: 0; pointer-events: none; }
+.bt-iris {
+  position: fixed; inset: 0; width: 100%; height: 100%; z-index: 94; pointer-events: none;
+  image-rendering: pixelated;
+}
+.bt-black {
+  position: fixed; inset: 0; z-index: 95; background: #000; pointer-events: none; opacity: 0;
+}

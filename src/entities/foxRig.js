@@ -37,6 +37,13 @@ export const FOX_SEAT_SURFACE = 0.5;
 export const FOX_SEAT_HEIGHT = FOX_SEAT_SURFACE + 0.13;
 /** Desk / keyboard surface height (world units) that sit_type and sit_doze are posed for (the lab desk top is at 0.8). */
 export const FOX_DESK_HEIGHT = 0.8;
+/**
+ * Bed geometry the climb_bed / sleep_bed poses assume (world units). Put the root on the floor at the
+ * foot of the bed, root +Z pointing away from the pillow (toward the camera): he hops `step` toward -Z
+ * onto a mattress whose top is `height` above the floor and flops onto his back, head toward -Z.
+ * `head` = how far from the root (along -Z) his head rests: put the pillow there.
+ */
+export const FOX_BED = Object.freeze({ height: 0.34, step: 0.42, head: 1.32 });
 /** Root-space centre (world units) of the board chalk_draw writes on when no setAim() target is given; the strokes span about ±0.2 x ±0.13 on a vertical board through it, facing the fox. */
 export const FOX_CHALK_POINT = Object.freeze({ x: -0.1, y: 0.78, z: 0.44 });
 /** Root-space point (world units) the ladle bowl circles in chef_idle: put a pot's soup surface here. */
@@ -772,10 +779,10 @@ export class FoxRig {
     // legs
     const leg = (side) => {
       const th = grp(this.hips, side * 2, 0, 0);
-      mesh(G.thigh, M, th);
+      const thigh = mesh(G.thigh, M, th);
       const kn = grp(th, 0, -3, 0);
-      mesh(G.shin, M, kn);
-      return { th, kn };
+      const shin = mesh(G.shin, M, kn);
+      return { th, kn, thigh, shin };
     };
     this.legL = leg(1);
     this.legR = leg(-1);
@@ -801,7 +808,7 @@ export class FoxRig {
     this._propMat = foxMaterial(0, 0, 0, 0, 0x100800);
     this.outfit = 'default';
     this._hatTop = HAT_TOP; this._earSpread = 0;
-    this._defaultGeo = { hat: G.hat, torso: this.torso.geometry, upper: G.upperArm, fore: G.forearm };
+    this._defaultGeo = { hat: G.hat, torso: this.torso.geometry, upper: G.upperArm, fore: G.forearm, thigh: G.thigh, shin: G.shin };
     this.tassel = null;
     this._prop = null; // { name, obj, tip, axis, len }
     this._propCache = {};
@@ -824,6 +831,10 @@ export class FoxRig {
     this.pop = spr(POP_ROWS, 0.24); this.head.add(this.pop);
     this.zzz = [0, 1, 2].map(() => { const s = spr(ZZZ_ROWS, 0.11); this.root.add(s); return s; });
     this._sprites = [this.bubble, this.pop, ...this.zzz];
+    // little effect sprites (poof clouds, toothpaste foam), pooled, root space
+    this._fxTex = { cloud: makeSpriteTexture(CLOUD_ROWS), foam: makeSpriteTexture(FOAM_ROWS), star: makeSpriteTexture(TWINKLE_ROWS) };
+    this._fx = [];
+    this._pendingOutfit = null;
 
     // animation state
     this.anims = Object.keys(ANIMS);
@@ -966,25 +977,43 @@ export class FoxRig {
     this.hatMesh.rotation.set(tilt[0], tilt[1], tilt[2]);
     this._hatTop = parts ? parts.hatTop : HAT_TOP;
     this._earSpread = parts ? parts.earSpread : 0;
-    // tassel (teacher): a cord on the board + a hanging bit on its own pendulum
-    if (parts && parts.tassel && !this.tassel) {
-      const T = parts.tassel;
-      const cord = new THREE.Mesh(T.cord, this._propMat);
-      cord.position.set(...T.cordPos);
-      cord.castShadow = this.shadows;
-      const pivot = new THREE.Group();
-      pivot.position.set(...T.pivot);
-      const hang = new THREE.Mesh(T.hang, this._propMat);
-      hang.castShadow = this.shadows;
-      pivot.add(hang);
-      this.tassel = { cord, pivot, hang };
-      this._meshes.push(cord, hang);
+    // pajama trousers
+    for (const L of [this.legL, this.legR]) {
+      L.thigh.geometry = parts && parts.thigh ? parts.thigh : this._defaultGeo.thigh;
+      L.shin.geometry = parts && parts.shin ? parts.shin : this._defaultGeo.shin;
     }
-    if (this.tassel) {
-      const on = !!(parts && parts.tassel);
-      if (on) { this.hatMesh.add(this.tassel.cord); this.hatMesh.add(this.tassel.pivot); }
-      else { this.tassel.cord.removeFromParent(); this.tassel.pivot.removeFromParent(); }
+    // the monocle comes off for bed
+    const mono = !(parts && parts.noMonocle);
+    this.monocle.visible = mono; this.chainGroup.visible = mono;
+    this._monoOff = !mono;
+    // dangly bits on the hat (teacher tassel: cord + hanging tassel; nightcap: floppy tip with pompom),
+    // each on its own pendulum that hangs with gravity and lags the head
+    if (this.tassel) { this.tassel.cord?.removeFromParent(); this.tassel.pivot.removeFromParent(); this.tassel = null; }
+    const T = parts && (parts.tassel || parts.dangle);
+    if (T) {
+      const D = (this._dangles ||= {});
+      let d = D[id];
+      if (!d) {
+        let cord = null;
+        if (T.cord) {
+          cord = new THREE.Mesh(T.cord, this._propMat);
+          cord.position.set(...T.cordPos);
+          cord.castShadow = this.shadows;
+          this._meshes.push(cord);
+        }
+        const pivot = new THREE.Group();
+        pivot.position.set(...T.pivot);
+        const hang = new THREE.Mesh(T.hang || T.geo, T.geo ? this._M : this._propMat);
+        hang.castShadow = this.shadows;
+        pivot.add(hang);
+        this._meshes.push(hang);
+        d = D[id] = { cord, pivot, hang, tilt: T.tilt || 0 };
+      }
+      if (d.cord) this.hatMesh.add(d.cord);
+      this.hatMesh.add(d.pivot);
+      this.tassel = d;
       this._probeTassel.init = false;
+      this._sec.tassel.x.x = this._sec.tassel.z.x = 0;
     }
     return this;
   }
@@ -1016,6 +1045,54 @@ export class FoxRig {
     this.armR.grip.add(P.obj);
     this._prop = P;
     return P.obj;
+  }
+
+  /**
+   * Cartoon outfit change: plays 'change_clothes' (crouch, spin up into a poof cloud) and swaps to
+   * `outfit` at the 'poof' moment, hidden in the cloud. Resolves when he lands his ta-da pose.
+   */
+  changeInto(outfit, { fade = 0.15 } = {}) {
+    this._pendingOutfit = outfit;
+    return new Promise((res) => this.play('change_clothes', { fade, onDone: () => res(this) }));
+  }
+
+  /** Spawn an effect sprite: kind 'cloud' | 'foam' | 'star'; pos/vel in root space (world units). */
+  puff(kind, pos, { vel = null, life = 0.8, size = 0.12, grow = 1, delay = 0 } = {}) {
+    let f = this._fx.find((q) => !q.on);
+    if (!f) {
+      if (this._fx.length >= 48) f = this._fx[0];
+      else {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ alphaTest: 0.5, transparent: false }));
+        s.visible = false;
+        this.root.add(s);
+        f = { s, p: new THREE.Vector3(), v: new THREE.Vector3() };
+        this._fx.push(f);
+      }
+    }
+    f.s.material.map = this._fxTex[kind] || this._fxTex.cloud;
+    f.s.material.needsUpdate = true;
+    f.p.copy(pos); f.v.copy(vel || _v1.set(0, 0, 0));
+    Object.assign(f, { on: true, t: -delay, life, size, grow, kind, seed: Math.random() * 6.28 });
+    return this;
+  }
+
+  _updateFx(dt) {
+    for (const f of this._fx) {
+      if (!f.on) continue;
+      f.t += dt;
+      if (f.t < 0) { f.s.visible = false; continue; }
+      const u = f.t / f.life;
+      if (u >= 1) { f.on = false; f.s.visible = false; continue; }
+      f.p.addScaledVector(f.v, dt);
+      if (f.kind === 'foam') f.v.y += dt * 0.25;
+      else f.v.multiplyScalar(Math.exp(-dt * 2.5));
+      // pop in with an overshoot, wobble, shrink away
+      const k = u < 0.18 ? EASE.back(u / 0.18) : u > 0.75 ? 1 - EASE.in((u - 0.75) / 0.25) : 1;
+      const w = 1 + sin(f.t * 11 + f.seed) * 0.06;
+      f.s.visible = true;
+      f.s.position.copy(f.p);
+      f.s.scale.set(f.size * k * w * (1 + u * (f.grow - 1)), f.size * k / w * (1 + u * (f.grow - 1)), 1);
+    }
   }
 
   /** Name of the prop in the right paw (or null). */
@@ -1103,6 +1180,8 @@ export class FoxRig {
     this.faceMat.dispose(); this.mouthMat.dispose(); this.lensMat.dispose(); this._linkMat.dispose();
     for (const p of this._planes) p.geometry.dispose();
     for (const s of this._sprites) { s.material.map.dispose(); s.material.dispose(); }
+    for (const f of this._fx) f.s.material.dispose();
+    for (const k in this._fxTex) this._fxTex[k].dispose();
     geoRefs--;
     if (geoRefs <= 0 && GEO) {
       for (const k in GEO) GEO[k].dispose();
@@ -1166,6 +1245,7 @@ export class FoxRig {
     this._updateProps(p);
     this._updateFace(dt);
     this._updateSprites(dt);
+    this._updateFx(dt);
     // 6) finished one-shots
     if (!cur.loop && def.dur && cur.t >= def.dur && !cur.done && this._cur === cur) {
       cur.done = true;
@@ -1496,7 +1576,7 @@ export class FoxRig {
       T.pivot.parent.getWorldQuaternion(_q1).invert();
       _v1.set(0, -1, 0).applyQuaternion(_q1);
       _q2.setFromUnitVectors(_v2.set(0, -1, 0), _v1);
-      _q1.setFromEuler(_e.set(sp.x.x, 0, sp.z.x, 'XYZ'));
+      _q1.setFromEuler(_e.set(sp.x.x, 0, sp.z.x - T.tilt, 'XYZ'));
       T.pivot.quaternion.copy(_q2).multiply(_q1);
     }
     // belly / breathing
@@ -1549,7 +1629,7 @@ export class FoxRig {
     else if (!user && def.gibber && !f.mouth) st.mouth = ['A', 'M', 'E', 'M', 'O', 'M', 'A', 'E', 'M'][Math.floor(this.time * 9) % 9];
     if (this._look.has) { st.lookX = this._look.px; st.lookY = this._look.py; }
     st.browLift = f.browLift;
-    st.mono = this._mono.mode === 'on';
+    st.mono = this._mono.mode === 'on' && !this._monoOff;
     // blinking
     let blink = 0;
     this._blinkT -= dt;
@@ -1763,6 +1843,21 @@ export class FoxRig {
     }
   }
 }
+
+// effect sprites (palette of foxFace.js)
+const CLOUD_ROWS = [
+  '....kkkk..kkk...',
+  '..kkwwwwkkwwwk..',
+  '.kwwwwwwwwwwwwk.',
+  'kwwwwwwwwwwwwwwk',
+  'kwwwwwwwwwwwwwWk',
+  'kwwwwwwwwwwwwWWk',
+  '.kWwwwwwwwwwWWk.',
+  '..kkWWWWWWWWkk..',
+  '....kkkkkkkk....',
+];
+const FOAM_ROWS = ['.kkk.', 'kwhwk', 'kwwwk', 'kWwWk', '.kkk.'];
+const TWINKLE_ROWS = ['...Y...', '...Y...', '..YhY..', 'YYhhhYY', '..YhY..', '...Y...', '...Y...'];
 
 // ================================================================== animations
 // fn(t, pose, faceReq, state, rig, dt). Poses are in voxels / radians.
@@ -3479,5 +3574,203 @@ def('wave_hello', {
     p.tSide = sin(t * 17) * 0.8 * u; p.tLift += 0.5 * u; p.tPuff = 1 + 0.1 * u;
     if (u > 0.3 && t < 1.6) f.mouth = Math.floor(t * 5) % 3 === 0 ? 'grin' : 'laugh';
     once(s, 'hi', t > 0.3, () => rig._emit('wave'));
+  },
+});
+
+// ---------------------------------------------------------------- bedtime: brush, change, yawn, bed
+// mouth point in root space (world units), from last frame's head
+function mouthRoot(rig, dx = 0, dy = 0, dz = 0) {
+  rig.head.updateWorldMatrix(true, false);
+  const m = rig.root.worldToLocal(rig.head.localToWorld(_h13.set((-0.5 + dx) * VS, (1.2 + dy) * VS, (11.2 + dz) * VS)));
+  return [m.x, m.y, m.z];
+}
+const BED_H = FOX_BED.height / VS, BED_STEP = FOX_BED.step / VS;
+const LIE_LIFT = 4.3; // back resting on the mattress (voxels)
+
+def('brush_teeth', {
+  loop: true, expr: 'brushing', lookW: 0.3,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.4);
+    // scrub scrub: the brush rides along his teeth, fast side to side with little up/down hops
+    const sc = sin(t * 19), w = smooth(t / 0.3);
+    if (!rig._aim.target) {
+      p.aimAuto = w; p.aimDef = mouthRoot(rig, 0.4, -0.2, 0.6); p.aimBody = 0;
+      p.aimU = sc * 0.03; p.aimV = abs(sin(t * 4.5)) * 0.012; p.aimPush = -0.004; p.aimPole = [0.9, -0.6, -0.3];
+    }
+    // the whole fox scrubs along: shoulders, head wobble, hips, tail
+    p.aR.shY += abs(sc) * 0.25; p.hRz += sc * 0.035; p.hRy += sin(t * 2.1) * 0.06;
+    p.hipX = -sc * 0.25; p.chRz = sc * 0.03;
+    p.hSq *= 1 + abs(sin(t * 9.5)) * 0.03; // puffy cheeks
+    p.lean = 0.04; p.hRx += 0.04;
+    // free paw resting on the sink edge in front
+    p.ik(p.aL, 3.4, 1.4, 7.4, 1, -0.5, -0.5); p.pawL = 'relax'; p.aL.wx = -1.1;
+    p.tSide += sc * 0.25 + sin(t * 3) * 0.2; p.tLift += 0.2;
+    p.eL.fl = p.eR.fl = 0.1 + abs(sc) * 0.06;
+    if (Math.floor(t / 1.6) % 2) { f.eyeL = f.eyeR = 'happy'; }
+    const k = Math.floor(t / 0.32);
+    if (s.k !== k) {
+      s.k = k;
+      if (t > 0.2) {
+        rig._emit('foam');
+        const m = mouthRoot(rig, (Math.random() - 0.5) * 6, -1, 0.5);
+        rig.puff('foam', _h12.set(m[0], m[1], m[2]), { vel: _h11.set((Math.random() - 0.5) * 0.25, 0.12 + Math.random() * 0.15, 0.1 + Math.random() * 0.15), life: 0.9 + Math.random() * 0.5, size: 0.035 + Math.random() * 0.03 });
+      }
+    }
+    if (s.sk !== Math.floor(t * 19 / PI)) { s.sk = Math.floor(t * 19 / PI); if (s.sk % 2 === 0) rig._emit('scrub'); }
+  },
+});
+
+def('gargle', {
+  dur: 1.5, expr: 'brushing', lookW: 0.2,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.3);
+    const back = win(t, 0.05, 1.1, 0.18, 0.12);
+    const spit = K(t, [[1.1, 0], [1.22, 1, 'out'], [1.5, 0, 'io']]);
+    const bub = sin(t * 34) * back;
+    p.hRx += -0.5 * back + 0.35 * spit; p.chRx += -0.1 * back + 0.15 * spit; p.lean = -0.06 * back + 0.08 * spit;
+    p.hSq *= 1 + abs(bub) * 0.04; p.y += abs(bub) * 0.2;
+    p.hRz += bub * 0.02;
+    p.ik(p.aL, 3.4, 1.4, 7.4, 1, -0.5, -0.5); p.pawL = 'relax'; p.aL.wx = -1.1;
+    p.aR.sw = -0.3; p.aR.el = 1.2;
+    p.eL.fl = p.eR.fl = 0.3 * back;
+    p.tSide += bub * 0.2;
+    f.eyeL = f.eyeR = 'closed';
+    f.mouth = spit > 0.3 ? 'o' : back > 0.3 ? (Math.floor(t * 12) % 2 ? 'gargle' : 'gargle2') : 'mmm';
+    once(s, 'g', t > 0.1, () => rig._emit('gargle'));
+    once(s, 'spit', t > 1.12, () => { rig._emit('spit'); const m = mouthRoot(rig, 0, -1, 1); for (let i = 0; i < 4; i++) rig.puff('foam', _h12.set(m[0], m[1], m[2]), { vel: _h11.set((Math.random() - 0.5) * 0.3, -0.25 - Math.random() * 0.2, 0.3), life: 0.5, size: 0.03 }); });
+  },
+});
+
+def('change_clothes', {
+  dur: 1.65, expr: 'happy', lookW: 0.3,
+  fn(t, p, f, s, rig) {
+    // crouch, spring up into a spin, POOF (a cloud hides the swap), land, ta-da!
+    const crouch = K(t, [[0, 0], [0.2, 1, 'out'], [0.28, 0, 'in']]);
+    const jt = (t - 0.24) / 0.8, air = jt > 0 && jt < 1 ? 4 * jt * (1 - jt) : 0;
+    const land = K(t, [[1.0, 0], [1.06, 1, 'out'], [1.3, 0, 'io']]);
+    const tada = K(t, [[1.06, 0], [1.25, 1.1, 'out'], [1.45, 1, 'io']]);
+    p.y = air * 4.5;
+    p.turn = EASE.io(clamp01(jt)) * TAU * 3;
+    p.sq = 1 - crouch * 0.14 + (jt > 0 && jt < 0.3 ? 0.14 : 0) * (1 - jt / 0.3) - land * 0.14;
+    p.hipY = -(crouch + land) * 1.3; p.lL.kn = p.lR.kn = (crouch + land) * 1 + air * 0.7; p.lL.sw = p.lR.sw = -(crouch + land) * 0.45;
+    const up = clamp01(air * 2);
+    p.aL.sw = p.aR.sw = lerp(-0.12, -2.4, up) + tada * 0.4; p.aL.ra = p.aR.ra = 0.3 + up * 0.5 + tada * 1.2; p.aL.el = p.aR.el = 0.4;
+    p.pawL = p.pawR = up > 0.3 || tada > 0.3 ? 'open' : 'relax';
+    p.tPuff = 1 + up * 0.3; p.tSide = sin(t * 20) * 0.6 * up; p.tLift += 0.6 * up;
+    p.eL.fl = p.eR.fl = 0.5 * up - 0.2 * tada;
+    p.hRx += -0.15 * tada;
+    if (air > 0.2) { f.eyeL = f.eyeR = 'squeeze'; f.mouth = 'laugh'; }
+    if (tada > 0.3) f.expr = 'happy';
+    // the cloud: big chunky puffs around his middle, dense while he's spinning
+    once(s, 'cloud', t >= 0.3, () => {
+      rig._emit('cloud');
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * TAU, r = 0.16 + (i % 3) * 0.06, y = 0.18 + (i % 5) * 0.13;
+        rig.puff('cloud', _h12.set(cos(a) * r, y + 0.1, sin(a) * r * 0.7 + 0.08), { vel: _h11.set(cos(a) * 0.35, 0.15, sin(a) * 0.2), life: 0.95 + (i % 4) * 0.08, size: 0.2 + (i % 3) * 0.06, grow: 1.4, delay: (i % 4) * 0.03 });
+      }
+    });
+    once(s, 'poof', t >= 0.62, () => {
+      if (rig._pendingOutfit) { rig.setOutfit(rig._pendingOutfit); rig._pendingOutfit = null; }
+      rig._emit('poof');
+      for (let i = 0; i < 6; i++) rig.puff('star', _h12.set((Math.random() - 0.5) * 0.7, 0.3 + Math.random() * 0.7, 0.25), { vel: _h11.set((Math.random() - 0.5) * 0.6, 0.4, 0.2), life: 0.7, size: 0.07 });
+    });
+    once(s, 'land', t >= 1.04, () => rig._emit('land'));
+  },
+});
+
+def('yawn_big', {
+  dur: 2.4, expr: 'sleepy', lookW: 0.2,
+  fn(t, p, f, s, rig) {
+    // inhale, a HUGE yawn with a full-body stretch up on tiptoe, then a sleepy wobble
+    const y = K(t, [[0, 0], [0.25, -0.15, 'out'], [0.7, 1.05, 'out'], [1.45, 1], [1.8, 0, 'io']]);
+    const u = max(0, y);
+    const wob = win(t, 1.7, 2.4, 0.2, 0.2);
+    p.ik(p.aL, 1.2, 13 + u * 3, 1.5, 1, -0.2, -1, u); p.ik(p.aR, 1.2, 13 + u * 3, 1.5, 1, -0.2, -1, u);
+    p.aL.st = p.aR.st = 1.8;
+    p.pawL = p.pawR = u > 0.5 ? 'fist' : 'relax';
+    p.y += u * 1.2; p.sq = 1 + 0.12 * u - 0.05 * max(0, -y);
+    p.lean = -0.12 * u; p.hRx += -0.32 * u + 0.15 * wob; p.hSq *= 1 + 0.08 * u;
+    p.roll = sin(t * 2.4) * 0.06 * wob; p.hRz += sin(t * 2.4 + 0.5) * 0.12 * wob;
+    p.tLift += 1.0 * u; p.tPuff = 1 + 0.25 * u; p.tCurl -= 0.4 * u;
+    p.eL.fl = p.eR.fl = 0.6 * u; p.eL.sp = p.eR.sp = 0.2 + 0.2 * u;
+    f.mouth = u > 0.25 ? 'yawn' : y < 0 ? 'o' : wob > 0.3 ? 'chew' : null;
+    f.eyeL = f.eyeR = u > 0.2 ? 'squeeze' : wob > 0.2 ? 'sleepy' : null;
+    f.tear = t > 1.0 && t < 2.2 ? 1 : 0;
+    once(s, 'y', t > 0.3, () => rig._emit('yawn'));
+  },
+});
+
+// lying on his back on the bed, head on the pillow (shared by climb_bed and sleep_bed); k = 0..1 blend
+function bedPose(t, p, k = 1) {
+  p.z = lerp(p.z, -BED_STEP, k);
+  p.lean = lerp(p.lean, -PI / 2, k);
+  p.y = lerp(p.y, BED_H + LIE_LIFT, k);
+  p.hRx = lerp(p.hRx, 0.16, k); p.chRx = lerp(p.chRx, 0.06, k);
+  // paws on top of the quilt, holding its edge at his chest
+  p.ik(p.aL, 2.8, 0.8, 6.4, 1, -0.2, -0.8, k); p.ik(p.aR, 2.8, 0.8, 6.4, 1, -0.2, -0.8, k);
+  p.aL.wx = p.aR.wx = -0.6 * k;
+  p.lL.sw = lerp(p.lL.sw, 0.05, k); p.lR.sw = lerp(p.lR.sw, 0.05, k); p.lL.kn = lerp(p.lL.kn, 0.15, k); p.lR.kn = lerp(p.lR.kn, 0.15, k);
+  p.lL.sp = p.lR.sp = 0.08;
+  // fluffy tail curled out to the side, peeking over the edge of the quilt
+  p.tLift = lerp(p.tLift, 1.9, k); p.tSide = lerp(p.tSide, 1.5, k); p.tCurl = lerp(p.tCurl, 0.9, k); p.tCurlSide = lerp(p.tCurlSide, 0.7, k);
+  p.eL.fl = lerp(p.eL.fl, 0.35, k); p.eR.fl = lerp(p.eR.fl, 0.35, k);
+  p.hatRx = lerp(p.hatRx, 0.15, k);
+}
+
+def('climb_bed', {
+  dur: 2.0, expr: 'sleepy', next: 'sleep_bed', nextFade: 0.25, lookW: 0,
+  fn(t, p, f, s, rig) {
+    // root on the floor at the foot of the bed, facing away from it: turn round, hop up, spin to
+    // face out, land on the mattress, flop backward onto the pillow, snuggle in
+    const crouch = K(t, [[0, 0], [0.22, 1, 'out'], [0.3, 0, 'in']]);
+    const jt = (t - 0.26) / 0.46, air = jt > 0 && jt < 1 ? 4 * jt * (1 - jt) : 0;
+    const land = K(t, [[0.7, 0], [0.76, 1, 'out'], [0.95, 0, 'io']]);
+    const hop = smooth(clamp01(jt));
+    p.z = -BED_STEP * hop;
+    p.y = BED_H * hop + air * 3.5;
+    p.turn = lerp(PI, 0, EASE.back(clamp01(jt)));
+    p.sq = 1 - crouch * 0.12 + (jt > 0 && jt < 0.35 ? 0.12 : 0) - land * 0.12;
+    p.hipY = -(crouch + land) * 1.2; p.lL.kn = p.lR.kn = (crouch + land) * 1 + air * 0.9; p.lL.sw = p.lR.sw = -(crouch + land) * 0.4 - air * 0.3;
+    p.aL.sw = p.aR.sw = -0.6 * air; p.aL.ra = p.aR.ra = 0.3 + 0.5 * air;
+    // flop backward with a soft bounce
+    const flop = K(t, [[0.95, 0], [1.3, 1.06, 'in'], [1.45, 0.98, 'out'], [1.6, 1, 'io']]);
+    if (flop > 0) bedPose(t, p, flop);
+    const bounce = pulse(t, 1.3, 0.25);
+    p.y += bounce * 0.8; p.sq *= 1 - bounce * 0.06;
+    // snuggle wiggle
+    const sn = win(t, 1.55, 2.0, 0.1, 0.15);
+    p.roll = sin(t * 14) * 0.06 * sn; p.hRy += sin(t * 9) * 0.1 * sn;
+    if (air > 0.2) f.mouth = 'o';
+    if (flop > 0.6) { f.expr = 'sleepy'; f.mouth = sn > 0.2 ? 'mmm' : 'smile'; }
+    once(s, 'hop', t > 0.28, () => rig._emit('hop'));
+    once(s, 'creak', t > 0.72, () => rig._emit('creak'));
+    once(s, 'flop', t > 1.3, () => rig._emit('flop'));
+    once(s, 'quilt', t > 1.55, () => rig._emit('quilt'));
+  },
+});
+
+def('sleep_bed', {
+  loop: true, expr: 'asleep', lookW: 0,
+  fn(t, p, f, s, rig) {
+    bedPose(t, p, 1);
+    const br = sin(t * 1.5);
+    p.breath = br * 1.2; p.chRx += br * 0.03; p.hRx += -br * 0.02;
+    p.aL.ty += br * 0.25; p.aR.ty += br * 0.25;
+    p.hRy += sin(t * 0.31) * 0.12; // head lolls slowly
+    // ear twitch now and then
+    const tw = max(0, sin(t * 0.83 + 1)) ** 30;
+    p.eL.fl += tw * 0.5; p.eL.tw += tw * 0.3;
+    p.tCurl += sin(t * 0.7) * 0.08; p.tSide += sin(t * 0.5) * 0.08;
+    f.blink = false;
+    // snore bubble grows on the in-breath and pops; a sleepy mumble every few breaths
+    const C2 = 7.5, u = t % C2;
+    const mum = win(u, 4.6, 5.8, 0.1, 0.1);
+    f.snot = mum > 0 ? 0 : clamp01((0.5 + 0.5 * sin(t * 1.5 - 0.6)) * 1.15);
+    f.zzz = 1;
+    if (mum > 0.2) { f.mouth = Math.floor(u * 7) % 2 ? 'M' : 'mmm'; f.expr = 'dreamy'; p.hRz += sin(u * 9) * 0.03; }
+    once(s, 'm' + Math.floor(t / C2), u > 4.7, () => rig._emit('mumble'));
+    const k = Math.floor((t * 1.5 + 0.6) / TAU);
+    if (s.k !== undefined && s.k !== k) rig._emit('snore');
+    s.k = k;
   },
 });

@@ -527,6 +527,7 @@ export class Tutorial {
   // later unlocks that come from playing, not the tour
   static progress(game) {
     if (!game.state.tutorialDone) return;
+    game.unlockFeature('land', { quiet: true });
     if (game.state.day >= 2) { game.unlockFeature('rating'); game.unlockFeature('reviews'); }
     if (game.state.day >= 2) game.unlockFeature('lab');
     if (game.state.discovered.length >= 2 || game.state.day >= 3) game.unlockFeature('dex');

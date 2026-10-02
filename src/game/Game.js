@@ -683,7 +683,8 @@ export class Game {
     const ev = this.overnight.events;
     const shots = this.nightShots(ev);
     const reveal = bed?.reveal?.({ dur: 1.4 });
-    await this.cutscene.play({ shots });
+    this.sky.moonlit = 1;
+    try { await this.cutscene.play({ shots }); } finally { this.sky.moonlit = 0; }
     await reveal;
     st.hour = 5.8;
     this.startDawn();
@@ -692,10 +693,19 @@ export class Game {
   // the camera tour: wide moonlit pond, then each overnight event, then the hut
   nightShots(ev) {
     const c = { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 };
-    const shots = [{ at: c, wupp: 0.05, yaw: 0.6, cut: true, dur: 3, caption: 'Meanwhile, at the pond...', sub: 'Reynard snores. The pond does not sleep.' }];
-    for (const e of ev.slice(0, 6)) shots.push({ at: { x: e.x, z: e.z }, wupp: e.zoom || 0.02, yaw: shots.length % 2 ? 0.25 : -0.25, dur: 2.6, caption: e.title, sub: e.sub, call: e.fx });
-    if (shots.length === 1) shots.push({ at: { x: c.x + 4, z: c.z + 2 }, wupp: 0.03, yaw: 0.2, dur: 2.6, caption: 'A quiet night', sub: 'Just fireflies and frogs.' });
-    shots.push({ at: { x: HUT.x + 1.5, z: HUT.z + 2 }, wupp: 0.018, yaw: 0, dur: 2.4, caption: 'Zzz...', sub: 'Dawn is coming.' });
+    const y0 = WATER_Y + 0.3;
+    const flies = (n = 26) => { for (let i = 0; i < n; i++) this.particles.firefly(c.x + (Math.random() - 0.5) * 16, y0 + Math.random() * 1.4, c.z + (Math.random() - 0.5) * 12); };
+    const shots = [
+      { at: c, wupp: 0.07, yaw: 0.9, cut: true, dur: 1.2, caption: 'Meanwhile, at the pond...', sub: 'Reynard snores. The pond does not sleep.', call: () => flies(30) },
+      { at: { x: c.x + 2, z: c.z + 1 }, wupp: 0.05, yaw: 0.3, dur: 3.4, ease: 'linear', call: () => { flies(20); this.audio.play('loon', { volume: 0.3 }); } },
+    ];
+    let k = 0;
+    for (const e of ev.slice(0, 6)) {
+      k++;
+      shots.push({ at: { x: e.x, z: e.z }, wupp: e.zoom || 0.028, yaw: k % 2 ? 0.55 : -0.15, dur: 3, caption: e.title, sub: e.sub, call: e.fx });
+    }
+    if (!k) shots.push({ at: { x: c.x + 4, z: c.z + 2 }, wupp: 0.032, yaw: 0.2, dur: 3, caption: 'A quiet night', sub: 'Just fireflies and frogs.', call: () => flies(30) });
+    shots.push({ at: c, wupp: 0.075, yaw: 0.6, dur: 3, caption: 'Zzz...', sub: 'The sky turns pink. Morning is coming!', call: () => flies(16) });
     return shots;
   }
 

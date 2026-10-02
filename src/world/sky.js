@@ -130,7 +130,17 @@ export class Sky {
       this.hemi.color.lerp(this._tmp, 0.22 * s.aurora);
       this.hemi.intensity += 0.18 * s.aurora;
     }
-    const night = hour < 6 ? 1 : hour < 7.5 ? 1 - (hour - 6) / 1.5 : hour > 19.5 ? Math.min(1, (hour - 19.5) / 1.5) : 0;
+    let night = hour < 6 ? 1 : hour < 7.5 ? 1 - (hour - 6) / 1.5 : hour > 19.5 ? Math.min(1, (hour - 19.5) / 1.5) : 0;
+    // `moonlit` (0..1, set by the night tour): a bright, silvery full moon so the
+    // camera can actually show the pond at night
+    const ml = this.moonlit || 0;
+    if (ml > 0.001) {
+      this.sun.intensity += 0.75 * ml;
+      this.hemi.intensity += 0.45 * ml;
+      this._tmp.setHex(0xbcd0ff);
+      this.sun.color.lerp(this._tmp, 0.5 * ml);
+      night *= 1 - 0.4 * ml;
+    }
     s.night = night;
     u.uNight.value = night;
     u.uAurora.value = s.aurora;

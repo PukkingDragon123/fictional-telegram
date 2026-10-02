@@ -5,12 +5,17 @@
 // in fishbowls reacts (src/entities/classroomScene.js).
 //
 //   const cls = new Classroom(game);
-//   await cls.lesson('breeding');          // built-in: condition, breeding, genes, mutations, foods, plants
+//   await cls.lesson('fishlife');          // built-in: condition, fishlife, foods, plants, build, bears, stars
+//                                          // (+ the longer breeding / genes / mutations, merged in fishlife)
 //   await cls.lesson({ title: 'My Lesson', doodle: 'fish', steps: [
 //     { say: 'Hello **class**!', cam: 'wide', expr: 'happy', react: 'heart' },
 //     { say: 'A fish!', draw: [{ doodle: 'fish', x: 96, y: 54, scale: 2, id: 'f' }], tap: 'f' },
 //     { erase: true, say: 'All gone.' },
 //   ] });
+//   step extras: cam ('wide'|'board'|'students'|'teacher'|'desk'), camAfter (cut after the drawing),
+//   at ('desk'|'teacher': walk there first), dim (0..1 lights down until a step without it),
+//   shake (camera shake + rumble), sfx (sound cue), anim, react ('gasp' = the class gasps),
+//   cutaway: false (no reaction cut to the students), wait (auto-advance seconds), speed.
 //   cls.active; cls.skip(); cls.update(realDt)   // call update every frame (else it self-drives)
 //
 // While a lesson runs it owns game.overrideScene / overrideRig, pauses the

@@ -392,7 +392,7 @@ export class StructureSystem {
     B.clear();
     const g = this.grid;
     for (const s of this.list) {
-      if (s.removed || !s.def.sprite) continue;
+      if (s.removed || (!s.def.sprite && !stagesFor(s.type))) continue;
       const fr = this.spriteFrame(s);
       if (!fr) continue;
       const by = this.baseY(s);
@@ -404,7 +404,7 @@ export class StructureSystem {
       if (s.sprout != null && s.sprout < 1 && !fr.exact) { const k = s.sprout, e = 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2; sc *= 0.2 + 0.8 * Math.max(0, e); }
       // garden plots: a flat tilled bed under the plant so it reads as a garden
       if (s.def.crop && !s.def.flat && !s.def.underwater && s.type !== 'beehive' && s.type !== 'maple' && s.type !== 'wildrice') {
-        sc *= 1.2;
+        sc *= 1.05;
         const bed = this.natureFrames().frames.crop_bed?.[0];
         if (bed) B.push(bed, cx, by + 0.012, cz, { texels: 24, mode: 1, ax: 0.5, ay: 0.5, rot: (s.seed % 2) * Math.PI / 2, alpha: s.built ? 1 : 0.55 });
       }

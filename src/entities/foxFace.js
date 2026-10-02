@@ -594,6 +594,36 @@ const MOUTHS = {
     '......kMMkkMMkkMMk......',
     '.......kk..kk..kk.......',
   ],
+  foam: [
+    PH,
+    '..ww.......kk.......ww..',
+    '.wwwwkkkkkkkkkkkkkkwwhw.',
+    '.whwkeeEeeEeeEeeEeeekww.',
+    '..wwkkkkkkkkkkkkkkkkww..',
+    '...ww............w.ww...',
+    '.........................',
+    '....w...............w...',
+  ],
+  gargle: [
+    PH,
+    '.........kkkkkk.........',
+    '........kMsSssMk........',
+    '.......kMsSssSsMk.......',
+    '.......kMssSsssMk.......',
+    '........kMsssSMk........',
+    '.........kkkkkk.........',
+    '..........S..S..........',
+  ],
+  gargle2: [
+    PH,
+    '..........kkkk..........',
+    '........kkMsSMkk........',
+    '.......kMSssssSMk.......',
+    '.......kMssSsssMk.......',
+    '........kMSssSMk........',
+    '.........kkkkkk.........',
+    '.........S....S.........',
+  ],
   kiss: [
     PH,
     PH,
@@ -655,8 +685,8 @@ export const EXPRESSIONS = {
   shocked: { eye: 'wide', brow: 'high', mouth: 'o_big', sweat: 1 },
   angry: { eye: 'squint', brow: 'angry', mouth: 'grit', vein: 1 },
   worried: { eye: 'nervous', brow: 'worried', mouth: 'wobbly', sweat: 1 },
-  sleepy: { eye: 'sleepy', brow: 'droopy', mouth: 'slack' },
-  asleep: { eye: 'closed', brow: 'relaxed', mouth: 'slack', blush: 0.5 },
+  sleepy: { eye: 'sleepy', brow: 'droopy', mouth: 'slack', blush: 0.5 },
+  asleep: { eye: 'content', brow: 'relaxed', mouth: 'smirk_soft', blush: 1 },
   confused: { eyeR: 'open', eyeL: 'squint', browR: 'high', browL: 'furrow', mouth: 'wobbly', look: [0.4, -0.7] },
   proud: { eye: 'content', brow: 'raised', mouth: 'smirk_big', blush: 0.5, glint: 1 },
   embarrassed: { eye: 'nervous', brow: 'worried', mouth: 'grimace', blush: 2, sweat: 1, look: [0.9, 0.3] },
@@ -679,6 +709,9 @@ export const EXPRESSIONS = {
   focused: { eye: 'open', brow: 'furrow', mouth: 'tongue_side', look: [0, -0.3] },
   magnifique: { eye: 'happy', brow: 'raised', mouth: 'kiss', blush: 1 },
   yum: { eye: 'content', brow: 'raised', mouth: 'mmm', blush: 1 },
+  // bedtime
+  brushing: { eye: 'content', brow: 'raised', mouth: 'foam', blush: 0.5 },
+  dreamy: { eye: 'content', brow: 'relaxed', mouth: 'smile', blush: 1 },
 };
 export const EXPRESSION_NAMES = Object.keys(EXPRESSIONS);
 
