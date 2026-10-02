@@ -71,76 +71,136 @@ uniform vec3 flashColor;
 uniform vec3 iris; // x, y (screen px), radius (px); radius < 0 = off
 uniform float time;
 uniform float blueprint;
-// thick fog over the unexplored areas: a world-space mask (1 texel = 1 tile),
-// marched along each pixel's view ray through a billowy slab of cloud
+// thick fog over the unexplored areas: a world-space mask (1 texel = 1 tile)
+// grows a heightfield of billowing cloud-bank tops; each pixel's view ray is
+// marched down through it (coarse steps + bisection), then the hit is shaded
+// in 4 chunky tones with ordered dithering. A blurred mip of the mask feeds
+// the low ground mist that creeps past the edge.
 uniform sampler2D fogTex;
+uniform sampler2D fogNoise; // 4 independent tiling smooth value noises (rgba)
 uniform vec2 fogSize;
 uniform float fogOn;
 uniform float fogTop;
 uniform mat4 invVP;
 uniform vec3 camDir;
+uniform vec3 fogSun; // world direction towards the light (screen top-left)
 uniform vec3 fogLight;
 uniform vec3 fogShade;
+uniform vec3 fogRim;
 
-float fhash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float fnoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(fhash(i), fhash(i + vec2(1.0, 0.0)), u.x), mix(fhash(i + vec2(0.0, 1.0)), fhash(i + vec2(1.0, 1.0)), u.x), u.y);
-}
-float ffbm(vec2 p) { return fnoise(p) * 0.55 + fnoise(p * 2.03 + 7.1) * 0.3 + fnoise(p * 4.1 + 3.3) * 0.15; }
+// one tap = noise at 1 feature per unit (period 16 features)
+vec4 fN(vec2 p) { return textureLod(fogNoise, p * 0.0625, 0.0); }
+float fbayer2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
+float fbayer(vec2 a) { return fbayer2(0.5 * a) * 0.25 + fbayer2(a); }
+// x = cloud-top height (world y), y = coverage 0..1, z = ground height
 // fogTex: r = density, g = ground height / 25.5 (the fog hugs hills)
-float fogDensity(vec3 q) {
-  // domain-warp the lookup so area outlines aren't perfect circles
-  vec2 wq = q.xz + (vec2(fnoise(q.xz * 0.075 + vec2(time * 0.01, 0.0)), fnoise(q.xz * 0.075 + 5.2)) - 0.5) * 7.0;
-  vec2 t = texture2D(fogTex, wq / fogSize).rg;
-  float m = t.r;
-  if (m < 0.004) return 0.0;
-  float n = ffbm(q.xz * 0.17 + vec2(time * 0.018, time * 0.011));
-  float edge = smoothstep(0.12, 0.75, m + (n - 0.5) * 0.6);
-  float top = t.g * 25.5 + fogTop * (0.72 + 0.45 * n) * (0.35 + 0.65 * smoothstep(0.15, 0.85, m));
-  return edge * smoothstep(top, top - 1.2, q.y);
+vec3 fogField(vec2 xz) {
+  vec4 nw = fN((xz + time * vec2(0.09, 0.05)) * 0.11);
+  vec2 t = textureLod(fogTex, (xz + (nw.rg - 0.5) * 4.0) / fogSize, 0.0).rg;
+  float g = t.g * 25.5;
+  if (t.r < 0.003) return vec3(g - 9.0, 0.0, g);
+  // two scales of puffs drifting different ways, so the banks roll and churn
+  float big = fN((xz + time * vec2(0.16, 0.07)) * 0.27 + 3.7).b;
+  float sm = fN((xz - time * vec2(0.1, -0.22)) * 0.55 + vec2(9.1, 5.3)).a;
+  // puffs bulge the outline too, so the edge is a row of round billows
+  float c = smoothstep(0.1, 0.6, t.r + (big - 0.45) * 0.35 + (sm - 0.5) * 0.25);
+  float p = big * 0.72 + sm * 0.42;
+  float h = fogTop * sqrt(c) * (0.38 + 0.7 * p);
+  return vec3(g + h - (1.0 - c) * 0.9, c, g);
 }
 vec4 fogAt(vec2 lp, vec2 uv) {
-  float z = texture2D(tDepth, uv).x;
+  float z = textureLod(tDepth, uv, 0.0).x;
   if (z > 0.99999) return vec4(0.0);
   vec4 wp = invVP * vec4(uv * 2.0 - 1.0, z * 2.0 - 1.0, 1.0);
   vec3 P = wp.xyz / wp.w;
-  float cy = max(0.08, -camDir.y);
-  float gh = texture2D(fogTex, P.xz / fogSize).g * 25.5;
-  float tTop = clamp((gh + fogTop * 1.25 - P.y) / cy, 0.0, 30.0);
-  if (tTop <= 0.0) return vec4(0.0);
-  // cheap reject: no fog anywhere near this ray
-  vec3 qa = P - camDir * tTop;
-  if (texture2D(fogTex, P.xz / fogSize).r + texture2D(fogTex, qa.xz / fogSize).r + texture2D(fogTex, mix(P.xz, qa.xz, 0.5) / fogSize).r < 0.003) return vec4(0.0);
-  float tau = 0.0, hitY = -99.0;
-  vec2 hitXZ = P.xz;
-  const int N = 10;
-  float st = tTop / float(N);
-  for (int i = 0; i < N; i++) {
-    float t = tTop - (float(i) + 0.5) * st;
-    vec3 q = P - camDir * t;
-    float d = fogDensity(q);
-    if (d > 0.3 && hitY < -90.0) { hitY = q.y; hitXZ = q.xz; }
-    tau += d * st;
+  vec3 V = -camDir; // towards the camera (ortho: same for every pixel)
+  float cy = max(0.08, V.y);
+  float hTop = fogTop * 1.3;
+  vec2 gP = textureLod(fogTex, P.xz / fogSize, 0.0).rg;
+  float g0 = gP.g * 25.5;
+  // cheap reject: a coarse mip covers this pixel and the slab above it
+  vec2 far = P.xz + V.xz * max(0.0, (g0 + hTop - P.y) / cy);
+  vec2 mid = mix(P.xz, far, 0.5);
+  if (textureLod(fogTex, P.xz / fogSize, 3.0).r + textureLod(fogTex, mid / fogSize, 3.0).r + textureLod(fogTex, far / fogSize, 3.0).r < 0.002) return vec4(0.0);
+  float g1 = textureLod(fogTex, far / fogSize, 0.0).g * 25.5;
+  float tTop = (max(g0, g1) + hTop - P.y) / cy;
+  float tBot = (min(g0, g1) - 1.0 - P.y) / cy;
+  // march top-down (camera side first); runs on past P so the bank surface
+  // stays whole behind anything standing in the fog
+  const int N = 12;
+  float st = (tTop - tBot) / float(N);
+  float tHit = -1e5, tPrev = tTop;
+  vec3 F = vec3(0.0);
+  for (int i = 1; i <= N; i++) {
+    float t = tTop - float(i) * st;
+    vec3 q = P + V * t;
+    vec3 f = fogField(q.xz);
+    if (f.y > 0.01 && q.y < f.x) { tHit = t; F = f; break; }
+    tPrev = t;
   }
+  float dith = fbayer(lp);
   // anything standing inside a fogged area is swallowed whole, however tall
-  vec2 pw = P.xz + (vec2(fnoise(P.xz * 0.075 + vec2(time * 0.01, 0.0)), fnoise(P.xz * 0.075 + 5.2)) - 0.5) * 7.0;
-  float cover = smoothstep(0.55, 0.95, texture2D(fogTex, pw / fogSize).r);
-  if (tau < 0.002 && cover < 0.01) return vec4(0.0);
-  if (hitY < -90.0 && cover > 0.01) { hitY = P.y; hitXZ = P.xz; }
-  float dith = fract(52.9829189 * fract(dot(lp, vec2(0.06711056, 0.00583715))));
-  float a = max(1.0 - exp(-tau * 2.2), cover);
-  a = clamp(floor(a * 4.0 + dith * 0.999) / 4.0, 0.0, 1.0);
-  // billows: lit tops, a light from the top-left, chunky 4-tone shading
-  vec2 dr = vec2(time * 0.018, time * 0.011);
-  float hg = texture2D(fogTex, hitXZ / fogSize).g * 25.5;
-  float s = hitY > -90.0 ? clamp((hitY - hg + 0.6) / fogTop, 0.0, 1.0) : 0.3;
-  float g = ffbm(hitXZ * 0.17 + dr + vec2(-0.35, -0.35)) - ffbm(hitXZ * 0.17 + dr);
-  float big = ffbm(hitXZ * 0.06 + dr * 0.5);
-  float sh = clamp(0.18 + 0.5 * s + g * 3.4 + (big - 0.5) * 0.5, 0.0, 1.0);
-  sh = floor(sh * 4.0 + dith * 0.85) / 4.0;
-  return vec4(mix(fogShade, fogLight, sh), a);
+  vec4 nwP = fN((P.xz + time * vec2(0.09, 0.05)) * 0.11);
+  vec2 pw = P.xz + (nwP.rg - 0.5) * 4.0;
+  float cover = smoothstep(0.5, 0.8, textureLod(fogTex, pw / fogSize, 0.0).r);
+  // low ground mist: blurred mask spills a few tiles past the edge, torn into
+  // wind-stretched wisps, hugging the terrain
+  float spill = textureLod(fogTex, pw / fogSize, 2.2).r;
+  vec2 wd = P.xz + time * vec2(0.35, 0.12);
+  float wisp = fN(vec2(wd.x * 0.32 + wd.y * 0.12, wd.y * 0.75 - wd.x * 0.1) + 1.3).g;
+  float hAbove = P.y - g0;
+  float mist = clamp(spill * 2.2 - 0.12, 0.0, 1.0) * smoothstep(0.9 + 2.2 * wisp, 0.0, hAbove) * smoothstep(0.25, 0.75, wisp + spill * 0.6);
+  mist = min(mist, 0.8);
+  bool front = tHit > -0.15;
+  if (tHit < -1e4 || (!front && cover < 0.01)) {
+    if (mist < 0.02 && cover < 0.01) return vec4(0.0);
+    if (cover < 0.01) {
+      // just mist: dithered transparency, pale tones
+      float ma = floor(mist * 4.0 + dith * 0.999) / 4.0;
+      float mt = floor((0.45 + 0.5 * wisp) * 2.0 + dith) / 2.0;
+      return vec4(mix(fogShade, fogLight, mt), ma);
+    }
+    // inside but the bank above missed (tall thing): pretend we hit its crown
+    if (tHit < -1e4) { tHit = (g0 + fogTop * 0.8 - P.y) / cy; F = fogField(P.xz + V.xz * tHit); }
+  }
+  // refine the crossing: 3 bisection steps
+  float ta = tPrev, tb = tHit;
+  for (int k = 0; k < 3; k++) {
+    float tm = 0.5 * (ta + tb);
+    vec3 q = P + V * tm;
+    vec3 f = fogField(q.xz);
+    if (f.y > 0.01 && q.y < f.x) { tb = tm; F = f; } else ta = tm;
+  }
+  vec3 H = P + V * tb;
+  // shading: normal from the heightfield, light from the top-left
+  const float e = 0.55;
+  float hx = fogField(H.xz + vec2(e, 0.0)).x - F.x;
+  float hz = fogField(H.xz + vec2(0.0, e)).x - F.x;
+  vec3 nrm = normalize(vec3(-hx, e, -hz));
+  float dif = clamp(dot(nrm, fogSun) * 0.8 + 0.2, 0.0, 1.0);
+  // self-shadow: a taller bank between us and the light
+  vec2 sh2 = normalize(fogSun.xz);
+  float slope = fogSun.y / max(0.2, length(fogSun.xz));
+  float occ = fogField(H.xz + sh2 * 2.4).x - (H.y + 2.4 * slope);
+  float shadow = smoothstep(0.0, 1.6, occ);
+  float hy = clamp((H.y - F.z) / fogTop, 0.0, 1.0);
+  float v = 0.02 + 0.85 * dif + 0.3 * hy - 0.5 * shadow - (1.0 - F.y) * 0.2;
+  // a silver lining where the bank thins out towards the light
+  v += 0.25 * smoothstep(0.55, 0.2, F.y) * smoothstep(0.3, 0.8, dif);
+  // mostly flat bands; dither only along the seams between them
+  float tone = clamp(floor(v * 3.2 + 0.25 + (dith - 0.5) * 0.45), 0.0, 3.0);
+  vec3 deep = mix(fogShade * vec3(0.78, 0.77, 0.9), vec3(0.3, 0.27, 0.45), 0.22);
+  vec3 col = tone < 0.5 ? deep : tone < 1.5 ? fogShade : tone < 2.5 ? fogLight : fogRim;
+  // thin fringe: dithered see-through, plus the ground mist under it
+  float a = smoothstep(0.03, 0.4, F.y);
+  a = floor(a * 4.0 + dith * 0.999) / 4.0;
+  if (!front) a = 0.0;
+  a = max(a, cover > 0.01 ? clamp(floor(cover * 4.0 + dith * 0.999) / 4.0, 0.0, 1.0) : 0.0);
+  float ma = floor(mist * 4.0 + dith * 0.999) / 4.0;
+  vec3 mc = mix(fogShade, fogLight, floor((0.45 + 0.5 * wisp) * 2.0 + dith) / 2.0);
+  float ao = a + ma * (1.0 - a);
+  col = ao > 0.0 ? (col * a + mc * ma * (1.0 - a)) / ao : col;
+  return vec4(col, ao);
 }
 
 float D(vec2 p) { return texture2D(tDepth, (p + 0.5) / rtSize).x * depthRange; }
@@ -200,6 +260,49 @@ void main() {
   #include <colorspace_fragment>
 }
 `;
+
+// 128x128 RGBA fog tile, so the fog pays one texture tap per octave:
+// r, g = smooth value noise (8 texels per feature, wraps every 16 features),
+// b, a = big / small piles of round cauliflower domes (the cloud puffs).
+let _fogNoise = null;
+function fogNoiseTexture() {
+  if (_fogNoise) return _fogNoise;
+  const S = 128, C = 8, P = S / C, d = new Uint8Array(S * S * 4);
+  const hash = (x, z, k) => { let h = (x * 374761393 + z * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const q = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+  for (let k = 0; k < 2; k++)
+    for (let z = 0; z < S; z++)
+      for (let x = 0; x < S; x++) {
+        const gx = Math.floor(x / C), gz = Math.floor(z / C), u = q((x % C) / C), v = q((z % C) / C);
+        const h = (i, j) => hash((gx + i) % P, (gz + j) % P, k + 1);
+        const n = (h(0, 0) * (1 - u) + h(1, 0) * u) * (1 - v) + (h(0, 1) * (1 - u) + h(1, 1) * u) * v;
+        d[(z * S + x) * 4 + k] = Math.round(n * 255);
+      }
+  // domes: overlapping hemispheres (wrapped), tallest wins
+  const domes = (k, count, r0, r1) => {
+    const hf = new Float32Array(S * S);
+    let seed = k * 7919 + 13;
+    const rnd = () => (seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296;
+    for (let i = 0; i < count; i++) {
+      const cx = rnd() * S, cz = rnd() * S, r = r0 + (r1 - r0) * rnd() * rnd(), top = 0.55 + 0.45 * (r - r0) / (r1 - r0);
+      for (let z = Math.floor(cz - r); z <= Math.ceil(cz + r); z++)
+        for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+          const dd = ((x - cx) ** 2 + (z - cz) ** 2) / (r * r);
+          if (dd >= 1) continue;
+          const j = ((z + S) % S) * S + ((x + S) % S);
+          hf[j] = Math.max(hf[j], top * Math.sqrt(1 - dd));
+        }
+    }
+    for (let j = 0; j < S * S; j++) d[j * 4 + k] = Math.round(Math.min(1, hf[j]) * 255);
+  };
+  domes(2, 70, 7, 18);
+  domes(3, 260, 3.5, 8);
+  const t = new THREE.DataTexture(d, S, S, THREE.RGBAFormat, THREE.UnsignedByteType);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.minFilter = t.magFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return (_fogNoise = t);
+}
 
 export class PixelRenderer {
   constructor(canvas) {
@@ -278,6 +381,9 @@ export class PixelRenderer {
         camDir: { value: new THREE.Vector3(0, -1, 0) },
         fogLight: { value: new THREE.Vector3(0.95, 0.94, 0.9) },
         fogShade: { value: new THREE.Vector3(0.62, 0.64, 0.74) },
+        fogRim: { value: new THREE.Vector3(1, 1, 1) },
+        fogNoise: { value: null },
+        fogSun: { value: new THREE.Vector3(0, 1, 0) },
       },
       depthTest: false,
       depthWrite: false,
@@ -333,17 +439,29 @@ export class PixelRenderer {
   // Iris wipe: radius in CSS px around a CSS-px point (null/negative = off)
   setBlueprint(k) { this.postMat.uniforms.blueprint.value = k; }
 
-  // fog of the unexplored: a DataTexture mask over the w x h tile grid (null = off)
+  // fog of the unexplored: a DataTexture mask over the w x h tile grid (null = off).
+  // The mask gets mipmaps: a coarse level is the cheap "any fog near?" reject
+  // and the blurred spill for the ground mist.
   setFog(tex, w, h) {
     const u = this.postMat.uniforms;
+    if (tex && !tex.generateMipmaps) {
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.needsUpdate = true;
+    }
+    if (tex && !u.fogNoise.value) u.fogNoise.value = fogNoiseTexture();
     u.fogTex.value = tex;
     u.fogSize.value.set(w || 1, h || 1);
     u.fogOn.value = tex ? 1 : 0;
   }
-  setFogColors(light, shade) {
+  // light / shade tones of the banks; rim = the brightest crowns and silver
+  // linings (defaults to a lifted light: white by day, moonlit blue at night)
+  setFogColors(light, shade, rim = null) {
     const u = this.postMat.uniforms;
     u.fogLight.value.set(light[0], light[1], light[2]);
     u.fogShade.value.set(shade[0], shade[1], shade[2]);
+    const r = rim || light.map((c) => Math.min(1, c * 1.2 + 0.05));
+    u.fogRim.value.set(r[0], r[1], r[2]);
   }
   setFogEnabled(on) { const u = this.postMat.uniforms; u.fogOn.value = on && u.fogTex.value ? 1 : 0; }
 
@@ -364,6 +482,10 @@ export class PixelRenderer {
     if (u.fogOn.value) {
       u.invVP.value.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse);
       u.camDir.value.set(0, 0, -1).transformDirection(cam.matrixWorld);
+      // light from the screen's top-left, lifted high above the banks
+      const e = cam.matrixWorld.elements, sun = u.fogSun.value;
+      const fx = -e[8], fz = -e[10], fl = Math.hypot(fx, fz) || 1; // screen-up on the ground
+      sun.set(-e[0] * 0.75 + (fx / fl) * 0.65, 1.1, -e[2] * 0.75 + (fz / fl) * 0.65).normalize();
     }
     r.setRenderTarget(this.rt);
     r.render(scene, cam);

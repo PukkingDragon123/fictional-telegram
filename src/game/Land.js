@@ -98,7 +98,7 @@ export class Land {
     let open = 0;
     // open grass is ready to use; trees and rocks wait for the beavers
     for (const [, , i] of this.tiles(px, pz)) {
-      if (!g.meadow[i] && g.kind[i] === KIND.GRASS && g.deco[i] < 0) { g.meadow[i] = 1; open++; }
+      if (!g.meadow[i] && g.kind[i] === KIND.GRASS && g.deco[i] < 0 && (game.zones?.fogAt(i % g.w, (i / g.w) | 0) || 0) < 0.45) { g.meadow[i] = 1; open++; }
     }
     if (open) { game.world.landVersion++; game.world.rebuildTerrain(); game.world.buildClutter(); game.onTopologyChanged?.(); }
     this.buildPosts();

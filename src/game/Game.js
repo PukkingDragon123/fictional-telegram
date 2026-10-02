@@ -25,7 +25,7 @@ import { BearSystem } from './BearSystem.js';
 import { BeaverSystem, BEAVER_LEVELS } from './BeaverSystem.js';
 import { Delivery } from './Delivery.js';
 import { BugSystem } from './BugSystem.js';
-import { ZONE_INFO } from '../data/zones.js';
+import { ZONES, ZONE_INFO } from '../data/zones.js';
 import { ZoneSystem } from './Zones.js';
 import { Villagers } from './Villagers.js';
 import { Livestock } from './Livestock.js';
@@ -36,6 +36,8 @@ import { Harvest } from './Harvest.js';
 import { LandAnimals } from './LandAnimals.js';
 import { Land } from './Land.js';
 import { Cutscene } from './Cutscene.js';
+import { Quests } from './Quests.js';
+import { Matchmaking } from './Matchmaking.js';
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
 const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
 import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
@@ -103,6 +105,8 @@ export class Game {
     this.landAnimals = new LandAnimals(this);
     this.land = new Land(this);
     this.cutscene = new Cutscene(this);
+    this.quests = new Quests(this);
+    this.matchmaking = new Matchmaking(this);
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -181,6 +185,8 @@ export class Game {
     this.land.load([]);
     this.zones.onLoad();
     this.villagers.onLoad();
+    this.refreshMods();
+    this.quests?.onLoad();
     this.onTopologyChanged();
     this.startDay(true);
     this.started = true;
@@ -219,6 +225,13 @@ export class Game {
     }
   }
 
+  // perks from the villagers you've befriended (zones.js `mods`)
+  zoneMods() { const open = this.state?.zones || []; return ZONES.filter((Z) => open.includes(Z.id)).map((Z) => Z.mods); }
+  refreshMods() {
+    this.mods = computeMods(this.state.research, this.legacy.tails, this.zoneMods());
+    this.beavers?.refreshCounts?.();
+  }
+
   isUnlocked(rid) {
     if (!rid || rid === 'start') return true;
     if (rid.startsWith('day:')) return this.state.day >= +rid.slice(4);
@@ -237,6 +250,8 @@ export class Game {
     const sp = SPECIES_BY_ID[id];
     if (!sp) return false;
     if (sp.unlock === 'hybrid') return this.state.discovered.includes(id);
+    // some villagers hand out research fish early
+    if (ZONES.some((Z) => Z.early?.includes(id) && (this.state.zones || []).includes(Z.id))) return true;
     return this.isUnlocked(sp.unlock);
   }
   availableSpecies() {
@@ -1034,6 +1049,7 @@ export class Game {
       return false;
     }
     f.tagged = true;
+    this.emit('fishTagged', f);
     this.audio.play('tag', { volume: 0.5 });
     this.particles.sparkle(f.x, 0.3, f.z, 5, 0xff8a7a);
     this.ui?.floatTextAt(f.x, 0.5, f.z, 'DO NOT EAT!', '#ff9a8a');
@@ -1230,7 +1246,7 @@ export class Game {
     if (!r.req.every((q) => st.research.includes(q))) { this.ui?.toast('Research the prerequisites first', 'bad'); return false; }
     if (!this.spend(r.cost, 'research')) return false;
     st.research.push(id);
-    this.mods = computeMods(st.research, this.legacy.tails);
+    this.mods = computeMods(st.research, this.legacy.tails, this.zoneMods());
     if (r.species && !st.discovered.includes(r.species)) st.discovered.push(r.species);
     if (r.mods?.beaverBonus) this.beavers.refreshCounts();
     if (r.mods?.bagBonus) this.foodBag.max = Math.round(12 * this.mods.bagBonus);
@@ -1355,6 +1371,8 @@ export class Game {
     this.ambient.update(dt);
     if (st.phase !== 'gameover') this.landAnimals.update(simDt || dt * 0.3);
     this.land.update();
+    this.quests.update(realDt || dt);
+    this.matchmaking.update(dt);
     this.zones.update(dt);
     this.villagers.update(dt);
     this.cine?.update(realDt);
@@ -1455,7 +1473,7 @@ export class Game {
     this.state = { ...this.freshState(), ...data.state };
     for (const e of this.state.eggTray) eggUid = Math.max(eggUid, e.uid + 1);
     this.stats = { ...this.freshStats(), ...data.stats };
-    this.mods = computeMods(this.state.research, this.legacy.tails);
+    this.mods = computeMods(this.state.research, this.legacy.tails, this.zoneMods());
     this.foodBag.max = Math.round(12 * this.mods.bagBonus);
     this.grid.computeRegions();
     this.bears.clear();
@@ -1474,6 +1492,8 @@ export class Game {
     this.land.load(data.plots);
     this.zones.onLoad();
     this.villagers.onLoad();
+    this.refreshMods();
+    this.quests?.onLoad();
     this.applyLandmarkMods();
     this.world.landVersion++;
     if (data.cam) { this.rig.lookAt(data.cam[0], data.cam[1], true); this.rig.wupp = this.rig.wuppGoal = data.cam[2]; this.rig.yaw = this.rig.yawGoal = data.cam[3] || 0; }

@@ -26,6 +26,7 @@ export const ZONES = [
       { kind: 'species', ids: ['bulltrout', 'cutthroat', 'coho', 'pinksalmon', 'kokanee', 'browntrout'], title: '6 river trout & salmon', icon: 'fish' },
       { kind: 'perk', title: 'Clearing pays double, +1 beaver per lodge', icon: 'beaver' },
     ],
+    mods: { clearPayMult: 1, beaverBonus: 1 },
     gift: { coins: 55, items: ['chair'] },
   },
   {
@@ -37,8 +38,9 @@ export const ZONES = [
     unlocks: [
       { kind: 'species', ids: ['gar', 'paddlefish', 'eel'], title: 'Gar, Paddlefish & Eel eggs', icon: 'fish' },
       { kind: 'breed', id: 'snow', title: 'Snow Goose on e-Buy', icon: 'egg' },
-      { kind: 'perk', title: 'The willow blesses your pond: +15 beauty', icon: 'heart' },
+      { kind: 'perk', title: 'The willow blesses your pond: +15% beauty', icon: 'heart' },
     ],
+    mods: { beautyMult: 0.15 }, biome: 3,
     gift: { coins: 40, egg: true },
   },
   {
@@ -50,8 +52,9 @@ export const ZONES = [
     unlocks: [
       { kind: 'build', ids: ['bogpool', 'rottinglog'], title: 'Bog Pool & Rotting Log bug farms', icon: 'bug' },
       { kind: 'species', ids: ['bullhead', 'catfish', 'bowfin'], title: 'Bullhead, Catfish & Bowfin eggs', icon: 'fish' },
-      { kind: 'perk', title: 'Swamp water: way more mutations', icon: 'sparkle' },
+      { kind: 'perk', title: 'Swamp water: twice the mutations', icon: 'sparkle' },
     ],
+    mods: { mutationMult: 1 }, biome: 1,
     gift: { coins: 35, items: ['compost', 'tallgrass'] },
   },
   {
@@ -65,7 +68,50 @@ export const ZONES = [
       { kind: 'build', ids: ['glowmeadow'], title: 'Firefly Meadow bug farm', icon: 'lantern' },
       { kind: 'perk', title: 'Magic spores: eggs hatch 35% faster', icon: 'mushroom' },
     ],
+    mods: { hatchSpeed: 0.35 }, biome: 2,
     gift: { coins: 80, items: ['gnome'] },
+  },
+  // ---- close neighbours: small fog pockets right next to the meadow, so the
+  // first friends are only a few trees away
+  {
+    id: 'patch', landmark: null, name: 'Clover Patch', cx: 61.5, cz: 63.5, r: 6, near: true,
+    npc: { id: 'clover', name: 'Clover', title: 'Gardener next door', x: 61.6, z: 64.2, color: '#c8a070' },
+    sub: 'Clover the bunny grows the best veggies in Ontario',
+    intro: ['Oh! Hello, neighbour!', 'I heard the trees falling. Nice work!', 'Here, seeds! Gardens make bears happy.'],
+    lines: ['Water in the morning, never at noon!', 'Carrots love sprinklers. So do I.', 'A golden carrot? Keep planting!', 'Compost is just salad\'s second chance.'],
+    unlocks: [
+      { kind: 'perk', title: 'Green thumb: gardens & snacks grow 25% faster', icon: 'leaf' },
+      { kind: 'perk', title: 'Daily seed gift', icon: 'harvest' },
+    ],
+    mods: { produceMult: 0.25, cropLuck: 0.25 },
+    gift: { coins: 20, items: ['carrot', 'strawberry', 'radish', 'sunflower', 'lettuce'] },
+  },
+  {
+    id: 'bend', landmark: null, name: 'Otter Bend', cx: 98.5, cz: 63.5, r: 6, near: true,
+    npc: { id: 'otis', name: 'Otis', title: 'Fisherman & fish whisperer', x: 97.2, z: 62.6, color: '#7a5a3a' },
+    sub: 'Otis the otter fishes the river bend',
+    intro: ['Ahoy, pond neighbour!', 'Name\'s Otis. I know every fish by name.', 'Walleye and pike? I\'ll get ya some eggs!'],
+    lines: ['Fish grow big on a full belly.', 'Pike are grumpy. Respect the pike.', 'Rare fish? Tag \'em, or the bears will eat \'em!', 'Wanna perfect fish? Pick the parents yourself!'],
+    unlocks: [
+      { kind: 'species', ids: ['walleye', 'pike'], title: 'Walleye & Pike eggs (no research!)', icon: 'fish' },
+      { kind: 'perk', title: 'Fish grow 20% faster', icon: 'fish' },
+    ],
+    early: ['walleye', 'pike'],
+    mods: { growthMult: 0.2 },
+    gift: { coins: 25, egg: true, eggPool: ['perch', 'walleye', 'pike', 'smallmouth'] },
+  },
+  {
+    id: 'bakery', landmark: null, name: 'Hazel\'s Bakery', cx: 101.5, cz: 24.5, r: 5.5, near: true,
+    npc: { id: 'hazel', name: 'Hazel', title: 'Baker of famous pies', x: 101.2, z: 25.4, color: '#a07858' },
+    sub: 'Hazel the hedgehog bakes for the bears upstairs',
+    intro: ['Oh my! A customer? No, a neighbour!', 'I bake pies for Bear Corp.', 'Full bears tip better. Trust me, dear.'],
+    lines: ['Honey in the crust. That\'s the secret.', 'Bears tip more after dessert.', 'Mind the spikes, sweetie.', 'Fresh out of the oven!'],
+    unlocks: [
+      { kind: 'perk', title: 'Dessert time: bears tip 15% more', icon: 'coin' },
+      { kind: 'perk', title: 'Daily honey & syrup', icon: 'honey' },
+    ],
+    mods: { tipMult: 0.15 },
+    gift: { coins: 30, food: [{ id: 'honey', n: 2 }, { id: 'syrup', n: 1 }] },
   },
 ];
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));

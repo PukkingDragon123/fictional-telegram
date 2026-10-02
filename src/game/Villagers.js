@@ -197,7 +197,8 @@ export class Villagers {
     const G = v.zone.gift;
     const parts = [`${G.coins} coins`];
     if (G.items?.length) parts.push(STRUCTURES[G.items[this.game.state.day % G.items.length]]?.name || 'a present');
-    if (G.egg) parts.push('an ancient egg');
+    for (const f of G.food || []) parts.push(`${f.n || 1} ${this.game.foodStore?.info?.(f.id)?.name || f.id}`);
+    if (G.egg) parts.push(G.eggPool ? 'a fish egg' : 'an ancient egg');
     return parts.join(' + ');
   }
 
@@ -215,8 +216,12 @@ export class Villagers {
       inv[type] = (inv[type] || 0) + 1;
       game.emit('inventory', inv);
     }
+    for (const f of G.food || []) {
+      game.foodStore?.add?.(f.id, f.n || 1);
+      game.ui?.floatTextAt?.(v.x, v.y + 1.6, v.z, `+${f.n || 1} ${game.foodStore?.info?.(f.id)?.name || f.id}`, '#fff3a0');
+    }
     if (G.egg) {
-      const pool = ['gar', 'paddlefish', 'eel', 'sturgeon', 'bowfin'].filter((id) => SPECIES_BY_ID[id] && game.speciesUnlocked(id));
+      const pool = (G.eggPool || ['gar', 'paddlefish', 'eel', 'sturgeon', 'bowfin']).filter((id) => SPECIES_BY_ID[id] && game.speciesUnlocked(id));
       const id = pool.length ? pick(pool) : 'bluegill';
       try { game.fish.addBoughtEgg(id, rollGenes(id, game.mods), 40); game.notify(`${SPECIES_BY_ID[id].name} egg in the pond!`, 'excited'); } catch (e) { console.warn(e); }
     }

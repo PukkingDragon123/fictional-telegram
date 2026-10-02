@@ -282,8 +282,9 @@ export class BeaverSystem {
       game.audio.play(j.kind === 'weed' ? 'pet' : 'demolish', { volume: 0.45 });
     }
     game.particles.puff(cx, gy + 0.3, cz, 8, 0.35);
-    game.particles.coins(cx, gy + 0.8, cz, Math.min(6, def.pay));
-    game.earnMisc?.(def.pay, 'clearing');
+    const pay = Math.round(def.pay * (game.mods.clearPayMult || 1));
+    game.particles.coins(cx, gy + 0.8, cz, Math.min(6, pay));
+    game.earnMisc?.(pay, 'clearing');
     game.ui?.floatTextAt(cx, gy + 1.4, cz, `+${def.pay}`, '#ffe9a0');
     game.stats.cleared = (game.stats.cleared || 0) + 1;
     this.clears.delete(i);

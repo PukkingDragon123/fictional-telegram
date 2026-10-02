@@ -467,9 +467,24 @@ export class FishSystem {
   }
 
   findMate(f) {
+    // an arranged match (Matchmaker) waits for its partner and nobody else
+    if (f.match) {
+      const m = f.match;
+      if (m.dead || !this.list.includes(m) || m.match !== f) { f.match = null; }
+      else {
+        if (m.region === f.region && this.eligibleForLove(m) && this.compatible(f, m)) {
+          f.state = m.state = 'court';
+          f.mate = m; m.mate = f;
+          f.courtT = m.courtT = 40; // they cross the whole pond for each other
+          f.target = m.target = null;
+        }
+        return;
+      }
+    }
     let best = null, bd = 6 * 6;
     for (const o of this.list) {
       if (o === f || o.region !== f.region || !this.eligibleForLove(o)) continue;
+      if (o.match && o.match !== f) continue; // spoken for
       const kid = this.compatible(f, o);
       if (!kid) continue;
       const dx = o.x - f.x, dz = o.z - f.z;
@@ -505,12 +520,15 @@ export class FishSystem {
     }
     const count = 1 + (Math.random() < 0.25 ? 1 : 0) + mods.clutchBonus;
     const g = game.grid;
-    const nurtured = a.love > 0.2 || b.love > 0.2;
+    // a match you arranged is a blessed one: the Matchmaker's luck rubs off
+    const arranged = a.match === b && b.match === a;
+    if (arranged) { a.match = b.match = null; game.emit('matchMated', { a, b }); }
+    const nurtured = arranged || a.love > 0.2 || b.love > 0.2;
     const genes = [];
     const aura = game.bugs ? game.bugs.auraAt(mx, mz) : null;
     // mutation luck from fancy food (Royal Pearls, clovers, moonberries...)
     const foodLuck = ((a.luck || 0) + (b.luck || 0)) * 0.5;
-    for (let k = 0; k < count; k++) genes.push(breedGenes(kid, a, b, mods, { nurtured, sizeBoost: aura ? aura.size : 0, luckBoost: (aura ? aura.luck : 0) + foodLuck * 1.5 }));
+    for (let k = 0; k < count; k++) genes.push(breedGenes(kid, a, b, mods, { nurtured, sizeBoost: aura ? aura.size : 0, luckBoost: (aura ? aura.luck : 0) + foodLuck * 1.5 + (arranged ? 0.2 : 0) }));
     // they need a good meal before the next time
     a.fed = b.fed = 0;
     a.luck = b.luck = 0;
@@ -804,7 +822,7 @@ export class FishSystem {
   // ------------------------------------------------------------ save
   serialize() {
     return {
-      fish: this.list.map((f) => [f.sp.id, +f.x.toFixed(2), +f.z.toFixed(2), f.adult ? 1 : 0, +f.age.toFixed(1), +f.hunger.toFixed(2), f.g, f.tagged ? 1 : 0, +f.love.toFixed(2), f.name || 0, f.tank ? [f.tank.x, f.tank.z] : 0, +(f.fed || 0).toFixed(2), +(f.luck || 0).toFixed(2)]),
+      fish: this.list.map((f) => [f.sp.id, +f.x.toFixed(2), +f.z.toFixed(2), f.adult ? 1 : 0, +f.age.toFixed(1), +f.hunger.toFixed(2), f.g, f.tagged ? 1 : 0, +f.love.toFixed(2), f.name || 0, f.tank ? [f.tank.x, f.tank.z] : 0, +(f.fed || 0).toFixed(2), +(f.luck || 0).toFixed(2), f.match ? this.list.indexOf(f.match) : -1]),
       eggs: this.eggs.map((e) => [e.species, +e.x.toFixed(2), +e.z.toFixed(2), e.count, +e.t.toFixed(1), e.genes, e.hybrid ? 1 : 0, e.bought ? 1 : 0, +(e.total || 0).toFixed(1), e.stage === 'laid' ? 0 : 1, e.ready ? 1 : 0, e.tank ? [e.tank.x, e.tank.z] : 0]),
     };
   }
@@ -815,12 +833,17 @@ export class FishSystem {
     this.eggs.length = 0;
     this.bones.length = 0;
     const tankAt = (xz) => (xz ? this.game.structures.list.find((s) => s.def.tank && s.x === xz[0] && s.z === xz[1]) : null);
-    for (const [id, x, z, adult, age, hunger, g, tagged, love, name, tk, fed = 0.5, luck = 0] of data.fish || []) {
+    const made = [], matches = [];
+    for (const [id, x, z, adult, age, hunger, g, tagged, love, name, tk, fed = 0.5, luck = 0, match = -1] of data.fish || []) {
       const genes = g && typeof g === 'object' ? g : rollGenes(id, this.game.mods);
       const tank = tankAt(tk);
       const f = tank ? this.spawn(id, x, z, { adult: !!adult, hunger, g: genes }) : this.spawn(id, x, z, { adult: !!adult, hunger, g: genes });
       if (f) { f.age = age; f.tagged = !!tagged; f.love = love || 0; f.name = name || null; f.fed = fed; f.luck = luck; if (tank) this.game.tanks?.put(f, tank, { quiet: true }); }
+      made.push(f || null);
+      matches.push(match);
     }
+    // arranged matches point at each other by save index
+    made.forEach((f, k) => { const m = made[matches[k]]; if (f && m && m !== f) f.match = m; });
     for (const [species, x, z, count, t, genes, hybrid, bought, total, fert = 1, ready = 0, tk = 0] of data.eggs || []) {
       if (bought && Array.isArray(genes) && !tk) { const e = this.addBoughtEgg(species, genes[0], t, { x, z }); if (e) { e.total = total || t; if (ready) e.ready = true; } continue; }
       const gs = Array.isArray(genes) ? genes : [rollGenes(species, this.game.mods)];

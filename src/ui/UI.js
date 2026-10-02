@@ -20,7 +20,7 @@ import { LAND_BY_ID } from '../data/landAnimals.js';
 import { sizeLabel, hatchCard as hatchCardFor, rollGenes as rollGenesFor } from '../game/genes.js';
 
 // optional components (built by separate modules; the UI degrades gracefully)
-const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js', './bagArt.js', './FoodPicker.js', './Encyclopedia.js', './RestaurantMenu.js', './TeacherOverlay.js'], { eager: true });
+const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js', './bagArt.js', './FoodPicker.js', './Encyclopedia.js', './RestaurantMenu.js', './TeacherOverlay.js', './Matchmaker.js', './QuestLog.js'], { eager: true });
 import.meta.glob(['./fonts.css', './foodpicker.css', './encyclopedia.css', './restaurantmenu.css', './teacher.css', './classroom.css'], { eager: true });
 import { Blueprint } from './Blueprint.js';
 import { natureCanvas } from '../art/natureArt.js';
@@ -77,6 +77,7 @@ const TOOLS = [
   { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
   { tool: 'land', icon: 'map', label: 'Land', key: 0, title: 'Land: buy the plots around you', feature: 'land' },
   { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: "Reynard's lab", feature: 'lab' },
+  { panel: 'match', icon: 'heart', label: 'Match', key: 0, title: 'Matchmaker: pick the parents, breed the perfect fish', feature: 'match' },
   { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },
   { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 9, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
 ];
@@ -201,6 +202,7 @@ export class UI {
         this.game.setTool(cur === b.dataset.tool && cur !== 'feed' ? { kind: 'feed' } : { kind: b.dataset.tool });
       } else if (b.dataset.panel) {
         if (b.dataset.panel === 'lab') { if (this.panel === 'lab') this.closePanel(); else this.openLab(); return; }
+        if (b.dataset.panel === 'match') { if (this.matchCard) this.closeMatchmaker(); else this.openMatchmaker(); return; }
         if (this.panel === b.dataset.panel) this.closePanel();
         else this.openPanel(b.dataset.panel);
       }
@@ -640,6 +642,8 @@ export class UI {
       this.setText('tagcnt', `${game.tagLimit() - game.tagsUsed()}`);
       Tutorial.progress(game);
       this.syncFoodPicker();
+      // the quest note steps aside for cutscenes, the lab and the classroom
+      this.questLog?.setVisible?.(!game.cutscene?.active && !game.lab?.active && !game.classroom?.active && !game.bedtime?.active && !game.tutorial?.active && !this.matchCard && st.phase !== 'night');
     }
     if (this.clock) {
       try { this.clock.update(dt, { hour: st.hour, phase: st.phase, day: st.day, weekday: game.weekday(), speed: st.speed, paused: st.paused, sections: this.clockSections() }); } catch { /* ignore */ }
@@ -2165,6 +2169,39 @@ export class UI {
       sfx: (n, o) => game.audio.play(n, { volume: 0.45, ...(o || {}) }),
       label: p.order.label,
     }).catch(() => {}).finally(() => { st.paused = wasPaused; done(); });
+  }
+
+  // ------------------------------------------------------------ Matchmaker (arranged breeding)
+  openMatchmaker(preselect = null) {
+    const game = this.game;
+    const MM = C('Matchmaker');
+    const M = game.matchmaking;
+    if (!MM?.openMatchmaker || !M) { game.notify('The Matchmaker is out to lunch.', 'no'); return; }
+    this.closePanel();
+    this.closeMatchmaker();
+    const wasPaused = game.state.paused;
+    game.state.paused = true;
+    this.matchCard = MM.openMatchmaker(this.root, {
+      fish: M.cards(),
+      preselect,
+      predict: (a, b) => M.predict(a, b),
+      onArrange: (a, b) => { const r = M.arrange(a, b); setTimeout(() => this.matchCard?.refresh?.(M.cards()), 300); return r; },
+      icon: (n, sc) => ico(n, sc),
+      sfx: (n, o) => game.audio.play(n, { volume: 0.45, ...(o || {}) }),
+      onClose: () => { this.matchCard = null; game.state.paused = wasPaused; },
+    });
+    game.emit('matchOpen');
+  }
+
+  closeMatchmaker() { const c = this.matchCard; this.matchCard = null; c?.close?.(); }
+
+  // the pinned quest note under the coin counter
+  ensureQuestLog() {
+    if (this.questLog) return this.questLog;
+    const QL = C('QuestLog');
+    if (!QL?.createQuestLog) return null;
+    this.questLog = QL.createQuestLog(this.root, { icon: (n, sc) => ico(n, sc), sfx: (n, o) => this.game.audio.play(n, { volume: 0.4, ...(o || {}) }) });
+    return this.questLog;
   }
 
   // paper tags over nests: egg count + next hatch

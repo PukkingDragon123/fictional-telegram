@@ -19,7 +19,7 @@ const Classroom = clsMods['./Classroom.js']?.Classroom || null;
 const teachMods = import.meta.glob('../ui/TeacherOverlay.js', { eager: true });
 const TeacherOverlay = teachMods['../ui/TeacherOverlay.js']?.TeacherOverlay || null;
 
-export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'land', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews'];
+export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'land', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews', 'match'];
 
 export class Tutorial {
   constructor(game) {
@@ -163,14 +163,6 @@ export class Tutorial {
     game.state.unlocked = [];
     game.ui?.refreshUnlocks?.();
     try { game.fox.rig?.setOutfit?.('teacher'); } catch { /* ignore */ } // school day!
-
-    // ---- opening flyover: the mountain office, the trail, the pond, the hut
-    await this.cine([
-      { at: { x: OFFICE.x, z: OFFICE.z + 6 }, wupp: 0.05, yaw: 0, cut: true, dur: 2.6, caption: 'Ontario, Canada', sub: 'Up the mountain: Bear Corp. Hundreds of hungry office bears.' },
-      { at: { x: OFFICE.x, z: (OFFICE.z + MEADOW.z1) / 2 }, wupp: 0.045, yaw: -0.3, dur: 3, caption: 'Every day at 5 PM...', sub: '...they come down the trail. Starving.' },
-      { at: { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 + 2 }, wupp: 0.04, yaw: 0.25, dur: 3, caption: 'Down by the pond', sub: 'lives a fox with a plan.' },
-      { at: { x: HUT.x + 1.5, z: HUT.z + 2 }, wupp: 0.016, yaw: 0, dur: 2.4, caption: 'Reynard\'s Fish Co.', sub: '"Fresh fish. Questionable ethics."' },
-    ]);
 
     // ---- inside the fox's room: it's a school day
     L.enterTutorial();

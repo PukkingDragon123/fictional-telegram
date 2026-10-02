@@ -123,14 +123,16 @@ export const BASE_MODS = {
   produceMult: 1, bugMult: 1, bugBonus: 0, digMult: 1, buildSpeed: 1, beaverBonus: 0, capacityMult: 1, capacityBonus: 0,
   payMult: 1, patienceMult: 1, tipMult: 1, calmChance: 0, bearBonus: 0, badReviewMult: 1, rampageReduce: 0,
   eggSlots: 0, hatchSpeed: 1, morphMult: 1, traitMult: 1, snackMealMult: 1, beautyMult: 1, bagBonus: 1, tagBonus: 0, nurtureMult: 1,
+  mutationMult: 1, clearPayMult: 1, cropLuck: 1,
 };
 
-export function computeMods(researched, legacyTails = 0) {
+// `extra`: more mod sets added on top (villager perks from opened areas)
+export function computeMods(researched, legacyTails = 0, extra = []) {
   const m = { ...BASE_MODS };
-  for (const id of researched) {
-    const r = RESEARCH_BY_ID[id];
-    if (!r || !r.mods) continue;
-    for (const [k, v] of Object.entries(r.mods)) m[k] = (m[k] ?? 0) + v;
+  const sets = researched.map((id) => RESEARCH_BY_ID[id]?.mods).concat(extra);
+  for (const mods of sets) {
+    if (!mods) continue;
+    for (const [k, v] of Object.entries(mods)) m[k] = (m[k] ?? 0) + v;
   }
   m.payMult *= 1 + legacyTails * 0.1;
   m.badReviewMult = Math.max(0.2, m.badReviewMult);

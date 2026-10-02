@@ -528,3 +528,14 @@ body.lab-full .hud, body.lab-full .toolbar, body.lab-full .toolhint, body.lab-fu
 .landtag b { color: #c8442a; }
 .landtag span { display: flex; align-items: center; gap: 2px; }
 body.cine .landtag, body.blueprint .landtag { display: none; }
+
+/* "Who lives here?" tags over closed fog banks */
+.fogtag { position: absolute; left: 0; top: 0; z-index: 5; display: flex; align-items: center; gap: 6px; padding: 3px 9px 4px 4px; cursor: pointer; pointer-events: auto;
+  background: #f6f1e4; border: 3px solid #2a1a14; box-shadow: 0 3px 0 #2a1a14; font-family: var(--font-body); font-size: 16px; color: #2a1a14; white-space: nowrap;
+  animation: fogtag-bob 1.6s ease-in-out infinite alternate; opacity: 0.9; }
+.fogtag b { display: grid; place-items: center; width: 22px; height: 22px; background: #6a7aa8; color: #fff; font-family: var(--font-title); font-size: 18px; border: 2px solid #2a1a14; }
+.fogtag.near { background: #fff4c8; opacity: 1; }
+.fogtag.near b { background: #e8483a; }
+.fogtag:hover { filter: brightness(1.08); }
+@keyframes fogtag-bob { from { margin-top: 0; } to { margin-top: -6px; } }
+body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none !important; }

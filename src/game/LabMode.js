@@ -184,6 +184,7 @@ export class LabMode {
     game.rig.wuppGoal = 0.014;
     game.audio.play('whoosh', { volume: 0.5 });
     document.body.classList.add('lab-trans');
+    game.emit('labOpen');
   }
 
   enterInterior() {
