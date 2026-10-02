@@ -508,22 +508,70 @@ export class Ambient {
       this.draw(kind, Math.floor(T * (bee ? 14 : 7) + f.seed), f.x, gy + hover + Math.sin(T * 6 + f.seed) * 0.05, f.z, { flip: f.face < 0, ay: 0.5, emissive: night > 0.5 ? 0.2 : 0 });
     }
 
-    // ---- dragonflies dart over the water
+    // ---- dragonflies over the water: hover, dart, zip, and now and then
+    // land on a cattail tip or a lily pad (wings flat, a little glint)
+    if (!this._dfPerchT || game.time - this._dfPerchT > 8) {
+      this._dfPerchT = game.time;
+      this._dfPerch = game.structures.list.filter((s) => s.built && !s.removed && (s.type === 'cattail' || s.type === 'lilypad'))
+        .map((s) => ({ x: s.x + 0.5, z: s.z + 0.5, y: s.type === 'cattail' ? game.structures.baseY(s) + 1.25 : WATER_Y + 0.06 }));
+    }
     for (const d of this.dragons) {
       if (night > 0.6) break;
-      if (!d.placed) { const p = this.game.fish.randomWaterPoint(-1); if (!p) continue; d.x = p.x; d.z = p.z; d.placed = true; }
+      if (!d.placed) { const p = this.game.fish.randomWaterPoint(-1); if (!p) continue; Object.assign(d, { x: p.x, z: p.z, y: 0.45, placed: true, mode: 'hover', t: rand(0.5, 1.5) }); }
       d.t -= dt;
       if (d.t <= 0) {
-        const p = this.game.fish.randomWaterPoint(-1);
-        if (p && Math.hypot(p.x - d.x, p.z - d.z) < 6) { d.vx = (p.x - d.x) * 1.4; d.vz = (p.z - d.z) * 1.4; }
-        else { d.vx = 0; d.vz = 0; }
-        d.t = Math.random() < 0.5 ? 0.6 : rand(1.5, 3);
+        const r = Math.random(), perch = this._dfPerch;
+        if (d.mode === 'perch' || d.mode === 'land') { const an = rand(0, Math.PI * 2); d.mode = 'zip'; d.t = 0.35; d.vx = Math.cos(an) * 5; d.vz = Math.sin(an) * 5; d.ty = rand(0.4, 0.7); } // take off with a zip
+        else if (r < 0.18 && perch.length) { // land somewhere nearby
+          const s = pick(perch);
+          if (Math.hypot(s.x - d.x, s.z - d.z) < 8) { d.mode = 'land'; d.px = s.x; d.pz = s.z; d.py = s.y; d.t = 4; } else { d.mode = 'hover'; d.t = 0.5; }
+        } else {
+          const p = this.game.fish.randomWaterPoint(-1);
+          if (p && Math.hypot(p.x - d.x, p.z - d.z) < 6) {
+            const zip = r > 0.75;
+            const sp = zip ? 7 : 3.2, len = Math.hypot(p.x - d.x, p.z - d.z) || 1;
+            d.vx = ((p.x - d.x) / len) * sp; d.vz = ((p.z - d.z) / len) * sp;
+            d.mode = zip ? 'zip' : 'dart'; d.t = zip ? 0.3 : Math.min(0.9, len / sp + 0.1);
+          } else { d.mode = 'hover'; d.t = rand(0.6, 2.2); }
+          if (d.mode === 'dart' || d.mode === 'zip') { d.ty = rand(0.3, 0.75); }
+        }
+        if (d.mode === 'hover') d.ty = rand(0.3, 0.7);
       }
-      const k = Math.exp(-dt * 3);
-      d.x += d.vx * dt; d.z += d.vz * dt; d.vx *= k; d.vz *= k;
-      d.face = this.faceOf(d.vx, d.vz, d.face || 1);
-      if (Math.abs(d.vx) + Math.abs(d.vz) < 0.2 && Math.random() < dt * 0.4) parts.ripple(d.x, d.z, 0.2, 0.6, 0.15);
-      this.draw('dragonfly', Math.floor(T * 20), d.x, WATER_Y + 0.4 + Math.sin(T * 4 + d.seed) * 0.06, d.z, { flip: d.face < 0, ay: 0.5 });
+      let y = WATER_Y + (d.y ?? 0.45);
+      if (d.mode === 'land' || d.mode === 'perch') {
+        const dx = d.px - d.x, dz = d.pz - d.z, dist = Math.hypot(dx, dz);
+        const ty = d.py - WATER_Y;
+        if (d.mode === 'land') {
+          // glide in, slow down at the end, hover-drop onto the spot
+          const sp = Math.min(3.5, dist * 4 + 0.3);
+          if (dist > 0.02) { d.x += (dx / dist) * Math.min(dist, sp * dt); d.z += (dz / dist) * Math.min(dist, sp * dt); }
+          d.y += (ty - d.y) * Math.min(1, dt * (dist < 0.3 ? 8 : 2));
+          d.face = this.faceOf(dx, dz, d.face || 1);
+          if (dist < 0.03 && Math.abs(ty - d.y) < 0.02) { d.mode = 'perch'; d.t = rand(3, 8); d.glint = 0; }
+          d.vx = d.vz = 0;
+        } else if (this.threat(d.x, d.z) < 1.4) d.t = 0; // spooked: zip off
+        y = WATER_Y + d.y;
+      } else {
+        const k = Math.exp(-dt * (d.mode === 'zip' ? 5 : 3));
+        d.x += d.vx * dt; d.z += d.vz * dt; d.vx *= k; d.vz *= k;
+        d.y += ((d.ty ?? 0.45) - d.y) * Math.min(1, dt * 3);
+        d.face = this.faceOf(d.vx, d.vz, d.face || 1);
+        const sp = Math.hypot(d.vx, d.vz);
+        // hovering bobs and sways; flying fast holds steady
+        const bob = Math.max(0, 1 - sp / 2);
+        d.x += Math.sin(T * 2.3 + d.seed) * dt * 0.15 * bob;
+        y = WATER_Y + d.y + Math.sin(T * 5 + d.seed) * 0.04 * bob;
+        if (sp < 0.2 && Math.random() < dt * 0.4) parts.ripple(d.x, d.z, 0.2, 0.6, 0.15);
+      }
+      if (d.mode === 'perch') {
+        // wings flat; every few seconds a quick sun glint
+        d.glint = (d.glint || 0) + dt;
+        const fr = d.glint % 2.6 < 0.25 ? 1 : 0;
+        this.draw('dragonfly_rest', fr, d.x, y, d.z, { flip: d.face < 0, ay: 0.5 });
+      } else {
+        // 6-frame wing beat; zips beat faster
+        this.draw('dragonfly', Math.floor(T * (d.mode === 'zip' ? 30 : 22) + d.seed * 7), d.x, y, d.z, { flip: d.face < 0, ay: 0.5 });
+      }
     }
 
     // ---- frogs on the shore croak, and plop into the water when startled

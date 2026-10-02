@@ -497,33 +497,118 @@ BUGS.mayfly = () => {
 };
 
 // --- dragonfly (seen from above, two wing pairs) ---------------------------
-BUGS.dragonfly = () => {
-  const pal = { ...WING, p: '#3a3048', a: '#4898f0', A: '#8ad0ff', s: '#1e3070', t: '#3cb878', T: '#90e8a8', E: '#2a6ab8', e: '#c8f4ff' };
-  return sprite([
-    [
-      '....pvv....vvp.',
-      '.....vVv..vVv..',
-      '......vVvvVv...',
-      '........tTTeE..',
-      'AasasasaatTTEE.',
-      '........tttEE..',
-      '......vVvvVv...',
-      '.....vVv..vVv..',
-      '....pvv....vvp.',
-    ],
-    [
-      '...............',
-      '...pvvv.pvvv...',
-      '.....vVvvVVv...',
-      '........tTTeE..',
-      'AasasasaatTTEE.',
-      '........tttEE..',
-      '.....vVvvVVv...',
-      '...pvvv.pvvv...',
-      '...............',
-    ],
-  ], pal, { late: WL, auto: 0.2, noShade: 'Ee' });
+// Procedural so the wing beat sweeps smoothly. Body: iridescent tail sliding
+// from teal (thorax end) to deep blue (tip) with dark segment rings, a
+// green-teal thorax and two big glossy compound eyes. Wings: pale membrane
+// dithered in two tones (reads as see-through), a dark leading edge, cross
+// veins, a pterostigma spot near the tip and a white highlight streak.
+// Fly frames 0-5: spread, rising, up (foreshortened), downstroke blur x2, low.
+// Rest frames (dragonfly_rest): wings flat and swept, frame 1 = glint.
+const DF = {
+  tail: pals(['#173a78', '#1f62b0', '#2a92d4', '#5cd0ea', '#b4f6ff']),
+  tailT: pals(['#11504e', '#1a8a84', '#26b8b0', '#6ae6d0', '#c4fff0']),
+  ring: hx('#14204a'),
+  thor: pals(['#0f4a46', '#1a8a74', '#2ab894', '#78e8b8', '#d0ffe0']),
+  eye: pals(['#122a7a', '#1f4cc0', '#3486ec', '#78c4ff']),
+  glint: hx('#f4feff'),
+  w1: hx('#e2f4ff'), w2: hx('#bcdcf4'), vein: hx('#7e9ccc'), costa: hx('#4a68a8'), stig: hx('#2c3a6a'), whi: hx('#ffffff'),
 };
+// shaded ellipse body part, ramp picked by top-left light (+ a little dither)
+function dfBlob(p, cx, cy, rx, ry, ramp, bias = 0) {
+  ellipse(p, cx, cy, rx, ry, (x, y) => {
+    const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry;
+    const I = clamp(-(nx * LX + ny * LY) * 0.9 + bias + (BAYER4[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * 0.25, -1, 1);
+    return pick(ramp, I);
+  });
+}
+// One wing from root (rx, ry) along angle a (0 = +x), length L, half-width W.
+// o.blur + o.sparse: pale dithered ghost (motion blur); o.over paints on top.
+function dfWing(p, rx, ry, a, L, W, o = {}) {
+  const ca = Math.cos(a), sa = Math.sin(a);
+  const side = Math.sign(sa) || 1; // +1 = lower wing (screen y down)
+  const R = Math.ceil(L + W + 1);
+  for (let y = Math.floor(ry - R); y <= ry + R; y++)
+    for (let x = Math.floor(rx - R); x <= rx + R; x++) {
+      const dx = x + 0.5 - rx, dy = y + 0.5 - ry;
+      const u = dx * ca + dy * sa; // along the wing
+      const v = -dx * sa + dy * ca; // across it
+      if (u < 0 || u > L) continue;
+      const t = u / L;
+      const half = W * Math.sqrt(Math.max(0, 1 - Math.pow(t * 2 - 1.05, 2))) + 0.35;
+      if (Math.abs(v) > half) continue;
+      if (o.sparse !== undefined && hash(x, y, o.seed || 0) > o.sparse) continue;
+      let c = (x + y) & 1 ? DF.w1 : DF.w2;
+      if (o.blur) c = hash(x, y, 7) < 0.5 ? DF.w1 : mix(DF.w1, DF.whi, 0.6);
+      else {
+        const lead = -v * side; // > 0 on the head-side edge
+        if (lead > half - 0.9) c = DF.costa;
+        else if (Math.abs(v) < 0.5 && t < 0.85) c = DF.vein;
+        else if (Math.round(u) % 3 === 0 && t > 0.2 && t < 0.9 && Math.abs(v) < half - 0.6) c = mix(DF.vein, DF.w2, 0.45);
+        if (t > 0.76 && t < 0.92 && lead > half - 1.9 && lead <= half - 0.9) c = DF.stig;
+        if (t > 0.28 && t < 0.62 && lead > 0 && lead < 1.1 && Math.abs(v) >= 0.5) c = DF.whi;
+      }
+      if (!p.on(x, y) || o.over) p.set(x, y, c);
+    }
+}
+// pose: fl/hl = fore/hind wing length, fa/ha = sweep (negative = forward)
+function dfFrame(S, pose, glint) {
+  const W = Math.round(24 * S), H = Math.round(19 * S);
+  const p = new Px(W + 4, H + 4);
+  const cy = 2 + H / 2;
+  const tx0 = 2 + 1.5 * S, thx = 2 + 13.6 * S, hx0 = 2 + 18.4 * S;
+  const { fl, fa, hl, ha, blur } = pose;
+  const wingPair = (rx, len, tilt, wid) => {
+    for (const sgn of [-1, 1]) {
+      const a = (sgn * Math.PI) / 2 + sgn * tilt;
+      if (blur) for (let k = 0; k < 3; k++) dfWing(p, rx, cy + sgn * 0.6 * S, a + sgn * (k - 1) * 0.3, len * (1.06 - k * 0.12), wid * 1.2, { blur: true, sparse: 0.5, seed: k + 3 });
+      dfWing(p, rx, cy + sgn * 0.6 * S, a, len, wid, { over: !!blur });
+    }
+  };
+  wingPair(thx - 1.8 * S, hl * S, ha, 1.75 * S); // hind wings under
+  wingPair(thx + 0.9 * S, fl * S, fa, 1.45 * S); // forewings over
+  // tail: tapering, iridescent, ringed
+  const tl = thx - 1.5 * S - tx0;
+  for (let i = 0; i <= tl * 2; i++) {
+    const x = tx0 + i / 2, t = (x - tx0) / tl;
+    const r = (1.15 + 0.4 * t) * S;
+    dfBlob(p, x, cy, Math.max(0.8, r * 0.8), r, t > 0.55 ? DF.tailT : DF.tail, 0.2);
+  }
+  const tails = new Set([...DF.tail, ...DF.tailT]);
+  for (let k = 1; k < 7; k++) {
+    const x = Math.round(tx0 + (tl * k) / 7.2);
+    for (let y = Math.floor(cy - 2 * S); y <= cy + 2 * S; y++) if (p.on(x, y) && tails.has(p.get(x, y))) p.set(x, y, mix(p.get(x, y), DF.ring, 0.55));
+  }
+  dfBlob(p, thx, cy, 2.6 * S, 2.3 * S, DF.thor, 0.05);
+  for (const sy of [-1, 1]) p.tint(Math.round(thx - 0.3 * S), Math.round(cy + sy * 1.1 * S - 0.5), mix(DF.thor[1], DF.ring, 0.5));
+  // eyes: two big glossy domes meeting in the middle, little face in front
+  for (const sy of [-1, 1]) dfBlob(p, hx0, cy + sy * 1.7 * S, 2.4 * S, 2.2 * S, DF.eye, 0.1);
+  dfBlob(p, hx0 + 2.0 * S, cy, 0.9 * S, 1.0 * S, DF.thor, 0.2);
+  for (const sy of [-1, 1]) {
+    const gx = Math.round(hx0 - 0.7 * S), gy = Math.round(cy + sy * 1.7 * S - 1.1 * S);
+    p.tint(gx, gy, DF.glint);
+    if (S > 1.1) p.tint(gx + 1, gy, DF.eye[3]);
+  }
+  outline(p, { k: 0.62, lit: 0.48 });
+  if (glint) { // sparkle on the forewing tip
+    const a = -Math.PI / 2 - fa, L = fl * S * 0.9;
+    const gx = Math.round(thx + 0.6 * S + Math.cos(a) * L), gy = Math.round(cy - 0.6 * S + Math.sin(a) * L);
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) p.set(gx + dx, gy + dy, dx || dy ? hx('#c8f4ff') : DF.whi);
+  }
+  return p;
+}
+const DF_FLY = [
+  { fl: 10.5, fa: -0.3, hl: 9.6, ha: 0.32 }, // spread
+  { fl: 8.4, fa: -0.2, hl: 9.2, ha: 0.26 }, // rising
+  { fl: 5.4, fa: -0.1, hl: 7.0, ha: 0.18 }, // up, foreshortened
+  { fl: 9.0, fa: -0.38, hl: 6.0, ha: 0.4, blur: true }, // downstroke blur
+  { fl: 10.8, fa: -0.46, hl: 8.8, ha: 0.48, blur: true }, // downstroke blur
+  { fl: 9.6, fa: -0.36, hl: 10.0, ha: 0.4 }, // low, hind wings catching up
+];
+const DF_REST = { fl: 10.4, fa: -0.5, hl: 9.6, ha: 0.55 };
+const dfFrames = (poses, S, glints = []) => finish(poses.map((po, i) => dfFrame(S, po, glints[i])), 'centre');
+BUGS.dragonfly = () => dfFrames(DF_FLY, 0.8);
+// perched on a reed / lily pad: [still, still + glint]
+const dragonflyRest = () => dfFrames([DF_REST, DF_REST], 0.8, [false, true]);
 
 // --- damselfly (slim teal, wings folded over the back) ---------------------
 BUGS.damselfly = () => {
@@ -992,20 +1077,8 @@ ICONS.mayfly = () => sprite([[
 ]], { u: '#a08e70', v: '#fbf8ec', V: '#dccfb0', b: '#ecd08a', B: '#c49a50', e: '#3a2418', l: '#7a6040', t: '#b09868' },
 { late: 'uvVlt', auto: 0.3, noShade: 'e' });
 
-ICONS.dragonfly = () => sprite([[
-  '.....puvvvu.pvvvvu.',
-  '......uvVvVuuvVvVu.',
-  '.......uvVvVvVvVu..',
-  '.........uvVvVu....',
-  '..........tTTeEE...',
-  'AasAasAasatTTTEEE..',
-  '..........tttTEE...',
-  '.........uvVvVu....',
-  '.......uvVvVvVvVu..',
-  '......uvVvVuuvVvVu.',
-  '.....puvvvu.pvvvvu.',
-]], { ...WING, p: '#3a3048', a: '#4898f0', A: '#8ad0ff', s: '#1e3070', t: '#3cb878', T: '#90e8a8', E: '#2a6ab8', e: '#c8f4ff' },
-{ late: WL, auto: 0.2, noShade: 'Ee' });
+// big, glinting resting pose for cards and the UI
+ICONS.dragonfly = () => dfFrames([DF_REST], 1.0, [true]);
 
 ICONS.damselfly = () => sprite([[
   '.....pvvvvvvvu....',
@@ -1832,7 +1905,7 @@ export const BUG_ART = {
   ladybug: { name: 'Ladybug', colors: ['#e8352c', '#26161e'], anim: { walk: [0, 1] } },
   firefly: { name: 'Firefly', colors: ['#e4fa88', '#2e2622'], anim: { fly: [0, 1] } },
   mayfly: { name: 'Mayfly', colors: ['#ecd08a', '#f8f4e6'], anim: { fly: [0, 1] } },
-  dragonfly: { name: 'Dragonfly', colors: ['#4898f0', '#3cb878'], anim: { fly: [0, 1] } },
+  dragonfly: { name: 'Dragonfly', colors: ['#2a92d4', '#26b8b0'], anim: { fly: [0, 1, 2, 3, 4, 5], rest: [0] } },
   damselfly: { name: 'Damselfly', colors: ['#30d0c8', '#123040'], anim: { fly: [0, 1] } },
   cricket: { name: 'Cricket', colors: ['#2a2226', '#8a6c52'], anim: { walk: [0, 1], hop: [2] } },
   grasshopper: { name: 'Grasshopper', colors: ['#86c844', '#ece070'], anim: { walk: [0, 1], hop: [2] } },
@@ -1855,4 +1928,7 @@ const OUT = {};
 for (const [id, fn] of Object.entries(BUGS)) OUT['bug_' + id] = () => fn().map(toRGBA);
 for (const [id, fn] of Object.entries(ICONS)) OUT['bugicon_' + id] = () => fn().map(toRGBA);
 for (const [id, fn] of Object.entries(FARMS)) OUT['farm_' + id] = () => fn().map(toRGBA);
+// the ambient pond dragonfly (natureArt 'dragonfly') shares the bug art
+OUT.dragonfly = () => BUGS.dragonfly().map(toRGBA);
+OUT.dragonfly_rest = () => dragonflyRest().map(toRGBA);
 export const EXTRA_SPRITES = OUT;

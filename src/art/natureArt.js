@@ -2564,6 +2564,7 @@ function birdFrames(tpl, names, pal, o = {}) {
 // ===========================================================================
 const GLASS = (a = 118) => ({ v: ['#e8f6ff', a], V: ['#b8dcf4', a - 14] });
 const BUGS = {
+  // legacy: the live 'dragonfly' sprite now comes from extra/bugArt.js
   dragonfly: [
     [
       '..vv..vv...',
@@ -3677,7 +3678,7 @@ function swampReeds(W, H, seed, o = {}) {
   for (let x = 0; x < W; x++) if (p.on(x, H - 1)) p.set(x, H - 1, mix(p.get(x, H - 1), INK, 0.3));
   outline(p, { noBottom: true, k: 0.55, lit: 0.45 });
   // a dragonfly resting on a reed tip
-  if (o.dragonfly) stamp(p, ['v.v', 'bBt', 'v.v'], { v: ['#e8f6ff', 200], b: '#e85a3a', B: '#b8362a', t: '#ff8a5a' }, W - 6, Math.round(H * 0.35));
+  if (o.dragonfly) stamp(p, ['.vv.v.', 'bBbtTE', '.vv.v.'], { v: '#e2f4ff', b: '#1f62b0', B: '#2a92d4', t: '#26b8b0', T: '#6ae6d0', E: '#3486ec' }, W - 8, Math.round(H * 0.35));
   return p;
 }
 
