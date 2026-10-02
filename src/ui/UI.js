@@ -638,6 +638,7 @@ export class UI {
       this.hudT = 0.5;
       this.setText('tagcnt', `${game.tagLimit() - game.tagsUsed()}`);
       Tutorial.progress(game);
+      this.syncFoodPicker();
     }
     if (this.clock) {
       try { this.clock.update(dt, { hour: st.hour, phase: st.phase, day: st.day, weekday: game.weekday(), speed: st.speed, paused: st.paused, sections: this.clockSections() }); } catch { /* ignore */ }
@@ -1252,7 +1253,11 @@ export class UI {
   // the food shelf over the toolbar while the Food tool is active
   syncFoodPicker() {
     const game = this.game;
-    const show = game.tool.kind === 'feed' && game.isOpen('feed') && !game.inputLocked && !this.blueprint?.open && !this.ebuy && !game.lab?.active;
+    const only = game.tutorialOnly;
+    const show = game.tool.kind === 'feed' && game.isOpen('feed') && !game.inputLocked && !this.blueprint?.open && !this.ebuy && !game.lab?.active
+      && !this.book?.isOpen && !this.menu?.isOpen && this.panel !== 'lab' && (!only || only === 'feed');
+    if (this.foodPicker && show === this.pickerShown) { if (show && this.foodPicker.selectedId !== game.foodStore.selected) { this.foodPicker.setSelected?.(game.foodStore.selected); this.foodPicker.selectedId = game.foodStore.selected; } return; }
+    this.pickerShown = show;
     const FP = C('FoodPicker')?.FoodPicker;
     if (!FP) return;
     if (!this.foodPicker && show) {
