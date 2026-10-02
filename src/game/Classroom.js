@@ -576,18 +576,30 @@ export class Classroom {
     return new THREE.Vector3(x, 0, BOARD.z + off.z);
   }
 
+  // Draw from the SIDE: Reynard stands just outside the area the doodles will
+  // cover (the nearer side), turned 3/4 to the class, and reaches in with the
+  // chalk; afterwards he steps a little further out so the drawing stays clear.
   async _draw(items, speed = 1) {
     const f = this.fox, room = this.room;
     const list = [].concat(items);
-    const first = list.find((it) => it && (it.x != null || Array.isArray(it.arrow) || Array.isArray(it.line)));
     if (f) {
+      const bb = this.board.measure(list) || [80, 40, 112, 68];
+      const L = room.board.pxToWorld(bb[0], (bb[1] + bb[3]) / 2, new THREE.Vector3());
+      const R = room.board.pxToWorld(bb[2], (bb[1] + bb[3]) / 2, new THREE.Vector3());
+      const bx0 = BOARD.cx - BOARD.w / 2, bx1 = BOARD.cx + BOARD.w / 2;
+      // nearer side, unless that side has no room left in the room
+      let side = (bb[0] + bb[2]) / 2 < this.board.w / 2 ? -1 : 1;
+      if (side < 0 && L.x - 0.3 < bx0 - 0.9) side = 1;
+      if (side > 0 && R.x + 0.3 > bx1 + 1.4) side = -1;
+      const big = (R.x - L.x) / BOARD.w; // wide drawings push him further out
+      const off = 0.26 + big * 0.12;
+      const x = side > 0 ? R.x + off : L.x - off;
+      this._drawSide = { side, x, aside: side > 0 ? R.x + off + 0.32 : L.x - off - 0.32 };
       f.holdProp?.('chalk');
-      let x0 = 96, y0 = 54;
-      if (first) { const a = first.arrow || first.line; x0 = a ? a[0] : first.x; y0 = a ? a[1] : first.y; }
-      const p = room.board.pxToWorld(x0, y0, new THREE.Vector3());
-      await this.walkTo(this._standFor(p, 'chalk'), -Math.PI / 2);
+      await this.walkTo(new THREE.Vector3(x, 0, BOARD.z + 0.36), side > 0 ? -0.95 : 0.95);
       this._check();
-      f.play(this._anim('chalk_draw', 'idle'), { loop: true, fade: 0.25 });
+      f.play('idle', { loop: true, fade: 0.25 });
+      const p = room.board.pxToWorld(side > 0 ? bb[2] : bb[0], bb[1], new THREE.Vector3());
       this.aimV.copy(p);
       f.setAim?.(this.aimV);
       this.foxState.follow = 'chalk';
@@ -597,6 +609,8 @@ export class Classroom {
     if (f) {
       f.setAim?.(null);
       f.holdProp?.('pointer');
+      const d = this._drawSide;
+      if (d && !this._skip) await this.walkTo(new THREE.Vector3(d.aside, 0, BOARD.z + 0.5), d.side > 0 ? -0.6 : 0.6);
       f.play(this._anim('teach_explain', 'talk'), { loop: true, fade: 0.3 });
     }
   }
@@ -731,11 +745,9 @@ export class Classroom {
       const tip = this.board.tipPos();
       const w = this.room.board.pxToWorld(tip.x, tip.y, new THREE.Vector3(), 0.01);
       this.aimV.lerp(w, 1 - Math.exp(-dt * 22));
-      const stand = this._standFor(w, 'chalk');
-      const dx = stand.x - root.position.x;
-      if (Math.abs(dx) > 0.12) root.position.x += Math.sign(dx) * Math.min(Math.abs(dx) - 0.1, dt * 1.6);
-      root.position.z += (stand.z - root.position.z) * Math.min(1, dt * 4);
-      fs.yaw = -Math.PI / 2;
+      // he stays beside the drawing (only the arm follows), facing 3/4 to the class
+      const d = this._drawSide;
+      fs.yaw = d ? (d.side > 0 ? -0.95 : 0.95) : -Math.PI / 2;
       // up on tiptoes for the top of the board
       const lift = Math.max(0, Math.min(0.2, (w.y - 1.3) * 0.5));
       fs.lift = (fs.lift || 0) + (lift - (fs.lift || 0)) * Math.min(1, dt * 8);

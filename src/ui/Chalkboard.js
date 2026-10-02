@@ -1325,6 +1325,21 @@ export class Chalkboard {
     });
   }
 
+  /** Bounding box [x0, y0, x1, y1] (board px) that `items` would cover, without drawing them. */
+  measure(items) {
+    const serial = this.serial;
+    let b = null;
+    for (const it of (Array.isArray(items) ? items : [items]).filter(Boolean)) {
+      const c = this._compile(normalize(it));
+      this.items.delete(c.id);
+      if (!c.strokes.length) continue;
+      const q = c.bbox;
+      b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : q.slice();
+    }
+    this.serial = serial;
+    return b;
+  }
+
   /** Wipe the board. animated: an eraser swipes across leaving faint ghosts. */
   erase({ animated = true, speed = 1 } = {}) {
     return new Promise((resolve) => {

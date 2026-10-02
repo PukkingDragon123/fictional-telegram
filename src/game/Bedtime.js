@@ -186,10 +186,10 @@ export class Bedtime {
     };
     const zcv = rowsCanvas(Z_ROWS, ZPAL);
     for (let i = 0; i < 6; i++) this.fx.zs.push({ s: mk(zcv, 0.1), on: false, t: 0 });
-    for (let i = 0; i < 3; i++) this.fx.bubs.push(mk(rowsCanvas(BUB, CPAL), 0.05));
+    for (let i = 0; i < 3; i++) this.fx.bubs.push(mk(rowsCanvas(BUB, CPAL), 0.06));
     this.fx.cloudCv = document.createElement('canvas');
     this.fx.cloudCv.width = CLOUD[0].length * 2; this.fx.cloudCv.height = CLOUD.length * 2;
-    this.fx.cloud = mk(this.fx.cloudCv, 0.42);
+    this.fx.cloud = mk(this.fx.cloudCv, 0.56);
     this._drawDream(0);
   }
 
@@ -355,7 +355,7 @@ export class Bedtime {
     this.cam('close');
     this._fxOn();
     this._sfx('bed_lullaby', { volume: 0.45 });
-    await this.wait(4.2);
+    await this.wait(4.4);
     // iris close
     this._irisGoal = 1; this._irisDur = 1.6;
     await this.wait(1.7);
@@ -431,7 +431,9 @@ export class Bedtime {
     // cuts are cuts: jump there
     rig.target.copy(a.target); rig.wupp = wupp; rig.yaw = rig.yawGoal; rig.pitch = rig.pitchGoal;
     void instant;
-    this._push = name === 'close' ? { w0: wupp, t: 0 } : null;
+    // the sleep shot slowly pushes in toward head-and-shoulders on the pillow (and never closer)
+    const face = this.room.anchors.camFace;
+    this._push = name === 'close' && face ? { w0: wupp, w1: Math.max(face.fit.w / Math.max(1, r?.lowW || 640), face.fit.h / Math.max(1, r?.lowH || 360)), a, face, t: 0 } : null;
   }
 
   // ---------------------------------------------------------------- sleep effect
@@ -455,7 +457,7 @@ export class Bedtime {
     if (F.nextZ <= 0) {
       F.nextZ = 0.85;
       const z = F.zs.find((q) => !q.on);
-      if (z) { z.on = true; z.t = 0; z.size = 0.06 + Math.random() * 0.02; z.o = head.clone().add(new THREE.Vector3(0.12, 0.05, 0.08)); }
+      if (z) { z.on = true; z.t = 0; z.size = 0.085 + Math.random() * 0.025; z.o = head.clone().add(new THREE.Vector3(0.14, 0.08, 0.08)); }
     }
     for (const z of F.zs) {
       if (!z.on) continue;
@@ -464,20 +466,20 @@ export class Bedtime {
       if (u >= 1) { z.on = false; z.s.visible = false; continue; }
       const k = u < 0.12 ? (u / 0.12) * 1.2 : u < 0.2 ? 1.2 - (u - 0.12) / 0.08 * 0.2 : u > 0.82 ? 1 - (u - 0.82) / 0.18 : 1;
       z.s.visible = true;
-      z.s.position.set(z.o.x + u * 0.3 + Math.sin(z.t * 3) * 0.04, z.o.y + u * 0.45, z.o.z);
+      z.s.position.set(z.o.x + u * 0.38 + Math.sin(z.t * 3) * 0.05, z.o.y + u * 0.55, z.o.z);
       const s = z.size * (1 + u * 1.3) * k;
       z.s.scale.set(s, s, 1);
       z.s.material.rotation = Math.sin(z.t * 2.5) * 0.25;
     }
     // dream cloud: trail of little bubbles, then the cloud bobs in; the dream changes every 1.2 s
     const cl = F.cloud, appear = Math.min(1, Math.max(0, (F.t - 0.6) / 0.35));
-    const base = head.clone().add(new THREE.Vector3(-0.32, 0.3, -0.05));
+    const base = head.clone().add(new THREE.Vector3(-0.4, 0.36, -0.05));
     F.bubs.forEach((b, i) => {
       const k = Math.min(1, Math.max(0, (F.t - 0.15 - i * 0.15) / 0.2));
       b.visible = k > 0;
       b.position.lerpVectors(head.clone().add(new THREE.Vector3(-0.05, -0.02, 0.05)), base, (i + 1) / 4);
       b.position.y += Math.sin(F.t * 2 + i) * 0.008;
-      const s = (0.025 + i * 0.012) * (k < 1 ? k * 1.2 : 1);
+      const s = (0.032 + i * 0.016) * (k < 1 ? k * 1.2 : 1);
       b.scale.set(s, s, 1);
     });
     cl.visible = appear > 0;
@@ -495,7 +497,7 @@ export class Bedtime {
     if (F.tw <= 0) {
       F.tw = 0.45;
       const p = f.root.worldToLocal(head.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.9, (Math.random() - 0.2) * 0.5, 0.15)));
-      f.puff('star', p, { vel: new THREE.Vector3(0, 0.05, 0), life: 0.9, size: 0.035 + Math.random() * 0.02 });
+      f.puff('star', p, { vel: new THREE.Vector3(0, 0.05, 0), life: 1.0, size: 0.05 + Math.random() * 0.03 });
     }
   }
 
@@ -572,7 +574,14 @@ export class Bedtime {
     this.room.update(dt, this.clock);
     this._tickFx(dt);
     // slow push-in on the sleeping face
-    if (this._push) { this._push.t += dt; this.rig.wuppGoal = this.rig.wupp = this._push.w0 * (1 - Math.min(0.12, this._push.t * 0.025)); }
+    if (this._push) {
+      const P = this._push;
+      P.t += dt;
+      const k = Math.min(1, P.t / 5.5), e = k * k * (3 - 2 * k);
+      this.rig.wuppGoal = this.rig.wupp = P.w0 + (P.w1 - P.w0) * e;
+      this.rig.target.lerpVectors(P.a.target, P.face.target, e); this.rig.goal.copy(this.rig.target);
+      this.rig.pitch = this.rig.pitchGoal = P.a.pitch + (P.face.pitch - P.a.pitch) * e;
+    }
     if (this.game.renderer) this.rig.update(dt, this.game.renderer);
     this._tickIris(dt);
   }

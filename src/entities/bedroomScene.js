@@ -474,12 +474,16 @@ export function buildBedroom() {
   // ---- lights
   const lights = {
     hemi: new THREE.HemisphereLight(0xffe2c0, 0x3a2418, 1.0),
-    moon: new THREE.DirectionalLight(0x9ab0ff, 0.5),
+    moon: new THREE.DirectionalLight(0xc0ccff, 0.5),
     fill: new THREE.DirectionalLight(0xffd8a8, 0.9),
     lamp: new THREE.PointLight(0xffc070, 3.2, 3.6, 1.3),
     night: new THREE.PointLight(0xffb050, 0.4, 1.4, 1.5),
+    // warm glow by the bed once the lamp is off (keeps his orange fur reading in the moonlight)
+    rim: new THREE.PointLight(0xffa860, 0, 1.6, 1.4),
   };
-  lights.moon.position.set(-0.4, 3.4, 1.6); lights.moon.target.position.set(0.8, 0.4, -1.2);
+  lights.rim.position.set(BX + 0.65, FOX_BED.height + 0.55, BZ - FOX_BED.head + 0.35);
+  group.add(lights.rim);
+  lights.moon.position.set(-0.3, 2.6, -0.2); lights.moon.target.position.set(0.9, 0.35, -0.9); // from the window, onto the pillow
   lights.fill.position.set(1.2, 4, 5); lights.fill.target.position.set(0, 0.6, -0.8);
   lights.lamp.position.copy(stand.lampAt);
   lights.night.position.copy(nl);
@@ -507,13 +511,15 @@ export function buildBedroom() {
     camSink: { ...box(-2.25, -0.25, 0, 1.6, -1.6, 0.2, 16, 1.0), yaw: 0.45 },
     camScreen: box(-1.35, 0.55, 0, 1.45, -1.1, 0.2, 16, 1.05),
     camBed: box(-0.35, 1.95, 0, 1.2, -1.6, 0.3, 52, 1.03),
-    camClose: box(BX - 1.0, BX + 0.9, FOX_BED.height + 0.15, FOX_BED.height + 1.35, pillow.z - 0.3, pillow.z + 0.55, 58, 1.0),
+    // sleep beat: a medium shot (whole bed, window with the moon, nightstand), pushing in to head-and-shoulders (camFace)
+    camClose: box(-0.75, 1.95, 0.1, 2.15, -1.6, 0.05, 40, 1.02),
+    camFace: box(BX - 1.0, BX + 0.95, FOX_BED.height + 0.1, FOX_BED.height + 1.55, pillow.z - 0.2, pillow.z + 0.6, 44, 1.0),
   };
 
   // ---- state + animation
   const MOOD = {
-    lamp: { hemi: [0xffe2c0, 0x3a2418, 1.0], moon: 0.45, fill: 0.85, lamp: 3.2, night: 0.35, beam: 0.05, motes: 0.15, shade: 1 },
-    moon: { hemi: [0x5a68b8, 0x0c0c18, 0.62], moon: 1.3, fill: 0.06, lamp: 0, night: 1.1, beam: 0.06, motes: 0.6, shade: 0.42 },
+    lamp: { hemi: [0xffe2c0, 0x3a2418, 1.0], moon: 0.45, fill: 0.85, lamp: 3.2, night: 0.35, beam: 0.03, motes: 0.15, shade: 1, rim: 0 },
+    moon: { hemi: [0x8a98d8, 0x2a2238, 0.95], moon: 1.9, fill: 0.32, lamp: 0, night: 1.4, beam: 0.025, motes: 0.5, shade: 0.42, rim: 1.6 },
   };
   const cur = { k: 0, goal: 0 }; // 0 = lamp on, 1 = moonlit
   const cA = new THREE.Color(), cB = new THREE.Color();
@@ -524,7 +530,7 @@ export function buildBedroom() {
     lights.hemi.groundColor.copy(cA.setHex(a.hemi[1])).lerp(cB.setHex(b.hemi[1]), k);
     lights.hemi.intensity = L(a.hemi[2], b.hemi[2]);
     lights.moon.intensity = L(a.moon, b.moon); lights.fill.intensity = L(a.fill, b.fill);
-    lights.lamp.intensity = L(a.lamp, b.lamp); lights.night.intensity = L(a.night, b.night);
+    lights.lamp.intensity = L(a.lamp, b.lamp); lights.night.intensity = L(a.night, b.night); lights.rim.intensity = L(a.rim, b.rim);
     beamMat.opacity = L(a.beam, b.beam); moteMat.opacity = L(a.motes, b.motes);
     shadeMat.color.setScalar(L(a.shade, b.shade));
   }
