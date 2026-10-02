@@ -165,7 +165,7 @@ export class FishSystem {
 
   // only adults with a full "well fed" meter fall in love
   eligibleForLove(f) {
-    return f.adult && !f.held && f.fed >= 1 && f.hunger < 0.75 && f.loveT <= 0 && f.state !== 'flee' && f.state !== 'court' && !f.jump;
+    return f.adult && !f.held && f.fed >= 0.9 && f.hunger < 0.75 && f.loveT <= 0 && f.state !== 'flee' && f.state !== 'court' && !f.jump;
   }
 
   // a bite of food: hunger down, "well fed" meter up, plus the food's extras
@@ -179,7 +179,7 @@ export class FishSystem {
     if (F.happy) f.love = Math.min(1, f.love + F.happy * scale);
     if (F.grow) f.growT = Math.max(f.growT || 0, F.grow * scale);
     if (F.luck) f.luck = Math.min(1, (f.luck || 0) + F.luck * scale);
-    if (was < 1 && f.fed >= 1) this.readyFx(f);
+    if (was < 0.9 && f.fed >= 0.9) this.readyFx(f);
   }
 
   // cute "full belly, ready for love!" pop
@@ -307,7 +307,7 @@ export class FishSystem {
         if (f.thinkT <= 0) {
           f.thinkT = 0.35 + Math.random() * 0.3;
           f.target = null;
-          if ((f.hunger > 0.22 || (f.fed < 1 && f.adult)) && !night) {
+          if ((f.hunger > 0.22 || (f.fed < 0.9 && f.adult)) && !night) {
             const pel = food.nearestPellet(f.x, f.z, 5.5, f.region);
             if (pel) f.target = { kind: 'pellet', ref: pel };
             else if (f.hunger > 0.4) {
@@ -347,7 +347,7 @@ export class FishSystem {
                 f.hunger = Math.max(0, f.hunger - 0.2 * mods.foodMult);
                 const was = f.fed;
                 f.fed = Math.min(1, f.fed + 0.08);
-                if (was < 1 && f.fed >= 1) this.readyFx(f);
+                if (was < 0.9 && f.fed >= 0.9) this.readyFx(f);
                 game.particles.bubbles(f.x, f.y + 0.1, f.z, 1);
               }
               f.target = null;
@@ -625,7 +625,7 @@ export class FishSystem {
         f.hunger = Math.max(0, f.hunger - 0.45 * this.game.mods.foodMult);
         const wasFed = f.fed;
         f.fed = Math.min(1, f.fed + 0.3);
-        if (wasFed < 1 && f.fed >= 1) this.readyFx(f);
+        if (wasFed < 0.9 && f.fed >= 0.9) this.readyFx(f);
         f.bugBoost = 30;
         this.game.particles.sparkle(f.x, f.y + 0.1, f.z, 4, 0xd8ffa0);
         this.game.audio.play('nibble', { volume: 0.4, pitch: 1.3 });

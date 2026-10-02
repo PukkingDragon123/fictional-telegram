@@ -85,7 +85,7 @@ export class Tanks {
     if (s.removed) { this.release(f); return; }
     const b = this.box(s);
     f.hunger = Math.max(0.05, f.hunger - dt * 0.004); // the tank feeds them
-    if (f.adult && f.fed < 1) { f.fed = Math.min(1, f.fed + dt * 0.012); if (f.fed >= 1) this.game.fish.readyFx(f); }
+    if (f.adult && f.fed < 1) { const was = f.fed; f.fed = Math.min(1, f.fed + dt * 0.012); if (was < 0.9 && f.fed >= 0.9) this.game.fish.readyFx(f); }
     // dad on egg duty
     if (f.state === 'fertilize' && f.eggs && f.eggs.stage === 'laid' && !f.eggs.dead) {
       f.tx = f.eggs.x; f.tz = f.eggs.z; f.ty = b.y0 + 0.02;
@@ -136,7 +136,7 @@ export class Tanks {
       if (inTank.length < 2) continue;
       if (fish.eggs.some((e) => e.tank === s && e.stage === 'laid')) continue;
       if (inTank.some((f) => f.dateT > 0)) continue;
-      const ok = inTank.filter((f) => f.adult && f.fed >= 1 && f.loveT <= 0 && f.state !== 'fertilize');
+      const ok = inTank.filter((f) => f.adult && f.fed >= 0.9 && f.loveT <= 0 && f.state !== 'fertilize');
       for (const a of ok) {
         const b = ok.find((o) => o !== a && fish.compatible(a, o));
         if (!b) continue;

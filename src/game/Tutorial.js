@@ -148,6 +148,7 @@ export class Tutorial {
     game.tutorialHold = true; // the clock waits until the tour is over
     game.state.unlocked = [];
     game.ui?.refreshUnlocks?.();
+    try { game.fox.rig?.setOutfit?.('teacher'); } catch { /* ignore */ } // school day!
 
     // ---- inside the fox's room: it's a school day
     L.enterTutorial();
@@ -211,7 +212,7 @@ export class Tutorial {
     stop = this.pointAt(() => this.fishScreen(two[0]));
     this.teach('...then <b>tap the water</b> next to them! Fill their ♥ meters!', { target: () => this.fishScreen(two[0]), dur: 6 });
     this.nag(() => 'Tap the water near the fish to feed them!');
-    const fed = () => two.every((f) => f.dead || f.fed >= 1);
+    const fed = () => two.every((f) => f.dead || f.fed >= 0.9);
     await this.waitFor(fed);
     this.stopNag();
     stop?.();
@@ -364,6 +365,7 @@ export class Tutorial {
     game.unlockFeature('speed');
     game.setTool({ kind: 'feed' });
     try { const t = this.teacher; if (t) { t.clearChalk(); await t.hide(); } } catch { /* ignore */ }
+    try { game.fox.rig?.setOutfit?.('default'); } catch { /* ignore */ }
     this.follow = false;
     game.tutorialHold = false;
     game.state.tutorialDone = true;

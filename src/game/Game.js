@@ -680,7 +680,7 @@ export class Game {
     // night breeding: well-fed couples lay a clutch
     const fish = this.fish;
     const room = () => fish.capacity() - fish.population();
-    const singles = fish.list.filter((f) => f.adult && f.fed >= 1 && !f.tank);
+    const singles = fish.list.filter((f) => f.adult && f.fed >= 0.9 && !f.tank);
     const used = new Set();
     for (const a of singles) {
       if (used.has(a) || room() <= 1) continue;
