@@ -18,10 +18,10 @@
 // billboards in round fishbowls on little desks, with painted-on glasses, a
 // bow, a sleepy fish and a keen one that raises a fin.
 import * as THREE from 'three';
-import { VoxelModel, shade, mix } from '../core/voxel.js';
+import { VoxelModel, shade } from '../core/voxel.js';
 import { mulberry32, hash2, hash3 } from '../core/rng.js';
-import { Chalkboard, pixelText, doodleRows, chalkRGB } from '../ui/Chalkboard.js';
-import { fishCanvasFor, FISH_TPU } from '../game/fishSprites.js';
+import { Chalkboard, pixelText } from '../ui/Chalkboard.js';
+import { fishCanvasFor } from '../game/fishSprites.js';
 
 export const CLASS_VOXEL = 0.05;
 export const CLASS_BACKGROUND = 0x1a1420;
@@ -80,7 +80,6 @@ const canvasTex = (cv) => {
   t.generateMipmaps = false;
   return t;
 };
-const hexCss = (h) => '#' + (h >>> 0).toString(16).padStart(6, '0');
 
 // ================================================================== shell
 function buildFloor(R) {
@@ -148,11 +147,6 @@ function buildWalls(R) {
     R.set(x, HT - 2, ZB, TRIM); R.set(x, HT - 1, ZB, TRIM_L);
   }
   // side walls, cut down in steps toward the front (dollhouse)
-  const topAt = (z) => {
-    if (z < ZB + 6) return HT;
-    const k = Math.min(1, (z - (ZB + 6)) / 58);
-    return Math.max(22, Math.round(HT - (HT - 22) * k / 4) * 4 - Math.round(k * 4) * 4) ;
-  };
   for (const side of [-1, 1]) {
     for (let z = ZB - 4; z <= ZF - 3; z++) {
       const top = Math.min(HT, Math.max(22, Math.floor((HT - Math.max(0, z - (ZB + 4)) * 0.75) / 4) * 4));
@@ -165,7 +159,6 @@ function buildWalls(R) {
       }
     }
   }
-  void topAt;
 }
 
 // window cut into the back wall with blinds, sill and a plant
@@ -682,7 +675,7 @@ export function buildClassroom(opts = {}) {
     group.add(m);
     return m;
   };
-  const roomMesh = addMesh(R.build({ scale: V }), litMat, { name: 'classRoom' });
+  addMesh(R.build({ scale: V }), litMat, { name: 'classRoom' });
   if (G.vox.size) addMesh(G.build({ scale: V, ao: false }), glowMat, { cast: false, receive: false });
   GL.paint(() => 0xffffff);
   addMesh(GL.build({ scale: V, ao: false }), glassMat, { cast: false, receive: false, name: 'classGlass' });
@@ -1142,6 +1135,5 @@ export function buildClassroom(opts = {}) {
   setNight(false);
   update(0, 0, null);
   group.userData.buildMs = performance.now() - t0;
-  void roomMesh; void FISH_TPU; void mix; void hexCss; void doodleRows; void chalkRGB;
   return { group, anchors, board, students: studentsApi, update, setNight, setClock, dispose, lights, background: CLASS_BACKGROUND };
 }

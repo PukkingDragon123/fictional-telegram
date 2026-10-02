@@ -278,14 +278,6 @@ export class Classroom {
     return new Promise((res, rej) => { this._timers.push({ t: this.clock + sec, res: () => (this._skip ? rej(SKIP) : res()) }); });
   }
   _check() { if (this._skip) throw SKIP; }
-  // resolve once the condition holds (polled every tick)
-  until(fn, max = 30) {
-    return new Promise((res, rej) => {
-      const t0 = this.clock;
-      const poll = { t: 0, poll: () => fn() || this.clock - t0 > max, res: () => (this._skip ? rej(SKIP) : res()) };
-      this._timers.push(poll);
-    });
-  }
 
   // ---------------------------------------------------------------- flow
   async _run(script, opts) {
@@ -588,7 +580,7 @@ export class Classroom {
     // timers / polls
     for (let i = this._timers.length - 1; i >= 0; i--) {
       const t = this._timers[i];
-      if ((t.poll && t.poll()) || (!t.poll && this.clock >= t.t)) { this._timers.splice(i, 1); t.res(); }
+      if (this.clock >= t.t) { this._timers.splice(i, 1); t.res(); }
     }
     if (!this.room) return;
     this._tickFox(dt);
