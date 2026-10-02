@@ -201,6 +201,7 @@ export class Game {
       try { ok = a.test(this); } catch { ok = false; }
       if (!ok) continue;
       st.achievements.push(a.id);
+      (st.achievementDays ||= {})[a.id] = st.day;
       st.coins += a.reward;
       if (this.day) this.day.income.trophies += a.reward;
       this.emit('coins', { delta: a.reward });

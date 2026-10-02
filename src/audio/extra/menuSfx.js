@@ -75,9 +75,9 @@ function menuCloseSfx(ctx, dest, o, { Voice }) {
 
 export const EXTRA_SFX = {
   menu_open: { fn: menuOpen, max: 1, gap: 0.3, g: 1.4 },
-  menu_close: { fn: menuCloseSfx, max: 1, gap: 0.2, g: 1.5 },
+  menu_close: { fn: menuCloseSfx, max: 1, gap: 0.2, g: 1.1 },
   menu_page: { fn: menuPage, max: 2, gap: 0.08, g: 1.6 },
   fanfare_small: { fn: fanfareSmall, max: 1, gap: 0.5, g: 1.3 },
-  clink: { fn: clink, max: 3, gap: 0.05, g: 1.4 },
+  clink: { fn: clink, max: 3, gap: 0.05, g: 2.0 },
   spotlight: { fn: spotlight, max: 1, gap: 0.3, g: 1.5 },
 };

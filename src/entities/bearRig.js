@@ -1565,7 +1565,7 @@ export function registerBearTypes(types) { _types = types; }
 export const MAW_DROP = 10; // lower-jaw drop at full gape (voxels)
 const MAW_TOP = 18.6; // head-space y of the palate line under the muzzle
 const PUCKER_AT = [0, 19.2, 9.6];
-const CHEEK_AT = [6.5, 20.5, 4.3];
+const CHEEK_AT = [7.0, 20.4, 5.0];
 const kitCache = new Map();
 
 function bodyFrontZ(L, x, y) {
@@ -1581,51 +1581,58 @@ function eatKitGeometry(typeId, L) {
   const geo = (v, px = 0, py = 0, pz = 0) => v.build({ pivot: [px + 0.5, py, pz + 0.5], scale: 0.1 });
   const TEETH = 0xfffaf0, TEETH_D = 0xe2d6c4, GUM = 0x9a2a3e, DARK = 0x4a0e1a, DEEP = 0x2a0610, THROAT = 0x14030a;
   const TONGUE = 0xf25f7e, TONGUE_D = 0xc83a58, LIP = mix(light, 0xb8485a, 0.22);
-  // --- upper maw (head child, y relative to MAW_TOP): wide palate, rolled lip, teeth + two big fangs
+  // The maw outline is a rounded "D" in x/z (flat-ish back, round front). The throat
+  // slants forward as it goes down so a fat chest never pokes into the mouth.
+  const inOut = (x, z, cz, rx, rz) => (x / rx) ** 2 + ((z - cz) / rz) ** 2 * (z < cz ? 0.35 : 1);
+  // --- upper maw (head child, y relative to MAW_TOP): palate, rolled lip, a fence of teeth + two big fangs
   const top = new VoxelModel();
-  for (let x = -6; x <= 6; x++)
-    for (let z = 4; z <= 10; z++) {
-      const ax = Math.abs(x);
-      if (ax === 6 && (z >= 10 || z <= 4)) continue;
-      const rim = z === 10 || ax === 6;
-      top.set(x, 0, z, rim ? (z === 10 ? LIP : light) : z >= 8 ? GUM : DARK);
-      if (rim && ax <= 5) top.set(x, 1, z, light);
+  for (let x = -7; x <= 7; x++)
+    for (let z = 4; z <= 13; z++) {
+      const q = inOut(x, z, 8.6, 6.9, 3.9);
+      if (q > 1) continue;
+      const rim = q > 0.62 && z >= 7;
+      top.set(x, 0, z, rim ? LIP : q > 0.55 ? GUM : DARK);
+      if (rim) top.set(x, 1, z, light);
+      if (q > 0.38 && q <= 0.62 && z >= 8) {
+        const fang = Math.abs(x) === 3 || Math.abs(x) === 4 && z < 10;
+        top.set(x, -1, z, (x + z) % 3 ? TEETH : TEETH_D);
+        if (fang) { top.set(x, -2, z, TEETH); top.set(x, -3, z, TEETH_D); }
+      }
     }
-  for (const x of [-5, -4, -2, -1, 1, 2, 4, 5]) top.set(x, -1, 9, (x + 9) % 3 ? TEETH : TEETH_D);
-  for (const x of [-3, 3]) { top.set(x, -1, 9, TEETH); top.set(x, -2, 9, TEETH); top.set(x, -3, 9, TEETH_D); }
-  for (const x of [-6, 6]) for (let z = 6; z <= 8; z++) top.set(x, -1, z, TEETH_D); // molars along the sides
   // --- throat interior (head child, scaled in y by the gape): dark walls, a deep throat, a wobbly uvula
   const inner = new VoxelModel();
   for (let y = -MAW_DROP; y <= -1; y++) {
     const v = -y / MAW_DROP; // 0 at the palate .. 1 at the jaw
-    for (let x = -6; x <= 6; x++) {
-      const ax = Math.abs(x);
-      const th = ((x / 2.6) ** 2 + ((v - 0.5) / 0.3) ** 2) < 1;
-      inner.set(x, y, 4, th ? THROAT : ((v - 0.5) / 0.42) ** 2 + (x / 5) ** 2 < 1 ? DEEP : DARK);
-      if (ax === 6) for (let z = 5; z <= 9; z++) inner.set(x, y, z, z >= 9 ? GUM : z >= 7 ? mix(DARK, GUM, 0.5) : DARK);
-    }
+    const cz = 8.6 + 1.2 * v;
+    for (let x = -7; x <= 7; x++)
+      for (let z = 4; z <= 13; z++) {
+        const q = inOut(x, z, cz, 6.9, 3.9);
+        if (q > 1 || q < 0.6) continue; // a hollow tube
+        if (z > cz + 1 && Math.abs(x) < 6) continue; // open at the front
+        const back = z <= cz;
+        const th = back && Math.abs(x) <= 2 && v > 0.25 && v < 0.85;
+        inner.set(x, y, z, th ? THROAT : back && Math.abs(x) <= 4 ? DEEP : z > cz + 1 ? GUM : DARK);
+      }
   }
-  inner.set(0, -1, 5, 0xe8607a); inner.set(0, -2, 5, 0xf27a90); inner.set(0, -3, 5, 0xd84a66); // uvula
-  // --- lower jaw (head child, drops by gape * MAW_DROP): tongue on top, lower fangs, lip, chin fluff
+  inner.set(0, -1, 5, 0xe8607a); inner.set(0, -2, 5, 0xf27a90); inner.set(0, -3, 6, 0xd84a66); // uvula
+  // --- lower jaw (head child, drops by gape * MAW_DROP): tongue, a lower fence of teeth, lip, chin fluff
   const bot = new VoxelModel();
-  for (let x = -6; x <= 6; x++)
-    for (let z = 4; z <= 10; z++) {
-      const ax = Math.abs(x);
-      if (ax === 6 && (z >= 10 || z <= 4)) continue;
-      const rim = z === 10 || ax === 6;
-      bot.set(x, -2, z, ax >= 5 ? fur : light);
-      bot.set(x, -1, z, rim ? (z === 10 ? LIP : light) : GUM);
+  for (let x = -7; x <= 7; x++)
+    for (let z = 4; z <= 14; z++) {
+      const q = inOut(x, z, 9.8, 6.9, 3.9);
+      if (q > 1) continue;
+      const rim = q > 0.62 && z >= 8;
+      bot.set(x, -2, z, Math.abs(x) >= 6 ? fur : light);
+      bot.set(x, -1, z, rim ? LIP : GUM);
+      if (q <= 0.45) bot.set(x, 0, z, x === 0 && z >= 7 ? TONGUE_D : TONGUE);
+      if (q > 0.45 && q <= 0.62 && z >= 9) {
+        bot.set(x, 0, z, (x + z) % 3 ? TEETH : TEETH_D);
+        if (Math.abs(x) === 4 || Math.abs(x) === 5 && z < 11) { bot.set(x, 1, z, TEETH); bot.set(x, 2, z, TEETH_D); }
+      }
     }
-  for (let x = -4; x <= 4; x++)
-    for (let z = 4; z <= 9; z++) {
-      if (Math.abs(x) === 4 && (z === 9 || z === 4)) continue;
-      bot.set(x, 0, z, x === 0 && z >= 5 && z <= 8 ? TONGUE_D : TONGUE);
-    }
-  bot.set(-1, 1, 7, TONGUE); bot.set(1, 1, 6, TONGUE); // a lolling tongue tip
-  for (const x of [-5, -2, -1, 1, 2, 5]) bot.set(x, 0, 9, TEETH);
-  for (const x of [-4, 4]) { bot.set(x, 0, 10, TEETH); bot.set(x, 1, 10, TEETH); bot.set(x, 2, 10, TEETH_D); }
-  for (let x = -2; x <= 2; x++) bot.set(x, -3, 8, x % 2 ? L.furTuft : light);
-  bot.set(0, -3, 9, L.furTuft);
+  bot.set(-1, 1, 9, TONGUE); bot.set(1, 1, 8, TONGUE); // a lolling tongue tip
+  for (let x = -2; x <= 2; x++) bot.set(x, -3, 12, x % 2 ? L.furTuft : light);
+  bot.set(0, -3, 13, L.furTuft);
   // --- slurp pucker (head child at PUCKER_AT): a lippy ring pushed forward with a dark hole
   const puck = new VoxelModel();
   for (let x = -3; x <= 3; x++)
@@ -1640,7 +1647,7 @@ function eatKitGeometry(typeId, L) {
     }
   // --- cheek balloon (head child, one per side)
   const cheek = new VoxelModel();
-  fillSE(cheek, 0, -0.5, 0, 2.7, 2.5, 2.9, 2.2, (x, y, z) => (y <= -2 || z >= 2 ? light : (x + y + z) % 5 === 0 ? L.furTuft : fur));
+  fillSE(cheek, 0, -0.5, 0, 3.3, 3.0, 3.3, 2.2, (x, y, z) => (y <= -2 || z >= 2 ? light : (x + y + z) % 5 === 0 ? L.furTuft : fur));
   cheek.set(0, 0, 3, L.pad); cheek.set(1, 0, 3, L.pad); cheek.set(0, -1, 3, mix(L.pad, light, 0.4));
   // --- swallow lump (spine child): outfit-coloured bulge that slides down the chest front
   const shirtFront = ['jacket', 'tux', 'threepiece', 'trench', 'shirt', 'cardigan'].includes(L.outfit);
@@ -2666,6 +2673,7 @@ Object.assign(POSES, {
     const tremble = win(t, 0.82, 1.5, 0.05, 0.06);
     F.ar(B.head, tilt + Math.sin(t * 47) * 0.025 * tremble, Math.sin(t * 31) * 0.03 * tremble, 0);
     F.mulS(B.head, 1 + 0.2 * big, 1 + 0.24 * big, 1 + 0.18 * big);
+    F.ap(B.head, 0, 0.6 * big, 2.6 * big + c.bz * 0.6 * big);
     F.a[X_GAPE] = Math.max(0, gape);
     if (t >= 0.36) R._cue('unhinge1', 'unhinge');
     if (t >= 0.54) R._cue('unhinge2', 'unhinge');
@@ -2679,7 +2687,7 @@ Object.assign(POSES, {
     F.r(B.tail, 0, 0, Math.sin(t * 16) * 0.35);
     // snack: held at the chest while the jaw unhinges, flicked up, then dropped into the maw
     const lip = mawPt(F, c, Math.max(0, Math.min(1, gape)), _e1);
-    const chest = _e3.set(0, 14.6 + c.hy * 0.5, 10.8 + c.bz);
+    const chest = _e3.set(5, 11.6 + c.hy * 0.3, 11 + c.bz);
     const flick = K(t, [[0.86, 0], [1.08, 1, 'out']]), fall = K(t, [[1.12, 0], [1.44, 1, 'in']]);
     const apexY = lip.y + len * 1.3 + 4;
     if (t < 0.98) {
@@ -2841,6 +2849,7 @@ Object.assign(POSES, {
     const swing = smooth(0.28, 0.42, t);
     const track = K(t, [[0.36, -0.05], [0.7, -0.5], [1.0, -0.62], [1.3, -0.48], [1.54, -0.3], [1.6, 0.26, 'out'], [1.8, 0.04], [2.0, -0.08]]);
     F.ar(B.head, track, 0, 0);
+    F.ap(B.head, 0, 0, 1.6 * win(t, 0.95, 1.56, 0.25, 0.08));
     F.a[X_GAPE] = K(t, [[0.9, 0], [1.26, 0.66, 'back'], [1.5, 0.6], [1.555, 0.72], [1.61, 0, 'in']]);
     // shuffle under it
     const shuffle = K(t, [[0.6, 0], [0.8, 1.7], [1.02, 1.7], [1.22, -0.5], [1.42, 0]]);

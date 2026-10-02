@@ -203,7 +203,7 @@ export function startEat(game, { rig, style = 'chomp', prey, parent = null, spee
         }
         case 'unhinge': sfx('unhinge', { volume: 0.4, pitch: 0.9 + Math.random() * 0.2 }); break;
         case 'drop': sfx('whoosh', { volume: 0.25, pitch: 1.8 }); break;
-        case 'gulp': sfx('gulp', { volume: 0.55 }); word('gulp', m, 1.25); if (!fish) P?.feathers(m.x, m.y, m.z, 3); break;
+        case 'gulp': sfx('gulp', { volume: 0.55 }); word('gulp', rig.headTop(_b), 1.1); if (!fish) P?.feathers(m.x, m.y, m.z, 3); break;
         case 'swallow': sfx('swallow', { volume: 0.45 }); break;
         case 'pat': sfx('pet', { volume: 0.2, pitch: 0.8 }); break;
         case 'rip': {
@@ -218,9 +218,9 @@ export function startEat(game, { rig, style = 'chomp', prey, parent = null, spee
           break;
         }
         case 'slurp': sfx('slurp', { volume: 0.35, pitch: 0.9 + Math.random() * 0.3 }); if (!this._slurpW) { this._slurpW = 1; word('slurp', m, 1); } break;
-        case 'shloop': sfx('shloop', { volume: 0.55 }); word('shloop', m, 1.25); if (!fish) P?.feathers(m.x, m.y, m.z, 4); break;
+        case 'shloop': sfx('shloop', { volume: 0.55 }); word('shloop', rig.headTop(_b), 1.1); if (!fish) P?.feathers(m.x, m.y, m.z, 4); break;
         case 'toss': sfx('whoosh', { volume: 0.3, pitch: 1.3 }); break;
-        case 'catch': sfx('chomp', { volume: 0.55 }); word('chomp', m, 1.2); gore(4, 0.6); break;
+        case 'catch': sfx('chomp', { volume: 0.55 }); word('chomp', rig.headTop(_b), 1.1); gore(4, 0.6); break;
         case 'tada': { const h = rig.headTop(_a); word('tada', h, 1.1); P?.stars?.(h.x, h.y, h.z, 6); sfx('cheer', { volume: 0.25 }); break; }
         case 'napkin': sfx('napkin', { volume: 0.4 }); break;
         case 'cutlery': { sfx('cutlery', { volume: 0.4 }); const h = rig.handPos('L', _a); P?.sparkle(h.x, h.y + 0.2, h.z, 6, 0xffffff); word('ting', h, 0.8); break; }

@@ -1494,7 +1494,7 @@ export class UI {
     if (!M) return false;
     try {
       this.closePanel(); this.closeEBuy();
-      if (!this.menu) this.menu = new M({ game: this.game, root: this.root });
+      if (!this.menu) this.menu = new M({ game: this.game, root: this.root, onClose: () => this.closeSound() });
       if (this.menu.isOpen) { this.menu.close(); return true; }
       this.menu.open({ section: section === 'trophies' ? 'trophies' : section || 'rating' });
       return true;
@@ -1515,7 +1515,7 @@ export class UI {
   closeTop() {
     if (this.game.lab?.active) { this.game.lab.exit?.(); return true; }
     if (this.book?.isOpen) { this.book.close(); return true; }
-    if (this.menu?.isOpen) { this.menu.close(); return true; }
+    if (this.menu?.isOpen) return this.menu.back();
     if (this.ebuy) { this.closeEBuy(); return true; }
     if (this.blueprint?.open) { this.blueprint.exit(); return true; }
     if ((this.paperModal || !this.hud.modal.classList.contains('hidden')) && this.modalDismissable) { this.closeModal(); return true; }

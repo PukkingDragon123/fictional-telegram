@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Land Animals</title>
+<style>
+  :root { --bg: #5f8a3a; --panel: #557f33; --ink: #f6f1df; --dim: #d8e6b8; --line: #3f5f25; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 13px/1.3 ui-monospace, Menlo, Consolas, monospace; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: 1px; }
+  h2 { font-size: 14px; margin: 18px 0 8px; color: #ffe38a; letter-spacing: 1px; text-transform: uppercase; }
+  .sub { color: var(--dim); margin-bottom: 10px; }
+  .row { display: flex; align-items: flex-end; gap: 14px; padding: 8px 6px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .row:nth-child(odd) { background: var(--panel); }
+  .name { width: 170px; flex: none; align-self: center; }
+  .name b { display: block; }
+  .name small { color: var(--dim); }
+  .sw { display: inline-block; width: 12px; height: 12px; margin-right: 3px; border: 1px solid #0004; vertical-align: middle; }
+  .cell { display: flex; flex-direction: column; align-items: center; }
+  canvas { image-rendering: pixelated; display: block; }
+  .lbl { font-size: 10px; color: var(--dim); margin-top: 3px; }
+  .game { background: #6a9a40; padding: 10px; border: 2px solid var(--line); }
+  .errors { color: #ffd0c0; white-space: pre-wrap; }
+  .ok { color: #e0ffb0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./animals-preview.js"></script>
+</body>
+</html>

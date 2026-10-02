@@ -23,7 +23,7 @@ const P = {
   hat: 0x221c2a, hatD: 0x17131d, hatL: 0x3b3348, hatLL: 0x5e5270,
   gold: 0xffdc4a, goldD: 0xf0b030, goldDD: 0xb87a1c, goldL: 0xfff6c4,
   // teacher: heather tweed with rust / moss / oat flecks, suede patches, navy polka-dot bow tie
-  tweed: 0x8a7350, tweedD: 0x68563c, tweedDD: 0x4c3e2b, tweedL: 0xa89068, tweedR: 0xa45a36, tweedG: 0x6e7842, tweedC: 0xccb88e,
+  tweed: 0x8c7552, tweedD: 0x7a6446, tweedDD: 0x54442f, tweedL: 0x9c8460, tweedR: 0x9a6040, tweedG: 0x7a7c4c, tweedC: 0xb4a07a,
   patch: 0x5e3f2a, patchD: 0x46301f, patchL: 0x7c5738,
   shirt: 0xf8f4ea, shirtD: 0xdcd5c6,
   tie: 0x2f4290, tieD: 0x1f2c66, tieL: 0x4a64b4, dot: 0xf4f2fa,
@@ -71,10 +71,11 @@ const ruff = (x, y, z) => (z >= 1 ? creamT(x, y, z) : fur(x, y, z));
 // heather tweed: base tones plus sparse coloured flecks
 const tweed = (x, y, z) => {
   const h = hash3(x * 3 + 11, y * 5 + 7, z * 7 + 3);
-  if (h < 0.05) return P.tweedR;
-  if (h < 0.09) return P.tweedG;
-  if (h < 0.14) return P.tweedC;
-  return tone(x, y, z, P.tweed, P.tweedD, P.tweedL, 0.2, 0.16);
+  if (h < 0.04) return P.tweedR;
+  if (h < 0.07) return P.tweedG;
+  if (h < 0.1) return P.tweedC;
+  // herringbone-ish diagonal weave
+  return (x + y * 2 + z) % 4 === 0 ? P.tweedD : tone(x, y, z, P.tweed, P.tweedD, P.tweedL, 0.1, 0.12);
 };
 const whiteT = (x, y, z) => tone(x, y, z, P.white, P.whiteD, P.whiteL, 0.12, 0.1);
 
@@ -285,28 +286,18 @@ function toqueModel() {
 function pointerModel() {
   const v = new VoxelModel();
   const sq = (y, c) => { for (const x of [-1, 0]) for (const z of [-1, 0]) v.set(x, y, z, typeof c === 'function' ? c(x, y, z) : c); };
-  sq(4, P.rub); sq(3, (x, y, z) => (x < 0 ? P.rubL : P.rub));
-  for (let y = 2; y >= -14; y--) sq(y, (x, yy, z) => (x < 0 && z === 0 ? P.woodL : (yy + x * 3 + z * 5) % 7 === 0 ? P.woodD : P.wood));
-  for (let x = -2; x <= 1; x++) for (let z = -2; z <= 1; z++) if (Math.abs(x + 0.5) + Math.abs(z + 0.5) < 3) v.set(x, -15, z, x < 0 ? P.brass : P.brassD);
-  // glove: cuff ring, fist, index finger, thumb
-  for (let x = -3; x <= 2; x++)
-    for (let z = -3; z <= 2; z++) {
-      const d = Math.hypot(x + 0.5, z + 0.5);
-      if (d > 3.1) continue;
-      v.set(x, -16, z, d > 2.2 ? P.gloveD : P.glove);
-      if (d <= 2.2) v.set(x, -17, z, P.gloveDD);
-    }
-  rbox(v, -2, 1, -21, -18, -2, 1, 1.1, (x, y, z) => (z < -1 || x > 0 ? P.gloveD : P.glove));
-  // curled fingers (knuckle bumps along the front)
-  for (const x of [-1, 0, 1]) v.set(x, -20, 2, x === 0 ? P.gloveD : P.glove);
-  v.set(-2, -19, 2, P.glove);
-  // index finger pointing on along the stick
-  for (let y = -22; y >= -25; y--) for (const x of [-1, 0]) for (const z of [-1, 0]) {
+  sq(4, P.rub); sq(3, (x) => (x < 0 ? P.rubL : P.rub));
+  for (let y = 2; y >= -17; y--) sq(y, (x, yy, z) => (x < 0 && z === 0 ? P.woodL : (yy * 3 + x * 5 + z * 7) % 11 === 0 ? P.woodD : P.wood));
+  sq(-18, (x) => (x < 0 ? P.brass : P.brassD));
+  // tiny cartoon glove: rolled cuff, fist, index finger pointing on along the stick
+  for (let x = -2; x <= 1; x++) for (let z = -2; z <= 1; z++) v.set(x, -19, z, (x === -2 || z === 1) ? P.glove : P.gloveD);
+  rbox(v, -2, 1, -22, -20, -2, 1, 0.9, (x, y, z) => (z < -1 || x > 0 ? P.gloveD : P.glove));
+  for (const x of [-1, 0, 1]) v.set(x, -22, 2, x === 0 ? P.gloveD : P.glove); // curled fingers
+  for (let y = -23; y >= -25; y--) for (const x of [-1, 0]) for (const z of [-1, 0]) {
     if (y === -25 && !(x === -1 && z === 0)) continue; // rounded tip
     v.set(x, y, z, x === 0 && z === -1 ? P.gloveD : P.glove);
   }
-  // thumb tucked on the side
-  v.set(-3, -19, 0, P.glove); v.set(-3, -20, 0, P.gloveD); v.set(-3, -19, -1, P.gloveD);
+  v.set(-3, -21, 0, P.glove); v.set(-3, -20, 0, P.gloveD); // thumb
   return v;
 }
 function chalkModel() {
@@ -399,7 +390,7 @@ export function outfitParts(name) {
       hat: geo('t_hat', mortarboardModel, [0, 0, 0], VS),
       hatTop: 5.2, // voxels above the hat seat (headTop)
       hatTilt: [-0.06, 0, 0.1], // jaunty
-      earSpread: 0.5, // ears tilt out sideways under the board
+      earSpread: 0.9, // ears tilt out sideways under the board
       torso: geo('t_torso', cardiganModel, [0, 0, 0], VS),
       upperL: up, upperR: up, foreL: fo, foreR: fo,
       tassel: {

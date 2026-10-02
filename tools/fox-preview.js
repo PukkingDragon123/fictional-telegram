@@ -246,6 +246,7 @@ function rigPreview() {
   const toWorld = (f, x, y, z, out = new THREE.Vector3()) => { f.root.updateMatrixWorld(true); return f.root.localToWorld(out.set(x, y, z)); };
   const dress = (f) => {
     if (params.get('outfit')) f.setOutfit(params.get('outfit'));
+    if (params.has('earspread')) f._earSpread = num('earspread', 0);
     if (params.get('prop')) f.holdProp(params.get('prop'));
     if (params.get('both') === 'cup') f.holdBoth(makeGoldCup());
     if (aimParam) { const T = toWorld(f, ...aimParam); aimTargets.set(f, T); f.setAim(T); }

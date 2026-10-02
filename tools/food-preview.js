@@ -68,3 +68,58 @@ if (sec('icons')) {
   }
   app.append(row);
 }
+
+// ---- live picker over a fake toolbar (its own full-screen mode: ?only=picker)
+if (only === 'picker') {
+  await import('../src/ui/style.css');
+  await import('../src/ui/fonts.css');
+  const { FoodPicker, harvestPopup } = await import('../src/ui/FoodPicker.js');
+  const { spriteImg } = await import('../src/ui/sprites.js');
+  const audio = (await import('../src/audio/audio.js')).default;
+  document.body.style.cssText = 'margin:0;padding:0;overflow:hidden;background:linear-gradient(#5aa0c8 0 45%, #6aa84a 45%);';
+  app.innerHTML = '';
+  const ui = h('div', '');
+  ui.id = 'ui';
+  document.body.append(ui);
+  const tools = ['food', 'hand', 'tag', 'nurture', 'tank', 'shop', 'hammer', 'bang', 'flask', 'book', 'newspaper'];
+  ui.insertAdjacentHTML('beforeend', `<div class="toolbar f-wood" id="toolbar">${tools.map((t, i) => `<button class="tool f-slot_gold ${i ? '' : 'active'}" ${i ? '' : 'data-tool="feed"'}>${spriteImg(t, 2)}</button>`).join('')}</div>`);
+  const inv = { pellets: 31, flakes: 12, worms: 3, krill: 0, maple: 0, caviar: 0, bugbites: 7, carrot: 5, blueberry: 9, golden_carrot: 1, pumpkin: 2 };
+  const locked = new Set(q.get('locked') ? q.get('locked').split(',') : ['maple', 'caviar']);
+  const order = ['pellets', 'flakes', 'worms', 'krill', 'maple', 'caviar', 'bugbites'];
+  const getItems = () => [
+    ...order.map((id) => ({ id, count: inv[id] || 0, locked: locked.has(id) })),
+    ...Object.keys(inv).filter((id) => !order.includes(id) && inv[id] > 0).map((id) => ({ id, count: inv[id], locked: false })),
+  ];
+  const log = h('div', '');
+  log.style.cssText = 'position:fixed;left:8px;top:40px;font:14px monospace;color:#fff;text-shadow:1px 1px 0 #000;z-index:99';
+  document.body.append(log);
+  const picker = new FoodPicker({
+    root: ui, getItems, selected: q.get('sel') || 'pellets',
+    onSelect: (id) => { log.textContent = 'select ' + id; },
+    onBuy: (id) => { log.textContent = 'buy ' + id; inv[id] = FOODS[id].scoops || 20; locked.delete(id); picker.refresh(); },
+    sfx: (n, o) => audio.play(n, o),
+  });
+  picker.show();
+  const bar = h('div', '');
+  bar.style.cssText = 'position:fixed;left:8px;top:8px;display:flex;gap:6px;z-index:99';
+  const btn = (label, fn) => { const b = h('button', '', label); b.style.cssText = 'color:#222;font:12px monospace;padding:2px 4px'; b.onclick = () => { audio.unlock(); fn(); }; bar.append(b); };
+  btn('throw', () => { const id = picker.sel; if (inv[id] > 0) { inv[id]--; picker.pulse(id); } else audio.play('bag_empty'); });
+  btn('empty all', () => { for (const k of Object.keys(inv)) inv[k] = 0; picker.refresh(); });
+  btn('hide/show', () => (picker.shown ? picker.hide() : picker.show()));
+  const harvest = (legend) => {
+    const items = legend
+      ? [{ id: 'carrot', count: 5, rarity: 4 }, { id: 'golden_carrot', count: 1, rarity: 4, special: true }]
+      : [{ id: 'carrot', count: 4, rarity: 0 }, { id: 'lettuce', count: 3, rarity: 1 }];
+    return harvestPopup({ root: ui, items, from: { x: innerWidth * 0.55, y: innerHeight * 0.35 }, to: document.querySelector('#toolbar .tool'), sfx: (n, o) => audio.play(n, o) })
+      .then(() => { for (const it of items) inv[it.id] = (inv[it.id] || 0) + it.count; picker.refresh(); });
+  };
+  btn('harvest', () => harvest(false));
+  btn('legendary', () => harvest(true));
+  for (const s of ['bag_rustle', 'scoop', 'bag_empty', 'harvest_pop', 'harvest_special', 'bowl_fill', 'crate_drop', 'grinder', 'zap']) btn('♪' + s, () => audio.play(s));
+  document.body.append(bar);
+  window.__picker = picker;
+  window.__inv = inv;
+  window.__harvest = harvest;
+  // seek every running animation (CSS + WAAPI) to t ms for deterministic screenshots
+  window.__seek = (t) => { for (const a of document.getAnimations()) { a.pause(); a.currentTime = t; } };
+}

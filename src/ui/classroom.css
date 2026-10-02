@@ -1,0 +1,130 @@
+/* Professor Reynard's classroom cutscenes (src/game/Classroom.js):
+   letterbox bars, a wood-framed chalkboard speech box with a fox portrait,
+   the chalk-written lesson title card and the gold-star completion stamp. */
+@import './fonts.css';
+
+/* the game HUD steps aside while class is in session */
+body.class-mode .hud, body.class-mode .hud-left, body.class-mode .hud-right, body.class-mode .toolbar,
+body.class-mode .eggtray, body.class-mode .toolhint, body.class-mode .fox, body.class-mode .panel,
+body.class-mode .campad, body.class-mode .fox-notifier, body.class-mode .bigclock-host, body.class-mode .trackchip,
+body.class-mode .eggtag, body.class-mode .daycard, body.class-mode .labui, body.class-mode .cclock-vignette,
+body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbles, body.class-mode .toast {
+  opacity: 0 !important; pointer-events: none !important;
+}
+
+.cls-ui {
+  --wood: #8a5430; --wood-d: #5e3519; --wood-l: #b47442; --ink: #1d1410;
+  --chalk: #f3f0e2; --chalk-y: #f7e07a; --chalk-p: #f6a8c4;
+  position: fixed; inset: 0; z-index: 70; pointer-events: none;
+  font-family: var(--font-body); color: var(--chalk);
+  -webkit-font-smoothing: none; font-synthesis: none; user-select: none; -webkit-user-select: none;
+}
+.cls-ui .hidden { display: none !important; }
+.cls-hit { position: absolute; inset: 0; pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+/* letterbox */
+.cls-bars i { position: absolute; left: 0; right: 0; height: 0; background: #120d16; animation: cls-bar .5s cubic-bezier(.3,1.4,.5,1) .15s forwards; }
+.cls-bars i:first-child { top: 0; }
+.cls-bars i:last-child { bottom: 0; }
+@keyframes cls-bar { to { height: 5.5vh; } }
+
+/* skip */
+.cls-skip {
+  position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); right: 10px; pointer-events: auto; cursor: pointer;
+  font: 18px/1 var(--font-title); color: #f6ead0; letter-spacing: 0;
+  padding: 6px 10px 7px; background: var(--wood); border: 0; border-radius: 0;
+  box-shadow: inset 0 -3px 0 var(--wood-d), inset 0 3px 0 var(--wood-l), 0 0 0 3px var(--ink), 0 4px 0 3px rgba(0,0,0,.35);
+  opacity: .82; transition: transform .1s, opacity .2s;
+}
+.cls-skip b { font-weight: 400; color: var(--chalk-y); }
+.cls-skip:hover { opacity: 1; transform: translateY(-1px); }
+.cls-skip:active { transform: translateY(2px); }
+
+/* speech box: wooden frame around a slate, portrait on the left */
+.cls-say {
+  position: absolute; left: 50%; bottom: calc(5.5vh + 10px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  width: min(760px, calc(100vw - 24px)); min-height: 120px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 14px; padding: 14px 44px 14px 14px;
+  pointer-events: auto; cursor: pointer;
+  background-color: #2a4335; background-size: 384px 160px; image-rendering: pixelated;
+  border: 6px solid var(--wood);
+  box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px var(--wood-d), inset 0 6px 0 3px rgba(0,0,0,.25), 0 9px 0 3px rgba(18,10,8,.45);
+  animation: cls-pop .35s cubic-bezier(.3,1.6,.5,1);
+}
+.cls-say::before { /* wood grain highlight on the frame */
+  content: ''; position: absolute; inset: -6px; pointer-events: none;
+  border-top: 3px solid var(--wood-l); border-left: 3px solid var(--wood-l);
+}
+.cls-say::after { /* chalk tray lip */
+  content: ''; position: absolute; left: 18px; right: 18px; bottom: -12px; height: 6px; background: var(--wood-d);
+  box-shadow: 0 0 0 3px var(--ink);
+}
+@keyframes cls-pop { from { transform: translateX(-50%) translateY(30px) scale(.9); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+.cls-portrait {
+  flex: 0 0 auto; width: 96px; height: 96px; display: grid; place-items: center;
+  background: #f3e2bc; box-shadow: 0 0 0 3px var(--ink), inset 0 -6px 0 #d8c094, inset 0 0 0 3px #fff4d8;
+  transform-origin: 50% 100%;
+}
+.cls-portrait img { display: block; }
+.cls-portrait.bop { animation: cls-bop .4s cubic-bezier(.3,1.8,.5,1); }
+@keyframes cls-bop { 0% { transform: scale(1.12, .86); } 60% { transform: scale(.94, 1.08); } 100% { transform: none; } }
+.cls-body { flex: 1 1 auto; min-width: 0; }
+.cls-name { font: 18px/1 var(--font-title); color: var(--chalk-y); margin: 0 0 6px; letter-spacing: 0; opacity: .9; }
+.cls-text { font-size: 32px; line-height: 28px; min-height: 56px; text-shadow: 0 0 1px rgba(255,255,255,.25); }
+.cls-text b { font-weight: 400; color: var(--chalk-y); }
+.cls-w { display: inline-block; white-space: nowrap; }
+.cls-ch { visibility: hidden; }
+.cls-ch.on { visibility: visible; }
+.cls-ico img { vertical-align: -6px; }
+.cls-next {
+  position: absolute; right: 14px; bottom: 10px; font: 18px/1 var(--font-title); color: var(--chalk-y);
+  opacity: 0; transition: opacity .15s;
+}
+.cls-next.on { opacity: 1; animation: cls-bounce .6s ease-in-out infinite; }
+@keyframes cls-bounce { 50% { transform: translateY(5px); } }
+
+/* lesson title card: a slate in a chunky wooden frame, hung from two nails */
+.cls-title {
+  position: absolute; left: 50%; top: 13vh; transform: translateX(-50%);
+  pointer-events: auto; cursor: pointer;
+}
+.cls-title-wood {
+  padding: 12px; background: var(--wood);
+  box-shadow: 0 0 0 4px var(--ink), inset 0 4px 0 var(--wood-l), inset 0 -5px 0 var(--wood-d), 0 12px 0 4px rgba(10,6,4,.4);
+}
+.cls-title canvas { display: block; width: min(704px, calc(100vw - 60px)); aspect-ratio: 176 / 56; image-rendering: pixelated; box-shadow: 0 0 0 3px var(--wood-d); }
+.cls-title-nail { position: absolute; top: 6px; width: 9px; height: 9px; background: #cfcfd6; box-shadow: 0 0 0 3px var(--ink), inset -3px -3px 0 #8a8a96; }
+.cls-title-nail.l { left: 6px; } .cls-title-nail.r { right: 6px; }
+.cls-title.in { animation: cls-drop .7s cubic-bezier(.25,1.5,.5,1) both; transform-origin: 50% 0; }
+.cls-title.out { animation: cls-flip .45s cubic-bezier(.6,-.4,.8,.6) both; transform-origin: 50% 0; }
+@keyframes cls-drop {
+  0% { transform: translateX(-50%) translateY(-120%) rotate(-6deg); }
+  60% { transform: translateX(-50%) translateY(4%) rotate(2deg); }
+  80% { transform: translateX(-50%) translateY(-1%) rotate(-1deg); }
+  100% { transform: translateX(-50%) rotate(0); }
+}
+@keyframes cls-flip { to { transform: translateX(-50%) translateY(-130%) rotate(8deg) scaleY(.6); opacity: 0; } }
+
+/* gold star stamp */
+.cls-stamp {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
+}
+.cls-stamp canvas { width: 200px; height: 200px; image-rendering: pixelated; filter: drop-shadow(0 6px 0 rgba(20,10,4,.45)); }
+.cls-stamp b { font: 54px/1 var(--font-title); font-weight: 400; color: #ffd23a; text-shadow: 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 3px 0 var(--ink), 0 -3px 0 var(--ink), 3px 3px 0 var(--ink), 0 9px 0 #8a4a10; white-space: nowrap; }
+.cls-stamp i { font: 32px/1 var(--font-body); font-style: normal; color: #fff6dc; text-shadow: 2px 2px 0 var(--ink); }
+.cls-stamp.slam canvas { animation: cls-slam .55s cubic-bezier(.2,1.6,.4,1) both, cls-wiggle 2.4s ease-in-out .6s infinite; }
+.cls-stamp.slam b { animation: cls-slam .55s cubic-bezier(.2,1.6,.4,1) .12s both; }
+.cls-stamp.slam i { animation: cls-fade .4s ease .5s both; }
+@keyframes cls-slam { 0% { transform: scale(3.2) rotate(-24deg); opacity: 0; } 55% { transform: scale(.86) rotate(4deg); opacity: 1; } 75% { transform: scale(1.08, .94) rotate(-2deg); } 100% { transform: none; opacity: 1; } }
+@keyframes cls-wiggle { 50% { transform: rotate(-5deg) scale(1.04); } }
+@keyframes cls-fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 640px) {
+  .cls-say { padding: 10px 34px 10px 10px; gap: 10px; min-height: 96px; }
+  .cls-portrait { width: 72px; height: 72px; }
+  .cls-portrait img { width: 64px; height: 64px; }
+  .cls-text { font-size: 16px; line-height: 15px; min-height: 30px; }
+  .cls-stamp b { font-size: 36px; }
+  .cls-stamp canvas { width: 160px; height: 160px; }
+}

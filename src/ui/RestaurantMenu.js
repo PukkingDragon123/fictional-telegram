@@ -1187,8 +1187,8 @@ class FoxStage {
     const holder = new THREE.Group();
     const obj = makeTrophy({ id, locked });
     obj.visible = false;
-    obj.scale.setScalar(1.6); // shown off big, cartoon style
-    obj.position.y = -(obj.userData.height || 0.6) * 1.6 * 0.42; // the paws hold it a little below its middle
+    obj.scale.setScalar(1.3); // shown off big, cartoon style
+    obj.position.y = -(obj.userData.height || 0.6) * 1.3 * 0.18; // the paws grip the plinth, the cup towers above
     holder.add(obj);
     const rig = this.rig;
     if (typeof rig.holdBoth === 'function') rig.holdBoth(holder);
@@ -1581,7 +1581,9 @@ export class RestaurantMenu {
         const u = this._sayT;
         const pop = clamp01((this._sayDur - u) / 0.18);
         this._sayEl.style.display = 'block';
-        this._sayEl.style.transform = `translate(${Math.round(fs.headX - this._sayEl.offsetWidth / 2)}px, ${Math.round(fs.headY - this._sayEl.offsetHeight - 16)}px) scale(${(0.6 + 0.4 * easeBack(pop)).toFixed(3)})`;
+        const cs = this.stage.carry?.landed ? this.stage.carryScreen({}) : null;
+        const sy = cs ? Math.min(fs.headY, cs.topY - 6) : fs.headY;
+        this._sayEl.style.transform = `translate(${Math.round(fs.headX - this._sayEl.offsetWidth / 2)}px, ${Math.round(sy - this._sayEl.offsetHeight - 16)}px) scale(${(0.6 + 0.4 * easeBack(pop)).toFixed(3)})`;
         if (u <= 0) this._sayEl.style.display = 'none';
       }
       const hb = this._hit, hw = this.L.K * 0.7, hh = fs.y - fs.headY;
@@ -1891,7 +1893,7 @@ export class RestaurantMenu {
       }
       const plateTop = (g.shelfY + 3) * S;
       inner += done
-        ? `<span class="rm-plate rm-name ${a.name.length > 14 ? 'rm-long' : ''}" style="top:${plateTop}px">${esc(a.name)}</span>`
+        ? `<span class="rm-plate rm-name ${a.name.length > 13 ? 'rm-long' : ''}" style="top:${plateTop}px">${esc(a.name)}</span>`
         : `<span class="rm-plate rm-how" style="top:${plateTop}px"><i>How to get:</i> ${esc(a.desc)}</span>`;
       inner += `<span class="rm-tag ${done ? 'rm-got' : ''}" style="top:${Math.max(4, ty + ih * 0.35) | 0}px"><img src="${coinURL()}" alt="" style="width:14px;height:14px">${a.reward}</span>`;
       h += `<button class="rm-slot" data-id="${a.id}" title="${esc(a.name)}" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px">${inner}</button>`;

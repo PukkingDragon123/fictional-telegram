@@ -21,7 +21,7 @@
 import * as THREE from 'three';
 import { CameraRig } from '../core/cameraRig.js';
 import { Transition } from '../ui/Transition.js';
-import { Chalkboard, measureText } from '../ui/Chalkboard.js';
+import { Chalkboard, measureText, slateURL } from '../ui/Chalkboard.js';
 import { spriteImg, hasSprite } from '../ui/sprites.js';
 import { buildClassroom, BOARD } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
@@ -29,7 +29,7 @@ import '../ui/classroom.css';
 const mods = import.meta.glob(['../entities/foxRig.js'], { eager: true });
 const FoxMod = mods['../entities/foxRig.js'] || null;
 
-const FOX_SCALE = 1.5;
+const FOX_SCALE = 1.3;
 const WALK_SPEED = 1.35;
 const SKIP = Symbol('skip');
 
@@ -200,6 +200,7 @@ export class Classroom {
     this._ext = 0;
     this._raf = 0;
     this.ui = null;
+    this.selfDrive = true; // drive itself from rAF when update() isn't being called
   }
 
   get active() { return this._active; }
@@ -567,7 +568,7 @@ export class Classroom {
     const loop = (now) => {
       const dt = Math.min(0.1, (now - last) / 1000); last = now;
       if (!this._active) { this._raf = 0; return; }
-      if (now - this._ext > 250) this._tick(dt);
+      if (this.selfDrive && now - this._ext > 250) this._tick(dt);
       this._raf = requestAnimationFrame(loop);
     };
     cancelAnimationFrame(this._raf);
@@ -648,6 +649,7 @@ export class Classroom {
       <div class="cls-stamp hidden" data-h="stamp"></div>`;
     document.body.appendChild(el);
     this.ui = el;
+    try { this.q('say').style.backgroundImage = `url(${slateURL(96, 40, 9)})`; } catch { /* no canvas */ }
     const adv = (e) => { e.preventDefault(); e.stopPropagation(); this.game.audio?.unlock?.(); this._advance(); };
     this.q('hit').addEventListener('pointerdown', adv);
     this.q('say').addEventListener('pointerdown', adv);

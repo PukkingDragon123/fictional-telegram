@@ -31,8 +31,8 @@ const DEG = Math.PI / 180;
 
 // room extents (voxels): interior x X0..X1, back wall face at z = ZB*V
 const X0 = -92, X1 = 91, ZB = -58, ZF = 52, HT = 64;
-// chalkboard surface (world units): 192x108 texels at 0.012
-export const BOARD = { w: 2.304, h: 1.296, cx: -0.35, cy: 0.34 + 0.648, z: ZB * V + 0.035, texW: 192, texH: 108 };
+// chalkboard surface (world units): 192x108 texels at 0.011, low enough for the fox to reach
+export const BOARD = { w: 2.112, h: 1.188, cx: -0.35, cy: 0.32 + 0.594, z: ZB * V + 0.056, texW: 192, texH: 108 };
 
 // ------------------------------------------------------------------ palette
 const FLOOR = [0xc98c4e, 0xbd8046, 0xd29656, 0xb47840, 0xc68a4c, 0xbf8448];
@@ -217,8 +217,7 @@ function buildWindow(R, GL, x0, x1, y0, y1, fx, side) {
 // ================================================================== chalkboard
 function buildBoardFrame(R, fx) {
   const bx0 = Math.round((BOARD.cx - BOARD.w / 2) / V), bx1 = Math.round((BOARD.cx + BOARD.w / 2) / V) - 1;
-  const by0 = Math.round(BOARD.cy - BOARD.h / 2 / 1) / V, by1 = Math.round((BOARD.cy + BOARD.h / 2) / V) - 1;
-  const y0 = Math.round(by0), y1 = by1;
+  const y0 = Math.round((BOARD.cy - BOARD.h / 2) / V), y1 = Math.round((BOARD.cy + BOARD.h / 2) / V) - 1;
   const FR = [0x8a5430, 0x9a603a, 0x7e4a2a];
   // frame (2 voxels) + a dark backing behind the slate
   for (let x = bx0 - 2; x <= bx1 + 2; x++) for (let y = y0 - 2; y <= y1 + 2; y++) {
@@ -616,8 +615,8 @@ export function buildClassroom(opts = {}) {
 
   const litMat = track(grainLambert({}, 0.1));
   const glowMat = track(new THREE.MeshBasicMaterial({ vertexColors: true }));
-  const glassMat = track(new THREE.MeshBasicMaterial({ color: 0xd8f2ff, transparent: true, opacity: 0.2, depthWrite: false }));
-  const waterMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.38, depthWrite: false }));
+  const glassMat = track(new THREE.MeshBasicMaterial({ color: 0xd8f2ff, transparent: true, opacity: 0.13, depthWrite: false }));
+  const waterMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.26, depthWrite: false }));
   const moteMat = track(new THREE.MeshBasicMaterial({ color: 0xfff0c8, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
 
   const fx = { windows: [] };
@@ -842,7 +841,7 @@ export function buildClassroom(opts = {}) {
   const bubbleGeo = track(new THREE.BoxGeometry(0.03, 0.03, 0.03));
   const bubbleMat = track(new THREE.MeshBasicMaterial({ color: 0xeefaff, transparent: true, opacity: 0.85 }));
   const students = [];
-  const fishTarget = 0.42; // billboard width
+  const fishTarget = 0.46; // billboard width
   for (const S of STUDENTS) {
     const bx = W(S.desk[0]), bz = W(S.desk[1]) + 0.02, by = W(11);
     const bg = new THREE.Group();
@@ -856,7 +855,7 @@ export function buildClassroom(opts = {}) {
       const src = fishCanvasFor(S.species, { frame: f });
       const c = document.createElement('canvas');
       c.width = src.width; c.height = src.height;
-      c.getContext('2d').drawImage(src, 0, 0);
+      c.getContext('2d', { willReadFrequently: true }).drawImage(src, 0, 0);
       return c;
     });
     const fw = frames[0].width, fh = frames[0].height;
@@ -873,7 +872,7 @@ export function buildClassroom(opts = {}) {
       frames.forEach((c, i) => {
         const tmp = document.createElement('canvas');
         tmp.width = fw; tmp.height = fh + pad;
-        const t = tmp.getContext('2d');
+        const t = tmp.getContext('2d', { willReadFrequently: true });
         t.drawImage(fishCanvasFor(S.species, { frame: i }), 0, pad);
         paintAccessory(tmp, S.acc, (() => { const e = findEye(fishCanvasFor(S.species, { frame: i })); return { x: e.x, y: e.y + pad }; })());
         sctx.clearRect(i * fw, 0, fw, fh + pad);
@@ -986,21 +985,25 @@ export function buildClassroom(opts = {}) {
 
   // ---- anchors
   const tdFront = new THREE.Vector3(W((TDESK.x0 + TDESK.x1) / 2), 0, W(TDESK.z1) + 0.45);
-  const ref = { w: 640, h: 360 };
-  const zoomFor = (fw, fh) => Math.max(fw / ref.w, fh / ref.h) * 100;
-  const cam = (target, fw, fh, yaw = 0, pitch = 32) => ({ target, zoom: zoomFor(fw, fh), fit: { w: fw, h: fh }, yaw, pitch: pitch * DEG });
-  const boardTop = BOARD.cy + BOARD.h / 2;
+  // frame a world box with an orthographic camera at `pitch` (yaw 0)
+  const box = (x0, x1, y0, y1, z0, z1, pitch, pad = 1.05, yaw = 0) => {
+    const p = pitch * DEG, c = Math.cos(p), sn = Math.sin(p);
+    let a = Infinity, b = -Infinity;
+    for (const y of [y0, y1]) for (const z of [z0, z1]) { const v = y * c - z * sn; a = Math.min(a, v); b = Math.max(b, v); }
+    return { target: new THREE.Vector3((x0 + x1) / 2, (a + b) / 2 / c, 0), fit: { w: (x1 - x0) * pad, h: (b - a) * pad }, yaw, pitch: p };
+  };
+  const bx0 = BOARD.cx - BOARD.w / 2, bx1 = BOARD.cx + BOARD.w / 2;
+  const tsx = bx1 + 0.62;
   const anchors = {
-    teacherSpot: { position: new THREE.Vector3(BOARD.cx + BOARD.w / 2 + 0.72, 0, BOARD.z + 0.78), rotationY: -0.62 },
+    teacherSpot: { position: new THREE.Vector3(tsx, 0, BOARD.z + 0.72), rotationY: -0.55 },
     deskSpot: { position: new THREE.Vector3(tdFront.x - 0.2, 0, tdFront.z + 0.05), rotationY: -0.25 },
-    doorSpot: { position: new THREE.Vector3(3.6, 0, 1.9), rotationY: -2.4 },
     boardCenter: board.center.clone(),
-    boardTop,
-    camWide: cam(new THREE.Vector3(-0.1, 0.95, -0.3), 9.9, 5.55, 0, 31),
-    camBoard: cam(new THREE.Vector3(BOARD.cx + 0.38, BOARD.cy + 0.02, BOARD.z + 0.9), 3.45, 1.94, 0, 16),
-    camStudents: cam(new THREE.Vector3(-0.45, 0.62, 0.4), 6.6, 3.7, 0, 34),
-    camTeacher: cam(new THREE.Vector3(BOARD.cx + BOARD.w / 2 + 0.4, 1.05, BOARD.z + 0.9), 2.6, 1.46, -0.08, 18),
-    camDesk: cam(new THREE.Vector3(tdFront.x - 0.3, 0.95, tdFront.z - 0.2), 3.0, 1.69, -0.12, 22),
+    boardTop: BOARD.cy + BOARD.h / 2,
+    camWide: box(-4.72, 4.72, 0, 3.2, -2.95, 2.7, 30, 1.02),
+    camBoard: box(bx0 - 0.25, tsx + 0.75, 0.05, 2.05, BOARD.z, BOARD.z + 0.8, 14, 1.04),
+    camStudents: box(-3.75, 2.95, 0.15, 1.45, -1.1, 1.75, 30, 1.04),
+    camTeacher: box(tsx - 1.2, tsx + 1.0, 0, 2.1, BOARD.z, BOARD.z + 1.0, 12, 1.05),
+    camDesk: box(tdFront.x - 1.6, tdFront.x + 1.3, 0, 2.0, -2.9, tdFront.z + 0.4, 18, 1.05),
   };
 
   // ---- state + animation
