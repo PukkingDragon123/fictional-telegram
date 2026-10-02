@@ -17,6 +17,12 @@ const tankMods = import.meta.glob('../entities/glassTank.js', { eager: true });
 const TM = tankMods['../entities/glassTank.js'] || null;
 import { fallbackTank } from './Tanks.js';
 import { decalsFor } from '../entities/structureDecals.js';
+import { CROPS } from '../data/crops.js';
+import { RARITIES } from '../data/species.js';
+import { STORAGE } from '../data/foods.js';
+const farmMods = import.meta.glob('../entities/farmModels.js', { eager: true });
+const FM = farmMods['../entities/farmModels.js'] || null;
+const FARM_SET = new Set(FM?.FARM_TYPES || []);
 const NM = nestMods['../entities/critterNest.js'] || null;
 
 // a woven nest (the livestock rig module draws a nicer one with eggs)
@@ -59,6 +65,19 @@ function cachedGeo(key, make, opts) {
     g = vm.build({ pivot: [0.5, 0, 0.5], ...(opts || {}) });
     geoCache.set(key, g);
   }
+  return g;
+}
+
+// simple stand-ins until the detailed farm models load
+function fallbackFarm(type) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshLambertMaterial({ color: 0x9a6a40 });
+  const box = (w, h, d, x, y, z, m = wood) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; g.add(b); return b; };
+  if (type === 'snackbowl') { box(0.3, 0.16, 0.3, 0, 0.08, 0); box(0.5, 0.14, 0.5, 0, 0.23, 0, new THREE.MeshLambertMaterial({ color: 0xc88a50 })); }
+  else if (type === 'pantry') { box(0.8, 1.1, 0.6, 0, 0.55, 0); box(0.9, 0.08, 0.7, 0, 1.14, 0, new THREE.MeshLambertMaterial({ color: 0x7a4a2a })); }
+  else if (type === 'beaverbar') { box(0.8, 0.25, 0.4, 0, 0.14, 0); box(0.9, 0.06, 0.5, 0, 0.75, 0, new THREE.MeshLambertMaterial({ color: 0xd8b060 })); box(0.05, 0.6, 0.05, -0.4, 0.45, 0); box(0.05, 0.6, 0.05, 0.4, 0.45, 0); }
+  else if (type === 'buggrinder') { box(0.5, 0.6, 0.5, 0, 0.3, 0, new THREE.MeshLambertMaterial({ color: 0x6a7a8a })); box(0.2, 0.2, 0.2, 0, 0.75, 0, new THREE.MeshBasicMaterial({ color: 0xa080ff })); }
+  else { box(0.8, 0.5, 0.6, 0, 0.45, 0); box(0.9, 0.08, 0.7, 0, 0.74, 0, new THREE.MeshLambertMaterial({ color: 0xb04a3a })); }
   return g;
 }
 
@@ -159,6 +178,9 @@ export class StructureSystem {
     this.list.push(s);
     this.spritesDirty = true;
     this.byId.set(s.id, s);
+    if (def.crop) this.game.harvest?.init(s);
+    // freshly planted greenery grows in from a seedling
+    else if (!instant && def.category === 'nature' && def.sprite) s.sprout = 0;
     this.buildMesh(s);
     this.refreshNeighbors(s);
     if (s.built) this.onBuilt(s, true);
@@ -286,7 +308,7 @@ export class StructureSystem {
   // A standalone model (used for placement previews).
   previewObject(type) {
     const def = STRUCTURES[type];
-    const fake = { id: -1, type, def, x: 0, z: 0, seed: 0, built: true, progress: 1, stock: def.food ? def.food.max : 0, hp: 1, maxHp: 1, platform: 0, preview: true };
+    const fake = { id: -1, type, def, x: 0, z: 0, seed: 0, built: true, progress: 1, stock: def.food ? def.food.max : 1, hp: 1, maxHp: 1, platform: 0, preview: true, crop: def.crop ? { stage: 3, t: 0, batch: null } : null };
     return this.makeObject(fake);
   }
 
@@ -326,6 +348,7 @@ export class StructureSystem {
 
   // which nature sprite a plant structure shows right now
   spriteFrame(s) {
+    if (s.def.crop) { const fr = this.cropFrame(s); if (fr) return fr; }
     const names = s.def.sprite;
     if (!names) return null;
     const { frames } = this.natureFrames();
@@ -336,6 +359,23 @@ export class StructureSystem {
     for (const n of list) if (frames[n]) return { name: n, f: frames[n][0], frames: frames[n] };
     if (!berry || !frames[names[0]]) return null;
     return { name: names[0], f: frames[names[0]][0], frames: frames[names[0]] };
+  }
+
+  // garden plants: the sprite for their growth stage (seed .. ripe). Missing
+  // stage art falls back to the next-best sprite, shrunk (see renderSprites)
+  cropFrame(s) {
+    const C = CROPS[s.type];
+    if (!C) return null;
+    const { frames } = this.natureFrames();
+    const stage = s.crop ? s.crop.stage : 3;
+    const names = C.stages || [];
+    const own = s.def.sprite || [];
+    const want = names[stage] || (stage >= 3 ? own[0] : own[1] || own[0]);
+    if (want && frames[want]) return { name: want, f: frames[want][0], frames: frames[want], cropStage: stage, exact: true };
+    // fallbacks: the plant's own sprites, then generic greenery
+    const chain = stage >= 3 ? [own[0], names[3], names[2], 'crop_sprout', 'fern_0'] : stage === 2 ? [own[1], names[3], own[0], 'crop_sprout', 'fern_0'] : ['crop_sprout', own[1], names[2], names[3], own[0], 'fern_0'];
+    for (const n of chain) if (n && frames[n]) return { name: n, f: frames[n][0], frames: frames[n], cropStage: stage, exact: false };
+    return null;
   }
 
   renderSprites() {
@@ -358,18 +398,55 @@ export class StructureSystem {
       let sy = 1;
       if (s.popT > 0) { const k = 1 - s.popT / 0.45; sy = 1 + Math.sin(k * Math.PI * 2.5) * 0.35 * (1 - k); }
       if (!s.built) sy *= 0.25 + 0.75 * s.progress;
+      if (s.sprout != null && s.sprout < 1) { const k = s.sprout, e = 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2; sc *= 0.2 + 0.8 * Math.max(0, e); }
       if (s.type === 'seaweed') sy *= 0.45 + 0.55 * (s.stock / s.def.food.max);
+      let cropTint = null, cropGlow = 0;
+      if (fr.cropStage != null) {
+        // stand-in art for a stage is drawn smaller (a seedling of the grown plant)
+        if (!fr.exact) { const k = [0.3, 0.48, 0.75, 1][fr.cropStage]; sc *= k; }
+        const b = s.crop?.batch;
+        if (fr.cropStage === 3) {
+          sy *= 1 + Math.sin(this.time * 3 + s.seed) * 0.03;
+          if (b && b.r >= 2) { const c = RARITIES[b.r].glow; cropGlow = 0.12 + b.r * 0.06; cropTint = [parseInt(c.slice(1, 3), 16) / 255 * 0.3 + 0.85, parseInt(c.slice(3, 5), 16) / 255 * 0.3 + 0.85, parseInt(c.slice(5, 7), 16) / 255 * 0.3 + 0.85]; }
+        }
+      }
       const dmg = s.hp < s.maxHp * 0.99 && s.maxHp < 90;
-      const tint = !s.built ? [0.6, 0.85, 1.25] : dmg ? [1.2, 0.65, 0.6] : null;
+      const tint = !s.built ? [0.6, 0.85, 1.25] : dmg ? [1.2, 0.65, 0.6] : cropTint;
       const o = { texels: 24, scale: sc, sx: 1 / Math.sqrt(sy), sy, sway: s.def.flat ? 0 : s.def.underwater ? 1.2 : 0.7, phase: s.seed, flip: s.seed % 2 === 1, tint, alpha: s.built ? 1 : 0.55 };
       if (s.def.flat) { o.mode = 1; o.ax = 0.5; o.ay = 0.5; o.rot = (s.seed % 628) / 100; B.push(fr.f, cx, WATER_Y + 0.02, cz, o); }
       else if (s.def.underwater) { o.tint = [0.75, 0.9, 1]; B.push(fr.frames[Math.floor(this.time * 2 + s.seed) % fr.frames.length], cx, g.height[s.z * g.w + s.x], cz, o); }
       else {
         if (s.type === 'goldenberry') o.emissive = 0.25 + this.game.sky.state.night * 0.4;
+        if (cropGlow) o.emissive = Math.max(o.emissive || 0, cropGlow * (0.7 + 0.3 * Math.sin(this.time * 4 + s.seed)));
         B.push(fr.f, cx, by, cz, o);
       }
     }
     B.commit();
+  }
+
+  addFarm(s, obj) {
+    let m = null;
+    try { m = FM.farmModel(s.type, { seed: s.seed }); } catch (e) { console.warn('farm', s.type, e); return false; }
+    if (!m?.root) return false;
+    obj.add(m.root);
+    if (!s.preview) { s.farmRig = m; this.syncFarm(s); }
+    return true;
+  }
+
+  // storage contents / grinder sack -> the model
+  syncFarm(s) {
+    const m = s.farmRig;
+    if (!m) return;
+    try {
+      const S = STORAGE[s.type];
+      if (S) {
+        let n = 0;
+        const ids = [];
+        for (const [id, v] of Object.entries(s.store || {})) { n += v; if (v >= 1) ids.push(id); }
+        m.setFill?.(Math.min(1, n / S.cap), ids);
+      } else if (s.def.grinder) m.setFill?.(Math.min(1, (s.made || 0) / s.def.grinder.max));
+      else if (s.def.hutch) m.setFill?.(Math.min(1, (this.game.landAnimals?.bunniesOf?.(s)?.length || 0) / 4));
+    } catch { /* ignore */ }
   }
 
   addDecor(s, obj, add) {
@@ -443,8 +520,12 @@ export class StructureSystem {
       if (!n) n = fallbackNest(d.nest.kind);
       obj.add(n.root);
       if (!s.preview) { s.nestRig = n; n.setEggs?.((s.eggs || []).length); }
-    } else if (d.sprite && this.spriteFrame(s)) {
+    } else if ((d.sprite || d.crop) && this.spriteFrame(s)) {
       // drawn as a 2D sprite by renderSprites(); the group stays empty
+    } else if (FARM_SET.has(s.type) && this.addFarm(s, obj)) {
+      // bowls, pantry, beaver snack bar, bug grinder, bunny hutch
+    } else if (STORAGE[s.type] || d.grinder || d.hutch) {
+      obj.add(fallbackFarm(s.type));
     } else if (RM?.RESTAURANT_TYPES?.includes(d.model || s.type) && this.addRestaurant(s, obj, add)) {
       // beaver-built restaurant furniture
     } else if (DECOR_SET.has(s.type) && this.addDecor(s, obj, add)) {
@@ -539,6 +620,7 @@ export class StructureSystem {
   updateVisual(s) {
     const o = s.obj;
     if (!o) return;
+    if (s.farmRig) this.syncFarm(s);
     if (s.type === 'seaweed') {
       const k = 0.35 + 0.65 * (s.stock / s.def.food.max);
       o.scale.set(1, k, 1);
@@ -655,6 +737,9 @@ export class StructureSystem {
         if (s.popT === 0) s.obj.scale.set(1, 1, 1);
       }
       const d = s.def;
+      if (s.sprout != null && s.sprout < 1) { s.sprout = Math.min(1, s.sprout + dt / 9); if (Math.random() < dt * 2) this.game.particles.sparkle(s.x + 0.5, this.baseY(s) + 0.2, s.z + 0.5, 1, 0xc8ff9a); }
+      if (s.farmRig) { try { s.farmRig.update?.(dt, this.time); } catch { /* ignore */ } }
+      if (d.grinder) this.updateGrinder(s, dt);
       if (d.food) {
         let mult = mods.produceMult;
         if (d.food.kind === 'honey') {
@@ -708,6 +793,63 @@ export class StructureSystem {
     }
   }
 
+  // Bug Grinder: sucks in bugs that fly by and grinds them into Bug Bites
+  updateGrinder(s, dt) {
+    const game = this.game;
+    const G = s.def.grinder;
+    s.made ||= 0;
+    s.grindT = Math.max(0, (s.grindT || 0) - dt);
+    const full = s.made >= G.max;
+    s.farmRig?.setState?.(full ? 'full' : s.grindT > 0 ? 'grinding' : 'idle');
+    if (s.sucking) {
+      const b = s.sucking;
+      const tx = s.x + 0.5, tz = s.z + 0.5, ty = this.baseY(s) + 1.1;
+      b.x += (tx - b.x) * Math.min(1, dt * 5); b.z += (tz - b.z) * Math.min(1, dt * 5); b.y += (ty - b.y) * Math.min(1, dt * 5);
+      b.hx = b.x; b.hz = b.z;
+      if (Math.hypot(tx - b.x, tz - b.z) < 0.12 || b.dead) {
+        if (!b.dead) game.bugs.eat(b, 'grinder');
+        s.sucking = null;
+        s.bugsIn = (s.bugsIn || 0) + 1;
+        s.grindT = 1.4;
+        game.audio.play('zap', { volume: 0.25, pitch: 0.9 + Math.random() * 0.3 });
+        if (s.bugsIn >= G.per) {
+          s.bugsIn = 0;
+          s.made = Math.min(G.max, s.made + 1);
+          game.audio.play('grinder', { volume: 0.3 });
+          game.particles.puff(tx, ty - 0.6, tz, 4, 0.18);
+          this.updateVisual(s);
+          game.emit('grinderMade', s);
+        }
+      }
+      return;
+    }
+    if (full || !game.bugs) return;
+    s.timer -= dt;
+    if (s.timer > 0) return;
+    s.timer = 1.2;
+    const R2 = G.radius * G.radius;
+    let best = null, bd = R2;
+    for (const b of game.bugs.list) {
+      if (b.dead || b.targeted) continue;
+      const d = (b.x - s.x - 0.5) ** 2 + (b.z - s.z - 0.5) ** 2;
+      if (d < bd) { bd = d; best = b; }
+    }
+    if (best) { best.targeted = 'grinder'; s.sucking = best; }
+  }
+
+  // tap a grinder: collect its Bug Bites
+  collectGrinder(s) {
+    const game = this.game;
+    const n = Math.floor(s.made || 0);
+    if (n <= 0) { game.notify('Still grinding... (it needs bugs nearby)', 'info'); return 0; }
+    s.made = 0;
+    game.foodStore.add('bugbites', n);
+    this.updateVisual(s);
+    game.audio.play('crate_drop', { volume: 0.4 });
+    game.ui?.onHarvest?.(s, [{ id: 'bugbites', count: n, rarity: 0 }]);
+    return n;
+  }
+
   feederTarget(s) {
     const g = this.grid;
     const R = s.def.feeder.radius;
@@ -723,15 +865,27 @@ export class StructureSystem {
   serialize() {
     // platforms first so tops can attach on load
     const sorted = [...this.list].sort((a, b) => (a.platform ? 1 : 0) - (b.platform ? 1 : 0));
-    return sorted.map((s) => [s.type, s.x, s.z, s.built ? 1 : 0, +s.progress.toFixed(2), +s.stock.toFixed(2), s.hp, s.open ? 1 : 0, s.seed]);
+    return sorted.map((s) => {
+      const row = [s.type, s.x, s.z, s.built ? 1 : 0, +s.progress.toFixed(2), +s.stock.toFixed(2), s.hp, s.open ? 1 : 0, s.seed];
+      const ex = {};
+      if (s.crop) ex.c = this.game.harvest?.serialize(s);
+      if (s.store && Object.keys(s.store).length) ex.st = s.store;
+      if (s.made) ex.m = s.made;
+      if (Object.keys(ex).length) row.push(ex);
+      return row;
+    });
   }
 
   load(arr) {
     for (const s of [...this.list]) this.remove(s, { silent: true });
-    for (const [type, x, z, built, progress, stock, hp, open, seed] of arr || []) {
+    for (const [type, x, z, built, progress, stock, hp, open, seed, ex] of arr || []) {
+      if (!STRUCTURES[type]) continue;
       const s = this.place(type, x, z, { instant: !!built, free: true });
       if (!s) continue;
       s.progress = progress; s.stock = stock; s.hp = hp; s.open = !!open; s.seed = seed ?? s.seed;
+      if (s.def.crop) this.game.harvest?.restore(s, ex?.c);
+      if (ex?.st) s.store = { ...ex.st };
+      if (ex?.m) s.made = ex.m;
       this.buildMesh(s);
     }
   }

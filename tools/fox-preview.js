@@ -4,9 +4,15 @@
 //                          &t=1.2 (seek)  &freeze=1  &speed=0.5  &showreel=1  &talk=Hello!  &look=1  &ui=0
 //   ?mode=strip&anim=cheer&n=8&dt=0.15&t0=0   filmstrip of one animation (frozen frames side by side)
 //   ?mode=grid             every expression on its own fox (close-up grid)
+// Outfits / props / aiming (any mode):
+//   &outfit=teacher|chef   &prop=pointer|chalk|ladle   &both=cup (holdBoth a placeholder trophy)
+//   &aim=x,y,z             setAim() at that point (root space of each fox; draggable red ball in rig mode)
+//   &rot=150               root yaw in degrees (e.g. chalk_draw seen 3/4 from behind)   &board=1 &pot=1 props
+// window.__step(dt) advances every fox; window.__seek(t) restarts the main anim and simulates t seconds.
 import * as THREE from 'three';
-import { FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H, MOUTH_KINDS } from '../src/entities/foxFace.js';
-import { FoxRig, FOX_SEAT_SURFACE, FOX_DESK_HEIGHT, FOX_KEYBOARD_Z } from '../src/entities/foxRig.js';
+import { FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H, MOUTH_KINDS, EYE_R } from '../src/entities/foxFace.js';
+import { FoxRig, FOX_SEAT_SURFACE, FOX_DESK_HEIGHT, FOX_KEYBOARD_Z, FOX_OUTFITS, FOX_PROPS } from '../src/entities/foxRig.js';
+import { makeGoldCup } from '../src/entities/foxProps.js';
 import { PixelRenderer } from '../src/core/pixelRenderer.js';
 import { CameraRig } from '../src/core/cameraRig.js';
 import { VoxelModel, voxelMaterial } from '../src/core/voxel.js';
@@ -15,8 +21,6 @@ const params = new URLSearchParams(location.search);
 const mode = params.get('mode') || 'rig';
 const num = (k, d) => (params.has(k) ? +params.get(k) : d);
 
-if (mode === 'sheet') faceSheet();
-else rigPreview();
 
 // ------------------------------------------------------------------ 2D face sheet
 function faceSheet() {
@@ -40,7 +44,7 @@ function faceSheet() {
     const g = cv.getContext('2d');
     g.imageSmoothingEnabled = false;
     g.fillStyle = '#e0662a'; g.fillRect(0, 0, cv.width, cv.height);
-    g.fillStyle = '#f8eedc'; g.fillRect(0, 26 * S, cv.width, 22 * S);
+    g.fillStyle = '#f8eedc'; g.fillRect(0, 24 * S, 16 * S, 24 * S); g.fillRect(40 * S, 24 * S, 16 * S, 24 * S);
     g.drawImage(face.face.c, 0, 0, FACE_W * S, FACE_H * S);
     const mx = 16 * S, my = 28 * S;
     g.fillStyle = '#6a3a20'; g.fillRect(mx - S, my - S, (MOUTH_W + 2) * S, (MOUTH_H + 1) * S);
@@ -49,7 +53,7 @@ function faceSheet() {
     g.fillStyle = '#2a1a22'; g.fillRect(mx + 8 * S, my, 8 * S, 8 * S);
     g.drawImage(face.mouth.c, mx, my, MOUTH_W * S, MOUTH_H * S);
     g.strokeStyle = 'rgba(255,210,63,0.9)'; g.lineWidth = S * 1.2;
-    g.beginPath(); g.arc(15 * S, 19 * S, 8.5 * S, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(EYE_R.x * S, EYE_R.y * S, 8.6 * S, 0, Math.PI * 2); g.stroke();
     cell.appendChild(cv);
     const lab = document.createElement('div');
     lab.textContent = name;
@@ -147,6 +151,61 @@ function makeScenery(scene) {
   return { group: g, lab, ground };
 }
 
+// Chalkboard on an easel. The slate is a canvas texture the chalk tip draws on (see trackChalk).
+const BOARD_W = 0.84, BOARD_H = 0.56;
+function makeChalkboard() {
+  const g = new THREE.Group();
+  const frame = vox((v) => {
+    const W = Math.round(BOARD_W / 0.025 / 2) + 1, H = Math.round(BOARD_H / 0.025) + 2;
+    for (let x = -W; x <= W; x++) for (let y = 0; y <= H; y++) {
+      if (Math.abs(x) < W && y > 0 && y < H) continue;
+      v.set(x, y + 14, 0, (x + y) % 5 === 0 ? 0x7a4a26 : 0x9a6232); v.set(x, y + 14, -1, 0x6a3e20);
+    }
+    for (let x = -W + 1; x < W; x++) v.set(x, 14, 1, 0xb07a40); // chalk tray
+    for (const s of [-1, 1]) for (let y = 0; y < 16 + H; y++) { v.set(s * (W - 2), y, -2 - Math.floor(y / 9), 0x7a4a26); }
+  }, 0.025);
+  g.add(frame);
+  const cv = document.createElement('canvas');
+  cv.width = 168; cv.height = 112;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#2f4a3a'; ctx.fillRect(0, 0, cv.width, cv.height);
+  for (let i = 0; i < 400; i++) { ctx.fillStyle = Math.random() < 0.5 ? '#34503f' : '#2b4436'; ctx.fillRect(Math.random() * cv.width | 0, Math.random() * cv.height | 0, 1, 1); }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
+  const slate = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), new THREE.MeshLambertMaterial({ map: tex }));
+  slate.position.set(0, 15 * 0.025 + BOARD_H / 2 + 0.0125, 0.0126);
+  slate.receiveShadow = true;
+  g.add(slate);
+  g.userData = { slate, ctx, tex, cv };
+  return g;
+}
+// Draw where the chalk touches the slate.
+const _bt = new THREE.Vector3();
+function trackChalk(fox, board) {
+  if (!board || !board.visible || fox.prop !== 'chalk') return;
+  const { slate, ctx, tex, cv } = board.userData;
+  fox.propTip(_bt);
+  slate.worldToLocal(_bt);
+  if (Math.abs(_bt.z) > 0.02) { board.userData.last = null; return; }
+  const x = (_bt.x / BOARD_W + 0.5) * cv.width, y = (0.5 - _bt.y / BOARD_H) * cv.height;
+  const last = board.userData.last;
+  ctx.strokeStyle = '#f4f4ec'; ctx.lineWidth = 2; ctx.lineCap = 'square';
+  ctx.beginPath(); ctx.moveTo(last ? last[0] : x, last ? last[1] : y); ctx.lineTo(x, y); ctx.stroke();
+  board.userData.last = [x, y];
+  tex.needsUpdate = true;
+}
+function makePot() {
+  return vox((v) => {
+    for (let y = 0; y <= 9; y++) for (let x = -7; x <= 6; x++) for (let z = -7; z <= 6; z++) {
+      const d = Math.hypot(x + 0.5, z + 0.5);
+      if (d > 6.6) continue;
+      if (y > 0 && d < 5.4) { if (y === 8) v.set(x, y, z, (x + z) & 1 ? 0xf2cf7a : 0xd8a84a); continue; }
+      v.set(x, y, z, y === 9 ? 0xd8dde6 : y === 0 ? 0x5a5f6a : (x < -2 ? 0xb8bec8 : 0x8a909c));
+    }
+    for (const s of [-1, 1]) { v.set(s * 7 - (s > 0 ? 1 : 0), 7, 0, 0x5a5f6a); v.set(s * 8 - (s > 0 ? 1 : 0), 7, 0, 0x5a5f6a); }
+  }, 0.025);
+}
+
 // ------------------------------------------------------------------ 3D preview
 function rigPreview() {
   const canvas = document.getElementById('c');
@@ -179,14 +238,54 @@ function rigPreview() {
   const pelletGeo = new THREE.BoxGeometry(0.035, 0.035, 0.035);
   const pelletMat = new THREE.MeshLambertMaterial({ color: 0xd9a55a });
 
+  const rootYaw = THREE.MathUtils.degToRad(num('rot', 0));
+  const aimParam = params.get('aim') ? params.get('aim').split(',').map(Number) : null;
+  const aimTargets = new Map(); // fox -> world Vector3
+  const toWorld = (f, x, y, z, out = new THREE.Vector3()) => { f.root.updateMatrixWorld(true); return f.root.localToWorld(out.set(x, y, z)); };
+  const dress = (f) => {
+    if (params.get('outfit')) f.setOutfit(params.get('outfit'));
+    if (params.get('prop')) f.holdProp(params.get('prop'));
+    if (params.get('both') === 'cup') f.holdBoth(makeGoldCup());
+    if (aimParam) { const T = toWorld(f, ...aimParam); aimTargets.set(f, T); f.setAim(T); }
+  };
   const spawnFox = (x, z) => {
     const f = new FoxRig({ shadows: true });
     f.root.position.set(x, 0, z);
+    f.root.rotation.y = rootYaw;
     scene.add(f.root);
     foxes.push(f);
+    dress(f);
     return f;
   };
-  const sim = (f, seconds) => { for (let t = 0; t < seconds - 1e-6; t += STEP) f.update(Math.min(STEP, seconds - t)); };
+  // per-fox props that react to the anim (chalkboard, pot)
+  const extras = new Map();
+  const placeExtras = (f) => {
+    let ex = extras.get(f);
+    if (!ex) {
+      ex = { board: makeChalkboard(), pot: makePot() };
+      scene.add(ex.board); scene.add(ex.pot);
+      extras.set(f, ex);
+    }
+    const a = f.current;
+    ex.board.visible = params.get('board') === '1' || a === 'chalk_draw';
+    ex.pot.visible = params.get('pot') === '1' || a === 'chef_idle' || a === 'chef_taste';
+    const T = aimTargets.get(f);
+    if (T && ex.board.visible) {
+      // board faces the fox through the aim point
+      ex.board.position.set(T.x, 0, T.z);
+      ex.board.lookAt(f.root.position.x, 0, f.root.position.z);
+    } else {
+      toWorld(f, -0.1, 0, 0.47, ex.board.position);
+      ex.board.rotation.set(0, f.root.rotation.y + Math.PI, 0);
+    }
+    toWorld(f, -0.17, 0, 0.6, ex.pot.position);
+  };
+  const stepFox = (f, dt) => {
+    f.update(dt);
+    placeExtras(f);
+    trackChalk(f, extras.get(f).board);
+  };
+  const sim = (f, seconds) => { for (let t = 0; t < seconds - 1e-6; t += STEP) stepFox(f, Math.min(STEP, seconds - t)); };
 
   const cams = {
     face: { wupp: 0.0017, y: 1.0, pitch: 8 },
@@ -262,7 +361,19 @@ function rigPreview() {
     };
     setCam(camName);
   }
-  window.__fox = { foxes, main, scene, cam, pr, THREE, sim, setCam };
+  // aim target ball (rig mode): drag it with the mouse while "drag aim" is on
+  const aimBall = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3b4a }));
+  aimBall.visible = false;
+  scene.add(aimBall);
+  if (main && aimTargets.get(main)) { aimBall.position.copy(aimTargets.get(main)); aimBall.visible = true; }
+  for (const f of foxes) placeExtras(f);
+  window.__fox = { foxes, main, scene, cam, pr, THREE, sim, setCam, aimBall, extras };
+  window.__step = (dt = STEP) => { for (const f of foxes) sim(f, dt); };
+  window.__seek = (t) => {
+    if (!main) return;
+    main.play(main.current, { restart: true, fade: 0 });
+    sim(main, t);
+  };
 
   // --- UI
   const ui = document.getElementById('ui');
@@ -309,6 +420,44 @@ function rigPreview() {
     s4.appendChild(inp);
     btn(s4, 'talk', () => main.talk(inp.value));
     btn(s4, 'stop', () => main.stopTalking());
+    const sO = section('Outfit');
+    const outBtns = {};
+    for (const o of FOX_OUTFITS) outBtns[o] = btn(sO, o, () => { main.setOutfit(o); for (const [k, b] of Object.entries(outBtns)) b.classList.toggle('on', k === o); });
+    outBtns[main.outfit].classList.add('on');
+    const sP = section('Prop (right paw)');
+    const propBtns = {};
+    for (const o of ['none', ...FOX_PROPS]) propBtns[o] = btn(sP, o, () => { main.holdProp(o === 'none' ? null : o); for (const [k, b] of Object.entries(propBtns)) b.classList.toggle('on', k === o); });
+    propBtns[main.prop || 'none'].classList.add('on');
+    let cup = null;
+    const cb = btn(sP, 'hold cup (both paws)', () => {
+      if (cup) { main.holdBoth(null); cup = null; } else { cup = makeGoldCup(); main.holdBoth(cup); }
+      cb.classList.toggle('on', !!cup);
+    });
+    if (params.get('both') === 'cup') { cup = main._both.obj; cb.classList.add('on'); }
+    const sA = section('Aim (drag the red ball)');
+    let dragAim = false;
+    const aimT = aimTargets.get(main) || new THREE.Vector3(-0.45, 0.95, 0.75);
+    const ab = btn(sA, 'aim on', () => {
+      const on = !main._aim.target;
+      main.setAim(on ? aimT : null);
+      aimBall.visible = on; aimBall.position.copy(aimT);
+      ab.classList.toggle('on', on);
+    });
+    if (main._aim.target) ab.classList.add('on');
+    const db = btn(sA, 'drag aim', () => { dragAim = !dragAim; db.classList.toggle('on', dragAim); });
+    for (const [label, pt] of [['up-right', [-0.45, 0.95, 0.75]], ['ahead', [0, 0.8, 0.9]], ['low-left', [0.3, 0.45, 0.6]], ['high', [-0.1, 1.4, 0.6]], ['behind', [-0.5, 0.8, -0.6]]]) {
+      btn(sA, label, () => { aimT.set(...pt); main.setAim(aimT); aimBall.visible = true; aimBall.position.copy(aimT); ab.classList.add('on'); });
+    }
+    const ray = new THREE.Ray(), plane = new THREE.Plane(), camF = new THREE.Vector3();
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragAim || !(e.buttons & 1)) return;
+      cam.screenRay(e.clientX, e.clientY, pr, ray);
+      cam.camera.getWorldDirection(camF);
+      plane.setFromNormalAndCoplanarPoint(camF, aimT);
+      if (ray.intersectPlane(plane, camF)) { aimT.copy(camF); aimBall.position.copy(aimT); }
+    });
+    const sR = section('Root yaw');
+    for (const d of [0, 45, 90, 150, 180, -90]) btn(sR, d + '°', () => { main.root.rotation.y = THREE.MathUtils.degToRad(d); });
     const s5 = section('Toys');
     const lb = btn(s5, 'look at mouse', () => { lookMouse = !lookMouse; lb.classList.toggle('on', lookMouse); main.lookAt(lookMouse ? lookTarget : null); });
     let fish = null;
@@ -385,8 +534,8 @@ function rigPreview() {
         acc -= STEP; n++;
         if (main) {
           if (showreel) stepReel(STEP);
-          main.update(STEP);
-        } else if (mode === 'grid') for (const f of foxes) f.update(STEP);
+          stepFox(main, STEP);
+        } else if (mode === 'grid' || params.get('live') === '1') for (const f of foxes) stepFox(f, STEP);
         for (let i = pellets.length - 1; i >= 0; i--) {
           const P = pellets[i];
           P.v.y -= 9.8 * STEP; P.m.position.addScaledVector(P.v, STEP); P.life -= STEP;
@@ -413,3 +562,7 @@ function rigPreview() {
   }
   requestAnimationFrame(frame);
 }
+
+// run last: helpers below are const-initialised module code
+if (mode === 'sheet') faceSheet();
+else rigPreview();

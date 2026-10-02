@@ -1,0 +1,182 @@
+/* TeacherOverlay: Professor Reynard's screen-space layers (chalk, fox, bubble).
+   --px = one art pixel in CSS px. The bubble look matches src/ui/bubbles.css. */
+.tch-layer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+.tch-off { display: none !important; }
+
+/* ---- speech bubble */
+.tch-bubbles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  --ink: rgb(22, 17, 20);
+}
+.tch-bb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  will-change: transform;
+  color: var(--ink);
+}
+.tch-bb-bob, .tch-bb-pop { position: relative; }
+.tch-bb-bg {
+  position: absolute;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+}
+.tch-bb-body { position: relative; }
+.tch-bb-content {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--px) * 3);
+  white-space: nowrap;
+  width: max-content;
+}
+.tch-text {
+  font-family: var(--font-body);
+  font-size: calc(var(--px) * 16);
+  line-height: calc(var(--px) * 11);
+  font-weight: 400;
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+  font-kerning: none;
+  white-space: normal;
+  max-width: var(--tch-maxw, calc(var(--px) * 120));
+  width: max-content;
+  text-align: center;
+  color: var(--ink);
+}
+/* emphasis: the chunky title font instead of fake bold (keeps the pixels crisp) */
+.tch-text b, .tch-text strong {
+  font-family: var(--font-title);
+  font-size: calc(var(--px) * 18);
+  font-weight: 400;
+  line-height: calc(var(--px) * 11);
+}
+.tch-text i, .tch-text em { font-style: normal; text-decoration: underline; text-decoration-thickness: var(--px); text-underline-offset: calc(var(--px) * 2); }
+.tch-text img { image-rendering: pixelated; vertical-align: middle; }
+.tch-w { white-space: nowrap; display: inline-block; }
+.tch-ch { display: inline-block; vertical-align: baseline; }
+.tch-ch > span { display: inline-block; visibility: hidden; }
+.tch-ch.on > span { visibility: visible; animation: tch-hop 0.2s linear both; }
+.tch-ch.tch-ico { vertical-align: middle; margin: 0 var(--px); }
+.tch-ch.tch-ico > span { vertical-align: middle; }
+@keyframes tch-hop {
+  0% { transform: translateY(calc(var(--px) * -2)); }
+  45% { transform: translateY(calc(var(--px) * -1)); }
+  100% { transform: translateY(0); }
+}
+
+/* pop in / idle bob / close (same timing as the game bubbles) */
+.tch-bb-pop { animation: tch-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+@keyframes tch-in {
+  0% { transform: scale(0.15, 0.1); }
+  38% { transform: scale(1.14, 0.88); }
+  58% { transform: scale(0.93, 1.07); }
+  78% { transform: scale(1.03, 0.98); }
+  100% { transform: scale(1, 1); }
+}
+.tch-v-shout .tch-bb-pop { animation: tch-in-big 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both, tch-shake 0.3s steps(1) 0.42s 2; }
+@keyframes tch-in-big {
+  0% { transform: scale(0.1, 0.05); }
+  30% { transform: scale(1.3, 0.78); }
+  52% { transform: scale(0.88, 1.14); }
+  72% { transform: scale(1.06, 0.95); }
+  100% { transform: scale(1, 1); }
+}
+.tch-bb.tch-out .tch-bb-pop { animation: tch-outk 0.16s ease-in both; }
+@keyframes tch-outk {
+  0% { transform: scale(1, 1); }
+  40% { transform: scale(1.08, 0.9); }
+  100% { transform: scale(0.1, 0.1); opacity: 0.4; }
+}
+.tch-bb-bob { animation: tch-bob 1.6s steps(1) infinite; }
+@keyframes tch-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(calc(var(--px) * -1)); }
+}
+.tch-v-think .tch-bb-bob { animation: tch-float 2.6s steps(1) infinite; }
+@keyframes tch-float {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(calc(var(--px) * -1)); }
+  50% { transform: translateY(calc(var(--px) * -2)); }
+  75% { transform: translateY(calc(var(--px) * -1)); }
+}
+/* moods */
+.tch-m-happy .tch-ch.on, .tch-m-excited .tch-ch.on { animation: tch-wave 0.9s steps(1) infinite; animation-delay: calc(var(--i) * -0.11s); }
+@keyframes tch-wave {
+  0%, 100% { transform: translateY(0); }
+  25%, 50% { transform: translateY(calc(var(--px) * -1)); }
+  75% { transform: translateY(0); }
+}
+.tch-m-excited .tch-bb-bob { animation: tch-bounce 0.62s infinite; }
+@keyframes tch-bounce {
+  0%, 100% { transform: translateY(0) scale(1.04, 0.96); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  45% { transform: translateY(calc(var(--px) * -4)) scale(0.97, 1.04); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4); }
+  85% { transform: translateY(0) scale(1, 1); }
+}
+.tch-m-angry.tch-ready .tch-bb-bob { animation: tch-shake 1.5s steps(1) infinite; }
+@keyframes tch-shake {
+  0% { transform: translate(calc(var(--px) * 1), 0); }
+  4% { transform: translate(calc(var(--px) * -1), calc(var(--px) * -1)); }
+  8% { transform: translate(calc(var(--px) * 1), calc(var(--px) * 1)); }
+  12% { transform: translate(calc(var(--px) * -1), 0); }
+  16%, 100% { transform: translate(0, 0); }
+}
+.tch-m-scared .tch-bb-bob { animation: tch-tremble 0.18s steps(1) infinite; }
+@keyframes tch-tremble {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(var(--px), 0); }
+  50% { transform: translate(0, var(--px)); }
+  75% { transform: translate(calc(var(--px) * -1), 0); }
+}
+.tch-m-whisper .tch-text { opacity: 0.86; }
+
+/* "tap to continue" arrow */
+.tch-more {
+  position: absolute;
+  right: calc(var(--px) * 5);
+  bottom: calc(var(--px) * -4);
+  width: calc(var(--px) * 9);
+  height: calc(var(--px) * 6);
+  background: var(--tch-more) no-repeat 0 0 / 100% 100%;
+  image-rendering: pixelated;
+  opacity: 0;
+}
+.tch-ready .tch-more { opacity: 1; animation: tch-more 0.7s steps(1) infinite; }
+@keyframes tch-more {
+  0%, 100% { transform: translateY(0); }
+  33% { transform: translateY(var(--px)); }
+  66% { transform: translateY(calc(var(--px) * 2)); }
+}
+
+/* poof when a bubble closes */
+.tch-puff {
+  position: absolute;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+  animation: tch-puff 0.46s steps(6) both;
+}
+@keyframes tch-puff {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+  35% { transform: translate(calc(var(--dx) * 0.6), calc(var(--dy) * 0.6)) scale(1.15); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.3); opacity: 0; }
+}
+
+/* while a bubble waits for a tap, this catches taps anywhere (and only then) */
+.tch-catch { position: fixed; inset: 0; pointer-events: none; background: transparent; }
+.tch-catch.on { pointer-events: auto; cursor: pointer; }
+
+.tch-reduced *, .tch-reduced { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }

@@ -31,6 +31,11 @@ import { Villagers } from './Villagers.js';
 import { Livestock } from './Livestock.js';
 import { Tanks } from './Tanks.js';
 import { Fox, Ambient } from './Ambient.js';
+import { FoodStore } from './FoodStore.js';
+import { Harvest } from './Harvest.js';
+import { LandAnimals } from './LandAnimals.js';
+import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
+import { SIGNING_BONUS } from './BeaverSystem.js';
 import audio from './audioProxy.js';
 import { SPECIES, SPECIES_BY_ID, MORPHS, MUTATIONS, RARITIES } from '../data/species.js';
 import { STRUCTURES, CHARM_CAP } from '../data/structures.js';
@@ -73,6 +78,8 @@ export class Game {
     this.stats = this.freshStats();
     this.mods = computeMods([], this.legacy.tails);
     this.structures = new StructureSystem(this);
+    this.harvest = new Harvest(this);
+    this.foodStore = new FoodStore(this);
     this.food = new FoodSystem(this);
     this.bugs = new BugSystem(this);
     this.fish = new FishSystem(this);
@@ -89,6 +96,7 @@ export class Game {
     this.tanks = new Tanks(this);
     this.zones = new ZoneSystem(this);
     this.villagers = new Villagers(this);
+    this.landAnimals = new LandAnimals(this);
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -117,6 +125,7 @@ export class Game {
       speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false, achievements: [],
       eggTray: [], bestNet: 0, grades: [],
       inventory: {}, landmarks: [], zones: [], villagers: {}, birdsSpotted: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
+      food: { ...STARTING_FOOD }, foodSel: 'pellets', foodSeen: ['pellets'], beaverCredit: SIGNING_BONUS, landSpotted: [], harvested: {},
     };
   }
 
@@ -150,8 +159,9 @@ export class Game {
     const shore = this.shoreTiles();
     const cat = shore.filter(([x, z]) => z > 33).slice(0, 2);
     for (const [x, z] of cat) this.structures.place('cattail', x, z, { instant: true, free: true });
-    // a breeding pair to start with: Bonnie & Clyde
-    for (const [sex, name] of [['M', 'Clyde'], ['F', 'Bonnie']]) {
+    // skipping the tutorial: a breeding pair to start with, Bonnie & Clyde
+    // (the tutorial has you buy your first two fish instead)
+    for (const [sex, name] of this.skipTutorial ? [['M', 'Clyde'], ['F', 'Bonnie']] : []) {
       const p = this.fish.randomWaterPoint();
       if (!p) continue;
       const g = rollGenes('bluegill', this.mods, { sex });
@@ -161,6 +171,7 @@ export class Game {
     }
     this.bugs.load(null);
     this.livestock?.clear();
+    this.landAnimals.clear();
     this.zones.onLoad();
     this.villagers.onLoad();
     this.onTopologyChanged();
@@ -391,6 +402,24 @@ export class Game {
       if (it.once && (st.inventory[it.type] || this.structures.countBuilt(it.type))) continue;
       L.push({ id: 'item_' + it.type, cat: it.cat, kind: 'item', type: it.type, qty: it.qty || 1, title: it.title, sub: def?.name || it.sub, price: it.price, oldPrice: it.oldPrice, badges: it.badges || [], seller: it.seller, locked, eta: 'Moose Express' });
     }
+    // live fish: a ready-to-breed pair in a bag of pond water
+    for (const sp of LIVE_PAIRS) {
+      const S = SPECIES_BY_ID[sp];
+      if (!S) continue;
+      const locked = this.speciesUnlocked(sp) ? null : { reason: 'Lab: unlock this fish first', icon: 'flask' };
+      L.push({ id: 'pair_' + sp, cat: 'eggs', kind: 'fish', species: sp, pair: true, genes: { morph: 'normal', stars: 1, traits: [], size: 1 }, title: `LIVE ${S.name} pair ♂+♀ (adults, ready to love!)`, sub: `${S.name} pair`, price: Math.max(20, Math.round(S.price * 2.2)), oldPrice: Math.round(S.price * 7), rarity: 'common', badges: sp === 'bluegill' ? ['hot'] : [], seller: { name: 'Pet Pond Plus', stars: 4.9, sold: 2400 }, locked, eta: 'Moose Express' });
+    }
+    // fish food bags & produce crates
+    for (const id of BAG_IDS) {
+      const F = FOOD_ITEMS[id];
+      if (F.kind !== 'bag') continue;
+      const locked = this.isUnlocked(F.unlock || 'start') ? null : { reason: this.lockReason(F.unlock) || 'Coming soon', icon: 'clock' };
+      L.push({ id: 'food_' + id, cat: 'food', kind: 'food', foodId: id, n: F.scoops, title: `${F.brand} ${F.name} (${F.scoops} scoops) - ${F.tagline}`, sub: `${F.name} ×${F.scoops}`, price: F.price, oldPrice: Math.round(F.price * 2.4), badges: F.price >= 100 ? ['hot'] : id === 'pellets' ? ['sale'] : [], seller: { name: F.brand, stars: 4.6 + (F.price % 4) / 10, sold: 300 + F.scoops * 37 }, locked, eta: 'Moose Express' });
+    }
+    for (const c of PRODUCE_CRATES) {
+      const F = FOOD_ITEMS[c.id];
+      L.push({ id: 'crate_' + c.id, cat: 'food', kind: 'food', foodId: c.id, n: c.n, title: c.title, sub: `${F.name} ×${c.n}`, price: c.price, oldPrice: c.price * 3, badges: [], seller: { name: 'Farmer Moe', stars: 4.7, sold: 880 }, locked: null, eta: 'Moose Express' });
+    }
     // beaver tool upgrades: the next one is buyable, later ones show locked
     const lvl = st.beaverLevel || 1;
     for (let n = 2; n < BEAVER_LEVELS.length; n++) {
@@ -439,6 +468,18 @@ export class Game {
       this.delivery.order(items, { label: `${B.name}${listing.pair ? ' pair' : ' hen'}${qty > 1 ? ' ×' + qty : ''}`, fast: !!this.tutorialOnly });
     } else if (listing.kind === 'upgrade') {
       this.delivery.order([{ kind: 'upgrade', level: listing.level }], { label: `Beaver tools Lv${listing.level}`, fast: !!this.tutorialOnly });
+    } else if (listing.kind === 'fish') {
+      const items = [];
+      for (let k = 0; k < qty; k++) for (const sex of ['M', 'F']) {
+        const g = rollGenes(listing.species, this.mods, { sex });
+        g.sex = sex;
+        items.push({ kind: 'fish', species: listing.species, genes: g });
+      }
+      this.delivery.order(items, { label: `${SPECIES_BY_ID[listing.species]?.name || 'Fish'} pair${qty > 1 ? ' ×' + qty : ''}`, fast: !!this.tutorialOnly });
+      this.stats.fishBought += qty * 2;
+    } else if (listing.kind === 'food') {
+      const F = FOOD_ITEMS[listing.foodId];
+      this.delivery.order([{ kind: 'food', id: listing.foodId, n: listing.n * qty }], { label: `${F?.name || 'Food'}${qty > 1 ? ' ×' + qty : ''}`, fast: !!this.tutorialOnly });
     } else if (listing.kind === 'egg') {
       const e = this.state.shop.find((x) => x.id === listing.id);
       if (e) e.sold = true;
@@ -624,6 +665,9 @@ export class Game {
   simulateOvernight(T = 120) {
     const on = this.overnight;
     const mods = this.mods;
+    const ripeBefore = new Set(this.harvest.ripeList());
+    this.harvest.simulate(T);
+    for (const s of this.harvest.ripeList()) if (!ripeBefore.has(s)) on.produced.crops = (on.produced.crops || 0) + 1;
     for (const s of this.structures.list) {
       if (!s.built || !s.def.food) continue;
       const before = s.stock;
@@ -635,7 +679,7 @@ export class Game {
     // night breeding: well-fed couples lay a clutch
     const fish = this.fish;
     const room = () => fish.capacity() - fish.population();
-    const singles = fish.list.filter((f) => f.adult && f.hunger < 0.6 && !f.tank);
+    const singles = fish.list.filter((f) => f.adult && f.fed >= 1 && !f.tank);
     const used = new Set();
     for (const a of singles) {
       if (used.has(a) || room() <= 1) continue;
@@ -662,7 +706,9 @@ export class Game {
       f.hunger = Math.max(0.15, f.hunger - 0.1);
     }
     for (const e of this.state.eggTray) e.t = Math.max(0, e.t - T);
-    this.foodBag.count = this.foodBag.max;
+    // the fox tops the pellet bag up overnight
+    const R = FOOD_ITEMS.pellets.refill;
+    if (this.foodStore.count('pellets') < R.upTo) this.foodStore.inv.pellets = R.upTo;
   }
 
   startDawn() {
@@ -676,8 +722,8 @@ export class Game {
 
   finishDawn() {
     const on = this.overnight || { produced: {}, hatched: [], grew: 0 };
-    const icons = { seaweed: 'seaweed', honey: 'honey', syrup: 'syrup', berries: 'berry', rice: 'wildrice', mushroom: 'mushroom' };
-    const names = { seaweed: 'Seaweed', honey: 'Honey', syrup: 'Maple syrup', berries: 'Blueberries', rice: 'Wild rice', mushroom: 'Chanterelles' };
+    const icons = { seaweed: 'seaweed', honey: 'honey', syrup: 'syrup', berries: 'berry', rice: 'wildrice', mushroom: 'mushroom', crops: 'harvest' };
+    const names = { seaweed: 'Seaweed', honey: 'Honey', syrup: 'Maple syrup', berries: 'Blueberries', rice: 'Wild rice', mushroom: 'Chanterelles', crops: 'Plants ready to harvest' };
     const data = {
       day: this.state.day, weekday: this.weekday(),
       produced: Object.entries(on.produced).map(([k, n]) => ({ icon: icons[k] || 'sparkle', label: names[k] || k, amount: n })),
@@ -889,17 +935,11 @@ export class Game {
     this.emit('tool', this.tool);
   }
 
+  // the Food tool on water: throw a scoop of the selected food
   feedAt(x, z) {
-    this.emit('fed', { x, z });
-    const bag = this.foodBag;
-    if (bag.count < 1) { this.audio.play('error', { volume: 0.3 }); this.ui?.toast('Food bag empty, it refills over time', 'bad'); return; }
-    bag.count -= 1;
-    this.fox.goToward(x, z);
-    const h = this.fox.handPos();
-    this.fox.react('throw', 0.4);
-    this.food.throwHandful(h.x, h.y, h.z, x, z, 6, 0.6);
-    this.audio.play('click', { volume: 0.25, pitch: 1.4 });
-    if (this.state.tutorial === 1) this.advanceTutorial();
+    const ok = this.foodStore.throwAt(x, z);
+    if (ok && this.state.tutorial === 1) this.advanceTutorial();
+    return ok;
   }
 
   // --- fish tools
@@ -1143,6 +1183,20 @@ export class Game {
 
   tapStructure(s) {
     if (s.def.gate) { this.structures.toggleGate(s); this.onTopologyChanged(); return true; }
+    if (s.def.crop && s.built) {
+      if (s.crop?.stage === 3) { this.harvest.harvest(s); return true; }
+      this.ui?.showCropCard?.(s);
+      return true;
+    }
+    if (STORAGE[s.type] && s.built) {
+      const sel = this.foodStore.selected, F = FOOD_ITEMS[sel];
+      const fits = STORAGE[s.type].for === 'beaver' ? F?.beaver : F?.bear;
+      if (this.tool.kind === 'feed' && fits && this.foodStore.count(sel) > 0 && this.foodStore.room(s) > 0) { this.foodStore.fillStorage(s, sel); return true; }
+      this.ui?.showStorageCard?.(s);
+      return true;
+    }
+    if (s.def.grinder && s.built) { if (!this.structures.collectGrinder(s)) this.ui?.showStructureInfo?.(s); return true; }
+    if (s.def.hutch && s.built) { this.ui?.showHutchCard?.(s); return true; }
     if (s.def.nest && s.built) { this.ui?.showNestCard?.(s); return true; }
     if (s.def.tank && s.built) { this.ui?.showTankCard?.(s); return true; }
     if (this.bugs?.farmDef(s) && s.built && (s.def.category === 'farm' || s.type === 'bughotel')) { this.bugs.showRing(s, 6); this.ui?.showFarmCard?.(s); return true; }
@@ -1201,15 +1255,15 @@ export class Game {
       st.hour = Math.min(21, st.hour + dt * 0.25);
       if (this.bedT > (this.fox.asleep ? 1.5 : 9)) this.startNight();
     }
-    // food bag refill
-    const bag = this.foodBag;
-    if (bag.count < bag.max) { bag.t += simDt; if (bag.t >= 2.2 / Math.max(1, this.mods.bagBonus)) { bag.t = 0; bag.count++; } }
+    // free pellet trickle
+    this.foodStore.update(simDt);
 
     // systems
     const calm = st.phase === 'night' || st.phase === 'dawn' || st.phase === 'bedtime' || st.phase === 'report' || st.phase === 'morning';
     const simPhase = calm ? dt * 0.5 : simDt;
     if (st.phase !== 'gameover') {
       this.structures.update(simPhase);
+      this.harvest.update(simPhase);
       this.food.update(simPhase);
       this.bugs.update(simPhase);
       this.livestock.update(simPhase);
@@ -1222,6 +1276,7 @@ export class Game {
     }
     this.fox.update(dt);
     this.ambient.update(dt);
+    if (st.phase !== 'gameover') this.landAnimals.update(simDt || dt * 0.3);
     this.zones.update(dt);
     this.villagers.update(dt);
     this.cine?.update(realDt);
@@ -1287,7 +1342,7 @@ export class Game {
     return {
       v: 3, state: st, stats: this.stats, water, land, removedDecos, removedClutter: this.world.clutter.filter((c) => c.type === 'none').map((c) => [Math.floor(c.x), Math.floor(c.z)]), structures: this.structures.serialize(),
       beavers: this.beavers.serialize(), delivery: this.delivery.serialize(),
-      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
+      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), land: this.landAnimals.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
     };
   }
 
@@ -1336,6 +1391,7 @@ export class Game {
     this.delivery.load(data.delivery);
     this.bugs.load(data.bugs);
     this.livestock?.load(data.livestock);
+    this.landAnimals.load(data.land);
     this.zones.onLoad();
     this.villagers.onLoad();
     this.applyLandmarkMods();
@@ -1375,6 +1431,13 @@ const SHOP_ITEMS = [
   { type: 'floatlantern', cat: 'decor', title: 'Floating lanterns x3 MAGICAL', price: 40, oldPrice: 160, seller: { name: 'Zen Den', stars: 4.8, sold: 290 } },
   { type: 'moose', cat: 'decor', title: 'Life-size moose statue (not my cousin)', price: 90, oldPrice: 400, badges: ['hot'], seller: { name: 'Moose Express', stars: 5, sold: 77 } },
   { type: 'hatchery', cat: 'gear', title: 'Egg incubator - hatch faster', price: 80, oldPrice: 250, unlock: 'r_hatchery', seller: { name: 'EggCellent', stars: 4.7, sold: 150 } },
+];
+// live adult pairs on e-Buy (the tutorial's first purchase)
+const LIVE_PAIRS = ['bluegill', 'pumpkinseed', 'goldfish', 'perch', 'brook'];
+const PRODUCE_CRATES = [
+  { id: 'carrot', n: 6, price: 18, title: 'Crate of carrots x6 (beavers will work for these!!)' },
+  { id: 'lettuce', n: 8, price: 14, title: 'Lettuce crate x8 - fresh, crunchy, cheap' },
+  { id: 'blueberry', n: 6, price: 16, title: 'Wild blueberries x6 (bears LOVE a side dish)' },
 ];
 const SELLERS = ['xX_FishLord_Xx', 'grandma_trout', 'BigPondEnergy', 'eggs4u_ca', 'NotAScam_Fish', 'Canuck_Carp', 'reel_deal', 'fin_tastic'];
 function pickSeller(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0; return SELLERS[Math.abs(h) % SELLERS.length]; }

@@ -348,6 +348,7 @@ export class Input {
     const cr = game.ui?.pickCreature?.(sx, sy);
     if (cr && cr.kind === 'npc') { game.villagers.open(cr.ent); return; }
     if (cr && cr.kind === 'songbird') { game.spotBird(cr.ent); return; }
+    if (cr && cr.kind === 'land') { game.landAnimals.spot(cr.ent); return; }
     if (cr && game.tool.kind === 'feed') {
       game.ui.trackEntity(cr.ent, cr);
       if (cr.kind === 'livestock') game.ui.showLivestockInfo?.(cr.ent);

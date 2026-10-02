@@ -10,12 +10,23 @@
 //
 // Units: 1 voxel = 0.05 world units. Root origin at the feet, facing +Z.
 // Reynard's right side is -X (monocle eye, prop hand).
+//
+// Outfits, props and aiming (models in foxProps.js):
+//   fox.setOutfit('teacher' | 'chef' | 'default');
+//   fox.holdProp('pointer' | 'chalk' | 'ladle' | null);   // right paw, returns the Object3D
+//   fox.holdBoth(trophy);                                 // both paws, in front; returns the anchor
+//   fox.setAim(worldPoint, { weight });  fox.setAim(null); // IK the right arm so the prop points there
+//   fox.propTip(out);                                     // world position of the prop tip
+//   fox.onEvent = (name, rig) => {};                      // 'tap', 'stroke', 'step', 'present', ...
 import * as THREE from 'three';
 import { VoxelModel } from '../core/voxel.js';
 import {
   FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H,
-  makeSpriteTexture, BUBBLE_ROWS, POP_ROWS, ZZZ_ROWS,
+  makeSpriteTexture, BUBBLE_ROWS, POP_ROWS, ZZZ_ROWS, EYE_R, EYE_L,
 } from './foxFace.js';
+import { outfitParts, propParts, disposeFoxProps, FOX_OUTFITS, FOX_PROPS } from './foxProps.js';
+
+export { FOX_OUTFITS, FOX_PROPS };
 
 const VS = 0.05; // world units per voxel
 const FV = 0.025; // fine voxels (monocle, chain, props)
@@ -278,11 +289,11 @@ function monocleModel() {
   for (let x = -6; x <= 5; x++)
     for (let y = -6; y <= 5; y++) {
       const d = Math.hypot(x + 0.5, y + 0.5);
-      if (d > 5.6 || d < 4.5) continue;
+      if (d > 5.0 || d < 4.0) continue; // a touch smaller around the dot eye
       const c = x + y < -3 ? C.goldL : x + y > 3 ? C.goldD : C.gold;
       v.set(x, y, 0, c);
     }
-  v.set(-6, -4, 0, C.goldD); v.set(-7, -5, 0, C.gold); // chain loop
+  v.set(-5, -4, 0, C.goldD); v.set(-6, -5, 0, C.gold); // chain loop
   return v;
 }
 
@@ -442,7 +453,8 @@ const once = (s, key, cond, fn) => { if (cond && !s[key]) { s[key] = true; fn();
 // ------------------------------------------------------------------ skeleton constants (voxels)
 const HIP_Y = 6, WAIST = 1, NECK_Y = 6, SHOULDER_X = 5.5, SHOULDER_Y = 5;
 const L_UPPER = 4, L_FORE = 2.5, L_PAW = 1.6; // arm lengths
-const EYE_POS = [-3.25, 7.5, 6.6]; // right eye centre (head space), monocle rest
+// right eye centre (head space), monocle rest: follows the dot eye drawn on the face texture
+const EYE_POS = [EYE_R.x / 4 - FACE_W / 8, FACE_H / 4 - EYE_R.y / 4, 6.6];
 const NOSE_POS = [-0.5, 2.6, 11.1];
 const HAT_SEAT = [0, 12, -0.5];
 const HAT_TOP = 11.2;
@@ -475,6 +487,18 @@ class Pose {
     this.lookW = 1; // how much lookAt may turn the head
     this.pawL = 'relax'; this.pawR = 'relax';
     this.propL = null; this.propR = null;
+    // aiming (post-IK, see FoxRig._applyHands). aimAuto > 0 makes the anim aim at aimDef
+    // (root space, world units) when no setAim() target is given.
+    this.aimAuto = 0; this.aimDef = null;
+    this.aimPush = 0; // tip offset along the pointing direction (world units, < 0 = short of the target)
+    this.aimU = 0; this.aimV = 0; // stroke offset on the "board" plane (world units, right / up)
+    this.aimArm = 1; this.aimBody = 1; // how much the aim may drive the right arm / turn the torso
+    this.aimPole = null; // elbow pole override [x(out), y, z]
+    // both-paw hold: anchor in chest space (voxels) + tilt, and weight
+    this.both = null; this.bothRx = 0; this.bothRz = 0; this.bothW = 1;
+    // wrist alignment of the right-hand prop axis to a chest-space direction
+    this.propDir = null; this.propDirW = 0;
+    this.keepPawR = false; // let the anim pick the right paw shape even while holding a prop
   }
   // IK helper: paw centre target in chest space (voxels); pole outward/down/back
   ik(arm, x, y, z, px = 0.7, py = -0.4, pz = -1, w = 1) {
@@ -637,6 +661,13 @@ class MotionProbe {
 
 // ------------------------------------------------------------------ the rig
 const _wp = new THREE.Vector3(), _wq = new THREE.Quaternion(), _ws = new THREE.Vector3();
+// _applyHands scratch (solveArm owns _v1.._v5)
+const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _h4 = new THREE.Vector3(), _h5 = new THREE.Vector3();
+const _h6 = new THREE.Vector3(), _h7 = new THREE.Vector3(), _h8 = new THREE.Vector3(), _h9 = new THREE.Vector3(), _h10 = new THREE.Vector3();
+const _h11 = new THREE.Vector3(), _h12 = new THREE.Vector3(), _h13 = new THREE.Vector3();
+const _hq1 = new THREE.Quaternion(), _hq2 = new THREE.Quaternion(), _hq3 = new THREE.Quaternion(), _hq4 = new THREE.Quaternion();
+const _hq5 = new THREE.Quaternion(), _hq6 = new THREE.Quaternion(), _hq7 = new THREE.Quaternion();
+const AIM_POLE = [0.75, -0.6, -0.35]; // elbow out, down and a little back while pointing
 const _mA = new THREE.Matrix4(), _mB = new THREE.Matrix4();
 const _pA = new THREE.Vector3(), _pB = new THREE.Vector3(), _qA = new THREE.Quaternion(), _qB = new THREE.Quaternion(), _sA = new THREE.Vector3(), _sB = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -760,6 +791,20 @@ export class FoxRig {
     };
     this.flyCoin = prop(G.coin, this.chest, 0, 0, 0);
     this._held = null;
+    // outfits / hand props / both-paw hold / aim (see setOutfit, holdProp, holdBoth, setAim)
+    this._M = M; this._MA = MA;
+    this._propMat = foxMaterial(0, 0, 0, 0, 0x100800);
+    this.outfit = 'default';
+    this._hatTop = HAT_TOP; this._earSpread = 0;
+    this._defaultGeo = { hat: G.hat, torso: this.torso.geometry, upper: G.upperArm, fore: G.forearm };
+    this.tassel = null;
+    this._prop = null; // { name, obj, tip, axis, len }
+    this._propCache = {};
+    this.bothAnchor = grp(this.chest, 0, 2, 7);
+    this.bothAnchor.name = 'bothAnchor';
+    this._both = { obj: null, w: 0, goal: 0, pos: new THREE.Vector3(0, 2, 7), rx: 0, rz: 0, hw: 2.5, cy: 0, cz: 0, init: false };
+    this._aim = { target: null, weight: 1, w: 0, world: new THREE.Vector3(), lookAt: new THREE.Vector3(), has: false, look: false, pdW: 0, pd: null };
+    this._ikArm = mkArm(); this._ikArm.side = -1;
 
     // sprites (snot bubble, pop, zzz)
     const spr = (rows, scale) => {
@@ -792,7 +837,7 @@ export class FoxRig {
     this._look = { yaw: 0, pitch: 0, px: 0, py: 0 };
     this._blinkT = 1.5; this._blinkPh = -1;
     this._glintT = 0; this._glintNext = 1; this._lastExpr = '';
-    this._hatFly = null; this._hatHand = { w: 0, goal: 0 };
+    this._hatFly = null; this._hatHand = { w: 0, goal: 0, side: 'R' };
     this._hatSq = new Spring(260, 12);
     this._headSq = new Spring(240, 11);
     this._nod = new Spring(200, 16);
@@ -807,8 +852,10 @@ export class FoxRig {
       headAcc: { x: 0, z: 0 },
       hat: { x: new Spring(230, 13), z: new Spring(230, 13), y: new Spring(300, 16) },
       belly: new Spring(280, 9),
+      tassel: { x: new Spring(95, 3.2), z: new Spring(95, 3.2) },
       init: false,
     };
+    this._probeTassel = new MotionProbe();
     this._prevSnot = 0; this._popT = 0;
     this._zzzT = 0;
     this.play('idle', { fade: 0 });
@@ -888,8 +935,137 @@ export class FoxRig {
 
   headTop(out = new THREE.Vector3()) {
     this.hatSeat.updateWorldMatrix(true, false);
-    out.set(0, (HAT_TOP + 1.5) * VS, 0);
+    out.set(0, (this._hatTop + 1.5) * VS, 0);
     return this.hatSeat.localToWorld(out);
+  }
+
+  /**
+   * Dress Reynard: 'default' (top hat + purple waistcoat), 'teacher' (mortarboard with a
+   * swinging tassel, tweed cardigan with elbow patches, polka-dot bow tie) or 'chef'
+   * (pleated toque, white double-breasted jacket, red neckerchief). Monocle stays on.
+   * Hat pops / the hat-in-hand bows work with whatever hat is on.
+   */
+  setOutfit(name = 'default') {
+    const id = FOX_OUTFITS.includes(name) ? name : 'default';
+    if (id !== name) console.warn('FoxRig: unknown outfit', name);
+    if (id === this.outfit) return this;
+    this.outfit = id;
+    const parts = outfitParts(id), D = this._defaultGeo;
+    this.hatMesh.geometry = parts ? parts.hat : D.hat;
+    this.torso.geometry = parts ? parts.torso : D.torso;
+    this.armL.upper.geometry = parts ? parts.upperL : D.upper;
+    this.armR.upper.geometry = parts ? parts.upperR : D.upper;
+    this.armL.fore.geometry = parts ? parts.foreL : D.fore;
+    this.armR.fore.geometry = parts ? parts.foreR : D.fore;
+    const tilt = parts ? parts.hatTilt : [0, 0, 0];
+    this.hatMesh.rotation.set(tilt[0], tilt[1], tilt[2]);
+    this._hatTop = parts ? parts.hatTop : HAT_TOP;
+    this._earSpread = parts ? parts.earSpread : 0;
+    // tassel (teacher): a cord on the board + a hanging bit on its own pendulum
+    if (parts && parts.tassel && !this.tassel) {
+      const T = parts.tassel;
+      const cord = new THREE.Mesh(T.cord, this._propMat);
+      cord.position.set(...T.cordPos);
+      cord.castShadow = this.shadows;
+      const pivot = new THREE.Group();
+      pivot.position.set(...T.pivot);
+      const hang = new THREE.Mesh(T.hang, this._propMat);
+      hang.castShadow = this.shadows;
+      pivot.add(hang);
+      this.tassel = { cord, pivot, hang };
+      this._meshes.push(cord, hang);
+    }
+    if (this.tassel) {
+      const on = !!(parts && parts.tassel);
+      if (on) { this.hatMesh.add(this.tassel.cord); this.hatMesh.add(this.tassel.pivot); }
+      else { this.tassel.cord.removeFromParent(); this.tassel.pivot.removeFromParent(); }
+      this._probeTassel.init = false;
+    }
+    return this;
+  }
+
+  /**
+   * Put a prop in the right paw: 'pointer' (wooden stick with a tiny white glove pointing
+   * its finger), 'chalk', 'ladle', or null to empty the paw. Returns the prop Object3D (or null).
+   * While a prop is held the right paw makes a fist; setAim() points the prop's tip.
+   */
+  holdProp(name) {
+    if (this._prop) { this._prop.obj.removeFromParent(); this._prop = null; }
+    if (!name) return null;
+    let P = this._propCache[name];
+    if (!P) {
+      const parts = propParts(name);
+      if (!parts) { console.warn('FoxRig: unknown prop', name); return null; }
+      const obj = new THREE.Group();
+      obj.name = 'prop_' + name;
+      const m = new THREE.Mesh(parts.geo, this._propMat);
+      m.castShadow = this.shadows;
+      obj.add(m);
+      this._meshes.push(m);
+      // held tilted a little forward so it reads as gripped, not dangling
+      if (name === 'pointer') obj.rotation.x = 0.35;
+      else if (name === 'chalk') { obj.rotation.x = 0.5; obj.position.set(0, 0.012, 0.012); }
+      else if (name === 'ladle') { obj.rotation.x = 0.25; obj.position.set(0, 0.03, 0); }
+      P = this._propCache[name] = { name, obj, tip: parts.tip, axis: parts.axis, len: parts.len };
+    }
+    this.armR.grip.add(P.obj);
+    this._prop = P;
+    return P.obj;
+  }
+
+  /** Name of the prop in the right paw (or null). */
+  get prop() { return this._prop ? this._prop.name : null; }
+
+  /**
+   * Hold any Object3D in front with BOTH paws (carrying, presenting a trophy). The object is
+   * parented to the returned anchor (it keeps its own local transform: put its origin where
+   * it should sit between the paws); the paws grab its sides. holdBoth(null) lets go
+   * (the object is detached). Anims 'carry' and 'present_trophy' move the anchor.
+   */
+  holdBoth(obj) {
+    const B = this._both;
+    if (B.obj && B.obj !== obj) B.obj.removeFromParent();
+    B.obj = obj || null;
+    B.goal = obj ? 1 : 0;
+    if (!obj) return this.bothAnchor;
+    this.bothAnchor.add(obj);
+    // grab points: the object's box in anchor space
+    this.bothAnchor.updateWorldMatrix(true, false);
+    obj.updateWorldMatrix(false, true);
+    const box = new THREE.Box3().setFromObject(obj);
+    if (!box.isEmpty()) {
+      _m.copy(this.bothAnchor.matrixWorld).invert();
+      box.applyMatrix4(_m);
+      B.hw = clamp((box.max.x - box.min.x) / 2 / VS, 1.6, 9);
+      B.cx = (box.max.x + box.min.x) / 2 / VS;
+      B.cy = clamp((box.min.y + box.max.y) / 2 / VS, -4, 8);
+      B.cz = (box.max.z + box.min.z) / 2 / VS;
+    } else { B.hw = 2.5; B.cx = 0; B.cy = 0; B.cz = 0; }
+    return this.bothAnchor;
+  }
+
+  /** World position of the prop's business end (pointer fingertip, chalk tip, ladle bowl), or the right paw. */
+  propTip(out = new THREE.Vector3()) {
+    const P = this._prop;
+    if (P) {
+      P.obj.updateWorldMatrix(true, false);
+      return P.obj.localToWorld(out.copy(P.tip));
+    }
+    this.armR.grip.updateWorldMatrix(true, false);
+    return this.armR.grip.getWorldPosition(out);
+  }
+
+  /**
+   * Point the right arm (and the prop in it) at a world point: the arm is IK'd so the tip
+   * touches the target when it is within reach, or points at it from full reach; the torso
+   * and head turn toward it a bit. Blends smoothly over the current animation; null releases.
+   * The Vector3 is kept by reference, so moving it moves the aim.
+   */
+  setAim(target, { weight = 1 } = {}) {
+    const A = this._aim;
+    A.target = target || null;
+    A.weight = clamp01(weight);
+    return this;
   }
 
   // Extras used by the animations (public so a game can trigger the gags too)
@@ -925,6 +1101,7 @@ export class FoxRig {
     if (geoRefs <= 0 && GEO) {
       for (const k in GEO) GEO[k].dispose();
       GEO = null; geoRefs = 0;
+      disposeFoxProps();
     }
   }
 
@@ -946,7 +1123,7 @@ export class FoxRig {
     let t = cur.t;
     if (def.dur) {
       if (cur.loop) t = cur.t;
-      else if (t > def.dur) t = def.dur;
+      else if (t > def.dur && !def.hold) t = def.dur; // `hold` anims keep living past their intro
     }
     // user expression hold
     if (this._userExpr && this._userHold > 0) {
@@ -960,6 +1137,9 @@ export class FoxRig {
     p.reset(); resetFaceReq(f);
     if (def.lookW != null) p.lookW = def.lookW;
     def.fn(t, p, f, cur.state, this, dt);
+    p.eL.sp += this._earSpread; p.eR.sp += this._earSpread;
+    if (this._prop && !p.keepPawR && !p.propR) p.pawR = 'fist';
+    if (this._both.w > 0.5 && !p.keepPawR) { p.pawL = p.pawR = 'open'; }
     this._talkAccents(p, dt);
     // 2) frame + crossfade
     poseToFrame(p, this._fCur);
@@ -968,6 +1148,8 @@ export class FoxRig {
       this._fOut.blend(this._fFrom, this._fCur, smooth(this._fadeT / this._fadeDur));
     } else this._fOut.copy(this._fCur);
     this._apply(this._fOut, p);
+    // 2b) hands: both-paw hold, aim IK, prop alignment (post-blend so they hold through crossfades)
+    this._applyHands(dt, p);
     // 3) look-at (head + pupils)
     this._applyLook(dt);
     // 4) secondary motion
@@ -982,7 +1164,7 @@ export class FoxRig {
     if (!cur.loop && def.dur && cur.t >= def.dur && !cur.done && this._cur === cur) {
       cur.done = true;
       if (cur.onDone) cur.onDone(this);
-      if (this._cur === cur && def.next !== null) this.play(def.next || 'idle', { fade: def.nextFade ?? 0.3 });
+      if (this._cur === cur && def.next !== null && !def.hold) this.play(def.next || 'idle', { fade: def.nextFade ?? 0.3 });
     }
   }
 
@@ -1038,10 +1220,162 @@ export class FoxRig {
     A.paw = kind;
   }
 
+  // ---------------------------------------------------------------- hands (post-blend IK)
+  // Runs on the blended frame, so holds and aims stay locked through crossfades:
+  //   1) both-paw hold: paws grab the sides of the object on bothAnchor
+  //   2) aim: torso turn + right-arm IK so the prop tip touches / points at the target
+  //   3) anim-driven prop direction (p.propDir) when not aiming
+  _applyHands(dt, p) {
+    const B = this._both, A = this._aim;
+    B.w += clamp(B.goal * p.bothW - B.w, -dt / 0.22, dt / 0.22);
+    const bothW = smooth(B.w);
+    // aim source: the user's target first, else the animation's own default "board" point
+    let goal = 0, src = null;
+    if (A.target) { src = _h1.copy(A.target); goal = A.weight; }
+    else if (p.aimAuto > 0 && p.aimDef) {
+      this.root.updateWorldMatrix(true, false);
+      src = this.root.localToWorld(_h1.set(p.aimDef[0], p.aimDef[1], p.aimDef[2]));
+      goal = p.aimAuto;
+    }
+    A.w += clamp(goal - A.w, -dt / 0.25, dt / 0.25);
+    if (src) {
+      if (!A.has || A.w < 0.03) A.world.copy(src);
+      else A.world.lerp(src, 1 - Math.exp(-dt * 16));
+      A.has = true;
+    } else if (A.w <= 0) A.has = false;
+    const aimW = A.has ? smooth(A.w) : 0;
+    A.look = aimW > 0 && p.aimBody > 0;
+    if (A.has) A.lookAt.copy(A.world);
+    if (!(bothW > 0.001) && !(aimW > 0.001) && !(A.pdW > 0.001) && !p.propDir) return;
+    this.root.updateMatrixWorld(true);
+    // 2a) torso turns toward the target
+    if (aimW > 0.001 && p.aimBody > 0) {
+      const h = this.hips.worldToLocal(_h2.copy(A.world)).sub(this.chest.position);
+      const yaw = clamp(Math.atan2(h.x, Math.max(0.05, h.z)), -1.2, 1.2);
+      _hq1.setFromAxisAngle(UP, yaw * 0.38 * aimW * p.aimBody);
+      this.chest.quaternion.premultiply(_hq1);
+      this.chest.updateMatrixWorld(true);
+    }
+    // 1) both-paw hold
+    if (bothW > 0.001) {
+      const gp = p.both ? _h3.set(p.both[0], p.both[1], p.both[2]) : _h3.set(0, 1.6, 7.4);
+      const k = 1 - Math.exp(-dt * 22);
+      if (!B.init) { B.pos.copy(gp); B.rx = p.bothRx; B.rz = p.bothRz; B.init = true; }
+      B.pos.lerp(gp, k); B.rx += (p.bothRx - B.rx) * k; B.rz += (p.bothRz - B.rz) * k;
+      this.bothAnchor.position.copy(B.pos).multiplyScalar(VS);
+      this.bothAnchor.rotation.set(B.rx, 0, B.rz);
+      for (const [Am, s] of [[this.armL, 1], [this.armR, -1]]) {
+        const T = _h4.set(B.cx + s * (B.hw + 0.9), B.cy, B.cz).applyEuler(this.bothAnchor.rotation).add(B.pos);
+        const arm = this._ikArm;
+        arm.side = s; arm.tx = T.x; arm.ty = T.y; arm.tz = T.z;
+        arm.px = 1; arm.py = -0.45; arm.pz = -0.55; arm.st = 2.2;
+        arm.shY = (Am.sh.position.y - Am.shRest.y) / VS; arm.shZ = Am.sh.position.z / VS;
+        const st = solveArm(arm, _hq2, _hq3);
+        // palms press on the sides, fingers forward and a little up
+        _hq4.copy(_hq2).multiply(_hq3);
+        _hq5.copy(_hq4).multiply(Am.wr.quaternion);
+        const cur = _h6.set(0, -1, 0).applyQuaternion(_hq5);
+        const want = _h7.set(-s * 0.55, 0.45, 1).applyEuler(this.bothAnchor.rotation).normalize();
+        _hq1.setFromUnitVectors(cur, want).multiply(_hq5);
+        _hq6.copy(_hq4).invert().multiply(_hq1);
+        this._blendArm(Am, _hq2, _hq3, _hq6, st, bothW);
+      }
+    } else B.init = false;
+    // 2b) aim the right arm (both-paw hold wins the arms)
+    const P = this._prop;
+    const armW = aimW * p.aimArm * (1 - bothW);
+    if (armW > 0.001) {
+      const Ar = this.armR, arm = this._ikArm;
+      arm.side = -1;
+      arm.shY = (Ar.sh.position.y - Ar.shRest.y) / VS; arm.shZ = Ar.sh.position.z / VS;
+      const S = _h5.set(-SHOULDER_X, SHOULDER_Y + arm.shY, arm.shZ);
+      const T = this.chest.worldToLocal(_h2.copy(A.world)).divideScalar(VS);
+      const dir = _h3.subVectors(T, S);
+      let dist = dir.length() || 1;
+      dir.divideScalar(dist);
+      if (p.aimU || p.aimV) {
+        const r = _h8.crossVectors(dir, UP).normalize();
+        const u = _h9.crossVectors(r, dir);
+        T.addScaledVector(r, p.aimU / VS).addScaledVector(u, p.aimV / VS);
+        dir.subVectors(T, S); dist = dir.length() || 1; dir.divideScalar(dist);
+      }
+      const tipT = _h10.copy(T).addScaledVector(dir, p.aimPush / VS); // where the tip should be
+      A.lookAt.copy(tipT).multiplyScalar(VS);
+      this.chest.localToWorld(A.lookAt);
+      // prop geometry in wrist space (voxels)
+      const tipW = _h11, axW = _h12;
+      if (P) {
+        tipW.copy(P.tip).applyQuaternion(P.obj.quaternion).add(P.obj.position).divideScalar(VS).add(_h4.set(0, -L_PAW, 0.5));
+        axW.copy(P.axis).applyQuaternion(P.obj.quaternion);
+      } else {
+        tipW.set(1, -L_PAW - 4.6, 1); axW.set(0, -1, 0.15).normalize(); // pointing finger
+        if (armW > 0.5) this._setPaw(Ar, 'point');
+      }
+      const reach = (L_UPPER + L_FORE + L_PAW) * 0.97;
+      const Lp = tipW.length();
+      const G = _h6.copy(S).addScaledVector(dir, clamp(tipT.distanceTo(S) - Lp, reach * 0.4, reach));
+      const pole = p.aimPole || AIM_POLE;
+      let st = 1;
+      for (let it = 0; it < 3; it++) {
+        arm.tx = G.x; arm.ty = G.y; arm.tz = G.z;
+        arm.px = pole[0]; arm.py = pole[1]; arm.pz = pole[2]; arm.st = 1.12;
+        st = solveArm(arm, _hq2, _hq3);
+        // align the prop axis with the pointing line (minimal twist from the anim's wrist)
+        _hq4.copy(_hq2).multiply(_hq3);
+        _hq5.copy(_hq4).multiply(Ar.wr.quaternion);
+        const cur = _h7.copy(axW).applyQuaternion(_hq5);
+        _hq1.setFromUnitVectors(cur, dir).multiply(_hq5);
+        _hq6.copy(_hq4).invert().multiply(_hq1);
+        // measure where the tip ended up and nudge the paw target by the error
+        const tip = this._armPoint(S, _hq2, _hq3, _hq6, st, tipW, _h7);
+        const err = _h8.subVectors(tipT, tip);
+        if (err.lengthSq() < 0.01) break;
+        G.add(err);
+        const gd = G.distanceTo(S);
+        if (gd > reach) G.sub(S).multiplyScalar(reach / gd).add(S);
+      }
+      this._blendArm(Ar, _hq2, _hq3, _hq6, st, armW);
+    }
+    // 3) anim-driven prop direction (stirring, tasting, lecturing flourishes)
+    const pdGoal = P && p.propDir ? p.propDirW : 0;
+    A.pdW += clamp(pdGoal - A.pdW, -dt / 0.18, dt / 0.18);
+    if (p.propDir) (A.pd || (A.pd = new THREE.Vector3())).set(p.propDir[0], p.propDir[1], p.propDir[2]).normalize();
+    const pdW = smooth(A.pdW) * (1 - armW) * (1 - bothW);
+    if (P && pdW > 0.001 && A.pd) {
+      const Ar = this.armR;
+      const axW = _h12.copy(P.axis).applyQuaternion(P.obj.quaternion);
+      _hq4.copy(Ar.sh.quaternion).multiply(Ar.el.quaternion);
+      _hq5.copy(_hq4).multiply(Ar.wr.quaternion);
+      const cur = _h7.copy(axW).applyQuaternion(_hq5);
+      _hq1.setFromUnitVectors(cur, A.pd).multiply(_hq5);
+      _hq6.copy(_hq4).invert().multiply(_hq1);
+      Ar.wr.quaternion.slerp(_hq6, pdW);
+    }
+  }
+
+  // Chest-space point (voxels) of `local` (wrist space, voxels) for shoulder S and joint rotations.
+  _armPoint(S, qS, qE, qW, st, local, out) {
+    out.set(0, -L_UPPER * st, 0).applyQuaternion(qS).add(S);
+    _hq7.copy(qS).multiply(qE);
+    out.add(_h13.set(0, -L_FORE * st, 0).applyQuaternion(_hq7));
+    _hq7.multiply(qW);
+    return out.add(_h13.copy(local).applyQuaternion(_hq7));
+  }
+
+  _blendArm(A, qS, qE, qW, st, w) {
+    A.sh.quaternion.slerp(qS, w);
+    A.el.quaternion.slerp(qE, w);
+    if (qW) A.wr.quaternion.slerp(qW, w);
+    const s = lerp(A.upper.scale.y, st, w);
+    A.upper.scale.set(1, s, 1); A.el.position.y = -L_UPPER * s * VS;
+    A.fore.scale.set(1, s, 1); A.wr.position.y = -L_FORE * s * VS;
+  }
+
   _applyLook(dt) {
     const L = this._look;
     let yaw = 0, pitch = 0;
-    const tgt = this._lookTarget;
+    const A = this._aim;
+    const tgt = this._lookTarget || (A.has && A.w > 0.05 && A.look ? A.lookAt : null);
     const w = this._lookW;
     if (tgt) {
       this.neck.updateWorldMatrix(true, false);
@@ -1131,6 +1465,19 @@ export class FoxRig {
     _q1.setFromEuler(_e.set(hat.x.x, 0, hat.z.x, 'XYZ'));
     this.hat.quaternion.multiply(_q1);
     this.hat.position.y += clamp(hat.y.x, -0.012, 0.25);
+    // mortarboard tassel: a pendulum that always hangs with gravity and lags the head
+    const T = this.tassel;
+    if (T && T.pivot.parent) {
+      this._probeTassel.sample(T.pivot, dt);
+      const a = this._probeTassel.a, sp = S.tassel;
+      sp.x.step(0, a.z * 7, dt); sp.z.step(0, -a.x * 7, dt);
+      sp.x.x = clamp(sp.x.x, -1.3, 1.3); sp.z.x = clamp(sp.z.x, -1.3, 1.3);
+      T.pivot.parent.getWorldQuaternion(_q1).invert();
+      _v1.set(0, -1, 0).applyQuaternion(_q1);
+      _q2.setFromUnitVectors(_v2.set(0, -1, 0), _v1);
+      _q1.setFromEuler(_e.set(sp.x.x, 0, sp.z.x, 'XYZ'));
+      T.pivot.quaternion.copy(_q2).multiply(_q1);
+    }
     // belly / breathing
     const b = clamp(S.belly.x, -0.18, 0.18), br = this._breath || 0;
     this.torso.scale.set(1 - b * 0.5 + br * 0.012, 1 + b + br * 0.018, 1 - b * 0.5 + br * 0.03);
@@ -1237,8 +1584,9 @@ export class FoxRig {
       // blend between the head seat and the right paw
       this.hat.updateWorldMatrix(true, false);
       _mA.copy(this.hat.matrixWorld);
-      this.armR.grip.updateWorldMatrix(true, false);
-      _mB.copy(this.armR.grip.matrixWorld).multiply(_m.makeRotationFromEuler(_e.set(0.2, 0, -1.25)).setPosition(-0.2, -0.01, 0.02));
+      const left = H.side === 'L', grip = left ? this.armL.grip : this.armR.grip;
+      grip.updateWorldMatrix(true, false);
+      _mB.copy(grip.matrixWorld).multiply(_m.makeRotationFromEuler(_e.set(0.2, 0, left ? 1.25 : -1.25)).setPosition(left ? 0.2 : -0.2, -0.01, 0.02));
       _mA.decompose(_pA, _qA, _sA);
       _mB.decompose(_pB, _qB, _sB);
       const w = smooth(H.w);
@@ -1316,7 +1664,7 @@ export class FoxRig {
     }
     // chain: from the ring's loop to the waistcoat anchor (chest space)
     mono.updateWorldMatrix(true, false);
-    _v1.set(-6.6 * FV, -4.6 * FV, 0).applyMatrix4(mono.matrixWorld);
+    _v1.set(-5.6 * FV, -4.6 * FV, 0).applyMatrix4(mono.matrixWorld);
     this.chest.worldToLocal(_v1);
     const A = this._chainAnchor;
     const on = m.mode === 'on';
@@ -1356,6 +1704,7 @@ export class FoxRig {
     P.stack.visible = p.propL === 'stack';
     P.sack.visible = p.propL === 'sack';
     if (this._held) this._held.visible = !p.propR;
+    if (this._prop) this._prop.obj.visible = !p.propR && this._both.w < 0.5;
     if (p.flyCoin) {
       this.flyCoin.visible = true;
       this.flyCoin.position.set(p.flyCoin[0] * VS, p.flyCoin[1] * VS, p.flyCoin[2] * VS);
@@ -1965,7 +2314,8 @@ def('bow', {
     p.pawR = reach > 0.8 || sweep > 0.2 || back > 0.8 ? 'fist' : 'relax';
     p.tLift += 0.6 * bow; p.tSide += sin(t * 5) * 0.3 * bow;
     const inHand = t > 0.36 && t < 1.8;
-    if (inHand !== s.hand) { s.hand = inHand; rig._hatHand.goal = inHand ? 1 : 0; }
+    if (inHand !== s.hand) { s.hand = inHand; rig._hatHand.side = 'R'; rig._hatHand.goal = inHand ? 1 : 0; }
+    if (rig._prop && t > 0.3 && t < 1.85) p.propR = 'hat'; // the paw is busy with the hat
     if (t > 1.95) f.expr = 'wink';
   },
   exit(s, rig) { rig._hatHand.goal = 0; },
@@ -2641,5 +2991,467 @@ def('climb_down', {
     if (t > 0.16) { f.expr = 'happy'; f.mouth = t > 0.5 ? 'o' : 'grin'; }
     once(s, 'hop', t > 0.08, () => rig._emit('hop'));
     once(s, 'slip', t > 0.5, () => rig._emit('slip'));
+  },
+});
+
+// ---------------------------------------------------------------- outfits & props: teacher, chef, trophies, scares
+// Default aim points (root space, world units) for anims that aim on their own when no setAim() target is set.
+const BOARD_PT = [-0.46, 0.96, 0.72]; // up and to his right (teach_*)
+const CHALK_PT = [-0.1, 0.78, 0.44]; // a board right in front of him (chalk_draw)
+const AHEAD_PT = [-0.14, 0.92, 4]; // far ahead (run_point)
+
+const hipPaw = (p, arm = p.aL, w = 1) => p.ik(arm, 6.6, 0.9, 1.4, 1, 0.1, -0.7, w); // villain pose: paw on the hip
+// Both-paw hold: anchor (chest space, voxels) + a pose-level fallback for the arms (used when nothing is held).
+function bothAt(p, x, y, z, w = 1, st = 1.6, hw = 2.6) {
+  p.both = [x, y, z];
+  p.ik(p.aL, x + hw + 0.9, y, z, 1, -0.45, -0.55, w);
+  p.ik(p.aR, hw + 0.9 - x, y, z, 1, -0.45, -0.55, w);
+  p.aL.st = p.aR.st = st;
+}
+// Yaw (root space) toward the setAim() target, 0 without one.
+function aimYaw(rig) {
+  const T = rig._aim.target;
+  if (!T) return 0;
+  rig.root.updateWorldMatrix(true, false);
+  const v = rig.root.worldToLocal(_h13.copy(T));
+  return Math.atan2(v.x, v.z);
+}
+
+def('teach_point', {
+  loop: true, expr: 'teacher', lookW: 0.9,
+  fn(t, p, f, s) {
+    life(t, p, 0.6);
+    p.aimAuto = 1; p.aimDef = BOARD_PT;
+    // entrance: wind the stick back, thrust it out with an overshoot, settle into a gentle hover
+    const push = K(t, [[0, -0.06], [0.16, -0.2, 'out'], [0.4, 0.012, 'out'], [0.62, -0.035, 'io']]);
+    p.aimPush = push + (t > 0.62 ? sin((t - 0.62) * 2.4) * 0.012 : 0);
+    p.aimV = sin(t * 1.2) * 0.008;
+    const wind = win(t, 0, 0.3, 0.1, 0.12), hit = pulse(t, 0.32, 0.28);
+    p.lean = 0.05 * hit - 0.05 * wind; p.chRx += -0.07 + 0.05 * hit;
+    p.sq = 1 - 0.05 * wind + 0.05 * hit;
+    p.hSq *= 1 + 0.04 * hit;
+    // confident stance: weight on the back leg, hip cocked, free paw on the hip
+    p.hipX = 0.55 + sin(t * 1.1) * 0.12; p.hipRz = 0.035; p.chRz = -0.05;
+    p.lR.sw = -0.2; p.lR.sp = 0.1; p.lL.sw = 0.06; p.lL.kn = 0.14;
+    hipPaw(p); p.pawL = 'fist';
+    p.hRz += 0.07 + sin(t * 1.1) * 0.03;
+    p.eL.fl = p.eR.fl = -0.12;
+    p.tSide += sin(t * 2.1) * 0.3; p.tLift += 0.2; p.tCurl += 0.1;
+    const nod = max(0, sin(t * 0.85 - 1.2)) ** 14;
+    p.hRx += nod * 0.13;
+    f.browLift = hit * 1.4;
+    if (hit > 0.4) f.mouth = 'A';
+    void s;
+  },
+});
+
+def('teach_tap', {
+  dur: 1.45, expr: 'teacher', next: 'teach_point', nextFade: 0.2, lookW: 0.9,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.4);
+    p.aimAuto = 1; p.aimDef = BOARD_PT;
+    const taps = [0.42, 0.7, 0.98];
+    p.aimPush = K(t, [[0, -0.04], [0.26, -0.15, 'out'], [0.42, 0.014, 'in'], [0.55, -0.075, 'out'], [0.7, 0.014, 'in'], [0.83, -0.075, 'out'], [0.98, 0.014, 'in'], [1.22, -0.035, 'out']]);
+    let hit = 0;
+    taps.forEach((tt, i) => { hit += pulse(t, tt - 0.02, 0.14); once(s, 'tap' + i, t >= tt, () => rig._emit('tap')); });
+    const wind = win(t, 0.04, 0.36, 0.12, 0.08);
+    // a little lunge + squash on every tap
+    p.lean = -0.06 * wind + 0.07 * hit; p.chRx += 0.06 * hit - 0.05 * wind;
+    p.sq = 1 - 0.06 * hit + 0.03 * wind;
+    p.y += hit * 0.3;
+    p.hipX = 0.45; p.lR.sw = -0.2 + 0.1 * hit; p.lL.sw = 0.1; p.lL.kn = 0.1;
+    p.hRx += 0.12 * hit; p.hRz += 0.06;
+    hipPaw(p); p.pawL = 'fist';
+    p.eL.fl = p.eR.fl = -0.1 - 0.2 * hit;
+    p.tSide += hit * 0.5; p.tLift += 0.2;
+    f.browLift = hit * 1.8;
+    f.mouth = hit > 0.3 ? (taps.findIndex((tt) => t < tt + 0.14) % 2 ? 'O' : 'A') : 'smile';
+  },
+});
+
+def('teach_explain', {
+  loop: true, expr: 'teacher', gibber: true, lookW: 0.7,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.5);
+    p.aimArm = 0; p.aimBody = 0.5;
+    p.hipX = sin(t * 0.9) * 0.35; p.chRy += sin(t * 0.9 + 0.4) * 0.06;
+    p.hRy += sin(t * 1.3) * 0.1; p.hRz += sin(t * 2.2) * 0.04;
+    const bob = abs(sin(t * 7.2));
+    p.hRx += bob * 0.04 - 0.02; p.y += bob * 0.15;
+    const G = 2.4, k = Math.floor(t / G), g = k % 3, u = t - k * G;
+    const w = win(u, 0, G, 0.32, 0.32);
+    if (g === 0) {
+      // "Indeed!": stick up like a raised finger, little wags; other paw on the hip
+      const wag = sin(u * 10) * smooth((u - 0.25) / 0.2);
+      p.ik(p.aR, 5.6, 10.4 + wag * 0.5, 4.6, 1, -0.7, -0.1, w);
+      p.aR.st = 1.5;
+      p.propDir = [-0.15 + wag * 0.2, 1, 0.25]; p.propDirW = w;
+      hipPaw(p, p.aL, w); p.pawL = 'fist';
+      f.browLift = 1.3 * w;
+    } else if (g === 1) {
+      // "All of this...": sweep the stick across, free paw open palm-up
+      const sw = sin(u * 2.2 - 0.9);
+      p.ik(p.aR, 4.4 - sw * 1.6, 5.4 + sw * 0.4, 7.2, 1, -0.6, -0.3, w);
+      p.propDir = [sw * 0.9 - 0.3, 0.3, 1]; p.propDirW = w;
+      p.ik(p.aL, 6.2, 4.2, 6.2, 1, -0.6, -0.3, w); p.pawL = w > 0.4 ? 'open' : 'relax'; p.aL.wx = -0.9 * w;
+      p.chRy += sw * 0.1 * w;
+    } else {
+      // tap, tap, tap on the open palm
+      const tp = u * 7.5 - 2.4;
+      const tap = tp > 0 ? max(0, sin(tp)) ** 2 : 0;
+      p.ik(p.aR, 4.4, 6 + tap * 0.9, 6, 1, -0.6, -0.3, w);
+      p.propDir = [1, -0.42 + tap * 0.3, 0.14]; p.propDirW = w;
+      p.ik(p.aL, 6.8, 1.6, 7.4, 1, -0.5, -0.4, w); p.aL.st = 1.3;
+      p.pawL = w > 0.4 ? 'open' : 'relax'; p.aL.wx = -1.2 * w; p.aL.wz = -0.5 * w;
+      p.hRx += 0.08 * w;
+      const kk = tp > 0 ? Math.floor(tp / PI) : -1;
+      if (s.tk !== kk && kk >= 0) rig._emit('tap');
+      s.tk = kk;
+    }
+  },
+});
+
+// Strokes on the board plane (u = his right, v = up, world units).
+const STROKES = [
+  { d: 0.95, f: (u, o) => o.set(lerp(-0.2, 0.17, u), 0.11 * sin(u * PI) - 0.02) }, // arch
+  { d: 0.85, f: (u, o) => o.set(lerp(-0.17, 0.17, u), 0.07 - 0.13 * abs(((u * 2.5) % 1) * 2 - 1)) }, // zigzag
+  { d: 0.6, f: (u, o) => o.set(lerp(-0.19, 0.2, EASE.out(u)), -0.12 + 0.01 * sin(u * 13)) }, // underline
+  { d: 1.05, f: (u, o) => o.set(0.02 + 0.09 * sin(u * TAU), 0.02 + 0.08 * cos(u * TAU)) }, // circle
+];
+const STROKE_LIFT = 0.3;
+const STROKE_CYC = STROKES.reduce((a, s) => a + s.d + STROKE_LIFT, 0);
+const _so = new THREE.Vector2(), _so2 = new THREE.Vector2();
+
+def('chalk_draw', {
+  loop: true, expr: 'focused', lookW: 0.8,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.4);
+    p.aimAuto = 1; p.aimDef = CHALK_PT; p.aimBody = 0.6;
+    p.turn = aimYaw(rig);
+    // which stroke are we on?
+    let u = t % STROKE_CYC, i = 0;
+    while (u > STROKES[i].d + STROKE_LIFT) { u -= STROKES[i].d + STROKE_LIFT; i++; }
+    const S0 = STROKES[i];
+    let press = 0;
+    if (u < STROKE_LIFT) {
+      // lift off and glide to the next stroke's start
+      const prev = STROKES[(i + STROKES.length - 1) % STROKES.length];
+      prev.f(1, _so2); S0.f(0, _so);
+      const v = smooth(u / STROKE_LIFT);
+      _so.lerpVectors(_so2, _so, v);
+      p.aimPush = -0.07 * sin(v * PI) - 0.004;
+    } else {
+      S0.f(EASE.io((u - STROKE_LIFT) / S0.d), _so);
+      p.aimPush = 0.008; // pressing on the board
+      press = 1;
+    }
+    once(s, 'st' + Math.floor(t / STROKE_CYC) + '_' + i, u >= STROKE_LIFT, () => rig._emit('stroke'));
+    p.aimU = _so.x; p.aimV = _so.y;
+    // body follows the chalk: up on tiptoes for high strokes, bend for low ones, sway into it
+    const hi = clamp01((_so.y + 0.02) / 0.1), lo = clamp01(-(_so.y + 0.04) / 0.08);
+    p.y += hi * 1.6; p.sq = 1 + hi * 0.05 - lo * 0.04;
+    p.hipY = -lo * 1.4; p.lL.kn = p.lR.kn = lo * 0.5; p.lL.sw = p.lR.sw = -lo * 0.25;
+    p.lL.kn += hi * 0.3; // the free leg kicks up a little on tiptoe
+    p.lean = 0.07 + lo * 0.12; p.chRx += lo * 0.1;
+    p.hipX = _so.x * 5; p.chRy = -_so.x * 0.9; p.chRz = _so.x * 0.25;
+    hipPaw(p); p.pawL = 'fist';
+    p.eL.fl = p.eR.fl = -0.15; p.eL.tw = p.eR.tw = _so.x * 0.6;
+    const vel = press * sin(t * 9);
+    p.tSide = 0.2 + _so.x * 2.2 + vel * 0.15; p.tLift += 0.3 + hi * 0.3; p.tCurl += 0.2;
+    if (u < STROKE_LIFT && i === 0) f.mouth = 'smile';
+  },
+});
+
+def('run_point', {
+  loop: true, expr: 'charge', lookW: 0.5,
+  fn(t, p, f, s, rig) {
+    const ph = (t / 0.38) * TAU, sn = sin(ph), cs = cos(ph);
+    const fl = 1 - abs(cs);
+    p.lean = 0.3; p.hRx = -0.24; p.chRx = 0.02;
+    p.lL.sw = -sn * 1.15 - 0.22; p.lR.sw = sn * 1.15 - 0.22;
+    p.lL.kn = max(0, cs) * 1.8 + 0.25; p.lR.kn = max(0, -cs) * 1.8 + 0.25;
+    p.y = fl * 2.6; p.sq = 1 + (fl - 0.45) * 0.17;
+    p.aL.sw = sn * 1.25 - 0.4; p.aL.el = 1.6; p.aL.ra = 0.3; p.pawL = 'fist';
+    p.aR.sw = -1.4; p.aR.el = 0.2; p.aR.ra = 0.2; // FK fallback while the aim blends in
+    // point the stick far ahead, bobbing with the stride
+    p.aimAuto = 1; p.aimDef = AHEAD_PT; p.aimBody = 0;
+    p.aimV = cs * 0.05; p.aimPole = [0.5, -0.85, -0.2];
+    p.chRy = sn * 0.12; p.hipRy = -sn * 0.12;
+    p.hRz = sn * 0.04;
+    p.eL.fl = p.eR.fl = 0.95; p.eL.sp = p.eR.sp = 0.08;
+    p.tLift = 0.15; p.tCurl = -0.2; p.tSide = sn * 0.35; p.tPuff = 1.12;
+    p.hatRx = -0.28;
+    steps(s, ph, rig);
+  },
+});
+
+def('present_trophy', {
+  dur: 1.4, hold: true, expr: 'proud', lookW: 0.25,
+  enter(s) { s.ph = 0; },
+  fn(t, p, f, s, rig) {
+    // crouch and hug it, then THRUST it up high with a hop, land, hold it there proudly
+    const crouch = K(t, [[0, 0], [0.28, 1, 'out'], [0.38, 0, 'in']]);
+    const jt = (t - 0.34) / 0.36, air = jt > 0 && jt < 1 ? 4 * jt * (1 - jt) : 0;
+    const land = K(t, [[0.66, 0], [0.72, 1, 'out'], [0.95, 0, 'io']]);
+    const up = K(t, [[0, 0], [0.3, -0.15, 'out'], [0.55, 1.12, 'out'], [0.8, 0.97, 'io'], [1.05, 1, 'io']]);
+    const h = t > 1.4 ? t - 1.4 : 0; // the hold loop
+    const pump = h > 0 ? abs(sin(h * 3.4)) * smooth(h / 0.4) : 0;
+    p.y = air * 3.2 + pump * 0.45;
+    p.sq = 1 - crouch * 0.13 + (jt > 0 && jt < 0.4 ? 0.14 * (1 - jt / 0.4) : 0) - land * 0.12 + pump * 0.03;
+    const bend = crouch + land * 0.8;
+    p.hipY = -bend * 1.5; p.lL.sw = p.lR.sw = -bend * 0.5 - air * 0.2; p.lL.kn = p.lR.kn = bend * 1.05 + air * 0.6;
+    p.lL.sp = p.lR.sp = 0.12;
+    // the anchor: hugged at the chest -> high above the tipped-back face
+    const ay = lerp(lerp(2.2, 1.2, crouch), 15.2, max(0, up)) + pump * 0.7;
+    const az = lerp(6.8, 8.4, clamp01(up));
+    bothAt(p, sin(h * 1.7) * 0.4 * smooth(h / 0.5), ay, az, 1, 2.1);
+    p.bothRz = sin(h * 1.7) * 0.06;
+    p.aL.shY = p.aR.shY = clamp01(up) * 1.2;
+    // chest out, chin up, looking up at it
+    const u1 = clamp01(up);
+    p.lean = -0.1 * u1 + crouch * 0.12; p.chRx += -0.12 * u1 + crouch * 0.15;
+    p.hRx += -0.42 * u1 + crouch * 0.25 + pump * 0.04; p.hRz += sin(h * 1.7) * 0.06;
+    p.hSq *= 1 + air * 0.06;
+    p.tLift += 0.7 * u1; p.tPuff = 1 + 0.25 * u1; p.tSide += sin(t * 9) * 0.5 * u1;
+    p.eL.fl = p.eR.fl = -0.2 * u1; p.eL.sp = p.eR.sp = 0.1;
+    once(s, 'up', t >= 0.5, () => rig._emit('present'));
+    once(s, 'land', t >= 0.7, () => rig._emit('land'));
+    if (t < 0.34) { f.expr = 'love'; f.look = [0, 0.8]; }
+    else if (h > 0 && Math.floor(h / 1.7) % 2 === 1) f.expr = 'laugh';
+    if (pump > 0) { const k = Math.floor(h * 3.4 / PI); if (s.k !== k) { s.k = k; if (k > 0) rig._emit('pump'); } }
+  },
+});
+
+def('carry', {
+  loop: true, expr: 'happy', lookW: 0.6,
+  fn(t, p, f, s, rig) {
+    const ph = (t / 0.6) * TAU, sn = sin(ph), cs = cos(ph);
+    const bob = abs(cs);
+    p.lL.sw = -sn * 0.55; p.lR.sw = sn * 0.55;
+    p.lL.kn = max(0, cs) * 1.0 + 0.08; p.lR.kn = max(0, -cs) * 1.0 + 0.08;
+    p.hipY = -0.9 + bob * 1.0;
+    p.sq = 1 + (bob - 0.55) * 0.08;
+    p.roll = cs * 0.07; p.hipX = -cs * 0.35; // a happy waddle
+    p.lean = -0.06; p.chRx = -0.04; // leaning back a touch: it's heavy!
+    p.chRy = sn * 0.06; p.hipRy = -sn * 0.06;
+    p.hRx = -0.04 + bob * 0.05; p.hRz = cs * 0.06;
+    bothAt(p, 0, 1.4 + (1 - bob) * 0.5, 7.2, 1, 1.4);
+    p.bothRz = -cs * 0.05;
+    p.tSide = 0.15 + sn * 0.45; p.tLift = 0.35; p.tCurl = 0.45;
+    p.eL.fl = p.eR.fl = sn * 0.08;
+    f.look = [0, 0.35];
+    steps(s, ph, rig);
+  },
+});
+
+def('horror', {
+  dur: 0.9, hold: true, expr: 'horror', lookW: 0.3,
+  fn(t, p, f, s, rig) {
+    // sharp inhale (squash), GASP (stretch + hop, paws fly to the cheeks), then trembling
+    const inh = K(t, [[0, 0], [0.1, 1, 'out'], [0.16, 0, 'in']]);
+    const jt = (t - 0.12) / 0.3, air = jt > 0 && jt < 1 ? 4 * jt * (1 - jt) : 0;
+    const gasp = K(t, [[0.12, 0], [0.24, 1.15, 'out'], [0.5, 1, 'io']]);
+    const h = t > 0.5 ? t - 0.5 : 0;
+    const tr = smooth(h / 0.3);
+    const sh = sin(t * 61), sh2 = sin(t * 53 + 1.3);
+    p.y = air * 1.8;
+    p.sq = 1 - inh * 0.07 + (jt > 0 && jt < 0.5 ? 0.16 * (1 - jt / 0.5) : 0) - 0.03 * tr;
+    p.hSq *= 1 + 0.08 * gasp * (1 - tr * 0.5);
+    p.lean = -0.12 * gasp + 0.04 * tr; p.chRx += -0.08 * gasp;
+    p.hRx += -0.18 * gasp + 0.1 * tr + sh * 0.012 * tr; p.hRz += sh2 * 0.02 * tr;
+    p.x += sh * 0.12 * tr;
+    // paws to the cheeks ("The Scream"), elbows tucked
+    const pw = smooth((t - 0.1) / 0.16);
+    p.ik(p.aL, 6.9, 9.6 + sh * 0.12 * tr, 5.6, 1, -0.9, 0.1, pw);
+    p.ik(p.aR, 6.9, 9.6 - sh * 0.12 * tr, 5.6, 1, -0.9, 0.1, pw);
+    p.aL.st = p.aR.st = 1.3;
+    p.aL.wx = p.aR.wx = -1.2 * pw; p.aL.wz = p.aR.wz = 0.5 * pw;
+    p.pawL = p.pawR = pw > 0.5 ? 'open' : 'relax';
+    p.aL.shY = p.aR.shY = 1.1 * gasp + sh2 * 0.15 * tr;
+    // knocking knees
+    p.lL.sp = p.lR.sp = -0.12 * tr; p.lL.tw = p.lR.tw = 0.25 * tr;
+    p.lL.kn = p.lR.kn = 0.3 * tr + abs(sh) * 0.08 * tr; p.lL.sw = p.lR.sw = -0.15 * tr;
+    p.hipY = -0.4 * tr;
+    // ears flat, tail puffed and bristling, hat jumps
+    p.eL.fl = p.eR.fl = 1.15 * max(gasp, tr) + sh * 0.05; p.eL.sp = p.eR.sp = 0.3;
+    p.tPuff = 1 + 0.6 * gasp; p.tLift += 0.9 * gasp - 0.2 * tr; p.tCurl = 0.1; p.tSide = sh2 * 0.25 * tr;
+    p.hatY = K(t, [[0.1, 0], [0.22, 3.2, 'out'], [0.42, 0, 'in']]) + abs(sh) * 0.25 * tr;
+    p.hatRz = sh2 * 0.06 * tr;
+    f.blink = false;
+    if (t < 0.12) { f.mouth = 'o'; f.eyeL = f.eyeR = 'open'; }
+    once(s, 'gasp', t >= 0.12, () => rig._emit('gasp'));
+    once(s, 'mono', t >= 0.16, () => rig.dropMonocle());
+    const k = Math.floor(h * 2.6);
+    if (h > 0 && s.k !== k) { s.k = k; rig._emit('shiver'); }
+  },
+  exit(s, rig) { rig.restoreMonocle(); },
+});
+
+def('cower', {
+  loop: true, expr: 'cower', lookW: 0.2,
+  fn(t, p, f, s, rig) {
+    const sh = sin(t * 57), sh2 = sin(t * 49 + 2);
+    const C2 = 3.2, u = t % C2;
+    const pk = win(u, 1.6, 2.6, 0.22, 0.28); // peek out
+    const dive = smooth(t / 0.25);
+    // crouched small, curled up, shivering
+    p.hipY = -2.5 * dive + pk * 0.5; p.hipZ = -0.6 * dive;
+    p.lL.sw = p.lR.sw = -1.05 * dive; p.lL.kn = p.lR.kn = 1.9 * dive; p.lL.sp = p.lR.sp = 0.05;
+    p.lean = 0.16 * dive; p.chRx = 0.32 * dive - pk * 0.12; p.hRx = 0.38 * dive - pk * 0.32;
+    p.hSq = 1 - 0.06 * dive;
+    p.x += sh * 0.1; p.chRz = sh2 * 0.02; p.hRz = sh * 0.02;
+    p.sq = 1 - 0.04 * dive + abs(sh2) * 0.01;
+    // paws covering the head; the right one lifts to peek
+    p.ik(p.aL, 3.3, 15.6 + sh * 0.12, 5.6, 1, -0.2, 0.4, dive);
+    p.ik(p.aR, 3.3 + pk * 2.2, 15.6 + pk * 0.6 - sh * 0.12, 5.6 + pk * 2.4, 1, -0.2, 0.4, dive);
+    p.aL.st = p.aR.st = 1.6;
+    p.aL.wx = p.aR.wx = -1.4; p.aL.wz = p.aR.wz = -0.3;
+    p.pawL = p.pawR = 'open';
+    p.hRy += pk * -0.28;
+    p.eL.fl = p.eR.fl = 1.2 - pk * 0.35 + sh * 0.04; p.eL.sp = p.eR.sp = 0.35;
+    p.tLift = -1.35; p.tCurl = 1.25; p.tCurlSide = 0.9; p.tSide = -0.6; p.tPuff = 1.15 + abs(sh2) * 0.05;
+    p.hatY = abs(sh) * 0.3;
+    f.blink = false;
+    if (pk > 0.35) { f.eyeL = 'nervous'; f.eyeR = 'closed'; f.look = [-0.9, -0.2]; f.mouth = 'wobbly'; }
+    once(s, 'pk' + Math.floor(t / C2), u > 1.7, () => rig._emit('peek'));
+    const k = Math.floor(t * 2.2);
+    if (s.k !== k) { s.k = k; rig._emit('shiver'); }
+  },
+});
+
+def('chef_idle', {
+  loop: true, expr: 'proud', lookW: 0.6,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.6);
+    // proud chef stance: chest out, chin up, free paw on the hip
+    p.chRx -= 0.08; p.hRx -= 0.08; p.lean = -0.03;
+    p.hipX = sin(t * 0.8) * 0.3; p.hipRz = sin(t * 0.8) * 0.02;
+    hipPaw(p); p.pawL = 'fist';
+    p.lL.sp = p.lR.sp = 0.1;
+    // small stirring circles in the pot in front
+    const a = t * 3.6;
+    p.ik(p.aR, 3.4 + cos(a) * 1.0, 3.6 + sin(a * 2) * 0.15, 7.4 + sin(a) * 1.0, 1, -0.5, -0.5);
+    p.propDir = [0.15 + cos(a) * 0.12, -1, 0.5]; p.propDirW = 1;
+    p.chRy += cos(a) * 0.035; p.hRz += sin(a) * 0.02;
+    // every now and then: a big sniff of the aroma
+    const C2 = 5.2, u = t % C2;
+    const sniff = win(u, 3.4, 4.6, 0.25, 0.35);
+    p.hRx -= sniff * 0.22; p.hSq *= 1 + sin(u * 38) * 0.015 * sniff;
+    p.eL.fl = p.eR.fl = -0.1 - sniff * 0.2;
+    if (sniff > 0.3) { f.eyeL = f.eyeR = 'content'; f.mouth = 'mmm'; f.blush = 1; }
+    else f.look = [-0.3, 0.6];
+    p.tSide += sin(t * 2.6) * 0.35; p.tLift += 0.15;
+    once(s, 'sn' + Math.floor(t / C2), u > 3.5, () => rig._emit('sniff'));
+    const k = Math.floor(a / TAU);
+    if (s.k !== undefined && s.k !== k) rig._emit('stir');
+    s.k = k;
+  },
+});
+
+def('chef_taste', {
+  dur: 2.7, expr: 'proud', next: 'chef_idle', nextFade: 0.3, lookW: 0.3,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.4);
+    hipPaw(p, p.aL, 1 - win(t, 1.15, 2.35, 0.2, 0.3));
+    p.pawL = 'fist';
+    // ladle up to the lips (bowl at the mouth, handle up and out), slurp
+    const lift = K(t, [[0, 0], [0.4, 1, 'back'], [1.2, 1], [1.55, 0, 'io']]);
+    p.ik(p.aR, lerp(3.4, 7.2, lift), lerp(3.6, 12.6, lift), lerp(7.4, 7.2, lift), 1, -0.4, -0.4, 1);
+    p.aR.st = 1.4;
+    p.propDir = [lerp(0.15, 0.62, lift), lerp(-1, -0.52, lift), lerp(0.5, 0.42, lift)]; p.propDirW = 1;
+    const sip = win(t, 0.45, 1.05, 0.1, 0.12);
+    p.hRx += 0.12 * sip - 0.04; p.chRx += 0.05 * sip; p.hRy += -0.08 * sip;
+    p.hSq *= 1 - abs(sin(t * 26)) * 0.03 * sip;
+    // !!! eyes pop, ears up, tail puff
+    const wow = win(t, 1.05, 1.4, 0.05, 0.15);
+    p.y += wow * 1.4; p.sq = 1 + wow * 0.08; p.eL.fl = p.eR.fl = -0.35 * wow;
+    p.tPuff = 1 + 0.45 * wow; p.tLift += 0.8 * wow;
+    // kiss the fingertips... and fling them open: magnifique!
+    const kiss = win(t, 1.3, 1.75, 0.15, 0.08);
+    const fling = K(t, [[1.7, 0], [1.85, 1, 'out'], [2.25, 1], [2.6, 0, 'io']]);
+    if (t > 1.15) {
+      const w = max(kiss, fling);
+      p.ik(p.aL, lerp(1.2, 8.4, fling), lerp(9.2, 11.6, fling), lerp(10.4, 6.8, fling), 1, -0.6, 0.2, w);
+      p.aL.st = 1.5;
+      p.aL.wx = lerp(-1.6, -0.4, fling) * w; p.aL.wz = -0.6 * fling;
+      p.pawL = fling > 0.3 ? 'open' : kiss > 0.3 ? 'fist' : 'relax';
+      p.hRz += -0.1 * fling; p.hRx += -0.15 * fling; p.chRz -= 0.06 * fling;
+    }
+    if (sip > 0.3) { f.eyeL = f.eyeR = 'content'; f.mouth = 'kiss'; }
+    if (wow > 0.3) { f.eyeL = f.eyeR = 'shiny'; f.mouth = 'o_big'; f.browL = f.browR = 'high'; }
+    if (kiss > 0.3) { f.expr = 'magnifique'; f.mouth = 'kiss'; }
+    if (fling > 0.3) f.expr = 'magnifique';
+    once(s, 'taste', t > 0.55, () => rig._emit('taste'));
+    once(s, 'wow', t > 1.08, () => rig._emit('wow'));
+    once(s, 'kiss', t > 1.6, () => rig._emit('kiss'));
+  },
+});
+
+def('bow_fancy', {
+  dur: 3.1, expr: 'smug', lookW: 0.2,
+  enter(s) { s.hand = false; },
+  fn(t, p, f, s, rig) {
+    // left paw doffs the hat, sweeps it in a big arc down to the chest while bowing deep,
+    // the right arm flourishes out behind (prop and all), right foot steps back
+    const reach = K(t, [[0, 0], [0.32, 1, 'io'], [0.42, 1]]);
+    const sweep = K(t, [[0.42, 0], [1.0, 1, 'io'], [1.95, 1], [2.25, 0, 'io']]);
+    const back = K(t, [[1.95, 0], [2.3, 1, 'io'], [2.42, 1], [2.75, 0, 'io']]);
+    const bow = K(t, [[0.5, 0], [0.62, -0.12, 'out'], [1.05, 1, 'back'], [1.9, 1], [2.35, 0, 'io']]);
+    const bw = max(0, bow);
+    // the hat paw: brim -> big arc out to the side -> low across the chest -> back on the head
+    p.ik(p.aL, 1.8, 16.5, 4.4, 1, -0.3, 0.1, max(reach, back) * (1 - smooth(sweep * 3)));
+    p.aL.st = 1.9;
+    if (sweep > 0.001) {
+      const a = sweep * PI * 0.95;
+      p.ik(p.aL, lerp(6.5, 2.4, smooth(sweep)) + sin(a) * 3.2, 8 - sweep * 6 + sin(a) * 3.5, 4.2 + sweep * 3.6, 1, -0.3, -0.6, sweep * (1 - back));
+    }
+    p.pawL = reach > 0.8 || sweep > 0.15 || back > 0.8 ? 'fist' : 'relax';
+    // flourish arm out behind
+    const fl = smooth((t - 0.45) / 0.45) * (1 - smooth((t - 1.95) / 0.45));
+    p.aR.sw = lerp(-0.12, 0.65, fl) + sin(t * 3) * 0.04 * fl; p.aR.ra = lerp(0.16, 1.15, fl); p.aR.el = lerp(0.7, 0.25, fl);
+    p.aR.wx = 0.4 * fl; p.aR.wz = -0.6 * fl;
+    p.pawR = fl > 0.3 && !rig._prop ? 'open' : p.pawR;
+    // the bow itself
+    p.hipRx = 0.62 * bw; p.chRx += 0.42 * bw; p.hRx += 0.32 * bw - 0.1 * reach * (1 - bw);
+    p.hipZ = -1.6 * bw; p.hipY = -0.6 * bw;
+    p.lR.sw = 0.55 * bw; p.lR.kn = 0.5 * bw; p.lL.sw = -0.25 * bw; p.lL.kn = 0.35 * bw;
+    p.sq = 1 + 0.04 * min(0, bow) * -1;
+    p.tLift += 0.9 * bw; p.tSide += sin(t * 5) * 0.4 * bw; p.tCurl += 0.3 * bw;
+    p.eL.fl = p.eR.fl = 0.25 * bw;
+    const inHand = t > 0.38 && t < 2.42;
+    if (inHand !== s.hand) { s.hand = inHand; rig._hatHand.side = 'L'; rig._hatHand.goal = inHand ? 1 : 0; }
+    once(s, 'bow', t > 1.05, () => rig._emit('bow'));
+    if (bw > 0.5) { f.eyeL = f.eyeR = 'closed'; f.mouth = 'smirk_big'; }
+    if (t > 2.4) f.expr = 'wink';
+  },
+  exit(s, rig) { rig._hatHand.goal = 0; },
+});
+
+def('wave_hello', {
+  dur: 1.9, expr: 'happy',
+  fn(t, p, f, s, rig) {
+    if (rig._cur && rig._cur.loop) t %= 1.9;
+    // dip, hop up with the arm shooting high, then big bouncy waves on tiptoe
+    const dip = K(t, [[0, 0], [0.12, 1, 'out'], [0.2, 0, 'in']]);
+    const jt = (t - 0.16) / 0.3, air = jt > 0 && jt < 1 ? 4 * jt * (1 - jt) : 0;
+    const w = K(t, [[0, 0], [0.14, -0.2], [0.34, 1, 'back'], [1.55, 1], [1.9, 0, 'io']]);
+    const wv = sin((t - 0.34) * 15) * win(t, 0.3, 1.55, 0.06, 0.15);
+    const bounce = abs(sin((t - 0.34) * 7.5)) * win(t, 0.4, 1.55, 0.1, 0.2);
+    p.y = air * 2.6 + bounce * 0.7;
+    p.sq = 1 - dip * 0.1 + (jt > 0 && jt < 0.45 ? 0.12 * (1 - jt / 0.45) : 0) + bounce * 0.03;
+    p.hipY = -dip * 1.0; p.lL.kn = p.lR.kn = dip * 0.7 + air * 0.5; p.lL.sw = p.lR.sw = -dip * 0.3;
+    p.lL.kn += air * 0.6;
+    const u = max(0, w);
+    p.aR.sw = lerp(-0.12, -2.65, u); p.aR.ra = lerp(0.16, 0.45, u) + wv * 0.42;
+    p.aR.el = lerp(0.7, 0.45, u) + wv * 0.3; p.aR.wz = wv * 0.55; p.aR.tw = 0.3 * u;
+    p.pawR = u > 0.4 ? 'open' : 'relax';
+    // other paw tucked up at the chest, little fist of glee
+    p.ik(p.aL, 2.2, 4.6 + bounce * 0.3, 6.4, 1, -0.6, -0.3, u); p.pawL = 'fist'; p.aL.wx = -0.6 * u;
+    p.chRz = -0.1 * u + wv * 0.04; p.hRz = 0.13 * u - wv * 0.06; p.roll = -wv * 0.025;
+    p.hRx += -0.06 * u;
+    p.eL.fl = p.eR.fl = -0.2 * u + wv * 0.1; p.eL.sp = p.eR.sp = 0.1 + bounce * 0.15;
+    p.tSide = sin(t * 17) * 0.8 * u; p.tLift += 0.5 * u; p.tPuff = 1 + 0.1 * u;
+    if (u > 0.3 && t < 1.6) f.mouth = Math.floor(t * 5) % 3 === 0 ? 'grin' : 'laugh';
+    once(s, 'hi', t > 0.3, () => rig._emit('wave'));
   },
 });

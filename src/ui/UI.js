@@ -14,11 +14,14 @@ import { STRUCTURES, BUILD_CATEGORIES, CHARM_CAP } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES, UNLOCKS_BUILD, UNLOCKS_SPECIES } from '../data/research.js';
 import { WANT_INFO } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
+import { FOOD_ITEMS, STORAGE, foodUses } from '../data/foods.js';
+import { CROPS, STAGE_NAMES, CROP_STAGES } from '../data/crops.js';
+import { LAND_BY_ID } from '../data/landAnimals.js';
 import { sizeLabel, hatchCard as hatchCardFor, rollGenes as rollGenesFor } from '../game/genes.js';
 
 // optional components (built by separate modules; the UI degrades gracefully)
-const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js'], { eager: true });
-import.meta.glob('./fonts.css', { eager: true });
+const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js', './bagArt.js', './FoodPicker.js', './Encyclopedia.js', './RestaurantMenu.js', './TeacherOverlay.js'], { eager: true });
+import.meta.glob(['./fonts.css', './foodpicker.css', './encyclopedia.css', './restaurantmenu.css', './teacher.css', './classroom.css'], { eager: true });
 import { Blueprint } from './Blueprint.js';
 import { natureCanvas } from '../art/natureArt.js';
 import { BREEDS, KIND_INFO } from '../data/livestock.js';
@@ -64,7 +67,7 @@ const TUTORIAL = [
 
 // toolbar: each tool only appears once it's unlocked (game.isOpen(feature))
 const TOOLS = [
-  { tool: 'feed', icon: 'food', label: 'Feed', key: 1, title: 'Feed fish', feature: 'feed' },
+  { tool: 'feed', icon: 'food', label: 'Food', key: 1, title: 'Food: pick a bag or a harvest, then tap the water / a bowl', feature: 'feed' },
   { tool: 'hand', icon: 'hand', label: 'Carry', key: 2, title: 'Carry a fish', feature: 'hand' },
   { tool: 'tag', icon: 'tag', label: 'Tag', key: 3, title: 'DO NOT EAT tag', feature: 'tag' },
   { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish', feature: 'pet' },
@@ -73,8 +76,8 @@ const TOOLS = [
   { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
   { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: send beavers to trees, rocks & weeds', feature: 'clear' },
   { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: "Reynard's lab", feature: 'lab' },
-  { panel: 'dex', icon: 'book', label: 'Fishdex', key: 8, title: 'Fishdex', feature: 'dex' },
-  { panel: 'reviews', icon: 'newspaper', label: 'Reviews', key: 9, title: 'Reviews', feature: 'reviews' },
+  { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },
+  { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 9, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
 ];
 const stripTags = (t) => String(t).replace(/<[^>]+>/g, '');
 
@@ -187,7 +190,7 @@ export class UI {
       if (only && b.dataset.feature !== only) {
         b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
         this.game.audio.play('error', { volume: 0.3 });
-        this.notify('Not yet! Follow the hand!', 'no');
+        this.notify('Not yet! Follow the teacher!', 'no');
         return;
       }
       this.click();
@@ -308,6 +311,7 @@ export class UI {
     if (a) cands.push({ kind: 'moose', ent: a, y: a.y + 1, label: 'Moose Express', zoom: 0.022 });
     for (const b of game.ambient?.birds || []) if (b.state !== 'away' && b.state !== 'out') cands.push({ kind: 'songbird', ent: b, y: game.grid.groundAt(b.x, b.z) + b.y + 0.25, label: b.sp, zoom: 0.012 });
     for (const b of game.livestock?.list || []) cands.push({ kind: 'livestock', ent: b, y: b.y + 0.45, label: b.name, zoom: 0.016 });
+    for (const a of game.landAnimals?.all() || []) cands.push({ kind: 'land', ent: a, y: a.y + 0.3, label: a.tame ? a.name : LAND_BY_ID[a.sp.id]?.name || 'Critter', zoom: 0.014 });
     for (const v of game.villagers?.list || []) if (v.rig?.root.visible) cands.push({ kind: 'npc', ent: v, y: v.y + 0.9, label: v.name, zoom: 0.02 });
     for (const f of game.fish.list) if (!f.held) cands.push({ kind: 'fish', ent: f, y: f.y, label: f.name || f.sp.name, zoom: 0.013 });
     for (const l of game.ambient.loons || []) if (l.placed && !l.dive) cands.push({ kind: 'bird', ent: l, y: 0, label: l.kind === 'loon' ? 'Loon' : 'Mallard', zoom: 0.014 });
@@ -315,7 +319,7 @@ export class UI {
     for (const c of cands) {
       const p = this.screenOf(c.ent.x, c.y, c.ent.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
-      const r = c.kind === 'fish' || c.kind === 'bird' ? 14 : c.kind === 'songbird' ? 18 : c.kind === 'beaver' || c.kind === 'livestock' ? 22 : c.kind === 'npc' ? 40 : 34; // small things need a precise tap (feeding stays easy)
+      const r = c.kind === 'fish' || c.kind === 'bird' ? 14 : c.kind === 'songbird' || c.kind === 'land' ? 18 : c.kind === 'beaver' || c.kind === 'livestock' ? 22 : c.kind === 'npc' ? 40 : 34; // small things need a precise tap (feeding stays easy)
       if (d < r * r && d < bd) { bd = d; best = c; }
     }
     return best;
@@ -391,6 +395,7 @@ export class UI {
   comp(name) { return C(name); }
 
   bubbleWaiting() {
+    if (this.game.tutorial?.teacher?.waiting) return true;
     const B = this.bubbles;
     if (!B?.busy) return false;
     return (B.list || []).some((b) => b.wait && !b.closing && !b.choices);
@@ -581,12 +586,19 @@ export class UI {
   }
 
   listingImage(l) {
-    const key = l.kind === 'egg' ? `fish:${l.species}:${l.genes.morph}` : l.kind === 'bird' ? `bird:${l.breed}` : `st:${l.type}`;
+    const key = l.kind === 'egg' || l.kind === 'fish' ? `fish:${l.species}:${l.genes?.morph || 'normal'}` : l.kind === 'bird' ? `bird:${l.breed}` : l.kind === 'food' ? `food:${l.foodId}` : `st:${l.type}`;
     (this._limg ||= new Map());
     if (this._limg.has(key)) return this._limg.get(key);
     let img = null;
     try {
-      if (l.kind === 'egg') img = fishCanvasFor(l.species, { morph: l.genes.morph, scale: 3 });
+      if (l.kind === 'egg' || l.kind === 'fish') img = fishCanvasFor(l.species, { morph: l.genes?.morph || 'normal', scale: 3 });
+      else if (l.kind === 'food') {
+        const BA = C('bagArt');
+        const F = FOOD_ITEMS[l.foodId];
+        if (F?.kind === 'bag' && BA?.bagCanvas) img = BA.bagCanvas(l.foodId, { scale: 2 }).toDataURL();
+        else if (BA?.produceCanvas) img = BA.produceCanvas(l.foodId, 3).toDataURL();
+        else if (hasSprite(F?.icon || 'food')) img = spriteURL(F?.icon || 'food', 4);
+      }
       else if (l.kind === 'bird') {
         const goose = BREEDS[l.breed]?.kind === 'goose';
         img = natureCanvas(goose ? 'goose_swim' : 'mallard_swim', 0, 5).toDataURL();
@@ -630,7 +642,8 @@ export class UI {
     if (this.clock) {
       try { this.clock.update(dt, { hour: st.hour, phase: st.phase, day: st.day, weekday: game.weekday(), speed: st.speed, paused: st.paused, sections: this.clockSections() }); } catch { /* ignore */ }
     }
-    const bw = `${Math.round((game.foodBag.count / game.foodBag.max) * 100)}%`;
+    const sel = game.foodStore.selected;
+    const bw = `${Math.round(Math.min(1, game.foodStore.count(sel) / (FOOD_ITEMS[sel]?.scoops || 12)) * 100)}%`;
     if (h.bag && h.bag.style.width !== bw) h.bag.style.width = bw;
     this.updateSays(dt);
     this.bubbles?.update(dt);
@@ -643,6 +656,7 @@ export class UI {
     this.updateDeliveryTracker(dt);
     this.updateNestTags();
     this.updateParcelTags();
+    this.updateCropTags();
     const night = st.phase === 'night';
     if (night !== this.lastNight) { this.lastNight = night; h.nightui.classList.toggle('hidden', !night); }
     this.tipT -= dt;
@@ -1215,8 +1229,7 @@ export class UI {
     } else if (t.kind === 'dig') {
       html = `${ico('shovel', 1)} <b>Dig</b> next to the pond to expand it <span class="k">${ico('coin', 1)}${g.digCost()}</span> per tile · drag for a line`;
     } else if (t.kind === 'clear') {
-      const lv = g.beavers.level();
-      html = `${ico('bang', 1)} <b>Destroy</b>: tap or drag over trees, rocks &amp; weeds to send beavers <span class="k">${ico('beaver', 1)} tools Lv${lv}</span>`;
+      html = ''; // the beaver tool speaks for itself (red marks + construction tape)
     } else if (t.kind === 'remove') {
       html = `${ico('trash', 1)} <b>Remove</b>: tap a structure (50% refund) or clear a tree/rock (${ico('coin', 1)}10)`;
     } else if (t.kind === 'hand') {
@@ -1232,6 +1245,158 @@ export class UI {
     const x = $('#th-x', hint);
     if (x) x.onclick = () => { this.click(); this.game.setTool({ kind: 'feed' }); };
     if (!['feed', 'hand', 'tag', 'nurture'].includes(t.kind)) this.hud.tip.classList.add('hidden');
+    this.syncFoodPicker();
+  }
+
+  // ------------------------------------------------------------ food
+  // the food shelf over the toolbar while the Food tool is active
+  syncFoodPicker() {
+    const game = this.game;
+    const show = game.tool.kind === 'feed' && game.isOpen('feed') && !game.inputLocked && !this.blueprint?.open && !this.ebuy && !game.lab?.active;
+    const FP = C('FoodPicker')?.FoodPicker;
+    if (!FP) return;
+    if (!this.foodPicker && show) {
+      try {
+        this.foodPicker = new FP({
+          root: this.root,
+          getItems: () => game.foodStore.items(),
+          selected: game.foodStore.selected,
+          onSelect: (id) => { game.foodStore.select(id); game.emit('foodPicked', id); },
+          onBuy: (id) => this.buyFood(id),
+          sfx: (n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) }),
+          icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
+        });
+      } catch (e) { console.warn('FoodPicker failed', e); this.foodPicker = null; return; }
+    }
+    if (!this.foodPicker) return;
+    if (show) { this.foodPicker.setSelected?.(game.foodStore.selected); this.foodPicker.refresh?.(); this.foodPicker.show(); }
+    else this.foodPicker.hide();
+  }
+
+  // e-Buy straight to that bag (or the food aisle)
+  buyFood(id) {
+    const F = FOOD_ITEMS[id];
+    this.ebuyFocus = F?.kind === 'bag' ? 'food_' + id : null;
+    this.closePanel();
+    if (!this.ebuy) this.openEBuy(F?.kind === 'bag' ? 'food_' + id : null);
+    this.ebuyFocus = null;
+  }
+
+  onFoodEmpty(id) {
+    const F = FOOD_ITEMS[id];
+    this.game.notify(F?.kind === 'bag' ? `${F.name} bag is empty! Buy more on e-Buy (or wait for a free refill).` : `Out of ${F?.name || 'that'}!`, 'no');
+    this.foodPicker?.refresh?.();
+  }
+
+  // a harvest (or grinder / delivery) lands in the food bag: juicy popup
+  onHarvest(s, items) {
+    const game = this.game;
+    const y = game.structures.baseY(s) + 0.6;
+    const q = this.screenOf(s.x + 0.5, y, s.z + 0.5);
+    const FP = C('FoodPicker');
+    const to = document.querySelector('#toolbar .tool[data-tool="feed"]') || null;
+    if (FP?.harvestPopup) {
+      try { FP.harvestPopup({ root: this.root, items, from: { x: q.x, y: q.y }, to }); } catch (e) { console.warn('harvestPopup', e); }
+    } else {
+      for (const it of items) this.floatTextAt(s.x + 0.5, y + 0.5, s.z + 0.5, `+${it.count} ${FOOD_ITEMS[it.id]?.name || it.id}`, RARITIES[it.rarity || 0]?.glow || '#fff3a0');
+    }
+    if (items.some((it) => it.special)) {
+      const sp = items.find((it) => it.special);
+      this.notify(`SPECIAL FIND! ${FOOD_ITEMS[sp.id]?.name}!`, 'happy');
+    }
+    this.foodPicker?.refresh?.();
+  }
+
+  // ripe plants show their batch: produce icon, count, rarity (tap to harvest)
+  updateCropTags() {
+    const game = this.game;
+    const list = game.harvest.ripeList();
+    (this.cropTags ||= new Map());
+    for (const [s, el] of this.cropTags) if (!list.includes(s)) { el.remove(); this.cropTags.delete(s); }
+    const hide = game.lab?.active || game.cine?.active || game.overrideScene;
+    for (const s of list) {
+      const b = s.crop.batch;
+      if (!b) continue;
+      let el = this.cropTags.get(s);
+      const key = `${b.r}:${b.n}:${b.special || ''}`;
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'eggtag ready croptag';
+        el.addEventListener('click', (ev) => { ev.stopPropagation(); this.game.harvest.harvest(s); });
+        this.overlay.appendChild(el);
+        this.cropTags.set(s, el);
+      }
+      if (el.dataset.k !== key) {
+        el.dataset.k = key;
+        const C2 = CROPS[s.type];
+        const F = FOOD_ITEMS[C2.item];
+        const rar = RARITIES[b.r];
+        el.style.setProperty('--rar', rar.color);
+        el.style.setProperty('--glow', rar.glow);
+        el.classList.toggle('rare', b.r >= 2);
+        el.innerHTML = `${hasSprite(F?.icon) ? ico(F.icon, 1) : ''}<b>×${b.n}</b>${b.special ? `<i class="sp">${hasSprite(FOOD_ITEMS[b.special]?.icon) ? ico(FOOD_ITEMS[b.special].icon, 1) : '★'}</i>` : ''}`;
+        el.title = `${rar.name} batch: ${b.n} ${F?.name || ''}${b.special ? ' + ' + FOOD_ITEMS[b.special].name : ''} (tap to harvest)`;
+      }
+      const q = this.screenOf(s.x + 0.5, game.structures.baseY(s) + 0.95, s.z + 0.5);
+      el.style.display = q.visible === false || hide ? 'none' : '';
+      el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -100%)`;
+    }
+  }
+
+  showCropCard(s) {
+    const game = this.game;
+    const C2 = CROPS[s.type];
+    const F = FOOD_ITEMS[C2.item];
+    const c = s.crop || { stage: 0 };
+    const stage = CROP_STAGES[c.stage];
+    const left = Math.ceil(game.harvest.secondsLeft(s));
+    const pct = Math.round(game.harvest.progress(s) * 100);
+    const boost = game.harvest.boosts.get(s.id) || 1;
+    const sp = C2.special && FOOD_ITEMS[C2.special];
+    const stages = CROP_STAGES.map((k, i) => `<span class="chip ${i === c.stage ? 'good' : i < c.stage ? '' : 'dim'}">${i < c.stage ? '✓ ' : ''}${STAGE_NAMES[k]}</span>`).join(C2.noSeed ? '' : '<b>›</b>');
+    const html = `
+      <h2 class="center">${hasSprite(s.def.icon) ? ico(s.def.icon, 2) : ''} ${esc(s.def.name)}</h2>
+      <div class="chips center">${C2.noSeed ? `<span class="chip ${c.stage === 3 ? 'good' : ''}">${c.stage === 3 ? 'Ready!' : 'Filling up'}</span>` : stages}</div>
+      <div class="growbar"><i style="width:${pct}%"></i></div>
+      <div class="kv"><span>Status</span><b>${stage === 'ripe' ? 'Ready to harvest!' : `${STAGE_NAMES[stage]} · ready in ${left}s`}</b><span>Gives</span><b>${hasSprite(F.icon) ? ico(F.icon, 1) : ''} ${C2.yield[0]}-${C2.yield[1]} ${esc(F.name)}</b>${sp ? `<span>Lucky find</span><b>${hasSprite(sp.icon) ? ico(sp.icon, 1) : '★'} ${esc(sp.name)}</b>` : ''}<span>Growth speed</span><b>${boost > 1.01 ? `+${Math.round((boost - 1) * 100)}%` : 'normal'}</b></div>
+      <p class="center small">Sprinklers, bunnies & compost nearby grow plants faster. Rare batches give more!</p>
+      <div class="btns"><button class="btn green" id="m-ok">OK</button></div>`;
+    this.showModal(html, { onBind: (cc) => { $('#m-ok', cc).onclick = () => { this.click(); this.closeModal(); }; } });
+  }
+
+  showStorageCard(s) {
+    const game = this.game;
+    const S = STORAGE[s.type];
+    const store = game.foodStore;
+    const n = store.stored(s);
+    const forBeaver = S.for === 'beaver';
+    const contents = Object.entries(s.store || {}).filter(([, v]) => v >= 1).map(([id, v]) => `<span class="chip">${hasSprite(FOOD_ITEMS[id]?.icon) ? ico(FOOD_ITEMS[id].icon, 1) : ''} ${esc(FOOD_ITEMS[id]?.name || id)} ×${v}</span>`).join('') || '<span class="chip dim">Empty</span>';
+    const options = Object.entries(game.foodStore.inv).filter(([id, v]) => v >= 1 && (forBeaver ? FOOD_ITEMS[id]?.beaver : FOOD_ITEMS[id]?.bear)).map(([id, v]) => `<button class="btn small" data-fill="${id}">${hasSprite(FOOD_ITEMS[id]?.icon) ? ico(FOOD_ITEMS[id].icon, 1) : ''} ${esc(FOOD_ITEMS[id].name)} <b>×${Math.floor(v)}</b></button>`).join('');
+    const html = `
+      <h2 class="center">${hasSprite(s.def.icon) ? ico(s.def.icon, 2) : ''} ${esc(s.def.name)}</h2>
+      <p class="center small">${n} / ${S.cap} servings${forBeaver ? ` · crew pay left: <b>${game.beavers.credit}</b> job${game.beavers.credit === 1 ? '' : 's'}` : ''}</p>
+      <div class="chips center">${contents}</div>
+      <p class="center small">${forBeaver ? 'Beavers only work when PAID. Each serving pays a few jobs (carrots 2, corn 3, golden carrot 12!).' : 'Bears grab a side dish here. Wanted snacks make them tip!'}</p>
+      ${options ? `<div class="chips center fillopts">${options}</div>` : `<p class="center small"><b>${forBeaver ? 'No beaver food! Harvest your garden or buy a veggie crate.' : 'No produce! Harvest your garden first.'}</b></p>`}
+      <div class="btns"><button class="btn green" id="m-ok">OK</button></div>`;
+    this.showModal(html, {
+      onBind: (cc) => {
+        $('#m-ok', cc).onclick = () => { this.click(); this.closeModal(); };
+        cc.querySelectorAll('[data-fill]').forEach((b) => b.addEventListener('click', () => { store.fillStorage(s, b.dataset.fill); this.closeModal(); this.showStorageCard(s); }));
+      },
+    });
+  }
+
+  showHutchCard(s) {
+    const game = this.game;
+    const bun = game.landAnimals.bunniesOf(s);
+    const list = bun.map((b) => `<span class="chip">${this.natImg(`${b.art}_idle`, 2) || ico('rabbit', 1)} ${esc(b.name)}${b.age < 60 ? ' (baby)' : ''}</span>`).join('') || '<span class="chip dim">Nobody home yet</span>';
+    const html = `
+      <h2 class="center">${hasSprite('rabbit') ? ico('rabbit', 2) : ''} ${esc(s.def.name)}</h2>
+      <div class="chips center">${list}</div>
+      <p class="center small">${bun.length}/4 bunnies. They fertilize crops within 3 tiles (+40% growth, luckier batches) and have babies while there's room.</p>
+      <div class="btns"><button class="btn green" id="m-ok">OK</button></div>`;
+    this.showModal(html, { onBind: (cc) => { $('#m-ok', cc).onclick = () => { this.click(); this.closeModal(); }; } });
   }
 
   updateGhost() {
@@ -1263,6 +1428,14 @@ export class UI {
     }
   }
 
+  endLabPause() {
+    if (!this.labPaused) return;
+    this.game.state.paused = this.labPaused.was;
+    this.labPaused = null;
+    this.hud.panel.classList.remove('full');
+    document.body.classList.remove('lab-full');
+  }
+
   // ------------------------------------------------------------ lab
   // the toolbar opens the research tree right here; tapping the hut still walks you into the lab
   openLab({ house = false } = {}) {
@@ -1278,20 +1451,58 @@ export class UI {
   // ------------------------------------------------------------ panels
   openPanel(name, tab) {
     if (name === 'lab' && this.game.lab?.open && !this.labFallback) { this.openLab({ house: true }); return; }
+    if (name === 'dex' && this.openBook(tab)) return;
+    if (name === 'reviews' && this.openMenu(tab)) return;
     if (name === 'ebuy' || name === 'shop') { if (this.ebuy) this.closeEBuy(); else { this.closePanel(); this.openEBuy(); } return; }
     if (name === 'build') { if (this.blueprint.open) this.blueprint.exit(); else { this.closePanel(); this.closeEBuy(); this.blueprint.enter(tab); } return; }
+    if (this.panel === 'lab' && name !== 'lab') this.endLabPause();
     this.panel = name;
     if (tab) this.panelTab = tab;
     else if (name === 'build' && !BUILD_CATEGORIES.some((c) => c.id === this.panelTab)) this.panelTab = 'nature';
     this.hud.panel.classList.remove('hidden');
     this.hud.panel.classList.toggle('wide', name === 'lab' || name === 'dex');
+    // the lab takes over the whole screen and the clock stops while you think
+    this.hud.panel.classList.toggle('full', name === 'lab');
+    if (name === 'lab' && !this.labPaused) {
+      this.labPaused = { was: this.game.state.paused };
+      this.game.state.paused = true;
+      document.body.classList.add('lab-full');
+    }
     this.hud.tip.classList.add('hidden');
     for (const b of document.querySelectorAll('#toolbar .tool')) if (b.dataset.panel) b.classList.toggle('active', b.dataset.panel === name);
     this.renderPanel();
     this.game.audio.play('open', { volume: 0.35 });
   }
 
+  // the Encyclopedia: a grand leather-bound book (falls back to the old card grid)
+  openBook(entry) {
+    const E = C('Encyclopedia')?.Encyclopedia;
+    if (!E) return false;
+    try {
+      this.closePanel(); this.closeEBuy();
+      if (!this.book) this.book = new E({ game: this.game, root: this.root });
+      if (this.book.isOpen) { this.book.close(); return true; }
+      const o = typeof entry === 'object' && entry ? entry : entry ? { chapter: entry } : {};
+      this.book.open(o);
+      return true;
+    } catch (e) { console.warn('Encyclopedia failed', e); return false; }
+  }
+
+  // Chez Reynard: the luxury restaurant menu (rating, reviews, trophy cabinet)
+  openMenu(section) {
+    const M = C('RestaurantMenu')?.RestaurantMenu;
+    if (!M) return false;
+    try {
+      this.closePanel(); this.closeEBuy();
+      if (!this.menu) this.menu = new M({ game: this.game, root: this.root });
+      if (this.menu.isOpen) { this.menu.close(); return true; }
+      this.menu.open({ section: section === 'trophies' ? 'trophies' : section || 'rating' });
+      return true;
+    } catch (e) { console.warn('RestaurantMenu failed', e); return false; }
+  }
+
   closePanel() {
+    if (this.panel === 'lab') this.endLabPause();
     if (!this.panel) return;
     this.panel = null;
     this.labFallback = false;
@@ -1303,6 +1514,8 @@ export class UI {
 
   closeTop() {
     if (this.game.lab?.active) { this.game.lab.exit?.(); return true; }
+    if (this.book?.isOpen) { this.book.close(); return true; }
+    if (this.menu?.isOpen) { this.menu.close(); return true; }
     if (this.ebuy) { this.closeEBuy(); return true; }
     if (this.blueprint?.open) { this.blueprint.exit(); return true; }
     if ((this.paperModal || !this.hud.modal.classList.contains('hidden')) && this.modalDismissable) { this.closeModal(); return true; }
@@ -1726,7 +1939,8 @@ export class UI {
       <h2 class="center">${f.name ? `${esc(f.name)} the ` : ''}${esc(sp.name)}${f.adult ? '' : ' (fry)'}</h2>
       <div class="center"><span class="rtag" style="background:${rar.color}">${rar.name}</span> ${'★'.repeat(g.stars)}${'☆'.repeat(5 - g.stars)}</div>
       <div class="chips center">${chips}</div>
-      <div class="kv"><span>Hunger</span><b>${hungerWord(f.hunger)}</b><span>Worth to bears</span><b>${ico('coin', 1)}${worth}</b><span>Mood</span><b>${f.state === 'court' ? 'In love' : f.state === 'flee' ? 'Terrified' : f.love > 0.2 ? 'Nurtured' : f.hunger < 0.5 && f.loveT <= 0 ? 'Looking for love' : 'Chill'}</b></div>
+      <div class="fedmeter${f.fed >= 1 ? ' full' : ''}" title="Well fed: a full meter means ready to breed">${'<i class="h on"></i>'.repeat(Math.floor((f.fed || 0) * 4 + 1e-6))}${'<i class="h"></i>'.repeat(4 - Math.floor((f.fed || 0) * 4 + 1e-6))}<b>${!f.adult ? 'Too young to breed' : f.fed >= 1 ? (f.loveT > 0 ? 'Well fed! Resting...' : 'Well fed: ready for love!') : 'Feed me to fall in love'}</b></div>
+      <div class="kv"><span>Hunger</span><b>${hungerWord(f.hunger)}</b><span>Worth to bears</span><b>${ico('coin', 1)}${worth}</b><span>Mood</span><b>${f.state === 'court' ? 'In love' : f.state === 'flee' ? 'Terrified' : f.love > 0.2 ? 'Nurtured' : f.fed >= 1 && f.loveT <= 0 ? 'Looking for love' : 'Chill'}</b>${f.luck > 0.01 ? `<span>Mutation luck</span><b>+${Math.round(f.luck * 100)}%</b>` : ''}</div>
       <div class="btns"><button class="btn ${f.tagged ? '' : 'red'}" id="m-tag">${ico('tag', 1)} ${f.tagged ? 'Remove tag' : 'Tag DO NOT EAT'}</button><button class="btn" id="m-pet">${ico('nurture', 1)} Pet</button><button class="btn green" id="m-ok">OK</button></div>`;
     this.showModal(html, {
       onBind: (c) => {
@@ -1886,6 +2100,16 @@ export class UI {
         add('bird:' + it.breed, () => ({ name: BREEDS[it.breed]?.name || 'Bird', image: this.listingImage({ kind: 'bird', breed: it.breed }), iconName: 'egg', sub: 'Waddles out to find a nest', kind: 'bird' }));
       } else if (it.kind === 'upgrade') {
         add('upg' + it.level, () => ({ name: `Beaver tools Lv${it.level}`, image: null, iconName: 'hammer', sub: 'Your beavers can clear more!', kind: 'upgrade', rarity: 3 }));
+      } else if (it.kind === 'fish') {
+        add('fish:' + it.species + it.genes?.sex, () => {
+          const sp = SPECIES_BY_ID[it.species];
+          let image = null;
+          try { image = fishCanvasFor(it.species, { morph: it.genes?.morph || 'normal', scale: 3 }); } catch { /* ignore */ }
+          return { name: `${sp?.name || 'Fish'} ${it.genes?.sex === 'F' ? '♀' : '♂'}`, image, iconName: 'fish', sub: 'Reynard carries the bag to the pond', kind: 'egg', rarity: 0 };
+        });
+      } else if (it.kind === 'food') {
+        const F = FOOD_ITEMS[it.id];
+        out.push({ key: 'food:' + it.id, qty: it.n || 1, name: F?.name || 'Food', image: this.listingImage({ kind: 'food', foodId: it.id }), iconName: F?.icon || 'food', sub: 'Goes in your Food bag', kind: 'item' });
       } else {
         const d = STRUCTURES[it.type];
         const o = out.find((x) => x.key === 'st:' + it.type);

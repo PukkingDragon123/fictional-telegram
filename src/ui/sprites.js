@@ -4651,6 +4651,14 @@ function placeholder() {
   return PLACEHOLDER;
 }
 
+// Extra icon modules: src/ui/icons/*.js export
+//   UI_ICONS = { name: () => ({ w, h, d: Uint8ClampedArray(w * h * 4) RGBA }) }
+// (pixels fully opaque or fully transparent). Same name = override.
+const ICON_MODS = import.meta.glob('./icons/*.js', { eager: true });
+for (const m of Object.values(ICON_MODS)) {
+  for (const [name, fn] of Object.entries(m.UI_ICONS || {})) reg(name, () => { const r = fn(); return { w: r.w, h: r.h, d: r.d || r.data }; });
+}
+
 export const FOX_EXPRESSIONS = ['smug', 'greedy', 'shocked', 'laugh', 'wink', 'angry', 'worried', 'sleepy'];
 
 export function hasSprite(name) {

@@ -86,63 +86,118 @@ export const STRUCTURES = {
   // ------------------------------------------------------------ bear snacks
   berries: {
     sprite: ['blueberry', 'blueberry_picked'], name: 'Blueberry Bush', icon: 'berry', cost: 30, place: 'landOrPlatform', category: 'food',
-    desc: 'Wild blueberries. Every bear loves a side of berries, and each serving fills them up a little. Grow them on a platform so rampagers can\'t trample them.',
-    food: { kind: 'berries', max: 6, regen: 1 / 14, meal: 0.6 }, hp: 2, smashable: true, beauty: 1,
+    desc: 'Grows from seed into a wild blueberry bush. Tap a ripe bush to harvest the batch, then serve the berries in a Snack Bowl. Grow them on a platform so rampagers can\'t trample them.',
+    crop: true, hp: 2, smashable: true, beauty: 1,
   },
   beehive: {
     sprite: ['beehive_tree'], name: 'Beehive', icon: 'hive', cost: 60, place: 'nearWillow', category: 'food', unlock: 'r_bees',
-    desc: 'Makes honey for bears with a sweet tooth. Must be within 2 tiles of a willow (a platform works too).',
-    food: { kind: 'honey', max: 4, regen: 1 / 20, meal: 0.8 }, hp: 3, smashable: true, beauty: 1,
+    desc: 'Fills up with honey: tap to harvest the jars for bears with a sweet tooth (lucky batches: royal jelly!). Must be within 2 tiles of a willow (a platform works too).',
+    crop: true, hp: 3, smashable: true, beauty: 1,
   },
   wildrice: {
     sprite: ['wildriceplot', 'wildrice'], name: 'Wild Rice', icon: 'wildrice', cost: 45, place: 'water', category: 'food', unlock: 'r_wildrice',
     desc: 'Manoomin, the good berry of the lakes. Grows in the shallows; bears slurp it like noodles.',
-    food: { kind: 'rice', max: 5, regen: 1 / 16, meal: 0.7 }, hp: 2, smashable: true, beauty: 1,
+    crop: true, hp: 2, smashable: true, beauty: 1,
   },
   mushrooms: {
     sprite: ['mushlog'], name: 'Mushroom Log', icon: 'mushroom', cost: 55, place: 'landOrPlatform', category: 'food', unlock: 'r_mushrooms',
     desc: 'A mossy log sprouting chanterelles. Fancy bears pay extra for foraged mushrooms.',
-    food: { kind: 'mushroom', max: 4, regen: 1 / 18, meal: 0.7 }, hp: 2, smashable: true, beauty: 1,
+    crop: true, hp: 2, smashable: true, beauty: 1,
   },
   maple: {
     sprite: ['sugarmaple', 'maple_red'], name: 'Sugar Maple', icon: 'maple', cost: 120, place: 'land', category: 'food', unlock: 'r_maple',
     desc: 'A tapped sugar maple dripping with syrup. Lumberjack bears go wild for it.',
-    food: { kind: 'syrup', max: 3, regen: 1 / 26, meal: 1 }, hp: 99, smashable: false, blocksBear: true, beauty: 3,
+    crop: true, hp: 99, smashable: false, blocksBear: true, beauty: 3,
   },
   raspberry: {
     name: 'Raspberry Cane', icon: 'berry', cost: 40, place: 'landOrPlatform', category: 'food',
     desc: 'Plump red raspberries. Bears go back for seconds.', sprite: ['raspberry', 'raspberry_picked'],
-    food: { kind: 'berries', max: 7, regen: 1 / 12, meal: 0.7 }, hp: 2, smashable: true, beauty: 1.2,
+    crop: true, hp: 2, smashable: true, beauty: 1.2,
   },
   strawberry: {
     name: 'Strawberry Patch', icon: 'berry', cost: 35, place: 'landOrPlatform', category: 'food',
     desc: 'Low and sweet. Grows fast.', sprite: ['strawberry', 'strawberry_picked'],
-    food: { kind: 'berries', max: 5, regen: 1 / 9, meal: 0.5 }, hp: 1, smashable: true, beauty: 1.5,
+    crop: true, hp: 1, smashable: true, beauty: 1.5,
   },
   saskatoon: {
     name: 'Saskatoon Bush', icon: 'berry', cost: 60, place: 'landOrPlatform', category: 'food', unlock: 'r_berries',
     desc: 'Prairie superfruit. Fills a bear right up.', sprite: ['saskatoon', 'saskatoon_picked'],
-    food: { kind: 'berries', max: 8, regen: 1 / 13, meal: 0.9 }, hp: 3, smashable: true, beauty: 1.5,
+    crop: true, hp: 3, smashable: true, beauty: 1.5,
   },
   cranberry: {
     name: 'Cranberry Bog', icon: 'berry', cost: 45, place: 'shore', category: 'food', landmark: 'swampshack',
     desc: 'Tart little gems from the swamp. Needs the shoreline.', sprite: ['cranberry', 'cranberry_picked'],
-    food: { kind: 'berries', max: 9, regen: 1 / 11, meal: 0.6 }, hp: 2, smashable: true, beauty: 1.5,
+    crop: true, hp: 2, smashable: true, beauty: 1.5,
   },
   cloudberry: {
     name: 'Cloudberry', icon: 'berry', cost: 80, place: 'landOrPlatform', category: 'food', landmark: 'firetower',
     desc: 'Rare golden berries from the north. Bears tip extra.', sprite: ['cloudberry', 'cloudberry_picked'],
-    food: { kind: 'berries', max: 6, regen: 1 / 15, meal: 1.1 }, hp: 2, smashable: true, beauty: 2.5,
+    crop: true, hp: 2, smashable: true, beauty: 2.5,
   },
   elderberry: {
     name: 'Elderberry', icon: 'berry', cost: 55, place: 'landOrPlatform', category: 'food', landmark: 'mushhut',
     desc: 'Dark and mysterious. Grows by magic mushrooms.', sprite: ['elderberry', 'elderberry_picked'],
-    food: { kind: 'berries', max: 8, regen: 1 / 12, meal: 0.8 }, hp: 2, smashable: true, beauty: 2,
+    crop: true, hp: 2, smashable: true, beauty: 2,
   },
   goldenberry: {
     name: 'Goldenberry', icon: 'berry', cost: 200, place: 'landOrPlatform', category: 'food', landmark: 'willowshrine',
     desc: 'Blessed by the Great Willow. Glows at night. Bears weep with joy.', sprite: ['goldenberry', 'goldenberry_picked'],
-    food: { kind: 'berries', max: 6, regen: 1 / 10, meal: 1.6 }, hp: 3, smashable: true, beauty: 5,
+    crop: true, hp: 3, smashable: true, beauty: 5,
+  },
+  // ------------------------------------------------------------ garden (grows from seed, tap to harvest)
+  carrot: {
+    name: 'Carrot Patch', icon: 'carrot', cost: 15, place: 'land', category: 'food', crop: true,
+    desc: 'Plant carrot seeds and watch them grow. Bears crunch them, beavers work 2 jobs per carrot.', hp: 1, smashable: true, beauty: 0.5,
+  },
+  lettuce: {
+    name: 'Lettuce Bed', icon: 'lettuce', cost: 10, place: 'land', category: 'food', crop: true,
+    desc: 'Fast and leafy. Fish love a lettuce leaf, and lucky batches hide a four-leaf clover.', hp: 1, smashable: true, beauty: 0.5,
+  },
+  radish: {
+    name: 'Radish Row', icon: 'radish', cost: 10, place: 'land', category: 'food', crop: true,
+    desc: 'The fastest crop in the garden. Small, peppery, popular with rabbits.', hp: 1, smashable: true, beauty: 0.5,
+  },
+  peas: {
+    name: 'Sweet Pea Trellis', icon: 'peas', cost: 20, place: 'land', category: 'food', crop: true, unlock: 'day:2',
+    desc: 'Climbing peas. Shelled peas are a fish-breeder favourite.', hp: 1, smashable: true, beauty: 1,
+  },
+  potato: {
+    name: 'Potato Hill', icon: 'potato', cost: 25, place: 'land', category: 'food', crop: true, unlock: 'day:2',
+    desc: 'Dig up a pile of spuds. Filling for bears, steady pay for beavers.', hp: 1, smashable: true, beauty: 0.5,
+  },
+  corn: {
+    name: 'Sweet Corn', icon: 'corn', cost: 30, place: 'land', category: 'food', crop: true, unlock: 'day:3',
+    desc: 'Tall stalks of sweet corn. Beavers will do 3 jobs for a single cob. Lucky batches: rainbow corn!', hp: 2, smashable: true, beauty: 1,
+  },
+  sunflower: {
+    name: 'Sunflowers', icon: 'sunflower', cost: 25, place: 'landOrPlatform', category: 'food', crop: true, unlock: 'day:3',
+    desc: 'Giant smiling flowers full of seeds. Songbirds and chipmunks adore them.', hp: 1, smashable: true, beauty: 2,
+  },
+  pumpkin: {
+    name: 'Pumpkin Patch', icon: 'pumpkin', cost: 40, place: 'land', category: 'food', crop: true, unlock: 'day:4',
+    desc: 'Slow, big and glorious. A legendary batch grows a GIANT pumpkin that fills a whole bear.', hp: 2, smashable: true, beauty: 1.5,
+  },
+  // ------------------------------------------------------------ food storage (fill from the Food tool)
+  snackbowl: {
+    name: 'Snack Bowl', icon: 'bowl', cost: 20, place: 'landOrPlatform', category: 'food', storage: true,
+    desc: 'Fill it with produce using the Food tool. Bears help themselves to a side dish (8 servings).', hp: 2, smashable: true,
+  },
+  pantry: {
+    name: 'Bear Pantry', icon: 'pantry', cost: 120, place: 'land', category: 'food', storage: true, builder: 'beaver', buildTime: 6, unlock: 'day:2',
+    desc: 'A big larder for 40 servings. Bears grab a snack on their way to the pond. Mice may sneak in at night!', hp: 4, smashable: true, beauty: 1,
+  },
+  beaverbar: {
+    name: 'Beaver Snack Bar', icon: 'beaverbar', cost: 25, place: 'land', category: 'beaver', storage: true, builder: 'beaver', buildTime: 4, freeLabour: true,
+    desc: 'Beavers only work when PAID. Stock it with produce or Bug Bites: every serving pays for jobs. They build this one for free.', hp: 99, smashable: false,
+  },
+  buggrinder: {
+    name: 'Bug Grinder 3000', icon: 'buggrinder', cost: 90, place: 'landOrPlatform', category: 'farm', builder: 'beaver', buildTime: 5,
+    grinder: { radius: 3.5, per: 2, max: 30 },
+    desc: 'A zapper lamp over a hopper: it catches bugs flying by and grinds every 2 into a scoop of Bug Bites fish food. Tap it to collect.', hp: 3, smashable: true,
+  },
+  rabbithutch: {
+    name: 'Bunny Hutch', icon: 'rabbit', cost: 110, place: 'land', category: 'farm', hutch: true, unlock: 'day:2',
+    desc: 'Home for up to 4 tame bunnies. They hop around and fertilize crops within 3 tiles (+40% growth), and have babies when there\'s room.', hp: 3, smashable: true, beauty: 1.5,
   },
   // ------------------------------------------------------------ restaurant (beaver-built)
   bar: {
@@ -343,7 +398,7 @@ export const BEAUTY_PER_BEAR = 10; // every N beauty brings one more customer
 
 export const BUILD_CATEGORIES = [
   { id: 'nature', name: 'Nature' },
-  { id: 'food', name: 'Bear Snacks' },
+  { id: 'food', name: 'Garden & Snacks' },
   { id: 'restaurant', name: 'Restaurant' },
   { id: 'beaver', name: 'Beaver Works' },
   { id: 'contraption', name: 'Contraptions' },

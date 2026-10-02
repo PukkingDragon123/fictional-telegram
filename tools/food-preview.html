@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Food Bags</title>
+<style>
+  :root { --bg: #24160e; --panel: #f3e2b8; --ink: #2a1a14; --gold: #ffd23f; --cream: #fbf0d0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--cream); font-family: 'Pixelify Sans', system-ui, sans-serif; }
+  body { padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 6px; color: var(--gold); letter-spacing: 1px; }
+  h2 { font-size: 14px; margin: 18px 0 8px; color: #fbf0d0; letter-spacing: 1px; font-weight: 400; text-transform: uppercase; }
+  canvas { image-rendering: pixelated; display: block; }
+  .sheet { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .card { background: var(--panel); color: var(--ink); border: 2px solid #4a2f1d; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .card.dark { background: #3b2414; color: var(--cream); }
+  .card .row { display: flex; gap: 8px; align-items: flex-end; }
+  .lbl { font-size: 11px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./food-preview.js"></script>
+</body>
+</html>

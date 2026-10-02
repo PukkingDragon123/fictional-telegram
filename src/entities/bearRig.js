@@ -21,13 +21,28 @@ export { FACE_EXPRESSIONS };
 export const VS = 0.625; // world units per model unit (voxel = 0.0625 world units)
 export const BEAR_POSES = ['idle', 'walk', 'run', 'swim', 'cannonball', 'lunge', 'grab', 'eat', 'yummy', 'toss', 'pay',
   'angry_stomp', 'smash', 'search', 'cheer', 'talk', 'sad', 'wave', 'sit',
-  'roar', 'slam', 'charge', 'stagger', 'calm', 'boss_intro'];
+  'roar', 'slam', 'charge', 'stagger', 'calm', 'boss_intro',
+  // eating styles (driven by src/game/BearEat.js; 'eat' is the classic 3-chomp)
+  'eat_gulp', 'eat_rip', 'eat_slurp', 'eat_toss', 'eat_fancy', 'eat_shake', 'eat_crunch'];
 // default durations of the one-shot poses (seconds) when no t01 is passed
 export const POSE_DURATION = { cannonball: 0.7, lunge: 0.34, grab: 0.36, eat: 1.4, yummy: 0.9, toss: 0.5, pay: 1.5, smash: 0.9,
-  roar: 1.5, slam: 1.15, stagger: 0.9, boss_intro: 2.6 };
+  roar: 1.5, slam: 1.15, stagger: 0.9, boss_intro: 2.6,
+  eat_gulp: 3.0, eat_rip: 3.6, eat_slurp: 2.8, eat_toss: 2.9, eat_fancy: 3.9, eat_shake: 2.5, eat_crunch: 2.6 };
 const ONE_SHOT = new Set(Object.keys(POSE_DURATION));
 const FADE = { cannonball: 0.1, lunge: 0.08, grab: 0.1, eat: 0.14, toss: 0.12, smash: 0.12, run: 0.18, walk: 0.18, sit: 0.3, swim: 0.2,
-  roar: 0.12, slam: 0.1, charge: 0.14, stagger: 0.04, calm: 0.4, boss_intro: 0.08 };
+  roar: 0.12, slam: 0.1, charge: 0.14, stagger: 0.04, calm: 0.4, boss_intro: 0.08,
+  eat_gulp: 0.14, eat_rip: 0.14, eat_slurp: 0.14, eat_toss: 0.12, eat_fancy: 0.16, eat_shake: 0.12, eat_crunch: 0.14 };
+// Key moments of the eating poses (seconds into the pose at speed 1) for anything that has to
+// sync with them from outside (BearEat flies the tossed snack from 'toss' to 'catch').
+export const EAT_CUES = {
+  eat_gulp: { drop: 1.36, gulp: 1.56, swallow: 2.05, done: 2.92 },
+  eat_rip: { rip: 1.08, bites: [1.86, 2.42, 2.98], done: 3.5 },
+  eat_slurp: { start: 0.62, shloop: 2.12, done: 2.72 },
+  eat_toss: { toss: 0.4, catch: 1.56, gulp: 1.8, done: 2.82 },
+  eat_fancy: { cutlery: 0.46, bites: [1.5, 2.55], done: 3.82 },
+  eat_shake: { gulp: 1.9, done: 2.42 },
+  eat_crunch: { start: 0.42, ding: 1.86, done: 2.52 },
+};
 
 const BLACK = 0x1a1410;
 const SHOE = 0x1e1a1e;
@@ -104,6 +119,31 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 const easeOut = (t) => 1 - (1 - t) * (1 - t);
 const easeOutBack = (t) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
 const wrapA = (a) => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
+// keyframes [[t, v, ease?], ...] (same as critterKit.K): the ease shapes the segment that ends at a key
+const EASE = {
+  io: (x) => (x < 0.5 ? 2 * x * x : 1 - 2 * (1 - x) * (1 - x)),
+  in: (x) => x * x,
+  out: (x) => 1 - (1 - x) * (1 - x),
+  lin: (x) => x,
+  back: (x) => { const c = 1.9; return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2; },
+  el: (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 2 ** (-9 * x) * Math.sin((x * 10 - 0.75) * (Math.PI * 2 / 3)) + 1),
+};
+function K(t, keys) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    const k = keys[i];
+    if (t <= k[0]) {
+      const p = keys[i - 1];
+      const u = k[0] > p[0] ? (t - p[0]) / (k[0] - p[0]) : 1;
+      return p[1] + (k[1] - p[1]) * EASE[k[2] || 'io'](u);
+    }
+  }
+  return keys[keys.length - 1][1];
+}
+// 0 -> 1 between a and a+ra, back to 0 between b and b+rb
+const win = (t, a, b, ra = 0.1, rb = 0.1) => smooth(a, a + ra, t) * (1 - smooth(b, b + rb, t));
+// a single bump of length d starting at a
+const bump = (t, a, d) => (t >= a && t < a + d ? Math.sin(((t - a) / d) * Math.PI) : 0);
 const lumOf = (c) => (((c >> 16) & 255) * 0.299 + ((c >> 8) & 255) * 0.587 + (c & 255) * 0.114) / 255;
 
 // ------------------------------------------------------------------ look
@@ -1515,6 +1555,142 @@ export function preloadBearGeometries(types) {
 let _types = BEAR_TYPES;
 export function registerBearTypes(types) { _types = types; }
 
+// ------------------------------------------------------------------ eat kit
+// Extra pieces for the eating styles, meshed lazily per bear type the first
+// time a bear needs them (most bears never do): an unhinged MAW (wide palate
+// with fangs, a stretchy throat and a lower jaw that drops way down), a
+// slurping "O" pucker, ballooned cheeks, a swallow lump that slides down the
+// chest, and fine-dining props (napkin bib, fork with a raised pinky, knife).
+// Model units (0.1 / voxel) around each piece's own pivot, see BearRig._kit().
+export const MAW_DROP = 10; // lower-jaw drop at full gape (voxels)
+const MAW_TOP = 18.6; // head-space y of the palate line under the muzzle
+const PUCKER_AT = [0, 19.2, 9.6];
+const CHEEK_AT = [6.5, 20.5, 4.3];
+const kitCache = new Map();
+
+function bodyFrontZ(L, x, y) {
+  for (let z = 20; z >= -12; z--) if (inTorso(x, y, z, L) || bellyD(x, y, z, L) <= 1) return z;
+  return null;
+}
+
+function eatKitGeometry(typeId, L) {
+  let G = kitCache.get(typeId);
+  if (G) return G;
+  const d = L.d;
+  const fur = L.fur, light = L.furLight;
+  const geo = (v, px = 0, py = 0, pz = 0) => v.build({ pivot: [px + 0.5, py, pz + 0.5], scale: 0.1 });
+  const TEETH = 0xfffaf0, TEETH_D = 0xe2d6c4, GUM = 0x9a2a3e, DARK = 0x4a0e1a, DEEP = 0x2a0610, THROAT = 0x14030a;
+  const TONGUE = 0xf25f7e, TONGUE_D = 0xc83a58, LIP = mix(light, 0xb8485a, 0.22);
+  // --- upper maw (head child, y relative to MAW_TOP): wide palate, rolled lip, teeth + two big fangs
+  const top = new VoxelModel();
+  for (let x = -6; x <= 6; x++)
+    for (let z = 4; z <= 10; z++) {
+      const ax = Math.abs(x);
+      if (ax === 6 && (z >= 10 || z <= 4)) continue;
+      const rim = z === 10 || ax === 6;
+      top.set(x, 0, z, rim ? (z === 10 ? LIP : light) : z >= 8 ? GUM : DARK);
+      if (rim && ax <= 5) top.set(x, 1, z, light);
+    }
+  for (const x of [-5, -4, -2, -1, 1, 2, 4, 5]) top.set(x, -1, 9, (x + 9) % 3 ? TEETH : TEETH_D);
+  for (const x of [-3, 3]) { top.set(x, -1, 9, TEETH); top.set(x, -2, 9, TEETH); top.set(x, -3, 9, TEETH_D); }
+  for (const x of [-6, 6]) for (let z = 6; z <= 8; z++) top.set(x, -1, z, TEETH_D); // molars along the sides
+  // --- throat interior (head child, scaled in y by the gape): dark walls, a deep throat, a wobbly uvula
+  const inner = new VoxelModel();
+  for (let y = -MAW_DROP; y <= -1; y++) {
+    const v = -y / MAW_DROP; // 0 at the palate .. 1 at the jaw
+    for (let x = -6; x <= 6; x++) {
+      const ax = Math.abs(x);
+      const th = ((x / 2.6) ** 2 + ((v - 0.5) / 0.3) ** 2) < 1;
+      inner.set(x, y, 4, th ? THROAT : ((v - 0.5) / 0.42) ** 2 + (x / 5) ** 2 < 1 ? DEEP : DARK);
+      if (ax === 6) for (let z = 5; z <= 9; z++) inner.set(x, y, z, z >= 9 ? GUM : z >= 7 ? mix(DARK, GUM, 0.5) : DARK);
+    }
+  }
+  inner.set(0, -1, 5, 0xe8607a); inner.set(0, -2, 5, 0xf27a90); inner.set(0, -3, 5, 0xd84a66); // uvula
+  // --- lower jaw (head child, drops by gape * MAW_DROP): tongue on top, lower fangs, lip, chin fluff
+  const bot = new VoxelModel();
+  for (let x = -6; x <= 6; x++)
+    for (let z = 4; z <= 10; z++) {
+      const ax = Math.abs(x);
+      if (ax === 6 && (z >= 10 || z <= 4)) continue;
+      const rim = z === 10 || ax === 6;
+      bot.set(x, -2, z, ax >= 5 ? fur : light);
+      bot.set(x, -1, z, rim ? (z === 10 ? LIP : light) : GUM);
+    }
+  for (let x = -4; x <= 4; x++)
+    for (let z = 4; z <= 9; z++) {
+      if (Math.abs(x) === 4 && (z === 9 || z === 4)) continue;
+      bot.set(x, 0, z, x === 0 && z >= 5 && z <= 8 ? TONGUE_D : TONGUE);
+    }
+  bot.set(-1, 1, 7, TONGUE); bot.set(1, 1, 6, TONGUE); // a lolling tongue tip
+  for (const x of [-5, -2, -1, 1, 2, 5]) bot.set(x, 0, 9, TEETH);
+  for (const x of [-4, 4]) { bot.set(x, 0, 10, TEETH); bot.set(x, 1, 10, TEETH); bot.set(x, 2, 10, TEETH_D); }
+  for (let x = -2; x <= 2; x++) bot.set(x, -3, 8, x % 2 ? L.furTuft : light);
+  bot.set(0, -3, 9, L.furTuft);
+  // --- slurp pucker (head child at PUCKER_AT): a lippy ring pushed forward with a dark hole
+  const puck = new VoxelModel();
+  for (let x = -3; x <= 3; x++)
+    for (let y = -3; y <= 3; y++) {
+      const q = (x / 3.1) ** 2 + (y / 2.7) ** 2;
+      if (q > 1) continue;
+      const hole = (x / 1.5) ** 2 + (y / 1.25) ** 2 < 1;
+      if (hole) { puck.set(x, y, 0, THROAT); continue; }
+      puck.set(x, y, 0, LIP);
+      puck.set(x, y, 1, q > 0.62 ? LIP : mix(LIP, 0xc04a60, 0.5));
+      if (q > 0.55) puck.set(x, y, 2, y > 0 ? mix(LIP, 0xffffff, 0.2) : LIP);
+    }
+  // --- cheek balloon (head child, one per side)
+  const cheek = new VoxelModel();
+  fillSE(cheek, 0, -0.5, 0, 2.7, 2.5, 2.9, 2.2, (x, y, z) => (y <= -2 || z >= 2 ? light : (x + y + z) % 5 === 0 ? L.furTuft : fur));
+  cheek.set(0, 0, 3, L.pad); cheek.set(1, 0, 3, L.pad); cheek.set(0, -1, 3, mix(L.pad, light, 0.4));
+  // --- swallow lump (spine child): outfit-coloured bulge that slides down the chest front
+  const shirtFront = ['jacket', 'tux', 'threepiece', 'trench', 'shirt', 'cardigan'].includes(L.outfit);
+  const lc = L.outfit === 'fur' ? L.furLight : shirtFront ? d.shirt : d.suit;
+  const lump = new VoxelModel();
+  fillSE(lump, 0, -0.5, 0, 2.8, 2.4, 1.9, 2.2, (x, y) => (y <= -2 ? shade(lc, 0.86) : y >= 1 ? mix(lc, 0xffffff, 0.12) : lc));
+  const path = [];
+  for (let y = 18; y >= 10; y--) path.push([y, (bodyFrontZ(L, 0, y) ?? 6) + 1.2]);
+  // --- napkin bib (spine child, body coords): tucked into the collar, draped over the belly
+  const nap = new VoxelModel();
+  const N = L.neckY;
+  const W = 0xfbfbf4, Wd = 0xe0e0d8, Wb = 0x8aa4c8;
+  for (let y = 8; y <= N; y++) {
+    const k = (N - y) / Math.max(1, N - 8);
+    const hw = y > N - 1 ? 2.6 : k < 0.62 ? 2.6 + k * 5.2 : (1 - k) / 0.38 * 5.8; // widens, then a point
+    let zr = -99;
+    for (let x = -Math.ceil(hw) - 1; x <= Math.ceil(hw) + 1; x++) { const z = bodyFrontZ(L, x, y); if (z != null) zr = Math.max(zr, z); }
+    if (zr < -50) continue;
+    for (let x = -Math.round(hw); x <= Math.round(hw); x++) {
+      const edge = Math.abs(x) >= Math.round(hw) || y === 8;
+      nap.set(x, y, zr + 2, edge ? Wb : (y + (x > 0 ? 1 : 0)) % 3 === 0 ? Wd : W);
+    }
+  }
+  const zc = (bodyFrontZ(L, 0, N) ?? 5) + 2;
+  for (const sx of [-1, 1]) { nap.set(sx * 2, N + 1, zc, W); nap.set(sx * 3, N + 1, zc, Wd); nap.set(sx * 3, N + 2, zc - 1, W); } // tucked corners
+  nap.set(0, N + 1, zc, Wd);
+  // --- fork with a raised pinky (left arm) and knife (right arm), arm-space bind coords
+  const pawY = 8.4 + Math.round(L.arm.cy - L.arm.ry - 7.3);
+  const S = 0xe8ecf4, Sd = 0xa4acba, Sw = 0xffffff, WOOD = 0x6a4022;
+  const fork = new VoxelModel();
+  const fx = -8, fz = 2;
+  for (let z = fz - 1; z <= fz + 5; z++) fork.set(fx, pawY, z, z <= fz + 1 ? Sd : S);
+  for (let x = fx - 1; x <= fx + 1; x++) fork.set(x, pawY, fz + 6, S);
+  for (const x of [fx - 1, fx, fx + 1]) for (let z = fz + 7; z <= fz + 9; z++) fork.set(x, pawY, z, z === fz + 9 ? Sw : x === fx ? Sd : S);
+  for (let z = fz; z <= fz + 2; z++) fork.set(fx - 3, pawY + 1, z, z === fz + 2 ? L.pad : fur); // the pinky, raised just so
+  const knife = new VoxelModel();
+  const kx = 8, kz = 2;
+  for (let z = kz - 1; z <= kz + 2; z++) knife.set(kx, pawY, z, WOOD);
+  knife.set(kx, pawY, kz + 3, Sd);
+  for (let z = kz + 4; z <= kz + 9; z++) { knife.set(kx, pawY, z, S); knife.set(kx + 1, pawY, z, z >= kz + 8 ? Sw : mix(S, Sw, 0.4)); }
+  knife.set(kx + 1, pawY, kz + 9, null);
+  G = {
+    top: geo(top), inner: geo(inner), bot: geo(bot), pucker: geo(puck), cheek: geo(cheek), lump: geo(lump),
+    napkin: geo(nap), fork: geo(fork), knife: geo(knife),
+    path, pawY, forkTip: [fx, pawY, fz + 9.6],
+  };
+  kitCache.set(typeId, G);
+  return G;
+}
+
 // ------------------------------------------------------------------ materials
 let mats = null;
 function sharedMats() {
@@ -1655,7 +1831,10 @@ class Aura {
 const CH = 9; // rx ry rz px py pz sx sy sz
 const EX = NB * CH; // extras
 const X_HOLD = EX, X_JAW = EX + 3, X_LOOKX = EX + 4, X_LOOKY = EX + 5, X_ITEMRIGID = EX + 6, X_PROPSPIN = EX + 7;
-const NCH = EX + 8;
+// eat kit: unhinged maw (0..1+), slurp pucker, puffed cheeks, swallow lump (0..1 down the chest, 0 = off),
+// napkin bib, cutlery (fork + knife + raised pinky)
+const X_GAPE = EX + 8, X_PUCKER = EX + 9, X_CHEEK = EX + 10, X_THROAT = EX + 11, X_NAPKIN = EX + 12, X_CUTLERY = EX + 13;
+const NCH = EX + 14;
 
 class Frame {
   constructor() { this.a = new Float32Array(NCH); this.reset(); }
@@ -1668,6 +1847,7 @@ class Frame {
     }
     a[X_HOLD] = 0; a[X_HOLD + 1] = 16.6; a[X_HOLD + 2] = 9.5;
     a[X_JAW] = -1; a[X_LOOKX] = 0; a[X_LOOKY] = 0; a[X_ITEMRIGID] = 0; a[X_PROPSPIN] = 0;
+    a[X_GAPE] = a[X_PUCKER] = a[X_CHEEK] = a[X_THROAT] = a[X_NAPKIN] = a[X_CUTLERY] = 0;
     // resting arms hang a little outwards around the belly
     a[B.armL * CH + 2] = -0.13; a[B.armR * CH + 2] = 0.13;
     return this;
@@ -1693,11 +1873,16 @@ class Frame {
     a[o] = Math.atan2(-dz, -dy);
     a[o + 1] = 0;
     a[o + 2] = Math.asin(clamp(dx, -1, 1));
+    let s = a[o + 7];
     if (stretch) {
-      const s = clamp(1 + (l / len - 1) * stretch, 0.82, 1.32);
+      s = clamp(1 + (l / len - 1) * stretch, 0.82, 1.32);
       const k = 1 / Math.sqrt(s);
       a[o + 6] = k; a[o + 7] = s; a[o + 8] = k;
     }
+    // where the paw actually ends up (bind voxels): eating poses put the snack right there
+    const e = (this.end ||= {})[b] || (this.end[b] = new THREE.Vector3());
+    e.set(bp.x + a[o + 3] + dx * len * s, bp.y + a[o + 4] + dy * len * s, bp.z + a[o + 5] + dz * len * s);
+    return e;
   }
   // rotate the base about a pivot (voxels) so spins happen around the body centre
   spinAbout(px, py, pz, rx, ry, rz) {
@@ -1956,6 +2141,7 @@ const POSES = {
       } else if (t >= tb + 0.2) chew = Math.max(chew, 0.6);
     }
     c.rig._setChomps(n);
+    c.rig.prey.eat = Math.min(0.66, n * 0.22); c.rig.prey.wiggle = 1.4 - n * 0.4;
     const raise = smooth(0, 0.18, t);
     // hold the fish right under the mouth; it hops up into each bite
     const hy = lerp(15.5, 18.3 + c.hy, raise) + nod * 0.5 + squash * 0.8;
@@ -2001,6 +2187,7 @@ const POSES = {
     F.mulS(B.belly, 1 + 0.035 * Math.sin(a * 2), 1 - 0.025 * Math.sin(a * 2), 1 + 0.04 * Math.sin(a * 2));
     F.r(B.tail, 0, 0, Math.sin(t * 30) * 0.6);
     F.r(B.earL, 0, 0, 0.12 * wig); F.r(B.earR, 0, 0, 0.12 * wig);
+    c.rig.prey.eat = 0.66; c.rig.prey.wiggle = 0;
     c.face = 'yummy';
   },
 
@@ -2434,6 +2621,416 @@ Object.assign(POSES, {
   },
 });
 
+// ------------------------------------------------------------------ eating styles
+// One-shot poses for src/game/BearEat.js. Besides the bones they write the eat
+// kit channels (maw, pucker, cheeks, swallow lump, napkin, cutlery) and
+// rig.prey: where the held snack sits and what it does (preyFx.js renders it).
+// params: { t01, preyLen (snack length in this bear's voxels) }.
+const _e0 = new THREE.Vector3(), _e1 = new THREE.Vector3(), _e2 = new THREE.Vector3(), _e3 = new THREE.Vector3();
+const PI = Math.PI;
+// hold-space points on the head (call after the head channels are set)
+const mouthPt = (F, c, out = _e0, dy = 0, dz = 0) => c.rig._headPt(F, 0, 19.4 + dy, 10.6 + dz, out);
+const mawPt = (F, c, g, out = _e1) => c.rig._headPt(F, 0, MAW_TOP - 0.4 - g * MAW_DROP * 0.5, 10.6 + g, out);
+// both paws on a held snack at p (spread = half the grip width), returns the paw midpoint
+function pawsOn(F, p, spread, st = 0.8, out = _e2) {
+  const l = F.aim(B.armL, p.x - spread, p.y - 0.3, p.z - 0.4, st);
+  const r = F.aim(B.armR, p.x + spread, p.y - 0.3, p.z - 0.4, st);
+  return out.set((l.x + r.x) / 2, (l.y + r.y) / 2 + 0.4, (l.z + r.z) / 2 + 0.7);
+}
+// lerp two vectors into out
+const mixV = (out, a, b, t) => out.set(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t));
+// both paws pat the full belly (alternating), returns the pat phase
+function patBelly(F, c, t, rate = 7, k = 1) {
+  const pL = Math.max(0, Math.sin(t * rate)), pR = Math.max(0, Math.sin(t * rate + PI));
+  F.aim(B.armL, -3.6, 11.6 + pL * 1.9 * k, 9.4 + c.bz, 0.6);
+  F.aim(B.armR, 3.6, 11.6 + pR * 1.9 * k, 9.4 + c.bz, 0.6);
+  F.mulS(B.belly, 1 + 0.03 * (pL + pR) * k, 1 - 0.02 * (pL + pR) * k, 1 + 0.03 * (pL + pR) * k);
+  return pL + pR;
+}
+// slow, happy chewing: jaw + a little head bob
+function chew(F, t, k = 1, rate = 9) {
+  F.jaw(0.2 * Math.abs(Math.sin(t * rate)) * k);
+  F.ar(B.head, 0.03 * Math.sin(t * rate * 2) * k, 0, 0.07 * Math.sin(t * rate * 0.5) * k);
+}
+
+Object.assign(POSES, {
+  // GULP: the jaw unhinges into a massive maw, the snack is flicked up and dropped in,
+  // GULP, cheeks balloon, a lump slides down the throat, the belly swells, pat pat.
+  eat_gulp(F, c) {
+    const t = c.t01 * POSE_DURATION.eat_gulp, R = c.rig, P = R.prey;
+    const len = c.params.preyLen ?? 16;
+    idleBreath(F, c, 0.4);
+    const gape = K(t, [[0.3, 0], [0.38, 0.36, 'back'], [0.5, 0.36], [0.56, 0.68, 'back'], [0.66, 0.68], [0.8, 1.08, 'back'], [0.95, 1], [1.5, 1], [1.56, 1.1], [1.63, 0, 'in']]);
+    const big = K(t, [[0.3, 0], [0.84, 1, 'back'], [1.56, 1], [1.68, -0.14, 'out'], [1.84, 0.05], [2.0, 0]]);
+    const tilt = K(t, [[0, 0.14], [0.28, 0.2], [0.42, -0.08], [0.6, -0.16], [0.84, -0.3, 'back'], [1.5, -0.26], [1.6, 0.34, 'out'], [1.78, 0.04], [2.1, 0.12], [2.45, -0.06]]);
+    const tremble = win(t, 0.82, 1.5, 0.05, 0.06);
+    F.ar(B.head, tilt + Math.sin(t * 47) * 0.025 * tremble, Math.sin(t * 31) * 0.03 * tremble, 0);
+    F.mulS(B.head, 1 + 0.2 * big, 1 + 0.24 * big, 1 + 0.18 * big);
+    F.a[X_GAPE] = Math.max(0, gape);
+    if (t >= 0.36) R._cue('unhinge1', 'unhinge');
+    if (t >= 0.54) R._cue('unhinge2', 'unhinge');
+    if (t >= 0.78) R._cue('unhinge3', 'unhinge');
+    // body: crouch, rise into the gape, the GULP squash, then lean back for the pats
+    const crouch = win(t, 0.12, 0.28, 0.12, 0.14);
+    const gulpSq = bump(t, 1.56, 0.26);
+    F.sq(B.base, 1 - 0.06 * crouch + 0.05 * win(t, 0.4, 1.4, 0.3, 0.1) - 0.12 * gulpSq);
+    F.ar(B.spine, 0.08 * crouch - 0.08 * win(t, 0.5, 1.5, 0.3, 0.1) + 0.12 * gulpSq - 0.1 * smooth(2.1, 2.4, t), 0, Math.sin(t * 39) * 0.02 * tremble);
+    F.r(B.earL, 0.5 * Math.min(1, gape), 0, 0.35 * Math.min(1, gape)); F.r(B.earR, 0.5 * Math.min(1, gape), 0, -0.35 * Math.min(1, gape));
+    F.r(B.tail, 0, 0, Math.sin(t * 16) * 0.35);
+    // snack: held at the chest while the jaw unhinges, flicked up, then dropped into the maw
+    const lip = mawPt(F, c, Math.max(0, Math.min(1, gape)), _e1);
+    const chest = _e3.set(0, 14.6 + c.hy * 0.5, 10.8 + c.bz);
+    const flick = K(t, [[0.86, 0], [1.08, 1, 'out']]), fall = K(t, [[1.12, 0], [1.44, 1, 'in']]);
+    const apexY = lip.y + len * 1.3 + 4;
+    if (t < 0.98) {
+      const paw = pawsOn(F, chest, Math.max(2.6, len * 0.3));
+      const up = _e2.set(paw.x, lerp(paw.y, apexY - 4, flick), lerp(paw.z, lip.z, flick));
+      F.hold(up.x, up.y, up.z);
+      P.anchor = lerp(0.5, 0, flick); P.angle = -PI / 2 * flick; P.wiggle = 1.8;
+    } else {
+      // the snack is free: tail up top, head pointing into the maw, swallowed at the lip
+      const y = lerp(apexY, lip.y - 1, fall) + (t < 1.12 ? (1.12 - t) * 10 : 0);
+      F.hold(lip.x, y, lip.z);
+      P.anchor = 0; P.feed = true; P.lip = lip; P.wiggle = 2.4;
+      if (t >= 1.36) R._cue('drop');
+      if (t > 1.46) P.show = 0;
+    }
+    // arms: holding low, the flick, "voila!" spread, then belly pats
+    if (t >= 0.98 && t < 2.2) {
+      const v = smooth(0.98, 1.14, t) * (1 - smooth(1.6, 1.9, t));
+      F.aim(B.armL, -11, 25, 4, 0.5 * v); F.aim(B.armR, 11, 25, 4, 0.5 * v);
+      blendRest(F, c, v);
+    } else if (t >= 2.2) {
+      const p = patBelly(F, c, t - 2.2, 10.5, smooth(2.2, 2.32, t) * (1 - smooth(2.86, 2.98, t)));
+      if (p > 0.97) R._cue(t < 2.5 ? 'pat1' : t < 2.75 ? 'pat2' : 'pat3', 'pat');
+      blendRest(F, c, smooth(2.2, 2.32, t) * (1 - smooth(2.9, 3.0, t)));
+    }
+    if (t >= 1.56) R._cue('gulp');
+    // cheeks balloon, the lump slides down, the belly swells
+    F.a[X_CHEEK] = K(t, [[1.56, 0], [1.64, 1.2, 'out'], [1.78, 1], [2.0, 0.55], [2.14, 0]]);
+    F.a[X_THROAT] = t > 1.66 && t < 2.06 ? K(t, [[1.66, 0.001], [2.06, 0.999, 'in']]) : 0;
+    if (t >= 2.05) R._cue('swallow');
+    const fat = K(t, [[2.02, 0], [2.12, 1.25, 'out'], [2.3, 1], [3.0, 0.7]]);
+    F.mulS(B.belly, 1 + 0.16 * fat, 1 + 0.1 * fat, 1 + 0.22 * fat);
+    F.jaw(0);
+    if (t >= 2.92) R._cue('done');
+    c.face = t < 0.3 ? 'hungry' : t < 1.56 ? 'gape' : t < 2.12 ? 'stuffed' : 'content';
+    F.look(0, t > 0.86 && t < 1.5 ? -1 : 1);
+  },
+
+  // RIP: both paws, a tug-of-war, the head RIPS off and is flung away, then slow,
+  // savoured bites with eyes closed in bliss.
+  eat_rip(F, c) {
+    const t = c.t01 * POSE_DURATION.eat_rip, R = c.rig, P = R.prey;
+    const len = c.params.preyLen ?? 16;
+    idleBreath(F, c, 0.5);
+    const tug = win(t, 0.28, 1.04, 0.14, 0.04);
+    const pull = tug * (0.5 - 0.5 * Math.cos((t - 0.28) * PI * 2 * 3.9)) * (0.55 + 0.45 * smooth(0.3, 0.95, t));
+    const recoil = bump(t, 1.06, 0.42);
+    const savor = smooth(1.3, 1.62, t) * (1 - smooth(3.28, 3.52, t));
+    const shake = Math.sin(t * 61) * 0.5 * tug;
+    // body: lean back on each pull, stagger on the rip
+    F.ar(B.spine, -0.14 * pull - 0.06 * tug - 0.16 * recoil + 0.1 * savor, 0, shake * 0.03);
+    F.ap(B.base, 0, 0, -1.4 * recoil);
+    F.sq(B.base, 1 - 0.05 * pull + 0.06 * bump(t, 1.06, 0.2) - 0.06 * bump(t, 1.26, 0.2));
+    F.ar(B.head, 0.16 * tug - 0.25 * recoil + 0.12 * savor, 0, shake * 0.04);
+    if (t < 1.06) {
+      // the tug of war: paws on both ends, the fish stretching like taffy
+      const stretch = 1 + 0.07 * tug + 0.16 * pull;
+      const H = _e3.set(0, 15.6 + c.hy * 0.4, 11 + c.bz);
+      const hw = len * stretch * 0.5;
+      F.aim(B.armL, H.x - hw + shake, H.y - 0.4, H.z - 0.5, 0.9);
+      const r = F.aim(B.armR, H.x + hw - shake, H.y - 0.4 + 0.6 * pull, H.z - 0.5, 0.9);
+      const l = F.end[B.armL];
+      F.hold((l.x + r.x) / 2, (l.y + r.y) / 2 + 0.4, (l.z + r.z) / 2 + 0.7);
+      P.stretch = stretch; P.wiggle = 1.2 + 2 * pull; P.angle = 0.06 * pull;
+    } else {
+      P.headOff = true;
+      if (t < 1.3) {
+        // RIP! the right paw flings the head away; the left paw keeps the body
+        const fl = smooth(1.06, 1.16, t);
+        F.aim(B.armR, lerp(9, 15, fl), lerp(15, 24, fl), lerp(10, 3, fl), 0.6);
+        const l = F.aim(B.armL, -4 - 2 * recoil, 14.5, 10.5 + c.bz, 0.8);
+        F.hold(l.x + 1, l.y + 0.5, l.z + 0.6);
+        P.anchor = 0.75; P.wiggle = 0.6;
+      } else {
+        // savour: the torn end up to the mouth, three slow bites, chewing with eyes closed
+        const m = mouthPt(F, c, _e0, -0.6, -0.4);
+        const rem = len * 0.68 * (1 - P.eat);
+        const lift = savor;
+        const base = _e3.set(-3, 14.6, 10.5 + c.bz);
+        const at = mixV(_e2, base, m, lift);
+        F.hold(at.x, at.y, at.z);
+        P.anchor = lerp(0.75, 1, lift);
+        F.aim(B.armL, at.x - Math.max(3, rem * 0.85), at.y - 0.6, at.z - 0.6, 0.8);
+        F.aim(B.armR, at.x - Math.max(1.5, rem * 0.35), at.y - 1.2, at.z - 0.2, 0.7 * lift);
+        blendRest(F, c, Math.max(0.15, lift), 2);
+      }
+    }
+    // bites: lean in, CHOMP, then slow chewing
+    const bites = EAT_CUES.eat_rip.bites;
+    let open = 0;
+    for (let i = 0; i < bites.length; i++) {
+      const b = bites[i];
+      open = Math.max(open, smooth(b - 0.2, b - 0.04, t) * (1 - smooth(b - 0.03, b + 0.02, t)));
+      if (t >= b) R._bite(i + 1);
+      F.ar(B.head, 0.12 * bump(t, b - 0.18, 0.3), 0, 0);
+    }
+    P.eat = Math.min(0.78, bites.reduce((s, b) => s + 0.26 * smooth(b - 0.02, b + 0.05, t), 0));
+    if (t >= 1.08) R._cue('rip');
+    if (t > 1.6 && t < 3.3) chew(F, t, 1 - open, 7);
+    if (open > 0) F.jaw(open * 0.9);
+    F.r(B.earL, -0.25 * tug, 0, 0.2 * tug); F.r(B.earR, -0.25 * tug, 0, -0.2 * tug);
+    F.r(B.tail, 0, 0, Math.sin(t * 12) * 0.3);
+    if (t >= 3.5) R._cue('done');
+    c.face = t < 0.28 ? 'hungry' : t < 1.06 ? 'strain' : t < 1.24 ? 'shocked' : t < 1.62 ? 'excited' : open > 0.3 ? 'chomp_open' : t < 3.3 ? 'bliss' : 'yummy';
+    F.look(0, 1);
+  },
+
+  // SLURP: up to the lips, pucker, and the whole fish goes in like a noodle... SHLOOP!
+  eat_slurp(F, c) {
+    const t = c.t01 * POSE_DURATION.eat_slurp, R = c.rig, P = R.prey;
+    const len = c.params.preyLen ?? 16;
+    idleBreath(F, c, 0.5);
+    const s = K(t, [[0.62, 0], [1.15, 0.22], [1.65, 0.56], [2.12, 1, 'in']]);
+    const pulses = [0.72, 1.0, 1.26, 1.48, 1.67, 1.83, 1.96, 2.06];
+    let bob = 0;
+    pulses.forEach((p, i) => { bob += bump(t, p, 0.12); if (t >= p) R._cue('slurp' + i, 'slurp'); });
+    const whip = K(t, [[2.1, 0], [2.18, -0.34, 'out'], [2.36, 0.1], [2.55, 0]]);
+    F.ar(B.head, -0.1 * win(t, 0.3, 2.1, 0.2, 0.1) - 0.07 * bob + whip, 0, 0.05 * Math.sin(t * 7) * win(t, 0.6, 2.1));
+    F.mulS(B.head, 1 - 0.07 * win(t, 0.4, 2.12, 0.12, 0.05), 1 + 0.04 * win(t, 0.4, 2.12), 1); // cheeks sucked in
+    F.a[X_PUCKER] = K(t, [[0.3, 0], [0.46, 1.25, 'out'], [0.6, 1], [2.08, 1], [2.14, 1.45, 'out'], [2.24, 0, 'in']]) + 0.15 * bob;
+    F.a[X_CHEEK] = K(t, [[2.12, 0], [2.18, 0.7, 'out'], [2.34, 0]]);
+    F.sq(B.base, 1 + 0.03 * bob - 0.08 * bump(t, 2.12, 0.2));
+    F.ar(B.spine, -0.04 * win(t, 0.5, 2.1), 0, 0);
+    // the fish hangs from the lips, head up, and is sucked in
+    const m = mouthPt(F, c, _e0, -0.8, 0.6);
+    const lift = smooth(0, 0.34, t);
+    const chest = _e3.set(0, 14.6 + c.hy * 0.4, 10.8 + c.bz);
+    const at = mixV(_e2, chest, m, lift);
+    F.hold(at.x, at.y, at.z);
+    const ang = lerp(0, PI / 2 - 0.38, lift) + 0.25 * Math.sin(t * 13) * s;
+    P.angle = ang; P.anchor = lerp(0.5, 1, lift); P.eat = s; P.wave = 0.25 + 1.1 * s; P.wiggle = 1 + 2.2 * s;
+    if (t >= 2.12) { R._cue('shloop'); P.show = 0; }
+    // left paw pinches the tail end until the noodle gets going, then both paws up in delight
+    const rem = len * (1 - s);
+    const tx = at.x - Math.cos(ang) * rem * 0.92, ty = at.y - Math.sin(ang) * rem * 0.92;
+    const hold = 1 - smooth(1.1, 1.3, t);
+    if (hold > 0.01) { F.aim(B.armL, tx, ty, at.z - 0.6, 0.8); F.aim(B.armR, at.x + 2.5, at.y - 4, at.z - 1.5, 0.5); }
+    const joy = smooth(1.15, 1.4, t) * (1 - smooth(2.4, 2.7, t));
+    if (joy > 0.01) {
+      const wv = Math.sin(t * 12);
+      F.aim(B.armL, -10 - wv, 23, 4, 0.5); F.aim(B.armR, 10 - wv, 23, 4, 0.5);
+    }
+    blendRest(F, c, Math.max(hold, joy));
+    // happy lip-lick wiggle at the end
+    const wig = smooth(2.25, 2.4, t);
+    F.ar(B.hips, 0, 0.1 * Math.sin(t * 15) * wig, 0.07 * Math.sin(t * 15) * wig);
+    F.r(B.tail, 0, 0, Math.sin(t * 22) * 0.4);
+    F.jaw(0);
+    if (t >= 2.72) R._cue('done');
+    c.face = t < 0.3 ? 'hungry' : t < 2.12 ? 'slurp' : t < 2.3 ? 'stuffed' : 'yummy';
+  },
+
+  // TOSS: flip it high, track it, catch it in the open mouth (CHOMP), a proud bounce.
+  eat_toss(F, c) {
+    const t = c.t01 * POSE_DURATION.eat_toss, R = c.rig, P = R.prey;
+    const len = c.params.preyLen ?? 16;
+    idleBreath(F, c, 0.5);
+    const crouch = win(t, 0.05, 0.32, 0.18, 0.06);
+    const swing = smooth(0.28, 0.42, t);
+    const track = K(t, [[0.36, -0.05], [0.7, -0.5], [1.0, -0.62], [1.3, -0.48], [1.54, -0.3], [1.6, 0.26, 'out'], [1.8, 0.04], [2.0, -0.08]]);
+    F.ar(B.head, track, 0, 0);
+    F.a[X_GAPE] = K(t, [[0.9, 0], [1.26, 0.66, 'back'], [1.5, 0.6], [1.555, 0.72], [1.61, 0, 'in']]);
+    // shuffle under it
+    const shuffle = K(t, [[0.6, 0], [0.8, 1.7], [1.02, 1.7], [1.22, -0.5], [1.42, 0]]);
+    F.ap(B.base, shuffle, 0, 0);
+    const stepL = bump(t, 0.6, 0.2), stepR = bump(t, 1.02, 0.2);
+    F.r(B.legL, -0.5 * stepL, 0, 0); F.ap(B.legL, 0, 1.1 * stepL, 0);
+    F.r(B.legR, -0.5 * stepR, 0, 0); F.ap(B.legR, 0, 1.1 * stepR, 0);
+    if (t < 0.4) {
+      // wind up low on the right, then flick it skywards
+      const tgt = _e3.set(lerp(7, 5, swing), lerp(10.5, 27, swing), lerp(9.5 + c.bz, 6, swing));
+      const r = F.aim(B.armR, tgt.x, tgt.y, tgt.z, 0.8);
+      F.hold(r.x, r.y + 0.6, r.z + 0.8);
+      P.angle = 0.3 * swing; P.wiggle = 1.6;
+      F.aim(B.armL, -9.5, 13, 5, 0.4);
+      blendRest(F, c, 0.6, 1);
+    } else if (t < 1.56) {
+      P.at = 'free';
+      const out = smooth(0.4, 0.6, t);
+      F.aim(B.armL, -12, 18.5 + Math.sin(t * 9) * 0.8, 5, 0.5 * out);
+      F.aim(B.armR, 12, 18.5 - Math.sin(t * 9) * 0.8, 5, 0.5 * out);
+      blendRest(F, c, out);
+    } else {
+      // caught! the tail flaps out of the mouth for a beat, then GULP
+      P.at = 'mouth'; P.anchor = 1; P.angle = -PI / 2 + 0.25 * Math.sin(t * 30);
+      P.eat = K(t, [[1.56, 0.45], [1.74, 0.58], [1.82, 1, 'in']]); P.wiggle = 2.6;
+      if (t > 1.83) P.show = 0;
+    }
+    if (t >= 0.4) R._cue('toss');
+    if (t >= 1.56) R._cue('catch');
+    if (t >= 1.8) R._cue('gulp');
+    F.a[X_CHEEK] = K(t, [[1.8, 0], [1.86, 0.75, 'out'], [2.02, 0]]);
+    // proud bounce + twirl
+    const hop = K(t, [[1.9, 0], [2.0, -0.7], [2.2, 3.3, 'out'], [2.42, 0, 'in'], [2.5, -0.9], [2.64, 0]]);
+    const air = Math.max(0, hop) / 3.3;
+    F.ap(B.base, 0, Math.max(0, hop), 0);
+    F.sq(B.base, 1 - 0.1 * crouch + 0.07 * swing * (1 - smooth(0.42, 0.6, t)) + 0.06 * air - 0.05 * Math.max(0, -hop) - 0.1 * bump(t, 1.56, 0.2));
+    const tw = K(t, [[2.0, 0], [2.42, 1, 'io']]);
+    if (tw > 0 && tw < 1) F.spinAbout(0, 12, 1, 0, tw * PI * 2, 0);
+    const v = smooth(1.9, 2.04, t) * (1 - smooth(2.5, 2.75, t));
+    if (v > 0.01) { F.aim(B.armL, -12, 28, 3, 0.4 * v); F.aim(B.armR, 12, 28, 3, 0.4 * v); blendRest(F, c, v); }
+    F.r(B.legL, -0.35 * air, 0, -0.1 * air); F.r(B.legR, -0.35 * air, 0, 0.1 * air);
+    if (t >= 2.2) R._cue('tada');
+    F.r(B.tail, 0, 0, Math.sin(t * 20) * 0.4);
+    F.jaw(t > 0.9 && t < 1.56 ? 0 : 0);
+    if (t >= 2.82) R._cue('done');
+    c.face = t < 0.4 ? 'smug' : t < 1.56 ? 'aim' : t < 1.86 ? 'stuffed' : 'cheer';
+    F.look(0, t > 0.4 && t < 1.56 ? -1 : 0);
+    void len;
+  },
+
+  // FANCY: napkin tucked in, a tiny knife & fork, dainty bites with the pinky up, dab dab.
+  eat_fancy(F, c) {
+    const t = c.t01 * POSE_DURATION.eat_fancy, R = c.rig, P = R.prey;
+    const len = c.params.preyLen ?? 16;
+    idleBreath(F, c, 0.6);
+    F.a[X_NAPKIN] = K(t, [[0.14, 0], [0.26, 1.25, 'out'], [0.36, 1], [3.3, 1], [3.36, 1.2], [3.46, 0, 'in']]);
+    F.a[X_CUTLERY] = K(t, [[0.4, 0], [0.5, 1.3, 'out'], [0.6, 1], [3.26, 1], [3.32, 1.25], [3.42, 0, 'in']]);
+    if (t >= 0.2) R._cue('napkin');
+    if (t >= 0.46) R._cue('cutlery');
+    if (t >= 3.3) R._cue('poof');
+    // snooty posture: chin up, a little prim sway
+    const sway = Math.sin(t * 3.2);
+    F.ar(B.head, -0.1 + 0.04 * sway, 0.06 * sway, 0.05 * sway);
+    F.ar(B.spine, -0.04, 0, 0.02 * sway);
+    const bites = EAT_CUES.eat_fancy.bites;
+    const m = mouthPt(F, c, _e0, -1, 0.5);
+    // the fork arm: in front of the chest, or up at the mouth for a dainty bite (pinky out!)
+    let up = 0;
+    for (const b of bites) up = Math.max(up, smooth(b - 0.3, b - 0.06, t) * (1 - smooth(b + 0.06, b + 0.24, t)));
+    const lean = up;
+    F.ar(B.head, 0.14 * lean, 0, 0);
+    const forkLow = _e3.set(-3.4, 12.2, 12.4 + c.bz);
+    const forkHi = _e2.set(m.x - 1.5, m.y - 9.2, m.z + 1.4);
+    if (t < 0.46) {
+      const l = F.aim(B.armL, -4, 14, 10 + c.bz, 0.7);
+      F.hold(l.x + 1, l.y + 0.4, l.z + 0.8);
+    } else {
+      P.at = t < 3.34 ? 'fork' : 'hold';
+      const tg = mixV(_e3, forkLow, forkHi, up);
+      F.aim(B.armL, tg.x, tg.y, tg.z, 0);
+      if (P.at === 'hold') { const l = F.end[B.armL]; F.hold(l.x + 1, l.y + 0.4, l.z + 0.8); }
+    }
+    // the knife arm: tuck the napkin, saw away, dab the lips
+    const tuck = win(t, 0.02, 0.42, 0.1, 0.1);
+    const saw = win(t, 0.62, 1.12, 0.06, 0.06) + win(t, 1.72, 2.22, 0.06, 0.06);
+    const dab = win(t, 2.72, 3.22, 0.1, 0.1);
+    if (tuck > 0.01) F.aim(B.armR, 1.4, 17.6 + Math.sin(t * 40) * 0.5, 8 + c.bz, 0.7);
+    else if (dab > 0.01) {
+      const d = Math.max(bump(t, 2.8, 0.14), bump(t, 3.0, 0.14));
+      F.aim(B.armR, 3, m.y - 6.5 + d * 1.2, m.z + 1.5 - d, 0);
+    } else F.aim(B.armR, 2.6 + Math.sin((t - 0.62) * PI * 2 * 3) * 1.6 * saw, 13.4, 12.6 + c.bz, 0);
+    blendRest(F, c, Math.max(tuck, dab, t > 0.46 && t < 3.3 ? 1 : 0), 2);
+    if (t < 0.46 || t > 3.36) blendRest(F, c, t < 0.46 ? 1 : 1 - smooth(3.36, 3.6, t), 1);
+    [0.72, 0.88, 1.04, 1.82, 1.98, 2.14].forEach((ct, i) => { if (t >= ct) R._cue('cut' + i, 'cut'); });
+    if (t >= 2.82) R._cue('dab1', 'dab');
+    if (t >= 3.02) R._cue('dab2', 'dab');
+    bites.forEach((b, i) => { if (t >= b) R._bite(i + 1); });
+    P.eat = Math.min(0.72, bites.reduce((s, b) => s + 0.36 * smooth(b - 0.02, b + 0.04, t), 0));
+    P.wiggle = 0.6;
+    // dainty chewing between bites
+    const chewW = win(t, bites[0] + 0.05, bites[0] + 0.6) + win(t, bites[1] + 0.05, bites[1] + 0.6);
+    if (chewW > 0.01) chew(F, t, 0.6 * chewW, 14);
+    else F.jaw(0.04 + 0.3 * up);
+    if (t >= 3.82) R._cue('done');
+    c.face = up > 0.3 || chewW > 0.5 ? (chewW > 0.5 ? 'bliss' : 'dainty') : dab > 0.3 ? 'smug' : 'dainty';
+    void len;
+  },
+
+  // SHAKE: clamp it in the jaws and shake it like a dog with a toy, then gulp (a bit dizzy).
+  eat_shake(F, c) {
+    const t = c.t01 * POSE_DURATION.eat_shake, R = c.rig, P = R.prey;
+    const len = c.params.preyLen ?? 16;
+    idleBreath(F, c, 0.5);
+    const up = smooth(0, 0.28, t);
+    const sh = win(t, 0.34, 1.62, 0.12, 0.1);
+    const ph = (t - 0.34) * PI * 2 * 4.6;
+    const whip = Math.sin(ph) * sh;
+    F.ar(B.head, 0.08 * up - 0.45 * smooth(1.66, 1.82, t) * (1 - smooth(1.94, 2.1, t)), 0.62 * whip, 0.12 * whip);
+    F.ar(B.spine, 0.05 * sh, 0.22 * whip, 0.05 * whip);
+    F.ar(B.hips, 0, -0.12 * whip, 0);
+    F.ap(B.base, 0.6 * whip, 0, 0);
+    if (t < 0.3) {
+      const m = mouthPt(F, c, _e0, -0.5, 0);
+      const at = mixV(_e2, _e3.set(0, 14.6, 10.8 + c.bz), m, up);
+      F.hold(at.x, at.y, at.z);
+      pawsOn(F, at, Math.max(2.6, len * 0.32), 0.8, _e3);
+    } else {
+      P.at = 'mouth'; P.anchor = 0.5;
+      P.angle = -0.5 * whip + 0.15 * Math.sin(ph * 2) * sh; P.wiggle = 0.6 + 2.6 * sh;
+      P.eat = K(t, [[0.95, 0], [1.0, 0.16], [1.45, 0.16], [1.5, 0.32], [1.8, 0.32], [1.92, 1, 'in']]);
+      if (t > 1.93) P.show = 0;
+      const out = smooth(0.3, 0.45, t) * (1 - smooth(2.0, 2.3, t));
+      F.aim(B.armL, -11, 17 - 3 * whip, 6, 0.5 * out); F.aim(B.armR, 11, 17 + 3 * whip, 6, 0.5 * out);
+      blendRest(F, c, out);
+    }
+    if (t >= 0.3) R._bite(1);
+    if (t >= 0.98) R._bite(2);
+    if (t >= 1.48) R._bite(3);
+    if (sh > 0.3) { const k = Math.floor(ph / PI); R._cue('shake' + k, 'shake'); }
+    if (t >= 1.9) R._cue('gulp');
+    F.a[X_CHEEK] = K(t, [[1.9, 0], [1.96, 0.7, 'out'], [2.12, 0]]);
+    const dizzy = win(t, 2.0, 2.45, 0.08, 0.1);
+    F.ar(B.base, 0, 0, 0.06 * Math.sin(t * 9) * dizzy);
+    F.ar(B.head, 0, 0, 0.12 * Math.sin(t * 9 + 1) * dizzy);
+    F.jaw(t < 0.24 ? 0.6 * up : 0.05);
+    F.r(B.earL, 0, 0, 0.5 * whip); F.r(B.earR, 0, 0, 0.5 * whip);
+    F.r(B.tail, 0, 0, -0.6 * whip);
+    if (t >= 2.42) R._cue('done');
+    c.face = t < 0.3 ? 'hungry' : t < 1.65 ? 'strain' : t < 1.98 ? 'stuffed' : t < 2.4 ? 'dizzy' : 'yummy';
+  },
+
+  // CRUNCH: corn-cob style, chomping along the fish like a typewriter... DING! A clean skeleton.
+  eat_crunch(F, c) {
+    const t = c.t01 * POSE_DURATION.eat_crunch, R = c.rig, P = R.prey;
+    const len = c.params.preyLen ?? 16;
+    idleBreath(F, c, 0.5);
+    const N = 10, t0 = 0.46, dtb = 0.135;
+    const up = smooth(0, 0.36, t) * (1 - smooth(1.9, 2.2, t));
+    let open = 0;
+    for (let i = 0; i < N; i++) {
+      const b = t0 + i * dtb;
+      open = Math.max(open, bump(t, b - 0.07, 0.09));
+      if (t >= b) R._bite(i + 1);
+    }
+    // bites step from just behind the head down to the tail fin; each one leaves bare bone
+    const steps = Math.min(N, Math.floor(clamp((t - t0) / dtb + 1, 0, N)));
+    P.eat = steps / N; P.bone = true; P.wiggle = 0.25;
+    const m = mouthPt(F, c, _e0, -0.8, 0.2);
+    const chest = _e3.set(0, 14, 10.6 + c.bz);
+    const at = mixV(_e2, chest, m, up);
+    // typewriter: the fish slides across the mouth one bite at a time, DING, carriage return
+    const bite = 0.76 - 0.58 * smooth(0, 1, clamp((t - t0 + 0.06) / (N * dtb), 0, 1));
+    const ret = smooth(1.86, 2.1, t);
+    P.anchor = lerp(lerp(0.5, bite, smooth(0.2, 0.42, t)), 0.5, ret);
+    F.hold(at.x, at.y, at.z);
+    F.ar(B.head, 0.06 * open + 0.03 * Math.sin(t * 30) * win(t, t0, t0 + N * dtb), 0.1 * (P.anchor - 0.5), 0);
+    const tail = (P.anchor) * len, head = (1 - P.anchor) * len;
+    F.aim(B.armL, at.x - Math.max(2.4, tail - 1), at.y - 0.6, at.z - 0.6, 0.8);
+    F.aim(B.armR, at.x + Math.max(2.4, head - 1.5), at.y - 0.6, at.z - 0.6, 0.8);
+    blendRest(F, c, Math.max(0.2, up));
+    if (t >= 1.86) R._cue('ding');
+    F.jaw(open * 0.85);
+    F.sq(B.base, 1 - 0.03 * open);
+    F.r(B.tail, 0, 0, Math.sin(t * 18) * 0.3);
+    if (t >= 2.52) R._cue('done');
+    c.face = t < 0.4 ? 'hungry' : t < t0 + N * dtb ? (open > 0.3 ? 'chomp_open' : 'chomp_closed') : t < 2.2 ? 'smug' : 'content';
+    F.look(0, 1);
+  },
+});
+
 // ------------------------------------------------------------------ rig
 const _wp = new THREE.Vector3();
 const _aH = new THREE.Vector3(), _aB = new THREE.Vector3();
@@ -2539,6 +3136,10 @@ export class BearRig {
     this.handAnchorL = anchor(B.armL, -8.3, 8.4, 1.6);
     this.mouthAnchor = anchor(B.head, 0, 19.8, 9.9);
     this.topAnchor = anchor(B.hat, 0, G.hatTop + 1.2, 0.3);
+    // centre of the (possibly unhinged) mouth opening: moves down with the gape
+    this.mawAnchor = anchor(B.head, 0, MAW_TOP - 0.4, 9.6);
+    this._mawRest = this.mawAnchor.position.clone();
+    this._anchor = anchor;
 
     this.meshes = [this.body];
     if (this.glowMesh) this.meshes.push(this.glowMesh);
@@ -2547,8 +3148,22 @@ export class BearRig {
     this.ownMat = null;
     this.held = null;
     this.chomps = 0;
+    this.biteN = 0; // index of the latest 'bite' event of the current eating pose
     this.events = [];
     this.onEvent = null;
+    this.afterPose = null; // (rig, dt) => void, called at the end of every pose() (BearEat syncs the prey here)
+    // What the eating poses want the held snack to do this frame (read by src/entities/preyFx.js):
+    //   at      'hold' (hold anchor) | 'fork' (fork tip) | 'mouth' (maw anchor) | 'free' (flying, BearEat moves it)
+    //   angle   direction of the snack's head in the bear's front plane: 0 = towards its right paw, PI/2 = up
+    //   anchor  point of the remaining snack that sits on the anchor: 0 = tail end .. 1 = head (or bitten) end
+    //   eat     0..1 eaten from the head end; stretch / thick: length / girth scale; wiggle: flailing;
+    //   wave    noodle wave (slurp); spin: extra roll; show: 0 = gone inside the bear
+    //   feed    the tail sits on the anchor and the head points at `lip` (hold space); whatever crosses
+    //           the lip on screen is inside the mouth. headOff: the head has been ripped off.
+    //   bone    eaten parts turn into a clean skeleton instead of vanishing (corn-cob style)
+    this.prey = { at: 'hold', angle: 0, anchor: 0.5, eat: 0, stretch: 1, thick: 1, wiggle: 1, wave: 0, spin: 0, show: 1,
+      feed: false, lip: null, lipV: new THREE.Vector3(), headOff: false, bone: false };
+    this._eatKit = null;
 
     // personality defaults (personalize() randomises)
     this.P = { size: 1, chub: 1, bounce: 1, flip: 'flip', phase: 0, blink: 1, happyWalk: false, runFace: 'excited', swimFace: 'happy', fidget: 'watch', earFlop: 0 };
@@ -2655,6 +3270,19 @@ export class BearRig {
     this.setMaterial(was || 'normal');
   }
 
+  // Let go of the held object WITHOUT disposing it (the caller re-parents it, e.g. a tossed snack).
+  release() {
+    const h = this.held;
+    this.held = null;
+    return h;
+  }
+
+  // World position of the centre of the mouth opening (follows the unhinged maw).
+  mawPos(out = new THREE.Vector3()) {
+    this.mawAnchor.updateWorldMatrix(true, false);
+    return out.setFromMatrixPosition(this.mawAnchor.matrixWorld);
+  }
+
   hold(obj) {
     if (this.held) {
       this.held.parent?.remove(this.held);
@@ -2758,6 +3386,7 @@ export class BearRig {
     if (restart) {
       this._eventsFired.clear();
       if (name === 'eat') this.chomps = 0;
+      this.biteN = 0;
       if (name === 'stagger' && !switched) this._hit();
     }
     this.time += dt;
@@ -2793,7 +3422,11 @@ export class BearRig {
     this._updateFidget(dt, name);
 
     const F = this.F.reset();
+    const P = this.prey;
+    P.at = 'hold'; P.angle = 0; P.anchor = 0.5; P.eat = 0; P.stretch = 1; P.thick = 1; P.wiggle = 1; P.wave = 0; P.spin = 0; P.show = 1;
+    P.feed = false; P.lip = null; P.headOff = false; P.bone = false;
     POSES[name](F, c);
+    if (P.lip && P.lip !== P.lipV) P.lip = P.lipV.copy(P.lip);
     this.faceBase = c.face;
 
     // crossfade
@@ -2818,6 +3451,7 @@ export class BearRig {
     // face timers are part of the pose tick unless update() already ran this frame
     if (this._tickedByUpdate) this._tickedByUpdate = false;
     else { this._tickFace(dt); this._tickedByPose = true; }
+    if (this.afterPose) this.afterPose(this, dt);
     return this;
   }
 
@@ -2832,13 +3466,127 @@ export class BearRig {
     if (name === 'slam') { this.sp.squash.kick(-2.2); this.sp.hatY.kick(9); this.sp.bellyS.kick(-5); this.sp.earLz.kick(5); this.sp.earRz.kick(-5); }
     if (name === 'roar') { this.sp.hatY.kick(11); this.sp.hatX.kick(-4); this.sp.bellyS.kick(3); this.sp.earLx.kick(5); this.sp.earRx.kick(5); this.sp.tieX.kick(-6); }
     if (name === 'stomp' && (this.cur === 'boss_intro')) { this.sp.squash.kick(-2.6); this.sp.hatY.kick(8); this.sp.bellyS.kick(-5); }
+    // eating beats: a little follow-through on the hat, ears and belly
+    if (name === 'bite' || name === 'catch') { this.sp.squash.kick(-0.9); this.sp.hatY.kick(4); this.sp.earLz.kick(-2.5); this.sp.earRz.kick(2.5); }
+    else if (name === 'gulp') { this.sp.squash.kick(-1.6); this.sp.hatY.kick(7); this.sp.bellyS.kick(2); }
+    else if (name === 'swallow') { this.sp.bellyS.kick(-6); this.sp.bellyZ.kick(3); this.sp.tieX.kick(-5); }
+    else if (name === 'rip') { this.sp.hatY.kick(10); this.sp.hatX.kick(-5); this.sp.earLz.kick(5); this.sp.earRz.kick(-5); this.sp.squash.kick(1.4); }
+    else if (name === 'shloop') { this.sp.hatY.kick(9); this.sp.hatX.kick(4); this.sp.earLx.kick(-4); this.sp.earRx.kick(-4); }
+    else if (name === 'unhinge') { this.sp.hatY.kick(5); this.sp.earLz.kick(3); this.sp.earRz.kick(-3); }
+    else if (name === 'tada') { this.sp.hatY.kick(8); this.sp.tieX.kick(-4); }
     if (this.onEvent) this.onEvent(name, this);
+  }
+
+  // fire `name` once per pose run (key = a unique beat, e.g. 'bite2')
+  _cue(key, name = key) {
+    if (this._eventsFired.has(key)) return false;
+    this._eventsFired.add(key);
+    this._event(name, true);
+    return true;
+  }
+
+  // numbered bite beat (sets biteN before the 'bite' event so listeners can read it)
+  _bite(n) {
+    if (this._eventsFired.has('bite#' + n)) return;
+    this._eventsFired.add('bite#' + n);
+    this.biteN = n;
+    this._event('bite', true);
+  }
+
+  // Spine-space ("hold space") voxel position of a point given in classic head bind
+  // coordinates, following the head's current rotation / scale in F (+ last frame's springs).
+  _headPt(F, x, y, z, out) {
+    const a = F.a, o = B.head * CH, rs = this.restScale[B.head];
+    const hb = BIND[B.head];
+    _e.set(a[o] + clamp(this.sp.headX.x, -0.15, 0.15), a[o + 1], a[o + 2] + clamp(this.sp.headZ.x, -0.15, 0.15), 'YXZ');
+    _v3.set((x - hb.x) * rs * a[o + 6], (y - hb.y) * rs * a[o + 7], (z - hb.z) * rs * a[o + 8]).applyEuler(_e);
+    const sp = BIND[B.spine], bh = this.bind[B.head], bs = this.bind[B.spine];
+    return out.set(sp.x + bh.x - bs.x + a[o + 3] + _v3.x, sp.y + bh.y - bs.y + a[o + 4] + _v3.y, sp.z + bh.z - bs.z + a[o + 5] + _v3.z);
+  }
+
+  // lazily build this bear's eat-kit meshes (shared geometry per type, the bear's own material)
+  _kit() {
+    if (this._eatKit) return this._eatKit;
+    const G = eatKitGeometry(this.typeId, this.look);
+    const bones = this.bones;
+    const mk = (geo, bone, x, y, z, ref = BIND) => {
+      const m = new THREE.Mesh(geo, this.body.material);
+      const bp = ref[bone];
+      m.position.set((x - bp.x) * 0.1, (y - bp.y) * 0.1, (z - bp.z) * 0.1);
+      m.visible = false;
+      m.castShadow = this._shadows;
+      bones[bone].add(m);
+      this.meshes.push(m);
+      return m;
+    };
+    const k = {
+      G,
+      top: mk(G.top, B.head, 0, MAW_TOP, 0), inner: mk(G.inner, B.head, 0, MAW_TOP, 0), bot: mk(G.bot, B.head, 0, MAW_TOP, 0),
+      pucker: mk(G.pucker, B.head, ...PUCKER_AT),
+      cheekL: mk(G.cheek, B.head, -CHEEK_AT[0], CHEEK_AT[1], CHEEK_AT[2]), cheekR: mk(G.cheek, B.head, CHEEK_AT[0], CHEEK_AT[1], CHEEK_AT[2]),
+      lump: mk(G.lump, B.spine, 0, 0, 0, this.bind),
+      napkin: mk(G.napkin, B.spine, 0, 0, 0, this.bind),
+      fork: mk(G.fork, B.armL, 0, 0, 0), knife: mk(G.knife, B.armR, 0, 0, 0),
+    };
+    k.botY = k.bot.position.y;
+    k.forkTip = this._anchor(B.armL, ...G.forkTip);
+    this._eatKit = k;
+    return k;
+  }
+
+  // show / shape the eat-kit pieces from the frame's kit channels
+  _applyKit(k, a, dt) {
+    const gape = Math.max(0, a[X_GAPE]);
+    const big = gape > 0.12;
+    const mat = this.body.material;
+    for (const m of [k.top, k.inner, k.bot]) { m.visible = big; m.material = mat; }
+    if (big) {
+      const wide = 1 + 0.14 * Math.min(1.3, gape);
+      k.top.scale.set(wide, 1, 1);
+      k.inner.scale.set(wide, Math.max(0.05, gape), 1);
+      k.bot.scale.set(wide * (1 + 0.04 * gape), 1, 1 + 0.08 * gape);
+      k.bot.position.y = k.botY - gape * MAW_DROP * 0.1;
+      k.bot.rotation.x = 0.16 * gape;
+      this.bones[B.jaw].scale.setScalar(HIDE); // the real jaw hides inside the maw
+    }
+    // opening centre: half way down the drop, a voxel forward
+    this.mawAnchor.position.set(this._mawRest.x, this._mawRest.y - gape * MAW_DROP * 0.05, this._mawRest.z + gape * 0.1);
+    const pk = Math.max(0, a[X_PUCKER]);
+    k.pucker.visible = pk > 0.03;
+    if (k.pucker.visible) { k.pucker.material = mat; k.pucker.scale.set(pk, pk, pk * (0.7 + 0.5 * pk)); }
+    const ch = Math.max(0, a[X_CHEEK]);
+    for (const m of [k.cheekL, k.cheekR]) {
+      m.visible = ch > 0.03;
+      if (m.visible) { m.material = mat; m.scale.setScalar(ch); }
+    }
+    const th = a[X_THROAT];
+    k.lump.visible = th > 0.001 && th < 0.999;
+    if (k.lump.visible) {
+      const P = k.G.path, f = th * (P.length - 1), i = Math.min(P.length - 2, Math.floor(f)), u = f - i;
+      const y = lerp(P[i][0], P[i + 1][0], u), z = lerp(P[i][1], P[i + 1][1], u);
+      const bs = this.bind[B.spine];
+      k.lump.position.set((0 - bs.x) * 0.1, (y - bs.y) * 0.1, (z - bs.z) * 0.1);
+      const s = 0.75 + 0.45 * Math.sin(th * Math.PI);
+      k.lump.scale.set(s, s * (1 + 0.15 * Math.sin(th * 18)), s);
+      k.lump.material = mat;
+    }
+    const nap = Math.max(0, a[X_NAPKIN]);
+    k.napkin.visible = nap > 0.05;
+    if (k.napkin.visible) { k.napkin.material = mat; k.napkin.scale.set(Math.min(1.25, nap), Math.min(1.25, nap), 1); }
+    const cut = Math.max(0, a[X_CUTLERY]);
+    for (const m of [k.fork, k.knife]) {
+      m.visible = cut > 0.05;
+      if (m.visible) { m.material = mat; m.scale.setScalar(Math.min(1.3, cut)); }
+    }
+    void dt;
   }
 
   _setChomps(n) {
     if (n > this.chomps) {
       this.chomps = n;
+      this.biteN = n;
       this._event('chomp', true);
+      this._event('bite', true);
       this.sp.squash.kick(-1.1 - (n === 3 ? 0.8 : 0));
       this.sp.bellyS.kick(3);
       this.sp.hatY.kick(n === 3 ? 7 : 3);
@@ -2940,9 +3688,14 @@ export class BearRig {
     // hold anchor
     const sp = BIND[B.spine];
     this.holdAnchor.position.set((a[X_HOLD] - sp.x) * 0.1, (a[X_HOLD + 1] - sp.y) * 0.1, (a[X_HOLD + 2] - sp.z) * 0.1);
-    // toss: the prop rides in the right paw
+    // eat kit (built the first time a pose asks for one of its pieces)
+    let kit = this._eatKit;
+    if (!kit && (a[X_GAPE] > 0.12 || a[X_PUCKER] > 0.03 || a[X_CHEEK] > 0.03 || a[X_THROAT] > 0.001 || a[X_NAPKIN] > 0.05 || a[X_CUTLERY] > 0.05)) kit = this._kit();
+    if (kit) this._applyKit(kit, a, dt);
+    // toss: the prop rides in the right paw; eating poses can park the snack on the fork / in the mouth
     if (this.held) {
-      const want = name === 'toss' ? this.handAnchorR : this.holdAnchor;
+      const at = this.prey.at;
+      const want = name === 'toss' ? this.handAnchorR : at === 'fork' && kit ? kit.forkTip : at === 'mouth' ? this.mawAnchor : this.holdAnchor;
       if (this.held.parent !== want) want.add(this.held);
       if (name !== 'toss' && !this.held.visible && this.cur !== 'toss') this.held.visible = true;
     }

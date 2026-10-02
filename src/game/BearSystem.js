@@ -7,6 +7,7 @@ import { BEAUTY_PER_BEAR } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { BearRig } from '../entities/bearRig.js';
 import { makeFishQuad } from './fishQuad.js';
+import { FOOD_ITEMS, STORAGE } from '../data/foods.js';
 import { WATER_Y, KIND } from '../world/grid.js';
 import { pick, clamp, angleDiff, damp } from '../core/rng.js';
 
@@ -230,12 +231,20 @@ export class BearSystem {
         if (sc < fishScore) { fishScore = sc; fishPick = f; }
       }
     }
-    // 2) best snack (wants first, then any side dish while still hungry)
+    // 2) best snack: a stocked Snack Bowl / Pantry (wanted side dishes first),
+    //    or seaweed salad straight from the pond for those who ask for it
     let snack = null, snackSpot = null, snackScore = Infinity, snackWant = null;
     const structs = this.game.structures.list;
+    const store = this.game.foodStore;
     for (const st of structs) {
-      if (!st.built || !st.def.food || st.stock < 1 || st.def.food.kind === 'seaweed' && !b.wants.some((w) => w.kind === 'seaweed' && !w.done)) continue;
-      const want = b.wants.find((w) => !w.done && w.kind === st.def.food.kind) || null;
+      if (!st.built || st.removed) continue;
+      let kinds;
+      if (STORAGE[st.type]?.for === 'bear') {
+        if (!store || store.stored(st) < 1) continue;
+        kinds = new Set(Object.keys(st.store || {}).filter((id) => st.store[id] >= 1).map((id) => FOOD_ITEMS[id]?.snack));
+      } else if (st.def.food?.kind === 'seaweed' && st.stock >= 1 && b.wants.some((w) => w.kind === 'seaweed' && !w.done)) kinds = new Set(['seaweed']);
+      else continue;
+      const want = b.wants.find((w) => !w.done && kinds.has(w.kind)) || null;
       if (!want && !hungry) continue;
       if (!want && b.snacks >= 3) continue;
       const spot = this.approachTile(field, st);
@@ -559,14 +568,24 @@ export class BearSystem {
       case 'snack': {
         if (b.t <= 0) {
           const st = b.struct;
-          if (st && !st.removed && game.structures.consume(st, 1)) {
-            const food = st.def.food;
-            const meal = (food.meal ?? 0.5) * game.mods.snackMealMult;
+          let kind = null, meal0 = 0.5, extra = 0, icon = null;
+          if (st && !st.removed) {
+            if (st.def.food?.kind === 'seaweed') { if (game.structures.consume(st, 1)) { kind = 'seaweed'; icon = 'seaweed'; } }
+            else if (STORAGE[st.type]) {
+              const wantKinds = b.wants.filter((w) => !w.done).map((w) => w.kind);
+              const item = game.foodStore.takeFrom(st, (id, F) => (wantKinds.includes(F?.snack) ? 100 : 0) + (F?.bear?.meal || 0) + (F?.bear?.coins || 0) * 0.05);
+              const F = item && FOOD_ITEMS[item];
+              if (F) { kind = F.snack; meal0 = F.bear?.meal ?? 0.5; extra = F.bear?.coins || 0; icon = F.icon || F.snack; game.emit('bearSnack', { bear: b, item }); }
+            }
+          }
+          if (kind) {
+            const food = { kind };
+            const meal = meal0 * game.mods.snackMealMult;
             b.eaten += meal;
             b.snacks = (b.snacks || 0) + 1;
             b.lastAte = 'snack';
-            b.snackCoins += meal * COIN_PER_MEAL * 0.9 * b.def.pay;
-            const want = b.goal.want || b.wants.find((w) => !w.done && w.kind === food.kind);
+            b.snackCoins += meal * COIN_PER_MEAL * 0.9 * b.def.pay + extra * b.def.pay;
+            const want = (b.goal.want && b.goal.want.kind === kind ? b.goal.want : null) || b.wants.find((w) => !w.done && w.kind === food.kind);
             if (want) {
               want.done = true;
               const info = WANT_INFO[want.kind];
@@ -577,7 +596,7 @@ export class BearSystem {
             game.audio.play('bear_yum', { volume: 0.3, pitch: 1.25 - scale * 0.2 });
             const hp = this.headTop(b);
             game.particles.hearts(hp.x, hp.y - 0.2, hp.z, 2);
-            if (Math.random() < 0.6) this.say(b, pick(LINES.snack), null, food.kind === 'rice' ? 'wildrice' : food.kind === 'berries' ? 'berry' : food.kind);
+            if (Math.random() < 0.6) this.say(b, pick(LINES.snack), null, icon || (food.kind === 'rice' ? 'wildrice' : food.kind === 'berries' ? 'berry' : food.kind));
             if (food.kind === 'honey') game.audio.play('bees', { volume: 0.3 });
           }
           this.decide(b);

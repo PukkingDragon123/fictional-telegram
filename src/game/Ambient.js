@@ -77,12 +77,34 @@ export class Fox {
     return g;
   }
 
+  // a clear pet-shop bag of pond water with a fish inside (live fish orders)
+  fishBagMesh() {
+    if (this._bag) return this._bag;
+    const g = new THREE.Group();
+    const water = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshLambertMaterial({ color: 0x8ad4f4, transparent: true, opacity: 0.55 }));
+    water.scale.set(1, 1.15, 1);
+    water.position.y = 0.14;
+    const knot = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 8), new THREE.MeshLambertMaterial({ color: 0xd8f0ff, transparent: true, opacity: 0.8 }));
+    knot.position.y = 0.34;
+    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.012, 6, 10), new THREE.MeshLambertMaterial({ color: 0xff5a7a }));
+    tie.rotation.x = Math.PI / 2; tie.position.y = 0.31;
+    const fish = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.03), new THREE.MeshLambertMaterial({ color: 0xff9a3a }));
+    fish.position.set(0, 0.13, 0);
+    fish.name = 'fish';
+    g.add(water, knot, tie, fish);
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this._bag = g;
+    return g;
+  }
+
   updateErrands(dt) {
     const E = this.errands;
     if (!E?.length || this.bed) return;
     const e = E[0];
     const game = this.game;
-    const crate = this.crateMesh();
+    const live = e.items.some((it) => it.kind === 'fish');
+    const crate = live ? this.fishBagMesh() : this.crateMesh();
+    if (live) { const f = crate.getObjectByName('fish'); if (f) { f.position.x = Math.sin(this.time * 5) * 0.04; f.rotation.y = Math.sin(this.time * 5) > 0 ? 0 : Math.PI; } }
     e.t += dt;
     if (e.stage === 'fetch') {
       if (!this.target || e.t > 8) this.target = { x: e.px, z: e.pz + 0.5 };
@@ -94,7 +116,7 @@ export class Fox {
         e.w = game.fish.randomWaterPoint() || { x: this.x, z: this.z - 3 };
         this.goToward(e.w.x, e.w.z);
         if (!this.target) this.target = { x: this.x, z: this.z };
-        game.say?.({ getWorldPos: (v) => v.set(this.x, this.y + 1.75, this.z) }, e.items.length > 1 ? `${e.items.length} eggs! Careful...` : 'Careful... careful...', { voice: 'fox', mood: 'happy', dur: 1.8, size: 's' });
+        game.say?.({ getWorldPos: (v) => v.set(this.x, this.y + 1.75, this.z) }, live ? 'Fishies! Hold still...' : e.items.length > 1 ? `${e.items.length} eggs! Careful...` : 'Careful... careful...', { voice: 'fox', mood: 'happy', dur: 1.8, size: 's' });
       }
     } else if (e.stage === 'carry') {
       crate.visible = true;

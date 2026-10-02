@@ -2702,6 +2702,20 @@ const SFX = {
   grade_good: { fn: sfxGradeGood, max: 1, gap: 0.5, g: 1.11 },
   grade_bad: { fn: sfxGradeBad, max: 1, gap: 0.5, g: 1.01 },
 };
+// Extra sound modules: src/audio/extra/*.js export
+//   EXTRA_SFX = { name: { fn(ctx, dest, o, kit) -> end time, max, gap, g } }
+// kit = { Voice, rr, env, BELL, GLOCK, SOFT, CELESTA, COINP }: build sounds with
+// new kit.Voice(ctx, dest, o, wet, jitter) and its tone / noise / bell / pluck
+// helpers, exactly like the sfx* functions in this file. Same name = override.
+const SFX_KIT = { Voice, rr, env, BELL, GLOCK, SOFT, CELESTA, COINP };
+const SFX_EXTRA = import.meta.glob('./extra/*.js', { eager: true });
+for (const m of Object.values(SFX_EXTRA)) {
+  for (const [name, d] of Object.entries(m.EXTRA_SFX || {})) {
+    if (!d || typeof d.fn !== 'function') continue;
+    const fn = d.fn;
+    SFX[name] = { max: d.max ?? 3, gap: d.gap ?? 0.05, g: d.g ?? 1, fn: (ctx, dest, o) => fn(ctx, dest, o, SFX_KIT) };
+  }
+}
 const SFX_NAMES = Object.freeze(Object.keys(SFX));
 
 /* ========================================================================== *

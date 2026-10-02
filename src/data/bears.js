@@ -73,6 +73,7 @@ export const BEAR_TYPES = {
     sneakers: 0xf4f4f0, accent: 0x3ad0c0,
     hat: 'headband', hatColor: 0xe8403a, item: 'bottle', scale: 0.96, appetite: [2, 3], patience: 30, pay: 1, speed: 1.3, fromDay: 2, weight: 5,
     shape: { belly: { rx: 5.6, rz: 4.7 }, torso: { rx: 6.7 } },
+    wants: ['veggie'],
   },
   grandma: {
     name: 'Grandma Bear', job: 'Retired (Still Visits)', icon: 'bear_grandma',
@@ -166,6 +167,7 @@ export const WANT_INFO = {
   berries: { name: 'blueberries', icon: 'berry', bonus: 7 },
   rice: { name: 'wild rice', icon: 'wildrice', bonus: 8 },
   mushroom: { name: 'chanterelles', icon: 'mushroom', bonus: 11 },
+  veggie: { name: 'fresh veggies', icon: 'carrot', bonus: 7 },
 };
 
 export const REVIEWS = {
@@ -187,6 +189,7 @@ export const WANT_COMPLAINTS = {
   berries: ['I was promised blueberries!', 'No berries for the cubs? Harsh.'],
   rice: ['No wild rice? What is this, a strip mall?', 'I wanted manoomin, not excuses.'],
   mushroom: ['Not a single chanterelle. Tragic.', 'Where are the foraged mushrooms?!'],
+  veggie: ['No veggies? My trainer will be furious.', 'I asked for greens, not excuses!'],
   species: ['That wasn\'t what I ordered.', 'I specifically wanted something else.'],
 };
 
@@ -229,5 +232,5 @@ export const CHATTER = [
 ];
 
 export const BEAR_WANT_LINES = {
-  seaweed: 'Seaweed?', honey: 'Honey?', syrup: 'Syrup?', berries: 'Berries?', rice: 'Wild rice?', mushroom: 'Mushrooms?',
+  seaweed: 'Seaweed?', honey: 'Honey?', syrup: 'Syrup?', berries: 'Berries?', rice: 'Wild rice?', mushroom: 'Mushrooms?', veggie: 'Veggies?',
 };

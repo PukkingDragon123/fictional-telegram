@@ -59,7 +59,7 @@ export class Delivery {
   // phase and ETA for the HUD.
   order(items, { label = 'Package', fast = false } = {}) {
     const n = items.reduce((a, it) => a + (it.qty || 1), 0);
-    const fragile = items.some((it) => it.kind === 'egg' || it.kind === 'bird');
+    const fragile = items.some((it) => it.kind === 'egg' || it.kind === 'bird' || it.kind === 'fish');
     const packT = fast ? 2 : Math.min(30, 7 + n * 2.5 + (fragile ? 3 : 0) + Math.random() * 3);
     const o = { id: this.nextId++, items, label, packT, packTotal: packT };
     this.queue.push(o);
@@ -205,7 +205,7 @@ export class Delivery {
         game.audio.play('whoosh', { volume: 0.4 });
         const d = this.dropPoint;
         for (const [k, o] of a.orders.entries()) {
-          const kind = o.items.some((it) => it.kind === 'egg' || it.kind === 'bird') ? 'egg_crate' : 'box';
+          const kind = o.items.some((it) => it.kind === 'egg' || it.kind === 'bird' || it.kind === 'fish') ? 'egg_crate' : 'box';
           const obj = this.makePackage(kind);
           this.group.add(obj);
           const tx = d.x + (k - (a.orders.length - 1) / 2) * 0.9, tz = d.z + (Math.random() - 0.5) * 0.5;
@@ -245,6 +245,19 @@ export class Delivery {
       if (!w) return;
       game.particles.spawnArc?.(x, y + 0.4, z, w.x, WATER_Y, w.z);
       setTimeout(() => {
+        if (it.kind === 'fish') {
+          // a live fish plops out of the bag into its new home
+          const f = game.fish.spawn(it.species, w.x, w.z, { adult: true, hunger: 0.55, g: it.genes, splash: true });
+          if (f) {
+            f.fed = 0; f.loveT = 4 + Math.random() * 3;
+            const st = game.state;
+            if (!st.discovered.includes(it.species)) st.discovered.push(it.species);
+            game.particles.hearts(w.x, WATER_Y + 0.3, w.z, 3);
+            game.ui?.floatTextAt?.(w.x, 0.7, w.z, it.genes?.sex === 'F' ? '♀ Hello!' : '♂ Hello!', it.genes?.sex === 'F' ? '#ffb0d8' : '#9ad4ff');
+            game.emit('fishArrived', f);
+          }
+          return;
+        }
         const e = game.fish.addBoughtEgg(it.species, it.genes, it.t, w);
         if (e) { game.particles.sparkle(w.x, WATER_Y + 0.2, w.z, 8, 0xfff2a0); game.particles.splash(w.x, w.z, 6, 0.5); }
         game.emit('eggInPond', e);
@@ -314,15 +327,21 @@ export class Delivery {
     game.particles.puff(p.x, p.y + 0.3, p.z, 12, 0.4);
     game.particles.confetti(p.x, p.y + 0.4, p.z, 18);
     game.audio.play('pop_in', { volume: 0.5 });
-    const eggItems = p.order.items.filter((it) => it.kind === 'egg');
+    // eggs and live fish: Reynard carries them down to the water
+    const eggItems = p.order.items.filter((it) => it.kind === 'egg' || it.kind === 'fish');
     if (eggItems.length) {
       // Reynard picks the egg crate up and carries it down to the water
       if (game.fox?.carryEggs) game.fox.carryEggs(p.x, p.z, eggItems);
       else this.dropEggs(p.x, p.y, p.z, eggItems);
     }
     for (const it of p.order.items) {
-      if (it.kind === 'egg') {
+      if (it.kind === 'egg' || it.kind === 'fish') {
         continue;
+      } else if (it.kind === 'food') {
+        game.foodStore.add(it.id, it.n || 1);
+        game.particles.sparkle(p.x, p.y + 0.5, p.z, 8, 0xfff2a0);
+        game.ui?.floatTextAt?.(p.x, p.y + 1, p.z, `+${it.n} ${game.foodStore.info(it.id)?.name || ''}`, '#fff3a0');
+        game.emit('foodDelivered', it);
       } else if (it.kind === 'bird') {
         // the crate flaps open and out waddles your new duck/goose
         game.livestock?.spawnBought(it.breed, it.sex);

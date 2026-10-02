@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teacher overlay preview</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: #7cb85a;
+    background-image:
+      radial-gradient(ellipse 30% 22% at 34% 52%, #5ea7d4 0 60%, #4b93c2 61% 66%, #c9b27a 67% 74%, transparent 75%),
+      radial-gradient(circle at 70% 30%, #6ea94e 0 4%, transparent 4.2%),
+      radial-gradient(circle at 82% 66%, #6ea94e 0 5%, transparent 5.2%),
+      repeating-conic-gradient(#76b255 0 25%, #7cb85a 0 50%);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 12px 12px;
+    font-family: var(--font-body, monospace);
+    color: #2a1a14;
+  }
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #ui button, #ui .panel, #ui .plaque { pointer-events: auto; }
+  .hud { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .plaque { display: flex; align-items: center; gap: 8px; padding: 2px 10px 4px; font-family: var(--font-title); font-size: 36px; line-height: 1; color: #3a2414; }
+  .clock { width: 112px; height: 112px; border-radius: 50%; background: radial-gradient(circle, #fffbea 0 58%, #2f6b8f 59% 72%, #e5b84a 73% 86%, #3a2414 87% 92%, transparent 93%); position: relative; }
+  .clock::after { content: ''; position: absolute; left: 50%; top: 22%; width: 4px; height: 30%; background: #c03a2a; transform-origin: 50% 100%; transform: translateX(-50%) rotate(28deg); }
+  .menubtn { width: 44px; height: 44px; padding: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .toolbar { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 4px; padding: 5px 6px; z-index: 12; }
+  .tool { width: 58px; height: 58px; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; }
+  .tool:active { transform: translateY(2px); }
+  .tool.clicked { filter: brightness(1.3); }
+  .panel { position: absolute; top: 132px; right: 18px; width: 300px; display: flex; flex-direction: column; z-index: 20; }
+  .panel-head { display: flex; align-items: center; justify-content: center; padding: 2px 0 6px; font-family: var(--font-title); font-size: 36px; color: #fbf0d0; }
+  .panel-body { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 10px; align-items: center; font-size: 32px; line-height: 22px; text-align: center; }
+  .listing { display: flex; gap: 12px; align-items: center; }
+  .listing .price { font-family: var(--font-title); font-size: 36px; color: #3a2414; }
+  .eb-buy { font-family: var(--font-title); font-size: 36px; color: #fbf0d0; padding: 2px 18px 6px; cursor: pointer; background: none; }
+  .eggslot { position: absolute; left: 30%; top: 48%; width: 34px; height: 34px; }
+  #ctl { position: fixed; left: 8px; top: 64px; display: flex; flex-direction: column; gap: 4px; z-index: 100; font: 12px/1.2 monospace; }
+  #ctl button { font: inherit; padding: 3px 6px; background: #fff8ea; border: 2px solid #22161f; cursor: pointer; }
+  #log { position: fixed; left: 8px; bottom: 90px; font: 12px monospace; color: #fff; text-shadow: 1px 1px 0 #000; z-index: 100; }
+  body.shots #ctl, body.shots #log { display: none; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div class="hud">
+    <div class="plaque" id="coins"><span id="coinico"></span><b>1,250</b></div>
+    <div class="clock" id="clockwrap"></div>
+    <button class="menubtn" id="menu"></button>
+  </div>
+  <div class="panel" id="panel">
+    <div class="panel-head" id="panelhead">e-Buy</div>
+    <div class="panel-body">
+      <div class="listing"><span id="fishimg"></span><div><div>Pond Fish Egg</div><div class="price">80</div></div></div>
+      <button class="eb-buy" id="buy">Buy It Now</button>
+    </div>
+  </div>
+  <div class="toolbar" id="toolbar"></div>
+</div>
+<div class="eggslot" id="egg"></div>
+<div id="ctl"></div>
+<div id="log"></div>
+<script type="module" src="./teacher-preview.js"></script>
+</body>
+</html>

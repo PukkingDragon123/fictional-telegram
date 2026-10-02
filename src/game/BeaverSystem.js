@@ -1,9 +1,11 @@
 // Beaver crew: live in lodges and do all the heavy lifting. They build
 // blueprints, repair smashed things, and clear the forest. Clearing means
 // chopping trees, rolling away rocks and plowing weeds, and every cleared tile
-// becomes your land and pays out in wood money. They work for berries: every
-// few jobs a beaver trots off to a berry bush for a snack, and with no berries
-// around it sulks until you plant some.
+// becomes your land and pays out in wood money. They only work when PAID:
+// every job costs one "pay" credit, and credits come from food you leave at
+// the Beaver Snack Bar (each serving pays a few jobs). No pay, no work: the
+// crew walks a picket line with "NO PAY NO WORK" signs until you stock it.
+// (They build their own snack bar for free, and start with a signing bonus.)
 import * as THREE from 'three';
 import * as OLD from '../entities/critterModels.js';
 import { WATER_Y, KIND } from '../world/grid.js';
@@ -22,7 +24,10 @@ export const CLEAR = {
   weed: { time: 1.2, pay: 1, anim: 'plow', label: 'weeds' },
   clutter: { time: 0.9, pay: 1, anim: 'plow', label: 'flowers' },
 };
-const JOBS_PER_BERRY = 3;
+import { FOOD_ITEMS, STORAGE } from '../data/foods.js';
+export const SIGNING_BONUS = 10; // free jobs for a brand-new crew
+const farmMods = import.meta.glob('../entities/farmModels.js', { eager: true });
+const FM = farmMods['../entities/farmModels.js'] || null;
 
 // beaver tool levels: what each upgrade lets the crew tear down
 export const BEAVER_LEVELS = [
@@ -156,9 +161,42 @@ export class BeaverSystem {
     if (!c.ok) return c;
     const g = this.game.grid;
     const i = z * g.w + x;
-    this.clears.set(i, { i, x, z, kind: c.kind, progress: 0, assigned: null, order: this.clears.size });
+    this.clears.set(i, { i, x, z, kind: c.kind, progress: 0, assigned: null, order: this.clears.size, markT: this.time });
     this.renderMarkers();
     return c;
+  }
+
+  // marked things flash red for 2 s, then get construction tape + fences
+  // (cheap shared models from farmModels.js) until the beavers clear them
+  updateTape(dt) {
+    const game = this.game;
+    const g = game.grid;
+    this.tapeT = (this.tapeT || 0) - dt;
+    if (!this.tapeGroup) { this.tapeGroup = new THREE.Group(); this.tapeGroup.name = 'constructionTape'; game.scene.add(this.tapeGroup); this.tapes = new Map(); }
+    for (const [i, m] of this.tapes) {
+      const c = this.clears.get(i);
+      if (!c) { this.tapeGroup.remove(m.root); try { m.dispose?.(); } catch { /* ignore */ } this.tapes.delete(i); continue; }
+      try { m.update?.(dt, this.time); m.setProgress?.(c.progress); } catch { /* ignore */ }
+    }
+    if (this.tapeT > 0) return;
+    this.tapeT = 0.2;
+    let freshChanged = false;
+    const fresh = [];
+    for (const c of this.clears.values()) {
+      const age = this.time - (c.markT ?? -9);
+      if (age < 2) { fresh.push(c.i); continue; }
+      if (!c.taped) { c.taped = true; freshChanged = true; }
+      if (this.tapes.has(c.i)) continue;
+      let m = null;
+      try { m = FM?.makeConstructionMarker?.({ seed: c.i, kind: c.kind }) || null; } catch (e) { m = null; }
+      if (!m) m = fallbackTape(c.i);
+      m.root.position.set(c.x + 0.5, g.height[c.i], c.z + 0.5);
+      this.tapeGroup.add(m.root);
+      this.tapes.set(c.i, m);
+      if (this.time - (c.markT ?? 0) < 3) game.particles.puff?.(c.x + 0.5, g.height[c.i] + 0.2, c.z + 0.5, 3, 0.25);
+    }
+    const key = fresh.join(',');
+    if (key !== this.freshKey || freshChanged) { this.freshKey = key; game.world.setMarked?.(fresh); this.renderMarkers(true); }
   }
 
   cancelClear(x, z) {
@@ -278,15 +316,33 @@ export class BeaverSystem {
     return bc ? { kind: 'clear', c: bc } : null;
   }
 
-  berrySource(b) {
+  // ------------------------------------------------------------ pay
+  get credit() { return this.game.state.beaverCredit ?? 0; }
+  set credit(v) { this.game.state.beaverCredit = Math.max(0, v); }
+
+  // every job costs pay, except building their own snack bar
+  needsPay(job) { return !(job.kind === 'build' && job.s.def.freeLabour); }
+
+  bars() { return this.game.structures.list.filter((s) => s.built && !s.removed && STORAGE[s.type]?.for === 'beaver'); }
+
+  // a stocked Beaver Snack Bar to get paid at
+  snackBar(b) {
     let best = null, bd = Infinity;
-    for (const s of this.game.structures.list) {
-      if (!s.built || s.removed || !s.def.food || s.def.food.kind !== 'berries' || s.stock < 1) continue;
+    for (const s of this.bars()) {
+      if (this.game.foodStore.stored(s) < 1) continue;
       const d = Math.hypot(s.x + 0.5 - b.x, s.z + 0.5 - b.z);
       if (d < bd) { bd = d; best = s; }
     }
     return best;
   }
+
+  // the player just stocked a snack bar: strikers cheer and head over
+  onPaid() {
+    for (const b of this.list) if (b.strike) { b.strike = false; b.cheerT = 0.8; b.t = Math.random() * 0.4; }
+    this.strikeT = 0;
+  }
+
+  get striking() { return this.list.some((b) => b.strike); }
 
   jobTarget(job) {
     if (job.kind === 'clear') return { x: job.c.x + 0.5, z: job.c.z + 0.5 };
@@ -307,35 +363,58 @@ export class BeaverSystem {
         b.t -= dt;
         if (b.t <= 0) {
           b.t = 0.5 + Math.random() * 0.5;
-          if (b.hungry) {
-            const s = this.berrySource(b);
-            if (s) { b.state = 'snack'; b.snack = s; b.wander = null; }
-            else { b.sulk = true; }
-          }
-          if (b.state === 'idle' && !night && !(b.hungry && b.jobs >= JOBS_PER_BERRY * 2)) {
+          if (!night) {
             const job = this.findJob(b);
-            if (job) {
+            if (job && this.needsPay(job) && this.credit < 1) {
+              // unpaid: grab a snack at the bar if there's food, else strike
+              const bar = this.snackBar(b);
+              if (bar) { b.state = 'snack'; b.snack = bar; b.wander = null; b.strike = false; }
+              else if (!b.strike) { b.strike = true; b.wander = null; b.picket = Math.random() * 6.28; }
+            } else if (job) {
+              if (this.needsPay(job)) { this.credit = this.credit - 1; job.paidCredit = true; }
               b.job = job;
               if (job.kind === 'clear') job.c.assigned = b; else job.s.assigned = b;
               b.state = 'go';
               b.sulk = false;
+              b.strike = false;
+            } else if (b.strike) {
+              b.strike = false;
             } else if (!b.wander || Math.random() < 0.3) {
               const a = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 1.8;
               b.wander = { x: b.lodge.x + 0.5 + Math.cos(a) * r, z: b.lodge.z + 0.5 + Math.sin(a) * r };
             }
           } else if (night) b.wander = { x: b.lodge.x + 0.5, z: b.lodge.z + 0.5 };
         }
-        if (b.wander) this.moveToward(b, b.wander.x, b.wander.z, dt, 0.9, 0.3);
+        if (b.strike && b.state === 'idle') {
+          // the picket line: a slow little loop by the snack bar (or lodge)
+          const home = this.bars()[0] || b.lodge;
+          b.picket = (b.picket || 0) + dt * 0.55;
+          const px = home.x + 0.5 + Math.cos(b.picket) * 1.3, pz = home.z + 0.5 + Math.sin(b.picket) * 1.3;
+          this.moveToward(b, px, pz, dt, 0.8, 0.05);
+          sulking++;
+          if (Math.random() < dt * 0.05) game.say?.({ getWorldPos: (v) => v.set(b.x, b.y + 1.1, b.z) }, ['NO PAY, NO WORK!', 'Pay up, fox!', 'Snacks first!', 'We want carrots!'][Math.floor(Math.random() * 4)], { mood: 'angry', dur: 1.8, size: 's', key: 'beaverstrike' + (this.list.indexOf(b) % 2) });
+        } else if (b.wander) this.moveToward(b, b.wander.x, b.wander.z, dt, 0.9, 0.3);
         if (b.sulk) sulking++;
       } else if (b.state === 'snack') {
         const s = b.snack;
-        if (!s || s.removed || s.stock < 1) { b.state = 'idle'; b.t = 0.3; continue; }
+        if (!s || s.removed || game.foodStore.stored(s) < 1) { b.state = 'idle'; b.t = 0.3; continue; }
         if (this.moveToward(b, s.x + 0.5, s.z + 0.5, dt, 3.4, 0.6)) { b.state = 'munch'; b.t = 0; game.audio.play('nibble', { volume: 0.35, pitch: 1.4 }); }
       } else if (b.state === 'munch') {
         b.t += dt;
-        if (Math.random() < dt * 5) game.particles.debris(b.x, b.y + 0.4, b.z, 1, [0x4a3a90, 0x6a50c0, 0xc03050]);
+        if (Math.random() < dt * 5) game.particles.debris(b.x, b.y + 0.4, b.z, 1, [0xf07a1a, 0x7ad04a, 0xc03050]);
         if (b.t > 1.6) {
-          if (game.structures.consume(b.snack, 1)) { b.jobs = 0; b.hungry = false; b.sulk = false; game.particles.hearts(b.x, b.y + 0.7, b.z, 2); game.audio.play('bear_yum', { volume: 0.2, pitch: 2.2 }); }
+          // one serving = this many paid jobs for the whole crew
+          const item = game.foodStore.takeFrom(b.snack, (id, F) => F?.beaver?.jobs || 0);
+          const jobs = item ? FOOD_ITEMS[item]?.beaver?.jobs || 1 : 0;
+          if (jobs) {
+            this.credit = this.credit + jobs;
+            b.sulk = false;
+            game.particles.hearts(b.x, b.y + 0.7, b.z, 2);
+            game.particles.coins?.(b.x, b.y + 0.8, b.z, Math.min(5, jobs));
+            game.ui?.floatTextAt(b.x, b.y + 1.2, b.z, `Paid! +${jobs} job${jobs > 1 ? 's' : ''}`, '#c8ff9a');
+            game.audio.play('bear_yum', { volume: 0.2, pitch: 2.2 });
+            game.emit('beaverPaid', { b, item, jobs });
+          }
           b.state = 'idle'; b.t = 0.4; b.snack = null; b.cheerT = 0.6;
         }
       } else if (b.state === 'go') {
@@ -368,8 +447,8 @@ export class BeaverSystem {
           }
           if (c.progress >= 1) {
             this.finishClear(c);
-            this.release(b);
             this.paid(b);
+            this.release(b);
           }
         } else {
           const s = job.s;
@@ -394,8 +473,8 @@ export class BeaverSystem {
               game.particles.word?.('built', s.x + 0.5, game.structures.baseY(s) + 1.4, s.z + 0.5, { size: 0.3, life: 1 });
               game.particles.stars?.(s.x + 0.5, game.structures.baseY(s) + 0.9, s.z + 0.5, 8);
               game.audio.play('pop_in', { volume: 0.5 });
-              this.release(b);
               this.paid(b);
+              this.release(b);
             }
           } else {
             game.structures.repair(s, dt * 1.5 * speedMult);
@@ -413,12 +492,20 @@ export class BeaverSystem {
       b.y = damp(b.y, gy, 10, dt);
       b.inWater = inWater;
     }
-    // hungry crew with no berries: the fox nags (rarely)
+    // on strike: the fox nags (rarely) and the snack bar shows a picket sign
     this.sulkNagT -= dt;
     if (sulking && this.sulkNagT <= 0) {
       this.sulkNagT = 45;
-      game.notify?.('Beavers work for berries! Plant a berry bush.', 'warn');
+      const bars = this.bars();
+      game.notify?.(bars.length ? 'Beavers on STRIKE! Stock the Beaver Snack Bar with produce (Food tool).' : 'Beavers on STRIKE! Build a Beaver Snack Bar and stock it with food.', 'warn');
+      game.emit('beaverStrike', this.list.length);
     }
+    const strike = sulking > 0;
+    if (strike !== this.wasStriking) {
+      this.wasStriking = strike;
+      for (const s of this.bars()) s.farmRig?.setState?.(strike ? 'strike' : 'idle');
+    }
+    this.updateTape(dt);
     // batched world rebuilds after clearing
     this.rebuildT -= dt;
     if ((this.dirtyLand || this.dirtyDecos) && this.rebuildT <= 0) {
@@ -431,10 +518,10 @@ export class BeaverSystem {
     }
   }
 
-  // every finished job counts toward the next berry payment
+  // a job got finished (it was paid for when it started)
   paid(b) {
     b.jobs++;
-    if (b.jobs >= JOBS_PER_BERRY) b.hungry = true;
+    if (b.job) b.job.done = true;
     b.cheerT = 0.8;
   }
 
@@ -443,7 +530,10 @@ export class BeaverSystem {
   }
 
   release(b) {
-    if (b.job) this.unassign(b.job);
+    if (b.job) {
+      this.unassign(b.job);
+      if (b.job.paidCredit && !b.job.done) this.credit = this.credit + 1; // cancelled: refund the pay
+    }
     b.job = null;
     b.state = 'idle';
     b.t = 0.2;
@@ -466,9 +556,9 @@ export class BeaverSystem {
   }
 
   // flat X markers on tiles queued for clearing
-  renderMarkers() {
+  renderMarkers(fromTape = false) {
     const game = this.game;
-    game.world.setMarked?.(this.clears.keys());
+    if (!fromTape) game.world.setMarked?.([...this.clears.values()].filter((c) => this.time - (c.markT ?? -9) < 2).map((c) => c.i));
     const P = game.particles;
     if (!P?.tex) return;
     if (!this.markers) {
@@ -480,6 +570,7 @@ export class BeaverSystem {
     const fr = P.atlas.frames.tagmark?.[0] || P.atlas.frames.ring?.[0];
     const g = game.grid;
     for (const c of this.clears.values()) {
+      if (this.time - (c.markT ?? -9) >= 2) continue; // the tape takes over
       const y = g.height[c.i] + (c.kind === 'forest' || c.kind === 'tree' ? 2.2 : 0.8);
       M.push(fr, c.x + 0.5, y, c.z + 0.5, { mode: 2, ax: 0.5, ay: 0, h: 0.32, w: 0.32 * fr.w / fr.h, tint: this.reachable(c) ? [1, 0.85, 0.4] : [0.7, 0.7, 0.75] });
     }
@@ -495,6 +586,7 @@ export class BeaverSystem {
         let want = 'idle';
         if (b.state === 'work') want = b.job?.kind === 'clear' ? CLEAR[b.job.c.kind].anim : 'hammer';
         else if (b.state === 'munch') want = 'eat_berry';
+        else if (b.strike) want = 'carry_log';
         else if (b.moving) want = b.inWater ? 'swim' : 'run';
         else if (b.cheerT > 0) want = 'cheer';
         else if (b.sulk) want = 'idle';
@@ -502,6 +594,7 @@ export class BeaverSystem {
         if (b.cheerT > 0) b.cheerT -= dt;
         if (want !== b.anim) { r.play(want, { loop: true, fade: 0.15 }); b.anim = want; }
         r.update(dt);
+        this.strikeSign(b);
         continue;
       }
       // legacy voxel beaver: hand-animated
@@ -525,6 +618,34 @@ export class BeaverSystem {
     }
   }
 
+  // strikers hold a "NO PAY NO WORK" picket sign over their heads (where the log goes)
+  strikeSign(b) {
+    const r = b.rig;
+    if (!r.logJ) return;
+    if (b.strike && !b.sign) {
+      let sign = null;
+      try { sign = FM?.makeStrikeSign?.() || null; } catch { sign = null; }
+      if (!sign) {
+        sign = new THREE.Group();
+        const board = new THREE.Mesh(new THREE.BoxGeometry(9, 5, 0.6), new THREE.MeshLambertMaterial({ color: 0xf4ead0 }));
+        board.position.y = 6;
+        const stick = new THREE.Mesh(new THREE.BoxGeometry(0.8, 7, 0.8), new THREE.MeshLambertMaterial({ color: 0x8a5a30 }));
+        stick.position.y = 2;
+        sign.add(board, stick);
+      } else {
+        // models are in world units; the beaver joint is in voxels
+        const ws = new THREE.Vector3();
+        r.root.updateMatrixWorld(true);
+        r.logJ.getWorldScale(ws);
+        sign.scale.setScalar(1 / Math.max(1e-3, ws.x));
+      }
+      r.logJ.add(sign);
+      b.sign = sign;
+    }
+    if (b.sign) b.sign.visible = !!b.strike;
+    if (b.strike && r.props?.log) r.props.log.visible = false;
+  }
+
   serialize() {
     return { n: this.list.length, clears: [...this.clears.values()].map((c) => [c.x, c.z]) };
   }
@@ -533,8 +654,38 @@ export class BeaverSystem {
     for (const [x, z] of list || []) {
       const g = this.game.grid;
       const k = this.clearKind(x, z);
-      if (k) this.clears.set(z * g.w + x, { i: z * g.w + x, x, z, kind: k, progress: 0, assigned: null, order: this.clears.size });
+      if (k) this.clears.set(z * g.w + x, { i: z * g.w + x, x, z, kind: k, progress: 0, assigned: null, order: this.clears.size, markT: -99 });
     }
     this.renderMarkers();
   }
+}
+
+// a stand-in construction marker: 4 posts and yellow/black tape around the tile
+let TAPE_MATS = null;
+function fallbackTape(seed) {
+  if (!TAPE_MATS) {
+    const cv = document.createElement('canvas');
+    cv.width = 8; cv.height = 2;
+    const cx = cv.getContext('2d');
+    for (let x = 0; x < 8; x++) { cx.fillStyle = x % 4 < 2 ? '#ffd23a' : '#1a1420'; cx.fillRect(x, 0, 1, 2); }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.magFilter = THREE.NearestFilter; tex.wrapS = THREE.RepeatWrapping; tex.repeat.set(3, 1);
+    TAPE_MATS = { tape: new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide }), post: new THREE.MeshLambertMaterial({ color: 0xff7a1a }), postG: new THREE.BoxGeometry(0.06, 0.4, 0.06), tapeG: new THREE.PlaneGeometry(0.9, 0.06) };
+  }
+  const M = TAPE_MATS;
+  const root = new THREE.Group();
+  for (const [x, z] of [[-0.45, -0.45], [0.45, -0.45], [0.45, 0.45], [-0.45, 0.45]]) {
+    const p = new THREE.Mesh(M.postG, M.post);
+    p.position.set(x, 0.2, z); p.castShadow = true;
+    root.add(p);
+  }
+  for (let k = 0; k < 4; k++) {
+    const t = new THREE.Mesh(M.tapeG, M.tape);
+    const a = (k * Math.PI) / 2;
+    t.position.set(Math.cos(a) * 0.45, 0.32, Math.sin(a) * 0.45);
+    t.rotation.y = a + Math.PI / 2;
+    root.add(t);
+  }
+  root.rotation.y = (seed % 4) * 0.08;
+  return { root, update() {}, setProgress() {}, dispose() {} };
 }

@@ -46,6 +46,8 @@ const COLORS = {
   o: '#e0662a', // fur
   c: '#f8eedc', // cream
   z: '#5a3a8a', // spiral
+  q: '#6a5ab8', // gloom lines
+  Q: '#9a8ad8', // gloom tips
 };
 const KEYS = Object.keys(COLORS);
 const IDX = {};
@@ -111,249 +113,109 @@ class Pix {
 }
 
 // ------------------------------------------------------------------ eyes
-// Eye centres on the face canvas (texel corners). Right eye = viewer's left.
-export const EYE_R = { x: 15, y: 18 };
-export const EYE_L = { x: 41, y: 18 };
+// Cute dot eyes: small solid ink dots set low and wide, with a 1px highlight.
+// Expressions read through lids, brows, mouth and blush. Centres are continuous
+// texel coordinates on the face canvas. Right eye = viewer's left (monocle).
+export const EYE_R = { x: 13.5, y: 21 };
+export const EYE_L = { x: 42.5, y: 21 };
 
-// Eye shapes. rx/ry: ellipse radii (texels). top/bot(xo): lid lines, xo grows
-// toward the outer corner. lid: thickness of the upper lash line.
-const OPEN_SHAPES = {
-  open: { rx: 5.6, ry: 6.3, top: (xo) => -5.2 - xo * 0.18, lid: 2, flick: 1, iris: 3.6 },
-  half: { rx: 5.8, ry: 6.3, top: (xo) => -0.6 + xo * 0.1, lid: 2, flick: 1, iris: 3.6, lookY: 0.35 },
-  narrow: { rx: 5.8, ry: 6, top: (xo) => -1.6 - xo * 0.38, bot: (xo) => 3.2 - xo * 0.1, lid: 2, flick: 1, iris: 3.4 },
-  squint: { rx: 5.8, ry: 6, top: (xo) => -2.4 - xo * 0.55, bot: (xo) => 2.2, lid: 2, flick: 0, iris: 3.1, small: true },
-  sleepy: { rx: 5.6, ry: 6.2, top: (xo) => 0.6 + xo * 0.18, lid: 2, flick: 0, iris: 3.4, lookY: 0.9 },
-  nervous: { rx: 5.4, ry: 6.2, top: (xo) => -4.2 + xo * 0.32, lid: 1, flick: 0, iris: 2.6, small: true },
-  wide: { rx: 6.3, ry: 7.4, lid: 1, flick: 0, pin: true },
-  shiny: { rx: 5.9, ry: 6.6, top: (xo) => -5.6 - xo * 0.1, lid: 2, flick: 1, iris: 4.4, shiny: true },
-  spiral: { rx: 6, ry: 6.8, lid: 1, flick: 0, spiral: true },
-  blink1: { rx: 5.6, ry: 6.3, top: (xo) => 1.6, lid: 2, flick: 1, iris: 3.4 },
+// Stamps are authored for the viewer's-left eye (outer corner = left); `flip`
+// mirrors them for the other eye (shapes with highlights stay lit from the top-left).
+// dy nudges the stamp down from the eye centre; `look` lets it follow the gaze.
+const DOT = {
+  open: { rows: ['.kk.', 'khkk', 'kkkk', 'kkkk', '.kk.'], look: 1 },
+  big: { rows: ['.kkk.', 'khhkk', 'khkkk', 'kkkkk', 'kkkkk', '.kkk.'], look: 1 }, // magnified by the monocle
+  wide: { rows: ['.kkk.', 'khhkk', 'khkkk', 'kkkkk', 'kkkkk', '.kkk.'], look: 1.4 },
+  shiny: { rows: ['.kkk.', 'khhkk', 'khhkk', 'kkkkk', 'kkkhk', '.kkk.'], look: 1 },
+  half: { rows: ['kkkkkk', '.kkkk.', '.kkkk.'], dy: 1, look: 1 },
+  narrow: { rows: ['kk....', '..kkk.', '.kkkkk', '.kkkk.'], dy: 0, look: 1, flip: true },
+  squint: { rows: ['kkk...', '.kkkkk', '..kkk.'], dy: 1, look: 0.8, flip: true },
+  sleepy: { rows: ['.kkkkk', 'k.kkk.'], dy: 1, look: 0.6, flip: true },
+  nervous: { rows: ['hk', 'kk', 'kk'], look: 1, jitter: 1 },
+  tiny: { rows: ['kk', 'kk'], look: 0.6, jitter: 1 },
+  blink1: { rows: ['.kk.', 'kkkk', '.kk.'], dy: 1, look: 1 },
+  blink: { rows: ['kkkk'], dy: 1, look: 1 },
+  // closed shapes
+  happy: { rows: ['.kkk.', 'k...k', 'k...k'], dy: 0 }, // ^ ^
+  closed: { rows: ['kkkkk', 'k....'], dy: 1, flip: true }, // - with a droopy lash
+  content: { rows: ['k...k', 'k...k', '.kkk.'], dy: 0 }, // u u
+  wink: { rows: ['k....', '.kk..', '...kk', '.kk..', 'k....'], dy: 0, flip: true, mirror: true }, // >
+  squeeze: { rows: ['kk...', '..kkk', 'kk...'], dy: 0, flip: true, mirror: true }, // > < shut tight
 };
+// a few eyes need a time-varying redraw (spinning / pulsing / trembling)
+const ANIM_EYES = new Set(['coin', 'heart', 'spiral', 'nervous', 'tiny']);
 
-// Closed eye strokes: y(x) with x in [-5.5, 5.5]
-const CLOSED_SHAPES = {
-  happy: (x) => -1.6 + (x * x) / 8.5, // ^
-  closed: (x, xo) => 1.4 + (xo > 3.5 ? (xo - 3.5) * 0.9 : 0), // - with a droopy lash
-  content: (x) => 2.6 - (x * x) / 9, // u (proud, sleeping content)
-  blink: (x) => 1.8 + (x * x) / 30,
-  wink: (x, xo) => -1.2 + (x * x) / 9 + xo * 0.12,
-};
+export const EYE_KINDS = [...Object.keys(DOT).filter((k) => !k.startsWith('blink') && k !== 'big'), 'coin', 'heart', 'x', 'spiral'];
 
-export const EYE_KINDS = [...Object.keys(OPEN_SHAPES).filter((k) => !k.startsWith('blink')), ...Object.keys(CLOSED_SHAPES).filter((k) => k !== 'blink'), 'coin', 'heart', 'x'];
-
-const inEllipse = (x, y, rx, ry) => (x * x) / (rx * rx) + (y * y) / (ry * ry) <= 1;
-
-function drawOpenEye(P, cx, cy, side, S, lx, ly, t, big) {
-  const rx = S.rx + big, ry = S.ry + big;
-  const R = 8;
-  const mask = new Uint8Array((2 * R + 1) * (2 * R + 1));
-  const mi = (i, j) => (j + R) * (2 * R + 1) + (i + R);
-  const inside = (i, j) => i >= -R && i <= R && j >= -R && j <= R && mask[mi(i, j)] === 1;
-  for (let j = -R; j <= R; j++)
-    for (let i = -R; i <= R; i++) {
-      const x = i + 0.5, y = j + 0.5, xo = x * side;
-      if (!inEllipse(x, y, rx, ry)) continue;
-      if (S.top && y < S.top(xo)) continue;
-      if (S.bot && y > S.bot(xo)) continue;
-      mask[mi(i, j)] = 1;
-    }
-  // fill: sclera, iris, pupil
-  const lookY = ly + (S.lookY || 0);
-  const ix = lx * (S.pin ? 3 : 2.2), iy = lookY * (S.pin ? 3 : 2) + 0.7;
-  const ir = (S.iris || 3.4) + big * 0.4;
-  const pxr = S.small ? 1.05 : S.shiny ? 2.2 : 1.25, pyr = S.small ? 1.7 : S.shiny ? 2.7 : 2.8;
-  for (let j = -R; j <= R; j++)
-    for (let i = -R; i <= R; i++) {
-      if (!inside(i, j)) continue;
-      const x = i + 0.5, y = j + 0.5;
-      let c = 'w';
-      if (!inside(i, j - 1)) c = 'W';
-      if (S.spiral) {
-        const a = Math.atan2(y, x), r = Math.hypot(x, y);
-        let ph = (r / 1.9 - (a + t * 7) / (Math.PI * 2)) % 1;
-        if (ph < 0) ph += 1;
-        if (ph < 0.42 && r < 6.5) c = 'z';
-      } else if (S.pin) {
-        const dx = x - ix, dy = y - iy;
-        if (dx * dx + dy * dy <= 1.3) c = 'p';
-      } else {
-        const dx = x - ix, dy = y - iy;
-        const d2 = dx * dx + dy * dy;
-        if (d2 <= ir * ir) {
-          c = dy < -ir * 0.45 ? 'I' : dy > ir * 0.4 ? 'j' : 'i';
-          if ((dx * dx) / (pxr * pxr) + (dy * dy) / (pyr * pyr) <= 1) c = 'p';
-        }
-      }
-      P.set(cx + i, cy + j, c);
-    }
-  if (!S.spiral && !S.pin) {
-    // highlight (fixed light direction: upper left)
-    const hx = Math.floor(ix - 1.6), hy = Math.floor(iy - 2.4);
-    const hl = S.shiny ? [[0, 0], [1, 0], [0, 1], [1, 1], [3, 3], [-1, 0]] : S.small ? [[0, 0]] : [[0, 0], [1, 0], [0, 1], [1, 1]];
-    for (const [a, b] of hl) if (inside(hx + a, hy + b)) P.set(cx + hx + a, cy + hy + b, 'h');
-  } else if (S.pin) {
-    const hx = Math.round(ix), hy = Math.round(iy - 1);
-    if (inside(hx - 1, hy - 1)) P.set(cx + hx - 1, cy + hy - 1, 'h');
-  }
-  // outline ring (outside the mask, 4-neighbours)
-  for (let j = -R; j <= R; j++)
-    for (let i = -R; i <= R; i++) {
-      if (inside(i, j)) continue;
-      if (!(inside(i - 1, j) || inside(i + 1, j) || inside(i, j - 1) || inside(i, j + 1))) continue;
-      P.set(cx + i, cy + j, 'k');
-    }
-  // thick upper lash line + outer flick
-  if (S.lid > 1) {
-    let topOuter = null;
-    for (let i = -R; i <= R; i++) {
-      let top = null;
-      for (let j = -R; j <= R; j++) if (inside(i, j)) { top = j; break; }
-      if (top == null) continue;
-      for (let k = 1; k <= S.lid; k++) P.set(cx + i, cy + top - 1 - k + 1, 'k');
-      P.set(cx + i, cy + top - S.lid, 'k');
-      const xo = (i + 0.5) * side;
-      if (!topOuter || xo > topOuter.xo) topOuter = { i, top, xo };
-    }
-    if (S.flick && topOuter) {
-      const { i, top } = topOuter;
-      P.set(cx + i + side, cy + top - 2, 'k');
-      P.set(cx + i + side * 2, cy + top - 3, 'k');
-      P.set(cx + i + side, cy + top - 1, 'k');
-    }
-  }
+function drawDotEye(P, cx, cy, side, D, lx, ly, t) {
+  const rows = D.rows;
+  const h = rows.length, w = rows[0].length;
+  const look = D.look || 0;
+  let dx = Math.round(lx * 1.6 * look), dy = Math.round(ly * 1.2 * look) + (D.dy || 0);
+  if (D.jitter) { const j = Math.floor(t * 12) % 4; dx += j === 1 ? 1 : j === 3 ? -1 : 0; }
+  // `mirror` shapes point toward the nose: authored for the right eye, flipped for the left
+  const flip = D.flip ? (D.mirror ? side < 0 : side > 0) : false;
+  P.rows(rows, Math.round(cx - w / 2 + dx), Math.round(cy - h / 2 + dy), flip);
 }
 
-function drawClosedEye(P, cx, cy, side, fn, thick = 2) {
-  let prev = null;
-  for (let i = -6; i <= 5; i++) {
-    const x = i + 0.5, xo = x * side;
-    const y = Math.round(fn(x, xo));
-    const X = cx + i;
-    P.set(X, cy + y, 'k');
-    if (thick > 1) P.set(X, cy + y + 1, 'k');
-    if (prev != null && Math.abs(prev - y) > 1) {
-      const a = Math.min(prev, y), b = Math.max(prev, y);
-      for (let yy = a; yy <= b; yy++) P.set(X - (prev < y ? 0 : 1), cy + yy, 'k');
-    }
-    prev = y;
-  }
-}
-
-const COIN = [
-  '...nnnnnn...',
-  '..nGggggGn..',
-  '.nGgYYggggn.',
-  'nGgY.nn.ggGn',
-  'nggYn...gggn',
-  'nggg.nn.gggn',
-  'ngggg..ngggn',
-  'nggg.nn.gGGn',
-  'nGgg...GgGGn',
-  '.nGgg..gGGn.',
-  '..nGGGGGGn..',
-  '...nnnnnn...',
-];
-const COIN_EDGE = [
-  '....nnn.....',
-  '...nGgGn....',
-  '...nYgGn....',
-  '...nYgGn....',
-  '...nggGn....',
-  '...nggGn....',
-  '...nggGn....',
-  '...nggGn....',
-  '...nggGn....',
-  '...nGgGn....',
-  '...nGGGn....',
-  '....nnn.....',
-];
-const COIN_MID = [
-  '...nnnnnn...',
-  '..nGgggGGn..',
-  '..nggYgggn..',
-  '.nggYn.ngGn.',
-  '.nggn..ngGn.',
-  '.ngg.nn.gGn.',
-  '.nggg..ngGn.',
-  '.ngg.nn.gGn.',
-  '.nGg...ngGn.',
-  '..nGg..gGn..',
-  '..nGGGGGGn..',
-  '...nnnnnn...',
-];
-const HEART = [
-  '.kkk....kkk.',
-  'kHLHk..kHHHk',
-  'kLHHHkkHHHHk',
-  'kHHHHHHHHHHk',
-  'kHHHHHHHHHDk',
-  '.kHHHHHHHDk.',
-  '..kHHHHHDk..',
-  '...kHHHDk...',
-  '....kHDk....',
-  '.....kk.....',
-];
-const HEART_SMALL = [
-  '............',
-  '..kk....kk..',
-  '.kLHk..kHHk.',
-  '.kHHHkkHHHk.',
-  '.kHHHHHHHDk.',
-  '..kHHHHHDk..',
-  '...kHHHDk...',
-  '....kHDk....',
-  '.....kk.....',
-  '............',
-];
+const COIN = ['..nnn..', '.nYggn.', 'nYgnggn', 'nggnggn', 'nggngGn', '.nggGn.', '..nnn..'];
+const COIN_MID = ['..nnn..', '..nYgn.', '.nYngn.', '.ngnGn.', '.ngnGn.', '..nGGn.', '..nnn..'];
+const COIN_EDGE = ['...n...', '..nYn..', '..ngn..', '..ngn..', '..nGn..', '..nGn..', '...n...'];
+const HEART = ['.kk.kk.', 'kHLkHHk', 'kLHHHHk', 'kHHHHDk', '.kHHDk.', '..kDk..', '...k...'];
+const HEART_SMALL = ['.......', '.kk.kk.', '.kLHHk.', '.kHHDk.', '..kDk..', '...k...', '.......'];
+const XEYE = ['k...k', '.k.k.', '..k..', '.k.k.', 'k...k'];
 
 function drawSpecialEye(P, cx, cy, side, kind, t) {
+  const x0 = Math.round(cx - 3.5), y0 = Math.round(cy - 3.5);
   if (kind === 'coin') {
     const f = Math.floor(t * 7) % 8;
     const img = f === 3 || f === 7 ? COIN_EDGE : f === 2 || f === 4 || f === 6 ? COIN_MID : COIN;
-    P.rows(img, cx - 6, cy - 6, side > 0 && img !== COIN);
-    // sparkle
-    if (f === 0 || f === 1) {
-      const sx = cx + (side > 0 ? 5 : -7), sy = cy - 8;
-      P.set(sx + 1, sy, 'Y'); P.set(sx, sy + 1, 'Y'); P.set(sx + 1, sy + 1, 'h'); P.set(sx + 2, sy + 1, 'Y'); P.set(sx + 1, sy + 2, 'Y');
-    }
+    P.rows(img, x0, y0, side > 0 && img !== COIN);
+    if (f === 0 || f === 1) { const sx = cx + (side > 0 ? 3 : -5), sy = cy - 6; P.set(sx + 1, sy, 'Y'); P.set(sx, sy + 1, 'Y'); P.set(sx + 1, sy + 1, 'h'); P.set(sx + 2, sy + 1, 'Y'); P.set(sx + 1, sy + 2, 'Y'); }
   } else if (kind === 'heart') {
-    const big = Math.floor(t * 5) % 2 === 0;
-    P.rows(big ? HEART : HEART_SMALL, cx - 6, cy - 5, side > 0);
+    P.rows(Math.floor(t * 5) % 2 === 0 ? HEART : HEART_SMALL, x0, y0, side > 0);
   } else if (kind === 'x') {
-    for (let k = -4; k <= 4; k++) {
-      P.set(cx + k, cy + k, 'k'); P.set(cx + k - 1, cy + k, 'k');
-      P.set(cx + k, cy - k, 'k'); P.set(cx + k - 1, cy - k, 'k');
-    }
+    P.rows(XEYE, Math.round(cx - 2.5), Math.round(cy - 2.5));
+  } else if (kind === 'spiral') {
+    // tiny rotating spiral
+    for (let j = -4; j <= 3; j++)
+      for (let i = -4; i <= 3; i++) {
+        const x = i + 0.5, y = j + 0.5, r = Math.hypot(x, y);
+        if (r > 3.9) continue;
+        let ph = (r / 1.6 - (Math.atan2(y, x) + t * 7 * side) / (Math.PI * 2)) % 1;
+        if (ph < 0) ph += 1;
+        if (ph < 0.45) P.set(Math.round(cx) + i, Math.round(cy) + j, 'z');
+      }
   }
 }
 
 function drawEye(P, cx, cy, side, kind, lx, ly, t, big) {
-  if (OPEN_SHAPES[kind]) drawOpenEye(P, cx, cy, side, OPEN_SHAPES[kind], lx, ly, t, big);
-  else if (CLOSED_SHAPES[kind]) drawClosedEye(P, cx, cy, side, CLOSED_SHAPES[kind]);
+  if (kind === 'open' && big) kind = 'big';
+  const D = DOT[kind];
+  if (D) drawDotEye(P, cx, cy, side, D, lx, ly, t);
   else drawSpecialEye(P, cx, cy, side, kind, t);
 }
 
 // ------------------------------------------------------------------ brows
-// [inner, mid, outer] heights relative to the brow base line
+// Short soft dashes. [inner, mid, outer] heights relative to the brow base line.
 const BROWS = {
-  neutral: [0, -1, 0.3],
-  raised: [-2.2, -3.6, -1.8],
-  high: [-3.8, -5.4, -3.4],
-  cocked: [-3.4, -5.6, -2.4],
-  low: [1.4, 0.9, 0.6],
-  angry: [3.2, 0.9, -1.8],
-  worried: [-2.6, -0.8, 1.6],
-  droopy: [0.6, 0.6, 1.8],
-  relaxed: [0.2, -0.4, 0.8],
-  furrow: [2, 0.4, -0.4],
+  neutral: [0, -0.6, 0.2],
+  raised: [-1.4, -2.2, -1.2],
+  high: [-2.6, -3.4, -2.2],
+  cocked: [-2.4, -3.6, -1.8],
+  low: [0.9, 0.6, 0.4],
+  angry: [2.4, 0.6, -1.4],
+  worried: [-1.8, -0.5, 1.2],
+  droopy: [0.4, 0.4, 1.3],
+  relaxed: [0.1, -0.3, 0.6],
+  furrow: [1.5, 0.3, -0.4],
 };
 export const BROW_KINDS = Object.keys(BROWS);
 
 function drawBrow(P, cx, cy, side, kind, lift) {
   const b = BROWS[kind] || BROWS.neutral;
-  const base = cy - 10.5 - lift;
-  // quadratic through (inner, mid, outer); drawn column by column
-  const X0 = -3.5, X1 = 1, X2 = 5.8;
+  const base = cy - 6.5 - lift;
+  const X0 = -2.5, X1 = 0, X2 = 2.5;
   const q = (xo) => {
     const l0 = ((xo - X1) * (xo - X2)) / ((X0 - X1) * (X0 - X2));
     const l1 = ((xo - X0) * (xo - X2)) / ((X1 - X0) * (X1 - X2));
@@ -361,16 +223,13 @@ function drawBrow(P, cx, cy, side, kind, lift) {
     return b[0] * l0 + b[1] * l1 + b[2] * l2;
   };
   let prev = null;
-  for (let k = 0; k <= 9; k++) {
+  for (let k = 0; k <= 5; k++) {
     const xo = X0 + k;
-    const x = Math.floor(cx + (xo - 0.5) * side);
+    const x = Math.floor(cx + (xo - 0.5) * side + (side > 0 ? 0 : 0));
     const y = Math.round(base + q(xo));
-    const th = k >= 8 ? 1 : k <= 1 ? 3 : 2;
-    let y0 = k <= 1 ? y - 1 : y, y1 = y0 + th - 1;
-    if (prev != null) {
-      if (y0 > prev + 1) y0 = prev + 1;
-      if (y1 < prev - 1) y1 = prev - 1;
-    }
+    const th = k === 5 ? 1 : 2;
+    let y0 = y, y1 = y0 + th - 1;
+    if (prev != null) { if (y0 > prev + 1) y0 = prev + 1; if (y1 < prev - 1) y1 = prev - 1; }
     for (let yy = y0; yy <= y1; yy++) P.set(x, yy, 'b');
     prev = y;
   }
@@ -409,45 +268,46 @@ const VEIN2 = [
   '.vv....vv.',
   '..........',
 ];
-const BLUSH = [
-  '.rrRrRrr.',
-  'rrRrRrRrr',
-  '.rrrrrrr.',
-];
-const BLUSH_HATCH = [
-  '..r..r..r',
-  '.r..r..r.',
-  'r..r..r..',
-];
+const BLUSH = ['.rRRr.', 'rrrrrr', '.rrrr.'];
+const BLUSH_SOFT = ['.R.R.', 'R.R.R'];
+const BLUSH_HATCH = ['..r..r..', '.r..r..r', 'r..r..r.'];
 
 function drawFaceOverlays(P, s, t) {
-  if (s.blush) {
-    const img = s.blush > 1 ? BLUSH_HATCH : BLUSH;
-    P.rows(img, EYE_R.x - 7, EYE_R.y + 8);
-    P.rows(img, EYE_L.x - 2, EYE_L.y + 8, true);
-    if (s.blush > 1) { P.rows(BLUSH, EYE_R.x - 7, EYE_R.y + 11); P.rows(BLUSH, EYE_L.x - 2, EYE_L.y + 11, true); }
+  // blush sits on the cream cheeks, just under and outside the dots
+  const bl = (rows, dy = 0) => {
+    const w = rows[0].length;
+    P.rows(rows, Math.round(EYE_R.x - w / 2 - 1.5), EYE_R.y + 4 + dy);
+    P.rows(rows, Math.round(EYE_L.x - w / 2 + 1.5), EYE_L.y + 4 + dy, true);
+  };
+  if (s.blush >= 2) { bl(BLUSH_HATCH); bl(BLUSH, 2); }
+  else if (s.blush >= 1) bl(BLUSH);
+  else if (s.blush > 0) bl(BLUSH_SOFT, 1);
+  if (s.gloom) {
+    // manga "gloom" lines raining down the forehead
+    const f = Math.floor(t * 4) % 2;
+    for (let x = 5; x < 52; x += 3) {
+      const len = 5 + ((x * 7 + f * 3) % 5);
+      for (let y = 0; y < len; y++) if (!(y === len - 1 && (x + y) & 1)) P.set(x, y, y < len - 2 ? 'q' : 'Q');
+    }
   }
   if (s.tear) {
     const f = Math.floor(t * 6) % 3;
     for (const [e, side] of [[EYE_R, -1], [EYE_L, 1]]) {
-      const x = e.x + side * 5 - (side < 0 ? 1 : 0);
+      const x = Math.round(e.x + side * 3.5);
       if (s.tear > 1) {
-        // streams
-        for (let y = e.y + 3; y < e.y + 16; y++) {
-          const w = ((y + f) % 3 === 0) ? 'S' : 's';
-          P.set(x, y, w); P.set(x + 1, y, 's');
-          P.set(x - 1, y, 'd'); P.set(x + 2, y, 'd');
+        for (let y = e.y + 1; y < e.y + 14; y++) {
+          P.set(x, y, ((y + f) % 3 === 0) ? 'S' : 's'); P.set(x - 1, y, 'd'); P.set(x + 1, y, 'd');
         }
-        P.rows(['.dd.', 'dssd', 'dSsd', '.dd.'], x - 1, e.y + 15 + f);
+        P.rows(['.dd.', 'dssd', 'dSsd', '.dd.'], x - 1, e.y + 13 + f);
       } else {
-        P.rows(['.d.', 'dSd', 'dsd', '.d.'], x - 1 + side, e.y + 1 + (f === 2 ? 1 : 0));
+        P.rows(['.d.', 'dSd', 'dsd', '.d.'], x - 1, e.y - 1 + (f === 2 ? 1 : 0));
       }
     }
   }
   if (s.sweat) {
     const f = Math.floor(t * 3) % 4;
     P.rows(SWEAT, 47, 2 + f);
-    if (s.sweat > 1) P.rows(SWEAT_SMALL, 5, 5 + ((f + 2) % 4));
+    if (s.sweat > 1) P.rows(SWEAT_SMALL, 4, 6 + ((f + 2) % 4));
   }
   if (s.vein) {
     const f = Math.floor(t * 5) % 2;
@@ -703,6 +563,37 @@ const MOUTHS = {
     '.......kmmmmmmmmk.......',
     '........kkkkkkkk........',
   ],
+  smile: [
+    PH,
+    PH,
+    '...k.......kk.......k...',
+    '....kk....k..k....kk....',
+    '......kkkk....kkkk......',
+  ],
+  mmm: [
+    PH,
+    PH,
+    '......k....kk....k......',
+    '.......kkkk..kkkk.......',
+  ],
+  tongue_side: [
+    PH,
+    PH,
+    '...........kk...........',
+    '......kkkkkkkkkk........',
+    '..............kktk......',
+    '...............kttk.....',
+    '................kk......',
+  ],
+  horror: [
+    PH,
+    '.......kk.kkkk.kk.......',
+    '......kMMkMMMMkMMk......',
+    '.....kMMMMMMMMMMMMk.....',
+    '.....kMMMMmmmmMMMMk.....',
+    '......kMMkkMMkkMMk......',
+    '.......kk..kk..kk.......',
+  ],
   kiss: [
     PH,
     PH,
@@ -753,21 +644,21 @@ function drawLens(P, glint) {
 // ------------------------------------------------------------------ expressions
 // Each preset: eyeL/eyeR, browL/browR, mouth, look [x,y] and overlay flags.
 export const EXPRESSIONS = {
-  neutral: { eye: 'open', brow: 'neutral', mouth: 'smirk_soft' },
+  neutral: { eye: 'open', brow: 'neutral', mouth: 'smirk_soft', blush: 0.5 },
   smug: { eyeR: 'half', eyeL: 'half', browR: 'low', browL: 'cocked', mouth: 'smirk', glint: 1, look: [0.2, 0] },
   greedy: { eye: 'coin', brow: 'raised', mouth: 'grin_fang', drool: 1, glint: 1 },
   evil_grin: { eye: 'narrow', brow: 'angry', mouth: 'evil_grin', glint: 1 },
   scheming: { eye: 'narrow', browR: 'angry', browL: 'cocked', mouth: 'smirk_fang', look: [-0.9, 0.1], glint: 1 },
-  laugh: { eye: 'happy', brow: 'raised', mouth: 'laugh', tear: 1 },
+  laugh: { eye: 'happy', brow: 'raised', mouth: 'laugh', tear: 1, blush: 0.5 },
   happy: { eye: 'happy', brow: 'raised', mouth: 'grin', blush: 1 },
-  wink: { eyeR: 'open', eyeL: 'wink', browR: 'raised', browL: 'low', mouth: 'grin_fang', glint: 1 },
+  wink: { eyeR: 'open', eyeL: 'wink', browR: 'raised', browL: 'low', mouth: 'grin_fang', glint: 1, blush: 0.5 },
   shocked: { eye: 'wide', brow: 'high', mouth: 'o_big', sweat: 1 },
   angry: { eye: 'squint', brow: 'angry', mouth: 'grit', vein: 1 },
   worried: { eye: 'nervous', brow: 'worried', mouth: 'wobbly', sweat: 1 },
   sleepy: { eye: 'sleepy', brow: 'droopy', mouth: 'slack' },
-  asleep: { eye: 'closed', brow: 'relaxed', mouth: 'slack' },
+  asleep: { eye: 'closed', brow: 'relaxed', mouth: 'slack', blush: 0.5 },
   confused: { eyeR: 'open', eyeL: 'squint', browR: 'high', browL: 'furrow', mouth: 'wobbly', look: [0.4, -0.7] },
-  proud: { eye: 'content', brow: 'raised', mouth: 'smirk_big' },
+  proud: { eye: 'content', brow: 'raised', mouth: 'smirk_big', blush: 0.5, glint: 1 },
   embarrassed: { eye: 'nervous', brow: 'worried', mouth: 'grimace', blush: 2, sweat: 1, look: [0.9, 0.3] },
   // extras
   dizzy: { eye: 'spiral', brow: 'worried', mouth: 'wobbly' },
@@ -780,6 +671,14 @@ export const EXPRESSIONS = {
   // notifier moods
   tsk: { eye: 'closed', brow: 'raised', mouth: 'smirk', glint: 1 },
   alarmed: { eye: 'wide', brow: 'worried', mouth: 'o_big', sweat: 2 },
+  // outfits & props
+  teacher: { eyeR: 'open', eyeL: 'open', browR: 'cocked', browL: 'relaxed', mouth: 'smile', blush: 0.5, glint: 1 },
+  horror: { eye: 'tiny', brow: 'high', mouth: 'horror', sweat: 2, gloom: 1 },
+  cower: { eye: 'squeeze', brow: 'worried', mouth: 'wobbly', sweat: 1, gloom: 1 },
+  charge: { eye: 'narrow', brow: 'furrow', mouth: 'grin' },
+  focused: { eye: 'open', brow: 'furrow', mouth: 'tongue_side', look: [0, -0.3] },
+  magnifique: { eye: 'happy', brow: 'raised', mouth: 'kiss', blush: 1 },
+  yum: { eye: 'content', brow: 'raised', mouth: 'mmm', blush: 1 },
 };
 export const EXPRESSION_NAMES = Object.keys(EXPRESSIONS);
 
@@ -799,10 +698,10 @@ export function expressionState(name, out = {}) {
   out.tear = e.tear || 0;
   out.drool = e.drool || 0;
   out.glint = e.glint || 0;
+  out.gloom = e.gloom || 0;
   return out;
 }
 
-const ANIMATED_EYES = new Set(['coin', 'heart', 'spiral']);
 
 export class FoxFace {
   constructor() {
@@ -823,18 +722,18 @@ export class FoxFace {
 
   // s: face state (see expressionState) plus lookX/lookY, blink, mono, t.
   update(s, t) {
-    const aEye = ANIMATED_EYES.has(s.eyeL) || ANIMATED_EYES.has(s.eyeR);
-    const ft = aEye || s.sweat || s.vein || s.tear ? Math.floor(t * 12) : 0;
+    const aEye = ANIM_EYES.has(s.eyeL) || ANIM_EYES.has(s.eyeR);
+    const ft = aEye || s.sweat || s.vein || s.tear || s.gloom ? Math.floor(t * 12) : 0;
     const lx = Math.round(s.lookX * 4) / 4, ly = Math.round(s.lookY * 4) / 4;
     const eyeL = s.blink >= 1 && canBlink(s.eyeL) ? (s.blink > 1 ? 'blink' : 'blink1') : s.eyeL;
     const eyeR = s.blink >= 1 && canBlink(s.eyeR) ? (s.blink > 1 ? 'blink' : 'blink1') : s.eyeR;
-    const fk = `${eyeL}|${eyeR}|${s.browL}|${s.browR}|${lx}|${ly}|${s.blush}|${s.sweat}|${s.vein}|${s.tear}|${s.mono ? 1 : 0}|${s.browLift || 0}|${ft}`;
+    const fk = `${eyeL}|${eyeR}|${s.browL}|${s.browR}|${lx}|${ly}|${s.blush}|${s.sweat}|${s.vein}|${s.tear}|${s.mono ? 1 : 0}|${s.browLift || 0}|${s.gloom || 0}|${ft}`;
     if (fk !== this.face.key) {
       this.face.key = fk;
       const P = this.face.pix;
       P.clear();
       const tt = ft / 12;
-      const big = s.mono ? 0.6 : 0;
+      const big = !!s.mono; // the monocle magnifies the right eye
       drawEye(P, EYE_R.x, EYE_R.y, -1, eyeR, lx, ly, tt, big);
       drawEye(P, EYE_L.x, EYE_L.y, 1, eyeL, lx, ly, tt, 0);
       const lift = s.browLift || 0;
@@ -874,7 +773,7 @@ export class FoxFace {
 }
 
 function canBlink(kind) {
-  return kind === 'open' || kind === 'half' || kind === 'narrow' || kind === 'nervous' || kind === 'wide' || kind === 'shiny' || kind === 'sleepy' || kind === 'squint';
+  return kind === 'open' || kind === 'half' || kind === 'narrow' || kind === 'nervous' || kind === 'wide' || kind === 'shiny' || kind === 'squint';
 }
 
 // Small helper textures (snot bubble, pop, "z").

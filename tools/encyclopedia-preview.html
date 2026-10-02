@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Encyclopedia Preview</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #2f5a3e; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #2f5a3e; } }
+  :root[data-theme="dark"] { --bg: #2f5a3e; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
+  #world { position: fixed; inset: 0;
+    background:
+      repeating-conic-gradient(rgba(0,0,0,.035) 0 25%, transparent 0 50%) 0 0 / 6px 6px,
+      radial-gradient(ellipse 60% 40% at 55% 62%, #4f8fb0 0 60%, #3f7a5c 61% 66%, transparent 67%),
+      linear-gradient(#6aa25a, #4e8a4a); }
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #ctl { position: fixed; left: 8px; bottom: 8px; z-index: 400; display: flex; flex-wrap: wrap; gap: 6px; max-width: 760px; }
+  #ctl button { font: 16px/16px monospace; padding: 4px 8px 6px; border: 2px solid #2a1a14; background: #fbf3dc; color: #3b2414; box-shadow: 0 2px 0 #2a1a14; cursor: pointer; }
+  #ctl.hide { display: none; }
+</style>
+</head>
+<body>
+<div id="world"></div>
+<div id="ui"></div>
+<div id="ctl"></div>
+<script type="module" src="./encyclopedia-preview.js"></script>
+</body>
+</html>

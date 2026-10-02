@@ -3,6 +3,19 @@
 import * as THREE from 'three';
 import { VoxelModel, voxelMaterial } from '../core/voxel.js';
 import { WATER_Y } from '../world/grid.js';
+import { FOOD_ITEMS } from '../data/foods.js';
+
+// pellet colours per food (cached as 0..1 rgb triples)
+const PCOL = new Map();
+function pelletColors(item) {
+  let c = PCOL.get(item);
+  if (!c) {
+    const list = FOOD_ITEMS[item]?.pellet || [0xb8742e];
+    c = list.map((h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255]);
+    PCOL.set(item, c);
+  }
+  return c;
+}
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -39,21 +52,21 @@ export class FoodSystem {
   }
 
   // Throw a handful of pellets from (fx,fy,fz) to target (tx,tz).
-  throwHandful(fx, fy, fz, tx, tz, n = 6, spread = 0.55) {
+  throwHandful(fx, fy, fz, tx, tz, n = 6, spread = 0.55, item = 'pellets') {
     const dur = 0.45 + Math.min(0.5, Math.hypot(tx - fx, tz - fz) * 0.04);
     const items = [];
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
       items.push({ tx: tx + Math.cos(a) * r, tz: tz + Math.sin(a) * r, delay: i * 0.02 });
     }
-    this.flying.push({ fx, fy, fz, t: 0, dur, items, h: 1.4 + Math.random() * 0.4 });
+    this.flying.push({ fx, fy, fz, t: 0, dur, items, h: 1.4 + Math.random() * 0.4, item });
   }
 
-  dropPellet(x, z, y = WATER_Y) {
+  dropPellet(x, z, y = WATER_Y, item = 'pellets') {
     const g = this.game.grid;
     const tx = Math.floor(x), tz = Math.floor(z);
     if (!g.isWater(tx, tz)) return null;
-    const p = { x, z, y, floor: g.surfaceY(tx, tz) + 0.05, life: 26, eaten: false, region: g.regionAt(x, z), seed: Math.random() * 10 };
+    const p = { x, z, y, floor: g.surfaceY(tx, tz) + 0.05, life: 26, eaten: false, region: g.regionAt(x, z), seed: Math.random() * 10, item };
     this.pellets.push(p);
     return p;
   }
@@ -120,7 +133,7 @@ export class FoodSystem {
         this.flying.splice(i, 1);
         let landed = 0;
         for (const it of h.items) {
-          if (this.dropPellet(it.tx, it.tz)) landed++;
+          if (this.dropPellet(it.tx, it.tz, WATER_Y, h.item)) landed++;
           parts.ripple(it.tx, it.tz, 0.35, 0.8, 0.3);
         }
         if (landed) game.audio.play('plop', { volume: 0.55, pitch: 0.9 + Math.random() * 0.3 });
@@ -171,7 +184,9 @@ export class FoodSystem {
       _m.makeTranslation(p.x, p.y, p.z);
       pm.setMatrixAt(n, _m);
       const k = 0.85 + ((p.seed * 13) % 1) * 0.3;
-      col[n * 3] = 0.72 * k; col[n * 3 + 1] = 0.42 * k; col[n * 3 + 2] = 0.18 * k;
+      const pc = pelletColors(p.item);
+      const c = pc[Math.floor(p.seed * 7) % pc.length];
+      col[n * 3] = c[0] * k; col[n * 3 + 1] = c[1] * k; col[n * 3 + 2] = c[2] * k;
       n++;
     }
     for (const h of this.flying) {
@@ -182,7 +197,9 @@ export class FoodSystem {
         const y = h.fy + (WATER_Y - h.fy) * t + Math.sin(t * Math.PI) * h.h;
         _m.makeTranslation(x, y, z);
         pm.setMatrixAt(n, _m);
-        col[n * 3] = 0.72; col[n * 3 + 1] = 0.42; col[n * 3 + 2] = 0.18;
+        const pc = pelletColors(h.item);
+        const c = pc[(it.delay * 997 | 0) % pc.length];
+        col[n * 3] = c[0]; col[n * 3 + 1] = c[1]; col[n * 3 + 2] = c[2];
         n++;
       }
     }
@@ -207,13 +224,13 @@ export class FoodSystem {
   }
 
   serialize() {
-    return { pellets: this.pellets.slice(0, 80).map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.life.toFixed(1)]) };
+    return { pellets: this.pellets.slice(0, 80).map((p) => [+p.x.toFixed(2), +p.z.toFixed(2), +p.life.toFixed(1), p.item || 'pellets']) };
   }
 
   load(d) {
     this.pellets.length = 0;
-    for (const [x, z, life] of d?.pellets || []) {
-      const p = this.dropPellet(x, z, this.game.grid.surfaceY(Math.floor(x), Math.floor(z)) + 0.05);
+    for (const [x, z, life, item] of d?.pellets || []) {
+      const p = this.dropPellet(x, z, this.game.grid.surfaceY(Math.floor(x), Math.floor(z)) + 0.05, FOOD_ITEMS[item] ? item : 'pellets');
       if (p) p.life = life;
     }
   }

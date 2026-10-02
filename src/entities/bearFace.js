@@ -26,7 +26,9 @@ export const FACE_QUADS = {
 };
 
 export const FACE_EXPRESSIONS = ['neutral', 'happy', 'hungry', 'excited', 'chomp_open', 'chomp_closed', 'yummy', 'love',
-  'angry', 'furious', 'sad', 'shocked', 'sleepy', 'disgusted', 'smug', 'cheer', 'roar', 'dizzy', 'content'];
+  'angry', 'furious', 'sad', 'shocked', 'sleepy', 'disgusted', 'smug', 'cheer', 'roar', 'dizzy', 'content',
+  // eating styles (see bearRig eat_* poses)
+  'gape', 'stuffed', 'bliss', 'strain', 'dainty', 'slurp', 'aim'];
 
 // jaw: how far the 3D jaw opens (0..1). blink: auto-blink allowed. anim: has animated frames.
 export const FACE_INFO = {
@@ -49,6 +51,13 @@ export const FACE_INFO = {
   roar: { jaw: 1, blink: false, anim: true },
   dizzy: { jaw: 0.3, blink: false, anim: true },
   content: { jaw: 0, blink: false, anim: true },
+  gape: { jaw: 1, blink: false, anim: true }, // jaw unhinged (the rig's maw does the heavy lifting)
+  stuffed: { jaw: 0, blink: false, anim: true }, // cheeks bulging, lips pressed shut
+  bliss: { jaw: 0.06, blink: false, anim: true }, // eyes closed, slow happy chewing
+  strain: { jaw: 0, blink: false, anim: true }, // tug-of-war effort
+  dainty: { jaw: 0.04, blink: true }, // fine dining: snooty lids, prim little mouth
+  slurp: { jaw: 0.12, blink: false, anim: true }, // lips puckered, cheeks sucked in
+  aim: { jaw: 0.9, blink: false, anim: true }, // eyes up on a tossed snack, mouth wide
 };
 // palette keys that also light up the emissive (glow) map
 const GLOW_KEYS = new Set(['Q', 'q', 'X', 'Y']);
@@ -733,6 +742,116 @@ DRAW.content = (F, st) => {
   for (let x = 1; x <= 8; x++) F.l(x, 0, 'M');
   F.l(4, 1, 'T'); F.l(5, 1, 'T');
   if (st.frame % 16 < 8) { F.e(24, 0, 'W'); F.e(23, 1, 'W'); } // a little contented sparkle
+};
+
+// ---------------------------------------------------------------- eating styles (v10)
+// Eyes rolled up towards a treat held (or flying) overhead: white rings, tiny pupils at the top.
+const EYE_UP = ['.KKK.', 'KWKWK', 'KWKWK', 'KWWWK', 'KWWWK', '.KKK.'];
+const EYE_UP_CUB = ['.KKKK.', 'KWKKWK', 'KWKKWK', 'KWWWWK', 'KWWWWK', 'KWWWWK', '.KKKK.'];
+function upEyes(F, st) {
+  if (st.cub) F.pair(EYE_UP_CUB, 3, 2);
+  else F.pair(EYE_UP, 4, 2);
+}
+
+DRAW.gape = (F, st) => {
+  // the jaw has come off its hinges: eyes popping, brows sky high, drool
+  F.lensUnder();
+  upEyes(F, st);
+  F.e2(3, 1, 'B'); F.e2(4, 0, 'B'); F.e2(5, 0, 'B'); F.e2(6, 0, 'B'); F.e2(7, 1, 'B');
+  F.blush(true);
+  F.eyewear('shocked');
+  F.openTop({ teeth: true });
+  F.lowerLip({ tongue: true, teeth: true });
+  F.drool(st, 1);
+  if (st.frame % 4 < 2) { F.e(0, 1, 'S'); F.e(25, 2, 'W'); } else { F.e(1, 0, 'W'); F.e(24, 1, 'S'); }
+};
+
+DRAW.stuffed = (F, st) => {
+  // mouth full: eyes squeezed, cheeks ballooned pink, lips pressed into a wobbly line
+  F.lensUnder();
+  F.pair(EYE.squeeze, 4, 4);
+  F.pair(['.PPP', 'PPpP', 'PPPP', '.PP.'], 0, 9);
+  F.e2(1, 9, 'p');
+  F.eyewear('chomp_closed');
+  F.philtrum();
+  const a = st.frame % 4 < 2 ? 0 : 1;
+  for (let x = 2; x <= 7; x++) F.l(x, (x + a) % 3 === 0 ? 1 : 0, 'M');
+  F.u2(0, 4, 'P'); F.u2(0, 5, 'P'); F.u2(1, 5, 'p');
+  F.l2(0, 1, 'P');
+};
+
+DRAW.bliss = (F, st) => {
+  // eyes closed, savouring every bite: slow chewing, sparkles
+  F.lensUnder();
+  F.happyEyes({ ...st, blink: true });
+  F.blush(true);
+  F.eyewear('content');
+  F.philtrum();
+  const f = st.frame % 6;
+  if (f < 3) { F.u2(2, 5, 'M'); F.l2(1, 0, 'M'); F.l2(2, 0, 'M'); F.l2(3, 0, 'M'); F.l(4, 1, 'M'); F.l(5, 1, 'M'); }
+  else { F.u2(1, 5, 'M'); for (let x = 2; x <= 7; x++) F.l(x, 0, 'M'); F.l(4, 1, 'T'); F.l(5, 1, 'T'); }
+  const s = st.frame % 8 < 4;
+  F.e(s ? 1 : 2, s ? 2 : 1, 'S'); F.e(s ? 24 : 23, s ? 1 : 3, s ? 'W' : 'S');
+};
+
+DRAW.strain = (F, st) => {
+  // tug-of-war: eyes screwed shut, gritted teeth, sweat flying
+  for (let y = 9; y <= 12; y++) for (let x = 0; x <= 25; x++) if ((x + y) % 2 === 0 && (x < 3 || x > 22)) F.px(x, y, 'F');
+  F.lensUnder();
+  F.pair(['KKKKK', '.KKK.', 'K...K'], 4, 6);
+  F.pair(['BB.....', '.BBB...', '...BBB.'], 2, 2);
+  F.eyewear('furious');
+  F.u2(1, 4, 'M');
+  for (let x = 1; x <= 12; x++) F.u(x, 5, 'H');
+  for (const x of [3, 6, 9]) F.u(x + 1, 5, 'M');
+  for (let x = 0; x <= 9; x++) { F.l(x, 0, 'H'); F.l(x, 1, 'M'); }
+  for (const x of [2, 5, 8]) F.l(x, 0, 'M');
+  const f = st.frame % 6;
+  F.e(23, f < 3 ? 1 : 2, 'c'); F.e(23, f < 3 ? 2 : 3, 'C'); F.e(24, f < 3 ? 2 : 3, 'C');
+  if (f >= 3) { F.e(1, 1, 'c'); F.e(1, 2, 'C'); }
+};
+
+DRAW.dainty = (F, st) => {
+  // fine dining: snooty half lids, arched brows, a prim little "o"
+  F.lensUnder();
+  if (st.blink) F.blinkEyes(st);
+  else {
+    F.spr(EYE.half, 4, 7); F.spr(EYE.half, 17, 7, true);
+    F.rect(4, 7, 5, 1, 'B'); F.rect(17, 7, 5, 1, 'B');
+    F.px(6, 8, 'W'); F.px(19, 8, 'W');
+    F.e2(3, 7, 'K'); F.e2(2, 6, 'K'); // lashes flicked out
+  }
+  F.pair(['.BBB.', 'B...B'], 4, 3);
+  F.blush();
+  F.eyewear('smug');
+  F.philtrum();
+  F.l(4, 0, 'I'); F.l(5, 0, 'I'); F.l2(3, 0, 'M'); F.l(4, 1, 'M'); F.l(5, 1, 'M');
+};
+
+DRAW.slurp = (F, st) => {
+  // SLUUURP: eyes squeezed, cheeks sucked in, lips pursed into a tight O
+  F.lensUnder();
+  F.pair(EYE.squeeze, 4, 4);
+  F.e2(4, 1, 'B'); F.e2(5, 1, 'B'); F.e2(6, 2, 'B');
+  const pull = st.frame % 4 < 2;
+  F.e2(pull ? 2 : 1, 9, 'B'); F.e2(2, 10, 'B'); F.e2(pull ? 2 : 3, 11, 'B'); F.e2(3, 12, 'B');
+  F.eyewear('chomp_closed');
+  F.u(6, 3, 'M'); F.u(7, 3, 'M');
+  F.u(5, 4, 'T'); F.u(6, 4, 'T'); F.u(7, 4, 'T'); F.u(8, 4, 'T');
+  F.u(5, 5, 'T'); F.u(6, 5, 'I'); F.u(7, 5, 'I'); F.u(8, 5, 'T');
+  F.l(3, 0, 'T'); F.l(4, 0, 'I'); F.l(5, 0, 'I'); F.l(6, 0, 'T'); F.l(4, 1, 'T'); F.l(5, 1, 'T');
+};
+
+DRAW.aim = (F, st) => {
+  // eyes locked on the snack flying overhead, jaws wide, tongue ready
+  F.lensUnder();
+  upEyes(F, st);
+  F.pair(['BBBB...', '...BBB.'], 2, 0);
+  F.eyewear('chomp_open');
+  F.openTop({ fangs: true });
+  F.u2(4, 5, 'H');
+  F.lowerLip({ tongue: true, teeth: true });
+  if (st.frame % 2) { F.l(4, 1, 'T'); F.l(5, 1, 'T'); } else { F.l(4, 1, 'T'); F.l(5, 1, 'T'); F.l(5, 2, 't'); }
 };
 
 // Scary-cute boss variants (fangs, glowing eyes, thick brows, drool)
