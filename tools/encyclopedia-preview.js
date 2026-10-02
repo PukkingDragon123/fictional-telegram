@@ -13,6 +13,7 @@ import { BUGS } from '../src/data/bugs.js';
 import { LAND_ANIMALS } from '../src/data/landAnimals.js';
 import { FOOD_ITEMS } from '../src/data/foods.js';
 import { ACHIEVEMENTS } from '../src/data/achievements.js';
+import { STRUCTURES } from '../src/data/structures.js';
 
 const Q = new URLSearchParams(location.search);
 const mode = Q.get('state') || 'mid';
@@ -46,10 +47,7 @@ function fakeGame() {
     structures: { list: built ? built.map((type) => ({ type, built: true })) : [] },
     ui: null,
   };
-  if (mode === 'full') {
-    // everything built
-    import('../src/data/structures.js').then((m) => { game.structures.list = Object.keys(m.STRUCTURES).map((type) => ({ type, built: true })); });
-  }
+  if (mode === 'full') game.structures.list = Object.keys(STRUCTURES).map((type) => ({ type, built: true }));
   if (!Q.has('no3d')) {
     try {
       const r = new THREE.WebGLRenderer({ alpha: true, antialias: false, preserveDrawingBuffer: true });

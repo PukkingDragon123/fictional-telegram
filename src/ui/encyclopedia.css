@@ -44,6 +44,11 @@
 .enc-stack { position: absolute; top: 14px; width: 416px; height: 576px; background: #ead9b2; border-radius: 2px; }
 .enc-stack-L { left: 14px; } .enc-stack-R { left: 430px; }
 .enc-spine { display: none; }
+.enc-measure { position: absolute; left: 0; top: 0; width: 416px; height: 576px; visibility: hidden; pointer-events: none; overflow: hidden; }
+.enc-entry.is-tight .enc-stat { grid-template-rows: 18px; }
+.enc-entry.is-tight .enc-stat-l { display: none; }
+.enc-entry.is-tight .enc-var-n { display: none; }
+.enc-entry.is-tight .enc-desc { line-height: 20px; }
 
 /* ---------------------------------------------------------------- spread, pages, leaves */
 .enc-spread { position: absolute; left: 14px; top: 14px; width: 832px; height: 576px; transform-style: preserve-3d; }
@@ -73,12 +78,12 @@
 .enc-cface--b { transform: rotateY(180deg) translateZ(3px); border-radius: 8px 2px 2px 8px; }
 .enc-cinside { position: absolute; left: 14px; top: 14px; width: 416px; height: 576px; }
 .enc-cshade { position: absolute; inset: 0; background: #0c0604; opacity: 0; pointer-events: none; }
-.enc-ctitle { position: absolute; left: 86px; width: 274px; top: 92px; height: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.enc-ctitle { position: absolute; left: 86px; width: 274px; top: 82px; height: 106px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .enc-cvol, .enc-cof, .enc-cpub {
   font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; color: #f0c64a; letter-spacing: 1px;
   text-shadow: 0 -2px 0 rgba(10, 2, 2, .7), 0 2px 0 rgba(255, 210, 150, .14);
 }
-.enc-cname { font-family: var(--font-title, monospace); font-size: 36px; line-height: 40px; letter-spacing: 2px; position: relative; }
+.enc-cname { font-family: var(--font-title, monospace); font-size: 54px; line-height: 54px; letter-spacing: 0; position: relative; }
 .enc-cname span {
   display: inline-block; color: transparent;
   background:
@@ -89,7 +94,7 @@
 }
 .enc-book.is-glint .enc-cname span { animation: enc-glint 1.3s ease-in-out .1s 1; }
 @keyframes enc-glint { from { background-position: 260% 0, 0 0; } to { background-position: -160% 0, 0 0; } }
-.enc-cmotto { position: absolute; left: 0; right: 0; top: 352px; text-align: center; font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; color: #5a3208; }
+.enc-cmotto { position: absolute; left: 0; right: 0; top: 438px; text-align: center; font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; color: #4a1e04; }
 .enc-cpub { position: absolute; left: 0; right: 0; top: 520px; text-align: center; font-size: 18px; color: #d8aa3a; }
 
 /* ---------------------------------------------------------------- tabs */
@@ -247,12 +252,14 @@
 .enc-seal { position: absolute; right: -16px; bottom: -20px; width: 60px; height: 60px; pointer-events: none; z-index: 2; }
 .enc-seal img { position: absolute; right: 0; bottom: 0; transform: rotate(-14deg); filter: drop-shadow(1px 3px 0 rgba(40, 10, 6, .4)); }
 .enc-stamp {
-  position: absolute; right: 26px; bottom: 150px; white-space: nowrap; padding: 3px 6px 2px;
+  position: absolute; right: 18px; top: 16px; z-index: 2; pointer-events: none; white-space: nowrap; padding: 3px 6px 2px;
   font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; letter-spacing: 1px; color: #a3282a;
   border: 2px solid #a3282a; outline: 2px solid rgba(163, 40, 42, .6); outline-offset: 2px; transform: rotate(7deg); opacity: .82; mix-blend-mode: multiply;
   -webkit-mask: var(--enc-speck) 0 0 / 64px 64px; mask: var(--enc-speck) 0 0 / 64px 64px;
 }
 .enc-plate.will-reveal .enc-seal { opacity: 0; transform: scale(2.4) rotate(-20deg); }
+.enc-plate.will-reveal .enc-stamp { opacity: 0; transform: rotate(7deg) scale(2); }
+.enc-plate.is-revealed .enc-stamp { opacity: .82; transform: rotate(7deg); transition: transform .3s cubic-bezier(.5, 0, .8, .4) .6s, opacity .1s .6s; }
 .enc-plate.is-revealed .enc-seal { opacity: 1; transform: none; transition: transform .32s cubic-bezier(.5, 0, .8, .4) .35s, opacity .1s .35s; }
 
 .enc-head { display: flex; align-items: center; gap: 8px; min-height: 36px; }

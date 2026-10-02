@@ -92,7 +92,7 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
   padding: 12px; background: var(--wood);
   box-shadow: 0 0 0 4px var(--ink), inset 0 4px 0 var(--wood-l), inset 0 -5px 0 var(--wood-d), 0 12px 0 4px rgba(10,6,4,.4);
 }
-.cls-title canvas { display: block; width: min(704px, calc(100vw - 60px)); aspect-ratio: 176 / 56; image-rendering: pixelated; box-shadow: 0 0 0 3px var(--wood-d); }
+.cls-title canvas { display: block; width: min(704px, calc(100vw - 60px)); aspect-ratio: 176 / 68; image-rendering: pixelated; box-shadow: 0 0 0 3px var(--wood-d); }
 .cls-title-nail { position: absolute; top: 6px; width: 9px; height: 9px; background: #cfcfd6; box-shadow: 0 0 0 3px var(--ink), inset -3px -3px 0 #8a8a96; }
 .cls-title-nail.l { left: 6px; } .cls-title-nail.r { right: 6px; }
 .cls-title.in { animation: cls-drop .7s cubic-bezier(.25,1.5,.5,1) both; transform-origin: 50% 0; }

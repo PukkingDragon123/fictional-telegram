@@ -31,8 +31,10 @@ const DEG = Math.PI / 180;
 
 // room extents (voxels): interior x X0..X1, back wall face at z = ZB*V
 const X0 = -92, X1 = 91, ZB = -58, ZF = 52, HT = 64;
-// chalkboard surface (world units): 192x108 texels at 0.011, low enough for the fox to reach
-export const BOARD = { w: 2.112, h: 1.188, cx: -0.35, cy: 0.32 + 0.594, z: ZB * V + 0.056, texW: 192, texH: 108 };
+// chalkboard surface (world units): 192x108 texels at 0.0125, above a low
+// wooden teacher's platform (RISER) so the fox can reach most of it
+export const BOARD = { w: 2.4, h: 1.35, cx: -0.35, cy: 0.45 + 0.675, z: ZB * V + 0.056, texW: 192, texH: 108 };
+export const RISER = { x0: -2.0, x1: 1.15, z0: ZB * V, z1: ZB * V + 0.75, h: 0.3 };
 
 // ------------------------------------------------------------------ palette
 const FLOOR = [0xc98c4e, 0xbd8046, 0xd29656, 0xb47840, 0xc68a4c, 0xbf8448];
@@ -240,6 +242,19 @@ function buildBoardFrame(R, fx) {
   R.box(bx1 - 9, y0 - 2, ZB + 2, bx1 - 3, y0 - 2, ZB + 3, 0xd4d0c4);
   R.box(bx1 - 9, y0 - 1, ZB + 2, bx1 - 3, y0 - 1, ZB + 3, 0x9a603a);
   fx.boardVox = { bx0, bx1, y0, y1 };
+  // the teacher's platform: planks on a skirted frame, with a little step at the right end
+  const rx0 = Math.round(RISER.x0 / V), rx1 = Math.round(RISER.x1 / V) - 1, rz1 = Math.round(RISER.z1 / V) - 1, rh = Math.round(RISER.h / V) - 1;
+  for (let x = rx0; x <= rx1; x++) for (let z = ZB; z <= rz1; z++) for (let y = 0; y <= rh; y++) {
+    if (y < rh && z < rz1 && x > rx0 && x < rx1) continue;
+    let c;
+    if (y === rh) {
+      const p = Math.floor((z - ZB + 100) / 5);
+      c = (z - ZB) % 5 === 0 ? 0x8a5430 : pick([0xb87a44, 0xc4844a, 0xae7240], hash2(p, Math.floor((x + 200) / 17), 6));
+      if (z === rz1) c = 0xd8a060;
+    } else c = y === 0 ? 0x5e3519 : (x + y) % 9 === 0 ? 0x7a4626 : 0x8a5430;
+    R.set(x, y, z, c);
+  }
+  for (let x = rx1 + 1; x <= rx1 + 6; x++) for (let z = ZB + 2; z <= rz1 - 2; z++) for (let y = 0; y <= 2; y++) R.set(x, y, z, y === 2 ? 0xc4844a : 0x8a5430);
 }
 
 // ================================================================== props
@@ -882,9 +897,9 @@ export function buildClassroom(opts = {}) {
     const tex = track(canvasTex(strip));
     tex.repeat.set(0.25, 1);
     const ppu = fw / fishTarget; // texels per world unit
-    const mat = track(new THREE.MeshLambertMaterial({ map: tex, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.18 }));
+    const mat = track(new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.18 }));
     const fish = new THREE.Mesh(track(new THREE.PlaneGeometry(fw / ppu, (fh + pad) / ppu)), mat);
-    fish.renderOrder = 1;
+    fish.renderOrder = 4; // after the glass + water: the fish stays crisp
     const fishHolder = new THREE.Group();
     fishHolder.add(fish);
     bg.add(fishHolder);
@@ -980,7 +995,7 @@ export function buildClassroom(opts = {}) {
   lights.desk = new THREE.PointLight(0xffc880, 0.0, 3, 1.4);
   lights.desk.position.set(W(TDESK.x0 + 14), 1.2, W(TDESK.z1) + 0.4);
   lights.board = new THREE.PointLight(0xfff4e0, 0.5, 4.5, 1.2);
-  lights.board.position.set(BOARD.cx, 1.9, BOARD.z + 1.6);
+  lights.board.position.set(BOARD.cx, 2.0, BOARD.z + 1.6);
   group.add(lights.hemi, lights.sun, lights.sun.target, lights.fill, lights.fill.target, lights.desk, lights.board);
 
   // ---- anchors
@@ -995,14 +1010,15 @@ export function buildClassroom(opts = {}) {
   const bx0 = BOARD.cx - BOARD.w / 2, bx1 = BOARD.cx + BOARD.w / 2;
   const tsx = bx1 + 0.62;
   const anchors = {
-    teacherSpot: { position: new THREE.Vector3(tsx, 0, BOARD.z + 0.72), rotationY: -0.55 },
+    teacherSpot: { position: new THREE.Vector3(tsx, 0, BOARD.z + 0.62), rotationY: -0.55 },
     deskSpot: { position: new THREE.Vector3(tdFront.x - 0.2, 0, tdFront.z + 0.05), rotationY: -0.25 },
     boardCenter: board.center.clone(),
     boardTop: BOARD.cy + BOARD.h / 2,
+    riser: { ...RISER },
     camWide: box(-4.72, 4.72, 0, 3.2, -2.95, 2.7, 30, 1.02),
-    camBoard: box(bx0 - 0.25, tsx + 0.75, 0.05, 2.05, BOARD.z, BOARD.z + 0.8, 14, 1.04),
+    camBoard: box(bx0 - 0.5, tsx + 0.75, 0.2, 1.9, BOARD.z, BOARD.z + 0.9, 26, 1.03),
     camStudents: box(-3.75, 2.95, 0.15, 1.45, -1.1, 1.75, 30, 1.04),
-    camTeacher: box(tsx - 1.2, tsx + 1.0, 0, 2.1, BOARD.z, BOARD.z + 1.0, 12, 1.05),
+    camTeacher: box(tsx - 1.1, tsx + 0.9, 0, 1.9, BOARD.z, BOARD.z + 1.0, 20, 1.05),
     camDesk: box(tdFront.x - 1.6, tdFront.x + 1.3, 0, 2.0, -2.9, tdFront.z + 0.4, 18, 1.05),
   };
 

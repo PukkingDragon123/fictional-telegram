@@ -141,6 +141,7 @@ void SPECIES;
 
 // deterministic scrub: replay from the start at 60 fps
 function seek(t) {
+  S.paused = true;
   restart();
   const dt = 1 / 60;
   for (let s = 0; s < t - 1e-6; s += dt) simulate(Math.min(dt, t - s));

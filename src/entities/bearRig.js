@@ -1681,7 +1681,7 @@ function eatKitGeometry(typeId, L) {
   const fx = -8, fz = 2;
   for (let z = fz - 1; z <= fz + 5; z++) fork.set(fx, pawY, z, z <= fz + 1 ? Sd : S);
   for (let x = fx - 1; x <= fx + 1; x++) fork.set(x, pawY, fz + 6, S);
-  for (const x of [fx - 1, fx, fx + 1]) for (let z = fz + 7; z <= fz + 9; z++) fork.set(x, pawY, z, z === fz + 9 ? Sw : x === fx ? Sd : S);
+  for (const x of [fx - 1, fx, fx + 1]) for (let z = fz + 7; z <= fz + 8; z++) fork.set(x, pawY, z, z === fz + 8 ? Sw : x === fx ? Sd : S);
   for (let z = fz; z <= fz + 2; z++) fork.set(fx - 3, pawY + 1, z, z === fz + 2 ? L.pad : fur); // the pinky, raised just so
   const knife = new VoxelModel();
   const kx = 8, kz = 2;
@@ -2921,16 +2921,16 @@ Object.assign(POSES, {
     for (const b of bites) up = Math.max(up, smooth(b - 0.3, b - 0.06, t) * (1 - smooth(b + 0.06, b + 0.24, t)));
     const lean = up;
     F.ar(B.head, 0.14 * lean, 0, 0);
-    const forkLow = _e3.set(-3.4, 12.2, 12.4 + c.bz);
-    const forkHi = _e2.set(m.x - 1.5, m.y - 9.2, m.z + 1.4);
+    // the snack rides on the fork paw: low in front of the chest for cutting, up at the lips to bite
+    const low = _e3.set(-2.6, 13.2, 12.2 + c.bz);
+    const hi = _e2.set(m.x - 0.6, m.y - 0.4, m.z + 0.8);
+    const at = mixV(_e3, low, hi, up);
     if (t < 0.46) {
       const l = F.aim(B.armL, -4, 14, 10 + c.bz, 0.7);
       F.hold(l.x + 1, l.y + 0.4, l.z + 0.8);
     } else {
-      P.at = t < 3.34 ? 'fork' : 'hold';
-      const tg = mixV(_e3, forkLow, forkHi, up);
-      F.aim(B.armL, tg.x, tg.y, tg.z, 0);
-      if (P.at === 'hold') { const l = F.end[B.armL]; F.hold(l.x + 1, l.y + 0.4, l.z + 0.8); }
+      F.hold(at.x, at.y, at.z);
+      F.aim(B.armL, at.x - 2.2, at.y - 2.6, at.z - 1.2, 0.7);
     }
     // the knife arm: tuck the napkin, saw away, dab the lips
     const tuck = win(t, 0.02, 0.42, 0.1, 0.1);
@@ -3585,7 +3585,7 @@ export class BearRig {
     const cut = Math.max(0, a[X_CUTLERY]);
     for (const m of [k.fork, k.knife]) {
       m.visible = cut > 0.05;
-      if (m.visible) { m.material = mat; m.scale.setScalar(Math.min(1.3, cut)); }
+      if (m.visible) { m.material = mat; m.scale.setScalar(Math.min(1.3, cut) * 1.2); }
     }
     void dt;
   }

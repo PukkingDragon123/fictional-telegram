@@ -121,13 +121,13 @@ function zap(ctx, dest, o, kit) {
 }
 
 export const EXTRA_SFX = {
-  bag_rustle: { fn: bagRustle, max: 2, gap: 0.08, g: 1.6 },
-  scoop: { fn: scoop, max: 3, gap: 0.05, g: 1.6 },
-  bag_empty: { fn: bagEmpty, max: 1, gap: 0.25, g: 1.5 },
-  harvest_pop: { fn: harvestPop, max: 4, gap: 0.05, g: 1.8 },
-  harvest_special: { fn: harvestSpecial, max: 1, gap: 0.6, g: 1.4 },
-  bowl_fill: { fn: bowlFill, max: 2, gap: 0.08, g: 1.8 },
-  crate_drop: { fn: crateDrop, max: 2, gap: 0.08, g: 1.6 },
-  grinder: { fn: grinder, max: 2, gap: 0.3, g: 1.6 },
-  zap: { fn: zap, max: 3, gap: 0.08, g: 1.4 },
+  bag_rustle: { fn: bagRustle, max: 2, gap: 0.08, g: 2.3 },
+  scoop: { fn: scoop, max: 3, gap: 0.05, g: 5.8 },
+  bag_empty: { fn: bagEmpty, max: 1, gap: 0.25, g: 1.9 },
+  harvest_pop: { fn: harvestPop, max: 4, gap: 0.05, g: 3.5 },
+  harvest_special: { fn: harvestSpecial, max: 1, gap: 0.6, g: 2.0 },
+  bowl_fill: { fn: bowlFill, max: 2, gap: 0.08, g: 4.8 },
+  crate_drop: { fn: crateDrop, max: 2, gap: 0.08, g: 3.1 },
+  grinder: { fn: grinder, max: 2, gap: 0.3, g: 3.2 },
+  zap: { fn: zap, max: 3, gap: 0.08, g: 4.4 },
 };

@@ -1296,11 +1296,11 @@ export class UI {
     const FP = C('FoodPicker');
     const to = document.querySelector('#toolbar .tool[data-tool="feed"]') || null;
     if (FP?.harvestPopup) {
-      try { FP.harvestPopup({ root: this.root, items, from: { x: q.x, y: q.y }, to }); } catch (e) { console.warn('harvestPopup', e); }
+      try { FP.harvestPopup({ root: this.root, items, from: { x: q.x, y: q.y }, to, sfx: (n, o) => game.audio.play(n, { volume: 0.5, ...(o || {}) }) }); } catch (e) { console.warn('harvestPopup', e); }
     } else {
       for (const it of items) this.floatTextAt(s.x + 0.5, y + 0.5, s.z + 0.5, `+${it.count} ${FOOD_ITEMS[it.id]?.name || it.id}`, RARITIES[it.rarity || 0]?.glow || '#fff3a0');
     }
-    if (items.some((it) => it.special)) {
+    if (!FP?.harvestPopup && items.some((it) => it.special)) {
       const sp = items.find((it) => it.special);
       this.notify(`SPECIAL FIND! ${FOOD_ITEMS[sp.id]?.name}!`, 'happy');
     }

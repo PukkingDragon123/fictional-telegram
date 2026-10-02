@@ -497,7 +497,7 @@ class Pose {
     this.aimArm = 1; this.aimBody = 1; // how much the aim may drive the right arm / turn the torso
     this.aimPole = null; // elbow pole override [x(out), y, z]
     // both-paw hold: anchor in chest space (voxels) + tilt, and weight
-    this.both = null; this.bothRx = 0; this.bothRz = 0; this.bothW = 1;
+    this.both = null; this.bothRx = 0; this.bothRz = 0; this.bothW = 1; this.bothGrab = null; // grab height (0 = bottom .. 1 = top of the object)
     // wrist alignment of the right-hand prop axis to a chest-space direction
     this.propDir = null; this.propDirW = 0;
     this.keepPawR = false; // let the anim pick the right paw shape even while holding a prop
@@ -1041,8 +1041,9 @@ export class FoxRig {
       B.hw = clamp((box.max.x - box.min.x) / 2 / VS, 1.6, 9);
       B.cx = (box.max.x + box.min.x) / 2 / VS;
       B.cy = clamp((box.min.y + box.max.y) / 2 / VS, -4, 8);
+      B.ylo = box.min.y / VS; B.yhi = box.max.y / VS;
       B.cz = (box.max.z + box.min.z) / 2 / VS;
-    } else { B.hw = 2.5; B.cx = 0; B.cy = 0; B.cz = 0; }
+    } else { B.hw = 2.5; B.cx = 0; B.cy = 0; B.cz = 0; B.ylo = B.yhi = 0; }
     return this.bothAnchor;
   }
 
@@ -1267,7 +1268,8 @@ export class FoxRig {
       this.bothAnchor.position.copy(B.pos).multiplyScalar(VS);
       this.bothAnchor.rotation.set(B.rx, 0, B.rz);
       for (const [Am, s] of [[this.armL, 1], [this.armR, -1]]) {
-        const T = _h4.set(B.cx + s * (B.hw + 0.9), B.cy, B.cz).applyEuler(this.bothAnchor.rotation).add(B.pos);
+        const gy = p.bothGrab != null && B.yhi > B.ylo ? lerp(B.ylo, B.yhi, p.bothGrab) : B.cy;
+        const T = _h4.set(B.cx + s * (B.hw + 0.9), gy, B.cz).applyEuler(this.bothAnchor.rotation).add(B.pos);
         const arm = this._ikArm;
         arm.side = s; arm.tx = T.x; arm.ty = T.y; arm.tz = T.z;
         arm.px = 1; arm.py = -0.45; arm.pz = -0.55; arm.st = 2.2;
@@ -3204,15 +3206,16 @@ def('present_trophy', {
     p.hipY = -bend * 1.5; p.lL.sw = p.lR.sw = -bend * 0.5 - air * 0.2; p.lL.kn = p.lR.kn = bend * 1.05 + air * 0.6;
     p.lL.sp = p.lR.sp = 0.12;
     // the anchor: hugged at the chest -> high above the tipped-back face
-    const ay = lerp(lerp(2.2, 1.2, crouch), 15.2, max(0, up)) + pump * 0.7;
-    const az = lerp(6.8, 8.4, clamp01(up));
-    bothAt(p, sin(h * 1.7) * 0.4 * smooth(h / 0.5), ay, az, 1, 2.1);
+    const ay = lerp(lerp(2.2, 1.2, crouch), 17, max(0, up)) + pump * 0.7;
+    const az = lerp(6.8, 6.6, clamp01(up));
+    p.bothGrab = lerp(0.5, 0.62, clamp01(up));
+    bothAt(p, sin(h * 1.7) * 0.4 * smooth(h / 0.5), ay, az, 1, 2.2);
     p.bothRz = sin(h * 1.7) * 0.06;
     p.aL.shY = p.aR.shY = clamp01(up) * 1.2;
     // chest out, chin up, looking up at it
     const u1 = clamp01(up);
-    p.lean = -0.1 * u1 + crouch * 0.12; p.chRx += -0.12 * u1 + crouch * 0.15;
-    p.hRx += -0.42 * u1 + crouch * 0.25 + pump * 0.04; p.hRz += sin(h * 1.7) * 0.06;
+    p.lean = -0.1 * u1 + crouch * 0.06; p.chRx += -0.12 * u1 + crouch * 0.08;
+    p.hRx += -0.16 * u1 + crouch * 0.12 + pump * 0.04; p.hRz += sin(h * 1.7) * 0.06;
     p.hSq *= 1 + air * 0.06;
     p.tLift += 0.7 * u1; p.tPuff = 1 + 0.25 * u1; p.tSide += sin(t * 9) * 0.5 * u1;
     p.eL.fl = p.eR.fl = -0.2 * u1; p.eL.sp = p.eR.sp = 0.1;
@@ -3378,8 +3381,8 @@ def('chef_taste', {
     const fling = K(t, [[1.7, 0], [1.85, 1, 'out'], [2.25, 1], [2.6, 0, 'io']]);
     if (t > 1.15) {
       const w = max(kiss, fling);
-      p.ik(p.aL, lerp(1.2, 8.4, fling), lerp(9.2, 11.6, fling), lerp(10.4, 6.8, fling), 1, -0.6, 0.2, w);
-      p.aL.st = 1.5;
+      p.ik(p.aL, lerp(1.2, 11.6, fling), lerp(9.2, 12.8, fling), lerp(10.4, 3.2, fling), 1, -0.6, 0.2, w);
+      p.aL.st = 1.6;
       p.aL.wx = lerp(-1.6, -0.4, fling) * w; p.aL.wz = -0.6 * fling;
       p.pawL = fling > 0.3 ? 'open' : kiss > 0.3 ? 'fist' : 'relax';
       p.hRz += -0.1 * fling; p.hRx += -0.15 * fling; p.chRz -= 0.06 * fling;

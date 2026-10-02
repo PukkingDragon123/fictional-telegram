@@ -190,7 +190,7 @@ export function startEat(game, { rig, style = 'chomp', prey, parent = null, spee
           const dainty = style === 'fancy' || style === 'rip';
           gore(dainty ? 2 : 4, dainty ? 0.4 : 0.7);
           sfx(style === 'fancy' ? 'nibble' : n % 2 ? 'squelch' : 'chomp', { volume: style === 'fancy' ? 0.3 : 0.45 });
-          if (n === 1 || !dainty) word(dainty ? 'nom' : n === 1 ? 'chomp' : 'munch', m, dainty ? 0.75 : 0.9);
+          if (n === 1) word(dainty ? 'nom' : n === 1 ? 'chomp' : 'munch', m, dainty ? 0.75 : 0.9);
           if (style === 'rip' && n === 3) setTimeout(() => word('mmm', rig.headTop(_a), 0.9), 250);
           break;
         }
@@ -228,7 +228,7 @@ export function startEat(game, { rig, style = 'chomp', prey, parent = null, spee
         case 'cut': sfx('nibble', { volume: 0.15, pitch: 1.8 }); break;
         case 'dab': sfx('napkin', { volume: 0.3, pitch: 1.3 }); P?.sparkle(m.x, m.y, m.z, 2, 0xffffff); break;
         case 'poof': P?.puff?.(m.x, m.y - 0.4, m.z, 6, 0.2); sfx('pop', { volume: 0.25, pitch: 1.4 }); break;
-        case 'shake': sfx('whoosh', { volume: 0.18, pitch: 1.6 + Math.random() * 0.4 }); if (fish && Math.random() < 0.5) P?.blood(m.x, m.y, m.z, 2, dir, 0.5); else if (!fish) P?.feathers(m.x, m.y, m.z, 1); break;
+        case 'shake': sfx('whoosh', { volume: 0.18, pitch: 1.6 + Math.random() * 0.4 }); if (fish && Math.random() < 0.2) P?.blood(m.x, m.y, m.z, 1, dir, 0.5); else if (!fish) P?.feathers(m.x, m.y, m.z, 1); break;
         case 'ding': sfx('ding', { volume: 0.45 }); word('ding', m, 1); break;
         case 'done': {
           if (this._said) break;

@@ -102,7 +102,17 @@ export class FoodPicker {
     el.addEventListener('click', (e) => this.onClick(e));
     el.addEventListener('pointerdown', (e) => e.stopPropagation());
     this.root.appendChild(el);
+    this.onResize = () => this.anchor();
+    addEventListener('resize', this.onResize);
     this.refresh(true);
+  }
+
+  // sit right on top of the toolbar, whatever frame / screen size it has
+  anchor() {
+    const tb = document.getElementById('toolbar');
+    if (!tb || !tb.offsetHeight) { this.el.style.bottom = ''; return; }
+    const r = tb.getBoundingClientRect(), host = this.root.getBoundingClientRect();
+    this.el.style.bottom = Math.max(0, Math.round(host.bottom - r.top - 3)) + 'px';
   }
 
   ico(name, scale = 2) {
@@ -116,6 +126,7 @@ export class FoodPicker {
   show() {
     if (this.shown) return;
     this.shown = true;
+    this.anchor();
     this.refresh();
     this.el.classList.remove('fp-out');
     this.el.classList.add('fp-on');
@@ -162,6 +173,7 @@ export class FoodPicker {
   dispose() {
     for (const t of this.timers) clearTimeout(t);
     this.timers.clear();
+    removeEventListener('resize', this.onResize);
     this.el.remove();
   }
 

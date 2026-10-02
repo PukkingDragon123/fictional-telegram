@@ -22,14 +22,14 @@ import * as THREE from 'three';
 import { CameraRig } from '../core/cameraRig.js';
 import { Transition } from '../ui/Transition.js';
 import { Chalkboard, measureText, slateURL } from '../ui/Chalkboard.js';
-import { spriteImg, hasSprite } from '../ui/sprites.js';
-import { buildClassroom, BOARD } from '../entities/classroomScene.js';
+import { spriteImg, spriteCanvas, hasSprite } from '../ui/sprites.js';
+import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
 
 const mods = import.meta.glob(['../entities/foxRig.js'], { eager: true });
 const FoxMod = mods['../entities/foxRig.js'] || null;
 
-const FOX_SCALE = 1.3;
+const FOX_SCALE = 0.95;
 const WALK_SPEED = 1.35;
 const SKIP = Symbol('skip');
 
@@ -454,8 +454,8 @@ export class Classroom {
 
   // where to stand to touch the board at world point p with the chalk / pointer
   _standFor(p, tool) {
-    const off = tool === 'chalk' ? { x: -0.34, z: 0.5 } : { x: 0.95, z: 0.74 };
-    const x = Math.max(BOARD.cx - BOARD.w / 2 - 0.2, Math.min(BOARD.cx + BOARD.w / 2 + 1.0, p.x + off.x));
+    const off = tool === 'chalk' ? { x: 0.4, z: 0.22 } : { x: 0.82, z: 0.6 };
+    const x = Math.max(BOARD.cx - BOARD.w / 2 - 0.2, Math.min(BOARD.cx + BOARD.w / 2 + 1.0, p.x + off.x * FOX_SCALE));
     return new THREE.Vector3(x, 0, BOARD.z + off.z);
   }
 
@@ -468,7 +468,7 @@ export class Classroom {
       let x0 = 96, y0 = 54;
       if (first) { const a = first.arrow || first.line; x0 = a ? a[0] : first.x; y0 = a ? a[1] : first.y; }
       const p = room.board.pxToWorld(x0, y0, new THREE.Vector3());
-      await this.walkTo(this._standFor(p, 'chalk'), Math.PI - 0.3);
+      await this.walkTo(this._standFor(p, 'chalk'), -Math.PI / 2);
       this._check();
       f.play(this._anim('chalk_draw', 'idle'), { loop: true, fade: 0.25 });
       this.aimV.copy(p);
@@ -513,7 +513,7 @@ export class Classroom {
     if (f) {
       f.holdProp?.(null);
       const p = room.board.pxToWorld(20, 54, new THREE.Vector3());
-      await this.walkTo(this._standFor(p, 'chalk'), Math.PI - 0.3);
+      await this.walkTo(this._standFor(p, 'chalk'), -Math.PI / 2);
       this._check();
       f.play(this._anim('chalk_draw', 'idle'), { loop: true, fade: 0.2 });
       this.aimV.copy(p);
@@ -617,14 +617,21 @@ export class Classroom {
       const dx = stand.x - root.position.x;
       if (Math.abs(dx) > 0.12) root.position.x += Math.sign(dx) * Math.min(Math.abs(dx) - 0.1, dt * 1.6);
       root.position.z += (stand.z - root.position.z) * Math.min(1, dt * 4);
-      fs.yaw = Math.PI - 0.3;
+      fs.yaw = -Math.PI / 2;
       // up on tiptoes for the top of the board
-      const lift = Math.max(0, Math.min(0.1, (w.y - 1.3) * 0.4));
-      root.position.y += (lift - root.position.y) * Math.min(1, dt * 8);
+      const lift = Math.max(0, Math.min(0.2, (w.y - 1.3) * 0.5));
+      fs.lift = (fs.lift || 0) + (lift - (fs.lift || 0)) * Math.min(1, dt * 8);
     } else if (fs.faceCam) {
       fs.yaw = this.room.anchors.teacherSpot.rotationY;
     }
-    if (!fs.follow && root.position.y > 0) root.position.y = Math.max(0, root.position.y - dt * 0.6);
+    // step up onto the teacher's platform in front of the board
+    const p = root.position;
+    const ground = p.x > RISER.x0 + 0.05 && p.x < RISER.x1 + 0.05 && p.z < RISER.z1 + 0.08 ? RISER.h : 0;
+    fs.ground = fs.ground ?? ground;
+    fs.ground += (ground - fs.ground) * Math.min(1, dt * 12);
+    fs.lift = fs.lift || 0;
+    if (!fs.follow) fs.lift = Math.max(0, fs.lift - dt * 0.8);
+    p.y = fs.ground + fs.lift;
     let dy = fs.yaw - root.rotation.y;
     dy = Math.atan2(Math.sin(dy), Math.cos(dy));
     root.rotation.y += dy * Math.min(1, dt * 7);
@@ -699,7 +706,8 @@ export class Classroom {
     this._expr(ex);
     const port = PORTRAIT[ex] || 'smug';
     const pEl = this.q('portrait');
-    pEl.innerHTML = hasSprite('fox_' + port) ? spriteImg('fox_' + port, 3) : '';
+    const url = teacherPortrait(port);
+    pEl.innerHTML = url ? `<img src="${url}" width="96" height="96" alt="" draggable="false" style="image-rendering:pixelated">` : (hasSprite('fox_' + port) ? spriteImg('fox_' + port, 3) : '');
     pEl.classList.remove('bop'); void pEl.offsetWidth; pEl.classList.add('bop');
     // **bold** keywords and [[icon]] sprites, every char its own span
     const host = this.q('text');
@@ -767,7 +775,7 @@ export class Classroom {
     const host = this.q('title');
     if (!host) return;
     const cv = this.q('tcv');
-    const b = new Chalkboard({ w: 176, h: 56, canvas: cv, seed: 5 + (script.number || 0), ghosts: false });
+    const b = new Chalkboard({ w: 176, h: 68, canvas: cv, seed: 5 + (script.number || 0), ghosts: false });
     b.onSound = (n, o) => this._sfx(n === 'chalk' ? 'class_chalk' : 'class_chalk_down', { ...o, volume: (o?.volume || 0.4) * 0.6 });
     this.titleBoard = b;
     host.classList.remove('hidden', 'out');
@@ -780,7 +788,7 @@ export class Classroom {
       { text: title, x: 88, y: 26, scale: sc, id: 't' },
       { underline: 't', color: script.color || 'yellow', wavy: true },
     ];
-    if (script.doodle) items.push({ doodle: script.doodle, x: 88, y: 46 });
+    if (script.doodle) items.push({ doodle: script.doodle, x: 88, y: 53, scale: 2 });
     await this.wait(0.35);
     await Promise.race([b.draw(items, { speed: 1.6 }), this.wait(5)]);
     await Promise.race([this.wait(1.1), this._click(0.1)]);
@@ -805,6 +813,55 @@ export class Classroom {
   }
 
   _sfx(name, o) { try { this.game.audio?.play?.(name, o); } catch { /* ignore */ } }
+}
+
+// the dialogue portrait in teacher garb: swap the top hat for a mortarboard
+const _portraits = new Map();
+function teacherPortrait(expr) {
+  if (_portraits.has(expr)) return _portraits.get(expr);
+  let url = null;
+  try {
+    const name = 'fox_' + expr;
+    if (!hasSprite(name)) throw new Error('no sprite');
+    const src = spriteCanvas(name, 1);
+    const w = src.width, h = src.height;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(src, 0, 0);
+    const d = ctx.getImageData(0, 0, w, h).data;
+    // the hat band: the row with the most warm (orange/red) pixels over the head
+    let band = -1, best = 3;
+    for (let y = 0; y < 10; y++) {
+      let n = 0;
+      for (let x = 10; x <= 21; x++) { const i = (y * w + x) * 4; if (d[i + 3] > 0 && d[i] > 170 && d[i + 1] < 150) n++; }
+      if (n > best) { best = n; band = y; }
+    }
+    if (band < 0) throw new Error('no hat');
+    const brim = band + 2;
+    ctx.clearRect(9, 0, 14, brim);
+    const P = (x, y, col) => { if (y >= 0) { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); } };
+    const K = '#120e18', B = '#2c2640', BL = '#4a4064', BD = '#1e1a2c', G = '#f2c230', GD = '#b8861c';
+    // skull cap
+    for (let y = brim - 2; y <= brim; y++) for (let x = 11; x <= 20; x++) P(x, y, x === 11 || x === 20 ? K : y === brim - 2 ? BL : B);
+    // the flat board, a squashed diamond seen from the front
+    const rows = [[11, 20], [7, 24], [5, 26], [8, 23]];
+    rows.forEach(([a, b], i) => { for (let x = a - 1; x <= b + 1; x++) P(x, brim - 6 + i, x < a || x > b ? K : i === 0 ? BL : i === 3 ? BD : B); });
+    for (let x = 10; x <= 21; x++) P(x, brim - 7, K);
+    // button + tassel swinging off the right corner
+    P(15, brim - 6, G); P(16, brim - 6, G);
+    for (let x = 17; x <= 24; x++) P(x, brim - 5 + (x > 21 ? 1 : 0), G);
+    for (let y = brim - 3; y <= brim + 2; y++) P(25, y, y > brim ? GD : G);
+    P(24, brim + 2, G); P(26, brim + 2, GD); P(25, brim + 3, GD);
+    const big = document.createElement('canvas');
+    big.width = w * 3; big.height = h * 3;
+    const b2 = big.getContext('2d');
+    b2.imageSmoothingEnabled = false;
+    b2.drawImage(c, 0, 0, big.width, big.height);
+    url = big.toDataURL();
+  } catch { url = null; }
+  _portraits.set(expr, url);
+  return url;
 }
 
 // a smiling gold star sticker (pixel art)

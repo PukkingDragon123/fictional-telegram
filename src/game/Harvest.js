@@ -189,7 +189,7 @@ export class Harvest {
     game.particles.leaf?.(s.x + 0.5, y + 0.5, s.z + 0.5, 0x7ad04a);
     game.particles.popIn(s.x + 0.5, y + 0.4, s.z + 0.5, 0.8);
     if (b.special || b.r >= 3) game.particles.confetti(s.x + 0.5, y + 0.8, s.z + 0.5, 24);
-    game.audio.play(b.special ? 'harvest_special' : 'harvest_pop', { volume: 0.5 });
+    if (!game.ui?.onHarvest) game.audio.play(b.special ? 'harvest_special' : 'harvest_pop', { volume: 0.5 });
     game.ui?.onHarvest?.(s, items);
     game.emit('harvested', { s, items });
     return items;

@@ -791,9 +791,9 @@ const MASCOT_ART = {
     // pearls
     for (const [x, y] of [[12, 9], [12, 11], [13, 13], [12, 15], [12, 17]]) g.set(x, y, 'p');
     // crown
-    g.stamp(5, 1, ['Y.Y.Y.Y', 'YYYYYYY', 'YjYzYjY', 'YYYYYYY'].map((r) => r.replace(/\./g, '.')));
-    g.set(5, 0, 'y').set(8, 0, 'y').set(11, 0, 'y');
-    g.rect(5, 5, 7, 2, 'Y');
+    g.stamp(5, 3, ['Y.Y.Y.Y', 'YYYYYYY', 'YjYzYjY', 'YYYYYYY']);
+    g.set(5, 2, 'y').set(8, 2, 'y').set(11, 2, 'y');
+    g.rect(6, 7, 6, 2, 'Y');
     return { g, key };
   },
 

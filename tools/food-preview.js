@@ -15,6 +15,7 @@ const sec = (name) => !only || only.split(',').includes(name);
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
 app.append(h('h1', '', 'The Bear Must Eat: food packaging'));
+if (only !== 'picker') app.append(h('p', '', '<a style="color:#ffd23f" href="?only=picker">Open the live Food picker + harvest popup demo</a> (buttons: throw, empty, harvest, legendary, every sound)'));
 
 if (sec('mascots')) {
   app.append(h('h2', '', 'Mascots'));

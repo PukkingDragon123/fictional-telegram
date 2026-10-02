@@ -207,7 +207,7 @@ function crestPix() {
   for (let x = 5; x < 67; x++) {
     const w = Math.sin(((x - 5) / 62) * Math.PI) * 1.6;
     const y0 = Math.round(55 - w);
-    for (let y = y0; y < y0 + 6; y++) goldAt(p, x, y, y === y0 ? 5 : y === y0 + 5 ? 1 : 3, 7);
+    for (let y = y0; y < y0 + 6; y++) p.set(x, y, GOLD[y === y0 ? 6 : y === y0 + 5 ? 2 : 5]);
   }
   for (const [x0, dir] of [[5, -1], [66, 1]]) for (let k = 0; k < 5; k++) for (let y = 56 + k - 2; y < 61 - (k === 4 ? 2 : 0); y++) goldAt(p, x0 + dir * k, y, 2, 7);
   return p;
@@ -252,7 +252,7 @@ function coverPix() {
     fleur.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') goldAt(p, fx - 3 + i, fy - 3 + j, i === 3 && j === 3 ? 6 : 4, 15); }));
   }
   // title cartouche: a double frame with notched corners
-  const tx0 = 40, tx1 = W - 33, ty0 = 44, ty1 = 92;
+  const tx0 = 40, tx1 = W - 33, ty0 = 38, ty1 = 96;
   for (const [x, y] of rectPts(tx0, ty0, tx1, ty1)) if (!((x - tx0 < 3 || tx1 - x < 3) && (y - ty0 < 3 || ty1 - y < 3))) goldAt(p, x, y, 4, 16);
   for (const [x, y] of rectPts(tx0 + 3, ty0 + 3, tx1 - 3, ty1 - 3)) goldAt(p, x, y, 2, 17);
   for (const [x, y] of [[tx0 + 1, ty0 + 1], [tx1 - 1, ty0 + 1], [tx0 + 1, ty1 - 1], [tx1 - 1, ty1 - 1]]) goldAt(p, x, y, 5, 18);
@@ -265,13 +265,13 @@ function coverPix() {
   rule(102);
   rule(H - 52);
   // the crest
+  // the crest, each crest texel doubled (chunky gold leaf)
   const cr = crestPix();
-  const cx0 = Math.round((tx0 + tx1) / 2 - cr.w / 2), cy0 = 120;
-  for (let y = 0; y < cr.h; y++) for (let x = 0; x < cr.w; x++) {
-    const c = cr.get(x, y);
-    if (!c) continue;
-    p.set(cx0 + x, cy0 + y, c);
-    p.mix(cx0 + x + 1, cy0 + y + 1, LEATHER[0], 0.3);
+  const cx0 = Math.round((tx0 + tx1) / 2 - cr.w), cy0 = 108;
+  for (let y = 0; y < cr.h * 2; y++) for (let x = 0; x < cr.w * 2; x++) {
+    const c = cr.get(x >> 1, y >> 1);
+    if (c) p.set(cx0 + x, cy0 + y, c);
+    else if (cr.get((x - 1) >> 1, (y - 1) >> 1)) p.mix(cx0 + x, cy0 + y, LEATHER[0], 0.55); // pressed-in shadow
   }
   // brass corners
   cornerPiece(p, W - 1, 0, -1, 1);
@@ -342,14 +342,14 @@ function blankPagePix(side, seed) {
 }
 
 // ---------------------------------------------------------------- marbled endpaper
-const MARBLE = ramp(['#5a1418', '#8a2a24', '#c8a050', '#e8d8b0', '#1f4a52', '#2e6a6a', '#e8d8b0', '#20304e']);
+const MARBLE = ramp(['#6a1a1e', '#8e3a2c', '#d8c49a', '#c89a48', '#e6d6b0', '#2a5a5a', '#3e7270', '#d8c49a', '#7a2a24', '#24384e']);
 function marblePix(w, h, seed = 4) {
   const p = new Pix(w, h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const w1 = fbm(x, y, 46, 3, seed) - 0.5, w2 = fbm(x + 91, y + 37, 46, 3, seed + 1) - 0.5;
-    const u = x + w1 * 70, v = y + w2 * 70;
-    const comb = Math.sin(u * 0.22) * 1.1;
-    const t = v * 0.085 + Math.sin(u * 0.045 + v * 0.02) * 2.6 + comb + Math.sin(u * 0.013) * 4;
+    const w1 = fbm(x, y, 40, 3, seed) - 0.5, w2 = fbm(x + 91, y + 37, 40, 3, seed + 1) - 0.5;
+    const u = x + w1 * 48, v = y + w2 * 48;
+    const comb = Math.sin(u * 0.5) * 0.45;
+    const t = v * 0.16 + Math.sin(u * 0.06 + v * 0.02) * 2.2 + comb + Math.sin(u * 0.017) * 3;
     const band = Math.floor(t), fr = t - band;
     let c = MARBLE[((band % MARBLE.length) + MARBLE.length) % MARBLE.length];
     if (fr < 0.1) c = mixc(c, [20, 12, 10], 0.55);
@@ -703,7 +703,7 @@ export class Encyclopedia {
     this.revealed = new Set();
     this._html = new Map();
     this._sil = new Map();
-    this._noNote = new Set();
+    this._fitLvl = new Map();
   }
 
   get isOpen() { return this.state === 'open' || this.state === 'opening'; }
@@ -724,7 +724,7 @@ export class Encyclopedia {
     try { commitDexSeen(this.game, this.book); } catch (e) { console.warn('dexSeen', e); }
     this.revealed.clear();
     this._html.clear();
-    this._noNote.clear();
+    this._fitLvl.clear();
     this.buildPages();
     this.buildDOM();
     this.layout();
@@ -823,6 +823,7 @@ export class Encyclopedia {
             <div class="enc-cast enc-cast-L"></div>
             <div class="enc-cast enc-cast-R"></div>
             <div class="enc-gutter"></div>
+            <div class="enc-measure" aria-hidden="true"></div>
             <div class="enc-cover">
               <div class="enc-cface enc-cface--f ${cover}">
                 <div class="enc-ctitle">
@@ -852,7 +853,7 @@ export class Encyclopedia {
     this.root.appendChild(el);
     this.el = el;
     const $ = (s) => el.querySelector(s);
-    this.$ = { stage: $('.enc-stage'), book: $('.enc-book'), spread: $('.enc-spread'), L: $('.enc-L'), R: $('.enc-R'), castL: $('.enc-cast-L'), castR: $('.enc-cast-R'), cover: $('.enc-cover'), tabs: $('.enc-tabs'), fx: $('.enc-fx'), stackL: $('.enc-stack-L'), stackR: $('.enc-stack-R'), prev: $('.enc-corner-prev'), next: $('.enc-corner-next'), close: $('.enc-close'), ribbon: $('.enc-ribbon'), dim: $('.enc-dim') };
+    this.$ = { stage: $('.enc-stage'), book: $('.enc-book'), spread: $('.enc-spread'), L: $('.enc-L'), R: $('.enc-R'), castL: $('.enc-cast-L'), castR: $('.enc-cast-R'), cover: $('.enc-cover'), tabs: $('.enc-tabs'), fx: $('.enc-fx'), stackL: $('.enc-stack-L'), stackR: $('.enc-stack-R'), measure: $('.enc-measure'), prev: $('.enc-corner-prev'), next: $('.enc-corner-next'), close: $('.enc-close'), ribbon: $('.enc-ribbon'), dim: $('.enc-dim') };
     this.fxc = this.$.fx.getContext('2d');
     this.$.prev.style.backgroundImage = `url(${cached('cornerP', () => cornerPix(-1).canvas().toDataURL())})`;
     this.$.next.style.backgroundImage = `url(${cached('cornerN', () => cornerPix(1).canvas().toDataURL())})`;
@@ -931,8 +932,21 @@ export class Encyclopedia {
   pageEl(i) {
     let tpl = this._html.get(i);
     if (!tpl) {
-      tpl = document.createElement('template');
-      tpl.innerHTML = this.pageHTML(i).trim();
+      const make = () => { const t = document.createElement('template'); t.innerHTML = this.pageHTML(i).trim(); return t; };
+      tpl = make();
+      // crowded entry pages tighten up until they fit: no note, a shorter plate, compact stats
+      if (this.pages[i]?.kind === 'entries' && this.$?.measure) {
+        for (let lvl = this._fitLvl.get(i) || 0; lvl < 3; lvl++) {
+          const n = tpl.content.firstElementChild.cloneNode(true);
+          this.$.measure.replaceChildren(n);
+          const col = n.querySelector('.enc-entry:not(.is-compact)');
+          const over = col && col.scrollHeight > col.clientHeight + 1;
+          this.$.measure.replaceChildren();
+          if (!over) break;
+          this._fitLvl.set(i, lvl + 1);
+          tpl = make();
+        }
+      }
       this._html.set(i, tpl);
     }
     return tpl.content.firstElementChild.cloneNode(true);
@@ -1053,7 +1067,7 @@ export class Encyclopedia {
         <div class="enc-bp-name">Reynard Fox, Esq.</div>
         <div class="enc-bp-sub">Proprietor &middot; All-U-Can-Eat Pond</div>
       </div>
-      <div class="enc-sticky"><b>How to read me</b><br>Tabs = chapters<br>Drag a page corner<br>&larr; &rarr; to flip &middot; Esc to close</div>
+      <div class="enc-sticky"><b>How to read me</b><br>Tabs = chapters<br>Drag a page corner<br>&larr; &rarr; flip, Esc shuts</div>
       <div class="enc-endnote">${B.known} of ${B.total} logged</div>`;
   }
   htmlBackpaper() { return '<div class="enc-backnote">Printed at the pond. Do not feed this book to bears.</div>'; }
@@ -1153,15 +1167,16 @@ export class Encyclopedia {
         <span class="enc-stat-i">${this.icon(s.icon, s.color)}</span><span class="enc-stat-v">${e.known ? esc(s.value) : '???'}</span><span class="enc-stat-l">${esc(s.label)}</span></div>`).join('')}</div>`;
   }
 
-  plateHTML(ch, e, { compact = false } = {}) {
-    const W = compact ? 120 : PW - 70, H = compact ? 110 : 176;
+  plateHTML(ch, e, { compact = false, short = false } = {}) {
+    const W = compact ? 120 : PW - 74, H = compact ? 110 : short ? 144 : 176;
     const style = e.plate || ch.plate || 'water';
-    const wash = texClass(`wash_${style}_${compact ? 'c' : 'b'}`, () => washPix(style, W / TX, H / TX).canvas());
-    const frame = texClass(`frame_${compact ? 'c' : 'b'}`, () => plateFramePix(W / TX, H / TX).canvas());
+    const sz = `${W}x${H}`;
+    const wash = texClass(`wash_${style}_${sz}`, () => washPix(style, W / TX, H / TX).canvas());
+    const frame = texClass(`frame_${sz}`, () => plateFramePix(W / TX, H / TX).canvas());
     const reveal = e.isNew && !this.revealed.has(`${ch.id}:${e.id}`);
     const known = e.known && !reveal;
     const art = this.imgTag(`${ch.id}:${e.id}`, e.art, known, { bw: W - 40, bh: H - (compact ? 22 : 44), max: compact ? 5 : 8, cls: 'enc-art', silhouette: e.silhouette });
-    const seal = e.known && ch.id !== 'trophies' && !compact ? `<div class="enc-seal"><img src="${cached('wax', () => waxSealPix().canvas().toDataURL())}" width="60" height="60" alt=""><span class="enc-stamp">DISCOVERED</span></div>` : '';
+    const seal = e.known && ch.id !== 'trophies' && !compact ? `<div class="enc-seal"><img src="${cached('wax', () => waxSealPix().canvas().toDataURL())}" width="60" height="60" alt=""></div><span class="enc-stamp">DISCOVERED</span>` : '';
     return `<div class="enc-plate ${wash} ${compact ? 'is-compact' : ''} ${e.known ? '' : 'is-unknown'} ${e.isNew ? 'is-new' : ''} ${reveal ? 'will-reveal' : ''}" data-entry="${ch.id}:${e.id}" ${reveal ? 'data-reveal="1"' : ''} style="width:${W}px;height:${H}px">
         <div class="enc-plate-art">${art}${e.known || reveal ? '' : '<b class="enc-q">?</b>'}</div>
         <div class="enc-plate-frame ${frame}"></div>
@@ -1192,7 +1207,8 @@ export class Encyclopedia {
     const quote = !compact && known && e.quote ? `<div class="enc-quote enc-hand" style="--r:-1deg">&ldquo;${esc(e.quote)}&rdquo;</div>` : '';
     const desc = known ? `<p class="enc-desc">${esc(e.desc)}</p>` : `<p class="enc-desc enc-hint"><span class="enc-hint-k">Where to look:</span> ${esc(e.hint || 'Keep exploring...')}</p>`;
     const h = strHash(e.id);
-    const note = !compact && e.note && !this._noNote.has(pi) ? `<div class="enc-hand enc-note" style="--r:${(h % 7) - 4}deg">${esc(known ? e.note : 'Still looking...')}</div>` : '';
+    const fit = this._fitLvl.get(pi) || 0;
+    const note = !compact && e.note && fit < 1 ? `<div class="enc-hand enc-note" style="--r:${(h % 7) - 4}deg">${esc(known ? e.note : 'Still looking...')}</div>` : '';
     const dpool = { fish: ['fishbone', 'bubbles', 'hook'], morphs: ['star', 'spiral', 'magnifier'], birds: ['feather', 'footprint', 'cloud'], bugs: ['bee', 'leafd', 'magnifier'], livestock: ['heart', 'footprint', 'sun'], land: ['paws', 'sprout', 'heart'], plants: ['sprout', 'leafd', 'sun'], foods: ['coin', 'heart', 'star'], villagers: ['heart', 'sun', 'fox'], trophies: ['star', 'coin'] }[ch.id] || ['star'];
     const dood = !compact ? this.doodle(dpool[h % dpool.length], { x: 28, bottom: 40, rot: (h % 20) - 10, op: 0.45 }) : '';
     if (compact) {
@@ -1207,8 +1223,8 @@ export class Encyclopedia {
           ${known && e.how ? `<div class="enc-how">${this.icon('info')}<span>${esc(e.how)}</span></div>` : ''}
         </div>`;
     }
-    return `<div class="enc-entry ${known ? '' : 'is-unknown'} enc-ch-${ch.id}">
-        ${this.plateHTML(ch, e)}
+    return `<div class="enc-entry ${known ? '' : 'is-unknown'} enc-ch-${ch.id} ${fit >= 3 ? 'is-tight' : ''}">
+        ${this.plateHTML(ch, e, { short: fit >= 2 })}
         <div class="enc-head">${gem}<span class="enc-name">${name}</span>${known && e.rarity ? `<span class="enc-rar" style="--c:${e.rarity.color}">${esc(e.rarity.name)}</span>` : ''}</div>
         <div class="enc-sub">${known ? esc(e.sub) : 'Not yet discovered'}</div>
         ${desc}${quote}
@@ -1239,22 +1255,7 @@ export class Encyclopedia {
       L.replaceChildren(this.pageEl(this.pos));
       R.replaceChildren(this.pageEl(this.pos + 1));
     }
-    for (const side of [L, R]) this._fit(side);
     this.updateChrome();
-  }
-
-  // a crowded page loses its margin note (and keeps the template in sync for leaves)
-  _fit(holder) {
-    const pg = holder.firstElementChild;
-    if (!pg) return;
-    const i = +pg.dataset.page;
-    const col = pg.querySelector('.enc-entry:not(.is-compact)');
-    if (!col || this._noNote.has(i)) return;
-    if (col.scrollHeight > col.clientHeight + 1) {
-      this._noNote.add(i);
-      this._html.delete(i);
-      holder.replaceChildren(this.pageEl(i));
-    }
   }
 
   updateChrome() {
