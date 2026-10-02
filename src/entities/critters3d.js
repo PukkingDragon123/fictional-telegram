@@ -28,3 +28,6 @@ export { makeNest, makeEggMesh, NEST_KINDS, NEST_SIZE } from './critterNest.js';
 export { BeaverRig, BEAVER_CHOP_DIST, BEAVER_HAMMER_DIST } from './critterBeaver.js';
 export { makePackage, makeLawnChair, makeDaisyBeerCan, makeCooler, LAWN_CHAIR_SEAT } from './critterProps.js';
 export { makeBicycle, BIKE } from './critterBike.js';
+export { BunnyGardener } from './critterBunny.js';
+export { OtterFisher } from './critterOtter.js';
+export { HedgehogBaker } from './critterHedgehog.js';

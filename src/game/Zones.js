@@ -141,6 +141,7 @@ export class ZoneSystem {
   // has your land touched the edge of a fogged area?
   checkReach() {
     const g = this.game.grid;
+    const homes = this.game.villagers?.homeTiles;
     for (const Z of ZONES) {
       if (this.isOpen(Z.id) || !Z._field) continue;
       const F = Z._field;
@@ -148,6 +149,8 @@ export class ZoneSystem {
       for (let z = F.z0; z <= F.z1; z++)
         for (let x = F.x0; x <= F.x1; x++) {
           if (!g.meadow[z * g.w + x]) continue;
+          // a villager's own garden clearing doesn't count as reaching the next fog
+          if (homes?.has(z * g.w + x)) continue;
           const d = F.D[(z - F.z0) * F.bw + (x - F.x0)];
           // your land reaches the fog's edge (beavers clear up to ~2 tiles out)
           if (d <= 2.5 && d < bd) { bd = d; best = { x: x + 0.5, z: z + 0.5 }; }
@@ -216,7 +219,7 @@ export class ZoneSystem {
         (ui.overlay || document.body).appendChild(el);
         this.tags.set(Z.id, el);
       }
-      const q = ui.screenOf(Z.cx, (game.grid.groundAt(Z.cx, Z.cz) || 0) + 9, Z.cz);
+      const q = ui.screenOf(Z.cx, (game.grid.groundAt(Z.cx, Z.cz) || 0) + 4.5, Z.cz);
       const W = window.innerWidth, H = window.innerHeight;
       const vis = q.visible !== false && q.x > -60 && q.y > -60 && q.x < W + 60 && q.y < H + 60;
       el.style.display = vis ? '' : 'none';

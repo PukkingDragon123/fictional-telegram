@@ -12,6 +12,8 @@ const c3 = import.meta.glob('../entities/critters3d.js', { eager: true });
 const C3 = c3['../entities/critters3d.js'] || {};
 const np = import.meta.glob('../entities/npcProps.js', { eager: true });
 const NP = np['../entities/npcProps.js'] || {};
+const np2 = import.meta.glob('../entities/npcProps2.js', { eager: true });
+const NP2 = np2['../entities/npcProps2.js'] || {};
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -24,6 +26,10 @@ const CAST = {
   hoot: { cls: 'OwlRanger', voice: 'bear', specials: ['binoculars', 'head_turn', 'write_notes'], height: 1.6 },
   rocco: { cls: 'RaccoonMerchant', voice: 'fox', specials: ['count_coins', 'rummage', 'show_item'], height: 1.4 },
   shellby: { cls: 'TurtleElder', voice: 'ceo', specials: ['sip_tea', 'doze'], height: 1.3 },
+  // the close neighbours
+  clover: { cls: 'BunnyGardener', voice: 'cub', specials: ['water_plants', 'dig', 'sniff'], height: 1.6, sign: 'GARDEN' },
+  otis: { cls: 'OtterFisher', voice: 'fox', specials: ['cast_line', 'hold_fish', 'juggle_pebble', 'float_back'], height: 1.45, sign: 'OTIS' },
+  hazel: { cls: 'HedgehogBaker', voice: 'cub', specials: ['roll_dough', 'taste', 'curl_up'], height: 1.5, sign: 'BAKERY' },
 };
 
 function fallbackRig(color) {
@@ -91,7 +97,18 @@ export class Villagers {
     } else if (v.id === 'hoot') put(tryMake(NP.makeTelescope), 1.0, -0.3, -0.6);
     else if (v.id === 'rocco') put(tryMake(NP.makeMerchantStall), -1.2, -0.6, 0.15);
     else if (v.id === 'shellby') put(tryMake(NP.makeTeaTable), 0.9, 0.1, -0.2);
-    put(tryMake(NP.makeSignpost, v.name.split(' ').pop().toUpperCase()), v.id === 'rocco' ? 1.3 : -1.4, 1.1, 0.2);
+    else if (v.id === 'clover') put(tryMake(NP2.makeGardenPatch), 1.15, -0.45, 0.05);
+    else if (v.id === 'hazel') put(tryMake(NP2.makeBakeryCart), 1.1, -0.55, 0.0);
+    else if (v.id === 'otis') {
+      const dock = tryMake(NP2.makeFishingDock);
+      put(dock, 0.85, 0.0, Math.PI + 0.3); // the jetty and its little pond run out front-right of him
+      if (dock && v.rig.castTarget && dock.userData.cast) {
+        v.rig.root.updateMatrixWorld(true); dock.updateMatrixWorld(true);
+        v.rig.castTarget.copy(dock.localToWorld(dock.userData.cast.clone()));
+        v.rig.root.worldToLocal(v.rig.castTarget);
+      }
+    }
+    put(tryMake(NP.makeSignpost, v.cast.sign || v.name.split(' ').pop().toUpperCase()), v.id === 'rocco' ? 1.3 : -1.4, 1.1, 0.2);
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.group.add(g);
     return g;
@@ -125,7 +142,9 @@ export class Villagers {
       for (let dx = -5; dx <= 5; dx++) {
         const ez = dz < 0 ? dz / 3 : dz / 8;
         if ((dx / 4.6) ** 2 + ez * ez > 1) continue;
-        if (B.clearInstant(Math.floor(v.x) + dx, Math.floor(v.z) + dz)) n++;
+        const x = Math.floor(v.x) + dx, z = Math.floor(v.z) + dz;
+        if (B.clearInstant(x, z)) n++;
+        (this.homeTiles ||= new Set()).add(z * this.game.grid.w + x);
       }
     if (n) this.game.particles.puff?.(v.x, this.game.grid.groundAt(v.x, v.z) + 0.6, v.z, 18, 0.8);
   }

@@ -40,7 +40,7 @@ const CHARS = {
     props: [['garden', 1.15, -0.45, -0.25]] },
   otter: { make: () => Otter && new Otter(), h: 1.3, name: 'Otis', sign: 'GONE\nFISHIN', isNew: true,
     reel: [['idle', 6], ['wave', 2.6], ['talk', 4], ['laugh', 2.6], ['walk', 2.6], ['happy', 2.1], ['cast_line', 7], ['hold_fish', 4], ['juggle_pebble', 5], ['float_back', 7]],
-    props: [['dock', -1.0, -0.2, 0.35]] },
+    props: [['dock', 0.85, 0.0, Math.PI]] },
   hedgehog: { make: () => Hog && new Hog(), h: 1.15, name: 'Hazel', sign: "HAZEL'S\nBAKERY", isNew: true,
     reel: [['idle', 6], ['wave', 2.6], ['talk', 4], ['laugh', 2.6], ['walk', 2.6], ['happy', 2.1], ['roll_dough', 6], ['taste', 4.6], ['curl_up', 4]],
     props: [['bakery', 1.1, -0.55, -0.3]] },
@@ -123,6 +123,12 @@ function addActor(ck, x, z, anim, { props = true, sign = false, yaw = num('face'
     return o;
   };
   if (props) for (const [n, px, pz, pyaw] of C.props) { try { a.extras.push(place(PROPS[n](), px, pz, pyaw)); } catch (e) { errors.push('prop ' + n + ': ' + e.message); } }
+  // the otter casts into the dock's pond (same snippet the game can use)
+  for (const o of a.extras) if (o.userData.cast && rig.castTarget) {
+    scene.updateMatrixWorld(true);
+    rig.castTarget.copy(o.localToWorld(o.userData.cast.clone()));
+    rig.root.worldToLocal(rig.castTarget);
+  }
   if (sign && C.sign) a.extras.push(place(P.makeSignpost(C.sign), -0.6, 0.55, 0.3));
   actors.push(a);
   playOn(a, anim || rig.anims[0], 0);
@@ -189,7 +195,7 @@ if (mode === 'strip') {
   labelEl.innerHTML = `${charKey}<small>expressions</small>`;
 } else if (mode === 'lineup') {
   const keys = (params.get('chars') || 'fox,bunny,otter,hedgehog,owl').split(',');
-  const gap = num('gap', 2.4);
+  const gap = num('gap', 2.9);
   keys.forEach((k, i) => {
     const a = addActor(k, (i - (keys.length - 1) / 2) * gap, 0, params.get('anim') || null, { sign: params.get('signs') !== '0', props: params.get('props') !== '0' });
     if (!a) return;
@@ -198,7 +204,7 @@ if (mode === 'strip') {
     a.reelI = Math.floor(num('reel0', 0)) - 1;
     labels.push({ a, text: CHARS[k].name });
   });
-  cams.lineup = { wupp: num('lw', 0.0125), y: 0.6, pitch: 22 };
+  cams.lineup = { wupp: num('lw', 0.0135), y: 0.6, pitch: 24 };
   setCam(params.get('zoom') || 'lineup');
 } else if (mode === 'props') {
   const items = [];

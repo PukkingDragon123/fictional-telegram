@@ -483,7 +483,7 @@ function stand(p, rig, t, amt = 1) {
 function tailPose(p, t, amt = 1) {
   const sw = sin(t * 1.4);
   p.tail.rx = -0.75; p.tail2.rx = 0.45; p.tail3.rx = 0.35;
-  p.tail.ry = 0.25 + sw * 0.12 * amt; p.tail2.ry = 0.35 + sin(t * 1.4 - 0.7) * 0.2 * amt; p.tail3.ry = 0.3 + sin(t * 1.4 - 1.4) * 0.3 * amt;
+  p.tail.ry = 0.5 + sw * 0.12 * amt; p.tail2.ry = 0.55 + sin(t * 1.4 - 0.7) * 0.2 * amt; p.tail3.ry = 0.45 + sin(t * 1.4 - 1.4) * 0.3 * amt;
 }
 /** Rod aimed in chest space (direction of the blank). */
 function rodAim(p, x, y, z) { p.k.rodW = 1; p.k.rodYx = x; p.k.rodYy = y; p.k.rodYz = z; p.k.rodZz = 1; }

@@ -476,8 +476,8 @@ function ears(p, t, perk = 0, amt = 1) {
   const sw = sin(t * 1.3) * amt;
   p.earL.rz += -0.2 + perk * 0.14 + sw * 0.04; p.earR.rz += 0.16 - perk * 0.1 - sw * 0.04;
   p.earL.rx += -0.2 + perk * 0.12; p.earR.rx += -0.16 + perk * 0.1;
-  p.earL2.rz += -lerp(0.6, 0.06, perk) + sin(t * 1.9) * 0.06 * amt;
-  p.earL2.rx += lerp(1.25, 0.05, perk) + sin(t * 1.4) * 0.05 * amt;
+  p.earL2.rz += -lerp(1.0, 0.06, perk) + sin(t * 1.9) * 0.06 * amt;
+  p.earL2.rx += lerp(0.55, 0.05, perk) + sin(t * 1.4) * 0.05 * amt;
   p.earR2.rz += lerp(0.22, 0.03, perk) - sin(t * 1.7 + 1) * 0.05 * amt;
   p.earR2.rx += lerp(0.18, 0.02, perk);
 }

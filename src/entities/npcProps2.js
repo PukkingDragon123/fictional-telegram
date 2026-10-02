@@ -6,7 +6,8 @@
 // front = +Z, sized for 1-unit tiles.
 //
 //   makeGardenPatch()  fenced veggie bed (carrots, cabbages, a radish), watering can, seed-packet stand.  ~1.1 x 0.75
-//   makeFishingDock()  short plank jetty on posts + bucket of fish, tackle box, a little sign.  ~0.8 x 1.25 (jetty runs to -Z)
+//   makeFishingDock()  plank jetty over a little pond + bucket of fish, tackle box, life ring, fish sign. Jetty runs from +Z (steps)
+//                      to -Z; userData.cast = a water spot for OtterFisher.castTarget (local).  ~1.3 x 1.5
 //   makeBakeryCart()   wheeled cart, striped awning, pies, a bread loaf, a steaming kettle. userData.steam (spout tip, local).  ~1.0 x 1.15
 import * as THREE from 'three';
 import {
@@ -27,7 +28,7 @@ export const DIRT_ROWS = ['.kkk.', 'kdlDk', 'kldDk', 'kDDDk', '.kkk.'];
 export const DIRT2_ROWS = ['.kk.', 'kldk', 'kdDk', '.kk.'];
 export const FLOUR_PAL = { k: '#c8bca8', w: '#ffffff', W: '#f2ece0' };
 export const FLOUR_ROWS = ['..kk...', '.kwwk..', 'kwwWwk.', 'kwWWwwk', '.kwwWk.', '..kkk..'];
-export const STEAM_PAL = { k: '#b8c8d8', w: '#ffffff', W: '#e4eef6' };
+export const STEAM_PAL = { k: '#7a90aa', w: '#ffffff', W: '#d8e6f2' };
 export const STEAM_ROWS = ['...k..', '..kwk.', '.kwWk.', '.kwk..', 'kwWk..', 'kwk...', '.k....'];
 export const RIPPLE_PAL = { k: '#3a78a8', w: '#e8f8ff', b: '#9ad4f0' };
 export const RIPPLE_ROWS = ['..kkkkk..', '.kbwwwbk.', 'kbw...wbk', '.kbwwwbk.', '..kkkkk..'];
@@ -201,16 +202,23 @@ function dockModel() {
     const yy = Math.round(DY + 1 + 4 * sin((a / 24) * PI * 2)), zz = Math.round(Z0 + 1 + 4 * cos((a / 24) * PI * 2));
     for (let w = 0; w <= 1; w++) v.set(X1 + 2, yy + 3, zz + 4 + w * 0, floor(a / 3) % 2 ? W.red : W.white);
   }
-  // water under the far end (shallow pool so the jetty reads as a jetty when placed on grass)
-  for (let x = X0 - 6; x <= X1 + 6; x++)
-    for (let z = Z0 - 6; z <= Z0 + 20; z++) {
-      const r = Math.hypot((x + 0.5) / 18, (z - Z0 - 6) / 16);
-      if (r > 1) continue;
-      v.set(x, 0, z, r > 0.9 ? W.waterD : (x * 3 + z * 7) % 13 === 0 ? W.waterL : W.water);
+  // a little pond under the far end: stone rim, lily pads, cattails (so the jetty reads as a jetty on grass)
+  const PZ = Z0 + 9;
+  for (let x = -26; x <= 25; x++)
+    for (let z = PZ - 21; z <= PZ + 21; z++) {
+      const r = Math.hypot((x + 0.5) / 24, (z - PZ) / 19) + sin(Math.atan2(z - PZ, x) * 5) * 0.03;
+      if (r > 1.06) continue;
+      if (r > 0.95) { v.set(x, 0, z, hash3(x, 1, z) > 0.5 ? W.grey : W.greyL); if (hash3(x, 2, z) > 0.6) v.set(x, 1, z, W.greyD); continue; }
+      v.set(x, 0, z, r > 0.86 ? W.waterD : (x * 3 + z * 7) % 17 === 0 ? W.waterL : r < 0.4 ? W.waterD : W.water);
     }
-  // lily pad + flower in the pool
-  for (const [x, z] of [[13, -48], [14, -48], [13, -47], [14, -47], [15, -47], [13, -46], [14, -46]]) v.set(x, 1, z, W.leaf);
-  v.set(14, 2, -47, W.pinkL); v.set(15, 2, -46, W.pink);
+  for (const [cx, cz] of [[17, PZ - 6], [-18, PZ + 7], [14, PZ + 10]]) {
+    for (let x = cx - 2; x <= cx + 1; x++) for (let z = cz - 2; z <= cz + 1; z++) if (Math.hypot(x + 0.5 - cx, z + 0.5 - cz) < 2.3 && !(x === cx && z === cz - 2)) v.set(x, 1, z, (x + z) % 3 ? W.leaf : W.leafD);
+  }
+  v.set(17, 2, PZ - 6, W.pinkL); v.set(18, 2, PZ - 6, W.pink); v.set(17, 2, PZ - 5, W.pink); v.set(17, 3, PZ - 6, W.yellow);
+  for (const [x, z, h] of [[-21, PZ - 8, 12], [-23, PZ - 5, 15], [-20, PZ - 3, 10], [-22, PZ + 1, 13]]) {
+    for (let y = 1; y <= h; y++) v.set(x, y, z, y > h - 3 ? 0x6a4228 : y % 3 ? W.leaf : W.leafD);
+    v.set(x, h + 1, z, W.leafL); v.set(x + 1, Math.floor(h * 0.6), z, W.leaf); v.set(x + 2, Math.floor(h * 0.6) + 1, z, W.leafL);
+  }
   return v;
 }
 function bucketModel() {
@@ -273,7 +281,8 @@ export function makeFishingDock() {
   const s = meshOf(memoGeo('dock_sign', dockSignModel)); s.position.set(0.36, 0, 0.18); s.rotation.y = -0.3;
   g.add(b, t, s);
   g.userData.deck = deck;
-  g.userData.end = new THREE.Vector3(0, deck, -1.1); // far end of the jetty (cast spot)
+  g.userData.end = new THREE.Vector3(0, deck, -1.1); // far end of the jetty
+  g.userData.cast = new THREE.Vector3(0.4, FV, -0.82); // open water beside the jetty (OtterFisher.castTarget)
   return g;
 }
 
