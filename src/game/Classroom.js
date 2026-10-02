@@ -588,13 +588,13 @@ export class Classroom {
       const R = room.board.pxToWorld(bb[2], (bb[1] + bb[3]) / 2, new THREE.Vector3());
       const bx0 = BOARD.cx - BOARD.w / 2, bx1 = BOARD.cx + BOARD.w / 2;
       // nearer side, unless that side has no room left in the room
-      let side = (bb[0] + bb[2]) / 2 < this.board.w / 2 ? -1 : 1;
-      if (side < 0 && L.x - 0.3 < bx0 - 0.9) side = 1;
+      // (the right is roomier: his drawing arm faces the board from there and the camera has space)
+      let side = (bb[0] + bb[2]) / 2 < this.board.w * 0.36 ? -1 : 1;
       if (side > 0 && R.x + 0.3 > bx1 + 1.4) side = -1;
       const big = (R.x - L.x) / BOARD.w; // wide drawings push him further out
       const off = 0.26 + big * 0.12;
-      const x = side > 0 ? R.x + off : L.x - off;
-      this._drawSide = { side, x, aside: side > 0 ? R.x + off + 0.32 : L.x - off - 0.32 };
+      const x = side > 0 ? R.x + off : Math.max(bx0 - 0.3, L.x - off);
+      this._drawSide = { side, x, aside: side > 0 ? Math.max(R.x + off + 0.32, bx1 + 0.42) : Math.min(L.x - off - 0.32, bx0 - 0.36) };
       f.holdProp?.('chalk');
       await this.walkTo(new THREE.Vector3(x, 0, BOARD.z + 0.36), side > 0 ? -0.95 : 0.95);
       this._check();
@@ -640,6 +640,7 @@ export class Classroom {
 
   async _erase() {
     const f = this.fox, room = this.room;
+    this._drawSide = null;
     this.cam('board');
     if (f) {
       f.holdProp?.(null);
