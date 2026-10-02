@@ -2687,7 +2687,7 @@ Object.assign(POSES, {
     F.r(B.tail, 0, 0, Math.sin(t * 16) * 0.35);
     // snack: held at the chest while the jaw unhinges, flicked up, then dropped into the maw
     const lip = mawPt(F, c, Math.max(0, Math.min(1, gape)), _e1);
-    const chest = _e3.set(5, 11.6 + c.hy * 0.3, 11 + c.bz);
+    const chest = _e3.set(9.5, 13 + c.hy * 0.3, 9.5 + c.bz);
     const flick = K(t, [[0.86, 0], [1.08, 1, 'out']]), fall = K(t, [[1.12, 0], [1.44, 1, 'in']]);
     const apexY = lip.y + len * 1.3 + 4;
     if (t < 0.98) {

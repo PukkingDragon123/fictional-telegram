@@ -1040,9 +1040,9 @@ export class Encyclopedia {
     return `<img class="enc-doodle" src="${u}" width="${w}" height="${h}" style="${pos};--r:${rot}deg;opacity:${op}" alt="">`;
   }
 
-  progressHTML(known, total, { wide = false } = {}) {
+  progressHTML(known, total, { wide = false, label = 'Discovered' } = {}) {
     const f = total ? known / total : 0;
-    return `<div class="enc-prog ${wide ? 'is-wide' : ''}"><span class="enc-prog-t">Discovered <b>${known}</b>/${total}</span><span class="enc-prog-bar"><i style="width:${(f * 100).toFixed(1)}%"></i></span></div>`;
+    return `<div class="enc-prog ${wide ? 'is-wide' : ''}"><span class="enc-prog-t">${label} <b>${known}</b>/${total}</span><span class="enc-prog-bar"><i style="width:${(f * 100).toFixed(1)}%"></i></span></div>`;
   }
 
   sealImg(ch, big = false) {
@@ -1112,7 +1112,7 @@ export class Encyclopedia {
         ${this.ruleHTML()}
         <div class="enc-vig ${wash}">${vig}<div class="enc-vig-ring"></div></div>
         <div class="enc-hand enc-blurb" style="--r:-1.5deg">${esc(ch.blurb)}</div>
-        ${this.progressHTML(ch.known, ch.total)}
+        ${this.progressHTML(ch.known, ch.total, { label: ch.id === 'trophies' ? 'Earned' : 'Discovered' })}
         <div class="enc-chap-seal">${done ? this.sealImg(ch, true) : '<div class="enc-seal-empty">?</div>'}</div>
       </div>
       ${this.doodle(['spiral', 'star', 'arrow', 'sun'][idx % 4], { x: 30, bottom: 44, rot: -10, op: 0.45 })}`;
@@ -1133,7 +1133,7 @@ export class Encyclopedia {
           <span class="enc-cell-a">${tag}</span><span class="enc-cell-n">${e.num}</span>${e.isNew ? '<b class="enc-cell-new">NEW</b>' : ''}
         </button>`;
     }
-    return `<div class="enc-h2">Index</div><div class="enc-grid">${cells}</div>${this.progressHTML(ch.known, ch.total)}`;
+    return `<div class="enc-h2">Index</div><div class="enc-grid">${cells}</div>${this.progressHTML(ch.known, ch.total, { label: ch.id === 'trophies' ? 'Earned' : 'Discovered' })}`;
   }
 
   // ---- notes (filler pages)

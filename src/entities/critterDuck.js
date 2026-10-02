@@ -664,4 +664,22 @@ def('happy', {
   },
 });
 
+// v10: grabbed by a bear: wings windmilling, feet kicking, beak quacking, eyes wide
+def('struggle', {
+  loop: true,
+  fn(t, p, f, s, rig) {
+    const fl = sin(t * 31), kick = sin(t * 19);
+    p.wingL.rz = 1.1 + fl * 0.85; p.wingR.rz = -1.1 - sin(t * 31 + 0.6) * 0.85;
+    p.wingL.rx = p.wingR.rx = -0.3 + sin(t * 7) * 0.2;
+    p.legL.rx = 0.5 + kick * 0.9; p.legR.rx = 0.5 - kick * 0.9;
+    p.body.rz = sin(t * 11) * 0.18; p.body.rx = -0.2 + sin(t * 9) * 0.1;
+    p.head.ry = sin(t * 13) * 0.5; p.head.rx = -0.35 + sin(t * 17) * 0.15;
+    p.jaw.rx = 0.45 + sin(t * 23) * 0.3;
+    p.mover.y = abs(sin(t * 15)) * 0.3;
+    f.eyes = 'wide';
+    if (beat(s, 'q', t, 0.42, 0)) rig._emit('quack');
+    if (beat(s, 'fl', t, TAU / 31, 0)) rig._emit('flap');
+  },
+});
+
 export { ANIMS as DUCK_ANIMS };
