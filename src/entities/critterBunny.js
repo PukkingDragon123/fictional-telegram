@@ -363,7 +363,7 @@ export class BunnyGardener extends BipedRig {
     this._rest = new THREE.Quaternion();
     // ground bits (root space)
     this.mound = this.mesh(G.mound, this.root, { x: -0.04, z: 0.5 });
-    this.sprout = this.mesh(G.sprout, this.root, { x: 0.02, z: 0.62 });
+    this.sprout = this.mesh(G.sprout, this.root, { x: -0.43, z: 0.56 });
     // sprites
     this.drops = [0, 1, 2, 3, 4].map(() => this.sprite(DROPLET_ROWS, 0.05, this.root));
     const dm = spriteMatPal(DIRT_ROWS, DIRT_PAL), dm2 = spriteMatPal(DIRT2_ROWS, DIRT_PAL);
@@ -679,17 +679,17 @@ def('water_plants', {
     const behind = 1 - smooth(abs(t - 0.45) / 0.3) * (t < 1 ? 1 : 0);
     const bx = 3.6, by = 1.6, bz = -4.6; // behind the back
     let x = lerp(5.4, bx, fetch), y = lerp(0.6, by, fetch), z = lerp(2.0, bz, fetch);
-    x = lerp(x, 4.6, lift); y = lerp(y, 4.4 + sin(t * 3) * 0.2 * tip, lift); z = lerp(z, 8.0, lift);
+    x = lerp(x, 8.4, lift); y = lerp(y, 6.6 + sin(t * 3) * 0.2 * tip, lift); z = lerp(z, 4.0, lift);
     rig.reach(p, -1, x, y, z, [1, -0.4, -0.4]);
     p.handR = 'fist'; p.wristR.rx = 0.2;
     p.vis.can = t > 0.45 && t < 4.95;
-    p.k.canTip = tip * 0.95 + sin(t * 5) * 0.06 * tip;
+    p.k.canTip = tip * 0.7 + sin(t * 5) * 0.06 * tip;
     p.k.water = tip > 0.6 ? 1 : 0;
     void behind;
     // left paw on the knee, leaning to look
     rig.reach(p, 1, 4.0, 0.8, 4.8, [0.9, -0.3, -0.6]); p.handL = 'relax'; p.wristL.rx = 0.4;
-    p.chest.rx += lift * 0.16; p.head.rx += lift * 0.18;
-    f.look = [0, lift * 1.4];
+    p.chest.rx += lift * 0.1; p.chest.ry -= lift * 0.12; p.head.rx += lift * 0.2; p.head.ry -= lift * 0.35;
+    f.look = [-lift * 1.2, lift * 1.4];
     // the sprout grows under the drips, then a happy wiggle + hearts
     p.k.sprout = K(t, [[1.8, 0], [3.0, 0.5, 'io'], [3.4, 1.12, 'out'], [3.6, 1], [4.85, 1], [5.15, 0, 'in']]);
     const yay = win(t, 3.4, 4.6, 0.15, 0.3);

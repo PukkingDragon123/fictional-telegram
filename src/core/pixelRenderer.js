@@ -105,7 +105,7 @@ vec3 fogField(vec2 xz) {
   // big domes rise out of a rolling bank (value noise fills the gaps)
   float big = max(nb.b, 0.3 + 0.35 * nb.g);
   // puffs bulge the outline too, so the edge is a row of round billows
-  float c = smoothstep(0.1, 0.6, t.r + (big - 0.45) * 0.35 + (sm - 0.5) * 0.25);
+  float c = smoothstep(0.08, 0.5, t.r + (big - 0.45) * 0.35 + (sm - 0.5) * 0.25);
   float p = big * 0.8 + sm * 0.28;
   float h = fogTop * sqrt(c) * (0.38 + 0.7 * p);
   return vec3(g + h - (1.0 - c) * 0.9, c, g);
@@ -147,12 +147,14 @@ vec4 fogAt(vec2 lp, vec2 uv) {
   float cover = smoothstep(0.5, 0.8, textureLod(fogTex, pw / fogSize, 0.0).r);
   // low ground mist: blurred mask spills a few tiles past the edge, torn into
   // wind-stretched wisps, hugging the terrain
-  float spill = textureLod(fogTex, pw / fogSize, 2.2).r;
+  float spill = textureLod(fogTex, pw / fogSize, 2.6).r;
   vec2 wd = P.xz + time * vec2(0.35, 0.12);
   float wisp = fN(vec2(wd.x * 0.32 + wd.y * 0.12, wd.y * 0.75 - wd.x * 0.1) + 1.3).g;
   float hAbove = P.y - g0;
-  float mist = clamp(spill * 2.2 - 0.12, 0.0, 1.0) * smoothstep(0.9 + 2.2 * wisp, 0.0, hAbove) * smoothstep(0.25, 0.75, wisp + spill * 0.6);
-  mist = min(mist, 0.8);
+  float mist = clamp(spill * 3.2 - 0.06, 0.0, 1.0) * smoothstep(1.2 + 2.6 * wisp, 0.0, hAbove) * smoothstep(0.3, 0.7, wisp + spill * 0.5);
+  // a thin veil drifts over whatever stands just outside (tree tops too)
+  float veil = clamp(spill * 2.4 - 0.05, 0.0, 1.0) * smoothstep(0.4, 0.8, wisp) * smoothstep(fogTop * 1.2, 0.0, hAbove) * 0.55;
+  mist = min(max(mist, veil), 0.8);
   bool front = tHit > -0.15;
   if (tHit < -1e4 || (!front && cover < 0.01)) {
     if (mist < 0.02 && cover < 0.01) return vec4(0.0);
@@ -186,13 +188,13 @@ vec4 fogAt(vec2 lp, vec2 uv) {
   float occ = fogField(H.xz + sh2 * 2.4).x - (H.y + 2.4 * slope);
   float shadow = smoothstep(0.0, 1.6, occ);
   float hy = clamp((H.y - F.z) / fogTop, 0.0, 1.0);
-  float v = 0.02 + 0.85 * dif + 0.3 * hy - 0.5 * shadow - (1.0 - F.y) * 0.2;
+  float v = 0.85 * dif + 0.5 * hy - 0.6 * shadow - (1.0 - F.y) * 0.2 - 0.26;
   // a silver lining where the bank thins out towards the light
   v += 0.25 * smoothstep(0.55, 0.2, F.y) * smoothstep(0.3, 0.8, dif);
-  // mostly flat bands; dither only along the seams between them
-  float tone = clamp(floor(v * 3.2 + 0.25 + (dith - 0.5) * 0.45), 0.0, 3.0);
-  vec3 deep = mix(fogShade * vec3(0.78, 0.77, 0.9), vec3(0.3, 0.27, 0.45), 0.22);
-  vec3 col = tone < 0.5 ? deep : tone < 1.5 ? fogShade : tone < 2.5 ? fogLight : fogRim;
+  // 5 flat bands (deep, shade, mid, light, rim); dither only along the seams
+  float tone = clamp(floor(v * 4.2 + 0.3 + (dith - 0.5) * 0.5), 0.0, 4.0);
+  vec3 deep = mix(fogShade * vec3(0.8, 0.78, 0.9), vec3(0.3, 0.27, 0.45), 0.2);
+  vec3 col = tone < 0.5 ? deep : tone < 1.5 ? fogShade : tone < 2.5 ? mix(fogShade, fogLight, 0.45) : tone < 3.5 ? mix(fogLight, fogShade, 0.1) : fogRim;
   // thin fringe: dithered see-through, plus the ground mist under it
   float a = smoothstep(0.03, 0.4, F.y);
   a = floor(a * 4.0 + dith * 0.999) / 4.0;

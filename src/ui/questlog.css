@@ -1,7 +1,7 @@
 /* QuestLog (src/ui/QuestLog.js): pinned quest note under the coin tag. Scoped under .ql-*. */
 
 .ql {
-  position: absolute; left: 16px; top: calc(112px + env(safe-area-inset-top, 0px)); z-index: 19; width: 220px;
+  position: absolute; left: 16px; top: calc(122px + env(safe-area-inset-top, 0px)); z-index: 19; width: 220px;
   pointer-events: none; color: #3b2414; font-family: var(--font-body); font-size: 16px; line-height: 16px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: none; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
@@ -17,7 +17,7 @@
 .ql-note {
   position: relative; pointer-events: auto; padding: 6px 10px 8px 12px;
   background-color: #f6eed8; background-size: 100% 100%; background-repeat: no-repeat; background-position: 0 0; image-rendering: pixelated;
-  transform: rotate(-1.5deg); transform-origin: 50% 0; filter: drop-shadow(0 3px 0 rgba(30, 16, 8, .4));
+  transform-origin: 50% 0; filter: drop-shadow(0 3px 0 rgba(30, 16, 8, .4));
   transition: transform .4s cubic-bezier(.3, 1.4, .5, 1), opacity .3s;
 }
 .ql-note:hover { animation: ql-sway 1.2s ease-in-out; }
@@ -56,7 +56,7 @@
 @keyframes ql-tick { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 .ql-txt { position: relative; min-width: 0; line-height: 16px; padding-bottom: 2px; overflow-wrap: anywhere; }
 .ql-done .ql-txt { color: #9a8670; }
-.ql-strike { position: absolute; left: -1px; right: -1px; top: 7px; height: 2px; background: #2a3f8f; opacity: .75; transform: scaleX(0); transform-origin: 0 50%; }
+.ql-strike { position: absolute; left: -1px; right: -1px; top: 7px; height: 2px; background: #2a3f8f; opacity: .55; transform: scaleX(0); transform-origin: 0 50%; }
 .ql-done .ql-strike { transform: scaleX(1); }
 .ql-pen .ql-strike { animation: ql-strike .3s steps(6) calc(var(--pd, 0ms) + .3s) backwards; }
 @keyframes ql-strike { from { transform: scaleX(0); } to { transform: scaleX(1); } }

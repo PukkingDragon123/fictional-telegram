@@ -2186,7 +2186,7 @@ export class UI {
       preselect,
       predict: (a, b) => M.predict(a, b),
       onArrange: (a, b) => { const r = M.arrange(a, b); setTimeout(() => this.matchCard?.refresh?.(M.cards()), 300); return r; },
-      icon: (n, sc) => ico(n, sc),
+      icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
       sfx: (n, o) => game.audio.play(n, { volume: 0.45, ...(o || {}) }),
       onClose: () => { this.matchCard = null; game.state.paused = wasPaused; },
     });
@@ -2200,7 +2200,7 @@ export class UI {
     if (this.questLog) return this.questLog;
     const QL = C('QuestLog');
     if (!QL?.createQuestLog) return null;
-    this.questLog = QL.createQuestLog(this.root, { icon: (n, sc) => ico(n, sc), sfx: (n, o) => this.game.audio.play(n, { volume: 0.4, ...(o || {}) }) });
+    this.questLog = QL.createQuestLog(this.root, { icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''), sfx: (n, o) => this.game.audio.play(n, { volume: 0.4, ...(o || {}) }) });
     return this.questLog;
   }
 

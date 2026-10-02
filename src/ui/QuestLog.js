@@ -13,7 +13,7 @@
 //   ql.collapse(on?)    fold / unfold (toggles without an argument)
 //   ql.destroy()
 //
-// The note is position:absolute (left 16px, top 112px) inside `root`.
+// The note is position:absolute (left 16px, top 122px: under the coin tag + stars) inside `root`.
 import './fonts.css';
 import './questlog.css';
 import { paperTexture, injectPaperCSS, deco, stamp, PX } from './paper.js';
@@ -53,6 +53,9 @@ function tick() {
 // chevron glyph
 const CHEV = '<svg class="ql-chev" width="14" height="8" viewBox="0 0 7 4" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h1v1h-1zM1 1h1v1h-1zM2 2h1v1h-1zM3 3h1v1h-1zM4 2h1v1h-1zM5 1h1v1h-1zM6 0h1v1h-1z"/></svg>';
 
+// own copy of a quest so later in-place edits by the caller still diff
+const snap = (q) => ({ ...q, steps: (q.steps || []).map((s) => ({ ...s })), progress: Array.isArray(q.progress) ? q.progress.slice() : q.progress });
+
 const CONF = ['#e84a6e', '#ffc830', '#6cc04a', '#3c8ce0', '#a050e0', '#ff8a3a'];
 
 export function createQuestLog(root, o = {}) {
@@ -80,7 +83,7 @@ export function createQuestLog(root, o = {}) {
     const w = note.offsetWidth, h = note.offsetHeight;
     if (!w || !h || (Math.abs(w - tw) < PX * 2 && Math.abs(h - th) < PX * 4)) return;
     tw = w; th = Math.ceil(h / 24) * 24; // quantise: fewer textures while folding
-    note.style.backgroundImage = `url(${paperTexture('cream', w, th, { edge: 0.35, edgeW: 4, dogear: 5, seed: 61, rules: 8, ruleTop: 16 })})`;
+    note.style.backgroundImage = `url(${paperTexture('cream', w, th, { edge: 0.35, edgeW: 4, seed: 61 })})`;
   };
   let ro = null;
   if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(retex); ro.observe(note); }
@@ -143,7 +146,7 @@ export function createQuestLog(root, o = {}) {
     } else pg.innerHTML = progHTML(q);
     const rew = d.querySelector('.ql-rew b');
     if (rew && q.reward !== old.reward) rew.textContent = q.reward || '';
-    it.q = q;
+    it.q = snap(q);
   }
 
   function leave(id, delay = 0) {
@@ -196,7 +199,7 @@ export function createQuestLog(root, o = {}) {
         if (it && it.leaving) return; // finishing its exit
         const d = build(q);
         list.appendChild(d);
-        items.set(id, { el: d, q, leaving: false });
+        items.set(id, { el: d, q: snap(q), leaving: false });
         flutterIn(d, fresh++);
       });
       // keep the visual order of the given list (leaving ones stay where they were)
@@ -222,7 +225,7 @@ export function createQuestLog(root, o = {}) {
       setTimeout(() => sfx('stamp'), 200);
       setTimeout(() => sfx('star_pop', { pitch: 1.1 }), 380);
       if (collapsed) api.collapse(false);
-      confetti(d, 26);
+      confetti(d, 32);
       leave(String(id), 1900);
     },
     setVisible(on) {
@@ -249,7 +252,7 @@ export function createQuestLog(root, o = {}) {
     for (let i = 0; i < n; i++) {
       const p = document.createElement('i');
       p.className = 'ql-conf';
-      const w = Math.random() < 0.5 ? 6 : 3, h = w === 6 ? 3 : 6;
+      const w = Math.random() < 0.5 ? 8 : 4, h = w === 8 ? 4 : 8;
       p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${h}px;background:${CONF[i % CONF.length]}`;
       fxl.appendChild(p);
       const a = -Math.PI / 2 + (Math.random() * 2 - 1) * 1.4, v = 70 + Math.random() * 110;

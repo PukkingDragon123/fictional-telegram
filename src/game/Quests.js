@@ -89,7 +89,7 @@ export class Quests {
     // a step that is already true counts (e.g. the Tag tool is in hand)
     if (id === 'tag' && this.game.tool?.kind === 'tag') S.prog[id][0] = true;
     this.game.audio.play('page', { volume: 0.45 });
-    this.game.notify(`New quest: <b>${q.title}</b>! ${q.intro}`, 'excited', { dur: 5 });
+    this.game.notify(`New quest: ${q.title}! ${q.intro}`, 'excited', { dur: 5 });
     this.hint(q);
     this.sync();
     this.game.emit('questStart', q);
@@ -135,7 +135,7 @@ export class Quests {
     for (const f of R.food || []) g.foodStore?.add?.(f.id, f.n || 1);
     g.audio.play('levelup', { volume: 0.5 });
     g.ui?.ensureQuestLog?.()?.complete?.(id);
-    g.notify(`Quest complete: <b>${q.title}</b>! +${R.coins || 0} coins`, 'excited', { dur: 4 });
+    g.notify(`Quest complete: ${q.title}! +${R.coins || 0} coins`, 'excited', { dur: 4 });
     g.particles.confetti(g.fox.x, g.fox.y + 1.4, g.fox.z, 40);
     g.emit('questDone', q);
     g.save();

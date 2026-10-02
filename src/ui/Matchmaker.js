@@ -303,9 +303,9 @@ export function openMatchmaker(root, o = {}) {
       el.innerHTML = `
         <div class="mm-prof mm-prof--empty">
           <span class="mm-tab">${sexGlyph(sex)}<b>${lbl}</b></span>
-          <div class="mm-ghost">${glyphSVG('H', 6, 'mm-ghosth')}<span>${sexGlyph(sex, 4)}</span></div>
-          <div class="mm-hint">${sex === 'F' ? 'Pin a lady fish' : 'Pin a gentleman'}</div>
-          <div class="mm-hint2">Pick one below ${glyphSVG('X', 1, 'mm-hide')}</div>
+          <div class="mm-pol mm-pol--ghost"><div class="mm-por"><span class="mm-who">?</span></div><span class="mm-rar">${glyphSVG('H', 2, 'mm-ghosth')}</span></div>
+          <div class="mm-hint">${sex === 'F' ? 'Pin a lady' : 'Pin a gent'}</div>
+          <div class="mm-hint2">${sexGlyph(sex)}<span>Pick one below</span></div>
         </div>`;
     } else {
       const rar = RAR[clamp(f.rarity | 0, 0, 4)];
@@ -321,12 +321,18 @@ export function openMatchmaker(root, o = {}) {
           ${starsHTML(f.stars | 0)}
           <div class="mm-chips">${chipsHTML(f)}</div>
           <div class="mm-traits">${traitsHTML(f)}</div>
-          <div class="mm-fedrow">${fedHTML(f)}</div>
+          <div class="mm-fedrow"><span class="mm-fedl">Fed</span>${fedHTML(f)}</div>
           ${w ? `<div class="mm-nr">${stamp('Not ready', '#b8283c', -6, { anim: false })}<span>${esc(w)}</span></div>` : ''}
         </div>`;
       const por = el.querySelector('.mm-por');
       por.appendChild(portrait(f, por.clientWidth - 12 || 160, por.clientHeight - 10 || 80));
       el.querySelector('.mm-unpin').addEventListener('click', (e) => { e.stopPropagation(); sfx('paper', { pitch: 1.2 }); pair[sex] = null; active = sex; renderAll(); });
+    }
+    if (!f) {
+      // "who's that fish?" silhouette from the best candidate of this sex
+      const cand = fish.filter((x) => x.sex === sex).sort((a, b) => (b.ready - a.ready) || (b.stars - a.stars))[0];
+      const por = el.querySelector('.mm-por');
+      if (cand) { const c = portrait(cand, por.clientWidth - 30 || 150, por.clientHeight - 30 || 80); c.classList.add('mm-sil'); por.prepend(c); }
     }
     const prof = el.querySelector('.mm-prof');
     scoped[sex].push(skin(prof, f ? 'parchment' : 'cream', f ? { edge: 0.45, edgeW: 5, seed: sex === 'F' ? 41 : 43, stains: f.ready ? 0 : 1 } : { edge: 0.2, seed: 47 }));
@@ -456,19 +462,19 @@ export function openMatchmaker(root, o = {}) {
     const a = at(sz.min ?? 1), b2 = at(sz.max ?? 1), av = at(sz.avg ?? ((sz.min ?? 1) + (sz.max ?? 1)) / 2);
     const nums = sz.min != null ? `×${(+sz.min).toFixed(1)}–${(+sz.max).toFixed(1)}` : '';
     return `
-      ${p.hybrid ? `<div class="mm-hyb">${icon('dna', 1)}<span>Hybrid! Baby will be a <b>${esc(p.hybrid.speciesName)}</b></span></div>` : ''}
       <div class="mm-baby">
         <div class="mm-lcol">
           <div class="mm-heart"><canvas width="${HW}" height="${HH}"></canvas><b class="mm-hpct">${pct(p.perfect)}</b></div>
           <div class="mm-hlbl">Perfect genes</div>
           <div class="mm-egg mm-egg--${eggR}">${icon(`egg_${eggR}_0`, 3)}<span class="mm-eggq">?</span></div>
+          ${p.hybrid ? `<div class="mm-hyb" title="Hybrid! The baby will be a ${esc(p.hybrid.speciesName)}">${icon('dna', 1)}<span><i>Hybrid!</i><b>${esc(p.hybrid.speciesName)}</b></span></div>` : ''}
         </div>
         <div class="mm-rcol">
           <div class="mm-sec mm-sec--row mm-sec--stars"><h4>Baby<br>stars</h4><div class="mm-bars">${bars}</div></div>
           <div class="mm-sec mm-sec--row"><h4>Colour</h4><div class="mm-pchips">${morphs}</div></div>
           <div class="mm-sec mm-sec--row"><h4>Mutation</h4><div class="mm-pchips">${muts}</div></div>
           <div class="mm-sec mm-sec--row"><h4>Size</h4>
-            <div class="mm-ruler"><span class="mm-rtrack"><i class="mm-rrange" style="left:${a}%;width:${Math.max(2, b2 - a)}%"></i><i class="mm-ravg" style="left:${av}%"></i></span><span class="mm-rlbl"><b>${esc(sz.label || '')}</b> ${nums}</span></div>
+            <div class="mm-ruler"><span class="mm-rtrack"><i class="mm-rrange" style="left:${a}%;width:${Math.max(2, b2 - a)}%"></i><i class="mm-ravg" style="left:${av}%"></i></span><span class="mm-rlbl"><b>${esc(sz.label || '')}</b> <i>${nums}</i></span></div>
           </div>
           <div class="mm-sec mm-sec--row"><h4>Traits</h4><div class="mm-pchips">${traits}</div></div>
         </div>
@@ -503,7 +509,7 @@ export function openMatchmaker(root, o = {}) {
     try { res = o.onArrange?.(pair.F, pair.M) || { ok: true, msg: '' }; } catch (err) { console.error(err); res = { ok: false, msg: 'Something went wrong' }; }
     const box = report.querySelector('.mm-res');
     clearTimeout(resT);
-    box.innerHTML = `<div class="mm-resin">${stamp(res.ok ? 'Date booked!' : 'No dice', res.ok ? '#c0304a' : '#5a4632', res.ok ? -9 : 7, { cls: 'mm-bigstamp' })}${res.msg ? `<div class="mm-rmsg">${handwriting(res.msg, { color: res.ok ? '#9c2a48' : '#3b2414', delay: 260 })}</div>` : ''}</div>`;
+    box.innerHTML = `<div class="mm-resin">${stamp(res.ok ? 'Date booked!' : 'No dice', res.ok ? '#c0304a' : '#5a4632', res.ok ? -9 : 7, { cls: 'mm-bigstamp' })}${res.msg ? `<div class="mm-rmsg">${handwriting(res.msg, { color: res.ok ? '#9c2a48' : '#3b2414', delay: 260, speed: 1.6 })}</div>` : ''}</div>`;
     box.classList.add('on');
     setTimeout(() => sfx('stamp'), 140);
     if (res.ok) {
@@ -615,6 +621,7 @@ export function openMatchmaker(root, o = {}) {
     ], { duration: 640, easing: 'cubic-bezier(.25,.9,.35,1)' });
     anim(ov.querySelector('.mm-cupid'), [{ transform: 'rotate(-14deg) scale(2.4)', opacity: 0 }, { transform: 'rotate(-14deg) scale(.94)', opacity: 0.9, offset: 0.7 }, { transform: 'rotate(-14deg) scale(1)', opacity: 0.85 }], { duration: 360, delay: 620, easing: 'cubic-bezier(.5,0,.8,.4)', fill: 'backwards' });
     setTimeout(() => { if (!closed) sfx('stamp', { volume: 0.5 }); }, 700);
+    setTimeout(layoutYarn, 680); // the board was moving while the string was first laid out
   }
 
   const onKey = (e) => { if (e.key === 'Escape' && !closed) { e.preventDefault(); e.stopImmediatePropagation(); api.close(); } };
