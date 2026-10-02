@@ -100,11 +100,13 @@ vec3 fogField(vec2 xz) {
   float g = t.g * 25.5;
   if (t.r < 0.003) return vec3(g - 9.0, 0.0, g);
   // two scales of puffs drifting different ways, so the banks roll and churn
-  float big = fN((xz + time * vec2(0.16, 0.07)) * 0.27 + 3.7).b;
-  float sm = fN((xz - time * vec2(0.1, -0.22)) * 0.55 + vec2(9.1, 5.3)).a;
+  vec4 nb = fN((xz + time * vec2(0.16, 0.07)) * 0.17 + 3.7);
+  float sm = fN((xz - time * vec2(0.1, -0.22)) * 0.42 + vec2(9.1, 5.3)).a;
+  // big domes rise out of a rolling bank (value noise fills the gaps)
+  float big = max(nb.b, 0.3 + 0.35 * nb.g);
   // puffs bulge the outline too, so the edge is a row of round billows
   float c = smoothstep(0.1, 0.6, t.r + (big - 0.45) * 0.35 + (sm - 0.5) * 0.25);
-  float p = big * 0.72 + sm * 0.42;
+  float p = big * 0.8 + sm * 0.28;
   float h = fogTop * sqrt(c) * (0.38 + 0.7 * p);
   return vec3(g + h - (1.0 - c) * 0.9, c, g);
 }

@@ -150,8 +150,6 @@ function cupidStamp() {
   for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
     const r = Math.hypot(i - cx, j - cy);
     if ((r > 21 && r <= 22.6) || (r > 18.2 && r <= 19.2)) put(i, j);
-    // dotted band between the rings
-    else if (r > 19.2 && r <= 21 && Math.round(Math.atan2(j - cy, i - cx) * 9) % 2 === 0 && r > 19.6 && r < 20.6) put(i, j);
   }
   if (hasSprite('fox_wink')) {
     // line-art pass: only the dark outline / hat / eyes take ink, the fur stays paper
@@ -241,14 +239,12 @@ export function openMatchmaker(root, o = {}) {
         <div class="mm-cork">
           <svg class="mm-yarn" aria-hidden="true"></svg>
           <header class="mm-head">
-            <div class="mm-ribbon"><i class="mm-rib-l"></i><span class="mm-rib-t">Cupid &amp; Fox</span><i class="mm-rib-r"></i></div>
-            <div class="mm-sub">Matchmaking Agency · Fine pairings since 1867</div>
-            <img class="mm-cupid" src="${cupidStamp()}" alt="" draggable="false">
+            <div class="mm-ribbon"><i class="mm-rib-l"></i><span class="mm-rib-t">Cupid &amp; Fox <small>Matchmakers</small></span><i class="mm-rib-r"></i></div>
           </header>
           <button type="button" class="mm-x" aria-label="Close">${glyphSVG('X', 3)}</button>
           <div class="mm-main">
             <section class="mm-slot mm-slot--f" data-sex="F"></section>
-            <section class="mm-mid"><div class="mm-report"></div></section>
+            <section class="mm-mid"><div class="mm-report"></div><img class="mm-cupid" src="${cupidStamp()}" alt="" draggable="false"></section>
             <section class="mm-slot mm-slot--m" data-sex="M"></section>
           </div>
           <div class="mm-pick">
@@ -468,7 +464,7 @@ export function openMatchmaker(root, o = {}) {
           <div class="mm-egg mm-egg--${eggR}">${icon(`egg_${eggR}_0`, 3)}<span class="mm-eggq">?</span></div>
         </div>
         <div class="mm-rcol">
-          <div class="mm-sec"><h4>Baby stars</h4><div class="mm-bars">${bars}</div></div>
+          <div class="mm-sec mm-sec--row mm-sec--stars"><h4>Baby<br>stars</h4><div class="mm-bars">${bars}</div></div>
           <div class="mm-sec mm-sec--row"><h4>Colour</h4><div class="mm-pchips">${morphs}</div></div>
           <div class="mm-sec mm-sec--row"><h4>Mutation</h4><div class="mm-pchips">${muts}</div></div>
           <div class="mm-sec mm-sec--row"><h4>Size</h4>
@@ -480,18 +476,18 @@ export function openMatchmaker(root, o = {}) {
   }
 
   function startMeter(cv, target, gold) {
-    const m = { cv, p: 0, target, gold, raf: 0, t: 0, last: performance.now() };
+    // time based (not per-frame) so it lands on the value even at a low frame rate
+    const m = { cv, target, gold, raf: 0, t0: performance.now() };
     meter = m;
-    const tick = (now) => {
+    const DUR = 900;
+    const tick = () => {
       if (meter !== m || closed) return;
-      const dt = Math.min(0.05, (now - m.last) / 1000);
-      m.last = now; m.t += dt;
-      m.p += (m.target - m.p) * Math.min(1, dt * 3.2);
-      if (Math.abs(m.target - m.p) < 0.002) m.p = m.target;
-      drawHeart(cv, m.p, m.t, m.gold);
+      const el = performance.now() - m.t0, k = Math.min(1, el / DUR);
+      const e = 1 - Math.pow(1 - k, 3) * Math.cos(k * 4) ; // ease out with a little slosh
+      drawHeart(cv, clamp(target * e, 0, 1), el / 1000, gold);
       m.raf = requestAnimationFrame(tick);
     };
-    if (REDUCED()) { m.p = target; drawHeart(cv, target, 0, gold); return; }
+    if (REDUCED()) { drawHeart(cv, target, 0, gold); return; }
     drawHeart(cv, 0, 0, gold);
     m.raf = requestAnimationFrame(tick);
     if (target > 0) setTimeout(() => { if (meter === m) sfx('heartbeat', { volume: 0.4 + target * 0.4 }); }, 180);

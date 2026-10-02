@@ -44,7 +44,7 @@ const D = {
   HIP_Y: 6, WAIST: 1, NECK: 7.4, NECK_Z: 0.4, SH: [5.4, 6.2, 0.4], L_UP: 3.4, L_FORE: 3.4, L_HAND: 2.0,
   THIGH: 3.2, SHIN: 3.2, LEG_X: 2.5, EAR: [2.8, 8.2, -1.6], TAIL: [0.4, -5.6],
 };
-const EAR_L = 6; // base segment length (voxels); the tip hangs off its end
+const EAR_L = 8; // base segment length (voxels); the tip hangs off its end
 
 // ------------------------------------------------------------------ models
 const furCol = (x, y, z) => tone(x, y, z, C.fur, C.furD, C.furL, 0.1, 0.08);
@@ -127,12 +127,6 @@ function noseModel() {
   for (let x = -2; x <= 1; x++) v.set(x, 0, 0, C.nose);
   v.set(-1, -1, 0, C.noseD); v.set(0, -1, 0, C.noseD); v.set(-1, 1, -1, C.nose); v.set(0, 1, -1, C.nose);
   v.set(-1, 0, 1, 0xffc0d0);
-  for (const s of [-1, 1])
-    for (let k = 0; k < 3; k++)
-      for (let i = 0; i < 6; i++) {
-        const x = 5 + i, y = -3 + (k - 1) * 1.6 - (k - 1) * i * 0.35;
-        v.set(s > 0 ? x : -1 - x, Math.round(y), -2, C.whisk);
-      }
   return v;
 }
 function earModel() {
@@ -143,7 +137,7 @@ function earModel() {
 }
 function earTipModel() {
   const v = new VoxelModel();
-  rbox(v, -2, 1, -1, 4, -1, 0, 1.6, (x, y, z) => (z === 0 && abs(x + 0.5) < 1.1 && y <= 2 ? C.pink : y >= 3 ? C.brownD : brownCol(x, y, z)));
+  rbox(v, -2, 1, -1, 5, -1, 0, 1.7, (x, y, z) => (z === 0 && abs(x + 0.5) < 1.1 && y <= 3 ? C.pink : y >= 4 ? C.brownD : brownCol(x, y, z)));
   return v;
 }
 function hatModel() {
@@ -157,10 +151,10 @@ function hatModel() {
       v.set(x, droop, z, r > 7.6 ? C.strawD : (x + z) % 2 ? C.straw : C.strawL);
     }
   // crown (the ears poke through it) + pink band
-  for (let y = -3; y <= 4; y++)
+  for (let y = -3; y <= 3; y++)
     for (let x = -4; x <= 3; x++)
       for (let z = -4; z <= 3; z++) {
-        const r = Math.hypot(x + 0.5, z + 0.5), R = y === 4 ? 2.8 : y < 0 ? 3.3 : 3.7;
+        const r = Math.hypot(x + 0.5, z + 0.5), R = y === 3 ? 2.9 : y < 0 ? 3.3 : 3.7;
         if (r > R || (y === 0 && r < R - 1)) continue;
         v.set(x, y, z, y === 1 ? (r > R - 1 ? C.band : C.straw) : y < 0 ? C.strawD : (x + y) % 2 ? C.straw : C.strawL);
       }
@@ -300,14 +294,23 @@ const cache = geoCache(() => {
 const FACE = {
   w: 48, h: 24, eyes: [{ x: 13.6, y: 12 }, { x: 34.4, y: 12 }], rx: 4.6, ry: 5.4, style: 'bead', lash: true,
   blush: [{ x: 6, y: 20 }, { x: 42, y: 20 }], blushW: 3,
-  mw: 20, mh: 12, mx: 10, my: 1, mstyle: 'deer', mHalf: 4,
-  pal: { i: '#4a2a1a', I: '#a8683a', b: '#7a4a2a', e: '#ffffff', E: '#e6dccc' },
+  mw: 44, mh: 14, mx: 22, my: 1, mstyle: 'deer', mHalf: 4,
+  pal: { i: '#4a2a1a', I: '#a8683a', b: '#7a4a2a', e: '#ffffff', E: '#e6dccc', q: '#9a7a62', Q: '#c8ae96' },
 };
-/** Two little buck teeth under the ":3" (hidden in open / o mouths, which show their own). */
-function buckTeeth(P, st) {
+/** Whiskers (thin 1-texel lines out over the cheeks) + two little buck teeth under the ":3". */
+function buckTeeth(P, st, cfg) {
   const m = st.mouth || 'smile';
+  const wig = st.whisk || 0;
+  for (const s of [-1, 1])
+    for (let k = 0; k < 3; k++) {
+      const y0 = 3 + k * 2 + wig;
+      for (let i = 0; i <= 11; i++) {
+        const x = cfg.mx + s * (8 + i) - (s < 0 ? 1 : 0), y = y0 + (k - 1) * i * 0.28 - (i > 8 ? 0.5 : 0);
+        P.set(x, y, i > 8 ? 'Q' : 'q');
+      }
+    }
   if (m === 'open' || m === 'laugh' || m === 'o' || m === 'yell' || m === 'sip' || m === 'chew2' || m === 'frown') return;
-  const y0 = m === 'grin' ? 4 : 2, cx = 10;
+  const y0 = m === 'grin' ? 4 : 2, cx = cfg.mx;
   for (let x = cx - 2; x <= cx + 1; x++) for (let y = y0; y <= y0 + 2; y++) {
     const edge = x === cx - 2 || x === cx + 1 || y === y0 + 2;
     if (P.get(x, y) && !P.is(x, y, 'k') && m === 'grin') continue;
@@ -380,16 +383,16 @@ export class BunnyGardener extends BipedRig {
     this.scalar('trowelAim', 0); // 1 = blade down to the ground (dig), 0 = rigid in the fist
     // springy ears: the base sways, the tips flop and bounce on every hop
     for (const [n, s] of [['earL', 1], ['earR', -1]]) {
-      this.jiggle(n, 'rx', { k: 120, c: 7, az: 0.9, ay: 0.25, max: 0.5, probe: 'head' });
-      this.jiggle(n, 'rz', { k: 120, c: 7, ax: 0.9, max: 0.5, probe: 'head' });
+      this.jiggle(n, 'rx', { k: 110, c: 6, az: 2.4, ay: 0.6, max: 0.5, probe: 'head' });
+      this.jiggle(n, 'rz', { k: 110, c: 6, ax: 2.4, yaw: s * 0.04, max: 0.5, probe: 'head' });
       this.jiggle(n + '2', 'rz', { k: 80, c: 4.5, ay: s * 1.6, ax: 1.0, yaw: s * 0.05, max: 0.9, probe: n });
       this.jiggle(n + '2', 'rx', { k: 80, c: 4.5, az: 1.2, ay: -0.4, max: 0.7, probe: n });
     }
-    this.jiggle('hat', 'rx', { k: 200, c: 9, az: -0.3, ay: 0.12, max: 0.3, probe: 'head' });
-    this.jiggle('hat', 'rz', { k: 200, c: 9, ax: 0.3, max: 0.25, probe: 'head' });
+    this.jiggle('hat', 'rx', { k: 200, c: 9, az: -0.7, ay: 0.3, max: 0.3, probe: 'head' });
+    this.jiggle('hat', 'rz', { k: 200, c: 9, ax: 0.7, max: 0.25, probe: 'head' });
     this.jiggle('chest', 's', { k: 220, c: 9, ay: 0.05, max: 0.07, probe: 'hips' });
     this.jiggle('head', 's', { k: 260, c: 10, ay: 0.04, max: 0.06, probe: 'chest' });
-    this.jiggle('tail', 's', { k: 160, c: 6, ay: 0.12, max: 0.25, probe: 'hips' });
+    this.jiggle('tail', 's', { k: 160, c: 6, ay: 0.4, max: 0.25, probe: 'hips' });
     this._init(ANIMS, EXPRS, 'idle');
   }
   _post(p, dt) {
@@ -471,11 +474,12 @@ const _c = [0, 0];
 /** Floppy ears: perk = 0 relaxed (left tip folded over), 1 = both straight up and alert. */
 function ears(p, t, perk = 0, amt = 1) {
   const sw = sin(t * 1.3) * amt;
-  p.earL.rz += -0.2 + perk * 0.12 + sw * 0.04; p.earR.rz += 0.24 - perk * 0.14 - sw * 0.04;
-  p.earL.rx += -0.18 + perk * 0.1; p.earR.rx += -0.12 + perk * 0.08;
-  p.earL2.rz += -lerp(1.25, 0.12, perk) + sin(t * 1.9) * 0.06 * amt;
-  p.earR2.rz += lerp(0.5, 0.06, perk) - sin(t * 1.7 + 1) * 0.05 * amt;
-  p.earL2.rx += lerp(0.3, 0.05, perk); p.earR2.rx += lerp(0.2, 0.05, perk);
+  p.earL.rz += -0.2 + perk * 0.14 + sw * 0.04; p.earR.rz += 0.16 - perk * 0.1 - sw * 0.04;
+  p.earL.rx += -0.2 + perk * 0.12; p.earR.rx += -0.16 + perk * 0.1;
+  p.earL2.rz += -lerp(0.6, 0.06, perk) + sin(t * 1.9) * 0.06 * amt;
+  p.earL2.rx += lerp(1.25, 0.05, perk) + sin(t * 1.4) * 0.05 * amt;
+  p.earR2.rz += lerp(0.22, 0.03, perk) - sin(t * 1.7 + 1) * 0.05 * amt;
+  p.earR2.rx += lerp(0.18, 0.02, perk);
 }
 /** Standing bunny: plump, feet planted, ears relaxed, a tiny nose twitch. */
 function stand(p, rig, t, { amt = 1, crouch = 0.4, perk = 0 } = {}) {

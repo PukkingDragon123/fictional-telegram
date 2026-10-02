@@ -49,7 +49,7 @@
 .mm-yh { stroke: #ff7a7a; stroke-width: 1px; stroke-dasharray: 3 6; transform: translate(0, -1px); }
 
 /* ---- header: ribbon + sub line + Cupid-fox stamp */
-.mm-head { position: relative; flex: none; height: 50px; display: flex; flex-direction: column; align-items: center; z-index: 8; }
+.mm-head { position: relative; flex: none; height: 40px; display: flex; flex-direction: column; align-items: center; z-index: 8; }
 .mm-ribbon { position: relative; display: flex; align-items: stretch; height: 36px; filter: drop-shadow(0 3px 0 rgba(30, 16, 8, .45)); transform: rotate(-1deg); }
 .mm-rib-t {
   position: relative; z-index: 1; display: block; padding: 0 22px; line-height: 33px; height: 36px;
@@ -58,6 +58,7 @@
   box-shadow: inset 0 3px 0 #f27a98, inset 0 -3px 0 #a8284c;
   text-shadow: 3px 0 0 #7a1a36, -3px 0 0 #7a1a36, 0 3px 0 #7a1a36, 0 -3px 0 #7a1a36;
 }
+.mm-rib-t small { font-size: 18px; color: #ffe0e8; vertical-align: 2px; margin-left: 4px; }
 .mm-rib-t::before, .mm-rib-t::after { /* stitched edge */
   content: ''; position: absolute; left: 6px; right: 6px; height: 3px;
   background: repeating-linear-gradient(90deg, #ffd2dc 0 6px, transparent 6px 12px); opacity: .55;
@@ -67,12 +68,8 @@
 .mm-rib-l, .mm-rib-r { display: block; width: 30px; height: 30px; margin-top: 12px; background: #a8284c; border: 3px solid #5a1428; }
 .mm-rib-l { margin-right: -12px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 12px 50%); border-right: 0; }
 .mm-rib-r { margin-left: -12px; clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 50%, 100% 100%, 0 100%); border-left: 0; }
-.mm-sub {
-  margin-top: 1px; padding: 0 8px; font-size: 16px; line-height: 14px; color: #fff3dc; white-space: nowrap;
-  text-shadow: 2px 0 0 #4a2a12, -2px 0 0 #4a2a12, 0 2px 0 #4a2a12, 0 -2px 0 #4a2a12; transform: rotate(-1deg);
-}
 .mm-cupid {
-  position: absolute; left: calc(50% + 200px); top: -8px; width: 92px; height: 92px; transform: rotate(-14deg); opacity: .85;
+  position: absolute; right: 4px; bottom: 2px; z-index: 9; width: 92px; height: 92px; transform: rotate(-14deg); opacity: .85;
   mix-blend-mode: multiply; -webkit-mask: var(--pp-speck) 0 0 / 96px 96px; mask: var(--pp-speck) 0 0 / 96px 96px; pointer-events: none;
 }
 
@@ -187,7 +184,7 @@
 @keyframes mm-nudge { 50% { translate: 0 3px; } }
 
 /* ================================================================ match report (middle) */
-.mm-mid { position: relative; min-height: 0; min-width: 0; display: flex; padding-top: 4px; }
+.mm-mid { position: relative; min-height: 0; min-width: 0; display: flex; padding-top: 14px; }
 .mm-report {
   position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 18px 12px;
   background-color: #f6eed8; background-size: 100% 100%; background-repeat: no-repeat; image-rendering: pixelated;
@@ -195,7 +192,7 @@
 }
 .mm-rhead { position: relative; flex: none; display: flex; justify-content: center; padding-bottom: 6px; margin-bottom: 6px; border-bottom: 3px dashed #e7a0b4; }
 .mm-rhead span { font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #9c2a48; letter-spacing: 0; }
-.mm-hpin { position: absolute; left: calc(50% - 20px); top: -34px; z-index: 8; filter: drop-shadow(0 3px 0 rgba(30, 16, 8, .45)); animation: mm-beat 1.6s ease-in-out infinite; }
+.mm-hpin { position: absolute; left: calc(50% - 20px); top: -30px; z-index: 8; filter: drop-shadow(0 3px 0 rgba(30, 16, 8, .45)); animation: mm-beat 1.6s ease-in-out infinite; }
 .mm-rhead { padding-top: 8px; }
 .mm-rbody { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
 .mm-rbody::-webkit-scrollbar { display: none; }
@@ -203,7 +200,9 @@
 
 .mm-baby { display: flex; gap: 14px; align-items: flex-start; }
 .mm-lcol { flex: none; width: 132px; display: flex; flex-direction: column; align-items: center; }
-.mm-rcol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.mm-rcol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.mm-sec--stars { align-items: flex-end; }
+.mm-sec--stars h4 { padding-bottom: 22px; line-height: 18px; }
 
 /* heart meter */
 .mm-heart { position: relative; width: 120px; height: 108px; flex: none; filter: drop-shadow(0 4px 0 rgba(30, 16, 8, .35)); }
@@ -235,7 +234,7 @@
 .mm-sec--row .mm-pchips { justify-content: flex-start; }
 
 /* star odds bar chart */
-.mm-bars { display: flex; gap: 6px; height: 88px; align-items: stretch; padding: 0 2px; }
+.mm-bars { flex: 1; min-width: 0; display: flex; gap: 6px; height: 78px; align-items: stretch; padding: 0 2px; }
 .mm-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .mm-bar b { font-family: var(--font-title); font-size: 18px; line-height: 16px; font-weight: 400; color: #6a4a32; }
 .mm-bar.mm-best b { color: #c0304a; }
@@ -370,7 +369,7 @@
 /* ================================================================ small screens */
 @media (max-width: 1100px) {
   .mm-main { gap: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); }
-  .mm-cupid { width: 70px; height: 70px; left: calc(50% + 190px); }
+  .mm-cupid { width: 70px; height: 70px; }
   .mm-trait i { display: none; }
   .mm-trait { padding: 0 1px; }
   .mm-sec--row h4 { width: 64px; }
@@ -380,8 +379,8 @@
   .mm-rib-t { font-size: 18px; line-height: 30px; height: 32px; padding: 0 14px; }
   .mm-ribbon { height: 32px; }
   .mm-rib-l, .mm-rib-r { width: 24px; height: 24px; margin-top: 10px; }
-  .mm-head { height: 44px; }
-  .mm-cupid { width: 46px; height: 46px; top: -2px; left: calc(50% + 120px); }
+  .mm-head { height: 36px; }
+  .mm-cupid { display: none; }
   .mm-nm { font-size: 18px; line-height: 18px; }
   .mm-sp { margin-top: 0; }
   .mm-lcol { width: 120px; }
@@ -398,11 +397,11 @@
 }
 @media (max-height: 660px) {
   .mm-board { padding: 8px; }
-  .mm-head { height: 42px; }
+  .mm-head { height: 34px; }
   .mm-rib-t { font-size: 18px; line-height: 28px; height: 30px; }
   .mm-ribbon { height: 30px; }
   .mm-rib-l, .mm-rib-r { width: 22px; height: 22px; margin-top: 9px; }
-  .mm-cupid { width: 46px; height: 46px; top: -2px; left: calc(50% + 130px); }
+  .mm-cupid { width: 70px; height: 70px; }
   .mm-por { height: 70px; }
   .mm-pol { padding-bottom: 16px; }
   .mm-nm { font-size: 18px; line-height: 18px; }

@@ -14,7 +14,7 @@ export const QUESTS = [
   {
     id: 'friend', title: 'Meet the neighbours', icon: 'heart', reward: { coins: 50 },
     when: (g) => (g.state.tutorialDone || g.skipTutorial) && g.state.day >= 1,
-    intro: 'Somebody lives in the fog next door! Clear the trees up to it.',
+    intro: 'Somebody lives in the fog next door! Tap a "?" tag to see where.',
     steps: [{ text: 'Clear the forest up to a fog bank', ev: 'zone' }],
     point: (g) => g.quests.nearestFog(),
   },
@@ -100,7 +100,7 @@ export class Quests {
     const p = q.point?.(g);
     if (!p) return;
     if (typeof p === 'string') { const stop = g.ui?.pointAt?.(p); if (stop) setTimeout(() => stop(), 5000); return; }
-    if (p.zone) g.zones?.showHint?.(p.zone);
+    // fog banks carry their own "Who lives here?" tags; tapping one shows the way
   }
 
   onEvent(ev, d) {
