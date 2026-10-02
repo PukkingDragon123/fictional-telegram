@@ -70,6 +70,8 @@ function build() {
   restart();
 }
 function restart() {
+  for (const pool of [particles.fx, particles.decals]) pool.list.length = 0;
+  for (const pool of [particles.lit, particles.glow]) pool.list && (pool.list.length = 0);
   if (eat) { eat.dispose(); eat = null; }
   if (duck) { duck.dispose(); duck = null; }
   let prey;

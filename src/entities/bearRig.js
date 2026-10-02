@@ -3692,7 +3692,7 @@ export class BearRig {
       const o = hb * CH;
       if (a[o + 6] === 1 && a[o + 7] === 1 && a[o + 8] === 1 && a[o + 3] === 0 && a[o + 4] === 0) bones[hb].scale.setScalar(HIDE);
     }
-    if (this.held || this.itemMode === 'none') bones[B.item].scale.setScalar(HIDE);
+    if (this.held || this.itemMode === 'none' || (name.startsWith('eat_') && this.prey.at === 'free')) bones[B.item].scale.setScalar(HIDE);
     if (this._legsHidden) { bones[B.legL].scale.setScalar(HIDE); bones[B.legR].scale.setScalar(HIDE); }
     // hold anchor
     const sp = BIND[B.spine];

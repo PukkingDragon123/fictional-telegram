@@ -281,7 +281,7 @@ function rigPreview() {
       toWorld(f, -0.1, 0, 0.47, ex.board.position);
       ex.board.rotation.set(0, f.root.rotation.y + Math.PI, 0);
     }
-    toWorld(f, -0.17, 0, 0.6, ex.pot.position);
+    toWorld(f, 0, 0, 0.52, ex.pot.position);
   };
   const stepFox = (f, dt) => {
     f.update(dt);

@@ -37,6 +37,8 @@ export const FOX_SEAT_SURFACE = 0.5;
 export const FOX_SEAT_HEIGHT = FOX_SEAT_SURFACE + 0.13;
 /** Desk / keyboard surface height (world units) that sit_type and sit_doze are posed for (the lab desk top is at 0.8). */
 export const FOX_DESK_HEIGHT = 0.8;
+/** Root-space point (world units) the ladle bowl circles in chef_idle: put a pot's soup surface here. */
+export const FOX_STIR_POINT = Object.freeze({ x: 0, y: 0.22, z: 0.52 });
 /** Distance in front of the root (+Z, world units) of the keyboard centre for sit_type. */
 export const FOX_KEYBOARD_Z = 0.36;
 /** Height above the root (world units) of the "screen edge" the peek_* / climb_* animations hold on to: elbows and paws rest on it, everything below is meant to be cut off (FoxNotifier puts its canvas bottom here). */
@@ -3330,7 +3332,7 @@ def('chef_idle', {
     p.lL.sp = p.lR.sp = 0.1;
     // small stirring circles in the pot in front
     const a = t * 3.6;
-    p.ik(p.aR, 3.4 + cos(a) * 1.0, 3.6 + sin(a * 2) * 0.15, 7.4 + sin(a) * 1.0, 1, -0.5, -0.5);
+    p.ik(p.aR, 3.4 + cos(a) * 1.0, 2.6 + sin(a * 2) * 0.15, 7.4 + sin(a) * 1.0, 1, -0.5, -0.5);
     p.propDir = [0.15 + cos(a) * 0.12, -1, 0.5]; p.propDirW = 1;
     p.chRy += cos(a) * 0.035; p.hRz += sin(a) * 0.02;
     // every now and then: a big sniff of the aroma
@@ -3354,11 +3356,16 @@ def('chef_taste', {
     life(t, p, 0.4);
     hipPaw(p, p.aL, 1 - win(t, 1.15, 2.35, 0.2, 0.3));
     p.pawL = 'fist';
-    // ladle up to the lips (bowl at the mouth, handle up and out), slurp
+    // ladle up to the lips: the aim solver puts the bowl right at his own mouth, slurp
     const lift = K(t, [[0, 0], [0.4, 1, 'back'], [1.2, 1], [1.55, 0, 'io']]);
-    p.ik(p.aR, lerp(3.4, 7.2, lift), lerp(3.6, 12.6, lift), lerp(7.4, 7.2, lift), 1, -0.4, -0.4, 1);
-    p.aR.st = 1.4;
-    p.propDir = [lerp(0.15, 0.62, lift), lerp(-1, -0.52, lift), lerp(0.5, 0.42, lift)]; p.propDirW = 1;
+    p.ik(p.aR, 3.4, 2.6, 7.4, 1, -0.5, -0.5, 1);
+    p.propDir = [0.15, -1, 0.5]; p.propDirW = 1;
+    if (lift > 0.01 && !rig._aim.target) {
+      rig.head.updateWorldMatrix(true, false);
+      const m = rig.root.worldToLocal(rig.head.localToWorld(_h13.set(-0.5 * VS, 1.2 * VS, 11.2 * VS)));
+      p.aimAuto = lift > 0.5 ? 1 : lift * 2; p.aimDef = [m.x, m.y, m.z]; p.aimBody = 0;
+      p.aimPush = -0.012; p.aimPole = [0.9, -0.5, -0.4];
+    }
     const sip = win(t, 0.45, 1.05, 0.1, 0.12);
     p.hRx += 0.12 * sip - 0.04; p.chRx += 0.05 * sip; p.hRy += -0.08 * sip;
     p.hSq *= 1 - abs(sin(t * 26)) * 0.03 * sip;

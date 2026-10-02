@@ -9,6 +9,8 @@ import { MEADOW } from '../world/worldgen.js';
 import { LAND_ANIMALS, LAND_BY_ID, LAND_RARITY_WEIGHT, LAND_BOUNTY, TAME_BUNNIES, HUTCH, BUNNY_NAMES } from '../data/landAnimals.js';
 import { CROPS } from '../data/crops.js';
 import { STORAGE } from '../data/foods.js';
+const artMods = import.meta.glob('../art/extra/landAnimalArt.js', { eager: true });
+const ART = artMods['../art/extra/landAnimalArt.js']?.LAND_ANIMAL_ART || {};
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -307,8 +309,14 @@ export class LandAnimals {
       if (d > 0.01) {
         // rabbits move in hops: fast in the air, a pause on landing
         let sp2 = speed * run;
-        if (sp.move === 'hop') { const ph = (this.time * 2.4 * run + a.seed) % 1; a.hopY = Math.sin(Math.min(1, ph / 0.7) * Math.PI) * 0.16 * (ph < 0.7 ? 1 : 0); sp2 *= ph < 0.7 ? 1.4 : 0.1; }
-        else a.hopY = 0;
+        a.hopY = 0;
+        if (sp.move === 'hop') {
+          // the hop frames already contain the jump: slide forward only while airborne
+          a.hopPh = ((a.hopPh || 0) + dt * 2.2 * run) % 1;
+          a.hopFrame = Math.min(4, Math.floor(a.hopPh * 5));
+          const air = ART[a.art]?.air || [1, 2, 3];
+          sp2 *= air.includes(a.hopFrame) ? 1.6 : 0.08;
+        }
         const step = Math.min(d, sp2 * dt);
         a.x += (dx / d) * step; a.z += (dz / d) * step;
         a.face = this.faceOf(dx, dz, a.face);
@@ -341,7 +349,9 @@ export class LandAnimals {
       if (!fr?.length) continue;
       if (a.anim !== a.lastAnim) { a.lastAnim = a.anim; a.at = 0; }
       a.at += 1 / 60;
-      const idx = Math.floor((this.time + a.seed) * (FPS[a.anim] || 5)) % fr.length;
+      const fps = ART[a.art]?.fps?.[a.anim] || FPS[a.anim] || 5;
+      const hop = a.anim === 'move' && (ART[a.art]?.gait === 'hop' || a.sp.move === 'hop') && a.hopFrame != null;
+      const idx = hop ? Math.min(fr.length - 1, a.hopFrame) : Math.floor((this.time + a.seed) * fps) % fr.length;
       const sz = (LAND_BY_ID[a.sp.id]?.size ? 1 : 1) * a.scale;
       B.push(fr[idx], a.x, a.y + a.hopY, a.z, { texels: 24, scale: sz, flip: a.face < 0 });
     }
