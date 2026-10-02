@@ -175,7 +175,8 @@ export function startEat(game, { rig, style = 'chomp', prey, parent = null, spee
       if (this.done) return;
       this.done = true;
       if (!this._said) this.onRigEvent('done');
-      rig.afterPose = null;
+      if (rig.afterPose === sync) rig.afterPose = null;
+      prey.freeze?.();
     },
     onRigEvent(name) {
       const m = rig.mouthPos(_a);

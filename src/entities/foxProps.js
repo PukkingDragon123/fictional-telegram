@@ -362,7 +362,7 @@ function goldCupModel() {
   }
   // star emblem
   const zf = 6;
-  for (const [x, y] of [[0, 11], [-1, 10], [0, 10], [1, 10], [-2, 10], [-1, 9], [0, 9], [-1, 8], [1, 8], [0, 12]]) v.set(x - 0.5 < 0 ? x : x, y, zf, P.goldL);
+  for (const [x, y] of [[0, 11], [-1, 10], [0, 10], [1, 10], [-2, 10], [-1, 9], [0, 9], [-1, 8], [1, 8], [0, 12]]) v.set(x, y, zf, P.goldL);
   return v;
 }
 

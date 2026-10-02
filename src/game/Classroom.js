@@ -51,7 +51,7 @@ export const LESSONS = {
       { say: 'Hungry? Pick the **Food tool** and tap the water. Pellets!', tap: 'bag', react: { kind: 'heart', who: ['pip', 'chub'] },
         draw: [D('bag', 26, 88, { scale: 2, id: 'bag' }), D('pellet', 54, 80), { arrow: [64, 88, 90, 88] }, D('fish_full', 122, 88, { scale: 2, id: 'full' }), T('YUM!', 170, 86, { color: 'yellow' })] },
       { erase: true, say: '**Pet** them and **decorate** the pond. Happy fish, happy bears!', react: 'heart', tap: 'pet',
-        draw: [D('hand', 34, 34, { scale: 2, id: 'pet' }), D('heart', 58, 22), T('PET', 34, 60, { color: 'pink' }),
+        draw: [D('fish_heart', 38, 36, { scale: 2, id: 'pet' }), D('hand', 26, 14), T('PET', 38, 62, { color: 'pink' }),
           D('flower', 104, 32, { scale: 2 }), D('lilypad', 144, 36, { scale: 2 }), T('PRETTY POND', 124, 60, { color: 'green' })] },
       { say: 'Little **fry** grow up into big adults.', tap: 'adult',
         draw: [D('minifish', 34, 88, { scale: 2, id: 'fry' }), { arrow: [54, 88, 82, 88] }, D('fish', 116, 88, { scale: 2, id: 'adult' }), T('GROW!', 166, 88, { color: 'yellow' })] },

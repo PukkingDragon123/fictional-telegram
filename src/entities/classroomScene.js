@@ -1017,7 +1017,7 @@ export function buildClassroom(opts = {}) {
     riser: { ...RISER },
     camWide: box(-4.72, 4.72, 0, 3.2, -2.95, 2.7, 30, 1.02),
     camBoard: box(bx0 - 0.5, tsx + 0.75, 0.2, 1.9, BOARD.z, BOARD.z + 0.9, 26, 1.03),
-    camStudents: box(-3.75, 2.95, 0.15, 1.45, -1.1, 1.75, 30, 1.04),
+    camStudents: box(-3.75, 2.95, -0.7, 1.45, -1.1, 1.75, 30, 1.02),
     camTeacher: box(tsx - 1.1, tsx + 0.9, 0, 1.9, BOARD.z, BOARD.z + 1.0, 20, 1.05),
     camDesk: box(tdFront.x - 1.6, tdFront.x + 1.3, 0, 2.0, -2.9, tdFront.z + 0.4, 18, 1.05),
   };

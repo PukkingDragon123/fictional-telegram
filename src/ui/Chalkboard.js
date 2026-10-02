@@ -211,6 +211,19 @@ const SYM_M = ['....BBB', '.....BB', '....B.B', '.BBB...', 'B...B..', 'B...B..',
 const SYM_F = ['.PPP.', 'P...P', 'P...P', 'P...P', '.PPP.', '..P..', '.PPP.', '..P..'];
 const BOW = ['PP.PP', 'PpPpP', 'PP.PP'];
 const SPARK = ['.Y.', 'Y*Y', '.Y.'];
+const HAND_UP = [
+  '...WW....',
+  '..WwwW...',
+  '..WwwW...',
+  '..WwwWWW.',
+  '.WWwwWwwWW',
+  'WwWwwwwwwW',
+  'WwwwwwwwwW',
+  'WwwwwwwwW.',
+  '.WwwwwwwW.',
+  '..WwwwwW..',
+  '..WWWWWW..',
+];
 const DOODLE_ART = {
   fish: FISH,
   fish_m: () => compose([[FISH, 0, 3], [SYM_M, 17, 0]]),
@@ -831,18 +844,8 @@ const DOODLE_ART = {
     '.OoOoOoOoO.',
     '..OOOOOOO..',
   ],
-  hand: [
-    '.WWWWWWW.',
-    'WwwwwwwwW',
-    'WwWwWwWwW',
-    'WwwwwwwwW',
-    '.WwwwwwW.',
-    '..WwwWW..',
-    '..WwW....',
-    '..WwW....',
-    '..WwW....',
-    '...W.....',
-  ],
+  hand: () => HAND_UP.slice().reverse(), // finger pointing down: "tap!"
+  hand_up: HAND_UP,
   sad: ['..WWWWW..', '.W.....W.', 'W.K...K.W', 'W.......W', 'W..WWW..W', '.WW...WW.', '..WWWWW..'],
   happy: ['..YYYYY..', '.Y.....Y.', 'Y.K...K.Y', 'Y.......Y', 'Y.Y...Y.Y', '.Y.YYY.Y.', '..YYYYY..'],
   shop: [
@@ -912,6 +915,7 @@ function doodleArt(name) {
 }
 
 // Doodle metadata: which fill letter is the "main" colour (re-tintable).
+const DOODLE_TINT_OUTLINE = { bag: 'W' }; // doodles whose outline follows the tint too
 const DOODLE_MAIN = { fish: 'b', minifish: 'b', titan: 'b', tiny: 'b', fish_star: 'b', fish_heart: 'b', fish_full: 'o', fish_hungry: 'b', fish_m: 'b', fish_f: 'p', bag: 'o', heart: 'p', heart_big: 'p', star: 'y', egg: 'y' };
 export const DOODLE_NAMES = Object.keys(DOODLE_ART);
 
@@ -1210,6 +1214,7 @@ export class Chalkboard {
         const colorOf = (ch) => {
           const up = ch.toUpperCase();
           if (tint && tintMain && up === tintMain.toUpperCase()) return tint;
+          if (tint && DOODLE_TINT_OUTLINE[it.name] === ch) return tint;
           if (it.color && up === 'W') return col;
           return cIdx(LETTER_COLOR[up] || 'white');
         };

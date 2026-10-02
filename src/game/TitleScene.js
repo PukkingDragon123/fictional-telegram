@@ -37,6 +37,7 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const angLerp = (a, b, t) => { let d = (b - a) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return a + d * t; };
 
 // ---------------------------------------------------------------- layout
@@ -1279,6 +1280,398 @@ export class TitleScene {
       this.skyUniforms.uTop.value = Math.max(0.8, topH);
       this.skyUniforms.uSun.value.set(-viewW * 0.08 - shift * 0.5, Math.max(0.5, topH * 0.58));
     }
+  }
+
+  // ============================================================ the bear jumpscare
+  // A suited bear ERUPTS out of the pond among the ducks (sting, RAWR!, splash,
+  // camera punch-in), snatches them one by one and eats each with a different
+  // BearEat style, snaps a leaping fish for dessert, burps up a single feather,
+  // pats its belly and wades off into the reeds. Reynard leaps out of his chair
+  // and cowers behind it, the deer screams into his hooves. Then a new duck
+  // family paddles in, ducklings and all.
+  _at(r, f, y = 0) { const s = this.seatPos, R = this.right, F = this.fwd; return new THREE.Vector3(s.x + R.x * r + F.x * f, y, s.z + R.z * r + F.z * f); }
+
+  _startBearGag() {
+    const game = this.game;
+    const type = BEAR_CAST[this.bearN++ % BEAR_CAST.length];
+    const def = BEAR_TYPES[type];
+    const bear = new BearRig(type, def);
+    bear.personalize(3.7 + this.bearN * 1.3);
+    const E = this._at(-1.85, -2.75);
+    const tx = Math.floor(E.x), tz = Math.floor(E.z);
+    const floor = game.grid.isWater(tx, tz) ? game.grid.surfaceY(tx, tz) : -1;
+    const sc = def.scale * bear.P.size;
+    const waterY = Math.max(floor, WATER_Y - 0.62 * sc); // standing on a (cartoon) sandbar: belly up out of the water
+    bear.root.position.set(E.x, waterY - 2.6 * sc, E.z);
+    bear.root.rotation.y = YAW + 0.35;
+    bear.root.visible = false;
+    this.group.add(bear.root);
+    bear.onEvent = (n) => this._bearEvent(n);
+    const styles = [];
+    for (let i = 0; i < 3; i++) styles.push(STYLE_DECK[(this.deckI + i) % STYLE_DECK.length]);
+    this.deckI += 3;
+    const fishStyle = FISH_STYLES[(this.bearN - 1) % FISH_STYLES.length];
+    this.gag = { kind: 'bear', phase: 'lurk', t: 0, bear, E, waterY, sc, styles, fishStyle, i: 0, eat: null, prey: null, pose: 'idle', pt: 0 };
+    for (const c of this.chicks) if (c.on) c.mode = 'flee';
+  }
+
+  // the bear's rig events -> the eat driver + splashes
+  _bearEvent(name) {
+    const G = this.gag;
+    if (!G || G.kind !== 'bear') return;
+    G.eat?.onRigEvent(name);
+    const p = G.bear.root.position;
+    if (name === 'step') { this.game.particles.splash(p.x, p.z, 4, 0.5); this.game.world.sim.disturb(p.x, p.z, 0.3, 0.1); }
+    if (name === 'pat') this.game.world.sim.disturb(p.x, p.z, 0.4, 0.12);
+  }
+
+  _eatFx() {
+    return {
+      word: (id, x, y, z, size = 1) => { const w = EAT_WORDS[id] || ['NOM', 'eat']; this._word(w[0], w[1], x, y + 0.15, z, { size: 0.85 * size, life: 1 }); },
+      sfx: (name, o) => this._sfx(name, { volume: 0.35, ...o }),
+    };
+  }
+
+  _water() { const g = this.game.grid; return (x, z) => { const w = g.isWater(Math.floor(x), Math.floor(z)); return { y: w ? WATER_Y : g.surfaceY(Math.floor(x), Math.floor(z)), water: w }; }; }
+
+  _scareFox() {
+    const fox = this.fox, st = this.foxSt;
+    this.fright = 1;
+    this._dropCan();
+    fox.dropMonocle?.();
+    fox.popHat?.(1.2, 2);
+    const has = (n) => fox.anims.includes(n);
+    fox.setExpression(fox.expressions.includes('horror') ? 'horror' : 'shocked', { hold: 2.5 });
+    fox.play(has('horror') ? 'horror' : 'panic', { fade: 0.06 });
+    const h = fox.headTop();
+    this._word('YIPE!', 'yelp', h.x, h.y + 0.2, h.z, { size: 1.1, life: 1.1 });
+    this._sfx('fox_startle', { volume: 0.4 });
+    // out of the chair, onto the bank behind it
+    st.mode = 'hide'; st.t = 0;
+    st.hide = { from: new THREE.Vector3(st.x, st.y, st.z), to: this._at(0.55, 1.15, 0), landed: false };
+    this.foxChair.vx -= 5;
+  }
+
+  _runBearGag(dt) {
+    const G = this.gag, game = this.game, P = game.particles, B = G.bear, fox = this.fox, deer = this.deer;
+    G.t += dt;
+    const E = G.E, sc = G.sc;
+    let pose = G.pose, params = { inWater: true };
+    const next = (phase) => { G.phase = phase; G.t = 0; };
+    if (G.phase === 'lurk') {
+      // something stirs under the ducks...
+      if (Math.random() < dt * 9) P.bubbles(E.x + rand(-0.3, 0.3), WATER_Y - 0.25, E.z + rand(-0.3, 0.3), 1);
+      if (Math.random() < dt * 4) game.world.sim.disturb(E.x, E.z, 0.35, 0.06);
+      if (G.t > 0.8 && !G.q) { G.q = true; const h = this._headOf(deer); P.sprite('question', h[0], h[1], h[2], { vy: 0.4, life: 1.1, size: 0.3 }); deer.setExpression?.('worried', { hold: 1.2 }); }
+      if (G.t > 1.5) {
+        next('burst');
+        B.root.visible = true;
+        P.bigSplash(E.x, E.z);
+        game.rig.shake = Math.max(game.rig.shake || 0, 0.9);
+        this.punch = 1.35; this.punchHold = 0.45;
+        this._sfx('jumpscare', { volume: 0.7 });
+        this._sfx('roar', { volume: 0.55, pitch: 0.95 });
+        this._sfx('bigsplash', { volume: 0.5 });
+        this._scareFox();
+        deer.play('horror', { fade: 0.08 });
+        this.deerChair.vx -= 4.5;
+        this.ducks.forEach((d) => { if (d.mode !== 'eaten') { d.mode = 'frozen'; d.t = 0; d.d.play('flap', { fade: 0.1 }); d.d.setExpression?.('panic'); } });
+        this._later(0.35, () => { const h = B.headTop(); this._word('RAWR!', 'rawr', h.x, h.y + 0.25, h.z, { size: 1.7, life: 1.4 }); });
+        this._later(0.5, () => this._word('QUACK?!', 'quack', E.x - this.right.x * 0.9, 0.6, E.z - this.right.z * 0.9, { size: 0.9, life: 1 }));
+      }
+    } else if (G.phase === 'burst') {
+      // UP out of the water, roaring
+      const u = clamp(G.t / 0.32, 0, 1);
+      const k = 1 + 2.70158 * (u - 1) ** 3 + 1.70158 * (u - 1) ** 2;
+      B.root.position.y = G.waterY - 2.6 * sc * (1 - k);
+      if (G.t < 0.4 && Math.random() < dt * 30) P.splash(E.x + rand(-0.4, 0.4), E.z + rand(-0.4, 0.4), 3, 1.1);
+      pose = 'roar'; params = { t01: clamp(G.t / 1.5, 0, 1) };
+      if (G.t > 1.6) next('grab');
+    } else if (G.phase === 'grab') {
+      // snatch the next duck (lunge + grab while it's yanked across the water)
+      const st = this.ducks[G.i];
+      if (G.t < dt * 1.5) {
+        st.mode = 'yank'; st.t = 0; st.yank = { t0: 0, dur: 0.42, x: st.x, z: st.z };
+        st.d.play('struggle', { fade: 0.08 });
+        this._sfx('honk', { volume: 0.25, pitch: 1.9 });
+        // a glance towards the victim, but keep the face (and that maw) to the camera
+        G.turn = angLerp(YAW + 0.35, Math.atan2(st.x - B.root.position.x, st.z - B.root.position.z), 0.3);
+      }
+      B.root.rotation.y = angLerp(B.root.rotation.y, G.turn, 1 - Math.exp(-dt * 8));
+      pose = G.t < 0.34 ? 'lunge' : 'grab'; params = { t01: G.t < 0.34 ? G.t / 0.34 : clamp((G.t - 0.34) / 0.36, 0, 1) };
+      if (G.t > 0.46) {
+        const style = G.styles[G.i];
+        st.mode = 'held';
+        const prey = makeDuckPrey(st.d, style);
+        G.prey = prey;
+        G.eat = startEat(game, { rig: B, style, prey, parent: this.group, groundAt: this._water(), fx: this._eatFx() });
+        next('eat');
+        this._reactTo(style);
+      }
+    } else if (G.phase === 'eat' || G.phase === 'fishEat') {
+      B.root.rotation.y = angLerp(B.root.rotation.y, YAW + 0.35, 1 - Math.exp(-dt * 6));
+      const done = G.eat.update(dt);
+      pose = G.eat.pose; params = G.eat.poseParams;
+      if (done) {
+        G.eat.finish();
+        if (G.phase === 'eat') {
+          const st = this.ducks[G.i];
+          G.prey.restore();
+          st.d.root.visible = false;
+          st.mode = 'eaten';
+          G.eat.dispose(); G.prey.dispose();
+          G.i++;
+          next(G.i < this.ducks.length ? 'pause' : 'fish');
+        } else { G.eat.dispose(); next('burp'); }
+        G.eat = null; G.prey = null;
+        pose = 'idle'; params = { inWater: true };
+      }
+    } else if (G.phase === 'pause') {
+      pose = 'idle';
+      if (G.t > 0.45) next('grab');
+    } else if (G.phase === 'fish') {
+      // a fish leaps right in front of it: snap!
+      if (!G.leap) {
+        const a = B.root.position.clone().addScaledVector(this.right, 1.5).addScaledVector(this.fwd, -0.6);
+        a.y = WATER_Y;
+        G.leap = { a };
+        P.splash(a.x, a.z, 6, 0.6);
+        this._sfx('fish_flop', { volume: 0.2 });
+      }
+      const u = clamp(G.t / 0.5, 0, 1), m = this.fishMesh;
+      B.holdAnchor.getWorldPosition(this._tmpY || (this._tmpY = new THREE.Vector3()));
+      if (m) {
+        m.visible = u < 1;
+        m.position.lerpVectors(G.leap.a, this._tmpY, u);
+        m.position.y += Math.sin(u * Math.PI) * 0.9;
+        m.material.rotation = Math.cos(u * Math.PI) * 0.9;
+        m.scale.set(m.userData.w, m.userData.h, 1);
+      }
+      pose = G.t < 0.3 ? 'idle' : 'lunge'; params = { t01: clamp((G.t - 0.3) / 0.34, 0, 1), inWater: true };
+      if (u >= 1 && G.t > 0.62) {
+        const prey = makeFishPrey(game, { id: 'sockeye', size: 1.05, adult: true }, G.fishStyle);
+        G.prey = prey;
+        G.eat = startEat(game, { rig: B, style: G.fishStyle, prey, parent: this.group, groundAt: this._water(), fx: this._eatFx() });
+        next('fishEat');
+        this._reactTo(G.fishStyle);
+      }
+    } else if (G.phase === 'burp') {
+      // BURP! a single feather floats down; pat pat
+      pose = G.t < 0.9 ? 'yummy' : 'idle'; params = { t01: clamp(G.t / 0.9, 0, 1), inWater: true };
+      if (G.t > 0.95 && !G.burp) {
+        G.burp = true;
+        const m = B.mouthPos();
+        B.setFace('chomp_open', { hold: 0.35 });
+        this._word('BURP!', 'burp', m.x, m.y + 0.35, m.z, { size: 1.3, life: 1.3 });
+        this._sfx('burp', { volume: 0.55, pitch: 0.85 });
+        P.fx.spawn('feather', m.x, m.y + 0.05, m.z, { vx: 0.25, vy: 1.2, grav: 0.55, drag: 1.6, life: 4.5, size: 0.2, spin: 2.5, flags: FX.WOBBLE | FX.FADE | FX.FLOAT });
+      }
+      if (G.t > 1.3) { pose = 'idle'; B.setFace('content', { hold: 1 }); }
+      if (G.t > 2.3) { next('leave'); G.from = B.root.position.clone(); G.to = this._at(-6.2, -1.6); }
+    } else if (G.phase === 'leave') {
+      // waddles off to the reeds on the left bank and away
+      const to = G.to, p = B.root.position;
+      const dx = to.x - p.x, dz = to.z - p.z, d = Math.hypot(dx, dz);
+      const sp = 1.15 * sc;
+      B.root.rotation.y = angLerp(B.root.rotation.y, Math.atan2(dx, dz), 1 - Math.exp(-dt * 5));
+      if (d > 0.05) { p.x += (dx / d) * Math.min(d, sp * dt); p.z += (dz / d) * Math.min(d, sp * dt); }
+      const g = this._water()(p.x, p.z);
+      const wet = g.water;
+      p.y = lerp(p.y, wet ? G.waterY : g.y, 1 - Math.exp(-dt * 6));
+      if (wet) game.world.sim.wake(p.x, p.z, 2, 0.3, dt);
+      pose = 'walk'; params = { speed: sp, inWater: wet };
+      if (G.t > 4.2 || d < 0.1) { this._endBear(); next('after'); }
+    } else if (G.phase === 'after') {
+      pose = null;
+      if (G.t > 0.4 && !G.family) { G.family = true; this._duckFamily(); }
+      if (G.t > 1.4 && !G.back) {
+        G.back = true;
+        this.fright = 0.4;
+        fox.setExpression('worried', { hold: 2 });
+        fox.play('walk', { fade: 0.2 });
+        const st = this.foxSt;
+        st.mode = 'walkback'; st.hop = { t: 0, from: new THREE.Vector3(st.x, st.y, st.z), r0: st.rot };
+        fox.play('sit', { fade: 0.25 });
+        fox.restoreMonocle?.();
+      }
+      if (G.t > 2.4 && !G.calm) { G.calm = true; deer.play('sit_chair', { fade: 0.4 }); this._restoreCan(); }
+      if (G.t > 3.6 && !G.sip) { G.sip = true; this.fright = 0; fox.setExpression('tsk', { hold: 2 }); fox.play('sit_sip', { fade: 0.3 }); }
+      if (G.t > 6) {
+        this.gag = null;
+        this.gagT = rand(14, 20);
+        this.beatT = rand(2.5, 4);
+        this.punchHold = 0;
+      }
+    }
+    if (G.bear && pose && G.phase !== 'after') {
+      B.pose(pose, dt, params);
+      B.update(dt);
+      if (G.phase === 'lurk') B.root.visible = false;
+    }
+    // the audience keeps reacting; nervous sweat
+    if (this.fright > 0 && Math.random() < dt * 1.5) { const h = fox.headTop(); P.sprite('sweat', h.x + rand(-0.12, 0.12), h.y - 0.1, h.z, { vy: 0.5, life: 0.6, size: 0.14 }); }
+  }
+
+  // fox & deer react to each course: hide behind the paws for the gory ones
+  _reactTo(style) {
+    const fox = this.fox, deer = this.deer;
+    const gory = style === 'rip' || style === 'shake' || style === 'crunch';
+    const fa = gory ? 'cower' : 'horror';
+    if (fox.anims.includes(fa)) fox.play(fa, { fade: 0.2, restart: true });
+    deer.play(gory ? 'cower' : 'horror', { fade: 0.2 });
+    if (!gory) this._later(1.2, () => { const h = this._headOf(deer); this._word(pick(['NOOO!', 'EEEK!', 'MY EYES!']), 'ahh', h[0], h[1], h[2], { size: 0.8, life: 1 }); });
+    else this._later(0.6, () => { const h = this._headOf(fox, 0.05); this._word(pick(['GAH!', 'EEP!', 'OH NO']), 'yelp', h[0], h[1], h[2], { size: 0.8, life: 1 }); });
+  }
+
+  _endBear() {
+    const G = this.gag;
+    if (!G || G.kind !== 'bear' || !G.bear) return;
+    if (G.eat) { G.prey?.restore?.(); G.eat.dispose(); G.prey?.dispose(); G.eat = null; G.prey = null; }
+    for (const st of this.ducks) if (st.mode === 'held' || st.mode === 'yank') { st.mode = 'eaten'; st.d.root.visible = false; }
+    G.bear.dispose();
+    G.bear = null;
+    if (this.fishMesh) this.fishMesh.visible = false;
+  }
+
+  // ------------------------------------------------------------ the new duck family (+ ducklings)
+  _duckFamily() {
+    const order = [1, 0, 2]; // the hen leads
+    order.forEach((di, k) => {
+      const st = this.ducks[di];
+      const p = this._at(4.2 + k * 0.75, -3.0 - k * 0.25);
+      st.x = p.x; st.z = p.z; st.y = WATER_Y; st.mode = 'arrive'; st.t = 0;
+      st.heading = Math.atan2(-this.right.x, -this.right.z);
+      st.d.root.visible = true;
+      st.d.head.visible = true;
+      st.d.setExpression?.(null);
+      st.d.play('swim', { fade: 0 });
+    });
+    if (!this.chicks.length) {
+      for (let k = 0; k < 3; k++) {
+        const c = new Chick({ kind: 'duckling', breed: 'mallard' });
+        c.root.scale.setScalar(SCALE * 1.35);
+        this.group.add(c.root);
+        c.play('swim', { fade: 0 });
+        this.chicks.push({ c, k, x: 0, z: 0, heading: 0, on: false, mode: 'follow' });
+      }
+    }
+    const hen = this.ducks[1];
+    for (const ch of this.chicks) {
+      ch.on = true; ch.mode = 'follow'; ch.c.root.visible = true;
+      ch.x = hen.x + this.right.x * (0.35 + ch.k * 0.28); ch.z = hen.z + this.right.z * (0.35 + ch.k * 0.28); ch.heading = hen.heading;
+    }
+    this._later(0.8, () => { const h = this.ducks[1]; this._word('QUACK!', 'quack', h.x, h.y + 0.5, h.z, { size: 0.8, life: 0.9 }); this._sfx('honk', { volume: 0.2, pitch: 1.8 }); });
+  }
+
+  _updateChicks(dt) {
+    const hen = this.ducks[1];
+    this.chicks.forEach((ch, i) => {
+      if (!ch.on) return;
+      let tx, tz, spd;
+      if (ch.mode === 'flee') {
+        // paddle for their lives off to the right
+        tx = ch.x + this.right.x * 2; tz = ch.z + this.right.z * 2; spd = 1.1;
+        if (Math.hypot(ch.x - this.seatPos.x, ch.z - this.seatPos.z) > 7) { ch.on = false; ch.c.root.visible = false; return; }
+      } else {
+        // a little line behind mum
+        const lead = i === 0 ? hen : this.chicks[i - 1];
+        const hx = Math.sin(lead.heading), hz = Math.cos(lead.heading);
+        tx = lead.x - hx * 0.27; tz = lead.z - hz * 0.27; spd = 0.75;
+      }
+      const dx = tx - ch.x, dz = tz - ch.z, d = Math.hypot(dx, dz);
+      if (d > 0.04) {
+        ch.heading = angLerp(ch.heading, Math.atan2(dx, dz), 1 - Math.exp(-dt * 6));
+        const v = Math.min(d - 0.03, spd * dt * (ch.mode === 'flee' ? 1 : Math.min(1.6, d * 4)));
+        ch.x += Math.sin(ch.heading) * v; ch.z += Math.cos(ch.heading) * v;
+      }
+      ch.c.root.position.set(ch.x, WATER_Y + Math.sin(this.T * 5 + i) * 0.006, ch.z);
+      ch.c.root.rotation.y = ch.heading;
+      ch.c.update(dt);
+    });
+  }
+
+  // ------------------------------------------------------------ Reynard's beer can (dropped in fright)
+  _dropCan() {
+    if (this.canSt) return;
+    const can = this.foxCan;
+    const p = new THREE.Vector3(), q = new THREE.Quaternion();
+    can.getWorldPosition(p); can.getWorldQuaternion(q);
+    this.fox.hold(null);
+    can.position.copy(p); can.quaternion.copy(q); can.scale.setScalar(SCALE);
+    this.group.add(can);
+    this.canSt = { v: new THREE.Vector3(rand(-0.6, 0.6), 1.6, rand(-0.6, 0.6)), spin: rand(8, 12), landed: false, t: 0 };
+  }
+
+  _updateCan(dt) {
+    const st = this.canSt;
+    if (!st) return;
+    const c = this.foxCan;
+    st.t += dt;
+    if (!st.landed) {
+      st.v.y -= 9 * dt;
+      c.position.addScaledVector(st.v, dt);
+      c.rotation.x += st.spin * dt;
+      if (c.position.y < WATER_Y && st.v.y < 0) {
+        st.landed = true;
+        this.game.particles.splash(c.position.x, c.position.z, 6, 0.45);
+        this._sfx('plop', { volume: 0.25 });
+        c.rotation.set(Math.PI / 2, 0, rand(0, 6));
+      }
+    } else c.position.y = WATER_Y + 0.01 + this.game.world.sim.heightAt(c.position.x, c.position.z) * 0.6 + Math.sin(this.T * 2.3) * 0.008;
+  }
+
+  _restoreCan() {
+    if (!this.canSt) return;
+    this.canSt = null;
+    this.foxCan.rotation.set(0, 0, 0);
+    this.foxCan.scale.setScalar(1);
+    this.foxCan.position.set(-0.012, 0.03, -0.002);
+    this.fox.hold(this.foxCan);
+  }
+
+  // ------------------------------------------------------------ fish under the surface
+  // A few pond fish drawn as one sprite batch just under the water (drawn before the
+  // translucent water so they read as submerged), drifting in a loose school.
+  _buildSchool() {
+    const game = this.game;
+    if (!game.fish?.tex || !game.fish.atlas) { this.school = null; return; }
+    const batch = new SpriteBatch(game.fish.tex, { max: 16, lit: true, castShadow: false, receiveShadow: false, renderOrder: 9, name: 'titleFish' });
+    this.group.add(batch.mesh);
+    const ids = ['bluegill', 'perch', 'sockeye', 'brook', 'rainbow', 'goldfish', 'bluegill', 'perch', 'char'];
+    const list = ids.map((id, i) => {
+      const p = this._at(rand(-2.8, 2.4), rand(-4.6, -1.4));
+      return { id, x: p.x, z: p.z, h: rand(0, TAU), sp: rand(0.25, 0.45), ph: rand(0, 4), y: WATER_Y - rand(0.1, 0.22), size: rand(0.42, 0.62), turn: rand(0.5, 3), i };
+    });
+    this.school = { batch, list, center: this._at(-0.4, -3), ct: 0 };
+  }
+
+  _updateSchool(dt) {
+    const S = this.school;
+    if (!S) return;
+    const g = this.game.grid, atlas = this.game.fish.atlas;
+    S.ct -= dt;
+    if (S.ct <= 0) { S.ct = rand(4, 8); S.center = this._at(rand(-2.4, 2.4), rand(-4.4, -1.6)); }
+    // keep clear of the bear while it's in the pond
+    const B = this.gag?.bear;
+    S.batch.clear();
+    const cr = this.right;
+    for (const f of S.list) {
+      f.turn -= dt;
+      const ox = S.center.x + Math.sin(f.i * 2.1) * 0.8, oz = S.center.z + Math.cos(f.i * 1.7) * 0.6;
+      let want = Math.atan2(ox - f.x, oz - f.z);
+      if (f.turn <= 0) { f.turn = rand(0.6, 2.4); f.wob = rand(-0.9, 0.9); }
+      want += f.wob || 0;
+      if (B) { const dx = f.x - B.root.position.x, dz = f.z - B.root.position.z; if (dx * dx + dz * dz < 2.5) want = Math.atan2(dx, dz); }
+      f.h = angLerp(f.h, want, 1 - Math.exp(-dt * 1.2));
+      const nx = f.x + Math.sin(f.h) * f.sp * dt, nz = f.z + Math.cos(f.h) * f.sp * dt;
+      if (g.isWater(Math.floor(nx), Math.floor(nz))) { f.x = nx; f.z = nz; } else f.h += Math.PI * 0.5;
+      f.ph += dt * (4 + f.sp * 6);
+      const fr = atlas.frame(f.id, 'normal', Math.floor(f.ph) % 4, false);
+      if (!fr) continue;
+      const toRight = Math.sin(f.h) * cr.x + Math.cos(f.h) * cr.z;
+      S.batch.push(fr, f.x, f.y, f.z, { texels: FISH_TPU, scale: f.size, mode: 0, ax: 0.5, ay: 0.5, flip: toRight < 0, bend: 0.5, phase: f.i * 1.3, tint: [0.5, 0.64, 0.74] });
+    }
+    S.batch.commit();
   }
 
   _sfx(name, o) {

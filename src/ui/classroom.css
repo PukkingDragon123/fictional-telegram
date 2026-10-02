@@ -8,7 +8,7 @@ body.class-mode .hud, body.class-mode .hud-left, body.class-mode .hud-right, bod
 body.class-mode .eggtray, body.class-mode .toolhint, body.class-mode .fox, body.class-mode .panel,
 body.class-mode .campad, body.class-mode .fox-notifier, body.class-mode .bigclock-host, body.class-mode .trackchip,
 body.class-mode .eggtag, body.class-mode .daycard, body.class-mode .labui, body.class-mode .cclock-vignette,
-body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbles, body.class-mode .toast {
+body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbles, body.class-mode .toast, body.class-mode .tm {
   opacity: 0 !important; pointer-events: none !important;
 }
 

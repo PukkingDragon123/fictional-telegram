@@ -12,7 +12,7 @@
 // window.__step(dt) advances every fox; window.__seek(t) restarts the main anim and simulates t seconds.
 import * as THREE from 'three';
 import { FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H, MOUTH_KINDS, EYE_R } from '../src/entities/foxFace.js';
-import { FoxRig, FOX_SEAT_SURFACE, FOX_DESK_HEIGHT, FOX_KEYBOARD_Z, FOX_OUTFITS, FOX_PROPS } from '../src/entities/foxRig.js';
+import { FoxRig, FOX_SEAT_SURFACE, FOX_DESK_HEIGHT, FOX_KEYBOARD_Z, FOX_OUTFITS, FOX_PROPS, FOX_CHALK_POINT } from '../src/entities/foxRig.js';
 import { makeGoldCup } from '../src/entities/foxProps.js';
 import { spriteCanvas, FOX_EXPRESSIONS } from '../src/ui/sprites.js';
 import { PixelRenderer } from '../src/core/pixelRenderer.js';
@@ -174,7 +174,7 @@ function makeChalkboard() {
   for (let i = 0; i < 400; i++) { ctx.fillStyle = Math.random() < 0.5 ? '#34503f' : '#2b4436'; ctx.fillRect(Math.random() * cv.width | 0, Math.random() * cv.height | 0, 1, 1); }
   const tex = new THREE.CanvasTexture(cv);
   tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
-  const slate = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), new THREE.MeshLambertMaterial({ map: tex }));
+  const slate = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), new THREE.MeshBasicMaterial({ map: tex }));
   slate.position.set(0, 15 * 0.025 + BOARD_H / 2 + 0.0125, 0.0126);
   slate.receiveShadow = true;
   g.add(slate);
@@ -182,7 +182,7 @@ function makeChalkboard() {
   return g;
 }
 // Draw where the chalk touches the slate.
-const _bt = new THREE.Vector3();
+const _bt = new THREE.Vector3(), _bw = new THREE.Vector3(), _bn = new THREE.Vector3();
 function trackChalk(fox, board) {
   if (!board || !board.visible || fox.prop !== 'chalk') return;
   const { slate, ctx, tex, cv } = board.userData;
@@ -272,14 +272,12 @@ function rigPreview() {
     const a = f.current;
     ex.board.visible = params.get('board') === '1' || a === 'chalk_draw';
     ex.pot.visible = params.get('pot') === '1' || a === 'chef_idle' || a === 'chef_taste';
-    const T = aimTargets.get(f);
-    if (T && ex.board.visible) {
-      // board faces the fox through the aim point
-      ex.board.position.set(T.x, 0, T.z);
+    if (ex.board.visible) {
+      // slate surface through the chalk point, facing the fox (as chalk_draw assumes)
+      const W = aimTargets.get(f) || toWorld(f, FOX_CHALK_POINT.x, FOX_CHALK_POINT.y, FOX_CHALK_POINT.z, _bw);
+      _bn.set(f.root.position.x - W.x, 0, f.root.position.z - W.z).normalize();
+      ex.board.position.set(W.x, 0, W.z).addScaledVector(_bn, -0.0126);
       ex.board.lookAt(f.root.position.x, 0, f.root.position.z);
-    } else {
-      toWorld(f, -0.1, 0, 0.47, ex.board.position);
-      ex.board.rotation.set(0, f.root.rotation.y + Math.PI, 0);
     }
     toWorld(f, 0, 0, 0.52, ex.pot.position);
   };
@@ -504,6 +502,10 @@ function rigPreview() {
     ['yawn', null, 2.8], ['stretch', null, 3], ['sleep_lie', null, 4], ['sit', null, 3], ['sit_type', null, 4], ['sit_sip', null, 3.6],
     ['sit_doze', null, 6.4], ['wake_startle', null, 3.1], ['sit_talk', 'talk:Oh! Ahem. I was merely... resting my eyes.', 3.5], ['sit_laugh', null, 2.8],
     ['angry_stomp', null, 1.9], ['dizzy', null, 2.5], ['faint', null, 3],
+    ['wave_hello', 'set:default,', 2], ['teach_point', 'set:teacher,pointer', 3], ['teach_tap', 'set:teacher,pointer', 1.6],
+    ['teach_explain', 'set:teacher,pointer', 5], ['run_point', 'set:teacher,pointer', 2], ['chalk_draw', 'set:teacher,chalk', 5],
+    ['chef_idle', 'set:chef,ladle', 3.5], ['chef_taste', 'set:chef,ladle', 2.8], ['carry', 'set:default,,cup', 3],
+    ['present_trophy', 'set:default,,cup', 3.5], ['horror', 'set:default,', 3], ['cower', 'set:default,', 3.5], ['bow_fancy', 'set:default,', 3.2],
   ];
   function stepReel(dt) {
     reelT -= dt;
@@ -511,6 +513,12 @@ function rigPreview() {
     reelI = (reelI + 1) % REEL.length;
     const [a, extra, d] = REEL[reelI];
     main.setExpression(null);
+    if (extra && extra.startsWith('set:')) {
+      const [o, pr, both] = extra.slice(4).split(',');
+      main.setOutfit(o || 'default'); main.holdProp(pr || null);
+      if (both && !main._both.obj) main.holdBoth(makeGoldCup());
+      if (!both && main._both.obj) main.holdBoth(null);
+    } else if (main.outfit !== 'default' || main.prop || main._both.obj) { main.setOutfit('default'); main.holdProp(null); main.holdBoth(null); }
     playAnim(a);
     if (extra && extra.startsWith('talk:')) main.talk(extra.slice(5));
     reelT = d;

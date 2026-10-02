@@ -2893,7 +2893,7 @@ Object.assign(POSES, {
     F.r(B.legL, -0.35 * air, 0, -0.1 * air); F.r(B.legR, -0.35 * air, 0, 0.1 * air);
     if (t >= 2.2) R._cue('tada');
     F.r(B.tail, 0, 0, Math.sin(t * 20) * 0.4);
-    F.jaw(t > 0.9 && t < 1.56 ? 0 : 0);
+    F.jaw(0);
     if (t >= 2.82) R._cue('done');
     c.face = t < 0.4 ? 'smug' : t < 1.56 ? 'aim' : t < 1.86 ? 'stuffed' : 'cheer';
     F.look(0, t > 0.4 && t < 1.56 ? -1 : 0);

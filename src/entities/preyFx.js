@@ -214,6 +214,8 @@ export function makeFishPrey(game, f, style = 'chomp') {
       }
     },
     camera: null,
+    // keep the last pose's state (leftovers stay leftovers once BearEat lets go)
+    freeze() { if (state.ctl) state.ctl = { ...state.ctl }; },
     setFree(on) { state.free = on; if (on) state.spin = state.ctl?.angle || 0; },
     spinFree(dt) { state.spin += dt * 11; },
     onEvent(name) {

@@ -22,7 +22,7 @@ import * as THREE from 'three';
 import { VoxelModel } from '../core/voxel.js';
 import {
   FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H,
-  makeSpriteTexture, BUBBLE_ROWS, POP_ROWS, ZZZ_ROWS, EYE_R, EYE_L,
+  makeSpriteTexture, BUBBLE_ROWS, POP_ROWS, ZZZ_ROWS, EYE_R,
 } from './foxFace.js';
 import { outfitParts, propParts, disposeFoxProps, FOX_OUTFITS, FOX_PROPS } from './foxProps.js';
 
@@ -37,6 +37,8 @@ export const FOX_SEAT_SURFACE = 0.5;
 export const FOX_SEAT_HEIGHT = FOX_SEAT_SURFACE + 0.13;
 /** Desk / keyboard surface height (world units) that sit_type and sit_doze are posed for (the lab desk top is at 0.8). */
 export const FOX_DESK_HEIGHT = 0.8;
+/** Root-space centre (world units) of the board chalk_draw writes on when no setAim() target is given; the strokes span about ±0.2 x ±0.13 on a vertical board through it, facing the fox. */
+export const FOX_CHALK_POINT = Object.freeze({ x: -0.1, y: 0.78, z: 0.44 });
 /** Root-space point (world units) the ladle bowl circles in chef_idle: put a pot's soup surface here. */
 export const FOX_STIR_POINT = Object.freeze({ x: 0, y: 0.22, z: 0.52 });
 /** Distance in front of the root (+Z, world units) of the keyboard centre for sit_type. */
@@ -496,6 +498,7 @@ class Pose {
     this.aimU = 0; this.aimV = 0; // stroke offset on the "board" plane (world units, right / up)
     this.aimArm = 1; this.aimBody = 1; // how much the aim may drive the right arm / turn the torso
     this.aimPole = null; // elbow pole override [x(out), y, z]
+    this.aimBoard = false; // aimU/aimV/aimPush act on a vertical board through the target, facing the fox
     // both-paw hold: anchor in chest space (voxels) + tilt, and weight
     this.both = null; this.bothRx = 0; this.bothRz = 0; this.bothW = 1; this.bothGrab = null; // grab height (0 = bottom .. 1 = top of the object)
     // wrist alignment of the right-hand prop axis to a chest-space direction
@@ -1293,17 +1296,31 @@ export class FoxRig {
       arm.side = -1;
       arm.shY = (Ar.sh.position.y - Ar.shRest.y) / VS; arm.shZ = Ar.sh.position.z / VS;
       const S = _h5.set(-SHOULDER_X, SHOULDER_Y + arm.shY, arm.shZ);
-      const T = this.chest.worldToLocal(_h2.copy(A.world)).divideScalar(VS);
-      const dir = _h3.subVectors(T, S);
-      let dist = dir.length() || 1;
-      dir.divideScalar(dist);
-      if (p.aimU || p.aimV) {
-        const r = _h8.crossVectors(dir, UP).normalize();
-        const u = _h9.crossVectors(r, dir);
-        T.addScaledVector(r, p.aimU / VS).addScaledVector(u, p.aimV / VS);
-        dir.subVectors(T, S); dist = dir.length() || 1; dir.divideScalar(dist);
+      let T, dir;
+      const tipT = _h10;
+      if (p.aimBoard) {
+        // strokes on a vertical board through the target that faces the fox (world space)
+        const n = _h8.subVectors(this.root.getWorldPosition(_h9), A.world).setY(0);
+        if (n.lengthSq() < 1e-6) n.set(0, 0, -1).applyQuaternion(this.root.quaternion);
+        n.normalize();
+        const r = _h9.crossVectors(n, UP).negate(); // his right, facing the board (-n)
+        tipT.copy(A.world).addScaledVector(r, p.aimU).addScaledVector(UP, p.aimV).addScaledVector(n, -p.aimPush);
+        this.chest.worldToLocal(tipT).divideScalar(VS);
+        T = _h2.copy(tipT);
+        dir = _h3.subVectors(T, S).normalize();
+      } else {
+        T = this.chest.worldToLocal(_h2.copy(A.world)).divideScalar(VS);
+        dir = _h3.subVectors(T, S);
+        let dist = dir.length() || 1;
+        dir.divideScalar(dist);
+        if (p.aimU || p.aimV) {
+          const r = _h8.crossVectors(dir, UP).normalize();
+          const u = _h9.crossVectors(r, dir);
+          T.addScaledVector(r, p.aimU / VS).addScaledVector(u, p.aimV / VS);
+          dir.subVectors(T, S); dist = dir.length() || 1; dir.divideScalar(dist);
+        }
+        tipT.copy(T).addScaledVector(dir, p.aimPush / VS); // where the tip should be
       }
-      const tipT = _h10.copy(T).addScaledVector(dir, p.aimPush / VS); // where the tip should be
       A.lookAt.copy(tipT).multiplyScalar(VS);
       this.chest.localToWorld(A.lookAt);
       // prop geometry in wrist space (voxels)
@@ -3001,7 +3018,7 @@ def('climb_down', {
 // ---------------------------------------------------------------- outfits & props: teacher, chef, trophies, scares
 // Default aim points (root space, world units) for anims that aim on their own when no setAim() target is set.
 const BOARD_PT = [-0.46, 0.96, 0.72]; // up and to his right (teach_*)
-const CHALK_PT = [-0.1, 0.78, 0.44]; // a board right in front of him (chalk_draw)
+const CHALK_PT = [FOX_CHALK_POINT.x, FOX_CHALK_POINT.y, FOX_CHALK_POINT.z]; // a board right in front of him (chalk_draw)
 const AHEAD_PT = [-0.14, 0.92, 4]; // far ahead (run_point)
 
 const hipPaw = (p, arm = p.aL, w = 1) => p.ik(arm, 6.6, 0.9, 1.4, 1, 0.1, -0.7, w); // villain pose: paw on the hip
@@ -3023,7 +3040,7 @@ function aimYaw(rig) {
 
 def('teach_point', {
   loop: true, expr: 'teacher', lookW: 0.9,
-  fn(t, p, f, s) {
+  fn(t, p, f) {
     life(t, p, 0.6);
     p.aimAuto = 1; p.aimDef = BOARD_PT;
     // entrance: wind the stick back, thrust it out with an overshoot, settle into a gentle hover
@@ -3045,7 +3062,6 @@ def('teach_point', {
     p.hRx += nod * 0.13;
     f.browLift = hit * 1.4;
     if (hit > 0.4) f.mouth = 'A';
-    void s;
   },
 });
 
@@ -3130,7 +3146,7 @@ def('chalk_draw', {
   loop: true, expr: 'focused', lookW: 0.8,
   fn(t, p, f, s, rig) {
     life(t, p, 0.4);
-    p.aimAuto = 1; p.aimDef = CHALK_PT; p.aimBody = 0.6;
+    p.aimAuto = 1; p.aimDef = CHALK_PT; p.aimBody = 0.6; p.aimBoard = true;
     p.turn = aimYaw(rig);
     // which stroke are we on?
     let u = t % STROKE_CYC, i = 0;
@@ -3191,7 +3207,6 @@ def('run_point', {
 
 def('present_trophy', {
   dur: 1.4, hold: true, expr: 'proud', lookW: 0.25,
-  enter(s) { s.ph = 0; },
   fn(t, p, f, s, rig) {
     // crouch and hug it, then THRUST it up high with a hop, land, hold it there proudly
     const crouch = K(t, [[0, 0], [0.28, 1, 'out'], [0.38, 0, 'in']]);
