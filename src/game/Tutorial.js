@@ -235,20 +235,25 @@ export class Tutorial {
       const laid = game.fish.eggs.find((e) => e.stage === 'laid');
       if (laid) game.fish.fertilize(laid, null);
     }
+    // listen now: an eager player may tap the egg before we ask
+    let hatchedNow = false;
+    const hatched = this.until('eggHatched').then(() => { hatchedNow = true; });
     await this.teach('Mum laid eggs, dad fertilized them. Now they <b>incubate</b>...', { dur: 4, mood: 'happy' });
     const bred = game.fish.eggs.find((e) => !e.bought && e.stage !== 'laid');
     if (bred && !bred.ready) bred.t = Math.min(bred.t, 4);
-    if (!game.fish.eggs.some((e) => e.ready)) await Promise.race([this.until('eggReady'), wait(30)]);
+    if (!hatchedNow && !game.fish.eggs.some((e) => e.ready)) await Promise.race([this.until('eggReady'), hatched, wait(30)]);
     game.quickEggs = false;
-    const ready = game.fish.eggs.find((e) => e.ready);
-    if (ready) { game.ui?.stopTracking?.(); game.rig.lookAt(ready.x, ready.z); }
-    await wait(0.6);
-    stop = this.pointAt('sel:.eggtag.ready');
-    this.teach('Ready! <b>Tap the egg</b> to hatch it!', { target: 'sel:.eggtag.ready', dur: 4, mood: 'excited' });
-    this.nag(() => 'Tap the egg!');
-    await this.until('eggHatched');
-    this.stopNag();
-    stop?.();
+    if (!hatchedNow) {
+      const ready = game.fish.eggs.find((e) => e.ready);
+      if (ready) { game.ui?.stopTracking?.(); game.rig.lookAt(ready.x, ready.z); }
+      await wait(0.6);
+      stop = this.pointAt('sel:.eggtag.ready');
+      this.teach('Ready! <b>Tap the egg</b> to hatch it!', { target: 'sel:.eggtag.ready', dur: 4, mood: 'excited' });
+      this.nag(() => 'Tap the egg!');
+      await hatched;
+      this.stopNag();
+      stop?.();
+    }
     await wait(0.8);
     game.unlockFeature('hand');
     game.unlockFeature('pet');
