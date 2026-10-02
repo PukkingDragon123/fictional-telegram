@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 
 const ease = { inout: (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2), out: (t) => 1 - (1 - t) ** 3, linear: (t) => t };
+const SPEED = 0.65;
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -24,10 +25,18 @@ export class Cutscene {
     if (this.el) return;
     const el = document.createElement('div');
     el.className = 'cutscene';
-    el.innerHTML = '<div class="cs-card"><b class="cs-title"></b><span class="cs-sub"></span></div><button class="cs-skip">SKIP ▸▸</button>';
+    el.innerHTML = '<div class="cs-card"><b class="cs-title"></b><span class="cs-sub"></span></div><button class="cs-skip">SKIP ▸▸</button><div class="cs-dip"></div>';
     document.body.appendChild(el);
     el.querySelector('.cs-skip').addEventListener('click', (e) => { e.stopPropagation(); this.skipped = true; });
     this.el = el;
+  }
+
+  // fade to / from black for cuts between far-apart places
+  dip(on) {
+    const b = this.el.querySelector('.cs-dip');
+    if (!b) return Promise.resolve();
+    b.classList.toggle('on', on);
+    return wait(0.22);
   }
 
   caption(title, sub) {
@@ -57,29 +66,41 @@ export class Cutscene {
     try {
       for (const sh of shots) {
         if (this.skipped) break;
+        // long jumps don't drag the camera across the map: a quick dip to black and a cut
+        const at0 = typeof sh.at === 'function' ? sh.at() : sh.at;
+        const far = at0 && Math.hypot(at0.x - rig.goal.x, at0.z - rig.goal.z) > 18;
+        let cut = sh.cut;
+        if (far && !cut) { await this.dip(true); cut = true; }
         const from = { x: rig.goal.x, z: rig.goal.z, wupp: rig.wuppGoal, yaw: rig.yawGoal, pitch: rig.pitchGoal ?? rig.pitch };
         if (sh.sfx) game.audio.play(sh.sfx, { volume: 0.45 });
-        if (sh.caption || sh.sub) this.caption(sh.caption, sh.sub); else if (sh.clear) this.caption(null);
         try { sh.call?.(); } catch (e) { console.warn('cutscene call', e); }
-        const dur = Math.max(0.2, sh.dur ?? 2);
+        // snappier pacing: every shot runs at 65% of its written length
+        const dur = Math.max(0.2, (sh.dur ?? 2) * SPEED);
+        // the caption lands once the camera has (mostly) arrived, so words match the picture
+        const capAt = cut ? 0 : dur * 0.35;
+        const capT = setTimeout(() => { if (sh.caption || sh.sub) this.caption(sh.caption, sh.sub); else if (sh.clear) this.caption(null); }, capAt * 1000);
+        if (cut) { if (at0) { rig.goal.x = at0.x; rig.goal.z = at0.z; } if (sh.wupp) rig.wuppGoal = sh.wupp; if (sh.yaw != null) rig.yawGoal = sh.yaw; rig.target?.copy?.(rig.goal); rig.wupp = rig.wuppGoal; rig.yaw = rig.yawGoal; }
+        if (far) this.dip(false);
         const E = ease[sh.ease || 'inout'];
         const t0 = performance.now();
         await new Promise((res) => {
           const step = () => {
             const k = Math.min(1, (performance.now() - t0) / (dur * 1000));
-            const e = sh.cut ? 1 : E(Math.min(1, k * 1.25));
+            const e = cut ? 1 : E(Math.min(1, k * 1.6));
             const at = typeof sh.at === 'function' ? sh.at() : sh.at;
             if (at) { rig.goal.x = from.x + (at.x - from.x) * e; rig.goal.z = from.z + (at.z - from.z) * e; }
             if (sh.wupp) rig.wuppGoal = from.wupp + (sh.wupp - from.wupp) * e;
             if (sh.yaw != null) rig.yawGoal = from.yaw + (sh.yaw - from.yaw) * e;
             if (sh.pitch != null && rig.pitchGoal != null) rig.pitchGoal = from.pitch + (sh.pitch - from.pitch) * e;
-            if (sh.cut && k === 0) { rig.target?.copy?.(rig.goal); rig.wupp = rig.wuppGoal; rig.yaw = rig.yawGoal; }
+            if (cut && k === 0) { rig.target?.copy?.(rig.goal); rig.wupp = rig.wuppGoal; rig.yaw = rig.yawGoal; }
             if (k >= 1 || this.skipped) res(); else requestAnimationFrame(step);
           };
           step();
           setTimeout(res, dur * 1000 + 400); // never hang (hidden tabs)
         });
-        if (sh.hold) await wait(sh.hold);
+        clearTimeout(capT);
+        if (capAt > 0 && !this.skipped && (sh.caption || sh.sub)) this.caption(sh.caption, sh.sub);
+        if (sh.hold) await wait(sh.hold * SPEED);
       }
     } finally {
       this.caption(null);

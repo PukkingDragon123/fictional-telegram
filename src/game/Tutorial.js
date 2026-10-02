@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 // First-day tutorial: Pond School! It opens inside Reynard's room, where he's
 // dressed as a teacher today. Lessons are full-screen classroom cutscenes
 // (src/game/Classroom.js: fish students, chalkboard drawings) and out at the
@@ -65,6 +66,46 @@ export class Tutorial {
     const h = game.say(this.foxAnchor(), text, { voice: 'fox', mood, wait: w, key: 'tutfox', size: 'm', dur });
     if (w && h?.done) await h.done;
     else await wait(dur || 1.6);
+  }
+
+  // a Yes / No card under the fox's speech (resolves true for the first button)
+  ask(question, [yesLabel, noLabel]) {
+    const game = this.game;
+    this.game.lab.say(question, 'happy', { mood: 'excited', wait: false, dur: 7 });
+    return new Promise((res) => {
+      const el = document.createElement('div');
+      el.className = 'tut-choice';
+      el.innerHTML = `<button class="yes">${yesLabel}</button><button class="no">${noLabel}</button>`;
+      const done = (v) => { el.classList.add('bye'); game.audio.play(v ? 'pop_in' : 'click', { volume: 0.5 }); setTimeout(() => el.remove(), 250); game.ui?.hideBubble?.('labfox'); res(v); };
+      el.querySelector('.yes').addEventListener('click', (e) => { e.stopPropagation(); done(true); });
+      el.querySelector('.no').addEventListener('click', (e) => { e.stopPropagation(); done(false); });
+      document.body.appendChild(el);
+      game.audio.play('page', { volume: 0.4 });
+    });
+  }
+
+  // a cartoon quick-change in a big puff of smoke
+  async costumeChange(outfit) {
+    const game = this.game;
+    const fox = game.lab?.fox;
+    game.audio.play('whoosh', { volume: 0.5 });
+    game.audio.play('bed_poof', { volume: 0.6 });
+    const smoke = () => {
+      if (!fox?.puff) return;
+      for (let i = 0; i < 26; i++) {
+        const a = (i / 26) * Math.PI * 2, r = 0.25 + (i % 3) * 0.12;
+        fox.puff('cloud', new THREE.Vector3(Math.cos(a) * r, 0.2 + (i % 5) * 0.22, Math.sin(a) * r * 0.7 + 0.1), { vel: new THREE.Vector3(Math.cos(a) * 0.5, 0.25 + (i % 4) * 0.08, Math.sin(a) * 0.3), life: 0.75 + (i % 4) * 0.1, size: 0.15 + (i % 3) * 0.05, grow: 1.5, delay: (i % 5) * 0.04 });
+      }
+      for (let i = 0; i < 8; i++) fox.puff('star', new THREE.Vector3((Math.random() - 0.5) * 0.9, 0.5 + Math.random() * 0.9, 0.2), { vel: new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.5, 0.2), life: 0.9, size: 0.09 });
+    };
+    smoke();
+    try {
+      if (fox?.changeInto) { await Promise.race([fox.changeInto(outfit), wait(3)]); }
+      else { await wait(0.5); fox?.setOutfit?.(outfit); }
+    } catch { fox?.setOutfit?.(outfit); }
+    smoke();
+    game.audio.play('star_pop', { volume: 0.4 });
+    await wait(0.4);
   }
 
   async lab(text, expr, mood = 'normal') {
@@ -162,15 +203,31 @@ export class Tutorial {
     game.tutorialHold = true; // the clock waits until the tour is over
     game.state.unlocked = [];
     game.ui?.refreshUnlocks?.();
-    try { game.fox.rig?.setOutfit?.('teacher'); } catch { /* ignore */ } // school day!
-
-    // ---- inside the fox's room: it's a school day
+    // ---- inside the fox's room: Reynard in his classic suit (top hat, waistcoat)
     L.enterTutorial();
-    try { L.fox?.setOutfit?.('teacher'); L.fox?.holdProp?.('pointer'); } catch { /* ignore */ }
+    try { L.fox?.setOutfit?.('default'); game.fox.rig?.setOutfit?.('default'); } catch { /* ignore */ }
     await wait(2.4);
     await L.tutorialStand();
-    await this.lab('Oh! You\'re here! Class is in session!', 'shocked', 'excited');
-    await this.lab('I\'m Reynard. Fish tycoon. Today: your TEACHER.', 'smug');
+    await this.lab('Oh! A visitor! Welcome to Reynard\'s Fish Co.!', 'shocked', 'excited');
+    await this.lab('I\'m Reynard. Fish tycoon. Gentleman. Genius.', 'smug');
+    // he asks... and does not take no for an answer
+    const pleas = [
+      ['No?! But I have a SLIDESHOW.', 'shocked'],
+      ['Come ON. There will be coins. And fish. Fish coins!', 'scheming'],
+      ['I\'ll ask once more. Very politely. Pleeease?', 'sad'],
+      ['That was not really a question. CLASS IS IN SESSION!', 'angry'],
+    ];
+    for (let k = 0; ; k++) {
+      const yes = await this.ask(k ? 'So... want to learn now?' : 'Want me to teach you how to run a pond?', k ? ['Yes!', 'Still no'] : ['Yes please!', 'No thanks']);
+      if (yes) { await this.lab('Splendid! One moment...', 'excited', 'excited'); break; }
+      const [line, ex] = pleas[Math.min(k, pleas.length - 1)];
+      await this.lab(line, ex, 'excited');
+      if (k >= pleas.length - 1) break;
+    }
+    // poof! a cloud of smoke and he's in his teacher's outfit
+    await this.costumeChange('teacher');
+    try { L.fox?.holdProp?.('pointer'); game.fox.rig?.setOutfit?.('teacher'); } catch { /* ignore */ }
+    await this.lab('Professor Reynard, at your service. Class is in session!', 'smug');
     L.fox?.play(L.fox?.anims?.includes('teach_point') ? 'teach_point' : 'laugh_evil', { loop: false, onDone: () => L.fox?.play('idle', { loop: true }) });
     await this.lab('Bears in suits eat here at 5. We sell them FISH!', 'scheming', 'happy');
     await this.lab('But first, a field trip. Follow me!', 'excited', 'excited');

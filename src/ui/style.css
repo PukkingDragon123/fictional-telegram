@@ -539,3 +539,13 @@ body.cine .landtag, body.blueprint .landtag { display: none; }
 .fogtag:hover { filter: brightness(1.08); }
 @keyframes fogtag-bob { from { margin-top: 0; } to { margin-top: -6px; } }
 body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none !important; }
+.cutscene .cs-dip { position: fixed; inset: 0; background: #0b0a10; opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 1; }
+.cutscene .cs-dip.on { opacity: 1; }
+/* tutorial Yes / No card */
+.tut-choice { position: fixed; left: 50%; bottom: 18%; transform: translateX(-50%); z-index: 90; display: flex; gap: 16px; animation: tutc-in .3s cubic-bezier(.3,1.6,.5,1); }
+.tut-choice button { font-family: var(--font-title); font-size: 36px; padding: 8px 24px 10px; border: 4px solid #2a1a14; box-shadow: 0 5px 0 #2a1a14; cursor: pointer; color: #2a1a14; background: #fff4c8; }
+.tut-choice .yes { background: #7ad65a; }
+.tut-choice .no { background: #f0d8c8; font-size: 28px; }
+.tut-choice button:hover { transform: translateY(-2px); filter: brightness(1.06); }
+.tut-choice.bye { opacity: 0; transform: translateX(-50%) scale(.8); transition: all .25s; }
+@keyframes tutc-in { from { opacity: 0; transform: translateX(-50%) scale(.6); } }
