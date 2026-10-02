@@ -1,6 +1,9 @@
 // Placement previews: translucent structure models + tile highlights.
 import * as THREE from 'three';
 import { WATER_Y } from '../world/grid.js';
+import { STRUCTURES } from '../data/structures.js';
+import { stagesFor } from '../data/crops.js';
+import { natureCanvas } from '../art/natureArt.js';
 
 const okColor = new THREE.Color(0x8aff9a);
 const badColor = new THREE.Color(0xff6a5a);
@@ -67,6 +70,15 @@ export class Ghost {
       if (!e || !proto) { g.visible = false; return; }
       if (g.userData.type !== type) {
         g.clear();
+        if (proto.userData.spriteGhost) {
+          // 2D plants: a see-through billboard of the grown plant
+          const sp = new THREE.Sprite(proto.userData.spriteGhost);
+          sp.center.set(0.5, 0);
+          sp.scale.copy(proto.userData.spriteSize);
+          sp.renderOrder = 32;
+          sp.userData.isGhostSprite = true;
+          g.add(sp);
+        }
         for (const child of proto.children) {
           const m = new THREE.Mesh(child.geometry, this.modelOk);
           m.position.copy(child.position);
@@ -77,7 +89,7 @@ export class Ghost {
         g.userData.type = type;
       }
       g.visible = true;
-      g.traverse((o) => { if (o.isMesh) o.material = e.ok ? this.modelOk : this.modelBad; });
+      g.traverse((o) => { if (o.isMesh) o.material = e.ok ? this.modelOk : this.modelBad; else if (o.isSprite) o.material.color.set(e.ok ? 0xc8ffd0 : 0xff9a8a); });
       const st = this.game.structures;
       const fake = { type, x: e.x, z: e.z, platform: 0 };
       const gs = this.game.grid.structAt(e.x, e.z);
@@ -89,6 +101,22 @@ export class Ghost {
   protoFor(type) {
     if (this.modelCache.has(type)) return this.modelCache.get(type);
     const proto = this.game.structures.previewObject(type);
+    const d = STRUCTURES[type];
+    const st = stagesFor(type);
+    const names = [...(st ? [st[3]] : []), ...(d?.sprite || [])].filter(Boolean);
+    if (!proto.children.length && names.length) {
+      for (const n of names) {
+        let cv = null;
+        try { cv = natureCanvas(n, 0, 1); } catch { cv = null; }
+        if (!cv || cv.width < 4) continue;
+        const tex = new THREE.CanvasTexture(cv);
+        tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
+        proto.userData.spriteGhost = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.7, depthWrite: false, color: 0xc8ffd0 });
+        const k = (d.spriteScale || 1) * (d.crop ? 1.2 : 1) / 24;
+        proto.userData.spriteSize = new THREE.Vector3(cv.width * k, cv.height * k, 1);
+        break;
+      }
+    }
     this.modelCache.set(type, proto);
     return proto;
   }

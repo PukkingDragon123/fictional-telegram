@@ -59,6 +59,9 @@ export const COMIC_WORDS = {
   ready: { text: 'READY!', fill: '#ffe3f0', shade: '#ff6aa8', ink: '#5a1030' },
   harvest: { text: 'HARVEST!', fill: '#f0ffd8', shade: '#6cc04a', ink: '#1a3a10' },
   gulp: { text: 'GULP!', fill: '#fff4d0', shade: '#ffb84a', ink: '#5a1e10' },
+  chop: { text: 'CHOP!', fill: '#fff4d0', shade: '#d8a050', ink: '#4a2a10' },
+  timber: { text: 'TIMBER!', fill: '#f0ffd8', shade: '#8ac04a', ink: '#2a3a10' },
+  sold: { text: 'SOLD!', fill: '#fffbd0', shade: '#ffc020', ink: '#5a3a00' },
 };
 
 let cache = null;

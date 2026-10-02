@@ -510,3 +510,21 @@ body.lab-full .croptag, body.class-mode .eggtag, body.ebuy-open .croptag { displ
 @keyframes lab-in { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
 body.lab-full .hud, body.lab-full .toolbar, body.lab-full .toolhint, body.lab-full .eggtag, body.lab-full .trackchip, body.lab-full .campad { visibility: hidden; }
 @media (max-width: 720px) { .panel.full, .panel.wide.full { top: 0; bottom: 0; left: 0; right: 0; height: auto; } }
+
+/* ---- v11: cutscenes (storybook caption card + skip) */
+.cutscene { position: fixed; inset: 0; z-index: 70; pointer-events: none; display: none; }
+.cutscene.on { display: block; }
+.cs-card { position: absolute; left: 50%; bottom: calc(11vh + 18px); transform: translate(-50%, 20px); min-width: min(420px, 86vw); max-width: 92vw; padding: 10px 22px 12px; text-align: center;
+  background: #fbf3dc; color: #3b2414; border: 3px solid #2a1a14; box-shadow: 0 4px 0 #2a1a14, inset 0 -4px 0 #e8d8b0; opacity: 0; transition: opacity .35s, transform .45s cubic-bezier(.2, 1.4, .4, 1); }
+.cs-card.on { opacity: 1; transform: translate(-50%, 0) rotate(-0.6deg); }
+.cs-title { display: block; font-family: var(--font-title); font-size: 36px; line-height: 36px; color: #c8442a; text-shadow: 2px 2px 0 #f0c890; }
+.cs-sub { display: block; margin-top: 4px; font-family: var(--font-body); font-size: 32px; line-height: 28px; }
+.cs-skip { position: absolute; right: 14px; top: calc(11vh + 10px); pointer-events: auto; font-family: var(--font-title); font-size: 18px; color: #ffe9b0; background: #2a1a14; border: 2px solid #ffe9b0; padding: 4px 10px; cursor: pointer; }
+@media (max-width: 720px) { .cs-title { font-size: 18px; line-height: 20px; } .cs-sub { font-size: 16px; line-height: 16px; } }
+
+/* ---- v11: land plots for sale */
+.landtag { position: absolute; left: 0; top: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; padding: 3px 8px; cursor: pointer; pointer-events: auto;
+  background: #fff4c8; border: 3px solid #2a1a14; box-shadow: 0 3px 0 #2a1a14; font-family: var(--font-title); font-size: 18px; color: #2a1a14; white-space: nowrap; animation: eggtag-bob .8s ease-in-out infinite alternate; }
+.landtag b { color: #c8442a; }
+.landtag span { display: flex; align-items: center; gap: 2px; }
+body.cine .landtag, body.blueprint .landtag { display: none; }

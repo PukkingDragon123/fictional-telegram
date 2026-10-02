@@ -146,7 +146,7 @@ export class BeaverSystem {
     if (this.game.zones?.fogAt(x, z) > 0.45) return { ok: false, reason: 'fog' };
     const need = this.levelFor(x, z, k);
     if (need > this.level()) return { ok: false, reason: 'level', need, kind: k };
-    if (g.meadow[i]) return { ok: true, kind: k };
+    if (g.meadow[i] || this.game.land?.ownsTile(i)) return { ok: true, kind: k };
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, nz = z + dz;
       if (!g.inb(nx, nz)) continue;
@@ -219,7 +219,7 @@ export class BeaverSystem {
   // a clear job is reachable once one of its neighbours is your land
   reachable(j) {
     const g = this.game.grid;
-    if (g.meadow[j.i]) return true;
+    if (g.meadow[j.i] || this.game.land?.ownsTile(j.i)) return true;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = j.x + dx, nz = j.z + dz;
       if (g.inb(nx, nz) && g.meadow[nz * g.w + nx]) return true;
@@ -251,6 +251,7 @@ export class BeaverSystem {
     const cx = j.x + 0.5, cz = j.z + 0.5;
     const gy = g.height[i];
     const def = CLEAR[j.kind];
+    if (j.kind === 'forest' || j.kind === 'tree') game.particles.word?.('timber', cx, gy + 1.9, cz, { size: 0.3, life: 1 });
     if (j.kind === 'forest') {
       g.kind[i] = KIND.GRASS;
       g.meadow[i] = 1;
@@ -442,6 +443,16 @@ export class BeaverSystem {
           const c = job.c;
           if (!this.clears.has(c.i)) { this.release(b); continue; }
           c.progress += (dt * speedMult * (1 + 0.35 * (this.level() - 1))) / CLEAR[c.kind].time;
+          // trees come down bit by bit: three big chops, each one shorter
+          const step = Math.min(3, Math.floor(c.progress * 4));
+          if ((c.kind === 'tree' || c.kind === 'forest') && step > (c.chop || 0)) {
+            c.chop = step;
+            game.world.setChop?.(c.i, step / 3);
+            const gy = g.height[c.i];
+            game.particles.debris(tg.x, gy + 0.9, tg.z, 6, [0xc8a06a, 0x8a6a44, 0x2b5634, 0x3a6b3c]);
+            game.particles.word?.('chop', tg.x, gy + 1.5, tg.z, { size: 0.24, life: 0.6 });
+            game.audio.play('chip', { volume: 0.3, pitch: 0.8 });
+          }
           b.chipT = (b.chipT || 0) - dt;
           if (b.chipT <= 0) {
             b.chipT = 0.28;
@@ -518,6 +529,7 @@ export class BeaverSystem {
       this.rebuildT = 0.8;
       game.world.buildDecos();
       if (this.dirtyLand) { game.world.rebuildTerrain(); game.world.buildClutter(); }
+      for (const c of this.clears.values()) if (c.chop) game.world.setChop?.(c.i, c.chop / 3); // rebuilt trees keep their chops
       this.dirtyLand = this.dirtyDecos = false;
       game.onTopologyChanged();
       game.onLandChanged?.();

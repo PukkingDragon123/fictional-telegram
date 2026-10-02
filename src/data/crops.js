@@ -59,3 +59,10 @@ export const GROWTH_BOOSTS = {
   rabbithutch: 0.4, // tame bunnies fertilize within 3 tiles: +40%
   compost: 0.25, // compost heap within 3 tiles: +25%
 };
+
+// sprite per growth stage for every plant (filled in by the plant art modules,
+// see src/art/extra/*: PLANT_STAGES). Falls back to CROPS[type].stages.
+const stageMods = import.meta.glob('../art/extra/*.js', { eager: true });
+export const PLANT_STAGES = {};
+for (const m of Object.values(stageMods)) Object.assign(PLANT_STAGES, m.PLANT_STAGES || {});
+export function stagesFor(type) { return PLANT_STAGES[type] || CROPS[type]?.stages || null; }

@@ -4,6 +4,7 @@
 // works, pond, decor, dig and remove. Things you haven't unlocked yet simply
 // aren't on the sheet. A pixel arrow (top-left) leaves the mode.
 import { STRUCTURES } from '../data/structures.js';
+import { stagesFor } from '../data/crops.js';
 import { natureCanvas } from '../art/natureArt.js';
 import { spriteImg, hasSprite } from './sprites.js';
 import './blueprint.css';
@@ -39,8 +40,10 @@ export class Blueprint {
     if (iconCache.has(type)) return iconCache.get(type);
     const d = STRUCTURES[type];
     let html = '';
-    if (d.sprite) {
-      for (const n of d.sprite) {
+    const st = stagesFor(type);
+    const names = [...(st ? [st[3], st[2]] : []), ...(d.sprite || [])].filter(Boolean);
+    if (names.length) {
+      for (const n of names) {
         const cv = natureCanvas(n, 0, 2);
         if (cv && cv.width > 4) { html = `<img class="px" src="${cv.toDataURL()}" alt="">`; break; }
       }

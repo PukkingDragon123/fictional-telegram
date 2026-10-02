@@ -5,8 +5,9 @@
 import * as THREE from 'three';
 
 const rand = (a, b) => a + Math.random() * (b - a);
-const DATE_TIME = 6;
-const FERT_TIME = 6;
+import { breedTime } from './FishSystem.js';
+const DATE_TIME = 15;
+const FERT_TIME = 12;
 
 export class Tanks {
   constructor(game) {
@@ -91,7 +92,7 @@ export class Tanks {
       f.tx = f.eggs.x; f.tz = f.eggs.z; f.ty = b.y0 + 0.02;
       f.eggs.fertP = (f.eggs.fertP || 0) + dt;
       if (Math.random() < dt * 4) this.game.particles.bubbles(f.eggs.x, f.eggs.y + 0.1, f.eggs.z, 1);
-      if (f.eggs.fertP >= FERT_TIME) this.game.fish.fertilize(f.eggs, f);
+      if (f.eggs.fertP >= breedTime(this.game, FERT_TIME)) this.game.fish.fertilize(f.eggs, f);
     } else if (f.state === 'fertilize') f.state = 'wander';
     if (f.dateT > 0) {
       f.dateT -= dt;
@@ -141,7 +142,7 @@ export class Tanks {
         const b = ok.find((o) => o !== a && fish.compatible(a, o));
         if (!b) continue;
         a.mate = b; b.mate = a;
-        a.dateT = b.dateT = DATE_TIME;
+        a.dateT = b.dateT = breedTime(this.game, DATE_TIME);
         this.game.audio.play('heart', { volume: 0.3 });
         break;
       }

@@ -13,8 +13,10 @@ import { FOOD_ITEMS } from '../data/foods.js';
 
 const HUNGER_RATE = 1 / 150; // per second -> starving after ~150 s
 export const GROW_TIME = 70; // seconds from fry to adult
-const DATE_TIME = 7; // breeding stage 1: the date
-const FERT_TIME = 6; // stage 3: dad hovering over the clutch
+// breeding takes its time (the tutorial runs a quick version)
+const DATE_TIME = 15; // stage 1: the date
+const FERT_TIME = 12; // stage 3: dad hovering over the clutch
+export const breedTime = (game, t) => (game.quickEggs ? t * 0.45 : t);
 const SPOIL_TIME = 90; // unfertilized clutches fizzle out
 const TAU = Math.PI * 2;
 const _v = new THREE.Vector3();
@@ -274,7 +276,7 @@ export class FishSystem {
         } else {
           f.courtT -= dt;
           if (d < 0.6) {
-            f.dateT = m.dateT = DATE_TIME;
+            f.dateT = m.dateT = breedTime(game, DATE_TIME);
             // first look: a cartoon heart pops between them
             const cx = (f.x + m.x) / 2, cz = (f.z + m.z) / 2;
             game.particles.word('smooch', cx, WATER_Y + 0.55, cz, { size: 0.3, life: 1.2, vy: 0.7 });
@@ -296,7 +298,7 @@ export class FishSystem {
         if (d < 0.55) {
           e.fertP = (e.fertP || 0) + dt;
           if (Math.random() < dt * 4) game.particles.bubbles(e.x, e.y + 0.1, e.z, 1);
-          if (e.fertP >= FERT_TIME) this.fertilize(e, f);
+          if (e.fertP >= breedTime(game, FERT_TIME)) this.fertilize(e, f);
         }
         if (f.fertT > 45 || e.stage !== 'laid') { f.state = 'wander'; f.eggs = null; f.fertT = 0; }
       } else {
@@ -455,7 +457,7 @@ export class FishSystem {
   fertilize(e, dad) {
     const game = this.game;
     e.stage = 'incubate';
-    e.t = game.quickEggs ? 6 : 80 + Math.random() * 40;
+    e.t = game.quickEggs ? 6 : 150 + Math.random() * 60;
     e.total = e.t;
     e.fertP = FERT_TIME;
     if (dad) { dad.state = 'wander'; dad.eggs = null; dad.fertT = 0; }
@@ -490,7 +492,7 @@ export class FishSystem {
     a.state = b.state = 'wander';
     a.mate = b.mate = null;
     a.dateT = b.dateT = 0;
-    const cd = (sp) => (130 + Math.random() * 70) / (sp.breed * mods.breedMult);
+    const cd = (sp) => (240 + Math.random() * 120) / (sp.breed * mods.breedMult);
     a.loveT = cd(a.sp); b.loveT = cd(b.sp);
     a.hunger = Math.min(1, a.hunger + 0.12); b.hunger = Math.min(1, b.hunger + 0.12);
     a.heading += Math.PI * 0.7; b.heading -= Math.PI * 0.7;

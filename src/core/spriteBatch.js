@@ -269,6 +269,7 @@ export class SpriteBatch {
     const h = (o.h ?? frame.h / tpu) * scale * (o.sy ?? 1);
     A.aPos.array.set([x, y, z], i * 3);
     A.aSize.array.set([w, h], i * 2);
+    (this.baseSize ||= new Float32Array(this.max * 2)).set([w, h], i * 2);
     const ax = o.ax ?? (frame.ax != null ? frame.ax / frame.w : 0.5);
     const ay = o.ay ?? (frame.ay != null ? 1 - frame.ay / frame.h : 0);
     A.aAnchor.array.set([ax, ay], i * 2);
@@ -286,6 +287,14 @@ export class SpriteBatch {
   setTint(i, t) {
     if (i < 0 || i >= this.count) return;
     this.attr.aTint.array.set([t[0], t[1], t[2]], i * 3);
+    this.dirty = true;
+  }
+
+  // squash one sprite relative to how it was pushed (no rebuild)
+  setScale(i, kx, ky) {
+    if (i < 0 || i >= this.count || !this.baseSize) return;
+    this.attr.aSize.array[i * 2] = this.baseSize[i * 2] * kx;
+    this.attr.aSize.array[i * 2 + 1] = this.baseSize[i * 2 + 1] * ky;
     this.dirty = true;
   }
 

@@ -74,7 +74,8 @@ const TOOLS = [
   { tool: 'tank', icon: 'tank', label: 'Tank', key: 0, title: 'Glass tank: tap a fish to move it in / out of a tank', feature: 'hand' },
   { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
   { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
-  { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: send beavers to trees, rocks & weeds', feature: 'clear' },
+  { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
+  { tool: 'land', icon: 'map', label: 'Land', key: 0, title: 'Land: buy the plots around you', feature: 'land' },
   { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: "Reynard's lab", feature: 'lab' },
   { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },
   { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 9, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
@@ -658,7 +659,7 @@ export class UI {
     this.updateNestTags();
     this.updateParcelTags();
     this.updateCropTags();
-    const night = st.phase === 'night';
+    const night = st.phase === 'night' && !game.cutscene?.active && !game.bedtime?.active && !game.overnight?.simulated;
     if (night !== this.lastNight) { this.lastNight = night; h.nightui.classList.toggle('hidden', !night); }
     this.tipT -= dt;
   }
@@ -1231,6 +1232,8 @@ export class UI {
       html = `${ico('shovel', 1)} <b>Dig</b> next to the pond to expand it <span class="k">${ico('coin', 1)}${g.digCost()}</span> per tile · drag for a line`;
     } else if (t.kind === 'clear') {
       html = ''; // the beaver tool speaks for itself (red marks + construction tape)
+    } else if (t.kind === 'land') {
+      html = `${ico('map', 1)} <b>Land</b>: tap a <b>FOR SALE</b> plot next to yours to buy it`;
     } else if (t.kind === 'remove') {
       html = `${ico('trash', 1)} <b>Remove</b>: tap a structure (50% refund) or clear a tree/rock (${ico('coin', 1)}10)`;
     } else if (t.kind === 'hand') {
@@ -1247,6 +1250,8 @@ export class UI {
     if (x) x.onclick = () => { this.click(); this.game.setTool({ kind: 'feed' }); };
     if (!['feed', 'hand', 'tag', 'nurture'].includes(t.kind)) this.hud.tip.classList.add('hidden');
     this.syncFoodPicker();
+    this.game.land?.showOverlay(t.kind === 'land');
+    if (t.kind === 'land') { const r = this.game.rig; r.wuppGoal = Math.max(r.wuppGoal, 0.05); }
   }
 
   // ------------------------------------------------------------ food
@@ -1276,6 +1281,23 @@ export class UI {
     if (!this.foodPicker) return;
     if (show) { this.foodPicker.setSelected?.(game.foodStore.selected); this.foodPicker.refresh?.(); this.foodPicker.show(); }
     else this.foodPicker.hide();
+  }
+
+  // buy a land plot (after a little paper deed)
+  confirmLand(I) {
+    const game = this.game;
+    const can = game.state.coins >= I.price;
+    const html = `
+      <h2 class="center">${ico('map', 2)} Land for sale</h2>
+      <p class="center">An ${I.n}-tile plot next to your land.${I.forest ? ` <b>${I.forest}</b> tiles of trees: send the beavers!` : ''}</p>
+      <div class="kv"><span>Price</span><b>${ico('coin', 1)}${I.price}</b><span>You have</span><b>${ico('coin', 1)}${Math.floor(game.state.coins)}</b></div>
+      <div class="btns"><button class="btn ${can ? 'green' : ''}" id="m-buy" ${can ? '' : 'disabled'}>${ico('coin', 1)} Buy it!</button><button class="btn" id="m-no">Not now</button></div>`;
+    this.showModal(html, {
+      onBind: (c) => {
+        $('#m-no', c).onclick = () => { this.click(); this.closeModal(); };
+        $('#m-buy', c).onclick = () => { this.closeModal(); game.land.buy(I.px, I.pz); };
+      },
+    });
   }
 
   // e-Buy straight to that bag (or the food aisle)
@@ -1427,6 +1449,8 @@ export class UI {
     } else if (t.kind === 'dig') {
       ghost.showTiles(tiles.map((p) => ({ ...p, ok: !game.canDig(p.x, p.z) })));
       ghost.showModels(null, []);
+    } else if (t.kind === 'land') {
+      html = `${ico('map', 1)} <b>Land</b>: tap a <b>FOR SALE</b> plot next to yours to buy it`;
     } else if (t.kind === 'remove') {
       ghost.showTiles(tiles.map((p) => ({ ...p, ok: !!game.structures.structureAtTile(p.x, p.z) || game.grid.deco[p.z * game.grid.w + p.x] >= 0 })));
       ghost.showModels(null, []);

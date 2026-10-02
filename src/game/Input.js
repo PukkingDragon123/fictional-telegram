@@ -111,8 +111,10 @@ export class Input {
       const t = this.pickTile(p.x, p.y);
       const tk2 = this.tool();
       // builds (except walls like dams/fences) and clearing paint along the drag path
-      const paint = (tk2.kind === 'build' && !STRUCTURES[tk2.type]?.drag) || tk2.kind === 'clear' || tk2.kind === 'remove';
-      this.drag = { mode: 'line', start: t, end: t, moved: false, paint, path: [t], seen: new Set([t.x + ',' + t.z]) };
+      const paint = (tk2.kind === 'build' && !STRUCTURES[tk2.type]?.drag) || tk2.kind === 'remove';
+      // the Destroy tool selects a whole box of trees / rocks / weeds
+      const rect = tk2.kind === 'clear';
+      this.drag = { mode: 'line', start: t, end: t, moved: false, paint, rect, path: [t], seen: new Set([t.x + ',' + t.z]) };
       this.updateLine();
     } else {
       this.drag = { mode: 'maybe', x: p.x, y: p.y };
@@ -314,6 +316,13 @@ export class Input {
       return;
     }
     if (tool.kind === 'remove') { game.demolishAt(t.x, t.z); return; }
+    if (tool.kind === 'land') {
+      const [px, pz] = game.land.plotOf(t.x, t.z);
+      const I = game.land.info(px, pz);
+      if (I.forSale) game.ui?.confirmLand?.(I);
+      else game.notify(I.owned ? 'This plot is yours! Clear its trees with the Destroy tool.' : `Not for sale: ${I.reason}.`, I.owned ? 'happy' : 'no');
+      return;
+    }
     if (tool.kind === 'tank') {
       // tank tool: a fish in a tank goes back to the pond, a pond fish goes into the nearest tank
       const ts = game.structures.structureAtTile(t.x, t.z);
@@ -382,15 +391,22 @@ export class Input {
     return out.slice(0, 40);
   }
 
+  rectTiles(a, b) {
+    const out = [];
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), z0 = Math.min(a.z, b.z), z1 = Math.max(a.z, b.z);
+    for (let z = z0; z <= z1 && z - z0 < 16; z++) for (let x = x0; x <= x1 && x - x0 < 16; x++) out.push({ x, z });
+    return out;
+  }
+
   updateLine() {
     const d = this.drag;
     if (!d || d.mode !== 'line') return;
-    this.game.ghostLine = d.paint ? d.path.slice(-80) : this.lineTiles(d.start, d.end);
+    this.game.ghostLine = d.rect ? this.rectTiles(d.start, d.end) : d.paint ? d.path.slice(-80) : this.lineTiles(d.start, d.end);
   }
 
   commitLine(drag) {
     const game = this.game;
-    const tiles = drag.paint ? drag.path.slice(0, 80) : this.lineTiles(drag.start, drag.end);
+    const tiles = drag.rect ? this.rectTiles(drag.start, drag.end) : drag.paint ? drag.path.slice(0, 80) : this.lineTiles(drag.start, drag.end);
     game.ghostLine = null;
     if (game.tool.kind === 'remove') { for (const t of tiles) game.demolishAt(t.x, t.z); return; }
     const tool = game.tool;
@@ -402,9 +418,16 @@ export class Input {
         game.clearAt(tiles[0].x, tiles[0].z);
         return;
       }
+      // queue outward from your land so the inside of a deep box joins up too
       let n = 0;
-      for (let pass = 0; pass < 3; pass++) for (const t of tiles) if (game.beavers.queueClear(t.x, t.z).ok) n++;
-      if (n) game.audio.play('paper', { volume: 0.3 });
+      for (let pass = 0; pass < 18; pass++) {
+        let got = 0;
+        for (const t of tiles) if (game.beavers.queueClear(t.x, t.z).ok) got++;
+        n += got;
+        if (!got) break;
+      }
+      if (n) { game.audio.play('paper', { volume: 0.3 }); game.emit('clearArea', { n }); }
+      else game.notify('Nothing to clear there (or it\'s too far from your land).', 'no');
       return;
     }
     if (tool.kind === 'dig') {

@@ -519,6 +519,15 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     for (const t of marked) for (const [bi] of map.get(t) || []) { B.setTint(bi, RED); B.setEmissive(bi, 0.22); }
   }
 
+  // beavers chopping a tile bit by bit: its trees get shorter (k 0 = whole, 1 = stump)
+  setChop(i, k) {
+    const B = this.treeBatch;
+    const l = this.treeTiles?.get(i);
+    if (!B || !l) return;
+    for (const [bi] of l) B.setScale(bi, 1 - 0.18 * k, 1 - 0.62 * k);
+    B.commit();
+  }
+
   setMarked(set) {
     const prev = this.marked || new Set();
     this.marked = new Set(set);

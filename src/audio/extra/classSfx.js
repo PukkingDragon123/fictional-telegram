@@ -12,6 +12,8 @@
 //   class_whoosh      the title card dropping in / flipping away
 //   class_stamp       rubber stamp thud
 //   class_star        sparkly gold-star jingle
+//   class_gasp        the class gasps "ooh!" (dramatic beats)
+//   class_rumble      low rumble under a camera shake
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function chalk(ctx, dest, o, kit) {
@@ -94,7 +96,28 @@ function star(ctx, dest, o, kit) {
   return v.end;
 }
 
+function gasp(ctx, dest, o, kit) {
+  const v = new kit.Voice(ctx, dest, o, 0.2, 0.02);
+  // the whole class goes "ooh!" downward, with a breathy intake
+  v.noise({ buf: 'pink', f: 1400, f2: 2600, gl: 0.12, q: 0.8, a: 0.02, rel: 0.1, peak: 0.12 });
+  for (let i = 0; i < 6; i++) {
+    const t = 0.06 + i * 0.03 + rnd(0, 0.03), f = rnd(700, 1100);
+    v.tone({ t, type: 'triangle', f, f2: f * 0.62, gl: 0.3, a: 0.02, hold: 0.04, rel: 0.2, peak: 0.1, vr: 7, vc: 25, lp: 2200 });
+  }
+  return v.end;
+}
+
+function rumble(ctx, dest, o, kit) {
+  const v = new kit.Voice(ctx, dest, o, 0.18, 0.04);
+  v.tone({ f: 70, f2: 38, gl: 0.6, a: 0.02, hold: 0.15, rel: 0.5, peak: 0.6 });
+  v.noise({ buf: 'brown', ft: 'lowpass', f: 400, f2: 120, gl: 0.7, q: 0.5, a: 0.04, hold: 0.2, rel: 0.5, peak: 0.7 });
+  v.tone({ t: 0.08, type: 'triangle', f: 110, f2: 55, gl: 0.3, a: 0.005, rel: 0.25, peak: 0.25, lp: 500 });
+  return v.end;
+}
+
 export const EXTRA_SFX = {
+  class_gasp: { fn: gasp, max: 1, gap: 0.4, g: 1.3 },
+  class_rumble: { fn: rumble, max: 1, gap: 0.4, g: 1.4 },
   class_chalk: { fn: chalk, max: 3, gap: 0.05, g: 1.3 },
   class_chalk_down: { fn: chalkDown, max: 3, gap: 0.04, g: 1.3 },
   class_erase: { fn: erase, max: 2, gap: 0.12, g: 1.4 },

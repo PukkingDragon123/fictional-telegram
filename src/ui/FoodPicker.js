@@ -249,7 +249,10 @@ export class FoodPicker {
         <div class="fp-chips">${chips.join('')}${who.length ? `<span class="fp-sep"></span>${who.join('')}` : ''}</div>
         <div class="fp-hint">${this.ico('cursor_hand', 1)}<span>${hint}</span></div>
       </div>`;
-    this.$plate.classList.remove('fp-flip'); void this.$plate.offsetWidth; this.$plate.classList.add('fp-flip');
+    this.$plate.classList.remove('fp-flip', 'fp-quiet'); void this.$plate.offsetWidth; this.$plate.classList.add('fp-flip');
+    // the tag tucks itself away after a moment so it never blocks the pond
+    clearTimeout(this._quietT);
+    this._quietT = setTimeout(() => this.$plate?.classList.add('fp-quiet'), 2800);
   }
   hop(id) {
     const b = this.$items.querySelector(`.fp-item[data-id="${CSS.escape(id)}"]`);

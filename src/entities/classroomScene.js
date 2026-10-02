@@ -1032,6 +1032,23 @@ export function buildClassroom(opts = {}) {
     beamMat.color.setHex(m.beam).multiplyScalar(m.beamK);
     moteMat.opacity = m.motes;
     viewT = -1;
+    base = { hemi: m.hemi[2], fill: m.fill[1], sun: m.sun[1], desk: m.desk, board: m.board, hemiC: lights.hemi.color.clone(), beam: beamMat.color.clone(), motes: m.motes };
+    dim.applied = -1;
+  }
+  // dramatic beat: dim the room (0..1), eased in update()
+  let base = null;
+  const dim = { k: 0, goal: 0, applied: -1 };
+  const DIM_TINT = new THREE.Color(0x6a4a9a);
+  function setDim(k) { dim.goal = Math.max(0, Math.min(1, k || 0)); }
+  function applyDim() {
+    if (!base || Math.abs(dim.k - dim.applied) < 0.002) return;
+    dim.applied = dim.k;
+    const k = dim.k, f = 1 - 0.72 * k;
+    lights.hemi.intensity = base.hemi * f; lights.hemi.color.copy(base.hemiC).lerp(DIM_TINT, k * 0.6);
+    lights.fill.intensity = base.fill * (1 - 0.8 * k); lights.sun.intensity = base.sun * (1 - 0.85 * k);
+    lights.desk.intensity = base.desk + k * 1.4; lights.board.intensity = base.board * (1 - 0.4 * k);
+    beamMat.color.copy(base.beam).multiplyScalar(1 - 0.9 * k);
+    moteMat.opacity = base.motes * (1 - k);
   }
   function setClock(hour) { clockHour = hour; drawClock(); }
 
@@ -1040,6 +1057,8 @@ export function buildClassroom(opts = {}) {
   function update(dt, t, camera) {
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
     time = t ?? time + dt;
+    dim.k += (dim.goal - dim.k) * Math.min(1, dt * 4);
+    applyDim();
     chalk.update(dt);
     if (chalk.version !== boardVer) { boardVer = chalk.version; boardTex.needsUpdate = true; }
     globe.rotation.y = time * 0.35;
@@ -1135,5 +1154,5 @@ export function buildClassroom(opts = {}) {
   setNight(false);
   update(0, 0, null);
   group.userData.buildMs = performance.now() - t0;
-  return { group, anchors, board, students: studentsApi, update, setNight, setClock, dispose, lights, background: CLASS_BACKGROUND };
+  return { group, anchors, board, students: studentsApi, update, setNight, setClock, setDim, dispose, lights, background: CLASS_BACKGROUND };
 }

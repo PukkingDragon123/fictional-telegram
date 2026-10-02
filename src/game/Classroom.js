@@ -128,7 +128,7 @@ export const LESSONS = {
     ],
   },
   foods: {
-    title: 'Snack Time', number: 5, doodle: 'bag', color: 'orange',
+    title: 'Snack Time', number: 3, doodle: 'bag', color: 'orange',
     steps: [
       { cam: 'board', say: 'Snack time! Fish food comes in **bags**. Buy them on **e-Buy**!', expr: 'yum', react: 'heart',
         draw: [TITLE('SNACK TIME', 'orange'), ...[['orange', 'PELLETS'], ['blue', 'FLAKES'], ['pink', 'WORMS'], ['red', 'KRILL'], ['yellow', 'MAPLE'], ['lilac', 'PEARLS']]
@@ -150,7 +150,7 @@ export const LESSONS = {
     ],
   },
   plants: {
-    title: 'Green Thumb', number: 6, doodle: 'sprout', color: 'green',
+    title: 'Green Thumb', number: 4, doodle: 'sprout', color: 'green',
     steps: [
       { cam: 'board', say: 'Plants grow from a **SEED**!', expr: 'happy', react: 'bang',
         draw: [TITLE('GREEN THUMB', 'green'), D('seed', 24, 48, { scale: 2, id: 'seed' }), T('SEED', 24, 72, { font: 'small' })] },
@@ -174,6 +174,101 @@ export const LESSONS = {
         draw: [D('cattail', 160, 42, { scale: 2, id: 'cat' }), T('LOVE +', 160, 76, { color: 'pink' })] },
       { say: '**Sprinklers** and **bunnies** make plants grow faster!', react: 'cheer', tap: 'bun',
         draw: [D('sprinkler', 44, 96), T('+', 66, 96), D('bunny', 86, 96, { id: 'bun' }), T('= FASTER!', 138, 96, { color: 'yellow' })] },
+    ],
+  },
+  // ---- the compact fish lesson: love & eggs + genes + mutations in one go
+  fishlife: {
+    title: 'Fish Life 101', number: 2, doodle: 'egg_glow', color: 'pink',
+    steps: [
+      { cam: 'board', say: 'Today: fish **babies**! Love, eggs and genes!', expr: 'love', react: 'heart',
+        draw: [TITLE('FISH LIFE 101', 'pink'), D('fish_m', 36, 42, { scale: 2, id: 'dad' }), T('+', 96, 42, { scale: 2 }), D('fish_f', 154, 42, { scale: 2, id: 'mum' })] },
+      { say: 'Needs: an adult **boy** and **girl**, both **well fed**.', tap: ['dad', 'mum'],
+        draw: [T('ADULT + WELL FED', 96, 68, { color: 'yellow' }), { check: [26, 70, 4] }, { check: [168, 70, 4] }] },
+      { erase: true, say: '**Date**, mum **lays**, dad **fertilizes**, **wait**... then **TAP** to hatch!', tap: 's5', highlight: 'circle', react: 'cheer', speed: 1.5, camAfter: 'students',
+        draw: [['fish_heart', '1 DATE', 'pink'], ['clutch', '2 LAY', 'orange'], ['fish_m', '3 DAD', 'blue'], ['egg_glow', '4 WAIT', 'yellow'], ['egg', '5 TAP!', 'green']]
+          .flatMap(([d, w, c], i) => [D(d, 21 + i * 37.5, 18, { id: 's' + (i + 1) }), T(w, 21 + i * 37.5, 36, { color: c })]) },
+      { say: 'Babies **inherit** size, colour **morph**, **traits** and **stars**!', tap: 'baby', react: 'wow',
+        draw: [D('dna', 16, 80, { id: 'dna' }), T('SIZE', 34, 66, { align: 'left', color: 'blue' }), T('MORPH', 34, 78, { align: 'left', color: 'pink' }), T('TRAITS', 34, 90, { align: 'left', color: 'green' }),
+          { arrow: [76, 78, 96, 78] }, D('fish_rainbow', 124, 74, { id: 'baby' }), ...[0, 1, 2, 3].map((i) => ({ star: [110 + i * 12, 96, 4] })), D('sparkle', 170, 70)] },
+      { erase: true, say: 'Sometimes genes **MUTATE**! Frozen, Hot, Zombie, Shiny... **GALAXY**!', expr: 'excited', tap: 'galaxy', react: 'wow',
+        draw: [TITLE('MUTATIONS!', 'lilac'), ...[['snowflake', 'FROZEN', 'blue'], ['flame', 'HOT', 'orange'], ['zombie', 'ZOMBIE', 'green'], ['sparkle', 'SHINY', 'yellow'], ['galaxy', 'GALAXY', 'lilac']]
+          .flatMap(([d, w, c], i) => [D(d, 22 + i * 37, 38, { id: d }), T(w, 22 + i * 37, 54, { font: 'small', color: c })])] },
+      { say: 'The rarer the fish, the **more coins**!', react: 'laugh', expr: 'greedy',
+        draw: [D('galaxy', 40, 84, { scale: 2 }), T('=', 74, 84, { scale: 2 }), D('coin', 102, 84, { scale: 2 }), D('coin', 128, 84, { scale: 2 }), D('coin', 154, 84, { scale: 2 }), T('$$', 180, 84, { color: 'yellow' })] },
+      { erase: true, say: 'Boost **mutation luck**: Royal Pearls, Four-Leaf Clovers, Moonberries!', tap: ['pearl', 'clover', 'berry'],
+        draw: [TITLE('LUCK UP!', 'green'), D('pearl', 40, 46, { scale: 2, id: 'pearl' }), D('clover', 96, 46, { scale: 2, id: 'clover' }), D('moonberry', 152, 46, { scale: 2, id: 'berry' }),
+          T('PEARLS', 40, 72, { font: 'small', color: 'lilac' }), T('CLOVER', 96, 72, { font: 'small', color: 'green' }), T('MOONBERRY', 152, 72, { font: 'small', color: 'blue' })] },
+      { say: 'Every new morph goes in your **Encyclopedia**!', react: 'cheer',
+        draw: [D('book', 62, 92, { id: 'book' }), T('COLLECT THEM ALL!', 124, 92, { color: 'yellow', id: 'all' })] },
+      { cam: 'teacher', say: 'Feed, love, hatch, repeat. Now go breed some **legends**!', expr: 'proud', anim: 'cheer', react: 'cheer' },
+    ],
+  },
+  build: {
+    title: "Builder's Guide", number: 5, doodle: 'hammer', color: 'blue',
+    steps: [
+      { at: 'desk', cam: 'desk', say: 'Hard hats on, class! Today we **build**.', expr: 'determined', sfx: 'class_bell', react: 'bang' },
+      { say: 'The **Build** menu: blueprints sorted into **tabs**.', tap: 'tabs', speed: 1.4,
+        draw: [TITLE("BUILDER'S GUIDE", 'blue'), ...[['tree', 'NATURE', 'green'], ['carrot', 'GARDEN', 'orange'], ['plate', 'DINER', 'white'], ['beaver', 'BEAVER', 'orange'], ['gear', 'GIZMOS', 'blue'], ['gnome', 'DECOR', 'pink'], ['bug', 'BUGS', 'red']]
+          .flatMap(([d, w, c], i) => [D(d, 15 + i * 27, 36, { id: i === 3 ? 'tabs' : undefined }), T(w, 15 + i * 27, 52, { font: 'small', color: c })])] },
+      { say: 'Small things pop in **instantly**. Big builds are built by **beavers**!', tap: 'lodge', react: 'wow',
+        draw: [D('flower', 18, 84, { scale: 2 }), T('POP!', 44, 84, { color: 'yellow' }), D('lodge', 104, 82, { scale: 2, id: 'lodge' }), D('beaver', 152, 86), D('hammer', 176, 80)] },
+      { erase: true, say: 'But beavers only work when **PAID**: food at their **Snack Bar**!', expr: 'smug', react: 'laugh', tap: 'bv',
+        draw: [D('beaver', 36, 40, { scale: 2, id: 'bv' }), T('+', 78, 40, { scale: 2 }), D('bowl', 114, 42, { scale: 2 }), D('carrot', 150, 36), D('honey', 172, 38), T('NO PAY, NO WORK!', 96, 76, { color: 'orange', id: 'nopay' }), { underline: 'nopay', color: 'red', wavy: true }] },
+      { erase: true, say: 'The **DESTROY** tool: drag a box over trees, rocks and weeds...', tap: 'zone', highlight: 'pulse',
+        draw: [D('tree', 22, 40, { scale: 2 }), D('rock', 58, 52), D('weeds', 80, 52), D('tree', 98, 40), { box: [6, 14, 104, 48], color: 'yellow', id: 'zone' }, D('hand', 108, 58)] },
+      { say: '...and the beavers clear it bit by bit: more **land** and **wood money**!', react: 'cheer', camAfter: 'students',
+        draw: [{ arrow: [116, 36, 136, 36] }, D('logs', 158, 34, { scale: 2 }), T('+LAND', 140, 74, { color: 'green' }), T('+$', 174, 74, { color: 'yellow' })] },
+      { erase: true, say: 'Need room? Buy **land plots** next door with the **Land** tool!', tap: 'plot', react: 'wow',
+        draw: [D('map', 38, 44, { scale: 2 }), { arrow: [72, 44, 100, 44] }, D('plot', 144, 42, { scale: 2, id: 'plot' }), T('SOLD!', 160, 18, { color: 'red' }), T('YOURS!', 144, 74, { color: 'green' })] },
+      { erase: true, say: '**Decor** and plants add **BEAUTY**: more bears, bigger bills!', react: 'heart',
+        draw: [D('gnome', 26, 40, { scale: 2 }), D('flower', 62, 44, { scale: 2 }), D('fence', 104, 44, { scale: 2 }), { arrow: [140, 44, 156, 44] }, D('bear', 176, 44), T('= MORE BEARS + $$$', 96, 78, { color: 'yellow' })] },
+      { erase: true, say: 'Pro tip: **stilt platforms** keep builds safe from rampages!', tap: 'deck', react: 'cheer', camAfter: 'teacher',
+        draw: [D('platform', 96, 44, { scale: 2, id: 'deck' }), D('bear', 30, 52), { cross: [30, 52, 8] }, T('SAFE UP HERE!', 96, 80, { color: 'green' })] },
+    ],
+  },
+  bears: {
+    title: 'Bear Business', number: 6, doodle: 'bear', color: 'orange',
+    steps: [
+      { cam: 'wide', say: 'Our customers: **bears in suits**!', expr: 'greedy', react: 'bang' },
+      { say: 'They come down from the office at **5 PM**, from **Day 2** on.', tap: 'clock',
+        draw: [TITLE('BEAR BUSINESS', 'orange'), D('office', 30, 52, { scale: 2 }), { arrow: [56, 56, 84, 56] }, D('bear', 114, 54, { scale: 2 }), D('clock5', 166, 46, { scale: 2, id: 'clock' }), T('5 PM', 166, 72, { color: 'yellow' })] },
+      { say: 'They eat your **fish**. Each one has an **appetite**, some want a **certain fish**!', tap: 'hunger', react: 'sweat',
+        draw: [D('plate', 26, 92), D('fish', 58, 92), { meter: [80, 88, 54, 8], value: 0.65, color: 'orange', id: 'hunger' }, D('question', 150, 90), D('fish_star', 172, 88)] },
+      { erase: true, say: 'Many want a **side dish**: berries, honey, veggies, mushrooms, syrup or wild rice!', speed: 1.4,
+        draw: [TITLE('SIDE DISHES', 'green'), ...[['bush', 'BERRY', 'blue'], ['honey', 'HONEY', 'yellow'], ['carrot', 'VEGGIE', 'orange'], ['mushroom', 'SHROOM', 'orange'], ['syrup', 'SYRUP', 'red'], ['rice', 'RICE', 'yellow']]
+          .flatMap(([d, w, c], i) => [D(d, 18 + i * 31, 38), T(w, 18 + i * 31, 54, { font: 'small', color: c })])] },
+      { say: 'Serve them from a **Snack Bowl** or the **Pantry**.', tap: ['sbowl', 'pantry'],
+        draw: [D('bowl', 56, 84, { scale: 2, id: 'sbowl' }), T('OR', 96, 84, { color: 'yellow' }), D('pantry', 136, 82, { scale: 2, id: 'pantry' })] },
+      { erase: true, say: 'Tag precious fish **DO NOT EAT**. Bears respect labels. Mostly.', expr: 'wink', react: 'laugh', tap: 'tag',
+        draw: [D('fish_star', 56, 46, { scale: 2 }), D('tag', 128, 40, { scale: 2, id: 'tag' }), T('DO NOT EAT!', 96, 80, { color: 'red' })] },
+      { erase: true, dim: 1, sfx: 'class_rumble', say: 'But a hungry bear with **nothing to eat**...', expr: 'worried', react: 'gasp', cutaway: false, speed: 0.8,
+        draw: [D('bear_shadow', 96, 50, { scale: 3, id: 'shadow' })] },
+      { dim: 1, shake: 1, say: '...goes on a **RAMPAGE**! Smash! And a **0-star review**!', expr: 'shocked', react: 'gasp', tap: 'review0',
+        draw: [D('smash', 26, 30, { scale: 2 }), D('smash', 168, 74, { scale: 2 }), D('review', 168, 26, { id: 'review0' }), { cross: [168, 26, 7] }] },
+      { erase: true, say: 'Phew! **Geese** chase rampaging bears away. Honk!', expr: 'happy', react: 'laugh',
+        draw: [D('goose', 50, 46, { scale: 2 }), T('HONK!', 50, 76, { color: 'yellow' }), { arrow: [80, 50, 120, 50] }, D('bear', 152, 50, { scale: 2, flip: true }), T('EEK!', 152, 76, { color: 'pink' })] },
+      { erase: true, say: 'Happy bears pay **bills + tips**. **Boss bears** visit on special days!', tap: 'boss', react: 'wow', camAfter: 'teacher',
+        draw: [D('bear', 30, 48, { scale: 2 }), { arrow: [58, 48, 74, 48] }, D('coin', 92, 48, { scale: 2 }), D('coin', 114, 44), T('+TIP', 92, 74, { color: 'yellow' }), D('boss', 160, 46, { scale: 2, id: 'boss' }), T('BOSS', 160, 80, { color: 'yellow' })] },
+    ],
+  },
+  stars: {
+    title: 'Stars & Reviews', number: 7, doodle: 'star', color: 'yellow',
+    steps: [
+      { cam: 'board', say: 'Every bear leaves a **review**: zero to five stars.', expr: 'teacher', react: 'bang',
+        draw: [TITLE('STARS & REVIEWS', 'yellow'), D('review', 34, 48, { scale: 2, id: 'rev' }), ...[0, 1, 2, 3, 4].map((i) => ({ star: [86 + i * 20, 48, 7], id: 'st' + i }))] },
+      { say: 'Your restaurant **rating** is the average of them all.', tap: 'rating',
+        draw: [T('RATING', 66, 82, { color: 'white' }), T('= 3.8', 118, 82, { color: 'yellow', id: 'rating' }), { star: [154, 82, 5] }] },
+      { erase: true, dim: 0.7, shake: 0.6, say: 'Keep it above **1.0**... or **Chez Reynard** gets **CLOSED**!', expr: 'shocked', react: 'gasp', tap: 'closed',
+        draw: [{ line: [70, 10, 96, 22] }, { line: [122, 10, 96, 22] }, { box: [44, 22, 104, 30], color: 'red' }, T('CLOSED', 96, 37, { scale: 2, color: 'red', id: 'closed' }), T('RATING < 1.0', 96, 74, { color: 'red' }), D('sad', 96, 92)] },
+      { erase: true, say: 'Higher rating = **more bears**... and **richer** ones!', expr: 'greedy', react: 'wow', camAfter: 'students',
+        draw: [{ star: [20, 30, 6] }, { star: [20, 50, 6] }, { star: [20, 70, 6] }, { arrow: [34, 50, 54, 50] }, D('bear', 76, 50), D('bear', 102, 50), D('bear', 128, 50), D('coin', 162, 40, { scale: 2 }), D('coin', 162, 62)] },
+      { say: 'Shine bright enough and even the **CEO** comes to dinner!', tap: 'ceo', react: 'bang',
+        draw: [D('boss', 96, 88, { id: 'ceo' }), D('sparkle', 74, 86), D('sparkle', 118, 86)] },
+      { erase: true, say: 'Hit milestones to win **trophies**!', react: 'cheer', expr: 'proud', tap: 'cup',
+        draw: [TITLE('TROPHIES', 'yellow'), D('trophy', 96, 52, { scale: 2, id: 'cup' }), D('star', 52, 50), D('star', 140, 50)] },
+      { say: 'Open the **Chez Reynard** menu to see how to earn each one.', tap: 'menu',
+        draw: [D('menu', 52, 90, { id: 'menu' }), { arrow: [66, 90, 86, 90] }, T('HOW TO WIN', 136, 90, { color: 'green' })] },
+      { cam: 'students', say: 'P.S. Fish have stars too: that\'s their **rarity**!', react: 'heart', expr: 'wink' },
     ],
   },
 };
@@ -357,6 +452,7 @@ export class Classroom {
     if (game.audio?.setMusic && s.music !== undefined) game.audio.setMusic(s.music);
     game.audio?.stopBabble?.();
     document.body.classList.remove('class-mode');
+    this.room?.setDim?.(0);
     this.fox?.setAim?.(null);
     this._removeUI();
   }
@@ -372,6 +468,7 @@ export class Classroom {
   }
 
   async _outro() {
+    this.room.setDim?.(0);
     this.cam('wide');
     this.fox?.setAim?.(null);
     await this.walkTo(this.room.anchors.teacherSpot.position, 0.15);
@@ -392,6 +489,20 @@ export class Classroom {
       await this._erase();
     }
     this._check();
+    // cinematic beats: lights down (until a step without `dim`), rumble + shake, a sound cue
+    room.setDim?.(st.dim ? (st.dim === true ? 1 : st.dim) : 0);
+    if (st.sfx) this._sfx(st.sfx, { volume: 0.6 });
+    if (st.shake) { this.rig.shake = Math.max(this.rig.shake || 0, st.shake === true ? 1 : st.shake); this._sfx('class_rumble', { volume: 0.55 }); }
+    // walk somewhere first: 'desk' | 'teacher' (lines spoken to the class go back to the teacher spot)
+    const at = st.at || (!st.draw && !st.tap && (st.cam === 'teacher' || st.cam === 'wide') ? 'teacher' : null);
+    if (at && this.fox) {
+      const a = at === 'desk' ? room.anchors.deskSpot : room.anchors.teacherSpot;
+      if (this.fox.root.position.distanceTo(a.position) > 0.3) {
+        if (st.cam) this.cam(st.cam);
+        await this.walkTo(a.position, a.rotationY);
+        this._check();
+      }
+    }
     if (st.cam) this.cam(st.cam);
     else if (st.draw || st.tap) this.cam('board');
     this._busy = true;
@@ -399,11 +510,13 @@ export class Classroom {
     if (st.anim && this.fox) this.fox.play(this._anim(st.anim, 'talk'), { loop: false, onDone: () => this._idle() });
     if (st.draw) await this._draw(st.draw, st.speed || 1);
     if (st.tap) for (const id of [].concat(st.tap)) { this._check(); await this._tap(id, st.highlight); }
-    if (!st.draw && !st.tap) { this._idle(true); }
+    if (!st.draw && !st.tap && !st.anim) { this._idle(true); }
+    if (st.camAfter) this.cam(st.camAfter);
     if (st.react) {
       // quick cutaway to the class reacting, then back
       const kind = typeof st.react === 'string' ? st.react : st.react.kind;
-      if (st.cutaway !== false && kind !== 'zzz' && this._camA !== this.room.anchors.camStudents && this._camA !== this.room.anchors.camWide) {
+      const A = this.room.anchors;
+      if (st.cutaway !== false && kind !== 'zzz' && ![A.camStudents, A.camWide, A.camTeacher, A.camDesk].includes(this._camA)) {
         const back = this._camA;
         this.cam('students');
         this._react(st.react);
@@ -539,9 +652,10 @@ export class Classroom {
   _react(r) {
     if (!r) return;
     const o = typeof r === 'string' ? { kind: r } : r;
-    if (o.kind === 'bang') this.room.students.setSleepy(false);
-    this.room.students.react(o.kind, { who: o.who ?? null });
-    if (o.kind === 'cheer') this._sfx('class_cheer', { volume: 0.4 });
+    if (o.kind === 'bang' || o.kind === 'gasp') this.room.students.setSleepy(false);
+    this.room.students.react(o.kind === 'gasp' ? 'bang' : o.kind, { who: o.who ?? null, stagger: o.kind === 'gasp' ? 0.04 : 0.12 });
+    if (o.kind === 'gasp') this._sfx('class_gasp', { volume: 0.5 });
+    else if (o.kind === 'cheer') this._sfx('class_cheer', { volume: 0.4 });
     else this._sfx('class_pop', { volume: 0.3, pitch: o.kind === 'heart' ? 1.4 : 1 });
   }
 

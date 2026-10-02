@@ -108,6 +108,20 @@ export class LandAnimals {
     return a;
   }
 
+  // for the night tour: a night critter right in the garden, on camera
+  spawnNightVisitor() {
+    const night = LAND_ANIMALS.filter((a) => a.night && this.hasArt(a.id));
+    const pool = night.length ? night : LAND_ANIMALS.filter((a) => this.hasArt(a.id));
+    if (!pool.length) return null;
+    const sp = pick(pool);
+    const p = this.landPointNear((MEADOW.x0 + MEADOW.x1) / 2 + rand(-6, 6), (MEADOW.z0 + MEADOW.z1) / 2 + rand(-4, 6), 4);
+    if (!p) return null;
+    const a = this.make(sp.id, p.x, p.z);
+    a.sp = sp; a.state = 'idle'; a.t = 3; a.home = this.edgePoint() || p; a.life = rand(40, 70);
+    this.wild.push(a);
+    return a;
+  }
+
   make(art, x, z) {
     return { art, x, z, y: 0, hopY: 0, state: 'idle', t: rand(0.5, 2), tx: x, tz: z, face: 1, anim: 'idle', at: 0, seed: Math.random() * 9, target: null, mischief: 0, scale: 1 };
   }

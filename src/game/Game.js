@@ -34,6 +34,10 @@ import { Fox, Ambient } from './Ambient.js';
 import { FoodStore } from './FoodStore.js';
 import { Harvest } from './Harvest.js';
 import { LandAnimals } from './LandAnimals.js';
+import { Land } from './Land.js';
+import { Cutscene } from './Cutscene.js';
+const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
+const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
 import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
 import { SIGNING_BONUS } from './BeaverSystem.js';
 import audio from './audioProxy.js';
@@ -97,6 +101,8 @@ export class Game {
     this.zones = new ZoneSystem(this);
     this.villagers = new Villagers(this);
     this.landAnimals = new LandAnimals(this);
+    this.land = new Land(this);
+    this.cutscene = new Cutscene(this);
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -172,6 +178,7 @@ export class Game {
     this.bugs.load(null);
     this.livestock?.clear();
     this.landAnimals.clear();
+    this.land.load([]);
     this.zones.onLoad();
     this.villagers.onLoad();
     this.onTopologyChanged();
@@ -648,13 +655,48 @@ export class Game {
     this.ui?.onBedtime?.();
   }
 
+  // lights out: the bedtime cutscene (teeth, pajamas, Zzz...), black, then a
+  // moonlit tour of everything that happened at the pond overnight, then sunrise
   startNight() {
     const st = this.state;
     if (st.phase !== 'bedtime') return;
     st.phase = 'night';
-    this.overnight = { produced: {}, hatched: [], grew: 0, t: 0 };
-    this.transition = { kind: 'night', from: st.hour, to: 24 + 6, t: 0, dur: 7 };
+    this.overnight = { produced: {}, hatched: [], grew: 0, t: 0, events: [] };
+    this.transition = null;
     this.audio.play('sleep', { volume: 0.4 });
+    this.runNight().catch((e) => {
+      console.warn('night', e);
+      if (this.state.phase === 'night') { this.transition = { kind: 'night', from: 2, to: 24 + 6, t: 0, dur: 3 }; this.overnight.simulated ||= false; }
+    });
+  }
+
+  async runNight() {
+    const st = this.state;
+    let bed = null;
+    if (Bedtime && !this.skipBedtime) {
+      try { bed = this.bedtime ||= new Bedtime(this); await bed.play(); } catch (e) { console.warn('bedtime', e); bed = null; }
+    }
+    st.hour = 1.5; // deep night: moon, fireflies, the office lights far away
+    this.fox.rig.root.visible = false;
+    this.simulateOvernight();
+    this.overnight.simulated = true;
+    const ev = this.overnight.events;
+    const shots = this.nightShots(ev);
+    const reveal = bed?.reveal?.({ dur: 1.4 });
+    await this.cutscene.play({ shots });
+    await reveal;
+    st.hour = 5.8;
+    this.startDawn();
+  }
+
+  // the camera tour: wide moonlit pond, then each overnight event, then the hut
+  nightShots(ev) {
+    const c = { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 };
+    const shots = [{ at: c, wupp: 0.05, yaw: 0.6, cut: true, dur: 3, caption: 'Meanwhile, at the pond...', sub: 'Reynard snores. The pond does not sleep.' }];
+    for (const e of ev.slice(0, 6)) shots.push({ at: { x: e.x, z: e.z }, wupp: e.zoom || 0.02, yaw: shots.length % 2 ? 0.25 : -0.25, dur: 2.6, caption: e.title, sub: e.sub, call: e.fx });
+    if (shots.length === 1) shots.push({ at: { x: c.x + 4, z: c.z + 2 }, wupp: 0.03, yaw: 0.2, dur: 2.6, caption: 'A quiet night', sub: 'Just fireflies and frogs.' });
+    shots.push({ at: { x: HUT.x + 1.5, z: HUT.z + 2 }, wupp: 0.018, yaw: 0, dur: 2.4, caption: 'Zzz...', sub: 'Dawn is coming.' });
+    return shots;
   }
 
   // skip the rest of the night quickly (tap)
@@ -666,9 +708,17 @@ export class Game {
   simulateOvernight(T = 120) {
     const on = this.overnight;
     const mods = this.mods;
+    on.events ||= [];
+    const EV = on.events;
     const ripeBefore = new Set(this.harvest.ripeList());
     this.harvest.simulate(T);
-    for (const s of this.harvest.ripeList()) if (!ripeBefore.has(s)) on.produced.crops = (on.produced.crops || 0) + 1;
+    const ripened = this.harvest.ripeList().filter((s) => !ripeBefore.has(s));
+    on.produced.crops = (on.produced.crops || 0) + ripened.length;
+    if (ripened.length) {
+      const s0 = ripened.find((s) => s.crop?.batch?.r >= 2) || ripened[0];
+      const name = STRUCTURES[s0.type]?.name || 'The garden';
+      EV.push({ x: s0.x + 0.5, z: s0.z + 0.5, title: ripened.length > 1 ? `${ripened.length} plants ripened!` : `${name} is ripe!`, sub: 'Harvest them in the morning.', fx: () => this.particles.sparkle(s0.x + 0.5, this.structures.baseY(s0) + 0.6, s0.z + 0.5, 14, 0xfff2a0) });
+    }
     for (const s of this.structures.list) {
       if (!s.built || !s.def.food) continue;
       const before = s.stock;
@@ -688,6 +738,10 @@ export class Game {
       if (!b || Math.random() > 0.55) continue;
       used.add(a); used.add(b);
       fish.mate(a, b);
+      if (!EV.some((e) => e.kind === 'love')) {
+        const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+        EV.push({ kind: 'love', x: mx, z: mz, title: 'Love under the moon ♥', sub: `${a.sp.name}s laid a clutch of eggs.`, fx: () => { this.particles.hearts(mx, WATER_Y + 0.4, mz, 8); this.particles.word('love', mx, WATER_Y + 0.8, mz, { size: 0.34 }); } });
+      }
     }
     // eggs in the pond hatch, fry grow
     const before = new Set(fish.list);
@@ -698,14 +752,23 @@ export class Game {
       if (e.t <= 0 && !e.ready) { e.ready = true; on.eggsReady = (on.eggsReady || 0) + 1; }
     }
     for (const f of fish.list) if (f.state === 'fertilize') { f.state = 'wander'; f.eggs = null; }
+    let grownFish = null;
     for (const f of fish.list) {
       if (!before.has(f)) on.hatched.push({ speciesId: f.sp.id, morph: f.g.morph, rarity: rarityOf(f.g.stars), name: f.sp.name });
       if (!f.adult) {
         f.age += T * f.sp.growth * mods.growthMult * 0.6;
-        if (f.age >= GROW_TIME) { f.adult = true; on.grew++; }
+        if (f.age >= GROW_TIME) { f.adult = true; on.grew++; grownFish ||= f; }
       }
       f.hunger = Math.max(0.15, f.hunger - 0.1);
     }
+    const readyEgg = fish.eggs.find((e) => e.ready && !e.tank);
+    if (readyEgg) EV.push({ x: readyEgg.x, z: readyEgg.z, title: `${on.eggsReady || 1} egg${(on.eggsReady || 1) > 1 ? 's' : ''} ready to hatch!`, sub: 'They glow in the dark. Tap them at sunrise!', fx: () => this.particles.sparkle(readyEgg.x, WATER_Y + 0.2, readyEgg.z, 16, 0xfff2a0) });
+    if (grownFish) EV.push({ x: grownFish.x, z: grownFish.z, title: on.grew > 1 ? `${on.grew} fry grew up!` : 'A fry grew up!', sub: `Look at that ${grownFish.sp.name} go.`, fx: () => this.particles.bubbles(grownFish.x, grownFish.y + 0.2, grownFish.z, 8) });
+    const beaver = this.beavers.list[0];
+    if (beaver) EV.push({ x: beaver.x, z: beaver.z, zoom: 0.016, title: 'The beavers sleep', sub: this.beavers.striking ? 'Dreaming of being paid...' : 'Dreaming of carrots.', fx: () => this.particles.zzz?.(beaver.x, beaver.y + 0.6, beaver.z) });
+    // a night visitor wanders in for the camera
+    const visitor = this.landAnimals.spawnNightVisitor?.();
+    if (visitor) EV.push({ x: visitor.x, z: visitor.z, zoom: 0.014, title: 'A night visitor!', sub: `${visitor.sp.name || 'Someone'} sniffs around the garden.` });
     for (const e of this.state.eggTray) e.t = Math.max(0, e.t - T);
     // the fox tops the pellet bag up overnight
     const R = FOOD_ITEMS.pellets.refill;
@@ -718,6 +781,7 @@ export class Game {
     st.day++;
     this.transition = { kind: 'dawn', from: 6, to: 9, t: 0, dur: 3.2 };
     this.audio.play('sunrise', { volume: 0.5 });
+    this.fox.rig.root.visible = true;
     this.fox.wakeUp?.();
   }
 
@@ -1280,6 +1344,7 @@ export class Game {
     this.fox.update(dt);
     this.ambient.update(dt);
     if (st.phase !== 'gameover') this.landAnimals.update(simDt || dt * 0.3);
+    this.land.update();
     this.zones.update(dt);
     this.villagers.update(dt);
     this.cine?.update(realDt);
@@ -1346,7 +1411,7 @@ export class Game {
     return {
       v: 3, state: st, stats: this.stats, water, land, removedDecos, removedClutter: this.world.clutter.filter((c) => c.type === 'none').map((c) => [Math.floor(c.x), Math.floor(c.z)]), structures: this.structures.serialize(),
       beavers: this.beavers.serialize(), delivery: this.delivery.serialize(),
-      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), landAnimals: this.landAnimals.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
+      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), landAnimals: this.landAnimals.serialize(), plots: this.land.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
     };
   }
 
@@ -1396,6 +1461,7 @@ export class Game {
     this.bugs.load(data.bugs);
     this.livestock?.load(data.livestock);
     this.landAnimals.load(data.landAnimals);
+    this.land.load(data.plots);
     this.zones.onLoad();
     this.villagers.onLoad();
     this.applyLandmarkMods();

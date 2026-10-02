@@ -10,7 +10,7 @@
 //   lesson 3 (genes & mutations) -> beaver crew + their Snack Bar -> lesson 4
 //   (plants & food) -> plant carrots, harvest, pay the beavers -> clear trees ->
 //   the clock. Day 1 is a building day: bears start on day 2.
-import { HUT } from '../world/worldgen.js';
+import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { STRUCTURES } from '../data/structures.js';
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
@@ -19,7 +19,7 @@ const Classroom = clsMods['./Classroom.js']?.Classroom || null;
 const teachMods = import.meta.glob('../ui/TeacherOverlay.js', { eager: true });
 const TeacherOverlay = teachMods['../ui/TeacherOverlay.js']?.TeacherOverlay || null;
 
-export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews'];
+export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'land', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews'];
 
 export class Tutorial {
   constructor(game) {
@@ -115,6 +115,10 @@ export class Tutorial {
   async lesson(id) {
     const game = this.game;
     this.stage = 'lesson:' + id;
+    if (Classroom && !clsMods['./Classroom.js']?.LESSONS?.[id] && LESSON_FALLBACK[id]) {
+      for (const k of LESSON_FALLBACK[id]) await this.lesson(k);
+      return;
+    }
     if (Classroom) {
       try {
         if (!this.classroom) this.classroom = game.classroom ||= new Classroom(game);
@@ -154,6 +158,14 @@ export class Tutorial {
     game.ui?.refreshUnlocks?.();
     try { game.fox.rig?.setOutfit?.('teacher'); } catch { /* ignore */ } // school day!
 
+    // ---- opening flyover: the mountain office, the trail, the pond, the hut
+    await this.cine([
+      { at: { x: OFFICE.x, z: OFFICE.z + 6 }, wupp: 0.05, yaw: 0, cut: true, dur: 2.6, caption: 'Ontario, Canada', sub: 'Up the mountain: Bear Corp. Hundreds of hungry office bears.' },
+      { at: { x: OFFICE.x, z: (OFFICE.z + MEADOW.z1) / 2 }, wupp: 0.045, yaw: -0.3, dur: 3, caption: 'Every day at 5 PM...', sub: '...they come down the trail. Starving.' },
+      { at: { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 + 2 }, wupp: 0.04, yaw: 0.25, dur: 3, caption: 'Down by the pond', sub: 'lives a fox with a plan.' },
+      { at: { x: HUT.x + 1.5, z: HUT.z + 2 }, wupp: 0.016, yaw: 0, dur: 2.4, caption: 'Reynard\'s Fish Co.', sub: '"Fresh fish. Questionable ethics."' },
+    ]);
+
     // ---- inside the fox's room: it's a school day
     L.enterTutorial();
     try { L.fox?.setOutfit?.('teacher'); L.fox?.holdProp?.('pointer'); } catch { /* ignore */ }
@@ -177,8 +189,7 @@ export class Tutorial {
     if (pond) fox.target = { x: pond[0] + 0.5, z: pond[1] + 0.5 };
     this.follow = true;
     await wait(1.6);
-    await this.teach('Behold! The pond! ...It\'s <b>empty</b>.', { wait: true, mood: 'excited' });
-    await this.teach('Before we buy fish: <b>school</b>! To the classroom!', { wait: true, mood: 'happy' });
+    await this.teach('Behold! The pond! ...It\'s <b>empty</b>. Quick class first!', { wait: true, mood: 'excited' });
 
     // ---- lesson 1: a fish's condition
     await this.lesson('condition');
@@ -204,7 +215,8 @@ export class Tutorial {
     const two = newFish().slice(0, 2);
     this.follow = false;
     game.rig.lookAt((two[0].x + two[1].x) / 2, (two[0].z + two[1].z) / 2);
-    await this.teach('Our first fish! Say hi to the happy couple ♥', { target: () => this.fishScreen(two[0]), wait: true, mood: 'happy' });
+    this.teach('Our first fish! ♥', { target: () => this.fishScreen(two[0]), dur: 2.2, mood: 'happy' });
+    await wait(1.4);
 
     // ---- feed them until they're well fed
     game.unlockFeature('feed');
@@ -212,19 +224,19 @@ export class Tutorial {
     game.foodStore.select('pellets');
     game.ui?.syncFoodPicker?.();
     this.force('feed');
-    await this.teach('Hungry fish can\'t fall in love. Pick the <b>food bag</b>...', { target: 'tool:feed', circle: true, dur: 3.5 });
     stop = this.pointAt(() => this.fishScreen(two[0]));
-    this.teach('...then <b>tap the water</b> next to them! Fill their ♥ meters!', { target: () => this.fishScreen(two[0]), dur: 6 });
+    this.teach('Hungry fish can\'t love! <b>Tap the water</b> by them to fill their ♥ meters!', { target: () => this.fishScreen(two[0]), dur: 6 });
     this.nag(() => 'Tap the water near the fish to feed them!');
     const fed = () => two.every((f) => f.dead || f.fed >= 0.9);
     await this.waitFor(fed);
     this.stopNag();
     stop?.();
     this.force(null);
-    await this.teach('♥ Full bellies! Now they\'re <b>ready for love</b>.', { target: () => this.fishScreen(two[1]), wait: true, mood: 'excited' });
+    this.teach('♥ Full bellies! <b>Ready for love.</b>', { target: () => this.fishScreen(two[1]), dur: 2.2, mood: 'excited' });
+    await wait(1.6);
 
-    // ---- lesson 2: love & eggs, then watch it happen
-    await this.lesson('breeding');
+    // ---- lesson 2: fish life (love, eggs, genes & mutations in one go), then watch it happen
+    await this.lesson('fishlife');
     this.getTeacher();
     for (const f of two) { f.loveT = Math.min(f.loveT, 1); f.fed = Math.max(f.fed, 1); }
     game.rig.lookAt((two[0].x + two[1].x) / 2, (two[0].z + two[1].z) / 2);
@@ -234,10 +246,10 @@ export class Tutorial {
     const dateP = this.until('fishDate').then(() => { seen.date = true; });
     const fertP = this.until('eggFertilized').then(() => { seen.fert = true; });
     const hatched = this.until('eggHatched').then(() => { seen.hatch = true; });
-    await this.teach('Shh... watch them!', { dur: 2.5, mood: 'happy' });
+    this.teach('Shh... watch them!', { dur: 2.5, mood: 'happy' });
     if (!seen.date) await Promise.race([dateP, fertP, hatched, wait(40)]);
     if (!seen.date && !seen.fert && !seen.hatch) this.forceDate(two);
-    if (!seen.fert && !seen.hatch) await this.teach('A <b>date</b>! Stage 1 ♥', { target: () => this.fishScreen(two[0]), dur: 3, mood: 'excited' });
+    if (!seen.fert && !seen.hatch) this.teach('A <b>date</b>! ♥', { target: () => this.fishScreen(two[0]), dur: 3, mood: 'excited' });
     if (!seen.fert && !seen.hatch) await Promise.race([fertP, hatched, wait(60)]);
     this.watchPair = null;
     if (!seen.hatch && !game.fish.eggs.some((e) => e.stage === 'incubate' || e.ready)) {
@@ -245,7 +257,7 @@ export class Tutorial {
       if (laid) game.fish.fertilize(laid, null);
     }
     const hatchedNow = () => seen.hatch;
-    if (!seen.hatch) await this.teach('Mum laid eggs, dad fertilized them. Now they <b>incubate</b>...', { dur: 4, mood: 'happy' });
+    if (!seen.hatch) await this.teach('Eggs! Dad fertilized them. Now they <b>incubate</b>...', { dur: 3, mood: 'happy' });
     const bred = game.fish.eggs.find((e) => !e.bought && e.stage !== 'laid');
     if (bred && !bred.ready) bred.t = Math.min(bred.t, 4);
     if (!hatchedNow() && !game.fish.eggs.some((e) => e.ready)) await Promise.race([this.until('eggReady'), hatched, wait(30)]);
@@ -265,12 +277,12 @@ export class Tutorial {
     game.unlockFeature('hand');
     game.unlockFeature('pet');
 
-    // ---- lesson 3: genes & mutations
-    await this.lesson('genes');
-    await this.lesson('mutations');
+    // ---- lesson 3: building (and who does the heavy lifting)
+    await this.teach('Fish: done! Now we <b>BUILD</b>. Class!', { dur: 2.2, mood: 'excited' });
+    await this.lesson('build');
 
     // ---- beavers: order a crew, place the lodge
-    await this.teach('Next: workers. <b>BEAVERS!</b>', { dur: 2.5, mood: 'shout' });
+    await this.teach('Workers first: <b>BEAVERS!</b>', { dur: 2.5, mood: 'shout' });
     this.force('ebuy', { ebuyFocus: 'item_lodge' });
     stop = this.pointAt('tool:ebuy');
     this.teach('Order a <b>BEAVER CREW</b> on e-Buy!', { target: 'tool:ebuy', circle: true, dur: 5, mood: 'excited' });
@@ -354,26 +366,54 @@ export class Tutorial {
     stop?.();
     await this.teach('Paid! No pay, no work. <b>Snacks = jobs.</b>', { dur: 3, mood: 'excited' });
 
-    // ---- clear trees with the beavers
+    // ---- clear trees with the beavers: the DESTROY button, then drag a box
     game.unlockFeature('clear');
-    this.force('build', { bpTab: 'clear' });
-    stop = this.pointAt('tool:build');
-    this.teach('Clear trees = more land + money! Build ▸ <b>drag over the trees</b> at the edge!', { target: 'tool:build', circle: true, dur: 6 });
-    this.nag(() => 'Drag over trees by your land!');
-    await this.until('cleared');
+    game.setTool({ kind: 'feed' });
+    this.force('clear');
+    stop = this.pointAt('tool:clear');
+    this.teach('More land = more money! Tap the <b>DESTROY</b> button!', { target: 'tool:clear', circle: true, dur: 5, mood: 'excited' });
+    this.nag(() => 'Tap the Destroy button!');
+    if (game.tool.kind !== 'clear') await this.until('tool', (t) => t.kind === 'clear');
     this.stopNag();
+    stop?.();
+    const edge = this.forestEdge();
+    if (edge) game.rig.lookAt(edge.x, edge.z);
+    stop = edge ? this.pointAt(() => this.worldScreen(edge.x, 0.8, edge.z)) : () => {};
+    this.teach('Now <b>drag a box</b> over the trees next to your land!', { target: edge ? () => this.worldScreen(edge.x, 0.8, edge.z) : null, dur: 6 });
+    this.nag(() => 'Destroy tool: drag a box over the trees at the edge!');
+    await this.until('clearArea');
+    this.stopNag();
+    stop?.();
     this.force(null);
-    stop?.();
-    this.teach('Ka-ching!', { dur: 1.5, mood: 'excited' });
-    await wait(1.5);
-    game.ui?.blueprint?.exit();
+    this.teach('Red = marked! Then tape goes up and the beavers chop them <b>bit by bit</b>.', { dur: 4.5, mood: 'happy' });
+    await this.until('cleared');
+    this.teach('TIMBER! Ka-ching!', { dur: 1.8, mood: 'excited' });
+    await wait(2);
+    game.setTool({ kind: 'feed' });
 
-    // ---- the clock (bears come tomorrow)
-    game.unlockFeature('clock');
-    stop = this.pointAt('sel:#clockwrap');
-    await this.teach('Bears come <b>TOMORROW</b> at 5.', { target: 'sel:#clockwrap', wait: true, mood: 'scared' });
-    await this.teach('Today we build! Tap the clock to go faster. Class dismissed!', { target: 'sel:#clockwrap', wait: true, mood: 'happy' });
+    // ---- land plots for sale
+    game.unlockFeature('land');
+    stop = this.pointAt('tool:land');
+    await this.teach('Want even more room? <b>Buy land</b> with the Land tool when you\'re rich!', { target: 'tool:land', circle: true, wait: true, mood: 'scheming' });
     stop?.();
+
+    // ---- lessons: bears & stars
+    await this.teach('Last class: our <b>customers</b>...', { dur: 2.2, mood: 'scared' });
+    await this.lesson('bears');
+    await this.lesson('stars');
+
+    // ---- the clock (bears come tomorrow), with a peek up the mountain
+    game.unlockFeature('clock');
+    await this.cine([
+      { at: { x: OFFICE.x, z: OFFICE.z + 7 }, wupp: 0.03, yaw: 0, dur: 2.8, sfx: 'growl', caption: 'Bear Corp, tomorrow...', sub: '4:59 PM. Four hundred empty stomachs.' },
+      { at: { x: OFFICE.x, z: OFFICE.z + 9 }, wupp: 0.022, dur: 1.8, call: () => game.audio.play('roar', { volume: 0.35 }), caption: 'RUMBLE', sub: '"Is it five yet?"' },
+      { at: { x: game.fox.x, z: game.fox.z + 0.6 }, wupp: 0.02, dur: 2.2, caption: 'Meanwhile...', sub: 'Reynard has ONE day to get ready.' },
+    ]);
+    stop = this.pointAt('sel:#clockwrap');
+    await this.teach('Bears come <b>TOMORROW</b> at 5. Tap the clock to go faster!', { target: 'sel:#clockwrap', wait: true, mood: 'scared' });
+    stop?.();
+    game.particles.confetti(game.fox.x, game.fox.y + 1.5, game.fox.z, 40);
+    await this.teach('<b>Class dismissed!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
     game.unlockFeature('speed');
     game.setTool({ kind: 'feed' });
     try { const t = this.teacher; if (t) { t.clearChalk(); await t.hide(); } } catch { /* ignore */ }
@@ -386,6 +426,37 @@ export class Tutorial {
   }
 
   // ------------------------------------------------------------ bits
+  // a cinematic on the real world (skipped quietly if cutscenes are missing)
+  async cine(shots) {
+    const game = this.game;
+    const t = this.teacher;
+    if (t?.visible) { try { t.clearChalk(); await t.hide(); } catch { /* ignore */ } }
+    game.ui?.foodPicker?.hide?.();
+    try { await game.cutscene?.play({ shots }); } catch (e) { console.warn('cutscene', e); }
+    game.ui?.syncFoodPicker?.();
+  }
+
+  // a clearable tree right at the edge of your land (for the Destroy lesson)
+  forestEdge() {
+    const game = this.game;
+    const g = game.grid, B = game.beavers;
+    const fox = game.fox;
+    let best = null, bd = Infinity;
+    for (let z = MEADOW.z0 - 3; z <= MEADOW.z1 + 3; z++) for (let x = MEADOW.x0 - 3; x <= MEADOW.x1 + 3; x++) {
+      if (!g.inb(x, z) || !B.canClear(x, z).ok) continue;
+      const k = B.clearKind(x, z);
+      if (k !== 'forest' && k !== 'tree') continue;
+      const d = Math.hypot(x - fox.x, z - fox.z);
+      if (d < bd) { bd = d; best = { x: x + 0.5, z: z + 0.5 }; }
+    }
+    return best;
+  }
+
+  worldScreen(x, y, z) {
+    const q = this.game.ui.screenOf(x, y, z);
+    return { x: q.x, y: q.y };
+  }
+
   fishScreen(f) {
     if (!f || f.dead) return { x: innerWidth / 2, y: innerHeight / 2 };
     const q = this.game.ui.screenOf(f.x, f.y + 0.2, f.z);
@@ -463,8 +534,15 @@ export class Tutorial {
   }
 }
 
+// older classroom builds: compose new lessons from the ones that exist
+const LESSON_FALLBACK = { fishlife: ['breeding'], build: [], bears: [], stars: [] };
+
 // if the classroom can't load, the fox explains in a few bubbles instead
 const FALLBACK_LESSONS = {
+  fishlife: ['Fed boy ♂ + girl ♀ = a date, eggs, dad fertilizes, YOU tap to hatch.', 'Babies inherit size, colour and traits... and sometimes MUTATE!'],
+  build: ['Build menu: small things pop in, big ones the beavers build (for food!).', 'Destroy tool: box the trees, beavers clear them. Pretty stuff = more bears.'],
+  bears: ['Bears come at 5 and eat fish. Stock Snack Bowls for side dishes.', 'Tag your best fish DO NOT EAT. Hungry bears RAMPAGE!'],
+  stars: ['Every bear leaves a review. Keep your rating above 1.0 or we\'re CLOSED!'],
   condition: ['Every fish has a belly and a mood.', 'Feed them and they fill their ♥ meter. Full meter = ready to breed!'],
   breeding: ['A boy ♂ + a girl ♀, both well fed...', 'Date, lay eggs, dad fertilizes, eggs incubate... then YOU tap to hatch!'],
   genes: ['Babies get genes from mum and dad: size, colour, traits, stars.'],

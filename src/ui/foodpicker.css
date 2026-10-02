@@ -193,3 +193,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 @media (prefers-reduced-motion: reduce) {
   .fp *, .fp { animation-duration: 1ms !important; }
 }
+
+.fp-plate { transition: opacity .45s, transform .45s; }
+.fp-plate.fp-quiet { opacity: 0; transform: translateY(8px); }
+.fp:hover .fp-plate.fp-quiet { opacity: 1; transform: none; }

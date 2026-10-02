@@ -17,7 +17,7 @@ const tankMods = import.meta.glob('../entities/glassTank.js', { eager: true });
 const TM = tankMods['../entities/glassTank.js'] || null;
 import { fallbackTank } from './Tanks.js';
 import { decalsFor } from '../entities/structureDecals.js';
-import { CROPS } from '../data/crops.js';
+import { CROPS, stagesFor } from '../data/crops.js';
 import { RARITIES } from '../data/species.js';
 import { STORAGE } from '../data/foods.js';
 const farmMods = import.meta.glob('../entities/farmModels.js', { eager: true });
@@ -178,7 +178,10 @@ export class StructureSystem {
     this.list.push(s);
     this.spritesDirty = true;
     this.byId.set(s.id, s);
-    if (def.crop) this.game.harvest?.init(s);
+    if (def.crop) {
+      this.game.harvest?.init(s);
+      if (!instant && !def.underwater && !s.platform && this.game.world.hasClutter?.(x, z)) { this.game.world.removeClutter(x, z); this.clutterDirty = true; }
+    }
     // freshly planted greenery grows in from a seedling
     else if (!instant && def.category === 'nature' && def.sprite) s.sprout = 0;
     this.buildMesh(s);
@@ -348,7 +351,7 @@ export class StructureSystem {
 
   // which nature sprite a plant structure shows right now
   spriteFrame(s) {
-    if (s.def.crop) { const fr = this.cropFrame(s); if (fr) return fr; }
+    if (s.def.crop || (s.sprout != null && s.sprout < 1 && stagesFor(s.type))) { const fr = this.cropFrame(s); if (fr) return fr; }
     const names = s.def.sprite;
     if (!names) return null;
     const { frames } = this.natureFrames();
@@ -364,11 +367,11 @@ export class StructureSystem {
   // garden plants: the sprite for their growth stage (seed .. ripe). Missing
   // stage art falls back to the next-best sprite, shrunk (see renderSprites)
   cropFrame(s) {
-    const C = CROPS[s.type];
-    if (!C) return null;
     const { frames } = this.natureFrames();
-    const stage = s.crop ? s.crop.stage : 3;
-    const names = C.stages || [];
+    // nature plants: no harvest, but they still grow through their stages
+    const stage = s.crop ? s.crop.stage : s.sprout != null && s.sprout < 1 ? Math.min(3, Math.floor(s.sprout * 4)) : 3;
+    const names = stagesFor(s.type) || [];
+    if (!CROPS[s.type] && !names.length) return null;
     const own = s.def.sprite || [];
     const want = names[stage] || (stage >= 3 ? own[0] : own[1] || own[0]);
     if (want && frames[want]) return { name: want, f: frames[want][0], frames: frames[want], cropStage: stage, exact: true };
@@ -398,7 +401,13 @@ export class StructureSystem {
       let sy = 1;
       if (s.popT > 0) { const k = 1 - s.popT / 0.45; sy = 1 + Math.sin(k * Math.PI * 2.5) * 0.35 * (1 - k); }
       if (!s.built) sy *= 0.25 + 0.75 * s.progress;
-      if (s.sprout != null && s.sprout < 1) { const k = s.sprout, e = 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2; sc *= 0.2 + 0.8 * Math.max(0, e); }
+      if (s.sprout != null && s.sprout < 1 && !fr.exact) { const k = s.sprout, e = 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2; sc *= 0.2 + 0.8 * Math.max(0, e); }
+      // garden plots: a flat tilled bed under the plant so it reads as a garden
+      if (s.def.crop && !s.def.flat && !s.def.underwater && s.type !== 'beehive' && s.type !== 'maple' && s.type !== 'wildrice') {
+        sc *= 1.2;
+        const bed = this.natureFrames().frames.crop_bed?.[0];
+        if (bed) B.push(bed, cx, by + 0.012, cz, { texels: 24, mode: 1, ax: 0.5, ay: 0.5, rot: (s.seed % 2) * Math.PI / 2, alpha: s.built ? 1 : 0.55 });
+      }
       if (s.type === 'seaweed') sy *= 0.45 + 0.55 * (s.stock / s.def.food.max);
       let cropTint = null, cropGlow = 0;
       if (fr.cropStage != null) {
@@ -726,6 +735,7 @@ export class StructureSystem {
   update(dt) {
     this.time += dt;
     const game = this.game;
+    if (this.clutterDirty) { this.clutterT = (this.clutterT || 0) - dt; if (this.clutterT <= 0) { this.clutterT = 0.4; this.clutterDirty = false; game.world.buildClutter(); } }
     const mods = game.mods;
     for (const s of this.list) {
       if (s.obj?.userData.parts) this.animateParts(s.obj, this.time);
