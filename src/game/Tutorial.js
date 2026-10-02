@@ -32,6 +32,7 @@ export class Tutorial {
   // ------------------------------------------------------------ helpers
   // Resolves when `ev` fires (and passes `pred`, if given)
   until(ev, pred = null) {
+    this.stage = 'until:' + ev; // where the tour is waiting (debug / tests)
     return new Promise((res) => {
       const fn = (d) => {
         if (pred && !pred(d)) return;
@@ -45,6 +46,7 @@ export class Tutorial {
 
   // polls a condition (for things that have no event)
   waitFor(test, every = 0.25) {
+    this.stage = 'waitFor';
     return new Promise((res) => {
       const tick = () => { let ok = false; try { ok = test(); } catch { ok = false; } if (ok) res(); else setTimeout(tick, every * 1000); };
       tick();
@@ -80,6 +82,7 @@ export class Tutorial {
   // run to `target`, point at it (and circle it in chalk), say a line
   async teach(text, { target = null, circle = false, arrowTo = null, wait: w = false, dur = 4, mood = 'normal', doodle = null } = {}) {
     const t = this.getTeacher();
+    this.stage = 'teach:' + text.replace(/<[^>]+>/g, '').slice(0, 24);
     if (t) {
       try {
         if (!t.visible) await t.show();
@@ -111,6 +114,7 @@ export class Tutorial {
   // a full-screen classroom lesson (fallback: a few lines from the fox)
   async lesson(id) {
     const game = this.game;
+    this.stage = 'lesson:' + id;
     if (Classroom) {
       try {
         if (!this.classroom) this.classroom = game.classroom ||= new Classroom(game);
@@ -225,25 +229,28 @@ export class Tutorial {
     for (const f of two) { f.loveT = Math.min(f.loveT, 1); f.fed = Math.max(f.fed, 1); }
     game.rig.lookAt((two[0].x + two[1].x) / 2, (two[0].z + two[1].z) / 2);
     this.watchPair = two;
+    // listen for every stage up front: the pond doesn't wait for the teacher to finish talking
+    const seen = { date: false, fert: false, hatch: false };
+    const dateP = this.until('fishDate').then(() => { seen.date = true; });
+    const fertP = this.until('eggFertilized').then(() => { seen.fert = true; });
+    const hatched = this.until('eggHatched').then(() => { seen.hatch = true; });
     await this.teach('Shh... watch them!', { dur: 2.5, mood: 'happy' });
-    const dated = await Promise.race([this.until('fishDate'), wait(40).then(() => null)]);
-    if (!dated) this.forceDate(two);
-    await this.teach('A <b>date</b>! Stage 1 ♥', { target: () => this.fishScreen(two[0]), dur: 3, mood: 'excited' });
-    await Promise.race([this.until('eggFertilized'), wait(60)]);
+    if (!seen.date) await Promise.race([dateP, fertP, hatched, wait(40)]);
+    if (!seen.date && !seen.fert && !seen.hatch) this.forceDate(two);
+    if (!seen.fert && !seen.hatch) await this.teach('A <b>date</b>! Stage 1 ♥', { target: () => this.fishScreen(two[0]), dur: 3, mood: 'excited' });
+    if (!seen.fert && !seen.hatch) await Promise.race([fertP, hatched, wait(60)]);
     this.watchPair = null;
-    if (!game.fish.eggs.some((e) => e.stage === 'incubate' || e.ready)) {
+    if (!seen.hatch && !game.fish.eggs.some((e) => e.stage === 'incubate' || e.ready)) {
       const laid = game.fish.eggs.find((e) => e.stage === 'laid');
       if (laid) game.fish.fertilize(laid, null);
     }
-    // listen now: an eager player may tap the egg before we ask
-    let hatchedNow = false;
-    const hatched = this.until('eggHatched').then(() => { hatchedNow = true; });
-    await this.teach('Mum laid eggs, dad fertilized them. Now they <b>incubate</b>...', { dur: 4, mood: 'happy' });
+    const hatchedNow = () => seen.hatch;
+    if (!seen.hatch) await this.teach('Mum laid eggs, dad fertilized them. Now they <b>incubate</b>...', { dur: 4, mood: 'happy' });
     const bred = game.fish.eggs.find((e) => !e.bought && e.stage !== 'laid');
     if (bred && !bred.ready) bred.t = Math.min(bred.t, 4);
-    if (!hatchedNow && !game.fish.eggs.some((e) => e.ready)) await Promise.race([this.until('eggReady'), hatched, wait(30)]);
+    if (!hatchedNow() && !game.fish.eggs.some((e) => e.ready)) await Promise.race([this.until('eggReady'), hatched, wait(30)]);
     game.quickEggs = false;
-    if (!hatchedNow) {
+    if (!hatchedNow()) {
       const ready = game.fish.eggs.find((e) => e.ready);
       if (ready) { game.ui?.stopTracking?.(); game.rig.lookAt(ready.x, ready.z); }
       await wait(0.6);
