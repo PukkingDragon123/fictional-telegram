@@ -1479,6 +1479,7 @@ export class UI {
     this.labFallback = true;
     this.openPanel('lab');
     this.labFallback = false;
+    game.emit('labOpen');
   }
 
   // ------------------------------------------------------------ panels

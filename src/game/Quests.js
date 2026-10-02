@@ -16,6 +16,7 @@ export const QUESTS = [
     when: (g) => (g.state.tutorialDone || g.skipTutorial) && g.state.day >= 1,
     intro: 'Somebody lives in the fog next door! Tap a "?" tag to see where.',
     steps: [{ text: 'Clear the forest up to a fog bank', ev: 'zone' }],
+    check: (g) => (g.state.zones || []).length > (g.state.quests?.zones0 ?? 0),
     point: (g) => g.quests.nearestFog(),
   },
   {
@@ -26,6 +27,7 @@ export const QUESTS = [
       { text: 'Open Reynard\'s Lab', ev: 'labOpen' },
       { text: 'Research something new', ev: 'research' },
     ],
+    check: (g) => (g.state.research || []).length > (g.state.quests?.research0 ?? 0),
     point: () => 'tool:lab',
   },
   {
@@ -37,6 +39,7 @@ export const QUESTS = [
       { text: 'Pick the Tag tool', ev: 'tool', test: (t) => t?.kind === 'tag' },
       { text: 'Tag a ★★★ rare fish', ev: 'fishTagged', test: (f) => f?.g?.stars >= 3 },
     ],
+    check: (g) => g.fish.list.some((f) => !f.dead && f.tagged && f.g.stars >= 3),
     point: () => 'tool:tag',
   },
   {
@@ -85,6 +88,9 @@ export class Quests {
     if (!q || S.active.includes(id) || S.done.includes(id)) return;
     S.active.push(id);
     S.prog[id] = q.steps.map(() => false);
+    const st = this.game.state;
+    if (id === 'friend') S.zones0 = (st.zones || []).length;
+    if (id === 'lab') S.research0 = (st.research || []).length;
     try { q.start?.(this.game); } catch (e) { console.warn('quest start', e); }
     // a step that is already true counts (e.g. the Tag tool is in hand)
     if (id === 'tag' && this.game.tool?.kind === 'tag') S.prog[id][0] = true;
@@ -112,10 +118,9 @@ export class Quests {
       if (!q || !P) continue;
       q.steps.forEach((st, k) => {
         if (P[k] || st.ev !== ev) return;
-        // steps go in order: an earlier unticked step blocks later ones
-        if (P.slice(0, k).some((x) => !x)) return;
         if (st.test && !st.test(d)) return;
-        P[k] = true;
+        // doing a later step proves the earlier ones (you researched, so the lab was open)
+        for (let j = 0; j <= k; j++) P[j] = true;
         changed = true;
         this.game.audio.play('pen', { volume: 0.4 });
       });
@@ -163,6 +168,13 @@ export class Quests {
     this.checkT -= dt;
     if (this.checkT > 0) return;
     this.checkT = 2;
+    // safety net: finish any quest whose goal is already true in the game
+    for (const id of [...this.S.active]) {
+      const q = BY_ID[id];
+      let ok = false;
+      try { ok = !!q?.check?.(g); } catch { ok = false; }
+      if (ok) { this.S.prog[id] = q.steps.map(() => true); this.sync(); this.finish(id); }
+    }
     if (!(g.state.tutorialDone || g.skipTutorial) || g.tutorial?.active || g.cutscene?.active || g.state.phase !== 'day') return;
     const S = this.S;
     if (S.active.length >= 2) return;
