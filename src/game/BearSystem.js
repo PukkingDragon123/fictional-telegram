@@ -7,6 +7,8 @@ import { BEAUTY_PER_BEAR } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { BearRig } from '../entities/bearRig.js';
 import { makeFishQuad } from './fishQuad.js';
+import { startEat, pickEatStyle } from './BearEat.js';
+import { makeFishPrey } from '../entities/preyFx.js';
 import { FOOD_ITEMS, STORAGE } from '../data/foods.js';
 import { WATER_Y, KIND } from '../world/grid.js';
 import { pick, clamp, angleDiff, damp } from '../core/rng.js';
@@ -516,6 +518,15 @@ export class BearSystem {
         break;
       }
       case 'eat': {
+        if (b.eat) {
+          if (b.eat.update(dt)) {
+            const e = b.eat; b.eat = null;
+            if (b.gotGoldenNow) { const hp = this.headTop(b); game.particles.word('gold', hp.x, hp.y + 0.1, hp.z, { size: 0.36 }); b.gotGoldenNow = false; }
+            if (e.leavesBone) { b.eatLeft = e; b.state = 'toss'; b.t = 0.55; b.tossed = false; }
+            else { e.dispose(); b.heldFish = null; if (b.eaten >= b.appetite) this.decide(b); else { b.state = 'hunt'; b.fish = null; } }
+          }
+          break;
+        }
         // three juicy chomps
         const k = 3 - Math.ceil(b.t / 0.42);
         while ((b.chomps || 0) < Math.min(3, k)) {
@@ -556,6 +567,7 @@ export class BearSystem {
           if (b.heldFish) game.fish.tossBone(b.heldFish, hp.x, hp.y - 0.3, hp.z, back.x * 2.2 + (Math.random() - 0.5), 4.2 + Math.random(), back.z * 2.2 + (Math.random() - 0.5));
           b.heldFish = null;
           b.rig.hold(null);
+          if (b.eatLeft) { b.eatLeft.dispose(); b.eatLeft = null; }
           game.audio.play('bone_toss', { volume: 0.4 });
           if (Math.random() < 0.25) { game.audio.play('burp', { volume: 0.35, pitch: 1.15 - scale * 0.25 }); game.particles.word('burp', hp.x, hp.y, hp.z, { size: 0.24 }); }
         }
@@ -784,9 +796,14 @@ export class BearSystem {
     b.chomps = 0;
     b.gotGoldenNow = f.g && (f.g.morph === 'golden' || f.g.morph === 'rainbow');
     if (b.gotGoldenNow && game.day) game.day.golden++;
-    this.holdWorld(b, makeFishQuad(game, f));
+    // a juicy eating style: chomp, gulp it whole, rip the head off, slurp, toss & catch, fancy...
+    b.eat = null;
+    if (b.rig) {
+      try { const style = pickEatStyle(b, 'fish'); b.eat = startEat(game, { rig: b.rig, style, prey: makeFishPrey(game, f, style) }); } catch (e) { console.warn('eat', e); b.eat = null; }
+    }
+    if (!b.eat) this.holdWorld(b, makeFishQuad(game, f));
     b.state = 'eat';
-    b.t = 1.26;
+    b.t = b.eat ? b.eat.duration : 1.26;
     b.fish = null;
     game.particles.splash(f.x, f.z, 10, 0.8);
     game.audio.play('splash', { volume: 0.4 });
@@ -878,6 +895,7 @@ export class BearSystem {
 
   onRigEvent(b, name) {
     const game = this.game;
+    b.eat?.onRigEvent(name);
     if (name === 'slam' || (name === 'stomp' && b.def.boss)) {
       game.rig.shake = Math.max(game.rig.shake, b.def.boss ? 0.6 : 0.25);
       game.particles.dust(b.x, b.y + 0.05, b.z, b.def.boss ? 10 : 4);
@@ -887,6 +905,8 @@ export class BearSystem {
   }
 
   hide(b) {
+    b.eat?.dispose(); b.eat = null;
+    b.eatLeft?.dispose(); b.eatLeft = null;
     if (b.rig) { this.group.remove(b.rig.root); b.rig.ownMat?.dispose(); }
     b.visible = false;
     this.game.ui?.detachBearBubble(b);
@@ -916,6 +936,7 @@ export class BearSystem {
         if (b.jump.into) { pose = 'cannonball'; o.t01 = clamp(b.jump.t, 0, 1); }
         else pose = 'run';
       } else if (b.lunge > 0) pose = 'lunge';
+      else if (b.eat && b.state === 'eat') { pose = b.eat.pose; o.t01 = b.eat.poseParams.t01; o.preyLen = b.eat.poseParams.preyLen; }
       else if (b.state === 'eat' || b.state === 'snack') pose = 'eat';
       else if (b.state === 'yummy') pose = 'yummy';
       else if (b.state === 'toss') pose = 'toss';
