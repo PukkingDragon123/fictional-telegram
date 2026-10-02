@@ -274,12 +274,14 @@
 .enc-vars-t, .enc-perks-t { font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; color: #8a2a24; margin: 2px 0 2px; }
 .enc-vars-r { display: flex; gap: 4px; justify-content: space-between; }
 .enc-var { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.enc-var-a { height: 32px; display: flex; align-items: center; justify-content: center; }
+.enc-var-a { height: 36px; display: flex; align-items: center; justify-content: center; }
 .enc-var-n { font-family: var(--font-body, monospace); font-size: 16px; line-height: 14px; color: #4a3424; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .enc-var.is-unknown .enc-var-n { color: #a08868; }
 .enc-var-new { position: absolute; top: 0; right: 4px; width: 8px; height: 8px; background: #c0392b; box-shadow: 0 0 0 2px #fff4e0; transform: rotate(45deg); }
 
-.enc-how { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-family: var(--font-title, monospace); font-size: 18px; line-height: 20px; color: #3a2a1e; padding-top: 2px; border-top: 2px dotted rgba(106, 74, 48, .45); }
+.enc-how { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; font-family: var(--font-title, monospace); font-size: 18px; line-height: 20px; color: #3a2a1e; padding-top: 2px; border-top: 2px dotted rgba(106, 74, 48, .45); }
+.enc-how > span:not(.enc-rcp) { min-width: 0; }
+.enc-recipe { flex-wrap: wrap; }
 .enc-recipe span:first-of-type { color: #8a2a24; }
 .enc-rcp { display: inline-flex; align-items: center; gap: 4px; }
 .enc-rcp i { font-style: normal; }
@@ -315,7 +317,7 @@
 .enc-tro-how span { color: #8a2a24; }
 .enc-tro-rew { display: flex; align-items: center; gap: 4px; font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; color: #7a4a0e; }
 .enc-tro-rew b { font-weight: 400; }
-.enc-tro-stamp { position: absolute; right: 2px; top: 92px; padding: 2px 5px 1px; font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; color: #a3282a; border: 2px solid #a3282a; transform: rotate(-12deg); opacity: .85; mix-blend-mode: multiply; -webkit-mask: var(--enc-speck) 0 0 / 64px 64px; mask: var(--enc-speck) 0 0 / 64px 64px; }
+.enc-tro-stamp { position: absolute; right: 2px; top: 92px; padding: 2px 5px 1px; font-family: var(--font-title, monospace); font-size: 18px; line-height: 18px; color: #a3282a; border: 2px solid #a3282a; transform: rotate(-12deg); opacity: .85; mix-blend-mode: multiply; }
 .enc-tro-stamp.is-locked { color: #6a5a48; border-color: #6a5a48; transform: rotate(8deg); }
 
 .enc-noart { display: inline-grid; place-items: center; width: 40px; height: 32px; font-family: var(--font-title, monospace); font-size: 36px; color: #a08868; }

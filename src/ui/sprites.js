@@ -3704,14 +3704,17 @@ icon('fox', { F: 'fox.r@head', E: 'fox.r@ear', e: 'cream:3', t: 'ink:2', W: 'whi
 });
 
 // --- Reynard the fox: 32x32 portraits ------------------------------------------
+// Dot eyes like the 3D rig (foxFace.js): small ink dots set low and wide, monocle on
+// the viewer's left eye. Expressions read through lids, brows, mouth and blush.
 const FOX_KEY = {
   H: 'black.x@hat', h: 'black.y@brim', r: 'red.y@band', q: 'gold.R@buckle',
-  E: 'fox.r@earL', F: 'fox.r@earR', e: 'cream:3', t: 'dkbear:2',
+  E: 'fox.r@earL', F: 'fox.r@earR', e: 'cream:3', t: 'dkbear:2', B: 'dkbear:1',
   O: 'fox.r@head', o: 'fox:2', W: 'furw.r@muz', V: 'furw.r@cheekL', X: 'furw.r@cheekR',
-  N: 'black.R@nose', K: '#2a1a14', y: 'gold:4', Y: 'yellow:5', a: 'honey:2', w: '#ffffff', j: 'fox:1',
+  N: 'black.R@nose', K: 'black:0', y: 'gold:4', Y: 'yellow:5', a: 'honey:2', w: 'white:5', j: 'fox:1',
   m: 'gold.R@mono', g: 'gold:3', G: 'glass:5',
   P: 'plum.y@suit', p: 'plum:1', s: 'white:4', c: 'red.r@cravat', b: 'gold.R@btn',
-  T: 'white:5', n: 'pink:3', u: 'pink:4', l: 'sky:4', L: 'sky:5', z: 'lilac:4', Z: 'lilac:5', R: 'red.R@fx', i: 'pink:2', d: 'gold:2', D: 'gold:5',
+  T: 'white:5', n: 'pink:3', u: 'pink:4', l: 'sky:4', L: 'sky:5', z: 'lilac:3', Z: 'lilac:4', R: 'red.R@fx', i: 'pink:2', d: 'gold:2', D: 'gold:5',
+  M: 'red:1',
 };
 
 function foxBase(g, o = {}) {
@@ -3722,15 +3725,13 @@ function foxBase(g, o = {}) {
   g.poly([[4.4, 5.2], [10.2, 10.6], [6, 12.6]], 'e');
   g.poly([[27.6, 5.2], [21.8, 10.6], [26, 12.6]], 'e');
   g.stamp(2, 2, ['tt.', 'ttt', '.tt']).stamp(27, 2, ['.tt', 'ttt', 'tt.']);
-  // head
-  g.ellipse(15.5, 17.6, 11.3, 8.3, 'O');
+  // head (a touch rounder)
+  g.ellipse(16, 17.4, 11.6, 8.5, 'O');
   // cheek fluff
-  g.poly([[6.5, 15.5], [0.8, 21.6], [4.6, 21.2], [2.2, 24.8], [7, 23.8], [7.4, 26], [11.5, 22.5], [10.5, 18.5]], 'V');
-  g.poly([[24.5, 15.5], [31.2, 21.6], [27.4, 21.2], [29.8, 24.8], [25, 23.8], [24.6, 26], [20.5, 22.5], [21.5, 18.5]], 'X');
+  g.poly([[7, 16.5], [0.8, 21.6], [4.6, 21.2], [2.2, 24.8], [7, 23.8], [7.4, 26], [11.5, 22.5], [11, 19]], 'V');
+  g.poly([[25, 16.5], [31.2, 21.6], [27.4, 21.2], [29.8, 24.8], [25, 23.8], [24.6, 26], [20.5, 22.5], [21, 19]], 'X');
   // muzzle
-  g.poly([[10.2, 18.6], [15.5, 16.4], [20.8, 18.6], [20.6, 22.8], [15.5, 26.6], [10.4, 22.8]], 'W');
-  // darker brow markings
-  g.stamp(8, 11, ['.oo', 'ooo']).stamp(21, 11, ['oo.', 'ooo']);
+  g.poly([[10.6, 19], [16, 17.2], [21.4, 19], [21, 23], [16, 26.6], [11, 23]], 'W');
   // nose
   g.stamp(14, 20, ['NNNN', '.NN.']);
   // suit
@@ -3742,7 +3743,7 @@ function foxBase(g, o = {}) {
     '..PPPPPPPPPPpssccsspPPPPPPPPPP..',
     '.PPPPPPPPPPPPpsssspPPPPPPPPPPPP.',
   ]);
-  g.set(10, 30, 'b').set(10, 31, 'b');
+  g.set(21, 30, 'b').set(21, 31, 'b');
   // hat
   g.stamp(10, 0 - hy, [
     '.HHHHHHHHHH.',
@@ -3750,102 +3751,151 @@ function foxBase(g, o = {}) {
     '.HHHHHHHHHH.',
     '.HHHHHHHHHH.',
     '.HHHHHHHHHH.',
-    '.rrrrrqqrrr.',
-    '.rrrrrqqrrr.',
+    '.rrrrqqrrrr.',
+    '.rrrrqqrrrr.',
     '.HHHHHHHHHH.',
   ]);
-  g.stamp(6, 8 - hy, ['.hhhhhhhhhhhhhhhhhh.', 'hhhhhhhhhhhhhhhhhhhh'].map((r) => r));
+  g.stamp(6, 8 - hy, ['.hhhhhhhhhhhhhhhhhh.', 'hhhhhhhhhhhhhhhhhhhh']);
   g.stamp(6, 9 - hy, ['..hhhhhhhhhhhhhhhh..']);
   return g;
 }
+// monocle ring around the viewer's-left eye, chain down to the waistcoat
 function monocle(g, chain = true) {
-  for (let y = 10; y < 21; y++)
-    for (let x = 16; x < 26; x++) {
-      const r = Math.hypot((x + 0.5 - 20.5) / 3.7, (y + 0.5 - 15.2) / 3.5);
+  for (let y = 10; y < 23; y++)
+    for (let x = 4; x < 17; x++) {
+      const r = Math.hypot((x + 0.5 - 10.4) / 3.9, (y + 0.5 - 16.4) / 3.7);
       if (r > 0.8 && r <= 1.08) g.set(x, y, 'm');
     }
-  g.set(19, 13, 'G');
-  if (chain) for (const [x, y] of [[24, 18], [25, 19], [25, 20], [26, 21], [26, 22], [25, 23], [25, 24], [24, 25], [23, 26], [22, 27]]) g.set(x, y, 'g');
+  g.set(8, 14, 'G');
+  if (chain) for (const [x, y] of [[7, 20], [6, 21], [6, 22], [5, 23], [5, 24], [6, 25], [7, 26], [8, 27], [9, 28]]) g.set(x, y, 'g');
 }
 
-// eyes are 6x4 stamps at (8, 13) and (18, 13); mouths 12x4 at (10, 22)
+// Eye stamps, authored for the viewer's-left eye (outer = left) with the dot's
+// top-left at the anchor; mirrored for the right eye. [rows, dx, dy, keepLight]
 const FX = {
-  eyeSly: ['.KKKK.', 'KyyYwK', '.KaKK.', '......'],
-  eyeSlyR: ['.KKKK.', 'KwYyyK', '.KKaK.', '......'],
-  eyeLid: ['......', 'KKKKKK', 'KyyKaK', '.KKKK.'],
-  eyeLidR: ['......', 'KKKKKK', 'KaKyyK', '.KKKK.'],
-  eyeWide: ['.KKKK.', 'KwyyyK', 'KyKKyK', '.KKKK.'],
-  eyeWideR: ['.KKKK.', 'KyyywK', 'KyKKyK', '.KKKK.'],
-  eyeHappy: ['......', '.KKKK.', 'K....K', '......'],
-  eyeShut: ['......', '......', 'KKKKKK', '.jjjj.'],
-  eyeGlare: ['K.....', 'KKKK..', 'KyyKKK', '.KKKK.'],
-  eyeGlareR: ['.....K', '..KKKK', 'KKKyyK', '.KKKK.'],
-  eyeCoin: ['.dDDd.', 'dDyyDd', 'dyddyd', '.dddd.'],
-  eyeWorry: ['.KKKK.', 'KwwyKK', 'KwwaKK', '.KKKK.'],
-  mouthSmirk: ['..........K.', '.K......KK..', '..KKKKKK....', '............'],
-  mouthGrin: ['.K........K.', '..KKKKKKKK..', '..KTTTTTTK..', '...KKKKKK...'],
-  mouthGreedy: ['K..........K', '.KKKKKKKKKK.', '.KTTTTTTTTK.', '..KnnnnnnK..', '...KKKKKK...'],
-  mouthO: ['............', '.....KK.....', '....KiiK....', '.....KK.....'],
-  mouthLaugh: ['K..........K', '.KKKKKKKKKK.', '.KTTTTTTTTK.', '..KiinniiK..', '...KKKKKK...'],
-  mouthTeeth: ['............', '..KKKKKKKK..', '..KTKTKTKK..', '..KKKKKKKK..'],
-  mouthWobble: ['............', '..K.K..K.K..', '...K.KK.K...', '............'],
-  mouthCalm: ['............', '....K..K....', '.....KK.....', '............'],
+  dot: [['wK', 'KK', 'KK'], 0, 0, true],
+  big: [['.KK.', 'KwKK', 'KKKK', '.KK.'], -1, -1, true], // magnified by the monocle / shocked
+  shiny: [['.KK.', 'KwwK', 'KwKK', '.KKw'], -1, -1, true],
+  half: [['KKKK', '.KK.', '.KK.'], -1, 0],
+  narrow: [['KK..', '.KKK', '.KK.'], -1, 0],
+  glare: [['KKK.', '.KKK'], -1, 1],
+  small: [['wK', 'KK'], 0, 1, true],
+  tiny: [['K'], 1, 1],
+  happy: [['.KK.', 'K..K'], -1, 1], // ^
+  content: [['K..K', '.KK.'], -1, 1], // u
+  closed: [['KKKK', 'K...'], -1, 1], // - with a droopy lash
+  wink: [['..K', 'KK.', '..K'], -1, 0], // >
+  coin: [['.dD.', 'dyYd', 'dyyd', '.dd.'], -1, -1],
+};
+const EYE_AT = [[9, 15], [21, 15]]; // dot top-left, viewer's left / right
+function eye(g, side, kind) {
+  const [rows, dx, dy, light] = FX[kind];
+  const w = rows[0].length;
+  const [ax, ay] = EYE_AT[side];
+  if (side === 0 || light) g.stamp(ax + dx, ay + dy, rows);
+  else g.stamp(ax + 2 - dx - w, ay + dy, flipX(rows)); // mirror around the 2px dot
+}
+function eyes(g, l, r = l) { eye(g, 0, l); eye(g, 1, r); }
+// brows: [rows, dy] above the dot, mirrored for the right eye
+const BROW = {
+  neutral: [['ttt'], -3], raised: [['.tt.', 't..t'], -5], high: [['.tt.', 't..t'], -6],
+  angry: [['tt..', '..tt'], -4], worried: [['..tt', 'tt..'], -4], low: [['tttt'], -2], flat: [['tttt'], -3],
+};
+function brow(g, side, kind) {
+  const [rows, dy] = BROW[kind];
+  const w = rows[0].length, [ax, ay] = EYE_AT[side];
+  if (side === 0) g.stamp(ax - 1, ay + dy, rows);
+  else g.stamp(ax + 3 - w, ay + dy, flipX(rows));
+}
+function brows(g, l, r = l) { brow(g, 0, l); brow(g, 1, r); }
+function blush(g, strong = false) {
+  g.stamp(7, 19, [strong ? 'nun' : '.n.']).stamp(22, 19, [strong ? 'nun' : '.n.']);
+}
+const MOUTH = {
+  smirk: ['..........K.', '.K......KK..', '..KKKKKK....', '............'],
+  smile: ['............', '.K........K.', '..KK....KK..', '....KKKK....'],
+  grin: ['.K........K.', '..KKKKKKKK..', '..KTTTTTTK..', '...KKKKKK...'],
+  greedy: ['K..........K', '.KKKKKKKKKK.', '.KTTTTTTTTK.', '..KnnnnnnK..', '...KKKKKK...'],
+  o: ['............', '.....KK.....', '....KiiK....', '.....KK.....'],
+  laugh: ['K..........K', '.KKKKKKKKKK.', '.KTTTTTTTTK.', '..KiinniiK..', '...KKKKKK...'],
+  teeth: ['............', '..KKKKKKKK..', '..KTKTKTKK..', '..KKKKKKKK..'],
+  wobble: ['............', '..K.K..K.K..', '...K.KK.K...', '............'],
+  calm: ['............', '....K..K....', '.....KK.....', '............'],
+  horror: ['...KK.KK.K..', '..KiiKiiKiK.', '..KMMMMMMMK.', '...KK.KK.K..'],
 };
 
 const FOX_EXPR = {
   smug: (g) => {
-    g.stamp(8, 13, FX.eyeLid).stamp(18, 13, FX.eyeSlyR);
-    g.stamp(8, 12, ['KKKKK.']).stamp(18, 10, ['.KKKK.', 'K....K']);
-    monocle(g);
-    g.stamp(10, 22, FX.mouthSmirk);
+    eyes(g, 'half'); brows(g, 'low', 'raised');
+    monocle(g); blush(g);
+    g.stamp(10, 22, MOUTH.smirk);
   },
   greedy: (g) => {
-    g.stamp(8, 13, FX.eyeCoin).stamp(18, 13, FX.eyeCoin);
-    g.stamp(8, 11, ['.KKKK.']).stamp(18, 11, ['.KKKK.']);
+    eyes(g, 'coin'); brows(g, 'raised');
     monocle(g);
-    g.stamp(10, 22, FX.mouthGreedy);
-    g.stamp(19, 26, ['.L', 'Ll', 'l.'].map((r) => r));
-    g.stamp(26, 5, ['..D..', '.DwD.', 'DwwwD', '.DwD.', '..D..'].map((r) => r.replace(/w/g, 'w')));
+    g.stamp(10, 22, MOUTH.greedy);
+    g.stamp(18, 26, ['.L', 'Ll', 'l.']);
+    g.stamp(26, 5, ['..D..', '.DwD.', 'DwwwD', '.DwD.', '..D..']);
   },
   shocked: (g) => {
-    g.stamp(8, 13, FX.eyeWide).stamp(18, 13, FX.eyeWideR);
-    g.stamp(8, 11, ['.KKKK.']).stamp(18, 10, ['.KKKK.']);
+    eyes(g, 'big'); brows(g, 'high');
     monocle(g, false);
-    g.stamp(10, 22, FX.mouthO);
+    g.stamp(10, 22, MOUTH.o);
     g.stamp(3, 0, ['l.', 'L.', '..', 'l.']).stamp(27, 1, ['.l', 'lL']);
   },
   laugh: (g) => {
-    g.stamp(8, 13, FX.eyeHappy).stamp(18, 13, FX.eyeHappy);
-    monocle(g);
-    g.stamp(10, 22, FX.mouthLaugh);
-    g.stamp(7, 16, ['L', 'l']).stamp(24, 16, ['L', 'l']);
+    eyes(g, 'happy'); brows(g, 'raised');
+    monocle(g); blush(g);
+    g.stamp(10, 22, MOUTH.laugh);
+    g.stamp(6, 17, ['L', 'l']).stamp(25, 17, ['L', 'l']);
   },
   wink: (g) => {
-    g.stamp(8, 13, FX.eyeHappy).stamp(18, 13, FX.eyeSlyR);
-    g.stamp(18, 10, ['.KKKK.', 'K....K']);
-    monocle(g);
-    g.stamp(10, 22, FX.mouthGrin);
+    eyes(g, 'dot', 'wink'); brows(g, 'raised', 'low');
+    monocle(g); blush(g);
+    g.stamp(10, 22, MOUTH.grin);
     g.stamp(26, 7, ['.D.', 'DwD', '.D.']);
   },
   angry: (g) => {
-    g.stamp(8, 13, FX.eyeGlare).stamp(18, 13, FX.eyeGlareR);
-    g.stamp(7, 10, ['KK....', '.KKKK.']).stamp(19, 10, ['....KK', '.KKKK.']);
+    eyes(g, 'glare'); brows(g, 'angry');
     monocle(g);
-    g.stamp(10, 22, FX.mouthTeeth);
+    g.stamp(10, 22, MOUTH.teeth);
     g.stamp(24, 0, ['RR.RR', 'R...R', '.....', 'R...R', 'RR.RR']);
   },
   worried: (g) => {
-    g.stamp(8, 13, FX.eyeWorry).stamp(18, 13, FX.eyeWorry);
-    g.stamp(8, 11, ['...KKK', '.KK...']).stamp(18, 11, ['KKK...', '...KK.']);
+    eyes(g, 'small'); brows(g, 'worried');
     monocle(g, false);
-    g.stamp(10, 22, FX.mouthWobble);
+    g.stamp(10, 22, MOUTH.wobble);
     g.stamp(26, 9, ['.L.', 'LLl', 'Lll', '.l.']);
   },
   sleepy: (g) => {
-    g.stamp(8, 13, FX.eyeShut).stamp(18, 13, FX.eyeShut);
-    monocle(g);
-    g.stamp(10, 22, FX.mouthCalm);
+    eyes(g, 'closed'); brows(g, 'flat');
+    monocle(g); blush(g);
+    g.stamp(10, 22, MOUTH.calm);
     g.stamp(24, 0, ['.....ZZZ', '......Z.', '.....ZZZ', 'zzzz....', '..z.....', '.z......', 'zzzz....']);
+  },
+  // new with the dot-eyed redesign
+  happy: (g) => {
+    eyes(g, 'happy'); brows(g, 'raised');
+    monocle(g); blush(g, true);
+    g.stamp(10, 22, MOUTH.grin);
+  },
+  proud: (g) => {
+    eyes(g, 'content'); brows(g, 'raised');
+    monocle(g); blush(g);
+    g.stamp(10, 22, MOUTH.smirk);
+    g.stamp(25, 6, ['.D.', 'DwD', '.D.']);
+  },
+  teacher: (g) => {
+    eyes(g, 'big', 'dot'); brows(g, 'high', 'neutral');
+    monocle(g); blush(g);
+    g.stamp(10, 22, MOUTH.smile);
+  },
+  horror: (g) => {
+    eyes(g, 'tiny'); brows(g, 'high');
+    monocle(g, false);
+    g.stamp(10, 22, MOUTH.horror);
+    for (let x = 9; x <= 23; x += 2) g.stamp(x, 10, [(x & 2) ? 'z' : 'Z', 'z']);
+    g.stamp(26, 9, ['.L.', 'LLl', 'Lll', '.l.']).stamp(3, 12, ['L', 'l']);
   },
 };
 
@@ -4659,7 +4709,7 @@ for (const m of Object.values(ICON_MODS)) {
   for (const [name, fn] of Object.entries(m.UI_ICONS || {})) reg(name, () => { const r = fn(); return { w: r.w, h: r.h, d: r.d || r.data }; });
 }
 
-export const FOX_EXPRESSIONS = ['smug', 'greedy', 'shocked', 'laugh', 'wink', 'angry', 'worried', 'sleepy'];
+export const FOX_EXPRESSIONS = ['smug', 'greedy', 'shocked', 'laugh', 'wink', 'angry', 'worried', 'sleepy', 'happy', 'proud', 'teacher', 'horror'];
 
 export function hasSprite(name) {
   return Object.prototype.hasOwnProperty.call(SPRITES, name);

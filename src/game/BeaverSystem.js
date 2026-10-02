@@ -175,9 +175,15 @@ export class BeaverSystem {
     if (!this.tapeGroup) { this.tapeGroup = new THREE.Group(); this.tapeGroup.name = 'constructionTape'; game.scene.add(this.tapeGroup); this.tapes = new Map(); }
     for (const [i, m] of this.tapes) {
       const c = this.clears.get(i);
-      if (!c) { this.tapeGroup.remove(m.root); try { m.dispose?.(); } catch { /* ignore */ } this.tapes.delete(i); continue; }
+      if (!c) {
+        this.tapes.delete(i);
+        const gone = () => { this.tapeGroup.remove(m.root); try { m.dispose?.(); } catch { /* ignore */ } };
+        if (m.close) { (this.closing ||= new Set()).add(m); m.close(() => { this.closing.delete(m); gone(); }); } else gone();
+        continue;
+      }
       try { m.update?.(dt, this.time); m.setProgress?.(c.progress); } catch { /* ignore */ }
     }
+    for (const m of this.closing || []) { try { m.update?.(dt, this.time); } catch { /* ignore */ } }
     if (this.tapeT > 0) return;
     this.tapeT = 0.2;
     let freshChanged = false;

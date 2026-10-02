@@ -347,7 +347,7 @@ function morphChapter(game, S) {
       ],
       variants: on.slice(0, 7).map((sid) => ({ id: sid, name: SPECIES.find((s) => s.id === sid)?.name || sid, known: true, art: lazyArt(`fish:${sid}:${m}`, () => fishCanvasFor(sid, { morph: m, scale: 1 })) })),
       variantsTitle: 'Seen on',
-      how: 'Hatch lots of eggs. Royal Pearls, clovers and moonberries add luck.',
+      how: 'Hatch lots of eggs. Lucky food helps!',
       hint: 'Hatch lots of eggs. Lucky food helps!',
       note: M.stars >= 3 ? 'Once in a lifetime!!' : M.stars >= 2 ? 'Worth a fortune!' : 'Pretty!',
       plate: 'night',
@@ -370,12 +370,13 @@ function morphChapter(game, S) {
       ],
       variants: on.slice(0, 7).map((sid) => ({ id: sid, name: SPECIES.find((s) => s.id === sid)?.name || sid, known: true, art: lazyArt(`mut:${id}:${sid}`, () => mutationArt(id, sid)) })),
       variantsTitle: 'Seen on',
-      how: 'Rolls on any egg. Granny Ribbit\'s swamp water makes it way more likely.',
+      how: 'Rolls on any egg. Swamp water helps!',
       hint: 'Rolls on any egg. Swamp water helps...',
       note: M.stars >= 3 ? 'I MUST have one!' : pickBy(id, ['So weird!', 'Bears go nuts for it.', 'Sell high!']),
       plate: 'night', color: M.color,
     });
   }
+  out.forEach((e, i) => { e.num = i + 1; });
   return out;
 }
 
@@ -713,7 +714,7 @@ function foodChapter(game, S) {
 function villagerChapter(game, S) {
   const st = game?.state || {};
   const out = [{
-    id: 'reynard', num: 1, name: 'Reynard Fox, Esq.', sub: 'Proprietor & author', known: true,
+    id: 'reynard', num: 1, name: 'Reynard Fox', sub: 'Esq. · Proprietor & author', known: true,
     desc: 'Owner of the All-U-Can-Eat Pond. Greedy, handsome, and humble (the greatest fox alive).',
     art: lazyArt('vil:reynard', () => iconArt('fox_smug') || iconArt('fox')), silhouette: false,
     rarity: { name: 'One of a kind', color: '#e8702c', tier: 4 },

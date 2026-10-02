@@ -1,4 +1,5 @@
 // Reynard preview.
+//   ?mode=portraits        2D UI portraits fox_<expr> (&scale=6)
 //   ?mode=sheet            2D face sheet (&what=mouths, &names=a,b, &scale=6)
 //   (default)              3D rig: ?anim=wake_startle&expr=smug&zoom=face|close|mid|far|game&yaw=30&pitch=20
 //                          &t=1.2 (seek)  &freeze=1  &speed=0.5  &showreel=1  &talk=Hello!  &look=1  &ui=0
@@ -13,6 +14,7 @@ import * as THREE from 'three';
 import { FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H, MOUTH_KINDS, EYE_R } from '../src/entities/foxFace.js';
 import { FoxRig, FOX_SEAT_SURFACE, FOX_DESK_HEIGHT, FOX_KEYBOARD_Z, FOX_OUTFITS, FOX_PROPS } from '../src/entities/foxRig.js';
 import { makeGoldCup } from '../src/entities/foxProps.js';
+import { spriteCanvas, FOX_EXPRESSIONS } from '../src/ui/sprites.js';
 import { PixelRenderer } from '../src/core/pixelRenderer.js';
 import { CameraRig } from '../src/core/cameraRig.js';
 import { VoxelModel, voxelMaterial } from '../src/core/voxel.js';
@@ -565,4 +567,29 @@ function rigPreview() {
 
 // run last: helpers below are const-initialised module code
 if (mode === 'sheet') faceSheet();
+else if (mode === 'portraits') portraits();
 else rigPreview();
+
+function portraits() {
+  document.getElementById('c').style.display = 'none';
+  document.getElementById('ui').style.display = 'none';
+  const sheet = document.getElementById('sheet');
+  sheet.style.display = 'block';
+  for (const e of FOX_EXPRESSIONS) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    for (const sc of [num('scale', 6), 2]) {
+      const cv = spriteCanvas('fox_' + e, sc);
+      const c2 = document.createElement('canvas');
+      c2.width = cv.width; c2.height = cv.height;
+      c2.getContext('2d').drawImage(cv, 0, 0);
+      c2.style.background = '#f3e2b8';
+      c2.style.margin = '2px auto';
+      cell.appendChild(c2);
+    }
+    const lab = document.createElement('div');
+    lab.textContent = e;
+    cell.appendChild(lab);
+    sheet.appendChild(cell);
+  }
+}

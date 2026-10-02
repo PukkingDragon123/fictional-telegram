@@ -426,9 +426,10 @@ export class StructureSystem {
 
   addFarm(s, obj) {
     let m = null;
-    try { m = FM.farmModel(s.type, { seed: s.seed }); } catch (e) { console.warn('farm', s.type, e); return false; }
+    try { m = FM.farmModel(s.type, { seed: s.seed, decals: !s.preview }); } catch (e) { console.warn('farm', s.type, e); return false; }
     if (!m?.root) return false;
     obj.add(m.root);
+    s.noRotate = true; // signs and decals face the front
     if (!s.preview) { s.farmRig = m; this.syncFarm(s); }
     return true;
   }
@@ -812,6 +813,7 @@ export class StructureSystem {
         s.bugsIn = (s.bugsIn || 0) + 1;
         s.grindT = 1.4;
         game.audio.play('zap', { volume: 0.25, pitch: 0.9 + Math.random() * 0.3 });
+        s.farmRig?.zap?.();
         if (s.bugsIn >= G.per) {
           s.bugsIn = 0;
           s.made = Math.min(G.max, s.made + 1);

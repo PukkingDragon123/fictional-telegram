@@ -703,6 +703,7 @@ export class Encyclopedia {
     this.revealed = new Set();
     this._html = new Map();
     this._sil = new Map();
+    this._noNote = new Set();
   }
 
   get isOpen() { return this.state === 'open' || this.state === 'opening'; }
@@ -723,6 +724,7 @@ export class Encyclopedia {
     try { commitDexSeen(this.game, this.book); } catch (e) { console.warn('dexSeen', e); }
     this.revealed.clear();
     this._html.clear();
+    this._noNote.clear();
     this.buildPages();
     this.buildDOM();
     this.layout();
@@ -1177,7 +1179,7 @@ export class Encyclopedia {
     if (!compact && e.variants?.length && known) {
       const vw = Math.min(62, Math.floor((PW - 70) / e.variants.length) - 4);
       vars = `<div class="enc-vars"><div class="enc-vars-t">${esc(e.variantsTitle || 'Variants')}</div><div class="enc-vars-r">${e.variants.map((v) => `<div class="enc-var ${v.known ? '' : 'is-unknown'} ${v.isNew ? 'is-new' : ''}" style="width:${vw}px" title="${esc(v.known ? v.name : '???')}">
-          <span class="enc-var-a">${this.imgTag(`${ch.id}:${e.id}:v:${v.id}`, v.art, v.known, { bw: vw - 6, bh: 30, max: 3 })}</span><span class="enc-var-n">${v.known ? esc(v.name) : '???'}</span>${v.isNew ? '<b class="enc-var-new"></b>' : ''}</div>`).join('')}</div></div>`;
+          <span class="enc-var-a">${this.imgTag(`${ch.id}:${e.id}:v:${v.id}`, v.art, v.known, { bw: vw - 6, bh: 34, max: 3 })}</span><span class="enc-var-n">${v.known ? esc(v.name) : '???'}</span>${v.isNew ? '<b class="enc-var-new"></b>' : ''}</div>`).join('')}</div></div>`;
     }
     let how = '';
     if (e.recipe && !compact) {
@@ -1190,7 +1192,7 @@ export class Encyclopedia {
     const quote = !compact && known && e.quote ? `<div class="enc-quote enc-hand" style="--r:-1deg">&ldquo;${esc(e.quote)}&rdquo;</div>` : '';
     const desc = known ? `<p class="enc-desc">${esc(e.desc)}</p>` : `<p class="enc-desc enc-hint"><span class="enc-hint-k">Where to look:</span> ${esc(e.hint || 'Keep exploring...')}</p>`;
     const h = strHash(e.id);
-    const note = !compact && e.note ? `<div class="enc-hand enc-note" style="--r:${(h % 7) - 4}deg">${esc(known ? e.note : 'Still looking...')}</div>` : '';
+    const note = !compact && e.note && !this._noNote.has(pi) ? `<div class="enc-hand enc-note" style="--r:${(h % 7) - 4}deg">${esc(known ? e.note : 'Still looking...')}</div>` : '';
     const dpool = { fish: ['fishbone', 'bubbles', 'hook'], morphs: ['star', 'spiral', 'magnifier'], birds: ['feather', 'footprint', 'cloud'], bugs: ['bee', 'leafd', 'magnifier'], livestock: ['heart', 'footprint', 'sun'], land: ['paws', 'sprout', 'heart'], plants: ['sprout', 'leafd', 'sun'], foods: ['coin', 'heart', 'star'], villagers: ['heart', 'sun', 'fox'], trophies: ['star', 'coin'] }[ch.id] || ['star'];
     const dood = !compact ? this.doodle(dpool[h % dpool.length], { x: 28, bottom: 40, rot: (h % 20) - 10, op: 0.45 }) : '';
     if (compact) {
@@ -1237,7 +1239,22 @@ export class Encyclopedia {
       L.replaceChildren(this.pageEl(this.pos));
       R.replaceChildren(this.pageEl(this.pos + 1));
     }
+    for (const side of [L, R]) this._fit(side);
     this.updateChrome();
+  }
+
+  // a crowded page loses its margin note (and keeps the template in sync for leaves)
+  _fit(holder) {
+    const pg = holder.firstElementChild;
+    if (!pg) return;
+    const i = +pg.dataset.page;
+    const col = pg.querySelector('.enc-entry:not(.is-compact)');
+    if (!col || this._noNote.has(i)) return;
+    if (col.scrollHeight > col.clientHeight + 1) {
+      this._noNote.add(i);
+      this._html.delete(i);
+      holder.replaceChildren(this.pageEl(i));
+    }
   }
 
   updateChrome() {
