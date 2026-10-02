@@ -161,6 +161,8 @@ const EXPRS = {
   ...BASE_EXPRS,
   chill: { eyes: 'half', brows: 'flat', mouth: 'smile', blush: 0, tear: 0 },
   ahh: { eyes: 'happy', brows: 'up', mouth: 'grin', blush: 2, tear: 0 },
+  horror: { eyes: 'wide', brows: 'worried', mouth: 'yell', blush: 0, tear: 1 },
+  cower: { eyes: 'shut', brows: 'worried', mouth: 'frown', blush: 0, tear: 1 },
 };
 
 // ------------------------------------------------------------------ rig
@@ -458,6 +460,50 @@ def('talk', {
     if (thumb > 0.5) f.look = [-0.8, 0];
     if (shrug > 0.5) { f.brows = 'up'; f.eyes = 'half'; }
     else if (expl > 0.5 && on) f.brows = 'up';
+  },
+});
+
+// v10 (title bear jumpscare): Munch-scream horror, and hiding behind the hooves.
+// Both work seated in the lawn chair or standing (follow d.seated).
+def('horror', {
+  loop: true, expr: 'horror',
+  fn(t, p, f, s, rig) {
+    const w = sw(rig);
+    seat(p, rig, w);
+    const jolt = K(t, [[0, 0], [0.12, 1, 'out'], [0.5, 0.35, 'io']]);
+    const tr = sin(t * 47) * 0.04 + sin(t * 31) * 0.03;
+    p.chest.rx += -0.22 * jolt - 0.08 + tr * 0.3; p.head.rx += -0.18 * jolt + tr;
+    p.head.rz += tr * 0.6; p.chest.s = 1 + 0.04 * jolt;
+    p.mover.y += 0.6 * jolt * (1 - w);
+    // hooves pressed to the cheeks, elbows out, shaking
+    const m = rig.headPoint(p, 3.2, 3.8, _hp);
+    for (const side of [1, -1]) rig.reach(p, side, 3.4 + tr * 4, m[0] + side * tr * 3, m[1] - 0.4, [1, -0.2, -0.4]);
+    p.handL = 'open'; p.handR = 'open';
+    p.earL.rz += -0.5; p.earR.rz += 0.5; p.earL.rx = p.earR.rx = 0.3;
+    p.tail.rx += 0.6 + sin(t * 40) * 0.2;
+    f.mouth = Math.floor(t * 6) % 4 === 0 ? 'o' : 'yell';
+    f.blink = false;
+  },
+});
+
+def('cower', {
+  loop: true, expr: 'cower',
+  fn(t, p, f, s, rig) {
+    const w = sw(rig);
+    seat(p, rig, w);
+    const tr = sin(t * 43) * 0.035;
+    p.chest.rx += 0.32 + tr; p.head.rx += 0.25 + tr * 0.5; p.mover.y += -0.3 * (1 - w);
+    // hooves over the eyes... with a terrified little peek every couple of seconds
+    const peek = win(t % 2.6, 1.5, 2.0, 0.12, 0.15);
+    const m = rig.headPoint(p, 6.2 - peek * 2.2, 5.4, _hp);
+    rig.reach(p, 1, 1.6 + peek * 1.2, m[0], m[1] + 0.6, [1, -0.4, -0.5]);
+    rig.reach(p, -1, 1.6, m[0] + 0.2, m[1] + 0.6, [1, -0.4, -0.5]);
+    p.handL = 'fist'; p.handR = 'open';
+    p.earL.rz += -0.7; p.earR.rz += 0.7;
+    p.tail.rx += -0.3;
+    if (peek > 0.5) f.eyes = 'wide';
+    f.mouth = 'frown';
+    if (beat(s, 'shiver', t, 0.9, 0)) rig._emit('shiver');
   },
 });
 

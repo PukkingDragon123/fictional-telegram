@@ -1210,7 +1210,7 @@ export class Encyclopedia {
     const fit = this._fitLvl.get(pi) || 0;
     const note = !compact && e.note && fit < 1 ? `<div class="enc-hand enc-note" style="--r:${(h % 7) - 4}deg">${esc(known ? e.note : 'Still looking...')}</div>` : '';
     const dpool = { fish: ['fishbone', 'bubbles', 'hook'], morphs: ['star', 'spiral', 'magnifier'], birds: ['feather', 'footprint', 'cloud'], bugs: ['bee', 'leafd', 'magnifier'], livestock: ['heart', 'footprint', 'sun'], land: ['paws', 'sprout', 'heart'], plants: ['sprout', 'leafd', 'sun'], foods: ['coin', 'heart', 'star'], villagers: ['heart', 'sun', 'fox'], trophies: ['star', 'coin'] }[ch.id] || ['star'];
-    const dood = !compact ? this.doodle(dpool[h % dpool.length], { x: 28, bottom: 40, rot: (h % 20) - 10, op: 0.45 }) : '';
+    const dood = !compact ? this.doodle(dpool[h % dpool.length], { x: 130 + (h % 60), bottom: -26, rot: (h % 20) - 10, op: 0.45 }) : '';
     if (compact) {
       return `<div class="enc-entry is-compact ${known ? '' : 'is-unknown'}">
           ${this.plateHTML(ch, e, { compact: true })}
@@ -1574,8 +1574,10 @@ export class Encyclopedia {
     c.style.display = '';
     this._setOpenPose(1);
     book.classList.remove('is-open');
-    // the inside cover lands over the left page; swap what's under it
+    // the inside cover lands over the left page; swap what's under it, tabs go home
     this.$.L.replaceChildren(this.pageEl(0));
+    this.pos = this.single ? 1 : 0;
+    this.updateTabs();
     return new Promise((res) => {
       this.tween(760, (t) => this._setOpenPose(1 - t), ease.in, () => {
         this._setOpenPose(0);

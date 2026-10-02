@@ -41,10 +41,19 @@ for (const id of LESSON_IDS) {
   b.onclick = () => { audio.unlock(); run(id); };
   bar.appendChild(b);
 }
+// a short custom script (shows the script format the lead can use)
+const DEMO = {
+  title: 'Pop Quiz', number: 7, doodle: 'question', color: 'lilac',
+  steps: [
+    { say: 'Pop quiz, class! What does a **happy** fish need?', cam: 'wide', expr: 'teacher', react: 'question' },
+    { say: 'Food... and **love**!', draw: [{ doodle: 'bag', x: 60, y: 54, scale: 2, id: 'bag' }, { text: '+', x: 96, y: 54, scale: 2 }, { doodle: 'heart_big', x: 136, y: 54, scale: 2, id: 'love' }], tap: 'love', react: 'heart' },
+  ],
+};
+{ const b = document.createElement('button'); b.textContent = 'custom'; b.onclick = () => { audio.unlock(); run(DEMO); }; bar.appendChild(b); }
 const skip = document.createElement('button'); skip.textContent = 'skip'; skip.onclick = () => cls.skip(); bar.appendChild(skip);
 const info = document.getElementById('info');
 let lastResult = null;
-function run(id) { cls.lesson(id).then((r) => { lastResult = r; info.textContent = `${id}: ${JSON.stringify(r)} paused=${game.state.paused} locked=${game.inputLocked} override=${!!game.overrideScene}`; }); }
+function run(id) { cls.lesson(id).then((r) => { lastResult = r; info.textContent = `${typeof id === 'string' ? id : id.title}: ${JSON.stringify(r)} paused=${game.state.paused} locked=${game.inputLocked} override=${!!game.overrideScene}`; }); }
 
 function resize() { pr.resize(innerWidth, innerHeight, Math.min(2, devicePixelRatio || 1)); }
 addEventListener('resize', resize);
@@ -63,7 +72,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-if (params.get('lesson')) run(params.get('lesson'));
+if (params.get('lesson')) run(params.get('lesson') === 'demo' ? DEMO : params.get('lesson'));
 
 window.__cls = cls;
 window.__game = game;

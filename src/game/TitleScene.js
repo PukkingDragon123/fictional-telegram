@@ -22,7 +22,12 @@
 // Nothing heavy happens at import time.
 import * as THREE from 'three';
 import { FoxRig, FOX_SEAT_SURFACE } from '../entities/foxRig.js';
-import { DeerGuy, Duck, makeLawnChair, makeDaisyBeerCan, makeCooler, LAWN_CHAIR_SEAT } from '../entities/critters3d.js';
+import { DeerGuy, Duck, Chick, makeLawnChair, makeDaisyBeerCan, makeCooler, LAWN_CHAIR_SEAT } from '../entities/critters3d.js';
+import { BearRig } from '../entities/bearRig.js';
+import { BEAR_TYPES } from '../data/bears.js';
+import { makeDuckPrey, makeFishPrey } from '../entities/preyFx.js';
+import { startEat } from './BearEat.js';
+import { SpriteBatch } from '../core/spriteBatch.js';
 import { fishCanvasFor, FISH_TPU } from './fishSprites.js';
 import { WATER_Y } from '../world/grid.js';
 import { FX } from './Particles.js';
@@ -181,7 +186,22 @@ const WORD_STYLE = {
   clink: { fill: '#ffffff', ink: '#1a1418', shade: '#ffe066' },
   splash: { fill: '#ffffff', ink: '#1a1418', shade: '#6ad0ff' },
   yelp: { fill: '#ffffff', ink: '#1a1418', shade: '#ff7a3a' },
+  rawr: { fill: '#fff0e8', ink: '#2a0a0a', shade: '#ff3a2a' },
+  eat: { fill: '#fff6dc', ink: '#2a1208', shade: '#ff9a3a' },
+  gulp: { fill: '#fff0e0', ink: '#2a1208', shade: '#ff6a4a' },
+  burp: { fill: '#f0ffe0', ink: '#14280a', shade: '#8ad84a' },
+  slurp: { fill: '#ffe8f4', ink: '#2a0a1a', shade: '#ff6ab0' },
 };
+// BearEat word ids -> title comic words (the title has its own big pixel font)
+const EAT_WORDS = {
+  gulp: ['GULP!', 'gulp'], rip: ['RIIIP!', 'rawr'], slurp: ['SLUUURP', 'slurp'], shloop: ['SHLOOP!', 'slurp'], tada: ['TA-DA!', 'clink'],
+  ting: ['TING!', 'clink'], mmm: ['MMM...', 'slurp'], pop: ['POP!', 'eat'], crunch: ['CRUNCH!', 'eat'], ding: ['DING!', 'clink'],
+  chomp: ['CHOMP!', 'eat'], munch: ['MUNCH', 'eat'], nom: ['NOM', 'eat'], yum: ['YUMMY!', 'slurp'],
+};
+// eating styles in the order the title bear shows them off (3 ducks + a fish per visit)
+const STYLE_DECK = ['gulp', 'rip', 'toss', 'fancy', 'slurp', 'shake', 'chomp'];
+const FISH_STYLES = ['slurp', 'crunch', 'gulp', 'chomp'];
+const BEAR_CAST = ['office', 'boss', 'lumberjack', 'ceo', 'hipster', 'construction', 'tourist'];
 const wordTexCache = new Map();
 function wordTexture(text, kind) {
   const key = kind + '|' + text;
@@ -316,6 +336,7 @@ export class TitleScene {
     this._buildActors();
     this._hideForeground(true);
     this._initBeats();
+    if (typeof window !== 'undefined') window.__title = this; // test hook (tools / Playwright)
   }
 
   stop() {
@@ -341,6 +362,9 @@ export class TitleScene {
     // remove our actors
     for (const w of this.words) { this.group.remove(w.sprite); w.sprite.material.dispose(); }
     this.words.length = 0;
+    this._endBear();
+    this.school?.batch.dispose();
+    for (const c of this.chicks || []) c.c.dispose();
     this.fox.dispose();
     for (const d of [this.deer, ...this.ducks]) d.dispose?.();
     game.scene.remove(this.group);
@@ -528,6 +552,8 @@ export class TitleScene {
     } catch { this.fishMesh = null; }
     this.fishSt = null;
     this.words = [];
+    this._buildSchool();
+    this.chicks = [];
   }
 
   _placeFoxSeated() {
@@ -544,7 +570,9 @@ export class TitleScene {
   // ============================================================ timeline
   _initBeats() {
     this.gag = null;
-    this.gagT = new URLSearchParams(location.search).has('gag') ? 1.5 : rand(9, 12); // first gag comes soon
+    this.gagT = new URLSearchParams(location.search).has('gag') ? 1.5 : rand(5.5, 7); // first gag (the bear!) comes soon
+    this.gagN = 0; this.bearN = 0; this.deckI = 0;
+    this.punch = 0; this.punchHold = 0;
     this.beatT = 3.5;
     this.lastBeat = '';
     this.glintT = 0;
@@ -595,6 +623,10 @@ export class TitleScene {
     this._updateProps(dt);
     this._updateDragonfly(dt);
     this._updateFish(dt);
+    this._updateSchool(dt);
+    this._updateChicks(dt);
+    this._updateCan(dt);
+    this.punch += (this.punchHold - this.punch) * (1 - Math.exp(-dt * (this.punch > this.punchHold ? 1.4 : 3)));
     this._updateWords(dt);
     this._ambientFx(dt);
   }
@@ -628,6 +660,8 @@ export class TitleScene {
 
   // ------------------------------------------------------------ the gag
   _startGag() {
+    // alternate: the bear jumpscare (first), then the duck peck gag
+    if (this.gagN++ % 2 === 0 && this.ducks.every((d) => d.mode !== 'gone' && d.mode !== 'away' && d.mode !== 'land')) return this._startBearGag();
     const fox = this.fox;
     this.gag = { phase: 'approach', t: 0 };
     // ducks gather at Reynard's tail
@@ -645,6 +679,7 @@ export class TitleScene {
   }
 
   _runGag(dt) {
+    if (this.gag.kind === 'bear') return this._runBearGag(dt);
     const G = this.gag, fox = this.fox, deer = this.deer, P = this.game.particles;
     G.t += dt;
     const R = this.right, F = this.fwd;
@@ -818,10 +853,27 @@ export class TitleScene {
         if (u >= 1) { st.hop = null; st.mode = 'seated'; }
       }
     }
+    else if (st.mode === 'hide') {
+      // leapt out of the chair and cowering behind it on the bank
+      const h = st.hide, u = clamp(st.t / 0.55, 0, 1);
+      const p = new THREE.Vector3().lerpVectors(h.from, h.to, smooth(u));
+      p.y += Math.sin(u * Math.PI) * 0.7;
+      fox.root.position.copy(p);
+      st.x = p.x; st.z = p.z; st.y = p.y;
+      const B = this.gag?.bear;
+      if (B) st.rot = angLerp(st.rot, Math.atan2(B.root.position.x - st.x, B.root.position.z - st.z), 1 - Math.exp(-dt * 6));
+      if (u >= 1 && !h.landed) { h.landed = true; P.dust(p.x, p.y, p.z, 5); }
+    }
+    // shaking like a leaf
+    if (this.fright > 0 && st.mode !== 'hide') { fox.root.position.x += Math.sin(this.T * 61) * 0.012 * this.fright; fox.root.position.z += Math.cos(this.T * 53) * 0.01 * this.fright; }
     if (st.mode !== 'seated') fox.root.rotation.set(0, st.rot, 0);
     // eyes follow the action
     const G = this.gag;
-    if (G && (G.phase === 'approach' || G.phase === 'peck' || G.phase === 'panic' || G.phase === 'chase')) {
+    if (G?.kind === 'bear' && G.bear) {
+      this._look ||= new THREE.Vector3();
+      G.bear.headTop(this._look);
+      fox.lookAt(this._look);
+    } else if (G && (G.phase === 'approach' || G.phase === 'peck' || G.phase === 'panic' || G.phase === 'chase')) {
       const d = this.ducks[0];
       this._look ||= new THREE.Vector3();
       this._look.set(d.x, d.y + 0.2, d.z);
@@ -884,7 +936,33 @@ export class TitleScene {
     for (const st of this.ducks) {
       const d = st.d;
       st.t += dt;
-      let tx = st.tx, tz = st.tz, spd = 0.35;
+      if (st.mode === 'held') { d.update(dt); continue; } // in a bear's paws (preyFx moves it)
+      if (st.mode === 'eaten') continue;
+      if (st.mode === 'frozen') {
+        // frozen in terror: flapping on the spot, bobbing
+        st.y = WATER_Y - 0.03 + Math.abs(Math.sin(st.t * 9)) * 0.06;
+        const B = this.gag?.bear;
+        if (B) st.heading = angLerp(st.heading, Math.atan2(B.root.position.x - st.x, B.root.position.z - st.z) + Math.PI, 1 - Math.exp(-dt * 4));
+        if (Math.random() < dt * 3) P.splash(st.x, st.z, 2, 0.3);
+        this._placeDuck(st);
+        continue;
+      }
+      if (st.mode === 'yank') {
+        // snatched across the water into the bear's paws
+        const y = st.yank, u = clamp((st.t - y.t0) / y.dur, 0, 1);
+        this.gag.bear.holdAnchor.getWorldPosition(this._tmpY || (this._tmpY = new THREE.Vector3()));
+        st.x = lerp(y.x, this._tmpY.x, smooth(u)); st.z = lerp(y.z, this._tmpY.z, smooth(u));
+        st.y = lerp(WATER_Y, this._tmpY.y - 0.2, smooth(u)) + Math.sin(u * Math.PI) * 0.35;
+        if (Math.random() < dt * 20 && u < 0.6) P.splash(st.x, st.z, 2, 0.4);
+        this._placeDuck(st);
+        continue;
+      }
+      if (st.mode === 'arrive') {
+        // a new family paddles in from the right, the hen leading the ducklings
+        st.tx = st.home.x; st.tz = st.home.z;
+        if (Math.hypot(st.home.x - st.x, st.home.z - st.z) < 0.12) { st.mode = 'paddle'; st.t = 0; }
+      }
+      let tx = st.tx, tz = st.tz, spd = st.mode === 'arrive' ? 0.6 : 0.35;
       if (st.mode === 'paddle') {
         if (st.t > 4 || Math.hypot(st.tx - st.x, st.tz - st.z) < 0.15) {
           st.t = 0;
@@ -1165,7 +1243,7 @@ export class TitleScene {
     const push = smooth(T / 26);
     const rr = this.game.renderer;
     const tall = (rr.rtW || 16) / (rr.rtH || 9) < 1; // phones in portrait: closer in
-    rig.wuppGoal = lerp(0.018, 0.0145, push) * (tall ? 0.72 : 1) * (1 + Math.sin(T * 0.07) * 0.025);
+    rig.wuppGoal = lerp(0.018, 0.0145, push) * (tall ? 0.72 : 1) * (1 + Math.sin(T * 0.07) * 0.025) * (1 - 0.2 * (this.punch || 0));
     // keep the near plane below the bottom of the screen at this low pitch
     const hh0 = ((rr.rtH || 300) * rig.wupp) / 2;
     rig.dist = Math.max(24, (hh0 * Math.cos(rig.pitch) + 0.8) / Math.sin(rig.pitch));
@@ -1174,7 +1252,9 @@ export class TitleScene {
     const s = this.seatPos || this._camFocus, R = this.right || new THREE.Vector3(Math.cos(YAW), 0, -Math.sin(YAW));
     const F = this.fwd || new THREE.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
     let fx = s.x + R.x * 0.55 - F.x * 0.7, fz = s.z + R.z * 0.55 - F.z * 0.7;
-    if (this.foxSt && this.foxSt.mode !== 'seated') { fx = lerp(fx, this.foxSt.x, 0.25); fz = lerp(fz, this.foxSt.z, 0.25); }
+    if (this.foxSt && this.foxSt.mode !== 'seated' && this.foxSt.mode !== 'hide') { fx = lerp(fx, this.foxSt.x, 0.25); fz = lerp(fz, this.foxSt.z, 0.25); }
+    const B = this.gag?.bear;
+    if (B && this.punch > 0.01) { const k = 0.45 * Math.min(1, this.punch); fx = lerp(fx, B.root.position.x, k); fz = lerp(fz, B.root.position.z, k); }
     // wide screens: push the diorama right so the menu sits on the left
     const renderer = this.game.renderer;
     const aspect = (renderer.rtW || 16) / (renderer.rtH || 9);

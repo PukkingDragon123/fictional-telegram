@@ -3413,7 +3413,7 @@ def('bow_fancy', {
     p.aL.st = 1.9;
     if (sweep > 0.001) {
       const a = sweep * PI * 0.95;
-      p.ik(p.aL, lerp(6.5, 2.4, smooth(sweep)) + sin(a) * 3.2, 8 - sweep * 6 + sin(a) * 3.5, 4.2 + sweep * 3.6, 1, -0.3, -0.6, sweep * (1 - back));
+      p.ik(p.aL, lerp(6.5, 2.4, smooth(sweep)) + sin(a) * 3.2, 8 - sweep * 4 + sin(a) * 3.5, 4.2 + sweep * 3.6, 1, -0.3, -0.6, sweep * (1 - back));
     }
     p.pawL = reach > 0.8 || sweep > 0.15 || back > 0.8 ? 'fist' : 'relax';
     // flourish arm out behind
@@ -3422,7 +3422,7 @@ def('bow_fancy', {
     p.aR.wx = 0.4 * fl; p.aR.wz = -0.6 * fl;
     p.pawR = fl > 0.3 && !rig._prop ? 'open' : p.pawR;
     // the bow itself
-    p.hipRx = 0.62 * bw; p.chRx += 0.42 * bw; p.hRx += 0.32 * bw - 0.1 * reach * (1 - bw);
+    p.hipRx = 0.42 * bw; p.chRx += 0.3 * bw; p.hRx += 0.2 * bw - 0.1 * reach * (1 - bw);
     p.hipZ = -1.6 * bw; p.hipY = -0.6 * bw;
     p.lR.sw = 0.55 * bw; p.lR.kn = 0.5 * bw; p.lL.sw = -0.25 * bw; p.lL.kn = 0.35 * bw;
     p.sq = 1 + 0.04 * min(0, bow) * -1;
@@ -3452,8 +3452,9 @@ def('wave_hello', {
     p.hipY = -dip * 1.0; p.lL.kn = p.lR.kn = dip * 0.7 + air * 0.5; p.lL.sw = p.lR.sw = -dip * 0.3;
     p.lL.kn += air * 0.6;
     const u = max(0, w);
-    p.aR.sw = lerp(-0.12, -2.65, u); p.aR.ra = lerp(0.16, 0.45, u) + wv * 0.42;
-    p.aR.el = lerp(0.7, 0.45, u) + wv * 0.3; p.aR.wz = wv * 0.55; p.aR.tw = 0.3 * u;
+    // paw up beside his big head (clear of it), waving side to side
+    p.ik(p.aR, 12.2 + wv * 1.4, 13.2 - abs(wv) * 0.8, 5.2, 1, -1, -0.2, smooth(u));
+    p.aR.st = 1.45; p.aR.wx = -0.3 * u; p.aR.wz = -wv * 0.7 * u;
     p.pawR = u > 0.4 ? 'open' : 'relax';
     // other paw tucked up at the chest, little fist of glee
     p.ik(p.aL, 2.2, 4.6 + bounce * 0.3, 6.4, 1, -0.6, -0.3, u); p.pawL = 'fist'; p.aL.wx = -0.6 * u;

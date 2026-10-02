@@ -41,6 +41,7 @@
 .enc-book.is-closed .enc-board-L, .enc-book.is-opening .enc-board-L,
 .enc-book.is-closed .enc-stack-L, .enc-book.is-opening .enc-stack-L,
 .enc-ov.is-single .enc-board-L, .enc-ov.is-single .enc-stack-L, .enc-ov.is-single .enc-L { visibility: hidden; }
+.enc-book.is-closed .enc-L, .enc-book.is-opening .enc-L { visibility: hidden; }
 .enc-stack { position: absolute; top: 14px; width: 416px; height: 576px; background: #ead9b2; border-radius: 2px; }
 .enc-stack-L { left: 14px; } .enc-stack-R { left: 430px; }
 .enc-spine { display: none; }

@@ -404,14 +404,21 @@ export class Classroom {
     else if (st.draw || st.tap) this.cam('board');
     this._busy = true;
     const line = this._say(st.say || '', st.expr);
-    if (st.react && !st.draw) this._react(st.react);
     if (st.anim && this.fox) this.fox.play(this._anim(st.anim, 'talk'), { loop: false, onDone: () => this._idle() });
-    if (st.draw) {
-      await this._draw(st.draw, st.speed || 1);
-      if (st.react) this._react(st.react);
-    }
+    if (st.draw) await this._draw(st.draw, st.speed || 1);
     if (st.tap) for (const id of [].concat(st.tap)) { this._check(); await this._tap(id, st.highlight); }
     if (!st.draw && !st.tap) { this._idle(true); }
+    if (st.react) {
+      // quick cutaway to the class reacting, then back
+      const kind = typeof st.react === 'string' ? st.react : st.react.kind;
+      if (st.cutaway !== false && kind !== 'zzz' && this._camA !== this.room.anchors.camStudents && this._camA !== this.room.anchors.camWide) {
+        const back = this._camA;
+        this.cam('students');
+        this._react(st.react);
+        await this.wait(1.5);
+        this.cam(back);
+      } else this._react(st.react);
+    }
     await line.typed;
     this._busy = false;
     this._check();

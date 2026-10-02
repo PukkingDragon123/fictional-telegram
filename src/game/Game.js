@@ -792,6 +792,8 @@ export class Game {
   }
 
   onFishBorn(sp, egg, born = []) {
+    const ms = (this.state.mutationsSeen ||= []);
+    for (const f of born) if (f.g?.mut && !ms.includes(`${f.sp.id}:${f.g.mut}`)) ms.push(`${f.sp.id}:${f.g.mut}`);
     const st = this.state;
     for (const f of born) {
       const key = `${f.sp.id}:${f.g.morph}`;

@@ -1480,7 +1480,8 @@ export class UI {
     if (!E) return false;
     try {
       this.closePanel(); this.closeEBuy();
-      if (!this.book) this.book = new E({ game: this.game, root: this.root });
+      // the clock stops while you read
+      if (!this.book) this.book = new E({ game: this.game, root: this.root, onOpen: () => { this.bookPause = this.game.state.paused; this.game.state.paused = true; }, onClose: () => { this.game.state.paused = !!this.bookPause; this.closeSound(); } });
       if (this.book.isOpen) { this.book.close(); return true; }
       const o = typeof entry === 'object' && entry ? entry : entry ? { chapter: entry } : {};
       this.book.open(o);
