@@ -181,7 +181,7 @@ if (mode === 'strip') {
     a.showreel = !!CHARS[k].isNew && params.get('showreel') === '1';
     labels.push({ a, text: CHARS[k].name });
   });
-  cams.lineup = { wupp: num('lw', 0.0062), y: 0.75, pitch: 14 };
+  cams.lineup = { wupp: num('lw', 0.0078), y: 0.75, pitch: 14 };
   setCam(params.get('zoom') || 'lineup');
 } else if (mode === 'props') {
   const items = [];

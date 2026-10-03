@@ -340,7 +340,8 @@ export function generateWorld(seed = 1337) {
     for (let x = 0; x < w; x++) {
       const i = z * w + x, k = grid.kind[i];
       if (grid.meadow[i] || k === KIND.WATER || k === KIND.TRAIL || grid.occ[i] === -2 || grid.biome[i] === BIOME.ALPINE) continue;
-      if (grid.height[i] < 0.01) grid.height[i] = 0.02;
+      if (grid.height[i] >= 0.01 || grid.hasWaterNeighbor(x, z, true)) continue; // shores keep their flat banks
+      grid.height[i] = 0.02;
     }
 
   return { grid, decos, clutter, trail, seed, canopy: [] };

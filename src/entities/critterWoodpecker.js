@@ -19,7 +19,7 @@
 // Expressions: neutral happy talk surprised sleepy smug focused squint laugh proud (+ BASE_EXPRS)
 // The crest reads his mood (up when surprised or delighted, flat when concentrating) and springs on every peck.
 // Walk speed: 'walk' ~0.45 units/s (move the root, the anim is in place).
-// Units: 1 voxel = 0.05. Root at the feet, facing +Z. ~1.12 tall to the head, ~1.36 to the crest tip.
+// Units: 1 voxel = 0.05. Root at the feet, facing +Z. ~1.15 tall to the head top, ~1.4 to the crest tip.
 import * as THREE from 'three';
 import {
   VS, FV, VoxelModel, rbox, ell, tone, buildGeo, geoCache, mirrorX, handModel, pixTex, Spring, K, pulse, beat, win,
