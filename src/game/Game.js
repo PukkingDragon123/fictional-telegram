@@ -1423,6 +1423,7 @@ export class Game {
       const g = oldGate(type, d);
       if (g && !skipGates && !zones.includes(g)) continue;
       if (!d.craft && !oldUnlocked(LEGACY_UNLOCK[type])) continue;
+      if (d.landmark && !(st.landmarks || []).includes(d.landmark)) continue;
       grant.add(UNLOCKS_BUILD[type]);
     }
     for (const sp of SPECIES) {
@@ -1554,7 +1555,7 @@ export class Game {
     if (st.phase !== 'gameover') this.landAnimals.update(simDt || dt * 0.3);
     this.land.update();
     // research ticks on game time (also while you watch it in the lab)
-    if (st.phase !== 'gameover') this.tickResearch(this.lab?.active && st.paused ? dt * ts : simDt);
+    if (st.phase !== 'gameover') this.tickResearch((this.lab?.active || this.ui?.labPaused) && st.paused ? dt * ts : simDt);
     this.quests.update(realDt || dt);
     // placed facilities change the mods: re-check now and then
     this.facT = (this.facT || 0) - dt;

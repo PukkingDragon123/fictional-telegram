@@ -270,7 +270,7 @@ export class NpcScenes {
       if (L.fx) this.fx(v, L.fx);
       cur = game.say(anchor, L.t, { voice, mood: L.mood || 'happy', size: 'm', key, wait: true });
       if (key === 'npcfox') portrait?.talk(L.t);
-      const T = 2.6 + L.t.length * 0.045 + (L.hold || 0);
+      const T = (2.6 + L.t.length * 0.045 + (L.hold || 0)) * (this.slow || 1); // `slow`: test knob for screenshots
       const t0 = performance.now();
       await Promise.race([cur?.done || wait(T), wait(T), new Promise((res) => {
         const tick = () => { if (skipped() || performance.now() - t0 > T * 1000) res(); else setTimeout(tick, 80); };

@@ -200,8 +200,8 @@
   --bc: #fff;
   position: absolute; left: 0; top: 0;
   display: flex; align-items: center; gap: 6px;
-  height: 30px; padding: 0 10px 0 8px;
-  font-size: 17px; letter-spacing: .5px;
+  height: 26px; padding: 0 10px 0 6px;
+  font-size: 16px; letter-spacing: .5px;
   color: var(--lt-ink);
   background: rgba(8, 16, 18, .88);
   border: 2px solid #000;
@@ -232,8 +232,8 @@
 .lt-slot { position: absolute; inset: 0; background: var(--slot) 0 0 / 100% 100% no-repeat; image-rendering: pixelated; filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .55)); }
 .lt-ico { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .lt-ico img { max-width: 44px; max-height: 44px; filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, .6)); }
-.lt-node.is-locked .lt-ico, .lt-node.is-zone .lt-ico { filter: grayscale(1) brightness(.5) contrast(.9); }
-.lt-node.is-zone .lt-ico { filter: grayscale(.7) brightness(.62) sepia(.4); }
+.lt-node.is-locked .lt-ico { filter: grayscale(1) brightness(.72); opacity: .8; }
+.lt-node.is-zone .lt-ico { filter: grayscale(.6) brightness(.8) sepia(.35); }
 .lt-badge { position: absolute; right: -8px; top: -8px; display: grid; place-items: center; pointer-events: none; }
 .lt-badge:empty { display: none; }
 .lt-node.is-done .lt-badge { width: 26px; height: 26px; background: #0d3a1c; border: 2px solid #000; border-radius: 50%; }

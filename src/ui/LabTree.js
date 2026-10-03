@@ -43,8 +43,8 @@ function loadFish() {
 // ---------------------------------------------------------------- layout
 const NODE = 64; // node slot size (32 art px at 2x)
 const COLW = 168; // column pitch
-const ROWH = 150; // lane pitch
-const NODE_DY = 58; // node centre below the lane top
+const ROWH = 158; // lane pitch
+const NODE_DY = 66; // node centre below the lane top
 const LANE_DY = 4; // horizontal pipe lane below the lane top
 const PADL = 44;
 const PADT = 12;
@@ -645,8 +645,7 @@ export class LabTree {
   _fishImg(species, box) {
     const f = this._fishFrame(species, 0);
     if (!f) return '';
-    const s = Math.min(box / f.width, (box * 0.8) / f.height);
-    const k = s >= 1 ? Math.floor(s) : s;
+    const k = Math.min(box / f.width, (box * 0.8) / f.height, 3);
     let url = '';
     try { url = f.toDataURL(); } catch { url = ''; }
     if (!url) return '';
@@ -1202,7 +1201,7 @@ export class LabTree {
     for (const B of this.branches) {
       if (!B.tab) continue;
       const top = B.y * c.z + c.y, bot = (B.y + B.h) * c.z + c.y;
-      const th = 30;
+      const th = 26;
       const vis = bot > th + 4 && top < vh - 10;
       B.tab.style.display = vis ? '' : 'none';
       if (!vis) continue;
