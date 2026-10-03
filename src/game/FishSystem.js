@@ -584,6 +584,7 @@ export class FishSystem {
         x = p.x; z = p.z;
       }
       const f = this.spawn(e.species, x, z, { adult: false, hunger: 0.35, g: e.genes?.[k] });
+      if (f && e.parents) f.parents = e.parents;
       if (f) born.push(f);
     }
     game.particles.bubbles(e.x, e.y + 0.1, e.z, 5);
