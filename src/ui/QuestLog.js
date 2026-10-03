@@ -830,7 +830,8 @@ export function createQuestLog(root, o = {}) {
       puffs: [],
     };
     stage.x.innerHTML = img(xArt(), 2);
-    stage.dim.addEventListener('click', () => api.close());
+    // a click outside closes; during the reveal it only hurries the fox along
+    stage.dim.addEventListener('click', () => { if (state === 'opening' && T < TL.flip1) skip(); else api.close(); });
     stage.x.addEventListener('click', (e) => { e.stopPropagation(); sfx('click'); api.close(); });
     stage.book.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1308,25 +1309,28 @@ export function createQuestLog(root, o = {}) {
   }
 
   function skip() {
-    // jump straight to the thud (the fox just got there)
-    if (T >= TL.push1) return;
+    // jump straight to the thud (the fox just got there), or on to the cover flip
+    if (T >= TL.flip0) return;
     for (let i = 0; i < SHOVES.length; i++) ev.add(`shove${i}`);
-    T = TL.push1;
+    T = T < TL.push1 ? TL.push1 : TL.flip0;
   }
 
+  // where the book was when close() was called (it may still be on its way in)
+  let from = { a: -180, dx: 0, dim: 1 };
+  function coverAngle(t) { return -180 * eIO3(sat((t - TL.flip0) / (TL.flip1 - TL.flip0))); }
   function frameClose() {
     const S = stage, u = sat(CT / CLOSE_T);
     // cover flips shut, then the closed book flies back into the HUD notebook
     const fu = sat(CT / 0.3);
-    setCover(L.spread ? -180 * (1 - eIO3(fu)) : (fu < 1 ? -150 * (1 - fu) : 0));
+    setCover(L.spread || from.a > -100 ? from.a * (1 - eIO3(fu)) : (fu < 1 ? -150 * (1 - fu) : 0));
     const mu = sat((CT - 0.26) / (CLOSE_T - 0.26));
     const hr = nb.getBoundingClientRect(), z = L.z;
     const bx = L.closedLeft + L.pageW / 2, by = L.top + L.pageH / 2;
     const tx = (hr.left + hr.width / 2) / z - bx, ty = (hr.top + hr.height / 2) / z - by;
     const e = eIn2(mu), sc = lerp(1, Math.max(0.08, hr.width / z / L.pageW), e);
-    setBook(tx * e, ty * e - Math.sin(mu * Math.PI) * 60, -14 * e, sc, sc, `${L.spread ? 75 : 50}% 50%`);
+    setBook(lerp(from.dx, tx, e), ty * e - Math.sin(mu * Math.PI) * 60, -14 * e, sc, sc, `${L.spread ? 75 : 50}% 50%`);
     S.book.style.opacity = mu > 0.8 ? ((1 - mu) / 0.2).toFixed(2) : '1';
-    S.dim.style.opacity = (1 - sat((CT - 0.15) / 0.5)).toFixed(2);
+    S.dim.style.opacity = (from.dim * (1 - sat((CT - 0.15) / 0.5))).toFixed(2);
     S.shake.style.transform = 'none';
     S.rib.style.transform = mu > 0 ? `rotate(${(Math.sin(mu * 12) * 20 * (1 - mu)).toFixed(1)}deg)` : 'none';
     stepPuffs(T);
@@ -1466,11 +1470,10 @@ export function createQuestLog(root, o = {}) {
       if (state === 'closed') return Promise.resolve();
       const p = new Promise((r) => waiters.close.push(r));
       if (state === 'closing') return p;
-      if (state === 'opening' && T < TL.flip1) {
-        // not even open yet: put it straight away
-        ev.add('flip0'); ev.add('flip1');
-        if (!stage.prc.innerHTML) renderPages();
-      }
+      // start from wherever the reveal got to
+      const D = L.closedLeft + L.pageW + (fox?.ok ? L.foxCss * 0.5 : 0) + 60;
+      from = { a: coverAngle(T), dx: T < TL.push1 ? -D * (1 - pushP(T).P) : 0, dim: sat(T / 0.3) };
+      if (state === 'opening' && T < TL.flip0) { ev.add('flip0'); ev.add('flip1'); }
       const w = waiters.open; waiters.open = []; w.forEach((r) => r());
       state = 'closing';
       CT = REDUCED() ? CLOSE_T : 0;
