@@ -1651,7 +1651,7 @@ export class UI {
         <div class="top"><span class="fishbox ${unlocked ? '' : 'sil'}">${fishImg(sp.id, { scale: 2 })}</span><div><div class="nm">${unlocked ? esc(sp.name) : '???'}</div><div class="lt">${unlocked ? esc(sp.latin) : 'Unknown species'}</div></div></div>
         <div class="ds">${unlocked ? esc(sp.desc) : 'Research it in the Lab to stock its eggs.'}</div>
         <div class="row"><span class="stat">Meal <b>${sp.meal}</b></span><span class="stat">Value <b>x${sp.value}</b></span><span class="rtag" style="background:${rar.color}">${rar.name}</span></div>
-        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${price}</span>` : `<span class="req">${ico('lock', 1)} ${esc(game.speciesLock?.(sp.id)?.reason || (req ? 'Research in the lab: ' + req.name : game.lockReason(sp.unlock) || '?'))}</span>`}<span class="own">IN POND: ${counts[sp.id] || 0}</span></div>
+        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${price}</span>` : `<span class="req">${ico('lock', 1)} ${esc(game.speciesLock?.(sp.id)?.reason || (req ? 'Research in the Lab: ' + req.name : game.lockReason(sp.unlock) || '?'))}</span>`}<span class="own">IN POND: ${counts[sp.id] || 0}</span></div>
       </div>`;
     }
     html += '</div>';
@@ -1683,7 +1683,7 @@ export class UI {
       html += `<div class="card ${unlocked ? 'clickable' : 'locked'} ${game.tool.kind === 'build' && game.tool.type === type ? 'sel' : ''}" data-build="${type}">
         <div class="top"><span class="iconbox f-slot_gold ${unlocked ? '' : 'sil'}">${ico(d.icon, 2)}</span><div><div class="nm">${unlocked ? esc(d.name) : '???'}</div>${d.builder === 'beaver' ? `<div class="lt">${ico('beaver', 1)} beaver-built</div>` : d.beauty ? `<div class="lt">${ico('beauty', 1)} +${d.beauty} beauty</div>` : ''}</div></div>
         <div class="ds">${unlocked ? esc(d.desc) : 'Classified. Research it in the Lab.'}</div>
-        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${d.cost}</span>${needsLodge ? '<span class="req">needs a Beaver Lodge</span>' : ''}` : `<span class="req">${ico('lock', 1)} ${esc(game.structureLock?.(type)?.reason || (req ? 'Research in the lab: ' + req.name : game.lockReason(d.unlock) || '?'))}</span>`}<span class="own">BUILT: ${game.structures.countBuilt(type)}</span></div>
+        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${d.cost}</span>${needsLodge ? '<span class="req">needs a Beaver Lodge</span>' : ''}` : `<span class="req">${ico('lock', 1)} ${esc(game.structureLock?.(type)?.reason || (req ? 'Research in the Lab: ' + req.name : game.lockReason(d.unlock) || '?'))}</span>`}<span class="own">BUILT: ${game.structures.countBuilt(type)}</span></div>
       </div>`;
     }
     html += '</div>';

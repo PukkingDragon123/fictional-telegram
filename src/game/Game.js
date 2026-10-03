@@ -303,9 +303,9 @@ export class Game {
     if (rid.startsWith('zone_')) { const Z = ZONE_INFO[rid.slice(5)]; return Z ? `Meet ${Z.npcName}` : 'Explore the forest'; }
     const r = RESEARCH_BY_ID[rid];
     if (!r) return 'Research';
-    if (!this.sectionOpen(r.branch)) return `Decrypt the ${RESEARCH_BRANCH_BY_ID[r.branch]?.name || 'research'} section in the lab, then research ${r.name}`; // [v18 research]
+    if (!this.sectionOpen(r.branch)) return `Decrypt the ${RESEARCH_BRANCH_BY_ID[r.branch]?.name || 'research'} section in the Lab, then research ${r.name}`; // [v18 research]
     if (r.zone && !this.zoneOpen(r.zone)) return `Meet ${ZONE_INFO[r.zone]?.npcName || 'a neighbour'}, then research ${r.name}`;
-    return `Research in the lab: ${r.name}`;
+    return `Research in the Lab: ${r.name}`;
   }
   zoneOpen(zid) { return !zid || (this.state.zones || []).includes(zid); }
   // the research node that unlocks a build (null: always available)
@@ -1367,7 +1367,7 @@ export class Game {
     if (!r) return;
     if (this.research(id)) {
       const keys = this.state.tutorialDone ? RESEARCH_BRANCHES.filter((B) => B.key?.node === id && !this.sectionOpen(B.id)).map((B) => B.name) : []; // [v18 research] section keys
-      this.notify(`Research done: <b>${r.name}</b>!${keys.length ? ` Section key found: decrypt <b>${keys.join('</b> + <b>')}</b> in the lab!` : ''}`, 'excited', { dur: keys.length ? 5 : 3.5 });
+      this.notify(`Research done: <b>${r.name}</b>!${keys.length ? ` Section key found: decrypt <b>${keys.join('</b> + <b>')}</b> in the Lab!` : ''}`, 'excited', { dur: keys.length ? 5 : 3.5 });
       this.ui?.onResearched?.(r);
     }
   }
@@ -1577,6 +1577,8 @@ export class Game {
   }
 
   render(realDt) {
+    // the lab computer covers the whole screen: don't draw the world behind it
+    if (document.body.classList.contains('lt-pc')) return;
     const rig = this.rig;
     rig.update(realDt, this.renderer);
     this.sky.update(this.state.hour, this.time, rig.target, rig.yaw);

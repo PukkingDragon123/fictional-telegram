@@ -413,7 +413,7 @@ export class Tutorial {
 
     // ---- the beavers' snack bar: research it, then they build it for free
     await this.teach('Beavers only work when <b>PAID</b>. In food! They need a <b>Snack Bar</b>.', { wait: true, mood: 'scheming' });
-    await this.researchLesson('r_snackbar', 'Research the <b>Beaver Snack Bar</b> in the lab!', 'Lab ▸ Beaver Snack Bar ▸ RESEARCH!');
+    await this.researchLesson('r_snackbar', 'Research the <b>Beaver Snack Bar</b> in the Lab!', 'Lab ▸ Beaver Snack Bar ▸ RESEARCH!');
     const inv = (game.state.inventory ||= {});
     inv.beaverbar = (inv.beaverbar || 0) + 1; // a starter kit, on the house (only once it's researched)
     game.emit('inventory', inv);
@@ -432,7 +432,7 @@ export class Tutorial {
 
     // ---- lesson 4: plants & food: research carrots, then grow + harvest them
     await this.teach('Beavers eat <b>carrots</b>. We need <b>seeds</b>!', { dur: 2.5, mood: 'happy' });
-    await this.researchLesson('r_carrot', 'Research <b>Carrot Seeds</b> in the lab!', 'Lab ▸ Carrot Seeds ▸ RESEARCH!');
+    await this.researchLesson('r_carrot', 'Research <b>Carrot Seeds</b> in the Lab!', 'Lab ▸ Carrot Seeds ▸ RESEARCH!');
     inv.carrot = (inv.carrot || 0) + 2;
     game.emit('inventory', inv);
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'carrot', free: true } });
@@ -474,7 +474,7 @@ export class Tutorial {
 
     // ---- a home for the logs: the Wood Garage
     await this.teach('Trees give <b>LOGS</b>! Logs need a home: the <b>Wood Garage</b>.', { wait: true, mood: 'excited' });
-    await this.researchLesson('r_woodgarage', 'Research the <b>Wood Garage</b> in the lab!', 'Lab ▸ Wood Garage ▸ RESEARCH!');
+    await this.researchLesson('r_woodgarage', 'Research the <b>Wood Garage</b> in the Lab!', 'Lab ▸ Wood Garage ▸ RESEARCH!');
     (game.state.inventory ||= {}).woodgarage = (game.state.inventory.woodgarage || 0) + 1;
     game.emit('inventory', game.state.inventory);
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'woodgarage', free: true } });

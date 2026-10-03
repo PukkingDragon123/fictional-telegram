@@ -4,7 +4,7 @@ export const ACHIEVEMENTS = [
   { id: 'a_love', name: 'Love Is in the Water', desc: '10 fish couples fall in love.', reward: 25, test: (g) => g.stats.courtships >= 10 },
   { id: 'a_full', name: 'Full House', desc: 'Fill the pond to capacity.', reward: 30, test: (g) => g.fish.count >= g.fish.capacity() },
   { id: 'a_happy10', name: 'Crowd Pleaser', desc: '10 bears leave 4+ star reviews.', reward: 60, test: (g) => g.state.reviews.filter((r) => r.stars >= 4).length >= 10 },
-  { id: 'a_research5', name: 'Mad Scientist', desc: 'Research 5 upgrades in the lab.', reward: 60, test: (g) => g.state.research.length >= 5 },
+  { id: 'a_research5', name: 'Mad Scientist', desc: 'Research 5 upgrades in the Lab.', reward: 60, test: (g) => g.state.research.length >= 5 },
   { id: 'a_hybrid', name: 'Hybrid Theory', desc: 'Discover a hybrid fish.', reward: 120, test: (g) => g.state.discovered.some((id) => g.speciesById(id)?.unlock === 'hybrid') },
   { id: 'a_golden', name: 'Midas Fin', desc: 'Hatch a golden fish.', reward: 150, test: (g) => g.fish.list.some((f) => f.g.morph === 'golden') },
   { id: 'a_dams', name: 'Beaver Fever', desc: 'Have 8 dams built.', reward: 100, test: (g) => g.structures.countBuilt('dam') >= 8 },
