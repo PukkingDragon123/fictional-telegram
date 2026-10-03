@@ -136,7 +136,7 @@ export class Blueprint {
 
   itemsFor(tab) {
     const game = this.game;
-    if (tab === 'inv') return Object.entries(game.state.inventory || {}).filter(([, n]) => n > 0).map(([type, n]) => ({ type, n, free: true }));
+    if (tab === 'inv') return Object.entries(game.state.inventory || {}).filter(([type, n]) => n > 0 && STRUCTURES[type]).map(([type, n]) => ({ type, n, free: true }));
     const inv = game.state.inventory || {};
     // woodwork: everything Chip can make; what you've crafted is placed for free
     if (tab === 'woodwork') return Object.entries(STRUCTURES).filter(([, d]) => d.category === 'woodwork').map(([type]) => ({ type, n: inv[type] || 0, free: true, craft: true }));

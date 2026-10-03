@@ -14,6 +14,7 @@
 //   van.unloadPoint(t, tx, tz, out)    // world point along the unload slide (t 0..1, ends at local (tx, 0, tz))
 //   van.onEvent = (name, van, data) => {}  // 'honk', 'door_open', 'door_shut', 'ramp_down', 'ramp_up', 'puff' {position}
 //   makeBigCrate('live' | 'eggs')      // big wooden crate for livestock / lots of eggs (origin at the bottom centre)
+//   warmVan()                          // build the geometry early (idle time) so the van's arrival doesn't hitch
 //
 // Units: 1 voxel = 0.05 (wheels, wheel and lettering 0.025). Root on the
 // ground midway between the axles, facing +Z. ~2.65 long, 1.3 wide, 2.2 tall
@@ -456,6 +457,14 @@ const cache = geoCache(() => ({
   puff: buildGeo(puffModel(), [0, 0, 0], VS),
 }));
 
+let warmed = false;
+/** Build (and keep) the van's geometry ahead of time, e.g. when a big order is placed (~80 ms once). */
+export function warmVan() {
+  if (warmed) return;
+  warmed = true;
+  cache.get(); // one ref held for good, so the next van doesn't rebuild either
+}
+
 // ------------------------------------------------------------------ the driver's poses
 // Added per rig instance (rig._ANIMS), so MooseCourier itself stays untouched.
 const _c = [0, 0], _g = [0, 0, 0];
@@ -522,7 +531,7 @@ const DRIVE_ANIMS = {
     fn(t, p, f, s, rig) {
       seated(p, rig, t, { handsR: 0 });
       const up = win(t, 0.05, 2.0, 0.3, 0.35), wv = sin(t * 10);
-      rig.reach(p, -1, lerp(6, 9.2 + wv * 1.1, up), lerp(-2, 12.4, up), lerp(3, 1.8, up), [1, -0.6, -0.3], 1);
+      rig.reach(p, -1, lerp(6, 10.6 + wv * 1.0, up), lerp(-2, 11.6, up), lerp(3, 0.4, up), [1, -0.6, -0.4], 1);
       p.wristR.rz = -wv * 0.4 * up; p.handR = up > 0.5 ? 'open' : 'relax';
       p.head.ry = -0.55 * up; p.head.rz += 0.08 * up; p.chest.ry = -0.12 * up;
       f.look = [-0.8 * up, 0]; f.mouth = 'grin';

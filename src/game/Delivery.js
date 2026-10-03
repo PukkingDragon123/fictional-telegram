@@ -134,6 +134,11 @@ export class Delivery {
     const o = { id: this.nextId++, items, label, packT, packTotal: packT };
     this.queue.push(o);
     this.game.emit('ordered', o);
+    // a van load coming: build the van while the warehouse packs
+    if (VANM?.warmVan && (this.queue.reduce((s, q) => s + unitsOf(q), 0) >= VAN_ITEMS || items.some((it) => it.kind === 'bird'))) {
+      const warm = () => { try { VANM.warmVan(); } catch { /* built on arrival then */ } };
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 2000 }); else setTimeout(warm, 200);
+    }
     return o;
   }
 

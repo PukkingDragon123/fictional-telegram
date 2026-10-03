@@ -694,8 +694,8 @@ function foodChapter(game, S) {
     const known = S.food.has(id) || (f.kind === 'bag' && f.unlock === 'start' && id === 'pellets');
     const bag = f.kind === 'bag' || f.kind === 'made';
     const plant = f.from ? structName(f.from) : null;
-    const sub = bag ? `${f.brand || 'House brand'} · "${f.tagline || 'Yum!'}"` : f.kind === 'special' ? `Lucky find · ${plant}` : `Garden produce · ${plant}`;
-    const how = f.kind === 'bag' ? `${unlockText(f.unlock).replace('Available from day one', 'Sold on e-Buy').replace('Unlocks on', 'e-Buy from')}` : f.kind === 'made' ? 'Build a Bug Grinder 3000' : f.kind === 'special' ? `Hides in lucky batches of ${plant}` : `Harvest a ${plant}`;
+    const sub = bag ? `${f.brand || 'House brand'} · "${f.tagline || 'Yum!'}"` : f.kind === 'special' ? `Lucky find · ${plant}` : f.kind === 'forage' || f.material ? 'Forest find' : `Garden produce · ${plant}`;
+    const how = f.kind === 'bag' ? `${unlockText(f.unlock).replace('Available from day one', 'Sold on e-Buy').replace('Unlocks on', 'e-Buy from')}` : f.kind === 'made' ? 'Build a Bug Grinder 3000' : f.kind === 'special' ? `Hides in lucky batches of ${plant}` : f.kind === 'forage' || f.material ? 'Pick it up in the forest' : `Harvest a ${plant}`;
     const r = f.kind === 'special' ? rarityOfTier(f.rarity || 2) : bag ? rarityOfTier(clamp(Math.floor((f.price || 0) / 45), 0, 4)) : rarityOfTier(0);
     return {
       id, num: i + 1, name: f.name, sub, desc: foodDesc(id, f), known,

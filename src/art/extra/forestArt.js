@@ -653,8 +653,8 @@ function ruinCart() {
   for (let a = 0; a < Math.PI * 2; a += 0.05) {
     const rr = wr + (a > 4.6 && a < 5.0 ? -0.8 : 0);
     const x = Math.floor(wx + Math.cos(a) * rr), y = Math.floor(wy + Math.sin(a) * rr * 0.95);
-    p.set(x, y, pick(OAK, 0.4 - Math.cos(a) * 0.5 + Math.sin(a) * 0.4));
-    p.set(Math.floor(wx + Math.cos(a) * (rr - 1)), Math.floor(wy + Math.sin(a) * (rr - 1) * 0.95), pick(RUST, 0.1 - Math.sin(a) * 0.3));
+    p.set(x, y, pick(RUST, 0.3 - Math.cos(a) * 0.4 - Math.sin(a) * 0.3)); // iron tyre
+    p.set(Math.floor(wx + Math.cos(a) * (rr - 1)), Math.floor(wy + Math.sin(a) * (rr - 1) * 0.95), pick(OAK, 0.5 - Math.cos(a) * 0.4 - Math.sin(a) * 0.4));
   }
   for (let s = 0; s < 8; s++) {
     if (s === 5) continue; // the broken spoke
@@ -662,9 +662,10 @@ function ruinCart() {
     line(p, wx, wy, wx + Math.cos(a) * (wr - 1), wy + Math.sin(a) * (wr - 1) * 0.95, OAK[s < 4 ? 4 : 2]);
   }
   line(p, wx, wy, wx + Math.cos(5 / 8 * Math.PI * 2 + 0.2) * 2, wy + Math.sin(5 / 8 * Math.PI * 2 + 0.2) * 2, OAK[3]);
-  ellipse(p, wx, wy, 1.6, 1.6, (x, y, nx, ny) => pick(RUST, 0.6 - nx * 0.5 - ny * 0.5));
+  ellipse(p, wx, wy, 1.2, 1.2, (x, y, nx, ny) => pick(OAK, 0.2 - nx * 0.5 - ny * 0.5));
+  p.set(wx, wy, RUST[4]);
   // grass growing up through the spokes
-  for (let i = 0; i < 6; i++) blade(p, 19 + i * 2.2, H - 1, 3 + hash(i, 2, 285) * 4, (hash(i, 3, 285) - 0.5) * 2, 0.6, 1, FERN);
+  for (let i = 0; i < 4; i++) blade(p, 18 + i * 3.4, H - 1, 2 + hash(i, 2, 285) * 3, (hash(i, 3, 285) - 0.5) * 2, 0.6, 1, FERN);
   GROUND(p);
   outline(p);
   return p;

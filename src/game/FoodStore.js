@@ -70,7 +70,7 @@ export class FoodStore {
     }
     for (const [id, n] of Object.entries(this.inv)) {
       const f = FOOD_ITEMS[id];
-      if (!f || BAG_IDS.includes(id) || n < 1) continue;
+      if (!f || f.material || BAG_IDS.includes(id) || n < 1) continue; // pinecones & resin are for Chip, not fish
       out.push({ id, count: Math.floor(n), locked: false });
     }
     return out;
