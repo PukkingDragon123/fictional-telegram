@@ -205,7 +205,10 @@ export class Delivery {
       const phase = moving && rem > 9 ? 'riding' : 'arriving';
       const prog = 0.35 + 0.65 * Math.max(0, Math.min(1, 1 - (eta - 1) / ride));
       if (coming) for (const o of a.orders) push({ id: o.id, label: o.label, phase, eta, progress: prog, count: o.items.length });
-      wait = coming ? eta + 6 + (van ? this.vanRouteLength() : this.routeLength()) / sp : rem / sp + 1;
+      const back = (van ? this.vanRouteLength() : this.routeLength()) / sp; // the trip back up the trail
+      if (coming) wait = eta + 6 + back;
+      else if (van && (a.state === 'close' || a.state === 'bye')) wait = 3 + back;
+      else wait = rem / sp + 1;
     }
     for (const o of this.queue) {
       const pk = Math.max(0, o.packT);
@@ -316,8 +319,7 @@ export class Delivery {
       van.snap();
       this.takeOrders(orders);
       this.followCam(0.028);
-      this.game.audio.play('van_start', { volume: 0.4 });
-      this.game.audio.play('van_horn', { volume: 0.18, pitch: 1.05 });
+      this.game.audio.play('van_start', { volume: 0.3 });
     } catch (e) {
       van.dispose?.(); rig.dispose?.();
       throw e;
@@ -532,7 +534,9 @@ export class Delivery {
         // a staggered little pile trailing back from the ramp (so the TAP! tags don't all stack up)
         const spread = n > 1 ? (k % 2 ? 0.42 : -0.42) + (Math.random() - 0.5) * 0.12 : 0;
         const tz = VANM.VAN.rampEndZ - (big ? 0.55 : 0.35) - k * 0.62 - Math.random() * 0.08;
-        this.parcels.push({ order: lot.sub, obj, kind: lot.kind, base: obj.scale.x, van, tx: spread, tz, x: a.x, y: a.y, z: a.z, t: 0, dur: (big ? 1.35 : 1.0) + k * 0.28, state: 'slide', rot: 0 });
+        const p = { order: lot.sub, obj, kind: lot.kind, base: obj.scale.x, van, tx: spread, tz, x: a.x, y: a.y, z: a.z, t: 0, dur: (big ? 1.35 : 1.0) + k * 0.28, state: 'slide', rot: 0 };
+        this.parcels.push(p);
+        (a.dropped ||= []).push(p);
         a.next = a.t + (big ? 1.0 : 0.62);
         if (k === 0) game.say?.(this.speaker(), pick(['Comin\' through!', 'Watch your toes!', 'Wheee, parcels!', 'Fresh from e-Buy!']), { voice: 'moose', mood: 'happy', dur: 1.8 });
       }
@@ -551,7 +555,7 @@ export class Delivery {
       if (a.t > 1.9) {
         // back up the trail; the camera stays on the parcels
         a.state = 'leave'; a.t = 0;
-        const mine = this.parcels.filter((p) => p.van === van);
+        const mine = (a.dropped || []).filter((p) => this.parcels.includes(p));
         const cx = mine.length ? mine.reduce((s, p) => s + p.x, 0) / mine.length : this.dropPoint.x;
         const cz = mine.length ? mine.reduce((s, p) => s + p.z, 0) / mine.length : this.dropPoint.z;
         this.releaseCam(cx, cz);

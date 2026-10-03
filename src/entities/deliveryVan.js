@@ -22,7 +22,7 @@
 import * as THREE from 'three';
 import {
   VS, FV, VoxelModel, rbox, ell, tone, hash3, buildGeo, geoCache, matFor,
-  sin, cos, abs, max, min, PI, clamp, lerp, smooth, K, pulse, beat, win,
+  sin, cos, abs, max, min, PI, clamp, lerp, smooth, K, pulse, win,
 } from './critterKit.js';
 
 const C = {
@@ -797,4 +797,3 @@ export class DeliveryVan {
   }
 }
 
-void beat; void hash3;
