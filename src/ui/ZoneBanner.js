@@ -14,7 +14,8 @@
 import './fonts.css';
 import './villager.css';
 import { paperTexture, injectPaperCSS, PX } from './paper.js';
-import { villagerPortrait, VILLAGERS } from './VillagerCard.js';
+import { VILLAGERS } from './VillagerCard.js';
+import { createNpcTalk } from './NpcTalk3D.js'; // [v19 npc] the peeking villager is their live 3D rig
 
 const REDUCED = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -139,14 +140,12 @@ async function play(root, { title = 'New Area', sub = '', npc = null, color, sfx
   for (const r of [rl, rr]) { r.src = rodUrl; r.width = 12 * PX; r.height = rodTh * PX; }
 
   // villager peeking over the top-right corner
-  let frames = null, talkTimer = 0;
+  let p3 = null, talkTimer = 0;
   if (peek) {
-    const sc = narrow ? 2 : 3;
-    frames = [0, 1, 2].map((f) => villagerPortrait(npc, { scale: sc, frame: f }));
-    frames.forEach((c, i) => { c.className = 'zb-por'; c.hidden = i !== 0; peek.appendChild(c); });
-    peek.style.setProperty('--ps', `${32 * sc}px`);
+    peek.style.setProperty('--ps', `${narrow ? 72 : 104}px`);
+    try { p3 = createNpcTalk(peek, { npc, frame: 'bust' }); } catch { p3 = null; }
   }
-  const setFrame = (f) => frames?.forEach((c, i) => { c.hidden = i !== f; });
+  const setFrame = () => {};
 
   // fog wisps around the rolled-up scroll
   const puffs = [];
@@ -178,6 +177,7 @@ async function play(root, { title = 'New Area', sub = '', npc = null, color, sfx
     if (peek) peek.classList.add('zb-up');
     await sleep(3600);
     await (anim(wrap, [{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' })?.finished.catch(() => {}) || sleep(260));
+    p3?.dispose();
     el.remove();
     return;
   }
@@ -227,8 +227,8 @@ async function play(root, { title = 'New Area', sub = '', npc = null, color, sfx
     peek.classList.add('zb-up');
     S('pop_in', { volume: 0.4, pitch: 1.2 });
     await T(380);
-    let k = 0;
-    talkTimer = setInterval(() => { k++; setFrame(k > 9 ? (k % 14 === 13 ? 2 : 0) : k % 2); }, 110);
+    p3?.play('wave');
+    setTimeout(() => p3?.talk('Hello, neighbour!'), 500);
   }
   await T(peek ? 1300 : 1800);
 
@@ -250,5 +250,6 @@ async function play(root, { title = 'New Area', sub = '', npc = null, color, sfx
   ], { duration: 380, easing: 'cubic-bezier(.5,0,.75,.4)', fill: 'forwards' });
   await (fly ? Promise.race([fly.finished.catch(() => {}), sleep(600)]) : sleep(380));
   clearInterval(talkTimer);
+  p3?.dispose();
   el.remove();
 }

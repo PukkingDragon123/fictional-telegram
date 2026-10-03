@@ -24,7 +24,7 @@ import { LAND_BY_ID } from '../data/landAnimals.js';
 import { sizeLabel, hatchCard as hatchCardFor, rollGenes as rollGenesFor } from '../game/genes.js';
 
 // optional components (built by separate modules; the UI degrades gracefully)
-const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './Overnight.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js', './bagArt.js', './FoodPicker.js', './Encyclopedia.js', './RestaurantMenu.js', './TeacherOverlay.js', './Matchmaker.js', './QuestLog.js'], { eager: true });
+const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js', './bagArt.js', './FoodPicker.js', './Encyclopedia.js', './RestaurantMenu.js', './TeacherOverlay.js', './Matchmaker.js', './QuestLog.js'], { eager: true });
 import.meta.glob(['./fonts.css', './foodpicker.css', './encyclopedia.css', './restaurantmenu.css', './teacher.css', './classroom.css'], { eager: true });
 import { Blueprint } from './Blueprint.js';
 import { natureCanvas } from '../art/natureArt.js';
@@ -1278,7 +1278,7 @@ export class UI {
     } else if (t.kind === 'land') {
       html = `${ico('map', 1)} <b>Land</b>: tap a <b>FOR SALE</b> plot next to yours to buy it`;
     } else if (t.kind === 'remove') {
-      html = `${ico('trash', 1)} <b>Remove</b>: tap a structure (50% refund) or clear a tree/rock (${ico('coin', 1)}10)`;
+      html = `${ico('trash', 1)} <b>Remove</b>: tap a build for move · store · sell, hold to drag it, or clear a tree/rock (${ico('coin', 1)}10)`; // [v19 buildings]
     } else if (t.kind === 'hand') {
       html = `${ico('hand', 1)} <b>Carry</b>: press on a fish and drag it anywhere in the pond (great for moving fish into a nursery)`;
     } else if (t.kind === 'tag') {
@@ -1719,6 +1719,8 @@ export class UI {
     const game = this.game;
     const LT = C('LabTree')?.LabTree;
     if (!LT) return null;
+    // [v19 lab screen] same computer as the 3D lab (sections, rushes, sci-fi sfx): LabMode builds it
+    if (game.lab?.makeTree) { try { const t = game.lab.makeTree(host, () => onClose?.()); if (t) return t; } catch (e) { console.warn('lab tree', e); } }
     try {
       return new LT(host, {
         game,
@@ -1898,27 +1900,6 @@ export class UI {
       <p class="center">${esc(r.comment)}</p>
       <div class="btns"><button class="btn green big" id="m-next">Good night ${ico('moon', 1)}</button></div>`;
     this.showModal(html, { dismissable: false, onBind: (c) => { $('#m-next', c).onclick = () => { this.click(); this.closeModal(); finish(); }; } });
-  }
-
-  // morning summary
-  showOvernight(data, done) {
-    const game = this.game;
-    const OV = C('Overnight');
-    const finish = () => { this.busy = Math.max(0, this.busy - 1); done?.(); };
-    this.busy++;
-    if (OV?.showOvernight) {
-      OV.showOvernight(this.hud['ceremony-root'], data, {
-        fishCanvas: (id, o) => fishCanvasFor(id, o || {}),
-        icon: (n, s) => ico(n, s),
-        sfx: (n, o) => game.audio.play(n, { volume: 0.45, ...(o || {}) }),
-      }).catch(() => {}).finally(finish);
-      return;
-    }
-    const html = `<h1>Good morning! · Day ${data.day}</h1>
-      <p class="center">${esc(data.quote)}</p>
-      <div class="kv">${data.produced.map((p) => `<span>${ico(p.icon, 1)} ${esc(p.label)}</span><b>+${p.amount}</b>`).join('')}<span>${ico('egg', 1)} Hatched overnight</span><b>${data.hatched.length}</b><span>${ico('fish', 1)} Fry grew up</span><b>${data.grew}</b></div>
-      <div class="btns"><button class="btn green big" id="m-ok">Start the day ${ico('sun', 1)}</button></div>`;
-    this.showModal(html, { dismissable: false, onBind: (c) => { $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); finish(); }; } });
   }
 
   showDiscovery(sp, f = null) {

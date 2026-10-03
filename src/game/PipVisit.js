@@ -11,6 +11,8 @@ const C3 = c3['../entities/critters3d.js'] || {};
 const np4 = import.meta.glob('../entities/npcProps4.js', { eager: true });
 const NP4 = np4['../entities/npcProps4.js'] || {};
 const tr = import.meta.glob('../ui/LumberTrade.js', { eager: true });
+const ntk = import.meta.glob('../ui/NpcTalk3D.js', { eager: true }); // [v19 npc] live 3D Pip at the counter
+const createNpcTalk = ntk['../ui/NpcTalk3D.js']?.createNpcTalk || null;
 const TR = tr['../ui/LumberTrade.js'] || null;
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 
@@ -142,7 +144,14 @@ export class PipVisit {
     }
     const wasPaused = st.paused;
     st.paused = true;
+    // [v19 npc] Pip's booth shows his real 3D rig (crisp: integer device px per rendered px)
+    const pipEl = document.createElement('div');
+    pipEl.className = 'lt-pip3d';
+    pipEl.style.cssText = 'position:relative;width:64px;height:76px;';
+    let p3 = null;
     this.view = TR.openLumberTrade(game.ui?.root || document.body, {
+      chipEl: pipEl,
+      onTalk: (t) => { p3?.talk(t); try { game.audio.babble?.('cub', t, { pitch: 1.4, volume: 0.4 }); } catch { /* ignore */ } },
       wood: Math.floor(st.wood || 0),
       price: this.price(),
       chat: ['Logs, logs, lovely logs!', `Today: ${this.price()} coins a log!`, 'Keep some for Chip, eh?'],
@@ -156,10 +165,13 @@ export class PipVisit {
         st.wood = have - n;
         game.earnMisc(coins, 'trade');
         game.emit('woodSold', { n, coins });
+        p3?.play?.(n >= 10 ? 'happy' : 'count_logs'); // [v19 npc]
         this.view?.refresh?.({ wood: Math.floor(st.wood), price: this.price() });
         return { ok: true, msg: `+${coins} coins!`, coins };
       },
-      onClose: () => { this.view = null; st.paused = wasPaused; },
+      onClose: () => { this.view = null; st.paused = wasPaused; p3?.dispose(); p3 = null; },
     });
+    try { p3 = createNpcTalk?.(pipEl, { npc: 'pip', frame: 'half', ps: 0.5, turn: 0.35 }) || null; } catch (e) { console.warn('pip 3d', e); }
+
   }
 }

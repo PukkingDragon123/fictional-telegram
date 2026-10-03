@@ -9,6 +9,8 @@ import { WOOD_RECIPES, REPAIRS } from '../data/structures14.js';
 
 const SLOTS = 3;
 const comps = import.meta.glob('../ui/Workshop.js', { eager: true });
+const ntk = import.meta.glob('../ui/NpcTalk3D.js', { eager: true }); // [v19 npc] live 3D Chip behind the bench
+const createNpcTalk = ntk['../ui/NpcTalk3D.js']?.createNpcTalk || null;
 const UIW = comps['../ui/Workshop.js'] || null;
 
 export class Workshop {
@@ -125,18 +127,23 @@ export class Workshop {
     const wasPaused = game.state.paused;
     game.state.paused = true;
     const icon = (n, sc) => game.ui?.icon?.(n, sc) || '';
+    const chipEl = document.createElement('div'); // [v19 npc]
+    chipEl.style.cssText = 'position:absolute;left:0;bottom:0;width:100%;height:100%;';
+    let p3 = null;
     this.view = UIW.openWorkshop(game.ui?.root || document.body, {
+      chipEl,
       ...this.data(),
       slots: SLOTS,
       chat: ['Tok-tok! What are we making?', 'Wood from fallen logs and chopped trees.', 'Good things take time. Come back later!', 'Found a broken antique? I can fix it!'],
       art: (id) => game.ui?.structureArt?.(id) || null,
       icon,
       sfx: (n, o) => game.audio.play(n, { volume: 0.45, ...(o || {}) }),
-      onCraft: (id) => { const r = this.craft(id); this.view?.refresh?.(this.data()); return r; },
-      onCollect: (jid) => { const r = this.collect(jid); this.view?.refresh?.(this.data()); return r; },
-      onTalk: (t) => { try { game.audio.babble('cub', t, { pitch: 1.3, volume: 0.5 }); } catch { /* ignore */ } },
-      onClose: () => { this.view = null; game.state.paused = wasPaused; },
+      onCraft: (id) => { const r = this.craft(id); if (r?.ok) p3?.play?.('saw'); this.view?.refresh?.(this.data()); return r; },
+      onCollect: (jid) => { const r = this.collect(jid); if (r?.ok) p3?.play?.('happy'); this.view?.refresh?.(this.data()); return r; },
+      onTalk: (t) => { p3?.talk(t); try { game.audio.babble('cub', t, { pitch: 1.3, volume: 0.5 }); } catch { /* ignore */ } },
+      onClose: () => { this.view = null; game.state.paused = wasPaused; p3?.dispose(); p3 = null; },
     });
+    try { p3 = createNpcTalk?.(chipEl, { npc: 'chip', frame: 'full', ps: 0.5, turn: 0.25 }) || null; } catch (e) { console.warn('chip 3d', e); }
     game.emit('workshopOpen');
   }
 

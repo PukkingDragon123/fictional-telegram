@@ -8,9 +8,17 @@
 //    Reynard chiming in from a little portrait, then their normal panel opens.
 // Scenes queue up and only play when nothing else is going on (tutorial, title,
 // lab, classroom, other cutscenes, open panels, night...). Skippable.
-// Remembered in game.state.npcScenes = { arrive: {id: 1}, visit: {id: 1}, queue: [zoneId] }.
+//  - [v19 npc] EVENTS (queueEvent): friendship milestones (3 / 6 / 10, at their home),
+//    a neighbour walking over to your pond some mornings, two neighbours bickering at
+//    your pond, and gift deliveries. Same queue + guard: never over another scene, the
+//    tutorial, the lab, the classroom, bedtime, a boss fight or the blood moon.
+// Remembered in game.state.npcScenes = { arrive: {id: 1}, visit: {id: 1}, queue: [zoneId], events: [evt], rolled: day }.
 import { ZONE_BY_ID } from '../data/zones.js';
 import * as RES from '../data/research.js';
+import { DIALOGUE, BICKER } from '../data/npcDialogue.js'; // [v19 npc] friendship / visit / bicker scenes
+
+const c3 = import.meta.glob('../entities/critters3d.js', { eager: true });
+const C3 = c3['../entities/critters3d.js'] || {};
 
 const ftk = import.meta.glob('../ui/FoxTalk3D.js', { eager: true });
 const createFoxTalk = ftk['../ui/FoxTalk3D.js']?.createFoxTalk || null;
@@ -188,7 +196,7 @@ export class NpcScenes {
 
   get S() {
     const S = (this.game.state.npcScenes ||= {});
-    S.arrive ||= {}; S.visit ||= {}; S.queue ||= [];
+    S.arrive ||= {}; S.visit ||= {}; S.queue ||= []; S.events ||= [];
     return S;
   }
 
@@ -201,6 +209,15 @@ export class NpcScenes {
   }
 
   // nothing else is on stage?
+  // [v19 npc] test helper: the first reason free() says no (or '')
+  whyBusy() {
+    const g = this.game, st = g.state, be = g.bearEvents;
+    const R = { busy: this.busy, notRunning: !g.running, title: g.titleMode, cutscene: g.cutscene?.active, cine: g.cine?.active, lab: g.lab?.active, classroom: g.classroom?.active,
+      bedtime: g.bedtime?.active, tutorial: g.tutorial?.active, zones: g.zones?.busy, pip: g.pipVisit?.busy || g.pipVisit?.view, workshop: g.workshop?.view, card: g.villagers?.card,
+      bubbles: g.ui?.bubbles?.busy, phase: st.phase !== 'day' && st.phase !== 'morning', bear: be?.boss?.active || be?.moon?.siege, panel: g.ui?.panel, paused: st.paused };
+    return Object.keys(R).filter((k) => R[k]).join(',');
+  }
+
   free() {
     const game = this.game;
     const st = game.state;
@@ -209,15 +226,21 @@ export class NpcScenes {
     if (game.zones?.busy || game.pipVisit?.busy || game.pipVisit?.view || game.workshop?.view || game.villagers?.card) return false;
     if (game.ui?.bubbles?.busy) return false;
     if (st.phase !== 'day' && st.phase !== 'morning') return false;
+    // [v19 npc] no neighbour scenes during bear events or with a panel open
+    const be = game.bearEvents;
+    if (be?.boss?.active || be?.moon?.siege || (be?.moon?.isBloodDay?.(st.day) && st.hour >= 14)) return false;
+    if (game.ui?.panel || st.paused) return false;
     return true;
   }
 
   update(dt) {
+    this.tickVisitors(dt); // [v19 npc]
     this.checkT -= dt;
     if (this.checkT > 0) return;
     this.checkT = 1;
     const S = this.S;
-    if (!S.queue.length || !this.free()) return;
+    if (!S.queue.length) { this.events(); return; } // [v19 npc]
+    if (!this.free()) return;
     const zid = S.queue.shift();
     const Z = ZONE_BY_ID[zid];
     const v = Z && this.game.villagers?.get(Z.npc.id);
@@ -234,7 +257,7 @@ export class NpcScenes {
 
   // ------------------------------------------------------------------ playback
   // runs `lines` while a cutscene holds the camera on the NPC; resolves when done or skipped
-  async stage(v, { caption, sub, lines, end, fox }) {
+  async stage(v, { caption, sub, lines, end, fox, other = null, focusAt = null }) {
     const game = this.game;
     const V = game.villagers;
     const cs = game.cutscene;
@@ -247,7 +270,8 @@ export class NpcScenes {
     const rig = game.rig;
     const yaw = rig.yawGoal ?? rig.yaw ?? 0;
     const off = -(v.y + 0.9 - (rig.goal?.y || 0)) / Math.tan(rig.pitch || 0.77) + 0.55;
-    const focus = { x: v.x + Math.sin(yaw) * off, z: v.z + Math.cos(yaw) * off };
+    const fx0 = focusAt ? focusAt.x : v.x, fz0 = focusAt ? focusAt.z : v.z;
+    const focus = { x: fx0 + Math.sin(yaw) * off, z: fz0 + Math.cos(yaw) * off };
     let portrait = null;
     const shot = cs.play({
       shots: [
@@ -258,16 +282,17 @@ export class NpcScenes {
     });
     const skipped = () => cs.skipped || !cs.active;
     let cur = null;
-    const line = async (L, anchor, voice, key) => {
+    const line = async (L, anchor, voice, key, actor = v) => {
       if (skipped()) return;
       L = typeof L === 'string' ? { t: L } : L;
+      const r = actor.rig;
       if (L.anim && hasAnim(r, L.anim)) {
         const loop = !!L.loop;
         r.play(L.anim, { loop, restart: true, onDone: loop ? undefined : () => { if (!skipped()) r.play(hasAnim(r, 'talk') ? 'talk' : 'idle', { loop: true }); } });
       } else if (key === 'npcfox') V.idle(v);
       else if (hasAnim(r, 'talk')) r.play('talk', { loop: true });
       if (L.sfx) game.audio.play(L.sfx, { volume: 0.45 });
-      if (L.fx) this.fx(v, L.fx);
+      if (L.fx) this.fx(actor, L.fx);
       cur = game.say(anchor, L.t, { voice, mood: L.mood || 'happy', size: 'm', key, wait: true });
       if (key === 'npcfox') portrait?.talk(L.t);
       const T = (2.6 + L.t.length * 0.045 + (L.hold || 0)) * (this.slow || 1); // `slow`: test knob for screenshots
@@ -287,7 +312,9 @@ export class NpcScenes {
       for (const L of lines) {
         if (skipped()) break;
         if (L?.fox) { portrait ||= this.portrait(); portrait?.setExpression?.(L.mood || 'happy'); await line(L, portrait?.anchor || npcAnchor, 'fox', 'npcfox'); continue; }
+        if (L?.by === 'b' && other) { await line(L, V.anchor(other), other.cast.voice || 'fox', 'npc' + other.id, other); if (v.rig && hasAnim(v.rig, 'idle') && v.rig.current === 'talk') v.rig.play('idle', { loop: true }); continue; }
         await line(L, npcAnchor, voice, 'npc' + v.id);
+        if (other?.rig?.current === 'talk') other.rig.play('idle', { loop: true });
       }
       if (fox && !skipped()) {
         portrait ||= this.portrait();
@@ -301,7 +328,8 @@ export class NpcScenes {
       try { await shot; } catch { /* ignore */ }
       portrait?.dispose();
       v.t = Math.max(3, Math.min(oldT, 12));
-      if (r) { r.setExpression?.(null); V.idle(v); }
+      if (r) { r.setExpression?.(null); if (v.visitor) r.play?.('idle', { loop: true }); else V.idle(v); }
+      if (other?.rig) other.rig.play?.('idle', { loop: true });
       this.busy = false;
     }
   }
@@ -384,7 +412,196 @@ export class NpcScenes {
     return true;
   }
 
+  // ================================================================== [v19 npc] events
+  queueEvent(e) {
+    if (!e?.kind) return;
+    const S = this.S;
+    const k = `${e.kind}:${e.id || ''}:${e.b || ''}:${e.level || ''}`;
+    if (S.events.some((x) => `${x.kind}:${x.id || ''}:${x.b || ''}:${x.level || ''}` === k)) return;
+    S.events.push(e);
+    this.checkT = Math.min(this.checkT, 1.5);
+  }
+
+  // neighbours you have met whose area is open
+  friends() {
+    const game = this.game;
+    return (game.villagers?.list || []).filter((v) => game.zones?.isOpen(v.zone.id) && DIALOGUE[v.id] && (game.state.villagers?.[v.id]?.met || this.S.visit[v.id] || this.S.arrive[v.id]));
+  }
+
+  // once a day, in the morning: maybe a neighbour drops by / two of them bicker / a gift delivery
+  rollMorning() {
+    const game = this.game, st = game.state, S = this.S;
+    if (S.rolled === st.day || st.day < 2 || st.hour > 11.5 || game.tutorial?.active) return;
+    S.rolled = st.day;
+    const fr = this.friends();
+    if (!fr.length || Math.random() > 0.55) return;
+    const ids = new Set(fr.map((v) => v.id));
+    const pairs = BICKER.filter((p) => ids.has(p.a) && ids.has(p.b));
+    const fv = (v) => game.villagers.vstate(v).friend || 0;
+    const close = fr.filter((v) => fv(v) >= 4);
+    const r = Math.random();
+    if (pairs.length >= 1 && r < 0.3) { const p = pairs[(Math.random() * pairs.length) | 0]; this.queueEvent({ kind: 'bicker', id: p.a, b: p.b }); }
+    else if (close.length && r < 0.55) this.queueEvent({ kind: 'gift', id: close[(Math.random() * close.length) | 0].id });
+    else this.queueEvent({ kind: 'visit', id: fr[(Math.random() * fr.length) | 0].id });
+  }
+
+  events() {
+    const S = this.S;
+    if (this.game.state.phase === 'day') this.rollMorning();
+    if (!S.events.length || !this.free()) return;
+    const e = S.events.shift();
+    this.playEvent(e).catch((err) => { console.warn('npc event', err); this.busy = false; });
+  }
+
+  async playEvent(e) {
+    const game = this.game;
+    const v = game.villagers?.get(e.id);
+    if (!v || !DIALOGUE[v.id]) return;
+    if (!v.rig) game.villagers.revealed(v.zone);
+    if (e.kind === 'milestone') await this.milestone(v, e.level);
+    else if (e.kind === 'visit' || e.kind === 'gift') await this.pondVisit(v, e.kind === 'gift');
+    else if (e.kind === 'bicker') { const w = game.villagers.get(e.b); if (w) await this.bicker(v, w); }
+    game.save?.();
+  }
+
+  // hand over a gift { coins, wood, food: {id, n} } at world spot p; returns 'a, b and c'
+  giveGift(G, p) {
+    const game = this.game;
+    const parts = [];
+    if (!G) return '';
+    if (G.coins) { game.earnMisc?.(G.coins, 'gifts'); parts.push(`${G.coins} coins`); }
+    if (G.wood) { game.state.wood = (game.state.wood || 0) + G.wood; game.emit?.('wood', game.state.wood); parts.push(`${G.wood} wood`); }
+    if (G.food) { try { game.foodStore?.add?.(G.food.id, G.food.n || 1); } catch { /* ignore */ } parts.push(`${G.food.n || 1} ${game.foodStore?.info?.(G.food.id)?.name || G.food.id}`); }
+    game.audio.play('coins', { volume: 0.45 });
+    try { game.particles.confetti(p.x, p.y + 1.2, p.z, 30); } catch { /* ignore */ }
+    try { game.ui?.floatTextAt?.(p.x, p.y + 1.7, p.z, parts.join(' + '), '#fff3a0'); } catch { /* ignore */ }
+    return listOf(parts);
+  }
+
+  // ---- friendship milestone: at their home
+  async milestone(v, level) {
+    const game = this.game;
+    const D = DIALOGUE[v.id];
+    const M = D?.ms?.[level];
+    const st = game.villagers.vstate(v);
+    if (!M || st.ms?.[level] || !v.rig) return;
+    st.ms[level] = 1;
+    const title = level >= 10 ? 'Best friends' : level >= 6 ? 'Good friends' : 'Friends';
+    await this.stage(v, {
+      caption: `${title}: ${v.name}`,
+      sub: `Friendship ${level} / 10`,
+      lines: [{ t: M.lines[0], anim: 'wave', mood: 'excited' }, ...M.lines.slice(1).map((t, i) => ({ t, anim: i === M.lines.length - 2 ? 'happy' : 'talk' }))],
+      fox: { t: level >= 10 ? 'Best friends. And all it took was showing up.' : level >= 6 ? 'I think the neighbours actually like me.' : 'Friendship! Also, free stuff.', mood: level >= 10 ? 'love' : 'happy' },
+      end: async (line, anchor, voice) => {
+        const what = this.giveGift(M.gift, v);
+        game.cutscene.caption(`Gift from ${v.name}`, what);
+        game.audio.play('levelup', { volume: 0.4 });
+        this.fx(v, 'hearts');
+        await line({ t: level >= 10 ? 'Come by anytime. Door\'s always open.' : 'See you soon, neighbour!', anim: 'happy' }, anchor, voice, 'npc' + v.id);
+      },
+    });
+  }
+
+  // a stand-in rig of the neighbour that walks over to your pond (their home rig stays put)
+  visitor(v, slot = 0) {
+    const game = this.game;
+    const Cls = C3[v.cast.cls];
+    if (!Cls) return null;
+    const g = game.grid;
+    const fox = game.fox || { x: g.w / 2, z: g.h / 2 };
+    const land = (x, z) => g.inb(Math.floor(x), Math.floor(z)) && !g.isWater(Math.floor(x), Math.floor(z));
+    // a dry spot a few tiles in front of (south of) Reynard, side by side for two visitors
+    let spot = null;
+    for (let r = 2.5; r < 9 && !spot; r += 0.5)
+      for (let a = 0; a < 12 && !spot; a++) {
+        const ang = (a % 2 ? 1 : -1) * Math.ceil(a / 2) * 0.35;
+        const x = fox.x + Math.sin(ang) * r + (slot ? 1.6 : 0), z = fox.z + Math.cos(ang) * r;
+        if (land(x, z) && land(x + 0.6, z) && land(x - 0.6, z)) spot = { x, z };
+      }
+    if (!spot) return null;
+    const rig = new Cls();
+    const vis = { id: `${v.id}@pond`, name: v.name, zone: v.zone, cast: v.cast, rig, visitor: true, x: spot.x, z: spot.z, y: g.groundAt(spot.x, spot.z), t: 1e9 };
+    // walk in from further out
+    const from = { x: spot.x + (slot ? 5 : -5), z: spot.z + 3 };
+    rig.root.position.set(from.x, g.groundAt(from.x, from.z), from.z);
+    rig.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    game.villagers.group.add(rig.root);
+    vis.walk = (to, dur = 1.6) => new Promise((res) => {
+      const p0 = rig.root.position.clone();
+      const t0 = performance.now();
+      rig.root.rotation.y = Math.atan2(to.x - p0.x, to.z - p0.z);
+      if (hasAnim(rig, 'walk')) rig.play('walk', { loop: true });
+      const step = () => {
+        const k = Math.min(1, (performance.now() - t0) / (dur * 1000));
+        const x = p0.x + (to.x - p0.x) * k, z = p0.z + (to.z - p0.z) * k;
+        rig.root.position.set(x, g.groundAt(x, z), z);
+        if (k >= 1 || vis.gone) { rig.play('idle', { loop: true }); res(); return; }
+        requestAnimationFrame(step);
+      };
+      step();
+    });
+    vis.face = () => { rig.root.rotation.y = slot ? -0.5 : 0.5; };
+    // the rig needs updating while out of its home slot
+    vis.tick = (dt) => rig.update(dt);
+    (this.visitors ||= new Set()).add(vis);
+    vis.remove = () => { vis.gone = true; this.visitors.delete(vis); rig.root.removeFromParent(); try { rig.dispose(); } catch { /* ignore */ } };
+    return vis;
+  }
+
+  tickVisitors(dt) { if (this.visitors) for (const v of this.visitors) v.tick(dt); }
+
+  async pondVisit(v, gift) {
+    const D = DIALOGUE[v.id];
+    const vis = this.visitor(v);
+    if (!vis) return;
+    const walking = vis.walk({ x: vis.x, z: vis.z }, 1.3).then(() => vis.face());
+    const G = gift ? { ...(v.zone.gift?.coins ? { coins: Math.round(v.zone.gift.coins * 0.6) } : {}), ...(D.visit.gift || {}) } : D.visit.gift;
+    const lines = gift
+      ? [{ t: `Special delivery for ${this.game.state.pondName || 'the pond'}!`, anim: 'wave' }, { t: D.visit.lines[1], anim: 'happy' }]
+      : D.visit.lines.map((t, i) => ({ t, anim: i ? 'talk' : 'wave' }));
+    try {
+      await this.stage(vis, {
+        caption: gift ? `A gift from ${v.name}` : `${v.name} drops by`,
+        sub: gift ? 'Delivered to your door' : 'Morning visit',
+        lines,
+        end: async (line, anchor, voice) => {
+          await walking;
+          const what = this.giveGift(G, vis);
+          if (what) this.game.cutscene.caption(gift ? 'Delivered' : `${v.name} left you`, what);
+          await line({ t: gift ? 'Enjoy, neighbour!' : 'Well, see you around!', anim: 'happy' }, anchor, voice, 'npc' + vis.id);
+        },
+      });
+    } finally {
+      this.game.villagers.talk?.addFriend?.(v, 0.5);
+      await vis.walk({ x: vis.x - 6, z: vis.z + 4 }, 1.8);
+      vis.remove();
+    }
+  }
+
+  async bicker(a, b) {
+    const P = BICKER.find((p) => p.a === a.id && p.b === b.id);
+    if (!P) return;
+    const va = this.visitor(a, 0), vb = va && this.visitor(b, 1);
+    if (!va || !vb) { va?.remove(); return; }
+    const w1 = va.walk({ x: va.x, z: va.z }, 1.2).then(() => va.face());
+    const w2 = vb.walk({ x: vb.x, z: vb.z }, 1.4).then(() => vb.face());
+    try {
+      await this.stage(va, {
+        caption: `${a.name} and ${b.name}`,
+        sub: 'A friendly argument at your pond',
+        focusAt: { x: (va.x + vb.x) / 2, z: (va.z + vb.z) / 2 },
+        other: vb,
+        lines: [...P.lines.map((L) => (L.by === 'b' ? L : { ...L, by: undefined })), { t: P.fox, fox: true, mood: 'smug' }],
+        end: async () => { await Promise.all([w1, w2]); },
+      });
+    } finally {
+      await Promise.all([va.walk({ x: va.x - 6, z: va.z + 4 }, 1.8), vb.walk({ x: vb.x + 6, z: vb.z + 4 }, 1.8)]);
+      va.remove(); vb.remove();
+    }
+  }
+
   // debug / test hooks
+  playEventNow(e) { this.busy = false; return this.playEvent(e); }
   playArrival(id) {
     const v = this.game.villagers.get(id);
     if (!v) return null;

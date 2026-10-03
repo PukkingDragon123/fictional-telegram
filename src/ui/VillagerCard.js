@@ -4,7 +4,7 @@
 // and a friendship row.
 //
 //   const card = openVillager(root, { npc, name, title, lines, offers, gift, hearts, sfx, icon, onClose })
-//     npc     'dale' | 'granny' | 'hoot' | 'rocco' | 'shellby'
+//     npc     'dale' | 'granny' | 'hoot' | 'rocco' | 'shellby' | 'clover' | 'otis' | 'hazel' | 'chip' | 'pip'
 //     lines   ['Hello there!', 'Want some *tea*? {coin}']   ("*x*" emphasis, "{sprite}" inline icon)
 //     offers  [{ icon, title, desc, tag, locked, onClick }]  (locked = reason string -> greyed, not clickable)
 //     gift    { ready, label, onClaim }                      (wiggles when ready, confetti on open)
@@ -12,17 +12,24 @@
 //     sfx(name, opts)  icon(name, scale) -> '<img>' HTML   onClose() once, whenever it goes away
 //   card.close()             animate away (calls onClose)
 //   card.setLines(lines)     replace the dialogue, typing restarts from the first line
-//   card.update({ offers, gift, hearts, lines })   refresh parts in place
+//   card.update({ offers, gift, hearts, lines, topics, choices })   refresh parts in place
 //   card.el                  the overlay element
+//   [v19 npc] conversation:
+//     topics  [{ id, label, isNew, done, on }] tabs under the bubble; onTopic(id, card) when one is tapped
+//     card.setChoices([{ label, hint, onPick(choice, card) }])   2-3 answer buttons (keys 1-3)
+//     card.reward('+1 friendship')   little green tag under the hearts
+//     card.portrait            the live 3D portrait (NpcTalk3D: talk / play / mood / hop) or null
+//   The polaroid is the neighbour's real 3D rig (NpcTalk3D), talking while a line types.
 //
-//   villagerPortrait(npc, { scale = 3, frame = 0 }) -> HTMLCanvasElement
-//     32x32 art px bust on transparent; frame 0 idle, 1 talk, 2 blink.
+//   villagerPortrait(npc, { scale = 3 }) -> HTMLCanvasElement
+//     a still 3D render (36 x 36 px, scaled by an integer) for icons / the encyclopedia.
 //
 // Overlay: position absolute, inset 0, z-index 58 inside `root` (give root a size,
 // e.g. the fixed #ui layer). All art is procedural.
 import './fonts.css';
 import './villager.css';
 import { paperTexture, tape, injectPaperCSS, PX } from './paper.js';
+import { createNpcTalk, npcSnapshot } from './NpcTalk3D.js'; // [v19 npc]
 
 const REDUCED = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -140,328 +147,28 @@ class Art {
   }
 }
 
-// ===========================================================================
-// PORTRAITS (32 x 32 art px)
-// ===========================================================================
-const PORTRAIT = {
-  // ------------------------------------------------------------ Dale: deer, Daisy Beer cap, polo, can in hand
-  dale(g, f) {
-    const FUR = ['#8e5428', '#b06e38', '#c98448', '#dea064'];
-    const CRM = ['#dcc4a0', '#eedcbe', '#faf0dc', '#fffaf0'];
-    const POLO = ['#1f5a30', '#2e8040', '#3e9e52', '#5ab868'];
-    const CAP = ['#b27414', '#e6a81c', '#ffd22e', '#ffe680'];
-    const ANT = ['#a88e5a', '#cdb486', '#ead8ae', '#faf0d2'];
-    // shoulders + polo
-    g.ell(15.5, 34, 15.5, 9.2, POLO);
-    g.rect(15, 27, 2, 5, POLO[0]);
-    g.set(15, 29, '#f8f4e8'); g.set(16, 31, '#f8f4e8');
-    // neck
-    g.rect(12, 20, 8, 7, (x, y) => (y > 24 ? FUR[0] : FUR[1]));
-    // collar
-    g.rowsM(10, 24, ['wwwww', '.wwww', '..www', '...ww', '....w'], { w: '#f8f4e8' });
-    g.rowsM(10, 25, ['.s', '..s', '...s'], { s: '#dcd8c8' });
-    // antlers poking out of the cap
-    g.rowsM(3, 1, ['AA..A..', 'aa.aA..', '.a.aa..', '.aaaa..', '..aaa..', '...aa..', '...aaa.', '....aa.'], { a: ANT[2], A: ANT[3] });
-    // ears (behind head)
-    g.ell(5, 13.5, 4.6, 2.3, FUR, { rot: 0.38 });
-    g.ell(26, 13.5, 4.6, 2.3, FUR, { rot: -0.38 });
-    g.ell(5.3, 13.6, 2.8, 0.9, '#f0b8a4', { rot: 0.38 });
-    g.ell(25.7, 13.6, 2.8, 0.9, '#f0b8a4', { rot: -0.38 });
-    // head
-    g.ell(15.5, 16.2, 8.6, 7.6, FUR);
-    // pale rings under the eyes
-    g.rowsM(10, 17, ['.ccc'], { c: FUR[3] });
-    // muzzle
-    g.ell(15.5, 20.4, 4.8, 3.4, CRM);
-    // nose + mouth
-    g.rows(14, 17, ['.hn.', 'nnnn', '.nn.'], { n: '#2a1e22', h: '#6e5c62' });
-    if (f.talk) g.rows(13, 21, ['.kkkk.', 'kmmmmk', '.kttk.'], { k: '#6a3c1a', m: '#5a1e22', t: '#e0606a' });
-    else g.rows(13, 21, ['k....k', '.kkkk.'], { k: '#7a4a24' });
-    // eyes: chill, half-lidded
-    if (f.blink) g.rowsM(11, 15, ['dd.'], { d: '#5a3418' });
-    else g.rowsM(11, 14, ['dd', 'wk', 'kk'], { d: '#6a3c1a', k: '#1e1418', w: '#ffffff' }, { d: '#6a3c1a', k: '#1e1418', w: '#1e1418' });
-    if (!f.blink) { g.set(19, 15, '#ffffff'); g.set(20, 15, '#1e1418'); }
-    // blush
-    g.rowsM(9, 18, ['pp'], { p: '#e8907a' });
-    // cap: mesh sides, yellow front panel, daisy logo, brim
-    g.ell(15.5, 11.2, 8.5, 6.6, (x, y, nx, ny) => {
-      if (y > 10) return undefined;
-      if (Math.abs(x - 15.5) <= 4.6) return sph(CAP, x, y, nx * 0.5, ny * 0.8);
-      return (x + y) % 2 ? '#f6f4ec' : '#d6d2c4';
-    });
-    g.rows(15, 4, ['bb'], { b: CAP[1] });
-    g.rows(14, 6, ['.ww.', 'wyyw', 'wyyw', '.ww.'], { w: '#ffffff', y: '#f08a1a' });
-    g.ell(15.5, 11.4, 9, 1.6, (x, y) => (y <= 10 ? CAP[3] : y === 11 ? CAP[2] : CAP[1]));
-    g.tint(8, 13, 16, 1, (c) => (FUR.includes(c) ? FUR[1] : undefined));
-    // Daisy Beer can + hoof
-    g.ell(26.5, 32, 4, 4.5, FUR);
-    g.rows(23, 21, ['.sSs.', 'yYYYy', 'wWWWw', 'wWoWw', 'wWWWw', 'yYYYy', '.sss.'], { s: '#8c92aa', S: '#eef0f8', y: '#e6a81c', Y: '#ffd22e', w: '#d6d8e4', W: '#ffffff', o: '#f08a1a' });
-    g.rows(22, 24, ['hh', 'hh', 'h.'], { h: '#3a2a26' });
-    g.rows(27, 25, ['hh', 'hh'], { h: '#3a2a26' });
-  },
-
-  // ------------------------------------------------------------ Granny Ribbit: frog, spectacles, straw hat, lilac shawl
-  granny(g, f) {
-    const SK = ['#1f4a30', '#2f6f4a', '#3f8f5f', '#6cc08a', '#9edca0'];
-    const STRAW = ['#86581c', '#b27e2a', '#d6a444', '#ecc66c', '#fae6a4'];
-    const LIL = ['#3e2e6a', '#5c4896', '#7e6ac0', '#a092e0', '#c4baf2'];
-    // straw hat (behind the eye bumps)
-    g.ell(15.5, 8.4, 14.2, 2.9, (x, y, nx, ny) => {
-      const c = sph(STRAW, x, y, nx * 0.5, ny * 0.9);
-      return (x + y * 2) % 5 === 0 ? STRAW[Math.max(0, STRAW.indexOf(c) - 1)] : c;
-    });
-    g.ell(16.5, 5.6, 6.6, 4.6, (x, y, nx, ny) => {
-      if (y > 7) return undefined;
-      const c = sph(STRAW, x, y, nx, ny);
-      return (x * 2 + y) % 5 === 0 ? STRAW[Math.max(0, STRAW.indexOf(c) - 1)] : c;
-    });
-    g.tint(9, 6, 16, 2, (c, x, y) => (STRAW.includes(c) ? (y === 6 ? LIL[3] : LIL[2]) : undefined));
-    g.rows(19, 3, ['.w.w.', 'wwyww', '.wyw.', 'w.w.w'], { w: '#ffffff', y: '#ffcc34' });
-    // head
-    g.ell(15.5, 19.2, 11.4, 6.6, SK);
-    // eye bumps
-    g.ell(10, 12.6, 4.4, 4.1, SK);
-    g.ell(21, 12.6, 4.4, 4.1, SK);
-    // chin
-    g.ell(15.5, 23.4, 7.6, 2.4, ['#a8c070', '#c8dc8c', '#e0ecb0'], { bias: 0.3 });
-    // eyes
-    for (const ex of [10, 21]) {
-      if (f.blink) {
-        g.ell(ex, 12.6, 2.6, 2.6, SK[3]);
-        g.rows(ex - 2, 12, ['k...k', '.kkk.'], { k: '#1f3f2c' });
-      } else {
-        g.ell(ex, 12.6, 2.6, 2.6, (x, y) => (y >= 14 ? '#e8e4d0' : '#fffaf0'));
-        g.rows(ex - 1, 12, ['wk', 'kk', 'kk'], { k: '#1e1418', w: '#ffffff' });
-        g.rows(ex - 1, 12, ['.k'], { k: '#1e1418' });
-        g.set(ex - 1, 12, '#ffffff');
-      }
-    }
-    // spectacles
-    for (const ex of [10, 21]) {
-      for (let y = 7; y <= 18; y++) for (let x = ex - 5; x <= ex + 5; x++) {
-        const d = Math.hypot(x - ex, y - 12.6);
-        if (d > 2.85 && d <= 3.75) g.set(x, y, d > 3.4 ? '#7a4a12' : '#c88a1c');
-      }
-      g.set(ex + 1, 10, '#ffffff'); g.set(ex + 2, 11, '#ffffff');
-    }
-    g.rows(14, 12, ['bbbb'], { b: '#b0761a' });
-    g.rows(3, 12, ['bb'], { b: '#b0761a' });
-    g.rows(27, 12, ['bb'], { b: '#b0761a' });
-    // nostrils, blush
-    g.set(14, 17, SK[0]); g.set(17, 17, SK[0]);
-    g.rowsM(6, 19, ['pp'], { p: '#f08aa8' });
-    // wide smile
-    if (f.talk) g.rows(8, 20, ['k..............k', '.kmmmmmmmmmmmmk.', '..kmmmmttttmmk..', '...kkkkkkkkkk...'], { k: '#1f3f2c', m: '#80202e', t: '#f08aa8' });
-    else g.rows(8, 20, ['k..............k', '.kkkkkkkkkkkkkk.'], { k: '#1f3f2c' });
-    // lilac shawl, knitted
-    g.ell(15.5, 34.2, 16, 9.6, (x, y, nx, ny) => {
-      const c = sph(LIL, x, y, nx, ny);
-      const i = LIL.indexOf(c);
-      return (x + (y % 2 ? 2 : 0)) % 4 === 0 ? LIL[Math.max(0, i - 1)] : c;
-    });
-    g.rows(13, 25, ['.kk..kk.', 'kLLkkLLk', '.kLLLLk.', '..kLLk..'], { k: LIL[1], L: LIL[3] });
-    g.rows(15, 26, ['rR', 'rr'], { r: '#b0303a', R: '#ff8a7a' });
-    g.rows(12, 29, ['f.f..f.f'], { f: LIL[3] });
-  },
-
-  // ------------------------------------------------------------ Professor Hoot: great horned owl, ranger hat, binoculars
-  hoot(g, f) {
-    const FE = ['#2e2016', '#4a3424', '#6a4c34', '#8c6848', '#b08c68'];
-    const DISC = ['#a06a36', '#c28a4c', '#dcaa6a', '#f0cf98'];
-    const HAT = ['#5a3a12', '#86581c', '#b27e2a', '#d6a444'];
-    const SHIRT = ['#434a1c', '#626a26', '#869034', '#aab44c'];
-    // shirt
-    g.ell(15.5, 34.6, 15.6, 9.6, SHIRT);
-    g.rowsM(9, 25, ['ssss', '.sss', '..ss'], { s: SHIRT[3] });
-    // chest + white bib
-    g.ell(15.5, 25.5, 6.4, 3.6, ['#c8bea6', '#e4dccb', '#f6f1e6']);
-    // head with barring
-    g.ell(15.5, 16.6, 10.7, 8.7, (x, y, nx, ny) => {
-      const c = sph(FE, x, y, nx, ny);
-      return y % 3 === 0 && bay(x, y) > 0.45 ? FE[Math.max(0, FE.indexOf(c) - 1)] : c;
-    });
-    // facial discs
-    g.ell(11, 16.6, 5, 4.7, DISC);
-    g.ell(20, 16.6, 5, 4.7, DISC);
-    // V brows
-    g.rowsM(7, 11, ['kk.....', '.kkk...', '...kkk.', '.....kk'], { k: FE[0] });
-    // eyes
-    for (const ex of [11, 20]) {
-      if (f.blink) {
-        g.ell(ex, 16.6, 3, 3, FE[3]);
-        g.rows(ex - 2, 16, ['kkkkk'], { k: FE[0] });
-      } else {
-        g.ell(ex, 16.6, 3, 3, ['#b27414', '#e0a01e', '#ffcc34', '#ffe478']);
-        g.ell(ex, 16.9, 1.5, 1.5, '#1a1018');
-        g.set(ex - 1, 16, '#ffffff');
-      }
-    }
-    // beak
-    if (f.talk) g.rows(14, 18, ['.bb.', 'bBBb', 'mmmm', '.bb.'], { b: '#4a4a56', B: '#8a8a94', m: '#5a1e22' });
-    else g.rows(14, 18, ['.bb.', 'bBBb', '.bB.', '.bb.', '..b.'], { b: '#4a4a56', B: '#8a8a94' });
-    // binoculars
-    g.rows(10, 25, ['.aaaa..aaaa.', 'abbbaddabbba', 'abaaa..aaaba', 'allLa..alLla', '.aaaa..aaaa.'], { a: '#2e2a36', b: '#5e5868', d: '#1a1820', l: '#4e9cd8', L: '#b8e6fa' });
-    g.rows(8, 23, ['s', 's', '.s'], { s: '#6a4128' });
-    g.rows(23, 23, ['s', 's', 's'], { s: '#6a4128' });
-    // ranger badge
-    g.rows(6, 27, ['.y.', 'yYy', 'y.y'], { y: '#e5a320', Y: '#ffe98a' });
-    // campaign hat
-    g.ell(15.5, 8.6, 13, 2.3, (x, y) => (y <= 7 ? HAT[3] : y === 8 ? HAT[2] : HAT[1]));
-    g.rows(10, 1, [
-      '...hhhhhh...',
-      '..hHhkkhHh..',
-      '.hHHhkkhHHh.',
-      '.hHhhhhhhHh.',
-      'hHhhhhhhhhhh',
-      'dddddddddddd',
-      'dddddddddddd',
-    ], { h: HAT[2], H: HAT[3], k: HAT[1], d: '#3b2414' });
-    // ear tufts through the brim
-    g.rowsM(4, 0, ['TT.....', 'tTT....', 'ttTT...', 'tdtTT..', '.tdttt.', '..tdttt', '...tttt'], { t: FE[3], T: FE[4], d: FE[2] });
-  },
-
-  // ------------------------------------------------------------ Rocco: raccoon, bandit mask, flat cap, gold tooth
-  rocco(g, f) {
-    const FUR = ['#2c2c30', '#4a4a50', '#707076', '#9a9aa0', '#c4c4c8'];
-    const WH = ['#b8b4ac', '#dcd8d0', '#f4f0e8'];
-    const TW = ['#3a2414', '#5a3a22', '#7a5434', '#9a7048'];
-    const COAT = ['#2e2a24', '#4a4034', '#6a5a44', '#8a7658'];
-    const MASK = '#1c1a22';
-    // trench coat + popped collar
-    g.ell(15.5, 35, 16, 10, COAT);
-    g.rows(12, 25, ['wwwwwwww', '.wwwwww.', '..wwww..', '...ww...'], { w: WH[1] });
-    g.rows(13, 27, ['g....g', '.g..g.', '..gg..'], { g: '#ffd23f' });
-    g.rowsM(4, 21, ['...cc', '..ccc', '.cccC', 'ccccC', 'cccC.', 'ccC..'], { c: COAT[3], C: COAT[1] });
-    // ears
-    for (const ex of [7.5, 23.5]) { g.ell(ex, 8.6, 3.3, 3.3, FUR); g.ell(ex, 9, 1.7, 1.7, MASK); }
-    // head + cheek fluff
-    g.ell(15.5, 17.2, 10.2, 7.6, FUR);
-    g.ell(6.2, 20.6, 3, 2, FUR, { rot: 0.4 });
-    g.ell(24.8, 20.6, 3, 2, FUR, { rot: -0.4 });
-    g.rowsM(2, 21, ['ww.', '.ww'], { w: WH[1] });
-    // nose bridge stripe
-    g.rect(15, 10, 2, 6, FUR[1]);
-    // white brows
-    g.ell(11, 12.8, 3.4, 1.3, WH);
-    g.ell(20, 12.8, 3.4, 1.3, WH);
-    // bandit mask
-    g.ell(10.6, 16.2, 4.8, 2.5, MASK, { rot: 0.25 });
-    g.ell(20.4, 16.2, 4.8, 2.5, MASK, { rot: -0.25 });
-    // muzzle + nose
-    g.ell(15.5, 21.2, 5, 3, WH);
-    g.rows(14, 19, ['hnnn', '.nn.'], { n: '#141218', h: '#5a5a62' });
-    // shifty eyes (glancing right)
-    if (f.blink) g.rowsM(8, 16, ['llll'], { l: '#8a8a94' });
-    else {
-      g.rows(8, 15, ['.www', 'wwkk'], { w: '#f4f0e8', k: '#141218' });
-      g.rows(19, 15, ['.www', 'wwkk'], { w: '#f4f0e8', k: '#141218' });
-    }
-    // smirk + gold tooth + toothpick
-    if (f.talk) g.rows(12, 21, ['......k', 'kkkkkk.', 'kwgwwk.', '.kmmk..'], { k: '#2a2430', w: '#ffffff', g: '#ffd23f', m: '#5a1e22' });
-    else g.rows(12, 21, ['......k', 'k....k.', '.kkkk..', '...g...'], { k: '#2a2430', g: '#ffd23f' });
-    g.line(19, 23, 24, 21, '#dcaa6a');
-    g.set(24, 21, '#f0cf98');
-    // flat cap (tweed)
-    const tweed = (x, y, nx, ny) => {
-      const c = sph(TW, x, y, nx, ny);
-      return x % 3 === 0 || y % 3 === 1 ? TW[Math.max(0, TW.indexOf(c) - 1)] : c;
-    };
-    g.ell(15.2, 9.8, 9.8, 4.8, tweed, { clip: (x, y) => y <= 9 });
-    g.ell(13.8, 10.6, 8.8, 1.7, (x, y) => (y <= 10 ? TW[2] : TW[1]));
-    g.set(15, 5, TW[0]); g.set(16, 5, TW[0]);
-    g.tint(7, 12, 18, 1, (c) => (FUR.includes(c) ? FUR[1] : WH.includes(c) ? WH[0] : undefined));
-  },
-
-  // ------------------------------------------------------------ Grandpa Shellby: old snapping turtle, mossy shell, tea
-  shellby(g, f) {
-    const SK = ['#2e2c1a', '#4a472a', '#6a663e', '#8a8454', '#aaa270'];
-    const SH = ['#1f1a10', '#3a3018', '#544628', '#6e5c34'];
-    const MOSS = ['#26422a', '#345a34', '#4c7a40', '#6e9c52', '#9cc070'];
-    const BEAK = ['#3a2c1a', '#6e5a3a', '#b49c70', '#d8c49a'];
-    const BROW = ['#b4b0a4', '#dcd8cc', '#f8f6ee'];
-    // mossy shell
-    g.ell(15.5, 32.5, 16.6, 11.8, (x, y, nx, ny) => {
-      const c = sph(SH, x, y, nx, ny);
-      const mossy = y < 25.5 - Math.abs(nx) * 3 + (bay(x + 2, y) - 0.5) * 2.2;
-      if (mossy) return sph(MOSS, x, y, nx, ny, 0.12);
-      return c;
-    });
-    // scute seams
-    g.line(8, 31, 9, 25, SH[0]); g.line(23, 31, 22, 25, SH[0]);
-    g.line(2, 28, 8, 28, SH[0]); g.line(23, 28, 29, 28, SH[0]);
-    g.rows(4, 19, ['.g.', 'gGg', '.k.'], { g: '#7cbe46', G: '#c2e274', k: '#46963c' });
-    g.rows(26, 22, ['r', 'm'], { r: '#d9453b', m: '#f4f0e4' });
-    // wrinkly neck
-    g.rect(10, 18, 12, 8, (x, y) => (y % 2 === 0 && x > 10 && x < 21 ? SK[1] : SK[2]));
-    // head
-    g.ell(15.5, 13.6, 8.6, 7.4, SK);
-    for (const [x, y] of [[10, 9], [20, 8], [12, 7], [22, 11], [9, 13]]) g.set(x, y, SK[1]);
-    // eyes + heavy lids + bags
-    g.rowsM(10, 11, ['.rr.', 'r..r', 'r..r', '.rr.'], { r: '#b8ae78' });
-    if (f.blink) g.rowsM(11, 13, ['kk'], { k: SK[0] });
-    else {
-      g.rowsM(11, 12, ['wk', 'kk'], { w: '#ffffff', k: '#16140e' }, { w: '#16140e', k: '#16140e' });
-      g.set(20, 12, '#ffffff');
-    }
-    g.rowsM(10, 15, ['.ll.'], { l: SK[1] });
-    // bushy white eyebrows drooping outward
-    g.rowsM(6, 9, ['...WWWW', '.WWWWWw', 'wWw....', 'w......'], { W: BROW[2], w: BROW[0] });
-    g.rowsM(9, 10, ['..WW'], { W: BROW[1] });
-    // hooked beak
-    if (f.talk) g.rows(11, 16, ['.kBBBBBBk.', 'kBbbbbbbBk', 'kmmmmmmmmk', '.kmmttmmk.', '..kBbbBk..', '...kkkk...'], { B: BEAK[3], b: BEAK[2], k: BEAK[0], m: '#3a1414', t: '#a04848' });
-    else {
-      g.rows(11, 16, ['.kBBBBBBk.', 'kBbbbbbbBk', '.kbbbbbbk.', '..kbbbbk..', '...kbbk...', '....kk....'], { B: BEAK[3], b: BEAK[2], k: BEAK[0] });
-      g.rowsM(8, 17, ['kk.'], { k: SK[0] });
-    }
-    g.set(14, 17, BEAK[0]); g.set(17, 17, BEAK[0]);
-    // tea cup + saucer, held in a claw
-    g.rows(21, 24, ['.wwwwww..', 'wttttttw.', 'wWWWWWWwhh', '.wBBBBw..h', '..wwww.hh', '.ssssss..'], { w: '#e8e6dc', W: '#ffffff', t: '#a0521a', B: '#3c88d8', h: '#e8e6dc', s: '#cfd2de' });
-    g.rows(19, 26, ['ss', 'sc', 's.'], { s: SK[3], c: '#e8dcc0' });
-  },
-};
-// steam over the tea (drawn after the outline: soft, no ink)
-const POST = {
-  shellby(g, f) {
-    const st = f.talk ? [[23, 22], [24, 21], [24, 20], [25, 19]] : [[24, 22], [23, 21], [23, 20], [24, 19]];
-    for (const [x, y] of st) g.set(x, y, '#ffffffb0');
-    g.set(f.talk ? 26 : 26, 21, '#ffffff70');
-  },
-};
-
 export const VILLAGERS = {
   dale: { name: 'Dale', title: 'Daisy Beer guy', bg: ['#9fd0e8', '#c4e6f4'], pitch: 0.92, shop: 'Stuff in the cooler', gift: ['#f2c83c', '#3e9e52'] },
   granny: { name: 'Granny Ribbit', title: 'Swamp herbalist', bg: ['#8fb87a', '#b8d8a0'], pitch: 1.25, shop: "Granny's remedies", gift: ['#a092e0', '#f08aa8'] },
   hoot: { name: 'Professor Hoot', title: 'Park ranger', bg: ['#d8b878', '#ecd8a8'], pitch: 0.8, shop: 'Ranger services', gift: ['#869034', '#ffd23f'] },
   rocco: { name: 'Rocco', title: 'Totally legit merchant', bg: ['#4a4068', '#6a5a8a'], pitch: 1.08, shop: 'Totally legit goods', gift: ['#2e2a36', '#ffd23f'] },
   shellby: { name: 'Grandpa Shellby', title: 'Oldest pond resident', bg: ['#7cc2ee', '#b0e0f8'], pitch: 0.7, shop: 'Old treasures', gift: ['#3c88d8', '#d9453b'] },
+  clover: { name: 'Clover', title: 'Gardener next door', bg: ['#a8d88a', '#d4f0b8'], pitch: 1.3, shop: 'From the garden', gift: ['#f08a1a', '#6cc04a'] },
+  otis: { name: 'Otis', title: 'Fisherman', bg: ['#7cbce0', '#b8e0f4'], pitch: 1.0, shop: 'Off the dock', gift: ['#3c88d8', '#ffd23f'] },
+  hazel: { name: 'Hazel', title: 'Baker', bg: ['#f0c8a0', '#fbe6cc'], pitch: 1.2, shop: 'Fresh from the oven', gift: ['#e04a64', '#fff3d8'] },
+  chip: { name: 'Chip', title: 'Carpenter', bg: ['#d8b07a', '#f0d8a8'], pitch: 1.35, shop: 'The workshop', gift: ['#c8402a', '#d8b07a'] },
+  pip: { name: 'Pip', title: 'Lumber trader', bg: ['#e8b878', '#f8e0b0'], pitch: 1.4, shop: 'Lumber counter', gift: ['#c8402a', '#3a2a1a'] },
 };
-export const VILLAGER_IDS = Object.keys(PORTRAIT);
+export const VILLAGER_IDS = Object.keys(VILLAGERS);
 
-const porCache = new Map();
-function portraitArt(npc, frame) {
-  const id = PORTRAIT[npc] ? npc : 'dale';
-  const key = id + frame;
-  if (porCache.has(key)) return porCache.get(key);
-  const g = new Art(32, 32);
-  const f = { talk: frame === 1, blink: frame === 2 };
-  PORTRAIT[id](g, f);
-  g.outline('#1c0f0a', 0.74, true);
-  POST[id]?.(g, f);
-  const c = g.canvas(1);
-  porCache.set(key, c);
-  return c;
-}
-function scaledCanvas(src, scale, cls) {
+// [v19 npc] portraits are the neighbours' real 3D rigs (NpcTalk3D); the old 2D bust art is gone.
+// villagerPortrait() is kept for callers that want a still: one outlined 3D render, ~12 px per `scale`.
+export function villagerPortrait(npc, { scale = 3 } = {}) {
+  const s = Math.max(1, Math.round(scale));
+  const src = npcSnapshot(npc, { w: 36, h: 36 });
   const c = document.createElement('canvas');
-  c.width = src.width * scale; c.height = src.height * scale;
-  const x = c.getContext('2d');
-  x.imageSmoothingEnabled = false;
-  x.drawImage(src, 0, 0, c.width, c.height);
-  if (cls) c.className = cls;
-  return c;
-}
-export function villagerPortrait(npc, { scale = 3, frame = 0 } = {}) {
-  const c = scaledCanvas(portraitArt(npc, clamp(frame | 0, 0, 2)), Math.max(1, Math.round(scale)));
+  c.width = 36 * s; c.height = 36 * s;
+  if (src) { const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(src, 0, 0, c.width, c.height); }
   c.style.imageRendering = 'pixelated';
   return c;
 }
@@ -595,7 +302,7 @@ export function openVillager(root, o = {}) {
   const icon = (n, s = 2) => { try { return typeof o.icon === 'function' ? String(o.icon(n, s) || '') : ''; } catch { return ''; } };
   const sfx = (n, x) => { try { if (typeof o.sfx === 'function') o.sfx(n, x); } catch { /* audio optional */ } };
   const R = Math.random;
-  const rot = (R() < 0.5 ? -1 : 1) * (0.6 + R() * 0.9);
+  const rot = 0; // [v19 npc] the sheet rests square: a rotated sheet resamples the text + portrait (blurry)
   root = root || document.body;
 
   const ov = document.createElement('div');
@@ -608,7 +315,7 @@ export function openVillager(root, o = {}) {
         <button type="button" class="vc-x" aria-label="Close">${pxSVG(X_ROWS)}</button>
         <div class="vc-head">
           <div class="vc-photo" style="--pb1:${V.bg[0]};--pb2:${V.bg[1]}">
-            <canvas class="vc-por" width="32" height="32"></canvas>
+            <div class="vc-por"></div>
             ${tape('plain', -38, { cls: 'vc-ptape', w: 16 })}
           </div>
           <div class="vc-id">
@@ -622,6 +329,8 @@ export function openVillager(root, o = {}) {
           <div class="vc-text" aria-live="polite"></div>
           <i class="vc-more"></i>
         </div>
+        <div class="vc-chs" hidden></div>
+        <div class="vc-tops" hidden></div>
         <div class="vc-body">
           <div class="vc-offs"></div>
           <div class="vc-giftw"></div>
@@ -643,14 +352,10 @@ export function openVillager(root, o = {}) {
     frame: -1, mouthT: 0, mouth: false, blinkT: 0, nextBlink: 1.5 + R() * 2, talking: false,
     closed: false, raf: 0, last: 0, gift: null, giftOpened: false, offers: [],
   };
-  const pctx = por.getContext('2d');
-  const drawFrame = (f) => {
-    if (f === st.frame) return;
-    st.frame = f;
-    pctx.clearRect(0, 0, 32, 32);
-    pctx.drawImage(portraitArt(npc, f), 0, 0);
-  };
-  drawFrame(0);
+  // [v19 npc] live 3D portrait of the neighbour's own rig
+  let p3 = null;
+  try { p3 = createNpcTalk(por, { npc, frame: 'bust' }); } catch (e) { console.warn('villager portrait', e); }
+  if (!p3) { por.classList.add('vc-flat'); por.textContent = (o.name || V.name).slice(0, 1); }
 
   // ---------------------------------------------------------------- hearts
   const setHearts = (h) => {
@@ -686,6 +391,7 @@ export function openVillager(root, o = {}) {
     st.li = i;
     st.chars = buildText(talk, st.lines[i] || '', icon);
     st.shown = 0; st.revealed = 0; st.typed = !st.chars.length; st.prevCh = ' ';
+    try { p3?.talk(String(st.lines[i] || '').replace(/\{[^}]*\}|\*/g, '')); } catch { /* ignore */ }
     talkBox.classList.remove('vc-ready', 'vc-last');
     if (REDUCED()) { st.shown = st.chars.length; }
     kick();
@@ -747,6 +453,52 @@ export function openVillager(root, o = {}) {
     if (b && !b.contains(e.relatedTarget) && !b.classList.contains('vc-locked')) sfx('hover', { volume: 0.25 });
   });
 
+  // ---------------------------------------------------------------- [v19 npc] topics + choices
+  const tops = $('.vc-tops'), chs = $('.vc-chs');
+  st.topics = []; st.choices = [];
+  const setTopics = (list) => {
+    st.topics = Array.isArray(list) ? list : [];
+    tops.hidden = !st.topics.length;
+    tops.innerHTML = st.topics.map((t, i) => `<button type="button" class="vc-top${t.on ? ' is-on' : ''}${t.isNew ? ' is-new' : ''}${t.done ? ' is-done' : ''}" data-i="${i}" style="--d:${i * 40}ms">${esc(t.label)}${t.isNew ? '<i>NEW</i>' : ''}</button>`).join('');
+  };
+  tops.addEventListener('click', (e) => {
+    const b = e.target.closest('.vc-top');
+    if (!b) return;
+    e.stopPropagation();
+    const t = st.topics[+b.dataset.i];
+    if (!t) return;
+    sfx('page', { volume: 0.3, pitch: 1.2 });
+    tops.querySelectorAll('.vc-top').forEach((x) => x.classList.toggle('is-on', x === b));
+    b.classList.remove('is-new'); b.querySelector('i')?.remove();
+    try { o.onTopic?.(t.id, api); } catch (err) { console.error(err); }
+  });
+  const setChoices = (list) => {
+    st.choices = Array.isArray(list) ? list : [];
+    chs.hidden = !st.choices.length;
+    chs.innerHTML = st.choices.map((c, i) => `<button type="button" class="vc-chb" data-i="${i}" style="--d:${i * 70}ms"><b>${i + 1}</b><span>${esc(c.label)}</span>${c.hint ? `<small>${esc(c.hint)}</small>` : ''}</button>`).join('');
+    requestAnimationFrame(scrollHint);
+  };
+  chs.addEventListener('click', (e) => {
+    const b = e.target.closest('.vc-chb');
+    if (!b) return;
+    e.stopPropagation();
+    const c = st.choices[+b.dataset.i];
+    if (!c) return;
+    sfx('click');
+    setChoices([]);
+    try { c.onPick?.(c, api); } catch (err) { console.error(err); }
+  });
+  // a little paper tag under the hearts: "+1 friendship", "+20 coins"
+  const reward = (text) => {
+    const id = $('.vc-id');
+    const t = document.createElement('span');
+    t.className = 'vc-rew';
+    t.textContent = text;
+    id.appendChild(t);
+    anim(t, [{ transform: 'translateY(6px)', opacity: 0 }, { transform: 'none', opacity: 1, offset: 0.15 }, { transform: 'none', opacity: 1, offset: 0.8 }, { transform: 'translateY(-8px)', opacity: 0 }], { duration: REDUCED() ? 1600 : 2400, fill: 'forwards' });
+    setTimeout(() => t.remove(), 2500);
+  };
+
   // ---------------------------------------------------------------- gift
   const setGift = (g) => {
     st.gift = g || null;
@@ -763,7 +515,7 @@ export function openVillager(root, o = {}) {
         </button>
         <div class="vc-gt"><b>${esc(st.giftOpened ? 'Thank you, dear!' : g.label || 'A little something')}</b><small>${st.giftOpened ? 'Gift claimed' : ready ? 'Tap to open!' : 'Come back later'}</small></div>
       </div>`;
-    if (st.giftOpened) giftw.querySelector('.vc-gt b').textContent = { dale: 'Cheers, buddy!', granny: 'Enjoy, dearie!', hoot: 'Splendid!', rocco: "Don't tell nobody.", shellby: 'Heh. For you, sprout.' }[npc];
+    if (st.giftOpened) giftw.querySelector('.vc-gt b').textContent = { dale: 'Cheers, buddy!', granny: 'Enjoy, dearie!', hoot: 'Splendid!', rocco: "Don't tell nobody.", shellby: 'Heh. For you, sprout.', clover: 'Fresh from the garden!', otis: 'Straight off the dock!', hazel: 'Still warm, sweetie!', chip: 'Tok-tok! Enjoy!', pip: 'On the house, partner!' }[npc] || 'Thank you!';
   };
   giftw.addEventListener('click', async (e) => {
     const b = e.target.closest('.vc-gbox');
@@ -844,14 +596,8 @@ export function openVillager(root, o = {}) {
         talkBox.classList.toggle('vc-last', st.li >= st.lines.length - 1);
       }
     }
-    if (talking) {
-      st.mouthT -= dt;
-      if (st.mouthT <= 0) { st.mouth = !st.mouth; st.mouthT = 0.08 + R() * 0.07; }
-    } else st.mouth = false;
-    st.nextBlink -= dt;
-    if (st.nextBlink <= 0) { st.blinkT = 0.13; st.nextBlink = 2.2 + R() * 3.2; }
-    if (st.blinkT > 0) st.blinkT -= dt;
-    drawFrame(st.blinkT > 0 ? 2 : st.mouth ? 1 : 0);
+    if (!talking && st.typed) { if (st.wasTalking) p3?.stopTalk(); st.wasTalking = false; st.raf = 0; return; }
+    st.wasTalking = talking;
     st.raf = requestAnimationFrame(tick);
   }
 
@@ -862,8 +608,9 @@ export function openVillager(root, o = {}) {
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); api.close(); return; }
+      if (/^[1-3]$/.test(e.key) && st.choices?.length) { const b = chs.querySelector(`.vc-chb[data-i="${+e.key - 1}"]`); if (b) { e.preventDefault(); b.click(); return; } }
       if (e.key === ' ' || e.key === 'Enter') {
-        if (t && t.closest && t.closest('.vc-off,.vc-gbox,.vc-x')) return;
+        if (t && t.closest && t.closest('.vc-off,.vc-gbox,.vc-x,.vc-top,.vc-chb')) return;
         e.preventDefault();
         advance();
       }
@@ -913,16 +660,24 @@ export function openVillager(root, o = {}) {
       anim(dim, [{ opacity: 1 }, { opacity: 0 }], { duration: 380, fill: 'forwards' });
       fin(a, 420).then(() => {
         ro?.disconnect();
+        try { p3?.dispose(); } catch { /* ignore */ }
         ov.remove();
         try { o.onClose?.(); } catch (err) { console.error(err); }
       });
     },
     setLines(lines) { if (!st.closed) setLines(lines); },
+    setTopics(list) { if (!st.closed) setTopics(list); },
+    setChoices(list) { if (!st.closed) setChoices(list); },
+    reward(text) { if (!st.closed) reward(text); },
+    get portrait() { return p3; },
+    get closed() { return st.closed; },
     update(p = {}) {
       if (st.closed) return;
       if ('offers' in p) setOffers(p.offers);
       if ('gift' in p) { if (p.gift && p.gift.ready) st.giftOpened = false; setGift(p.gift); }
       if ('hearts' in p) setHearts(p.hearts);
+      if ('topics' in p) setTopics(p.topics);
+      if ('choices' in p) setChoices(p.choices);
       if ('lines' in p) setLines(p.lines);
       requestAnimationFrame(scrollHint);
     },
@@ -932,6 +687,8 @@ export function openVillager(root, o = {}) {
   setHearts(o.hearts);
   setOffers(o.offers);
   setGift(o.gift);
+  setTopics(o.topics);
+  setChoices(o.choices);
   retex();
   ro?.observe(sheet);
   ro?.observe(offs);

@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { STRUCTURES } from '../data/structures.js';
 import { HUT } from '../world/worldgen.js';
+import { BuildMove } from './BuildMove.js'; // [v19 buildings]
 
 const TAP_DIST = 8;
 
@@ -16,6 +17,7 @@ export class Input {
     this.pinch = null;
     this.hover = null;
     this.lastHoverTile = null;
+    game.buildMove = new BuildMove(game); // [v19 buildings] tap card, hold-to-move, tree-by-tree destroy
     canvas.addEventListener('pointerdown', (e) => this.onDown(e));
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
@@ -88,7 +90,9 @@ export class Input {
     this.canvas.setPointerCapture?.(e.pointerId);
     const p = this.local(e);
     this.pointers.set(e.pointerId, { x: p.x, y: p.y, sx: p.x, sy: p.y, t: performance.now(), button: e.button, type: e.pointerType });
+    const bm = this.game.buildMove; // [v19 buildings]
     if (this.pointers.size === 2) {
+      bm.pressCancel(); if (bm.moving?.held) bm.cancelMove(); // [v19 buildings]
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
       if (this.drag?.terra) this.game.terraform?.strokeEnd(true);
@@ -96,9 +100,17 @@ export class Input {
       this.game.ghostLine = null;
       return;
     }
+    // [v19 buildings] moving a build (from its card): right-click cancels, a tap drops it, a drag pans
+    if (bm.moving && !bm.moving.held) { if (e.button === 2) { bm.cancelMove(); return; } this.drag = { mode: 'maybe', x: p.x, y: p.y }; return; }
     if (e.button === 1 || e.button === 2) { this.drag = { mode: 'pan', x: p.x, y: p.y }; return; }
     // a talking bubble is waiting: a tap advances it, a drag still moves the camera
     if (this.game.ui?.bubbleWaiting?.()) { this.drag = { mode: 'maybe', x: p.x, y: p.y, bubble: true }; return; }
+    // [v19 buildings] press & hold a build (any tool) to pick it up
+    if (e.button === 0 && this.tool().kind !== 'terraform') {
+      const ht = this.pickTile(p.x, p.y);
+      const hs = this.game.grid.inb(ht.x, ht.z) ? this.game.structures.structureAtTile(ht.x, ht.z) : null;
+      if (hs) bm.pressStart(hs, p.x, p.y, e.pointerId);
+    }
     const tk = this.tool().kind;
     if (tk === 'hand' || tk === 'nurture') {
       const f = this.game.ui?.pickFish(p.x, p.y, 34);
@@ -140,6 +152,9 @@ export class Input {
       this.pinch.d = d; this.pinch.mx = mx; this.pinch.my = my;
       return;
     }
+    const bm = this.game.buildMove; // [v19 buildings]
+    if (bm.hold && Math.hypot(p.x - ptr.sx, p.y - ptr.sy) > TAP_DIST) bm.pressCancel();
+    if (this.drag?.mode === 'move') { bm.aim(p.x, p.y); return; }
     if (!this.drag) return;
     if (this.drag.mode === 'grab') { this.moveGrab(p); return; }
     if (this.drag.mode === 'pet') { this.drag.x = p.x; this.drag.y = p.y; return; }
@@ -176,6 +191,8 @@ export class Input {
     if (this.pinch) { if (this.pointers.size < 2) this.pinch = null; this.drag = null; return; }
     const drag = this.drag;
     this.drag = null;
+    this.game.buildMove.pressCancel(); // [v19 buildings]
+    if (drag && drag.mode === 'move') { if (cancel) this.game.buildMove.cancelMove(); else this.game.buildMove.drop(); return; }
     if (drag && drag.mode === 'grab') { this.dropFish(drag, this.local(e)); return; }
     if (drag && drag.mode === 'pet') return;
     if (drag?.terra && (cancel || drag.mode !== 'line')) this.game.terraform?.strokeEnd(true);
@@ -245,6 +262,20 @@ export class Input {
 
   // continuous petting while the pointer is held on a fish
   update(dt) {
+    // [v19 buildings] a long press on a build lifts it
+    const bm = this.game.buildMove;
+    if (bm.hold) {
+      const dm = this.drag?.mode;
+      if (this.pinch || this.pointers.size !== 1 || dm === 'grab' || dm === 'pet' || dm === 'pan' || this.game.inputLocked) bm.pressCancel();
+      else if (bm.pressTick()) {
+        if (this.drag?.terra) this.game.terraform?.strokeEnd(true);
+        this.game.ghostLine = null;
+        this.drag = { mode: 'move' };
+        const ptr = [...this.pointers.values()][0];
+        if (ptr) bm.aim(ptr.x, ptr.y);
+      }
+    }
+    bm.update(dt);
     const d = this.drag;
     if (d && d.mode === 'pet') {
       const f = d.fish;
@@ -278,7 +309,7 @@ export class Input {
       const ui = this.game.ui;
       if (k === 'q') { this.game.rig.rotate(-1); this.game.rig.userCamT = performance.now(); }
       else if (k === 'e') { this.game.rig.rotate(1); this.game.rig.userCamT = performance.now(); }
-      else if (k === 'escape') { if (!ui?.closeTop()) this.game.setTool({ kind: 'feed' }); }
+      else if (k === 'escape') { if (this.game.buildMove.escape()) { /* [v19 buildings] */ } else if (!ui?.closeTop()) this.game.setTool({ kind: 'feed' }); }
       else if (k === ' ') { e.preventDefault(); ui?.togglePause(); }
       else if (k === '+' || k === '=') this.game.rig.zoom(0.8);
       else if (k === '-' || k === '_') this.game.rig.zoom(1.25);
@@ -310,17 +341,15 @@ export class Input {
     const t = this.pickTile(sx, sy);
     const tool = game.tool;
     const g = game.grid;
+    const bm = game.buildMove; // [v19 buildings]
+    if (bm.moving) { bm.drop(sx, sy); return; }
+    const hadCard = bm.closeCard();
     if (!g.inb(t.x, t.z)) return;
     if (tool.kind === 'build') { game.placeStructure(tool.type, t.x, t.z, { free: !!tool.free }); return; }
     if (tool.kind === 'dig') { game.dig(t.x, t.z); return; }
-    if (tool.kind === 'clear') {
-      // a single tap on one of your builds knocks it down too (half refund); drags only clear nature
-      const st = game.structures.structureAtTile(t.x, t.z);
-      if (st && !st.def.landmark) { game.demolishAt(t.x, t.z); return; }
-      game.clearAt(t.x, t.z);
-      return;
-    }
-    if (tool.kind === 'remove') { game.demolishAt(t.x, t.z); return; }
+    // [v19 buildings] a tap never deletes a build: it opens its card; trees get picked one by one
+    if (tool.kind === 'clear') { bm.tapClear(t.x, t.z); return; }
+    if (tool.kind === 'remove') { const st = game.structures.structureAtTile(t.x, t.z); if (st) bm.openCard(st); else game.demolishAt(t.x, t.z); return; }
     if (tool.kind === 'land') {
       const [px, pz] = game.land.plotOf(t.x, t.z);
       const I = game.land.info(px, pz);
@@ -380,7 +409,7 @@ export class Input {
       game.feedAt(w.x, w.z);
       return;
     }
-    if (s) { game.ui?.showStructureInfo(s); return; }
+    if (s) { if (!hadCard || bm.lastCardS !== s) bm.openCard(s); return; } // [v19 buildings] move · store · sell · info
     const fish = game.ui?.pickFish(sx, sy);
     if (fish) game.ui.showFishInfo(fish);
   }
@@ -416,16 +445,24 @@ export class Input {
     const tiles = drag.rect ? this.rectTiles(drag.start, drag.end) : drag.paint ? drag.path.slice(0, 80) : this.lineTiles(drag.start, drag.end);
     game.ghostLine = null;
     if (drag.terra) { game.terraform?.strokeEnd(drag.moved); return; }
-    if (game.tool.kind === 'remove') { for (const t of tiles) game.demolishAt(t.x, t.z); return; }
+    // [v19 buildings] taps never delete builds: a tap opens the build's card, drags only clear nature
+    const bm = game.buildMove;
+    if (game.tool.kind === 'remove') {
+      const st0 = tiles.length === 1 ? game.structures.structureAtTile(tiles[0].x, tiles[0].z) : null;
+      if (st0) { bm.openCard(st0); return; }
+      bm.closeCard();
+      for (const t of tiles) if (!game.structures.structureAtTile(t.x, t.z)) game.demolishAt(t.x, t.z);
+      return;
+    }
     const tool = game.tool;
     if (tool.kind === 'clear') {
       if (tiles.length === 1) {
-        // a single tap on one of your builds knocks it down too (half refund); drags only clear nature
-        const st = game.structures.structureAtTile(tiles[0].x, tiles[0].z);
-        if (st && !st.def.landmark) { game.demolishAt(tiles[0].x, tiles[0].z); return; }
-        game.clearAt(tiles[0].x, tiles[0].z);
+        // tap tree after tree: each tap adds it to (or takes it out of) the unpaid pick list
+        bm.closeCard();
+        bm.tapClear(tiles[0].x, tiles[0].z);
         return;
       }
+      bm.closeCard();
       // queue outward from your land so the inside of a deep box joins up too
       let n = 0;
       const before = new Set(game.beavers.clears.keys());
@@ -439,8 +476,7 @@ export class Input {
         game.audio.play('paper', { volume: 0.3 });
         // pay the crew right there for this chunk (a little contract pops up)
         const fresh = [...game.beavers.clears.keys()].filter((k) => !before.has(k));
-        const cx = (drag.start.x + drag.end.x) / 2 + 0.5, cz = (drag.start.z + drag.end.z) / 2 + 0.5;
-        game.ui?.beaverContract?.({ tiles: fresh, x: cx, z: cz });
+        bm.reContract([...(game.ui?.contract?.tiles || []), ...fresh]); // [v19 buildings] joins earlier taps, hangs below the picks
         game.emit('clearArea', { n });
       }
       else game.notify('Nothing to clear there (or it\'s too far from your land).', 'no');

@@ -166,7 +166,7 @@ export class Blueprint {
       return;
     }
     if (this.tab === 'clear' || this.tab === 'dig' || this.tab === 'remove') {
-      const info = { clear: ['tree', 'Drag over trees, rocks & weeds'], dig: ['shovel', `Drag to dig  ${this.tico('coin', 1)}${game.digCost()}`], remove: ['trash', 'Tap a build to remove'] }[this.tab];
+      const info = { clear: ['tree', 'Tap trees one by one, or drag a box'], dig: ['shovel', `Drag to dig  ${this.tico('coin', 1)}${game.digCost()}`], remove: ['trash', 'Tap a build: move · store · sell. Hold to drag it'] }[this.tab]; // [v19 buildings]
       box.innerHTML = `<div class="bp-mode">${this.tico(info[0], 3)}<span>${info[1]}</span>${this.tab === 'clear' ? `<span class="bp-sub">${this.tico('beaver', 1)} ×${game.beavers.count()} &nbsp; ${this.tico('berry', 1)} = pay</span>` : ''}</div>`;
       this.selectTabTool();
       return;

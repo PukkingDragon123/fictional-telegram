@@ -7,6 +7,7 @@ import { ZONES } from '../data/zones.js';
 import { STRUCTURES } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { rollGenes } from './genes.js';
+import { NpcDialogue } from './NpcDialogue.js'; // [v19 npc]
 
 const c3 = import.meta.glob('../entities/critters3d.js', { eager: true });
 const C3 = c3['../entities/critters3d.js'] || {};
@@ -55,6 +56,7 @@ export class Villagers {
     this.game = game;
     this.group = new THREE.Group();
     game.scene.add(this.group);
+    this.talk = new NpcDialogue(game); // [v19 npc] topics + choices + friendship
     this.list = ZONES.map((Z) => ({ zone: Z, id: Z.npc.id, name: Z.npc.name, x: Z.npc.x, z: Z.npc.z, y: 0, rig: null, props: null, t: 4 + Math.random() * 6, cast: CAST[Z.npc.id] || {} }));
   }
 
@@ -186,10 +188,7 @@ export class Villagers {
     st.met = true;
   }
 
-  vstate(v) {
-    const S = (this.game.state.villagers ||= {});
-    return (S[v.id] ||= { hearts: 0, giftDay: 0, met: false });
-  }
+  vstate(v) { return this.talk.state(v); } // [v19 npc] friendship 0..10 (hearts = friend / 2)
 
   giftReady(v) { return this.vstate(v).giftDay !== this.game.state.day; }
 
@@ -198,42 +197,35 @@ export class Villagers {
     const game = this.game;
     // [npc cutscenes] the first tap plays a short welcome scene, then comes back here
     if (game.npcScenes?.firstVisit?.(v)) return;
-    // Pip: the lumber counter
-    if (v.id === 'pip' && game.pipVisit) {
-      if (this.giftReady(v)) this.claimGift(v);
-      v.rig?.play?.('wave', { loop: false, onDone: () => this.idle(v) });
-      this.sayLine(v, pick(['Got logs? I got coins!', 'Step right up, partner!', 'Fresh price today!']), { dur: 2 });
-      setTimeout(() => game.pipVisit.openTrade(), 600);
-      return;
-    }
-    // Chip talks, then shows you his workshop
-    if (v.id === 'chip' && game.workshop) {
-      if (this.giftReady(v)) this.claimGift(v);
-      v.rig?.play?.('wave', { loop: false, onDone: () => this.idle(v) });
-      this.sayLine(v, pick(['Tok-tok! Come in, come in!', 'What are we building today?', 'Fresh sawdust, just for you!']), { dur: 2.2 });
-      setTimeout(() => game.workshop.open(), 700);
-      return;
-    }
+    // [v19 npc] Pip and Chip get the same chat card; their counter / workshop is the first offer
     const ui = game.ui;
     const st = this.vstate(v);
     const Z = v.zone;
     const VC = ui?.comp?.('VillagerCard');
     v.rig?.play?.('wave', { loop: false, onDone: () => this.idle(v) });
     game.audio.play('pop_in', { volume: 0.4 });
-    const lines = [pick(Z.lines), ...(v.id === 'hoot' ? [`Bird log: ${(game.state.birdsSpotted || []).length} species. Tap birds to spot them!`] : []), ...(this.giftReady(v) ? ['Got a little something for you today!'] : [])];
+    const greet = { pip: ['Step right up, partner!', 'Fresh price today!'], chip: ['Tok-tok! Come in, come in!', 'What are we building today?'] }[v.id];
+    const lines = [pick(greet || Z.lines), ...(v.id === 'hoot' ? [`Bird log: ${(game.state.birdsSpotted || []).length} species. Tap birds to spot them!`] : []), ...(this.giftReady(v) ? ['Got a little something for you today!'] : [])];
     if (!VC?.openVillager) {
       this.sayLine(v, lines[0], { dur: 3 });
       if (this.giftReady(v)) this.claimGift(v);
       return;
     }
     const offers = Z.unlocks.map((u) => ({ icon: u.icon, title: u.title, desc: this.unlockDesc(u), tag: 'UNLOCKED' }));
+    // [v19 npc] the shop panels open from the card
+    const panel = (fn) => () => { this.card?.close?.(); setTimeout(fn, 380); };
+    if (v.id === 'pip' && game.pipVisit) offers.unshift({ icon: 'tree', title: 'Sell logs', desc: `Today: ${game.pipVisit.price?.() ?? '?'} coins a log`, tag: 'OPEN', onClick: panel(() => game.pipVisit.openTrade()) });
+    if (v.id === 'chip' && game.workshop) offers.unshift({ icon: 'hammer', title: 'Open the workshop', desc: 'Furniture orders and repairs', tag: 'OPEN', onClick: panel(() => game.workshop.open()) });
     if (this.card) this.card.close?.();
-    this.card = VC.openVillager(ui.root, {
+    const talk = this.talk;
+    let card = null;
+    this.card = card = VC.openVillager(ui.root, {
       npc: v.id, name: v.name, title: Z.npc.title, lines, offers, hearts: st.hearts,
+      topics: talk.topics(v), onTopic: (id, card) => talk.showTopic(v, id, card),
       gift: { ready: this.giftReady(v), label: this.giftLabel(v), onClaim: () => this.claimGift(v) },
       sfx: (n, o) => game.audio.play(n, { volume: 0.35, ...(o || {}) }),
       icon: (n, sc) => ui.icon?.(n, sc) || '',
-      onClose: () => { this.card = null; },
+      onClose: () => { if (this.card === card) this.card = null; }, // [v19 npc] a late close must not drop the next card
     });
     v.rig?.play?.('talk', { loop: true });
     setTimeout(() => this.idle(v), 3500);
@@ -263,7 +255,8 @@ export class Villagers {
     const st = this.vstate(v);
     const G = v.zone.gift;
     st.giftDay = game.state.day;
-    st.hearts = Math.min(5, st.hearts + 1);
+    this.talk.addFriend(v, 1); // [v19 npc]
+    this.card?.update?.({ hearts: st.hearts });
     game.earnMisc(G.coins, 'gifts');
     if (G.wood) { game.state.wood = (game.state.wood || 0) + G.wood; game.emit('wood', game.state.wood); }
     if (G.items?.length) {

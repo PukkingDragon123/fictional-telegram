@@ -3,7 +3,7 @@
 //   playEggHatch(root, eggs, opts) -> Promise<void>
 //
 // Also home of the small kit shared by the other ceremony screens
-// (FinanceSheet.js, Overnight.js): frames, input, timeline, pixel particles,
+// (FinanceSheet.js): frames, input, timeline, pixel particles,
 // pixel glyphs and the fallback egg / fish drawings.
 import './ceremony.css';
 import { hasSprite, spriteCanvas, spriteImg } from './sprites.js';

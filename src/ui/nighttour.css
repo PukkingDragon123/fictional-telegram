@@ -1,0 +1,33 @@
+/* [v19 overnight] night tour: pixel labels over the world + the sunrise tally */
+.nt-layer { position: fixed; inset: 0; pointer-events: none; z-index: 72; overflow: hidden; }
+.nt-tag {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -100%);
+  display: flex; align-items: center; gap: 4px; padding: 1px 8px 1px 4px;
+  background: #fffbea; border: 2px solid #1a1420; box-shadow: 0 2px 0 #1a1420, inset 0 -3px 0 #d8d2c0;
+  font-family: var(--font2); font-size: 18px; color: #1a1420; white-space: nowrap;
+  animation: nt-pop .3s steps(4) both;
+}
+.nt-tag.gold { background: #fff2a0; box-shadow: 0 2px 0 #1a1420, inset 0 -3px 0 #e8b830; }
+.nt-tag b { font-weight: normal; }
+.nt-tag canvas { width: 20px; height: 20px; image-rendering: pixelated; }
+.nt-tag.out { animation: nt-out .3s steps(3) forwards; }
+@keyframes nt-pop { 0% { transform: translate(-50%, -100%) scale(.2); opacity: 0; } 60% { transform: translate(-50%, -100%) scale(1.15); opacity: 1; } 100% { transform: translate(-50%, -100%) scale(1); opacity: 1; } }
+@keyframes nt-out { to { transform: translate(-50%, -130%) scale(.9); opacity: 0; } }
+
+.nt-tally {
+  position: fixed; left: 50%; top: 22vh; z-index: 74; pointer-events: none;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 8px;
+  max-width: calc(100vw - 32px); box-sizing: border-box; padding: 4px 14px;
+  background: #ffe9b8; border: 3px solid #1a1420; box-shadow: 0 3px 0 #1a1420, inset 0 -4px 0 #f0b878;
+  font-family: var(--font2); font-size: 20px; color: #1a1420; white-space: nowrap;
+  transform: translateX(-50%); animation: nt-tally 4.2s steps(30) forwards;
+}
+.nt-tally span { display: inline-flex; align-items: center; gap: 4px; }
+.nt-tally canvas { width: 22px; height: 22px; image-rendering: pixelated; }
+.nt-tally i { font-style: normal; opacity: .55; }
+@keyframes nt-tally {
+  0% { opacity: 0; transform: translate(-50%, -12px); }
+  8%, 82% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -8px); }
+}
+@media (max-width: 560px) { .nt-tally { font-size: 16px; top: 18vh; } .nt-tag { font-size: 15px; } }

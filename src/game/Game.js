@@ -37,6 +37,7 @@ import { Harvest } from './Harvest.js';
 import { LandAnimals } from './LandAnimals.js';
 import { Land } from './Land.js';
 import { Cutscene } from './Cutscene.js';
+import { NightTour } from './NightTour.js'; // [v19 overnight] the night shown in-world (no summary card)
 import { Quests } from './Quests.js';
 import { Matchmaking } from './Matchmaking.js';
 import { Workshop } from './Workshop.js';
@@ -788,35 +789,18 @@ export class Game {
     }
     st.hour = 1.5; // deep night: moon, fireflies, the office lights far away
     this.fox.rig.root.visible = false;
-    this.simulateOvernight();
+    // [v19 overnight] plan the night, then let the camera watch it happen (skippable;
+    // no tour at all when nothing happened). No autosave mid-tour: held-back changes.
+    const tour = (this.nightTour ||= new NightTour(this));
+    this.saveT = -120;
+    this.simulateOvernight(120, { tour: true });
     this.overnight.simulated = true;
-    const ev = this.overnight.events;
-    const shots = this.nightShots(ev);
-    const reveal = bed?.reveal?.({ dur: 1.4 });
+    const reveal = bed?.reveal?.({ dur: tour.events.length ? 1.4 : 0.6 });
     this.sky.moonlit = 1;
-    try { await this.cutscene.play({ shots }); } finally { this.sky.moonlit = 0; }
+    try { await tour.play(); } finally { this.sky.moonlit = 0; this.saveT = 0; }
     await reveal;
     st.hour = 5.8;
     this.startDawn();
-  }
-
-  // the camera tour: wide moonlit pond, then each overnight event, then the hut
-  nightShots(ev) {
-    const c = { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 };
-    const y0 = WATER_Y + 0.3;
-    const flies = (n = 26) => { for (let i = 0; i < n; i++) this.particles.firefly(c.x + (Math.random() - 0.5) * 16, y0 + Math.random() * 1.4, c.z + (Math.random() - 0.5) * 12); };
-    const shots = [
-      { at: c, wupp: 0.07, yaw: 0.9, cut: true, dur: 1.2, caption: 'Meanwhile, at the pond...', sub: 'Reynard snores. The pond does not sleep.', call: () => flies(30) },
-      { at: { x: c.x + 2, z: c.z + 1 }, wupp: 0.05, yaw: 0.3, dur: 3.4, ease: 'linear', call: () => { flies(20); this.audio.play('loon', { volume: 0.3 }); } },
-    ];
-    let k = 0;
-    for (const e of ev.slice(0, 6)) {
-      k++;
-      shots.push({ at: { x: e.x, z: e.z }, wupp: e.zoom || 0.028, yaw: k % 2 ? 0.55 : -0.15, dur: 3, caption: e.title, sub: e.sub, call: e.fx });
-    }
-    if (!k) shots.push({ at: { x: c.x + 4, z: c.z + 2 }, wupp: 0.032, yaw: 0.2, dur: 3, caption: 'A quiet night', sub: 'Just fireflies and frogs.', call: () => flies(30) });
-    shots.push({ at: c, wupp: 0.075, yaw: 0.6, dur: 3, caption: 'Zzz...', sub: 'The sky turns pink. Morning is coming!', call: () => flies(16) });
-    return shots;
   }
 
   // skip the rest of the night quickly (tap)
@@ -825,74 +809,9 @@ export class Game {
   }
 
   // the pond keeps living while Reynard sleeps (~2 minutes of pond time)
-  simulateOvernight(T = 120) {
-    const on = this.overnight;
-    const mods = this.mods;
-    on.events ||= [];
-    const EV = on.events;
-    const ripeBefore = new Set(this.harvest.ripeList());
-    this.harvest.simulate(T);
-    const ripened = this.harvest.ripeList().filter((s) => !ripeBefore.has(s));
-    on.produced.crops = (on.produced.crops || 0) + ripened.length;
-    if (ripened.length) {
-      const s0 = ripened.find((s) => s.crop?.batch?.r >= 2) || ripened[0];
-      const name = STRUCTURES[s0.type]?.name || 'The garden';
-      EV.push({ x: s0.x + 0.5, z: s0.z + 0.5, title: ripened.length > 1 ? `${ripened.length} plants ripened!` : `${name} is ripe!`, sub: 'Harvest them in the morning.', fx: () => this.particles.sparkle(s0.x + 0.5, this.structures.baseY(s0) + 0.6, s0.z + 0.5, 14, 0xfff2a0) });
-    }
-    for (const s of this.structures.list) {
-      if (!s.built || !s.def.food) continue;
-      const before = s.stock;
-      s.stock = Math.min(s.def.food.max, s.stock + s.def.food.regen * mods.produceMult * T * (this.structures.sprinklerBoost?.(s) || 1));
-      const gain = Math.floor(s.stock) - Math.floor(before);
-      if (gain > 0) on.produced[s.def.food.kind] = (on.produced[s.def.food.kind] || 0) + gain;
-      this.structures.updateVisual(s);
-    }
-    // night breeding: well-fed couples lay a clutch
-    const fish = this.fish;
-    const room = () => fish.capacity() - fish.population();
-    const singles = fish.list.filter((f) => f.adult && f.fed >= 0.9 && !f.tank);
-    const used = new Set();
-    for (const a of singles) {
-      if (used.has(a) || room() <= 1) continue;
-      const b = singles.find((o) => o !== a && !used.has(o) && o.region === a.region && fish.compatible(a, o));
-      if (!b || Math.random() > 0.55) continue;
-      used.add(a); used.add(b);
-      fish.mate(a, b);
-      if (!EV.some((e) => e.kind === 'love')) {
-        const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
-        EV.push({ kind: 'love', x: mx, z: mz, title: 'Love under the moon ♥', sub: `${a.sp.name}s laid a clutch of eggs.`, fx: () => { this.particles.hearts(mx, WATER_Y + 0.4, mz, 8); this.particles.word('love', mx, WATER_Y + 0.8, mz, { size: 0.34 }); } });
-      }
-    }
-    // eggs in the pond hatch, fry grow
-    const before = new Set(fish.list);
-    // overnight the dads do their job and the eggs incubate; they still wait for your tap
-    for (const e of fish.eggs) {
-      if (e.stage === 'laid') fish.fertilize(e, null);
-      e.t = Math.max(0, (e.t || 0) - T);
-      if (e.t <= 0 && !e.ready) { e.ready = true; on.eggsReady = (on.eggsReady || 0) + 1; }
-    }
-    for (const f of fish.list) if (f.state === 'fertilize') { f.state = 'wander'; f.eggs = null; }
-    let grownFish = null;
-    for (const f of fish.list) {
-      if (!before.has(f)) on.hatched.push({ speciesId: f.sp.id, morph: f.g.morph, rarity: rarityOf(f.g.stars), name: f.sp.name });
-      if (!f.adult) {
-        f.age += T * f.sp.growth * mods.growthMult * 0.6;
-        if (f.age >= GROW_TIME) { f.adult = true; on.grew++; grownFish ||= f; }
-      }
-      f.hunger = Math.max(0.15, f.hunger - 0.1);
-    }
-    const readyEgg = fish.eggs.find((e) => e.ready && !e.tank);
-    if (readyEgg) EV.push({ x: readyEgg.x, z: readyEgg.z, title: `${on.eggsReady || 1} egg${(on.eggsReady || 1) > 1 ? 's' : ''} ready to hatch!`, sub: 'They glow in the dark. Tap them at sunrise!', fx: () => this.particles.sparkle(readyEgg.x, WATER_Y + 0.2, readyEgg.z, 16, 0xfff2a0) });
-    if (grownFish) EV.push({ x: grownFish.x, z: grownFish.z, title: on.grew > 1 ? `${on.grew} fry grew up!` : 'A fry grew up!', sub: `Look at that ${grownFish.sp.name} go.`, fx: () => this.particles.bubbles(grownFish.x, grownFish.y + 0.2, grownFish.z, 8) });
-    const beaver = this.beavers.list[0];
-    if (beaver) EV.push({ x: beaver.x, z: beaver.z, zoom: 0.016, title: 'The beavers sleep', sub: this.beavers.striking ? 'Dreaming of being paid...' : 'Dreaming of carrots.', fx: () => this.particles.zzz?.(beaver.x, beaver.y + 0.6, beaver.z) });
-    // a night visitor wanders in for the camera
-    const visitor = this.landAnimals.spawnNightVisitor?.();
-    if (visitor) EV.push({ x: visitor.x, z: visitor.z, zoom: 0.014, title: 'A night visitor!', sub: `${visitor.sp.name || 'Someone'} sniffs around the garden.` });
-    for (const e of this.state.eggTray) e.t = Math.max(0, e.t - T);
-    // the fox tops the pellet bag up overnight
-    const R = FOOD_ITEMS.pellets.refill;
-    if (this.foodStore.count('pellets') < R.upTo) this.foodStore.inv.pellets = R.upTo;
+  // [v19 overnight] see NightTour.js; { tour: true } holds back what the camera will show
+  simulateOvernight(T = 120, opts = {}) {
+    return (this.nightTour ||= new NightTour(this)).simulate(T, opts);
   }
 
   startDawn() {
@@ -903,22 +822,14 @@ export class Game {
     this.audio.play('sunrise', { volume: 0.5 });
     this.fox.rig.root.visible = true;
     this.fox.wakeUp?.();
+    this.nightTour?.showTally(); // [v19 overnight] "3 eggs hatched · 2 crops ripe", fades by itself
   }
 
+  // [v19 overnight] no summary card: the night tour already showed it; a short
+  // morning beat (corp clock clocks in on morning -> day), then the day starts
   finishDawn() {
-    const on = this.overnight || { produced: {}, hatched: [], grew: 0 };
-    const icons = { seaweed: 'seaweed', honey: 'honey', syrup: 'syrup', berries: 'berry', rice: 'wildrice', mushroom: 'mushroom', crops: 'harvest' };
-    const names = { seaweed: 'Seaweed', honey: 'Honey', syrup: 'Maple syrup', berries: 'Blueberries', rice: 'Wild rice', mushroom: 'Chanterelles', crops: 'Plants ready to harvest' };
-    const data = {
-      day: this.state.day, weekday: this.weekday(),
-      produced: Object.entries(on.produced).map(([k, n]) => ({ icon: icons[k] || 'sparkle', label: names[k] || k, amount: n })),
-      hatched: on.hatched.slice(0, 12), grew: on.grew,
-      quote: this.morningQuote(),
-    };
     this.state.phase = 'morning';
-    const go = () => this.startDay();
-    if (this.ui?.showOvernight) this.ui.showOvernight(data, go);
-    else go();
+    setTimeout(() => { if (this.state.phase === 'morning') this.startDay(); }, 500);
   }
 
   morningQuote() {

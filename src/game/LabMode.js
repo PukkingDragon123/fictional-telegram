@@ -23,7 +23,13 @@ const TREE_SFX = {
   // v18: paid rushes, section decrypting, poking the lab fox
   rush: ['whoosh', 0.35], rushnow: ['levelup', 0.45], decrypt: ['reveal_rare', 0.45], denied: ['error', 0.35],
   fox: ['fox_talk', 0.3], foxyay: ['fox_laugh', 0.3], beam: ['whoosh', 0.2],
+  // v19: the computer boots / powers off, holo blips, sector radar, glitchy filter switch
+  open: ['lab_boot', 0.45], off: ['lab_off', 0.4], sector: ['lab_scan', 0.35],
 };
+TREE_SFX.select = ['lab_blip', 0.3];
+TREE_SFX.filter = ['lab_glitch', 0.3];
+/** plays a LabTree sound name through the game's audio (shared with the toolbar lab, src/ui/UI.js) */
+export function labTreeSfx(game, n) { const m = TREE_SFX[n]; if (m) game.audio?.play?.(m[0], { volume: m[1] }); }
 
 const LINES = {
   wake: [
@@ -319,7 +325,7 @@ export class LabMode {
     this.q('opts')?.classList.add('hidden');
     this.q('say')?.classList.add('hidden');
     this.frame(this.lab.anchors.camScreen);
-    this.game.audio.play('crt_on', { volume: 0.4 });
+    // v19: the tree boots itself (lab_boot) and takes over the whole screen (body.lt-pc)
     this.standing = false;
     this.setBeams(true);
     this.fox?.play('sit_type', { loop: true });
@@ -334,10 +340,11 @@ export class LabMode {
 
   // research is free but timed: the tree starts jobs on the lab bench
   // (game.startResearch); older Game APIs fall back to instant research
-  makeTree(host) {
+  // v19: the toolbar Lab (src/ui/UI.js makeLabTree) builds its tree here too, with its own onClose
+  makeTree(host, onClose = null) {
     const game = this.game;
     const LT = LabTreeMod?.LabTree;
-    if (!LT) return this.game.ui?.makeLabTree?.(host, () => this.closeTree()) || null;
+    if (!LT) return onClose ? null : this.game.ui?.makeLabTree?.(host, () => this.closeTree()) || null;
     const fn = (name) => typeof game[name] === 'function';
     const opts = {
       research: RESEARCH,
@@ -354,8 +361,10 @@ export class LabMode {
       isZoneOpen: (z) => (fn('zoneOpen') ? game.zoneOpen(z) : (game.state.zones || []).includes(z)),
       icon: (n, s) => (n && hasSprite(n) ? spriteImg(n, s) : ''),
       fishCanvas: (sp, o) => fishCanvasFor(sp, o || {}),
-      sfx: (n) => { const m = TREE_SFX[n]; if (m) game.audio.play(m[0], { volume: m[1] }); },
-      onClose: () => this.closeTree(),
+      sfx: (n) => labTreeSfx(game, n),
+      // animated unlock previews (species: the fish swimming), same as the toolbar lab
+      preview: (d, cv, t) => !!game.ui?.labPreview?.(d, cv, t),
+      onClose: () => (onClose ? onClose() : this.closeTree()),
       coins: () => game.state.coins,
       speed: () => (fn('researchSpeed') ? game.researchSpeed() : 1),
     };
@@ -386,7 +395,6 @@ export class LabMode {
     this.q('tree')?.classList.add('hidden');
     if (this.state !== 'leaving') {
       this.q('opts')?.classList.remove('hidden');
-      this.game.audio.play('crt_off', { volume: 0.35 });
       this.standing = true;
       this.fox?.play('idle', { loop: true });
       this.frameFox();

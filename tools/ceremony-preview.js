@@ -1,6 +1,6 @@
-// Preview for the ceremony screens (src/ui/EggHatch.js, FinanceSheet.js, Overnight.js).
+// Preview for the ceremony screens (src/ui/EggHatch.js, FinanceSheet.js).
 // Open http://127.0.0.1:5173/tools/ceremony-preview.html
-// URL: ?run=egg:4 | eggs | ledger:good | ledger:bad | night   (auto-start)
+// URL: ?run=egg:4 | eggs | ledger:good | ledger:bad   (auto-start)
 // Console / Playwright: window.__run(name) -> Promise, window.__sfxLog
 import '@fontsource/pixelify-sans/latin-400.css';
 import '@fontsource/pixelify-sans/latin-700.css';
@@ -9,7 +9,6 @@ import { spriteImg } from '../src/ui/sprites.js';
 import { SPECIES_BY_ID, RARITIES, MORPHS, TRAITS } from '../src/data/species.js';
 import { playEggHatch, placeholderFishCanvas } from '../src/ui/EggHatch.js';
 import { showFinanceSheet } from '../src/ui/FinanceSheet.js';
-import { showOvernight } from '../src/ui/Overnight.js';
 
 // the real fish art when it exists, else a placeholder drawn from species colours
 const FISH_ART = import.meta.glob('../src/art/fishArt.js', { eager: true })['../src/art/fishArt.js'];
@@ -133,33 +132,6 @@ const REPORTS = {
   },
 };
 
-const NIGHTS = {
-  full: {
-    day: 5, weekday: 'Friday',
-    produced: [
-      { icon: 'honey', label: 'Honey', amount: 3 },
-      { icon: 'berry', label: 'Blueberries', amount: 7 },
-      { icon: 'syrup', label: 'Maple syrup', amount: 1 },
-      { icon: 'seaweed', label: 'Seaweed regrew', amount: 0 },
-    ],
-    hatched: [
-      { speciesId: 'bluegill', morph: 'normal', rarity: 0, name: 'Bluegill' },
-      { speciesId: 'perch', morph: 'normal', rarity: 1, name: 'Yellow Perch' },
-      { speciesId: 'rainbow', morph: 'albino', rarity: 2, name: 'Albino Rainbow' },
-      { speciesId: 'grayling', morph: 'normal', rarity: 3, name: 'Arctic Grayling' },
-    ],
-    grew: 4,
-    quote: 'Mmm... five more minutes... wait, is that the smell of MONEY? Up, up! The suits get hungry at five.',
-  },
-  quiet: {
-    day: 2, weekday: 'Tuesday',
-    produced: [{ icon: 'seaweed', label: 'Seaweed regrew', amount: 0 }],
-    hatched: [],
-    grew: 0,
-    quote: 'Not a single egg? Lazy fish. I pay them in food, you know.',
-  },
-};
-
 // ------------------------------------------------------------------ runner
 const root = document.getElementById('ui');
 const status = document.getElementById('status');
@@ -182,7 +154,6 @@ async function run(name) {
     if (kind === 'egg') await playEggHatch(root, [EGGS[+arg || 0]], opts());
     else if (kind === 'eggs') await playEggHatch(root, EGGS, opts());
     else if (kind === 'ledger') await showFinanceSheet(root, REPORTS[arg] || REPORTS.good, opts());
-    else if (kind === 'night') await showOvernight(root, NIGHTS[arg] || NIGHTS.full, opts());
   } catch (e) {
     console.error(e);
   }
@@ -193,7 +164,7 @@ async function run(name) {
   return `resolved ${dt}s`;
 }
 window.__run = (name) => run(name);
-window.__data = { EGGS, REPORTS, NIGHTS };
+window.__data = { EGGS, REPORTS };
 document.getElementById('panel').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-run]');
   if (b) run(b.dataset.run);

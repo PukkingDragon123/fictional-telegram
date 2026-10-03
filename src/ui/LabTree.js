@@ -227,6 +227,44 @@ const G_KEY = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.
 const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#04161c', g: '#5fd0f0', r: '#2c9cc8' }, 4, 'lt-g lt-sealg');
 const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#f4ecd2' }, 3, 'lt-g');
 
+const G_X = pixSVG(['k...k', '.k.k.', '..k..', '.k.k.', 'k...k'], { k: '#ffffff' }, 3, 'lt-g');
+
+// v19: the computer chrome (boot text, idle terminal chatter, side data streams)
+const BOOT_LINES = [
+  '<b>REYNARD-TEK</b> HOLO-BIOS 19.0 <em>(c) Evil Genius Industries</em>',
+  'R&amp;D-OS v19 booting...',
+  '<span class="ok">[ OK ]</span> quantum flask array',
+  '<span class="ok">[ OK ]</span> pond telemetry uplink',
+  '<span class="ok">[ OK ]</span> sector cipher daemon',
+  '<span class="wr">[WARN]</span> coffee reserves low',
+  '&gt; mounting research tree<i class="lt-bcur"></i>',
+];
+const IDLE_LOG = [
+  'scanning pond telemetry... 0 anomalies',
+  'cipher daemon idle. sectors standing by',
+  'coffee levels: CRITICAL',
+  'holo-projector calibrated',
+  'reticulating fish splines...',
+  'uplink to e-Buy: stable',
+  'beaver labour union: still not recognised',
+  'sweeping encrypted sectors...',
+  'quantum flask at 3.7 K',
+  'world domination plan: 2% complete',
+];
+const STREAMS = (() => {
+  const R = (() => { let a = 1234567; return () => ((a = (a * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); })();
+  const glyph = '01<>[]#=+*/ABCDEF0123456789';
+  let h = '';
+  for (let c = 0; c < 6; c++) {
+    let txt = '';
+    for (let i = 0; i < 40; i++) txt += glyph[Math.floor(R() * glyph.length)] + '\n';
+    txt += txt; // two copies: the column scrolls by half its height and loops seamlessly
+    h += `<i style="--x:${8 + c * 17 + Math.round(R() * 8)}%;--d:${(9 + R() * 9).toFixed(1)}s;--o:${(-R() * 9).toFixed(1)}s">${txt}</i>`;
+  }
+  return h;
+})();
+let PC_OPEN = 0; // trees on screen: the page body gets .lt-pc (the computer takes over)
+
 // ---------------------------------------------------------------- pipe router
 // Orthogonal routing on a half-cell grid: node (col,lane) sits at (2col+1,
 // 2lane+1); even coordinates are the lanes between columns / rows. Pipes may
@@ -439,6 +477,8 @@ export class LabTree {
 
     this._layout(opts);
     if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
+    // v19: just the computer: the game HUD steps aside while a tree is on screen
+    if (++PC_OPEN === 1) document.body.classList.add('lt-pc');
     this._buildDOM();
     this._buildTree();
     this._buildChips();
@@ -584,7 +624,26 @@ export class LabTree {
     this._ro?.disconnect();
     try { this.fox?.destroy(); } catch { /* ignore */ }
     this.fox = null;
+    this._powerOff();
     this.root.remove();
+    if (--PC_OPEN <= 0) { PC_OPEN = 0; document.body.classList.remove('lt-pc'); }
+  }
+
+  // v19: CRT power-off: a detached copy of the screen's outline collapses to a line, then a dot
+  // (lives on <body> for half a second, holds no tree markup, never takes input)
+  _powerOff() {
+    this._sfx('off');
+    if (REDUCED || !this.root.isConnected) return;
+    const r = (this.root.querySelector('.lt-screen') || this.root).getBoundingClientRect();
+    if (r.width < 40 || r.height < 40) return;
+    const el = document.createElement('div');
+    el.className = 'lt-crtoff';
+    el.setAttribute('aria-hidden', 'true');
+    el.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+    el.innerHTML = '<i></i>';
+    document.body.appendChild(el);
+    el.firstChild.addEventListener('animationend', () => el.remove());
+    setTimeout(() => el.remove(), 2500);
   }
 
   // ------------------------------------------------------------ helpers
@@ -748,14 +807,17 @@ export class LabTree {
         <div class="lt-screen">
           <header class="lt-head">
             ${FOX_LOGO}
-            <div class="lt-titles"><h1>Reynard Labs<span class="lt-ver">R&amp;D-OS v18</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
+            <div class="lt-titles"><h1><span class="lt-h1t" data-t="Reynard Labs">Reynard Labs</span><span class="lt-ver">R&amp;D-OS v19</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
             <div class="lt-coins" title="Your coins"${typeof this.o.coins === 'function' ? '' : ' hidden'}><span class="lt-coins-l">CREDITS</span><span class="lt-coins-v">${G_COIN}<b>0</b></span></div>
             <div class="lt-count" title="Researched"><span class="lt-count-t"></span><span class="lt-cbar"><i></i></span></div>
-            <button class="lt-close" type="button" aria-label="Close research (Esc)"><span>EXIT</span><kbd>ESC</kbd></button>
+            <button class="lt-close" type="button" aria-label="Close research (Esc)"><span class="lt-close-x">${G_X}</span><span>EXIT</span><kbd>ESC</kbd></button>
           </header>
           <nav class="lt-chips" aria-label="Branches"></nav>
           <div class="lt-body">
             <div class="lt-view" tabindex="0" aria-label="Research tree. Drag to pan, scroll or pinch to zoom.">
+              <div class="lt-par lt-par-a" aria-hidden="true"></div>
+              <div class="lt-par lt-par-b" aria-hidden="true"></div>
+              <div class="lt-streams" aria-hidden="true">${STREAMS}</div>
               <div class="lt-world"></div>
               <div class="lt-tabs" aria-hidden="true"></div>
               <div class="lt-zoom">
@@ -792,9 +854,13 @@ export class LabTree {
             <div class="lt-slots"></div>
             <div class="lt-keys"><kbd>DRAG</kbd> pan <kbd>WHEEL</kbd> zoom <kbd>ENTER</kbd> research</div>
           </footer>
+          <div class="lt-term" aria-live="off"><span class="lt-term-p">&gt;</span><span class="lt-term-l"></span><span class="lt-term-r"><i class="lt-led"></i>SYS OK<b class="lt-term-clk">00:00</b></span></div>
           <div class="lt-fx" aria-hidden="true"></div>
+          <div class="lt-glitch" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
           <div class="lt-scan" aria-hidden="true"></div>
+          <div class="lt-bootseq" aria-hidden="true">${BOOT_LINES.map((l, i) => `<p style="--i:${i}">${l}</p>`).join('')}<div class="lt-bootbar"><i></i></div><div class="lt-bootlogo"><i></i><i></i>${FOX_LOGO}<b>R&amp;D-OS</b><small>v19</small></div></div>
         </div>
+        <div class="lt-frame" aria-hidden="true"><i class="lt-fc tl"></i><i class="lt-fc tr"></i><i class="lt-fc bl"></i><i class="lt-fc br"></i><span class="lt-fled"><i></i><i></i><i></i></span><span class="lt-fname">REYNARD-TEK  HOLO-TERMINAL  RX-19</span></div>
       </div>`;
     this.container.appendChild(root);
     this.root = root;
@@ -834,9 +900,61 @@ export class LabTree {
     this.$hUnl = $('.lt-h-unl');
     this.$hTime = $('.lt-h-time');
     this.$hReq = $('.lt-h-req');
+    this.$parA = $('.lt-par-a');
+    this.$parB = $('.lt-par-b');
+    this.$term = $('.lt-term-l');
+    this.$termClk = $('.lt-term-clk');
+    this.$glitch = $('.lt-glitch');
     const rs = root.style;
     for (const [k, p] of Object.entries(SLOT_PALS)) rs.setProperty(`--lt-slot-${k}`, `url(${slotCanvas(p).toDataURL()})`);
-    if (!REDUCED) this._fx(root, 'is-boot', 700);
+    if (!REDUCED) {
+      this._fx(root, 'is-boot', 700);
+      this._fx(root, 'is-booting', 1850);
+    }
+    // the boot text leaves when its fade ends (a timer backs it up)
+    const boot = root.querySelector('.lt-bootseq');
+    if (boot) {
+      this._on(boot, 'animationend', (e) => { if (e.target === boot && e.animationName === 'lt-bootfade2') boot.remove(); });
+      this._later(() => boot.remove(), REDUCED ? 0 : 4000);
+    }
+    this._log('R&D-OS v19 online. Welcome back, Doctor Reynard.', 'ok', REDUCED ? 0 : 1250);
+    this._idleLog();
+  }
+
+  // ------------------------------------------------------------ v19: terminal ticker + glitch
+  // one line at the bottom of the screen, typed out; `delay` queues it after the boot text
+  _log(text, kind = '', delay = 0) {
+    if (!this._alive || !this.$term) return;
+    if (delay > 0) { this._later(() => this._log(text, kind), delay); return; }
+    const t = String(text || '');
+    this._logT = now();
+    const el = this.$term;
+    el.textContent = t;
+    el.className = `lt-term-l${kind ? ` is-${kind}` : ''}`;
+    el.style.setProperty('--n', Math.max(1, t.length));
+    el.classList.remove('is-type');
+    void el.offsetWidth;
+    el.classList.add('is-type');
+  }
+
+  // ambient chatter while nothing happens (one timer, never per frame)
+  _idleLog() {
+    this._later(() => {
+      if (!this._alive) return;
+      if (now() - (this._logT || 0) > 6500) {
+        const R = IDLE_LOG;
+        this._idleI = ((this._idleI ?? (hashStr(String(this._t0)) % R.length)) + 1) % R.length;
+        const run = this._jobs.find((j) => j.n);
+        this._log(run && this._idleI % 3 === 0 ? `synthesizing ${run.n.d.name}... ${Math.round((run.k || 0) * 100)}%` : R[this._idleI], 'dim');
+      }
+      this._idleLog();
+    }, 7000);
+  }
+
+  // a quick RGB-split slice glitch over the screen (filter changes, sectors, boot)
+  _glitch() {
+    if (REDUCED || !this.$glitch) return;
+    this._fx(this.$glitch, 'is-on', 340);
   }
 
   _buildTree() {
@@ -985,6 +1103,9 @@ export class LabTree {
     this.filter = v;
     for (const c of this.$chipEls) c.classList.toggle('is-on', (c.dataset.f || null) === (v === null ? null : String(v)));
     this._sfx('filter');
+    this._glitch();
+    const fb = v === null ? null : this.branches[+v];
+    this._log(v === null ? 'filter cleared: all sectors' : v === '@ready' ? 'query: projects ready to research' : `routing view to sector ${String(+v + 1).padStart(2, '0')}: ${fb ? fb.b.name : v}`, 'dim');
     this._applyFilter(true);
   }
 
@@ -1299,7 +1420,7 @@ export class LabTree {
       this.root.classList.toggle('is-compact', compact);
       if (!compact) this._openSheet(false, true);
     }
-    this.root.classList.toggle('is-short', h < 600);
+    this.root.classList.toggle('is-short', h < 640);
     this.root.classList.toggle('is-tiny', h < 460);
     this._clampCam(this.cam);
     this._applyCam();
@@ -1334,6 +1455,12 @@ export class LabTree {
     const hz = 56 * c.z;
     this.view.style.setProperty('--hex-pos', `${c.x.toFixed(1)}px ${c.y.toFixed(1)}px`);
     this.view.style.setProperty('--hex-size', `${hz.toFixed(1)}px ${(hz * 100 / 56).toFixed(1)}px`);
+    // v19: holographic depth: two background layers drift slower than the tree (transform only)
+    if (this.$parA) {
+      const m = (v, t) => ((v % t) + t) % t - t;
+      this.$parA.style.transform = `translate3d(${m(c.x * 0.18, 96).toFixed(1)}px, ${m(c.y * 0.18, 96).toFixed(1)}px, 0)`;
+      this.$parB.style.transform = `translate3d(${m(c.x * 0.45, 240).toFixed(1)}px, ${m(c.y * 0.45, 160).toFixed(1)}px, 0)`;
+    }
     this.root.classList.toggle('is-far', c.z < 0.58);
     this.root.classList.toggle('is-vfar', c.z < 0.3);
     this.root.style.setProperty('--lt-z', c.z.toFixed(3));
@@ -1429,6 +1556,7 @@ export class LabTree {
     }
     if (pan) this._ensureVisible(n);
     this.fox?.onSelect(n);
+    if (sound && !same) this._log(`open ${n.id.replace(/^r_/, '')}.rnd  [${STATE_TEXT[this._st.get(n.id)] || ''}]`, 'dim');
   }
 
   // an encrypted section: the detail panel shows its section key
@@ -1441,9 +1569,13 @@ export class LabTree {
     this.root.classList.add('is-secsel');
     this.$ret.classList.remove('is-on');
     for (const X of this.branches) X.seal?.classList.toggle('is-sel', X === B);
-    if (sound) this._sfx(sound);
+    if (sound) this._sfx('sector');
     if (open) this._openSheet(true);
-    if (!same) { this._renderDetail(); if (!REDUCED) this._fx(this.$det, 'is-swap', 300); }
+    if (!same) {
+      this._renderDetail();
+      if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
+      if (sound) this._log(`sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}: ENCRYPTED. radar sweep active`, 'err');
+    }
     if (pan) this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
   }
 
@@ -1729,6 +1861,7 @@ export class LabTree {
       this._fx(this.$go, 'is-shake', 400);
       this._fx(n.el, 'is-shake', 400);
       if (this._st.get(n.id) !== 'done' && this._st.get(n.id) !== 'run') this.$goS.textContent = /bench busy/i.test(chk.reason || '') ? this._busyText() : String(chk.reason || '');
+      if (chk.reason) this._log(`ERR: ${chk.reason}`, 'err');
       return;
     }
     let ok = false;
@@ -1747,6 +1880,7 @@ export class LabTree {
       this._sfx('start');
       this._fly(n);
       this._ring(n, 'start');
+      this._log(`synthesizing ${n.d.name}... ETA ${fmtDur(this._job(n.id)?.left || n.time)}`, 'run');
     }
     this.refresh();
     this._renderDetail();
@@ -1765,9 +1899,11 @@ export class LabTree {
       this._sfx('denied');
       if (src) this._fx(src, 'is-shake', 400);
       this._flash(src, res?.msg || 'Not enough coins');
+      this._log(`ERR: ${res?.msg || 'insufficient credits'}`, 'err');
       return;
     }
     this._sfx(mode === 'now' ? 'rushnow' : 'rush');
+    this._log(mode === 'now' ? `overclock: ${n.d.name} forced to completion` : `turbo injected: ${n.d.name} -50% time`, 'warn');
     this._coinsFly(src, n.$ico, Math.min(14, 4 + Math.round((price || 10) / 15)));
     this._float(n, mode === 'now' ? 'DONE!' : '-50% TIME', mode);
     this._ring(n, 'warp');
@@ -1852,7 +1988,7 @@ export class LabTree {
     if (first) {
       let ghosts = '';
       for (const n of B.nodes) ghosts += `<i style="left:${Math.round(n.x - B.sx - 28)}px;top:${Math.round(n.y - B.sy - 28)}px;--d:${hashStr(n.id) % 1200}ms"><b>?</b></i>`;
-      seal.innerHTML = `<div class="lt-seal-bg"></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
+      seal.innerHTML = `<div class="lt-seal-bg"><div class="lt-radar"><i></i><b></b></div></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
     } else seal.querySelector('.lt-seal-body').innerHTML = body;
   }
 
@@ -1868,9 +2004,12 @@ export class LabTree {
       if (src) this._fx(src, 'is-shake', 400);
       this._fx(B.seal, 'is-denied', 600);
       this._flash(src || this.$go, res?.msg || 'Access denied');
+      this._log(`ACCESS DENIED: sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}`, 'err');
+      this._glitch();
       return;
     }
     this._sfx('decrypt');
+    this._log(`brute-forcing sector ${String(B.i + 1).padStart(2, '0')} cipher...`, 'warn');
     if (k.coins) { this._coinsFly(src, B.seal.querySelector('.lt-seal-top') || B.seal, Math.min(14, 4 + Math.round(k.coins / 15))); this._bumpCoins(); }
     this.refresh();
   }
@@ -1890,6 +2029,8 @@ export class LabTree {
     });
     this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-k">SECTOR DECRYPTED</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
     this.fox?.onUnlock(B);
+    this._log(`sector ${String(B.i + 1).padStart(2, '0')} decrypted: ${B.b.name} (${B.nodes.length} projects)`, 'ok', REDUCED ? 0 : 900);
+    this._glitch();
     this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
   }
 
@@ -1941,6 +2082,7 @@ export class LabTree {
     this._ring(n, 'done');
     this._fx(n.el, 'is-burst', 1100);
     this._sfx('done');
+    this._log(`${n.d.name}: research complete. blueprint compiled OK`, 'ok');
     if (prev === 'run' || prev === 'avail') this._toast(n);
     if (n === this.sel && !REDUCED) this._burstHero();
     this._later(() => { if (n.kids.some((k) => this._st.get(k.id) === 'avail')) this._sfx('unlock'); }, 450);
@@ -2048,6 +2190,9 @@ export class LabTree {
       this.$coinsV.textContent = coins == null ? '-' : Math.floor(coins).toLocaleString('en-US');
       this._lastCoins = coins;
     }
+    // v19: terminal uptime clock (text changes once a second)
+    const up = Math.floor((t - this._t0) / 1000);
+    if (up !== this._up && this.$termClk) { this._up = up; this.$termClk.textContent = fmtClock(up); }
     // Reynard
     try { this.fox?.update(dtms / 1000); } catch (err) { console.warn('LabFox', err); this.fox?.destroy(); this.fox = null; }
     // showcase canvas ~30fps
