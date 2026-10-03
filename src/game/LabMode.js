@@ -6,10 +6,21 @@
 import * as THREE from 'three';
 import { CameraRig } from '../core/cameraRig.js';
 import { HUT } from '../world/worldgen.js';
+import { RESEARCH, RESEARCH_BY_ID, BRANCHES } from '../data/research.js';
+import { ZONE_INFO } from '../data/zones.js';
+import { hasSprite, spriteImg } from '../ui/sprites.js';
+import { fishCanvasFor } from './fishSprites.js';
 
 const mods = import.meta.glob(['../entities/labScene.js', '../entities/foxRig.js'], { eager: true });
 const LabScene = mods['../entities/labScene.js'] || null;
 const FoxMod = mods['../entities/foxRig.js'] || null;
+const LabTreeMod = import.meta.glob('../ui/LabTree.js', { eager: true })['../ui/LabTree.js'] || null;
+
+// LabTree sfx name -> [game sound, volume]
+const TREE_SFX = {
+  hover: ['tick', 0.1], click: ['click', 0.35], select: ['beep', 0.22], filter: ['chip', 0.3], error: ['error', 0.4],
+  start: ['pop_in', 0.5], done: ['star_pop', 0.55], unlock: ['discover', 0.35],
+};
 
 const LINES = {
   wake: [
@@ -57,6 +68,7 @@ export class LabMode {
   }
 
   onResearched(r) {
+    this.refresh();
     this.fox?.play('sit_laugh', { loop: false, onDone: () => this.fox?.play('sit_type', { loop: true }) });
     this.fox?.setExpression('laugh', { hold: 1.8 });
     this.game.audio.play('fox_laugh', { volume: 0.5 });
@@ -309,13 +321,44 @@ export class LabMode {
     this.setBeams(true);
     this.fox?.play('sit_type', { loop: true });
     this.fox?.setExpression('scheming');
-    this.tree = ui.makeLabTree(host, () => this.closeTree());
+    this.tree = this.makeTree(host);
     if (!this.tree) {
       ui.labFallback = true;
       ui.openPanel('lab');
       this.closeTree();
-      return;
     }
+  }
+
+  // research is free but timed: the tree starts jobs on the lab bench
+  // (game.startResearch); older Game APIs fall back to instant research
+  makeTree(host) {
+    const game = this.game;
+    const LT = LabTreeMod?.LabTree;
+    if (!LT) return this.game.ui?.makeLabTree?.(host, () => this.closeTree()) || null;
+    const fn = (name) => typeof game[name] === 'function';
+    const opts = {
+      research: RESEARCH,
+      branches: BRANCHES,
+      isResearched: (id) => game.state.research.includes(id),
+      canResearch: (id) => (fn('canResearch') ? game.canResearch(id) : null),
+      onResearch: (id) => {
+        if (fn('startResearch')) return !!game.startResearch(id);
+        const ok = game.research(id);
+        if (ok) game.ui?.onResearched?.(RESEARCH_BY_ID[id]);
+        return ok;
+      },
+      zoneName: (z) => ZONE_INFO[z]?.npcName || 'a new neighbour',
+      isZoneOpen: (z) => (game.state.zones || []).includes(z),
+      icon: (n, s) => (n && hasSprite(n) ? spriteImg(n, s) : ''),
+      fishCanvas: (sp, o) => fishCanvasFor(sp, o || {}),
+      sfx: (n) => { const m = TREE_SFX[n]; if (m) game.audio.play(m[0], { volume: m[1] }); },
+      onClose: () => this.closeTree(),
+    };
+    if (fn('researchJobs')) {
+      opts.jobs = () => game.researchJobs();
+      opts.slots = () => (fn('labSlots') ? game.labSlots() : 1);
+    }
+    try { return new LT(host, opts); } catch (e) { console.warn('LabTree failed', e); return null; }
   }
 
   closeTree() {
@@ -410,6 +453,8 @@ export class LabMode {
       this.say(pick(LINES.wake) + ' ' + pick(LINES.greet), 'embarrassed');
       this.q('opts')?.classList.remove('hidden');
     }
+    // the lab pauses the pond, but the lab bench keeps working (real time)
+    if (game.state.paused && typeof game.tickResearch === 'function') game.tickResearch(dt);
     this.lab?.update(dt, this.time);
     if (this.lab?.drawIdleScreen && !this.tree) this.lab.drawIdleScreen(this.time);
     // awake: hop off the chair and stand in front of it facing the visitor;

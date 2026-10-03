@@ -590,3 +590,7 @@ button.lt-slotc { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .ltree *, .ltree *::before, .ltree *::after { animation: none !important; transition: none !important; }
 }
+
+/* zoomed far out: branch tabs shrink to their icon */
+.ltree.is-far .lt-tab { padding: 0 4px; }
+.ltree.is-far .lt-tab span { display: none; }
