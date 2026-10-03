@@ -121,3 +121,13 @@
 .ft-title.ft-3 { font-size: var(--ft-title-3); }
 .ft-body.ft-1 { font-size: var(--ft-body-1); }
 .ft-body.ft-3 { font-size: var(--ft-body-3); }
+
+/* the title-sign logo only: Pixelify's capital B has a notch that the thick
+   sign outline fills in, so "BEAR" read as "GEAR". Silkscreen Bold's B is clear. */
+@font-face {
+  font-family: 'TBME Logo';
+  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-700-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
