@@ -42,18 +42,19 @@ export class BloodMoon {
 
   // waves for the n-th blood moon (escalates every week)
   planWaves(n) {
-    const waves = Math.min(6, 3 + Math.floor((n - 1) / 1.5));
+    const waves = Math.min(5, 3 + Math.floor((n - 1) / 1.5));
+    const m = Math.min(n, 4); // headcount stops growing at moon 4 (hp keeps scaling, see setup)
     const out = [];
     for (let i = 0; i < waves; i++) {
       const last = i === waves - 1;
       const list = [];
-      const grunts = 1 + n + i;
-      const runners = i > 0 ? i + Math.floor(n / 2) : 0;
-      const brutes = last ? n : i >= 1 ? Math.floor(n / 2) : 0;
-      for (let g = 0; g < grunts; g++) list.push('blood_grunt');
-      for (let r = 0; r < runners; r++) list.push('blood_runner');
+      const grunts = 1 + m + i;
+      const runners = i > 0 ? Math.min(4, i + Math.floor(m / 2)) : 0;
+      const brutes = last ? m : i >= 1 ? Math.floor(m / 2) : 0;
       for (let b = 0; b < brutes; b++) list.push('blood_brute');
-      out.push({ i, list });
+      for (let r = 0; r < runners; r++) list.push('blood_runner');
+      for (let g = 0; g < grunts; g++) list.push('blood_grunt');
+      out.push({ i, list: list.slice(0, 8) }); // at most 8 bears a wave (40 a night)
     }
     return out;
   }
@@ -170,10 +171,11 @@ export class BloodMoon {
       b.pathI = 0; b.state = 'walk';
       return true;
     }
+    // nothing left to wreck: prowl around quietly (BearSystem's 'search' would chat "Fish? Hello?")
     b.goal = null; b.fish = null; b.path = null;
-    b.state = 'search';
-    b.searchT = 1.5 + Math.random() * 1.5;
-    b.searchH = Math.random() * Math.PI * 2;
+    const h = Math.random() * Math.PI * 2, r = 1.5 + Math.random() * 3;
+    b.state = 'prowl';
+    b.prowl = { x: b.x + Math.cos(h) * r, z: b.z + Math.sin(h) * r, t: 2 + Math.random() * 2 };
     return true;
   }
 
@@ -187,7 +189,16 @@ export class BloodMoon {
     }
     if (b.rig && !b.calmed && !(b.flashT > 0) && b.rig.matState !== 'angry') b.rig.setMaterial('angry');
     if (b.state === 'hunt' && this.game.fish.count <= SPARE_FISH) { this.bears.decide(b); return true; }
-    if (!b.calmed && Math.random() < dt * 0.25 && b.visible && b.state !== 'commute') this.bears.say(b, pick(['GRRR...', 'FIIISH...', 'SMASH!', 'RAAAH!']), null, null, 1.2);
+    if (!b.calmed && b.visible && b.state !== 'commute' && Math.random() < dt * (this.siege?.hostile > 10 ? 0.03 : 0.12)) this.bears.say(b, pick(['GRRR...', 'FIIISH...', 'SMASH!', 'RAAAH!']), null, null, 1.2);
+    if (b.state === 'prowl' && !b.jump) {
+      const p = b.prowl;
+      p.t -= dt;
+      const ok = this.bears.moveToward(b, p.x, p.z, dt, 1.5, false);
+      b.moving = true;
+      if (!b.jump) b.y += (this.bears.groundY(b) - b.y) * Math.min(1, dt * 12);
+      if (!ok || p.t <= 0 || Math.hypot(p.x - b.x, p.z - b.z) < 0.2) this.bears.decide(b);
+      return true;
+    }
     return false;
   }
 
