@@ -22,7 +22,7 @@ import { makeLogGeometry } from '../entities/extra/woodGarageModel.js';
 
 // ---- tuning
 export const FALL = {
-  gravity: 15, // "g" for the tipping rod (bigger = snappier fall)
+  gravity: 11, // "g" for the tipping rod (bigger = snappier fall)
   startAngle: 0.05, // rad of lean when the last fibres snap
   bounce: 0.28, // angular velocity kept on the crash rebound
   lieTime: 1.1, // s the trunk lies there before splitting
@@ -248,6 +248,7 @@ export class TreeFall {
     const dx = t.rx * Math.cos(jit) - t.rz * Math.sin(jit), dz = t.rx * Math.sin(jit) + t.rz * Math.cos(jit);
     t.dir = [dx * t.sign, dz * t.sign];
     for (const p of t.parts) {
+      p.mesh.receiveShadow = false; // keep the crown bright as it sweeps through the shade
       p.pivot.rotation.set(0, Math.atan2(-dz, dx), 0); // local +x = camera right (unsigned)
       p.theta = FALL.startAngle + t.tilt + Math.random() * 0.02;
       p.omega = 0.25 + Math.random() * 0.15;
@@ -324,6 +325,10 @@ export class TreeFall {
   pose(p, comp) {
     // the billboard is height-compensated while upright, not once it lies flat
     p.mesh.rotation.z = -p.theta * p.sgn;
+    // keep the lighting normal pointing up/at the camera while the quad turns
+    const phi = p.mesh.rotation.z, N = p.mesh.geometry.attributes.normal;
+    for (let k = 0; k < 4; k++) N.setXYZ(k, 0.6 * Math.sin(phi), 0.6 * Math.cos(phi), 0.8);
+    N.needsUpdate = true;
     p.mesh.scale.set(1, 1 + (comp - 1) * Math.max(0, Math.cos(p.theta)), 1);
     // the crown can't sink into the ground: lift the pivot as it comes down,
     // and the butt end kicks back a touch

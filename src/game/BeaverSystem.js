@@ -402,6 +402,7 @@ export class BeaverSystem {
               b.job = job;
               b.lastJob = job.kind;
               if (job.kind === 'clear') job.c.assigned = b; else job.s.assigned = b;
+              if (job.kind === 'clear' && (job.c.kind === 'tree' || job.c.kind === 'forest')) job.stand = this.chopSpot(b, job.c);
               b.state = 'go';
               b.sulk = false;
               b.strike = false;
@@ -451,8 +452,8 @@ export class BeaverSystem {
         const job = b.job;
         if (job.kind !== 'clear' && (job.s.removed || (job.kind === 'build' && job.s.built))) { this.release(b); continue; }
         if (job.kind === 'clear' && !this.clears.has(job.c.i)) { this.release(b); continue; }
-        const tg = this.jobTarget(job);
-        const stop = job.kind === 'clear' ? 0.7 : 0.55;
+        const tg = job.stand || this.jobTarget(job);
+        const stop = job.stand ? 0.06 : job.kind === 'clear' ? 0.7 : 0.55;
         if (this.moveToward(b, tg.x, tg.z, dt, 3.8 * speedMult ** 0.5, stop)) {
           b.state = 'work'; b.t = 0; b.cloudT = 0;
           if (job.kind !== 'clear') game.audio.play('build_cloud', { volume: 0.4, pitch: 0.95 + Math.random() * 0.15 });
@@ -592,6 +593,22 @@ export class BeaverSystem {
     if (Math.random() < 0.5) game.particles.dust(nx, gy, nz, 1);
     game.audio.play('chip', { volume: 0.14 + c.progress * 0.1, pitch: 0.95 + Math.random() * 0.35 - c.progress * 0.25 });
     this.fall.bite(c.i, 1);
+  }
+
+  // where to stand to gnaw a tree: beside the trunk on screen (camera left or
+  // right, whichever side the beaver comes from) so you can see the notch, and
+  // the tree falls the other way
+  chopSpot(b, c) {
+    const cam = this.game.rig?.camera;
+    let rx = 1, rz = 0;
+    if (cam) { const e = cam.matrixWorld.elements; rx = e[0]; rz = e[2]; const n = Math.hypot(rx, rz) || 1; rx /= n; rz /= n; }
+    const tx = c.x + 0.5, tz = c.z + 0.5;
+    const side = (b.x - tx) * rx + (b.z - tz) * rz < 0 ? -1 : 1;
+    // nudged a hair towards the camera so the beaver isn't hidden by the trunk
+    const x = tx + rx * side * 0.4 - rz * 0.12, z = tz + rz * side * 0.4 + rx * 0.12;
+    const g = this.game.grid;
+    if (!g.inb(Math.floor(x), Math.floor(z)) || g.isWater(Math.floor(x), Math.floor(z))) return null;
+    return { x, z };
   }
 
   // ------------------------------------------------------------ hauling logs

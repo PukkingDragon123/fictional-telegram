@@ -82,7 +82,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
   100% { transform: translateY(-5px) scale(1); }
 }
 .fp-badge {
-  position: absolute; right: -3px; bottom: 0; z-index: 2; min-width: 20px; padding: 0 2px;
+  position: absolute; right: -3px; bottom: 0; z-index: 4; min-width: 20px; padding: 0 2px;
   font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 15px; line-height: 17px; font-weight: 400; text-align: center;
   color: #2a1a14; background: #fffbea; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14;
 }

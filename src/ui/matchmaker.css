@@ -447,3 +447,23 @@
 @media (prefers-reduced-motion: reduce) {
   .mm-ov *, .mm-ov *::before, .mm-ov *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* v15 Pixelify: the report column is narrower than the wide new glyphs, so its
+   chips and labels run one step smaller (still 14px+) and everything fits above the button */
+.mm-report .mm-chip, .mm-report .mm-pchip { font-size: 14px; line-height: 15px; padding: 0 5px 2px; }
+.mm-report .mm-pchip b, .mm-report .mm-ptrait b { font-size: 14px; line-height: 15px; }
+.mm-report .mm-ptrait { height: 22px; font-size: 14px; }
+.mm-report .mm-rlbl { font-size: 14px; }
+.mm-report .mm-rlbl b { font-size: 15px; }
+.mm-report .mm-bar b, .mm-report .mm-bar em { font-size: 15px; line-height: 16px; }
+.mm-report .mm-rcol { gap: 3px; }
+.mm-report .mm-sec h4 { font-size: 16px; line-height: 17px; }
+.mm-report .mm-sec--row h4 { width: 66px; }
+.mm-report .mm-sec--row { gap: 6px; }
+.mm-report .mm-baby { gap: 8px; }
+.mm-report .mm-lcol { width: 120px; }
+.mm-report .mm-pchips { gap: 3px; }
+.mm-report .mm-sec--row h4 { width: 72px; font-size: 15px; white-space: nowrap; }
+.mm-report .mm-hlbl { font-size: 15px; padding-left: 6px; padding-right: 6px; }
+.mm-report .mm-chip, .mm-report .mm-pchip { padding: 0 4px 2px; gap: 3px; }
+.mm-report .mm-sec--row h4 { width: 68px; }
