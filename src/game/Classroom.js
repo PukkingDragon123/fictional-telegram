@@ -668,6 +668,24 @@ export class Classroom {
     else if (name === 'step') this._sfx('footsteps', { volume: 0.12, pitch: 1.4 });
   }
 
+  // the fast-forward button: you ask the professor to hurry up, he reacts
+  _askWrap(on) {
+    const el = this.q('ask');
+    if (!el) return;
+    const ASK = ['Prof, can you wrap it up?', 'Can you wrap it up? Bears are hungry!', 'Speed it up, Prof!', 'TL;DR please?'];
+    const OFF = ['Okay okay, normal speed.', 'Fine, take your time.'];
+    el.textContent = on ? ASK[Math.floor(Math.random() * ASK.length)] : OFF[Math.floor(Math.random() * OFF.length)];
+    el.classList.remove('hidden', 'pop'); void el.offsetWidth; el.classList.add('pop');
+    clearTimeout(this._askT);
+    this._askT = setTimeout(() => el.classList.add('hidden'), 3400);
+    try { this.game.audio?.babble?.('cub', el.textContent, { pitch: 1.1, volume: 0.45 }); } catch { /* ignore */ }
+    if (on) {
+      this.fox?.play(this._anim('shrug', 'talk'), { loop: false, onDone: () => this._idle() });
+      this._react('gasp');
+      this._sfx('class_rumble', { volume: 0.25 });
+    }
+  }
+
   _react(r) {
     if (!r) return;
     const o = typeof r === 'string' ? { kind: r } : r;
@@ -776,7 +794,8 @@ export class Classroom {
     el.innerHTML = `
       <div class="cls-bars"><i></i><i></i></div>
       <div class="cls-hit" data-h="hit"></div>
-      <button class="cls-skip${this.ff ? ' on' : ''}" data-h="skip" type="button" title="Fast forward"><b>▸▸</b> x3</button>
+      <button class="cls-skip${this.ff ? ' on' : ''}" data-h="skip" type="button" title="Fast forward x3"><i class="cls-ff-ico"><i></i><i></i></i><span class="cls-ff-x">x3</span><span class="cls-ff-lbl">FAST</span></button>
+      <div class="cls-ask hidden" data-h="ask"></div>
       <div class="cls-title hidden" data-h="title"><div class="cls-title-wood"><canvas data-h="tcv"></canvas></div><i class="cls-title-nail l"></i><i class="cls-title-nail r"></i></div>
       <div class="cls-say hidden" data-h="say">
         <div class="cls-portrait" data-h="portrait"></div>
@@ -791,7 +810,7 @@ export class Classroom {
     this.q('hit').addEventListener('pointerdown', adv);
     this.q('say').addEventListener('pointerdown', adv);
     this.q('title').addEventListener('pointerdown', adv);
-    this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_pop', { volume: 0.3 }); this.ff = !this.ff; e.currentTarget.classList.toggle('on', this.ff); });
+    this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_pop', { volume: 0.3 }); this.ff = !this.ff; e.currentTarget.classList.toggle('on', this.ff); this._askWrap(this.ff); });
     this._onKey = (e) => {
       if (!this._active) return;
       const k = e.key;

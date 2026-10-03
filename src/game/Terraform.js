@@ -26,7 +26,6 @@ export const TF_MODES = [
   { id: 'paint', icon: 'tf_paint', name: 'Paint' },
   { id: 'dig', icon: 'tf_dig', name: 'Dig' },
   { id: 'fill', icon: 'tf_fill', name: 'Fill' },
-  { id: 'name', icon: 'tf_name', name: 'Name' },
 ];
 export const TF_PAINTS = [
   { id: PAINT.GRASS, key: 'grass', name: 'Grass', atlas: 'grass', color: 0x8cc453 },
@@ -502,6 +501,9 @@ export class Terraform {
 
   // floating wooden signs over every pond (DOM, like the fog tags)
   updateSigns() {
+    // pond name signs were removed: clear any left over and stop
+    if (this.signs.size) { for (const el of this.signs.values()) el.remove(); this.signs.clear(); }
+    if (!this.SHOW_SIGNS) return;
     const game = this.game, ui = game.ui;
     if (!ui?.screenOf) return;
     const hide = game.titleMode || game.cutscene?.active || game.lab?.active || game.classroom?.active || !game.started || game.rig.wupp > 0.085;
