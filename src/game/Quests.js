@@ -54,6 +54,46 @@ export const QUESTS = [
     ],
     point: () => 'tool:match',
   },
+  {
+    id: 'chip', title: 'The carpenter', icon: 'hammer', reward: { coins: 40, wood: 5 },
+    when: (g) => (g.state.tutorialDone || g.skipTutorial) && !(g.state.zones || []).includes('treehouse') && (g.state.quests?.done || []).includes('friend'),
+    intro: 'Tok-tok-tok... someone is pecking wood west of the pond! Bear furniture needs a carpenter.',
+    steps: [{ text: 'Clear the forest to the Tree House (west)', ev: 'zone', test: (Z) => Z?.id === 'treehouse' }],
+    check: (g) => (g.state.zones || []).includes('treehouse'),
+  },
+  {
+    id: 'forage', title: 'Forest finds', icon: 'leaf', reward: { coins: 30 },
+    when: (g) => (g.state.tutorialDone || g.skipTutorial) && g.state.day >= 1 && !!g.forage,
+    intro: 'The forest is full of free stuff! Tap logs, mushrooms and wild plants.',
+    steps: [{ text: 'Pick up 5 forest finds', ev: 'forage', count: 5 }],
+  },
+  {
+    id: 'craft', title: 'Woodworking 101', icon: 'hammer', reward: { coins: 60, wood: 4 },
+    when: (g) => (g.state.zones || []).includes('treehouse'),
+    intro: 'Chip can build us furniture! Bring wood, wait a while, collect.',
+    steps: [
+      { text: 'Tap Chip to open his workshop', ev: 'workshopOpen' },
+      { text: 'Start a woodwork plan', ev: 'craftStart', test: (d) => d?.kind === 'craft' },
+      { text: 'Collect it when it\'s done', ev: 'crafted', test: (d) => d?.kind === 'craft' },
+      { text: 'Place it from Build ▸ Woodwork', ev: 'built', test: (s) => s?.def?.category === 'woodwork' },
+    ],
+  },
+  {
+    id: 'fix', title: 'Antique roadshow', icon: 'star', reward: { coins: 120 },
+    when: (g) => (g.state.zones || []).includes('treehouse') && Object.keys(g.state.inventory || {}).some((k) => k.startsWith('ruin_')),
+    intro: 'Old junk from the forest ruins? Chip can restore it into a fancy antique!',
+    steps: [
+      { text: 'Start a repair at Chip\'s', ev: 'craftStart', test: (d) => d?.kind === 'repair' },
+      { text: 'Collect the antique', ev: 'crafted', test: (d) => d?.kind === 'repair' },
+    ],
+  },
+  {
+    id: 'facility', title: 'Upgrade by building', icon: 'coins', reward: { coins: 50 },
+    when: (g) => ['bakery', 'river', 'bend'].some((z) => (g.state.zones || []).includes(z)),
+    intro: 'Upgrades are THINGS now: a Tip Jar, a Tool Box, a Tag Rack... Place one!',
+    steps: [{ text: 'Place a facility (Tip Jar, Tool Box...)', ev: 'built', test: (s) => !!s?.def?.facility }],
+    check: (g) => g.facilityTypes?.().length > 0,
+  },
 ];
 const BY_ID = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 
@@ -119,6 +159,13 @@ export class Quests {
       q.steps.forEach((st, k) => {
         if (P[k] || st.ev !== ev) return;
         if (st.test && !st.test(d)) return;
+        if (st.count) {
+          const C = (S.cnt ||= {});
+          const c = (C[id] ||= q.steps.map(() => 0));
+          c[k] += d?.n ? 1 : 1;
+          changed = true;
+          if (c[k] < st.count) return;
+        }
         // doing a later step proves the earlier ones (you researched, so the lab was open)
         for (let j = 0; j <= k; j++) P[j] = true;
         changed = true;
@@ -138,6 +185,7 @@ export class Quests {
     const R = q.reward || {};
     if (R.coins) g.earnMisc?.(R.coins, 'tips');
     for (const f of R.food || []) g.foodStore?.add?.(f.id, f.n || 1);
+    if (R.wood) g.workshop?.addWood(R.wood);
     g.audio.play('levelup', { volume: 0.5 });
     g.ui?.ensureQuestLog?.()?.complete?.(id);
     g.notify(`Quest complete: ${q.title}! +${R.coins || 0} coins`, 'excited', { dur: 4 });
@@ -149,11 +197,15 @@ export class Quests {
 
   view() {
     const S = this.S;
-    const R = (q) => [q.reward?.coins ? `${q.reward.coins} coins` : '', ...(q.reward?.food || []).map((f) => this.game.foodStore?.info?.(f.id)?.name || f.id)].filter(Boolean).join(' + ');
+    const R = (q) => [q.reward?.coins ? `${q.reward.coins} coins` : '', q.reward?.wood ? `${q.reward.wood} wood` : '', ...(q.reward?.food || []).map((f) => this.game.foodStore?.info?.(f.id)?.name || f.id)].filter(Boolean).join(' + ');
     return S.active.map((id) => {
       const q = BY_ID[id];
       const P = S.prog[id] || [];
-      return { id, title: q.title, icon: q.icon, steps: q.steps.map((s, k) => ({ text: s.text, done: !!P[k] })), reward: R(q), progress: [P.filter(Boolean).length, q.steps.length] };
+      const C = S.cnt?.[id] || [];
+      const steps = q.steps.map((st, k) => ({ text: st.count ? `${st.text} (${Math.min(st.count, C[k] || 0)}/${st.count})` : st.text, done: !!P[k] }));
+      const cs = q.steps.find((st) => st.count);
+      const progress = cs && q.steps.length === 1 ? [Math.min(cs.count, C[0] || 0), cs.count] : [P.filter(Boolean).length, q.steps.length];
+      return { id, title: q.title, icon: q.icon, steps, reward: R(q), progress };
     });
   }
 
@@ -161,6 +213,7 @@ export class Quests {
     const v = this.view();
     const QL = v.length || this.game.ui?.questLog ? this.game.ui?.ensureQuestLog?.() : null;
     QL?.set?.(v);
+    QL?.setDone?.((this.S.done || []).map((id) => ({ id, title: BY_ID[id]?.title || id })));
   }
 
   update(dt) {

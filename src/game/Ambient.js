@@ -567,10 +567,10 @@ export class Ambient {
         // wings flat; every few seconds a quick sun glint
         d.glint = (d.glint || 0) + dt;
         const fr = d.glint % 2.6 < 0.25 ? 1 : 0;
-        this.draw('dragonfly_rest', fr, d.x, y, d.z, { flip: d.face < 0, ay: 0.5 });
+        this.draw('dragonfly_rest', fr, d.x, y, d.z, { flip: d.face < 0, ay: 0.5, texels: 40 });
       } else {
         // 6-frame wing beat; zips beat faster
-        this.draw('dragonfly', Math.floor(T * (d.mode === 'zip' ? 30 : 22) + d.seed * 7), d.x, y, d.z, { flip: d.face < 0, ay: 0.5 });
+        this.draw('dragonfly', Math.floor(T * (d.mode === 'zip' ? 30 : 22) + d.seed * 7), d.x, y, d.z, { flip: d.face < 0, ay: 0.5, texels: 40 });
       }
     }
 

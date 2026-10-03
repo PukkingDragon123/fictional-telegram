@@ -458,7 +458,8 @@ export class Game {
     }
     for (const it of SHOP_ITEMS) {
       const def = STRUCTURES[it.type];
-      const locked = it.unlock && !this.isUnlocked(it.unlock) ? { reason: 'Needs research', icon: 'lab' } : it.landmark && !st.landmarks.includes(it.landmark) ? { reason: 'Find the ' + it.landmarkName, icon: 'map' } : null;
+      const gz = def && !this.gateOpen(it.type) ? this.buildGate(it.type) : null;
+      const locked = gz ? { reason: `Meet ${ZONE_INFO[gz]?.npcName || 'a neighbour'}`, icon: 'heart' } : it.unlock && !this.isUnlocked(it.unlock) ? { reason: 'Needs research', icon: 'lab' } : it.landmark && !st.landmarks.includes(it.landmark) ? { reason: 'Find the ' + it.landmarkName, icon: 'map' } : null;
       if (it.once && (st.inventory[it.type] || this.structures.countBuilt(it.type))) continue;
       L.push({ id: 'item_' + it.type, cat: it.cat, kind: 'item', type: it.type, qty: it.qty || 1, title: it.title, sub: def?.name || it.sub, price: it.price, oldPrice: it.oldPrice, badges: it.badges || [], seller: it.seller, locked, eta: 'Moose Express' });
     }

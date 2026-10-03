@@ -2207,6 +2207,8 @@ export class UI {
     this.closeContract?.(true);
     const need = Math.max(0, n - Math.floor(B.credit));
     if (!need) { this.floatTextAt?.(x, 1.4, z, `Paid! ${n} jobs`, '#c8ff9a'); return; }
+    // during the tutorial the first contract is on the house
+    if (game.tutorial?.active) { B.credit = B.credit + need; this.floatTextAt?.(x, 1.6, z, 'First job\'s free!', '#c8ff9a'); game.emit('beaverContract', { n, need: 0 }); return; }
     const PRICE = 4;
     const coins = need * PRICE;
     // food that beavers accept, best payers first

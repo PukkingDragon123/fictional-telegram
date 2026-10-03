@@ -558,7 +558,7 @@ body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none
 .bcontract .bc-head { display: flex; align-items: center; gap: 6px; font-family: var(--font-title); font-size: 18px; color: #8a4a1a; }
 .bcontract .bc-body { margin: 2px 0 6px; }
 .bcontract .bc-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-.bcontract button { font-family: var(--font-title); font-size: 16px; padding: 2px 8px 3px; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14; cursor: pointer; display: flex; align-items: center; gap: 3px; }
+.bcontract button { color: #2a1a14; font-family: var(--font-title); font-size: 16px; padding: 2px 8px 3px; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14; cursor: pointer; display: flex; align-items: center; gap: 3px; }
 .bcontract .bc-coin { background: #ffd860; }
 .bcontract .bc-food { background: #9ad86a; }
 .bcontract .bc-no { background: #e8c8b8; margin-left: auto; }

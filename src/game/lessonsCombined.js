@@ -41,7 +41,7 @@ export const COMBINED_LESSONS = {
         draw: [TITLE('GREEN THUMB', 'green'), D('seed', 24, 48, { scale: 2 }), { arrow: [40, 52, 54, 52] }, D('sprout', 72, 48, { scale: 2 }), { arrow: [90, 52, 104, 52] }, D('growing', 120, 48, { scale: 2 }), { arrow: [136, 52, 148, 52] }, D('ready', 166, 48, { scale: 2, id: 'ready' })] },
       { say: '**Tap** ripe plants to harvest. Food for **fish**, **bears** AND **beavers**!', react: 'cheer', tap: 'basket',
         draw: [D('basket', 40, 86, { id: 'basket' }), { arrow: [58, 86, 76, 86] }, D('fish', 96, 86), D('bear', 128, 86), D('beaver', 160, 86)] },
-      { erase: true, say: 'Need room? **DESTROY** tool: drag a box over trees. Beavers chop, you get **land + $**!', tap: 'zone', highlight: 'pulse', camAfter: 'teacher',
+      { erase: true, say: 'Need room? **DESTROY**: drag a box over trees, **pay the crew right there**, they chop. **Land + wood!**', tap: 'zone', highlight: 'pulse', camAfter: 'teacher',
         draw: [D('tree', 22, 40, { scale: 2 }), D('tree', 58, 40), D('rock', 80, 52), { box: [6, 14, 92, 48], color: 'yellow', id: 'zone' }, { arrow: [104, 40, 124, 40] }, D('logs', 150, 38, { scale: 2 }), T('+LAND +$', 150, 70, { color: 'green' })] },
     ],
   },
