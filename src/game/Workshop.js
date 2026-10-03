@@ -134,6 +134,7 @@ export class Workshop {
       sfx: (n, o) => game.audio.play(n, { volume: 0.45, ...(o || {}) }),
       onCraft: (id) => { const r = this.craft(id); this.view?.refresh?.(this.data()); return r; },
       onCollect: (jid) => { const r = this.collect(jid); this.view?.refresh?.(this.data()); return r; },
+      onTalk: (t) => { try { game.audio.babble('cub', t, { pitch: 1.3, volume: 0.5 }); } catch { /* ignore */ } },
       onClose: () => { this.view = null; game.state.paused = wasPaused; },
     });
     game.emit('workshopOpen');

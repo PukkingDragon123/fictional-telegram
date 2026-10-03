@@ -31,3 +31,4 @@ export { makeBicycle, BIKE } from './critterBike.js';
 export { BunnyGardener } from './critterBunny.js';
 export { OtterFisher } from './critterOtter.js';
 export { HedgehogBaker } from './critterHedgehog.js';
+export { WoodpeckerCarpenter } from './critterWoodpecker.js';

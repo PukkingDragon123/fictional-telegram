@@ -128,7 +128,7 @@
 @keyframes ws-pop { 0% { scale: .4; } 50% { scale: 1.08; } 75% { scale: .97; } 100% { scale: 1; } }
 .ws-bubble-t { display: block; overflow-wrap: break-word; }
 .ws-bubble-ghost { visibility: hidden; }
-.ws-bubble-tail { position: absolute; left: 34px; bottom: -6px; width: 8px; height: 6px; background: var(--ink); clip-path: polygon(0 0, 100% 0, 100% 15%, 50% 100%, 37% 100%, 0 0); }
+.ws-bubble-tail { position: absolute; left: var(--tail, 34px); bottom: -6px; width: 8px; height: 6px; background: var(--ink); clip-path: polygon(0 0, 100% 0, 100% 15%, 50% 100%, 37% 100%, 0 0); }
 .ws-bubble-tail::after { content: ''; position: absolute; left: 1px; top: 0; width: 6px; height: 4px; background: var(--cream); clip-path: polygon(0 0, 100% 0, 50% 100%, 33% 100%); }
 
 /* ------------------------------------------------------------------ wood stack */

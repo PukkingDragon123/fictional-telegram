@@ -349,7 +349,7 @@ export class Forage {
         const f = this.frames[s.sprite]?.[0];
         const k = Math.floor((ph / 0.12) * 4) % 4;
         const hx = f ? (f.w / 24) * 0.32 : 0.3, hy = f ? (f.h / 24) * 0.8 : 0.5;
-        GL.push(glint[this.pending?.spot === s ? Math.floor(this.time * 10) % glint.length : k % glint.length], s.px + (s.flip ? -hx : hx), g.height[s.i] + hy + 0.12, s.pz + 0.05, { texels: 24, mode: 2, ax: 0.5, ay: 0.5, emissive: 0.3 + night * 0.4 });
+        GL.push(glint[this.pending?.spot === s ? Math.floor(this.time * 10) % glint.length : k % glint.length], s.px + (s.flip ? -hx : hx), g.height[s.i] + hy + 0.12, s.pz + 0.05, { texels: 24, mode: 2, ax: 0.5, ay: 0.5, scale: 1.35, emissive: 0.3 + night * 0.4 });
         n++;
       }
     }

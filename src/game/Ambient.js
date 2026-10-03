@@ -702,11 +702,13 @@ export class Ambient {
         if (g.kind[i] === FKIND.FOREST && g.glade[i] && c.type !== 'tuft' && c.type !== 'fern') F.flowers.push(c);
       }
       // anything that wandered far off-screen is sent somewhere nearby again
-      for (const list of [F.squirrels, F.hares, F.flies]) for (const c of list) if (Math.hypot(c.x - cx, c.z - cz) > 26) c.placed = false;
+      for (const list of [F.squirrels, F.hares, F.flies]) for (const c of list) if (Math.hypot(c.x - cx, c.z - cz) > 18) c.placed = false;
     }
     const tileXZ = (i, jx = 0.5, jz = 0.5) => ({ x: (i % g.w) + jx, z: Math.floor(i / g.w) + jz });
     const near = (list, x, z, r) => { for (let k = 0; k < 8; k++) { const i = list[Math.floor(Math.random() * list.length)]; const p = tileXZ(i); if (Math.hypot(p.x - x, p.z - z) < r) return i; } return null; };
     const want = (list, n, mk) => { while (list.length < n) list.push(mk()); };
+    // a spot near the middle of the screen, so the critters are where you look
+    const home = (list) => { const i = near(list, cx, cz - 1, 6) ?? near(list, cx, cz, 10); return i ?? list[Math.floor(Math.random() * list.length)]; };
     want(F.squirrels, 3, () => ({ placed: false, t: 0, run: 0, face: 1, seed: Math.random() * 9 }));
     want(F.hares, 2, () => ({ placed: false, t: 0, hop: 0, face: 1, seed: Math.random() * 9 }));
     want(F.flies, 5, () => ({ placed: false, t: 0, face: 1, kind: Math.random() < 0.5 ? 'monarch' : 'bluebutterfly', seed: Math.random() * 9 }));
@@ -714,7 +716,7 @@ export class Ambient {
     // squirrels: dash between tree trunks with a bounding gait, sit and look about
     for (const q of F.squirrels) {
       if (!F.trees.length || !day) break;
-      if (!q.placed) { const p = tileXZ(F.trees[Math.floor(Math.random() * F.trees.length)], 0.5, 0.85); Object.assign(q, p, { placed: true, t: rand(1, 4), run: 0 }); }
+      if (!q.placed) { const p = tileXZ(home(F.trees), 0.5, 0.85); Object.assign(q, p, { placed: true, t: rand(1, 4), run: 0 }); }
       q.t -= dt;
       if (q.run <= 0 && (q.t <= 0 || this.threat(q.x, q.z) < 1.6)) {
         const i = near(F.trees, q.x, q.z, 6);
@@ -732,7 +734,7 @@ export class Ambient {
     // snowshoe hares: hop, hop, nibble, look up... and bolt when the fox comes
     for (const h of F.hares) {
       if (!F.glades.length || night > 0.75) break;
-      if (!h.placed) { const p = tileXZ(F.glades[Math.floor(Math.random() * F.glades.length)], 0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6); Object.assign(h, p, { placed: true, t: rand(1, 3), hop: 0, mode: 'eat' }); }
+      if (!h.placed) { const p = tileXZ(home(F.glades), 0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6); Object.assign(h, p, { placed: true, t: rand(1, 3), hop: 0, mode: 'eat' }); }
       h.t -= dt;
       const scared = this.threat(h.x, h.z) < 2.2;
       if (h.hop <= 0 && (h.t <= 0 || scared)) {
@@ -757,7 +759,7 @@ export class Ambient {
     // butterflies over the glade flowers (by day)
     for (const f of F.flies) {
       if (!F.flowers.length || !day) break;
-      if (!f.placed) { const c = pick(F.flowers); Object.assign(f, { x: c.x, z: c.z, tx: c.x, tz: c.z, placed: true, t: 0 }); }
+      if (!f.placed) { let c = pick(F.flowers); for (let k = 0; k < 10 && Math.hypot(c.x - cx, c.z - cz + 1) > 6; k++) c = pick(F.flowers); Object.assign(f, { x: c.x, z: c.z, tx: c.x, tz: c.z, placed: true, t: 0 }); }
       f.t -= dt;
       if (f.t <= 0) { const c = pick(F.flowers); if (Math.hypot(c.x - f.x, c.z - f.z) < 7) { f.tx = c.x; f.tz = c.z; } f.t = rand(3, 7); }
       const dx = f.tx - f.x, dz = f.tz - f.z, d = Math.hypot(dx, dz);

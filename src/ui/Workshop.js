@@ -19,14 +19,21 @@
 //             kind: 'craft' | 'repair', ruin?: 'ruin_chair', ruinName?: 'Broken Armchair' }]
 // jobs:    [{ id, recipeId, name, start, end (ms epoch), done }]
 // materials: { id: { name, icon, have } }
-// art(recipeId) -> HTMLCanvasElement | null      item picture (built-in pixel art is used when null)
+// art(recipeId) -> HTMLCanvasElement | <img> | null   item picture for ids without built-in art (the 15 v14
+//                    woodwork/antique ids + 5 ruins have built-in pixel art; artFirst: true makes art() win)
 // icon(name, scale) -> html                      for material icons (built-in fallbacks when '' )
-// sfx(name, opts)                                 names: saw hammer nail tock ding paper stamp pop_in whoosh
-//                                                 crate_drop click hover error gate chalk_tap bird_chirp star_pop
+// sfx(name, opts)   names used (all exist in src/audio): saw hammer nail (work ambience), tock (wood knock),
+//                   ding, paper, stamp, gate (lever), pop_in, whoosh, crate_drop, click, hover, error,
+//                   chalk_tap, bird_chirp (Chip starts a line). opts: { volume, pitch }
 // onCraft(recipeId) -> { ok, msg }   onCollect(jobId) -> { ok, msg }   (refresh() may be called inside them)
 // onTalk(text)       optional: Chip started a line (drive a rig / babble voice)
-// chipEl             optional element mounted in Chip's spot instead of the drawn portrait
+// chipEl             optional element mounted in Chip's spot instead of the drawn portrait; the spot is
+//                    84 x 110 art px (168 x 220 CSS px at 2x), bottom edge on the bench. A canvas rendered at
+//                    84 x 110 with image-rendering: pixelated matches the scene's pixel size exactly.
 // now()              optional clock (ms epoch), default Date.now
+//
+// Also exported: workshopArt(id) -> 48x48 pixel-art canvas for every v14 woodwork / antique / ruin id
+// (WORKSHOP_ART_IDS), handy as build-tab icons; fmtTime(seconds) -> '25 min' / '1h 05m'.
 //
 // `root` should be a positioned element with a size; the workshop fills it.
 // Everything is drawn at a low "art pixel" resolution and scaled by an integer
@@ -217,7 +224,7 @@ function cropCanvas(src) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 20) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   if (x1 < 0) return src;
   const c = newCanvas(x1 - x0 + 1, y1 - y0 + 1);
-  c.getContext('2d').drawImage(src, -x0, -y0);
+  c.getContext('2d', { willReadFrequently: true }).drawImage(src, -x0, -y0);
   return c;
 }
 // nearest-neighbour scale so the picture fits (mw x mh); small art is scaled UP by an integer
@@ -706,6 +713,8 @@ function ghostify(src) {
 // props: tools, Chip, lever, slate, ruler ...
 // ===========================================================================
 const PROPS = {};
+const propCache = new Map();
+const prop = (name) => { if (!propCache.has(name)) propCache.set(name, PROPS[name]()); return propCache.get(name); };
 // a handsaw (pointing right), 22x9
 PROPS.saw = () => {
   const p = new Pen(24, 11), I = RAMP.iron, P = RAMP.oak;
@@ -932,7 +941,7 @@ function computeLayout(W, H, n) {
 // ===========================================================================
 // scene painter: the static room behind everything
 // ===========================================================================
-function paintScene(L, n) {
+function paintScene(L) {
   const { W, H } = L;
   const p = new Pen(W, H), g = p.g;
   const R = rng(17);
@@ -982,6 +991,7 @@ function paintScene(L, n) {
   for (let x = 0; x < W; x++) for (let y = L.floorY + 1; y < L.floorY + 5; y++) if (bayer(x, y) < 0.6 - (y - L.floorY) * 0.14) p.p(x, y, '#140c07');
   // bench legs + lower shelf in front of the floor line
   paintBenchLegs(p, L);
+  benchProps(p, L);
   // a braided rag rug where the broken antiques wait
   if (L.repairs.n) paintRug(p, L.repairs.x + 8, H - 12, Math.min(W - L.repairs.x - 80, 52 + L.repairs.n * 40) / 2, 9);
   // sawdust drifts on the floor
@@ -1050,6 +1060,27 @@ function wallDecor(p, L) {
     const ty = cy + 22;
     p.ring(cx, ty, 6, 7, '#c8a46a'); p.ring(cx, ty, 4, 5, '#a8844a'); p.ln(cx, ty + 7, cx + 2, ty + 14, '#c8a46a');
   }
+}
+
+// a mug and a pencil cup on the free stretch of bench beside Chip
+function benchProps(p, L) {
+  const x0 = L.chip.x + L.chip.w + 2, x1 = L.slots[0].cx - 34;
+  if (x1 - x0 < 24) return;
+  const y = L.benchY + 7; // standing on the bench top
+  const mx = x0 + 2;
+  // mug
+  p.box(mx, y - 9, 9, 9, RAMP.cream, { base: 4 }); p.r(mx, y - 6, 9, 2, RAMP.red[3]);
+  p.ring(mx + 10.5, y - 4.5, 2.5, 3, RAMP.cream[2]); p.r(mx + 1, y - 9, 7, 1, '#3a2010');
+  p.r(mx - 1, y, 12, 1, 'rgba(10,5,2,0.35)');
+  // pencil cup
+  const cx = mx + 16;
+  p.ln(cx + 1, y - 9, cx - 1, y - 16, RAMP.gold[4], 2); p.p(cx - 1, y - 17, RAMP.walnut[2]);
+  p.ln(cx + 4, y - 9, cx + 6, y - 15, RAMP.red[4], 2); p.p(cx + 6, y - 16, RAMP.walnut[2]);
+  p.ln(cx + 3, y - 9, cx + 3, y - 18, RAMP.blue[4], 1);
+  p.box(cx, y - 9, 7, 9, RAMP.iron, { base: 4 }); p.hl(cx, cx + 6, y - 9, RAMP.iron[6]);
+  p.r(cx - 1, y, 9, 1, 'rgba(10,5,2,0.35)');
+  // a couple of curly shavings
+  for (const [sx, sy] of [[cx + 11, y - 1], [cx + 15, y + 1]]) { p.hl(sx, sx + 2, sy, RAMP.pine[6]); p.p(sx + 3, sy - 1, RAMP.pine[5]); p.p(sx - 1, sy - 1, RAMP.pine[5]); }
 }
 
 function paintRug(p, cx, cy, rx, ry) {
@@ -1495,7 +1526,7 @@ export function openWorkshop(root, opts = {}) {
     slots: Math.max(1, o.slots || 3),
     chat: (o.chat && o.chat.length ? o.chat : DEFAULT_CHAT).slice(),
   };
-  const V = { ready: false, open: null, busy: false, closed: false, seen: new Set(), dinged: new Set(), collecting: new Set(), pendingNew: [], chatI: 0, lastTalk: 0 };
+  const V = { ready: false, open: null, busy: false, closed: false, seen: new Set(), dinged: new Set(), collecting: new Set(), chatI: 0, lastTalk: 0, dirty: 0 };
 
   // ---------------------------------------------------------------- DOM
   const el = document.createElement('div');
@@ -1503,7 +1534,6 @@ export function openWorkshop(root, opts = {}) {
   el.tabIndex = -1;
   el.innerHTML = '<div class="ws-stage"></div><div class="ws-dark"></div>';
   const stage = el.querySelector('.ws-stage');
-  const dark = el.querySelector('.ws-dark');
   root.appendChild(el);
   const chipBox = document.createElement('div');
   chipBox.className = 'ws-chip';
@@ -1527,17 +1557,38 @@ export function openWorkshop(root, opts = {}) {
     try { h = o.icon?.(name, scale) || ''; } catch { h = ''; }
     return h || own() || '<i class="ws-ic-x">?</i>';
   }
-  // the item picture as a canvas (lead's art -> recipe icon fn -> built-in art -> sprite)
-  const picCache = new Map();
+  // art() may hand back a canvas or an <img> (decoded later: redraw the plans when it arrives)
+  function asCanvas(x, key) {
+    if (!x) return null;
+    if (x instanceof HTMLCanvasElement) return x;
+    if (typeof HTMLImageElement !== 'undefined' && x instanceof HTMLImageElement) {
+      if (x.complete && x.naturalWidth) {
+        const c = newCanvas(x.naturalWidth, x.naturalHeight);
+        c.getContext('2d', { willReadFrequently: true }).drawImage(x, 0, 0);
+        return c;
+      }
+      x.addEventListener('load', () => {
+        if (V.closed) return;
+        picCache.delete(key);
+        for (const k of [...sheetCache.keys()]) if (k.startsWith(key + '|')) sheetCache.delete(k);
+        V.dirty = Math.max(V.dirty, 1);
+        if (!V.busy) flushDirty();
+      }, { once: true });
+    }
+    return null;
+  }
+  // the item picture as a canvas: built-in pixel art for the v14 ids (drawn for this room; artFirst flips it),
+  // else art(id) -> recipe.icon() -> the icon sprite -> a crate
+  const picCache = new Map(), sheetCache = new Map();
   function picture(id, r = recipe(id)) {
     if (picCache.has(id)) return picCache.get(id);
-    let c = null;
-    try { c = o.art?.(id) || null; } catch { c = null; }
-    if (!c && r && typeof r.icon === 'function') { try { c = r.icon(); } catch { c = null; } }
-    if (!c) c = workshopArt(id);
+    const own = workshopArt(id);
+    let c = own && !o.artFirst ? own : null;
+    if (!c) { try { c = asCanvas(o.art?.(id), id); } catch { c = null; } }
+    if (!c && r && typeof r.icon === 'function') { try { c = asCanvas(r.icon(), id); } catch { c = null; } }
+    if (!c) c = own;
     if (!c && r && typeof r.icon === 'string' && hasSprite(r.icon)) c = spriteCanvas(r.icon, 1);
     if (!c) c = workshopArt('wd_crate');
-    if (!(c instanceof HTMLCanvasElement)) c = workshopArt('wd_crate');
     c = fitCanvas(c, 44, 44);
     picCache.set(id, c);
     return c;
@@ -1546,7 +1597,12 @@ export function openWorkshop(root, opts = {}) {
     const key = '~ruin~' + r.id;
     if (picCache.has(key)) return picCache.get(key);
     let c = null;
-    if (r.ruin) { try { c = o.art?.(r.ruin) || null; } catch { c = null; } if (!c) c = workshopArt(r.ruin); }
+    if (r.ruin) {
+      const own = workshopArt(r.ruin);
+      c = own && !o.artFirst ? own : null;
+      if (!c) { try { c = asCanvas(o.art?.(r.ruin), key); } catch { c = null; } }
+      if (!c) c = own;
+    }
     if (!c) c = ruinify(picture(r.id, r), hashStr(r.id) % 97);
     c = fitCanvas(c, 44, 40);
     picCache.set(key, c);
@@ -1582,7 +1638,7 @@ export function openWorkshop(root, opts = {}) {
     // only the shade itself is clickable (the canvas box overlaps the plans)
     const hit = div('ws-lamp-hit', stage);
     place(hit, L.lamp.x - 16, L.lamp.shadeY + 3, 34, 12);
-    hit.addEventListener('click', (e) => { e.stopPropagation(); sfx('click', { volume: 0.4, pitch: 1.4 }); light.classList.remove('ws-flick'); void light.offsetWidth; light.classList.add('ws-flick'); });
+    hit.addEventListener('click', (e) => { e.stopPropagation(); sfx('click', { volume: 0.4, pitch: 1.4 }); once(light, 'ws-flick'); });
     E.light = light;
     E.planLayer = div('ws-planlayer', stage);
     E.bubble = div('ws-bubble', stage);
@@ -1606,7 +1662,6 @@ export function openWorkshop(root, opts = {}) {
   }
 
   // ---------------------------------------------------------------- corkboard of plans
-  const sheetCache = new Map();
   function sheetCanvas(r, sw, sh) {
     const key = `${r.id}|${sw}x${sh}|${r.locked ? 1 : 0}`;
     if (sheetCache.has(key)) return sheetCache.get(key);
@@ -1685,7 +1740,7 @@ export function openWorkshop(root, opts = {}) {
   function okSticker(b) { const d = div('ws-ok', b); d.style.backgroundImage = `url(${propCheck()})`; return d; }
   function wiggleBoard() {
     let i = 0;
-    for (const b of E.plans?.values() || []) { const k = i++; setTimeout(() => { b.classList.remove('ws-wig'); void b.offsetWidth; b.classList.add('ws-wig'); }, k * 50); }
+    for (const b of E.plans?.values() || []) { const k = i++; setTimeout(() => once(b, 'ws-wig'), k * 50); }
   }
 
   // ---------------------------------------------------------------- jars of forest finds
@@ -1706,7 +1761,12 @@ export function openWorkshop(root, opts = {}) {
       d.appendChild(cloneCanvas(front, 'ws-jar-f'));
       const tag = div('ws-jar-n', d, `<span>${fmtN(m.have)}</span>`);
       tag.style.top = `${J.jh + 3}px`;
-      d.addEventListener('click', () => { sfx('click', { volume: 0.5, pitch: 1.3 }); bounce(d); say(`${m.name || id}: ${fmtN(m.have)}. ${m.have ? 'Nice haul!' : 'Look around the forest!'}`); });
+      tag.classList.toggle('ws-zero', !m.have);
+      d.addEventListener('click', () => {
+        const mm = S.materials[id] || m;
+        sfx('click', { volume: 0.5, pitch: 1.3 }); bounce(d);
+        say(`${mm.name || id}: ${fmtN(mm.have)}. ${mm.have ? 'Nice haul!' : 'Look around the forest!'}`);
+      });
       E.jars.set(id, { d, n: tag.firstChild, have: m.have });
     });
   }
@@ -1757,7 +1817,7 @@ export function openWorkshop(root, opts = {}) {
       const body = cloneCanvas(chipFrames.body, 'ws-chip-body');
       const head = cloneCanvas(chipFrames.heads[0], 'ws-chip-head');
       chipBox.append(body, head);
-      E.chipHead = head; E.chipBody = body;
+      E.chipHead = head;
     }
     chipBox.onclick = (e) => { e.stopPropagation(); talk(); };
     E.chip = chipBox;
@@ -1771,26 +1831,27 @@ export function openWorkshop(root, opts = {}) {
   }
   function peck(n = 3) {
     if (!E.chipHead) return;
-    E.chipHead.classList.remove('ws-peck'); void E.chipHead.offsetWidth;
     E.chipHead.style.setProperty('--n', n);
-    E.chipHead.classList.add('ws-peck');
+    once(E.chipHead, 'ws-peck');
     for (let i = 0; i < n; i++) setTimeout(() => { if (!V.closed) { sfx('tock', { volume: 0.5, pitch: 0.75 + Math.random() * 0.1 }); puff(L.chip.x + 82, L.chip.y + 40, 2, 'dust'); } }, 90 + i * 140);
   }
-  function hop() { if (E.chip) { E.chip.classList.remove('ws-hop'); void E.chip.offsetWidth; E.chip.classList.add('ws-hop'); } }
+  function hop() { once(E.chip, 'ws-hop'); }
 
   // ---------------------------------------------------------------- speech bubble
   let typeT = null, hideT = null;
   function say(text, o2 = {}) {
-    if (!text || !E.bubble) return;
+    if (!text) return;
+    if (!E.bubble) { V.pendingSay = text; return; }
     text = String(text);
     const t = E.bubble.querySelector('.ws-bubble-t');
     clearInterval(typeT); clearTimeout(hideT);
-    const maxW = clamp(L.leftW + 46, 130, 190);
+    const maxW = clamp(L.board.x - 8, 104, 190); // stay off the corkboard where possible
     E.bubble.style.maxWidth = `${maxW}px`;
     t.textContent = text;
     E.bubble.classList.remove('on'); void E.bubble.offsetWidth;
     E.bubble.style.left = '4px';
     E.bubble.style.bottom = `${L.H - L.chip.y - 6}px`;
+    E.bubble.style.setProperty('--tail', `${clamp(L.chip.x + 44 - 4, 14, maxW - 20)}px`);
     E.bubble.classList.add('on');
     // type it out, beak flapping
     const chars = [...text];
@@ -1848,7 +1909,14 @@ export function openWorkshop(root, opts = {}) {
     tick();
     bounce(w.d);
   }
-  function bounce(node) { node.classList.remove('ws-bounce'); void node.offsetWidth; node.classList.add('ws-bounce'); }
+  // restart a one-shot CSS animation class, and drop it when done so idle loops resume
+  function once(node, cls) {
+    if (!node) return;
+    node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls);
+    const off = (e) => { if (e.target === node) { node.classList.remove(cls); node.removeEventListener('animationend', off); } };
+    node.addEventListener('animationend', off);
+  }
+  const bounce = (node) => once(node, 'ws-bounce');
 
   // ---------------------------------------------------------------- job slots
   E.slotEls = [];
@@ -1880,7 +1948,7 @@ export function openWorkshop(root, opts = {}) {
       sl.addEventListener('click', (e) => { e.stopPropagation(); onSlotClick(i); });
       E.slotEls.push({ i, box, item, ruler, rw, sl, txt, ghost, job: null, frac: -1, text: '', state: '' });
     });
-    V.slotJob = new Array(L.slots.length).fill(null);
+    if (!V.slotJob || V.slotJob.length !== L.slots.length) V.slotJob = new Array(L.slots.length).fill(null);
     syncSlots(true);
   }
   // keep each job in the slot it started in
@@ -1891,7 +1959,9 @@ export function openWorkshop(root, opts = {}) {
     for (let i = 0; i < slots.length; i++) if (slots[i] != null && !ids.has(slots[i])) slots[i] = null;
     for (const j of live) {
       if (slots.includes(j.id)) continue;
-      const k = slots.indexOf(null);
+      // a freshly crafted job goes to the bench its plan flew to
+      const k = V.reserve != null && slots[V.reserve] == null ? V.reserve : slots.indexOf(null);
+      V.reserve = null;
       if (k >= 0) slots[k] = j.id;
     }
     return slots;
@@ -1913,12 +1983,25 @@ export function openWorkshop(root, opts = {}) {
       const glow = div('ws-glow', s.item);
       glow.style.backgroundImage = `url(${propGlow()})`;
       glow.style.left = `${Math.round(32 - 30)}px`; glow.style.top = `${Math.round(oy + pic.height / 2 - 30)}px`;
-      const gh = ghostify(pic); gh.className = 'ws-ghost';
+      // the unbuilt part: a raw-wood ghost, or (for a repair) the broken antique being restored bottom-up
       const full = cloneCanvas(pic, 'ws-full');
-      for (const c of [gh, full]) { c.style.left = `${ox}px`; c.style.top = `${oy}px`; s.item.appendChild(c); }
+      if (r.kind === 'repair' || job.kind === 'repair') {
+        const bp = brokenPicture(r);
+        const gh = cloneCanvas(bp, 'ws-ghost ws-ghost-ruin');
+        gh.style.left = `${Math.round((64 - bp.width) / 2)}px`; gh.style.top = `${40 - bp.height}px`;
+        s.item.appendChild(gh);
+        s.ghost = gh; s.ghostTop = 40 - bp.height; s.ghostH = bp.height;
+      } else {
+        const gh = ghostify(pic); gh.className = 'ws-ghost';
+        gh.style.left = `${ox}px`; gh.style.top = `${oy}px`;
+        s.item.appendChild(gh);
+        s.ghost = gh; s.ghostTop = oy; s.ghostH = pic.height;
+      }
+      full.style.left = `${ox}px`; full.style.top = `${oy}px`;
+      s.item.appendChild(full);
       const tool = div('ws-tool', s.item);
-      tool.appendChild(cloneCanvas(PROPS.saw(), 'ws-saw'));
-      tool.appendChild(cloneCanvas(PROPS.hammer(), 'ws-hammer'));
+      tool.appendChild(cloneCanvas(prop('saw'), 'ws-saw'));
+      tool.appendChild(cloneCanvas(prop('hammer'), 'ws-hammer'));
       s.pic = pic; s.ox = ox; s.oy = oy; s.full = full; s.tool = tool;
       s.toolT = Math.random() * 4;
       const fresh = !initial && !V.seen.has(job.id);
@@ -1963,6 +2046,8 @@ export function openWorkshop(root, opts = {}) {
     if (job && fy !== s.fy) {
       s.fy = fy;
       s.full.style.clipPath = `inset(${fy}px 0 0 0)`;
+      // the unbuilt layer only shows above the line
+      if (s.ghost) s.ghost.style.clipPath = `inset(0 0 ${Math.max(0, s.ghostH - (s.oy + fy - s.ghostTop))}px 0)`;
       s.tool.style.top = `${s.oy + fy - 6}px`;
     }
     const rf = Math.round((s.rw - 2) * frac);
@@ -1999,20 +2084,18 @@ export function openWorkshop(root, opts = {}) {
     const ok = res == null ? true : !!res.ok;
     if (!ok) {
       sfx('error', { volume: 0.5 });
-      s.item.classList.remove('ws-shake'); void s.item.offsetWidth; s.item.classList.add('ws-shake');
+      once(s.item, 'ws-shake');
       if (res?.msg) say(res.msg);
       return;
     }
     V.collecting.add(job.id);
     // the piece hops off the bench and into the crate
-    const start = s.item.getBoundingClientRect();
     const flyer = cloneCanvas(s.pic, 'ws-flyer');
     const x0 = L.slots[s.i].cx - 32 + s.ox, y0 = L.benchY - 40 + s.oy;
     const x1 = L.crate.x + L.crate.w / 2 - s.pic.width / 2, y1 = L.crate.y + 6 - s.pic.height / 2;
     place(flyer, x0, y0);
     stage.appendChild(flyer);
     s.item.style.visibility = 'hidden';
-    void start;
     sfx('whoosh', { volume: 0.5, pitch: 1.2 });
     const peak = Math.min(y0, y1) - 50;
     const kf = [];
@@ -2120,7 +2203,7 @@ export function openWorkshop(root, opts = {}) {
       V.busy = true;
       await tweenLever(from, 0.35, 140);
       sfx('error', { volume: 0.4 });
-      E.lever.lv.classList.remove('ws-shake'); void E.lever.lv.offsetWidth; E.lever.lv.classList.add('ws-shake');
+      once(E.lever.lv, 'ws-shake');
       say('Pick a plan off the board first!');
       wiggleBoard();
       await springLever(0.35);
@@ -2136,11 +2219,12 @@ export function openWorkshop(root, opts = {}) {
     const ok = res == null ? true : !!res.ok;
     if (!ok) {
       sfx('error', { volume: 0.5 });
-      E.planSheet?.classList.remove('ws-shake'); void E.planSheet?.offsetWidth; E.planSheet?.classList.add('ws-shake');
-      E.planSheet?.querySelectorAll('.ws-row.ws-short').forEach((n) => { n.classList.remove('ws-flash'); void n.offsetWidth; n.classList.add('ws-flash'); });
+      once(E.planSheet, 'ws-shake');
+      E.planSheet?.querySelectorAll('.ws-row.ws-short').forEach((n) => once(n, 'ws-flash'));
       say(res?.msg || 'Hmm, can\'t build that yet.');
       await springLever(1);
       V.busy = false;
+      flushDirty();
       return;
     }
     // stamp it, roll it up, and fly it to a free bench
@@ -2152,11 +2236,13 @@ export function openWorkshop(root, opts = {}) {
     // planks hop from the stack to the bench
     const target = V.slotJob ? V.slotJob.indexOf(null) : -1;
     const tx = target >= 0 ? L.slots[target].cx : L.slots[0].cx;
+    V.reserve = target >= 0 ? target : null;
     for (let k = 0; k < Math.min(4, 1 + Math.floor((r.cost?.wood || 0) / 4)); k++) setTimeout(() => flyPlank(tx), k * 90);
     await rollUp(true);
     say(res?.msg && res.msg.length > 2 ? `${res.msg} ${r.time ? `Back in ${fmtTime(r.time)}.` : ''}` : `On it! Back in ${fmtTime(r.time || 0)}.`);
     peck(3);
     V.busy = false;
+    flushDirty();
     syncSlots();
     renderBoardState();
   }
@@ -2184,7 +2270,7 @@ export function openWorkshop(root, opts = {}) {
     if (!r) return;
     if (r.locked) {
       sfx('error', { volume: 0.35, pitch: 1.2 });
-      node.classList.remove('ws-wig'); void node.offsetWidth; node.classList.add('ws-wig');
+      once(node, 'ws-wig');
       say(r.kind === 'repair' ? `${r.locked}. Then bring it here!` : `Not yet! ${r.locked}.`);
       return;
     }
@@ -2194,6 +2280,7 @@ export function openWorkshop(root, opts = {}) {
   async function openPlan(id, x = {}) {
     const r = recipe(id);
     if (!r || V.closed) return;
+    if (!L) { V.open = id; return; } // opens (without the unroll) on the first paint
     if (V.open && !x.instant) await rollUp(false, true);
     V.open = id;
     const P = L.plan, repair = r.kind === 'repair';
@@ -2315,7 +2402,7 @@ export function openWorkshop(root, opts = {}) {
     await wait(300);
     sheet.remove();
     if (toBench) {
-      const k = V.slotJob ? V.slotJob.indexOf(null) : -1;
+      const k = V.reserve ?? (V.slotJob ? V.slotJob.indexOf(null) : -1);
       const s = L.slots[Math.max(0, k)];
       const dx = s.cx - (P.x + P.w / 2), dy = L.benchY - 20 - P.y;
       const a = anim(tube, [
@@ -2331,6 +2418,22 @@ export function openWorkshop(root, opts = {}) {
       await (a ? a.finished.catch(() => {}) : wait(220));
       tube.remove();
     }
+  }
+  function flushDirty() {
+    const d = V.dirty;
+    V.dirty = 0;
+    if (!d || !L) return;
+    if (d >= 2) {
+      picCache.clear();
+      V.seen = new Set([...V.seen, ...S.jobs.map((j) => j.id)]);
+      build();
+      return;
+    }
+    // same layout: only the corkboard and the repair pile change
+    E.board?.remove();
+    stage.querySelector('.ws-repairs')?.remove();
+    buildBoard(); buildRepairs();
+    if (V.open) for (const [k, b] of [...(E.plans || []), ...(E.repairs || [])]) b.classList.toggle('ws-sel', k === V.open);
   }
   function renderBoardState() {
     for (const r of S.recipes) {
@@ -2568,20 +2671,19 @@ export function openWorkshop(root, opts = {}) {
       if (!L) return;
       // the board / repairs only rebuild when the set of plans (or their lock state) changes
       const sig = (list) => list.map((r) => `${r.id}:${r.locked ? 1 : 0}:${r.kind}`).join('|');
+      const count = (list, rep) => list.filter((r) => (r.kind === 'repair') === rep).length;
       const recipesChanged = st.recipes && sig(prevRecipes) !== sig(S.recipes);
+      const countsChanged = st.recipes && (count(prevRecipes, false) !== count(S.recipes, false) || count(prevRecipes, true) !== count(S.recipes, true));
       const matsChanged = st.materials && Object.keys(S.materials).join('|') !== Object.keys(prevMats).join('|');
-      if (recipesChanged || matsChanged) {
-        // rare (a ruin found, a plan unlocked while open): rebuild the room, keep the open plan
-        picCache.clear();
-        if (st.jobs) V.seen = new Set([...V.seen, ...S.jobs.map((j) => j.id)]);
-        build();
-        updateWood();
-        return;
-      }
+      // rare (a ruin found or used up, a plan unlocked): redo the plans, or the whole room if the layout moves.
+      // Never in the middle of an animation: it waits until the lever/collect is done.
+      if (countsChanged || matsChanged) V.dirty = 2;
+      else if (recipesChanged) V.dirty = Math.max(V.dirty, 1);
+      if (V.dirty && !V.busy) flushDirty();
       if (st.materials) {
         for (const [id, m] of Object.entries(S.materials)) {
           const j = E.jars.get(id);
-          if (j && j.have !== m.have) { j.have = m.have; j.n.textContent = fmtN(m.have); bounce(j.d); }
+          if (j && j.have !== m.have) { j.have = m.have; j.n.textContent = fmtN(m.have); j.n.parentNode.classList.toggle('ws-zero', !m.have); bounce(j.d); }
         }
       }
       updateWood();
@@ -2589,6 +2691,7 @@ export function openWorkshop(root, opts = {}) {
       renderBoardState();
     },
     say(text) { say(text); },
+    get state() { return { ...S, open: V.open }; },
     openPlan(id) { if (!V.busy) openPlan(id); },
     close() {
       if (V.closed) return;
@@ -2614,12 +2717,12 @@ export function openWorkshop(root, opts = {}) {
     build();
     el.classList.remove('ws-loading');
     el.classList.add('ws-in');
+    setTimeout(() => el.classList.remove('ws-in'), 1600); // entrance animations only play once
     sfx('click', { volume: 0.5, pitch: 0.8 });
     setTimeout(() => { if (!V.closed) { sfx('click', { volume: 0.4, pitch: 0.9 }); } }, 260);
     raf = requestAnimationFrame(frame);
-    setTimeout(() => { if (!V.closed) { hop(); say(S.chat[0]); V.chatI = 1; } }, 650);
+    setTimeout(() => { if (!V.closed) { hop(); say(V.pendingSay || S.chat[0]); V.chatI = V.pendingSay ? 0 : 1; V.pendingSay = null; } }, 650);
     try { el.focus({ preventScroll: true }); } catch { /* ignore */ }
   });
-  void dark;
   return api;
 }

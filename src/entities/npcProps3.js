@@ -14,7 +14,7 @@
 //                    planks, a nail jar and a mug; a pegboard of tools behind; a sawhorse with a plank and a saw.
 //                    ~2 x 1 tiles (long side along X), origin = bottom centre.  userData: { top } (bench-top height)
 import * as THREE from 'three';
-import { VS, FV, VoxelModel, ell, tone, hash3, buildGeo, matFor, grainMaterial, sin, cos, abs, max, min, PI, floor } from './critterKit.js';
+import { VS, FV, VoxelModel, ell, tone, hash3, buildGeo, matFor, grainMaterial, sin, cos, abs, max, PI, floor } from './critterKit.js';
 import { mulberry32 } from '../core/rng.js';
 
 // ------------------------------------------------------------------ prop plumbing
@@ -81,13 +81,13 @@ function wallCol(x, y, z) { return (y - W0) % 3 === 2 ? T.wallD : tone(x, y, z, 
 function treeHouseModel() {
   const v = new VoxelModel(), g = new VoxelModel();
   const rnd = mulberry32(4127);
-  // --- trunk: a hollow shell with a flared base
-  for (let y = 0; y <= 74; y++) {
+  // --- trunk with a flared base (solid, so no hidden inner faces)
+  for (let y = 0; y <= 62; y++) {
     const R = trunkR(y);
     for (let x = -14; x <= 13; x++)
       for (let z = -14; z <= 13; z++) {
         const r = Math.hypot(x + 0.5, z + 0.5);
-        if (r > R || r < R - 2.4) continue;
+        if (r > R) continue;
         v.set(x, y, z, barkCol(x, y, z));
       }
   }
@@ -209,11 +209,12 @@ function treeHouseModel() {
     v.set(x, W1 - 1 + sag, HZ1 + 3, T.ink);
     if ((x + 40) % 3 === 0) { const c = [T.red, T.yellow, T.blue, T.green][((x + 40) / 3) % 4]; v.set(x, W1 - 2 + sag, HZ1 + 3, c); v.set(x + 1, W1 - 2 + sag, HZ1 + 3, c); v.set(x, W1 - 3 + sag, HZ1 + 3, c); }
   }
-  // --- branches + a clumpy crown (shells only), with a few apples
+  // --- branches + a clumpy crown, with a few apples
   for (const [sx, sz, h] of [[-1, 0.3, 0], [1, -0.2, 2], [-0.4, -1, 1], [0.5, 0.9, 3]]) v.line(sx * 6, 54 + h, sz * 6, sx * 19, 61 + h, sz * 15, T.barkD, 0.6);
   const leafCol = (x, y, z, cy, ry) => {
-    const h = hash3(x, y, z), up = (y + 0.5 - cy) / ry;
-    if (h > 0.988 && up > -0.3) return h > 0.995 ? T.appleL : T.apple;
+    const h = hash3(x >> 1, y >> 1, z >> 1), up = (y + 0.5 - cy) / ry; // 2x2 leaf clumps (bigger patches, fewer faces)
+    const ha = hash3(x, y, z);
+    if (ha > 0.988 && up > -0.3) return ha > 0.995 ? T.appleL : T.apple;
     if (up > 0.5) return h < 0.2 ? T.leaf : h > 0.7 ? T.leafLL : T.leafL;
     if (up < -0.3) return h < 0.35 ? T.leafDD : T.leafD;
     return h < 0.18 ? T.leafD : h > 0.82 ? T.leafL : T.leaf;
@@ -223,18 +224,20 @@ function treeHouseModel() {
       for (let y = floor(cy - ry); y <= Math.ceil(cy + ry); y++)
         for (let z = floor(cz - rz); z <= Math.ceil(cz + rz); z++) {
           const d = ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 + ((z + 0.5 - cz) / rz) ** 2;
-          if (d > 1 || d < 0.55) continue;
+          if (d > 1) continue;
+          if (d < 0.5) { if (!v.has(x, y, z)) v.set(x, y, z, T.leafDD); continue; } // solid core: no hidden inner faces
           v.set(x, y, z, leafCol(x, y, z, cy, ry));
         }
   };
-  const CY = 66;
-  blob(0, CY, -1, 23, 9, 19);
-  for (let i = 0; i < 26; i++) {
-    const a = rnd() * PI * 2, e = -0.35 + rnd() * 1.25;
+  const CY = 67;
+  blob(0, CY, -1, 22, 11, 18);
+  for (let i = 0; i < 28; i++) {
+    const a = rnd() * PI * 2, e = -0.3 + rnd() * 1.5;
     const r = 6 + rnd() * 3.5;
-    const px = cos(a) * cos(e) * 22, py = CY + sin(e) * 9, pz = -1 + sin(a) * cos(e) * 18;
-    blob(px, py, pz, r, r * 0.8, r);
+    const px = cos(a) * cos(e) * 21, py = CY + sin(e) * 11, pz = -1 + sin(a) * cos(e) * 17;
+    blob(px, py, pz, r, r * 0.85, r);
   }
+  blob(0, CY + 12, -1, 8, 5, 7); // a crown on top so it reads round, not flat
   return { v, g };
 }
 
@@ -327,7 +330,7 @@ function detailModel() {
   }
   for (let z = -20; z <= 2; z++) for (let x = -56; x <= -50; x++) for (let y = 8; y <= 13; y++) if (Math.hypot(x + 52.5, y - 10.5) < 3.2) v.set(x, y, z, z === 2 || z === -20 ? (Math.hypot(x + 52.5, y - 10.5) < 1.5 ? T.ringD : T.ring) : barkCol(x, y, z));
   // --- chopping block + hatchet + split logs (front right)
-  const B = [24, 42];
+  const B = [48, 22];
   for (let y = 0; y <= 9; y++)
     for (let x = -7; x <= 6; x++)
       for (let z = -7; z <= 6; z++) {
@@ -344,7 +347,7 @@ function detailModel() {
     }
   // --- curly wood shavings everywhere he works
   shavings(v, rnd, B[0], B[1], 13, 26);
-  shavings(v, rnd, 10, 34, 8, 12);
+  shavings(v, rnd, 12, 34, 9, 14);
   shavings(v, rnd, -14, 38, 6, 6);
   // --- doormat
   for (let x = -8; x <= 7; x++) for (let z = 27; z <= 32; z++) v.set(x, 0, z, x === -8 || x === 7 || z === 27 || z === 32 ? T.redD : (x + 40) % 4 < 2 ? T.cream : T.red);
@@ -392,7 +395,7 @@ export function makeTreeHouse() {
   bucket.position.set(56.5 * FV, 54 * FV, -12 * FV);
   const g = group('TreeHouse', body, glow, det, detGlow, bucket);
   g.userData.door = new THREE.Vector3(0, 0, trunkR(0) * VS + 0.06);
-  g.userData.stand = new THREE.Vector3(0.32, 0, 1.45); // where Chip likes to stand (local)
+  g.userData.stand = new THREE.Vector3(0.7, 0, 1.45); // where Chip likes to stand (local), front-right of the door
   g.userData.bucket = bucket;
   g.userData.size = { w: 3, d: 3, h: 4.1 };
   return g;

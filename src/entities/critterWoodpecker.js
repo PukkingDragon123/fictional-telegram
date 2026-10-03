@@ -22,7 +22,7 @@
 // Units: 1 voxel = 0.05. Root at the feet, facing +Z. ~1.12 tall to the head, ~1.36 to the crest tip.
 import * as THREE from 'three';
 import {
-  VS, FV, VoxelModel, rbox, ell, tone, buildGeo, geoCache, mirrorX, handModel, pixTex, Spring, K, EASE, pulse, beat, win,
+  VS, FV, VoxelModel, rbox, ell, tone, buildGeo, geoCache, mirrorX, handModel, pixTex, Spring, K, pulse, beat, win,
   sin, cos, abs, max, min, PI, TAU, clamp, lerp, smooth, SPARK_ROWS, HEART_ROWS,
 } from './critterKit.js';
 import { BASE_EXPRS } from './critterFaces.js';
@@ -52,23 +52,24 @@ const C = {
 
 const D = {
   HIP_Y: 5.2, WAIST: 1, NECK: 7.8, NECK_Z: 0.4, SH: [5.3, 6.6, 0.2], L_UP: 3.3, L_FORE: 3.2, L_HAND: 2.0,
-  THIGH: 2.7, SHIN: 2.8, LEG_X: 2.3, EAR: [5.5, 4.2, -1.4], TAIL: [0.8, -4.0],
+  THIGH: 2.7, SHIN: 2.8, LEG_X: 2.3, EAR: [6.5, 4.2, -1.4], TAIL: [0.8, -4.0],
 };
 const EYE_Y = 5.4; // eye centre, head space (voxels)
 const BEAK = [3.3, 4.85]; // beak base (y, z), head space (voxels)
 const BEAK_L = 10; // beak length (fine voxels)
 // work props, root space (world units / fine voxels)
 const HORSE = [0.1, 0.46]; // sawhorse x, z
-const HORSE_RY = 0.45; // angled so the cut + the saw strokes read diagonally from the game camera
+const HORSE_RY = 0.45; // 'hammer': the plank sits at an angle (reads better than square-on)
+const SAW_TURN = -0.62; // 'saw': he hops round to a 3/4 view so the plank and the blade both read diagonally from the camera
 const PLANK_TOP = 16; // fine voxels above the ground
 const CUT_X = -9; // saw cut, sawhorse space (fine voxels)
 const NAIL_X = -5;
 const LOG = [-0.7, 0.52]; // pecking log x, z
 const LOG_R = 6; // fine voxels
 const LOG_TURN = Math.atan2(LOG[0], LOG[1]);
-/** Sawhorse-space point (world units) -> root space. */
-function horsePt(x, y, z, out) {
-  const c = Math.cos(HORSE_RY), s = Math.sin(HORSE_RY);
+/** Sawhorse-space point (world units) -> mover space (the sawhorse turns with him; yaw ry within his frame). */
+function horsePt(x, y, z, out, ry = HORSE_RY) {
+  const c = Math.cos(ry), s = Math.sin(ry);
   return out.set(HORSE[0] + x * c + z * s, y, HORSE[1] - x * s + z * c);
 }
 const _hp = new THREE.Vector3();
@@ -145,18 +146,18 @@ function headModel() {
     const fx = abs(x + 0.5);
     if (y - 6.6 + max(0, -z) * 0.8 > 0) {
       // red cap, down the nape: scalloped feather rows, a dark rim where the eye-stripes wrap up the sides
-      if (fx > 4.6 && y <= 7 && z < 3) return inkCol(x, y, z);
-      if (y >= 8 && fx > 3.6 && fx < 5) return C.redD;
+      if (fx > 5.4 && y <= 7 && z < 3) return inkCol(x, y, z);
+      if (y >= 8 && fx > 4.2 && fx < 5.6) return C.redD;
       return (z + 40 + ((x + 40) % 2)) % 3 === 0 ? C.redD : redCol(x, y, z);
     }
     if (z < -2.5 && y > 1) return inkCol(x, y, z); // black nape band
-    if (fx > 3.8 && z < 2.4 && y >= 5 && y <= 6) return inkCol(x, y, z); // eye stripe
+    if (fx > 4.6 && z < 2.4 && y >= 5 && y <= 6) return inkCol(x, y, z); // eye stripe
     const my = 3.1 - (3.6 - z) * 0.22; // malar stripe ("moustache") sloping back
-    if (fx > 2.6 && z < 3.6 && abs(y - my) < 0.75) return inkCol(x, y, z);
+    if (fx > 3.0 && z < 3.6 && abs(y - my) < 0.75) return inkCol(x, y, z);
     return creamCol(x, y, z);
   };
-  rbox(v, -6, 5, 0, 8, -5, 4, 3.4, col);
-  ell(v, 0, 3.0, 0.6, 6.3, 3.0, 4.6, col); // round cheeks
+  rbox(v, -7, 6, 0, 8, -5, 4, 3.6, col);
+  ell(v, 0, 3.0, 0.6, 7.2, 3.1, 4.6, col); // round cheeks
   return v;
 }
 // crest: four red feathers fanning up and back from the crown (fine voxels), split into a base and a
@@ -220,20 +221,20 @@ function beakLoModel() {
 function glassesModel() {
   // round brass spectacles (fine voxels): two rims, an arched bridge over the beak, temples back to the ears
   const v = new VoxelModel();
-  const CX = 5.25, R0 = 2.55, R1 = 3.5;
+  const CX = 5.75, R0 = 2.55, R1 = 3.5;
   for (const s of [-1, 1])
-    for (let x = -10; x <= 9; x++)
+    for (let x = -11; x <= 10; x++)
       for (let y = -4; y <= 3; y++) {
         const r = Math.hypot(x + 0.5 - s * CX, y + 0.5);
         if (r >= R0 && r <= R1) v.set(x, y, 0, y >= 1 ? C.rim : y <= -2 ? C.rimD : C.rim);
       }
-  for (const [x, y] of [[-2, 1], [-1, 2], [0, 2], [1, 1]]) v.set(x, y, 0, C.rim);
+  for (const [x, y] of [[-3, 1], [-2, 2], [-1, 2], [0, 2], [1, 2], [2, 1]]) v.set(x, y, 0, C.rim);
   // tiny glints on the lenses
-  v.set(-7, 1, 0, C.glint); v.set(3, 1, 0, C.glint);
+  v.set(-8, 1, 0, C.glint); v.set(3, 1, 0, C.glint);
   // temples
   for (const s of [-1, 1]) {
-    const xo = s > 0 ? 9 : -10, xs = s > 0 ? 12 : -13;
-    v.set(xo, 0, 0, C.rimD); v.set(s > 0 ? 10 : -11, 0, -1, C.rimD); v.set(s > 0 ? 11 : -12, 0, -2, C.rimD);
+    const xo = s > 0 ? 9 : -10, xs = s > 0 ? 14 : -15;
+    v.set(xo, 0, 0, C.rimD); v.set(s > 0 ? 10 : -11, 0, -1, C.rimD); v.set(s > 0 ? 11 : -12, 0, -1, C.rimD); v.set(s > 0 ? 12 : -13, 0, -2, C.rimD); v.set(s > 0 ? 13 : -14, 0, -2, C.rimD);
     for (let z = -3; z >= -12; z--) v.set(xs, 0, z, C.rimD);
     v.set(xs, -1, -12, C.rimD); v.set(xs, -2, -11, C.rimD);
   }
@@ -307,7 +308,7 @@ function tapeModel() {
   // chunky yellow tape measure (origin = centre), the blade comes out of a slot at the front bottom (+Z)
   const v = new VoxelModel();
   rbox(v, -2, 1, -3, 3, -3, 3, 1.6, (x, y, z) => {
-    if (x === -2 || x === 1) { const r = Math.hypot(y, z); return r < 1.2 ? C.ironL : r < 2.3 ? C.tapeK : C.tape; }
+    if (x === -2 || x === 1) { const r = Math.hypot(y, z); return r < 0.5 ? C.ironL : r < 1.5 ? C.tape : r < 2.6 ? C.tapeK : C.tape; }
     return y >= 2 && z <= 0 ? C.tapeL : y <= -2 ? C.tapeD : C.tape;
   });
   v.set(-1, 4, -1, C.tapeK); v.set(0, 4, -1, C.tapeK); v.set(-1, 4, 0, C.tapeK);
@@ -490,8 +491,8 @@ const BLADE_UNIT = 0.1; // world units per texture repeat
 
 // ------------------------------------------------------------------ face
 const FACE = {
-  w: 44, h: 20, eyes: [{ x: 11.5, y: 9.5 }, { x: 32.5, y: 9.5 }], rx: 3.9, ry: 4.5, style: 'bead', lash: false,
-  blush: [{ x: 4, y: 16 }, { x: 40, y: 16 }], blushW: 3,
+  w: 48, h: 20, eyes: [{ x: 12.5, y: 9.5 }, { x: 35.5, y: 9.5 }], rx: 3.9, ry: 4.5, style: 'bead', lash: false,
+  blush: [{ x: 5, y: 16 }, { x: 43, y: 16 }], blushW: 3,
   mw: 8, mh: 4, mx: 4, my: 1, mstyle: 'owl', mHalf: 2,
   pal: { i: '#3a2014', I: '#8a5432', b: '#2e2a36' },
 };
@@ -563,7 +564,7 @@ export class WoodpeckerCarpenter extends BipedRig {
     this.saw = this.mesh(G.saw, this.gripR);
     this.offcut = this.mesh(G.offcut, this.gripL);
     // work props in root space: sawhorse + plank (+ the end that gets sawn off, a nail), a log to peck
-    this.horse = new THREE.Group(); this.horse.position.set(HORSE[0], 0, HORSE[1]); this.horse.rotation.y = HORSE_RY; this.root.add(this.horse);
+    this.horse = new THREE.Group(); this.root.add(this.horse);
     this.mesh(G.horse, this.horse);
     this.mesh(G.plank, this.horse, { y: (PLANK_TOP - 2) * FV });
     this.plankEnd = this.mesh(G.plankEnd, this.horse, { x: CUT_X * FV, y: (PLANK_TOP - 2) * FV });
@@ -590,7 +591,7 @@ export class WoodpeckerCarpenter extends BipedRig {
     this.bang = this.sprite(BANG_ROWS, 0.09, this.root);
     for (const n of ['notes', 'spark', 'hearts', 'bang', 'chips', 'dust', 'blow', 'stars', 'board', 'cut', 'drop', 'nail', 'log', 'hole', 'peck', 'tapeOut', 'sawLock', 'hamLock']) this.scalar(n, 0);
     this.scalar('tokU', -1); this.scalar('tokN', 0); this.scalar('tokBig', 0);
-    this.scalar('hamA', 0.6); this.scalar('sawB', 0.45); this.scalar('sawS', 0); this.scalar('offR', 0);
+    this.scalar('hamA', 0.6); this.scalar('hry', 0); this.scalar('sawB', 0.45); this.scalar('sawS', 0); this.scalar('offR', 0);
     this.scalar('penX', 0); this.scalar('penY', 1); this.scalar('penZ', 0.3);
     // springs: the crest whips on every peck / hop, the tail and specs follow along
     this.jiggle('crest', 'rx', { k: 120, c: 6, az: 0.55, ay: 0.4, max: 0.7, probe: 'head' });
@@ -611,6 +612,12 @@ export class WoodpeckerCarpenter extends BipedRig {
     out.set(0, (BEAK[0] + 0.1) * VS - this._beak * 0.02, BEAK[1] * VS + BEAK_L * FV);
     this.head.localToWorld(out);
     return this.root.worldToLocal(out);
+  }
+
+  /** Mover-space point (unrotated layout) -> root space, following his turn. */
+  _mv(v) {
+    const a = this.mover.rotation.y, c = cos(a), s = sin(a), x = v.x, z = v.z;
+    return v.set(this.mover.position.x + x * c + z * s, v.y, this.mover.position.z - x * s + z * c);
   }
 
   /** Slide a hand-held prop so its local point `lp` lands on root-space `target` (blended by w, capped). */
@@ -636,7 +643,7 @@ export class WoodpeckerCarpenter extends BipedRig {
     // --- hammer (swings in the mover's XY plane: a = 0 handle points across to the left, face down)
     const ham = !!p.vis.hammer;
     this.hammer.visible = ham; this.hammerTuck.visible = !ham;
-    const nailTop = horsePt(NAIL_X * FV, (PLANK_TOP + (1 - k.nail) * 5 + 1) * FV, -0.5 * FV, _nail);
+    const nailTop = this._mv(horsePt(NAIL_X * FV, (PLANK_TOP + (1 - k.nail) * 5 + 1) * FV, -0.5 * FV, _nail, k.hry));
     if (ham) {
       const a = k.hamA;
       orientIn(this.hammer, this.mover, [cos(a), sin(a), 0.22], [sin(a), -cos(a), 0], 1);
@@ -647,9 +654,9 @@ export class WoodpeckerCarpenter extends BipedRig {
     this.saw.visible = !!p.vis.saw;
     if (this.saw.visible) {
       const b = k.sawB;
-      const hs = sin(HORSE_RY), hc = cos(HORSE_RY);
+      const hs = sin(k.hry), hc = cos(k.hry);
       orientIn(this.saw, this.mover, [sin(b) * hs, cos(b), sin(b) * hc], [cos(b) * hs, -sin(b), cos(b) * hc], 1);
-      if (k.sawLock > 0.01) this._lock(this.saw, SAW_TOOTH(k.sawS), horsePt((CUT_X + 0.5) * FV, (PLANK_TOP - k.cut * 1.6) * FV, -0.5 * FV, _w3), k.sawLock);
+      if (k.sawLock > 0.01) this._lock(this.saw, SAW_TOOTH(k.sawS), this._mv(horsePt((CUT_X + 0.5) * FV, (PLANK_TOP - k.cut * 1.6) * FV, -0.5 * FV, _w3, k.hry)), k.sawLock);
       else this.saw.position.set(0, 0, 0);
     }
     // --- offcut
@@ -683,6 +690,8 @@ export class WoodpeckerCarpenter extends BipedRig {
     const bd = k.board;
     this.horse.visible = bd > 0.02;
     if (this.horse.visible) {
+      this._mv(this.horse.position.set(HORSE[0], 0, HORSE[1]));
+      this.horse.rotation.y = this.mover.rotation.y + k.hry;
       this.horse.scale.setScalar(min(bd, 1.15));
       this.nail.visible = k.nail > -0.5;
       this.nail.position.y = (PLANK_TOP + (1 - clamp(k.nail, 0, 1)) * 5) * FV;
@@ -723,7 +732,7 @@ export class WoodpeckerCarpenter extends BipedRig {
       s.scale.setScalar(0.05 * sin(u * PI) + 0.01);
     });
     // sawdust: falls out of the cut while sawing, or a puff when he blows on it
-    horsePt(CUT_X * FV, 0, 0, _hp);
+    this._mv(horsePt(CUT_X * FV, 0, 0, _hp, k.hry));
     const cx = _hp.x, cz = _hp.z;
     this.dust.forEach((s, i) => {
       if (k.blow > 0.02 && k.blow < 0.98) {
@@ -828,8 +837,8 @@ function onBelt(p, rig, w = 1) {
   rig.reach(p, 1, 5.4, 0.4, 3.2, [0.9, 0.2, -1], w);
   if (w > 0.5) { p.wristL.rx = 0.5; p.wristL.rz = 0.4; p.handL = 'fist'; }
 }
-/** Root-space point (world units, mover not turned) -> chest-space reach target. */
-function reachRoot(p, rig, side, x, y, z, pole, w = 1) {
+/** Mover-space point (world units) -> chest-space reach target. */
+function reachMv(p, rig, side, x, y, z, pole, w = 1) {
   const c = rig.toChest(p, y / VS, z / VS, _c);
   rig.reach(p, side, side * x / VS, c[0], c[1], pole, w);
 }
@@ -904,15 +913,17 @@ def('walk', {
 });
 
 def('wave', {
-  loop: true, expr: 'happy',
+  loop: true, dur: 2.6, expr: 'happy', // dur: play('wave', { loop: false, onDone }) ends + calls back (Villagers' tap)
   fn(t, p, f, s, rig) {
     stand(p, rig, t, 0.6);
     const wv = sin(t * 8.5);
-    rig.reach(p, 1, 8.8 + wv * 0.8, 11.2, 3.2, [1, -0.6, 0.2]);
-    p.wristL.rz = wv * 0.45 - 0.2; p.wristL.rx = -0.2; p.handL = 'open';
+    // wing held out wide of his big head, wingtip flapping hello
+    rig.reach(p, 1, 9.8 + wv * 0.3, 9.4 + wv * 0.5, 2.6, [1, -0.6, 0.2]);
+    p.wristL.rz = wv * 0.6 + 0.3; p.wristL.rx = -0.3; p.handL = 'open';
+    p.armL.rz += 0.15;
     onHammer(p, rig);
     p.mover.y += abs(sin(t * 4.25)) * 0.4;
-    p.chest.rz += 0.06; p.head.rz += -0.12 + sin(t * 4.25) * 0.05;
+    p.chest.rz -= 0.1; p.hips.rz -= 0.04; p.head.rz += -0.16 + sin(t * 4.25) * 0.05;
     p.crest.rx += 0.25 + sin(t * 8.5) * 0.05;
     f.mouth = 'grin';
   },
@@ -1096,16 +1107,21 @@ def('measure', {
   },
 });
 
-const SW = 6.2;
+const SW = 6.85, SW0 = 0.35; // he hops round first (SW0), then the old timeline runs
 const STROKE = 0.48;
 def('saw', {
   dur: SW, expr: 'focused', next: 'idle',
   fn(t, p, f, s, rig) {
-    t = ff(t, SW);
+    const T0 = ff(t, SW);
+    t = T0 - SW0;
+    // hop round to a 3/4 profile (and back at the end)
+    const turn = K(T0, [[0, 0], [SW0, 1, 'io'], [6.4, 1], [6.8, 0, 'io']]);
     p.k.board = K(t, [[0, 0], [0.35, 1.12, 'out'], [0.48, 1], [5.6, 1], [6.05, 0, 'in']]);
-    p.k.nail = -1;
+    p.k.nail = -1; p.k.hry = 0;
     const lean = win(t, 0.6, 4.9, 0.35, 0.4);
-    stand(p, rig, t, 0.5, 0.3 + lean * 0.7);
+    stand(p, rig, T0, 0.5, 0.3 + lean * 0.7);
+    p.mover.ry = SAW_TURN * turn;
+    p.mover.y += abs(sin(clamp(T0 / SW0, 0, 1) * PI)) * 0.8 + abs(sin(clamp((T0 - 6.4) / 0.4, 0, 1) * PI)) * 0.8;
     p.chest.rx += lean * 0.2; p.head.rx -= lean * 0.12;
     // saw from behind his back -> onto the pencil line -> six strokes
     const fetch = K(t, [[0.1, 0], [0.42, 1, 'io']]);
@@ -1119,7 +1135,7 @@ def('saw', {
     p.k.sawLock = toCut;
     p.k.sawB = lerp(lerp(1.3, 0.45, toCut), -1.15, proud);
     const b = 0.45, cy = PLANK_TOP * FV - p.k.cut * 0.04;
-    horsePt(CUT_X * FV - 0.02, 0, -0.17 - 0.075 * stroke * cos(b), _hp);
+    horsePt(CUT_X * FV - 0.02, 0, -0.17 - 0.075 * stroke * cos(b), _hp, 0);
     const gx = _hp.x, gy = cy + 0.2 + 0.075 * stroke * sin(b), gz = _hp.z;
     const c = rig.toChest(p, gy / VS, gz / VS, _c);
     let x = lerp(lerp(5.6, 3.6, fetch), -gx / VS, toCut), y = lerp(lerp(1.0, 2.6, fetch), c[0], toCut), z = lerp(lerp(2.0, -4.8, fetch), c[1], toCut);
@@ -1128,10 +1144,11 @@ def('saw', {
     rig.reach(p, -1, x, y, z, [1, -0.3, -0.5]);
     p.handR = 'fist'; p.wristR.rx = -0.2;
     p.vis.saw = t > 0.4 && t < 5.82;
+    if (t < 0) { onHammer(p, rig); onBelt(p, rig); }
     // other hand holds the plank down
     const hold = win(t, 0.6, 3.95, 0.3, 0.2);
-    horsePt(0.15, 0, -0.02, _hp);
-    reachRoot(p, rig, 1, _hp.x, PLANK_TOP * FV + 0.1, _hp.z, [0.9, -0.3, -0.6], hold);
+    horsePt(0.15, 0, -0.02, _hp, 0);
+    reachMv(p, rig, 1, _hp.x, PLANK_TOP * FV + 0.1, _hp.z, [0.9, -0.3, -0.6], hold);
     if (hold > 0.5) { p.handL = 'open'; p.wristL.rx = 0.9; } else onBelt(p, rig, 1 - hold);
     p.chest.rx += stroke * 0.03; p.chest.ry += stroke * 0.05; p.head.rz += stroke * 0.03;
     p.k.dust = sawing ? 1 : 0;
@@ -1146,7 +1163,7 @@ def('saw', {
     if (sawing && beat(s, 'st', t - 1.0, STROKE, STROKE * 0.25)) rig._emit('saw');
     if (beat(s, 'clunk', t, 99, 4.22)) rig._emit('clunk');
     if (beat(s, 'blow', t, 99, 4.4)) rig._emit('blow');
-    if (beat(s, 'pop', t, 99, 0.1)) rig._emit('pop');
+    if (beat(s, 'pop', T0, 99, SW0 + 0.1)) rig._emit('pop');
   },
 });
 
@@ -1157,7 +1174,7 @@ def('hammer', {
   fn(t, p, f, s, rig) {
     t = ff(t, HS);
     p.k.board = K(t, [[0, 0], [0.35, 1.12, 'out'], [0.48, 1], [4.6, 1], [5.05, 0, 'in']]);
-    p.k.drop = 0;
+    p.k.drop = 0; p.k.hry = HORSE_RY;
     const lean = win(t, 0.55, 3.0, 0.3, 0.35);
     const big = K(t, [[1.7, 0], [2.22, 1, 'io'], [2.36, 0, 'in']]);
     stand(p, rig, t, 0.5, 0.3 + lean * 0.6 + big * 0.5);
@@ -1190,7 +1207,7 @@ def('hammer', {
     // left hand steadies the plank
     const hold = win(t, 0.5, 2.95, 0.3, 0.25);
     horsePt(0.15, 0, -0.02, _hp);
-    reachRoot(p, rig, 1, _hp.x, PLANK_TOP * FV + 0.1, _hp.z, [0.9, -0.3, -0.6], hold);
+    reachMv(p, rig, 1, _hp.x, PLANK_TOP * FV + 0.1, _hp.z, [0.9, -0.3, -0.6], hold);
     if (hold > 0.5) { p.handL = 'open'; p.wristL.rx = 0.9; } else onBelt(p, rig, 1 - hold);
     // impacts: squash, "TOK" words, the BANG gets stars and a big "TOK!"
     let since = 99, n = -1;

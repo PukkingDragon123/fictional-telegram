@@ -121,7 +121,7 @@ export class Delivery {
 
   get dropPoint() { return { x: HUT.x + 1.5, z: HUT.z + 4.8 }; }
   // the van parks beside the hut facing east, back doors toward the drop point
-  get vanPark() { return { x: HUT.x + 3.7, z: HUT.z + 5.8 }; }
+  get vanPark() { return { x: HUT.x + 3.7, z: HUT.z + 5.4 }; }
 
   // items: [{ kind: 'egg', species, genes, t } | { kind: 'item', type, qty, label }]
   // Every order is first packed at the e-Buy warehouse (a few seconds per
@@ -169,7 +169,7 @@ export class Delivery {
     const H = HUT, P = this.vanPark;
     const top = this.trailTop();
     if (dir === 'in') {
-      return polyPath([...top, { x: H.x - 1.5, z: H.z - 11 }, { x: H.x - 1.4, z: H.z - 4 }, { x: H.x - 1.3, z: H.z + 1.5 }, { x: H.x - 0.7, z: H.z + 5 }, { x: H.x + 0.6, z: H.z + 5.8 }, { x: P.x - 1.2, z: P.z }, { x: P.x, z: P.z }]);
+      return polyPath([...top, { x: H.x - 1.5, z: H.z - 11 }, { x: H.x - 1.4, z: H.z - 4 }, { x: H.x - 1.3, z: H.z + 1.5 }, { x: H.x - 0.7, z: H.z + 4.8 }, { x: H.x + 0.6, z: P.z }, { x: P.x - 1.2, z: P.z }, { x: P.x, z: P.z }]);
     }
     return polyPath([{ x: P.x, z: P.z }, { x: P.x + 1.4, z: P.z - 0.1 }, { x: H.x + 5.7, z: H.z + 4.2 }, { x: H.x + 5.8, z: H.z + 0.5 }, { x: H.x + 5, z: H.z - 2.4 }, { x: H.x + 2, z: H.z - 3.8 }, { x: H.x - 1.4, z: H.z - 6 }, { x: H.x - 1.5, z: H.z - 11 }, ...top.reverse()]);
   }
@@ -456,7 +456,7 @@ export class Delivery {
     }
     const sx = Math.sin(a.heading), cz = Math.cos(a.heading);
     const yf = this.groundY(a.x + sx * V.frontZ, a.z + cz * V.frontZ), yr = this.groundY(a.x + sx * V.rearZ, a.z + cz * V.rearZ);
-    const gy = (yf + yr) / 2, pitch = -Math.atan2(yf - yr, V.wheelbase);
+    const gy = (yf + yr) / 2, pitch = clamp(-Math.atan2(yf - yr, V.wheelbase), -0.32, 0.32);
     if (snap) { a.y = gy; a.pitch = pitch; } else { a.y += (gy - a.y) * Math.min(1, dt * 10); a.pitch += (pitch - a.pitch) * Math.min(1, dt * 8); }
     van.root.position.set(a.x, a.y, a.z);
     van.root.rotation.set(a.pitch, a.heading, 0);

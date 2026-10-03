@@ -477,7 +477,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
         else if (gl === GLADE.OPEN) {
           n = h23 < 0.26 ? 1 : 0;
           if (!n && h23 < 0.78 && bio !== BIOME.MUSHROOM && vw < 2) {
-            const name = pickF(['bush_0', 'sapling', 'bush_1', 'snag', 'sumac'], hash2(x, z, 24));
+            const name = pickF(vw ? ['bush_0', 'sapling', 'bush_1', 'sumac'] : ['bush_0', 'sapling', 'bush_1', 'snag', 'sumac'], hash2(x, z, 24));
             const f = this.frame(name);
             const tx2 = x + 0.3 + hash2(x, z, 25) * 0.4, tz2 = z + 0.3 + hash2(x, z, 26) * 0.4;
             const dk = Math.max(0.7, 1 - Math.min(ld, 12) * 0.025);

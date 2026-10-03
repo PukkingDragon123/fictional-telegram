@@ -36,8 +36,8 @@ const P3 = await import('../src/entities/npcProps3.js').catch((e) => { errors.pu
 // props: [maker, dx, dz, yaw] relative to the character in WORLD space (same as Villagers.makeProps' put())
 const CHARS = {
   woodpecker: { make: () => Woody && new Woody(), h: 1.3, name: 'Chip', sign: 'WORKSHOP', isNew: true,
-    reel: [['idle', 7], ['wave', 2.6], ['talk', 7.2], ['laugh', 3], ['walk', 2.4], ['happy', 2.1], ['peck_wood', 6.1], ['measure', 5.5], ['saw', 6.3], ['inspect', 4.7], ['hammer', 5.3]],
-    props: [['treehouse', -0.32, -1.45, 0], ['workbench', 1.6, 0.15, -0.3]] },
+    reel: [['idle', 7], ['wave', 2.6], ['talk', 7.2], ['laugh', 3], ['walk', 2.4], ['happy', 2.1], ['peck_wood', 6.1], ['measure', 5.5], ['saw', 6.95], ['inspect', 4.7], ['hammer', 5.3]],
+    props: [['treehouse', -0.7, -1.45, 0], ['workbench', 1.6, 0.15, -0.3]] },
   bunny: { make: () => Bunny && new Bunny(), h: 1.3, name: 'Clover (scale)', reel: [['idle', 6]], props: [] },
   owl: { make: () => Owl && new Owl(), h: 1.3, name: 'Professor Hoot (scale)', reel: [['idle', 6]], props: [] },
   fox: { make: () => Fox && new Fox(), h: 1.6, name: 'Reynard (scale)', reel: [['idle', 6]], props: [] },
