@@ -143,7 +143,7 @@ export class Workshop {
       onTalk: (t) => { p3?.talk(t); try { game.audio.babble('cub', t, { pitch: 1.3, volume: 0.5 }); } catch { /* ignore */ } },
       onClose: () => { this.view = null; game.state.paused = wasPaused; p3?.dispose(); p3 = null; },
     });
-    try { p3 = createNpcTalk?.(chipEl, { npc: 'chip', frame: 'full', ps: 0.5, turn: 0.25 }) || null; } catch (e) { console.warn('chip 3d', e); }
+    try { p3 = createNpcTalk?.(chipEl, { npc: 'chip', frame: 'half', ps: 0.5, turn: -0.3 }) || null; } catch (e) { console.warn('chip 3d', e); }
     game.emit('workshopOpen');
   }
 

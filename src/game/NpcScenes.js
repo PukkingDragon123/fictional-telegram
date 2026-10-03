@@ -540,7 +540,8 @@ export class NpcScenes {
       };
       step();
     });
-    vis.face = () => { rig.root.rotation.y = slot ? -0.5 : 0.5; };
+    // turn to the camera (rig faces +Z at rotation 0; the camera sits at yaw from the target), a bit towards each other
+    vis.face = () => { const R = game.rig || {}; rig.root.rotation.y = (R.yawGoal ?? R.yaw ?? 0) + (slot ? -0.45 : 0.45); };
     // the rig needs updating while out of its home slot
     vis.tick = (dt) => rig.update(dt);
     (this.visitors ||= new Set()).add(vis);
@@ -628,7 +629,7 @@ function injectCSS() {
   s.textContent = `
 .npcs-fox { position: fixed; left: 16px; bottom: calc(11vh + 14px); z-index: 71; width: 132px; display: flex; flex-direction: column; align-items: center;
   pointer-events: none; opacity: 0; transform: translateY(24px) rotate(-3deg); transition: opacity .25s, transform .35s cubic-bezier(.2,1.5,.4,1); }
-.npcs-fox.on { opacity: 1; transform: translateY(0) rotate(-2deg); }
+.npcs-fox.on { opacity: 1; transform: none; } /* [v19 npc] square at rest: a rotated 3D portrait resamples (blurry) */
 .npcs-fox-pic { width: 120px; height: 120px; background: #fbf3dc; border: 3px solid #2a1a14; box-shadow: 0 4px 0 #2a1a14, inset 0 -6px 0 #e8d8b0; overflow: hidden; position: relative; }
 .npcs-fox-pic.flat::after { content: 'R'; position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-title); font-size: 64px; color: #c8442a; }
 .npcs-fox b { margin-top: -6px; padding: 1px 10px; background: #c8442a; color: #fff4dc; border: 3px solid #2a1a14; font-family: var(--font-title); font-size: 18px; position: relative; }
