@@ -133,7 +133,7 @@
 .ub-sub { font-size: 16px; line-height: 17px; color: #77757e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ub-rar {
   display: inline-block; vertical-align: 2px; margin-left: 6px; padding: 2px 4px 1px; font-style: normal;
-  font-family: 'Silkscreen', 'Pixelify Sans', monospace; font-size: 9px; line-height: 9px; letter-spacing: 1px; text-transform: uppercase;
+  font-family: var(--font-title); font-size: 12px; line-height: 9px; letter-spacing: 1px; text-transform: uppercase;
   color: #fffbe8; background: var(--rc); box-shadow: 0 0 0 2px #2a1a30; text-shadow: 1px 1px 0 rgba(0, 0, 0, .35);
 }
 .ub-row.t4 .ub-rar { background: linear-gradient(100deg, #ffb020 0 30%, #fff0a0 45%, #ffc83a 60%, #ffb020 100%) 0 0 / 300% 100%; color: #5a3a08; text-shadow: none; animation: egg-goldrib 2.2s linear infinite; }

@@ -112,7 +112,7 @@
 .vc-noico { font-style: normal; font-family: var(--font-title); font-size: 32px; line-height: 34px; color: #b89870; }
 .vc-ot { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .vc-ot b { font-family: var(--font-title); font-weight: 400; font-size: 18px; line-height: 19px; color: #3b2414; }
-.vc-ot small { font-size: 16px; line-height: 17px; color: #7a5c40; }
+.vc-ot small { font-size: 16px; line-height: 16px; color: #7a5c40; }
 .vc-ot em { display: flex; align-items: center; gap: 5px; font-style: normal; font-size: 16px; line-height: 17px; color: #b0303a; }
 .vc-ot em svg { flex: none; }
 .vc-tag {

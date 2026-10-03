@@ -21,7 +21,7 @@
   max-width: 96vw;
   box-sizing: border-box;
   padding-top: 9px;
-  font-family: var(--font2, 'Silkscreen', 'Pixelify Sans', monospace);
+  font-family: var(--font2, var(--font-title));
   color: var(--cc-ink);
   user-select: none;
   -webkit-user-select: none;

@@ -3,12 +3,13 @@
   --h: #5ff6ff; --h2: #1fd6c8; --hd: #2a8f9c; --hb: rgba(5, 26, 36, 0.8); --ht: #e8ffff;
   position: fixed; inset: 0; z-index: 400; pointer-events: auto; overflow: hidden;
   font-family: var(--font-title); color: var(--ht);
-  -webkit-font-smoothing: none; font-synthesis: none;
+  -webkit-font-smoothing: none; font-synthesis: none; font-variant-ligatures: none; font-kerning: none;
   opacity: 0; transition: opacity .22s steps(4);
 }
 .fsc.on { opacity: 1; }
 .fsc.off { opacity: 0; pointer-events: none; }
 .fsc img.px { image-rendering: pixelated; }
+.fsc * { font-variant-ligatures: none; }
 
 /* tinted vignette + scanlines over the world */
 .fsc-dim { position: absolute; inset: 0; cursor: pointer;
@@ -128,4 +129,5 @@
 .fsc.small .fsc-title { padding: 8px 14px; }
 .fsc.small .fsc-pips, .fsc.small .fsc-meter { display: none; }
 .fsc.small .fsc-ic { flex-basis: 32px; }
-.fsc.small .fsc-btn { font-size: 20px; padding: 2px 10px 2px 6px; }
+.fsc.small .fsc-btn { font-size: 18px; padding: 2px 8px 2px 4px; gap: 4px; }
+.fsc.small .fsc-btns { gap: 6px; flex-wrap: nowrap; }

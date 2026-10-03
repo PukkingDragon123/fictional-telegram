@@ -169,7 +169,7 @@
 .enc-bp-ex { font-family: var(--font-title, monospace); font-size: 18px; line-height: 19px; letter-spacing: 3px; }
 .enc-bp-crest { margin: 4px 0 2px; }
 .enc-bp-name { font-family: var(--font-title, monospace); font-size: 18px; line-height: 20px; color: #3a1a12; }
-.enc-bp-sub { font-family: var(--font-body, monospace); font-size: 16px; line-height: 17px; color: #6a3a2a; }
+.enc-bp-sub { font-family: var(--font-body, monospace); font-size: 14px; line-height: 16px; white-space: nowrap; color: #6a3a2a; }
 .enc-sticky { position: absolute; left: 50px; top: 340px; width: 300px; padding: 12px 14px 14px; background: #f6dc6a; box-shadow: 3px 4px 0 rgba(10, 4, 2, .35), inset 0 -6px 0 rgba(200, 150, 30, .25); transform: rotate(-3deg); font-size: 24px; line-height: 25px; color: #3a2a12; }
 .enc-sticky b { font-weight: 400; color: #8a2a24; }
 .enc-sticky::before { content: ''; position: absolute; left: 50%; top: -10px; width: 70px; height: 20px; margin-left: -35px; background: rgba(240, 170, 190, .78); transform: rotate(4deg); }

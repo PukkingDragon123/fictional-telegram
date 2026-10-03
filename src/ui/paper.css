@@ -50,7 +50,7 @@
 /* ================================================================ modal */
 .pp-ov {
   position: fixed; inset: 0; z-index: 300; color: #3b2414;
-  font-family: var(--font-body, 'TBME Digits', 'Pixelify Sans'); font-size: 16px; line-height: 24px;
+  font-family: var(--font-body, 'TBME Digits', 'Pixelify Sans'); font-size: 18px; line-height: 24px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .pp-ov *, .pp-ov *::before, .pp-ov *::after { box-sizing: border-box; }
@@ -74,6 +74,12 @@
 }
 .pp-body { position: relative; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; min-height: 0; }
 .pp-body::-webkit-scrollbar { display: none; }
+/* label / value rows (settings, reports) as a tidy two-column grid */
+.pp-body .kv { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 14px; margin: 6px 0 10px; }
+.pp-body .kv > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pp-body .kv > b { font-family: var(--font-title, 'Pixelify Sans'); font-weight: 400; text-align: right; }
+.pp-body .kv input[type="range"] { width: 100%; accent-color: #3f8f5f; }
+.pp-body .kv select { font: inherit; font-size: 16px; color: #3b2414; background: #fbf0d0; border: 2px solid #4a2f1d; padding: 0 4px; }
 .pp-decor { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .pp-decor > * { position: absolute; }
 
