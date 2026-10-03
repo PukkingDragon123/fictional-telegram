@@ -1474,6 +1474,7 @@ export class UI {
     const ghost = game.ghost;
     if (!ghost) return;
     const t = game.tool;
+    if (game.buildMove?.moving) return; // [v19 buildings] the move ghost is drawn by BuildMove
     if (!['build', 'dig', 'remove', 'clear'].includes(t.kind)) { ghost.clear(); return; }
     let tiles = game.ghostLine;
     if (!tiles) {
@@ -1991,11 +1992,11 @@ export class UI {
     const html = `
       <div class="who"><span class="iconbox f-slot_gold">${ico(d.icon, 3)}</span><div><h2>${esc(d.name)}</h2><div class="mut">${esc(d.desc)}</div></div></div>
       <div class="kv">${extra}</div>
-      <div class="btns">${d.gate ? `<button class="btn" id="m-gate">${s.open ? 'Close gate' : 'Open gate'}</button>` : ''}<button class="btn red" id="m-del">${ico('trash', 1)} Remove (+${Math.floor((s.paid || 0) * 0.5)})</button><button class="btn green" id="m-ok">OK</button></div>`;
+      <div class="btns">${d.gate ? `<button class="btn" id="m-gate">${s.open ? 'Close gate' : 'Open gate'}</button>` : ''}<button class="btn red" id="m-del">${ico('coin', 1)} Sell (+${this.game.buildMove ? this.game.buildMove.refund(s) : Math.floor((s.paid || 0) * 0.5)})</button><button class="btn green" id="m-ok">OK</button></div>`;
     this.showModal(html, {
       onBind: (c) => {
         $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); };
-        $('#m-del', c).onclick = () => { this.closeModal(); this.game.demolishAt(s.x, s.z); };
+        $('#m-del', c).onclick = () => { this.closeModal(); this.game.buildMove ? this.game.buildMove.openCard(s, { sell: true }) : this.game.demolishAt(s.x, s.z); }; // [v19 buildings] never a one-tap delete: sell asks first
         const g = $('#m-gate', c);
         if (g) g.onclick = () => { this.game.tapStructure(s); this.closeModal(); };
       },
@@ -2122,7 +2123,7 @@ export class UI {
     const info = game.bugs.farmInfo(s);
     if (!info) return;
     const d = info.def;
-    const kinds = info.kinds.map((b) => `<span class="chip bugc" title="${esc(b.desc)}">${this.bugImg(b.id, 2)} ${esc(b.name)}${b.night ? ' 🌙' : ''}</span>`).join('');
+    const kinds = info.kinds.map((b) => `<span class="chip bugc" title="${esc(b.desc)}">${this.bugImg(b.id, 2)} ${esc(b.name)}${b.night ? ' ' + ico('moon', 1) : ''}</span>`).join('');
     const html = `
       <h2 class="center">${esc(s.def.name)}</h2>
       <p class="center small">${info.alive}/${d.max} bugs living here${d.night ? ' (they come out at night)' : ''}</p>
@@ -2220,12 +2221,12 @@ export class UI {
 
   // ------------------------------------------------------------ beaver contract (Destroy box)
   // the crew is paid right there for the chunk you boxed: coins or food
-  beaverContract({ tiles, x, z }) {
+  beaverContract({ tiles, x, z, keep = false }) {
     const game = this.game;
     const B = game.beavers;
     const n = tiles.length;
-    if (!n) return;
-    this.closeContract?.(true);
+    if (!n) { if (keep) this.closeContract?.(true, true); return; } // [v19 buildings] keep: swap the card, don't cancel its tiles
+    this.closeContract?.(true, keep);
     const need = Math.max(0, n - Math.floor(B.credit));
     if (!need) { this.floatTextAt?.(x, 1.4, z, `Paid! ${n} jobs`, '#c8ff9a'); return; }
     // during the tutorial the first contract is on the house
@@ -2268,7 +2269,7 @@ export class UI {
       this.floatTextAt?.(x, 1.6, z, 'Deal! Beavers on it!', '#c8ff9a');
       game.emit('beaverContract', { n, need });
     };
-    this.closeContract = (silent) => { if (this.contract?.el === el) done(false); };
+    this.closeContract = (silent, keep) => { if (this.contract?.el === el) { if (keep) { this.contract = null; el.remove(); } else done(false); } }; // [v19 buildings] keep
     el.querySelector('.bc-coin').addEventListener('click', (e) => { e.stopPropagation(); if (!game.spend(coins, 'beavers')) { game.audio.play('error', { volume: 0.4 }); return; } done(true); });
     el.querySelector('.bc-food')?.addEventListener('click', (e) => { e.stopPropagation(); for (const [id, k] of plan) game.foodStore.take(id, k); done(true); });
     el.querySelector('.bc-no').addEventListener('click', (e) => { e.stopPropagation(); done(false); });

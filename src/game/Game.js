@@ -1826,7 +1826,7 @@ const SELLERS = ['xX_FishLord_Xx', 'grandma_trout', 'BigPondEnergy', 'eggs4u_ca'
 function pickSeller(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0; return SELLERS[Math.abs(h) % SELLERS.length]; }
 function autoTitle(type, def) {
   const n = def.name;
-  const t = [`${n} (bears LOVE this)`, `${n} - limited edition!!`, `BRAND NEW ${n} 🔥`, `${n}, slightly used by a moose`, `${n} - 5 stars, would build again`];
+  const t = [`${n} (bears LOVE this)`, `${n} - limited edition!!`, `BRAND NEW ${n}!!`, `${n}, slightly used by a moose`, `${n} - 5 stars, would build again`];
   let h = 0; for (const c of type) h = (h * 31 + c.charCodeAt(0)) | 0;
   return t[Math.abs(h) % t.length];
 }
@@ -1835,7 +1835,7 @@ function eggTitle(sp, g, rarity, mu) {
   if (mu && rarity >= 3) return `!!! ${mu.name.toUpperCase()} ${n} EGG !!! (not clickbait)`;
   if (mu) return `${mu.name} ${sp.name} egg?!? u won't believe it`;
   if (rarity >= 3) return `RARE?! ${sp.name} egg - LAST ONE`;
-  if (rarity >= 2) return `${sp.name} egg (shiny vibes) 🔥`;
+  if (rarity >= 2) return `${sp.name} egg (shiny vibes)`;
   return [`${sp.name} egg, fresh, no questions`, `Totally normal ${sp.name} egg`, `${sp.name} egg - mom says it's special`][Math.floor(Math.random() * 3)];
 }
 

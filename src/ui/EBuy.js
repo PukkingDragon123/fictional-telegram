@@ -146,7 +146,7 @@ const REVIEWS = {
   eggs: ['10/10 egg would buy again', 'it hatched. i cried.', 'egg arrived as egg. 5 stars', 'my son is now a fish', 'smells like profit', 'wow. just wow.'],
   farm: ['duck arrived. duck is judging me', 'HONK HONK HONK (5 stars)', 'worms were very worm', 'my geese now run the pond', 'quack.'],
   plants: ['bush is very bush', 'ate it. no regrets', 'grew 2 berries & a dream', 'leafy. green. 10/10'],
-  decor: ['my pond is now ✨aesthetic✨', 'gnome stares at me. love it', 'bears said "nice". high praise'],
+  decor: ['my pond is now *aesthetic*', 'gnome stares at me. love it', 'bears said "nice". high praise'],
   restaurant: ['bears sat on it. it held', 'fancy!! like a real restaurant', 'chair 10/10 would sit'],
   gear: ['tool did tool things', 'very sturdy. hit a bear w/ it (sorry)', 'works great, no refunds tho'],
 };
@@ -621,7 +621,7 @@ class EBuy {
         <div class="eb-pl"><span>×${qty}</span><i></i><span>${this._icon('coin', 1)}${fmt(l.price)}</span></div>
         <div class="eb-pl tot"><span>TOTAL</span><i></i><span>${this._icon('coin', 1)}${fmt(l.price * qty)}</span></div>
         <div class="eb-pbar">${Array.from({ length: 34 }, (_, i) => `<i style="width:${1 + (hash(no + i) % 3)}px"></i>`).join('')}</div>
-        <div class="eb-stamp"><b>SOLD!</b><span>Moose Express 🚲 on the way</span></div>
+        <div class="eb-stamp"><b>SOLD!</b><span>Moose Express is on the way</span></div>
         <div class="eb-road"><span class="eb-rider">${this._icon('moose', 3)}${px('bike', 3)}</span></div>
         ${l.eta ? `<div class="eb-eta">${px('clock', 2)}${esc(l.eta)}</div>` : ''}
         <div class="eb-tap">${px('arrow', 2)}</div>
