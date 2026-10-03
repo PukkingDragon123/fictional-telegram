@@ -140,7 +140,8 @@ Promise.all([import('./entities/bearRig.js'), import('./data/bears.js'), import(
 // ---- main loop
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000);
+  // rAF stamps the frame start, which can be earlier than `last` after a long synchronous load
+  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
   last = now;
   adaptQuality(dt);
   if (mode === 'title') {

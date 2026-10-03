@@ -97,6 +97,7 @@ export class CameraRig {
   }
 
   update(dt, renderer) {
+    if (!(dt >= 0)) dt = 0;
     const rtW = renderer.rtW, rtH = renderer.rtH;
     this._rt.w = rtW; this._rt.h = rtH;
     if (this.follow) {
@@ -111,6 +112,8 @@ export class CameraRig {
     this.yaw += angleDiff(this.yaw, this.yawGoal) * (1 - Math.exp(-9 * dt));
     if (Math.abs(angleDiff(this.yaw, this.yawGoal)) < 0.0005) this.yaw = this.yawGoal;
     this.wupp = Math.exp(damp(Math.log(this.wupp), Math.log(this.wuppGoal), 12, dt));
+    if (!Number.isFinite(this.wupp)) this.wupp = this.wuppGoal;
+    if (!Number.isFinite(this.target.x) || !Number.isFinite(this.target.z)) this.target.copy(this.goal);
 
     if (this.pitchGoal != null) this.pitch = damp(this.pitch, this.pitchGoal, 6, dt);
     const cam = this.camera;
