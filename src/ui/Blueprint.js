@@ -11,18 +11,18 @@ import './blueprint.css';
 
 const TABS = [
   { id: 'inv', icon: 'mailbox', name: 'Parcels' },
-  { id: 'clear', icon: 'tree', name: 'Clear land', feature: 'clear' },
+  { id: 'clear', icon: 'tree', name: 'Clear Land', feature: 'clear' },
   { id: 'crops', icon: 'carrot', name: 'Crops' },
-  { id: 'food', icon: 'berry', name: 'Plants & snacks' },
+  { id: 'food', icon: 'berry', name: 'Plants & Snacks' },
   { id: 'restaurant', icon: 'picnic', name: 'Restaurant', beaver: true },
-  { id: 'beaver', icon: 'dam', name: 'Beaver works', beaver: true },
+  { id: 'beaver', icon: 'dam', name: 'Beaver Works', beaver: true },
   { id: 'farm', icon: 'bug', name: 'Bugs & Birds' },
   { id: 'nature', icon: 'seaweed', name: 'Pond' },
   { id: 'decor', icon: 'gnome', name: 'Decor' },
   { id: 'woodwork', icon: 'hammer', name: 'Woodwork', zone: 'treehouse' },
   { id: 'contraption', icon: 'gear', name: 'Gadgets' },
   { id: 'defense', icon: 'shield', name: 'Defense' }, // [v18 bear events] barricades, traps, towers (src/data/structuresDefense.js)
-  { id: 'dig', icon: 'shovel', name: 'Dig pond' },
+  { id: 'dig', icon: 'shovel', name: 'Dig Pond' },
   { id: 'terraform', icon: 'shovel', name: 'Terraform', feature: 'terraform' },
   { id: 'remove', icon: 'trash', name: 'Remove' },
 ];

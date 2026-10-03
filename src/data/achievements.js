@@ -14,5 +14,5 @@ export const ACHIEVEMENTS = [
   { id: 'a_week', name: 'One Week Wonder', desc: 'Stay in business for 7 days.', reward: 250, test: (g) => g.state.day >= 8 },
   { id: 'a_rich', name: 'Fat Cat Fox', desc: 'Earn 10,000 coins in total.', reward: 500, test: (g) => g.state.totalEarned >= 10000 },
   { id: 'a_month', name: 'Pond Legend', desc: 'Stay in business for 28 days.', reward: 1500, test: (g) => g.state.day >= 29 },
-  { id: 'a_dex', name: 'Fishdex Master', desc: 'Discover every fish species.', reward: 2500, test: (g) => g.state.discovered.length >= g.speciesCount() },
+  { id: 'a_dex', name: 'Know-It-All', desc: 'Discover every fish species.', reward: 2500, test: (g) => g.state.discovered.length >= g.speciesCount() },
 ];

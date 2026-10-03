@@ -79,7 +79,7 @@ const TOOLS = [
   { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Build menu', feature: 'build' },
   { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
   { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: 'Lab', feature: 'lab' },
-  { panel: 'match', icon: 'heart', label: 'Match', key: 0, title: 'Matchmaker: pick the parents, breed the perfect fish', feature: 'match' },
+  { panel: 'match', icon: 'heart', label: 'Match', key: 0, title: 'Matchmaker: pick the parents', feature: 'match' },
   { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },
   { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 9, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
 ];
@@ -1770,8 +1770,8 @@ export class UI {
     if (!r) return;
     // (game.finishResearch already announces "Research done: ...")
     for (const b of [].concat(r.build || [])) if (STRUCTURES[b]) this.toast(`New build: <b>${esc(STRUCTURES[b].name)}</b>`, 'good');
-    if (r.species) this.toast(`New eggs in the shop: <b>${esc(SPECIES_BY_ID[r.species].name)}</b>`, 'good');
-    if (r.id === 'r_beavers') this.tipOnce('lodge', 'Beavers hired! Build a <b>Beaver Lodge</b> in the water next to the shore (Build > Beaver Works). Then place dams and the beavers will build them.', 'greedy');
+    if (r.species) this.toast(`New eggs on e-Buy: <b>${esc(SPECIES_BY_ID[r.species].name)}</b>`, 'good');
+    if (r.id === 'r_beavers') this.tipOnce('lodge', 'Beavers hired! Place a <b>Beaver Lodge</b> in the water by the shore (Build ▸ Beaver Works).', 'greedy');
     if (r.id === 'r_franchise') this.foxSay("FRANCHISE EMPIRE! I'm a legend! You can <b>retire</b> from the menu for permanent golden tails, or keep raking it in.", 'laugh');
   }
 
@@ -2055,7 +2055,7 @@ export class UI {
     const T = game.tanks;
     const fish = T.fishIn(s);
     const eggs = game.fish.eggs.filter((e) => e.tank === s);
-    const rows = fish.map((f) => `<div class="tankrow"><span class="fishbox">${fishImg(f.sp.id, { morph: f.g.morph, scale: 1 })}</span><b>${esc(f.name || f.sp.name)}</b><span class="chip ${f.g.sex === 'M' ? 'm' : 'f'}">${f.g.sex === 'M' ? '♂' : '♀'}</span>${f.adult ? '' : '<span class="chip">fry</span>'}${f.dateT > 0 ? '<span class="chip fx" style="--fx:#ff7ab0">on a date ♡</span>' : f.state === 'fertilize' ? '<span class="chip fx" style="--fx:#6cd04a">fertilizing</span>' : ''}<button class="btn" data-out="${f.id}">To pond</button></div>`).join('') || '<p class="center small">Empty! Use the Tank tool (or carry a fish here with the hand).</p>';
+    const rows = fish.map((f) => `<div class="tankrow"><span class="fishbox">${fishImg(f.sp.id, { morph: f.g.morph, scale: 1 })}</span><b>${esc(f.name || f.sp.name)}</b><span class="chip ${f.g.sex === 'M' ? 'm' : 'f'}">${f.g.sex === 'M' ? '♂' : '♀'}</span>${f.adult ? '' : '<span class="chip">fry</span>'}${f.dateT > 0 ? '<span class="chip fx" style="--fx:#ff7ab0">on a date ♡</span>' : f.state === 'fertilize' ? '<span class="chip fx" style="--fx:#6cd04a">fertilizing</span>' : ''}<button class="btn" data-out="${f.id}">To pond</button></div>`).join('') || '<p class="center small">Empty! Use the Tank tool or Carry a fish in.</p>';
     const eggLine = eggs.length ? `<div class="chips center">${eggs.map((e) => `<span class="chip ${e.ready ? 'shimmer' : ''}">${ico('egg', 1)} ${e.ready ? 'Ready: tap!' : e.stage === 'laid' ? 'Laid, being fertilized' : Math.ceil(e.t) + 's'}</span>`).join('')}</div>` : '';
     const html = `
       <h2 class="center">${ico('tank', 2)} ${esc(s.def.name)}</h2>

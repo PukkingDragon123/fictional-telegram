@@ -24,7 +24,7 @@ export const ZONES = [
     intro: ['Oh hey bud! Didn\'t see ya there.', 'Pull up a lawn chair, eh?', 'River\'s full of salmon. Trade ya?'],
     lines: ['Daisy Beer: the official drink of not working.', 'Salmon run\'s been wicked this year.', 'The moose owes me twenty bucks.', 'You got any chips?'],
     unlocks: [
-      { kind: 'feature', tab: 'beaver', title: 'Beaver works: dams, fences, gates + beaver facilities', icon: 'dam' },
+      { kind: 'feature', tab: 'beaver', title: 'Beaver Works: dams, fences, gates + beaver facilities', icon: 'dam' },
       { kind: 'species', ids: ['bulltrout', 'cutthroat', 'coho', 'pinksalmon', 'kokanee', 'browntrout'], title: '6 river trout & salmon', icon: 'fish' },
       { kind: 'perk', title: 'Clearing pays double, +1 beaver per lodge', icon: 'beaver' },
     ],

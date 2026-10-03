@@ -150,12 +150,12 @@ export class BuildMove {
     } else {
       el.innerHTML = `<div class="bm-head"><b>${esc(d.name)}</b><button class="bm-x" data-a="close" title="Close">✕</button></div>
         <div class="bm-btns">
-          <button class="bm-b move" data-a="move" ${mv.ok ? '' : 'disabled'} title="${mv.ok ? 'Pick it up and put it somewhere else' : esc(mv.reason)}">${img('move')}<span>MOVE</span></button>
-          <button class="bm-b store" data-a="store" title="Back into Build ▸ Parcels (place it again for free)">${img('store')}<span>STORE</span></button>
-          <button class="bm-b sell" data-a="sell" title="Sell it for coins">${img('sell')}<span>SELL</span><i>+${this.refund(s)}</i></button>
+          <button class="bm-b move" data-a="move" ${mv.ok ? '' : 'disabled'} title="${mv.ok ? 'Move it' : esc(mv.reason)}">${img('move')}<span>MOVE</span></button>
+          <button class="bm-b store" data-a="store" title="To Build ▸ Parcels (place again for free)">${img('store')}<span>STORE</span></button>
+          <button class="bm-b sell" data-a="sell" title="Sell">${img('sell')}<span>SELL</span><i>+${this.refund(s)}</i></button>
           <button class="bm-b info" data-a="info" title="Details">${img('info')}<span>INFO</span></button>
         </div>
-        <div class="bm-tip">${mv.ok ? 'Tip: <b>hold</b> a build to drag it around' : esc(mv.reason)}</div>`;
+        <div class="bm-tip">${mv.ok ? '<b>Hold</b> a build to drag it' : esc(mv.reason)}</div>`;
     }
     el.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.act(b.dataset.a); }));
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
@@ -498,7 +498,7 @@ export class BuildMove {
     this.updateHoverHint(dt);
     // first time with the Destroy tool: explain tree-by-tree picking
     if (game.tool?.kind === 'clear' && game.state?.tips && !game.state.tips.clearTap && !game.tutorial?.active) {
-      this.ui?.tipOnce?.('clearTap', 'Tap trees one by one (or drag a box). They glow red. Then pay the beavers once for the lot!');
+      this.ui?.tipOnce?.('clearTap', 'Tap trees (or drag a box) to mark them red. Then pay the beavers once for the lot!');
     }
   }
 

@@ -416,7 +416,7 @@ export function openMatchmaker(root, o = {}) {
         <div class="mm-wait">
           <div class="mm-heart mm-heart--idle"><canvas width="${HW}" height="${HH}"></canvas><b class="mm-hpct">?</b></div>
           <div class="mm-wtxt">${handwriting(need, { color: '#9c2a48' })}</div>
-          <div class="mm-wsub">Pick from the cards below and see the baby's odds before the date.</div>
+          <div class="mm-wsub">See the baby's odds before the date.</div>
         </div>`;
     } else if (!pred.ok) {
       body = `
