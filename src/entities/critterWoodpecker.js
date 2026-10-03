@@ -143,7 +143,12 @@ function headModel() {
   const v = new VoxelModel();
   const col = (x, y, z) => {
     const fx = abs(x + 0.5);
-    if (y - 6.6 + max(0, -z) * 0.8 > 0) return redCol(x, y, z); // red cap, down the nape
+    if (y - 6.6 + max(0, -z) * 0.8 > 0) {
+      // red cap, down the nape: scalloped feather rows, a dark rim where the eye-stripes wrap up the sides
+      if (fx > 4.6 && y <= 7 && z < 3) return inkCol(x, y, z);
+      if (y >= 8 && fx > 3.6 && fx < 5) return C.redD;
+      return (z + 40 + ((x + 40) % 2)) % 3 === 0 ? C.redD : redCol(x, y, z);
+    }
     if (z < -2.5 && y > 1) return inkCol(x, y, z); // black nape band
     if (fx > 3.8 && z < 2.4 && y >= 5 && y <= 6) return inkCol(x, y, z); // eye stripe
     const my = 3.1 - (3.6 - z) * 0.22; // malar stripe ("moustache") sloping back
@@ -325,15 +330,15 @@ function sawModel() {
       if (hole || corner) continue;
       for (let x = -1; x <= 0; x++) v.set(x, y, z, x === -1 ? C.hdlL : (y + z + 40) % 3 === 0 ? C.hdlD : C.hdl);
     }
-  for (let z = 3; z <= 19; z++) {
-    const top = Math.round(3 - (z - 3) * 0.22);
+  for (let z = 3; z <= 15; z++) {
+    const top = Math.round(3 - (z - 3) * 0.25);
     for (let y = -4; y <= top; y++) v.set(0, y, z, y === top || y === -4 ? C.ironD : y === top - 1 ? C.ironL : C.iron);
     if (z & 1) v.set(0, -5, z, C.ironDD);
   }
   v.set(1, 0, 3, C.brass); v.set(1, 2, 3, C.brass); v.set(-2, 0, 3, C.brassD); v.set(-2, 2, 3, C.brassD);
   return v;
 }
-const SAW_TOOTH = (s) => new THREE.Vector3(0.5 * FV, -5 * FV, (7 + s) * FV);
+const SAW_TOOTH = (s) => new THREE.Vector3(0.5 * FV, -5 * FV, (9 + s) * FV);
 function horseModel() {
   // little sawhorse (fine voxels, origin on the ground), beam along X
   const v = new VoxelModel();
@@ -1110,12 +1115,12 @@ def('saw', {
     const ph = ((t - 1.0) / STROKE) * TAU;
     const stroke = sawing ? -cos(ph) * win(t, 1.0, 3.9, 0.2, 0.15) : 0;
     p.k.cut = clamp((t - 1.0) / 2.9, 0, 1);
-    p.k.sawS = stroke * 4;
+    p.k.sawS = stroke * 3;
     p.k.sawLock = toCut;
     p.k.sawB = lerp(lerp(1.3, 0.45, toCut), -1.15, proud);
     const b = 0.45, cy = PLANK_TOP * FV - p.k.cut * 0.04;
-    horsePt(CUT_X * FV - 0.02, 0, -0.1 - 0.1 * stroke * cos(b), _hp);
-    const gx = _hp.x, gy = cy + 0.19 + 0.1 * stroke * sin(b), gz = _hp.z;
+    horsePt(CUT_X * FV - 0.02, 0, -0.17 - 0.075 * stroke * cos(b), _hp);
+    const gx = _hp.x, gy = cy + 0.2 + 0.075 * stroke * sin(b), gz = _hp.z;
     const c = rig.toChest(p, gy / VS, gz / VS, _c);
     let x = lerp(lerp(5.6, 3.6, fetch), -gx / VS, toCut), y = lerp(lerp(1.0, 2.6, fetch), c[0], toCut), z = lerp(lerp(2.0, -4.8, fetch), c[1], toCut);
     x = lerp(x, 6.6, proud); y = lerp(y, 10.2, proud); z = lerp(z, 4.6, proud);

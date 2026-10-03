@@ -2298,7 +2298,12 @@ export class UI {
     if (this.questLog) return this.questLog;
     const QL = C('QuestLog');
     if (!QL?.createQuestLog) return null;
-    this.questLog = QL.createQuestLog(this.root, { icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''), sfx: (n, o) => this.game.audio.play(n, { volume: 0.4, ...(o || {}) }) });
+    this.questLog = QL.createQuestLog(this.root, {
+      icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
+      sfx: (n, o) => this.game.audio.play(n, { volume: 0.4, ...(o || {}) }),
+      // tap a quest in the notebook: close it and show where to go
+      onClick: (id) => { this.questLog?.close?.(); setTimeout(() => this.game.quests?.hintById?.(id), 450); },
+    });
     return this.questLog;
   }
 

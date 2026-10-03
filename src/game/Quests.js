@@ -60,6 +60,7 @@ export const QUESTS = [
     intro: 'Tok-tok-tok... someone is pecking wood west of the pond! Bear furniture needs a carpenter.',
     steps: [{ text: 'Clear the forest to the Tree House (west)', ev: 'zone', test: (Z) => Z?.id === 'treehouse' }],
     check: (g) => (g.state.zones || []).includes('treehouse'),
+    point: () => ({ zone: ZONES.find((Z) => Z.id === 'treehouse') }),
   },
   {
     id: 'forage', title: 'Forest finds', icon: 'leaf', reward: { coins: 30 },
@@ -141,12 +142,15 @@ export class Quests {
     this.game.emit('questStart', q);
   }
 
+  hintById(id) { const q = BY_ID[id]; if (!q) return; this.fromNotebook = true; this.hint(q); this.fromNotebook = false; }
+
   hint(q) {
     const g = this.game;
     const p = q.point?.(g);
     if (!p) return;
     if (typeof p === 'string') { const stop = g.ui?.pointAt?.(p); if (stop) setTimeout(() => stop(), 5000); return; }
-    // fog banks carry their own "Who lives here?" tags; tapping one shows the way
+    // from the notebook: fly over to the fog bank and show where to clear
+    if (p.zone) { if (this.fromNotebook) g.zones?.showHint?.(p.zone); }
   }
 
   onEvent(ev, d) {
