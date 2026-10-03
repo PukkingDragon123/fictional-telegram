@@ -40,6 +40,7 @@ import { Quests } from './Quests.js';
 import { Matchmaking } from './Matchmaking.js';
 import { Workshop } from './Workshop.js';
 import { PipVisit } from './PipVisit.js';
+import { NpcScenes } from './NpcScenes.js'; // [npc cutscenes] arrival + first-visit scenes
 import { Forage } from './Forage.js';
 import { Terraform } from './Terraform.js';
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
@@ -51,7 +52,7 @@ import { SPECIES, SPECIES_BY_ID, MORPHS, MUTATIONS, RARITIES } from '../data/spe
 import { STRUCTURES, CHARM_CAP } from '../data/structures.js';
 import { BREEDS } from '../data/livestock.js';
 import { BIRD_BY_ID, BIRD_BOUNTY, WILD_BIRDS } from '../data/birds.js';
-import { RESEARCH, RESEARCH_BY_ID, computeMods } from '../data/research.js';
+import { RESEARCH, RESEARCH_BY_ID, UNLOCKS_BUILD, UNLOCKS_SPECIES, computeMods } from '../data/research.js';
 import { WEEKDAYS } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { clamp } from '../core/rng.js';
@@ -69,13 +70,36 @@ function safeDel(k) { try { localStorage.removeItem(k); } catch { /* ignore */ }
 
 let eggUid = 1;
 
-// progression: the neighbour who unlocks each build category / type
-const TUTORIAL_BUILDS = new Set(['lodge', 'beaverbar', 'carrot', 'woodgarage']);
-const CATEGORY_GATE = { restaurant: 'treehouse', woodwork: 'treehouse', beaver: 'river', nature: 'bend', crops: 'patch', farm: 'tower', decor: 'willow', contraption: 'mush' };
-const TYPE_GATE = {
+// v17: research (src/data/research.js) is THE unlock path; neighbours gate
+// research nodes (`zone`), not builds. These tables only describe the OLD
+// (pre-v17) rules, so old saves keep everything they could already build.
+const LEGACY_TUTORIAL_BUILDS = new Set(['lodge', 'beaverbar', 'carrot', 'woodgarage']);
+const LEGACY_CATEGORY_GATE = { restaurant: 'treehouse', woodwork: 'treehouse', beaver: 'river', nature: 'bend', crops: 'patch', farm: 'tower', decor: 'willow', contraption: 'mush' };
+const LEGACY_TYPE_GATE = {
   snackbowl: 'bakery', pantry: 'bakery', buggrinder: 'swamp', rabbithutch: 'patch', compost: 'patch', glasstank: 'bend',
   berries: 'patch', raspberry: 'patch', strawberry: 'patch', saskatoon: 'patch', cranberry: 'patch', cloudberry: 'patch', elderberry: 'patch', goldenberry: 'patch',
   beehive: 'bakery', maple: 'bakery', wildrice: 'bend', mushrooms: 'patch', willow: 'willow', flowers: 'willow', fern: 'patch', tallgrass: 'tower',
+  tipjar: 'bakery', pricesign: 'bakery', waitbench: 'bakery', stressbin: 'bakery', prboard: 'bakery', franchise: 'bakery',
+  tagrack: 'bend', feedsilo: 'bend', shovelshed: 'bend', whispershell: 'bend', toolbox: 'river', gearstation: 'river', beaverbed: 'river',
+};
+// pre-v17 `unlock` of each structure / species (types not listed had none)
+const LEGACY_UNLOCK = {
+  duckweed: 'r_duckweed', reeds: 'r_duckweed', lilypad: 'r_lilypad', flowers: 'r_flowers', fern: 'r_flowers', willow: 'r_willow', bughotel: 'r_bughotel',
+  butterflybush: 'day:3', bogpool: 'zone_swamp', rottinglog: 'zone_swamp', glowmeadow: 'zone_mush',
+  beehive: 'r_bees', wildrice: 'r_wildrice', mushrooms: 'r_mushrooms', maple: 'r_maple', saskatoon: 'r_berries',
+  peas: 'day:2', potato: 'day:2', corn: 'day:3', sunflower: 'day:3', pumpkin: 'day:4', pantry: 'day:2', rabbithutch: 'day:2',
+  lodge: 'r_beavers', dam: 'r_dams', fence: 'r_fences', gate: 'r_gates', platform: 'r_platforms',
+  feeder: 'r_feeder', aerator: 'r_aerator', hatchery: 'r_hatchery', sprinkler: 'r_sprinkler', buglamp: 'r_buglamp',
+  mailbox: 'r_decor1', pinwheel: 'r_decor1', bench: 'r_decor1', birdhouse: 'r_garden', birdbath: 'r_garden', gnome: 'r_garden', arch: 'r_garden2',
+  stringlights: 'r_lights', stonelantern: 'r_lights', campfire: 'r_canadiana', flag: 'r_canadiana', canoe: 'r_canadiana', hockey: 'r_canadiana',
+  moose: 'r_canadiana2', stones: 'r_waterdecor', floatlantern: 'r_waterdecor', decoy: 'r_waterdecor', fountain: 'r_waterdecor2', lighthouse: 'r_waterdecor2',
+  franchise: 'day:6',
+};
+const LEGACY_SPECIES_UNLOCK = {
+  crappie: 'start', rockbass: 'start', creekchub: 'day:3', dace: 'day:4', drum: 'day:5', goldeye: 'zone_tower', cisco: 'zone_tower',
+  bullhead: 'zone_swamp', catfish: 'zone_swamp', bowfin: 'zone_swamp', gar: 'zone_willow', paddlefish: 'zone_willow', eel: 'zone_willow',
+  bulltrout: 'zone_river', cutthroat: 'zone_river', coho: 'zone_river', pinksalmon: 'zone_river', kokanee: 'zone_river', browntrout: 'zone_river',
+  goldentrout: 'zone_mush', sabertooth: 'zone_mush',
 };
 
 export class Game {
@@ -95,6 +119,7 @@ export class Game {
     this.legacy = this.loadLegacy();
     this.state = this.freshState();
     this.skipGates = false;
+    this.researchBoost = 1; // research speed multiplier (the tutorial speeds research up)
     this.stats = this.freshStats();
     this.mods = computeMods([], this.legacy.tails);
     this.structures = new StructureSystem(this);
@@ -123,6 +148,7 @@ export class Game {
     this.matchmaking = new Matchmaking(this);
     this.workshop = new Workshop(this);
     this.pipVisit = new PipVisit(this);
+    this.npcScenes = new NpcScenes(this); // [npc cutscenes]
     this.forage = new Forage(this); // forest finds (state.forage saves with the state)
     this.terraform = new Terraform(this); // Terraform tool: reshape / paint land, dig & name ponds
     this.ui = null;
@@ -152,7 +178,7 @@ export class Game {
       coins: 120, day: 1, hour: 9, phase: 'day', rating: 3.0, reviews: [], research: [], discovered: ['bluegill'], morphsSeen: [],
       speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false, achievements: [],
       eggTray: [], bestNet: 0, grades: [],
-      inventory: {}, landmarks: [], zones: [], villagers: {}, gatesV14: true, wood: 0, birdsSpotted: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
+      inventory: {}, landmarks: [], zones: [], villagers: {}, gatesV14: true, researchV17: true, researchJobs: [], wood: 0, birdsSpotted: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
       food: { ...STARTING_FOOD }, foodSel: 'pellets', foodSeen: ['pellets'], beaverCredit: SIGNING_BONUS, landSpotted: [], harvested: {},
     };
   }
@@ -271,31 +297,53 @@ export class Game {
     if (!rid || this.isUnlocked(rid)) return null;
     if (rid.startsWith('day:')) return `Day ${rid.slice(4)}`;
     if (rid.startsWith('zone_')) { const Z = ZONE_INFO[rid.slice(5)]; return Z ? `Meet ${Z.npcName}` : 'Explore the forest'; }
-    return 'Research';
+    const r = RESEARCH_BY_ID[rid];
+    if (!r) return 'Research';
+    if (r.zone && !this.zoneOpen(r.zone)) return `Meet ${ZONE_INFO[r.zone]?.npcName || 'a neighbour'}, then research ${r.name}`;
+    return `Research in the lab: ${r.name}`;
   }
-  // which neighbour (zone id) opens each build: you start with nothing but
-  // the tutorial's lodge, snack bar and carrots
+  zoneOpen(zid) { return !zid || (this.state.zones || []).includes(zid); }
+  // the research node that unlocks a build (null: always available)
+  buildNode(type) { const id = UNLOCKS_BUILD[type] || STRUCTURES[type]?.unlock; return RESEARCH_BY_ID[id] || null; }
+  // the neighbour still standing between you and a build's research (or null)
   buildGate(type) {
-    const d = STRUCTURES[type];
-    if (!d || TUTORIAL_BUILDS.has(type)) return null;
-    if (d.gate) return d.gate;
-    if (d.crop && type !== 'carrot') return 'patch';
-    return TYPE_GATE[type] || CATEGORY_GATE[d.category] || null;
+    const r = this.buildNode(type);
+    if (!r || !r.zone || this.state.research.includes(r.id)) return null;
+    return r.zone;
   }
-  gateOpen(type) { const z = this.buildGate(type); return !z || this.skipGates || (this.state.zones || []).includes(z); }
+  gateOpen(type) { const z = this.buildGate(type); return !z || this.skipGates || this.zoneOpen(z); }
   isStructureUnlocked(type) {
     const d = STRUCTURES[type];
-    if (!d || d.retired || !this.gateOpen(type)) return false;
+    if (!d || d.retired) return false;
+    const r = this.buildNode(type);
+    if (r ? !this.state.research.includes(r.id) : !this.isUnlocked(d.unlock)) return false;
     if (d.craft) return true; // crafted at Chip's: placed from the inventory
-    return this.isUnlocked(d.unlock) && (!d.landmark || this.state.landmarks.includes(d.landmark));
+    return !d.landmark || this.state.landmarks.includes(d.landmark);
+  }
+  // { reason, icon } for a locked build (e-Buy, build menu), null when buildable
+  structureLock(type) {
+    const d = STRUCTURES[type];
+    if (!d) return { reason: 'Coming soon', icon: 'lock' };
+    if (d.retired) return { reason: 'Retired', icon: 'lock' };
+    const r = this.buildNode(type);
+    if (r && !this.state.research.includes(r.id)) return { reason: this.lockReason(r.id), icon: 'flask' };
+    if (!r && !this.isUnlocked(d.unlock)) return { reason: this.lockReason(d.unlock) || 'Coming soon', icon: 'map' };
+    if (d.landmark && !this.state.landmarks.includes(d.landmark)) return { reason: 'Find the ' + (LANDMARKS.find((x) => x.id === d.landmark)?.name || 'landmark'), icon: 'map' };
+    return null;
   }
   speciesUnlocked(id) {
     const sp = SPECIES_BY_ID[id];
     if (!sp) return false;
     if (sp.unlock === 'hybrid') return this.state.discovered.includes(id);
-    // some villagers hand out research fish early
-    if (ZONES.some((Z) => Z.early?.includes(id) && (this.state.zones || []).includes(Z.id))) return true;
+    const rid = UNLOCKS_SPECIES[id];
+    if (rid) return this.state.research.includes(rid);
     return this.isUnlocked(sp.unlock);
+  }
+  speciesLock(id) {
+    if (this.speciesUnlocked(id)) return null;
+    const sp = SPECIES_BY_ID[id];
+    const rid = UNLOCKS_SPECIES[id] || sp?.unlock;
+    return { reason: this.lockReason(rid) || 'Coming soon', icon: RESEARCH_BY_ID[rid] ? 'flask' : 'map' };
   }
   availableSpecies() {
     const have = new Set(this.fish.list.map((f) => f.sp.id));
@@ -464,8 +512,7 @@ export class Game {
     }
     for (const it of SHOP_ITEMS) {
       const def = STRUCTURES[it.type];
-      const gz = def && !this.gateOpen(it.type) ? this.buildGate(it.type) : null;
-      const locked = gz ? { reason: `Meet ${ZONE_INFO[gz]?.npcName || 'a neighbour'}`, icon: 'heart' } : it.unlock && !this.isUnlocked(it.unlock) ? { reason: 'Needs research', icon: 'lab' } : it.landmark && !st.landmarks.includes(it.landmark) ? { reason: 'Find the ' + it.landmarkName, icon: 'map' } : null;
+      const locked = def ? this.structureLock(it.type) : it.unlock && !this.isUnlocked(it.unlock) ? { reason: this.lockReason(it.unlock), icon: 'flask' } : null;
       if (it.once && (st.inventory[it.type] || this.structures.countBuilt(it.type))) continue;
       L.push({ id: 'item_' + it.type, cat: it.cat, kind: 'item', type: it.type, qty: it.qty || 1, title: it.title, sub: def?.name || it.sub, price: it.price, oldPrice: it.oldPrice, badges: it.badges || [], seller: it.seller, locked, eta: 'Moose Express' });
     }
@@ -473,7 +520,7 @@ export class Game {
     for (const sp of LIVE_PAIRS) {
       const S = SPECIES_BY_ID[sp];
       if (!S) continue;
-      const locked = this.speciesUnlocked(sp) ? null : { reason: 'Lab: unlock this fish first', icon: 'flask' };
+      const locked = this.speciesLock(sp);
       L.push({ id: 'pair_' + sp, cat: 'eggs', kind: 'fish', species: sp, pair: true, genes: { morph: 'normal', stars: 1, traits: [], size: 1 }, title: `LIVE ${S.name} pair ♂+♀ (adults, ready to love!)`, sub: `${S.name} pair`, price: Math.max(20, Math.round(S.price * 2.2)), oldPrice: Math.round(S.price * 7), rarity: 'common', badges: sp === 'bluegill' ? ['hot'] : [], seller: { name: 'Pet Pond Plus', stars: 4.9, sold: 2400 }, locked, eta: 'Moose Express' });
     }
     // fish food bags & produce crates
@@ -504,9 +551,7 @@ export class Game {
     for (const [type, def] of Object.entries(STRUCTURES)) {
       const cat = catOf[def.category];
       if (!cat || handmade.has(type) || type === 'lodge' || def.retired) continue;
-      let locked = null;
-      if (def.landmark && !st.landmarks.includes(def.landmark)) locked = { reason: 'Find the ' + (LANDMARKS.find((x) => x.id === def.landmark)?.name || 'landmark'), icon: 'map' };
-      else if (!this.isUnlocked(def.unlock)) locked = RESEARCH_BY_ID[def.unlock] ? { reason: 'Lab: ' + RESEARCH_BY_ID[def.unlock].name, icon: 'flask' } : { reason: this.lockReason(def.unlock), icon: 'map' };
+      const locked = this.structureLock(type);
       const price = Math.max(5, Math.round(def.cost * 1.15));
       L.push({ id: 'item_' + type, cat, kind: 'item', type, qty: 1, title: autoTitle(type, def), sub: def.name, price, oldPrice: Math.round(price * (2.5 + (type.length % 5))), badges: def.beauty >= 3 ? ['hot'] : [], seller: { name: pickSeller(type), stars: 4 + (type.length % 10) / 10, sold: 50 + type.length * 37 }, locked, eta: 'Moose Express' });
     }
@@ -516,7 +561,7 @@ export class Game {
     for (const sp of SPECIES) {
       if (pool.has(sp.id) || sp.unlock === 'hybrid' || teasers >= 8) continue;
       teasers++;
-      L.push({ id: 'lockegg_' + sp.id, cat: 'eggs', kind: 'egg', species: sp.id, genes: { morph: 'normal', stars: 1 + Math.min(4, sp.tier || 0), traits: [], size: 1 }, title: `${sp.name} egg ??? (coming soon)`, sub: sp.name, price: sp.price, rarity: RARITIES[Math.min(4, sp.tier || 0)].id, badges: ['new'], seller: { name: pickSeller(sp.id), stars: 4.8, sold: 0 }, locked: RESEARCH_BY_ID[sp.unlock] ? { reason: 'Lab: ' + RESEARCH_BY_ID[sp.unlock].name, icon: 'flask' } : { reason: this.lockReason(sp.unlock) || 'Coming soon', icon: 'map' }, eta: 'Moose Express' });
+      L.push({ id: 'lockegg_' + sp.id, cat: 'eggs', kind: 'egg', species: sp.id, genes: { morph: 'normal', stars: 1 + Math.min(4, sp.tier || 0), traits: [], size: 1 }, title: `${sp.name} egg ??? (coming soon)`, sub: sp.name, price: sp.price, rarity: RARITIES[Math.min(4, sp.tier || 0)].id, badges: ['new'], seller: { name: pickSeller(sp.id), stars: 4.8, sold: 0 }, locked: this.speciesLock(sp.id), eta: 'Moose Express' });
     }
     return L;
   }
@@ -1275,22 +1320,76 @@ export class Game {
     return false;
   }
 
+  // ------------------------------------------------------------ research (v17)
+  // Research is free but takes game time on a lab bench. One job per bench;
+  // `state.researchJobs` = [[id, t]] (t = seconds of work done so far).
+  labSlots() { return Math.max(1, 1 + Math.floor(this.mods?.labSlots || 0)); }
+  researchSpeed() { return Math.max(0.1, (this.mods?.researchSpeed || 1) * (this.researchBoost || 1)); }
+  researchJobs() {
+    const sp = this.researchSpeed();
+    return (this.state.researchJobs || []).filter(([id]) => RESEARCH_BY_ID[id]).map(([id, t]) => {
+      const r = RESEARCH_BY_ID[id];
+      const time = Math.max(0.01, r.time || 1);
+      return { id, r, t, time, k: Math.min(1, t / time), left: Math.max(0, (time - t) / sp) };
+    });
+  }
+  isResearching(id) { return (this.state.researchJobs || []).some((j) => j[0] === id); }
   canResearch(id) {
     const r = RESEARCH_BY_ID[id];
     const st = this.state;
     if (!r) return { ok: false, reason: 'Unknown' };
     if (st.research.includes(id)) return { ok: false, reason: 'Already researched' };
+    if (this.isResearching(id)) return { ok: false, reason: 'Researching...' };
     if (!r.req.every((q) => st.research.includes(q))) return { ok: false, reason: 'Research the prerequisites first' };
-    if (st.coins < r.cost) return { ok: false, reason: `Need ${r.cost - Math.floor(st.coins)} more coins` };
+    if (r.zone && !this.zoneOpen(r.zone)) return { ok: false, reason: `Meet ${ZONE_INFO[r.zone]?.npcName || 'a neighbour'} first` };
+    if ((st.researchJobs || []).length >= this.labSlots()) return { ok: false, reason: 'Lab bench busy' };
     return { ok: true };
   }
-
+  startResearch(id) {
+    const c = this.canResearch(id);
+    if (!c.ok) return false;
+    const r = RESEARCH_BY_ID[id];
+    (this.state.researchJobs ||= []).push([id, 0]);
+    this.audio.play('research', { volume: 0.45 });
+    this.emit('researchStart', { id, r, time: r.time / this.researchSpeed() });
+    this.save();
+    return true;
+  }
+  // finish a running job right now (tutorial, debug)
+  rushResearch(id) {
+    if (!this.isResearching(id)) return false;
+    this.finishResearch(id);
+    return true;
+  }
+  tickResearch(dt) {
+    const jobs = this.state.researchJobs;
+    if (!jobs?.length || !(dt > 0)) return;
+    const step = dt * this.researchSpeed();
+    const done = [];
+    for (const j of jobs) {
+      const r = RESEARCH_BY_ID[j[0]];
+      if (!r) { done.push(j[0]); continue; }
+      j[1] += step;
+      if (j[1] >= r.time) done.push(j[0]);
+    }
+    for (const id of done) this.finishResearch(id);
+  }
+  finishResearch(id) {
+    const st = this.state;
+    st.researchJobs = (st.researchJobs || []).filter((j) => j[0] !== id);
+    const r = RESEARCH_BY_ID[id];
+    if (!r) return;
+    if (this.research(id)) {
+      this.notify(`Research done: <b>${r.name}</b>!`, 'excited', { dur: 3.5 });
+      this.ui?.onResearched?.(r);
+    }
+  }
+  // grant a node instantly (tutorial, saves, debug): no time, no prerequisites
   research(id) {
     const r = RESEARCH_BY_ID[id];
     const st = this.state;
     if (!r || st.research.includes(id)) return false;
-    if (!r.req.every((q) => st.research.includes(q))) { this.ui?.toast('Research the prerequisites first', 'bad'); return false; }
-    if (!this.spend(r.cost, 'research')) return false;
+    if (st.researchJobs?.length) st.researchJobs = st.researchJobs.filter((j) => j[0] !== id);
     st.research.push(id);
     this.mods = computeMods(st.research, this.legacy.tails, this.zoneMods());
     if (r.species && !st.discovered.includes(r.species)) st.discovered.push(r.species);
@@ -1300,6 +1399,43 @@ export class Game {
     this.emit('research', r);
     this.save();
     return true;
+  }
+  // pre-v17 saves: grant the nodes for everything the old rules let you build
+  migrateResearchV17(skipGates) {
+    const st = this.state;
+    if (st.researchV17) return [];
+    const had = new Set(st.research);
+    const zones = st.zones || [];
+    const oldUnlocked = (rid) => {
+      if (!rid || rid === 'start') return true;
+      if (rid.startsWith('day:')) return st.day >= +rid.slice(4);
+      if (rid.startsWith('zone_')) return zones.includes(rid.slice(5));
+      return had.has(rid);
+    };
+    const oldGate = (type, d) => {
+      if (LEGACY_TUTORIAL_BUILDS.has(type)) return null;
+      if (d.crop && type !== 'carrot') return 'patch';
+      return LEGACY_TYPE_GATE[type] || LEGACY_CATEGORY_GATE[d.category] || null;
+    };
+    const grant = new Set();
+    for (const [type, d] of Object.entries(STRUCTURES)) {
+      if (d.retired || !UNLOCKS_BUILD[type]) continue;
+      const g = oldGate(type, d);
+      if (g && !skipGates && !zones.includes(g)) continue;
+      if (!d.craft && !oldUnlocked(LEGACY_UNLOCK[type])) continue;
+      grant.add(UNLOCKS_BUILD[type]);
+    }
+    for (const sp of SPECIES) {
+      const rid = UNLOCKS_SPECIES[sp.id];
+      if (!rid) continue;
+      const old = LEGACY_SPECIES_UNLOCK[sp.id] || rid;
+      const early = ZONES.some((Z) => Z.early?.includes(sp.id) && zones.includes(Z.id));
+      if (early || oldUnlocked(old) || st.discovered.includes(sp.id)) grant.add(rid);
+    }
+    const added = [...grant].filter((id) => !had.has(id) && RESEARCH_BY_ID[id]);
+    st.research.push(...added);
+    st.researchV17 = true;
+    return added;
   }
 
   // tapped a wild bird: add it to the bird log (Professor Hoot pays for new ones)
@@ -1417,6 +1553,8 @@ export class Game {
     this.ambient.update(dt);
     if (st.phase !== 'gameover') this.landAnimals.update(simDt || dt * 0.3);
     this.land.update();
+    // research ticks on game time (also while you watch it in the lab)
+    if (st.phase !== 'gameover') this.tickResearch(this.lab?.active && st.paused ? dt * ts : simDt);
     this.quests.update(realDt || dt);
     // placed facilities change the mods: re-check now and then
     this.facT = (this.facT || 0) - dt;
@@ -1428,6 +1566,7 @@ export class Game {
     this.matchmaking.update(dt);
     this.workshop.update(realDt || dt);
     this.pipVisit.update(realDt || dt);
+    this.npcScenes?.update(realDt || dt); // [npc cutscenes]
     this.forage.update(dt);
     this.terraform.update(realDt || dt);
     this.zones.update(dt);
@@ -1531,6 +1670,9 @@ export class Game {
     this.state = { ...this.freshState(), ...data.state };
     // saves from before the neighbour gates keep everything they already had
     this.skipGates = !data.state?.gatesV14;
+    // saves from before v17 (research = unlocks) keep what they could build
+    if (!data.state?.researchV17) { this.state.researchV17 = false; this.migrateResearchV17(this.skipGates); }
+    this.state.researchJobs = (this.state.researchJobs || []).filter((j) => Array.isArray(j) && RESEARCH_BY_ID[j[0]] && !this.state.research.includes(j[0]));
     for (const e of this.state.eggTray) eggUid = Math.max(eggUid, e.uid + 1);
     this.stats = { ...this.freshStats(), ...data.stats };
     this.mods = computeMods(this.state.research, this.legacy.tails, this.zoneMods());
@@ -1584,13 +1726,13 @@ const SHOP_ITEMS = [
   { type: 'berries', cat: 'plants', title: 'Blueberry bush seeds (beavers LOVE these)', price: 25, oldPrice: 80, badges: ['new'], qty: 1, seller: { name: 'Berry Mom', stars: 4.8, sold: 3100 } },
   { type: 'flowers', cat: 'plants', title: 'Flower bed kit - pretty = more bears', price: 18, oldPrice: 50, seller: { name: 'Petal Pusher', stars: 4.6, sold: 920 } },
   { type: 'seaweed', cat: 'plants', title: 'Seaweed starter (fish snack + hiding)', price: 12, oldPrice: 30, seller: { name: 'Kelp Kelly', stars: 4.4, sold: 410 } },
-  { type: 'beehive', cat: 'plants', title: 'Beehive w/ REAL bees (honey!!)', price: 70, oldPrice: 300, unlock: 'r_bees', seller: { name: 'Buzzwell', stars: 4.7, sold: 230 } },
+  { type: 'beehive', cat: 'plants', title: 'Beehive w/ REAL bees (honey!!)', price: 70, oldPrice: 300, seller: { name: 'Buzzwell', stars: 4.7, sold: 230 } },
   { type: 'gnome', cat: 'decor', title: 'Garden gnome (cursed? no refunds)', price: 22, oldPrice: 66, badges: ['sale'], seller: { name: 'GnomeDepot', stars: 3.9, sold: 666 } },
   { type: 'pinwheel', cat: 'decor', title: 'Spinny pinwheel - bears go wow', price: 15, oldPrice: 40, seller: { name: 'WindyCity', stars: 4.5, sold: 1200 } },
   { type: 'stonelantern', cat: 'decor', title: 'Stone lantern (glows at night!)', price: 35, oldPrice: 120, seller: { name: 'Zen Den', stars: 4.8, sold: 340 } },
   { type: 'floatlantern', cat: 'decor', title: 'Floating lanterns x3 MAGICAL', price: 40, oldPrice: 160, seller: { name: 'Zen Den', stars: 4.8, sold: 290 } },
   { type: 'moose', cat: 'decor', title: 'Life-size moose statue (not my cousin)', price: 90, oldPrice: 400, badges: ['hot'], seller: { name: 'Moose Express', stars: 5, sold: 77 } },
-  { type: 'hatchery', cat: 'gear', title: 'Egg incubator - hatch faster', price: 80, oldPrice: 250, unlock: 'r_hatchery', seller: { name: 'EggCellent', stars: 4.7, sold: 150 } },
+  { type: 'hatchery', cat: 'gear', title: 'Egg incubator - hatch faster', price: 80, oldPrice: 250, seller: { name: 'EggCellent', stars: 4.7, sold: 150 } },
 ];
 // live adult pairs on e-Buy (the tutorial's first purchase)
 const LIVE_PAIRS = ['bluegill', 'pumpkinseed', 'goldfish', 'perch', 'brook'];

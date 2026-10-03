@@ -14,6 +14,7 @@ import { fishIconURL, fishCanvasFor } from '../game/fishSprites.js';
 import { SPECIES, SPECIES_BY_ID, RARITIES, MORPHS, MORPH_IDS, TRAITS } from '../data/species.js';
 import { STRUCTURES, BUILD_CATEGORIES, CHARM_CAP } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES, UNLOCKS_BUILD, UNLOCKS_SPECIES } from '../data/research.js';
+import { ZONE_INFO } from '../data/zones.js';
 import { WANT_INFO } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { FOOD_ITEMS, STORAGE, foodUses } from '../data/foods.js';
@@ -1644,7 +1645,7 @@ export class UI {
         <div class="top"><span class="fishbox ${unlocked ? '' : 'sil'}">${fishImg(sp.id, { scale: 2 })}</span><div><div class="nm">${unlocked ? esc(sp.name) : '???'}</div><div class="lt">${unlocked ? esc(sp.latin) : 'Unknown species'}</div></div></div>
         <div class="ds">${unlocked ? esc(sp.desc) : 'Research it in the Lab to stock its eggs.'}</div>
         <div class="row"><span class="stat">Meal <b>${sp.meal}</b></span><span class="stat">Value <b>x${sp.value}</b></span><span class="rtag" style="background:${rar.color}">${rar.name}</span></div>
-        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${price}</span>` : `<span class="req">${ico('lock', 1)} ${req ? 'Lab: ' + esc(req.name) : esc(game.lockReason(sp.unlock) || '?')}</span>`}<span class="own">IN POND: ${counts[sp.id] || 0}</span></div>
+        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${price}</span>` : `<span class="req">${ico('lock', 1)} ${esc(game.speciesLock?.(sp.id)?.reason || (req ? 'Research in the lab: ' + req.name : game.lockReason(sp.unlock) || '?'))}</span>`}<span class="own">IN POND: ${counts[sp.id] || 0}</span></div>
       </div>`;
     }
     html += '</div>';
@@ -1676,7 +1677,7 @@ export class UI {
       html += `<div class="card ${unlocked ? 'clickable' : 'locked'} ${game.tool.kind === 'build' && game.tool.type === type ? 'sel' : ''}" data-build="${type}">
         <div class="top"><span class="iconbox f-slot_gold ${unlocked ? '' : 'sil'}">${ico(d.icon, 2)}</span><div><div class="nm">${unlocked ? esc(d.name) : '???'}</div>${d.builder === 'beaver' ? `<div class="lt">${ico('beaver', 1)} beaver-built</div>` : d.beauty ? `<div class="lt">${ico('beauty', 1)} +${d.beauty} beauty</div>` : ''}</div></div>
         <div class="ds">${unlocked ? esc(d.desc) : 'Classified. Research it in the Lab.'}</div>
-        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${d.cost}</span>${needsLodge ? '<span class="req">needs a Beaver Lodge</span>' : ''}` : `<span class="req">${ico('lock', 1)} ${req ? 'Lab: ' + esc(req.name) : esc(game.lockReason(d.unlock) || '?')}</span>`}<span class="own">BUILT: ${game.structures.countBuilt(type)}</span></div>
+        <div class="row">${unlocked ? `<span class="cost ${afford ? '' : 'no'}">${ico('coin', 1)}${d.cost}</span>${needsLodge ? '<span class="req">needs a Beaver Lodge</span>' : ''}` : `<span class="req">${ico('lock', 1)} ${esc(game.structureLock?.(type)?.reason || (req ? 'Research in the lab: ' + req.name : game.lockReason(d.unlock) || '?'))}</span>`}<span class="own">BUILT: ${game.structures.countBuilt(type)}</span></div>
       </div>`;
     }
     html += '</div>';
@@ -1703,9 +1704,9 @@ export class UI {
     body.innerHTML = `<div class="info">Research: ${game.state.research.length}/${RESEARCH.length}</div><div class="grid">${RESEARCH.map((r) => {
       const done = game.state.research.includes(r.id);
       const ok = r.req.every((q) => game.state.research.includes(q));
-      return `<div class="card ${done ? 'sel' : ok ? 'clickable' : 'locked'}" data-r="${r.id}"><div class="top">${ico(ok || done ? r.icon : 'lock', 2)}<div class="nm">${ok || done ? esc(r.name) : '???'}</div></div><div class="ds">${ok || done ? esc(r.desc) : ''}</div><div class="row"><span class="cost">${ico('coin', 1)}${r.cost}</span></div></div>`;
+      return `<div class="card ${done ? 'sel' : ok ? 'clickable' : 'locked'}" data-r="${r.id}"><div class="top">${ico(ok || done ? r.icon : 'lock', 2)}<div class="nm">${ok || done ? esc(r.name) : '???'}</div></div><div class="ds">${ok || done ? esc(r.desc) : ''}</div><div class="row"><span class="cost">${ico('clock', 1)}${r.time}s</span></div></div>`;
     }).join('')}</div>`;
-    body.querySelectorAll('[data-r]').forEach((el) => el.addEventListener('click', () => { if (game.research(el.dataset.r)) { this.onResearched(RESEARCH_BY_ID[el.dataset.r]); this.renderPanel(true); } }));
+    body.querySelectorAll('[data-r]').forEach((el) => el.addEventListener('click', () => { const c = game.canResearch(el.dataset.r); if (!c.ok) { this.toast(c.reason, 'bad'); return; } if (game.startResearch(el.dataset.r)) { this.toast(`${ico('flask', 1)} Researching <b>${esc(RESEARCH_BY_ID[el.dataset.r].name)}</b>...`, 'good'); this.renderPanel(true); } }));
   }
 
   makeLabTree(host, onClose) {
@@ -1718,7 +1719,12 @@ export class UI {
         isResearched: (id) => game.state.research.includes(id),
         coins: () => game.state.coins,
         canResearch: (id) => game.canResearch(id),
-        onResearch: (id) => { const ok = game.research(id); if (ok) this.onResearched(RESEARCH_BY_ID[id]); return ok; },
+        // v17: research is free and takes time: this starts a job on a bench
+        onResearch: (id) => game.startResearch(id),
+        jobs: () => game.researchJobs(),
+        slots: () => game.labSlots(),
+        zoneName: (zid) => ZONE_INFO[zid]?.npcName || zid,
+        isZoneOpen: (zid) => game.zoneOpen(zid),
         icon: (n, s) => ico(n, s),
         preview: (node, cv, t) => this.labPreview(node, cv, t),
         sfx: (n) => game.audio.play(n === 'type' ? 'typing' : n, { volume: n === 'type' ? 0.15 : 0.4 }),
@@ -1753,7 +1759,7 @@ export class UI {
 
   onResearched(r) {
     if (!r) return;
-    this.toast(`${ico('flask', 1)} Researched <b>${esc(r.name)}</b>!`, 'good');
+    // (game.finishResearch already announces "Research done: ...")
     for (const b of [].concat(r.build || [])) if (STRUCTURES[b]) this.toast(`New build: <b>${esc(STRUCTURES[b].name)}</b>`, 'good');
     if (r.species) this.toast(`New eggs in the shop: <b>${esc(SPECIES_BY_ID[r.species].name)}</b>`, 'good');
     if (r.id === 'r_beavers') this.tipOnce('lodge', 'Beavers hired! Build a <b>Beaver Lodge</b> in the water next to the shore (Build > Beaver Works). Then place dams and the beavers will build them.', 'greedy');

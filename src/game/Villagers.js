@@ -196,6 +196,8 @@ export class Villagers {
   // tap: chat card with unlocks + the daily gift
   open(v) {
     const game = this.game;
+    // [npc cutscenes] the first tap plays a short welcome scene, then comes back here
+    if (game.npcScenes?.firstVisit?.(v)) return;
     // Pip: the lumber counter
     if (v.id === 'pip' && game.pipVisit) {
       if (this.giftReady(v)) this.claimGift(v);

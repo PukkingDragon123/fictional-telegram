@@ -44,13 +44,13 @@ export class Workshop {
     for (const r of WOOD_RECIPES) {
       const d = STRUCTURES[r.id];
       if (!d) continue;
-      list.push({ id: r.id, kind: 'craft', name: d.name, icon: d.icon, desc: d.desc, cost: r.cost, time: r.time, locked: null });
+      list.push({ id: r.id, kind: 'craft', name: d.name, icon: d.icon, desc: d.desc, cost: r.cost, time: r.time, locked: this.game.structureLock?.(r.id)?.reason || null });
     }
     for (const r of REPAIRS) {
       const d = STRUCTURES[r.id];
       if (!d) continue;
       const n = this.have(r.ruin);
-      list.push({ id: r.id, kind: 'repair', name: d.name, ruin: r.ruin, ruinName: r.ruinName, icon: d.icon, desc: `Fix the ${r.ruinName} you found in the forest.`, cost: { ...r.cost, [r.ruin]: 1 }, time: r.time, locked: n > 0 ? null : `Find a ${r.ruinName} in the forest ruins` });
+      list.push({ id: r.id, kind: 'repair', name: d.name, ruin: r.ruin, ruinName: r.ruinName, icon: d.icon, desc: `Fix the ${r.ruinName} you found in the forest.`, cost: { ...r.cost, [r.ruin]: 1 }, time: r.time, locked: this.game.structureLock?.(r.id)?.reason || (n > 0 ? null : `Find a ${r.ruinName} in the forest ruins`) });
     }
     return list;
   }
