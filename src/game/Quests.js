@@ -63,6 +63,19 @@ export const QUESTS = [
     point: () => ({ zone: ZONES.find((Z) => Z.id === 'treehouse') }),
   },
   {
+    id: 'logs', title: 'Lumberjack', icon: 'hammer', reward: { coins: 40 },
+    when: (g) => (g.state.tutorialDone || g.skipTutorial) && g.structures.countBuilt('woodgarage') > 0,
+    intro: 'Box some trees with Destroy. The beavers chop, the logs go to your Wood Garage!',
+    steps: [{ text: 'Stock 10 logs in the Wood Garage', ev: 'logStocked', count: 10 }],
+  },
+  {
+    id: 'sellwood', title: 'Pip\'s best customer', icon: 'coins', reward: { coins: 30 },
+    when: (g) => (g.state.zones || []).includes('mill'),
+    intro: 'Pip buys logs! Tap him at his mill to sell some.',
+    steps: [{ text: 'Sell logs to Pip', ev: 'woodSold' }],
+    point: () => ({ zone: ZONES.find((Z) => Z.id === 'mill') }),
+  },
+  {
     id: 'forage', title: 'Forest finds', icon: 'leaf', reward: { coins: 30 },
     when: (g) => (g.state.tutorialDone || g.skipTutorial) && g.state.day >= 1 && !!g.forage,
     intro: 'The forest is full of free stuff! Tap logs, mushrooms and wild plants.',

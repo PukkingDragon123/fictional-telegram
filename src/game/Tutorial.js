@@ -23,7 +23,7 @@ if (clsMods['./Classroom.js']?.LESSONS) Object.assign(clsMods['./Classroom.js'].
 const teachMods = import.meta.glob('../ui/TeacherOverlay.js', { eager: true });
 const TeacherOverlay = teachMods['../ui/TeacherOverlay.js']?.TeacherOverlay || null;
 
-export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'land', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews', 'match'];
+export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews', 'match', 'terraform'];
 
 export class Tutorial {
   constructor(game) {
@@ -421,12 +421,25 @@ export class Tutorial {
     stop?.();
     await this.teach('Paid! No pay, no work. <b>Snacks = jobs.</b>', { dur: 3, mood: 'excited' });
 
+    // ---- a home for the logs: the Wood Garage
+    await this.teach('Trees give <b>LOGS</b>! Logs need a home: the <b>Wood Garage</b>.', { wait: true, mood: 'excited' });
+    (game.state.inventory ||= {}).woodgarage = (game.state.inventory.woodgarage || 0) + 1;
+    game.emit('inventory', game.state.inventory);
+    this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'woodgarage', free: true } });
+    stop = this.pointAt('tool:build');
+    this.teach('Place the <b>Wood Garage</b> on your land!', { target: 'tool:build', dur: 5 });
+    this.nag(() => 'Build ▸ place the Wood Garage on land!');
+    if (!game.structures.list.some((q) => q.type === 'woodgarage' && !q.removed)) await this.until('built', (q) => q?.type === 'woodgarage');
+    this.stopNag();
+    this.force(null);
+    stop?.();
+
     // ---- clear trees with the beavers: the DESTROY button, then drag a box
     game.unlockFeature('clear');
     game.setTool({ kind: 'feed' });
     this.force('clear');
     stop = this.pointAt('tool:clear');
-    this.teach('More land = more money! Tap the <b>DESTROY</b> button!', { target: 'tool:clear', circle: true, dur: 5, mood: 'excited' });
+    this.teach('More land = more money! Chop the forest! Tap the <b>DESTROY</b> button!', { target: 'tool:clear', circle: true, dur: 5, mood: 'excited' });
     this.nag(() => 'Tap the Destroy button!');
     if (game.tool.kind !== 'clear') await this.until('tool', (t) => t.kind === 'clear');
     this.stopNag();
@@ -446,11 +459,9 @@ export class Tutorial {
     await wait(2);
     game.setTool({ kind: 'feed' });
 
-    // ---- land plots for sale
-    game.unlockFeature('land');
-    stop = this.pointAt('tool:land');
-    await this.teach('Want even more room? <b>Buy land</b> with the Land tool when you\'re rich!', { target: 'tool:land', circle: true, wait: true, mood: 'scheming' });
-    stop?.();
+    this.teach('Chopped trees fall into <b>LOGS</b>. Beavers haul them to the <b>Wood Garage</b>!', { dur: 4.5, mood: 'happy' });
+    await wait(1.5);
+    await this.teach('Wood = furniture from Chip... or cash from <b>Pip</b>, who visits tomorrow!', { wait: true, mood: 'scheming' });
 
     // ---- lessons: bears & stars
     await this.teach('Last class: our <b>customers</b>...', { dur: 2.2, mood: 'scared' });
@@ -581,7 +592,6 @@ export class Tutorial {
   // later unlocks that come from playing, not the tour
   static progress(game) {
     if (!game.state.tutorialDone) return;
-    game.unlockFeature('land', { quiet: true });
     if (game.state.day >= 2) { game.unlockFeature('rating'); game.unlockFeature('reviews'); }
     if (game.state.day >= 2) game.unlockFeature('lab');
     if (game.state.discovered.length >= 2 || game.state.day >= 3) game.unlockFeature('dex');

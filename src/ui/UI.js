@@ -76,7 +76,6 @@ const TOOLS = [
   { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
   { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
   { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
-  { tool: 'land', icon: 'map', label: 'Land', key: 0, title: 'Land: buy the plots around you', feature: 'land' },
   { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: "Reynard's lab", feature: 'lab' },
   { panel: 'match', icon: 'heart', label: 'Match', key: 0, title: 'Matchmaker: pick the parents, breed the perfect fish', feature: 'match' },
   { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },

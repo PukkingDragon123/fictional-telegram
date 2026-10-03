@@ -135,6 +135,19 @@ export const ZONES = [
     mods: {},
     gift: { coins: 15, wood: 3 },
   },
+  {
+    id: 'mill', landmark: null, name: 'Pip\'s Lumber Mill', cx: 80.5, cz: 64.5, r: 5, near: true, visitor: true,
+    npc: { id: 'pip', name: 'Pip', title: 'Lumber trader', x: 80.6, z: 65.4, color: '#b8783a' },
+    sub: 'Pip the chipmunk buys every log you can chop',
+    intro: ['Welcome to my mill, partner!', 'Bring me logs, I pay cash. Fair and square!', 'And try my Terraform kit: shape your land!'],
+    lines: ['Logs, logs, lovely logs!', 'Price changes every day. Sell smart!', 'A garage full of wood is a happy garage.', 'Terraform tip: little hills look cozy!'],
+    unlocks: [
+      { kind: 'feature', tab: 'terraform', title: 'Terraform: hills, paint, new ponds', icon: 'shovel' },
+      { kind: 'perk', title: 'Sell wood to Pip', icon: 'coins' },
+    ],
+    mods: {},
+    gift: { coins: 20 },
+  },
 ];
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 // zone id -> a short "who to meet" label (for locked things)

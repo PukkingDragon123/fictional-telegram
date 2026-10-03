@@ -39,6 +39,7 @@ import { Cutscene } from './Cutscene.js';
 import { Quests } from './Quests.js';
 import { Matchmaking } from './Matchmaking.js';
 import { Workshop } from './Workshop.js';
+import { PipVisit } from './PipVisit.js';
 import { Forage } from './Forage.js';
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
 const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
@@ -68,7 +69,7 @@ function safeDel(k) { try { localStorage.removeItem(k); } catch { /* ignore */ }
 let eggUid = 1;
 
 // progression: the neighbour who unlocks each build category / type
-const TUTORIAL_BUILDS = new Set(['lodge', 'beaverbar', 'carrot']);
+const TUTORIAL_BUILDS = new Set(['lodge', 'beaverbar', 'carrot', 'woodgarage']);
 const CATEGORY_GATE = { restaurant: 'treehouse', woodwork: 'treehouse', beaver: 'river', nature: 'bend', crops: 'patch', farm: 'tower', decor: 'willow', contraption: 'mush' };
 const TYPE_GATE = {
   snackbowl: 'bakery', pantry: 'bakery', buggrinder: 'swamp', rabbithutch: 'patch', compost: 'patch', glasstank: 'bend',
@@ -120,6 +121,7 @@ export class Game {
     this.quests = new Quests(this);
     this.matchmaking = new Matchmaking(this);
     this.workshop = new Workshop(this);
+    this.pipVisit = new PipVisit(this);
     this.forage = new Forage(this); // forest finds (state.forage saves with the state)
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
@@ -1422,6 +1424,7 @@ export class Game {
     }
     this.matchmaking.update(dt);
     this.workshop.update(realDt || dt);
+    this.pipVisit.update(realDt || dt);
     this.forage.update(dt);
     this.zones.update(dt);
     this.villagers.update(dt);

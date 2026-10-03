@@ -31,6 +31,7 @@ const CAST = {
   // the close neighbours
   clover: { cls: 'BunnyGardener', voice: 'cub', specials: ['water_plants', 'dig', 'sniff'], height: 1.6, sign: 'GARDEN' },
   otis: { cls: 'OtterFisher', voice: 'fox', specials: ['cast_line', 'hold_fish', 'juggle_pebble', 'float_back'], height: 1.45, sign: 'OTIS' },
+  pip: { cls: 'ChipmunkTrader', voice: 'cub', specials: ['count_logs', 'stuff_cheeks', 'haggle'], height: 1.2, sign: 'LUMBER' },
   chip: { cls: 'WoodpeckerCarpenter', voice: 'cub', specials: ['peck_wood', 'measure', 'saw', 'inspect', 'hammer'], height: 1.45, sign: 'WORKSHOP' },
   hazel: { cls: 'HedgehogBaker', voice: 'cub', specials: ['roll_dough', 'taste', 'curl_up'], height: 1.5, sign: 'BAKERY' },
 };
@@ -187,6 +188,14 @@ export class Villagers {
   // tap: chat card with unlocks + the daily gift
   open(v) {
     const game = this.game;
+    // Pip: the lumber counter
+    if (v.id === 'pip' && game.pipVisit) {
+      if (this.giftReady(v)) this.claimGift(v);
+      v.rig?.play?.('wave', { loop: false, onDone: () => this.idle(v) });
+      this.sayLine(v, pick(['Got logs? I got coins!', 'Step right up, partner!', 'Fresh price today!']), { dur: 2 });
+      setTimeout(() => game.pipVisit.openTrade(), 600);
+      return;
+    }
     // Chip talks, then shows you his workshop
     if (v.id === 'chip' && game.workshop) {
       if (this.giftReady(v)) this.claimGift(v);

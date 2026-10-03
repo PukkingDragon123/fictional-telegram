@@ -39,6 +39,10 @@ export const STRUCTURES_V14 = {
   beaverbed: { name: 'Beaver Bed', icon: 'beaver', cost: 200, place: 'land', category: 'beaver', gate: 'river', builder: 'beaver', buildTime: 5, facility: { mods: { beaverBonus: 1 } },
     desc: 'A cozy log bed. Well rested: +1 beaver per lodge.', beauty: 1, hp: 3, smashable: true },
 
+  // ---- logs from felled trees are stocked here (beavers haul them in)
+  woodgarage: { name: 'Wood Garage', icon: 'hammer', cost: 120, place: 'land', category: 'beaver', size: [2, 2], builder: 'beaver', buildTime: 6,
+    woodCap: 40, desc: 'Beavers stack the logs here: 40 per garage. Wood for Chip\'s furniture, or to sell to Pip.', hp: 99, smashable: false },
+
   // ---- woodwork (crafted at Chip's)
   wd_stool: { name: 'Log Stool', icon: 'chair', cost: 0, craft: true, place: 'landOrPlatform', category: 'woodwork', comfort: 1, beauty: 1, desc: 'A sawn log with a cushion.', hp: 2, smashable: true },
   wd_table: { name: 'Plank Table', icon: 'table', cost: 0, craft: true, place: 'landOrPlatform', category: 'woodwork', comfort: 2, beauty: 1, desc: 'Seats hungry bears. Hand-planed by Chip.', hp: 3, smashable: true },
