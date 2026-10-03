@@ -1,100 +1,102 @@
-/* Fonts for "The Bear Must Eat" (v15): Pixelify Sans everywhere.
+/* Fonts for "The Bear Must Eat" (v17): Galmuri11 everywhere.
  *
- *   --font-title : Pixelify Sans 600/700. Chunky, goofy, cozy. Titles, numbers,
- *                  buttons, shouts. (font-weight 400 still maps to the 600 cut,
- *                  so old rules that ask for "400" keep their punch.)
- *   --font-body  : Pixelify Sans 400 (700 for <b>). Dialogue and body text.
- *   Licence: OFL, see node_modules/@fontsource/pixelify-sans/LICENSE.
+ *   --font-title : Galmuri11 Bold. Chunky, round-cornered Nintendo-DS-style
+ *                  pixel font: titles, numbers, buttons, shouts.
+ *   --font-body  : Galmuri11 Regular (Bold for <b> / weight 501+). Dialogue
+ *                  and body text.
+ *   Licence: SIL OFL 1.1 (no reserved font name), (c) Lee Minseo (quiple),
+ *   see src/assets/fonts/Galmuri-OFL.txt. The woff2 files are Latin/symbol
+ *   subsets (pyftsubset) of galmuri@2.40.3 (npm), ~10 KB each, so the
+ *   single-file build stays small.
  *
  * The family names stay 'TBME Title' / 'TBME Body' so every rule and canvas
- * font string keeps working. The url()s point into node_modules so Vite
- * bundles the woff2 files (and the single-file build inlines them).
+ * font string keeps working.
  *
- * SIZES: these are real px (no size-adjust). Pixelify caps are ~0.66em tall
- * and one font pixel is ~em/10.7, so it is sharpest at 16 / 21-22 / 32 / 43px
- * and fine anywhere at 16px+. Rough guide: small labels 16px, body 18-20px,
- * buttons / names 20-24px, headings 28-32px, banners 40-48px.
- * Line-height: Pixelify needs about 1.1-1.2em (the old m5x7 0.75 overlaps).
+ * SIZES: the faces use size-adjust 75%, so the px sizes written in the CSS
+ * mean the same thing they meant with Pixelify (text is a bit wider and its
+ * caps ~10% taller, so nothing gets smaller). Galmuri11 is drawn on a 12 px
+ * em with 11 px caps; with the 75% adjust one font pixel = size/16, so it is
+ * pixel-perfect at 16 / 32 / 48px (1x / 2x / 3x) and at 24px on 2x screens.
+ * Rough guide: small labels 16px, body 18-22px, buttons / names 20-24px,
+ * headings 28-32px, banners 40-48px.
+ * Vertical metrics are overridden (ascent .95em / descent .26em at the used
+ * size, no line gap) so caps sit centred in a line box like Pixelify did.
+ *
+ * Galmuri's digits are clear (5 is not an S, 2 is not a Z, 0 has no slash
+ * but is rounder than O), so the old Silkscreen digit faces are gone.
+ * Galmuri11 Bold lacks a few symbols (♂ ♀ − ▸); those come from Galmuri11
+ * Regular via unicode-range so they stay pixel art in titles too.
  */
 @font-face {
   font-family: 'TBME Title';
-  src: url('../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-600-normal.woff2') format('woff2');
-  font-weight: 100 650;
+  src: url('../assets/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: block;
+  size-adjust: 75%;
+  ascent-override: 126.67%;
+  descent-override: 34.67%;
+  line-gap-override: 0%;
 }
+@font-face {
+  font-family: 'TBME Body';
+  src: url('../assets/fonts/Galmuri11.subset.woff2') format('woff2');
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: block;
+  size-adjust: 75%;
+  ascent-override: 126.67%;
+  descent-override: 34.67%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'TBME Body';
+  src: url('../assets/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
+  font-weight: 501 900;
+  font-style: normal;
+  font-display: block;
+  size-adjust: 75%;
+  ascent-override: 126.67%;
+  descent-override: 34.67%;
+  line-gap-override: 0%;
+}
+/* symbols Galmuri11 Bold lacks (declared last so they win for their unicode-range) */
 @font-face {
   font-family: 'TBME Title';
-  src: url('../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-700-normal.woff2') format('woff2');
-  font-weight: 651 900;
+  src: url('../assets/fonts/Galmuri11.subset.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: block;
+  size-adjust: 75%;
+  ascent-override: 126.67%;
+  descent-override: 34.67%;
+  line-gap-override: 0%;
+  unicode-range: U+2212, U+25B8, U+2640, U+2642;
 }
 @font-face {
   font-family: 'TBME Body';
-  src: url('../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-400-normal.woff2') format('woff2');
-  font-weight: 100 450;
+  src: url('../assets/fonts/Galmuri11.subset.woff2') format('woff2');
+  font-weight: 501 900;
   font-style: normal;
   font-display: block;
+  size-adjust: 75%;
+  ascent-override: 126.67%;
+  descent-override: 34.67%;
+  line-gap-override: 0%;
+  unicode-range: U+2212, U+25B8, U+2640, U+2642;
 }
+/* the title-sign logo (titlemenu.css). Galmuri's capital B is open and clear
+   under the thick sign outline (Pixelify's notched B read as a G). */
 @font-face {
-  font-family: 'TBME Body';
-  src: url('../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-600-normal.woff2') format('woff2');
-  font-weight: 451 650;
+  font-family: 'TBME Logo';
+  src: url('../assets/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: block;
-}
-@font-face {
-  font-family: 'TBME Body';
-  src: url('../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-700-normal.woff2') format('woff2');
-  font-weight: 651 900;
-  font-style: normal;
-  font-display: block;
-}
-
-/* Digits come from Silkscreen: Pixelify's 5 reads as an S and its 2 as a Z,
-   which is no good in a game about counting coins. Same cap height, so they
-   sit right next to Pixelify letters. */
-/* (declared last: later faces win for their unicode-range; each digit face mirrors a letter face's weight range so they compose) */
-@font-face {
-  font-family: 'TBME Title';
-  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
-  font-weight: 100 650;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0030-0039;
-}
-@font-face {
-  font-family: 'TBME Title';
-  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
-  font-weight: 651 900;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0030-0039;
-}
-@font-face {
-  font-family: 'TBME Body';
-  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
-  font-weight: 100 450;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0030-0039;
-}
-@font-face {
-  font-family: 'TBME Body';
-  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
-  font-weight: 451 650;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0030-0039;
-}
-@font-face {
-  font-family: 'TBME Body';
-  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
-  font-weight: 651 900;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0030-0039;
+  size-adjust: 75%;
+  ascent-override: 126.67%;
+  descent-override: 34.67%;
+  line-gap-override: 0%;
 }
 
 :root {
@@ -121,13 +123,3 @@
 .ft-title.ft-3 { font-size: var(--ft-title-3); }
 .ft-body.ft-1 { font-size: var(--ft-body-1); }
 .ft-body.ft-3 { font-size: var(--ft-body-3); }
-
-/* the title-sign logo only: Pixelify's capital B has a notch that the thick
-   sign outline fills in, so "BEAR" read as "GEAR". Silkscreen Bold's B is clear. */
-@font-face {
-  font-family: 'TBME Logo';
-  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-700-normal.woff2') format('woff2');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: block;
-}

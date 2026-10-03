@@ -89,7 +89,7 @@ export function showTitleMenu(root, { hasSave = false, onStart, sfx, icon, onSou
       </div>
       <button class="tm-snd" aria-label="Sound" title="Sound"></button>
     </div>
-    <div class="tm-credit">Fonts: Pixelify Sans (Stefie Justprince) &amp; Silkscreen (Jason Kottke)</div>`;
+    <div class="tm-credit">Font: Galmuri11 by Lee Minseo (quiple), SIL OFL 1.1</div>`;
   root.appendChild(el);
 
   const snd = el.querySelector('.tm-snd');
