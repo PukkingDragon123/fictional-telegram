@@ -1188,10 +1188,11 @@ export class LabTree {
 
   _clampCam(c) {
     const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500;
-    const m = Math.min(160, vw * 0.3), mh = Math.min(140, vh * 0.3);
+    const m = Math.min(40, vw * 0.1), mh = Math.min(40, vh * 0.1);
     const ww = this.W * c.z, wh = this.H * c.z;
     c.x = ww + 2 * m < vw ? clamp(c.x, m, vw - ww - m) : clamp(c.x, vw - ww - m, m);
-    c.y = wh + 2 * mh < vh ? clamp(c.y, mh, vh - wh - mh) : clamp(c.y, vh - wh - mh, mh);
+    const sheet = this._compact && this._sheetOpen ? this.$det.offsetHeight : 0;
+    c.y = wh + 2 * mh < vh - sheet ? clamp(c.y, mh, vh - sheet - wh - mh) : clamp(c.y, vh - sheet - wh - mh, mh);
     if (ww + 2 * m < vw && c.x > vw - ww - m) c.x = vw - ww - m;
     return c;
   }
