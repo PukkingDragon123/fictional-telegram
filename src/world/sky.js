@@ -141,6 +141,24 @@ export class Sky {
       this.sun.color.lerp(this._tmp, 0.5 * ml);
       night *= 1 - 0.4 * ml;
     }
+    // [v18 bear events] `bloodMoon` (0..1, set by src/game/BloodMoon.js): the sky, sun, water
+    // and light all turn a deep, eerie red; no aurora
+    const bm = this.bloodMoon || 0;
+    if (bm > 0.001) {
+      const c = this._tmp;
+      this.sun.color.lerp(c.setHex(0xff3a2a), 0.85 * bm);
+      this.sun.intensity = this.sun.intensity * (1 - bm) + (0.95 + 0.25 * (1 - night)) * bm;
+      this.hemi.color.lerp(c.setHex(0xb02a3a), 0.8 * bm);
+      this.hemi.groundColor.lerp(c.setHex(0x3a0a10), 0.8 * bm);
+      this.hemi.intensity = this.hemi.intensity * (1 - bm) + 0.95 * bm;
+      u.uTop.value.lerp(c.setHex(0x1a0206), 0.85 * bm);
+      u.uBottom.value.lerp(c.setHex(0xa0141e), 0.85 * bm);
+      s.waterShallow.lerp(c.setHex(0x7a1820), 0.75 * bm);
+      s.waterDeep.lerp(c.setHex(0x3a0610), 0.75 * bm);
+      s.skyTint.lerp(c.setHex(0xd02030), 0.8 * bm);
+      s.aurora *= 1 - bm;
+      night *= 1 - 0.35 * bm; // the blood moon is bright: you can see them coming
+    }
     s.night = night;
     u.uNight.value = night;
     u.uAurora.value = s.aurora;

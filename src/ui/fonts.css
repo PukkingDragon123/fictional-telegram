@@ -1,110 +1,65 @@
-/* Fonts for "The Bear Must Eat" (v17): Galmuri11 everywhere.
+/* Fonts for "The Bear Must Eat" (v18): TBME Goofy everywhere.
  *
- *   --font-title : Galmuri11 Bold. Chunky, round-cornered Nintendo-DS-style
- *                  pixel font: titles, numbers, buttons, shouts.
- *   --font-body  : Galmuri11 Regular (Bold for <b> / weight 501+). Dialogue
- *                  and body text.
- *   Licence: SIL OFL 1.1 (no reserved font name), (c) Lee Minseo (quiple),
- *   see src/assets/fonts/Galmuri-OFL.txt. The woff2 files are Latin/symbol
- *   subsets (pyftsubset) of galmuri@2.40.3 (npm), ~10 KB each, so the
- *   single-file build stays small.
+ *   TBME Goofy : a bouncy, cartoony pixel font made for the game from Chewy
+ *                (Apache License 2.0, (c) 2010 Font Diner, Inc DBA Sideshow):
+ *                Chewy pixelized on a 20 px em (caps 14 px, one weight - Chewy
+ *                is already chunky), every letter given a fixed little hop and
+ *                tilt so lines of text wobble, a few glyphs redrawn for clarity
+ *                (B with a straight stem so it never reads as 8, flagged 1,
+ *                serif I, bold + x -), and the game's symbols (♂ ♀ ★ ♥ ▸ ▶ ◀ ▲
+ *                ▼ → ← ↑ ↓ ✓ ✗ ✕ █ ✎ •) drawn on the same grid.
+ *                See src/assets/fonts/FONTS_LICENSE.txt and tbme-goofy/ (rebuild).
  *
- * The family names stay 'TBME Title' / 'TBME Body' so every rule and canvas
- * font string keeps working.
+ * Every family name the game uses ('TBME Title', 'TBME Body', 'TBME Logo') is
+ * this one face, so every rule and canvas font string keeps working. Canvas
+ * pixel text that is drawn from bitmaps (chalkboard, comic words, signs) uses
+ * the same glyphs via src/ui/goofyFont.js.
  *
- * SIZES: the faces use size-adjust 75%, so the px sizes written in the CSS
- * mean the same thing they meant with Pixelify (text is a bit wider and its
- * caps ~10% taller, so nothing gets smaller). Galmuri11 is drawn on a 12 px
- * em with 11 px caps; with the 75% adjust one font pixel = size/16, so it is
- * pixel-perfect at 16 / 32 / 48px (1x / 2x / 3x) and at 24px on 2x screens.
- * Rough guide: small labels 16px, body 18-22px, buttons / names 20-24px,
- * headings 28-32px, banners 40-48px.
+ * SIZES: the face is drawn on a 20 px em (caps 14 px). size-adjust 96% makes a
+ * line of text as wide as Galmuri11 (Bold) was at the same px size, so every
+ * layout keeps fitting; caps are ~0.67em (Galmuri's were ~0.69em). One font
+ * pixel = 0.048 x the px size (about 1 screen px at 20-22px, 2 at 40-44px).
  * Vertical metrics are overridden (ascent .95em / descent .26em at the used
- * size, no line gap) so caps sit centred in a line box like Pixelify did.
- *
- * Galmuri's digits are clear (5 is not an S, 2 is not a Z, 0 has no slash
- * but is rounder than O), so the old Silkscreen digit faces are gone.
- * The subsets are modified (OFL allows it; no reserved name): ♂ and ♀ are
- * redrawn as clear 1-px pixel glyphs (Galmuri's ♂ has a straight-up arrow
- * and read like "ô"), and added to the Bold cut (2-px strokes), which had
- * none. Bold still lacks − and ▸; those come from Regular via unicode-range.
- * Rebuild recipe: see src/assets/fonts/FONTS_LICENSE.txt.
+ * size, no line gap) so caps sit centred in a line box, as before.
  */
 @font-face {
   font-family: 'TBME Title';
-  src: url('../assets/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
+  src: url('../assets/fonts/TBMEGoofy-Regular.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: block;
-  size-adjust: 75%;
-  ascent-override: 126.67%;
-  descent-override: 34.67%;
+  size-adjust: 96%;
+  ascent-override: 98.96%;
+  descent-override: 27.08%;
   line-gap-override: 0%;
 }
 @font-face {
   font-family: 'TBME Body';
-  src: url('../assets/fonts/Galmuri11.subset.woff2') format('woff2');
-  font-weight: 100 500;
-  font-style: normal;
-  font-display: block;
-  size-adjust: 75%;
-  ascent-override: 126.67%;
-  descent-override: 34.67%;
-  line-gap-override: 0%;
-}
-@font-face {
-  font-family: 'TBME Body';
-  src: url('../assets/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
-  font-weight: 501 900;
-  font-style: normal;
-  font-display: block;
-  size-adjust: 75%;
-  ascent-override: 126.67%;
-  descent-override: 34.67%;
-  line-gap-override: 0%;
-}
-/* symbols Galmuri11 Bold lacks (declared last so they win for their unicode-range) */
-@font-face {
-  font-family: 'TBME Title';
-  src: url('../assets/fonts/Galmuri11.subset.woff2') format('woff2');
+  src: url('../assets/fonts/TBMEGoofy-Regular.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: block;
-  size-adjust: 75%;
-  ascent-override: 126.67%;
-  descent-override: 34.67%;
+  size-adjust: 96%;
+  ascent-override: 98.96%;
+  descent-override: 27.08%;
   line-gap-override: 0%;
-  unicode-range: U+2212, U+25B8;
 }
-@font-face {
-  font-family: 'TBME Body';
-  src: url('../assets/fonts/Galmuri11.subset.woff2') format('woff2');
-  font-weight: 501 900;
-  font-style: normal;
-  font-display: block;
-  size-adjust: 75%;
-  ascent-override: 126.67%;
-  descent-override: 34.67%;
-  line-gap-override: 0%;
-  unicode-range: U+2212, U+25B8;
-}
-/* the title-sign logo (titlemenu.css). Galmuri's capital B is open and clear
-   under the thick sign outline (Pixelify's notched B read as a G). */
+/* the title-sign logo (titlemenu.css) */
 @font-face {
   font-family: 'TBME Logo';
-  src: url('../assets/fonts/Galmuri11-Bold.subset.woff2') format('woff2');
+  src: url('../assets/fonts/TBMEGoofy-Regular.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: block;
-  size-adjust: 75%;
-  ascent-override: 126.67%;
-  descent-override: 34.67%;
+  size-adjust: 96%;
+  ascent-override: 98.96%;
+  descent-override: 27.08%;
   line-gap-override: 0%;
 }
 
 :root {
-  --font-title: 'TBME Title', 'Pixelify Sans', ui-monospace, monospace;
-  --font-body: 'TBME Body', 'Pixelify Sans', ui-monospace, monospace;
+  --font-title: 'TBME Title', ui-monospace, monospace;
+  --font-body: 'TBME Body', ui-monospace, monospace;
   /* handy sizes */
   --ft-title-1: 20px;
   --ft-title-2: 32px;

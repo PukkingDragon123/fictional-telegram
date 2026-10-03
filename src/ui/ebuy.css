@@ -7,8 +7,8 @@
   --eb-blue: #3a7ae0;
   --eb-yel: #ffc22e;
   --eb-grn: #6cc04a;
-  --eb-title: var(--font-title, 'Pixelify Sans'), 'Pixelify Sans', ui-monospace, monospace;
-  --eb-body: var(--font-body, 'Pixelify Sans'), 'Pixelify Sans', 'Trebuchet MS', sans-serif;
+  --eb-title: var(--font-title), ui-monospace, monospace;
+  --eb-body: var(--font-body), 'Trebuchet MS', sans-serif;
   position: absolute;
   inset: 0;
   z-index: 1;

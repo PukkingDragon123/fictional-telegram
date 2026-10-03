@@ -31,6 +31,7 @@ import { SpriteBatch } from '../core/spriteBatch.js';
 import { fishCanvasFor, FISH_TPU } from './fishSprites.js';
 import { WATER_Y } from '../world/grid.js';
 import { FX } from './Particles.js';
+import { comicWordSize, paintComicWord } from '../ui/goofyText.js';
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -209,28 +210,13 @@ function wordTexture(text, kind) {
   let e = wordTexCache.get(key);
   if (e) return e;
   const st = WORD_STYLE[kind] || WORD_STYLE.quack;
-  const font = "18px 'TBME Title', 'Silkscreen', monospace";
-  const m = document.createElement('canvas').getContext('2d');
-  m.font = font;
-  const tw = Math.ceil(m.measureText(text).width);
-  const W = tw + 8, H = 20;
+  // TBME Goofy straight from its bitmap glyphs (crisp, no font loading): a fat
+  // ink outline, a 1 px shade drop, then the fill
+  const { w: W, h: H } = comicWordSize(text, { pad: 1, drop: 1 });
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  ctx.font = font;
-  ctx.textBaseline = 'alphabetic';
-  const bx = 4, by = 15;
-  // drop shade, then a fat ink outline, then the fill
-  ctx.fillStyle = st.ink;
-  for (let dx = -1; dx <= 2; dx++) for (let dy = -1; dy <= 2; dy++) ctx.fillText(text, bx + dx, by + dy);
-  ctx.fillStyle = st.shade;
-  ctx.fillText(text, bx + 1, by + 1);
-  ctx.fillStyle = st.fill;
-  ctx.fillText(text, bx, by);
-  // hard alpha (no anti-aliased fringe)
-  const img = ctx.getImageData(0, 0, W, H);
-  for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] > 110 ? 255 : 0;
-  ctx.putImageData(img, 0, 0);
+  paintComicWord(ctx, 0, 0, text, { fill: st.fill, shade: st.shade, ink: st.ink, pad: 1, drop: 1, style: 'drop' });
   const tex = new THREE.CanvasTexture(cv);
   tex.magFilter = tex.minFilter = THREE.NearestFilter;
   tex.generateMipmaps = false;
@@ -282,7 +268,6 @@ export class TitleScene {
     this.group = new THREE.Group();
     this.group.name = 'TitleScene';
     game.scene.add(this.group);
-    if (document.fonts?.load) document.fonts.load("18px 'TBME Title'").catch(() => {});
 
     // --- remember what we touch
     const rig = game.rig, R = game.renderer, U = R.postMat.uniforms, wu = game.world.waterUniforms;

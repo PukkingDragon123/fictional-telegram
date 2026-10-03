@@ -21,6 +21,7 @@ const TABS = [
   { id: 'decor', icon: 'gnome', name: 'Decor' },
   { id: 'woodwork', icon: 'hammer', name: 'Woodwork', zone: 'treehouse' },
   { id: 'contraption', icon: 'gear', name: 'Gadgets' },
+  { id: 'defense', icon: 'shield', name: 'Defense' }, // [v18 bear events] barricades, traps, towers (src/data/structuresDefense.js)
   { id: 'dig', icon: 'shovel', name: 'Dig pond' },
   { id: 'terraform', icon: 'shovel', name: 'Terraform', feature: 'terraform' },
   { id: 'remove', icon: 'trash', name: 'Remove' },

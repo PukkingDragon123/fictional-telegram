@@ -165,7 +165,12 @@ export class BearFace {
       j: '#9a4a4a',
       h: hex(o.halfmoon ?? 0xd8b860),
       N: '#203048',
+      // [v18 bear looks] eye colour + eye patch
+      A: hex(o.iris ?? 0x1c1117),
+      a: hex(o.iris2 ?? o.iris ?? 0x1c1117),
+      n: '#241c1e',
     };
+    this.cg = o.iris != null ? new Uint8Array(FACE_W * FACE_H) : null; // char grid for the iris pass
     if (o.glow || o.markings) {
       // emissive map: glowing pixels in colour, everything else black
       const g = (this.glowCanvas = document.createElement('canvas'));
@@ -182,6 +187,7 @@ export class BearFace {
 
   px(x, y, c) {
     if (this.eyeMap && y < 14 && this.eyeMap[c]) c = this.eyeMap[c];
+    if (this.cg && x >= 0 && y >= 0 && x < FACE_W && y < FACE_H) this.cg[y * FACE_W + x] = c.charCodeAt(0);
     this.ctx.fillStyle = this.pal[c] || c;
     this.ctx.fillRect(x, y, 1, 1);
     if (this.gctx) {
@@ -234,18 +240,39 @@ export class BearFace {
     this.expr = s.expr;
     this.ctx.clearRect(0, 0, FACE_W, FACE_H);
     if (this.gctx) this.gctx.clearRect(0, 0, FACE_W, FACE_H);
+    if (this.cg) this.cg.fill(0);
     const st = { blink, frame, lx: s.lookX | 0, ly: s.lookY | 0, cub: !!this.o.cub };
     const fn = (this.o.boss && BOSS_DRAW[s.expr]) || (this.o.icy && ICY_DRAW[s.expr]) || DRAW[s.expr] || DRAW.neutral;
     fn(this, st);
+    if (this.cg) this.irisPass();
     this.extras(s.expr, st);
     this.texture.needsUpdate = true;
     if (this.glowTexture) this.glowTexture.needsUpdate = true;
     return true;
   }
 
+  // [v18 bear looks] colour the inside of the open eyes (K pixels fully surrounded by eye pixels)
+  irisPass() {
+    const cg = this.cg, R = FACE_REGIONS.eyes;
+    const K = 75, inEye = (c) => c === K || c === 87 || c === 119 || c === 83; // K W w S
+    const hits = [];
+    for (let y = R.y + 1; y < R.y + R.h - 1; y++)
+      for (let x = R.x + 1; x < R.x + R.w - 1; x++) {
+        const i = y * FACE_W + x;
+        if (cg[i] !== K) continue;
+        if (inEye(cg[i - 1]) && inEye(cg[i + 1]) && inEye(cg[i - FACE_W]) && inEye(cg[i + FACE_W])) hits.push(x, y);
+      }
+    for (let i = 0; i < hits.length; i += 2) this.px(hits[i], hits[i + 1], hits[i] < 13 ? 'A' : 'a');
+  }
+
   // always-on decorations drawn over every expression
   extras(expr, st) {
     const o = this.o;
+    if (o.eyepatch) {
+      // [v18 bear looks] pirate eye patch over the left eye (the strap is voxels on the head)
+      this.spr(['..KKKKK..', '.KnnnnnK.', 'KnnnnnnnK', 'KnnnnnnnK', 'KnnnnnnnK', 'KnnnnnnnK', '.KnnnnnK.', '..KKKKK..'], 2, 3);
+      this.px(1, 3, 'K'); this.px(0, 2, 'K'); this.px(10, 3, 'K'); this.px(11, 2, 'K'); this.px(12, 1, 'K');
+    }
     if (o.scar) {
       // diagonal scar through the left brow and cheek (the eye survived)
       for (const [x, y] of [[4, 0], [5, 1], [5, 2], [6, 3], [8, 10], [8, 11], [9, 12], [9, 13]]) this.px(x, y, 'J');

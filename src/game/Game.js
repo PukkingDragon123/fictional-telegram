@@ -22,6 +22,7 @@ import { FishSystem, GROW_TIME } from './FishSystem.js';
 import { FoodSystem } from './FoodSystem.js';
 import { StructureSystem } from './StructureSystem.js';
 import { BearSystem } from './BearSystem.js';
+import { BearEvents } from './BearEvents.js'; // [v18 bear events] boss days, blood moon, defenses
 import { BeaverSystem, BEAVER_LEVELS } from './BeaverSystem.js';
 import { Delivery } from './Delivery.js';
 import { BugSystem } from './BugSystem.js';
@@ -53,6 +54,7 @@ import { STRUCTURES, CHARM_CAP } from '../data/structures.js';
 import { BREEDS } from '../data/livestock.js';
 import { BIRD_BY_ID, BIRD_BOUNTY, WILD_BIRDS } from '../data/birds.js';
 import { RESEARCH, RESEARCH_BY_ID, UNLOCKS_BUILD, UNLOCKS_SPECIES, computeMods } from '../data/research.js';
+import { BRANCHES as RESEARCH_BRANCHES, BRANCH_BY_ID as RESEARCH_BRANCH_BY_ID, STARTER_SECTIONS, researchRushPrice } from '../data/research.js'; // [v18 research]
 import { WEEKDAYS } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { clamp } from '../core/rng.js';
@@ -131,6 +133,7 @@ export class Game {
     this.beavers = new BeaverSystem(this);
     this.delivery = new Delivery(this);
     this.bears = new BearSystem(this);
+    this.bearEvents = new BearEvents(this); // [v18 bear events]
     this.world.sim.blocked = (x, z) => {
       const s = this.structures.structureAtTile(x, z);
       return !!(s && s.built && s.def.blocksFish && !(s.def.gate && s.open));
@@ -299,6 +302,7 @@ export class Game {
     if (rid.startsWith('zone_')) { const Z = ZONE_INFO[rid.slice(5)]; return Z ? `Meet ${Z.npcName}` : 'Explore the forest'; }
     const r = RESEARCH_BY_ID[rid];
     if (!r) return 'Research';
+    if (!this.sectionOpen(r.branch)) return `Decrypt the ${RESEARCH_BRANCH_BY_ID[r.branch]?.name || 'research'} section in the lab, then research ${r.name}`; // [v18 research]
     if (r.zone && !this.zoneOpen(r.zone)) return `Meet ${ZONE_INFO[r.zone]?.npcName || 'a neighbour'}, then research ${r.name}`;
     return `Research in the lab: ${r.name}`;
   }
@@ -642,6 +646,7 @@ export class Game {
     this.audio.setMusic(first ? 'day' : 'morning');
     if (!first) { this.audio.play('day_start', { volume: 0.4 }); setTimeout(() => { if (this.state.phase === 'day') this.audio.setMusic('day'); }, 45000); }
     this.emit('day', { day: st.day });
+    this.bearEvents?.onDayStart(st.day); // [v18 bear events] warnings + morning patch-up
     this.ui?.onDayStart(this.wave);
     this.save();
   }
@@ -649,6 +654,7 @@ export class Game {
   startRush() {
     const st = this.state;
     st.hour = RUSH_HOUR;
+    if (this.bearEvents?.startRush()) return; // [v18 bear events] the blood moon takes the 5 PM slot
     if (this.wave.dayOff || !this.wave.bears.length) { this.startEvening(); return; }
     st.phase = 'rush';
     this.setTool({ kind: 'feed' });
@@ -926,6 +932,7 @@ export class Game {
       'Remember: happy bears tip. Hungry bears smash. Choose wisely.',
       'Plant berries. Bears love a side dish, and it saves our fish!',
     ];
+    const bq = this.bearEvents?.morningQuote(); if (bq) return bq; // [v18 bear events]
     if (this.isDayOff()) return 'Sunday! The bears stay home. Let\'s breed some fish in peace.';
     if (this.state.rating < 2) return 'Our rating is in the dumpster. Today we win them back, partner.';
     return q[Math.floor(Math.random() * q.length)];
@@ -1340,6 +1347,7 @@ export class Game {
     if (!r) return { ok: false, reason: 'Unknown' };
     if (st.research.includes(id)) return { ok: false, reason: 'Already researched' };
     if (this.isResearching(id)) return { ok: false, reason: 'Researching...' };
+    if (!this.sectionOpen(r.branch)) return { ok: false, reason: `Decrypt the ${RESEARCH_BRANCH_BY_ID[r.branch]?.name || 'research'} section first` }; // [v18 research]
     if (!r.req.every((q) => st.research.includes(q))) return { ok: false, reason: 'Research the prerequisites first' };
     if (r.zone && !this.zoneOpen(r.zone)) return { ok: false, reason: `Meet ${ZONE_INFO[r.zone]?.npcName || 'a neighbour'} first` };
     if ((st.researchJobs || []).length >= this.labSlots()) return { ok: false, reason: 'Lab bench busy' };
@@ -1361,6 +1369,73 @@ export class Game {
     this.finishResearch(id);
     return true;
   }
+  // ------------------------------------------------------------ [v18 research] paid rushes + sections
+  // Pay coins to speed up a running job: mode 'half' = -50% of the time left,
+  // 'now' = finish it right away. Price: researchRushPrice (data/research.js).
+  rushResearchPrice(id, mode = 'now') {
+    const j = this.researchJobs().find((x) => x.id === id);
+    return j ? researchRushPrice(j.r, j.left, mode === 'half' ? 'half' : 'now') : null;
+  }
+  rushResearchPaid(id, mode = 'now') {
+    mode = mode === 'half' ? 'half' : 'now';
+    const job = (this.state.researchJobs || []).find((j) => j[0] === id);
+    const r = RESEARCH_BY_ID[id];
+    if (!job || !r) return { ok: false, msg: 'Not researching that' };
+    const price = this.rushResearchPrice(id, mode);
+    if (this.state.coins < price) { this.audio.play('error', { volume: 0.4 }); return { ok: false, msg: `Needs ${price} coins`, price }; }
+    this.spend(price, 'research');
+    this.state.researchSpent = (this.state.researchSpent || 0) + price;
+    this.audio.play('coins', { volume: 0.45 });
+    this.emit('researchRush', { id, r, mode, price });
+    if (mode === 'now') this.finishResearch(id);
+    else {
+      job[1] += (r.time - job[1]) * 0.5;
+      if (job[1] >= r.time - 1e-6) this.finishResearch(id); else this.save();
+    }
+    return { ok: true, price, mode, msg: mode === 'now' ? `${r.name}: done!` : `${r.name}: -50% time!` };
+  }
+  // Research SECTIONS (= branches): only STARTER_SECTIONS are open in a new
+  // game; the rest are encrypted until unlocked with their section key
+  // (BRANCHES[].key: gateway node / neighbour / coins). state.sections = ids.
+  ensureSections() {
+    const st = this.state;
+    if (Array.isArray(st.sections)) return st.sections;
+    const open = new Set(STARTER_SECTIONS);
+    for (const id of st.research || []) { const b = RESEARCH_BY_ID[id]?.branch; if (b) open.add(b); }
+    for (const j of st.researchJobs || []) { const b = RESEARCH_BY_ID[j?.[0]]?.branch; if (b) open.add(b); }
+    st.sections = [...open];
+    return st.sections;
+  }
+  sectionOpen(b) { return !b || !RESEARCH_BRANCH_BY_ID[b] || this.ensureSections().includes(b); }
+  sectionKey(b) {
+    const B = RESEARCH_BRANCH_BY_ID[b];
+    if (!B) return null;
+    const k = B.key || {};
+    const needs = [];
+    if (k.node) needs.push({ kind: 'node', id: k.node, ok: this.state.research.includes(k.node), text: `Research ${RESEARCH_BY_ID[k.node]?.name || k.node}` });
+    if (k.zone) needs.push({ kind: 'zone', id: k.zone, ok: this.zoneOpen(k.zone), text: `Meet ${ZONE_INFO[k.zone]?.npcName || 'a neighbour'}` });
+    const coins = Math.max(0, Math.round(k.coins || 0));
+    if (coins) needs.push({ kind: 'coins', ok: this.state.coins >= coins, text: `Pay ${coins} coins`, coins });
+    const open = this.sectionOpen(b);
+    const ready = needs.every((n) => n.kind === 'coins' || n.ok);
+    return { id: b, name: B.name, open, coins, needs, ready, canUnlock: !open && ready && this.state.coins >= coins, nodes: RESEARCH.filter((r) => r.branch === b).length };
+  }
+  unlockSection(b, { free = false } = {}) {
+    const key = this.sectionKey(b);
+    if (!key) return { ok: false, msg: 'Unknown section' };
+    if (key.open) return { ok: false, msg: 'Already decrypted' };
+    if (!free) {
+      const miss = key.needs.find((n) => n.kind !== 'coins' && !n.ok);
+      if (miss) return { ok: false, msg: `Section key: ${miss.text} first` };
+      if (key.coins && this.state.coins < key.coins) { this.audio.play('error', { volume: 0.4 }); return { ok: false, msg: `Needs ${key.coins} coins` }; }
+      if (key.coins) this.spend(key.coins, 'research');
+    }
+    this.ensureSections().push(b);
+    this.emit('sectionUnlock', { id: b, name: key.name, coins: free ? 0 : key.coins });
+    this.save();
+    return { ok: true, msg: `${key.name} decrypted!` };
+  }
+  researchSections() { return RESEARCH_BRANCHES.map((B) => this.sectionKey(B.id)); }
   tickResearch(dt) {
     const jobs = this.state.researchJobs;
     if (!jobs?.length || !(dt > 0)) return;
@@ -1391,6 +1466,7 @@ export class Game {
     if (!r || st.research.includes(id)) return false;
     if (st.researchJobs?.length) st.researchJobs = st.researchJobs.filter((j) => j[0] !== id);
     st.research.push(id);
+    if (!this.sectionOpen(r.branch)) this.ensureSections().push(r.branch); // [v18 research] granted nodes open their section
     this.mods = computeMods(st.research, this.legacy.tails, this.zoneMods());
     if (r.species && !st.discovered.includes(r.species)) st.discovered.push(r.species);
     if (r.mods?.beaverBonus) this.beavers.refreshCounts();
@@ -1458,6 +1534,7 @@ export class Game {
   }
 
   tapStructure(s) {
+    if (this.bearEvents?.tapStructure(s)) return true; // [v18 bear events] tap a damaged defense to repair it
     if (s.def.gate) { this.structures.toggleGate(s); this.onTopologyChanged(); return true; }
     if (s.def.crop && s.built) {
       if (s.crop?.stage === 3) { this.harvest.harvest(s); return true; }
@@ -1547,6 +1624,7 @@ export class Game {
       this.fish.update(simPhase);
       this.bears.update(st.phase === 'evening' ? dt : simDt);
       this.beavers.update(simPhase);
+      this.bearEvents?.update(simDt, dt); // [v18 bear events]
       this.delivery.update(calm ? dt : simDt || 0);
       this.updateEggs(calm ? simPhase : simDt);
     }
@@ -1674,6 +1752,7 @@ export class Game {
     // saves from before v17 (research = unlocks) keep what they could build
     if (!data.state?.researchV17) { this.state.researchV17 = false; this.migrateResearchV17(this.skipGates); }
     this.state.researchJobs = (this.state.researchJobs || []).filter((j) => Array.isArray(j) && RESEARCH_BY_ID[j[0]] && !this.state.research.includes(j[0]));
+    { const had = Array.isArray(this.state.sections) ? this.state.sections : []; this.state.sections = null; this.state.sections = [...new Set([...had, ...this.ensureSections()])]; } // [v18 research] old saves: open sections with researched nodes
     for (const e of this.state.eggTray) eggUid = Math.max(eggUid, e.uid + 1);
     this.stats = { ...this.freshStats(), ...data.stats };
     this.mods = computeMods(this.state.research, this.legacy.tails, this.zoneMods());

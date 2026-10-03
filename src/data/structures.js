@@ -419,6 +419,8 @@ export const BUILD_CATEGORIES = [
   { id: 'crops', name: 'Crops' },
   { id: 'woodwork', name: 'Woodwork' },
 ];
+// [v18 bear events] defense builds (src/data/structuresDefense.js, optional): merged into STRUCTURES + a 'defense' build category
+for (const m of Object.values(import.meta.glob('./structuresDefense.js', { eager: true }))) { Object.assign(STRUCTURES, m.STRUCTURES_DEFENSE || {}); if (m.DEFENSE_CATEGORY && !BUILD_CATEGORIES.some((c) => c.id === m.DEFENSE_CATEGORY.id)) BUILD_CATEGORIES.push(m.DEFENSE_CATEGORY); }
 
 // Snack kinds bears can eat (meal points come from each structure's food.meal).
 export const SNACKS = {

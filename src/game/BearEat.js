@@ -35,7 +35,7 @@ const SEQ = {
 // does a fish skeleton get tossed afterwards?
 const BONE = { chomp: true, rip: true, fancy: true, crunch: true };
 
-// Comic words for the particle atlas (fxAtlas pixel font: no F J Q V X). Registered at import,
+// Comic words for the particle atlas (set in TBME Goofy, any letters). Registered at import,
 // before the game builds its FX atlas; missing ones fall back to existing words at runtime.
 const WORDS = {
   gulp: { text: 'GULP!', fill: '#fff0e0', shade: '#ff8a5a', ink: '#5a1e10' },
@@ -67,6 +67,12 @@ export function pickEatStyle(bear, preyKind = 'fish') {
   if (id === 'jogger' || id === 'tourist' || id === 'intern' || id === 'cub' || id === 'foreman_cub') { w.toss = 4; w.slurp = 2; }
   if (id === 'hipster') { w.slurp = 4; w.crunch = 2; }
   if (id === 'janitor') w.crunch = 4;
+  // [v18 bear looks] the new types + monocle accessories
+  if (d.monocleAcc || id === 'chef' || id === 'golfer') { w.fancy = Math.max(w.fancy, 4); }
+  if (id === 'gymbro' || id === 'pirate') { w.rip = 4; w.gulp = 2; }
+  if (id === 'cowboy') { w.shake = 3; w.rip = 2; }
+  if (id === 'goth' || id === 'barista') { w.slurp = 4; }
+  if (id === 'astro') { w.toss = 4; }
   if (bear.angry) { w.rip += 3; w.shake += 3; w.fancy = 0; }
   if (preyKind === 'duck') { w.crunch = 0; w.shake *= 0.5; }
   let tot = 0;

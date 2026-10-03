@@ -2,14 +2,14 @@
    are injected by injectPaperCSS(); this file holds layout + motion. */
 
 .pp-px, .paper, .pp-deco, .pp-sheet { image-rendering: pixelated; }
-.paper { position: relative; color: #3b2414; font-family: var(--font-body, 'TBME Digits', 'Pixelify Sans'); }
+.paper { position: relative; color: #3b2414; font-family: var(--font-body); }
 .pp-deco { display: inline-block; vertical-align: middle; transform: rotate(var(--r, 0deg)); pointer-events: none; -webkit-user-drag: none; }
 .pp-abs { position: absolute; }
 .pp-arrow { display: block; }
 
 /* ---- handwriting: pen-stroke reveal (stepped, chunky) */
 .pp-hw {
-  display: inline-block; font-family: var(--font-body, 'TBME Digits', 'Pixelify Sans'); color: var(--hw-c, #2a3f8f);
+  display: inline-block; font-family: var(--font-body); color: var(--hw-c, #2a3f8f);
   clip-path: inset(-30% 100% -30% 0); animation: pp-write var(--hdur, 800ms) steps(var(--hn, 10)) var(--hd, 0ms) forwards;
 }
 @keyframes pp-write { to { clip-path: inset(-30% -4% -30% -2%); } }
@@ -17,7 +17,7 @@
 /* ---- ink stamp */
 .pp-stamp {
   display: inline-block; margin: 7px; padding: 5px 10px 4px; line-height: 1;
-  font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  font-family: var(--font-title); font-size: 22px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
   color: var(--sc); border: 3px solid var(--sc); outline: 3px solid var(--sc); outline-offset: 3px;
   transform: rotate(var(--sr)); opacity: .86; mix-blend-mode: multiply;
   -webkit-mask: var(--pp-speck) 0 0 / 96px 96px; mask: var(--pp-speck) 0 0 / 96px 96px;
@@ -50,7 +50,7 @@
 /* ================================================================ modal */
 .pp-ov {
   position: fixed; inset: 0; z-index: 300; color: #3b2414;
-  font-family: var(--font-body, 'TBME Digits', 'Pixelify Sans'); font-size: 18px; line-height: 24px;
+  font-family: var(--font-body); font-size: 18px; line-height: 24px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .pp-ov *, .pp-ov *::before, .pp-ov *::after { box-sizing: border-box; }
@@ -69,7 +69,7 @@
   filter: drop-shadow(0 4px 0 rgba(30, 16, 8, .38));
 }
 .pp-title {
-  margin: 0 0 10px; font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); font-size: 28px; line-height: 1.05; font-weight: 700;
+  margin: 0 0 10px; font-family: var(--font-title); font-size: 28px; line-height: 1.05; font-weight: 700;
   color: #3b2414; text-shadow: 0 2px 0 rgba(255, 255, 255, .45); letter-spacing: .5px;
 }
 .pp-body { position: relative; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; min-height: 0; }
@@ -77,7 +77,7 @@
 /* label / value rows (settings, reports) as a tidy two-column grid */
 .pp-body .kv { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 14px; margin: 6px 0 10px; }
 .pp-body .kv > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.pp-body .kv > b { font-family: var(--font-title, 'Pixelify Sans'); font-weight: 400; text-align: right; }
+.pp-body .kv > b { font-family: var(--font-title); font-weight: 400; text-align: right; }
 .pp-body .kv input[type="range"] { width: 100%; accent-color: #3f8f5f; }
 .pp-body .kv select { font: inherit; font-size: 16px; color: #3b2414; background: #fbf0d0; border: 2px solid #4a2f1d; padding: 0 4px; }
 .pp-decor { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
@@ -98,7 +98,7 @@
 .pp-acts { display: flex; flex-wrap: wrap; gap: 10px 12px; justify-content: center; margin-top: 14px; }
 .pp-btn {
   display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 5px 16px 7px; cursor: pointer;
-  font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); font-size: 19px; line-height: 1; color: #3b2414;
+  font-family: var(--font-title); font-size: 19px; line-height: 1; color: #3b2414;
   background: #fbf3dc; border: 3px solid #3b2414; box-shadow: inset 0 -4px 0 #e2cfa0, 0 4px 0 #3b2414;
   transform: rotate(var(--r, 0deg)); transition: transform .1s;
 }
@@ -181,7 +181,7 @@
 .pp-leaf-f { filter: brightness(1.03); }
 .pp-bookc-t {
   position: absolute; left: 14%; right: 14%; top: 22%; text-align: center;
-  font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); font-size: 28px; line-height: 1.1; font-weight: 700; color: #ffd86a;
+  font-family: var(--font-title); font-size: 28px; line-height: 1.1; font-weight: 700; color: #ffd86a;
   text-shadow: 0 3px 0 #2e0f0c;
 }
 .pp-bookc-emb { position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%) scale(1.3); }
@@ -195,7 +195,7 @@
 /* ================================================================ end-of-day ledger (FinanceSheet.js) */
 .fs-ov {
   position: fixed; inset: 0; z-index: 200; overflow: hidden; outline: none; pointer-events: auto;
-  font-family: var(--font-body, 'TBME Digits', 'Pixelify Sans'); color: #3b2414; line-height: 1.2;
+  font-family: var(--font-body); color: #3b2414; line-height: 1.2;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   font-variant-ligatures: none;
 }
@@ -219,8 +219,8 @@
 .fs-head { position: relative; height: 84px; padding: 24px 20px 0 64px; display: flex; align-items: flex-start; justify-content: space-between; }
 .fs-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: 3px; height: 3px; background: #e48888; box-shadow: 0 6px 0 rgba(228, 136, 136, .7); }
 .fs-date { display: flex; flex-direction: column; align-items: flex-start; gap: 0; transform: rotate(-3deg); }
-.fs-day { font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); font-size: 30px; line-height: 30px; font-weight: 700; color: #27479a; }
-.fs-wd { font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); font-size: 15px; letter-spacing: 3px; color: #c23a2c; opacity: 0; transition: opacity .2s; margin-left: 2px; }
+.fs-day { font-family: var(--font-title); font-size: 30px; line-height: 30px; font-weight: 700; color: #27479a; }
+.fs-wd { font-family: var(--font-title); font-size: 15px; letter-spacing: 3px; color: #c23a2c; opacity: 0; transition: opacity .2s; margin-left: 2px; }
 .fs-date.on .fs-wd { opacity: 1; }
 .fs-logo { display: flex; flex-direction: column; align-items: center; gap: 1px; margin-top: 6px; opacity: .8; }
 .fs-logo i { font-style: normal; font-size: 11px; letter-spacing: 1px; color: #c23a2c; }
@@ -246,7 +246,7 @@
 .fs-row:hover .fs-ico { animation: pp-wig .42s ease-in-out; }
 .fs-row:hover .fs-amt { animation: fs-wob .4s ease-in-out; }
 @keyframes fs-wob { 0%, 100% { transform: none; } 40% { transform: rotate(-3deg) translateY(-2px); } 70% { transform: rotate(2deg); } }
-.fs-amt { font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); font-size: 24px; line-height: 24px; font-weight: 700; color: #27479a; }
+.fs-amt { font-family: var(--font-title); font-size: 24px; line-height: 24px; font-weight: 700; color: #27479a; }
 .fs-amt.pos { color: #237a34; }
 .fs-amt.neg { color: #c23a2c; }
 .fs-amt.note { color: #8a7a64; }
@@ -257,7 +257,7 @@
 .fs-amt.big { font-size: 44px; line-height: 44px; }
 .fs-stamp2 { position: absolute; left: 192px; top: 34px; opacity: 0; transform: translateY(-50%); mix-blend-mode: multiply; z-index: 3; pointer-events: none; }
 .fs-stamp2.on { opacity: .9; }
-.fs-s2fb, .fs-gfb { display: block; font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); color: var(--sc); border: 4px solid var(--sc); padding: 4px 10px; font-size: 24px; }
+.fs-s2fb, .fs-gfb { display: block; font-family: var(--font-title); color: var(--sc); border: 4px solid var(--sc); padding: 4px 10px; font-size: 24px; }
 .fs-gfb { font-size: 56px; padding: 6px 18px; border-radius: 50%; }
 
 .fs-foot { position: relative; height: 144px; display: flex; align-items: flex-start; justify-content: space-between; padding: 24px 16px 0 60px; }
@@ -284,12 +284,12 @@
 .fs-stk.on { opacity: 1; pointer-events: auto; }
 .fs-stk.on:hover { animation: pp-wig .42s ease-in-out; }
 .fs-stk.drag { cursor: grabbing; z-index: 2; filter: drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff) drop-shadow(0 9px 0 rgba(40, 20, 10, .3)); scale: 1.12; }
-.fs-stkfb { display: block; padding: 10px; background: #ffe066; font-family: var(--font-title, 'Pixelify Sans'); font-size: 16px; line-height: 1; color: #3b2414; }
+.fs-stkfb { display: block; padding: 10px; background: #ffe066; font-family: var(--font-title); font-size: 16px; line-height: 1; color: #3b2414; }
 
 /* stapled receipt */
 .fs-receipt {
   width: 172px; padding: 22px 16px 16px; transform: rotate(var(--rot, 3deg)); opacity: 0;
-  font-family: var(--font-title, 'TBME Digits', 'Pixelify Sans'); color: #3a3a44; filter: drop-shadow(0 4px 0 rgba(14, 7, 3, .4)); pointer-events: auto;
+  font-family: var(--font-title); color: #3a3a44; filter: drop-shadow(0 4px 0 rgba(14, 7, 3, .4)); pointer-events: auto;
 }
 .fs-receipt.on { opacity: 1; }
 .fs-receipt, .fs-note { background-size: 100% 100%; background-repeat: no-repeat; }

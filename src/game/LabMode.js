@@ -20,6 +20,9 @@ const LabTreeMod = import.meta.glob('../ui/LabTree.js', { eager: true })['../ui/
 const TREE_SFX = {
   hover: ['tick', 0.1], click: ['click', 0.35], select: ['beep', 0.22], filter: ['chip', 0.3], error: ['error', 0.4],
   start: ['pop_in', 0.5], done: ['star_pop', 0.55], unlock: ['discover', 0.35],
+  // v18: paid rushes, section decrypting, poking the lab fox
+  rush: ['whoosh', 0.35], rushnow: ['levelup', 0.45], decrypt: ['reveal_rare', 0.45], denied: ['error', 0.35],
+  fox: ['fox_talk', 0.3], foxyay: ['fox_laugh', 0.3], beam: ['whoosh', 0.2],
 };
 
 const LINES = {
@@ -353,10 +356,25 @@ export class LabMode {
       fishCanvas: (sp, o) => fishCanvasFor(sp, o || {}),
       sfx: (n) => { const m = TREE_SFX[n]; if (m) game.audio.play(m[0], { volume: m[1] }); },
       onClose: () => this.closeTree(),
+      coins: () => game.state.coins,
+      speed: () => (fn('researchSpeed') ? game.researchSpeed() : 1),
     };
     if (fn('researchJobs')) {
       opts.jobs = () => game.researchJobs();
       opts.slots = () => (fn('labSlots') ? game.labSlots() : 1);
+    }
+    // v18: pay coins to speed up a running job
+    if (fn('rushResearchPaid')) {
+      opts.rushPrice = (id, mode) => game.rushResearchPrice(id, mode);
+      opts.onRush = (id, mode) => game.rushResearchPaid(id, mode);
+    }
+    // v18: encrypted tree sections + their section keys
+    if (fn('sectionOpen')) {
+      opts.sections = {
+        isOpen: (b) => game.sectionOpen(b),
+        key: (b) => game.sectionKey(b),
+        unlock: (b) => game.unlockSection(b),
+      };
     }
     try { return new LT(host, opts); } catch (e) { console.warn('LabTree failed', e); return null; }
   }

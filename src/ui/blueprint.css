@@ -1,9 +1,9 @@
 /* Blueprint build mode: a cyanotype sheet with chalk-white linework. */
-.bp { position: absolute; inset: 0; pointer-events: none; z-index: 30; font-family: var(--font-body, 'Pixelify Sans'); }
+.bp { position: absolute; inset: 0; pointer-events: none; z-index: 30; font-family: var(--font-body); }
 .bp-back { position: absolute; left: 14px; top: 14px; pointer-events: auto; animation: bp-pop .35s cubic-bezier(.3, 1.6, .5, 1) both; }
 .bp-stamp {
   position: absolute; top: 18px; left: 50%; transform: translateX(-50%) rotate(-2deg);
-  font-family: var(--font-title, 'Pixelify Sans'); font-size: 36px; letter-spacing: 6px; color: #e8f4ff;
+  font-family: var(--font-title); font-size: 36px; letter-spacing: 6px; color: #e8f4ff;
   padding: 2px 14px; border: 3px solid #e8f4ff; box-shadow: 3px 3px 0 #0b2a5a; background: #1d4f9a;
   text-shadow: 2px 2px 0 #0b2a5a; animation: bp-stamp .5s .1s cubic-bezier(.3, 1.8, .5, 1) both;
 }
@@ -52,7 +52,7 @@
 .bp-item.shake { animation: bp-shake .35s; }
 .bp-ico { width: 56px; height: 52px; display: grid; place-items: center; }
 .bp-ico img { max-width: 56px; max-height: 52px; image-rendering: pixelated; filter: drop-shadow(1px 2px 0 rgba(5, 20, 50, .6)); }
-.bp-cost, .bp-n { font-style: normal; font-family: var(--font-title, 'Pixelify Sans'); font-size: 18px; color: #fff3c0; text-shadow: 1px 1px 0 #0b2a5a; display: flex; align-items: center; gap: 2px; }
+.bp-cost, .bp-n { font-style: normal; font-family: var(--font-title); font-size: 18px; color: #fff3c0; text-shadow: 1px 1px 0 #0b2a5a; display: flex; align-items: center; gap: 2px; }
 .bp-cost.no { color: #ff9a8a; }
 .bp-n { color: #b8ffb8; }
 .bp-lock { position: absolute; top: 2px; right: 2px; }

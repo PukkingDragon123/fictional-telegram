@@ -32,7 +32,7 @@
 .tm-nail--l { left: 51px; } .tm-nail--r { right: 51px; }
 .tm-logo { display: flex; flex-direction: column; align-items: center; line-height: 1; margin-top: 6px; }
 .tm-logo span {
-  display: block; font-family: 'TBME Logo', 'TBME Title', monospace; font-size: 48px; line-height: 52px; letter-spacing: 3px; /* Galmuri 11px caps at 3x */ color: #ffe9b0;
+  display: block; font-family: 'TBME Logo', 'TBME Title', monospace; font-size: 62.5px; line-height: 56px; letter-spacing: 3px; /* TBME Goofy at exactly 3x (1 font px = 62.5 x .96 / 20 = 3px) */ color: #ffe9b0;
   /* chunky painted look: 1-font-pixel ink outline + deep drop shadow */
   text-shadow:
     0 -3px 0 #3b1a0c, 3px 0 0 #3b1a0c, -3px 0 0 #3b1a0c, 0 3px 0 #3b1a0c,

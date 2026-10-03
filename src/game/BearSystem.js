@@ -2,7 +2,8 @@
 // trail, cannonball into the pond, chase fish, snack on honey/syrup/berries/
 // seaweed, pay coins + leave reviews, or rampage and smash stuff.
 import * as THREE from 'three';
-import { BEAR_TYPES, FIRST_NAMES, DEPARTMENTS, WANT_INFO, REVIEWS, WANT_COMPLAINTS, LINES, BEAR_WANT_LINES } from '../data/bears.js';
+import { BEAR_TYPES, FIRST_NAMES, DEPARTMENTS, WANT_INFO, REVIEWS, WANT_COMPLAINTS, LINES, BEAR_WANT_LINES, bearSpawnWeight } from '../data/bears.js';
+import { makeBearLook, lookDef, bearLine } from '../entities/bearLook.js'; // [v18 bear looks]
 import { BEAUTY_PER_BEAR } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { BearRig } from '../entities/bearRig.js';
@@ -53,7 +54,7 @@ export class BearSystem {
     if (day === 1) return { dayOff: false, buildDay: true, bears: [] };
     let n = (1.5 + day * 0.75 + Math.max(0, day - 10) * 0.4) * ratingF + beautyBears + game.mods.bearBonus + (game.extraBears?.() || 0);
     n = clamp(Math.round(n), 2, 48);
-    const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day && !d.boss);
+    const types = Object.entries(BEAR_TYPES).map(([id, d]) => [id, d, bearSpawnWeight(d, day)]).filter((t) => t[2] > 0); // [v18 bear looks] weights by day
     const bears = [];
     const species = game.availableSpecies();
     const addBear = (typeId, extra = {}) => {
@@ -74,10 +75,10 @@ export class BearSystem {
     } else {
       for (let i = 0; i < n; i++) {
         let tot = 0;
-        for (const [, d] of types) tot += d.weight;
+        for (const t of types) tot += t[2];
         let x = Math.random() * tot;
         let id = 'office';
-        for (const [tid, d] of types) { x -= d.weight; if (x <= 0) { id = tid; break; } }
+        for (const [tid, , w] of types) { x -= w; if (x <= 0) { id = tid; break; } }
         addBear(id);
       }
       if (day >= 9 && Math.random() < 0.3) {
@@ -90,13 +91,12 @@ export class BearSystem {
         addBear('ceo', { prefer: best, wants });
       }
     }
-    // boss bears: a big scary one every few days once they're unlocked
-    const bosses = Object.entries(BEAR_TYPES).filter(([, d]) => d.boss && d.fromDay <= day);
-    if (bosses.length && dow !== 5 && (day % 4 === 1 || Math.random() < 0.18)) {
-      const seen = game.state.bossesSeen || [];
-      const fresh = bosses.filter(([id]) => !seen.includes(id));
-      const [bid] = fresh.length ? fresh[0] : pick(bosses);
-      addBear(bid, { boss: true });
+    // [v18 bear events] boss bears: a SUPER HARD one every 5th day (src/game/BossFight.js);
+    // the regular crowd is thinner on boss days so the fight is the show
+    const bossPlan = game.bearEvents?.boss.planFor(day);
+    if (bossPlan) {
+      bears.splice(0, Math.floor(bears.length * 0.4));
+      addBear(bossPlan.type, { boss: true, bossPlan, wants: [bossPlan.fav] });
     }
     // stagger arrivals in little groups
     let t = 0.8;
@@ -122,7 +122,7 @@ export class BearSystem {
   // A couple of bears sneak out on their lunch break (mid-day customers).
   planLunch(day) {
     if (day < 2 || (day - 1) % 7 >= 5 || Math.random() > 0.6) return [];
-    const types = Object.entries(BEAR_TYPES).filter(([, d]) => d.weight > 0 && d.fromDay <= day && !d.boss && d.item !== 'lunchbox');
+    const types = Object.entries(BEAR_TYPES).filter(([, d]) => bearSpawnWeight(d, day) > 0 && d.item !== 'lunchbox'); // [v18 bear looks]
     const n = day >= 8 && Math.random() < 0.4 ? 2 : 1;
     const out = [];
     for (let i = 0; i < n; i++) {
@@ -141,7 +141,9 @@ export class BearSystem {
   }
 
   spawnBear(p) {
-    const def = BEAR_TYPES[p.type];
+    // [v18 bear looks] every bear gets its own seeded look (kept on b.look; b.def is the type + variant + look)
+    const look = p.look || makeBearLook(p.type, BEAR_TYPES[p.type], (Math.random() * 4294967296) >>> 0);
+    const def = lookDef(BEAR_TYPES[p.type], look);
     const [a0, a1] = def.appetite;
     const b = {
       id: nextId++, typeId: p.type, def, name: pick(FIRST_NAMES), dept: def.critic ? 'The Bear Street Journal' : p.type === 'ceo' ? 'Chairman' : pick(DEPARTMENTS),
@@ -153,8 +155,10 @@ export class BearSystem {
       rampLeft: 0, angry: false, inWater: false, region: -1, phase: Math.random() * 6, gotGolden: false, preferMiss: 0,
       rig: null, visible: false, flip: Math.random() < 0.55, jump: null, searchT: 0, stuckT: 0, lastX: 0, lastZ: 0, bubble: null,
       snackCoins: 0, lastAte: null, said: {}, sayT: 2 + Math.random() * 4,
+      look,
     };
     if (p.type === 'cub') b.appetite = 1;
+    if (p.bossPlan || p.blood) this.game.bearEvents?.onSpawn(b, p); // [v18 bear events] boss / blood-moon bear setup
     this.list.push(b);
     return b;
   }
@@ -216,6 +220,7 @@ export class BearSystem {
     const [bx, bz] = this.tileOf(b);
     const field = this.fieldFrom(bx, bz);
     b.goal = null; b.fish = null; b.struct = null; b.path = null;
+    if (b.hostile && this.game.bearEvents?.decide(b, field)) return; // [v18 bear events] blood-moon bears / bosses
     if (b.angry) return this.decideSmash(b, field);
     const hungry = b.eaten < b.appetite;
     // 1) best fish
@@ -318,7 +323,7 @@ export class BearSystem {
     game.rig.shake = Math.max(game.rig.shake, 0.7);
     game.particles.sprite('anger', b.x, b.y + 2.6 * b.def.scale, b.z, { vy: 0.6, life: 1.4, size: 0.5 });
     game.onRampage(b);
-    this.say(b, pick(LINES.angry), 'emo_anger');
+    this.say(b, bearLine(b.def, 'angry', LINES), 'emo_anger');
     b.rig?.setFace?.('furious');
     this.decide(b);
   }
@@ -362,10 +367,12 @@ export class BearSystem {
     b.pathI = 0;
     b.state = b.path ? 'walk' : 'walkDirect';
     if (b.bubble) b.bubbleFade = true;
+    if (!b.angry && b.visible && Math.random() < 0.3) this.say(b, bearLine(b.def, 'leave', LINES), null, null, 1.8); // [v18 bear looks]
   }
 
   finishReview(b) {
     const game = this.game;
+    if (b.noReview) { b.review ||= { stars: 3, text: '', skip: true }; return; } // [v18 bear events] summoned cubs / blood-moon bears
     const sat = this.satisfaction(b);
     let stars = b.angry ? 0 : sat >= 0.97 ? 5 : sat >= 0.8 ? 4 : sat >= 0.6 ? 3 : sat >= 0.4 ? 2 : 1;
     if (!b.angry && b.gotGolden) stars = Math.min(5, stars + 1);
@@ -446,6 +453,7 @@ export class BearSystem {
     const game = this.game;
     const g = this.grid;
     b.t -= dt;
+    if (this.game.bearEvents?.preStep(b, dt)) return; // [v18 bear events] traps, knockback, boss attacks
     if (!b.angry && PATIENCE_STATES.has(b.state) && b.goal?.kind !== 'leave') {
       b.patience -= dt * (b.state === 'search' ? 1.6 : 1);
       if (b.patience <= 0) {
@@ -467,7 +475,7 @@ export class BearSystem {
           b.x = end[0]; b.z = end[2]; b.y = end[1];
           const want = b.wants.find((w) => !w.done);
           if (want && Math.random() < 0.8) this.say(b, BEAR_WANT_LINES[want.kind] || 'Hmm?', null, WANT_INFO[want.kind]?.icon);
-          else if (Math.random() < 0.55 || game.cine?.active) this.say(b, pick(LINES.arrive), Math.random() < 0.4 ? 'emo_exclaim' : null);
+          else if (Math.random() < 0.55 || game.cine?.active) this.say(b, bearLine(b.def, 'arrive', LINES), Math.random() < 0.4 ? 'emo_exclaim' : null);
           this.decide(b);
         } else this.placeOnTrail(b, dt);
         break;
@@ -550,7 +558,7 @@ export class BearSystem {
           game.particles.hearts(hp.x, hp.y - 0.2, hp.z, 2);
           game.audio.play('bear_yum', { volume: 0.5, pitch: 1.1 - scale * 0.2 });
           b.rig?.setFace?.('yummy', { hold: 1.2 });
-          if (Math.random() < 0.55) this.say(b, pick(b.gotGoldenNow ? LINES.golden : LINES.yum), 'emo_happy_face');
+          if (Math.random() < 0.55) this.say(b, b.gotGoldenNow ? pick(LINES.golden) : bearLine(b.def, 'yum', LINES), 'emo_happy_face');
           b.gotGoldenNow = false;
         }
         break;
@@ -629,7 +637,8 @@ export class BearSystem {
           b.smashed = true;
           const s = b.struct;
           if (s && !s.removed) {
-            game.structures.damage(s, 3);
+            game.structures.damage(s, 3 * (b.smashMult || 1)); // [v18 bear events] bosses hit harder
+            game.bearEvents?.onSmash(b, s); // [v18 bear events] thorns, boss charge
             game.rig.shake = Math.max(game.rig.shake, 0.5);
             game.audio.play('smash', { volume: 0.55 });
           }
@@ -723,7 +732,7 @@ export class BearSystem {
     const dx = tx - b.x, dz = tz - b.z;
     const d = Math.hypot(dx, dz);
     if (d < 1e-4) return true;
-    const sp = speed * (b.inWater ? 0.75 : 1) * (b.angry ? 1.25 : 1);
+    const sp = speed * (b.inWater ? 0.75 : 1) * (b.angry ? 1.25 : 1) * (b.slowK ?? 1); // [v18 bear events] soaked / enraged
     const step = Math.min(d, sp * dt);
     const nx = b.x + (dx / d) * step, nz = b.z + (dz / d) * step;
     const h = Math.atan2(dz, dx);
@@ -802,6 +811,7 @@ export class BearSystem {
       try { const style = pickEatStyle(b, 'fish'); b.eat = startEat(game, { rig: b.rig, style, prey: makeFishPrey(game, f, style) }); } catch (e) { console.warn('eat', e); b.eat = null; }
     }
     if (!b.eat) this.holdWorld(b, makeFishQuad(game, f));
+    if (b.def.lines?.eat && Math.random() < 0.25) this.say(b, bearLine(b.def, 'eat', LINES), null, null, 1.4); // [v18 bear looks]
     b.state = 'eat';
     b.t = b.eat ? b.eat.duration : 1.26;
     b.fish = null;
@@ -865,12 +875,12 @@ export class BearSystem {
     this.group.add(b.rig.root);
     b.visible = true;
     this.game.ui?.attachBearBubble(b);
-    if (b.def.boss) this.bossIntro(b);
+    if (b.def.boss && !this.game.bearEvents?.onBossShown(b)) this.bossIntro(b); // [v18 bear events] 5-day boss intro
   }
 
   // a goose charged at it: the rampage is over, the bear legs it
   scareOff(b) {
-    if (!b.angry || b.def.boss) return false;
+    if (!b.angry || b.def.boss || b.blood) return false; // [v18 bear events] blood-moon bears can't be scared off
     b.rampLeft = 0;
     b.angry = false;
     b.rig?.setMaterial('normal');
@@ -905,6 +915,7 @@ export class BearSystem {
   }
 
   hide(b) {
+    this.game.bearEvents?.onHide(b); // [v18 bear events]
     b.eat?.dispose(); b.eat = null;
     b.eatLeft?.dispose(); b.eatLeft = null;
     if (b.rig) { this.group.remove(b.rig.root); b.rig.ownMat?.dispose(); }
@@ -946,9 +957,10 @@ export class BearSystem {
       else if (b.moving) pose = b.inWater ? 'swim' : b.angry ? (b.def.boss ? 'charge' : 'run') : b._spd > 2.2 ? 'run' : 'walk';
       else if (b.state === 'search') pose = 'search';
       else if (b.inWater) pose = 'swim';
+      if (b.poseOverride) pose = this.game.bearEvents?.poseFor(b, o) || pose; // [v18 bear events] attacks, traps, knockback
       r.pose(pose, rdt, o);
       r.update?.(rdt);
-      if (!b.angry && r.matState === 'angry') r.setMaterial('normal');
+      if (!b.angry && !b.matHold && r.matState === 'angry') r.setMaterial('normal'); // [v18 bear events] matHold: enraged boss
     }
   }
 

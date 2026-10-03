@@ -6,9 +6,10 @@
 //   &zones=none|some|all  open neighbour zones (default some)
 //   &speed=N          game speed (default 1)   &legacy=1  no jobs()/slots(): instant research
 //   &sel=id  &filter=<branch index>|@ready  &nodev=1  &custom=1 (custom preview hook)
+//   v18: &coins=N (default 400)  &sealed=some|none|all (encrypted sections, default some)  &norush=1  &sec=<branch id> (select a sealed section)
 import { spriteImg, hasSprite } from '../src/ui/sprites.js';
 import { LabTree } from '../src/ui/LabTree.js';
-import { BRANCHES as REAL_BRANCHES, RESEARCH as REAL_RESEARCH } from '../src/data/research.js';
+import { BRANCHES as REAL_BRANCHES, RESEARCH as REAL_RESEARCH, SECTION_KEYS, researchRushPrice } from '../src/data/research.js';
 import { STRUCTURES } from '../src/data/structures.js';
 
 const P = new URLSearchParams(location.search);
@@ -89,7 +90,17 @@ const { B: BRANCHES, R: RESEARCH } = real ? { B: REAL_BRANCHES, R: REAL_RESEARCH
 const BY_ID = Object.fromEntries(RESEARCH.map((r) => [r.id, r]));
 
 // ---------------------------------------------------------------- mock game
-const state = { done: new Set(), jobs: [], slots: +(P.get('slots') || 1), speed: +(P.get('speed') || 1), paused: false, zones: new Set() };
+const state = { done: new Set(), jobs: [], slots: +(P.get('slots') || 1), speed: +(P.get('speed') || 1), paused: false, zones: new Set(), coins: +(P.get('coins') ?? 400), sections: new Set() };
+// v18 sections: the real game's keys, or a made-up set for the fake tree
+const FAKE_KEYS = { starter: { start: true }, panfish: { start: true }, garden: { node: 'r_carrot', coins: 40 }, breed: { node: 'r_goldfish', coins: 60 }, trout: { node: 'r_perch', coins: 120 }, salmon: { node: 'r_brook', zone: 'river', coins: 150 }, pond: { coins: 80 } };
+const KEYS = real ? SECTION_KEYS : FAKE_KEYS;
+const keyOf = (b) => KEYS[b] || { coins: 100 };
+function resetSections() {
+  state.sections.clear();
+  const mode = P.get('sealed') || 'some';
+  for (const B of BRANCHES) if (mode === 'none' || (mode === 'some' && keyOf(B.id).start)) state.sections.add(B.id);
+  for (const id of state.done) if (BY_ID[id]) state.sections.add(BY_ID[id].branch);
+}
 const someDone = ['r_basics', 'r_beavers', 'r_snackbar', 'r_pumpkinseed', 'r_goldfish', 'r_perch', 'r_duckweed', 'r_reeds', 'r_carrot', 'r_flowers', 'r_lantern', 'r_berries', 'r_dams', 'r_love1',
   'r_pumpkinseed', 'r_woodgarage'];
 const PRESETS = { none: [], some: someDone, lots: [], all: RESEARCH.map((r) => r.id) };
@@ -112,6 +123,7 @@ function applyPreset(p) {
   for (const id of ids) if (BY_ID[id]) state.done.add(id);
 }
 applyPreset(P.get('done') || 'some');
+resetSections();
 const zp = P.get('zones') || 'some';
 if (zp === 'all') Object.keys(ZONES).forEach((z) => state.zones.add(z));
 else if (zp === 'some') ['tower', 'patch'].forEach((z) => state.zones.add(z));
@@ -122,6 +134,7 @@ function canResearch(id) {
   if (!r) return { ok: false, reason: 'Unknown' };
   if (state.done.has(id)) return { ok: false, reason: 'Already researched' };
   if (state.jobs.some((j) => j.id === id)) return { ok: false, reason: 'Researching...' };
+  if (!state.sections.has(r.branch)) return { ok: false, reason: 'Decrypt this section first' };
   if (!reqsMet(r)) return { ok: false, reason: 'Research the prerequisites first' };
   if (r.zone && !state.zones.has(r.zone)) return { ok: false, reason: `Meet ${ZONES[r.zone] || 'a neighbour'} first` };
   if (state.jobs.length >= state.slots) return { ok: false, reason: 'Lab bench busy' };
@@ -132,6 +145,41 @@ function startResearch(id) {
   const r = BY_ID[id];
   state.jobs.push({ id, t: 0, time: r.time || 10 });
   return true;
+}
+function sectionKey(b) {
+  const k = keyOf(b);
+  const needs = [];
+  if (k.node) needs.push({ kind: 'node', id: k.node, ok: state.done.has(k.node), text: `Research ${BY_ID[k.node]?.name || k.node}` });
+  if (k.zone) needs.push({ kind: 'zone', id: k.zone, ok: state.zones.has(k.zone), text: `Meet ${ZONES[k.zone] || k.zone}` });
+  if (k.coins) needs.push({ kind: 'coins', ok: state.coins >= k.coins, text: `Pay ${k.coins} coins`, coins: k.coins });
+  const ready = needs.every((n) => n.kind === 'coins' || n.ok);
+  return { id: b, open: state.sections.has(b), coins: k.coins || 0, needs, ready, canUnlock: ready && state.coins >= (k.coins || 0) };
+}
+function unlockSection(b) {
+  const k = sectionKey(b);
+  if (k.open) return { ok: false, msg: 'Already open' };
+  const miss = k.needs.find((n) => n.kind !== 'coins' && !n.ok);
+  if (miss) return { ok: false, msg: `Section key: ${miss.text} first` };
+  if (state.coins < k.coins) return { ok: false, msg: `Needs ${k.coins} coins` };
+  state.coins -= k.coins;
+  state.sections.add(b);
+  log(`decrypted: ${b} (-${k.coins})`);
+  return { ok: true };
+}
+function jobLeft(j) { return Math.max(0, j.time - j.t) / state.speed; }
+function rushPrice(id, mode) {
+  const j = state.jobs.find((x) => x.id === id);
+  return j ? researchRushPrice(BY_ID[id], jobLeft(j), mode) : null;
+}
+function rush(id, mode) {
+  const j = state.jobs.find((x) => x.id === id);
+  if (!j) return { ok: false, msg: 'Not running' };
+  const p = rushPrice(id, mode);
+  if (state.coins < p) return { ok: false, msg: `Needs ${p} coins` };
+  state.coins -= p;
+  log(`rush ${mode}: ${id} (-${p})`);
+  if (mode === 'now') finish(j); else j.t += (j.time - j.t) / 2;
+  return { ok: true };
 }
 function finish(j) {
   state.jobs = state.jobs.filter((x) => x !== j);
@@ -215,15 +263,20 @@ function open() {
     preview: P.get('custom') ? customPreview : undefined,
     sfx,
     onClose: () => { tree.destroy(); tree = null; closed.style.display = 'flex'; },
+    coins: () => state.coins,
+    speed: () => state.speed,
+    sections: { isOpen: (b) => state.sections.has(b), key: sectionKey, unlock: unlockSection },
   };
+  if (!legacy && !P.get('norush')) { opts.rushPrice = rushPrice; opts.onRush = rush; }
   if (!legacy) {
-    opts.jobs = () => state.jobs.map((j) => ({ id: j.id, t: j.t, time: j.time, k: Math.min(1, j.t / j.time), left: Math.max(0, j.time - j.t) }));
+    opts.jobs = () => state.jobs.map((j) => ({ id: j.id, t: j.t, time: j.time, k: Math.min(1, j.t / j.time), left: jobLeft(j) }));
     opts.slots = () => state.slots;
   }
   tree = new LabTree(wrap, opts);
   window.__lt = tree;
   if (P.get('sel')) tree.select(P.get('sel'));
   if (P.get('filter') != null) tree._setFilter(P.get('filter'));
+  if (P.get('sec')) { const B = tree.branches.find((x) => x.b.id === P.get('sec')); if (B) tree._selectSection(B, { pan: true }); }
 }
 open();
 window.__state = state;
@@ -242,8 +295,11 @@ dev.addEventListener('click', (e) => {
   if (a === 'pause') { state.paused = !state.paused; e.target.textContent = state.paused ? 'resume' : 'pause'; }
   if (a === 'slot') state.slots++;
   if (a === 'zones') { const all = Object.keys(ZONES); if (state.zones.size >= all.length) state.zones.clear(); else all.forEach((z) => state.zones.add(z)); }
-  if (a === 'reset') { applyPreset('none'); state.jobs = []; }
-  if (a === 'all') { applyPreset('all'); state.jobs = []; }
+  if (a === 'reset') { applyPreset('none'); state.jobs = []; resetSections(); }
+  if (a === 'all') { applyPreset('all'); state.jobs = []; resetSections(); }
+  if (a === 'coins') state.coins += 250;
+  if (a === 'broke') state.coins = 0;
+  if (a === 'unseal') BRANCHES.forEach((B) => state.sections.add(B.id));
   if (a === 'sound') { soundOn = !soundOn; e.target.textContent = `sound: ${soundOn ? 'on' : 'off'}`; }
   tree?.refresh();
 });

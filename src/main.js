@@ -1,6 +1,4 @@
-import '@fontsource/pixelify-sans/latin-400.css';
-import '@fontsource/pixelify-sans/latin-700.css';
-import '@fontsource/silkscreen/latin-400.css';
+import './ui/fonts.css'; // TBME Goofy, the game font (everything uses it)
 import './ui/style.css';
 import { Game } from './game/Game.js';
 import { UI } from './ui/UI.js';

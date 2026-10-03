@@ -31,6 +31,35 @@ export const BRANCHES = [
   { id: 'woodwork', name: 'Woodworking', icon: 'hammer', color: '#b07840' },
 ];
 
+// [v18 research] SECTIONS: every branch is a tree "section". Only the starter
+// sections are open in a new game; the others are ENCRYPTED until you use their
+// "section key": research the gateway node and/or meet a neighbour, then pay
+// the coins (game.unlockSection). `node` / `zone` / `coins` are all optional.
+// A key always includes the neighbour its first nodes need, so a freshly
+// decrypted section has something you can research right away.
+export const SECTION_KEYS = {
+  lab: { start: true },
+  panfish: { start: true },
+  breed: { node: 'r_pumpkinseed', coins: 30 },
+  garden: { node: 'r_carrot', zone: 'patch', coins: 40 },
+  snack: { node: 'r_carrot', zone: 'bakery', coins: 50 },
+  beaver: { node: 'r_snackbar', coins: 60 },
+  pond: { node: 'r_coffee', zone: 'bend', coins: 60 },
+  defense: { node: 'r_beavers', coins: 50 },
+  decor: { zone: 'willow', coins: 70 },
+  gizmo: { node: 'r_notebook', coins: 90 },
+  trout: { node: 'r_perch', coins: 100 },
+  woodwork: { node: 'r_woodgarage', zone: 'treehouse', coins: 100 },
+  diner: { node: 'r_coffee', zone: 'treehouse', coins: 120 },
+  salmon: { node: 'r_brook', coins: 150 },
+  biggame: { node: 'r_perch', zone: 'bend', coins: 150 },
+};
+
+// [v18 research] the Defense section (src/data/researchDefense.js, written by
+// the "bear events" helper) joins the tree when that file exists.
+let DEFENSE_MOD = null;
+try { DEFENSE_MOD = import.meta.glob('./researchDefense.js', { eager: true })['./researchDefense.js'] || null; } catch { DEFENSE_MOD = null; }
+
 export const RESEARCH = [
   // ================================================================ Reynard's Lab (the start)
   { id: 'r_carrot', branch: 'lab', name: 'Carrot Seeds', icon: 'carrot', time: 8, req: [], build: 'carrot', desc: 'Plant carrot patches. Bears crunch them, and beavers work 2 jobs for every carrot.' },
@@ -204,7 +233,36 @@ export const RESEARCH = [
   { id: 'r_ww_fancy', branch: 'woodwork', name: 'Fancy Carpentry', icon: 'birdhouse', time: 240, req: ['r_ww_bench'], build: ['wd_birdhouse', 'wd_arch'], desc: 'Plans for birdhouse towers and twig arches.' },
 ];
 
+// [v18 research] merge the Defense section (optional file, see above)
+if (DEFENSE_MOD && Array.isArray(DEFENSE_MOD.DEFENSE_RESEARCH)) {
+  const DB = DEFENSE_MOD.DEFENSE_BRANCH || {};
+  const bid = DB.id || 'defense';
+  if (!BRANCHES.some((b) => b.id === bid)) BRANCHES.push({ name: 'Bear Defense', icon: 'fence', color: '#d84a4a', ...DB, id: bid });
+  if (DB.key || DB.start) SECTION_KEYS[bid] = DB.start ? { start: true } : { ...DB.key };
+  const have = new Set(RESEARCH.map((r) => r.id));
+  for (const r of DEFENSE_MOD.DEFENSE_RESEARCH) {
+    if (!r || !r.id || have.has(r.id)) continue;
+    have.add(r.id);
+    RESEARCH.push({ icon: 'fence', time: 60, desc: '', ...r, branch: r.branch || bid, req: Array.isArray(r.req) ? r.req : [] });
+  }
+}
+
 export const RESEARCH_BY_ID = Object.fromEntries(RESEARCH.map((r) => [r.id, r]));
+// [v18 research] section lookups
+export const BRANCH_BY_ID = Object.fromEntries(BRANCHES.map((b) => [b.id, b]));
+for (const b of BRANCHES) b.key = SECTION_KEYS[b.id] || b.key || { coins: 100 };
+export const STARTER_SECTIONS = BRANCHES.filter((b) => b.key.start).map((b) => b.id);
+
+// [v18 research] coins to speed up a running job. `left` = seconds still to go
+// (at the current research speed). mode 'half' = -50% of what is left,
+// 'now' = finish right away. Longer jobs and higher tiers cost more.
+export function researchRushPrice(r, left, mode = 'now') {
+  const tier = r?.tier || 0;
+  const raw = (4 + Math.max(0, left) * 0.5) * (1 + tier * 0.25);
+  const k = mode === 'half' ? 0.45 : 1;
+  const p = Math.max(mode === 'half' ? 3 : 5, raw * k);
+  return p >= 50 ? Math.ceil(p / 5) * 5 : Math.ceil(p);
+}
 
 // ---- layout + derived fields (col = depth, row = sub-row inside the branch)
 (function layout() {

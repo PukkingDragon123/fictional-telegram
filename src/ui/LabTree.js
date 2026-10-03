@@ -20,14 +20,28 @@
 //     fishCanvas?: (species, { frame, scale }) => canvas,
 //     preview?: (node, canvas, t) => bool,  // custom showcase drawing
 //     sfx?: (name) => void,              // hover click select filter error start done unlock zoom
+//                                        // v18: rush rushnow decrypt denied fox foxyay beam
 //     onClose,
+//     // v18 (all optional; `game` fills in whatever is missing from a Game):
+//     coins?: () => number,              // shown in the header, buys rushes + section keys
+//     speed?: () => number,              // research speed multiplier (readout)
+//     rushPrice?: (id, mode) => number,  // mode 'half' (-50% time left) | 'now' (finish)
+//     onRush?: (id, mode) => ({ ok, msg }),
+//     sections?: { isOpen(b), key(b) => { needs:[{kind,ok,text,id}], coins, ready, canUnlock }, unlock(b) => ({ ok, msg }) },
+//     game?,                             // a Game: supplies coins/speed/rush/sections
 //   });
+//
+// v18: tree SECTIONS (= branches) can be ENCRYPTED: their nodes hide behind a
+// glitchy seal with the node count and the section key + a DECRYPT button.
+// Running jobs can be rushed for coins. Reynard (src/ui/labFox.js) walks the
+// pipes, hops onto the job being researched and works on it.
 //   tree.refresh(); tree.select(id); tree.destroy();
 //
 // The container should be a positioned element with a size; the tree fills it.
 import './labtree.css';
 import * as SPECIES_DATA from '../data/species.js';
 import * as STRUCT_DATA from '../data/structures.js';
+import { LabFox } from './labFox.js';
 
 // fish art is optional (import.meta.glob keeps the build working without it)
 const OPTIONAL = import.meta.glob('../art/fishArt.js');
@@ -204,6 +218,11 @@ const G_CROSS = pixSVG(['r...r', '.r.r.', '..r..', '.r.r.', 'r...r'], { r: '#ff6
 const G_CLOCK = pixSVG(['.kkkk.', 'kwwkwk', 'kwwkwk', 'kwwkkk', 'kwwwwk', '.kkkk.'], { k: '#2b2a24', w: '#fff1c8' }, 2, 'lt-g');
 const G_LOCK = pixSVG(['.kkk.', 'k...k', 'k...k', 'kkkkk', 'kgggk', 'kgkgk', 'kgggk', 'kkkkk'], { k: '#1a1410', g: '#ffd23f' }, 2, 'lt-g');
 const G_PAW = pixSVG(['.k.k.', 'k.k.k', '.....', '.kkk.', 'kkkkk', '.kkk.'], { k: '#ffb060' }, 2, 'lt-g');
+const G_BOLT = pixSVG(['...kk', '..kk.', '.kkkk', 'kkkk.', '..kk.', '.kk..', '.k...'], { k: '#ffe14a' }, 2, 'lt-g');
+const G_FF = pixSVG(['k..k...', 'kk.kk..', 'kkkkkk.', 'kkkkkkk', 'kkkkkk.', 'kk.kk..', 'k..k...'], { k: '#ffffff' }, 2, 'lt-g');
+const G_COIN = pixSVG(['.kkkk.', 'kyyyyk', 'kyhyyk', 'kyhyyk', 'kyyyyk', '.kkkk.'], { k: '#8a5a00', y: '#ffd23f', h: '#fff6c0' }, 2, 'lt-g lt-coin');
+const G_KEY = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.....'], { k: '#7dffa8' }, 2, 'lt-g');
+const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#04161c', g: '#5fd0f0', r: '#2c9cc8' }, 4, 'lt-g lt-sealg');
 const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#f4ecd2' }, 3, 'lt-g');
 
 // ---------------------------------------------------------------- pipe router
@@ -370,14 +389,32 @@ const STATE_TEXT = {
   avail: 'Ready to research',
   zone: 'Needs a neighbour',
   locked: 'Locked',
+  sealed: 'Encrypted',
 };
+const SCRAMBLE = '#$%&@*+=?/<>[]{}01';
+function scramble(s, k = 1, seed = 1) {
+  const R = rng(seed);
+  return String(s).replace(/[^\s]/g, (c) => (R() < k ? SCRAMBLE[Math.floor(R() * SCRAMBLE.length)] : c));
+}
+// fills missing v18 options from a Game (explicit `game`, or the page's game when the tree runs inside it)
+function withGame(opts) {
+  let G = opts.game || null;
+  if (!G && typeof window !== 'undefined' && opts.jobs && window.__game && typeof window.__game.sectionOpen === 'function') G = window.__game;
+  if (!G) return opts;
+  const o = { ...opts };
+  if (!o.coins) o.coins = () => G.state?.coins ?? 0;
+  if (!o.speed && typeof G.researchSpeed === 'function') o.speed = () => G.researchSpeed();
+  if (!o.onRush && typeof G.rushResearchPaid === 'function') { o.rushPrice = (id, m) => G.rushResearchPrice(id, m); o.onRush = (id, m) => G.rushResearchPaid(id, m); }
+  if (!o.sections && typeof G.sectionOpen === 'function') o.sections = { isOpen: (b) => G.sectionOpen(b), key: (b) => G.sectionKey(b), unlock: (b) => G.unlockSection(b) };
+  return o;
+}
 
 export class LabTree {
   static _art = { slotCanvas, SLOT_PALS };
 
   constructor(container, opts = {}) {
     this.container = container;
-    this.o = opts;
+    this.o = opts = withGame(opts);
     this._alive = true;
     this._timers = new Set();
     this._off = [];
@@ -411,6 +448,7 @@ export class LabTree {
     if (first) this._select(first, { pan: false, sound: false, open: false });
     this._centerOn(first, true);
     this._sfx('open');
+    try { this.fox = new LabFox(this); } catch (err) { console.warn('LabFox failed', err); this.fox = null; }
     this._raf = requestAnimationFrame(this._loop);
     loadFish().then((m) => this._onFish(m));
   }
@@ -472,14 +510,28 @@ export class LabTree {
   refresh(initial = false) {
     if (!this._alive) return;
     const changed = [];
+    const opened = [];
+    for (const B of this.branches) {
+      const sealed = this._sealed(B);
+      if (sealed !== B.sealed) {
+        const was = B.sealed;
+        B.sealed = sealed;
+        B.band?.classList.toggle('is-sealed', sealed);
+        B.tab?.classList.toggle('is-sealed', sealed);
+        if (!initial && was && !sealed) opened.push(B);
+        else if (B.seal) B.seal.hidden = !sealed;
+      }
+      if (sealed) this._renderSeal(B);
+    }
     for (const n of this.nodes) {
       const st = this._calc(n);
       const prev = this._st.get(n.id);
       if (prev === st) continue;
       this._st.set(n.id, st);
       const el = n.el;
-      for (const s of ['done', 'run', 'avail', 'zone', 'locked']) el.classList.toggle(`is-${s}`, st === s);
+      for (const s of ['done', 'run', 'avail', 'zone', 'locked', 'sealed']) el.classList.toggle(`is-${s}`, st === s);
       el.style.setProperty('--slot', `var(--lt-slot-${st === 'done' ? 'gold' : st === 'avail' ? 'brass' : st === 'run' ? 'teal' : st === 'zone' ? 'ember' : 'iron'})`);
+      el.tabIndex = st === 'sealed' ? -1 : el.tabIndex;
       el.setAttribute('aria-label', `${n.d.name}: ${STATE_TEXT[st]}`);
       this._nodeBadge(n, st);
       if (!initial && prev) changed.push([n, prev, st]);
@@ -487,24 +539,29 @@ export class LabTree {
     // pipes
     for (const e of this.edges) {
       const a = this._st.get(e.src.id), b = this._st.get(e.dst.id);
-      const s = a === 'done' ? (b === 'done' ? 'done' : b === 'run' ? 'run' : 'on') : 'off';
+      const s = a === 'sealed' || b === 'sealed' ? 'sealed' : a === 'done' ? (b === 'done' ? 'done' : b === 'run' ? 'run' : 'on') : 'off';
       if (e.s === s) continue;
       const was = e.s;
       e.s = s;
       for (const p of e.els) p.setAttribute('data-s', s);
-      if (!initial && was === 'off' && s !== 'off') this._surge(e);
+      if (!initial && (was === 'off' || was === 'sealed') && s !== 'off' && s !== 'sealed') this._surge(e);
     }
     for (const [n, prev, st] of changed) {
-      if (st === 'done') this._celebrate(n, prev);
+      if (st === 'done') { this._celebrate(n, prev); if (prev === 'run') this.fox?.onDone(n); }
+      else if (prev === 'sealed') continue;
       else if ((prev === 'locked' || prev === 'zone') && (st === 'avail' || st === 'zone')) this._fx(n.el, 'is-unlocking', 900);
-      else if (st === 'run' && prev !== 'run') this._fx(n.el, 'is-start', 900);
+      else if (st === 'run' && prev !== 'run') { this._fx(n.el, 'is-start', 900); this.fox?.onStart(n); }
     }
+    for (const B of opened) this._decrypted(B);
+    if (this.selSec && !this.selSec.sealed) { const B = this.selSec; this.selSec = null; const pick = B.nodes.find((n) => this._st.get(n.id) === 'avail') || B.nodes[0]; if (pick) this._select(pick, { pan: false, sound: false, open: false }); }
     const done = this.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
-    this.$count.innerHTML = `<b>${done}</b>/${this.nodes.length}`;
+    const secs = this.branches.filter((B) => !B.sealed).length;
+    this.$count.innerHTML = `<b>${done}</b>/${this.nodes.length}<small>${secs}/${this.branches.length} SECTORS</small>`;
     this.$cbar.style.width = `${this.nodes.length ? (done / this.nodes.length) * 100 : 0}%`;
     this._updateChips();
     if (this.filter) this._applyFilter(false);
-    if (this.sel && (initial || changed.some(([n]) => n === this.sel || n.kids.includes(this.sel) || this.sel.req.includes(n.id)))) this._renderDetail();
+    if (this.selSec) { if (initial || this._secSig !== this._keySig(this.selSec)) this._renderDetail(); }
+    else if (this.sel && (initial || changed.some(([n]) => n === this.sel || n.kids.includes(this.sel) || this.sel.req.includes(n.id)))) this._renderDetail();
     else if (this.sel) this._renderAct();
   }
 
@@ -522,6 +579,8 @@ export class LabTree {
     for (const off of this._off) off();
     this._off = [];
     this._ro?.disconnect();
+    try { this.fox?.destroy(); } catch { /* ignore */ }
+    this.fox = null;
     this.root.remove();
   }
 
@@ -542,6 +601,19 @@ export class LabTree {
     return true;
   }
   _timed() { return typeof this.o.jobs === 'function'; }
+  // v18 sections: B = a laid-out branch
+  _sealed(B) {
+    if (!B || !this.o.sections?.isOpen) return false;
+    try { return !this.o.sections.isOpen(B.b.id); } catch { return false; }
+  }
+  _secKey(B) {
+    let k = null;
+    try { k = this.o.sections?.key?.(B.b.id) || null; } catch { k = null; }
+    return k || { needs: [], coins: 0, ready: true, canUnlock: true };
+  }
+  _coins() { try { const c = Number(this.o.coins?.()); return Number.isFinite(c) ? c : null; } catch { return null; } }
+  _rushOK() { return typeof this.o.onRush === 'function' && typeof this.o.rushPrice === 'function'; }
+  _rushPrice(id, mode) { try { const v = Number(this.o.rushPrice(id, mode)); return Number.isFinite(v) ? v : null; } catch { return null; } }
   _slots() {
     try { const s = Number(this.o.slots?.()); return s > 0 ? Math.floor(s) : 1; } catch { return 1; }
   }
@@ -571,6 +643,7 @@ export class LabTree {
   _job(id) { return this._jobs.find((j) => j.id === id) || null; }
   _calc(n) {
     if (this._isRes(n.id)) return 'done';
+    if (n.B.sealed) return 'sealed';
     if (this._jobIds?.has(n.id)) return 'run';
     if (!n.req.every((r) => this._isRes(r) || !this.byId.has(r))) return 'locked';
     if (n.zone && !this._zoneOpen(n.zone)) return 'zone';
@@ -599,6 +672,7 @@ export class LabTree {
     const st = this._st.get(n.id);
     if (st === 'done') return { ok: false, reason: 'Already researched' };
     if (st === 'run') return { ok: false, reason: 'Researching...' };
+    if (st === 'sealed') return { ok: false, reason: `Decrypt ${n.B.b.name} first` };
     let r = null;
     if (this.o.canResearch) { try { r = this.o.canResearch(n.id); } catch { r = null; } }
     if (!r || typeof r !== 'object') r = { ok: st === 'avail' };
@@ -671,7 +745,8 @@ export class LabTree {
         <div class="lt-screen">
           <header class="lt-head">
             ${FOX_LOGO}
-            <div class="lt-titles"><h1>Reynard Labs</h1><span class="lt-tag">Research is <b>FREE</b>. It just takes time!</span></div>
+            <div class="lt-titles"><h1>Reynard Labs<span class="lt-ver">R&amp;D-OS v18</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
+            <div class="lt-coins" title="Your coins"${typeof this.o.coins === 'function' ? '' : ' hidden'}><span class="lt-coins-l">CREDITS</span><span class="lt-coins-v">${G_COIN}<b>0</b></span></div>
             <div class="lt-count" title="Researched"><span class="lt-count-t"></span><span class="lt-cbar"><i></i></span></div>
             <button class="lt-close" type="button" aria-label="Close research (Esc)"><span>EXIT</span><kbd>ESC</kbd></button>
           </header>
@@ -695,22 +770,27 @@ export class LabTree {
                 <div class="lt-kicker"></div>
                 <h2 class="lt-name"></h2>
                 <p class="lt-desc"></p>
-                <div class="lt-sec lt-sec-unl"><h3>Unlocks</h3><ul class="lt-unl"></ul></div>
-                <div class="lt-sec lt-sec-time"><h3>Time</h3><div class="lt-time"></div></div>
-                <div class="lt-sec lt-sec-req"><h3>Needs</h3><ul class="lt-reqs"></ul></div>
+                <div class="lt-sec lt-sec-unl"><h3 class="lt-h-unl">Unlocks</h3><ul class="lt-unl"></ul></div>
+                <div class="lt-sec lt-sec-time"><h3 class="lt-h-time">Time</h3><div class="lt-time"></div></div>
+                <div class="lt-sec lt-sec-req"><h3 class="lt-h-req">Needs</h3><ul class="lt-reqs"></ul></div>
                 <div class="lt-sec lt-sec-kids"><h3>Leads to</h3><div class="lt-kids"></div></div>
               </div>
               <div class="lt-act">
                 <button class="lt-go" type="button"><span class="lt-go-fill"></span><span class="lt-go-l"></span><span class="lt-go-s"></span></button>
+                <div class="lt-rush" hidden>
+                  <button type="button" class="lt-rbtn" data-rush="half"><span class="lt-rbtn-l">${G_BOLT}RUSH <em>-50%</em></span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
+                  <button type="button" class="lt-rbtn is-now" data-rush="now"><span class="lt-rbtn-l">${G_FF}FINISH NOW</span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
+                </div>
               </div>
             </aside>
           </div>
           <footer class="lt-bench">
-            <span class="lt-bench-l">${this._iconFit('flask', 18)}<span>BENCH</span></span>
+            <span class="lt-bench-l">${this._iconFit('flask', 18)}<span>BENCH<small class="lt-bench-s"></small></span></span>
             <div class="lt-slots"></div>
             <div class="lt-keys"><kbd>DRAG</kbd> pan <kbd>WHEEL</kbd> zoom <kbd>ENTER</kbd> research</div>
           </footer>
           <div class="lt-fx" aria-hidden="true"></div>
+          <div class="lt-scan" aria-hidden="true"></div>
         </div>
       </div>`;
     this.container.appendChild(root);
@@ -743,6 +823,14 @@ export class LabTree {
     this.$count = $('.lt-count-t');
     this.$cbar = $('.lt-cbar i');
     this.$fxl = $('.lt-fx');
+    this.$coins = $('.lt-coins');
+    this.$coinsV = $('.lt-coins-v b');
+    this.$rush = $('.lt-rush');
+    this.$rushB = [...root.querySelectorAll('.lt-rush .lt-rbtn')].map((el) => ({ el, mode: el.dataset.rush, p: el.querySelector('.lt-rbtn-p b') }));
+    this.$benchS = $('.lt-bench-s');
+    this.$hUnl = $('.lt-h-unl');
+    this.$hTime = $('.lt-h-time');
+    this.$hReq = $('.lt-h-req');
     const rs = root.style;
     for (const [k, p] of Object.entries(SLOT_PALS)) rs.setProperty(`--lt-slot-${k}`, `url(${slotCanvas(p).toDataURL()})`);
     if (!REDUCED) this._fx(root, 'is-boot', 700);
@@ -757,9 +845,18 @@ export class LabTree {
     // bands
     let bands = '';
     let tabs = '';
+    let seals = '';
     for (const B of this.branches) {
       const c = esc(B.color);
-      bands += `<div class="lt-band${B.i % 2 ? ' odd' : ''}" data-b="${B.i}" style="top:${B.y}px;height:${B.h}px;--bc:${c}"></div>`;
+      bands += `<div class="lt-band${B.i % 2 ? ' odd' : ''}" data-b="${B.i}" style="top:${B.y}px;height:${B.h}px;--bc:${c}"><span class="lt-band-id">SECTOR ${String(B.i + 1).padStart(2, '0')} // ${esc(B.b.name.toUpperCase())}</span></div>`;
+      // the encrypted seal over a locked section
+      let x0 = PADL + B.c0 * COLW + 6, x1 = PADL + (B.c1 + 1) * COLW - 6;
+      if (x1 - x0 < 560) { x1 = Math.min(W - 6, x0 + 560); x0 = Math.max(6, x1 - 560); }
+      B.sx = x0;
+      B.sy = B.y + 12;
+      B.sw = x1 - x0;
+      B.sh = B.h - 20;
+      seals += `<div class="lt-seal${B.lanes < 2 ? ' is-row' : ''}" data-sec="${B.i}" hidden style="left:${B.sx}px;top:${B.sy}px;width:${B.sw}px;height:${B.sh}px;--bc:${c}"></div>`;
       tabs += `<button type="button" class="lt-tab" data-b="${B.i}" style="--bc:${c}" tabindex="-1">${this._iconFit(B.b.icon, 16)}<span>${esc(B.b.name)}</span></button>`;
     }
     this.$tabs.innerHTML = tabs;
@@ -776,11 +873,12 @@ export class LabTree {
       out.push(px[px.length - 1]);
       return out.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('');
     };
-    let lo = '', lc = '', lf = '', lx = '';
+    let lo = '', lg = '', lc = '', lf = '', lx = '';
     this.edges.forEach((e, i) => {
       const d = P(e.pts);
       e.d = d;
       lo += `<path class="lp-o" data-e="${i}" d="${d}"/>`;
+      lg += `<path class="lp-g" data-e="${i}" d="${d}"/>`;
       lc += `<path class="lp-c" data-e="${i}" d="${d}"/>`;
       lf += `<path class="lp-f" data-e="${i}" d="${d}"/>`;
       for (const br of e.bridges) {
@@ -790,7 +888,7 @@ export class LabTree {
       }
     });
     const svg = `<svg class="lt-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
-      <g>${lo}</g><g>${lc}</g><g>${lf}</g><g>${lx}</g></svg>`;
+      <g>${lo}</g><g>${lg}</g><g>${lc}</g><g>${lf}</g><g>${lx}</g></svg>`;
 
     let nodes = '';
     for (const n of this.nodes) {
@@ -802,7 +900,12 @@ export class LabTree {
         <span class="lt-nm"><span class="lt-nm-t">${esc(n.d.name)}</span><span class="lt-nm-w"></span></span>
       </button>`;
     }
-    this.world.innerHTML = `<div class="lt-bands">${bands}</div>${svg}${nodes}<div class="lt-ret" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
+    this.world.innerHTML = `<div class="lt-bands">${bands}</div>${svg}${nodes}<div class="lt-seals">${seals}</div><div class="lt-ret" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
+    for (const B of this.branches) {
+      B.band = this.world.querySelector(`.lt-band[data-b="${B.i}"]`);
+      B.seal = this.world.querySelector(`.lt-seal[data-sec="${B.i}"]`);
+      B.sealed = false;
+    }
     this.$ret = this.world.querySelector('.lt-ret');
     for (const n of this.nodes) {
       n.el = this.world.querySelector(`.lt-node[data-id="${CSS.escape(n.id)}"]`);
@@ -819,6 +922,7 @@ export class LabTree {
 
   _nodeBadge(n, st) {
     let b = '', pill = '', why = '';
+    if (st === 'sealed') { n.$badge.innerHTML = ''; n.$pill.innerHTML = ''; n.$pill.hidden = true; n.$why.textContent = ''; return; }
     if (st === 'done') b = G_CHECK;
     else if (st === 'locked') b = G_LOCK;
     else if (st === 'zone') { b = G_PAW; why = `Meet ${this._zoneName(n.zone)}`; }
@@ -855,6 +959,15 @@ export class LabTree {
       if (f === '@ready') { nEl.textContent = String(ready); c.classList.toggle('is-zero', !ready); continue; }
       const B = this.branches[+f];
       if (!B) continue;
+      c.classList.toggle('is-sealed', !!B.sealed);
+      if (B.sealed) {
+        const k = this._secKey(B);
+        const html = `${G_LOCK}${B.nodes.length}`;
+        if (nEl.innerHTML !== html) nEl.innerHTML = html;
+        c.classList.toggle('has-ready', !!k.canUnlock);
+        c.classList.remove('is-full');
+        continue;
+      }
       const d = B.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
       const av = B.nodes.some((n) => this._st.get(n.id) === 'avail');
       nEl.textContent = `${d}/${B.nodes.length}`;
@@ -909,6 +1022,15 @@ export class LabTree {
     const view = this.view;
     this._on(this.world, 'click', (e) => {
       if (this._dragJustEnded()) { e.preventDefault(); return; }
+      const sealEl = e.target.closest('.lt-seal');
+      if (sealEl) {
+        const B = this.branches[+sealEl.dataset.sec];
+        const g = e.target.closest('[data-goto]');
+        if (g) { const n = this.byId.get(g.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true }); return; }
+        if (e.target.closest('.lt-decrypt')) { this._selectSection(B, { pan: false, open: false }); this._decrypt(B, e.target.closest('.lt-decrypt')); return; }
+        this._selectSection(B, { pan: false, sound: 'select', open: true });
+        return;
+      }
       const b = e.target.closest('.lt-node');
       if (!b) return;
       const n = this.byId.get(b.dataset.id);
@@ -961,6 +1083,10 @@ export class LabTree {
       if (t) this._setFilter(t.dataset.b);
     });
     this._on(this.$go, 'click', () => this._research());
+    this._on(this.$rush, 'click', (e) => {
+      const r = e.target.closest('[data-rush]');
+      if (r && this.sel) this._rush(this.sel.id, r.dataset.rush, r);
+    });
     this._on(this.root.querySelector('.lt-close'), 'click', () => this._close());
     this._on(this.root.querySelector('.lt-det-x'), 'click', () => { this._sfx('click'); this._openSheet(false); });
     this._on(this.$det, 'click', (e) => {
@@ -968,6 +1094,8 @@ export class LabTree {
       if (j) { const n = this.byId.get(j.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true }); }
     });
     this._on(this.$slots, 'click', (e) => {
+      const r = e.target.closest('[data-rush]');
+      if (r) { this._rush(r.dataset.id, r.dataset.rush, r); return; }
       const s = e.target.closest('[data-goto]');
       if (!s) return;
       const n = this.byId.get(s.dataset.goto);
@@ -983,7 +1111,7 @@ export class LabTree {
 
   _onDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (e.target.closest('.lt-zoom, .lt-toast, .lt-tab')) return;
+    if (e.target.closest('.lt-zoom, .lt-toast, .lt-tab, .lt-decrypt')) return;
     this._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this._vel = null;
     this.goal = null;
@@ -1132,11 +1260,11 @@ export class LabTree {
 
   // spatial keyboard navigation
   _move(dx, dy) {
-    const cur = this.sel;
+    const cur = this.sel || (this.selSec && this.selSec.nodes[0]);
     if (!cur) { const f = this._initialNode(); if (f) this._select(f, { pan: true, sound: 'select' }); return; }
     let best = null, bs = Infinity;
     for (const n of this.nodes) {
-      if (n === cur || (this.filter !== null && !this._matches(n))) continue;
+      if (n === cur || n.B.sealed || (this.filter !== null && !this._matches(n))) continue;
       const ax = (n.x - cur.x) / COLW, ay = (n.y - cur.y) / ROWH;
       const along = ax * dx + ay * dy;
       if (along <= 0.01) continue;
@@ -1200,6 +1328,9 @@ export class LabTree {
   _applyCam() {
     const c = this._clampCam(this.cam);
     this.world.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
+    const hz = 56 * c.z;
+    this.view.style.setProperty('--hex-pos', `${c.x.toFixed(1)}px ${c.y.toFixed(1)}px`);
+    this.view.style.setProperty('--hex-size', `${hz.toFixed(1)}px ${(hz * 100 / 56).toFixed(1)}px`);
     this.root.classList.toggle('is-far', c.z < 0.58);
     this.root.classList.toggle('is-vfar', c.z < 0.3);
     this.root.style.setProperty('--lt-z', c.z.toFixed(3));
@@ -1275,7 +1406,12 @@ export class LabTree {
   // ------------------------------------------------------------ selection / detail
   _select(n, { pan = true, sound = false, open = false } = {}) {
     if (!n) return;
-    const same = n === this.sel;
+    if (n.B.sealed) { this._selectSection(n.B, { pan, sound, open }); return; }
+    const wasSec = !!this.selSec;
+    this.selSec = null;
+    this.root.classList.remove('is-secsel');
+    if (wasSec) for (const X of this.branches) X.seal?.classList.remove('is-sel');
+    const same = n === this.sel && !wasSec;
     if (this.sel?.el) { this.sel.el.classList.remove('is-sel'); this.sel.el.tabIndex = -1; }
     this.sel = n;
     n.el.classList.add('is-sel');
@@ -1289,6 +1425,28 @@ export class LabTree {
       if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
     }
     if (pan) this._ensureVisible(n);
+    this.fox?.onSelect(n);
+  }
+
+  // an encrypted section: the detail panel shows its section key
+  _selectSection(B, { pan = true, sound = false, open = false } = {}) {
+    if (!B) return;
+    const same = this.selSec === B;
+    if (this.sel?.el) { this.sel.el.classList.remove('is-sel'); this.sel.el.tabIndex = -1; }
+    this.sel = null;
+    this.selSec = B;
+    this.root.classList.add('is-secsel');
+    this.$ret.classList.remove('is-on');
+    for (const X of this.branches) X.seal?.classList.toggle('is-sel', X === B);
+    if (sound) this._sfx(sound);
+    if (open) this._openSheet(true);
+    if (!same) { this._renderDetail(); if (!REDUCED) this._fx(this.$det, 'is-swap', 300); }
+    if (pan) this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
+  }
+
+  _keySig(B) {
+    const k = this._secKey(B);
+    return JSON.stringify([k.needs?.map((x) => x.ok), k.canUnlock, k.coins, B.sealed]);
   }
 
   _showTip(n) {
@@ -1330,10 +1488,14 @@ export class LabTree {
   }
 
   _renderDetail() {
+    if (this.selSec) { this._renderSecDetail(this.selSec); return; }
     const n = this.sel;
     if (!n) return;
     const st = this._st.get(n.id);
     const d = n.d;
+    this.$hUnl.textContent = 'Unlocks';
+    this.$hTime.textContent = 'Time';
+    this.$hReq.textContent = 'Needs';
     this.$det.dataset.state = st;
     this.$det.style.setProperty('--bc', n.B.color);
     this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(n.B.b.icon, 16)}${esc(n.B.b.name)}</span>${d.tier != null ? `<span class="lt-tier">Tier ${esc(d.tier)}</span>` : ''}`;
@@ -1350,7 +1512,8 @@ export class LabTree {
       : '<li class="is-none"><span class="lt-unl-t"><b>Know-how</b><small>Opens up the next research</small></span></li>';
     // time
     if (this._timed() && n.time) {
-      this.$time.innerHTML = `${G_CLOCK}<b>${fmtDur(n.time)}</b><span class="lt-free">FREE</span><small>in-game time, starts as soon as you click</small>`;
+      const sp = this._speed();
+      this.$time.innerHTML = `${G_CLOCK}<b>${fmtDur(n.time / sp)}</b><span class="lt-free">FREE</span>${sp !== 1 ? `<span class="lt-spd">x${sp.toFixed(2).replace(/\.?0+$/, '')} SPEED</span>` : ''}<small>${this._rushOK() ? 'in-game time. Running jobs can be RUSHED with coins' : 'in-game time, starts as soon as you click'}</small>`;
     } else this.$time.innerHTML = '<b>Instant</b><span class="lt-free">FREE</span>';
     // requirements
     let reqs = '';
@@ -1369,18 +1532,71 @@ export class LabTree {
     // children
     if (n.kids.length) {
       this.$secKids.hidden = false;
-      this.$kids.innerHTML = n.kids.map((k) => `<button type="button" class="lt-kid st-${this._st.get(k.id)}" data-goto="${esc(k.id)}"><span class="lt-art sm">${this._nodeArt(k, 22)}</span>${esc(k.d.name)}</button>`).join('');
+      this.$kids.innerHTML = n.kids.map((k) => (k.B.sealed
+        ? `<button type="button" class="lt-kid st-sealed" data-goto="${esc(k.id)}"><span class="lt-art sm">${G_LOCK}</span>${esc(scramble(k.d.name, 0.65, hashStr(k.id)))}</button>`
+        : `<button type="button" class="lt-kid st-${this._st.get(k.id)}" data-goto="${esc(k.id)}"><span class="lt-art sm">${this._nodeArt(k, 22)}</span>${esc(k.d.name)}</button>`)).join('');
     } else this.$secKids.hidden = true;
     this._renderAct();
   }
 
+  _renderSecDetail(B) {
+    const k = this._secKey(B);
+    this._secSig = this._keySig(B);
+    this.$det.dataset.state = 'sealed';
+    this.$det.style.setProperty('--bc', B.color);
+    this.$hUnl.textContent = 'Encrypted contents';
+    this.$hTime.textContent = 'Decrypt cost';
+    this.$hReq.textContent = 'Section key';
+    this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(B.b.icon, 16)}${esc(B.b.name)}</span><span class="lt-tier is-enc">ENCRYPTED</span>`;
+    this.$name.textContent = B.b.name;
+    this.$heroSt.textContent = 'ENCRYPTED';
+    this.$heroSt.className = 'lt-hero-st st-sealed';
+    this.$desc.innerHTML = `<b>${B.nodes.length}</b> research projects are sealed in this sector. Use its <b>section key</b> to decrypt it.`;
+    let fish = 0, builds = 0, ups = 0, other = 0;
+    for (const n of B.nodes) { if (n.d.species) fish++; else if (n.d.build) builds++; else if (n.d.mods) ups++; else other++; }
+    const row = (art, num, what) => (num ? `<li><span class="lt-art">${art}</span><span class="lt-unl-t"><b>${num} ${esc(what)}</b><small>${esc(scramble(what.toUpperCase(), 0.6, num * 31 + what.length))}</small></span></li>` : '');
+    this.$unl.innerHTML = row(this._iconFit('fish', 30), fish, fish === 1 ? 'fish species' : 'fish species') + row(this._iconFit('hammer', 30), builds, builds === 1 ? 'thing to build' : 'things to build') + row(this._iconFit('bolt', 28) || G_BOLT, ups, ups === 1 ? 'upgrade' : 'upgrades') + row(this._iconFit('gear', 28), other, 'secrets');
+    this.$time.innerHTML = k.coins ? `${G_COIN}<b>${k.coins}</b><span>coins, once</span>` : '<b>FREE</b><span class="lt-free">KEY ONLY</span>';
+    let reqs = '';
+    for (const x of k.needs || []) {
+      const go = x.kind === 'node' && this.byId.has(x.id) ? ` data-goto="${esc(x.id)}" role="button" tabindex="0"` : '';
+      const art = x.kind === 'node' && this.byId.get(x.id) ? this._nodeArt(this.byId.get(x.id), 24) : x.kind === 'zone' ? G_PAW : G_COIN;
+      reqs += `<li class="${x.ok ? 'ok' : 'bad'}"${go}>${x.ok ? G_CHECK : G_CROSS}<span class="lt-art sm">${art}</span><span>${esc(x.text)}</span></li>`;
+    }
+    this.$reqs.innerHTML = reqs || `<li class="ok">${G_CHECK}<span>No key needed!</span></li>`;
+    this.$secKids.hidden = true;
+    this._renderAct();
+  }
+
+  _speed() { try { const v = Number(this.o.speed?.()); return v > 0 ? v : 1; } catch { return 1; } }
+
   _renderAct() {
+    const b = this.$go;
+    if (this.selSec) {
+      const B = this.selSec;
+      const k = this._secKey(B);
+      b.className = 'lt-go is-dec';
+      this.$goFill.style.width = '0%';
+      this.$rush.hidden = true;
+      b.disabled = !k.canUnlock;
+      const miss = (k.needs || []).find((x) => x.kind !== 'coins' && !x.ok);
+      if (k.canUnlock) {
+        b.classList.add('is-go');
+        this.$goL.innerHTML = `${G_KEY} DECRYPT SECTION`;
+        this.$goS.textContent = k.coins ? `Pay ${k.coins} coins` : 'Free!';
+      } else {
+        b.classList.add('is-no');
+        this.$goL.innerHTML = `${G_LOCK} ENCRYPTED`;
+        this.$goS.textContent = miss ? `Key: ${miss.text}` : `Needs ${k.coins} coins`;
+      }
+      return;
+    }
     const n = this.sel;
     if (!n) return;
     const st = this._st.get(n.id);
-    const b = this.$go;
     b.className = 'lt-go';
     this.$goFill.style.width = '0%';
+    this.$rush.hidden = !(st === 'run' && this._rushOK());
     if (st === 'done') {
       b.disabled = true;
       b.classList.add('is-done');
@@ -1417,7 +1633,7 @@ export class LabTree {
 
   _liveAct() {
     const n = this.sel;
-    if (!n) return;
+    if (!n || this.selSec) return;
     const st = this._st.get(n.id);
     if (st === 'run') {
       const j = this._job(n.id);
@@ -1425,7 +1641,20 @@ export class LabTree {
       this.$goFill.style.width = `${(k * 100).toFixed(1)}%`;
       this.$goL.textContent = `RESEARCHING... ${Math.floor(k * 100)}%`;
       this.$goS.textContent = `${fmtClock(j ? j.left : n.time)} left`;
+      if (!this.$rush.hidden) this._livePrices(this.$rushB, n.id);
     } else if (this.$go.classList.contains('is-busy')) this.$goS.textContent = this._busyText();
+  }
+
+  // rush buttons: live price + "can't afford" state
+  _livePrices(list, id) {
+    const coins = this._coins();
+    for (const r of list) {
+      const p = this._rushPrice(id, r.mode);
+      const txt = p == null ? '-' : String(p);
+      if (r.p.textContent !== txt) r.p.textContent = txt;
+      const poor = p == null || (coins != null && coins < p);
+      if (r.poor !== poor) { r.poor = poor; r.el.classList.toggle('is-poor', poor); }
+    }
   }
 
   // ------------------------------------------------------------ bench bar
@@ -1436,14 +1665,23 @@ export class LabTree {
       return;
     }
     const slots = Math.max(this._slots(), this._jobs.length);
+    if (this.$benchS) {
+      const sp = this._speed();
+      this.$benchS.textContent = ` ${this._jobs.length}/${this._slots()}${sp !== 1 ? ` x${sp.toFixed(2).replace(/\.?0+$/, '')}` : ''}`;
+    }
+    const rush = this._rushOK();
     let h = '';
     for (let i = 0; i < slots; i++) {
       const j = this._jobs[i];
       if (j && j.n) {
-        h += `<button type="button" class="lt-slotc is-job" data-goto="${esc(j.id)}" data-job="${esc(j.id)}" style="--bc:${esc(j.n.B.color)}">
-          <span class="lt-art">${this._nodeArt(j.n, 30)}</span>
-          <span class="lt-slotc-m"><b>${esc(j.n.d.name)}</b><span class="lt-bar"><i></i></span></span>
-          <span class="lt-slotc-t">0:00</span></button>`;
+        h += `<div class="lt-slotc is-job${rush ? ' has-rush' : ''}" data-job="${esc(j.id)}" style="--bc:${esc(j.n.B.color)}">
+          <button type="button" class="lt-slotc-main" data-goto="${esc(j.id)}">
+            <span class="lt-art">${this._nodeArt(j.n, 30)}</span>
+            <span class="lt-slotc-m"><b>${esc(j.n.d.name)}</b><span class="lt-bar"><i></i></span></span>
+            <span class="lt-slotc-t">0:00</span>
+          </button>
+          ${rush ? `<span class="lt-slotc-r"><button type="button" class="lt-mini" data-rush="half" data-id="${esc(j.id)}" title="Rush: -50% time left">${G_BOLT}<b></b></button><button type="button" class="lt-mini is-now" data-rush="now" data-id="${esc(j.id)}" title="Finish now">${G_FF}<b></b></button></span>` : ''}
+        </div>`;
       } else if (j) {
         h += `<div class="lt-slotc is-job" data-job="${esc(j.id)}"><span class="lt-slotc-m"><b>${esc(j.id)}</b><span class="lt-bar"><i></i></span></span><span class="lt-slotc-t">0:00</span></div>`;
       } else {
@@ -1452,7 +1690,10 @@ export class LabTree {
       }
     }
     this.$slots.innerHTML = h;
-    this._jobEls = [...this.$slots.querySelectorAll('[data-job]')].map((el) => ({ el, id: el.dataset.job, bar: el.querySelector('.lt-bar i'), t: el.querySelector('.lt-slotc-t') }));
+    this._jobEls = [...this.$slots.querySelectorAll('[data-job]')].map((el) => ({
+      el, id: el.dataset.job, bar: el.querySelector('.lt-bar i'), t: el.querySelector('.lt-slotc-t'),
+      rush: [...el.querySelectorAll('[data-rush]')].map((b) => ({ el: b, mode: b.dataset.rush, p: b.querySelector('b') })),
+    }));
     this._liveBench();
   }
 
@@ -1463,6 +1704,7 @@ export class LabTree {
       s.bar.style.width = `${(j.k * 100).toFixed(1)}%`;
       const txt = fmtClock(j.left);
       if (s.t.textContent !== txt) s.t.textContent = txt;
+      if (s.rush.length) this._livePrices(s.rush, s.id);
     }
     for (const j of this._jobs) {
       const n = j.n;
@@ -1475,6 +1717,7 @@ export class LabTree {
 
   // ------------------------------------------------------------ research
   _research() {
+    if (this.selSec) { this._decrypt(this.selSec, this.$go); return; }
     const n = this.sel;
     if (!n) return;
     const chk = this._check(n);
@@ -1504,6 +1747,147 @@ export class LabTree {
     }
     this.refresh();
     this._renderDetail();
+  }
+
+  // ------------------------------------------------------------ v18: paid rushes
+  _rush(id, mode, src) {
+    const n = this.byId.get(id);
+    if (!n || !this._rushOK()) return;
+    const price = this._rushPrice(id, mode);
+    let res = null;
+    try { res = this.o.onRush(id, mode); } catch (err) { console.error(err); res = null; }
+    if (!this._alive) return;
+    if (typeof res === 'boolean') res = { ok: res };
+    if (!res || !res.ok) {
+      this._sfx('denied');
+      if (src) this._fx(src, 'is-shake', 400);
+      this._flash(src, res?.msg || 'Not enough coins');
+      return;
+    }
+    this._sfx(mode === 'now' ? 'rushnow' : 'rush');
+    this._coinsFly(src, n.$ico, Math.min(14, 4 + Math.round((price || 10) / 15)));
+    this._float(n, mode === 'now' ? 'DONE!' : '-50% TIME', mode);
+    this._ring(n, 'warp');
+    this._fx(n.el, 'is-warp', 800);
+    const card = this.$slots.querySelector(`[data-job="${CSS.escape(id)}"]`);
+    if (card) this._fx(card, 'is-boost', 700);
+    if (this.sel === n) this._fx(this.$go, 'is-boost', 700);
+    this._bumpCoins();
+    this.fox?.onRush(n, mode);
+    this._pollJobs(true);
+    this.refresh();
+    if (this.sel === n) this._renderDetail();
+  }
+
+  // little message that floats up from a button
+  _flash(src, msg) {
+    if (!msg) return;
+    const rr = this.root.getBoundingClientRect();
+    const a = (src || this.$go).getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'lt-flash';
+    el.textContent = msg;
+    el.style.left = `${clamp(a.left + a.width / 2 - rr.left, 90, rr.width - 90)}px`;
+    el.style.top = `${a.top - rr.top - 6}px`;
+    this.$fxl.appendChild(el);
+    this._later(() => el.remove(), 1600);
+  }
+
+  // "-50% TIME" / "DONE!" rising from a node (world space)
+  _float(n, text, kind) {
+    const el = document.createElement('span');
+    el.className = `lt-float is-${kind}`;
+    el.textContent = text;
+    n.el.appendChild(el);
+    this._later(() => el.remove(), 1400);
+  }
+
+  // coins fly from the wallet in the header to `to` (an element)
+  _coinsFly(src, to, count = 6) {
+    if (REDUCED || !this.$coins || this.$coins.hidden) return;
+    const rr = this.root.getBoundingClientRect();
+    const a = this.$coins.getBoundingClientRect();
+    let b = to?.getBoundingClientRect?.();
+    const vr = this.view.getBoundingClientRect();
+    if (!b || !b.width || b.right < vr.left || b.left > vr.right || b.bottom < vr.top || b.top > vr.bottom) b = (src || this.$go).getBoundingClientRect();
+    const ax = a.left + a.width * 0.7 - rr.left, ay = a.top + a.height / 2 - rr.top;
+    const bx = b.left + b.width / 2 - rr.left, by = b.top + b.height / 2 - rr.top;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'lt-cfly';
+      el.innerHTML = G_COIN;
+      el.style.left = `${ax}px`;
+      el.style.top = `${ay}px`;
+      this.$fxl.appendChild(el);
+      const jx = (Math.random() - 0.5) * 60, jy = -40 - Math.random() * 60;
+      const anim = el.animate([
+        { transform: 'translate(-50%,-50%) scale(.6)', opacity: 0 },
+        { transform: `translate(calc(-50% + ${(bx - ax) * 0.35 + jx}px), calc(-50% + ${(by - ay) * 0.2 + jy}px)) scale(1.4)`, opacity: 1, offset: 0.4 },
+        { transform: `translate(calc(-50% + ${bx - ax}px), calc(-50% + ${by - ay}px)) scale(.7)`, opacity: 1 },
+      ], { duration: 620 + i * 25, delay: i * 45, easing: 'cubic-bezier(.45,0,.55,1)', fill: 'backwards' });
+      anim.onfinish = () => el.remove();
+      this._later(() => el.remove(), 1400 + i * 50);
+    }
+  }
+  _bumpCoins() { if (this.$coins) this._fx(this.$coins, 'is-spend', 600); }
+
+  // ------------------------------------------------------------ v18: encrypted sections
+  _renderSeal(B) {
+    const seal = B.seal;
+    if (!seal) return;
+    const k = this._secKey(B);
+    const sig = JSON.stringify([k.needs?.map((x) => [x.ok, x.text]), k.coins, k.canUnlock]);
+    if (seal._sig === sig) return;
+    const first = seal._sig == null;
+    seal._sig = sig;
+    const needs = (k.needs || []).map((x) => `<li class="${x.ok ? 'ok' : 'bad'}"${x.kind === 'node' && this.byId.has(x.id) ? ` data-goto="${esc(x.id)}"` : ''}>${x.ok ? G_CHECK : G_CROSS}<span>${esc(x.text)}</span></li>`).join('');
+    const body = `<div class="lt-seal-card">
+        <div class="lt-seal-top">${G_SEAL}<div class="lt-seal-tt"><span class="lt-seal-k">ENCRYPTED SECTOR</span><span class="lt-seal-n">${esc(B.b.name)}</span><span class="lt-seal-c">${B.nodes.length} PROJECTS LOCKED <i>${esc(scramble('XXXXXXXX', 1, hashStr(B.b.id)))}</i></span></div></div>
+        ${needs ? `<ul class="lt-seal-req">${needs}</ul>` : ''}
+        <button type="button" class="lt-decrypt${k.canUnlock ? ' is-ready' : ''}">${G_KEY}<span>DECRYPT</span>${k.coins ? `<small>${G_COIN}${k.coins}</small>` : '<small>FREE</small>'}</button>
+      </div>`;
+    if (first) {
+      let ghosts = '';
+      for (const n of B.nodes) ghosts += `<i style="left:${Math.round(n.x - B.sx - 28)}px;top:${Math.round(n.y - B.sy - 28)}px;--d:${hashStr(n.id) % 1200}ms"><b>?</b></i>`;
+      seal.innerHTML = `<div class="lt-seal-bg"></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
+    } else seal.querySelector('.lt-seal-body').innerHTML = body;
+  }
+
+  _decrypt(B, src) {
+    if (!B || !B.sealed) return;
+    const k = this._secKey(B);
+    let res = null;
+    try { res = this.o.sections?.unlock?.(B.b.id) ?? null; } catch (err) { console.error(err); res = null; }
+    if (!this._alive) return;
+    if (typeof res === 'boolean') res = { ok: res };
+    if (!res || !res.ok) {
+      this._sfx('denied');
+      if (src) this._fx(src, 'is-shake', 400);
+      this._fx(B.seal, 'is-denied', 600);
+      this._flash(src || this.$go, res?.msg || 'Access denied');
+      return;
+    }
+    this._sfx('decrypt');
+    if (k.coins) { this._coinsFly(src, B.seal.querySelector('.lt-seal-top') || B.seal, Math.min(14, 4 + Math.round(k.coins / 15))); this._bumpCoins(); }
+    this.refresh();
+  }
+
+  _decrypted(B) {
+    const seal = B.seal;
+    if (seal) {
+      seal.hidden = false;
+      const t = seal.querySelector('.lt-seal-k');
+      if (t) t.textContent = 'ACCESS GRANTED';
+      seal.classList.add('is-decrypt');
+      this._later(() => { seal.classList.remove('is-decrypt', 'is-sel'); seal.hidden = true; }, REDUCED ? 10 : 1250);
+    }
+    B.nodes.forEach((n, i) => {
+      n.el.classList.add('is-hide');
+      this._later(() => { n.el.classList.remove('is-hide'); this._fx(n.el, 'is-reveal', 900); }, REDUCED ? 0 : 650 + Math.min(i, 14) * 70);
+    });
+    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-k">SECTOR DECRYPTED</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
+    this.fox?.onUnlock(B);
+    this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
   }
 
   // a copy of the node icon flies down to its bench slot
@@ -1566,6 +1950,14 @@ export class LabTree {
       const m = this._toasts.shift();
       if (!m || !this._alive) { this._toastOn = false; return; }
       this._toastOn = true;
+      if (m.html) {
+        this.$toast.innerHTML = m.html;
+        this.$toast.classList.remove('is-on');
+        void this.$toast.offsetWidth;
+        this.$toast.classList.add('is-on');
+        this._later(() => { this.$toast.classList.remove('is-on'); this._later(next, 320); }, 2600);
+        return;
+      }
       const items = this._unlockItems(m.d).slice(0, 3);
       const fresh = m.kids.filter((k) => this._st.get(k.id) === 'avail');
       this.$toast.innerHTML = `<div class="lt-toast-c" style="--bc:${esc(m.B.color)}">
@@ -1647,6 +2039,14 @@ export class LabTree {
       this.refresh();
     }
     this._liveAct();
+    // wallet
+    const coins = this._coins();
+    if (coins !== this._lastCoins && this.$coinsV) {
+      this.$coinsV.textContent = coins == null ? '-' : Math.floor(coins).toLocaleString('en-US');
+      this._lastCoins = coins;
+    }
+    // Reynard
+    try { this.fox?.update(dtms / 1000); } catch (err) { console.warn('LabFox', err); this.fox?.destroy(); this.fox = null; }
     // showcase canvas ~30fps
     if (t - this._lastDraw >= 33) {
       const dt = Math.min(0.1, (t - (this._lastDraw || t)) / 1000);
@@ -1656,6 +2056,7 @@ export class LabTree {
   };
 
   _drawHero(t, dt) {
+    if (this.selSec && this.$hero.offsetParent !== null) { this._drawSealHero(t); return; }
     const n = this.sel;
     if (!n || this.$hero.offsetParent === null) return;
     const cv = this.pcv, ctx = this.pctx;
@@ -1684,6 +2085,46 @@ export class LabTree {
       if (!dark) drawSparkles(ctx, W, H, t, hashStr(n.id), st === 'done' ? 7 : 4);
     }
     this._drawBursts(ctx, dt);
+  }
+
+  // an encrypted sector: a glitching padlock over scrambled data
+  _drawSealHero(t) {
+    const cv = this.pcv, ctx = this.pctx;
+    if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
+    const W = PW, H = PH;
+    drawBackdrop(ctx, W, H, t, 'locked');
+    const R = rng(Math.floor(t * 8) + 1);
+    ctx.font = "8px 'TBME Body', monospace"; // [v18 font]
+    ctx.textAlign = 'left';
+    for (let i = 0; i < 9; i++) {
+      ctx.fillStyle = `rgba(95,208,240,${0.08 + R() * 0.18})`;
+      ctx.fillText(scramble('XXXXXXXXXXXXXXXXXXXXXXX', 1, Math.floor(t * 6) * 13 + i), -4 + ((i * 37) % 11), 8 + i * 8);
+    }
+    const g = R() < 0.12 ? Math.round((R() - 0.5) * 6) : 0;
+    const cx = Math.round(W / 2) + g, cy = Math.round(H / 2) + 4;
+    // padlock: dark outline, shackle, body with a keyhole
+    ctx.fillStyle = '#04161c';
+    ctx.fillRect(cx - 9, cy - 21, 18, 4);
+    ctx.fillRect(cx - 9, cy - 21, 5, 14);
+    ctx.fillRect(cx + 4, cy - 21, 5, 14);
+    ctx.fillRect(cx - 13, cy - 9, 26, 21);
+    ctx.fillStyle = '#9adff0';
+    ctx.fillRect(cx - 7, cy - 19, 14, 2);
+    ctx.fillRect(cx - 7, cy - 19, 2, 11);
+    ctx.fillRect(cx + 5, cy - 19, 2, 11);
+    ctx.fillStyle = '#5fd0f0';
+    ctx.fillRect(cx - 11, cy - 7, 22, 17);
+    ctx.fillStyle = '#2c9cc8';
+    ctx.fillRect(cx + 7, cy - 7, 4, 17);
+    ctx.fillRect(cx - 11, cy + 8, 22, 2);
+    ctx.fillStyle = '#d4fbff';
+    ctx.fillRect(cx - 11, cy - 7, 18, 1);
+    ctx.fillStyle = '#04161c';
+    ctx.fillRect(cx - 2, cy - 2, 4, 4);
+    ctx.fillRect(cx - 1, cy + 2, 2, 4);
+    if (g) { ctx.fillStyle = 'rgba(255,90,120,.5)'; ctx.fillRect(0, cy - 4 + g * 2, W, 2); }
+    drawScan(ctx, W, H, t);
+    this._drawBursts(ctx, 0.033);
   }
 
   _silhouette(img, w, h) {
@@ -1717,7 +2158,7 @@ export class LabTree {
     if (dark) {
       try { ctx.drawImage(this._silhouette(img, w, h), x, y); } catch { /* ignore */ }
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.font = 'bold 24px monospace';
+      ctx.font = "24px 'TBME Title', monospace"; // [v18 font]
       ctx.textAlign = 'center';
       ctx.fillText('?', W / 2, H / 2 + 4);
     } else ctx.drawImage(img, x, y, w, h);

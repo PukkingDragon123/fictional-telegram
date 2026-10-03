@@ -107,16 +107,20 @@ export class Icons3D {
     return this.renderObject(key, obj, { size: 44, yaw: -0.7, pitch: 0.55 });
   }
 
-  bear(typeId, full = false) {
-    const key = `bear:${typeId}:${full ? 1 : 0}`;
+  // def: optional per-bear def with a procedural look ([v18 bear looks] b.def), else the type's classic look
+  bear(typeId, full = false, def = null) {
+    const lookSeed = def?.look ? def.look.seed : '';
+    const key = `bear:${typeId}:${full ? 1 : 0}:${lookSeed}`;
     if (this.cache.has(key)) return this.cache.get(key);
-    const rig = new BearRig(typeId, BEAR_TYPES[typeId]);
+    const rig = new BearRig(typeId, def?.look ? def : BEAR_TYPES[typeId]);
     if (!full) rig.setLegsVisible?.(false);
     rig.setFace?.('happy', { hold: 0 });
     for (let i = 0; i < 6; i++) rig.pose('idle', 0.1);
     rig.update?.(0.1);
     const obj = rig.root;
     obj.rotation.y = 0;
-    return this.renderObject(key, obj, { size: full ? 48 : 36, yaw: 0.35, pitch: 0.15, pad: 1.02 });
+    const url = this.renderObject(key, obj, { size: full ? 48 : 36, yaw: 0.35, pitch: 0.15, pad: 1.02 });
+    if (lookSeed !== '') rig.dispose(); // per-look geometry is refcounted: let it go
+    return url;
   }
 }

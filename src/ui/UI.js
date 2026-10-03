@@ -16,6 +16,7 @@ import { STRUCTURES, BUILD_CATEGORIES, CHARM_CAP } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES, UNLOCKS_BUILD, UNLOCKS_SPECIES } from '../data/research.js';
 import { ZONE_INFO } from '../data/zones.js';
 import { WANT_INFO } from '../data/bears.js';
+import { describeLook } from '../entities/bearLook.js'; // [v18 bear looks]
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { FOOD_ITEMS, STORAGE, foodUses } from '../data/foods.js';
 import { CROPS, STAGE_NAMES, CROP_STAGES } from '../data/crops.js';
@@ -1202,11 +1203,12 @@ export class UI {
   onDayStart() {
     const st = this.game.state;
     try {
-      const sub = this.game.isDayOff() ? 'Sunday · no bears' : st.day === 1 ? 'Build day' : (this.game.wave?.bears?.some((b) => b.boss) ? 'BOSS BEAR!' : `${this.game.wave?.bears?.length || 0} bears booked`);
+      const sub = this.game.bearEvents?.dayCardSub() || (this.game.isDayOff() ? 'Sunday · no bears' : st.day === 1 ? 'Build day' : (this.game.wave?.bears?.some((b) => b.boss) ? 'BOSS BEAR!' : `${this.game.wave?.bears?.length || 0} bears booked`)); // [v18 bear events] boss / blood moon day card
       if (!this.game.tutorialOnly && (st.tutorialDone || this.game.skipTutorial || st.day > 1)) this.trans?.dayCard(`Day ${st.day}`, sub);
     } catch { /* ignore */ }
     if (st.day > 1 && this.game.fish.count < 3 && !this.game.isDayOff()) this.foxSay('Pond\'s empty! Buy eggs on e-Buy!', 'worried');
-    if (this.game.isDayOff()) this.tipOnce('sunday', 'Sunday! No bears today.', 'sleepy');
+    if (this.game.isDayOff() && !this.game.bearEvents?.moon.isBloodDay(st.day)) this.tipOnce('sunday', // [v18 bear events] (blood-moon Sundays aren't quiet)
+      'Sunday! No bears today.', 'sleepy');
     if (st.day === 2) this.tipOnce('day2', 'Bears come at 5 today! Berries = fewer fish eaten.', 'greedy');
     if (st.day === 2) setTimeout(() => this.tipOnce('ducks', 'Ducks & geese on e-Buy ▸ Farm! They lay eggs and eat bugs.', 'excited'), 9000);
     if (st.day === 4) this.tipOnce('beauty', 'Pretty pond = more bears. Decorate!', 'smug');
@@ -1956,8 +1958,8 @@ export class UI {
     const d = b.def;
     const wants = b.wants.length ? b.wants.map((w) => `${ico(WANT_INFO[w.kind]?.icon || 'food', 1)} ${WANT_INFO[w.kind]?.name || w.kind} ${w.done ? ico('check', 1) : ''}`).join('<br>') : 'Fish, and maybe a side of berries.';
     const html = `
-      <div class="who"><img class="px" src="${this.icons.bear(b.typeId, true)}" width="96" height="96" alt=""><div>
-      <h2>${esc(b.name)}</h2><div class="mut">${esc(d.name)} · ${esc(b.dept)}</div></div></div>
+      <div class="who"><img class="px" src="${this.icons.bear(b.typeId, true, d)}" width="96" height="96" alt=""><div>
+      <h2>${esc(b.name)}</h2><div class="mut">${esc(d.name)}${d.variantName ? ` (${esc(d.variantName)})` : ''} · ${esc(b.dept)}</div>${b.look ? `<div class="mut">${esc(describeLook(b.look))}</div>` : ''}</div></div>
       <div class="kv">
         <span>Appetite</span><b>${b.eaten.toFixed(1)} / ${b.appetite} meals</b>
         <span>Patience</span><b>${Math.ceil(b.patience)}s</b>

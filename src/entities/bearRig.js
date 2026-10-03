@@ -16,6 +16,7 @@ import { VoxelModel, addGrain, shade, mix, linearRGB } from '../core/voxel.js';
 import { mulberry32 } from '../core/rng.js';
 import { BEAR_TYPES } from '../data/bears.js';
 import { BearFace, FACE_REGIONS, FACE_QUADS, FACE_W, FACE_H, FACE_INFO, FACE_EXPRESSIONS } from './bearFace.js';
+import { outfitOf, lookKey } from './bearLook.js'; // [v18 bear looks]
 
 export { FACE_EXPRESSIONS };
 export const VS = 0.625; // world units per model unit (voxel = 0.0625 world units)
@@ -46,6 +47,7 @@ export const EAT_CUES = {
 
 const BLACK = 0x1a1410;
 const SHOE = 0x1e1a1e;
+const PHONE_GLOW = 0x8ae6ff; // [v18 bear looks] emissive phone screen
 
 // ------------------------------------------------------------------ skeleton
 // name, parent, bind position in voxel coordinates (x right, y up, z forward)
@@ -151,8 +153,8 @@ function lookOf(d) {
   const L = { d };
   L.cub = d.scale < 0.7;
   L.boss = !!(d.boss && d.hp);
-  L.outfit = d.outfit || (d.straps ? 'coveralls' : d.vest ? 'hivis' : d.flannel ? 'flannel' : d.hawaiian ? 'hawaiian'
-    : d.suit === d.shirt ? (d.tie ? 'shirt' : 'tshirt') : d.monocle ? 'tux' : 'jacket');
+  L.outfit = outfitOf(d); // [v18 bear looks] shared with bearLook.js
+  L.lk = d.look || null; // procedural look (bearLook.js), null for the classic type look
   // proportions (voxels); defaults are the classic office bear
   const SH = d.shape || {};
   L.T = { cx: 0, cy: 13.6, cz: 0, rx: 7.1, ry: 5.2, rz: 5.1, p: 2.4, taper: 0.42, taperY: 14.6, ...SH.torso };
@@ -169,24 +171,27 @@ function lookOf(d) {
   L.furTuft = lumOf(d.fur) > 0.8 ? 0xffffff : mix(d.fur, d.furLight, 0.35);
   L.innerEar = lumOf(d.fur) > 0.8 ? 0xf2b8c0 : mix(d.furLight, 0xf09aa0, 0.45);
   L.pad = lumOf(d.fur) > 0.8 ? 0xf2a8b4 : mix(d.furLight, 0xe88a98, 0.5);
-  L.nose = lumOf(d.fur) > 0.8 ? 0x1c1418 : 0x24160f;
+  L.nose = L.lk?.face?.nose ?? (lumOf(d.fur) > 0.8 ? 0x1c1418 : 0x24160f);
   L.suit = d.suit;
   L.suitDark = d.suitDark;
   L.shirt = d.shirt;
   L.lapel = d.monocle ? 0x2e2e36 : shade(d.suitDark, 0.92);
-  L.pants = d.hawaiian ? 0xcdb58a : d.flannel ? (d.beard ? 0x24304a : 0x2c3d5e) : d.vest ? 0x3a4c6c : d.straps ? d.suit
+  L.pants = d.pants ?? (d.hawaiian ? 0xcdb58a : d.flannel ? (d.beard ? 0x24304a : 0x2c3d5e) : d.vest ? 0x3a4c6c : d.straps ? d.suit
     : L.outfit === 'shirt' ? 0x3e4660 : L.outfit === 'tshirt' ? d.suitDark
     : L.outfit === 'threepiece' || L.outfit === 'tracksuit' ? d.suit : L.outfit === 'trench' ? 0x34343e
-    : L.outfit === 'cardigan' ? (d.skirt ?? d.suitDark) : L.outfit === 'fur' ? d.fur : d.suitDark;
-  L.shorts = d.hawaiian || L.cub || L.outfit === 'cardigan';
-  L.boots = d.vest || d.flannel;
+    : L.outfit === 'cardigan' ? (d.skirt ?? d.suitDark) : L.outfit === 'fur' ? d.fur : d.suitDark);
+  L.shorts = d.shorts ?? (d.hawaiian || L.cub || L.outfit === 'cardigan');
+  L.boots = d.vest || d.flannel || !!d.boots;
   L.barefoot = L.cub || L.outfit === 'fur';
   L.sandals = d.hawaiian;
-  L.shoe = d.sneakers ?? (L.boots ? (d.beard ? 0x8a5a30 : 0x6a4424) : L.outfit === 'cardigan' ? 0x5a2a34 : SHOE);
-  L.sleeve = d.flannel ? d.suit : d.vest ? d.shirt : d.straps ? mix(d.suit, 0xe8eef4, 0.45) : L.outfit === 'fur' ? d.fur : d.suit;
-  L.shortSleeve = L.outfit === 'shirt' || L.outfit === 'tshirt' || d.hawaiian || d.vest;
-  L.rolled = d.flannel || d.straps;
-  L.cuff = L.outfit === 'jacket' || L.outfit === 'tux' || L.outfit === 'threepiece';
+  L.shoe = d.shoe ?? d.sneakers ?? (L.boots ? (typeof d.boots === 'number' ? d.boots : d.beard ? 0x8a5a30 : 0x6a4424) : L.outfit === 'cardigan' ? 0x5a2a34 : SHOE);
+  L.sleeve = d.sleeve ?? (d.flannel ? d.suit : d.vest ? d.shirt : d.straps ? mix(d.suit, 0xe8eef4, 0.45) : L.outfit === 'fur' ? d.fur : L.outfit === 'argyle' ? d.shirt : d.suit);
+  // [v18 bear looks] sleeves: 'none' (tank top) | 'short' | 'rolled' | 'long'
+  const SL = d.sleeves || (L.outfit === 'tank' ? 'none' : ['apron', 'argyle'].includes(L.outfit) ? 'short' : null);
+  L.sleeveless = SL === 'none';
+  L.shortSleeve = SL ? SL === 'short' || SL === 'none' : L.outfit === 'shirt' || L.outfit === 'tshirt' || d.hawaiian || d.vest;
+  L.rolled = SL ? SL === 'rolled' : d.flannel || d.straps;
+  L.cuff = L.outfit === 'jacket' || L.outfit === 'tux' || L.outfit === 'threepiece' || L.outfit === 'chef';
   L.gold = 0xe8c040;
   L.belly = SH.bellyScale ?? (L.boss ? 1 : L.cub ? 1.04 : d.item === 'cane' ? 1.1 : d.cigar ? 1.12 : L.outfit === 'shirt' ? 0.92 : 1);
   L.headScale = SH.headScale ?? (L.cub ? 1.14 : 1);
@@ -196,6 +201,7 @@ function lookOf(d) {
   if (d.aurora) for (const c of L.aurora) L.glow.add(c);
   if (d.markings) { L.glow.add(d.markings); L.glow.add(shade(d.markings, 0.8)); }
   if (L.boss && d.cigar) L.glow.add(0xff6a20);
+  if (d.item === 'phone') L.glow.add(PHONE_GLOW);
   // per-bear tint channels: 1 = fur, 2 = accessory (see personalize())
   const furSet = new Map();
   for (const c of [L.fur, L.furLight, L.furDark, L.furTuft, d.grizzle, d.grizzle != null ? mix(d.fur, d.grizzle, 0.5) : null]) if (c != null) furSet.set(c, 1);
@@ -296,6 +302,80 @@ function outfitColor(L, x, y, z) {
       if (front && y >= 12 && y < N && ax <= (N - y) * 0.9 + 1) return L.furLight; // chest blaze
       return L.fur;
     }
+    // ---- [v18 bear looks] new outfits
+    case 'apron': {
+      // tee (optionally breton-striped) under a long bib apron with shoulder straps
+      const N = L.neckY;
+      const ap = d.apron ?? 0x2e5a3a;
+      if (front && ax <= 4.6 && y <= N - 2) return y === N - 2 ? shade(ap, 0.86) : ap;
+      if ((ax >= 3 && ax <= 4) && y > N - 3 && z >= -3) return ap; // straps
+      if (!front && (y === 10 || y === 11) && z < -1) return shade(ap, 0.8); // apron strings at the back
+      if (d.stripes && (y + 40) % 2 === 0 && y < N) return d.stripes;
+      return d.suit;
+    }
+    case 'tank': {
+      // tank top: bare shoulders + a scoop neck showing chest fluff
+      const N = L.neckY;
+      if (ax >= 5 && y >= N - 4) return L.fur;
+      if (front && y >= N - 2 && ax <= 3) return L.furLight;
+      if (y <= 8) return shade(d.suit, 0.85);
+      return d.suit;
+    }
+    case 'hoodie': {
+      const N = L.neckY;
+      if (y <= 8) return d.suitDark; // ribbed hem
+      if (front && y >= 8 && y <= 11 && ax <= 4) return ax === 4 || y === 11 ? shade(d.suit, 0.72) : shade(d.suit, 0.88); // kangaroo pocket
+      if (y >= N) return shade(d.suit, 0.9);
+      return d.suit;
+    }
+    case 'western': {
+      // snap shirt with a contrasting pointy yoke, optional open vest
+      const N = L.neckY;
+      if (d.westVest && (ax >= 2.5 || !front) && y <= N - 1 && y >= 8) return ax >= 6 && front ? shade(d.westVest, 0.86) : d.westVest;
+      const yokeY = N - 3 - (front ? Math.max(0, 2 - Math.abs(ax - 3)) : 0);
+      if (y >= yokeY) return d.yoke ?? shade(d.suit, 0.7);
+      if (front && ax === 3 && y === yokeY - 1) return shade(d.yoke ?? d.suit, 0.8); // piping
+      if (d.check && ((Math.floor((x + 40) / 2) + Math.floor((y + 40) / 2)) % 2 === 0)) return d.check;
+      return d.suit;
+    }
+    case 'chef': {
+      // white double-breasted chef jacket: overlap flap + a coloured neckerchief
+      const N = L.neckY;
+      if (y >= N - 1) return d.suitDark; // mandarin collar
+      if (front && x === -2 && y >= 8) return shade(d.suit, 0.86); // flap edge
+      if (y <= 8) return shade(d.suit, 0.94);
+      return d.suit;
+    }
+    case 'pirate': {
+      // long coat (gold trim on the opening) over a white shirt with a frilly jabot
+      const N = L.neckY;
+      const open = (y - 6) * 0.42 + 0.6;
+      if (front && ax <= open && y >= 9) return d.shirt;
+      if (front && ax <= open + 1.1 && y >= 9) return d.trim ?? L.gold;
+      if (y === 10 || y === 11) return y === 11 ? 0x2a1a14 : 0x3a2418; // belt
+      if (y <= 8) return front && ax <= 2.5 ? d.trim ?? L.gold : d.suitDark;
+      if (y >= N) return d.suitDark;
+      return d.suit;
+    }
+    case 'spacesuit': {
+      const N = L.neckY;
+      if (y >= N - 1) return 0xb8bcc4; // neck ring
+      if (y === 12 && !front) return d.stripe ?? 0xf07a20;
+      if (front && y === 9) return d.stripe ?? 0xf07a20; // waist stripe
+      if (front && x === 0 && y >= 10 && y < N - 1) return 0xd0d4dc; // zip
+      if (y <= 8) return shade(d.suit, 0.9);
+      return (x + y + z) % 7 === 0 ? shade(d.suit, 0.95) : d.suit;
+    }
+    case 'argyle': {
+      // argyle sweater vest over a polo: diamonds + thin crossing lines, V-neck showing the collar
+      const N = L.neckY;
+      if (front && y >= N - 3 && ax <= (y - (N - 3.6)) * 0.8) return d.shirt;
+      if (y <= 8) return shade(d.suit, 0.82);
+      const xx = ax > 5.5 ? z : x; // wrap the diamonds round the sides
+      const u = (((xx + y) % 4) + 4) % 4, w = (((xx - y) % 4) + 4) % 4;
+      if ((u === 0 || w === 0) && (xx + y + 40) % 2 === 0) return d.stripe ?? 0xf0e8d0; // dashed crossing lines
+      return (Math.floor((xx + y + 60) / 4) + Math.floor((xx - y + 60) / 4)) % 2 ? d.suitDark : d.suit;
+    }
     case 'shirt':
       return d.shirt;
     case 'tshirt':
@@ -335,6 +415,216 @@ function outfitColor(L, x, y, z) {
     }
   }
   return d.suit;
+}
+
+// ------------------------------------------------------------------ [v18 bear looks] procedural look
+// Fur patterns, face paint and accessory voxels for bears with a procedural
+// look (def.look, see bearLook.js). Everything works in the classic bind-space
+// voxel frame shared by all parts, so one pattern function covers every part.
+const isFurC = (L, c) => c === L.fur || c === L.furDark || c === L.furTuft;
+
+function vnoise3(x, y, z, s) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const h = (a, b, c) => hash3(xi + a, yi + b, zi + c, s);
+  const x00 = lerp(h(0, 0, 0), h(1, 0, 0), u), x10 = lerp(h(0, 1, 0), h(1, 1, 0), u);
+  const x01 = lerp(h(0, 0, 1), h(1, 0, 1), u), x11 = lerp(h(0, 1, 1), h(1, 1, 1), u);
+  return lerp(lerp(x00, x10, v), lerp(x01, x11, v), w);
+}
+
+// chef checks / golf plaid on trousers (type or variant fields)
+function pantsPattern(d, x, y, z, c) {
+  if (d.pantsCheck != null) return (x + y + z + 120) % 2 ? d.pantsCheck : c;
+  if (d.plaid != null) {
+    const a = (x + z + 80) % 4 === 0, b = (y + 40) % 4 === 0;
+    return a && b ? shade(d.plaid, 0.8) : a || b ? d.plaid : c;
+  }
+  return c;
+}
+
+// paint the look's fur pattern over the fur voxels of one part
+function paintFurPattern(model, L, part) {
+  const P = L.lk && L.lk.furPattern;
+  if (!model || !P || !P.kind || P.kind === 'none') return model;
+  const pc = P.color, seed = (L.lk.seed % 9973) | 0, sc = P.scale || 1;
+  const pt = Math.round(L.arm.cy - L.arm.ry + 2.7); // paw top (arms)
+  const ox = (seed % 37) * 0.73, oz = (seed % 53) * 0.41;
+  const head = part === 'head', ear = part === 'earL' || part === 'earR', arm = part === 'armL' || part === 'armR', leg = part === 'legL' || part === 'legR';
+  let fn = null;
+  switch (P.kind) {
+    case 'socks': fn = (x, y) => (arm && y <= pt) || (leg && y <= 3); break;
+    case 'blaze': fn = (x, y, z) => head && ((Math.abs(x) <= (y >= 27 ? 1.6 : 1) && z >= 3 && y >= 21) || (Math.abs(x) <= 1.6 && z >= -2 && y >= 28)); break;
+    case 'patches': fn = (x, y, z) => vnoise3((x + ox) / (3.3 * sc), (y + 0.5) / (3.3 * sc), (z + oz) / (3.3 * sc), seed) > (head ? 0.6 : 0.56); break;
+    case 'twoTone': fn = (x, y, z) => (head ? y >= 28.5 + (z > 3 ? 1 : 0) || z <= -3 : true); break;
+    case 'earTips': fn = (x, y) => ear && y >= 30; break;
+    case 'collar': fn = (x, y, z) => (head && Math.abs(x) >= 2 && z >= 0 && y <= 20.5 + (Math.abs(x) - 2.5) * 0.6) || ((part === 'torso' || part === 'belly') && z >= 2 && y >= L.neckY - 4 - Math.abs(x) * 0.5); break;
+    case 'stripes': fn = (x, y, z) => (head ? (y >= 27 && z >= 1 && ((x + 40) % 3 === 0)) || (Math.abs(x) >= 7 && (y === 21 || y === 23) && z >= 0) : (y + 40) % 3 === 0); break;
+    case 'spots': fn = (x, y, z) => hash3(Math.floor((x + 40) / 2), Math.floor((y + 40) / 2), Math.floor((z + 40) / 2), seed) < 0.14 && hash3(x, y, z, seed + 1) < 0.8; break;
+    case 'tips': fn = (x, y, z) => (head && y >= 29.5) || (ear && y >= 31) || (part === 'tail' && z <= -7); break;
+    case 'panda': fn = (x, y, z) => ear || arm || leg || part === 'tail' || ((part === 'torso' || part === 'belly') && y >= L.neckY - 3); break;
+  }
+  if (!fn) return model;
+  model.paint((x, y, z, c) => (isFurC(L, c) && fn(x, y, z) ? (c === L.furTuft ? mix(pc, 0xffffff, 0.12) : pc) : c));
+  return model;
+}
+
+// face voxels on the head plate: eye patches, brows, freckles, blush, scars, muzzle, nose, moustache
+function lookHead(L, v) {
+  const F = L.lk.face || {};
+  const light = L.furLight, fur = L.fur;
+  const plate = (x, y, c, any = false) => {
+    const z = frontZ(v, x, y, 14, -2);
+    if (z == null) return;
+    const c0 = v.get(x, y, z);
+    if (any || isFurC(L, c0)) v.set(x, y, z, c);
+  };
+  // muzzle shapes
+  if (F.muzzle === 'wide') for (const sx of [-1, 1]) fillSE(v, sx * 3.4, 20.9, 7.4, 2.1, 1.5, 1.8, 2.2, light, (x, y) => y >= 20 && Math.abs(x) >= 2);
+  if (F.muzzle === 'jowly') for (const sx of [-1, 1]) fillSE(v, sx * 6.4, 20.0, 3.8, 2.5, 2.2, 2.5, 2.2, (x, y) => (y <= 19 ? L.furTuft : fur), (x, y, z) => !v.has(x, y, z));
+  if (F.muzzle === 'fluffy') for (const sx of [-1, 1]) {
+    for (const [x, y, z] of [[9, 19, 2], [10, 20, 1], [9, 18, 1], [10, 19, 0], [9, 21, 0], [8, 17, 2]]) v.set(sx * x, y, z, (x + y) % 2 ? L.furTuft : fur);
+  }
+  // nose
+  if (F.noseShape === 'big') { for (let x = -2; x <= 2; x++) v.set(x, 22, 10, L.nose); for (let x = -1; x <= 1; x++) { v.set(x, 21, 10, L.nose); v.set(x, 23, 9, L.nose); } v.set(-1, 23, 9, mix(L.nose, 0xffffff, 0.3)); }
+  else if (F.noseShape === 'round') { for (let x = -1; x <= 1; x++) { v.set(x, 21, 10, L.nose); v.set(x, 22, 10, L.nose); } v.set(-1, 22, 10, mix(L.nose, 0xffffff, 0.3)); }
+  // eye patches (under the transparent face decal)
+  const pcol = F.patchColor ?? shade(fur, 0.45);
+  if (F.eyePatch) {
+    const ell = (cx, cy, rx, ry) => { for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) if (((x - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1) plate(x, y, pcol); };
+    const E = F.eyePatch;
+    if (E === 'both') { ell(-3.3, 25.6, 2.4, 2.1); ell(3.3, 25.6, 2.4, 2.1); }
+    else if (E === 'left') ell(-3.6, 25.4, 3.1, 2.7);
+    else if (E === 'right') ell(3.6, 25.4, 3.1, 2.7);
+    else if (E === 'mask') { for (let x = -7; x <= 7; x++) for (let y = 24; y <= 27; y++) if (!(Math.abs(x) >= 6 && (y === 24 || y === 27))) plate(x, y, pcol); }
+    else if (E === 'panda') for (const sx of [-1, 1]) { ell(sx * 3.5, 25.2, 2.6, 2.4); ell(sx * 4.4, 23.6, 1.5, 1.5); }
+  }
+  // brows
+  if (F.brows) {
+    const bc = F.browColor ?? shade(fur, 0.42);
+    const B2 = {
+      thin: [[2, 28], [3, 28], [4, 28]],
+      bushy: [[1, 28], [2, 28], [3, 28], [4, 28], [5, 28], [2, 29], [3, 29], [4, 29]],
+      angry: [[1, 27], [2, 27], [3, 28], [4, 28], [5, 29]],
+      worried: [[1, 29], [2, 28], [3, 28], [4, 27], [5, 27]],
+      uni: [[0, 28], [1, 28], [2, 28], [3, 28], [4, 28], [5, 28]],
+    }[F.brows] || [];
+    for (const [x, y] of B2) for (const sx of [-1, 1]) plate(sx * x, y, bc);
+  }
+  if (F.freckles) for (const sx of [-1, 1]) for (const [x, y] of [[4, 23], [5, 22], [6, 23]]) plate(sx * x, y, F.freckleColor ?? shade(fur, 0.62));
+  if (F.blush) { const bl = mix(0xf2788e, fur, lumOf(fur) > 0.8 ? 0.1 : 0.32); for (const sx of [-1, 1]) for (const [x, y] of [[5, 22], [6, 22], [5, 23], [6, 23]]) plate(sx * x, y, bl); }
+  if (F.scar === 'nose') for (const [x, y, z] of [[1, 23, 8], [2, 22, 9], [3, 21, 9]]) v.set(x, y, z, 0xe9a6a0);
+  // moustache
+  const hc = F.hairColor ?? shade(fur, 0.6);
+  if (F.stache === 'walrus') { for (let x = -3; x <= 3; x++) v.set(x, 20, 10, (x + 9) % 3 ? hc : shade(hc, 1.15)); for (const sx of [-1, 1]) { v.set(sx * 2, 21, 10, hc); v.set(sx * 3, 19, 10, hc); v.set(sx * 4, 19, 9, hc); v.set(sx * 4, 20, 9, hc); } }
+  else if (F.stache === 'curly') { for (let x = -2; x <= 2; x++) v.set(x, 20, 10, hc); for (const sx of [-1, 1]) { v.set(sx * 3, 20, 10, hc); v.set(sx * 4, 21, 10, hc); v.set(sx * 4, 22, 9, hc); } }
+  else if (F.stache === 'pencil') for (const sx of [-1, 1]) { v.set(sx, 20, 10, hc); v.set(sx * 2, 20, 10, hc); }
+  // accessories on the head
+  for (const a of L.lk.accessories) {
+    const c = a.color;
+    switch (a.kind) {
+      case 'nosering': v.set(-1, 20, 10, c); v.set(1, 20, 10, c); v.set(0, 19, 10, shade(c, 0.85)); break;
+      case 'toothpick': for (let z = 9; z <= 12; z++) v.set(3, 20, z, z === 12 ? 0xf0e0c0 : 0xd8b888); break;
+      case 'wheat': for (let z = 9; z <= 12; z++) v.set(3, 20, z, 0xc8b060); v.set(3, 21, 13, 0xe0c870); v.set(3, 22, 13, 0xe8d080); v.set(3, 21, 12, 0xe0c870); break;
+      case 'lollipop': for (let z = 9; z <= 11; z++) v.set(3, 20, z, 0xffffff); for (const [y, z] of [[20, 12], [21, 12], [20, 13], [21, 13]]) v.set(3, y, z, (y + z) % 2 ? c : 0xffffff); v.set(4, 20, 12, c); v.set(4, 21, 13, c); break;
+      case 'eyepatch':
+        // the strap round the head (the patch itself is drawn on the face decal)
+        v.paint((x, y, z, cc) => (Math.abs(y + 0.5 - (28.6 + 0.26 * x)) < 0.55 && z < 7 && (isFurC(L, cc) || cc === L.furDark) && (!v.has(x, y, z + 1) || !v.has(x + 1, y, z) || !v.has(x - 1, y, z) || !v.has(x, y + 1, z) || !v.has(x, y, z - 1)) ? 0x1a1414 : cc));
+        break;
+    }
+  }
+}
+
+// earrings, studs and ribbon bows on an ear (side -1 = left)
+function lookEar(L, v, side) {
+  for (const a of L.lk.accessories) {
+    if (a.kind !== 'earring' && a.kind !== 'studs' && a.kind !== 'earbow') continue;
+    if (a.side === 'L' && side > 0) continue;
+    if (a.side === 'R' && side < 0) continue;
+    let best = null, bs = -1e9, top = null, ts = -1e9;
+    for (const k of v.vox.keys()) {
+      const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
+      const s1 = side * x * 1.0 - y * 0.8 + z * 0.3;
+      if (s1 > bs) { bs = s1; best = [x, y, z]; }
+      const s2 = y * 2 - side * x * 0.3 + z * 0.2;
+      if (s2 > ts) { ts = s2; top = [x, y, z]; }
+    }
+    if (!best) continue;
+    const [x, y, z] = best, c = a.color;
+    if (a.kind === 'earring') { v.set(x, y - 1, z, c); v.set(x + side, y - 2, z, c); v.set(x, y - 3, z, shade(c, 0.85)); v.set(x - side, y - 2, z, c); }
+    else if (a.kind === 'studs') { v.set(x, y, z + 1, c); v.set(x - side, y + 1, z + 1, mix(c, 0xffffff, 0.3)); }
+    else if (a.kind === 'earbow') {
+      const [tx, ty, tz] = top;
+      v.set(tx, ty + 1, tz + 1, shade(c, 0.8));
+      for (const s of [-1, 1]) { v.set(tx + s, ty + 1, tz + 1, c); v.set(tx + 2 * s, ty + 1, tz + 1, c); v.set(tx + 2 * s, ty + 2, tz + 1, c); v.set(tx + s, ty + 2, tz + 1, mix(c, 0xffffff, 0.25)); v.set(tx + 2 * s, ty, tz + 1, shade(c, 0.85)); }
+    }
+  }
+}
+
+// watch / sweatband on the wrists
+function lookArm(L, v, side, pt) {
+  for (const a of L.lk.accessories) {
+    const mine = (a.kind === 'watch' && side < 0) || (a.kind === 'wristband' && side > 0);
+    if (!mine) continue;
+    const rows = a.kind === 'watch' ? [pt + 1] : [pt + 1, pt + 2];
+    const strap = a.color;
+    for (const y of rows) v.paint((x, yy, z, c) => (yy === y && (!v.has(x + 1, yy, z) || !v.has(x - 1, yy, z) || !v.has(x, yy, z + 1) || !v.has(x, yy, z - 1)) ? (a.kind === 'wristband' && (x + z) % 2 ? shade(strap, 0.88) : strap) : c));
+    if (a.kind === 'watch') {
+      const z = frontZ(v, Math.round(side * 8.3), pt + 1, 14, -6);
+      if (z != null) { v.set(Math.round(side * 8.3), pt + 1, z + 1, 0xf4f4ee); v.set(Math.round(side * 8.3), pt + 2, z, 0xf4f4ee); }
+    }
+  }
+}
+
+// chains, kerchiefs, badges, pins... on the chest (body model before the belly split)
+function lookBodyAcc(L, v, put, surf, N) {
+  const ring = (y, c, c2) => {
+    for (const [k, cc] of [...v.vox]) {
+      const x = (k & 1023) - 512, yy = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
+      if (yy !== y || cc == null) continue;
+      if (!v.has(x + 1, y, z) || !v.has(x - 1, y, z) || !v.has(x, y, z + 1) || !v.has(x, y, z - 1)) v.set(x, y, z, c2 && (x + z) % 3 === 0 ? c2 : c);
+    }
+  };
+  const necklace = (beadA, beadB, drop = 2.2, hw = 4.6) => {
+    for (let x = -4; x <= 4; x++) {
+      const y = N - 2 - Math.round((1 - (x / hw) ** 2) * drop);
+      const z = frontZ(v, x, y);
+      if (z != null) put(x, y, z + 1, x % 2 ? beadA : beadB);
+    }
+  };
+  for (const a of L.lk.accessories) {
+    const c = a.color, c2 = a.color2 ?? shade(c, 0.75);
+    switch (a.kind) {
+      case 'kerchief': {
+        ring(N, c, shade(c, 0.85));
+        for (let j = 0; j <= 3; j++) {
+          const y = N - 1 - j, w = 3 - j;
+          for (let x = -w; x <= w; x++) surf(x, y, (x + y) % 3 === 0 && j < 3 ? 0xf8f4ec : c, 1);
+        }
+        break;
+      }
+      case 'chain': necklace(c, shade(c, 0.8), 2.4); { const y = N - 5, z = frontZ(v, 0, y); if (z != null) { put(0, y, z + 1, c); put(0, y - 1, z + 1, shade(c, 0.85)); put(-1, y, z + 1, shade(c, 0.9)); put(1, y, z + 1, shade(c, 0.9)); } } break;
+      case 'pearls': necklace(c, shade(c, 0.92), 2.2); break;
+      case 'medal': {
+        for (let j = 0; j <= 3; j++) for (const sx of [-1, 1]) surf(sx * (2 - Math.floor(j / 2)), N - 1 - j, c, 1);
+        for (let x = -1; x <= 1; x++) for (let y = N - 7; y <= N - 5; y++) surf(x, y, (x === 0 && y === N - 6) ? 0xfff0a0 : 0xe8c040, 1);
+        break;
+      }
+      case 'neckphones': {
+        ring(N, c);
+        for (const sx of [-1, 1]) for (let y = N - 1; y <= N; y++) for (const dx of [3, 4]) surf(sx * dx, y, dx === 4 ? (a.color2 ?? shade(c, 0.7)) : c, 1);
+        break;
+      }
+      case 'badge': {
+        for (let x = -5; x <= -3; x++) { surf(x, N - 3, c2 === c ? shade(c, 0.7) : c, 1); surf(x, N - 4, 0xf8f8f4, 1); }
+        surf(-4, N - 4, 0x3a3a44, 0); // "HELLO my name is"
+        break;
+      }
+      case 'pin': surf(-4, N - 4, c, 1); surf(-3, N - 4, c, 1); surf(-4, N - 5, shade(c, 0.85), 1); surf(-3, N - 5, 0xffffff, 1); break;
+      case 'flower': surf(-5, N - 2, c, 1); surf(-6, N - 2, c, 1); surf(-5, N - 1, c, 1); surf(-6, N - 1, 0xf8e060, 1); surf(-5, N - 3, 0x3a8a3a, 1); break;
+      case 'star': for (const [x, y] of [[-4, N - 3], [-5, N - 4], [-4, N - 4], [-3, N - 4], [-4, N - 5], [-5, N - 6], [-3, N - 6]]) surf(x, y, c, 1); break;
+    }
+  }
 }
 
 // ------------------------------------------------------------------ parts
@@ -501,6 +791,86 @@ function buildBody(L) {
       for (let y = 7; y <= 11; y++) { const w = (11 - y) * 0.5; surf(-Math.round(w), y, mk2); surf(Math.round(w), y, mk2); }
       break;
     }
+    // ---- [v18 bear looks] new outfit details
+    case 'apron': {
+      // apron pocket with a pen + a little logo, tee collar
+      for (let x = -2; x <= 2; x++) surf(x, 11, shade(d.apron ?? 0x2e5a3a, 0.8));
+      surf(1, 12, 0xd8d8d8, 1); surf(1, 13, 0x2a2a2a, 1);
+      if (d.logo) { surf(-2, 15, d.logo); surf(-1, 15, d.logo); surf(-2, 14, d.logo); surf(-1, 16, 0xffffff); }
+      for (let x = -2; x <= 2; x++) surf(x, N, shade(d.suit, 0.85));
+      break;
+    }
+    case 'tank': {
+      // a bold chest logo
+      const lg = d.logo ?? 0xffffff;
+      for (const [x, y] of [[-1, 15], [0, 15], [1, 15], [-1, 14], [1, 14], [0, 13], [-1, 12], [1, 12], [0, 12]]) surf(x, y, lg);
+      break;
+    }
+    case 'hoodie': {
+      // drawstrings, a chest print, the hood bunched behind the neck
+      for (const sx of [-1, 1]) for (let y = N - 4; y <= N; y++) surf(sx * 2, y, y === N - 4 ? 0xd8d8d8 : 0xf0f0f0, y < N ? 1 : 0);
+      const pr = d.print ?? 0xe8e8e8;
+      const skull = d.printShape === 'moon' ? ['.PPP.', 'PP...', 'P....', 'PP...', '.PPP.'] : d.printShape === 'bat' ? ['P...P', 'PP.PP', 'PPPPP', '.P.P.', '.....'] : ['.PPP.', 'PPPPP', 'P.P.P', 'PPPPP', '.P.P.'];
+      skull.forEach((row, j) => { for (let i = 0; i < 5; i++) if (row[i] === 'P') surf(i - 2, 16 - j, pr); });
+      for (let x = -6; x <= 6; x++)
+        for (let z = -7; z <= 2; z++) {
+          const q = (x / 6.6) ** 2 + ((z + 2) / 5.2) ** 2;
+          if (q > 1 || q < 0.45 || (z > 0 && Math.abs(x) < 4)) continue;
+          for (let y = N; y <= N + 2 - (z > -1 ? 1 : 0); y++) if (!v.has(x, y, z)) put(x, y, z, y === N + 2 ? shade(d.suit, 0.85) : d.suit);
+        }
+      break;
+    }
+    case 'western': {
+      // pearl snaps, pocket flaps, a bolo tie
+      for (let y = 9; y <= N - 4; y += 2) surf(0, y, 0xf4f0e6, 1);
+      for (const sx of [-1, 1]) for (let i = 2; i <= 4; i++) surf(sx * i, N - 5, shade(d.yoke ?? d.suit, 0.75));
+      if (d.bolo) { surf(0, N - 1, d.bolo, 1); surf(-1, N - 2, 0x3a2a1a, 1); surf(1, N - 2, 0x3a2a1a, 1); surf(-1, N - 3, 0x3a2a1a, 1); surf(1, N - 3, 0x3a2a1a, 1); }
+      break;
+    }
+    case 'chef': {
+      // two columns of cloth buttons, a neckerchief knot, the name stitched on
+      for (const bx of [-4, 2]) for (let y = 9; y <= N - 3; y += 2) surf(bx, y, 0xd8d4c8, 1);
+      const nk = d.kerchief ?? 0xd83a32;
+      for (let x = -2; x <= 2; x++) surf(x, N - 1, nk, 1);
+      surf(0, N - 2, nk, 1); surf(-1, N - 2, shade(nk, 0.8), 1); surf(1, N - 2, shade(nk, 0.8), 1); surf(0, N - 3, nk, 1);
+      for (let x = 3; x <= 5; x++) surf(x, N - 4, 0x3a6ad0);
+      break;
+    }
+    case 'pirate': {
+      // gold buttons on the coat fronts, a frilly jabot, a belt buckle, epaulettes
+      const tr = d.trim ?? L.gold;
+      for (const sx of [-1, 1]) for (let y = 12; y <= N - 2; y += 2) surf(sx * Math.round((y - 6) * 0.42 + 2.6), y, tr, 1);
+      for (let y = N - 4; y <= N - 1; y++) { surf(0, y, 0xffffff, 1); if (y % 2) { surf(-1, y, 0xf0ece4, 1); surf(1, y, 0xf0ece4, 1); } }
+      surf(0, 10, 0xe8c040, 1); surf(0, 11, 0xe8c040, 1); surf(-1, 11, 0xc8a030, 1); surf(1, 10, 0xc8a030, 1);
+      for (const sx of [-1, 1]) for (let x = 4; x <= 7; x++) {
+        let top = null;
+        for (let y = 26; y >= 10; y--) if (v.has(sx * x, y, 0)) { top = y; break; }
+        if (top != null) { put(sx * x, top + 1, 0, tr); put(sx * x, top + 1, 1, tr); put(sx * x, top + 1, -1, tr); }
+      }
+      break;
+    }
+    case 'spacesuit': {
+      // chest control box with buttons, a mission patch, a flag on the shoulder
+      for (let x = -2; x <= 2; x++) for (let y = 12; y <= 14; y++) surf(x, y, y === 14 ? 0x6a6e78 : 0x8a8e98, 1);
+      surf(-1, 13, 0xe83a3a, 2); surf(0, 13, 0x3ad06a, 2); surf(1, 13, 0x3a8ae8, 2); surf(-1, 12, 0xf2c230, 2);
+      const pc = d.patch ?? 0x2a4ab0;
+      for (const [x, y] of [[4, 16], [5, 16], [3, 15], [4, 15], [5, 15], [6, 15], [4, 14], [5, 14]]) surf(x, y, (x === 4 && y === 15) ? 0xffffff : (x === 5 && y === 15) ? 0xe83a3a : pc);
+      for (const [x, y] of [[-5, 16], [-6, 16], [-5, 15], [-6, 15]]) surf(x, y, y === 16 ? 0xe83a3a : 0xffffff);
+      // chunky neck ring
+      for (let x = -6; x <= 6; x++)
+        for (let z = -6; z <= 6; z++) {
+          const q = (x / 5.8) ** 2 + ((z + 0.3) / 5.0) ** 2;
+          if (q > 1 || q < 0.6) continue;
+          put(x, N + 1, z, (x + z) % 3 ? 0xc8ccd4 : 0x9ea2aa);
+        }
+      break;
+    }
+    case 'argyle': {
+      // polo collar points + a tiny embroidered logo
+      for (const sx of [-1, 1]) { surf(sx, N, d.shirt, 1); surf(sx * 2, N, d.shirt, 1); surf(sx * 2, N - 1, d.shirt); }
+      surf(4, 15, d.logo ?? 0x2a8a4a);
+      break;
+    }
     case 'hawaiian': {
       // open collar showing chest fluff
       for (let y = 14; y <= 18; y++) {
@@ -532,6 +902,8 @@ function buildBody(L) {
     for (let x = -5; x <= 5; x++) { const z = frontZ(v, x, N); if (z != null) put(x, N, z + 1, x % 2 ? d.scarf : shade(d.scarf, 0.88)); }
   }
 
+  if (L.lk) lookBodyAcc(L, v, put, surf, N); // [v18 bear looks] chains, badges, kerchiefs...
+
   // split: belly = front bulge (jiggles), torso = the rest
   const torso = new VoxelModel(), belly = new VoxelModel();
   for (const [k, c] of v.vox) {
@@ -553,12 +925,13 @@ function buildPelvis(L) {
     let c = y <= 6 ? shade(pants, 0.92) : pants;
     if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 4 === 0) c = d.pinstripe;
     if (L.outfit === 'tracksuit' && Math.abs(x) >= prx - 1.2) c = d.stripe;
+    c = pantsPattern(d, x, y, z, c); // [v18 bear looks] checks / plaid
     return c;
   });
-  const belted = ['shirt', 'tshirt', 'hivis', 'flannel', 'hawaiian'].includes(L.outfit);
-  if (L.outfit === 'trench' || L.outfit === 'cardigan') {
+  const belted = ['shirt', 'tshirt', 'hivis', 'flannel', 'hawaiian', 'western', 'tank'].includes(L.outfit);
+  if (L.outfit === 'trench' || L.outfit === 'cardigan' || L.outfit === 'pirate') {
     // long coat skirt / A-line skirt, flaring out
-    const coat = L.outfit === 'trench';
+    const coat = L.outfit === 'trench' || L.outfit === 'pirate';
     const c0 = coat ? d.suit : L.pants;
     const yb = coat ? 2 : 4;
     for (let y = yb; y <= 10; y++) {
@@ -570,8 +943,9 @@ function buildPelvis(L) {
           if (q > 1) continue;
           if (coat && y <= 7 && x === 0 && z > 0) continue; // front slit
           if (coat && y <= 5 && x === 0 && z < 0) continue; // back vent
-          let c = y === yb ? shade(c0, 0.8) : c0;
-          if (coat && x === 2 && z > 0 && y > yb) c = shade(c0, 0.72);
+          let c = y === yb ? (L.outfit === 'pirate' ? d.trim ?? L.gold : shade(c0, 0.8)) : c0;
+          if (coat && x === 2 && z > 0 && y > yb && L.outfit !== 'pirate') c = shade(c0, 0.72);
+          if (L.outfit === 'pirate' && z > 0 && Math.abs(x) === 1 && y <= 7) c = d.trim ?? L.gold;
           if (!coat && y === yb + 1) c = shade(c0, 1.25); // a lighter trim band
           v.set(x, y, z, c);
         }
@@ -580,9 +954,11 @@ function buildPelvis(L) {
   if (belted) {
     // belt with a buckle
     const belt = d.flannel ? 0x4a2a14 : d.vest ? 0x5a3a1a : 0x2a1e1a;
-    v.paint((x, y, z, c) => (y === 10 ? belt : c));
+    v.paint((x, y, z, c) => (y === 10 ? (d.belt ?? belt) : c));
     const z = frontZ(v, 0, 10);
-    if (z != null) { v.set(0, 10, z + 1, d.flannel ? 0xd8b040 : 0xc8c8c8); v.set(-1, 10, z + 1, d.flannel ? 0xd8b040 : 0xa8a8a8); v.set(1, 10, z + 1, d.flannel ? 0xd8b040 : 0xa8a8a8); }
+    const bk = d.buckle ?? (d.flannel ? 0xd8b040 : null);
+    if (z != null) { v.set(0, 10, z + 1, bk ?? 0xc8c8c8); v.set(-1, 10, z + 1, bk ?? 0xa8a8a8); v.set(1, 10, z + 1, bk ?? 0xa8a8a8); }
+    if (z != null && d.buckle) { v.set(-1, 9, z + 1, bk); v.set(0, 9, z + 1, bk); v.set(1, 9, z + 1, bk); v.set(0, 9, z + 2, mix(bk, 0xffffff, 0.4)); } // a big rodeo buckle
     if (d.vest) {
       // tool belt: a hammer and a tape measure
       for (let y = 5; y <= 10; y++) v.set(6, y, 1, 0x8a5a2a);
@@ -598,6 +974,16 @@ function buildPelvis(L) {
           if (y <= 4 && i >= 3) continue;
           v.set(sx * i, y, -5 - (y < 6 ? 1 : 0), y === 3 ? 0x0a0a0c : d.suit);
         }
+  }
+  if (L.outfit === 'apron') {
+    // [v18 bear looks] the apron hangs down over the trousers
+    const ap = d.apron ?? 0x2e5a3a;
+    for (let y = 3; y <= 10; y++)
+      for (let x = -4; x <= 4; x++) {
+        const z0 = frontZ(v, x, Math.max(y, 7));
+        if (z0 == null) continue;
+        v.set(x, y, z0 + (y < 7 ? 0 : 1), Math.abs(x) === 4 || y === 3 ? shade(ap, 0.84) : ap);
+      }
   }
   if (L.outfit === 'coveralls') {
     // back pocket rag
@@ -618,7 +1004,7 @@ function buildLeg(L, side) {
     if (y === 2) return shade(pants, 0.85);
     if (L.outfit === 'threepiece' && d.pinstripe && (x + z + 60) % 4 === 0) return d.pinstripe;
     if (L.outfit === 'tracksuit' && side * (x - cx) >= lrx - 0.9 && (z === 0 || z === -1)) return d.stripe;
-    return pants;
+    return pantsPattern(d, x, y, z, pants);
   }, (x, y) => y >= 2);
   // foot / shoe with a rounded toe
   const shoe = L.barefoot || L.sandals ? fur : L.shoe;
@@ -664,13 +1050,16 @@ function buildArm(L, side) {
   const sleeveEnd = (L.shortSleeve ? 13 : L.rolled ? 11 : 10) + pd;
   const mk = d.markings;
   fillSE(v, cx, A.cy, cz, A.rx, A.ry, A.rz, 2.4, (x, y, z) => {
-    if (y < pt) return fur; // paw
+    if (y < pt) return d.gloves ?? fur; // paw
+    if (L.sleeveless) return fur; // [v18 bear looks] tank tops
     if (y < sleeveEnd) return fur; // forearm fur (short / rolled sleeves)
     if (L.outfit === 'fur') return mk && (y === pt + 1 || y === pt + 3 || (y === pt + 6 && side * (x - cx) > 0)) ? (y === pt + 3 ? shade(mk, 0.8) : mk) : fur;
     if (L.cuff && y === pt) return 0xffffff;
     if (L.rolled && y === pt + 1) return d.flannel ? d.suitDark : shade(L.sleeve, 0.85);
     if ((L.outfit === 'tracksuit' || L.outfit === 'cardigan') && y === pt) return shade(d.suit, 0.8);
     if (L.outfit === 'trench' && y === pt + 1) return shade(d.suit, 0.66);
+    if (L.outfit === 'pirate' && y <= pt + 1) return y === pt ? d.trim ?? L.gold : d.suitDark; // big turned-back cuffs
+    if (L.outfit === 'spacesuit' && y === pt) return 0xb8bcc4; // glove ring
     let c = L.sleeve;
     if (L.outfit === 'tracksuit' && side * (x - cx) >= A.rx - 0.7) c = d.stripe;
     if (L.outfit === 'cardigan' && (y + 40) % 2 === 0) c = shade(d.suit, 0.92);
@@ -706,6 +1095,7 @@ function buildArm(L, side) {
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) v.set(x, y, z, y === y0 || y === y1 ? shade(d.armband, 0.85) : d.armband);
     L.band = { x0: x0 - 0.5, x1: x1 + 0.5, z0: z0 - 0.5, z1: z1 + 0.5, y0, y1: y1 + 1 };
   }
+  if (L.lk) lookArm(L, v, side, pt); // [v18 bear looks]
   return v;
 }
 
@@ -749,14 +1139,15 @@ function buildHead(L) {
   if (temple) {
     for (const sx of [-1, 1]) { for (let z = -1; z <= 5; z++) v.set(sx * 9, 25, z, temple); v.set(sx * 8, 25, 6, temple); v.set(sx * 7, 25, 7, temple); }
   }
-  if (d.monocle) {
-    for (const [x, y, z] of [[5, 23, 8], [6, 22, 8], [6, 21, 8], [7, 20, 7], [7, 19, 6], [8, 18, 5]]) v.set(x, y, z, d.monocle);
+  const mono = d.monocle ?? d.monocleAcc; // [v18 bear looks] monocle accessory (never turns the suit into a tux)
+  if (mono) {
+    for (const [x, y, z] of [[5, 23, 8], [6, 22, 8], [6, 21, 8], [7, 20, 7], [7, 19, 6], [8, 18, 5]]) v.set(x, y, z, mono);
   }
   if (d.cigar) {
     for (let z = 9; z <= 12; z++) v.set(3, 20, z, z === 12 ? 0x9a9a9a : 0x7a4a22);
     v.set(3, 20, 13, 0xff6a20); v.set(3, 20, 10, 0xc8a040);
   }
-  if (d.scarf) {
+  if (d.scarf && (d.critic || !L.lk)) {
     // pencil tucked behind the ear
     for (let z = -2; z <= 4; z++) v.set(9, 26, z, z === 4 ? 0x2a2a2a : z === 3 ? 0xe8c890 : z === -2 ? 0xf08a9a : 0xf2c230);
   }
@@ -800,6 +1191,7 @@ function buildHead(L) {
     v.set(0, 30, 1, L.furTuft); v.set(1, 31, 1, L.furTuft); v.set(-1, 30, 2, fur); v.set(1, 30, 0, fur);
     if (d.markings) { v.set(0, 29, 6, d.markings); v.set(0, 30, 5, d.markings); v.set(-1, 29, 6, shade(d.markings, 0.8)); v.set(1, 29, 6, shade(d.markings, 0.8)); }
   }
+  if (L.lk) lookHead(L, v); // [v18 bear looks]
   return v;
 }
 
@@ -847,11 +1239,12 @@ function buildEar(L, side) {
         const inner = z >= cz + 0.6 && Math.abs(lx) <= 1.4 && ly <= 1.2 && ly >= -1.9;
         v.set(x, y, z, inner ? L.d.markings ?? L.innerEar : L.fur);
       }
-  if (L.d.scar && side < 0) { v.set(Math.round(cx - 1), 32, 0, null); v.set(Math.round(cx - 1), 32, -1, null); v.set(Math.round(cx - 1), 31, 0, null); } // torn ear
+  if ((L.d.scar || L.lk?.face?.scar === 'ear') && side < 0) { v.set(Math.round(cx - 1), 32, 0, null); v.set(Math.round(cx - 1), 32, -1, null); v.set(Math.round(cx - 1), 31, 0, null); } // torn ear
   // fuzzy tuft on the rim
   v.set(Math.round(cx - side * 0.2), 32, 0, L.furTuft);
   v.set(Math.round(cx - side * 1.3), 32, -1, L.furTuft);
   v.set(Math.round(cx + side * 1.0), 32, -1, L.fur);
+  if (L.lk) lookEar(L, v, side); // [v18 bear looks]
   return v;
 }
 
@@ -958,6 +1351,160 @@ function buildHat(L) {
       v.set(0, 32, 0, 0x9a9a9a); v.set(0, 33, 0, 0x9a9a9a);
       top = 35;
       break;
+    // ---- [v18 bear looks] more hats (type hats + look accessories)
+    case 'bucket': {
+      const hc2 = d.hatColor2 ?? shade(hc, 0.75);
+      disk(29, 7.9, 7.5, (x, z, q) => (q > 0.78 ? shade(hc, 0.9) : hc));
+      for (const [k] of [...v.vox]) { const x = (k & 1023) - 512, z = ((k >> 20) & 1023) - 512; if (((x / 8.25) ** 2 + ((z - 0.3) / 7.85) ** 2) > 0.8) { v.vox.delete(k); v.set(x, 28, z, shade(hc, 0.86)); } }
+      for (let y = 30; y <= 32; y++) disk(y, 5.4, 5.0, y === 30 ? hc2 : (y === 32 ? shade(hc, 1.08) : hc));
+      top = 33;
+      break;
+    }
+    case 'visor': {
+      for (let y = 28; y <= 29; y++)
+        for (let x = -10; x <= 10; x++)
+          for (let z = -9; z <= 10; z++) {
+            const q = se(x, y + 0.5, z, 0, 23.5, 0.3, 8.4, 6.5, 6.8, 2.5);
+            const plate = Math.abs(x) <= 6 && z >= 0 && z <= 8 && y <= 28;
+            if (q <= 1 && !plate) continue;
+            if (plate && (z !== 8 || y === 28)) continue; // a thin band over the brow keeps the face clear
+            if (!plate && q > 1.22) continue;
+            v.set(x, y, z, hc);
+          }
+      const br = d.hatColor2 ?? shade(hc, 0.8);
+      for (let x = -5; x <= 5; x++) for (let z = 8; z <= 11; z++) { if (Math.abs(x) >= 4 && z >= 10) continue; v.set(x, 29, z, z === 8 ? shade(br, 0.8) : (x + z) % 4 === 0 ? mix(br, 0xffffff, 0.25) : br); }
+      top = 31;
+      break;
+    }
+    case 'backcap': {
+      const hc2 = d.hatColor2 ?? 0xf0f0f0;
+      fillSE(v, 0, 29.2, 0.2, 7.2, 3.0, 6.9, 2.3, (x, y) => (y === 29 ? shade(hc, 0.85) : hc), (x, y) => y >= 29);
+      for (let x = -4; x <= 4; x++) for (let z = -10; z <= -6; z++) { if (Math.abs(x) === 4 && z <= -9) continue; v.set(x, 29, z, shade(hc, 0.78)); }
+      v.set(0, 32, 0, shade(hc, 0.7));
+      v.set(-1, 30, -7, hc2); v.set(0, 30, -7, null); v.set(1, 30, -7, hc2); // strap gap
+      for (const [x, y] of [[-1, 31], [0, 31], [1, 31], [0, 30]]) v.set(x, y, 7, hc2); // front logo
+      top = 33;
+      break;
+    }
+    case 'cowboy': {
+      const hc2 = d.hatColor2 ?? shade(hc, 0.55);
+      disk(30, 8.6, 7.8, (x, z, q) => (q > 0.8 ? shade(hc, 0.88) : hc));
+      for (const [k, c] of [...v.vox]) {
+        const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
+        if (Math.abs(x) >= 7) { v.vox.delete(k); v.set(x, y + (Math.abs(x) >= 8 ? 2 : 1), z, c); } // curled-up sides
+      }
+      for (let y = 31; y <= 35; y++) disk(y, y === 35 ? 3.6 : 4.4, y === 35 ? 3.0 : 3.8, y === 31 ? hc2 : y === 35 ? shade(hc, 1.1) : hc);
+      for (let z = -3; z <= 2; z++) v.set(0, 35, z, null); // crease
+      v.set(-3, 35, 2, null); v.set(3, 35, 2, null); v.set(-3, 34, 3, null); v.set(3, 34, 3, null); // front pinch
+      top = 36;
+      break;
+    }
+    case 'flatcap': {
+      fillSE(v, 0, 29.0, 1.2, 7.6, 2.5, 7.6, 2.2, (x, y, z) => ((x + z + 80) % 3 === 0 ? shade(hc, 0.86) : (y === 29 ? shade(hc, 0.9) : hc)), (x, y) => y >= 29);
+      for (let x = -4; x <= 4; x++) for (let z = 8; z <= 10; z++) { if (Math.abs(x) === 4 && z === 10) continue; v.set(x, 29, z, shade(hc, 0.8)); }
+      v.set(0, 31, 7, shade(hc, 0.7));
+      top = 32;
+      break;
+    }
+    case 'party': {
+      const hc2 = d.hatColor2 ?? 0xffffff;
+      for (let y = 30; y <= 37; y++) { const rr = 3.3 * (37.5 - y) / 7.5 + 0.2; disk(y, rr, rr, (x, z) => ((y + (x > 0 ? 1 : 0)) % 3 === 0 ? hc2 : hc), (y - 30) * 0.18, 0.3); }
+      for (const [x, y, z] of [[1, 38, 0], [2, 38, 0], [1, 39, 0], [2, 38, 1], [1, 38, 1]]) v.set(x, y, z, (x + y + z) % 2 ? 0xfff0a0 : hc2);
+      top = 39.5;
+      break;
+    }
+    case 'flowers': {
+      const cols = [hc, d.hatColor2 ?? 0xffffff, 0xf8e060, hc, 0xe85a8a];
+      let i = 0;
+      for (let x = -10; x <= 10; x++)
+        for (let z = -9; z <= 10; z++) {
+          const y = 29;
+          const q = se(x, y + 0.5, z, 0, 23.5, 0.3, 8.4, 6.5, 6.8, 2.5);
+          const plate = Math.abs(x) <= 6 && z === 8 && y <= 28;
+          if (!(q > 1 && q <= 1.25) && !plate) continue;
+          const h = hash3(x, y, z, 21);
+          if (h < 0.42) { const c = cols[(i++) % cols.length]; v.set(x, y, z, c); if (h < 0.2) v.set(x, y + 1, z, c); if (h < 0.08) v.set(x, y, z, 0xf8e060); }
+          else v.set(x, y, z, h < 0.7 ? 0x3a8a3a : 0x2a6a2a);
+        }
+      top = 31;
+      break;
+    }
+    case 'headphones': {
+      const hc2 = d.hatColor2 ?? shade(hc, 0.6);
+      for (let i = 0; i <= 40; i++) {
+        const t = (i / 40) * Math.PI;
+        const x = Math.round(Math.cos(t) * 9.0), y = Math.round(24.2 + Math.sin(t) * 6.8);
+        v.set(x, y, -3, hc); v.set(x, y, -2, hc);
+      }
+      for (const sx of [-1, 1])
+        for (let y = 22; y <= 25; y++)
+          for (let z = -4; z <= 0; z++) {
+            if ((y === 22 || y === 25) && (z === -4 || z === 0)) continue;
+            v.set(sx * 9, y, z, 0x2a2a30); v.set(sx * 10, y, z, (y === 23 || y === 24) && z >= -3 && z <= -1 ? hc2 : hc);
+          }
+      top = 32.5;
+      break;
+    }
+    case 'bandana': {
+      const hc2 = d.hatColor2 ?? 0xffffff;
+      fillSE(v, 0, 28.6, -0.1, 8.7, 4.0, 7.3, 2.4, (x, y, z) => (hash3(x, y, z, 4) < 0.14 ? hc2 : y === 28 ? shade(hc, 0.86) : hc), (x, y, z) => y >= 28 && !(z >= 5 && y <= 28));
+      for (const [x, y, z] of [[0, 29, -8], [1, 29, -8], [0, 28, -8], [-1, 27, -8], [-1, 26, -8], [1, 27, -8], [2, 26, -8], [2, 25, -8]]) v.set(x, y, z, shade(hc, 0.9));
+      top = 32.5;
+      break;
+    }
+    case 'crown': {
+      for (let x = -4; x <= 4; x++)
+        for (let z = -4; z <= 5; z++) {
+          const q = (x / 4.2) ** 2 + ((z - 0.3) / 4.2) ** 2;
+          if (q > 1 || q < 0.55) continue;
+          v.set(x, 30, z, hc); v.set(x, 31, z, shade(hc, 0.9));
+          if ((x + z + 40) % 3 === 0) v.set(x, 32, z, hc);
+        }
+      v.set(0, 31, 4, 0xe83a5a); v.set(-3, 31, 3, 0x3ab0e8); v.set(3, 31, 3, 0x3ad070);
+      top = 33;
+      break;
+    }
+    case 'chef': {
+      for (let y = 29; y <= 31; y++) disk(y, 6.4, 6.0, y === 29 ? 0xe8e8e2 : 0xf8f8f4);
+      fillSE(v, 0, 34.4, 0.3, 6.8, 3.4, 6.4, 2.0, (x, y, z) => (y <= 32 && (x + z + 80) % 3 === 0 ? 0xe4e4dc : (x + y) % 5 === 0 ? 0xf0f0ea : 0xffffff), (x, y) => y >= 32);
+      top = 38;
+      break;
+    }
+    case 'tricorn': {
+      const tr = d.hatColor2 ?? L.gold;
+      disk(30, 7.2, 6.8, hc);
+      for (const [k] of [...v.vox]) {
+        const x = (k & 1023) - 512, z = ((k >> 20) & 1023) - 512;
+        const q = (x / 7.55) ** 2 + ((z - 0.3) / 7.15) ** 2;
+        if (q < 0.55) continue;
+        // three corners: front, back-left, back-right stay low; the rims between fold up
+        const a = Math.atan2(x, z - 0.3);
+        const corner = Math.min(Math.abs(wrapA(a)), Math.abs(wrapA(a - 2.1)), Math.abs(wrapA(a + 2.1)));
+        if (corner < 0.4) continue;
+        v.set(x, 31, z, hc); v.set(x, 32, z, q > 0.82 ? tr : hc);
+      }
+      for (let y = 31; y <= 33; y++) disk(y, 3.8, 3.6, y === 33 ? shade(hc, 1.15) : hc);
+      for (const [x, y] of [[-1, 32], [1, 32], [0, 31], [-1, 31], [1, 31]]) v.set(x, y, 5, 0xf4f0e6); // skull
+      v.set(0, 32, 5, 0x1a1a1a);
+      top = 34;
+      break;
+    }
+    case 'hood': {
+      // [v18] hoodie hood up: a shell round the head with the face (and ears) poking out
+      for (let x = -11; x <= 11; x++)
+        for (let y = 17; y <= 33; y++)
+          for (let z = -9; z <= 9; z++) {
+            const q = se(x, y + 0.5, z, 0, 23.8, 0.0, 9.6, 7.6, 7.9, 2.4);
+            if (q > 1 || se(x, y + 0.5, z, 0, 23.5, 0.3, 8.6, 6.7, 7.0, 2.5) <= 1) continue;
+            const face = z >= 1 && ((x / 7.6) ** 2 + ((y + 0.5 - 23.4) / 6.4) ** 2) <= 1;
+            if (face) continue;
+            const earHole = Math.abs(Math.abs(x) - 6.9) <= 2.2 && y >= 27 && z >= -2.5 && z <= 1;
+            if (earHole) continue;
+            v.set(x, y, z, (z >= 1 && ((x / 8.3) ** 2 + ((y + 0.5 - 23.4) / 7.1) ** 2) <= 1) ? shade(hc, 0.8) : hc);
+          }
+      top = 33;
+      break;
+    }
     default:
       top = 32.4;
   }
@@ -1194,6 +1741,69 @@ function buildItem(L, item) {
       for (let y = 3; y <= 4; y++) for (let x = x0 - 1; x <= x0 + 1; x++) v.set(x, y, 4, (x === x0 && y === 4) ? 0x9ad0f0 : 0x5a6a80);
       v.set(x0, 3, 5, 0x3a4a60); v.set(x0, 4, 5, 0x6a9ac0);
       v.set(x0 + 1, 6, 0, 0xf0f0f0); v.set(x0 - 1, 5, 2, 0xd83a3a);
+      break;
+    }
+    // ---- [v18 bear looks] items for the new types
+    case 'cup': {
+      // latte on a saucer, with a heart in the foam
+      mode = 'level';
+      for (let x = x0 - 2; x <= x0 + 2; x++) for (let z = 1; z <= 5; z++) if (!((Math.abs(x - x0) === 2) && (z === 1 || z === 5))) v.set(x, 7, z, 0xf4f4ee);
+      for (let y = 8; y <= 10; y++) for (let x = x0 - 1; x <= x0 + 1; x++) for (let z = 2; z <= 4; z++) v.set(x, y, z, y === 10 ? 0xc89060 : 0xffffff);
+      v.set(x0, 10, 3, 0xfff4e4); v.set(x0, 10, 4, 0xfff4e4);
+      v.set(x0 + 2, 9, 3, 0xffffff); v.set(x0 + 2, 8, 3, 0xffffff);
+      break;
+    }
+    case 'dumbbell': {
+      mode = 'level';
+      for (let z = -1; z <= 5; z++) v.set(x0, 8, z, 0x9a9aa4);
+      for (const zc of [-2, 6]) for (let y = 6; y <= 10; y++) for (let x = x0 - 2; x <= x0 + 2; x++) { if (Math.abs(x - x0) === 2 && (y === 6 || y === 10)) continue; v.set(x, y, zc, (x + y) % 3 ? 0x2a2a30 : 0x3a3a44); v.set(x, y, zc + (zc < 0 ? -1 : 1), 0x2a2a30); }
+      break;
+    }
+    case 'phone': {
+      // a glowing phone, held up to scroll
+      v.box(x0 - 1, 8, 2, x0 - 1, 12, 4, 0x1a1a22);
+      v.box(x0, 8, 2, x0, 12, 4, (x, y, z) => (y === 12 || y === 8 ? 0x1a1a22 : PHONE_GLOW));
+      v.set(x0, 11, 3, 0xffffff);
+      break;
+    }
+    case 'lasso': {
+      mode = 'hang';
+      for (let i = 0; i < 28; i++) {
+        const a = (i / 28) * Math.PI * 2;
+        v.set(x0, Math.round(3.6 + Math.sin(a) * 3.2), Math.round(1 + Math.cos(a) * 3.2), i % 3 ? 0xc8a060 : 0xa88048);
+        v.set(x0 + 1, Math.round(3.2 + Math.sin(a) * 2.6), Math.round(1.6 + Math.cos(a) * 2.6), 0xb89050);
+      }
+      for (let y = 7; y <= 8; y++) v.set(x0, y, 1, 0xc8a060);
+      break;
+    }
+    case 'ladle': {
+      mode = 'level';
+      for (let y = 7; y <= 14; y++) v.set(x0, y, 3, y <= 8 ? 0x2a2a2a : 0xc8ccd4);
+      for (let x = x0 - 1; x <= x0 + 1; x++) for (let z = 2; z <= 5; z++) for (let y = 15; y <= 16; y++) { if (y === 16 && Math.abs(x - x0) < 1 && z > 2 && z < 5) { v.set(x, y, z, 0xd87a3a); continue; } v.set(x, y, z, 0xd8dce4); }
+      break;
+    }
+    case 'spyglass': {
+      for (let z = -1; z <= 9; z++) {
+        const r = z <= 2 ? 1 : z <= 6 ? 1 : 0;
+        for (let x = x0 - r; x <= x0 + r; x++) for (let y = 8 - r; y <= 8 + r; y++) {
+          if (r && Math.abs(x - x0) === 1 && Math.abs(y - 8) === 1) continue;
+          v.set(x, y, z, z === 2 || z === 6 ? 0xe8c040 : z <= 2 ? 0x6a3a1a : 0xc8a040);
+        }
+      }
+      v.set(x0, 8, 10, 0x9ad0f0);
+      break;
+    }
+    case 'helmet': {
+      // fishbowl space helmet, carried under the arm
+      mode = 'hang';
+      fillSE(v, x0, 3.2, 1.4, 3.6, 3.6, 3.6, 2.0, (x, y, z) => (y <= 0 ? 0xb8bcc4 : z >= 4 && y >= 2 && y <= 4 && Math.abs(x - x0) <= 2 ? (y === 4 && x === x0 - 1 ? 0xbfe8ff : 0x2a3450) : 0xf2f2f4));
+      for (let y = 6; y <= 8; y++) v.set(x0, y, 1, 0xb8bcc4);
+      break;
+    }
+    case 'golfclub': {
+      mode = 'level';
+      for (let y = 0; y <= 11; y++) v.set(x0, y, 3, y >= 9 ? 0x1a1a1a : 0xd0d4dc);
+      v.box(x0 - 1, 0, 3, x0, 1, 6, (x, y, z) => (z === 6 ? 0x3a3a44 : 0x4a4a54));
       break;
     }
   }
@@ -1482,9 +2092,33 @@ function grizzle(model, L, seed) {
   return model;
 }
 
+// [v18 bear looks] per-look geometries: refcounted by the rigs using them, the
+// unused ones are dropped (oldest first) once there are more than LOOK_CACHE_MAX.
+const lookGeoCache = new Map();
+const LOOK_CACHE_MAX = 64;
+function disposeGeo(g) {
+  g.geo.dispose(); g.glowGeo?.dispose(); g.faceGeo?.dispose();
+  if (g.kit) for (const k of ['top', 'inner', 'bot', 'pucker', 'cheek', 'lump', 'napkin', 'fork', 'knife']) g.kit[k]?.dispose?.();
+}
+export function pruneBearLookCache(max = LOOK_CACHE_MAX) {
+  if (lookGeoCache.size <= max) return;
+  for (const [k, g] of lookGeoCache) {
+    if (lookGeoCache.size <= max) break;
+    if (g.refs > 0) continue;
+    lookGeoCache.delete(k);
+    disposeGeo(g);
+  }
+}
+export function bearLookCacheSize() { return lookGeoCache.size; }
+const PART_OF = [null, 'pelvis', 'torso', 'belly', 'head', 'earL', 'earR', 'armL', 'armR', 'legL', 'legR', 'tail'];
+
 export function bearRigGeometry(typeId, def) {
-  let g = geoCache.get(typeId);
-  if (g) return g;
+  const lk = def.look ? typeId + '#' + lookKey(def.look) : null;
+  let g = lk ? lookGeoCache.get(lk) : geoCache.get(typeId);
+  if (g) {
+    if (lk) { lookGeoCache.delete(lk); lookGeoCache.set(lk, g); } // most recently used last
+    return g;
+  }
   const L = lookOf(def);
   const shaped = !!def.shape;
   const A = L.arm;
@@ -1503,7 +2137,7 @@ export function bearRigGeometry(typeId, def) {
   const sh = (b) => [bind[b].x - BIND[b].x, bind[b].y - BIND[b].y, bind[b].z - BIND[b].z];
   const hatInfo = buildHat(L);
   const item = def.item ? buildItem(L, def.item) : null;
-  const gz = (m, i) => grizzle(m, L, i);
+  const gz = (m, i) => grizzle(L.lk ? paintFurPattern(m, L, PART_OF[i]) : m, L, i);
   const parts = [
     { name: 'pelvis', bone: B.hips, model: gz(buildPelvis(L), 1) },
     { name: 'torso', bone: B.spine, model: gz(body.torso, 2) },
@@ -1536,12 +2170,13 @@ export function bearRigGeometry(typeId, def) {
   const bs = bb.getBoundingSphere(new THREE.Sphere());
   const shapedFace = shaped && (sh(B.head).some((v) => v !== 0) || L.band);
   g = {
+    key: lk || typeId, lookKey: lk, refs: 0, kit: null,
     geo, glowGeo, look: L, bind, hatTop: hatInfo.top, itemMode: item ? item.mode : 'none',
     tris: geo.index.count / 3 + (glowGeo ? glowGeo.index.count / 3 : 0),
     faceGeo: shapedFace ? faceGeometry(L, bind) : null,
     bounds: { box: bb, sphere: bs },
   };
-  geoCache.set(typeId, g);
+  if (lk) { lookGeoCache.set(lk, g); pruneBearLookCache(); } else geoCache.set(typeId, g);
   return g;
 }
 
@@ -1573,8 +2208,8 @@ function bodyFrontZ(L, x, y) {
   return null;
 }
 
-function eatKitGeometry(typeId, L) {
-  let G = kitCache.get(typeId);
+function eatKitGeometry(typeId, L, owner = null) {
+  let G = owner ? owner.kit : kitCache.get(typeId);
   if (G) return G;
   const d = L.d;
   const fur = L.fur, light = L.furLight;
@@ -1694,7 +2329,7 @@ function eatKitGeometry(typeId, L) {
     napkin: geo(nap), fork: geo(fork), knife: geo(knife),
     path, pawY, forkTip: [fx, pawY, fz + 9.6],
   };
-  kitCache.set(typeId, G);
+  if (owner) owner.kit = G; else kitCache.set(typeId, G);
   return G;
 }
 
@@ -3049,7 +3684,10 @@ export class BearRig {
     this.typeId = typeId;
     this.def = def;
     const G = bearRigGeometry(typeId, def);
+    this.G = G;
+    G.refs = (G.refs || 0) + 1; // [v18 bear looks] keeps a per-look geometry alive
     this.look = G.look;
+    this.lookData = def.look || null;
     this.tris = G.tris;
     this.itemName = def.item || null;
     this.itemMode = G.itemMode;
@@ -3097,10 +3735,12 @@ export class BearRig {
     // face
     const boss = G.look.boss;
     this.isBoss = boss;
+    const LF = def.look?.face || {}; // [v18 bear looks]
     this.face = new BearFace({
-      fur: def.fur, furLight: def.furLight, cub: G.look.cub, glasses: def.glasses, shades: def.shades, monocle: def.monocle,
-      boss, glow: boss ? def.glow ?? 0xff3030 : null, scar: def.scar, halfmoon: def.halfmoon, icy: def.icy, markings: def.markings,
+      fur: def.fur, furLight: def.furLight, cub: G.look.cub, glasses: def.glasses, shades: def.shades, monocle: def.monocle ?? def.monocleAcc,
+      boss, glow: boss ? def.glow ?? 0xff3030 : null, scar: def.scar || LF.scar === 'eye', halfmoon: def.halfmoon, icy: def.icy, markings: def.markings,
       band: def.armband ? 'SECURITY' : null, goldTooth: boss && !!def.cigar,
+      iris: LF.iris, iris2: LF.iris2, eyepatch: def.look?.accessories?.some((a) => a.kind === 'eyepatch') || def.eyepatch,
     });
     this.faceMat = new THREE.MeshLambertMaterial({ map: this.face.texture, transparent: true, alphaTest: 0.5 });
     if (this.face.glowTexture) { this.faceMat.emissiveMap = this.face.glowTexture; this.faceMat.emissive.setRGB(1, 1, 1); }
@@ -3257,10 +3897,12 @@ export class BearRig {
     if (!this.ownMat) this.ownMat = addTint(addGrain(new THREE.MeshLambertMaterial({ vertexColors: true })));
     this.ownMat.color.setRGB(k * (1 + warm), k, k * (1 - warm));
     // fur tone (lighter / darker, warmer / cooler) and a new accessory colour (hue spin)
-    const tone = boss ? 0.97 + r() * 0.06 : 0.86 + r() * 0.24, fw = (r() - 0.5) * (boss ? 0.04 : 0.16);
+    // [v18 bear looks] a procedural look already picked the fur + accessory colours: only a whisper of tint
+    const lk = !!this.lookData;
+    const tone = boss || lk ? 0.97 + r() * 0.06 : 0.86 + r() * 0.24, fw = (r() - 0.5) * (boss || lk ? 0.04 : 0.16);
     this.ownMat.userData.tint.uFur.value.setRGB(tone * (1 + fw), tone * (1 + fw * 0.2), tone * (1 - fw * 1.2));
     const hr = r();
-    this.ownMat.userData.tint.uHue.value = boss || hr < 0.25 ? 0 : (hr - 0.25) / 0.75 * Math.PI * 2;
+    this.ownMat.userData.tint.uHue.value = boss || lk || hr < 0.25 ? 0 : (hr - 0.25) / 0.75 * Math.PI * 2;
     const P = this.P;
     P.size = boss ? 0.97 + r() * 0.06 : 0.92 + r() * 0.16;
     P.chub = 0.93 + r() * 0.17;
@@ -3362,6 +4004,7 @@ export class BearRig {
     this.aura?.dispose();
     this.ownMat?.dispose();
     this.skeleton.dispose();
+    if (this.G) { this.G.refs--; if (this.G.lookKey) pruneBearLookCache(); this.G = null; } // [v18 bear looks]
   }
 
   // ---------------------------------------------------------------- pose
@@ -3516,7 +4159,7 @@ export class BearRig {
   // lazily build this bear's eat-kit meshes (shared geometry per type, the bear's own material)
   _kit() {
     if (this._eatKit) return this._eatKit;
-    const G = eatKitGeometry(this.typeId, this.look);
+    const G = eatKitGeometry(this.typeId, this.look, this.G.lookKey ? this.G : null);
     const bones = this.bones;
     const mk = (geo, bone, x, y, z, ref = BIND) => {
       const m = new THREE.Mesh(geo, this.body.material);

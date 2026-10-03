@@ -1,42 +1,11 @@
 // Procedural pixel-art effect sprites (drawn once into a small atlas):
 // droplets, cartoon blood, splats, hearts, stars, sparkles, coins, dust puffs,
 // smoke, a cartoon "fight cloud", leaves, feathers, bubbles, shell bits,
-// planks, plus chunky comic words ("CHOMP!", "YUMMY!", "POW!"...) set in a
-// tiny built-in 5x7 pixel font with a thick outline.
-
-const FONT = {
-  A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
-  B: ['####.', '#...#', '####.', '#...#', '#...#', '#...#', '####.'],
-  C: ['.###.', '#...#', '#....', '#....', '#....', '#...#', '.###.'],
-  D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
-  E: ['#####', '#....', '####.', '#....', '#....', '#....', '#####'],
-  G: ['.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'],
-  H: ['#...#', '#...#', '#####', '#...#', '#...#', '#...#', '#...#'],
-  I: ['###', '.#.', '.#.', '.#.', '.#.', '.#.', '###'],
-  K: ['#...#', '#..#.', '###..', '#..#.', '#...#', '#...#', '#...#'],
-  L: ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
-  M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'],
-  N: ['#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#', '#...#'],
-  O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
-  P: ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
-  R: ['####.', '#...#', '#...#', '####.', '#..#.', '#...#', '#...#'],
-  S: ['.####', '#....', '.###.', '....#', '....#', '#...#', '.###.'],
-  T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
-  U: ['#...#', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
-  V: ['#...#', '#...#', '#...#', '#...#', '.#.#.', '.#.#.', '..#..'],
-  W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'],
-  F: ['#####', '#....', '####.', '#....', '#....', '#....', '#....'],
-  X: ['#...#', '.#.#.', '..#..', '..#..', '.#.#.', '#...#', '#...#'],
-  J: ['..###', '...#.', '...#.', '...#.', '#..#.', '#..#.', '.##..'],
-  Q: ['.###.', '#...#', '#...#', '#...#', '#.#.#', '#..#.', '.##.#'],
-  Y: ['#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..'],
-  Z: ['#####', '....#', '...#.', '..#..', '.#...', '#....', '#####'],
-  '!': ['#', '#', '#', '#', '#', '.', '#'],
-  '?': ['.###.', '#...#', '...#.', '..#..', '..#..', '.....', '..#..'],
-  '$': ['.#.', '###', '#..', '###', '..#', '###', '.#.'],
-  '+': ['.....', '..#..', '..#..', '#####', '..#..', '..#..', '.....'],
-  ' ': ['..', '..', '..', '..', '..', '..', '..'],
-};
+// planks, plus chunky comic words ("CHOMP!", "YUMMY!", "POW!"...) set in the
+// game font, TBME Goofy (src/ui/goofyText.js), with a thick ink outline. The
+// words are drawn at the font's full 14 px caps, twice the old 7 px font's
+// detail; particles size frames by height, so they stay the same size in the world.
+import { comicWordSize, paintComicWord } from '../ui/goofyText.js';
 
 export const COMIC_WORDS = {
   chomp: { text: 'CHOMP!', fill: '#fff4d0', shade: '#ffb84a', ink: '#5a1e10' },
@@ -74,7 +43,7 @@ let cache = null;
 
 export function buildFxAtlas() {
   if (cache) return cache;
-  const W = 256, H = 256;
+  const W = 512, H = 512; // the TBME Goofy comic words need the room
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d', { willReadFrequently: true });
@@ -217,27 +186,11 @@ export function buildFxAtlas() {
     '...aaaaa.',
   ], { a: '#8a1a1a', b: '#e8402a', c: '#e8e0c8', w: '#ffffff' }, '#3a0a0a');
 
-  // --- comic words
+  // --- comic words (TBME Goofy, 2 px ink outline + 1 px drop)
   for (const [id, w] of Object.entries(COMIC_WORDS)) {
-    const glyphs = [...w.text].map((ch) => FONT[ch] || FONT[' ']);
-    const gw = glyphs.reduce((s, g) => s + g[0].length + 1, -1);
-    const gh = 7;
-    const r = alloc(gw + 4, gh + 4);
-    // thick ink outline
-    ctx.fillStyle = w.ink;
-    let x0 = r.x + 2;
-    for (const g of glyphs) {
-      for (let y = 0; y < gh; y++) for (let x = 0; x < g[0].length; x++) if (g[y][x] === '#') ctx.fillRect(x0 + x - 1, r.y + 2 + y - 1, 3, 4);
-      x0 += g[0].length + 1;
-    }
-    x0 = r.x + 2;
-    for (const g of glyphs) {
-      for (let y = 0; y < gh; y++) for (let x = 0; x < g[0].length; x++) if (g[y][x] === '#') {
-        ctx.fillStyle = y < 3 ? w.fill : w.shade;
-        ctx.fillRect(x0 + x, r.y + 2 + y, 1, 1);
-      }
-      x0 += g[0].length + 1;
-    }
+    const sz = comicWordSize(w.text, { pad: 2, drop: 1 });
+    const r = alloc(sz.w, sz.h);
+    paintComicWord(ctx, r.x, r.y, w.text, { fill: w.fill, shade: w.shade, ink: w.ink, pad: 2, drop: 1 });
     frames['word_' + id] = [r];
   }
   cache = { canvas: cv, frames };

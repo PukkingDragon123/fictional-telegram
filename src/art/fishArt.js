@@ -2432,7 +2432,7 @@ export function _debugSlots(id, frame = 0, fry = false, scale = 8) {
     const k = 0.55 + B.tone[i] * 0.12;
     g.fillStyle = `rgb(${c[0] * k | 0},${c[1] * k | 0},${c[2] * k | 0})`;
     g.fillRect(x * scale, y * scale, scale, scale);
-    g.fillStyle = 'rgba(0,0,0,0.7)'; g.font = `${scale * 0.5}px monospace`;
+    g.fillStyle = 'rgba(0,0,0,0.7)'; g.font = `${scale * 0.5}px 'TBME Body', monospace`;
     g.fillText(String(B.tone[i]), x * scale + 2, y * scale + scale * 0.7);
   }
   return cv;

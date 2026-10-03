@@ -2,15 +2,7 @@
    Plain CSS gives the base look; src/ui/frames.js (when present) swaps in
    9-slice pixel-art frames for the same elements via injected rules. */
 
-/* Digits from Silkscreen (Pixelify's 5 looks like an S) */
-@font-face {
-  font-family: 'TBME Digits';
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
-  unicode-range: U+0030-0039;
-}
+/* Fonts: src/ui/fonts.css (TBME Goofy everywhere, imported first by main.js). */
 :root {
   --bg: #1d2a1f;
   --parch: #f3e2b8;
@@ -38,8 +30,8 @@
   --warn: #c07a10;
   --muted: #7a5c40;
   --text: #3b2414;
-  --font: 'TBME Digits', 'Pixelify Sans', 'Trebuchet MS', system-ui, sans-serif;
-  --font2: 'Silkscreen', 'Pixelify Sans', monospace;
+  --font: var(--font-body, 'TBME Body'), sans-serif;
+  --font2: var(--font-title, 'TBME Title'), sans-serif;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
@@ -388,8 +380,8 @@ body.lab-trans .hud, body.lab-trans .toolbar, body.lab-trans .eggtray, body.lab-
 body.cine .cclock-vignette { opacity: 0 !important; }
 
 /* ================================================================ v3 */
-/* new pixel fonts (m5x7 / m6x11plus by Daniel Linssen) */
-:root { --font: var(--font-body, 'Pixelify Sans'), 'Pixelify Sans', sans-serif; --font2: var(--font-title, 'Pixelify Sans'), 'Pixelify Sans', sans-serif; }
+/* the game font (fonts.css): --font = body text, --font2 = titles / numbers */
+:root { --font: var(--font-body), sans-serif; --font2: var(--font-title), sans-serif; }
 html, body { font-size: 16px; -webkit-font-smoothing: antialiased; }
 
 /* progressive UI: tools and HUD pieces only exist once unlocked */
