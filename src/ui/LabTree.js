@@ -1009,7 +1009,7 @@ export class LabTree {
       const P = this._pinch;
       const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
       const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
-      const z = clamp(P.cam.z * (d / P.d0), MINZ, MAXZ);
+      const z = clamp(P.cam.z * (d / P.d0), this._minZ(), MAXZ);
       const wx = (P.mx - P.cam.x) / P.cam.z, wy = (P.my - P.cam.y) / P.cam.z;
       this.cam.z = z;
       this.cam.x = mx - wx * z;
@@ -1087,7 +1087,7 @@ export class LabTree {
   }
 
   _zoomAt(sx, sy, f) {
-    const z0 = this.cam.z, z = clamp(z0 * f, MINZ, MAXZ);
+    const z0 = this.cam.z, z = clamp(z0 * f, this._minZ(), MAXZ);
     if (z === z0) return;
     this.cam.x = sx - (sx - this.cam.x) * (z / z0);
     this.cam.y = sy - (sy - this.cam.y) * (z / z0);
@@ -1097,7 +1097,7 @@ export class LabTree {
 
   _zoomBy(f) {
     const vw = this.view.clientWidth, vh = this._visibleH();
-    const z = clamp(this.cam.z * f, MINZ, MAXZ);
+    const z = clamp(this.cam.z * f, this._minZ(), MAXZ);
     const wx = (vw / 2 - this.cam.x) / this.cam.z, wy = (vh / 2 - this.cam.y) / this.cam.z;
     this._goTo({ x: vw / 2 - wx * z, y: vh / 2 - wy * z, z });
   }
@@ -1174,6 +1174,12 @@ export class LabTree {
     this._applyCam();
   }
 
+  // zoom-out limit: enough to see the whole tree (but never below 0.1)
+  _minZ() {
+    const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500;
+    return clamp(Math.min((vw - 60) / this.W, (vh - 60) / this.H), 0.1, MINZ);
+  }
+
   _visibleH() {
     const v = this.view;
     if (this._compact && this._sheetOpen) return Math.max(120, v.clientHeight - this.$det.offsetHeight);
@@ -1194,6 +1200,7 @@ export class LabTree {
     const c = this._clampCam(this.cam);
     this.world.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
     this.root.classList.toggle('is-far', c.z < 0.58);
+    this.root.classList.toggle('is-vfar', c.z < 0.3);
     this.root.style.setProperty('--lt-z', c.z.toFixed(3));
     // sticky branch tabs
     const vh = this.view.clientHeight;
@@ -1206,6 +1213,7 @@ export class LabTree {
       B.tab.style.display = vis ? '' : 'none';
       if (!vis) continue;
       const y = clamp(top + 2, 2, bot - th - 2);
+      B.tab.classList.toggle('is-stuck', y > top + 3);
       B.tab.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
     }
     if (this.$tip.classList.contains('is-on') && this._tipNode) this._placeTip(this._tipNode);
@@ -1220,7 +1228,7 @@ export class LabTree {
   _fitRect(x0, y0, x1, y1, maxZ = 1) {
     const vw = this.view.clientWidth, vh = this._visibleH();
     const pad = 30;
-    const z = clamp(Math.min((vw - pad * 2) / (x1 - x0), (vh - pad * 2) / (y1 - y0), maxZ), MINZ, MAXZ);
+    const z = clamp(Math.min((vw - pad * 2) / (x1 - x0), (vh - pad * 2) / (y1 - y0), maxZ), this._minZ(), MAXZ);
     this._goTo({ z, x: vw / 2 - ((x0 + x1) / 2) * z, y: vh / 2 - ((y0 + y1) / 2) * z });
   }
 

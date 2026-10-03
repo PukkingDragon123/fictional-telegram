@@ -594,3 +594,8 @@ button.lt-slotc { cursor: pointer; }
 /* zoomed far out: branch tabs shrink to their icon */
 .ltree.is-far .lt-tab { padding: 0 4px; }
 .ltree.is-far .lt-tab span { display: none; }
+.lt-tab.is-stuck { opacity: .6; }
+.lt-tab.is-stuck:hover { opacity: 1; }
+.lt-tab.is-stuck.is-dim { opacity: .25; }
+/* overview zoom: a map of coloured dots */
+.ltree.is-vfar .lt-badge, .ltree.is-vfar .lt-ret i { display: none; }
