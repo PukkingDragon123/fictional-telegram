@@ -201,6 +201,8 @@ export class FoxNotifier {
         if (this._talkT <= 0) { this._talkT = 0; this._applyMood(); }
       }
       this._hideT -= dt;
+      // stay up while his speech bubble is still on screen
+      if (this._hideT <= 0 && this.holdWhile?.()) this._hideT = 0.2;
       if (this._hideT <= 0) this.hide({ wave: true });
     }
     this.rig.update(dt);

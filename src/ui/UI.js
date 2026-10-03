@@ -277,6 +277,7 @@ export class UI {
     const FN = C('FoxNotifier');
     if (FN?.FoxNotifier) {
       try { this.notifier = new FN.FoxNotifier(document.body, { sfx, babble: (t) => game.audio.babble?.('fox', t, { volume: 0.3 }) }); } catch (e) { console.warn('FoxNotifier failed', e); }
+      if (this.notifier) this.notifier.holdWhile = () => this.foxTalking();
     }
     const H = C('Hud');
     if (H?.Hud) {
@@ -428,6 +429,9 @@ export class UI {
     this.toastRaw(esc(text));
     return { done: Promise.resolve(), close() {}, setText() {} };
   }
+
+  // is the corner fox's speech bubble still up?
+  foxTalking() { return !!this.bubbles?.list?.some((b) => b.key === 'notify' && !b.closing); }
 
   // Reynard climbs into the corner and tells you something
   notify(text, mood = 'info', { dur } = {}) {
@@ -637,6 +641,9 @@ export class UI {
     else this.dispCoins += (target - this.dispCoins) * Math.min(1, dt * 8);
     if (this.hudc) this.hudc.set({ coins: Math.round(st.coins), rating: game.isOpen('rating') ? st.rating : null, charm: game.charmPct() });
     else this.setText('h-coinv', fmt(Math.round(this.dispCoins)));
+    // while the corner fox talks, he and his bubble sit above any open panel
+    const talk = this.foxTalking();
+    if (talk !== this._fnTalk) { this._fnTalk = talk; document.body.classList.toggle('fn-talk', talk); }
     this.hudT = (this.hudT || 0) - dt;
     if (this.hudT <= 0) {
       this.hudT = 0.5;

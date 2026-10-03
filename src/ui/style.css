@@ -565,5 +565,7 @@ body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none
 .bcontract button:disabled { opacity: .5; cursor: default; }
 .bcontract.bye { opacity: 0; transition: opacity .25s; }
 @keyframes bc-in { from { opacity: 0; scale: .6; } }
-body.qn-open .fox-notifier { visibility: hidden; }
+body.qn-open:not(.fn-talk) .fox-notifier { visibility: hidden; }
+body.fn-talk .fox-notifier { z-index: 506 !important; }
+body.fn-talk .bb-layer { z-index: 505; }
 .parceltag { animation: none; }
