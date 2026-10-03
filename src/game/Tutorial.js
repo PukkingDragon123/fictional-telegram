@@ -338,11 +338,38 @@ export class Tutorial {
     await this.teach('Fish: done! Now we <b>BUILD</b>. Class!', { dur: 2.2, mood: 'excited' });
     await this.lesson('builder');
 
+    // ---- the LAB: nothing gets built until it's been researched
+    await this.teach('Workers first: <b>BEAVERS!</b> ...which we must <b>research</b> first. To my <b>LAB</b>!', { wait: true, mood: 'shout' });
+    game.unlockFeature('lab');
+    (game.state.tips ||= {}).lodge = true; // the tour teaches the lodge itself
+    game.researchBoost = TUT_RESEARCH_BOOST; // short timers while the tour runs (reset in run())
+    await this.enterLab();
+    const beaversDone = this.until('research', (r) => r?.id === 'r_beavers');
+    await this.teach('My <b>research tree</b>! Every building, plant and fish starts <b>right here</b>.', { wait: true, mood: 'excited' });
+    await this.teach('This one: <b>Hire Beavers</b>!', { target: 'sel:' + LAB_SEL.node('r_beavers'), circle: true, wait: true, mood: 'happy' });
+    try { this.labTree()?.select?.('r_beavers'); } catch { /* ignore */ }
+    await wait(0.4);
+    await this.teach('Research is <b>FREE</b>! No coins. It just takes <b>TIME</b>.', { target: 'sel:' + LAB_SEL.go, wait: true, mood: 'happy' });
+    this.teach('Tap <b>RESEARCH</b>!', { target: 'sel:' + LAB_SEL.go, circle: true, dur: 5, mood: 'excited' });
+    this.nag(() => 'Tap RESEARCH on Hire Beavers!');
+    await this.guideResearch('r_beavers', { until: 'start' });
+    this.stopNag();
+    if (!game.state.research.includes('r_beavers')) {
+      await this.teach('It\'s on the <b>BENCH</b>. One project per bench. More benches come later!', { target: 'sel:' + LAB_SEL.bench, wait: true, mood: 'happy' });
+      if (!game.state.research.includes('r_beavers')) await this.teach('Greyed-out stuff? Some needs a <b>NEIGHBOUR</b>. Meet them and more of the tree opens up!', { wait: true, mood: 'scheming' });
+    }
+    await this.guideResearch('r_beavers');
+    await beaversDone;
+    game.audio.play('fanfare', { volume: 0.5 });
+    await this.teach('DING! <b>BEAVERS: INVENTED!</b> Science is beautiful.', { wait: true, mood: 'excited' });
+    await this.teach('Back to the pond! The <b>flask</b> button brings you back here anytime.', { dur: 3, mood: 'happy' });
+    await this.leaveLab();
+    await wait(0.4);
+
     // ---- beavers: order a crew, place the lodge
-    await this.teach('Workers first: <b>BEAVERS!</b>', { dur: 2.5, mood: 'shout' });
     this.force('ebuy', { ebuyFocus: 'item_lodge' });
     stop = this.pointAt('tool:ebuy');
-    this.teach('Order a <b>BEAVER CREW</b> on e-Buy!', { target: 'tool:ebuy', circle: true, dur: 5, mood: 'excited' });
+    this.teach('Researched = for sale! Order a <b>BEAVER CREW</b> on e-Buy!', { target: 'tool:ebuy', circle: true, dur: 5, mood: 'excited' });
     this.nag(() => 'Tap e-Buy! Beaver crew!');
     await this.until('ordered', (o) => o.items.some((it) => it.type === 'lodge'));
     this.stopNag();
@@ -363,14 +390,15 @@ export class Tutorial {
     game.state.beaverCredit = 0; // the signing bonus goes on the snack bar lesson instead
     await wait(0.8);
 
-    // ---- the beavers' snack bar (they build it for free)
-    await this.teach('Beavers only work when <b>PAID</b>. In food! First: their <b>Snack Bar</b>.', { wait: true, mood: 'scheming' });
+    // ---- the beavers' snack bar: research it, then they build it for free
+    await this.teach('Beavers only work when <b>PAID</b>. In food! They need a <b>Snack Bar</b>.', { wait: true, mood: 'scheming' });
+    await this.researchLesson('r_snackbar', 'Research the <b>Beaver Snack Bar</b> in the lab!', 'Lab ▸ Beaver Snack Bar ▸ RESEARCH!');
     const inv = (game.state.inventory ||= {});
-    inv.beaverbar = (inv.beaverbar || 0) + 1;
+    inv.beaverbar = (inv.beaverbar || 0) + 1; // a starter kit, on the house (only once it's researched)
     game.emit('inventory', inv);
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'beaverbar', free: true } });
     stop = this.pointAt('tool:build');
-    this.teach('Place the <b>Beaver Snack Bar</b> on land near the lodge!', { target: 'tool:build', dur: 5 });
+    this.teach('Researched! First one\'s on me. Place the <b>Snack Bar</b> on land near the lodge!', { target: 'tool:build', dur: 5 });
     this.nag(() => 'Build ▸ place the Beaver Snack Bar on land!');
     await this.until('built', (s) => s.type === 'beaverbar');
     this.stopNag();
@@ -381,7 +409,9 @@ export class Tutorial {
     await this.waitFor(() => bar()?.built);
     await this.teach('Built for free! (Beavers are not dumb.)', { target: () => this.structScreen(bar()), dur: 3, mood: 'happy' });
 
-    // ---- lesson 4: plants & food, then grow + harvest carrots
+    // ---- lesson 4: plants & food: research carrots, then grow + harvest them
+    await this.teach('Beavers eat <b>carrots</b>. We need <b>seeds</b>!', { dur: 2.5, mood: 'happy' });
+    await this.researchLesson('r_carrot', 'Research <b>Carrot Seeds</b> in the lab!', 'Lab ▸ Carrot Seeds ▸ RESEARCH!');
     inv.carrot = (inv.carrot || 0) + 2;
     game.emit('inventory', inv);
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'carrot', free: true } });
@@ -423,11 +453,12 @@ export class Tutorial {
 
     // ---- a home for the logs: the Wood Garage
     await this.teach('Trees give <b>LOGS</b>! Logs need a home: the <b>Wood Garage</b>.', { wait: true, mood: 'excited' });
+    await this.researchLesson('r_woodgarage', 'Research the <b>Wood Garage</b> in the lab!', 'Lab ▸ Wood Garage ▸ RESEARCH!');
     (game.state.inventory ||= {}).woodgarage = (game.state.inventory.woodgarage || 0) + 1;
     game.emit('inventory', game.state.inventory);
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'woodgarage', free: true } });
     stop = this.pointAt('tool:build');
-    this.teach('Place the <b>Wood Garage</b> on your land!', { target: 'tool:build', dur: 5 });
+    this.teach('On the house again! Place the <b>Wood Garage</b> on your land!', { target: 'tool:build', dur: 5 });
     this.nag(() => 'Build ▸ place the Wood Garage on land!');
     if (!game.structures.list.some((q) => q.type === 'woodgarage' && !q.removed)) await this.until('built', (q) => q?.type === 'woodgarage');
     this.stopNag();

@@ -43,8 +43,8 @@ function loadFish() {
 // ---------------------------------------------------------------- layout
 const NODE = 64; // node slot size (32 art px at 2x)
 const COLW = 168; // column pitch
-const ROWH = 158; // lane pitch
-const NODE_DY = 66; // node centre below the lane top
+const ROWH = 170; // lane pitch
+const NODE_DY = 80; // node centre below the lane top
 const LANE_DY = 4; // horizontal pipe lane below the lane top
 const PADL = 44;
 const PADT = 12;
@@ -1349,7 +1349,7 @@ export class LabTree {
       : '<li class="is-none"><span class="lt-unl-t"><b>Know-how</b><small>Opens up the next research</small></span></li>';
     // time
     if (this._timed() && n.time) {
-      this.$time.innerHTML = `${G_CLOCK}<b>${fmtDur(n.time)}</b><span class="lt-free">FREE</span><small>game time: runs while the pond is open</small>`;
+      this.$time.innerHTML = `${G_CLOCK}<b>${fmtDur(n.time)}</b><span class="lt-free">FREE</span><small>in-game time, starts as soon as you click</small>`;
     } else this.$time.innerHTML = '<b>Instant</b><span class="lt-free">FREE</span>';
     // requirements
     let reqs = '';
