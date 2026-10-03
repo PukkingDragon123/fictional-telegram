@@ -13,10 +13,13 @@ import * as THREE from 'three';
 //   the clock. Day 1 is a building day: bears start on day 2.
 import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { STRUCTURES } from '../data/structures.js';
+import { COMBINED_LESSONS } from './lessonsCombined.js';
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const clsMods = import.meta.glob('./Classroom.js', { eager: true });
 const Classroom = clsMods['./Classroom.js']?.Classroom || null;
+// the short tutorial's three combined lessons join the classroom's book
+if (clsMods['./Classroom.js']?.LESSONS) Object.assign(clsMods['./Classroom.js'].LESSONS, COMBINED_LESSONS);
 const teachMods = import.meta.glob('../ui/TeacherOverlay.js', { eager: true });
 const TeacherOverlay = teachMods['../ui/TeacherOverlay.js']?.TeacherOverlay || null;
 
@@ -246,8 +249,8 @@ export class Tutorial {
     await wait(1.6);
     await this.teach('Behold! The pond! ...It\'s <b>empty</b>. Quick class first!', { wait: true, mood: 'excited' });
 
-    // ---- lesson 1: a fish's condition
-    await this.lesson('condition');
+    // ---- lesson 1: pond life (fish, feeding & breeding in one short class)
+    await this.lesson('pondlife');
 
     // ---- buy the first two fish
     game.unlockFeature('coins');
@@ -290,8 +293,7 @@ export class Tutorial {
     this.teach('♥ Full bellies! <b>Ready for love.</b>', { target: () => this.fishScreen(two[1]), dur: 2.2, mood: 'excited' });
     await wait(1.6);
 
-    // ---- lesson 2: fish life (love, eggs, genes & mutations in one go), then watch it happen
-    await this.lesson('fishlife');
+    // ---- now watch it happen (the class already covered love & eggs)
     this.getTeacher();
     for (const f of two) { f.loveT = Math.min(f.loveT, 1); f.fed = Math.max(f.fed, 1); }
     game.rig.lookAt((two[0].x + two[1].x) / 2, (two[0].z + two[1].z) / 2);
@@ -334,7 +336,7 @@ export class Tutorial {
 
     // ---- lesson 3: building (and who does the heavy lifting)
     await this.teach('Fish: done! Now we <b>BUILD</b>. Class!', { dur: 2.2, mood: 'excited' });
-    await this.lesson('build');
+    await this.lesson('builder');
 
     // ---- beavers: order a crew, place the lodge
     await this.teach('Workers first: <b>BEAVERS!</b>', { dur: 2.5, mood: 'shout' });
@@ -380,8 +382,6 @@ export class Tutorial {
     await this.teach('Built for free! (Beavers are not dumb.)', { target: () => this.structScreen(bar()), dur: 3, mood: 'happy' });
 
     // ---- lesson 4: plants & food, then grow + harvest carrots
-    await this.lesson('plants');
-    await this.lesson('foods');
     inv.carrot = (inv.carrot || 0) + 2;
     game.emit('inventory', inv);
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type: 'carrot', free: true } });
@@ -454,8 +454,7 @@ export class Tutorial {
 
     // ---- lessons: bears & stars
     await this.teach('Last class: our <b>customers</b>...', { dur: 2.2, mood: 'scared' });
-    await this.lesson('bears');
-    await this.lesson('stars');
+    await this.lesson('customers');
 
     // ---- the clock (bears come tomorrow), with a peek up the mountain
     game.unlockFeature('clock');
@@ -591,10 +590,13 @@ export class Tutorial {
 }
 
 // older classroom builds: compose new lessons from the ones that exist
-const LESSON_FALLBACK = { fishlife: ['breeding'], build: [], bears: [], stars: [] };
+const LESSON_FALLBACK = { fishlife: ['breeding'], build: [], bears: [], stars: [], pondlife: ['condition', 'breeding'], builder: ['plants'], customers: [] };
 
 // if the classroom can't load, the fox explains in a few bubbles instead
 const FALLBACK_LESSONS = {
+  pondlife: ['Feed fish with the Food tool. Well fed boy ♂ + girl ♀ = a date, eggs... then YOU tap to hatch!'],
+  builder: ['Beavers build big stuff, but only when PAID in food. Plant seeds, harvest, pay them!'],
+  customers: ['Bears come at 5 to eat fish. Tag your best DO NOT EAT. Hungry bears RAMPAGE!'],
   fishlife: ['Fed boy ♂ + girl ♀ = a date, eggs, dad fertilizes, YOU tap to hatch.', 'Babies inherit size, colour and traits... and sometimes MUTATE!'],
   build: ['Build menu: small things pop in, big ones the beavers build (for food!).', 'Destroy tool: box the trees, beavers clear them. Pretty stuff = more bears.'],
   bears: ['Bears come at 5 and eat fish. Stock Snack Bowls for side dishes.', 'Tag your best fish DO NOT EAT. Hungry bears RAMPAGE!'],

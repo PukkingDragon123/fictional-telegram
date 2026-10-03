@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FoxTalk 3D preview</title>
+<link rel="stylesheet" href="../src/ui/fonts.css">
+<style>
+  :root { --ink: #1a1014; --wood: #8a5a34; --wood-d: #5e3a1e; --wood-l: #b07a48; --chalk-y: #ffe27a; }
+  html, body { margin: 0; background: #3a2c44; color: #fff4e0; font: 16px var(--font-body, monospace); }
+  #ui { padding: 10px 14px; max-width: 980px; }
+  #ui h3 { margin: 10px 0 4px; font: 18px var(--font-title, monospace); color: #ffd28a; }
+  #ui button { background: #4b3d66; color: #fff4e0; border: 2px solid #1a1014; padding: 3px 8px; margin: 2px; font: 16px var(--font-body, monospace); cursor: pointer; }
+  #ui button:hover { background: #65528a; }
+  .stage { display: flex; flex-wrap: wrap; gap: 40px; padding: 30px 20px 50px; align-items: flex-end; }
+  /* classroom-style box (mirrors classroom.css) */
+  .cls-say { position: relative; width: 600px; min-height: 120px; box-sizing: border-box; display: flex; align-items: center; gap: 14px; padding: 14px 44px 14px 14px;
+    background: #2a4335; border: 6px solid var(--wood); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px var(--wood-d), 0 9px 0 3px rgba(18,10,8,.45); }
+  .cls-portrait { flex: 0 0 auto; width: 96px; height: 96px; display: grid; place-items: center; background: #f3e2bc; box-shadow: 0 0 0 3px var(--ink), inset 0 -6px 0 #d8c094, inset 0 0 0 3px #fff4d8; }
+  .cls-name { font: 18px/1 var(--font-title, monospace); color: var(--chalk-y); margin: 0 0 6px; }
+  .cls-text { font-size: 32px; line-height: 28px; min-height: 56px; color: #f4f1e8; }
+  /* UI.js fox box */
+  .fox { display: flex; align-items: flex-end; max-width: 470px; }
+  .fox .host { width: 96px; height: 96px; flex: 0 0 auto; filter: drop-shadow(0 3px 0 rgba(0,0,0,.4)); }
+  .fox .say { background: #f4e2bc; color: #3a2414; border: 3px solid #1a1014; padding: 6px 10px 8px; margin-bottom: 12px; }
+  .fox .say b { color: #c05a1e; font-size: 14px; }
+  .fox .say p { margin: 2px 0 6px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="cls-say"><div class="cls-portrait" id="p1"></div><div><div class="cls-name">PROF. REYNARD</div><div class="cls-text" id="t1">Class! Is your fish happy and healthy?</div></div></div>
+  <div class="fox"><div class="host" id="p2"></div><div class="say"><b>Reynard</b><p id="t2">Welcome to my humble pond! Buy 2 fish on e-Buy.</p></div></div>
+</div>
+<div id="ui"></div>
+<script type="module" src="./foxtalk-preview.js"></script>
+</body>
+</html>
