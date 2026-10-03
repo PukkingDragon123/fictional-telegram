@@ -2277,6 +2277,18 @@ export class UI {
     game.emit('matchOpen');
   }
 
+  // a picture of a build (for the workshop plans): 3D render as an <img>-able canvas
+  structureArt(type) {
+    try {
+      const url = this.icons?.structure(type, this.game.structures);
+      if (!url) return null;
+      const img = new Image();
+      img.src = url;
+      img.className = 'px';
+      return img;
+    } catch { return null; }
+  }
+
   closeMatchmaker() { const c = this.matchCard; this.matchCard = null; c?.close?.(); }
 
   // the pinned quest note under the coin counter
