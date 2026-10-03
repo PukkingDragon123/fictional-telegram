@@ -919,7 +919,7 @@ export class Game {
     this.fox.react('panic', 3);
     this.ui?.onRampage(b);
     this.cine?.onRampage?.(b);
-    if (!st.tips.rampage) { st.tips.rampage = 1; this.ui?.foxSay('RAMPAGE! Hungry bears smash things. Plant berries as side dishes, research Beaver Dams to protect a nursery... and always keep enough fish around!', 'shocked'); }
+    if (!st.tips.rampage) { st.tips.rampage = 1; this.ui?.foxSay('RAMPAGE! Hungry bears smash things. Keep enough fish around, and plant berries as side dishes!', 'shocked'); }
   }
 
   addReview(r, b) {
@@ -979,7 +979,7 @@ export class Game {
     this.audio.play('buy', { volume: 0.5 });
     this.audio.play('egg_wobble', { volume: 0.4 });
     this.ui?.onEggBought?.(st.eggTray[st.eggTray.length - 1]);
-    if (!st.tips.egg) { st.tips.egg = 1; this.ui?.foxSay('Fish come as <b>eggs</b> now! They incubate in the <b>egg tray</b>. When one is ready, <b>tap it to hatch</b> and see what genes you got.', 'wink'); }
+    if (!st.tips.egg) { st.tips.egg = 1; this.ui?.foxSay('An <b>egg</b>! It warms up in the <b>egg tray</b>. When it\'s ready, <b>tap it to hatch</b>.', 'wink'); }
     return true;
   }
 

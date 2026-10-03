@@ -626,7 +626,7 @@ function plantChapter(game, S) {
     const known = S.built.has(t);
     const item = C ? FOOD_ITEMS[C.item] : null;
     const special = C?.special ? FOOD_ITEMS[C.special] : null;
-    const unlock = d.landmark ? landmarkText(d.landmark) : d.unlock ? unlockText(d.unlock) : 'Build it from Blueprints';
+    const unlock = d.landmark ? landmarkText(d.landmark) : d.unlock ? unlockText(d.unlock) : 'In the Build menu';
     const stats = [{ icon: 'coin', label: 'Cost', value: `${d.cost}` }];
     if (C) {
       stats.push({ icon: item?.icon && hasSprite(item.icon) ? item.icon : 'food', label: 'Yield', value: `${C.yield[0]}-${C.yield[1]}` });
