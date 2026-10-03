@@ -201,6 +201,8 @@ function drawBubble(cv, g) {
   const M = MARGIN;
   const W = g.bw + M * 2;
   const H = g.bh + M + Math.max(M, g.tailLen + 5);
+  // the bubble wasn't measurable yet (hidden / not laid out): try again next frame
+  if (!(W > 0 && H > 0 && Number.isFinite(W) && Number.isFinite(H))) return false;
   if (cv.width !== W) cv.width = W;
   if (cv.height !== H) cv.height = H;
   const inside = shapeFn(g);
@@ -843,11 +845,13 @@ export class Bubbles {
     const x = Math.round(b.x / S) * S, y = Math.round(b.y / S) * S;
     const tipDx = b.ax != null ? clamp(Math.round((b.ax - (x + (b.bw * S) / 2)) / S), -(b.bw / 2) - 14, b.bw / 2 + 14) : 0;
     let tailLen = b.ay != null ? Math.round((b.ay - (y + b.bh * S)) / S) : TAIL_DEF;
-    tailLen = tailLen < 3 ? 0 : Math.min(tailLen, TAIL_MAX);
+    tailLen = !Number.isFinite(tailLen) ? TAIL_DEF : tailLen < 3 ? 0 : Math.min(tailLen, TAIL_MAX);
     const key = `${b.bw},${b.bh},${tipDx},${tailLen},${b.frame}`;
     if (key !== b.geomKey) {
+      const got = Number.isFinite(tipDx) ? drawBubble(b.cv, { variant: b.variant, bw: b.bw, bh: b.bh, tipDx, tailLen, frame: b.frame, seed: b.seed }) : false;
+      if (!got) return; // not measurable yet: retry next frame
       b.geomKey = key;
-      const { W, H } = drawBubble(b.cv, { variant: b.variant, bw: b.bw, bh: b.bh, tipDx, tailLen, frame: b.frame, seed: b.seed });
+      const { W, H } = got;
       b.cv.style.width = W * S + 'px';
       b.cv.style.height = H * S + 'px';
       b.cv.style.left = -MARGIN * S + 'px';

@@ -610,7 +610,7 @@ export class Delivery {
   speaker() {
     const a = this.active;
     const h = a?.kind === 'van' ? 2.6 : 2.1;
-    return { getWorldPos: (v) => (a && this.active === a ? v.set(a.x, a.y + h, a.z) : v.set(0, -99, 0)) };
+    return { getWorldPos: (v) => (a && this.active === a ? v.set(a.x || 0, (a.y || 0) + h, a.z || 0) : v.set(0, -99, 0)) };
   }
 
   updateParcels(dt) {

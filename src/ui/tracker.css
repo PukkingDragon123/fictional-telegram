@@ -1,6 +1,6 @@
 /* DeliveryTracker (src/ui/DeliveryTracker.js): Moose Express luggage tags on the left edge. */
 .dt {
-  position: absolute; left: calc(14px + env(safe-area-inset-left, 0px)); top: calc(116px + env(safe-area-inset-top, 0px)); z-index: 18;
+  position: absolute; left: calc(14px + env(safe-area-inset-left, 0px)); top: calc(228px + env(safe-area-inset-top, 0px)); z-index: 18;
   display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none;
   font-family: var(--font-body); font-size: 16px; line-height: 16px; color: #3b2414;
   -webkit-user-select: none; user-select: none; -webkit-font-smoothing: none; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
