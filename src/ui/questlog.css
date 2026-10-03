@@ -5,7 +5,7 @@
 /* ================================================================ HUD notebook */
 .qn {
   position: absolute; left: 16px; top: calc(118px + env(safe-area-inset-top, 0px)); z-index: 19; width: 84px; height: 99px;
-  pointer-events: none; color: #3b2414; font-family: var(--font-body); font-size: 16px; line-height: 16px;
+  pointer-events: none; color: #3b2414; font-family: var(--font-body); font-size: 16px; line-height: 17px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
   transition: transform .45s cubic-bezier(.3, 1.4, .5, 1), opacity .3s;
@@ -27,13 +27,13 @@
 @keyframes qn-sway { 0%, 100% { rotate: 0deg; } 30% { rotate: -4deg; } 65% { rotate: 3deg; } }
 .qn-nb-art { position: absolute; left: 0; top: 0; }
 .qn-nb-t1 {
-  position: absolute; left: 9px; width: 69px; top: 16px; text-align: center; font-size: 16px; line-height: 16px; color: #ffd75a; letter-spacing: 0;
+  position: absolute; left: 9px; width: 69px; top: 16px; text-align: center; font-size: 16px; line-height: 17px; color: #ffd75a; letter-spacing: 0;
   text-shadow: 1px 0 0 #2e1846, -1px 0 0 #2e1846, 0 1px 0 #2e1846, 0 -1px 0 #2e1846;
 }
-.qn-nb-t2 { position: absolute; left: 15px; width: 60px; top: 44px; text-align: center; font-family: var(--font-title); font-size: 18px; line-height: 16px; color: #2b3d8f; }
+.qn-nb-t2 { position: absolute; left: 15px; width: 60px; top: 44px; text-align: center; font-family: var(--font-title); font-size: 18px; line-height: 19px; color: #2b3d8f; }
 .qn-badge {
   position: absolute; right: -7px; top: -8px; min-width: 22px; height: 22px; padding: 0 4px; text-align: center;
-  font-family: var(--font-title); font-size: 18px; line-height: 18px; font-weight: 400; color: #fff4e0;
+  font-family: var(--font-title); font-size: 18px; line-height: 19px; font-weight: 400; color: #fff4e0;
   background: #c0304a; border: 2px solid #5a1020; box-shadow: inset 0 2px 0 #e8607a, 0 2px 0 rgba(30, 16, 8, .4);
 }
 .qn.qn-zero .qn-badge { background: #6a8a4a; border-color: #2a3a1a; box-shadow: inset 0 2px 0 #9ac070, 0 2px 0 rgba(30, 16, 8, .4); }
@@ -67,7 +67,7 @@
 /* ================================================================ the stage */
 .qn-stage {
   position: fixed; inset: 0; z-index: 240; display: none; pointer-events: none; overflow: hidden;
-  color: #2b3d8f; font-family: var(--font-body); font-size: 32px; line-height: 32px;
+  color: #2b3d8f; font-family: var(--font-body); font-size: 24px; line-height: 25px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
 }
@@ -108,9 +108,9 @@
 .qn-cshade { position: absolute; inset: 0; background: #1a0c24; opacity: 0; pointer-events: none; }
 .qn-cfl { position: absolute; inset: 0; }
 .qn-clab { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; text-align: center; }
-.qn-clab1 { font-family: var(--font-title); font-size: 36px; line-height: 36px; color: #2b3d8f; rotate: -2deg; translate: -8px 0; }
-.qn-clab2 { font-family: var(--font-title); font-size: 72px; line-height: 64px; color: #c3323e; rotate: 1.5deg; text-shadow: 2px 2px 0 #f2b0a8; }
-.qn-clab3 { font-size: 16px; line-height: 16px; color: #77727e; rotate: -1deg; translate: 30px 2px; }
+.qn-clab1 { font-family: var(--font-title); font-size: 32px; line-height: 34px; color: #2b3d8f; rotate: -2deg; translate: -8px 0; }
+.qn-clab2 { font-family: var(--font-title); font-size: 64px; line-height: 67px; color: #c3323e; rotate: 1.5deg; text-shadow: 2px 2px 0 #f2b0a8; }
+.qn-clab3 { font-size: 16px; line-height: 17px; color: #77727e; rotate: -1deg; translate: 30px 2px; }
 .qn-cst { position: absolute; display: block; line-height: 0; rotate: var(--r, 0deg); filter: drop-shadow(0 2px 0 rgba(20, 10, 30, .4)); }
 
 .qn-pencil { position: absolute; z-index: 4; top: calc(var(--ph) - 34px); line-height: 0; rotate: -9deg; pointer-events: none; filter: drop-shadow(2px 4px 0 rgba(40, 20, 10, .3)); }
@@ -126,7 +126,7 @@
 
 .qn-fx { position: absolute; inset: 0; pointer-events: none; z-index: 8; overflow: visible; }
 .qn-thud {
-  position: absolute; display: block; font-family: var(--font-title); font-size: 54px; line-height: 54px; color: #fff4d8; pointer-events: none; white-space: nowrap;
+  position: absolute; display: block; font-family: var(--font-title); font-size: 48px; line-height: 50px; color: #fff4d8; pointer-events: none; white-space: nowrap;
   text-shadow: 3px 0 0 #3a1a2a, -3px 0 0 #3a1a2a, 0 3px 0 #3a1a2a, 0 -3px 0 #3a1a2a, 3px 3px 0 #3a1a2a, -3px 3px 0 #3a1a2a, 3px -3px 0 #3a1a2a, -3px -3px 0 #3a1a2a, 0 6px 0 #3a1a2a;
 }
 .qn-puff { position: absolute; left: 0; top: 0; display: block; line-height: 0; will-change: transform, opacity; }
@@ -146,10 +146,10 @@
 }
 .qn-w {
   position: relative; display: inline-block; max-width: 100%; vertical-align: top;
-  font-family: var(--font-body); font-size: 32px; line-height: 32px; color: var(--ink, #2b3d8f);
+  font-family: var(--font-body); font-size: 24px; line-height: 25px; color: var(--ink, #2b3d8f);
   text-shadow: 1px 0 0 color-mix(in srgb, var(--ink, #2b3d8f) 35%, transparent);
 }
-.qn-big { font-family: var(--font-title); font-size: 36px; line-height: 32px; }
+.qn-big { font-family: var(--font-title); font-size: 32px; line-height: 34px; }
 .qn-writing .qn-w, .qn-w.qn-now, .qn-late .qn-w { animation: qn-write var(--wdur, 500ms) steps(var(--wn, 10)) var(--wd, 0ms) both; }
 .qn-late .qn-w { --wd: 0ms !important; }
 @keyframes qn-write { from { clip-path: inset(-20% 100% -20% 0); } to { clip-path: inset(-20% -6px -20% -2px); } }
@@ -185,12 +185,12 @@
 .qn-arrow { margin: 2px 2px 0 -2px; }
 .qn-coin { margin-top: -2px; rotate: 8deg; }
 .qn-tally { display: inline-flex; align-items: center; gap: 6px; margin-left: 22px; }
-.qn-tally b { font-weight: 400; font-size: 16px; line-height: 16px; color: #77727e; margin-top: 6px; }
+.qn-tally b { font-weight: 400; font-size: 16px; line-height: 17px; color: #77727e; margin-top: 6px; }
 
 /* DONE! stamp + gold star */
 .qn-stamp { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .qn-stamp .pp-stamp { position: absolute; right: 8px; top: 34px; }
-.qn-stamp .pp-stamp { font-size: 54px; letter-spacing: 3px; margin: 0; padding: 8px 12px 2px; border-width: 4px; outline-width: 4px; outline-offset: 4px; background: rgba(255, 240, 232, .4); }
+.qn-stamp .pp-stamp { font-size: 48px; letter-spacing: 3px; margin: 0; padding: 8px 12px 2px; border-width: 4px; outline-width: 4px; outline-offset: 4px; background: rgba(255, 240, 232, .4); }
 .qn-star { position: absolute; right: 2px; top: -6px; display: block; line-height: 0; rotate: 14deg; filter: drop-shadow(0 3px 0 rgba(40, 20, 10, .35)); }
 .qn-star-in { animation: qn-star .55s cubic-bezier(.3, 1.5, .5, 1) .7s both; }
 @keyframes qn-star { 0% { transform: translateY(-40px) scale(1.8) rotate(50deg); opacity: 0; } 60% { transform: scale(.9, 1.1); opacity: 1; } 100% { transform: none; } }

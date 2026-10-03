@@ -12,14 +12,21 @@ import { WATER_Y, KIND } from '../world/grid.js';
 import { BIOME, LANDMARKS } from '../world/worldgen.js';
 import { angleDiff, damp } from '../core/rng.js';
 import { SpriteBatch } from '../core/spriteBatch.js';
+import { TreeFall, FALL } from './TreeFall.js';
 
 const mods = import.meta.glob('../entities/critters3d.js', { eager: true });
 const C3 = mods['../entities/critters3d.js'] || null;
 
+// how long one beaver gnaws at a tree (s, before tool upgrades / research):
+// trees are a real job now, they come down in stages and then FALL (TreeFall.js)
+export const TREE_CHOP_TIME = 30;
+export const FOREST_CHOP_TIME = 36;
+export const HAUL_SPEED = 2.6; // a beaver with a log on its shoulder (run is 3.8)
+export const GARAGE_CAP = 40; // logs per Wood Garage (def.woodCap overrides)
 // what clearing each kind of thing takes and pays
 export const CLEAR = {
-  forest: { time: 3.2, pay: 5, anim: 'chop', label: 'wood' },
-  tree: { time: 2.6, pay: 4, anim: 'chop', label: 'wood' },
+  forest: { time: FOREST_CHOP_TIME, pay: 5, anim: 'chop', label: 'wood' },
+  tree: { time: TREE_CHOP_TIME, pay: 4, anim: 'chop', label: 'wood' },
   boulder: { time: 3.6, pay: 3, anim: 'hammer', label: 'stone' },
   weed: { time: 1.2, pay: 1, anim: 'plow', label: 'weeds' },
   clutter: { time: 0.9, pay: 1, anim: 'plow', label: 'flowers' },
@@ -50,6 +57,10 @@ export class BeaverSystem {
     this.rebuildT = 0;
     this.dirtyLand = false;
     this.sulkNagT = 0;
+    // felled trees, lying trunks and logs on the ground (hauled to Wood Garages)
+    this.fall = new TreeFall(game);
+    game.treeFall = this.fall;
+    this.garageT = 0;
   }
 
   count() { return this.list.length; }
@@ -90,6 +101,7 @@ export class BeaverSystem {
     for (const b of this.list) this.group.remove(b.rig.root);
     this.list.length = 0;
     this.clears.clear();
+    this.fall.clear();
     this.renderMarkers();
   }
 
@@ -97,6 +109,7 @@ export class BeaverSystem {
     for (const b of [...this.list]) {
       if (b.lodge !== lodge) continue;
       if (b.job) this.unassign(b.job);
+      this.dropCarried(b);
       this.group.remove(b.rig.root);
       this.list.splice(this.list.indexOf(b), 1);
     }
@@ -243,7 +256,7 @@ export class BeaverSystem {
     return did;
   }
 
-  finishClear(j) {
+  finishClear(j, from = null) {
     const game = this.game;
     const g = game.grid;
     const w = game.world;
@@ -251,17 +264,16 @@ export class BeaverSystem {
     const cx = j.x + 0.5, cz = j.z + 0.5;
     const gy = g.height[i];
     const def = CLEAR[j.kind];
-    if (j.kind === 'forest' || j.kind === 'tree') game.particles.word?.('timber', cx, gy + 1.9, cz, { size: 0.3, life: 1 });
+    // trees topple (TreeFall does the crash, TIMBER! and the logs)
+    if (j.kind === 'forest' || j.kind === 'tree') this.fall.fell(i, from || { x: cx - 0.6, z: cz }, j.kind === 'forest' ? FALL.logsForest : FALL.logsTree);
     if (j.kind === 'forest') {
       g.kind[i] = KIND.GRASS;
       g.meadow[i] = 1;
-      w.clutter.push({ type: Math.random() < 0.5 ? 'stump' : 'tuft', x: cx + (Math.random() - 0.5) * 0.4, z: cz + (Math.random() - 0.5) * 0.4, y: gy, rot: Math.random() * 6 });
+      w.clutter.push({ type: 'stump', x: cx + (Math.random() - 0.5) * 0.3, z: cz + (Math.random() - 0.5) * 0.3, y: gy, rot: Math.random() * 6 });
       if (Math.random() < 0.6) w.clutter.push({ type: 'tuft', x: cx + 0.3, z: cz - 0.2, y: gy, rot: Math.random() * 6 });
       w.landVersion++;
       this.dirtyLand = true;
-      game.particles.debris(cx, gy + 1.2, cz, 18, [0x2b5634, 0x3a6b3c, 0x6b4a2f, 0x8a6a44]);
-      game.particles.word?.('pow', cx, gy + 1.6, cz, { size: 0.3, life: 0.8 });
-      game.audio.play('demolish', { volume: 0.5, pitch: 0.9 + Math.random() * 0.2 });
+      game.particles.debris(cx, gy + 0.3, cz, 8, [0xc8a06a, 0x8a6a44, 0xe0c090]);
     } else if (j.kind === 'clutter') {
       w.removeClutter(j.x, j.z);
       g.meadow[i] = 1;
@@ -276,19 +288,17 @@ export class BeaverSystem {
       g.meadow[i] = 1;
       w.landVersion++;
       this.dirtyDecos = true;
-      if (j.kind === 'tree') { game.particles.debris(cx, gy + 1.2, cz, 16, [0x2b5634, 0x3a6b3c, 0x6b4a2f]); w.clutter.push({ type: 'stump', x: cx, z: cz, y: gy, rot: 0 }); this.dirtyLand = true; }
+      if (j.kind === 'tree') { game.particles.debris(cx, gy + 0.3, cz, 8, [0xc8a06a, 0x8a6a44, 0xe0c090]); w.clutter.push({ type: 'stump', x: cx, z: cz, y: gy, rot: 0 }); this.dirtyLand = true; }
       else if (j.kind === 'boulder') game.particles.debris(cx, gy + 0.4, cz, 14, [0x9c918c, 0x8b817c, 0x6a625e]);
       else game.particles.debris(cx, gy + 0.2, cz, 10, [0x5a7a2a, 0x8a6a3a, 0x6a8a3a]);
-      game.audio.play(j.kind === 'weed' ? 'pet' : 'demolish', { volume: 0.45 });
+      if (j.kind !== 'tree') game.audio.play(j.kind === 'weed' ? 'pet' : 'demolish', { volume: 0.45 });
     }
     game.particles.puff(cx, gy + 0.3, cz, 8, 0.35);
     const pay = Math.round(def.pay * (game.mods.clearPayMult || 1));
     game.particles.coins(cx, gy + 0.8, cz, Math.min(6, pay));
     game.earnMisc?.(pay, 'clearing');
     game.ui?.floatTextAt(cx, gy + 1.4, cz, `+${pay}`, '#ffe9a0');
-    // chopped trees leave planks for Chip's workshop
-    const wood = j.kind === 'forest' ? 2 : j.kind === 'tree' ? 1 : 0;
-    if (wood) game.workshop?.addWood(wood, cx, cz + 0.3);
+    // (wood comes from the logs now: beavers haul them to a Wood Garage)
     game.stats.cleared = (game.stats.cleared || 0) + 1;
     this.clears.delete(i);
     this.renderMarkers();
@@ -298,6 +308,7 @@ export class BeaverSystem {
 
   // ------------------------------------------------------------ jobs
   unassign(job) {
+    if (job.kind === 'haul') { if (job.log && job.log.claim) job.log.claim = null; return; }
     if (job.kind === 'clear') { if (job.c.assigned) job.c.assigned = null; }
     else if (job.s && job.s.assigned) job.s.assigned = null;
   }
@@ -376,7 +387,12 @@ export class BeaverSystem {
           b.t = 0.5 + Math.random() * 0.5;
           if (!night) {
             const job = this.findJob(b);
-            if (job && this.needsPay(job) && this.credit < 1) {
+            // hauling logs is free (part of the job): do it when the paid work
+            // can't start, and take turns with chopping so logs don't pile up
+            const haul = (!job || job.kind === 'clear' || (this.needsPay(job) && this.credit < 1)) ? this.findHaul(b) : null;
+            if (haul && (!job || (this.needsPay(job) && this.credit < 1) || b.lastJob === 'clear')) {
+              this.startHaul(b, haul);
+            } else if (job && this.needsPay(job) && this.credit < 1) {
               // unpaid: grab a snack at the bar if there's food, else strike
               const bar = this.snackBar(b);
               if (bar) { b.state = 'snack'; b.snack = bar; b.wander = null; b.strike = false; }
@@ -384,6 +400,7 @@ export class BeaverSystem {
             } else if (job) {
               if (this.needsPay(job)) { this.credit = this.credit - 1; job.paidCredit = true; }
               b.job = job;
+              b.lastJob = job.kind;
               if (job.kind === 'clear') job.c.assigned = b; else job.s.assigned = b;
               b.state = 'go';
               b.sulk = false;
@@ -428,6 +445,8 @@ export class BeaverSystem {
           }
           b.state = 'idle'; b.t = 0.4; b.snack = null; b.cheerT = 0.6;
         }
+      } else if (b.state === 'haul') {
+        this.updateHaul(b, dt, speedMult);
       } else if (b.state === 'go') {
         const job = b.job;
         if (job.kind !== 'clear' && (job.s.removed || (job.kind === 'build' && job.s.built))) { this.release(b); continue; }
@@ -447,18 +466,25 @@ export class BeaverSystem {
           const c = job.c;
           if (!this.clears.has(c.i)) { this.release(b); continue; }
           c.progress += (dt * speedMult * (this.game.mods.clearSpeed || 1) * (1 + 0.35 * (this.level() - 1))) / CLEAR[c.kind].time;
-          // trees come down bit by bit: three big chops, each one shorter
-          const step = Math.min(3, Math.floor(c.progress * 4));
-          if ((c.kind === 'tree' || c.kind === 'forest') && step > (c.chop || 0)) {
-            c.chop = step;
-            game.world.setChop?.(c.i, step / 3);
-            const gy = g.height[c.i];
-            game.particles.debris(tg.x, gy + 0.9, tg.z, 6, [0xc8a06a, 0x8a6a44, 0x2b5634, 0x3a6b3c]);
-            game.particles.word?.('chop', tg.x, gy + 1.5, tg.z, { size: 0.24, life: 0.6 });
-            game.audio.play('chip', { volume: 0.3, pitch: 0.8 });
+          const woody = c.kind === 'tree' || c.kind === 'forest';
+          if (woody) {
+            // the tree leaves the static batch: it shakes harder, gets a notch, creaks
+            this.fall.setProgress(c.i, c.progress, b);
+            // five stages, each with a big CHOP! and a shower of chips
+            const step = Math.min(5, Math.floor(c.progress * 6));
+            if (step > (c.chop || 0)) {
+              c.chop = step;
+              const gy = g.height[c.i];
+              game.particles.debris(tg.x, gy + 0.35, tg.z, 8, [0xc8a06a, 0x8a6a44, 0xe0c090, 0x2b5634]);
+              game.particles.word?.('chop', tg.x + (Math.random() - 0.5) * 0.4, gy + 1.1 + step * 0.06, tg.z, { size: 0.22 + step * 0.02, life: 0.7 });
+              game.audio.play('chip', { volume: 0.35, pitch: 0.7 });
+              this.fall.bite(c.i, 2);
+            }
           }
           b.chipT = (b.chipT || 0) - dt;
-          if (b.chipT <= 0) {
+          // rigged beavers chip on every bite of the chop anim (onRigEvent)
+          if (b.chipT <= 0 && woody && b.rig.play) b.chipT = 0.5;
+          else if (b.chipT <= 0) {
             b.chipT = 0.28;
             const gy = g.height[c.i];
             if (c.kind === 'weed') game.particles.dust(tg.x, gy + 0.1, tg.z, 2);
@@ -467,7 +493,7 @@ export class BeaverSystem {
             if (Math.random() < 0.15) game.particles.word?.(['bonk', 'pow'][Math.floor(Math.random() * 2)], tg.x, gy + 1.1, tg.z, { size: 0.2, life: 0.5 });
           }
           if (c.progress >= 1) {
-            this.finishClear(c);
+            this.finishClear(c, b);
             this.paid(b);
             this.release(b);
           }
@@ -527,13 +553,14 @@ export class BeaverSystem {
       for (const s of this.bars()) s.farmRig?.setState?.(strike ? 'strike' : 'idle');
     }
     this.updateTape(dt);
+    this.fall.update(dt);
+    this.updateGarages(dt);
     // batched world rebuilds after clearing
     this.rebuildT -= dt;
     if ((this.dirtyLand || this.dirtyDecos) && this.rebuildT <= 0) {
       this.rebuildT = 0.8;
       game.world.buildDecos();
       if (this.dirtyLand) { game.world.rebuildTerrain(); game.world.buildClutter(); }
-      for (const c of this.clears.values()) if (c.chop) game.world.setChop?.(c.i, c.chop / 3); // rebuilt trees keep their chops
       this.dirtyLand = this.dirtyDecos = false;
       game.onTopologyChanged();
       game.onLandChanged?.();
@@ -549,9 +576,170 @@ export class BeaverSystem {
 
   onRigEvent(b, name) {
     if (name === 'step' && Math.random() < 0.3) this.game.particles.dust(b.x, b.y + 0.02, b.z, 1);
+    if (name === 'chop_hit') this.bite(b);
+  }
+
+  // one bite into a trunk: wood chips + sawdust fly off the notch, the tree jolts
+  bite(b) {
+    const c = b.state === 'work' && b.job?.kind === 'clear' ? b.job.c : null;
+    if (!c || (c.kind !== 'tree' && c.kind !== 'forest')) return;
+    const game = this.game;
+    const gy = this.game.grid.height[c.i];
+    const tx = c.x + 0.5, tz = c.z + 0.5;
+    // chips spray back past the beaver's cheeks
+    const nx = (b.x + tx) / 2, nz = (b.z + tz) / 2;
+    game.particles.debris(nx, gy + 0.25, nz, 2 + (Math.random() < c.progress ? 1 : 0), [0xe0c090, 0xc8a06a, 0xf0dcb0, 0x8a6a44]);
+    if (Math.random() < 0.5) game.particles.dust(nx, gy, nz, 1);
+    game.audio.play('chip', { volume: 0.14 + c.progress * 0.1, pitch: 0.95 + Math.random() * 0.35 - c.progress * 0.25 });
+    this.fall.bite(c.i, 1);
+  }
+
+  // ------------------------------------------------------------ hauling logs
+  garages() { return this.game.structures.list.filter((s) => s.type === 'woodgarage' && s.built && !s.removed); }
+  garageKey(s) { return s.x + ',' + s.z; }
+  garageCap(s) { return s.def.woodCap || GARAGE_CAP; }
+  garageStock(s) { return this.game.state.woodGarages?.[this.garageKey(s)] || 0; }
+  garageRoom(s, except = null) {
+    let inbound = 0;
+    for (const o of this.list) if (o !== except && o.state === 'haul' && o.job?.garage === s) inbound++;
+    return this.garageCap(s) - this.garageStock(s) - inbound;
+  }
+  garageDoor(s) { return { x: s.x + 1, z: s.z + 2.2 }; }
+
+  pickGarage(b) {
+    let best = null, bd = Infinity;
+    for (const s of this.garages()) {
+      if (this.garageRoom(s, b) < 1) continue;
+      const d = this.garageDoor(s), dd = Math.hypot(d.x - b.x, d.z - b.z);
+      if (dd < bd) { bd = dd; best = s; }
+    }
+    return best;
+  }
+
+  findHaul(b) {
+    if (!this.fall.logs.length) return null;
+    const garage = this.pickGarage(b);
+    if (!garage) return null;
+    const log = this.fall.nearestLog(b.x, b.z);
+    return log ? { kind: 'haul', log, garage, phase: 'fetch' } : null;
+  }
+
+  startHaul(b, job) {
+    job.log.claim = b;
+    b.job = job;
+    b.lastJob = 'haul';
+    b.state = 'haul';
+    b.t = 0;
+    b.wander = null;
+    b.strike = false;
+    b.sulk = false;
+  }
+
+  dropCarried(b) {
+    if (!b.carry) return;
+    this.fall.putLog(b.x + Math.cos(b.heading) * 0.3, b.z + Math.sin(b.heading) * 0.3, -b.heading);
+    b.carry = null;
+  }
+
+  updateHaul(b, dt, speedMult) {
+    const game = this.game;
+    const job = b.job;
+    const run = 3.8 * speedMult ** 0.5;
+    if (job.phase === 'fetch') {
+      const log = job.log;
+      if (!this.fall.logs.includes(log)) { this.release(b); return; }
+      if (this.moveToward(b, log.x, log.z, dt, run, 0.38)) { job.phase = 'pick'; b.t = 0; }
+    } else if (job.phase === 'pick') {
+      // a heave: grab it, hoist it onto the shoulder
+      b.t += dt;
+      b.heading += angleDiff(b.heading, Math.atan2(job.log.z - b.z, job.log.x - b.x)) * Math.min(1, dt * 8);
+      if (b.t >= 0.45) {
+        const log = job.log;
+        if (!this.fall.takeLog(log)) { this.release(b); return; }
+        b.carry = { variant: log.variant };
+        job.log = null;
+        game.particles.dust(log.x, log.gy, log.z, 3);
+        game.audio.play('grab', { volume: 0.3, pitch: 0.8 });
+        b.cheerT = 0;
+        job.phase = 'carry';
+        if (!job.garage || job.garage.removed || this.garageRoom(job.garage, b) < 1) job.garage = this.pickGarage(b);
+        if (!job.garage) { this.dropCarried(b); this.release(b); }
+      }
+    } else if (job.phase === 'carry') {
+      let s = job.garage;
+      if (!s || s.removed || !s.built) { s = job.garage = this.pickGarage(b); if (!s) { this.dropCarried(b); this.release(b); return; } }
+      const d = this.garageDoor(s);
+      if (this.moveToward(b, d.x, d.z, dt, HAUL_SPEED * speedMult ** 0.3, 0.3)) { job.phase = 'drop'; b.t = 0; }
+    } else if (job.phase === 'drop') {
+      b.t += dt;
+      const s = job.garage;
+      b.heading += angleDiff(b.heading, Math.atan2(s.z + 1 - b.z, s.x + 1 - b.x)) * Math.min(1, dt * 8);
+      if (b.t >= 0.35) {
+        // full after all (someone else got there first)? find another or set it down
+        if (this.garageCap(s) - this.garageStock(s) < 1) {
+          job.garage = this.pickGarage(b);
+          if (job.garage) { job.phase = 'carry'; return; }
+          this.dropCarried(b); this.release(b); return;
+        }
+        this.stockLog(s, b);
+        b.carry = null;
+        this.release(b);
+        b.cheerT = 0.35;
+      }
+    }
+  }
+
+  stockLog(s, b) {
+    const game = this.game;
+    const G = (game.state.woodGarages ||= {});
+    const k = this.garageKey(s);
+    G[k] = (G[k] || 0) + 1;
+    const d = this.garageDoor(s);
+    const gy = game.structures.baseY?.(s) ?? 0;
+    game.workshop?.addWood(1, d.x, d.z - 0.4);
+    game.particles.puff(d.x, gy + 0.2, d.z - 0.5, 5, 0.25);
+    game.particles.debris(d.x, gy + 0.4, d.z - 0.6, 3, [0xc8a06a, 0x8a6a44]);
+    game.audio.play('drop', { volume: 0.35, pitch: 0.75 + Math.random() * 0.15 });
+    s.extraModel?.userData?.setStock?.(G[k], this.garageCap(s));
+    game.stats.logsStocked = (game.stats.logsStocked || 0) + 1;
+    game.emit('logStocked', { garage: s, total: G[k], beaver: b });
+  }
+
+  // keep each garage's pile in step with the wood stock (Chip spends it, Pip
+  // buys it) and nag once when logs pile up with nowhere to go
+  updateGarages(dt) {
+    this.garageT -= dt;
+    if (this.garageT > 0) return;
+    this.garageT = 0.5;
+    const game = this.game;
+    const st = game.state;
+    const G = (st.woodGarages ||= {});
+    const gs = this.garages();
+    const live = new Set(gs.map((s) => this.garageKey(s)));
+    for (const k of Object.keys(G)) if (!live.has(k) && game.structures.list.length) delete G[k];
+    let over = gs.reduce((n, s) => n + this.garageStock(s), 0) - Math.floor(st.wood || 0);
+    while (over > 0) {
+      let big = null;
+      for (const s of gs) if (!big || this.garageStock(s) > this.garageStock(big)) big = s;
+      if (!big || !this.garageStock(big)) break;
+      const take = Math.min(over, this.garageStock(big));
+      G[this.garageKey(big)] -= take;
+      over -= take;
+    }
+    for (const s of gs) s.extraModel?.userData?.setStock?.(this.garageStock(s), this.garageCap(s));
+    // logs waiting with nowhere to go
+    const waiting = this.fall.logs.some((l) => l.landed && !l.claim);
+    if (!waiting) { this.fullHinted = false; return; }
+    if (!gs.length) {
+      if (!st.hintWoodGarage) { st.hintWoodGarage = true; game.notify?.('Build a Wood Garage! The beavers need somewhere to stack the logs.', 'info'); game.emit('needWoodGarage'); }
+    } else if (!gs.some((s) => this.garageRoom(s) > 0) && !this.fullHinted) {
+      this.fullHinted = true;
+      game.notify?.('Wood Garages are full! Build another, or sell logs to Pip.', 'warn');
+    }
   }
 
   release(b) {
+    if (b.carry && b.job?.kind === 'haul') this.dropCarried(b);
     if (b.job) {
       this.unassign(b.job);
       if (b.job.paidCredit && !b.job.done) this.credit = this.credit + 1; // cancelled: refund the pay
@@ -606,7 +794,9 @@ export class BeaverSystem {
       r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);
       if (r.play) {
         let want = 'idle';
-        if (b.state === 'work') want = b.job?.kind === 'clear' ? CLEAR[b.job.c.kind].anim : 'hammer';
+        if (b.carry) want = 'carry_log';
+        else if (b.state === 'haul' && b.job?.phase === 'pick') want = 'chop';
+        else if (b.state === 'work') want = b.job?.kind === 'clear' ? CLEAR[b.job.c.kind].anim : 'hammer';
         else if (b.state === 'munch') want = 'eat_berry';
         else if (b.strike) want = 'carry_log';
         else if (b.moving) want = b.inWater ? 'swim' : 'run';
@@ -669,6 +859,9 @@ export class BeaverSystem {
   }
 
   serialize() {
+    // logs on the ground live in state.groundLogs; count the ones being carried too
+    this.fall.saveLogs();
+    for (const b of this.list) if (b.carry) this.game.state.groundLogs.push([+b.x.toFixed(2), +b.z.toFixed(2), 0, b.carry.variant || 0]);
     return { n: this.list.length, clears: [...this.clears.values()].map((c) => [c.x, c.z]) };
   }
 
@@ -678,6 +871,7 @@ export class BeaverSystem {
       const k = this.clearKind(x, z);
       if (k) this.clears.set(z * g.w + x, { i: z * g.w + x, x, z, kind: k, progress: 0, assigned: null, order: this.clears.size, markT: -99 });
     }
+    this.fall.loadLogs();
     this.renderMarkers();
   }
 }

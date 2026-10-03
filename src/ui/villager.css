@@ -4,7 +4,7 @@
 /* ================================================================ villager card */
 .vc-ov {
   position: absolute; inset: 0; z-index: 58; pointer-events: auto; color: #3b2414;
-  font-family: var(--font-body); font-size: 16px; line-height: 16px;
+  font-family: var(--font-body); font-size: 16px; line-height: 17px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   -webkit-font-smoothing: antialiased; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
 }
@@ -55,8 +55,8 @@
 }
 .vc-ptape.pp-tape { left: -16px; top: -6px; }
 .vc-id { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
-.vc-name { margin: 0; font-family: var(--font-title); font-weight: 400; font-size: 36px; line-height: 32px; color: #3b2414; text-shadow: 0 3px 0 rgba(255, 255, 255, .45); overflow-wrap: anywhere; }
-.vc-title { margin-top: 4px; font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #9c3a14; }
+.vc-name { margin: 0; font-family: var(--font-title); font-weight: 400; font-size: 32px; line-height: 34px; color: #3b2414; text-shadow: 0 3px 0 rgba(255, 255, 255, .45); overflow-wrap: anywhere; }
+.vc-title { margin-top: 4px; font-family: var(--font-title); font-size: 18px; line-height: 19px; color: #9c3a14; }
 .vc-hearts { display: flex; gap: 3px; margin-top: 10px; filter: drop-shadow(0 2px 0 rgba(30, 16, 8, .3)); }
 .vc-heart { display: block; }
 .vc-hpop { animation: vc-hpop .5s cubic-bezier(.3, 1.7, .5, 1) var(--d, 0ms) backwards; }
@@ -71,7 +71,7 @@
 .vc-talk:focus-visible { outline: 3px dashed #2c60b2; outline-offset: 2px; }
 .vc-tail { position: absolute; left: 22px; top: -27px; width: 24px; height: 21px; background: no-repeat 0 0 / 100% 100%; pointer-events: none; }
 .vc-text {
-  position: relative; min-height: 48px; font-family: var(--font-body); font-size: 32px; line-height: 24px;
+  position: relative; min-height: 48px; font-family: var(--font-body); font-size: 24px; line-height: 25px;
   overflow-wrap: break-word; white-space: normal;
 }
 .vc-probe { position: absolute; left: 9px; top: 3px; visibility: hidden; pointer-events: none; min-height: 0; }
@@ -93,7 +93,7 @@
 .vc-body { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 -10px; padding: 2px 10px 6px; scrollbar-width: none; }
 .vc-body::-webkit-scrollbar { display: none; }
 .vc-body.vc-more-below { -webkit-mask: linear-gradient(#000 calc(100% - 30px), rgba(0, 0, 0, .15)); mask: linear-gradient(#000 calc(100% - 30px), rgba(0, 0, 0, .15)); }
-.vc-sec { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #8a5a2a; white-space: nowrap; }
+.vc-sec { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; font-family: var(--font-title); font-size: 18px; line-height: 19px; color: #8a5a2a; white-space: nowrap; }
 .vc-sec::before, .vc-sec::after { content: ''; flex: 1; height: 3px; background: repeating-linear-gradient(90deg, #b89870 0 6px, transparent 6px 9px); }
 .vc-offs { display: flex; flex-direction: column; gap: 9px; }
 .vc-off {
@@ -109,14 +109,14 @@
 .vc-off:not(.vc-locked):active { transform: rotate(var(--r, 0deg)) translateY(3px); box-shadow: inset 0 -4px 0 #ead8b0, 0 1px 0 #3b2414; }
 .vc-oi { position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; background: #fff6dc; box-shadow: 0 0 0 3px #3b2414, inset 0 -3px 0 #ead8b0; margin: 3px; }
 .vc-oi img { display: block; }
-.vc-noico { font-style: normal; font-family: var(--font-title); font-size: 36px; line-height: 36px; color: #b89870; }
+.vc-noico { font-style: normal; font-family: var(--font-title); font-size: 32px; line-height: 34px; color: #b89870; }
 .vc-ot { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.vc-ot b { font-family: var(--font-title); font-weight: 400; font-size: 18px; line-height: 18px; color: #3b2414; }
-.vc-ot small { font-size: 16px; line-height: 14px; color: #7a5c40; }
-.vc-ot em { display: flex; align-items: center; gap: 5px; font-style: normal; font-size: 16px; line-height: 14px; color: #b0303a; }
+.vc-ot b { font-family: var(--font-title); font-weight: 400; font-size: 18px; line-height: 19px; color: #3b2414; }
+.vc-ot small { font-size: 16px; line-height: 17px; color: #7a5c40; }
+.vc-ot em { display: flex; align-items: center; gap: 5px; font-style: normal; font-size: 16px; line-height: 17px; color: #b0303a; }
 .vc-ot em svg { flex: none; }
 .vc-tag {
-  position: relative; flex: none; align-self: center; padding: 3px 6px 2px; font-family: var(--font-title); font-size: 18px; line-height: 18px;
+  position: relative; flex: none; align-self: center; padding: 3px 6px 2px; font-family: var(--font-title); font-size: 18px; line-height: 19px;
   color: var(--tc); border: 3px solid var(--tc); transform: rotate(-7deg); opacity: .9; mix-blend-mode: multiply;
   -webkit-mask: var(--pp-speck) 0 0 / 96px 96px; mask: var(--pp-speck) 0 0 / 96px 96px;
 }
@@ -163,8 +163,8 @@
 .vc-gsp.s2 { animation-delay: .4s !important; } .vc-gsp.s3 { animation-delay: .8s !important; }
 @keyframes vc-tw { 0%, 100% { opacity: 0; } 20%, 50% { opacity: 1; } 35% { transform: scale(.6); } }
 .vc-gt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.vc-gt b { font-family: var(--font-title); font-weight: 400; font-size: 18px; line-height: 18px; color: #3b2414; }
-.vc-gt small { font-size: 16px; line-height: 14px; color: #7a5c40; }
+.vc-gt b { font-family: var(--font-title); font-weight: 400; font-size: 18px; line-height: 19px; color: #3b2414; }
+.vc-gt small { font-size: 16px; line-height: 17px; color: #7a5c40; }
 .vc-gift.vc-ready .vc-gt small { color: #9c5a10; animation: vc-blink 1s steps(1) infinite; }
 @keyframes vc-blink { 50% { opacity: .45; } }
 
@@ -199,7 +199,7 @@
 .zb-r { right: -18px; }
 .zb-in { position: absolute; inset: 0 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-top: 2px; }
 .zb-stamp {
-  display: inline-block; margin: 3px 0 9px; padding: 4px 9px 3px; line-height: 18px;
+  display: inline-block; margin: 3px 0 9px; padding: 4px 9px 3px; line-height: 19px;
   font-family: var(--font-title); font-size: 18px; color: #fbeed2; background: #c0392b; outline: 3px solid #c0392b; outline-offset: 3px;
   transform: rotate(-5deg); opacity: 0; mix-blend-mode: multiply;
   -webkit-mask: var(--pp-speck) 0 0 / 96px 96px; mask: var(--pp-speck) 0 0 / 96px 96px;
@@ -207,7 +207,7 @@
 .zb-show .zb-stamp { animation: zb-stamp .36s cubic-bezier(.5, 0, .8, .4) .12s both; }
 @keyframes zb-stamp { 0% { transform: rotate(-20deg) scale(2.8); opacity: 0; } 62% { transform: rotate(-5deg) scale(1.08, .9); opacity: .95; } 100% { transform: rotate(-5deg); opacity: .88; } }
 .zb-title {
-  font-family: var(--font-title); font-size: 54px; line-height: 46px; white-space: nowrap; color: var(--zc);
+  font-family: var(--font-title); font-size: 48px; line-height: 50px; white-space: nowrap; color: var(--zc);
   text-shadow: 3px 0 0 #2a1a14, -3px 0 0 #2a1a14, 0 3px 0 #2a1a14, 0 -3px 0 #2a1a14, 3px 3px 0 #2a1a14, -3px 3px 0 #2a1a14, 3px -3px 0 #2a1a14, -3px -3px 0 #2a1a14, 0 7px 0 rgba(42, 26, 20, .3);
 }
 .zb-c { display: inline-block; opacity: 0; }
@@ -219,7 +219,7 @@
 .zb-orn b { width: 9px; height: 9px; background: var(--zc); transform: rotate(45deg); box-shadow: 0 0 0 3px #2a1a14; }
 .zb-show .zb-orn { animation: zb-orn .4s ease-out .5s both; }
 @keyframes zb-orn { 0% { opacity: 0; transform: scaleX(.2); } 100% { opacity: 1; transform: none; } }
-.zb-sub { font-size: 32px; line-height: 24px; color: #5a3a22; opacity: 0; }
+.zb-sub { font-size: 24px; line-height: 25px; color: #5a3a22; opacity: 0; }
 .zb-show .zb-sub { animation: zb-sub .4s cubic-bezier(.3, 1.4, .5, 1) .62s both; }
 @keyframes zb-sub { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
 .zb-fog { position: absolute; inset: -40px -90px; z-index: 5; }
@@ -237,7 +237,7 @@
 .zb-static .zb-paper { clip-path: none; }
 .zb-static .zb-c, .zb-static .zb-orn, .zb-static .zb-sub { opacity: 1; }
 .zb-static .zb-stamp { opacity: .88; }
-.zb-narrow .zb-title { font-size: 36px; line-height: 32px; }
+.zb-narrow .zb-title { font-size: 32px; line-height: 34px; }
 .zb-narrow .zb-in { inset: 0 24px; }
 .zb-narrow .zb-sub { white-space: normal; }
 .zb-narrow .zb-orn { margin: 7px 0 6px; }

@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fish Scope preview</title>
+<link rel="stylesheet" href="../src/ui/fonts.css">
+<style>
+  html, body { margin: 0; background: #0b2630; color: #e8ffff; font: 18px var(--font-title, monospace); }
+  .row { display: flex; gap: 24px; padding: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .bust { width: 360px; height: 360px; border: 2px solid #5ff6ff; background: #062028; }
+  .bust.sm { width: 190px; height: 214px; }
+  #full { width: 480px; height: 360px; border: 2px solid #5ff6ff; image-rendering: pixelated; }
+  button { font: 18px var(--font-title, monospace); background: #164a56; color: #e8ffff; border: 2px solid #5ff6ff; margin: 2px; padding: 3px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="row"><div class="bust" id="b1"></div><div class="bust sm" id="b2"></div><canvas id="full" width="160" height="120"></canvas></div>
+<div class="row" id="ui"></div>
+<script type="module" src="./fishscope-preview.js"></script>
+</body>
+</html>

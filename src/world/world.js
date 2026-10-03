@@ -190,13 +190,13 @@ vec3 paintTex(int id, vec2 p) {
     const g = this.grid, { w, h } = g;
     const m = g.terraSlope || (g.terraSlope = new Uint8Array(w * h));
     m.fill(0);
-    const up = (x, z) => g.inb(x, z) && g.meadow[z * w + x] && g.kind[z * w + x] !== KIND.WATER && g.height[z * w + x] > 0.01;
+    const up = (x, z) => g.inb(x, z) && g.terraEdit[z * w + x] && g.meadow[z * w + x] && g.kind[z * w + x] !== KIND.WATER;
     for (let z = 1; z < h - 1; z++)
       for (let x = 1; x < w - 1; x++) {
         const i = z * w + x;
         if (!g.meadow[i] || g.kind[i] === KIND.WATER || g.occ[i] === -2) continue;
         if (g.hasWaterNeighbor(x, z, true)) continue;
-        let on = g.height[i] > 0.01;
+        let on = false;
         for (let dz = -1; dz <= 1 && !on; dz++) for (let dx = -1; dx <= 1 && !on; dx++) if (up(x + dx, z + dz)) on = true;
         if (on) m[i] = 1;
       }

@@ -38,7 +38,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 }
 .fp-num {
   position: absolute; right: -10px; bottom: 2px; z-index: 3; min-width: 28px; text-align: center;
-  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 36px; line-height: 30px; font-weight: 400; color: #fff3a3;
+  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 32px; line-height: 34px; font-weight: 400; color: #fff3a3;
   text-shadow: 2px 0 0 #2a1a14, -2px 0 0 #2a1a14, 0 2px 0 #2a1a14, 0 -2px 0 #2a1a14, 2px 2px 0 #2a1a14, -2px 2px 0 #2a1a14, 2px -2px 0 #2a1a14, -2px -2px 0 #2a1a14, 0 4px 0 #2a1a14;
 }
 .fp-hero.empty .fp-num { color: #ff8a7a; }
@@ -83,7 +83,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 }
 .fp-badge {
   position: absolute; right: -3px; bottom: 0; z-index: 2; min-width: 20px; padding: 0 3px;
-  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 16px; font-weight: 400; text-align: center;
+  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 19px; font-weight: 400; text-align: center;
   color: #2a1a14; background: #fffbea; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14;
 }
 .fp-crate .fp-badge { bottom: -2px; }
@@ -97,7 +97,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 .fp-buy {
   position: absolute; left: 50%; bottom: 3px; z-index: 3; transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: 2px; padding: 0 5px 1px 3px; white-space: nowrap;
-  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 18px; color: #fdf4d8; text-shadow: 1px 1px 0 #1f3f2c;
+  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 19px; color: #fdf4d8; text-shadow: 1px 1px 0 #1f3f2c;
   background: linear-gradient(#6cc08a, #3f8f5f 45%, #2f6f4a); border: 2px solid #1f3f2c; box-shadow: 0 2px 0 rgba(20, 10, 4, .5);
   animation: fp-buy 1.4s ease-in-out infinite;
 }
@@ -119,7 +119,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 .fp-filter { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px 4px; }
 .fp-filter button {
   display: flex; align-items: center; gap: 3px; padding: 1px 5px 1px 2px; min-width: 52px;
-  font-family: var(--font-body, 'Pixelify Sans'), sans-serif; font-size: 16px; line-height: 14px; color: #fdf4d8; text-shadow: 1px 1px 0 #2a1a14;
+  font-family: var(--font-body, 'Pixelify Sans'), sans-serif; font-size: 16px; line-height: 17px; color: #fdf4d8; text-shadow: 1px 1px 0 #2a1a14;
   background: linear-gradient(#a86d38, #8b5a2b 50%, #6b4220); border: 2px solid #2a1a14; box-shadow: inset 0 1px 0 rgba(255, 220, 160, .4), 0 2px 0 rgba(20, 10, 4, .45);
 }
 .fp-filter button i { font-style: normal; }
@@ -135,16 +135,16 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 .fp-tag::before { content: ''; position: absolute; left: 50%; top: -7px; width: 34px; height: 11px; transform: translateX(-50%) rotate(3deg); background: rgba(255, 238, 190, .85); border-left: 1px dashed rgba(120, 90, 50, .35); border-right: 1px dashed rgba(120, 90, 50, .35); }
 .fp-plate.fp-flip .fp-tag { animation: fp-flip .38s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes fp-flip { 0% { transform: rotate(-6deg) translateY(10px) scale(.7); opacity: 0; } 100% { transform: rotate(-1.2deg); opacity: 1; } }
-.fp-name { display: block; font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 18px; font-weight: 400; color: #3b2414; }
-.fp-sub { font-size: 16px; line-height: 14px; color: #7a5c40; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-name { display: block; font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 19px; font-weight: 400; color: #3b2414; }
+.fp-sub { font-size: 16px; line-height: 17px; color: #7a5c40; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fp-sub q { quotes: '\201C' '\201D'; color: #a05a2c; }
 .fp-brand { color: #6b4a30; }
 .fp-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin-top: 3px; }
 .fp-chip { display: inline-flex; align-items: center; gap: 1px; padding: 1px 3px 1px 1px; background: #f3e2b8; border: 1px solid #b08a5a; }
-.fp-chip em { font-style: normal; font-size: 14px; line-height: 10px; color: #c0392b; letter-spacing: -1px; }
+.fp-chip em { font-style: normal; font-size: 14px; line-height: 15px; color: #c0392b; letter-spacing: -1px; }
 .fp-chip.fp-who { padding: 1px; background: #e2f0d8; border-color: #6c9a5a; }
 .fp-sep { width: 2px; height: 14px; background: #c4a672; margin: 0 2px; }
-.fp-hint { display: flex; align-items: center; gap: 3px; margin-top: 3px; font-size: 16px; line-height: 14px; color: #2f6f4a; white-space: nowrap; }
+.fp-hint { display: flex; align-items: center; gap: 3px; margin-top: 3px; font-size: 16px; line-height: 17px; color: #2f6f4a; white-space: nowrap; }
 .fp-hint img { display: inline-block; vertical-align: middle; }
 .fp-hint span { display: inline-flex; align-items: center; gap: 2px; }
 
@@ -159,7 +159,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
   .fp-heroart { width: 72px; }
   .fp-heroart canvas { width: 72px; height: auto; }
   .fp-heroart[data-kind="crate"] canvas { width: 60px; }
-  .fp-num { font-size: 18px; line-height: 16px; right: -6px; }
+  .fp-num { font-size: 18px; line-height: 19px; right: -6px; }
   .fp-items { max-width: calc(100vw - 150px); }
   .fp-filter button { min-width: 0; padding: 1px 2px; }
   .fp-filter button i { display: none; }
@@ -173,10 +173,10 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 .fp-hv canvas { image-rendering: pixelated; display: block; }
 .fp-cnt {
   position: absolute; left: 82%; top: -10px; white-space: nowrap;
-  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 18px; font-weight: 400; color: var(--rg, #fff);
+  font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 18px; line-height: 19px; font-weight: 400; color: var(--rg, #fff);
   text-shadow: 2px 0 0 #2a1a14, -2px 0 0 #2a1a14, 0 2px 0 #2a1a14, 0 -2px 0 #2a1a14, 2px 2px 0 #2a1a14;
 }
-.fp-hv.big .fp-cnt { font-size: 36px; line-height: 30px; }
+.fp-hv.big .fp-cnt { font-size: 32px; line-height: 34px; }
 .fp-spark { position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px; }
 .fp-spark.star { width: 12px; height: 12px; margin: -6px 0 0 -6px; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
 .fp-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255, 252, 220, .95), rgba(255, 214, 80, .55) 22%, rgba(255, 190, 40, .15) 45%, transparent 65%); }
@@ -187,7 +187,7 @@ body.cine .fp, body.lab-mode .fp, body.at-title .fp, body.blueprint .fp { opacit
 .fp-banner::before, .fp-banner::after { content: ''; position: absolute; top: 10px; width: 22px; height: 100%; background: #c88a18; border: 3px solid #7a4a12; z-index: -1; }
 .fp-banner::before { left: -18px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 40% 50%); }
 .fp-banner::after { right: -18px; clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%); }
-.fp-banner b { font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 36px; line-height: 34px; font-weight: 400; color: #fff; letter-spacing: 1px; text-shadow: 2px 0 0 #7a4a12, -2px 0 0 #7a4a12, 0 2px 0 #7a4a12, 0 -2px 0 #7a4a12, 0 4px 0 #7a4a12; }
+.fp-banner b { font-family: var(--font-title, 'Pixelify Sans'), sans-serif; font-size: 32px; line-height: 34px; font-weight: 400; color: #fff; letter-spacing: 1px; text-shadow: 2px 0 0 #7a4a12, -2px 0 0 #7a4a12, 0 2px 0 #7a4a12, 0 -2px 0 #7a4a12, 0 4px 0 #7a4a12; }
 .fp-banner span { font-family: var(--font-body, 'Pixelify Sans'), sans-serif; font-size: 16px; color: #5a3410; }
 
 @media (prefers-reduced-motion: reduce) {

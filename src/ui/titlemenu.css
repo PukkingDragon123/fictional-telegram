@@ -32,7 +32,7 @@
 .tm-nail--l { left: 51px; } .tm-nail--r { right: 51px; }
 .tm-logo { display: flex; flex-direction: column; align-items: center; line-height: 1; margin-top: 6px; }
 .tm-logo span {
-  display: block; font-size: 54px; line-height: 48px; letter-spacing: 3px; color: #ffe9b0;
+  display: block; font-size: 48px; line-height: 50px; letter-spacing: 3px; color: #ffe9b0;
   /* chunky painted look: 1-font-pixel ink outline + deep drop shadow */
   text-shadow:
     0 -3px 0 #3b1a0c, 3px 0 0 #3b1a0c, -3px 0 0 #3b1a0c, 0 3px 0 #3b1a0c,
@@ -55,7 +55,7 @@
   --r: 0deg;
   position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
   min-width: 216px; height: 54px; padding: 0 21px; box-sizing: border-box; cursor: pointer;
-  font-family: var(--font-title); font-size: 36px; line-height: 1; color: #3b2414;
+  font-family: var(--font-title); font-size: 32px; line-height: 1; color: #3b2414;
   background-color: #c8955a; background-size: 100% 100%; image-rendering: pixelated;
   border: 3px solid #3b2414; border-radius: 0;
   box-shadow: 0 6px 0 #3b2414, 6px 9px 0 rgba(40, 14, 30, .3);
@@ -85,7 +85,7 @@
 /* ---------- credit */
 .tm-credit {
   position: absolute; left: 0; right: 0; bottom: 9px; text-align: center; pointer-events: auto;
-  font-family: var(--font-body); font-size: 16px; line-height: 16px; color: #fdf4d8; opacity: .85;
+  font-family: var(--font-body); font-size: 16px; line-height: 17px; color: #fdf4d8; opacity: .85;
   text-shadow: 2px 2px 0 rgba(40, 14, 30, .7);
   animation: tm-fade 1s 1.8s both;
 }

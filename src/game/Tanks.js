@@ -86,6 +86,8 @@ export class Tanks {
     if (s.removed) { this.release(f); return; }
     const b = this.box(s);
     f.hunger = Math.max(0.05, f.hunger - dt * 0.004); // the tank feeds them
+    // tank food drops in now and then: a little gulp so tank fish look fed too
+    if (Math.random() < dt * 0.08) this.game.fish.eatFx?.eat?.(f, 'pellets');
     if (f.adult && f.fed < 1) { const was = f.fed; f.fed = Math.min(1, f.fed + dt * 0.012); if (was < 0.9 && f.fed >= 0.9) this.game.fish.readyFx(f); }
     // dad on egg duty
     if (f.state === 'fertilize' && f.eggs && f.eggs.stage === 'laid' && !f.eggs.dead) {

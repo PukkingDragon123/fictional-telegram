@@ -171,8 +171,8 @@ export class FishEatFx {
   surface(x, z, size, n = 1) {
     const P = this.game.particles;
     const F = P.fx;
-    F.spawn('ring_l', x, WATER_Y + 0.012, z, { life: 0.6, size: 0.26 * size, flags: FX.FLAT | FX.FADE | FX.GROW, tint: [0.92, 0.98, 1.05], bright: true });
-    F.spawn('ring', x, WATER_Y + 0.014, z, { life: 0.42, size: 0.13 * size, flags: FX.FLAT | FX.FADE | FX.GROW, tint: [1, 1, 1], bright: true });
+    // one thin, quick ring (a second, solid one hid the fish under it)
+    F.spawn('ring_l', x, WATER_Y + 0.012, z, { life: 0.4, size: 0.2 * size, flags: FX.FLAT | FX.FADE | FX.GROW, tint: [0.62, 0.8, 0.92], bright: true });
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       F.spawn('drop_s', x, WATER_Y + 0.04, z, { vx: Math.cos(a) * 0.5, vy: 1.1 + Math.random() * 0.6, vz: Math.sin(a) * 0.5, grav: 8, life: 0.6, size: 0.045, flags: FX.WATER, bright: true });
@@ -186,7 +186,7 @@ export class FishEatFx {
       const a = Math.random() * Math.PI * 2, sp = rnd(0.35, 0.9) * power;
       F.spawn('crumb', x, y, z, {
         vx: Math.cos(a) * sp, vy: rnd(0.2, 0.9) * power, vz: Math.sin(a) * sp, grav: 1.2, drag: 3.2,
-        life: rnd(0.45, 0.8), size: rnd(0.045, 0.065), frame: (Math.random() * 3) | 0, spin: rnd(-8, 8),
+        life: rnd(0.5, 0.85), size: rnd(0.06, 0.085), frame: (Math.random() * 3) | 0, spin: rnd(-8, 8),
         flags: FX.FADE | FX.SHRINK, tint: pick(tints), bright: true,
       });
     }
@@ -212,7 +212,9 @@ export class FishEatFx {
     const m = this.mouth(f);
     const calm = 1 / (1 + this.busy * 0.35);
     const sz = Math.min(1.6, 0.6 + bulk * 0.45);
-    this.crumbs(m.x, m.y + 0.03, m.z, foodTints(item), Math.max(2, Math.round((3 + bulk * 2) * calm)), sz);
+    const nc = Math.max(2, Math.round((3 + bulk * 2) * calm));
+    this.crumbs(m.x, m.y + 0.03, m.z, foodTints(item), Math.ceil(nc / 2), sz);
+    this.crumbs(m.x, WATER_Y + 0.03, m.z, foodTints(item), Math.floor(nc / 2) + 1, sz); // bits flung up at the surface
     this.bubbles(m.x, m.y, m.z, Math.max(1, Math.round(2 * calm)));
     this.surface(m.x, m.z, sz, calm > 0.5 ? 1 : 0);
     const P = this.game.particles;
@@ -237,7 +239,8 @@ export class FishEatFx {
   nibble(f, weed, last = false) {
     startGulp(f, 'nibble', 0.5);
     const m = this.mouth(f);
-    this.crumbs(m.x, m.y + 0.02, m.z, WEED_TINTS, 2 + (Math.random() < 0.5 ? 1 : 0), 0.7);
+    this.crumbs(m.x, m.y + 0.02, m.z, WEED_TINTS, 2, 0.7);
+    this.crumbs(m.x, WATER_Y + 0.03, m.z, WEED_TINTS, 1 + (Math.random() < 0.5 ? 1 : 0), 0.6); // bits flicked up to the surface
     if (Math.random() < 0.6) this.bubbles(m.x, m.y, m.z, 1);
     if (last) this.surface(m.x, m.z, 0.7, 0);
     if (this.wordCd <= 0 && Math.random() < 0.3) this.word(Math.random() < 0.6 ? 'nibble' : 'munch', m.x, m.z, 0.12);

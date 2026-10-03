@@ -27,7 +27,7 @@
 .ub-lbl {
   position: absolute; left: calc(var(--s) * 13); top: calc(var(--s) * 40); width: calc(var(--s) * 19); height: calc(var(--s) * 7);
   display: flex; align-items: center; justify-content: center; overflow: hidden; pointer-events: none;
-  font-family: var(--font-body); font-size: 16px; line-height: 13px; color: #2a2030; text-align: center;
+  font-family: var(--font-body); font-size: 16px; line-height: 17px; color: #2a2030; text-align: center;
   -webkit-font-smoothing: antialiased; font-synthesis: none;
 }
 .ub-lbl span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
@@ -57,7 +57,7 @@
 .ub-banner::before, .ub-banner::after { content: ''; position: absolute; top: 9px; width: 16px; height: 100%; z-index: -1; background: #1a2244; }
 .ub-banner::before { left: -12px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 6px 50%); }
 .ub-banner::after { right: -12px; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%); }
-.ub-banner span { font-family: var(--font-title); font-size: 18px; line-height: 18px; letter-spacing: 0; color: var(--tape); text-transform: uppercase; text-shadow: 2px 2px 0 #120c18; }
+.ub-banner span { font-family: var(--font-title); font-size: 18px; line-height: 19px; letter-spacing: 0; color: var(--tape); text-transform: uppercase; text-shadow: 2px 2px 0 #120c18; }
 .ub-banner.on { opacity: 1; transform: translate(-50%, -100%) scale(1) rotate(-2deg); }
 
 .ub-prompt {
@@ -67,7 +67,7 @@
 }
 .ub-prompt.on { opacity: 1; }
 .ub-tap {
-  font-family: var(--font-title); font-size: 36px; line-height: 36px; color: #fffbe8; white-space: nowrap;
+  font-family: var(--font-title); font-size: 32px; line-height: 34px; color: #fffbe8; white-space: nowrap;
   text-shadow: 3px 0 0 var(--ol), -3px 0 0 var(--ol), 0 3px 0 var(--ol), 0 -3px 0 var(--ol), 3px 3px 0 var(--ol), -3px 3px 0 var(--ol), 3px -3px 0 var(--ol), -3px -3px 0 var(--ol), 0 7px 0 rgba(0, 0, 0, .4);
   animation: egg-tapbounce .7s cubic-bezier(.3, 1.6, .5, 1) infinite alternate;
 }
@@ -88,7 +88,7 @@
 .ub-rcpt {
   position: absolute; z-index: 3; left: var(--rx); top: calc(72px + var(--safe-t)); width: var(--rw); max-height: var(--rmax);
   display: flex; flex-direction: column; padding: 14px 18px 14px; color: #3a3a44;
-  font-family: var(--font-body); font-size: 16px; line-height: 16px;
+  font-family: var(--font-body); font-size: 16px; line-height: 17px;
   filter: drop-shadow(0 6px 0 rgba(20, 10, 6, .35));
   opacity: 0; visibility: hidden; transform: translate(-50%, 60px) rotate(4deg) scale(.9);
   transition: transform .55s cubic-bezier(.3, 1.4, .5, 1), opacity .25s, visibility 0s .55s;
@@ -100,13 +100,13 @@
 .ub-rcpt.ub-instant { transition: none; }
 .ub-rtape { position: absolute; left: 50%; top: -22px; margin-left: -51px; pointer-events: none; }
 .ub-rh { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 8px; flex: none; }
-.ub-logo { display: flex; align-items: flex-end; font-family: var(--font-title); font-size: 36px; line-height: 30px; padding-top: 4px; }
+.ub-logo { display: flex; align-items: flex-end; font-family: var(--font-title); font-size: 32px; line-height: 34px; padding-top: 4px; }
 .ub-logo span {
   display: inline-block;
   text-shadow: 2px 0 0 #2a1a30, -2px 0 0 #2a1a30, 0 2px 0 #2a1a30, 0 -2px 0 #2a1a30, 2px 2px 0 #2a1a30, -2px 2px 0 #2a1a30, 2px -2px 0 #2a1a30, -2px -2px 0 #2a1a30, 0 4px 0 #2a1a30;
 }
 .ub-logo .l1 { color: #f0505a; } .ub-logo .l2 { color: #ff9a3a; margin: 0 1px; } .ub-logo .l3 { color: #3a7ae0; } .ub-logo .l4 { color: #ffc22e; } .ub-logo .l5 { color: #6cc04a; }
-.ub-rt { font-family: var(--font-title); font-size: 18px; line-height: 18px; text-transform: uppercase; color: #2a2a34; margin-top: 4px; }
+.ub-rt { font-family: var(--font-title); font-size: 18px; line-height: 19px; text-transform: uppercase; color: #2a2a34; margin-top: 4px; }
 .ub-ro { font-size: 16px; color: #6a6a74; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ub-dash { flex: none; height: 0; border-top: 3px dashed #bdbab2; margin: 2px -4px; }
 .ub-rows { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 6px 2px; display: flex; flex-direction: column; gap: 6px; scrollbar-width: thin; }
@@ -129,15 +129,15 @@
 .ub-art img, .ub-art canvas { image-rendering: pixelated; display: block; }
 .ub-row.t3 .ub-art, .ub-row.t4 .ub-art { filter: drop-shadow(0 0 4px var(--rg)); }
 .ub-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.ub-nm { font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #2a2a34; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ub-sub { font-size: 16px; line-height: 14px; color: #77757e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ub-nm { font-family: var(--font-title); font-size: 18px; line-height: 19px; color: #2a2a34; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ub-sub { font-size: 16px; line-height: 17px; color: #77757e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ub-rar {
   display: inline-block; vertical-align: 2px; margin-left: 6px; padding: 2px 4px 1px; font-style: normal;
   font-family: 'Silkscreen', 'Pixelify Sans', monospace; font-size: 9px; line-height: 9px; letter-spacing: 1px; text-transform: uppercase;
   color: #fffbe8; background: var(--rc); box-shadow: 0 0 0 2px #2a1a30; text-shadow: 1px 1px 0 rgba(0, 0, 0, .35);
 }
 .ub-row.t4 .ub-rar { background: linear-gradient(100deg, #ffb020 0 30%, #fff0a0 45%, #ffc83a 60%, #ffb020 100%) 0 0 / 300% 100%; color: #5a3a08; text-shadow: none; animation: egg-goldrib 2.2s linear infinite; }
-.ub-q { font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #2a2a34; padding-left: 4px; }
+.ub-q { font-family: var(--font-title); font-size: 18px; line-height: 19px; color: #2a2a34; padding-left: 4px; }
 .ub-rf { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 8px; font-size: 16px; color: #6a6a74; }
 .ub-tot { font-family: var(--font-title); font-size: 18px; color: #2a2a34; text-transform: uppercase; }
 .ub-via { display: inline-flex; align-items: center; gap: 4px; }
@@ -155,7 +155,7 @@
 .ub-top > * { pointer-events: auto; }
 .ub-brand { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; pointer-events: none !important;
   background: var(--navy); box-shadow: 0 0 0 3px #120c18, inset 0 2px 0 #3a4a80, inset 0 -3px 0 #1a2244; }
-.ub-brand span { font-family: var(--font-title); font-size: 18px; line-height: 18px; color: var(--tape); text-transform: uppercase; }
+.ub-brand span { font-family: var(--font-title); font-size: 18px; line-height: 19px; color: var(--tape); text-transform: uppercase; }
 .ub-skip { font-size: 15px; padding: 5px 12px 6px; }
 .ub-ov.done .ub-skip, .ub-ov.closing .ub-skip { visibility: hidden; }
 .ub-foot {
@@ -169,7 +169,7 @@
 .ub-flash { position: absolute; inset: 0; background: #ffffff; opacity: 0; pointer-events: none; z-index: 7; }
 
 @media (max-width: 640px) {
-  .ub-tap { font-size: 36px; }
+  .ub-tap { font-size: 32px; }
   .ub-rcpt { padding: 12px 14px 12px; }
   .ub-row { grid-template-columns: 44px 1fr auto; gap: 8px; }
   .ub-ic { width: 44px; height: 44px; }
@@ -189,9 +189,9 @@
   animation: ub-tagin .3s cubic-bezier(.3, 1.8, .5, 1) both;
 }
 .ub-herotag b {
-  font-family: var(--font-title); font-weight: 400; font-size: 36px; line-height: 36px; color: var(--rc); text-transform: uppercase;
+  font-family: var(--font-title); font-weight: 400; font-size: 32px; line-height: 34px; color: var(--rc); text-transform: uppercase;
   text-shadow: 3px 0 0 var(--ol), -3px 0 0 var(--ol), 0 3px 0 var(--ol), 0 -3px 0 var(--ol), 3px 3px 0 var(--ol), -3px 3px 0 var(--ol), 3px -3px 0 var(--ol), -3px -3px 0 var(--ol), 0 6px 0 rgba(0, 0, 0, .4);
 }
-.ub-herotag span { font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #fffbe8; text-shadow: 2px 0 0 var(--ol), -2px 0 0 var(--ol), 0 2px 0 var(--ol), 0 -2px 0 var(--ol); }
+.ub-herotag span { font-family: var(--font-title); font-size: 18px; line-height: 19px; color: #fffbe8; text-shadow: 2px 0 0 var(--ol), -2px 0 0 var(--ol), 0 2px 0 var(--ol), 0 -2px 0 var(--ol); }
 @keyframes ub-tagin { from { transform: translate(-50%, 0) scale(.3); opacity: 0; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ub-flyer.hero, .ub-herotag { animation: none; } }

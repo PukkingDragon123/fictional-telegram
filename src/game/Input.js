@@ -76,7 +76,7 @@ export class Input {
   tool() { return this.game.tool; }
   isLineTool() {
     const t = this.tool();
-    return t.kind === 'dig' || t.kind === 'clear' || t.kind === 'build' || t.kind === 'remove';
+    return t.kind === 'dig' || t.kind === 'clear' || t.kind === 'build' || t.kind === 'remove' || t.kind === 'terraform';
   }
 
   onDown(e) {
@@ -91,6 +91,7 @@ export class Input {
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+      if (this.drag?.terra) this.game.terraform?.strokeEnd(true);
       this.drag = null;
       this.game.ghostLine = null;
       return;
@@ -111,10 +112,12 @@ export class Input {
       const t = this.pickTile(p.x, p.y);
       const tk2 = this.tool();
       // builds (except walls like dams/fences) and clearing paint along the drag path
-      const paint = (tk2.kind === 'build' && !STRUCTURES[tk2.type]?.drag) || tk2.kind === 'remove';
+      const paint = (tk2.kind === 'build' && !STRUCTURES[tk2.type]?.drag) || tk2.kind === 'remove' || tk2.kind === 'terraform';
       // the Destroy tool selects a whole box of trees / rocks / weeds
       const rect = tk2.kind === 'clear';
       this.drag = { mode: 'line', start: t, end: t, moved: false, paint, rect, path: [t], seen: new Set([t.x + ',' + t.z]) };
+      // Terraform: the brush works live along the drag path
+      if (tk2.kind === 'terraform') { this.drag.terra = true; this.game.terraform?.strokeStart(t); }
       this.updateLine();
     } else {
       this.drag = { mode: 'maybe', x: p.x, y: p.y };
@@ -160,6 +163,7 @@ export class Input {
         }
       }
       d.end = t;
+      if (d.terra) this.game.terraform?.strokePath(d.path);
       this.updateLine();
     }
     if (e.pointerType === 'mouse') this.onHover(p.x, p.y, true);
@@ -174,6 +178,7 @@ export class Input {
     this.drag = null;
     if (drag && drag.mode === 'grab') { this.dropFish(drag, this.local(e)); return; }
     if (drag && drag.mode === 'pet') return;
+    if (drag?.terra && (cancel || drag.mode !== 'line')) this.game.terraform?.strokeEnd(true);
     if (cancel || !drag) { this.game.ghostLine = null; return; }
     const p = this.local(e);
     if (drag.bubble) { if (drag.mode === 'maybe') this.game.ui?.advanceBubble?.(); return; }
@@ -410,6 +415,7 @@ export class Input {
     const game = this.game;
     const tiles = drag.rect ? this.rectTiles(drag.start, drag.end) : drag.paint ? drag.path.slice(0, 80) : this.lineTiles(drag.start, drag.end);
     game.ghostLine = null;
+    if (drag.terra) { game.terraform?.strokeEnd(drag.moved); return; }
     if (game.tool.kind === 'remove') { for (const t of tiles) game.demolishAt(t.x, t.z); return; }
     const tool = game.tool;
     if (tool.kind === 'clear') {

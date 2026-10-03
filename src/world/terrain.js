@@ -299,7 +299,9 @@ export function buildTerrainGeometry(grid) {
         const nl = Math.hypot(nx, ny, nz) || 1;
         const steep = 1 - ny / nl;
         const rocky = k === KIND.ROCK || k === KIND.SNOW;
-        const shade = 1 - steep * 0.25;
+        let shade = 1 - steep * 0.25;
+        // Terraform hills: banded top-left light so they read from the high camera
+        if (terra && terra[i]) shade = Math.round(Math.min(1.25, Math.max(0.68, shade + (-nx - nz) / nl * 0.9)) * 10) / 10;
         const f = [shade, shade, shade];
         quad(a, b, c, d, [nx / nl, ny / nl, nz / nl], [f, f, f, f], rocky && steep > 0.35 ? 1 : 0);
         // seal against flat neighbours (trail / meadow) that sit lower

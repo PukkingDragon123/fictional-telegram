@@ -542,38 +542,36 @@ function labFore() {
 // on a dark strap that wraps around the back of the head. Pivot at the hat seat.
 function gogglesModel() {
   const v = new VoxelModel();
-  const n = new THREE.Vector3(0, 0.78, 0.62).normalize();
-  const C = [[-3.4, 0.6, 3.2], [2.4, 0.6, 3.2]];
+  const n = new THREE.Vector3(0, 0.5, 0.87).normalize(); // lenses look up and forward
+  const C = [[-3.6, 1.2, 4.2], [2.6, 1.2, 4.2]];
   const d = new THREE.Vector3();
   for (const c of C) {
-    for (let x = -8; x <= 7; x++)
-      for (let y = -3; y <= 4; y++)
-        for (let z = -2; z <= 8; z++) {
-          d.set(x + 0.5 - c[0] - 0.5, y + 0.5 - c[1], z + 0.5 - c[2]);
+    for (let x = -9; x <= 8; x++)
+      for (let y = -4; y <= 6; y++)
+        for (let z = -1; z <= 9; z++) {
+          d.set(x + 0.5 - c[0], y + 0.5 - c[1], z + 0.5 - c[2]);
           const ax = d.dot(n);
-          if (ax < -1.1 || ax > 1.1) continue;
+          if (ax < -1.2 || ax > 1.3) continue;
           const rad = Math.sqrt(Math.max(0, d.lengthSq() - ax * ax));
-          if (rad > 2.75) continue;
+          if (rad > 3.3) continue;
           let col;
-          if (rad > 1.85) col = ax > 0.3 ? (d.x + d.z * 0.3 < -0.6 ? P.rimL : P.rim) : P.rimD;
-          else if (ax > 0) col = d.x < -0.4 && d.z + d.y > 0.2 ? P.glassL : rad > 1.2 ? P.glassD : P.glass;
+          if (rad > 2.2) col = ax > 0.2 ? (d.x + d.y * 0.5 < -1 ? P.rimL : d.x + d.y * 0.5 > 1.2 ? P.rimD : P.rim) : P.rimD;
+          else if (ax > -0.2) col = (d.x < -0.3 && d.y > 0.2) || (d.x < -1 && d.y > -0.5) ? P.glassL : rad > 1.5 ? P.glassD : P.glass;
           else col = P.strapD;
           v.set(x, y, z, col);
         }
   }
   // bridge between the lenses
-  v.set(-1, 1, 4, P.rimD); v.set(0, 1, 4, P.rimD); v.set(-1, 2, 4, P.rim); v.set(0, 2, 4, P.rim);
+  for (const x of [-1, 0]) { v.set(x, 1, 5, P.rimD); v.set(x, 2, 5, P.rim); }
   // strap: hugs the sides and back of the head just under the crown
   for (let x = -9; x <= 8; x++)
     for (let z = -8; z <= 6; z++) {
-      const dx = Math.max(Math.abs(x + 0.5 + 0.5) - 6.0, 0), dz = Math.max(Math.abs(z + 0.5) - 5.0, 0);
+      const dx = Math.max(Math.abs(x + 1) - 6.0, 0), dz = Math.max(Math.abs(z + 0.5) - 5.0, 0);
       const r = Math.hypot(dx, dz);
-      if (r < 1.2 || r > 2.2) continue;
-      if (z > 2) continue; // the front is the lenses
+      if (r < 1.0 || r > 2.0) continue;
+      if (z > 3) continue; // the front is the lenses
       for (const y of [-1, 0]) v.set(x, y, z, y === 0 ? (x < -2 ? P.strapL : P.strap) : P.strapD);
     }
-  // strap rises from the sides to the lens rims
-  for (const [x, s] of [[-7, -1], [6, 1]]) for (let z = 2; z <= 3; z++) { v.set(x, 0, z, P.strap); v.set(x - s, 1, z + 1, P.strap); }
   return v;
 }
 
@@ -585,14 +583,14 @@ function magnifierModel() {
   for (let y = 2; y >= -5; y--) sq(y, (x, yy, z) => (x < 0 && z === 0 ? P.strapL : (yy & 1) ? P.strap : P.strapD));
   sq(-6, (x) => (x < 0 ? P.rimL : P.rim)); sq(-7, P.rimD);
   // ring + lens in the x-y plane, centred below the ferrule
-  const cy = -13;
-  for (let x = -7; x <= 6; x++)
-    for (let y = cy - 7; y <= cy + 6; y++) {
+  const cy = -12;
+  for (let x = -6; x <= 5; x++)
+    for (let y = cy - 6; y <= cy + 5; y++) {
       const r = Math.hypot(x + 0.5, y + 0.5 - cy);
-      if (r > 6.2) continue;
-      if (r > 4.9) { for (const z of [-1, 0]) v.set(x, y, z, x + (y - cy) < -2 ? P.rimL : x + (y - cy) > 3 ? P.rimD : P.rim); continue; }
+      if (r > 5.2) continue;
+      if (r > 4.0) { for (const z of [-1, 0]) v.set(x, y, z, x + (y - cy) < -2 ? P.rimL : x + (y - cy) > 3 ? P.rimD : P.rim); continue; }
       const glint = (x === -3 && y - cy === 2) || (x === -2 && y - cy === 3) || (x === -3 && y - cy === 3) || (x === 1 && y - cy === -2);
-      v.set(x, y, 0, glint ? P.glassL : r > 3.6 ? P.glassD : P.glass);
+      v.set(x, y, 0, glint ? P.glassL : r > 2.9 ? P.glassD : P.glass);
     }
   return v;
 }
@@ -717,7 +715,7 @@ const PROP_DEF = {
   chalk: { build: chalkModel, pivot: [0, 0, 0], tip: [0, -6.2, 0], len: 6.2 },
   ladle: { build: ladleModel, pivot: [0, 0, 0], tip: [0, -14.5, 5], len: 15 },
   toothbrush: { build: toothbrushModel, pivot: [0, 0, 0], tip: [0, -13, 2], len: 13 },
-  magnifier: { build: magnifierModel, pivot: [0, 0, 0], tip: [0, -13, 0], len: 13 },
+  magnifier: { build: magnifierModel, pivot: [0, 0, 0], tip: [0, -12, 0], len: 12 },
   pencil: { build: pencilModel, pivot: [0, 0, 0], tip: [0, -10, 0], len: 10 },
   // not a paw prop: FishScope hangs it on the left grip itself (origin = board centre)
   clipboard: { build: clipboardModel, pivot: [0, 0, 0], tip: [0, 0, 1], len: 0.5 },

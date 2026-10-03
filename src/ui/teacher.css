@@ -45,8 +45,8 @@
 }
 .tch-text {
   font-family: var(--font-body);
-  font-size: calc(var(--px) * 16);
-  line-height: calc(var(--px) * 11);
+  font-size: calc(var(--px) * 11); /* Pixelify 22px at 2x */
+  line-height: calc(var(--px) * 13);
   font-weight: 400;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
@@ -60,9 +60,9 @@
 /* emphasis: the chunky title font instead of fake bold (keeps the pixels crisp) */
 .tch-text b, .tch-text strong {
   font-family: var(--font-title);
-  font-size: calc(var(--px) * 18);
+  font-size: calc(var(--px) * 11);
   font-weight: 400;
-  line-height: calc(var(--px) * 11);
+  line-height: calc(var(--px) * 13);
 }
 .tch-text i, .tch-text em { font-style: normal; text-decoration: underline; text-decoration-thickness: var(--px); text-underline-offset: calc(var(--px) * 2); }
 .tch-text img { image-rendering: pixelated; vertical-align: middle; }

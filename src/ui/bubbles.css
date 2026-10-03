@@ -38,8 +38,8 @@
 .bb-row { display: flex; align-items: center; gap: calc(var(--px) * 3); }
 .bb-text {
   font-family: var(--font-body);
-  font-size: calc(var(--px) * 16);
-  line-height: calc(var(--px) * 11);
+  font-size: calc(var(--px) * 11); /* Pixelify 22px at the usual 2x */
+  line-height: calc(var(--px) * 13);
   font-weight: 400;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
@@ -53,8 +53,8 @@
 .bb-s-s .bb-text { max-width: calc(var(--px) * 80); }
 .bb-s-l .bb-text {
   font-family: var(--font-title);
-  font-size: calc(var(--px) * 18);
-  line-height: calc(var(--px) * 12);
+  font-size: calc(var(--px) * 14);
+  line-height: calc(var(--px) * 16);
   max-width: calc(var(--px) * 140);
 }
 .bb-m-shout .bb-text { text-transform: uppercase; }
@@ -69,7 +69,7 @@
   image-rendering: pixelated;
 }
 .bb-ch.bb-ico { vertical-align: middle; margin: 0 var(--px); }
-.bb-ch.bb-em > span { font-family: var(--font-title); font-size: calc(var(--px) * 18); }
+.bb-ch.bb-em > span { font-family: var(--font-title); font-size: calc(var(--px) * 12); }
 .bb-ch.bb-em.on { animation: bb-wave 0.6s steps(1) infinite; animation-delay: calc(var(--i) * -0.1s); }
 @keyframes bb-hop {
   0% { transform: translateY(calc(var(--px) * -2)); }
@@ -219,8 +219,8 @@
   gap: calc(var(--px) * 2);
   padding: 0 calc(var(--px) * 2);
   font-family: var(--font-body);
-  font-size: calc(var(--px) * 16);
-  line-height: calc(var(--px) * 9);
+  font-size: calc(var(--px) * 10);
+  line-height: calc(var(--px) * 12);
   -webkit-font-smoothing: antialiased;
   visibility: hidden;
 }

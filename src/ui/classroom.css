@@ -70,7 +70,7 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
 @keyframes cls-bop { 0% { transform: scale(1.12, .86); } 60% { transform: scale(.94, 1.08); } 100% { transform: none; } }
 .cls-body { flex: 1 1 auto; min-width: 0; }
 .cls-name { font: 18px/1 var(--font-title); color: var(--chalk-y); margin: 0 0 6px; letter-spacing: 0; opacity: .9; }
-.cls-text { font-size: 32px; line-height: 28px; min-height: 56px; text-shadow: 0 0 1px rgba(255,255,255,.25); }
+.cls-text { font-size: 22px; line-height: 28px; min-height: 56px; text-shadow: 0 0 1px rgba(255,255,255,.25); }
 .cls-text b { font-weight: 400; color: var(--chalk-y); }
 .cls-w { display: inline-block; white-space: nowrap; }
 .cls-ch { visibility: hidden; }
@@ -111,8 +111,8 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
   display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
 }
 .cls-stamp canvas { width: 200px; height: 200px; image-rendering: pixelated; filter: drop-shadow(0 6px 0 rgba(20,10,4,.45)); }
-.cls-stamp b { font: 54px/1 var(--font-title); font-weight: 400; color: #ffd23a; text-shadow: 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 3px 0 var(--ink), 0 -3px 0 var(--ink), 3px 3px 0 var(--ink), 0 9px 0 #8a4a10; white-space: nowrap; }
-.cls-stamp i { font: 32px/1 var(--font-body); font-style: normal; color: #fff6dc; text-shadow: 2px 2px 0 var(--ink); }
+.cls-stamp b { font: 48px/1 var(--font-title); font-weight: 400; color: #ffd23a; text-shadow: 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 3px 0 var(--ink), 0 -3px 0 var(--ink), 3px 3px 0 var(--ink), 0 9px 0 #8a4a10; white-space: nowrap; }
+.cls-stamp i { font: 24px/1 var(--font-body); font-style: normal; color: #fff6dc; text-shadow: 2px 2px 0 var(--ink); }
 .cls-stamp.slam canvas { animation: cls-slam .55s cubic-bezier(.2,1.6,.4,1) both, cls-wiggle 2.4s ease-in-out .6s infinite; }
 .cls-stamp.slam b { animation: cls-slam .55s cubic-bezier(.2,1.6,.4,1) .12s both; }
 .cls-stamp.slam i { animation: cls-fade .4s ease .5s both; }
@@ -124,7 +124,7 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
   .cls-say { padding: 10px 34px 10px 10px; gap: 10px; min-height: 96px; }
   .cls-portrait { width: 72px; height: 72px; }
   .cls-portrait img { width: 64px; height: 64px; }
-  .cls-text { font-size: 16px; line-height: 15px; min-height: 30px; }
-  .cls-stamp b { font-size: 36px; }
+  .cls-text { font-size: 18px; line-height: 22px; min-height: 44px; }
+  .cls-stamp b { font-size: 32px; }
   .cls-stamp canvas { width: 160px; height: 160px; }
 }

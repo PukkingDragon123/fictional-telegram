@@ -1,0 +1,83 @@
+/* Terraform tool: pond name signs, the rename card, the Build-menu panel. */
+
+/* ---- floating wooden pond signs (follow the pond on screen, like the fog tags) */
+.tf-sign { position: absolute; left: 0; top: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; cursor: pointer; pointer-events: auto; }
+.tf-sign-board {
+  position: relative; display: block; padding: 4px 12px 5px; white-space: nowrap;
+  font-family: var(--font-title); font-size: 18px; line-height: 18px; color: #fff3d6;
+  text-shadow: 0 2px 0 #4a2a14, 1px 0 0 #4a2a14, -1px 0 0 #4a2a14;
+  /* planks: two boards with a seam, grain streaks, lit top edge */
+  background-color: #a8703c;
+  background-image:
+    linear-gradient(#c88a4c 0 2px, transparent 2px),
+    linear-gradient(transparent calc(50% - 1px), #6a4020 calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(90, 50, 20, .35) 9px 11px, transparent 11px 23px, rgba(255, 220, 160, .15) 23px 24px);
+  border: 3px solid #2a1a14; box-shadow: 0 3px 0 #2a1a14, inset 0 -3px 0 rgba(60, 30, 10, .35);
+  animation: tf-sway 2.6s ease-in-out infinite alternate; transform-origin: 50% 120%;
+}
+.tf-sign-board::before, .tf-sign-board::after { /* nails */
+  content: ''; position: absolute; top: 50%; width: 4px; height: 4px; margin-top: -2px; background: #d8d4cc; box-shadow: 1px 1px 0 #3a2a20;
+}
+.tf-sign-board::before { left: 3px; } .tf-sign-board::after { right: 3px; }
+.tf-sign-post { display: block; width: 6px; height: 14px; background: linear-gradient(90deg, #8a5a2c 0 3px, #5e3a1c 3px); border: 2px solid #2a1a14; border-top: 0; margin-top: -1px; }
+.tf-sign.small .tf-sign-board { font-size: 16px; line-height: 16px; padding: 3px 10px 4px; }
+.tf-sign:hover .tf-sign-board { filter: brightness(1.1); }
+.tf-sign.wob .tf-sign-board { animation: tf-wob .5s cubic-bezier(.3, 1.8, .5, 1); }
+body.cine .tf-sign, body.lab-mode .tf-sign { display: none !important; }
+@keyframes tf-sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
+@keyframes tf-wob { 0% { transform: scale(1.35) rotate(-8deg); } 60% { transform: scale(.92) rotate(3deg); } 100% { transform: scale(1) rotate(0); } }
+
+/* ---- rename card: a scrap of paper with tape and a pencil line */
+.tf-card-wrap { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; background: rgba(20, 14, 10, .35); pointer-events: auto; animation: tf-fade .2s both; }
+.tf-card-wrap.out { animation: tf-fade .2s reverse both; }
+.tf-card {
+  position: relative; width: min(380px, calc(100vw - 32px)); padding: 18px 20px 16px; color: #3a2a1a; font-family: var(--font-body);
+  background-color: #fbf3dc;
+  background-image: repeating-linear-gradient(transparent 0 27px, rgba(120, 160, 200, .28) 27px 29px), radial-gradient(circle at 20% 10%, rgba(255, 255, 255, .6), transparent 60%);
+  border: 3px solid #3a2a1a; box-shadow: 5px 6px 0 rgba(30, 20, 10, .45); transform: rotate(-1.5deg);
+  animation: tf-card-in .35s cubic-bezier(.3, 1.6, .5, 1) both;
+}
+.tf-tape { position: absolute; top: -11px; left: 50%; width: 70px; height: 18px; margin-left: -35px; background: rgba(255, 228, 150, .85); box-shadow: 0 2px 0 rgba(0, 0, 0, .2); transform: rotate(3deg); }
+.tf-card-h { display: flex; align-items: center; gap: 10px; font-family: var(--font-title); font-size: 28px; line-height: 30px; color: #6a3a1a; }
+.tf-card-sub { font-size: 16px; opacity: .7; margin: 2px 0 12px 50px; }
+.tf-field { display: flex; gap: 8px; align-items: stretch; }
+.tf-input {
+  flex: 1; min-width: 0; font-family: var(--font-title); font-size: 26px; color: #2a1a14; padding: 4px 8px;
+  background: transparent; border: 0; border-bottom: 3px dashed #6a4a2a; outline: none;
+}
+.tf-input:focus { border-bottom-style: solid; background: rgba(255, 240, 180, .4); }
+.tf-dice { width: 44px; font-family: var(--font-title); font-size: 20px; color: #fff; background: #5a8ac8; border: 3px solid #2a1a14; box-shadow: 0 3px 0 #2a1a14; cursor: pointer; transform: rotate(4deg); }
+.tf-dice:hover { transform: rotate(-6deg) scale(1.08); }
+.tf-card-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.tf-btn { font-family: var(--font-title); font-size: 20px; padding: 5px 14px; border: 3px solid #2a1a14; box-shadow: 0 3px 0 #2a1a14; cursor: pointer; color: #2a1a14; background: #e8dcc0; }
+.tf-btn.ok { background: #7ac85a; color: #fff; text-shadow: 1px 1px 0 #2a5a1a; transform: rotate(-2deg); }
+.tf-btn:hover { filter: brightness(1.08); transform: translateY(-2px); }
+@keyframes tf-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tf-card-in { from { transform: translateY(40px) rotate(6deg) scale(.8); opacity: 0; } to { transform: rotate(-1.5deg); opacity: 1; } }
+
+/* ---- Build-menu panel (inside the blueprint sheet) */
+.tf-panel { display: flex; align-items: center; gap: 10px; color: #e8f4ff; }
+.tf-group { display: flex; gap: 6px; align-items: center; }
+.tf-sep { width: 0; align-self: stretch; border-left: 2px dashed rgba(184, 220, 255, .6); margin: 0 2px; }
+.tf-mode, .tf-swatch, .tf-brush { position: relative; cursor: pointer; border: 2px solid #b8dcff; background: rgba(10, 40, 90, .35); color: #e8f4ff; transition: transform .12s cubic-bezier(.3, 1.6, .5, 1); }
+.tf-mode { width: 62px; height: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; animation: bp-pop .3s cubic-bezier(.3, 1.6, .5, 1) both; }
+.tf-mode em, .tf-swatch em { font-style: normal; font-size: 16px; line-height: 14px; white-space: nowrap; text-shadow: 1px 1px 0 #0b2a5a; }
+.tf-mode img { filter: drop-shadow(1px 2px 0 rgba(5, 20, 50, .6)); }
+.tf-mode:hover, .tf-swatch:hover, .tf-brush:hover { transform: translateY(-3px) rotate(-2deg); }
+.tf-mode.on { background: rgba(232, 244, 255, .25); border: 3px solid #fff; box-shadow: 0 0 0 3px #ffd84a; transform: translateY(-3px); }
+.tf-swatch { width: 54px; height: 54px; background-size: 54px 54px; image-rendering: pixelated; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .25); }
+.tf-swatch em { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); background: #0b2a5a; padding: 1px 4px; font-size: 16px; opacity: 0; transition: opacity .12s; pointer-events: none; }
+.tf-swatch:hover em, .tf-swatch.on em { opacity: 1; }
+.tf-swatch.on { border: 3px solid #fff; box-shadow: 0 0 0 3px #ffd84a; transform: translateY(-3px) rotate(-3deg); }
+.tf-brush { width: 34px; height: 34px; display: grid; place-items: center; }
+.tf-brush i { width: var(--s); height: var(--s); background: #e8f4ff; border: 2px solid #0b2a5a; }
+.tf-brush.on { background: #e8f4ff; border-color: #fff; box-shadow: 0 3px 0 #0b2a5a; }
+.tf-brush.on i { background: #ffd84a; }
+.tf-cost, .tf-hint { display: flex; align-items: center; gap: 3px; font-family: var(--font-title); font-size: 22px; color: #fff3c0; text-shadow: 1px 1px 0 #0b2a5a; white-space: nowrap; }
+.tf-cost small { font-size: 16px; opacity: .8; }
+.tf-hint { font-family: var(--font-body); font-size: 18px; color: #e8f4ff; }
+@media (max-width: 640px) {
+  .tf-mode { width: 52px; height: 60px; }
+  .tf-mode em { font-size: 13px; }
+  .tf-swatch { width: 44px; height: 44px; background-size: 44px 44px; }
+}

@@ -22,6 +22,7 @@ const TABS = [
   { id: 'woodwork', icon: 'hammer', name: 'Woodwork', zone: 'treehouse' },
   { id: 'contraption', icon: 'gear', name: 'Gadgets' },
   { id: 'dig', icon: 'shovel', name: 'Dig pond' },
+  { id: 'terraform', icon: 'shovel', name: 'Terraform', feature: 'terraform' },
   { id: 'remove', icon: 'trash', name: 'Remove' },
 ];
 
@@ -130,6 +131,7 @@ export class Blueprint {
       if (t.id === 'inv') return true;
       if (t.id === 'clear') return this.hasBeavers();
       if (t.id === 'dig' || t.id === 'remove') return game.isOpen('clear');
+      if (t.id === 'terraform') return !!game.terraform;
       return this.itemsFor(t.id).length > 0;
     });
   }
@@ -155,6 +157,13 @@ export class Blueprint {
     te.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { game.audio.play('page', { volume: 0.35 }); this.tab = b.dataset.tab; this.render(); this.selectTabTool(); }));
     const box = this.el.querySelector('.bp-items');
     const tool = game.tool;
+    if (this.tab === 'terraform') {
+      // Terraform: mode picker, paint swatches, brush size and cost (Terraform.js draws it)
+      box.innerHTML = game.terraform.panelHTML((n, s) => this.tico(n, s));
+      game.terraform.bindPanel(box, () => this.render());
+      this.selectTabTool();
+      return;
+    }
     if (this.tab === 'clear' || this.tab === 'dig' || this.tab === 'remove') {
       const info = { clear: ['tree', 'Drag over trees, rocks & weeds'], dig: ['shovel', `Drag to dig  ${this.tico('coin', 1)}${game.digCost()}`], remove: ['trash', 'Tap a build to remove'] }[this.tab];
       box.innerHTML = `<div class="bp-mode">${this.tico(info[0], 3)}<span>${info[1]}</span>${this.tab === 'clear' ? `<span class="bp-sub">${this.tico('beaver', 1)} ×${game.beavers.count()} &nbsp; ${this.tico('berry', 1)} = pay</span>` : ''}</div>`;
@@ -196,7 +205,8 @@ export class Blueprint {
     if (this.tab === 'clear') g.setTool({ kind: 'clear' });
     else if (this.tab === 'dig') g.setTool({ kind: 'dig' });
     else if (this.tab === 'remove') g.setTool({ kind: 'remove' });
-    else if (['clear', 'dig', 'remove'].includes(g.tool.kind)) g.setTool({ kind: 'feed' });
+    else if (this.tab === 'terraform') { if (g.tool.kind !== 'terraform') g.setTool({ kind: 'terraform' }); }
+    else if (['clear', 'dig', 'remove', 'terraform'].includes(g.tool.kind)) g.setTool({ kind: 'feed' });
   }
 
   showTip(b) {
@@ -212,7 +222,8 @@ export class Blueprint {
 
   update(dt) {
     const game = this.game;
-    const target = this.open ? 1 : 0;
+    // terraforming wants to see the real colours: only a light blueprint wash
+    const target = this.open ? (this.tab === 'terraform' ? 0.3 : 1) : 0;
     this.k += (target - this.k) * Math.min(1, dt * 5);
     if (Math.abs(this.k - target) < 0.002) this.k = target;
     game.renderer.setBlueprint?.(this.k);

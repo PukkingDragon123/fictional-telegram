@@ -41,6 +41,7 @@ import { Matchmaking } from './Matchmaking.js';
 import { Workshop } from './Workshop.js';
 import { PipVisit } from './PipVisit.js';
 import { Forage } from './Forage.js';
+import { Terraform } from './Terraform.js';
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
 const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
 import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
@@ -123,6 +124,7 @@ export class Game {
     this.workshop = new Workshop(this);
     this.pipVisit = new PipVisit(this);
     this.forage = new Forage(this); // forest finds (state.forage saves with the state)
+    this.terraform = new Terraform(this); // Terraform tool: reshape / paint land, dig & name ponds
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -920,6 +922,7 @@ export class Game {
     this.grid.version++;
     this.fish.onTopologyChanged();
     for (const p of this.food.pellets) p.region = this.grid.regionAt(p.x, p.z);
+    this.terraform?.onTopologyChanged(); // pond names follow the water
   }
 
   onFishBorn(sp, egg, born = []) {
@@ -1426,6 +1429,7 @@ export class Game {
     this.workshop.update(realDt || dt);
     this.pipVisit.update(realDt || dt);
     this.forage.update(dt);
+    this.terraform.update(realDt || dt);
     this.zones.update(dt);
     this.villagers.update(dt);
     this.cine?.update(realDt);
@@ -1492,7 +1496,7 @@ export class Game {
     return {
       v: 3, state: st, stats: this.stats, water, land, removedDecos, removedClutter: this.world.clutter.filter((c) => c.type === 'none').map((c) => [Math.floor(c.x), Math.floor(c.z)]), structures: this.structures.serialize(),
       beavers: this.beavers.serialize(), delivery: this.delivery.serialize(),
-      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), landAnimals: this.landAnimals.serialize(), plots: this.land.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
+      fish: this.fish.serialize(), food: this.food.serialize(), bugs: this.bugs.serialize(), livestock: this.livestock?.serialize(), landAnimals: this.landAnimals.serialize(), plots: this.land.serialize(), terraform: this.terraform.serialize(), cam: [this.rig.goal.x, this.rig.goal.z, this.rig.wuppGoal, this.rig.yawGoal],
     };
   }
 
@@ -1519,6 +1523,7 @@ export class Game {
       const d = this.world.decos[i];
       if (d) { d.removed = true; g.deco[d.z * g.w + d.x] = -1; }
     }
+    this.terraform.load(data.terraform); // Terraform heights, paint, pond names (before the rebuild)
     this.world.rebuildTerrain();
     this.world.buildDecos();
     for (const c of this.world.clutter) if (g.kind[Math.floor(c.z) * g.w + Math.floor(c.x)] === KIND.WATER) c.removed = true;

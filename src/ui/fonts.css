@@ -52,6 +52,51 @@
   font-display: block;
 }
 
+/* Digits come from Silkscreen: Pixelify's 5 reads as an S and its 2 as a Z,
+   which is no good in a game about counting coins. Same cap height, so they
+   sit right next to Pixelify letters. */
+/* (declared last: later faces win for their unicode-range; each digit face mirrors a letter face's weight range so they compose) */
+@font-face {
+  font-family: 'TBME Title';
+  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+  font-weight: 100 650;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: 'TBME Title';
+  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+  font-weight: 651 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: 'TBME Body';
+  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+  font-weight: 100 450;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: 'TBME Body';
+  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+  font-weight: 451 650;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: 'TBME Body';
+  src: url('../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2') format('woff2');
+  font-weight: 651 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0030-0039;
+}
+
 :root {
   --font-title: 'TBME Title', 'Pixelify Sans', ui-monospace, monospace;
   --font-body: 'TBME Body', 'Pixelify Sans', ui-monospace, monospace;

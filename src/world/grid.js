@@ -31,6 +31,7 @@ export class Grid {
     this.occ = new Int32Array(n).fill(-1); // structure id
     this.meadow = new Uint8Array(n); // 1 = inside buildable clearing
     this.paint = new Uint8Array(n); // Terraform ground paint (world.js PAINT ids, 0 = none)
+    this.terraEdit = new Uint8Array(n); // Terraform: 1 = ground height reshaped by the player
     this.terraSlope = null; // Terraform: reshaped meadow tiles drawn as smooth slopes (set by world.js)
     this.region = new Int32Array(n).fill(-1); // fish region id per water tile
     this.bearDist = new Float32Array(n); // distance field from bear entry

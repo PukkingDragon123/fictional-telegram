@@ -3781,7 +3781,7 @@ def('sleep_bed', {
 // ---------------------------------------------------------------- scientist (Fish Scope)
 // Clipboard in the left paw (the caller hangs it on armL.grip), pencil / magnifier in the right.
 // Chest-space paw spot where the clipboard is held up for writing.
-const SCI_BOARD = [1.2, 6.6, 8.4];
+const SCI_BOARD = [2.6, 3.4, 7.6];
 function sciBoard(p, w = 1) {
   p.ik(p.aL, SCI_BOARD[0], SCI_BOARD[1], SCI_BOARD[2], 1, -0.5, -0.6, w);
   p.aL.st = 1.5; p.pawL = 'fist';
@@ -3800,9 +3800,9 @@ def('sci_scribble', {
     const glance = win(u, 2.3, 3.3, 0.2, 0.25);
     const zx = sin(t * 17) * 0.55 * write + (u / 2.2) * 1.4 * write;
     const zy = sin(t * 8.5) * 0.3 * write - Math.floor(u / 0.7) * 0.35 * write;
-    p.ik(p.aR, 0.4 - zx, 7.6 + zy + tap * 0.6 + glance * 0.4, 9.6 - tap * 0.4, 1, -0.6, -0.5);
+    p.ik(p.aR, 0.6 - zx, 6.6 + zy + tap * 0.6 + glance * 0.4, 9.0 - tap * 0.4, 1, -0.6, -0.5);
     p.aR.st = 1.5;
-    p.propDir = [0.1, -1, -0.45]; p.propDirW = 1;
+    p.propDir = [0.1, -1, -0.35]; p.propDirW = 1;
     p.hRx -= glance * 0.22; p.hRy += glance * 0.12;
     p.eL.fl = p.eR.fl = -0.1 - 0.15 * write;
     p.tSide += sin(t * 2.4) * 0.25;
@@ -3818,13 +3818,13 @@ def('sci_peer', {
   fn(t, p, f, s, rig) {
     life(t, p, 0.4);
     // clipboard drops to the side, magnifier up in front of the monocle eye, leaning in
-    p.ik(p.aL, 4.6, 2.2, 4.4, 1, 0.1, -0.7); p.pawL = 'fist'; p.aL.st = 1.5;
+    p.ik(p.aL, 3.6, 2.4, 6.6, 1, 0.1, -0.7); p.pawL = 'fist'; p.aL.st = 1.5;
     const sway = sin(t * 1.3);
     const lean = 0.08 + sin(t * 0.7) * 0.03;
     p.lean = lean; p.chRx += 0.06; p.chRy += sway * 0.05;
-    p.ik(p.aR, 2.6 + sway * 0.3, 9.4 + sin(t * 2.1) * 0.2, 9.4, 1, -0.4, -0.3);
+    p.ik(p.aR, 4.4 + sway * 0.3, 6.6 + sin(t * 2.1) * 0.2, 8.4, 1, -0.4, -0.3);
     p.aR.st = 1.5;
-    p.propDir = [-0.12, 1, 0.42]; p.propDirW = 1;
+    p.propDir = [0.12, 1, 0.3]; p.propDirW = 1;
     p.hRx += -0.04 + sin(t * 0.9) * 0.03; p.hRy += sway * 0.08;
     // every few seconds: squint... then a big "ooh" eyebrow pop
     const C2 = 4.2, u = t % C2;

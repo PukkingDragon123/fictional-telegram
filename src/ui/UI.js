@@ -8,6 +8,7 @@ const MEADOW_C = { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 
 import * as THREE from 'three';
 import { spriteImg, spriteURL, foxPortraitURL, hasSprite } from './sprites.js';
 import { createFoxTalk } from './FoxTalk3D.js';
+import { openFishScope } from './FishScope.js';
 import { Icons3D } from './icons3d.js';
 import { fishIconURL, fishCanvasFor } from '../game/fishSprites.js';
 import { SPECIES, SPECIES_BY_ID, RARITIES, MORPHS, MORPH_IDS, TRAITS } from '../data/species.js';
@@ -1984,6 +1985,7 @@ export class UI {
   }
 
   showFishInfo(f) {
+    if (openFishScope(this.game, f)) return; // Professor Reynard's Fish Scope (old card below is the fallback)
     const game = this.game;
     const sp = f.sp;
     const g = f.g;

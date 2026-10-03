@@ -317,8 +317,8 @@ function shedModel() {
   for (const [x0, x1] of [[DOOR[0] - 5, DOOR[0] - 1], [DOOR[1] + 1, DOOR[1] + 5]])
     for (let x = x0; x <= x1; x++)
       for (let y = 1; y <= DOOR[2]; y++) {
-        const fr = x === x0 || x === x1 || y === 1 || y === DOOR[2];
-        const brace = Math.abs((x - x0) / (x1 - x0) - (y - 1) / (DOOR[2] - 1)) < 0.12;
+        const fr = y === 1 || y === DOOR[2] || y === Math.round(DOOR[2] / 2);
+        const brace = Math.abs((x - x0) / (x1 - x0) - ((y - 1) % 6) / 6) < 0.18 && y < DOOR[2] - 1;
         v.set(x, y, SZ1 + 1, fr || brace ? L.trim : (x + 60) % 2 ? L.red : L.redD);
       }
   // sign board on the gable (text plane goes on top)
@@ -381,7 +381,7 @@ function millWheelModel() {
 }
 
 // fine-voxel details in mill space (FV = half a VS): scale, saw table, plank stack, log pile, block + axe, sawdust
-const SCALE = [-22, 15]; // log scale centre x, z (FV)
+const SCALE = [5, 15]; // log scale centre x, z (FV)
 const SAW = [32, 8]; // saw table centre
 const DIAL = [SCALE[0], 30, SCALE[1] - 5]; // dial centre (FV) - the needle pivots here
 function detailModel() {
@@ -455,7 +455,7 @@ function detailModel() {
   for (const [x, z] of [[-55, 30], [-33, 30], [-55, 14], [-33, 14]]) for (let y = 0; y <= 6; y++) v.set(x, y, z, L.woodD); // pegs
   // ---- chopping block with the axe in it (right of the door)
   {
-    const bx = 8, bz = 26;
+    const bx = 18, bz = 30;
     for (let y = 0; y <= 6; y++) for (let x = bx - 4; x <= bx + 4; x++) for (let z = bz - 4; z <= bz + 4; z++) {
       const r = Math.hypot(x - bx, z - bz);
       if (r > 4.2) continue;
@@ -466,7 +466,7 @@ function detailModel() {
     v.set(bx + 2, 7, bz, L.steelL); v.set(bx + 2, 8, bz, L.steelL);
   }
   // ---- sawdust + chips + a few flowers round the yard
-  for (let i = 0; i < 160; i++) {
+  for (let i = 0; i < 70; i++) {
     const x = Math.round(-30 + rnd() * 90), z = Math.round(-6 + rnd() * 42);
     if (!v.has(x, 0, z) && !v.has(x, 1, z)) v.set(x, 0, z, rnd() < 0.55 ? L.dust : rnd() < 0.5 ? L.dustD : L.pineL);
   }
@@ -526,7 +526,7 @@ export function makeLumberMill() {
   let t = 0;
   g.userData = {
     wheel, blade, needle, sawing: false,
-    stand: new THREE.Vector3(-0.1, 0, 0.6), // where Pip likes to stand (local), in front of the door by the scale
+    stand: new THREE.Vector3(-0.45, 0, 0.7), // where Pip likes to stand (local), in front of the door by the scale
     door: new THREE.Vector3((DOOR[0] + DOOR[1] + 1) / 2 * VS, 0, SZ1 * VS + 0.1),
     size: { w: 3, d: 2, h: (RIDGE + 7) * VS },
     update(dt) {
