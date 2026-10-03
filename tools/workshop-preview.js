@@ -52,6 +52,16 @@ const G = {
   jobs: [],
   nextId: 1,
 };
+if (P.get('many')) {
+  // the full v14 set: 10 woodwork plans + 5 antiques
+  G.recipes.splice(7, 0,
+    { id: 'wd_crate', kind: 'craft', name: 'Crate Stack', icon: 'shop', desc: 'Stack \'em high.', cost: { wood: 6 }, time: 300 },
+    { id: 'wd_arch', kind: 'craft', name: 'Twig Arch', icon: 'arch', desc: 'Woven twigs and wildflowers.', cost: { wood: 5, fiddlehead: 3, wildberry: 2 }, time: 540 });
+  G.recipes.push(
+    { id: 'an_table', kind: 'repair', name: 'Antique Dining Table', ruin: 'ruin_table', ruinName: 'Rotten Table', icon: 'picnic', desc: 'Seats eight hungry bears.', cost: { wood: 16, resin: 2, ruin_table: 1 }, time: 2400 },
+    { id: 'an_cart', kind: 'repair', name: 'Flower Cart', ruin: 'ruin_cart', ruinName: 'Old Hand Cart', icon: 'flower', desc: 'Wheels that turn again!', cost: { wood: 14, ruin_cart: 1 }, time: 1500 });
+  G.ruins.ruin_table = 1;
+}
 const t0 = Date.now();
 const JOBS = [
   { recipeId: 'wd_rocker', start: t0 - 11 * 60e3, end: t0 + 14 * 60e3 + 20e3 },

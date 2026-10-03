@@ -339,6 +339,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     if (this._view) return this._view;
     const g = this.grid, v = new Map();
     const mark = (x, z, k) => { if (g.inb(x, z)) { const i = z * g.w + x; v.set(i, Math.max(v.get(i) || 0, k)); } };
+    // ruins get a proper clearing in front: they're the big finds
+    for (const r of g.ruins || []) for (let dz = -1; dz <= 6; dz++) for (let dx = -2; dx <= 2; dx++) mark(r.x + dx, r.z + dz, Math.abs(dx) === 2 && (dz < 0 || dz > 4) ? 1 : 2);
     for (const f of [...(g.forage || []), ...(g.ruins || [])]) {
       for (let dz = 0; dz <= 5; dz++) mark(f.x, f.z + dz, 2);
       mark(f.x, f.z + 6, 1);

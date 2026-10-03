@@ -524,9 +524,10 @@ export class Delivery {
         obj.rotation.order = 'YXZ';
         obj.visible = false;
         this.group.add(obj);
-        const spread = n > 1 ? (k - (n - 1) / 2) * Math.min(0.62, 2.1 / n) : 0;
-        const tz = VANM.VAN.rampEndZ - (big ? 0.55 : 0.4) - (k % 2) * 0.22 - Math.random() * 0.1;
-        this.parcels.push({ order: lot.sub, obj, kind: lot.kind, base: obj.scale.x, van, tx: spread, tz, x: a.x, y: a.y, z: a.z, t: 0, dur: big ? 1.35 : 1.0, state: 'slide', rot: 0 });
+        // a staggered little pile trailing back from the ramp (so the TAP! tags don't all stack up)
+        const spread = n > 1 ? (k % 2 ? 0.42 : -0.42) + (Math.random() - 0.5) * 0.12 : 0;
+        const tz = VANM.VAN.rampEndZ - (big ? 0.55 : 0.35) - k * 0.62 - Math.random() * 0.08;
+        this.parcels.push({ order: lot.sub, obj, kind: lot.kind, base: obj.scale.x, van, tx: spread, tz, x: a.x, y: a.y, z: a.z, t: 0, dur: (big ? 1.35 : 1.0) + k * 0.28, state: 'slide', rot: 0 });
         a.next = a.t + (big ? 1.0 : 0.62);
         if (k === 0) game.say?.(this.speaker(), pick(['Comin\' through!', 'Watch your toes!', 'Wheee, parcels!', 'Fresh from e-Buy!']), { voice: 'moose', mood: 'happy', dur: 1.8 });
       }

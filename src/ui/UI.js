@@ -646,6 +646,8 @@ export class UI {
       this.syncFoodPicker();
       if (this.contract && game.tool.kind !== 'clear') this.closeContract?.();
       // the quest note steps aside for cutscenes, the lab and the classroom
+      // the corner fox steps aside while the big quest notebook is open
+      document.body.classList.toggle('qn-open', !!this.questLog?.isOpen);
       this.questLog?.setVisible?.(!game.cutscene?.active && !game.lab?.active && !game.classroom?.active && !game.bedtime?.active && !game.tutorial?.active && !this.matchCard && st.phase !== 'night');
     }
     if (this.clock) {

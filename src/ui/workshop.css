@@ -348,5 +348,6 @@
 @keyframes ws-hum { 0%, 61%, 64%, 100% { opacity: 1; } 62% { opacity: .82; } }
 .ws-light.ws-flick { animation: ws-flick .5s steps(1); }
 @keyframes ws-flick { 0% { opacity: 0; } 30% { opacity: 1; } 45% { opacity: .2; } 60% { opacity: 1; } }
-.ws-lamp { z-index: 11; cursor: pointer; }
+.ws-lamp { z-index: 11; pointer-events: none; }
+.ws-lamp-hit { z-index: 11; cursor: pointer; }
 .ws-crate-t { position: absolute; left: 15px; top: 24px; width: 34px; height: 11px; display: flex; align-items: center; justify-content: center; color: #6a3a1a; font-family: var(--font-body); font-size: 16px; line-height: 9px; }

@@ -8,6 +8,9 @@ import { WATER_Y } from '../world/grid.js';
 import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { angleDiff, damp } from '../core/rng.js';
 import { WILD_BIRDS, BIRD_RARITY_WEIGHT } from '../data/birds.js';
+// forest life (forestLife below)
+import { KIND as FKIND } from '../world/grid.js';
+import { GLADE as FGLADE } from '../world/worldgen.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -642,6 +645,8 @@ export class Ambient {
       }
       if (f.x < -20 || f.x > g.w + 20) this.flock = null;
     }
+    // ---- forest life near the camera: squirrels, hares, glade butterflies, leaves
+    this.forestLife(dt);
     B.commit();
 
     // fireflies at night over the meadow
@@ -664,6 +669,115 @@ export class Ambient {
     if (this.whistleT > 0) {
       this.whistleT -= dt;
       for (let i = 0; i < 3; i++) parts.smoke(OFFICE.x + 3.2, OFFICE.h + 11.9, OFFICE.z - 1.1, 0xffffff);
+    }
+  }
+
+  // Forest life wherever you're looking: squirrels dash and hop from tree to
+  // tree (and sit up to nibble), snowshoe hares hop about the glades and bolt
+  // from the fox, butterflies drift over glade flowers, leaves fall from the
+  // canopy, fireflies blink in the glades at night. A handful of critters is
+  // re-homed near the camera as it moves, so the cost stays flat.
+  forestLife(dt) {
+    const game = this.game, g = game.grid, T = this.time;
+    if (!g.glade || game.titleMode) return;
+    const F = (this.forest ||= { scanT: 0, ax: -99, az: -99, glades: [], trees: [], flowers: [], squirrels: [], hares: [], flies: [] });
+    const cx = game.rig?.target?.x ?? 70, cz = game.rig?.target?.z ?? 40;
+    const night = game.sky.state.night;
+    // re-scan the woods round the camera now and then
+    F.scanT -= dt;
+    if (F.scanT <= 0 || Math.hypot(cx - F.ax, cz - F.az) > 10) {
+      F.scanT = 4; F.ax = cx; F.az = cz;
+      F.glades.length = F.trees.length = F.flowers.length = 0;
+      const trees = game.world.treeTiles;
+      for (let z = Math.max(22, Math.floor(cz - 14)); z < Math.min(g.h, cz + 16); z++)
+        for (let x = Math.max(0, Math.floor(cx - 20)); x < Math.min(g.w, cx + 20); x++) {
+          const i = z * g.w + x;
+          if (g.kind[i] !== FKIND.FOREST || (game.zones?.fogAt(x, z) || 0) > 0.5) continue;
+          if (g.glade[i] === FGLADE.GLADE) F.glades.push(i);
+          if (trees?.has(i)) F.trees.push(i);
+        }
+      for (const c of game.world.clutter) {
+        if (c.removed || Math.abs(c.x - cx) > 20 || Math.abs(c.z - cz) > 15) continue;
+        const i = Math.floor(c.z) * g.w + Math.floor(c.x);
+        if (g.kind[i] === FKIND.FOREST && g.glade[i] && c.type !== 'tuft' && c.type !== 'fern') F.flowers.push(c);
+      }
+      // anything that wandered far off-screen is sent somewhere nearby again
+      for (const list of [F.squirrels, F.hares, F.flies]) for (const c of list) if (Math.hypot(c.x - cx, c.z - cz) > 26) c.placed = false;
+    }
+    const tileXZ = (i, jx = 0.5, jz = 0.5) => ({ x: (i % g.w) + jx, z: Math.floor(i / g.w) + jz });
+    const near = (list, x, z, r) => { for (let k = 0; k < 8; k++) { const i = list[Math.floor(Math.random() * list.length)]; const p = tileXZ(i); if (Math.hypot(p.x - x, p.z - z) < r) return i; } return null; };
+    const want = (list, n, mk) => { while (list.length < n) list.push(mk()); };
+    want(F.squirrels, 3, () => ({ placed: false, t: 0, run: 0, face: 1, seed: Math.random() * 9 }));
+    want(F.hares, 2, () => ({ placed: false, t: 0, hop: 0, face: 1, seed: Math.random() * 9 }));
+    want(F.flies, 5, () => ({ placed: false, t: 0, face: 1, kind: Math.random() < 0.5 ? 'monarch' : 'bluebutterfly', seed: Math.random() * 9 }));
+    const day = night < 0.55;
+    // squirrels: dash between tree trunks with a bounding gait, sit and look about
+    for (const q of F.squirrels) {
+      if (!F.trees.length || !day) break;
+      if (!q.placed) { const p = tileXZ(F.trees[Math.floor(Math.random() * F.trees.length)], 0.5, 0.85); Object.assign(q, p, { placed: true, t: rand(1, 4), run: 0 }); }
+      q.t -= dt;
+      if (q.run <= 0 && (q.t <= 0 || this.threat(q.x, q.z) < 1.6)) {
+        const i = near(F.trees, q.x, q.z, 6);
+        if (i != null) { const p = tileXZ(i, 0.35 + Math.random() * 0.3, 0.85); q.tx = p.x; q.tz = p.z; q.run = 1; }
+        q.t = rand(2.5, 7);
+      }
+      const gy = g.surfaceAtVisual(q.x, q.z);
+      if (q.run > 0) {
+        const dx = q.tx - q.x, dz = q.tz - q.z, d = Math.hypot(dx, dz);
+        if (d < 0.08) { q.run = 0; q.sit = rand(0.8, 2.2); }
+        else { q.x += (dx / d) * Math.min(d, 3.6 * dt); q.z += (dz / d) * Math.min(d, 3.6 * dt); q.face = this.faceOf(dx, dz, q.face); }
+        this.draw('squirrel_run', Math.floor(T * 11 + q.seed), q.x, gy + Math.abs(Math.sin(T * 13 + q.seed)) * 0.12, q.z, { flip: q.face < 0 });
+      } else this.draw('squirrel_idle', Math.floor(T * 1.4 + q.seed), q.x, gy, q.z, { flip: q.face < 0 });
+    }
+    // snowshoe hares: hop, hop, nibble, look up... and bolt when the fox comes
+    for (const h of F.hares) {
+      if (!F.glades.length || night > 0.75) break;
+      if (!h.placed) { const p = tileXZ(F.glades[Math.floor(Math.random() * F.glades.length)], 0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6); Object.assign(h, p, { placed: true, t: rand(1, 3), hop: 0, mode: 'eat' }); }
+      h.t -= dt;
+      const scared = this.threat(h.x, h.z) < 2.2;
+      if (h.hop <= 0 && (h.t <= 0 || scared)) {
+        const i = near(F.glades, h.x, h.z, scared ? 7 : 3.5);
+        if (i != null) {
+          const p = tileXZ(i, 0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6);
+          const dx = p.x - h.x, dz = p.z - h.z, d = Math.hypot(dx, dz) || 1;
+          h.vx = (dx / d) * (scared ? 3.4 : 1.6); h.vz = (dz / d) * (scared ? 3.4 : 1.6);
+          h.hops = Math.max(1, Math.round(d / (scared ? 0.7 : 0.45))); h.hop = 0.32; h.face = this.faceOf(dx, dz, h.face);
+        }
+        h.t = rand(1.5, 4.5); h.mode = Math.random() < 0.6 ? 'eat' : 'look';
+      }
+      let y = g.surfaceAtVisual(h.x, h.z);
+      if (h.hop > 0) {
+        h.hop -= dt;
+        h.x += h.vx * dt; h.z += h.vz * dt;
+        y += Math.sin(Math.max(0, h.hop) / 0.32 * Math.PI) * 0.16;
+        if (h.hop <= 0 && --h.hops > 0) h.hop = 0.32;
+        this.draw('snowshoe_move', h.hop > 0.16 ? 1 : 2, h.x, y, h.z, { flip: h.face < 0 });
+      } else this.draw(`snowshoe_${h.mode}`, Math.floor(T * (h.mode === 'eat' ? 4 : 1.2) + h.seed), h.x, y, h.z, { flip: h.face < 0 });
+    }
+    // butterflies over the glade flowers (by day)
+    for (const f of F.flies) {
+      if (!F.flowers.length || !day) break;
+      if (!f.placed) { const c = pick(F.flowers); Object.assign(f, { x: c.x, z: c.z, tx: c.x, tz: c.z, placed: true, t: 0 }); }
+      f.t -= dt;
+      if (f.t <= 0) { const c = pick(F.flowers); if (Math.hypot(c.x - f.x, c.z - f.z) < 7) { f.tx = c.x; f.tz = c.z; } f.t = rand(3, 7); }
+      const dx = f.tx - f.x, dz = f.tz - f.z, d = Math.hypot(dx, dz);
+      if (d > 0.05) { f.x += (dx / d) * Math.min(d, 0.85 * dt) + Math.sin(T * 3 + f.seed) * dt * 0.5; f.z += (dz / d) * Math.min(d, 0.85 * dt) + Math.cos(T * 2.3 + f.seed) * dt * 0.5; }
+      f.face = this.faceOf(dx, dz, f.face);
+      const hover = d < 0.3 ? 0.3 : 0.65 + Math.sin(T * 2 + f.seed) * 0.2;
+      this.draw(f.kind, Math.floor(T * 7 + f.seed), f.x, g.groundAt(f.x, f.z) + hover + Math.sin(T * 6 + f.seed) * 0.05, f.z, { flip: f.face < 0, ay: 0.5 });
+    }
+    const parts = game.particles;
+    // leaves drifting down out of the canopy
+    if (F.trees.length && Math.random() < dt * 2.4) {
+      const p = tileXZ(F.trees[Math.floor(Math.random() * F.trees.length)], Math.random(), Math.random());
+      const au = ((p.x * 7 + p.z * 13) | 0) % 3;
+      const cols = [[0xc0392b, 0xd9482f, 0xe0603a], [0xe07b24, 0xf0902c, 0xe8a030], [0x6a9a3a, 0x8ab040, 0xd6a028]][au];
+      parts.leaf(p.x, g.groundAt(p.x, p.z) + 2.6 + Math.random() * 1.6, p.z, cols[Math.floor(Math.random() * 3)]);
+    }
+    // fireflies in the glades at night
+    if (night > 0.4 && F.glades.length && Math.random() < dt * 4 * night) {
+      const p = tileXZ(F.glades[Math.floor(Math.random() * F.glades.length)], Math.random(), Math.random());
+      parts.firefly(p.x, g.groundAt(p.x, p.z) + 0.3 + Math.random() * 1.1, p.z);
     }
   }
 

@@ -1202,6 +1202,7 @@ export function createQuestLog(root, o = {}) {
         const bx = closedLeft - D * (1 - pp.P);
         puff(bx + 8, floor - 14, -60, -30, ts, 0, 0.55);
         puff(bx + pageW - 10, floor - 12, 90, -26, ts + 0.05, i % 2, 0.6);
+        if (fox?.ok) puff(bx - Math.max(30, fox.css * 0.15) - 34, floor + 2, -70, -16, ts + 0.06, 0, 0.45); // kicked up by his heels
         if (fox?.ok) fox.rig._headSq && (fox.rig._headSq.v -= 1.2);
       });
     }
@@ -1216,6 +1217,20 @@ export function createQuestLog(root, o = {}) {
         puff(r - 10 - k * 6, floor - 10, 70 + k * 30, -20 - k * 12, TL.push1 + k * 0.02, (k + 1) % 3, 0.7);
       }
       puff(l + pageW * 0.5, floor - 6, 0, -40, TL.push1 + 0.04, 2, 0.6);
+      // comic sound word
+      if (!REDUCED()) {
+        const w = document.createElement('span');
+        w.className = 'qn-thud';
+        w.textContent = 'THUD!';
+        w.style.left = Math.round(r - 40) + 'px'; w.style.top = Math.round(floor - 70) + 'px';
+        S.fx.appendChild(w);
+        const a = anim(w, [
+          { transform: 'scale(.2) rotate(-20deg)', opacity: 0 }, { transform: 'scale(1.25) rotate(-6deg)', opacity: 1, offset: 0.18 },
+          { transform: 'scale(1) rotate(-8deg)', opacity: 1, offset: 0.3 }, { transform: 'translateY(-10px) scale(1) rotate(-8deg)', opacity: 1, offset: 0.75 },
+          { transform: 'translateY(-16px) scale(.9) rotate(-8deg)', opacity: 0 },
+        ], { duration: 900, easing: 'ease-out', fill: 'forwards' });
+        if (a) a.onfinish = () => w.remove(); else setTimeout(() => w.remove(), 900);
+      }
     });
     if (th >= 0 && th < 0.22) { const s = Math.sin((th / 0.22) * Math.PI); sy = 1 - 0.04 * s; sx = 1 + 0.025 * s; }
     let shx = 0, shy = 0;

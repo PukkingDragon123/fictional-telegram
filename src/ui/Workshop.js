@@ -227,9 +227,15 @@ function fitCanvas(src, mw, mh, allowUp = true) {
   if (s >= 1) s = allowUp ? Math.max(1, Math.floor(s)) : 1;
   if (s === 1) return c0;
   const w = Math.max(1, Math.round(c0.width * s)), h = Math.max(1, Math.round(c0.height * s));
-  const c = newCanvas(w, h), g = c.getContext('2d');
-  g.imageSmoothingEnabled = false;
+  const c = newCanvas(w, h), g = c.getContext('2d', { willReadFrequently: true });
+  g.imageSmoothingEnabled = s < 1;
+  if (s < 1) g.imageSmoothingQuality = 'high';
   g.drawImage(c0, 0, 0, w, h);
+  if (s < 1) { // keep pixel-art alpha: fully opaque or fully transparent
+    const im = g.getImageData(0, 0, w, h), d = im.data;
+    for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 110 ? 255 : 0;
+    g.putImageData(im, 0, 0);
+  }
   return c;
 }
 // nearest-neighbour rotation around (px, py) into a canvas of the same size
@@ -898,8 +904,9 @@ function computeLayout(W, H, n) {
   // ---- right column: OPEN sign, jars of forest finds on shelves
   L.sign = { x: W - 56, y: L.beam - 1, w: 50, h: 34 };
   const jw = 26, jh = 30, jrow = jh + 17;
-  const jcols = Math.max(1, Math.floor((L.rightW - 10) / jw));
+  let jcols = Math.max(1, Math.floor((L.rightW - 10) / jw));
   const jrows = Math.ceil(Math.max(1, n.mat) / jcols);
+  jcols = Math.max(1, Math.ceil(Math.max(1, n.mat) / jrows)); // 3 + 3 rather than 4 + 2
   const top = L.sign.y + L.sign.h + 6;
   L.jars = { x: L.rightX + 6, y: top, jw, jh, cols: jcols, rows: jrows, rowH: jrow, w: L.rightW - 10 };
   L.jars.shelves = Array.from({ length: jrows }, (_, i) => top + i * jrow + jh);
@@ -1397,11 +1404,11 @@ function propLight(L) {
       const t = Math.abs(x + 0.5 - bx) / half;
       if (t > 1) continue;
       const fall = 1 - Math.pow((y - by) / (y1 - by), 1.6) * 0.55;
-      const v = (1 - t * t) * fall * 2.4 + 0.25;
+      const v = (1 - t * t) * fall * 2.6 + 0.3;
       const lvl = Math.floor(v + bayer(x, y) - 0.5);
       if (lvl <= 0) continue;
       const o = (y * W + x) * 4;
-      d[o] = 255; d[o + 1] = 214; d[o + 2] = 140; d[o + 3] = [0, 30, 52, 76][Math.min(3, lvl)];
+      d[o] = 255; d[o + 1] = 210; d[o + 2] = 130; d[o + 3] = [0, 34, 60, 90][Math.min(3, lvl)];
     }
   }
   // bloom around the bulb
@@ -1572,7 +1579,10 @@ export function openWorkshop(root, opts = {}) {
     const lamp = propLamp(cord); lamp.className = 'ws-lamp';
     place(lamp, L.lamp.x - 20, L.lamp.top);
     stage.appendChild(lamp);
-    lamp.addEventListener('click', (e) => { e.stopPropagation(); sfx('click', { volume: 0.4, pitch: 1.4 }); light.classList.remove('ws-flick'); void light.offsetWidth; light.classList.add('ws-flick'); });
+    // only the shade itself is clickable (the canvas box overlaps the plans)
+    const hit = div('ws-lamp-hit', stage);
+    place(hit, L.lamp.x - 16, L.lamp.shadeY + 3, 34, 12);
+    hit.addEventListener('click', (e) => { e.stopPropagation(); sfx('click', { volume: 0.4, pitch: 1.4 }); light.classList.remove('ws-flick'); void light.offsetWidth; light.classList.add('ws-flick'); });
     E.light = light;
     E.planLayer = div('ws-planlayer', stage);
     E.bubble = div('ws-bubble', stage);
@@ -1685,7 +1695,8 @@ export function openWorkshop(root, opts = {}) {
     const jar = propJar(J.jw, J.jh), front = propJarFront(J.jw, J.jh);
     Object.entries(S.materials).forEach(([id, m], i) => {
       const col = i % J.cols, row = Math.floor(i / J.cols);
-      const x = J.x + col * Math.floor(J.w / J.cols) + Math.floor((Math.floor(J.w / J.cols) - J.jw) / 2);
+      const cw = Math.min(J.jw + 8, Math.floor(J.w / J.cols)), x0 = J.x + Math.floor((J.w - cw * J.cols) / 2);
+      const x = x0 + col * cw + Math.floor((cw - J.jw) / 2);
       const y = J.shelves[row] - J.jh;
       const d = div('ws-jar', box);
       d.title = m.name || id;
@@ -1763,7 +1774,7 @@ export function openWorkshop(root, opts = {}) {
     E.chipHead.classList.remove('ws-peck'); void E.chipHead.offsetWidth;
     E.chipHead.style.setProperty('--n', n);
     E.chipHead.classList.add('ws-peck');
-    for (let i = 0; i < n; i++) setTimeout(() => { if (!V.closed) { sfx('tock', { volume: 0.5, pitch: 0.75 + Math.random() * 0.1 }); puff(L.chip.x + 72, L.benchY + 3, 3, 'dust'); } }, 90 + i * 140);
+    for (let i = 0; i < n; i++) setTimeout(() => { if (!V.closed) { sfx('tock', { volume: 0.5, pitch: 0.75 + Math.random() * 0.1 }); puff(L.chip.x + 82, L.chip.y + 40, 2, 'dust'); } }, 90 + i * 140);
   }
   function hop() { if (E.chip) { E.chip.classList.remove('ws-hop'); void E.chip.offsetWidth; E.chip.classList.add('ws-hop'); } }
 
