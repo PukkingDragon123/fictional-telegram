@@ -19,7 +19,7 @@ const CSS = `
 .ev-pill button.ev-repair { pointer-events: auto; font-family: var(--font2); font-size: 11px; color: #2a1a10; background: #ffd23f; border: 2px solid #2a1a10; padding: 3px 7px; cursor: pointer; box-shadow: 0 2px 0 #7a5a10; display: inline-flex; gap: 4px; align-items: center; }
 .ev-pill button.ev-repair:hover { transform: translateY(-1px); }
 @keyframes ev-pulse { 50% { filter: brightness(1.35); } }
-.ev-top { position: fixed; left: 50%; transform: translateX(-50%); top: calc(8px + var(--safe-t, 0px)); z-index: 45; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(560px, 92vw); }
+.ev-top { position: fixed; left: 50%; transform: translateX(-50%); top: calc(8px + var(--safe-t, 0px)); z-index: 510; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(560px, 92vw); }
 .ev-bar { width: 100%; box-sizing: border-box; padding: 6px 10px 7px; background: rgba(26, 12, 14, .88); border: 3px solid #120608; box-shadow: 0 0 0 2px #6a2a2a inset, 0 4px 0 rgba(0,0,0,.4);
   font-family: var(--font2); color: #fdf4d8; text-shadow: 1px 1px 0 #000; }
 .ev-bar .ev-head { display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 1px; }
