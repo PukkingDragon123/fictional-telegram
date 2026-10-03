@@ -444,7 +444,7 @@ export class UI {
     const d = dur || Math.min(6, 2.2 + text.length * 0.05);
     const n = this.notifier;
     // in the lab Reynard is right there on screen: a toast, not the corner fox over the tree
-    if (n && this.bubbles && !document.body.classList.contains('lab-mode')) {
+    if (n && this.bubbles && !document.body.classList.contains('lab-mode') && this.panel !== 'lab') {
       n.show({ mood, dur: d + 0.6 }).then?.(() => {});
       n.talk?.(text);
       const bm = mood === 'no' ? 'angry' : mood === 'warn' ? 'scared' : mood === 'happy' || mood === 'excited' ? 'excited' : 'normal';
@@ -647,6 +647,8 @@ export class UI {
     // while the corner fox talks, he and his bubble sit above any open panel
     const talk = this.foxTalking();
     if (talk !== this._fnTalk) { this._fnTalk = talk; document.body.classList.toggle('fn-talk', talk); }
+    const labp = this.panel === 'lab';
+    if (labp !== this._labp) { this._labp = labp; document.body.classList.toggle('lab-panel', labp); }
     this.hudT = (this.hudT || 0) - dt;
     if (this.hudT <= 0) {
       this.hudT = 0.5;
@@ -1718,6 +1720,7 @@ export class UI {
     if (!LT) return null;
     try {
       return new LT(host, {
+        game,
         research: RESEARCH, branches: BRANCHES,
         isResearched: (id) => game.state.research.includes(id),
         coins: () => game.state.coins,

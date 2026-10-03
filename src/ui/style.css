@@ -560,5 +560,6 @@ body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none
 body.qn-open:not(.fn-talk) .fox-notifier { visibility: hidden; }
 body.fn-talk .fox-notifier { z-index: 506 !important; }
 body.fn-talk .bb-layer { z-index: 505; }
-body.lab-mode .fox-notifier { opacity: 0 !important; }
+body.lab-mode .fox-notifier, body.lab-panel .fox-notifier { opacity: 0 !important; }
+body.lab-panel .bb-layer { z-index: 40; }
 .parceltag { animation: none; }

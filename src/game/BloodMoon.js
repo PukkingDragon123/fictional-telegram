@@ -18,7 +18,8 @@ import { BEAR_TYPES } from '../data/bears.js';
 
 export const BLOOD_EVERY = 7;
 const HP = { blood_grunt: 7, blood_brute: 20, blood_runner: 3.5 };
-const FISH_CAP = { blood_grunt: 1, blood_brute: 2, blood_runner: 1 }; // +1 from the 2nd blood moon on
+const FISH_CAP = { blood_grunt: 1, blood_brute: 2, blood_runner: 1 }; // +1 from the 3rd blood moon on
+const SPARE_FISH = 4; // the moon spares the last few fish, so a lost night is never game over
 const ARRIVE = ['RRRAAAGH!', 'FEED... ME...', 'SMAAASH!', 'THE MOON HUNGERS!', 'FIIISH!', 'GRRRR!'];
 const YUM = ['MORE!', 'MOOORE!', 'GRRR!', 'NOT ENOUGH!'];
 const CALM = ['...huh?', 'Where am I?', 'Why am I so sticky?', 'I need a nap.', 'Was I... growling?', 'My head...'];
@@ -118,7 +119,7 @@ export class BloodMoon {
     b.hostile = true;
     b.angry = true;
     b.bhp = b.bhpMax = (HP[b.typeId] || 6) * (1 + 0.3 * (n - 1));
-    b.appetite = (FISH_CAP[b.typeId] || 1) + (n >= 2 ? 1 : 0);
+    b.appetite = (FISH_CAP[b.typeId] || 1) + (n >= 3 ? 1 : 0);
     b.patience = b.maxPatience = 1e6;
     b.wants = [];
     b.prefer = null;
@@ -141,7 +142,7 @@ export class BloodMoon {
     if (b.calmed) { if (b.goal?.kind !== 'leave') bears.beginLeave(b); return true; }
     const game = this.game;
     let fish = null, fd = Infinity;
-    if (b.eaten < b.appetite) {
+    if (b.eaten < b.appetite && game.fish.count > SPARE_FISH) {
       for (const f of game.fish.list) {
         if (!game.fish.catchable(f) || game.structures.isSheltered(f.x, f.z, f)) continue;
         const d = field[bears.tileIdx(Math.floor(f.x), Math.floor(f.z))];
@@ -185,6 +186,7 @@ export class BloodMoon {
       return true;
     }
     if (b.rig && !b.calmed && !(b.flashT > 0) && b.rig.matState !== 'angry') b.rig.setMaterial('angry');
+    if (b.state === 'hunt' && this.game.fish.count <= SPARE_FISH) { this.bears.decide(b); return true; }
     if (!b.calmed && Math.random() < dt * 0.25 && b.visible && b.state !== 'commute') this.bears.say(b, pick(['GRRR...', 'FIIISH...', 'SMASH!', 'RAAAH!']), null, null, 1.2);
     return false;
   }

@@ -151,7 +151,6 @@ export class BossFight {
 
   // ------------------------------------------------------------ per frame (from BearSystem.step)
   preStep(b, dt) {
-    const game = this.game;
     b.patience = b.maxPatience;
     if (b.bossOutro) return this.outro(b, dt);
     if (b.bossDone) return false;
@@ -183,7 +182,6 @@ export class BossFight {
     // charge / enraged run
     b.poseOverride = !b.inWater && b.moving && (b.charging || b.bossPhase >= 2) ? 'charge' : null;
     b.poseT01 = null;
-    void game;
     return false;
   }
 
