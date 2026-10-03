@@ -201,9 +201,10 @@ export class BeaverSystem {
     this.tapeT = 0.2;
     let freshChanged = false;
     const fresh = [];
+    const pend = new Set(game.ui?.contract?.tiles || []); // [v19 buildings] unpaid picks stay red (no tape yet)
     for (const c of this.clears.values()) {
       const age = this.time - (c.markT ?? -9);
-      if (age < 2) { fresh.push(c.i); continue; }
+      if (age < 2 || pend.has(c.i)) { fresh.push(c.i); continue; }
       if (!c.taped) { c.taped = true; freshChanged = true; }
       if (this.tapes.has(c.i)) continue;
       let m = null;
@@ -785,7 +786,8 @@ export class BeaverSystem {
   // flat X markers on tiles queued for clearing
   renderMarkers(fromTape = false) {
     const game = this.game;
-    if (!fromTape) game.world.setMarked?.([...this.clears.values()].filter((c) => this.time - (c.markT ?? -9) < 2).map((c) => c.i));
+    const pend = new Set(game.ui?.contract?.tiles || []); // [v19 buildings]
+    if (!fromTape) game.world.setMarked?.([...this.clears.values()].filter((c) => this.time - (c.markT ?? -9) < 2 || pend.has(c.i)).map((c) => c.i));
     const P = game.particles;
     if (!P?.tex) return;
     if (!this.markers) {

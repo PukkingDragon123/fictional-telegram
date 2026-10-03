@@ -214,6 +214,60 @@ export class StructureSystem {
     if (!silent) this.game.particles.debris(s.x + 0.5, this.baseY(s) + 0.4, s.z + 0.5, 10);
   }
 
+  // [v19 buildings] can s be picked up and dropped at x,z? (its own tiles count as free)
+  canMove(s, x, z) {
+    if (!s || s.removed) return { ok: false, reason: 'Gone!' };
+    if (s.def.noMove) return { ok: false, reason: `${s.def.name} can't be moved` };
+    if (x === s.x && z === s.z) return { ok: true, same: true };
+    const g = this.grid;
+    const freed = [];
+    let plat = null;
+    if (s.platform) { plat = this.byId.get(s.platform); if (plat && plat.top === s.id) plat.top = 0; else plat = null; }
+    else for (const [tx, tz] of this.footprint(s.type, s.x, s.z)) { const i = tz * g.w + tx; if (g.occ[i] === s.id) { g.occ[i] = -1; freed.push(i); } }
+    let r;
+    try { r = this.canPlace(s.type, x, z); } finally {
+      for (const i of freed) g.occ[i] = s.id;
+      if (plat) plat.top = s.id;
+    }
+    if (r.ok && r.onPlatform && (s.top || r.onPlatform === s)) r = { ok: false, reason: 'Can\'t stack that there' };
+    return r;
+  }
+
+  // [v19 buildings] move a structure, keeping everything it holds (stock, crop, hp, store, beavers, tank fish...)
+  moveTo(s, x, z) {
+    const chk = this.canMove(s, x, z);
+    if (!chk.ok || chk.same) return chk;
+    const g = this.grid, game = this.game;
+    const ox = s.x, oz = s.z, dx = x - ox, dz = z - oz;
+    if (s.platform) { const p = this.byId.get(s.platform); if (p && p.top === s.id) p.top = 0; }
+    else for (const [tx, tz] of this.footprint(s.type, ox, oz)) if (g.occ[tz * g.w + tx] === s.id) g.occ[tz * g.w + tx] = -1;
+    s.x = x; s.z = z;
+    s.platform = chk.onPlatform ? chk.onPlatform.id : 0;
+    if (s.platform) chk.onPlatform.top = s.id;
+    else for (const [tx, tz] of this.footprint(s.type, x, z)) g.occ[tz * g.w + tx] = s.id;
+    // a platform carries whatever stands on it
+    const top = s.top ? this.byId.get(s.top) : null;
+    if (top) { top.x += dx; top.z += dz; }
+    if (s.def.crop && !s.def.underwater && !s.platform && game.world.hasClutter?.(x, z)) { game.world.removeClutter(x, z); this.clutterDirty = true; }
+    this.buildMesh(s);
+    if (top) this.buildMesh(top);
+    this.refreshNeighbors({ x: ox, z: oz });
+    this.refreshNeighbors(s);
+    this.spritesDirty = true;
+    // fish (and their eggs) in a glass tank ride along
+    for (const t of [s, top]) {
+      if (!t?.def.tank) continue;
+      for (const f of game.fish?.list || []) {
+        if (f.tank !== t) continue;
+        f.x += dx; f.z += dz; if (f.tx != null) { f.tx += dx; f.tz += dz; }
+        if (f.eggs && f.eggs.x != null) { f.eggs.x += dx; f.eggs.z += dz; }
+      }
+    }
+    if (s.def.blocksFish || s.def.blocksBear || s.def.beavers || s.def.gate || top?.def.blocksBear || top?.def.blocksFish) game.onTopologyChanged();
+    game.emit?.('structureMoved', { s, from: [ox, oz] });
+    return { ok: true };
+  }
+
   // Beaver finished (or instant structure placed)
   onBuilt(s, initial = false) {
     s.built = true;
@@ -398,7 +452,7 @@ export class StructureSystem {
       if (s.removed || (!s.def.sprite && !stagesFor(s.type))) continue;
       const fr = this.spriteFrame(s);
       if (!fr) continue;
-      const by = this.baseY(s);
+      const by = this.baseY(s) + (s.lift || 0); // [v19 buildings] lifted while being moved
       const cx = s.x + 0.5, cz = s.z + 0.5;
       let sc = (s.def.spriteScale || 1) * (0.92 + (s.seed % 13) / 80);
       let sy = 1;
@@ -423,7 +477,7 @@ export class StructureSystem {
         }
       }
       const dmg = s.hp < s.maxHp * 0.99 && s.maxHp < 90;
-      const tint = !s.built ? [0.6, 0.85, 1.25] : dmg ? [1.2, 0.65, 0.6] : cropTint;
+      const tint = s.lift ? [1.15, 1.12, 0.9] : !s.built ? [0.6, 0.85, 1.25] : dmg ? [1.2, 0.65, 0.6] : cropTint; // [v19 buildings] lift tint
       const o = { texels: 24, scale: sc, sx: 1 / Math.sqrt(sy), sy, sway: s.def.flat ? 0 : s.def.underwater ? 1.2 : 0.7, phase: s.seed, flip: s.seed % 2 === 1, tint, alpha: s.built ? 1 : 0.55 };
       if (s.def.flat) { o.mode = 1; o.ax = 0.5; o.ay = 0.5; o.rot = (s.seed % 628) / 100; B.push(fr.f, cx, WATER_Y + 0.02, cz, o); }
       else if (s.def.underwater) { o.tint = [0.75, 0.9, 1]; B.push(fr.frames[Math.floor(this.time * 2 + s.seed) % fr.frames.length], cx, g.height[s.z * g.w + s.x], cz, o); }
