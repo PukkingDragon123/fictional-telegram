@@ -55,45 +55,43 @@ export function makeLogGeometry({ len = 1, r = 2.1, variant = 0 } = {}) {
 function woodgarage(d, rnd, variant) {
   const { c, f } = d;
   const ROOF = [[0x8a5a3a, 0x7a4c30, 0x5e3a24], [0x4a7a52, 0x3e6a46, 0x2c4e34], [0xb0503a, 0x9a442e, 0x72301e]][variant];
-  const X0 = -9, X1 = 8, Z0 = -9, Z1 = 5; // frame (coarse, inclusive)
-  // lean-to roof: high over the open front so the log pile shows, low at the back
-  const rY = (z) => 11 + Math.round(((Math.min(Z1, Math.max(Z0, z)) - Z0) / (Z1 - Z0)) * 4);
+  const X0 = -9, X1 = 8, Z0 = -9, Z1 = 5, ZR = -4; // frame (coarse, inclusive); the roof stops at ZR
+  // lean-to roof over the back half, sloping down to the front: the log pile
+  // in front of it stays in the sun and in view
+  const rY = (z) => 19 - Math.round(((Math.min(ZR, Math.max(Z0, z)) - Z0) / (ZR - Z0)) * 4);
   const board = (x, y, z, u) => {
     const b = (u + 40) % 3;
     return y === 1 ? WOOD_M : (u + 40) % 4 === 3 && y % 5 === 2 ? WOOD_D : b === 0 ? toneOf(WOOD, u, 0, z, 3) : WOOD[b];
   };
   // floor: a plank deck under the rack, packed dirt round it
   c.box(X0, 0, Z0, X1, 0, Z1 + 1, (x, y, z) => (z <= Z1 && x > X0 && x < X1 ? ((x + 40) % 2 ? WOOD_M : 0x7a4e2c) : toneOf([0x8a6a48, 0x7a5a3a, 0x9a7a52], x, 0, z, 2)));
-  for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) c.set(x, 0, z, pick(rnd, STONE));
-  // side + back walls: vertical boards up to the roof line (sides follow the slope)
-  for (let z = Z0; z <= Z1; z++)
-    for (let y = 1; y < rY(z); y++) {
-      const side = z === Z0 || z === Z1 ? WOOD_D : null;
-      if (z < Z1) { c.set(X0, y, z, side || board(X0, y, z, z)); c.set(X1, y, z, side || board(X1, y, z, z + 1)); }
-    }
-  for (let y = 1; y < rY(Z0); y++) for (let x = X0 + 1; x < X1; x++) c.set(x, y, Z0, board(x, y, Z0, x));
+  // back wall + the covered part of the side walls (boards), corner posts
+  for (let y = 1; y < rY(Z0); y++) for (let x = X0; x <= X1; x++) c.set(x, y, Z0, x === X0 || x === X1 ? WOOD_D : board(x, y, Z0, x));
+  for (let z = Z0 + 1; z <= ZR; z++)
+    for (let y = 1; y < rY(z); y++) { c.set(X0, y, z, z === ZR ? WOOD_D : board(X0, y, z, z)); c.set(X1, y, z, z === ZR ? WOOD_D : board(X1, y, z, z + 1)); }
   // a little four-pane window in the left wall
-  for (let y = 6; y <= 9; y++) for (let z = -4; z <= -1; z++) c.set(X0, y, z, y === 6 || y === 9 || z === -4 || z === -1 ? WOOD_L : 0x9ad0e8);
-  // heavy front posts, the header beam (with knee braces) and the rafters' ends
-  for (const x of [X0, X1]) for (let y = 0; y <= rY(Z1); y++) c.set(x, y, Z1, y === 0 ? pick(rnd, STONE) : WOOD_D);
-  for (let x = X0; x <= X1; x++) { c.set(x, rY(Z1) - 1, Z1, WOOD_D); c.set(x, rY(Z1), Z1, (x + 40) % 4 === 0 ? 0x5a3a20 : WOOD_D); }
-  for (let k = 0; k < 3; k++) { c.set(X0 + 1 + k, rY(Z1) - 4 + k, Z1, WOOD_D); c.set(X1 - 1 - k, rY(Z1) - 4 + k, Z1, WOOD_D); }
-  // roof: shingle rows stepping down to the back, overhanging all round, dark lip
-  for (let z = Z0 - 1; z <= Z1 + 2; z++)
+  for (let y = 9; y <= 12; y++) for (let z = -8; z <= -5; z++) c.set(X0, y, z, y === 9 || y === 12 || z === -8 || z === -5 ? WOOD_L : 0x9ad0e8);
+  // the open front: low rail fence along the sides, stout posts at the corners
+  for (let z = ZR + 1; z <= Z1; z++) for (const x of [X0, X1]) { c.set(x, 3, z, WOOD_M); c.set(x, 6, z, WOOD_M); }
+  for (const x of [X0, X1]) for (let y = 0; y <= 8; y++) c.set(x, y, Z1, y === 0 ? pick(rnd, STONE) : y === 8 ? WOOD_M : WOOD_D);
+  for (const x of [X0, X1]) for (let y = 1; y <= 6; y++) c.set(x, y, 0, WOOD_D);
+  // roof: shingle rows stepping down to the front, overhanging, dark lip
+  for (let z = Z0 - 1; z <= ZR + 2; z++)
     for (let x = X0 - 1; x <= X1 + 1; x++) {
       const y = rY(z) + 1;
-      const edge = z === Z0 - 1 || z === Z1 + 2 || x === X0 - 1 || x === X1 + 1;
+      const edge = z === Z0 - 1 || z === ZR + 2 || x === X0 - 1 || x === X1 + 1;
       c.set(x, y, z, edge ? ROOF[2] : (x + (y % 2) * 2 + 40) % 4 === 0 ? ROOF[1] : ROOF[0]);
-      if (rY(z + 1) > rY(z) && z < Z1) c.set(x, y + 1, z, edge ? ROOF[2] : ROOF[1]);
+      if (rY(z - 1) > rY(z) && z > Z0) c.set(x, y + 1, z, edge ? ROOF[2] : ROOF[1]);
     }
+  for (let x = X0; x <= X1; x++) c.set(x, rY(ZR), ZR, WOOD_D); // header beam under the roof's lip
   // sleepers for the rack (logs lie front-to-back on them)
   log(c, 'x', X0 + 1, X1 - 1, 1.5, -6.5, 0.9, { ends: false });
   log(c, 'x', X0 + 1, X1 - 1, 1.5, 1.5, 0.9, { ends: false });
   // ---- fine details
-  // the big WOOD sign standing on the roof's front edge: cream board, brown
-  // frame, chunky red letters (each glyph pixel 2x2) with a dark drop shadow
-  const SZ = 13, SY0 = 35, SY1 = 47, SX0 = -19, SX1 = 18;
-  for (const x of [SX0 + 3, SX1 - 3]) f.box(x, 32, SZ - 1, x, SY0, SZ - 1, WOOD_D); // legs
+  // the big WOOD sign standing on the roof ridge at the back: cream board,
+  // brown frame, chunky red letters (each glyph pixel 2x2) with a soft shadow
+  const SZ = -15, SY0 = 42, SY1 = 54, SX0 = -19, SX1 = 18;
+  for (const x of [SX0 + 4, SX1 - 4]) f.box(x, 38, SZ - 1, x + 1, SY0, SZ - 1, WOOD_D); // legs
   f.box(SX0, SY0, SZ, SX1, SY1, SZ, (x, y) => (x === SX0 || x === SX1 || y === SY0 || y === SY1 ? 0x8a5a32 : y === SY1 - 1 || x === SX0 + 1 ? 0xfff6e0 : PAPER));
   const LET = [
     ['#...#', '#...#', '#.#.#', '#.#.#', '.#.#.'],
@@ -122,15 +120,13 @@ function woodgarage(d, rnd, variant) {
     lx += rows[0].length * 2 + 2;
   }
   for (const x of [SX0, SX1]) { f.set(x, SY1, SZ + 1, IRON_L); f.set(x, SY0, SZ + 1, IRON_L); }
-  // front stakes holding the pile in (birch poles) + a rope tie
-  for (const x of [-17, 16]) for (let y = 2; y <= 22; y++) f.set(x, y, 7, y % 6 === 0 ? 0x3a3a3a : 0xece6d6);
-  // lantern hanging from the header (glows warm)
-  f.box(11, 24, 11, 11, 27, 11, IRON);
-  f.box(10, 20, 10, 12, 23, 12, (x, y, z) => (y === 20 || y === 23 ? IRON : 0xffe6a0));
-  d.gf.set(11, 21, 12, WARM); d.gf.set(11, 22, 12, 0xfff0b0);
+  // lantern on a bracket off the front-right post (glows warm)
+  f.box(13, 16, 11, 16, 16, 11, IRON);
+  f.box(13, 12, 10, 15, 15, 12, (x, y) => (y === 12 || y === 15 ? IRON : 0xffe6a0));
+  d.gf.set(14, 13, 12, WARM); d.gf.set(14, 14, 12, 0xfff0b0);
   // a two-man saw on the right wall inside, an axe stuck in a chopping stump out front
-  f.box(15, 22, -14, 15, 22, -4, METAL); for (let z = -14; z <= -4; z += 2) f.set(15, 21, z, METAL_D);
-  f.box(15, 21, -16, 15, 23, -15, WOOD_D); f.box(15, 21, -3, 15, 23, -2, WOOD_D);
+  f.box(15, 24, -16, 15, 24, -10, METAL); for (let z = -16; z <= -10; z += 2) f.set(15, 23, z, METAL_D);
+  f.box(15, 23, -17, 15, 25, -17, WOOD_D); f.box(15, 23, -9, 15, 25, -9, WOOD_D);
   log(f, 'y', 0, 4, 12.5, 16.5, 3, { s: 2 });
   f.line(12, 5, 16, 9, 9, 16, WOOD_L); f.set(9, 10, 16, WOOD_D);
   f.box(12, 5, 15, 14, 6, 17, METAL); f.set(14, 6, 15, 0xe0e8f0);
@@ -142,7 +138,7 @@ function woodgarage(d, rnd, variant) {
   }
   log(f, 'x', -18, -11, 2.5, 17.5, 2.2, { s: 5 });
   // brass tooth emblem on the front-left post (the beaver crew's mark)
-  f.box(-18, 16, 12, -17, 18, 12, BRASS); f.set(-18, 16, 13, 0xffffff); f.set(-17, 16, 13, 0xffffff); f.set(-18, 18, 13, BRASS_D);
+  f.box(-18, 11, 12, -17, 13, 12, BRASS); f.set(-18, 11, 12, 0xffffff); f.set(-17, 11, 12, 0xffffff); f.set(-18, 13, 12, BRASS_D);
   tufts(c, rnd, 10, { w: 2, d: 2 }, (x, z) => x >= X0 - 1 && x <= X1 + 1 && z >= Z0 - 1 && z <= Z1 + 3);
   void INK;
 }
