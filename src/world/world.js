@@ -4,7 +4,8 @@ import { hutDecals } from '../entities/structureDecals.js';
 import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW, GLADE } from './worldgen.js';
 const landmarkMods = import.meta.glob('../entities/landmarkModels.js', { eager: true });
 const LM = landmarkMods['../entities/landmarkModels.js'] || null;
-import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture, SURF } from './terrain.js';
+import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture, SURF, surfaceOf } from './terrain.js';
+import { buildPaintAtlas } from '../art/paintArt.js';
 import { WaterSim } from './waterSim.js';
 import { pineModel, mapleModel, birchModel, boulderModel, tuftModel, flowerModel } from './models.js';
 import { officeModel, hutModel } from './buildings.js';
@@ -13,6 +14,11 @@ import { fbm2, hash2 } from '../core/rng.js';
 import { WATER_Y, KIND } from './grid.js';
 import { SpriteBatch, pixelTexture, SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { buildNatureAtlas } from '../art/natureArt.js';
+
+// Terraform ground paints (grid.paint) and the terrain surface each one draws
+// with: ids < 10 are the base atlas tiles, 10+ the extra paint atlas tiles.
+export const PAINT = { NONE: 0, GRASS: 1, SAND: 2, PATH: 3, FLOWERS: 4, MOSS: 5 };
+export const PAINT_SURF = [-1, SURF.GRASS, SURF.SAND, SURF.TRAIL, 10, 11];
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -54,6 +60,7 @@ export class World {
     this.sim = new WaterSim(this.grid, SIM_RECT, 4);
     this.surfTex = buildSurfaceTexture(this.grid);
     this.gladeSurface();
+    this.paintSurface();
     this.uniforms = {
       uTime: { value: 0 },
       uCaustic: { value: 1 },
@@ -64,6 +71,7 @@ export class World {
       uSimRect: { value: new THREE.Vector4(SIM_RECT.x0, SIM_RECT.z0, SIM_RECT.x1 - SIM_RECT.x0, SIM_RECT.z1 - SIM_RECT.z0) },
     };
     this.terrainMat = makeTerrainMaterial(this.uniforms);
+    this.patchPaintShader();
     this.terrain = new THREE.Mesh(buildTerrainGeometry(this.grid), this.terrainMat);
     this.terrain.receiveShadow = true;
     // bears walk the trail on the smoothed slope surface
@@ -115,6 +123,83 @@ export class World {
       d[i * 4] = (fbm2(x * 0.15, z * 0.15, 413) > 0.6 ? SURF.AUTUMN : SURF.GRASS) * 16;
     }
     this.surfTex.needsUpdate = true;
+  }
+
+  // ---------------------------------------------------------- Terraform paint
+  // The terrain shader picks an atlas tile per surface id; paint ids 10+ come
+  // from a second little atlas (flower meadow, moss). Same jittered lookup, so
+  // painted borders get the same ragged, dithered edges as every other kind.
+  patchPaintShader() {
+    const mat = this.terrainMat;
+    const prev = mat.onBeforeCompile;
+    this.paintU ||= { value: null };
+    mat.onBeforeCompile = (shader, r) => {
+      prev.call(mat, shader, r);
+      if (!this.paintU.value) {
+        const tex = new THREE.CanvasTexture(buildPaintAtlas().canvas);
+        tex.magFilter = THREE.NearestFilter;
+        tex.minFilter = THREE.NearestFilter;
+        tex.generateMipmaps = false;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.flipY = false;
+        this.paintU.value = tex;
+      }
+      shader.uniforms.uPaintAtlas = this.paintU;
+      shader.fragmentShader = shader.fragmentShader
+        .replace('uniform float uBlueprint;', `uniform float uBlueprint;
+uniform sampler2D uPaintAtlas;
+vec3 paintTex(int id, vec2 p) {
+  vec2 t = fract(p / 2.0);
+  t = (floor(t * 48.0) + 0.5) / 48.0;
+  return texture2D(uPaintAtlas, vec2((float(id - 10) + t.x) / 2.0, t.y)).rgb;
+}`)
+        .replace('tex = surfTex(id, p);', 'if (id >= 10) tex = paintTex(id, p); else tex = surfTex(id, p);');
+    };
+    const key = mat.customProgramCacheKey?.() || 'terrain';
+    mat.customProgramCacheKey = () => key + '+paint';
+    mat.needsUpdate = true;
+  }
+
+  surfaceIdAt(i) {
+    const g = this.grid;
+    const p = g.paint[i];
+    if (p && g.kind[i] !== KIND.WATER && PAINT_SURF[p] >= 0) return PAINT_SURF[p];
+    return surfaceOf(g, i % g.w, (i / g.w) | 0);
+  }
+
+  // whole map: painted tiles override the surface map
+  paintSurface() {
+    const g = this.grid, d = this.surfTex.image.data;
+    for (let i = 0; i < g.paint.length; i++) {
+      const p = g.paint[i];
+      if (p && g.kind[i] !== KIND.WATER && PAINT_SURF[p] >= 0) d[i * 4] = PAINT_SURF[p] * 16;
+    }
+    this.surfTex.needsUpdate = true;
+  }
+
+  // a few tiles (live while painting): no geometry rebuild needed
+  refreshSurfaceTiles(list) {
+    const g = this.grid, d = this.surfTex.image.data;
+    for (const i of list) if (g.meadow[i]) d[i * 4] = this.surfaceIdAt(i) * 16;
+    this.surfTex.needsUpdate = true;
+  }
+
+  // Meadow tiles the Terraform tool raised (and the ring around them) are drawn
+  // as smooth slopes like the wild hills; shores keep flat banks.
+  updateTerraSlope() {
+    const g = this.grid, { w, h } = g;
+    const m = g.terraSlope || (g.terraSlope = new Uint8Array(w * h));
+    m.fill(0);
+    const up = (x, z) => g.inb(x, z) && g.meadow[z * w + x] && g.kind[z * w + x] !== KIND.WATER && g.height[z * w + x] > 0.01;
+    for (let z = 1; z < h - 1; z++)
+      for (let x = 1; x < w - 1; x++) {
+        const i = z * w + x;
+        if (!g.meadow[i] || g.kind[i] === KIND.WATER || g.occ[i] === -2) continue;
+        if (g.hasWaterNeighbor(x, z, true)) continue;
+        let on = g.height[i] > 0.01;
+        for (let dz = -1; dz <= 1 && !on; dz++) for (let dx = -1; dx <= 1 && !on; dx++) if (up(x + dx, z + dz)) on = true;
+        if (on) m[i] = 1;
+      }
   }
 
   // Sunbeams slanting down into the glades: one additive, dithered quad per
@@ -562,6 +647,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       const tx = Math.floor(c.x), tz = Math.floor(c.z);
       const i = tz * g.w + tx;
       if (!free(i) || g.deco[i] >= 0) continue;
+      if (g.paint[i] === PAINT.PATH || g.paint[i] === PAINT.SAND) continue; // painted paths / sand stay tidy
       const name = this.clutterSprite(c, 0);
       const grassy = c.type === 'tuft' || c.type === 'fern';
       add(name, c.x, c.z, { sway: grassy ? 1.4 : 1.1, phase: c.rot * 3, flip: c.rot > Math.PI, scale: 0.9 + (c.rot % 1) * 0.25 });
@@ -578,6 +664,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
         const k = g.kind[i];
         const r = hash2(x, z, 201), r2 = hash2(x, z, 202);
         const px = x + 0.2 + hash2(x, z, 203) * 0.6, pz = z + 0.2 + hash2(x, z, 204) * 0.6;
+        if (g.paint[i] && g.meadow[i]) { this.paintClutter(g.paint[i], x, z, add); continue; }
         if (removedTiles.has(i)) continue;
         if (k === KIND.ROCK || k === KIND.SAND) {
           if (r < 0.35) add(`pebble_${Math.floor(r2 * 4)}`, px, pz, {});
@@ -644,6 +731,37 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     B.commit();
     F.commit();
     this.clutterGroup.add(B.mesh, F.mesh);
+  }
+
+  // what grows on a painted tile: meadow flowers, moss bits, pebbles on paths
+  paintClutter(p, x, z, add) {
+    const r = hash2(x, z, 501), r2 = hash2(x, z, 502);
+    const at = (k) => [x + 0.15 + hash2(x, z, 510 + k) * 0.7, z + 0.15 + hash2(x, z, 520 + k) * 0.7];
+    if (p === PAINT.FLOWERS) {
+      const names = ['daisy', 'susan', 'lupine_purple', 'aster', 'dandelion', 'lupine_pink', 'daisy', 'lupine_blue', 'clover', 'trillium'];
+      const n = r < 0.55 ? 2 : r < 0.9 ? 1 : 3;
+      for (let k = 0; k < n; k++) {
+        const [fx, fz] = at(k);
+        add(names[Math.floor(hash2(x + k, z, 503) * names.length)], fx, fz, { sway: 1.1, phase: r * 9 + k, flip: hash2(x, z + k, 504) > 0.5, scale: 0.85 + hash2(x, z, 530 + k) * 0.3 });
+      }
+      if (r2 < 0.4) { const [fx, fz] = at(5); add(`tuft_${Math.floor(r2 * 10) % 4}`, fx, fz, { sway: 1.4, phase: r2 * 7 }); }
+    } else if (p === PAINT.MOSS) {
+      const [fx, fz] = at(0);
+      if (r < 0.12) add(r2 < 0.5 ? 'fern_0' : 'fern_1', fx, fz, { sway: 0.8, phase: r * 9 });
+      else if (r < 0.2) add(r2 < 0.7 ? 'mushroom_brown' : 'mushroom_red', fx, fz, {});
+      else if (r < 0.25) add('mossrock', fx, fz, { scale: 0.7 });
+      else if (r < 0.34) add(`pebble_${Math.floor(r2 * 4)}`, fx, fz, {});
+    } else if (p === PAINT.SAND) {
+      const [fx, fz] = at(0);
+      if (r < 0.28) add(`pebble_${Math.floor(r2 * 4)}`, fx, fz, {});
+    } else if (p === PAINT.PATH) {
+      const [fx, fz] = at(0);
+      if (r < 0.14) add(`pebble_${Math.floor(r2 * 4)}`, fx, fz, {});
+    } else if (p === PAINT.GRASS) {
+      const [fx, fz] = at(0);
+      if (r < 0.4) add(`tuft_${Math.floor(r2 * 4)}`, fx, fz, { sway: 1.4, phase: r * 9, flip: r2 > 0.5 });
+      else if (r < 0.48) add(r2 < 0.5 ? 'tallgrass_0' : 'clover', fx, fz, { sway: 1.3, phase: r * 9 });
+    }
   }
 
   // Destroy tool: everything the beavers are told to tear down glows red
@@ -726,6 +844,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
   }
 
   rebuildTerrain() {
+    this.updateTerraSlope();
     this.terrain.geometry.dispose();
     this.terrain.geometry = buildTerrainGeometry(this.grid);
     this.water.geometry.dispose();
@@ -733,6 +852,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     buildShoreTexture(this.grid, this.shoreTex);
     buildSurfaceTexture(this.grid, this.surfTex);
     this.gladeSurface();
+    this.paintSurface();
     this.buildSunbeams();
     this.sim.refreshMask();
     this.sim.resetLand();

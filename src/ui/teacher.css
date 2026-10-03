@@ -49,7 +49,7 @@
   line-height: calc(var(--px) * 11);
   font-weight: 400;
   font-synthesis: none;
-  -webkit-font-smoothing: none;
+  -webkit-font-smoothing: antialiased;
   font-kerning: none;
   white-space: normal;
   max-width: var(--tch-maxw, calc(var(--px) * 120));

@@ -12,8 +12,8 @@
 // Reynard's right side is -X (monocle eye, prop hand).
 //
 // Outfits, props and aiming (models in foxProps.js):
-//   fox.setOutfit('teacher' | 'chef' | 'default');
-//   fox.holdProp('pointer' | 'chalk' | 'ladle' | null);   // right paw, returns the Object3D
+//   fox.setOutfit('teacher' | 'chef' | 'pajamas' | 'scientist' | 'default');
+//   fox.holdProp('pointer' | 'chalk' | 'ladle' | 'magnifier' | 'pencil' | null);   // right paw, returns the Object3D
 //   fox.holdBoth(trophy);                                 // both paws, in front; returns the anchor
 //   fox.setAim(worldPoint, { weight });  fox.setAim(null); // IK the right arm so the prop points there
 //   fox.propTip(out);                                     // world position of the prop tip
@@ -958,7 +958,8 @@ export class FoxRig {
   /**
    * Dress Reynard: 'default' (top hat + purple waistcoat), 'teacher' (mortarboard with a
    * swinging tassel, tweed cardigan with elbow patches, polka-dot bow tie) or 'chef'
-   * (pleated toque, white double-breasted jacket, red neckerchief). Monocle stays on.
+   * (pleated toque, white double-breasted jacket, red neckerchief), 'pajamas' or 'scientist'
+   * (lab coat, purple bow tie, brass goggles pushed up on the head). Monocle stays on.
    * Hat pops / the hat-in-hand bows work with whatever hat is on.
    */
   setOutfit(name = 'default') {
@@ -1040,6 +1041,8 @@ export class FoxRig {
       if (name === 'pointer') obj.rotation.x = 0.35;
       else if (name === 'chalk') { obj.rotation.x = 0.5; obj.position.set(0, 0.012, 0.012); }
       else if (name === 'ladle') { obj.rotation.x = 0.25; obj.position.set(0, 0.03, 0); }
+      else if (name === 'magnifier') { obj.rotation.x = 0.2; obj.position.set(0, 0.02, 0.01); }
+      else if (name === 'pencil') { obj.rotation.x = 0.6; obj.position.set(0, 0.03, 0.012); }
       P = this._propCache[name] = { name, obj, tip: parts.tip, axis: parts.axis, len: parts.len };
     }
     this.armR.grip.add(P.obj);
@@ -3772,5 +3775,66 @@ def('sleep_bed', {
     const k = Math.floor((t * 1.5 + 0.6) / TAU);
     if (s.k !== undefined && s.k !== k) rig._emit('snore');
     s.k = k;
+  },
+});
+
+// ---------------------------------------------------------------- scientist (Fish Scope)
+// Clipboard in the left paw (the caller hangs it on armL.grip), pencil / magnifier in the right.
+// Chest-space paw spot where the clipboard is held up for writing.
+const SCI_BOARD = [1.2, 6.6, 8.4];
+function sciBoard(p, w = 1) {
+  p.ik(p.aL, SCI_BOARD[0], SCI_BOARD[1], SCI_BOARD[2], 1, -0.5, -0.6, w);
+  p.aL.st = 1.5; p.pawL = 'fist';
+}
+
+def('sci_scribble', {
+  loop: true, expr: 'focused', lookW: 0.35,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.5);
+    sciBoard(p);
+    p.chRx += 0.04; p.hRx += 0.16; p.hRz += 0.05 + sin(t * 0.9) * 0.03;
+    // scribble scribble... pause, tap the pencil on the board, glance up at the specimen
+    const C2 = 3.4, u = t % C2;
+    const write = win(u, 0, 2.2, 0.15, 0.2);
+    const tap = pulse(u, 2.35, 0.16) + pulse(u, 2.6, 0.16);
+    const glance = win(u, 2.3, 3.3, 0.2, 0.25);
+    const zx = sin(t * 17) * 0.55 * write + (u / 2.2) * 1.4 * write;
+    const zy = sin(t * 8.5) * 0.3 * write - Math.floor(u / 0.7) * 0.35 * write;
+    p.ik(p.aR, 0.4 - zx, 7.6 + zy + tap * 0.6 + glance * 0.4, 9.6 - tap * 0.4, 1, -0.6, -0.5);
+    p.aR.st = 1.5;
+    p.propDir = [0.1, -1, -0.45]; p.propDirW = 1;
+    p.hRx -= glance * 0.22; p.hRy += glance * 0.12;
+    p.eL.fl = p.eR.fl = -0.1 - 0.15 * write;
+    p.tSide += sin(t * 2.4) * 0.25;
+    if (write > 0.4) { f.look = [-0.2 + sin(t * 4) * 0.15, -0.9]; f.mouth = Math.floor(t * 3) % 4 === 0 ? 'cat' : 'smirk'; }
+    else if (glance > 0.4) { f.look = [0.6, 0.15]; f.browLift = 1; }
+    once(s, 'w' + Math.floor(t / C2), u > 0.05, () => rig._emit('scribble'));
+    once(s, 't' + Math.floor(t / C2), u > 2.4, () => rig._emit('tap'));
+  },
+});
+
+def('sci_peer', {
+  loop: true, expr: 'focused', lookW: 0.25,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.4);
+    // clipboard drops to the side, magnifier up in front of the monocle eye, leaning in
+    p.ik(p.aL, 4.6, 2.2, 4.4, 1, 0.1, -0.7); p.pawL = 'fist'; p.aL.st = 1.5;
+    const sway = sin(t * 1.3);
+    const lean = 0.08 + sin(t * 0.7) * 0.03;
+    p.lean = lean; p.chRx += 0.06; p.chRy += sway * 0.05;
+    p.ik(p.aR, 2.6 + sway * 0.3, 9.4 + sin(t * 2.1) * 0.2, 9.4, 1, -0.4, -0.3);
+    p.aR.st = 1.5;
+    p.propDir = [-0.12, 1, 0.42]; p.propDirW = 1;
+    p.hRx += -0.04 + sin(t * 0.9) * 0.03; p.hRy += sway * 0.08;
+    // every few seconds: squint... then a big "ooh" eyebrow pop
+    const C2 = 4.2, u = t % C2;
+    const ooh = win(u, 2.8, 3.6, 0.1, 0.3);
+    f.eyeR = ooh > 0.3 ? 'shiny' : 'squint';
+    f.look = [-0.25 + sway * 0.2, -0.1];
+    f.browLift = ooh * 2;
+    if (ooh > 0.3) f.mouth = 'o';
+    p.y += ooh * 0.5; p.eL.fl = p.eR.fl = -0.3 * ooh;
+    p.tSide += sin(t * 2) * 0.3; p.tLift += 0.25 * ooh;
+    once(s, 'o' + Math.floor(t / C2), u > 2.85, () => rig._emit('ooh'));
   },
 });

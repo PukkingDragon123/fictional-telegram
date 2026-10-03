@@ -7,7 +7,7 @@
   position: absolute; left: 16px; top: calc(118px + env(safe-area-inset-top, 0px)); z-index: 19; width: 84px; height: 99px;
   pointer-events: none; color: #3b2414; font-family: var(--font-body); font-size: 16px; line-height: 16px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
-  -webkit-font-smoothing: none; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
+  -webkit-font-smoothing: antialiased; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
   transition: transform .45s cubic-bezier(.3, 1.4, .5, 1), opacity .3s;
 }
 .qn *, .qn *::before, .qn *::after, .qn-stage *, .qn-stage *::before, .qn-stage *::after { box-sizing: border-box; }
@@ -69,7 +69,7 @@
   position: fixed; inset: 0; z-index: 240; display: none; pointer-events: none; overflow: hidden;
   color: #2b3d8f; font-family: var(--font-body); font-size: 32px; line-height: 32px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
-  -webkit-font-smoothing: none; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
+  -webkit-font-smoothing: antialiased; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
 }
 .qn-stage.qn-on { display: block; }
 .qn-dim {

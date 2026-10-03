@@ -10,6 +10,7 @@ import { rollGenes, breedGenes, valueMult, mealMult } from './genes.js';
 import { FISH_Y, WATER_Y } from '../world/grid.js';
 import { angleDiff, clamp } from '../core/rng.js';
 import { FOOD_ITEMS } from '../data/foods.js';
+import { FishEatFx, tickGulp, startLunge, pushGulp, lungeScale } from './fishEatFx.js';
 
 const HUNGER_RATE = 1 / 150; // per second -> starving after ~150 s
 export const GROW_TIME = 70; // seconds from fry to adult
@@ -38,6 +39,7 @@ export class FishSystem {
     // tossed bones, eggs etc. (same atlas)
     this.bones = [];
     this.marks = null; // marker batch on the FX atlas (tags / love), created lazily
+    this.eatFx = new FishEatFx(game); // lunge / gulp / crumbs / nom words / slurp sounds
   }
 
   get count() { return this.list.length; }
@@ -208,11 +210,15 @@ export class FishSystem {
     const bears = game.bears ? game.bears.inWater() : [];
     const food = game.food;
     const sim = game.world.sim;
+    this.eatFx.update(dt);
 
     for (let i = 0; i < this.list.length; i++) {
       const f = this.list[i];
       if (f.dead) continue;
       const sp = f.sp;
+      // eating animation state (gulp squash-stretch, lunge burst)
+      if (f.gulp) tickGulp(f, dt);
+      if (f.lungeT > 0) f.lungeT -= dt;
       if (f.love > 0) f.love = Math.max(0, f.love - dt / 240);
       if (f.fed > 0) f.fed = Math.max(0, f.fed - dt * (f.hunger > 0.7 ? 1 / 90 : 1 / 420));
       if (f.growT > 0) f.growT -= dt;
@@ -334,27 +340,39 @@ export class FishSystem {
           turnRate = 4.5;
           if (t.kind === 'pellet') {
             if (t.ref.eaten) f.target = null;
-            else if (d < 0.3) {
-              food.eatPellet(t.ref);
-              this.feedFish(f, t.ref.item || 'pellets');
-              f.target = null;
-              f.thinkT = 0.2;
-              game.particles.bubbles(f.x, f.y + 0.1, f.z, 1);
-              sim.disturb(f.x, f.z, 0.12, 0.05);
-              if (Math.random() < 0.35) game.audio.play('nibble', { volume: 0.25, pitch: 0.9 + Math.random() * 0.5 });
+            else {
+              // close enough: a quick lunge (speed burst, sharp turns)
+              if (d < 1.1 && f.lungeRef !== t.ref) { f.lungeRef = t.ref; f.speed = Math.max(f.speed, maxSpeed * 2.3); startLunge(f); }
+              if (f.lungeRef === t.ref) { targetSpeed = maxSpeed * 1.8; turnRate = 9; }
+              if (d < 0.3) {
+                food.eatPellet(t.ref);
+                this.feedFish(f, t.ref.item || 'pellets');
+                f.target = null;
+                f.lungeRef = null;
+                f.thinkT = 0.2;
+                this.eatFx.eat(f, t.ref.item || 'pellets');
+              }
             }
           } else if (t.kind === 'weed') {
-            if (d < 0.6) {
+            if (t.bites > 0) {
+              // grazing: hover at the weed and take a few little nibbles
+              targetSpeed = maxSpeed * 0.08;
+              turnRate = 3;
+              t.nibT -= dt;
+              if (t.nibT <= 0) { t.bites--; t.nibT = 0.3 + Math.random() * 0.12; this.eatFx.nibble(f, t.ref, t.bites === 0); }
+              if (t.bites <= 0) { f.target = null; f.thinkT = 1.2 + Math.random(); f.heading += Math.PI * 0.8; }
+            } else if (d < 0.6) {
               if (game.structures.consume(t.ref, 0.18)) {
                 f.hunger = Math.max(0, f.hunger - 0.2 * mods.foodMult);
                 const was = f.fed;
                 f.fed = Math.min(1, f.fed + 0.08);
                 if (was < 0.9 && f.fed >= 0.9) this.readyFx(f);
-                game.particles.bubbles(f.x, f.y + 0.1, f.z, 1);
+                t.bites = 3; t.nibT = 0; f.thinkT = 2; // stay for the nibbles
+              } else {
+                f.target = null;
+                f.thinkT = 1.2 + Math.random();
+                f.heading += Math.PI * 0.8;
               }
-              f.target = null;
-              f.thinkT = 1.2 + Math.random();
-              f.heading += Math.PI * 0.8;
             }
           }
         } else {
@@ -631,7 +649,9 @@ export class FishSystem {
 
   updateJump(f, dt) {
     const j = f.jump;
-    j.t += dt / j.dur;
+    // a little hang time at the top of the arc for the SNAP
+    const hang = 1 - 0.65 * Math.exp(-(((j.t - 0.5) / 0.08) ** 2));
+    j.t += (dt / j.dur) * hang;
     const t = Math.min(1, j.t);
     f.x = j.x0 + (j.x1 - j.x0) * t;
     f.z = j.z0 + (j.z1 - j.z0) * t;
@@ -647,8 +667,7 @@ export class FishSystem {
         f.fed = Math.min(1, f.fed + 0.3);
         if (wasFed < 0.9 && f.fed >= 0.9) this.readyFx(f);
         f.bugBoost = 30;
-        this.game.particles.sparkle(f.x, f.y + 0.1, f.z, 4, 0xd8ffa0);
-        this.game.audio.play('nibble', { volume: 0.4, pitch: 1.3 });
+        this.eatFx.snap(f);
       }
     }
     if (t >= 1) {
@@ -751,6 +770,8 @@ export class FishSystem {
       const scale = f.g.size * grow * (mu ? mu.scale : 1);
       o.texels = FISH_TPU; o.scale = scale; o.mode = 0; o.ax = 0.5; o.ay = 0.5;
       o.flip = f.flip; o.sway = 0; o.phase = f.seed; o.bend = f.held ? 0 : Math.min(1.2, 0.35 + f.speed * 0.5);
+      o.sx = 1; o.sy = 1;
+      if (f.lungeT > 0 && !f.held) lungeScale(f, o);
       o.alpha = f.g.morph === 'ghost' ? 0.62 : 1;
       o.emissive = f.g.morph === 'golden' || f.g.morph === 'rainbow' ? 0.25 : f.g.morph === 'ghost' ? 0.35 : 0;
       o.rot = f.held ? Math.sin(f.phase) * 0.5 : f.jump ? (f.flip ? 1 : -1) * Math.cos(Math.min(1, f.jump.t) * Math.PI) * 0.9 : 0;
@@ -769,7 +790,8 @@ export class FishSystem {
         if (mu.fx === 'shiny' || mu.fx === 'galaxy' || mu.fx === 'stars' || mu.fx === 'sparkle') o.emissive = Math.max(o.emissive, 0.2);
         this.mutationFx(f, mu);
       }
-      B.push(fr, x, y, z, o);
+      if (f.gulp && !f.held) pushGulp(B, fr, x, y, z, o, f, rx, rz);
+      else B.push(fr, x, y, z, o);
       if (f.g.morph !== 'normal' && Math.random() < 0.02) {
         if (f.g.morph === 'golden' || f.g.morph === 'rainbow') game.particles.sparkle(f.x, f.y + 0.2, f.z, 1, f.g.morph === 'golden' ? 0xfff2a0 : 0xd8c8ff);
       }

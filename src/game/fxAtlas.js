@@ -62,6 +62,12 @@ export const COMIC_WORDS = {
   chop: { text: 'CHOP!', fill: '#fff4d0', shade: '#d8a050', ink: '#4a2a10' },
   timber: { text: 'TIMBER!', fill: '#f0ffd8', shade: '#8ac04a', ink: '#2a3a10' },
   sold: { text: 'SOLD!', fill: '#fffbd0', shade: '#ffc020', ink: '#5a3a00' },
+  // fish eating (src/game/fishEatFx.js)
+  slurp: { text: 'SLURP!', fill: '#e8fbff', shade: '#5ac0ff', ink: '#10304a' },
+  nomnom: { text: 'NOM NOM', fill: '#fff4d0', shade: '#ffb84a', ink: '#5a1e10' },
+  crunch: { text: 'CRUNCH!', fill: '#fff4d0', shade: '#ff9a4a', ink: '#5a1e10' },
+  nibble: { text: 'NIBBLE', fill: '#f0ffd8', shade: '#6cc04a', ink: '#1a3a10' },
+  snap: { text: 'SNAP!', fill: '#fffbd0', shade: '#ffd23a', ink: '#6a1a10' },
 };
 
 let cache = null;
@@ -196,6 +202,12 @@ export function buildFxAtlas() {
   draw('fish', ['.ab..a', 'abbbbb', '.bc..c'], { a: '#c8ecff', b: '#5ab0ff', c: '#2a70c0' }, '#10304a');
   draw('dollar', ['.a.', 'aaa', 'a..', 'aaa', '..a', 'aaa', '.a.'], { a: '#8aff7a' }, '#1a4a10');
   draw('ring', ['.aaa.', 'a...a', 'a...a', 'a...a', '.aaa.'], { a: '#ffffff' });
+  // food crumbs / flakes (drawn white, tinted with the food's colour; the outline tints darker)
+  const crumbPal = { a: '#ffffff', b: '#e4e4e4', c: '#b4b4b4' };
+  draw('crumb', ['ab', 'bc'], crumbPal, '#5a5a5a');
+  draw('crumb', ['.a', 'ab', 'bc'], crumbPal, '#5a5a5a');
+  draw('crumb', ['aab', '.bc'], crumbPal, '#5a5a5a');
+  draw('ring_l', ['..aaa..', '.a...a.', 'a.....a', 'a.....a', 'a.....a', '.a...a.', '..aaa..'], { a: '#ffffff' });
   draw('tagmark', [
     '..c......',
     '.c.aaaaa.',

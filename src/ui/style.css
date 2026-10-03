@@ -390,7 +390,7 @@ body.cine .cclock-vignette { opacity: 0 !important; }
 /* ================================================================ v3 */
 /* new pixel fonts (m5x7 / m6x11plus by Daniel Linssen) */
 :root { --font: var(--font-body, 'Pixelify Sans'), 'Pixelify Sans', sans-serif; --font2: var(--font-title, 'Pixelify Sans'), 'Pixelify Sans', sans-serif; }
-html, body { font-size: 16px; -webkit-font-smoothing: none; font-smooth: never; }
+html, body { font-size: 16px; -webkit-font-smoothing: antialiased; }
 
 /* progressive UI: tools and HUD pieces only exist once unlocked */
 .tool.locked { display: none !important; }

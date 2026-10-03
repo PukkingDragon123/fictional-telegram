@@ -42,7 +42,7 @@
   line-height: calc(var(--px) * 11);
   font-weight: 400;
   font-synthesis: none;
-  -webkit-font-smoothing: none;
+  -webkit-font-smoothing: antialiased;
   font-kerning: none;
   white-space: normal;
   max-width: calc(var(--px) * 116);
@@ -221,7 +221,7 @@
   font-family: var(--font-body);
   font-size: calc(var(--px) * 16);
   line-height: calc(var(--px) * 9);
-  -webkit-font-smoothing: none;
+  -webkit-font-smoothing: antialiased;
   visibility: hidden;
 }
 .bb-pill > span { display: block; }

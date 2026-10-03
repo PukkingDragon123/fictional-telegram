@@ -17,7 +17,7 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
   --chalk: #f3f0e2; --chalk-y: #f7e07a; --chalk-p: #f6a8c4;
   position: fixed; inset: 0; z-index: 70; pointer-events: none;
   font-family: var(--font-body); color: var(--chalk);
-  -webkit-font-smoothing: none; font-synthesis: none; user-select: none; -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased; font-synthesis: none; user-select: none; -webkit-user-select: none;
 }
 .cls-ui .hidden { display: none !important; }
 .cls-hit { position: absolute; inset: 0; pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }

@@ -3,7 +3,7 @@
 // they share its chunky look; small props use 0.025 fine voxels. Geometry is
 // built lazily on first use and shared by every rig (disposeFoxProps frees it).
 //
-//   outfitParts('teacher') -> { hat, torso, upperL, upperR, foreL, foreR, extras }
+//   outfitParts('teacher') -> { hat, torso, upperL, upperR, foreL, foreR, extras }   (also 'chef', 'pajamas', 'scientist')
 //   propParts('pointer')   -> { geo, tip: Vector3, axis: Vector3, len }
 //   makeGoldCup()          -> THREE.Group (placeholder trophy, origin at the base)
 import * as THREE from 'three';
@@ -12,8 +12,8 @@ import { VoxelModel } from '../core/voxel.js';
 const VS = 0.05; // rig voxels
 const FV = 0.025; // fine voxels
 
-export const FOX_OUTFITS = ['default', 'teacher', 'chef', 'pajamas'];
-export const FOX_PROPS = ['pointer', 'chalk', 'ladle', 'toothbrush'];
+export const FOX_OUTFITS = ['default', 'teacher', 'chef', 'pajamas', 'scientist'];
+export const FOX_PROPS = ['pointer', 'chalk', 'ladle', 'toothbrush', 'magnifier', 'pencil', 'clipboard'];
 
 // ------------------------------------------------------------------ palette
 const P = {
@@ -45,6 +45,15 @@ const P = {
   pj: 0x86b4e4, pjD: 0x6a98cc, pjL: 0x9ec6f0, pjS: 0xf6eedc, pjSD: 0xe2d6bc, pjP: 0x34508e, pjB: 0xfdf8ec,
   cap: 0xd8463e, capD: 0xb03432, capL: 0xec6a58, capS: 0xf6eedc, pom: 0xfdfaf0, pomD: 0xe6dccc,
   brush: 0x4aa8e8, brushD: 0x2f7ab8, brushL: 0x8ad0ff, bristle: 0xf8fcff, bristleT: 0x9ad8ff, foam: 0xffffff, foamD: 0xe4eef8,
+  // scientist: starched lab coat over a pale blue shirt, purple bow tie (still Reynard), brass goggles
+  coat: 0xf4f6f4, coatD: 0xdde2e2, coatDD: 0xbcc4c8, coatL: 0xffffff,
+  sky: 0xbfe0f4, skyD: 0x9cc8e6, bow: 0x7a3ea8, bowD: 0x56287c, bowL: 0x9c62c8,
+  strap: 0x3a2c3c, strapD: 0x281e2a, strapL: 0x54425a,
+  rim: 0xd09a44, rimD: 0x9a6a28, rimL: 0xf4cc74,
+  glass: 0x6ee0f4, glassD: 0x3ab0d4, glassL: 0xd4fbff,
+  badge: 0x4ad0e0, badgeD: 0x2a8aa8, ink: 0x2e4a7a, pen2: 0x3a6ad0,
+  board: 0xb0773e, boardD: 0x8a5a2c, boardL: 0xcc9358, paper: 0xfbf8ee, paperD: 0xe8e2d0, line: 0x9cb8d4, doodle: 0xf08a3a,
+  pencil: 0xf4c430, pencilD: 0xd09a18, pencilL: 0xffe070, eraser: 0xf08aa0, eraserD: 0xc85a74, lead: 0x3a3440, shav: 0xf0d0a0,
 };
 
 // ------------------------------------------------------------------ voxel helpers
@@ -467,6 +476,161 @@ function toothbrushModel() {
   return v;
 }
 
+// ------------------------------------------------------------------ scientist
+// Long starched lab coat with notch lapels over a pale blue shirt and Reynard's purple bow tie,
+// a pocket protector full of pens, an ID badge and a back vent.
+const coatT = (x, y, z) => tone(x, y, z, P.coat, P.coatD, P.coatL, 0.1, 0.12);
+function labCoatModel() {
+  const v = new VoxelModel();
+  const col = (x, y, z) => {
+    const fx = x + 0.5;
+    if (z >= 1 && y >= 0) {
+      const w = (y + 0.6) * 0.62; // open V down to the second button
+      if (Math.abs(fx) <= w - 0.9) return tone(x, y, z, P.sky, P.skyD, P.sky, 0.12, 0);
+      if (Math.abs(fx) <= w + 0.6) return y >= 3 ? P.coatL : P.coatD; // lapel edge
+      if (Math.abs(fx) <= w + 1.4 && y >= 2) return P.coatDD; // lapel fold shadow
+    }
+    if (z >= 2 && y < 0 && fx > -0.2 && fx < 0.9) return P.coatDD; // closing edge
+    if (y === -2) return P.coatD;
+    if (z <= -3 && x === -1 && y >= -1) return P.coatD; // back seam
+    return coatT(x, y, z);
+  };
+  torsoShell(v, col);
+  // long skirt to mid thigh, flaring a little, open at the front, vent at the back
+  for (let y = -3; y >= -6; y--) {
+    const fl = (-3 - y) * 0.35;
+    rbox(v, Math.floor(-5 - fl), Math.ceil(4 + fl), y, y, -4, 3 + Math.round(fl * 0.6), 1.4, (x, yy, z) => {
+      if (z >= 2 && (x === -1 || x === 0)) return y <= -4 ? null : P.coatDD; // null = no voxel: open front
+      if (z <= -3 && (x === -1 || x === 0) && y <= -4) return null;
+      if (y === -6) return P.coatDD;
+      return z >= 2 && x === 1 ? P.coatD : coatT(x, yy, z);
+    });
+  }
+  // two coat buttons
+  v.set(1, -1, 4, P.coatDD); v.set(1, -3, 4, P.coatDD);
+  // shirt collar + purple bow tie
+  v.set(-2, 6, 4, P.coatL); v.set(1, 6, 4, P.coatL);
+  for (let y = 4; y <= 5; y++) {
+    for (const x of [-3, -2, 1, 2]) v.set(x, y, 5, (x === -3 || x === 2) && y === 5 ? P.bowD : P.bow);
+    v.set(-1, y, 5, P.bowD); v.set(0, y, 5, P.bowD);
+    v.set(-1, y, 6, P.bow); v.set(0, y, 6, P.bowL);
+  }
+  v.set(-2, 6, 5, P.bowL); v.set(1, 6, 5, P.bow);
+  // breast pocket (Reynard's left) with a pocket protector: red + blue pens and a pencil
+  for (const x of [1, 2, 3]) { v.set(x, 1, 5, P.coatDD); v.set(x, 2, 5, P.coatD); }
+  v.set(1, 3, 5, P.pen); v.set(1, 4, 5, P.penD);
+  v.set(2, 3, 5, P.pen2); v.set(2, 4, 5, P.ink);
+  v.set(3, 3, 5, P.pencil); v.set(3, 4, 5, P.eraser);
+  // ID badge on his right: cyan card with a tiny fox head
+  for (let y = 0; y <= 2; y++) for (const x of [-4, -3]) v.set(x, y, 5, y === 2 ? P.badgeD : P.badge);
+  v.set(-4, 1, 6, P.fur); v.set(-3, 1, 6, P.coatL); v.set(-4, 3, 5, P.steelD);
+  // hip pockets
+  for (const x of [-4, -3, 2, 3]) { v.set(x, -3, 4, P.coatDD); }
+  return v;
+}
+function labUpper() {
+  const v = new VoxelModel();
+  rbox(v, -1, 1, -4, 1, -1, 1, 0.9, (x, y, z) => (y === 1 || (y === 0 && x !== 0) ? P.coatD : coatT(x, y, z)));
+  return v;
+}
+function labFore() {
+  const v = new VoxelModel();
+  rbox(v, -1, 1, -3, 0, -1, 1, 0.8, (x, y, z) => (y === -3 ? P.coatDD : y === -2 && z === 1 && x === 0 ? P.coatDD : coatT(x, y, z)));
+  return v;
+}
+// Goggles pushed up on top of the head: two brass-rimmed cyan lenses tilted up and forward,
+// on a dark strap that wraps around the back of the head. Pivot at the hat seat.
+function gogglesModel() {
+  const v = new VoxelModel();
+  const n = new THREE.Vector3(0, 0.78, 0.62).normalize();
+  const C = [[-3.4, 0.6, 3.2], [2.4, 0.6, 3.2]];
+  const d = new THREE.Vector3();
+  for (const c of C) {
+    for (let x = -8; x <= 7; x++)
+      for (let y = -3; y <= 4; y++)
+        for (let z = -2; z <= 8; z++) {
+          d.set(x + 0.5 - c[0] - 0.5, y + 0.5 - c[1], z + 0.5 - c[2]);
+          const ax = d.dot(n);
+          if (ax < -1.1 || ax > 1.1) continue;
+          const rad = Math.sqrt(Math.max(0, d.lengthSq() - ax * ax));
+          if (rad > 2.75) continue;
+          let col;
+          if (rad > 1.85) col = ax > 0.3 ? (d.x + d.z * 0.3 < -0.6 ? P.rimL : P.rim) : P.rimD;
+          else if (ax > 0) col = d.x < -0.4 && d.z + d.y > 0.2 ? P.glassL : rad > 1.2 ? P.glassD : P.glass;
+          else col = P.strapD;
+          v.set(x, y, z, col);
+        }
+  }
+  // bridge between the lenses
+  v.set(-1, 1, 4, P.rimD); v.set(0, 1, 4, P.rimD); v.set(-1, 2, 4, P.rim); v.set(0, 2, 4, P.rim);
+  // strap: hugs the sides and back of the head just under the crown
+  for (let x = -9; x <= 8; x++)
+    for (let z = -8; z <= 6; z++) {
+      const dx = Math.max(Math.abs(x + 0.5 + 0.5) - 6.0, 0), dz = Math.max(Math.abs(z + 0.5) - 5.0, 0);
+      const r = Math.hypot(dx, dz);
+      if (r < 1.2 || r > 2.2) continue;
+      if (z > 2) continue; // the front is the lenses
+      for (const y of [-1, 0]) v.set(x, y, z, y === 0 ? (x < -2 ? P.strapL : P.strap) : P.strapD);
+    }
+  // strap rises from the sides to the lens rims
+  for (const [x, s] of [[-7, -1], [6, 1]]) for (let z = 2; z <= 3; z++) { v.set(x, 0, z, P.strap); v.set(x - s, 1, z + 1, P.strap); }
+  return v;
+}
+
+// Magnifying glass: dark grip, brass ferrule, brass ring with a cyan-tinted lens at the tip.
+function magnifierModel() {
+  const v = new VoxelModel();
+  const sq = (y, c) => { for (const x of [-1, 0]) for (const z of [-1, 0]) v.set(x, y, z, typeof c === 'function' ? c(x, y, z) : c); };
+  sq(3, P.strapD);
+  for (let y = 2; y >= -5; y--) sq(y, (x, yy, z) => (x < 0 && z === 0 ? P.strapL : (yy & 1) ? P.strap : P.strapD));
+  sq(-6, (x) => (x < 0 ? P.rimL : P.rim)); sq(-7, P.rimD);
+  // ring + lens in the x-y plane, centred below the ferrule
+  const cy = -13;
+  for (let x = -7; x <= 6; x++)
+    for (let y = cy - 7; y <= cy + 6; y++) {
+      const r = Math.hypot(x + 0.5, y + 0.5 - cy);
+      if (r > 6.2) continue;
+      if (r > 4.9) { for (const z of [-1, 0]) v.set(x, y, z, x + (y - cy) < -2 ? P.rimL : x + (y - cy) > 3 ? P.rimD : P.rim); continue; }
+      const glint = (x === -3 && y - cy === 2) || (x === -2 && y - cy === 3) || (x === -3 && y - cy === 3) || (x === 1 && y - cy === -2);
+      v.set(x, y, 0, glint ? P.glassL : r > 3.6 ? P.glassD : P.glass);
+    }
+  return v;
+}
+// Yellow hex pencil: pink eraser up top, sharpened wood + graphite tip down -y.
+function pencilModel() {
+  const v = new VoxelModel();
+  const sq = (y, c) => { for (const x of [-1, 0]) for (const z of [-1, 0]) v.set(x, y, z, typeof c === 'function' ? c(x, y, z) : c); };
+  sq(5, (x) => (x < 0 ? P.eraser : P.eraserD)); sq(4, (x) => (x < 0 ? P.eraser : P.eraserD));
+  sq(3, P.steelD);
+  for (let y = 2; y >= -7; y--) sq(y, (x, yy, z) => (x < 0 && z === 0 ? P.pencilL : x > -1 && z < 0 ? P.pencilD : P.pencil));
+  sq(-8, P.shav); v.set(-1, -9, 0, P.shav); v.set(0, -9, -1, P.shav); v.set(-1, -9, -1, P.lead);
+  v.set(-1, -10, -1, P.lead);
+  return v;
+}
+// Clipboard: board in the x-y plane (paper on +z), steel clip at the top. Origin at the board centre.
+function clipboardModel() {
+  const v = new VoxelModel();
+  for (let x = -7; x <= 6; x++)
+    for (let y = -9; y <= 8; y++) {
+      const edge = x === -7 || x === 6 || y === -9 || y === 8;
+      v.set(x, y, 0, edge ? (x === -7 || y === 8 ? P.boardL : P.boardD) : tone(x, y, 0, P.board, P.boardD, P.boardL, 0.12, 0.08));
+      if (x >= -6 && x <= 5 && y >= -8 && y <= 6) {
+        let c = (y & 1) === 0 && y < 3 && x > -6 && x < 5 ? P.line : P.paper;
+        if (y === 4 && x > -6 && x < 3) c = P.ink; // heading
+        if (x === 5 || y === -8) c = P.paperD;
+        v.set(x, y, 1, c);
+      }
+    }
+  // tiny orange fish doodle + a green tick
+  for (const [x, y] of [[-4, -5], [-3, -5], [-2, -5], [-3, -4], [-3, -6], [-1, -5], [0, -4], [0, -6]]) v.set(x, y, 1, P.doodle);
+  for (const [x, y] of [[2, -6], [3, -7], [4, -6], [5, -5]]) v.set(x, y, 1, P.herb);
+  // clip
+  for (let x = -3; x <= 2; x++) for (let y = 6; y <= 9; y++) v.set(x, y, 1, y === 9 ? P.steelD : x === -3 ? P.steelL : P.steel);
+  for (let x = -2; x <= 1; x++) v.set(x, 8, 2, P.steelD);
+  v.set(-1, 10, 1, P.steelD); v.set(0, 10, 1, P.steelD);
+  return v;
+}
+
 // ------------------------------------------------------------------ cached geometry
 const GEO = new Map();
 function geo(key, build, pivot, scale) {
@@ -531,6 +695,19 @@ export function outfitParts(name) {
       dangle: { geo: geo('j_tip', capTipModel, [0, 0, 0], VS), pivot: [0, 6.6 * VS, -1.0 * VS], tilt: 0.8 },
     };
   }
+  if (name === 'scientist') {
+    const up = geo('s_up', labUpper, [0.5, 0, 0.5], VS);
+    const fo = geo('s_fo', labFore, [0.5, 0, 0.5], VS);
+    return {
+      hat: geo('s_hat', gogglesModel, [0, 0, 0], VS),
+      hatTop: 3.2,
+      hatTilt: [-0.05, 0, 0.04],
+      earSpread: 0.12,
+      torso: geo('s_torso', labCoatModel, [0, 0, 0], VS),
+      upperL: up, upperR: up, foreL: fo, foreR: fo,
+      tassel: null,
+    };
+  }
   return null;
 }
 
@@ -540,6 +717,10 @@ const PROP_DEF = {
   chalk: { build: chalkModel, pivot: [0, 0, 0], tip: [0, -6.2, 0], len: 6.2 },
   ladle: { build: ladleModel, pivot: [0, 0, 0], tip: [0, -14.5, 5], len: 15 },
   toothbrush: { build: toothbrushModel, pivot: [0, 0, 0], tip: [0, -13, 2], len: 13 },
+  magnifier: { build: magnifierModel, pivot: [0, 0, 0], tip: [0, -13, 0], len: 13 },
+  pencil: { build: pencilModel, pivot: [0, 0, 0], tip: [0, -10, 0], len: 10 },
+  // not a paw prop: FishScope hangs it on the left grip itself (origin = board centre)
+  clipboard: { build: clipboardModel, pivot: [0, 0, 0], tip: [0, 0, 1], len: 0.5 },
 };
 
 /** Geometry + metadata of a hand prop: { geo, tip (Vector3, prop space), axis (unit Vector3), len (world units) }. */

@@ -6,7 +6,7 @@
   position: fixed; inset: 0; z-index: 150; pointer-events: auto; overflow: hidden; outline: none;
   color: #2b1d14; font-family: var(--font-body, monospace); font-size: 32px; line-height: 24px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none;
-  font-synthesis: none; -webkit-font-smoothing: none;
+  font-synthesis: none; -webkit-font-smoothing: antialiased;
 }
 .enc-ov *, .enc-ov *::before, .enc-ov *::after { box-sizing: border-box; }
 .enc-ov img, .enc-ov canvas, .enc-ov [class*="enc-x-"] { image-rendering: pixelated; image-rendering: crisp-edges; }

@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wood garage + logs</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #2a3a2a; overflow: hidden; font: 11px/1.2 monospace; color: #fff; }
+  canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #ui { position: fixed; left: 8px; top: 8px; display: flex; gap: 6px; }
+  #ui button { font: inherit; background: #2a2036; color: #f4e8d0; border: 2px solid #5a4a6a; padding: 4px 8px; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui"><button id="add">+1 log</button><button id="sub">-5 logs</button><button id="rot">Rotate</button></div>
+<script type="module" src="./trees-preview.js"></script>
+</body>
+</html>

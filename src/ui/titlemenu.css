@@ -2,7 +2,7 @@
 .tm {
   position: fixed; inset: 0; z-index: 40; pointer-events: none;
   font-family: var(--font-title); color: #3b2414;
-  -webkit-font-smoothing: none; font-synthesis: none;
+  -webkit-font-smoothing: antialiased; font-synthesis: none;
 }
 .tm-px { image-rendering: pixelated; display: block; }
 .tm-col {

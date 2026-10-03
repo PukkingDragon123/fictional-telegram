@@ -30,6 +30,8 @@ export class Grid {
     this.deco = new Int16Array(n).fill(-1); // index into decorations list, blocks tile
     this.occ = new Int32Array(n).fill(-1); // structure id
     this.meadow = new Uint8Array(n); // 1 = inside buildable clearing
+    this.paint = new Uint8Array(n); // Terraform ground paint (world.js PAINT ids, 0 = none)
+    this.terraSlope = null; // Terraform: reshaped meadow tiles drawn as smooth slopes (set by world.js)
     this.region = new Int32Array(n).fill(-1); // fish region id per water tile
     this.bearDist = new Float32Array(n); // distance field from bear entry
     this.version = 0; // bump when topology changes
@@ -83,7 +85,7 @@ export class Grid {
   surfaceAtVisual(wx, wz) {
     const x = Math.floor(wx), z = Math.floor(wz);
     if (!this.inb(x, z)) return 0;
-    if (this.slopeH && this.isSlope?.(x, z) && this.height[z * this.w + x] > 0.01) {
+    if (this.slopeH && this.isSlope?.(x, z) && (this.height[z * this.w + x] > 0.01 || this.terraSlope?.[z * this.w + x])) {
       const CW = this.w + 1, fx = wx - x, fz = wz - z, L = this.slopeH;
       const a = L[z * CW + x], b = L[z * CW + x + 1], c = L[(z + 1) * CW + x], d = L[(z + 1) * CW + x + 1];
       return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
@@ -94,6 +96,14 @@ export class Grid {
   groundAt(wx, wz) {
     const x = Math.floor(wx), z = Math.floor(wz);
     return this.surfaceY(x, z);
+  }
+
+  // Terraform: may this tile's ground be reshaped? Your own dry land, nothing
+  // standing on it (trees, rocks, builds, the fox's hut).
+  terraformable(x, z) {
+    if (!this.inb(x, z)) return false;
+    const i = z * this.w + x;
+    return !!this.meadow[i] && this.kind[i] !== KIND.WATER && this.deco[i] === -1 && this.occ[i] === -1;
   }
 
   hasWaterNeighbor(x, z, diag = false) {

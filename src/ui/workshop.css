@@ -31,9 +31,9 @@
 .ws-stage, .ws-stage * {
   font-weight: 400;
   font-synthesis: none;
-  -webkit-font-smoothing: none;
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-smooth: never;
+ 
   font-kerning: none;
   font-variant-ligatures: none;
 }

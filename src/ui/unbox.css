@@ -28,7 +28,7 @@
   position: absolute; left: calc(var(--s) * 13); top: calc(var(--s) * 40); width: calc(var(--s) * 19); height: calc(var(--s) * 7);
   display: flex; align-items: center; justify-content: center; overflow: hidden; pointer-events: none;
   font-family: var(--font-body); font-size: 16px; line-height: 13px; color: #2a2030; text-align: center;
-  -webkit-font-smoothing: none; font-synthesis: none;
+  -webkit-font-smoothing: antialiased; font-synthesis: none;
 }
 .ub-lbl span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
 

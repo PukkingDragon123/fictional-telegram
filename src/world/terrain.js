@@ -257,9 +257,11 @@ export function buildTerrainGeometry(grid) {
   // wild land (mountain, forest hills) is smoothed into slopes instead of
   // stair-stepped terraces: corners take the mean height of the land tiles
   // around them. Your land (the meadow) and the trail stay crisp and flat.
+  const terra = grid.terraSlope; // Terraform: reshaped meadow tiles get smooth slopes too
   const smoothT = (x, z) => {
     if (!grid.inb(x, z)) return false;
     const i = z * w + x, k = grid.kind[i];
+    if (terra && terra[i]) return true;
     return !grid.meadow[i] && k !== KIND.WATER && k !== KIND.TRAIL && grid.occ[i] !== -2 && z >= 22 && !(grid.biome && grid.biome[i] === 4);
   };
   const landH = new Float32Array(CW * (h + 1));
@@ -287,7 +289,7 @@ export function buildTerrainGeometry(grid) {
       const i = z * w + x;
       const y = grid.height[i];
       const k = grid.kind[i];
-      if (smoothT(x, z) && y > 0.01) {
+      if (smoothT(x, z) && (y > 0.01 || (terra && terra[i]))) {
         const a = [x, LH(x, z), z], b = [x, LH(x, z + 1), z + 1], c = [x + 1, LH(x + 1, z + 1), z + 1], d = [x + 1, LH(x + 1, z), z];
         _e1[0] = c[0] - a[0]; _e1[1] = c[1] - a[1]; _e1[2] = c[2] - a[2];
         _e2[0] = d[0] - b[0]; _e2[1] = d[1] - b[1]; _e2[2] = d[2] - b[2];

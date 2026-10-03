@@ -5,7 +5,7 @@
   position: absolute; inset: 0; z-index: 58; pointer-events: auto; color: #3b2414;
   font-family: var(--font-body); font-size: 16px; line-height: 16px;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  -webkit-font-smoothing: none; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
+  -webkit-font-smoothing: antialiased; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
 }
 .mm-ov *, .mm-ov *::before, .mm-ov *::after { box-sizing: border-box; }
 .mm-ov img, .mm-ov canvas { image-rendering: pixelated; }
