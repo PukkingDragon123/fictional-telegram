@@ -16,6 +16,8 @@ const np2 = import.meta.glob('../entities/npcProps2.js', { eager: true });
 const NP2 = np2['../entities/npcProps2.js'] || {};
 const np3 = import.meta.glob('../entities/npcProps3.js', { eager: true });
 const NP3 = np3['../entities/npcProps3.js'] || {};
+const np4 = import.meta.glob('../entities/npcProps4.js', { eager: true });
+const NP4 = np4['../entities/npcProps4.js'] || {};
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -31,7 +33,7 @@ const CAST = {
   // the close neighbours
   clover: { cls: 'BunnyGardener', voice: 'cub', specials: ['water_plants', 'dig', 'sniff'], height: 1.6, sign: 'GARDEN' },
   otis: { cls: 'OtterFisher', voice: 'fox', specials: ['cast_line', 'hold_fish', 'juggle_pebble', 'float_back'], height: 1.45, sign: 'OTIS' },
-  pip: { cls: 'ChipmunkTrader', voice: 'cub', specials: ['count_logs', 'stuff_cheeks', 'haggle'], height: 1.2, sign: 'LUMBER' },
+  pip: { cls: 'ChipmunkTrader', voice: 'cub', specials: ['count_logs', 'stuff_cheeks', 'haggle'], height: 1.25, sign: 'LUMBER' },
   chip: { cls: 'WoodpeckerCarpenter', voice: 'cub', specials: ['peck_wood', 'measure', 'saw', 'inspect', 'hammer'], height: 1.45, sign: 'WORKSHOP' },
   hazel: { cls: 'HedgehogBaker', voice: 'cub', specials: ['roll_dough', 'taste', 'curl_up'], height: 1.5, sign: 'BAKERY' },
 };
@@ -102,6 +104,12 @@ export class Villagers {
     else if (v.id === 'rocco') put(tryMake(NP.makeMerchantStall), -1.2, -0.6, 0.15);
     else if (v.id === 'shellby') put(tryMake(NP.makeTeaTable), 0.9, 0.1, -0.2);
     else if (v.id === 'clover') put(tryMake(NP2.makeGardenPatch), 1.15, -0.45, 0.05);
+    else if (v.id === 'pip') {
+      const mill = tryMake(NP4.makeLumberMill);
+      put(mill, 0.45, -0.7, 0); // Pip stands in front of the door
+      put(tryMake(NP4.makeLumberCart), 1.5, 0.55, -0.6);
+      if (mill?.userData?.update) v.propUpdate = mill.userData.update;
+    }
     else if (v.id === 'chip') {
       put(tryMake(NP3.makeTreeHouse), -0.7, -1.45, 0); // he stands front-right of his door
       put(tryMake(NP3.makeWorkbench), 1.6, 0.15, -0.3);
@@ -313,6 +321,7 @@ export class Villagers {
         if (Math.random() < 0.25 && Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 14) this.sayLine(v, pick(v.zone.lines), { dur: 2.6 });
       }
       v.rig.update?.(dt);
+      v.propUpdate?.(dt);
     }
   }
 

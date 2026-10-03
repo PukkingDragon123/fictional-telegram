@@ -68,7 +68,7 @@ export class PipVisit {
     try { cart = NP4.makeLumberCart ? NP4.makeLumberCart() : null; } catch { cart = null; }
     const grp = new THREE.Group();
     grp.add(rig.root);
-    if (cart) { cart.position.set(0, 0, 0.75); grp.add(cart); }
+    if (cart) { if (rig.attachCart) rig.attachCart(cart); else { cart.position.set(0, 0, 0.75); grp.add(cart); } }
     game.scene.add(grp);
     const pos = { x: start.x, z: start.z };
     const place = () => {
@@ -76,15 +76,16 @@ export class PipVisit {
       grp.rotation.y = Math.atan2(stop.x - start.x, stop.z - start.z);
     };
     place();
-    rig.play?.(rig.anims?.includes?.('push_cart') || rig.anims?.push_cart ? 'push_cart' : 'walk', { loop: true });
+    const SPEED = 1.0;
+    rig.play?.(rig.attachCart ? 'push_cart' : 'walk', { loop: true, speed: SPEED / (C3.PIP_CART_SPEED || 0.55) });
     // walk while the camera watches (driven by the game loop)
     let walking = true;
     this.tick = (dt) => {
       rig.update?.(dt);
       if (!walking) return;
       const dx = stop.x - pos.x, dz = stop.z - pos.z, d = Math.hypot(dx, dz);
-      if (d < 0.05) { walking = false; return; }
-      const v = Math.min(d, dt * 1.6);
+      if (d < 0.05) { walking = false; rig.play?.('cart_rest', { loop: true }); return; }
+      const v = Math.min(d, dt * SPEED);
       pos.x += (dx / d) * v; pos.z += (dz / d) * v;
       place();
     };
@@ -98,7 +99,7 @@ export class PipVisit {
     await game.cutscene.play({
       shots: [
         { at: { x: start.x, z: start.z + 1 }, wupp: 0.022, cut: true, dur: 2.4, caption: 'Day 2: a visitor!', sub: 'Pip the chipmunk, lumber trader' },
-        { at: () => ({ x: pos.x, z: pos.z + 0.6 }), wupp: 0.02, dur: 5.5 },
+        { at: () => ({ x: pos.x, z: pos.z + 0.6 }), wupp: 0.02, dur: 9 },
       ],
       skippable: true,
     });
@@ -106,6 +107,7 @@ export class PipVisit {
     pos.x = stop.x; pos.z = stop.z; place(); walking = false;
     game.rig.lookAt(pos.x, pos.z + 0.5);
     game.rig.wuppGoal = 0.02;
+    try { rig.parkCart?.(grp); } catch { /* ignore */ }
     rig.play?.('wave', { loop: false, onDone: () => rig.play?.('idle', { loop: true }) });
     await say('Howdy, neighbour! Name\'s Pip. I buy LOGS!');
     await say('Chop trees, beavers haul the logs to your Wood Garage...');
