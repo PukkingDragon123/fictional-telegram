@@ -348,7 +348,7 @@ export class LabMode {
         return ok;
       },
       zoneName: (z) => ZONE_INFO[z]?.npcName || 'a new neighbour',
-      isZoneOpen: (z) => (game.state.zones || []).includes(z),
+      isZoneOpen: (z) => (fn('zoneOpen') ? game.zoneOpen(z) : (game.state.zones || []).includes(z)),
       icon: (n, s) => (n && hasSprite(n) ? spriteImg(n, s) : ''),
       fishCanvas: (sp, o) => fishCanvasFor(sp, o || {}),
       sfx: (n) => { const m = TREE_SFX[n]; if (m) game.audio.play(m[0], { volume: m[1] }); },
