@@ -540,7 +540,7 @@ button.lt-slotc { cursor: pointer; }
 .ltree.is-short .lt-close { height: 38px; }
 .ltree.is-short .lt-chips { padding: 5px 8px; }
 .ltree.is-short .lt-chip { height: 32px; font-size: 17px; }
-.ltree.is-short .lt-hero canvas { max-height: 92px; object-fit: contain; }
+.ltree.is-short .lt-hero { display: none; }
 .ltree.is-short .lt-name { font-size: 26px; }
 .ltree.is-short .lt-desc { font-size: 18px; }
 .ltree.is-short .lt-go { min-height: 60px; }

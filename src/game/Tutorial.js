@@ -8,9 +8,12 @@ import * as THREE from 'three';
 //   lesson 1 (a fish's condition) -> buy your first 2 fish on e-Buy -> unbox,
 //   Reynard carries the bag to the pond -> feed them until they're WELL FED ->
 //   lesson 2 (love & eggs) -> watch them date, lay, fertilize -> tap to hatch ->
-//   lesson 3 (genes & mutations) -> beaver crew + their Snack Bar -> lesson 4
-//   (plants & food) -> plant carrots, harvest, pay the beavers -> clear trees ->
-//   the clock. Day 1 is a building day: bears start on day 2.
+//   lesson 3 (building) -> into the LAB: research "Hire Beavers" (research is
+//   free but takes time) -> order the beaver crew, place the lodge -> research
+//   + place their Snack Bar -> research carrots, plant, harvest, pay the beavers
+//   -> research + place the Wood Garage -> clear trees -> the clock -> recap of
+//   how to unlock things (lab, benches, neighbours). Day 1 is a building day:
+//   bears start on day 2.
 import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { STRUCTURES } from '../data/structures.js';
 import { COMBINED_LESSONS } from './lessonsCombined.js';
@@ -22,6 +25,17 @@ const Classroom = clsMods['./Classroom.js']?.Classroom || null;
 if (clsMods['./Classroom.js']?.LESSONS) Object.assign(clsMods['./Classroom.js'].LESSONS, COMBINED_LESSONS);
 const teachMods = import.meta.glob('../ui/TeacherOverlay.js', { eager: true });
 const TeacherOverlay = teachMods['../ui/TeacherOverlay.js']?.TeacherOverlay || null;
+
+// v17: the research tree's stable bits (src/ui/LabTree.js, owned by the labtree
+// helper). If the tree's markup changes, fix it here only.
+const LAB_SEL = {
+  node: (id) => `.lt-node[data-id="${id}"], [data-r="${id}"]`, // tree node (or the plain fallback card)
+  go: '.lt-go', // the detail panel's RESEARCH button
+  bench: '.lt-bench', // the bench bar with the running jobs
+  job: (id) => `.lt-slotc[data-job="${id}"]`, // one running job on the bench
+  labBtn: '.labui [data-a="research"]', // the "research" icon in Reynard's 3D lab (tree closed)
+};
+const TUT_RESEARCH_BOOST = 4; // research runs this many times faster during the tour
 
 export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews', 'match', 'terraform'];
 
@@ -200,6 +214,13 @@ export class Tutorial {
 
   // ------------------------------------------------------------ the tour
   async run() {
+    try { await this.tour(); } finally {
+      this.game.researchBoost = 1; // research runs at normal speed after the tour (or if it fails)
+      this.stopNag();
+    }
+  }
+
+  async tour() {
     const game = this.game;
     const L = game.lab;
     this.active = true;
@@ -509,6 +530,12 @@ export class Tutorial {
     await this.teach('Bears come <b>TOMORROW</b> at 5. Tap the clock to go faster!', { target: 'sel:#clockwrap', wait: true, mood: 'scared' });
     stop?.();
     game.particles.confetti(game.fox.x, game.fox.y + 1.5, game.fox.z, 40);
+    // ---- recap: how you get NEW stuff from now on
+    stop = this.pointAt('tool:lab');
+    await this.teach('Want NEW stuff? The <b>LAB</b>! Research is <b>FREE</b>, it just takes time.', { target: 'tool:lab', circle: true, wait: true, mood: 'happy' });
+    await this.teach('One project per <b>bench</b>. Research a 2nd bench later to run two at once!', { wait: true });
+    await this.teach('Locked nodes? Meet the <b>neighbours</b> in the forest: they open up more of the tree!', { wait: true, mood: 'scheming' });
+    stop?.();
     await this.teach('<b>Class dismissed!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
     game.unlockFeature('speed');
     game.setTool({ kind: 'feed' });
@@ -519,6 +546,98 @@ export class Tutorial {
     game.state.tutorialDone = true;
     this.active = false;
     game.save();
+  }
+
+  // ------------------------------------------------------------ research (v17)
+  // the research tree that's on screen right now (Reynard's 3D lab or the Lab panel)
+  labTree() {
+    const game = this.game;
+    if (game.lab?.active) return game.lab.tree || null;
+    return game.ui?.panel === 'lab' ? game.ui.labTree || null : null;
+  }
+
+  // Reynard walks you into his lab (3D room) and switches the research screen on
+  async enterLab() {
+    const game = this.game;
+    const L = game.lab;
+    const t = this.teacher;
+    if (t?.visible) { try { t.clearChalk(); await t.hide(); } catch { /* ignore */ } }
+    game.ui?.closeEBuy?.();
+    game.ui?.blueprint?.exit?.();
+    this.follow = false;
+    this.stage = 'enterLab';
+    if (L?.open && !game.inputLocked) {
+      L.enter();
+      await Promise.race([this.waitFor(() => !L.active || L.state === 'doze' || L.state === 'awake', 0.1), wait(12)]);
+      if (L.active) {
+        if (L.state === 'doze') { L.state = 'awake'; L.q?.('hint')?.classList.add('hidden'); } // he's expecting us: no nap today
+        L.openTree();
+        await wait(0.6);
+        return;
+      }
+    }
+    game.ui?.openLab?.(); // no 3D lab: the Lab panel
+    await wait(0.4);
+  }
+
+  async leaveLab() {
+    const game = this.game;
+    const L = game.lab;
+    if (game.ui?.panel === 'lab') game.ui.closePanel();
+    if (L?.active) {
+      const t = this.teacher;
+      if (t?.visible) { try { t.clearChalk(); await t.hide(); } catch { /* ignore */ } }
+      L.exit();
+      await Promise.race([this.waitFor(() => !L.active, 0.1), wait(8)]);
+    }
+  }
+
+  // Keep pointing the player along: Lab button -> the node -> RESEARCH -> the bench,
+  // until research `id` is running (until: 'start') or done.
+  guideResearch(id, { until = 'done' } = {}) {
+    const game = this.game;
+    this.stage = 'research:' + id;
+    return new Promise((res) => {
+      let where = null, stop = null, seenTree = null;
+      const tick = () => {
+        const done = game.state.research.includes(id);
+        const running = game.isResearching?.(id);
+        if (done || (until === 'start' && running)) { stop?.(); res(); return; }
+        // something else hogs the bench (a curious tap): the tour lets it finish now
+        if (!running && game.canResearch?.(id)?.reason === 'Lab bench busy') for (const j of game.researchJobs()) game.rushResearch(j.id);
+        const tree = this.labTree();
+        if (tree && tree !== seenTree) { seenTree = tree; try { tree.select?.(id); } catch { /* ignore */ } }
+        let w;
+        if (running) w = tree ? 'job' : 'wait';
+        else if (tree) w = document.querySelector(LAB_SEL.go) ? 'go' : 'node';
+        else if (game.lab?.active) w = 'labBtn';
+        else w = 'tool';
+        if (w !== where) {
+          stop?.();
+          where = w;
+          const tgt = { go: 'sel:' + LAB_SEL.go, node: 'sel:' + LAB_SEL.node(id), job: 'sel:' + LAB_SEL.job(id), labBtn: 'sel:' + LAB_SEL.labBtn, tool: 'tool:lab' }[w];
+          stop = tgt ? this.pointAt(tgt) : null;
+        }
+        setTimeout(tick, 250);
+      };
+      tick();
+    });
+  }
+
+  // the quick version: "research X in the lab!" (Lab button -> node -> RESEARCH -> wait)
+  async researchLesson(id, line, nagLine) {
+    const game = this.game;
+    if (game.state.research.includes(id)) return;
+    game.unlockFeature('lab');
+    this.force('lab');
+    this.teach(line, { target: 'tool:lab', circle: true, dur: 5, mood: 'excited' });
+    this.nag(() => nagLine);
+    await this.guideResearch(id);
+    this.stopNag();
+    this.force(null);
+    game.audio.play('fanfare', { volume: 0.4 });
+    await wait(1.4); // let the tree's "research complete" moment play
+    await this.leaveLab();
   }
 
   // ------------------------------------------------------------ bits
@@ -624,7 +743,9 @@ export class Tutorial {
   static progress(game) {
     if (!game.state.tutorialDone) return;
     if (game.state.day >= 2) { game.unlockFeature('rating'); game.unlockFeature('reviews'); }
-    if (game.state.day >= 2) game.unlockFeature('lab');
+    // research is the only way to unlock anything: the lab stays open after the tour
+    // (older saves finished the tour before it taught the lab)
+    if (!game.state.unlocked.includes('lab')) game.unlockFeature('lab', { quiet: true });
     if (game.state.discovered.length >= 2 || game.state.day >= 3) game.unlockFeature('dex');
     if (game.state.day >= 3) game.unlockFeature('tag');
   }

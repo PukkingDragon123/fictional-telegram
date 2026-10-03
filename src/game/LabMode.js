@@ -453,8 +453,6 @@ export class LabMode {
       this.say(pick(LINES.wake) + ' ' + pick(LINES.greet), 'embarrassed');
       this.q('opts')?.classList.remove('hidden');
     }
-    // the lab pauses the pond, but the lab bench keeps working (real time)
-    if (game.state.paused && typeof game.tickResearch === 'function') game.tickResearch(dt);
     this.lab?.update(dt, this.time);
     if (this.lab?.drawIdleScreen && !this.tree) this.lab.drawIdleScreen(this.time);
     // awake: hop off the chair and stand in front of it facing the visitor;
