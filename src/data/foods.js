@@ -88,6 +88,16 @@ export const FOOD_ITEMS = {
   potato: { kind: 'produce', name: 'Potatoes', icon: 'potato', snack: 'veggie', from: 'potato', pellet: [0xc8a060], fish: { fill: 0.25 }, bear: { meal: 0.9 }, beaver: { jobs: 2 } },
   radish: { kind: 'produce', name: 'Radishes', icon: 'radish', snack: 'veggie', from: 'radish', pellet: [0xe04a6a], fish: { fill: 0.12, love: 0.15 }, bear: { meal: 0.4 }, beaver: { jobs: 1 } },
   sunflower: { kind: 'produce', name: 'Sunflower Seeds', icon: 'sunflower', snack: 'veggie', from: 'sunflower', pellet: [0x3a3020, 0xe8d8a0], fish: { fill: 0.15, love: 0.2, happy: 0.08 }, bear: { meal: 0.5 }, beaver: { jobs: 2 } },
+  tomato: { kind: 'produce', name: 'Tomatoes', icon: 'tomato', snack: 'veggie', from: 'tomato', pellet: [0xe43e26], fish: { fill: 0.15, happy: 0.1 }, bear: { meal: 0.7 }, beaver: { jobs: 2 } },
+  cabbage: { kind: 'produce', name: 'Cabbage', icon: 'cabbage', snack: 'veggie', from: 'cabbage', pellet: [0x74b07a], fish: { fill: 0.25, grow: 6 }, bear: { meal: 0.9 }, beaver: { jobs: 2 } },
+  // ------------------------------------------------------------ forest finds (picked up in the woods, see Forage.js)
+  //          material: a craft material for Chip's workshop, nobody eats it
+  fiddlehead: { kind: 'forage', name: 'Fiddleheads', icon: 'fiddlehead', snack: 'veggie', pellet: [0x5aac3c], fish: { fill: 0.15, love: 0.15 }, bear: { meal: 0.6, coins: 1 }, beaver: { jobs: 1 }, desc: 'Curled fern tips from the forest floor. A spring delicacy, eh?' },
+  ramps: { kind: 'forage', name: 'Wild Ramps', icon: 'ramps', snack: 'veggie', pellet: [0x82c84c, 0xf4ece0], fish: { fill: 0.12, happy: 0.08 }, bear: { meal: 0.5, coins: 2 }, beaver: { jobs: 1 }, desc: 'Wild garlic leeks. Fancy bears pay extra; beavers hold their noses.' },
+  morel: { kind: 'forage', name: 'Morels', icon: 'morel', snack: 'mushroom', pellet: [0x8c623c], fish: { fill: 0.15, grow: 10 }, bear: { meal: 0.8, coins: 4 }, beaver: { jobs: 2 }, desc: 'Honeycomb mushrooms that hide under the leaves. Chefs swoon.' },
+  wildberry: { kind: 'forage', name: 'Wild Berries', icon: 'wildberry', snack: 'berries', pellet: [0x8c2048], fish: { fill: 0.15, love: 0.25 }, bear: { meal: 0.6 }, beaver: { jobs: 1 }, desc: 'Bramble berries, picked warm. Mind the thorns.' },
+  pinecone: { kind: 'forage', material: true, name: 'Pinecones', icon: 'pinecone', pellet: [0x6e4222], desc: 'Craft material. Chip turns them into shelves and birdhouses.' },
+  resin: { kind: 'forage', material: true, name: 'Pine Resin', icon: 'resin', pellet: [0xe89a1e], desc: 'Sticky amber from old stumps. Glue and varnish for Chip\'s workshop.' },
   // ------------------------------------------------------------ special finds (lucky batches)
   golden_carrot: { kind: 'special', rarity: 4, name: 'Golden Carrot', icon: 'golden_carrot', snack: 'veggie', from: 'carrot', pellet: [0xffc020], fish: { fill: 0.3, love: 1, luck: 0.4 }, bear: { meal: 1.5, coins: 40 }, beaver: { jobs: 12 }, desc: 'Solid gold and somehow crunchy. Beavers will work a week for one.' },
   giant_pumpkin: { kind: 'special', rarity: 3, name: 'Giant Pumpkin', icon: 'giant_pumpkin', snack: 'veggie', from: 'pumpkin', pellet: [0xf08a2a], fish: { fill: 0.6, grow: 60 }, bear: { meal: 3, coins: 25 }, beaver: { jobs: 8 }, desc: 'Fills a whole bear. Wins county fairs.' },

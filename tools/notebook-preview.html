@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quest notebook preview</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font: bold 13px/1.3 'Trebuchet MS', system-ui, sans-serif; color: #22161f; }
+  body {
+    background-color: #7fb65a;
+    background-image:
+      radial-gradient(ellipse at 50% 38%, #5f9fc8 0 22%, #4a8ab4 22.3% 24%, transparent 24.4%),
+      radial-gradient(circle at 18% 70%, #6aa648 0 6%, transparent 6.3%),
+      radial-gradient(circle at 80% 80%, #6aa648 0 8%, transparent 8.3%),
+      repeating-conic-gradient(#78ae54 0 25%, #82bb5e 0 50%);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 12px 12px;
+  }
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  /* stand-in for the coin tag + stars */
+  .fake-coins { position: absolute; left: 22px; top: 20px; width: 128px; height: 52px; background: #f1dcae; border: 3px solid #5a3a22; box-shadow: 0 3px 0 rgba(30,16,8,.4);
+    font: 28px/46px monospace; text-indent: 54px; color: #3b2414; }
+  .fake-coins::before { content: ''; position: absolute; left: 10px; top: 8px; width: 32px; height: 32px; border-radius: 50%; background: #ffc830; box-shadow: inset -3px -3px 0 #c88a1c, 0 0 0 2px #7a4a0e; }
+  .fake-stars { position: absolute; left: 26px; top: 84px; color: #ffc830; font: 18px monospace; letter-spacing: 2px; text-shadow: 0 2px 0 #7a4a0e; }
+  #ctl { position: fixed; right: 8px; bottom: 8px; z-index: 400; display: flex; flex-wrap: wrap; gap: 4px; max-width: 520px; justify-content: flex-end; }
+  #ctl button { font: inherit; background: #fff8ea; border: 2px solid #22161f; padding: 4px 8px; cursor: pointer; box-shadow: 0 2px 0 #22161f; }
+  body.shot #ctl { display: none; }
+</style>
+</head>
+<body>
+<div id="ui"><div class="fake-coins">120</div><div class="fake-stars">★★★☆☆</div></div>
+<div id="ctl"></div>
+<script type="module" src="./notebook-preview.js"></script>
+</body>
+</html>

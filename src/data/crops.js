@@ -36,6 +36,8 @@ export const CROPS = {
   corn: { item: 'corn', yield: [2, 4], grow: 80, regrow: 55, special: 'rainbow_corn', stages: seedStages('crop_corn_grow', 'crop_corn_ripe') },
   sunflower: { item: 'sunflower', yield: [3, 5], grow: 75, regrow: 55, special: 'sun_seed', stages: seedStages('crop_sunflower_grow', 'crop_sunflower_ripe') },
   pumpkin: { item: 'pumpkin', yield: [1, 2], grow: 110, regrow: 80, special: 'giant_pumpkin', stages: seedStages('crop_pumpkin_grow', 'crop_pumpkin_ripe') },
+  tomato: { item: 'tomato', yield: [3, 5], grow: 65, regrow: 42, special: 'clover', stages: seedStages('crop_tomato_grow', 'crop_tomato_ripe') },
+  cabbage: { item: 'cabbage', yield: [2, 3], grow: 75, regrow: 50, special: 'clover', stages: seedStages('crop_cabbage_grow', 'crop_cabbage_ripe') },
   // berry bushes (existing sprites: "<name>_picked" = growing, "<name>" = ripe)
   berries: { item: 'blueberry', yield: [3, 5], grow: 60, regrow: 42, special: 'moonberry', stages: seedStages('blueberry_picked', 'blueberry') },
   raspberry: { item: 'raspberry', yield: [3, 6], grow: 60, regrow: 40, special: 'moonberry', stages: seedStages('raspberry_picked', 'raspberry') },

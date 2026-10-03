@@ -178,6 +178,14 @@ export const STRUCTURES = {
     name: 'Pumpkin Patch', icon: 'pumpkin', cost: 40, place: 'land', category: 'food', crop: true, unlock: 'day:4',
     desc: 'Slow, big and glorious. A legendary batch grows a GIANT pumpkin that fills a whole bear.', hp: 2, smashable: true, beauty: 1.5,
   },
+  tomato: {
+    name: 'Tomato Vines', icon: 'tomato', cost: 20, place: 'land', category: 'food', crop: true, unlock: 'start',
+    desc: 'Staked vines heavy with red tomatoes. Fish perk right up, bears want them on everything.', hp: 1, smashable: true, beauty: 1,
+  },
+  cabbage: {
+    name: 'Cabbage Patch', icon: 'cabbage', cost: 15, place: 'land', category: 'food', crop: true, unlock: 'start',
+    desc: 'Big leafy heads. Filling for bears; fry that nibble the leaves grow faster.', hp: 1, smashable: true, beauty: 0.5,
+  },
   // ------------------------------------------------------------ food storage (fill from the Food tool)
   snackbowl: {
     name: 'Snack Bowl', icon: 'bowl', cost: 20, place: 'landOrPlatform', category: 'food', storage: true,

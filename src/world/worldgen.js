@@ -39,6 +39,13 @@ export const LANDMARKS = [
   { id: 'swampshack', name: 'Swamp Shack', x: 27, z: 88, w: 3, d: 2, biome: BIOME.SWAMP },
 ];
 export const WILLOW = { x: 21, z: 43 }; // the Great Willow trunk tile
+// grid.glade per forest tile: thick grove, open woodland (fewer trees) or a
+// grassy glade / deer path (no trees). Every one of them stays KIND.FOREST, so
+// clearing, land plots and saves work exactly as before; only the look changes.
+export const GLADE = { GROVE: 0, OPEN: 1, GLADE: 2 };
+// the old homestead ruin you can reach on day one (south of the meadow)
+const EARLY_RUIN = { x0: 74, x1: 88, z0: 56, z1: 59 };
+const RUIN_TYPES = ['ruin_chair', 'ruin_table', 'ruin_clock', 'ruin_lamp', 'ruin_cart'];
 const SWAMP = { x: 30, z: 86, r: 19 };
 const MUSH = { x: 88, z: 95, r: 16 };
 const WILLOW_HILL = { x: 21.5, z: 45, r: 6.5 };
@@ -284,22 +291,31 @@ export function generateWorld(seed = 1337) {
       } else if (k === KIND.GRASS && grid.biome[i] === BIOME.WILLOW && r < 0.04) addDeco('weed', x, z, { variant: Math.floor(hash2(x, z, 9) * 4) });
     }
 
+  // --- groves, glades and deer paths (after the decos so saved deco indices
+  // never shift), then a few mossy ruin spots in little clearings
+  buildGlades(grid);
+  grid.ruins = placeRuins(grid);
+  grid.forage = placeForage(grid);
+  const forageTile = new Set(grid.forage.map((f) => f.i));
+
   // ground clutter (non-blocking): grass tufts, flowers, ferns, mushrooms
   const clutter = [];
+  const glade = grid.glade;
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++) {
       const i = z * w + x;
       const k = grid.kind[i];
       if (k !== KIND.GRASS && k !== KIND.FOREST && k !== KIND.DIRT) continue;
-      // only near your land / the willow: the deep forest floor is hidden by trees
-      const near = grid.meadow[i] || grid.biome[i] === BIOME.WILLOW || hash2(x, z, 7) < 0.35;
-      if (!near) continue;
-      const count = k === KIND.GRASS ? 2 : 1;
+      // only near your land / the willow / in glades: the thick groves hide their floor
+      const gl = k === KIND.FOREST ? glade[i] : 0;
+      const near = grid.meadow[i] || grid.biome[i] === BIOME.WILLOW || gl > 0 || hash2(x, z, 7) < 0.35;
+      if (!near || forageTile.has(i)) continue; // keep forest finds in plain sight
+      const count = k === KIND.GRASS || gl === GLADE.GLADE ? 2 : gl === GLADE.OPEN ? 2 : 1;
       const patch = fbm2(x * 0.22, z * 0.22, 41);
       const flowerKind = patch > 0.62 ? 'fireweed' : patch < 0.3 ? 'lupine' : 'daisy';
       for (let c = 0; c < count; c++) {
         const r = rnd();
-        if (r > 0.5) continue;
+        if (r > (gl === GLADE.GLADE ? 0.62 : 0.5)) continue;
         const t = rnd();
         let type = 'tuft';
         if (k === KIND.GRASS) {
@@ -307,12 +323,147 @@ export function generateWorld(seed = 1337) {
           if (t < flowerChance) type = flowerKind;
         } else if (grid.biome[i] === BIOME.MUSHROOM) type = t < 0.5 ? 'glowcap' : 'mushroom';
         else if (grid.biome[i] === BIOME.SWAMP) type = t < 0.6 ? 'swampgrass' : 'fern';
+        else if (gl === GLADE.GLADE) {
+          // sunny glades: wildflower drifts, ferns hugging the grove edges
+          const edge = gladeEdge(grid, x, z);
+          type = t < (edge ? 0.4 : 0.12) ? 'fern' : t < 0.5 ? flowerKind : t < 0.56 ? 'daisy' : 'tuft';
+        } else if (gl === GLADE.OPEN) type = t < 0.45 ? 'fern' : t < 0.53 && grid.deco[i] < 0 ? 'mushroom' : t < 0.62 ? 'daisy' : 'tuft';
         else type = t < 0.35 ? 'fern' : t < 0.4 && grid.deco[i] < 0 ? 'mushroom' : 'tuft';
         clutter.push({ type, x: x + 0.15 + rnd() * 0.7, z: z + 0.15 + rnd() * 0.7, y: grid.height[i], rot: rnd() * Math.PI * 2 });
       }
     }
 
   return { grid, decos, clutter, trail, seed, canopy: [] };
+}
+
+// Openness of every forest tile (grid.glade): a patchy noise makes groves and
+// clearings, a thin band of a second noise winds deer paths between them.
+// Swamp keeps its look; the mushroom wood only thins out a little.
+function buildGlades(grid) {
+  const { w, h } = grid;
+  const gl = (grid.glade = new Uint8Array(w * h));
+  for (let z = 22; z < h; z++)
+    for (let x = 0; x < w; x++) {
+      const i = z * w + x;
+      if (grid.kind[i] !== KIND.FOREST || grid.occ[i] === -2) continue;
+      const b = grid.biome[i];
+      // big clearings (tall trees hide anything smaller than a few tiles), a
+      // finer grove / open-woodland mix, and thin winding deer paths
+      const big = fbm2(x * 0.09, z * 0.09, 131) + (hash2(x, z, 133) - 0.5) * 0.06;
+      const mid = fbm2(x * 0.21, z * 0.21, 137);
+      const path = Math.abs(fbm2(x * 0.07, z * 0.07, 141) - 0.5) < 0.014;
+      let v = GLADE.GROVE;
+      if (b === BIOME.FOREST || b === BIOME.WILLOW) v = big > 0.6 || path ? GLADE.GLADE : mid > 0.5 || big > 0.53 ? GLADE.OPEN : GLADE.GROVE;
+      else if (b === BIOME.MUSHROOM && mid > 0.5) v = GLADE.OPEN;
+      // a loose treeline right around your land so the meadow still reads as yours
+      const md = Math.hypot(Math.max(MEADOW.x0 - x, x - (MEADOW.x1 - 1), 0), Math.max(MEADOW.z0 - z, z - (MEADOW.z1 - 1), 0));
+      if (md < 1.5 && v === GLADE.GLADE) v = GLADE.OPEN;
+      gl[i] = v;
+    }
+}
+
+// a glade tile next to a thick grove (ferns gather in the shade there)
+function gladeEdge(grid, x, z) {
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nx = x + dx, nz = z + dz;
+    if (!grid.inb(nx, nz)) continue;
+    const ni = nz * grid.w + nx;
+    if (grid.kind[ni] === KIND.FOREST && grid.glade[ni] === GLADE.GROVE) return true;
+  }
+  return false;
+}
+
+// Ruins of old homesteads: a 3x3 mossy clearing with a stone foundation and a
+// piece of old furniture (picked up by src/game/Forage.js). One sits just
+// south of the meadow so you find the idea on day one; the rest hide in the
+// woods, spaced out. Returns [{ x, z, type }] (furniture tile).
+function placeRuins(grid) {
+  const { w, h } = grid;
+  const md = (x, z) => Math.hypot(Math.max(MEADOW.x0 - x, x - (MEADOW.x1 - 1), 0), Math.max(MEADOW.z0 - z, z - (MEADOW.z1 - 1), 0));
+  const ok = (x, z) => {
+    if (x < 3 || z < 24 || x > w - 4 || z > h - 4) return false;
+    const y = grid.height[z * w + x];
+    for (let dz = -1; dz <= 1; dz++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const i = (z + dz) * w + x + dx;
+        if (grid.kind[i] !== KIND.FOREST || grid.deco[i] >= 0 || grid.occ[i] === -2 || grid.height[i] !== y) return false;
+        if (grid.biome[i] !== BIOME.FOREST && grid.biome[i] !== BIOME.MUSHROOM) return false;
+      }
+    return true;
+  };
+  const out = [];
+  const take = (x, z, type) => {
+    out.push({ x, z, type });
+    // the clearing opens towards the camera (south) so the trees don't hide it
+    for (let dz = -1; dz <= 2; dz++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const i = (z + dz) * w + x + dx;
+        if (grid.kind[i] === KIND.FOREST) grid.glade[i] = GLADE.GLADE;
+      }
+  };
+  // the early one: the best spot in the strip south of the meadow, with a
+  // little overgrown path back to your land
+  let best = null, bs = 9;
+  for (let z = EARLY_RUIN.z0; z <= EARLY_RUIN.z1; z++)
+    for (let x = EARLY_RUIN.x0; x <= EARLY_RUIN.x1; x++) {
+      if (!ok(x, z)) continue;
+      const s = hash2(x, z, 771) + (z - EARLY_RUIN.z0) * 0.15;
+      if (s < bs) { bs = s; best = [x, z]; }
+    }
+  if (best) {
+    take(best[0], best[1], 'ruin_chair');
+    for (let z = MEADOW.z1; z < best[1]; z++) { const i = z * w + best[0]; if (grid.kind[i] === KIND.FOREST) grid.glade[i] = GLADE.GLADE; }
+  }
+  // the rest: the luckiest candidates out in the woods, at least 13 tiles apart
+  const cands = [];
+  for (let z = 24; z < h - 3; z++)
+    for (let x = 3; x < w - 3; x++) {
+      const r = hash2(x, z, 773);
+      if (r > 0.02 || md(x, z) < 4 || !ok(x, z)) continue;
+      cands.push([r, x, z]);
+    }
+  cands.sort((a, b) => a[0] - b[0]);
+  let k = 1;
+  for (const [, x, z] of cands) {
+    if (out.length >= 13) break;
+    if (out.some((o) => Math.hypot(o.x - x, o.z - z) < 13)) continue;
+    take(x, z, RUIN_TYPES[k++ % RUIN_TYPES.length]);
+  }
+  return out;
+}
+
+// Forest finds (picked up in src/game/Forage.js): one per lucky tile, more in
+// glades and open woodland, extra right round the meadow so there is
+// something to find on day one. Returns [{ i, x, z, kind, h }] (h: a stable
+// per-tile random for variants and amounts). world.js keeps a sightline
+// open south of every find so the trees don't hide it.
+export function forageKindFor(gl, bio, t) {
+  if (bio === BIOME.SWAMP) return t < 0.4 ? 'log' : t < 0.7 ? 'fiddlehead' : t < 0.85 ? 'resin' : 'wildberry';
+  if (bio === BIOME.MUSHROOM) return t < 0.55 ? 'morel' : t < 0.75 ? 'log' : t < 0.9 ? 'pinecone' : 'resin';
+  if (gl === GLADE.GLADE) return t < 0.28 ? 'wildberry' : t < 0.48 ? 'ramps' : t < 0.66 ? 'fiddlehead' : t < 0.8 ? 'log' : t < 0.9 ? 'resin' : 'morel';
+  if (gl === GLADE.OPEN) return t < 0.2 ? 'log' : t < 0.36 ? 'pinecone' : t < 0.5 ? 'resin' : t < 0.64 ? 'morel' : t < 0.78 ? 'fiddlehead' : t < 0.9 ? 'ramps' : 'wildberry';
+  return t < 0.3 ? 'log' : t < 0.55 ? 'pinecone' : t < 0.75 ? 'resin' : 'morel';
+}
+function placeForage(grid) {
+  const { w, h } = grid;
+  const skip = new Set();
+  for (const r of grid.ruins || []) for (let dz = -1; dz <= 2; dz++) for (let dx = -1; dx <= 1; dx++) skip.add((r.z + dz) * w + r.x + dx);
+  const out = [];
+  for (let z = 22; z < h - 1; z++)
+    for (let x = 1; x < w - 1; x++) {
+      const i = z * w + x;
+      if (grid.kind[i] !== KIND.FOREST || grid.deco[i] >= 0 || grid.occ[i] === -2 || skip.has(i)) continue;
+      const bio = grid.biome[i], gv = grid.glade[i];
+      const md = Math.hypot(Math.max(MEADOW.x0 - x, x - (MEADOW.x1 - 1), 0), Math.max(MEADOW.z0 - z, z - (MEADOW.z1 - 1), 0));
+      let dens = gv === GLADE.GLADE ? 0.065 : gv === GLADE.OPEN ? 0.05 : 0.025;
+      if (md < 3.5) dens *= 2.4;
+      if (bio === BIOME.SWAMP) dens *= 0.6;
+      if (hash2(x, z, 5101) >= dens) continue;
+      // never two side by side
+      if (out.length && out.some((o) => Math.abs(o.x - x) <= 1 && Math.abs(o.z - z) <= 1)) continue;
+      out.push({ i, x, z, kind: forageKindFor(gv, bio, hash2(x, z, 5103)), h: hash2(x, z, 5105) });
+    }
+  return out;
 }
 
 export function refreshWaterHeights(grid) {

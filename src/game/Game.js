@@ -39,6 +39,7 @@ import { Cutscene } from './Cutscene.js';
 import { Quests } from './Quests.js';
 import { Matchmaking } from './Matchmaking.js';
 import { Workshop } from './Workshop.js';
+import { Forage } from './Forage.js';
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
 const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
 import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
@@ -119,6 +120,7 @@ export class Game {
     this.quests = new Quests(this);
     this.matchmaking = new Matchmaking(this);
     this.workshop = new Workshop(this);
+    this.forage = new Forage(this); // forest finds (state.forage saves with the state)
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -1420,6 +1422,7 @@ export class Game {
     }
     this.matchmaking.update(dt);
     this.workshop.update(realDt || dt);
+    this.forage.update(dt);
     this.zones.update(dt);
     this.villagers.update(dt);
     this.cine?.update(realDt);

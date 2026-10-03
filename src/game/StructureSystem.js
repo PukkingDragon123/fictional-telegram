@@ -537,7 +537,12 @@ export class StructureSystem {
       // models from src/entities/extra/*.js (facilities, woodwork, ...)
       let m = null;
       try { m = EXTRA_MODELS[d.model || s.type]({ variant, seed: s.seed, preview: !!s.preview }); } catch (e) { console.warn('extra model', s.type, e); }
-      if (m) { m.traverse?.((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); obj.add(m); }
+      if (m) {
+        m.traverse?.((o) => { if (o.isMesh && !o.userData.glow && !o.userData.glass) { o.castShadow = true; o.receiveShadow = true; } });
+        obj.add(m);
+        s.noRotate = true; // signs, labels and clock faces look at the camera
+        if (!s.preview) { s.extraModel = m; if (m.userData?.seats) s.seats = m.userData.seats; }
+      }
     } else if ((d.sprite || d.crop) && this.spriteFrame(s)) {
       // drawn as a 2D sprite by renderSprites(); the group stays empty
     } else if (FARM_SET.has(s.type) && this.addFarm(s, obj)) {
@@ -747,6 +752,7 @@ export class StructureSystem {
     const mods = game.mods;
     for (const s of this.list) {
       if (s.obj?.userData.parts) this.animateParts(s.obj, this.time);
+      s.extraModel?.userData?.update?.(dt, this.time);
       if (!s.built) { this.updateVisual(s); continue; }
       if (s.popT > 0 && s.obj) {
         s.popT = Math.max(0, s.popT - dt);

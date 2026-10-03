@@ -1,17 +1,17 @@
 // Assembles the static world meshes: terrain, water, trees, clutter, buildings.
 import * as THREE from 'three';
 import { hutDecals } from '../entities/structureDecals.js';
-import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW } from './worldgen.js';
+import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW, GLADE } from './worldgen.js';
 const landmarkMods = import.meta.glob('../entities/landmarkModels.js', { eager: true });
 const LM = landmarkMods['../entities/landmarkModels.js'] || null;
-import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture } from './terrain.js';
+import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture, SURF } from './terrain.js';
 import { WaterSim } from './waterSim.js';
 import { pineModel, mapleModel, birchModel, boulderModel, tuftModel, flowerModel } from './models.js';
 import { officeModel, hutModel } from './buildings.js';
 import { voxelMaterial, linearRGB } from '../core/voxel.js';
 import { fbm2, hash2 } from '../core/rng.js';
 import { WATER_Y, KIND } from './grid.js';
-import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
+import { SpriteBatch, pixelTexture, SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { buildNatureAtlas } from '../art/natureArt.js';
 
 const _m = new THREE.Matrix4();
@@ -53,6 +53,7 @@ export class World {
     this.landVersion = 0;
     this.sim = new WaterSim(this.grid, SIM_RECT, 4);
     this.surfTex = buildSurfaceTexture(this.grid);
+    this.gladeSurface();
     this.uniforms = {
       uTime: { value: 0 },
       uCaustic: { value: 1 },
@@ -98,6 +99,93 @@ export class World {
     this.buildClutter();
     this.buildLandmarks();
     this.buildMapLandmarks();
+    this.buildSunbeams();
+  }
+
+  // glades and deer paths are grassy (they stay forest tiles underneath), and
+  // the open woodland gets mossy grass patches between the trees
+  gladeSurface() {
+    const g = this.grid, gl = g.glade;
+    if (!gl) return;
+    const d = this.surfTex.image.data;
+    for (let i = 0; i < gl.length; i++) {
+      if (!gl[i] || g.kind[i] !== KIND.FOREST) continue;
+      const x = i % g.w, z = (i / g.w) | 0;
+      if (gl[i] === GLADE.OPEN && hash2(x, z, 411) > 0.3) continue;
+      d[i * 4] = (fbm2(x * 0.15, z * 0.15, 413) > 0.6 ? SURF.AUTUMN : SURF.GRASS) * 16;
+    }
+    this.surfTex.needsUpdate = true;
+  }
+
+  // Sunbeams slanting down into the glades: one additive, dithered quad per
+  // beam (no depth write, so no outlines), all in a single draw call. Faded
+  // out at night; rebuilt with the terrain so cleared land loses its beams.
+  buildSunbeams() {
+    const g = this.grid, gl = g.glade;
+    if (!gl) return;
+    const pos = [], base = [], info = [], idx = [];
+    let n = 0;
+    for (let z = 22; z < g.h && n < 240; z++)
+      for (let x = 0; x < g.w && n < 240; x++) {
+        const i = z * g.w + x;
+        if (gl[i] !== GLADE.GLADE || g.kind[i] !== KIND.FOREST || hash2(x, z, 401) > 0.06) continue;
+        const bx = x + 0.2 + hash2(x, z, 402) * 0.6, bz = z + 0.2 + hash2(x, z, 403) * 0.6, by = g.height[i];
+        const wd = 0.45 + hash2(x, z, 404) * 0.5, ht = 2.6 + hash2(x, z, 405) * 1.6, ph = hash2(x, z, 406) * 6.28;
+        for (const [cx, cy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) { pos.push(cx, cy, 0); base.push(bx, by, bz); info.push(wd, ht, ph, 0.6 + hash2(x, z, 407) * 0.4); }
+        idx.push(n * 4, n * 4 + 1, n * 4 + 2, n * 4, n * 4 + 2, n * 4 + 3);
+        n++;
+      }
+    if (!this.beamMat) {
+      this.beamU = { uDay: { value: 1 }, uSlant: { value: -0.35 }, uTime: this.uniforms.uTime, uCamRight: SPRITE_UNIFORMS.uCamRight, uHeightComp: SPRITE_UNIFORMS.uHeightComp };
+      this.beamMat = new THREE.ShaderMaterial({
+        uniforms: this.beamU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        vertexShader: /* glsl */ `
+attribute vec3 aBase;
+attribute vec4 aInfo; // width, height, phase, strength
+uniform vec3 uCamRight;
+uniform float uSlant;
+uniform float uHeightComp;
+varying vec2 vC;
+varying float vK;
+varying float vPh;
+void main() {
+  vec3 right = normalize(vec3(uCamRight.x, 0.0, uCamRight.z) + vec3(1e-5, 0.0, 0.0));
+  float h = aInfo.y;
+  // the top of the beam leans towards the sun; it widens a little on the way down
+  vec3 p = aBase + right * ((position.x - 0.5) * aInfo.x * (1.25 - position.y * 0.5) + position.y * h * uSlant) + vec3(0.0, position.y * h * uHeightComp, 0.0);
+  vC = position.xy; vK = aInfo.w; vPh = aInfo.z;
+  gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+}`,
+        fragmentShader: /* glsl */ `
+uniform float uDay;
+uniform float uTime;
+varying vec2 vC;
+varying float vK;
+varying float vPh;
+float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
+float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+void main() {
+  float across = 1.0 - abs(vC.x - 0.5) * 2.0;
+  float along = smoothstep(0.0, 0.18, vC.y) * (1.0 - smoothstep(0.45, 1.0, vC.y));
+  float k = across * along * vK * uDay * (0.72 + 0.28 * sin(uTime * 0.7 + vPh) * sin(uTime * 0.31 + vPh * 2.0));
+  // two hard bands, dithered at the pixel grid: reads as pixel-art light
+  float lv = step(0.18 + bayer4(gl_FragCoord.xy) * 0.3, k) * 0.5 + step(0.55, k) * 0.5;
+  if (lv <= 0.0) discard;
+  gl_FragColor = vec4(vec3(1.0, 0.9, 0.62) * lv * 0.16, 1.0);
+}`,
+      });
+    }
+    if (this.beams) { this.scene.remove(this.beams); this.beams.geometry.dispose(); }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('aBase', new THREE.Float32BufferAttribute(base, 3));
+    geo.setAttribute('aInfo', new THREE.Float32BufferAttribute(info, 4));
+    geo.setIndex(idx);
+    this.beams = new THREE.Mesh(geo, this.beamMat);
+    this.beams.frustumCulled = false;
+    this.beams.renderOrder = 12;
+    this.beams.name = 'sunbeams';
+    this.scene.add(this.beams);
   }
 
   // Endless forest canopy around the playable map so the edges never show.
@@ -243,6 +331,23 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     return f ? f[i % f.length] : null;
   }
 
+  // forest finds (grid.forage, grid.ruins) need a sightline: a tall pine hides
+  // ~6 tiles of ground behind it, so no trees on a find's tile or the five in
+  // front (south, towards the camera), fewer beside and beyond.
+  // Map tile -> 2 (clear) | 1 (thin).
+  forageView() {
+    if (this._view) return this._view;
+    const g = this.grid, v = new Map();
+    const mark = (x, z, k) => { if (g.inb(x, z)) { const i = z * g.w + x; v.set(i, Math.max(v.get(i) || 0, k)); } };
+    for (const f of [...(g.forage || []), ...(g.ruins || [])]) {
+      for (let dz = 0; dz <= 5; dz++) mark(f.x, f.z + dz, 2);
+      mark(f.x, f.z + 6, 1);
+      for (let dz = 1; dz <= 3; dz++) { mark(f.x - 1, f.z + dz, 1); mark(f.x + 1, f.z + dz, 1); }
+    }
+    this._view = v;
+    return v;
+  }
+
   treeSprite(d) {
     const h = hash2(d.x, d.z, 17);
     const ground = this.grid.height[d.z * this.grid.w + d.x];
@@ -353,6 +458,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     // darker the deeper you go so the edge of your land reads clearly
     const g2 = this.grid;
     const landDist = this.landDistance();
+    const view = this.forageView();
     const pickF = (names, r) => { for (let k = 0; k < names.length; k++) { const n = names[(Math.floor(r * names.length) + k) % names.length]; if (this.frame(n)) return n; } return 'pine_0'; };
     for (let z = 21; z < g2.h; z++)
       for (let x = 0; x < g2.w; x++) {
@@ -360,10 +466,28 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
         if (g2.kind[i] !== KIND.FOREST || g2.deco[i] >= 0 || g2.occ[i] === -2) continue;
         const bio = g2.biome ? g2.biome[i] : 0;
         const ld = landDist[i];
-        const n = bio === BIOME.SWAMP ? (hash2(x, z, 23) < 0.5 ? 1 : 0) : hash2(x, z, 23) < 0.6 ? 2 : 1;
-        for (let k = 0; k < Math.max(1, n); k++) {
+        // groves keep 1-2 trees a tile, open woodland 0-1 (with undergrowth),
+        // glades and deer paths none (now and then a lone tree)
+        const gl = g2.glade ? g2.glade[i] : 0, h23 = hash2(x, z, 23);
+        let n = bio === BIOME.SWAMP ? 1 : h23 < 0.16 ? 2 : 1;
+        const vw = view.get(i) || 0;
+        if (gl === GLADE.GLADE) n = h23 < 0.03 && !vw ? 1 : 0;
+        else if (gl === GLADE.OPEN) {
+          n = h23 < 0.26 ? 1 : 0;
+          if (!n && h23 < 0.78 && bio !== BIOME.MUSHROOM && vw < 2) {
+            const name = pickF(['bush_0', 'sapling', 'bush_1', 'snag', 'sumac'], hash2(x, z, 24));
+            const f = this.frame(name);
+            const tx2 = x + 0.3 + hash2(x, z, 25) * 0.4, tz2 = z + 0.3 + hash2(x, z, 26) * 0.4;
+            const dk = Math.max(0.7, 1 - Math.min(ld, 12) * 0.025);
+            if (f) items.push({ tile: i, f, x: tx2, y: g2.surfaceAtVisual(tx2, tz2), z: tz2, o: { texels: 24, scale: 0.9 + hash2(x, z, 27) * 0.25, sway: name === 'snag' ? 0 : 0.6, phase: h23 * 9, flip: h23 > 0.67, tint: [dk * 0.97, dk, dk * 1.03] } });
+          }
+        }
+        // forest finds keep a clear sightline (see forageView)
+        if (vw === 2) n = 0;
+        else if (vw === 1) n = Math.min(n, 1);
+        for (let k = 0; k < n; k++) {
           const r = hash2(x * 3 + k, z, 31);
-          let name, sway = 0.4, sc = 0.95 + hash2(x, z, 70 + k) * 0.35;
+          let name, sway = 0.4, sc = 0.88 + hash2(x, z, 70 + k) * 0.32;
           if (bio === BIOME.SWAMP) { name = r < 0.55 ? pickF(['cypress_0', 'cypress_1'], r * 2) : r < 0.75 ? pickF(['deadtree_0', 'deadtree_1'], r) : pickF(['swampreeds_0', 'swampgrass_0', 'pine_1'], r); }
           else if (bio === BIOME.MUSHROOM) { name = r < 0.5 ? pickF(['giantshroom_red_0', 'giantshroom_red_1', 'giantshroom_brown_0', 'giantshroom_glow_0', 'giantshroom_glow_1'], r * 2) : r < 0.7 ? pickF(['shroomcluster_0', 'shroomcluster_1', 'shroomcluster_2'], r) : pickF(['spruce_0', 'pine_0', 'birch_1'], r); sway = 0.15; }
           else if (bio === BIOME.WILLOW) name = r < 0.5 ? 'birch_0' : r < 0.8 ? 'aspen_0' : 'birch_1';
@@ -376,7 +500,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
           }
           const f = this.frame(name);
           if (!f) continue;
-          const dk = Math.max(0.62, 1 - Math.min(ld, 12) * 0.03) * (0.9 + hash2(x, z, 41 + k) * 0.1);
+          const dk = Math.max(gl ? 0.72 : 0.62, 1 - Math.min(ld, 12) * (gl ? 0.022 : 0.03)) * (0.9 + hash2(x, z, 41 + k) * 0.1);
           const glow = name.startsWith('giantshroom_glow') ? 0.35 : 0;
           const tx2 = x + 0.25 + hash2(x, z, 50 + k) * 0.5, tz2 = z + 0.25 + hash2(x, z, 60 + k) * 0.5;
           items.push({ tile: i, f, x: tx2, y: g2.surfaceAtVisual(tx2, tz2), z: tz2, o: { texels: 24, scale: sc, sway, phase: r * 6.28, flip: r > 0.5, emissive: glow, tint: [dk * 0.96, dk, dk * 1.05] } });
@@ -416,8 +540,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     const g = this.grid;
     const { tex } = this.natureFrames();
     if (!this.clutterBatch) {
-      this.clutterBatch = new SpriteBatch(tex, { max: 9000, lit: true, castShadow: false, receiveShadow: true, name: 'clutter' });
-      this.flatBatch = new SpriteBatch(tex, { max: 1500, lit: true, castShadow: false, receiveShadow: true, renderOrder: 11, name: 'flatnature' });
+      this.clutterBatch = new SpriteBatch(tex, { max: 16000, lit: true, castShadow: false, receiveShadow: true, name: 'clutter' });
+      this.flatBatch = new SpriteBatch(tex, { max: 3000, lit: true, castShadow: false, receiveShadow: true, renderOrder: 11, name: 'flatnature' });
     }
     const B = this.clutterBatch, F = this.flatBatch;
     B.clear();
@@ -457,11 +581,21 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
           if (r < 0.35) add(`pebble_${Math.floor(r2 * 4)}`, px, pz, {});
           else if (r < 0.48) add(`rock_${Math.floor(r2 * 3)}`, px, pz, {});
         } else if (k === KIND.FOREST) {
-          if (r < 0.06) add(r2 < 0.5 ? 'log_0' : 'log_1', px, pz, { flip: r2 > 0.25 && r2 < 0.75 });
-          else if (r < 0.1) add('stump', px, pz, {});
-          else if (r < 0.2) add('pinecone', px, pz, {});
-          else if (r < 0.32) add(['leaf_red', 'leaf_orange', 'leaf_yellow', 'leaf_brown'][Math.floor(r2 * 4)], px, pz, { mode: 1 });
-          else if (r < 0.37) add(r2 < 0.6 ? 'bush_0' : 'blueberry', px, pz, { sway: 0.6 });
+          // logs, pinecones and berry bushes you can pick up live in Forage.js;
+          // the floor itself gets moss rocks, leaf litter and the odd stump
+          if (this.forageView().get(i) === 2 && r < 0.3) continue;
+          const gl = g.glade ? g.glade[i] : 0;
+          if (gl === GLADE.GLADE) {
+            if (r < 0.03) add(`rock_${Math.floor(r2 * 3)}`, px, pz, {});
+            else if (r < 0.06) add(['bush_1', 'sumac', 'rose'][Math.floor(r2 * 3)], px, pz, { sway: 0.6 });
+            else if (r < 0.1) add(['leaf_red', 'leaf_orange', 'leaf_yellow'][Math.floor(r2 * 3)], px, pz, { mode: 1 });
+          } else {
+            if (r < 0.03) add(r2 < 0.5 ? 'mossrock' : `rock_${Math.floor(r2 * 6) % 3}`, px, pz, {});
+            else if (r < 0.05) add('stump', px, pz, {});
+            else if (r < 0.18) add(['leaf_red', 'leaf_orange', 'leaf_yellow', 'leaf_brown'][Math.floor(r2 * 4)], px, pz, { mode: 1 });
+            else if (r < 0.23 && gl === GLADE.OPEN) add(r2 < 0.5 ? 'bush_0' : 'fern_1', px, pz, { sway: 0.6 });
+            else if (r < 0.25) add('bush_0', px, pz, { sway: 0.6 });
+          }
         } else if (k === KIND.GRASS) {
           if (r < 0.025) add(`rock_${Math.floor(r2 * 3)}`, px, pz, {});
           else if (r < 0.05) add(`pebble_${Math.floor(r2 * 4)}`, px, pz, {});
@@ -596,6 +730,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     this.water.geometry = buildWaterGeometry(this.grid);
     buildShoreTexture(this.grid, this.shoreTex);
     buildSurfaceTexture(this.grid, this.surfTex);
+    this.gladeSurface();
+    this.buildSunbeams();
     this.sim.refreshMask();
     this.sim.resetLand();
   }
@@ -616,6 +752,15 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     wu.uNight.value = s.night;
     wu.uAurora.value = s.aurora;
     this.uniforms.uCaustic.value = 1 - s.night * 0.8;
+    if (this.beams) {
+      // sunbeams by day only, leaning towards wherever the sun is on screen
+      const day = Math.max(0, Math.min(1, (0.55 - s.night) * 2.2)) * Math.max(0, Math.min(1, s.sunDir.y * 3));
+      this.beams.visible = day > 0.02;
+      this.beamU.uDay.value = day;
+      const r = SPRITE_UNIFORMS.uCamRight.value;
+      const lean = (s.sunDir.x * r.x + s.sunDir.z * r.z) / Math.max(0.35, s.sunDir.y);
+      this.beamU.uSlant.value = Math.max(-0.6, Math.min(0.6, lean * 0.5)) || -0.3;
+    }
     // windows: dark reflective by day, warm glow at night
     const n = Math.max(s.night, 0);
     this.glowMat.color.setRGB(0.28 + 0.72 * n, 0.33 + 0.62 * n, 0.42 + 0.4 * n);
