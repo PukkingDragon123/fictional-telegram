@@ -1,20 +1,24 @@
 Bundled pixel fonts
 ===================
 
-m6x11plus.woff2   (title / numbers font, --font-title)
-m5x7.woff2        (body / dialogue font,  --font-body)
+Galmuri11.subset.woff2       (body / dialogue font, --font-body, 'TBME Body')
+Galmuri11-Bold.subset.woff2  (title / numbers / logo font, --font-title, 'TBME Title', 'TBME Logo')
 
-Both fonts by Daniel Linssen (managore)
-  https://managore.itch.io/m6x11
-  https://managore.itch.io/m5x7
+  Galmuri by Lee Minseo (quiple), https://github.com/quiple/galmuri
+  Taken from the npm package galmuri@2.40.3.
+  Licence: SIL Open Font License 1.1 (no Reserved Font Name), full text in
+  Galmuri-OFL.txt next to this file.
 
-Licence (from the author's pages):
+  These are Modified Versions as the OFL allows: subset to Latin + the symbols
+  the game uses, and the ♂ / ♀ glyphs redrawn (and added to the Bold cut).
+  build-galmuri-subset.py in this folder rebuilds them from the original TTFs.
+
+  Credit (title screen): "Font: Galmuri11 by Lee Minseo (quiple), SIL OFL 1.1"
+
+Legacy files (no longer referenced by any CSS; kept for old branches):
+
+m6x11plus.woff2 / m5x7.woff2 by Daniel Linssen (managore)
+  https://managore.itch.io/m6x11   https://managore.itch.io/m5x7
   m6x11 / m6x11plus: "free to use with attribution"
   m5x7:              "free to use but attribution appreciated"
-  Commercial and non-commercial use permitted.
-
-Required credit (put this in the game's credits screen):
-  "m6x11plus and m5x7 fonts by Daniel Linssen (managore.itch.io)"
-
-The files were converted losslessly from the original .ttf downloads to
-.woff2 (fontTools); glyph outlines are unchanged.
+  If they are used again, credit: "m6x11plus and m5x7 fonts by Daniel Linssen (managore.itch.io)"

@@ -24,8 +24,11 @@
  *
  * Galmuri's digits are clear (5 is not an S, 2 is not a Z, 0 has no slash
  * but is rounder than O), so the old Silkscreen digit faces are gone.
- * Galmuri11 Bold lacks a few symbols (♂ ♀ − ▸); those come from Galmuri11
- * Regular via unicode-range so they stay pixel art in titles too.
+ * The subsets are modified (OFL allows it; no reserved name): ♂ and ♀ are
+ * redrawn as clear 1-px pixel glyphs (Galmuri's ♂ has a straight-up arrow
+ * and read like "ô"), and added to the Bold cut (2-px strokes), which had
+ * none. Bold still lacks − and ▸; those come from Regular via unicode-range.
+ * Rebuild recipe: see src/assets/fonts/FONTS_LICENSE.txt.
  */
 @font-face {
   font-family: 'TBME Title';
@@ -71,7 +74,7 @@
   ascent-override: 126.67%;
   descent-override: 34.67%;
   line-gap-override: 0%;
-  unicode-range: U+2212, U+25B8, U+2640, U+2642;
+  unicode-range: U+2212, U+25B8;
 }
 @font-face {
   font-family: 'TBME Body';
@@ -83,7 +86,7 @@
   ascent-override: 126.67%;
   descent-override: 34.67%;
   line-gap-override: 0%;
-  unicode-range: U+2212, U+25B8, U+2640, U+2642;
+  unicode-range: U+2212, U+25B8;
 }
 /* the title-sign logo (titlemenu.css). Galmuri's capital B is open and clear
    under the thick sign outline (Pixelify's notched B read as a G). */

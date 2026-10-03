@@ -185,7 +185,7 @@
 .lp-c { stroke: #33474d; stroke-width: 6; transition: stroke .4s; }
 .lp-f { stroke: transparent; stroke-width: 2; stroke-dasharray: 4 12; }
 .lp-c[data-s="on"] { stroke: #3fae74; }
-.lp-f[data-s="on"] { stroke: #c8ffd8; animation: lt-flow 1.2s linear infinite; }
+.lp-f[data-s="on"] { stroke: rgba(200, 255, 216, .7); }
 .lp-c[data-s="run"] { stroke: #2c9cc8; }
 .lp-f[data-s="run"] { stroke: #d0f8ff; animation: lt-flow .5s linear infinite; }
 .lp-c[data-s="done"] { stroke: #d8a21a; }
@@ -283,15 +283,17 @@
 .lt-ring .bg { stroke: #04161c; stroke-width: 11; }
 .lt-ring .fg { stroke: var(--lt-teal); stroke-dasharray: 100; stroke-dashoffset: 100; stroke-linecap: butt; filter: drop-shadow(0 0 4px rgba(95, 208, 240, .8)); }
 .lt-node.is-run .lt-ring { display: block; }
-.lt-node.is-run .lt-slot { animation: lt-hum 1.6s ease-in-out infinite; }
-@keyframes lt-hum { 50% { filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .55)) drop-shadow(0 0 10px rgba(95, 208, 240, .7)) brightness(1.12); } }
-
-/* available: breathing glow */
-.lt-node.is-avail .lt-slot { animation: lt-glow 1.6s ease-in-out infinite; }
-@keyframes lt-glow {
-  0%, 100% { filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .55)) drop-shadow(0 0 2px rgba(125, 255, 168, .5)); }
-  50% { filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .55)) drop-shadow(0 0 12px rgba(125, 255, 168, .95)); }
+/* glow halo behind the slot: only its opacity animates (cheap, composited) */
+.lt-node::before {
+  content: '';
+  position: absolute; inset: -6px;
+  border-radius: 12px;
+  opacity: 0;
+  pointer-events: none;
 }
+.lt-node.is-avail::before { box-shadow: 0 0 14px 4px rgba(125, 255, 168, .75); animation: lt-glow 1.6s ease-in-out infinite; }
+.lt-node.is-run::before { box-shadow: 0 0 14px 4px rgba(95, 208, 240, .75); animation: lt-glow 1.1s ease-in-out infinite; }
+@keyframes lt-glow { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 .lt-node.is-done .lt-slot { filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, .55)) drop-shadow(0 0 6px rgba(255, 210, 63, .45)); }
 .lt-node:hover .lt-slot, .lt-node:focus-visible .lt-slot { transform: translateY(-2px); }
 .lt-node:hover .lt-ico, .lt-node:focus-visible .lt-ico { transform: translateY(-2px); }

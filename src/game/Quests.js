@@ -22,10 +22,11 @@ export const QUESTS = [
   {
     id: 'lab', title: 'Science time!', icon: 'flask', reward: { coins: 60 },
     when: (g) => (g.state.tutorialDone || g.skipTutorial) && g.isOpen('lab'),
-    intro: 'My Lab is open! Science = more money.',
+    intro: 'My Lab is open! Research is FREE, it just takes time. Science = more money.',
     steps: [
       { text: 'Open Reynard\'s Lab', ev: 'labOpen' },
-      { text: 'Research something new', ev: 'research' },
+      { text: 'Start a research project', ev: 'researchStart' },
+      { text: 'Wait for it to finish', ev: 'research' },
     ],
     check: (g) => (g.state.research || []).length > (g.state.quests?.research0 ?? 0),
     point: () => 'tool:lab',
