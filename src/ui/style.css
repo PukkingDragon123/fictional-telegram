@@ -549,3 +549,19 @@ body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none
 .tut-choice button:hover { transform: translateY(-2px); filter: brightness(1.06); }
 .tut-choice.bye { opacity: 0; transform: translateX(-50%) scale(.8); transition: all .25s; }
 @keyframes tutc-in { from { opacity: 0; transform: translateX(-50%) scale(.6); } }
+
+/* beaver contract: pay the crew right where you boxed the trees */
+.bcontract { position: absolute; left: 0; top: 0; z-index: 30; pointer-events: auto; width: 230px; padding: 6px 8px 8px;
+  background: #f6ead0; border: 3px solid #2a1a14; box-shadow: 0 4px 0 #2a1a14, inset 0 0 0 2px #e8d4a8;
+  font-family: var(--font-body); font-size: 16px; color: #2a1a14; transform-origin: 50% 100%; animation: bc-in .28s cubic-bezier(.3,1.6,.5,1); }
+.bcontract::after { content: ''; position: absolute; left: 50%; bottom: -11px; margin-left: -8px; border: 8px solid transparent; border-top-color: #2a1a14; border-bottom: 0; }
+.bcontract .bc-head { display: flex; align-items: center; gap: 6px; font-family: var(--font-title); font-size: 18px; color: #8a4a1a; }
+.bcontract .bc-body { margin: 2px 0 6px; }
+.bcontract .bc-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.bcontract button { font-family: var(--font-title); font-size: 16px; padding: 2px 8px 3px; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14; cursor: pointer; display: flex; align-items: center; gap: 3px; }
+.bcontract .bc-coin { background: #ffd860; }
+.bcontract .bc-food { background: #9ad86a; }
+.bcontract .bc-no { background: #e8c8b8; margin-left: auto; }
+.bcontract button:disabled { opacity: .5; cursor: default; }
+.bcontract.bye { opacity: 0; transition: opacity .25s; }
+@keyframes bc-in { from { opacity: 0; scale: .6; } }

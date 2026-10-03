@@ -29,6 +29,7 @@ const CAST = {
   // the close neighbours
   clover: { cls: 'BunnyGardener', voice: 'cub', specials: ['water_plants', 'dig', 'sniff'], height: 1.6, sign: 'GARDEN' },
   otis: { cls: 'OtterFisher', voice: 'fox', specials: ['cast_line', 'hold_fish', 'juggle_pebble', 'float_back'], height: 1.45, sign: 'OTIS' },
+  chip: { cls: 'WoodpeckerCarpenter', voice: 'cub', specials: ['peck_wood', 'measure', 'saw', 'inspect', 'hammer'], height: 1.5, sign: 'WORKSHOP' },
   hazel: { cls: 'HedgehogBaker', voice: 'cub', specials: ['roll_dough', 'taste', 'curl_up'], height: 1.5, sign: 'BAKERY' },
 };
 
@@ -180,6 +181,14 @@ export class Villagers {
   // tap: chat card with unlocks + the daily gift
   open(v) {
     const game = this.game;
+    // Chip talks, then shows you his workshop
+    if (v.id === 'chip' && game.workshop) {
+      if (this.giftReady(v)) this.claimGift(v);
+      v.rig?.play?.('wave', { loop: false, onDone: () => this.idle(v) });
+      this.sayLine(v, pick(['Tok-tok! Come in, come in!', 'What are we building today?', 'Fresh sawdust, just for you!']), { dur: 2.2 });
+      setTimeout(() => game.workshop.open(), 700);
+      return;
+    }
     const ui = game.ui;
     const st = this.vstate(v);
     const Z = v.zone;
@@ -209,12 +218,14 @@ export class Villagers {
     if (u.kind === 'species') return u.ids.map((id) => SPECIES_BY_ID[id]?.name).filter(Boolean).join(', ') + ' — on e-Buy now';
     if (u.kind === 'build') return u.ids.map((id) => STRUCTURES[id]?.name).filter(Boolean).join(', ') + ' — in Build & e-Buy';
     if (u.kind === 'breed') return 'Find it in e-Buy ▸ Farm';
+    if (u.kind === 'feature') return 'New in the Build menu!';
     return 'Active!';
   }
 
   giftLabel(v) {
     const G = v.zone.gift;
     const parts = [`${G.coins} coins`];
+    if (G.wood) parts.push(`${G.wood} wood`);
     if (G.items?.length) parts.push(STRUCTURES[G.items[this.game.state.day % G.items.length]]?.name || 'a present');
     for (const f of G.food || []) parts.push(`${f.n || 1} ${this.game.foodStore?.info?.(f.id)?.name || f.id}`);
     if (G.egg) parts.push(G.eggPool ? 'a fish egg' : 'an ancient egg');
@@ -229,6 +240,7 @@ export class Villagers {
     st.giftDay = game.state.day;
     st.hearts = Math.min(5, st.hearts + 1);
     game.earnMisc(G.coins, 'gifts');
+    if (G.wood) { game.state.wood = (game.state.wood || 0) + G.wood; game.emit('wood', game.state.wood); }
     if (G.items?.length) {
       const type = G.items[game.state.day % G.items.length];
       const inv = (game.state.inventory ||= {});

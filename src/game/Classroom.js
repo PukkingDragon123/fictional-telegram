@@ -28,6 +28,7 @@ import { CameraRig } from '../core/cameraRig.js';
 import { Transition } from '../ui/Transition.js';
 import { Chalkboard, measureText, slateURL } from '../ui/Chalkboard.js';
 import { spriteImg, spriteCanvas, hasSprite } from '../ui/sprites.js';
+import { createFoxTalk } from '../ui/FoxTalk3D.js';
 import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
 
@@ -805,6 +806,8 @@ export class Classroom {
   _removeUI() {
     if (this._onKey) window.removeEventListener('keydown', this._onKey, true);
     this._onKey = null;
+    this._ftk?.dispose();
+    this._ftk = undefined;
     this.ui?.remove();
     this.ui = null;
     this.titleBoard = null;
@@ -835,10 +838,17 @@ export class Classroom {
     box.classList.remove('hidden');
     const ex = expr || 'teacher';
     this._expr(ex);
-    const port = PORTRAIT[ex] || 'smug';
     const pEl = this.q('portrait');
-    const url = teacherPortrait(port);
-    pEl.innerHTML = url ? `<img src="${url}" width="96" height="96" alt="" draggable="false" style="image-rendering:pixelated">` : (hasSprite('fox_' + port) ? spriteImg('fox_' + port, 3) : '');
+    // live 3D talking bust (one per UI build); null without WebGL -> the pixel portrait below
+    if (this._ftk === undefined) this._ftk = createFoxTalk(pEl, { outfit: this.fox?.outfit || 'teacher', game: this.game });
+    if (this._ftk) {
+      if (this.fox?.outfit) this._ftk.setOutfit(this.fox.outfit);
+      this._ftk.setExpression(ex);
+    } else {
+      const port = PORTRAIT[ex] || 'smug';
+      const url = teacherPortrait(port);
+      pEl.innerHTML = url ? `<img src="${url}" width="96" height="96" alt="" draggable="false" style="image-rendering:pixelated">` : (hasSprite('fox_' + port) ? spriteImg('fox_' + port, 3) : '');
+    }
     pEl.classList.remove('bop'); void pEl.offsetWidth; pEl.classList.add('bop');
     // **bold** keywords and [[icon]] sprites, every char its own span
     const host = this.q('text');
@@ -879,6 +889,7 @@ export class Classroom {
     const plain = String(text).replace(/\*\*|\[\[[a-z0-9_]+\]\]/g, '');
     this.game.audio?.babble?.('fox', plain);
     this.fox?.talk?.(plain);
+    this._ftk?.talk(plain);
     return { typed };
   }
   _finishType() {

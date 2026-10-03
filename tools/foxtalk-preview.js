@@ -8,8 +8,10 @@ const LINES = {
   angry: 'Who ate my prize koi?!', sleepy: 'Five more minutes...', laugh: 'Ho ho ho! Mwahaha!', confused: 'Wait... where did my monocle go?',
   worried: 'A hungry bear with nothing to eat...', excited: 'Sometimes genes MUTATE!', proud: 'Gold star for you!',
 };
-const a = createFoxTalk(document.getElementById('p1'), { outfit: 'teacher' });
-const b = createFoxTalk(document.getElementById('p2'), { outfit: 'default' });
+const Q = new URLSearchParams(location.search);
+const pixelScale = +Q.get('ps') || undefined;
+const a = createFoxTalk(document.getElementById('p1'), { outfit: 'teacher', pixelScale });
+const b = createFoxTalk(document.getElementById('p2'), { outfit: 'default', pixelScale });
 const all = [a, b].filter(Boolean);
 if (!all.length) document.getElementById('ui').textContent = 'WebGL unavailable';
 

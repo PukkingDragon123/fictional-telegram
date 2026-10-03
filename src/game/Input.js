@@ -420,13 +420,21 @@ export class Input {
       }
       // queue outward from your land so the inside of a deep box joins up too
       let n = 0;
+      const before = new Set(game.beavers.clears.keys());
       for (let pass = 0; pass < 18; pass++) {
         let got = 0;
         for (const t of tiles) if (game.beavers.queueClear(t.x, t.z).ok) got++;
         n += got;
         if (!got) break;
       }
-      if (n) { game.audio.play('paper', { volume: 0.3 }); game.emit('clearArea', { n }); }
+      if (n) {
+        game.audio.play('paper', { volume: 0.3 });
+        // pay the crew right there for this chunk (a little contract pops up)
+        const fresh = [...game.beavers.clears.keys()].filter((k) => !before.has(k));
+        const cx = (drag.start.x + drag.end.x) / 2 + 0.5, cz = (drag.start.z + drag.end.z) / 2 + 0.5;
+        game.ui?.beaverContract?.({ tiles: fresh, x: cx, z: cz });
+        game.emit('clearArea', { n });
+      }
       else game.notify('Nothing to clear there (or it\'s too far from your land).', 'no');
       return;
     }

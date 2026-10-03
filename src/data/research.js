@@ -15,8 +15,6 @@ export const BRANCHES = [
   { id: 'beaver', name: 'Beaver Works', icon: 'beaver', color: '#c88a48' },
   { id: 'gizmo', name: 'Contraptions', icon: 'gear', color: '#a0a8b8' },
   { id: 'decor', name: 'Curb Appeal', icon: 'flower', color: '#f08ac0' },
-  { id: 'biz', name: 'Business', icon: 'coins', color: '#f0c040' },
-  { id: 'tools', name: 'Fox Tools', icon: 'hand', color: '#f08a3a' },
 ];
 
 export const RESEARCH = [
@@ -79,8 +77,6 @@ export const RESEARCH = [
   { id: 'r_fences', branch: 'beaver', col: 2, name: 'Log Fences', icon: 'fence', cost: 70, req: ['r_dams'], build: 'fence', desc: 'Fences keep bears out on land.' },
   { id: 'r_platforms', branch: 'beaver', col: 3, name: 'Stilt Platforms', icon: 'platform', cost: 170, req: ['r_fences'], build: 'platform', desc: 'Raised decks: rampage-proof farming, and fish hide beneath.' },
   { id: 'r_gates', branch: 'beaver', col: 4, name: 'Sluice Gates', icon: 'gate', cost: 220, req: ['r_platforms'], build: 'gate', desc: 'Openable dams: let fish out of the nursery on your terms.' },
-  { id: 'r_tools', branch: 'beaver', col: 5, name: 'Power Tools', icon: 'hammer', cost: 320, req: ['r_gates'], desc: 'Beavers build and repair twice as fast.', mods: { buildSpeed: 1 } },
-  { id: 'r_union', branch: 'beaver', col: 6, name: 'Beaver Union', icon: 'beaver', cost: 520, req: ['r_tools'], desc: '+1 beaver per lodge (they wanted dental).', mods: { beaverBonus: 1 } },
   // ---------------- Contraptions
   { id: 'r_feeder', branch: 'gizmo', col: 2, name: 'Auto-Feeder', icon: 'feeder', cost: 240, req: ['r_fences'], build: 'feeder', desc: 'A contraption that feeds your fish for you.' },
   { id: 'r_sprinkler', branch: 'gizmo', col: 3, name: 'Sprinkler', icon: 'sprinkler', cost: 280, req: ['r_feeder'], build: 'sprinkler', desc: 'A rain-barrel sprinkler: snacks nearby regrow 60% faster.' },
@@ -97,23 +93,6 @@ export const RESEARCH = [
   { id: 'r_canadiana2', branch: 'decor', col: 6, name: 'Moose Monument', icon: 'moose', cost: 480, req: ['r_garden2'], build: 'moose', desc: 'A majestic carved moose statue. Tourists travel for miles.' },
   { id: 'r_waterdecor2', branch: 'decor', col: 7, name: 'Grand Features', icon: 'lighthouse', cost: 800, req: ['r_canadiana2'], build: ['fountain', 'lighthouse'], desc: 'A leaping-fish fountain and a Maritimes mini lighthouse.' },
   { id: 'r_beauty', branch: 'decor', col: 8, name: 'Beauty Pageant', icon: 'trophy', cost: 1200, req: ['r_waterdecor2'], desc: 'Every beauty point counts 50% more.', mods: { beautyMult: 0.5 } },
-  // ---------------- Business
-  { id: 'r_price1', branch: 'biz', col: 0, name: 'Price Hike', icon: 'coin', cost: 60, req: [], desc: 'Charge bears 20% more. They\'ll pay. Heh.', mods: { payMult: 0.2 } },
-  { id: 'r_chairs', branch: 'biz', col: 1, name: 'Waiting Room', icon: 'chair', cost: 110, req: ['r_price1'], desc: 'Magazines and a water cooler: bears are 30% more patient.', mods: { patienceMult: 0.3 } },
-  { id: 'r_tipjar', branch: 'biz', col: 2, name: 'Tip Jar', icon: 'coins', cost: 180, req: ['r_chairs'], desc: 'Snack bonuses and tips are 50% bigger.', mods: { tipMult: 0.5 } },
-  { id: 'r_stress', branch: 'biz', col: 3, name: 'Stress Balls', icon: 'bear_happy', cost: 260, req: ['r_tipjar'], desc: '35% of angry bears calm down instead of rampaging.', mods: { calmChance: 0.35 } },
-  { id: 'r_sign', branch: 'biz', col: 4, name: 'Neon Sign', icon: 'bolt', cost: 380, req: ['r_stress'], desc: '+1 more bear comes every evening.', mods: { bearBonus: 1 } },
-  { id: 'r_pr', branch: 'biz', col: 5, name: 'PR Department', icon: 'newspaper', cost: 520, req: ['r_sign'], desc: 'Bad reviews hurt your rating 40% less.', mods: { badReviewMult: -0.4 } },
-  { id: 'r_price2', branch: 'biz', col: 6, name: 'Surge Pricing', icon: 'chart', cost: 750, req: ['r_pr'], desc: 'Another +30% on every bill.', mods: { payMult: 0.3 } },
-  { id: 'r_calm2', branch: 'biz', col: 7, name: 'Anger Management', icon: 'heart', cost: 800, req: ['r_price2'], desc: 'Rampaging bears smash 1 thing less and 25% more calm down.', mods: { rampageReduce: 1, calmChance: 0.25 } },
-  { id: 'r_franchise', branch: 'biz', col: 8, name: 'Franchise Empire', icon: 'crown', cost: 5000, req: ['r_calm2', 'r_sturgeon'], desc: 'Reynard\'s greedy dream: every bill is doubled. You can retire as a legend.', mods: { payMult: 1 } },
-  // ---------------- Fox Tools
-  { id: 'r_shovel', branch: 'tools', col: 0, name: 'Sturdy Shovel', icon: 'shovel', cost: 35, req: [], desc: 'Digging the pond bigger costs 30% less.', mods: { digMult: -0.3 } },
-  { id: 'r_bag', branch: 'tools', col: 1, name: 'Bigger Food Bag', icon: 'food', cost: 60, req: ['r_shovel'], desc: 'Carry 50% more fish food, and it refills faster.', mods: { bagBonus: 0.5 } },
-  { id: 'r_tags', branch: 'tools', col: 2, name: 'Label Maker', icon: 'tag', cost: 120, req: ['r_bag'], desc: '+2 "DO NOT EAT" tags. Tagged fish are off the menu.', mods: { tagBonus: 2 } },
-  { id: 'r_nurture', branch: 'tools', col: 3, name: 'Fish Whisperer', icon: 'nurture', cost: 200, req: ['r_tags'], desc: 'Nurtured fish get twice the love: faster growth, faster breeding, better genes.', mods: { nurtureMult: 1 } },
-  { id: 'r_tags2', branch: 'tools', col: 4, name: 'Legal Loophole', icon: 'tag', cost: 450, req: ['r_nurture'], desc: '+3 more tags. Reynard found a loophole in the menu.', mods: { tagBonus: 3 } },
-  { id: 'r_bag2', branch: 'tools', col: 5, name: 'Feed Silo', icon: 'food', cost: 520, req: ['r_tags2'], desc: 'Carry another 50% more food.', mods: { bagBonus: 0.5 } },
 ];
 
 export const RESEARCH_BY_ID = Object.fromEntries(RESEARCH.map((r) => [r.id, r]));
@@ -123,7 +102,7 @@ export const BASE_MODS = {
   produceMult: 1, bugMult: 1, bugBonus: 0, digMult: 1, buildSpeed: 1, beaverBonus: 0, capacityMult: 1, capacityBonus: 0,
   payMult: 1, patienceMult: 1, tipMult: 1, calmChance: 0, bearBonus: 0, badReviewMult: 1, rampageReduce: 0,
   eggSlots: 0, hatchSpeed: 1, morphMult: 1, traitMult: 1, snackMealMult: 1, beautyMult: 1, bagBonus: 1, tagBonus: 0, nurtureMult: 1,
-  mutationMult: 1, clearPayMult: 1, cropLuck: 1,
+  mutationMult: 1, clearPayMult: 1, cropLuck: 1, clearSpeed: 1,
 };
 
 // `extra`: more mod sets added on top (villager perks from opened areas)

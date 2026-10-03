@@ -38,6 +38,7 @@ import { Land } from './Land.js';
 import { Cutscene } from './Cutscene.js';
 import { Quests } from './Quests.js';
 import { Matchmaking } from './Matchmaking.js';
+import { Workshop } from './Workshop.js';
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
 const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
 import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
@@ -65,6 +66,15 @@ function safeDel(k) { try { localStorage.removeItem(k); } catch { /* ignore */ }
 
 let eggUid = 1;
 
+// progression: the neighbour who unlocks each build category / type
+const TUTORIAL_BUILDS = new Set(['lodge', 'beaverbar', 'carrot']);
+const CATEGORY_GATE = { restaurant: 'treehouse', woodwork: 'treehouse', beaver: 'river', nature: 'bend', crops: 'patch', farm: 'tower', decor: 'willow', contraption: 'mush' };
+const TYPE_GATE = {
+  snackbowl: 'bakery', pantry: 'bakery', buggrinder: 'swamp', rabbithutch: 'patch', compost: 'patch', glasstank: 'bend',
+  berries: 'patch', raspberry: 'patch', strawberry: 'patch', saskatoon: 'patch', cranberry: 'patch', cloudberry: 'patch', elderberry: 'patch', goldenberry: 'patch',
+  beehive: 'bakery', maple: 'bakery', wildrice: 'bend', mushrooms: 'patch', willow: 'willow', flowers: 'willow', fern: 'patch', tallgrass: 'tower',
+};
+
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
@@ -81,6 +91,7 @@ export class Game {
     this.particles.sim = this.world.sim;
     this.legacy = this.loadLegacy();
     this.state = this.freshState();
+    this.skipGates = false;
     this.stats = this.freshStats();
     this.mods = computeMods([], this.legacy.tails);
     this.structures = new StructureSystem(this);
@@ -107,6 +118,7 @@ export class Game {
     this.cutscene = new Cutscene(this);
     this.quests = new Quests(this);
     this.matchmaking = new Matchmaking(this);
+    this.workshop = new Workshop(this);
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -134,7 +146,7 @@ export class Game {
       coins: 120, day: 1, hour: 9, phase: 'day', rating: 3.0, reviews: [], research: [], discovered: ['bluegill'], morphsSeen: [],
       speed: 1, paused: false, tutorial: 0, tips: {}, totalEarned: 0, bestRating: 3, digCount: 0, gameOver: false, achievements: [],
       eggTray: [], bestNet: 0, grades: [],
-      inventory: {}, landmarks: [], zones: [], villagers: {}, birdsSpotted: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
+      inventory: {}, landmarks: [], zones: [], villagers: {}, gatesV14: true, wood: 0, birdsSpotted: [], beaverLevel: 1, unlocked: [], bossesSeen: [], shopDay: 0, shop: [],
       food: { ...STARTING_FOOD }, foodSel: 'pellets', foodSeen: ['pellets'], beaverCredit: SIGNING_BONUS, landSpotted: [], harvested: {},
     };
   }
@@ -226,10 +238,20 @@ export class Game {
   }
 
   // perks from the villagers you've befriended (zones.js `mods`)
-  zoneMods() { const open = this.state?.zones || []; return ZONES.filter((Z) => open.includes(Z.id)).map((Z) => Z.mods); }
+  zoneMods() {
+    const open = this.state?.zones || [];
+    // + facilities: placed upgrades (each kind counts once)
+    return [...ZONES.filter((Z) => open.includes(Z.id)).map((Z) => Z.mods), ...this.facilityTypes().map((t) => STRUCTURES[t].facility.mods)];
+  }
+  facilityTypes() {
+    const out = new Set();
+    for (const s of this.structures?.list || []) if (s.built && !s.removed && s.def.facility) out.add(s.type);
+    return [...out].sort();
+  }
   refreshMods() {
     this.mods = computeMods(this.state.research, this.legacy.tails, this.zoneMods());
     this.beavers?.refreshCounts?.();
+    if (this.foodBag) this.foodBag.max = Math.round(12 * this.mods.bagBonus);
   }
 
   isUnlocked(rid) {
@@ -245,7 +267,22 @@ export class Game {
     if (rid.startsWith('zone_')) { const Z = ZONE_INFO[rid.slice(5)]; return Z ? `Meet ${Z.npcName}` : 'Explore the forest'; }
     return 'Research';
   }
-  isStructureUnlocked(type) { const d = STRUCTURES[type]; return d && this.isUnlocked(d.unlock) && (!d.landmark || this.state.landmarks.includes(d.landmark)); }
+  // which neighbour (zone id) opens each build: you start with nothing but
+  // the tutorial's lodge, snack bar and carrots
+  buildGate(type) {
+    const d = STRUCTURES[type];
+    if (!d || TUTORIAL_BUILDS.has(type)) return null;
+    if (d.gate) return d.gate;
+    if (d.crop && type !== 'carrot') return 'patch';
+    return TYPE_GATE[type] || CATEGORY_GATE[d.category] || null;
+  }
+  gateOpen(type) { const z = this.buildGate(type); return !z || this.skipGates || (this.state.zones || []).includes(z); }
+  isStructureUnlocked(type) {
+    const d = STRUCTURES[type];
+    if (!d || !this.gateOpen(type)) return false;
+    if (d.craft) return true; // crafted at Chip's: placed from the inventory
+    return this.isUnlocked(d.unlock) && (!d.landmark || this.state.landmarks.includes(d.landmark));
+  }
   speciesUnlocked(id) {
     const sp = SPECIES_BY_ID[id];
     if (!sp) return false;
@@ -1098,6 +1135,7 @@ export class Game {
     const def = STRUCTURES[type];
     const inv = this.state.inventory;
     if (free && !(inv[type] > 0)) free = false;
+    if (def?.craft && !free) { this.notify(`Craft a ${def.name} at Chip's workshop first!`, 'no'); this.audio.play('error', { volume: 0.4 }); return false; }
     if (!def || (!free && !this.isStructureUnlocked(type))) return false;
     if (def.builder === 'beaver' && !this.structures.list.some((s) => s.type === 'lodge' && s.built)) {
       this.notify('Need beavers first!', 'no');
@@ -1372,7 +1410,15 @@ export class Game {
     if (st.phase !== 'gameover') this.landAnimals.update(simDt || dt * 0.3);
     this.land.update();
     this.quests.update(realDt || dt);
+    // placed facilities change the mods: re-check now and then
+    this.facT = (this.facT || 0) - dt;
+    if (this.facT <= 0) {
+      this.facT = 1;
+      const sig = this.facilityTypes().join(',');
+      if (sig !== this.facSig) { const first = this.facSig != null; this.facSig = sig; this.refreshMods(); if (first) this.emit('facilities', sig); }
+    }
     this.matchmaking.update(dt);
+    this.workshop.update(realDt || dt);
     this.zones.update(dt);
     this.villagers.update(dt);
     this.cine?.update(realDt);
@@ -1471,6 +1517,8 @@ export class Game {
     for (const c of this.world.clutter) if (g.kind[Math.floor(c.z) * g.w + Math.floor(c.x)] === KIND.WATER) c.removed = true;
     this.world.buildClutter();
     this.state = { ...this.freshState(), ...data.state };
+    // saves from before the neighbour gates keep everything they already had
+    this.skipGates = !data.state?.gatesV14;
     for (const e of this.state.eggTray) eggUid = Math.max(eggUid, e.uid + 1);
     this.stats = { ...this.freshStats(), ...data.stats };
     this.mods = computeMods(this.state.research, this.legacy.tails, this.zoneMods());

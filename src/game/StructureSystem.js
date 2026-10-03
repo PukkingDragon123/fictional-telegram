@@ -18,6 +18,9 @@ const TM = tankMods['../entities/glassTank.js'] || null;
 import { fallbackTank } from './Tanks.js';
 import { decalsFor } from '../entities/structureDecals.js';
 import { CROPS, stagesFor } from '../data/crops.js';
+// extra 3D build models: src/entities/extra/*.js export STRUCTURE_MODELS = { type: (opts) => THREE.Object3D }
+const EXTRA_MODELS = {};
+for (const m of Object.values(import.meta.glob('../entities/extra/*.js', { eager: true }))) Object.assign(EXTRA_MODELS, m.STRUCTURE_MODELS || {});
 import { RARITIES } from '../data/species.js';
 import { STORAGE } from '../data/foods.js';
 const farmMods = import.meta.glob('../entities/farmModels.js', { eager: true });
@@ -530,6 +533,11 @@ export class StructureSystem {
       if (!n) n = fallbackNest(d.nest.kind);
       obj.add(n.root);
       if (!s.preview) { s.nestRig = n; n.setEggs?.((s.eggs || []).length); }
+    } else if (EXTRA_MODELS[d.model || s.type]) {
+      // models from src/entities/extra/*.js (facilities, woodwork, ...)
+      let m = null;
+      try { m = EXTRA_MODELS[d.model || s.type]({ variant, seed: s.seed, preview: !!s.preview }); } catch (e) { console.warn('extra model', s.type, e); }
+      if (m) { m.traverse?.((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); obj.add(m); }
     } else if ((d.sprite || d.crop) && this.spriteFrame(s)) {
       // drawn as a 2D sprite by renderSprites(); the group stays empty
     } else if (FARM_SET.has(s.type) && this.addFarm(s, obj)) {

@@ -23,6 +23,7 @@ import { EYE_R, EYE_L, FACE_W, FACE_H } from '../entities/foxFace.js';
 
 const VS = 0.05; // world units per rig voxel
 const FPS = 30;
+const AMBIENT = 5; // seconds of repeating per-expression FX after a new face / line
 
 // ------------------------------------------------------------------ expressions
 // name -> rig face, optional body gag (one-shot `anim` or looping `base`), auto FX and
@@ -31,7 +32,7 @@ const EXPR = {
   neutral: { e: 'neutral' },
   smug: { e: 'smug', fx: 'glint' },
   teacher: { e: 'teacher', fx: 'glint' },
-  greedy: { e: 'greedy', base: 'greedy', fx: 'dollars', every: 2.2 },
+  greedy: { e: 'greedy', fx: 'dollars', every: 2.2 },
   scheming: { e: 'scheming', fx: 'dollars', every: 2.8 },
   yum: { e: 'yum', fx: 'hearts', every: 2.6 },
   shocked: { e: 'shocked', fx: 'shock' },
@@ -40,8 +41,8 @@ const EXPR = {
   happy: { e: 'happy', fx: 'blush' },
   wink: { e: 'wink', fx: 'blush' },
   angry: { e: 'angry', anim: 'angry_stomp', fx: 'anger', every: 1.6 },
-  worried: { e: 'worried', fx: 'sweat', every: 2.2 },
-  scared: { e: 'cower', base: 'cower', fx: 'sweat', every: 1.4 },
+  worried: { e: 'worried', shiver: 0.4, fx: 'sweat', every: 2.2 },
+  scared: { e: 'cower', shiver: 1, fx: 'sweat', every: 1.4 },
   sleepy: { e: 'sleepy', anim: 'yawn', fx: 'zzz', every: 1.6 },
   excited: { e: 'excited', fx: 'sparkle', every: 1.8 },
   proud: { e: 'proud', fx: 'sparkle' },
@@ -56,8 +57,8 @@ const EXPR = {
   evil_grin: { e: 'evil_grin', fx: 'dollars' },
   mwaha: { e: 'mwaha', anim: 'laugh_evil', fx: 'notes' },
   dizzy: { e: 'dizzy', fx: 'question' },
-  horror: { e: 'horror', fx: 'shock' },
-  cower: { e: 'cower', base: 'cower', fx: 'sweat', every: 1.4 },
+  horror: { e: 'horror', shiver: 1, fx: 'shock' },
+  cower: { e: 'cower', shiver: 1, fx: 'sweat', every: 1.4 },
   tsk: { e: 'tsk' },
   dreamy: { e: 'dreamy', fx: 'hearts' },
   ko: { e: 'ko', fx: 'zzz' },
@@ -73,7 +74,7 @@ export const FOX_TALK_FX = ['sweat', 'anger', 'steam', 'sparkle', 'stars', 'hear
 
 // ------------------------------------------------------------------ pixel sprites
 const PAL = {
-  k: '#2a1626', w: '#ffffff', B: '#c4ecff', b: '#62b8f2', d: '#2f6cc0',
+  k: '#2a1626', w: '#ffffff', W: '#e8e0f4', B: '#c4ecff', b: '#62b8f2', d: '#2f6cc0',
   r: '#ec3c3c', R: '#a01e2c', o: '#ff8a3a',
   p: '#ff6a9c', P: '#ffb6d0', m: '#c42e68',
   y: '#ffdc3c', Y: '#fff6b0', g: '#e09a18',
@@ -89,7 +90,7 @@ const ROWS = {
   question: ['.kkkkk..', 'kYyyyyk.', 'kykkkyyk', 'kk..kyyk', '...kyygk', '..kyygk.', '..kygk..', '..kkk...', '..kkk...', '..kyk...', '..kkk...'],
   dollar: ['...k...', '.kkGkk.', 'kNGGGGk', 'kGkGkkk', 'kGGGGk.', '.kGGGnk', 'kkkGkGk', 'kGGGGnk', '.kkGkk.', '...k...'],
   zed: ['kkkkkkk', 'kwwwwBk', 'kkkkwBk', '..kwBk.', '.kwBkkk', 'kwwwwBk', 'kkkkkkk'],
-  note: ['...kk...', '...kVk..', '...kvVk.', '...kvkVk', '...kvk.k', '.kkkvk..', 'kVvvvk..', 'kvvvvk..', '.kkkk...'],
+  note: ['...kkk...', '...kwwk..', '...kwWwk.', '...kwkWwk', '...kwk.kk', '.kkkwk...', 'kwwWWk...', 'kwWWWk...', '.kkkk....'],
   vein: ['...kk.kk...', '...kr.rk...', '.kkkr.rkkk.', 'krrrk.krrrk', '.kkk...kkk.', '...........', '.kkk...kkk.', 'krrrk.krrrk', '.kkkr.rkkk.', '...kr.rk...', '...kk.kk...'],
   puff: ['..kkk...', '.kssskk.', 'ksssssSk', 'kssSssSk', '.kSSSSk.', '..kkkk..'],
 };
@@ -99,14 +100,33 @@ function art(name) {
   let c;
   if (name === 'blush') {
     // pink oval with "///" hatching, no outline
-    const W = 11, H = 5;
+    const W = 8, H = 4;
     c = document.createElement('canvas'); c.width = W; c.height = H;
     const x2 = c.getContext('2d');
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const dx = (x + 0.5 - W / 2) / (W / 2), dy = (y + 0.5 - H / 2) / (H / 2);
       if (dx * dx + dy * dy > 1.05) continue;
-      x2.fillStyle = (x + y) % 3 === 0 ? PAL.m : PAL.p;
-      x2.globalAlpha = (x + y) % 3 === 0 ? 1 : 0.75;
+      const hatch = (x + y) % 3 === 0;
+      x2.fillStyle = hatch ? PAL.m : PAL.p;
+      x2.globalAlpha = hatch ? 0.95 : 0.6;
+      x2.fillRect(x, y, 1, 1);
+    }
+  } else if (name === 'starburst') {
+    // manga shock flash behind his head: a spiky yellow star, ink-outlined
+    const S = 56, cx = 28, cy = 28, N = 14;
+    c = document.createElement('canvas'); c.width = S; c.height = S;
+    const x2 = c.getContext('2d');
+    const rad = (x, y) => {
+      const a = Math.atan2(y - cy, x - cx), d = Math.hypot(x - cx, y - cy);
+      const f = ((a / (Math.PI * 2)) * N + N + 0.5) % 1; // 0..1 across one spike
+      const r = 15 + 12 * (1 - Math.abs(f - 0.5) * 2) * (0.75 + 0.25 * ((Math.floor((a / (Math.PI * 2)) * N + N + 0.5)) % 2));
+      return d / r;
+    };
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const k = rad(x + 0.5, y + 0.5);
+      if (k > 1) continue;
+      const edge = rad(x + 1.5, y + 0.5) > 1 || rad(x - 0.5, y + 0.5) > 1 || rad(x + 0.5, y + 1.5) > 1 || rad(x + 0.5, y - 0.5) > 1;
+      x2.fillStyle = edge ? PAL.k : k < 0.55 ? PAL.Y : k < 0.8 ? PAL.y : PAL.g;
       x2.fillRect(x, y, 1, 1);
     }
   } else if (name === 'burst') {
@@ -120,7 +140,7 @@ function art(name) {
       for (let r = r0; r <= r1; r += 0.5) {
         const x = Math.round(cx + Math.cos(a) * r), y = Math.round(cy + Math.sin(a) * r);
         x2.fillStyle = PAL.k; x2.fillRect(x, y, 1, 1);
-        if (r < r1 - 1) { x2.fillStyle = PAL.w; x2.fillRect(x + (Math.abs(Math.sin(a)) > 0.7 ? 1 : 0), y + (Math.abs(Math.sin(a)) > 0.7 ? 0 : 1), 1, 1); }
+        if (r < r1 - 1) x2.fillRect(x + (Math.abs(Math.sin(a)) > 0.7 ? 1 : 0), y + (Math.abs(Math.sin(a)) > 0.7 ? 0 : 1), 1, 1);
       }
     }
   } else {
@@ -241,7 +261,8 @@ function injectCSS() {
 .ftk-clip { position: absolute; inset: 0; overflow: hidden; }
 .ftk-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; transform-origin: 50% 100%; }
 .ftk-fx { position: absolute; inset: 0; overflow: visible; z-index: 2; }
-.ftk-fx canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; will-change: transform, opacity; }
+.ftk-under { position: absolute; inset: 0; }
+.ftk-fx canvas, .ftk-under canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; will-change: transform, opacity; }
 `;
   document.head.appendChild(s);
 }
@@ -255,7 +276,7 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const EYE_Y = FACE_H / 4 - EYE_R.y / 4;
 const HEAD_PTS = {
   eyeR: [EYE_R.x / 4 - FACE_W / 8, EYE_Y, 6.6], eyeL: [EYE_L.x / 4 - FACE_W / 8, EYE_Y, 6.6],
-  cheekR: [-4.6, 3.2, 6.4], cheekL: [4.6, 3.2, 6.4],
+  cheekR: [-5, 2.6, 6.2], cheekL: [5, 2.6, 6.2],
   templeR: [-7.2, 8.5, 2], templeL: [7.2, 8.5, 2],
   center: [0, 6, 3], chin: [0, 0, 6],
 };
@@ -265,14 +286,16 @@ class FoxTalk {
     this.el = el;
     this.game = game || null;
     this.size = size || 0;
-    // CSS px per rendered pixel: 3 device px on hi-dpi (matches the world's pixelRenderer), 2 otherwise
+    // CSS px per rendered pixel: 2 device px on hi-dpi, 1 otherwise. The face texture has 4 texels
+    // per voxel, so the head needs ~60 render px for an expression to read.
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
-    this.ps = pixelScale || (dpr >= 2 ? 3 : 2) / dpr;
+    this.ps = pixelScale || (dpr >= 2 ? 2 / dpr : 1);
     this.fs = fxScale; // CSS px per FX sprite pixel
     this.turn = turn;
     this._expr = 'teacher';
     this._def = EXPR.teacher;
     this._everyT = 0;
+    this._ambientT = 0;
     this._fx = [];
     this._onscreen = true;
     this._dead = false;
@@ -285,7 +308,8 @@ class FoxTalk {
     // DOM
     const wrap = (this.wrap = document.createElement('div'));
     wrap.className = 'ftk';
-    wrap.innerHTML = '<div class="ftk-clip"><canvas class="ftk-cv"></canvas></div><div class="ftk-fx"></div>';
+    wrap.innerHTML = '<div class="ftk-clip"><div class="ftk-under"></div><canvas class="ftk-cv"></canvas></div><div class="ftk-fx"></div>';
+    this.underEl = wrap.querySelector('.ftk-under');
     this.cv = wrap.querySelector('.ftk-cv');
     this.ctx = this.cv.getContext('2d');
     this.fxEl = wrap.querySelector('.ftk-fx');
@@ -341,6 +365,7 @@ class FoxTalk {
     this._expr = key; this._def = def;
     this.rig.setExpression(def.e);
     this._everyT = def.every || 0;
+    this._ambientT = AMBIENT; // ambient FX only for a while, so a dialog left open doesn't spam
     if (changed || fx) {
       if (def.anim && this.rig.anims.includes(def.anim)) {
         this.rig.play(def.anim, { loop: false, fade: 0.2, restart: true, onDone: () => this._base(0.3) });
@@ -355,6 +380,7 @@ class FoxTalk {
     if (this._dead) return 0;
     const d = this.rig.talk(String(text || ''), { cps });
     this._talking = d > 0;
+    this._ambientT = AMBIENT;
     this.bounce();
     if (!this._oneShot) this._base(0.2);
     return d;
@@ -400,8 +426,9 @@ class FoxTalk {
         break;
       case 'stars':
         for (let i = 0; i < 5; i++) {
-          const a = -Math.PI / 2 + (i - 2) * 0.6;
-          S(i % 2 ? 'twinkle' : 'star', { at: 'center', vx: Math.cos(a) * 46, vy: Math.sin(a) * 46 - 8, ay: 40, life: 0.95, delay: i * 0.05, pop: true, spinV: rnd(-3, 3) });
+          const a = -Math.PI / 2 + (i - 2) * 0.62;
+          // start on a ring around the head so the face stays readable
+          S(i % 2 ? 'twinkle' : 'star', { at: 'center', ox: Math.cos(a) * 40, oy: Math.sin(a) * 30 - 6, vx: Math.cos(a) * 34, vy: Math.sin(a) * 30 - 6, ay: 30, life: 0.95, delay: i * 0.06, pop: true, spinV: rnd(-3, 3) });
         }
         break;
       case 'hearts':
@@ -409,7 +436,8 @@ class FoxTalk {
         break;
       case 'shock':
         S('bang', { at: 'top', ox: 14, oy: -6, life: 1.1, pop: true, follow: true, shake: 1.5 });
-        S('burst', { at: 'center', life: 0.55, pop: true, follow: true, flicker: true, scale: 1 });
+        S('starburst', { at: 'center', life: 0.75, pop: true, follow: true, under: true, spinV: 0.6, fade: 0.25 });
+        S('burst', { at: 'center', life: 0.6, pop: true, follow: true, flicker: true });
         this.jump(0.2);
         break;
       case 'question':
@@ -486,8 +514,8 @@ class FoxTalk {
     const T = (this._camT ||= _v.clone());
     T.lerp(_v, k);
     const c = this.cam;
-    c.position.set(T.x + 0.06, T.y + 0.42, T.z + 3.7);
-    c.lookAt(T.x + 0.04, T.y + 0.3, T.z);
+    c.position.set(T.x + CAM.x, T.y + CAM.y, T.z + CAM.d);
+    c.lookAt(T.x + CAM.x * 0.7, T.y + CAM.ly, T.z);
     c.updateMatrixWorld();
   }
 
@@ -515,7 +543,7 @@ class FoxTalk {
     c.style.width = src.width * ps + 'px';
     c.style.height = src.height * ps + 'px';
     c.style.opacity = '0';
-    this.fxEl.appendChild(c);
+    (o.under ? this.underEl : this.fxEl).appendChild(c);
     const p = { c, w: src.width * ps, h: src.height * ps, t: -(o.delay || 0), o, x: 0, y: 0, base: null };
     this._fx.push(p);
     if (this._fx.length > 40) this._killFx(this._fx[0]);
@@ -546,7 +574,7 @@ class FoxTalk {
       const fade = o.fade ?? 0.3;
       if (life - t < fade) a = (life - t) / fade;
       if (o.fadeIn && t < o.fadeIn) a = Math.min(a, t / o.fadeIn);
-      if (o.flicker) a *= (Math.floor(t * 20) % 2) ? 1 : 0.35;
+      if (o.flicker) a *= (Math.floor(t * 16) % 2) ? 1 : 0.55;
       let rot = (o.spinV || 0) * t;
       if (o.rock) rot += Math.sin(t * 5) * o.rock;
       const sx = o.shake && t < 0.4 ? Math.sin(t * 70) * o.shake * ps : 0;
@@ -565,7 +593,8 @@ class FoxTalk {
     // back to idle body once the line is said
     if (this._talking && !rig.talking) { this._talking = false; if (!this._oneShot) this._base(0.35); }
     // ambient repeats while the face holds
-    if (this._def.every && dt > 0) {
+    this._ambientT -= dt;
+    if (this._def.every && dt > 0 && (this._ambientT > 0 || rig.talking)) {
       this._everyT -= dt;
       if (this._everyT <= 0) { this._everyT = this._def.every * rnd(0.85, 1.2); this.fx(this._def.fx); }
     }
@@ -587,7 +616,9 @@ class FoxTalk {
     }
     const sy = 1 + sq.x, sxz = 1 / Math.sqrt(Math.max(0.4, sy));
     this.pivot.scale.set(sxz, sy, sxz);
-    this.pivot.position.set(PIVOT_BASE.x, PIVOT_BASE.y + jy, PIVOT_BASE.z);
+    // scared shiver: a quick sideways tremble (snapped so it reads as pixel jitter, not blur)
+    const shv = this._def.shiver ? Math.sign(Math.sin(this._time * 55)) * 0.012 * this._def.shiver : 0;
+    this.pivot.position.set(PIVOT_BASE.x + shv, PIVOT_BASE.y + jy, PIVOT_BASE.z);
     rig.update(dt);
     this._frameCam(1 - Math.exp(-dt * 5));
     this._render();
@@ -614,6 +645,9 @@ class FoxTalk {
   }
 }
 const PIVOT_BASE = new THREE.Vector3(0, 0.36, 0);
+// bust framing relative to the neck: camera offset, distance, look height
+const CAM = { x: 0.06, y: 0.42, d: 3.5, ly: 0.32 };
+if (typeof window !== 'undefined') window.__foxTalkCam = CAM;
 const _sz = new THREE.Vector2();
 
 /**

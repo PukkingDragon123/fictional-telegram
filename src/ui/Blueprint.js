@@ -12,12 +12,14 @@ import './blueprint.css';
 const TABS = [
   { id: 'inv', icon: 'mailbox', name: 'Parcels' },
   { id: 'clear', icon: 'tree', name: 'Clear land', feature: 'clear' },
-  { id: 'food', icon: 'berry', name: 'Plants' },
+  { id: 'crops', icon: 'carrot', name: 'Crops' },
+  { id: 'food', icon: 'berry', name: 'Plants & snacks' },
   { id: 'restaurant', icon: 'picnic', name: 'Restaurant', beaver: true },
   { id: 'beaver', icon: 'dam', name: 'Beaver works', beaver: true },
   { id: 'farm', icon: 'bug', name: 'Bugs & Birds' },
   { id: 'nature', icon: 'seaweed', name: 'Pond' },
   { id: 'decor', icon: 'gnome', name: 'Decor' },
+  { id: 'woodwork', icon: 'hammer', name: 'Woodwork', zone: 'treehouse' },
   { id: 'contraption', icon: 'gear', name: 'Gadgets' },
   { id: 'dig', icon: 'shovel', name: 'Dig pond' },
   { id: 'remove', icon: 'trash', name: 'Remove' },
@@ -124,6 +126,7 @@ export class Blueprint {
     return TABS.filter((t) => {
       if (force?.tab && t.id !== force.tab) return false;
       if (t.feature && !game.isOpen(t.feature)) return false;
+      if (t.zone && !(game.state.zones || []).includes(t.zone) && !game.skipGates) return false;
       if (t.id === 'inv') return true;
       if (t.id === 'clear') return this.hasBeavers();
       if (t.id === 'dig' || t.id === 'remove') return game.isOpen('clear');
@@ -134,8 +137,11 @@ export class Blueprint {
   itemsFor(tab) {
     const game = this.game;
     if (tab === 'inv') return Object.entries(game.state.inventory || {}).filter(([, n]) => n > 0).map(([type, n]) => ({ type, n, free: true }));
+    const inv = game.state.inventory || {};
+    // woodwork: everything Chip can make; what you've crafted is placed for free
+    if (tab === 'woodwork') return Object.entries(STRUCTURES).filter(([, d]) => d.category === 'woodwork').map(([type]) => ({ type, n: inv[type] || 0, free: true, craft: true }));
     return Object.entries(STRUCTURES)
-      .filter(([type, d]) => d.category === tab && game.isStructureUnlocked(type) && type !== 'lodge')
+      .filter(([type, d]) => (tab === 'crops' ? d.crop && !d.noSeed : d.category === tab && !(tab === 'food' && d.crop && !d.noSeed)) && !d.craft && game.isStructureUnlocked(type) && type !== 'lodge')
       .map(([type]) => ({ type }));
   }
 
@@ -161,8 +167,9 @@ export class Blueprint {
       return;
     }
     const beaverless = !this.hasBeavers();
-    box.innerHTML = items.map(({ type, n, free }) => {
+    box.innerHTML = items.map(({ type, n, free, craft }) => {
       const d = STRUCTURES[type];
+      if (craft && !n) return `<button class="bp-item need craftme" data-type="${type}" data-free="1" data-craft="1" data-name="${d.name}: craft it at Chip's workshop"><span class="bp-ico">${this.icon(type)}</span><i class="bp-n">0</i></button>`;
       const needB = d.builder === 'beaver' && beaverless && !free;
       const sel = tool.kind === 'build' && tool.type === type && !!tool.free === !!free;
       const cost = free ? `<i class="bp-n">×${n}</i>` : `<i class="bp-cost ${game.canAfford(d.cost) ? '' : 'no'}">${this.tico('coin', 1)}${d.cost}</i>`;
@@ -173,6 +180,7 @@ export class Blueprint {
     box.querySelectorAll('.bp-item').forEach((b) => {
       b.addEventListener('click', () => {
         const type = b.dataset.type, free = b.dataset.free === '1';
+        if (b.dataset.craft && b.classList.contains('craftme')) { game.notify(`Craft it at Chip's workshop! Tap Chip the woodpecker.`, 'no'); game.audio.play('error', { volume: 0.4 }); return; }
         if (b.classList.contains('need')) { game.notify('Need beavers first!', 'no'); game.audio.play('error', { volume: 0.4 }); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); return; }
         game.audio.play('click', { volume: 0.35 });
         game.setTool({ kind: 'build', type, free });

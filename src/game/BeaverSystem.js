@@ -285,7 +285,10 @@ export class BeaverSystem {
     const pay = Math.round(def.pay * (game.mods.clearPayMult || 1));
     game.particles.coins(cx, gy + 0.8, cz, Math.min(6, pay));
     game.earnMisc?.(pay, 'clearing');
-    game.ui?.floatTextAt(cx, gy + 1.4, cz, `+${def.pay}`, '#ffe9a0');
+    game.ui?.floatTextAt(cx, gy + 1.4, cz, `+${pay}`, '#ffe9a0');
+    // chopped trees leave planks for Chip's workshop
+    const wood = j.kind === 'forest' ? 2 : j.kind === 'tree' ? 1 : 0;
+    if (wood) game.workshop?.addWood(wood, cx, cz + 0.3);
     game.stats.cleared = (game.stats.cleared || 0) + 1;
     this.clears.delete(i);
     this.renderMarkers();
@@ -443,7 +446,7 @@ export class BeaverSystem {
         if (job.kind === 'clear') {
           const c = job.c;
           if (!this.clears.has(c.i)) { this.release(b); continue; }
-          c.progress += (dt * speedMult * (1 + 0.35 * (this.level() - 1))) / CLEAR[c.kind].time;
+          c.progress += (dt * speedMult * (this.game.mods.clearSpeed || 1) * (1 + 0.35 * (this.level() - 1))) / CLEAR[c.kind].time;
           // trees come down bit by bit: three big chops, each one shorter
           const step = Math.min(3, Math.floor(c.progress * 4));
           if ((c.kind === 'tree' || c.kind === 'forest') && step > (c.chop || 0)) {

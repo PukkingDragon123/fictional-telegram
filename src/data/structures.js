@@ -1,3 +1,4 @@
+import { STRUCTURES_V14 } from './structures14.js';
 // Buildable structures. `place` rules:
 //  water | shoreWater (water next to land) | land | shore (land next to water)
 //  landOrPlatform | shoreOrPlatform | nearWillow | any
@@ -393,6 +394,9 @@ export const STRUCTURES = {
   },
 };
 
+// v14: facilities, woodwork, antiques
+Object.assign(STRUCTURES, STRUCTURES_V14);
+
 export const CHARM_CAP = 40; // max % bill bonus from beauty
 export const BEAUTY_PER_BEAR = 10; // every N beauty brings one more customer
 
@@ -404,6 +408,8 @@ export const BUILD_CATEGORIES = [
   { id: 'contraption', name: 'Contraptions' },
   { id: 'decor', name: 'Decor' },
   { id: 'farm', name: 'Bugs & Birds' },
+  { id: 'crops', name: 'Crops' },
+  { id: 'woodwork', name: 'Woodwork' },
 ];
 
 // Snack kinds bears can eat (meal points come from each structure's food.meal).

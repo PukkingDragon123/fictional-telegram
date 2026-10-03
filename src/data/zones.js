@@ -10,6 +10,7 @@ export const ZONES = [
     intro: ['Hoo-hoo! A visitor!', 'I count every bird in this forest.', 'Spot birds by your pond and I\'ll pay!'],
     lines: ['Spotted a waxwing yet? Gorgeous.', 'Feeders bring the rare ones.', 'Wood ducks are my favourite. Hoo!', 'Binoculars: never leave home without.'],
     unlocks: [
+      { kind: 'feature', tab: 'farm', title: 'Bugs & Birds builds', icon: 'birdhouse' },
       { kind: 'species', ids: ['goldeye', 'cisco'], title: 'Goldeye & Cisco eggs', icon: 'fish' },
       { kind: 'breed', id: 'wood', title: 'Wood Duck on e-Buy', icon: 'egg' },
       { kind: 'perk', title: 'Bird bounty: spot new birds for coins', icon: 'eye' },
@@ -23,6 +24,7 @@ export const ZONES = [
     intro: ['Oh hey bud! Didn\'t see ya there.', 'Pull up a lawn chair, eh?', 'River\'s full of salmon. Trade ya?'],
     lines: ['Daisy Beer: the official drink of not working.', 'Salmon run\'s been wicked this year.', 'The moose owes me twenty bucks.', 'You got any chips?'],
     unlocks: [
+      { kind: 'feature', tab: 'beaver', title: 'Beaver works: dams, fences, gates + beaver facilities', icon: 'dam' },
       { kind: 'species', ids: ['bulltrout', 'cutthroat', 'coho', 'pinksalmon', 'kokanee', 'browntrout'], title: '6 river trout & salmon', icon: 'fish' },
       { kind: 'perk', title: 'Clearing pays double, +1 beaver per lodge', icon: 'beaver' },
     ],
@@ -36,6 +38,7 @@ export const ZONES = [
     intro: ['Hmm? ...Oh! Company!', 'I remember when this pond was a puddle.', 'The old fish still listen to me.'],
     lines: ['Back in my day, gar had MANNERS.', 'Tea? It\'s willow-bark. Good for the shell.', 'Snow geese visit me every autumn.', 'Zzz... hm? I was resting my eyes.'],
     unlocks: [
+      { kind: 'feature', tab: 'decor', title: 'Decor builds', icon: 'gnome' },
       { kind: 'species', ids: ['gar', 'paddlefish', 'eel'], title: 'Gar, Paddlefish & Eel eggs', icon: 'fish' },
       { kind: 'breed', id: 'snow', title: 'Snow Goose on e-Buy', icon: 'egg' },
       { kind: 'perk', title: 'The willow blesses your pond: +15% beauty', icon: 'heart' },
@@ -50,6 +53,7 @@ export const ZONES = [
     intro: ['Ribbit! Come in, dearie, come in!', 'You look thin. Have a mealworm.', 'I\'ll teach you my bug recipes!'],
     lines: ['A duck is only as good as its bugs.', 'Bog pools! Mayflies by the bucket.', 'Rotting logs grow the BIG beetles.', '*zap* ...oh, pardon me, dear.'],
     unlocks: [
+      { kind: 'feature', tab: 'food', title: 'Bug Grinder (free fish food)', icon: 'bug' },
       { kind: 'build', ids: ['bogpool', 'rottinglog'], title: 'Bog Pool & Rotting Log bug farms', icon: 'bug' },
       { kind: 'species', ids: ['bullhead', 'catfish', 'bowfin'], title: 'Bullhead, Catfish & Bowfin eggs', icon: 'fish' },
       { kind: 'perk', title: 'Swamp water: twice the mutations', icon: 'sparkle' },
@@ -64,6 +68,7 @@ export const ZONES = [
     intro: ['Psst. Hey. Over here.', 'You want rare? I got rare.', 'Sabertooth Salmon. No questions.'],
     lines: ['Everything fell off a moose.', 'Cash only. Shiny cash.', 'That egg? Found it. Legally.', 'Glow bugs! Make eggs hatch like crazy.'],
     unlocks: [
+      { kind: 'feature', tab: 'contraption', title: 'Gadgets: feeders, sprinklers, incubators', icon: 'gear' },
       { kind: 'species', ids: ['sabertooth', 'goldentrout'], title: 'Sabertooth Salmon & Golden Trout', icon: 'crown' },
       { kind: 'build', ids: ['glowmeadow'], title: 'Firefly Meadow bug farm', icon: 'lantern' },
       { kind: 'perk', title: 'Magic spores: eggs hatch 35% faster', icon: 'mushroom' },
@@ -80,6 +85,7 @@ export const ZONES = [
     intro: ['Oh! Hello, neighbour!', 'I heard the trees falling. Nice work!', 'Here, seeds! Gardens make bears happy.'],
     lines: ['Water in the morning, never at noon!', 'Carrots love sprinklers. So do I.', 'A golden carrot? Keep planting!', 'Compost is just salad\'s second chance.'],
     unlocks: [
+      { kind: 'feature', tab: 'crops', title: 'Crops & berry bushes', icon: 'carrot' },
       { kind: 'perk', title: 'Green thumb: gardens & snacks grow 25% faster', icon: 'leaf' },
       { kind: 'perk', title: 'Daily seed gift', icon: 'harvest' },
     ],
@@ -93,6 +99,7 @@ export const ZONES = [
     intro: ['Ahoy, pond neighbour!', 'Name\'s Otis. I know every fish by name.', 'Walleye and pike? I\'ll get ya some eggs!'],
     lines: ['Fish grow big on a full belly.', 'Pike are grumpy. Respect the pike.', 'Rare fish? Tag \'em, or the bears will eat \'em!', 'Wanna perfect fish? Pick the parents yourself!'],
     unlocks: [
+      { kind: 'feature', tab: 'nature', title: 'Pond plants, glass tanks + fox-tool facilities', icon: 'seaweed' },
       { kind: 'species', ids: ['walleye', 'pike'], title: 'Walleye & Pike eggs (no research!)', icon: 'fish' },
       { kind: 'perk', title: 'Fish grow 20% faster', icon: 'fish' },
     ],
@@ -107,11 +114,26 @@ export const ZONES = [
     intro: ['Oh my! A customer? No, a neighbour!', 'I bake pies for Bear Corp.', 'Full bears tip better. Trust me, dear.'],
     lines: ['Honey in the crust. That\'s the secret.', 'Bears tip more after dessert.', 'Mind the spikes, sweetie.', 'Fresh out of the oven!'],
     unlocks: [
+      { kind: 'feature', tab: 'restaurant', title: 'Snack bowls, pantry + bear facilities (Tip Jar...)', icon: 'coins' },
       { kind: 'perk', title: 'Dessert time: bears tip 15% more', icon: 'coin' },
       { kind: 'perk', title: 'Daily honey & syrup', icon: 'honey' },
     ],
     mods: { tipMult: 0.15 },
     gift: { coins: 30, food: [{ id: 'honey', n: 2 }, { id: 'syrup', n: 1 }] },
+  },
+  {
+    id: 'treehouse', landmark: null, name: 'The Tree House', cx: 40.5, cz: 38.5, r: 4, near: true,
+    npc: { id: 'chip', name: 'Chip', title: 'Woodpecker & master carpenter', x: 40.6, z: 40.2, color: '#c8402a' },
+    sub: 'Chip the woodpecker carves furniture in his tree house',
+    intro: ['Tok-tok-tok! Oh, hello there!', 'Name\'s Chip. I make furniture. Good furniture.', 'Bring me wood, I\'ll make your bears comfy!'],
+    lines: ['Measure twice, peck once.', 'Found old junk in the forest? I can fix it!', 'Fallen logs = free wood. Pick \'em up!', 'Tok-tok. Sorry, habit.'],
+    unlocks: [
+      { kind: 'feature', tab: 'restaurant', title: 'Bear furniture: tables, chairs & more', icon: 'picnic' },
+      { kind: 'feature', tab: 'woodwork', title: 'Woodwork: craft at Chip\'s workshop', icon: 'hammer' },
+      { kind: 'perk', title: 'Repair old furniture from the forest', icon: 'star' },
+    ],
+    mods: {},
+    gift: { coins: 15, wood: 3 },
   },
 ];
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));

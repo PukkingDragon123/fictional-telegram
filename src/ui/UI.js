@@ -7,6 +7,7 @@ import { OFFICE, MEADOW } from '../world/worldgen.js';
 const MEADOW_C = { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 - 2 };
 import * as THREE from 'three';
 import { spriteImg, spriteURL, foxPortraitURL, hasSprite } from './sprites.js';
+import { createFoxTalk } from './FoxTalk3D.js';
 import { Icons3D } from './icons3d.js';
 import { fishIconURL, fishCanvasFor } from '../game/fishSprites.js';
 import { SPECIES, SPECIES_BY_ID, RARITIES, MORPHS, MORPH_IDS, TRAITS } from '../data/species.js';
@@ -628,6 +629,7 @@ export class UI {
 
   // ------------------------------------------------------------ per frame
   update(dt) {
+    this.contract?.place?.();
     const game = this.game;
     const st = game.state;
     const h = this.hud;
@@ -642,6 +644,7 @@ export class UI {
       this.setText('tagcnt', `${game.tagLimit() - game.tagsUsed()}`);
       Tutorial.progress(game);
       this.syncFoodPicker();
+      if (this.contract && game.tool.kind !== 'clear') this.closeContract?.();
       // the quest note steps aside for cutscenes, the lab and the classroom
       this.questLog?.setVisible?.(!game.cutscene?.active && !game.lab?.active && !game.classroom?.active && !game.bedtime?.active && !game.tutorial?.active && !this.matchCard && st.phase !== 'night');
     }
@@ -1115,6 +1118,7 @@ export class UI {
     if (!this.foxCurrent) { el.classList.add('hidden'); this.pulse(null); return; }
     const m = this.foxCurrent;
     this.hud['fox-face'].src = foxPortraitURL(m.expr || 'smug', 3);
+    const ft = this._foxTalk3D();
     this.hud['fox-say'].innerHTML = m.text;
     this.hud['fox-ok'].textContent = m.button || (m.wait ? 'Got it' : 'OK');
     this.hud['fox-ok'].classList.toggle('hidden', !!m.hideOk);
@@ -1124,6 +1128,27 @@ export class UI {
     this.foxAutoT = m.auto ? m.auto : 0;
     const plain = m.text.replace(/<[^>]+>/g, '');
     this.game.audio.babble?.('fox', plain.slice(0, 90), { volume: 0.3 });
+    if (ft) { ft.setOutfit(this.game.fox?.rig?.outfit || 'default'); ft.setExpression(m.expr || 'smug'); ft.talk(plain.slice(0, 90)); }
+  }
+
+  // live 3D talking bust in place of the pixel portrait (kept as the fallback without WebGL)
+  _foxTalk3D() {
+    const img = this.hud['fox-face'];
+    if (this._ftk === undefined) {
+      const host = (this._ftkHost = document.createElement('div'));
+      host.className = 'fox-3d';
+      Object.assign(host.style, { flex: '0 0 auto', filter: 'drop-shadow(0 3px 0 rgba(0,0,0,.4))', pointerEvents: 'none' });
+      img.before(host);
+      this._ftk = createFoxTalk(host, { outfit: this.game.fox?.rig?.outfit || 'default', game: this.game });
+      if (this._ftk) img.style.display = 'none';
+      else host.remove();
+    }
+    if (this._ftk) {
+      // same box as the <img> (96px, 72px on phones), read from the stylesheet
+      const px = (parseFloat(getComputedStyle(img).width) || 96) + 'px';
+      if (this._ftkHost.style.width !== px) Object.assign(this._ftkHost.style, { width: px, height: px });
+    }
+    return this._ftk;
   }
 
   pulse(which) {
@@ -2172,6 +2197,62 @@ export class UI {
     }).catch(() => {}).finally(() => { st.paused = wasPaused; done(); });
   }
 
+  // ------------------------------------------------------------ beaver contract (Destroy box)
+  // the crew is paid right there for the chunk you boxed: coins or food
+  beaverContract({ tiles, x, z }) {
+    const game = this.game;
+    const B = game.beavers;
+    const n = tiles.length;
+    if (!n) return;
+    this.closeContract?.(true);
+    const need = Math.max(0, n - Math.floor(B.credit));
+    if (!need) { this.floatTextAt?.(x, 1.4, z, `Paid! ${n} jobs`, '#c8ff9a'); return; }
+    const PRICE = 4;
+    const coins = need * PRICE;
+    // food that beavers accept, best payers first
+    const foods = Object.keys(game.foodStore.inv || {}).filter((id) => game.foodStore.count(id) > 0 && FOOD_ITEMS[id]?.beaver?.jobs)
+      .sort((a, b) => FOOD_ITEMS[b].beaver.jobs - FOOD_ITEMS[a].beaver.jobs);
+    let cover = 0;
+    const plan = [];
+    for (const id of foods) {
+      const per = FOOD_ITEMS[id].beaver.jobs;
+      const k = Math.min(game.foodStore.count(id), Math.ceil((need - cover) / per));
+      if (k > 0) { plan.push([id, k]); cover += k * per; }
+      if (cover >= need) break;
+    }
+    const foodOk = cover >= need;
+    const el = document.createElement('div');
+    el.className = 'bcontract';
+    el.innerHTML = `<div class="bc-head">${ico('beaver', 2)}<b>Beaver contract</b></div>
+      <div class="bc-body">${n} tile${n > 1 ? 's' : ''} to clear${n - need ? ` · ${n - need} already paid` : ''}</div>
+      <div class="bc-btns">
+        <button class="bc-coin" ${game.canAfford(coins) ? '' : 'disabled'}>${ico('coin', 1)} Pay ${coins}</button>
+        ${foodOk ? `<button class="bc-food">${plan.map(([id, k]) => `${ico(FOOD_ITEMS[id].icon || 'food', 1)}×${k}`).join(' ')} Pay</button>` : ''}
+        <button class="bc-no">✕</button>
+      </div>`;
+    (this.overlay || document.body).appendChild(el);
+    const place = () => { const q = this.screenOf(x, 1.2, z); el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -100%)`; };
+    place();
+    this.contract = { el, place, tiles };
+    const done = (paid) => {
+      this.contract = null;
+      el.classList.add('bye');
+      setTimeout(() => el.remove(), 250);
+      if (!paid) { for (const i of tiles) B.cancelClear(i % game.grid.w, (i / game.grid.w) | 0); game.audio.play('paper', { volume: 0.3, pitch: 0.8 }); return; }
+      B.credit = B.credit + need;
+      game.audio.play('coins', { volume: 0.45 });
+      game.particles.coins?.(x, 1, z, 6);
+      this.floatTextAt?.(x, 1.6, z, 'Deal! Beavers on it!', '#c8ff9a');
+      game.emit('beaverContract', { n, need });
+    };
+    this.closeContract = (silent) => { if (this.contract?.el === el) done(false); };
+    el.querySelector('.bc-coin').addEventListener('click', (e) => { e.stopPropagation(); if (!game.spend(coins, 'beavers')) { game.audio.play('error', { volume: 0.4 }); return; } done(true); });
+    el.querySelector('.bc-food')?.addEventListener('click', (e) => { e.stopPropagation(); for (const [id, k] of plan) game.foodStore.take(id, k); done(true); });
+    el.querySelector('.bc-no').addEventListener('click', (e) => { e.stopPropagation(); done(false); });
+    el.addEventListener('pointerdown', (e) => e.stopPropagation());
+    game.audio.play('page', { volume: 0.4 });
+  }
+
   // ------------------------------------------------------------ Matchmaker (arranged breeding)
   openMatchmaker(preselect = null) {
     const game = this.game;
@@ -2238,7 +2319,7 @@ export class UI {
   showMenu() {
     const game = this.game;
     const v = game.audio.getVolumes();
-    const canRetire = game.state.research.includes('r_franchise');
+    const canRetire = game.state.research.includes('r_franchise') || game.structures.countBuilt('franchise') > 0;
     const html = `
       <h1>Menu</h1>
       <div class="kv">
