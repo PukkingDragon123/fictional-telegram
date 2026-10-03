@@ -44,7 +44,7 @@ export const STRUCTURES = {
   },
   bughotel: {
     name: 'Bug Hotel', icon: 'bughotel', cost: 70, place: 'landOrPlatform', category: 'nature', unlock: 'r_bughotel',
-    desc: 'A cosy stack of logs and pinecones. Ladybugs, bumblebees & pill bugs check in. Luck boost nearby.',
+    desc: 'A cozy stack of logs and pinecones. Ladybugs, bumblebees & pill bugs check in. Luck boost nearby.',
     bugs: { max: 4, every: 6 }, hp: 2, smashable: true, beauty: 1,
   },
   // ------------------------------------------------------------ bug farms & nests (livestock)
@@ -74,11 +74,11 @@ export const STRUCTURES = {
   },
   glasstank: {
     name: 'Glass Tank', icon: 'tank', cost: 75, retired: true, place: 'land', category: 'contraption', tank: { cap: 4 },
-    desc: 'Keep fish apart from the pond: safe from bears, fed for you, and they only breed with tank mates. Use the Tank tool to move fish in and out.', hp: 3, smashable: true, beauty: 1,
+    desc: 'Safe from bears and fed for you. Fish only breed with tank mates. Use the Tank tool to move fish in and out.', hp: 3, smashable: true, beauty: 1,
   },
   duck_nest: {
     name: 'Duck Nest', icon: 'egg', cost: 35, place: 'shore', category: 'farm', unlock: 'r_nests', nest: { kind: 'duck', cap: 4, eggs: 5 },
-    desc: 'A cosy reed nest by the water. Home for up to 4 ducks; hens lay eggs here.', hp: 2, smashable: true, beauty: 0.5,
+    desc: 'A cozy reed nest by the water. Home for up to 4 ducks; hens lay eggs here.', hp: 2, smashable: true, beauty: 0.5,
   },
   goose_nest: {
     name: 'Goose Nest', icon: 'egg', cost: 60, place: 'shore', category: 'farm', unlock: 'r_nests', nest: { kind: 'goose', cap: 3, eggs: 4 },
@@ -87,12 +87,12 @@ export const STRUCTURES = {
   // ------------------------------------------------------------ bear snacks
   berries: {
     sprite: ['blueberry', 'blueberry_picked'], name: 'Blueberry Bush', icon: 'berry', cost: 30, place: 'landOrPlatform', category: 'food', unlock: 'r_berrybush',
-    desc: 'Grows from seed into a wild blueberry bush. Tap a ripe bush to harvest the batch, then serve the berries in a Snack Bowl. Grow them on a platform so rampagers can\'t trample them.',
+    desc: 'Tap a ripe bush to harvest, then serve the berries in a Snack Bowl. On a platform, rampagers can\'t trample it.',
     crop: true, hp: 2, smashable: true, beauty: 1,
   },
   beehive: {
     sprite: ['beehive_tree'], name: 'Beehive', icon: 'hive', cost: 60, place: 'nearWillow', category: 'food', unlock: 'r_bees',
-    desc: 'Fills up with honey: tap to harvest the jars for bears with a sweet tooth (lucky batches: royal jelly!). Must be within 2 tiles of a willow (a platform works too).',
+    desc: 'Makes honey. Tap to harvest (lucky batches: royal jelly!). Needs a willow within 2 tiles (a platform works too).',
     crop: true, hp: 3, smashable: true, beauty: 1,
   },
   wildrice: {
@@ -148,7 +148,7 @@ export const STRUCTURES = {
   // ------------------------------------------------------------ garden (grows from seed, tap to harvest)
   carrot: {
     name: 'Carrot Patch', icon: 'carrot', cost: 15, place: 'land', category: 'food', unlock: 'r_carrot', crop: true,
-    desc: 'Plant carrot seeds and watch them grow. Bears crunch them, beavers work 2 jobs per carrot.', hp: 1, smashable: true, beauty: 0.5,
+    desc: 'Bears crunch them. Beavers work 2 jobs per carrot.', hp: 1, smashable: true, beauty: 0.5,
   },
   lettuce: {
     name: 'Lettuce Bed', icon: 'lettuce', cost: 10, place: 'land', category: 'food', unlock: 'r_lettuce', crop: true,
@@ -168,7 +168,7 @@ export const STRUCTURES = {
   },
   corn: {
     name: 'Sweet Corn', icon: 'corn', cost: 30, place: 'land', category: 'food', unlock: 'r_corn', crop: true,
-    desc: 'Tall stalks of sweet corn. Beavers will do 3 jobs for a single cob. Lucky batches: rainbow corn!', hp: 2, smashable: true, beauty: 1,
+    desc: 'Beavers do 3 jobs for a single cob. Lucky batches: rainbow corn!', hp: 2, smashable: true, beauty: 1,
   },
   sunflower: {
     name: 'Sunflowers', icon: 'sunflower', cost: 25, place: 'landOrPlatform', category: 'food', unlock: 'r_corn', crop: true,
@@ -180,7 +180,7 @@ export const STRUCTURES = {
   },
   tomato: {
     name: 'Tomato Vines', icon: 'tomato', cost: 20, place: 'land', category: 'food', unlock: 'r_cabbage', crop: true,
-    desc: 'Staked vines heavy with red tomatoes. Fish perk right up, bears want them on everything.', hp: 1, smashable: true, beauty: 1,
+    desc: 'Fish perk right up. Bears want them on everything.', hp: 1, smashable: true, beauty: 1,
   },
   cabbage: {
     name: 'Cabbage Patch', icon: 'cabbage', cost: 15, place: 'land', category: 'food', unlock: 'r_cabbage', crop: true,
@@ -288,7 +288,7 @@ export const STRUCTURES = {
   // ------------------------------------------------------------ contraptions
   feeder: {
     name: 'Auto-Feeder', icon: 'feeder', cost: 140, place: 'shoreOrPlatform', category: 'contraption', unlock: 'r_feeder', builder: 'beaver', buildTime: 7,
-    desc: 'A beaver-built contraption that flings fish food into the pond every few seconds.',
+    desc: 'Flings fish food into the pond every few seconds.',
     feeder: { every: 6.5, radius: 3.2, n: 5 }, hp: 3, smashable: true,
   },
   aerator: {
@@ -314,7 +314,7 @@ export const STRUCTURES = {
   // ------------------------------------------------------------ decor (beauty attracts more customers)
   lantern: {
     name: 'Lantern', icon: 'lantern', cost: 20, place: 'landOrPlatform', category: 'decor', unlock: 'r_decor0', beauty: 1, light: true,
-    desc: 'A cosy lantern that glows at night.', hp: 1, smashable: true,
+    desc: 'Glows at night. Moths approve.', hp: 1, smashable: true,
   },
   chair: {
     name: 'Muskoka Chair', icon: 'chair', cost: 30, place: 'landOrPlatform', category: 'decor', unlock: 'r_decor0', beauty: 2,
@@ -350,15 +350,15 @@ export const STRUCTURES = {
   },
   arch: {
     name: 'Flower Arch', icon: 'arch', cost: 90, place: 'land', category: 'decor', unlock: 'r_garden2', beauty: 5,
-    desc: 'A trellis arch overflowing with climbing roses. Bears take selfies.', hp: 2, smashable: true,
+    desc: 'Climbing roses. Bears take selfies.', hp: 2, smashable: true,
   },
   stringlights: {
     name: 'String Lights', icon: 'stringlights', cost: 55, place: 'landOrPlatform', category: 'decor', unlock: 'r_lights', beauty: 3, light: true,
-    desc: 'Warm fairy lights on little posts. Very date-night.', hp: 1, smashable: true,
+    desc: 'Fairy lights on little posts. Very date-night.', hp: 1, smashable: true,
   },
   stonelantern: {
     name: 'Stone Lantern', icon: 'stonelantern', cost: 70, place: 'land', category: 'decor', unlock: 'r_lights', beauty: 3, light: true,
-    desc: 'A mossy stone lantern with a candle inside.', hp: 3, smashable: true,
+    desc: 'Moss outside, candle inside.', hp: 3, smashable: true,
   },
   campfire: {
     name: 'Campfire', icon: 'campfire', cost: 60, place: 'land', category: 'decor', unlock: 'r_canadiana', beauty: 4, light: true,

@@ -24,7 +24,7 @@ export const QUESTS = [
     when: (g) => (g.state.tutorialDone || g.skipTutorial) && g.isOpen('lab'),
     intro: 'My Lab is open! Research is FREE, it just takes time. Science = more money.',
     steps: [
-      { text: 'Open Reynard\'s Lab', ev: 'labOpen' },
+      { text: 'Open the Lab', ev: 'labOpen' },
       { text: 'Start a research project', ev: 'researchStart' },
       { text: 'Wait for it to finish', ev: 'research' },
     ],
@@ -105,7 +105,7 @@ export const QUESTS = [
   {
     id: 'facility', title: 'Upgrade by building', icon: 'coins', reward: { coins: 50 },
     when: (g) => ['bakery', 'river', 'bend'].some((z) => (g.state.zones || []).includes(z)),
-    intro: 'Upgrades are THINGS now: a Tip Jar, a Tool Box, a Tag Rack... Place one!',
+    intro: 'Upgrades you can build: a Tip Jar, a Tool Box, a Tag Rack... Place one!',
     steps: [{ text: 'Place a facility (Tip Jar, Tool Box...)', ev: 'built', test: (s) => !!s?.def?.facility }],
     check: (g) => g.facilityTypes?.().length > 0,
   },

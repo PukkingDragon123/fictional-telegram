@@ -64,7 +64,7 @@ function fishImg(id, { morph = 'normal', scale = 2, cls = '', fry = false } = {}
 const TUTORIAL = [
   { expr: 'smug', text: "Welcome to <b>Reynard's All-U-Can-Eat Pond</b>! The suits at Bear St. Holdings get off work at <b>5 PM</b>... and they are HUNGRY. Heh heh heh." },
   { expr: 'wink', text: 'Meet <b>Bonnie & Clyde</b>, our breeding pair. <b>Tap the pond</b> to toss them some food. Well-fed fish fall in love and make MORE fish.', wait: true, pulse: 'feed' },
-  { expr: 'greedy', text: 'Buy more fish in the <b>Egg shop</b>. Eggs incubate in your <b>egg tray</b>; tap a ready egg to hatch it. Rare eggs hide rare genes!', pulse: 'shop' },
+  { expr: 'greedy', text: 'Buy more fish on <b>e-Buy</b>. Eggs incubate in your <b>egg tray</b>; tap a ready egg to hatch it. Rare eggs hide rare genes!', pulse: 'shop' },
   { expr: 'worried', text: 'Bears eat EVERY fish they can reach. Use the <b>Tag</b> tool on a precious fish: tagged fish are "DO NOT EAT". Plant <b>blueberries</b> too: bears love a side dish!', pulse: 'tag' },
   { expr: 'smug', text: 'Coins buy research in my secret <b>Lab</b> (tap my hut). New fish, beavers, dams, gadgets... Now go make me rich!', pulse: 'lab' },
 ];
@@ -76,9 +76,9 @@ const TOOLS = [
   { tool: 'tag', icon: 'tag', label: 'Tag', key: 3, title: 'DO NOT EAT tag', feature: 'tag' },
   { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish', feature: 'pet' },
   { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
-  { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
+  { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Build menu', feature: 'build' },
   { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
-  { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: "Reynard's lab", feature: 'lab' },
+  { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: 'Lab', feature: 'lab' },
   { panel: 'match', icon: 'heart', label: 'Match', key: 0, title: 'Matchmaker: pick the parents, breed the perfect fish', feature: 'match' },
   { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },
   { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 9, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
@@ -372,7 +372,7 @@ export class UI {
     const pad = document.createElement('div');
     pad.className = 'campad';
     const b = (cls, icon, title) => `<button class="cp ${cls}" title="${title}">${hasSprite(icon) ? ico(icon, 2) : ''}</button>`;
-    pad.innerHTML = `<div class="cp-zoom">${b('zin', 'zoom_in', 'Zoom in (E / wheel)')}${b('zout', 'zoom_out', 'Zoom out (Q / wheel)')}</div>
+    pad.innerHTML = `<div class="cp-zoom">${b('zin', 'zoom_in', 'Zoom in (Z / wheel)')}${b('zout', 'zoom_out', 'Zoom out (X / wheel)')}</div>
       <div class="cp-pan">${b('up', 'arrow_up', 'Pan (WASD)')}${b('left', 'arrow_left', 'Pan')}${b('home', 'home', 'Back to the pond')}${b('right', 'arrow_right', 'Pan')}${b('down', 'arrow_down', 'Pan')}</div>`;
     this.root.appendChild(pad);
     const act = {
@@ -747,7 +747,7 @@ export class UI {
     let html = `<div class="et-title">EGG TRAY</div><div class="et-slots">`;
     for (let i = 0; i < slots; i++) {
       const e = tray[i];
-      if (!e) { html += `<div class="eslot empty f-slot_gold" title="Buy eggs in the Egg shop">${ico('egg', 2, 'ghost')}</div>`; continue; }
+      if (!e) { html += `<div class="eslot empty f-slot_gold" title="Buy eggs on e-Buy">${ico('egg', 2, 'ghost')}</div>`; continue; }
       const rar = RARITIES[e.rarity];
       const ready = e.t <= 0;
       const eggName = `egg_${rar.id}_${ready ? 1 : 0}`;
@@ -1280,11 +1280,11 @@ export class UI {
     } else if (t.kind === 'remove') {
       html = `${ico('trash', 1)} <b>Remove</b>: tap a build for move · store · sell, hold to drag it, or clear a tree/rock (${ico('coin', 1)}10)`; // [v19 buildings]
     } else if (t.kind === 'hand') {
-      html = `${ico('hand', 1)} <b>Carry</b>: press on a fish and drag it anywhere in the pond (great for moving fish into a nursery)`;
+      html = `${ico('hand', 1)} <b>Carry</b>: drag a fish anywhere in the pond`;
     } else if (t.kind === 'tag') {
       html = `${ico('tag', 1)} <b>DO NOT EAT</b>: tap a fish to tag it. Bears won't touch tagged fish. <span class="k">${g.tagLimit() - g.tagsUsed()} / ${g.tagLimit()} left</span>`;
     } else if (t.kind === 'nurture') {
-      html = `${ico('nurture', 1)} <b>Pet</b>: tap or hold a fish. Nurtured fish grow faster, breed sooner and pass on better genes`;
+      html = `${ico('nurture', 1)} <b>Pet</b>: tap or hold a fish. Petted fish grow faster and breed sooner`;
     }
     if (this.blueprint?.open || t.kind === 'hand' || t.kind === 'nurture' || t.kind === 'tag') html = '';
     hint.innerHTML = html + (html ? ' <button class="btn small green" id="th-x">✕</button>' : '');
@@ -1628,7 +1628,7 @@ export class UI {
 
   renderShop() {
     const game = this.game;
-    this.setTitle('shop', 'Egg Shop');
+    this.setTitle('shop', 'e-Buy');
     const counts = game.fish.countBySpecies();
     const tray = game.state.eggTray.length, slots = game.eggSlots();
     const body = this.hud['p-body'];
@@ -1778,7 +1778,7 @@ export class UI {
   renderDex() {
     const game = this.game;
     const st = game.state;
-    this.setTitle('book', 'Fishdex');
+    this.setTitle('book', 'Encyclopedia');
     const counts = game.fish.countBySpecies();
     const genetics = st.research.includes('r_genetics');
     const found = SPECIES.filter((s) => st.discovered.includes(s.id)).length;
@@ -1911,7 +1911,7 @@ export class UI {
       <p class="center mut"><i>${esc(sp.latin)}</i></p>
       <p class="center">${esc(sp.desc)}</p>
       <div class="kv"><span>Meal size</span><b>${sp.meal}</b><span>Value</span><b>x${sp.value}</b></div>
-      ${sp.unlock === 'hybrid' ? `<p class="center">Its eggs are now in the Egg shop for ${ico('coin', 1)}${this.game.speciesPrice(sp.id)}.</p>` : ''}
+      ${sp.unlock === 'hybrid' ? `<p class="center">Its eggs are now on e-Buy for ${ico('coin', 1)}${this.game.speciesPrice(sp.id)}.</p>` : ''}
       <div class="btns"><button class="btn green big" id="m-ok">Heh, lovely!</button></div>`;
     this.showModal(html, { onBind: (c) => { $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); }; } });
     this.banner('NEW BREED', esc(sp.name));
@@ -2385,8 +2385,8 @@ export class UI {
       <h1>How to play</h1>
       <p>${ico('fox', 1)} You are <b>Reynard</b>, a greedy fox who runs a fish-pond buffet in the Canadian wilds.</p>
       <p>${ico('food', 1)} <b>Tap the water</b> to toss food. Fed adult fish (a ♂ and a ♀) fall in love, lay eggs and the fry grow up.</p>
-      <p>${ico('egg', 1)} Buy <b>eggs</b> in the Egg shop. They hatch in your egg tray with random <b>genes</b>: size, rare colour morphs, traits and a star rating.</p>
-      <p>${ico('alarm', 1)} At <b>5 PM</b> the bears get off work, run down the mountain and cannonball into your pond for a feast you can only watch. They eat fish and side dishes (berries, honey, wild rice...), pay and review you.</p>
+      <p>${ico('egg', 1)} Buy <b>eggs</b> on e-Buy. They hatch in your egg tray with random <b>genes</b>: size, colour morphs, traits and stars.</p>
+      <p>${ico('alarm', 1)} At <b>5 PM</b> the bears get off work and cannonball into your pond. They eat fish and side dishes, pay, and leave a review.</p>
       <p>${ico('tag', 1)} <b>Tag</b> precious fish "DO NOT EAT", <b>carry</b> fish into safe nurseries, and <b>pet</b> fish for better genes.</p>
       <p>${ico('bolt', 1)} Hungry bears <b>rampage</b>: they smash your stuff and post 0-star reviews. Below a <b>1.0</b> rating you're closed.</p>
       <p>${ico('dam', 1)} Hire <b>beavers</b> (Lab) to build <b>dams</b>, <b>fences</b>, gates and <b>platforms</b>. Fish hide under platforms and lily pads.</p>
