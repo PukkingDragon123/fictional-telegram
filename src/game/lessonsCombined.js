@@ -15,8 +15,8 @@ export const COMBINED_LESSONS = {
     steps: [
       { cam: 'board', say: 'Class! Today: **fish**. Feeding, love and babies. Fast!', expr: 'teacher', react: 'bang',
         draw: [TITLE('POND LIFE 101'), D('fish', 42, 50, { scale: 2, id: 'fish' }),
-          T('HUNGER', 82, 42, { align: 'left', color: 'orange' }), { meter: [124, 38, 56, 8], value: 0.3, color: 'orange', id: 'hunger' },
-          T('WELL FED', 82, 60, { align: 'left', color: 'pink' }), { meter: [124, 56, 56, 8], value: 0.9, color: 'pink', id: 'fed' }] },
+          T('HUNGER', 82, 42, { align: 'left', color: 'orange' }), { meter: [132, 38, 50, 8], value: 0.3, color: 'orange', id: 'hunger' },
+          T('WELL FED', 82, 60, { align: 'left', color: 'pink' }), { meter: [132, 56, 50, 8], value: 0.9, color: 'pink', id: 'fed' }] }, // [v18 font] meters moved right: WELL FED is wider in TBME Goofy
       { say: 'Hungry? Pick the **Food tool** and **tap the water**. Yum!', tap: 'hunger', react: { kind: 'heart', who: ['pip', 'chub'] },
         draw: [D('bag', 26, 90, { scale: 2 }), D('pellet', 54, 82), { arrow: [64, 90, 90, 90] }, D('fish_full', 122, 90, { scale: 2 }), T('YUM!', 170, 88, { color: 'yellow' })] },
       { erase: true, say: 'RULE: only **WELL FED** grown-ups fall in love. A boy ♂ and a girl ♀!', expr: 'shocked', react: 'bang', tap: ['dad', 'mum'],

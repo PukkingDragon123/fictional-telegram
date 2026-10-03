@@ -92,7 +92,7 @@ export class EventsHud {
     if (!this.pill || this.pill.parentNode !== host) {
       this.pill = document.createElement('div');
       this.pill.className = 'ev-pill';
-      if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+      if (window.getComputedStyle(host).position === 'static') host.style.position = 'relative';
       host.appendChild(this.pill);
       this.pill.addEventListener('click', (e) => {
         if (e.target.closest('.ev-repair')) { e.stopPropagation(); this.ev.defense.repairAll(); this.lastPill = ''; this.updatePill(); }

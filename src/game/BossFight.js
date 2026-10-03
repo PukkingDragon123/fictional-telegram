@@ -3,8 +3,8 @@
 // The boss is a normal BearSystem bear (it walks the trail, swims, hunts fish
 // and raids snack bowls) with a HUNGER bar instead of an appetite:
 //   - every fish it eats takes its meal value off the bar, its FAVOURITE snack
-//     (stock the Snack Bowls!) counts x3, other snacks x1.2
-//   - defenses wear it down a little too (30% of their damage, see Defense.js)
+//     (stock the Snack Bowls!) counts x3 (+0.5), other snacks x1.2
+//   - defenses wear it down a little too (15% of their damage, see Defense.js)
 //   - calm it (bar empty) before its FURY timer runs out -> it pays, leaves a 5-star
 //     review, you win a trophy + a big coin prize
 //   - fail -> a final tantrum, it grabs coins from the till and leaves 0 stars
@@ -70,8 +70,8 @@ export class BossFight {
       ...R, k, loop, day,
       name: BEAR_TYPES[R.type].name + (loop ? ' ' + 'I'.repeat(Math.min(3, loop + 1)) : ''),
       job: BEAR_TYPES[R.type].job,
-      hungerMax: Math.round((22 + 12 * (k - 1)) * lm),
-      timer: Math.round((100 + 10 * Math.min(k, 6)) * (1 + 0.15 * loop)),
+      hungerMax: Math.round((30 + 16 * (k - 1)) * lm),
+      timer: Math.round((115 + 10 * Math.min(k, 6)) * (1 + 0.15 * loop)),
       reward: Math.round((150 + 100 * (k - 1)) * lm),
       favName: WANT_INFO[R.fav]?.name || R.fav,
       favIcon: FAV_ITEM_ICON[R.fav] || 'berry',
@@ -121,7 +121,7 @@ export class BossFight {
     if (!F) return;
     const meal = (F.bear?.meal ?? 0.5) * this.game.mods.snackMealMult;
     if (F.snack === b.bossFight.fav) {
-      this.feed(b, meal * 2 + 1.5, true);
+      this.feed(b, meal * 2 + 0.5, true); // + the meal itself (eaten delta) = 3x
       this.bears.say(b, pick(['MY FAVOURITE!!', 'OHHH YES.', 'MORE OF THAT!']), 'emo_heart', F.icon, 1.8);
       const hp = this.bears.headTop(b);
       this.game.particles.hearts(hp.x, hp.y, hp.z, 5);
@@ -157,7 +157,7 @@ export class BossFight {
     if (b.bossDone) return false;
     if (b.state === 'queued' || b.state === 'commute' || b.jump) return false;
     // food it ate since last frame
-    if (b.eaten > b.eatenSeen) { const de = b.eaten - b.eatenSeen; b.eatenSeen = b.eaten; if (de > 0 && b.lastAte === 'fish') this.feed(b, de); }
+    if (b.eaten > b.eatenSeen) { const de = b.eaten - b.eatenSeen; b.eatenSeen = b.eaten; this.feed(b, de); }
     if (b.bossDone) return true;
     b.snacks = 0;
     if (b.wants[0]) b.wants[0].done = false;

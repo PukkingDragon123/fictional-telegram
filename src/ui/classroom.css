@@ -1,7 +1,7 @@
 /* Professor Reynard's classroom cutscenes (src/game/Classroom.js):
    letterbox bars, a wood-framed chalkboard speech box with a fox portrait,
    the chalk-written lesson title card and the gold-star completion stamp. */
-@import './fonts.css';
+/* fonts: src/ui/fonts.css is loaded once by main.js (an @import here inlined a 2nd copy) */
 
 /* the game HUD steps aside while class is in session */
 body.class-mode .hud, body.class-mode .hud-left, body.class-mode .hud-right, body.class-mode .toolbar,

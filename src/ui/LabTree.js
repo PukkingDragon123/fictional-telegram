@@ -76,6 +76,7 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const now = () => performance.now();
 
 export function fmtDur(s) {
+  if (Number(s) === Infinity) return '--:--';
   s = Math.max(0, Math.ceil(Number(s) || 0));
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60), r = s % 60;
@@ -83,6 +84,7 @@ export function fmtDur(s) {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 export function fmtClock(s) {
+  if (Number(s) === Infinity) return '--:--';
   s = Math.max(0, Math.ceil(Number(s) || 0));
   const m = Math.floor(s / 60);
   return `${m}:${String(s % 60).padStart(2, '0')}`;
@@ -556,7 +558,8 @@ export class LabTree {
     if (this.selSec && !this.selSec.sealed) { const B = this.selSec; this.selSec = null; const pick = B.nodes.find((n) => this._st.get(n.id) === 'avail') || B.nodes[0]; if (pick) this._select(pick, { pan: false, sound: false, open: false }); }
     const done = this.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
     const secs = this.branches.filter((B) => !B.sealed).length;
-    this.$count.innerHTML = `<b>${done}</b>/${this.nodes.length}<small>${secs}/${this.branches.length} SECTORS</small>`;
+    const cnt = `<b>${done}</b>/${this.nodes.length}<small>${secs}/${this.branches.length} SECTORS</small>`;
+    if (cnt !== this._cntHtml) { this._cntHtml = cnt; this.$count.innerHTML = cnt; }
     this.$cbar.style.width = `${this.nodes.length ? (done / this.nodes.length) * 100 : 0}%`;
     this._updateChips();
     if (this.filter) this._applyFilter(false);

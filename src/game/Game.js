@@ -1455,7 +1455,8 @@ export class Game {
     const r = RESEARCH_BY_ID[id];
     if (!r) return;
     if (this.research(id)) {
-      this.notify(`Research done: <b>${r.name}</b>!`, 'excited', { dur: 3.5 });
+      const keys = this.state.tutorialDone ? RESEARCH_BRANCHES.filter((B) => B.key?.node === id && !this.sectionOpen(B.id)).map((B) => B.name) : []; // [v18 research] section keys
+      this.notify(`Research done: <b>${r.name}</b>!${keys.length ? ` Section key found: decrypt <b>${keys.join('</b> + <b>')}</b> in the lab!` : ''}`, 'excited', { dur: keys.length ? 5 : 3.5 });
       this.ui?.onResearched?.(r);
     }
   }

@@ -765,7 +765,6 @@ export class LabFox {
     // bench empty
     this.focus = null;
     if (this.act === 'nap') return;
-    this.idleT += dt;
     if (this.idleT > 32) { this.setAct('nap', 1e9, 'nap'); this.say('Zzz...', 1.5); return; }
     if (this.act === 'work' || this.act === 'turbo' || this.actT >= this.actDur) {
       const r = Math.random();
@@ -841,6 +840,7 @@ export class LabFox {
     this.actT += dt;
     if (this.sayT > 0) { this.sayT -= dt; if (this.sayT <= 0) this.$say.classList.remove('is-on'); }
     if (this.turboT > 0) this.turboT -= dt;
+    if (this.tree._jobs.length) this.idleT = 0; else this.idleT += dt;
     if (this.act === 'travel') this._stepMove(dt);
     else {
       if (this.on && (this.on.y - 29 !== this.y || this.on.x !== this.x)) { this.x = this.on.x; this.y = this.on.y - 29; }

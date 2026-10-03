@@ -18,7 +18,7 @@ import { BEAR_TYPES } from '../data/bears.js';
 
 export const BLOOD_EVERY = 7;
 const HP = { blood_grunt: 7, blood_brute: 20, blood_runner: 3.5 };
-const FISH_CAP = { blood_grunt: 2, blood_brute: 3, blood_runner: 1 };
+const FISH_CAP = { blood_grunt: 1, blood_brute: 2, blood_runner: 1 }; // +1 from the 2nd blood moon on
 const ARRIVE = ['RRRAAAGH!', 'FEED... ME...', 'SMAAASH!', 'THE MOON HUNGERS!', 'FIIISH!', 'GRRRR!'];
 const YUM = ['MORE!', 'MOOORE!', 'GRRR!', 'NOT ENOUGH!'];
 const CALM = ['...huh?', 'Where am I?', 'Why am I so sticky?', 'I need a nap.', 'Was I... growling?', 'My head...'];
@@ -46,7 +46,7 @@ export class BloodMoon {
     for (let i = 0; i < waves; i++) {
       const last = i === waves - 1;
       const list = [];
-      const grunts = 2 + n + i;
+      const grunts = 1 + n + i;
       const runners = i > 0 ? i + Math.floor(n / 2) : 0;
       const brutes = last ? n : i >= 1 ? Math.floor(n / 2) : 0;
       for (let g = 0; g < grunts; g++) list.push('blood_grunt');
@@ -118,7 +118,7 @@ export class BloodMoon {
     b.hostile = true;
     b.angry = true;
     b.bhp = b.bhpMax = (HP[b.typeId] || 6) * (1 + 0.3 * (n - 1));
-    b.appetite = FISH_CAP[b.typeId] || 2;
+    b.appetite = (FISH_CAP[b.typeId] || 1) + (n >= 2 ? 1 : 0);
     b.patience = b.maxPatience = 1e6;
     b.wants = [];
     b.prefer = null;
@@ -130,7 +130,7 @@ export class BloodMoon {
 
   hostiles() {
     let n = 0;
-    for (const b of this.bears.list) if ((b.blood && !b.calmed && b.state !== 'commuteUp') || (b.bossFight && !b.bossDone && b.blood !== false && this.siege)) n++;
+    for (const b of this.bears.list) if ((b.blood && !b.calmed && b.state !== 'commuteUp') || (b.bossFight && !b.bossDone)) n++;
     return n;
   }
 
@@ -193,8 +193,7 @@ export class BloodMoon {
   calm(b, src = null, { dawn = false } = {}) {
     if (b.calmed) return;
     const game = this.game;
-    b.calmed = true;
-    b.angry = false;
+    b.calmed = true; // (stays `angry` so the feast camera doesn't make it chat about Q3 numbers)
     b.matHold = false;
     b.rig?.setMaterial('normal');
     b.rig?.setFace?.('sad', { hold: 1.5 });
@@ -241,7 +240,7 @@ export class BloodMoon {
     // dawn: everyone left calms down; the siege ends once the last wave is done
     const allOut = s.next >= s.waves.length;
     if (allOut && s.t >= s.T && (n === 0 || s.t >= s.T + 24)) this.finish();
-    else if (allOut && n === 0 && s.t > s.at[s.at.length - 1] + 12) s.t = Math.max(s.t, s.T); // everyone calmed early: skip to dawn
+    else if (allOut && n === 0 && s.t > s.at[s.at.length - 1] + 10) s.t += dt * 5; // everyone calmed early: the night flies by
   }
 
   finish() {

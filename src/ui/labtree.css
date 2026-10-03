@@ -231,7 +231,7 @@
 .lp-f { stroke: transparent; stroke-width: 3; stroke-dasharray: 3 21; }
 .lp-g[data-s="on"] { stroke: rgba(125, 255, 168, .1); }
 .lp-c[data-s="on"] { stroke: #2fb870; }
-.lp-f[data-s="on"] { stroke: rgba(225, 255, 235, .95); animation: lt-flow 1.4s linear infinite; }
+.lp-f[data-s="on"] { stroke: rgba(225, 255, 235, .85); } /* static: only running pipes animate (big SVG repaints) */
 .lp-g[data-s="run"] { stroke: rgba(95, 228, 255, .22); }
 .lp-c[data-s="run"] { stroke: #2fb8ea; }
 .lp-f[data-s="run"] { stroke: #ffffff; stroke-dasharray: 5 7; animation: lt-flow2 .4s linear infinite; }
@@ -423,7 +423,7 @@
 .lt-seal-ghosts i { position: absolute; width: 56px; height: 56px; clip-path: polygon(25% 2%, 75% 2%, 99% 50%, 75% 98%, 25% 98%, 1% 50%); background: rgba(95, 228, 255, .28); animation: lt-ghost 2.4s steps(1) var(--d, 0ms) infinite; }
 .lt-seal-ghosts i::before { content: ''; position: absolute; inset: 3px; clip-path: inherit; background: #04111a; }
 .lt-seal-ghosts b { position: absolute; inset: 0; display: grid; place-items: center; font: 26px/1 var(--lt-title); color: rgba(95, 228, 255, .45); }
-@keyframes lt-ghost { 0%, 100% { opacity: .55; transform: none; } 8% { opacity: .2; transform: translateX(3px); } 10% { opacity: .7; transform: translateX(-2px); } 50% { opacity: .4; } }
+@keyframes lt-ghost { 0%, 100% { opacity: .55; } 8% { opacity: .15; } 10% { opacity: .75; } 50% { opacity: .4; } }
 .lt-seal-body { position: absolute; inset: 0; display: grid; place-items: center; padding: 8px; pointer-events: none; }
 .lt-seal:not(.is-row) .lt-seal-body { place-items: start center; padding-top: 34px; }
 .lt-seal-card {
@@ -844,3 +844,6 @@ button.lt-slotc { cursor: pointer; }
 /* overview zoom: a map of coloured dots */
 .ltree.is-vfar .lt-badge, .ltree.is-vfar .lt-ret i { display: none; }
 .ltree.is-vfar .lt-seal-req, .ltree.is-vfar .lt-decrypt { display: none; }
+/* zoomed out, lots on screen: keep the GPU/CPU calm */
+.ltree.is-far .lt-seal-ghosts i, .ltree.is-far .lt-seal-bg::after, .ltree.is-far .lt-sealg, .ltree.is-far .lt-seal-k,
+.ltree.is-far .lt-decrypt.is-ready, .ltree.is-vfar .lt-node::before, .ltree.is-vfar .lp-f { animation: none; }

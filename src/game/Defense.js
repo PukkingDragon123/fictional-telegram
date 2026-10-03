@@ -16,7 +16,7 @@ import { pineconeGeometry, netGeometry } from '../entities/extra/defenseModels.j
 
 const TRAP_STATES = new Set(['walk', 'hunt', 'search', 'walkDirect']);
 const KNOCK_STATES = new Set(['walk', 'hunt', 'search', 'smash', 'stomp', 'walkDirect']);
-const BOSS_RESIST = 0.3; // bosses take 30% of defense damage (as hunger)
+const BOSS_RESIST = 0.15; // bosses take 15% of defense damage (as hunger)
 
 export class Defense {
   constructor(game, ev) {
