@@ -412,7 +412,7 @@ class Scope {
     const game = this.game, f = this.fish;
     const T = game.tanks;
     let tankBtn = '';
-    if (T) {
+    if (T && f.tank) {
       if (f.tank) tankBtn = `<button class="fsc-btn" data-a="tank">${ico('pond', 2)}<span>To pond</span></button>`;
       else {
         const s = T.nearestWithRoom?.(f.x, f.z);

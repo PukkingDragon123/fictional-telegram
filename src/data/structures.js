@@ -73,7 +73,7 @@ export const STRUCTURES = {
     desc: 'Fireflies (and rare Luna Moths) at night. Eggs nearby hatch much faster.', hp: 1, smashable: true, beauty: 2, light: true,
   },
   glasstank: {
-    name: 'Glass Tank', icon: 'tank', cost: 75, place: 'land', category: 'contraption', tank: { cap: 4 },
+    name: 'Glass Tank', icon: 'tank', cost: 75, retired: true, place: 'land', category: 'contraption', tank: { cap: 4 },
     desc: 'Keep fish apart from the pond: safe from bears, fed for you, and they only breed with tank mates. Use the Tank tool to move fish in and out.', hp: 3, smashable: true, beauty: 1,
   },
   duck_nest: {

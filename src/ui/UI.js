@@ -73,7 +73,6 @@ const TOOLS = [
   { tool: 'hand', icon: 'hand', label: 'Carry', key: 2, title: 'Carry a fish', feature: 'hand' },
   { tool: 'tag', icon: 'tag', label: 'Tag', key: 3, title: 'DO NOT EAT tag', feature: 'tag' },
   { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish', feature: 'pet' },
-  { tool: 'tank', icon: 'tank', label: 'Tank', key: 0, title: 'Glass tank: tap a fish to move it in / out of a tank', feature: 'hand' },
   { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
   { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Blueprints', feature: 'build' },
   { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
@@ -1662,7 +1661,7 @@ export class UI {
     if (this.panelTab === 'food') html += `<div class="info">${ico('berry', 1)} Every bear enjoys side dishes: each serving fills them up, so fewer fish get eaten!</div>`;
     html += '<div class="grid">';
     for (const [type, d] of Object.entries(STRUCTURES)) {
-      if (d.category !== this.panelTab) continue;
+      if (d.category !== this.panelTab || d.retired) continue;
       const unlocked = game.isStructureUnlocked(type);
       const afford = game.canAfford(d.cost);
       const needsLodge = d.builder === 'beaver' && !hasLodge;

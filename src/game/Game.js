@@ -285,7 +285,7 @@ export class Game {
   gateOpen(type) { const z = this.buildGate(type); return !z || this.skipGates || (this.state.zones || []).includes(z); }
   isStructureUnlocked(type) {
     const d = STRUCTURES[type];
-    if (!d || !this.gateOpen(type)) return false;
+    if (!d || d.retired || !this.gateOpen(type)) return false;
     if (d.craft) return true; // crafted at Chip's: placed from the inventory
     return this.isUnlocked(d.unlock) && (!d.landmark || this.state.landmarks.includes(d.landmark));
   }
@@ -503,7 +503,7 @@ export class Game {
     const catOf = { food: 'plants', nature: 'plants', decor: 'decor', contraption: 'gear', restaurant: 'restaurant', farm: 'farm' };
     for (const [type, def] of Object.entries(STRUCTURES)) {
       const cat = catOf[def.category];
-      if (!cat || handmade.has(type) || type === 'lodge') continue;
+      if (!cat || handmade.has(type) || type === 'lodge' || def.retired) continue;
       let locked = null;
       if (def.landmark && !st.landmarks.includes(def.landmark)) locked = { reason: 'Find the ' + (LANDMARKS.find((x) => x.id === def.landmark)?.name || 'landmark'), icon: 'map' };
       else if (!this.isUnlocked(def.unlock)) locked = RESEARCH_BY_ID[def.unlock] ? { reason: 'Lab: ' + RESEARCH_BY_ID[def.unlock].name, icon: 'flask' } : { reason: this.lockReason(def.unlock), icon: 'map' };

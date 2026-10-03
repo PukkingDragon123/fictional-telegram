@@ -91,8 +91,6 @@ export const LESSONS = {
         draw: [D('hand', 172, 32, { id: 'tap' }), D('egg', 172, 48, { id: 's5' }), T('5 TAP!', 172, 64, { color: 'green' })] },
       { say: 'After breeding they\'re hungry: **feed them again**!',
         draw: [D('bag', 22, 92), { arrow: [32, 92, 44, 92] }, T('FEED AGAIN', 76, 92, { color: 'orange' })] },
-      { say: 'Pro tip: a **glass tank** keeps a pair private. And bear-proof!', react: 'laugh', tap: 'tank',
-        draw: [D('tank', 138, 92, { id: 'tank' }), D('bear', 174, 92, { id: 'bear' }), { cross: [174, 92, 7] }] },
     ],
   },
   genes: {
@@ -710,7 +708,7 @@ export class Classroom {
   }
 
   _tick(dt) {
-    dt = Math.min(Math.max(dt || 0, 0), 0.1);
+    dt = Math.min(Math.max(dt || 0, 0), 0.1) * (this.ff ? 3 : 1);
     this.clock += dt;
     // timers / polls
     for (let i = this._timers.length - 1; i >= 0; i--) {
@@ -778,7 +776,7 @@ export class Classroom {
     el.innerHTML = `
       <div class="cls-bars"><i></i><i></i></div>
       <div class="cls-hit" data-h="hit"></div>
-      <button class="cls-skip" data-h="skip" type="button">SKIP <b>▸▸</b></button>
+      <button class="cls-skip${this.ff ? ' on' : ''}" data-h="skip" type="button" title="Fast forward"><b>▸▸</b> x3</button>
       <div class="cls-title hidden" data-h="title"><div class="cls-title-wood"><canvas data-h="tcv"></canvas></div><i class="cls-title-nail l"></i><i class="cls-title-nail r"></i></div>
       <div class="cls-say hidden" data-h="say">
         <div class="cls-portrait" data-h="portrait"></div>
@@ -793,7 +791,7 @@ export class Classroom {
     this.q('hit').addEventListener('pointerdown', adv);
     this.q('say').addEventListener('pointerdown', adv);
     this.q('title').addEventListener('pointerdown', adv);
-    this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_pop', { volume: 0.3 }); this.skip(); });
+    this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_pop', { volume: 0.3 }); this.ff = !this.ff; e.currentTarget.classList.toggle('on', this.ff); });
     this._onKey = (e) => {
       if (!this._active) return;
       const k = e.key;

@@ -99,7 +99,7 @@ export const ZONES = [
     intro: ['Ahoy, pond neighbour!', 'Name\'s Otis. I know every fish by name.', 'Walleye and pike? I\'ll get ya some eggs!'],
     lines: ['Fish grow big on a full belly.', 'Pike are grumpy. Respect the pike.', 'Rare fish? Tag \'em, or the bears will eat \'em!', 'Wanna perfect fish? Pick the parents yourself!'],
     unlocks: [
-      { kind: 'feature', tab: 'nature', title: 'Pond plants, glass tanks + fox-tool facilities', icon: 'seaweed' },
+      { kind: 'feature', tab: 'nature', title: 'Pond plants + fox-tool facilities', icon: 'seaweed' },
       { kind: 'species', ids: ['walleye', 'pike'], title: 'Walleye & Pike eggs (no research!)', icon: 'fish' },
       { kind: 'perk', title: 'Fish grow 20% faster', icon: 'fish' },
     ],

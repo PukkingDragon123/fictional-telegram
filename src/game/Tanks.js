@@ -129,6 +129,13 @@ export class Tanks {
 
   update(dt) {
     const fish = this.game.fish;
+    // glass tanks are retired: old saves get theirs taken down (fish back to the pond, coins back)
+    const old = this.game.structures.list.filter((q) => !q.removed && q.def.tank);
+    if (old.length) {
+      for (const q of old) { this.game.structures.remove(q, { silent: true }); this.game.state.coins += q.def.cost || 0; }
+      this.game.notify('Glass tanks are gone: your fish swam back to the pond (coins refunded).', 'happy', { dur: 4 });
+      return;
+    }
     for (const s of this.list()) s.tankRig?.update?.(dt);
     this.checkT -= dt;
     if (this.checkT > 0) return;
