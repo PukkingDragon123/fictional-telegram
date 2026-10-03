@@ -630,7 +630,7 @@ export class Tutorial {
     if (game.state.research.includes(id)) return;
     game.unlockFeature('lab');
     this.force('lab');
-    this.teach(line, { target: 'tool:lab', circle: true, dur: 5, mood: 'excited' });
+    this.teach(line, { target: 'tool:lab', dur: 5, mood: 'excited' }); // (guideResearch draws the circles)
     this.nag(() => nagLine);
     await this.guideResearch(id);
     this.stopNag();
