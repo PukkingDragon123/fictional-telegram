@@ -309,6 +309,8 @@ function drawMouth(P, kind, st, C) {
 /** Config: { w, h, eyes: [{x, y} (viewer-left first)], rx, ry, style: 'bead'|'toon', lash, blush: [{x, y}], blushW, mw, mh, mx, my, mstyle, mHalf, pal } */
 export class CritterFace {
   constructor(cfg) {
+    // smaller, cuter eyes on the big chibi heads
+    cfg = { ...cfg, rx: (cfg.rx || 4) * 0.7, ry: (cfg.ry || 4) * 0.7 };
     this.cfg = cfg;
     const pal = { ...BASE_PAL, ...(cfg.pal || {}) };
     const mk = (w, h) => {

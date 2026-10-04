@@ -534,12 +534,24 @@ body.cine .landtag, body.blueprint .landtag { display: none; }
 .fogtag.near b { background: #e8483a; }
 .fogtag:hover { filter: brightness(1.08); }
 @keyframes fogtag-bob { from { margin-top: 0; } to { margin-top: -6px; } }
-/* the silhouette version: just the mystery neighbour's head, "?" badge bottom-left */
-.fogtag.sil { padding: 4px; gap: 0; position: absolute; }
-.fogtag.sil .fogsil { display: block; width: 72px; height: 72px; image-rendering: pixelated; filter: brightness(0) drop-shadow(0 0 0 #2a1a14); opacity: .82; }
-.fogtag.sil b { position: absolute; left: -10px; bottom: 14px; width: 26px; height: 26px; font-size: 20px; }
-.fogtag.sil { flex-direction: column; align-items: center; }
-.fogtag.sil .fogname { display: block; font-style: normal; font-family: var(--font-title); font-size: 15px; line-height: 1; padding: 3px 4px 1px; color: #2a1a14; white-space: nowrap; }
+/* the silhouette version: a small floating mystery head, no box */
+.fogtag.sil { padding: 0; gap: 0; flex-direction: column; align-items: center; background: none; border: 0; box-shadow: none; opacity: 1;
+  animation: fogsil-float 2.6s ease-in-out infinite; }
+.fogtag.sil .fogsil { display: block; width: 56px; height: 56px; image-rendering: pixelated;
+  filter: brightness(0) drop-shadow(0 0 1px #c9b8ff) drop-shadow(0 0 4px rgba(150, 120, 255, .85)) drop-shadow(0 0 10px rgba(120, 90, 230, .55));
+  opacity: .9; animation: fogsil-pulse 2.2s ease-in-out infinite; }
+.fogtag.sil::after { content: ''; position: absolute; left: 50%; top: 50px; width: 26px; height: 6px; transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(20, 10, 40, .45), transparent); animation: fogsil-shadow 2.6s ease-in-out infinite; }
+.fogtag.sil b { position: absolute; right: -6px; top: -6px; left: auto; bottom: auto; width: 16px; height: 16px; font-size: 13px; border-width: 2px;
+  background: #8a6ad8; animation: fogsil-q 1.4s steps(2) infinite; }
+.fogtag.near.sil b { background: #e8483a; }
+.fogtag.sil .fogname { display: block; margin-top: 3px; font-style: normal; font-family: var(--font-title); font-size: 12px; line-height: 1; color: #fff;
+  text-shadow: 1px 1px 0 #1a1030, -1px -1px 0 #1a1030, 1px -1px 0 #1a1030, -1px 1px 0 #1a1030, 0 0 6px rgba(150, 120, 255, .9); white-space: nowrap; }
+.fogtag.sil:hover .fogsil { filter: brightness(0) drop-shadow(0 0 2px #fff) drop-shadow(0 0 8px rgba(190, 160, 255, 1)); }
+@keyframes fogsil-float { 0%, 100% { margin-top: 0; } 50% { margin-top: -7px; } }
+@keyframes fogsil-pulse { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
+@keyframes fogsil-shadow { 0%, 100% { width: 26px; opacity: .8; } 50% { width: 18px; opacity: .45; } }
+@keyframes fogsil-q { 0% { transform: rotate(-8deg); } 100% { transform: rotate(8deg); } }
 body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none !important; }
 .cutscene .cs-dip { position: fixed; inset: 0; background: #0b0a10; opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 1; }
 .cutscene .cs-dip.on { opacity: 1; }
