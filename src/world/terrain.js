@@ -276,6 +276,8 @@ export function buildTerrainGeometry(grid) {
     if (terra && terra[i]) return true;
     return !grid.meadow[i] && k !== KIND.WATER && k !== KIND.TRAIL && grid.occ[i] !== -2 && z >= 22 && !(grid.biome && grid.biome[i] === 4);
   };
+  // [line fix] tiles actually drawn as a smoothed slope (low ones stay flat tops)
+  const smoothDrawn = (x, z) => smoothT(x, z) && (grid.height[z * w + x] > 0.01 || !!(terra && terra[z * w + x]));
   const landH = new Float32Array(CW * (h + 1));
   for (let cz = 0; cz <= h; cz++)
     for (let cx = 0; cx <= w; cx++) {
@@ -286,17 +288,20 @@ export function buildTerrainGeometry(grid) {
         if (grid.kind[ti] === KIND.WATER) continue;
         const hh = grid.height[ti];
         // never sink below a flat (unsmoothed) neighbour: keeps the meadow/trail edges sealed
-        if (!smoothT(tx, tz)) mx = Math.max(mx, hh);
+        if (!smoothDrawn(tx, tz)) mx = Math.max(mx, hh); // [line fix] (was !smoothT: low slope tiles are drawn flat too)
         sum += hh; n++;
       }
-      landH[cz * CW + cx] = n ? Math.max(sum / n, mx === -99 ? -99 : Math.min(mx, sum / n + 0.5)) : 0;
+      let v = Math.max(sum / n, mx === -99 ? -99 : Math.min(mx, sum / n + 0.5));
+      // [line fix] a hair above a flat neighbour: meet it exactly. A sub-pixel
+      // step (the forest's 0.02 next to the meadow's 0 gave 0.01) can't be drawn
+      // as pixel art: square to the camera it flickers in as a full-width line.
+      if (mx !== -99 && v > mx && v - mx < 0.2) v = mx;
+      landH[cz * CW + cx] = n ? v : 0;
     }
   const LH = (cx, cz) => landH[cz * CW + cx];
   // remember the smoothed surface so sprites (trees, rocks) sit on the slope
   grid.slopeH = landH;
   grid.isSlope = smoothT;
-  // [line fix] tiles actually drawn as a smoothed slope (low ones stay flat tops)
-  const smoothDrawn = (x, z) => smoothT(x, z) && (grid.height[z * w + x] > 0.01 || !!(terra && terra[z * w + x]));
   const edgeLH = (x, z, dx, dz) => (dx === 1 ? [LH(x + 1, z), LH(x + 1, z + 1)] : dx === -1 ? [LH(x, z), LH(x, z + 1)] : dz === 1 ? [LH(x, z + 1), LH(x + 1, z + 1)] : [LH(x, z), LH(x + 1, z)]);
   const _e1 = [0, 0, 0], _e2 = [0, 0, 0];
   for (let z = 0; z < h; z++)
