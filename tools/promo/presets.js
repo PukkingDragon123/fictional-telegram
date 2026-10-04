@@ -59,3 +59,46 @@ PRESETS.banner = {
     ],
   },
 };
+
+// ------------------------------------------------------------------ animated GIF versions
+// 20 frames over a 2 s loop (10 fps). Every animated thing is periodic in that loop (see stage.js).
+const LOOP = { frames: 20, period: 2.0, timeAmp: 0.5 };
+const clone = (o) => JSON.parse(JSON.stringify(o));
+{
+  const o = clone(PRESETS.thumb.opts);
+  o.loop = LOOP;
+  o.bear.loop = { range: [0.05, 1] };
+  o.fish = [
+    { id: 'sockeye', sx: 0.43, sy: 0.88, arc: [0.57, 0.8, 1.9], rot: 0.8, s: 1.5, off: 0.1 },
+    { id: 'rainbow', sx: 0.97, sy: 0.88, arc: [0.83, 0.8, 1.5], dir: -1, s: 1.5, off: 0.55 },
+    { id: 'goldfish', sx: 0.95, sy: 0.99, arc: [0.8, 0.95, 0.9], dir: -1, s: 1.5, off: 0.3 },
+  ];
+  o.loopFx = [
+    { type: 'splash', sx: 0.69, sy: 0.84, h: -0.1, n: 46, rate: 2, radius: 1.5, height: 1.8, size: 0.1 },
+    { type: 'splash', sx: 0.69, sy: 0.84, h: -0.1, n: 30, rate: 1, radius: 2.2, height: 2.6, size: 0.12, seed: 3 },
+  ];
+  PRESETS.thumbAnim = { kind: 'thumb', viewport: PRESETS.thumb.viewport, px: 1, masks: ['fox', 'bear'], opts: o };
+}
+{
+  const o = clone(PRESETS.banner.opts);
+  o.loop = LOOP;
+  const offs = [0, 0.35, 0.7, 0.15, 0.5, 0.85, 0.25, 0.6, 0.95, 0.4];
+  let k = 0;
+  for (const a of o.cast) {
+    if (a.kind === 'fox') { a.anim = 'dance'; a.loop = { cycles: 1 }; }
+    else if (a.kind === 'bear') {
+      if (a.pose === 'charge') a.loop = { strides: 2, speed: 3 };
+      else a.loop = { range: [0, 1], off: a.name === 'b4' ? 0.5 : a.name === 'b3' ? 0.25 : 0 };
+    } else if (a.cls) {
+      a.loop = { off: offs[k++ % offs.length] };
+      if (a.cls === 'WoodpeckerCarpenter' || a.cls === 'RaccoonMerchant') { a.anim = 'happy'; }
+    }
+  }
+  o.loopFx = [
+    { type: 'confetti', sx: 0.5, sy: 0.52, n: 70, rate: 1, top: 2.6, fall: 2.6, spread: 3.2, size: 0.1 },
+    { type: 'splash', sx: 0.655, sy: 0.86, h: -0.1, n: 40, rate: 2, radius: 1.1, height: 1.4, size: 0.08 },
+    { type: 'splash', sx: 0.725, sy: 0.67, n: 24, rate: 1, radius: 1.0, height: 1.2, size: 0.09, color: 0x9a6a40, seed: 11 },
+  ];
+  o.fx = [];
+  PRESETS.bannerAnim = { kind: 'banner', viewport: PRESETS.banner.viewport, px: 1.3, masks: PRESETS.banner.masks, opts: o };
+}

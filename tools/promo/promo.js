@@ -2,12 +2,23 @@
 // outlines over the renders made by capture.mjs (tools/promo/renders/*.png).
 //   promo.html?kind=thumb   630 x 500 CSS px  (screenshot at DPR 1 and 2)
 //   promo.html?kind=banner  960 x 240 CSS px  (screenshot at DPR 1 and 2)
+//   &anim=<name>&n=<frames>  animated: renders/anim/<name>-fNN.png (+ -<mask>-fNN.png);
+//                            window.setFrame(i) swaps the frame and moves the overlays
 // Sets window.__ready once fonts + images are in.
 const Q = new URLSearchParams(location.search);
 const kind = Q.get('kind') || 'thumb';
 const bust = '?t=' + (Q.get('t') || Date.now());
-const R = (f) => `./renders/${f}${bust}`;
+const ANIM_NAME = Q.get('anim'), NF = +(Q.get('n') || 1);
+const pad = (i) => String(i).padStart(2, '0');
+// 'thumb.png' / 'thumb-fox.png' -> the still render or frame i of the animated one
+function R(f, i = 0) {
+  if (!ANIM_NAME) return `./renders/${f}${bust}`;
+  const rest = f.replace(/\.png$/, '').replace(/^[^-]+/, ''); // '' or '-fox'
+  return `./renders/anim/${ANIM_NAME}${rest}-f${pad(i)}.png${bust}`;
+}
 const stage = document.getElementById('stage');
+const ANIM = []; // (phase 0..1) => void, run by setFrame
+const TAU = Math.PI * 2;
 
 function el(tag, cls, css = {}, parent = stage) {
   const e = document.createElement(tag);
@@ -41,11 +52,22 @@ function bigText(parent, lines, o) {
 }
 
 // cut-out of the render along an actor mask, with stacked drop-shadow outlines + glow
-function cutout(bgUrl, maskUrl, filters, extra = {}) {
+function cutout(bgFile, maskFile, filters, extra = {}) {
   const w = el('div', 'cut', { filter: filters.join(' '), ...extra });
-  el('div', '', { backgroundImage: `url(${bgUrl})`, WebkitMaskImage: `url(${maskUrl})`, maskImage: `url(${maskUrl})`, filter: 'saturate(1.22) contrast(1.07) brightness(1.03)' }, w);
+  const d = el('div', '', { backgroundImage: `url(${R(bgFile)})`, WebkitMaskImage: `url(${R(maskFile)})`, maskImage: `url(${R(maskFile)})`, filter: 'saturate(1.22) contrast(1.07) brightness(1.03)' }, w);
+  d.dataset.src = bgFile; d.dataset.mask = maskFile;
   return w;
 }
+function bgLayer(file) { const d = el('div', 'bg', { backgroundImage: `url(${R(file)})` }); d.dataset.src = file; return d; }
+// overlay motion helpers (all identity at phase 0, so the stills are unchanged)
+function animate(e, fn) { const base = e.style.transform || ''; ANIM.push((ph) => { e.style.transform = base + ' ' + fn(ph); }); return e; }
+const wob = (ph, k = 1, a = 1) => Math.sin(ph * TAU * k) * a;
+window.setFrame = (i) => {
+  for (const d of stage.querySelectorAll('[data-src]')) d.style.backgroundImage = `url(${R(d.dataset.src, i)})`;
+  for (const d of stage.querySelectorAll('[data-mask]')) { const u = `url(${R(d.dataset.mask, i)})`; d.style.webkitMaskImage = u; d.style.maskImage = u; }
+  const ph = (i % NF) / NF;
+  for (const f of ANIM) f(ph);
+};
 const outline = (px, c) => [`drop-shadow(${px}px 0 0 ${c})`, `drop-shadow(-${px}px 0 0 ${c})`, `drop-shadow(0 ${px}px 0 ${c})`, `drop-shadow(0 -${px}px 0 ${c})`];
 
 function burst(cx, cy, r, { rays = 18, a = 'rgba(255,236,150,0.55)', b = 'rgba(255,170,60,0)', rot = 0, fade = 0.95 } = {}) {
@@ -97,60 +119,69 @@ const SHINE = 'linear-gradient(180deg, rgba(255,255,255,.0) 0%, rgba(255,255,255
 function thumb() {
   const W = 630, H = 500;
   Object.assign(stage.style, { width: W + 'px', height: H + 'px' });
-  el('div', 'bg', { backgroundImage: `url(${R('thumb.png')})` });
-  // warm glow + rays behind the bear
-  burst(438, 230, 330, { rays: 20, a: 'rgba(255,230,140,0.42)', rot: 4, fade: 0.9 });
+  bgLayer('thumb.png');
+  // warm glow + rays behind the bear (turn one ray-step per loop)
+  animate(burst(438, 230, 330, { rays: 20, a: 'rgba(255,230,140,0.42)', rot: 4, fade: 0.9 }), (ph) => `rotate(${ph * 18}deg)`);
   el('div', '', { inset: 0, background: 'radial-gradient(ellipse 60% 45% at 70% 46%, rgba(255,120,60,.22), rgba(255,120,60,0) 70%)', mixBlendMode: 'screen' });
   // bottom + top darkening so the type pops
   el('div', '', { inset: 0, background: 'linear-gradient(180deg, rgba(36,10,48,.55) 0%, rgba(36,10,48,0) 30%, rgba(36,10,48,0) 74%, rgba(30,8,36,.72) 100%)' });
   // the bear: white outline + angry red glow
-  cutout(R('thumb.png'), R('thumb-bear.png'), [...outline(2, '#fff'), 'drop-shadow(0 0 7px rgba(255,40,40,.95))', 'drop-shadow(0 0 16px rgba(255,60,30,.6))']);
+  cutout('thumb.png', 'thumb-bear.png', [...outline(2, '#fff'), 'drop-shadow(0 0 7px rgba(255,40,40,.95))', 'drop-shadow(0 0 16px rgba(255,60,30,.6))']);
   // Reynard: thick white outline, gold rim glow
-  cutout(R('thumb.png'), R('thumb-fox.png'), [...outline(3, '#fff'), ...outline(2, '#fff'), 'drop-shadow(0 0 8px rgba(255,220,90,.95))', 'drop-shadow(0 0 22px rgba(255,170,50,.55))']);
+  cutout('thumb.png', 'thumb-fox.png', [...outline(3, '#fff'), ...outline(2, '#fff'), 'drop-shadow(0 0 8px rgba(255,220,90,.95))', 'drop-shadow(0 0 22px rgba(255,170,50,.55))']);
   // the arrow at the bear
-  arrow('M 16 120 C 40 60, 90 30, 150 44', { x: 238, y: 158, width: 220, height: 170, w: 14, head: 30 });
-  // !?
-  bigText(stage, ['!?'], { x: 196, y: 186, size: 104.17, rot: 14, outline: 5, outlineColor: '#2a0f1e', outer: 4, outerColor: '#fff',
+  animate(arrow('M 16 120 C 40 60, 90 30, 150 44', { x: 238, y: 158, width: 220, height: 170, w: 14, head: 30 }), (ph) => `translate(${(1 - Math.cos(ph * TAU * 2)) * 4}px, ${-(1 - Math.cos(ph * TAU * 2)) * 2}px)`);
+  // !? (pulses with the gasps)
+  const shock = bigText(stage, ['!?'], { x: 196, y: 186, size: 104.17, rot: 14, outline: 5, outlineColor: '#2a0f1e', outer: 4, outerColor: '#fff',
     fill: 'linear-gradient(180deg, #fff6a0 0%, #ffd23a 45%, #ff5a2a 100%)', shadow: { x: 0, y: 6, color: 'rgba(42,15,30,.7)' } });
-  // title
-  bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 14, y: 4, size: 83.33, sizes: [72.92, 104.17], gap: -12, indent: [6, 0], rot: -4, origin: 'left top',
+  shock.style.transformOrigin = '50% 60%';
+  animate(shock, (ph) => { const g = Math.max(0, Math.sin(ph * TAU * 2)) ** 2; return `scale(${1 + g * 0.16}) rotate(${wob(ph, 4, 3) * g}deg)`; });
+  // title (bounces + wobbles)
+  animate(bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 14, y: 4, size: 83.33, sizes: [72.92, 104.17], gap: -12, indent: [6, 0], rot: -4, origin: 'left top',
     outline: 5, outlineColor: '#3a1408', outer: 4, outerColor: '#fff6e0', fill: FILL_GOLD,
-    shadow: { x: 0, y: 8, color: 'rgba(40,8,40,.75)', glow: '0 0 26px rgba(255,140,60,.6)' } });
+    shadow: { x: 0, y: 8, color: 'rgba(40,8,40,.75)', glow: '0 0 26px rgba(255,140,60,.6)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 5}px) rotate(${wob(ph, 1, 1.2)}deg) scale(${1 + Math.abs(Math.sin(ph * TAU)) * 0.02})`);
   // tagline ribbon
   const tag = el('div', '', { left: '50%', bottom: '14px', transform: 'translateX(-50%) rotate(-2deg)', padding: '7px 18px 9px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '3px solid #2a0f1e', borderRadius: '10px', boxShadow: '0 0 0 3px #fff6e0, 0 6px 0 3px rgba(40,8,40,.7)' });
   bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 31.25, outline: 3, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
+  animate(tag, (ph) => `rotate(${wob(ph, 1, 0.8)}deg)`);
 }
 
 // ------------------------------------------------------------------ the banner
 function banner() {
   const W = 960, H = 240;
   Object.assign(stage.style, { width: W + 'px', height: H + 'px' });
-  el('div', 'bg', { backgroundImage: `url(${R('banner.png')})` });
+  bgLayer('banner.png');
   // party glow over the dance floor
-  burst(380, 30, 420, { rays: 26, a: 'rgba(255,226,150,0.16)', rot: 8, fade: 0.8 });
+  animate(burst(380, 30, 420, { rays: 26, a: 'rgba(255,226,150,0.16)', rot: 8, fade: 0.8 }), (ph) => `rotate(${ph * 360 / 26}deg)`);
   // rage glow on the right
   el('div', '', { inset: 0, background: 'radial-gradient(ellipse 30% 70% at 85% 60%, rgba(255,40,40,.22), rgba(255,40,40,0) 70%)', mixBlendMode: 'screen' });
   // left panel for the type
   el('div', '', { inset: 0, background: 'linear-gradient(90deg, rgba(30,8,40,.88) 0%, rgba(30,8,40,.72) 21%, rgba(30,8,40,0) 32%)' });
   el('div', '', { inset: 0, background: 'linear-gradient(180deg, rgba(30,8,40,0) 70%, rgba(30,8,40,.45) 100%)' });
-  cutout(R('banner.png'), R('banner-b1+b2+b3+b4.png'), [...outline(1, '#2a0f1e'), 'drop-shadow(0 0 4px rgba(255,40,40,1))', 'drop-shadow(0 0 10px rgba(255,50,30,.7))']);
-  cutout(R('banner.png'), R('banner-fox.png'), [...outline(2, '#fff'), 'drop-shadow(0 0 6px rgba(255,220,90,.95))', 'drop-shadow(0 0 14px rgba(255,170,50,.6))']);
+  cutout('banner.png', 'banner-b1+b2+b3+b4.png', [...outline(1, '#2a0f1e'), 'drop-shadow(0 0 4px rgba(255,40,40,1))', 'drop-shadow(0 0 10px rgba(255,50,30,.7))']);
+  cutout('banner.png', 'banner-fox.png', [...outline(2, '#fff'), 'drop-shadow(0 0 6px rgba(255,220,90,.95))', 'drop-shadow(0 0 14px rgba(255,170,50,.6))']);
   // comic RAWR at the bears
-  bigText(stage, ['RAWR!'], { x: 806, y: 8, size: 41.67, rot: 8, outline: 3, outlineColor: '#2a0f1e', outer: 3, outerColor: '#fff',
+  const rawr = bigText(stage, ['RAWR!'], { x: 806, y: 8, size: 41.67, rot: 8, outline: 3, outlineColor: '#2a0f1e', outer: 3, outerColor: '#fff',
     fill: 'linear-gradient(180deg, #ffe46a 0%, #ff8a2a 55%, #ff2a2a 100%)', shadow: { x: 0, y: 4, color: 'rgba(42,15,30,.7)' } });
+  rawr.style.transformOrigin = '50% 50%';
+  animate(rawr, (ph) => { const g = Math.max(0, Math.sin(ph * TAU * 2)); return `scale(${1 + g * 0.12}) translate(${wob(ph, 8, 1.5) * g}px, ${wob(ph, 6, 1) * g}px)`; });
   // title + tagline
-  bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 18, y: 20, size: 62.5, sizes: [50, 66.67], gap: -6, indent: [4, 0], rot: -3,
+  animate(bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 18, y: 20, size: 62.5, sizes: [50, 66.67], gap: -6, indent: [4, 0], rot: -3,
     outline: 4, outlineColor: '#3a1408', outer: 3, outerColor: '#fff6e0', fill: FILL_GOLD,
-    shadow: { x: 0, y: 6, color: 'rgba(40,8,40,.8)', glow: '0 0 20px rgba(255,140,60,.55)' } });
+    shadow: { x: 0, y: 6, color: 'rgba(40,8,40,.8)', glow: '0 0 20px rgba(255,140,60,.55)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 3}px) rotate(${wob(ph, 1, 1)}deg)`);
   const tag = el('div', '', { left: '22px', top: '170px', transform: 'rotate(-2deg)', padding: '4px 12px 6px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '2px solid #2a0f1e', borderRadius: '8px', boxShadow: '0 0 0 2px #fff6e0, 0 4px 0 2px rgba(40,8,40,.7)' });
   bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 20.83, outline: 2, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
+  animate(tag, (ph) => `rotate(${wob(ph, 1, 0.8)}deg)`);
 }
 
 const SCENES = { thumb, banner };
 SCENES[kind]?.();
 
 // ready once fonts and every image are in
-const urls = [...stage.querySelectorAll('*')].flatMap((e) => [e.style.backgroundImage, e.style.maskImage, e.style.webkitMaskImage]).filter(Boolean).flatMap((s) => [...s.matchAll(/url\("?([^")]+)"?\)/g)].map((m) => m[1]));
-Promise.all([document.fonts.ready, document.fonts.load("40px 'TBME Title'"), ...[...new Set(urls)].map((u) => new Promise((res) => { const i = new Image(); i.onload = i.onerror = res; i.src = u; }))])
+const urls = [];
+if (ANIM_NAME) for (let i = 0; i < NF; i++) for (const d of stage.querySelectorAll('[data-src],[data-mask]')) { if (d.dataset.src) urls.push(R(d.dataset.src, i)); if (d.dataset.mask) urls.push(R(d.dataset.mask, i)); }
+window.__imgs = [];
+urls.push(...[...stage.querySelectorAll('*')].flatMap((e) => [e.style.backgroundImage, e.style.maskImage, e.style.webkitMaskImage]).filter(Boolean).flatMap((s) => [...s.matchAll(/url\("?([^")]+)"?\)/g)].map((m) => m[1])));
+Promise.all([document.fonts.ready, document.fonts.load("40px 'TBME Title'"), ...[...new Set(urls)].map((u) => new Promise((res) => { const i = new Image(); window.__imgs.push(i); i.onload = i.onerror = res; i.src = u; }))])
   .then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
   .then(() => { window.__ready = true; });
