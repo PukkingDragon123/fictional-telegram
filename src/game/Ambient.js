@@ -508,7 +508,7 @@ export class Ambient {
       const hover = d < 0.3 ? 0.35 : 0.7 + Math.sin(T * 2 + f.seed) * 0.2;
       const kind = night > 0.5 ? (bee ? null : 'moth') : f.kind;
       if (!kind) continue;
-      this.draw(kind, Math.floor(T * (bee ? 14 : 7) + f.seed), f.x, gy + hover + Math.sin(T * 6 + f.seed) * 0.05, f.z, { flip: f.face < 0, ay: 0.5, emissive: night > 0.5 ? 0.2 : 0 });
+      this.draw(kind, Math.floor(T * (bee ? 14 : 7) + f.seed), f.x, gy + hover + Math.sin(T * 6 + f.seed) * 0.05, f.z, { flip: f.face < 0, ay: 0.5, texels: 36, emissive: night > 0.5 ? 0.2 : 0 });
     }
 
     // ---- dragonflies over the water: hover, dart, zip, and now and then
@@ -570,10 +570,10 @@ export class Ambient {
         // wings flat; every few seconds a quick sun glint
         d.glint = (d.glint || 0) + dt;
         const fr = d.glint % 2.6 < 0.25 ? 1 : 0;
-        this.draw('dragonfly_rest', fr, d.x, y, d.z, { flip: d.face < 0, ay: 0.5, texels: 40 });
+        this.draw('dragonfly_rest', fr, d.x, y, d.z, { flip: d.face < 0, ay: 0.5, texels: 56 });
       } else {
         // 6-frame wing beat; zips beat faster
-        this.draw('dragonfly', Math.floor(T * (d.mode === 'zip' ? 30 : 22) + d.seed * 7), d.x, y, d.z, { flip: d.face < 0, ay: 0.5, texels: 40 });
+        this.draw('dragonfly', Math.floor(T * (d.mode === 'zip' ? 30 : 22) + d.seed * 7), d.x, y, d.z, { flip: d.face < 0, ay: 0.5, texels: 56 });
       }
     }
 

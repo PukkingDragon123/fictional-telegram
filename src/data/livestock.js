@@ -2,10 +2,10 @@
 // by), hens lay eggs in nests, eggs either hatch into ducklings/goslings or
 // get collected and sold. Geese also charge at rampaging bears.
 export const BREEDS = {
-  mallard: { kind: 'duck', name: 'Mallard', price: 45, eggValue: 8, unlock: 'start', desc: 'The classic green-headed pond duck. Quacks on schedule.' },
-  pekin: { kind: 'duck', name: 'Pekin Duck', price: 60, eggValue: 12, unlock: 'day:3', desc: 'Big, white, and lays like a champion.' },
+  mallard: { kind: 'duck', name: 'Mallard', price: 45, eggValue: 8, unlock: 'r_nests', desc: 'The classic green-headed pond duck. Quacks on schedule.' },
+  pekin: { kind: 'duck', name: 'Pekin Duck', price: 60, eggValue: 12, unlock: 'r_nests', desc: 'Big, white, and lays like a champion.' },
   wood: { kind: 'duck', name: 'Wood Duck', price: 140, eggValue: 22, unlock: 'zone_tower', desc: 'The fanciest duck in Canada. Professor Hoot approves.' },
-  canada: { kind: 'goose', name: 'Canada Goose', price: 90, eggValue: 18, unlock: 'day:2', desc: 'Loud. Proud. Chases bears. Perfect.' },
+  canada: { kind: 'goose', name: 'Canada Goose', price: 90, eggValue: 18, unlock: 'r_nests', desc: 'Loud. Proud. Chases bears. Perfect.' },
   snow: { kind: 'goose', name: 'Snow Goose', price: 180, eggValue: 30, unlock: 'zone_willow', desc: 'A white goose from the far north. Grandpa Shellby\'s old friend.' },
 };
 export const KIND_INFO = {

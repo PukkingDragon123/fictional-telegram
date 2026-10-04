@@ -11,7 +11,7 @@ import { BUGS, BUG_BY_ID, BUG_FARMS, EFFECTS, WILD_DAY, WILD_NIGHT } from '../da
 const bugArtMods = import.meta.glob('../art/extra/bugArt.js', { eager: true });
 const BUG_ART = bugArtMods['../art/extra/bugArt.js']?.BUG_ART || {};
 const KEYS = Object.keys(EFFECTS);
-const BUG_TEXELS = 32; // bug art is drawn chunky; shrink it next to the ducks
+const BUG_TEXELS = 48; // bug art is drawn chunky; shrink it next to the ducks
 const FALLBACK = { dragonfly: 'dragonfly', damselfly: 'dragonfly', mayfly: 'dragonfly', monarch: 'monarch', bumblebee: 'bee', firefly: 'firefly_big', lunamoth: 'monarch', mosquito: 'bee', junebug: 'bee' };
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -381,7 +381,7 @@ export class BugSystem {
       const moving = b.sp.move === 'fly' ? b.landed <= 0 : (b.sp.move === 'hop' ? true : Math.hypot(b.tx - b.x, b.tz - b.z) > 0.03);
       const k = Math.floor(T * (b.sp.move === 'fly' ? 14 : 6) + b.seed);
       const fi = seq ? seq[(moving ? k : 0) % seq.length] % fr.length : moving ? k % fr.length : 0;
-      B.push(fr[fi], b.x, b.y, b.z, { texels: FALLBACK[b.sp.id] === name ? 24 : BUG_TEXELS, flip: this.flipFor(b, r), emissive: b.sp.glow && this.game.sky.state.night ? 0.9 : 0 });
+      B.push(fr[fi], b.x, b.y, b.z, { texels: FALLBACK[b.sp.id] === name ? 36 : BUG_TEXELS, flip: this.flipFor(b, r), emissive: b.sp.glow && this.game.sky.state.night ? 0.9 : 0 });
     }
     B.commit();
   }
