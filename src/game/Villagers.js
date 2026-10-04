@@ -37,6 +37,7 @@ const CAST = {
   pip: { cls: 'ChipmunkTrader', voice: 'cub', specials: ['count_logs', 'stuff_cheeks', 'haggle'], height: 1.25, sign: 'LUMBER' },
   chip: { cls: 'WoodpeckerCarpenter', voice: 'cub', specials: ['peck_wood', 'measure', 'saw', 'inspect', 'hammer'], height: 1.45, sign: 'WORKSHOP' },
   hazel: { cls: 'HedgehogBaker', voice: 'cub', specials: ['roll_dough', 'taste', 'curl_up'], height: 1.5, sign: 'BAKERY' },
+  flint: { cls: 'BadgerProspector', voice: 'ceo', specials: ['swing_pick', 'bite_nugget', 'gentle_boom'], height: 1.4, sign: 'QUARRY' }, // [F&S mining]
 };
 
 function fallbackRig(color) {
@@ -117,6 +118,7 @@ export class Villagers {
       put(tryMake(NP3.makeWorkbench), 1.6, 0.15, -0.3);
     }
     else if (v.id === 'hazel') put(tryMake(NP2.makeBakeryCart), 1.1, -0.55, 0.0);
+    else if (v.id === 'flint') tryMake((vv, pp) => game.mining?.flintProps(vv, pp), v, put); // [F&S mining] shack + rig sounds
     else if (v.id === 'otis') {
       const dock = tryMake(NP2.makeFishingDock);
       put(dock, 0.85, 0.0, Math.PI + 0.3); // the jetty and its little pond run out front-right of him
@@ -217,6 +219,7 @@ export class Villagers {
     const panel = (fn) => () => { this.card?.close?.(); setTimeout(fn, 380); };
     if (v.id === 'pip' && game.pipVisit) offers.unshift({ icon: 'tree', title: 'Sell logs', desc: `Today: ${game.pipVisit.price?.() ?? '?'} coins a log`, tag: 'OPEN', onClick: panel(() => game.pipVisit.openTrade()) });
     if (v.id === 'chip' && game.workshop) offers.unshift({ icon: 'hammer', title: 'Open the workshop', desc: 'Furniture orders and repairs', tag: 'OPEN', onClick: panel(() => game.workshop.open()) });
+    if (v.id === 'flint' && game.mining) offers.unshift(...game.mining.cardOffers(panel)); // [F&S mining] the Bear Mine + ore trade
     if (game.homes?.doors?.has(v.id) && !game.homes.active) offers.unshift({ icon: 'home', title: 'Visit home', desc: 'Pop in for a look around', tag: 'OPEN', onClick: panel(() => game.homes.enter(v.id)) }); // [v20 npc homes]
     if (this.card) this.card.close?.();
     const talk = this.talk;

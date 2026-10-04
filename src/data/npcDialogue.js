@@ -633,3 +633,75 @@ export const BICKER = [
     { by: 'a', t: 'Exactly. Undefeated.' },
   ], fox: 'That is the smartest thing I\'ve heard all week.' },
 ];
+
+// [F&S mining] Flint the badger prospector (Flint's Quarry) + his bickering with Pip
+DIALOGUE.flint = {
+  topics: {
+    about: {
+      label: 'About you',
+      lines: ['Flint. Prospector. Forty years on this mountain.', 'Came for the gold. Stayed for the rocks. They don\'t talk back.'],
+      choices: [
+        { t: 'Forty years! Found much gold?', r: ['Enough to bite. Not enough to retire.', 'Here. A nugget for the asking. Don\'t spend it on fish.'], coins: 20, f: 1, anim: 'bite_nugget' },
+        { t: 'Why do you lick the rocks?', r: ['Copper tastes like pennies. Iron tastes like blood.', 'Coal tastes like regret. Science, kid.'], anim: 'laugh' },
+        { t: 'Nice helmet.', r: ['Carbide lamp. Lights up a tunnel and my good side.', 'Both sides are my good side.'], unlock: 'lamp', mood: 'proud' },
+      ],
+    },
+    home: {
+      label: 'The quarry',
+      lines: ['Coal down low, copper in the middle, gold up where the goats live.', 'And crystals at the top. Bring a scarf.'],
+      choices: [
+        { t: 'Could I dig a mine here?', r: ['A mine? With BEARS? Ha!', '...They do work hard. When they\'re fed. Research it, I\'ll show you the seam.'], f: 1, anim: 'swing_pick' },
+        { t: 'Is it dangerous?', r: ['Only the dynamite. And the goats. Mostly the goats.'], unlock: 'goats', mood: 'surprised' },
+      ],
+    },
+    tips: {
+      label: 'Tips',
+      lines: ['Mark a vein, your beavers dig it. One sack a job.', 'No Ore Shed, no hauling. Sacks just sit there looking sad.', 'Bears dig more than beavers. Bears also eat more than beavers. Lunch pails, kid.'],
+    },
+    gossip: {
+      label: 'Gossip',
+      lines: ['That raccoon tried to sell me my own pickaxe.', 'I bit it. It was brass. So was the raccoon\'s smile.'],
+      choices: [
+        { t: 'Did you buy it back?', r: ['For three coins and a stern look. Got the look back too.'], f: 1, anim: 'laugh' },
+        { t: 'Rocco does that to everyone.', r: ['Hrmph. Then everyone should bite more.'] },
+      ],
+    },
+    lamp: {
+      label: 'The carbide lamp', hidden: true,
+      lines: ['Water drips on carbide, makes gas, gas makes light.', 'Smells like garlic. Lights like the sun. Mostly smells.'],
+      choices: [
+        { t: 'Can I try it on?', r: ['Ha! Hold still... there. You look like a miner. A small, greedy miner.', 'Keep this for the trouble.'], coins: 15, f: 1, anim: 'happy' },
+        { t: 'Garlic? Really?', r: ['Bears hate it. Best guard dog I ever had.'], mood: 'smug' },
+      ],
+    },
+    goats: {
+      label: 'The goats', hidden: true,
+      lines: ['Mountain goats. They stare. They judge.', 'One ate my map. I drew a new one. It ate that too.'],
+      choices: [
+        { t: 'Want me to scare them off?', r: ['With what, your hat? ...Actually, the monocle might work.', 'Here, slingshot money. Aim for the beard.'], coins: 12, f: 1, anim: 'laugh' },
+        { t: 'Maybe they like maps.', r: ['...Huh. I never asked them.'], mood: 'think' },
+      ],
+    },
+  },
+  daily: [
+    'Found a vein of copper this morning. It found me first.',
+    'Coffee\'s strong today. Strong enough to dig with.',
+    'Goat stole my sandwich. Third time this week.',
+    'Lamp ran out of carbide. Dug in the dark. Found my other boot.',
+    'Bit a nugget. It was a pebble. Still tasty.',
+    'Rocks are quiet today. Suspicious.',
+    'Dynamite fizzled again. Gentle as a lamb, that batch.',
+  ],
+  ms: {
+    3: { lines: ['Kid. You\'re alright. For a fox.', 'Take some ore. And these coins. Don\'t make it weird.'], gift: { coins: 40 } },
+    6: { lines: ['Forty years, nobody visits. Then you. Twice a week!', 'My lucky nugget. Well, half. I bit the other half.'], gift: { coins: 70 } },
+    10: { lines: ['I\'m naming a seam after you. "Fox Vein." Richest one up there.', 'And this, from my coffee can. Forty years of savings.'], gift: { coins: 150 } },
+  },
+  visit: { lines: ['Hrmph. Came down the mountain. Knees hate me.', 'Brought you something from the quarry. Don\'t lick it.'], gift: { coins: 30 } },
+};
+BICKER.push({ a: 'flint', b: 'pip', lines: [ // [F&S mining]
+  { by: 'b', t: 'Flint! Wanna sell some rocks, partner? I buy anything round!' },
+  { by: 'a', t: 'They\'re not round. They\'re ORE. There\'s a difference.', anim: 'bite_nugget' },
+  { by: 'b', t: 'Is the difference... the price?', anim: 'haggle' },
+  { by: 'a', t: 'The difference is I bite them and they don\'t bite back. Mostly.' },
+], fox: 'Note to self: never sell Flint a coin. He\'ll eat it.' });

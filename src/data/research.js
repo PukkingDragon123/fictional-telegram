@@ -59,6 +59,9 @@ export const SECTION_KEYS = {
 // the "bear events" helper) joins the tree when that file exists.
 let DEFENSE_MOD = null;
 try { DEFENSE_MOD = import.meta.glob('./researchDefense.js', { eager: true })['./researchDefense.js'] || null; } catch { DEFENSE_MOD = null; }
+// [F&S mining] the Flint & Steel (industry) section, src/data/researchIndustry.js
+let INDUSTRY_MOD = null;
+try { INDUSTRY_MOD = import.meta.glob('./researchIndustry.js', { eager: true })['./researchIndustry.js'] || null; } catch { INDUSTRY_MOD = null; }
 
 export const RESEARCH = [
   // ================================================================ Reynard's Lab (the start)
@@ -244,6 +247,20 @@ if (DEFENSE_MOD && Array.isArray(DEFENSE_MOD.DEFENSE_RESEARCH)) {
     if (!r || !r.id || have.has(r.id)) continue;
     have.add(r.id);
     RESEARCH.push({ icon: 'fence', time: 60, desc: '', ...r, branch: r.branch || bid, req: Array.isArray(r.req) ? r.req : [] });
+  }
+}
+
+// [F&S mining] merge the Flint & Steel section (nodes may also sit in other branches, e.g. the Lab gateway)
+if (INDUSTRY_MOD && Array.isArray(INDUSTRY_MOD.INDUSTRY_RESEARCH)) {
+  const IB = INDUSTRY_MOD.INDUSTRY_BRANCH || {};
+  const bid = IB.id || 'industry';
+  if (!BRANCHES.some((b) => b.id === bid)) BRANCHES.push({ name: 'Flint & Steel', icon: 'gear', color: '#8a8f9c', ...IB, id: bid });
+  if (IB.key) SECTION_KEYS[bid] = { ...IB.key };
+  const have = new Set(RESEARCH.map((r) => r.id));
+  for (const r of INDUSTRY_MOD.INDUSTRY_RESEARCH) {
+    if (!r || !r.id || have.has(r.id)) continue;
+    have.add(r.id);
+    RESEARCH.push({ icon: 'gear', time: 60, desc: '', ...r, branch: r.branch || bid, req: Array.isArray(r.req) ? r.req : [] });
   }
 }
 

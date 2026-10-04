@@ -38,6 +38,7 @@ const NPCS = {
   rocco: { cls: 'RaccoonMerchant', name: 'Rocco', h: 1.4, reel: ['idle', 'talk', 'wave', 'count_coins', 'rummage', 'show_item', 'walk', 'happy', 'laugh'] },
   shellby: { cls: 'TurtleElder', name: 'Shellby', h: 1.3, reel: ['idle', 'talk', 'wave', 'sip_tea', 'doze', 'walk', 'happy', 'laugh'] },
   dale: { cls: 'DeerGuy', name: 'Dale', h: 1.9, reel: ['idle', 'talk', 'wave', 'laugh', 'cheers', 'drink', 'walk'] },
+  flint: { cls: 'BadgerProspector', name: 'Flint', h: 1.4, reel: ['idle', 'talk', 'wave', 'swing_pick', 'bite_nugget', 'gentle_boom', 'walk', 'happy', 'laugh'] }, // [F&S mining]
 };
 const make = (k) => { const Cls = C3[NPCS[k].cls]; return Cls ? new Cls() : null; };
 

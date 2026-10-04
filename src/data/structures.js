@@ -421,6 +421,8 @@ export const BUILD_CATEGORIES = [
 ];
 // [v18 bear events] defense builds (src/data/structuresDefense.js, optional): merged into STRUCTURES + a 'defense' build category
 for (const m of Object.values(import.meta.glob('./structuresDefense.js', { eager: true }))) { Object.assign(STRUCTURES, m.STRUCTURES_DEFENSE || {}); if (m.DEFENSE_CATEGORY && !BUILD_CATEGORIES.some((c) => c.id === m.DEFENSE_CATEGORY.id)) BUILD_CATEGORIES.push(m.DEFENSE_CATEGORY); }
+for (const m of Object.values(import.meta.glob('./structuresMining.js', { eager: true }))) Object.assign(STRUCTURES, m.STRUCTURES_MINING || {}); // [F&S mining] Ore Shed (src/data/structuresMining.js)
+for (const m of Object.values(import.meta.glob('./structuresIndustry.js', { eager: true }))) { Object.assign(STRUCTURES, m.STRUCTURES_INDUSTRY || {}); if (m.INDUSTRY_CATEGORY && !BUILD_CATEGORIES.some((c) => c.id === m.INDUSTRY_CATEGORY.id)) BUILD_CATEGORIES.push(m.INDUSTRY_CATEGORY); } // [F&S industry] machines, automation, clean-up (src/data/structuresIndustry.js)
 
 // Snack kinds bears can eat (meal points come from each structure's food.meal).
 export const SNACKS = {

@@ -27,6 +27,7 @@ import * as C3 from '../entities/critters3d.js';
 export const NPC_RIGS = {
   dale: 'DeerGuy', granny: 'FrogGranny', hoot: 'OwlRanger', rocco: 'RaccoonMerchant', shellby: 'TurtleElder',
   clover: 'BunnyGardener', otis: 'OtterFisher', pip: 'ChipmunkTrader', chip: 'WoodpeckerCarpenter', hazel: 'HedgehogBaker',
+  flint: 'BadgerProspector', // [F&S mining]
 };
 const FPS = 30;
 

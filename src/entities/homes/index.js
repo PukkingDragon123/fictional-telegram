@@ -10,8 +10,10 @@ import { buildClover } from './clover.js';
 import { buildHazel } from './hazel.js';
 import { buildChip } from './chip.js';
 import { buildPip } from './pip.js';
+import { buildFlint } from './flint.js'; // [F&S mining]
 
 export const HOME_BUILDERS = {
   hoot: buildHoot, shellby: buildShellby, dale: buildDale, granny: buildGranny, rocco: buildRocco,
   otis: buildOtis, clover: buildClover, hazel: buildHazel, chip: buildChip, pip: buildPip,
+  flint: buildFlint, // [F&S mining]
 };

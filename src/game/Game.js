@@ -46,6 +46,9 @@ import { NpcScenes } from './NpcScenes.js'; // [npc cutscenes] arrival + first-v
 import { HomeMode } from './HomeMode.js'; // [v20 npc homes]
 import { Forage } from './Forage.js';
 import { Terraform } from './Terraform.js';
+import { Resources } from './Resources.js'; // [F&S mining] ore + parts inventory (game.res)
+import { Mining } from './Mining.js'; // [F&S mining] veins, the bear mine, Flint
+import { Industry } from './Industry.js'; // [F&S industry] machines, belts, power, worker bears, pollution
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
 const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
 import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
@@ -158,6 +161,9 @@ export class Game {
     this.npcScenes = new NpcScenes(this); // [npc cutscenes]
     this.forage = new Forage(this); // forest finds (state.forage saves with the state)
     this.terraform = new Terraform(this); // Terraform tool: reshape / paint land, dig & name ponds
+    this.res = new Resources(this); // [F&S mining]
+    this.mining = new Mining(this); // [F&S mining]
+    this.industry = new Industry(this); // [F&S industry]
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -242,6 +248,8 @@ export class Game {
     this.villagers.onLoad();
     this.refreshMods();
     this.quests?.onLoad();
+    this.mining?.onLoad(); // [F&S mining]
+    this.industry?.onLoad(); // [F&S industry]
     this.onTopologyChanged();
     this.startDay(true);
     this.started = true;
@@ -1122,10 +1130,13 @@ export class Game {
     }
     const chk = this.structures.canPlace(type, x, z);
     if (!chk.ok) { this.notify(chk.reason, 'no'); this.audio.play('error', { volume: 0.4 }); return false; }
+    const parts = !free && def.res && this.res ? def.res : null; // [F&S industry] crafted-part / ore costs (def.res), paid from game.res
+    if (parts && !this.res.hasAll(parts)) { this.notify(`${def.name} needs ${this.res.billText(parts)}`, 'no'); this.audio.play('error', { volume: 0.4 }); return false; }
     if (free) { inv[type]--; if (inv[type] <= 0) { delete inv[type]; if (this.tool?.free) this.setTool({ kind: 'feed' }); } this.emit('inventory', inv); }
     else if (!this.spend(def.cost, 'builds')) return false;
     const s = this.structures.place(type, x, z, { free });
     if (!s) { if (free) inv[type] = (inv[type] || 0) + 1; else this.state.coins += def.cost; return false; }
+    if (parts) this.res.takeAll(parts); // [F&S industry]
     this.placeFx(s, quiet);
     if (s.built) this.onStructureBuilt(s);
     if (s.built && (def.blocksBear || def.blocksFish)) this.onTopologyChanged();
@@ -1573,6 +1584,8 @@ export class Game {
     this.tutorial?.update(realDt);
     this.lab?.update(realDt);
     this.homes?.update(realDt); // [v20 npc homes]
+    if (st.phase !== 'gameover') this.mining?.update(simDt, dt); // [F&S mining]
+    if (st.phase !== 'gameover') this.industry?.update(simDt, dt); // [F&S industry]
     this.classroom?.update(realDt);
     this.particles.update(simDt || dt * 0.5);
     try { updateWakes(this, simDt || dt * 0.5); } catch (e) { console.warn('wakes', e); } // [v20 water] fish/bear/bird/beaver wakes
@@ -1701,6 +1714,8 @@ export class Game {
     this.villagers.onLoad();
     this.refreshMods();
     this.quests?.onLoad();
+    this.mining?.onLoad(); // [F&S mining]
+    this.industry?.onLoad(); // [F&S industry]
     this.applyLandmarkMods();
     this.world.landVersion++;
     if (data.cam) { this.rig.lookAt(data.cam[0], data.cam[1], true); this.rig.wupp = this.rig.wuppGoal = data.cam[2]; this.rig.yaw = this.rig.yawGoal = data.cam[3] || 0; }

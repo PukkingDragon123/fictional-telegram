@@ -184,6 +184,24 @@ const SCENES = {
   },
 };
 
+// [F&S mining] Flint moves in when the Mountain Survey lifts the quarry fog
+SCENES.flint = {
+  sig: ['swing_pick'],
+  arrive: [
+    { t: '*CLANK* *CLANK* ...Hrmph. Who turned the sun on?', anim: 'swing_pick', sfx: 'pick_clank', fx: 'puff' },
+    { t: 'A fox. In my quarry. With a monocle. Seen it all now.', anim: 'talk' },
+    { t: 'Copper, coal, gold... this mountain\'s full of it. Watch.', anim: 'bite_nugget', fx: 'sparkle', sfx: 'star_pop' },
+    { t: 'Gentle dynamite. Perfectly safe. Stand back.', anim: 'gentle_boom', sfx: 'fuse_fizz' },
+  ],
+  closer: 'Decrypt Flint & Steel in your lab, kid. Then research {X}.',
+  visit: [
+    { t: 'Welcome to the quarry. Mind the goats. They bite.', anim: 'wave' },
+    { t: 'Mark a vein up there, your beavers dig it. Sacks go to an Ore Shed.', anim: 'swing_pick', sfx: 'pick_clank' },
+    { t: 'Got a seam behind my shack fit for a real mine. Bears and all.', anim: 'bite_nugget' },
+  ],
+  fox: { t: 'A mountain full of gold, and a badger who bites it. My kind of neighbour.', mood: 'greedy' },
+};
+
 export class NpcScenes {
   constructor(game) {
     this.game = game;

@@ -33,3 +33,4 @@ export { OtterFisher } from './critterOtter.js';
 export { HedgehogBaker } from './critterHedgehog.js';
 export { WoodpeckerCarpenter } from './critterWoodpecker.js';
 export { ChipmunkTrader, CHIPMUNK_ANIMS, PIP_WALK_SPEED, PIP_CART_SPEED, PIP_CART_Z } from './critterChipmunk.js';
+export { BadgerProspector } from './critterBadger.js'; // [F&S mining] Flint

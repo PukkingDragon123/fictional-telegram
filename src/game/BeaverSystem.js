@@ -309,6 +309,7 @@ export class BeaverSystem {
 
   // ------------------------------------------------------------ jobs
   unassign(job) {
+    if (job.kind === 'mine' || job.kind === 'orehaul') { this.game.mining?.unassignJob(job); return; } // [F&S mining] vein jobs + ore sacks
     if (job.kind === 'haul') { if (job.log && job.log.claim) job.log.claim = null; return; }
     if (job.kind === 'clear') { if (job.c.assigned) job.c.assigned = null; }
     else if (job.s && job.s.assigned) job.s.assigned = null;
@@ -336,7 +337,8 @@ export class BeaverSystem {
       const d = Math.hypot(c.x + 0.5 - b.x, c.z + 0.5 - b.z) + c.order * 0.05;
       if (d < bd) { bd = d; bc = c; }
     }
-    return bc ? { kind: 'clear', c: bc } : null;
+    if (bc) return { kind: 'clear', c: bc };
+    return this.game.mining?.findBeaverJob?.(b) || null; // [F&S mining] marked ore veins
   }
 
   // ------------------------------------------------------------ pay
@@ -368,6 +370,7 @@ export class BeaverSystem {
   get striking() { return this.list.some((b) => b.strike); }
 
   jobTarget(job) {
+    if (job.kind === 'mine') return this.game.mining.jobTarget(job); // [F&S mining]
     if (job.kind === 'clear') return { x: job.c.x + 0.5, z: job.c.z + 0.5 };
     return { x: job.s.x + 0.5, z: job.s.z + 0.5 };
   }
@@ -390,8 +393,8 @@ export class BeaverSystem {
             const job = this.findJob(b);
             // hauling logs is free (part of the job): do it when the paid work
             // can't start, and take turns with chopping so logs don't pile up
-            const haul = (!job || job.kind === 'clear' || (this.needsPay(job) && this.credit < 1)) ? this.findHaul(b) : null;
-            if (haul && (!job || (this.needsPay(job) && this.credit < 1) || b.lastJob === 'clear')) {
+            const haul = (!job || job.kind === 'clear' || job.kind === 'mine' || (this.needsPay(job) && this.credit < 1)) ? this.findHaul(b) : null; // [F&S mining] mine jobs take turns with hauling too
+            if (haul && (!job || (this.needsPay(job) && this.credit < 1) || b.lastJob === 'clear' || b.lastJob === 'mine')) {
               this.startHaul(b, haul);
             } else if (job && this.needsPay(job) && this.credit < 1) {
               // unpaid: grab a snack at the bar if there's food, else strike
@@ -402,7 +405,8 @@ export class BeaverSystem {
               if (this.needsPay(job)) { this.credit = this.credit - 1; job.paidCredit = true; }
               b.job = job;
               b.lastJob = job.kind;
-              if (job.kind === 'clear') job.c.assigned = b; else job.s.assigned = b;
+              if (job.kind === 'mine') this.game.mining.claimJob(b, job); // [F&S mining]
+              else if (job.kind === 'clear') job.c.assigned = b; else job.s.assigned = b;
               if (job.kind === 'clear' && (job.c.kind === 'tree' || job.c.kind === 'forest')) job.stand = this.chopSpot(b, job.c);
               b.state = 'go';
               b.sulk = false;
@@ -451,7 +455,8 @@ export class BeaverSystem {
         this.updateHaul(b, dt, speedMult);
       } else if (b.state === 'go') {
         const job = b.job;
-        if (job.kind !== 'clear' && (job.s.removed || (job.kind === 'build' && job.s.built))) { this.release(b); continue; }
+        if (job.kind === 'mine' && !this.game.mining?.jobValid(job)) { this.release(b); continue; } // [F&S mining]
+        if (job.kind !== 'clear' && job.kind !== 'mine' && (job.s.removed || (job.kind === 'build' && job.s.built))) { this.release(b); continue; }
         if (job.kind === 'clear' && !this.clears.has(job.c.i)) { this.release(b); continue; }
         const tg = job.stand || this.jobTarget(job);
         const stop = job.stand ? 0.06 : job.kind === 'clear' ? 0.7 : 0.55;
@@ -464,7 +469,9 @@ export class BeaverSystem {
         const tg = this.jobTarget(job);
         b.heading += angleDiff(b.heading, Math.atan2(tg.z - b.z, tg.x - b.x)) * Math.min(1, dt * 6);
         b.t += dt;
-        if (job.kind === 'clear') {
+        if (job.kind === 'mine') { // [F&S mining] hacking at an ore vein
+          if (this.game.mining.workBeaver(b, job, dt)) { if (this.game.mining.jobValid(job) || job.progress >= 1) this.paid(b); this.release(b); }
+        } else if (job.kind === 'clear') {
           const c = job.c;
           if (!this.clears.has(c.i)) { this.release(b); continue; }
           c.progress += (dt * speedMult * (this.game.mods.clearSpeed || 1) * (1 + 0.35 * (this.level() - 1))) / CLEAR[c.kind].time;
@@ -635,14 +642,16 @@ export class BeaverSystem {
   }
 
   findHaul(b) {
-    if (!this.fall.logs.length) return null;
+    const ore = () => this.game.mining?.findOreHaul?.(b) || null; // [F&S mining] ore sacks -> Ore Shed
+    if (!this.fall.logs.length) return ore();
     const garage = this.pickGarage(b);
-    if (!garage) return null;
+    if (!garage) return ore();
     const log = this.fall.nearestLog(b.x, b.z);
-    return log ? { kind: 'haul', log, garage, phase: 'fetch' } : null;
+    return log ? { kind: 'haul', log, garage, phase: 'fetch' } : ore();
   }
 
   startHaul(b, job) {
+    if (job.kind === 'orehaul') this.game.mining.startHaul(b, job); else // [F&S mining]
     job.log.claim = b;
     b.job = job;
     b.lastJob = 'haul';
@@ -655,11 +664,13 @@ export class BeaverSystem {
 
   dropCarried(b) {
     if (!b.carry) return;
+    if (b.carry.ore) { this.game.mining?.dropOre(b); return; } // [F&S mining]
     this.fall.putLog(b.x + Math.cos(b.heading) * 0.3, b.z + Math.sin(b.heading) * 0.3, -b.heading);
     b.carry = null;
   }
 
   updateHaul(b, dt, speedMult) {
+    if (b.job?.kind === 'orehaul') { this.game.mining.updateOreHaul(b, dt, speedMult); return; } // [F&S mining]
     const game = this.game;
     const job = b.job;
     const run = 3.8 * speedMult ** 0.5;
@@ -757,7 +768,7 @@ export class BeaverSystem {
   }
 
   release(b) {
-    if (b.carry && b.job?.kind === 'haul') this.dropCarried(b);
+    if (b.carry && (b.job?.kind === 'haul' || b.job?.kind === 'orehaul')) this.dropCarried(b); // [F&S mining] orehaul
     if (b.job) {
       this.unassign(b.job);
       if (b.job.paidCredit && !b.job.done) this.credit = this.credit + 1; // cancelled: refund the pay
@@ -880,7 +891,7 @@ export class BeaverSystem {
   serialize() {
     // logs on the ground live in state.groundLogs; count the ones being carried too
     this.fall.saveLogs();
-    for (const b of this.list) if (b.carry) this.game.state.groundLogs.push([+b.x.toFixed(2), +b.z.toFixed(2), 0, b.carry.variant || 0]);
+    for (const b of this.list) if (b.carry && !b.carry.ore) this.game.state.groundLogs.push([+b.x.toFixed(2), +b.z.toFixed(2), 0, b.carry.variant || 0]);
     return { n: this.list.length, clears: [...this.clears.values()].map((c) => [c.x, c.z]) };
   }
 
