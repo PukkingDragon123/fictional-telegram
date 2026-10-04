@@ -1589,6 +1589,7 @@ export class UI {
 
   closeTop() {
     if (this.game.lab?.active) { this.game.lab.exit?.(); return true; }
+    if (this.game.homes?.active && !this.game.villagers?.card) { this.game.homes.exit(); return true; } // [v20 npc homes]
     if (this.book?.isOpen) { this.book.close(); return true; }
     if (this.menu?.isOpen) return this.menu.back();
     if (this.ebuy) { this.closeEBuy(); return true; }

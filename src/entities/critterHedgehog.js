@@ -36,6 +36,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.2 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 5, WAIST: 1, NECK: 6.4, NECK_Z: 0.8, SH: [5.4, 5.6, 0.6], L_UP: 3.2, L_FORE: 3.2, L_HAND: 1.8,
   THIGH: 2.7, SHIN: 2.6, LEG_X: 2.4, EAR: [4.1, 5.8, 0.2], TAIL: [0.2, -5.4],
 };
@@ -330,9 +331,9 @@ export class HedgehogBaker extends BipedRig {
     this.pinTuck.rotation.set(0, 0.25, -0.5);
     this.pie = this.mesh(G.pie, this.gripL);
     // pastry board + dough (root space, in front), the curled-up ball
-    this.board = this.mesh(G.board, this.root, { x: 0, y: 0, z: BOARD_Z });
-    this.dough = this.mesh(G.dough, this.root, { x: 0, y: (STOOL + 1) * FV, z: BOARD_Z });
-    this.ball = new THREE.Group(); this.root.add(this.ball);
+    this.board = this.mesh(G.board, this.space, { x: 0, y: 0, z: BOARD_Z });
+    this.dough = this.mesh(G.dough, this.space, { x: 0, y: (STOOL + 1) * FV, z: BOARD_Z });
+    this.ball = new THREE.Group(); this.space.add(this.ball);
     this.ballSpin = new THREE.Group(); this.ballSpin.position.y = 6.4 * VS; this.ball.add(this.ballSpin);
     this.mesh(G.ball, this.ballSpin, { y: -6.4 * VS });
     const bt = this.mesh(G.toque, this.ball, { y: 12.2 * VS, z: -0.2 * VS });
@@ -340,13 +341,13 @@ export class HedgehogBaker extends BipedRig {
     this.ballToque = bt;
     // sprites
     const fm = spriteMatPal(FLOUR_ROWS, FLOUR_PAL), sm = spriteMatPal(STEAM_ROWS, STEAM_PAL), stm = spriteMatPal(STAR_ROWS, STAR_PAL);
-    const spr = (m, n) => [...Array(n)].map(() => { const s = new THREE.Sprite(m); s.visible = false; this.root.add(s); return s; });
+    const spr = (m, n) => [...Array(n)].map(() => { const s = new THREE.Sprite(m); s.visible = false; this.space.add(s); return s; });
     this.flour = spr(fm, 5);
     this.steam = spr(sm, 3);
     this.stars = spr(stm, 4);
-    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.root));
+    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.space));
     this.scalar('board', 0);
     this.scalar('flat', 0); // dough: 0 = a ball .. 1 = rolled flat
     this.scalar('flour', 0); // >0.5: flour puffs (at flourX/Z, root voxels)
@@ -416,7 +417,7 @@ export class HedgehogBaker extends BipedRig {
       s.scale.setScalar(0.07 * (u < 0.7 ? min(1, u * 5) : (1 - u) / 0.3));
     });
     // steam off the pie
-    if (this.pie.visible) { this.pie.updateWorldMatrix(true, false); _w2.set(0, 4 * FV, 0); this.pie.localToWorld(_w2); this.root.worldToLocal(_w2); }
+    if (this.pie.visible) { this.pie.updateWorldMatrix(true, false); _w2.set(0, 4 * FV, 0); this.pie.localToWorld(_w2); this.space.worldToLocal(_w2); }
     this.steam.forEach((s, i) => {
       const u = (tz * 0.7 + i / 3) % 1;
       s.visible = k.steam > 0.5 && this.pie.visible;
@@ -433,8 +434,8 @@ export class HedgehogBaker extends BipedRig {
       s.scale.setScalar(0.08 * sin(st * PI));
     });
     // face sprites
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 4 * VS, 4 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 4 * VS, 4 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     if (curled) _w.set(0, 0.6, 0.1);
     this.notes.forEach((s, i) => {
       const u = (tz * 0.5 + i * 0.5) % 1;

@@ -6,6 +6,7 @@
 //   ?char=pip                     one NPC with buttons (anims, expressions, talk, mood, camera)
 //   ?mode=faces&char=hoot         every expression of one NPC
 //   ?mode=heads                   head-ratio overlay: prints each rig's head / total height
+//   ?mode=portraits               NpcTalk3D live portraits (bust / half / full + the 36px snapshot) for every NPC (&mood=sad)
 //   window.__test()               plays every anim + expression of every NPC, returns errors / heights / head ratios
 import * as THREE from 'three';
 import { PixelRenderer } from '../src/core/pixelRenderer.js';
@@ -13,6 +14,8 @@ import { CameraRig } from '../src/core/cameraRig.js';
 import { VoxelModel, voxelMaterial } from '../src/core/voxel.js';
 import * as C3 from '../src/entities/critters3d.js';
 import { FoxRig } from '../src/entities/foxRig.js';
+import { createNpcTalk, npcSnapshot } from '../src/ui/NpcTalk3D.js';
+import { makeRockingChair } from '../src/entities/npcProps.js';
 
 const params = new URLSearchParams(location.search);
 const mode = params.get('mode') || (params.has('char') ? 'rig' : 'lineup');
@@ -61,7 +64,7 @@ scene.add(sun, sun.target);
 scene.add(new THREE.HemisphereLight(0xc4dcff, 0x5b6a3a, 1.1));
 {
   const rnd = mulberry(7), v = new VoxelModel(), R = 70;
-  for (let x = -R; x < R; x++) for (let z = -R / 2; z < R / 2; z++) { const h = rnd(); v.set(x, -1, z, h < 0.12 ? 0x78a441 : h > 0.9 ? 0x6a9438 : 0x6e993b); }
+  for (let x = -R; x < R; x++) for (let z = -R; z < R / 2; z++) { const h = rnd(); v.set(x, -1, z, h < 0.12 ? 0x78a441 : h > 0.9 ? 0x6a9438 : 0x6e993b); }
   const g = new THREE.Mesh(v.build({ pivot: [0, 0, 0], scale: 0.1 }), voxelMaterial());
   g.receiveShadow = true;
   scene.add(g);
@@ -81,6 +84,7 @@ function addActor(key, x, z, anim) {
   actors.push(a);
   return a;
 }
+const lowW = () => 0.92 * 760 * pr.pixelDensity * innerWidth / Math.hypot(innerWidth, innerHeight); // low-res px across
 const sim = (rig, s) => { for (let t = 0; t < s - 1e-6; t += STEP) rig.update(Math.min(STEP, s - t)); };
 
 function visibleBox(root) {
@@ -106,7 +110,7 @@ function headRatio(rig) {
 
 // ------------------------------------------------------------------ cameras
 const cams = {
-  face: { wupp: 0.0017, y: 1.0, pitch: 6 },
+  face: { wupp: 0.0045, y: 1.0, pitch: 6 },
   close: { wupp: 0.0042, y: 0.7, pitch: 12 },
   game: { wupp: 0.016, y: 0.3, pitch: 44 },
 };
@@ -124,7 +128,33 @@ cam.goal.set(num('cx', 0), 0, num('cz', 0));
 cam.target.copy(cam.goal);
 
 const charKey = NPCS[params.get('char')] ? params.get('char') : 'pip';
-if (mode === 'lineup' || mode === 'heads') {
+if (mode === 'portraits') {
+  canvas.style.display = 'none';
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;inset:0;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:10px;background:#2b2340';
+  document.body.appendChild(host);
+  window.__talks = [];
+  for (const k of Object.keys(NPCS)) {
+    const cell = document.createElement('div');
+    cell.style.cssText = 'display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;color:#fff4e0;font:bold 12px Trebuchet MS';
+    for (const [frame, w, h] of [['bust', 96, 96], ['half', 84, 120], ['full', 70, 120]]) {
+      const box = document.createElement('div');
+      box.style.cssText = `position:relative;width:${w}px;height:${h}px;background:#f4e6c8;border:2px solid #6a4a2a;border-radius:6px;overflow:hidden`;
+      cell.appendChild(box);
+      try {
+        const t = createNpcTalk(box, { npc: k, frame });
+        if (t && params.get('mood')) t.mood(params.get('mood'));
+        if (t && params.get('talk')) t.talk(params.get('talk'));
+        window.__talks.push(t);
+      } catch (e) { errors.push('portrait ' + k + ' ' + e.message); }
+    }
+    try { const sn = npcSnapshot(k, { w: 36, h: 36 }); sn.style.cssText = 'width:72px;height:72px;image-rendering:pixelated;background:#f4e6c8;border-radius:4px'; cell.appendChild(sn); } catch (e) { errors.push('snap ' + k + ' ' + e.message); }
+    const lab = document.createElement('div'); lab.textContent = NPCS[k].name; lab.style.width = '100%';
+    cell.appendChild(lab);
+    host.appendChild(cell);
+  }
+}
+if (mode === 'portraits') { /* DOM only */ } else if (mode === 'lineup' || mode === 'heads') {
   const keys = (params.get('chars') || Object.keys(NPCS).join(',')).split(',').filter((k) => NPCS[k]);
   if (params.get('fox') !== '0') keys.unshift('fox');
   const gap = num('gap', 1.0);
@@ -136,15 +166,32 @@ if (mode === 'lineup' || mode === 'heads') {
     labels.push({ a, text: k === 'fox' ? 'Reynard' : NPCS[k].name });
   });
   const zoom = params.get('zoom') || 'close';
-  if (zoom === 'close') setCam('close', { wupp: (keys.length * gap + 0.4) / (innerWidth / 3) });
+  if (zoom === 'close') setCam('close', { wupp: (keys.length * gap + 0.4) / lowW() });
   else setCam(zoom);
   if (mode === 'heads') {
     const rows = actors.map((a) => `${a.key}: h ${visibleBox(a.rig.root).max.y.toFixed(2)} head ${headRatio(a.rig)}`);
     labelEl.innerHTML = 'head ratio<small>' + rows.join('<br>') + '</small>';
   }
+} else if (mode === 'pose') {
+  // ?mode=pose&list=hoot:binoculars:2,shellby:sip_tea:1.5   frozen poses side by side (char:anim:seconds)
+  const list = (params.get('list') || 'hoot:binoculars:2').split(',').map((e) => e.split(':'));
+  const gap = num('gap', 1.0);
+  list.forEach(([k, an, ts], i) => {
+    const a = addActor(k, (i - (list.length - 1) / 2) * gap, 0, an);
+    if (!a) return;
+    // seated anims are posed for their home furniture
+    if (an === 'sit_chair' || an === 'drink' || an === 'cheers') { const ch = C3.makeLawnChair('green'); ch.position.copy(a.rig.root.position); scene.add(ch); }
+    if (an === 'sit_knit') { const ch = makeRockingChair(); ch.position.copy(a.rig.root.position); scene.add(ch); a.rig.useChair?.(ch); }
+    if (an === 'drink' || an === 'cheers') { a.rig.play('sit_chair', { fade: 0 }); sim(a.rig, 1); }
+    a.rig.play(an, { fade: 0, restart: true });
+    sim(a.rig, +ts || 1);
+    a.frozen = true;
+    labels.push({ a, text: (NPCS[k]?.name || k) + ' ' + an + ' ' + ts });
+  });
+  setCam(params.get('zoom') || 'close', { wupp: (list.length * gap + 0.4) / lowW() });
 } else if (mode === 'faces') {
   const tmp = make(charKey);
-  const ex = tmp.expressions;
+  const ex = params.get('exprs') ? params.get('exprs').split(',') : tmp.expressions;
   tmp.dispose();
   const gap = 0.9;
   ex.forEach((e, i) => {
@@ -154,7 +201,7 @@ if (mode === 'lineup' || mode === 'heads') {
     a.frozen = true;
     labels.push({ a, text: e });
   });
-  setCam('face', { wupp: (ex.length * gap + 0.2) / (innerWidth / 3), y: NPCS[charKey].h * 0.7 });
+  setCam('face', { wupp: (ex.length * gap + 0.2) / lowW(), y: NPCS[charKey].h * 0.7 });
   labelEl.innerHTML = `${NPCS[charKey].name}<small>expressions</small>`;
 } else {
   main = addActor(charKey, 0, 0, params.get('anim'));
@@ -162,7 +209,8 @@ if (mode === 'lineup' || mode === 'heads') {
   if (params.has('t')) sim(main.rig, num('t', 0));
   main.showreel = params.get('showreel') === '1';
   const z = params.get('zoom') || 'close';
-  setCam(z, z === 'close' ? { wupp: 0.0024, y: NPCS[charKey].h * 0.5 } : z === 'face' ? { y: NPCS[charKey].h * 0.72 } : {});
+  const hc = visibleBox(main.rig.headMesh || main.rig.root).getCenter(new THREE.Vector3());
+  setCam(z, z === 'close' ? { wupp: 0.0024, y: NPCS[charKey].h * 0.5 } : z === 'face' ? { y: hc.y - 0.05 } : {});
 }
 let frozen = params.get('freeze') === '1';
 
@@ -209,7 +257,7 @@ if (main) {
   const s2 = section('Expressions (again = auto)');
   for (const e of main.rig.expressions) btn(s2, e, () => main.rig.setExpression(main.rig._userExpr === e ? null : e));
   const s3 = section('Camera');
-  btn(s3, 'face', () => setCam('face', { y: NPCS[charKey].h * 0.72 }));
+  btn(s3, 'face', () => setCam('face', { y: visibleBox(main.rig.headMesh).getCenter(new THREE.Vector3()).y - 0.05 }));
   btn(s3, 'close', () => setCam('close', { wupp: 0.0024, y: NPCS[charKey].h * 0.5 }));
   btn(s3, 'game', () => setCam('game'));
   btn(s3, 'rotate 45', () => { cam.yawGoal += Math.PI / 4; });

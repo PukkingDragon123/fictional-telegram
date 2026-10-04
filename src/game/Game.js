@@ -43,6 +43,7 @@ import { Matchmaking } from './Matchmaking.js';
 import { Workshop } from './Workshop.js';
 import { PipVisit } from './PipVisit.js';
 import { NpcScenes } from './NpcScenes.js'; // [npc cutscenes] arrival + first-visit scenes
+import { HomeMode } from './HomeMode.js'; // [v20 npc homes]
 import { Forage } from './Forage.js';
 import { Terraform } from './Terraform.js';
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
@@ -144,6 +145,7 @@ export class Game {
     this.livestock = new Livestock(this);
     this.tanks = new Tanks(this);
     this.zones = new ZoneSystem(this);
+    this.homes = new HomeMode(this); // [v20 npc homes] before the villagers: their houses hook in on reveal
     this.villagers = new Villagers(this);
     this.landAnimals = new LandAnimals(this);
     this.land = new Land(this);
@@ -167,6 +169,10 @@ export class Game {
     this.inputLocked = false;
     this.wind = 1;
     this.rig.setBounds({ minX: 8, maxX: WORLD_W - 8, minZ: 9, maxZ: WORLD_H - 6 });
+    // [v20 map] the valley ring (world/outerRing.js) reaches ~100 tiles out: the camera never
+    // centres past the map edge (not even in cutscenes) and the widest zoom stays inside it
+    this.rig.hardBounds = { minX: -2, maxX: WORLD_W + 2, minZ: -2, maxZ: WORLD_H + 2 };
+    this.rig.viewHalfMax = 62;
     this.rig.lookAt(MEADOW.x0 + 21, 36, true);
     this.running = false;
     this.started = false;
@@ -1565,6 +1571,7 @@ export class Game {
     this.cine?.update(realDt);
     this.tutorial?.update(realDt);
     this.lab?.update(realDt);
+    this.homes?.update(realDt); // [v20 npc homes]
     this.classroom?.update(realDt);
     this.particles.update(simDt || dt * 0.5);
     this.world.sim.update(simDt || dt * 0.5, this.wind);
@@ -1584,6 +1591,7 @@ export class Game {
     this.sky.update(this.state.hour, this.time, rig.target, rig.yaw);
     this.sky.setShadowExtent(this.renderer.rtW * rig.wupp * 0.75);
     this.world.update(this.time, this.sky, rig.camera);
+    this.world.ring?.update(this.time, this.sky, rig); // [v20 map] valley haze, deer, birds, edge mist
     this.fish.render();
     this.structures.renderSprites();
     this.food.render();

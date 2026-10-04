@@ -127,6 +127,7 @@ export class Villagers {
       }
     }
     put(tryMake(NP.makeSignpost, v.cast.sign || v.name.split(' ').pop().toUpperCase()), v.id === 'rocco' ? 1.3 : -1.4, 1.1, 0.2);
+    game.homes?.addExterior?.(v, g, put); // [v20 npc homes] their house, mailbox + door marker
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.group.add(g);
     return g;
@@ -216,6 +217,7 @@ export class Villagers {
     const panel = (fn) => () => { this.card?.close?.(); setTimeout(fn, 380); };
     if (v.id === 'pip' && game.pipVisit) offers.unshift({ icon: 'tree', title: 'Sell logs', desc: `Today: ${game.pipVisit.price?.() ?? '?'} coins a log`, tag: 'OPEN', onClick: panel(() => game.pipVisit.openTrade()) });
     if (v.id === 'chip' && game.workshop) offers.unshift({ icon: 'hammer', title: 'Open the workshop', desc: 'Furniture orders and repairs', tag: 'OPEN', onClick: panel(() => game.workshop.open()) });
+    if (game.homes?.doors?.has(v.id) && !game.homes.active) offers.unshift({ icon: 'home', title: 'Visit home', desc: 'Pop in for a look around', tag: 'OPEN', onClick: panel(() => game.homes.enter(v.id)) }); // [v20 npc homes]
     if (this.card) this.card.close?.();
     const talk = this.talk;
     let card = null;
@@ -313,7 +315,7 @@ export class Villagers {
           v.rig.play(n, { loop, onDone: loop ? undefined : () => this.idle(v) });
           if (loop) setTimeout(() => { if (v.rig?.current === n) { v.rig.play(n === 'doze' && hasAnim(v.rig, 'wake') ? 'wake' : 'idle', { loop: false, onDone: () => this.idle(v) }); } }, 6000);
         }
-        if (Math.random() < 0.25 && Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 14) this.sayLine(v, pick(v.zone.lines), { dur: 2.6 });
+        if (Math.random() < 0.25 && !game.overrideScene && Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 14) this.sayLine(v, pick(v.zone.lines), { dur: 2.6 }); // [v20 npc homes] no outdoor chatter over an interior
       }
       v.rig.update?.(dt);
       v.propUpdate?.(dt);

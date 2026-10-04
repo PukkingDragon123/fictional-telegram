@@ -26,6 +26,18 @@ export class CameraRig {
     this.shake = 0;
     this.follow = null; // optional {x,z} object to follow
     this._rt = { w: 1, h: 1 };
+    // [v20 map] edge of the world: `hardBounds` always holds (even in free /
+    // cutscene modes), `viewHalfMax` caps how far from the centre the widest
+    // zoom can see (tiles), and panning past `bounds` rubber-bands then springs
+    // back with a small bounce. `edgePush` = { x, z, k } for the edge vignette.
+    this.hardBounds = null;
+    this.viewHalfMax = 0;
+    this._raw = new THREE.Vector2();
+    this._rawOn = false;
+    this._panT = 1;
+    this._sv = new THREE.Vector2();
+    this._anchor = null;
+    this.edgePush = { x: 0, z: 0, k: 0 };
   }
 
   setBounds(b) { this.bounds = b; }
@@ -38,36 +50,69 @@ export class CameraRig {
     const rx = cy, rz = -sy;
     const fx = -sy, fz = -cy;
     const gx = dx * wuppCss, gy = dy * wuppCss / Math.sin(this.pitch);
-    this.goal.x -= rx * gx - fx * gy;
-    this.goal.z -= rz * gx - fz * gy;
-    this.clampGoal();
-    this.follow = null;
+    this._pan(-(rx * gx - fx * gy), -(rz * gx - fz * gy));
   }
 
   panWorld(dx, dz) {
-    this.goal.x += dx; this.goal.z += dz;
-    this.clampGoal();
-    this.follow = null;
+    this._pan(dx, dz);
   }
 
   // Move in camera-relative directions (keyboard): forward/right in world units
   panRelative(fwd, right) {
     const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
-    this.goal.x += cy * right - sy * fwd;
-    this.goal.z += -sy * right - cy * fwd;
-    this.clampGoal();
+    this._pan(cy * right - sy * fwd, -sy * right - cy * fwd);
+  }
+
+  // [v20 map] user pan: past the edge it gets heavier (rubber band), and
+  // springs back once you let go (see update)
+  _pan(dx, dz) {
     this.follow = null;
+    if (this.freeBounds) { this.goal.x += dx; this.goal.z += dz; this.clampGoal(); return; }
+    if (!this._rawOn) { this._raw.set(this.goal.x, this.goal.z); this._rawOn = true; }
+    this._raw.x += dx; this._raw.y += dz;
+    const b = this.bounds;
+    this.goal.x = this._rub(this._raw.x, b.minX, b.maxX);
+    this.goal.z = this._rub(this._raw.y, b.minZ, b.maxZ);
+    this._panT = 0;
+    this._anchor = null;
+    this._sv.set(0, 0);
+  }
+
+  rubberR() { return 0.8 + this.wupp * 26; }
+
+  _rub(v, lo, hi) {
+    const R = this.rubberR();
+    if (v < lo) return lo - R * (1 - 1 / (1 + (lo - v) / R));
+    if (v > hi) return hi + R * (1 - 1 / (1 + (v - hi) / R));
+    return v;
   }
 
   clampGoal() {
-    if (this.freeBounds) return;
+    this._rawOn = false;
+    this._anchor = null;
+    if (this.freeBounds) { this.clampHard(); return; }
     const b = this.bounds;
     this.goal.x = clamp(this.goal.x, b.minX, b.maxX);
     this.goal.z = clamp(this.goal.z, b.minZ, b.maxZ);
   }
 
+  // [v20 map] never past the edge of the world, whatever set the goal
+  clampHard() {
+    const h = this.hardBounds;
+    if (!h) return;
+    this.goal.x = clamp(this.goal.x, h.minX, h.maxX);
+    this.goal.z = clamp(this.goal.z, h.minZ, h.maxZ);
+  }
+
+  // [v20 map] widest zoom that keeps the view inside the valley
+  wuppCap() {
+    if (!this.viewHalfMax || this.freeBounds) return Infinity;
+    const span = Math.hypot(this._rt.w, this._rt.h / Math.max(0.3, Math.sin(this.pitch)));
+    return (2 * this.viewHalfMax) / Math.max(1, span);
+  }
+
   zoom(factor) {
-    this.wuppGoal = clamp(this.wuppGoal * factor, this.minWupp, this.maxWupp);
+    this.wuppGoal = clamp(this.wuppGoal * factor, this.minWupp, Math.min(this.maxWupp, Math.max(this.minWupp, this.wuppCap())));
   }
 
   // zoom keeping the ground point under the cursor in place
@@ -105,6 +150,8 @@ export class CameraRig {
       this.goal.z = this.follow.z;
       this.clampGoal();
     }
+    // [v20 map] the edge of the world
+    this.updateEdge(dt);
     const k = this.freeBounds ? 6 : 10;
     this.target.x = damp(this.target.x, this.goal.x, k, dt);
     this.target.y = damp(this.target.y, this.goal.y, k, dt);
@@ -150,6 +197,38 @@ export class CameraRig {
     cam.left = -hw; cam.right = hw; cam.top = hh; cam.bottom = -hh;
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld(true);
+  }
+
+  // [v20 map] rubber-band release + spring back, zoom cap, hard bounds
+  updateEdge(dt) {
+    const cap = this.wuppCap();
+    if (this.wuppGoal > cap) this.wuppGoal = Math.max(this.minWupp, cap);
+    if (this.wupp > cap * 1.02) this.wupp = Math.max(this.minWupp, cap * 1.02);
+    const ep = this.edgePush;
+    if (this.freeBounds) { this._rawOn = false; this._anchor = null; this.clampHard(); ep.k = 0; return; }
+    const b = this.bounds, g = this.goal;
+    this._panT += dt;
+    if (this._rawOn && this._panT > 0.12) this._rawOn = false; // let go
+    const cx = clamp(g.x, b.minX, b.maxX), cz = clamp(g.z, b.minZ, b.maxZ);
+    const ox = g.x - cx, oz = g.z - cz;
+    const R = this.rubberR();
+    ep.x = ox; ep.z = oz; ep.k = Math.min(1, Math.hypot(ox, oz) / R);
+    if (!this._rawOn) {
+      // spring back to the edge: slightly under-damped, so it settles with a soft bounce
+      if (!this._anchor && (ox || oz)) { this._anchor = new THREE.Vector2(cx, cz); this._sv.set(0, 0); }
+      const a = this._anchor;
+      if (a) {
+        const K = 90, C = 2 * 0.42 * Math.sqrt(K);
+        const st = Math.min(dt, 0.05), n = Math.max(1, Math.ceil(st / 0.008)), h = st / n;
+        for (let i = 0; i < n; i++) {
+          this._sv.x += (-K * (g.x - a.x) - C * this._sv.x) * h;
+          this._sv.y += (-K * (g.z - a.y) - C * this._sv.y) * h;
+          g.x += this._sv.x * h; g.z += this._sv.y * h;
+        }
+        if (Math.hypot(g.x - a.x, g.z - a.y) < 0.002 && this._sv.length() < 0.01) { g.x = a.x; g.z = a.y; this._anchor = null; }
+      }
+    }
+    this.clampHard();
   }
 
   // Screen (CSS px relative to canvas) -> world ray

@@ -41,6 +41,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.25, tail: 1.35 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 7, WAIST: 1, NECK: 7.6, NECK_Z: 0.6, SH: [4.6, 6.4, 0.2], L_UP: 3.4, L_FORE: 3.2, L_HAND: 2.0,
   THIGH: 3.6, SHIN: 3.4, LEG_X: 2.2, EAR: [4.6, 6.2, -0.6], TAIL: [0.6, -3.2],
 };
@@ -294,6 +295,7 @@ const EXPRS = {
 };
 
 // ------------------------------------------------------------------ rig
+const _ct = new THREE.Vector3();
 const _w = new THREE.Vector3(), _w2 = new THREE.Vector3(), _w3 = new THREE.Vector3();
 const _ROD_BACK_Q = new THREE.Quaternion().setFromEuler(new THREE.Euler(ROD_BACK.rx, 0, ROD_BACK.rz));
 export class OtterFisher extends BipedRig {
@@ -314,7 +316,7 @@ export class OtterFisher extends BipedRig {
     this.rod = this.mesh(G.rod, this.gripR);
     this.rodBack = this.mesh(G.rod, this.chest, { x: ROD_BACK.x * VS, y: ROD_BACK.y * VS, z: ROD_BACK.z * VS });
     this.rodBack.quaternion.copy(_ROD_BACK_Q);
-    this.rodGround = this.mesh(G.rod, this.root, { x: -0.42, y: 0.03, z: -0.25 });
+    this.rodGround = this.mesh(G.rod, this.space, { x: -0.42, y: 0.03, z: -0.25 });
     this.rodGround.rotation.set(PI / 2, 0, 0.25);
     this.rodTip = new THREE.Object3D(); this.rodTip.position.set(0, ROD_TIP * FV, 0.5 * FV); this.rod.add(this.rodTip);
     // line + bobber (root space)
@@ -324,23 +326,23 @@ export class OtterFisher extends BipedRig {
     this.lineMat = new THREE.LineBasicMaterial({ color: 0xf4f8fc, transparent: true, opacity: 0.85 });
     this.line = new THREE.Line(this.lineGeo, this.lineMat);
     this.line.frustumCulled = false;
-    this.root.add(this.line);
+    this.space.add(this.line);
     this._owned.push(this.lineGeo, this.lineMat);
-    this.bobber = this.mesh(G.bobber, this.root, { shadow: false });
+    this.bobber = this.mesh(G.bobber, this.space, { shadow: false });
     this._bob = { p: new THREE.Vector3(0, 1, 0.5), v: new THREE.Vector3(), init: false };
     this._from = new THREE.Vector3();
     /** Where 'cast_line' lands the bobber (root space, y = water level). */
     this.castTarget = new THREE.Vector3(0.15, 0, 1.55);
     // held things
     this.trout = this.mesh(G.trout, this.gripL);
-    this.pebbles = [this.mesh(G.pebble, this.root), this.mesh(G.pebble2, this.root)];
+    this.pebbles = [this.mesh(G.pebble, this.space), this.mesh(G.pebble2, this.space)];
     this._peb = [new THREE.Vector3(), new THREE.Vector3()];
     // sprites
-    this.ripples = [0, 1].map(() => { const s = new THREE.Sprite(spriteMatPal(RIPPLE_ROWS, RIPPLE_PAL)); s.visible = false; this.root.add(s); return s; });
-    this.drops = [0, 1, 2].map(() => this.sprite(DROPLET_ROWS, 0.04, this.root));
-    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.bang = this.sprite(BANG_ROWS, 0.09, this.root);
+    this.ripples = [0, 1].map(() => { const s = new THREE.Sprite(spriteMatPal(RIPPLE_ROWS, RIPPLE_PAL)); s.visible = false; this.space.add(s); return s; });
+    this.drops = [0, 1, 2].map(() => this.sprite(DROPLET_ROWS, 0.04, this.space));
+    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.bang = this.sprite(BANG_ROWS, 0.09, this.space);
     this.scalar('rodW', 0); // 1 = rod aimed by rodY/rodZ (chest space), 0 = rigid in the fist
     this.scalar('rodYx', 0); this.scalar('rodYy', 1); this.scalar('rodYz', 0); this.scalar('rodZz', 1);
     this.scalar('cast', 0); // 0 = bobber dangles at the tip, 1 = scripted (flying / in the water)
@@ -372,12 +374,12 @@ export class OtterFisher extends BipedRig {
     this.rod.visible = where === 0; this.rodBack.visible = where === 1; this.rodGround.visible = where === 2;
     if (where === 0) orientIn(this.rod, this.chest, [k.rodYx, k.rodYy, k.rodYz], [0, 0, k.rodZz || 1], clamp(k.rodW, 0, 1), _REST_Q);
     // bobber + line
-    this.root.updateWorldMatrix(true, true);
+    this.space.updateWorldMatrix(true, true);
     const tip = _w;
     if (where === 0) { tip.set(0, 0, 0); this.rodTip.localToWorld(tip); }
     else if (where === 1) { tip.set(0, ROD_TIP * FV, 0.5 * FV); this.rodBack.localToWorld(tip); }
     else { tip.set(0, ROD_TIP * FV, 0); this.rodGround.localToWorld(tip); }
-    this.root.worldToLocal(tip);
+    this.space.worldToLocal(tip);
     const B = this._bob, step = clamp(dt, 0, 1 / 30);
     // dangling: a damped pendulum-ish spring hanging under the tip
     const hang = _w2.set(tip.x, tip.y - (where === 2 ? 0 : 0.11), tip.z + (where === 2 ? 0.08 : 0));
@@ -388,7 +390,7 @@ export class OtterFisher extends BipedRig {
       B.p.addScaledVector(B.v, step);
       if (B.p.distanceTo(hang) > 0.2) B.p.lerp(hang, 0.5);
     }
-    const ct = this.castTarget, cast = clamp(k.cast, 0, 1), fly = clamp(k.fly, 0, 1);
+    const ct = _ct.copy(this.castTarget).multiplyScalar(1 / this.BS), cast = clamp(k.cast, 0, 1), fly = clamp(k.fly, 0, 1); // castTarget is root space -> body space [v20 npc rigs]
     const pos = _w3;
     if (cast < 0.001) { pos.copy(B.p); this._from.copy(B.p); }
     else {
@@ -426,7 +428,7 @@ export class OtterFisher extends BipedRig {
       if (!pb.visible) continue;
       // chest-space voxels -> root
       const q = this._peb[i];
-      _w2.set(q.x * VS, q.y * VS, q.z * VS); this.chest.localToWorld(_w2); this.root.worldToLocal(_w2);
+      _w2.set(q.x * VS, q.y * VS, q.z * VS); this.chest.localToWorld(_w2); this.space.worldToLocal(_w2);
       pb.position.copy(_w2);
       pb.rotation.set(tz * 7 + i, tz * 5, 0);
     }
@@ -445,8 +447,8 @@ export class OtterFisher extends BipedRig {
       const a = i * 2.1;
       s.position.set(ct.x + cos(a) * u * 0.12, ct.y + sin(u * PI) * 0.14, ct.z + sin(a) * u * 0.08);
     });
-    this.head.updateWorldMatrix(true, false);
-    _w2.set(0, 5 * VS, 4 * VS); this.head.localToWorld(_w2); this.root.worldToLocal(_w2);
+    this.headFx.updateWorldMatrix(true, false);
+    _w2.set(0, 5 * VS, 4 * VS); this.headFx.localToWorld(_w2); this.space.worldToLocal(_w2);
     this.notes.forEach((s, i) => {
       const u = (tz * 0.5 + i * 0.5) % 1;
       s.visible = k.notes > 0.5;

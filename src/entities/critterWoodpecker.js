@@ -51,6 +51,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.25 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 5.2, WAIST: 1, NECK: 7.8, NECK_Z: 0.4, SH: [5.3, 6.6, 0.2], L_UP: 3.3, L_FORE: 3.2, L_HAND: 2.0,
   THIGH: 2.7, SHIN: 2.8, LEG_X: 2.3, EAR: [6.5, 4.2, -1.4], TAIL: [0.8, -4.0],
 };
@@ -549,7 +550,7 @@ export class WoodpeckerCarpenter extends BipedRig {
     this.tapeTuck = this.mesh(G.tape, this.hips, { x: 6.0 * VS, y: -0.9 * VS, z: 1.0 * VS });
     this.tapeTuck.rotation.set(0, 0.25, 0);
     this.tape = this.mesh(G.tape, this.gripL);
-    this.hook = this.mesh(G.hook, this.root, { shadow: false });
+    this.hook = this.mesh(G.hook, this.space, { shadow: false });
     if (!bladeGeo) {
       bladeGeo = new THREE.PlaneGeometry(1, 0.032);
       bladeGeo.rotateY(-PI / 2); bladeGeo.translate(0, 0, 0.5);
@@ -559,17 +560,17 @@ export class WoodpeckerCarpenter extends BipedRig {
     this._owned.push(this._bladeTex, bm);
     this.blade = new THREE.Mesh(bladeGeo, bm);
     this.blade.visible = false;
-    this.root.add(this.blade);
+    this.space.add(this.blade);
     // saw (right hand) + offcut (left hand)
     this.saw = this.mesh(G.saw, this.gripR);
     this.offcut = this.mesh(G.offcut, this.gripL);
     // work props in root space: sawhorse + plank (+ the end that gets sawn off, a nail), a log to peck
-    this.horse = new THREE.Group(); this.root.add(this.horse);
+    this.horse = new THREE.Group(); this.space.add(this.horse);
     this.mesh(G.horse, this.horse);
     this.mesh(G.plank, this.horse, { y: (PLANK_TOP - 2) * FV });
     this.plankEnd = this.mesh(G.plankEnd, this.horse, { x: CUT_X * FV, y: (PLANK_TOP - 2) * FV });
     this.nail = this.mesh(G.nail, this.horse, { x: NAIL_X * FV, y: PLANK_TOP * FV, z: -0.5 * FV });
-    this.log = new THREE.Group(); this.log.position.set(LOG[0], 0, LOG[1]); this.root.add(this.log);
+    this.log = new THREE.Group(); this.log.position.set(LOG[0], 0, LOG[1]); this.space.add(this.log);
     this.logMesh = this.mesh(G.log, this.log);
     this.logMesh.rotation.y = 0.5;
     this.hole = this.mesh(G.hole, this.log, { shadow: false });
@@ -577,18 +578,18 @@ export class WoodpeckerCarpenter extends BipedRig {
     this._holeY = 0.84;
     this._hit = new THREE.Vector3();
     // sprites
-    const spr = (m, n, sc = 0.06) => [...Array(n)].map(() => { const s = new THREE.Sprite(m); s.visible = false; s.scale.setScalar(sc); this.root.add(s); return s; });
+    const spr = (m, n, sc = 0.06) => [...Array(n)].map(() => { const s = new THREE.Sprite(m); s.visible = false; s.scale.setScalar(sc); this.space.add(s); return s; });
     const cm = spriteMatPal(CHIP_ROWS, CHIP_PAL), cm2 = spriteMatPal(CHIP2_ROWS, CHIP_PAL);
     this.chips = [...spr(cm, 4), ...spr(cm2, 4)];
     this.dust = spr(spriteMatPal(FLOUR_ROWS, DUST_PAL), 6);
     this.clods = spr(spriteMatPal(DIRT_ROWS, DIRT_PAL), 4);
     this.tok = spr(spriteMatPal(TOK_ROWS, TOK_PAL), 2);
     this.tokBig = spr(spriteMatPal(TOK2_ROWS, TOK_PAL), 1)[0];
-    this.stars = [0, 1, 2, 3].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.root));
-    this.bang = this.sprite(BANG_ROWS, 0.09, this.root);
+    this.stars = [0, 1, 2, 3].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.space));
+    this.bang = this.sprite(BANG_ROWS, 0.09, this.space);
     for (const n of ['notes', 'spark', 'hearts', 'bang', 'chips', 'dust', 'blow', 'stars', 'board', 'cut', 'drop', 'nail', 'log', 'hole', 'peck', 'tapeOut', 'sawLock', 'hamLock']) this.scalar(n, 0);
     this.scalar('tokU', -1); this.scalar('tokN', 0); this.scalar('tokBig', 0);
     this.scalar('hamA', 0.6); this.scalar('hry', 0); this.scalar('sawB', 0.45); this.scalar('sawS', 0); this.scalar('offR', 0);
@@ -608,10 +609,10 @@ export class WoodpeckerCarpenter extends BipedRig {
 
   /** Beak tip in root space (world units). */
   beakTip(out = new THREE.Vector3()) {
-    this.head.updateWorldMatrix(true, false);
+    this.headFx.updateWorldMatrix(true, false);
     out.set(0, (BEAK[0] + 0.1) * VS - this._beak * 0.02, BEAK[1] * VS + BEAK_L * FV);
-    this.head.localToWorld(out);
-    return this.root.worldToLocal(out);
+    this.headFx.localToWorld(out);
+    return this.space.worldToLocal(out);
   }
 
   /** Mover-space point (unrotated layout) -> root space, following his turn. */
@@ -625,7 +626,7 @@ export class WoodpeckerCarpenter extends BipedRig {
     mesh.position.set(0, 0, 0);
     mesh.updateWorldMatrix(true, false);
     _w.copy(lp).applyMatrix4(mesh.matrixWorld);
-    _w2.copy(target); this.root.localToWorld(_w2);
+    _w2.copy(target); this.space.localToWorld(_w2);
     _w2.sub(_w).multiplyScalar(clamp(w, 0, 1));
     if (_w2.length() > 0.09) _w2.setLength(0.09);
     mesh.parent.getWorldQuaternion(_q).invert(); _w2.applyQuaternion(_q);
@@ -675,13 +676,13 @@ export class WoodpeckerCarpenter extends BipedRig {
       _w2.lerpVectors(_w, _w2, clamp(k.tapeOut, 0, 1)); // hook (world)
       const d = _w.distanceTo(_w2);
       if (d > 0.012) {
-        this.root.worldToLocal(this.blade.position.copy(_w));
+        this.space.worldToLocal(this.blade.position.copy(_w));
         this.blade.lookAt(_w2);
         this.blade.scale.set(1, 1, d);
         this._bladeTex.repeat.x = d / BLADE_UNIT;
         this.blade.visible = true;
         this.hook.visible = true;
-        this.root.worldToLocal(this.hook.position.copy(_w2));
+        this.space.worldToLocal(this.hook.position.copy(_w2));
         _w3.copy(_w2).sub(_w).add(_w2);
         this.hook.lookAt(_w3);
       }
@@ -774,8 +775,8 @@ export class WoodpeckerCarpenter extends BipedRig {
       s.scale.setScalar(0.065 * sin(st * PI));
     });
     // face sprites
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 5 * VS, 4 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 5 * VS, 4 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     this.notes.forEach((s, i) => {
       const u = (tz * 0.5 + i * 0.5) % 1;
       s.visible = k.notes > 0.5;

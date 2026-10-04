@@ -14,6 +14,7 @@ import { fbm2, hash2 } from '../core/rng.js';
 import { WATER_Y, KIND } from './grid.js';
 import { SpriteBatch, pixelTexture, SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { buildNatureAtlas } from '../art/natureArt.js';
+import { OuterRing } from './outerRing.js'; // [v20 map]
 
 // Terraform ground paints (grid.paint) and the terrain surface each one draws
 // with: ids < 10 are the base atlas tiles, 10+ the extra paint atlas tiles.
@@ -100,7 +101,8 @@ export class World {
     this.water.renderOrder = 10;
     scene.add(this.water);
 
-    this.buildSkirt();
+    // [v20 map] the valley around the map (forest ring + mountains) replaces the flat skirt
+    try { this.ring = new OuterRing(this); } catch (e) { console.warn('outer ring failed', e); this.buildSkirt(); }
     this.decoGroup = new THREE.Group();
     scene.add(this.decoGroup);
     this.buildDecos();

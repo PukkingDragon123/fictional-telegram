@@ -366,4 +366,14 @@ export const BASE_EXPRS = {
   proud: { eyes: 'shiny', brows: 'up', mouth: 'grin', blush: 1, tear: 0 },
   worried: { eyes: 'open', brows: 'worried', mouth: 'frown', blush: 0, tear: 0 },
   asleep: { eyes: 'sleep', brows: null, mouth: 'chew2', blush: 1, tear: 0 },
+  // [v20 npc rigs] the fox's mood set, so dialogue moods (NpcTalk3D.mood) land on every neighbour
+  sad: { eyes: 'half', brows: 'worried', mouth: 'frown', blush: 0, tear: 1 },
+  angry: { eyes: 'focused', brows: 'angry', mouth: 'yell', blush: 0, tear: 0 },
+  excited: { eyes: 'shiny', brows: 'up', mouth: 'open', blush: 1, tear: 0 },
+  scared: { eyes: 'wide', brows: 'worried', mouth: 'yell', blush: 0, tear: 0 },
+  think: { eyes: 'half', brows: 'raised', mouth: 'flat', blush: 0, tear: 0 },
+  shout: { eyes: 'wide', brows: 'angry', mouth: 'yell', blush: 0, tear: 0 },
+  tsk: { eyes: 'half', brows: 'flat', mouth: 'frown', blush: 0, tear: 0 },
+  content: { eyes: 'happy', brows: null, mouth: 'smile', blush: 1, tear: 0 },
+  yum: { eyes: 'happy', brows: 'up', mouth: 'blep', blush: 1, tear: 0 },
 };

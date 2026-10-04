@@ -28,6 +28,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.25 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 9, WAIST: 1, NECK: 7.4, NECK_Z: 0.2, SH: [4.9, 5.4, 0], L_UP: 3.4, L_FORE: 3.1, L_HAND: 2.2,
   THIGH: 4.5, SHIN: 4.5, LEG_X: 2, EAR: [4.4, 6.6, -1.2], TAIL: [-0.6, -3.1],
 };
@@ -202,7 +203,7 @@ export class DeerGuy extends BipedRig {
 // ------------------------------------------------------------------ animation helpers
 const ANIMS = {};
 const def = (name, o) => { ANIMS[name] = o; };
-const SEAT_HIP = LAWN_CHAIR_SEAT / VS + 2.6 - D.HIP_Y; // hips offset when seated (voxels)
+const SEAT_HIP = LAWN_CHAIR_SEAT / VS / D.CHIBI.body + 2.6 - D.HIP_Y; // hips offset when seated (voxels)
 const _hp = [0, 0];
 
 /** Lower body + spine for standing (w = 0) or lounging in the lawn chair (w = 1). */

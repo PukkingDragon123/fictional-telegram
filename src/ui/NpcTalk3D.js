@@ -234,7 +234,7 @@ class NpcTalk {
     const c = this.cam, T = TWEAK[this.npc] || {};
     let cy, span;
     if (this.frame === 'full') { span = this.headTop * 1.12; cy = this.headTop * 0.5; }
-    else if (this.frame === 'half') { span = this.headTop * 0.8; cy = this.headTop * 1.04 - span / 2; }
+    else if (this.frame === 'half') { span = this.headTop * 0.72; cy = this.headTop * 1.04 - span / 2; } // [v20 npc rigs] chibi: small bodies, so a bit tighter
     else { span = this.headTop * (T.k || 0.74); cy = this.headTop * (1.05 + (T.dy || 0)) - span / 2; }
     // fit the span to the narrower side
     const fov = (c.fov * Math.PI) / 180;

@@ -38,6 +38,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.25, tail: 1.35 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 8, WAIST: 1, NECK: 6.6, NECK_Z: 0.6, SH: [4.6, 5.2, 0], L_UP: 3.2, L_FORE: 3.0, L_HAND: 2.0,
   THIGH: 4.0, SHIN: 4.0, LEG_X: 2, EAR: [3.9, 6.2, -1.6], TAIL: [0.6, -3.2],
 };
@@ -313,8 +314,8 @@ export class RaccoonMerchant extends BipedRig {
     this.itemSlot = new THREE.Group(); this.gripR.add(this.itemSlot);
     this.potion = this.mesh(G.potion, this.itemSlot, { y: -0.02 });
     this._item = null;
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.coinFx = [0, 1, 2].map(() => this.sprite(COIN_ROWS, 0.06, this.root));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.coinFx = [0, 1, 2].map(() => this.sprite(COIN_ROWS, 0.06, this.space));
     this.scalar('spark', 0);
     this.scalar('coinFx', 0);
     this.scalar('coinN', 4);
@@ -353,8 +354,8 @@ export class RaccoonMerchant extends BipedRig {
     if (this.itemSlot.visible) orientIn(this.itemSlot, this.chest, [0, 1, 0], [0, 0, 1], 1);
     // sprites
     const tz = this.time;
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 4 * VS, 4 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 4 * VS, 4 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     const sp = k.spark;
     this.sparks.forEach((s, i) => {
       s.visible = sp > 0.05;

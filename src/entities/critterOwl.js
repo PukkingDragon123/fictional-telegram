@@ -35,6 +35,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.25, hatTilt: 0.2 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 5, WAIST: 1, NECK: 8.0, NECK_Z: 0.2, SH: [6.3, 6.6, 0], L_UP: 3.4, L_FORE: 3.2, L_HAND: 2.2,
   THIGH: 2.7, SHIN: 2.6, LEG_X: 2.6, EAR: [4.6, 7.0, -0.6], TAIL: [0.6, -5.2],
 };
@@ -309,7 +310,7 @@ export class OwlRanger extends BipedRig {
     this.facePlane(this.face.eyes.tex, this.head, FACE.w, FACE.h, 0, EYE_Y, 5.1);
     // binoculars on the chest
     this.joint('bino', this.chest, 0, 3.8, 6.8);
-    this.mesh(G.bino, this.bino, { y: -2.2 * FV });
+    this.mesh(G.bino, this.bino, { y: -2.2 * FV }).scale.setScalar(1.6); // [v20 npc rigs] chunky, reads against the big face
     // clipboard: in the left hand, or tucked under the left wing; pencil in the right hand
     this.clipHand = this.mesh(G.clip, this.gripL);
     this.clipTuck = this.mesh(G.clip, this.chest, { x: 6.2 * VS, y: 1.0 * VS, z: 2.2 * VS });
@@ -318,9 +319,9 @@ export class OwlRanger extends BipedRig {
     this._clipRest = new THREE.Quaternion();
     this._penRest = new THREE.Quaternion().setFromEuler(new THREE.Euler(PI / 2, 0, 0));
     // sprites
-    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.bang = this.sprite(BANG_ROWS, 0.09, this.root);
+    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.bang = this.sprite(BANG_ROWS, 0.09, this.space);
     this.scalar('hoot', 0);
     this.scalar('spark', 0);
     this.scalar('bang', 0);
@@ -356,8 +357,8 @@ export class OwlRanger extends BipedRig {
     if (this.pencil.visible) orientIn(this.pencil, this.chest, [0.25, 0.85, -0.35], [0, 0.4, 0.9], clamp(k.penW, 0, 1), this._penRest);
     // sprites
     const tz = this.time;
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 5 * VS, 6 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 5 * VS, 6 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     this.notes.forEach((s, i) => {
       const u = (tz * 0.55 + i * 0.5) % 1;
       s.visible = k.hoot > 0.5;
@@ -570,7 +571,7 @@ def('binoculars', {
     p.chest.rx += spot * 0.12; p.head.rx -= (0.08 + sin(st * 0.7) * 0.05) * raise;
     p.head.z += spot * 0.5;
     // binoculars to the eyes, both hands on the barrels
-    const e = rig.headPoint(p, EYE_Y, 5.6 + spot * 0.4, _hp);
+    const e = rig.headPoint(p, EYE_Y, 6.9 + spot * 0.4, _hp); // [v20 npc rigs] clear of the bigger face
     p.bino.rx = lerp(1.45, p.head.rx, raise);
     p.bino.ry = p.head.ry * raise;
     p.bino.y = lerp(0, e[0] - 3.8 + 1.0, raise);

@@ -11,17 +11,34 @@ export const HAND_KINDS = ['relax', 'fist', 'open', 'point', 'thumb'];
  * G: geometries { pelvis, torso, head, earL, earR, upper, fore, thigh, shin, tail, hand_<kind>L/R }
  */
 export class BipedRig extends CritterRig {
+  constructor(name, opts) {
+    super(name, opts);
+    // [v20 npc rigs] chibi proportions (Reynard style): everything but the root lives in `space`,
+    // scaled by D.CHIBI.body; the head's contents live in `headFx`, scaled by D.CHIBI.head (relative
+    // to the body). Props / sprites the rigs place "in root space" use `space` (feet stay at y = 0).
+    this.space = new THREE.Group();
+    this.space.name = 'body';
+    this.root.add(this.space);
+    this.BS = 1; this.HS = 1;
+  }
   _buildBiped(G, D) {
     this.D = D;
-    this.joint('mover', this.root);
+    const CB = D.CHIBI || {};
+    this.BS = CB.body ?? 1; this.HS = (CB.head ?? 1) / this.BS;
+    this.space.scale.setScalar(this.BS);
+    this.joint('mover', this.space);
     this.joint('hips', this.mover, 0, D.HIP_Y, 0);
     this.mesh(G.pelvis, this.hips);
     this.joint('chest', this.hips, 0, D.WAIST, 0);
     this.mesh(G.torso, this.chest);
     this.joint('head', this.chest, 0, D.NECK, D.NECK_Z || 0);
-    this.headMesh = this.mesh(G.head, this.head);
-    this.joint('earL', this.head, D.EAR[0], D.EAR[1], D.EAR[2]); this.mesh(G.earL, this.earL);
-    this.joint('earR', this.head, -D.EAR[0], D.EAR[1], D.EAR[2]); this.mesh(G.earR, this.earR);
+    this.headFx = new THREE.Group();
+    this.headFx.name = 'headFx';
+    this.headFx.scale.setScalar(this.HS);
+    this.head.add(this.headFx);
+    this.headMesh = this.mesh(G.head, this.headFx);
+    this.joint('earL', this.headFx, D.EAR[0], D.EAR[1], D.EAR[2]); this.mesh(G.earL, this.earL);
+    this.joint('earR', this.headFx, -D.EAR[0], D.EAR[1], D.EAR[2]); this.mesh(G.earR, this.earR);
     this.hands = {};
     for (const s of [1, -1]) {
       const n = s > 0 ? 'L' : 'R';
@@ -47,6 +64,20 @@ export class BipedRig extends CritterRig {
     this.scalar('lookW', 1);
   }
 
+  /** [v20 npc rigs] anything the rig hung on `head` after _buildBiped (hats, beaks, face planes) moves into headFx. */
+  _init(anims, exprs, first) {
+    if (this.headFx) for (const c of [...this.head.children]) if (c !== this.headFx) this.headFx.add(c);
+    // a chunkier signature tail reads at game zoom (meshes only: the joint keeps its pivot)
+    const tk = this.D?.CHIBI?.tail;
+    if (tk && this.tail) for (const c of this.tail.children) if (c.isMesh) c.scale.multiplyScalar(tk);
+    // hats tipped back a little so the big face shows from the high game camera
+    const ht = this.D?.CHIBI?.hatTilt, hat = this.hat || this.cap;
+    if (ht && hat) for (const c of hat.children) if (c.isMesh) c.rotation.x -= ht;
+    super._init(anims, exprs, first);
+  }
+  /** Root-space point (world units, e.g. a prop target given in root space) -> body space. */
+  toSpace(v) { return v.multiplyScalar(1 / this.BS); }
+
   _setHands(p) {
     for (const n of ['L', 'R']) {
       const k = p['hand' + n] || 'relax';
@@ -70,7 +101,8 @@ export class BipedRig extends CritterRig {
   }
   /** Chest-space position (y, z) of a point given in head space (x ignored), following the head's rx. */
   headPoint(p, hy, hz, out = [0, 0]) {
-    const D = this.D, a = p.head.rx;
+    const D = this.D, a = p.head.rx, k = this.HS;
+    hy *= k; hz *= k;
     out[0] = D.NECK + p.head.y + hy * cos(a) - hz * sin(a);
     out[1] = (D.NECK_Z || 0) + p.head.z + hy * sin(a) + hz * cos(a);
     return out;

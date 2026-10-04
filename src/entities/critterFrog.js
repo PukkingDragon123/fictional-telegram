@@ -40,6 +40,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.25 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 6, WAIST: 1, NECK: 6.9, NECK_Z: 0.4, SH: [5.0, 6.2, 0], L_UP: 3.2, L_FORE: 3.0, L_HAND: 2.0,
   THIGH: 3.2, SHIN: 3.2, LEG_X: 2.4, EAR: [6.4, 2.9, -1.2], TAIL: [1.6, -5.6],
 };
@@ -349,14 +350,14 @@ export class FrogGranny extends BipedRig {
     this.tongueTip = new THREE.Group(); this.tongue.add(this.tongueTip);
     this.mesh(G.tongueTip, this.tongueTip, { shadow: false });
     this.tongue.visible = false;
-    this.fly = new THREE.Group(); this.root.add(this.fly); this.fly.visible = false;
+    this.fly = new THREE.Group(); this.space.add(this.fly); this.fly.visible = false;
     this.mesh(G.flyBody, this.fly, { shadow: false });
     this.wings = [1, -1].map((s) => { const m = this.mesh(G.flyWing, this.fly, { y: 2 * FV, shadow: false }); m.scale.x = s; return m; });
     this._flyP = new THREE.Vector3(0.6, 1, 0.4); this._flyCaught = false; this._tongueLen = 0.3;
     // sprites
-    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.root));
+    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.space));
     // chair
     this.chair = null;
     this.seated = false;
@@ -393,7 +394,7 @@ export class FrogGranny extends BipedRig {
     this.swatch.visible = this.yarn.visible = !!p.vis.knit;
     if (this.cane.visible) {
       const side = -k.caneSide;
-      plantStick(this.cane, this.root, CANE_L, [side, k.caneLean], clamp(k.cane, 0, 1), this._caneRest, k.caneLift);
+      plantStick(this.cane, this.space, CANE_L, [side, k.caneLean], clamp(k.cane, 0, 1), this._caneRest, k.caneLift);
     }
     if (p.vis.knit) {
       // needles cross in front of the chest, tips up and inward
@@ -405,8 +406,8 @@ export class FrogGranny extends BipedRig {
     this._postTongue(p);
     // sprites
     const tz = this.time;
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 4 * VS, 4 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 4 * VS, 4 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     this.notes.forEach((s, i) => {
       const u = (tz * 0.5 + i * 0.5) % 1;
       s.visible = k.notes > 0.5;
@@ -448,11 +449,11 @@ export class FrogGranny extends BipedRig {
       if (!this._flyCaught) { fly.position.copy(this._flyP); fly.rotation.y = this._flyYaw || 0; }
     }
     if (!this.tongue.visible && !this._flyCaught) return;
-    this.head.updateWorldMatrix(true, false);
+    this.headFx.updateWorldMatrix(true, false);
     if (!this._flyCaught) {
       // aim at the fly (head space)
-      this.root.updateWorldMatrix(true, false);
-      _w.copy(this._flyP); this.root.localToWorld(_w); this.head.worldToLocal(_w);
+      this.space.updateWorldMatrix(true, false);
+      _w.copy(this._flyP); this.space.localToWorld(_w); this.headFx.worldToLocal(_w);
       _w2.subVectors(_w, this.tongue.position);
       this._tongueLen = _w2.length();
       this.tongue.rotation.set(Math.atan2(-_w2.y, Math.hypot(_w2.x, _w2.z)), Math.atan2(_w2.x, _w2.z), 0, 'YXZ');
@@ -462,7 +463,7 @@ export class FrogGranny extends BipedRig {
     this.tongueTip.position.set(0, 0, len);
     if (this._flyCaught && fly.visible) {
       this.tongueTip.updateWorldMatrix(true, false);
-      _w.setFromMatrixPosition(this.tongueTip.matrixWorld); this.root.worldToLocal(_w);
+      _w.setFromMatrixPosition(this.tongueTip.matrixWorld); this.space.worldToLocal(_w);
       fly.position.copy(_w);
     }
   }
@@ -472,7 +473,7 @@ const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _up = new THRE
 // ------------------------------------------------------------------ pose helpers
 const ANIMS = {};
 const def = (name, o) => { ANIMS[name] = o; };
-const SEAT_HIP = ROCKING_CHAIR_SEAT / VS + 2.0 - D.HIP_Y; // hips offset seated (voxels)
+const SEAT_HIP = ROCKING_CHAIR_SEAT / VS / D.CHIBI.body + 2.0 - D.HIP_Y; // hips offset seated (voxels)
 
 /** Standing granny: slight hunch, soft knees, feet planted. */
 function stand(p, rig, t, { crouch = 0.35, amt = 1, zL = 0.6, zR = 0.4 } = {}) {

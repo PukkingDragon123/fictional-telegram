@@ -83,6 +83,7 @@ export class Input {
 
   onDown(e) {
     this.game.audio.unlock();
+    if (this.game.homes?.active) { this.game.ui?.advanceBubble?.(); this.game.homes.onDown(e); return; } // [v20 npc homes] taps go to the room
     // in the fox room / cutscenes there's no camera to drag: any press advances the bubble
     if ((this.game.lab?.active || this.game.inputLocked) && this.game.ui?.advanceBubble?.()) return;
     if (this.game.lab?.active) { const q = this.local(e); this.game.lab.onCanvasClick(q.x, q.y); return; }
@@ -392,6 +393,7 @@ export class Input {
     // default: feed / interact. Tapping a creature zooms in and tracks it.
     const cr = game.ui?.pickCreature?.(sx, sy);
     if (cr && cr.kind === 'npc') { game.villagers.open(cr.ent); return; }
+    if (game.tool.kind === 'feed' && game.homes?.tapDoor?.(sx, sy)) return; // [v20 npc homes] tap a neighbour's door to visit
     if (cr && cr.kind === 'songbird') { game.spotBird(cr.ent); return; }
     if (cr && cr.kind === 'land') { game.landAnimals.spot(cr.ent); return; }
     if (cr && game.tool.kind === 'feed') {

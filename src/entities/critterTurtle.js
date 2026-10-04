@@ -34,6 +34,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.86, head: 1.25 }, // [v20 npc rigs] small body, big head (BipedRig); a bit more shell
   HIP_Y: 6, WAIST: 1, NECK: 9.4, NECK_Z: 1.6, SH: [5.6, 6.4, 0.4], L_UP: 3.0, L_FORE: 2.8, L_HAND: 2.0,
   THIGH: 3.0, SHIN: 3.2, LEG_X: 2.8, EAR: [0.6, 4.4, 4.5], TAIL: [-0.6, -5.4],
 };
@@ -256,10 +257,11 @@ export class TurtleElder extends BipedRig {
     this.staff = this.mesh(G.staff, this.gripL);
     this._staffRest = new THREE.Quaternion().setFromEuler(new THREE.Euler(PI / 2, 0, 0));
     this.cup = this.mesh(G.cup, this.gripR);
+    this.cup.scale.setScalar(1.4); // [v20 npc rigs] reads next to the big chibi head
     this._brow = [0, 0];
-    this.zzz = [0, 1, 2].map(() => this.sprite(ZZZ_ROWS, 0.08, this.root));
-    this.steam = [0, 1].map(() => this.sprite(PUFF_ROWS, 0.05, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
+    this.zzz = [0, 1, 2].map(() => this.sprite(ZZZ_ROWS, 0.08, this.space));
+    this.steam = [0, 1].map(() => this.sprite(PUFF_ROWS, 0.05, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
     this.scalar('stick', 1);
     this.scalar('stickLean', 0.3);
     this.scalar('stickLift', 0);
@@ -286,8 +288,8 @@ export class TurtleElder extends BipedRig {
   _post(p, dt) {
     this._setHands(p);
     const k = this.k;
-    plantStick(this.staff, this.root, STAFF_L, [0.35, k.stickLean], clamp(k.stick, 0, 1), this._staffRest, k.stickLift);
-    if (k.stickUp > 0.01) { _q.copy(this.staff.quaternion); orientIn(this.staff, this.root, [k.stickWag, 1, 0.15], [0, 0, 1], clamp(k.stickUp, 0, 1), _q); }
+    plantStick(this.staff, this.space, STAFF_L, [0.35, k.stickLean], clamp(k.stick, 0, 1), this._staffRest, k.stickLift);
+    if (k.stickUp > 0.01) { _q.copy(this.staff.quaternion); orientIn(this.staff, this.space, [k.stickWag, 1, 0.15], [0, 0, 1], clamp(k.stickUp, 0, 1), _q); }
     const a = k.cupTilt;
     orientIn(this.cup, this.chest, [0, cos(a), -sin(a)], [0, sin(a), cos(a)]);
     this.cup.position.set(0.012, -0.03, 0.02);
@@ -300,8 +302,8 @@ export class TurtleElder extends BipedRig {
     this.earL.rotation.z += this._brow[1]; this.earR.rotation.z -= this._brow[1];
     // sprites
     const tz = this.time;
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 7 * VS, 2 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 7 * VS, 2 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     this.zzz.forEach((s, i) => {
       const u = (tz * 0.4 + i / 3) % 1;
       s.visible = k.zzz > 0.5;
@@ -309,7 +311,7 @@ export class TurtleElder extends BipedRig {
       s.scale.setScalar((0.04 + u * 0.06) * (u < 0.85 ? 1 : (1 - u) / 0.15));
     });
     this.cup.updateWorldMatrix(true, false);
-    const cw = this.cup.localToWorld(_w2.set(0, 6 * FV, 0)); this.root.worldToLocal(cw);
+    const cw = this.cup.localToWorld(_w2.set(0, 6 * FV, 0)); this.space.worldToLocal(cw);
     this.steam.forEach((s, i) => {
       const u = (tz * 0.5 + i * 0.5) % 1;
       s.visible = k.steam > 0.5;

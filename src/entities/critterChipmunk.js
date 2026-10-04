@@ -34,9 +34,10 @@ import { NpcFace, talkMouth, stepEvents, orientIn, NOTE_ROWS, COIN_ROWS, DROPLET
 import { spriteMatPal } from './npcProps2.js';
 import { makeLumberCart } from './npcProps4.js';
 
-export const PIP_WALK_SPEED = 0.7;
-export const PIP_CART_SPEED = 0.55;
-export const PIP_CART_Z = 1.08; // cart origin (axle) in front of him, root space
+const PIP_BODY = 0.8; // [v20 npc rigs] = D.CHIBI.body: the stride shrinks with the body
+export const PIP_WALK_SPEED = 0.7 * PIP_BODY;
+export const PIP_CART_SPEED = 0.55 * PIP_BODY;
+export const PIP_CART_Z = 1.08; // cart origin (axle) in front of him, body space (root space x PIP_BODY)
 const CART_TILT = 0.06; // push bar lifted while pushing (the back legs clear the ground)
 const BAR = [0.4375, -0.775]; // push bar (y, z) in cart space
 
@@ -59,6 +60,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: PIP_BODY, head: 1.25, tail: 1.45 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 4.4, WAIST: 1, NECK: 6.2, NECK_Z: 0.3, SH: [4.4, 5.0, 0.2], L_UP: 2.6, L_FORE: 2.6, L_HAND: 1.8,
   THIGH: 2.4, SHIN: 2.4, LEG_X: 2.0, EAR: [3.4, 6.0, -1.2], TAIL: [0.6, -3.4],
 };
@@ -155,7 +157,7 @@ function capModel() {
     for (let z = -11; z <= 11; z++) {
       const r = Math.hypot((x + 0.5) / 9.8, (z + 0.5) / 10.2);
       if (r > 1) continue;
-      const h = Math.round(5.5 - max(0, z) * 0.3 - r * r * 2.2);
+      const h = Math.round(3.8 - max(0, z) * 0.22 - r * r * 1.5 + max(0, -z) * 0.06); // [v20 npc rigs] flatter: a proper flat cap, not a dome
       for (let y = 0; y <= h; y++) v.set(x, y, z, y === 0 && r > 0.8 ? C.capD : tweed(x, y, z));
     }
   for (let z = 9; z <= 13; z++)
@@ -163,7 +165,7 @@ function capModel() {
       if (abs(x + 0.5) > 8 - (z - 9) * 0.9) continue;
       v.set(x, Math.round(1 - (z - 9) * 0.2), z, z >= 12 ? C.capD : C.cap);
     }
-  for (let x = -1; x <= 0; x++) for (let z = -2; z <= -1; z++) v.set(x, 6, z, C.capD);
+  for (let x = -1; x <= 0; x++) for (let z = -2; z <= -1; z++) v.set(x, 4, z, C.capD);
   return v;
 }
 function upperModel() {
@@ -364,15 +366,15 @@ export class ChipmunkTrader extends BipedRig {
     this._cartDist = 0;
     this.attachCart(makeLumberCart());
     // sprites
-    const spr = (m, n, sc = 0.06) => [...Array(n)].map(() => { const s = new THREE.Sprite(m); s.visible = false; s.scale.setScalar(sc); this.root.add(s); return s; });
+    const spr = (m, n, sc = 0.06) => [...Array(n)].map(() => { const s = new THREE.Sprite(m); s.visible = false; s.scale.setScalar(sc); this.space.add(s); return s; });
     this.digits = [1, 2, 3, 4, 5, 6].map((d) => ({ s: spr(spriteMatPal(digitRows(d), NUM_PAL), 1)[0], age: 9, pos: new THREE.Vector3() }));
     this._cntSeen = 0;
     this.puffs = spr(spriteMatPal(PUFF_ROWS, PUFF_PAL), 4);
-    this.coins = [0, 1, 2, 3, 4].map(() => this.sprite(COIN_ROWS, 0.06, this.root));
-    this.drops = [0, 1].map(() => this.sprite(DROPLET_ROWS, 0.05, this.root));
-    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.root));
+    this.coins = [0, 1, 2, 3, 4].map(() => this.sprite(COIN_ROWS, 0.06, this.space));
+    this.drops = [0, 1].map(() => this.sprite(DROPLET_ROWS, 0.05, this.space));
+    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.space));
     for (const n of ['cheekL', 'cheekR', 'notes', 'spark', 'hearts', 'coins', 'sweat', 'puff', 'cnt', 'cartV', 'cartTilt', 'cartBob']) this.scalar(n, 0);
     this.scalar('penX', 0); this.scalar('penY', 1); this.scalar('penZ', 0.3);
     // springs: tail whips, cap and ears bounce, a little body squash
@@ -395,15 +397,15 @@ export class ChipmunkTrader extends BipedRig {
     cart.position.set(0, 0, PIP_CART_Z);
     cart.rotation.set(0, 0, 0);
     cart.visible = false;
-    this.root.add(cart);
+    this.space.add(cart);
     return cart;
   }
 
   /** Leave a copy of the cart standing where his cart is now (level, his heading); adds it to `parent` and returns it. */
   parkCart(parent = this.root.parent) {
     const c = makeLumberCart();
-    this.root.updateWorldMatrix(true, false);
-    _w.set(0, 0, PIP_CART_Z); this.root.localToWorld(_w);
+    this.space.updateWorldMatrix(true, false);
+    _w.set(0, 0, PIP_CART_Z); this.space.localToWorld(_w);
     this.root.getWorldQuaternion(_q);
     if (parent) {
       parent.updateWorldMatrix(true, false);
@@ -413,6 +415,7 @@ export class ChipmunkTrader extends BipedRig {
       parent.add(c);
     }
     c.position.copy(_w); c.quaternion.copy(_q);
+    c.scale.setScalar(this.BS); // same size as the cart he pushed [v20 npc rigs]
     for (let i = 0; i < 2; i++) c.userData.wheels[i].rotation.x = this.cart?.userData.wheels?.[i]?.rotation.x || 0;
     return c;
   }
@@ -422,7 +425,7 @@ export class ChipmunkTrader extends BipedRig {
     const m = this.pencil.visible ? this.pencil : this.pencilEar;
     m.updateWorldMatrix(true, false);
     out.copy(PEN_TIP).applyMatrix4(m.matrixWorld);
-    return this.root.worldToLocal(out);
+    return this.space.worldToLocal(out);
   }
 
   _post(p, dt) {
@@ -480,8 +483,8 @@ export class ChipmunkTrader extends BipedRig {
       s.position.set((i % 2 ? 0.12 : -0.12) + sin(i * 3) * 0.05, 0.03 + u * 0.12, -0.12 - u * 0.25);
       s.scale.setScalar(0.06 * (1 - u) + 0.02);
     });
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 5 * VS, 4 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 5 * VS, 4 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     const cu = k.coins;
     this.coins.forEach((s, i) => {
       s.visible = cu > 0.02 && cu < 0.98;

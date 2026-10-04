@@ -41,6 +41,7 @@ const C = {
 };
 
 const D = {
+  CHIBI: { body: 0.8, head: 1.18, tail: 1.4 }, // [v20 npc rigs] small body, big head (BipedRig)
   HIP_Y: 6, WAIST: 1, NECK: 7.4, NECK_Z: 0.4, SH: [5.4, 6.2, 0.4], L_UP: 3.4, L_FORE: 3.4, L_HAND: 2.0,
   THIGH: 3.2, SHIN: 3.2, LEG_X: 2.5, EAR: [2.8, 8.2, -1.6], TAIL: [0.4, -5.6],
 };
@@ -346,7 +347,7 @@ export class BunnyGardener extends BipedRig {
     this.joint('earR2', this.earR, 0, EAR_L, 0); this.mesh(G.earTip, this.earR2);
     // hat (tilt on an inner group so the jiggle stays about the joint)
     this.joint('hat', this.head, 0, 9.3, -0.6);
-    const hatTilt = new THREE.Group(); hatTilt.rotation.set(-0.16, 0, -0.06); this.hat.add(hatTilt);
+    const hatTilt = new THREE.Group(); hatTilt.rotation.set(-0.3, 0, -0.06); this.hat.add(hatTilt);
     this.mesh(G.hat, hatTilt);
     this.joint('nose', this.head, 0, 3.9, 5.9);
     this.mesh(G.nose, this.nose, { shadow: false });
@@ -362,15 +363,15 @@ export class BunnyGardener extends BipedRig {
     this.carrot = this.mesh(G.carrot, this.gripL);
     this._rest = new THREE.Quaternion();
     // ground bits (root space)
-    this.mound = this.mesh(G.mound, this.root, { x: -0.04, z: 0.5 });
-    this.sprout = this.mesh(G.sprout, this.root, { x: -0.43, z: 0.56 });
+    this.mound = this.mesh(G.mound, this.space, { x: -0.04, z: 0.5 });
+    this.sprout = this.mesh(G.sprout, this.space, { x: -0.43, z: 0.56 });
     // sprites
-    this.drops = [0, 1, 2, 3, 4].map(() => this.sprite(DROPLET_ROWS, 0.05, this.root));
+    this.drops = [0, 1, 2, 3, 4].map(() => this.sprite(DROPLET_ROWS, 0.05, this.space));
     const dm = spriteMatPal(DIRT_ROWS, DIRT_PAL), dm2 = spriteMatPal(DIRT2_ROWS, DIRT_PAL);
-    this.clods = [0, 1, 2, 3].map((i) => { const s = new THREE.Sprite(i % 2 ? dm2 : dm); s.visible = false; this.root.add(s); return s; });
-    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.root));
-    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.root));
-    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.root));
+    this.clods = [0, 1, 2, 3].map((i) => { const s = new THREE.Sprite(i % 2 ? dm2 : dm); s.visible = false; this.space.add(s); return s; });
+    this.notes = [0, 1].map(() => this.sprite(NOTE_ROWS, 0.07, this.space));
+    this.sparks = [0, 1, 2].map(() => this.sprite(SPARK_ROWS, 0.07, this.space));
+    this.hearts = [0, 1].map(() => this.sprite(HEART_ROWS, 0.07, this.space));
     this.scalar('sniff', 0); // nose wiggle amount
     this.scalar('canTip', 0);
     this.scalar('water', 0);
@@ -424,7 +425,7 @@ export class BunnyGardener extends BipedRig {
     this.sprout.rotation.z = sin(tz * 3) * 0.08;
     // watering: drops fall from the spout in little arcs
     const wat = k.water > 0.3 && this.can.visible;
-    if (wat) { this.can.updateWorldMatrix(true, false); _w2.set(CAN_SPOUT[0] * FV, CAN_SPOUT[1] * FV, CAN_SPOUT[2] * FV); this.can.localToWorld(_w2); this.root.worldToLocal(_w2); }
+    if (wat) { this.can.updateWorldMatrix(true, false); _w2.set(CAN_SPOUT[0] * FV, CAN_SPOUT[1] * FV, CAN_SPOUT[2] * FV); this.can.localToWorld(_w2); this.space.worldToLocal(_w2); }
     this.drops.forEach((s, i) => {
       const u = (tz * 2.2 + i / 5) % 1;
       const y = wat ? _w2.y + 0.04 * u - 1.6 * u * u * 0.7 : 0;
@@ -441,8 +442,8 @@ export class BunnyGardener extends BipedRig {
       s.scale.setScalar((i % 2 ? 0.035 : 0.05) * (u < 0.85 ? 1 : (1 - u) / 0.15));
     });
     // face sprites
-    this.head.updateWorldMatrix(true, false);
-    _w.set(0, 5 * VS, 4 * VS); this.head.localToWorld(_w); this.root.worldToLocal(_w);
+    this.headFx.updateWorldMatrix(true, false);
+    _w.set(0, 5 * VS, 4 * VS); this.headFx.localToWorld(_w); this.space.worldToLocal(_w);
     this.notes.forEach((s, i) => {
       const u = (tz * 0.5 + i * 0.5) % 1;
       s.visible = k.notes > 0.5;
