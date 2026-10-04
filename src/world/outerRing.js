@@ -15,10 +15,12 @@ import * as THREE from 'three';
 import { fbm2, hash2, clamp } from '../core/rng.js';
 import { KIND, WATER_Y } from './grid.js';
 import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
+import { terrainAtlasUniforms } from './terrain.js';
 
 const E = 100; // how far the valley reaches past the map edge (tiles)
 const TREE_D = 24; // the thick sprite forest band
-const SLOPE_D = 38; // sparse trees on the lower slopes out to here
+const SLOPE_D = 60; // sparse trees on the lower slopes out to here
+const SMOOTH_D = 7; // tiles past the map edge that stay smooth slopes (like the map's own forest hills)
 const CHUNK = 36; // culling chunk size (tiles)
 const chunkKey = (x, z) => Math.floor((x + 400) / CHUNK) * 1000 + Math.floor((z + 400) / CHUNK);
 const FLAT_D0 = 3, FLAT_D1 = 20; // camera-side ranges (and their trees) sink from here out
@@ -88,14 +90,17 @@ export class OuterRing {
     };
     const corner = (cx, cz) => {
       if (g.slopeH && cx >= 0 && cz >= 0 && cx <= w && cz <= h) {
-        let any = false, mx = -99;
+        // match the map terrain's own vertex there: the smoothed slope height if a
+        // slope tile touches this corner, else the (lowest) flat tile top
+        let any = false, mn = 99, slope = false;
         for (const [tx, tz] of [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]]) {
           if (!g.inb(tx, tz)) continue;
-          const sl = g.isSlope?.(tx, tz) && g.height[tz * w + tx] > 0.01;
-          mx = Math.max(mx, sl ? g.slopeH[cz * CW + cx] : tileTop(tx, tz));
+          if (g.isSlope?.(tx, tz) && g.height[tz * w + tx] > 0.01) slope = true;
+          else mn = Math.min(mn, tileTop(tx, tz));
           any = true;
         }
-        if (any) return mx;
+        if (slope) return g.slopeH[cz * CW + cx];
+        if (any) return mn;
       }
       return 0;
     };
@@ -110,9 +115,16 @@ export class OuterRing {
     const { W, H } = this;
     const px = clamp(x, 0, W), pz = clamp(z, 0, H);
     const at = (arr, t) => { const i = Math.floor(t), f = t - i; const a = arr[clamp(i, 0, arr.length - 1)], b = arr[clamp(i + 1, 0, arr.length - 1)]; return a + (b - a) * f; };
-    const dx = Math.max(-x, x - W, 0), dz = Math.max(-z, z - H, 0);
-    if (dz >= dx) return z < 0 ? at(this.seamN, px) : at(this.seamS, px);
-    return x < 0 ? at(this.seamW, pz) : at(this.seamE, pz);
+    // signed distance past each side (on the border itself: the side we sit on)
+    const sides = [[-z, 0], [z - H, 1], [-x, 2], [x - W, 3]];
+    let best = sides[0];
+    for (const sd of sides) if (sd[0] > best[0]) best = sd;
+    switch (best[1]) {
+      case 0: return at(this.seamN, px);
+      case 1: return at(this.seamS, px);
+      case 2: return at(this.seamW, pz);
+      default: return at(this.seamE, pz);
+    }
   }
 
   dist(x, z) {
@@ -236,6 +248,7 @@ export class OuterRing {
     const nx = xs.length, cx = nx - 1, cz = zs.length - 1;
     this.cTop = new Float32Array(cx * cz);
     this.cWet = new Uint8Array(cx * cz);
+    this.cSmooth = new Uint8Array(cx * cz); // right by the map: smooth slope (meets the map's own slopes), no steps
     for (let j = 0; j < cz; j++)
       for (let i = 0; i < cx; i++) {
         const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1];
@@ -246,68 +259,72 @@ export class OuterRing {
         if (nw >= 3) { this.cTop[k] = WATER_Y - 0.05; this.cWet[k] = 1; continue; }
         const y = (hy[k00] + hy[k10] + hy[k01] + hy[k11]) / 4;
         const d = this.dist((x0 + x1) / 2, (z0 + z1) / 2);
-        const st = d < 10 ? 0.5 : d > 50 ? 1.5 : 1;
-        this.cTop[k] = Math.max(0, Math.round(y / st) * st);
+        // ragged boundary between the smooth rim and the blocks: never one straight line
+        const sd = SMOOTH_D + (fbm2((x0 + x1) * 0.13, (z0 + z1) * 0.13, 907) - 0.5) * 9;
+        if (d < sd) { this.cTop[k] = y; this.cSmooth[k] = 1; continue; }
+        const st = d < 12 ? 0.5 : d > 50 ? 1.5 : 1;
+        // blocks round down near the rim, so their steps face away from the map
+        this.cTop[k] = Math.max(0, (d < 16 ? Math.floor(y / st) : Math.round(y / st)) * st);
       }
   }
 
   // ground height (top of the block column) at (x, z)
   heightAt(x, z) {
     const find = (arr, v) => { let lo = 0, hi = arr.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m] <= v) lo = m; else hi = m - 1; } return lo; };
-    const i = find(this.xs, x), j = find(this.zs, z);
-    const t = this.cTop[j * (this.xs.length - 1) + i];
-    return Number.isNaN(t) ? 0 : t;
+    const xs = this.xs, zs = this.zs, nx = xs.length;
+    const i = find(xs, x), j = find(zs, z);
+    const k = j * (nx - 1) + i;
+    const t = this.cTop[k];
+    if (Number.isNaN(t)) return 0;
+    if (!this.cSmooth[k]) return t;
+    const fx = clamp((x - xs[i]) / (xs[i + 1] - xs[i]), 0, 1), fz = clamp((z - zs[j]) / (zs[j + 1] - zs[j]), 0, 1);
+    const H = this.hy;
+    const a = H[j * nx + i], b = H[j * nx + i + 1], c = H[(j + 1) * nx + i], dd = H[(j + 1) * nx + i + 1];
+    return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + dd * fx) * fz;
   }
 
   // ----------------------------------------------------------------- ground
   buildGround() {
     this.buildCells();
-    const { xs, zs, W, H, cTop, cWet } = this;
+    const { xs, zs, cTop, cWet } = this;
     const cx = xs.length - 1, cz = zs.length - 1;
     // chunked (CHUNK x CHUNK tiles) so whatever is off screen gets culled
     const chunks = new Map();
-    const partOf = (x, z) => { const k = chunkKey(x, z); let c = chunks.get(k); if (!c) chunks.set(k, (c = { pos: [], nor: [], col: [], idx: [], n: 0 })); return c; };
-    const C = {
-      floor: [0x24402a, 0x2a4a2e, 0x203a28, 0x2e4a2a].map(lin),
-      clearing: [0x5c8a3e, 0x6a9646, 0x557e3a].map(lin),
-      forest: [0x2b5a2e, 0x31612f, 0x285428, 0x3a6a34, 0x2e5a36].map(lin),
-      grass: [0x5f8f3e, 0x6a9a44, 0x58873a].map(lin),
-      autumn: [0x8a3a22, 0x9e5a1c, 0x9a7428].map(lin),
-      stone: [0x7a7674, 0x6e6a6a, 0x84807a, 0x737070].map(lin),
-      snow: [0xeef3f8, 0xe2eaf2, 0xf8fbfd].map(lin),
-      water: [0x2f6a8a, 0x2c6486].map(lin),
-      dirt: [0x6b4a2f, 0x5e4029].map(lin),
-      strata: [0x5f5b5a, 0x6a645c, 0x575456, 0x7a6a58].map(lin),
-      ice: [0xc8d6e4].map(lin),
-    };
-    const pick = (arr, r) => arr[Math.floor(r * arr.length) % arr.length];
-    // what a column is made of: top colour and its band (0 soil, 1 stone, 2 snow, 3 water)
+    const partOf = (x, z) => { const k = chunkKey(x, z); let c = chunks.get(k); if (!c) chunks.set(k, (c = { pos: [], nor: [], col: [], sid: [], idx: [], n: 0 })); return c; };
+    // surface ids of the in-map terrain atlas (terrain.js SURF): the valley
+    // uses the very same pixel textures as the map's own mountain and cliffs
+    const S = { GRASS: 0, AUTUMN: 1, DIRT: 2, POND: 4, ROCK: 5, SNOW: 6, FOREST: 8, CLIFF: 9 };
+    // what a column is made of: top surface, tint and band (0 soil, 1 stone, 2 snow, 3 water)
     const topOf = (x, z, y, d, wetC) => {
       const r = hash2(Math.floor(x * 2), Math.floor(z * 2), 711);
-      if (wetC) return [pick(C.water, r), 3];
+      if (wetC) return [S.POND, [0.55, 0.8, 0.95], 3];
       const n = fbm2(x * 0.09, z * 0.09, 717);
       const snowLine = 24 + (n - 0.5) * 8 - (z < 0 ? 6 : 0);
-      const stoneLine = 12 + (n - 0.5) * 7;
-      if (y > snowLine) return [pick(C.snow, r), 2];
-      if (y > stoneLine) return [pick(C.stone, r), 1];
-      if (d < TREE_D) return [this.clearing(x, z) ? pick(C.clearing, r) : pick(C.floor, r), 0];
-      if (y > stoneLine - 3 && n > 0.5) return [pick(C.grass, r), 0];
+      const stoneLine = 15 + (n - 0.5) * 7;
+      const v = 0.94 + r * 0.1;
+      if (y > snowLine) return [S.SNOW, [v, v, v], 2];
+      if (y > stoneLine) return [S.ROCK, [v, v, v], 1];
+      if (this.clearing(x, z)) return [S.GRASS, [v * 0.9, v * 0.92, v * 0.88], 0];
       const au = fbm2(x * 0.05, z * 0.05, 91);
-      return [au > 0.62 && r < 0.5 ? pick(C.autumn, r * 2) : pick(C.forest, r), 0];
+      if (au > 0.62 && r < 0.5) return [S.AUTUMN, [v, v, v], 0];
+      if (y > stoneLine - 3 && n > 0.5) return [S.GRASS, [v, v, v], 0];
+      return [S.FOREST, [v * 0.9, v * 0.95, v * 0.9], 0];
     };
-    const quad = (P, a, b, c, d, nrm, rgb) => {
+    const quad = (P, a, b, c, d, nrm, rgb, id) => {
       const v = P.n;
-      for (const q of [a, b, c, d]) { P.pos.push(q[0], q[1], q[2]); P.nor.push(nrm[0], nrm[1], nrm[2]); P.col.push(rgb[0], rgb[1], rgb[2]); }
+      for (const q of [a, b, c, d]) { P.pos.push(q[0], q[1], q[2]); P.nor.push(nrm[0], nrm[1], nrm[2]); P.col.push(rgb[0], rgb[1], rgb[2]); P.sid.push(id); }
       P.idx.push(v, v + 1, v + 2, v, v + 2, v + 3);
       P.n += 4;
     };
-    const mul = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+    const k3 = (k) => [k, k, k];
     // neighbour column top (inside the map: the map's edge height there)
     const nbTop = (i, j, mx, mz) => {
       if (i < 0 || j < 0 || i >= cx || j >= cz) return -4;
       const t = cTop[j * cx + i];
       return Number.isNaN(t) ? this.edgeH(mx, mz) : t;
     };
+    const { W, H } = this;
+    const onEdge = (vx, vz) => ((vx === 0 || vx === W) && vz >= 0 && vz <= H) || ((vz === 0 || vz === H) && vx >= 0 && vx <= W);
     for (let j = 0; j < cz; j++)
       for (let i = 0; i < cx; i++) {
         const y = cTop[j * cx + i];
@@ -315,66 +332,120 @@ export class OuterRing {
         const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1];
         const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
         const d = this.dist(mx, mz);
-        const [top, band] = topOf(mx, mz, y, d, cWet[j * cx + i]);
+        const [topId, tint, band] = topOf(mx, mz, y, d, cWet[j * cx + i]);
         const P = partOf(mx, mz);
-        quad(P, [x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0], [0, 1, 0], top);
+        // corners on the map's edge take the map's own edge height: the top meets the
+        // map terrain exactly (no seam line when the camera is rotated)
+        const smoothC = this.cSmooth[j * cx + i];
+        const nxL = xs.length, HY = this.hy;
+        const vy = (vx, vz) => {
+          if (onEdge(vx, vz)) return this.edgeH(vx, vz);
+          if (!smoothC) return y;
+          const ii = vx === x0 ? i : i + 1, jj = vz === z0 ? j : j + 1;
+          return HY[jj * nxL + ii];
+        };
+        const y00 = vy(x0, z0), y01 = vy(x0, z1), y11 = vy(x1, z1), y10 = vy(x1, z0);
+        let tn = [0, 1, 0];
+        if (smoothC || y00 !== y || y11 !== y) {
+          const dx = ((y10 + y11) - (y00 + y01)) / (2 * (x1 - x0)), dz = ((y01 + y11) - (y00 + y10)) / (2 * (z1 - z0));
+          const l = Math.hypot(dx, 1, dz); tn = [-dx / l, 1 / l, -dz / l];
+        }
+        quad(P, [x0, y00, z0], [x0, y01, z1], [x1, y11, z1], [x1, y10, z0], tn, tint, topId);
         // cliff faces down to each lower neighbour, in 1-block layers (strata)
-        const fine = x1 - x0 <= 2 && z1 - z0 <= 2;
         const sides = [
           [i + 1, j, x1, mz, [1, 0, 0], (lo, hi) => [[x1, lo, z1], [x1, lo, z0], [x1, hi, z0], [x1, hi, z1]], 0.86],
           [i - 1, j, x0, mz, [-1, 0, 0], (lo, hi) => [[x0, lo, z0], [x0, lo, z1], [x0, hi, z1], [x0, hi, z0]], 0.86],
           [i, j + 1, mx, z1, [0, 0, 1], (lo, hi) => [[x0, lo, z1], [x1, lo, z1], [x1, hi, z1], [x0, hi, z1]], 0.74],
           [i, j - 1, mx, z0, [0, 0, -1], (lo, hi) => [[x1, lo, z0], [x0, lo, z0], [x0, hi, z0], [x1, hi, z0]], 0.74],
         ];
+        // the map side gets a wall all the way down: no cracks where the two meshes meet
+        const touchesMap = (ni, nj) => ni >= 0 && nj >= 0 && ni < cx && nj < cz && Number.isNaN(cTop[nj * cx + ni]);
         for (const [ni, nj, ex, ez, nrm, face, shadeK] of sides) {
-          const ny = nbTop(ni, nj, ex, ez);
-          if (ny >= y - 0.01) continue;
-          const lo0 = Math.max(ny, -4);
-          if (!fine || y - lo0 > 14) {
-            // far / tall: one face, top layer in the column's colour, the rest stone
-            const cap = Math.max(lo0, y - (band === 2 ? 1.5 : 1));
-            quad(P, ...face(cap, y), nrm, mul(band === 0 ? pick(C.dirt, hash2(i, j, 3)) : top, shadeK));
-            if (cap > lo0) quad(P, ...face(lo0, cap), nrm, mul(pick(C.strata, hash2(i, j, 5)), shadeK));
+          // towards the map: a skirt wall down under the map's edge, so no crack of sky
+          // shows between the two meshes from any camera angle
+          if (touchesMap(ni, nj)) {
+            // one skirt face whose top follows the shared edge corners exactly
+            const f = face(-4, 0);
+            f[2][1] = vy(f[2][0], f[2][2]); f[3][1] = vy(f[3][0], f[3][2]);
+            quad(P, ...f, nrm, k3(shadeK * 0.8), S.DIRT);
             continue;
           }
-          let hi = y;
-          let layer = 0;
+          let ny = nbTop(ni, nj, ex, ez);
+          const nSmooth = ni >= 0 && nj >= 0 && ni < cx && nj < cz && this.cSmooth[nj * cx + ni];
+          if (smoothC && nSmooth) continue; // smooth slopes share their vertices: no wall
+          const fq = face(0, 0);
+          const ea = vy(fq[2][0], fq[2][2]), eb = vy(fq[3][0], fq[3][2]);
+          if (nSmooth) ny = Math.min(ny, ea, eb); // down to the smooth neighbour's shared edge
+          const yHi = smoothC ? Math.max(ea, eb) : y;
+          if (ny >= yHi - 0.01) continue;
+          const lo0 = Math.max(ny, -4);
+          // soil / snow layers on top, then stone strata (alternating tints) down to the neighbour
+          const soil = band === 0 ? 2 : band === 2 ? 2 : band === 3 ? 1 : 0;
+          const soilId = band === 2 ? S.SNOW : S.DIRT;
+          let hi = yHi, layer = 0;
+          const big = x1 - x0 > 2 || yHi - lo0 > 16;
           while (hi > lo0 + 0.001) {
-            const lo = Math.max(lo0, Math.ceil(hi - 1.001)); // down to the next whole block
-            let c;
-            if (layer === 0) c = band === 0 ? (cWet[j * cx + i] ? pick(C.dirt, 0) : pick(C.dirt, hash2(i, j, 3))) : top;
-            else if (band === 2 && layer < 2) c = pick(C.snow, 0.5);
-            else if (band === 0 && layer < 3) c = pick(C.dirt, hash2(i, layer, 9));
-            else c = pick(C.strata, hash2(Math.floor(lo * 2), 0, 77));
-            quad(P, ...face(lo, hi), nrm, mul(c, shadeK));
+            const lo = layer < soil ? Math.max(lo0, Math.ceil(hi - 1.001)) : big ? lo0 : Math.max(lo0, Math.ceil(hi - 2.001));
+            const id = layer < soil ? soilId : S.CLIFF;
+            const strata = layer < soil ? 1 : 0.84 + hash2(Math.floor(lo), 3, 77) * 0.22;
+            quad(P, ...face(lo, hi), nrm, k3(shadeK * strata), id);
             hi = lo; layer++;
           }
         }
       }
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
     const U = this.uniforms;
+    const TA = terrainAtlasUniforms();
     mat.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, U);
+      Object.assign(shader.uniforms, U, TA);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\n' + HAZE_PARS + '\nvarying float vRingHaze;')
-        .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nfloat ringFlat = flatK(position);\nobjectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), ringFlat * 0.8));')
+        .replace('#include <common>', '#include <common>\n' + HAZE_PARS + '\nattribute float aSurf;\nvarying float vRingHaze;\nvarying float vSurf;\nvarying vec3 vRPos;\nvarying vec3 vRNor;\nvarying float vFlat;')
+        .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nfloat ringFlat = flatK(position);\nvRNor = objectNormal;\nvFlat = ringFlat;')
         // ranges on the camera's side of the map sink so they never block the view
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.y = mix(transformed.y, 2.0 + (transformed.y - 2.0) * 0.18, ringFlat);')
-        .replace('#include <color_vertex>', '#include <color_vertex>\nvColor.rgb = mix(vColor.rgb, vec3(0.014, 0.05, 0.022), smoothstep(0.2, 0.7, flatK(position)) * 0.92);')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRPos = position;\ntransformed.y = mix(transformed.y, 2.0 + (transformed.y - 2.0) * 0.35, ringFlat);\nvSurf = aSurf;')
         .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringHaze((modelMatrix * vec4(transformed, 1.0)).xyz);');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;')
+        .replace('#include <common>', `#include <common>
+uniform vec3 uHaze;
+uniform sampler2D uAtlas;
+uniform vec4 uRects[10];
+varying float vRingHaze;
+varying float vSurf;
+varying vec3 vRPos;
+varying vec3 vRNor;
+varying float vFlat;
+vec3 ringTex(int id, vec2 p) {
+  vec4 r = uRects[id];
+  vec2 t = fract(p / 2.0);
+  t = (floor(t * 48.0) + 0.5) / 48.0;
+  return texture2D(uAtlas, r.xy + t * r.zw).rgb;
+}`)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+{
+  int id = int(vSurf + 0.5);
+  vec2 p;
+  if (abs(vRNor.y) > 0.5) {
+    p = vRPos.xz;
+    // sunk ranges on the camera's side read as forested hills, not bare rock / snow
+    if (vFlat > 0.45 && (id == 5 || id == 6)) id = 8;
+  } else {
+    p = abs(vRNor.x) > 0.5 ? vec2(vRPos.z, vRPos.y) : vec2(vRPos.x, vRPos.y);
+    if (vFlat > 0.45 && id == 6) id = 2;
+  }
+  diffuseColor.rgb *= ringTex(id, p) * 1.12;
+}`)
         .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze);\n#include <opaque_fragment>');
     };
     mat.customProgramCacheKey = () => 'outerRingGround';
     this.ground = [];
-    for (const { pos, nor, col, idx } of chunks.values()) {
+    for (const { pos, nor, col, sid, idx } of chunks.values()) {
       if (!pos.length) continue;
       const geo = new THREE.BufferGeometry();
       geo.setIndex(idx);
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      geo.setAttribute('aSurf', new THREE.Float32BufferAttribute(sid, 1));
       geo.computeBoundingSphere();
       geo.boundingSphere.radius += 4;
       const mesh = new THREE.Mesh(geo, mat);
@@ -406,14 +477,37 @@ export class OuterRing {
         if (d > SLOPE_D) continue;
         const y = this.heightAt(cx, cz);
         if (this.fallPts && this.fallPts.some((q) => Math.abs(q[0] - cx) < 2.2 && Math.abs(q[2] - cz) < 1.2)) continue; // keep the waterfall in view
+        // tree line = where the ground turns to bare stone (same bands as buildGround)
+        const nTL = fbm2(cx * 0.09, cz * 0.09, 717);
+        const treeLine = 15 + (nTL - 0.5) * 7;
+        const snowLine = 24 + (nTL - 0.5) * 8 - (cz < 0 ? 6 : 0);
         if (d > TREE_D + hash2(x, z, 801) * 2) {
-          // the lower slopes of the ranges: scattered conifers, snowier higher up
-          const rr = hash2(x, z, 851);
-          if (rr > 0.28 || y > 13 + fbm2(cx * 0.09, cz * 0.09, 717) * 6 || this.clearing(cx, cz)) continue;
+          // the mountain sides: dense forest climbing to the tree line, thinning near it,
+          // then scattered rocks and snowy spruces up on the stone
           if (this.rivers.length && this.riverDist(cx, cz).d < 1.8) continue;
-          const dk = Math.max(0.45, 0.62 - d * 0.003) * (0.9 + hash2(x, z, 853) * 0.1);
-          const f = y > 9 ? pickF(['spruce_snow_0', 'spruce_snow_1'], rr * 2.3) : pickF(['spruce_0', 'spruce_1', 'spruce_2', 'pine_0', 'spruce_snow_0'], rr * 2.3);
-          put(f, x + 0.2 + hash2(x, z, 855) * 0.6, z + 0.2 + hash2(x, z, 857) * 0.6, { texels: 24, scale: 1 + hash2(x, z, 859) * 0.4, sway: 0.25, phase: rr * 6.28, flip: rr > 0.2, tint: [dk * 0.94, dk, dk * 1.08] });
+          const rr = hash2(x, z, 851), r3 = hash2(x, z, 861);
+          const dk = Math.max(0.5, 0.64 - d * 0.0025) * (0.9 + hash2(x, z, 853) * 0.1);
+          const tint = [dk * 0.95, dk, dk * 1.06];
+          const jx = x + 0.2 + hash2(x, z, 855) * 0.6, jz = z + 0.2 + hash2(x, z, 857) * 0.6;
+          if (y > treeLine) {
+            if (y < snowLine && rr < 0.08) put(pickF(['spruce_snow_0', 'spruce_snow_1'], r3), jx, jz, { texels: 24, scale: 0.9 + r3 * 0.3, sway: 0.2, phase: rr * 6.28, flip: rr > 0.04, tint });
+            else if (rr > 0.93) put(pickF(['rock_0', 'rock_1', 'rock_2', 'boulder_0', 'boulder_1'], r3), jx, jz, { texels: 24, scale: 1 + r3 * 0.5, tint });
+            continue;
+          }
+          if (this.clearing(cx, cz)) {
+            if (rr < 0.12) put(pickF(['bush_0', 'bush_1', 'rock_0', 'mossrock', 'sapling'], r3), jx, jz, { texels: 24, scale: 0.95, sway: 0.4, phase: rr * 6, tint });
+            continue;
+          }
+          const dens = 0.95 * (1 - smooth(treeLine - 7, treeLine + 0.5, y));
+          if (rr > dens) { if (rr < dens + 0.06) put(pickF(['bush_0', 'bush_1', 'rock_1', 'mossrock'], r3), jx, jz, { texels: 24, scale: 0.9, sway: 0.4, phase: rr * 6, tint }); continue; }
+          const au = fbm2(cx * 0.16, cz * 0.16, 91);
+          let f;
+          if (au > 0.62 && y < treeLine - 5 && r3 < 0.6) f = pickF(['maple_red', 'maple_orange', 'maple_scarlet', 'birch_0'], hash2(x, z, 7));
+          else if (y > treeLine - 4) f = pickF(['spruce_snow_0', 'spruce_0', 'spruce_snow_1', 'spruce_2'], r3);
+          else if (r3 < 0.55) f = pickF(['spruce_0', 'spruce_1', 'spruce_2'], hash2(x, z, 8));
+          else if (r3 < 0.9) f = pickF(['pine_0', 'pine_1'], r3);
+          else f = pickF(['birch_0', 'aspen_0'], r3);
+          put(f, jx, jz, { texels: 24, scale: 1 + hash2(x, z, 859) * 0.45, sway: 0.25, phase: rr * 6.28, flip: r3 > 0.5, tint });
           continue;
         }
         if (y < 0.05 && this.rivers.length && this.riverDist(cx, cz).d < 1.8) continue;
@@ -421,7 +515,7 @@ export class OuterRing {
         // as dark as the deep forest inside the map, a touch darker further out
         const dk = Math.max(0.5, 0.66 - d * 0.004) * (0.9 + r2 * 0.1);
         const tint = [dk * 0.95, dk, dk * 1.06];
-        const steepRock = y > (z < 0 ? 8 : 12);
+        const steepRock = y > treeLine;
         if (this.clearing(cx, cz)) {
           // clearings: grass, a few rocks, bushes, the odd snag or fallen log
           if (r < 0.1) put(pickF(['rock_0', 'rock_1', 'rock_2', 'mossrock', 'boulder_0'], r2), cx + (r2 - 0.5) * 0.6, cz, { texels: 24, scale: 0.9 + r2 * 0.4, tint });
@@ -478,7 +572,7 @@ export class OuterRing {
       Object.assign(shader.uniforms, { uHaze: U.uHaze, uRect: U.uRect, uRingCam: U.uRingCam, uHazeK: U.uHazeK });
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\n' + HAZE_PARS + '\nvarying float vRingHaze;')
-        .replace('vec3 transformed = sprW;', 'vec3 transformed = sprW;\ntransformed.y += (2.0 + (aPos.y - 2.0) * 0.18 - aPos.y) * flatK(aPos);')
+        .replace('vec3 transformed = sprW;', 'vec3 transformed = sprW;\ntransformed.y += (2.0 + (aPos.y - 2.0) * 0.35 - aPos.y) * flatK(aPos);')
         .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringHaze(aPos);');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;')
@@ -540,7 +634,7 @@ void main() {
   vUv = uv;
   vec3 p = position;
   vFlat = flatK(p);
-  p.y = mix(p.y, 2.0 + (p.y - 2.0) * 0.18, vFlat);
+  p.y = mix(p.y, 2.0 + (p.y - 2.0) * 0.35, vFlat);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
 }`,
       fragmentShader: /* glsl */ `

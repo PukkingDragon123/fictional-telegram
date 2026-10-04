@@ -79,6 +79,8 @@ function applyAtlas(atlas) {
 }
 
 applyAtlas(fallbackAtlas());
+// [v20 map] the valley ring (outerRing.js) shares the same pixel textures
+export function terrainAtlasUniforms() { return { uAtlas: atlasUniform, uRects: rectUniform }; }
 // swap in the real pixel art when the module is available
 const artMods = import.meta.glob('../art/terrainArt.js');
 if (artMods['../art/terrainArt.js']) {
