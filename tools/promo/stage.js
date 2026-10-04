@@ -168,6 +168,25 @@ function front(T, sx, sy, d = 6) {
   return r.origin.clone().addScaledVector(r.direction, d);
 }
 
+// Clear world decos / clutter (trees, reeds, flowers) whose base lands inside screen rects
+// [sx0, sy0, sx1, sy1], so the cast is not hidden behind plants. Undone on the next setup.
+function clearRects(T, rects) {
+  const w = T.game.world, g = T.game.grid, cam = T.game.rig.camera;
+  for (const d of S.cleared || []) d.removed = false;
+  S.cleared = [];
+  if (rects?.length) {
+    const v = new THREE.Vector3();
+    const test = (x, z) => {
+      v.set(x, g.groundAt(x, z), z).project(cam);
+      const sx = (v.x + 1) / 2, sy = (1 - v.y) / 2;
+      return rects.some((r) => sx >= r[0] && sx <= r[2] && sy >= r[1] && sy <= r[3]);
+    };
+    for (const d of w.decos) if (!d.removed && test(d.x + 0.5, d.z + 0.5)) { d.removed = true; S.cleared.push(d); }
+    for (const c of w.clutter || []) if (!c.removed && test(c.x, c.z)) { c.removed = true; S.cleared.push(c); }
+  }
+  try { w.buildDecos(); w.buildClutter(); } catch (e) { console.warn('promo decos', e); }
+}
+
 // ------------------------------------------------------------------ actors
 function add(o, name) {
   S.actors.push({ obj: o });
@@ -230,6 +249,7 @@ const SCENES = {};
 SCENES.thumb = (T, o) => {
   const C = { yaw: facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.0135, focus: T._at(o.camR ?? 0.6, o.camF ?? -1.2), sun: o.sun || [-0.2, 0.62] };
   applyCamera(T, C);
+  clearRects(T, o.clear);
   const B = o.bear || {};
   const bp = ground(T, B.sx ?? 0.66, B.sy ?? 0.66, WATER_Y);
   bp.y -= B.sink ?? 0.8;
@@ -255,6 +275,7 @@ SCENES.thumb = (T, o) => {
 SCENES.banner = (T, o) => {
   const C = { yaw: facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6] };
   applyCamera(T, C);
+  clearRects(T, o.clear);
   for (const a of o.cast || []) {
     let obj;
     const p = a.front != null ? front(T, a.sx, a.sy, a.front) : a.h != null ? ground(T, a.sx, a.sy, a.h) : ground(T, a.sx, a.sy);
@@ -285,6 +306,14 @@ export async function setup(kind, o = {}) {
   // pixel density -> pixel scale (the banner wants exactly 2 screen px per low-res px)
   if (o.px && game.renderer.pixelDensity !== o.px) { game.renderer.pixelDensity = o.px; game.resize(); }
   const cam = SCENES[kind](T, o);
+  // optional soft fill light from the camera so faces read against the low sun
+  if (S.fill) { S.fill.removeFromParent(); S.fill.target.removeFromParent(); S.fill = null; }
+  if (o.fill) {
+    const L = (S.fill = new THREE.DirectionalLight(o.fillColor ?? 0xffe0d0, o.fill));
+    const c = game.rig.camera.position, t = game.rig.target;
+    L.position.copy(c); L.target.position.copy(t);
+    game.scene.add(L, L.target);
+  }
   T._updateCamera = () => applyCamera(T, cam);
   T.update = (dt) => {
     dt = Math.min(dt || 0, 0.05);
@@ -319,18 +348,31 @@ export function fx(name, ...args) { return window.__title.game.particles[name](.
 export function worldAt(sx, sy, h = null) { return ground(window.__title, sx, sy, h); }
 
 // Silhouette of the named actors as a white-on-transparent PNG at the renderer's
-// low-res size (same camera, everything else hidden).
+// low-res size (same camera). Everything else is drawn black so it still occludes
+// (the water surface by a stand-in plane); custom-shader meshes and sprites are skipped.
 export function mask(names) {
   const T = window.__title, game = T.game, R = game.renderer, r = R.renderer, cam = game.rig.camera;
-  const keep = names.map((n) => S.named[n]).filter(Boolean);
+  const keep = new Set();
+  for (const n of names) S.named[n]?.traverse((o) => keep.add(o));
   const scene = game.scene;
-  const vis = [];
-  scene.traverse((o) => { if (o !== scene) vis.push([o, o.visible]); });
-  scene.traverse((o) => { if (o.isMesh || o.isSprite || o.isPoints || o.isLine) o.visible = false; });
-  for (const k of keep) { k.traverse((o) => { o.visible = true; }); let p = k.parent; while (p) { p.visible = true; p = p.parent; } }
-  const bg = scene.background, ov = scene.overrideMaterial, fog = scene.fog;
+  const white = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  const black = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+  const saved = [];
+  scene.traverse((o) => {
+    if (o === scene) return;
+    saved.push([o, o.visible, o.material]);
+    if (o.isSprite || o.isPoints || o.isLine) { o.visible = false; return; }
+    if (!o.isMesh) return;
+    if (keep.has(o)) { o.material = white; return; }
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    if (!m || m.isShaderMaterial || m.isRawShaderMaterial || o.isInstancedMesh || o.geometry?.isInstancedBufferGeometry) { o.visible = false; return; }
+    o.material = black;
+  });
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), black);
+  water.position.set(cam.position.x, WATER_Y, cam.position.z);
+  scene.add(water);
+  const bg = scene.background, fog = scene.fog;
   scene.background = new THREE.Color(0, 0, 0);
-  scene.overrideMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
   scene.fog = null;
   const W = R.rtW, H = R.rtH;
   const rt = new THREE.WebGLRenderTarget(W, H);
@@ -342,8 +384,9 @@ export function mask(names) {
   r.readRenderTargetPixels(rt, 0, 0, W, H, px);
   r.setRenderTarget(null);
   rt.dispose();
-  scene.background = bg; scene.overrideMaterial = ov; scene.fog = fog;
-  for (const [o, v] of vis) o.visible = v;
+  scene.remove(water);
+  scene.background = bg; scene.fog = fog;
+  for (const [o, v, m] of saved) { o.visible = v; if (m !== undefined) o.material = m; }
   // crop the 1px snap margin, flip Y
   const w = R.lowW, h = R.lowH;
   const cv = document.createElement('canvas');

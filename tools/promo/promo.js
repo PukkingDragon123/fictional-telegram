@@ -113,7 +113,7 @@ function thumb() {
   bigText(stage, ['!?'], { x: 196, y: 186, size: 104.17, rot: 14, outline: 5, outlineColor: '#2a0f1e', outer: 4, outerColor: '#fff',
     fill: 'linear-gradient(180deg, #fff6a0 0%, #ffd23a 45%, #ff5a2a 100%)', shadow: { x: 0, y: 6, color: 'rgba(42,15,30,.7)' } });
   // title
-  bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 16, y: 6, size: 83.33, sizes: [62.5, 93.75], gap: -10, indent: [6, 0], rot: -4, origin: 'left top',
+  bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 14, y: 4, size: 83.33, sizes: [72.92, 104.17], gap: -12, indent: [6, 0], rot: -4, origin: 'left top',
     outline: 5, outlineColor: '#3a1408', outer: 4, outerColor: '#fff6e0', fill: FILL_GOLD,
     shadow: { x: 0, y: 8, color: 'rgba(40,8,40,.75)', glow: '0 0 26px rgba(255,140,60,.6)' } });
   // tagline ribbon
@@ -121,7 +121,32 @@ function thumb() {
   bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 31.25, outline: 3, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
 }
 
-const SCENES = { thumb };
+// ------------------------------------------------------------------ the banner
+function banner() {
+  const W = 960, H = 240;
+  Object.assign(stage.style, { width: W + 'px', height: H + 'px' });
+  el('div', 'bg', { backgroundImage: `url(${R('banner.png')})` });
+  // party glow over the dance floor
+  burst(380, 30, 420, { rays: 26, a: 'rgba(255,226,150,0.16)', rot: 8, fade: 0.8 });
+  // rage glow on the right
+  el('div', '', { inset: 0, background: 'radial-gradient(ellipse 30% 70% at 85% 60%, rgba(255,40,40,.22), rgba(255,40,40,0) 70%)', mixBlendMode: 'screen' });
+  // left panel for the type
+  el('div', '', { inset: 0, background: 'linear-gradient(90deg, rgba(30,8,40,.88) 0%, rgba(30,8,40,.72) 21%, rgba(30,8,40,0) 32%)' });
+  el('div', '', { inset: 0, background: 'linear-gradient(180deg, rgba(30,8,40,0) 70%, rgba(30,8,40,.45) 100%)' });
+  cutout(R('banner.png'), R('banner-b1+b2+b3+b4.png'), [...outline(1, '#2a0f1e'), 'drop-shadow(0 0 4px rgba(255,40,40,1))', 'drop-shadow(0 0 10px rgba(255,50,30,.7))']);
+  cutout(R('banner.png'), R('banner-fox.png'), [...outline(2, '#fff'), 'drop-shadow(0 0 6px rgba(255,220,90,.95))', 'drop-shadow(0 0 14px rgba(255,170,50,.6))']);
+  // comic RAWR at the bears
+  bigText(stage, ['RAWR!'], { x: 806, y: 8, size: 41.67, rot: 8, outline: 3, outlineColor: '#2a0f1e', outer: 3, outerColor: '#fff',
+    fill: 'linear-gradient(180deg, #ffe46a 0%, #ff8a2a 55%, #ff2a2a 100%)', shadow: { x: 0, y: 4, color: 'rgba(42,15,30,.7)' } });
+  // title + tagline
+  bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 18, y: 20, size: 62.5, sizes: [50, 66.67], gap: -6, indent: [4, 0], rot: -3,
+    outline: 4, outlineColor: '#3a1408', outer: 3, outerColor: '#fff6e0', fill: FILL_GOLD,
+    shadow: { x: 0, y: 6, color: 'rgba(40,8,40,.8)', glow: '0 0 20px rgba(255,140,60,.55)' } });
+  const tag = el('div', '', { left: '22px', top: '170px', transform: 'rotate(-2deg)', padding: '4px 12px 6px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '2px solid #2a0f1e', borderRadius: '8px', boxShadow: '0 0 0 2px #fff6e0, 0 4px 0 2px rgba(40,8,40,.7)' });
+  bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 20.83, outline: 2, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
+}
+
+const SCENES = { thumb, banner };
 SCENES[kind]?.();
 
 // ready once fonts and every image are in
