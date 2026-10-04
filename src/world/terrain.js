@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { KIND, WATER_Y } from './grid.js';
 import { hash2, fbm2 } from '../core/rng.js';
+import { STONE_GLSL, stoneUniforms } from '../art/stoneArt.js'; // [v20 map]
 
 const BASE_Y = -4;
 
@@ -150,6 +151,7 @@ export function makeTerrainMaterial(uniforms) {
     shader.uniforms.uSim = uniforms.uSim;
     shader.uniforms.uSimRect = uniforms.uSimRect;
     shader.uniforms.uBlueprint = uniforms.uBlueprint;
+    Object.assign(shader.uniforms, stoneUniforms()); // [v20 map] mountain stone, shared with the valley
     terrainVert(shader);
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -168,6 +170,7 @@ uniform vec2 uGridSize;
 uniform sampler2D uSim;
 uniform vec4 uSimRect;
 uniform float uBlueprint;
+${STONE_GLSL}
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn2(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -193,10 +196,14 @@ vec3 surfTex(int id, vec2 p) {
     vec2 q = (floor(p + j) + 0.5) / uGridSize;
     int id = int(texture2D(uSurf, q).r * 255.0 / 16.0 + 0.5);
     tex = surfTex(id, p);
+    // [v20 map] bare mountain rock: the detailed stone of the valley ranges
+    if (id == 5) tex = stoneTex(vn2(p * 0.08) > 0.55 ? 1.0 : 0.0, p) * 1.25;
   } else {
     vec2 sp = an.x > 0.5 ? vec2(vWPos.z, vWPos.y) : vec2(vWPos.x, vWPos.y);
     int id = vSide > 0.5 ? 9 : 2;
     tex = surfTex(id, sp * vec2(1.0, 1.0));
+    // [v20 map] rocky cliffs (the north mountain) in the valley's stone strata
+    if (vSide > 0.5) { float band = floor(vWPos.y / 1.5); float hb = h21(vec2(band, 3.0)); tex = stoneTex(hb < 0.45 ? 1.0 : hb < 0.8 ? 0.0 : 6.0, sp) * 1.25; }
     // grassy lip along the top edge of banks
     if (vSide < 0.5 && fract(vWPos.y) > 0.0) {}
   }
@@ -269,6 +276,8 @@ export function buildTerrainGeometry(grid) {
     if (terra && terra[i]) return true;
     return !grid.meadow[i] && k !== KIND.WATER && k !== KIND.TRAIL && grid.occ[i] !== -2 && z >= 22 && !(grid.biome && grid.biome[i] === 4);
   };
+  // [line fix] tiles actually drawn as a smoothed slope (low ones stay flat tops)
+  const smoothDrawn = (x, z) => smoothT(x, z) && (grid.height[z * w + x] > 0.01 || !!(terra && terra[z * w + x]));
   const landH = new Float32Array(CW * (h + 1));
   for (let cz = 0; cz <= h; cz++)
     for (let cx = 0; cx <= w; cx++) {
@@ -279,22 +288,28 @@ export function buildTerrainGeometry(grid) {
         if (grid.kind[ti] === KIND.WATER) continue;
         const hh = grid.height[ti];
         // never sink below a flat (unsmoothed) neighbour: keeps the meadow/trail edges sealed
-        if (!smoothT(tx, tz)) mx = Math.max(mx, hh);
+        if (!smoothDrawn(tx, tz)) mx = Math.max(mx, hh); // [line fix] (was !smoothT: low slope tiles are drawn flat too)
         sum += hh; n++;
       }
-      landH[cz * CW + cx] = n ? Math.max(sum / n, mx === -99 ? -99 : Math.min(mx, sum / n + 0.5)) : 0;
+      let v = Math.max(sum / n, mx === -99 ? -99 : Math.min(mx, sum / n + 0.5));
+      // [line fix] a hair above a flat neighbour: meet it exactly. A sub-pixel
+      // step (the forest's 0.02 next to the meadow's 0 gave 0.01) can't be drawn
+      // as pixel art: square to the camera it flickers in as a full-width line.
+      if (mx !== -99 && v > mx && v - mx < 0.2) v = mx;
+      landH[cz * CW + cx] = n ? v : 0;
     }
   const LH = (cx, cz) => landH[cz * CW + cx];
   // remember the smoothed surface so sprites (trees, rocks) sit on the slope
   grid.slopeH = landH;
   grid.isSlope = smoothT;
+  const edgeLH = (x, z, dx, dz) => (dx === 1 ? [LH(x + 1, z), LH(x + 1, z + 1)] : dx === -1 ? [LH(x, z), LH(x, z + 1)] : dz === 1 ? [LH(x, z + 1), LH(x + 1, z + 1)] : [LH(x, z), LH(x + 1, z)]);
   const _e1 = [0, 0, 0], _e2 = [0, 0, 0];
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++) {
       const i = z * w + x;
       const y = grid.height[i];
       const k = grid.kind[i];
-      if (smoothT(x, z) && (y > 0.01 || (terra && terra[i]))) {
+      if (smoothDrawn(x, z)) { // [line fix] same test, shared with the seals
         const a = [x, LH(x, z), z], b = [x, LH(x, z + 1), z + 1], c = [x + 1, LH(x + 1, z + 1), z + 1], d = [x + 1, LH(x + 1, z), z];
         _e1[0] = c[0] - a[0]; _e1[1] = c[1] - a[1]; _e1[2] = c[2] - a[2];
         _e2[0] = d[0] - b[0]; _e2[1] = d[1] - b[1]; _e2[2] = d[2] - b[2];
@@ -310,15 +325,32 @@ export function buildTerrainGeometry(grid) {
         const f = [shade, shade, shade];
         quad(a, b, c, d, [nx / nl, ny / nl, nz / nl], [f, f, f, f], rocky && steep > 0.35 ? 1 : 0);
         // seal against flat neighbours (trail / meadow) that sit lower
+        // [line fix] every step is sealed, however small: the old 0.01 tolerance
+        // left 1 cm see-through slivers all along the meadow / trail edges (the
+        // smoothed corner there is exactly 0.01 up). With the camera rotated
+        // square to such an edge a whole row of pixels can fall into the
+        // sliver: a full-width line of sky across the screen. Also covers
+        // flat-drawn slope tiles (height <= 0.01) and pond banks.
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const nxx = x + dx, nzz = z + dz;
-          if (!grid.inb(nxx, nzz) || smoothT(nxx, nzz) || grid.kind[nzz * w + nxx] === KIND.WATER) continue;
+          if (!grid.inb(nxx, nzz) || smoothDrawn(nxx, nzz)) continue; // [line fix]
+          const wet = grid.kind[nzz * w + nxx] === KIND.WATER; // [line fix]
           const ny0 = grid.height[nzz * w + nxx];
           let P, Q;
           if (dx === 1) { P = d; Q = c; } else if (dx === -1) { P = b; Q = a; } else if (dz === 1) { P = c; Q = b; } else { P = a; Q = d; }
-          if (Math.max(P[1], Q[1]) <= ny0 + 0.01) continue;
           const lo = [0.62, 0.62, 0.66], hi = [0.95, 0.95, 0.95];
-          quad([P[0], ny0, P[2]], [Q[0], ny0, Q[2]], [Q[0], Q[1], Q[2]], [P[0], P[1], P[2]], [dx, 0, dz], [lo, lo, hi, hi], 1);
+          if (wet) { // [line fix] bank down to the smoothed pond floor, like the flat tiles do
+            quad([P[0], CH(P[0], P[2]) - 0.05, P[2]], [Q[0], CH(Q[0], Q[2]) - 0.05, Q[2]], Q, P, [dx, 0, dz], [lo, lo, hi, hi], 0);
+            continue;
+          }
+          const pa = P[1] - ny0, qa = Q[1] - ny0; // [line fix]
+          if (pa <= 0 && qa <= 0) continue;
+          if (pa > 0 && qa > 0) quad([P[0], ny0, P[2]], [Q[0], ny0, Q[2]], [Q[0], Q[1], Q[2]], [P[0], P[1], P[2]], [dx, 0, dz], [lo, lo, hi, hi], 1);
+          else { // [line fix] the edge dips under the neighbour: seal just the part above it
+            const t = pa / (pa - qa), M = [P[0] + (Q[0] - P[0]) * t, ny0, P[2] + (Q[2] - P[2]) * t];
+            const T = pa > 0 ? P : Q;
+            quad([T[0], ny0, T[2]], M, M, T, [dx, 0, dz], [lo, lo, hi, hi], 1);
+          }
         }
         continue;
       }
@@ -349,6 +381,10 @@ export function buildTerrainGeometry(grid) {
           const ex = dx === 1 ? x + 1 : x, ez = dz === 1 ? z + 1 : z;
           const e0 = dx !== 0 ? CH(ex, z) : CH(x, ez), e1 = dx !== 0 ? CH(ex, z + 1) : CH(x + 1, ez);
           ny = Math.min(ny, e0, e1) - 0.05;
+        } else if (smoothDrawn(x + dx, z + dz)) {
+          // [line fix] a slope neighbour: its edge may sit below its own tile height
+          const [e0, e1] = edgeLH(x, z, dx, dz);
+          ny = Math.min(ny, e0, e1);
         }
         if (ny >= y) continue;
         const y0 = Math.max(ny, BASE_Y), y1 = y;
