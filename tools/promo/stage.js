@@ -124,18 +124,19 @@ function applyCamera(T, cam) {
   const game = T.game, rig = game.rig, rr = game.renderer;
   const { focus, wupp, yaw } = cam, pitch = cam.pitch * D2R;
   rig.freeBounds = true; rig.follow = null;
+  S.camYaw = yaw;
   rig.yaw = rig.yawGoal = yaw;
   rig.pitch = rig.pitchGoal = pitch;
   rig.minWupp = Math.min(rig.minWupp, wupp);
   rig.wupp = rig.wuppGoal = wupp;
   const hh0 = (rr.rtH * wupp) / 2;
   rig.dist = Math.max(24, (hh0 * Math.cos(pitch) + 0.8) / Math.sin(pitch));
-  rig.goal.set(focus.x, 0.35, focus.z);
+  rig.goal.set(focus.x, (focus.y || 0) + 0.35, focus.z);
   rig.target.copy(rig.goal);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const SKY_D = cam.skyD ?? 3.4;
   if (T.skyMesh) {
-    T.skyMesh.position.set(focus.x - sy * SKY_D, 0, focus.z - cy * SKY_D);
+    T.skyMesh.position.set(focus.x - sy * SKY_D, focus.y || 0, focus.z - cy * SKY_D);
     T.skyMesh.rotation.set(0, yaw, 0);
     const hh = rr.rtH * wupp * 0.5, viewW = rr.rtW * wupp;
     const topH = (hh + 0.35 * Math.cos(pitch) - SKY_D * Math.sin(pitch)) / Math.cos(pitch);
@@ -198,7 +199,7 @@ function add(o, name) {
   if (name) S.named[name] = o;
   return o;
 }
-function facing(T, off = 0) { return Math.atan2(-T.fwd.x, -T.fwd.z) + off; } // +Z towards the camera
+function facing(T, off = 0) { return (S.camYaw ?? Math.atan2(-T.fwd.x, -T.fwd.z)) + off; } // +Z towards the camera
 
 function placeFox(T, pos, { scale = 0.85, rot = 0, anim = 'idle', t = 1, shadow = true, expr = null, outfit = null } = {}) {
   const fox = new FoxRig({ shadows: shadow });
@@ -283,7 +284,7 @@ SCENES.thumb = (T, o) => {
 // Itch banner: the neighbours dance by the pond around a party, Reynard busting a
 // move; suited bears charge in from the right, one smashing the picnic table.
 SCENES.banner = (T, o) => {
-  const C = { yaw: facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6] };
+  const C = { yaw: o.yaw ?? facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: o.focusWorld ? new THREE.Vector3(o.focusWorld[0], T.game.grid.groundAt(o.focusWorld[0], o.focusWorld[1]), o.focusWorld[1]) : T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6], skyD: o.skyD };
   applyCamera(T, C);
   clearRects(T, o.clear);
   for (const a of o.cast || []) {
@@ -324,6 +325,17 @@ export async function setup(kind, o = {}) {
   game.state.hour = o.hour ?? 18.25;
   // pixel density -> pixel scale (the banner wants exactly 2 screen px per low-res px)
   if (o.px && game.renderer.pixelDensity !== o.px) { game.renderer.pixelDensity = o.px; game.resize(); }
+  // daylight: undo the title screen's sunset grade + sky patch (o.hour sets the time of day)
+  if (o.daylight && T._saved) {
+    const sv = T._saved, R = game.renderer, U = R.postMat.uniforms;
+    game.sky.update = sv.skyOwn || Object.getPrototypeOf(game.sky).update;
+    R.bloomStrength = sv.bloomStrength; R.brightPass.mat.uniforms.threshold.value = sv.threshold;
+    for (const k of ['haze', 'vignette', 'saturation', 'contrast', 'outlineAmt', 'highlightAmt']) U[k].value = sv.u[k];
+    for (const k of ['hazeColor', 'vignetteColor', 'grade', 'lift', 'outlineTint']) U[k].value.copy(sv.u[k]);
+    if (T.skyMesh) T.skyMesh.visible = false;
+  }
+  if (o.haze != null) game.renderer.postMat.uniforms.haze.value = o.haze;
+  if (o.bloom != null) game.renderer.bloomStrength = o.bloom;
   const cam = SCENES[kind](T, o);
   // optional soft fill light from the camera so faces read against the low sun
   if (S.fill) { S.fill.removeFromParent(); S.fill.target.removeFromParent(); S.fill = null; }
@@ -433,7 +445,7 @@ function loopFx(T, L) {
   T.group.add(g);
   add(g);
   const r = seeded(L.seed || 7);
-  const c = L.h != null ? ground(T, L.sx, L.sy, L.h) : ground(T, L.sx, L.sy);
+  const c = L.wx != null ? new THREE.Vector3(L.wx, T.game.grid.groundAt(L.wx, L.wz), L.wz) : L.h != null ? ground(T, L.sx, L.sy, L.h) : ground(T, L.sx, L.sy);
   const parts = [];
   const n = L.n || 30;
   for (let i = 0; i < n; i++) {
@@ -441,8 +453,15 @@ function loopFx(T, L) {
     if (L.type === 'confetti') {
       mat = new THREE.MeshBasicMaterial({ color: CONFETTI[i % CONFETTI.length], side: THREE.DoubleSide });
       geo = new THREE.PlaneGeometry(L.size || 0.09, (L.size || 0.09) * 0.6);
+    } else if (L.type === 'smoke') {
+      mat = new THREE.MeshLambertMaterial({ color: L.color ?? [0x9a94a0, 0x8a8490, 0xb0aab4][i % 3], transparent: true, opacity: 0.85, depthWrite: false });
+      geo = new THREE.BoxGeometry(1, 1, 1);
+    } else if (L.type === 'sparks') {
+      mat = new THREE.MeshBasicMaterial({ color: [0xfff4a0, 0xffd040, 0xff9a20, 0xffffff][i % 4] });
+      const s = (L.size || 0.05) * (0.6 + r() * 0.8);
+      geo = new THREE.BoxGeometry(s, s, s);
     } else {
-      mat = new THREE.MeshBasicMaterial({ color: L.color ?? (i % 4 ? 0xd8f4ff : 0xffffff) });
+      mat = new THREE.MeshBasicMaterial({ color: L.color ?? [0xffffff, 0xbfeaff, 0x8fd8f8, 0xe8fbff][i % 4] });
       const s = (L.size || 0.08) * (0.6 + r() * 0.8);
       geo = new THREE.BoxGeometry(s, s, s);
     }
@@ -458,9 +477,19 @@ function loopFx(T, L) {
         const W = L.spread || 3, H = L.fall || 2.5;
         p.m.position.set(c.x + p.dx * W + Math.sin((u * 2 + p.off) * Math.PI * 2) * 0.15, c.y + (L.top || 2.6) - u * H, c.z + p.dz * W * 0.4);
         p.m.rotation.set(u * p.spin, u * p.spin * 0.7, p.off * 6);
+      } else if (L.type === 'smoke') { // puffs rising, swelling, thinning out
+        const sz = (L.size || 0.35) * (0.4 + u * 1.4) * (0.7 + p.sp * 0.5);
+        p.m.position.set(c.x + (L.drift || 0.4) * u + p.dx * 0.12, c.y + (L.y || 0) + u * (L.rise || 1.6), c.z + p.dz * 0.12 - (L.driftZ || 0) * u);
+        p.m.scale.setScalar(sz);
+        p.m.rotation.set(p.off * 3 + u, p.off * 5 + u * 0.7, 0);
+        p.m.material.opacity = 0.85 * (1 - u) ** 1.2;
+      } else if (L.type === 'sparks') { // a burst of embers from the strike point
+        const R = (L.radius || 0.5) * p.sp, Hh = (L.height || 0.6) * p.up;
+        p.m.position.set(c.x + Math.cos(p.a) * R * u, c.y + (L.y || 0) + 4 * u * (0.7 - u) * Hh, c.z + Math.sin(p.a) * R * u);
+        p.m.scale.setScalar(Math.max(0.05, 1 - u));
       } else { // splash: droplets thrown up and out, falling back
-        const R = (L.radius || 0.9) * p.sp, Hh = (L.height || 1.4) * p.up;
-        p.m.position.set(c.x + Math.cos(p.a) * R * u, c.y + 4 * u * (1 - u) * Hh, c.z + Math.sin(p.a) * R * u);
+        const R = (L.radius || 0.9) * p.sp, Hh = (L.height || 1.4) * p.up, r0 = (L.r0 || 0) * (0.85 + p.sp * 0.3);
+        p.m.position.set(c.x + Math.cos(p.a) * (r0 + R * u), c.y + 4 * u * (1 - u) * Hh, c.z + Math.sin(p.a) * (r0 + R * u));
         p.m.scale.setScalar(Math.max(0.05, 1 - u * 0.7));
       }
     }

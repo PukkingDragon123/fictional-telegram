@@ -74,8 +74,8 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
     { id: 'goldfish', sx: 0.95, sy: 0.99, arc: [0.8, 0.95, 0.9], dir: -1, s: 1.5, off: 0.3 },
   ];
   o.loopFx = [
-    { type: 'splash', sx: 0.69, sy: 0.84, h: -0.1, n: 46, rate: 2, radius: 1.5, height: 1.8, size: 0.1 },
-    { type: 'splash', sx: 0.69, sy: 0.84, h: -0.1, n: 30, rate: 1, radius: 2.2, height: 2.6, size: 0.12, seed: 3 },
+    { type: 'splash', sx: 0.69, sy: 0.84, h: -0.1, n: 50, rate: 2, r0: 1.1, radius: 1.3, height: 1.1, size: 0.11 },
+    { type: 'splash', sx: 0.69, sy: 0.84, h: -0.1, n: 30, rate: 1, r0: 1.3, radius: 2.0, height: 1.8, size: 0.13, seed: 3 },
   ];
   PRESETS.thumbAnim = { kind: 'thumb', viewport: PRESETS.thumb.viewport, px: 1, masks: ['fox', 'bear'], opts: o };
 }
@@ -95,8 +95,8 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
     }
   }
   o.loopFx = [
-    { type: 'confetti', sx: 0.5, sy: 0.52, n: 70, rate: 1, top: 2.6, fall: 2.6, spread: 3.2, size: 0.1 },
-    { type: 'splash', sx: 0.655, sy: 0.86, h: -0.1, n: 40, rate: 2, radius: 1.1, height: 1.4, size: 0.08 },
+    { type: 'confetti', sx: 0.5, sy: 0.52, n: 90, rate: 1, top: 2.6, fall: 2.6, spread: 3.2, size: 0.2 },
+    { type: 'splash', sx: 0.655, sy: 0.86, h: -0.1, n: 40, rate: 2, r0: 0.55, radius: 1.0, height: 1.0, size: 0.08 },
     { type: 'splash', sx: 0.725, sy: 0.67, n: 24, rate: 1, radius: 1.0, height: 1.2, size: 0.09, color: 0x9a6a40, seed: 11 },
   ];
   o.fx = [];
