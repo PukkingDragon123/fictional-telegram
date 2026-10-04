@@ -5,6 +5,17 @@
 import * as THREE from 'three';
 import { ZONES, ZONE_BY_ID } from '../data/zones.js';
 import { LANDMARKS } from '../world/worldgen.js';
+const NT3 = import.meta.glob('../ui/NpcTalk3D.js', { eager: true })['../ui/NpcTalk3D.js'] || {};
+// a dark silhouette of the neighbour's head (who lives behind the fog?)
+const SIL = new Map();
+function silhouette(id) {
+  if (!id || !NT3.npcSnapshot) return null;
+  if (SIL.has(id)) return SIL.get(id);
+  let url = null;
+  try { const cv = NT3.npcSnapshot(id, { w: 48, h: 48, frame: 'bust', turn: 0.15 }); url = cv ? cv.toDataURL() : null; } catch { url = null; }
+  SIL.set(id, url);
+  return url;
+}
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
@@ -214,7 +225,9 @@ export class ZoneSystem {
       if (!el) {
         el = document.createElement('div');
         el.className = 'fogtag' + (Z.near ? ' near' : '');
-        el.innerHTML = `<b>?</b><span>Who lives here?</span>`;
+        const sil = silhouette(Z.npc?.id);
+        el.innerHTML = sil ? `<img class="fogsil" src="${sil}" alt=""><b>?</b>` : '<b>?</b>';
+        if (sil) el.classList.add('sil');
         el.addEventListener('click', (ev) => { ev.stopPropagation(); this.showHint(Z); });
         (ui.overlay || document.body).appendChild(el);
         this.tags.set(Z.id, el);

@@ -198,7 +198,6 @@ export class OuterRing {
     if (rv.d < 1) { y = WATER_Y - 0.05; water = true; }
     else if (rv.d < 1.6) y = Math.min(y, 0.15);
     // far ranges: terraced, like the stepped mountain inside the map
-    if (d > TREE_D && !water) { const st = d > 50 ? 1.5 : 1; y = Math.round(y / st) * st; }
     return { y, d, water };
   }
 
@@ -230,77 +229,126 @@ export class OuterRing {
       }
   }
 
-  // ground height of the mesh at (x, z) (bilinear over the lattice)
+  // [v20 map] blocky (Minecraft-style) columns: one per lattice cell, its top
+  // quantized to whole blocks (0.5 by the map, 1 further out, 1.5 for the far ranges)
+  buildCells() {
+    const { xs, zs, hy, wet, W, H } = this;
+    const nx = xs.length, cx = nx - 1, cz = zs.length - 1;
+    this.cTop = new Float32Array(cx * cz);
+    this.cWet = new Uint8Array(cx * cz);
+    for (let j = 0; j < cz; j++)
+      for (let i = 0; i < cx; i++) {
+        const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1];
+        const k = j * cx + i;
+        if (x0 >= 0 && x1 <= W && z0 >= 0 && z1 <= H) { this.cTop[k] = NaN; continue; } // the map itself
+        const k00 = j * nx + i, k10 = k00 + 1, k01 = k00 + nx, k11 = k01 + 1;
+        const nw = wet[k00] + wet[k10] + wet[k01] + wet[k11];
+        if (nw >= 3) { this.cTop[k] = WATER_Y - 0.05; this.cWet[k] = 1; continue; }
+        const y = (hy[k00] + hy[k10] + hy[k01] + hy[k11]) / 4;
+        const d = this.dist((x0 + x1) / 2, (z0 + z1) / 2);
+        const st = d < 10 ? 0.5 : d > 50 ? 1.5 : 1;
+        this.cTop[k] = Math.max(0, Math.round(y / st) * st);
+      }
+  }
+
+  // ground height (top of the block column) at (x, z)
   heightAt(x, z) {
     const find = (arr, v) => { let lo = 0, hi = arr.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m] <= v) lo = m; else hi = m - 1; } return lo; };
-    const xs = this.xs, zs = this.zs, nx = xs.length;
-    const i = find(xs, x), j = find(zs, z);
-    const fx = clamp((x - xs[i]) / (xs[i + 1] - xs[i]), 0, 1), fz = clamp((z - zs[j]) / (zs[j + 1] - zs[j]), 0, 1);
-    const H = this.hy;
-    const a = H[j * nx + i], b = H[j * nx + i + 1], c = H[(j + 1) * nx + i], d = H[(j + 1) * nx + i + 1];
-    return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
+    const i = find(this.xs, x), j = find(this.zs, z);
+    const t = this.cTop[j * (this.xs.length - 1) + i];
+    return Number.isNaN(t) ? 0 : t;
   }
 
   // ----------------------------------------------------------------- ground
   buildGround() {
-    const { xs, zs, hy, wet, W, H } = this;
-    const nx = xs.length;
+    this.buildCells();
+    const { xs, zs, W, H, cTop, cWet } = this;
+    const cx = xs.length - 1, cz = zs.length - 1;
     // chunked (CHUNK x CHUNK tiles) so whatever is off screen gets culled
     const chunks = new Map();
-    const partOf = (x, z) => { const k = chunkKey(x, z); let c = chunks.get(k); if (!c) chunks.set(k, (c = { pos: [], nor: [], col: [] })); return c; };
+    const partOf = (x, z) => { const k = chunkKey(x, z); let c = chunks.get(k); if (!c) chunks.set(k, (c = { pos: [], nor: [], col: [], idx: [], n: 0 })); return c; };
     const C = {
       floor: [0x24402a, 0x2a4a2e, 0x203a28, 0x2e4a2a].map(lin),
       clearing: [0x5c8a3e, 0x6a9646, 0x557e3a].map(lin),
-      forest: [0x1f4229, 0x23482d, 0x1c3c27, 0x284a2b, 0x1b3833].map(lin),
-      autumn: [0x7a2a22, 0x8e4a1c, 0x8a6428, 0x7e4418].map(lin),
-      meadow: [0x6c8a48, 0x7a9450, 0x627e44].map(lin),
-      rock: [0x6f6a66, 0x5d5a5c, 0x7c766c, 0x67625e].map(lin),
-      dark: [0x4a4648, 0x524c4a].map(lin),
-      snow: [0xe8eef4, 0xdce6f0, 0xf4f8fc].map(lin),
+      forest: [0x2b5a2e, 0x31612f, 0x285428, 0x3a6a34, 0x2e5a36].map(lin),
+      grass: [0x5f8f3e, 0x6a9a44, 0x58873a].map(lin),
+      autumn: [0x8a3a22, 0x9e5a1c, 0x9a7428].map(lin),
+      stone: [0x7a7674, 0x6e6a6a, 0x84807a, 0x737070].map(lin),
+      snow: [0xeef3f8, 0xe2eaf2, 0xf8fbfd].map(lin),
       water: [0x2f6a8a, 0x2c6486].map(lin),
+      dirt: [0x6b4a2f, 0x5e4029].map(lin),
+      strata: [0x5f5b5a, 0x6a645c, 0x575456, 0x7a6a58].map(lin),
+      ice: [0xc8d6e4].map(lin),
     };
     const pick = (arr, r) => arr[Math.floor(r * arr.length) % arr.length];
-    const tri = (a, b, c, wetN) => {
-      // normal (up-facing)
-      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-      const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
-      let nx0 = uy * vz - uz * vy, ny0 = uz * vx - ux * vz, nz0 = ux * vy - uy * vx;
-      if (ny0 < 0) { nx0 = -nx0; ny0 = -ny0; nz0 = -nz0; }
-      const l = Math.hypot(nx0, ny0, nz0) || 1;
-      nx0 /= l; ny0 /= l; nz0 /= l;
-      const cx = (a[0] + b[0] + c[0]) / 3, cy = (a[1] + b[1] + c[1]) / 3, cz = (a[2] + b[2] + c[2]) / 3;
-      const d = this.dist(cx, cz);
-      const r = hash2(Math.floor(cx * 2), Math.floor(cz * 2), 711);
-      const n = fbm2(cx * 0.09, cz * 0.09, 717);
-      let rgb;
-      const snowLine = 25 + (n - 0.5) * 10 - (cz < 0 ? 6 : 0);
-      const rockLine = 13 + (n - 0.5) * 8;
-      if (wetN === 3) rgb = pick(C.water, r);
-      else if (cy > snowLine && ny0 > 0.5) rgb = pick(C.snow, r);
-      else if (cy > snowLine + 6) rgb = pick(C.snow, r * 0.5);
-      else if (cy > rockLine || ny0 < 0.62) rgb = ny0 < 0.45 ? pick(C.dark, r) : pick(C.rock, r);
-      else if (d < TREE_D) rgb = this.clearing(cx, cz) ? pick(C.clearing, r) : pick(C.floor, r);
-      else if (cy > rockLine - 3 && n > 0.45) rgb = pick(C.meadow, r);
-      else {
-        // forested slopes: a canopy carpet with autumn patches
-        const au = fbm2(cx * 0.05, cz * 0.05, 91);
-        rgb = au > 0.62 && r < 0.6 ? pick(C.autumn, r * 1.7) : pick(C.forest, r);
-      }
-      const { pos, nor, col } = partOf(cx, cz);
-      for (const p of [a, b, c]) { pos.push(p[0], p[1], p[2]); nor.push(nx0, ny0, nz0); col.push(rgb[0], rgb[1], rgb[2]); }
+    // what a column is made of: top colour and its band (0 soil, 1 stone, 2 snow, 3 water)
+    const topOf = (x, z, y, d, wetC) => {
+      const r = hash2(Math.floor(x * 2), Math.floor(z * 2), 711);
+      if (wetC) return [pick(C.water, r), 3];
+      const n = fbm2(x * 0.09, z * 0.09, 717);
+      const snowLine = 24 + (n - 0.5) * 8 - (z < 0 ? 6 : 0);
+      const stoneLine = 12 + (n - 0.5) * 7;
+      if (y > snowLine) return [pick(C.snow, r), 2];
+      if (y > stoneLine) return [pick(C.stone, r), 1];
+      if (d < TREE_D) return [this.clearing(x, z) ? pick(C.clearing, r) : pick(C.floor, r), 0];
+      if (y > stoneLine - 3 && n > 0.5) return [pick(C.grass, r), 0];
+      const au = fbm2(x * 0.05, z * 0.05, 91);
+      return [au > 0.62 && r < 0.5 ? pick(C.autumn, r * 2) : pick(C.forest, r), 0];
     };
-    for (let j = 0; j < zs.length - 1; j++)
-      for (let i = 0; i < nx - 1; i++) {
+    const quad = (P, a, b, c, d, nrm, rgb) => {
+      const v = P.n;
+      for (const q of [a, b, c, d]) { P.pos.push(q[0], q[1], q[2]); P.nor.push(nrm[0], nrm[1], nrm[2]); P.col.push(rgb[0], rgb[1], rgb[2]); }
+      P.idx.push(v, v + 1, v + 2, v, v + 2, v + 3);
+      P.n += 4;
+    };
+    const mul = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+    // neighbour column top (inside the map: the map's edge height there)
+    const nbTop = (i, j, mx, mz) => {
+      if (i < 0 || j < 0 || i >= cx || j >= cz) return -4;
+      const t = cTop[j * cx + i];
+      return Number.isNaN(t) ? this.edgeH(mx, mz) : t;
+    };
+    for (let j = 0; j < cz; j++)
+      for (let i = 0; i < cx; i++) {
+        const y = cTop[j * cx + i];
+        if (Number.isNaN(y)) continue;
         const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1];
-        if (x0 >= 0 && x1 <= W && z0 >= 0 && z1 <= H) continue; // the map itself
-        const k00 = j * nx + i, k10 = k00 + 1, k01 = k00 + nx, k11 = k01 + 1;
-        const a = [x0, hy[k00], z0], b = [x1, hy[k10], z0], c = [x0, hy[k01], z1], d = [x1, hy[k11], z1];
-        if ((i + j) & 1) {
-          tri(a, c, b, wet[k00] + wet[k01] + wet[k10]);
-          tri(b, c, d, wet[k10] + wet[k01] + wet[k11]);
-        } else {
-          tri(a, c, d, wet[k00] + wet[k01] + wet[k11]);
-          tri(a, d, b, wet[k00] + wet[k11] + wet[k10]);
+        const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+        const d = this.dist(mx, mz);
+        const [top, band] = topOf(mx, mz, y, d, cWet[j * cx + i]);
+        const P = partOf(mx, mz);
+        quad(P, [x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0], [0, 1, 0], top);
+        // cliff faces down to each lower neighbour, in 1-block layers (strata)
+        const fine = x1 - x0 <= 2 && z1 - z0 <= 2;
+        const sides = [
+          [i + 1, j, x1, mz, [1, 0, 0], (lo, hi) => [[x1, lo, z1], [x1, lo, z0], [x1, hi, z0], [x1, hi, z1]], 0.86],
+          [i - 1, j, x0, mz, [-1, 0, 0], (lo, hi) => [[x0, lo, z0], [x0, lo, z1], [x0, hi, z1], [x0, hi, z0]], 0.86],
+          [i, j + 1, mx, z1, [0, 0, 1], (lo, hi) => [[x0, lo, z1], [x1, lo, z1], [x1, hi, z1], [x0, hi, z1]], 0.74],
+          [i, j - 1, mx, z0, [0, 0, -1], (lo, hi) => [[x1, lo, z0], [x0, lo, z0], [x0, hi, z0], [x1, hi, z0]], 0.74],
+        ];
+        for (const [ni, nj, ex, ez, nrm, face, shadeK] of sides) {
+          const ny = nbTop(ni, nj, ex, ez);
+          if (ny >= y - 0.01) continue;
+          const lo0 = Math.max(ny, -4);
+          if (!fine || y - lo0 > 14) {
+            // far / tall: one face, top layer in the column's colour, the rest stone
+            const cap = Math.max(lo0, y - (band === 2 ? 1.5 : 1));
+            quad(P, ...face(cap, y), nrm, mul(band === 0 ? pick(C.dirt, hash2(i, j, 3)) : top, shadeK));
+            if (cap > lo0) quad(P, ...face(lo0, cap), nrm, mul(pick(C.strata, hash2(i, j, 5)), shadeK));
+            continue;
+          }
+          let hi = y;
+          let layer = 0;
+          while (hi > lo0 + 0.001) {
+            const lo = Math.max(lo0, Math.ceil(hi - 1.001)); // down to the next whole block
+            let c;
+            if (layer === 0) c = band === 0 ? (cWet[j * cx + i] ? pick(C.dirt, 0) : pick(C.dirt, hash2(i, j, 3))) : top;
+            else if (band === 2 && layer < 2) c = pick(C.snow, 0.5);
+            else if (band === 0 && layer < 3) c = pick(C.dirt, hash2(i, layer, 9));
+            else c = pick(C.strata, hash2(Math.floor(lo * 2), 0, 77));
+            quad(P, ...face(lo, hi), nrm, mul(c, shadeK));
+            hi = lo; layer++;
+          }
         }
       }
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -320,9 +368,10 @@ export class OuterRing {
     };
     mat.customProgramCacheKey = () => 'outerRingGround';
     this.ground = [];
-    for (const { pos, nor, col } of chunks.values()) {
+    for (const { pos, nor, col, idx } of chunks.values()) {
       if (!pos.length) continue;
       const geo = new THREE.BufferGeometry();
+      geo.setIndex(idx);
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));

@@ -691,6 +691,7 @@ export class StructureSystem {
     } else if (!d.connect && !s.noRotate && !d.size && s.type !== 'platform' && s.type !== 'beehive' && s.type !== 'maple') {
       obj.rotation.y = ((s.seed % 4) * Math.PI) / 2;
     }
+    if (s.rot != null) obj.rotation.y = (s.rot * Math.PI) / 2; // turned by the player
     return obj;
   }
 
@@ -942,6 +943,26 @@ export class StructureSystem {
   }
 
   // ------------------------------------------------------------ save
+  // the player can turn 3D builds a quarter turn (non-square footprints: half turns)
+  canRotate(s) {
+    const d = s?.def;
+    if (!s || !s.obj || s.removed || !d || d.connect || s.type === 'platform') return false;
+    return true;
+  }
+  rotate(s) {
+    if (!this.canRotate(s)) return false;
+    const [fw, fd] = s.def.size || [1, 1];
+    const step = fw === fd ? 1 : 2;
+    const cur = s.rot != null ? s.rot : Math.round(((s.obj.rotation.y / (Math.PI / 2)) % 4) + 4) % 4;
+    s.rot = (cur + step) % 4;
+    s.obj.rotation.y = (s.rot * Math.PI) / 2;
+    s.obj.scale.setScalar(1.08); setTimeout(() => s.obj?.scale.setScalar(1), 120);
+    this.game.particles?.puff?.(s.x + fw / 2, this.baseY(s) + 0.2, s.z + fd / 2, 6, 0.4);
+    this.game.audio?.play('pop', { volume: 0.35, pitch: 1.2 });
+    this.game.save?.();
+    return true;
+  }
+
   serialize() {
     // platforms first so tops can attach on load
     const sorted = [...this.list].sort((a, b) => (a.platform ? 1 : 0) - (b.platform ? 1 : 0));
@@ -951,6 +972,7 @@ export class StructureSystem {
       if (s.crop) ex.c = this.game.harvest?.serialize(s);
       if (s.store && Object.keys(s.store).length) ex.st = s.store;
       if (s.made) ex.m = s.made;
+      if (s.rot != null) ex.r = s.rot;
       if (Object.keys(ex).length) row.push(ex);
       return row;
     });
@@ -966,6 +988,7 @@ export class StructureSystem {
       if (s.def.crop) this.game.harvest?.restore(s, ex?.c);
       if (ex?.st) s.store = { ...ex.st };
       if (ex?.m) s.made = ex.m;
+      if (ex?.r != null) s.rot = ex.r;
       this.buildMesh(s);
     }
   }

@@ -26,6 +26,19 @@ const ART = {
     '...kwk...',
     '....k....',
   ],
+  rotate: [
+    '...kkkkk...',
+    '..kwwwwwk..',
+    '.kwkkkkkwk.',
+    'kwk.....kwk',
+    'kwk...kkwwk',
+    'kwk...kwwwk',
+    'kwk....kkk.',
+    'kwk........',
+    '.kwk.....k.',
+    '..kwkkkkwk.',
+    '...kwwwwk..',
+  ],
   store: [
     '.kkkkkkkkk.',
     'klllllllllk',
@@ -150,7 +163,7 @@ export class BuildMove {
     } else {
       el.innerHTML = `<div class="bm-head"><b>${esc(d.name)}</b><button class="bm-x" data-a="close" title="Close">✕</button></div>
         <div class="bm-btns">
-          <button class="bm-b move" data-a="move" ${mv.ok ? '' : 'disabled'} title="${mv.ok ? 'Move it' : esc(mv.reason)}">${img('move')}<span>MOVE</span></button>
+          <button class="bm-b move" data-a="rotate" ${game.structures.canRotate(s) ? '' : 'disabled'} title="Turn it">${img('rotate')}<span>ROTATE</span></button>
           <button class="bm-b store" data-a="store" title="To Build ▸ Parcels (place again for free)">${img('store')}<span>STORE</span></button>
           <button class="bm-b sell" data-a="sell" title="Sell">${img('sell')}<span>SELL</span><i>+${this.refund(s)}</i></button>
           <button class="bm-b info" data-a="info" title="Details">${img('info')}<span>INFO</span></button>
@@ -170,6 +183,7 @@ export class BuildMove {
     if (a === 'close') { this.closeCard(); return; }
     if (a === 'back') { this.renderCard('main'); return; }
     if (a === 'move') { this.closeCard(true); this.startMove(s, { held: false }); return; }
+    if (a === 'rotate') { game.structures.rotate(s); return; }
     if (a === 'store') { this.closeCard(true); this.store(s); return; }
     if (a === 'sell') { this.renderCard('sell'); game.audio.play('coins', { volume: 0.15, pitch: 1.4 }); return; }
     if (a === 'sellyes') { this.closeCard(true); this.sell(s); return; }

@@ -530,6 +530,10 @@ body.cine .landtag, body.blueprint .landtag { display: none; }
 .fogtag.near b { background: #e8483a; }
 .fogtag:hover { filter: brightness(1.08); }
 @keyframes fogtag-bob { from { margin-top: 0; } to { margin-top: -6px; } }
+/* the silhouette version: just the mystery neighbour's head, "?" badge bottom-left */
+.fogtag.sil { padding: 4px; gap: 0; position: absolute; }
+.fogtag.sil .fogsil { display: block; width: 72px; height: 72px; image-rendering: pixelated; filter: brightness(0) drop-shadow(0 0 0 #2a1a14); opacity: .82; }
+.fogtag.sil b { position: absolute; left: -10px; bottom: -10px; width: 26px; height: 26px; font-size: 20px; }
 body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none !important; }
 .cutscene .cs-dip { position: fixed; inset: 0; background: #0b0a10; opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 1; }
 .cutscene .cs-dip.on { opacity: 1; }
