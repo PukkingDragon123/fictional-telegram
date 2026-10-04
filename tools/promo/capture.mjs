@@ -47,10 +47,10 @@ async function render(kind) {
   const P = PRESETS[kind];
   const [w, h] = P.viewport;
   const page = await newPage(w, h);
-  await page.goto(`${URL0}/?px=${P.px ?? 1}`, { waitUntil: 'load' });
+  await page.goto(`${URL0}/`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__title && window.__title.active, null, { timeout: 120000 });
   await page.waitForTimeout(6000); // shader warm-up
-  await page.evaluate(async ([k, o]) => { const S = await import('/tools/promo/stage.js'); await S.setup(k, o); }, [kind, P.opts]);
+  await page.evaluate(async ([k, o]) => { const S = await import('/tools/promo/stage.js'); await S.setup(k, o); }, [kind, { px: P.px, ...P.opts }]);
   await page.waitForTimeout(P.settle ?? 3000);
   await page.evaluate(async () => { const S = await import('/tools/promo/stage.js'); S.splash(1); });
   await page.waitForTimeout(P.splashWait ?? 500);

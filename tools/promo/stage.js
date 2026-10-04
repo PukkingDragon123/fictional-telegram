@@ -266,7 +266,7 @@ SCENES.banner = (T, o) => {
     else obj = placeNpc(T, a.cls, p, a).root;
     add(obj, a.name);
   }
-  S.splashAt = (o.splashes || []).map((s) => { const p = ground(T, s.sx, s.sy, WATER_Y); return { x: p.x, z: p.z, n: s.n ?? 2 }; });
+  S.splashAt = (o.splashes || []).map((s) => { const p = ground(T, s.sx, s.sy, WATER_Y); return { x: p.x, z: p.z, n: s.n ?? 2, power: s.power }; });
   return C;
 };
 
@@ -282,6 +282,8 @@ export async function setup(kind, o = {}) {
   T.gag = null; T.gagT = 1e9; T.beatT = 1e9; T.flyT = 1e9;
   const game = T.game;
   game.state.hour = o.hour ?? 18.25;
+  // pixel density -> pixel scale (the banner wants exactly 2 screen px per low-res px)
+  if (o.px && game.renderer.pixelDensity !== o.px) { game.renderer.pixelDensity = o.px; game.resize(); }
   const cam = SCENES[kind](T, o);
   T._updateCamera = () => applyCamera(T, cam);
   T.update = (dt) => {
@@ -302,8 +304,13 @@ export async function setup(kind, o = {}) {
 
 // splash bursts at the configured spots (call right before the screenshot)
 export function splash(k = 1) {
-  const P = window.__title.game.particles;
-  for (const s of S.splashAt || []) for (let i = 0; i < (s.n ?? 2) * k; i++) P.splash(s.x + (Math.random() - 0.5) * 0.7, s.z + (Math.random() - 0.5) * 0.7, 22, 1.5);
+  const T = window.__title, P = T.game.particles;
+  for (const s of S.splashAt || []) for (let i = 0; i < (s.n ?? 2) * k; i++) P.splash(s.x + (Math.random() - 0.5) * 0.7, s.z + (Math.random() - 0.5) * 0.7, 22, s.power ?? 1.5);
+  // extra particle bursts: { name: 'confetti' | 'notes' | 'debris' | 'stars' | ..., sx, sy, h?, y?, args: [] }
+  for (const f of S.cfg?.fx || []) {
+    const p = f.h != null ? ground(T, f.sx, f.sy, f.h) : ground(T, f.sx, f.sy);
+    P[f.name](p.x, p.y + (f.y ?? 0), p.z, ...(f.args || []));
+  }
 }
 
 export function fx(name, ...args) { return window.__title.game.particles[name](...args); }
