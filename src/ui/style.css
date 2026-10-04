@@ -442,6 +442,10 @@ body.at-title .hud, body.at-title .toolbar, body.at-title .hud-right { opacity: 
 .cp:hover { transform: translateY(-2px); }
 .cp:active { transform: translateY(1px); box-shadow: 0 1px 0 #1a1420; background: #ffe9a8; }
 .cp-pan .cp { opacity: .85; }
+.cp-rot { display: flex; gap: 4px; align-items: flex-end; }
+.cp-rot .cp { width: 38px; height: 38px; }
+.cp-rot .cp-rimg { width: 22px; height: 22px; image-rendering: pixelated; }
+.cp-rot .rl .cp-rimg { transform: scaleX(-1); }
 body.cine .campad, body.at-title .campad, body.lab-mode .campad { opacity: 0; pointer-events: none; }
 body.blueprint .campad { bottom: 150px; }
 @media (max-width: 640px) { .cp-pan { display: none; } .campad { bottom: 86px; } }
@@ -533,7 +537,9 @@ body.cine .landtag, body.blueprint .landtag { display: none; }
 /* the silhouette version: just the mystery neighbour's head, "?" badge bottom-left */
 .fogtag.sil { padding: 4px; gap: 0; position: absolute; }
 .fogtag.sil .fogsil { display: block; width: 72px; height: 72px; image-rendering: pixelated; filter: brightness(0) drop-shadow(0 0 0 #2a1a14); opacity: .82; }
-.fogtag.sil b { position: absolute; left: -10px; bottom: -10px; width: 26px; height: 26px; font-size: 20px; }
+.fogtag.sil b { position: absolute; left: -10px; bottom: 14px; width: 26px; height: 26px; font-size: 20px; }
+.fogtag.sil { flex-direction: column; align-items: center; }
+.fogtag.sil .fogname { display: block; font-style: normal; font-family: var(--font-title); font-size: 15px; line-height: 1; padding: 3px 4px 1px; color: #2a1a14; white-space: nowrap; }
 body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none !important; }
 .cutscene .cs-dip { position: fixed; inset: 0; background: #0b0a10; opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 1; }
 .cutscene .cs-dip.on { opacity: 1; }

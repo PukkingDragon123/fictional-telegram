@@ -3,6 +3,7 @@
 // build, fishdex, reviews), modals, fox dialogue, toasts, comic speech
 // bubbles above bears, cinematic letterbox, night overlay, and hooks for the
 // big components (egg hatching, daily ledger, morning summary, lab tree).
+import { pixIcon } from '../game/BuildMove.js';
 import { OFFICE, MEADOW } from '../world/worldgen.js';
 const MEADOW_C = { x: (MEADOW.x0 + MEADOW.x1) / 2, z: (MEADOW.z0 + MEADOW.z1) / 2 - 2 };
 import * as THREE from 'three';
@@ -373,13 +374,15 @@ export class UI {
     pad.className = 'campad';
     const b = (cls, icon, title) => `<button class="cp ${cls}" title="${title}">${hasSprite(icon) ? ico(icon, 2) : ''}</button>`;
     pad.innerHTML = `<div class="cp-zoom">${b('zin', 'zoom_in', 'Zoom in (Z / wheel)')}${b('zout', 'zoom_out', 'Zoom out (X / wheel)')}</div>
-      <div class="cp-pan">${b('up', 'arrow_up', 'Pan (WASD)')}${b('left', 'arrow_left', 'Pan')}${b('home', 'home', 'Back to the pond')}${b('right', 'arrow_right', 'Pan')}${b('down', 'arrow_down', 'Pan')}</div>`;
+      <div class="cp-rot"><button class="cp rl" title="Turn the view left (Q)"><img class="cp-rimg" src="${pixIcon('rotate', 2)}" alt=""></button>${b('home', 'home', 'Back to the pond')}<button class="cp rr" title="Turn the view right (E)"><img class="cp-rimg" src="${pixIcon('rotate', 2)}" alt=""></button></div>`;
     this.root.appendChild(pad);
     const act = {
       zin: () => game.rig.zoom(0.94), zout: () => game.rig.zoom(1.065),
       up: () => game.rig.panRelative(0.5 * game.rig.wupp / 0.04, 0), down: () => game.rig.panRelative(-0.5 * game.rig.wupp / 0.04, 0),
       left: () => game.rig.panRelative(0, -0.5 * game.rig.wupp / 0.04), right: () => game.rig.panRelative(0, 0.5 * game.rig.wupp / 0.04),
       home: () => { game.rig.lookAt(MEADOW_C.x, MEADOW_C.z); game.rig.wuppGoal = 0.04; },
+      rl: () => { game.rig.rotate(-1); game.rig.userCamT = performance.now(); },
+      rr: () => { game.rig.rotate(1); game.rig.userCamT = performance.now(); },
     };
     for (const btn of pad.querySelectorAll('.cp')) {
       const k = [...btn.classList].find((c) => act[c]);
@@ -390,7 +393,7 @@ export class UI {
         if (game.inputLocked) return;
         this.click();
         act[k]();
-        if (k !== 'home') iv = setInterval(act[k], 33);
+        if (k === 'zin' || k === 'zout') iv = setInterval(act[k], 33);
       });
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, stop);
     }

@@ -1,5 +1,5 @@
 /* [v19 buildings] tap card (move / store / sell / info), hold-to-move ring, destroy cones */
-.bm-card { position: absolute; left: 0; top: 0; z-index: 31; pointer-events: auto; min-width: 236px; padding: 6px 8px 7px;
+.bm-card { position: absolute; left: 0; top: 0; z-index: 31; pointer-events: auto; min-width: 290px; padding: 6px 8px 7px;
   background: #f6ead0; border: 3px solid #2a1a14; box-shadow: 0 4px 0 #2a1a14, inset 0 0 0 2px #e8d4a8;
   font-family: var(--font-body); font-size: 15px; color: #2a1a14; transform-origin: 50% 100%; }
 .bm-card.pop { animation: bm-in .26s cubic-bezier(.3,1.7,.5,1); }
@@ -8,7 +8,7 @@
 .bm-card .bm-head { display: flex; align-items: center; gap: 6px; font-family: var(--font-title); font-size: 18px; color: #8a4a1a; margin-bottom: 5px; }
 .bm-card .bm-head b { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
 .bm-card .bm-x { background: #e8c8b8; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14; font-size: 13px; line-height: 1; padding: 2px 6px; cursor: pointer; color: #2a1a14; }
-.bm-card .bm-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.bm-card .bm-btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
 .bm-card .bm-btns.two { grid-template-columns: 1fr 1fr; }
 .bm-card .bm-b { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 52px; padding: 5px 4px 4px;
   font-family: var(--font-title); font-size: 14px; color: #2a1a14; border: 2px solid #2a1a14; box-shadow: 0 3px 0 #2a1a14; cursor: pointer; background: #f0dcb0;

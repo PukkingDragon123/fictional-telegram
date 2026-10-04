@@ -226,7 +226,8 @@ export class ZoneSystem {
         el = document.createElement('div');
         el.className = 'fogtag' + (Z.near ? ' near' : '');
         const sil = silhouette(Z.npc?.id);
-        el.innerHTML = sil ? `<img class="fogsil" src="${sil}" alt=""><b>?</b>` : '<b>?</b>';
+        const place = String(Z.name || '').replace(/[&<>"]/g, '');
+        el.innerHTML = sil ? `<img class="fogsil" src="${sil}" alt=""><b>?</b><em class="fogname">${place}</em>` : `<b>?</b><span>${place}</span>`;
         if (sil) el.classList.add('sil');
         el.addEventListener('click', (ev) => { ev.stopPropagation(); this.showHint(Z); });
         (ui.overlay || document.body).appendChild(el);
