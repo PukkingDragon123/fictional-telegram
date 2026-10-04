@@ -444,7 +444,7 @@ export class UI {
     const d = dur || Math.min(6, 2.2 + text.length * 0.05);
     const n = this.notifier;
     // in the lab Reynard is right there on screen: a toast, not the corner fox over the tree
-    if (n && this.bubbles && !document.body.classList.contains('lab-mode') && this.panel !== 'lab') {
+    if (n && this.bubbles && !document.body.classList.contains('lab-mode') && this.panel !== 'lab' && !this.game.homes?.active) {
       n.show({ mood, dur: d + 0.6 }).then?.(() => {});
       n.talk?.(text);
       const bm = mood === 'no' ? 'angry' : mood === 'warn' ? 'scared' : mood === 'happy' || mood === 'excited' ? 'excited' : 'normal';

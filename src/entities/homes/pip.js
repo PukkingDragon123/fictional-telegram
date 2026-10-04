@@ -43,8 +43,8 @@ export function buildPip(k, { night, game }) {
   const price = game.pipVisit?.price?.() ?? '?';
   const cb = k.canvasPlane(64, 40, 1.2, 0.75, (ctx) => {
     ctx.fillStyle = '#7a4a28'; ctx.fillRect(0, 0, 64, 40); ctx.fillStyle = '#2a3a32'; ctx.fillRect(3, 3, 58, 34);
-    ctx.fillStyle = '#e8f0e0'; ctx.font = 'bold 10px "Pixelify Sans", monospace'; ctx.textAlign = 'center';
-    ctx.fillText('TODAY', 32, 15); ctx.font = 'bold 13px "Pixelify Sans", monospace'; ctx.fillText(`${price} / LOG`, 32, 31);
+    ctx.fillStyle = '#e8f0e0'; ctx.font = 'bold 10px "TBME Title", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('TODAY', 32, 15); ctx.font = 'bold 13px "TBME Title", monospace'; ctx.fillText(`${price} / LOG`, 32, 31);
   });
   const cbg = new THREE.Group(); cbg.add(cb.mesh); cbg.userData.parts = {};
   k.prop('board', cbg, {

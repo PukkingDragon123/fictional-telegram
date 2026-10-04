@@ -563,3 +563,6 @@ body.fn-talk .bb-layer { z-index: 505; }
 body.lab-mode .fox-notifier, body.lab-panel .fox-notifier { opacity: 0 !important; }
 body.lab-panel .bb-layer { z-index: 40; }
 .parceltag { animation: none; }
+
+/* [v20] inside a neighbour's home: no toasts over the room */
+body.home-mode #toasts { display: none; }

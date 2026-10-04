@@ -157,6 +157,8 @@ export class HomeMode {
     game.rig.wuppGoal = 0.012;
     game.audio.play('whoosh', { volume: 0.45 });
     document.body.classList.add('lab-trans');
+    // no corner-fox bubbles or quest toasts over the room
+    try { game.ui?.bubbles?.clear?.((b) => b.key === 'notify'); } catch { /* ignore */ }
     this.houseDoor = d?.house?.userData?.parts?.door || null;
     return true;
   }
@@ -651,10 +653,10 @@ function injectCSS() {
   s.textContent = `
 .homeui .lab-top { display: flex; gap: 12px; align-items: center; transform: none; left: 12px; }
 body.home-mode .qn { display: none !important; }
-.homeui .home-name { font-family: "Pixelify Sans", monospace; font-size: 22px; color: #fff3d8; text-shadow: 2px 2px 0 #1a1420, -1px -1px 0 #1a1420; pointer-events: none; letter-spacing: 1px; }
-.homeui .home-tip { position: absolute; padding: 3px 8px; background: #fffbea; border: 3px solid #1a1420; box-shadow: 0 3px 0 #1a1420; font-family: "Pixelify Sans", monospace; font-size: 15px; color: #1a1420; pointer-events: none; white-space: nowrap; transform: translate(0, -100%); }
+.homeui .home-name { font-family: var(--font-title, "TBME Title"), monospace; font-size: 22px; color: #fff3d8; text-shadow: 2px 2px 0 #1a1420, -1px -1px 0 #1a1420; pointer-events: none; letter-spacing: 1px; }
+.homeui .home-tip { position: absolute; padding: 3px 8px; background: #fffbea; border: 3px solid #1a1420; box-shadow: 0 3px 0 #1a1420; font-family: var(--font-title, "TBME Title"), monospace; font-size: 15px; color: #1a1420; pointer-events: none; white-space: nowrap; transform: translate(0, -100%); }
 .homeui .home-tip.hidden { display: none; }
-.homeui .home-float { position: absolute; transform: translate(-50%, -50%); font-family: "Pixelify Sans", monospace; font-size: 20px; font-weight: bold; text-shadow: 2px 2px 0 #1a1420, -2px -2px 0 #1a1420, 2px -2px 0 #1a1420, -2px 2px 0 #1a1420; pointer-events: none; animation: home-float 1.7s ease-out forwards; white-space: nowrap; }
+.homeui .home-float { position: absolute; transform: translate(-50%, -50%); font-family: var(--font-title, "TBME Title"), monospace; font-size: 20px; font-weight: bold; text-shadow: 2px 2px 0 #1a1420, -2px -2px 0 #1a1420, 2px -2px 0 #1a1420, -2px 2px 0 #1a1420; pointer-events: none; animation: home-float 1.7s ease-out forwards; white-space: nowrap; }
 @keyframes home-float { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; margin-top: -50px; } }
 `;
   document.head.appendChild(s);

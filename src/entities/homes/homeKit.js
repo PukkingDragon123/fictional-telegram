@@ -687,7 +687,7 @@ export function sign(k, text, { w = 0.7, h = 0.28, bg = '#f4e8c8', fg = '#3a2a1a
     ctx.fillStyle = border; ctx.fillRect(0, 0, cw, ch);
     ctx.fillStyle = bg; ctx.fillRect(px, px, cw - px * 2, ch - px * 2);
     ctx.fillStyle = fg;
-    ctx.font = `bold ${Math.round(ch * 0.5)}px "Pixelify Sans", monospace`;
+    ctx.font = `bold ${Math.round(ch * 0.5)}px "TBME Title", monospace`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, cw / 2, ch / 2 + 1);
   });
