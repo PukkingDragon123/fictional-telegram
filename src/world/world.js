@@ -7,6 +7,7 @@ const LM = landmarkMods['../entities/landmarkModels.js'] || null;
 import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture, SURF, surfaceOf } from './terrain.js';
 import { buildPaintAtlas } from '../art/paintArt.js';
 import { WaterSim } from './waterSim.js';
+import { WaterFX } from './water.js'; // [v20 water]
 import { pineModel, mapleModel, birchModel, boulderModel, tuftModel, flowerModel } from './models.js';
 import { officeModel, hutModel } from './buildings.js';
 import { voxelMaterial, linearRGB } from '../core/voxel.js';
@@ -100,9 +101,11 @@ export class World {
     this.water = new THREE.Mesh(buildWaterGeometry(this.grid), makeWaterMaterial(this.waterUniforms));
     this.water.renderOrder = 10;
     scene.add(this.water);
+    this.waterFx = new WaterFX(this); // [v20 water] stylised water shader + info map
 
     // [v20 map] the valley around the map (forest ring + mountains) replaces the flat skirt
     try { this.ring = new OuterRing(this); } catch (e) { console.warn('outer ring failed', e); this.buildSkirt(); }
+    try { this.waterFx.addOuter(); } catch (e) { console.warn('valley river water', e); } // [v20 water]
     this.decoGroup = new THREE.Group();
     scene.add(this.decoGroup);
     this.buildDecos();
@@ -851,7 +854,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     this.terrain.geometry = buildTerrainGeometry(this.grid);
     this.water.geometry.dispose();
     this.water.geometry = buildWaterGeometry(this.grid);
-    buildShoreTexture(this.grid, this.shoreTex);
+    this.waterFx.rebuild(); // [v20 water] (was buildShoreTexture)
     buildSurfaceTexture(this.grid, this.surfTex);
     this.gladeSurface();
     this.paintSurface();
@@ -875,6 +878,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     wu.uSkyTint.value.copy(s.skyTint);
     wu.uNight.value = s.night;
     wu.uAurora.value = s.aurora;
+    this.waterFx.update(sky, camera, this.wind ?? 1); // [v20 water]
     this.uniforms.uCaustic.value = 1 - s.night * 0.8;
     if (this.beams) {
       // sunbeams by day only, leaning towards wherever the sun is on screen

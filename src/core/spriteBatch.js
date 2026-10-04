@@ -25,6 +25,9 @@ export const SPRITE_UNIFORMS = {
   uPush: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -99, 0, 0)) },
   // see-through cutout: foliage in front of (x, z) within radius fades (x, z, radius, strength)
   uCut: { value: new THREE.Vector4(0, 0, 0, 0) },
+  // [v20 water] the water height field: flat sprites lying on the water (lily pads, duckweed) ride the waves
+  uWaterSim: { value: null },
+  uWaterRect: { value: new THREE.Vector4(0, 0, 1, 1) },
 };
 
 const _v = new THREE.Vector3();
@@ -74,6 +77,8 @@ uniform float uHeightComp;
 uniform float uFlatComp;
 uniform vec4 uPush[8];
 uniform vec4 uCut;
+uniform sampler2D uWaterSim;
+uniform vec4 uWaterRect;
 varying vec3 vSTint;
 varying float vSAlpha;
 varying float vSEmis;
@@ -121,6 +126,11 @@ vec3 spriteWorld(vec3 camRight) {
     float along = 1.0 - corner.x;
     p.y += sin(uTime * 9.0 + aParams.y) * bend * along * along * aSize.y * 0.18 * uHeightComp;
     p += right * sin(uTime * 9.0 + aParams.y + 1.5) * bend * along * 0.03;
+  }
+  // [v20 water] floating flat sprites bob with the simulated waves (same lift as the water surface)
+  if (mode > 0.5 && mode < 1.5 && abs(aPos.y + 0.07) < 0.045 && uWaterRect.z > 1.0) {
+    float wh = (texture2D(uWaterSim, (p.xz - uWaterRect.xy) / uWaterRect.zw).r - 0.502) * 2.55;
+    p.y += wh * 0.13;
   }
   return p;
 }

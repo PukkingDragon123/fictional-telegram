@@ -27,7 +27,8 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 const lin = (hex) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
 
 // GLSL shared by the ground mesh and the sprite batch
-const HAZE_PARS = /* glsl */ `
+// [v20 water] exported: the valley rivers (world/water.js) sink and haze the same way
+export const HAZE_PARS = /* glsl */ `
 uniform vec3 uHaze;
 uniform vec4 uRect;
 uniform vec2 uRingCam;

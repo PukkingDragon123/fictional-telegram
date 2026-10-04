@@ -203,7 +203,10 @@ vec3 surfTex(int id, vec2 p) {
     // underwater: tint + caustics that follow the simulated ripples
     vec2 cp = floor(vWPos.xz * 24.0) / 24.0;
     vec2 suv = (cp - uSimRect.xy) / uSimRect.zw;
-    vec3 s = texture2D(uSim, suv).rgb - 0.5;
+    // [v20 water] the sim texture holds height only: slope from the neighbours
+    vec2 st = 1.0 / vec2(textureSize(uSim, 0));
+    vec3 s = vec3(0.0, texture2D(uSim, suv + vec2(st.x, 0.0)).r - texture2D(uSim, suv - vec2(st.x, 0.0)).r,
+                  texture2D(uSim, suv + vec2(0.0, st.y)).r - texture2D(uSim, suv - vec2(0.0, st.y)).r) * 2.2;
     float c1 = sin(cp.x * 3.1 + uTime * 1.3 + sin(cp.y * 2.3 + uTime * 0.7) * 1.5);
     float c2 = sin(cp.y * 3.7 - uTime * 1.1 + sin(cp.x * 1.9 - uTime * 0.9) * 1.5);
     float c = smoothstep(0.72, 1.0, abs(c1 * c2)) + smoothstep(0.04, 0.12, length(s.gb)) * 0.6;

@@ -21,17 +21,23 @@ export class WaterSim {
     this.v = new Float32Array(n);
     this.mask = new Uint8Array(n);
     this.cells = new Int32Array(0);
-    this.data = new Uint8Array(n * 4);
-    this.tex = new THREE.DataTexture(this.data, this.W, this.H, THREE.RGBAFormat);
+    // [v20 water] one byte per cell (height only; the shaders take slopes from
+    // neighbouring texels) so the whole map fits in a small, cheap upload
+    this.data = new Uint8Array(n).fill(128);
+    this.tex = new THREE.DataTexture(this.data, this.W, this.H, THREE.RedFormat, THREE.UnsignedByteType);
+    this.tex.unpackAlignment = 1;
     this.tex.magFilter = THREE.LinearFilter;
     this.tex.minFilter = THREE.LinearFilter;
     this.tex.wrapS = this.tex.wrapT = THREE.ClampToEdgeWrapping;
     this.tex.needsUpdate = true;
     this.acc = 0;
     this.time = 0;
-    this.K = 0.2; // wave stiffness (speed^2), < 0.5 for stability
-    this.damp = 0.986;
+    this.K = 0.14; // wave stiffness (speed^2), < 0.5 for stability [v20 water] slower waves (~2 tiles/s): fast swimmers out-run them and leave a V
+    this.damp = 0.99; // [v20 water] rings travel a bit further (was 0.986)
     this.blocked = null; // optional (x, z) => bool for dams/lodges
+    this.damp2 = new Float32Array(n); // [v20 water] per-cell damping: beaches soak up waves, open water rings on
+    this.idle = false; // [v20 water] nothing moving: skip the solver and the upload
+    this.breeze = 0; // [v20 water] random breeze kicks (the shader draws the wind ripples now)
     this.refreshMask();
   }
 
@@ -48,6 +54,13 @@ export class WaterSim {
         else { this.h[i] = 0; this.v[i] = 0; }
       }
     this.cells = Int32Array.from(cells);
+    // [v20 water] cells touching the bank lose a little more energy each step
+    const { mask, W: w } = this;
+    for (const i of this.cells) {
+      const edge = !mask[i - 1] || !mask[i + 1] || !mask[i - w] || !mask[i + w];
+      this.damp2[i] = edge ? this.damp * 0.975 : this.damp;
+    }
+    this.idle = false;
   }
 
   // world -> cell coords
@@ -68,6 +81,7 @@ export class WaterSim {
         const f = 0.5 + 0.5 * Math.cos(d * Math.PI);
         this.h[k] -= amount * f;
       }
+    this.idle = false; // [v20 water]
   }
 
   // Continuous wake behind a moving thing (call every frame while moving).
@@ -100,6 +114,7 @@ export class WaterSim {
     let stepped = false;
     while (this.acc >= STEP) {
       this.acc -= STEP;
+      if (this.idle) continue; // [v20 water]
       this.step(windy);
       stepped = true;
     }
@@ -107,15 +122,16 @@ export class WaterSim {
   }
 
   step(windy) {
-    const { h, v, mask, cells, W, K, damp } = this;
+    const { h, v, mask, cells, W, K, damp2 } = this;
     const n = cells.length;
     // ambient breeze ripples
-    if (n && windy > 0) {
-      for (let k = 0; k < 2; k++) {
+    if (n && windy > 0 && this.breeze > 0) {
+      for (let k = 0; k < this.breeze; k++) {
         const c = cells[(Math.random() * n) | 0];
         h[c] -= (Math.random() - 0.4) * 0.05 * windy;
       }
     }
+    // [v20 water] reflective banks (mirror boundary), per-cell damping
     for (let q = 0; q < n; q++) {
       const i = cells[q];
       const hc = h[i];
@@ -123,27 +139,29 @@ export class WaterSim {
       const r = mask[i + 1] ? h[i + 1] : hc;
       const u = mask[i - W] ? h[i - W] : hc;
       const d = mask[i + W] ? h[i + W] : hc;
-      v[i] = (v[i] + (l + r + u + d - 4 * hc) * K) * damp;
+      v[i] = (v[i] + (l + r + u + d - 4 * hc) * K) * damp2[i];
     }
+    let mx = 0;
     for (let q = 0; q < n; q++) {
       const i = cells[q];
-      h[i] = (h[i] + v[i]) * 0.9995;
+      const hv = (h[i] + v[i]) * 0.9995;
+      h[i] = hv;
+      const a = (hv < 0 ? -hv : hv) + Math.abs(v[i]);
+      if (a > mx) mx = a;
+    }
+    // [v20 water] calm again: flatten and sleep until the next disturbance
+    if (mx < 0.002 && this.breeze <= 0) {
+      for (let q = 0; q < n; q++) { const i = cells[q]; h[i] = 0; v[i] = 0; }
+      this.idle = true;
     }
   }
 
+  // [v20 water] height only (128 = rest, 1 unit = 100 steps); land stays at 128
   upload() {
-    const { h, mask, W, data, cells } = this;
-    // clear only water cells (land cells stay at 128/128/128)
+    const { h, data, cells } = this;
     for (let q = 0; q < cells.length; q++) {
       const i = cells[q];
-      const hc = h[i];
-      const dx = (mask[i + 1] ? h[i + 1] : hc) - (mask[i - 1] ? h[i - 1] : hc);
-      const dz = (mask[i + W] ? h[i + W] : hc) - (mask[i - W] ? h[i - W] : hc);
-      const o = i * 4;
-      data[o] = clamp8(128 + hc * 160);
-      data[o + 1] = clamp8(128 + dx * 220);
-      data[o + 2] = clamp8(128 + dz * 220);
-      data[o + 3] = 255;
+      data[i] = clamp8(128.5 + h[i] * 100);
     }
     this.tex.needsUpdate = true;
   }
@@ -151,7 +169,7 @@ export class WaterSim {
   resetLand() {
     // after a topology change, neutralise non-water texels
     const { data, mask } = this;
-    for (let i = 0; i < mask.length; i++) if (!mask[i]) { const o = i * 4; data[o] = data[o + 1] = data[o + 2] = 128; data[o + 3] = 255; }
+    for (let i = 0; i < mask.length; i++) if (!mask[i]) data[i] = 128;
     this.tex.needsUpdate = true;
   }
 }

@@ -61,6 +61,7 @@ import { WEEKDAYS } from '../data/bears.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { clamp } from '../core/rng.js';
 import { rollGenes, rarityOf, hatchCard, valueMult } from './genes.js';
+import { updateWakes } from '../world/water.js'; // [v20 water]
 
 const SAVE_KEY = 'tbme.save.v3';
 const LEGACY_KEY = 'tbme.legacy.v1';
@@ -1574,6 +1575,8 @@ export class Game {
     this.homes?.update(realDt); // [v20 npc homes]
     this.classroom?.update(realDt);
     this.particles.update(simDt || dt * 0.5);
+    try { updateWakes(this, simDt || dt * 0.5); } catch (e) { console.warn('wakes', e); } // [v20 water] fish/bear/bird/beaver wakes
+    this.world.wind = this.wind; // [v20 water]
     this.world.sim.update(simDt || dt * 0.5, this.wind);
     this.audio.setAmbience({ hour: st.hour, night: this.sky.state.night });
     this.audio.update(dt);

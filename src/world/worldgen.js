@@ -25,7 +25,7 @@ export const TRAIL_WAYPOINTS = [
   [70, 22.5],
 ];
 // region of the map where the pond water simulation runs (tiles)
-export const SIM_RECT = { x0: 30, x1: 112, z0: 20, z1: 92 };
+export const SIM_RECT = { x0: 0, x1: WORLD_W, z0: 0, z1: WORLD_H }; // [v20 water] the whole map: river, swamps and dug ponds get waves too
 
 // biome ids (grid.biome)
 export const BIOME = { FOREST: 0, SWAMP: 1, MUSHROOM: 2, WILLOW: 3, ALPINE: 4, RIVER: 5 };
