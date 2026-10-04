@@ -368,7 +368,7 @@ export class OuterRing {
           continue;
         }
         if (steepRock) {
-          if (r < 0.25) put(pickF(['spruce_snow_0', 'spruce_snow_1', 'rock_1'], r2), cx, cz, { texels: 24, scale: 0.9 + r2 * 0.3, tint });
+          if (r < (y > 16 ? 0.04 : 0.12)) put(pickF(['spruce_snow_0', 'spruce_snow_1', 'rock_1'], r2), cx, cz, { texels: 24, scale: 0.9 + r2 * 0.3, tint });
           continue;
         }
         // thick forest: 1-2 trees a tile near the map, thinning a little further out
