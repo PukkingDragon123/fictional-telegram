@@ -18,7 +18,7 @@ import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
 
 const E = 100; // how far the valley reaches past the map edge (tiles)
 const TREE_D = 24; // the thick sprite forest band
-const SLOPE_D = 46; // sparse trees on the lower slopes out to here
+const SLOPE_D = 38; // sparse trees on the lower slopes out to here
 const CHUNK = 36; // culling chunk size (tiles)
 const chunkKey = (x, z) => Math.floor((x + 400) / CHUNK) * 1000 + Math.floor((z + 400) / CHUNK);
 const FLAT_D0 = 3, FLAT_D1 = 20; // camera-side ranges (and their trees) sink from here out
@@ -184,8 +184,8 @@ export class OuterRing {
     // the camera only sees ~30-60 tiles past the map, so the ranges rise inside that:
     // behind the office mountain a taller, snowier wall of peaks right away
     const amp = 30 + 24 * north - 6 * south;
-    const start = 14 - 14 * north;
-    let mount = smooth(start, start + 46 - 18 * north, d) * amp * (0.35 + 0.8 * ridge * ridge + 0.25 * n2);
+    const start = 9 - 9 * north;
+    let mount = smooth(start, start + 36 - 10 * north, d) * amp * (0.35 + 0.8 * ridge * ridge + 0.25 * n2);
     // a second, farther wall of peaks so the horizon is never flat
     mount += smooth(55, 90, d) * (16 + 14 * north) * fbm2(x * 0.05, z * 0.05, 631, 3);
     // rivers cut a valley out to the horizon
@@ -409,7 +409,7 @@ export class OuterRing {
         if (d > TREE_D + hash2(x, z, 801) * 2) {
           // the lower slopes of the ranges: scattered conifers, snowier higher up
           const rr = hash2(x, z, 851);
-          if (rr > 0.42 || y > 15 + fbm2(cx * 0.09, cz * 0.09, 717) * 6 || this.clearing(cx, cz)) continue;
+          if (rr > 0.28 || y > 13 + fbm2(cx * 0.09, cz * 0.09, 717) * 6 || this.clearing(cx, cz)) continue;
           if (this.rivers.length && this.riverDist(cx, cz).d < 1.8) continue;
           const dk = Math.max(0.45, 0.62 - d * 0.003) * (0.9 + hash2(x, z, 853) * 0.1);
           const f = y > 9 ? pickF(['spruce_snow_0', 'spruce_snow_1'], rr * 2.3) : pickF(['spruce_0', 'spruce_1', 'spruce_2', 'pine_0', 'spruce_snow_0'], rr * 2.3);
