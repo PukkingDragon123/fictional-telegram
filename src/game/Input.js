@@ -426,13 +426,13 @@ export class Input {
       const s = Math.sign(dz) || 1;
       for (let i = 0; i <= Math.abs(dz); i++) out.push({ x: a.x, z: a.z + i * s });
     }
-    return out.slice(0, 40);
+    return out.slice(0, 40).filter((t) => this.game.grid.inb(t.x, t.z)); // [v20 map] nothing past the map edge
   }
 
   rectTiles(a, b) {
     const out = [];
     const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), z0 = Math.min(a.z, b.z), z1 = Math.max(a.z, b.z);
-    for (let z = z0; z <= z1 && z - z0 < 16; z++) for (let x = x0; x <= x1 && x - x0 < 16; x++) out.push({ x, z });
+    for (let z = z0; z <= z1 && z - z0 < 16; z++) for (let x = x0; x <= x1 && x - x0 < 16; x++) if (this.game.grid.inb(x, z)) out.push({ x, z }); // [v20 map]
     return out;
   }
 

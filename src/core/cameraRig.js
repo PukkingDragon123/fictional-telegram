@@ -218,7 +218,7 @@ export class CameraRig {
       if (!this._anchor && (ox || oz)) { this._anchor = new THREE.Vector2(cx, cz); this._sv.set(0, 0); }
       const a = this._anchor;
       if (a) {
-        const K = 90, C = 2 * 0.42 * Math.sqrt(K);
+        const K = 90, C = 2 * 0.55 * Math.sqrt(K);
         const st = Math.min(dt, 0.05), n = Math.max(1, Math.ceil(st / 0.008)), h = st / n;
         for (let i = 0; i < n; i++) {
           this._sv.x += (-K * (g.x - a.x) - C * this._sv.x) * h;

@@ -168,7 +168,7 @@ export class Game {
     this.timeScale = 1; // cinematic slow-mo
     this.inputLocked = false;
     this.wind = 1;
-    this.rig.setBounds({ minX: 8, maxX: WORLD_W - 8, minZ: 9, maxZ: WORLD_H - 6 });
+    this.rig.setBounds({ minX: 5, maxX: WORLD_W - 5, minZ: 9, maxZ: WORLD_H - 4 }); // [v20 map] a bit closer to the edge: the valley shows past it
     // [v20 map] the valley ring (world/outerRing.js) reaches ~100 tiles out: the camera never
     // centres past the map edge (not even in cutscenes) and the widest zoom stays inside it
     this.rig.hardBounds = { minX: -2, maxX: WORLD_W + 2, minZ: -2, maxZ: WORLD_H + 2 };

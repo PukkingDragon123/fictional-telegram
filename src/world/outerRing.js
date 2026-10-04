@@ -19,7 +19,9 @@ import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
 const E = 100; // how far the valley reaches past the map edge (tiles)
 const TREE_D = 24; // the thick sprite forest band
 const SLOPE_D = 46; // sparse trees on the lower slopes out to here
-const FLAT_D0 = 26, FLAT_D1 = 40; // camera-side ranges sink from here out
+const CHUNK = 36; // culling chunk size (tiles)
+const chunkKey = (x, z) => Math.floor((x + 400) / CHUNK) * 1000 + Math.floor((z + 400) / CHUNK);
+const FLAT_D0 = 3, FLAT_D1 = 20; // camera-side ranges (and their trees) sink from here out
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const lin = (hex) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
@@ -34,7 +36,7 @@ float ringDist(vec2 p) { vec2 d = max(max(uRect.xy - p, p - uRect.zw), 0.0); ret
 float ringHaze(vec3 p) {
   float d = ringDist(p.xz);
   // thin mist right at the edge, thicker over the far ranges; peaks poke out a bit
-  float h = smoothstep(2.0, 14.0, d) * 0.05 + smoothstep(22.0, 110.0, d) * 0.6;
+  float h = smoothstep(2.0, 14.0, d) * 0.05 + smoothstep(22.0, 110.0, d) * 0.5;
   h *= 1.0 - smoothstep(18.0, 60.0, p.y) * 0.25;
   return clamp(h * uHazeK, 0.0, 0.85);
 }
@@ -68,8 +70,8 @@ export class OuterRing {
     this.buildRivers();
     this.buildLattice();
     this.buildGround();
-    this.buildTrees();
     this.buildWaterfall();
+    this.buildTrees();
     this.buildCritters();
   }
 
@@ -178,9 +180,11 @@ export class OuterRing {
     const n1 = fbm2(x * 0.028 + 40, z * 0.028 + 40, 601, 5);
     const ridge = 1 - Math.abs(n1 * 2 - 1);
     const n2 = fbm2(x * 0.07, z * 0.07, 613, 3);
-    const amp = 30 + 26 * north - 6 * south;
+    // the camera only sees ~30-60 tiles past the map, so the ranges rise inside that:
+    // behind the office mountain a taller, snowier wall of peaks right away
+    const amp = 30 + 24 * north - 6 * south;
     const start = 14 - 14 * north;
-    let mount = smooth(start, start + 46, d) * amp * (0.35 + 0.8 * ridge * ridge + 0.25 * n2);
+    let mount = smooth(start, start + 46 - 18 * north, d) * amp * (0.35 + 0.8 * ridge * ridge + 0.25 * n2);
     // a second, farther wall of peaks so the horizon is never flat
     mount += smooth(55, 90, d) * (16 + 14 * north) * fbm2(x * 0.05, z * 0.05, 631, 3);
     // rivers cut a valley out to the horizon
@@ -240,7 +244,9 @@ export class OuterRing {
   buildGround() {
     const { xs, zs, hy, wet, W, H } = this;
     const nx = xs.length;
-    const pos = [], nor = [], col = [];
+    // chunked (CHUNK x CHUNK tiles) so whatever is off screen gets culled
+    const chunks = new Map();
+    const partOf = (x, z) => { const k = chunkKey(x, z); let c = chunks.get(k); if (!c) chunks.set(k, (c = { pos: [], nor: [], col: [] })); return c; };
     const C = {
       floor: [0x24402a, 0x2a4a2e, 0x203a28, 0x2e4a2a].map(lin),
       clearing: [0x5c8a3e, 0x6a9646, 0x557e3a].map(lin),
@@ -266,7 +272,7 @@ export class OuterRing {
       const r = hash2(Math.floor(cx * 2), Math.floor(cz * 2), 711);
       const n = fbm2(cx * 0.09, cz * 0.09, 717);
       let rgb;
-      const snowLine = 25 + (n - 0.5) * 10;
+      const snowLine = 25 + (n - 0.5) * 10 - (cz < 0 ? 6 : 0);
       const rockLine = 13 + (n - 0.5) * 8;
       if (wetN === 3) rgb = pick(C.water, r);
       else if (cy > snowLine && ny0 > 0.5) rgb = pick(C.snow, r);
@@ -279,6 +285,7 @@ export class OuterRing {
         const au = fbm2(cx * 0.05, cz * 0.05, 91);
         rgb = au > 0.62 && r < 0.6 ? pick(C.autumn, r * 1.7) : pick(C.forest, r);
       }
+      const { pos, nor, col } = partOf(cx, cz);
       for (const p of [a, b, c]) { pos.push(p[0], p[1], p[2]); nor.push(nx0, ny0, nz0); col.push(rgb[0], rgb[1], rgb[2]); }
     };
     for (let j = 0; j < zs.length - 1; j++)
@@ -295,11 +302,6 @@ export class OuterRing {
           tri(a, d, b, wet[k00] + wet[k11] + wet[k10]);
         }
       }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    geo.computeBoundingSphere();
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
     const U = this.uniforms;
     mat.onBeforeCompile = (shader) => {
@@ -309,17 +311,28 @@ export class OuterRing {
         .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nfloat ringFlat = flatK(position);\nobjectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), ringFlat * 0.8));')
         // ranges on the camera's side of the map sink so they never block the view
         .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.y = mix(transformed.y, 2.0 + (transformed.y - 2.0) * 0.18, ringFlat);')
+        .replace('#include <color_vertex>', '#include <color_vertex>\nvColor.rgb = mix(vColor.rgb, vec3(0.014, 0.05, 0.022), smoothstep(0.2, 0.7, flatK(position)) * 0.92);')
         .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringHaze((modelMatrix * vec4(transformed, 1.0)).xyz);');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;')
         .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze);\n#include <opaque_fragment>');
     };
     mat.customProgramCacheKey = () => 'outerRingGround';
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.receiveShadow = true;
-    mesh.name = 'outerRingGround';
-    this.ground = mesh;
-    this.group.add(mesh);
+    this.ground = [];
+    for (const { pos, nor, col } of chunks.values()) {
+      if (!pos.length) continue;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      geo.computeBoundingSphere();
+      geo.boundingSphere.radius += 4;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.receiveShadow = true;
+      mesh.name = 'outerRingGround';
+      this.ground.push(mesh);
+      this.group.add(mesh);
+    }
   }
 
   clearing(x, z) {
@@ -330,8 +343,6 @@ export class OuterRing {
   buildTrees() {
     const world = this.world;
     const { tex } = world.natureFrames();
-    const B = (this.trees = new SpriteBatch(tex, { max: 34000, lit: true, castShadow: false, receiveShadow: true, name: 'outerRingTrees' }));
-    this.patchHaze(B.mesh.material, 'spriteRingL');
     const fr = (n) => world.frame(n);
     const pickF = (names, r) => { for (let k = 0; k < names.length; k++) { const n = names[(Math.floor(r * names.length) + k) % names.length]; if (fr(n)) return fr(n); } return fr('pine_0'); };
     const items = [];
@@ -344,6 +355,7 @@ export class OuterRing {
         const d = this.dist(cx, cz);
         if (d > SLOPE_D) continue;
         const y = this.heightAt(cx, cz);
+        if (this.fallPts && this.fallPts.some((q) => Math.abs(q[0] - cx) < 2.2 && Math.abs(q[2] - cz) < 1.2)) continue; // keep the waterfall in view
         if (d > TREE_D + hash2(x, z, 801) * 2) {
           // the lower slopes of the ranges: scattered conifers, snowier higher up
           const rr = hash2(x, z, 851);
@@ -388,9 +400,23 @@ export class OuterRing {
       }
     // far, back to front so dithered edges sort nicely
     items.sort((a, b) => a.z - b.z);
-    for (const it of items) B.push(it.f, it.x, it.y, it.z, it.o);
-    B.commit();
-    this.group.add(B.mesh);
+    // one batch per chunk, each culled on its own
+    const buckets = new Map();
+    for (const it of items) { const k = chunkKey(it.x, it.z); let l = buckets.get(k); if (!l) buckets.set(k, (l = [])); l.push(it); }
+    this.trees = [];
+    for (const list of buckets.values()) {
+      if (!list.length) continue;
+      const B = new SpriteBatch(tex, { max: list.length, lit: true, castShadow: false, receiveShadow: true, name: 'outerRingTrees' });
+      this.patchHaze(B.mesh.material, 'spriteRingL');
+      const box = new THREE.Box3();
+      for (const it of list) { B.push(it.f, it.x, it.y, it.z, it.o); box.expandByPoint(new THREE.Vector3(it.x, it.y, it.z)); }
+      box.max.y += 6; box.expandByScalar(3);
+      B.commit();
+      B.geo.boundingSphere = box.getBoundingSphere(new THREE.Sphere());
+      B.mesh.frustumCulled = true;
+      this.trees.push(B);
+      this.group.add(B.mesh);
+    }
   }
 
   // haze on a sprite material (per-sprite, from its anchor)
@@ -415,26 +441,26 @@ export class OuterRing {
   // -------------------------------------------------------------- waterfall
   // a ribbon of white water down a face of the big northern range
   buildWaterfall() {
-    // find a steep, south-facing drop behind the office mountain
+    // the longest steep, south-facing run down the east or west range (faces the
+    // default camera), not too far out to be seen
     let best = null;
-    for (let x = 18; x < this.W - 18; x += 2) {
-      const zTop = -46, zBot = -20;
-      const yT = this.heightAt(x, zTop), yB = this.heightAt(x, zBot);
-      const drop = yT - yB;
-      if (drop > 12 && (!best || drop > best.drop) && Math.abs(x - 70) > 12) best = { x, drop };
-    }
+    for (const side of [-1, 1])
+      for (let dd = 16; dd <= 34; dd += 2)
+        for (let z = 10; z < this.H - 34; z += 2) {
+          const x = side < 0 ? -dd : this.W + dd;
+          const run = [];
+          let pz = z, prev = this.heightAt(x, pz);
+          for (let k = 0; k < 30; k++) {
+            run.push([x + Math.sin(k * 0.7) * 0.2, prev + 0.3, pz]);
+            const ny = this.heightAt(x, pz + 0.8);
+            if (ny > prev + 0.01 || ny < 0.5) break; // terraces: flat steps are fine, climbing isn't
+            prev = ny; pz += 0.8;
+          }
+          const drop = run.length > 6 ? run[0][1] - run[run.length - 1][1] : 0;
+          if (drop > 6 && (!best || drop > best.drop)) best = { drop, run };
+        }
     if (!best) return;
-    const x = best.x;
-    // walk downhill from the top, hugging the slope
-    const pts = [];
-    let px = x, pz = -48;
-    for (let k = 0; k < 40; k++) {
-      const y = this.heightAt(px, pz);
-      pts.push([px, y + 0.25, pz]);
-      if (pz > -12) break;
-      pz += 0.9;
-      px += Math.sin(k * 0.7) * 0.15;
-    }
+    const pts = best.run;
     if (pts.length < 4) return;
     const pos = [], uv = [], idx = [];
     const wdt = 1.4;
@@ -455,16 +481,25 @@ export class OuterRing {
     geo.computeBoundingSphere();
     const U = this.uniforms;
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uTime: U.uTime, uHaze: U.uHaze, uLight: { value: new THREE.Color(1, 1, 1) }, uHazeK: U.uHazeK },
+      uniforms: { uTime: U.uTime, uHaze: U.uHaze, uLight: { value: new THREE.Color(1, 1, 1) }, uHazeK: U.uHazeK, uRect: U.uRect, uRingCam: U.uRingCam },
       vertexShader: /* glsl */ `
+${HAZE_PARS}
 varying vec2 vUv;
-void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+varying float vFlat;
+void main() {
+  vUv = uv;
+  vec3 p = position;
+  vFlat = flatK(p);
+  p.y = mix(p.y, 2.0 + (p.y - 2.0) * 0.18, vFlat);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`,
       fragmentShader: /* glsl */ `
 uniform float uTime;
 uniform vec3 uHaze;
 uniform vec3 uLight;
 uniform float uHazeK;
 varying vec2 vUv;
+varying float vFlat;
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 void main() {
   float col = floor(vUv.x * 6.0);
@@ -473,7 +508,7 @@ void main() {
   vec3 c = mix(vec3(0.55, 0.75, 0.88), vec3(0.95, 0.98, 1.0), step(0.55, s));
   c *= uLight;
   c = mix(c, uHaze, 0.45 * uHazeK);
-  if (edge < 0.35) discard;
+  if (edge < 0.35 || vFlat > 0.3) discard;
   gl_FragColor = vec4(c, 1.0);
 }`,
     });
@@ -483,6 +518,7 @@ void main() {
     this.group.add(m);
     this.waterfall = m;
     this.waterfallAt = pts[pts.length - 1];
+    this.fallPts = pts;
   }
 
   // ---------------------------------------------------------------- critters
