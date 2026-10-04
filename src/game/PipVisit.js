@@ -46,6 +46,8 @@ export class PipVisit {
     if (st.pipCame || (st.day || 1) < 2) return;
     if (!(st.tutorialDone || game.skipTutorial) || game.tutorial?.active || game.cutscene?.active || game.titleMode) return;
     if (st.phase !== 'day' && st.phase !== 'morning') return;
+    // he comes down the trail in the morning, never right before the evening rush
+    if (st.phase === 'day' && (st.hour || 0) >= 13) return;
     if ((st.zones || []).includes('mill')) { this.onMillOpen(); return; }
     this.arrive().catch((e) => { console.warn('pip visit', e); this.busy = false; this.tick = null; st.pipCame = true; game.unlockFeature('terraform'); });
   }
