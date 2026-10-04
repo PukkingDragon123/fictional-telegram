@@ -4,3 +4,6 @@ dist-single/
 .DS_Store
 *.log
 tools/shots/
+
+# promo GIF frame renders (scratch)
+tools/promo/renders/anim/
