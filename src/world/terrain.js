@@ -295,13 +295,16 @@ export function buildTerrainGeometry(grid) {
   // remember the smoothed surface so sprites (trees, rocks) sit on the slope
   grid.slopeH = landH;
   grid.isSlope = smoothT;
+  // [line fix] tiles actually drawn as a smoothed slope (low ones stay flat tops)
+  const smoothDrawn = (x, z) => smoothT(x, z) && (grid.height[z * w + x] > 0.01 || !!(terra && terra[z * w + x]));
+  const edgeLH = (x, z, dx, dz) => (dx === 1 ? [LH(x + 1, z), LH(x + 1, z + 1)] : dx === -1 ? [LH(x, z), LH(x, z + 1)] : dz === 1 ? [LH(x, z + 1), LH(x + 1, z + 1)] : [LH(x, z), LH(x + 1, z)]);
   const _e1 = [0, 0, 0], _e2 = [0, 0, 0];
   for (let z = 0; z < h; z++)
     for (let x = 0; x < w; x++) {
       const i = z * w + x;
       const y = grid.height[i];
       const k = grid.kind[i];
-      if (smoothT(x, z) && (y > 0.01 || (terra && terra[i]))) {
+      if (smoothDrawn(x, z)) { // [line fix] same test, shared with the seals
         const a = [x, LH(x, z), z], b = [x, LH(x, z + 1), z + 1], c = [x + 1, LH(x + 1, z + 1), z + 1], d = [x + 1, LH(x + 1, z), z];
         _e1[0] = c[0] - a[0]; _e1[1] = c[1] - a[1]; _e1[2] = c[2] - a[2];
         _e2[0] = d[0] - b[0]; _e2[1] = d[1] - b[1]; _e2[2] = d[2] - b[2];
@@ -317,15 +320,32 @@ export function buildTerrainGeometry(grid) {
         const f = [shade, shade, shade];
         quad(a, b, c, d, [nx / nl, ny / nl, nz / nl], [f, f, f, f], rocky && steep > 0.35 ? 1 : 0);
         // seal against flat neighbours (trail / meadow) that sit lower
+        // [line fix] every step is sealed, however small: the old 0.01 tolerance
+        // left 1 cm see-through slivers all along the meadow / trail edges (the
+        // smoothed corner there is exactly 0.01 up). With the camera rotated
+        // square to such an edge a whole row of pixels can fall into the
+        // sliver: a full-width line of sky across the screen. Also covers
+        // flat-drawn slope tiles (height <= 0.01) and pond banks.
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const nxx = x + dx, nzz = z + dz;
-          if (!grid.inb(nxx, nzz) || smoothT(nxx, nzz) || grid.kind[nzz * w + nxx] === KIND.WATER) continue;
+          if (!grid.inb(nxx, nzz) || smoothDrawn(nxx, nzz)) continue; // [line fix]
+          const wet = grid.kind[nzz * w + nxx] === KIND.WATER; // [line fix]
           const ny0 = grid.height[nzz * w + nxx];
           let P, Q;
           if (dx === 1) { P = d; Q = c; } else if (dx === -1) { P = b; Q = a; } else if (dz === 1) { P = c; Q = b; } else { P = a; Q = d; }
-          if (Math.max(P[1], Q[1]) <= ny0 + 0.01) continue;
           const lo = [0.62, 0.62, 0.66], hi = [0.95, 0.95, 0.95];
-          quad([P[0], ny0, P[2]], [Q[0], ny0, Q[2]], [Q[0], Q[1], Q[2]], [P[0], P[1], P[2]], [dx, 0, dz], [lo, lo, hi, hi], 1);
+          if (wet) { // [line fix] bank down to the smoothed pond floor, like the flat tiles do
+            quad([P[0], CH(P[0], P[2]) - 0.05, P[2]], [Q[0], CH(Q[0], Q[2]) - 0.05, Q[2]], Q, P, [dx, 0, dz], [lo, lo, hi, hi], 0);
+            continue;
+          }
+          const pa = P[1] - ny0, qa = Q[1] - ny0; // [line fix]
+          if (pa <= 0 && qa <= 0) continue;
+          if (pa > 0 && qa > 0) quad([P[0], ny0, P[2]], [Q[0], ny0, Q[2]], [Q[0], Q[1], Q[2]], [P[0], P[1], P[2]], [dx, 0, dz], [lo, lo, hi, hi], 1);
+          else { // [line fix] the edge dips under the neighbour: seal just the part above it
+            const t = pa / (pa - qa), M = [P[0] + (Q[0] - P[0]) * t, ny0, P[2] + (Q[2] - P[2]) * t];
+            const T = pa > 0 ? P : Q;
+            quad([T[0], ny0, T[2]], M, M, T, [dx, 0, dz], [lo, lo, hi, hi], 1);
+          }
         }
         continue;
       }
@@ -356,6 +376,10 @@ export function buildTerrainGeometry(grid) {
           const ex = dx === 1 ? x + 1 : x, ez = dz === 1 ? z + 1 : z;
           const e0 = dx !== 0 ? CH(ex, z) : CH(x, ez), e1 = dx !== 0 ? CH(ex, z + 1) : CH(x + 1, ez);
           ny = Math.min(ny, e0, e1) - 0.05;
+        } else if (smoothDrawn(x + dx, z + dz)) {
+          // [line fix] a slope neighbour: its edge may sit below its own tile height
+          const [e0, e1] = edgeLH(x, z, dx, dz);
+          ny = Math.min(ny, e0, e1);
         }
         if (ny >= y) continue;
         const y0 = Math.max(ny, BASE_Y), y1 = y;
