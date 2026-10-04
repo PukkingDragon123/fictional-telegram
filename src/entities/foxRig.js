@@ -308,6 +308,26 @@ function monocleModel() {
   return v;
 }
 
+// Big round nerd glasses (teacher outfit) in fine voxels, centred between the eyes.
+// Thick dark frames, a chunky bridge, temple arms running back to the ears, a lens glint.
+function glassesModel() {
+  const v = new VoxelModel();
+  const FR = 0x2a1810, FRL = 0x5a3a26, GL = 0xd8f4ff;
+  const EX = 7; // eye centre offset (fine voxels)
+  for (const cx of [-EX, EX]) {
+    for (let x = -8; x <= 8; x++)
+      for (let y = -8; y <= 8; y++) {
+        const d = Math.hypot(x + 0.5, y + 0.5);
+        if (d > 6.6 || d < 4.6) continue;
+        v.set(cx + x, y, 0, x + y < -4 ? FRL : FR);
+      }
+    v.set(cx - 2, 3, 0, GL); v.set(cx - 3, 2, 0, GL); // glint
+  }
+  for (let x = -2; x <= 1; x++) { v.set(x, 2, 0, FR); v.set(x, 3, 0, FR); } // bridge
+  for (const sx of [-1, 1]) for (let z = -1; z >= -9; z--) { v.set(sx > 0 ? EX + 6 : -EX - 7, 1, z, FR); } // temples
+  return v;
+}
+
 function canModel() {
   const v = new VoxelModel();
   for (let y = 0; y <= 7; y++)
@@ -377,6 +397,7 @@ function geometries() {
     tail1: b(tailModel(6, 2.6, 3.5), [0, 0, 0]),
     tail2: b(tailModel(7, 3.5, 3.1, 4.6, true), [0, 0, 0]),
     monocle: b(monocleModel(), [0, 0, 0.5], FV),
+    glasses: b(glassesModel(), [0, 0, 0.5], FV),
     can: b(canModel(), [0, 0, 0], FV),
     coin: b(coinModel(), [0, 0.5, 0], FV),
     stack: b(stackModel(), [0, 0, 0], FV),
@@ -746,6 +767,10 @@ export class FoxRig {
     this.lensMat = new THREE.MeshBasicMaterial({ map: this.face.lens.tex, transparent: true, alphaTest: 0.5 });
     this.lens = plane(0.2, 0.2, this.lensMat, this.monocle, 0, 0, 0.004);
     this._monoRest = new THREE.Vector3(...EYE_POS).multiplyScalar(VS);
+    // nerd glasses for teaching (shown with the teacher outfit, instead of the monocle)
+    this.glasses = grp(this.head, 0, EYE_POS[1], EYE_POS[2] + 0.35);
+    this.glassesMesh = mesh(G.glasses, MG, this.glasses);
+    this.glasses.visible = false;
     this.links = [];
     this._linkMat = new THREE.MeshLambertMaterial({ color: 0xffd84a, emissive: 0x3a2800 });
     this.chainGroup = grp(this.chest);
@@ -984,7 +1009,9 @@ export class FoxRig {
       L.shin.geometry = parts && parts.shin ? parts.shin : this._defaultGeo.shin;
     }
     // the monocle comes off for bed
-    const mono = !(parts && parts.noMonocle);
+    const nerd = id === 'teacher';
+    if (this.glasses) this.glasses.visible = nerd;
+    const mono = !(parts && parts.noMonocle) && !nerd;
     this.monocle.visible = mono; this.chainGroup.visible = mono;
     this._monoOff = !mono;
     // dangly bits on the hat (teacher tassel: cord + hanging tassel; nightcap: floppy tip with pompom),
