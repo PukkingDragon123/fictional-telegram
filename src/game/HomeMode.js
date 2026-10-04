@@ -115,7 +115,7 @@ export class HomeMode {
     const g = this.game;
     if (this.active || !v) return 'busy';
     if (g.lab?.active || g.classroom?.active || g.bedtime?.active || g.cutscene?.active || g.cine?.active || g.tutorial?.active || g.npcScenes?.busy || g.titleMode) return 'busy';
-    if (g.inputLocked) return 'busy';
+    if (g.inputLocked || g.zones?.busy || g.pipVisit?.view || g.workshop?.view) return 'busy';
     const be = g.bearEvents;
     if (be?.boss?.active || be?.moon?.siege) return 'danger';
     const ph = g.state.phase;
