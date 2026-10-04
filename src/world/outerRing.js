@@ -16,9 +16,10 @@ import { fbm2, hash2, clamp } from '../core/rng.js';
 import { KIND, WATER_Y } from './grid.js';
 import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
 import { terrainAtlasUniforms } from './terrain.js';
+import { STONE, STONE_GLSL, stoneUniforms } from '../art/stoneArt.js';
 
 const E = 100; // how far the valley reaches past the map edge (tiles)
-const TREE_D = 24; // the thick sprite forest band
+const TREE_D = 14; // the thick sprite forest band
 const SLOPE_D = 60; // sparse trees on the lower slopes out to here
 const SMOOTH_D = 7; // tiles past the map edge that stay smooth slopes (like the map's own forest hills)
 const CHUNK = 36; // culling chunk size (tiles)
@@ -39,7 +40,7 @@ float ringDist(vec2 p) { vec2 d = max(max(uRect.xy - p, p - uRect.zw), 0.0); ret
 float ringHaze(vec3 p) {
   float d = ringDist(p.xz);
   // thin mist right at the edge, thicker over the far ranges; peaks poke out a bit
-  float h = smoothstep(2.0, 14.0, d) * 0.05 + smoothstep(22.0, 110.0, d) * 0.5;
+  float h = smoothstep(30.0, 120.0, d) * 0.45;
   h *= 1.0 - smoothstep(18.0, 60.0, p.y) * 0.25;
   return clamp(h * uHazeK, 0.0, 0.85);
 }
@@ -196,10 +197,15 @@ export class OuterRing {
     // the camera only sees ~30-60 tiles past the map, so the ranges rise inside that:
     // behind the office mountain a taller, snowier wall of peaks right away
     const amp = 30 + 24 * north - 6 * south;
-    const start = 9 - 9 * north;
-    let mount = smooth(start, start + 36 - 10 * north, d) * amp * (0.35 + 0.8 * ridge * ridge + 0.25 * n2);
+    const start = 4 - 4 * north;
+    let mount = smooth(start, start + 26 - 4 * north, d) * amp * (0.35 + 0.8 * ridge * ridge + 0.25 * n2);
     // a second, farther wall of peaks so the horizon is never flat
     mount += smooth(55, 90, d) * (16 + 14 * north) * fbm2(x * 0.05, z * 0.05, 631, 3);
+    // craggy stone massifs: sharp spires and buttresses on top of the ranges
+    const cr = Math.max(0, fbm2(x * 0.11, z * 0.11, 641, 3) - 0.42) / 0.58;
+    mount += cr * cr * (20 + 12 * north) * smooth(start + 6, start + 26, d);
+    const cr2 = Math.max(0, fbm2(x * 0.23, z * 0.23, 653, 2) - 0.5) * 2;
+    mount += cr2 * cr2 * 7 * smooth(start + 10, start + 30, d);
     // rivers cut a valley out to the horizon
     const rv = this.rivers.length ? this.riverDist(x, z) : { d: 99 };
     const valley = smooth(1.5, 9, rv.d);
@@ -218,11 +224,11 @@ export class OuterRing {
     const axis = (n) => {
       const out = [];
       // -E .. -30 step 4, -30 .. -8 step 2, -8 .. 0 step 1, map step 1, mirrored
-      for (let v = -E; v < -30; v += 4) out.push(v);
-      for (let v = -30; v < -8; v += 2) out.push(v);
+      for (let v = -E; v < -64; v += 4) out.push(v);
+      for (let v = -64; v < -8; v += 2) out.push(v);
       for (let v = -8; v <= n + 8; v++) out.push(v);
-      for (let v = n + 10; v <= n + 30; v += 2) out.push(v);
-      for (let v = n + 34; v <= n + E; v += 4) out.push(v);
+      for (let v = n + 10; v <= n + 64; v += 2) out.push(v);
+      for (let v = n + 68; v <= n + E; v += 4) out.push(v);
       return out;
     };
     this.xs = axis(this.W);
@@ -264,7 +270,9 @@ export class OuterRing {
         if (d < sd) { this.cTop[k] = y; this.cSmooth[k] = 1; continue; }
         const st = d < 12 ? 0.5 : d > 50 ? 1.5 : 1;
         // blocks round down near the rim, so their steps face away from the map
-        this.cTop[k] = Math.max(0, (d < 16 ? Math.floor(y / st) : Math.round(y / st)) * st);
+        // up in the stone the blocks get jagged: crags, ledges and notches
+        const jag = y > 11 ? (hash2(i, j, 517) - 0.45) * Math.min(4, (y - 11) * 0.35) : 0;
+        this.cTop[k] = Math.max(0, (d < 16 ? Math.floor(y / st) : Math.round((y + jag) / st)) * st);
       }
   }
 
@@ -295,15 +303,23 @@ export class OuterRing {
     // uses the very same pixel textures as the map's own mountain and cliffs
     const S = { GRASS: 0, AUTUMN: 1, DIRT: 2, POND: 4, ROCK: 5, SNOW: 6, FOREST: 8, CLIFF: 9 };
     // what a column is made of: top surface, tint and band (0 soil, 1 stone, 2 snow, 3 water)
+    const ST = (v) => 20 + v; // ids 20+ = stone atlas (art/stoneArt.js)
+    const rockOf = (x, z) => { const m = fbm2(x * 0.045, z * 0.045, 741); return m > 0.58 ? STONE.SLATE : m < 0.4 ? STONE.CRACKED : STONE.GRANITE; };
     const topOf = (x, z, y, d, wetC) => {
       const r = hash2(Math.floor(x * 2), Math.floor(z * 2), 711);
       if (wetC) return [S.POND, [0.55, 0.8, 0.95], 3];
       const n = fbm2(x * 0.09, z * 0.09, 717);
-      const snowLine = 24 + (n - 0.5) * 8 - (z < 0 ? 6 : 0);
-      const stoneLine = 15 + (n - 0.5) * 7;
+      const snowLine = 31 + (n - 0.5) * 8 - (z < 0 ? 5 : 0);
+      const stoneLine = 10 + (n - 0.5) * 6;
       const v = 0.94 + r * 0.1;
+      // snow only on the very tops; ledges below them get a dusting
       if (y > snowLine) return [S.SNOW, [v, v, v], 2];
-      if (y > stoneLine) return [S.ROCK, [v, v, v], 1];
+      if (y > snowLine - 7) return [r < 0.55 ? ST(STONE.SNOWROCK) : ST(STONE.GRANITE), [v, v, v], 1];
+      if (y > stoneLine) {
+        // one rock type per massif (large patches), scree and moss at the foot
+        if (y < stoneLine + 2.5) return [ST(fbm2(x * 0.2, z * 0.2, 733) > 0.5 ? STONE.SCREE : STONE.MOSSY), [v, v, v], 1];
+        return [ST(rockOf(x, z)), [v, v, v], 1];
+      }
       if (this.clearing(x, z)) return [S.GRASS, [v * 0.9, v * 0.92, v * 0.88], 0];
       const au = fbm2(x * 0.05, z * 0.05, 91);
       if (au > 0.62 && r < 0.5) return [S.AUTUMN, [v, v, v], 0];
@@ -312,7 +328,8 @@ export class OuterRing {
     };
     const quad = (P, a, b, c, d, nrm, rgb, id) => {
       const v = P.n;
-      for (const q of [a, b, c, d]) { P.pos.push(q[0], q[1], q[2]); P.nor.push(nrm[0], nrm[1], nrm[2]); P.col.push(rgb[0], rgb[1], rgb[2]); P.sid.push(id); }
+      const per = Array.isArray(rgb[0]);
+      [a, b, c, d].forEach((q, k) => { const cc = per ? rgb[k] : rgb; P.pos.push(q[0], q[1], q[2]); P.nor.push(nrm[0], nrm[1], nrm[2]); P.col.push(cc[0], cc[1], cc[2]); P.sid.push(id); });
       P.idx.push(v, v + 1, v + 2, v, v + 2, v + 3);
       P.n += 4;
     };
@@ -350,7 +367,11 @@ export class OuterRing {
           const dx = ((y10 + y11) - (y00 + y01)) / (2 * (x1 - x0)), dz = ((y01 + y11) - (y00 + y10)) / (2 * (z1 - z0));
           const l = Math.hypot(dx, 1, dz); tn = [-dx / l, 1 / l, -dz / l];
         }
-        quad(P, [x0, y00, z0], [x0, y01, z1], [x1, y11, z1], [x1, y10, z0], tn, tint, topId);
+        // fake AO: a corner next to a taller neighbour sits in its shadow; a crest catches light
+        const hE = nbTop(i + 1, j, x1, mz), hW = nbTop(i - 1, j, x0, mz), hS = nbTop(i, j + 1, mx, z1), hN = nbTop(i, j - 1, mx, z0);
+        const cAO = (a, b) => { const up = (a > y + 0.3) + (b > y + 0.3); const down = (a < y - 0.3) + (b < y - 0.3); const k = up ? 1 - up * 0.17 : 1 + down * 0.06; return [tint[0] * k, tint[1] * k, tint[2] * k]; };
+        const topCols = smoothC ? tint : [cAO(hW, hN), cAO(hW, hS), cAO(hE, hS), cAO(hE, hN)];
+        quad(P, [x0, y00, z0], [x0, y01, z1], [x1, y11, z1], [x1, y10, z0], tn, topCols, topId);
         // cliff faces down to each lower neighbour, in 1-block layers (strata)
         const sides = [
           [i + 1, j, x1, mz, [1, 0, 0], (lo, hi) => [[x1, lo, z1], [x1, lo, z0], [x1, hi, z0], [x1, hi, z1]], 0.86],
@@ -386,9 +407,25 @@ export class OuterRing {
           const big = x1 - x0 > 2 || yHi - lo0 > 16;
           while (hi > lo0 + 0.001) {
             const lo = layer < soil ? Math.max(lo0, Math.ceil(hi - 1.001)) : big ? lo0 : Math.max(lo0, Math.ceil(hi - 2.001));
-            const id = layer < soil ? soilId : S.CLIFF;
-            const strata = layer < soil ? 1 : 0.84 + hash2(Math.floor(lo), 3, 77) * 0.22;
-            quad(P, ...face(lo, hi), nrm, k3(shadeK * strata), id);
+            let id;
+            if (layer < soil) id = soilId;
+            else {
+              // rock strata: slate bands low down, granite / cracked higher, snowy rock near the tops,
+              // mossy at the foot by the forest, dark rock in deep clefts
+              // walls: the massif's rock, with darker / mossy / snowy bands by height
+              const hb = hash2(Math.floor(lo / 3), 0, 77);
+              const rk = rockOf(mx, mz);
+              if (hi > 28 && hb < 0.5) id = ST(STONE.SNOWROCK);
+              else if (lo < 8 && hb < 0.4) id = ST(STONE.MOSSY);
+              else if (hb > 0.82) id = ST(STONE.DARK);
+              else if (hb > 0.62) id = ST(rk === STONE.SLATE ? STONE.GRANITE : STONE.SLATE);
+              else id = ST(rk);
+            }
+            const strata = (layer < soil ? 1 : 0.86 + hash2(Math.floor(lo), 3, 77) * 0.2) * shadeK;
+            // darker at the bottom of every cliff band (crevice), lit lip on top
+            const depthK = Math.max(0.55, 1 - (yHi - lo) * 0.035);
+            const cLo = k3(strata * depthK * 0.7), cHi = k3(strata * Math.min(1.12, depthK + 0.18));
+            quad(P, ...face(lo, hi), nrm, [cLo, cLo, cHi, cHi], id);
             hi = lo; layer++;
           }
         }
@@ -396,8 +433,9 @@ export class OuterRing {
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
     const U = this.uniforms;
     const TA = terrainAtlasUniforms();
+    const SU = stoneUniforms();
     mat.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, U, TA);
+      Object.assign(shader.uniforms, U, TA, SU);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\n' + HAZE_PARS + '\nattribute float aSurf;\nvarying float vRingHaze;\nvarying float vSurf;\nvarying vec3 vRPos;\nvarying vec3 vRNor;\nvarying float vFlat;')
         .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nfloat ringFlat = flatK(position);\nvRNor = objectNormal;\nvFlat = ringFlat;')
@@ -414,7 +452,9 @@ varying float vSurf;
 varying vec3 vRPos;
 varying vec3 vRNor;
 varying float vFlat;
+${STONE_GLSL}
 vec3 ringTex(int id, vec2 p) {
+  if (id >= 20) return stoneTex(float(id - 20), p) * 0.92;
   vec4 r = uRects[id];
   vec2 t = fract(p / 2.0);
   t = (floor(t * 48.0) + 0.5) / 48.0;
@@ -427,10 +467,10 @@ vec3 ringTex(int id, vec2 p) {
   if (abs(vRNor.y) > 0.5) {
     p = vRPos.xz;
     // sunk ranges on the camera's side read as forested hills, not bare rock / snow
-    if (vFlat > 0.45 && (id == 5 || id == 6)) id = 8;
+    if (vFlat > 0.45 && (id == 5 || id == 6 || id >= 20)) id = 8;
   } else {
     p = abs(vRNor.x) > 0.5 ? vec2(vRPos.z, vRPos.y) : vec2(vRPos.x, vRPos.y);
-    if (vFlat > 0.45 && id == 6) id = 2;
+    if (vFlat > 0.45 && (id == 6 || id >= 20)) id = 2;
   }
   diffuseColor.rgb *= ringTex(id, p) * 1.12;
 }`)
@@ -479,8 +519,8 @@ vec3 ringTex(int id, vec2 p) {
         if (this.fallPts && this.fallPts.some((q) => Math.abs(q[0] - cx) < 2.2 && Math.abs(q[2] - cz) < 1.2)) continue; // keep the waterfall in view
         // tree line = where the ground turns to bare stone (same bands as buildGround)
         const nTL = fbm2(cx * 0.09, cz * 0.09, 717);
-        const treeLine = 15 + (nTL - 0.5) * 7;
-        const snowLine = 24 + (nTL - 0.5) * 8 - (cz < 0 ? 6 : 0);
+        const treeLine = 10 + (nTL - 0.5) * 6;
+        const snowLine = 31 + (nTL - 0.5) * 8 - (cz < 0 ? 5 : 0);
         if (d > TREE_D + hash2(x, z, 801) * 2) {
           // the mountain sides: dense forest climbing to the tree line, thinning near it,
           // then scattered rocks and snowy spruces up on the stone
@@ -490,8 +530,8 @@ vec3 ringTex(int id, vec2 p) {
           const tint = [dk * 0.95, dk, dk * 1.06];
           const jx = x + 0.2 + hash2(x, z, 855) * 0.6, jz = z + 0.2 + hash2(x, z, 857) * 0.6;
           if (y > treeLine) {
-            if (y < snowLine && rr < 0.08) put(pickF(['spruce_snow_0', 'spruce_snow_1'], r3), jx, jz, { texels: 24, scale: 0.9 + r3 * 0.3, sway: 0.2, phase: rr * 6.28, flip: rr > 0.04, tint });
-            else if (rr > 0.93) put(pickF(['rock_0', 'rock_1', 'rock_2', 'boulder_0', 'boulder_1'], r3), jx, jz, { texels: 24, scale: 1 + r3 * 0.5, tint });
+            if (y < snowLine && rr < 0.035) put(pickF(['spruce_snow_0', 'spruce_snow_1'], r3), jx, jz, { texels: 24, scale: 0.9 + r3 * 0.3, sway: 0.2, phase: rr * 6.28, flip: rr > 0.04, tint });
+            else if (rr > (y < treeLine + 4 ? 0.72 : 0.88)) put(pickF(['boulder_0', 'boulder_1', 'rock_0', 'rock_1', 'rock_2', 'mossrock'], r3), jx, jz, { texels: 24, scale: 1.1 + r3 * 0.9, tint: [dk * 1.15, dk * 1.15, dk * 1.18] }); // boulders and scree
             continue;
           }
           if (this.clearing(cx, cz)) {

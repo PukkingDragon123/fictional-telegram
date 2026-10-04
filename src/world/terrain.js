@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { KIND, WATER_Y } from './grid.js';
 import { hash2, fbm2 } from '../core/rng.js';
+import { STONE_GLSL, stoneUniforms } from '../art/stoneArt.js'; // [v20 map]
 
 const BASE_Y = -4;
 
@@ -150,6 +151,7 @@ export function makeTerrainMaterial(uniforms) {
     shader.uniforms.uSim = uniforms.uSim;
     shader.uniforms.uSimRect = uniforms.uSimRect;
     shader.uniforms.uBlueprint = uniforms.uBlueprint;
+    Object.assign(shader.uniforms, stoneUniforms()); // [v20 map] mountain stone, shared with the valley
     terrainVert(shader);
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -168,6 +170,7 @@ uniform vec2 uGridSize;
 uniform sampler2D uSim;
 uniform vec4 uSimRect;
 uniform float uBlueprint;
+${STONE_GLSL}
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn2(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -193,10 +196,14 @@ vec3 surfTex(int id, vec2 p) {
     vec2 q = (floor(p + j) + 0.5) / uGridSize;
     int id = int(texture2D(uSurf, q).r * 255.0 / 16.0 + 0.5);
     tex = surfTex(id, p);
+    // [v20 map] bare mountain rock: the detailed stone of the valley ranges
+    if (id == 5) tex = stoneTex(vn2(p * 0.08) > 0.55 ? 1.0 : 0.0, p) * 1.25;
   } else {
     vec2 sp = an.x > 0.5 ? vec2(vWPos.z, vWPos.y) : vec2(vWPos.x, vWPos.y);
     int id = vSide > 0.5 ? 9 : 2;
     tex = surfTex(id, sp * vec2(1.0, 1.0));
+    // [v20 map] rocky cliffs (the north mountain) in the valley's stone strata
+    if (vSide > 0.5) { float band = floor(vWPos.y / 1.5); float hb = h21(vec2(band, 3.0)); tex = stoneTex(hb < 0.45 ? 1.0 : hb < 0.8 ? 0.0 : 6.0, sp) * 1.25; }
     // grassy lip along the top edge of banks
     if (vSide < 0.5 && fract(vWPos.y) > 0.0) {}
   }
