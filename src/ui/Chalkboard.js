@@ -1058,6 +1058,10 @@ function doodleArt(name) {
 const DOODLE_TINT_OUTLINE = { bag: 'W' }; // doodles whose outline follows the tint too
 const DOODLE_MAIN = { fish: 'b', minifish: 'b', titan: 'b', tiny: 'b', fish_star: 'b', fish_heart: 'b', fish_full: 'o', fish_hungry: 'b', fish_m: 'b', fish_f: 'p', bag: 'o', heart: 'p', heart_big: 'p', star: 'y', egg: 'y' };
 export const DOODLE_NAMES = Object.keys(DOODLE_ART);
+/** Register extra doodles: name -> rows (or a function returning rows). Same letter code as above. Used by the portfolio site (portfolio/doodles.js). */
+export function registerDoodles(map) {
+  for (const [name, art] of Object.entries(map)) { DOODLE_ART[name] = art; _art.delete(name); }
+}
 
 // ------------------------------------------------------------------ stroke ordering
 // Greedy nearest-neighbour walk through a set of pixels: produces continuous,

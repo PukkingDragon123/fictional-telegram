@@ -58,4 +58,13 @@ src/ui        HUD, panels, modals, 3D-rendered icons, pixel sprites
 tools/        Playwright screenshot / play-test helpers used during development
 ```
 
+### Portfolio site
+
+`portfolio/` is a separate static page: Pukking's developer portfolio, told by Reynard in the game's own classroom (chalkboard lessons, projector screen with gameplay clips, clickable room). It reuses the game's classroom, chalkboard, fox rig, renderer and UI from `src/`. See [`portfolio/README.md`](portfolio/README.md).
+
+```bash
+npm run dev:portfolio     # http://127.0.0.1:5174/
+npm run build:portfolio   # static site in dist-portfolio/
+```
+
 Useful URL flags while developing: `?autostart=new` skips the title screen, `?notut=1` skips the tutorial, and `window.__step(seconds)` fast-forwards the simulation from the console.

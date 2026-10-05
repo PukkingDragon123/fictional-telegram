@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "build:single": "vite build --mode single",
+    "dev:portfolio": "vite --config vite.portfolio.config.js",
+    "build:portfolio": "vite build --config vite.portfolio.config.js",
     "preview": "vite preview"
   },
   "dependencies": {
