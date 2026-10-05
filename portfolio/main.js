@@ -22,6 +22,7 @@ import { TitleScene } from '../src/game/TitleScene.js';
 import { Transition } from '../src/ui/Transition.js';
 import { Bedroom } from './Bedroom.js';
 import { buildGallery, openGallery, galleryOpen } from './Gallery.js';
+import { Icons3D } from './Icons3D.js';
 
 const params = new URLSearchParams(location.search);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -33,7 +34,7 @@ const state = { mode: 'loading', done: new Set(), night: false, bubbleT: 0, quip
 try { for (const id of JSON.parse(localStorage.getItem('pukking.done') || '[]')) state.done.add(id); } catch { /* storage unavailable */ }
 const saveDone = () => { try { localStorage.setItem('pukking.done', JSON.stringify([...state.done])); } catch { /* ignore */ } };
 
-let gallery = [], pr = null, game = null, room = null, bed = null, g0 = null, pond = null, scene = 'bed';
+let icons = null, gallery = [], pr = null, game = null, room = null, bed = null, g0 = null, pond = null, scene = 'bed';
 const trans = new Transition();
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const curFox = () => (scene === 'bed' ? bed.fox : scene === 'pond' ? pond?.fox : room.fox);
@@ -74,6 +75,7 @@ async function boot() {
     room = new PortfolioRoom(game, { media: MEDIA, hooks: { onContact: openContact, onChapterStart: () => {} } });
     room.start();
     gallery = buildGallery(room.room.group);
+    icons = new Icons3D(room.room.group);
     bed = new Bedroom(game);
     bed.start();
   } catch (e) { console.warn('Classroom failed to start', e); showFallback('the classroom could not start'); return; }
@@ -128,18 +130,18 @@ function spots() {
   if (scene === 'pond') { const p = pond.fox.root.position; return [{ tip: 'Back to class', lab: 'Back to class', p: _s(p.x, p.y + 0.5, p.z), rx: 110, ry: 130, go: goClass }]; }
   const f = room.fox.root.position, st = room.room.students.list;
   return [
-    { tip: 'Pukking', lab: 'Meet Pukking', p: _s(f.x, f.y + 0.65, f.z), rx: 70, ry: 90, go: () => startChapter('hello') },
-    { tip: 'Chalkboard', lab: 'Skills', up: 125, p: _s(-0.35, 1.1, -2.8), rx: 300, ry: 160, go: () => startChapter('toolkit') },
-    { tip: 'Globe', lab: 'My games', p: _s(3.45, 1.3, -2.55), rx: 34, ry: 40, go: () => startChapter('games') },
-    { tip: 'Bookshelf', lab: 'Pixel art', p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
-    { tip: 'Minecraft dimension', lab: 'Gallery', p: _s(-2.66, 1.52, -2.9), rx: 46, ry: 60, go: () => openGallery(gallery, 0) },
-    { tip: 'Minecraft mob', lab: 'Gallery', p: _s(-1.92, 1.22, -2.9), rx: 28, ry: 34, go: () => openGallery(gallery, 1) },
-    { tip: "Mudkip's Garden", lab: 'Gallery', p: _s(1.42, 1.28, -2.9), rx: 44, ry: 38, go: () => openGallery(gallery, 2) },
-    { tip: 'Sunset Shore', lab: 'Gallery', p: _s(4.02, 1.62, -2.9), rx: 44, ry: 56, go: () => openGallery(gallery, 3) },
-    { tip: 'Desk', lab: 'Minecraft mods', p: _s(1.85, 0.65, -1.8), rx: 70, ry: 50, go: () => startChapter('mods') },
-    { tip: 'Bell', lab: 'Hire me', p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
-    { tip: 'Outside', lab: 'Go outside', p: _s(4.35, 0.9, 0.3), rx: 60, ry: 130, go: goPond },
-    { tip: 'Window', lab: 'Day / night', p: _s(-3.78, 1.7, -2.9), rx: 70, ry: 90, go: toggleNight },
+    { tip: 'Pukking', lab: 'Meet Pukking', icon: 'fox', iy: 0.55, p: _s(f.x, f.y + 0.65, f.z), rx: 70, ry: 90, go: () => startChapter('hello') },
+    { tip: 'Chalkboard', lab: 'Skills', icon: 'brackets', iy: 0.95, p: _s(-0.35, 1.1, -2.8), rx: 300, ry: 160, go: () => startChapter('toolkit') },
+    { tip: 'Globe', lab: 'My games', icon: 'gamepad', iy: 0.4, p: _s(3.45, 1.3, -2.55), rx: 34, ry: 40, go: () => startChapter('games') },
+    { tip: 'Bookshelf', lab: 'Pixel art', icon: 'heart', iy: 0.55, p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
+    { tip: 'Minecraft dimension', lab: 'Gallery', icon: 'frame', iy: 0.62, p: _s(-2.66, 1.52, -2.9), rx: 46, ry: 60, go: () => openGallery(gallery, 0) },
+    { tip: 'Minecraft mob', lab: 'Gallery', icon: 'frame', iy: 0.4, p: _s(-1.92, 1.22, -2.9), rx: 28, ry: 34, go: () => openGallery(gallery, 1) },
+    { tip: "Mudkip's Garden", lab: 'Gallery', icon: 'frame', iy: 0.38, p: _s(1.42, 1.28, -2.9), rx: 44, ry: 38, go: () => openGallery(gallery, 2) },
+    { tip: 'Sunset Shore', lab: 'Gallery', icon: 'frame', iy: 0.55, p: _s(4.02, 1.62, -2.9), rx: 44, ry: 56, go: () => openGallery(gallery, 3) },
+    { tip: 'Desk', lab: 'Minecraft mods', icon: 'block', iy: 0.45, p: _s(1.85, 0.65, -1.8), rx: 70, ry: 50, go: () => startChapter('mods') },
+    { tip: 'Bell', lab: 'Hire me', icon: 'bell', iy: 0.35, p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
+    { tip: 'Outside', lab: 'Go outside', icon: 'tree', iy: 0.5, p: _s(4.35, 0.9, 0.3), rx: 60, ry: 130, go: goPond },
+    { tip: 'Window', lab: 'Day / night', icon: 'sun', iy: 0.55, p: _s(-3.78, 1.7, -2.9), rx: 70, ry: 90, go: toggleNight },
     ...st.map((s) => ({ tip: 'Fish', p: _s(s.world.x, s.world.y, s.world.z), rx: 36, ry: 40, go: waveClass })),
   ];
 }
@@ -316,10 +318,13 @@ function tickLabels() {
   const W = innerWidth, H = innerHeight, k = Math.max(0.6, Math.min(1.5, H / 720));
   const seen = new Set();
   const shown = new Set();
-  (on ? spots().filter((s) => s.lab) : []).forEach((s, i) => {
+  const all = on ? spots() : [];
+  if (icons) { if (on && scene === 'class') icons.sync(all, 1 / 60); else icons.hideAll(); }
+  all.filter((s) => s.lab).forEach((s, i) => {
     if (shown.has(s.lab)) return; // one label per kind (e.g. a single "Gallery")
-    _v.copy(s.p).project(scene === 'bed' ? bed.rig.camera : room.rig.camera);
-    const x = (_v.x * 0.5 + 0.5) * W, y = (-_v.y * 0.5 + 0.5) * H - (s.up || s.ry) * k * 0.75;
+    _w.copy(s.p); if (s.icon) _w.y += s.iy + 0.3;
+    _v.copy(_w).project(scene === 'bed' ? bed.rig.camera : room.rig.camera);
+    const x = (_v.x * 0.5 + 0.5) * W, y = (-_v.y * 0.5 + 0.5) * H - (s.icon ? 0 : s.ry * k * 0.75);
     if (x < 50 || x > W - 50 || y < 20 || y > H - 20) return;
     shown.add(s.lab);
     const key = scene + s.lab; seen.add(key);
