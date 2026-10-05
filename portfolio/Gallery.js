@@ -9,9 +9,9 @@ import { MEDIA } from './content.js';
 const ITEMS = [
   { id: 'dim', slot: 'poster_maple', src: MEDIA.dimension.src, title: 'Custom dimension', sub: 'Minecraft mod', pixel: 0, sky: ['#1b1740', '#7a3d9a', '#e88ac0'], ground: '#4a9ab0' },
   { id: 'mob', slot: 'poster_rules', src: MEDIA.mob.src, title: 'Custom mob', sub: 'Minecraft mod', pixel: 0, crop: [0.02, 0, 0.26, 1], sky: ['#2a2a4a', '#2a2a4a', '#2a2a4a'], ground: '#cfd8c0' },
-  { id: 'mud', slot: 'poster_stars', src: MEDIA.mudkipsShot.src, title: "Mudkip's Garden", sub: 'Pixel art version', pixel: 120, sky: ['#7ac0f0', '#a8dcf8', '#e8f6ff'], ground: '#3a8ad8' },
-  { id: 'shore', slot: 'poster_moose', src: MEDIA.shoreShot.src, title: 'Sunset Shore', sub: 'Pixel art version', pixel: 110, sky: ['#f0804a', '#f8b070', '#4a7a88'], ground: '#2a5a68' },
-  { id: 'bear', slot: null, src: MEDIA.tbme.src, title: 'The Bear Must Eat', sub: 'Pixel art version', pixel: 100, sky: ['#5a2a7a', '#e8506a', '#ffb060'], ground: '#4a8a3a' },
+  { id: 'mud', slot: 'poster_stars', src: MEDIA.mudkipsShot.src, title: "Mudkip's Garden", sub: 'Gameplay screenshot', pixel: 120, sky: ['#7ac0f0', '#a8dcf8', '#e8f6ff'], ground: '#3a8ad8' },
+  { id: 'shore', slot: 'poster_moose', src: MEDIA.shoreShot.src, title: 'Sunset Shore', sub: 'Scene capture', pixel: 110, sky: ['#f0804a', '#f8b070', '#4a7a88'], ground: '#2a5a68' },
+  { id: 'bear', slot: null, src: MEDIA.tbme.src, title: 'The Bear Must Eat', sub: 'Key art', pixel: 100, sky: ['#5a2a7a', '#e8506a', '#ffb060'], ground: '#4a8a3a' },
 ];
 
 function load(src) { return new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
@@ -86,10 +86,10 @@ export function buildGallery(group) {
     }
     load(p.src).then((img) => {
       if (!img) return;
-      p.art = p.pixel ? pixelate(img, p.pixel) : img;
+      p.art = img; // the viewer always shows the original picture
       p.real = true;
       if (p.frame) {
-        const cv = drawFrameArt(p, p.art, p.px, p.py);
+        const cv = drawFrameArt(p, p.pixel ? pixelate(img, p.pixel) : img, p.px, p.py); // only the wall copy is pixelated
         p.frame.tex.image = cv; p.frame.tex.needsUpdate = true;
       }
     });
@@ -115,7 +115,7 @@ export function openGallery(pieces, index = 0) {
     const src = p.art;
     out.width = src.width || src.naturalWidth; out.height = src.height || src.naturalHeight;
     out.getContext('2d').drawImage(src, 0, 0);
-    if (p.pixel || !p.real) out.className = 'pix';
+    if (!p.real) out.className = 'pix'; // only the code-drawn stand-in is chunky
     view.appendChild(out);
     cap.innerHTML = `<b>${p.title}</b> <i>${p.sub}</i> <span>${i + 1} / ${pieces.length}</span>`;
   };

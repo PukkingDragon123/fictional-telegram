@@ -91,18 +91,23 @@ async function boot() {
   let last = performance.now();
   const frame = (now) => {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    audio.update?.(dt);
-    if (scene === 'pond' && pond) {
-      g0.state.phase = 'day';
-      pond.update(dt); g0.structures.update(dt); g0.food.update(dt); g0.fox.update(dt); g0.ambient.update(dt); g0.particles.update(dt);
-      g0.time += dt;
-      g0.render(dt);
-    } else if (scene === 'bed') { bed.update(dt); pr.render(bed.scene, bed.rig); }
-    else { room.update(dt); pr.render(room.scene, room.rig); }
-    tickUI(dt);
-    requestAnimationFrame(frame);
+    try {
+      audio.update?.(dt);
+      if (scene === 'pond' && pond) {
+        g0.state.phase = 'day';
+        pond.update(dt); g0.structures.update(dt); g0.food.update(dt); g0.fox.update(dt); g0.ambient.update(dt); g0.particles.update(dt);
+        g0.time += dt;
+        g0.render(dt);
+      } else if (scene === 'bed') { bed.update(dt); pr.render(bed.scene, bed.rig); }
+      else { room.update(dt); pr.render(room.scene, room.rig); }
+      frames++;
+    } catch (e) { report(e); }
+    try { tickUI(dt); } catch (e) { report(e); }
+    if (debug) showDebug();
+    requestAnimationFrame(frame); // never stop the loop because of one bad frame
   };
   requestAnimationFrame(frame);
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); report(new Error('The browser lost the WebGL context (GPU reset). Reload the page.')); });
 
   document.body.classList.add('pf-hot-ok');
   const first = params.get('chapter');
@@ -399,4 +404,25 @@ function setupKeys() {
   }, true);
 }
 
-boot().catch((e) => { console.error(e); showFallback('startup error'); });
+// ------------------------------------------------------------------ errors + ?debug=1
+const debug = params.get('debug') === '1';
+let frames = 0, errBox = null, lastErr = '';
+function report(e) {
+  const msg = String(e?.stack || e?.message || e).split('\n').slice(0, 4).join('\n');
+  if (msg === lastErr) return;
+  lastErr = msg;
+  console.error(e);
+  if (!errBox) { errBox = el('pre', 'pf-err'); document.body.appendChild(errBox); }
+  errBox.textContent = 'Something went wrong (screenshot this):\n' + msg;
+}
+window.addEventListener('error', (ev) => report(ev.error || ev.message));
+window.addEventListener('unhandledrejection', (ev) => report(ev.reason));
+function showDebug() {
+  if (!errBox) { errBox = el('pre', 'pf-err'); document.body.appendChild(errBox); }
+  if (frames % 30) return;
+  let gl = '';
+  try { const c = pr.renderer.getContext(), x = c.getExtension('WEBGL_debug_renderer_info'); gl = x ? c.getParameter(x.UNMASKED_RENDERER_WEBGL) : c.getParameter(c.RENDERER); } catch { /* ignore */ }
+  errBox.textContent = `debug: scene=${scene} mode=${state.mode} frames=${frames}\nsize=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} low=${pr.lowW}x${pr.lowH}\ngl=${gl}\nframes drawn=${gallery.map((p) => (p.real ? 'img' : 'code')).join(',')}\n${lastErr}`;
+}
+
+boot().catch((e) => { console.error(e); report(e); showFallback('startup error'); });
