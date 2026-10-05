@@ -21,6 +21,7 @@ import { Game } from '../src/game/Game.js';
 import { TitleScene } from '../src/game/TitleScene.js';
 import { Transition } from '../src/ui/Transition.js';
 import { Bedroom } from './Bedroom.js';
+import { buildGallery, openGallery, galleryOpen } from './Gallery.js';
 
 const params = new URLSearchParams(location.search);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -32,7 +33,7 @@ const state = { mode: 'loading', done: new Set(), night: false, bubbleT: 0, quip
 try { for (const id of JSON.parse(localStorage.getItem('pukking.done') || '[]')) state.done.add(id); } catch { /* storage unavailable */ }
 const saveDone = () => { try { localStorage.setItem('pukking.done', JSON.stringify([...state.done])); } catch { /* ignore */ } };
 
-let pr = null, game = null, room = null, bed = null, g0 = null, pond = null, scene = 'bed';
+let gallery = [], pr = null, game = null, room = null, bed = null, g0 = null, pond = null, scene = 'bed';
 const trans = new Transition();
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const curFox = () => (scene === 'bed' ? bed.fox : scene === 'pond' ? pond?.fox : room.fox);
@@ -72,6 +73,7 @@ async function boot() {
   try {
     room = new PortfolioRoom(game, { media: MEDIA, hooks: { onContact: openContact, onChapterStart: () => {} } });
     room.start();
+    gallery = buildGallery(room.room.group);
     bed = new Bedroom(game);
     bed.start();
   } catch (e) { console.warn('Classroom failed to start', e); showFallback('the classroom could not start'); return; }
@@ -130,7 +132,11 @@ function spots() {
     { tip: 'Chalkboard', p: _s(-0.35, 1.1, -2.8), rx: 300, ry: 160, go: () => startChapter('toolkit') },
     { tip: 'Globe', p: _s(3.45, 1.3, -2.55), rx: 34, ry: 40, go: () => startChapter('games') },
     { tip: 'Bookshelf', p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
-    { tip: 'Poster', p: _s(1.42, 1.28, -2.9), rx: 50, ry: 55, go: () => startChapter('mods') },
+    { tip: 'Minecraft dimension', p: _s(-2.66, 1.52, -2.9), rx: 46, ry: 60, go: () => openGallery(gallery, 0) },
+    { tip: 'Minecraft mob', p: _s(-1.92, 1.22, -2.9), rx: 28, ry: 34, go: () => openGallery(gallery, 1) },
+    { tip: "Mudkip's Garden", p: _s(1.42, 1.28, -2.9), rx: 44, ry: 38, go: () => openGallery(gallery, 2) },
+    { tip: 'Sunset Shore', p: _s(4.02, 1.62, -2.9), rx: 44, ry: 56, go: () => openGallery(gallery, 3) },
+    { tip: 'Desk', p: _s(2.9, 0.7, -2.3), rx: 80, ry: 50, go: () => startChapter('mods') },
     { tip: 'Bell', p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
     { tip: 'Outside', p: _s(4.35, 0.9, 0.3), rx: 60, ry: 130, go: goPond },
     { tip: 'Window', p: _s(-3.78, 1.7, -2.9), rx: 70, ry: 90, go: toggleNight },
@@ -139,7 +145,7 @@ function spots() {
 }
 const _s = (x, y, z) => new THREE.Vector3(x, y, z);
 function pick(e) {
-  if (!['idle', 'bed', 'pond'].includes(state.mode) || trans.runs.length || document.querySelector('.pp-ov')) return null;
+  if (!['idle', 'bed', 'pond'].includes(state.mode) || trans.runs.length || galleryOpen() || document.querySelector('.pp-ov')) return null;
   const W = innerWidth, H = innerHeight, k = Math.max(0.6, Math.min(1.5, H / 720));
   let best = null, bd = 1;
   for (const sp of spots()) {

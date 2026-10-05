@@ -230,10 +230,12 @@ export const CHAPTERS = [
 // What the chalkboard says while nobody is giving a lesson (free-roam).
 export const IDLE_BOARD = [
   T('PUKKING', 96, 11, { scale: 2, color: 'yellow', id: 'name' }),
-  T('GAME DEVELOPER', 96, 29, { color: 'white' }),
-  D('palette', 30, 56, { scale: 2 }), D('heart_big', 78, 56, { scale: 2 }), D('cube', 126, 56, { scale: 2 }), D('block', 168, 56, { scale: 2 }),
-  T('CLICK THINGS', 96, 88, { color: 'pink', id: 'pick' }), { underline: 'pick', color: 'pink', wavy: true },
-  ];
+  T('GAME DEVELOPER', 96, 30, { color: 'white' }),
+  T('PIXEL ART GAMES', 96, 50, { color: 'blue' }),
+  T('3D GAMES IN THREE.JS', 96, 65, { color: 'green' }),
+  T('MINECRAFT MODS', 96, 80, { color: 'orange' }),
+  T('CLICK THINGS', 96, 98, { font: 'small', color: 'pink' }),
+];
 
 // The fox's words, one line per step (kept apart so they are easy to rewrite).
 const SAY = {

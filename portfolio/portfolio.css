@@ -197,3 +197,15 @@ body.pf-idle .pf-pin { display: grid; }
 body.pf-hot #game { cursor: pointer; }
 .pf-x { position: absolute; right: -14px; top: -14px; width: 34px; height: 34px; padding: 0; font: 20px/1 var(--font-title); color: #fff; background: #e86a4a; border: 0; cursor: pointer; box-shadow: inset 0 -3px 0 #a8341c, inset 0 3px 0 #f8957a, 0 0 0 3px var(--ink); }
 .pf-x:hover { background: #f07a5a; }
+
+/* gallery viewer */
+.pf-gal { position: fixed; inset: 0; z-index: 250; display: grid; grid-template-columns: 64px 1fr 64px; align-items: center; background: rgba(14,8,22,.9); animation: pf-fade .2s ease both; padding: 16px; }
+.pf-gal-view { display: grid; place-items: center; min-height: 0; height: calc(100vh - 110px); height: calc(100dvh - 110px); }
+.pf-gal-view img, .pf-gal-view canvas { max-width: 100%; max-height: 100%; box-shadow: 0 0 0 4px #1d1410, 0 0 0 10px #8a5430; background: #0b0a10; }
+.pf-gal-view canvas.pix { image-rendering: pixelated; width: min(100%, 1100px); height: auto; max-height: 100%; object-fit: contain; }
+.pf-gal-cap { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font: 22px/1 var(--font-title); color: #fffaf0; }
+.pf-gal-cap i { font-style: normal; opacity: .7; font-size: 16px; margin: 0 10px; } .pf-gal-cap span { opacity: .5; font-size: 16px; }
+.pf-gal-x, .pf-gal-n { width: 44px; height: 44px; font: 24px/1 var(--font-title); color: #fff; background: #8a5430; border: 0; cursor: pointer; box-shadow: inset 0 -3px 0 #5e3519, inset 0 3px 0 #b47442, 0 0 0 3px #1d1410; }
+.pf-gal-x { position: absolute; right: 16px; top: 16px; background: #e86a4a; }
+.pf-gal-n { justify-self: center; }
+@media (max-width: 600px) { .pf-gal { grid-template-columns: 40px 1fr 40px; padding: 8px; } .pf-gal-n { width: 34px; height: 44px; } }
