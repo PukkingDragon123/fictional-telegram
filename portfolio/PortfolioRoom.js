@@ -173,6 +173,10 @@ export class PortfolioRoom extends Classroom {
     super._buildUI();
     const name = this.ui?.querySelector('.cls-name');
     if (name) name.textContent = 'PUKKING';
+    const x = document.createElement('button');
+    x.className = 'pf-x'; x.type = 'button'; x.textContent = 'X'; x.setAttribute('aria-label', 'Close dialogue');
+    x.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.skip(); });
+    this.q('say')?.appendChild(x);
   }
 
   async _titleCard() {} // no title card: lessons just start

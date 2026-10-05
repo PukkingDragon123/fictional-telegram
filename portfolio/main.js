@@ -17,6 +17,10 @@ import { iconImg } from './icons.js';
 import { showFallback } from './fallback.js';
 import { SITE, LINKS, MEDIA, CHAPTERS, CHAPTER_BY_ID, QUIPS, IDLE_BOARD } from './content.js';
 import { BOARD } from '../src/entities/classroomScene.js';
+import { Game } from '../src/game/Game.js';
+import { TitleScene } from '../src/game/TitleScene.js';
+import { Transition } from '../src/ui/Transition.js';
+import { Bedroom } from './Bedroom.js';
 
 const params = new URLSearchParams(location.search);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -28,7 +32,11 @@ const state = { mode: 'loading', done: new Set(), night: false, bubbleT: 0, quip
 try { for (const id of JSON.parse(localStorage.getItem('pukking.done') || '[]')) state.done.add(id); } catch { /* storage unavailable */ }
 const saveDone = () => { try { localStorage.setItem('pukking.done', JSON.stringify([...state.done])); } catch { /* ignore */ } };
 
-let pr = null, game = null, room = null;
+let pr = null, game = null, room = null, bed = null, g0 = null, pond = null, scene = 'bed';
+const trans = new Transition();
+const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
+const curFox = () => (scene === 'bed' ? bed.fox : scene === 'pond' ? pond?.fox : room.fox);
+const curCam = () => (scene === 'bed' ? bed.rig.camera : room.rig.camera);
 let rootEl, bubbleEl;
 const paintSound = () => {};
 
@@ -44,15 +52,16 @@ async function boot() {
   setMode('loading');
   const canvas = document.getElementById('game');
   try {
-    pr = new PixelRenderer(canvas);
-  } catch (e) { console.warn('WebGL unavailable', e); showFallback('no WebGL'); return; }
+    g0 = new Game(canvas); // the real game: its renderer, and its pond for the title scene
+    pr = g0.renderer;
+  } catch (e) { console.warn('Game/WebGL unavailable', e); showFallback('no WebGL'); return; }
   game = { renderer: pr, audio, ui: null, state: { paused: false, hour: 10.5, phase: 'day' }, inputLocked: false, overrideScene: null, overrideRig: null };
   const resize = () => {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     pr.resize(window.innerWidth, window.innerHeight, dpr);
     canvas.style.width = `${window.innerWidth}px`;
     canvas.style.height = `${window.innerHeight}px`;
-    room?.refitCamera();
+    room?.refitCamera(); bed?.refit();
   };
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -63,6 +72,8 @@ async function boot() {
   try {
     room = new PortfolioRoom(game, { media: MEDIA, hooks: { onContact: openContact, onChapterStart: () => {} } });
     room.start();
+    bed = new Bedroom(game);
+    bed.start();
   } catch (e) { console.warn('Classroom failed to start', e); showFallback('the classroom could not start'); return; }
   resize();
 
@@ -76,9 +87,14 @@ async function boot() {
   let last = performance.now();
   const frame = (now) => {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    room.update(dt);
     audio.update?.(dt);
-    pr.render(room.scene, room.rig);
+    if (scene === 'pond' && pond) {
+      g0.state.phase = 'day';
+      pond.update(dt); g0.structures.update(dt); g0.food.update(dt); g0.fox.update(dt); g0.ambient.update(dt); g0.particles.update(dt);
+      g0.time += dt;
+      g0.render(dt);
+    } else if (scene === 'bed') { bed.update(dt); pr.render(bed.scene, bed.rig); }
+    else { room.update(dt); pr.render(room.scene, room.rig); }
     tickUI(dt);
     requestAnimationFrame(frame);
   };
@@ -86,11 +102,11 @@ async function boot() {
 
   document.body.classList.add('pf-hot-ok');
   const first = params.get('chapter');
-  if (first && CHAPTER_BY_ID[first]) { setMode('idle'); startChapter(first); }
-  else if (params.get('idle') === '1') { setMode('idle'); drawIdleBoard(); }
+  if (first && CHAPTER_BY_ID[first]) { scene = 'class'; setMode('idle'); startChapter(first); }
+  else if (params.get('idle') === '1') { scene = 'class'; setMode('idle'); drawIdleBoard(); }
   else { drawIdleBoard(); showTitle(); }
 
-  window.__pf = { room, pr, state, startChapter, openContact, setMode, say, CHAPTERS, MEDIA };
+  window.__pf = { room, bed, g0, goPond, goClass, wakeFox, pr, state, startChapter, openContact, setMode, say, CHAPTERS, MEDIA };
 }
 
 // ------------------------------------------------------------------ UI (almost none)
@@ -106,6 +122,8 @@ const _up = new THREE.Vector3(0, 0.22, 0), _v = new THREE.Vector3(), _w = new TH
 
 // things you can click: [label, world position, half-size in px (at 720p), action]
 function spots() {
+  if (scene === 'bed') { const p = bed.fox.root.position; return [{ tip: 'Pukking', p: _s(p.x, p.y + 0.35, p.z), rx: 220, ry: 170, go: wakeFox }]; }
+  if (scene === 'pond') { const p = pond.fox.root.position; return [{ tip: 'Back to class', p: _s(p.x, p.y + 0.5, p.z), rx: 110, ry: 130, go: goClass }]; }
   const f = room.fox.root.position, st = room.room.students.list;
   return [
     { tip: 'Pukking', p: _s(f.x, f.y + 0.65, f.z), rx: 70, ry: 90, go: () => startChapter('hello') },
@@ -114,17 +132,18 @@ function spots() {
     { tip: 'Bookshelf', p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
     { tip: 'Poster', p: _s(1.42, 1.28, -2.9), rx: 50, ry: 55, go: () => startChapter('mods') },
     { tip: 'Bell', p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
+    { tip: 'Outside', p: _s(4.35, 0.9, 0.3), rx: 60, ry: 130, go: goPond },
     { tip: 'Window', p: _s(-3.78, 1.7, -2.9), rx: 70, ry: 90, go: toggleNight },
     ...st.map((s) => ({ tip: 'Fish', p: _s(s.world.x, s.world.y, s.world.z), rx: 36, ry: 40, go: waveClass })),
   ];
 }
 const _s = (x, y, z) => new THREE.Vector3(x, y, z);
 function pick(e) {
-  if (state.mode !== 'idle' || state.media || document.querySelector('.pp-ov')) return null;
+  if (!['idle', 'bed', 'pond'].includes(state.mode) || trans.runs.length || document.querySelector('.pp-ov')) return null;
   const W = innerWidth, H = innerHeight, k = Math.max(0.6, Math.min(1.5, H / 720));
   let best = null, bd = 1;
   for (const sp of spots()) {
-    _v.copy(sp.p).project(room.rig.camera);
+    _v.copy(sp.p).project(scene === 'bed' ? bed.rig.camera : room.rig.camera);
     const dx = e.clientX - (_v.x * 0.5 + 0.5) * W, dy = e.clientY - (-_v.y * 0.5 + 0.5) * H;
     const d = Math.hypot(dx / (sp.rx * k), dy / (sp.ry * k));
     if (d < bd) { bd = d; best = sp; }
@@ -170,17 +189,57 @@ function showTitle() {
   q('.tm-logo').setAttribute('aria-label', 'Pukking Portfolio');
   q('.tm-cap')?.remove();
   const lbl = q('.tm-lbl');
-  if (lbl) lbl.textContent = 'Enter class';
+  if (lbl) lbl.textContent = 'Start';
   const credit = q('.tm-credit');
   if (credit) credit.innerHTML = 'A cozy 3D portfolio built with JavaScript + Three.js · Font: TBME Goofy, made from Chewy by Font Diner / Sideshow (Apache 2.0)';
 }
 
 function enterClass() {
   audio.unlock();
-  audio.setMusic(state.night ? 'night' : 'morning');
+  audio.setMusic('sleep');
+  setMode('bed');
+  say('Zzz... (poke me)', 'asleep', 600000);
+}
+
+async function wakeFox() {
+  if (state.waking) return;
+  state.waking = true;
+  closeBubble();
+  audio.unlock();
+  audio.setMusic('morning');
+  await bed.wake(say);
+  await wipe(() => { scene = 'class'; closeBubble(); room.fox.play('wave_hello', { loop: false, onDone: () => room._idle() }); });
+  state.waking = false;
   setMode('idle');
-  if (!state.done.has('hello')) startChapter('hello');
-  else sayHi();
+  if (!state.done.has('hello')) startChapter('hello'); else sayHi();
+}
+
+const wipe = (mid) => trans.wipe('iris', mid);
+
+async function goPond() {
+  if (state.mode !== 'idle') return;
+  closeBubble();
+  setMode('pond');
+  await wipe(() => {
+    if (!pond) {
+      for (let i = 0; i < 10; i++) { const p = g0.fish.randomWaterPoint(); if (p) g0.fish.spawn(['bluegill', 'perch', 'brook', 'sockeye', 'aurora'][i % 5], p.x, p.z, { adult: true }); }
+      pond = new TitleScene(g0);
+    }
+    g0.titleMode = true;
+    pond.start();
+    scene = 'pond';
+    audio.setMusic('title');
+  });
+}
+async function goClass() {
+  if (state.mode !== 'pond') return;
+  closeBubble();
+  setMode('idle');
+  await wipe(() => {
+    pond.stop(); g0.titleMode = false; scene = 'class';
+    audio.setMusic(state.night ? 'night' : 'morning');
+    say('Back inside. Click something.', 'happy', 2400);
+  });
 }
 
 // ------------------------------------------------------------------ chapters
@@ -207,10 +266,11 @@ async function startChapter(id) {
 
 // ------------------------------------------------------------------ free roam: bubble, pins, gags
 function say(text, expr = 'happy', ms = null) {
-  if (!room?.fox) return;
+  const fx = curFox();
+  if (!fx) return;
   const plainText = String(text).replace(/\*\*/g, '');
-  room.fox.setExpression?.(expr, { hold: 3 });
-  room.fox.talk?.(plainText);
+  fx.setExpression?.(expr, { hold: 3 });
+  fx.talk?.(plainText);
   try { audio.babble?.('fox', plainText); } catch { /* optional */ }
   bubbleEl.innerHTML = esc(text).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   bubbleEl.classList.add('on');
@@ -246,16 +306,15 @@ function waveClass() {
 // ------------------------------------------------------------------ per-frame UI
 function tickUI(dt) {
   const idle = state.mode === 'idle';
-  const cam = room.rig.camera;
   const W = window.innerWidth, H = window.innerHeight;
   if (state.bubbleT > 0) {
     state.bubbleT -= dt;
-    room.fox.headTop(_w);
-    _v.copy(_w).add(_up).project(cam);
+    curFox().headTop(_w);
+    _v.copy(_w).add(_up).project(curCam());
     const x = Math.max(12, Math.min(W - 12, (_v.x * 0.5 + 0.5) * W));
     const y = (-_v.y * 0.5 + 0.5) * H - 54;
     bubbleEl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
-    if (state.bubbleT <= 0) { bubbleEl.classList.remove('on'); if (state.mode === 'idle') room._idle(); }
+    if (state.bubbleT <= 0) { bubbleEl.classList.remove('on'); if (state.mode === 'idle' && scene === 'class') room._idle(); }
   }
   // free-roam gags: the fox fidgets and a fish waves now and then
   if (idle && !state.media && !document.querySelector('.pp-ov')) {
@@ -294,7 +353,8 @@ function openContact() {
 // ------------------------------------------------------------------ keys
 function setupKeys() {
   window.addEventListener('keydown', (e) => {
-        if (e.key === 'm' || e.key === 'M') { audio.unlock(); audio.toggleMute(); paintSound(); return; }
+        if (e.key === 'Escape' && state.mode === 'pond') { goClass(); return; }
+    if (e.key === 'm' || e.key === 'M') { audio.unlock(); audio.toggleMute(); paintSound(); return; }
   }, true);
 }
 
