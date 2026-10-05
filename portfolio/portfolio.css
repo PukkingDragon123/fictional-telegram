@@ -189,3 +189,9 @@ body.pf-idle .pf-pin { display: grid; }
 @media (prefers-reduced-motion: reduce) {
   .pf-pin > span, .pf-pin::before, .pf-tag.next { animation: none !important; }
 }
+
+/* almost no UI: the game's extras go, the speech box stays */
+.cls-skip, .cls-bars, .cls-ask, .cls-stamp { display: none !important; }
+.pf-tip { position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; font: 16px/1 var(--font-title); color: #fffaf0; background: rgba(20,12,28,.8); padding: 5px 8px 6px; opacity: 0; transition: opacity .1s; white-space: nowrap; }
+.pf-tip.on { opacity: 1; }
+body.pf-hot #game { cursor: pointer; }

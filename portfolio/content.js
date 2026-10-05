@@ -232,19 +232,68 @@ export const IDLE_BOARD = [
   T('PUKKING', 96, 11, { scale: 2, color: 'yellow', id: 'name' }),
   T('GAME DEVELOPER', 96, 29, { color: 'white' }),
   D('palette', 30, 56, { scale: 2 }), D('heart_big', 78, 56, { scale: 2 }), D('cube', 126, 56, { scale: 2 }), D('block', 168, 56, { scale: 2 }),
-  T('PICK A LESSON!', 96, 88, { color: 'pink', id: 'pick' }), { underline: 'pick', color: 'pink', wavy: true },
-  { arrow: [96, 94, 96, 104], color: 'pink' },
-];
+  T('CLICK THINGS', 96, 88, { color: 'pink', id: 'pick' }), { underline: 'pick', color: 'pink', wavy: true },
+  ];
+
+// The fox's words, one line per step (kept apart so they are easy to rewrite).
+const SAY = {
+  hello: [
+    "I'm Pukking. I make games with JavaScript and Three.js.",
+    "Mostly pixel art, small games, 2D and 3D. Minecraft mods too.",
+    "This whole room is Three.js. The chalk, the fish, me. All code.",
+    "I like games that look good and feel good to play.",
+    "That's the short version. Poke around, everything here does something.",
+    "Hire me? Ring the bell on the desk.",
+  ],
+  toolkit: [
+    "Code first. JavaScript and Three.js, shaders, game systems, all of it.",
+    "Pixel art is my favorite part. Sprites, tiles, UI, animation.",
+    "I mix pixel art with 3D voxels. Every model in Bear Must Eat is made in code.",
+    "The music and sounds in that game are synthesized too. No audio files.",
+    "And I think a lot about how a game feels. Loops, progress, little details.",
+    "Minecraft modding has its own lesson. Try the poster on the wall.",
+  ],
+  games: [
+    "Here are three of my games. Newest first.",
+    "Mudkip's Garden is my latest. You swim around a bay, dive off the dock and do quests. Click the screen to play it.",
+    "It has coins, levels, and a photo button. The water took me ages.",
+    "The Bear Must Eat. I'm a fox with a fish pond and bears in suits show up hungry.",
+    "You breed fish, feed the bears and make money. 3D voxels with 2D pixel art.",
+    "And this beach scene. Side scrolling, and I spent most of the time on the light.",
+    "There's more on my itch.io page. Click the screen.",
+  ],
+  pixelart: [
+    "Pixel art. My favorite thing to do.",
+    "Shape first. Then color, then shading, then one bright highlight.",
+    "Few colors, picked on purpose. It keeps everything looking like one game.",
+    "Then you animate it. Squash, stretch, a little bounce.",
+    "That's Mudkip's Garden. The water is my favorite part.",
+    "Sunsets and reflections. Half the art is the light.",
+    "I draw the UI too. Wood signs, paper tags, this chalkboard.",
+    "This room was made for Bear Must Eat. I just borrowed it.",
+  ],
+  mods: [
+    "I make Minecraft mods too.",
+    "A custom dimension. Floating islands, new trees, its own sky.",
+    "A custom mob. I did the model and the animations.",
+    "Mobs, dimensions, new mechanics. Tell me what you want.",
+  ],
+  hire: [
+    "Need a game made, fixed or finished? I can help.",
+    "Already have a game? I'll add features and systems to it.",
+    "Bigger things cost more, but I keep prices low.",
+    "Ring the bell or click the link. Tell me your idea.",
+  ],
+};
+for (const c of CHAPTERS) c.steps.forEach((st, i) => { if (SAY[c.id]?.[i]) st.say = SAY[c.id][i]; });
 
 export const CHAPTER_BY_ID = Object.fromEntries(CHAPTERS.map((c) => [c.id, c]));
 
 // ------------------------------------------------------------------ free-roam lines (click the fox)
 export const QUIPS = [
-  { say: 'Psst! Try ringing the **bell** on my desk.', expr: 'wink' },
-  { say: 'The fish are taking notes. Very keen.', expr: 'smug' },
-  { say: 'Pixel art, Three.js, Minecraft mods... I do it all!', expr: 'proud' },
-  { say: 'Did someone say **commission**?', expr: 'greedy' },
-  { say: 'I run on chalk dust and fish snacks.', expr: 'happy' },
-  { say: 'Click the **window** to change the time of day!', expr: 'excited' },
-  { say: 'Every voxel in this room was placed by code. Fancy!', expr: 'magnifique' },
+  { say: 'The bell on my desk is worth a click.', expr: 'wink' },
+  { say: 'Yes, the fish are taking notes.', expr: 'smug' },
+  { say: 'Try the window.', expr: 'excited' },
+  { say: 'Click the board if you want the long version.', expr: 'happy' },
+  { say: 'Every voxel in here was placed by code.', expr: 'proud' },
 ];

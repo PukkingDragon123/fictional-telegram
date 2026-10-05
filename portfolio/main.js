@@ -16,6 +16,7 @@ import { PortfolioRoom } from './PortfolioRoom.js';
 import { iconImg } from './icons.js';
 import { showFallback } from './fallback.js';
 import { SITE, LINKS, MEDIA, CHAPTERS, CHAPTER_BY_ID, QUIPS, IDLE_BOARD } from './content.js';
+import { BOARD } from '../src/entities/classroomScene.js';
 
 const params = new URLSearchParams(location.search);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -28,7 +29,8 @@ try { for (const id of JSON.parse(localStorage.getItem('pukking.done') || '[]'))
 const saveDone = () => { try { localStorage.setItem('pukking.done', JSON.stringify([...state.done])); } catch { /* ignore */ } };
 
 let pr = null, game = null, room = null;
-let rootEl, pinEls = [], bubbleEl, ctaEl, expandEl, soundBtn, tagsEl;
+let rootEl, bubbleEl;
+const paintSound = () => {};
 
 function setMode(m) {
   state.mode = m;
@@ -59,7 +61,7 @@ async function boot() {
   try { await Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 1500))]); } catch { /* ignore */ }
 
   try {
-    room = new PortfolioRoom(game, { media: MEDIA, hooks: { onLink: showLink, onContact: openContact, onChapterStart: () => {} } });
+    room = new PortfolioRoom(game, { media: MEDIA, hooks: { onContact: openContact, onChapterStart: () => {} } });
     room.start();
   } catch (e) { console.warn('Classroom failed to start', e); showFallback('the classroom could not start'); return; }
   resize();
@@ -82,95 +84,74 @@ async function boot() {
   };
   requestAnimationFrame(frame);
 
+  document.body.classList.add('pf-hot-ok');
   const first = params.get('chapter');
   if (first && CHAPTER_BY_ID[first]) { setMode('idle'); startChapter(first); }
   else if (params.get('idle') === '1') { setMode('idle'); drawIdleBoard(); }
   else { drawIdleBoard(); showTitle(); }
-  refreshSchedule();
 
-  window.__pf = { room, pr, state, startChapter, openContact, openMedia, setMode, say, CHAPTERS, MEDIA, pins: pinEls };
+  window.__pf = { room, pr, state, startChapter, openContact, setMode, say, CHAPTERS, MEDIA };
 }
 
-// ------------------------------------------------------------------ UI
+// ------------------------------------------------------------------ UI (almost none)
+let tipEl, hot = null;
 function buildUI() {
   rootEl = document.getElementById('pf-root');
-
-  // HUD: badge (idle), end-lesson (lesson), sound
-  const hud = el('div', 'pf-hud');
-  hud.innerHTML = `
-    <button class="pf-wood pf-end" type="button" aria-label="End lesson">${iconImg('close', 2)}<span>END LESSON</span></button>
-    <a class="pf-wood pf-badge" href="${esc(SITE.contact.itch)}" target="_blank" rel="noopener" title="Pukking on itch.io">${iconImg('fox', 3)}<span><b>PUKKING</b><i>${esc(SITE.tagline)}</i></span></a>
-    <button class="pf-wood pf-sound" type="button" aria-label="Toggle sound"></button>`;
-  rootEl.appendChild(hud);
-  hud.querySelector('.pf-end').addEventListener('click', () => { sfx('click'); room.skip(); });
-  soundBtn = hud.querySelector('.pf-sound');
-  soundBtn.addEventListener('click', () => { audio.unlock(); audio.toggleMute(); paintSound(); sfx('click'); });
-  paintSound();
-
-  // class schedule
-  const sched = el('div', 'pf-schedule', '<div class="pf-sched-label">CLASS SCHEDULE</div><div class="pf-tags"></div>');
-  tagsEl = sched.querySelector('.pf-tags');
-  CHAPTERS.forEach((c, i) => {
-    const b = el('button', 'pf-tag');
-    b.type = 'button'; b.dataset.id = c.id;
-    b.style.setProperty('--r', `${(i % 2 ? 1 : -1) * (0.8 + ((i * 0.37) % 1.3))}deg`);
-    b.style.backgroundImage = `url(${paperTexture('kraft', 142, 70, { seed: 5 + i * 7, edge: 1 })})`;
-    b.innerHTML = `<span class="n">LESSON ${c.number}</span><b>${esc(c.short)}</b><i>${esc(c.blurb)}</i><span class="star">${iconImg('star', 2)}</span>`;
-    b.setAttribute('aria-label', `Lesson ${c.number}: ${c.title}`);
-    b.addEventListener('click', () => { sfx('click'); startChapter(c.id); });
-    b.addEventListener('pointerenter', () => sfx('hover', { volume: 0.4 }));
-    tagsEl.appendChild(b);
-  });
-  rootEl.appendChild(sched);
-
-  // pins: the clickable things in the room
-  const pinsHost = el('div', 'pf-pins');
-  const mk = (id, icon, label, pos, onClick) => {
-    const b = el('button', 'pf-pin');
-    b.type = 'button'; b.dataset.pin = id;
-    b.setAttribute('aria-label', label);
-    b.innerHTML = `<span>${iconImg(icon, 3)}</span><i class="lbl">${esc(label)}</i>`;
-    b.addEventListener('click', (e) => { e.stopPropagation(); audio.unlock(); onClick(); });
-    pinsHost.appendChild(b);
-    const p = { id, el: b, pos, icon };
-    pinEls.push(p);
-    return p;
-  };
-  mk('fox', 'fox', 'SAY HI', (out) => room.fox.headTop(out).add(_foxPin), sayHi);
-  mk('bell', 'bell', 'RING THE BELL', new THREE.Vector3(3.5, 0.98, -2.2), ringBell);
-  mk('window', 'sun', 'CHANGE THE TIME', new THREE.Vector3(-3.78, 1.9, -2.8), toggleNight);
-  mk('bowls', 'fish', 'WAVE AT THE CLASS', (out) => out.copy(room.room.students.list[1].world).add(_up2), waveClass);
-  mk('globe', 'globe', 'GAMES ON ITCH.IO', new THREE.Vector3(3.8, 1.58, -2.55), () => window.open(LINKS.itch, '_blank', 'noopener'));
-  rootEl.appendChild(pinsHost);
-
-  bubbleEl = el('div', 'pf-bubble');
-  rootEl.appendChild(bubbleEl);
-
-  const actions = el('div', 'pf-actions');
-  ctaEl = el('a', 'pf-cta');
-  ctaEl.target = '_blank'; ctaEl.rel = 'noopener';
-  expandEl = el('button', 'pf-wood pf-expand', `${iconImg('expand', 2)}<span>WATCH BIGGER</span>`);
-  expandEl.type = 'button';
-  expandEl.setAttribute('aria-label', 'Watch bigger');
-  expandEl.addEventListener('click', () => { sfx('click'); if (room.screen?.def) openMedia(room.screen.def); });
-  actions.append(ctaEl, expandEl);
-  rootEl.appendChild(actions);
+  bubbleEl = el('div', 'pf-bubble'); rootEl.appendChild(bubbleEl);
+  tipEl = el('div', 'pf-tip'); document.body.appendChild(tipEl);
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerdown', onDown, true);
 }
-const _foxPin = new THREE.Vector3(-0.55, 0.3, 0.1), _up = new THREE.Vector3(0, 0.22, 0), _up2 = new THREE.Vector3(0, 0.55, 0), _v = new THREE.Vector3(), _w = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 0.22, 0), _v = new THREE.Vector3(), _w = new THREE.Vector3();
 
-function paintSound() {
-  const off = audio.isMuted();
-  soundBtn.innerHTML = iconImg(off ? 'speakerOff' : 'speaker', 3);
-  soundBtn.setAttribute('aria-pressed', String(!off));
+// things you can click: [label, world position, half-size in px (at 720p), action]
+function spots() {
+  const f = room.fox.root.position, st = room.room.students.list;
+  return [
+    { tip: 'Pukking', p: _s(f.x, f.y + 0.65, f.z), rx: 70, ry: 90, go: () => startChapter('hello') },
+    { tip: 'Chalkboard', p: _s(-0.35, 1.1, -2.8), rx: 300, ry: 160, go: () => startChapter('toolkit') },
+    { tip: 'Globe', p: _s(3.45, 1.3, -2.55), rx: 34, ry: 40, go: () => startChapter('games') },
+    { tip: 'Bookshelf', p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
+    { tip: 'Poster', p: _s(1.42, 1.28, -2.9), rx: 50, ry: 55, go: () => startChapter('mods') },
+    { tip: 'Bell', p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
+    { tip: 'Window', p: _s(-3.78, 1.7, -2.9), rx: 70, ry: 90, go: toggleNight },
+    ...st.map((s) => ({ tip: 'Fish', p: _s(s.world.x, s.world.y, s.world.z), rx: 36, ry: 40, go: waveClass })),
+  ];
 }
-
-function refreshSchedule() {
-  let next = null;
-  for (const c of CHAPTERS) if (!state.done.has(c.id)) { next = c.id; break; }
-  for (const b of tagsEl.children) {
-    b.classList.toggle('done', state.done.has(b.dataset.id));
-    b.classList.toggle('next', b.dataset.id === next && state.done.size > 0);
+const _s = (x, y, z) => new THREE.Vector3(x, y, z);
+function pick(e) {
+  if (state.mode !== 'idle' || state.media || document.querySelector('.pp-ov')) return null;
+  const W = innerWidth, H = innerHeight, k = Math.max(0.6, Math.min(1.5, H / 720));
+  let best = null, bd = 1;
+  for (const sp of spots()) {
+    _v.copy(sp.p).project(room.rig.camera);
+    const dx = e.clientX - (_v.x * 0.5 + 0.5) * W, dy = e.clientY - (-_v.y * 0.5 + 0.5) * H;
+    const d = Math.hypot(dx / (sp.rx * k), dy / (sp.ry * k));
+    if (d < bd) { bd = d; best = sp; }
   }
+  return best;
+}
+function onMove(e) {
+  hot = pick(e);
+  document.body.classList.toggle('pf-hot', !!hot);
+  tipEl.textContent = hot ? hot.tip : '';
+  tipEl.classList.toggle('on', !!hot);
+  if (hot) tipEl.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 16}px)`;
+}
+function onDown(e) {
+  if (e.target.closest?.('.pp-ov, .tm')) return;
+  if (state.mode === 'chapter' && room.screen?.on && room.screen.def?.href) {
+    const B = BOARD, W = innerWidth, H = innerHeight, c = room.rig.camera;
+    const pt = (x, y) => { _v.set(x, y, B.z + 0.12).project(c); return [(_v.x * 0.5 + 0.5) * W, (-_v.y * 0.5 + 0.5) * H]; };
+    const [x0, y0] = pt(B.cx - B.w / 2, B.cy + B.h / 2), [x1, y1] = pt(B.cx + B.w / 2, B.cy - B.h / 2);
+    if (e.clientX > x0 && e.clientX < x1 && e.clientY > y0 && e.clientY < y1) {
+      e.stopImmediatePropagation(); e.preventDefault();
+      window.open(room.screen.def.href, '_blank', 'noopener');
+    }
+    return;
+  }
+  const h = pick(e);
+  if (h) { audio.unlock(); closeBubble(); h.go(); }
 }
 
 // ------------------------------------------------------------------ title
@@ -190,8 +171,6 @@ function showTitle() {
   q('.tm-cap')?.remove();
   const lbl = q('.tm-lbl');
   if (lbl) lbl.textContent = 'Enter class';
-  const pill = el('div', 'pf-pill', esc(SITE.pill));
-  q('.tm-sign').after(pill);
   const credit = q('.tm-credit');
   if (credit) credit.innerHTML = 'A cozy 3D portfolio built with JavaScript + Three.js · Font: TBME Goofy, made from Chewy by Font Diner / Sideshow (Apache 2.0)';
 }
@@ -216,22 +195,15 @@ async function startChapter(id) {
   if (!script || state.mode === 'chapter' || !room) return;
   audio.unlock();
   closeBubble();
+  hot = null; tipEl.classList.remove('on'); document.body.classList.remove('pf-hot');
   setMode('chapter');
   const res = await room.runChapter(script);
   setMode('idle');
-  if (res.completed) { state.done.add(id); saveDone(); }
-  refreshSchedule();
+  if (res.completed) { state.done.add(id); saveDone(); say('Click something else.', 'happy'); }
   drawIdleBoard();
   state.idleGag = 6;
 }
 
-function showLink(l) {
-  if (!l) { ctaEl.classList.remove('on'); return; }
-  ctaEl.href = l.href;
-  ctaEl.innerHTML = `${iconImg('play', 2)}<span>${esc(l.label)}</span>`;
-  ctaEl.classList.remove('on'); void ctaEl.offsetWidth; ctaEl.classList.add('on');
-  sfx('class_pop', { volume: 0.3, pitch: 1.4 });
-}
 
 // ------------------------------------------------------------------ free roam: bubble, pins, gags
 function say(text, expr = 'happy', ms = null) {
@@ -255,22 +227,20 @@ function ringBell() {
   sfx('class_bell', { volume: 0.7 });
   room.room.students.react('bang', { stagger: 0.05 });
   room.fox.play(room._anim('cheer', 'wave'), { loop: false, onDone: () => room._idle() });
-  say('Commission?! I mean... **hello!** Let me find my pen.', 'greedy', 2200);
+  say('Oh, a customer.', 'greedy', 2200);
   setTimeout(() => { if (state.mode === 'idle') openContact(); }, 900);
 }
 function toggleNight() {
   state.night = !state.night;
   room.room.setNight(state.night);
   audio.setMusic(state.night ? 'night' : 'morning');
-  const p = pinEls.find((x) => x.id === 'window');
-  p.el.querySelector('span').innerHTML = iconImg(state.night ? 'moon' : 'sun', 3);
-  say(state.night ? 'Lights out! Very cozy.' : 'Rise and shine!', state.night ? 'sleepy' : 'happy', 2200);
+  say(state.night ? 'Lights out.' : 'Morning again.', state.night ? 'sleepy' : 'happy', 2200);
 }
 function waveClass() {
   room.room.students.setSleepy(false);
   room.room.students.react('cheer');
   sfx('class_cheer', { volume: 0.5 });
-  say('Class, say hi to our visitor!', 'happy', 2200);
+  say('Class, say hi.', 'happy', 2200);
 }
 
 // ------------------------------------------------------------------ per-frame UI
@@ -278,15 +248,6 @@ function tickUI(dt) {
   const idle = state.mode === 'idle';
   const cam = room.rig.camera;
   const W = window.innerWidth, H = window.innerHeight;
-  if (idle) {
-    for (const p of pinEls) {
-      const w = typeof p.pos === 'function' ? p.pos(_w) : p.pos;
-      _v.copy(w).project(cam);
-      const px = Math.max(30, Math.min(W - 30, (_v.x * 0.5 + 0.5) * W));
-      const py = Math.max(64, Math.min(H - 64, (-_v.y * 0.5 + 0.5) * H));
-      p.el.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0)`;
-    }
-  }
   if (state.bubbleT > 0) {
     state.bubbleT -= dt;
     room.fox.headTop(_w);
@@ -308,35 +269,9 @@ function tickUI(dt) {
       }
     }
   }
-  const showExpand = state.mode === 'chapter' && room.screen?.on && room.screen.k > 0.9;
-  if (showExpand !== expandEl.classList.contains('on')) expandEl.classList.toggle('on', showExpand);
 }
 
-// ------------------------------------------------------------------ media viewer
-function openMedia(def) {
-  if (state.media || !def) return;
-  const wrap = el('div', 'pf-media');
-  const view = def.type === 'video'
-    ? `<video controls autoplay muted loop playsinline poster="${esc(def.poster || '')}">${def.sources.map(([s, t]) => `<source src="${esc(s)}" type="${esc(t)}">`).join('')}</video>`
-    : `<img src="${esc(def.src)}" alt="${esc(def.caption || '')}" class="${def.bg === 'auto' ? 'pix' : ''}">`;
-  wrap.innerHTML = `<div class="pf-media-box" role="dialog" aria-modal="true" aria-label="${esc(def.caption || 'Media')}">
-    <button class="pf-wood pf-media-x" type="button" aria-label="Close">${iconImg('close', 2)}</button>
-    <div class="pf-media-view">${view}</div>
-    <div class="pf-media-bar"><h3>${esc(def.caption || '')}<i>${esc(def.sub || '')}</i></h3>${def.href ? `<a class="pf-link-btn" href="${esc(def.href)}" target="_blank" rel="noopener">${iconImg('play', 2)}<span>PLAY ON ITCH.IO</span></a>` : ''}</div>
-  </div>`;
-  document.body.appendChild(wrap);
-  state.media = wrap;
-  sfx('class_whoosh', { volume: 0.4 });
-  wrap.addEventListener('pointerdown', (e) => { if (e.target === wrap) closeMedia(); });
-  wrap.querySelector('.pf-media-x').addEventListener('click', closeMedia);
-  const v = wrap.querySelector('video');
-  if (v) { const p = v.play(); if (p?.catch) p.catch(() => {}); }
-}
-function closeMedia() {
-  if (!state.media) return;
-  state.media.remove();
-  state.media = null;
-}
+function closeMedia() {}
 
 // ------------------------------------------------------------------ hire-me letter
 function openContact() {
@@ -348,24 +283,18 @@ function openContact() {
   if (c.discord) links.push(btn(c.discord, 'chat', 'DISCORD', true, -1));
   for (const o of c.other || []) links.push(btn(o.href, 'star', o.label, true, 1));
   const html = `<div class="pf-letter">
-    <p>Hi, I'm <b>Pukking</b>, a professional game developer specializing in <b>JavaScript &amp; Three.js</b>. I build polished, unique games with pixel art, cozy vibes, 2D/3D experiences and Minecraft mods.</p>
-    <ul><li>Polished art, animations &amp; gameplay</li><li>Custom mechanics, features &amp; Minecraft mods</li><li>Affordable pricing</li></ul>
-    <p>I can expand your game with additional features and custom systems depending on your needs. Larger additions may cost extra.</p>
+    <p>I'm <b>Pukking</b>. I make games in JavaScript and Three.js: pixel art, 2D, 3D and Minecraft mods.</p>
+    <ul><li>Art, animation and gameplay</li><li>Custom mechanics and features</li><li>Minecraft mods</li><li>Low prices</li></ul>
+    <p>Already have a game? I can add features to it. Bigger additions cost extra.</p>
     <div class="pf-links">${links.join('')}</div>
   </div>`;
-  openPaper({ kind: 'mail', title: "Let's work together!", html, width: 470, sfx });
+  openPaper({ kind: 'mail', title: 'Hire me', html, width: 470, sfx });
 }
 
 // ------------------------------------------------------------------ keys
 function setupKeys() {
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.media) { e.preventDefault(); e.stopImmediatePropagation(); closeMedia(); return; }
-    if (state.media) return;
-    if (e.key === 'm' || e.key === 'M') { audio.unlock(); audio.toggleMute(); paintSound(); return; }
-    if (state.mode === 'idle' && !document.querySelector('.pp-ov') && /^[1-9]$/.test(e.key)) {
-      const c = CHAPTERS[+e.key - 1];
-      if (c) startChapter(c.id);
-    }
+        if (e.key === 'm' || e.key === 'M') { audio.unlock(); audio.toggleMute(); paintSound(); return; }
   }, true);
 }
 

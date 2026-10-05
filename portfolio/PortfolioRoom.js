@@ -99,6 +99,7 @@ export class PortfolioRoom extends Classroom {
     const f = this.fox;
     f.setAim?.(null);
     f.holdProp?.('pointer');
+    this.board.finish();
     this.board.clear();
     this.room.students.setSleepy(true);
     this.room.students.lookAtX(this.room.anchors.teacherSpot.position.x);
@@ -172,6 +173,17 @@ export class PortfolioRoom extends Classroom {
     super._buildUI();
     const name = this.ui?.querySelector('.cls-name');
     if (name) name.textContent = 'PUKKING';
+  }
+
+  async _titleCard() {} // no title card: lessons just start
+
+  async _outro() {
+    this.room.setDim?.(0);
+    this.cam('wide');
+    this.fox?.setAim?.(null);
+    await this.walkTo(this.room.anchors.teacherSpot.position, 0.15);
+    this._hideSay();
+    this._idle();
   }
 
   _stamp() {
