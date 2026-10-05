@@ -108,7 +108,7 @@ async function boot() {
   else if (params.get('idle') === '1') { scene = 'class'; setMode('idle'); drawIdleBoard(); }
   else { drawIdleBoard(); showTitle(); }
 
-  window.__pf = { room, bed, g0, goPond, goClass, wakeFox, pr, state, startChapter, openContact, setMode, say, CHAPTERS, MEDIA };
+  window.__pf = { gal: (i) => openGallery(gallery, i), room, bed, g0, goPond, goClass, wakeFox, pr, state, startChapter, openContact, setMode, say, CHAPTERS, MEDIA };
 }
 
 // ------------------------------------------------------------------ UI (almost none)
@@ -124,22 +124,22 @@ const _up = new THREE.Vector3(0, 0.22, 0), _v = new THREE.Vector3(), _w = new TH
 
 // things you can click: [label, world position, half-size in px (at 720p), action]
 function spots() {
-  if (scene === 'bed') { const p = bed.fox.root.position; return [{ tip: 'Pukking', p: _s(p.x, p.y + 0.35, p.z), rx: 220, ry: 170, go: wakeFox }]; }
-  if (scene === 'pond') { const p = pond.fox.root.position; return [{ tip: 'Back to class', p: _s(p.x, p.y + 0.5, p.z), rx: 110, ry: 130, go: goClass }]; }
+  if (scene === 'bed') { const p = bed.fox.root.position; return [{ tip: 'Pukking', lab: 'Wake him up', p: _s(p.x, p.y + 0.35, p.z), rx: 220, ry: 170, go: wakeFox }]; }
+  if (scene === 'pond') { const p = pond.fox.root.position; return [{ tip: 'Back to class', lab: 'Back to class', p: _s(p.x, p.y + 0.5, p.z), rx: 110, ry: 130, go: goClass }]; }
   const f = room.fox.root.position, st = room.room.students.list;
   return [
-    { tip: 'Pukking', p: _s(f.x, f.y + 0.65, f.z), rx: 70, ry: 90, go: () => startChapter('hello') },
-    { tip: 'Chalkboard', p: _s(-0.35, 1.1, -2.8), rx: 300, ry: 160, go: () => startChapter('toolkit') },
-    { tip: 'Globe', p: _s(3.45, 1.3, -2.55), rx: 34, ry: 40, go: () => startChapter('games') },
-    { tip: 'Bookshelf', p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
-    { tip: 'Minecraft dimension', p: _s(-2.66, 1.52, -2.9), rx: 46, ry: 60, go: () => openGallery(gallery, 0) },
-    { tip: 'Minecraft mob', p: _s(-1.92, 1.22, -2.9), rx: 28, ry: 34, go: () => openGallery(gallery, 1) },
-    { tip: "Mudkip's Garden", p: _s(1.42, 1.28, -2.9), rx: 44, ry: 38, go: () => openGallery(gallery, 2) },
-    { tip: 'Sunset Shore', p: _s(4.02, 1.62, -2.9), rx: 44, ry: 56, go: () => openGallery(gallery, 3) },
-    { tip: 'Desk', p: _s(2.9, 0.7, -2.3), rx: 80, ry: 50, go: () => startChapter('mods') },
-    { tip: 'Bell', p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
-    { tip: 'Outside', p: _s(4.35, 0.9, 0.3), rx: 60, ry: 130, go: goPond },
-    { tip: 'Window', p: _s(-3.78, 1.7, -2.9), rx: 70, ry: 90, go: toggleNight },
+    { tip: 'Pukking', lab: 'Meet Pukking', p: _s(f.x, f.y + 0.65, f.z), rx: 70, ry: 90, go: () => startChapter('hello') },
+    { tip: 'Chalkboard', lab: 'Skills', up: 125, p: _s(-0.35, 1.1, -2.8), rx: 300, ry: 160, go: () => startChapter('toolkit') },
+    { tip: 'Globe', lab: 'My games', p: _s(3.45, 1.3, -2.55), rx: 34, ry: 40, go: () => startChapter('games') },
+    { tip: 'Bookshelf', lab: 'Pixel art', p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
+    { tip: 'Minecraft dimension', lab: 'Gallery', p: _s(-2.66, 1.52, -2.9), rx: 46, ry: 60, go: () => openGallery(gallery, 0) },
+    { tip: 'Minecraft mob', lab: 'Gallery', p: _s(-1.92, 1.22, -2.9), rx: 28, ry: 34, go: () => openGallery(gallery, 1) },
+    { tip: "Mudkip's Garden", lab: 'Gallery', p: _s(1.42, 1.28, -2.9), rx: 44, ry: 38, go: () => openGallery(gallery, 2) },
+    { tip: 'Sunset Shore', lab: 'Gallery', p: _s(4.02, 1.62, -2.9), rx: 44, ry: 56, go: () => openGallery(gallery, 3) },
+    { tip: 'Desk', lab: 'Minecraft mods', p: _s(1.85, 0.65, -1.8), rx: 70, ry: 50, go: () => startChapter('mods') },
+    { tip: 'Bell', lab: 'Hire me', p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
+    { tip: 'Outside', lab: 'Go outside', p: _s(4.35, 0.9, 0.3), rx: 60, ry: 130, go: goPond },
+    { tip: 'Window', lab: 'Day / night', p: _s(-3.78, 1.7, -2.9), rx: 70, ry: 90, go: toggleNight },
     ...st.map((s) => ({ tip: 'Fish', p: _s(s.world.x, s.world.y, s.world.z), rx: 36, ry: 40, go: waveClass })),
   ];
 }
@@ -310,7 +310,28 @@ function waveClass() {
 }
 
 // ------------------------------------------------------------------ per-frame UI
+const labs = new Map();
+function tickLabels() {
+  const on = ['idle', 'bed', 'pond'].includes(state.mode) && !galleryOpen() && !document.querySelector('.pp-ov') && !trans.runs.length && state.bubbleT <= 0;
+  const W = innerWidth, H = innerHeight, k = Math.max(0.6, Math.min(1.5, H / 720));
+  const seen = new Set();
+  const shown = new Set();
+  (on ? spots().filter((s) => s.lab) : []).forEach((s, i) => {
+    if (shown.has(s.lab)) return; // one label per kind (e.g. a single "Gallery")
+    _v.copy(s.p).project(scene === 'bed' ? bed.rig.camera : room.rig.camera);
+    const x = (_v.x * 0.5 + 0.5) * W, y = (-_v.y * 0.5 + 0.5) * H - (s.up || s.ry) * k * 0.75;
+    if (x < 50 || x > W - 50 || y < 20 || y > H - 20) return;
+    shown.add(s.lab);
+    const key = scene + s.lab; seen.add(key);
+    let e = labs.get(key);
+    if (!e) { e = el('div', 'pf-lab on', `${esc(s.lab)}<i>v</i>`); document.body.appendChild(e); labs.set(key, e); }
+    e.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+  });
+  for (const [key, e] of labs) if (!seen.has(key)) { e.remove(); labs.delete(key); }
+}
+
 function tickUI(dt) {
+  tickLabels();
   const idle = state.mode === 'idle';
   const W = window.innerWidth, H = window.innerHeight;
   if (state.bubbleT > 0) {
