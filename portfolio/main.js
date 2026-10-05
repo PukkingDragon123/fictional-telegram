@@ -44,7 +44,7 @@ const paintSound = () => {};
 
 function setMode(m) {
   state.mode = m;
-  document.body.classList.remove('pf-title', 'pf-idle', 'pf-chapter', 'pf-loading');
+  document.body.classList.remove('pf-title', 'pf-idle', 'pf-chapter', 'pf-loading', 'pf-bed', 'pf-pond');
   document.body.classList.add('pf-' + m);
 }
 
@@ -119,6 +119,11 @@ function buildUI() {
   rootEl = document.getElementById('pf-root');
   bubbleEl = el('div', 'pf-bubble'); rootEl.appendChild(bubbleEl);
   tipEl = el('div', 'pf-tip'); document.body.appendChild(tipEl);
+  const inBtn = el('button', 'pf-wood pf-in', 'Come inside');
+  inBtn.type = 'button';
+  inBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  inBtn.addEventListener('click', () => { sfx('click'); goClass(); });
+  document.body.appendChild(inBtn);
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerdown', onDown, true);
 }
@@ -153,7 +158,11 @@ function pick(e) {
   for (const sp of spots()) {
     _v.copy(sp.p).project(scene === 'bed' ? bed.rig.camera : room.rig.camera);
     const dx = e.clientX - (_v.x * 0.5 + 0.5) * W, dy = e.clientY - (-_v.y * 0.5 + 0.5) * H;
-    const d = Math.hypot(dx / (sp.rx * k), dy / (sp.ry * k));
+    let d = Math.hypot(dx / (sp.rx * k), dy / (sp.ry * k));
+    if (sp.icon) { // the floating icon is clickable too
+      _w.copy(sp.p); _w.y += sp.iy; _w.project(scene === 'bed' ? bed.rig.camera : room.rig.camera);
+      d = Math.min(d, Math.hypot((e.clientX - (_w.x * 0.5 + 0.5) * W) / (36 * k), (e.clientY - (-_w.y * 0.5 + 0.5) * H) / (36 * k)));
+    }
     if (d < bd) { bd = d; best = sp; }
   }
   return best;

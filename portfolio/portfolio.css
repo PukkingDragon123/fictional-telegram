@@ -212,3 +212,8 @@ body.pf-hot #game { cursor: pointer; }
 .pf-gal-x { position: absolute; right: 16px; top: 16px; background: #e86a4a; }
 .pf-gal-n { justify-self: center; }
 @media (max-width: 600px) { .pf-gal { grid-template-columns: 40px 1fr 40px; padding: 8px; } .pf-gal-n { width: 34px; height: 44px; } }
+
+/* pond: the way back in */
+.pf-in { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 90; display: none; font-size: 26px; padding: 12px 24px 14px; }
+.pf-in:hover { transform: translateX(-50%) translateY(-1px); }
+body.pf-pond .pf-in { display: block; }

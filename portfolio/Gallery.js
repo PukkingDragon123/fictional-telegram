@@ -8,7 +8,7 @@ import { MEDIA } from './content.js';
 
 const ITEMS = [
   { id: 'dim', slot: 'poster_maple', src: MEDIA.dimension.src, title: 'Custom dimension', sub: 'Minecraft mod', pixel: 0, sky: ['#1b1740', '#7a3d9a', '#e88ac0'], ground: '#4a9ab0' },
-  { id: 'mob', slot: 'poster_rules', src: MEDIA.mob.src, title: 'Custom mob', sub: 'Minecraft mod', pixel: 0, sky: ['#2a2a4a', '#2a2a4a', '#2a2a4a'], ground: '#cfd8c0' },
+  { id: 'mob', slot: 'poster_rules', src: MEDIA.mob.src, title: 'Custom mob', sub: 'Minecraft mod', pixel: 0, crop: [0.02, 0, 0.26, 1], sky: ['#2a2a4a', '#2a2a4a', '#2a2a4a'], ground: '#cfd8c0' },
   { id: 'mud', slot: 'poster_stars', src: MEDIA.mudkipsShot.src, title: "Mudkip's Garden", sub: 'Pixel art version', pixel: 120, sky: ['#7ac0f0', '#a8dcf8', '#e8f6ff'], ground: '#3a8ad8' },
   { id: 'shore', slot: 'poster_moose', src: MEDIA.shoreShot.src, title: 'Sunset Shore', sub: 'Pixel art version', pixel: 110, sky: ['#f0804a', '#f8b070', '#4a7a88'], ground: '#2a5a68' },
   { id: 'bear', slot: null, src: MEDIA.tbme.src, title: 'The Bear Must Eat', sub: 'Pixel art version', pixel: 100, sky: ['#5a2a7a', '#e8506a', '#ffb060'], ground: '#4a8a3a' },
@@ -48,8 +48,11 @@ function drawFrameArt(p, art, w, h) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const c = cv.getContext('2d');
   c.imageSmoothingEnabled = false;
-  const s = Math.max(w / art.width, h / art.height), dw = art.width * s, dh = art.height * s;
-  c.drawImage(art, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  // p.crop = [x, y, w, h] as fractions of the picture (e.g. one view of a wide strip)
+  const [cx, cy, cw, ch] = p.crop || [0, 0, 1, 1];
+  const sx = cx * art.width, sy = cy * art.height, sw = cw * art.width, sh = ch * art.height;
+  const s = Math.max(w / sw, h / sh);
+  c.drawImage(art, sx, sy, sw, sh, (w - sw * s) / 2, (h - sh * s) / 2, sw * s, sh * s);
   return cv;
 }
 
@@ -72,7 +75,8 @@ export function buildGallery(group) {
   for (const p of pieces) {
     const old = p.slot && group.getObjectByName(p.slot);
     if (old) {
-      const gw = old.geometry.parameters?.width || 0.6, gh = old.geometry.parameters?.height || 0.7;
+      const big = p.id === 'mob' ? 1.6 : 1.35; // bigger than the old posters so the art is readable
+      const gw = (old.geometry.parameters?.width || 0.6) * big, gh = (old.geometry.parameters?.height || 0.7) * big;
       old.visible = false;
       const px = Math.round(gw * 110), py = Math.round(gh * 110);
       const pos = old.position.clone(); pos.z += 0.008;
