@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gig video director</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 1280px; height: 720px; overflow: hidden; background: #000; }
+  #bg { position: fixed; left: 0; top: 0; width: 1280px; height: 720px; }
+  #ui { position: fixed; inset: 0; overflow: hidden; z-index: 50; }
+  .bb-layer { z-index: 300 !important; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1280" height="720"></canvas>
+<div id="ui"></div>
+<script type="module" src="./director.js"></script>
+</body>
+</html>

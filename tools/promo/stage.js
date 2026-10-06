@@ -506,10 +506,14 @@ function heroNpc(T, a) {
 const PROP = { dragon: (a) => makeDragon({ breath: a.breath ?? 1 }), dragon2: () => makeDragon({ color: 'green', breath: 0 }), dragon3: () => makeDragon({ color: 'blue', breath: 0 }), sword: makeSword, gamepad: () => makeGamepad(), gamepad2: () => makeGamepad(0xe8443a, 0xa82a2a), gamepad3: () => makeGamepad(0x3ab0e8, 0x2a78b0), block: makeGrassBlock, box: makeOpenBox, crate: () => makeBigCrate('live') };
 function castList(T, list) {
   for (const a of list || []) {
-    if (a.kind === 'fox') heroFox(T, a);
-    else if (a.kind === 'bear') heroBear(T, a);
-    else if (a.kind === 'duck') heroDuck(T, a);
-    else if (a.kind === 'npc') heroNpc(T, a);
+    let rig = null;
+    if (a.kind === 'fox') rig = heroFox(T, a);
+    else if (a.kind === 'bear') rig = heroBear(T, a);
+    else if (a.kind === 'duck') rig = heroDuck(T, a);
+    else if (a.kind === 'npc') rig = heroNpc(T, a);
+    if (rig && a.name) (S.rigs ||= {})[a.name] = rig;
+    // o.live (video): keep the rigs moving every frame
+    if (rig && a.live) S.drivers.push(rig.pose ? (dt) => rig.pose(a.pose || 'idle', dt, { speed: a.speed ?? 0 }) : (dt) => rig.update(dt));
     else if (a.kind === 'fish') { const m = fishSprite(a.id, a.s ?? 1.5, a.rz ?? 0, a.dir ?? 1); m.position.copy(front(T, a.sx, a.sy, a.d ?? 5)); T.group.add(m); add(m, a.name); }
     else if (PROP[a.kind]) placeAt(T, PROP[a.kind](a), a);
   }
@@ -558,6 +562,7 @@ export async function setup(kind, o = {}) {
     L.position.copy(c); L.target.position.copy(t);
     game.scene.add(L, L.target);
   }
+  S.cam = cam;
   T._updateCamera = () => applyCamera(T, cam);
   T.update = (dt) => {
     dt = Math.min(dt || 0, 0.05);
@@ -567,6 +572,7 @@ export async function setup(kind, o = {}) {
     game.fox.rig.root.visible = false;
     T.skyUniforms.uTime.value = o.skyT ?? 3;
     if (!S.loopOn) {
+      for (const d of S.drivers) d(dt, 0);
       if (o.glints !== false) T._ambientFx(dt);
       T._updateWords(dt);
       game.world.sim.update(dt * 0.5, game.wind);

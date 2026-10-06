@@ -8,3 +8,7 @@ tools/shots/
 
 # promo GIF frame renders (scratch)
 tools/promo/renders/anim/
+
+# demo video frame renders (scratch)
+tools/video/clips/
+tools/video/out/
