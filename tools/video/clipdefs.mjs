@@ -270,3 +270,121 @@ DEFS.tb_lineup = {
     return { fox: [Math.round(s.x), Math.round(s.y)] };
   },
 };
+
+// ---------------------------------------------------------------- v3: our own 3D scenes (props3d.js)
+// staged in the title-pond diorama through tools/promo/stage.js; __v3d.tick(t) animates them
+const V3_READY = () => window.__title && window.__title.active && window.__game;
+const v3 = (cast, extra = {}) => `async () => {
+  const P = await import('/tools/video/props3d.js'); P.register();
+  const S = await import('/tools/promo/stage.js');
+  await S.setup('gig', { px: 1, camF: -0.6, fill: ${extra.fill ?? 0.7}, cast: ${JSON.stringify(cast)} });
+}`;
+const V3_HOOK = (i) => window.__v3d.tick(i / 30, i);
+
+// a voxel globe over the pond: Thailand -> Vancouver, the plane flies the dotted route
+DEFS.tb_globe = {
+  server: 'tb', url: '/', frames: 165, warm: 300, ready: V3_READY, hook: V3_HOOK,
+  setup: v3([
+    { kind: 'globe', name: 'globe', sx: 0.5, sy: 0.47, d: 7 },
+    { kind: 'fox', name: 'fox', sx: 0.18, sy: 1.02, scale: 1.5, rot: 0.5, anim: 'wave_hello', t: 0.3, expr: 'happy', d: 4, live: true },
+    { kind: 'duck', name: 'duck', sx: 0.83, sy: 1.0, scale: 2.6, rot: -0.5, anim: 'quack', t: 0.3, d: 4, live: true },
+  ], { fill: 0.85 }),
+  setup2: () => { const G = window.__promo.named.globe, y0 = G.position.y; window.__v3d.add((t) => { G.userData.tick(t); G.position.y = y0 + Math.sin(t * 1.6) * 0.05; }); },
+};
+
+// the coin jar on a table: coins rain in, books + a grad cap, Reynard counting coins
+DEFS.tb_jar = {
+  server: 'tb', url: '/', frames: 150, warm: 300, ready: V3_READY, hook: V3_HOOK,
+  setup: v3([
+    { kind: 'table', name: 'table', sx: 0.56, sy: 0.97, scale: 1.4, rot: 0.2, d: 5 },
+    { kind: 'jar', name: 'jar', sx: 0.62, sy: 0.97, y: 0.99, scale: 1.25, rot: 0.2, d: 5 },
+    { kind: 'books', name: 'books', sx: 0.46, sy: 0.97, y: 0.99, scale: 1.3, rot: 0.5, d: 5 },
+    { kind: 'fox', name: 'fox', sx: 0.24, sy: 1.02, scale: 1.45, rot: 0.55, anim: 'count_coins', t: 0.3, expr: 'greedy', d: 4, live: true },
+  ], { fill: 0.75 }),
+  setup2: async () => {
+    const P = await import('/tools/video/props3d.js');
+    const jar = window.__promo.named.jar, pile = jar.userData.pile, T = window.__title, THREE = P.THREE;
+    const coins = [];
+    for (let k = 0; k < 18; k++) {
+      const c = P.makeCoin(); c.visible = false; pile.add(c);
+      const a = k * 2.4, r = (k % 3) * 0.1;
+      coins.push({ c, at: 0.25 + k * 0.2, x: Math.cos(a) * r, z: Math.sin(a) * r, y: 0.05 + Math.floor(k / 3) * 0.075, landed: false, spin: k % 2 ? 9 : -7 });
+    }
+    const v = new THREE.Vector3();
+    window.__v3d.add((t) => {
+      for (const o of coins) {
+        if (t < o.at) continue;
+        o.c.visible = true;
+        const u = Math.min(1, (t - o.at) / 0.38);
+        o.c.position.set(o.x, o.y + (1 - u * u) * 2.2, o.z);
+        o.c.rotation.set(u < 1 ? t * o.spin : 0.1, 0, u < 1 ? t * 3 : 0);
+        if (u >= 1 && !o.landed) { o.landed = true; o.c.getWorldPosition(v); T.game.particles.sparkle(v.x, v.y + 0.1, v.z, 4); }
+      }
+      if (Math.floor(t * 30) % 25 === 0) { window.__promo.named.fox.getWorldPosition(v); T.game.particles.hearts(v.x, v.y + 1.6, v.z, 1); }
+    });
+  },
+};
+
+// the three price tiers, animated, top of the screen (cards are drawn by the director)
+DEFS.tb_tiers3 = {
+  server: 'tb', url: '/', frames: 270, warm: 300, ready: V3_READY,
+  setup: v3([
+    { kind: 'duck', name: 'duck', sx: 0.17, sy: 0.4, scale: 3.6, rot: 0.25, anim: 'quack', t: 0.3, d: 5, live: true },
+    { kind: 'fox', name: 'fox', sx: 0.5, sy: 0.405, scale: 1.05, rot: 0.15, anim: 'dance', t: 0.2, expr: 'happy', d: 5, live: true },
+    { kind: 'bear', name: 'bear', type: 'office', sx: 0.83, sy: 0.4, scale: 0.6, rot: -0.2, pose: 'cheer', t01: 0.5, time: 0.6, d: 5, live: true },
+  ]),
+};
+
+// extras: Reynard sprinting with a parcel, a bear on his tail
+DEFS.tb_extras3 = {
+  server: 'tb', url: '/', frames: 150, warm: 300, ready: V3_READY,
+  setup: v3([
+    { kind: 'bear', name: 'bear', type: 'boss', sx: 0.11, sy: 0.72, scale: 0.85, rot: 0.55, pose: 'run', speed: 3, time: 0.45, d: 7, live: true },
+    { kind: 'fox', name: 'fox', sx: 0.29, sy: 1.0, scale: 1.9, rot: 0.75, anim: 'run', t: 0.3, expr: 'alarmed', package: 2.2, d: 5, live: true },
+  ]),
+};
+
+// what you get: the parcel shakes, bursts open, and everything flies out to its spot
+const WYG_ITEMS = [
+  { names: ['dragon', 'grass'], at: 1.7 }, { names: ['fox', 'bear'], at: 3.2 }, { names: ['pix'], at: 4.7 }, { names: ['speaker'], at: 6.2 }, { names: ['monitor'], at: 7.7 },
+];
+DEFS.tb_wyg = {
+  server: 'tb', url: '/', frames: 300, warm: 300, ready: V3_READY, hook: V3_HOOK,
+  setup: v3([
+    { kind: 'parcel', name: 'parcel', sx: 0.5, sy: 1.0, scale: 1.05, rot: 0.25, d: 5 },
+    { kind: 'dragonS', name: 'dragon', sx: 0.19, sy: 0.52, scale: 0.4, rot: -0.7, d: 8 },
+    { kind: 'grass', name: 'grass', sx: 0.31, sy: 0.6, scale: 0.6, rx: 0.4, rot: 0.6, d: 4 },
+    { kind: 'fox', name: 'fox', sx: 0.27, sy: 1.02, scale: 1.15, rot: 0.4, anim: 'dance', t: 0.2, expr: 'happy', d: 4, live: true },
+    { kind: 'bear', name: 'bear', type: 'office', sx: 0.72, sy: 1.0, scale: 0.55, rot: -0.3, pose: 'wave', t01: 0.5, time: 0.6, d: 4, live: true },
+    { kind: 'pixelart', name: 'pix', sx: 0.5, sy: 0.42, d: 4 },
+    { kind: 'speaker', name: 'speaker', sx: 0.81, sy: 0.55, scale: 1.25, rot: -0.4, d: 4 },
+    { kind: 'monitor', name: 'monitor', sx: 0.87, sy: 0.96, scale: 1.25, rot: -0.5, d: 4 },
+  ], { fill: 0.8 }),
+  setup2: `async () => {
+    const THREE = (await import('/tools/video/props3d.js')).THREE;
+    const N = window.__promo.named, T = window.__title, box = N.parcel;
+    const top = box.position.clone().add(new THREE.Vector3(0, 0.9, 0));
+    const items = ${JSON.stringify(WYG_ITEMS)};
+    for (const it of items) it.objs = it.names.map((n) => { const o = N[n]; return { o, slot: o.position.clone(), s: o.scale.x }; });
+    for (const it of items) for (const q of it.objs) q.o.visible = false;
+    let burst = false;
+    window.__v3d.add((t) => {
+      const k = t < 0.9 ? 0 : window.__v3d.ease((t - 0.9) / 0.45);
+      box.userData.open(k, t);
+      if (k > 0.2 && !burst) { burst = true; T.game.particles.confetti(top.x, top.y + 0.3, top.z, 70); T.game.particles.stars(top.x, top.y + 0.2, top.z, 10); }
+      for (const it of items) {
+        const u = (t - it.at) / 0.75;
+        for (const q of it.objs) {
+          if (u < 0) { q.o.visible = false; continue; }
+          if (!q.o.visible) { q.o.visible = true; T.game.particles.sparkle(q.slot.x, q.slot.y + 0.5, q.slot.z, 12); }
+          const e = window.__v3d.ease(u);
+          q.o.position.lerpVectors(top, q.slot, e);
+          q.o.position.y += Math.sin(Math.min(1, u) * Math.PI) * 1.3;
+          q.o.scale.setScalar(q.s * Math.max(0.05, window.__v3d.back(u)));
+          if (u >= 1) q.o.position.y = q.slot.y + Math.sin(t * 2 + q.slot.x) * 0.04;
+          q.o.userData.tick?.(t);
+        }
+      }
+    });
+  }`,
+};

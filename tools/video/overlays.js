@@ -195,17 +195,17 @@ KINDS.rays = (s) => {
 KINDS.tier = (s) => {
   const W = s.w || 384;
   const el = document.createElement('div');
-  const art = pixCanvas(s.scene, 168);
+  const art = s.scene ? pixCanvas(s.scene, 168) : null;
   el.innerHTML = `<div style="${kraftCard(W, 560, s.seed || 5)};width:${W}px;padding:0 0 14px;position:relative">
     <div style="height:54px;background:linear-gradient(180deg,${s.color},${s.dark});border-bottom:4px solid #2a0f1e;border-radius:2px 2px 0 0;display:flex;align-items:center;justify-content:space-between;padding:0 16px">
       <span style="${TXT(41.67, '#fff6e0', 3)}">${s.name}</span><span style="${TXT(20.83, '#fff6e0', 2)}">${s.level}</span></div>
     <div class="row" style="display:flex;align-items:center;gap:12px;padding:12px 14px 0">
-      <div class="pt" style="border:4px solid #2a0f1e;line-height:0;flex:none"></div>
+      ${art ? '<div class="pt" style="border:4px solid #2a0f1e;line-height:0;flex:none"></div>' : ''}
       <div><div class="pr" style="${TXT(70, '#ffd05a', 4)}">${s.price}</div><div style="font-family:'TBME Title';font-size:20.83px;color:#3b2414;margin-top:12px">${s.days}</div></div>
     </div>
     <div style="font-family:'TBME Title';font-size:20.83px;line-height:1.15;color:#4a2a18;padding:10px 16px 6px">${s.desc}</div>
     <div class="ft" style="padding:0 16px"></div></div>`;
-  el.querySelector('.pt').appendChild(art.cv);
+  if (art) el.querySelector('.pt').appendChild(art.cv);
   const ft = el.querySelector('.ft');
   const feats = s.feats.map((f) => {
     const d = document.createElement('div');
@@ -217,9 +217,9 @@ KINDS.tier = (s) => {
   Object.assign(el.style, { position: 'absolute', left: s.x + 'px', top: s.y + 'px', zIndex: 64 });
   ctx0.sfx('whoosh', { volume: 0.45 });
   const o = add(el, s, (t) => {
-    art.draw(t);
+    art?.draw(t);
     const u = ease.out(t / 0.5);
-    el.style.transform = `translate(-50%,-50%) translateY(${(1 - u) * 700}px) rotate(${(s.rot || 0) + (1 - u) * 8}deg)`;
+    el.style.transform = `translate(-50%,-50%) translateY(${(1 - u) * 700}px) rotate(${(s.rot || 0) + (1 - u) * 8}deg) scale(${s.scale || 1})`;
     el.style.opacity = String(outA(o, t));
     feats.forEach((f, k) => {
       const at = (s.featAt ?? 0.8) + k * (s.featGap ?? 0.32);
@@ -244,9 +244,9 @@ KINDS.rows = (s) => {
   const rows = s.rows.map((r) => {
     const d = document.createElement('div');
     d.style.cssText = 'display:flex;align-items:center;gap:14px;padding:10px 18px 0;opacity:0';
-    const a = pixCanvas(r.scene, 84);
-    const box = document.createElement('div'); box.style.cssText = 'border:3px solid #2a0f1e;line-height:0;flex:none'; box.appendChild(a.cv);
-    d.appendChild(box);
+    const a = r.scene ? pixCanvas(r.scene, 84) : null;
+    if (a) { const box = document.createElement('div'); box.style.cssText = 'border:3px solid #2a0f1e;line-height:0;flex:none'; box.appendChild(a.cv); d.appendChild(box); }
+    else if (r.dot) d.insertAdjacentHTML('beforeend', `<i style="width:26px;height:26px;flex:none;border-radius:50%;background:${r.dot};border:3px solid #2a0f1e"></i>`);
     d.insertAdjacentHTML('beforeend', `<div style="flex:1"><div style="${TXT(33, '#fff6e0', 3)}">${r.label}</div><div style="font-family:'TBME Title';font-size:22px;color:#3b2414;margin-top:8px">${r.sub}</div></div><div style="${TXT(58, '#ffd05a', 4)}">${r.price}</div>`);
     rs.appendChild(d);
     return { d, a, shown: false };
@@ -258,7 +258,7 @@ KINDS.rows = (s) => {
     el.style.transform = `translate(-50%,-50%) scale(${0.3 + 0.7 * u}) rotate(${(s.rot || 0)}deg)`;
     el.style.opacity = String(Math.min(1, t / 0.12) * outA(o, t));
     rows.forEach((r, k) => {
-      r.a.draw(t);
+      r.a?.draw(t);
       const at = 0.5 + k * 0.45;
       if (t >= at && !r.shown) { r.shown = true; ctx0.sfx(s.rowSound || 'coin', { volume: 0.45, pitch: 1 + k * 0.1 }); }
       if (r.shown) { const v = ease.back((t - at) / 0.32); r.d.style.opacity = '1'; r.d.style.transform = `scale(${0.6 + 0.4 * v})`; }

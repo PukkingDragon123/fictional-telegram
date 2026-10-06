@@ -108,7 +108,7 @@ export function propModel(type) {
   return g;
 }
 
-function fishSprite(id, scale = 1.3, rot = 0, dir = 1) {
+export function fishSprite(id, scale = 1.3, rot = 0, dir = 1) {
   const cv = fishCanvasFor(id, { scale: 1 });
   const tex = new THREE.CanvasTexture(cv);
   tex.magFilter = tex.minFilter = THREE.NearestFilter;
@@ -503,6 +503,8 @@ function heroNpc(T, a) {
   placeAt(T, r.root, a);
   return r;
 }
+// extra builders from other tools (tools/video/props3d.js)
+export function registerProps(m) { Object.assign(PROP, m); }
 const PROP = { dragon: (a) => makeDragon({ breath: a.breath ?? 1 }), dragon2: () => makeDragon({ color: 'green', breath: 0 }), dragon3: () => makeDragon({ color: 'blue', breath: 0 }), sword: makeSword, gamepad: () => makeGamepad(), gamepad2: () => makeGamepad(0xe8443a, 0xa82a2a), gamepad3: () => makeGamepad(0x3ab0e8, 0x2a78b0), block: makeGrassBlock, box: makeOpenBox, crate: () => makeBigCrate('live') };
 function castList(T, list) {
   for (const a of list || []) {
