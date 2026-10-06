@@ -105,6 +105,7 @@ async function drawBg(t) {
     g.imageSmoothingEnabled = !s.pixel;
     g.drawImage(im, X.x, X.y, X.dw, X.dh);
     g.globalAlpha = 1;
+    if (s.dim) { g.fillStyle = `rgba(20,10,30,${s.dim})`; g.fillRect(0, 0, W, H); }
   }
   // prefetch upcoming frames
   for (const s of TL.shots) if (!s.still && !s.src && t + 0.5 >= s.at && t < s.at + s.dur) {
