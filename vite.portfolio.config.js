@@ -17,6 +17,8 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2020',
     chunkSizeWarningLimit: 2000,
-    assetsInlineLimit: 4096,
+    // pictures are embedded in the script (nothing to fail to load on odd static hosts);
+    // videos and fonts stay separate files
+    assetsInlineLimit: (file) => (/\.(jpe?g|png)$/i.test(file) ? true : undefined),
   },
 });

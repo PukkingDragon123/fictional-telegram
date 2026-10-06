@@ -41,6 +41,9 @@ function codeArt(p, w = 96, h = 72) {
   g.fillStyle = p.ground; g.fillRect(0, Math.floor(h * 0.72), w, h);
   g.fillStyle = '#fff';
   for (let i = 0; i < 14; i++) g.fillRect((i * 37 + p.id.charCodeAt(0)) % w, (i * 11) % Math.floor(h * 0.45), 1, 1);
+  // bright title strip so the stand-in never reads as a black square
+  g.fillStyle = 'rgba(255,248,230,.92)'; g.fillRect(0, h - 16, w, 16);
+  g.fillStyle = '#2a1c16'; g.font = '9px monospace'; g.textBaseline = 'middle'; g.fillText(p.title.toUpperCase().slice(0, 18), 4, h - 8);
   return c;
 }
 
