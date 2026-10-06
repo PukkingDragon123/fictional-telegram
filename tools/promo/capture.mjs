@@ -8,6 +8,8 @@
 //             (+ <kind>-<actor>.png silhouette masks for the outline / glow cut-outs)
 // composite : tools/promo/promo.html?kind=<kind> lays text, arrow, bursts over the render
 //             -> promo/itch-thumbnail-630x500.png + -1260x1000.png, promo/itch-banner-960x240.png + -1920x480.png
+// Fiverr gig images (1280 x 769):  node tools/promo/capture.mjs fiverr [gig|tiers|extras|box|all] [--no-render]
+//             renders like above, then tools/promo/fiverr.html?kind=<kind> -> promo/fiverr/<n>-<name>.png
 // Env: PROMO_URL (default http://127.0.0.1:5281), CHROME (chromium path), PW (playwright module dir).
 import fs from 'fs';
 import path from 'path';
@@ -125,7 +127,28 @@ async function composite(kind) {
   }
 }
 
+const FIVERR = { gig: '1-thumbnail', tiers: '2-pricing-tiers', extras: '3-extras', box: '4-what-you-get' };
+async function compositeFiverr(kind) {
+  const dir = path.join(OUT, 'fiverr');
+  fs.mkdirSync(dir, { recursive: true });
+  const page = await newPage(1280, 769, 1);
+  await page.goto(`${URL0}/tools/promo/fiverr.html?kind=${kind}&t=${Date.now()}`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__ready === true, null, { timeout: 60000 });
+  const f = path.join(dir, `fiverr-${FIVERR[kind]}.png`);
+  await page.screenshot({ path: f, clip: { x: 0, y: 0, width: 1280, height: 769 }, timeout: 300000 });
+  await page.close();
+  console.log('wrote', f);
+}
+
 const [what = 'all', which = 'all'] = process.argv.slice(2);
+if (what === 'fiverr') {
+  for (const k of which === 'all' ? Object.keys(FIVERR) : [which]) {
+    if (!process.argv.includes('--no-render')) await render(k);
+    await compositeFiverr(k);
+  }
+  await browser.close();
+  process.exit(0);
+}
 // GIFs:  node tools/promo/capture.mjs gif [thumbAnim|bannerAnim|all] [outDir] [--big]
 if (what === 'gif') {
   const out = process.argv[4] && !process.argv[4].startsWith('--') ? path.resolve(process.argv[4]) : path.join(OUT, 'v1');

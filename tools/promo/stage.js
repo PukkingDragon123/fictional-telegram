@@ -12,9 +12,11 @@ import { BEAR_TYPES } from '../../src/data/bears.js';
 import * as C3 from '../../src/entities/critters3d.js';
 import { restaurantModel } from '../../src/entities/restaurantModels.js';
 import { picnicModel } from '../../src/entities/structureModels.js';
-import { voxelMaterial } from '../../src/core/voxel.js';
+import { voxelMaterial, VoxelModel as VM } from '../../src/core/voxel.js';
 import { fishCanvasFor, FISH_TPU } from '../../src/game/fishSprites.js';
 import { WATER_Y } from '../../src/world/grid.js';
+import { makeBigCrate } from '../../src/entities/deliveryVan.js';
+import { makePackage } from '../../src/entities/critterProps.js';
 
 const D2R = Math.PI / 180;
 const S = (window.__promo ||= { actors: [], t: 0, cfg: null, named: {} });
@@ -309,6 +311,217 @@ SCENES.banner = (T, o) => {
   S.splashAt = (o.splashes || []).map((s) => { const p = ground(T, s.sx, s.sy, WATER_Y); return { x: p.x, z: p.z, n: s.n ?? 2, power: s.power }; });
   return C;
 };
+
+// ------------------------------------------------------------------ Fiverr gig art (tools/promo/fiverr.*)
+// Extra voxel props built with the game's VoxelModel: a dragon, a sword, game
+// controllers, a grass block and an open delivery box.
+
+const vmat = () => voxelMaterial();
+function vmesh(v, scale, pivot = [0, 0, 0], glow = false) {
+  const m = new THREE.Mesh(v.build({ pivot, scale, ao: !glow }), glow ? new THREE.MeshBasicMaterial({ vertexColors: true }) : vmat());
+  m.castShadow = !glow;
+  return m;
+}
+const hsh = (x, y, z) => { let h = (x * 374761393 + y * 668265263 + z * 1274126177) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+const DRAGON_PAL = {
+  red: { R: 0xc8322a, RD: 0x8a1a22, RL: 0xe8503a, MEM: 0x7a1a3a, MEMD: 0x4a0a22 },
+  green: { R: 0x3a9a4a, RD: 0x1f6a34, RL: 0x6ac85a, MEM: 0x2a6a5a, MEMD: 0x16423a },
+  blue: { R: 0x3a6ad8, RD: 0x2442a0, RL: 0x6a9af0, MEM: 0x4a3a9a, MEMD: 0x2a1a6a },
+};
+export function makeDragon({ color = 'red', breath = 1 } = {}) {
+  const v = new VM();
+  const { R, RD, RL, MEM, MEMD } = DRAGON_PAL[color] || DRAGON_PAL.red;
+  const BELLY = 0xf2c25a, BELLYD = 0xd89a3a, HORN = 0xf4e6c8, EYE = 0xfff27a;
+  const scale = (x, y, z) => { const h = hsh(x, y, z); return h < 0.18 ? RD : h > 0.88 ? RL : R; };
+  // body + belly plates
+  v.ellipsoid(0, 11, 0, 6.5, 6, 9.5, (x, y, z) => (z > 0 && y < 10 && Math.abs(x) < 4 ? ((y + 40) % 2 ? BELLY : BELLYD) : scale(x, y, z)));
+  // neck rising to the head
+  for (let i = 0; i <= 8; i++) { const t = i / 8; v.ellipsoid(0, 13 + t * 12, 6 + t * 7, 3.6 - t * 0.8, 3.6 - t * 0.6, 3.4, (x, y, z) => (z > 6 + t * 7 + 1 ? BELLY : scale(x, y, z))); }
+  // head, snout, open jaw, teeth, eyes, nostrils, horns, spikes
+  v.ellipsoid(0, 27, 15, 4.6, 4.2, 4.6, scale);
+  v.box(-3, 25, 17, 3, 28, 24, scale);
+  v.box(-3, 21, 16, 3, 22, 23, scale);
+  for (let x = -3; x <= 3; x += 2) { v.set(x, 24, 23, 0xffffff); v.set(x, 23, 22, 0xffffff); }
+  v.box(-2, 23, 18, 2, 24, 23, 0x5a0a14); // mouth inside
+  for (const sx of [-1, 1]) {
+    v.box(sx * 3, 28, 18, sx * 4, 29, 19, EYE); v.set(sx * 4, 29, 19, 0x1a0a0a);
+    v.set(sx * 2, 28, 24, 0x3a0a0a);
+    for (let k = 0; k < 7; k++) v.set(sx * (2 + Math.round(k * 0.35)), 30 + k, 13 - k, k > 4 ? 0xffffff : HORN);
+  }
+  for (let i = 0; i < 9; i++) v.box(0, 17 + i * 0.6 + (i % 2), 4 - i * 1.6, 0, 18 + i * 0.6 + (i % 2), 4 - i * 1.6, HORN);
+  // legs with claws
+  for (const [lx, lz] of [[-4, 5], [4, 5], [-4, -5], [4, -5]]) { v.box(lx - 1, 2, lz - 1, lx + 1, 7, lz + 1, scale); v.box(lx - 1, 0, lz, lx + 1, 1, lz + 2, RD); v.set(lx, 0, lz + 3, HORN); }
+  // tail curling back, spade tip
+  for (let i = 0; i <= 14; i++) { const t = i / 14; v.ellipsoid(Math.sin(t * 2.4) * 5, 9 - t * 5, -8 - t * 15, 3.2 - t * 2.4, 3 - t * 2.2, 2.4, scale); }
+  v.box(Math.round(Math.sin(2.4) * 5) - 2, 3, -25, Math.round(Math.sin(2.4) * 5) + 2, 5, -23, RD);
+  // bat wings: arm bone shoulder -> wrist -> tip, two fingers fanning down, scalloped membrane
+  const inPoly = (pts, x, y) => { let ins = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ins = !ins; } return ins; };
+  const SH = [3, 19], WR = [13, 35], TIP = [25, 41], F2 = [25, 25], F3 = [17, 15];
+  const wingPoly = [SH, WR, TIP, [23, 33], F2, [20, 19], F3, [9, 15], [3, 13]];
+  const bones = [[SH, WR], [WR, TIP], [WR, F2], [WR, F3]];
+  const onBone = (x, y) => bones.some(([p, q]) => { const dx = q[0] - p[0], dy = q[1] - p[1], L2 = dx * dx + dy * dy; const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (y - p[1]) * dy) / L2)); return Math.hypot(x - p[0] - t * dx, y - p[1] - t * dy) < 0.9; });
+  // one flat wing (2 voxels thick), mirrored and swept back as separate meshes so the sheet has no steps
+  const wv = new VM();
+  for (let x = 0; x <= 24; x++) for (let y = 12; y <= 43; y++) {
+    const bone = onBone(x + 2, y);
+    if (!bone && !inPoly(wingPoly, x + 2.5, y + 0.5)) continue;
+    const c = bone ? RD : hsh(x, y, 5) < 0.12 ? MEMD : MEM;
+    wv.set(x, y, 0, c); wv.set(x, y, -1, c);
+  }
+  wv.set(23, 42, 0, HORN); wv.set(23, 43, 0, HORN); // wing claw
+  const g = new THREE.Group();
+  g.add(vmesh(v, 0.1));
+  for (const sx of [-1, 1]) {
+    const w = vmesh(wv, 0.1);
+    w.position.set(sx * 0.3, 0, -0.2);
+    w.scale.x = sx;
+    w.rotation.y = sx * 0.45; // swept back
+    w.rotation.z = sx * 0.12;
+    g.add(w);
+  }
+  // fire breath: a cone of glowing cubes out of the mouth (+z)
+  const fire = new VM();
+  for (let i = 0; i < 420 * breath; i++) {
+    const u = hsh(i, 1, 7), r = hsh(i, 2, 9) * (1 + u * 7), a = hsh(i, 3, 5) * Math.PI * 2;
+    const z = 24 + u * 24 * breath, x = Math.round(Math.cos(a) * r), y = Math.round(23 + Math.sin(a) * r * 0.8 + u * 9);
+    fire.set(x, y, Math.round(z), u < 0.25 ? 0xfff6c0 : u < 0.5 ? 0xffd23a : u < 0.75 ? 0xff8a1a : 0xe83a1a);
+  }
+  if (breath > 0) { const fm = vmesh(fire, 0.1, [0, 0, 0], true); g.add(fm); g.userData.fire = fm; }
+  return g;
+}
+
+export function makeSword() {
+  const v = new VM();
+  // blade along -y from the hand (grip at the origin), like the game's held props
+  for (let y = -44; y <= -9; y++) for (let x = -2; x <= 2; x++) {
+    const tip = y < -40 ? Math.abs(x) <= (y + 44) * 0.5 : true;
+    if (tip) v.set(x, y, 0, x === 0 ? 0xffffff : Math.abs(x) === 2 ? 0x8aa0c0 : 0xd8e4f4);
+  }
+  for (let x = -7; x <= 7; x++) for (let z = -1; z <= 1; z++) v.set(x, -8, z, Math.abs(x) > 5 ? 0xffd23a : 0xc89020);
+  for (let y = -7; y <= 2; y++) v.set(0, y, 0, y % 2 ? 0x6a3a8a : 0x4a2a6a);
+  v.ellipsoid(0, 4, 0, 1.6, 1.6, 1.6, 0xff3a5a);
+  return vmesh(v, 0.025);
+}
+
+export function makeGamepad(body = 0x6a4ac8, bodyD = 0x4a2a98) {
+  const v = new VM();
+  // rounded bar with two grips hanging down (24 x 14 voxels)
+  const inside = (x, y) => {
+    const ax = Math.abs(x);
+    if (y >= 4 && y <= 12 && ax <= 9) return !(ax >= 8 && (y === 12 || y === 4) && ax === 9);
+    return Math.hypot(ax - 8, y - 4) <= 4.6;
+  };
+  for (let x = -13; x <= 13; x++) for (let y = -2; y <= 12; y++) for (let z = 0; z <= 3; z++) if (inside(x, y)) v.set(x, y, z, z === 3 ? body : bodyD);
+  for (const [x, y] of [[-7, 8], [-8, 8], [-6, 8], [-7, 9], [-7, 7], [-9, 8], [-5, 8], [-7, 10], [-7, 6]]) v.set(x, y, 4, 0xf4f4f8);
+  for (const [x, y, c] of [[7, 10, 0xffd23a], [9, 8, 0xff3a4a], [7, 6, 0x3ad86a], [5, 8, 0x3aa0ff]]) { v.set(x, y, 4, c); v.set(x, y, 5, c); }
+  v.set(-2, 9, 4, 0xd8d0f0); v.set(-1, 9, 4, 0xd8d0f0); v.set(1, 9, 4, 0xd8d0f0); v.set(2, 9, 4, 0xd8d0f0);
+  for (const sx of [-1, 1]) { v.set(sx * 3, 5, 4, 0x2a2a3a); v.set(sx * 3, 6, 4, 0x2a2a3a); v.set(sx * 4, 5, 4, 0x2a2a3a); v.set(sx * 4, 6, 4, 0x2a2a3a); }
+  return vmesh(v, 0.05, [0, 5, 1.5]);
+}
+
+export function makeGrassBlock() {
+  const v = new VM(), N = 10;
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) for (let z = 0; z < N; z++) {
+    const h = hsh(x, y, z), edge = x === 0 || z === 0 || x === N - 1 || z === N - 1;
+    let c = h < 0.25 ? 0x6b4a30 : h < 0.55 ? 0x8a6340 : 0x7b5636;
+    if (y === N - 1) c = h < 0.3 ? 0x7ccc52 : 0x5cab3c;
+    else if (y >= N - 3 && edge && h < 0.75 - (N - 1 - y) * 0.3) c = 0x5cab3c;
+    v.set(x, y, z, c);
+  }
+  return vmesh(v, 0.08, [N / 2, N / 2, N / 2]);
+}
+
+// an open cardboard delivery box with folded-back flaps and packing tape
+export function makeOpenBox() {
+  const v = new VM();
+  const W = 13, D = 10, H = 12;
+  const card = (x, y, z) => { const h = hsh(x, y, z); return h < 0.15 ? 0xb07e44 : h > 0.9 ? 0xd8aa6a : 0xc8955a; };
+  for (let x = -W; x <= W; x++) for (let y = 0; y <= H; y++) for (let z = -D; z <= D; z++) {
+    const wall = Math.abs(x) === W || Math.abs(z) === D || y === 0;
+    if (!wall) continue;
+    let c = card(x, y, z);
+    if (z === D && Math.abs(x) <= 1) c = 0xe8d8a0; // tape
+    if (y === H) c = 0xa06a34;
+    v.set(x, y, z, z === D || x === W ? c : 0x8a5a2a);
+  }
+  // flaps folded outwards
+  for (let i = 1; i <= 8; i++) for (let x = -W; x <= W; x++) { v.set(x, H + Math.round(i * 0.6), D + i, card(x, i, 1)); v.set(x, H + Math.round(i * 0.6), -D - i, card(x, i, 2)); }
+  for (let i = 1; i <= 7; i++) for (let z = -D; z <= D; z++) { v.set(W + i, H + Math.round(i * 0.7), z, card(i, z, 3)); v.set(-W - i, H + Math.round(i * 0.7), z, card(i, z, 4)); }
+  // a red FRAGILE-ish label + a "this way up" arrow
+  for (let x = 4; x <= 10; x++) for (let y = 4; y <= 7; y++) v.set(x, y, D + 1, y === 4 || y === 7 ? 0xa01a1a : 0xe83a3a);
+  for (const [x, y] of [[-8, 8], [-9, 7], [-7, 7], [-8, 7], [-8, 6], [-8, 5], [-8, 4]]) v.set(x, y, D + 1, 0x3a2414);
+  return vmesh(v, 0.07);
+}
+
+function sceneCam(T, o, def) {
+  const C = { yaw: facing(T, o.yawOff ?? 0), pitch: o.pitch ?? def.pitch, wupp: o.wupp ?? def.wupp, focus: T._at(o.camR ?? def.camR, o.camF ?? def.camF), sun: o.sun || def.sun, skyD: o.skyD };
+  applyCamera(T, C);
+  clearRects(T, o.clear);
+  return C;
+}
+// put an object in front of everything at screen point (sx, sy), lifted / scaled / turned
+function placeAt(T, obj, a) {
+  const p = a.ground ? ground(T, a.sx, a.sy, a.h ?? null) : front(T, a.sx, a.sy, a.d ?? 5);
+  p.y += a.y ?? 0;
+  obj.position.copy(p);
+  obj.rotation.set(a.rx ?? 0, facing(T, a.rot ?? 0), a.rz ?? 0, 'YXZ');
+  obj.scale.setScalar(a.scale ?? 1);
+  T.group.add(obj);
+  return add(obj, a.name);
+}
+function heroFox(T, a) {
+  const fox = new FoxRig({ shadows: false });
+  if (a.outfit) fox.setOutfit(a.outfit);
+  fox.play(a.anim || 'cheer', { fade: 0 });
+  for (let k = 0; k < (a.t ?? 0.45); k += 1 / 60) fox.update(1 / 60);
+  if (a.expr) { fox.setExpression(a.expr, { hold: 99 }); fox.update(1 / 60); }
+  if (a.sword) { const sw = makeSword(); sw.scale.setScalar(a.swordScale ?? 1); sw.rotation.set(a.swordRot?.[0] ?? 0, a.swordRot?.[1] ?? 0, a.swordRot?.[2] ?? 0); fox.hold(sw); fox.update(1 / 60); }
+  if (a.package) { const pk = makePackage('box'); pk.scale.setScalar(a.package); pk.rotation.set(0.3, 0, 0.2); fox.hold(pk); fox.update(1 / 60); }
+  placeAt(T, fox.root, a);
+  return fox;
+}
+function heroBear(T, a) {
+  const b = makeBear(a.type || 'office', a.seed ?? 3.7);
+  for (let k = 0; k < (a.time ?? 0.5); k += 1 / 30) b.pose(a.pose || 'idle', 1 / 30, { t01: a.t01 ?? 0.5, speed: a.speed ?? 0 });
+  if (a.face) b.setFace(a.face, { hold: 99 });
+  b.pose(a.pose || 'idle', 1 / 30, { t01: a.t01 ?? 0.5, speed: a.speed ?? 0 });
+  placeAt(T, b.root, a);
+  return b;
+}
+function heroDuck(T, a) {
+  const d = new C3.Duck({ sex: a.sex || 'm', breed: a.breed || 'mallard' });
+  d.play(a.anim || 'happy', { fade: 0 });
+  for (let k = 0; k < (a.t ?? 0.5); k += 1 / 60) d.update(1 / 60);
+  placeAt(T, d.root, a);
+  return d;
+}
+function heroNpc(T, a) {
+  const r = new C3[a.cls]({ shadows: true });
+  r.play(a.anim || 'happy', { fade: 0 });
+  for (let k = 0; k < (a.t ?? 0.6); k += 1 / 60) r.update(1 / 60);
+  placeAt(T, r.root, a);
+  return r;
+}
+const PROP = { dragon: (a) => makeDragon({ breath: a.breath ?? 1 }), dragon2: () => makeDragon({ color: 'green', breath: 0 }), dragon3: () => makeDragon({ color: 'blue', breath: 0 }), sword: makeSword, gamepad: () => makeGamepad(), gamepad2: () => makeGamepad(0xe8443a, 0xa82a2a), gamepad3: () => makeGamepad(0x3ab0e8, 0x2a78b0), block: makeGrassBlock, box: makeOpenBox, crate: () => makeBigCrate('live') };
+function castList(T, list) {
+  for (const a of list || []) {
+    if (a.kind === 'fox') heroFox(T, a);
+    else if (a.kind === 'bear') heroBear(T, a);
+    else if (a.kind === 'duck') heroDuck(T, a);
+    else if (a.kind === 'npc') heroNpc(T, a);
+    else if (a.kind === 'fish') { const m = fishSprite(a.id, a.s ?? 1.5, a.rz ?? 0, a.dir ?? 1); m.position.copy(front(T, a.sx, a.sy, a.d ?? 5)); T.group.add(m); add(m, a.name); }
+    else if (PROP[a.kind]) placeAt(T, PROP[a.kind](a), a);
+  }
+}
+for (const k of ['gig', 'tiers', 'extras', 'box']) {
+  SCENES[k] = (T, o) => {
+    const C = sceneCam(T, o, { pitch: 17, wupp: 0.0135, camR: 0.6, camF: -0.6, sun: [-0.2, 0.62] });
+    castList(T, o.cast);
+    S.splashAt = (o.splashes || []).map((s) => { const p = ground(T, s.sx, s.sy, WATER_Y); return { x: p.x, z: p.z, n: s.n ?? 2, power: s.power }; });
+    return C;
+  };
+}
 
 // ------------------------------------------------------------------ driver
 export async function setup(kind, o = {}) {

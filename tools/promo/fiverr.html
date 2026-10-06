@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiverr gig art</title>
+<link rel="stylesheet" href="../../src/ui/fonts.css">
+<style>
+  html, body { margin: 0; padding: 0; background: #1a1026; overflow: hidden; }
+  #stage { position: relative; overflow: hidden; background: #1a1026; width: 1280px; height: 769px; }
+  #stage > * { position: absolute; }
+  .bg, .cut > div { inset: 0; width: 1280px; height: 770px; background-size: 1280px 770px; image-rendering: pixelated; }
+  .bg { filter: saturate(1.22) contrast(1.07) brightness(1.03); }
+  .cut { inset: 0; }
+  .cut > div { position: absolute; -webkit-mask-size: 1280px 770px; mask-size: 1280px 770px; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; }
+  .burst { pointer-events: none; mix-blend-mode: screen; border-radius: 50%; }
+  .txt { font-family: 'TBME Title', sans-serif; white-space: nowrap; line-height: 1; }
+  .txt .l { position: relative; display: block; }
+  .txt .l > span { position: absolute; left: 0; top: 0; }
+  .txt .l > span.fill { position: relative; }
+  svg { overflow: visible; }
+  img.px { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script type="module" src="./fiverr.js"></script>
+</body>
+</html>

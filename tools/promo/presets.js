@@ -102,3 +102,72 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
   o.fx = [];
   PRESETS.bannerAnim = { kind: 'banner', viewport: PRESETS.banner.viewport, px: 1.3, masks: PRESETS.banner.masks, opts: o };
 }
+
+// ------------------------------------------------------------------ Fiverr gig images (1280 x 769)
+// rendered at 1280x770, pixel density 1 -> 640x385 low-res; composited by fiverr.html
+const FV = { viewport: [1280, 770], px: 1 };
+PRESETS.gig = {
+  ...FV, masks: ['fox', ['dragon', 'dragon2'], ['pad1', 'pad2', 'pad3', 'blk']],
+  opts: {
+    camF: -0.6, fill: 0.55,
+    cast: [
+      { kind: 'dragon2', name: 'dragon2', sx: 0.08, sy: 0.36, scale: 0.34, rot: -0.9, rx: -0.2, d: 14 },
+      { kind: 'dragon', name: 'dragon', sx: 0.8, sy: 1.02, scale: 0.78, rot: -0.55, d: 8, breath: 1.5 },
+      { kind: 'fox', name: 'fox', sx: 0.27, sy: 1.13, scale: 2.4, rot: 0.2, anim: 'wave_hello', t: 0.6, expr: 'excited', sword: true, swordScale: 1.5, swordRot: [0, 0, -0.15], d: 4 },
+      { kind: 'gamepad', name: 'pad1', sx: 0.5, sy: 0.78, scale: 1.3, rx: 0.2, rot: 0.12, rz: 0.25, d: 3 },
+      { kind: 'gamepad2', name: 'pad2', sx: 0.05, sy: 0.78, scale: 1.05, rx: 0.2, rot: -0.15, rz: -0.35, d: 3 },
+      { kind: 'gamepad3', name: 'pad3', sx: 0.95, sy: 0.86, scale: 0.95, rx: 0.2, rot: -0.15, rz: 0.4, d: 3 },
+      { kind: 'block', name: 'blk', sx: 0.58, sy: 0.5, scale: 0.85, rx: 0.4, rot: 0.6, rz: 0.15, d: 3 },
+    ],
+    fx: [{ name: 'sparkle', sx: 0.3, sy: 0.75, y: 2.5, args: [] }],
+  },
+};
+PRESETS.tiers = {
+  ...FV, masks: ['duck', 'fox', 'bear'],
+  opts: {
+    camF: -0.6, fill: 0.6,
+    cast: [
+      { kind: 'duck', name: 'duck', sx: 0.17, sy: 0.4, scale: 3.6, rot: 0.25, anim: 'happy', t: 0.3, d: 5 },
+      { kind: 'fox', name: 'fox', sx: 0.5, sy: 0.405, scale: 1.05, rot: 0.15, anim: 'wave_hello', t: 0.6, expr: 'happy', d: 5 },
+      { kind: 'bear', name: 'bear', type: 'office', sx: 0.83, sy: 0.4, scale: 0.6, rot: -0.2, pose: 'cheer', t01: 0.5, time: 0.6, d: 5 },
+    ],
+  },
+};
+PRESETS.extras = {
+  ...FV, masks: ['fox', 'bear', ['duck', 'fox2', 'bear2', 'blk']],
+  opts: {
+    camF: -0.6, fill: 0.55,
+    cast: [
+      { kind: 'bear', name: 'bear', type: 'boss', sx: 0.11, sy: 0.7, scale: 0.85, rot: 0.55, pose: 'run', speed: 3, time: 0.45, face: 'furious', d: 7 },
+      { kind: 'fox', name: 'fox', sx: 0.31, sy: 1.0, scale: 1.9, rot: 0.75, anim: 'run', t: 0.3, expr: 'alarmed', package: 2.2, d: 5 },
+      // row icons on the price list (feet on each row's baseline)
+      { kind: 'duck', name: 'duck', sx: 0.5625, sy: 0.266, scale: 1.9, rot: 0.3, anim: 'quack', t: 0.3, d: 3 },
+      { kind: 'fox', name: 'fox2', sx: 0.5625, sy: 0.432, scale: 0.48, rot: 0.3, anim: 'wave_hello', t: 0.6, expr: 'happy', d: 3 },
+      { kind: 'bear', name: 'bear2', type: 'office', sx: 0.5625, sy: 0.599, scale: 0.34, rot: -0.1, pose: 'cheer', t01: 0.5, time: 0.6, d: 3 },
+      { kind: 'block', name: 'blk', sx: 0.5625, sy: 0.84, scale: 0.75, rx: 0.4, rot: 0.6, d: 3 },
+    ],
+  },
+};
+PRESETS.box = {
+  ...FV, masks: [['box', 'bear', 'fox', 'duck', 'pad1', 'pad2', 'blk', 'dragon', 'sword', 'frog', 'owl', 'deer', 'racc']],
+  opts: {
+    camF: -0.6, fill: 0.6,
+    cast: [
+      { kind: 'dragon', name: 'dragon', sx: 0.86, sy: 0.52, scale: 0.36, rot: -0.7, d: 12, breath: 0.8 },
+      { kind: 'npc', cls: 'DeerGuy', name: 'deer', sx: 0.36, sy: 0.61, scale: 0.9, rot: 0.4, anim: 'cheers', t: 0.9, d: 10 },
+      { kind: 'npc', cls: 'OwlRanger', name: 'owl', sx: 0.44, sy: 0.6, scale: 0.9, rot: 0.2, anim: 'happy', t: 0.6, d: 10 },
+      { kind: 'npc', cls: 'FrogGranny', name: 'frog', sx: 0.56, sy: 0.6, scale: 0.9, rot: -0.2, anim: 'happy', t: 0.62, d: 10 },
+      { kind: 'npc', cls: 'RaccoonMerchant', name: 'racc', sx: 0.645, sy: 0.61, scale: 0.9, rot: -0.4, anim: 'laugh', t: 0.5, d: 10 },
+      { kind: 'bear', name: 'bear', type: 'office', sx: 0.5, sy: 0.9, scale: 0.62, rot: 0, pose: 'cheer', t01: 0.5, time: 0.6, d: 5.3 },
+      { kind: 'box', name: 'box', sx: 0.5, sy: 1.03, scale: 1.2, rot: 0.25, d: 5 },
+      { kind: 'fox', name: 'fox', sx: 0.3, sy: 1.03, scale: 1.3, rot: 0.4, anim: 'cheer', t: 0.42, expr: 'excited', d: 4 },
+      { kind: 'duck', name: 'duck', sx: 0.655, sy: 0.84, scale: 2.6, rot: -0.4, anim: 'happy', t: 0.3, d: 3.5 },
+      { kind: 'sword', name: 'sword', sx: 0.44, sy: 0.3, scale: 1.2, rot: 0, rz: 2.5, d: 3 },
+      { kind: 'block', name: 'blk', sx: 0.565, sy: 0.27, scale: 0.75, rx: 0.4, rot: 0.6, rz: 0.2, d: 3 },
+      { kind: 'gamepad', name: 'pad1', sx: 0.33, sy: 0.37, scale: 0.9, rx: 0.2, rot: 0.15, rz: 0.4, d: 3 },
+      { kind: 'gamepad2', name: 'pad2', sx: 0.68, sy: 0.36, scale: 0.85, rx: 0.2, rot: -0.15, rz: -0.35, d: 3 },
+      { kind: 'fish', id: 'sockeye', sx: 0.1, sy: 0.66, s: 1.2, rz: 0.5, d: 3 },
+      { kind: 'fish', id: 'goldfish', sx: 0.22, sy: 0.63, s: 1.2, rz: -0.4, dir: -1, d: 3 },
+    ],
+  },
+};
