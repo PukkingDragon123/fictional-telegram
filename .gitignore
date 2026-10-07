@@ -12,3 +12,6 @@ tools/promo/renders/anim/
 # demo video frame renders (scratch)
 tools/video/clips/
 tools/video/out/
+
+# devlog frame renders (scratch)
+tools/devlog/out/

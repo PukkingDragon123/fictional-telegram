@@ -1,20 +1,22 @@
 // Records the raw clips for the gig video, frame by frame under virtual time:
-//   node tools/video/clips.mjs <name> [<name> ...] [--frames N] [--every K]
+//   node tools/video/clips.mjs <name> [<name> ...] [--frames N] [--every K] [--defs more-defs.mjs]
 // -> tools/video/clips/<name>/fNNNN.jpg + meta.json { fps, frames, anchors[], audio[] }
 // Servers: TBME dev server (VIDEO_TB, default http://127.0.0.1:5281) and the
 // Deli-very-dead dev server (VIDEO_DV, default http://127.0.0.1:5290).
-// Clip definitions live in clipdefs.mjs.
+// Clip definitions live in clipdefs.mjs (--defs adds another module's DEFS, e.g. tools/devlog/clipdefs.mjs).
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { recorder } from './rec.mjs';
-import { DEFS } from './clipdefs.mjs';
+import { DEFS as BASE } from './clipdefs.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SERVERS = { tb: process.env.VIDEO_TB || 'http://127.0.0.1:5281', dv: process.env.VIDEO_DV || 'http://127.0.0.1:5290' };
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? +args[i + 1] : d; };
 const names = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
+const more = args.includes('--defs') ? args[args.indexOf('--defs') + 1] : null;
+const DEFS = { ...BASE, ...(more ? (await import(pathToFileURL(path.resolve(more)).href)).DEFS : {}) };
 const FPS = 30;
 
 // in-page: log every sound call of the given audio objects (virtual seconds)

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TBME devlog director</title>
+<style>
+@font-face { font-family: 'Nunito'; src: url('./fonts/nunito-latin-800-normal.woff2') format('woff2'); font-weight: 800; }
+@font-face { font-family: 'Nunito'; src: url('./fonts/nunito-latin-900-normal.woff2') format('woff2'); font-weight: 900; }
+@font-face { font-family: 'Caveat'; src: url('./fonts/caveat-latin-600-normal.woff2') format('woff2'); font-weight: 600; }
+@font-face { font-family: 'Caveat'; src: url('./fonts/caveat-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'JB Mono'; src: url('./fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2'); font-weight: 500; }
+html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+#bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+#ui { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+#ui > * { position: absolute; }
+.emo { font-family: 'Noto Color Emoji', sans-serif; }
+/* TikTok-style hook: black text on a white rounded box */
+.hook { left: 540px; top: 206px; transform-origin: 50% 0; width: 980px; text-align: center; z-index: 40;
+  font: 900 64px/1.18 'Nunito', 'Noto Color Emoji', sans-serif; color: #111; }
+.hook div { display: table; margin: 0 auto; background: #fff; border-radius: 16px; padding: 6px 24px 10px; }
+.badge { z-index: 40; left: 44px; top: 178px; padding: 8px 22px 9px; border-radius: 999px; background: #fff; color: #111;
+  font: 900 40px/1 'Nunito', sans-serif; letter-spacing: 1px; box-shadow: 0 4px 0 rgba(0,0,0,0.25); }
+/* captions: white with a thick black outline */
+.cap { z-index: 30; left: 500px; width: 840px; margin-left: -420px; text-align: center; transform-origin: 50% 50%; text-wrap: balance;
+  font: 900 62px/1.14 'Nunito', 'Noto Color Emoji', sans-serif; color: #fff;
+  -webkit-text-stroke: 14px #0d0d0f; paint-order: stroke fill; text-shadow: 0 6px 0 rgba(0,0,0,0.35); }
+.cap.yellow { color: #ffe14a; }
+.cap.small { font-size: 52px; }
+/* handwriting */
+.note { z-index: 20; font: 700 70px/0.95 'Caveat', cursive; color: #ff2d55; white-space: pre; transform-origin: 0 50%;
+  -webkit-text-stroke: 10px #fff; paint-order: stroke fill; }
+.note.dark { color: #ff2d55; -webkit-text-stroke: 10px #111; }
+svg.ink { z-index: 20; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+/* notebook page */
+.paper { z-index: 6; left: 90px; top: 400px; width: 900px; height: 1150px; border-radius: 6px; transform-origin: 50% 50%;
+  background: #fbf7ec repeating-linear-gradient(to bottom, transparent 0 47px, #cddbef 47px 49px);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 2px 0 rgba(0,0,0,0.1); overflow: hidden; }
+.paper::before { content: ''; position: absolute; left: 104px; top: 0; bottom: 0; width: 3px; background: #f0a7a7; }
+.paper .hole { position: absolute; left: 34px; width: 30px; height: 30px; border-radius: 50%; background: #1b1b1f; box-shadow: inset 0 3px 4px rgba(0,0,0,0.6); }
+.paper svg { position: absolute; left: 0; top: 0; }
+.desk { z-index: 5; left: 0; top: 0; width: 1080px; height: 1920px; background: radial-gradient(ellipse at 50% 40%, #8a6a4c, #4d3624 70%, #2e2017); }
+/* code editor */
+.code { z-index: 10; left: 70px; width: 940px; border-radius: 18px; background: #1d1f27; box-shadow: 0 30px 70px rgba(0,0,0,0.55); overflow: hidden;
+  font: 500 31px/1.5 'JB Mono', monospace; color: #c8d0e0; transform-origin: 50% 50%; }
+.code .bar { height: 58px; background: #15161d; display: flex; align-items: center; padding-left: 22px; gap: 12px; }
+.code .dot { width: 18px; height: 18px; border-radius: 50%; }
+.code .tab { margin-left: 26px; padding: 8px 20px; background: #1d1f27; border-radius: 10px 10px 0 0; align-self: flex-end; font-size: 26px; color: #e6e9f2; }
+.code pre { margin: 0; padding: 20px 26px 26px 0; font: inherit; white-space: pre; tab-size: 2; }
+.code .ln { display: inline-block; width: 66px; text-align: right; padding-right: 22px; color: #4b5266; }
+.code .k { color: #ff7ab8; } .code .f { color: #82aaff; } .code .s { color: #c3e88d; } .code .n { color: #f78c6c; } .code .c { color: #69708a; font-style: italic; } .code .p { color: #89ddff; }
+.code .cur { display: inline-block; width: 16px; height: 34px; background: #ffcc66; vertical-align: -6px; }
+/* debug overlays */
+.stats { z-index: 12; left: 34px; top: 300px; width: 270px; padding: 8px 10px 10px; background: rgba(0,0,34,0.9); color: #0ff; font: 500 24px/1.2 'JB Mono', monospace; border-radius: 4px; }
+.stats .gr { margin-top: 6px; height: 54px; background: #0ff3; display: flex; align-items: flex-end; gap: 2px; overflow: hidden; }
+.stats .gr i { flex: 1; background: #0ff; }
+.hud { z-index: 12; left: 34px; padding: 10px 16px; background: rgba(12,14,20,0.82); color: #e9f1ff; font: 500 30px/1.35 'JB Mono', monospace; border-radius: 10px; white-space: pre; }
+.clock { z-index: 25; left: 540px; top: 470px; transform: translateX(-50%); padding: 14px 34px; background: #fff; color: #111; border-radius: 22px;
+  font: 900 92px/1 'Nunito', sans-serif; box-shadow: 0 8px 0 rgba(0,0,0,0.3); }
+.panel { z-index: 12; right: 30px; top: 300px; width: 420px; background: #1f1f24; color: #ebebeb; font: 500 24px/1 'JB Mono', monospace; border-radius: 6px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+.panel .ttl { padding: 12px 14px; background: #111; color: #aaa; }
+.panel .row { display: flex; align-items: center; padding: 10px 14px; border-top: 1px solid #2c2c33; gap: 12px; }
+.panel .row b { width: 150px; font-weight: 500; color: #bbb; }
+.panel .row .sl { flex: 1; height: 26px; background: #303038; position: relative; }
+.panel .row .sl i { position: absolute; left: 0; top: 0; bottom: 0; background: #2cc9ff; }
+.panel .row .v { width: 70px; text-align: right; color: #2cc9ff; }
+.panel .row .dd { flex: 1; padding: 6px 10px; background: #303038; color: #fff; }
+.tag { z-index: 30; padding: 10px 22px; border-radius: 14px; font: 900 44px/1 'Nunito', sans-serif; color: #fff; background: #111c; transform-origin: 0 50%; }
+.tag.red { background: #ff2d55; } .tag.green { background: #22b35e; } .tag.white { background: #fff; color: #111; }
+.divider { top: 0; width: 8px; margin-left: -4px; height: 1920px; background: #fff; box-shadow: 0 0 18px rgba(0,0,0,0.5); }
+.vxui { z-index: 8; left: 0; top: 0; width: 1080px; height: 1920px; }
+.vxui .top { position: absolute; left: 0; right: 0; top: 0; height: 120px; background: #1c1e23; border-bottom: 2px solid #33363e; color: #c9ced8; font: 500 30px/120px 'JB Mono', monospace; padding-left: 36px; }
+.vxui .pal { position: absolute; left: 24px; top: 420px; padding: 12px; background: #1c1e23ee; border-radius: 12px; display: grid; grid-template-columns: 52px 52px; gap: 10px; }
+.vxui .pal i { width: 52px; height: 52px; border-radius: 6px; display: block; }
+.vxui .pal i.on { outline: 4px solid #fff; outline-offset: 2px; }
+.vxui .bot { position: absolute; left: 0; right: 0; bottom: 0; height: 110px; background: #1c1e23; border-top: 2px solid #33363e; color: #9aa3b3; font: 500 30px/110px 'JB Mono', monospace; padding-left: 36px; }
+.end { z-index: 50; left: 0; top: 0; width: 1080px; height: 1920px; }
+.end .bx { position: absolute; left: 540px; top: 760px; transform: translateX(-50%); text-align: center; width: 900px; }
+.end .t1 { font: 900 84px/1.12 'Nunito', 'Noto Color Emoji', sans-serif; color: #fff; -webkit-text-stroke: 16px #0d0d0f; paint-order: stroke fill; }
+.end .t2 { margin-top: 26px; font: 800 48px/1.2 'Nunito', 'Noto Color Emoji', sans-serif; color: #fff; -webkit-text-stroke: 10px #0d0d0f; paint-order: stroke fill; }
+.flash { z-index: 60; left: 0; top: 0; width: 1080px; height: 1920px; background: #fff; }
+.sticker { z-index: 32; font: 400 120px/1 'Noto Color Emoji', sans-serif; transform-origin: 50% 50%; }
+.cursor { width: 46px; height: 64px; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1080" height="1920"></canvas>
+<div id="ui"></div>
+<script type="module" src="./director.js"></script>
+</body>
+</html>

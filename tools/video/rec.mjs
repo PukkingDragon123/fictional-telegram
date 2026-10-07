@@ -34,7 +34,7 @@ export async function recorder({ w = 1280, h = 720, fps = 30, quality = 92 } = {
       page.on('pageerror', (e) => console.log('[pageerror]', e.message));
       page.on('console', (m) => { if (m.type() === 'error') console.log('[console]', m.text().slice(0, 300)); });
       page.__cdp = await ctx.newCDPSession(page);
-      await page.goto(url, { waitUntil: 'load' });
+      await page.goto(url, { waitUntil: 'load', timeout: 240000 });
       return page;
     },
     // advance virtual time by ms in steps of `dt` (frames run, nothing captured)
