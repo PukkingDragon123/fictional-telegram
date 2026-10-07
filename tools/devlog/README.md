@@ -34,7 +34,8 @@ story as a 10-day devlog: from a greybox prototype (shapes only) to the real gam
   a stats box / debug HUD / tweak panel, stickers, end card). `doodles.js` has the notebook
   pages, `snippets.js` the on-screen code, `days.js` the ten timelines.
 - `render.mjs` — `node tools/devlog/render.mjs day01 [day02 …]`: frames under virtual time,
-  sound mix with the game's synth (`tools/video/mix.html`), two-pass H.264 into `promo/devlog/`.
+  sound mix with the game's synth (`tools/video/mix.html`), two-pass H.264 into `promo/devlog/`,
+  audio normalised to -14 LUFS (two-pass linear loudnorm).
 - `peek.mjs` / `dpeek.mjs` — stills from a sandbox shot / from a day, for checking framing.
 
 Needs the game's dev server: `npx vite --port 5281 --host 127.0.0.1 --strictPort`.

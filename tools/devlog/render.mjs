@@ -2,10 +2,10 @@
 //   node tools/devlog/render.mjs day01 [day02 ...] [--frames-only] [--audio-only] [--every N] [--from N --to M]
 // 1. director.html?day=<day> under virtual time, one screenshot per frame -> tools/devlog/out/<day>/
 // 2. the sound log (director cues + the clips' own sounds) -> tools/video/mix.html -> out/<day>.wav
-// 3. ffmpeg (two-pass H.264 + AAC) -> promo/devlog/<file>.mp4
+// 3. ffmpeg (two-pass H.264 + AAC, audio normalised to -14 LUFS) -> promo/devlog/<file>.mp4
 import fs from 'fs';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { recorder } from '../video/rec.mjs';
 
@@ -91,7 +91,15 @@ for (const day of days) {
     '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-b:v', kbps + 'k', '-maxrate', Math.round(kbps * 1.6) + 'k', '-bufsize', kbps * 2 + 'k',
     '-pass', String(pass), '-passlogfile', logf, '-pix_fmt', 'yuv420p', ...out], { stdio: 'inherit' });
   enc(1, ['-an', '-f', 'mp4', '/dev/null']);
-  enc(2, ['-movflags', '+faststart', '-c:a', 'aac', '-b:a', '160k', '-shortest', dest], ['-i', wav]);
-  console.log('wrote', dest, (fs.statSync(dest).size / 1048576).toFixed(1) + ' MiB');
+  const raw = path.join(HERE, 'out', `${day}-raw.mp4`);
+  enc(2, ['-movflags', '+faststart', '-c:a', 'aac', '-b:a', '160k', '-shortest', raw], ['-i', wav]);
+  // the series at one loudness (-14 LUFS, what TikTok / Reels play at): two-pass linear loudnorm
+  const LN = 'loudnorm=I=-14:TP=-1.5:LRA=11';
+  const m = spawnSync('ffmpeg', ['-hide_banner', '-i', raw, '-af', `${LN}:print_format=json`, '-f', 'null', '-'], { encoding: 'utf8' }).stderr;
+  const L = JSON.parse(m.slice(m.lastIndexOf('{'), m.lastIndexOf('}') + 1));
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', raw, '-c:v', 'copy',
+    '-af', `${LN}:measured_I=${L.input_i}:measured_TP=${L.input_tp}:measured_LRA=${L.input_lra}:measured_thresh=${L.input_thresh}:offset=${L.target_offset}:linear=true`,
+    '-ar', '48000', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', dest], { stdio: 'inherit' });
+  console.log('wrote', dest, (fs.statSync(dest).size / 1048576).toFixed(1) + ' MiB', `(${L.input_i} -> -14 LUFS)`);
 }
 await R.close();
