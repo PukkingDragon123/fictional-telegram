@@ -2,6 +2,7 @@
 
   HOME=<dir with an espeak-ng-data link> python -I tools/devlog/vo.py <kokoro.onnx> <voices.npz> day01 [day02 ...]
   HOME=<...> python -I tools/devlog/vo.py --own day01 my-day01.wav [day02 my-day02.wav ...]
+  HOME=<...> python -I tools/devlog/vo.py --retime day01 [day02 ...]   (word timings again, same audio)
 
 Every line is spoken by Kokoro-82M (kokoro-onnx, one sentence at a time so it keeps its natural
 intonation), trimmed, and laid end to end with the gap the script asks for. Word timings for the
@@ -29,9 +30,12 @@ from phonemizer.backend.espeak.wrapper import EspeakWrapper
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = json.load(open(os.path.join(HERE, 'vo', 'script.json')))
 OWN = sys.argv[1] == '--own'
+RETIME = sys.argv[1] == '--retime'
 if OWN:
     pairs = sys.argv[2:]
     days = pairs[0::2]
+elif RETIME:
+    days = sys.argv[2:]
 else:
     model, voices, *days = sys.argv[1:]
     kok = Kokoro(model, voices)
@@ -100,15 +104,22 @@ def word_times(text, runs, dur):
     gaps = [(runs[k][1], runs[k + 1][0]) for k in range(len(runs) - 1)]
     bounds = []
     acc = 0
-    for p in phrases[:-1]:
+    prev = t0
+    for n, p in enumerate(phrases[:-1]):
         acc += sum(w_ph[i] for i in p)
         exp = t0 + (t1 - t0) * acc / total
         best = None
         for g in gaps:
+            if g[0] < prev + 0.12:  # in order: after the previous phrase, which keeps some length
+                continue
             c = (g[0] + g[1]) / 2
             if abs(c - exp) < 0.45 and (best is None or abs(c - exp) < abs((best[0] + best[1]) / 2 - exp)):
                 best = g
-        bounds.append(best if best else (exp, exp))
+        if best is None:
+            e = min(max(exp, prev + 0.12), t1 - 0.12 * (len(phrases) - 1 - n))
+            best = (e, e)
+        bounds.append(best)
+        prev = best[1]
     out = []
     starts = [t0] + [b[1] for b in bounds]
     ends = [b[0] for b in bounds] + [t1]
@@ -176,9 +187,29 @@ def own_day(day, path):
     print(day, 'length', round(len(audio) / sr, 2), 's', flush=True)
 
 
+def retime_day(day):
+    """Word timings again from the day's existing audio and line spans (the audio is untouched)."""
+    path = os.path.join(HERE, 'vo', f'{day}.json')
+    m = json.load(open(path))
+    audio, sr = sf.read(os.path.join(HERE, 'vo', f'{day}.wav'), dtype='float32', always_2d=True)
+    audio = audio.mean(axis=1)
+    for lid in m['order']:
+        l = m['lines'][lid]
+        clip = audio[int(round(l['t0'] * sr)): int(round(l['t1'] * sr))]
+        runs = voiced_runs(clip, sr=sr) if m.get('voice') != 'own' else voiced_runs(clip / (float(np.abs(audio).max()) or 1.0), thr_k=0.08, min_gap=0.12, sr=sr)
+        words = word_times(l['text'], runs, len(clip) / sr)
+        l['words'] = [[w, round(l['t0'] + w0, 3), round(l['t0'] + w1, 3)] for w, w0, w1 in words]
+    json.dump(m, open(path, 'w'), indent=1)
+    print(day, 'retimed', flush=True)
+
+
 if OWN:
     for day, path in zip(pairs[0::2], pairs[1::2]):
         own_day(day, path)
+    sys.exit(0)
+if RETIME:
+    for day in days:
+        retime_day(day)
     sys.exit(0)
 
 for day in days:

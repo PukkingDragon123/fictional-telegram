@@ -282,15 +282,4 @@ DEFS.gb_hatch = GAME({
       if (i === 64 || i === 82 || i === 100 || i === 250 || i === 280) window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space' }));`,
   }),
 });
-// ...and the bears eat them: the 5 PM rush on a bare pond stocked mostly with bananas, the camera
-// on a bear with a banana in its paws
-const FEAST_BANANAS = FEAST
-  .replace("const want = ['bar', 'umbrellatable', 'bbq', 'neonsign', 'jukebox', 'tikitorch', 'hangout', 'roundtable', 'beercooler', 'planterbox', 'tikitorch', 'umbrellatable', 'picnictable', 'menuboard', 'hammock', 'tikitorch'];", 'const want = [];')
-  .replace("const sp = ['bluegill', 'perch', 'bass', 'brook', 'rainbow', 'sockeye', 'pike', 'char', 'aurora', 'tiger', 'mapleKoi'];", "const sp = ['banana', 'banana', 'banana', 'bluegill', 'banana', 'banana', 'perch', 'banana'];");
-DEFS.gb_eat = GAME({
-  frames: 240,
-  setup: `() => { ${FEAST_BANANAS} }`,
-  hook: CAM([{ f: 0, x: 0, z: 0, yaw: 0.9, pitch: 38, wupp: 0.016 }, { f: 240, x: 0, z: 0, yaw: 1.0, pitch: 38, wupp: 0.015 }], {
-    extra: HERO("(b) => b.heldFish && b.heldFish.sp && b.heldFish.sp.id === 'banana'"),
-  }),
-});
+
