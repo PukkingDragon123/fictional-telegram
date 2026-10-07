@@ -145,6 +145,11 @@ const debugLabel = (text, px = 30) => sprite(textCanvas(text, { font: "500 34px 
 const FX = [];
 function fxUpdate(dt) { for (let i = FX.length - 1; i >= 0; i--) if (!FX[i](dt)) FX.splice(i, 1); }
 const dropGeo = new THREE.SphereGeometry(1, 8, 6);
+// v2 (the pixel-art square prototype): everything is boxes, and the pop-ups use the game's font
+let SQUARES = false;
+const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+const dropOf = () => (SQUARES ? cubeGeo : dropGeo);
+const POP_FONT = () => (SQUARES ? "64px 'TBME Body'" : "900 64px 'Nunito'");
 const ringGeo = new THREE.RingGeometry(0.8, 1, 40).rotateX(-Math.PI / 2);
 let WATER_Y = 0.03;
 function splash(x, z, { n = 12, power = 1, sound = true } = {}) {
@@ -164,7 +169,7 @@ function splash(x, z, { n = 12, power = 1, sound = true } = {}) {
   });
   for (let i = 0; i < n; i++) {
     const a = rr(0, TAU), sp = rr(0.8, 2.2) * power, r = rr(0.06, 0.13);
-    const d = new THREE.Mesh(dropGeo, mat('#eef6ff', { roughness: 0.3 }));
+    const d = new THREE.Mesh(dropOf(), mat('#eef6ff', { roughness: 0.3 }));
     d.scale.setScalar(r);
     d.position.set(x, WATER_Y + 0.1, z);
     world.add(d);
@@ -180,7 +185,7 @@ function splash(x, z, { n = 12, power = 1, sound = true } = {}) {
 function poof(pos, { n = 16, size = 1 } = {}) {
   for (let i = 0; i < n; i++) {
     const m = new THREE.MeshStandardMaterial({ color: i % 3 ? 0xffffff : 0xdfe3ea, roughness: 1, transparent: true, opacity: 1, depthWrite: false });
-    const d = new THREE.Mesh(dropGeo, m);
+    const d = new THREE.Mesh(dropOf(), m);
     const r = rr(0.16, 0.32) * size;
     d.position.copy(pos).add(V3(rr(-0.2, 0.2), rr(0, 0.9), rr(-0.2, 0.2)).multiplyScalar(size));
     world.add(d);
@@ -198,7 +203,7 @@ function poof(pos, { n = 16, size = 1 } = {}) {
   }
 }
 // a word or number that pops up over something and floats away
-function popup(text, pos, { color = '#ffe14a', stroke = '#2a2216', size = 0.62, life = 1.1, rise = 0.8, font = "900 64px 'Nunito'" } = {}) {
+function popup(text, pos, { color = '#ffe14a', stroke = '#2a2216', size = 0.62, life = 1.1, rise = 0.8, font = POP_FONT() } = {}) {
   const sp = sprite(textCanvas(text, { font, color, stroke: [stroke, 12], pad: 10 }), { world: size });
   sp.position.copy(pos);
   world.add(sp);
@@ -358,6 +363,17 @@ function pillBear(color = '#8b5a3c') {
   tie.rotation.x = -0.1;
   return g;
 }
+// the square prototype's actors: a brown box is a bear, an orange box is the fox
+function cubeBear(color = '#8b5a3c') {
+  const g = new THREE.Group();
+  mesh(cubeGeo, mat(color), g, 0, 0.62, 0).scale.set(0.95, 1.24, 0.8);
+  return g;
+}
+function cubeFox() {
+  const g = new THREE.Group();
+  mesh(cubeGeo, mat('#e8833a'), g, 0, 0.55, 0).scale.set(0.8, 1.1, 0.7);
+  return g;
+}
 function boxFox() {
   const g = new THREE.Group(), o = '#e8833a';
   box(0.6, 0.95, 0.45, o, g, 0, 0.48, 0);
@@ -400,6 +416,15 @@ class Fish {
     this.alive = true; this.dead = 0; this.claimed = null;
     this.wob = rr(0, TAU);
     const g = (this.mesh = new THREE.Group());
+    if (SQUARES) {
+      const m = mat(color || ['#f39a33', '#f7c548', '#ec6a45'][(rand() * 3) | 0], { roughness: 0.6 });
+      mesh(cubeGeo, m, g).scale.set(0.42, 0.14, 0.42);
+      this.tail = new THREE.Group();
+      g.add(this.tail);
+      world.add(g);
+      this.place(0);
+      return;
+    }
     const m = mat(color || FISH_COLORS[(rand() * FISH_COLORS.length) | 0], { roughness: 0.55 });
     const b = mesh(fishGeo, m, g);
     b.scale.set(0.9, 0.76, 1.18);
@@ -513,6 +538,7 @@ class Bear {
     this.eaten = 0; this.target = null; this.sq = 0; this.sqv = 0;
     this.inWater = false;
     if (this.kind === 'pill') { this.body = pillBear(o.color); this.root.add(this.body); }
+    else if (this.kind === 'cube') { this.body = cubeBear(o.color); this.root.add(this.body); }
     else { this.rig = makeBear(o.type || 'office', o.seed ?? rr(1, 9)); this.root.add(this.rig.root); }
     if (o.label) { this.label = debugLabel(o.label, 28); this.label.position.y = 1.85; this.root.add(this.label); }
     this.root.visible = this.state !== 'wait';
@@ -589,7 +615,7 @@ class Bear {
     }
     this.place(dt);
   }
-  sink() { return this.kind === 'pill' ? -0.62 : WATER_Y - 0.95 * (BEAR_TYPES[this.o.type || 'office'].scale || 1); }
+  sink() { return this.kind === 'pill' ? -0.62 : this.kind === 'cube' ? -0.6 : WATER_Y - 0.95 * (BEAR_TYPES[this.o.type || 'office'].scale || 1); }
   arrive() {
     if (this.mode === 'hunt' && inPond(this.pos.x, this.pos.z, -0.25)) {
       const to = V3(POND.x - this.pos.x, 0, POND.z + 0.6 - this.pos.z).normalize();
@@ -619,7 +645,7 @@ class Bear {
     sfx('coin', { volume: 0.3, pitch: rr(1, 1.2) });
     popup('+5', this.head().add(V3(0, 0.15, 0)), { size: 0.6 * popScale });
   }
-  head() { return V3(this.pos.x, this.y + (this.kind === 'pill' ? 1.6 : 2.0), this.pos.z); }
+  head() { return V3(this.pos.x, this.y + (this.kind === 'pill' ? 1.6 : this.kind === 'cube' ? 1.45 : 2.0), this.pos.z); }
   place(dt) {
     // squash spring
     this.sqv += (-this.sq * 160 - this.sqv * 11) * dt;
@@ -627,7 +653,7 @@ class Bear {
     const s = this.state;
     this.root.position.set(this.pos.x, this.y, this.pos.z);
     this.root.rotation.y = this.yaw;
-    if (this.kind === 'pill') {
+    if (this.kind === 'pill' || this.kind === 'cube') {
       const b = this.body;
       if (s === 'walk') {
         this.phase += dt * this.speed * 5.2;
@@ -1044,13 +1070,419 @@ function day6(variant) {
 }
 for (const v of ['plain', 'low', 'outline', 'pixel']) SHOTS['d6_' + v] = () => day6(v);
 
+// ------------------------------------------------------------------ v2: the square prototype, in pixel art
+// The same little world, but every placeholder is a box (ground and pond are 1x1 tiles) and it
+// all goes through the game's own PixelRenderer + CameraRig, like the real game.
+function checkerTex(a, b) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 2;
+  const g = c.getContext('2d');
+  g.fillStyle = a; g.fillRect(0, 0, 2, 2);
+  g.fillStyle = b; g.fillRect(1, 0, 1, 1); g.fillRect(0, 1, 1, 1);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function tiles(cells, h, colorA, colorB, y) {
+  const m = new THREE.InstancedMesh(cubeGeo, new THREE.MeshStandardMaterial({ roughness: 0.85 }), cells.length);
+  const M = new THREE.Matrix4(), c = new THREE.Color();
+  cells.forEach(([x, z], i) => {
+    M.makeScale(1, h, 1).setPosition(x + 0.5, y - h / 2, z + 0.5);
+    m.setMatrixAt(i, M);
+    m.setColorAt(i, c.set((x + z) & 1 ? colorA : colorB));
+  });
+  m.receiveShadow = true;
+  world.add(m);
+  return m;
+}
+function squareWorld({ labels = false } = {}) {
+  SQUARES = true;
+  scene.background = new THREE.Color('#6f8f5c');
+  scene.fog = null;
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(96, 96).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: checkerTex('#93b26f', '#89a967'), roughness: 0.95 }));
+  ground.material.map.repeat.set(48, 48);
+  ground.receiveShadow = true;
+  world.add(ground);
+  // the pond and its bank, tile by tile
+  const water = [], bank = [];
+  for (let x = -12; x < 12; x++) for (let z = -6; z < 12; z++) {
+    const cx = x + 0.5, cz = z + 0.5;
+    if (inPond(cx, cz)) water.push([x, z]);
+    else if (pondR(cx, cz) < 1.16) bank.push([x, z]);
+  }
+  tiles(bank, 0.06, '#d8c38a', '#d0bb82', 0.015);
+  tiles(water, 0.06, '#3f86d4', '#3a7fcc', WATER_Y);
+  // the path: door -> pond
+  const path = [];
+  for (let z = OFFICE_Z + 3; z < pondEdge(0) - 0.4; z++) for (const x of [-1, 0]) path.push([x, z]);
+  tiles(path, 0.04, '#c9ae7a', '#c2a774', 0.012);
+  // the office: a big box, a door box, window boxes
+  const off = new THREE.Group();
+  off.position.set(0, 0, OFFICE_Z);
+  world.add(off);
+  box(11, 4.8, 5, '#a9adb5', off, 0, 2.4, 0);
+  for (let r = 0; r < 2; r++) for (let c = -2; c <= 2; c++) if (!(r === 0 && c === 0)) box(1.2, 0.9, 0.1, '#7f97b0', off, c * 2.1, 1.75 + r * 1.55, 2.53);
+  box(1.8, 2.5, 0.05, '#1b1d22', off, 0, 1.25, 2.51);
+  door = box(1.8, 2.5, 0.1, '#5b616b', off, 0, 1.25, 2.55);
+  // trees (a green box on a brown box) and rocks (grey boxes)
+  const placed = [];
+  for (let k = 0; k < 500 && placed.length < 30; k++) {
+    const x = Math.round(rr(-16, 16)) + 0.5, z = Math.round(rr(-26, 14)) + 0.5;
+    if (pondR(x, z) < 1.5) continue;
+    if (Math.abs(x) < 2.6 && z > -15 && z < -1) continue;
+    if (Math.abs(x) < 7.2 && z > OFFICE_Z - 3.5 && z < OFFICE_Z + 3.4) continue;
+    if (placed.some((t) => Math.hypot(t[0] - x, t[1] - z) < 2.4)) continue;
+    placed.push([x, z]);
+    const s2 = [1, 1, 1.4][(rand() * 3) | 0];
+    box(0.42, 0.8, 0.42, '#7a5636', world, x, 0.4, z);
+    box(1.5 * s2, 1.5 * s2, 1.5 * s2, ['#4f8f45', '#5a9a4c', '#468540'][(rand() * 3) | 0], world, x, 0.8 + 0.75 * s2, z);
+  }
+  for (let i = 0; i < 8; i++) {
+    const a = rr(0, TAU), r = 1.2;
+    const x = Math.round(POND.x + Math.cos(a) * POND.rx * r) + 0.5, z = Math.round(POND.z - Math.sin(a) * POND.rz * r) + 0.5;
+    if (Math.abs(x) < 2.6 && z < POND.z) continue;
+    const k = rr(0.45, 0.7);
+    box(k, k * 0.8, k, '#8f949b', world, x, k * 0.4, z);
+  }
+  void labels;
+}
+// a heart made of pixels (the fish "falling in love")
+function heartSprite() {
+  const rows = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
+  const c = document.createElement('canvas');
+  c.width = 9; c.height = 8;
+  const g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') { g.fillStyle = '#ff5d8f'; g.fillRect(x + 1, y + 1, 1, 1); } }));
+  return c;
+}
+function pixelPop(canvas, pos, { size = 0.6, life = 1.1, rise = 0.8 } = {}) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.magFilter = t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }));
+  sp.scale.set(size * (canvas.width / canvas.height), size, 1);
+  sp.center.set(0.5, 0);
+  sp.renderOrder = 60;
+  sp.position.copy(pos);
+  world.add(sp);
+  const b = sp.scale.clone(), y0 = pos.y;
+  let t0 = 0;
+  FX.push((dt) => {
+    t0 += dt;
+    const k = back(t0 / 0.22);
+    sp.scale.set(b.x * k, b.y * k, 1);
+    sp.position.y = y0 + rise * (1 - Math.exp(-t0 * 2.2));
+    sp.material.opacity = 1 - clamp01((t0 - life + 0.3) / 0.3);
+    if (t0 > life) { sp.removeFromParent(); return false; }
+    return true;
+  });
+}
+// the game's camera: { t, x, z, y, yaw, pitch (deg), wupp } keys (eased), or a function of time
+function rigKeysAt(keys, t) {
+  if (t <= keys[0].t) return keys[0];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const a = keys[i], b = keys[i + 1];
+    if (t < b.t) {
+      const u = b.cut ? 0 : ease((t - a.t) / (b.t - a.t));
+      const o = {};
+      for (const k of ['x', 'y', 'z', 'yaw', 'pitch', 'wupp']) o[k] = lerp(a[k] ?? 0, b[k] ?? 0, u);
+      return o;
+    }
+  }
+  return keys[keys.length - 1];
+}
+function rigShot(S) {
+  rig = new CameraRig();
+  rig.freeBounds = true;
+  rig.follow = null;
+  rig.minWupp = 0.0005;
+  rig.maxWupp = 1;
+  S.pixel = true;
+  S.rigAt = (t, dt) => (typeof S.rigCam === 'function' ? S.rigCam(t, dt) : rigKeysAt(S.rigCam, t));
+  return S;
+}
+function applyRig(k) {
+  rig.target.set(k.x, k.y ?? 0, k.z);
+  rig.goal.copy(rig.target);
+  rig.yaw = rig.yawGoal = k.yaw ?? 0;
+  rig.pitch = THREE.MathUtils.degToRad(k.pitch ?? 44);
+  rig.pitchGoal = null;
+  rig.wupp = rig.wuppGoal = k.wupp ?? 0.03;
+}
+const squareFox = { pos: V3(1.6, 0, -2.75), obj: null };
+function squareFoxAt() {
+  SQUARES = true;
+  squareFox.obj = cubeFox();
+  squareFox.obj.position.copy(squareFox.pos);
+  world.add(squareFox.obj);
+  return squareFox.obj;
+}
+const sqAnchors = (extra = {}) => ({ fox: () => squareFox.pos.clone().add(V3(0, 1.3, 0)), office: () => V3(0, 5.2, OFFICE_Z), pond: () => V3(POND.x, 0, POND.z), door: () => DOOR.clone().add(V3(0, 1.3, 0)), ...extra });
+
+// day 1: one brown box walks to the pond, through the fox, and onto the water
+function q1(rigCam) {
+  squareWorld();
+  squareFoxAt();
+  const b = new Bear({ kind: 'cube', start: 0.3, speed: 1.95, mode: 'through', path: [V3(-0.5, 0, DOOR.z + 0.6), V3(0.1, 0, -9.4), V3(squareFox.pos.x - 0.05, 0, squareFox.pos.z - 0.2), V3(squareFox.pos.x + 0.4, 0, 3.2), V3(squareFox.pos.x + 0.6, 0, 7.8)] });
+  return rigShot({ rigCam, update(t, dt) { b.update(dt); }, anchors: sqAnchors({ bear: () => b.head() }), bear: b });
+}
+SHOTS.q1_wide = () => {
+  const S = q1([{ t: 0, x: 0, z: -6, yaw: -0.25, pitch: 44, wupp: 0.05 }, { t: 7, x: 0.5, z: -4.5, yaw: 0.2, pitch: 44, wupp: 0.044 }]);
+  Object.assign(S.bear, { state: 'idle', path: [] });
+  S.bear.pos.set(1.0, 0, -8.2);
+  S.bear.yaw = 0.25;
+  S.bear.root.visible = true;
+  return S;
+};
+SHOTS.q1_walk = () => {
+  const S = q1(null);
+  let cur = null;
+  S.rigCam = (t, dt) => {
+    const p = S.bear.root.visible ? S.bear.pos.clone() : DOOR.clone();
+    if (!cur) cur = p.clone(); else cur.lerp(p, 1 - Math.exp(-2.5 * dt));
+    return { x: cur.x + 0.3, z: cur.z + 1.6, yaw: 0.15, pitch: 40, wupp: 0.022 };
+  };
+  return S;
+};
+SHOTS.q1_bug = () => q1([{ t: 4.6, x: 1.6, z: -1.6, yaw: 0.35, pitch: 38, wupp: 0.016 }, { t: 7.2, x: 1.6, z: -1.6, yaw: 0.35, pitch: 38, wupp: 0.016 }, { t: 10.6, x: 2.1, z: 2.6, yaw: 0.35, pitch: 38, wupp: 0.019 }]);
+
+// day 2: square fish
+function q2(mode) {
+  squareWorld();
+  fishBoxX = 2.9;
+  spawnFish(mode === 'fixed' ? 14 : 12);
+  breed = mode === 'clump' ? 0 : 1;
+  for (const f of fishes) f.love = rr(0.5, mode === 'fixed' ? 2.2 : 3.5);
+  clumpAt = new THREE.Vector2(POND.x + 2.2, pondEdge(2.2) + 0.55);
+  return rigShot({
+    rigCam: [{ t: 0, x: 0, z: 2.3, yaw: 0, pitch: 50, wupp: 0.02 }, { t: 7, x: 0.2, z: 2.2, yaw: 0, pitch: 50, wupp: 0.018 }],
+    update(t, dt) {
+      if (mode === 'clump') fishMode = t > 0.5 ? 'clump' : 'wander';
+      updateFish(dt, t);
+    },
+    anchors: { clump: () => V3(clumpAt.x, 0.2, clumpAt.y), pond: () => V3(POND.x, 0, POND.z) },
+    hud: () => ({ fish: fishAlive() }),
+  });
+}
+SHOTS.q2_fish = () => q2('wander');
+SHOTS.q2_bug = () => q2('clump');
+SHOTS.q2_fixed = () => q2('fixed');
+
+// day 3: 5 PM, boxes everywhere
+function q3(rigCam) {
+  squareWorld();
+  spawnFish(14);
+  breed = 0;
+  const list = [];
+  for (let i = 0; i < 12; i++) {
+    const order = [5, 7, 3, 9, 1, 6, 10, 4, 0, 8, 2, 11][i];
+    list.push(new Bear({ kind: 'cube', start: 1.6 + i * 0.34, speed: 3.6, path: commute(order, 12) }));
+  }
+  let rang = false;
+  return rigShot({
+    rigCam,
+    update(t, dt) {
+      if (t >= 1.2 && !rang) { rang = true; sfx('bell', { volume: 0.5 }); }
+      setDoor((t - 1.25) / 0.5);
+      for (const b of list) b.update(dt);
+      updateFish(dt, t);
+    },
+    anchors: { door: () => DOOR.clone().add(V3(0, 1.3, 0)), pond: () => V3(POND.x, 0, POND.z) },
+    hud: () => {
+      const m = T < 1.2 ? 16 * 60 + 59 : 17 * 60 + Math.floor((T - 1.2) / 1.6);
+      return { coins, fish: fishAlive(), clock: `${((Math.floor(m / 60) + 11) % 12) + 1}:${String(m % 60).padStart(2, '0')} PM` };
+    },
+  });
+}
+SHOTS.q3_door = () => q3([{ t: 0, x: 0, z: -11.5, yaw: 0, pitch: 30, wupp: 0.02 }, { t: 6, x: 0, z: -10.5, yaw: 0, pitch: 32, wupp: 0.019 }]);
+SHOTS.q3_rush = () => (popScale = 1.6) && q3([{ t: 2.4, x: 0, z: -5.5, yaw: 0, pitch: 46, wupp: 0.05 }, { t: 12, x: 0, z: -2.5, yaw: 0, pitch: 46, wupp: 0.04 }]);
+SHOTS.q3_empty = () => q3([{ t: 0, x: 0, z: 2.3, yaw: 0, pitch: 46, wupp: 0.026 }, { t: 24, x: 0, z: 2.3, yaw: 0, pitch: 46, wupp: 0.022 }]);
+
+// day 4: Reynard, built from voxels, through the pixel renderer
+function editorPix() {
+  const E = editorStage();
+  SQUARES = true;
+  return E;
+}
+SHOTS.q4_build = () => {
+  const E = editorPix();
+  const f = makeFox();
+  for (let k = 0; k < 12; k++) f.update(1 / 30);
+  E.top.add(f.root);
+  const cloud = voxelCloud(f, E.top, 5.8);
+  f.root.visible = false;
+  let swapped = false;
+  return rigShot({
+    rigCam: [{ t: 0, x: 0, y: 1.05, z: 0, yaw: 0, pitch: 16, wupp: 0.0085 }, { t: 9, x: 0, y: 1.08, z: 0, yaw: 0, pitch: 14, wupp: 0.0076 }],
+    update(t, dt) {
+      E.table.rotation.y = -TAU * (1 - ease((t - 0.2) / 6.6)) + (t > 6.8 ? Math.sin((t - 6.8) * 0.8) * 0.12 : 0);
+      cloud.build((t - 0.4) / 5.8);
+      if (t > 0.4 && t < 6.2 && Math.floor(t * 9) !== Math.floor((t - dt) * 9)) sfx('click', { volume: 0.12, pitch: rr(1.2, 1.6) });
+      if (t >= 6.6 && !swapped) {
+        swapped = true;
+        cloud.im.visible = false;
+        f.root.visible = true;
+        f.play('wave_hello', { fade: 0 });
+        f.setExpression('happy', { hold: 3 });
+        sfx('pop_in', { volume: 0.5 });
+        sfx('star_pop', { volume: 0.35 });
+      }
+      if (swapped) f.update(dt);
+    },
+    hud: () => ({ voxels: Math.min(cloud.count, Math.floor(cloud.count * clamp01((T - 0.4) / 5.8))) }),
+  });
+};
+SHOTS.q4_anims = () => {
+  const E = editorPix();
+  const f = makeFox();
+  E.top.add(f.root);
+  const seq = [['greedy', 'greedy'], ['laugh_evil', 'mwaha'], ['panic', 'shocked'], ['think', 'scheming'], ['facepalm', 'tsk'], ['cheer', 'excited'], ['dance', 'happy']];
+  let cur = -1;
+  return rigShot({
+    rigCam: [{ t: 0, x: 0, y: 1.05, z: 0, yaw: 0, pitch: 14, wupp: 0.0078 }, { t: 9, x: 0, y: 1.08, z: 0, yaw: 0, pitch: 14, wupp: 0.007 }],
+    update(t, dt) {
+      E.table.rotation.y = Math.sin(t * 0.6) * 0.25;
+      const i = Math.min(seq.length - 1, Math.floor(t / 1.15));
+      if (i !== cur) { cur = i; f.play(seq[i][0], { fade: 0.15, restart: true }); f.setExpression(seq[i][1], { hold: 1.15 }); }
+      f.update(dt);
+    },
+    hud: () => ({ anim: seq[Math.max(0, cur)][0] }),
+  });
+};
+SHOTS.q4_swap = () => {
+  squareWorld();
+  squareFoxAt();
+  spawnFish(10);
+  breed = 0;
+  const f = makeFox();
+  f.root.position.copy(squareFox.pos);
+  f.root.rotation.y = 0.35;
+  f.root.scale.setScalar(0.9);
+  f.root.visible = false;
+  world.add(f.root);
+  let done = false, counting = false;
+  return rigShot({
+    rigCam: [{ t: 0, x: 1.6, z: -2.2, yaw: 0.2, pitch: 34, wupp: 0.0105 }, { t: 6, x: 1.6, z: -2.4, yaw: 0.2, pitch: 34, wupp: 0.0095 }],
+    update(t, dt) {
+      if (t > 1.4 && !done) {
+        done = true;
+        poof(squareFox.pos.clone().add(V3(0, 0.5, 0)), { n: 16, size: 0.55 });
+        sfx('pop_in', { volume: 0.55 }); sfx('whoosh', { volume: 0.3 });
+        squareFox.obj.visible = false;
+        f.root.visible = true;
+        f.play('cheer', { fade: 0 });
+        f.setExpression('proud', { hold: 2.5 });
+      }
+      if (done && t > 3.2 && !counting) { counting = true; f.play('count_coins', { fade: 0.3 }); }
+      if (done) f.update(dt);
+      updateFish(dt, t);
+    },
+    anchors: sqAnchors(),
+  });
+};
+
+// day 5: the bears
+SHOTS.q5_turn = () => {
+  const E = editorPix();
+  const b = makeBear('office', 3.7);
+  E.top.add(b.root);
+  const seq = [['idle', 1.0], ['walk', 2.0], ['eat', 1.5], ['roar', 1.5], ['cheer', 2.2]];
+  return rigShot({
+    rigCam: [{ t: 0, x: 0, y: 1.15, z: 0, yaw: 0, pitch: 14, wupp: 0.0088 }, { t: 9, x: 0, y: 1.15, z: 0, yaw: 0, pitch: 14, wupp: 0.008 }],
+    update(t, dt) {
+      E.table.rotation.y = -0.5 + t * 0.35;
+      let k = 0, acc = 0;
+      for (; k < seq.length - 1; k++) { if (t < acc + seq[k][1]) break; acc += seq[k][1]; }
+      const name = seq[k][0];
+      b.pose(name, dt, { speed: name === 'walk' ? 1.6 : 0 });
+    },
+  });
+};
+SHOTS.q5_lineup = () => {
+  const E = editorPix();
+  E.table.visible = false;
+  const types = ['grandma', 'construction', 'ceo', 'tourist', 'office', 'lumberjack', 'intern', 'janitor', 'cub'];
+  const list = types.map((ty, i) => {
+    const b = makeBear(ty, 2 + i * 1.3);
+    const r = Math.floor(i / 3), c = i % 3;
+    b.root.position.set((c - 1) * 1.45 + (r === 1 ? 0.2 : 0), 0, (r - 1) * 1.5);
+    b.root.rotation.y = -0.15 * (c - 1);
+    b.root.visible = false;
+    world.add(b.root);
+    return { b, at: 0.35 + i * 0.42, s: b.root.scale.x };
+  });
+  return rigShot({
+    rigCam: [{ t: 0, x: 0.1, y: 0.9, z: 0, yaw: 0, pitch: 26, wupp: 0.0165 }, { t: 7, x: 0.1, y: 0.9, z: 0, yaw: 0, pitch: 26, wupp: 0.0155 }],
+    update(t, dt) {
+      for (const it of list) {
+        const u = (t - it.at) / 0.3;
+        if (u < 0) continue;
+        if (!it.b.root.visible) { it.b.root.visible = true; sfx('pop_in', { volume: 0.35, pitch: 0.9 + list.indexOf(it) * 0.06 }); }
+        it.b.root.scale.setScalar(it.s * Math.max(0.001, back(u)));
+        it.b.pose(t > 4.4 ? 'cheer' : 'idle', dt, {});
+      }
+    },
+  });
+};
+// the brown boxes on the path poof into real bears, who then do the commute
+SHOTS.q5_swap = () => {
+  squareWorld();
+  spawnFish(14);
+  breed = 0;
+  const f = makeFox();
+  f.root.position.copy(squareFox.pos);
+  f.root.rotation.y = 0.2;
+  f.root.scale.setScalar(0.9);
+  world.add(f.root);
+  const types = ['office', 'intern', 'construction', 'grandma', 'tourist'];
+  const boxes = [], real = [];
+  types.forEach((ty, i) => {
+    const p = commute([2, 4, 0, 3, 1][i], 5, { spread: 3.6 });
+    const b0 = new Bear({ kind: 'cube', x: p[1].x + (i - 2) * 0.9, z: -9.6 + i * 1.1, path: [] });
+    b0.yaw = 0;
+    boxes.push(b0);
+    const b1 = new Bear({ kind: 'voxel', type: ty, seed: 3 + i, x: b0.pos.x, z: b0.pos.z, path: p.slice(2), speed: 1.9, hopLen: 2.2 });
+    b1.root.visible = false;
+    b1.state = 'hold';
+    real.push(b1);
+  });
+  let popped = false;
+  return rigShot({
+    rigCam: [{ t: 0, x: 0.3, z: -8.0, yaw: 0, pitch: 40, wupp: 0.02 }, { t: 1.6, x: 0.3, z: -8.0, yaw: 0, pitch: 40, wupp: 0.02 }, { t: 5.5, x: 0.6, z: -2.0, yaw: 0, pitch: 42, wupp: 0.026 }, { t: 9, x: 0.6, z: 0.6, yaw: 0, pitch: 44, wupp: 0.026 }],
+    update(t, dt) {
+      if (t > 1.0 && !popped) {
+        popped = true;
+        boxes.forEach((b0, i) => {
+          poof(b0.pos.clone().add(V3(0, 0.6, 0)), { n: 10, size: 0.5 });
+          b0.root.visible = false;
+          real[i].root.visible = true;
+          real[i].state = 'walk';
+        });
+        sfx('pop_in', { volume: 0.55 }); sfx('whoosh', { volume: 0.3 });
+      }
+      for (const b of real) if (b.state !== 'hold') b.update(dt); else b.place(dt);
+      updateFish(dt, t);
+      f.update(dt);
+    },
+    anchors: sqAnchors({ bear: () => real[2].head() }),
+  });
+};
+
 // ------------------------------------------------------------------ main
 // fonts first: the debug labels and pop-ups are drawn into canvases when the shot is built
-await Promise.all([document.fonts.load("500 34px 'JB Mono'"), document.fonts.load("900 64px 'Nunito'")]).catch(() => {});
+await Promise.all([document.fonts.load("500 34px 'JB Mono'"), document.fonts.load("900 64px 'Nunito'"), document.fonts.load("64px 'TBME Body'")]).catch(() => {});
 const S = SHOTS[SHOT]?.();
 if (!S) throw new Error('no shot ' + SHOT);
 let T = 0;
-if (S.variant) {
+if (S.pixel) {
+  pixel = new PixelRenderer(canvas);
+  pixel.resize(W, H, 1);
+  renderer = pixel.renderer;
+} else if (S.variant) {
   if (S.variant === 'plain') { renderer = plainRenderer(1); orthoPlain = true; }
   else {
     pixel = new PixelRenderer(canvas);
@@ -1068,6 +1500,11 @@ if (S.variant) {
 } else renderer = plainRenderer(+(Q.get('pr') || 1));
 
 function applyCam(dt) {
+  if (S.pixel) {
+    applyRig(S.rigAt(T, dt));
+    rig.update(dt, pixel);
+    return rig.camera;
+  }
   if (S.variant) {
     S.cam(T);
     if (pixel) rig.update(dt, pixel);
@@ -1098,7 +1535,7 @@ function simulate(dt) {
 }
 let cam = null;
 const skip = +(Q.get('skip') || 0);
-for (let i = 0; i < Math.round(skip * 30); i++) { simulate(1 / 30); if (typeof S.cam === 'function') applyCam(1 / 30); }
+for (let i = 0; i < Math.round(skip * 30); i++) { simulate(1 / 30); if (typeof S.cam === 'function' || typeof S.rigCam === 'function') applyCam(1 / 30); }
 
 const proj = V3();
 window.__sb = {

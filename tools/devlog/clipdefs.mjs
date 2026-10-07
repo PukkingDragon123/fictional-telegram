@@ -213,3 +213,84 @@ DEFS.g10_title = {
   setup2: () => { const T = window.__title; T.gagT = 2.2; },
   audio: '[window.__game.audio]',
 };
+
+// day 7: the title screen's bear, with a banana fish for dessert. Straight from the roar to the
+// leaping fish (no ducks this time), the camera leaning towards the bear so it is in frame in portrait
+DEFS.gb_title_eat = {
+  server: 'tb', url: '/', viewport: [1080, 1920], frames: 240, warm: 900, capture: 'page',
+  ready: () => window.__title && window.__title.active && window.__game,
+  setup: () => { const T = window.__title; T.gagT = 1e9; T.beatT = 1e9; T.setDessert('banana'); },
+  setup2: () => {
+    const T = window.__title, run = T._runBearGag.bind(T), cam = T._updateCamera.bind(T), rig = window.__game.rig;
+    T._runBearGag = (dt) => { const G = T.gag; if (G && G.phase === 'grab') { G.phase = 'fish'; G.t = 0; } return run(dt); };
+    T._updateCamera = (dt, instant) => {
+      cam(dt, instant);
+      const B = T.gag?.bear;
+      if (B) { T._lean = Math.min(1, (T._lean || 0) + dt * 1.5); const k = 0.55 * T._lean; rig.goal.x += (B.root.position.x - rig.goal.x) * k; rig.goal.z += (B.root.position.z - rig.goal.z) * k; rig.wuppGoal *= 1 - 0.18 * T._lean; }
+    };
+    T._startBearGag();
+  },
+  audio: '[window.__game.audio]',
+};
+
+// ---------------------------------------------------------------- v2: the square prototype (pixel art) + the banana fish
+for (const [k, sec, skip] of [['q1_wide', 7], ['q1_walk', 6.5], ['q1_bug', 6.5, 4.6], ['q2_fish', 6.5], ['q2_bug', 5.5], ['q2_fixed', 6.5],
+  ['q3_door', 5], ['q3_rush', 9, 2.6], ['q3_empty', 5, 15], ['q4_build', 9], ['q4_anims', 8.2], ['q4_swap', 6],
+  ['q5_turn', 8.2], ['q5_lineup', 6.5], ['q5_swap', 9]]) DEFS['dl_' + k] = SB(k, sec, { skip });
+
+// banana fish in the real pond: a calm day, a pond full of bananas (and a few normal fish), the
+// camera drifting after one of them
+const BANANAS = `
+  { const g = window.__game;
+    for (let i = 0; i < 16; i++) { const p = g.fish.randomWaterPoint(); if (p) g.fish.spawn('banana', p.x, p.z, { adult: true }); }
+    if (!g.state.discovered.includes('banana')) g.state.discovered.push('banana'); }
+`;
+DEFS.gb_pond = GAME({
+  frames: 240,
+  setup: `() => { ${CALM} ${BANANAS} }`,
+  hook: CAM([{ f: 0, x: 0, z: 0, yaw: 0.1, pitch: 42, wupp: 0.011 }, { f: 240, x: 0, z: 0, yaw: 0.2, pitch: 42, wupp: 0.0102 }], {
+    extra: `const F = window.__dl;
+      if (!F.star || F.star.dead) F.star = g.fish.list.filter((f) => f.sp.id === 'banana' && !f.dead).sort((a, b) => Math.hypot(a.x - F.pond[0], a.z - F.pond[1]) - Math.hypot(b.x - F.pond[0], b.z - F.pond[1]))[0];
+      // every so often a banana leaps out of the water (the game's bug-snap jump, minus the bug):
+      // out of the water a fish is drawn in full colour
+      const LEAP = { 30: 0, 70: 1, 105: 0, 140: 2, 178: 0, 212: 1 };
+      if (LEAP[i] != null && F.star) {
+        const near = g.fish.list.filter((f) => f.sp.id === 'banana' && !f.dead && !f.jump).sort((a, b) => Math.hypot(a.x - F.star.x, a.z - F.star.z) - Math.hypot(b.x - F.star.x, b.z - F.star.z));
+        const f = near[LEAP[i]];
+        if (f) g.fish.startJump(f, { x: f.x + Math.cos(f.heading) * 1.6, z: f.z + Math.sin(f.heading) * 1.6, dead: true });
+      }
+      if (F.star) { F.cx = F.cx == null ? F.star.x : F.cx + (F.star.x - F.cx) * 0.05; F.cz = F.cz == null ? F.star.z : F.cz + (F.star.z - F.cz) * 0.05; rig.goal.set(F.cx, rig.goal.y, F.cz); rig.target.copy(rig.goal); }`,
+  }),
+});
+// the banana fish hatching from a bought egg in the pond, in the game's own egg ceremony:
+// tap, tap, tap, NEW SPECIES, then it swims out
+DEFS.gb_hatch = GAME({
+  frames: 360,
+  capture: 'page',
+  setup: `() => { ${CALM} ${HIDE_UI}
+    st.discovered = st.discovered.filter((s) => s !== 'banana');
+    const F = window.__dl, p = g.fish.nearestWater(F.pond[0], F.pond[1]) || g.fish.randomWaterPoint();
+    const tmp = g.fish.spawn('banana', p.x, p.z, { adult: true }), genes = tmp.g;
+    g.fish.remove(tmp);
+    genes.morph = 'normal'; genes.mut = null; genes.stars = 3;
+    const e = g.fish.addBoughtEgg('banana', genes, 0, { x: p.x, z: p.z });
+    e.ready = true;
+    F.egg = e; F.eggAt = [p.x - F.pond[0], p.z - F.pond[1]]; }`,
+  hook: CAM([{ f: 0, x: 0, z: 0, yaw: 0.1, pitch: 42, wupp: 0.013 }, { f: 360, x: 0, z: 0, yaw: 0.16, pitch: 42, wupp: 0.012 }], {
+    extra: `const F = window.__dl; rig.goal.set(F.pond[0] + F.eggAt[0], rig.goal.y, F.pond[1] + F.eggAt[1] + 0.4); rig.target.copy(rig.goal);
+      if (i === 10) g.ui.tapPondEgg(F.egg);
+      if (i === 64 || i === 82 || i === 100 || i === 250 || i === 280) window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space' }));`,
+  }),
+});
+// ...and the bears eat them: the 5 PM rush on a bare pond stocked mostly with bananas, the camera
+// on a bear with a banana in its paws
+const FEAST_BANANAS = FEAST
+  .replace("const want = ['bar', 'umbrellatable', 'bbq', 'neonsign', 'jukebox', 'tikitorch', 'hangout', 'roundtable', 'beercooler', 'planterbox', 'tikitorch', 'umbrellatable', 'picnictable', 'menuboard', 'hammock', 'tikitorch'];", 'const want = [];')
+  .replace("const sp = ['bluegill', 'perch', 'bass', 'brook', 'rainbow', 'sockeye', 'pike', 'char', 'aurora', 'tiger', 'mapleKoi'];", "const sp = ['banana', 'banana', 'banana', 'bluegill', 'banana', 'banana', 'perch', 'banana'];");
+DEFS.gb_eat = GAME({
+  frames: 240,
+  setup: `() => { ${FEAST_BANANAS} }`,
+  hook: CAM([{ f: 0, x: 0, z: 0, yaw: 0.9, pitch: 38, wupp: 0.016 }, { f: 240, x: 0, z: 0, yaw: 1.0, pitch: 38, wupp: 0.015 }], {
+    extra: HERO("(b) => b.heldFish && b.heldFish.sp && b.heldFish.sp.id === 'banana'"),
+  }),
+});

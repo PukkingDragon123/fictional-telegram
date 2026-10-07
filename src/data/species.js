@@ -292,6 +292,14 @@ export const SPECIES = [
     look: 'Gigantic spawning salmon: a huge hooked kype jaw with two big white spike fangs hanging forward from the snout, towering hump. Dark olive head, deep crimson back and upper flanks fading into bright silver lower sides and belly, black spots on the back and tail, pale claw-mark battle scars on the flank, a torn notch in the dorsal fin and tail.',
     colors: { back: 0x7a1620, side: 0xc42a34, belly: 0xd2d8e0, fin: 0x5a2a2a, accent: 0xf6f0e0 },
   },
+  // ---------------------------------------------------------------- oddballs
+  {
+    id: 'banana', name: 'Banana Fish', latin: 'Musa piscis', tier: 1,
+    desc: 'Yes, it is a fish. Yes, it is a banana. Bears insist on peeling it first.',
+    price: 30, meal: 1.5, value: 1.4, breed: 1.05, growth: 1.1, speed: 0.95, size: 1.3, unlock: 'start',
+    look: 'A ripe banana that swims: long curved crescent body, sunny yellow with a paler belly, brown ripe speckles, a darker ridge along the peel, a dark brown tip at the snout and a little olive stem for a tail. Big friendly eye.',
+    colors: { back: 0xdea416, side: 0xf7d02c, belly: 0xfde77a, fin: 0x6a6620, accent: 0x6a3c12 },
+  },
   // ---------------------------------------------------------------- hybrids (discovered by cross-breeding)
   {
     id: 'sunperch', name: 'Sunburst Perch', latin: 'Lepomis × Perca', tier: 2,

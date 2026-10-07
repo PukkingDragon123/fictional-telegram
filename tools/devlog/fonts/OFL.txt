@@ -1,6 +1,5 @@
 Fonts from Fontsource (npm @fontsource/*), all SIL Open Font License 1.1:
 - Nunito (c) 2014 The Nunito Project Authors
-- Caveat (c) 2014 The Caveat Project Authors
 - JetBrains Mono (c) 2020 The JetBrains Mono Project Authors
 
 Copyright 2014 The Nunito Project Authors (https://github.com/googlefonts/nunito) Nunito-Italic[wght].ttf: Copyright 2014 The Nunito Project Authors (https://github.com/googlefonts/nunito)

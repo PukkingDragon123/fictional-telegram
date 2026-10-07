@@ -524,14 +524,8 @@ export class TitleScene {
     g.add(this.dfly);
     this.dflySt = null;
     try {
-      const cv = fishCanvasFor('sockeye', { scale: 1 });
-      const tex = new THREE.CanvasTexture(cv);
-      tex.magFilter = tex.minFilter = THREE.NearestFilter;
-      tex.generateMipmaps = false;
-      tex.colorSpace = THREE.SRGBColorSpace;
-      this.fishMesh = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, alphaTest: 0.5 }));
-      this.fishMesh.userData.w = (cv.width / FISH_TPU) * 1.1;
-      this.fishMesh.userData.h = (cv.height / FISH_TPU) * 1.1;
+      this.fishMesh = new THREE.Sprite(new THREE.SpriteMaterial({ alphaTest: 0.5 }));
+      this.setDessert('sockeye');
       this.fishMesh.visible = false;
       this.fishMesh.renderOrder = 12;
       g.add(this.fishMesh);
@@ -1119,6 +1113,22 @@ export class TitleScene {
   }
 
   // ------------------------------------------------------------ leaping fish
+  // the fish that leaps between gags, and that the gag bear snaps for dessert
+  setDessert(id) {
+    this.dessert = id;
+    if (!this.fishMesh) return;
+    const cv = fishCanvasFor(id, { scale: 1 });
+    const tex = new THREE.CanvasTexture(cv);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.fishMesh.material.map?.dispose?.();
+    this.fishMesh.material.map = tex;
+    this.fishMesh.material.needsUpdate = true;
+    this.fishMesh.userData.w = (cv.width / FISH_TPU) * 1.1;
+    this.fishMesh.userData.h = (cv.height / FISH_TPU) * 1.1;
+  }
+
   _leapFish() {
     if (!this.fishMesh || this.fishSt) return;
     const R = this.right, F = this.fwd, s = this.seatPos;
@@ -1434,7 +1444,7 @@ export class TitleScene {
       }
       pose = G.t < 0.3 ? 'idle' : 'lunge'; params = { t01: clamp((G.t - 0.3) / 0.34, 0, 1), inWater: true };
       if (u >= 1 && G.t > 0.62) {
-        const prey = makeFishPrey(game, { id: 'sockeye', size: 1.05, adult: true }, G.fishStyle);
+        const prey = makeFishPrey(game, { id: this.dessert || 'sockeye', size: 1.05, adult: true }, G.fishStyle);
         G.prey = prey;
         G.eat = startEat(game, { rig: B, style: G.fishStyle, prey, parent: this.group, groundAt: this._water(), fx: this._eatFx() });
         next('fishEat');
