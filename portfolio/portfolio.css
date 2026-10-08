@@ -190,49 +190,32 @@ body.pf-idle .pf-pin { display: grid; }
   .pf-pin > span, .pf-pin::before, .pf-tag.next { animation: none !important; }
 }
 
-/* ---------- voxel icons (Icons3D.js) float over the clickable things: the pin is just the hit area + label */
-body.pf-vox .pf-pin { background: transparent; box-shadow: none; width: 56px; height: 56px; margin: -28px 0 0 -28px; }
-body.pf-vox .pf-pin > span { visibility: hidden; }
-body.pf-vox .pf-pin::before { inset: 4px; border-radius: 50%; }
-body.pf-vox .pf-pin:hover, body.pf-vox .pf-pin:focus-visible { background: rgba(255, 226, 122, .18); }
-body.pf-vox .pf-pin:hover .lbl, body.pf-vox .pf-pin:focus-visible .lbl { opacity: 1; transform: translateX(-50%) scale(1); }
+/* almost no UI: the game's extras go, the speech box stays */
+.cls-skip, .cls-bars, .cls-ask, .cls-stamp { display: none !important; }
+.pf-tip { position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; font: 16px/1 var(--font-title); color: #fffaf0; background: rgba(20,12,28,.8); padding: 5px 8px 6px; opacity: 0; transition: opacity .1s; white-space: nowrap; }
+.pf-tip.on { opacity: 1; }
+body.pf-hot #game { cursor: pointer; }
+.pf-x { position: absolute; right: -14px; top: -14px; width: 34px; height: 34px; padding: 0; font: 20px/1 var(--font-title); color: #fff; background: #e86a4a; border: 0; cursor: pointer; box-shadow: inset 0 -3px 0 #a8341c, inset 0 3px 0 #f8957a, 0 0 0 3px var(--ink); }
+.pf-x:hover { background: #f07a5a; }
+
+/* gallery viewer */
+.pf-gal { position: fixed; inset: 0; z-index: 250; display: grid; grid-template-columns: 64px 1fr 64px; align-items: center; background: rgba(14,8,22,.9); animation: pf-fade .2s ease both; padding: 16px; }
+.pf-gal-view { display: grid; place-items: center; min-height: 0; height: calc(100vh - 110px); height: calc(100dvh - 110px); }
+.pf-gal-view img, .pf-gal-view canvas { max-width: min(100%, 1100px); max-height: calc(100vh - 140px); max-height: calc(100dvh - 140px); box-shadow: 0 0 0 4px #1d1410, 0 0 0 10px #8a5430; background: #0b0a10; }
+.pf-gal-view canvas.pix { image-rendering: pixelated; width: min(100%, 1100px, calc((100vh - 140px) * 1.6)); height: auto; }
+.pf-lab { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; white-space: nowrap; font: 17px/1 var(--font-title); color: #fffaf0; text-shadow: -2px 0 #1d1410, 2px 0 #1d1410, 0 -2px #1d1410, 0 2px #1d1410, 2px 2px #1d1410, -2px 2px #1d1410; }
+.pf-lab i { display: block; text-align: center; font-style: normal; font-size: 12px; margin-top: 2px; animation: pf-bob2 1.4s ease-in-out infinite; }
+@keyframes pf-bob2 { 50% { transform: translateY(3px); } }
+.pf-gal-cap { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font: 22px/1 var(--font-title); color: #fffaf0; }
+.pf-gal-cap i { font-style: normal; opacity: .7; font-size: 16px; margin: 0 10px; } .pf-gal-cap span { opacity: .5; font-size: 16px; }
+.pf-gal-x, .pf-gal-n { width: 44px; height: 44px; font: 24px/1 var(--font-title); color: #fff; background: #8a5430; border: 0; cursor: pointer; box-shadow: inset 0 -3px 0 #5e3519, inset 0 3px 0 #b47442, 0 0 0 3px #1d1410; }
+.pf-gal-x { position: absolute; right: 16px; top: 16px; background: #e86a4a; }
+.pf-gal-n { justify-self: center; }
+@media (max-width: 600px) { .pf-gal { grid-template-columns: 40px 1fr 40px; padding: 8px; } .pf-gal-n { width: 34px; height: 44px; } }
+
+/* pond: the way back in */
+.pf-in { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 90; display: none; font-size: 26px; padding: 12px 24px 14px; }
+.pf-in:hover { transform: translateX(-50%) translateY(-1px); }
+body.pf-pond .pf-in { display: block; }
 
 .pf-err { position: fixed; left: 8px; top: 8px; right: 8px; z-index: 500; margin: 0; padding: 8px 10px; max-height: 40vh; overflow: auto; font: 12px/1.3 monospace; color: #ffd0c8; background: rgba(40,8,8,.9); white-space: pre-wrap; pointer-events: none; user-select: text; }
-
-/* ---------- voxel intro (VoxelIntro.js): one card per step, the voxel model on the other side */
-body.pf-intro .pf-hud, body.pf-intro .pf-schedule { display: none; }
-.pf-intro { position: fixed; inset: 0; z-index: 90; }
-.pf-ic { position: absolute; right: max(4vw, 24px); top: 50%; transform: translateY(-50%); width: min(500px, 44vw);
-  background: #241a2e; color: var(--chalk); padding: 26px 30px 22px;
-  box-shadow: 0 -6px 0 0 var(--ink), 0 6px 0 0 var(--ink), -6px 0 0 0 var(--ink), 6px 0 0 0 var(--ink),
-    inset 0 4px 0 #3a2c48, inset 0 -4px 0 #1a1222, 14px 18px 0 0 rgba(0,0,0,.35); }
-.pf-ic::before { content: ''; position: absolute; left: -6px; right: -6px; top: -6px; height: 6px; background: linear-gradient(90deg, #f08a1a 0 25%, #ffd05a 25% 50%, #f6a8c4 50% 75%, #9ad8ff 75%); }
-.pf-ic-in.in > * { animation: pf-ic-in .5s cubic-bezier(.2, 1.4, .4, 1) both; }
-.pf-ic-in.in > *:nth-child(2) { animation-delay: .07s; } .pf-ic-in.in > *:nth-child(3) { animation-delay: .14s; } .pf-ic-in.in > *:nth-child(4) { animation-delay: .21s; }
-@keyframes pf-ic-in { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
-.pf-ic-kick { font: 15px/1 var(--font-title); color: #f08a1a; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
-.pf-ic h1 { margin: 0 0 14px; font: 400 42px/1.05 var(--font-title); color: #ffd05a; text-shadow: 3px 3px 0 var(--ink), 0 6px 0 rgba(0,0,0,.35); }
-.pf-ic p { margin: 0 0 6px; font-size: 21px; line-height: 1.35; color: #efe6d6; }
-.pf-ic b { font-weight: 400; color: #ffd05a; }
-.pf-ic ul { list-style: none; margin: 4px 0 6px; padding: 0; display: grid; gap: 10px; }
-.pf-ic li { position: relative; padding-left: 30px; font-size: 20px; line-height: 1.3; color: #efe6d6; }
-.pf-ic li::before { content: ''; position: absolute; left: 2px; top: 6px; width: 12px; height: 12px; background: #f08a1a;
-  box-shadow: 3px 3px 0 #7a3a16, 0 0 0 2px var(--ink), 3px 3px 0 2px var(--ink); }
-.pf-ic li:nth-child(2)::before { background: #ffd05a; } .pf-ic li:nth-child(3)::before { background: #9ad8ff; } .pf-ic li:nth-child(4)::before { background: #f6a8c4; }
-.pf-ic-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; }
-.pf-ic-back { font: 18px/1 var(--font-title); color: #b9a9c9; background: none; border: 0; cursor: pointer; padding: 8px 4px; }
-.pf-ic-back:hover { color: var(--chalk); }
-.pf-ic-dots { display: flex; gap: 8px; }
-.pf-ic-dots i { width: 10px; height: 10px; background: #4a3a5a; box-shadow: 0 0 0 2px var(--ink); cursor: pointer; transition: background .2s, transform .2s; }
-.pf-ic-dots i.on { background: #ffd05a; transform: scale(1.3); }
-.pf-ic-next { font-size: 20px; }
-.pf-intro.last .pf-ic-next { background: #3fa34d; box-shadow: inset 0 -3px 0 #2a6e34, inset 0 3px 0 #6fd07a, 0 0 0 3px var(--ink), 0 4px 0 3px rgba(0,0,0,.35); animation: pf-ic-pulse 1.2s ease-in-out infinite; }
-@keyframes pf-ic-pulse { 50% { transform: translateY(-3px); } }
-.pf-ic-skip { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px; font: 16px/1 var(--font-title); color: #b9a9c9; background: rgba(20,14,26,.6); border: 0; padding: 8px 12px; cursor: pointer; box-shadow: 0 0 0 2px var(--ink); }
-.pf-ic-skip:hover { color: var(--chalk); }
-.pf-ic-hint { position: absolute; left: 24px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); font: 15px/1 var(--font-title); color: #8a7a9a; opacity: .8; }
-@media (max-aspect-ratio: 23/20) {
-  .pf-ic { right: 16px; left: 16px; width: auto; top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: none; padding: 20px 20px 16px; }
-  .pf-ic h1 { font-size: 32px; } .pf-ic p { font-size: 18px; } .pf-ic li { font-size: 17px; }
-  .pf-ic-hint { display: none; }
-}

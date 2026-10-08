@@ -1,9 +1,9 @@
 # Devlog posts: captions, hashtags, voice-over
 
-Ten vertical videos (1080x1920, 30 fps, 17–42 s each, -14 LUFS). One a day, same time each day
-(evenings work well). You narrate them as yourself: a dev talking about his game. The fox is you
-in the game. He hops around the screen and says your lines in speech bubbles, typed out word by
-word as you talk.
+Ten vertical videos (1080x1920, 30 fps, 16–44 s each, -14 LUFS). One a day, same time each day
+(evenings work well). You narrate them as yourself: a friendly dev showing what he built that
+day, in plain full sentences. The fox is your mascot on screen: he hops around and says your lines
+in speech bubbles, typed out word by word as you talk.
 
 **Two versions of each video:**
 - `with-music/day-NN.mp4` uses Octopus's Garden on every day, each day from a different part of the
@@ -25,7 +25,7 @@ word as you talk.
 ---
 
 ### Day 1 — `day-01.mp4`
-day 1 of making my dream game 🐻 a pond, salmon, and bears who are obsessed with salmon. the bear already walked through me 💀 #gamedev #indiedev #devlog #pixelart #cozygames
+day 1 of making my dream game 🐻 a pond, salmon, and bears who are obsessed with salmon. the bear already walked through the fox 💀 #gamedev #indiedev #devlog #pixelart #cozygames
 
 ### Day 2 — `day-02.mp4`
 day 2: square fish 🐟 one missing line of code and every fish went to the corner 💀 what fish should i add?
@@ -34,7 +34,7 @@ day 2: square fish 🐟 one missing line of code and every fish went to the corn
 day 3: 5 PM 🕔 every office bear runs to my pond. it took them 10 seconds to eat everything
 
 ### Day 4 — `day-04.mp4`
-day 4: the orange square (me) got an upgrade 🦊🎩 rebuilt myself cube by cube. goodbye square 🫡
+day 4: the orange square finally got replaced 🦊🎩 built the fox cube by cube. goodbye square 🫡
 
 ### Day 5 — `day-05.mp4`
 day 5: the brown squares got promoted 🐻 office bear, grandma, construction, the CEO… which one are you?
@@ -58,10 +58,11 @@ day 10 🐻🐟 ten days ago this was a brown square walking on water. thank you
 
 ## Voice-over
 
-The narration is you: a friendly dev talking about his game the way you'd tell a friend, short
-and casual. The voice is Kokoro-82M (open-weights text-to-speech, run offline), the American male
-narrator voice `am_michael`, a little faster than normal and not pitch-shifted, in the style of the
-AI narrator voices you hear on TikTok. The scripts are in `tools/devlog/vo/script.json`.
+The narration is you: a friendly dev explaining what he built that day the way you'd tell a
+friend, in full sentences that say what's on screen and why. The voice is Kokoro-82M
+(open-weights text-to-speech, run offline), the lively American male voice `am_puck`, a little
+faster than normal and not pitch-shifted, in the style of the AI narrator voices you hear on
+TikTok. The scripts are in `tools/devlog/vo/script.json`.
 
 Day 1 opens with the idea on a pin board of real-life references. Put your photos in
 `tools/devlog/refs/` as `1.jpg` (a pond), `2.jpg` (salmon), `3.jpg` (a bear catching salmon) and

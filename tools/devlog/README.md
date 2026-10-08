@@ -28,7 +28,7 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
 
 - `vo/script.json` — every day's narration, line by line (`[id, text, pause after]`).
   `vo.py` speaks it with Kokoro-82M (open-weights TTS, run offline with `kokoro-onnx`, voice
-  `am_michael`; render.mjs pitch-shifts it only if the script's `pitch` isn't 1) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
+  `am_puck`; render.mjs pitch-shifts it only if the script's `pitch` isn't 1) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
   every word (for the captions and for timing the edit):
   `HOME=<dir with an espeak-ng-data link> python -I tools/devlog/vo.py kokoro.onnx voices.npz day01 …`.
   To use your own voice instead, read a day's lines in one take (in script order, about half a
