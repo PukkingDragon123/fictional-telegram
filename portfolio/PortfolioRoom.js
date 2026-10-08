@@ -11,10 +11,16 @@
 //   room.update(dt);                  // every frame (always ticks, chapter or not)
 //   room.screen                       // the projector screen (ProjectorScreen.js)
 //
-// Extra step keys on top of the game's (see content.js): screen, link, contact.
+// Extra step keys on top of the game's (see content.js): screen, link, contact, globe.
 import * as THREE from 'three';
 import { Classroom } from '../src/game/Classroom.js';
 import { ProjectorScreen } from './ProjectorScreen.js';
+import { Globe3D } from './Globe3D.js';
+import { BOARD } from '../src/entities/classroomScene.js';
+
+// the voxel Earth floats above the chalkboard while the fox talks about Thailand -> Vancouver
+const GLOBE_S = 0.34; // its radius is ~0.47 room units
+const GLOBE_AT = new THREE.Vector3(BOARD.cx, BOARD.cy + BOARD.h / 2 + 0.78, BOARD.z + 0.3); // clear of the board's title
 
 export class PortfolioRoom extends Classroom {
   constructor(game, { media = {}, hooks = {} } = {}) {
@@ -57,6 +63,26 @@ export class PortfolioRoom extends Classroom {
     this._ext = performance.now();
     this._tick(dt);
     this.screen?.update(dt);
+    this.globe?.update(dt, this.rig.yaw, this.rig.pitch);
+  }
+
+  // ---------------------------------------------------------------- the globe
+  globeShow() {
+    if (!this.globe) {
+      this.globe = new Globe3D();
+      this.globe.root.scale.setScalar(GLOBE_S);
+      this.globe.root.position.copy(GLOBE_AT);
+      this.room.group.add(this.globe.root);
+    }
+    if (this.globe.on) return;
+    this.globe.show();
+    this._sfx('class_pop', { volume: 0.4, pitch: 0.9 });
+    this.hooks.onGlobe?.(true, this.globe.root.position);
+  }
+  globeHide() {
+    if (!this.globe?.on) return;
+    this.globe.hide();
+    this.hooks.onGlobe?.(false, this.globe.root.position);
   }
 
   // On a tall phone screen the whole room would be a postage stamp, so the 'wide'
@@ -120,6 +146,7 @@ export class PortfolioRoom extends Classroom {
     this._skip = false;
     this._busy = false;
     this.screen.hide();
+    this.globeHide();
     this.hooks.onLink?.(null);
     this.room.setDim?.(0);
     f.setAim?.(null);
@@ -149,6 +176,7 @@ export class PortfolioRoom extends Classroom {
     }
     if (st.link !== undefined) this.hooks.onLink?.(st.link);
     if (st.contact) this._wantContact = true; // the card opens once the chapter wraps up
+    if (st.globe === 'show') this.globeShow(); else if (st.globe === 'hide') this.globeHide();
     this._tapsLeft = st.tap ? [].concat(st.tap).length : 0;
     return super._step(st);
   }

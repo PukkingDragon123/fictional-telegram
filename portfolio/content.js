@@ -7,6 +7,7 @@
 //   + screen: 'mediaId' | 'hide'   roll the projector screen down over the chalkboard
 //   + link:   { label, href } | null   show / hide the call-to-action tag
 //   + contact: true                 open the "hire me" card
+//   + globe:  'show' | 'hide'        the voxel Earth (Thailand -> Vancouver) above the board
 // `say` supports **bold** words (they turn yellow). Chalk coordinates are board
 // pixels on a 192 x 108 slate (x right, y down), items are centred on x / y.
 import { measureText } from '../src/ui/Chalkboard.js';
@@ -77,22 +78,30 @@ export const CHAPTERS = [
     stamp: ['NICE TO MEET YOU!', 'Gold star for you!'],
     steps: [
       { cam: 'board', expr: 'happy', react: 'heart',
-        say: "Hi, I'm **Pukking**! Welcome to my little classroom. Don't mind the fish, they're very keen.",
+        say: "Hi, I'm **Pukking**! Welcome to my classroom. I make **games** and **pixel art**.",
         draw: [TITLE("HI, I'M PUKKING"), D('fox', 96, 58, { scale: 3, id: 'me' }), D('sparkle', 46, 40), D('sparkle', 148, 38), D('sparkle', 54, 80), D('heart', 142, 78)] },
-      { erase: true, expr: 'teacher', tap: ['js', 'three'],
-        say: "I'm a **game developer** who builds polished, cozy games with **JavaScript** and **Three.js**.",
+      // where I'm from: chalk on the board, and the voxel globe pops up above it (PortfolioRoom `globe`)
+      { erase: true, cam: 'wide', at: 'teacher', globe: 'show', expr: 'excited', react: 'wow',
+        say: 'I grew up in **Thailand**, and now I study in **Vancouver, Canada**.',
+        draw: [TITLE("WHERE I'M FROM", 'orange'), D('temple', 34, 54, { scale: 2, id: 'th' }), T('THAILAND', 34, 86, { color: 'orange' }),
+          { arrow: [62, 58, 128, 58] }, D('plane', 95, 46, { scale: 2, id: 'fly' }),
+          D('maple', 158, 54, { scale: 2, id: 'ca' }), T('VANCOUVER', 158, 86, { color: 'red' }), T('CANADA', 158, 97, { font: 'small', color: 'red' })] },
+      { expr: 'proud', react: 'heart',
+        say: 'Making games is how I pay my way. Every **commission** helps with school and living costs.' },
+      { erase: true, globe: 'hide', cam: 'board', expr: 'teacher', tap: ['js', 'three'],
+        say: 'I build everything with **JavaScript** and **Three.js**.',
         draw: [TITLE('GAME DEV', 'blue'), D('brackets', 46, 50, { scale: 2, id: 'js' }), T('JAVASCRIPT', 46, 78, { color: 'green' }), T('+', 96, 52, { scale: 2 }), D('cube', 146, 48, { scale: 2, id: 'three' }), T('THREE.JS', 146, 78, { color: 'yellow' })] },
       { cam: 'wide', at: 'teacher', expr: 'smug', react: 'laugh',
-        say: 'Yes, even this classroom is a live **Three.js** scene. The desk, the chalk, the fish... and **me**!' },
-      { erase: true, react: 'wow', tap: ['px', 'cozy', 'dim', 'mc'], speed: 1.3,
-        say: 'My focus: **pixel art**, **cozy games**, **2D & 3D** experiences and **Minecraft mods**.',
-        draw: [TITLE('WHAT I DO', 'pink'), D('palette', 26, 50, { scale: 2, id: 'px' }), D('heart_big', 74, 50, { scale: 2, id: 'cozy' }), D('cube', 122, 50, { scale: 2, id: 'dim' }), D('block', 168, 50, { scale: 2, id: 'mc' }),
+        say: 'Yep, even this classroom is a live **Three.js** scene. The desks, the chalk, the fish... and **me**!' },
+      { erase: true, cam: 'board', react: 'wow', tap: ['px', 'cozy', 'dim', 'mc'], speed: 1.3,
+        say: 'What I make: **pixel art**, **cozy games**, **2D and 3D** games, and **Minecraft mods**.',
+        draw: [TITLE('WHAT I MAKE', 'pink'), D('palette', 26, 50, { scale: 2, id: 'px' }), D('heart_big', 74, 50, { scale: 2, id: 'cozy' }), D('cube', 122, 50, { scale: 2, id: 'dim' }), D('block', 168, 50, { scale: 2, id: 'mc' }),
           T('PIXEL ART', 26, 80, { font: 'small', color: 'orange' }), T('COZY', 74, 80, { font: 'small', color: 'pink' }), T('2D / 3D', 122, 80, { font: 'small', color: 'yellow' }), T('MC MODS', 168, 80, { font: 'small', color: 'green' })] },
-      { expr: 'proud', react: 'cheer',
-        say: 'I care about polished **art, animations and gameplay**... and I keep my prices **friendly**.',
-        draw: [{ check: [16, 98, 4] }, T('POLISHED', 24, 98, { font: 'small', align: 'left', color: 'yellow' }), { check: [78, 98, 4] }, T('UNIQUE', 86, 98, { font: 'small', align: 'left', color: 'pink' }), { check: [132, 98, 4] }, T('AFFORDABLE', 140, 98, { font: 'small', align: 'left', color: 'green' })] },
+      { erase: true, expr: 'determined', react: 'cheer',
+        say: "And my goals: finish **The Bear Must Eat**, grow my **devlog** community, take on **freelance** work, and keep **levelling up**.",
+        draw: [TITLE('MY GOALS', 'yellow'), ...LIST(['RELEASE THE BEAR MUST EAT', 'GROW MY DEVLOG COMMUNITY', 'FREELANCE TO PAY FOR SCHOOL', 'KEEP LEVELLING UP'], 22, 34, 17, (i) => ['orange', 'yellow', 'blue', 'pink'][i])] },
       { cam: 'teacher', at: 'teacher', anim: 'wave_hello', expr: 'wink',
-        say: "Pick a lesson from the **class schedule** to see more, or poke around the room. Lots of things are clickable!" },
+        say: 'Now click anything in the room: the board, the globe, the books, the bell, the pictures. Everything opens something!' },
     ],
   },
 
@@ -240,12 +249,14 @@ export const IDLE_BOARD = [
 // The fox's words, one line per step (kept apart so they are easy to rewrite).
 const SAY = {
   hello: [
-    "I'm Pukking. I make games with JavaScript and Three.js.",
-    "Mostly pixel art, small games, 2D and 3D. Minecraft mods too.",
+    "Hi, I'm Pukking. I make games and pixel art.",
+    "I grew up in Thailand. Now I study in Vancouver, Canada.",
+    "Making games is how I pay for school and rent. Every commission helps a lot.",
+    "I build everything with JavaScript and Three.js.",
     "This whole room is Three.js. The chalk, the fish, me. All code.",
-    "I like games that look good and feel good to play.",
-    "That's the short version. Poke around, everything here does something.",
-    "Hire me? Ring the bell on the desk.",
+    "Mostly pixel art, cozy games, 2D and 3D. Minecraft mods too.",
+    "My goals: finish The Bear Must Eat, grow my devlogs, freelance to pay for school, and keep getting better.",
+    "That's me. Poke around, everything here does something. Want to hire me? Ring the bell.",
   ],
   toolkit: [
     "Code first. JavaScript and Three.js, shaders, game systems, all of it.",

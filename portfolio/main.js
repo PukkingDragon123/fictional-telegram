@@ -1,9 +1,12 @@
-// Pukking's portfolio: boots the game's pixel renderer, builds the classroom
-// (PortfolioRoom.js) and adds the page UI around it: title sign, class schedule,
-// clickable pins, speech bubble, link tag, media viewer and the "hire me" letter.
+// Pukking's portfolio: boots the game's pixel renderer, then the fox's bedroom (wake him up)
+// and the classroom (PortfolioRoom.js), where every object opens a lesson. The hello lesson is
+// the introduction: who I am, Thailand -> Vancouver (a voxel Earth pops up above the board,
+// Globe3D.js), what I make and my goals. Voxel particles everywhere (VoxelFX.js): bursts out of
+// whatever you click, floorboard pops, chalk dust, confetti, sleepy Zs, dust in the light;
+// floating 3D icons over the clickable things (Icons3D.js) that grow and spin when hovered.
 //
-// Dev helpers: ?chapter=games jumps straight into a chapter, ?idle=1 skips the
-// title; window.__pf exposes the room and helpers for the console / tests.
+// Dev helpers: ?chapter=games jumps straight into a chapter, ?idle=1 skips the title and the
+// bedroom, ?debug=1 shows renderer info and errors; window.__pf exposes the rooms for tests.
 import * as THREE from 'three';
 import '../src/ui/fonts.css';
 import './portfolio.css';
@@ -23,6 +26,9 @@ import { Transition } from '../src/ui/Transition.js';
 import { Bedroom } from './Bedroom.js';
 import { buildGallery, openGallery, galleryOpen } from './Gallery.js';
 import { Icons3D } from './Icons3D.js';
+import { VoxelFX, RAINBOW } from './VoxelFX.js';
+import { ICONS, PAL } from './icons.js';
+import { CHALK_COLORS } from '../src/ui/Chalkboard.js';
 
 const params = new URLSearchParams(location.search);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -35,10 +41,19 @@ try { for (const id of JSON.parse(localStorage.getItem('pukking.done') || '[]'))
 const saveDone = () => { try { localStorage.setItem('pukking.done', JSON.stringify([...state.done])); } catch { /* ignore */ } };
 
 let icons = null, gallery = [], pr = null, game = null, room = null, bed = null, g0 = null, pond = null, scene = 'bed';
+let fx = null, bedFx = null; // voxel particles in the classroom / the bedroom
+const CHALK = [null, ...Object.values(CHALK_COLORS)]; // the chalkboard's colour indices
+// the colours an icon is painted in (its voxel bursts use them)
+const iconColors = (name) => {
+  const set = new Set();
+  try { for (const row of ICONS[name]()) for (const ch of row) if (PAL[ch] && ch !== 'k') set.add(PAL[ch]); } catch { /* not a pixel icon (e.g. the 3D block) */ }
+  return set.size ? [...set] : name === 'block' ? ['#5cab3c', '#6fbf4a', '#8a6340', '#7b5636'] : RAINBOW;
+};
 const trans = new Transition();
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const curFox = () => (scene === 'bed' ? bed.fox : scene === 'pond' ? pond?.fox : room.fox);
 const curCam = () => (scene === 'bed' ? bed.rig.camera : room.rig.camera);
+let pinTags = null; // labels on the globe's two pins (Thailand, Vancouver)
 let rootEl, bubbleEl;
 const paintSound = () => {};
 
@@ -72,12 +87,14 @@ async function boot() {
   try { await Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 1500))]); } catch { /* ignore */ }
 
   try {
-    room = new PortfolioRoom(game, { media: MEDIA, hooks: { onContact: openContact, onChapterStart: () => {} } });
+    room = new PortfolioRoom(game, { media: MEDIA, hooks: { onContact: openContact, onChapterStart: () => {}, onGlobe } });
     room.start();
     gallery = buildGallery(room.room.group);
     icons = new Icons3D(room.room.group);
     bed = new Bedroom(game);
     bed.start();
+    fx = new VoxelFX(room.room.group);
+    bedFx = new VoxelFX(bed.room.group, { bounds: { x0: -2.0, x1: 2.0, z0: -1.5, z1: 1.1, y1: 2.1 }, dust: 30, pool: 300, dustColors: ['#cfd8ff', '#b8c4ff', '#e8e4ff', '#9fb0e8'] });
   } catch (e) { console.warn('Classroom failed to start', e); showFallback('the classroom could not start'); return; }
   resize();
 
@@ -98,10 +115,11 @@ async function boot() {
         pond.update(dt); g0.structures.update(dt); g0.food.update(dt); g0.fox.update(dt); g0.ambient.update(dt); g0.particles.update(dt);
         g0.time += dt;
         g0.render(dt);
-      } else if (scene === 'bed') { bed.update(dt); pr.render(bed.scene, bed.rig); }
-      else { room.update(dt); pr.render(room.scene, room.rig); }
+      } else if (scene === 'bed') { bed.update(dt); tickBed(dt); bedFx.update(dt); pr.render(bed.scene, bed.rig); }
+      else { room.update(dt); tickClass(dt); fx.update(dt); pr.render(room.scene, room.rig); }
       frames++;
-    } catch (e) { report(e); }
+      badFrames = 0;
+    } catch (e) { badFrames++; report(e, badFrames > 30); }
     try { tickUI(dt); } catch (e) { report(e); }
     if (debug) showDebug();
     requestAnimationFrame(frame); // never stop the loop because of one bad frame
@@ -115,7 +133,7 @@ async function boot() {
   else if (params.get('idle') === '1') { scene = 'class'; setMode('idle'); drawIdleBoard(); }
   else { drawIdleBoard(); showTitle(); }
 
-  window.__pf = { gal: (i) => openGallery(gallery, i), room, bed, g0, goPond, goClass, wakeFox, pr, state, startChapter, openContact, setMode, say, CHAPTERS, MEDIA };
+  window.__pf = { gal: (i) => openGallery(gallery, i), room, bed, fx, bedFx, g0, goPond, goClass, wakeFox, pr, state, startChapter, openContact, setMode, say, spots, CHAPTERS, MEDIA };
 }
 
 // ------------------------------------------------------------------ UI (almost none)
@@ -173,6 +191,7 @@ function pick(e) {
   return best;
 }
 function onMove(e) {
+  state.px = (e.clientX / innerWidth) * 2 - 1; state.py = (e.clientY / innerHeight) * 2 - 1;
   hot = pick(e);
   document.body.classList.toggle('pf-hot', !!hot);
   tipEl.textContent = hot ? hot.tip : '';
@@ -192,7 +211,105 @@ function onDown(e) {
     return;
   }
   const h = pick(e);
-  if (h) { audio.unlock(); closeBubble(); h.go(); }
+  if (h) { audio.unlock(); closeBubble(); burstAt(h); h.go(); }
+  else popFloor(e);
+}
+
+// ------------------------------------------------------------------ voxel particles
+const _cw = new THREE.Vector3(), _ray = new THREE.Raycaster(), _floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _ndc = new THREE.Vector2();
+const sceneFx = () => (scene === 'class' ? fx : scene === 'bed' ? bedFx : null);
+// a burst of voxels out of the thing you clicked, in its icon's colours
+function burstAt(sp) {
+  const f = sceneFx();
+  if (!f) return;
+  _cw.copy(sp.p); if (sp.icon) _cw.y += sp.iy + 0.15;
+  f.burst(_cw, { colors: sp.icon ? iconColors(sp.icon) : RAINBOW, n: 26 });
+  icons?.punch(sp);
+  sfx('pop_in', { volume: 0.35, pitch: 1.05 + Math.random() * 0.2 });
+}
+// click the floor: a little pop of floorboard voxels where you clicked
+const FLOOR_COLORS = { class: ['#c98c4e', '#bd8046', '#d29656', '#e6a81c', '#ffe27a'], bed: ['#8a5a3a', '#a06a44', '#c08050', '#cfd8ff', '#ffe27a'] };
+function popFloor(e) {
+  const f = sceneFx();
+  if (!f || galleryOpen() || document.querySelector('.pp-ov') || trans.runs.length) return;
+  if (!((scene === 'class' && state.mode === 'idle') || (scene === 'bed' && state.mode === 'bed' && !state.waking))) return;
+  _ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  _ray.setFromCamera(_ndc, curCam());
+  if (!_ray.ray.intersectPlane(_floor, _cw)) return;
+  const B = f.B;
+  if (_cw.x < B.x0 || _cw.x > B.x1 || _cw.z < B.z0 || _cw.z > B.z1) return;
+  audio.unlock();
+  f.burst(_cw.setY(0.06), { colors: FLOOR_COLORS[scene], n: 16, speed: 1.1, up: 1.8, size: [1, 2], life: [1.0, 1.6] });
+  sfx('pop_in', { volume: 0.25, pitch: 1.3 + Math.random() * 0.3 });
+}
+// classroom: chalk dust while the fox writes, sparkles round the hovered icon, a little 3D parallax
+function tickClass(dt) {
+  if (state.mode === 'chapter') {
+    const tip = room.board?.tipPos?.();
+    if (tip?.down) {
+      state.chalkT = (state.chalkT || 0) - dt;
+      if (state.chalkT <= 0) {
+        state.chalkT = 0.05;
+        const w = room.room.board.pxToWorld(tip.x, tip.y, _cw, 0.03);
+        const erase = tip.tool && tip.tool !== 'chalk';
+        fx.burst(w, { colors: erase ? ['#d8d4cc', '#bdb8b0', '#f3f0e2'] : [CHALK[tip.color] || CHALK[1]], n: erase ? 2 : 1, speed: 0.3, up: 0.2, size: [0.5, 0.9], life: [0.7, 1.2], gravity: 1.4, drag: 1.2, spread: 0.03 });
+      }
+    }
+  }
+  if (state.mode === 'idle') {
+    // the camera leans a little towards the pointer: the room reads as 3D
+    const a = room.room.anchors.camWide;
+    if (room._camA === a) room.rig.yawGoal = (a.yaw || 0) + (state.px || 0) * 0.025;
+    hoverSparkles(dt, fx);
+  }
+}
+// the voxel Earth above the board (hello lesson): sparkles when it pops up, labels on its pins
+function onGlobe(on, pos) {
+  if (on) {
+    fx.burst(pos, { colors: ['#ffe27a', '#fff6d8', '#9ad8ff', '#5cb84c', '#f08a1a'], n: 46, speed: 2.4, up: 1.6, size: [1, 2], life: [1.0, 1.8], gravity: 1.2, drag: 1.4, spread: 0.6 });
+    sfx('pop_in', { volume: 0.4, pitch: 0.9 });
+  } else fx.burst(pos, { colors: ['#ffe27a', '#fff6d8'], n: 18, speed: 1.6, up: 0.8, size: [1, 1], life: [0.6, 1.0], gravity: 2, drag: 1.4, spread: 0.5 });
+}
+function tickGlobePins() {
+  if (!pinTags) {
+    pinTags = ['th', 'van'].map((id) => { const e = el('div', `pf-gpin ${id}`, `<i></i>${id === 'th' ? 'Thailand' : 'Vancouver, Canada'}`); e.dataset.id = id; document.body.appendChild(e); return e; });
+  }
+  const ms = scene === 'class' && room.globe?.root.visible ? room.globe.markers(room.rig.camera) : [];
+  const W = innerWidth, H = innerHeight;
+  for (const tag of pinTags) {
+    const m = ms.find((x) => x.id === tag.dataset.id);
+    const on = !!m && m.front;
+    tag.classList.toggle('on', on);
+    if (on) { _v.copy(m.world).project(room.rig.camera); tag.style.transform = `translate(${((_v.x * 0.5 + 0.5) * W).toFixed(1)}px, ${((-_v.y * 0.5 + 0.5) * H).toFixed(1)}px) translate(-50%, calc(-100% - 12px))`; }
+  }
+}
+
+// the sleeping fox's face, just above the pillow (headTop points backwards while he lies down)
+const _bh = new THREE.Vector3(0.12, 0.26, 0.22);
+const bedHead = (out) => { const a = bed.room.anchors.bedPillow; return out.copy(a.isVector3 ? a : a.position).add(_bh); };
+// bedroom: sleepy voxel Zs float up from the fox
+function tickBed(dt) {
+  if (bed.sleeping) {
+    state.zT = (state.zT ?? 0.6) - dt;
+    if (state.zT <= 0) {
+      state.zT = 1.4;
+      bedHead(_cw);
+      const big = (state.zN = ((state.zN || 0) + 1) % 3);
+      const Z = big === 2 ? ['####', '...#', '..#.', '.#..', '####'] : ['###', '..#', '.#.', '###'];
+      bedFx.glyph(_cw.add(new THREE.Vector3(big * 0.05, 0, 0)), Z, { color: ['#d8d0ff', '#bfe0ff', '#fff6d8'][big], scale: 0.6 + big * 0.2 });
+    }
+    const a = bed.room.anchors.camWide;
+    if (bed._camA === a && state.mode === 'bed' && !state.waking) bed.rig.yawGoal = (a.yaw || 0) + (state.px || 0) * 0.025;
+    hoverSparkles(dt, bedFx);
+  }
+}
+function hoverSparkles(dt, f) {
+  if (!hot || !hot.p) return;
+  state.sparkT = (state.sparkT || 0) - dt;
+  if (state.sparkT > 0) return;
+  state.sparkT = 0.09;
+  _cw.copy(hot.p); if (hot.icon) _cw.y += hot.iy + 0.12;
+  f.burst(_cw, { colors: ['#ffe27a', '#fff6d8', '#ffd05a'], n: 1, speed: 0.5, up: 0.5, size: [0.5, 0.8], life: [0.5, 0.9], gravity: -0.4, floor: false, spread: 0.3 });
 }
 
 // ------------------------------------------------------------------ title
@@ -229,10 +346,15 @@ async function wakeFox() {
   closeBubble();
   audio.unlock();
   audio.setMusic('morning');
+  bedHead(_cw);
+  bedFx.burst(_cw, { colors: ['#ffe27a', '#fff6d8', '#f6a8c4', '#9ad8ff'], n: 30, speed: 1.4, up: 2.2, size: [1, 2], life: [1.0, 1.8] });
+  bedFx.setDust(['#fff2c8', '#ffe27a', '#ffd6a0', '#f6e8ff']); // the lamp is on now
   await bed.wake(say);
-  await wipe(() => { scene = 'class'; closeBubble(); room.fox.play('wave_hello', { loop: false, onDone: () => room._idle() }); });
+  await wipe(() => { scene = 'class'; hot = null; closeBubble(); room.fox.play('wave_hello', { loop: false, onDone: () => room._idle() }); });
   state.waking = false;
   setMode('idle');
+  room.fox.headTop(_cw); fx.confetti(_cw.add(_up), 60);
+  sfx('class_cheer', { volume: 0.4 });
   if (!state.done.has('hello')) startChapter('hello'); else sayHi();
 }
 
@@ -249,7 +371,7 @@ async function goPond() {
     }
     g0.titleMode = true;
     pond.start();
-    scene = 'pond';
+    scene = 'pond'; hot = null;
     audio.setMusic('title');
   });
 }
@@ -258,7 +380,7 @@ async function goClass() {
   closeBubble();
   setMode('idle');
   await wipe(() => {
-    pond.stop(); g0.titleMode = false; scene = 'class';
+    pond.stop(); g0.titleMode = false; scene = 'class'; hot = null;
     audio.setMusic(state.night ? 'night' : 'morning');
     say('Back inside. Click something.', 'happy', 2400);
   });
@@ -278,9 +400,13 @@ async function startChapter(id) {
   closeBubble();
   hot = null; tipEl.classList.remove('on'); document.body.classList.remove('pf-hot');
   setMode('chapter');
+  room.rig.yawGoal = room.room.anchors.camWide.yaw || 0; // undo the pointer lean
   const res = await room.runChapter(script);
   setMode('idle');
-  if (res.completed) { state.done.add(id); saveDone(); say('Click something else.', 'happy'); }
+  if (res.completed) {
+    state.done.add(id); saveDone(); say('Click something else.', 'happy');
+    room.fox.headTop(_cw); fx.confetti(_cw.add(_up)); // voxel confetti for a finished lesson
+  }
   drawIdleBoard();
   state.idleGag = 6;
 }
@@ -333,7 +459,7 @@ function tickLabels() {
   const seen = new Set();
   const shown = new Set();
   const all = on ? spots() : [];
-  if (icons) { if (on && scene === 'class') icons.sync(all, 1 / 60); else icons.hideAll(); }
+  if (icons) { if (on && scene === 'class') icons.sync(all, state.dt || 1 / 60, hot ? `${hot.tip}|${hot.lab}` : null); else icons.hideAll(); }
   all.filter((s) => s.lab).forEach((s, i) => {
     if (shown.has(s.lab)) return; // one label per kind (e.g. a single "Gallery")
     _w.copy(s.p); if (s.icon) _w.y += s.iy + 0.3;
@@ -350,7 +476,9 @@ function tickLabels() {
 }
 
 function tickUI(dt) {
+  state.dt = dt;
   tickLabels();
+  tickGlobePins();
   const idle = state.mode === 'idle';
   const W = window.innerWidth, H = window.innerHeight;
   if (state.bubbleT > 0) {
@@ -406,14 +534,18 @@ function setupKeys() {
 
 // ------------------------------------------------------------------ errors + ?debug=1
 const debug = params.get('debug') === '1';
-let frames = 0, errBox = null, lastErr = '';
-function report(e) {
+let frames = 0, badFrames = 0, errBox = null, lastErr = '';
+// harmless browser noise that must never put an error box in front of a visitor
+const BENIGN = /ResizeObserver loop|NotAllowedError|AbortError|play\(\) (request|failed)|The user aborted|AudioContext|autoplay/i;
+function report(e, fatal = false) {
   const msg = String(e?.stack || e?.message || e).split('\n').slice(0, 4).join('\n');
-  if (msg === lastErr) return;
+  if (msg === lastErr && !fatal) return;
   lastErr = msg;
+  if (BENIGN.test(msg)) { console.warn(e); return; }
   console.error(e);
+  if (!debug && !fatal) return; // visitors only see a message if the 3D view itself keeps failing
   if (!errBox) { errBox = el('pre', 'pf-err'); document.body.appendChild(errBox); }
-  errBox.textContent = 'Something went wrong (screenshot this):\n' + msg;
+  errBox.textContent = (fatal ? 'Sorry, the 3D view stopped working. Reloading the page usually fixes it.\n\n' : 'Something went wrong (screenshot this):\n') + msg;
 }
 window.addEventListener('error', (ev) => report(ev.error || ev.message));
 window.addEventListener('unhandledrejection', (ev) => report(ev.reason));

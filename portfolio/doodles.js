@@ -73,6 +73,29 @@ const DOODLES = {
     '...OWWWWWWO...',
     '....OOOOOO....',
   ],
+  // a little plane flying right (Thailand -> Canada)
+  plane: () => {
+    const c = canvas(19, 9);
+    c.shape(poly([[1, 0], [4.5, 3.2], [1.5, 3.2]]), 'R', 'r');
+    c.shape(poly([[1, 3], [15, 3], [18.5, 4.8], [15, 6.6], [2, 6.6]]), 'W', 'w');
+    c.shape(poly([[7, 5.6], [11.5, 5.6], [8, 9]]), 'B', 'b');
+    for (const x of [6, 8, 10, 12, 14]) c.set(x, 4, 'B');
+    c.set(16, 4, '*');
+    return c.rows();
+  },
+  // a Thai temple: tiered red-and-orange roofs with gold trim and a gold spire
+  temple: () => {
+    const c = canvas(17, 17);
+    c.line(8, 0, 8, 3, 'Y').set(7, 2, 'Y').set(9, 2, 'Y');
+    c.shape(poly([[4.5, 7], [12.5, 7], [10.5, 3.5], [6.5, 3.5]]), 'R', 'r');
+    c.shape(poly([[1, 11], [16, 11], [13, 7], [4, 7]]), 'O', 'o');
+    c.set(0, 10, 'Y').set(16, 10, 'Y').set(3, 6, 'Y').set(13, 6, 'Y');
+    c.shape(box(3, 11, 13, 16), 'W', 'w');
+    c.rect(7, 13, 9, 16, 'K');
+    c.rect(4, 13, 5, 14, 'Y').rect(11, 13, 12, 14, 'Y');
+    c.set(8, 5, '*');
+    return c.rows();
+  },
   // isometric cube = three.js
   cube: () => {
     const c = canvas(15, 17);

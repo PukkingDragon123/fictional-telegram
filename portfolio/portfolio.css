@@ -219,3 +219,13 @@ body.pf-hot #game { cursor: pointer; }
 body.pf-pond .pf-in { display: block; }
 
 .pf-err { position: fixed; left: 8px; top: 8px; right: 8px; z-index: 500; margin: 0; padding: 8px 10px; max-height: 40vh; overflow: auto; font: 12px/1.3 monospace; color: #ffd0c8; background: rgba(40,8,8,.9); white-space: pre-wrap; pointer-events: none; user-select: text; }
+
+/* the voxel Earth in the hello lesson: labels that follow its two pins (Thailand, Vancouver) */
+.pf-gpin { position: fixed; left: 0; top: 0; z-index: 8; display: flex; align-items: center; gap: 7px; padding: 5px 10px 6px; font: 17px/1 var(--font-title); color: #2a1a10; background: #fffaf0;
+  box-shadow: 0 0 0 3px var(--ink), 0 4px 0 3px rgba(0,0,0,.3); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .25s; will-change: transform; }
+.pf-gpin.on { opacity: 1; }
+.pf-gpin::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: -6px; border: 6px solid transparent; border-top: 8px solid var(--ink); }
+.pf-gpin i { width: 16px; height: 11px; box-shadow: 0 0 0 2px var(--ink); flex: none; }
+.pf-gpin.th i { background: linear-gradient(#d8322a 0 17%, #fdfbf2 17% 33%, #2f3c98 33% 67%, #fdfbf2 67% 83%, #d8322a 83%); }
+.pf-gpin.van i { background: radial-gradient(circle at 50% 50%, #d8322a 0 2.5px, transparent 3px), linear-gradient(90deg, #d8322a 0 26%, #fdfbf2 26% 74%, #d8322a 74%); }
+@media (max-aspect-ratio: 23/20) { .pf-gpin { font-size: 14px; padding: 4px 8px 5px; } }

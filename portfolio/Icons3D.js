@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { VoxelModel } from '../src/core/voxel.js';
 import { ICONS, PAL } from './icons.js';
 
-const VS = 0.03;
+const VS = 0.034;
 const hex = (s) => parseInt(s.slice(1), 16);
 
 function extrude(name, depth = 3) {
@@ -42,7 +42,7 @@ export class Icons3D {
     this.group = new THREE.Group();
     this.group.name = 'floatingIcons';
     parent.add(this.group);
-    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a2018 });
+    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x4a3a28 });
     this.items = new Map();
     this.t = 0;
   }
@@ -63,21 +63,31 @@ export class Icons3D {
     return it;
   }
 
-  /** place an icon over each spot that has `icon`; hide the rest. spot: { icon, p: Vector3, iy } */
-  sync(spots, dt) {
+  /** place an icon over each spot that has `icon`; hide the rest. spot: { icon, p: Vector3, iy, tip, lab }.
+   *  The hovered spot (hotKey = tip|lab) grows and spins; punch(spot) makes one pop. */
+  sync(spots, dt, hotKey = null) {
     this.t += dt;
     const used = new Set();
     spots.forEach((s, i) => {
       if (!s.icon) return;
       const key = s.icon + i;
       let it = this.items.get(key);
-      if (!it) { const base = this._get(s.icon); it = { holder: base.holder.clone(), h: base.h }; this.group.add(it.holder); this.items.set(key, it); }
+      if (!it) { const base = this._get(s.icon); it = { holder: base.holder.clone(), h: base.h, k: 0, spin: 0, punch: 0 }; this.group.add(it.holder); this.items.set(key, it); }
       used.add(key);
+      it.spot = `${s.tip}|${s.lab}`;
+      const hot = hotKey === it.spot;
+      if (!it.holder.visible) it.k = 0; // grow in when it (re)appears
       it.holder.visible = true;
-      it.holder.position.set(s.p.x, s.p.y + (s.iy ?? 0.4) + Math.sin(this.t * 2 + i) * 0.03, s.p.z + 0.1);
-      it.holder.rotation.y = Math.sin(this.t * 0.9 + i) * 0.5;
+      it.k += ((hot ? 1.35 : 1) - it.k) * Math.min(1, dt * 10);
+      it.punch = Math.max(0, it.punch - dt * 2.5);
+      it.spin += dt * (hot ? 5 : 0);
+      const pop = 1 + Math.sin(it.punch * Math.PI * 2) * it.punch * 0.45;
+      it.holder.scale.setScalar(Math.max(0.001, it.k * pop));
+      it.holder.position.set(s.p.x, s.p.y + (s.iy ?? 0.4) + Math.sin(this.t * 2 + i) * 0.03 + (hot ? 0.05 : 0), s.p.z + 0.1);
+      it.holder.rotation.y = Math.sin(this.t * 0.9 + i) * 0.5 + it.spin;
     });
     for (const [k, it] of this.items) if (!used.has(k)) it.holder.visible = false;
   }
+  punch(spot) { const key = `${spot.tip}|${spot.lab}`; for (const it of this.items.values()) if (it.spot === key) it.punch = 1; }
   hideAll() { for (const it of this.items.values()) it.holder.visible = false; }
 }
