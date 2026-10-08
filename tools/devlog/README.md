@@ -28,7 +28,7 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
 
 - `vo/script.json` — every day's narration, line by line (`[id, text, pause after]`).
   `vo.py` speaks it with Kokoro-82M (open-weights TTS, run offline with `kokoro-onnx`, voice
-  `am_fenrir`) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
+  `bm_george`; render.mjs pitches it up by the script's `pitch` for Reynard's cartoon voice) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
   every word (for the captions and for timing the edit):
   `HOME=<dir with an espeak-ng-data link> python -I tools/devlog/vo.py kokoro.onnx voices.npz day01 …`.
   To use your own voice instead, read a day's lines in one take (in script order, about half a
@@ -43,7 +43,9 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
 - `clipdefs.mjs` — every clip (prototype shots `dl_q*`, real-game shots `g*` / `gb_*`), recorded
   with the gig-video recorder: `node tools/video/clips.mjs dl_q1_wide … --defs tools/devlog/clipdefs.mjs`
   (frames land in `tools/video/clips/<name>/`, with per-frame anchors and the sounds they made).
-- `days.js` — the ten edits, each a function of its voice-over timing (cuts land on words).
+- `days.js` — the ten edits, each a function of its voice-over timing (cuts land on words; `V.f(line, 'word')`).
+  Day 1 opens on a pin board of reference photos from `refs/1-4.jpg` (your own, git-ignored; game shots
+  stand in when a photo is missing).
 - `foxhost.js` — Reynard as the host: the game's FoxRig rendered small with an ink outline and
   drawn pixelated over the video. He hops / runs between spots, pulls faces, plays gags (stomp,
   facepalm, faint, hat pop, monocle drop) and gets cartoon FX (anger veins, sweat, "!", "?",

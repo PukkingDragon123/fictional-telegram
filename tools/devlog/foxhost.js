@@ -96,7 +96,7 @@ export class FoxHost {
     this.visible = false;
     this.pos = { x: SPOTS.bl.x, y: 2400 };
     this.move = null;
-    this.scale = 1; this.scaleTo = 1;
+    this.scale = 1.15; this.scaleTo = 1.15; // big: he owns the place
     this.face = 0.35;
     this.gag = null; // { name, until }
     this.fx = [];

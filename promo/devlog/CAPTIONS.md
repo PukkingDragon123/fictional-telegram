@@ -23,7 +23,7 @@ speech bubbles, typed out word by word as he talks.
 ---
 
 ### Day 1 — `day-01.mp4`
-day 1 of making my dream game 🐻 the bear walked through me. then on water. cool cool cool 😭 #gamedev #indiedev #devlog #pixelart #cozygames
+day 1 of making my dream game 🐻 a pond, salmon, and bears who will PAY for them. the bear already walked on water 😤 #gamedev #indiedev #devlog #pixelart #cozygames
 
 ### Day 2 — `day-02.mp4`
 day 2: square fish 🐟 one missing line of code and every fish went to the corner 💀 what fish should i add?
@@ -56,9 +56,14 @@ day 10 🐻🐟 ten days ago this was a brown square walking on water. should i 
 
 ## Voice-over
 
-The narration is generated offline with Kokoro-82M (open-weights text-to-speech), male voice
-`am_fenrir`. The scripts are in `tools/devlog/vo/script.json` (`*word*` = shouted: big and red in the
-bubble).
+Reynard narrates: the greedy, filthy-rich fox who owns the pond and treats the bears as paying
+customers. His voice is Kokoro-82M (open-weights text-to-speech, run offline), the posh British
+`bm_george` voice sped up and pitched up into a cartoon villain. The scripts are in
+`tools/devlog/vo/script.json`.
+
+Day 1 opens with the idea on a pin board of real-life references. Put your photos in
+`tools/devlog/refs/` as `1.jpg` (a pond), `2.jpg` (salmon), `3.jpg` (a bear catching salmon) and
+`4.jpg` (a cute bear), then re-render day 1. Until then the board shows shots from the game.
 
 Your own voice will always feel more real. Read a day's lines in one take, in order, with about
 half a second between lines, then run `vo.py --own day01 my-day01.wav` and re-render with

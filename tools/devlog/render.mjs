@@ -122,7 +122,10 @@ for (const day of days) {
   // voice. Two versions when the day has a song (D.song, tools/devlog/music/<file>.mp3, your own
   // files, not in git): with the song -> promo/devlog/with-music/, and with the game's own synth
   // music -> promo/devlog/ (the copy that is safe to commit and to post with an in-app sound).
-  const VOICE_FX = 'highpass=f=85,acompressor=threshold=0.08:ratio=4:attack=6:release=90:makeup=2.5,equalizer=f=3200:t=q:w=1.3:g=3,equalizer=f=180:t=q:w=1:g=1.5';
+  // the script's `pitch` (vo/script.json) turns the voice into a cartoon character, timing unchanged
+  const SCRIPT = JSON.parse(fs.readFileSync(path.join(HERE, 'vo', 'script.json'), 'utf8'));
+  const PITCH = VO.voice === 'own' ? 1 : SCRIPT.pitch || 1;
+  const VOICE_FX = (PITCH !== 1 ? `rubberband=pitch=${PITCH},` : '') + 'highpass=f=85,acompressor=threshold=0.08:ratio=4:attack=6:release=90:makeup=2.5,equalizer=f=3200:t=q:w=1.3:g=3,equalizer=f=180:t=q:w=1:g=1.5';
   const songFile = D.song && path.join(HERE, 'music', `${D.song.file}.mp3`);
   const withSong = songFile && fs.existsSync(songFile);
   if (withSong) {
@@ -176,7 +179,7 @@ for (const day of days) {
   const destSong = path.join(ROOT, 'promo', 'devlog', 'with-music', name);
   fs.mkdirSync(path.dirname(destSong), { recursive: true });
   // two-pass at a fixed bitrate: crisp pixels and text, and every file stays well under 30 MB
-  const kbps = D.videoKbps || 6500, logf = path.join(HERE, 'out', `${day}-x264`);
+  const kbps = D.videoKbps || Math.min(6500, Math.floor(200000 / D.length)), logf = path.join(HERE, 'out', `${day}-x264`);
   // -frames:v: only this render's frames (an older, longer render may have left more in OUT)
   const enc = (pass, out, extra = []) => execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(OUT, 'f%05d.jpg'), ...extra, '-frames:v', String(N),
     '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-b:v', kbps + 'k', '-maxrate', Math.round(kbps * 1.6) + 'k', '-bufsize', kbps * 2 + 'k',

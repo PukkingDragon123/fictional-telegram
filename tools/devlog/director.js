@@ -62,10 +62,19 @@ const collect = (s) => { if (!s) return; if (s.clip) clipsUsed.add(s.clip); if (
 D.shots.forEach(collect);
 const metaReady = Promise.all([...clipsUsed].map((c) => fetch(`../video/clips/${c}/meta.json`).then((r) => r.json()).then((m) => { META[c] = m; }).catch(() => { console.error('no meta', c); })));
 
+// a shot longer than its clip: up to ~45% over, it plays a little slower to fit; beyond that it
+// holds the last frame (xform pushes in slowly while it holds)
+function fitSpeed(s) {
+  if (s._fit != null) return s._fit;
+  const m = META[s.clip], sp = s.speed ?? 1;
+  if (!m || s.still != null || s.loop || !s.dur) return sp;
+  const avail = m.frames - 1 - (s.from || 0), need = s.dur * FPS * sp;
+  return (s._fit = need > avail && need <= avail * 1.45 ? avail / (s.dur * FPS) : sp);
+}
 function frameOf(s, t) {
   const m = META[s.clip];
   const n = m ? m.frames : 1e9;
-  let k = s.still != null ? s.still : Math.floor((s.from || 0) + (t - s.at) * FPS * (s.speed ?? 1));
+  let k = s.still != null ? s.still : Math.floor((s.from || 0) + (t - s.at) * FPS * fitSpeed(s));
   if (s.loop && k >= n) k = (s.from || 0) + ((k - (s.from || 0)) % (n - (s.from || 0)));
   return Math.max(0, Math.min(n - 1, k));
 }
@@ -75,6 +84,8 @@ function xform(s, t, r = FULL, iw = 1080, ih = 1920) {
   const u = (t - s.at) / s.dur;
   let z = typeof s.zoom === 'number' ? s.zoom : s.zoom ? (Array.isArray(s.zoom[0]) ? keyed(s.zoom, t - s.at) : lerp(s.zoom[0], s.zoom[1], ease(u))) : 1;
   if (s.punch) z *= 1 + s.punch * (1 - ease((t - s.at) / 0.28));
+  const mm = META[s.clip];
+  if (mm && s.still == null && !s.loop) { const over = (s.from || 0) / FPS + (t - s.at) * fitSpeed(s) - (mm.frames - 1) / FPS; if (over > 0) z *= 1 + 0.035 * (over / fitSpeed(s)); }
   const base = Math.max(r.w / iw, r.h / ih) * z;
   const dw = iw * base, dh = ih * base;
   let p = [0.5, 0.5];
@@ -105,6 +116,59 @@ async function drawClip(s, t, r = FULL) {
   if (s.dim) { g.fillStyle = `rgba(12,8,18,${s.dim})`; g.fillRect(r.x, r.y, r.w, r.h); }
   g.restore();
 }
+// a pin board of reference photos (tools/devlog/refs/), polaroids popping in one by one; a missing
+// photo falls back to a frame of the game (alt: clip name) or a fish sprite (alt: species id)
+let corkCv = null;
+function cork() {
+  if (corkCv) return corkCv;
+  corkCv = document.createElement('canvas'); corkCv.width = 360; corkCv.height = 640;
+  const x = corkCv.getContext('2d');
+  let r = 7;
+  const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+  x.fillStyle = '#6b4a30'; x.fillRect(0, 0, 360, 640);
+  for (let i = 0; i < 9000; i++) { x.fillStyle = ['#5e3f28', '#7a5638', '#83603f', '#563a25'][Math.floor(rnd() * 4)]; x.fillRect(Math.floor(rnd() * 360), Math.floor(rnd() * 640), 1 + Math.floor(rnd() * 2), 1); }
+  return corkCv;
+}
+async function photoOf(it) {
+  const im = await img(`./${it.src}`);
+  if (im) return im;
+  if (META[it.alt] || /^g|^dl_/.test(it.alt || '')) return img(frameURL(it.alt, 60));
+  if (it.alt) { const c = fishCanvas(it.alt, { frame: 1, scale: 8 }); const b = document.createElement('canvas'); b.width = 520; b.height = 480; const x = b.getContext('2d'); x.fillStyle = '#3d7f9a'; x.fillRect(0, 0, 520, 480); x.imageSmoothingEnabled = false; x.drawImage(c, (520 - c.width) / 2, (480 - c.height) / 2); return b; }
+  return null;
+}
+const boardSfx = new Set();
+async function drawBoard(s, t) {
+  g.imageSmoothingEnabled = false;
+  g.drawImage(cork(), 0, 0, W, H);
+  const items = s.board.filter((it) => t >= it.at);
+  for (const [k, it] of items.entries()) {
+    if (!boardSfx.has(it)) { boardSfx.add(it); sfx('paper', { volume: 0.45 }); sfx('pop_in', { volume: 0.3, pitch: 0.9 }); }
+    const lt = t - it.at, u = backOut(lt / 0.28), sc = 0.4 + 0.6 * u;
+    const pw = 580, ph = 640, iw = 530, ih = 470;
+    g.save();
+    g.translate(it.x, it.y);
+    g.rotate(((it.rot || 0) * Math.PI) / 180);
+    g.scale(sc, sc);
+    g.fillStyle = 'rgba(20,10,6,0.45)'; g.fillRect(-pw / 2 + 14, -ph / 2 + 18, pw, ph);
+    g.fillStyle = '#fbf6ea'; g.fillRect(-pw / 2, -ph / 2, pw, ph);
+    const ph0 = await photoOf(it);
+    g.save();
+    g.beginPath(); g.rect(-iw / 2, -ph / 2 + 25, iw, ih); g.clip();
+    g.fillStyle = '#222'; g.fillRect(-iw / 2, -ph / 2 + 25, iw, ih);
+    if (ph0) {
+      const w0 = ph0.naturalWidth || ph0.width, h0 = ph0.naturalHeight || ph0.height;
+      const z = Math.max(iw / w0, ih / h0) * (1.04 + 0.05 * Math.min(1, lt / 6));
+      g.imageSmoothingEnabled = true;
+      g.drawImage(ph0, -w0 * z / 2, -ph / 2 + 25 + ih / 2 - h0 * z / 2, w0 * z, h0 * z);
+    }
+    g.restore();
+    g.fillStyle = '#1b1420'; g.font = "56px 'TBME Goofy'"; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(it.label || '', 0, ph / 2 - 72);
+    g.fillStyle = 'rgba(240,228,180,0.85)'; g.fillRect(-70, -ph / 2 - 22, 140, 44); // tape
+    if (k < items.length - 1) { g.fillStyle = 'rgba(30,18,10,0.18)'; g.fillRect(-pw / 2, -ph / 2, pw, ph); }
+    g.restore();
+  }
+}
 async function drawShot(s, t) {
   g.globalAlpha = s.fade ? clamp01((t - s.at) / s.fade) : 1;
   if (s.wipe) {
@@ -116,6 +180,8 @@ async function drawShot(s, t) {
     g.restore();
     g.fillStyle = '#1b1420'; g.fillRect(x - 9, 0, 18, H);
     g.fillStyle = '#fffaf0'; g.fillRect(x - 4, 0, 8, H);
+  } else if (s.board) {
+    await drawBoard(s, t);
   } else if (s.stack) {
     const gap = 16, hh = (H - gap) / 2;
     g.fillStyle = '#1b1420'; g.fillRect(0, 0, W, H);

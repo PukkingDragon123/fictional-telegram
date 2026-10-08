@@ -1,5 +1,5 @@
 // The ten devlog days. Each day is a function of its voice-over timing (vo/<day>.json): V.s(id) /
-// V.e(id) = when a line starts / ends, V.w(id, i) = when its i-th word starts, V.len = narration
+// V.e(id) = when a line starts / ends, V.w(id, i) = when its i-th word starts, V.f(id, 'word') = when that word starts, V.len = narration
 // length. It returns { length, shots, cues }: shots are clips (tools/video/clips/<name>, at/dur in
 // seconds, clip frame = from + (t - at) * 30 * speed), cues are stickers and sounds.
 // Clips: tools/devlog/clipdefs.mjs (dl_q*: the square prototype, g*: the real game).
@@ -7,7 +7,14 @@ export const FPS = 30;
 
 export function voHelper(vo) {
   const L = (id) => { const l = vo.lines[id]; if (!l) throw new Error('no vo line ' + id); return l; };
-  return { s: (id) => L(id).t0, e: (id) => L(id).t1, w: (id, i) => L(id).words[i][1], len: vo.length };
+  const norm = (w) => w.toLowerCase().replace(/[^a-z0-9']/g, '');
+  // f(id, 'word', n): when the n-th "word" of a line starts (so cues survive script rewrites)
+  const f = (id, word, n = 0) => {
+    const ws = L(id).words.filter((x) => norm(x[0]) === norm(word));
+    if (!ws[n]) throw new Error(`no word "${word}" (#${n}) in line ${id}`);
+    return ws[n][1];
+  };
+  return { s: (id) => L(id).t0, e: (id) => L(id).t1, w: (id, i) => L(id).words[i][1], f, len: vo.length };
 }
 // play a clip so that clip-time `ct` (s) lands on video time `vt`
 const sync = (ct, vt, at, speed = 1) => Math.max(0, Math.round((ct - (vt - at) * speed) * FPS));
@@ -17,41 +24,58 @@ const end = (at, len, a, b, icon) => ({ at, end: [a, b], icon, dur: len - at });
 
 export const DAYS = {};
 
-// ---------------------------------------------------------------- day 1: the idea, in squares
+// ---------------------------------------------------------------- day 1: the idea (real-life references), then squares
+// tools/devlog/refs/1-4.jpg: your reference photos (a pond, salmon, a bear catching salmon, a cute bear)
 DAYS.day01 = (V) => {
   const len = V.e('cta') + 1.0;
   const tBug = V.s('test');
+  const boardEnd = V.s('name');
   return {
     length: len,
     song: { file: 'crossing', from: 0 },
     fox: [
-      { at: V.s('test'), spot: 'br', run: true },
-      { at: V.s('through') - 0.05, spot: 'bl', run: true },
-      { at: 0.05, enter: 'bl', expr: 'excited' },
-      { at: 0.7, anim: 'wave_hello', for: 1.2 },
-      { at: V.s('name'), expr: 'proud', fx: 'sparkle' },
-      { at: V.s('idea'), expr: 'scheming' },
-      { at: V.w('idea', 12), expr: 'angry', anim: 'point', fx: 'anger', for: 1.0 },
-      { at: V.s('fox'), expr: 'smug', anim: 'polish_monocle', fx: 'glint', for: 1.5 },
-      { at: V.s('squares'), expr: 'embarrassed', anim: 'shrug', fx: 'sweat' },
-      { at: V.s('bear'), expr: 'tsk', anim: 'point', for: 1.2 },
-      { at: V.s('test'), expr: 'determined' },
-      { at: V.s('through') + 0.3, expr: 'horror', fx: 'shock', gag: 'popHat', shake: 0.7, sfx: 'fox_startle' },
-      { at: V.s('water'), expr: 'ko', anim: 'facepalm', for: 1.3, fx: 'sweat' },
-      { at: V.s('broken'), spot: 'c', scale: 1.35, expr: 'angry', anim: 'angry_stomp', fx: 'anger', fxFor: 2, shake: 0.5 },
-      { at: V.s('cta'), spot: 'br', scale: 1, expr: 'excited', anim: 'point', fx: 'question', for: 1 },
+      { at: 0.05, enter: 'br', expr: 'smug' },
+      { at: 0.8, anim: 'polish_monocle', fx: 'glint', for: 1.4 },
+      { at: V.s('idea1'), expr: 'scheming', anim: 'greedy', for: 2.5 },
+      { at: V.f('idea1', 'my'), expr: 'evil_grin', fx: 'dollars', fxFor: 2.4 },
+      { at: V.s('idea2'), expr: 'greedy', anim: 'count_coins', fx: 'dollars', for: 3 },
+      { at: V.s('idea3'), expr: 'tsk', spot: 'bl' },
+      { at: V.f('idea3', 'disgusting'), expr: 'evil_grin', anim: 'laugh_evil', fx: 'notes', for: 1.8 },
+      { at: V.s('idea4'), expr: 'scheming', spot: 'c', scale: 1.3 },
+      { at: V.f('idea4', 'pay'), expr: 'greedy', anim: 'count_coins', fx: 'dollars', fxFor: 2.5, for: 2.2 },
+      { at: V.s('name'), spot: 'br', scale: 1.15, expr: 'magnifique', anim: 'bow_fancy', fx: 'sparkle', for: 1.6 },
+      { at: V.f('name', 'charging'), expr: 'evil_grin', fx: 'dollars' },
+      { at: V.s('squares'), expr: 'tsk', anim: 'shrug', fx: 'sweat', for: 1.4 },
+      { at: V.f('squares', "don't"), expr: 'angry', anim: 'point', fx: 'anger', for: 1.0 },
+      { at: V.s('bear'), expr: 'smug', anim: 'polish_monocle', for: 1.6 },
+      { at: V.s('test'), expr: 'determined', spot: 'bl', run: true },
+      { at: V.s('through') + 0.25, expr: 'horror', fx: 'shock', gag: 'popHat', shake: 0.7, sfx: 'fox_startle' },
+      { at: V.f('through', 'do'), expr: 'angry', anim: 'angry_stomp', fx: 'anger', shake: 0.4 },
+      { at: V.s('water'), expr: 'ko', anim: 'facepalm', for: 1.6, fx: 'sweat' },
+      { at: V.s('broken'), spot: 'c', scale: 1.4, expr: 'angry', anim: 'angry_stomp', fx: 'anger', fxFor: 2.6, shake: 0.5 },
+      { at: V.f('broken', 'furious'), shake: 0.8, sfx: 'growl', volume: 0.3 },
+      { at: V.s('cta'), spot: 'br', scale: 1.15, expr: 'scheming', anim: 'point', fx: 'question', for: 1.2 },
     ],
     shots: [
-      { clip: 'dl_q1_wide', at: 0, dur: V.s('squares'), speed: 6.9 / V.s('squares'), focus: 'fox', zoom: [[V.s('fox') - 0.05, 1], [V.s('fox') + 0.35, 2.3]] },
-      { clip: 'dl_q1_walk', at: V.s('squares'), dur: tBug - V.s('squares'), speed: 1.25, punch: 0.06 },
-      { clip: 'dl_q1_bug', at: tBug, dur: V.s('cta') - tBug, from: sync(1.65, V.s('through') + 0.35, tBug), sound: true },
+      { board: [
+        { src: 'refs/1.jpg', at: 0.0, label: 'a pond', x: 540, y: 560, rot: -4, alt: 'g7_world' },
+        { src: 'refs/2.jpg', at: V.s('idea2'), label: 'salmon', x: 360, y: 980, rot: 5, alt: 'sockeye' },
+        { src: 'refs/3.jpg', at: V.s('idea3'), label: 'bears love salmon', x: 720, y: 760, rot: -3, alt: 'gb_title_eat' },
+        { src: 'refs/4.jpg', at: V.s('idea4'), label: 'cute bears', x: 420, y: 1300, rot: 4, alt: 'dl_q5_lineup' },
+      ], at: 0, dur: boardEnd },
+      { clip: 'dl_q1_wide', at: boardEnd, dur: V.s('test') - boardEnd, speed: 6.9 / (V.s('test') - boardEnd), focus: 'fox', zoom: [[V.s('bear') - boardEnd - 0.05, 1], [V.s('bear') - boardEnd + 0.35, 2.0]] },
+      { clip: 'dl_q1_walk', at: V.s('test'), dur: V.s('through') - 0.3 - V.s('test'), speed: 1.25, punch: 0.06 },
+      { clip: 'dl_q1_bug', at: V.s('through') - 0.3, dur: V.s('cta') - V.s('through') + 0.3, from: sync(1.65, V.s('through') + 0.35, V.s('through') - 0.3), sound: true },
       { clip: 'dl_q2_fish', at: V.s('cta'), dur: len - V.s('cta'), dim: 0.25 },
     ],
     cues: [
       { at: 0, music: 'morning', volume: 0.55 },
       hook(1), badge(1, len),
-      { at: V.s('fox') + 0.3, arrow: 'fox', label: 'me', dur: V.e('fox') - V.s('fox') + 0.2 },
-      { at: V.s('bear') + 0.1, arrow: 'bear', label: 'bear', dur: V.e('bear') - V.s('bear') + 0.25 },
+      { at: 2.4, tag: 'the idea', style: 'dark', x: 44, y: 330, dur: boardEnd - 2.5 },
+      { at: boardEnd, flash: 0.3 },
+      { at: boardEnd, sfx: 'whoosh', volume: 0.35 },
+      { at: V.s('bear') + 0.1, arrow: 'bear', label: 'bear', dur: 1.6 },
+      { at: V.f('bear', 'orange') , arrow: 'fox', label: 'me', dur: V.e('bear') - V.f('bear', 'orange') + 0.3 },
       { at: V.s('through') + 0.1, ring: 'fox', r: 190, dy: -40, dur: 1.5 },
       { at: V.s('broken') + 0.1, tag: 'bug #1', style: 'red', x: 60, y: 330, dur: V.e('broken') - V.s('broken') + 0.3 },
       { at: V.s('cta'), sfx: 'whoosh', volume: 0.3 },
@@ -67,15 +91,18 @@ DAYS.day02 = (V) => {
     length: len,
     song: { file: 'octopus', from: 0.6, levels: { music: -22, duckMusic: 13 } },
     fox: [
+      { at: V.f('wander', 'perfect'), expr: 'smug', anim: 'polish_monocle', fx: 'glint', for: 1.4 },
+      { at: V.f('fixed', 'fortune'), expr: 'greedy', anim: 'count_coins', fx: 'dollars', for: 2.0 },
+      { at: V.f('cta', 'hungry'), expr: 'mwaha', anim: 'laugh_evil', fx: 'notes', for: 1.6 },
       { at: V.s('wander') + 0.3, spot: 'br', run: true },
       { at: V.s('then'), spot: 'bl' },
       { at: 0.05, enter: 'bl', expr: 'happy' },
       { at: V.s('wander'), expr: 'dreamy' },
-      { at: V.w('babies', 7), expr: 'love', anim: 'cheer', fx: 'hearts', for: 1.4 },
+      { at: V.f('babies', 'baby'), expr: 'love', anim: 'cheer', fx: 'hearts', for: 1.4 },
       { at: V.s('then'), expr: 'determined' },
       { at: V.s('corner'), expr: 'horror', fx: 'shock', shake: 0.5 },
-      { at: V.w('corner', 6), spot: 'c', scale: 1.35, expr: 'angry', anim: 'angry_stomp', fx: 'anger', shake: 0.6 },
-      { at: V.s('vector'), spot: 'bl', scale: 1, expr: 'embarrassed', anim: 'facepalm', fx: 'sweat', for: 1.4 },
+      { at: V.f('corner', 'why'), spot: 'c', scale: 1.35, expr: 'angry', anim: 'angry_stomp', fx: 'anger', shake: 0.6 },
+      { at: V.s('vector'), spot: 'bl', scale: 1.15, expr: 'embarrassed', anim: 'facepalm', fx: 'sweat', for: 1.4 },
       { at: V.s('fixed'), expr: 'proud', fx: 'sparkle', anim: 'cheer', for: 1.2 },
       { at: V.s('cta'), spot: 'br', expr: 'evil_grin', anim: 'laugh_evil', fx: 'dollars', for: 1.6 },
     ],
@@ -103,6 +130,7 @@ DAYS.day03 = (V) => {
     length: len,
     song: { file: 'crossing', from: 64 },
     fox: [
+      { at: V.f('love', 'money'), expr: 'mwaha', anim: 'laugh_evil', fx: 'dollars', for: 1.8, fxFor: 2.2 },
       { at: V.s('run') + 0.1, spot: 'br', run: true },
       { at: V.s('later'), spot: 'bl' },
       { at: 0.05, enter: 'bl', expr: 'worried' },
@@ -113,7 +141,7 @@ DAYS.day03 = (V) => {
       { at: V.s('later'), expr: 'neutral' },
       { at: V.s('empty'), expr: 'shocked', gag: 'dropMonocle', fx: 'shock', shake: 0.4 },
       { at: V.s('confused'), expr: 'confused', anim: 'shrug', fx: 'question', for: 1.4 },
-      { at: V.w('confused', 7), expr: 'tsk' },
+      { at: V.f('confused', 'fault'), expr: 'tsk' },
       { at: V.s('cta'), spot: 'br', expr: 'smug', gag: 'restore', anim: 'polish_monocle', fx: 'glint', for: 1.5 },
     ],
     noCaptions: [[V.s('later') - 0.05, V.e('later') + 0.3]], // the "10 SECONDS LATER" card says it
@@ -143,14 +171,16 @@ DAYS.day04 = (V) => {
     length: len,
     song: { file: 'octopus', from: 108, levels: { music: -22, duckMusic: 13 } },
     fox: [
+      { at: V.f('me', 'no'), expr: 'tsk', fx: 'anger' },
+      { at: V.f('cubes', 'deserve'), expr: 'magnifique', fx: 'sparkle' },
       { at: V.s('anims'), spot: 'bl' },
       { at: 0.05, enter: 'br', expr: 'happy' },
       { at: V.s('me'), expr: 'embarrassed', anim: 'facepalm', fx: 'sweat', for: 1.6 },
       { at: V.s('cubes'), expr: 'determined', scale: 0.85 },
       { at: V.s('rich'), expr: 'magnifique', anim: 'polish_monocle', fx: 'sparkle', for: 1.3 },
-      { at: V.w('rich', 3), expr: 'greedy', anim: 'laugh_evil', fx: 'dollars', for: 1.4 },
+      { at: V.f('rich', 'filthy'), expr: 'greedy', anim: 'laugh_evil', fx: 'dollars', for: 1.4 },
       { at: V.s('anims'), expr: 'excited', anim: 'dance', for: 2.0 },
-      { at: V.s('bye'), scale: 1, expr: 'evil_grin', anim: 'wave_bye', for: 1.4 },
+      { at: V.s('bye'), scale: 1.15, expr: 'evil_grin', anim: 'wave_bye', for: 1.4 },
       { at: V.s('better'), spot: 'bl', expr: 'smug', anim: 'bow_fancy', fx: 'glint', for: 1.6 },
     ],
     shots: [
@@ -179,15 +209,18 @@ DAYS.day05 = (V) => {
     length: len,
     song: { file: 'crossing', from: 128 },
     fox: [
+      { at: V.f('office', 'pays'), expr: 'greedy', anim: 'count_coins', fx: 'dollars', for: 1.6 },
+      { at: V.f('more', 'tips'), expr: 'evil_grin', fx: 'dollars' },
+      { at: V.f('you', 'tell'), expr: 'scheming', fx: 'glint' },
       { at: V.s('more'), spot: 'br' },
       { at: 0.05, enter: 'bl', expr: 'excited' },
       { at: V.s('office'), expr: 'proud' },
-      { at: V.w('office', 9), expr: 'alarmed', fx: 'shock', shake: 0.5, anim: 'cower', for: 0.9 },
+      { at: V.f('office', 'roars'), expr: 'alarmed', fx: 'shock', shake: 0.5, anim: 'cower', for: 0.9 },
       { at: V.s('more'), expr: 'happy' },
       { at: V.s('you'), spot: 'bc', expr: 'scheming', anim: 'point', fx: 'question', for: 1.2 },
       { at: V.s('promo'), spot: 'bl', expr: 'proud', fx: 'sparkle' },
       { at: V.s('swim'), expr: 'excited', anim: 'cheer', for: 1.2 },
-      { at: V.w('swim', 2), expr: 'yum', fx: 'hearts' },
+      { at: V.f('swim', 'keep'), expr: 'yum', fx: 'hearts' },
       { at: V.s('cta'), spot: 'br', expr: 'tsk', anim: 'shrug', for: 1.2 },
     ],
     shots: [
@@ -212,6 +245,8 @@ DAYS.day06 = (V) => {
     length: len,
     song: { file: 'always', from: 60 - (V.s('drew') + 0.6), levels: { music: -21, duckMusic: 12 } },
     fox: [
+      { at: V.f('list', 'money'), expr: 'greedy', fx: 'dollars' },
+      { at: V.f('cycle', 'pay'), expr: 'evil_grin', anim: 'count_coins', fx: 'dollars', for: 1.6 },
       { at: V.s('cycle'), spot: 'br', run: true },
       { at: V.s('same'), spot: 'bl' },
       { at: 0.05, enter: 'bl', expr: 'tsk' },
@@ -251,20 +286,22 @@ DAYS.day06 = (V) => {
 DAYS.day07 = (V) => {
   const len = V.e('cta') + 1.6;
   const drawAt = V.s('draw') - 0.2;
-  const cardAt = V.s('beautiful') + 0.05, fishAt = V.w('beautiful', 3) - 0.05;
+  const cardAt = V.s('beautiful') + 0.05, fishAt = V.f('beautiful', "it's", 1) - 0.05;
   return {
     length: len,
     song: { file: 'octopus', from: 20, levels: { music: -22, duckMusic: 13 } },
     fox: [
+      { at: V.f('hook', 'people'), expr: 'tsk', anim: 'shrug', for: 1.2 },
+      { at: V.f('cta', 'maybe'), expr: 'smug', anim: 'polish_monocle', fx: 'glint', for: 1.4 },
       { at: V.s('draw') + 0.2, spot: 'br' },
       { at: V.s('pond'), spot: 'bl' },
       { at: 0.05, enter: 'bl', expr: 'happy' },
       { at: V.s('banana'), expr: 'shocked', fx: 'question' },
-      { at: V.w('banana', 6), expr: 'determined', anim: 'cheer', fx: 'sparkle', for: 1.0 },
+      { at: V.f('banana', 'fine'), expr: 'determined', anim: 'cheer', fx: 'sparkle', for: 1.0 },
       { at: V.s('draw'), expr: 'focused', scale: 0.85 },
-      { at: V.s('pond'), scale: 1, expr: 'excited' },
+      { at: V.s('pond'), scale: 1.15, expr: 'excited' },
       { at: V.s('beautiful'), expr: 'love', fx: 'hearts', anim: 'cheer', for: 1.2 },
-      { at: V.w('beautiful', 6), expr: 'magnifique', fx: 'sparkle' },
+      { at: V.f('beautiful', 'gorgeous'), expr: 'magnifique', fx: 'sparkle' },
       { at: V.s('eat') - 0.1, spot: 'br', expr: 'horror', fx: 'shock', shake: 0.6, anim: 'cower', for: 1.2 },
       { at: V.s('cta'), spot: 'bc', expr: 'happy', anim: 'point', fx: 'question', for: 1.2 },
     ],
@@ -273,8 +310,8 @@ DAYS.day07 = (V) => {
       { color: '#1b1420', at: drawAt, dur: V.s('pond') - drawAt },
       { clip: 'gb_hatch', at: V.s('pond'), dur: cardAt - V.s('pond'), sound: true, skip: ['levelup'], zoom: [[0, 1.0], [0.45, 1.0], [1.1, 1.3]], pan: [[0, [0.5, 0.5]], [0.45, [0.5, 0.5]], [1.1, [0.45, 0.42]]] },
       { clip: 'gb_hatch', at: cardAt, dur: fishAt - cardAt, from: 262, zoom: [1.45, 1.5], pan: [[0, [0.44, 0.47]], [1, [0.44, 0.47]]] },
-      { clip: 'gb_pond', at: fishAt, dur: V.s('eat') - 0.1 - fishAt, from: sync(105 / 30, fishAt + 0.15, fishAt, 1.25), speed: 1.25, sound: true, skip: ['levelup'], punch: 0.06, zoom: [[0, 1.0], [V.w('beautiful', 6) - fishAt - 0.1, 1.0], [V.w('beautiful', 6) - fishAt + 0.3, 1.2]] },
-      { clip: 'gb_title_eat', at: V.s('eat') - 0.1, dur: len - V.s('eat') + 0.1, from: sync(108 / 30, V.w('eat', 4) + 0.1, V.s('eat') - 0.1), sound: true, punch: 0.06, zoom: 1.5, pan: [[0, [0, 0.47]], [1, [0, 0.47]]] },
+      { clip: 'gb_pond', at: fishAt, dur: V.s('eat') - 0.1 - fishAt, from: sync(105 / 30, fishAt + 0.15, fishAt, 1.25), speed: 1.25, sound: true, skip: ['levelup'], punch: 0.06, zoom: [[0, 1.0], [V.f('beautiful', 'gorgeous') - fishAt - 0.1, 1.0], [V.f('beautiful', 'gorgeous') - fishAt + 0.3, 1.2]] },
+      { clip: 'gb_title_eat', at: V.s('eat') - 0.1, dur: len - V.s('eat') + 0.1, from: sync(108 / 30, V.f('eat', 'eat') + 0.1, V.s('eat') - 0.1), sound: true, punch: 0.06, zoom: 1.5, pan: [[0, [0, 0.47]], [1, [0, 0.47]]] },
     ],
     cues: [
       { at: 0, music: 'title', volume: 0.5 },
@@ -298,12 +335,14 @@ DAYS.day08 = (V) => {
     length: len,
     song: { file: 'crossing', from: 190 },
     fox: [
+      { at: V.f('five', 'extra'), expr: 'greedy', anim: 'count_coins', fx: 'dollars', for: 1.8 },
+      { at: V.f('mine', 'genius'), expr: 'mwaha', anim: 'laugh_evil', fx: 'sparkle', for: 1.6 },
       { at: V.s('list'), spot: 'br', run: true },
       { at: V.s('five'), spot: 'bl' },
       { at: 0.05, enter: 'bl', expr: 'excited' },
       { at: V.s('build'), expr: 'proud' },
       { at: V.s('plonk'), expr: 'excited', anim: 'cheer', for: 1.0 },
-      { at: V.w('plonk', 5), fx: 'stars', fxFor: 1.2 },
+      { at: V.f('plonk', 'satisfying'), fx: 'stars', fxFor: 1.2 },
       { at: V.s('list'), expr: 'greedy', fx: 'dollars' },
       { at: V.s('sign'), expr: 'magnifique', anim: 'bow_fancy', fx: 'sparkle', for: 1.4 },
       { at: V.s('five'), expr: 'alarmed', fx: 'shock' },
@@ -331,14 +370,15 @@ DAYS.day09 = (V) => {
     length: len,
     song: { file: 'crossing', from: 240 },
     fox: [
+      { at: V.f('hook', 'boring'), expr: 'ko' },
       { at: V.s('list') + 0.2, spot: 'br', run: true },
       { at: V.s('compare'), spot: 'bl' },
       { at: 0.05, enter: 'bl', expr: 'sleepy' },
-      { at: V.w('hook', 8), expr: 'ko', anim: 'faint', for: V.s('juice') - V.w('hook', 8), fx: 'zzz', fxFor: 1.6 },
+      { at: V.f('hook', 'dead'), expr: 'ko', anim: 'faint', for: V.s('juice') - V.f('hook', 'dead'), fx: 'zzz', fxFor: 1.6 },
       { at: V.s('juice'), expr: 'excited', anim: 'wake_startle', fx: 'shock', for: 1.0 },
       { at: V.s('list'), expr: 'excited', fx: 'sparkle' },
-      { at: V.w('list', 5), expr: 'dizzy', fx: 'stars', shake: 0.5 },
-      { at: V.w('list', 8), expr: 'mwaha', anim: 'laugh_evil', fx: 'notes', for: 1.8 },
+      { at: V.f('list', 'screen'), expr: 'dizzy', fx: 'stars', shake: 0.5 },
+      { at: V.f('list', 'way'), expr: 'mwaha', anim: 'laugh_evil', fx: 'notes', for: 1.8 },
       { at: V.s('compare'), expr: 'smug' },
       { at: V.s('cta'), spot: 'br', expr: 'scheming', anim: 'point', fx: 'question', for: 1.2 },
     ],
@@ -354,8 +394,8 @@ DAYS.day09 = (V) => {
       { at: 0.2, tag: 'no juice', style: 'dark', x: 44, y: 520, dur: juiceAt - 0.2 },
       { at: juiceAt, flash: 0.3 },
       { at: juiceAt, sfx: 'fanfare_small', volume: 0.4 },
-      { at: V.s('list') - 0.1, list: [[V.w('list', 0), 'comic words'], [V.w('list', 2), 'squash & stretch'], [V.w('list', 5), 'screen shake'], [V.w('list', 7), 'coins'], [V.w('list', 8), 'way too many sfx']], y: 520, dur: V.s('compare') - V.s('list') + 0.1 },
-      { at: V.w('list', 5) + 0.05, shake: 0.5, amp: 24 },
+      { at: V.s('list') - 0.1, list: [[V.f('list', 'comic'), 'comic words'], [V.f('list', 'squash'), 'squash & stretch'], [V.f('list', 'screen'), 'screen shake'], [V.f('list', 'coins'), 'coins'], [V.f('list', 'way'), 'way too many sfx']], y: 520, dur: V.s('compare') - V.s('list') + 0.1 },
+      { at: V.f('list', 'screen') + 0.05, shake: 0.5, amp: 24 },
       { at: V.s('compare'), tag: 'before', style: 'dark', x: 44, y: 300, dur: V.s('cta') - V.s('compare') },
       { at: V.s('compare'), tag: 'after', style: 'red', x: 44, y: 1000, dur: V.s('cta') - V.s('compare') },
       { at: V.s('compare'), capY: 860 },
@@ -375,19 +415,21 @@ DAYS.day10 = (V) => {
     length: len,
     song: { file: 'always', from: 138 - (V.s('now') + 0.7), levels: { music: -21, duckMusic: 12 } },
     fox: [
+      { at: V.f('hook', 'worthy'), expr: 'magnifique', anim: 'polish_monocle', fx: 'sparkle', for: 1.5 },
+      { at: V.f('cta', 'course'), expr: 'mwaha', anim: 'laugh_evil', fx: 'notes', for: 1.6 },
       { at: V.s('ago'), spot: 'br', run: true },
       { at: V.s('vs'), spot: 'bl' },
       { at: 0.05, enter: 'bl', expr: 'proud' },
-      { at: V.w('bear', 1), expr: 'horror', anim: 'cower', fx: 'shock', shake: 0.8, for: 1.4 },
-      { at: V.w('bear', 7), expr: 'tsk' },
+      { at: V.f('bear', 'always'), expr: 'horror', anim: 'cower', fx: 'shock', shake: 0.8, for: 1.4 },
+      { at: V.f('bear', 'always', 1), expr: 'tsk' },
       { at: V.s('ago'), expr: 'sad', fx: 'sweat' },
       { at: V.s('now'), expr: 'magnifique', anim: 'cheer', fx: 'sparkle', for: 1.4 },
       { at: V.s('vs'), expr: 'proud' },
       { at: V.s('cta'), spot: 'bl', expr: 'determined', anim: 'point', fx: 'question', for: 1.2 },
     ],
     shots: [
-      { clip: 'g10_title', at: 0, dur: V.s('ago'), sound: true, from: sync(3.75, V.w('bear', 1) + 0.1, 0) },
-      { clip: 'dl_q1_bug', at: V.s('ago'), dur: m0 - V.s('ago'), from: sync(3.4, V.w('ago', 9), V.s('ago')) },
+      { clip: 'g10_title', at: 0, dur: V.s('ago'), sound: true, from: sync(3.75, V.f('bear', 'always') + 0.1, 0) },
+      { clip: 'dl_q1_bug', at: V.s('ago'), dur: m0 - V.s('ago'), from: sync(3.4, V.f('ago', 'on'), V.s('ago')) },
       ...cuts.map(([clip, from], i) => ({ clip, from, at: m0 + i * step, dur: step, punch: 0.07, sound: i === 0 ? 0.6 : 0 })),
       { stack: [{ clip: 'dl_q1_wide', still: 60, zoom: 1.15 }, { clip: 'g8_use', from: 60, speed: 0.9 }], at: V.s('vs'), dur: V.s('cta') - V.s('vs') },
       { clip: 'g10_title', at: V.s('cta'), dur: len - V.s('cta'), still: 30 },

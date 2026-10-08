@@ -1,117 +1,125 @@
 {
- "voice": "am_fenrir",
- "speed": 1.15,
+ "voice": "bm_george",
+ "speed": 1.32,
  "gap": 0.16,
  "days": {
   "day01": [
    [
     "hook",
-    "Day one of making my dream game."
+    "Day one of building my dream game. It's going to be magnificent."
+   ],
+   [
+    "idea1",
+    "Picture this. A pond. My pond. Full of the finest salmon money can buy."
+   ],
+   [
+    "idea2",
+    "Big, fat, gorgeous salmon. Do you have any idea what those are worth?"
+   ],
+   [
+    "idea3",
+    "Bears are obsessed with salmon. They'll stand in a waterfall all day, waiting for one to jump in their mouth. Disgusting. Wonderful."
+   ],
+   [
+    "idea4",
+    "So the bears come to my pond, eat my fish, and pay me. Every single day. That's the game."
    ],
    [
     "name",
-    "It's called, The Bear Must Eat."
-   ],
-   [
-    "idea",
-    "Office bears clock out at five, and eat the fish out of *your* pond.",
-    0.12
-   ],
-   [
-    "fox",
-    "And me? I'm the fox. It's *my* pond."
+    "It's called The Bear Must Eat. Because they must. And I'll be charging.",
+    0.3
    ],
    [
     "squares",
-    "Right now it's literally just squares."
+    "Right now everything is squares. I'm aware. Don't say it."
    ],
    [
     "bear",
-    "This brown square is a bear. Don't question it.",
-    0.35
+    "The brown square is a bear. The orange one is me, obviously. The owner.",
+    0.3
    ],
    [
     "test",
-    "First test. Walk to the pond. Easy."
+    "First test. All the bear has to do is walk to the pond. One job."
    ],
    [
     "through",
-    "He walked *straight* through me.",
-    0.6
+    "He walked straight through me. Through me! Do you know who I am?",
+    0.4
    ],
    [
     "water",
-    "And then. On the *water*.",
-    0.5
+    "And then he strolled across the water like he owns the place.",
+    0.3
    ],
    [
     "broken",
-    "Cool. Cool cool cool. It's *broken*."
+    "He does not own the place. I own the place. It's broken, and I'm furious."
    ],
    [
     "cta",
-    "Tomorrow, fish. What fish do I add?"
+    "Tomorrow, fish. Tell me which fish to add, and choose wisely."
    ]
   ],
   "day02": [
    [
     "hook",
-    "Day two. Fish."
+    "Day two. Fish. My precious, profitable fish."
    ],
    [
     "wander",
-    "They just swim around, doing fish stuff."
+    "They swim around, they look pretty, and they go up in value. Perfect employees."
    ],
    [
     "babies",
-    "Two happy fish bump into each other... boom. Baby fish.",
+    "And when two happy fish bump into each other, you get baby fish. Free inventory. I love nature.",
     0.3
    ],
    [
     "then",
-    "Then I changed *one* line of code, and this happened.",
-    0.7
+    "Then I changed one tiny line of code, and look what they did.",
+    0.6
    ],
    [
     "corner",
-    "Every. Single. Fish. In the corner. *Why?*",
-    0.5
+    "Every single fish crammed into the corner. Why? I gave you an entire pond!",
+    0.4
    ],
    [
     "vector",
-    "I forgot to normalize *one* vector. One."
+    "Apparently I forgot to normalize a vector. One vector. Humiliating."
    ],
    [
     "fixed",
-    "Fixed it. Now the pond fills up on its own."
+    "Fixed it. Now the pond refills itself, and my fortune grows while I sleep."
    ],
    [
     "cta",
-    "Tomorrow, the bears get *hungry*."
+    "Tomorrow, the customers arrive. Hungry ones."
    ]
   ],
   "day03": [
    [
     "hook",
-    "Day three. Five p.m."
+    "Day three. Five p.m. My favorite time of day."
    ],
    [
     "office",
-    "The office lets out..."
+    "The office lets out, and here they come..."
    ],
    [
     "run",
-    "and every single bear *sprints* to my pond.",
-    0.4
+    "every single bear, sprinting straight to my pond.",
+    0.3
    ],
    [
     "eat",
-    "They cannonball in, grab a fish, and pay me five coins."
+    "They cannonball in, grab a fish, and pay me five coins each."
    ],
    [
     "love",
-    "This is the whole game. I love it.",
-    0.7
+    "This is it. This is the game. Money, flying straight into my pockets.",
+    0.6
    ],
    [
     "later",
@@ -119,217 +127,217 @@
    ],
    [
     "empty",
-    "Zero fish. *None*.",
-    0.5
+    "There are no fish left. None. They ate my entire pond.",
+    0.4
    ],
    [
     "confused",
-    "They're just standing in the water. Confused. Same."
+    "And now they're just standing in the water, confused, like it's my fault."
    ],
    [
     "cta",
-    "Balancing is a tomorrow problem."
+    "It is not my fault. Balancing is tomorrow's problem."
    ]
   ],
   "day04": [
    [
     "hook",
-    "Day four. The orange square has to go."
+    "Day four. That orange square is an insult, and it's going."
    ],
    [
     "me",
-    "That orange square? That's me. Embarrassing."
+    "That square is supposed to be me. Look at it. No hat, no style, nothing."
    ],
    [
     "cubes",
-    "So I rebuilt myself out of tiny cubes. Layer by layer."
+    "So I rebuilt myself, cube by cube, the way I deserve."
    ],
    [
     "rich",
-    "Top hat. Monocle. *Filthy* rich.",
-    0.5
+    "Top hat. Monocle. Gold chain. Filthy, disgustingly rich.",
+    0.4
    ],
    [
     "anims",
-    "Then I gave myself way too many animations."
+    "Then I gave myself far too many animations. Worth every second."
    ],
    [
     "bye",
-    "Okay. Bye, square.",
-    1.0
+    "Goodbye, square. You will not be missed.",
+    0.9
    ],
    [
     "better",
-    "*Much* better."
+    "Now that is a pond owner."
    ]
   ],
   "day05": [
    [
     "hook",
-    "Day five. The bears."
+    "Day five. Let me introduce my customers."
    ],
    [
     "office",
-    "This is office bear. He walks, he eats, he *roars*."
+    "This is office bear. He walks, he eats, he roars, and most importantly, he pays."
    ],
    [
     "more",
-    "Then I made more. Grandma, construction guy, and the CEO."
+    "Then there's grandma bear, construction bear, and the CEO. The CEO tips."
    ],
    [
     "you",
-    "Which one are you? Be honest.",
-    0.8
+    "Which one are you? Be honest. I can tell.",
+    0.6
    ],
    [
     "promo",
-    "Time to promote the brown squares.",
-    0.8
+    "Now the brown squares finally become real bears.",
+    0.6
    ],
    [
     "swim",
-    "Cannonball. Swim. *Eat*.",
-    0.4
+    "Look at them. Cannonballing into my pond, eating my fish. Good. Keep eating.",
+    0.3
    ],
    [
     "cta",
-    "The world is still squares though. Tomorrow."
+    "The world is still squares, though. I'll deal with that tomorrow."
    ]
   ],
   "day06": [
    [
     "hook",
-    "Day six. Everything is *still* squares.",
-    0.4
+    "Day six. My pond still looks like a spreadsheet.",
+    0.3
    ],
    [
     "drew",
-    "So I drew the whole thing.",
-    1.4
+    "So I drew the whole thing. Every single pixel.",
+    1.0
    ],
    [
     "list",
-    "Grass, trees, flowers, rocks, lily pads, and real fish.",
-    0.5
+    "Grass, trees, flowers, rocks, lily pads, and real fish worth real money.",
+    0.4
    ],
    [
     "cycle",
-    "Then I added day and night.",
-    0.6
+    "Then I added day and night, so the bears can pay me around the clock.",
+    0.5
    ],
    [
     "night",
-    "Night is my favorite. Not even close.",
-    0.7
+    "Night is my favorite. Moonlight, fireflies, and nobody bothering me.",
+    0.5
    ],
    [
     "same",
-    "Same pond as day one, by the way."
+    "And remember, this is the exact same pond as day one."
    ]
   ],
   "day07": [
    [
     "hook",
-    "Day seven. You guys asked for stuff."
+    "Day seven. You people have been leaving comments."
    ],
    [
     "banana",
-    "Someone said add a banana fish. Say less.",
-    0.5
+    "Someone asked for a banana fish. Fine. You'll get your banana fish.",
+    0.4
    ],
    [
     "draw",
-    "Drew it pixel by pixel. Brown spots, little stem for a tail.",
+    "I drew it pixel by pixel. Brown spots, and a little stem for a tail.",
     0.4
    ],
    [
     "pond",
-    "Then I put it in the game.",
-    2.6
+    "Then I put it in the game, as a very rare egg.",
+    2.4
    ],
    [
     "beautiful",
-    "It's a banana. It's a fish. It's *gorgeous*.",
-    0.8
-   ],
-   [
-    "eat",
-    "And yeah. The bears *eat* it.",
+    "It's a banana. It's also a fish. And honestly? It's gorgeous.",
     0.6
    ],
    [
+    "eat",
+    "And of course the bears eat it. They eat everything.",
+    0.5
+   ],
+   [
     "cta",
-    "What do I add next? Comment it."
+    "What should I add next? Comment it, and maybe I'll listen."
    ]
   ],
   "day08": [
    [
     "hook",
-    "Day eight. Building."
+    "Day eight. Construction."
    ],
    [
     "build",
-    "You can build a whole restaurant around the pond now."
+    "Now you can build a whole restaurant around the pond."
    ],
    [
     "plonk",
-    "Everything goes *plonk*. Dust puff. Pow.",
-    0.4
+    "Every piece lands with a little plonk and a puff of dust. Very satisfying.",
+    0.3
    ],
    [
     "list",
-    "Tables, a barbecue, a jukebox, and a neon sign."
+    "Tables, a barbecue, a jukebox, and a big neon sign."
    ],
    [
     "sign",
     "Bear's Diner.",
-    1.0
+    0.8
    ],
    [
     "five",
-    "And at five p.m., they actually use it.",
-    0.5
+    "And at five p.m. they sit down, they eat, and they pay extra for the ambiance.",
+    0.4
    ],
    [
     "mine",
-    "My little bear restaurant. I'm so proud."
+    "My little bear restaurant. I'm a genius."
    ]
   ],
   "day09": [
    [
     "hook",
-    "Day nine. The game worked, but it felt *dead*.",
-    0.4
+    "Day nine. The game worked, but it felt dead. Lifeless. Boring.",
+    0.3
    ],
    [
     "juice",
     "So I added juice.",
-    1.4
+    1.2
    ],
    [
     "list",
-    "Comic words. Squash and stretch. Screen shake. Coins. And *way* too many sound effects.",
-    0.7
+    "Comic words, squash and stretch, screen shake, coins, and way too many sound effects.",
+    0.6
    ],
    [
     "compare",
     "Same game. Before, and after.",
-    1.8
+    1.6
    ],
    [
     "cta",
-    "Which one would you play?"
+    "Now tell me which one you'd rather play."
    ]
   ],
   "day10": [
    [
     "hook",
-    "Day ten. I made a title screen."
+    "Day ten. I made a title screen worthy of me."
    ],
    [
     "bear",
-    "There's always a bear in the pond. *Always*.",
-    0.9
+    "And yes, there's always a bear in the pond. Always.",
+    0.8
    ],
    [
     "ago",
@@ -337,18 +345,19 @@
    ],
    [
     "now",
-    "Now? It's this.",
-    2.6
+    "And now? Look at it.",
+    2.4
    ],
    [
     "vs",
     "Day one, versus day ten.",
-    1.8
+    1.6
    ],
    [
     "cta",
-    "There's still *so* much to do. Do I keep going?"
+    "There's still so much to build. Should I keep going? Of course I should."
    ]
   ]
- }
+ },
+ "pitch": 1.22
 }
