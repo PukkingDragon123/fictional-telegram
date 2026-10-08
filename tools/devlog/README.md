@@ -28,7 +28,7 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
 
 - `vo/script.json` — every day's narration, line by line (`[id, text, pause after]`).
   `vo.py` speaks it with Kokoro-82M (open-weights TTS, run offline with `kokoro-onnx`, voice
-  `bm_george`; render.mjs pitches it up by the script's `pitch` for Reynard's cartoon voice) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
+  `am_michael`; render.mjs pitch-shifts it only if the script's `pitch` isn't 1) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
   every word (for the captions and for timing the edit):
   `HOME=<dir with an espeak-ng-data link> python -I tools/devlog/vo.py kokoro.onnx voices.npz day01 …`.
   To use your own voice instead, read a day's lines in one take (in script order, about half a
@@ -46,12 +46,12 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
 - `days.js` — the ten edits, each a function of its voice-over timing (cuts land on words; `V.f(line, 'word')`).
   Day 1 opens on a pin board of reference photos from `refs/1-4.jpg` (your own, git-ignored; game shots
   stand in when a photo is missing).
-- `foxhost.js` — Reynard as the host: the game's FoxRig rendered small with an ink outline and
+- `foxhost.js` — the fox as the host (the dev in his own game): the game's FoxRig rendered small with an ink outline and
   drawn pixelated over the video. He hops / runs between spots, pulls faces, plays gags (stomp,
-  facepalm, faint, hat pop, monocle drop) and gets cartoon FX (anger veins, sweat, "!", "?",
-  hearts, $$$), all from per-day `fox` beats in `days.js`, and lip-flaps through every line.
+  facepalm, faint, hat pop, monocle drop) and gets cartoon FX (sweat, "!", "?", hearts, notes,
+  sparkles), all from per-day `fox` beats in `days.js`, and lip-flaps through every line.
 - `director.html` / `director.js` — plays one day at 1080x1920: clips with punch-ins, follow-zooms
-  and splits; Reynard's speech bubble typed out word by word in the game's pixel font
+  and splits; the fox's speech bubble typed out word by word in the game's pixel font
   (TBME Goofy, lowercase, `*shouted*` words big and red); pixel-art stickers
   (arrow, ring, bug tags, the "reply to comment" bubble, the 5 PM clock, a pixel editor drawing
   the banana fish, the end card).
@@ -59,7 +59,7 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
   and sound effects from the game's own synth (`tools/video/mix.html`), the voice-over on top
   (cleaned up: low cut, compression, presence) with the music dipping under it, the whole mix at
   -14 LUFS, two-pass H.264 into `promo/devlog/`. A day's `song` (`tools/devlog/music/<file>.mp3`,
-  your own files, git-ignored) gives a second version in `promo/devlog/with-music/`.
+  your own files, git-ignored; every day uses `octopus`) gives a second version in `promo/devlog/with-music/`.
 - `peek.mjs` / `dpeek.mjs` — stills from a sandbox shot / from a day, for checking framing.
 
 Needs the game's dev server: `npx vite --port 5281 --host 127.0.0.1 --strictPort`
