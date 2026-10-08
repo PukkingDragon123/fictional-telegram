@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { VoxelModel } from '../src/core/voxel.js';
 import { ICONS, PAL } from './icons.js';
 
-const VS = 0.03;
+const VS = 0.036;
 const hex = (s) => parseInt(s.slice(1), 16);
 
 function extrude(name, depth = 3) {
@@ -42,7 +42,7 @@ export class Icons3D {
     this.group = new THREE.Group();
     this.group.name = 'floatingIcons';
     parent.add(this.group);
-    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a2018 });
+    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x5a4630 });
     this.items = new Map();
     this.t = 0;
   }
