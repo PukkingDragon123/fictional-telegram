@@ -9,6 +9,7 @@
 import { DAYS, FPS, voHelper } from './days.js';
 import { iconURL } from '../../portfolio/icons.js';
 import { fishCanvas } from '../../src/art/fishArt.js';
+import { FoxHost } from './foxhost.js';
 
 const Q = new URLSearchParams(location.search);
 const DAY = Q.get('day') || 'day01';
@@ -172,6 +173,7 @@ cap.className = 'ol';
 ui.appendChild(cap);
 let capY = D.capY ?? 1200, capChunk = -1, capWord = -1;
 function updateCaptions(t) {
+  if (D.fox) { cap.style.display = 'none'; return; }
   const i = CHUNKS.findIndex((c) => t >= c.t0 - 0.02 && t < c.until);
   if (i < 0 || D.noCaptions?.some(([a, b]) => t >= a && t < b)) { cap.style.display = 'none'; capChunk = -1; return; }
   const c = CHUNKS[i];
@@ -430,6 +432,85 @@ const H_ = {
   },
 };
 
+// ---------------------------------------------------------------- the fox host + his speech bubble
+// Reynard (foxhost.js) says every line in a comic bubble over his head, typed out word by word
+// as the voice says it: lowercase, no full stops, like someone typed it. *word* = shouted.
+const host = D.fox ? new FoxHost(document.getElementById('fox'), {
+  beats: D.fox,
+  lines: VO.order.map((id) => ({ t0: VO.lines[id].t0, t1: VO.lines[id].t1, text: VO.lines[id].text })),
+  sfx: (name, o) => sfx(name, o),
+}) : null;
+const BCH = [];
+// one bubble per sentence; short punchy sentences ride together ("every. single. fish."), long
+// ones split in two at the most even point, preferring a comma
+const blen = (ws) => ws.reduce((a, x) => a + x.w.length, 0) + ws.length - 1;
+function splitSentence(ws) {
+  if (blen(ws) <= 40 || ws.length < 3) return [ws];
+  let best = null, bs = 1e9;
+  for (let i = 1; i < ws.length; i++) {
+    const A = ws.slice(0, i), B = ws.slice(i);
+    const sc = Math.max(blen(A), blen(B)) - (/,$/.test(A[A.length - 1].raw) ? 12 : 0) + (A.length < 2 || B.length < 2 ? 8 : 0);
+    if (sc < bs) { bs = sc; best = [A, B]; }
+  }
+  return best.flatMap(splitSentence);
+}
+for (const id of VO.order) {
+  const sents = [];
+  let cur = [];
+  for (const [raw, t0, t1] of VO.lines[id].words) {
+    const bare = raw.replace(/\*/g, '');
+    const b2 = bare.replace(/[,;:]+$/, '');
+    let w = /^[A-Z]{2,}[.,!?]*$/.test(bare) ? bare.replace(/[.,;:]+$/, '') : /^(\w\.)+$/.test(b2) ? b2.toLowerCase() : bare.toLowerCase().replace(/[.,;:]+$/, ''); // keep "p.m." and "CEO"
+    if (/\.\.\.$/.test(bare)) w += '...';
+    cur.push({ w, t0, t1, em: /\*/.test(raw), raw: bare });
+    if (/[.!?]$/.test(bare) && !/^(\w\.)+$/.test(b2)) { sents.push(cur); cur = []; }
+  }
+  if (cur.length) sents.push(cur);
+  let acc = [];
+  for (const sn of sents.flatMap(splitSentence)) {
+    if (acc.length && blen([...acc, ...sn]) > 24) { BCH.push(acc); acc = []; }
+    acc = [...acc, ...sn];
+    if (blen(acc) > 16) { BCH.push(acc); acc = []; }
+  }
+  if (acc.length) BCH.push(acc);
+}
+BCH.forEach((c, i) => { BCH[i] = { words: c, t0: c[0].t0, t1: c[c.length - 1].t1 }; });
+BCH.forEach((c, i) => { const nx = BCH[i + 1]; c.until = Math.min(c.t1 + 0.7, nx ? nx.t0 - 0.02 : c.t1 + 0.7); });
+const bub = document.createElement('div');
+bub.className = 'bubble';
+bub.style.display = 'none';
+ui.appendChild(bub);
+const TAIL = pixelCanvas(['kkkkkkkkkkkkkk', 'kwwwwwwwwwwwk.', '.kwwwwwwwwwk..', '..kwwwwwwwk...', '...kwwwwwk....', '....kwwwk.....', '.....kwk......', '......k.......'], { k: '#1b1420', w: '#fffaf0' }).toDataURL();
+let bubI = -1, bubW = -1, bubT0 = 0, bubTail = null;
+function updateBubble(t) {
+  const i = BCH.findIndex((c) => t >= c.t0 - 0.06 && t < c.until);
+  const head = host && host.head;
+  if (i < 0 || !head || D.noCaptions?.some(([a, b]) => t >= a && t < b)) { bub.style.display = 'none'; bubI = -1; return; }
+  const c = BCH[i];
+  if (i !== bubI) {
+    bubI = i; bubW = -1; bubT0 = t;
+    bub.innerHTML = c.words.map((w) => `<span class="${w.em ? 'em' : ''}">${esc(w.w)}</span>`).join(' ') + `<img class="tail" src="${TAIL}">`;
+    bubTail = bub.querySelector('.tail');
+    bub.style.display = 'block';
+  }
+  const spans = [...bub.children].filter((e) => e.tagName === 'SPAN');
+  const wi = c.words.findIndex((w, k) => t >= w.t0 - 0.03 && (t < w.t1 || k === c.words.length - 1));
+  c.words.forEach((w, k) => {
+    spans[k].classList.toggle('said', t >= w.t0 - 0.05);
+    spans[k].classList.toggle('now', k === wi);
+    spans[k].style.transform = w.em && t >= w.t0 - 0.05 && t < w.t1 + 0.3 ? `translate(${Math.round(Math.sin(t * 60) * 3)}px, ${Math.round(Math.cos(t * 47) * 3)}px) scale(1.1)` : '';
+  });
+  const bw = bub.offsetWidth, bh = bub.offsetHeight;
+  const left = Math.round(Math.max(30, Math.min(1050 - bw, head.x - bw * 0.35)));
+  const top = Math.round(Math.max(160, head.y - 70 - bh));
+  bub.style.left = left + 'px';
+  bub.style.top = top + 'px';
+  bubTail.style.left = Math.round(Math.max(24, Math.min(bw - 66, head.x - left - 21))) + 'px';
+  const k = 0.7 + 0.3 * backOut((t - bubT0) / 0.14);
+  bub.style.transformOrigin = `${head.x - left}px 110%`;
+  bub.style.transform = `scale(${k}) rotate(${Math.sin(bubI * 2.3) * 1.4}deg)`;
+}
+
 // ---------------------------------------------------------------- cues
 const fired = new Set();
 function fire(t) {
@@ -468,6 +549,8 @@ window.__dir = {
     for (const s of D.shots) if (s.clip && t + 0.4 >= s.at && t < s.at + s.dur) img(frameURL(s.clip, frameOf(s, t + 1 / FPS)));
     updateOverlays(t);
     updateCaptions(t);
+    if (host) host.frame(t, 1 / FPS);
+    updateBubble(t);
     window.__vt?.step(1000 / FPS);
   },
 };

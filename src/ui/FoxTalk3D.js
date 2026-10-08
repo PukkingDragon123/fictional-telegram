@@ -94,6 +94,9 @@ const ROWS = {
   vein: ['...kk.kk...', '...kr.rk...', '.kkkr.rkkk.', 'krrrk.krrrk', '.kkk...kkk.', '...........', '.kkk...kkk.', 'krrrk.krrrk', '.kkkr.rkkk.', '...kr.rk...', '...kk.kk...'],
   puff: ['..kkk...', '.kssskk.', 'ksssssSk', 'kssSssSk', '.kSSSSk.', '..kkkk..'],
 };
+// the pixel FX art, shared with the devlog's fox host (tools/devlog/foxhost.js)
+export { ROWS as FOX_FX_ROWS, PAL as FOX_FX_PAL };
+
 const _art = {};
 function art(name) {
   if (_art[name]) return _art[name];

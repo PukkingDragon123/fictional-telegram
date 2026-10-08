@@ -28,7 +28,7 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
 
 - `vo/script.json` — every day's narration, line by line (`[id, text, pause after]`).
   `vo.py` speaks it with Kokoro-82M (open-weights TTS, run offline with `kokoro-onnx`, voice
-  `af_heart`) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
+  `am_fenrir`) into `vo/<day>.wav`, and writes `vo/<day>.json` with the start/end of every line and
   every word (for the captions and for timing the edit):
   `HOME=<dir with an espeak-ng-data link> python -I tools/devlog/vo.py kokoro.onnx voices.npz day01 …`.
   To use your own voice instead, read a day's lines in one take (in script order, about half a
@@ -44,13 +44,20 @@ for a banana fish, and the banana fish is now actually in the game (`src/data/sp
   with the gig-video recorder: `node tools/video/clips.mjs dl_q1_wide … --defs tools/devlog/clipdefs.mjs`
   (frames land in `tools/video/clips/<name>/`, with per-frame anchors and the sounds they made).
 - `days.js` — the ten edits, each a function of its voice-over timing (cuts land on words).
+- `foxhost.js` — Reynard as the host: the game's FoxRig rendered small with an ink outline and
+  drawn pixelated over the video. He hops / runs between spots, pulls faces, plays gags (stomp,
+  facepalm, faint, hat pop, monocle drop) and gets cartoon FX (anger veins, sweat, "!", "?",
+  hearts, $$$), all from per-day `fox` beats in `days.js`, and lip-flaps through every line.
 - `director.html` / `director.js` — plays one day at 1080x1920: clips with punch-ins, follow-zooms
-  and splits; captions word by word in the game's pixel font (TBME Goofy); pixel-art stickers
+  and splits; Reynard's speech bubble typed out word by word in the game's pixel font
+  (TBME Goofy, lowercase, `*shouted*` words big and red); pixel-art stickers
   (arrow, ring, bug tags, the "reply to comment" bubble, the 5 PM clock, a pixel editor drawing
   the banana fish, the end card).
 - `render.mjs` — `node tools/devlog/render.mjs day01 [day02 …]`: frames under virtual time, music
-  and sound effects from the game's own synth (`tools/video/mix.html`), the voice-over on top with
-  the music dipping under it, the whole mix at -14 LUFS, two-pass H.264 into `promo/devlog/`.
+  and sound effects from the game's own synth (`tools/video/mix.html`), the voice-over on top
+  (cleaned up: low cut, compression, presence) with the music dipping under it, the whole mix at
+  -14 LUFS, two-pass H.264 into `promo/devlog/`. A day's `song` (`tools/devlog/music/<file>.mp3`,
+  your own files, git-ignored) gives a second version in `promo/devlog/with-music/`.
 - `peek.mjs` / `dpeek.mjs` — stills from a sandbox shot / from a day, for checking framing.
 
 Needs the game's dev server: `npx vite --port 5281 --host 127.0.0.1 --strictPort`

@@ -4,8 +4,9 @@
 // 2. the sound log (director cues + the clips' own sounds) -> tools/video/mix.html -> a music bed and
 //    a sound-effects bed (out/<day>-music.wav, out/<day>-sfx.wav)
 // 3. the voice-over (vo/<day>.wav, made by vo.py) on top: each layer levelled by loudness, the beds
-//    dipped under the voice while it talks, the whole thing at -14 LUFS (what TikTok / Reels play at)
-// 4. ffmpeg (two-pass H.264 + AAC) -> promo/devlog/<file>.mp4
+//    dipped under the voice while it talks, the whole thing at -14 LUFS (what TikTok / Reels play at).
+//    With the day's song (D.song, tools/devlog/music/) a second mix uses it instead of the synth music.
+// 4. ffmpeg (two-pass H.264 + AAC) -> promo/devlog/day-NN.mp4 (+ promo/devlog/with-music/day-NN.mp4)
 import fs from 'fs';
 import path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
@@ -25,7 +26,6 @@ const { DAYS, FPS, voHelper } = await import(pathToFileURL(path.join(HERE, 'days
 // ---------------------------------------------------------------- audio helpers (48 kHz stereo float)
 const SR = 48000;
 const RAW = ['-f', 'f32le', '-ar', String(SR), '-ac', '2'];
-const toRaw = (src, dst) => execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', src, ...RAW, dst]);
 const readRaw = (f) => { const b = fs.readFileSync(f); return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length)); };
 // integrated loudness (EBU R128) and true peak, via ffmpeg's loudnorm analysis
 function measure(input) {
@@ -117,49 +117,78 @@ for (const day of days) {
   }
   await ctx.close();
 
-  // ---- the mix: voice at -16 LUFS on top; music up in the pauses (-20) and dipped 10 dB while
-  // the voice talks; sound effects a little under the voice, dipped 4 dB
-  const lv = { voice: -16, music: -20, sfx: -19, duckMusic: 10, duckSfx: 4, ...(D.levels || {}) };
-  const layers = {};
-  for (const [k, src] of [['voice', path.join(HERE, 'vo', `${day}.wav`)], ['music', bed.music], ['sfx', bed.sfx]]) {
+  // ---- the mixes. Voice on top (-16 LUFS, cleaned up: low cut, compressed, a little presence);
+  // music up in the pauses and dipped while the voice talks; sound effects a little under the
+  // voice. Two versions when the day has a song (D.song, tools/devlog/music/<file>.mp3, your own
+  // files, not in git): with the song -> promo/devlog/with-music/, and with the game's own synth
+  // music -> promo/devlog/ (the copy that is safe to commit and to post with an in-app sound).
+  const VOICE_FX = 'highpass=f=85,acompressor=threshold=0.08:ratio=4:attack=6:release=90:makeup=2.5,equalizer=f=3200:t=q:w=1.3:g=3,equalizer=f=180:t=q:w=1:g=1.5';
+  const songFile = D.song && path.join(HERE, 'music', `${D.song.file}.mp3`);
+  const withSong = songFile && fs.existsSync(songFile);
+  if (withSong) {
+    bed.song = path.join(HERE, 'out', `${day}-song.wav`);
+    const from = Math.max(0, D.song.from || 0), fo = Math.max(0.5, D.length - 1.4);
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-ss', from.toFixed(3), '-t', (D.length + 0.5).toFixed(3), '-i', songFile,
+      '-af', `afade=t=in:d=0.25,afade=t=out:st=${fo.toFixed(3)}:d=1.3`, '-ar', String(SR), '-ac', '2', bed.song]);
+  }
+  const layer = (k, src, target, af) => {
     const raw = path.join(HERE, 'out', `${day}-${k}.f32`);
-    toRaw(src, raw);
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', src, ...(af ? ['-af', af] : []), ...RAW, raw]);
     const m = measure([...RAW, '-i', raw]);
-    layers[k] = { pcm: readRaw(raw), gain: dbGain(lv[k], m.input_i) };
-    console.log(day, k, m.input_i, 'LUFS ->', lv[k]);
-  }
-  const NS = Math.ceil(D.length * SR), mix = new Float32Array(NS * 2);
+    console.log(day, k, m.input_i, 'LUFS ->', target);
+    return { pcm: readRaw(raw), gain: dbGain(target, m.input_i) };
+  };
   const env = talkEnvelope(VO, D.length + 1);
-  const dM = 10 ** (-lv.duckMusic / 20), dS = 10 ** (-lv.duckSfx / 20);
-  let peak = 0;
-  for (let i = 0; i < NS; i++) {
-    const k = i / (SR / 100), k0 = Math.floor(k), e = env[k0] + (env[Math.min(env.length - 1, k0 + 1)] - env[k0]) * (k - k0);
-    const gm = layers.music.gain * (1 + (dM - 1) * e), gs = layers.sfx.gain * (1 + (dS - 1) * e), gv = layers.voice.gain;
-    for (let c = 0; c < 2; c++) {
-      const j = i * 2 + c;
-      const v = (layers.voice.pcm[j] || 0) * gv + (layers.music.pcm[j] || 0) * gm + (layers.sfx.pcm[j] || 0) * gs;
-      mix[j] = v;
-      peak = Math.max(peak, Math.abs(v));
+  function mixDown(name, music, lv) {
+    const NS = Math.ceil(D.length * SR), mix = new Float32Array(NS * 2);
+    const dM = 10 ** (-lv.duckMusic / 20), dS = 10 ** (-lv.duckSfx / 20);
+    let peak = 0;
+    for (let i = 0; i < NS; i++) {
+      const k = i / (SR / 100), k0 = Math.floor(k), e = env[k0] + (env[Math.min(env.length - 1, k0 + 1)] - env[k0]) * (k - k0);
+      const gm = music.gain * (1 + (dM - 1) * e), gs = sfxL.gain * (1 + (dS - 1) * e), gv = voiceL.gain;
+      for (let c = 0; c < 2; c++) {
+        const j = i * 2 + c;
+        const v = (voiceL.pcm[j] || 0) * gv + (music.pcm[j] || 0) * gm + (sfxL.pcm[j] || 0) * gs;
+        mix[j] = v;
+        peak = Math.max(peak, Math.abs(v));
+      }
     }
+    if (peak > 0.95) for (let j = 0; j < mix.length; j++) mix[j] *= 0.95 / peak;
+    const raw = path.join(HERE, 'out', `${day}-mix-${name}.f32`);
+    fs.writeFileSync(raw, Buffer.from(mix.buffer));
+    // the series at one loudness (-14 LUFS): two-pass linear loudnorm, applied when encoding
+    const L = measure([...RAW, '-i', raw]);
+    console.log(day, 'mix', name, L.input_i, 'LUFS, peak', peak.toFixed(2));
+    return { raw, af: `loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=${L.input_i}:measured_TP=${L.input_tp}:measured_LRA=${L.input_lra}:measured_thresh=${L.input_thresh}:offset=${L.target_offset}:linear=true` };
   }
-  if (peak > 0.95) for (let j = 0; j < mix.length; j++) mix[j] *= 0.95 / peak;
-  const mixRaw = path.join(HERE, 'out', `${day}-mix.f32`);
-  fs.writeFileSync(mixRaw, Buffer.from(mix.buffer));
-  // the series at one loudness (-14 LUFS): two-pass linear loudnorm, applied in the final encode
-  const L = measure([...RAW, '-i', mixRaw]);
-  const LN = `loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=${L.input_i}:measured_TP=${L.input_tp}:measured_LRA=${L.input_lra}:measured_thresh=${L.input_thresh}:offset=${L.target_offset}:linear=true`;
-  console.log(day, 'mix', L.input_i, 'LUFS, peak', peak.toFixed(2));
+  const base = { voice: -16, music: -20, sfx: -19, duckMusic: 10, duckSfx: 4, ...(D.levels || {}) };
+  const voiceL = layer('voice', path.join(HERE, 'vo', `${day}.wav`), base.voice, VOICE_FX);
+  const sfxL = layer('sfx', bed.sfx, base.sfx);
+  const gameMix = mixDown('game', layer('music', bed.music, base.music), base);
+  let songMix = null;
+  if (withSong) {
+    const lv = { ...base, music: -21, ...(D.song.levels || {}) };
+    songMix = mixDown('song', layer('song', bed.song, lv.music), lv);
+  }
 
-  const dest = path.join(ROOT, 'promo', 'devlog', `${D.file || day.replace(/^day(\d+)$/, 'day-$1')}.mp4`);
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const name = `${D.file || day.replace(/^day(\d+)$/, 'day-$1')}.mp4`;
+  const dest = path.join(ROOT, 'promo', 'devlog', name);
+  const destSong = path.join(ROOT, 'promo', 'devlog', 'with-music', name);
+  fs.mkdirSync(path.dirname(destSong), { recursive: true });
   // two-pass at a fixed bitrate: crisp pixels and text, and every file stays well under 30 MB
   const kbps = D.videoKbps || 6500, logf = path.join(HERE, 'out', `${day}-x264`);
   // -frames:v: only this render's frames (an older, longer render may have left more in OUT)
   const enc = (pass, out, extra = []) => execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(OUT, 'f%05d.jpg'), ...extra, '-frames:v', String(N),
     '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-b:v', kbps + 'k', '-maxrate', Math.round(kbps * 1.6) + 'k', '-bufsize', kbps * 2 + 'k',
     '-pass', String(pass), '-passlogfile', logf, '-pix_fmt', 'yuv420p', ...out], { stdio: 'inherit' });
+  const AAC = ['-ar', '48000', '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart'];
   enc(1, ['-an', '-f', 'mp4', '/dev/null']);
-  enc(2, ['-af', LN, '-ar', '48000', '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', dest], [...RAW, '-i', mixRaw]);
+  enc(2, ['-af', gameMix.af, ...AAC, dest], [...RAW, '-i', gameMix.raw]);
   console.log('wrote', dest, (fs.statSync(dest).size / 1048576).toFixed(1) + ' MiB');
+  if (songMix) {
+    // same picture, the song mix as the sound
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', dest, ...RAW, '-i', songMix.raw, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', songMix.af, ...AAC, destSong], { stdio: 'inherit' });
+    console.log('wrote', destSong, (fs.statSync(destSong).size / 1048576).toFixed(1) + ' MiB');
+  }
 }
 await R.close();

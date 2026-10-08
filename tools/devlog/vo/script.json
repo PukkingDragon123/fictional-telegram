@@ -1,6 +1,6 @@
 {
- "voice": "af_heart",
- "speed": 1.12,
+ "voice": "am_fenrir",
+ "speed": 1.15,
  "gap": 0.16,
  "days": {
   "day01": [
@@ -14,43 +14,43 @@
    ],
    [
     "idea",
-    "Office bears get off work at five p.m., and raid your pond for fish.",
+    "Office bears clock out at five, and eat the fish out of *your* pond.",
     0.12
    ],
    [
     "fox",
-    "You're the fox who owns the pond."
+    "And me? I'm the fox. It's *my* pond."
    ],
    [
     "squares",
-    "Right now, it's all squares."
+    "Right now it's literally just squares."
    ],
    [
     "bear",
-    "This brown square? That's a bear. Trust me.",
+    "This brown square is a bear. Don't question it.",
     0.35
    ],
    [
     "test",
-    "First test. Walk to the pond."
+    "First test. Walk to the pond. Easy."
    ],
    [
     "through",
-    "He walked straight through me.",
+    "He walked *straight* through me.",
     0.6
    ],
    [
     "water",
-    "And then, on the water.",
+    "And then. On the *water*.",
     0.5
    ],
    [
     "broken",
-    "So that's broken."
+    "Cool. Cool cool cool. It's *broken*."
    ],
    [
     "cta",
-    "Tomorrow, fish. What fish should I add?"
+    "Tomorrow, fish. What fish do I add?"
    ]
   ],
   "day02": [
@@ -60,34 +60,34 @@
    ],
    [
     "wander",
-    "Every fish just wanders around the pond, doing fish stuff."
+    "They just swim around, doing fish stuff."
    ],
    [
     "babies",
-    "If two happy fish bump into each other... baby fish.",
+    "Two happy fish bump into each other... boom. Baby fish.",
     0.3
    ],
    [
     "then",
-    "Then I changed one line of code, and every fish did this.",
+    "Then I changed *one* line of code, and this happened.",
     0.7
    ],
    [
     "corner",
-    "They all went to the corner. All of them. Why?",
+    "Every. Single. Fish. In the corner. *Why?*",
     0.5
    ],
    [
     "vector",
-    "I forgot to normalize one vector."
+    "I forgot to normalize *one* vector. One."
    ],
    [
     "fixed",
-    "Fixed. Now they spread out, and the pond fills up on its own."
+    "Fixed it. Now the pond fills up on its own."
    ],
    [
     "cta",
-    "Tomorrow, the bears get hungry."
+    "Tomorrow, the bears get *hungry*."
    ]
   ],
   "day03": [
@@ -101,16 +101,16 @@
    ],
    [
     "run",
-    "and every single bear runs to my pond.",
+    "and every single bear *sprints* to my pond.",
     0.4
    ],
    [
     "eat",
-    "They cannonball in, grab a fish, and pay me five coins each."
+    "They cannonball in, grab a fish, and pay me five coins."
    ],
    [
     "love",
-    "This is the whole game, and I love it.",
+    "This is the whole game. I love it.",
     0.7
    ],
    [
@@ -119,12 +119,12 @@
    ],
    [
     "empty",
-    "there's no fish left.",
+    "Zero fish. *None*.",
     0.5
    ],
    [
     "confused",
-    "They're just standing in the water. Confused."
+    "They're just standing in the water. Confused. Same."
    ],
    [
     "cta",
@@ -134,33 +134,33 @@
   "day04": [
    [
     "hook",
-    "Day four. Time to replace the orange square."
+    "Day four. The orange square has to go."
    ],
    [
     "me",
-    "That square is Reynard. The fox who owns the pond."
+    "That orange square? That's me. Embarrassing."
    ],
    [
     "cubes",
-    "I built him out of tiny cubes, one layer at a time."
+    "So I rebuilt myself out of tiny cubes. Layer by layer."
    ],
    [
     "rich",
-    "Top hat. Monocle. Very rich.",
+    "Top hat. Monocle. *Filthy* rich.",
     0.5
    ],
    [
     "anims",
-    "Then I gave him way too many animations."
+    "Then I gave myself way too many animations."
    ],
    [
     "bye",
-    "Okay. Goodbye, square.",
+    "Okay. Bye, square.",
     1.0
    ],
    [
     "better",
-    "Much better."
+    "*Much* better."
    ]
   ],
   "day05": [
@@ -170,25 +170,25 @@
    ],
    [
     "office",
-    "This is the office bear. He can walk, eat, and roar."
+    "This is office bear. He walks, he eats, he *roars*."
    ],
    [
     "more",
-    "Then I made a few more. Grandma, construction, and the CEO."
+    "Then I made more. Grandma, construction guy, and the CEO."
    ],
    [
     "you",
-    "Which one are you?",
+    "Which one are you? Be honest.",
     0.8
    ],
    [
     "promo",
-    "Now the brown squares get promoted.",
+    "Time to promote the brown squares.",
     0.8
    ],
    [
     "swim",
-    "They cannonball in, they swim, they eat.",
+    "Cannonball. Swim. *Eat*.",
     0.4
    ],
    [
@@ -199,7 +199,7 @@
   "day06": [
    [
     "hook",
-    "Day six. The world is still squares.",
+    "Day six. Everything is *still* squares.",
     0.4
    ],
    [
@@ -214,12 +214,12 @@
    ],
    [
     "cycle",
-    "Then I added a day and night cycle.",
+    "Then I added day and night.",
     0.6
    ],
    [
     "night",
-    "Night is my favorite.",
+    "Night is my favorite. Not even close.",
     0.7
    ],
    [
@@ -230,16 +230,16 @@
   "day07": [
    [
     "hook",
-    "Day seven. Adding your comments to my game."
+    "Day seven. You guys asked for stuff."
    ],
    [
     "banana",
-    "Add a banana fish. Say less.",
+    "Someone said add a banana fish. Say less.",
     0.5
    ],
    [
     "draw",
-    "I drew it pixel by pixel. Brown spots, little stem for a tail.",
+    "Drew it pixel by pixel. Brown spots, little stem for a tail.",
     0.4
    ],
    [
@@ -249,17 +249,17 @@
    ],
    [
     "beautiful",
-    "It's a banana. It's a fish. It's beautiful.",
+    "It's a banana. It's a fish. It's *gorgeous*.",
     0.8
    ],
    [
     "eat",
-    "And yes, the bears eat it.",
+    "And yeah. The bears *eat* it.",
     0.6
    ],
    [
     "cta",
-    "What should I add next?"
+    "What do I add next? Comment it."
    ]
   ],
   "day08": [
@@ -269,11 +269,11 @@
    ],
    [
     "build",
-    "You can build a little restaurant around the pond now."
+    "You can build a whole restaurant around the pond now."
    ],
    [
     "plonk",
-    "Every piece goes plonk, with a dust puff and a pow.",
+    "Everything goes *plonk*. Dust puff. Pow.",
     0.4
    ],
    [
@@ -292,13 +292,13 @@
    ],
    [
     "mine",
-    "My little bear restaurant."
+    "My little bear restaurant. I'm so proud."
    ]
   ],
   "day09": [
    [
     "hook",
-    "Day nine. The game worked, but it felt dead.",
+    "Day nine. The game worked, but it felt *dead*.",
     0.4
    ],
    [
@@ -308,7 +308,7 @@
    ],
    [
     "list",
-    "Comic words. Squash and stretch. Screen shake. Coins. And way too many sound effects.",
+    "Comic words. Squash and stretch. Screen shake. Coins. And *way* too many sound effects.",
     0.7
    ],
    [
@@ -328,7 +328,7 @@
    ],
    [
     "bear",
-    "There's always a bear in the pond. Always.",
+    "There's always a bear in the pond. *Always*.",
     0.9
    ],
    [
@@ -337,7 +337,7 @@
    ],
    [
     "now",
-    "Now it's this.",
+    "Now? It's this.",
     2.6
    ],
    [
@@ -347,7 +347,7 @@
    ],
    [
     "cta",
-    "There's still so much to do. Should I keep going?"
+    "There's still *so* much to do. Do I keep going?"
    ]
   ]
  }

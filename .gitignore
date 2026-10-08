@@ -15,3 +15,7 @@ tools/video/out/
 
 # devlog frame renders (scratch)
 tools/devlog/out/
+
+# devlog music (your own song files, not redistributed) and the with-music renders
+tools/devlog/music/
+promo/devlog/with-music/

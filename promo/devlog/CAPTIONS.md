@@ -1,9 +1,15 @@
 # Devlog posts: captions, hashtags, voice-over
 
-Ten vertical videos (1080x1920, 30 fps, 15–21 s each, -14 LUFS). One a day, same time each day
-(evenings work well). Every video is narrated (voice-over from `tools/devlog/vo/script.json`), with
-word-by-word captions burned in, so post with the video's original sound. The music and sound
-effects are the game's own synth, so there is nothing to license.
+Ten vertical videos (1080x1920, 30 fps, 14–21 s each, -14 LUFS). One a day, same time each day
+(evenings work well). Reynard hosts every one: he hops around the screen and says the narration in
+speech bubbles, typed out word by word as he talks.
+
+**Two versions of each video:**
+- `with-music/day-NN.mp4` uses your songs (Crossing the Sea, Octopus's Garden, Always). These are
+  copyrighted tracks, so TikTok / Instagram may mute or claim the video. They are kept out of git.
+- `day-NN.mp4` uses the game's own soundtrack: nothing to license. To get the songs without
+  the risk, post this version and add the song from TikTok's or Instagram's own music library in
+  the app. That is licensed, and a recognisable sound can also help the video get shown.
 
 - **Cover:** the first frame already has the "day N of making my dream game" hook, so pick an early frame.
 - **Comments:** reply to every comment in the first hour. Day 7 is built from a comment
@@ -17,7 +23,7 @@ effects are the game's own synth, so there is nothing to license.
 ---
 
 ### Day 1 — `day-01.mp4`
-day 1 of making my dream game 🐻 the bear walked through me and then on water. great start 😭 #gamedev #indiedev #devlog #pixelart #cozygames
+day 1 of making my dream game 🐻 the bear walked through me. then on water. cool cool cool 😭 #gamedev #indiedev #devlog #pixelart #cozygames
 
 ### Day 2 — `day-02.mp4`
 day 2: square fish 🐟 one missing line of code and every fish went to the corner 💀 what fish should i add?
@@ -50,10 +56,11 @@ day 10 🐻🐟 ten days ago this was a brown square walking on water. should i 
 
 ## Voice-over
 
-The narration is generated offline with Kokoro-82M, an open-weights text-to-speech model, using the
-`af_heart` voice. The scripts are in `tools/devlog/vo/script.json`.
+The narration is generated offline with Kokoro-82M (open-weights text-to-speech), male voice
+`am_fenrir`. The scripts are in `tools/devlog/vo/script.json` (`*word*` = shouted: big and red in the
+bubble).
 
 Your own voice will always feel more real. Read a day's lines in one take, in order, with about
 half a second between lines, then run `vo.py --own day01 my-day01.wav` and re-render with
-`node tools/devlog/render.mjs day01`. The captions and cuts follow your timing (see
-`tools/devlog/README.md`).
+`node tools/devlog/render.mjs day01`. The bubbles, cuts and Reynard's reactions follow your timing
+(see `tools/devlog/README.md`).

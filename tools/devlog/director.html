@@ -8,6 +8,7 @@
 @font-face { font-family: 'TBME Goofy'; src: url('../../src/assets/fonts/TBMEGoofy-Regular.woff2') format('woff2'); }
 html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #000; }
 #bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+#fox { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; z-index: 52; pointer-events: none; }
 #ui { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; font-family: 'TBME Goofy', sans-serif; }
 #ui > * { position: absolute; }
 .px { image-rendering: pixelated; }
@@ -33,7 +34,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
 .comment .av { width: 64px; height: 64px; background: #b48cd0; box-shadow: 0 -4px 0 #1b1420, 0 4px 0 #1b1420, -4px 0 0 #1b1420, 4px 0 0 #1b1420; }
 .comment .av i { display: block; width: 100%; height: 100%; background: repeating-conic-gradient(#9a72c0 0 25%, #c9a6e0 0 50%) 0 0 / 32px 32px; }
 .comment .txt { margin-top: 14px; font-size: 76px; line-height: 1.1; }
-.draw { z-index: 20; left: 40px; width: 1000px; top: 560px; height: 700px; background: #26222e; box-shadow: 0 -8px 0 0 #110e16, 0 8px 0 0 #110e16, -8px 0 0 0 #110e16, 8px 0 0 0 #110e16; }
+.draw { z-index: 20; left: 40px; width: 1000px; top: 380px; height: 700px; background: #26222e; box-shadow: 0 -8px 0 0 #110e16, 0 8px 0 0 #110e16, -8px 0 0 0 #110e16, 8px 0 0 0 #110e16; }
 .draw .bar { position: absolute; left: 0; right: 0; top: 0; height: 64px; background: #1a1720; color: #c9bfd8; font-size: 40px; line-height: 64px; padding-left: 22px; }
 .draw canvas { position: absolute; image-rendering: pixelated; }
 .draw .pal { position: absolute; right: 22px; top: 100px; display: grid; grid-template-columns: 52px 52px; gap: 10px; }
@@ -42,18 +43,26 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
 .hud { z-index: 25; left: 36px; top: 300px; padding: 10px 18px 12px; font-size: 48px; line-height: 1.2; color: #fff; background: rgba(20, 16, 28, 0.78); white-space: pre; }
 .clock { z-index: 25; left: 540px; top: 470px; transform: translateX(-50%); padding: 8px 30px 12px; font-size: 104px; line-height: 1; }
 .end { z-index: 50; left: 0; top: 0; width: 1080px; height: 1920px; }
-.end .bx { position: absolute; left: 540px; top: 700px; width: 940px; transform: translateX(-50%); text-align: center; }
+.end .bx { position: absolute; left: 540px; top: 380px; width: 940px; transform: translateX(-50%); text-align: center; }
 .end .t1 { font-size: 108px; line-height: 1.1; color: #fff; }
 .end .t2 { margin-top: 34px; font-size: 64px; line-height: 1.15; color: #ffd84a; }
 .end img { display: block; margin: 0 auto 24px; }
 .list { z-index: 33; padding: 14px 24px 16px 18px; transform-origin: 0 0; }
 .list .li { display: flex; align-items: center; gap: 14px; font-size: 54px; line-height: 1.25; transform-origin: 0 50%; white-space: nowrap; }
 .list .li img { width: 55px; height: 45px; }
+.bubble { z-index: 56; max-width: 840px; padding: 16px 30px 22px; background: #fffaf0; color: #1b1420; font-size: 70px; line-height: 1.1;
+  box-shadow: 0 -6px 0 0 #1b1420, 0 6px 0 0 #1b1420, -6px 0 0 0 #1b1420, 6px 0 0 0 #1b1420, 0 14px 0 0 rgba(0,0,0,0.3); }
+.bubble .tail { position: absolute; top: 100%; margin-top: 3px; width: 42px; height: 36px; image-rendering: pixelated; }
+.bubble span { display: none; margin: 0 0.09em; transform-origin: 50% 90%; }
+.bubble span.said { display: inline-block; }
+.bubble span.now { transform: translateY(-4px) scale(1.08); }
+.bubble span.em { color: #e0302c; font-size: 1.18em; }
 .flash { z-index: 60; left: 0; top: 0; width: 1080px; height: 1920px; background: #fff; }
 </style>
 </head>
 <body>
 <canvas id="bg" width="1080" height="1920"></canvas>
+<canvas id="fox" width="1080" height="1920"></canvas>
 <div id="ui"></div>
 <script type="module" src="./director.js"></script>
 </body>

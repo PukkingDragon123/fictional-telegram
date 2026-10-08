@@ -93,7 +93,8 @@ def word_times(text, runs, dur):
     phrases, cur = [], []
     for i, w in enumerate(words):
         cur.append(i)
-        if re.search(r'[,.!?;:…]$', w) or w.endswith('...'):
+        wc = w.replace('*', '')  # *word* = shouted (the bubble shows it big; the voice just reads it)
+        if re.search(r'[,.!?;:…]$', wc) or wc.endswith('...'):
             phrases.append(cur)
             cur = []
     if cur:
@@ -219,7 +220,7 @@ for day in days:
     for spec in lines:
         lid, text = spec[0], spec[1]
         gap = spec[2] if len(spec) > 2 else SCRIPT['gap']
-        audio, sr = kok.create(text, voice=SCRIPT['voice'], speed=SCRIPT['speed'], lang='en-us')
+        audio, sr = kok.create(text.replace('*', ''), voice=SCRIPT['voice'], speed=SCRIPT['speed'], lang='en-us')
         assert sr == SR
         audio = np.asarray(audio, dtype=np.float32)
         runs = voiced_runs(audio)
