@@ -20,5 +20,16 @@ export default defineConfig({
     // pictures are embedded in the script (nothing to fail to load on odd static hosts);
     // videos and fonts stay separate files
     assetsInlineLimit: (file) => (/\.(jpe?g|png)$/i.test(file) ? true : undefined),
+    // several smaller files instead of one 4 MB script: some static hosts (githack) refuse big files
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) return 'vendor';
+          if (id.includes('/portfolio/media/')) return 'media';
+          if (id.includes('/src/entities/')) return 'models';
+          return undefined;
+        },
+      },
+    },
   },
 });
