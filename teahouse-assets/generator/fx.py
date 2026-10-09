@@ -1,7 +1,7 @@
 """Foreground (the posts between rooms, ivy, dark corner plants) and the animated light
 overlay - the only layer with partial alpha: warm window shafts with
 drifting dust, the hearth's flickering glow, the bedroom lamp and the
-pool of light under the moon window."""
+shaft under the moon window."""
 import math
 import random
 import numpy as np
@@ -83,16 +83,12 @@ def light():
                     al = alpha if edge > 4 else alpha // 2
                     if base[y, x, 3] < al:
                         base[y, x] = (*WARM, al)
-    cx, cy = WIN_ROUND['cx'] + 60, FLOOR + 44             # moon-window pool on the floor
-    _add(base, cx - 96, cx + 96, FLOOR, H,
-         lambda x, y: (WARM, 34 if ((x - cx) / 90) ** 2 + ((y - cy) / 30) ** 2 < 0.6 else
-                       (18 if ((x - cx) / 90) ** 2 + ((y - cy) / 30) ** 2 < 1 else 0)))
-    for y in range(WIN_ROUND['cy'], FLOOR + 14):
+    for y in range(WIN_ROUND['cy'], FLOOR + 14):          # moon-window shaft, fading out before the floor
         t = (y - WIN_ROUND['cy']) / (FLOOR + 14 - WIN_ROUND['cy'])
         r = int(WIN_ROUND['r'] * (0.9 - 0.25 * t))
         c = int(WIN_ROUND['cx'] + t * 60)
         for x in range(c - r, c + r):
-            al = int(22 * (1 - t * 0.5))
+            al = int(22 * (1 - t) ** 1.5)
             if base[y, x, 3] < al:
                 base[y, x] = (*WARM, al)
     lx, ly = 2441, 96                                     # bedroom oil lamp glow

@@ -98,7 +98,7 @@ def _tree_band(cv, rng, y, c, c2, h=4):
 
 def _tower(cv, x, ground):
     """Distant tiered bathhouse-like tower (original design): red walls,
-    jade roofs, gold finial, a boiler chimney with a smoke trail."""
+    jade roofs, gold finial."""
     # rock island
     for k in range(-30, 34):
         hgt = int(3 - abs(k) / 11) + (1 if k % 7 == 0 else 0)
@@ -138,18 +138,6 @@ abccc
         y = ry - 2
     cv.vline(x, y - 4, y, 'gold2')
     cv.px(x, y - 5, 'gold4')
-    # chimney rising from the island
-    cx = x + 16
-    cv.rect(cx, ground - 40, 2, 38, 'stone2')
-    cv.vline(cx, ground - 40, ground - 2, 'stone3')
-    cv.hline(cx - 1, cx + 2, ground - 40, 'stone1')
-    rng = random.Random(4)
-    for k in range(9):
-        px_ = cx + 2 + k * 3.4 + rng.uniform(-0.5, 0.5)
-        py_ = ground - 42 - k * 1.7 - k * k * 0.08
-        r = 1.6 + k * 0.7
-        cv.ellipse(px_, py_, r, r * 0.85, 'smoke0' if k < 3 else 'smoke1')
-        cv.ellipse(px_ - r * 0.3, py_ - r * 0.3, r * 0.6, r * 0.5, 'smoke1' if k < 3 else 'smoke2')
 
 
 def _stone_lantern(cv, x, ground):
