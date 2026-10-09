@@ -27,7 +27,7 @@ const hasExpr = (r, n) => { const E = r?.expressions; return !!E && (Array.isArr
 const LANDMARK_DOOR = { firetower: [-0.25, 0.15], lumberhut: [-0.2, 0.2], willowshrine: [0, 0.1], mushhut: [0, 0.1], swampshack: [-0.6, 0.15] };
 // where the new cottages go (offset from the villager's spot, tiles)
 const HOUSE_AT = { clover: [-1.9, -2.0, 0.15], otis: [-2.0, -1.6, 0.2], hazel: [-1.3, -2.2, 0.05] };
-const MAIL = { hoot: [0x869034, 0x6a7a3a], shellby: [0x3c88d8, 0x5a7a5a], dale: [0xf2c83c, 0x3e9e52], granny: [0xa092e0, 0x5a9a4a], rocco: [0xffd23f, 0x4a4068], clover: [0xf08a1a, 0x6cc04a], otis: [0xffd23f, 0x3c88d8], hazel: [0xe04a64, 0xf0c8a0], chip: [0xc8402a, 0xd8b07a], pip: [0xc8402a, 0xb8783a] };
+const MAIL = { hoot: [0x869034, 0x6a7a3a], shellby: [0x3c88d8, 0x5a7a5a], dale: [0xf2c83c, 0x3e9e52], granny: [0xa092e0, 0x5a9a4a], rocco: [0xffd23f, 0x4a4068], clover: [0xf08a1a, 0x6cc04a], otis: [0xffd23f, 0x3c88d8], hazel: [0xe04a64, 0xf0c8a0], chip: [0xc8402a, 0xd8b07a], pip: [0xc8402a, 0xb8783a], flint: [0xe0a838, 0x4866a2] }; // [F&S mining] flint
 
 const FOX_LINES = {
   enter: ['Wipe your paws, partner.', 'Ooh, cosy. What does a place like this rent for?', "Don't touch anything. Unless it's shiny."],

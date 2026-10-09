@@ -10,6 +10,7 @@
 //   - a fire watch tower in the north-west foothills
 import { Grid, KIND, FLOOR_DEEP, FLOOR_SHALLOW } from './grid.js';
 import { fbm2, hash2, mulberry32, clamp } from '../core/rng.js';
+import { carveQuarry } from './quarry.js'; // [F&S mining] Flint's Quarry pit
 
 export const WORLD_W = 140;
 export const WORLD_H = 118;
@@ -170,6 +171,8 @@ export function generateWorld(seed = 1337) {
       grid.height[i] = OFFICE.h;
       grid.kind[i] = z >= 8 ? KIND.TRAIL : KIND.ROCK;
     }
+
+  carveQuarry(grid); // [F&S mining] Flint's Quarry: a flat pit in the mountain (src/world/quarry.js)
 
   // --- trail: carve along the polyline with smoothly decreasing height
   const pts = TRAIL_WAYPOINTS;

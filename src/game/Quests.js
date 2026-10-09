@@ -3,6 +3,7 @@
 // a rare fish hatches, a couple is ready...), ticks off from game events and
 // pays a reward. State lives in game.state.quests.
 import { ZONES } from '../data/zones.js';
+import { MINING_QUESTS } from '../data/questsMining.js'; // [F&S mining]
 
 const rare = (g) => g.fish.list.some((f) => !f.dead && f.g.stars >= 3 && !f.tagged);
 const couple = (g) => {
@@ -110,6 +111,7 @@ export const QUESTS = [
     check: (g) => g.facilityTypes?.().length > 0,
   },
 ];
+QUESTS.push(...MINING_QUESTS); // [F&S mining] src/data/questsMining.js
 const BY_ID = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 
 export class Quests {
@@ -130,7 +132,7 @@ export class Quests {
     const fox = g.fox;
     let best = null, bd = 1e9;
     for (const Z of ZONES) {
-      if (g.zones?.isOpen(Z.id)) continue;
+      if (g.zones?.isOpen(Z.id) || Z.noReach) continue; // [F&S mining] research-only fog
       const d = Math.hypot(Z.cx - fox.x, Z.cz - fox.z) - Z.r;
       if (d < bd) { bd = d; best = Z; }
     }

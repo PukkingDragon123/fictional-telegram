@@ -174,7 +174,70 @@ function banner() {
   animate(tag, (ph) => `rotate(${wob(ph, 1, 0.8)}deg)`);
 }
 
-const SCENES = { thumb, banner };
+// ------------------------------------------------------------------ "Flint & Steel" update art
+const FILL_HOT = 'linear-gradient(180deg, #ffffff 0%, #fff2a0 22%, #ffc030 50%, #ff7a1a 78%, #e8401a 100%)';
+// the update badge: riveted steel plate in a hazard-stripe frame, hot-metal lettering, red UPDATE tag
+function badge(parent, { x, y, w, rot = -5, size = 41.67, sub = 25, pad = 10 }) {
+  const b = el('div', '', { left: x + 'px', top: y + 'px', width: w + 'px', transform: `rotate(${rot}deg)`, transformOrigin: '50% 50%',
+    padding: `${pad}px`, borderRadius: '10px', boxSizing: 'border-box',
+    background: 'repeating-linear-gradient(135deg, #f2c230 0 9px, #26262c 9px 18px)',
+    boxShadow: '0 0 0 3px #1a1016, 0 0 0 6px #fff6e0, 0 7px 0 5px rgba(30,8,30,.7), 0 0 26px rgba(255,150,40,.7)' }, parent);
+  const plate = el('div', '', { position: 'relative', borderRadius: '6px', padding: `${pad * 0.5}px ${pad}px ${pad * 0.8}px`, textAlign: 'center', overflow: 'hidden',
+    background: 'linear-gradient(180deg, #8c92aa 0%, #5e6478 45%, #3a3a46 100%)', boxShadow: 'inset 0 2px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.35), 0 0 0 2px #1a1016' }, b);
+  for (const [l, t] of [[5, 5], [null, 5], [5, null], [null, null]]) el('div', '', { position: 'absolute', width: '6px', height: '6px', borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #fff, #b8924c 50%, #6a4a20)', left: l != null ? l + 'px' : null, right: l == null ? '5px' : null, top: t != null ? t + 'px' : null, bottom: t == null ? '5px' : null }, plate);
+  const t1 = bigText(plate, ['FLINT & STEEL'], { x: 0, y: 0, size, outline: Math.max(2, Math.round(size / 14)), outlineColor: '#2a0f0a', fill: FILL_HOT, shadow: { x: 0, y: Math.round(size / 12), color: 'rgba(20,6,10,.7)', glow: '0 0 14px rgba(255,120,30,.8)' } });
+  Object.assign(t1.style, { position: 'relative', display: 'inline-block' });
+  const tag = el('div', '', { display: 'inline-block', marginTop: '2px', padding: '2px 12px 4px', background: 'linear-gradient(180deg, #ff4d4d, #c81e2e)', borderRadius: '6px', boxShadow: '0 0 0 2px #1a1016, 0 3px 0 2px rgba(20,6,10,.6)', transform: 'rotate(2deg)' }, plate);
+  const t2 = bigText(tag, ['UPDATE!'], { x: 0, y: 0, size: sub, outline: 2, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' });
+  t2.style.position = 'relative';
+  // a light sweep across the plate
+  const sweep = el('div', '', { position: 'absolute', top: '-20%', bottom: '-20%', width: '30%', left: '-40%', background: 'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.45), rgba(255,255,255,0))', transform: 'skewX(-20deg)', mixBlendMode: 'screen' }, plate);
+  ANIM.push((ph) => { sweep.style.left = (-40 + ((ph * 1.0) % 1) * 180) + '%'; });
+  animate(b, (ph) => { const g = Math.max(0, Math.sin(ph * TAU * 2)) ** 3; return `scale(${1 + g * 0.05})`; });
+  return b;
+}
+
+function fsthumb() {
+  const W = 630, H = 500;
+  Object.assign(stage.style, { width: W + 'px', height: H + 'px' });
+  bgLayer('thumb.png');
+  animate(burst(330, 210, 360, { rays: 20, a: 'rgba(255,214,120,0.30)', rot: 2, fade: 0.9 }), (ph) => `rotate(${ph * 18}deg)`);
+  el('div', '', { inset: 0, background: 'radial-gradient(ellipse 30% 30% at 88% 46%, rgba(255,120,30,.35), rgba(255,120,30,0) 70%)', mixBlendMode: 'screen' });
+  el('div', '', { inset: 0, background: 'linear-gradient(180deg, rgba(30,10,30,.7) 0%, rgba(30,10,30,.25) 30%, rgba(30,10,30,0) 45%, rgba(30,10,30,0) 76%, rgba(26,8,26,.75) 100%)' });
+  cutout('thumb.png', 'thumb-flint.png', [...outline(2, '#fff'), 'drop-shadow(0 0 6px rgba(255,200,80,.95))', 'drop-shadow(0 0 14px rgba(255,140,40,.6))']);
+  cutout('thumb.png', 'thumb-fox.png', [...outline(3, '#fff'), ...outline(2, '#fff'), 'drop-shadow(0 0 8px rgba(255,220,90,.95))', 'drop-shadow(0 0 22px rgba(255,170,50,.55))']);
+  // excited "!!" next to Reynard
+  const ex = bigText(stage, ['!!'], { x: 232, y: 232, size: 83.33, rot: 12, outline: 4, outlineColor: '#2a0f1e', outer: 3, outerColor: '#fff', fill: 'linear-gradient(180deg, #fff6a0 0%, #ffd23a 45%, #ff5a2a 100%)', shadow: { x: 0, y: 5, color: 'rgba(42,15,30,.7)' } });
+  ex.style.transformOrigin = '30% 70%';
+  animate(ex, (ph) => { const g = Math.max(0, Math.sin(ph * TAU * 2)) ** 2; return `scale(${1 + g * 0.18}) rotate(${wob(ph, 4, 4) * g}deg)`; });
+  // title + badge
+  animate(bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 12, y: 2, size: 62.5, sizes: [52.08, 72.92], gap: -8, indent: [4, 0], rot: -4,
+    outline: 4, outlineColor: '#3a1408', outer: 3, outerColor: '#fff6e0', fill: FILL_GOLD,
+    shadow: { x: 0, y: 6, color: 'rgba(40,8,40,.75)', glow: '0 0 22px rgba(255,140,60,.6)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 4}px) rotate(${wob(ph, 1, 1)}deg)`);
+  badge(stage, { x: 330, y: 22, w: 286, rot: 6, size: 37.5, sub: 25 });
+  const tag = el('div', '', { left: '50%', bottom: '12px', transform: 'translateX(-50%) rotate(-2deg)', padding: '6px 16px 8px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '3px solid #2a0f1e', borderRadius: '10px', boxShadow: '0 0 0 3px #fff6e0, 0 6px 0 3px rgba(40,8,40,.7)' });
+  bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 29.17, outline: 3, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
+  animate(tag, (ph) => `rotate(${wob(ph, 1, 0.8)}deg)`);
+}
+
+function fsbanner() {
+  const W = 960, H = 240;
+  Object.assign(stage.style, { width: W + 'px', height: H + 'px' });
+  bgLayer('banner.png');
+  animate(burst(600, 20, 420, { rays: 26, a: 'rgba(255,214,130,0.14)', rot: 6, fade: 0.8 }), (ph) => `rotate(${ph * 360 / 26}deg)`);
+  el('div', '', { inset: 0, background: 'radial-gradient(ellipse 14% 40% at 86% 45%, rgba(255,120,30,.35), rgba(255,120,30,0) 70%)', mixBlendMode: 'screen' });
+  el('div', '', { inset: 0, background: 'linear-gradient(90deg, rgba(26,10,26,.9) 0%, rgba(26,10,26,.74) 24%, rgba(26,10,26,0) 34%)' });
+  cutout('banner.png', 'banner-flint.png', [...outline(1, '#fff'), 'drop-shadow(0 0 4px rgba(255,200,80,.95))', 'drop-shadow(0 0 9px rgba(255,140,40,.6))']);
+  cutout('banner.png', 'banner-fox.png', [...outline(2, '#fff'), 'drop-shadow(0 0 6px rgba(255,220,90,.95))', 'drop-shadow(0 0 14px rgba(255,170,50,.6))']);
+  animate(bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 16, y: 6, size: 50, sizes: [41.67, 58.33], gap: -6, indent: [3, 0], rot: -3,
+    outline: 3, outlineColor: '#3a1408', outer: 3, outerColor: '#fff6e0', fill: FILL_GOLD,
+    shadow: { x: 0, y: 5, color: 'rgba(40,8,40,.8)', glow: '0 0 18px rgba(255,140,60,.55)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 3}px) rotate(${wob(ph, 1, 1)}deg)`);
+  badge(stage, { x: 14, y: 116, w: 262, rot: -3, size: 29.17, sub: 18.75, pad: 7 });
+  const tag = el('div', '', { left: '24px', top: '204px', transform: 'rotate(-1deg)', padding: '2px 10px 4px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '2px solid #2a0f1e', borderRadius: '7px', boxShadow: '0 0 0 2px #fff6e0, 0 3px 0 2px rgba(40,8,40,.7)' });
+  bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 18.75, outline: 2, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
+}
+
+const SCENES = { thumb, banner, fsthumb, fsbanner };
 SCENES[kind]?.();
 
 // ready once fonts and every image are in

@@ -1,3 +1,4 @@
+import { QUARRY_ZONE } from './zoneQuarry.js'; // [F&S mining]
 // Fog-covered areas of the big forest. Each one hides a villager's home (and
 // a landmark). Clear the forest up to the edge of the fog and it lifts: the
 // villager becomes your friend and unlocks new things. `cx/cz/r` is the fog
@@ -149,6 +150,7 @@ export const ZONES = [
     gift: { coins: 20 },
   },
 ];
+ZONES.push(QUARRY_ZONE); // [F&S mining] Flint's Quarry (src/data/zoneQuarry.js)
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 // zone id -> a short "who to meet" label (for locked things)
 export const ZONE_INFO = Object.fromEntries(ZONES.map((z) => [z.id, { npcName: z.npc.name, name: z.name }]));

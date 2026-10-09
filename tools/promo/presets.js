@@ -102,3 +102,48 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
   o.fx = [];
   PRESETS.bannerAnim = { kind: 'banner', viewport: PRESETS.banner.viewport, px: 1.3, masks: PRESETS.banner.masks, opts: o };
 }
+
+// ------------------------------------------------------------------ "Flint & Steel" update (mining + industry)
+// Shot in Flint's Quarry (src/world/quarry.js: floor x 42..54, z 10..17, mine at 49.5, 11.1), in daylight.
+// Cast placed in world coordinates (wx, wz); ry = absolute yaw (0 = facing the camera, which looks north).
+const FS_LOOK = { daylight: true, hour: 16.5, haze: 0.1, fill: 0.35, bloom: 0.65, yaw: 0, skyD: 14, clear: [[0, 0, 1, 3]] };
+const PICK = { s: 7, rx: 1.57 };
+const quarryCast = (o = {}) => [
+  { kind: 'model', make: 'mine.makeMineEntrance', wx: 49.5, wz: 10.6, ry: 0 },
+  { kind: 'rail', wx: 49.5, wz: 11.4, wx2: 49.5, wz2: 16.9 },
+  { kind: 'cart', wx: 49.5, wz: 11.6, wx2: 49.5, wz2: 15.2, load: 'gold' },
+  { kind: 'model', make: 'mine.makeOreBin', wx: 50.55, wz: 16.4, ry: 0, fill: 0.85 },
+  { kind: 'model', make: 'mine.makeExcavator', wx: 45.9, wz: 11.7, ry: 0.35, dig: 0.5, digLoop: 1 },
+  { kind: 'model', make: 'mine.makeVein', args: ['gold', 3], wx: 47.1, wz: 12.75, ry: 0 },
+  { kind: 'model', make: 'mine.makeVein', args: ['iron', 5], wx: 51.4, wz: 13.15, ry: 0 },
+  { kind: 'model', make: 'mine.makeVein', args: ['copper', 4], wx: 45.2, wz: 16.0, ry: 0.4 },
+  { kind: 'model', make: 'ind.ind_smelter', wx: 53.4, wz: 12.4, ry: 0, st: { on: true, k: 1, lamp: 'on' } },
+  { kind: 'belt', wx: 53.0, wz: 13.9, ry: 0, n: 3, per: 2, laps: 1 },
+  { kind: 'bear', type: 'construction', wx: 47.1, wz: 12.0, rot: 0, pose: 'smash', t01: 0.55, scale: 0.78, seed: 2.1, pick: PICK, name: 'b1', loop: { range: [0, 1], off: 0 } },
+  { kind: 'bear', type: 'construction', wx: 51.4, wz: 12.4, rot: -0.15, pose: 'smash', t01: 0.3, scale: 0.78, seed: 8.2, pick: PICK, name: 'b2', loop: { range: [0, 1], off: 0.5 } },
+  { kind: 'badger', wx: 45.0, wz: 14.3, rot: 0.45, name: 'flint', ...(o.flint || {}) },
+  { kind: 'beaver', wx: 44.5, wz: 16.6, ry: 2.28, off: 0 },
+  { kind: 'beaver', wx: 45.9, wz: 16.6, ry: -2.28, off: 0.5 },
+];
+const quarryFx = [
+  { type: 'sparks', wx: 47.1, wz: 12.75, y: 0.25, n: 26, rate: 1, off: 0.5, radius: 0.7, height: 0.9 },
+  { type: 'sparks', wx: 51.4, wz: 13.15, y: 0.25, n: 26, rate: 1, off: 0, radius: 0.7, height: 0.9, seed: 5 },
+  { type: 'sparks', wx: 45.35, wz: 14.75, y: 0.1, n: 18, rate: 2, off: 0.743, radius: 0.5, height: 0.7, seed: 9 },
+  { type: 'splash', wx: 45.2, wz: 16.0, y: 0, n: 14, rate: 4, r0: 0.1, radius: 0.5, height: 0.6, size: 0.06, color: 0xd0763e, seed: 13 },
+  { type: 'smoke', wx: 52.95, wz: 11.9, y: 2.85, n: 9, rate: 1, rise: 1.9, drift: 0.5, size: 0.38, seed: 17 },
+  { type: 'smoke', wx: 45.7, wz: 11.4, y: 1.6, n: 6, rate: 1, rise: 1.3, drift: 0.3, size: 0.26, seed: 19 },
+];
+const LOOP_FS = { frames: 20, period: 2.0, timeAmp: 0.5 };
+PRESETS.fsBannerAnim = {
+  kind: 'fsbanner', scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox', ['flint']], still: 6,
+  opts: { ...FS_LOOK, loop: LOOP_FS, wupp: 0.018, pitch: 20, focusWorld: [47.3, 12.7],
+    cast: [...quarryCast(), { kind: 'fox', wx: 48.45, wz: 16.4, scale: 1.3, rot: 0.15, shock: { cheeks: true, expr: 'excited', blush: 1, calm: true }, name: 'fox' }],
+    loopFx: quarryFx },
+};
+PRESETS.fsThumbAnim = {
+  kind: 'fsthumb', scene: 'banner', viewport: [1260, 1000], px: 1, masks: ['fox', ['flint']], still: 6,
+  opts: { ...FS_LOOK, loop: LOOP_FS, wupp: 0.0145, pitch: 19, focusWorld: [49.7, 12.3],
+    cast: [...quarryCast({ flint: { wx: 50.55, wz: 16.3, scale: 1.7, rot: -0.5 } }).filter((a) => a.make !== 'mine.makeOreBin'),
+      { kind: 'fox', sx: 0.23, sy: 1.1, front: 6, scale: 3.4, rot: 0.3, shock: { cheeks: true, expr: 'excited', blush: 1, calm: true, look: [0.7, 0] }, name: 'fox' }],
+    loopFx: [...quarryFx.slice(0, 2), { type: 'sparks', wx: 49.95, wz: 17.0, y: 0.1, n: 26, rate: 2, off: 0.743, radius: 0.8, height: 1.0, seed: 9 }, ...quarryFx.slice(3)] },
+};

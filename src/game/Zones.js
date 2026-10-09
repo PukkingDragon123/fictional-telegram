@@ -45,6 +45,8 @@ export class ZoneSystem {
   }
 
   isOpen(id) { return (this.game.state.zones || []).includes(id); }
+  // [F&S mining] the camera aims at y = 0: shift the goal so a spot on high ground is framed (only for real heights)
+  hOff(x, z) { const h = this.game.grid.groundAt(x, z) || 0; return h > 2.5 ? h / Math.tan(this.game.rig.pitch || 0.77) : 0; }
 
   // Every area's footprint: its circle plus its whole themed biome (the giant
   // mushrooms, the swamp, the willow hill), never your meadow. Stored as a
@@ -154,7 +156,7 @@ export class ZoneSystem {
     const g = this.game.grid;
     const homes = this.game.villagers?.homeTiles;
     for (const Z of ZONES) {
-      if (this.isOpen(Z.id) || !Z._field) continue;
+      if (this.isOpen(Z.id) || !Z._field || Z.noReach) continue; // [F&S mining] noReach: opened by research only
       const F = Z._field;
       let best = null, bd = 1e9;
       for (let z = F.z0; z <= F.z1; z++)
@@ -188,7 +190,7 @@ export class ZoneSystem {
     game.audio.play('discover', { volume: 0.6 });
     game.audio.play('whoosh', { volume: 0.5, pitch: 0.6 });
     game.ui?.stopTracking?.();
-    game.rig.lookAt(Z.cx, Z.cz + 2);
+    game.rig.lookAt(Z.cx, Z.cz + 2 - this.hOff(Z.cx, Z.cz)); // [F&S mining] hOff: high ground (the quarry) stays centred
     game.rig.wuppGoal = Math.max(game.rig.wuppGoal, 0.05);
     game.ui?.flashTransition?.('iris', { dur: 0.7, color: '#f3f1ea', peak: 0.5 });
     await wait(1.4);
@@ -200,7 +202,7 @@ export class ZoneSystem {
     game.villagers?.revealed(Z);
     const v = game.villagers?.get(Z.npc.id);
     if (v) {
-      game.rig.lookAt(v.x, v.z + 1);
+      game.rig.lookAt(v.x, v.z + 1 - this.hOff(v.x, v.z)); // [F&S mining]
       game.rig.wuppGoal = 0.026;
       await game.villagers.intro(v);
     }
@@ -245,6 +247,7 @@ export class ZoneSystem {
   async showHint(Z) {
     const game = this.game;
     if (!Z || this.isOpen(Z.id) || game.cutscene?.active) return;
+    if (Z.noReach) { game.notify(Z.hint || 'Not reachable yet.', 'thinking', { dur: 4 }); return; } // [F&S mining]
     const g = game.grid;
     // where your land is closest to the fog: that's where to clear
     let best = null, bd = 1e9;

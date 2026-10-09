@@ -15,6 +15,9 @@ import { picnicModel } from '../../src/entities/structureModels.js';
 import { voxelMaterial } from '../../src/core/voxel.js';
 import { fishCanvasFor, FISH_TPU } from '../../src/game/fishSprites.js';
 import { WATER_Y } from '../../src/world/grid.js';
+// [F&S] mining + industry art
+import * as MM from '../../src/entities/extra/miningModels.js';
+import * as IM from '../../src/entities/extra/industryModels.js';
 
 const D2R = Math.PI / 180;
 const S = (window.__promo ||= { actors: [], t: 0, cfg: null, named: {} });
@@ -39,11 +42,15 @@ export function shockedFox(fox, o = {}) {
       const P = rig.__promoPose;
       if (!P) return;
       const w = Math.min(1, Math.max(0, (t - 0.1) / 0.16));
-      p.ik(p.aR, P.mx, P.my, P.mz, 1, -0.9, -0.2, w);
-      p.aR.st = P.st ?? 1.6;
-      p.aR.shZ = (P.shZ ?? 3) * w; p.aR.shY = (P.shY ?? 1.2) * w;
-      p.aR.wx = (P.wx ?? -1.3) * w; p.aR.wz = (P.wz ?? 0) * w;
-      p.pawR = P.rpaw || 'open';
+      if (!P.cheeks) {
+        p.ik(p.aR, P.mx, P.my, P.mz, 1, -0.9, -0.2, w);
+        p.aR.st = P.st ?? 1.6;
+        p.aR.shZ = (P.shZ ?? 3) * w; p.aR.shY = (P.shY ?? 1.2) * w;
+        p.aR.wx = (P.wx ?? -1.3) * w; p.aR.wz = (P.wz ?? 0) * w;
+        p.pawR = P.rpaw || 'open';
+      }
+      if (P.expr) f.expr = P.expr;
+      if (P.blush != null) f.blush = P.blush;
       if (P.left) {
         p.ik(p.aL, P.left[0], P.left[1], P.left[2], 1, -0.9, 0.1, w);
         p.aL.st = 1.6; p.aL.shZ = (P.lshZ ?? 0) * w; p.aL.shY = (P.lshY ?? 0) * w;
@@ -247,6 +254,102 @@ function placeProp(T, type, pos, { rot = 0, scale = 1, tilt = null } = {}) {
   return g;
 }
 
+// ------------------------------------------------------------------ [F&S] mining + industry cast kinds
+// All take world coords (wx, wz) or screen (sx, sy) like the rest of the cast; `ry` = absolute yaw.
+const yawOf = (T, a) => (a.ry != null ? a.ry : facing(T, a.rot || 0));
+function machineDriver(obj) { return (dt) => { S.clock = (S.clock || 0) + dt; obj.userData.update?.(dt, S.clock); }; }
+const FS_KINDS = {
+  // any model factory: make = 'mine.makeMineEntrance' | 'ind.ind_smelter' | ...
+  model(T, p, a, o) {
+    const [lib, fn] = a.make.split('.');
+    const L = lib === 'mine' ? MM : IM;
+    const obj = lib === 'ind' ? IM.STRUCTURE_MODELS[fn]({ seed: 1 }) : L[fn](...(a.args || []));
+    obj.position.copy(p); obj.rotation.y = yawOf(T, a); if (a.scale) obj.scale.setScalar(a.scale);
+    obj.traverse((m) => { if (m.isMesh && !m.userData.glow) m.castShadow = true; });
+    if (a.st) Object.assign(obj.userData.st || {}, a.st);
+    if (a.load) obj.userData.setLoad?.(a.load);
+    if (a.left != null) obj.userData.setLeft?.(a.left);
+    if (a.fill != null) obj.userData.setFill?.(a.fill);
+    if (a.meals != null) obj.userData.setMeals?.(a.meals);
+    if (a.dig != null) obj.userData.dig?.(a.dig);
+    T.group.add(obj);
+    if (obj.userData.update) { const d = machineDriver(obj); for (let k = 0; k < 2; k += 1 / 30) d(1 / 30); if (o.loop) S.drivers.push(d); }
+    if (o.loop && a.digLoop) S.drivers.push((dt, ph) => obj.userData.dig?.(0.5 - 0.5 * Math.cos(ph * Math.PI * 2 * (a.digLoop || 1))));
+    return obj;
+  },
+  // a mine cart rolling out of the mine and back along (wx,wz) -> (wx2,wz2)
+  cart(T, p, a, o) {
+    const c = MM.makeMineCart();
+    c.userData.setLoad(a.load || 'gold');
+    const q = new THREE.Vector3(a.wx2, 0, a.wz2); q.y = T.game.grid.groundAt(q.x, q.z);
+    c.rotation.y = Math.atan2(q.x - p.x, q.z - p.z);
+    if (a.scale) c.scale.setScalar(a.scale);
+    c.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+    T.group.add(c);
+    const set = (ph) => { const u = 0.5 - 0.5 * Math.cos((ph + (a.off || 0)) * Math.PI * 2); c.position.lerpVectors(p, q, u); c.position.y += a.lift || 0; c.userData.spin(u * (p.distanceTo(q) / 0.1)); };
+    set(0);
+    if (o.loop) S.drivers.push((dt, ph) => set(ph));
+    return c;
+  },
+  // rail between two points
+  rail(T, p, a) {
+    const q = new THREE.Vector3(a.wx2, 0, a.wz2);
+    const len = Math.hypot(q.x - p.x, q.z - p.z);
+    const m = MM.makeRail(len);
+    m.position.copy(p); m.position.y += a.lift || 0;
+    m.rotation.y = Math.atan2(q.x - p.x, q.z - p.z);
+    T.group.add(m);
+    return m;
+  },
+  // conveyor: n belt tiles from (wx,wz) along yaw ry, items riding it (loop-seamless spacing)
+  belt(T, p, a, o) {
+    const g = new THREE.Group();
+    g.position.copy(p); g.rotation.y = a.ry ?? 0;
+    T.group.add(g);
+    const n = a.n || 4;
+    for (let i = 0; i < n; i++) {
+      const b = IM.STRUCTURE_MODELS.ind_belt({ seed: i });
+      b.position.set(0, 0, i); b.userData.st.on = true; b.userData.st.k = 1.04;
+      g.add(b);
+      const d = machineDriver(b); for (let k = 0; k < 2; k += 1 / 30) d(1 / 30); if (o.loop) S.drivers.push(d);
+    }
+    const ids = a.items || ['coal', 'copper', 'iron', 'gold'];
+    const per = a.per || 2, total = n * per, items = [];
+    for (let i = 0; i < total; i++) { const it = IM.makeBeltItem(ids[i % ids.length]); it.scale.setScalar(a.itemScale || 1.4); g.add(it); items.push(it); }
+    const set = (ph) => items.forEach((it, i) => { const z = ((i / total + ph * (a.laps || 1) / n) % 1) * n - 0.5; it.position.set(0, 0.27, z); });
+    set(0);
+    if (o.loop) S.drivers.push((dt, ph) => set(ph));
+    return g;
+  },
+  // beaver miner: pickaxe in the paw, drill helmet, chopping at the rock
+  beaver(T, p, a, o) {
+    const r = new C3.BeaverRig({ shadows: true });
+    r.root.position.copy(p); r.root.rotation.y = yawOf(T, a); r.root.scale.multiplyScalar(a.scale || 1);
+    const pick = new THREE.Mesh(MM.beaverPickGeo(), MM.MINING_MAT());
+    pick.rotation.x = Math.PI / 2; pick.position.set(0, -0.05, 0.02); pick.castShadow = true;
+    r.gripR?.add(pick);
+    if (r.props?.mallet) r.props.mallet.visible = false;
+    const helm = new THREE.Mesh(MM.beaverHelmetGeo(), MM.MINING_MAT());
+    r.hat?.add(helm); if (r.hatMesh) r.hatMesh.visible = false;
+    T.group.add(r.root);
+    r.play(a.anim || 'chop', { fade: 0 });
+    for (let k = 0; k < 1; k += 1 / 60) r.update(1 / 60);
+    if (r.props?.mallet) r.props.mallet.visible = false;
+    if (o.loop) S.drivers.push(loopNpc(r, { anim: a.anim || 'chop', dur: 0.32, cycles: a.cycles || 4, off: a.off || 0, ...(a.loop || {}) }));
+    return r.root;
+  },
+  // Flint the badger, swinging his pick (looping the two swings)
+  badger(T, p, a, o) {
+    const r = new C3.BadgerProspector({ shadows: true });
+    r.root.position.copy(p); r.root.rotation.y = yawOf(T, a); r.root.scale.multiplyScalar(a.scale || 1);
+    T.group.add(r.root);
+    r.play(a.anim || 'swing_pick', { fade: 0 });
+    for (let k = 0; k < (a.t ?? 1.25); k += 1 / 60) r.update(1 / 60);
+    if (o.loop) S.drivers.push(loopNpc(r, { anim: a.anim || 'swing_pick', range: a.range || [0.95, 2.0], cycles: a.cycles || 2 }));
+    return r.root;
+  },
+};
+
 // ------------------------------------------------------------------ scenes
 const SCENES = {};
 
@@ -289,11 +392,24 @@ SCENES.banner = (T, o) => {
   clearRects(T, o.clear);
   for (const a of o.cast || []) {
     let obj;
-    const p = a.front != null ? front(T, a.sx, a.sy, a.front) : a.h != null ? ground(T, a.sx, a.sy, a.h) : ground(T, a.sx, a.sy);
+    const p = a.wx != null ? new THREE.Vector3(a.wx, T.game.grid.groundAt(a.wx, a.wz), a.wz)
+      : a.front != null ? front(T, a.sx, a.sy, a.front) : a.h != null ? ground(T, a.sx, a.sy, a.h) : ground(T, a.sx, a.sy);
     if (a.lift) p.y += a.lift;
     let rig = null;
+    if (FS_KINDS[a.kind]) { obj = FS_KINDS[a.kind](T, p, a, o); add(obj, a.name); continue; }
+    if (a.kind === 'fox' && a.shock) {
+      rig = placeFox(T, p, { ...a, anim: null, shadow: false });
+      shockedFox(rig, a.shock);
+      for (let k = 0; k < 1.6; k += 1 / 30) rig.update(1 / 30);
+      add(rig.root, a.name);
+      if (o.loop) { const r = rig; S.drivers.push((dt, ph) => { r.__promoPhase = ph; r.update(dt); }); }
+      continue;
+    }
     if (a.kind === 'fox') { rig = placeFox(T, p, a); obj = rig.root; }
-    else if (a.kind === 'bear') { rig = placeBear(T, a.type, p, a); obj = rig.root; }
+    else if (a.kind === 'bear') {
+      rig = placeBear(T, a.type, p, a); obj = rig.root;
+      if (a.pick) { const m = new THREE.Mesh(MM.beaverPickGeo(), MM.MINING_MAT()); const g = new THREE.Group(); g.add(m); m.rotation.set(a.pick.rx ?? 0, a.pick.ry ?? 0, a.pick.rz ?? 0); g.scale.setScalar(a.pick.s ?? 2.2); rig.hold(g); rig.handAnchorR.add(g); g.position.set(a.pick.x ?? 0, a.pick.y ?? 0, a.pick.z ?? 0); }
+    }
     else if (a.kind === 'prop') obj = placeProp(T, a.type, p, a);
     else if (a.kind === 'fish') { obj = fishSprite(a.id, a.s ?? 1.3, a.rot ?? 0, a.dir ?? 1); obj.position.copy(p); T.group.add(obj); }
     else { rig = placeNpc(T, a.cls, p, a); obj = rig.root; }
@@ -400,6 +516,10 @@ export function frame(i) {
 function loopNpc(rig, L) {
   const P = S.cfg.loop.period;
   rig.play(L.anim, { fade: 0, loop: true, restart: true });
+  if (L.range) { // scrub a time window of the anim, `cycles` times per loop
+    const cur = rig._cur; cur.speed = 0;
+    return (dt, ph) => { const u = (ph * (L.cycles || 1) + (L.off || 0)) % 1; cur.t = L.range[0] + (L.range[1] - L.range[0]) * u; rig.update(dt); };
+  }
   const cur = rig._cur, dur = cur.def.dur || L.dur || 2;
   cur.speed = (dur * (L.cycles || 1)) / P;
   cur.t = (L.off || 0) * dur;

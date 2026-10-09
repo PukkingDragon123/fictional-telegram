@@ -158,6 +158,7 @@ export const VILLAGERS = {
   hazel: { name: 'Hazel', title: 'Baker', bg: ['#f0c8a0', '#fbe6cc'], pitch: 1.2, shop: 'Fresh from the oven', gift: ['#e04a64', '#fff3d8'] },
   chip: { name: 'Chip', title: 'Carpenter', bg: ['#d8b07a', '#f0d8a8'], pitch: 1.35, shop: 'The workshop', gift: ['#c8402a', '#d8b07a'] },
   pip: { name: 'Pip', title: 'Lumber trader', bg: ['#e8b878', '#f8e0b0'], pitch: 1.4, shop: 'Lumber counter', gift: ['#c8402a', '#3a2a1a'] },
+  flint: { name: 'Flint', title: 'Prospector', bg: ['#a8a0b0', '#d8d0c8'], pitch: 0.75, shop: 'The quarry', gift: ['#e0a838', '#4866a2'] }, // [F&S mining]
 };
 export const VILLAGER_IDS = Object.keys(VILLAGERS);
 
@@ -515,7 +516,7 @@ export function openVillager(root, o = {}) {
         </button>
         <div class="vc-gt"><b>${esc(st.giftOpened ? 'Thank you, dear!' : g.label || 'A little something')}</b><small>${st.giftOpened ? 'Gift claimed' : ready ? 'Tap to open!' : 'Come back later'}</small></div>
       </div>`;
-    if (st.giftOpened) giftw.querySelector('.vc-gt b').textContent = { dale: 'Cheers, buddy!', granny: 'Enjoy, dearie!', hoot: 'Splendid!', rocco: "Don't tell nobody.", shellby: 'Heh. For you, sprout.', clover: 'Fresh from the garden!', otis: 'Straight off the dock!', hazel: 'Still warm, sweetie!', chip: 'Tok-tok! Enjoy!', pip: 'On the house, partner!' }[npc] || 'Thank you!';
+    if (st.giftOpened) giftw.querySelector('.vc-gt b').textContent = { dale: 'Cheers, buddy!', granny: 'Enjoy, dearie!', hoot: 'Splendid!', rocco: "Don't tell nobody.", shellby: 'Heh. For you, sprout.', clover: 'Fresh from the garden!', otis: 'Straight off the dock!', hazel: 'Still warm, sweetie!', chip: 'Tok-tok! Enjoy!', pip: 'On the house, partner!', flint: 'Don\'t spend it all.' }[npc] || 'Thank you!';
   };
   giftw.addEventListener('click', async (e) => {
     const b = e.target.closest('.vc-gbox');

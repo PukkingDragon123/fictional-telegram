@@ -72,7 +72,7 @@ async function renderAnim(name) {
   await page.goto(`${URL0}/`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__title && window.__title.active, null, { timeout: 120000 });
   await page.waitForTimeout(6000);
-  const N = await page.evaluate(async ([k, o]) => { const S = await import('/tools/promo/stage.js'); await S.setup(k, o); S.prepLoop(); return o.loop.frames; }, [kind, { px: P.px, ...P.opts }]);
+  const N = await page.evaluate(async ([k, o]) => { const S = await import('/tools/promo/stage.js'); await S.setup(k, o); S.prepLoop(); return o.loop.frames; }, [P.scene || kind, { px: P.px, ...P.opts }]);
   const dir = path.join(REN, 'anim');
   fs.mkdirSync(dir, { recursive: true });
   const raf2 = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
@@ -112,6 +112,7 @@ async function compositeAnim(name, dsf, outDir) {
 
 const SIZES = { thumb: { css: [630, 500], files: ['itch-thumbnail-630x500.png', 'itch-thumbnail-1260x1000.png'] },
   banner: { css: [960, 240], files: ['itch-banner-960x240.png', 'itch-banner-1920x480.png'] } };
+SIZES.fsthumb = SIZES.thumb; SIZES.fsbanner = SIZES.banner;
 async function composite(kind) {
   const Z = SIZES[kind];
   fs.mkdirSync(OUT, { recursive: true });
@@ -130,7 +131,7 @@ const [what = 'all', which = 'all'] = process.argv.slice(2);
 if (what === 'gif') {
   const out = process.argv[4] && !process.argv[4].startsWith('--') ? path.resolve(process.argv[4]) : path.join(OUT, 'v1');
   const big = process.argv.includes('--big');
-  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : [which];
+  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : which === 'fs' ? ['fsThumbAnim', 'fsBannerAnim'] : [which];
   const { execFileSync } = await import('child_process');
   for (const n of names) {
     if (!process.argv.includes('--no-render')) await renderAnim(n);
@@ -143,7 +144,7 @@ if (what === 'gif') {
       const gif = path.join(out, file.replace(/\.png$/, '.gif'));
       fs.mkdirSync(out, { recursive: true });
       execFileSync('python3', [path.join(HERE, 'gif.py'), gif, String(1000 / (P.opts.loop.frames / P.opts.loop.period)), ...frames], { stdio: 'inherit' });
-      if (dsf === 1) fs.copyFileSync(frames[0], path.join(out, file));
+      if (dsf === 1) fs.copyFileSync(frames[P.still || 0], path.join(out, file));
     }
   }
   await browser.close();

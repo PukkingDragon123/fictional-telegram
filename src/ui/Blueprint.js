@@ -22,6 +22,7 @@ const TABS = [
   { id: 'woodwork', icon: 'hammer', name: 'Woodwork', zone: 'treehouse' },
   { id: 'contraption', icon: 'gear', name: 'Gadgets' },
   { id: 'defense', icon: 'shield', name: 'Defense' }, // [v18 bear events] barricades, traps, towers (src/data/structuresDefense.js)
+  { id: 'industry', icon: 'ind_gear', name: 'Industry' }, // [F&S industry] machines, belts, automation (src/data/structuresIndustry.js; mining builds can share the tab)
   { id: 'dig', icon: 'shovel', name: 'Dig Pond' },
   { id: 'terraform', icon: 'shovel', name: 'Terraform', feature: 'terraform' },
   { id: 'remove', icon: 'trash', name: 'Remove' },
@@ -182,8 +183,9 @@ export class Blueprint {
       if (craft && !n) return `<button class="bp-item need craftme" data-type="${type}" data-free="1" data-craft="1" data-name="${d.name}: craft it at Chip's workshop"><span class="bp-ico">${this.icon(type)}</span><i class="bp-n">0</i></button>`;
       const needB = d.builder === 'beaver' && beaverless && !free;
       const sel = tool.kind === 'build' && tool.type === type && !!tool.free === !!free;
-      const cost = free ? `<i class="bp-n">×${n}</i>` : `<i class="bp-cost ${game.canAfford(d.cost) ? '' : 'no'}">${this.tico('coin', 1)}${d.cost}</i>`;
-      return `<button class="bp-item ${sel ? 'sel' : ''} ${needB ? 'need' : ''}" data-type="${type}" data-free="${free ? 1 : 0}" data-name="${d.name}">
+      const parts = d.res && !free && game.res ? { ok: game.res.hasAll(d.res), txt: ' + ' + game.res.billText(d.res) } : null; // [F&S industry] crafted-part costs
+      const cost = free ? `<i class="bp-n">×${n}</i>` : `<i class="bp-cost ${game.canAfford(d.cost) && (!parts || parts.ok) ? '' : 'no'}">${this.tico('coin', 1)}${d.cost}${parts ? '+' : ''}</i>`;
+      return `<button class="bp-item ${sel ? 'sel' : ''} ${needB ? 'need' : ''}" data-type="${type}" data-free="${free ? 1 : 0}" data-name="${d.name}${parts ? parts.txt : ''}">
         <span class="bp-ico">${this.icon(type)}</span>${cost}${needB ? `<i class="bp-lock">${this.tico('beaver', 1)}</i>` : ''}${d.builder === 'beaver' && !free ? '<i class="bp-bv"></i>' : ''}
       </button>`;
     }).join('');

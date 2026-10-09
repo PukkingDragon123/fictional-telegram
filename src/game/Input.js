@@ -390,6 +390,7 @@ export class Input {
     if (egg && game.tool.kind === 'feed') { game.ui.tapPondEgg(egg); return; }
     // forest finds: logs, mushrooms, wild plants, ruins (the fox fetches them)
     if (game.tool.kind === 'feed' && game.forage?.tapAt(sx, sy)) return;
+    if (game.tool.kind === 'feed' && game.mining?.tapAt(sx, sy)) return; // [F&S mining] ore veins, the Bear Mine
     // default: feed / interact. Tapping a creature zooms in and tracks it.
     const cr = game.ui?.pickCreature?.(sx, sy);
     if (cr && cr.kind === 'npc') { game.villagers.open(cr.ent); return; }
