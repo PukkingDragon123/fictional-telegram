@@ -17,6 +17,42 @@ function silhouette(id) {
   return url;
 }
 
+// [v26 lead] pixel fog puffs around the mystery silhouette (no glow): a soft lumpy
+// cloud drawn at texel size, dithered edges, lighter tops and a cool grey underside.
+const CLOUDS = new Map();
+function fogCloud(seed, front) {
+  const key = seed + (front ? 'f' : 'b');
+  if (CLOUDS.has(key)) return CLOUDS.get(key);
+  const W = 46, H = front ? 16 : 26;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); const img = x.createImageData(W, H); const p = img.data;
+  let r = seed * 9301 + 49297; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  const puffs = [];
+  const n = front ? 5 : 6;
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n;
+    const pr = front ? 4 + rnd() * 3 : 6 + rnd() * 5;
+    puffs.push([4 + t * (W - 8) + (rnd() - 0.5) * 4, H - pr - 1 - (front ? rnd() * 2 : Math.sin(t * Math.PI) * 6 + rnd() * 3), pr]);
+  }
+  const hash = (i, j) => { const h = Math.sin(i * 127.1 + j * 311.7 + seed * 17.3) * 43758.5453; return h - Math.floor(h); };
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    let d = -1e9;
+    for (const [px, py, pr] of puffs) d = Math.max(d, 1 - Math.hypot(i + 0.5 - px, (j + 0.5 - py) * 1.15) / pr);
+    if (d <= 0) continue;
+    if (d < 0.18 && hash(i, j) > d / 0.18) continue; // dithered fringe
+    const k = (j * W + i) * 4;
+    const top = 1 - j / H; // light from above
+    const rim = d < 0.2 && top < 0.6; // cool grey underside rim so the puff reads on white fog
+    const shade = rim ? 0.74 : d < 0.22 ? 0.9 : top > 0.55 ? 1 : top > 0.3 ? 0.93 : 0.84;
+    p[k] = Math.round((rim ? 218 : 240) * shade); p[k + 1] = Math.round((rim ? 224 : 241) * shade); p[k + 2] = Math.round(248 * shade);
+    p[k + 3] = Math.round(255 * (front ? 0.82 : 0.9) * Math.min(1, 0.55 + d * 1.6));
+  }
+  x.putImageData(img, 0, 0);
+  const url = c.toDataURL();
+  CLOUDS.set(key, url);
+  return url;
+}
+
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const IN = 1.2, OUT = 1.8; // legacy circle falloff (still used for the lift wave size)
@@ -229,7 +265,8 @@ export class ZoneSystem {
         el.className = 'fogtag' + (Z.near ? ' near' : '');
         const sil = silhouette(Z.npc?.id);
         const place = String(Z.name || '').replace(/[&<>"]/g, '');
-        el.innerHTML = sil ? `<img class="fogsil" src="${sil}" alt=""><b>?</b><em class="fogname">${place}</em>` : `<b>?</b><span>${place}</span>`;
+        const cs = [...String(Z.id)].reduce((a, ch) => a + ch.charCodeAt(0), 0); // [v26 lead] fog puffs instead of the glow
+        el.innerHTML = sil ? `<i class="fogcloud back" style="background-image:url(${fogCloud(cs, false)})"></i><img class="fogsil" src="${sil}" alt=""><i class="fogcloud front" style="background-image:url(${fogCloud(cs + 7, true)})"></i><b>?</b><em class="fogname">${place}</em>` : `<b>?</b><span>${place}</span>`;
         if (sil) el.classList.add('sil');
         el.addEventListener('click', (ev) => { ev.stopPropagation(); this.showHint(Z); });
         (ui.overlay || document.body).appendChild(el);
@@ -239,7 +276,8 @@ export class ZoneSystem {
       const W = window.innerWidth, H = window.innerHeight;
       const vis = q.visible !== false && q.x > -60 && q.y > -60 && q.x < W + 60 && q.y < H + 60;
       el.style.display = vis ? '' : 'none';
-      if (vis) el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -100%)`;
+      const zs = Math.max(0.78, Math.min(1, 0.045 / (game.rig.wupp || 0.045))); // [v26 lead] smaller when zoomed far out
+      if (vis) el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -100%) scale(${zs.toFixed(2)})`;
     }
   }
 

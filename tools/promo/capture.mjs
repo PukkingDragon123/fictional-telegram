@@ -100,7 +100,7 @@ async function compositeAnim(name, dsf, outDir) {
   fs.mkdirSync(outDir, { recursive: true });
   const files = [];
   for (let i = 0; i < N; i++) {
-    await page.evaluate((i) => new Promise((r) => { window.setFrame(i); requestAnimationFrame(() => requestAnimationFrame(r)); }), i);
+    await page.evaluate((i) => Promise.resolve(window.setFrame(i)).then(() => new Promise((r) => setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(r)), 150))), i);
     const f = path.join(outDir, `${name}-${Z.css[0] * dsf}-c${String(i).padStart(2, '0')}.png`);
     await page.screenshot({ path: f, clip: { x: 0, y: 0, width: Z.css[0], height: Z.css[1] }, timeout: 300000 });
     files.push(f);

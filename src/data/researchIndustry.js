@@ -32,18 +32,19 @@ export const INDUSTRY_RESEARCH = [
     desc: 'A huge puffing excavator. Doubles the mine\'s output and digs up crystals.' },
   // ---- [F&S mining] end
   // ---- [F&S industry] (r_ind_*)
-  // mods read by src/game/Industry.js: indWorkSpeed / indPowerSpeed (+% machine speed when staffed / powered),
-  // indWageCut (-% worker wages), indPollute (+/-% pollution from machines)
-  { id: 'r_ind_smelter', branch: 'industry', name: 'Smelting', icon: 'ind_smelter', time: 90, req: ['r_mine_pick'], build: 'ind_smelter',
-    desc: 'A coal-fired Smelter: ore and coal in, shiny ingots out. Hire a bear in a hard hat to run it.' },
+  // mods read by src/game/Industry.js: indWorkSpeed / indPowerSpeed (+% fabrication speed),
+  // indWageCut (-% worker wages, pre-v26), indPollute (+/-% pollution from machines)
+  // [v26 power] more nodes (storage, water / wind / solar, circuit fab, assembly) in src/data/ext/power.js
+  { id: 'r_ind_smelter', branch: 'industry', name: 'Smelting', icon: 'ind_smelter', time: 90, req: ['r_mine_pick'], build: ['ind_smelter', 'ind_generator'], // [v26 power] + the Steam Generator
+    desc: 'A Smelter and a coal Steam Generator to run it. Park them side by side: a beaver fetches the ore and pours the ingots.' },
   { id: 'r_ind_trees', branch: 'industry', name: 'Replanting', icon: 'ind_sapling', time: 60, req: ['r_ind_smelter'], build: 'ind_sapling',
     desc: 'Pine saplings. Every tree soaks up a little smog. Bears like trees too.' },
   { id: 'r_ind_shop', branch: 'industry', name: 'Machine Shop', icon: 'ind_shop', time: 150, req: ['r_ind_smelter'], build: 'ind_shop',
-    desc: 'Lathes and presses: turn ingots into gears, steel plates and circuits.' },
+    desc: 'Lathes and presses: beavers turn ingots into gears, steel plates and copper wire.' },
   { id: 'r_ind_union', branch: 'industry', name: 'Union Contract', icon: 'ind_worker', time: 120, req: ['r_ind_smelter'], mods: { indWorkSpeed: 0.25, indWageCut: 0.25 },
-    desc: 'Hard hats, lunch breaks, dental. Worker bears go 25% faster and ask 25% less pay.' },
-  { id: 'r_ind_power', branch: 'industry', name: 'Steam Power', icon: 'ind_generator', time: 180, req: ['r_ind_shop'], build: 'ind_generator',
-    desc: 'A coal boiler and a big flywheel. Powered machines run themselves, no bear needed.' },
+    desc: 'Hard hats, lunch breaks, dental. Beavers at the machines work 25% faster.' },
+  { id: 'r_ind_power', branch: 'industry', name: 'Power Grid', icon: 'pw_pole', time: 180, req: ['r_ind_shop'], build: ['pw_pole', 'pw_battery'], // [v26 power] was Steam Power
+    desc: 'Power poles carry the juice across the yard, and Battery Banks keep the spare for the night.' },
   { id: 'r_ind_scrubber', branch: 'industry', name: 'Clean Air Act', icon: 'ind_scrubber', time: 140, req: ['r_ind_shop', 'r_ind_trees'], build: 'ind_scrubber',
     desc: 'Air Scrubbers: giant fans that eat smog. Fish and bears breathe easier.' },
   { id: 'r_ind_belts', branch: 'industry', name: 'Conveyor Belts', icon: 'ind_belt', time: 150, req: ['r_ind_power'], build: ['ind_belt', 'ind_loader'],
@@ -59,7 +60,7 @@ export const INDUSTRY_RESEARCH = [
   { id: 'r_ind_hauler', branch: 'industry', name: 'Auto-Hauler', icon: 'ind_hauler', time: 240, req: ['r_ind_belts'], build: 'ind_hauler',
     desc: 'A delivery drone. Flies loose logs and ore home so the beavers can nap.' },
   { id: 'r_ind_overclock', branch: 'industry', name: 'Overclocking', icon: 'ind_power', time: 260, req: ['r_ind_belts'], mods: { indPowerSpeed: 0.3, indPollute: 0.15 },
-    desc: 'Powered machines run 30% faster. A bit more smoke. Worth it.' },
+    desc: 'Machines run 30% faster. A bit more smoke. Worth it.' },
   { id: 'r_ind_green', branch: 'industry', name: 'Green Steel', icon: 'ind_sapling', time: 300, req: ['r_ind_filter'], mods: { indPollute: -0.35 },
     desc: 'Cleaner furnaces and filters on every chimney: machines pollute 35% less.' },
   // ---- [F&S industry] end

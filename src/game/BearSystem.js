@@ -207,6 +207,18 @@ export class BearSystem {
     return g.height[i];
   }
 
+  // [v26 feast] for b.script bears: water state + ease onto the ground (what step() does after the AI)
+  ground(b, dt, moving = b.moving) {
+    const g = this.grid;
+    const tx = Math.floor(b.x), tz = Math.floor(b.z);
+    const was = b.inWater;
+    b.inWater = g.isWater(tx, tz) && b.state !== 'commute' && b.state !== 'commuteUp';
+    if (b.inWater) b.region = g.region[this.tileIdx(tx, tz)] ?? b.region;
+    if (b.state !== 'commute' && b.state !== 'commuteUp') b.y = damp(b.y, this.groundY(b), was === b.inWater ? 14 : 8, dt);
+    b.moving = moving;
+    b.lastX = b.x; b.lastZ = b.z;
+  }
+
   satisfaction(b) {
     const fishPart = Math.min(1, b.eaten / b.appetite);
     if (!b.wants.length) return fishPart;
@@ -452,6 +464,16 @@ export class BearSystem {
   step(b, dt) {
     const game = this.game;
     const g = this.grid;
+    // [v26 feast] scripted override (feast events, facility visits, warming up, being carried...):
+    // while b.script.update(b, dt) returns true the bear's own AI is skipped; false clears it.
+    // Scripts that walk the bear around can call this.ground(b, dt) to keep it on the ground.
+    if (b.script) {
+      const sc = b.script;
+      let on = false;
+      try { on = sc.update(b, dt); } catch (e) { console.warn('[bear script]', e); }
+      if (on) return;
+      if (b.script === sc) b.script = null;
+    }
     b.t -= dt;
     if (this.game.bearEvents?.preStep(b, dt)) return; // [v18 bear events] traps, knockback, boss attacks
     if (!b.angry && PATIENCE_STATES.has(b.state) && b.goal?.kind !== 'leave') {

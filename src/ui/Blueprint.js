@@ -3,7 +3,7 @@
 // your parcels (inventory), clear-land (axe), plants, restaurant, beaver
 // works, pond, decor, dig and remove. Things you haven't unlocked yet simply
 // aren't on the sheet. A pixel arrow (top-left) leaves the mode.
-import { STRUCTURES } from '../data/structures.js';
+import { STRUCTURES, BUILD_CATEGORIES } from '../data/structures.js'; // [v26 power] + BUILD_CATEGORIES (ext build tabs)
 import { stagesFor } from '../data/crops.js';
 import { natureCanvas } from '../art/natureArt.js';
 import { spriteImg, hasSprite } from './sprites.js';
@@ -27,6 +27,8 @@ const TABS = [
   { id: 'terraform', icon: 'shovel', name: 'Terraform', feature: 'terraform' },
   { id: 'remove', icon: 'trash', name: 'Remove' },
 ];
+// [v26 power] build tabs added by src/data/ext/*.js CATEGORIES ({ id, name, icon? }) go in before 'Dig Pond'
+for (const c of BUILD_CATEGORIES) if (!TABS.some((t) => t.id === c.id)) TABS.splice(TABS.findIndex((t) => t.id === 'dig'), 0, { id: c.id, icon: c.icon || 'gear', name: c.name });
 
 const iconCache = new Map();
 

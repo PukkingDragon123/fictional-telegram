@@ -63,10 +63,13 @@ function bgLayer(file) { const d = el('div', 'bg', { backgroundImage: `url(${R(f
 function animate(e, fn) { const base = e.style.transform || ''; ANIM.push((ph) => { e.style.transform = base + ' ' + fn(ph); }); return e; }
 const wob = (ph, k = 1, a = 1) => Math.sin(ph * TAU * k) * a;
 window.setFrame = (i) => {
-  for (const d of stage.querySelectorAll('[data-src]')) d.style.backgroundImage = `url(${R(d.dataset.src, i)})`;
-  for (const d of stage.querySelectorAll('[data-mask]')) { const u = `url(${R(d.dataset.mask, i)})`; d.style.webkitMaskImage = u; d.style.maskImage = u; }
+  const urls = [];
+  for (const d of stage.querySelectorAll('[data-src]')) { const u = R(d.dataset.src, i); urls.push(u); d.style.backgroundImage = `url(${u})`; }
+  for (const d of stage.querySelectorAll('[data-mask]')) { const u0 = R(d.dataset.mask, i); urls.push(u0); const u = `url(${u0})`; d.style.webkitMaskImage = u; d.style.maskImage = u; }
   const ph = (i % NF) / NF;
   for (const f of ANIM) f(ph);
+  // resolves once every image of this frame is decoded (capture waits on it: no half-loaded frames)
+  return Promise.all(urls.map((u) => { const im = new Image(); im.src = u; return im.decode().catch(() => {}); }));
 };
 const outline = (px, c) => [`drop-shadow(${px}px 0 0 ${c})`, `drop-shadow(-${px}px 0 0 ${c})`, `drop-shadow(0 ${px}px 0 ${c})`, `drop-shadow(0 -${px}px 0 ${c})`];
 

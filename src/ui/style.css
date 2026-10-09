@@ -534,23 +534,24 @@ body.cine .landtag, body.blueprint .landtag { display: none; }
 .fogtag.near b { background: #e8483a; }
 .fogtag:hover { filter: brightness(1.08); }
 @keyframes fogtag-bob { from { margin-top: 0; } to { margin-top: -6px; } }
-/* the silhouette version: a small floating mystery head, no box */
+/* the silhouette version: a mystery head half-hidden in drifting pixel fog puffs [v26 lead: no glow] */
 .fogtag.sil { padding: 0; gap: 0; flex-direction: column; align-items: center; background: none; border: 0; box-shadow: none; opacity: 1;
-  animation: fogsil-float 2.6s ease-in-out infinite; }
-.fogtag.sil .fogsil { display: block; width: 56px; height: 56px; image-rendering: pixelated;
-  filter: brightness(0) drop-shadow(0 0 1px #c9b8ff) drop-shadow(0 0 4px rgba(150, 120, 255, .85)) drop-shadow(0 0 10px rgba(120, 90, 230, .55));
-  opacity: .9; animation: fogsil-pulse 2.2s ease-in-out infinite; }
-.fogtag.sil::after { content: ''; position: absolute; left: 50%; top: 50px; width: 26px; height: 6px; transform: translateX(-50%);
-  background: radial-gradient(closest-side, rgba(20, 10, 40, .45), transparent); animation: fogsil-shadow 2.6s ease-in-out infinite; }
-.fogtag.sil b { position: absolute; right: -6px; top: -6px; left: auto; bottom: auto; width: 16px; height: 16px; font-size: 13px; border-width: 2px;
-  background: #8a6ad8; animation: fogsil-q 1.4s steps(2) infinite; }
-.fogtag.near.sil b { background: #e8483a; }
-.fogtag.sil .fogname { display: block; margin-top: 3px; font-style: normal; font-family: var(--font-title); font-size: 12px; line-height: 1; color: #fff;
-  text-shadow: 1px 1px 0 #1a1030, -1px -1px 0 #1a1030, 1px -1px 0 #1a1030, -1px 1px 0 #1a1030, 0 0 6px rgba(150, 120, 255, .9); white-space: nowrap; }
-.fogtag.sil:hover .fogsil { filter: brightness(0) drop-shadow(0 0 2px #fff) drop-shadow(0 0 8px rgba(190, 160, 255, 1)); }
-@keyframes fogsil-float { 0%, 100% { margin-top: 0; } 50% { margin-top: -7px; } }
-@keyframes fogsil-pulse { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
-@keyframes fogsil-shadow { 0%, 100% { width: 26px; opacity: .8; } 50% { width: 18px; opacity: .45; } }
+  transform-origin: 50% 100%; animation: fogsil-float 3.4s ease-in-out infinite; }
+.fogtag.sil .fogsil { position: relative; z-index: 1; display: block; width: 52px; height: 52px; image-rendering: pixelated;
+  filter: brightness(0) invert(.2) sepia(.25) hue-rotate(190deg); opacity: .78; }
+.fogtag.sil .fogcloud { position: absolute; left: 50%; display: block; width: 92px; image-rendering: pixelated; background-size: 100% 100%; pointer-events: none; }
+.fogtag.sil .fogcloud.back { z-index: 0; top: 4px; height: 52px; margin-left: -46px; opacity: .72; animation: fogcloud-drift 7s ease-in-out infinite; }
+.fogtag.sil .fogcloud.front { z-index: 2; top: 30px; height: 32px; margin-left: -46px; animation: fogcloud-drift 5.2s ease-in-out infinite reverse; }
+.fogtag.sil::after { content: none; }
+.fogtag.sil b { position: absolute; z-index: 3; right: -4px; top: -4px; left: auto; bottom: auto; width: 16px; height: 16px; font-size: 13px; border-width: 2px;
+  background: #f6f1e4; color: #2a1a14; animation: fogsil-q 1.4s steps(2) infinite; }
+.fogtag.near.sil b { background: #e8483a; color: #fff; }
+.fogtag.sil .fogname { position: relative; z-index: 3; display: block; margin-top: 2px; font-style: normal; font-family: var(--font-title); font-size: 12px; line-height: 1; color: #fff;
+  text-shadow: 1px 1px 0 #2a2838, -1px -1px 0 #2a2838, 1px -1px 0 #2a2838, -1px 1px 0 #2a2838, 0 2px 0 #2a2838; white-space: nowrap; }
+.fogtag.sil:hover .fogsil { opacity: .95; }
+.fogtag.sil:hover .fogcloud.front { transform: translateY(4px); }
+@keyframes fogsil-float { 0%, 100% { margin-top: 0; } 50% { margin-top: -5px; } }
+@keyframes fogcloud-drift { 0%, 100% { translate: -5px 0; } 50% { translate: 5px 1px; } }
 @keyframes fogsil-q { 0% { transform: rotate(-8deg); } 100% { transform: rotate(8deg); } }
 body.cine .fogtag, body.blueprint .fogtag, body.lab-mode .fogtag { display: none !important; }
 .cutscene .cs-dip { position: fixed; inset: 0; background: #0b0a10; opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 1; }
