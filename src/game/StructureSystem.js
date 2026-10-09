@@ -130,6 +130,8 @@ export class StructureSystem {
     }
     const t = this.tileInfo(x, z);
     if (!def || !t) return { ok: false, reason: 'Out of bounds' };
+    const rule = this.game.placeRules?.[def.place]; // [v26 power] custom placement rules from src/game/ext/*.js (e.g. 'river'): (type, x, z, tile) -> { ok, reason }
+    if (rule) return rule(type, x, z, t);
     if (!t.meadow) return { ok: false, reason: 'Not your land yet!' };
     const entry = this.game.bears?.entryTile;
     if (entry && Math.max(Math.abs(x - entry[0]), Math.abs(z - entry[1])) <= 1) return { ok: false, reason: 'Keep the trail clear for customers!' };
@@ -477,7 +479,7 @@ export class StructureSystem {
         }
       }
       const dmg = s.hp < s.maxHp * 0.99 && s.maxHp < 90;
-      const tint = s.lift ? [1.15, 1.12, 0.9] : !s.built ? [0.6, 0.85, 1.25] : dmg ? [1.2, 0.65, 0.6] : cropTint; // [v19 buildings] lift tint
+      const tint = s.lift ? [1.15, 1.12, 0.9] : !s.built ? [0.6, 0.85, 1.25] : dmg ? [1.2, 0.65, 0.6] : (fr.cropStage != null && game.seasons?.cropTint?.(s)) || cropTint; // [v19 buildings] lift tint; [v26 seasons] frosty dormant crops
       const o = { texels: 24, scale: sc, sx: 1 / Math.sqrt(sy), sy, sway: s.def.flat ? 0 : s.def.underwater ? 1.2 : 0.7, phase: s.seed, flip: s.seed % 2 === 1, tint, alpha: s.built ? 1 : 0.55 };
       if (s.def.flat) { o.mode = 1; o.ax = 0.5; o.ay = 0.5; o.rot = (s.seed % 628) / 100; B.push(fr.f, cx, WATER_Y + 0.02, cz, o); }
       else if (s.def.underwater) { o.tint = [0.75, 0.9, 1]; B.push(fr.frames[Math.floor(this.time * 2 + s.seed) % fr.frames.length], cx, g.height[s.z * g.w + s.x], cz, o); }

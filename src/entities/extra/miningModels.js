@@ -3,6 +3,7 @@
 // that animate; root at the ground centre, front faces +Z, 1 tile = 1 unit).
 //
 //   STRUCTURE_MODELS.oreshed({ variant, seed })   the Ore Shed (2x2, beaver-built build)
+//     root.userData.setContents({ id: n }, cap)   [v26 power] the bins show the 3 biggest ores in the shed
 //     root.userData.setStock(n)   ore piles in the bins grow with the stockpile
 //     root.userData.dropPoint     { x, z } local: where beavers drop the sacks
 //   makeVein(kind, seed)          a glittering ore outcrop. userData.setLeft(0..1) shrinks the
@@ -113,20 +114,29 @@ const BASE = defineModels({ oreshed }, { oreshed: { w: 2, d: 2 } });
 function oreshedModel(opts = {}) {
   const root = BASE.oreshed(opts);
   root.userData.dropPoint = { x: 0, z: 1.0 };
-  const heaps = BIN_KINDS.map(([kind, x]) => {
+  const bins = BIN_KINDS.map(([, x]) => {
     const g = new THREE.Group();
     g.position.set(x * VC + 0.05, 0.1, 0);
     root.add(g);
-    const lv = [0, 1, 2].map((l) => { const m = new THREE.Mesh(heapGeo(kind, l), mat()); m.castShadow = m.receiveShadow = true; m.userData.tintable = true; m.visible = false; g.add(m); return m; });
-    return lv;
+    return g;
   });
-  let shown = -1;
-  root.userData.setStock = (n) => {
-    const lvl = n <= 0 ? -1 : n < 15 ? 0 : n < 60 ? 1 : 2;
-    if (lvl === shown) return;
-    shown = lvl;
-    for (const lv of heaps) lv.forEach((m, i) => { m.visible = i === lvl; });
+  const heap = (kind, lvl) => { const m = new THREE.Mesh(heapGeo(kind, lvl), mat()); m.castShadow = m.receiveShadow = true; m.userData.tintable = true; return m; };
+  let sig = '';
+  // [v26 power] the three bins show what's really in the shed (src/game/ext/storage.js): the
+  // three biggest ores, a heap each, growing with the amount
+  root.userData.setContents = (contents = {}, cap = 120) => {
+    const top = Object.entries(contents).filter(([id, n]) => n > 0 && ORE_COL[id]).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const per = Math.max(1, cap / 3);
+    const lv = top.map(([id, n]) => [id, n / per < 0.2 ? 0 : n / per < 0.6 ? 1 : 2]);
+    const k = lv.map(([id, l]) => id + l).join(',');
+    if (k === sig) return;
+    sig = k;
+    bins.forEach((g, i) => {
+      for (const ch of [...g.children]) g.remove(ch);
+      if (lv[i]) g.add(heap(lv[i][0], lv[i][1]));
+    });
   };
+  root.userData.setStock = (n, cap = 120) => root.userData.setContents(n > 0 ? { coal: Math.ceil(n / 3), copper: Math.ceil(n / 3), iron: Math.floor(n / 3) } : {}, cap);
   return root;
 }
 

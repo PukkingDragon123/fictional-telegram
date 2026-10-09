@@ -76,9 +76,11 @@ export class Input {
   }
 
   tool() { return this.game.tool; }
+  // [v26 resort] the system a live brush stroke belongs to (the Path tool, or Terraform)
+  stroker(d) { return d?.stroker || this.game.terraform; }
   isLineTool() {
     const t = this.tool();
-    return t.kind === 'dig' || t.kind === 'clear' || t.kind === 'build' || t.kind === 'remove' || t.kind === 'terraform';
+    return t.kind === 'dig' || t.kind === 'clear' || t.kind === 'build' || t.kind === 'remove' || t.kind === 'terraform' || t.kind === 'path'; // [v26 resort] path tool
   }
 
   onDown(e) {
@@ -88,6 +90,7 @@ export class Input {
     if ((this.game.lab?.active || this.game.inputLocked) && this.game.ui?.advanceBubble?.()) return;
     if (this.game.lab?.active) { const q = this.local(e); this.game.lab.onCanvasClick(q.x, q.y); return; }
     if (this.game.inputLocked) { this.game.cine?.onTap?.(); return; }
+    if (this.game.feast?.active) { this.feastDown(e); return; } // [v26 feast] free camera, no tools
     this.canvas.setPointerCapture?.(e.pointerId);
     const p = this.local(e);
     this.pointers.set(e.pointerId, { x: p.x, y: p.y, sx: p.x, sy: p.y, t: performance.now(), button: e.button, type: e.pointerType });
@@ -96,7 +99,7 @@ export class Input {
       bm.pressCancel(); if (bm.moving?.held) bm.cancelMove(); // [v19 buildings]
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
-      if (this.drag?.terra) this.game.terraform?.strokeEnd(true);
+      if (this.drag?.terra) this.stroker(this.drag)?.strokeEnd(true); // [v26 resort] stroker: terraform or paths
       this.drag = null;
       this.game.ghostLine = null;
       return;
@@ -107,7 +110,7 @@ export class Input {
     // a talking bubble is waiting: a tap advances it, a drag still moves the camera
     if (this.game.ui?.bubbleWaiting?.()) { this.drag = { mode: 'maybe', x: p.x, y: p.y, bubble: true }; return; }
     // [v19 buildings] press & hold a build (any tool) to pick it up
-    if (e.button === 0 && this.tool().kind !== 'terraform') {
+    if (e.button === 0 && this.tool().kind !== 'terraform' && this.tool().kind !== 'path') { // [v26 resort] painting paths never lifts builds
       const ht = this.pickTile(p.x, p.y);
       const hs = this.game.grid.inb(ht.x, ht.z) ? this.game.structures.structureAtTile(ht.x, ht.z) : null;
       if (hs) bm.pressStart(hs, p.x, p.y, e.pointerId);
@@ -125,16 +128,31 @@ export class Input {
       const t = this.pickTile(p.x, p.y);
       const tk2 = this.tool();
       // builds (except walls like dams/fences) and clearing paint along the drag path
-      const paint = (tk2.kind === 'build' && !STRUCTURES[tk2.type]?.drag) || tk2.kind === 'remove' || tk2.kind === 'terraform';
+      const paint = (tk2.kind === 'build' && !STRUCTURES[tk2.type]?.drag) || tk2.kind === 'remove' || tk2.kind === 'terraform' || tk2.kind === 'path'; // [v26 resort]
       // the Destroy tool selects a whole box of trees / rocks / weeds
       const rect = tk2.kind === 'clear';
       this.drag = { mode: 'line', start: t, end: t, moved: false, paint, rect, path: [t], seen: new Set([t.x + ',' + t.z]) };
       // Terraform: the brush works live along the drag path
       if (tk2.kind === 'terraform') { this.drag.terra = true; this.game.terraform?.strokeStart(t); }
+      if (tk2.kind === 'path' && this.game.paths) { this.drag.terra = true; this.drag.stroker = this.game.paths; this.game.paths.strokeStart(t); } // [v26 resort] paths paint live along the drag
       this.updateLine();
     } else {
       this.drag = { mode: 'maybe', x: p.x, y: p.y };
     }
+  }
+
+  // [v26 feast] the feast's free camera: drag pans, pinch zooms + twists, a tap goes to game.feast.onTap
+  feastDown(e) {
+    this.canvas.setPointerCapture?.(e.pointerId);
+    const p = this.local(e);
+    this.pointers.set(e.pointerId, { x: p.x, y: p.y, sx: p.x, sy: p.y, t: performance.now(), button: e.button, type: e.pointerType });
+    if (this.pointers.size === 2) {
+      const [a, b] = [...this.pointers.values()];
+      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, ang: Math.atan2(b.y - a.y, b.x - a.x), twist: 0 };
+      this.drag = null;
+      return;
+    }
+    this.drag = { mode: e.button === 1 || e.button === 2 ? 'pan' : 'maybe', x: p.x, y: p.y };
   }
 
   onMove(e) {
@@ -149,6 +167,12 @@ export class Input {
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       if (this.pinch.d > 0) this.game.rig.zoom(this.pinch.d / d);
       this.game.rig.panPixels(mx - this.pinch.mx, my - this.pinch.my, this.game.renderer);
+      if (this.pinch.ang != null) { // [v26 feast] a two-finger twist turns the view (45-degree steps)
+        const ang = Math.atan2(b.y - a.y, b.x - a.x);
+        this.pinch.twist += Math.atan2(Math.sin(ang - this.pinch.ang), Math.cos(ang - this.pinch.ang));
+        this.pinch.ang = ang;
+        if (Math.abs(this.pinch.twist) > 0.5) { this.game.rig.rotate(this.pinch.twist > 0 ? 1 : -1); this.pinch.twist = 0; }
+      }
       this.game.rig.userCamT = performance.now();
       this.pinch.d = d; this.pinch.mx = mx; this.pinch.my = my;
       return;
@@ -179,7 +203,7 @@ export class Input {
         }
       }
       d.end = t;
-      if (d.terra) this.game.terraform?.strokePath(d.path);
+      if (d.terra) this.stroker(d)?.strokePath(d.path); // [v26 resort]
       this.updateLine();
     }
     if (e.pointerType === 'mouse') this.onHover(p.x, p.y, true);
@@ -196,7 +220,7 @@ export class Input {
     if (drag && drag.mode === 'move') { if (cancel) this.game.buildMove.cancelMove(); else this.game.buildMove.drop(); return; }
     if (drag && drag.mode === 'grab') { this.dropFish(drag, this.local(e)); return; }
     if (drag && drag.mode === 'pet') return;
-    if (drag?.terra && (cancel || drag.mode !== 'line')) this.game.terraform?.strokeEnd(true);
+    if (drag?.terra && (cancel || drag.mode !== 'line')) this.stroker(drag)?.strokeEnd(true); // [v26 resort]
     if (cancel || !drag) { this.game.ghostLine = null; return; }
     const p = this.local(e);
     if (drag.bubble) { if (drag.mode === 'maybe') this.game.ui?.advanceBubble?.(); return; }
@@ -269,7 +293,7 @@ export class Input {
       const dm = this.drag?.mode;
       if (this.pinch || this.pointers.size !== 1 || dm === 'grab' || dm === 'pet' || dm === 'pan' || this.game.inputLocked) bm.pressCancel();
       else if (bm.pressTick()) {
-        if (this.drag?.terra) this.game.terraform?.strokeEnd(true);
+        if (this.drag?.terra) this.stroker(this.drag)?.strokeEnd(true); // [v26 resort]
         this.game.ghostLine = null;
         this.drag = { mode: 'move' };
         const ptr = [...this.pointers.values()][0];
@@ -307,6 +331,7 @@ export class Input {
       this.game.audio.unlock();
       if (this.keys.has(k)) return;
       this.keys.add(k);
+      if (this.game.feast?.active && this.game.feast.onKey?.(k, e)) return; // [v26 feast] camera keys only
       const ui = this.game.ui;
       if (k === 'q') { this.game.rig.rotate(-1); this.game.rig.userCamT = performance.now(); }
       else if (k === 'e') { this.game.rig.rotate(1); this.game.rig.userCamT = performance.now(); }
@@ -339,6 +364,7 @@ export class Input {
   // ------------------------------------------------------------ actions
   tap(sx, sy, button = 0) {
     const game = this.game;
+    if (game.feast?.active) { game.feast.onTap?.(sx, sy); return; } // [v26 feast] no tools during the feast
     const t = this.pickTile(sx, sy);
     const tool = game.tool;
     const g = game.grid;
@@ -447,7 +473,7 @@ export class Input {
     const game = this.game;
     const tiles = drag.rect ? this.rectTiles(drag.start, drag.end) : drag.paint ? drag.path.slice(0, 80) : this.lineTiles(drag.start, drag.end);
     game.ghostLine = null;
-    if (drag.terra) { game.terraform?.strokeEnd(drag.moved); return; }
+    if (drag.terra) { this.stroker(drag)?.strokeEnd(drag.moved); return; } // [v26 resort]
     // [v19 buildings] taps never delete builds: a tap opens the build's card, drags only clear nature
     const bm = game.buildMove;
     if (game.tool.kind === 'remove') {

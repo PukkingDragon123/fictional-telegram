@@ -80,8 +80,8 @@ export const ZONES = [
   // ---- close neighbours: small fog pockets right next to the meadow, so the
   // first friends are only a few trees away
   {
-    id: 'patch', landmark: null, name: 'Clover Patch', cx: 61.5, cz: 63.5, r: 6, near: true,
-    npc: { id: 'clover', name: 'Clover', title: 'Gardener next door', x: 61.6, z: 64.2, color: '#c8a070' },
+    id: 'patch', landmark: null, name: 'Clover Patch', cx: 57.5, cz: 79, r: 6, near: true, // [v26 world] was 61.5, 63.5: out in the woods
+    npc: { id: 'clover', name: 'Clover', title: 'Gardener next door', x: 57.6, z: 79.7, color: '#c8a070' },
     sub: 'Clover the bunny grows the best veggies in Ontario',
     intro: ['Oh! Hello, neighbour!', 'I heard the trees falling. Nice work!', 'Here, seeds! Gardens make bears happy.'],
     lines: ['Water in the morning, never at noon!', 'Carrots love sprinklers. So do I.', 'A golden carrot? Keep planting!', 'Compost is just salad\'s second chance.'],
@@ -94,8 +94,8 @@ export const ZONES = [
     gift: { coins: 20, items: ['carrot', 'strawberry', 'radish', 'sunflower', 'lettuce'] },
   },
   {
-    id: 'bend', landmark: null, name: 'Otter Bend', cx: 98.5, cz: 63.5, r: 6, near: true,
-    npc: { id: 'otis', name: 'Otis', title: 'Fisherman & fish whisperer', x: 97.2, z: 62.6, color: '#7a5a3a' },
+    id: 'bend', landmark: null, name: 'Otter Bend', cx: 103.5, cz: 76.5, r: 6, near: true, // [v26 world] was 98.5, 63.5: further down the river
+    npc: { id: 'otis', name: 'Otis', title: 'Fisherman & fish whisperer', x: 102.8, z: 76.2, color: '#7a5a3a' },
     sub: 'Otis the otter fishes the river bend',
     intro: ['Ahoy, pond neighbour!', 'Name\'s Otis. I know every fish by name.', 'Walleye and pike? I\'ll get ya some eggs!'],
     lines: ['Fish grow big on a full belly.', 'Pike are grumpy. Respect the pike.', 'Rare fish? Tag \'em, or the bears will eat \'em!', 'Wanna perfect fish? Pick the parents yourself!'],
@@ -109,8 +109,8 @@ export const ZONES = [
     gift: { coins: 25, egg: true, eggPool: ['perch', 'walleye', 'pike', 'smallmouth'] },
   },
   {
-    id: 'bakery', landmark: null, name: 'Hazel\'s Bakery', cx: 101.5, cz: 24.5, r: 5.5, near: true,
-    npc: { id: 'hazel', name: 'Hazel', title: 'Baker of famous pies', x: 101.2, z: 25.4, color: '#a07858' },
+    id: 'bakery', landmark: null, name: 'Hazel\'s Bakery', cx: 122.5, cz: 28.5, r: 5.5, near: true, // [v26 world] was 101.5, 24.5: over the river
+    npc: { id: 'hazel', name: 'Hazel', title: 'Baker of famous pies', x: 122.2, z: 29.4, color: '#a07858' },
     sub: 'Hazel the hedgehog bakes for the bears upstairs',
     intro: ['Oh my! A customer? No, a neighbour!', 'I bake pies for Bear Corp.', 'Full bears tip better. Trust me, dear.'],
     lines: ['Honey in the crust. That\'s the secret.', 'Bears tip more after dessert.', 'Mind the spikes, sweetie.', 'Fresh out of the oven!'],
@@ -123,8 +123,8 @@ export const ZONES = [
     gift: { coins: 30, food: [{ id: 'honey', n: 2 }, { id: 'syrup', n: 1 }] },
   },
   {
-    id: 'treehouse', landmark: null, name: 'The Tree House', cx: 40.5, cz: 38.5, r: 4, near: true,
-    npc: { id: 'chip', name: 'Chip', title: 'Woodpecker & master carpenter', x: 40.6, z: 40.2, color: '#c8402a' },
+    id: 'treehouse', landmark: null, name: 'The Tree House', cx: 37.5, cz: 62.5, r: 4, near: true, // [v26 world] was 40.5, 38.5: deeper in the west woods
+    npc: { id: 'chip', name: 'Chip', title: 'Woodpecker & master carpenter', x: 37.6, z: 64.2, color: '#c8402a' },
     sub: 'Chip the woodpecker carves furniture in his tree house',
     intro: ['Tok-tok-tok! Oh, hello there!', 'Name\'s Chip. I make furniture. Good furniture.', 'Bring me wood, I\'ll make your bears comfy!'],
     lines: ['Measure twice, peck once.', 'Found old junk in the forest? I can fix it!', 'Fallen logs = free wood. Pick \'em up!', 'Tok-tok. Sorry, habit.'],
@@ -137,8 +137,8 @@ export const ZONES = [
     gift: { coins: 15, wood: 3 },
   },
   {
-    id: 'mill', landmark: null, name: 'Pip\'s Lumber Mill', cx: 80.5, cz: 64.5, r: 5, near: true, visitor: true,
-    npc: { id: 'pip', name: 'Pip', title: 'Lumber trader', x: 80.6, z: 65.4, color: '#b8783a' },
+    id: 'mill', landmark: null, name: 'Pip\'s Lumber Mill', cx: 80.5, cz: 74, r: 5, near: true, visitor: true, // [v26 world] was 80.5, 64.5
+    npc: { id: 'pip', name: 'Pip', title: 'Lumber trader', x: 80.6, z: 74.9, color: '#b8783a' },
     sub: 'Pip the chipmunk buys every log you can chop',
     intro: ['Welcome to my mill, partner!', 'Bring me logs, I pay cash. Fair and square!', 'And try my Terraform kit: shape your land!'],
     lines: ['Logs, logs, lovely logs!', 'Price changes every day. Sell smart!', 'A garage full of wood is a happy garage.', 'Terraform tip: little hills look cozy!'],
@@ -151,6 +151,22 @@ export const ZONES = [
   },
 ];
 ZONES.push(QUARRY_ZONE); // [F&S mining] Flint's Quarry (src/data/zoneQuarry.js)
+// [v26 world] The Deepest Zone: Mistfall Hollow, far south past the Broadwater,
+// the Bramblewall, the Fallen Giant and the cliff (world/worldgen.js BARRIERS,
+// DEEP_ZONE, WATERFALL). Fogged like the others; the fog only lifts once the
+// last expedition research is done AND your land reaches it (`requires`).
+// The turtle's story, house interior and lines get filled in later.
+ZONES.push({
+  id: 'deep', landmark: null, name: 'Mistfall Hollow', cx: 34, cz: 206, r: 14, biome: 7, requires: 'r_xp_ropes', deep: true,
+  npc: { id: 'longneck', name: 'Old Longneck', title: 'The Old Wise Long-Neck Turtle', x: 34.5, z: 196.2, color: '#6a8a5a' },
+  sub: 'Somebody very old lives behind the falls',
+  intro: ['...Visitors. Took you long enough.', 'Sit. The water has been talking about you.', 'I am older than your pond. Older than the bears.'],
+  lines: ['Slow water runs deep. So do slow turtles.', 'The falls never stop. Neither should you.', 'Patience is just hurry, with better posture.', 'Mind the moss. It has been here longer than you.'],
+  unlocks: [],
+  hint: 'Mistfall Hollow lies past the Broadwater, the Bramblewall, the Fallen Giant and the cliff. The Expedition research gets you there.',
+  mods: {},
+  gift: { coins: 150 },
+});
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 // zone id -> a short "who to meet" label (for locked things)
 export const ZONE_INFO = Object.fromEntries(ZONES.map((z) => [z.id, { npcName: z.npc.name, name: z.name }]));

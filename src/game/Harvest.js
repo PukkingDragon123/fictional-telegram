@@ -69,6 +69,7 @@ export class Harvest {
     const game = this.game;
     let r = (game.mods.produceMult || 1) * (this.boosts.get(s.id) || 1);
     if (game.state.phase === 'night') r *= 0.5;
+    if (game.seasons) r *= game.seasons.cropMod(s.type, s); // [v26 seasons] growth by season (0 = dormant), greenhouses
     if (game.quickCrops) r *= 8;
     return r;
   }
@@ -201,7 +202,7 @@ export class Harvest {
       if (!s.built || !this.isCrop(s)) continue;
       if (!s.crop) this.init(s);
       const c = s.crop;
-      let t = T * 0.5 * (this.game.mods.produceMult || 1);
+      let t = T * 0.5 * (this.game.mods.produceMult || 1) * (this.game.seasons ? this.game.seasons.cropMod(s.type, s) : 1); // [v26 seasons]
       let guard = 4;
       while (c.stage < 3 && guard--) {
         const need = this.stageTime(s, c.stage) - c.t;

@@ -346,6 +346,7 @@
 .b-new { background: #2aa84a; }
 .b-last { background: #a050e0; animation: eb-boing 1.6s infinite; }
 .b-sale { background: #ffc22e; color: var(--eb-ink); text-shadow: none; }
+.b-inseason { background: #3a9a4a; } /* [v26 seasons] */
 @keyframes eb-hotpulse { 50% { background: #ff7a2a; } }
 @keyframes eb-flick { 50% { transform: scale(1.1, 0.88) translateY(1px); } }
 

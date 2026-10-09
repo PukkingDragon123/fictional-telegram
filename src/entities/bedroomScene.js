@@ -16,6 +16,7 @@
 import * as THREE from 'three';
 import { VoxelModel } from '../core/voxel.js';
 import { FOX_BED } from './foxRig.js';
+import { buildOffice, OFFICE } from './foxOffice.js'; // [v26 evening] the home office corner + alarm clock
 
 export const BED_VOXEL = 0.05;
 export const BEDROOM_BACKGROUND = 0x0d0b18;
@@ -24,7 +25,7 @@ const W = (n) => n * V;
 const DEG = Math.PI / 180;
 
 // room extents (voxels)
-const X0 = -42, X1 = 41, ZB = -32, ZF = 24, HT = 46;
+const X0 = -42, X1 = 86, ZB = -32, ZF = 24, HT = 46; // [v26 evening] X1 41 -> 86: the office corner on the right
 // bed: the fox's root stands on the floor at (BX, 0, BZ), head toward -z
 const BX = 0.78, BZ = -0.02;
 
@@ -191,20 +192,7 @@ function buildNightstand(R, F, G) {
     }
   }
   for (const [x, y, z, c] of shade) G.set(x, y, z, c);
-  // piggy bank (pink, coin slot) + a stray coin
-  const px = 28 * 2 - 1, pz = (ZB + 5) * 2, py = (top + 1) * 2;
-  for (let x = -4; x <= 4; x++) for (let y = 0; y <= 6; y++) for (let z = -3; z <= 3; z++) {
-    const d = (x * x) / 20 + ((y - 3.2) ** 2) / 12 + (z * z) / 11;
-    if (d > 1) continue;
-    F.set(px + x, py + y, pz + z, y >= 5 && x < 0 ? 0xffc8d8 : y < 2 ? 0xd87898 : 0xf4a0b8);
-  }
-  F.set(px + 5, py + 3, pz, 0xe888a8); F.set(px + 5, py + 4, pz, 0xe888a8); F.set(px + 6, py + 3, pz, 0xc86888); // snout
-  F.set(px + 5, py + 3, pz - 1, 0x8a3a58); F.set(px + 5, py + 3, pz + 1, 0x8a3a58);
-  F.set(px + 3, py + 5, pz + 3, 0x2a1a20); F.set(px + 3, py + 5, pz - 3, 0x2a1a20); // eyes
-  for (const [x, z] of [[-3, -2], [-3, 2], [3, -2], [3, 2]]) F.set(px + x, py - 1, pz + z, 0xc86888);
-  F.set(px + 2, py + 7, pz - 2, 0xf4a0b8); F.set(px + 2, py + 7, pz + 2, 0xf4a0b8); // ears
-  for (let z = -1; z <= 1; z++) F.set(px - 1, py + 7, pz + z, 0x5a2a3a); // coin slot
-  for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) F.set(px - 5 + x, py, pz + 6 + z, x === -1 && z === -1 ? 0xfff6c4 : 0xffd23f);
+  // [v26 evening] the piggy bank moved to the desk (foxOffice.js); the alarm clock sits here now
   // the monocle, resting on a tiny dish (shown once he's in his pajamas)
   const mono = new VoxelModel();
   for (let x = -5; x <= 4; x++) for (let z = -5; z <= 4; z++) { const d = Math.hypot(x + 0.5, z + 0.5); if (d < 4.6) mono.set(x, 0, z, d > 3.6 ? 0xe2d4b8 : 0xf6eedc); }
@@ -278,42 +266,28 @@ function buildSink(R, F) {
   return { spot: new THREE.Vector3(W(cx), 0, W(z1) + 0.42), top: W(top + 1) };
 }
 
-function buildScreen(R) {
-  // three-panel folding screen, zig-zag, painted koi on cream with wooden frames
-  const panels = [[-20, -12, -14], [-12, -4, -18], [-4, 4, -14]];
-  for (let p = 0; p < panels.length; p++) {
-    const [xa, xb, z] = panels[p];
-    const zb = p === 1 ? z : z - (p === 0 ? 0 : 0);
-    for (let x = xa; x <= xb; x++) {
-      const u = (x - xa) / (xb - xa);
-      const zz = Math.round(p === 0 ? z - u * 4 : p === 1 ? zb + u * 4 : z - (1 - u) * 0);
-      for (let y = 1; y <= 30; y++) {
-        const frame = x === xa || x === xb || y <= 2 || y >= 29;
-        let c = frame ? WOOD_D : 0xf2e6cc;
-        if (!frame) {
-          // koi + ripples
-          const kx = x - (xa + xb) / 2, ky = y - (12 + p * 5);
-          if ((kx * kx) / 6 + (ky * ky) / 1.8 < 1) c = p === 1 ? 0xf0a050 : 0xe86a5a;
-          else if (Math.abs(Math.hypot(kx * 0.6, ky - 6) - 3) < 0.5) c = 0xa8c8e0;
-          else if ((x + y * 3) % 17 === 0) c = 0xe6d8b8;
-        }
-        R.set(x, y, zz, c);
-      }
-      R.set(x, 0, zz, WOOD_D);
-    }
-  }
+// [v26 evening] the folding screen is gone (it hid the window): a coat stand between the
+// mirror and the window holds the striped PJs + the red nightcap
+const STAND = { x: -19, z: -26 };
+function buildCoatStand(R) {
+  const { x, z } = STAND;
+  for (let y = 0; y <= 34; y++) R.set(x, y, z, y > 32 ? WOOD_L : y % 9 === 0 ? WOOD_D : WOOD);
+  for (let k = -2; k <= 2; k++) { R.set(x + k, 0, z, WOOD_D); R.set(x, 0, z + k, WOOD_D); }
+  for (const [dx, dz] of [[-1, 0], [1, 0], [0, 1]]) { R.set(x + dx, 31, z + dz, WOOD_D); R.set(x + dx * 2, 32, z + dz * 2, WOOD_L); }
 }
-
 function pajamasHung() {
-  // striped PJs draped over the top of the screen + the red nightcap on its corner
+  // striped PJ top hanging off the stand's hooks + the red nightcap on its top
   const v = new VoxelModel();
-  for (let x = -14; x <= -6; x++) for (let y = 22; y <= 31; y++) {
-    if (y < 29 && (x === -14 || x === -6) && y < 24) continue;
-    v.set(x, y, -17 + (y > 29 ? 0 : 1), (x % 3 === 0) ? 0xf6eedc : y > 29 ? 0x6a98cc : 0x86b4e4);
+  const { x: px, z: pz } = STAND;
+  for (let x = px - 4; x <= px + 4; x++) for (let y = 19; y <= 30; y++) {
+    const sleeve = Math.abs(x - px) >= 3;
+    if (sleeve && (y < 24 || y > 29)) continue;
+    if (y === 30 && Math.abs(x - px) > 1) continue;
+    v.set(x, y, pz + 1, (x % 3 === 0) ? 0xf6eedc : y > 28 ? 0x6a98cc : 0x86b4e4);
   }
-  for (let y = 26; y <= 31; y++) v.set(-10, y, -15, 0x34508e);
-  for (let y = 30; y <= 33; y++) for (let x = 2; x <= 4; x++) if (x - 2 <= 33 - y) v.set(x, y, -14, y === 30 ? 0xf6eedc : 0xd8463e);
-  v.set(5, 31, -14, 0xfdfaf0);
+  for (let y = 20; y <= 28; y++) v.set(px, y, pz + 2, 0x34508e); // button placket
+  for (let y = 35; y <= 38; y++) for (let x = px - 1; x <= px + 1; x++) if (Math.abs(x - px) <= 38 - y) v.set(x, y, pz, y === 35 ? 0xf6eedc : 0xd8463e);
+  v.set(px + 1, 38, pz, 0xd8463e); v.set(px + 2, 37, pz, 0xfdfaf0);
   return v;
 }
 
@@ -351,6 +325,12 @@ function buildDecor(R, F) {
 }
 
 // night sky in the window (canvas): gradient, crescent moon, twinkling stars, the odd shooting star
+// [v26 evening] + 'dawn' (pink-orange, sun peeking over the treeline) and 'morning' (blue, sun up) skies
+const SKIES = {
+  night: { bands: ['#121a3e', '#1a2856', '#26386a'], trees: '#0c1226', stars: 1, moon: 1, sun: 0 },
+  dawn: { bands: ['#3a3a7a', '#b0587a', '#f0a070'], trees: '#2a2040', stars: 0.35, moon: 0.4, sun: 0.5 },
+  morning: { bands: ['#74ade6', '#a8d0f0', '#ffe0b0'], trees: '#3a6a3a', stars: 0, moon: 0, sun: 1 },
+};
 function makeSky(win) {
   const w = (win.x1 - win.x0 - 1) * 4, h = (win.y1 - win.y0 - 1) * 4;
   const cv = document.createElement('canvas');
@@ -360,41 +340,58 @@ function makeSky(win) {
   tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
   const stars = [];
   for (let i = 0; i < 26; i++) stars.push({ x: (hash3(i, 1, 7) * w) | 0, y: (hash3(i, 2, 9) * h * 0.85) | 0, p: hash3(i, 3, 5) * 6.28, s: hash3(i, 4, 1) < 0.2 ? 2 : 1 });
+  let mode = 'night';
   const draw = (t) => {
+    const S = SKIES[mode] || SKIES.night;
     for (let y = 0; y < h; y++) {
       const k = y / h;
-      ctx.fillStyle = k < 0.33 ? '#121a3e' : k < 0.66 ? '#1a2856' : '#26386a';
-      if ((y % 2 === 0) && (k > 0.31 && k < 0.36 || k > 0.64 && k < 0.69)) ctx.fillStyle = '#1a2856';
+      ctx.fillStyle = k < 0.33 ? S.bands[0] : k < 0.66 ? S.bands[1] : S.bands[2];
+      if ((y % 2 === 0) && (k > 0.31 && k < 0.36)) ctx.fillStyle = S.bands[1];
+      if ((y % 2 === 0) && (k > 0.64 && k < 0.69)) ctx.fillStyle = S.bands[2];
       ctx.fillRect(0, y, w, 1);
     }
+    // the sun, low over the trees (dawn) or up high (morning), with chunky rays
+    if (S.sun) {
+      const sx = (w * 0.3) | 0, sy = mode === 'dawn' ? h - 9 : (h * 0.32) | 0, R = 5;
+      for (let y = -R - 3; y <= R + 3; y++) for (let x = -R - 3; x <= R + 3; x++) {
+        const d = Math.hypot(x, y);
+        if (d <= R) ctx.fillStyle = d < R - 2 ? '#fff6c4' : '#ffd23f';
+        else if (d <= R + 3 && (Math.round(Math.atan2(y, x) / (Math.PI / 4) * 2 + t * 0.5) % 2 === 0) && ((x + y) & 1)) ctx.fillStyle = mode === 'dawn' ? '#ffb070' : '#fff0a0';
+        else continue;
+        ctx.fillRect(sx + x, sy + y, 1, 1);
+      }
+    }
     // treeline silhouette
-    ctx.fillStyle = '#0c1226';
+    ctx.fillStyle = S.trees;
     for (let x = 0; x < w; x++) { const th = 5 + ((x * 7) % 5) + (Math.floor(x / 6) % 2 ? 3 : 0); ctx.fillRect(x, h - th, 1, th); }
     // moon: crescent with craters
-    const mx = (w * 0.68) | 0, my = (h * 0.28) | 0, R = 7;
-    for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) {
-      if (x * x + y * y > R * R) continue;
-      if ((x + 4) ** 2 + (y - 2) ** 2 < (R - 1) ** 2) continue;
-      ctx.fillStyle = x + y < -3 ? '#fffbe0' : '#f4e6a8';
-      ctx.fillRect(mx + x, my + y, 1, 1);
+    if (S.moon) {
+      const mx = (w * 0.68) | 0, my = (h * 0.28) | 0, R = 7;
+      for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) {
+        if (x * x + y * y > R * R) continue;
+        if ((x + 4) ** 2 + (y - 2) ** 2 < (R - 1) ** 2) continue;
+        if (S.moon < 1 && ((x + y) & 1)) continue;
+        ctx.fillStyle = x + y < -3 ? '#fffbe0' : '#f4e6a8';
+        ctx.fillRect(mx + x, my + y, 1, 1);
+      }
     }
-    for (const s of stars) {
+    if (S.stars) for (const s of stars) {
       const tw = Math.sin(t * 2.2 + s.p);
-      if (tw < -0.6) continue;
+      if (tw < -0.6 || (S.stars < 1 && s.y > h * 0.4 * S.stars)) continue;
       ctx.fillStyle = tw > 0.6 ? '#ffffff' : '#c8d4ff';
       ctx.fillRect(s.x, s.y, 1, 1);
       if (s.s > 1 && tw > 0.3) { ctx.fillRect(s.x - 1, s.y, 3, 1); ctx.fillRect(s.x, s.y - 1, 1, 3); }
     }
     // shooting star every ~7 s
     const sh = (t % 7) / 0.6;
-    if (sh < 1) {
+    if (sh < 1 && mode === 'night') {
       ctx.fillStyle = '#ffffff';
       for (let k = 0; k < 6; k++) { const x = (w * 0.1 + sh * w * 0.5 - k * 2) | 0, y = (h * 0.15 + sh * h * 0.25 - k) | 0; if (k < 4 || (k & 1)) ctx.fillRect(x, y, 1, 1); }
     }
     tex.needsUpdate = true;
   };
   draw(0);
-  return { tex, draw, w: (win.x1 - win.x0 - 1) * V, h: (win.y1 - win.y0 - 1) * V };
+  return { tex, draw, setMode(m) { if (SKIES[m] && m !== mode) { mode = m; draw(0); } }, get mode() { return mode; }, w: (win.x1 - win.x0 - 1) * V, h: (win.y1 - win.y0 - 1) * V };
 }
 
 // ------------------------------------------------------------------ build
@@ -421,9 +418,10 @@ export function buildBedroom() {
   const stand = buildNightstand(R, F, FG);
   const win = buildWindow(R);
   const sink = buildSink(R, F);
-  buildScreen(R);
+  buildCoatStand(R); // [v26 evening] was buildScreen(R)
   const nl = buildNightlight(G, R);
   buildDecor(R, F);
+  const office = buildOffice({ R, F, group, litMat, litFine, glowMat, track }); // [v26 evening] desk, PC, swivel chair, alarm clock
   addMesh(R.build({ scale: V }), litMat, { name: 'bedroom' });
   addMesh(F.build({ scale: FV }), litFine, { name: 'bedroomFine' });
   addMesh(G.build({ scale: V, ao: false }), glowMat, { cast: false, receive: false });
@@ -514,27 +512,48 @@ export function buildBedroom() {
     // sleep beat: a medium shot (whole bed, window with the moon, nightstand), pushing in to head-and-shoulders (camFace)
     camClose: box(-0.75, 1.95, 0.1, 2.15, -1.6, 0.05, 40, 1.02),
     camFace: box(BX - 1.0, BX + 0.95, FOX_BED.height + 0.1, FOX_BED.height + 1.55, pillow.z - 0.2, pillow.z + 0.6, 44, 1.0),
+    // [v26 evening] the office corner + the whole room, the desk seat, the window push, the morning bed shot
+    seat: office.seat,
+    deskExit: new THREE.Vector3(2.5, 0, -0.32),
+    deskSide: new THREE.Vector3(OFFICE.seatX - 0.55, 0, OFFICE.seatZ + 0.1),
+    door: new THREE.Vector3(OFFICE.x1 + 0.4, 0, 0.55),
+    camRoom: box(-2.25, 4.35, 0, 2.3, -1.6, 1.2, 24, 1.02),
+    camOffice: box(2.1, 4.35, 0, 2.0, -1.6, 0.55, 20, 1.04),
+    camDesk: box(2.4, 3.85, 0.3, 1.75, -1.6, -0.3, 12, 1.0),
+    camWindow: box(W(win.x0) - 0.05, W(win.x1 + 1) + 0.05, W(win.y0) - 0.04, W(win.y1 + 1) + 0.04, W(win.z), W(win.z) + 0.02, 3, 1.0),
+    camWake: box(-0.45, 2.05, 0, 1.75, -1.6, 0.5, 30, 1.02),
   };
 
   // ---- state + animation
+  // [v26 evening] three moods (lamp / moon / morning sun), eased from wherever the room is now
   const MOOD = {
-    lamp: { hemi: [0xffe2c0, 0x3a2418, 1.0], moon: 0.45, fill: 0.85, lamp: 3.2, night: 0.35, beam: 0.03, motes: 0.15, shade: 1, rim: 0 },
-    moon: { hemi: [0x8a98d8, 0x2a2238, 0.95], moon: 1.9, fill: 0.32, lamp: 0, night: 1.4, beam: 0.025, motes: 0.5, shade: 0.42, rim: 1.6 },
+    lamp: { hemi: [0xffe2c0, 0x3a2418, 1.0], moon: 0.45, moonCol: 0xc0ccff, fill: 0.85, lamp: 3.2, night: 0.35, beam: 0.03, beamCol: 0x9ab8ff, motes: 0.15, shade: 1, rim: 0, desk: 1 },
+    moon: { hemi: [0x8a98d8, 0x2a2238, 0.95], moon: 1.9, moonCol: 0xc0ccff, fill: 0.32, lamp: 0, night: 1.4, beam: 0.025, beamCol: 0x9ab8ff, motes: 0.5, shade: 0.42, rim: 1.6, desk: 0 },
+    morning: { hemi: [0xfff0d0, 0x5a3a28, 1.25], moon: 2.6, moonCol: 0xffe0a8, fill: 0.95, lamp: 0, night: 0.15, beam: 0.07, beamCol: 0xffd890, motes: 0.75, shade: 0.42, rim: 0.5, desk: 0 },
   };
-  const cur = { k: 0, goal: 0 }; // 0 = lamp on, 1 = moonlit
-  const cA = new THREE.Color(), cB = new THREE.Color();
+  const KEYS = ['moon', 'fill', 'lamp', 'night', 'beam', 'motes', 'shade', 'rim', 'desk'];
+  const snap = (m) => ({ ...m, hemiC: new THREE.Color(m.hemi[0]), hemiG: new THREE.Color(m.hemi[1]), hemiI: m.hemi[2], moonC: new THREE.Color(m.moonCol), beamC: new THREE.Color(m.beamCol) });
+  const cur = { from: snap(MOOD.lamp), to: snap(MOOD.lamp), k: 1, name: 'lamp', val: snap(MOOD.lamp) };
   function applyMood() {
-    const a = MOOD.lamp, b = MOOD.moon, k = cur.k;
+    const a = cur.from, b = cur.to, k = cur.k, v = cur.val;
     const L = (x, y) => x + (y - x) * k;
-    lights.hemi.color.copy(cA.setHex(a.hemi[0])).lerp(cB.setHex(b.hemi[0]), k);
-    lights.hemi.groundColor.copy(cA.setHex(a.hemi[1])).lerp(cB.setHex(b.hemi[1]), k);
-    lights.hemi.intensity = L(a.hemi[2], b.hemi[2]);
-    lights.moon.intensity = L(a.moon, b.moon); lights.fill.intensity = L(a.fill, b.fill);
-    lights.lamp.intensity = L(a.lamp, b.lamp); lights.night.intensity = L(a.night, b.night); lights.rim.intensity = L(a.rim, b.rim);
-    beamMat.opacity = L(a.beam, b.beam); moteMat.opacity = L(a.motes, b.motes);
-    shadeMat.color.setScalar(L(a.shade, b.shade));
+    for (const key of KEYS) v[key] = L(a[key], b[key]);
+    v.hemiC.copy(a.hemiC).lerp(b.hemiC, k); v.hemiG.copy(a.hemiG).lerp(b.hemiG, k); v.hemiI = L(a.hemiI, b.hemiI);
+    v.moonC.copy(a.moonC).lerp(b.moonC, k); v.beamC.copy(a.beamC).lerp(b.beamC, k);
+    lights.hemi.color.copy(v.hemiC); lights.hemi.groundColor.copy(v.hemiG); lights.hemi.intensity = v.hemiI;
+    lights.moon.intensity = v.moon; lights.moon.color.copy(v.moonC); lights.fill.intensity = v.fill;
+    lights.lamp.intensity = v.lamp; lights.night.intensity = v.night; lights.rim.intensity = v.rim;
+    beamMat.opacity = v.beam; beamMat.color.copy(v.beamC); moteMat.opacity = v.motes; moteMat.color.copy(v.beamC).lerp(new THREE.Color(0xffffff), 0.4);
+    shadeMat.color.setScalar(v.shade);
+    office.setDeskLamp(v.desk > 0.5, true);
   }
   applyMood();
+  function setMood(name, instant = false) {
+    if (!MOOD[name]) return;
+    cur.from = snap({ ...cur.val, hemi: [cur.val.hemiC.getHex(), cur.val.hemiG.getHex(), cur.val.hemiI], moonCol: cur.val.moonC.getHex(), beamCol: cur.val.beamC.getHex() });
+    cur.to = snap(MOOD[name]); cur.name = name; cur.k = instant ? 1 : 0;
+    applyMood();
+  }
   let quiltK = 0, quiltGoal = 0;
   function applyQuilt() {
     // folded back at the foot (0) -> pulled up to his chin (1), puffing up as it goes
@@ -545,7 +564,7 @@ export function buildBedroom() {
   }
   applyQuilt();
 
-  function setLamp(on, instant = false) { cur.goal = on ? 0 : 1; if (instant) { cur.k = cur.goal; applyMood(); } }
+  function setLamp(on, instant = false) { setMood(on ? 'lamp' : 'moon', instant); }
   function setQuilt(k, instant = false) { quiltGoal = Math.max(0, Math.min(1, k)); if (instant) { quiltK = quiltGoal; applyQuilt(); } }
   function setPajamasHung(on) { pjs.visible = !!on; }
   function setMonocle(on) { mono.visible = !!on; }
@@ -554,11 +573,12 @@ export function buildBedroom() {
   function update(dt, t) {
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
     time = t ?? time + dt;
-    if (Math.abs(cur.goal - cur.k) > 1e-3) { cur.k += Math.sign(cur.goal - cur.k) * Math.min(Math.abs(cur.goal - cur.k), dt / 0.35); applyMood(); }
+    if (cur.k < 1) { cur.k = Math.min(1, cur.k + dt / 0.35); applyMood(); }
     if (Math.abs(quiltGoal - quiltK) > 1e-3) { quiltK += (quiltGoal - quiltK) * Math.min(1, dt * 7); applyQuilt(); }
     // lamp flicker, nightlight breathing
-    if (cur.k < 0.5) lights.lamp.intensity *= 1 + Math.sin(time * 23) * Math.sin(time * 7.1) * 0.02;
-    lights.night.intensity = (MOOD.lamp.night + (MOOD.moon.night - MOOD.lamp.night) * cur.k) * (0.85 + Math.sin(time * 1.3) * 0.15);
+    if (cur.val.lamp > 1) lights.lamp.intensity = cur.val.lamp * (1 + Math.sin(time * 23) * Math.sin(time * 7.1) * 0.02);
+    lights.night.intensity = cur.val.night * (0.85 + Math.sin(time * 1.3) * 0.15);
+    office.update(dt, time);
     if (time - skyT > 0.12 || skyT < 0) { skyT = time; sky.draw(time); }
     for (const m of motes) {
       const u = m.userData;
@@ -572,5 +592,5 @@ export function buildBedroom() {
     disposables.clear();
   }
 
-  return { group, anchors, background: BEDROOM_BACKGROUND, update, setLamp, setQuilt, setPajamasHung, setMonocle, dispose, lights };
+  return { group, anchors, background: BEDROOM_BACKGROUND, update, setLamp, setMood, get mood() { return cur.name; }, setSky: (m) => sky.setMode(m), setQuilt, setPajamasHung, setMonocle, dispose, lights, office };
 }

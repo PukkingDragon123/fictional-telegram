@@ -6,7 +6,8 @@
 //   ui.openVein(v)                     small card over a vein: amount, status, Mine it / Stop
 //   ui.openMine(tab)                   the Bear Mine panel: 'crew' | 'lunch' | 'machines' | 'trade'
 //   ui.close()                         closes whatever is open
-// The strip shows every resource you have found (game.res.found()) with a bump on change.
+// [v26 power] No resource strip any more: ore and parts live in storage buildings
+// (tap one: src/ui/StorageUI.js). refreshStrip() is kept as a no-op for old callers.
 import './mining.css';
 import { spriteImg, hasSprite } from './sprites.js';
 import { RES_INFO } from '../game/Resources.js';
@@ -34,6 +35,7 @@ export class MiningUI {
   // ------------------------------------------------------------------ resource strip
   refreshStrip(force = false) {
     const game = this.game;
+    if (game.storage) { this.strip?.remove(); this.strip = null; return; } // [v26 power] no HUD strip: storage buildings
     if (!game.ui?.root || !game.res) return;
     const ids = game.res.found();
     const key = ids.join(',');
@@ -59,7 +61,7 @@ export class MiningUI {
       void chip.offsetWidth;
       chip.classList.add(e.n > 0 ? 'bump' : 'down');
     }
-    if (e.first) this.game.notify?.(`New find: <b>${esc(RES_INFO[e.id].name)}</b>! It's in your stockpile (top left).`, 'excited', { dur: 3.5 });
+    if (e.first) this.game.notify?.(this.game.storage ? `New find: <b>${esc(RES_INFO[e.id].name)}</b>! Stored in the ${esc(e.s?.def?.name || 'storage')}: tap it to look inside.` : `New find: <b>${esc(RES_INFO[e.id].name)}</b>! It's in your stockpile (top left).`, 'excited', { dur: 3.5 }); // [v26 power]
     if (this.panel?.tab === 'trade' || this.panel?.tab === 'machines') this.renderPanel();
   }
 
@@ -207,7 +209,7 @@ export class MiningUI {
     const ores = Object.entries(RES_INFO).filter(([, R]) => R.kind === 'ore');
     const rows = ores.filter(([id]) => game.res.seen(id)).map(([id, R]) => {
       const n = game.res.count(id);
-      return `<div class="fsm-row">${ico(R.icon, 2)}<div class="fsm-rc"><b>${esc(R.name)}</b><span>${ico('coin', 1)}${R.value} each · you have <b>${n}</b></span></div><button class="fsm-b sm" data-a="sell" data-id="${id}" data-n="1" ${n ? '' : 'disabled'}>Sell 1</button><button class="fsm-b sm go" data-a="sell" data-id="${id}" data-n="all" ${n ? '' : 'disabled'}>All · ${ico('coin', 1)}${n * R.value}</button></div>`;
+      return `<div class="fsm-row">${ico(R.icon, 2)}<div class="fsm-rc"><b>${esc(R.name)}</b><span>${ico('coin', 1)}${R.value} each · in storage: <b>${n}</b></span></div><button class="fsm-b sm" data-a="sell" data-id="${id}" data-n="1" ${n ? '' : 'disabled'}>Sell 1</button><button class="fsm-b sm go" data-a="sell" data-id="${id}" data-n="all" ${n ? '' : 'disabled'}>All · ${ico('coin', 1)}${n * R.value}</button></div>`;
     }).join('');
     return `<p class="fsm-intro">Flint buys raw ore. "Fair price." He bites every coin first.</p>${rows || '<p class="fsm-dim center">No ore yet. Mine a vein!</p>'}`;
   }
@@ -215,7 +217,7 @@ export class MiningUI {
   // ------------------------------------------------------------------ per frame
   update(dt) {
     this.t = (this.t || 0) + dt;
-    if (!this.strip && this.game.ui?.root && this.game.started) this.refreshStrip(true);
+    if (!this.strip && this.game.ui?.root && this.game.started && !this.game.storage) this.refreshStrip(true); // [v26 power] storage = no strip
     if (this.strip) this.strip.classList.toggle('away', !!(this.game.homes?.active || this.game.lab?.active || this.game.titleMode || this.game.cutscene?.active));
     if (this.vein) {
       this.placeVein();

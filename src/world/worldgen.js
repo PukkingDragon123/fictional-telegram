@@ -11,9 +11,15 @@
 import { Grid, KIND, FLOOR_DEEP, FLOOR_SHALLOW } from './grid.js';
 import { fbm2, hash2, mulberry32, clamp } from '../core/rng.js';
 import { carveQuarry } from './quarry.js'; // [F&S mining] Flint's Quarry pit
+import { extendWorld } from './forestBig.js'; // [v26 world] the big forest south of the old map edge
 
 export const WORLD_W = 140;
-export const WORLD_H = 118;
+// [v26 world] the map grew south (rows 118+): same width, so every saved tile
+// index (z * WORLD_W + x) still points at the same tile. LEGACY_H is the old
+// height: generateWorld() runs the old generator unchanged on those rows (decos,
+// ruins and finds keep their indices), then forestBig.js adds the new rows.
+export const LEGACY_H = 118;
+export const WORLD_H = 232;
 export const MEADOW = { x0: 48, x1: 92, z0: 21, z1: 55 };
 export const OFFICE = { x: 70, z: 5.5, h: 14 };
 export const HUT = { x: 77, z: 41 }; // top-left tile of 3x3 hut
@@ -29,7 +35,45 @@ export const TRAIL_WAYPOINTS = [
 export const SIM_RECT = { x0: 0, x1: WORLD_W, z0: 0, z1: WORLD_H }; // [v20 water] the whole map: river, swamps and dug ponds get waves too
 
 // biome ids (grid.biome)
-export const BIOME = { FOREST: 0, SWAMP: 1, MUSHROOM: 2, WILLOW: 3, ALPINE: 4, RIVER: 5 };
+export const BIOME = { FOREST: 0, SWAMP: 1, MUSHROOM: 2, WILLOW: 3, ALPINE: 4, RIVER: 5, OLDWOOD: 6, DEEP: 7, HIGHLAND: 8, MASSIF: 9 }; // [v26 world] +old wood, the Deep, the highland, the massif
+
+// ---------------------------------------------------------------- [v26 world]
+// The Deepest Zone: Mistfall Hollow, a sunken glen at the far south-west of the
+// big forest. A tall waterfall drops off the Highland cliff into a quiet pond;
+// a stone house sits in the grotto behind the falling water (exterior shell in
+// world/deepZone.js, the turtle who lives there comes later). Tiles (x, z).
+export const DEEP_ZONE = { x0: 4, x1: 70, z0: 194, z1: 228 };
+// where the water leaves the cliff lip (x, z) and lands (bottom = the pond's surface)
+export const WATERFALL = { x: 34, z: 193, top: 9, bottom: -0.1, land: 197.6, w: 3.2 };
+export const DEEP_POND = { cx: 34, cz: 203.5, rx: 9.6, rz: 6.4 };
+// the stone house in the grotto behind the falls: footprint (tiles x0..x1, z0..z1),
+// floor height, and the door (it faces +z, out through the curtain of water)
+export const DEEP_HOUSE = { x0: 32, x1: 36, z0: 193, z1: 194, y: 0.5, door: [34, 195.1] };
+// The route there, one natural barrier after the other. Each opens with its
+// research node (src/data/ext/world.js) - plus, for `trigger` barriers, your land
+// touching the `near` tile - and is otherwise just terrain: water you can't
+// cross, brambles / a fallen giant / a cliff ledge the beavers refuse to touch.
+// Tiles are filled in by forestBig.js (grid.barrier = index + 1).
+export const BARRIERS = [
+  { id: 'bridge', name: 'The Broadwater', kind: 'bridge', research: 'r_xp_bridge', trigger: true, near: [45, 157], far: [45, 173], x0: 44, x1: 46,
+    hint: 'Too wide to wade. Research a Rope Bridge, then clear the forest up to the river bank.' },
+  { id: 'thorns', name: 'The Bramblewall', kind: 'thorns', research: 'r_xp_thorns', z0: 176, z1: 179,
+    hint: 'Thorns as long as your arm. The beavers refuse. Research Bramble Hooks.' },
+  { id: 'log', name: 'The Fallen Giant', kind: 'log', research: 'r_xp_saw', trigger: true, near: [54, 188], x0: 51, x1: 58, z: 189,
+    hint: 'An ancient tree lies across the only way down. Research a Crosscut Saw, then clear up to it.' },
+  { id: 'cliff', name: 'Heron Steps', kind: 'cliff', research: 'r_xp_ropes',
+    hint: 'A goat path down the cliff. Too steep without ropes: research Climbing Ropes.' },
+];
+// [v26 world] the neighbours' fog pockets moved out into the woods: a deer path
+// (grassy glade tiles, still forest to clear) leads from your land to each
+// (see forestBig.js nearPaths). [from, to] in tiles.
+export const NEAR_PATHS = [
+  [[50, 50], [37.5, 62]], // Chip's tree house, west
+  [[62, 55], [57.5, 79]], // Clover's garden, south
+  [[80, 55], [80.5, 72.5]], // Pip's mill, south
+  [[91, 53], [102.5, 75.5]], // Otis, down the river
+  [[91, 26], [122.5, 28.5]], // Hazel's bakery, east over the river
+];
 
 // Landmarks: discovered by clearing the forest up to them. x/z = top-left tile.
 export const LANDMARKS = [
@@ -53,6 +97,23 @@ const WILLOW_HILL = { x: 21.5, z: 45, r: 6.5 };
 const TOWER_HILL = { x: 25, z: 26, r: 5 };
 export const RIVER = [
   [106, 20], [104, 26], [100, 34], [101.5, 44], [98, 54], [102, 64], [109, 75], [106, 87], [112, 100], [116, 112], [118, 118],
+];
+// [v26 world]
+// Rivers (water tiles at the water line), downstream order. `legacy`: the old
+// Daisy River, carved by the old generator (only its new tail is carved here).
+export const RIVERS = [
+  { id: 'main', name: 'Daisy River', pts: [...RIVER.map((p) => [p[0], p[1]]), [120, 125], [118, 133], [112, 142], [104, 150.5], [96, 157.5]], w: 1.6, w1: 2.6, speed: 1.0, legacy: true },
+  { id: 'wide', name: 'The Broadwater', pts: [[96, 157.5], [84, 162.5], [70, 164.5], [56, 164], [42, 165.5], [28, 166.5], [14, 165], [-2, 166]], w: 6.4, speed: 0.38 },
+  { id: 'fern', name: 'Fern Brook', pts: [[-2, 127], [12, 131], [24, 130], [36, 135], [48, 139], [60, 141.5], [72, 139.5], [84, 144], [94, 149], [104.5, 151]], w: 0.95, speed: 0.8 },
+  { id: 'moss', name: 'Mossy Run', pts: [[67, 120.5], [66, 127], [63, 134], [60.5, 141.5]], w: 0.7, speed: 0.9, spring: true },
+  { id: 'cedar', name: 'Cedar Creek', pts: [[21, 145], [19, 151], [23, 156], [24, 160]], w: 0.75, speed: 0.85, spring: true },
+  { id: 'turtle', name: 'Turtle Run', pts: [[42, 206.5], [48, 210.5], [54, 215], [57.5, 222], [60, 233]], w: 1.0, speed: 0.6 },
+];
+// Streams above the water line (high ground): ribbons of water over the
+// terrain that cascade down every step and pour off the end. Not grid water.
+export const STREAMS = [
+  { id: 'falls', name: 'Mistfall Run', pts: [[-1, 183], [9, 185.5], [18, 188], [26, 190.2], [31, 191.4], [34, 192.6]], w: 0.85, speed: 1.1, fall: true },
+  { id: 'snowmelt', name: 'Snowmelt Steps', pts: [[115.5, 5.5], [106, 20.6]], w: 0.55, speed: 1.4, descend: true }, // path: steepest way down (forestBig.js)
 ];
 
 function riverDist(x, z) {
@@ -100,7 +161,7 @@ function forestH(x, z) {
 
 export function generateWorld(seed = 1337) {
   const rnd = mulberry32(seed);
-  const grid = new Grid(WORLD_W, WORLD_H);
+  const grid = new Grid(WORLD_W, LEGACY_H); // [v26 world] the old map first (unchanged), extendWorld() adds the rest
   const { w, h } = grid;
   grid.biome = new Uint8Array(w * h);
 
@@ -347,7 +408,7 @@ export function generateWorld(seed = 1337) {
       grid.height[i] = 0.02;
     }
 
-  return { grid, decos, clutter, trail, seed, canopy: [] };
+  return extendWorld({ grid, decos, clutter, trail, seed, canopy: [] }); // [v26 world]
 }
 
 // Openness of every forest tile (grid.glade): a patchy noise makes groves and

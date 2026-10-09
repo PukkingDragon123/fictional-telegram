@@ -225,20 +225,21 @@ export class FishSystem {
       const loved = f.love > 0.2 ? 1 + mods.nurtureMult : 1;
       const hardy = this.hasTrait(f, 'hardy');
       const hungerK = (this.hasTrait(f, 'glutton') ? 2 : 1) * (hardy ? 0.7 : 1);
-      f.hunger = Math.min(1, f.hunger + dt * HUNGER_RATE * hungerK * (f.adult ? 1 : 0.8) * (night ? 0.3 : 1));
+      const sm = game.seasons?.fishMod?.(sp) || null; // [v26 seasons] spring spawning, autumn frenzy, sluggish winter
+      f.hunger = Math.min(1, f.hunger + dt * HUNGER_RATE * hungerK * (f.adult ? 1 : 0.8) * (night ? 0.3 : 1) * (sm ? sm.appetite : 1));
       const aura = game.bugs ? game.bugs.auraAt(f.x, f.z) : null;
       if (!f.adult) {
         f.age += dt * sp.growth * mods.growthMult * (f.hunger < 0.7 ? 1 : 0.35) * (hardy ? 1.5 : 1) * loved * (1 + (aura ? aura.growth : 0) + (f.bugGrow > 0 ? 0.3 : 0) + (f.growT > 0 ? 1 : 0));
         if (f.age >= GROW_TIME) { f.adult = true; game.onFishGrew?.(f); }
       }
-      f.loveT -= dt * (f.bugBoost > 0 ? 1.8 : 1) * (1 + game.structures.aeratorBoost(f.x, f.z)) * (this.hasTrait(f, 'fertile') ? 1.5 : 1) * (loved > 1 ? 1.5 : 1) * (night ? 0.5 : 1) * (1 + (aura ? aura.breed : 0));
+      f.loveT -= dt * (f.bugBoost > 0 ? 1.8 : 1) * (1 + game.structures.aeratorBoost(f.x, f.z)) * (this.hasTrait(f, 'fertile') ? 1.5 : 1) * (loved > 1 ? 1.5 : 1) * (night ? 0.5 : 1) * (1 + (aura ? aura.breed : 0)) * (sm ? sm.breed : 1); // [v26 seasons]
       f.bugBoost = Math.max(0, f.bugBoost - dt);
       if (f.bugGrow > 0) f.bugGrow -= dt;
       if (f.held) { f.phase += dt * 22; continue; }
       if (f.tank) { this.game.tanks?.updateFish(f, dt); continue; }
       if (f.jump) { this.updateJump(f, dt); continue; }
 
-      const maxSpeed = 0.9 * sp.speed * (f.adult ? 1 : 1.15);
+      const maxSpeed = 0.9 * sp.speed * (f.adult ? 1 : 1.15) * (sm ? sm.speed : 1); // [v26 seasons]
       let desired = f.heading;
       let targetSpeed = maxSpeed * 0.45;
       let turnRate = 2.6;
@@ -438,7 +439,7 @@ export class FishSystem {
       else if (this.passable(f.x, nz, f.region)) f.z = nz;
       else { f.heading += Math.PI * 0.6; f.speed *= 0.3; }
       f.phase += dt * (4 + f.speed * 9);
-      f.y = FISH_Y + Math.sin(this.time * 0.8 + f.seed) * 0.05 + (f.adult ? 0 : 0.1);
+      f.y = FISH_Y + Math.sin(this.time * 0.8 + f.seed) * 0.05 + (f.adult ? 0 : 0.1) + (sm ? sm.depth : 0); // [v26 seasons] winter: deep
       if (f.speed > 1.3 && Math.random() < dt * 4) sim.wake(f.x, f.z, f.speed, 0.14, dt);
       if (f.love > 0.3 && Math.random() < dt * 0.25) game.particles.hearts(f.x, WATER_Y + 0.25, f.z, 1);
     }

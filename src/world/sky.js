@@ -162,6 +162,8 @@ export class Sky {
     s.night = night;
     u.uNight.value = night;
     u.uAurora.value = s.aurora;
+    // [v26 seasons] weather: overcast, fog, heat glare, lightning (src/world/weatherFx.js)
+    if (this.weather) { try { this.weather(this, hour, time, night); } catch (e) { this.weather = null; console.warn('[sky weather]', e); } }
 
     // Sun path: rises in the east, sets in the west (south-facing arc).
     let dir;

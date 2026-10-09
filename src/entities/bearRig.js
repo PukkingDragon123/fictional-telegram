@@ -4078,6 +4078,7 @@ export class BearRig {
     P.at = 'hold'; P.angle = 0; P.anchor = 0.5; P.eat = 0; P.stretch = 1; P.thick = 1; P.wiggle = 1; P.wave = 0; P.spin = 0; P.show = 1;
     P.feed = false; P.lip = null; P.headOff = false; P.bone = false;
     POSES[name](F, c);
+    if (this.layer) { try { this.layer(F, c, name, B, dt); } catch (e) { this.layer = null; console.warn('[bear layer]', e); } } // [v26 seasons] weather overlay: shiver, hug, umbrella, fanning
     if (P.lip && P.lip !== P.lipV) P.lip = P.lipV.copy(P.lip);
     this.faceBase = c.face;
 

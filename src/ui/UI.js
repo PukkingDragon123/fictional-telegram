@@ -441,6 +441,7 @@ export class UI {
   // Reynard climbs into the corner and tells you something
   notify(text, mood = 'info', { dur } = {}) {
     text = stripTags(text);
+    if (this.game.feast?.onNotify?.(text, mood)) return null; // [v26 feast] the feast overlay's ticker (the corner fox is hidden)
     const now = performance.now();
     if (this.lastNote && this.lastNote.text === text && now - this.lastNote.t < 2500) return null;
     this.lastNote = { text, t: now };
@@ -1069,7 +1070,9 @@ export class UI {
     this.foxMood('greedy', 1.8);
     const start = this.screenOf(b.x, b.y + 1.8 * b.def.scale, b.z);
     let tx, ty;
-    if (this.hudc?.coinTarget) ({ x: tx, y: ty } = this.hudc.coinTarget());
+    const ft = this.game.feast?.coinTarget?.(); // [v26 feast] coins fly into the feast strip
+    if (ft) ({ x: tx, y: ty } = ft);
+    else if (this.hudc?.coinTarget) ({ x: tx, y: ty } = this.hudc.coinTarget());
     else { const target = (this.hud['h-coins'] || this.hud.hudhost).getBoundingClientRect(); tx = target.left + 18; ty = target.top + target.height / 2; }
     const n = Math.min(12, 3 + Math.floor(amount / 6));
     const url = spriteURL('coin', 2);
@@ -1478,7 +1481,7 @@ export class UI {
     if (!ghost) return;
     const t = game.tool;
     if (game.buildMove?.moving) return; // [v19 buildings] the move ghost is drawn by BuildMove
-    if (!['build', 'dig', 'remove', 'clear'].includes(t.kind)) { ghost.clear(); return; }
+    if (!['build', 'dig', 'remove', 'clear', 'path'].includes(t.kind)) { ghost.clear(); return; } // [v26 resort] + path
     let tiles = game.ghostLine;
     if (!tiles) {
       const ht = game.input?.currentHoverTile();
@@ -1492,6 +1495,9 @@ export class UI {
     } else if (t.kind === 'clear') {
       const B = game.beavers;
       ghost.showTiles(tiles.map((p) => ({ ...p, ok: B.canClear(p.x, p.z).ok || B.clears.has(p.z * game.grid.w + p.x) })));
+      ghost.showModels(null, []);
+    } else if (t.kind === 'path') { // [v26 resort] Path tool: green where the brush can paint (or erase)
+      ghost.showTiles(tiles.map((p) => ({ ...p, ok: !game.paths?.canPaint(p.x, p.z) || game.paths?.typeAt(p.x, p.z) === game.paths?.sel })));
       ghost.showModels(null, []);
     } else if (t.kind === 'dig') {
       ghost.showTiles(tiles.map((p) => ({ ...p, ok: !game.canDig(p.x, p.z) })));

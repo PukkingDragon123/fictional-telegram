@@ -113,15 +113,16 @@ const LEGACY_SPECIES_UNLOCK = {
 };
 
 export class Game {
-  constructor(canvas) {
+  constructor(canvas, opts = {}) {
     this.canvas = canvas;
-    this.renderer = new PixelRenderer(canvas);
+    this.renderer = opts.renderer || new PixelRenderer(canvas); // [v26 title] main.js hands over the title screen's renderer (one WebGL context)
     this.rig = new CameraRig();
     this.scene = new THREE.Scene();
     this.audio = audio;
     this.listeners = {};
     this.sky = new Sky(this.scene);
     this.world = new World(this.scene);
+    this.world.game = this; // [v26 world] (the see-through for tall stuff looks at villagers' houses and big builds)
     this.grid = this.world.grid;
     this.particles = new Particles(this.scene);
     this.particles.groundAt = (x, z) => this.grid.surfaceY(Math.floor(x), Math.floor(z));
@@ -533,7 +534,8 @@ export class Game {
     const st = this.state;
     if (st.shopDay !== st.day || !st.shop?.length) {
       st.shopDay = st.day;
-      const pool = this.availableSpecies();
+      let pool = this.availableSpecies();
+      { const inSeason = pool.filter((id) => this.seasons?.fishMod?.(id)?.available !== false); if (inSeason.length) pool = inSeason; } // [v26 seasons] some eggs are only sold in season
       const n = 5 + Math.min(5, Math.floor(st.day / 2));
       st.shop = [];
       for (let i = 0; i < n; i++) {
@@ -551,8 +553,9 @@ export class Game {
       const sp = SPECIES_BY_ID[e.species];
       const rarity = rarityOf(e.g.stars);
       const mu = e.g.mut ? MUTATIONS[e.g.mut] : null;
-      const price = Math.max(8, Math.round(sp.price * (0.8 + rarity * 0.45) * (mu ? Math.sqrt(mu.value) : 1)));
-      L.push({ id: e.id, cat: 'eggs', kind: 'egg', species: e.species, genes: e.g, title: e.title, sub: sp.name, price, oldPrice: Math.round(price * (e.off || 3)), rarity: RARITIES[rarity].id, mutation: mu ? { id: e.g.mut, name: mu.name, color: mu.color, mult: mu.value } : null, badges: [rarity >= 2 ? 'hot' : null, e.last ? 'last' : null, mu ? 'new' : null].filter(Boolean), seller: { name: pickSeller(e.id), stars: 4 + (e.sold0 % 10) / 10, sold: e.sold0 || 100 }, eta: 'Moose Express' });
+      const inSeason = !!this.seasons?.fishMod?.(e.species)?.inSeason; // [v26 seasons] spawning season: cheaper, a badge
+      const price = Math.max(8, Math.round(sp.price * (0.8 + rarity * 0.45) * (mu ? Math.sqrt(mu.value) : 1) * (inSeason ? 0.85 : 1)));
+      L.push({ id: e.id, cat: 'eggs', kind: 'egg', species: e.species, genes: e.g, title: e.title, sub: sp.name, price, oldPrice: Math.round(price * (e.off || 3)), rarity: RARITIES[rarity].id, mutation: mu ? { id: e.g.mut, name: mu.name, color: mu.color, mult: mu.value } : null, badges: [inSeason ? 'inseason' : null, rarity >= 2 ? 'hot' : null, e.last ? 'last' : null, mu ? 'new' : null].filter(Boolean), seller: { name: pickSeller(e.id), stars: 4 + (e.sold0 % 10) / 10, sold: e.sold0 || 100 }, eta: 'Moose Express' });
     }
     for (const it of SHOP_ITEMS) {
       const def = STRUCTURES[it.type];
@@ -716,6 +719,7 @@ export class Game {
   }
 
   onWaveComplete() {
+    if (this.feast?.holdEvening?.()) return; // [v26 feast] a close-up is playing: the feast calls back when it ends
     if (this.state.phase === 'rush') this.startEvening();
   }
 
@@ -1160,7 +1164,7 @@ export class Game {
     else if (!this.spend(def.cost, 'builds')) return false;
     const s = this.structures.place(type, x, z, { free });
     if (!s) { if (free) inv[type] = (inv[type] || 0) + 1; else this.state.coins += def.cost; return false; }
-    if (parts) this.res.takeAll(parts); // [F&S industry]
+    if (parts) this.res.takeAll(parts, x + 0.5, z + 0.5); // [F&S industry] [v26 power] from the storages nearest the site
     this.placeFx(s, quiet);
     if (s.built) this.onStructureBuilt(s);
     if (s.built && (def.blocksBear || def.blocksFish)) this.onTopologyChanged();

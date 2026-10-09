@@ -1,5 +1,5 @@
-// [F&S industry] The "Flint & Steel" industry layer: crafting machines, conveyor
-// belts, steam power, automation, hired worker bears and pollution.
+// [F&S industry] The "Flint & Steel" industry layer: fabrication machines, conveyor
+// belts, power, automation and pollution.
 //
 // Builds: src/data/structuresIndustry.js (def.ind), models: src/entities/extra/
 // industryModels.js, UI: src/ui/IndustryUI.js, research: r_ind_* nodes.
@@ -7,11 +7,12 @@
 // logs are the state.wood counter (Wood Garages).
 //
 // Rules in short
-//   Smelter / Machine Shop run a recipe when STAFFED (a hired worker bear fetches
-//   inputs from the stockpile) or POWERED (then inputs must arrive by belt or the
-//   Load button). Output goes onto an outgoing belt, else into the stockpile.
-//   Generators burn coal (else wood) from the stockpile while anything needs power;
-//   with too little power everything powered slows down (brownout).
+//   [v26 power] Every machine needs POWER from the grid (src/game/ext/power.js: poles,
+//   solar, water wheels, wind, batteries, the coal Steam Generator). Fabrication
+//   (Smelter, Machine Shop, Circuit Fab, Assembly Bench) is done by BEAVERS: a beaver
+//   fetches the inputs from storage, works the machine and carries the product back to
+//   storage (src/game/industry/Fab.js). Resources live in storage buildings
+//   (src/game/ext/storage.js), not in an inventory.
 //   Belts carry items one way (s.rot); the end of a line feeds a machine that
 //   wants the item, otherwise it tips into the stockpile. A Supply Chute pushes
 //   whatever the machine at the end of its belt needs.
@@ -34,6 +35,7 @@ import { makeDrone, makeBeltItem } from '../entities/extra/industryModels.js';
 import { BearRig } from '../entities/bearRig.js';
 import { makeBearLook, lookDef } from '../entities/bearLook.js';
 import { IndustryUI } from '../ui/IndustryUI.js';
+import { Fab } from './industry/Fab.js'; // [v26 power] beavers fabricate
 const MINING_MODELS = Object.values(import.meta.glob('../entities/extra/miningModels.js', { eager: true }))[0] || null;
 
 const DIRS = [[0, 1], [1, 0], [0, -1], [-1, 0]]; // s.rot 0..3 -> belt direction (rotation.y = rot * 90deg)
@@ -71,6 +73,7 @@ export class Industry {
     this.saveT = 0;
     this.lastBelt = null;
     this.ui = null;
+    this.fab = new Fab(this); // [v26 power]
     this.hook();
   }
 
@@ -124,6 +127,17 @@ export class Industry {
     for (const r of this.rigs.values()) { this.group.remove(r.root); r.dispose?.(); }
     this.rigs.clear();
     const I = this.st;
+    // [v26 power] beavers run the machines now: the hired worker bears go back to the Bear Mine
+    if (I.w.length) {
+      const n = I.w.length;
+      I.w = [];
+      setTimeout(() => this.game.notify?.(`Beavers run the machines now. Your ${n} worker bear${n > 1 ? 's' : ''} went back to the Bear Mine. No more wages!`, 'info', { dur: 6 }), 1500);
+    }
+    if (!I.v26 && this.game.structures.list.some((s) => s.def.ind && s.def.ind.kind !== 'tree')) {
+      setTimeout(() => this.game.ui?.foxSay?.('Big news from Flint: every machine runs on POWER now, and beavers do the fabricating. Wire it up: a generator next to the machines, poles for the rest.', 'smug'), 4000);
+    }
+    I.v26 = 1;
+    this.fab.onLoad();
     for (const [x, z, id, p] of I.belts || []) this.beltItems(key(x, z)).push(this.makeItem(id, p));
     for (const s of this.machines()) if (s.def.ind.kind === 'filter') this.setFilterDepth(s);
     this.tier = this.tierOf().id;
@@ -172,7 +186,7 @@ export class Industry {
     if (s.def.ind.kind === 'filter') this.setFilterDepth(s);
     if (!this.st.tipBuilt && s.def.ind.kind === 'craft') {
       this.st.tipBuilt = 1;
-      game.ui?.foxSay?.('A machine! Tap it to pick a recipe and hire a worker bear. Mind the smoke: fish and bears hate smog.', 'smug');
+      game.ui?.foxSay?.('A machine! It needs power and a beaver: park a generator next to it. Tap it to order parts. Mind the smoke: fish and bears hate smog.', 'smug');
     }
   }
   setFilterDepth(s) {
@@ -227,8 +241,12 @@ export class Industry {
       const s = live.get(k);
       if (s && s.type === r.ty) continue;
       const [x, z] = k.split(',').map(Number);
-      for (const bag of [r.h, r.o]) for (const [id, n] of Object.entries(bag || {})) if (n > 0) this.dump(id, x + 0.5, z + 0.5, n, true);
-      if (r.job) for (const [id, n] of Object.entries(RECIPES[r.job]?.in || {})) this.dump(id, x + 0.5, z + 0.5, n, true);
+      if (r.job && typeof r.job === 'object') this.fab.dropMachine(r, x + 0.5, z + 0.5); // [v26 power] hopper, bench, in-transit
+      else {
+        for (const bag of [r.h, r.o]) for (const [id, n] of Object.entries(bag || {})) if (n > 0) this.dump(id, x + 0.5, z + 0.5, n, true);
+        if (r.job) for (const [id, n] of Object.entries(RECIPES[r.job]?.in || {})) this.dump(id, x + 0.5, z + 0.5, n, true);
+        for (const bag of [r.t, r.d]) for (const [id, n] of Object.entries(bag || {})) if (n > 0) this.dump(id, x + 0.5, z + 0.5, n, true);
+      }
       delete I.m[k];
     }
     for (const w of I.w) if (w.at && !live.has(w.at)) w.at = null;
@@ -273,38 +291,7 @@ export class Industry {
   }
 
   // ------------------------------------------------------------ workers
-  workerAt(s) { const k = key(s.x, s.z); return this.st.w.find((w) => w.at === k) || null; }
   wage() { return Math.max(1, Math.round(WORKER.wage * (1 - this.mod('indWageCut')))); }
-  hireCost() { return WORKER.hire; }
-  hire(s) {
-    const game = this.game;
-    if (!s?.def.ind?.worker || this.workerAt(s)) return null;
-    // an idle crew member first, else a new hire
-    let w = this.st.w.find((x) => !x.at);
-    if (!w) {
-      if (!game.spend(this.hireCost(), 'builds')) return null;
-      const used = new Set(this.st.w.map((x) => x.name));
-      const name = WORKER_NAMES.find((n) => !used.has(n)) || `Bear #${this.st.nextW}`;
-      w = { id: this.st.nextW++, name, seed: (Math.random() * 1e9) >>> 0, at: null, strike: false };
-      this.st.w.push(w);
-    }
-    w.at = key(s.x, s.z);
-    game.audio.play('ind_hire', { volume: 0.5 });
-    const c = this.center(s);
-    game.particles.popIn(c.x, this.baseY(s) + 0.4, c.z, 0.8);
-    game.ui?.floatTextAt?.(c.x, this.baseY(s) + 1.8, c.z, `${w.name} clocks in!`, '#ffe08a');
-    game.emit('indHire', { s, w });
-    return w;
-  }
-  fire(w) {
-    const i = this.st.w.indexOf(w);
-    if (i < 0) return;
-    this.st.w.splice(i, 1);
-    const rig = this.rigs.get(w.id);
-    if (rig) { this.group.remove(rig.root); rig.dispose?.(); this.rigs.delete(w.id); }
-    this.game.audio.play('close', { volume: 0.4 });
-  }
-
   onDay() {
     const game = this.game;
     const I = this.st;
@@ -328,55 +315,21 @@ export class Industry {
       game.notify?.(`STRIKE! You couldn't pay ${total} coins of wages. The worker bears put down their tools.`, 'no');
     }
   }
-  payStrike() {
-    const game = this.game;
-    const total = this.st.w.length * this.wage();
-    if (!game.spend(total, 'builds')) return false;
-    for (const w of this.st.w) w.strike = false;
-    game.audio.play('coins', { volume: 0.4 });
-    game.notify?.('Back pay sorted. The crew picks up their tools.', 'happy');
-    return true;
-  }
-
   // ------------------------------------------------------------ recipes / hoppers
   recipesOf(s) { return RECIPES_FOR[s.def.ind.machine] || []; }
   cap(rid, id) { return Math.max(4, (RECIPES[rid]?.in[id] || 0) * 2); }
   hasInputs(r, rid) { return Object.entries(RECIPES[rid].in).every(([id, n]) => (r.h[id] || 0) >= n); }
   canFromStock(r, rid) { return Object.entries(RECIPES[rid].in).every(([id, n]) => (r.h[id] || 0) + this.stock(id) >= n); }
   outStock(rid) { return this.stock(Object.keys(RECIPES[rid].out)[0]); }
-  // which recipe the machine works on next
-  chooseRecipe(s, r, staffed) {
-    if (r.r !== 'auto') return RECIPES[r.r] ? r.r : null;
-    const list = this.recipesOf(s);
-    const by = (a, b) => this.outStock(a) - this.outStock(b);
-    const ready = list.filter((rid) => this.hasInputs(r, rid)).sort(by);
-    if (ready.length) return ready[0];
-    if (staffed) { const can = list.filter((rid) => this.canFromStock(r, rid)).sort(by); if (can.length) return can[0]; }
-    // partly loaded hopper: keep filling what is already started
-    const part = list.filter((rid) => Object.keys(RECIPES[rid].in).some((id) => (r.h[id] || 0) > 0));
-    return part[0] || null;
-  }
   accepts(s, id) {
     const ind = s.def.ind;
     if (ind.kind === 'power') return (id === 'coal' || id === 'wood') && (this.rec(s).h[id] || 0) < 4;
     if (ind.kind !== 'craft') return false;
     const r = this.rec(s);
-    const list = r.r === 'auto' ? this.recipesOf(s) : [r.r];
-    return list.some((rid) => RECIPES[rid]?.in[id] && (r.h[id] || 0) < this.cap(rid, id));
+    this.fab.migrate(r);
+    return this.fab.wantsInput(s, r, id); // [v26 power] the order at the front of the queue, else the keep-stocked recipes
   }
   insert(s, id) { const r = this.rec(s); r.h[id] = (r.h[id] || 0) + 1; }
-  // Load button: fill the hopper from the stockpile for the chosen (or best) recipe
-  loadFromStock(s) {
-    const r = this.rec(s);
-    const rid = this.chooseRecipe(s, r, true) || (r.r !== 'auto' ? r.r : this.recipesOf(s)[0]);
-    let n = 0;
-    for (const [id, need] of Object.entries(RECIPES[rid].in)) {
-      while ((r.h[id] || 0) < need * 2 && this.takeStock(id, 1)) { r.h[id] = (r.h[id] || 0) + 1; n++; }
-    }
-    if (n) this.game.audio.play('crate_drop', { volume: 0.4 });
-    return n;
-  }
-
   // ------------------------------------------------------------ main loop
   update(simDt, dt) {
     const game = this.game;
@@ -389,61 +342,36 @@ export class Industry {
     const sdt = working ? simDt : 0;
     game._indSmokeDt = dt;
     if (!this.list.length && this.st.pol <= 0.01 && !this.st.w.length) { this.murk = 0; this.updateHud(dt); return; }
-    // ---- power
-    let supply = 0, demand = 0;
-    const gens = [];
-    for (const s of this.list) {
-      if (!s.built) continue;
-      const ind = s.def.ind;
-      if (ind.kind === 'power') gens.push(s);
-      else if (ind.power && !this.rec(s).off) demand += ind.power;
-    }
-    for (const s of gens) {
-      const r = this.rec(s);
-      if (r.off) { r.burning = false; continue; }
-      // only as many boilers as the machines need (the rest bank their fire)
-      if (supply >= demand) { r.burning = false; r.spare = demand > 0; continue; }
-      r.spare = false;
-      if (sdt > 0 && demand > 0) {
-        if (r.fuel <= 0) {
-          // belt-fed fuel first, then the stockpile (coal, else logs)
-          for (const id of ['coal', 'wood']) {
-            if ((r.h[id] || 0) > 0) { r.h[id]--; r.fuel += s.def.ind.burn[id]; r.fuelId = id; break; }
-            if (this.takeStock(id, 1)) { r.fuel += s.def.ind.burn[id]; r.fuelId = id; break; }
-          }
-        }
-        if (r.fuel > 0) r.fuel = Math.max(0, r.fuel - sdt);
-      }
-      r.burning = r.fuel > 0 && demand > 0 && working;
-      if (r.burning) supply += s.def.ind.out;
-    }
-    const ratio = demand > 0 ? Math.min(1, supply / demand) : 1;
+    // ---- power: [v26 power] the grid (src/game/ext/power.js) says how much each machine gets
+    const P = game.power;
+    const pwOf = (s) => (P ? P.powered(s) : 1);
     const hadPower = this.power.supply > 0;
-    this.power = { supply, demand, ratio: supply > 0 ? ratio : 0, gens: gens.length };
-    if (!hadPower && supply > 0 && this.time > 3) game.audio.play('ind_power', { volume: 0.4 });
+    this.power = P ? { supply: P.supply(), demand: P.demand(), ratio: P.demand() > 0 ? Math.min(1, P.supply() / P.demand()) : 1, gens: this.list.filter((s) => s.def.ind.kind === 'power').length } : { supply: 0, demand: 0, ratio: 1, gens: 0 };
+    if (!hadPower && this.power.supply > 0 && this.time > 3) game.audio.play('ind_power', { volume: 0.3 });
     // ---- machines
     let emit = 0, clean = 0, trees = 0;
-    const pk = this.power.ratio * (1 + this.mod('indPowerSpeed'));
     for (const s of this.list) {
       const ind = s.def.ind;
       const st = s.extraModel?.userData?.st;
       if (!s.built) continue;
       if (ind.kind === 'tree') { trees++; continue; }
       const r = ind.kind === 'belt' ? null : this.rec(s);
-      const powered = !!ind.power && !r?.off && pk > 0;
+      const pk = ind.power && !r?.off ? pwOf(s) * (1 + this.mod('indPowerSpeed')) : 0;
+      const powered = !!ind.power && !r?.off && pk >= 0.15;
       let on = false, lamp = 'off';
       const lampOf = (x) => (r.off ? 'off' : x ? 'on' : 'warn');
+      if (r) r.want = false;
       switch (ind.kind) {
-        case 'craft': ({ on, lamp } = this.tickCraft(s, r, sdt, powered ? pk : 0, working)); break;
-        case 'power': on = !!r.burning; lamp = r.off ? 'off' : on ? 'on' : demand > 0 && working && !r.spare ? 'warn' : 'idle'; if (on) this.smoke(s, 0.9); break;
+        case 'craft': ({ on, lamp } = this.fab.tick(s, r, sdt, working, pwOf(s))); break;
+        case 'power': on = !!r.burning; lamp = r.off ? 'off' : on ? 'on' : r.why === 'nofuel' ? 'warn' : 'idle'; if (on) this.smoke(s, 0.9); break;
         case 'belt': on = working; break;
-        case 'loader': on = powered && working; lamp = lampOf(on); if (on) this.tickLoader(s, r, sdt * pk); break;
-        case 'feeder': on = powered && working; lamp = lampOf(on); if (on) this.tickFeeder(s, r, sdt * pk); break;
-        case 'harvester': on = powered && working; lamp = lampOf(on); if (on) this.tickHarvester(s, r, sdt * pk); break;
-        case 'hauler': on = powered && working; lamp = lampOf(on); this.tickHauler(s, r, on ? sdt * pk : 0, dt); break;
-        case 'vending': on = powered && working; lamp = lampOf(on); if (on) this.tickVending(s, r, sdt * pk); break;
-        case 'scrubber': on = powered; lamp = lampOf(on); if (on) { clean += ind.clean * this.power.ratio; if (Math.random() < dt * 2) { const p = this.local(s, 0, 1.9, -0.05); game.particles.sparkle(p.x, p.y, p.z, 1, 0xd8ffe8); } } break;
-        case 'filter': on = powered; lamp = lampOf(on); if (on) { clean += ind.clean * this.power.ratio; if (Math.random() < dt * 4) { const p = this.local(s, 0, 0, 0.45); game.particles.bubbles(p.x + (Math.random() - 0.5) * 0.3, WATER_Y - 0.3, p.z + (Math.random() - 0.5) * 0.3, 1); } } break;
+        case 'loader': r.want = !r.off && working; on = powered && working; lamp = lampOf(on); if (on) this.tickLoader(s, r, sdt * pk); break;
+        case 'feeder': r.want = !r.off && working; on = powered && working; lamp = lampOf(on); if (on) this.tickFeeder(s, r, sdt * pk); break;
+        case 'harvester': r.want = !r.off && working; on = powered && working; lamp = lampOf(on); if (on) this.tickHarvester(s, r, sdt * pk); break;
+        case 'hauler': r.want = !r.off && working; on = powered && working; lamp = lampOf(on); this.tickHauler(s, r, on ? sdt * pk : 0, dt); break;
+        case 'vending': r.want = !r.off && working; on = powered && working; lamp = lampOf(on); if (on) this.tickVending(s, r, sdt * pk); break;
+        case 'scrubber': r.want = !r.off; on = powered; lamp = lampOf(on); if (on) { clean += ind.clean * Math.min(1, pk); if (Math.random() < dt * 2) { const p = this.local(s, 0, 1.9, -0.05); game.particles.sparkle(p.x, p.y, p.z, 1, 0xd8ffe8); } } break;
+        case 'filter': r.want = !r.off; on = powered; lamp = lampOf(on); if (on) { clean += ind.clean * Math.min(1, pk); if (Math.random() < dt * 4) { const p = this.local(s, 0, 0, 0.45); game.particles.bubbles(p.x + (Math.random() - 0.5) * 0.3, WATER_Y - 0.3, p.z + (Math.random() - 0.5) * 0.3, 1); } } break;
         default: break;
       }
       if (ind.kind === 'craft') { if (r.running) emit += ind.pollute; }
@@ -451,14 +379,14 @@ export class Industry {
       else if (on && ind.pollute) emit += ind.pollute;
       if (st) {
         st.on = on && (ind.kind !== 'belt' || sdt > 0) && (ind.kind !== 'craft' || r.running);
-        st.k = ind.kind === 'craft' ? Math.max(0.4, r.speed || 1) : ind.kind === 'belt' ? 1 : 0.6 + 0.4 * this.power.ratio;
+        st.k = ind.kind === 'craft' ? Math.max(0.4, Math.min(1.6, pk || 1)) : ind.kind === 'belt' ? 1 : 0.6 + 0.4 * Math.min(1, pk);
         st.lamp = lamp;
       }
     }
     // ---- belts
     this.tickBelts(sdt);
-    // ---- workers (bear rigs at their machines)
-    this.updateWorkers(dt, working);
+    // ---- fabrication: beavers, bench props, badges ([v26 power])
+    this.fab.frame(this.list, simDt, dt, working);
     // ---- pollution
     for (const s of this.game.structures.list) if (s.built && (s.type === 'willow' || s.type === 'maple')) trees++;
     this.trees = trees;
@@ -477,64 +405,7 @@ export class Industry {
     this.updateHud(dt);
   }
 
-  // ------------------------------------------------------------ crafting
-  tickCraft(s, r, dt, pk, working) {
-    const game = this.game;
-    const w = this.workerAt(s);
-    const staffed = !!w && !w.strike && working;
-    r.staffed = staffed;
-    const speed = (staffed ? 1 + this.mod('indWorkSpeed') : 0) + (pk > 0 ? 0.8 * pk : 0);
-    r.speed = speed;
-    r.running = false;
-    if (r.off) { r.why = 'off'; return { on: false, lamp: 'off' }; }
-    if (speed <= 0) { r.why = w?.strike ? 'strike' : 'nocrew'; return { on: false, lamp: 'warn' }; }
-    if (!r.job) {
-      const rid = this.chooseRecipe(s, r, staffed);
-      r.cur = rid;
-      // the worker fetches missing inputs from the stockpile, one armful at a time
-      if (rid && staffed && dt > 0) {
-        r.fetchT = (r.fetchT || 0) - dt;
-        if (r.fetchT <= 0) {
-          r.fetchT = 0.35;
-          for (const [id, n] of Object.entries(RECIPES[rid].in)) {
-            if ((r.h[id] || 0) >= n) continue;
-            if (this.takeStock(id, 1)) { r.h[id] = (r.h[id] || 0) + 1; break; }
-          }
-        }
-      }
-      if (rid && this.hasInputs(r, rid) && this.outCount(r) < OUT_MAX) {
-        for (const [id, n] of Object.entries(RECIPES[rid].in)) r.h[id] -= n;
-        r.job = rid; r.p = 0;
-      }
-    }
-    // push finished goods out (belt, else stockpile)
-    this.flushOut(s, r);
-    if (!r.job) { r.why = r.cur ? 'noinput' : 'nore'; return { on: false, lamp: 'idle' }; }
-    r.running = dt > 0;
-    r.why = 'run';
-    if (dt > 0) {
-      r.p += (dt * speed) / RECIPES[r.job].time;
-      this.smoke(s, s.def.ind.machine === 'smelter' ? 1 : 0.45);
-      if (s.def.ind.machine === 'shop' && Math.random() < dt * 1.6) { const p = this.local(s, -0.65, 0.45, -0.55); game.particles.sparkle(p.x, p.y, p.z, 2, 0xffd060); }
-      if (r.p >= 1) this.finishJob(s, r);
-    }
-    return { on: true, lamp: 'on' };
-  }
   outCount(r) { let n = 0; for (const v of Object.values(r.o)) n += v; return n; }
-  finishJob(s, r) {
-    const game = this.game;
-    const R = RECIPES[r.job];
-    for (const [id, n] of Object.entries(R.out)) { r.o[id] = (r.o[id] || 0) + n; this.st.made[id] = (this.st.made[id] || 0) + n; }
-    r.job = null; r.p = 0;
-    const smelt = s.def.ind.machine === 'smelter';
-    const p = smelt ? this.local(s, 0.6, 0.35, 0.55) : this.local(s, -0.65, 0.45, -0.55);
-    game.audio.play(smelt ? 'ind_pour' : 'ind_clank', { volume: 0.35 });
-    game.particles.sparkle(p.x, p.y, p.z, 6, smelt ? 0xffa040 : 0xfff0a0);
-    const w = this.workerAt(s);
-    if (w) { const rig = this.rigs.get(w.id); if (rig) rig._cheer = 0.9; }
-    game.emit('indMade', { s, out: R.out });
-    this.flushOut(s, r, true);
-  }
   flushOut(s, r, fx = false) {
     const ids = Object.keys(r.o).filter((id) => r.o[id] > 0);
     if (!ids.length) return;
@@ -607,18 +478,31 @@ export class Industry {
       if (Math.random() < 0.3) this.game.audio.play('click', { volume: 0.15, pitch: 0.6 + Math.random() * 0.2 });
       return true;
     }
-    if (n && (n.def.ind.kind === 'craft' || n.def.ind.kind === 'power') && this.wants(n, it.id)) return false; // full right now: wait
+    if (n && (n.def.ind.kind === 'craft' || n.def.ind.kind === 'power') && this.needs(n, it.id)) return false; // full right now: wait
     return this.tip(s, it, nx, nz);
   }
-  wants(s, id) {
+  needs(s, id) {
     if (s.def.ind.kind === 'power') return id === 'coal' || id === 'wood';
+    return this.recipesOf(s).some((rid) => RECIPES[rid]?.in[id]);
+  }
+  // [v26 power] does machine s draw power right now? (src/game/ext/power.js)
+  wants(s) {
+    const ind = s.def?.ind;
+    if (!ind) return true;
     const r = this.rec(s);
-    const list = r.r === 'auto' ? this.recipesOf(s) : [r.r];
-    return list.some((rid) => RECIPES[rid]?.in[id]);
+    return !r.off && !!r.want;
   }
   tip(s, it, nx, nz) {
-    this.group.remove(it.mesh);
     const x = nx + 0.5 - (nx - s.x) * 0.4, z = nz + 0.5 - (nz - s.z) * 0.4;
+    // [v26 power] a belt that ends at a storage building feeds it; anything else gets swept into
+    // the nearest storage with room. No room anywhere: the belt stops.
+    const st = this.game.storage;
+    if (st && it.id !== 'wood') {
+      const t = this.game.structures.structureAtTile(nx, nz);
+      if (st.isDepot(t) && st.room(t, it.id) > 0) { st.put(t, it.id, 1); this.group.remove(it.mesh); return true; }
+      if (!st.canStore(it.id, 1)) { this.beltFull = s; return false; }
+    }
+    this.group.remove(it.mesh);
     this.dump(it.id, x, z);
     this.game.particles.dust(x, this.baseY(s) + 0.1, z, 2);
     return true;
@@ -665,17 +549,13 @@ export class Industry {
       const er = this.rec(end);
       if (end.def.ind.kind === 'power') want = [['coal', 3], ['wood', 2]];
       else if (end.def.ind.kind === 'craft') {
-        let rid = er.job && er.r === 'auto' ? null : er.r !== 'auto' ? er.r : null;
-        if (!rid) {
-          // auto: whatever the stockpile (plus the hopper) can complete, scarcest output first
-          const list = this.recipesOf(end).filter((x) => this.canFromStock(er, x)).sort((a, c) => this.outStock(a) - this.outStock(c));
-          rid = list[0] || null;
-        }
+        this.fab.migrate(er);
+        const rid = this.fab.feedRecipe(end, er); // [v26 power] the order queue, else keep-stocked
         if (rid) want = Object.entries(RECIPES[rid].in).map(([id, n]) => [id, n * 2]);
       }
       for (const [id, n] of want) {
         if ((er.h[id] || 0) + this.inTransit(path, id) >= n) continue;
-        if (!this.takeStock(id, 1)) continue;
+        if (id === 'wood' ? !this.takeStock(id, 1) : !this.res?.take(id, 1, s.x + 0.5, s.z + 0.5)) continue;
         this.beltItems(key(b.x, b.z)).push(this.makeItem(id, 0));
         r.sent = (r.sent || 0) + 1;
         break;
@@ -786,9 +666,9 @@ export class Industry {
       return best;
     };
     const mining = game.mining?.sackList ? game.mining : null;
-    const shed = () => {
+    const shed = (kind) => {
       let best = null, bd = Infinity;
-      for (const sh of mining?.sheds?.() || []) { const door = mining.shedDoor(sh); const dd = Math.hypot(door.x - d.x, door.z - d.z); if (dd < bd) { bd = dd; best = sh; } }
+      for (const sh of mining?.sheds?.(kind) || []) { const door = mining.shedDoor(sh); const dd = Math.hypot(door.x - d.x, door.z - d.z); if (dd < bd) { bd = dd; best = sh; } }
       return best;
     };
     if (d.state === 'home') {
@@ -803,6 +683,7 @@ export class Industry {
           let sack = null, sd = Infinity;
           for (const sk of mining?.sackList() || []) {
             if (sk.claim || sk.ref.claim) continue;
+            if (game.storage && !shed(sk.kind)) continue; // [v26 power] no storage with room for it
             const dd = Math.hypot(sk.x - home.x, sk.z - home.z);
             if (dd < R && dd < sd) { sd = dd; sack = sk; }
           }
@@ -842,14 +723,15 @@ export class Industry {
         }
       }
     } else if (d.state === 'carry' && d.ore) {
-      // ore: to the nearest Ore Shed's door, else straight onto the dock
-      const sh = shed();
+      // ore: to the nearest Ore Shed (any storage with room) door, else straight onto the dock
+      const sh = shed(d.ore.kind);
       const door = sh ? mining.shedDoor(sh) : { x: home.x, z: home.z + 0.3 };
       const gy = sh ? this.baseY(sh) : home.y - 0.35;
       const far = Math.hypot(door.x - d.x, door.z - 0.3 - d.z) > 0.15;
       if (fly(door.x, far ? gy + 1.8 : gy + 0.7, door.z - 0.3, dt > 0 ? 3 : 0) && !far) {
         const o = d.ore;
-        game.res?.add(o.kind, o.n || 1, door.x, door.z - 0.5);
+        const put = sh && game.storage ? game.storage.put(sh, o.kind, o.n || 1, door.x, door.z - 0.5) : 0; // [v26 power]
+        if (put < (o.n || 1)) game.res?.add(o.kind, (o.n || 1) - put, door.x, door.z - 0.5);
         game.ui?.floatTextAt?.(door.x, gy + 1.2, door.z - 0.5, `+${o.n || 1} ${this.res?.billText?.({ [o.kind]: 1 })?.replace(/^1 /, '') || o.kind}`, '#fff0b0');
         game.particles.puff(door.x, gy + 0.2, door.z - 0.5, 5, 0.25);
         game.emit('oreStocked', { kind: o.kind, n: o.n || 1, shed: sh, drone: true });
@@ -936,54 +818,6 @@ export class Industry {
       r.why = 'run';
       game.emit('indVend', { s, b, item, coins });
       return;
-    }
-  }
-
-  // ------------------------------------------------------------ worker bears (visuals)
-  workSpot(s) {
-    // where the worker stands (model-local) and which way they face (local yaw)
-    switch (s.def.ind.machine) {
-      case 'smelter': return { p: [-0.25, 0, 0.62], yaw: Math.PI };
-      case 'shop': return { p: [-0.62, 0, 0.05], yaw: Math.PI };
-      default: return { p: [0, 0, 0.8], yaw: Math.PI };
-    }
-  }
-  updateWorkers(dt, working) {
-    const I = this.st;
-    for (const w of I.w) {
-      const s = w.at ? this.list.find((m) => key(m.x, m.z) === w.at) : null;
-      let rig = this.rigs.get(w.id);
-      if (!s || !s.built || !working) { if (rig) rig.root.visible = false; continue; }
-      if (!rig) {
-        try {
-          const base = BEAR_TYPES.construction;
-          const look = makeBearLook('construction', base, w.seed);
-          rig = new BearRig('construction', lookDef(base, look));
-          rig.personalize?.(w.id * 3.7);
-          rig.root.scale.setScalar(0.55);
-          this.group.add(rig.root);
-          this.rigs.set(w.id, rig);
-        } catch (e) { console.warn('worker rig', e); continue; }
-      }
-      rig.root.visible = true;
-      const sp = this.workSpot(s);
-      const p = this.local(s, sp.p[0], 0, sp.p[2]);
-      rig.root.position.set(p.x, p.y, p.z);
-      rig.root.rotation.y = (s.obj ? s.obj.rotation.y : 0) + sp.yaw;
-      const r = this.rec(s);
-      let pose = 'idle', o = {};
-      if (w.strike) pose = 'sad';
-      else if (rig._cheer > 0) { rig._cheer -= dt; pose = 'cheer'; }
-      else if (r.running) {
-        const k = Math.min(1.6, r.speed || 1);
-        pose = s.def.ind.machine === 'smelter' ? 'toss' : 'smash';
-        o = { t01: (this.time * 0.85 * k) % 1 };
-      } else if (r.why === 'noinput' || r.why === 'nore') pose = 'search';
-      try { rig.pose(pose, dt, o); rig.update?.(dt); } catch { /* a pose this rig lacks */ }
-      if (w.strike) {
-        w.sayT = (w.sayT ?? 3) - dt;
-        if (w.sayT <= 0) { w.sayT = 9 + Math.random() * 6; this.game.say?.({ getWorldPos: (v) => v.set(p.x, p.y + 1.5, p.z) }, pick(['No pay, no play!', 'Union rules!', 'Wages first!']), { mood: 'angry', dur: 1.8, size: 's' }); }
-      }
     }
   }
 
@@ -1140,28 +974,42 @@ export class Industry {
     if (!s.built) return { text: 'Being built', mood: 'idle' };
     const r = ind.kind === 'belt' ? null : this.rec(s);
     if (r?.off) return { text: 'Switched off', mood: 'off' };
-    if (!WORK_PHASES.has(this.game.state.phase)) return { text: 'Closed for the night', mood: 'idle' };
-    const brown = ind.power && this.power.ratio > 0 && this.power.ratio < 0.999;
+    const P = this.game.power;
+    const pst = P && ind.power ? P.status(s) : 'ok';
+    const pct = P ? Math.round(P.powered(s) * 100) : 100;
+    const dark = { nogrid: 'No power: not connected. Put it next to a generator, or within 4 tiles of a pole', dark: 'No power: the grid is dark' };
+    if (ind.kind !== 'scrubber' && ind.kind !== 'filter' && !WORK_PHASES.has(this.game.state.phase)) return { text: 'Closed for the night', mood: 'idle' };
     switch (ind.kind) {
       case 'craft': {
-        const w = this.workerAt(s);
-        if (r.why === 'strike') return { text: `${w?.name || 'The crew'} is on strike (no pay)`, mood: 'bad' };
-        if (r.why === 'nocrew') return { text: 'Needs a worker bear or power', mood: 'bad' };
-        if (r.why === 'nore') return { text: 'No ore for any recipe', mood: 'bad' };
-        if (r.why === 'noinput') return { text: r.staffed ? `Waiting for ${this.missing(r) || 'inputs'}` : 'Waiting for inputs (belt or Load)', mood: 'idle' };
-        if (brown && !r.staffed) return { text: `Brownout: ${Math.round(this.power.ratio * 100)}% speed`, mood: 'idle' };
-        return { text: `Making ${RECIPES[r.job]?.name || '...'}`, mood: 'good' };
+        const who = this.fab.workerName(s) || 'The beaver';
+        const job = r.job ? RECIPES[r.job.rid] : null;
+        const cur = RECIPES[r.cur]?.name || 'the next job';
+        switch (r.why) {
+          case 'nopower': return { text: dark[pst] || 'No power', mood: 'bad' };
+          case 'nobeaver': return { text: this.fab.staff() ? 'Nobody on shift: assign a beaver with the fab skill' : 'Waiting for a beaver', mood: 'bad' };
+          case 'full': return { text: 'Storage is full! Build a Warehouse or Parts Rack', mood: 'bad' };
+          case 'noinput': return { text: `Waiting for ${this.missing(r) || 'inputs'}${r.q?.length ? ' (order)' : ''}`, mood: 'idle' };
+          case 'fetch': return { text: `${who} is fetching for ${cur}`, mood: 'good' };
+          case 'deliver': return { text: `${who} is carrying it to storage`, mood: 'good' };
+          case 'walk': return { text: `${who} is on the way`, mood: 'idle' };
+          case 'brown': return { text: `Brownout: ${job?.name || 'working'} at ${pct}% speed`, mood: 'idle' };
+          case 'run': return { text: `${who} is making ${job?.name || '...'}`, mood: 'good' };
+          case 'idle': return { text: 'All stocked up. Order something!', mood: 'idle' };
+          default: return job ? { text: `Making ${job.name}`, mood: 'good' } : { text: 'Idle', mood: 'idle' };
+        }
       }
-      case 'power':
+      case 'power': {
+        const o = P?.output?.(s) || 0;
         if (r.burning) return { text: `Burning ${r.fuelId === 'wood' ? 'logs' : 'coal'}: +${ind.out} power`, mood: 'good' };
-        if (this.power.demand <= 0) return { text: 'Idle: nothing needs power', mood: 'idle' };
-        if (r.spare) return { text: 'Standby: the other generators cover it', mood: 'idle' };
-        return { text: 'No fuel! Needs coal or wood', mood: 'bad' };
+        if (r.why === 'nofuel') return { text: 'No fuel! Stock coal in storage (or a Coal Bunker)', mood: 'bad' };
+        void o;
+        return { text: 'Standby: lights up when the grid runs short', mood: 'idle' };
+      }
       default:
-        if (ind.power && this.power.ratio <= 0) return { text: this.power.gens ? 'No power: the generator needs fuel' : 'No power: build a Steam Generator', mood: 'bad' };
+        if (ind.power && (pst === 'nogrid' || pst === 'dark') && r?.want) return { text: dark[pst], mood: 'bad' };
         if (r?.why === 'nofood') return { text: ind.kind === 'feeder' ? 'Out of fish food' : 'Out of snacks: harvest your garden', mood: 'bad' };
-        if (r?.why === 'nogarage') return { text: 'Needs a Wood Garage with room (or ore sacks)', mood: 'bad' };
-        if (brown) return { text: `Brownout: ${Math.round(this.power.ratio * 100)}% speed`, mood: 'idle' };
+        if (r?.why === 'nogarage') return { text: 'Needs a Wood Garage or storage with room', mood: 'bad' };
+        if (pst === 'brown' && r?.want) return { text: `Brownout: ${pct}% speed`, mood: 'idle' };
         if (ind.kind === 'loader') return r.target ? { text: `Supplying the ${r.target}`, mood: 'good' } : { text: 'Lay a belt from here to a machine', mood: 'idle' };
         if (ind.kind === 'harvester' && r?.why === 'waiting') return { text: 'Waiting for ripe crops', mood: 'idle' };
         if (ind.kind === 'hauler' && r?.why === 'waiting') return { text: 'Looking for loose logs and ore sacks', mood: 'idle' };
@@ -1171,8 +1019,8 @@ export class Industry {
   }
   missing(r) {
     const rid = r.cur;
-    if (!rid) return null;
-    const miss = Object.entries(RECIPES[rid].in).filter(([id, n]) => (r.h[id] || 0) + this.stock(id) < n).map(([id]) => this.res?.billText?.({ [id]: 1 })?.replace(/^1 /, '') || id);
+    if (!rid || !RECIPES[rid]) return null;
+    const miss = Object.entries(RECIPES[rid].in).filter(([id, n]) => (r.h[id] || 0) + (r.t?.[id] || 0) + this.stock(id) < n).map(([id]) => this.res?.billText?.({ [id]: 1 })?.replace(/^1 /, '') || id);
     return miss.length ? miss.join(', ') : null;
   }
 }

@@ -193,6 +193,7 @@ export class ZoneSystem {
     const homes = this.game.villagers?.homeTiles;
     for (const Z of ZONES) {
       if (this.isOpen(Z.id) || !Z._field || Z.noReach) continue; // [F&S mining] noReach: opened by research only
+      if (Z.requires && !(this.game.state.research || []).includes(Z.requires)) continue; // [v26 world] e.g. the Deep: research + reaching it
       const F = Z._field;
       let best = null, bd = 1e9;
       for (let z = F.z0; z <= F.z1; z++)
@@ -286,6 +287,7 @@ export class ZoneSystem {
     const game = this.game;
     if (!Z || this.isOpen(Z.id) || game.cutscene?.active) return;
     if (Z.noReach) { game.notify(Z.hint || 'Not reachable yet.', 'thinking', { dur: 4 }); return; } // [F&S mining]
+    if (Z.requires && !(game.state.research || []).includes(Z.requires)) { game.notify(game.expedition?.hintFor?.(Z) || Z.hint || 'Not reachable yet.', 'thinking', { dur: 5 }); return; } // [v26 world]
     const g = game.grid;
     // where your land is closest to the fog: that's where to clear
     let best = null, bd = 1e9;

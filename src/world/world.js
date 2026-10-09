@@ -1,7 +1,7 @@
 // Assembles the static world meshes: terrain, water, trees, clutter, buildings.
 import * as THREE from 'three';
 import { hutDecals } from '../entities/structureDecals.js';
-import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW, GLADE } from './worldgen.js';
+import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW, GLADE, BARRIERS } from './worldgen.js';
 const landmarkMods = import.meta.glob('../entities/landmarkModels.js', { eager: true });
 const LM = landmarkMods['../entities/landmarkModels.js'] || null;
 import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture, SURF, surfaceOf } from './terrain.js';
@@ -16,6 +16,10 @@ import { WATER_Y, KIND } from './grid.js';
 import { SpriteBatch, pixelTexture, SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { buildNatureAtlas } from '../art/natureArt.js';
 import { OuterRing } from './outerRing.js'; // [v20 map]
+import { flowAt } from './flow.js'; // [v26 world] river currents
+import { bigForestTree, deepBarrierSprites, DeepZone } from './deepZone.js'; // [v26 world] the big forest's trees + the Deep's shells
+import { RiverFX } from './rivers.js'; // [v26 world] flowing rivers, streams, waterfalls, mist
+import { patchCutawaySprites, patchCutawayMaterial, Cutaway } from './cutaway.js'; // [v26 world] see-through mountains / buildings
 
 // Terraform ground paints (grid.paint) and the terrain surface each one draws
 // with: ids < 10 are the base atlas tiles, 10+ the extra paint atlas tiles.
@@ -74,6 +78,7 @@ export class World {
     };
     this.terrainMat = makeTerrainMaterial(this.uniforms);
     this.patchPaintShader();
+    try { patchCutawayMaterial(this.terrainMat, 'terrain', 1.4); } catch (e) { console.warn('terrain cutaway', e); } // [v26 world] mountains / cliffs in front of what you look at go see-through
     this.terrain = new THREE.Mesh(buildTerrainGeometry(this.grid), this.terrainMat);
     this.terrain.receiveShadow = true;
     // bears walk the trail on the smoothed slope surface
@@ -113,6 +118,27 @@ export class World {
     this.buildLandmarks();
     this.buildMapLandmarks();
     this.buildSunbeams();
+    // [v26 world] flowing streams + the falls + mist, the Deep's shells, the see-through for tall stuff
+    try { this.rivers = new RiverFX(this); } catch (e) { console.warn('rivers', e); }
+    try { this.deep = new DeepZone(this); } catch (e) { console.warn('deep zone', e); }
+    this.cutaway = new Cutaway(this);
+    this.barrierOpen = new Set(); // ids of BARRIERS that are open (game/ext/expedition.js)
+  }
+
+  // [v26 world] the river's current at a world position: { dir: [dx, dz], speed } (tiles/s) or null
+  riverAt(x, z) {
+    const r = flowAt(this.grid, x, z, { dir: [0, 0], speed: 0 });
+    return r && r.speed > 0.02 ? r : null;
+  }
+
+  // [v26 world] a closed natural barrier on this tile (the Deep's route): { id, name, hint } or null
+  barrierAt(x, z) {
+    const g = this.grid;
+    if (!g.barrier || !g.inb(x, z)) return null;
+    const b = g.barrier[z * g.w + x];
+    if (!b) return null;
+    const B = BARRIERS[b - 1];
+    return B && !this.barrierOpen.has(B.id) ? B : null;
   }
 
   // glades and deer paths are grassy (they stay forest tiles underneath), and
@@ -215,8 +241,8 @@ vec3 paintTex(int id, vec2 p) {
     if (!gl) return;
     const pos = [], base = [], info = [], idx = [];
     let n = 0;
-    for (let z = 22; z < g.h && n < 240; z++)
-      for (let x = 0; x < g.w && n < 240; x++) {
+    for (let z = 22; z < g.h && n < 420; z++) // [v26 world] more beams: the big forest has more glades
+      for (let x = 0; x < g.w && n < 420; x++) {
         const i = z * g.w + x;
         if (gl[i] !== GLADE.GLADE || g.kind[i] !== KIND.FOREST || hash2(x, z, 401) > 0.06) continue;
         const bx = x + 0.2 + hash2(x, z, 402) * 0.6, bz = z + 0.2 + hash2(x, z, 403) * 0.6, by = g.height[i];
@@ -451,6 +477,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       case 'maple': return ['maple_red', 'maple_orange', 'maple_scarlet'][d.variant % 3];
       case 'birch': return h < 0.4 ? 'birch_0' : h < 0.8 ? 'birch_1' : 'aspen_0';
       case 'boulder': return h < 0.4 ? 'boulder_0' : h < 0.75 ? 'boulder_1' : 'mossrock';
+      case 'giant': return ['spruce_0', 'pine_0', 'spruce_2', 'pine_1'][d.variant % 4]; // [v26 world] old-growth giants
       case 'greatwillow': return this.frame('greatwillow') ? 'greatwillow' : 'maple_scarlet';
       case 'weed': { const n = `weed_${d.variant % 4}`; return this.frame(n) ? n : d.variant % 2 ? 'tallgrass_1' : 'fern_1'; }
       case 'stump': return this.frame('stump_1') ? (d.variant % 2 ? 'stump_1' : 'stump') : 'stump';
@@ -530,7 +557,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     const { tex } = this.natureFrames();
     const g = this.grid;
     if (!this.treeBatch) {
-      this.treeBatch = new SpriteBatch(tex, { max: 30000, lit: true, castShadow: true, receiveShadow: true, name: 'trees' });
+      this.treeBatch = new SpriteBatch(tex, { max: 72000, lit: true, castShadow: true, receiveShadow: true, name: 'trees' }); // [v26 world] (was 30000: the forest is much bigger)
+      try { patchCutawaySprites(this.treeBatch.mesh.material, 'treesCut'); } catch (e) { console.warn('tree cutaway', e); } // [v26 world] see-through when tall stuff blocks the view
     }
     const B = this.treeBatch;
     B.clear();
@@ -543,7 +571,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       const rock = d.type === 'boulder' || d.type === 'stump';
       if (d.type === 'greatwillow' && name === 'maple_scarlet') d.scale = 3;
       const jx = (hash2(d.x, d.z, 3) - 0.5) * 0.3, jz = (hash2(d.x, d.z, 4) - 0.5) * 0.3;
-      const dark = d.far ? 0.9 : 1;
+      let dark = d.far ? 0.9 : 1;
+      if (d.type === 'giant') { d.scale = 1.75 + (d.variant % 4) * 0.12; dark = 0.8; } // [v26 world]
       items.push({ tile: d.z * g.w + d.x, f, x: d.x + 0.5 + jx, y: g.surfaceAtVisual(d.x + 0.5 + jx, d.z + 0.5 + jz), z: d.z + 0.5 + jz, o: { texels: 24, scale: d.scale * (rock ? 1 : 1.05), sway: rock ? 0 : 0.5, phase: hash2(d.x, d.z, 9) * 6.28, flip: d.rot % 2 === 1 && !rock, tint: [dark, dark, dark * 1.02] } });
     }
     // the big forest: every forest tile carries 1-3 procedural trees (by biome),
@@ -556,6 +585,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
       for (let x = 0; x < g2.w; x++) {
         const i = z * g2.w + x;
         if (g2.kind[i] !== KIND.FOREST || g2.deco[i] >= 0 || g2.occ[i] === -2) continue;
+        if (g2.barrier?.[i]) { deepBarrierSprites(this, i, x, z, items); continue; } // [v26 world] brambles, the fallen giant, the cliff path
         const bio = g2.biome ? g2.biome[i] : 0;
         const ld = landDist[i];
         // groves keep 1-2 trees a tile, open woodland 0-1 (with undergrowth),
@@ -583,6 +613,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
           if (bio === BIOME.SWAMP) { name = r < 0.55 ? pickF(['cypress_0', 'cypress_1'], r * 2) : r < 0.75 ? pickF(['deadtree_0', 'deadtree_1'], r) : pickF(['swampreeds_0', 'swampgrass_0', 'pine_1'], r); }
           else if (bio === BIOME.MUSHROOM) { name = r < 0.5 ? pickF(['giantshroom_red_0', 'giantshroom_red_1', 'giantshroom_brown_0', 'giantshroom_glow_0', 'giantshroom_glow_1'], r * 2) : r < 0.7 ? pickF(['shroomcluster_0', 'shroomcluster_1', 'shroomcluster_2'], r) : pickF(['spruce_0', 'pine_0', 'birch_1'], r); sway = 0.15; }
           else if (bio === BIOME.WILLOW) name = r < 0.5 ? 'birch_0' : r < 0.8 ? 'aspen_0' : 'birch_1';
+          else if (bio >= BIOME.OLDWOOD) { const t = bigForestTree(bio, r, x, z, k, g2.height[i]); name = this.frame(t.name) ? t.name : 'pine_0'; sc *= t.sc; sway = t.sway ?? sway; } // [v26 world]
           else {
             const au = fbm2(x * 0.16, z * 0.16, 91);
             if (au > 0.62 && r < 0.6) name = ['maple_red', 'maple_orange', 'maple_scarlet'][Math.floor(hash2(x, z + k, 7) * 3)];
@@ -632,8 +663,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     const g = this.grid;
     const { tex } = this.natureFrames();
     if (!this.clutterBatch) {
-      this.clutterBatch = new SpriteBatch(tex, { max: 16000, lit: true, castShadow: false, receiveShadow: true, name: 'clutter' });
-      this.flatBatch = new SpriteBatch(tex, { max: 3000, lit: true, castShadow: false, receiveShadow: true, renderOrder: 11, name: 'flatnature' });
+      this.clutterBatch = new SpriteBatch(tex, { max: 56000, lit: true, castShadow: false, receiveShadow: true, name: 'clutter' }); // [v26 world] (was 16000)
+      this.flatBatch = new SpriteBatch(tex, { max: 9000, lit: true, castShadow: false, receiveShadow: true, renderOrder: 11, name: 'flatnature' }); // [v26 world] (was 3000)
     }
     const B = this.clutterBatch, F = this.flatBatch;
     B.clear();
@@ -879,6 +910,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     wu.uNight.value = s.night;
     wu.uAurora.value = s.aurora;
     this.waterFx.update(sky, camera, this.wind ?? 1); // [v20 water]
+    this.rivers?.update(sky); // [v26 world]
     this.uniforms.uCaustic.value = 1 - s.night * 0.8;
     if (this.beams) {
       // sunbeams by day only, leaning towards wherever the sun is on screen

@@ -24,6 +24,7 @@ const TABS = [
   { id: 'defense', icon: 'shield', name: 'Defense' }, // [v18 bear events] barricades, traps, towers (src/data/structuresDefense.js)
   { id: 'industry', icon: 'ind_gear', name: 'Industry' }, // [F&S industry] machines, belts, automation (src/data/structuresIndustry.js; mining builds can share the tab)
   { id: 'dig', icon: 'shovel', name: 'Dig Pond' },
+  { id: 'paths', icon: 'rs_path', name: 'Paths', sys: 'paths' }, // [v26 resort] tool tab run by game.paths (panelHTML / bindPanel / toolKind)
   { id: 'terraform', icon: 'shovel', name: 'Terraform', feature: 'terraform' },
   { id: 'remove', icon: 'trash', name: 'Remove' },
 ];
@@ -136,6 +137,7 @@ export class Blueprint {
       if (t.id === 'clear') return this.hasBeavers();
       if (t.id === 'dig' || t.id === 'remove') return game.isOpen('clear');
       if (t.id === 'terraform') return !!game.terraform;
+      if (t.sys) return !!game[t.sys]?.available?.(); // [v26 resort]
       return this.itemsFor(t.id).length > 0;
     });
   }
@@ -161,6 +163,8 @@ export class Blueprint {
     te.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { game.audio.play('page', { volume: 0.35 }); this.tab = b.dataset.tab; this.render(); this.selectTabTool(); }));
     const box = this.el.querySelector('.bp-items');
     const tool = game.tool;
+    const sysTab = TABS.find((t) => t.id === this.tab)?.sys; // [v26 resort] a system draws its own tool panel (the Path tool)
+    if (sysTab && game[sysTab]?.panelHTML) { box.innerHTML = game[sysTab].panelHTML((n, s) => this.tico(n, s)); game[sysTab].bindPanel(box, () => this.render()); this.selectTabTool(); return; }
     if (this.tab === 'terraform') {
       // Terraform: mode picker, paint swatches, brush size and cost (Terraform.js draws it)
       box.innerHTML = game.terraform.panelHTML((n, s) => this.tico(n, s));
@@ -207,11 +211,13 @@ export class Blueprint {
 
   selectTabTool() {
     const g = this.game;
+    const sys = TABS.find((t) => t.id === this.tab)?.sys; // [v26 resort]
+    if (sys && g[sys]?.toolKind) { if (g.tool.kind !== g[sys].toolKind) g.setTool({ kind: g[sys].toolKind }); return; }
     if (this.tab === 'clear') g.setTool({ kind: 'clear' });
     else if (this.tab === 'dig') g.setTool({ kind: 'dig' });
     else if (this.tab === 'remove') g.setTool({ kind: 'remove' });
     else if (this.tab === 'terraform') { if (g.tool.kind !== 'terraform') g.setTool({ kind: 'terraform' }); }
-    else if (['clear', 'dig', 'remove', 'terraform'].includes(g.tool.kind)) g.setTool({ kind: 'feed' });
+    else if (['clear', 'dig', 'remove', 'terraform', 'path'].includes(g.tool.kind)) g.setTool({ kind: 'feed' }); // [v26 resort] + path
   }
 
   showTip(b) {
@@ -228,7 +234,7 @@ export class Blueprint {
   update(dt) {
     const game = this.game;
     // terraforming wants to see the real colours: only a light blueprint wash
-    const target = this.open ? (this.tab === 'terraform' ? 0.3 : 1) : 0;
+    const target = this.open ? (this.tab === 'terraform' || this.tab === 'paths' ? 0.3 : 1) : 0; // [v26 resort] paths: real colours too
     this.k += (target - this.k) * Math.min(1, dt * 5);
     if (Math.abs(this.k - target) < 0.002) this.k = target;
     game.renderer.setBlueprint?.(this.k);

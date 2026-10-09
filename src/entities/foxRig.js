@@ -3865,3 +3865,152 @@ def('sci_peer', {
     once(s, 'o' + Math.floor(t / C2), u > 2.85, () => rig._emit('ooh'));
   },
 });
+
+// ---------------------------------------------------------------- [v26 evening] the home office, the alarm, the coffee
+// sit_slam: at the desk (facing it): both fists up over his head... SLAM (twice), then fuming
+def('sit_slam', {
+  dur: 1.5, expr: 'angry', next: 'sit_fume', nextFade: 0.2,
+  fn(t, p, f, s, rig) {
+    sitBase(t, p, 0);
+    const h = K(t, [[0, 0], [0.26, 1, 'out'], [0.34, -0.05, 'in'], [0.5, 0.35, 'out'], [0.62, 0.8, 'io'], [0.72, -0.05, 'in'], [0.95, 0.12, 'out'], [1.25, 0, 'io']]);
+    const up = max(0, h), hit = pulse(t, 0.33, 0.14) + pulse(t, 0.71, 0.14);
+    const y = deskY(0.6) + up * 8.5, z = 7.2 - up * 2.4;
+    p.ik(p.aL, 2.6, y, z, 1, -0.4, -0.6);
+    p.ik(p.aR, 2.6, y, z, 1, -0.4, -0.6);
+    p.pawL = p.pawR = 'fist';
+    p.aL.wx = p.aR.wx = -0.6;
+    p.lean = -0.12 * up + 0.16 * hit;
+    p.chRx += 0.1 * hit - 0.12 * up; p.hRx += 0.14 * hit - 0.1 * up;
+    p.sq = 1 - 0.07 * hit; p.hipY -= 0.4 * hit;
+    p.aL.shY = p.aR.shY = 0.6 * up;
+    p.tPuff = 1.35; p.tLift += 0.6 + 0.4 * hit; p.tSide += sin(t * 40) * 0.25;
+    p.eL.fl = p.eR.fl = 0.7; p.eL.sp = p.eR.sp = 0.05;
+    f.mouth = hit > 0.3 || up > 0.6 ? 'scream' : 'grit';
+    f.vein = 1;
+    once(s, 'a', t > 0.34, () => rig._emit('slam'));
+    once(s, 'b', t > 0.72, () => rig._emit('slam'));
+  },
+});
+
+// sit_fume: still glaring at the screen, fists on the desk, shoulders heaving, trembling
+def('sit_fume', {
+  loop: true, expr: 'angry',
+  fn(t, p, f) {
+    sitBase(t, p, 0);
+    const hv = sin(t * 4.2);
+    p.ik(p.aL, 3.0, deskY(0.8) + hv * 0.15, 7.0, 1, -0.4, -0.6);
+    p.ik(p.aR, 3.0, deskY(0.8) - hv * 0.15, 7.0, 1, -0.4, -0.6);
+    p.pawL = p.pawR = 'fist';
+    p.aL.shY = p.aR.shY = 0.4 + hv * 0.3;
+    p.breath = hv * 1.5;
+    p.lean = 0.1; p.chRx += 0.08 + hv * 0.02; p.hRx += 0.06;
+    p.hRy += sin(t * 37) * 0.015;
+    p.tPuff = 1.3; p.tLift += 0.5; p.tSide += sin(t * 9) * 0.2;
+    p.eL.fl = p.eR.fl = 0.6;
+    f.vein = 1; f.mouth = 'grit';
+  },
+});
+
+// sit_rant: swivelled round to face you: jabbing a finger at you, shaking a fist
+def('sit_rant', {
+  loop: true, expr: 'angry',
+  fn(t, p, f) {
+    sitBase(t, p, 0.4);
+    life(t, p, 0.5);
+    const C2 = 1.7, u = t % C2;
+    const jab = win(u, 0.05, 1.15, 0.12, 0.25), poke = abs(sin(u * 11)) * jab;
+    p.ik(p.aR, 1.6, 6.2 + poke * 0.5, 9.4 + poke * 1.1, 1, -0.6, -0.3, jab);
+    p.pawR = jab > 0.35 ? 'point' : 'fist';
+    p.aR.wx -= 0.4 * jab;
+    const sh = sin(t * 17);
+    p.ik(p.aL, 4.6, 5.2 + sh * 0.5, 5.6, 1, -0.4, -0.5);
+    p.pawL = 'fist';
+    p.lean = 0.08 + poke * 0.05;
+    p.hRx += 0.06 * jab + poke * 0.04; p.hRy += sin(t * 2.3) * 0.08;
+    p.chRz += sh * 0.015;
+    p.tPuff = 1.25; p.tSide += sin(t * 14) * 0.25; p.tLift += 0.3;
+    p.eL.fl = p.eR.fl = 0.55;
+    f.vein = 1; f.mouth = 'grit'; // talk() visemes take over the mouth while he speaks
+  },
+});
+
+// sit_steeple: leaning back in the big chair, fingertips tapping together. Excellent...
+def('sit_steeple', {
+  loop: true, expr: 'evil_grin',
+  fn(t, p, f) {
+    sitBase(t, p, 0.25);
+    life(t, p, 0.4);
+    p.lean = -0.1; p.chRx -= 0.06; p.hRx += 0.05;
+    const tap = max(0, sin(t * 7));
+    p.ik(p.aL, 0.55 + tap * 0.35, 6.0, 6.6, 1, -0.7, -0.4);
+    p.ik(p.aR, 0.55 + tap * 0.35, 6.0, 6.6, 1, -0.7, -0.4);
+    p.pawL = p.pawR = 'open';
+    p.aL.wx = p.aR.wx = -1.0;
+    p.tSide += sin(t * 2.2) * 0.4; p.tLift += 0.2;
+    f.look = [0, -0.1];
+  },
+});
+
+// bed_wake: the alarm! eyes snap open, he shoots out of bed over the footboard, lands on the
+// floor at the root (bed foot, facing out), looks around wildly, then just... grumpy
+def('bed_wake', {
+  dur: 1.9, expr: 'shocked', next: 'idle', nextFade: 0.3, lookW: 0,
+  fn(t, p, f, s, rig) {
+    const u = clamp01((t - 0.18) / 0.5), e = smooth(u);
+    const air = u > 0 && u < 1 ? 4 * u * (1 - u) : 0;
+    p.z = lerp(-BED_STEP, 0.5, e);
+    p.y = lerp(BED_H + LIE_LIFT, 0, e) + air * 11;
+    const land = K(t, [[0.66, 0], [0.72, 1, 'out'], [0.95, 0, 'io']]);
+    p.sq = 1 + air * 0.08 - land * 0.16;
+    p.hipY = -land * 1.4;
+    p.lL.kn = p.lR.kn = land * 1.1 + air * 0.8; p.lL.sw = p.lR.sw = -land * 0.5 - air * 0.4;
+    const fl = win(t, 0.1, 0.8, 0.05, 0.2), a = t * 32;
+    p.aL.sw = lerp(-0.2, -2.4 + sin(a) * 0.5, fl); p.aR.sw = lerp(-0.2, -2.4 + sin(a + 2) * 0.5, fl);
+    p.aL.ra = p.aR.ra = lerp(0.2, 1.1, fl); p.aL.el = p.aR.el = lerp(0.7, 0.3, fl);
+    p.pawL = p.pawR = fl > 0.3 ? 'open' : 'relax';
+    p.tPuff = 1 + 0.7 * fl; p.tLift += 1.4 * fl;
+    p.eL.fl = p.eR.fl = -0.4 * fl; p.eL.sp = p.eR.sp = 0.02;
+    if (u < 1) bedPose(t, p, 1 - e);
+    if (t < 0.18) { f.expr = 'shocked'; f.mouth = 'o'; f.blink = false; }
+    else if (t < 0.75) { f.mouth = 'scream'; f.blink = false; }
+    else {
+      const wild = t < 1.4;
+      f.expr = wild ? 'alarmed' : 'sleepy';
+      if (wild) { const side = sin(t * 10) > 0 ? 1 : -1; f.look = [0.9 * side, 0.2]; p.hRy += 0.3 * side; }
+    }
+    once(s, 'jolt', t > 0.12, () => rig._emit('startle'));
+    once(s, 'hat', t > 0.2, () => rig.popHat(1.3, 1.6));
+    once(s, 'land', t > 0.68, () => rig._emit('land'));
+  },
+});
+
+// sip_coffee: standing; the caller puts a mug in his right paw (fox.hold(mug), mug at (0, -0.07, 0.01)
+// in the grip like the energy drink can). Up it comes, sip sip sip... ZING! Eyes wide open.
+def('sip_coffee', {
+  dur: 2.5, expr: 'sleepy', next: 'idle', nextFade: 0.25,
+  fn(t, p, f, s, rig) {
+    life(t, p, 0.5);
+    const up = K(t, [[0, 0], [0.45, 1, 'io'], [1.45, 1], [1.75, 0, 'io']]);
+    const tilt = K(t, [[0.4, 0], [0.62, 1, 'io'], [1.3, 1], [1.45, 0]]);
+    // (chibi arms are short and the muzzle is long: the arm stretches to bring the rim to his mouth)
+    p.ik(p.aR, lerp(1.5, 0.7, up), lerp(2.2, 10.3 + tilt * 0.6, up), lerp(6.2, 14.2, up), 1, -0.8, -0.2, 1);
+    p.aR.st = lerp(1.6, 3.2, up);
+    p.aR.wx = -0.9 * up - 1.1 * tilt; p.aR.wz = -0.2 * up;
+    p.pawR = 'fist'; p.keepPawR = true;
+    p.ik(p.aL, 6.6, 0.9, 1.4, 1, 0.1, -0.7); // other paw on the hip
+    p.pawL = 'fist';
+    p.hRx += -0.3 * tilt; p.chRx += -0.06 * tilt;
+    if (tilt > 0.3) { f.eyeL = f.eyeR = 'content'; f.mouth = 'M'; }
+    const zing = win(t, 1.85, 2.45, 0.04, 0.2);
+    if (t > 1.8) {
+      p.y += zing * 1.6; p.sq = 1 + zing * 0.1;
+      p.hRy += sin(t * 70) * 0.08 * zing; p.chRz += sin(t * 60) * 0.05 * zing;
+      p.eL.fl = p.eR.fl = -0.4 * zing; p.eL.sp = p.eR.sp = 0.02;
+      p.tPuff = 1 + 0.6 * zing; p.tLift += 1.0 * zing;
+      f.expr = zing > 0.2 ? 'excited' : 'smug';
+      f.mouth = zing > 0.2 ? 'grin' : null;
+    }
+    for (let i = 0; i < 3; i++) once(s, 'g' + i, t > 0.75 + i * 0.25, () => rig._emit('gulp'));
+    once(s, 'z', t > 1.86, () => rig._emit('zing'));
+  },
+});

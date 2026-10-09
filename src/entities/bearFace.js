@@ -934,3 +934,6 @@ const ICY_DRAW = {
   },
   smug(F, st) { ICY_DRAW.neutral(F, st); F.e(19, 2, 'B'); F.e(20, 1, 'B'); F.e(21, 1, 'B'); },
 };
+
+// [v26 seasons] extra expressions (cold, hot) are registered from src/game/seasons/faces.js
+export { DRAW as FACE_DRAW };

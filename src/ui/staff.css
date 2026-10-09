@@ -1,0 +1,17 @@
+/* [v26 staff] beaver staff: world pop-ups, interview clipboard, roster, staff + rescue cards */
+
+/* ------------------------------------------------ world pop-ups */
+.st-pops { position: absolute; inset: 0; pointer-events: none; z-index: 13; }
+.st-pop { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 6px 3px 4px; background: #fff6dc; border: 3px solid #2a1a14; border-radius: 9px; box-shadow: 0 3px 0 #2a1a14;
+  font-family: var(--font2); font-size: 16px; color: #2a1a14; line-height: 1; transform-origin: 50% 100%; }
+.st-pop::after { content: ''; position: absolute; left: 50%; bottom: -10px; margin-left: -6px; border: 6px solid transparent; border-top: 7px solid #2a1a14; border-bottom: 0; }
+.st-pop img { display: block; image-rendering: pixelated; }
+.st-pop:hover { filter: brightness(1.08); }
+.st-pop.tent { background: #f8e8b8; animation: st-bob 1.4s ease-in-out infinite; }
+.st-pop.tent b { min-width: 14px; padding: 1px 4px 2px; background: #d9453b; color: #fff6dc; border: 2px solid #2a1a14; border-radius: 99px; font-size: 13px; }
+.st-pop.hurt { background: #ffe4dc; border-color: #6a1410; box-shadow: 0 3px 0 #6a1410; animation: st-pulse .9s ease-in-out infinite; }
+.st-pop.hurt::after { border-top-color: #6a1410; }
+.st-pop.hurt i { display: inline-flex; align-items: center; gap: 2px; font-style: normal; font-size: 14px; color: #8a1a10; }
+@keyframes st-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+@keyframes st-pulse { 0%, 100% { scale: 1; } 50% { scale: 1.09; } }

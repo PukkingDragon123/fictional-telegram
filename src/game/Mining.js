@@ -4,11 +4,12 @@
 //    walls of Flint's Quarry). Tap one to mark it: beavers with pickaxes (research
 //    r_mine_pick, faster + iron/gold with r_mine_helmet, crystal with r_mine_crystal)
 //    walk up, mine a sack of ore (one paid beaver job each), and haul the sacks to an
-//    Ore Shed like logs to a Wood Garage. Every stocked sack goes into game.res.
+//    Ore Shed like logs to a Wood Garage. [v26 power] Every stocked sack goes into that
+//    storage building (src/game/ext/storage.js); full storage = the sacks wait.
 //    Veins run dry and grow back a little every morning.
 //  - THE BEAR MINE (r_mine_mine): dig a mine into the quarry wall and HIRE worker bears
 //    (hard hats, hi-vis, lunchboxes). They walk in, dig, walk out with ore and dump it in
-//    the ore bin (-> game.res). They eat lunch at the canteen: send lunch runs from your
+//    the ore bin ([v26 power] a storage of its own: tap it; a full bin stops the crew). They eat lunch at the canteen: send lunch runs from your
 //    food (Lunch Pail Line r_mine_lunch does it by itself) or they go on STRIKE.
 //    Machines (Ore Drill, Ore Cart Rail, Steam Excavator) make the mine dig more.
 //  - FLINT: the badger prospector of the quarry. Mountain Survey (r_mine_survey, Lab)
@@ -201,7 +202,7 @@ export class Mining {
     const K = VEIN_KINDS[v.kind];
     if (!this.tierOk(K.tier)) return `Needs ${TIER_NAME[K.tier]} (research)`;
     if (this.left(v) <= 0) return 'Picked clean. It grows back a little every morning.';
-    if (this.sacksAt(v) >= SACK_MAX_PER_VEIN) return 'Sacks are piling up: build an Ore Shed!';
+    if (this.sacksAt(v) >= SACK_MAX_PER_VEIN) return this.game.storage && this.game.storage.list.some((s) => !s.site && s.def.depot.accepts.some((a) => a === 'ore' || a === '*')) ? 'Sacks are piling up: the storage is full! Build another Ore Shed or a Warehouse.' : 'Sacks are piling up: build an Ore Shed!';
     if (!this.game.beavers.list.length) return 'No beavers yet: build a Beaver Lodge.';
     return '';
   }
@@ -304,8 +305,13 @@ export class Mining {
   }
 
   // ------------------------------------------------------------------ ore sacks + hauling
-  sheds() { return this.game.structures.list.filter((s) => s.type === 'oreshed' && s.built && !s.removed); }
-  shedDoor(s) { return { x: s.x + 1, z: s.z + 2.15 }; }
+  // [v26 power] any storage building with room for this ore (Ore Shed, Warehouse, Coal Bunker for coal...)
+  sheds(kind = 'stone') {
+    const st = this.game.storage;
+    if (st?.ready) return st.list.filter((s) => !s.site && st.room(s, kind) > 0);
+    return this.game.structures.list.filter((s) => s.type === 'oreshed' && s.built && !s.removed);
+  }
+  shedDoor(s) { const st = this.game.storage; return st?.ready ? st.door(s) : { x: s.x + 1, z: s.z + 2.15 }; }
   sackList() {
     return this.S.sacks.map((s) => ({ x: s[0], z: s[1], kind: s[2], n: s[3], claim: s.claim || null, ref: s }));
   }
@@ -319,15 +325,14 @@ export class Mining {
   findOreHaul(b) {
     const S = this.S;
     if (!S.sacks.length) return null;
-    const sheds = this.sheds();
-    if (!sheds.length) return null;
     let best = null, bd = Infinity;
     for (const s of S.sacks) {
-      if (s.claim) continue;
+      if (s.claim || !this.sheds(s[2]).length) continue; // [v26 power] only sacks there's room for
       const d = Math.hypot(s[0] - b.x, s[1] - b.z);
       if (d < bd) { bd = d; best = s; }
     }
     if (!best) return null;
+    const sheds = this.sheds(best[2]);
     let shed = null, sd = Infinity;
     for (const s of sheds) { const d = this.shedDoor(s), dd = Math.hypot(d.x - best[0], d.z - best[1]); if (dd < sd) { sd = dd; shed = s; } }
     return { kind: 'orehaul', sack: best, shed, phase: 'fetch' };
@@ -360,12 +365,12 @@ export class Mining {
         game.particles.dust(s[0], game.grid.groundAt(s[0], s[1]), s[1], 3);
         game.audio.play('grab', { volume: 0.3, pitch: 0.7 });
         job.phase = 'carry';
-        if (!job.shed || job.shed.removed) job.shed = this.sheds()[0] || null;
+        if (!job.shed || job.shed.removed) job.shed = this.sheds(b.carry.ore)[0] || null;
         if (!job.shed) { this.dropOre(b); B.release(b); }
       }
     } else if (job.phase === 'carry') {
       let s = job.shed;
-      if (!s || s.removed || !s.built) { s = job.shed = this.sheds()[0] || null; if (!s) { this.dropOre(b); B.release(b); return; } }
+      if (!s || s.removed || !s.built) { s = job.shed = this.sheds(b.carry?.ore)[0] || null; if (!s) { this.dropOre(b); B.release(b); return; } }
       const d = this.shedDoor(s);
       if (B.moveToward(b, d.x, d.z, dt, HAUL_SPEED * speedMult ** 0.3, 0.3)) { job.phase = 'drop'; b.t = 0; }
     } else if (job.phase === 'drop') {
@@ -377,7 +382,12 @@ export class Mining {
         const c = b.carry;
         b.carry = null;
         if (c?.ore) {
-          game.res.add(c.ore, c.n || 1, d.x, d.z - 0.5);
+          // [v26 power] into this storage; if it filled up meanwhile, the next one with room, else the sack waits on the ground
+          const st = game.storage;
+          let put = st?.ready ? st.put(s, c.ore, c.n || 1, d.x, d.z - 0.5) : 0;
+          if (st?.ready && put < (c.n || 1)) { const o = this.sheds(c.ore).find((x) => x !== s); if (o) put += st.put(o, c.ore, (c.n || 1) - put); }
+          if (!st?.ready) game.res.add(c.ore, c.n || 1, d.x, d.z - 0.5);
+          else if (put < (c.n || 1)) { this.S.sacks.push([+(d.x + (Math.random() - 0.5) * 0.6).toFixed(2), +(d.z + 0.3).toFixed(2), c.ore, (c.n || 1) - put, null]); game.ui?.floatTextAt?.(d.x, gy + 1.6, d.z - 0.5, 'Full!', '#ff9a8a'); }
           game.ui?.floatTextAt?.(d.x, gy + 1.2, d.z - 0.5, `+${c.n || 1} ${RES_INFO[c.ore].name}`, '#fff0b0');
           game.particles.puff(d.x, gy + 0.2, d.z - 0.5, 5, 0.25);
           game.particles.debris(d.x, gy + 0.4, d.z - 0.6, 4, MM.ORE_COL[c.ore].a);
@@ -582,9 +592,25 @@ export class Mining {
     for (const [k, v] of Object.entries(T)) { x -= v; if (x <= 0) return k; }
     return 'stone';
   }
+  // [v26 power] the mine's ore bin is a storage of its own (tap it); it fills up
+  bin() { return this.game.storage?.ready ? this.game.storage.site('minebin') : null; }
+  binRoom(kind = 'stone') { const b = this.bin(); return b ? this.game.storage.room(b, kind) : 99; }
+  registerBin() {
+    const st = this.game.storage;
+    if (!st || !this.S.mine.built || st.site('minebin')) return;
+    const Q = QUARRY;
+    st.addSite('minebin', {
+      name: 'Mine Ore Bin', icon: 'mine', x: Q.bin.x, z: Q.bin.z, cap: 60, accepts: ['ore'], door: { x: Q.bin.x, z: Q.bin.z + 0.85 }, badgeY: 1.7,
+      visible: () => !!this.siteVisible,
+      onChange: (k) => { this.binFillK = k; },
+    });
+  }
   addOre(kind, n, x, z, label = true) {
     const game = this.game, M = this.S.mine;
-    game.res.add(kind, n, x, z);
+    const b = this.bin();
+    if (b) n = game.storage.put(b, kind, n, x, z); // [v26 power] into the bin (callers check the room first)
+    else game.res.add(kind, n, x, z);
+    if (n <= 0) return 0;
     M.dug = (M.dug || 0) + n;
     if (M.dugDay !== game.state.day) { M.dugDay = game.state.day; M.dugToday = 0; }
     M.dugToday += n;
@@ -670,6 +696,7 @@ export class Mining {
           if (!work) break;
           if (hungry) { e.mode = 'toEat'; e.x = entrance.x; e.z = entrance.z; break; }
           e.t -= sdt;
+          if (e.t <= 0 && this.binRoom() < 3) { e.t = 2; break; } // [v26 power] the bin is full: the crew waits
           if (e.t <= 0) {
             const kind = this.rollOre();
             const n = 2 + (Math.random() < 0.4 ? 1 : 0);
@@ -790,6 +817,7 @@ export class Mining {
 
   // the ore cart: rolls down the rail, tips into the bin, rolls back
   launchCart(kind, n) {
+    if (this.binRoom(kind) < n) return; // [v26 power] bin full
     const c = this.carts.find((x) => x.state === 'idle');
     if (!c) { this.addOre(kind, n, QUARRY.bin.x, QUARRY.bin.z); return; }
     c.state = 'out'; c.t = 0; c.kind = kind; c.n = n;
@@ -878,7 +906,11 @@ export class Mining {
     const working = !!M.built && M.workers.some((w) => !w.strike) && this.workHours();
     site.mine?.userData.update?.(dt, t);
     if (site.canteen) site.canteen.userData.setMeals(M.meals);
-    if (site.bin) { this.binFill = Math.max(0, (this.binFill || 0) - (simDt || 0) * 0.01); site.bin.userData.setFill(this.binFill || 0); }
+    if (site.bin) {
+      // [v26 power] the bin shows what's really in it (it's a storage now)
+      if (this.bin()) site.bin.userData.setFill(this.binFillK || 0);
+      else { this.binFill = Math.max(0, (this.binFill || 0) - (simDt || 0) * 0.01); site.bin.userData.setFill(this.binFill || 0); }
+    }
     if (site.drill) {
       site.drill.userData.update(dt, t, working);
       this.chuffT = (this.chuffT || 0) - dt;
@@ -926,6 +958,7 @@ export class Mining {
       if (M.buildT <= 0) {
         M.built = 1; M.buildT = null;
         this.siteDirty = true;
+        this.registerBin(); // [v26 power]
         const y = game.grid.groundAt(Q.mine.x, Q.mine.z);
         game.particles.confetti(Q.mine.x, y + 1.6, Q.mine.z, 40);
         game.particles.word?.('built', Q.mine.x, y + 2.4, Q.mine.z, { size: 0.36, life: 1.3 });
@@ -950,7 +983,7 @@ export class Mining {
     ex.userData.body.rotation.y = swing * 1.1;
     const cyc = Math.floor(E.t);
     if (run && cyc !== E.last) {
-      if (E.last != null) {
+      if (E.last != null && this.binRoom() >= 4) { // [v26 power] not into a full bin
         const kind = Math.random() < 0.06 ? 'crystal' : this.rollOre();
         this.addOre(kind, 3 + (Math.random() < 0.5 ? 1 : 0), Q.excavator.x, Q.excavator.z + 0.6);
       }
@@ -1055,6 +1088,7 @@ export class Mining {
     for (const e of this.workers) if (e.rig.root.visible) test(e.x, e.y + 1.4, e.z, { kind: 'site', what: 'worker', e }, 0.6);
     if (!best) return false;
     if (best.kind === 'vein') this.ui.openVein(best.v);
+    else if (best.what === 'bin' && this.bin()) { this.ui.close(); game.storage.open(this.bin()); } // [v26 power] look inside the ore bin
     else this.ui.openMine(best.what === 'drill' || best.what === 'excavator' ? 'machines' : best.what === 'canteen' ? 'lunch' : 'crew');
     game.audio.play('pop_in', { volume: 0.3 });
     return true;

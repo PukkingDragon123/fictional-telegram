@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evening preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #16111d; overflow: hidden; font: 13px/1.3 monospace; color: #f4e8d0; }
+  canvas#c { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #bar { position: fixed; left: 10px; bottom: 10px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 100; max-width: calc(100vw - 20px); }
+  #bar button { font: inherit; background: #2a2036; color: #f4e8d0; border: 2px solid #5a4a6a; padding: 5px 9px; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui"></div>
+<div id="bar"></div>
+<script type="module" src="./evening-preview.js"></script>
+</body>
+</html>

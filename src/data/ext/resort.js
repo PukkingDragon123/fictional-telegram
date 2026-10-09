@@ -100,7 +100,7 @@ export const STRUCTURES = {
     desc: 'Logs round a crackling fire. Marshmallows 2 coins. Cold bears warm up here.',
   },
   rs_firstaid: {
-    ...base, name: 'First-Aid Tent', icon: 'rs_firstaid', cost: 180, builder: 'beaver', buildTime: 6, size: [2, 1], hp: 4, blocksBear: true,
+    ...base, name: 'First-Aid Tent', icon: 'rs_firstaid', cost: 180, builder: 'beaver', buildTime: 6, size: [2, 2], hp: 4, blocksBear: true,
     visit: { need: 'care', dur: 7, pay: 0, cap: 2, use: 'lie', joy: 0.3 },
     jobs: { slots: 1, skill: 'care', title: 'Nurse' },
     desc: 'Cots and bandages. Hurt beavers and bruised bears recover here twice as fast.',

@@ -52,10 +52,22 @@ function labScan(ctx, dest, o, { Voice }) {
   return v.end;
 }
 
+
+// v26 power-on: the green terminal just switches on: a degauss thunk and a short high whine (no boot jingle)
+function labOn(ctx, dest, o, { Voice }) {
+  const v = new Voice(ctx, dest, o, 0.1, 0.02);
+  v.noise({ buf: 'pink', ft: 'lowpass', f: 700, f2: 180, gl: 0.12, q: 0.8, a: 0.002, rel: 0.12, peak: 0.5 }); // thunk
+  v.tone({ f: 90, f2: 60, gl: 0.15, a: 0.004, rel: 0.16, peak: 0.16, type: 'sine' });
+  v.tone({ t: 0.02, f: 9400, f2: 8800, gl: 0.25, a: 0.01, hold: 0.06, rel: 0.2, peak: 0.012, type: 'sine' }); // flyback whine
+  v.tone({ t: 0.05, type: 'square', f: 1568, a: 0.003, hold: 0.02, rel: 0.04, peak: 0.03, lp: 3000 }); // ready blip
+  return v.end;
+}
+
 export const EXTRA_SFX = {
   lab_boot: { fn: labBoot, max: 1, gap: 0.4, g: 1.4 },
   lab_off: { fn: labOff, max: 1, gap: 0.3, g: 1.5 },
   lab_blip: { fn: labBlip, max: 3, gap: 0.04, g: 2.2 },
   lab_glitch: { fn: labGlitch, max: 2, gap: 0.08, g: 1.8 },
   lab_scan: { fn: labScan, max: 1, gap: 0.3, g: 1.6 },
+  lab_on: { fn: labOn, max: 1, gap: 0.3, g: 1.4 },
 };

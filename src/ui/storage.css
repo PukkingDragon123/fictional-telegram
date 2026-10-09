@@ -1,0 +1,91 @@
+/* [v26 power] storage slot panel (src/ui/StorageUI.js): a little wooden shelf over the
+   storage building, cubbies with item art + count badges (the food bar's look). */
+.stp {
+  position: absolute; left: 0; top: 0; z-index: 14; width: max-content; max-width: min(92vw, 400px);
+  padding: 6px 8px 8px; color: #3b2414; font-family: var(--font-body, 'TBME Body'), sans-serif;
+  background: #3e2612 var(--stp-back) repeat 0 0 / 32px 32px; image-rendering: pixelated;
+  border: 3px solid #1f120b;
+  box-shadow: inset 0 3px 0 #6b4220, inset 3px 0 0 #55331a, inset -3px 0 0 #2e1b10, inset 0 -3px 0 #2e1b10, 0 4px 0 rgba(20, 10, 4, .45);
+  -webkit-user-select: none; user-select: none; pointer-events: auto;
+}
+.stp.pop { animation: stp-pop .32s cubic-bezier(.3, 1.6, .5, 1); }
+.stp.out { animation: stp-out .16s ease-in forwards; pointer-events: none; }
+@keyframes stp-pop { 0% { opacity: 0; margin-top: 14px; } 60% { opacity: 1; margin-top: -3px; } 100% { margin-top: 0; } }
+@keyframes stp-out { to { opacity: 0; margin-top: 8px; } }
+.stp img { image-rendering: pixelated; display: block; }
+body.cine .stp, body.lab-full .stp, body.feast-cam .stp, body.home-mode .stp { display: none; }
+
+/* the name sign: cream paper with a pin */
+.stp-sign {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 6px; padding: 2px 6px 2px 3px;
+  background: #fbf0d0; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14, inset 0 -2px 0 #e2c992;
+}
+.stp-ico { width: 40px; height: 40px; flex: none; margin: -8px 0 -6px -6px; filter: drop-shadow(0 2px 0 rgba(20, 10, 4, .35)); }
+.stp-name { font-family: var(--font-title, 'TBME Title'), sans-serif; font-weight: 400; font-size: 18px; line-height: 20px; letter-spacing: .5px; white-space: nowrap; text-transform: uppercase; }
+.stp-fill { margin-left: auto; font-family: var(--font-title, 'TBME Title'), sans-serif; font-size: 17px; line-height: 18px; color: #3b2414; white-space: nowrap; }
+.stp-fill i { font-style: normal; color: #8a6a44; font-size: 14px; }
+.stp-fill em { font-style: normal; color: #fff; background: #c0302a; padding: 0 4px; border: 2px solid #4e1422; transform: rotate(-4deg); display: inline-block; animation: stp-stamp .5s steps(3) 1; }
+@keyframes stp-stamp { 0% { transform: rotate(-4deg) scale(1.8); opacity: 0; } 100% { transform: rotate(-4deg) scale(1); opacity: 1; } }
+.stp-x {
+  flex: none; width: 20px; height: 20px; padding: 0; margin-left: 4px; cursor: pointer;
+  font-family: var(--font-title, 'TBME Title'), sans-serif; font-size: 15px; line-height: 14px; color: #fbf0d0;
+  background: #b0303a; border: 2px solid #4e1422; box-shadow: inset 0 2px 0 #f07a52;
+}
+.stp-x:hover { filter: brightness(1.15); }
+
+/* the shelf: cubbies standing on a plank */
+.stp-shelf { position: relative; padding: 0 2px 13px; }
+.stp-slots { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 4px; max-width: calc(6 * 52px); }
+.stp-plank {
+  position: absolute; left: -4px; right: -4px; bottom: 0; height: 18px; z-index: 0; pointer-events: none;
+  background: var(--stp-plank) repeat-x 0 0 / 64px 18px; image-rendering: pixelated;
+  border-left: 2px solid #2e1b10; border-right: 2px solid #2e1b10; filter: drop-shadow(0 3px 0 rgba(20, 10, 4, .45));
+}
+.stp-slot {
+  position: relative; width: 48px; height: 48px; padding: 0; margin: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: #24160c; border: 2px solid #120a06;
+  box-shadow: inset 0 3px 0 #120a06, inset -2px -2px 0 #6b4220, 0 2px 0 rgba(20, 10, 4, .35);
+  transform-origin: 50% 100%; transition: transform .12s;
+}
+.stp-slot img { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .45)); }
+.stp-slot:hover { transform: translateY(-2px); }
+.stp-slot.sel { box-shadow: inset 0 3px 0 #120a06, inset -2px -2px 0 #6b4220, 0 0 0 2px #ffd23f, 0 0 6px 2px rgba(255, 220, 90, .7); }
+.stp-slot.empty { cursor: default; opacity: .55; }
+.stp-slot.empty:hover { transform: none; }
+.stp-slot.up { animation: stp-up .45s cubic-bezier(.3, 1.6, .5, 1); }
+.stp-slot.down { animation: stp-down .35s ease-out; }
+@keyframes stp-up { 0% { transform: translateY(0) scale(1); } 35% { transform: translateY(-7px) scale(.9, 1.12); } 70% { transform: translateY(1px) scale(1.06, .94); } 100% { transform: none; } }
+@keyframes stp-down { 0% { transform: none; } 40% { transform: translateY(2px) scale(1.06, .9); } 100% { transform: none; } }
+.stp-n {
+  position: absolute; right: -4px; bottom: -4px; z-index: 2; min-width: 20px; padding: 0 2px;
+  font-family: var(--font-title, 'TBME Title'), sans-serif; font-size: 15px; line-height: 17px; font-weight: 400; text-align: center;
+  color: #2a1a14; background: #fffbea; border: 2px solid #2a1a14; box-shadow: 0 2px 0 #2a1a14;
+}
+.stp-none { display: flex; align-items: center; height: 48px; padding: 0 10px; font-size: 16px; color: #fdf4d8; text-shadow: 1px 1px 0 #2a1a14; }
+
+/* fill meter: pixel segments */
+.stp-meter {
+  position: relative; height: 10px; margin: 5px 1px 0; background: #1f120b; border: 2px solid #120a06;
+  box-shadow: inset 0 2px 0 #000;
+}
+.stp-meter i {
+  position: absolute; left: 0; top: 0; bottom: 0; transition: width .3s steps(6);
+  background: repeating-linear-gradient(90deg, #6cc08a 0 6px, #3f8f5f 6px 8px); box-shadow: inset 0 2px 0 #aee6b0;
+}
+.stp-meter i.gold { background: repeating-linear-gradient(90deg, #ffd23f 0 6px, #e5a320 6px 8px); box-shadow: inset 0 2px 0 #fff3a3; }
+.stp-meter i.red { background: repeating-linear-gradient(90deg, #f07a52 0 6px, #b0303a 6px 8px); box-shadow: inset 0 2px 0 #ffc9a0; animation: stp-blink .8s steps(2) infinite; }
+@keyframes stp-blink { 50% { opacity: .6; } }
+.stp-info { max-width: calc(6 * 52px); margin: 5px 1px 0; font-size: 15px; line-height: 17px; color: #fdf4d8; text-shadow: 1px 1px 0 #1f120b; }
+.stp-info b { font-family: var(--font-title, 'TBME Title'), sans-serif; font-weight: 400; color: #ffe08a; }
+.stp.full .stp-sign { background: #ffe0d0; }
+
+/* a little wooden tail pointing at the building */
+.stp-tail { position: absolute; bottom: -11px; width: 0; height: 0; margin-left: -9px; border: 9px solid transparent; border-bottom: 0; border-top-color: #1f120b; }
+.stp-tail::after { content: ''; position: absolute; left: -6px; top: -11px; border: 6px solid transparent; border-bottom: 0; border-top-color: #3e2612; }
+
+@media (max-width: 640px) {
+  .stp { max-width: 94vw; padding: 5px 6px 7px; }
+  .stp-slot { width: 44px; height: 44px; }
+  .stp-name { font-size: 16px; }
+}

@@ -92,6 +92,7 @@ export class BeaverSystem {
     };
     rig.onEvent = (name) => this.onRigEvent(b, name);
     this.list.push(b);
+    this.game.staff?.adopt?.(b, lodge); // [v26 staff] a name, a chibi look, skills (old lodge records come back)
     this.game.particles.splash(b.x, b.z, 6, 0.6);
     this.game.emit('beavers', this.list.length);
     return b;
@@ -112,6 +113,7 @@ export class BeaverSystem {
       this.dropCarried(b);
       this.group.remove(b.rig.root);
       this.list.splice(this.list.indexOf(b), 1);
+      this.game.staff?.release?.(b); // [v26 staff] the lodge's starters move out with it
     }
   }
 
@@ -384,6 +386,7 @@ export class BeaverSystem {
     let sulking = 0;
     for (const b of this.list) {
       b.moving = false;
+      if (b.ctl) continue; // [v26 staff] driven by game.staff (job building, lunch, home at night, hurt...)
       if (b.lodge.removed) continue;
       if (b.state === 'idle') {
         b.t -= dt;
@@ -439,7 +442,7 @@ export class BeaverSystem {
         if (b.t > 1.6) {
           // one serving = this many paid jobs for the whole crew
           const item = game.foodStore.takeFrom(b.snack, (id, F) => F?.beaver?.jobs || 0);
-          const jobs = item ? FOOD_ITEMS[item]?.beaver?.jobs || 1 : 0;
+          const jobs = Math.round((item ? FOOD_ITEMS[item]?.beaver?.jobs || 1 : 0) * (game.staff?.boost?.(b.snack) || 1)); // [v26 staff] a Snack Cook stretches every serving
           if (jobs) {
             this.credit = this.credit + jobs;
             b.sulk = false;
@@ -819,6 +822,7 @@ export class BeaverSystem {
 
   render(dt = 1 / 60) {
     for (const b of this.list) {
+      if (b.ctl) continue; // [v26 staff] game.staff poses + animates it
       const r = b.rig;
       r.root.position.set(b.x, b.y, b.z);
       r.root.rotation.set(0, Math.PI / 2 - b.heading, 0);

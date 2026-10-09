@@ -28,6 +28,8 @@ const TREE_SFX = {
 };
 TREE_SFX.select = ['lab_blip', 0.3];
 TREE_SFX.filter = ['lab_glitch', 0.3];
+// v26: the green terminal switches on with a short CRT thunk (no boot screen); the voxel lab fox hops, lands, types
+Object.assign(TREE_SFX, { open: ['lab_on', 0.4], hop: ['jump', 0.16], land: ['tick', 0.14], type: ['typing', 0.1], hover: ['tick', 0.05] });
 /** plays a LabTree sound name through the game's audio (shared with the toolbar lab, src/ui/UI.js) */
 export function labTreeSfx(game, n) { const m = TREE_SFX[n]; if (m) game.audio?.play?.(m[0], { volume: m[1] }); }
 
@@ -367,6 +369,8 @@ export class LabMode {
       onClose: () => (onClose ? onClose() : this.closeTree()),
       coins: () => game.state.coins,
       speed: () => (fn('researchSpeed') ? game.researchSpeed() : 1),
+      // v26: the lab fox keeps quiet while the tutorial teacher is talking
+      quiet: () => !!(game.tutorial?.active && !game.state.tutorialDone),
     };
     if (fn('researchJobs')) {
       opts.jobs = () => game.researchJobs();

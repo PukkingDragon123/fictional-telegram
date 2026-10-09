@@ -1,11 +1,17 @@
-// LabTree: Reynard's research skill tree, shown on the lab computer.
+// LabTree: Reynard's research computer (v26 remake): a plain green-phosphor
+// terminal that opens instantly. No boot screen, no top bar, no glitches.
 //
-// Research is FREE but TIMED: picking a node puts it on a lab "bench" and it
-// finishes after `time` seconds of game time. The tree is a pan/zoom canvas of
-// branches (one coloured band per branch, nodes laid out by `col` / `row`),
-// joined by pipes routed around other nodes. A detail panel shows what a node
-// unlocks (art + names), its time and its requirements (with ✓ / ✗), and a big
-// "RESEARCH — FREE" button. The bench bar at the bottom shows running jobs.
+//   left   section list ("jump to"), the lab benches with running jobs, coins, EXIT
+//   middle the research map: ONE canvas (src/ui/lab/treeView.js) with the sections
+//          as stacked bands, nodes on a grid by requirement depth, orthogonal wires
+//          (layout: src/ui/lab/layout.js). Drag / wheel / pinch to pan + zoom.
+//   right  details of the selected node (or locked section) + RESEARCH / RUSH / UNLOCK
+//   + Reynard himself, a tiny 3D voxel fox in a lab coat hopping between the
+//     nodes and talking you through it (src/ui/labFox.js)
+// On a phone the side column becomes a bottom dock and the details a bottom sheet.
+//
+// Research is FREE but TIMED: picking a node puts it on a lab bench; a running job can
+// be rushed with coins. Sections (= branches) can be locked behind a section key.
 //
 //   const tree = new LabTree(container, {
 //     research, branches,                // data (src/data/research.js)
@@ -14,34 +20,32 @@
 //     onResearch: (id) => bool,          // = game.startResearch (or instant game.research)
 //     jobs: () => [{ id, k, left, time }],  // running jobs (optional: no jobs => instant research)
 //     slots: () => number,               // lab benches (default 1)
-//     zoneName: (zid) => 'Dale',         // neighbour that opens a zone
-//     isZoneOpen: (zid) => bool,
-//     icon: (name, scale) => '<img ...>' or '',
+//     zoneName: (zid) => 'Dale',  isZoneOpen: (zid) => bool,
 //     fishCanvas?: (species, { frame, scale }) => canvas,
-//     preview?: (node, canvas, t) => bool,  // custom showcase drawing
-//     sfx?: (name) => void,              // hover click select filter error start done unlock zoom
-//                                        // v18: rush rushnow decrypt denied fox foxyay beam
+//     sfx?: (name) => void,              // hover click select error start done unlock rush rushnow
+//                                        // decrypt denied fox foxyay sector open off hop type
 //     onClose,
-//     // v18 (all optional; `game` fills in whatever is missing from a Game):
-//     coins?: () => number,              // shown in the header, buys rushes + section keys
-//     speed?: () => number,              // research speed multiplier (readout)
-//     rushPrice?: (id, mode) => number,  // mode 'half' (-50% time left) | 'now' (finish)
-//     onRush?: (id, mode) => ({ ok, msg }),
+//     coins?: () => number, speed?: () => number,
+//     rushPrice?: (id, mode) => number, onRush?: (id, mode) => ({ ok, msg }),   // mode 'half' | 'now'
 //     sections?: { isOpen(b), key(b) => { needs:[{kind,ok,text,id}], coins, ready, canUnlock }, unlock(b) => ({ ok, msg }) },
+//     quiet?: () => bool,                // the fox keeps his mouth shut (tutorial talking)
 //     game?,                             // a Game: supplies coins/speed/rush/sections
 //   });
-//
-// v18: tree SECTIONS (= branches) can be ENCRYPTED: their nodes hide behind a
-// glitchy seal with the node count and the section key + a DECRYPT button.
-// Running jobs can be rushed for coins. Reynard (src/ui/labFox.js) walks the
-// pipes, hops onto the job being researched and works on it.
 //   tree.refresh(); tree.select(id); tree.destroy();
 //
-// The container should be a positioned element with a size; the tree fills it.
+// Stable hooks for the tutorial (src/game/Tutorial.js LAB_SEL): `.lt-node[data-id]`
+// (invisible boxes that track the canvas nodes), `.lt-go`, `.lt-bench`, `.lt-slotc[data-job]`.
 import './labtree.css';
 import * as SPECIES_DATA from '../data/species.js';
 import * as STRUCT_DATA from '../data/structures.js';
+import { layoutTree } from './lab/layout.js';
+import { TreeView, fmtClock } from './lab/treeView.js';
+import { IconBank } from './lab/icons.js';
+import { glyphHTML } from './lab/glyphs.js';
+import * as Guide from './lab/guide.js';
 import { LabFox } from './labFox.js';
+
+export { fmtClock };
 
 // fish art is optional (import.meta.glob keeps the build working without it)
 const OPTIONAL = import.meta.glob('../art/fishArt.js');
@@ -54,26 +58,12 @@ function loadFish() {
   return fishMod;
 }
 
-// ---------------------------------------------------------------- layout
-const NODE = 64; // node slot size (32 art px at 2x)
-const COLW = 168; // column pitch
-const ROWH = 170; // lane pitch
-const NODE_DY = 80; // node centre below the lane top
-const LANE_DY = 4; // horizontal pipe lane below the lane top
-const PADL = 44;
-const PADT = 12;
-const PADR = 70;
-const PADB = 20;
-const WELL = 40; // icon area inside a slot
-const MINZ = 0.3;
 const MAXZ = 1.8;
-const PW = 150; // showcase canvas (shown scaled up)
-const PH = 70;
-
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const now = () => performance.now();
+const human = (s) => String(s || '').replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
 
 export function fmtDur(s) {
   if (Number(s) === Infinity) return '--:--';
@@ -83,360 +73,25 @@ export function fmtDur(s) {
   if (m < 60) return r ? `${m}m ${String(r).padStart(2, '0')}s` : `${m}m`;
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
-export function fmtClock(s) {
-  if (Number(s) === Infinity) return '--:--';
-  s = Math.max(0, Math.ceil(Number(s) || 0));
-  const m = Math.floor(s / 60);
-  return `${m}:${String(s % 60).padStart(2, '0')}`;
-}
 
 const MOD_TEXT = {
   beautyMult: 'beauty from decor', breedMult: 'breeding speed', bugMult: 'bug catches', bugBonus: 'bug per catch',
   capacityMult: 'pond capacity', clutchBonus: 'egg per clutch', eggSlots: 'incubator slot', hatchSpeed: 'hatch speed',
   fishValueMult: 'fish value', foodMult: 'food from snacks', goldenMult: 'golden fish chance', growthMult: 'fish growth speed',
   hybridMult: 'hybrid chance', morphMult: 'rare morph chance', produceMult: 'garden produce', snackMealMult: 'snack meal value',
-  traitMult: 'trait chance', labSlots: 'lab bench', beaverBonus: 'beaver per lodge', bagBonus: 'food bag size',
+  traitMult: 'trait chance', labSlots: 'lab bench', beaverBonus: 'beaver per lodge', bagBonus: 'food bag size', researchSpeed: 'research speed',
 };
 function modLine(k, v) {
   const t = MOD_TEXT[k] || k.replace(/([A-Z])/g, ' $1').toLowerCase();
   const n = Number(v);
   if (!Number.isFinite(n)) return t;
-  if (/Mult$|Speed$/.test(k)) return `+${Math.round(n * 100)}% ${t}`;
+  if (/Mult$|Speed$|^researchSpeed$/.test(k)) return `+${Math.round(n * 100)}% ${t}`;
   return `+${n} ${t}${n > 1 && !/s$/.test(t) && !/(size|chance|speed)$/.test(t) ? 's' : ''}`;
 }
-const human = (s) => String(s || '').replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
 
-function hashStr(s) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
-}
-function rng(seed) {
-  let s = seed >>> 0 || 1;
-  return () => {
-    s ^= s << 13; s >>>= 0;
-    s ^= s >> 17;
-    s ^= s << 5; s >>>= 0;
-    return s / 4294967296;
-  };
-}
+const STATE_TEXT = { done: 'RESEARCHED', run: 'RESEARCHING', avail: 'READY', zone: 'NEEDS A NEIGHBOUR', locked: 'LOCKED', sealed: 'SECTION LOCKED' };
 
-// ---------------------------------------------------------------- pixel art
-function makeCanvas(w, h) {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return c;
-}
-
-// 32x32 ornate icon slot: rounded metal ring lit from the top left, dark
-// bevel, scroll ornaments in the corners, a status gem on top and a dark well.
-const SLOT_PALS = {
-  gold: { k: '#1c1006', h: '#fff8c8', g: '#ffc936', a: '#d8901a', s: '#a0600e', i: '#3c2406', y: '#ffffff', o: '#5c3206', e: '#5dff8f', E: '#e6ffee', w: '#2a2410', v: '#241e0c' },
-  brass: { k: '#150b04', h: '#eec38a', g: '#b87c3a', a: '#8a5528', s: '#5e3719', i: '#241306', y: '#ffe2b4', o: '#3e220c', e: '#7dffa8', E: '#e8fff0', w: '#14262a', v: '#102024' },
-  teal: { k: '#03141a', h: '#d0f8ff', g: '#5fd0f0', a: '#2c9cc8', s: '#1a6688', i: '#06222c', y: '#ffffff', o: '#0c3a4a', e: '#ffe14a', E: '#fffbd0', w: '#0a2a34', v: '#08222c' },
-  iron: { k: '#040405', h: '#6e737d', g: '#454953', a: '#33363e', s: '#22242a', i: '#0a0b0d', y: '#8a8f99', o: '#141519', e: '#5a2020', E: '#8a3a3a', w: '#14181c', v: '#101418' },
-  ember: { k: '#070405', h: '#8a7a6a', g: '#5a4a40', a: '#463a32', s: '#2c2420', i: '#0c0908', y: '#a89a88', o: '#1a1410', e: '#ff9a3a', E: '#ffe0b0', w: '#1a1612', v: '#15120f' },
-};
-const CORNER = [
-  '..kkkkk',
-  '.kyyyyH',
-  'kyoooyg',
-  'kyoyyog',
-  'kyoyo..',
-  'kyyo...',
-  'kVgg...',
-];
-function slotCanvas(p) {
-  const S = 32;
-  const cv = makeCanvas(S, S);
-  const c = cv.getContext('2d');
-  const put = (x, y, col) => { c.fillStyle = col; c.fillRect(x, y, 1, 1); };
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      const ex = Math.min(x, S - 1 - x), ey = Math.min(y, S - 1 - y);
-      if (ex + ey < 2) continue;
-      const d = Math.min(ex, ey);
-      const top = y === d && y <= S - 1 - y, left = x === d && x <= S - 1 - x;
-      let col;
-      if (d === 0 || ex + ey === 2) col = p.k;
-      else if (d === 1) col = top || left ? p.h : p.s;
-      else if (d === 2) col = p.g;
-      else if (d === 3) col = top || left ? p.a : p.g;
-      else if (d === 4) col = p.i;
-      else col = y % 2 ? p.v : p.w;
-      put(x, y, col);
-    }
-  }
-  for (const [fx, fy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-    CORNER.forEach((row, y) => {
-      for (let x = 0; x < row.length; x++) {
-        let ch = row[x];
-        if (ch === '.') continue;
-        if (ch === 'H') ch = fy ? 's' : 'h';
-        else if (ch === 'V') ch = fx ? 's' : 'h';
-        put(fx ? S - 1 - x : x, fy ? S - 1 - y : y, p[ch]);
-      }
-    });
-  }
-  const GEM = ['.kkkk.', 'kEeeek', 'keeeek', '.kkkk.'];
-  const gx = S / 2 - 3;
-  GEM.forEach((row, y) => { for (let x = 0; x < 6; x++) if (row[x] !== '.') put(gx + x, y, p[row[x]]); });
-  const m = S / 2;
-  for (const [x, y] of [[m - 1, S - 3], [m, S - 3], [2, m - 1], [2, m], [S - 3, m - 1], [S - 3, m]]) put(x, y, p.o);
-  for (const [x, y] of [[m - 1, S - 2], [2, m - 2], [S - 3, m - 2]]) put(x, y, p.y);
-  return cv;
-}
-
-function pixSVG(rows, pal, scale = 2, cls = '') {
-  const w = rows[0].length, h = rows.length;
-  let r = '';
-  rows.forEach((row, y) => {
-    for (let x = 0; x < w; x++) {
-      const ch = row[x];
-      if (ch === '.') continue;
-      r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${pal[ch]}"/>`;
-    }
-  });
-  return `<svg class="${cls}" width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
-}
-const FOX_LOGO = pixSVG([
-  'o.........o',
-  'oo.......oo',
-  'oOo.....oOo',
-  'oOOoooooOOo',
-  'oooooooooo.',
-  'oo.kook.ooo',
-  'oooooooooo.',
-  '.oowwwwwoo.',
-  '..owwkwwo..',
-  '...owwwo...',
-  '....ooo....',
-], { o: '#ff9a3a', O: '#7a3a12', k: '#1a0c04', w: '#fff1d6' }, 3, 'lt-logo');
-
-// tiny glyphs drawn here so they never depend on the sprite sheet
-const G_CHECK = pixSVG(['......k', '.....kg', 'k...kg.', 'gk.kg..', '.gkg...', '..g....'], { k: '#2a8a3a', g: '#7dffa8' }, 2, 'lt-g');
-const G_CROSS = pixSVG(['r...r', '.r.r.', '..r..', '.r.r.', 'r...r'], { r: '#ff6a5a' }, 2, 'lt-g');
-const G_CLOCK = pixSVG(['.kkkk.', 'kwwkwk', 'kwwkwk', 'kwwkkk', 'kwwwwk', '.kkkk.'], { k: '#2b2a24', w: '#fff1c8' }, 2, 'lt-g');
-const G_LOCK = pixSVG(['.kkk.', 'k...k', 'k...k', 'kkkkk', 'kgggk', 'kgkgk', 'kgggk', 'kkkkk'], { k: '#1a1410', g: '#ffd23f' }, 2, 'lt-g');
-const G_PAW = pixSVG(['.k.k.', 'k.k.k', '.....', '.kkk.', 'kkkkk', '.kkk.'], { k: '#ffb060' }, 2, 'lt-g');
-const G_BOLT = pixSVG(['...kk', '..kk.', '.kkkk', 'kkkk.', '..kk.', '.kk..', '.k...'], { k: '#ffe14a' }, 2, 'lt-g');
-const G_FF = pixSVG(['k..k...', 'kk.kk..', 'kkkkkk.', 'kkkkkkk', 'kkkkkk.', 'kk.kk..', 'k..k...'], { k: '#ffffff' }, 2, 'lt-g');
-const G_COIN = pixSVG(['.kkkk.', 'kyyyyk', 'kyhyyk', 'kyhyyk', 'kyyyyk', '.kkkk.'], { k: '#8a5a00', y: '#ffd23f', h: '#fff6c0' }, 2, 'lt-g lt-coin');
-const G_KEY = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.....'], { k: '#7dffa8' }, 2, 'lt-g');
-const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#04161c', g: '#5fd0f0', r: '#2c9cc8' }, 4, 'lt-g lt-sealg');
-const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#f4ecd2' }, 3, 'lt-g');
-
-const G_X = pixSVG(['k...k', '.k.k.', '..k..', '.k.k.', 'k...k'], { k: '#ffffff' }, 3, 'lt-g');
-
-// v19: the computer chrome (boot text, idle terminal chatter, side data streams)
-const BOOT_LINES = [
-  '<b>REYNARD-TEK</b> HOLO-BIOS 19.0 <em>(c) Evil Genius Industries</em>',
-  'R&amp;D-OS v19 booting...',
-  '<span class="ok">[ OK ]</span> quantum flask array',
-  '<span class="ok">[ OK ]</span> pond telemetry uplink',
-  '<span class="ok">[ OK ]</span> sector cipher daemon',
-  '<span class="wr">[WARN]</span> coffee reserves low',
-  '&gt; mounting research tree<i class="lt-bcur"></i>',
-];
-const IDLE_LOG = [
-  'scanning pond telemetry... 0 anomalies',
-  'cipher daemon idle. sectors standing by',
-  'coffee levels: CRITICAL',
-  'holo-projector calibrated',
-  'reticulating fish splines...',
-  'uplink to e-Buy: stable',
-  'beaver labour union: still not recognised',
-  'sweeping encrypted sectors...',
-  'quantum flask at 3.7 K',
-  'world domination plan: 2% complete',
-];
-const STREAMS = (() => {
-  const R = (() => { let a = 1234567; return () => ((a = (a * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); })();
-  const glyph = '01<>[]#=+*/ABCDEF0123456789';
-  let h = '';
-  for (let c = 0; c < 6; c++) {
-    let txt = '';
-    for (let i = 0; i < 40; i++) txt += glyph[Math.floor(R() * glyph.length)] + '\n';
-    txt += txt; // two copies: the column scrolls by half its height and loops seamlessly
-    h += `<i style="--x:${8 + c * 17 + Math.round(R() * 8)}%;--d:${(9 + R() * 9).toFixed(1)}s;--o:${(-R() * 9).toFixed(1)}s">${txt}</i>`;
-  }
-  return h;
-})();
-let PC_OPEN = 0; // trees on screen: the page body gets .lt-pc (the computer takes over)
-
-// ---------------------------------------------------------------- pipe router
-// Orthogonal routing on a half-cell grid: node (col,lane) sits at (2col+1,
-// 2lane+1); even coordinates are the lanes between columns / rows. Pipes may
-// share cells only with pipes of the same source (a trunk that splits) or the
-// same target (inputs that merge). Anything else may only be crossed straight
-// at a right angle (drawn as a little bridge).
-const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-const OPP = [1, 0, 3, 2];
-const TURN = 1.6;
-const CROSS = 3.5;
-const JOIN = 0.5;
-const NEWCELL = 0.25;
-
-class MinHeap {
-  constructor() { this.k = []; this.v = []; this.top = 0; }
-  get size() { return this.k.length; }
-  push(key, val) {
-    const k = this.k, v = this.v;
-    let i = k.length;
-    k.push(key); v.push(val);
-    while (i > 0) {
-      const p = (i - 1) >> 1;
-      if (k[p] <= key) break;
-      k[i] = k[p]; v[i] = v[p]; i = p;
-    }
-    k[i] = key; v[i] = val;
-  }
-  pop() {
-    const k = this.k, v = this.v;
-    const rv = v[0];
-    this.top = k[0];
-    const lk = k.pop(), lv = v.pop();
-    const n = k.length;
-    if (n) {
-      let i = 0;
-      for (;;) {
-        const l = 2 * i + 1, r = l + 1;
-        let m = i, mk = lk;
-        if (l < n && k[l] < mk) { m = l; mk = k[l]; }
-        if (r < n && k[r] < mk) { m = r; mk = k[r]; }
-        if (m === i) break;
-        k[i] = k[m]; v[i] = v[m]; i = m;
-      }
-      k[i] = lk; v[i] = lv;
-    }
-    return rv;
-  }
-}
-
-function routePipes(nodes, byId, GW, GH) {
-  const key = (x, y) => y * GW + x;
-  const nodeCell = new Set(nodes.map((n) => key(n.gx, n.gy)));
-  const nodeAt = new Map(nodes.map((n) => [key(n.gx, n.gy), n]));
-  const teeOK = (k, common) => {
-    const x = k % GW, y = (k / GW) | 0;
-    for (const [dx, dy] of DIRS) {
-      const nx = x + dx, ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
-      const n = nodeAt.get(key(nx, ny));
-      if (n && n !== common) return false;
-    }
-    return true;
-  };
-  const occ = new Map();
-  const edges = [];
-  for (const n of nodes) for (const r of n.req) { const p = byId.get(r); if (p && p !== n) edges.push({ src: p, dst: n, pts: null, bridges: [] }); }
-  const rank = (e) => {
-    const dr = Math.abs(e.src.lane - e.dst.lane), dc = Math.abs(e.src.col - e.dst.col);
-    if (dr === 0 && dc === 1) return 0;
-    if (dc === 0 && dr === 1) return 1;
-    return 2 + dr + dc * 0.9;
-  };
-  edges.sort((a, b) => rank(a) - rank(b));
-  const shares = (list, e) => !!list && list.some((o) => o.e.src === e.src || o.e.dst === e.dst);
-  const passCost = (k, din, dout, e) => {
-    const list = occ.get(k);
-    if (!list) return 0;
-    let c = 0;
-    for (const o of list) {
-      const common = o.e.src === e.src ? e.src : o.e.dst === e.dst ? e.dst : null;
-      if (common) {
-        if (o.din === din && o.dout === dout) continue;
-        if (!teeOK(k, common)) return -1;
-        c += JOIN;
-        continue;
-      }
-      if (din === dout && o.din === o.dout && (din < 2) !== (o.din < 2)) c += CROSS;
-      else return -1;
-    }
-    return c;
-  };
-  const N = GW * GH * 5;
-  const dist = new Float64Array(N);
-  const prev = new Int32Array(N);
-  for (const e of edges) {
-    const sx = e.src.gx, sy = e.src.gy, tx = e.dst.gx, ty = e.dst.gy;
-    dist.fill(Infinity);
-    prev.fill(-1);
-    const heap = new MinHeap();
-    const s0 = key(sx, sy) * 5 + 4;
-    dist[s0] = 0;
-    heap.push(0, s0);
-    let found = -1;
-    let guard = 0;
-    while (heap.size && guard++ < 400000) {
-      const s = heap.pop();
-      const d = heap.top;
-      if (d > dist[s]) continue;
-      const k = (s / 5) | 0, din = s - k * 5, x = k % GW, y = (k / GW) | 0;
-      if (x === tx && y === ty) { found = s; break; }
-      const atStart = x === sx && y === sy;
-      for (let dir = 0; dir < 4; dir++) {
-        if (din !== 4 && dir === OPP[din]) continue;
-        const nx = x + DIRS[dir][0], ny = y + DIRS[dir][1];
-        if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
-        const nk = key(nx, ny);
-        const isT = nx === tx && ny === ty;
-        if (!isT && nodeCell.has(nk)) continue;
-        let c = 1;
-        if (atStart) {
-          if (dir === 1) c += 3;
-          else if (dir === 3) c += 0.6;
-        } else {
-          if (dir !== din) c += TURN;
-          const pc = passCost(k, din, dir, e);
-          if (pc < 0) continue;
-          c += pc;
-        }
-        if (isT) {
-          if (dir === 1) c += 3;
-          else if (dir === 3) c += 1.2;
-        } else if (!shares(occ.get(nk), e)) c += NEWCELL;
-        const ns = nk * 5 + dir, nd = d + c;
-        if (nd < dist[ns]) { dist[ns] = nd; prev[ns] = s; heap.push(nd, ns); }
-      }
-    }
-    const pts = [];
-    if (found >= 0) {
-      for (let s = found; s >= 0; s = prev[s]) { const k = (s / 5) | 0; pts.push([k % GW, (k / GW) | 0]); }
-      pts.reverse();
-      const dirOf = (a, b) => (b[0] > a[0] ? 0 : b[0] < a[0] ? 1 : b[1] > a[1] ? 2 : 3);
-      for (let i = 1; i < pts.length - 1; i++) {
-        const p = pts[i], k = key(p[0], p[1]);
-        const din = dirOf(pts[i - 1], p), dout = dirOf(p, pts[i + 1]);
-        let list = occ.get(k);
-        if (!list) occ.set(k, (list = []));
-        for (const o of list) if (o.e.src !== e.src && o.e.dst !== e.dst) e.bridges.push({ gx: p[0], gy: p[1], h: din < 2 });
-        list.push({ e, din, dout });
-      }
-    } else {
-      pts.push([sx, sy], [sx + (tx > sx ? 1 : -1), sy], [sx + (tx > sx ? 1 : -1), ty], [tx, ty]);
-    }
-    e.pts = pts;
-  }
-  return edges;
-}
-
-// ---------------------------------------------------------------- component
-const STATE_TEXT = {
-  done: 'Researched',
-  run: 'Researching...',
-  avail: 'Ready to research',
-  zone: 'Needs a neighbour',
-  locked: 'Locked',
-  sealed: 'Encrypted',
-};
-const SCRAMBLE = '#$%&@*+=?/<>[]{}01';
-function scramble(s, k = 1, seed = 1) {
-  const R = rng(seed);
-  return String(s).replace(/[^\s]/g, (c) => (R() < k ? SCRAMBLE[Math.floor(R() * SCRAMBLE.length)] : c));
-}
-// fills missing v18 options from a Game (explicit `game`, or the page's game when the tree runs inside it)
+// fills missing options from a Game (explicit `game`, or the page's game when the tree runs inside it)
 function withGame(opts) {
   let G = opts.game || null;
   if (!G && typeof window !== 'undefined' && opts.jobs && window.__game && typeof window.__game.sectionOpen === 'function') G = window.__game;
@@ -446,42 +101,58 @@ function withGame(opts) {
   if (!o.speed && typeof G.researchSpeed === 'function') o.speed = () => G.researchSpeed();
   if (!o.onRush && typeof G.rushResearchPaid === 'function') { o.rushPrice = (id, m) => G.rushResearchPrice(id, m); o.onRush = (id, m) => G.rushResearchPaid(id, m); }
   if (!o.sections && typeof G.sectionOpen === 'function') o.sections = { isOpen: (b) => G.sectionOpen(b), key: (b) => G.sectionKey(b), unlock: (b) => G.unlockSection(b) };
+  if (!o.quiet) o.quiet = () => !!(G.tutorial?.active && !G.state?.tutorialDone);
   return o;
 }
 
-export class LabTree {
-  static _art = { slotCanvas, SLOT_PALS };
+// one layout per data set (the research data is static once the game has loaded)
+let LAYOUT = null;
+function layoutFor(branches, research) {
+  const sig = branches.map((b) => b.id).join(',') + '|' + research.map((r) => r.id + ':' + r.branch + ':' + (r.req || []).join('+')).join(',');
+  if (LAYOUT && LAYOUT.sig === sig) return LAYOUT.L;
+  const L = layoutTree(branches, research);
+  LAYOUT = { sig, L };
+  return L;
+}
 
+let PC_OPEN = 0; // trees on screen: the page body gets .lt-pc (the computer takes over)
+
+export class LabTree {
   constructor(container, opts = {}) {
+    const t0 = now();
     this.container = container;
     this.o = opts = withGame(opts);
     this._alive = true;
     this._timers = new Set();
     this._off = [];
-    this._st = new Map();
-    this._iconInfo = new Map();
-    this._fishFrames = new Map();
-    this._silhouettes = new Map();
     this._ptrs = new Map();
-    this._toasts = [];
-    this._bursts = [];
     this._jobs = [];
+    this._jobIds = new Set();
     this._jobSig = '';
     this._lastPoll = 0;
-    this._lastDraw = 0;
-    this._t0 = now();
-    this._fish = null;
-    this.filter = null;
+    this._fx = [];
+    this._toastQ = [];
     this.cam = { x: 0, y: 0, z: 1 };
     this.goal = null;
+    this.sel = null;
+    this.selSec = null;
+    this.hover = null;
+    this.hoverTag = null;
+    this._dirty = true;
 
-    this._layout(opts);
+    const branches = (opts.branches || []).filter(Boolean);
+    const research = (opts.research || []).filter((d) => d && d.id && branches.some((b) => b.id === d.branch));
+    this.L = layoutFor(branches, research);
+    this.nodes = this.L.nodes;
+    this.sections = this.L.sections;
+    this.byId = this.L.byId;
+    this.icons = new IconBank({ fishCanvas: opts.fishCanvas || null });
+
     if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
-    // v19: just the computer: the game HUD steps aside while a tree is on screen
     if (++PC_OPEN === 1) document.body.classList.add('lt-pc');
     this._buildDOM();
-    this._buildTree();
-    this._buildChips();
+    this.view3 = new TreeView(this.cv, this.L, this.icons);
+    if (!this.L.nodes[0]?.nameLines) this.view3.measure();
     this._pollJobs(true);
     this.refresh(true);
     this._bind();
@@ -489,128 +160,66 @@ export class LabTree {
     const first = this._initialNode();
     if (first) this._select(first, { pan: false, sound: false, open: false });
     this._centerOn(first, true);
+    this._draw();
     this._sfx('open');
-    try { this.fox = new LabFox(this); } catch (err) { console.warn('LabFox failed', err); this.fox = null; }
+    this.openMs = now() - t0;
     this._raf = requestAnimationFrame(this._loop);
-    loadFish().then((m) => this._onFish(m));
+    // the pixel font may still be loading on a cold start: re-fit the names once it's in
+    if (document.fonts && !document.fonts.check?.('14px "TBME Title"')) {
+      document.fonts.load('14px "TBME Title"').then(() => { if (this._alive) { this.view3.measure(); this._dirty = true; } }).catch(() => {});
+    }
+    if (!opts.fishCanvas) loadFish().then((m) => { if (this._alive && m?.fishCanvas) { this.icons = new IconBank({ fishCanvas: m.fishCanvas }); this.view3.icons = this.icons; this._renderDetail(); this._renderBench(); this._dirty = true; } });
+    // Reynard hops in a moment later (building his voxel rig must not delay the screen)
+    this._later(() => {
+      try { this.fox = new LabFox(this); } catch (err) { console.warn('LabFox failed', err); this.fox = null; }
+    }, 30);
   }
-
-  // ------------------------------------------------------------ data / layout
-  _layout(opts) {
-    const branches = (opts.branches || []).slice();
-    const byBranch = new Map(branches.map((b) => [b.id, []]));
-    (opts.research || []).forEach((d, idx) => { if (d && byBranch.has(d.branch)) byBranch.get(d.branch).push({ d, idx }); });
-    this.branches = [];
-    this.nodes = [];
-    let lane = 0;
-    for (const b of branches) {
-      const list = byBranch.get(b.id);
-      if (!list.length) continue;
-      const rows = list.reduce((m, x) => Math.max(m, Math.max(0, x.d.row | 0)), 0) + 1;
-      const bi = this.branches.length;
-      const B = { b, i: bi, lane0: lane, lanes: rows, nodes: [], color: b.color || '#7dffa8' };
-      this.branches.push(B);
-      for (const { d, idx } of list) {
-        const col = Math.max(0, d.col | 0), ln = lane + Math.max(0, d.row | 0);
-        const n = {
-          id: d.id, d, idx, B, col, lane: ln, gx: 2 * col + 1, gy: 2 * ln + 1,
-          req: (d.req || []).filter(Boolean), time: Number(d.time) || 0, zone: d.zone || null, kids: [],
-        };
-        B.nodes.push(n);
-        this.nodes.push(n);
-      }
-      lane += rows;
-    }
-    this.lanes = lane;
-    this.byId = new Map(this.nodes.map((n) => [n.id, n]));
-    // two nodes in one cell: nudge the later one right
-    const taken = new Set();
-    for (const n of this.nodes) {
-      while (taken.has(`${n.col},${n.lane}`)) n.col++;
-      taken.add(`${n.col},${n.lane}`);
-      n.gx = 2 * n.col + 1;
-    }
-    for (const n of this.nodes) for (const r of n.req) this.byId.get(r)?.kids.push(n);
-    this.maxCol = this.nodes.reduce((m, n) => Math.max(m, n.col), 0);
-    this.GW = 2 * (this.maxCol + 1) + 1;
-    this.GH = 2 * Math.max(1, this.lanes) + 1;
-    this.W = PADL + (this.maxCol + 1) * COLW + PADR;
-    this.H = PADT + Math.max(1, this.lanes) * ROWH + PADB;
-    for (const n of this.nodes) { n.x = this._X(n.gx); n.y = this._Y(n.gy); }
-    for (const B of this.branches) {
-      B.y = PADT + B.lane0 * ROWH;
-      B.h = B.lanes * ROWH;
-      B.c0 = Math.min(...B.nodes.map((n) => n.col));
-      B.c1 = Math.max(...B.nodes.map((n) => n.col));
-    }
-  }
-
-  _X(gx) { return PADL + (gx * COLW) / 2; }
-  _Y(gy) { return PADT + Math.floor(gy / 2) * ROWH + (gy % 2 ? NODE_DY : LANE_DY); }
 
   // ------------------------------------------------------------ public API
   refresh(initial = false) {
     if (!this._alive) return;
     const changed = [];
     const opened = [];
-    for (const B of this.branches) {
-      const sealed = this._sealed(B);
-      if (sealed !== B.sealed) {
-        const was = B.sealed;
-        B.sealed = sealed;
-        B.band?.classList.toggle('is-sealed', sealed);
-        B.tab?.classList.toggle('is-sealed', sealed);
-        if (!initial && was && !sealed) opened.push(B);
-        else if (B.seal) B.seal.hidden = !sealed;
+    for (const S of this.sections) {
+      const sealed = this._sealedCalc(S);
+      if (sealed !== S.sealed) {
+        if (!initial && S.sealed && !sealed) opened.push(S);
+        S.sealed = sealed;
+        this._dirty = true;
       }
-      if (sealed) this._renderSeal(B);
     }
-    for (const n of this.nodes) {
-      const st = this._calc(n);
-      const prev = this._st.get(n.id);
-      if (prev === st) continue;
-      this._st.set(n.id, st);
-      const el = n.el;
-      for (const s of ['done', 'run', 'avail', 'zone', 'locked', 'sealed']) el.classList.toggle(`is-${s}`, st === s);
-      el.style.setProperty('--slot', `var(--lt-slot-${st === 'done' ? 'gold' : st === 'avail' ? 'brass' : st === 'run' ? 'teal' : st === 'zone' ? 'ember' : 'iron'})`);
-      el.tabIndex = st === 'sealed' ? -1 : el.tabIndex;
-      el.setAttribute('aria-label', `${n.d.name}: ${STATE_TEXT[st]}`);
-      this._nodeBadge(n, st);
-      if (!initial && prev) changed.push([n, prev, st]);
+    const sp = this._speed();
+    for (const N of this.nodes) {
+      const st = this._calc(N);
+      const line = this._line(N, st, sp);
+      if (line !== N.line) { N.line = line; this._dirty = true; }
+      const prev = N.st;
+      if (prev === st && !initial) continue;
+      N.st = st;
+      this._dirty = true;
+      if (!initial && prev) changed.push([N, prev, st]);
     }
-    // pipes
-    for (const e of this.edges) {
-      const a = this._st.get(e.src.id), b = this._st.get(e.dst.id);
-      const s = a === 'sealed' || b === 'sealed' ? 'sealed' : a === 'done' ? (b === 'done' ? 'done' : b === 'run' ? 'run' : 'on') : 'off';
-      if (e.s === s) continue;
-      const was = e.s;
-      e.s = s;
-      for (const p of e.els) p.setAttribute('data-s', s);
-      if (!initial && (was === 'off' || was === 'sealed') && s !== 'off' && s !== 'sealed') this._surge(e);
+    for (const [N, prev, st] of changed) {
+      if (st === 'done') this._celebrate(N, prev);
+      else if (st === 'run' && prev !== 'run') this.fox?.onStart?.(N);
     }
-    for (const [n, prev, st] of changed) {
-      if (st === 'done') { this._celebrate(n, prev); if (prev === 'run') this.fox?.onDone(n); }
-      else if (prev === 'sealed') continue;
-      else if ((prev === 'locked' || prev === 'zone') && (st === 'avail' || st === 'zone')) this._fx(n.el, 'is-unlocking', 900);
-      else if (st === 'run' && prev !== 'run') { this._fx(n.el, 'is-start', 900); this.fox?.onStart(n); }
+    for (const S of opened) this._decrypted(S);
+    if (this.selSec && !this.selSec.sealed) {
+      const S = this.selSec;
+      this.selSec = null;
+      const pick = S.nodes.find((N) => N.st === 'avail') || S.nodes[0];
+      if (pick) this._select(pick, { pan: false, sound: false, open: false });
     }
-    for (const B of opened) this._decrypted(B);
-    if (this.selSec && !this.selSec.sealed) { const B = this.selSec; this.selSec = null; const pick = B.nodes.find((n) => this._st.get(n.id) === 'avail') || B.nodes[0]; if (pick) this._select(pick, { pan: false, sound: false, open: false }); }
-    const done = this.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
-    const secs = this.branches.filter((B) => !B.sealed).length;
-    const cnt = `<b>${done}</b>/${this.nodes.length}<small>${secs}/${this.branches.length} SECTORS</small>`;
-    if (cnt !== this._cntHtml) { this._cntHtml = cnt; this.$count.innerHTML = cnt; }
-    this.$cbar.style.width = `${this.nodes.length ? (done / this.nodes.length) * 100 : 0}%`;
-    this._updateChips();
-    if (this.filter) this._applyFilter(false);
-    if (this.selSec) { if (initial || this._secSig !== this._keySig(this.selSec)) this._renderDetail(); }
-    else if (this.sel && (initial || changed.some(([n]) => n === this.sel || n.kids.includes(this.sel) || this.sel.req.includes(n.id)))) this._renderDetail();
+    this._renderSecs();
+    if (this.selSec) { if (initial || this._secSig !== this._keySig(this.selSec)) this._renderDetail(); else this._renderAct(); }
+    else if (this.sel && (initial || changed.some(([N]) => N === this.sel || N.kids.includes(this.sel) || this.sel.req.includes(N.id)))) this._renderDetail();
     else if (this.sel) this._renderAct();
+    if (changed.length || initial) this._renderBench();
   }
 
   select(id) {
-    const n = this.byId.get(id);
-    if (n) this._select(n, { pan: true, sound: false, open: true });
+    const N = this.byId.get(id);
+    if (N) this._select(N, { pan: true, sound: false, open: true });
   }
 
   destroy() {
@@ -624,36 +233,15 @@ export class LabTree {
     this._ro?.disconnect();
     try { this.fox?.destroy(); } catch { /* ignore */ }
     this.fox = null;
-    this._powerOff();
+    this._sfx('off');
     this.root.remove();
     if (--PC_OPEN <= 0) { PC_OPEN = 0; document.body.classList.remove('lt-pc'); }
   }
 
-  // v19: CRT power-off: a detached copy of the screen's outline collapses to a line, then a dot
-  // (lives on <body> for half a second, holds no tree markup, never takes input)
-  _powerOff() {
-    this._sfx('off');
-    if (REDUCED || !this.root.isConnected) return;
-    const r = (this.root.querySelector('.lt-screen') || this.root).getBoundingClientRect();
-    if (r.width < 40 || r.height < 40) return;
-    const el = document.createElement('div');
-    el.className = 'lt-crtoff';
-    el.setAttribute('aria-hidden', 'true');
-    el.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
-    el.innerHTML = '<i></i>';
-    document.body.appendChild(el);
-    el.firstChild.addEventListener('animationend', () => el.remove());
-    setTimeout(() => el.remove(), 2500);
-  }
-
-  // ------------------------------------------------------------ helpers
+  // ------------------------------------------------------------ helpers (also used by the fox / guide)
   _sfx(name) { try { this.o.sfx?.(name); } catch { /* ignore */ } }
   _isRes(id) { try { return !!this.o.isResearched?.(id); } catch { return false; } }
-  _icon(name, scale = 1) {
-    if (!name) return '';
-    try { return this.o.icon ? String(this.o.icon(name, scale) || '') : ''; } catch { return ''; }
-  }
-  _zoneName(z) {
+  zoneName(z) {
     try { const s = this.o.zoneName?.(z); if (s) return String(s); } catch { /* ignore */ }
     return 'a new neighbour';
   }
@@ -663,22 +251,27 @@ export class LabTree {
     return true;
   }
   _timed() { return typeof this.o.jobs === 'function'; }
-  // v18 sections: B = a laid-out branch
-  _sealed(B) {
-    if (!B || !this.o.sections?.isOpen) return false;
-    try { return !this.o.sections.isOpen(B.b.id); } catch { return false; }
+  _sealedCalc(S) {
+    if (!S || !this.o.sections?.isOpen) return false;
+    try { return !this.o.sections.isOpen(S.id); } catch { return false; }
   }
-  _secKey(B) {
+  secKey(S) {
     let k = null;
-    try { k = this.o.sections?.key?.(B.b.id) || null; } catch { k = null; }
+    try { k = this.o.sections?.key?.(S.id) || null; } catch { k = null; }
     return k || { needs: [], coins: 0, ready: true, canUnlock: true };
   }
-  _coins() { try { const c = Number(this.o.coins?.()); return Number.isFinite(c) ? c : null; } catch { return null; } }
+  coins() { try { const c = Number(this.o.coins?.()); return Number.isFinite(c) ? c : null; } catch { return null; } }
   _rushOK() { return typeof this.o.onRush === 'function' && typeof this.o.rushPrice === 'function'; }
-  _rushPrice(id, mode) { try { const v = Number(this.o.rushPrice(id, mode)); return Number.isFinite(v) ? v : null; } catch { return null; } }
-  _slots() {
-    try { const s = Number(this.o.slots?.()); return s > 0 ? Math.floor(s) : 1; } catch { return 1; }
-  }
+  rushPrice(id, mode) { if (!this._rushOK()) return null; try { const v = Number(this.o.rushPrice(id, mode)); return Number.isFinite(v) ? v : null; } catch { return null; } }
+  slots() { try { const s = Number(this.o.slots?.()); return s > 0 ? Math.floor(s) : 1; } catch { return 1; } }
+  _speed() { try { const v = Number(this.o.speed?.()); return v > 0 ? v : 1; } catch { return 1; } }
+  quiet() { try { return !!this.o.quiet?.(); } catch { return false; } }
+  st(N) { return N?.st || 'locked'; }
+  job(N) { return this._jobs.find((j) => j.id === N?.id) || null; }
+  time(N) { return (Number(N?.d.time) || 0) / this._speed(); }
+  fmt(s) { return fmtDur(s); }
+  get jobs() { return this._jobs; }
+
   _pollJobs(force) {
     let raw = null;
     if (this._timed()) { try { raw = this.o.jobs(); } catch { raw = null; } }
@@ -687,7 +280,7 @@ export class LabTree {
       for (const j of raw) {
         if (!j || !j.id) continue;
         const n = this.byId.get(j.id);
-        const time = Number(j.time ?? n?.time) || 0;
+        const time = Number(j.time ?? n?.d.time) || 0;
         const t = Number(j.t) || 0;
         const k = clamp(Number(j.k ?? (time ? t / time : 0)) || 0, 0, 1);
         const left = Math.max(0, Number(j.left ?? (time - t)) || 0);
@@ -696,30 +289,45 @@ export class LabTree {
     }
     this._jobs = list;
     this._jobIds = new Set(list.map((j) => j.id));
-    const sig = list.map((j) => j.id).join('|') + '#' + this._slots();
+    const sig = list.map((j) => j.id).join('|') + '#' + this.slots();
     const changed = sig !== this._jobSig;
     this._jobSig = sig;
     if (changed || force) this._renderBench();
     return changed;
   }
-  _job(id) { return this._jobs.find((j) => j.id === id) || null; }
-  _calc(n) {
-    if (this._isRes(n.id)) return 'done';
-    if (n.B.sealed) return 'sealed';
-    if (this._jobIds?.has(n.id)) return 'run';
-    if (!n.req.every((r) => this._isRes(r) || !this.byId.has(r))) return 'locked';
-    if (n.zone && !this._zoneOpen(n.zone)) return 'zone';
+
+  _calc(N) {
+    if (this._isRes(N.id)) return 'done';
+    if (N.S.sealed) return 'sealed';
+    if (this._jobIds?.has(N.id)) return 'run';
+    if (!N.req.every((r) => this._isRes(r) || !this.byId.has(r))) return 'locked';
+    if (N.d.zone && !this._zoneOpen(N.d.zone)) return 'zone';
     if (!this.o.isZoneOpen && this.o.canResearch) {
-      try { const r = this.o.canResearch(n.id); if (r && !r.ok && /^Meet /.test(r.reason || '')) return 'zone'; } catch { /* ignore */ }
+      try { const r = this.o.canResearch(N.id); if (r && !r.ok && /^Meet /.test(r.reason || '')) return 'zone'; } catch { /* ignore */ }
     }
     return 'avail';
   }
+
+  // the node's status line on the map
+  _line(N, st, sp) {
+    if (st === 'done') return 'RESEARCHED';
+    if (st === 'sealed') return 'SECTION LOCKED';
+    if (st === 'run') return '';
+    if (st === 'zone') return `MEET ${this.zoneName(N.d.zone).toUpperCase()}`;
+    if (st === 'locked') {
+      const miss = N.req.filter((r) => !this._isRes(r) && this.byId.has(r));
+      const P = this.byId.get(miss[0]);
+      return P ? `NEEDS ${P.d.name.toUpperCase()}${miss.length > 1 ? ` +${miss.length - 1}` : ''}` : 'LOCKED';
+    }
+    return this._timed() && N.d.time ? `READY  ${fmtDur(N.d.time / sp)}` : 'READY';
+  }
+
   _later(fn, ms) {
     const t = setTimeout(() => { this._timers.delete(t); if (this._alive) fn(); }, ms);
     this._timers.add(t);
     return t;
   }
-  _fx(el, cls, ms) {
+  _fxEl(el, cls, ms) {
     if (!el) return;
     el.classList.remove(cls);
     void el.offsetWidth;
@@ -730,70 +338,34 @@ export class LabTree {
     target.addEventListener(type, fn, opt);
     this._off.push(() => target.removeEventListener(type, fn, opt));
   }
-  _check(n) {
-    const st = this._st.get(n.id);
+  _check(N) {
+    const st = N.st;
     if (st === 'done') return { ok: false, reason: 'Already researched' };
     if (st === 'run') return { ok: false, reason: 'Researching...' };
-    if (st === 'sealed') return { ok: false, reason: `Decrypt ${n.B.b.name} first` };
+    if (st === 'sealed') return { ok: false, reason: `Unlock ${N.S.b.name} first` };
     let r = null;
-    if (this.o.canResearch) { try { r = this.o.canResearch(n.id); } catch { r = null; } }
+    if (this.o.canResearch) { try { r = this.o.canResearch(N.id); } catch { r = null; } }
     if (!r || typeof r !== 'object') r = { ok: st === 'avail' };
-    if (r.ok && this._timed() && this._jobs.length >= this._slots()) r = { ok: false, reason: 'Lab bench busy' };
-    if (!r.ok && !r.reason) {
-      r = { ok: false, reason: st === 'locked' ? 'Research the prerequisites first' : st === 'zone' ? `Meet ${this._zoneName(n.zone)} first` : 'Not available right now' };
-    }
+    if (r.ok && this._timed() && this._jobs.length >= this.slots()) r = { ok: false, reason: 'Lab bench busy' };
+    if (!r.ok && !r.reason) r = { ok: false, reason: st === 'locked' ? 'Research the prerequisites first' : st === 'zone' ? `Meet ${this.zoneName(N.d.zone)} first` : 'Not available right now' };
     return r;
   }
-  _iconMeta(name) {
-    let m = this._iconInfo.get(name);
-    if (!m) {
-      const html = this._icon(name, 1);
-      const w = +(/width="(\d+)"/.exec(html)?.[1] || 0), h = +(/height="(\d+)"/.exec(html)?.[1] || 0);
-      const src = /src="([^"]+)"/.exec(html)?.[1];
-      m = { ok: !!html, w: w || 12, h: h || 12, img: null, scale: Math.max(1, Math.floor(WELL / Math.max(w || 12, h || 12, 1))) };
-      if (src) { m.img = new Image(); m.img.src = src.replace(/&amp;/g, '&'); }
-      this._iconInfo.set(name, m);
+
+  /** what a node unlocks: [{ art, name, kind, fish }] */
+  unlocks(d, box = 28) {
+    const out = [];
+    for (const b of [].concat(d.build || [])) {
+      if (!b) continue;
+      const s = STRUCT_DATA.STRUCTURES?.[b];
+      out.push({ art: this.icons.iconHTML(s?.icon || b, box), name: s?.name || human(b), kind: 'Build' });
     }
-    return m;
-  }
-  // icon html scaled to fit `box` css px
-  _iconFit(name, box) {
-    let m = this._iconMeta(name);
-    if (!m.ok) { name = 'flask'; m = this._iconMeta(name); }
-    if (!m.ok) return '';
-    const s = Math.max(1, Math.floor(box / Math.max(m.w, m.h, 1)));
-    return this._icon(name, s);
-  }
-  _fishFrame(species, frame) {
-    const k = species + '#' + frame;
-    if (this._fishFrames.has(k)) return this._fishFrames.get(k);
-    let c = null;
-    const fn = this.o.fishCanvas || (this._fish && this._fish.fishCanvas);
-    if (typeof fn !== 'function') return null;
-    try {
-      c = fn(species, { frame, scale: 1 });
-      if (c && !c.getContext && c.canvas) c = c.canvas;
-      if (!c || !c.width || !c.getContext) c = null;
-    } catch { c = null; }
-    this._fishFrames.set(k, c);
-    return c;
-  }
-  _fishImg(species, box) {
-    const f = this._fishFrame(species, 0);
-    if (!f) return '';
-    const k = Math.min(box / f.width, (box * 0.8) / f.height, 3);
-    let url = '';
-    try { url = f.toDataURL(); } catch { url = ''; }
-    if (!url) return '';
-    return `<img class="px" src="${url}" width="${Math.round(f.width * k)}" height="${Math.round(f.height * k)}" alt="" draggable="false">`;
-  }
-  _nodeArt(n, box = WELL) {
-    if (n.d.species) { const f = this._fishImg(n.d.species, box); if (f) return f; }
-    return this._iconFit(n.d.icon, box);
-  }
-  _buildArt(id, box) {
-    const s = STRUCT_DATA.STRUCTURES?.[id];
-    return this._iconFit(s?.icon || id, box) || this._iconFit('hammer', box);
+    if (d.species) {
+      const sp = SPECIES_DATA.SPECIES_BY_ID?.[d.species];
+      out.push({ art: this.icons.nodeHTML({ species: d.species, icon: 'fish' }, box + 8), name: sp?.name || human(d.species), kind: 'Fish eggs', fish: true });
+    }
+    if (d.mods) for (const [k, v] of Object.entries(d.mods)) out.push({ art: this.icons.iconHTML(k === 'labSlots' ? 'flask' : 'bolt', box - 4), name: modLine(k, v), kind: 'Upgrade' });
+    if (d.feature) out.push({ art: this.icons.iconHTML('gear', box - 4), name: d.featureName || human(d.feature), kind: 'Feature' });
+    return out;
   }
 
   // ------------------------------------------------------------ DOM
@@ -801,396 +373,165 @@ export class LabTree {
     const root = document.createElement('div');
     root.className = 'ltree';
     root.setAttribute('role', 'dialog');
-    root.setAttribute('aria-label', 'Reynard Labs research tree');
+    root.setAttribute('aria-label', 'Reynard Labs research terminal');
+    const secs = this.sections.map((S) => `<button type="button" class="lt-sec" data-b="${S.i}"><span class="lt-sec-n">${String(S.i + 1).padStart(2, '0')}</span><span class="lt-sec-t">${esc(S.b.name)}</span><span class="lt-sec-c"></span></button>`).join('');
+    const anchors = this.nodes.map((N) => `<i class="lt-node" data-id="${esc(N.id)}" style="left:${N.x}px;top:${N.y}px;width:${N.w}px;height:${N.h}px"></i>`).join('');
     root.innerHTML = `
-      <div class="lt-bezel">
-        <div class="lt-screen">
-          <header class="lt-head">
-            ${FOX_LOGO}
-            <div class="lt-titles"><h1><span class="lt-h1t" data-t="Reynard Labs">Reynard Labs</span><span class="lt-ver">R&amp;D-OS v19</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
-            <div class="lt-coins" title="Your coins"${typeof this.o.coins === 'function' ? '' : ' hidden'}><span class="lt-coins-l">CREDITS</span><span class="lt-coins-v">${G_COIN}<b>0</b></span></div>
-            <div class="lt-count" title="Researched"><span class="lt-count-t"></span><span class="lt-cbar"><i></i></span></div>
-            <button class="lt-close" type="button" aria-label="Close research (Esc)"><span class="lt-close-x">${G_X}</span><span>EXIT</span><kbd>ESC</kbd></button>
-          </header>
-          <nav class="lt-chips" aria-label="Branches"></nav>
-          <div class="lt-body">
-            <div class="lt-view" tabindex="0" aria-label="Research tree. Drag to pan, scroll or pinch to zoom.">
-              <div class="lt-par lt-par-a" aria-hidden="true"></div>
-              <div class="lt-par lt-par-b" aria-hidden="true"></div>
-              <div class="lt-streams" aria-hidden="true">${STREAMS}</div>
-              <div class="lt-world"></div>
-              <div class="lt-tabs" aria-hidden="true"></div>
-              <div class="lt-zoom">
-                <button type="button" data-z="in" aria-label="Zoom in">+</button>
-                <button type="button" data-z="out" aria-label="Zoom out">−</button>
-                <button type="button" data-z="fit" aria-label="Show everything">${G_FIT}</button>
-              </div>
-              <div class="lt-tip" aria-hidden="true"></div>
-              <div class="lt-toast" aria-live="polite"></div>
-            </div>
-            <aside class="lt-det" aria-live="polite">
-              <button class="lt-det-x" type="button" aria-label="Close details">×</button>
-              <div class="lt-det-scroll">
-                <div class="lt-hero"><canvas width="${PW}" height="${PH}"></canvas><span class="lt-hero-st"></span></div>
-                <div class="lt-kicker"></div>
-                <h2 class="lt-name"></h2>
-                <p class="lt-desc"></p>
-                <div class="lt-sec lt-sec-unl"><h3 class="lt-h-unl">Unlocks</h3><ul class="lt-unl"></ul></div>
-                <div class="lt-sec lt-sec-time"><h3 class="lt-h-time">Time</h3><div class="lt-time"></div></div>
-                <div class="lt-sec lt-sec-req"><h3 class="lt-h-req">Needs</h3><ul class="lt-reqs"></ul></div>
-                <div class="lt-sec lt-sec-kids"><h3>Leads to</h3><div class="lt-kids"></div></div>
-              </div>
-              <div class="lt-act">
-                <button class="lt-go" type="button"><span class="lt-go-fill"></span><span class="lt-go-l"></span><span class="lt-go-s"></span></button>
-                <div class="lt-rush" hidden>
-                  <button type="button" class="lt-rbtn" data-rush="half"><span class="lt-rbtn-l">${G_BOLT}RUSH <em>-50%</em></span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
-                  <button type="button" class="lt-rbtn is-now" data-rush="now"><span class="lt-rbtn-l">${G_FF}FINISH NOW</span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
-                </div>
-              </div>
-            </aside>
-          </div>
-          <footer class="lt-bench">
-            <span class="lt-bench-l">${this._iconFit('flask', 18)}<span>BENCH<small class="lt-bench-s"></small></span></span>
-            <div class="lt-slots"></div>
-            <div class="lt-keys"><kbd>DRAG</kbd> pan <kbd>WHEEL</kbd> zoom <kbd>ENTER</kbd> research</div>
-          </footer>
-          <div class="lt-term" aria-live="off"><span class="lt-term-p">&gt;</span><span class="lt-term-l"></span><span class="lt-term-r"><i class="lt-led"></i>SYS OK<b class="lt-term-clk">00:00</b></span></div>
-          <div class="lt-fx" aria-hidden="true"></div>
-          <div class="lt-glitch" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-          <div class="lt-scan" aria-hidden="true"></div>
-          <div class="lt-bootseq" aria-hidden="true">${BOOT_LINES.map((l, i) => `<p style="--i:${i}">${l}</p>`).join('')}<div class="lt-bootbar"><i></i></div><div class="lt-bootlogo"><i></i><i></i>${FOX_LOGO}<b>R&amp;D-OS</b><small>v19</small></div></div>
+      <div class="lt-side">
+        <div class="lt-brand"><b>REYNARD LABS</b><small>research terminal. no touching.</small></div>
+        <div class="lt-h">SECTIONS</div>
+        <nav class="lt-secs" aria-label="Jump to a section">${secs}</nav>
+        <div class="lt-bench" aria-label="Lab benches">
+          <div class="lt-h lt-bench-h">BENCHES <span class="lt-bench-s"></span></div>
+          <div class="lt-slots"></div>
         </div>
-        <div class="lt-frame" aria-hidden="true"><i class="lt-fc tl"></i><i class="lt-fc tr"></i><i class="lt-fc bl"></i><i class="lt-fc br"></i><span class="lt-fled"><i></i><i></i><i></i></span><span class="lt-fname">REYNARD-TEK  HOLO-TERMINAL  RX-19</span></div>
-      </div>`;
+        <div class="lt-foot">
+          <span class="lt-coins" title="Your coins">${glyphHTML('coin', '#ffc04a', 2)}<b>0</b></span>
+          <button type="button" class="lt-secbtn" aria-label="Sections">SECTIONS</button>
+          <button type="button" class="lt-close" aria-label="Close the lab computer (Esc)">EXIT <kbd>ESC</kbd></button>
+        </div>
+      </div>
+      <div class="lt-view" tabindex="0" aria-label="Research map. Drag to pan, scroll or pinch to zoom, tap a project.">
+        <canvas class="lt-cv"></canvas>
+        <div class="lt-anchors" aria-hidden="true">${anchors}</div>
+        <div class="lt-zoom">
+          <button type="button" data-z="in" aria-label="Zoom in">${glyphHTML('plus', '#52e47e', 3)}</button>
+          <button type="button" data-z="out" aria-label="Zoom out">${glyphHTML('minus', '#52e47e', 3)}</button>
+          <button type="button" data-z="fit" aria-label="Zoom out to the whole map">${glyphHTML('fit', '#52e47e', 3)}</button>
+        </div>
+        <div class="lt-toast" aria-live="polite"></div>
+      </div>
+      <aside class="lt-det" aria-live="polite">
+        <div class="lt-det-top"><span class="lt-det-k"></span><button type="button" class="lt-det-x" aria-label="Close details">${glyphHTML('x', '#52e47e', 2)}</button></div>
+        <div class="lt-det-scroll">
+          <div class="lt-pv"><canvas width="140" height="52"></canvas><span class="lt-pv-st"></span></div>
+          <h2 class="lt-name"></h2>
+          <p class="lt-desc"></p>
+          <div class="lt-blk lt-blk-unl"><h3 class="lt-h-unl">UNLOCKS</h3><ul class="lt-unl"></ul></div>
+          <div class="lt-blk lt-blk-time"><h3 class="lt-h-time">TIME</h3><div class="lt-time"></div></div>
+          <div class="lt-blk lt-blk-req"><h3 class="lt-h-req">NEEDS</h3><ul class="lt-reqs"></ul></div>
+          <div class="lt-blk lt-blk-kids"><h3>LEADS TO</h3><div class="lt-kids"></div></div>
+        </div>
+        <div class="lt-act">
+          <button type="button" class="lt-go"><span class="lt-go-fill"></span><span class="lt-go-l"></span><span class="lt-go-s"></span></button>
+          <div class="lt-rush" hidden>
+            <button type="button" class="lt-rbtn" data-rush="half">${glyphHTML('rush', '#ffc04a', 2)}<span>RUSH -50%</span><b></b></button>
+            <button type="button" class="lt-rbtn" data-rush="now">${glyphHTML('ff', '#ffc04a', 2)}<span>FINISH NOW</span><b></b></button>
+          </div>
+        </div>
+      </aside>
+      <div class="lt-scan" aria-hidden="true"></div>`;
     this.container.appendChild(root);
     this.root = root;
     const $ = (s) => root.querySelector(s);
     this.view = $('.lt-view');
-    this.world = $('.lt-world');
-    this.$tabs = $('.lt-tabs');
-    this.$tip = $('.lt-tip');
+    this.cv = $('.lt-cv');
+    this.$anchors = $('.lt-anchors');
+    this.$secs = $('.lt-secs');
+    this.$secEls = [...root.querySelectorAll('.lt-sec')];
+    this.$slots = $('.lt-slots');
+    this.$benchS = $('.lt-bench-s');
+    this.$coins = $('.lt-coins');
+    this.$coinsV = $('.lt-coins b');
     this.$toast = $('.lt-toast');
-    this.$chips = $('.lt-chips');
     this.$det = $('.lt-det');
-    this.$hero = $('.lt-hero');
-    this.$heroSt = $('.lt-hero-st');
-    this.pcv = $('.lt-hero canvas');
+    this.$detK = $('.lt-det-k');
+    this.pcv = $('.lt-pv canvas');
     this.pctx = this.pcv.getContext('2d');
-    this.$kicker = $('.lt-kicker');
+    this.$pvSt = $('.lt-pv-st');
     this.$name = $('.lt-name');
     this.$desc = $('.lt-desc');
     this.$unl = $('.lt-unl');
+    this.$hUnl = $('.lt-h-unl');
     this.$time = $('.lt-time');
+    this.$hTime = $('.lt-h-time');
     this.$reqs = $('.lt-reqs');
+    this.$hReq = $('.lt-h-req');
     this.$kids = $('.lt-kids');
-    this.$secKids = $('.lt-sec-kids');
+    this.$blkKids = $('.lt-blk-kids');
+    this.$blkUnl = $('.lt-blk-unl');
+    this.$blkTime = $('.lt-blk-time');
     this.$go = $('.lt-go');
     this.$goL = $('.lt-go-l');
     this.$goS = $('.lt-go-s');
     this.$goFill = $('.lt-go-fill');
-    this.$slots = $('.lt-slots');
-    this.$count = $('.lt-count-t');
-    this.$cbar = $('.lt-cbar i');
-    this.$fxl = $('.lt-fx');
-    this.$coins = $('.lt-coins');
-    this.$coinsV = $('.lt-coins-v b');
     this.$rush = $('.lt-rush');
-    this.$rushB = [...root.querySelectorAll('.lt-rush .lt-rbtn')].map((el) => ({ el, mode: el.dataset.rush, p: el.querySelector('.lt-rbtn-p b') }));
-    this.$benchS = $('.lt-bench-s');
-    this.$hUnl = $('.lt-h-unl');
-    this.$hTime = $('.lt-h-time');
-    this.$hReq = $('.lt-h-req');
-    this.$parA = $('.lt-par-a');
-    this.$parB = $('.lt-par-b');
-    this.$term = $('.lt-term-l');
-    this.$termClk = $('.lt-term-clk');
-    this.$glitch = $('.lt-glitch');
-    const rs = root.style;
-    for (const [k, p] of Object.entries(SLOT_PALS)) rs.setProperty(`--lt-slot-${k}`, `url(${slotCanvas(p).toDataURL()})`);
-    if (!REDUCED) {
-      this._fx(root, 'is-boot', 700);
-      this._fx(root, 'is-booting', 1850);
-    }
-    // the boot text leaves when its fade ends (a timer backs it up)
-    const boot = root.querySelector('.lt-bootseq');
-    if (boot) {
-      this._on(boot, 'animationend', (e) => { if (e.target === boot && e.animationName === 'lt-bootfade2') boot.remove(); });
-      this._later(() => boot.remove(), REDUCED ? 0 : 4000);
-    }
-    this._log('R&D-OS v19 online. Welcome back, Doctor Reynard.', 'ok', REDUCED ? 0 : 1250);
-    this._idleLog();
+    this.$rushB = [...root.querySelectorAll('.lt-rush .lt-rbtn')].map((el) => ({ el, mode: el.dataset.rush, p: el.querySelector('b') }));
+    if (typeof this.o.coins !== 'function') this.$coins.hidden = true;
   }
 
-  // ------------------------------------------------------------ v19: terminal ticker + glitch
-  // one line at the bottom of the screen, typed out; `delay` queues it after the boot text
-  _log(text, kind = '', delay = 0) {
-    if (!this._alive || !this.$term) return;
-    if (delay > 0) { this._later(() => this._log(text, kind), delay); return; }
-    const t = String(text || '');
-    this._logT = now();
-    const el = this.$term;
-    el.textContent = t;
-    el.className = `lt-term-l${kind ? ` is-${kind}` : ''}`;
-    el.style.setProperty('--n', Math.max(1, t.length));
-    el.classList.remove('is-type');
-    void el.offsetWidth;
-    el.classList.add('is-type');
+  // ------------------------------------------------------------ section list
+  _secInfo(S) {
+    let done = 0, ready = 0;
+    for (const N of S.nodes) { if (N.st === 'done') done++; else if (N.st === 'avail') ready++; }
+    return { sealed: !!S.sealed, done, ready, total: S.nodes.length, key: S.sealed ? this.secKey(S) : null };
   }
 
-  // ambient chatter while nothing happens (one timer, never per frame)
-  _idleLog() {
-    this._later(() => {
-      if (!this._alive) return;
-      if (now() - (this._logT || 0) > 6500) {
-        const R = IDLE_LOG;
-        this._idleI = ((this._idleI ?? (hashStr(String(this._t0)) % R.length)) + 1) % R.length;
-        const run = this._jobs.find((j) => j.n);
-        this._log(run && this._idleI % 3 === 0 ? `synthesizing ${run.n.d.name}... ${Math.round((run.k || 0) * 100)}%` : R[this._idleI], 'dim');
+  _renderSecs() {
+    for (const S of this.sections) {
+      const el = this.$secEls[S.i];
+      if (!el) continue;
+      const I = this._secInfo(S);
+      let c;
+      if (I.sealed) c = I.key?.canUnlock ? `<em class="is-key">${glyphHTML('key', '#ffc04a', 2)}</em>` : glyphHTML('lock', '#2b7442', 2);
+      else c = `${I.ready ? '<i class="lt-dot"></i>' : ''}${I.done}/${I.total}`;
+      if (c !== el._c) { el._c = c; el.querySelector('.lt-sec-c').innerHTML = c; }
+      el.classList.toggle('is-sealed', I.sealed);
+      el.classList.toggle('is-full', !I.sealed && I.done === I.total);
+    }
+  }
+
+  // which section is under the middle of the view
+  _hereSec() {
+    const vh = this.view.clientHeight;
+    const wy = (vh * 0.4 - this.cam.y) / this.cam.z;
+    let S = this.L.sectionAt(wy);
+    if (!S) S = wy < 0 ? this.sections[0] : this.sections[this.sections.length - 1];
+    if (S !== this._here) {
+      this._here = S;
+      for (const el of this.$secEls) el.classList.toggle('is-here', +el.dataset.b === S?.i);
+      if (S) {
+        const el = this.$secEls[S.i];
+        const p = this.$secs;
+        if (el && p.scrollHeight > p.clientHeight && !this._compact) {
+          const top = el.offsetTop - p.offsetTop;
+          if (top < p.scrollTop || top + el.offsetHeight > p.scrollTop + p.clientHeight) p.scrollTop = top - p.clientHeight / 2;
+        }
       }
-      this._idleLog();
-    }, 7000);
-  }
-
-  // a quick RGB-split slice glitch over the screen (filter changes, sectors, boot)
-  _glitch() {
-    if (REDUCED || !this.$glitch) return;
-    this._fx(this.$glitch, 'is-on', 340);
-  }
-
-  _buildTree() {
-    const W = this.W, H = this.H;
-    this.world.style.width = `${W}px`;
-    this.world.style.height = `${H}px`;
-    this.edges = routePipes(this.nodes, this.byId, this.GW, this.GH);
-
-    // bands
-    let bands = '';
-    let tabs = '';
-    let seals = '';
-    for (const B of this.branches) {
-      const c = esc(B.color);
-      bands += `<div class="lt-band${B.i % 2 ? ' odd' : ''}" data-b="${B.i}" style="top:${B.y}px;height:${B.h}px;--bc:${c}"><span class="lt-band-id">SECTOR ${String(B.i + 1).padStart(2, '0')} // ${esc(B.b.name.toUpperCase())}</span></div>`;
-      // the encrypted seal over a locked section
-      let x0 = PADL + B.c0 * COLW + 6, x1 = PADL + (B.c1 + 1) * COLW - 6;
-      if (x1 - x0 < 560) { x1 = Math.min(W - 6, x0 + 560); x0 = Math.max(6, x1 - 560); }
-      B.sx = x0;
-      B.sy = B.y + 12;
-      B.sw = x1 - x0;
-      B.sh = B.h - 20;
-      seals += `<div class="lt-seal${B.lanes < 2 ? ' is-row' : ''}" data-sec="${B.i}" hidden style="left:${B.sx}px;top:${B.sy}px;width:${B.sw}px;height:${B.sh}px;--bc:${c}"></div>`;
-      tabs += `<button type="button" class="lt-tab" data-b="${B.i}" style="--bc:${c}" tabindex="-1">${this._iconFit(B.b.icon, 16)}<span>${esc(B.b.name)}</span></button>`;
-    }
-    this.$tabs.innerHTML = tabs;
-    this.branches.forEach((B) => { B.tab = this.$tabs.querySelector(`[data-b="${B.i}"]`); });
-
-    const P = (pts) => {
-      const px = pts.map(([gx, gy]) => [this._X(gx), this._Y(gy)]);
-      const out = [px[0]];
-      for (let i = 1; i < px.length - 1; i++) {
-        const a = out[out.length - 1], b = px[i], c = px[i + 1];
-        if ((a[0] === b[0] && b[0] === c[0]) || (a[1] === b[1] && b[1] === c[1])) continue;
-        out.push(b);
-      }
-      out.push(px[px.length - 1]);
-      return out.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('');
-    };
-    let lo = '', lg = '', lc = '', lf = '', lx = '';
-    this.edges.forEach((e, i) => {
-      const d = P(e.pts);
-      e.d = d;
-      lo += `<path class="lp-o" data-e="${i}" d="${d}"/>`;
-      lg += `<path class="lp-g" data-e="${i}" d="${d}"/>`;
-      lc += `<path class="lp-c" data-e="${i}" d="${d}"/>`;
-      lf += `<path class="lp-f" data-e="${i}" d="${d}"/>`;
-      for (const br of e.bridges) {
-        const x = this._X(br.gx), y = this._Y(br.gy), L = 14;
-        const bd = br.h ? `M${x - L} ${y}L${x + L} ${y}` : `M${x} ${y - L}L${x} ${y + L}`;
-        lx += `<path class="lp-o lp-bo" data-e="${i}" d="${bd}"/><path class="lp-c" data-e="${i}" d="${bd}"/>`;
-      }
-    });
-    const svg = `<svg class="lt-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
-      <g>${lo}</g><g>${lg}</g><g>${lc}</g><g>${lf}</g><g>${lx}</g></svg>`;
-
-    let nodes = '';
-    for (const n of this.nodes) {
-      nodes += `<button class="lt-node" type="button" tabindex="-1" data-id="${esc(n.id)}" style="left:${n.x - NODE / 2}px;top:${n.y - NODE / 2}px;--bc:${esc(n.B.color)}">
-        <span class="lt-slot"></span><span class="lt-ico"></span>
-        <svg class="lt-ring" viewBox="-50 -50 100 100" aria-hidden="true"><circle class="bg" r="45"/><circle class="fg" r="45" pathLength="100"/></svg>
-        <span class="lt-badge"></span>
-        <span class="lt-pill"></span>
-        <span class="lt-nm"><span class="lt-nm-t">${esc(n.d.name)}</span><span class="lt-nm-w"></span></span>
-      </button>`;
-    }
-    this.world.innerHTML = `<div class="lt-bands">${bands}</div>${svg}${nodes}<div class="lt-seals">${seals}</div><div class="lt-ret" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
-    for (const B of this.branches) {
-      B.band = this.world.querySelector(`.lt-band[data-b="${B.i}"]`);
-      B.seal = this.world.querySelector(`.lt-seal[data-sec="${B.i}"]`);
-      B.sealed = false;
-    }
-    this.$ret = this.world.querySelector('.lt-ret');
-    for (const n of this.nodes) {
-      n.el = this.world.querySelector(`.lt-node[data-id="${CSS.escape(n.id)}"]`);
-      n.$ico = n.el.querySelector('.lt-ico');
-      n.$ring = n.el.querySelector('.lt-ring .fg');
-      n.$badge = n.el.querySelector('.lt-badge');
-      n.$pill = n.el.querySelector('.lt-pill');
-      n.$why = n.el.querySelector('.lt-nm-w');
-      n.$ico.innerHTML = this._nodeArt(n);
-    }
-    const svgEl = this.world.querySelector('.lt-svg');
-    this.edges.forEach((e, i) => { e.els = [...svgEl.querySelectorAll(`[data-e="${i}"]`)]; e.core = svgEl.querySelector(`.lp-c[data-e="${i}"]`); e.s = null; });
-  }
-
-  _nodeBadge(n, st) {
-    let b = '', pill = '', why = '';
-    if (st === 'sealed') { n.$badge.innerHTML = ''; n.$pill.innerHTML = ''; n.$pill.hidden = true; n.$why.textContent = ''; return; }
-    if (st === 'done') b = G_CHECK;
-    else if (st === 'locked') b = G_LOCK;
-    else if (st === 'zone') { b = G_PAW; why = `Meet ${this._zoneName(n.zone)}`; }
-    if (st === 'run') {
-      const j = this._job(n.id);
-      pill = `<b>${fmtClock(j ? j.left : n.time)}</b>`;
-    } else if (st !== 'done') {
-      pill = this._timed() && n.time ? `${G_CLOCK}<b>${fmtDur(n.time)}</b>` : st === 'avail' ? '<b>FREE</b>' : '';
-    }
-    n.$badge.innerHTML = b;
-    n.$pill.innerHTML = pill;
-    n.$pill.hidden = !pill;
-    n.$why.textContent = why;
-  }
-
-  _buildChips() {
-    let h = `<button type="button" class="lt-chip is-on" data-f="">All</button>`;
-    h += `<button type="button" class="lt-chip lt-chip-ready" data-f="@ready"><i class="lt-dot"></i>Ready <b class="lt-chip-n"></b></button>`;
-    for (const B of this.branches) {
-      h += `<button type="button" class="lt-chip" data-f="${B.i}" style="--bc:${esc(B.color)}">${this._iconFit(B.b.icon, 18)}<span>${esc(B.b.name)}</span><b class="lt-chip-n"></b></button>`;
-    }
-    this.$chips.innerHTML = h;
-    this.$chipEls = [...this.$chips.querySelectorAll('.lt-chip')];
-  }
-
-  _updateChips() {
-    if (!this.$chipEls) return;
-    let ready = 0;
-    for (const n of this.nodes) if (this._st.get(n.id) === 'avail') ready++;
-    for (const c of this.$chipEls) {
-      const f = c.dataset.f;
-      const nEl = c.querySelector('.lt-chip-n');
-      if (!nEl) continue;
-      if (f === '@ready') { nEl.textContent = String(ready); c.classList.toggle('is-zero', !ready); continue; }
-      const B = this.branches[+f];
-      if (!B) continue;
-      c.classList.toggle('is-sealed', !!B.sealed);
-      if (B.sealed) {
-        const k = this._secKey(B);
-        const html = `${G_LOCK}${B.nodes.length}`;
-        if (nEl.innerHTML !== html) nEl.innerHTML = html;
-        c.classList.toggle('has-ready', !!k.canUnlock);
-        c.classList.remove('is-full');
-        continue;
-      }
-      const d = B.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
-      const av = B.nodes.some((n) => this._st.get(n.id) === 'avail');
-      nEl.textContent = `${d}/${B.nodes.length}`;
-      c.classList.toggle('has-ready', av);
-      c.classList.toggle('is-full', d === B.nodes.length);
     }
   }
 
-  _setFilter(f) {
-    const v = f === '' || f == null ? null : f;
-    if (v === this.filter && v !== null) { this._setFilter(null); return; }
-    this.filter = v;
-    for (const c of this.$chipEls) c.classList.toggle('is-on', (c.dataset.f || null) === (v === null ? null : String(v)));
-    this._sfx('filter');
-    this._glitch();
-    const fb = v === null ? null : this.branches[+v];
-    this._log(v === null ? 'filter cleared: all sectors' : v === '@ready' ? 'query: projects ready to research' : `routing view to sector ${String(+v + 1).padStart(2, '0')}: ${fb ? fb.b.name : v}`, 'dim');
-    this._applyFilter(true);
-  }
-
-  _matches(n) {
-    const f = this.filter;
-    if (f === null) return true;
-    if (f === '@ready') { const s = this._st.get(n.id); return s === 'avail' || s === 'run'; }
-    return String(n.B.i) === String(f);
-  }
-
-  _applyFilter(move) {
-    const list = [];
-    for (const n of this.nodes) {
-      const m = this._matches(n);
-      n.el.classList.toggle('is-dim', !m);
-      if (m) list.push(n);
-    }
-    for (const e of this.edges) {
-      const dim = this.filter !== null && !(this._matches(e.src) && this._matches(e.dst));
-      if (e.dim !== dim) { e.dim = dim; for (const p of e.els) p.classList.toggle('is-dim', dim); }
-    }
-    for (const B of this.branches) B.tab?.classList.toggle('is-dim', this.filter !== null && !B.nodes.some((n) => this._matches(n)));
-    this.root.classList.toggle('is-filtered', this.filter !== null);
-    if (!move) return;
-    if (this.filter === null) { this._fitAll(); return; }
-    if (!list.length) return;
-    const x0 = Math.min(...list.map((n) => n.x)) - COLW / 2, x1 = Math.max(...list.map((n) => n.x)) + COLW / 2;
-    const y0 = Math.min(...list.map((n) => n.y)) - NODE_DY, y1 = Math.max(...list.map((n) => n.y)) + ROWH - NODE_DY;
-    this._fitRect(x0, y0, x1, y1, 1.1);
-    if (!this.sel || !this._matches(this.sel)) {
-      const pick = list.find((n) => this._st.get(n.id) === 'avail') || list.find((n) => this._st.get(n.id) === 'run') || list[0];
-      this._select(pick, { pan: false, sound: false, open: false });
+  _jumpSec(S) {
+    if (!S) return;
+    this._sfx(S.sealed ? 'sector' : 'select');
+    this.root.classList.remove('is-secs');
+    const vw = this.view.clientWidth, vh = this._visH();
+    const fitW = (vw - 40) / Math.max(1, this.L.G.PADL + S.cols * this.L.G.CW);
+    const fitH = (vh - 40) / Math.max(1, S.h);
+    const z = clamp(Math.min(1, fitW, fitH), Math.max(this._minZ(), 0.45), MAXZ);
+    this._goTo({ z, x: 12, y: 16 - S.y0 * z });
+    if (S.sealed) this._selectSection(S, { pan: false, sound: false, open: true });
+    else {
+      const pick = S.nodes.find((N) => N.st === 'run') || S.nodes.find((N) => N.st === 'avail') || S.nodes.find((N) => N.st !== 'done') || S.nodes[0];
+      if (pick) this._select(pick, { pan: false, sound: false, open: false });
     }
   }
 
   // ------------------------------------------------------------ events
   _bind() {
     const view = this.view;
-    this._on(this.world, 'click', (e) => {
-      if (this._dragJustEnded()) { e.preventDefault(); return; }
-      const sealEl = e.target.closest('.lt-seal');
-      if (sealEl) {
-        const B = this.branches[+sealEl.dataset.sec];
-        const g = e.target.closest('[data-goto]');
-        if (g) { const n = this.byId.get(g.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true }); return; }
-        if (e.target.closest('.lt-decrypt')) { this._selectSection(B, { pan: false, open: false }); this._decrypt(B, e.target.closest('.lt-decrypt')); return; }
-        this._selectSection(B, { pan: false, sound: 'select', open: true });
-        return;
-      }
-      const b = e.target.closest('.lt-node');
-      if (!b) return;
-      const n = this.byId.get(b.dataset.id);
-      if (!n) return;
-      if (n === this.sel && this._compact && !this._sheetOpen) { this._openSheet(true); return; }
-      this._select(n, { pan: true, sound: 'select', open: true });
-    });
-    this._on(this.world, 'dblclick', (e) => {
-      const b = e.target.closest('.lt-node');
-      if (b && !this._compact && this.byId.get(b.dataset.id) === this.sel) this._research();
-    });
-    this._on(this.world, 'pointerover', (e) => {
-      if (e.pointerType !== 'mouse' || this._drag?.moved) return;
-      const b = e.target.closest('.lt-node');
-      if (!b || b === this._hoverEl) return;
-      this._hoverEl = b;
-      const n = this.byId.get(b.dataset.id);
-      if (!n) return;
-      this._showTip(n);
-      const t = now();
-      if (!this._hoverT || t - this._hoverT > 70) { this._hoverT = t; this._sfx('hover'); }
-    });
-    this._on(this.world, 'pointerout', (e) => {
-      const b = e.target.closest('.lt-node');
-      if (b && !b.contains(e.relatedTarget)) { this._hoverEl = null; this.$tip.classList.remove('is-on'); }
-    });
-    // pan / pinch
     this._on(view, 'pointerdown', (e) => this._onDown(e));
     this._on(window, 'pointermove', (e) => this._onMove(e));
     this._on(window, 'pointerup', (e) => this._onUp(e));
-    this._on(window, 'pointercancel', (e) => this._onUp(e));
+    this._on(window, 'pointercancel', (e) => this._onUp(e, true));
+    this._on(view, 'pointerleave', (e) => { if (e.pointerType === 'mouse' && !this._drag) this._setHover(null, null); });
     this._on(view, 'wheel', (e) => this._onWheel(e), { passive: false });
-    // stop the game's camera / browser gestures under the tree
+    this._on(view, 'dblclick', (e) => {
+      const N = this._hitAt(e.clientX, e.clientY);
+      if (N && N === this.sel && !this._compact) this._research();
+    });
     this._on(this.root, 'contextmenu', (e) => e.preventDefault());
     this._on(window, 'keydown', (e) => this._key(e), true);
-    // controls
     this._on(this.root.querySelector('.lt-zoom'), 'click', (e) => {
       const z = e.target.closest('[data-z]')?.dataset.z;
       if (!z) return;
@@ -1198,97 +539,141 @@ export class LabTree {
       if (z === 'fit') this._fitAll();
       else this._zoomBy(z === 'in' ? 1.3 : 1 / 1.3);
     });
-    this._on(this.$chips, 'click', (e) => {
-      const c = e.target.closest('.lt-chip');
-      if (c) this._setFilter(c.dataset.f);
+    this._on(this.$secs, 'click', (e) => {
+      const b = e.target.closest('.lt-sec');
+      if (b) this._jumpSec(this.sections[+b.dataset.b]);
     });
-    this._on(this.$tabs, 'click', (e) => {
-      const t = e.target.closest('.lt-tab');
-      if (t) this._setFilter(t.dataset.b);
-    });
+    this._on(this.root.querySelector('.lt-secbtn'), 'click', () => { this._sfx('click'); this.root.classList.toggle('is-secs'); });
     this._on(this.$go, 'click', () => this._research());
     this._on(this.$rush, 'click', (e) => {
       const r = e.target.closest('[data-rush]');
       if (r && this.sel) this._rush(this.sel.id, r.dataset.rush, r);
     });
     this._on(this.root.querySelector('.lt-close'), 'click', () => this._close());
-    this._on(this.root.querySelector('.lt-det-x'), 'click', () => { this._sfx('click'); this._openSheet(false); });
+    this._on(this.root.querySelector('.lt-det-x'), 'click', () => { this._sfx('click'); if (this._compact) this._openSheet(false); else this._close(); });
     this._on(this.$det, 'click', (e) => {
       const j = e.target.closest('[data-goto]');
-      if (j) { const n = this.byId.get(j.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true }); }
+      if (j) { const N = this.byId.get(j.dataset.goto); if (N) this._select(N, { pan: true, sound: 'select', open: true }); }
     });
     this._on(this.$slots, 'click', (e) => {
       const r = e.target.closest('[data-rush]');
       if (r) { this._rush(r.dataset.id, r.dataset.rush, r); return; }
       const s = e.target.closest('[data-goto]');
       if (!s) return;
-      const n = this.byId.get(s.dataset.goto);
-      if (n) this._select(n, { pan: true, sound: 'select', open: true });
+      const N = this.byId.get(s.dataset.goto);
+      if (N) this._select(N, { pan: true, sound: 'select', open: true });
     });
     if (typeof ResizeObserver === 'function') {
       this._ro = new ResizeObserver(() => this._resize());
       this._ro.observe(this.root);
+      this._ro.observe(this.view);
     } else this._on(window, 'resize', () => this._resize());
   }
 
-  _dragJustEnded() { return this._dragEndT && now() - this._dragEndT < 140; }
+  _viewXY(cx, cy) {
+    const r = this._vr || (this._vr = this.view.getBoundingClientRect());
+    return [cx - r.left, cy - r.top];
+  }
+  _toWorld(sx, sy) { return [(sx - this.cam.x) / this.cam.z, (sy - this.cam.y) / this.cam.z]; }
+  /** world -> css px inside the view */
+  toScreen(wx, wy) { return [wx * this.cam.z + this.cam.x, wy * this.cam.z + this.cam.y]; }
+
+  _hitAt(cx, cy, pad = 4) {
+    const [sx, sy] = this._viewXY(cx, cy);
+    const [wx, wy] = this._toWorld(sx, sy);
+    return this.L.hit(wx, wy, pad / this.cam.z);
+  }
+  _tagAt(cx, cy) {
+    if (this.cam.z < 0.56) return null;
+    const [sx, sy] = this._viewXY(cx, cy);
+    const [wx, wy] = this._toWorld(sx, sy);
+    const S = this.L.sectionAt(wy + 20);
+    if (!S) return null;
+    for (const N of S.nodes) for (const T of N.tags || []) if (wx >= T.x && wx <= T.x + T.w && wy >= T.y - 2 && wy <= T.y + T.h + 2) return T;
+    return null;
+  }
+  _headAt(cx, cy) {
+    const [sx, sy] = this._viewXY(cx, cy);
+    const [, wy] = this._toWorld(sx, sy);
+    const S = this.L.sectionAt(wy);
+    if (!S) return null;
+    return wy < S.y0 + this.L.G.HEAD + 6 || S.sealed ? S : null;
+  }
+
+  _setHover(N, T) {
+    if (N === this.hover && T === this.hoverTag) return;
+    this.hover = N;
+    this.hoverTag = T;
+    this._dirty = true;
+    this.view.classList.toggle('is-point', !!(N || T));
+    if (N && N.st !== 'sealed') {
+      const t = now();
+      if (!this._hoverT || t - this._hoverT > 90) { this._hoverT = t; this._sfx('hover'); }
+    }
+  }
 
   _onDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (e.target.closest('.lt-zoom, .lt-toast, .lt-tab, .lt-decrypt')) return;
+    if (e.target.closest('.lt-zoom, button')) return;
+    this._vr = this.view.getBoundingClientRect();
     this._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this._vel = null;
     this.goal = null;
     if (this._ptrs.size === 1) {
-      this._drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, cx: this.cam.x, cy: this.cam.y, moved: false, hist: [[e.clientX, e.clientY, now()]] };
+      this._drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, cx: this.cam.x, cy: this.cam.y, moved: false, hist: [[e.clientX, e.clientY, now()]], type: e.pointerType };
     } else if (this._ptrs.size === 2) {
       const [a, b] = [...this._ptrs.values()];
-      const r = this.view.getBoundingClientRect();
-      this._pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top, cam: { ...this.cam } };
+      const [mx, my] = this._viewXY((a.x + b.x) / 2, (a.y + b.y) / 2);
+      this._pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx, my, cam: { ...this.cam } };
       if (this._drag) this._drag.moved = true;
-      this.root.classList.add('is-dragging');
     }
   }
 
   _onMove(e) {
     const p = this._ptrs.get(e.pointerId);
-    if (!p) return;
+    if (!p) {
+      if (e.pointerType === 'mouse' && this.view.contains(e.target) && !e.target.closest('button')) {
+        this._vr = this.view.getBoundingClientRect();
+        const T = this._tagAt(e.clientX, e.clientY);
+        const N = T ? null : this._hitAt(e.clientX, e.clientY, 0);
+        this._setHover(N, T);
+      }
+      return;
+    }
     p.x = e.clientX;
     p.y = e.clientY;
     if (this._pinch && this._ptrs.size >= 2) {
       const [a, b] = [...this._ptrs.values()];
-      const r = this.view.getBoundingClientRect();
       const P = this._pinch;
       const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      const [mx, my] = this._viewXY((a.x + b.x) / 2, (a.y + b.y) / 2);
       const z = clamp(P.cam.z * (d / P.d0), this._minZ(), MAXZ);
       const wx = (P.mx - P.cam.x) / P.cam.z, wy = (P.my - P.cam.y) / P.cam.z;
       this.cam.z = z;
       this.cam.x = mx - wx * z;
       this.cam.y = my - wy * z;
-      this._applyCam();
+      this._camMoved();
       return;
     }
     const d = this._drag;
     if (!d || d.id !== e.pointerId) return;
     const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
-    if (!d.moved && dx * dx + dy * dy > 64) {
+    if (!d.moved && dx * dx + dy * dy > (d.type === 'mouse' ? 25 : 81)) {
       d.moved = true;
       this.root.classList.add('is-dragging');
-      this.$tip.classList.remove('is-on');
       try { this.view.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     }
     if (d.moved) {
       this.cam.x = d.cx + dx;
       this.cam.y = d.cy + dy;
-      this._applyCam();
+      this._camMoved();
       const t = now();
       d.hist.push([e.clientX, e.clientY, t]);
       while (d.hist.length > 2 && t - d.hist[0][2] > 100) d.hist.shift();
     }
   }
 
-  _onUp(e) {
+  _onUp(e, cancel = false) {
     if (!this._ptrs.has(e.pointerId)) return;
     this._ptrs.delete(e.pointerId);
     if (this._pinch) {
@@ -1303,6 +688,8 @@ export class LabTree {
     }
     const d = this._drag;
     if (!d || d.id !== e.pointerId) return;
+    this._drag = null;
+    this.root.classList.remove('is-dragging');
     if (d.moved) {
       this._dragEndT = now();
       const h = d.hist;
@@ -1313,28 +700,42 @@ export class LabTree {
           if (Math.hypot(vx, vy) > 0.25) this._vel = { x: vx, y: vy };
         }
       }
+      return;
     }
-    this._drag = null;
-    this.root.classList.remove('is-dragging');
+    if (cancel) return;
+    this._tap(e.clientX, e.clientY);
+  }
+
+  _tap(cx, cy) {
+    if (this.fox?.hitTest?.(cx, cy)) { this.fox.poke(); return; }
+    const T = this._tagAt(cx, cy);
+    if (T) { const P = this.byId.get(T.id); if (P) { this._select(P, { pan: true, sound: 'select', open: true }); return; } }
+    const N = this._hitAt(cx, cy, this._compact ? 10 : 4);
+    if (N) {
+      if (N === this.sel && this._compact && !this._sheetOpen) { this._openSheet(true); return; }
+      this._select(N, { pan: true, sound: 'select', open: true });
+      return;
+    }
+    const S = this._headAt(cx, cy);
+    if (S && S.sealed) { this._selectSection(S, { pan: false, sound: true, open: true }); return; }
+    if (this._compact && this._sheetOpen) this._openSheet(false);
   }
 
   _onWheel(e) {
     e.preventDefault();
     this._vel = null;
     this.goal = null;
-    const r = this.view.getBoundingClientRect();
-    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    this._vr = this.view.getBoundingClientRect();
+    const [sx, sy] = this._viewXY(e.clientX, e.clientY);
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
     const dx = e.deltaX * unit, dy = e.deltaY * unit;
-    // pinch on trackpads arrives as ctrl+wheel; a mouse wheel has no deltaX
-    const zoom = e.ctrlKey || (Math.abs(dx) < 0.5 && (e.deltaMode !== 0 || Math.abs(dy) >= 40 || Number.isInteger(dy) && Math.abs(dy) >= 4 && !e.shiftKey));
-    if (zoom) {
-      const f = Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018));
-      this._zoomAt(sx, sy, f);
-    } else {
+    // trackpad pinch arrives as ctrl+wheel; a mouse wheel has no deltaX
+    const zoom = e.ctrlKey || (Math.abs(dx) < 0.5 && (e.deltaMode !== 0 || Math.abs(dy) >= 40 || (Number.isInteger(dy) && Math.abs(dy) >= 4 && !e.shiftKey)));
+    if (zoom) this._zoomAt(sx, sy, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018)));
+    else {
       this.cam.x -= e.shiftKey && !dx ? dy : dx;
       this.cam.y -= e.shiftKey && !dx ? 0 : dy;
-      this._applyCam();
+      this._camMoved();
     }
   }
 
@@ -1344,13 +745,14 @@ export class LabTree {
     this.cam.x = sx - (sx - this.cam.x) * (z / z0);
     this.cam.y = sy - (sy - this.cam.y) * (z / z0);
     this.cam.z = z;
-    this._applyCam();
+    this._camMoved();
   }
 
   _zoomBy(f) {
-    const vw = this.view.clientWidth, vh = this._visibleH();
-    const z = clamp(this.cam.z * f, this._minZ(), MAXZ);
-    const wx = (vw / 2 - this.cam.x) / this.cam.z, wy = (vh / 2 - this.cam.y) / this.cam.z;
+    const vw = this.view.clientWidth, vh = this._visH();
+    const c = this.goal || this.cam;
+    const z = clamp(c.z * f, this._minZ(), MAXZ);
+    const wx = (vw / 2 - c.x) / c.z, wy = (vh / 2 - c.y) / c.z;
     this._goTo({ x: vw / 2 - wx * z, y: vh / 2 - wy * z, z });
   }
 
@@ -1365,14 +767,16 @@ export class LabTree {
     else if (k === 'ArrowUp') this._move(0, -1);
     else if (k === 'ArrowDown') this._move(0, 1);
     else if (k === 'Enter' || k === 'NumpadEnter' || k === ' ') {
-      if (t && t.tagName === 'BUTTON' && !t.classList.contains('lt-node') && this.root.contains(t)) handled = false;
+      if (t && t.tagName === 'BUTTON' && this.root.contains(t) && t !== this.$go) handled = false;
       else this._research();
     } else if (k === 'Escape') {
-      if (this._compact && this._sheetOpen) { this._openSheet(false); this._sfx('click'); } else this._close();
+      if (this.root.classList.contains('is-secs')) this.root.classList.remove('is-secs');
+      else if (this._compact && this._sheetOpen) { this._openSheet(false); this._sfx('click'); } else this._close();
     } else if (k === '+' || k === '=') this._zoomBy(1.3);
     else if (k === '-' || k === '_') this._zoomBy(1 / 1.3);
     else if (k === '0') this._fitAll();
     else if (k === 'f' || k === 'F') { if (this.sel) this._centerOn(this.sel); }
+    else if (k === 'PageDown' || k === 'PageUp') { const i = (this._here?.i ?? 0) + (k === 'PageDown' ? 1 : -1); this._jumpSec(this.sections[clamp(i, 0, this.sections.length - 1)]); }
     else handled = false;
     if (handled) { e.preventDefault(); e.stopPropagation(); }
   }
@@ -1384,145 +788,118 @@ export class LabTree {
 
   // spatial keyboard navigation
   _move(dx, dy) {
-    const cur = this.sel || (this.selSec && this.selSec.nodes[0]);
+    const cur = this.sel || this.selSec?.nodes[0];
     if (!cur) { const f = this._initialNode(); if (f) this._select(f, { pan: true, sound: 'select' }); return; }
+    const G = this.L.G;
     let best = null, bs = Infinity;
-    for (const n of this.nodes) {
-      if (n === cur || n.B.sealed || (this.filter !== null && !this._matches(n))) continue;
-      const ax = (n.x - cur.x) / COLW, ay = (n.y - cur.y) / ROWH;
+    for (const N of this.nodes) {
+      if (N === cur) continue;
+      const ax = (N.cx - cur.cx) / G.CW, ay = (N.cy - cur.cy) / G.RH;
       const along = ax * dx + ay * dy;
       if (along <= 0.01) continue;
       const perp = Math.abs(ax * dy - ay * dx);
       const s = along + perp * 2.2;
-      if (s < bs) { bs = s; best = n; }
+      if (s < bs) { bs = s; best = N; }
     }
-    if (best) {
-      this._select(best, { pan: true, sound: 'select', open: false });
-      if (this.root.contains(document.activeElement)) best.el.focus({ preventScroll: true });
-    }
+    if (best) this._select(best, { pan: true, sound: 'select', open: false });
   }
 
   _initialNode() {
     const run = this._jobs.find((j) => j.n)?.n;
     if (run) return run;
-    const avail = this.nodes.filter((n) => this._st.get(n.id) === 'avail');
-    avail.sort((a, b) => ((a.d.tier ?? 9) - (b.d.tier ?? 9)) || a.time - b.time || a.lane - b.lane || a.col - b.col);
-    return avail[0] || this.nodes.find((n) => this._st.get(n.id) === 'zone') || this.nodes.find((n) => this._st.get(n.id) === 'done') || this.nodes[0] || null;
+    const g = Guide.bestNext(this);
+    if (g) return g;
+    return this.nodes.find((N) => N.st === 'zone') || this.nodes.find((N) => N.st === 'done') || this.nodes[0] || null;
   }
 
   // ------------------------------------------------------------ camera
   _resize() {
     if (!this._alive) return;
     const w = this.root.clientWidth, h = this.root.clientHeight;
-    const compact = w < 700 || (w < 900 && h > w * 1.15);
+    const compact = w < 760 || (w < 980 && h > w * 1.1);
     if (compact !== this._compact) {
       this._compact = compact;
       this.root.classList.toggle('is-compact', compact);
       if (!compact) this._openSheet(false, true);
     }
-    this.root.classList.toggle('is-short', h < 640);
-    this.root.classList.toggle('is-tiny', h < 460);
+    this.root.classList.toggle('is-short', h < 620);
+    const vw = this.view.clientWidth, vh = this.view.clientHeight;
+    this._vr = null;
+    if (vw && vh) this.view3.setSize(vw, vh, Math.min(3, window.devicePixelRatio || 1));
     this._clampCam(this.cam);
-    this._applyCam();
+    this._camMoved();
   }
 
-  // zoom-out limit: enough to see the whole tree (but never below 0.1)
+  // zoom-out limit: the whole map width (never below 0.18)
   _minZ() {
-    const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500;
-    return clamp(Math.min((vw - 60) / this.W, (vh - 60) / this.H), 0.1, MINZ);
+    const vw = this.view.clientWidth || 800;
+    return clamp((vw - 30) / this.L.W, 0.18, 0.5);
   }
 
-  _visibleH() {
+  _visH() {
     const v = this.view;
-    if (this._compact && this._sheetOpen) return Math.max(120, v.clientHeight - this.$det.offsetHeight);
+    if (this._compact && this._sheetOpen) return Math.max(140, v.clientHeight - this.$det.offsetHeight);
     return v.clientHeight;
   }
 
   _clampCam(c) {
     const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500;
-    const m = Math.min(40, vw * 0.1), mh = Math.min(40, vh * 0.1);
-    const ww = this.W * c.z, wh = this.H * c.z;
-    c.x = ww + 2 * m < vw ? clamp(c.x, m, vw - ww - m) : clamp(c.x, vw - ww - m, m);
     const sheet = this._compact && this._sheetOpen ? this.$det.offsetHeight : 0;
+    const m = Math.min(60, vw * 0.2), mh = Math.min(60, vh * 0.2);
+    const ww = this.L.W * c.z, wh = this.L.H * c.z;
+    c.x = ww + 2 * m < vw ? clamp(c.x, m, vw - ww - m) : clamp(c.x, vw - ww - m, m);
     c.y = wh + 2 * mh < vh - sheet ? clamp(c.y, mh, vh - sheet - wh - mh) : clamp(c.y, vh - sheet - wh - mh, mh);
-    if (ww + 2 * m < vw && c.x > vw - ww - m) c.x = vw - ww - m;
     return c;
   }
 
-  _applyCam() {
-    const c = this._clampCam(this.cam);
-    this.world.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
-    const hz = 56 * c.z;
-    this.view.style.setProperty('--hex-pos', `${c.x.toFixed(1)}px ${c.y.toFixed(1)}px`);
-    this.view.style.setProperty('--hex-size', `${hz.toFixed(1)}px ${(hz * 100 / 56).toFixed(1)}px`);
-    // v19: holographic depth: two background layers drift slower than the tree (transform only)
-    if (this.$parA) {
-      const m = (v, t) => ((v % t) + t) % t - t;
-      this.$parA.style.transform = `translate3d(${m(c.x * 0.18, 96).toFixed(1)}px, ${m(c.y * 0.18, 96).toFixed(1)}px, 0)`;
-      this.$parB.style.transform = `translate3d(${m(c.x * 0.45, 240).toFixed(1)}px, ${m(c.y * 0.45, 160).toFixed(1)}px, 0)`;
-    }
-    this.root.classList.toggle('is-far', c.z < 0.58);
-    this.root.classList.toggle('is-vfar', c.z < 0.3);
-    this.root.style.setProperty('--lt-z', c.z.toFixed(3));
-    // sticky branch tabs
-    const vh = this.view.clientHeight;
-    const x = Math.max(6, (PADL - 34) * c.z + c.x);
-    for (const B of this.branches) {
-      if (!B.tab) continue;
-      const top = B.y * c.z + c.y, bot = (B.y + B.h) * c.z + c.y;
-      const th = 26;
-      const vis = bot > th + 4 && top < vh - 10;
-      B.tab.style.display = vis ? '' : 'none';
-      if (!vis) continue;
-      const y = clamp(top + 2, 2, bot - th - 2);
-      B.tab.classList.toggle('is-stuck', y > top + 3);
-      B.tab.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
-    }
-    if (this.$tip.classList.contains('is-on') && this._tipNode) this._placeTip(this._tipNode);
+  _camMoved() {
+    this._clampCam(this.cam);
+    const c = this.cam;
+    this.$anchors.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
+    this._dirty = true;
+    this._hereSec();
   }
 
   _goTo(g) {
     this.goal = this._clampCam({ ...g });
     this._vel = null;
-    if (REDUCED) { Object.assign(this.cam, this.goal); this.goal = null; this._applyCam(); }
+    if (REDUCED) { Object.assign(this.cam, this.goal); this.goal = null; this._camMoved(); }
   }
 
-  _fitRect(x0, y0, x1, y1, maxZ = 1) {
-    const vw = this.view.clientWidth, vh = this._visibleH();
-    const pad = 30;
-    const z = clamp(Math.min((vw - pad * 2) / (x1 - x0), (vh - pad * 2) / (y1 - y0), maxZ), this._minZ(), MAXZ);
-    this._goTo({ z, x: vw / 2 - ((x0 + x1) / 2) * z, y: vh / 2 - ((y0 + y1) / 2) * z });
+  _fitAll() {
+    const vw = this.view.clientWidth;
+    const z = this._minZ();
+    const c = this.goal || this.cam;
+    const vh = this._visH();
+    const wy = (vh / 2 - c.y) / c.z;
+    this._goTo({ z, x: (vw - this.L.W * z) / 2, y: vh / 2 - wy * z });
   }
-
-  _fitAll() { this._fitRect(0, 0, this.W, this.H, 1); }
 
   _baseZoom() {
     const vw = this.view.clientWidth;
     return vw < 520 ? 0.72 : vw < 760 ? 0.85 : 1;
   }
 
-  _centerOn(n, instant = false) {
-    if (!n) return;
+  _centerOn(N, instant = false) {
+    if (!N) return;
     const z = instant ? this._baseZoom() : Math.max(this.cam.z, 0.8);
-    const vw = this.view.clientWidth, vh = this._visibleH();
-    const g = { z, x: vw / 2 - n.x * z, y: vh / 2 - (n.y + 18) * z };
-    if (instant) { Object.assign(this.cam, this._clampCam(g)); this._applyCam(); } else this._goTo(g);
+    const vw = this.view.clientWidth, vh = this._visH();
+    // a little left of centre: the fox + his speech bubble stand to the right
+    const g = { z, x: vw * 0.45 - N.cx * z, y: vh * 0.5 - N.cy * z };
+    if (instant) { Object.assign(this.cam, this._clampCam(g)); this._camMoved(); } else this._goTo(g);
   }
 
-  _ensureVisible(n) {
+  _ensureVisible(N) {
     const c = this.goal || this.cam;
-    const vw = this.view.clientWidth, vh = this._visibleH();
-    const sx = n.x * c.z + c.x, sy = n.y * c.z + c.y;
-    const mx = Math.min(110, vw / 3), my = Math.min(90, vh / 3);
-    let x = c.x, y = c.y;
+    const vw = this.view.clientWidth, vh = this._visH();
     let z = c.z;
-    if (z < 0.6) z = 0.8;
-    if (z !== c.z || sx < mx || sx > vw - mx || sy < my || sy > vh - my - 40 * z) {
-      if (z !== c.z) { this._centerOn(n); return; }
-      if (sx < mx) x += mx - sx; else if (sx > vw - mx) x -= sx - (vw - mx);
-      if (sy < my) y += my - sy; else if (sy > vh - my - 40 * z) y -= sy - (vh - my - 40 * z);
-      this._goTo({ x, y, z });
-    }
+    if (z < 0.6) { this._centerOn(N); return; }
+    const sx0 = N.x * z + c.x, sx1 = (N.x + N.w) * z + c.x, sy0 = (N.y - 120) * z + c.y, sy1 = (N.y + N.h) * z + c.y;
+    const mx = Math.min(80, vw / 5), my = Math.min(40, vh / 6);
+    let x = c.x, y = c.y;
+    if (sx0 < mx) x += mx - sx0; else if (sx1 > vw - mx) x -= Math.min(sx0 - mx, sx1 - (vw - mx));
+    if (sy0 < my) y += my - sy0; else if (sy1 > vh - my) y -= sy1 - (vh - my);
+    if (x !== c.x || y !== c.y) this._goTo({ x, y, z });
   }
 
   _openSheet(open, silent) {
@@ -1530,186 +907,130 @@ export class LabTree {
     if (this._sheetOpen === open) return;
     this._sheetOpen = open;
     this.root.classList.toggle('is-sheet', open);
-    if (open && !silent) this._later(() => { if (this.sel) this._ensureVisible(this.sel); }, 260);
+    if (open && !silent) this._later(() => { if (this.sel) this._ensureVisible(this.sel); }, 240);
   }
 
   // ------------------------------------------------------------ selection / detail
-  _select(n, { pan = true, sound = false, open = false } = {}) {
-    if (!n) return;
-    if (n.B.sealed) { this._selectSection(n.B, { pan, sound, open }); return; }
+  _select(N, { pan = true, sound = false, open = false } = {}) {
+    if (!N) return;
     const wasSec = !!this.selSec;
     this.selSec = null;
-    this.root.classList.remove('is-secsel');
-    if (wasSec) for (const X of this.branches) X.seal?.classList.remove('is-sel');
-    const same = n === this.sel && !wasSec;
-    if (this.sel?.el) { this.sel.el.classList.remove('is-sel'); this.sel.el.tabIndex = -1; }
-    this.sel = n;
-    n.el.classList.add('is-sel');
-    n.el.tabIndex = 0;
-    this.$ret.style.transform = `translate(${n.x - NODE / 2 - 12}px, ${n.y - NODE / 2 - 12}px)`;
-    this.$ret.classList.add('is-on');
-    if (sound) this._sfx(sound);
+    const same = N === this.sel && !wasSec;
+    this.sel = N;
+    this._dirty = true;
+    if (sound) this._sfx(sound === true ? 'select' : sound);
     if (open) this._openSheet(true);
     if (!same) {
       this._renderDetail();
-      if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
+      this._fxEl(this.$det, 'is-swap', 220);
     }
-    if (pan) this._ensureVisible(n);
-    this.fox?.onSelect(n);
-    if (sound && !same) this._log(`open ${n.id.replace(/^r_/, '')}.rnd  [${STATE_TEXT[this._st.get(n.id)] || ''}]`, 'dim');
+    if (pan) this._ensureVisible(N);
+    if (sound || open) this.fox?.onSelect?.(N);
   }
 
-  // an encrypted section: the detail panel shows its section key
-  _selectSection(B, { pan = true, sound = false, open = false } = {}) {
-    if (!B) return;
-    const same = this.selSec === B;
-    if (this.sel?.el) { this.sel.el.classList.remove('is-sel'); this.sel.el.tabIndex = -1; }
+  // a locked section: the detail panel shows its key
+  _selectSection(S, { pan = true, sound = false, open = false } = {}) {
+    if (!S) return;
+    const same = this.selSec === S;
     this.sel = null;
-    this.selSec = B;
-    this.root.classList.add('is-secsel');
-    this.$ret.classList.remove('is-on');
-    for (const X of this.branches) X.seal?.classList.toggle('is-sel', X === B);
+    this.selSec = S;
+    this._dirty = true;
     if (sound) this._sfx('sector');
     if (open) this._openSheet(true);
-    if (!same) {
-      this._renderDetail();
-      if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
-      if (sound) this._log(`sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}: ENCRYPTED. radar sweep active`, 'err');
-    }
-    if (pan) this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
+    if (!same) { this._renderDetail(); this._fxEl(this.$det, 'is-swap', 220); }
+    if (pan) this._jumpSec(S);
+    this.fox?.onSection?.(S);
   }
 
-  _keySig(B) {
-    const k = this._secKey(B);
-    return JSON.stringify([k.needs?.map((x) => x.ok), k.canUnlock, k.coins, B.sealed]);
-  }
-
-  _showTip(n) {
-    const st = this._st.get(n.id);
-    let line = STATE_TEXT[st];
-    if (st === 'run') { const j = this._job(n.id); line = `Researching: ${fmtClock(j?.left ?? 0)} left`; }
-    else if (st === 'zone') line = `Meet ${this._zoneName(n.zone)} first`;
-    else if (st === 'avail') line = this._timed() && n.time ? `Ready! Free, takes ${fmtDur(n.time)}` : 'Ready! Free';
-    else if (st === 'locked') {
-      const miss = n.req.map((r) => this.byId.get(r)).filter((p) => p && !this._isRes(p.id));
-      line = miss.length ? `Needs ${miss.map((p) => p.d.name).slice(0, 2).join(' + ')}${miss.length > 2 ? '...' : ''}` : 'Locked';
-    }
-    this.$tip.innerHTML = `<b>${esc(n.d.name)}</b><i class="st-${st}">${esc(line)}</i>`;
-    this._tipNode = n;
-    this._placeTip(n);
-    this.$tip.classList.add('is-on');
-  }
-
-  _placeTip(n) {
-    const c = this.cam;
-    const x = n.x * c.z + c.x, y = (n.y - NODE / 2) * c.z + c.y - 10;
-    this.$tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
-  }
-
-  _unlockItems(d) {
-    const out = [];
-    for (const b of [].concat(d.build || [])) {
-      if (!b) continue;
-      const s = STRUCT_DATA.STRUCTURES?.[b];
-      out.push({ art: this._buildArt(b, 32), name: s?.name || human(b), kind: 'Build' });
-    }
-    if (d.species) {
-      const sp = SPECIES_DATA.SPECIES_BY_ID?.[d.species];
-      out.push({ art: this._fishImg(d.species, 40) || this._iconFit('fish', 32), name: sp?.name || human(d.species), kind: 'Fish eggs', fish: true });
-    }
-    if (d.mods) for (const [k, v] of Object.entries(d.mods)) out.push({ art: this._iconFit(k === 'labSlots' ? 'flask' : 'bolt', 28), name: modLine(k, v), kind: 'Upgrade' });
-    if (d.feature) out.push({ art: this._iconFit('gear', 28), name: d.featureName || human(d.feature), kind: 'Feature' });
-    return out;
+  _keySig(S) {
+    const k = this.secKey(S);
+    return JSON.stringify([k.needs?.map((x) => x.ok), k.canUnlock, k.coins, S.sealed]);
   }
 
   _renderDetail() {
     if (this.selSec) { this._renderSecDetail(this.selSec); return; }
-    const n = this.sel;
-    if (!n) return;
-    const st = this._st.get(n.id);
-    const d = n.d;
-    this.$hUnl.textContent = 'Unlocks';
-    this.$hTime.textContent = 'Time';
-    this.$hReq.textContent = 'Needs';
+    const N = this.sel;
+    if (!N) return;
+    const st = N.st;
+    const d = N.d;
     this.$det.dataset.state = st;
-    this.$det.style.setProperty('--bc', n.B.color);
-    this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(n.B.b.icon, 16)}${esc(n.B.b.name)}</span>${d.tier != null ? `<span class="lt-tier">Tier ${esc(d.tier)}</span>` : ''}`;
-    this.$name.textContent = d.name || n.id;
-    this.$heroSt.textContent = STATE_TEXT[st].toUpperCase();
-    this.$heroSt.className = `lt-hero-st st-${st}`;
+    this.$detK.textContent = `${String(N.S.i + 1).padStart(2, '0')} ${N.S.b.name}`.toUpperCase() + (d.tier != null ? `  /  TIER ${d.tier}` : '');
+    this.$name.textContent = d.name || N.id;
+    this.$pvSt.textContent = STATE_TEXT[st] || '';
+    this.$pvSt.className = `lt-pv-st st-${st}`;
     let sub = '';
     if (d.species) { const sp = SPECIES_DATA.SPECIES_BY_ID?.[d.species]; if (sp?.latin) sub = ` <i class="lt-latin">${esc(sp.latin)}</i>`; }
     this.$desc.innerHTML = esc(d.desc || '') + sub;
-    // unlocks
-    const items = this._unlockItems(d);
+    this.$hUnl.textContent = 'UNLOCKS';
+    this.$hTime.textContent = 'TIME';
+    this.$hReq.textContent = 'NEEDS';
+    this.$blkUnl.hidden = false;
+    this.$blkTime.hidden = false;
+    const items = this.unlocks(d);
     this.$unl.innerHTML = items.length
       ? items.map((it) => `<li class="${it.fish ? 'is-fish' : ''}"><span class="lt-art">${it.art}</span><span class="lt-unl-t"><b>${esc(it.name)}</b><small>${esc(it.kind)}</small></span></li>`).join('')
-      : '<li class="is-none"><span class="lt-unl-t"><b>Know-how</b><small>Opens up the next research</small></span></li>';
-    // time
-    if (this._timed() && n.time) {
+      : '<li class="is-none"><span class="lt-unl-t"><b>Know-how</b><small>opens the next projects</small></span></li>';
+    if (this._timed() && d.time) {
       const sp = this._speed();
-      this.$time.innerHTML = `${G_CLOCK}<b>${fmtDur(n.time / sp)}</b><span class="lt-free">FREE</span>${sp !== 1 ? `<span class="lt-spd">x${sp.toFixed(2).replace(/\.?0+$/, '')} SPEED</span>` : ''}<small>${this._rushOK() ? 'in-game time. Running jobs can be RUSHED with coins' : 'in-game time, starts as soon as you click'}</small>`;
+      this.$time.innerHTML = `${glyphHTML('clock', '#52e47e', 2)}<b>${fmtDur(d.time / sp)}</b><span class="lt-free">FREE</span>${sp !== 1 ? `<span class="lt-spd">speed x${sp.toFixed(2).replace(/\.?0+$/, '')}</span>` : ''}`;
     } else this.$time.innerHTML = '<b>Instant</b><span class="lt-free">FREE</span>';
-    // requirements
     let reqs = '';
-    for (const r of n.req) {
-      const p = this.byId.get(r);
+    for (const r of N.req) {
+      const P = this.byId.get(r);
       const ok = this._isRes(r);
       const run = this._jobIds.has(r);
-      reqs += `<li class="${ok ? 'ok' : 'bad'}"${p ? ` data-goto="${esc(r)}" role="button" tabindex="0"` : ''}>${ok ? G_CHECK : G_CROSS}<span class="lt-art sm">${p ? this._nodeArt(p, 24) : ''}</span><span>${esc(p?.d.name || human(r))}${run ? ' <em>(researching)</em>' : ''}</span></li>`;
+      const other = P && P.S !== N.S ? ` <small>(${esc(P.S.b.name)})</small>` : '';
+      reqs += `<li class="${ok ? 'ok' : 'bad'}"${P ? ` data-goto="${esc(r)}" role="button" tabindex="0"` : ''}>${glyphHTML(ok ? 'check' : 'cross', ok ? '#52e47e' : '#2b7442', 2)}<span class="lt-art sm">${P ? this.icons.nodeHTML(P.d, 20, ok ? 'on' : 'dim') : ''}</span><span>${esc(P?.d.name || human(r))}${other}${run ? ' <em>(researching)</em>' : ''}</span></li>`;
     }
-    if (n.zone) {
-      const ok = this._zoneOpen(n.zone);
-      reqs += `<li class="${ok ? 'ok' : 'bad'} is-zone">${ok ? G_CHECK : G_CROSS}<span class="lt-art sm">${G_PAW}</span><span>Meet ${esc(this._zoneName(n.zone))}${ok ? '' : ' <em>(explore the forest)</em>'}</span></li>`;
+    if (d.zone) {
+      const ok = this._zoneOpen(d.zone);
+      reqs += `<li class="${ok ? 'ok' : 'bad'} is-zone">${glyphHTML(ok ? 'check' : 'cross', ok ? '#52e47e' : '#ffc04a', 2)}<span class="lt-art sm">${glyphHTML('paw', ok ? '#52e47e' : '#ffc04a', 2)}</span><span>Meet ${esc(this.zoneName(d.zone))}${ok ? '' : ' <em>(explore the forest)</em>'}</span></li>`;
     }
-    if (!reqs) reqs = `<li class="ok">${G_CHECK}<span>Nothing. Go for it!</span></li>`;
-    this.$reqs.innerHTML = reqs;
-    // children
-    if (n.kids.length) {
-      this.$secKids.hidden = false;
-      this.$kids.innerHTML = n.kids.map((k) => (k.B.sealed
-        ? `<button type="button" class="lt-kid st-sealed" data-goto="${esc(k.id)}"><span class="lt-art sm">${G_LOCK}</span>${esc(scramble(k.d.name, 0.65, hashStr(k.id)))}</button>`
-        : `<button type="button" class="lt-kid st-${this._st.get(k.id)}" data-goto="${esc(k.id)}"><span class="lt-art sm">${this._nodeArt(k, 22)}</span>${esc(k.d.name)}</button>`)).join('');
-    } else this.$secKids.hidden = true;
+    if (st === 'sealed') {
+      reqs += `<li class="bad" data-sec="${N.S.i}" role="button" tabindex="0">${glyphHTML('lock', '#2b7442', 2)}<span>Unlock the ${esc(N.S.b.name)} section</span></li>`;
+    }
+    this.$reqs.innerHTML = reqs || `<li class="ok">${glyphHTML('check', '#52e47e', 2)}<span>Nothing. Go for it!</span></li>`;
+    const kids = N.kids;
+    this.$blkKids.hidden = !kids.length;
+    if (kids.length) this.$kids.innerHTML = kids.map((K) => `<button type="button" class="lt-kid st-${K.st}" data-goto="${esc(K.id)}"><span class="lt-art sm">${this.icons.nodeHTML(K.d, 18, K.st === 'done' ? 'done' : K.st === 'avail' || K.st === 'run' ? 'on' : 'dim')}</span>${esc(K.d.name)}</button>`).join('');
+    this._pvT = -1;
     this._renderAct();
   }
 
-  _renderSecDetail(B) {
-    const k = this._secKey(B);
-    this._secSig = this._keySig(B);
+  _renderSecDetail(S) {
+    const k = this.secKey(S);
+    this._secSig = this._keySig(S);
     this.$det.dataset.state = 'sealed';
-    this.$det.style.setProperty('--bc', B.color);
-    this.$hUnl.textContent = 'Encrypted contents';
-    this.$hTime.textContent = 'Decrypt cost';
-    this.$hReq.textContent = 'Section key';
-    this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(B.b.icon, 16)}${esc(B.b.name)}</span><span class="lt-tier is-enc">ENCRYPTED</span>`;
-    this.$name.textContent = B.b.name;
-    this.$heroSt.textContent = 'ENCRYPTED';
-    this.$heroSt.className = 'lt-hero-st st-sealed';
-    this.$desc.innerHTML = `<b>${B.nodes.length}</b> research projects are sealed in this sector. Use its <b>section key</b> to decrypt it.`;
-    let fish = 0, builds = 0, ups = 0, other = 0;
-    for (const n of B.nodes) { if (n.d.species) fish++; else if (n.d.build) builds++; else if (n.d.mods) ups++; else other++; }
-    const row = (art, num, what) => (num ? `<li><span class="lt-art">${art}</span><span class="lt-unl-t"><b>${num} ${esc(what)}</b><small>${esc(scramble(what.toUpperCase(), 0.6, num * 31 + what.length))}</small></span></li>` : '');
-    this.$unl.innerHTML = row(this._iconFit('fish', 30), fish, fish === 1 ? 'fish species' : 'fish species') + row(this._iconFit('hammer', 30), builds, builds === 1 ? 'thing to build' : 'things to build') + row(this._iconFit('bolt', 28) || G_BOLT, ups, ups === 1 ? 'upgrade' : 'upgrades') + row(this._iconFit('gear', 28), other, 'secrets');
-    this.$time.innerHTML = k.coins ? `${G_COIN}<b>${k.coins}</b><span>coins, once</span>` : '<b>FREE</b><span class="lt-free">KEY ONLY</span>';
+    this.$detK.textContent = `${String(S.i + 1).padStart(2, '0')} ${S.b.name}`.toUpperCase() + '  /  LOCKED';
+    this.$name.textContent = S.b.name;
+    this.$pvSt.textContent = 'SECTION LOCKED';
+    this.$pvSt.className = 'lt-pv-st st-sealed';
+    let fish = 0, builds = 0, ups = 0;
+    for (const N of S.nodes) { if (N.d.species) fish++; else if (N.d.build) builds++; else if (N.d.mods) ups++; }
+    this.$desc.innerHTML = `<b>${S.nodes.length}</b> projects are locked in this section. Use its <b>section key</b> to open it.`;
+    this.$hUnl.textContent = 'INSIDE';
+    this.$hTime.textContent = 'PRICE';
+    this.$hReq.textContent = 'SECTION KEY';
+    const row = (icon, num, what) => (num ? `<li><span class="lt-art">${this.icons.iconHTML(icon, 26, 'dim')}</span><span class="lt-unl-t"><b>${num} ${esc(what)}</b></span></li>` : '');
+    this.$unl.innerHTML = row('fish', fish, 'fish species') + row('hammer', builds, builds === 1 ? 'thing to build' : 'things to build') + row('bolt', ups, ups === 1 ? 'upgrade' : 'upgrades') || '<li class="is-none"><span class="lt-unl-t"><b>Secrets</b></span></li>';
+    this.$time.innerHTML = k.coins ? `${glyphHTML('coin', '#ffc04a', 2)}<b class="lt-amb">${k.coins}</b><span>coins, once</span>` : '<b>FREE</b><span class="lt-free">KEY ONLY</span>';
     let reqs = '';
     for (const x of k.needs || []) {
       const go = x.kind === 'node' && this.byId.has(x.id) ? ` data-goto="${esc(x.id)}" role="button" tabindex="0"` : '';
-      const art = x.kind === 'node' && this.byId.get(x.id) ? this._nodeArt(this.byId.get(x.id), 24) : x.kind === 'zone' ? G_PAW : G_COIN;
-      reqs += `<li class="${x.ok ? 'ok' : 'bad'}"${go}>${x.ok ? G_CHECK : G_CROSS}<span class="lt-art sm">${art}</span><span>${esc(x.text)}</span></li>`;
+      const art = x.kind === 'node' && this.byId.get(x.id) ? this.icons.nodeHTML(this.byId.get(x.id).d, 20, x.ok ? 'on' : 'dim') : x.kind === 'zone' ? glyphHTML('paw', x.ok ? '#52e47e' : '#ffc04a', 2) : glyphHTML('coin', '#ffc04a', 2);
+      reqs += `<li class="${x.ok ? 'ok' : 'bad'}"${go}>${glyphHTML(x.ok ? 'check' : 'cross', x.ok ? '#52e47e' : '#2b7442', 2)}<span class="lt-art sm">${art}</span><span>${esc(x.text)}</span></li>`;
     }
-    this.$reqs.innerHTML = reqs || `<li class="ok">${G_CHECK}<span>No key needed!</span></li>`;
-    this.$secKids.hidden = true;
+    this.$reqs.innerHTML = reqs || `<li class="ok">${glyphHTML('check', '#52e47e', 2)}<span>No key needed!</span></li>`;
+    this.$blkKids.hidden = true;
+    this._pvT = -1;
     this._renderAct();
   }
-
-  _speed() { try { const v = Number(this.o.speed?.()); return v > 0 ? v : 1; } catch { return 1; } }
 
   _renderAct() {
     const b = this.$go;
     if (this.selSec) {
-      const B = this.selSec;
-      const k = this._secKey(B);
+      const S = this.selSec;
+      const k = this.secKey(S);
       b.className = 'lt-go is-dec';
       this.$goFill.style.width = '0%';
       this.$rush.hidden = true;
@@ -1717,26 +1038,26 @@ export class LabTree {
       const miss = (k.needs || []).find((x) => x.kind !== 'coins' && !x.ok);
       if (k.canUnlock) {
         b.classList.add('is-go');
-        this.$goL.innerHTML = `${G_KEY} DECRYPT SECTION`;
-        this.$goS.textContent = k.coins ? `Pay ${k.coins} coins` : 'Free!';
+        this.$goL.textContent = 'UNLOCK SECTION';
+        this.$goS.textContent = k.coins ? `pay ${k.coins} coins` : 'free!';
       } else {
         b.classList.add('is-no');
-        this.$goL.innerHTML = `${G_LOCK} ENCRYPTED`;
-        this.$goS.textContent = miss ? `Key: ${miss.text}` : `Needs ${k.coins} coins`;
+        this.$goL.textContent = 'LOCKED';
+        this.$goS.textContent = miss ? `key: ${miss.text}` : `needs ${k.coins} coins`;
       }
       return;
     }
-    const n = this.sel;
-    if (!n) return;
-    const st = this._st.get(n.id);
+    const N = this.sel;
+    if (!N) return;
+    const st = N.st;
     b.className = 'lt-go';
     this.$goFill.style.width = '0%';
     this.$rush.hidden = !(st === 'run' && this._rushOK());
     if (st === 'done') {
       b.disabled = true;
       b.classList.add('is-done');
-      this.$goL.innerHTML = `${G_CHECK} RESEARCHED`;
-      this.$goS.textContent = 'Already in your toolbox';
+      this.$goL.textContent = 'RESEARCHED';
+      this.$goS.textContent = 'already in your toolbox';
       return;
     }
     if (st === 'run') {
@@ -1745,46 +1066,57 @@ export class LabTree {
       this._liveAct();
       return;
     }
-    const chk = this._check(n);
+    if (st === 'sealed') {
+      b.disabled = false;
+      b.classList.add('is-no', 'is-seal');
+      this.$goL.textContent = 'SECTION LOCKED';
+      this.$goS.textContent = 'tap to see its key';
+      return;
+    }
+    const chk = this._check(N);
     b.disabled = !chk.ok;
     if (chk.ok) {
       b.classList.add('is-go');
-      this.$goL.textContent = 'RESEARCH — FREE';
-      this.$goS.textContent = this._timed() && n.time ? `Takes ${fmtDur(n.time)}` : 'Instant!';
+      this.$goL.textContent = 'RESEARCH';
+      this.$goS.textContent = this._timed() && N.d.time ? `free, takes ${fmtDur(this.time(N))}` : 'free, instant';
       return;
     }
     b.classList.add('is-no');
     const busy = /bench busy/i.test(chk.reason || '');
     if (busy) b.classList.add('is-busy');
-    this.$goL.innerHTML = st === 'locked' ? `${G_LOCK} LOCKED` : st === 'zone' ? `${G_PAW} NEEDS A NEIGHBOUR` : busy ? 'BENCH BUSY' : 'RESEARCH';
+    this.$goL.textContent = busy ? 'BENCH BUSY' : 'NOT YET';
     this.$goS.textContent = busy ? this._busyText() : String(chk.reason || '');
   }
 
   _busyText() {
-    if (!this._jobs.length) return 'Lab bench busy';
+    if (!this._jobs.length) return 'lab bench busy';
     const j = this._jobs.reduce((a, b) => (b.left < a.left ? b : a));
-    return `Free in ${fmtClock(j.left)} (${j.n?.d.name || 'research'})`;
+    return `free in ${fmtClock(j.left)} (${j.n?.d.name || 'research'})`;
   }
 
   _liveAct() {
-    const n = this.sel;
-    if (!n || this.selSec) return;
-    const st = this._st.get(n.id);
-    if (st === 'run') {
-      const j = this._job(n.id);
+    const N = this.sel;
+    if (!N || this.selSec) return;
+    if (N.st === 'run') {
+      const j = this.job(N);
       const k = j ? j.k : 0;
-      this.$goFill.style.width = `${(k * 100).toFixed(1)}%`;
-      this.$goL.textContent = `RESEARCHING... ${Math.floor(k * 100)}%`;
-      this.$goS.textContent = `${fmtClock(j ? j.left : n.time)} left`;
-      if (!this.$rush.hidden) this._livePrices(this.$rushB, n.id);
-    } else if (this.$go.classList.contains('is-busy')) this.$goS.textContent = this._busyText();
+      const w = `${(k * 100).toFixed(1)}%`;
+      if (this.$goFill.style.width !== w) this.$goFill.style.width = w;
+      const l = `RESEARCHING ${Math.floor(k * 100)}%`, s = `${fmtClock(j ? j.left : N.d.time)} left`;
+      if (this.$goL.textContent !== l) this.$goL.textContent = l;
+      if (this.$goS.textContent !== s) this.$goS.textContent = s;
+      if (!this.$rush.hidden) this._livePrices(this.$rushB, N.id);
+    } else if (this.$go.classList.contains('is-busy')) {
+      const s = this._busyText();
+      if (this.$goS.textContent !== s) this.$goS.textContent = s;
+    }
   }
 
-  // rush buttons: live price + "can't afford" state
+  // rush buttons: live price + "can't afford"
   _livePrices(list, id) {
-    const coins = this._coins();
+    const coins = this.coins();
     for (const r of list) {
-      const p = this._rushPrice(id, r.mode);
+      const p = this.rushPrice(id, r.mode);
       const txt = p == null ? '-' : String(p);
       if (r.p.textContent !== txt) r.p.textContent = txt;
       const poor = p == null || (coins != null && coins < p);
@@ -1792,36 +1124,70 @@ export class LabTree {
     }
   }
 
-  // ------------------------------------------------------------ bench bar
-  _renderBench() {
-    if (!this.$slots) return;
-    if (!this._timed()) {
-      this.$slots.innerHTML = '<div class="lt-slotc is-info">Research finishes instantly</div>';
+  // the preview window: the unlock's art, big, in phosphor green (fish swim)
+  _drawPreview(t) {
+    const cv = this.pcv, ctx = this.pctx;
+    const W = cv.width, H = cv.height;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#020904';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0a2312';
+    for (let x = 4; x < W; x += 8) for (let y = 4; y < H; y += 8) ctx.fillRect(x, y, 1, 1);
+    if (this.selSec) {
+      const art = this.icons.icon('lock', 'dim');
+      if (art) { const s = Math.max(1, Math.floor((H * 0.7) / art.height)); ctx.drawImage(art, Math.round(W / 2 - (art.width * s) / 2), Math.round(H / 2 - (art.height * s) / 2), art.width * s, art.height * s); }
       return;
     }
-    const slots = Math.max(this._slots(), this._jobs.length);
-    if (this.$benchS) {
-      const sp = this._speed();
-      this.$benchS.textContent = ` ${this._jobs.length}/${this._slots()}${sp !== 1 ? ` x${sp.toFixed(2).replace(/\.?0+$/, '')}` : ''}`;
+    const N = this.sel;
+    if (!N) return;
+    const st = N.st;
+    const ramp = st === 'done' ? 'done' : st === 'avail' || st === 'run' ? 'on' : st === 'zone' ? 'mid' : 'dim';
+    const live = ramp === 'on' || ramp === 'done';
+    if (N.d.species) {
+      const f = this.icons.fish(N.d.species, live ? Math.floor(t * 6) % 4 : 0, ramp) || this.icons.fish(N.d.species, 0, ramp);
+      if (f) {
+        const s = Math.max(1, Math.floor(Math.min((W * 0.5) / f.width, (H * 0.62) / f.height)));
+        const w = f.width * s, h = f.height * s;
+        const range = live ? Math.max(0, (W - w) / 2 - 8) : 0;
+        const ph = t * 0.7;
+        const cx = W / 2 + Math.sin(ph) * range;
+        const right = !live || Math.cos(ph) >= 0;
+        const y = Math.round(H / 2 - h / 2 + (live ? Math.round(Math.sin(t * 2.4)) : 0));
+        ctx.save();
+        if (!right) { ctx.translate(Math.round(cx + w / 2), 0); ctx.scale(-1, 1); ctx.drawImage(f, 0, y, w, h); } else ctx.drawImage(f, Math.round(cx - w / 2), y, w, h);
+        ctx.restore();
+        return;
+      }
     }
+    const art = this.icons.node(N.d, ramp);
+    if (art) {
+      const s = Math.max(1, Math.floor(Math.min((H * 0.72) / art.height, (W * 0.5) / art.width)));
+      const bob = live ? Math.round(Math.sin(t * 2.2)) : 0;
+      ctx.drawImage(art, Math.round(W / 2 - (art.width * s) / 2), Math.round(H / 2 - (art.height * s) / 2) + bob, art.width * s, art.height * s);
+    }
+  }
+
+  // ------------------------------------------------------------ bench
+  _renderBench() {
+    if (!this.$slots) return;
+    if (!this._timed()) { this.$slots.innerHTML = '<div class="lt-slotc is-info">Research finishes instantly</div>'; return; }
+    const slots = Math.max(this.slots(), this._jobs.length);
+    const sp = this._speed();
+    if (this.$benchS) this.$benchS.textContent = `${this._jobs.length}/${this.slots()}${sp !== 1 ? `  x${sp.toFixed(2).replace(/\.?0+$/, '')}` : ''}`;
     const rush = this._rushOK();
     let h = '';
     for (let i = 0; i < slots; i++) {
       const j = this._jobs[i];
       if (j && j.n) {
-        h += `<div class="lt-slotc is-job${rush ? ' has-rush' : ''}" data-job="${esc(j.id)}" style="--bc:${esc(j.n.B.color)}">
-          <button type="button" class="lt-slotc-main" data-goto="${esc(j.id)}">
-            <span class="lt-art">${this._nodeArt(j.n, 30)}</span>
-            <span class="lt-slotc-m"><b>${esc(j.n.d.name)}</b><span class="lt-bar"><i></i></span></span>
-            <span class="lt-slotc-t">0:00</span>
-          </button>
-          ${rush ? `<span class="lt-slotc-r"><button type="button" class="lt-mini" data-rush="half" data-id="${esc(j.id)}" title="Rush: -50% time left">${G_BOLT}<b></b></button><button type="button" class="lt-mini is-now" data-rush="now" data-id="${esc(j.id)}" title="Finish now">${G_FF}<b></b></button></span>` : ''}
+        h += `<div class="lt-slotc is-job" data-job="${esc(j.id)}">
+          <button type="button" class="lt-slotc-main" data-goto="${esc(j.id)}"><span class="lt-art">${this.icons.nodeHTML(j.n.d, 22)}</span><span class="lt-slotc-m"><b>${esc(j.n.d.name)}</b><span class="lt-bar"><i></i></span></span><span class="lt-slotc-t">0:00</span></button>
+          ${rush ? `<span class="lt-slotc-r"><button type="button" class="lt-mini" data-rush="half" data-id="${esc(j.id)}" title="Rush: -50% time left">${glyphHTML('rush', '#ffc04a', 2)}<b></b></button><button type="button" class="lt-mini" data-rush="now" data-id="${esc(j.id)}" title="Finish now">${glyphHTML('ff', '#ffc04a', 2)}<b></b></button></span>` : ''}
         </div>`;
       } else if (j) {
         h += `<div class="lt-slotc is-job" data-job="${esc(j.id)}"><span class="lt-slotc-m"><b>${esc(j.id)}</b><span class="lt-bar"><i></i></span></span><span class="lt-slotc-t">0:00</span></div>`;
       } else {
-        const pick = this.nodes.find((n) => this._calc(n) === 'avail');
-        h += `<button type="button" class="lt-slotc is-empty"${pick ? ` data-goto="${esc(pick.id)}"` : ''}><span class="lt-plus">+</span><span class="lt-slotc-m"><b>Bench free</b><small>${pick ? 'Pick a glowing node!' : 'Nothing ready yet'}</small></span></button>`;
+        const pick = Guide.bestNext(this);
+        h += `<button type="button" class="lt-slotc is-empty"${pick ? ` data-goto="${esc(pick.id)}"` : ''}><span class="lt-plus">${glyphHTML('plus', '#2b7442', 2)}</span><span class="lt-slotc-m"><b>Bench ${i + 1}: free</b><small>${pick ? `try ${esc(pick.d.name)}` : 'nothing ready yet'}</small></span></button>`;
       }
     }
     this.$slots.innerHTML = h;
@@ -1834,322 +1200,127 @@ export class LabTree {
 
   _liveBench() {
     for (const s of this._jobEls || []) {
-      const j = this._job(s.id);
+      const j = this._jobs.find((x) => x.id === s.id);
       if (!j) continue;
-      s.bar.style.width = `${(j.k * 100).toFixed(1)}%`;
+      const w = `${(j.k * 100).toFixed(1)}%`;
+      if (s._w !== w) { s._w = w; s.bar.style.width = w; }
       const txt = fmtClock(j.left);
       if (s.t.textContent !== txt) s.t.textContent = txt;
       if (s.rush.length) this._livePrices(s.rush, s.id);
     }
-    for (const j of this._jobs) {
-      const n = j.n;
-      if (!n?.$ring) continue;
-      n.$ring.style.strokeDashoffset = String(100 - j.k * 100);
-      const txt = fmtClock(j.left);
-      if (n._pillT !== txt) { n._pillT = txt; n.$pill.innerHTML = `<b>${txt}</b>`; n.$pill.hidden = false; }
-    }
   }
 
-  // ------------------------------------------------------------ research
+  // ------------------------------------------------------------ actions
   _research() {
-    if (this.selSec) { this._decrypt(this.selSec, this.$go); return; }
-    const n = this.sel;
-    if (!n) return;
-    const chk = this._check(n);
+    if (this.selSec) { this._unlockSec(this.selSec, this.$go); return; }
+    const N = this.sel;
+    if (!N) return;
+    if (N.st === 'sealed') { this._selectSection(N.S, { pan: false, sound: true, open: true }); return; }
+    const chk = this._check(N);
     if (!chk.ok) {
       this._sfx('error');
-      this._fx(this.$go, 'is-shake', 400);
-      this._fx(n.el, 'is-shake', 400);
-      if (this._st.get(n.id) !== 'done' && this._st.get(n.id) !== 'run') this.$goS.textContent = /bench busy/i.test(chk.reason || '') ? this._busyText() : String(chk.reason || '');
-      if (chk.reason) this._log(`ERR: ${chk.reason}`, 'err');
+      this._fxEl(this.$go, 'is-shake', 380);
+      if (N.st !== 'done' && N.st !== 'run') this.$goS.textContent = /bench busy/i.test(chk.reason || '') ? this._busyText() : String(chk.reason || '');
+      this.fox?.onDenied?.(N, chk.reason);
       return;
     }
     let ok = false;
-    try { ok = !!this.o.onResearch?.(n.id); } catch (err) { console.error(err); ok = false; }
+    try { ok = !!this.o.onResearch?.(N.id); } catch (err) { console.error(err); ok = false; }
     if (!this._alive) return;
     if (!ok) {
       this._sfx('error');
-      this._fx(this.$go, 'is-shake', 400);
-      this.$goS.textContent = 'Could not start that research';
+      this._fxEl(this.$go, 'is-shake', 380);
+      this.$goS.textContent = 'could not start that research';
       return;
     }
-    this._fx(this.$go, 'is-press', 300);
     this._pollJobs(true);
-    const running = this._jobIds.has(n.id);
-    if (running) {
+    if (this._jobIds.has(N.id)) {
       this._sfx('start');
-      this._fly(n);
-      this._ring(n, 'start');
-      this._log(`synthesizing ${n.d.name}... ETA ${fmtDur(this._job(n.id)?.left || n.time)}`, 'run');
+      this._burst(N, 10, ['#8ef5aa', '#52e47e']);
     }
     this.refresh();
     this._renderDetail();
   }
 
-  // ------------------------------------------------------------ v18: paid rushes
   _rush(id, mode, src) {
-    const n = this.byId.get(id);
-    if (!n || !this._rushOK()) return;
-    const price = this._rushPrice(id, mode);
+    const N = this.byId.get(id);
+    if (!N || !this._rushOK()) return;
     let res = null;
     try { res = this.o.onRush(id, mode); } catch (err) { console.error(err); res = null; }
     if (!this._alive) return;
     if (typeof res === 'boolean') res = { ok: res };
     if (!res || !res.ok) {
       this._sfx('denied');
-      if (src) this._fx(src, 'is-shake', 400);
-      this._flash(src, res?.msg || 'Not enough coins');
-      this._log(`ERR: ${res?.msg || 'insufficient credits'}`, 'err');
+      if (src) this._fxEl(src, 'is-shake', 380);
+      this._toast(res?.msg || 'Not enough coins', 'bad');
+      this.fox?.onDenied?.(N, res?.msg || 'coins');
       return;
     }
     this._sfx(mode === 'now' ? 'rushnow' : 'rush');
-    this._log(mode === 'now' ? `overclock: ${n.d.name} forced to completion` : `turbo injected: ${n.d.name} -50% time`, 'warn');
-    this._coinsFly(src, n.$ico, Math.min(14, 4 + Math.round((price || 10) / 15)));
-    this._float(n, mode === 'now' ? 'DONE!' : '-50% TIME', mode);
-    this._ring(n, 'warp');
-    this._fx(n.el, 'is-warp', 800);
-    const card = this.$slots.querySelector(`[data-job="${CSS.escape(id)}"]`);
-    if (card) this._fx(card, 'is-boost', 700);
-    if (this.sel === n) this._fx(this.$go, 'is-boost', 700);
-    this._bumpCoins();
-    this.fox?.onRush(n, mode);
+    this._burst(N, 14, ['#ffc04a', '#ffe6a8']);
+    this._fxEl(this.$coins, 'is-spend', 500);
+    this.fox?.onRush?.(N, mode);
     this._pollJobs(true);
     this.refresh();
-    if (this.sel === n) this._renderDetail();
+    if (this.sel === N) this._renderDetail();
   }
 
-  // little message that floats up from a button
-  _flash(src, msg) {
-    if (!msg) return;
-    const rr = this.root.getBoundingClientRect();
-    const a = (src || this.$go).getBoundingClientRect();
-    const el = document.createElement('div');
-    el.className = 'lt-flash';
-    el.textContent = msg;
-    el.style.left = `${clamp(a.left + a.width / 2 - rr.left, 90, rr.width - 90)}px`;
-    el.style.top = `${a.top - rr.top - 6}px`;
-    this.$fxl.appendChild(el);
-    this._later(() => el.remove(), 1600);
-  }
-
-  // "-50% TIME" / "DONE!" rising from a node (world space)
-  _float(n, text, kind) {
-    const el = document.createElement('span');
-    el.className = `lt-float is-${kind}`;
-    el.textContent = text;
-    n.el.appendChild(el);
-    this._later(() => el.remove(), 1400);
-  }
-
-  // coins fly from the wallet in the header to `to` (an element)
-  _coinsFly(src, to, count = 6) {
-    if (REDUCED || !this.$coins || this.$coins.hidden) return;
-    const rr = this.root.getBoundingClientRect();
-    const a = this.$coins.getBoundingClientRect();
-    let b = to?.getBoundingClientRect?.();
-    const vr = this.view.getBoundingClientRect();
-    if (!b || !b.width || b.right < vr.left || b.left > vr.right || b.bottom < vr.top || b.top > vr.bottom) b = (src || this.$go).getBoundingClientRect();
-    const ax = a.left + a.width * 0.7 - rr.left, ay = a.top + a.height / 2 - rr.top;
-    const bx = b.left + b.width / 2 - rr.left, by = b.top + b.height / 2 - rr.top;
-    for (let i = 0; i < count; i++) {
-      const el = document.createElement('div');
-      el.className = 'lt-cfly';
-      el.innerHTML = G_COIN;
-      el.style.left = `${ax}px`;
-      el.style.top = `${ay}px`;
-      this.$fxl.appendChild(el);
-      const jx = (Math.random() - 0.5) * 60, jy = -40 - Math.random() * 60;
-      const anim = el.animate([
-        { transform: 'translate(-50%,-50%) scale(.6)', opacity: 0 },
-        { transform: `translate(calc(-50% + ${(bx - ax) * 0.35 + jx}px), calc(-50% + ${(by - ay) * 0.2 + jy}px)) scale(1.4)`, opacity: 1, offset: 0.4 },
-        { transform: `translate(calc(-50% + ${bx - ax}px), calc(-50% + ${by - ay}px)) scale(.7)`, opacity: 1 },
-      ], { duration: 620 + i * 25, delay: i * 45, easing: 'cubic-bezier(.45,0,.55,1)', fill: 'backwards' });
-      anim.onfinish = () => el.remove();
-      this._later(() => el.remove(), 1400 + i * 50);
-    }
-  }
-  _bumpCoins() { if (this.$coins) this._fx(this.$coins, 'is-spend', 600); }
-
-  // ------------------------------------------------------------ v18: encrypted sections
-  _renderSeal(B) {
-    const seal = B.seal;
-    if (!seal) return;
-    const k = this._secKey(B);
-    const sig = JSON.stringify([k.needs?.map((x) => [x.ok, x.text]), k.coins, k.canUnlock]);
-    if (seal._sig === sig) return;
-    const first = seal._sig == null;
-    seal._sig = sig;
-    const needs = (k.needs || []).map((x) => `<li class="${x.ok ? 'ok' : 'bad'}"${x.kind === 'node' && this.byId.has(x.id) ? ` data-goto="${esc(x.id)}"` : ''}>${x.ok ? G_CHECK : G_CROSS}<span>${esc(x.text)}</span></li>`).join('');
-    const body = `<div class="lt-seal-card">
-        <div class="lt-seal-top">${G_SEAL}<div class="lt-seal-tt"><span class="lt-seal-k">ENCRYPTED SECTOR</span><span class="lt-seal-n">${esc(B.b.name)}</span><span class="lt-seal-c">${B.nodes.length} PROJECTS LOCKED <i>${esc(scramble('XXXXXXXX', 1, hashStr(B.b.id)))}</i></span></div></div>
-        ${needs ? `<ul class="lt-seal-req">${needs}</ul>` : ''}
-        <button type="button" class="lt-decrypt${k.canUnlock ? ' is-ready' : ''}">${G_KEY}<span>DECRYPT</span>${k.coins ? `<small>${G_COIN}${k.coins}</small>` : '<small>FREE</small>'}</button>
-      </div>`;
-    if (first) {
-      let ghosts = '';
-      for (const n of B.nodes) ghosts += `<i style="left:${Math.round(n.x - B.sx - 28)}px;top:${Math.round(n.y - B.sy - 28)}px;--d:${hashStr(n.id) % 1200}ms"><b>?</b></i>`;
-      seal.innerHTML = `<div class="lt-seal-bg"><div class="lt-radar"><i></i><b></b></div></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
-    } else seal.querySelector('.lt-seal-body').innerHTML = body;
-  }
-
-  _decrypt(B, src) {
-    if (!B || !B.sealed) return;
-    const k = this._secKey(B);
+  _unlockSec(S, src) {
+    if (!S || !S.sealed) return;
     let res = null;
-    try { res = this.o.sections?.unlock?.(B.b.id) ?? null; } catch (err) { console.error(err); res = null; }
+    try { res = this.o.sections?.unlock?.(S.id) ?? null; } catch (err) { console.error(err); res = null; }
     if (!this._alive) return;
     if (typeof res === 'boolean') res = { ok: res };
     if (!res || !res.ok) {
       this._sfx('denied');
-      if (src) this._fx(src, 'is-shake', 400);
-      this._fx(B.seal, 'is-denied', 600);
-      this._flash(src || this.$go, res?.msg || 'Access denied');
-      this._log(`ACCESS DENIED: sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}`, 'err');
-      this._glitch();
+      if (src) this._fxEl(src, 'is-shake', 380);
+      this._toast(res?.msg || 'Locked', 'bad');
+      this.fox?.onSection?.(S, true);
       return;
     }
     this._sfx('decrypt');
-    this._log(`brute-forcing sector ${String(B.i + 1).padStart(2, '0')} cipher...`, 'warn');
-    if (k.coins) { this._coinsFly(src, B.seal.querySelector('.lt-seal-top') || B.seal, Math.min(14, 4 + Math.round(k.coins / 15))); this._bumpCoins(); }
+    this._fxEl(this.$coins, 'is-spend', 500);
     this.refresh();
   }
 
-  _decrypted(B) {
-    const seal = B.seal;
-    if (seal) {
-      seal.hidden = false;
-      const t = seal.querySelector('.lt-seal-k');
-      if (t) t.textContent = 'ACCESS GRANTED';
-      seal.classList.add('is-decrypt');
-      this._later(() => { seal.classList.remove('is-decrypt', 'is-sel'); seal.hidden = true; }, REDUCED ? 10 : 1250);
-    }
-    B.nodes.forEach((n, i) => {
-      n.el.classList.add('is-hide');
-      this._later(() => { n.el.classList.remove('is-hide'); this._fx(n.el, 'is-reveal', 900); }, REDUCED ? 0 : 650 + Math.min(i, 14) * 70);
-    });
-    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-k">SECTOR DECRYPTED</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
-    this.fox?.onUnlock(B);
-    this._log(`sector ${String(B.i + 1).padStart(2, '0')} decrypted: ${B.b.name} (${B.nodes.length} projects)`, 'ok', REDUCED ? 0 : 900);
-    this._glitch();
-    this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
+  _decrypted(S) {
+    this._toast(`${S.b.name.toUpperCase()} UNLOCKED: ${S.nodes.length} new projects`, 'good');
+    for (const N of S.nodes.slice(0, 8)) this._burst(N, 4, ['#52e47e', '#d0ffd8']);
+    this.fox?.onUnlock?.(S);
+    this._renderSecs();
   }
 
-  // a copy of the node icon flies down to its bench slot
-  _fly(n) {
-    if (REDUCED) return;
-    const slot = this.$slots.querySelector(`[data-job="${CSS.escape(n.id)}"] .lt-art`) || this.$slots;
-    const rr = this.root.getBoundingClientRect();
-    const a = n.$ico.getBoundingClientRect(), b = slot.getBoundingClientRect();
-    if (!a.width || !b.width) return;
-    const el = document.createElement('div');
-    el.className = 'lt-fly';
-    el.innerHTML = this._nodeArt(n, 40);
-    el.style.left = `${a.left + a.width / 2 - rr.left}px`;
-    el.style.top = `${a.top + a.height / 2 - rr.top}px`;
-    this.$fxl.appendChild(el);
-    const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
-    const lift = Math.min(-60, dy * -0.35);
-    const anim = el.animate([
-      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
-      { transform: `translate(calc(-50% + ${dx * 0.45}px), calc(-50% + ${dy * 0.2 + lift}px)) scale(1.35)`, opacity: 1, offset: 0.45 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.6)`, opacity: 0.9 },
-    ], { duration: 650, easing: 'cubic-bezier(.4,0,.6,1)' });
-    anim.onfinish = () => {
-      el.remove();
-      const card = this.$slots.querySelector(`[data-job="${CSS.escape(n.id)}"]`);
-      if (card) this._fx(card, 'is-land', 500);
-    };
-    this._later(() => el.remove(), 900);
-  }
-
-  // expanding ring + sparkles on a node
-  _ring(n, kind) {
-    let sp = n.el.querySelector('.lt-spk');
-    if (!sp) { sp = document.createElement('span'); sp.className = 'lt-spk'; n.el.appendChild(sp); }
-    const count = kind === 'done' ? 12 : 8;
-    let h = `<i class="lt-wave ${kind}"></i>`;
-    const R = rng(hashStr(n.id) ^ (now() | 0));
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * 360 + R() * 20;
-      const dist = (kind === 'done' ? 64 : 48) + R() * 24;
-      h += `<b style="--a:${a.toFixed(0)}deg;--d:${dist.toFixed(0)}px;--dl:${(R() * 80).toFixed(0)}ms" class="${kind}"></b>`;
-    }
-    sp.innerHTML = h;
-    this._later(() => { if (sp.isConnected) sp.innerHTML = ''; }, 1100);
-  }
-
-  _celebrate(n, prev) {
-    this._ring(n, 'done');
-    this._fx(n.el, 'is-burst', 1100);
+  _celebrate(N, prev) {
     this._sfx('done');
-    this._log(`${n.d.name}: research complete. blueprint compiled OK`, 'ok');
-    if (prev === 'run' || prev === 'avail') this._toast(n);
-    if (n === this.sel && !REDUCED) this._burstHero();
-    this._later(() => { if (n.kids.some((k) => this._st.get(k.id) === 'avail')) this._sfx('unlock'); }, 450);
+    this._burst(N, 22, ['#d0ffd8', '#52e47e', '#ffc04a']);
+    if (prev === 'run' || prev === 'avail') {
+      const u = this.unlocks(N.d).map((x) => x.name);
+      this._toast(`DONE: ${N.d.name}${u.length ? `  >  ${u.slice(0, 2).join(', ')}` : ''}`, 'good');
+    }
+    this.fox?.onDone?.(N);
+    this._later(() => { if (N.kids.some((K) => K.st === 'avail')) this._sfx('unlock'); }, 450);
   }
 
-  _toast(n) {
-    this._toasts.push(n);
+  _burst(N, n, cols) {
+    if (REDUCED) return;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 140;
+      this._fx.push({ x: N.x + Math.random() * N.w, y: N.y + Math.random() * N.h, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 80, t: 0, life: 0.6 + Math.random() * 0.6, c: cols[i % cols.length], s: 2 + (i % 3) });
+    }
+  }
+
+  _toast(text, kind = '') {
+    this._toastQ.push([text, kind]);
     if (this._toastOn) return;
     const next = () => {
-      const m = this._toasts.shift();
+      const m = this._toastQ.shift();
       if (!m || !this._alive) { this._toastOn = false; return; }
       this._toastOn = true;
-      if (m.html) {
-        this.$toast.innerHTML = m.html;
-        this.$toast.classList.remove('is-on');
-        void this.$toast.offsetWidth;
-        this.$toast.classList.add('is-on');
-        this._later(() => { this.$toast.classList.remove('is-on'); this._later(next, 320); }, 2600);
-        return;
-      }
-      const items = this._unlockItems(m.d).slice(0, 3);
-      const fresh = m.kids.filter((k) => this._st.get(k.id) === 'avail');
-      this.$toast.innerHTML = `<div class="lt-toast-c" style="--bc:${esc(m.B.color)}">
-        <span class="lt-toast-k">RESEARCH COMPLETE!</span>
-        <div class="lt-toast-r"><span class="lt-art">${this._nodeArt(m, 44)}</span><b>${esc(m.d.name)}</b></div>
-        ${items.length ? `<div class="lt-toast-u">${items.map((it) => `<span><span class="lt-art sm">${it.art}</span>${esc(it.name)}</span>`).join('')}</div>` : ''}
-        ${fresh.length ? `<div class="lt-toast-n">New: ${fresh.slice(0, 3).map((k) => esc(k.d.name)).join(', ')}${fresh.length > 3 ? '...' : ''}</div>` : ''}
-      </div>`;
-      this.$toast.classList.remove('is-on');
-      void this.$toast.offsetWidth;
-      this.$toast.classList.add('is-on');
-      this._later(() => { this.$toast.classList.remove('is-on'); this._later(next, 320); }, 2800);
+      this.$toast.textContent = '> ' + m[0];
+      this.$toast.className = `lt-toast is-on${m[1] ? ' is-' + m[1] : ''}`;
+      this._later(() => { this.$toast.classList.remove('is-on'); this._later(next, 200); }, 2600);
     };
     next();
-  }
-
-  _burstHero() {
-    const R = rng(now() | 0);
-    for (let i = 0; i < 30; i++) {
-      const a = R() * Math.PI * 2, v = 30 + R() * 70;
-      this._bursts.push({ x: PW / 2, y: PH / 2 - 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, t: 0, life: 0.6 + R() * 0.6, c: R() < 0.5 ? '#fff7c4' : R() < 0.5 ? '#7dffa8' : '#ffcc3a' });
-    }
-  }
-
-  _surge(e) {
-    const p = e.core;
-    if (!p || REDUCED || typeof p.getTotalLength !== 'function') return;
-    let L = 0;
-    try { L = p.getTotalLength(); } catch { L = 0; }
-    if (!L) return;
-    p.classList.add('is-surge');
-    p.style.strokeDasharray = `${L} ${L}`;
-    p.style.strokeDashoffset = `${L}`;
-    void p.getBoundingClientRect();
-    p.style.transition = 'stroke-dashoffset .8s ease-out';
-    p.style.strokeDashoffset = '0';
-    this._later(() => { p.classList.remove('is-surge'); p.style.transition = ''; p.style.strokeDasharray = ''; p.style.strokeDashoffset = ''; }, 900);
-  }
-
-  _onFish(m) {
-    if (!this._alive || !m || typeof m.fishCanvas !== 'function') return;
-    if (this.o.fishCanvas) return;
-    this._fish = m;
-    this._fishFrames.clear();
-    for (const n of this.nodes) if (n.d.species) n.$ico.innerHTML = this._nodeArt(n);
-    if (this.sel?.d.species) this._renderDetail();
-    this._renderBench();
   }
 
   // ------------------------------------------------------------ loop
@@ -2159,266 +1330,64 @@ export class LabTree {
     t = t || now();
     const dtms = Math.min(50, t - (this._lastFrame || t));
     this._lastFrame = t;
-    // camera
+    const dt = dtms / 1000;
+    this.time = (this.time || 0) + dt;
+    // camera easing / fling
     if (this.goal) {
-      const g = this.goal, k = 1 - Math.exp(-dtms / 90);
+      const g = this.goal, k = 1 - Math.exp(-dtms / 85);
       this.cam.x += (g.x - this.cam.x) * k;
       this.cam.y += (g.y - this.cam.y) * k;
       this.cam.z += (g.z - this.cam.z) * k;
-      if (Math.abs(g.x - this.cam.x) < 0.5 && Math.abs(g.y - this.cam.y) < 0.5 && Math.abs(g.z - this.cam.z) < 0.002) { Object.assign(this.cam, g); this.goal = null; }
-      this._applyCam();
+      if (Math.abs(g.x - this.cam.x) < 0.4 && Math.abs(g.y - this.cam.y) < 0.4 && Math.abs(g.z - this.cam.z) < 0.002) { Object.assign(this.cam, g); this.goal = null; }
+      this._camMoved();
     } else if (this._vel && !this._drag) {
       this.cam.x += this._vel.x * dtms;
       this.cam.y += this._vel.y * dtms;
-      const f = Math.pow(0.93, dtms / 16);
+      const f = Math.pow(0.92, dtms / 16);
       this._vel.x *= f;
       this._vel.y *= f;
       if (Math.hypot(this._vel.x, this._vel.y) < 0.02) this._vel = null;
-      this._applyCam();
+      this._camMoved();
     }
-    // jobs: live progress every frame, full state refresh on change / every 400ms
+    // jobs: poll every frame (cheap), full state refresh on change / every 400ms
     const changed = this._pollJobs(false);
-    this._liveBench();
-    if (changed || t - this._lastPoll > 400) {
-      this._lastPoll = t;
-      this.refresh();
+    if (changed || t - this._lastPoll > 400) { this._lastPoll = t; this.refresh(); }
+    // live text ~8x a second
+    if (t - (this._lastLive || 0) > 120) {
+      this._lastLive = t;
+      this._liveBench();
+      this._liveAct();
+      const coins = this.coins();
+      if (coins !== this._lastCoins && this.$coinsV) {
+        this.$coinsV.textContent = coins == null ? '-' : Math.floor(coins).toLocaleString('en-US');
+        this._lastCoins = coins;
+      }
+      // a running job on screen: its progress strip + spinner move
+      if (this._jobs.length) this._dirty = true;
     }
-    this._liveAct();
-    // wallet
-    const coins = this._coins();
-    if (coins !== this._lastCoins && this.$coinsV) {
-      this.$coinsV.textContent = coins == null ? '-' : Math.floor(coins).toLocaleString('en-US');
-      this._lastCoins = coins;
+    // sparks
+    if (this._fx.length) {
+      for (const p of this._fx) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; p.vx *= 0.97; }
+      this._fx = this._fx.filter((p) => p.t < p.life);
+      this._dirty = true;
     }
-    // v19: terminal uptime clock (text changes once a second)
-    const up = Math.floor((t - this._t0) / 1000);
-    if (up !== this._up && this.$termClk) { this._up = up; this.$termClk.textContent = fmtClock(up); }
-    // Reynard
-    try { this.fox?.update(dtms / 1000); } catch (err) { console.warn('LabFox', err); this.fox?.destroy(); this.fox = null; }
-    // showcase canvas ~30fps
-    if (t - this._lastDraw >= 33) {
-      const dt = Math.min(0.1, (t - (this._lastDraw || t)) / 1000);
-      this._lastDraw = t;
-      this._drawHero((t - this._t0) / 1000, dt);
+    if (this._dirty) this._draw();
+    // preview window ~12 fps
+    if (t - (this._pvLast || 0) > 80 || this._pvT === -1) {
+      this._pvLast = t;
+      this._pvT = 0;
+      if (this.$det.offsetParent !== null) this._drawPreview(this.time);
     }
+    try { this.fox?.update(dt); } catch (err) { console.warn('LabFox', err); try { this.fox?.destroy(); } catch { /* ignore */ } this.fox = null; }
   };
 
-  _drawHero(t, dt) {
-    if (this.selSec && this.$hero.offsetParent !== null) { this._drawSealHero(t); return; }
-    const n = this.sel;
-    if (!n || this.$hero.offsetParent === null) return;
-    const cv = this.pcv, ctx = this.pctx;
-    const st = this._st.get(n.id);
-    let custom = false;
-    if (this.o.preview && st !== 'locked' && st !== 'zone') {
-      try { custom = !!this.o.preview(n.d, cv, t); } catch { custom = false; }
-    }
-    if (!custom) {
-      if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
-      ctx.imageSmoothingEnabled = false;
-      const W = cv.width, H = cv.height;
-      drawBackdrop(ctx, W, H, t, st);
-      const dark = st === 'locked' || st === 'zone';
-      if (n.d.species && this._fishFrame(n.d.species, 0)) this._drawFish(ctx, W, H, t, n.d.species, dark);
-      else this._drawIcon(ctx, W, H, t, n, dark);
-      if (st === 'run') {
-        const j = this._job(n.id);
-        const k = j ? j.k : 0;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(8, H - 8, W - 16, 4);
-        ctx.fillStyle = '#5fd0f0';
-        ctx.fillRect(8, H - 8, Math.round((W - 16) * k), 4);
-      }
-      drawScan(ctx, W, H, t);
-      if (!dark) drawSparkles(ctx, W, H, t, hashStr(n.id), st === 'done' ? 7 : 4);
-    }
-    this._drawBursts(ctx, dt);
-  }
-
-  // an encrypted sector: a glitching padlock over scrambled data
-  _drawSealHero(t) {
-    const cv = this.pcv, ctx = this.pctx;
-    if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
-    const W = PW, H = PH;
-    drawBackdrop(ctx, W, H, t, 'locked');
-    const R = rng(Math.floor(t * 8) + 1);
-    ctx.font = "8px 'TBME Body', monospace"; // [v18 font]
-    ctx.textAlign = 'left';
-    for (let i = 0; i < 9; i++) {
-      ctx.fillStyle = `rgba(95,208,240,${0.08 + R() * 0.18})`;
-      ctx.fillText(scramble('XXXXXXXXXXXXXXXXXXXXXXX', 1, Math.floor(t * 6) * 13 + i), -4 + ((i * 37) % 11), 8 + i * 8);
-    }
-    const g = R() < 0.12 ? Math.round((R() - 0.5) * 6) : 0;
-    const cx = Math.round(W / 2) + g, cy = Math.round(H / 2) + 4;
-    // padlock: dark outline, shackle, body with a keyhole
-    ctx.fillStyle = '#04161c';
-    ctx.fillRect(cx - 9, cy - 21, 18, 4);
-    ctx.fillRect(cx - 9, cy - 21, 5, 14);
-    ctx.fillRect(cx + 4, cy - 21, 5, 14);
-    ctx.fillRect(cx - 13, cy - 9, 26, 21);
-    ctx.fillStyle = '#9adff0';
-    ctx.fillRect(cx - 7, cy - 19, 14, 2);
-    ctx.fillRect(cx - 7, cy - 19, 2, 11);
-    ctx.fillRect(cx + 5, cy - 19, 2, 11);
-    ctx.fillStyle = '#5fd0f0';
-    ctx.fillRect(cx - 11, cy - 7, 22, 17);
-    ctx.fillStyle = '#2c9cc8';
-    ctx.fillRect(cx + 7, cy - 7, 4, 17);
-    ctx.fillRect(cx - 11, cy + 8, 22, 2);
-    ctx.fillStyle = '#d4fbff';
-    ctx.fillRect(cx - 11, cy - 7, 18, 1);
-    ctx.fillStyle = '#04161c';
-    ctx.fillRect(cx - 2, cy - 2, 4, 4);
-    ctx.fillRect(cx - 1, cy + 2, 2, 4);
-    if (g) { ctx.fillStyle = 'rgba(255,90,120,.5)'; ctx.fillRect(0, cy - 4 + g * 2, W, 2); }
-    drawScan(ctx, W, H, t);
-    this._drawBursts(ctx, 0.033);
-  }
-
-  _silhouette(img, w, h) {
-    const k = img.src + w + 'x' + h;
-    let c = this._silhouettes.get(k);
-    if (!c) {
-      c = makeCanvas(w, h);
-      const x = c.getContext('2d');
-      x.imageSmoothingEnabled = false;
-      x.drawImage(img, 0, 0, w, h);
-      x.globalCompositeOperation = 'source-in';
-      x.fillStyle = '#05080a';
-      x.fillRect(0, 0, w, h);
-      this._silhouettes.set(k, c);
-    }
-    return c;
-  }
-
-  _drawIcon(ctx, W, H, t, n, dark) {
-    let m = this._iconMeta(n.d.icon);
-    if (!m.ok) m = this._iconMeta('flask');
-    const img = m.img;
-    if (!img || !img.complete || !img.naturalWidth) return;
-    const s = Math.max(1, Math.floor(Math.min((H * 0.6) / m.h, (W * 0.5) / m.w)));
-    const w = m.w * s, h = m.h * s;
-    const bob = dark ? 0 : Math.round(Math.sin(t * 2.2) * 2.5);
-    const x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2 - 5 + bob);
-    const sw = Math.round(w * (0.62 - bob * 0.03));
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(Math.round(W / 2 - sw / 2), H - 15, sw, 3);
-    if (dark) {
-      try { ctx.drawImage(this._silhouette(img, w, h), x, y); } catch { /* ignore */ }
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.font = "24px 'TBME Title', monospace"; // [v18 font]
-      ctx.textAlign = 'center';
-      ctx.fillText('?', W / 2, H / 2 + 4);
-    } else ctx.drawImage(img, x, y, w, h);
-  }
-
-  _drawFish(ctx, W, H, t, sp, dark) {
-    const frame = dark ? 0 : Math.floor(t * 6) % 4;
-    const f = this._fishFrame(sp, frame) || this._fishFrame(sp, 0);
-    if (!f) return;
-    const s = Math.max(1, Math.floor(Math.min((W * 0.46) / f.width, (H * 0.5) / f.height)));
-    const w = f.width * s, h = f.height * s;
-    const range = dark ? 0 : Math.max(0, (W - w) / 2 - 10);
-    const ph = t * 0.75;
-    const cx = W / 2 + Math.sin(ph) * range;
-    const right = dark || Math.cos(ph) >= 0;
-    const y = Math.round(H / 2 - h / 2 - 4 + (dark ? 0 : Math.sin(t * 2.7) * 2));
-    const x = Math.round(cx - w / 2);
-    ctx.save();
-    if (!right) { ctx.translate(x * 2 + w, 0); ctx.scale(-1, 1); }
-    if (dark) {
-      const c = makeCanvas(w, h), cx2 = c.getContext('2d');
-      cx2.imageSmoothingEnabled = false;
-      cx2.drawImage(f, 0, 0, w, h);
-      cx2.globalCompositeOperation = 'source-in';
-      cx2.fillStyle = '#05080a';
-      cx2.fillRect(0, 0, w, h);
-      ctx.drawImage(c, x, y);
-    } else ctx.drawImage(f, x, y, w, h);
-    ctx.restore();
-    if (dark) return;
-    for (let i = 0; i < 4; i++) {
-      const k = (t * 0.6 + i * 0.27) % 1;
-      const bx = Math.round(cx + (right ? w / 2 : -w / 2) * 0.8 + Math.sin(t * 3 + i) * 2);
-      const by = Math.round(y + h * 0.3 - k * 34);
-      if (by < 4) continue;
-      ctx.fillStyle = `rgba(190,240,255,${0.7 * (1 - k)})`;
-      ctx.fillRect(bx, by, i % 2 ? 1 : 2, i % 2 ? 1 : 2);
-    }
-  }
-
-  _drawBursts(ctx, dt) {
-    if (!this._bursts.length) return;
-    const keep = [];
-    for (const p of this._bursts) {
-      p.t += dt;
-      if (p.t >= p.life) continue;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vy += 60 * dt;
-      p.vx *= 0.97;
-      const k = 1 - p.t / p.life;
-      ctx.fillStyle = p.c;
-      const x = Math.round(p.x), y = Math.round(p.y);
-      if (k > 0.5) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); } else ctx.fillRect(x, y, 1, 1);
-      keep.push(p);
-    }
-    this._bursts = keep;
-  }
-}
-
-// ---------------------------------------------------------------- showcase drawing
-const HERO_TINT = { done: [255, 214, 90], run: [95, 208, 240], avail: [125, 255, 168], zone: [255, 154, 58], locked: [140, 150, 170] };
-function drawBackdrop(ctx, W, H, t, st) {
-  const [r, g, b] = HERO_TINT[st] || HERO_TINT.avail;
-  const dark = st === 'locked' || st === 'zone';
-  ctx.fillStyle = dark ? '#0b0f12' : '#0a1a1e';
-  ctx.fillRect(0, 0, W, H);
-  const off = Math.floor(t * 4) % 8;
-  ctx.fillStyle = dark ? '#141a1e' : '#12303a';
-  for (let x = -off; x < W; x += 8) ctx.fillRect(x, 0, 1, H);
-  for (let y = off; y < H; y += 8) ctx.fillRect(0, y, W, 1);
-  const gr = ctx.createRadialGradient(W / 2, H / 2 - 4, 2, W / 2, H / 2, H * 0.8);
-  gr.addColorStop(0, `rgba(${r},${g},${b},${dark ? 0.08 : 0.24})`);
-  gr.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, W, H);
-  const cx = W / 2, cy = H - 13;
-  for (let i = 0; i < 3; i++) {
-    const rx = 18 + i * 9, ry = 3 + i * 1.6;
-    const pulse = (t * 0.9 + i / 3) % 1;
-    const a = (dark ? 0.08 : 0.18) + (dark ? 0.15 : 0.5) * (1 - Math.abs(pulse - 0.5) * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
-    for (let k = 0; k < 64; k++) {
-      const ang = (k / 64) * Math.PI * 2;
-      ctx.fillRect(Math.round(cx + Math.cos(ang) * rx), Math.round(cy + Math.sin(ang) * ry), 1, 1);
-    }
-  }
-}
-
-function drawScan(ctx, W, H, t) {
-  const y = Math.floor(((t * 34) % (H + 26)) - 12);
-  for (let i = 0; i < 8; i++) {
-    const yy = y - i;
-    if (yy < 0 || yy >= H) continue;
-    ctx.fillStyle = `rgba(200,240,255,${i === 0 ? 0.3 : 0.08 * (1 - i / 8)})`;
-    ctx.fillRect(0, yy, W, 1);
-  }
-  ctx.fillStyle = 'rgba(0,0,0,0.14)';
-  for (let yy = 1; yy < H; yy += 2) ctx.fillRect(0, yy, W, 1);
-}
-
-function drawSparkles(ctx, W, H, t, seed, count) {
-  for (let i = 0; i < count; i++) {
-    const cyc = t * 0.8 + i * 0.37;
-    const k = Math.floor(cyc);
-    const ph = cyc - k;
-    const R = rng((seed ^ Math.imul(k + 1, 2654435761) ^ Math.imul(i + 7, 40503)) >>> 0);
-    const x = Math.round(W * 0.22 + R() * W * 0.56), y = Math.round(H * 0.12 + R() * H * 0.62);
-    if (ph > 0.6) continue;
-    const s = ph < 0.2 || ph > 0.45 ? 0 : 1;
-    ctx.fillStyle = R() < 0.5 ? '#eafff0' : '#ffe890';
-    ctx.fillRect(x, y, 1, 1);
-    if (s) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
+  _draw() {
+    this._dirty = false;
+    const t0 = now();
+    this.view3.draw(this.cam, {
+      sel: this.sel, selSec: this.selSec, hover: this.hover, hoverTag: this.hoverTag, t: this.time || 0, fx: this._fx,
+      secInfo: (S) => this._secInfo(S), job: (N) => this.job(N), isDone: (id) => this._isRes(id),
+    });
+    this.drawMs = now() - t0;
   }
 }

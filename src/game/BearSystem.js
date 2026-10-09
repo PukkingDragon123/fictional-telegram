@@ -177,8 +177,10 @@ export class BearSystem {
   tileOf(b) { return [Math.floor(b.x), Math.floor(b.z)]; }
   tileIdx(x, z) { return z * this.grid.w + x; }
 
-  fieldFrom(x, z) {
-    return this.grid.bearField([this.tileIdx(x, z)]);
+  fieldFrom(x, z, b = null) {
+    // [v26 resort] calm bears keep to the paths (game.paths.costMap: path cheap, grass dear); rampaging bears charge across anything
+    const mult = b && !b.angry && !b.hostile ? this.game.paths?.costMap?.() || null : null;
+    return this.grid.bearField([this.tileIdx(x, z)], undefined, mult);
   }
 
   // backtrack a path from goal tile to the bear using a field computed from the bear
@@ -203,6 +205,7 @@ export class BearSystem {
     const tx = Math.floor(x), tz = Math.floor(z);
     if (!g.inb(tx, tz)) return 0;
     const i = this.tileIdx(tx, tz);
+    if (g.kind[i] === KIND.WATER) { const dk = this.game.paths?.deckY?.(tx, tz); if (dk != null) return dk; } // [v26 resort] boardwalk deck
     if (g.kind[i] === KIND.WATER) return Math.max(g.height[i], WATER_Y - 0.95 * b.def.scale);
     return g.height[i];
   }
@@ -212,7 +215,7 @@ export class BearSystem {
     const g = this.grid;
     const tx = Math.floor(b.x), tz = Math.floor(b.z);
     const was = b.inWater;
-    b.inWater = g.isWater(tx, tz) && b.state !== 'commute' && b.state !== 'commuteUp';
+    b.inWater = g.isWater(tx, tz) && !this.game.paths?.isDeck?.(tx, tz) && b.state !== 'commute' && b.state !== 'commuteUp'; // [v26 resort] isDeck: boardwalk
     if (b.inWater) b.region = g.region[this.tileIdx(tx, tz)] ?? b.region;
     if (b.state !== 'commute' && b.state !== 'commuteUp') b.y = damp(b.y, this.groundY(b), was === b.inWater ? 14 : 8, dt);
     b.moving = moving;
@@ -230,10 +233,11 @@ export class BearSystem {
   decide(b) {
     const g = this.grid;
     const [bx, bz] = this.tileOf(b);
-    const field = this.fieldFrom(bx, bz);
+    const field = this.fieldFrom(bx, bz, b); // [v26 resort] b: path costs
     b.goal = null; b.fish = null; b.struct = null; b.path = null;
     if (b.hostile && this.game.bearEvents?.decide(b, field)) return; // [v18 bear events] blood-moon bears / bosses
     if (b.angry) return this.decideSmash(b, field);
+    if (this.game.resort?.decide?.(b, field)) return; // [v26 resort] ticket booth first, then facilities by need (b.script)
     const hungry = b.eaten < b.appetite;
     // 1) best fish
     let fishPick = null, fishScore = Infinity;
@@ -350,10 +354,11 @@ export class BearSystem {
   // One shared field from the trail entry, reused by every bear heading home.
   entryField() {
     const g = this.grid;
-    if (this._entryVer !== g.version || !this._entryField) {
+    const pv = this.game.paths?.version || 0; // [v26 resort] the way home follows the paths too
+    if (this._entryVer !== g.version || this._entryPV !== pv || !this._entryField) {
       const [ex, ez] = this.entryTile;
-      this._entryField = g.bearField([this.tileIdx(ex, ez)], this._entryField);
-      this._entryVer = g.version;
+      this._entryField = g.bearField([this.tileIdx(ex, ez)], this._entryField, this.game.paths?.costMap?.() || null);
+      this._entryVer = g.version; this._entryPV = pv;
     }
     return this._entryField;
   }
@@ -394,6 +399,8 @@ export class BearSystem {
     if (missing && stars <= 3) text = pick(WANT_COMPLAINTS[missing.kind]);
     else if (b.prefer && b.preferMiss > 0 && stars <= 3) text = `${pick(WANT_COMPLAINTS.species)} (wanted ${SPECIES_BY_ID[b.prefer].name})`;
     if (b.gotGolden && !b.angry) text = 'A GOLDEN fish?! ' + text;
+    { const wx = game.seasons?.onReview?.(b, stars, text); if (wx) { stars = wx.stars; text = wx.text; } } // [v26 seasons] FREEZING / soggy / melting reviews
+    { const rv = game.resort?.review?.(b, stars, text); if (rv) { stars = rv.stars; text = rv.text; } } // [v26 resort] spa raves, "no path" / "closed" gripes
     const review = { stars, text, name: b.name, dept: b.dept, type: b.typeId, weight: b.def.reviewWeight || 1, day: game.state.day };
     b.review = review;
     game.addReview(review, b);
@@ -707,7 +714,7 @@ export class BearSystem {
     // water state
     const tx = Math.floor(b.x), tz = Math.floor(b.z);
     const wasWater = b.inWater;
-    b.inWater = g.isWater(tx, tz) && b.state !== 'commute' && b.state !== 'commuteUp';
+    b.inWater = g.isWater(tx, tz) && !this.game.paths?.isDeck?.(tx, tz) && b.state !== 'commute' && b.state !== 'commuteUp'; // [v26 resort] isDeck: boardwalk
     b.region = b.inWater ? g.region[this.tileIdx(tx, tz)] : -1;
     if (b.inWater && b.region < 0) {
       // standing in a gate/dam gap: use neighbour region
@@ -754,7 +761,8 @@ export class BearSystem {
     const dx = tx - b.x, dz = tz - b.z;
     const d = Math.hypot(dx, dz);
     if (d < 1e-4) return true;
-    const sp = speed * (b.inWater ? 0.75 : 1) * (b.angry ? 1.25 : 1) * (b.slowK ?? 1); // [v18 bear events] soaked / enraged
+    const sp = speed * (b.inWater ? 0.75 : 1) * (b.angry ? 1.25 : 1) * (b.slowK ?? 1) // [v18 bear events] soaked / enraged
+      * (b.cold > 0.2 && !b.angry ? 1 - 0.32 * b.cold : 1); // [v26 seasons] cold bears trudge
     const step = Math.min(d, sp * dt);
     const nx = b.x + (dx / d) * step, nz = b.z + (dz / d) * step;
     const h = Math.atan2(dz, dx);
@@ -765,7 +773,8 @@ export class BearSystem {
     if (!ignoreBlock && (ntx !== ctx || ntz !== ctz) && !g.bearPassable(ntx, ntz)) return false;
     // leap into water / hop out
     if ((ntx !== ctx || ntz !== ctz) && !ignoreBlock) {
-      const fromWater = g.isWater(ctx, ctz), toWater = g.isWater(ntx, ntz);
+      const PT = this.game.paths; // [v26 resort] the boardwalk counts as dry land: no leap on or off it
+      const fromWater = g.isWater(ctx, ctz) && !PT?.isDeck?.(ctx, ctz), toWater = g.isWater(ntx, ntz) && !PT?.isDeck?.(ntx, ntz);
       // land inside the tile we just checked (never hop over a dam or fence)
       const lx = Math.min(ntx + 0.85, Math.max(ntx + 0.15, nx + (dx / d) * 0.5));
       const lz = Math.min(ntz + 0.85, Math.max(ntz + 0.15, nz + (dz / d) * 0.5));
@@ -980,6 +989,7 @@ export class BearSystem {
       else if (b.state === 'search') pose = 'search';
       else if (b.inWater) pose = 'swim';
       if (b.poseOverride) pose = this.game.bearEvents?.poseFor(b, o) || pose; // [v18 bear events] attacks, traps, knockback
+      if (b.script?.pose) { const sp = typeof b.script.pose === 'function' ? b.script.pose(b, o) : b.script.pose; if (sp) pose = sp; } // [v26 resort] scripted bears (facility visits) pick their pose
       r.pose(pose, rdt, o);
       r.update?.(rdt);
       if (!b.angry && !b.matHold && r.matState === 'angry') r.setMaterial('normal'); // [v18 bear events] matHold: enraged boss

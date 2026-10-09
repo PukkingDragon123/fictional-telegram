@@ -177,7 +177,8 @@ export class Grid {
 
   // Dijkstra (8-neighbour, no corner cutting) from a set of start tiles over
   // bear-passable tiles. Water costs more. Returns Float32Array of distances.
-  bearField(starts, out) {
+  // [v26 resort] mult: optional per-tile cost multiplier (game.paths.costMap(): paths cheap, grass dear)
+  bearField(starts, out, mult = null) {
     const { w, h } = this;
     const n = w * h;
     const pass = this.bearPassMap();
@@ -201,6 +202,7 @@ export class Grid {
         if (dx !== 0 && dz !== 0 && (!pass[cz * w + nx] || !pass[nz * w + cx])) continue;
         let cost = dx !== 0 && dz !== 0 ? 1.414 : 1;
         if (p === 2) cost *= 1.5;
+        if (mult) cost *= mult[ni]; // [v26 resort]
         const nd = cd + cost;
         if (nd < dist[ni]) { dist[ni] = nd; heap.push(ni, nd); }
       }

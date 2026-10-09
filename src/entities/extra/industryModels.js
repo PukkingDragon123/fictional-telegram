@@ -729,6 +729,7 @@ export function makeDrone() {
 const ITEM_COL = {
   stone: 0x9a929c, coal: 0x34323a, copper: 0xd0763e, iron: 0xa87a6a, gold: 0xffcc34, crystal: 0x9a7ed8,
   ingot_copper: 0xe08a4a, ingot_iron: 0x9aa0b2, ingot_gold: 0xffd23f, gear: 0xb8924c, plate: 0x8c92aa, circuit: 0x30ad9c, wood: 0xa8784a,
+  glass: 0xa6d4ec, wire: 0xe8945a, motor: 0x3c78c8, solar_cell: 0x2c4a9a, // [v26 power]
 };
 const ITEM_GEO = new Map();
 function itemGeo(id) {
@@ -744,6 +745,19 @@ function itemGeo(id) {
     v.box(-3, 0, -2, 2, 0, 1, c); v.box(-3, 1, -2, 2, 1, 1, shade(c, 1.15));
   } else if (id === 'circuit') {
     v.box(-2, 0, -2, 1, 0, 1, c); v.set(-1, 1, -1, 0xffd23f); v.set(0, 1, 0, 0x2a2a30); v.set(1, 1, -2, 0xffd23f);
+  } else if (id === 'glass') { // [v26 power] a pane of glass on its edge
+    v.box(-3, 0, 0, 2, 4, 0, (x, y) => ((x + y) % 4 === 0 ? 0xeaf8ff : c));
+  } else if (id === 'wire') { // a spool of copper wire
+    for (let x = -2; x <= 1; x++) for (let y = 0; y <= 3; y++) for (let z = -2; z <= 1; z++) {
+      const r = Math.hypot(y - 1.5, z + 0.5);
+      if (r > 2.1) continue;
+      v.set(x, y, z, x === -2 || x === 1 ? 0xb07840 : (y + z) & 1 ? c : shade(c, 0.8));
+    }
+  } else if (id === 'motor') { // a blue can with fins and a steel shaft
+    for (let x = -2; x <= 1; x++) for (let y = 0; y <= 3; y++) for (let z = -2; z <= 1; z++) if (Math.hypot(y - 1.5, z + 0.5) <= 2.1) v.set(x, y, z, x % 2 ? c : shade(c, 0.8));
+    v.box(2, 1, -1, 3, 2, 0, 0xbcc2d4); v.box(-3, 0, -2, 2, 0, 1, 0x3a3a42);
+  } else if (id === 'solar_cell') { // a dark blue cell with a silver grid
+    v.box(-3, 0, -2, 2, 0, 1, (x, y, z) => (x % 2 === 0 || z === -1 ? 0xbcc2d4 : c));
   } else if (id === 'wood') {
     for (let x = -4; x <= 3; x++) for (let y = 0; y <= 2; y++) for (let z = -1; z <= 1; z++) if (Math.hypot(y - 1, z) < 1.6) v.set(x, y, z, x === -4 || x === 3 ? 0xd8a868 : pickT(WOOD, x, y, z));
   } else {
@@ -769,8 +783,107 @@ export function makeBeltItem(id) {
   return m;
 }
 
+// ================================================================ [v26 power] CIRCUIT FAB (2x2)
+// A clean white shed with a teal roof: a big window onto the solder bench (a green board,
+// a glowing CRT, a soldering iron with a hot tip), a blinking antenna, a CIRCUITS sign.
+function buildCircuitFab(R) {
+  const f = R.f, g = R.g;
+  slab(f, -19, 18, -19, 18, 0, CONC);
+  const W1 = 0xeceae2, W2 = 0xdedcd2, TEAL = 0x2a8a84, TEAL_D = 0x1e6a66, TEAL_L = 0x4ab0a8;
+  // walls (white panels with seams), door on the right
+  for (let x = -17; x <= 16; x++) for (let z = -16; z <= 6; z++) for (let y = 1; y <= 22; y++) {
+    const shell = x === -17 || x === 16 || z === -16 || z === 6;
+    if (!shell) continue;
+    f.set(x, y, z, (x + 40) % 8 === 0 || (z + 40) % 8 === 0 ? W2 : y === 1 ? 0xb8b4aa : W1);
+  }
+  // the big front window (glass) with the bench behind it
+  for (let x = -14; x <= 3; x++) for (let y = 7; y <= 17; y++) { f.set(x, y, 6, null); if (x === -14 || x === 3 || y === 7 || y === 17 || x === -6) f.set(x, y, 6, STEEL_D); else R.gl.set(x, y, 6, GLASS_TINT); }
+  // door + step + a hazard-free mat
+  f.box(7, 1, 6, 13, 15, 6, null); f.box(7, 1, 6, 13, 15, 6, (x, y) => (x === 7 || x === 13 || y === 15 ? STEEL_D : y === 8 && x === 12 ? BRASS : 0x5a7a8a));
+  f.box(6, 0, 7, 14, 0, 9, 0x8a867e);
+  // roof: teal, low pitch, with a vent box + antenna
+  for (let z = -18; z <= 8; z++) { const h = 23 + Math.round(((z + 18) / 26) * -3); for (let x = -19; x <= 18; x++) f.set(x, h + 3, z, (x + 40) % 2 ? TEAL : TEAL_D); }
+  for (let x = -19; x <= 18; x++) f.set(x, 23, 8, TEAL_L);
+  f.box(6, 26, -12, 11, 28, -7, STEEL); f.box(7, 29, -11, 10, 29, -8, STEEL_D);
+  f.box(-12, 27, -10, -12, 40, -10, STEEL_L); f.box(-14, 34, -10, -10, 34, -10, STEEL_L); f.box(-13, 37, -10, -11, 37, -10, STEEL_L);
+  const blink = R.part('blink', at(-12, 41, -10));
+  blink.g.set(-12, 41, -10, 0xff3a2a);
+  // the sign
+  f.box(-12, 19, 7, 3, 23, 7, 0x1e3a3a);
+  text(f, 'CHIPS', -9, 22, 8, 0x8affc8);
+  // the solder bench inside (seen through the window)
+  f.box(-13, 1, -2, 2, 6, 3, WOOD_D); f.box(-14, 7, -3, 3, 7, 4, WOOD[1]);
+  f.box(-12, 8, -1, -7, 8, 3, 0x2e7a34); // a green board on the bench
+  for (const [x, z] of [[-11, 0], [-9, 2], [-8, 0]]) f.set(x, 9, z, 0x2a2a30);
+  for (const x of [-12, -10, -8]) f.set(x, 9, 2, 0xffd23f);
+  // CRT monitor (green screen, flickers)
+  f.box(-4, 8, -3, 1, 13, 1, 0xd8d4c4); f.box(-3, 8, 2, 0, 9, 2, 0xb8b4a6);
+  const crt = R.part('crt', at(-1.5, 11, 2));
+  crt.g.box(-3, 9, 2, 0, 12, 2, 0x3aff8a); for (let x = -3; x <= 0; x++) crt.g.set(x, 11, 2, 0x9affc8);
+  // soldering iron + the hot tip
+  f.line(-6, 8, 4, -9, 10, 1, STEEL_D); f.box(-6, 8, 4, -5, 9, 4, 0xd23a2a);
+  const tip = R.part('tip', at(-9, 10, 1));
+  tip.g.set(-9, 10, 1, 0xffb040); tip.g.set(-10, 10, 0, 0xfff0a0);
+  // a crate of finished boards by the door + a cable reel
+  f.box(9, 1, 10, 15, 4, 15, (x, y, z) => (x === 9 || x === 15 || z === 10 || z === 15 ? WOOD_D : WOOD[(x + y) % 3]));
+  for (let i = 0; i < 3; i++) f.box(10, 5 + i, 11 + i, 14, 5 + i, 13 + i, i % 2 ? 0x2e7a34 : 0x3a8a44);
+  cylZ(f, -12.5, 4.5, 4, 10, 15, (x, y, z, d) => (d > 3 ? 0xb07840 : d > 1.3 ? (z % 2 ? COPPER : COPPER_L) : WOOD_D));
+  grassTufts(f, 10, -19, 18, 8, 18, 9, (x, z) => (x > -18 && x < 18 && z < 17));
+}
+function circuitAnim(n, clock, vel, dt, t) {
+  const k = Math.min(1, vel);
+  if (n.blink) n.blink.visible = Math.sin(t * 3.3) > 0.2;
+  if (n.crt) n.crt.visible = k < 0.05 ? Math.sin(t * 0.7) > -0.2 : Math.sin(t * 37) > -0.7;
+  if (n.tip) n.tip.visible = k > 0.1 && Math.sin(t * 13) > -0.4;
+}
+
+// ================================================================ [v26 power] ASSEMBLY BENCH (2x1)
+// A long fitter's bench: a vice, a half-built blue motor on a stand (its shaft spins when
+// running), gears and a tool board behind, a lamp hanging from a little gantry.
+function buildAssembly(R) {
+  const f = R.f, g = R.g;
+  slab(f, -19, 18, -9, 9, 0, CONC);
+  // bench top + legs + a shelf
+  f.box(-17, 9, -4, 16, 10, 5, (x, y, z) => (y === 10 ? WOOD[(x >> 2) % 3] : WOOD_D));
+  for (const x of [-16, 15]) for (const z of [-3, 4]) f.box(x, 1, z, x + 1, 8, z, WOOD_D);
+  f.box(-16, 3, -3, 16, 3, 4, WOOD[2]);
+  for (let i = 0; i < 4; i++) f.box(-14 + i * 4, 4, -2, -12 + i * 4, 5 + (i % 2), 2, i % 2 ? STEEL : STEEL_L); // plates on the shelf
+  // the tool board (back) with a hammer, a wrench, a saw outline
+  f.box(-17, 11, -6, 16, 24, -5, (x, y) => ((x + 40) % 9 === 0 ? WOOD_D : 0x9a7a52));
+  f.line(-14, 14, -5, -10, 22, -4, WOOD_D); f.box(-12, 21, -4, -9, 23, -4, STEEL_D);
+  f.line(-5, 13, -4, -5, 22, -4, STEEL_L); f.box(-6, 21, -4, -4, 22, -4, STEEL_L);
+  for (let x = 2; x <= 9; x++) f.set(x, 16 + ((x & 1) ? 0 : 1), -4, STEEL_L); f.box(10, 15, -4, 12, 17, -4, WOOD_D);
+  // the vice (left)
+  f.box(-15, 11, -1, -10, 13, 2, IRON); f.box(-14, 14, -1, -11, 15, 2, IRON_L); f.box(-16, 12, 3, -9, 12, 3, STEEL_L);
+  // the motor on its stand (right of centre); the shaft + fan spin
+  f.box(0, 11, -2, 8, 11, 3, IRON);
+  cylX(f, 16, 0.5, 4.2, 1, 7, (x, y, z, d) => (d > 3.6 ? (x % 2 ? BLUE : BLUE_D) : BLUE_L));
+  f.box(-1, 13, -1, 0, 19, 2, STEEL_D);
+  const shaft = R.part('shaft', at(9, 16, 0.5));
+  cylX(shaft.f, 16, 0.5, 1, 8, 12, STEEL_L);
+  for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU; shaft.f.line(12, 16, 0.5, 12, Math.round(16 + Math.sin(a) * 3), Math.round(0.5 + Math.cos(a) * 3), HAZ_Y); }
+  // loose gears on the bench
+  gear(f, -6.5, 11.5, 2, 3, 1.4, 2.6, 6, BRASS, { hub: BRASS_D });
+  gear(f, 12.5, 11.5, 2, 3, 1, 2, 5, COPPER, { hub: BRASS_D });
+  // the lamp on a gantry (swings a little)
+  f.box(-17, 1, 6, -16, 30, 7, IRON); f.box(15, 1, 6, 16, 30, 7, IRON); f.box(-17, 30, 6, 16, 31, 7, HAZ_Y);
+  const lamp = R.part('lamp', at(0, 30, 6.5));
+  lamp.f.box(0, 25, 6, 0, 29, 6, IRON_L); lamp.f.box(-2, 23, 5, 2, 24, 8, 0x3a6a4a);
+  lamp.g.box(-1, 22, 6, 1, 22, 7, 0xfff0b0);
+}
+function assemblyAnim(n, clock, vel, dt, t) {
+  if (n.shaft) n.shaft.rotation.x = clock * 14;
+  if (n.lamp) n.lamp.rotation.z = Math.sin(t * 1.1) * 0.05 + Math.sin(clock * 3) * 0.04;
+}
+
+// ---------------------------------------------------------------- [v26 power] the kit, for powerModels.js / storageModels.js
+export const IND_KIT = { machine, at, cylY, cylX, cylZ, wheelX, slab, grassTufts, plaque, hv, pickT, brick, hazard, VF, cached, instance };
+export const IND_PAL = { BRICK, BRICK_D, MORTAR, STONE, CONC, IRON, IRON_L, IRON_D, STEEL, STEEL_L, STEEL_D, COPPER, COPPER_L, COPPER_D, BRASS, BRASS_D, BRASS_L, HAZ_Y, HAZ_K, RED, RED_D, RED_L, GREEN, GREEN_D, GREEN_L, WHITE, CREAM, WOOD, WOOD_D, LEATHER, LEATHER_L, COAL, FIRE, RUBBER, RUBBER_L, BLUE, BLUE_D, BLUE_L, GLASS_TINT };
+
 // ---------------------------------------------------------------- factories
 export const STRUCTURE_MODELS = {
+  ind_circuitfab: () => machine('ind_circuitfab', buildCircuitFab, { lamp: [0.75, 1.0, 0.36], fx: { smoke: [] }, anim: circuitAnim }), // [v26 power]
+  ind_assembly: () => machine('ind_assembly', buildAssembly, { lamp: [0.85, 0.6, 0.3], anim: assemblyAnim }), // [v26 power]
   ind_smelter: () => machine('ind_smelter', buildSmelter, { lamp: [0.25, 1.48, 0.2], fx: { smoke: [[-0.45, 2.85, -0.5]], out: [0.6, 0.3, 0.9] }, anim: smelterAnim }),
   ind_shop: () => machine('ind_shop', buildShop, { lamp: [-0.55, 1.75, 0.5], fx: { smoke: [[0.95, 1.5, -0.8]], out: [0.6, 0.4, 0.9] }, anim: shopAnim }),
   ind_generator: () => machine('ind_generator', buildGenerator, { lamp: [0.05, 1.12, 0.1], fx: { smoke: [[-0.25, 1.95, -0.2]], steam: [0.03, 1.1, -0.02] }, anim: generatorAnim }),

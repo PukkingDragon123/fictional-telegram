@@ -776,6 +776,8 @@ void main() {
   // ----------------------------------------------------------------- update
   update(time, sky, rig) {
     const U = this.uniforms;
+    const dt = Math.min(0.1, Math.max(0, time - (this._lastT ?? time))); this._lastT = time; // [v26 world]
+    try { this.world.cutaway?.update(rig, this.world.game, dt || 0.016); } catch (e) { if (!this._cutErr) { this._cutErr = 1; console.warn('cutaway', e); } } // [v26 world]
     U.uTime.value = time;
     // haze = the sky right at the horizon, toned to the light
     const su = sky.uniforms;

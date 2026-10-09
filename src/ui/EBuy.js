@@ -78,6 +78,7 @@ const PX = {
   clock: [['.aaaaa.', 'abbbbba', 'abbabba', 'abbaaba', 'abbbbba', '.aaaaa.'], { a: '#2a1a14', b: '#fff4dc' }],
   box: [['.aaaaaa.', 'abbbbbba', 'aaaaaaaa', 'acccccca', 'accddcca', 'acccccca', 'aaaaaaaa'], { a: '#2a1a14', b: '#e2b070', c: '#c88a4c', d: '#fff4dc' }],
   mag: [['.aaa...', 'abbba..', 'abbba..', 'abbba..', '.aaaa..', '....aa.', '.....aa'], { a: '#2a1a14', b: '#bfe8ff' }],
+  sprout: [['...aa..', '..abba.', 'aa.ab..', 'abba...', '.aaa...', '..a....', '..a....'], { a: '#1f5236', b: '#7cbe46' }], // [v26 seasons]
   starbm: [['...a...', '..aba..', 'aabbbaa', '.abbba.', '.ab.ba.', 'aa...aa'], { a: '#2a1a14', b: '#ffd23f' }],
   plus: [['.aa.', 'aaaa', 'aaaa', '.aa.'], { a: '#2a1a14' }],
 };
@@ -141,6 +142,7 @@ const BADGES = {
   new: { t: 'NEW', ic: 'spark' },
   last: { t: 'LAST ONE!!', ic: null },
   sale: { t: 'SALE', ic: null },
+  inseason: { t: 'IN SEASON', ic: 'sprout' }, // [v26 seasons] spawning-season eggs (15% off)
 };
 const REVIEWS = {
   eggs: ['10/10 egg would buy again', 'it hatched. i cried.', 'egg arrived as egg. 5 stars', 'my son is now a fish', 'smells like profit', 'wow. just wow.'],
