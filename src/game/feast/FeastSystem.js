@@ -18,6 +18,7 @@ import { MEADOW, OFFICE } from '../../world/worldgen.js';
 import { KIND } from '../../world/grid.js';
 import { clamp, pick } from '../../core/rng.js';
 import { BEAR_TYPES } from '../../data/bears.js';
+import { shoreNear } from './kit.js';
 
 const MODS = import.meta.glob('../feastEvents/*.js', { eager: true });
 const CAM_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', 'z', 'x', '+', '=', '-', '_', 'pageup', 'pagedown', 'shift']);
@@ -186,11 +187,19 @@ export class FeastSystem {
   // a customer that is free to act in an event
   pickBear(filter = null, { land = null } = {}) {
     const g = this.game.grid;
+    const wet = (b) => g.isWater(Math.floor(b.x), Math.floor(b.z));
     const ok = this.customers().filter((b) => !b.script && !b.feastEvent && !b.angry && !b.jump && !b.eat && !b.lunch
       && !['eat', 'yummy', 'toss', 'pay', 'smash', 'stomp', 'snack', 'feast'].includes(b.state) && !this.isBusy(b)
-      && (land == null || land === !g.isWater(Math.floor(b.x), Math.floor(b.z)))
       && (!filter || filter(b)));
-    return ok.length ? pick(ok) : null;
+    if (land == null) return ok.length ? pick(ok) : null;
+    const dry = ok.filter((b) => land === !wet(b));
+    if (dry.length || land === false) return dry.length ? pick(dry) : null;
+    // nobody on land: a swimmer wades to the nearest shore first (raise() walks it there before setup)
+    for (const b of ok.sort(() => Math.random() - 0.5)) {
+      const s = shoreNear(this.game, b.x, b.z, 4);
+      if (s) { b._feastShore = s; return b; }
+    }
+    return null;
   }
 
   pickBears(n, filter = null, opts = {}) {
@@ -271,6 +280,7 @@ export class FeastSystem {
     if (!def) { console.warn('[feast] unknown event', id); return null; }
     if (game.state.phase !== 'rush') { console.warn('[feast] raise: not during the feast'); return null; }
     let a = actor;
+    for (const b of game.bears.list) b._feastShore = null;
     try { a = a || def.pick?.(game, this) || null; } catch (e) { console.warn('[feast] pick', id, e); a = null; }
     if (!a) return null;
     const inst = { uid: instId++, id, def, actor: a, state: 'pending', t: 0, ttl: def.ttl ?? 24, kind: def.kind || 'bear' };
@@ -281,7 +291,13 @@ export class FeastSystem {
     this.recent.push(id);
     if (this.recent.length > 6) this.recent.shift();
     this.st.seen[id] = (this.st.seen[id] || 0) + 1;
-    try { def.setup?.(inst.ctx); } catch (e) { console.error('[feast] setup', id, e); }
+    const doSetup = () => { inst.ready = true; if (inst.state === 'done') return; try { def.setup?.(inst.ctx); } catch (e) { console.error('[feast] setup', id, e); } };
+    const shore = isBear(a) ? a._feastShore : null;
+    if (shore) {
+      // a swimmer wades out first
+      a._feastShore = null;
+      inst.ctx.walk(a, shore.x, shore.z, { speed: 2 }).then(doSetup);
+    } else doSetup();
     this.ensureUI()?.addIcon(inst);
     game.audio.play('feast_pop', { volume: 0.55 });
     game.emit('feastEvent', { id, inst });
@@ -290,8 +306,8 @@ export class FeastSystem {
 
   // ------------------------------------------------------------ the close-up
   focus(inst = null) {
-    inst = inst || [...this.events].reverse().find((e) => e.state === 'pending') || null;
-    if (!inst || inst.state !== 'pending' || this.focusInst || !this.free) return false;
+    inst = inst || [...this.events].reverse().find((e) => e.state === 'pending' && e.ready) || null;
+    if (!inst || inst.state !== 'pending' || !inst.ready || this.focusInst || !this.free) return false;
     const game = this.game, rig = game.rig;
     this.focusInst = inst;
     inst.state = 'focus';

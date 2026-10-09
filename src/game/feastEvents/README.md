@@ -57,6 +57,8 @@ the pond (not on the trail, not leaving), not hostile/boss, not already in an ev
 | `ctx.actor`, `ctx.bear`, `ctx.s` | the actor; `bear` if it is a bear, `s` if it is a structure |
 | `ctx.expired`, `ctx.focused`, `ctx.choice` | flags / the picked choice id |
 | `await ctx.wait(sec)` | real seconds in a close-up, game seconds otherwise |
+| `await ctx.anim((dt, t) => bool)` | runs every tick of the event clock until it returns false |
+| `await ctx.timing({ label, speed, zone })` | the tap-timing mini-game (close-ups only): 0..1 quality, -1 = missed |
 | `ctx.at(who, dy?)` | world point {x, y, z} above a bear / structure / beaver / point |
 | **camera** (no-ops when not focused) | |
 | `ctx.cam(who, { zoom = 0.016, dy = 0, dx, dz })` | glide the camera onto something (zoom = world units per pixel; smaller = closer) |
@@ -74,7 +76,7 @@ the pond (not on the trail, not leaving), not hostile/boss, not already in an ev
 | `ctx.word(text, who, { color, size })` | big comic word pop ("ACHOO!", "PTOO!") |
 | `ctx.float(text, who, color)` | small floating text |
 | `ctx.sfx(name, opts)`, `ctx.fx` | `game.audio.play`, `game.particles` |
-| `ctx.prop(name, opts)` | a voxel prop from `src/entities/feastProps.js` (added to the scene, removed at the end) |
+| `ctx.prop(name, opts)` | a voxel prop from `src/entities/feastProps.js` (`FEAST_PROPS` lists them; removed at the end unless `{ keep: true }`) |
 | `ctx.attach(obj, b, slot)` | stick a prop to a bear: 'hand' (right paw), 'handL', 'hold' (in front of the belly), 'head' |
 | `ctx.place(obj, x, y, z)` / `ctx.drop(obj)` | put a prop in the world / remove it now |
 | `await ctx.crew({ from })` | a helper beaver runs in: `{ go(x, z), play(anim), carry(prop), say(text), leave() }` |
@@ -89,3 +91,7 @@ Outcomes are recorded for the end-of-day summary: `game.feast.dayLog = [{ id, na
 
 Rules: no emoji in text; short, specific, cozy-goofy copy (Reynard is a greedy, theatrical
 fox). Things must happen physically in the world: a prop, an anim, a bubble.
+
+Helpers for event authors: `src/game/feast/kit.js` (price, spotNear, shoreNear, nearestWater,
+toss, glide, karenify, disguise...). Bears you script yourself (outside an event) can use
+`game.bears.ground(b, dt)` to stay on the ground; only claim a bear when `!b.script`.

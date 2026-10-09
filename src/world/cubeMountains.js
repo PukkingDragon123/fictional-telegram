@@ -189,7 +189,8 @@ varying vec4 vBlk;
 varying float vRingHaze;
 varying vec3 vRPos;
 varying vec3 vRNor;
-varying float vCutTop;`)
+varying float vCutTop;
+varying float vCapK;`)
       .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvRNor = objectNormal;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 {
@@ -201,6 +202,7 @@ varying float vCutTop;`)
   bool isTop = abs(position.y - hi) < 0.001;
   transformed.y = isTop ? tp : bot;
   vCutTop = (abs(objectNormal.y) > 0.5 && hi - tp > 0.01) ? 1.0 : 0.0;
+  vCapK = clamp((hi - tp) / 3.0, 0.0, 1.0) * smoothstep(0.0, 0.5, flatK(vec3(aBlk.z, 0.0, aBlk.w)));
   vRPos = transformed;
   vSurf = aSurf;
   vBlk = vec4(bs, min(aBlk.y, capS), 0.0, 0.0);
@@ -217,6 +219,7 @@ varying float vRingHaze;
 varying vec3 vRPos;
 varying vec3 vRNor;
 varying float vCutTop;
+varying float vCapK;
 ${STONE_GLSL}
 float rbH(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
 vec3 ringWin(int id, vec2 win, vec2 lu) {
@@ -259,9 +262,9 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
   if (lu.x > 1.0 - px || ly < px) c *= 0.74;
   diffuseColor.rgb *= c * 1.08;
 }`)
-      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze);\n#include <opaque_fragment>');
+      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, max(vRingHaze, vCapK * 0.55 + vCutTop * 0.12));\n#include <opaque_fragment>'); // the cut foreground fades into the valley haze
   };
-  mat.customProgramCacheKey = () => 'outerRingCubes';
+  mat.customProgramCacheKey = () => 'outerRingCubes2';
   patchCutawayMaterial(mat, 'ringCubes', 1.4);
   ring.ground = [];
   for (const P of chunks.values()) {
