@@ -32,6 +32,7 @@ ROOMS = [dict(id=1, name='cook room', x0=0, x1=640),
 
 WIN_MAIN = dict(x=800, y=66, w=320, h=136)        # room 2 lattice window
 WIN_ROUND = dict(cx=2152, cy=128, r=60)           # room 4 moon window
+WIN_BELL = dict(cx=1764, top=72, spring=126, bottom=192, hw=54)   # room 3 bell-shaped katomado window
 WALL_T = 0.04                                     # wall thickness (window reveals), as a depth fraction
 
 # furniture (screen y of the back and front edge of each top)

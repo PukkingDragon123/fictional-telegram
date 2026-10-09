@@ -67,6 +67,7 @@
  },
  "draw_order": [
   "layers/outside/* (parallax, tile horizontally)",
+  "props: outside (just outside a window, e.g. the dragon)",
   "10_room_shell",
   "props: wall",
   "props: ceiling",
@@ -104,7 +105,7 @@
  },
  "npc_note": "NPC sprites end at the counter back edge (y=266); slide them along x to seat them",
  "parallax_note": "screen_x = -camera_x * parallax (tile outside layers every tile_width px)",
- "palette_colors": 118,
+ "palette_colors": 134,
  "layers": [
   {
    "name": "00_sky",
@@ -684,12 +685,12 @@
    "name": "cutting_board_leaves",
    "room": 1,
    "layer": "counter",
-   "x": 268,
-   "y": 265,
-   "w": 85,
-   "h": 26,
+   "x": 272,
+   "y": 261,
+   "w": 91,
+   "h": 30,
    "draggable": true,
-   "desc": "Cutting board with fresh tea leaves and a cleaver",
+   "desc": "Thick hinoki cutting board: a heap of fresh tea leaves, chopped bits, a nakiri knife",
    "placed_by_default": true,
    "file": "props/room1/cutting_board_leaves.png"
   },
@@ -697,12 +698,12 @@
    "name": "mortar_pestle",
    "room": 1,
    "layer": "counter",
-   "x": 363,
-   "y": 255,
-   "w": 32,
-   "h": 34,
+   "x": 365,
+   "y": 253,
+   "w": 38,
+   "h": 36,
    "draggable": true,
-   "desc": "Stone mortar and pestle with ground matcha",
+   "desc": "Suribachi grinding bowl with ground matcha and a wooden pestle",
    "placed_by_default": true,
    "file": "props/room1/mortar_pestle.png"
   },
@@ -710,12 +711,12 @@
    "name": "basket_fresh_leaves",
    "room": 1,
    "layer": "counter",
-   "x": 403,
-   "y": 249,
+   "x": 405,
+   "y": 237,
    "w": 64,
-   "h": 42,
+   "h": 54,
    "draggable": true,
-   "desc": "Woven basket heaped with fresh tea leaves",
+   "desc": "Woven bamboo basket heaped with fresh-picked tea leaves",
    "placed_by_default": true,
    "file": "props/room1/basket_fresh_leaves.png"
   },
@@ -762,12 +763,12 @@
    "name": "sack_big",
    "room": 1,
    "layer": "floor",
-   "x": 285,
-   "y": 287,
-   "w": 50,
-   "h": 55,
+   "x": 293,
+   "y": 289,
+   "w": 48,
+   "h": 53,
    "draggable": true,
-   "desc": "Big slumped sack of tea",
+   "desc": "Burlap sack of tea, rope-tied, a stencilled mark and a paper tag",
    "placed_by_default": true,
    "file": "props/room1/sack_big.png"
   },
@@ -788,12 +789,12 @@
    "name": "firewood",
    "room": 1,
    "layer": "floor",
-   "x": 339,
-   "y": 307,
-   "w": 79,
-   "h": 36,
+   "x": 347,
+   "y": 301,
+   "w": 80,
+   "h": 42,
    "draggable": true,
-   "desc": "Stack of split firewood for the hearth",
+   "desc": "Split oak firewood stacked end-on for the furnace",
    "placed_by_default": true,
    "file": "props/room1/firewood.png"
   },
@@ -801,12 +802,12 @@
    "name": "bucket_water",
    "room": 1,
    "layer": "floor",
-   "x": 442,
-   "y": 299,
-   "w": 41,
-   "h": 43,
+   "x": 447,
+   "y": 297,
+   "w": 42,
+   "h": 45,
    "draggable": true,
-   "desc": "Wooden water bucket with iron hoops",
+   "desc": "Wooden stave bucket of water with copper hoops",
    "placed_by_default": true,
    "file": "props/room1/bucket_water.png"
   },
@@ -827,12 +828,12 @@
    "name": "basket_dried_flowers",
    "room": 1,
    "layer": "floor",
-   "x": 529,
-   "y": 307,
-   "w": 46,
-   "h": 35,
+   "x": 531,
+   "y": 303,
+   "w": 48,
+   "h": 39,
    "draggable": true,
-   "desc": "Round basket of dried flowers",
+   "desc": "Shallow basket of dried chamomile, rosebuds and lavender",
    "placed_by_default": true,
    "file": "props/room1/basket_dried_flowers.png"
   },
@@ -840,12 +841,12 @@
    "name": "tsubo_jar",
    "room": 1,
    "layer": "floor",
-   "x": 489,
-   "y": 295,
-   "w": 36,
-   "h": 43,
+   "x": 491,
+   "y": 293,
+   "w": 38,
+   "h": 47,
    "draggable": true,
-   "desc": "Glazed clay storage jar (tsubo)",
+   "desc": "Clay storage jar with an ash-glaze shoulder, its mouth tied over with indigo cloth",
    "placed_by_default": true,
    "file": "props/room1/tsubo_jar.png"
   },
@@ -1130,7 +1131,7 @@
    "w": 249,
    "h": 139,
    "draggable": true,
-   "desc": "Corkboard for orders and notes; red string linking pins",
+   "desc": "Old corkboard, empty: pin holes and pale squares where notes used to hang",
    "placed_by_default": true,
    "file": "props/room3/corkboard.png"
   },
@@ -1143,8 +1144,8 @@
    "w": 21,
    "h": 45,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_receipt.png"
   },
   {
@@ -1156,8 +1157,8 @@
    "w": 37,
    "h": 45,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_spirit_customer.png"
   },
   {
@@ -1169,8 +1170,8 @@
    "w": 31,
    "h": 51,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_unpaid_tab.png"
   },
   {
@@ -1182,8 +1183,8 @@
    "w": 41,
    "h": 35,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_map_scrap.png"
   },
   {
@@ -1195,8 +1196,8 @@
    "w": 31,
    "h": 39,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_order_slip.png"
   },
   {
@@ -1208,8 +1209,8 @@
    "w": 33,
    "h": 45,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_photo.png"
   },
   {
@@ -1221,8 +1222,8 @@
    "w": 18,
    "h": 53,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_talisman.png"
   },
   {
@@ -1234,8 +1235,8 @@
    "w": 39,
    "h": 35,
    "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard",
-   "placed_by_default": true,
+   "desc": "Worn paper note for the corkboard",
+   "placed_by_default": false,
    "file": "props/room3/note_recipe_scrap.png"
   },
   {
@@ -1261,7 +1262,7 @@
    "h": 105,
    "draggable": true,
    "desc": "Jade storage cabinet: glazed lattice doors over teaware, one door ajar",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/glazed_cabinet.png"
   },
   {
@@ -1274,7 +1275,7 @@
    "h": 23,
    "draggable": true,
    "desc": "Open shelf for teaware",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/teaware_shelf.png"
   },
   {
@@ -1287,7 +1288,7 @@
    "h": 32,
    "draggable": true,
    "desc": "Celadon teapot",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/teapot_celadon.png"
   },
   {
@@ -1300,7 +1301,7 @@
    "h": 27,
    "draggable": true,
    "desc": "Stack of handleless teacups",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/cup_stack.png"
   },
   {
@@ -1313,7 +1314,7 @@
    "h": 31,
    "draggable": true,
    "desc": "Honey pot with a wooden dipper",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/honey_pot.png"
   },
   {
@@ -1326,7 +1327,7 @@
    "h": 29,
    "draggable": true,
    "desc": "Red daruma with one eye painted (a wish not yet granted)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/daruma_doll.png"
   },
   {
@@ -1339,7 +1340,7 @@
    "h": 28,
    "draggable": true,
    "desc": "Gold-banded tea tin",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/tin_gold_band.png"
   },
   {
@@ -1352,7 +1353,7 @@
    "h": 22,
    "draggable": true,
    "desc": "Two matcha bowls stacked",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/matcha_bowls.png"
   },
   {
@@ -1385,12 +1386,12 @@
    "name": "tea_runner",
    "room": 3,
    "layer": "counter",
-   "x": 1305,
-   "y": 281,
-   "w": 188,
-   "h": 14,
+   "x": 1297,
+   "y": 277,
+   "w": 198,
+   "h": 21,
    "draggable": true,
-   "desc": "Indigo cloth runner the tea set is laid out on",
+   "desc": "Indigo cotton tea mat with seigaiha wave stitching, fringed ends",
    "placed_by_default": true,
    "file": "props/room3/tea_runner.png"
   },
@@ -1398,12 +1399,12 @@
    "name": "kyusu_teapot",
    "room": 3,
    "layer": "counter",
-   "x": 1309,
-   "y": 249,
-   "w": 58,
-   "h": 44,
+   "x": 1303,
+   "y": 251,
+   "w": 62,
+   "h": 48,
    "draggable": true,
-   "desc": "Red clay kyusu teapot with a side handle (chipped lid)",
+   "desc": "Tokoname red-clay kyusu: squat round body, side handle, chipped lid",
    "placed_by_default": true,
    "file": "props/room3/kyusu_teapot.png"
   },
@@ -1411,12 +1412,12 @@
    "name": "chawan_matcha",
    "room": 3,
    "layer": "counter",
-   "x": 1371,
-   "y": 269,
-   "w": 36,
-   "h": 25,
+   "x": 1365,
+   "y": 265,
+   "w": 44,
+   "h": 33,
    "draggable": true,
-   "desc": "Tea bowl of freshly whisked matcha",
+   "desc": "Black raku tea bowl of frothy matcha, a glaze run on its side",
    "placed_by_default": true,
    "file": "props/room3/chawan_matcha.png"
   },
@@ -1424,12 +1425,12 @@
    "name": "chasen_whisk",
    "room": 3,
    "layer": "counter",
-   "x": 1410,
-   "y": 265,
-   "w": 26,
-   "h": 32,
+   "x": 1411,
+   "y": 259,
+   "w": 22,
+   "h": 39,
    "draggable": true,
-   "desc": "Bamboo matcha whisk",
+   "desc": "Bamboo matcha whisk: node on the handle, a bulb of fine tines",
    "placed_by_default": true,
    "file": "props/room3/chasen_whisk.png"
   },
@@ -1437,12 +1438,12 @@
    "name": "natsume_caddy",
    "room": 3,
    "layer": "counter",
-   "x": 1438,
-   "y": 269,
-   "w": 28,
-   "h": 28,
+   "x": 1435,
+   "y": 267,
+   "w": 30,
+   "h": 32,
    "draggable": true,
-   "desc": "Black lacquer natsume tea caddy with a gold pine sprig",
+   "desc": "Black lacquer natsume tea caddy with a gold maki-e pine bough",
    "placed_by_default": true,
    "file": "props/room3/natsume_caddy.png"
   },
@@ -1451,11 +1452,11 @@
    "room": 3,
    "layer": "counter",
    "x": 1448,
-   "y": 285,
-   "w": 41,
-   "h": 13,
+   "y": 284,
+   "w": 46,
+   "h": 16,
    "draggable": true,
-   "desc": "Bamboo tea scoop",
+   "desc": "Bamboo tea scoop with its node and bent tip",
    "placed_by_default": true,
    "file": "props/room3/chashaku_scoop.png"
   },
@@ -1612,7 +1613,7 @@
    "sheet": "props/room3/alien_lucky_cat_sheet.png"
   },
   {
-   "name": "bed_messy",
+   "name": "silk_bed",
    "room": 4,
    "layer": "floor",
    "x": 2246,
@@ -1620,12 +1621,12 @@
    "w": 269,
    "h": 132,
    "draggable": true,
-   "desc": "Traveler's old bed: patchwork quilt (cloth physics) draped over a stained, split mattress; cracked frame (12 frames)",
+   "desc": "Low lacquered bed with a torii-style headboard and brass fittings: a crimson silk quilt embroidered with gold plum blossoms spills over the edge in glossy folds, its gold lining turned down over a cream silk sheet; the folds sway and the sheen slides across them (12 frames)",
    "placed_by_default": true,
-   "file": "props/room4/bed_messy.png",
+   "file": "props/room4/silk_bed.png",
    "frames": 12,
    "fps": 6,
-   "sheet": "props/room4/bed_messy_sheet.png"
+   "sheet": "props/room4/silk_bed_sheet.png"
   },
   {
    "name": "desk_messy",
@@ -1995,6 +1996,69 @@
      "frames": 12,
      "fps": 8,
      "sheet": "props/room2/uncle_pong_flex_sheet.png"
+    }
+   }
+  },
+  {
+   "name": "dragon_bell",
+   "room": 3,
+   "layer": "counter",
+   "x": 1699,
+   "y": 256,
+   "w": 50,
+   "h": 42,
+   "draggable": true,
+   "desc": "Brass call bell. Click it: it rings, and a rock wyvern rises behind the window and roars",
+   "placed_by_default": true,
+   "file": "props/room3/dragon_bell.png",
+   "on_click": [
+    {
+     "prop": "dragon_bell",
+     "play": "ring",
+     "then": "idle"
+    },
+    {
+     "prop": "dragon_peek",
+     "play": "peek",
+     "then": "hidden",
+     "fps": 10
+    }
+   ],
+   "anims": {
+    "idle": {
+     "frames": 1,
+     "fps": 12,
+     "sheet": "props/room3/dragon_bell_idle_sheet.png"
+    },
+    "ring": {
+     "frames": 10,
+     "fps": 12,
+     "sheet": "props/room3/dragon_bell_ring_sheet.png"
+    }
+   }
+  },
+  {
+   "name": "dragon_peek",
+   "room": 3,
+   "layer": "outside",
+   "x": 1697,
+   "y": 39,
+   "w": 132,
+   "h": 156,
+   "draggable": false,
+   "desc": "Rock wyvern that rises behind the bell window when the bell rings: glowing eyes, a massive overbite, magma cracks, snorts and roars (32 frames)",
+   "placed_by_default": true,
+   "file": "props/room3/dragon_peek.png",
+   "anims": {
+    "hidden": {
+     "frames": 1,
+     "fps": 10,
+     "sheet": "props/room3/dragon_peek_hidden_sheet.png"
+    },
+    "peek": {
+     "frames": 32,
+     "fps": 10,
+     "sheet": "props/room3/dragon_peek_peek_sheet.png"
     }
    }
   }

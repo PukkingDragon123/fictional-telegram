@@ -114,6 +114,22 @@ Columns: 8
 206  48  54	scarlet2
 236  92  78	scarlet3
 252 152 126	scarlet4
+ 36  38  52	fgrey0
+ 66  70  88	fgrey1
+102 108 128	fgrey2
+142 148 166	fgrey3
+186 190 204	fgrey4
+228 230 236	fgrey5
+ 12  10  22	gloss0
+ 26  24  44	gloss1
+ 42  42  78	gloss2
+ 64  70 124	gloss3
+ 98 110 176	gloss4
+ 58  40  86	lilac0
+ 98  74 138	lilac1
+140 114 190	lilac2
+184 160 226	lilac3
+222 206 246	lilac4
  96  64  46	hinoki0
 140 100  66	hinoki1
 184 140  90	hinoki2

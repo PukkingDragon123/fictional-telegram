@@ -51,6 +51,11 @@ RAMPS = {
     # Uncle Pong: slate-blue fireback plumage-fur, and the bird's scarlet face skin
     'pong':  [(24, 24, 44), (40, 44, 72), (62, 70, 104), (90, 102, 138), (126, 140, 176), (172, 184, 212)],
     'scarlet': [(96, 18, 36), (156, 28, 44), (206, 48, 54), (236, 92, 78), (252, 152, 126)],
+    # the Siamese fireback: vermiculated silver-grey plumage, glossy blue-black underparts
+    'fgrey': [(36, 38, 52), (66, 70, 88), (102, 108, 128), (142, 148, 166), (186, 190, 204), (228, 230, 236)],
+    'gloss': [(12, 10, 22), (26, 24, 44), (42, 42, 78), (64, 70, 124), (98, 110, 176)],
+    # the fat window dragon: soft lilac scales
+    'lilac': [(58, 40, 86), (98, 74, 138), (140, 114, 190), (184, 160, 226), (222, 206, 246)],
     # pale hinoki cypress (the v3 serving counter)
     'hinoki': [(96, 64, 46), (140, 100, 66), (184, 140, 90), (214, 176, 118), (236, 208, 152), (250, 234, 192)],
 }

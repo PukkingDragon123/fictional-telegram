@@ -13,6 +13,7 @@ import objects as O
 import fire as FIRE
 import teaware as TW
 import furnace as FURN
+import crafted as CR
 from counter import FIREBOX, BURNERS
 from layout import TABLE_Y, TABLE_SHELF_Y, SHELF1_Y, CHEST_TOP_Y
 
@@ -457,36 +458,19 @@ def apothecary():
 
 
 # ---------------------------------------------------------------- prep table
-@prop('cutting_board_leaves', 1, 'counter', 272, TABLE_Y - 18, 'Cutting board with fresh tea leaves and a cleaver')
+@prop('cutting_board_leaves', 1, 'counter', 276, TABLE_Y - 22, 'Thick hinoki cutting board: a heap of fresh tea leaves, chopped bits, a nakiri knife')
 def cutting_board():
-    rng = random.Random(1400)
-    cv = Canvas(80, 18)
-    cv.rect(0, 6, 66, 9, 'wood4')            # board top (we look down at it)
-    for y in range(6, 15):
-        wood_grain_h(cv, 0, y, 66, 1, R('wood', 4), rng, dark=R('wood', 3), light=R('wood', 5), knots=False)
-    cv.hline(0, 65, 6, 'wood3'); cv.rect(0, 15, 66, 3, 'wood2'); cv.hline(0, 65, 15, 'wood5')
-    for k in range(6):
-        cv.hline(10 + k * 7, 13 + k * 7, 9 + (k % 3), 'wood3')
-    for _ in range(26):
-        x = rng.randint(4, 44)
-        cv.px(x, rng.randint(7, 13), rng.choice(('leaf2', 'leaf3', 'leaf4', 'leaf1')))
-    heap = O.leaf_heap(rng, 18, 9)
-    cv.blit(heap, 6, 0)
-    cv.rect(42, 7, 20, 7, 'stone3'); cv.hline(42, 61, 7, 'stone4'); cv.hline(42, 61, 13, 'stone1')   # cleaver
-    cv.px(44, 9, 'white')
-    cv.rect(62, 9, 16, 3, 'wood1'); cv.hline(62, 77, 9, 'wood2')
-    return O.outline(cv)
+    return CR.cutting_board()
 
 
-@prop('mortar_pestle', 1, 'counter', 364, TABLE_Y - 28, 'Stone mortar and pestle with ground matcha')
+@prop('mortar_pestle', 1, 'counter', 366, TABLE_Y - 30, 'Suribachi grinding bowl with ground matcha and a wooden pestle')
 def mortar():
-    return _mortar(random.Random(1410), 30, 20)
+    return CR.suribachi()
 
 
-@prop('basket_fresh_leaves', 1, 'counter', 404, TABLE_Y - 34, 'Woven basket heaped with fresh tea leaves')
+@prop('basket_fresh_leaves', 1, 'counter', 406, TABLE_Y - 46, 'Woven bamboo basket heaped with fresh-picked tea leaves')
 def basket_leaves():
-    rng = random.Random(1420)
-    return O.basket(rng, 62, 34, O.leaf_heap(rng, 54, 22))
+    return CR.basket(62, 34, CR.leaf_heap(54, 18))
 
 
 @prop('balance_scale', 1, 'counter', 476, TABLE_Y - 48, 'Brass balance scale for weighing leaves')
@@ -529,9 +513,9 @@ def tea_brick():
 
 
 # ---------------------------------------------------------------- under the table
-@prop('sack_big', 1, 'floor', 286, TABLE_SHELF_Y - 48, 'Big slumped sack of tea')
+@prop('sack_big', 1, 'floor', 294, TABLE_SHELF_Y - 46, 'Burlap sack of tea, rope-tied, a stencilled mark and a paper tag')
 def sack_big():
-    return O.sack(random.Random(1500), 48, 48, slump=0.5)
+    return CR.sack(46, 46)
 
 
 @prop('sack_big_torn', 1, 'floor', 272, TABLE_SHELF_Y - 42, 'Torn sack, leaves spilling out', preview=False)
@@ -543,38 +527,14 @@ def sack_torn():
     return cv
 
 
-@prop('firewood', 1, 'floor', 340, TABLE_SHELF_Y - 28, 'Stack of split firewood for the hearth')
+@prop('firewood', 1, 'floor', 348, TABLE_SHELF_Y - 34, 'Split oak firewood stacked end-on for the furnace')
 def firewood():
-    cv = Canvas(74, 28)
-    for (x, y) in ((0, 16), (8, 9), (18, 17), (4, 1), (22, 9), (30, 18)):
-        log = Canvas(44, 10)
-        for yy in range(10):
-            c = ['bark4', 'bark3', 'bark3', 'bark2', 'bark2', 'bark2', 'bark1', 'bark1', 'bark0', 'bark0'][yy]
-            log.hline(5, 43, yy, c)
-        for xx in range(8, 42, 5):
-            log.px(xx, 3 + xx % 4, 'bark1')
-        log.ellipse(5, 5, 4.5, 5, 'wood4'); log.ellipse(5, 5, 2.5, 3, 'wood3'); log.px(5, 5, 'wood2')
-        cv.blit(log, x, y)
-    cv.vline(34, 0, 27, 'paper1'); cv.vline(35, 0, 27, 'paper0')
-    return O.outline(cv)
+    return CR.firewood()
 
 
-@prop('bucket_water', 1, 'floor', 444, TABLE_SHELF_Y - 36, 'Wooden water bucket with iron hoops')
+@prop('bucket_water', 1, 'floor', 448, TABLE_SHELF_Y - 38, 'Wooden stave bucket of water with copper hoops')
 def bucket():
-    cv = Canvas(38, 36)
-    staves = lathe_shade(38, 30, lambda t: 19 - t * 3, ['wood1', 'wood2', 'wood3', 'wood4'])
-    cv.blit(staves, 0, 6)
-    for x in range(2, 36, 5):
-        cv.vline(x, 7, 35, 'wood1')
-    for y in (11, 26):
-        hoop = lathe_shade(38, 3, lambda t: 19 - (y - 6) / 30 * 3, O.IRON[1:])
-        cv.blit(hoop, 0, y)
-    cv.ellipse(19, 6, 18.5, 4.5, 'wood3')
-    cv.ellipse(19, 6.5, 16, 3.2, 'water1')
-    cv.hline(10, 22, 5, 'water2'); cv.px(14, 6, 'white')
-    for a in range(180, 361, 4):
-        cv.px(19 + int(round(math.cos(math.radians(a)) * 17)), 5 + int(round(math.sin(math.radians(a)) * 6)), 'wood4')
-    return O.outline(cv)
+    return CR.bucket()
 
 
 @prop('crate_jars', 1, 'floor', 448, TABLE_SHELF_Y - 38, 'Crate of spare jars, one broken', preview=False)
@@ -592,16 +552,11 @@ def crate():
     return O.outline(cv)
 
 
-@prop('basket_dried_flowers', 1, 'floor', 530, TABLE_SHELF_Y - 28, 'Round basket of dried flowers')
+@prop('basket_dried_flowers', 1, 'floor', 532, TABLE_SHELF_Y - 32, 'Shallow basket of dried chamomile, rosebuds and lavender')
 def basket_round():
-    rng = random.Random(1530)
-    heap = Canvas(36, 12)
-    for _ in range(50):
-        x, y = rng.randint(2, 33), rng.randint(0, 10)
-        heap.px(x, y, rng.choice(('pink2', 'pink3', 'gold3', 'paper3', 'purp2', 'leaf2')))
-    return O.basket(rng, 44, 28, heap)
+    return CR.flower_basket()
 
 
-@prop('tsubo_jar', 1, 'floor', 490, TABLE_SHELF_Y - 40, 'Glazed clay storage jar (tsubo)')
+@prop('tsubo_jar', 1, 'floor', 492, TABLE_SHELF_Y - 42, 'Clay storage jar with an ash-glaze shoulder, its mouth tied over with indigo cloth')
 def tsubo():
-    return O.ceramic_jar(random.Random(1540), 34, 38, ['wood0', 'wood1', 'wood2', 'copper2', 'copper3'], pattern='drip')
+    return CR.tsubo()

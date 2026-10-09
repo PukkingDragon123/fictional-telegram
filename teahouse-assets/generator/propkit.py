@@ -7,12 +7,13 @@ from shapes import torn_paper, pin, wood_grain_h, wood_grain_v, chip
 PROPS = []
 
 
-def prop(name, room, layer, x, y, desc, drag=True, fps=None, preview=True, shadow='auto'):
-    """Register a prop. (x, y) = top-left of its default spot in the
-    1920x270 scene. layer: wall | floor | counter | ceiling | front."""
+def prop(name, room, layer, x, y, desc, drag=True, fps=None, preview=True, shadow='auto', meta=None):
+    """Register a prop. (x, y) = top-left of its default spot in the scene.
+    layer: outside | wall | ceiling | npc | floor | counter | front.
+    meta: extra data exported to scene.json (e.g. click interactions)."""
     def deco(fn):
         PROPS.append(dict(name=name, room=room, layer=layer, x=x, y=y, desc=desc,
-                          drag=drag, fps=fps, fn=fn, preview=preview, shadow=shadow))
+                          drag=drag, fps=fps, fn=fn, preview=preview, shadow=shadow, meta=meta))
         return fn
     return deco
 

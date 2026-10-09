@@ -14,7 +14,7 @@ round the eyes, and its crest as a little topknot ponytail. He wears
 nothing but a checked pha khao ma (ผ้าขาวม้า) tied round his waist."""
 import math
 import numpy as np
-from pixel import Canvas, col
+from pixel import Canvas, PAL, col
 
 OY = 8                       # headroom above the design coordinates (crest)
 GW, GH = 56, 64 + OY         # drawing grid
@@ -24,10 +24,12 @@ EDGE_PX = (CE + OY) * K      # counter edge, in sprite pixels
 NF = 12
 W_, H_ = GW * K, GH * K
 SHADOW = (24, 12, 22)
-FUR = ('pong4', 'pong3', 'pong2', 'pong1')            # light, base, shade, deep
+FUR = ('fgrey4', 'fgrey3', 'fgrey2', 'fgrey1')        # light, base, shade, deep: the bird's silver-grey
+GLOSS = ('gloss4', 'gloss2', 'gloss1', 'gloss0')       # glossy blue-black underparts
+FIRE = ('gold3', 'gold2', 'copper2', 'copper1')        # the golden 'fire back' feathers
 SKIN = ('scarlet3', 'scarlet2', 'scarlet1', 'scarlet0')
 IVORY = ('paper4', 'paper4', 'paper2', 'paper1')
-HAIR = ('indigo2', 'pong0', 'ink', 'ink')
+HAIR = ('gloss4', 'gloss1', 'gloss0', 'ink')
 CLOTH_RED = ('red4', 'red3', 'red1', 'red0')
 HX0, HY0, BX0 = 28, 16, 28
 
@@ -318,9 +320,9 @@ def _render(mood, f):
             if hy_ > 50:                                     # forearm lying on the counter
                 g.shadow(bx + (s * 21 + hx_) / 2 + 1, hy_ + 3, abs(hx_ - s * 21) / 2 + 4, 2.4, 120)
 
-    # topknot: the fireback's crest, tied up like an old ponytail
     tl = p['tuft_lift']
     sw = p['tuft']
+    # topknot: the fireback's crest, tied up like an old ponytail
     knot = (hx + 1, hy - 12 + tl * 0.3)
     hair = np.zeros((GH, GW), bool)
     for j, (reach, drop, r0) in enumerate(((10, 3, 2.6), (13, 0, 2.2), (8, 6, 2.0))):   # three locks
@@ -330,7 +332,7 @@ def _render(mood, f):
         hair |= m
     g.part(hair, HAIR)
     for (x, y) in ((hx + 3, hy - 17 + tl), (hx + 6, hy - 19 + tl), (hx + 9 + sw * 0.4, hy - 19 + tl)):
-        g.px(x, y, 'indigo3')                                # glossy sheen like the bird's crest
+        g.px(x, y, 'gloss4')                                 # glossy sheen like the bird's crest
 
     # ears, flared a little when he's worked up, flat when sad
     e = p['ear']
@@ -339,26 +341,49 @@ def _render(mood, f):
         ear &= (xx - hx) * s > 5
         g.part(ear)
         inner = E(hx + s * (13 + e), hy + 1, 3.6, 5.8) & ear & ((xx - hx) * s > 10)
-        g.set(inner, 'pong2')
-        g.set(inner & ~_sh(inner, 0, 1), 'pong1')
+        g.set(inner, 'fgrey2')
+        g.set(inner & ~_sh(inner, 0, 1), 'fgrey1')
 
     # body: thick neck and traps, a V-shaped torso, then each muscle as its own outlined shape
     traps = P([(bx - 8, 22 + by), (bx + 8, 22 + by), (bx + 20, 31 + by), (bx - 20, 31 + by)])
     torso = P([(bx - 19, 30 + by), (bx + 19, 30 + by), (bx + 16, 43), (bx + 12, CE + 1), (bx - 12, CE + 1),
                (bx - 16, 43)]) & above
-    g.part(traps | torso)
+    g.part(traps | torso, GLOSS)
     if not flex:
-        for s in (-1, 1):                                    # biceps hang at the sides
+        for s in (-1, 1):                                    # biceps hang at the sides (grey wing colour)
             g.part(E(bx + s * 21, 42 + by * 0.5, 5.8, 7.4) & above)
-    for s in (-1, 1):                                        # pecs
-        g.part(E(bx + s * 7.5, 35.5 + by, 7.6, 5.0), line='pong1')
+    for s in (-1, 1):                                        # pecs: glossy black, the sheen shows the muscle
+        g.part(E(bx + s * 7.5, 35.5 + by, 7.6, 5.0), GLOSS, line='ink')
+        g.px(bx + s * 5, 33 + by, 'gloss4'); g.px(bx + s * 6, 33 + by, 'gloss4')
     for row, y in enumerate((41.5, 45.5)):                   # six-pack (the bottom pair hides under the cloth)
         for s in (-1, 1):
-            g.part(E(bx + s * 2.6, y, 2.6, 2.0), line='pong1')
+            g.part(E(bx + s * 2.6, y, 2.6, 2.0), GLOSS, line='ink')
     for s in (-1, 1):                                        # obliques / serratus notches
-        g.px(bx + s * 10, 40, 'pong2'); g.px(bx + s * 11, 42, 'pong2'); g.px(bx + s * 10, 44, 'pong2')
+        g.px(bx + s * 10, 40, 'gloss3'); g.px(bx + s * 11, 42, 'gloss3'); g.px(bx + s * 10, 44, 'gloss3')
     for s in (-1, 1):                                        # deltoids cap the shoulders
-        g.part(E(bx + s * 19.5, 32.5 + by, 6.6, 5.6), line='pong1')
+        g.part(E(bx + s * 19.5, 32.5 + by, 6.6, 5.6), line='fgrey1')
+    # feather collar round the neck: golden 'fire' feathers flare out behind, a ruff of glossy
+    # blue-black scallops, and short silver hackles on top (the chin covers the middle)
+    nk = 27 + by
+    for k in range(8):
+        a = math.pi * (1.06 + 0.88 * k / 7)
+        root = (bx + math.cos(a) * 12, nk - 2 + math.sin(a) * 4)
+        tip = (bx + math.cos(a) * 23, nk - 3 + math.sin(a) * 9)
+        fm, _ = S([root, tip], 2.8, 0.8, n=5)
+        g.part(fm, FIRE, line='copper0')
+    for k in range(9):
+        u = (k - 4) / 4
+        x = bx + u * 16
+        y = nk + 1.5 + 1.5 * u * u
+        g.part(E(x, y, 3.0, 3.6), GLOSS, line='ink')
+        g.px(x - 1, y - 2, 'gloss3'); g.px(x, y + 2, 'gloss4')
+    for k in range(7):
+        u = (k - 3) / 3
+        x = bx + u * 11
+        y = nk - 1 + u * u
+        hm = E(x, y, 2.5, 3.0)
+        g.part(hm, FUR, line='fgrey1')
+        g.set(hm & (yy >= y + 1.5), 'fgrey1')                # dark tips
 
     # pha khao ma round the waist: checked cotton, knot at the hip
     cloth = torso & (yy >= 48) & above
@@ -386,21 +411,22 @@ def _render(mood, f):
     if flex:
         up = flex
         for s in (-1, 1):
-            g.part(E(bx + s * (22 + 2 * up), 40 - 12 * up + by, 5.6 + 0.9 * p['pump'], 6.6 - up) & above)
+            g.part(E(bx + s * (22 + 2 * up), 40 - 12 * up + by, 5.6 + 0.9 * p['pump'], 6.6 - up) & above,
+                   line='fgrey1')
             fore, _ = S([(bx + s * (24 + 2 * up), 36 - 8 * up + by), (bx + s * (25 + up), 30 - 10 * up),
                          (bx + s * (22 + up), 24 - 9 * up)], 3.4, 3.0)
             g.part(fore & above)
             g.stamp(HANDS['fist'], int(bx + s * (22 + up) - 3), int(24 - 9 * up) - 3, flip=s > 0)
-            g.part(E(bx + s * 19.5, 32.5 + by, 6.6, 5.6))
+            g.part(E(bx + s * 19.5, 32.5 + by, 6.6, 5.6), line='fgrey1')
 
     # head
     head = E(hx, hy - 1, 11.2, 10.0) | E(hx - 4.5, hy - 7.5, 6.6, 5) | E(hx + 4.5, hy - 7.5, 6.6, 5) | E(hx, hy + 5, 9, 5.5)
     g.part(head)
-    for (dx, dy) in ((-6, -4), (5, -5), (-1, -8), (8, 1), (-8, 2)):          # barring in the fur
-        g.px(hx + dx, hy + dy, 'pong2'); g.px(hx + dx + 1, hy + dy + 1, 'pong2')
+    for (dx, dy) in ((-6, -4), (5, -5), (-1, -8), (8, 1), (-8, 2)):          # barring in the plumage
+        g.px(hx + dx, hy + dy, 'fgrey2'); g.px(hx + dx + 1, hy + dy + 1, 'fgrey2')
     g.part(E(hx + 1, hy - 11 + tl * 0.3, 1.8, 1.4), CLOTH_RED)              # tie of the topknot
     for s in (-1, 1):                                                        # the fireback's scarlet skin
-        g.part(E(hx + s * 5, hy + 0.5, 3.3, 2.5), ('scarlet2', 'scarlet1', 'scarlet1', 'scarlet0'), line='pong1')
+        g.part(E(hx + s * 5, hy + 0.5, 3.5, 2.6), ('scarlet3', 'scarlet2', 'scarlet1', 'scarlet0'), line='fgrey1')
     # mouth (under the trunk) + tusks
     mx, my = hx, hy + 6
     mrows = MOUTHS[p['mouth']]
@@ -437,8 +463,8 @@ def _render(mood, f):
     g.part(tm)
     for i in range(6, len(samples) - 4, 5):                  # wrinkles
         x, y = samples[i]
-        g.px(x - 1, y, 'pong2'); g.px(x, y, 'pong2')
-    g.px(samples[-1][0], samples[-1][1], 'pong1')
+        g.px(x - 1, y, 'fgrey2'); g.px(x, y, 'fgrey2')
+    g.px(samples[-1][0], samples[-1][1], 'fgrey1')
 
     # forearms + hands
     if not flex:
@@ -495,6 +521,11 @@ def _render(mood, f):
         tx_, ty_ = hx - 6, hy + 2 + (p['tear'] % 6)
         g.px(tx_, ty_, 'sky4'); g.px(tx_, ty_ + 1, 'sky2')
 
+    # fine wavy barring on the grey plumage (the fireback's vermiculation)
+    base = np.all(g.a[:, :, :3] == np.array(PAL['fgrey3'], np.uint8), axis=2)
+    xg, yg = np.mgrid[0:GW, 0:GH][0].T, np.mgrid[0:GW, 0:GH][1].T
+    bars = ((xg + (yg // 4) * 3) % 6 < 2) & (yg % 4 == 1)
+    g.a[base & bars] = col('fgrey2')
     # one clean black silhouette round the whole figure
     solid = g.a[:, :, 3] == 255
     rim = solid & ~(_sh(solid, 1, 0) & _sh(solid, -1, 0) & _sh(solid, 0, 1) & _sh(solid, 0, -1))

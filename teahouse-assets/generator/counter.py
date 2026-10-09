@@ -11,6 +11,7 @@ import random
 import numpy as np
 from pixel import Canvas, PAL, step
 from shapes import crack
+import moss
 from furn import R, wood_face, knob
 from layout import W, H, TABLE, COUNTER, HEARTH, FLOOR, EYE_Y, FURN_CONV, room_of, vp
 
@@ -427,7 +428,31 @@ def build_counter(seed=17):
     _furnace(cv, rng)
     _prep_table(cv, rng)
     _counter(cv, rng)
+    _moss(cv, random.Random(seed + 9))
     return cv
+
+
+def _moss(cv, rng):
+    """Moss on the cool stones of the furnace (outer piers, side, the foot) and
+    along the bottom of the counter, never near the fire or over the drawer."""
+    x0, x1 = HEARTH['x0'], HEARTH['x1']
+    m = MOUTH
+
+    def away(x, y):
+        if m['x0'] - 18 <= x < m['x1'] + 18 and y > m['top'] - 16:
+            return False                                   # too hot by the mouth
+        for (dx, dy, dw, dh) in DRAWERS:
+            if dx - 4 <= x < dx + dw + 4 and dy - 4 <= y < dy + dh + 4:
+                return False
+        return True
+    moss.patches(cv, rng, (x0, 300, x0 + 44, H - 2), 4, size=(8, 18), where=away)
+    moss.patches(cv, rng, (x1 - 44, 300, x1, H - 2), 4, size=(8, 18), where=away)
+    moss.patches(cv, rng, (x1, 250, x1 + 34, H - 2), 4, size=(8, 16), where=away)
+    moss.patches(cv, rng, (x0, HEARTH_TOP[1] + 9, x0 + 30, HEARTH_TOP[1] + 40), 2, size=(6, 12), where=away)
+    moss.patches(cv, rng, (x1 - 30, HEARTH_TOP[1] + 9, x1, HEARTH_TOP[1] + 40), 1, size=(6, 12), where=away)
+    moss.patches(cv, rng, (COUNTER['x0'], 334, COUNTER['x1'], H - 2), 16, size=(8, 22), mode='creep', where=away)
+    moss.patches(cv, rng, (COUNTER['x0'], 318, COUNTER['x0'] + 120, H - 2), 3, size=(8, 16), where=away)
+    moss.patches(cv, rng, (COUNTER['x1'] - 120, 318, COUNTER['x1'], H - 2), 3, size=(8, 16), where=away)
 
 
 def floor_shadows(shell):

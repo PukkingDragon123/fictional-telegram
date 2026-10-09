@@ -29,16 +29,17 @@
   <button id="drawer">open drawer</button>
   <button id="fire">fire: idle</button>
   <button id="pong">Uncle Pong: idle</button>
+  <button id="bell">ring the bell</button>
   <button id="reset">reset props</button>
   <button id="export">copy layout JSON</button>
 </header>
 <div id="stage"><canvas id="c" width="640" height="360"></canvas></div>
 <div id="info">
-  <div id="hover">Drag props around. Drag empty space (or arrow keys / A D) to pan between the four rooms.</div>
+  <div id="hover">Drag props around. Drag empty space (or arrow keys / A D) to pan between the four rooms. Click the brass bell in the tea room.</div>
   <p>Each room is a box in perspective; dark posts in front hide the joins. Window layers scroll at their own
      parallax speed and tile horizontally. Uncle Pong (try his button for each mood), the fire spirit, the alien
-     cat, the cloth (curtains, noren, quilt, cloak, scarf, towel), lanterns, lamp, candles, steam, trees and
-     flowers are all looping sprite sheets.</p>
+     cat, the silk bed, the cloth (curtains, noren, cloak, scarf, towel), lanterns, lamp, candles, steam, trees and
+     flowers are all looping sprite sheets. Ring the bell and the rock wyvern rises behind the window.</p>
 </div>
 <script src="scene.js"></script>
 <script>
@@ -103,8 +104,12 @@
   function drawProp(p, t) {
     if (!p.show) return;
     if (p.anims) {
-      const a = p.anims[p.anim];
-      const f = Math.floor(t * (a.fps || 8)) % a.frames;
+      let a = p.anims[p.anim];
+      let f = Math.floor(t * (a.fps || 8)) % a.frames;
+      if (p.oneShot) {                                        // play once, then fall back
+        f = Math.floor((t - p.oneShot.start) * (a.fps || 8));
+        if (f >= a.frames) { p.anim = p.oneShot.then; p.oneShot = null; a = p.anims[p.anim]; f = 0; }
+      }
       const im = img[a.sheet];
       if (im && im.complete) g.drawImage(im, f * p.w, 0, p.w, p.h, Math.round(p.x - cam), Math.round(p.y), p.w, p.h);
       return;
@@ -117,6 +122,7 @@
     const t = (now - t0) / 1000;
     g.clearRect(0, 0, VW, VH);
     outside.forEach(l => drawLayerTiled(l, t));
+    props.filter(p => p.layer === 'outside').forEach(p => drawProp(p, t));     // e.g. the window dragon
     if (opt('petals')) petals.forEach(pt => {
       const im = img[pt.kind.sheet]; if (!im || !im.complete) return;
       const f = Math.floor(t * 8 + pt.f) % pt.kind.frames;
@@ -158,11 +164,20 @@
     return null;
   };
   let drag = null, pan = null;
+  function interact(p) {                                     // click actions exported in scene.json
+    const now = (performance.now() - t0) / 1000;
+    (p.on_click || []).forEach(a => {
+      const q = props.find(r => r.name === a.prop);
+      if (!q || !q.anims || !q.anims[a.play]) return;
+      q.anim = a.play;
+      q.oneShot = { start: now, then: a.then || Object.keys(q.anims)[0] };
+    });
+  }
   cv.addEventListener('pointerdown', e => {
     const [wx, wy] = toWorld(e);
     const p = hit(wx, wy);
     cv.setPointerCapture(e.pointerId);
-    if (p) drag = { p, dx: wx - p.x, dy: wy - p.y }; else pan = { x: e.clientX, cam };
+    if (p) drag = { p, dx: wx - p.x, dy: wy - p.y, sx: e.clientX, sy: e.clientY }; else pan = { x: e.clientX, cam };
     cv.style.cursor = 'grabbing';
   });
   cv.addEventListener('pointermove', e => {
@@ -171,7 +186,10 @@
     else if (pan) { setCam(pan.cam - (e.clientX - pan.x) * VW / cv.getBoundingClientRect().width); }
     else { const p = hit(wx, wy); document.getElementById('hover').textContent = p ? `${p.name} - ${p.desc}` : ''; }
   });
-  cv.addEventListener('pointerup', () => { drag = pan = null; cv.style.cursor = 'grab'; });
+  cv.addEventListener('pointerup', e => {
+    if (drag && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4 && drag.p.on_click) interact(drag.p);
+    drag = pan = null; cv.style.cursor = 'grab';
+  });
   function setCam(v) { cam = Math.max(0, Math.min(WORLD - VW, v)); camEl.value = cam; }
   camEl.addEventListener('input', () => setCam(+camEl.value));
   addEventListener('keydown', e => {
@@ -187,6 +205,10 @@
   }
   document.getElementById('fire').onclick = (e) => cycle(fireSpirit, 'fire', e.target, 0);
   document.getElementById('pong').onclick = (e) => cycle(pong, 'Uncle Pong', e.target, 640);
+  document.getElementById('bell').onclick = () => {
+    const b = props.find(p => p.name === 'dragon_bell');
+    if (b) { setCam(1280); interact(b); }
+  };
   document.getElementById('reset').onclick = () => props.forEach(p => { p.x = p.ox; p.y = p.oy; });
   document.getElementById('drawer').onclick = (e) => {
     if (!drawer) return;

@@ -14,11 +14,12 @@ few specks. A dark post in the foreground (see posts()) hides the seam
 between two rooms."""
 import math
 import random
+import moss
 import numpy as np
 from pixel import Canvas, PAL, step, blob_mask
 from shapes import chip, crack, cobweb, vine, flower, torn_paper
 from layout import (W, H, SW, SH, EYE_Y, BX, CEIL_Y, WALL_TOP, RAIL, WAINS, BASE, FLOOR, F_DEPTH,
-                    POSTS, POST_W, WIN_MAIN, WIN_ROUND, WALL_T, HEARTH, vp)
+                    POSTS, POST_W, WIN_MAIN, WIN_ROUND, WIN_BELL, WALL_T, HEARTH, vp)
 
 BAYER4 = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 HALF = SW / 2 - BX                 # half-width of the back wall
@@ -397,7 +398,7 @@ def _age_wainscot(cv, rng, x0, x1):
                 if d < 1:
                     if d > 0.7:
                         cv.px(xx, yy, 'wood1')
-                    elif (xx + yy) % 2 == 0:
+                    else:
                         cv.shift(xx, yy, -1)
     gx = rng.randint(x0 + 40, x1 - 60)                       # one board gone
     cv.rect(gx, y0 + (y1 - y0) // 3, rng.randint(22, 40), (y1 - y0) // 3 - 1, 'ink')
@@ -725,6 +726,67 @@ def _round_window(cv, rng):
         cv.px(fcx_i + 24 + k, fcy_i + 21, None)
 
 
+def bell_halfwidth(y):
+    """Half-width of the katomado (bell-shaped window) opening at row y, or -1.
+    A flame-like tip, shoulders that swell wider than the jambs, a pinch
+    at the spring line, then straight jambs."""
+    w = WIN_BELL
+    if y < w['top'] or y >= w['bottom']:
+        return -1
+    if y >= w['spring']:
+        t = (y - w['spring']) / (w['bottom'] - w['spring'])
+        return w['hw'] + 2 * t * t
+    t = (y + 0.5 - w['top']) / (w['spring'] - w['top'])
+    if t < 0.28:
+        g = 0.3 * (t / 0.28) ** 1.7                          # concave, pointed tip
+    else:
+        g = 0.3 + 0.84 * math.sin((t - 0.28) / 0.72 * math.pi / 2)
+    if t > 0.9:
+        g -= (t - 0.9) / 0.1 * 0.14                          # pinch into the cusp
+    return w['hw'] * g
+
+
+def _bell_window(cv, rng):
+    w = WIN_BELL
+    ri = 2
+    kf = 1 - WALL_T
+    vx, vy = vp(ri)
+    near = np.zeros((H, W), bool)
+    for y in range(w['top'], w['bottom']):
+        hw = bell_halfwidth(y)
+        near[y, int(round(w['cx'] - hw)):int(round(w['cx'] + hw))] = True
+    far = np.zeros((H, W), bool)
+    ys, xs = np.nonzero(near)
+    far[np.round(vy + (ys - vy) * kf).astype(int), np.round(vx + (xs - vx) * kf).astype(int)] = True
+    far = far | np.roll(far, 1, 1) | np.roll(far, 1, 0)
+    far &= near | np.roll(near, -1, 1)
+    # frame: rings grown outwards from the opening
+    grown = near.copy()
+    rings = []
+    for k in range(8):
+        nxt = grown | np.roll(grown, 1, 0) | np.roll(grown, -1, 0) | np.roll(grown, 1, 1) | np.roll(grown, -1, 1)
+        nxt[w['bottom']:, :] = False
+        rings.append(nxt & ~grown)
+        grown = nxt
+    cols = ['wood4', 'wood3', 'wood1', 'gold2', 'wood1', 'wood1', 'wood2', 'ink']
+    for ring, c in zip(rings, cols):
+        cv.a[ring] = (*PAL[c], 255)
+    top_light = rings[5] & (np.indices((H, W))[0] < w['spring']) & (np.indices((H, W))[1] < w['cx'])
+    cv.a[top_light] = (*PAL['wood2'], 255)
+    _reveal(cv, near, far, ri, lit='wood3', shade='wood1', top='wood0', sill='wood4')
+    cv.px(w['cx'], w['top'] - 10, 'gold3'); cv.px(w['cx'], w['top'] - 9, 'gold2')     # finial
+    cv.px(w['cx'] - 1, w['top'] - 9, 'gold1'); cv.px(w['cx'] + 1, w['top'] - 9, 'gold1')
+    # a deep sill, worn pale in the middle
+    sx0, sx1, sy = w['cx'] - w['hw'] - 14, w['cx'] + w['hw'] + 14, w['bottom']
+    cv.rect(sx0, sy, sx1 - sx0, 7, 'wood3')
+    cv.hline(sx0, sx1 - 1, sy, 'wood2'); cv.rect(sx0, sy + 1, sx1 - sx0, 3, 'wood4')
+    cv.hline(sx0 + 30, sx1 - 31, sy + 2, 'wood5')
+    cv.hline(sx0, sx1 - 1, sy + 5, 'wood1'); cv.hline(sx0, sx1 - 1, sy + 6, 'wood0')
+    for bx in (sx0 + 6, sx1 - 10):
+        for k in range(6):
+            cv.hline(bx, bx + max(1, 4 - k // 2), sy + 7 + k, 'wood2')
+
+
 # ---------------------------------------------------------------- simplify
 def simplify(cv, passes=1):
     """Remove lone specks: a pixel unlike all four neighbours, three of which
@@ -794,6 +856,7 @@ def build_shell(seed=7):
                     cv.px(sx + d + int(math.sin(k * 0.3)), WALL_TOP + 2 + k, 'red1')
     _main_window(cv, rng)
     _round_window(cv, rng)
+    _bell_window(cv, rng)
     for ri in range(4):
         ox = ri * SW
         bx0, bx1 = ox + BX, ox + SW - BX
@@ -821,7 +884,48 @@ def build_shell(seed=7):
             cv.vline(mx + 1, my - 3, my, 'leaf2')
             flower(cv, mx + 1, my - 4, rng.choice(('paper4', 'purp3')), 'gold3')
     simplify(cv)
+    _moss(cv, M, random.Random(seed + 101))
     return cv
+
+
+def _moss(cv, M, rng):
+    """Moss everywhere damp: cushions on the skirting, rail and sills, curtains
+    hanging off the girder, carpets creeping over the floor along the walls,
+    patches in the corners and on the side walls, and round the roof gaps."""
+    lush = (1.6, 0.8, 1.0, 1.4)                       # cook room and bedroom are the dampest
+    for ri in range(4):
+        ox = ri * SW
+        bx0, bx1 = ox + BX, ox + SW - BX
+        g = lush[ri]
+        sp = lambda a, b: (int(a / g), int(b / g))
+        moss.along(cv, rng, bx0 + 2, bx1 - 2, BASE[0], 'ledge', every=sp(8, 46), size=(10, 34), height=(4, 9))
+        moss.along(cv, rng, bx0 + 2, bx1 - 2, FLOOR + 1, 'creep', every=sp(16, 64), size=(16, 44), height=(4, 7))
+        if ri < 3:
+            moss.along(cv, rng, bx0 + 10, bx1 - 10, RAIL[0], 'ledge', every=sp(50, 140), size=(8, 22), height=(3, 6))
+        moss.hang_curtain(cv, rng, bx0 + 4, bx1 - 4, WALL_TOP, depth=(6, 18))
+        moss.along(cv, rng, bx0 + 6, bx1 - 6, CEIL_Y, 'ledge', every=sp(40, 120), size=(8, 20), height=(3, 5))
+        for cx in (bx0, bx1):                          # back corners
+            moss.patches(cv, rng, (cx - 8, 150, cx + 8, 262), int(3 * g), size=(7, 14))
+            moss.patches(cv, rng, (cx - 7, WALL_TOP + 2, cx + 7, WALL_TOP + 50), int(1.5 * g), size=(6, 12))
+        lab = M['lab']
+        for (sx0, sx1) in ((ox, ox + BX), (ox + SW - BX, ox + SW)):   # damp feet of the side walls
+            moss.patches(cv, rng, (sx0, 150, sx1, 320), int(5 * g), size=(8, 20),
+                         where=lambda x, y, ox=ox: 0 <= x - ox < SW and lab[y, x - ox] == 2)
+        moss.patches(cv, rng, (bx0 + 12, 226, bx1 - 12, 254), int(4 * g), size=(8, 20))
+    # sills
+    sy = WIN_MAIN['y'] + WIN_MAIN['h'] + 6
+    moss.along(cv, rng, WIN_MAIN['x'] - 16, WIN_MAIN['x'] + WIN_MAIN['w'] + 16, sy, 'ledge', every=(30, 90),
+               size=(12, 30), height=(4, 8), spores=0.5)
+    moss.along(cv, rng, WIN_BELL['cx'] - WIN_BELL['hw'] - 12, WIN_BELL['cx'] + WIN_BELL['hw'] + 12, WIN_BELL['bottom'],
+               'ledge', every=(14, 40), size=(12, 24), height=(4, 7), spores=0.5)
+    moss.ring(cv, rng, WIN_ROUND['cx'], WIN_ROUND['cy'], WIN_ROUND['r'] + 9, 25, 155, 7, size=(8, 16))
+    # round the bedroom roof gaps
+    ox = 3 * SW
+    ink = np.all(cv.a[:, ox:ox + SW, :3] == PAL['ink'], axis=2) & (M['lab'] == 1)
+    edge = ink & ~np.roll(ink, -1, 0)
+    ys, xs = np.nonzero(edge)
+    for i in range(0, len(ys), max(1, len(ys) // 7)):
+        moss.clump(cv, rng, ox + xs[i] - 4, ys[i] + 1, rng.randint(8, 16), rng.randint(6, 14), 'hang')
 
 
 # ---------------------------------------------------------------- foreground posts
@@ -856,4 +960,8 @@ def posts():
         cv.hline(x0 - 5, x0 + POST_W + 4, H - 14, 'stone2')
         cv.hline(x0 - 4, x0 + POST_W + 3, H - 13, 'stone1')
         cv.px(x0 - 3, H - 12, 'leaf1'); cv.px(x0 - 2, H - 12, 'leaf2')
+        moss.along(cv, rng, x0 - 5, x0 + POST_W + 5, H - 14, 'ledge', every=(1, 4), size=(10, 18), height=(4, 9),
+                   spores=0.4)
+        moss.patches(cv, rng, (x0 + 1, H - 90, x0 + POST_W - 1, H - 16), 3, size=(8, 14))
+        moss.patches(cv, rng, (x0 + 1, 30, x0 + POST_W - 1, 160), 2, size=(6, 12))
     return cv

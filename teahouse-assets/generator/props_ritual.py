@@ -10,6 +10,7 @@ from furn import R, wood_face, inset, knob, bar_pull, ring_pull
 from shade import paint, lathe_shade, ellipse_mask, poly_mask, mask_of
 import objects as O
 import teaware as TW
+import tea_set as TS
 from counter import DRAWERS
 from layout import COUNTER_Y, SHELF3_Y
 
@@ -17,32 +18,31 @@ F8 = 8
 
 
 # ---------------------------------------------------------------- corkboard + notes
-@prop('corkboard', 3, 'wall', 1334, 64, 'Corkboard for orders and notes; red string linking pins')
+@prop('corkboard', 3, 'wall', 1334, 64, 'Old corkboard, empty: pin holes and pale squares where notes used to hang')
 def corkboard():
     rng = random.Random(3001)
     w, h = 244, 134
     cv = Canvas(w, h)
+    # cork: warm granules in three tones, clustered (not noise)
     cv.rect(0, 0, w, h, 'wood4')
-    for _ in range(w * h // 7):
-        x, y = rng.randint(0, w - 2), rng.randint(0, h - 2)
-        c = rng.choice(('wood3', 'wood5', 'wood3', 'gold1', 'wood4'))
-        cv.px(x, y, c)
-        if rng.random() < 0.4:
-            cv.px(x + 1, y, c)
-    for _ in range(70):
-        cv.px(rng.randint(8, w - 8), rng.randint(8, h - 8), 'wood1')
-    for (x, y, ww, hh) in ((168, 84, 28, 34), (84, 92, 22, 24)):
-        for yy in range(y, y + hh):
-            for xx in range(x, x + ww):
-                if (xx + yy) % 2 == 0:
-                    cv.shift(xx, yy, 1, only=('wood',))
-    ring = ['wood0', 'wood2', 'wood3', 'wood4', 'wood3', 'wood2', 'wood1']
-    for i, c in enumerate(ring):
+    for _ in range(w * h // 26):
+        x, y = rng.randint(6, w - 8), rng.randint(6, h - 8)
+        c = rng.choice(('wood3', 'wood3', 'wood5', 'gold1'))
+        cv.px(x, y, c); cv.px(x + 1, y, c)
+        if rng.random() < 0.5:
+            cv.px(x, y + 1, c)
+    # nothing pinned up any more: only old pin holes
+    for _ in range(26):
+        px_, py_ = rng.randint(12, w - 14), rng.randint(12, h - 14)
+        cv.px(px_, py_, 'wood1'); cv.px(px_ + 1, py_ + 1, 'wood2')
+    # frame: bevelled wood with mitred corners, a little worn
+    for i, c in enumerate(['wood0', 'wood2', 'wood4', 'wood3', 'wood3', 'wood2', 'wood1']):
         cv.frame(i, i, w - 2 * i, h - 2 * i, c)
-    pins = [(22, 12), (66, 12), (114, 10), (162, 14), (210, 12), (40, 74), (128, 76), (196, 72)]
-    for a, b in ((0, 5), (5, 6), (6, 2), (6, 7), (1, 3), (3, 4)):
-        (x0, y0), (x1, y1) = pins[a], pins[b]
-        cv.line(x0, y0 + 2, x1, y1 + 2, 'red3')
+    for (x, y) in ((0, 0), (w - 7, 0), (0, h - 7), (w - 7, h - 7)):
+        for k in range(7):
+            cv.px(x + k if x == 0 else x + 6 - k, y + k if y == 0 else y + 6 - k, 'wood1')
+    for k in range(10):                                       # an empty brass hook on top
+        cv.px(w // 2 - 5 + k, 2, 'gold2' if k % 3 else 'gold3')
     chip(cv, 90, h - 7, 18, 7, rng, under='wood2', under_dark='wood0', n=2, elong=0.6)
     return O.outline(cv)
 
@@ -127,7 +127,7 @@ for _i, (_n, _x, _y, _w, _h, _fn, _pc, _base) in enumerate(NOTES):
         cv = paper_note(rng, w, h, base=base, pin_c=pc, lines=False)
         fn(cv, rng, w, h)
         return cv
-    prop(_n, 3, 'wall', _x, _y, 'Worn paper note pinned to the corkboard')(_mk)
+    prop(_n, 3, 'wall', _x, _y, 'Worn paper note for the corkboard', preview=False)(_mk)
 
 
 # ---------------------------------------------------------------- scroll
@@ -180,7 +180,7 @@ def scroll():
 
 
 # ---------------------------------------------------------------- cabinet + shelf
-@prop('glazed_cabinet', 3, 'wall', 1656, 58, 'Jade storage cabinet: glazed lattice doors over teaware, one door ajar')
+@prop('glazed_cabinet', 3, 'wall', 1656, 58, 'Jade storage cabinet: glazed lattice doors over teaware, one door ajar', preview=False)
 def cabinet():
     rng = random.Random(3200)
     w, h = 212, 100
@@ -252,7 +252,7 @@ def cabinet():
     return O.outline(cv)
 
 
-@prop('teaware_shelf', 3, 'wall', 1656, SHELF3_Y, 'Open shelf for teaware')
+@prop('teaware_shelf', 3, 'wall', 1656, SHELF3_Y, 'Open shelf for teaware', preview=False)
 def teaware_shelf():
     rng = random.Random(3300)
     w = 212
@@ -342,76 +342,38 @@ for _i, (_n, _x, _fn, _d) in enumerate(SHELF3):
     def _mk(i=_i, fn=_fn):
         return fn(random.Random(3310 + i))
     _probe = _fn(random.Random(3310 + _i))
-    prop(_n, 3, 'wall', _x, SHELF3_Y - _probe.h + 1, _d,
-         preview=_n not in ('whisk_on_stand', 'incense_box'))(_mk)
+    prop(_n, 3, 'wall', _x, SHELF3_Y - _probe.h + 1, _d, preview=False)(_mk)
 
 
 # ---------------------------------------------------------------- counter (room 3)
-@prop('tea_runner', 3, 'counter', 1306, COUNTER_Y - 10, 'Indigo cloth runner the tea set is laid out on', shadow='none')
+@prop('tea_runner', 3, 'counter', 1298, COUNTER_Y - 14, 'Indigo cotton tea mat with seigaiha wave stitching, fringed ends', shadow='none')
 def tea_runner():
-    rng = random.Random(3390)
-    w, h = 186, 12
-    cv = Canvas(w, h)
-    for y in range(h):
-        for x in range(w):
-            c = 'indigo2' if 2 < y < h - 2 else 'indigo1'
-            if (x + y * 3) % 17 == 0:
-                c = 'indigo3'
-            if y in (2, h - 3) and x % 4 < 2:
-                c = 'paper3'                  # sashiko running stitch
-            cv.px(x, y, c)
-    for x in range(0, w, 2):                 # fringed ends
-        cv.px(x, h, 'indigo1') if x < 6 or x > w - 7 else None
-    cv.hline(0, w - 1, 0, 'indigo3')
-    return O.outline(cv)
+    return TS.runner()
 
 
-@prop('kyusu_teapot', 3, 'counter', 1310, COUNTER_Y - 42, 'Red clay kyusu teapot with a side handle (chipped lid)')
+@prop('kyusu_teapot', 3, 'counter', 1304, COUNTER_Y - 40, 'Tokoname red-clay kyusu: squat round body, side handle, chipped lid')
 def kyusu():
-    return TW.kyusu()
+    return TS.kyusu()
 
 
-@prop('chawan_matcha', 3, 'counter', 1372, COUNTER_Y - 22, 'Tea bowl of freshly whisked matcha')
+@prop('chawan_matcha', 3, 'counter', 1366, COUNTER_Y - 26, 'Black raku tea bowl of frothy matcha, a glaze run on its side')
 def chawan():
-    cv = O.bowl(34, 14, ['stone0', 'stone1', 'stone2', 'stone3', 'stone4'], inside=('leaf2', 'leaf3', 'leaf4'), top=5)
-    for x in range(4, 30, 3):
-        y = 9 + (x % 4)
-        p = cv.get(x, y)
-        if p[3]:
-            cv.px(x, y, 'wood2')
-    cv.px(12, 4, 'leaf5'); cv.px(18, 5, 'leaf5'); cv.px(15, 3, 'white')
-    return cv
+    return TS.chawan()
 
 
-@prop('chasen_whisk', 3, 'counter', 1414, COUNTER_Y - 26, 'Bamboo matcha whisk')
+@prop('chasen_whisk', 3, 'counter', 1412, COUNTER_Y - 32, 'Bamboo matcha whisk: node on the handle, a bulb of fine tines')
 def chasen():
-    cv = Canvas(18, 26)
-    cv.rect(6, 0, 6, 9, 'gold2'); cv.vline(6, 0, 8, 'gold3'); cv.vline(11, 0, 8, 'gold1')
-    for x in range(0, 18):
-        cv.line(9, 9, x, 24, 'gold3' if x < 7 else ('gold2' if x < 12 else 'gold1'))
-    cv.ellipse(9, 24, 8.5, 1.5, 'gold1')
-    return O.outline(cv)
+    return TS.chasen()
 
 
-@prop('natsume_caddy', 3, 'counter', 1440, COUNTER_Y - 22, 'Black lacquer natsume tea caddy with a gold pine sprig')
+@prop('natsume_caddy', 3, 'counter', 1436, COUNTER_Y - 24, 'Black lacquer natsume tea caddy with a gold maki-e pine bough')
 def natsume():
-    cv = Canvas(24, 22)
-    body = lathe_shade(22, 16, lambda t: 11 * (1 - 0.15 * abs(t - 0.5) * 2), O.LACQUER, spec=0.14, spec_col='stone3')
-    cv.blit(body, 1, 5)
-    cv.ellipse(12, 5, 10.5, 3, 'ink1'); cv.hline(4, 20, 4, 'stone1')
-    cv.hline(1, 22, 9, 'ink')
-    for (x, y) in ((11, 14), (10, 13), (12, 13), (11, 15), (9, 14), (13, 14), (14, 12), (8, 12)):
-        cv.px(x, y, 'gold3')
-    cv.line(11, 15, 11, 19, 'gold2')
-    return O.outline(cv)
+    return TS.natsume()
 
 
-@prop('chashaku_scoop', 3, 'counter', 1452, COUNTER_Y - 6, 'Bamboo tea scoop')
+@prop('chashaku_scoop', 3, 'counter', 1452, COUNTER_Y - 7, 'Bamboo tea scoop with its node and bent tip')
 def chashaku():
-    cv = Canvas(34, 6)
-    cv.hline(0, 28, 3, 'gold2'); cv.hline(0, 28, 2, 'gold3'); cv.hline(2, 26, 4, 'gold1')
-    cv.ellipse(30, 3, 3, 2, 'gold2'); cv.px(29, 2, 'gold4'); cv.px(14, 2, 'gold1')
-    return O.outline(cv)
+    return TS.chashaku()
 
 
 @prop('yunomi_tray', 3, 'counter', 1500, COUNTER_Y - 36, 'Lacquer tray with four ribbed yunomi: matcha, hojicha, sencha, water')

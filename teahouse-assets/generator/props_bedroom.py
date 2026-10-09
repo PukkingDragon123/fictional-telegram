@@ -1,7 +1,7 @@
 """Room 4 - the traveler's bedroom: perspective furniture (we look down on
-the bed, desk and chair, and up at the high shelves), a cloth-simulated
-patchwork quilt draped over the mattress, a scarf on the chair, a swinging
-oil lamp, and the traveler's things."""
+the bed, desk and chair, and up at the high shelves), a silk bed (see
+silk_bed.py), a cloth-simulated scarf on the chair, a swinging oil lamp,
+and the traveler's things."""
 import math
 import random
 import numpy as np
@@ -24,108 +24,14 @@ def cached(key, fn):
     return _CACHE[key]
 
 
-# ---------------------------------------------------------------- bed + quilt
-PATCHES = [['red0', 'red1', 'red2', 'red3', 'red4'], ['jade0', 'jade1', 'jade2', 'jade3', 'jade4'],
-           ['gold0', 'gold1', 'gold2', 'gold3', 'gold4'], ['indigo0', 'indigo1', 'indigo2', 'indigo3', 'indigo4'],
-           ['paper0', 'paper1', 'paper2', 'paper3', 'paper4'], ['teal0', 'teal1', 'teal2', 'teal3']]
-
-
-@prop('bed_messy', 4, 'floor', 2250, 186, "Traveler's old bed: patchwork quilt (cloth physics) draped over a stained, split mattress; cracked frame (12 frames)", fps=6)
+# ---------------------------------------------------------------- bed
+@prop('silk_bed', 4, 'floor', 2250, 186,
+      'Low lacquered bed with a torii-style headboard and brass fittings: a crimson silk quilt embroidered with '
+      'gold plum blossoms spills over the edge in glossy folds, its gold lining turned down over a cream silk '
+      'sheet; the folds sway and the sheen slides across them (12 frames)', fps=6)
 def bed():
-    def build():
-        rng = random.Random(4001)
-        W_, H_ = 264, 124
-        tilt, oy = 0.4, 72
-        base = Canvas(W_, H_)
-        # headboard (right) - carved top, we see its front
-        wood_face(base, 246, 8, 16, 108, rng, 'wood', 2, 'v')
-        base.rect(243, 2, 22, 8, 'wood3'); base.hline(243, 264, 2, 'wood5'); base.hline(243, 264, 9, 'wood1')
-        base.rect(250, 16, 8, 44, 'wood1'); base.vline(250, 16, 59, 'wood0')
-        # mattress: top face (sheet) + front face
-        for y in range(oy - 24, oy):
-            for x in range(10, 246):
-                base.px(x, y, 'paper3' if (y - oy + 24) > 3 else 'paper2')
-        base.hline(10, 245, oy - 24, 'paper1')
-        base.rect(10, oy, 236, 11, 'paper2'); base.hline(10, 245, oy, 'paper4'); base.hline(10, 245, oy + 10, 'paper0')
-        for x in range(18, 244, 16):
-            base.px(x, oy + 5, 'paper1')
-        # side rail + legs
-        wood_face(base, 6, oy + 11, 240, 13, rng, 'wood', 3, 'h')
-        base.hline(6, 245, oy + 11, 'wood5'); base.hline(6, 245, oy + 23, 'wood0')
-        for lx in (6, 236):
-            base.rect(lx, oy + 24, 10, H_ - oy - 24, 'wood2'); base.vline(lx, oy + 24, H_ - 1, 'wood3')
-        # old mattress: water stains, a split seam with the straw stuffing showing
-        for (sx, sy, r) in ((200, oy - 12, 16), (120, oy - 6, 10), (230, oy + 4, 7)):
-            for yy in range(int(sy - r / 2), int(sy + r / 2) + 1):
-                for xx in range(int(sx - r), int(sx + r) + 1):
-                    d = ((xx - sx) / r) ** 2 + ((yy - sy) / (r / 2)) ** 2
-                    if d < 1 and base.get(xx, yy)[3]:
-                        if d > 0.72:
-                            base.px(xx, yy, 'paper1')               # tide line
-                        else:
-                            base.px(xx, yy, 'paper2')
-        for k in range(26):
-            base.px(206 + k, oy - 20 + (k % 3 == 0), 'paper0')
-            if k % 2 == 0:
-                base.px(206 + k, oy - 21, 'gold3' if k % 4 else 'gold2')       # straw poking out
-        base.line(246, 30, 252, 58, 'wood0'); base.line(247, 30, 253, 58, 'wood3')   # split in the headboard
-        # quilt: settle over mattress + lump, then breathe in the breeze
-        # The quilt lies bunched on the mattress and spills over the front edge.
-        # Where it folds over the edge it is gathered (that is what friction and
-        # its own weight do to a real quilt), so the hanging part falls in folds
-        # and pools on the floor.
-        nx, top_rows, hang_rows, sp = 36, 12, 15, 5.0
-        q = C.Cloth(nx, top_rows + hang_rows, sp, origin=(0, 0, 0), axis='horizontal')
-        q.add_box(10, 0, -62, 246, 14, 0, friction=0.95)
-        q.add_ellipsoid((70, -1, -36), (26, 7, 20), friction=0.9)      # rumpled lump under it
-        q.add_ellipsoid((220, -4, -36), (22, 8, 18), friction=0.6)     # pillow
-        q.add_box(-20, -90, -80, 260, -9, -3, friction=0.3)           # keeps the bunching low: rumples, not a wall
-        q.wall_z = -64
-        q.floor_y = 44
-        G = q.P.reshape(q.ny, nx, 3)
-        edge_x = []
-        x = 14.0
-        for i in range(nx):
-            edge_x.append(x)
-            x += sp * (0.62 + 0.18 * math.sin(i * 0.5))     # gathered, unevenly
-        for j in range(q.ny):
-            for i in range(nx):
-                xi = edge_x[i] + (j - top_rows) * 0.6
-                if j <= top_rows:
-                    far = (top_rows - j) / top_rows             # 1 at the back, 0 at the edge
-                    xf = 14 + i * sp * 0.93
-                    xi = edge_x[i] * (1 - far) + xf * far
-                    G[j, i] = (xi, -1.0 + math.sin(i * 0.9 + j * 0.7) * 1.2, -(top_rows - j) * sp * 0.92)
-                else:
-                    G[j, i] = (xi, (j - top_rows) * sp, 1.5 + 1.8 * (1 if i % 2 else -1))
-        q.P = G.reshape(-1, 3); q.prev = q.P.copy()
-        for i in range(nx):
-            q.pin(i, top_rows, (edge_x[i], -0.5, 1.0 + 1.6 * (1 if i % 2 else -1)))
-        w = C.breeze(amp=(1.2, 0.4, 1.6), period=1.0, waves=0.05, seed=41)
-        snaps = C.simulate(q, w, frames=FC, substeps=10, warm_periods=1, settle=900)
-
-        def tex(u, v, back):
-            if back:
-                return PATCHES[4][:4]
-            pu, pv = u * 7, v * 5
-            if pu % 1 < 0.09 or pv % 1 < 0.1:
-                return ['paper0', 'paper1', 'paper2', 'paper3']     # stitched seams
-            k = (int(pu) * 7 + int(pv) * 3) % len(PATCHES)
-            if (int(pu), int(pv)) == (4, 2):
-                return ['paper2', 'paper3', 'paper4', 'white']      # torn patch, stuffing
-            return PATCHES[k]
-        frames = []
-        for P in snaps:
-            cv = base.copy()
-            quilt = C.render(q, P, tex, W_, H_, ox=0, oy=oy, tilt=tilt, fold=2.4, mid=0.5, spread=0.7)
-            cv.blit(quilt, 0, 0)
-            # footboard post in front of the quilt edge
-            wood_face(cv, 0, 30, 12, H_ - 30, rng, 'wood', 2, 'v')
-            cv.rect(-1, 26, 14, 6, 'wood3'); cv.hline(-1, 12, 26, 'wood5')
-            cv.vline(0, 30, H_ - 1, 'wood4'); cv.vline(11, 30, H_ - 1, 'wood0')
-            frames.append(O.outline(cv))
-        return frames
-    return cached('bed', build)
+    import silk_bed
+    return cached('bed', silk_bed.silk_bed_frames)
 
 
 # ---------------------------------------------------------------- desk

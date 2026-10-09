@@ -24,6 +24,9 @@ WORN = {
     # room 4
     'bookshelf', 'desk_messy', 'straw_kasa_hat',
 }
+# static props that have been sitting in the damp long enough to grow moss: name -> clumps
+MOSSY = {'tsubo_jar': 2, 'bucket_water': 2, 'firewood': 3, 'bookshelf': 3, 'recipe_board': 2, 'corkboard': 2,
+         'apothecary_chest': 2, 'sack_big': 1, 'drying_pole': 1, 'kakejiku_scroll': 1}
 PAINTED = ('red', 'jade', 'indigo', 'teal')
 WOODY = ('wood', 'hinoki', 'red', 'jade', 'paper', 'teal', 'indigo', 'copper', 'gold', 'stone')
 
@@ -62,7 +65,7 @@ def age(cv, seed=0, amount=1.0):
         elif r < 0.3 * amount:
             out[y, x, :3] = step(tuple(a[y, x, :3]), -1)                          # grime
     area = int(solid.sum())
-    for _ in range(int(area / 160 * amount)):       # scratches
+    for _ in range(int(area / 320 * amount)):       # scratches
         x, y = rng.randrange(w), rng.randrange(h)
         ln = rng.randint(2, 6)
         dx = rng.choice((1, 1, 1, 0))
@@ -71,7 +74,7 @@ def age(cv, seed=0, amount=1.0):
             if 0 <= X < w and 0 <= Y < h and solid[Y, X] and not dark[Y, X]:
                 if _ramp_of(a[Y, X]) in WOODY:
                     out[Y, X, :3] = step(tuple(out[Y, X, :3]), 1)
-    for _ in range(max(0, int(area / 1400 * amount))):   # water stains
+    for _ in range(max(0, int(area / 2800 * amount))):   # water stains (solid, no dither)
         cx, cy = rng.randrange(w), rng.randrange(h)
         rx, ry = rng.uniform(3, 9), rng.uniform(2, 6)
         for y in range(int(cy - ry) - 1, int(cy + ry) + 2):
@@ -81,9 +84,25 @@ def age(cv, seed=0, amount=1.0):
                 if _ramp_of(a[y, x]) not in WOODY:
                     continue
                 d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
-                if 0.75 < d <= 1:
-                    out[y, x, :3] = step(tuple(out[y, x, :3]), -1)
-                elif d <= 0.75 and (x + y) % 2 == 0:
+                if d <= 1:
                     out[y, x, :3] = step(tuple(out[y, x, :3]), -1)
     cv.a = out
     return cv
+
+
+FLAT = {'corkboard', 'recipe_board', 'kakejiku_scroll'}     # wall-hung: moss creeps up from the bottom corners
+
+
+def mossy(cv, seed=0, n=2, flat=False):
+    """A few moss cushions on a sprite's upward-facing ledges (kept inside the
+    sprite), or for flat wall-hung things patches in the bottom corners."""
+    import moss
+    rng = random.Random(seed)
+    h, w = cv.a.shape[:2]
+    if flat:
+        for k in range(n):
+            left = k % 2 == 0
+            x0 = 0 if left else w - 26
+            moss.patches(cv, rng, (x0, h - 22, x0 + 26, h - 1), 2, size=(12, 20))
+        return cv
+    return moss.sprout_tops(cv, rng, n=n, size=(8, 14), height=(3, 6), region=(2, 7, w - 2, h))

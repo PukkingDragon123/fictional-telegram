@@ -34,6 +34,7 @@ import props_ritual                                        # noqa: E402,F401
 import props_bedroom                                       # noqa: E402,F401
 import cloth_props                                         # noqa: E402,F401
 import npc                                                 # noqa: E402,F401
+import dragon                                              # noqa: E402,F401
 
 SCALE_HI = 3
 LAYER_ORDER = ['wall', 'ceiling', 'counter_layer', 'npc', 'floor', 'counter', 'front']
@@ -99,6 +100,9 @@ class Scene:
                 frames = out if isinstance(out, list) else [out]
                 if p['name'] in weather.WORN and len(frames) == 1:
                     frames = [weather.age(frames[0], seed=len(p['name']) * 131 + p['x'])]
+                if p['name'] in weather.MOSSY and len(frames) == 1:
+                    frames = [weather.mossy(frames[0], seed=p['x'] + 7, n=weather.MOSSY[p['name']],
+                                            flat=p['name'] in weather.FLAT)]
                 frames, dx = shadows.apply(p, frames, surfaces)
                 anims = None
             self.props.append(dict(p, frames=frames, anims=anims, sx=p['x'] - 1 - dx, sy=p['y'] - 1,
@@ -116,6 +120,11 @@ class Scene:
                 x += outside.OUT_W
         return cv
 
+    def _outside_props(self, cv, t):
+        for p in self.props:
+            if p['layer'] == 'outside' and p.get('preview', True):
+                cv.blit(frame_at(p['frames'], p['fps'], t), p['sx'], p['sy'])
+
     def _interior(self, cv, t, fg=True):
         cv.blit(self.shell, 0, 0)
         for layer in LAYER_ORDER:
@@ -131,18 +140,21 @@ class Scene:
     def compose(self, t=0.0, light=True, fg=True):
         """Full panorama; each window shows the outside as seen with the
         camera centred on it."""
-        cams = [(0, 1600, LY.WIN_MAIN['x'] + LY.WIN_MAIN['w'] // 2 - LY.SW // 2),
-                (1600, LY.W, LY.WIN_ROUND['cx'] - LY.SW // 2)]
+        cams = [(0, 1500, LY.WIN_MAIN['x'] + LY.WIN_MAIN['w'] // 2 - LY.SW // 2),
+                (1500, 1920, LY.WIN_BELL['cx'] - LY.SW // 2),
+                (1920, LY.W, LY.WIN_ROUND['cx'] - LY.SW // 2)]
         cv = Canvas(LY.W, LY.H)
         for (x0, x1, cam) in cams:
             o = self.outside_at(t, cam)
             cv.a[:, x0:x1] = o.a[:, x0:x1]
+        self._outside_props(cv, t)
         self._interior(cv, t, fg)
         return blend_alpha(cv, frame_at(self.light, LAYER_FPS, t)) if light else cv
 
     def view(self, t, cam_x, light=True):
         cv = Canvas(LY.W, LY.H)
         cv.a[:] = self.outside_at(t, cam_x).a
+        self._outside_props(cv, t)
         self._interior(cv, t)
         if light:
             cv = blend_alpha(cv, frame_at(self.light, LAYER_FPS, t))
@@ -215,6 +227,8 @@ def export_props(sc):
         rec = dict(name=base, room=p['room'], layer=p['layer'], x=p['sx'], y=p['sy'], w=fr[0].w, h=fr[0].h,
                    draggable=p['drag'], desc=p['desc'], placed_by_default=p.get('preview', True),
                    file=save(fr[0], 'props', d, base + '.png'))
+        if p.get('meta'):
+            rec.update(p['meta'])
         save(fr[0], 'props_3x', d, base + '.png', scale=SCALE_HI)
         if len(fr) > 1:
             rec['frames'] = len(fr)
@@ -224,7 +238,13 @@ def export_props(sc):
         if p['anims']:
             rec['anims'] = {}
             for an, afr in p['anims'].items():
-                rec['anims'][an] = dict(frames=len(afr), fps=p['fps'],
+                afps = next((a.get('fps') for a in (p.get('meta') or {}).get('on_click', [])
+                             if a.get('play') == an and a.get('fps')), None)
+                for q in sc.props:                          # an action on another prop may set its fps
+                    for a in (q.get('meta') or {}).get('on_click', []):
+                        if a.get('prop') == base and a.get('play') == an and a.get('fps'):
+                            afps = a['fps']
+                rec['anims'][an] = dict(frames=len(afr), fps=afps or p['fps'],
                                         sheet=save(sheet(afr), 'props', d, f'{base}_{an}_sheet.png'))
                 save(sheet(afr), 'props_3x', d, f'{base}_{an}_sheet.png', scale=SCALE_HI)
         recs.append(rec)
@@ -339,6 +359,8 @@ def export_previews(sc, anims=True):
     save(full, 'preview', 'teahouse_full_2x.png', scale=2)
     for i in range(4):
         save(full.crop(i * LY.SW, 0, LY.SW, LY.H), 'preview', f'room_{i + 1}_3x.png', scale=3)
+    bed = next(p for p in sc.props if p['name'] == 'silk_bed')                  # the silk bed in its room
+    save(full.crop(bed['x'] - 16, bed['y'] - 30, 300, 170), 'preview', 'silk_bed.png', scale=3)
     save(sc.compose(0, light=False, fg=False), 'preview', 'teahouse_no_fx_1x.png')
     # fire spirit talking, close up
     fs = next(p for p in sc.props if p['name'] == 'fire_spirit')
@@ -359,6 +381,22 @@ def export_previews(sc, anims=True):
         sheet_cv.blit(frs[4 if an != 'idle' else 0], x, y)
         text(sheet_cv, x + w // 2 - len(an) * 2, y + h + 3, an.upper(), 'wood0', script='latin')
     save(sheet_cv, 'preview', 'uncle_pong_moods.png', scale=3)
+    # ring the bell, the dragon peeks in (room 3, close up)
+    bell = next(p for p in sc.props if p['name'] == 'dragon_bell')
+    drg = next(p for p in sc.props if p['name'] == 'dragon_peek')
+    keep_b, keep_d = bell['frames'], drg['frames']
+    ims = []
+    peek = drg['anims']['peek']
+    ring = bell['anims']['ring']
+    cam = LY.WIN_BELL['cx'] - LY.SW // 2 - 60
+    for f in range(len(peek) + 4):
+        bell['frames'] = [ring[f]] if f < len(ring) else [bell['anims']['idle'][0]]
+        drg['frames'] = [peek[f]] if f < len(peek) else [drg['anims']['hidden'][0]]
+        v = sc.view(f / 10, cam)
+        ims.append(v.crop(LY.WIN_BELL['cx'] - cam - 150, 40, 300, 270).image(3).convert('RGB'))
+    bell['frames'], drg['frames'] = keep_b, keep_d
+    ims[0].save(os.path.join(ROOT, 'preview', 'dragon_bell_peek.gif'), save_all=True, append_images=ims[1:],
+                duration=100, loop=0, optimize=True)
     cat = next(p for p in sc.props if p['name'] == 'alien_lucky_cat')
     ims = [f.image(5) for f in cat['frames']]
     ims[0].save(os.path.join(ROOT, 'preview', 'alien_lucky_cat.gif'), save_all=True, append_images=ims[1:],
@@ -390,7 +428,8 @@ def export_scene_json(layer_info, prop_recs, nature_recs, ncolors):
         surfaces=dict(prep_table_top_y=LY.TABLE_Y, prep_table_shelf_y=LY.TABLE_SHELF_Y, counter_top_y=LY.COUNTER_Y,
                       window_sill_y=LY.SILL_Y, apothecary_chest_top_room1_y=LY.CHEST_TOP_Y, teaware_shelf_room3_y=LY.SHELF3_Y,
                       floor_y=LY.FLOOR, hearth_firebox=counter.FIREBOX),
-        draw_order=['layers/outside/* (parallax, tile horizontally)', '10_room_shell', 'props: wall',
+        draw_order=['layers/outside/* (parallax, tile horizontally)',
+                    'props: outside (just outside a window, e.g. the dragon)', '10_room_shell', 'props: wall',
                     'props: ceiling', '20_counter', 'props: npc (customers sit behind the counter)', 'props: floor',
                     'props: counter', 'props: front', '30_foreground', '40_light_overlay'],
         perspective=dict(note='each room is a one-point perspective box; vanishing point at the room centre on '
