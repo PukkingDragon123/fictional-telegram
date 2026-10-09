@@ -7,10 +7,10 @@ import * as THREE from 'three';
 import { MEDIA } from './content.js';
 
 const ITEMS = [
-  { id: 'dim', slot: 'poster_maple', src: MEDIA.dimension.src, title: 'Custom dimension', sub: 'Minecraft mod', pixel: 0, sky: ['#1b1740', '#7a3d9a', '#e88ac0'], ground: '#4a9ab0' },
-  { id: 'mob', slot: 'poster_rules', src: MEDIA.mob.src, title: 'Custom mob', sub: 'Minecraft mod', pixel: 0, crop: [0.02, 0, 0.26, 1], sky: ['#2a2a4a', '#2a2a4a', '#2a2a4a'], ground: '#cfd8c0' },
-  { id: 'mud', slot: 'poster_stars', src: MEDIA.mudkipsShot.src, title: "Mudkip's Garden", sub: 'Gameplay screenshot', pixel: 120, sky: ['#7ac0f0', '#a8dcf8', '#e8f6ff'], ground: '#3a8ad8' },
-  { id: 'shore', slot: 'poster_moose', src: MEDIA.shoreShot.src, title: 'Sunset Shore', sub: 'Scene capture', pixel: 110, sky: ['#f0804a', '#f8b070', '#4a7a88'], ground: '#2a5a68' },
+  { id: 'dim', slot: 'poster_maple', at: [-2.7, 1.6], size: [1.0, 0.72], src: MEDIA.dimension.src, title: 'Custom dimension', sub: 'Minecraft mod', pixel: 0, sky: ['#1b1740', '#7a3d9a', '#e88ac0'], ground: '#4a9ab0' },
+  { id: 'mob', slot: 'poster_rules', at: [-1.92, 1.6], size: [0.38, 0.56], src: MEDIA.mob.src, title: 'Custom mob', sub: 'Minecraft mod', pixel: 0, crop: [0.02, 0, 0.26, 1], sky: ['#2a2a4a', '#2a2a4a', '#2a2a4a'], ground: '#cfd8c0' },
+  { id: 'mud', slot: 'poster_stars', at: [1.55, 1.6], size: [1.05, 0.74], src: MEDIA.mudkipsShot.src, title: "Mudkip's Garden", sub: 'Gameplay screenshot', pixel: 120, sky: ['#7ac0f0', '#a8dcf8', '#e8f6ff'], ground: '#3a8ad8' },
+  { id: 'shore', slot: 'poster_moose', at: [3.98, 2.0], size: [0.58, 0.42], src: MEDIA.shoreShot.src, title: 'Sunset Shore', sub: 'Scene capture', pixel: 110, sky: ['#f0804a', '#f8b070', '#4a7a88'], ground: '#2a5a68' },
   { id: 'bear', slot: null, src: MEDIA.tbme.src, title: 'The Bear Must Eat', sub: 'Key art', pixel: 100, sky: ['#5a2a7a', '#e8506a', '#ffb060'], ground: '#4a8a3a' },
 ];
 
@@ -78,11 +78,11 @@ export function buildGallery(group) {
   for (const p of pieces) {
     const old = p.slot && group.getObjectByName(p.slot);
     if (old) {
-      const big = p.id === 'mob' ? 1.6 : 1.35; // bigger than the old posters so the art is readable
-      const gw = (old.geometry.parameters?.width || 0.6) * big, gh = (old.geometry.parameters?.height || 0.7) * big;
+      // each frame gets its own tidy spot on the back wall (clear of the board, windows and clock)
+      const [gw, gh] = p.size;
       old.visible = false;
       const px = Math.round(gw * 110), py = Math.round(gh * 110);
-      const pos = old.position.clone(); pos.z += 0.008;
+      const pos = old.position.clone(); pos.x = p.at[0]; pos.y = p.at[1]; pos.z += 0.008;
       const f = makeFrame(drawFrameArt(p, p.art, px, py), pos, gw, gh);
       group.add(f.grp);
       p.frame = f; p.px = px; p.py = py;

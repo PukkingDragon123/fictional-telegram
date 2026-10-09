@@ -162,10 +162,10 @@ function spots() {
     { tip: 'Chalkboard', lab: 'Skills', icon: 'brackets', iy: 0.95, p: _s(-0.35, 1.1, -2.8), rx: 300, ry: 160, go: () => startChapter('toolkit') },
     { tip: 'Globe', lab: 'My games', icon: 'gamepad', iy: 0.4, p: _s(3.45, 1.3, -2.55), rx: 34, ry: 40, go: () => startChapter('games') },
     { tip: 'Bookshelf', lab: 'Pixel art', icon: 'heart', iy: 0.55, p: _s(-3.6, 0.5, -2.5), rx: 90, ry: 70, go: () => startChapter('pixelart') },
-    { tip: 'Minecraft dimension', lab: 'Gallery', icon: 'frame', iy: 0.62, p: _s(-2.66, 1.52, -2.9), rx: 46, ry: 60, go: () => openGallery(gallery, 0) },
-    { tip: 'Minecraft mob', lab: 'Gallery', icon: 'frame', iy: 0.4, p: _s(-1.92, 1.22, -2.9), rx: 28, ry: 34, go: () => openGallery(gallery, 1) },
-    { tip: "Mudkip's Garden", lab: 'Gallery', icon: 'frame', iy: 0.38, p: _s(1.42, 1.28, -2.9), rx: 44, ry: 38, go: () => openGallery(gallery, 2) },
-    { tip: 'Sunset Shore', lab: 'Gallery', icon: 'frame', iy: 0.55, p: _s(4.02, 1.62, -2.9), rx: 44, ry: 56, go: () => openGallery(gallery, 3) },
+    { tip: 'Minecraft dimension', lab: 'Gallery', icon: 'frame', iy: gallery[0].size[1] / 2 + 0.12, p: galP(0), rx: gallery[0].size[0] * 50, ry: gallery[0].size[1] * 50, go: () => openGallery(gallery, 0) },
+    { tip: 'Minecraft mob', lab: 'Gallery', icon: 'frame', iy: gallery[1].size[1] / 2 + 0.12, p: galP(1), rx: gallery[1].size[0] * 50, ry: gallery[1].size[1] * 50, go: () => openGallery(gallery, 1) },
+    { tip: "Mudkip's Garden", lab: 'Gallery', icon: 'frame', iy: gallery[2].size[1] / 2 + 0.12, p: galP(2), rx: gallery[2].size[0] * 50, ry: gallery[2].size[1] * 50, go: () => openGallery(gallery, 2) },
+    { tip: 'Sunset Shore', lab: 'Gallery', icon: 'frame', iy: gallery[3].size[1] / 2 + 0.12, p: galP(3), rx: gallery[3].size[0] * 50, ry: gallery[3].size[1] * 50, go: () => openGallery(gallery, 3) },
     { tip: 'Desk', lab: 'Minecraft mods', icon: 'block', iy: 0.45, p: _s(1.85, 0.65, -1.8), rx: 70, ry: 50, go: () => startChapter('mods') },
     { tip: 'Bell', lab: 'Hire me', icon: 'bell', iy: 0.35, p: _s(3.35, 0.9, -2.25), rx: 30, ry: 30, go: ringBell },
     { tip: 'Outside', lab: 'Go outside', icon: 'tree', iy: 0.5, p: _s(4.35, 0.9, 0.3), rx: 60, ry: 130, go: goPond },
@@ -174,6 +174,7 @@ function spots() {
   ];
 }
 const _s = (x, y, z) => new THREE.Vector3(x, y, z);
+const galP = (i) => (gallery[i]?.frame ? gallery[i].frame.grp.position.clone() : _s(0, 1.5, -2.9));
 function pick(e) {
   if (!['idle', 'bed', 'pond'].includes(state.mode) || trans.runs.length || galleryOpen() || document.querySelector('.pp-ov')) return null;
   const W = innerWidth, H = innerHeight, k = Math.max(0.6, Math.min(1.5, H / 720));
