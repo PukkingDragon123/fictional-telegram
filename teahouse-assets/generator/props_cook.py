@@ -1,9 +1,10 @@
-"""Room 1 - the cook room: hearth with the talking fire spirit, kama pot and
-iron kettle, copper hood with drying herbs, giant recipe board, storage
-shelf, apothecary chest, prep-table tools and the stores under the table."""
+"""Room 1 - the cook room: the big stone furnace (burning coal, smoke and the
+talking fire spirit), copper hood with drying herbs, giant recipe board,
+apothecary chest, prep-table tools and the stores under the table. The kama
+pot, the iron kettle and their steam are exported but not placed yet."""
 import math
 import random
-from pixel import Canvas, PAL, step, scribble, text, FONT
+from pixel import Canvas, PAL, step, scribble, text, glyph_of
 from shapes import torn_paper, pin, wood_grain_h, wood_grain_v, chip, cobweb, crack, flower
 from propkit import prop, glyph
 from furn import R, wood_face, inset, ring_pull, bar_pull, knob, label_tag, box
@@ -11,8 +12,9 @@ from shade import paint, lathe_shade, ellipse_mask, poly_mask
 import objects as O
 import fire as FIRE
 import teaware as TW
+import furnace as FURN
 from counter import FIREBOX, BURNERS
-from layout import TABLE_Y, TABLE_SHELF_Y, SHELF1_Y
+from layout import TABLE_Y, TABLE_SHELF_Y, SHELF1_Y, CHEST_TOP_Y
 
 F8 = 8
 
@@ -20,7 +22,7 @@ F8 = 8
 def text2x(cv, x, y, s, c, rng=None):
     cx = x
     for ch in s.upper():
-        g = FONT.get(ch, FONT[' '])
+        g = glyph_of(ch)
         oy = rng.choice((0, 0, 1)) if rng else 0
         for gy, row in enumerate(g):
             for gx, v in enumerate(row):
@@ -30,15 +32,29 @@ def text2x(cv, x, y, s, c, rng=None):
     return cx
 
 
-# ---------------------------------------------------------------- the hearth
-@prop('fire_spirit', 1, 'counter', FIREBOX['cx'] - FIRE.W // 2, FIREBOX['bottom'] - FIRE.H + 1,
-      'Talking fire spirit in the hearth - all mouth and teeth: idle / talk / happy loops (12 frames each)', fps=10,
-      shadow='none')
+# ---------------------------------------------------------------- the furnace
+@prop('furnace_fire', 1, 'counter', FURN.FX0, FURN.FY0,
+      'Inside the stone furnace: glowing firebrick, a bed of burning coal, small flames, sparks and smoke curling '
+      'out under the wooden top (12 frames)', drag=False, fps=10, shadow='none')
+def furnace_fire():
+    return FURN.fire_frames()
+
+
+@prop('fire_spirit', 1, 'counter', FIREBOX['cx'] - FIRE.W // 2, FIREBOX['bottom'] - FIRE.H - 6,
+      'Talking fire spirit sitting in the coals - all mouth and teeth: idle / talk / happy loops (12 frames each)',
+      fps=10, shadow='none')
 def fire_spirit():
     return FIRE.sheets()
 
 
-@prop('kama_pot', 1, 'counter', BURNERS[0][0] - 33, BURNERS[0][1] - 40, 'Big iron kama pot with a wooden lid on the hearth')
+@prop('furnace_coals', 1, 'counter', FURN.FX0, FURN.FY0,
+      'Front coals of the furnace bed, glowing (12 frames) - drawn over the spirit so it sits in the fire',
+      drag=False, fps=10, shadow='none')
+def furnace_coals():
+    return FURN.coals_frames()
+
+
+@prop('kama_pot', 1, 'counter', BURNERS[0][0] - 33, BURNERS[0][1] - 40, 'Big iron kama pot with a wooden lid', preview=False)
 def kama_pot():
     rng = random.Random(1001)
     w, h = 66, 44
@@ -61,22 +77,22 @@ def kama_pot():
     return O.outline(cv)
 
 
-@prop('kettle_tetsubin', 1, 'counter', BURNERS[1][0] - 31, BURNERS[1][1] - 50, 'Cast-iron tetsubin kettle: arare bumps, curved spout, rattan-wrapped bail')
+@prop('kettle_tetsubin', 1, 'counter', BURNERS[1][0] - 31, BURNERS[1][1] - 50, 'Cast-iron tetsubin kettle: arare bumps, curved spout, rattan-wrapped bail', preview=False)
 def tetsubin():
     return TW.tetsubin()
 
 
-@prop('steam_kama', 1, 'front', BURNERS[0][0] - 12, 140, 'Steam lifting off the kama lid (8 frames)', drag=False, fps=7)
+@prop('steam_kama', 1, 'front', BURNERS[0][0] - 12, 140, 'Steam lifting off the kama lid (8 frames)', drag=False, fps=7, preview=False)
 def steam_kama():
     return O.steam_frames(24, 56, F8, 4)
 
 
-@prop('steam_kettle', 1, 'front', BURNERS[1][0] + 30, 134, 'Steam from the kettle spout (8 frames)', drag=False, fps=7)
+@prop('steam_kettle', 1, 'front', BURNERS[1][0] + 30, 134, 'Steam from the kettle spout (8 frames)', drag=False, fps=7, preview=False)
 def steam_kettle():
     return O.steam_frames(18, 46, F8, 2)
 
 
-@prop('hearth_hood', 1, 'wall', 10, 36, 'Copper smoke hood and flue over the hearth, with a fire-god charm and ladle rail')
+@prop('hearth_hood', 1, 'wall', FIREBOX['cx'] - 106, 36, 'Copper smoke hood and flue over the furnace, with a fire-god charm')
 def hood():
     rng = random.Random(1010)
     w, h = 212, 174
@@ -119,7 +135,7 @@ def hood():
     # thick lip + rail with hooks: ladle, strainer, tongs
     cv.rect(0, bot_y, w, 6, 'copper2'); cv.hline(0, w - 1, bot_y, 'copper4'); cv.hline(0, w - 1, bot_y + 5, 'copper0')
     cv.rect(0, bot_y + 6, w, 2, 'stone1')
-    for (hx, kind) in ((150, 'ladle'), (170, 'strainer'), (190, 'tongs')):
+    for (hx, kind) in ():                                 # (utensils come later)
         cv.px(hx, bot_y + 8, 'stone3'); cv.px(hx, bot_y + 9, 'stone2')
         if kind == 'ladle':
             cv.vline(hx, bot_y + 10, bot_y + 26, 'wood3')
@@ -164,20 +180,21 @@ def _herb_bundle(seed, colors, f, n=F8):
     return O.outline(cv)
 
 
-for _i, (_name, _x, _cols) in enumerate((('herbs_drying_a', 22, ['leaf1', 'leaf2', 'leaf3', 'paper1']),
-                                          ('herbs_drying_b', 48, ['leaf1', 'purp1', 'purp2', 'purp3']),
-                                          ('herbs_drying_c', 142, ['leaf2', 'leaf1', 'paper3', 'gold3']),
-                                          ('herbs_drying_d', 168, ['leaf1', 'leaf2', 'red2', 'red3']))):
+_HX = FIREBOX['cx'] - 106                     # herbs hang from the hood's drying rod
+for _i, (_name, _x, _cols) in enumerate((('herbs_drying_a', _HX + 12, ['leaf1', 'leaf2', 'leaf3', 'paper1']),
+                                          ('herbs_drying_b', _HX + 38, ['leaf1', 'purp1', 'purp2', 'purp3']),
+                                          ('herbs_drying_c', _HX + 132, ['leaf2', 'leaf1', 'paper3', 'gold3']),
+                                          ('herbs_drying_d', _HX + 158, ['leaf1', 'leaf2', 'red2', 'red3']))):
     def _mk(i=_i, cols=_cols):
         return [_herb_bundle(1020 + i, cols, f) for f in range(F8)]
     prop(_name, 1, 'ceiling', _x, 60, 'Herb bundle drying in the hearth smoke (8-frame sway)', fps=5)(_mk)
 
 
 # ---------------------------------------------------------------- recipe board
-@prop('recipe_board', 1, 'wall', 232, 74, 'Giant chalk recipe board: brewing diagram, steps, leaf sketches, card line')
+@prop('recipe_board', 1, 'wall', 246, 74, 'Giant chalk recipe board: brewing diagram, steps, leaf sketches, card line')
 def recipe_board():
     rng = random.Random(1100)
-    w, h = 258, 122
+    w, h = 236, 122
     cv = Canvas(w, h)
     cv.rect(0, 0, w, h, 'teal0')
     for _ in range(260):                                  # half-erased ghosts of old chalk
@@ -199,28 +216,28 @@ def recipe_board():
         for a in range(0, 360, 5):
             if a % 40 < 34:
                 cv.px(int(round(cx + math.cos(math.radians(a)) * rx)), int(round(cy + math.sin(math.radians(a)) * ry)), c)
-    chalk_ring(120, 92, 13, 9)                            # teapot
-    cv.line(133, 89, 143, 80, 'cloud2'); cv.line(107, 88, 101, 95, 'cloud1'); cv.hline(114, 126, 82, 'cloud2')
+    chalk_ring(112, 92, 13, 9)                            # teapot
+    cv.line(125, 89, 135, 80, 'cloud2'); cv.line(99, 88, 93, 95, 'cloud1'); cv.hline(106, 118, 82, 'cloud2')
     for k in range(3):
         for j in range(7):
-            cv.px(143 + int(math.sin(j * 1.1 + k) * 1.5) + k * 4, 76 - j, 'cloud1')
-    cv.line(150, 92, 168, 92, 'cloud1'); cv.line(165, 89, 168, 92, 'cloud1'); cv.line(165, 95, 168, 92, 'cloud1')
-    chalk_ring(184, 94, 8, 6)                             # cup
-    cv.hline(176, 192, 88, 'cloud2')
-    cv.rect(206, 70, 4, 26, 'cloud1'); cv.ellipse(208, 98, 4, 4, 'red4')   # thermometer
+            cv.px(135 + int(math.sin(j * 1.1 + k) * 1.5) + k * 4, 76 - j, 'cloud1')
+    cv.line(140, 92, 156, 92, 'cloud1'); cv.line(153, 89, 156, 92, 'cloud1'); cv.line(153, 95, 156, 92, 'cloud1')
+    chalk_ring(170, 94, 8, 6)                             # cup
+    cv.hline(162, 178, 88, 'cloud2')
+    cv.rect(190, 70, 4, 26, 'cloud1'); cv.ellipse(192, 98, 4, 4, 'red4')   # thermometer
     for k in range(5):
-        cv.hline(211, 213, 74 + k * 5, 'cloud2')
-    text(cv, 216, 76, '80C', 'cloud2', rng, True)
-    text(cv, 150, 102, '3 MIN', 'cloud1', rng, True)
+        cv.hline(195, 197, 74 + k * 5, 'cloud2')
+    text(cv, 200, 76, '80C', 'cloud2', rng, True)
+    text(cv, 138, 102, '3 MIN', 'cloud1', rng, True)
     # leaf anatomy sketch with labels
     for k in range(17):
         cv.px(96 + k, 52 - k // 3, 'jade4')
         cv.px(96 + k, 46 - k // 3 + (2 if 4 < k < 13 else 0), 'jade4')
     cv.line(97, 50, 112, 45, 'jade3')
     cv.line(114, 46, 122, 41, 'cloud1'); text(cv, 124, 38, 'BUD', 'cloud1', rng, True)
-    text(cv, 228, 104, '?!', 'cloud2', rng, True)
+    text(cv, 210, 104, '?!', 'cloud2', rng, True)
     for yy in range(56, 70):                              # wiped smear
-        for xx in range(150, 200):
+        for xx in range(140, 186):
             if (xx * 3 + yy) % 7 == 0:
                 cv.px(xx, yy, 'teal1')
     # frame with brass corners
@@ -237,7 +254,7 @@ def recipe_board():
              under='wood2', under_dark='wood0', n=2, elong=0.6)
     cv.rect(12, h - 8, w - 24, 5, 'wood4'); cv.hline(12, w - 13, h - 8, 'wood5'); cv.hline(12, w - 13, h - 4, 'wood2')
     cv.rect(44, h - 11, 8, 3, 'white'); cv.rect(56, h - 11, 6, 3, 'pink3')
-    cv.rect(206, h - 13, 18, 5, 'wood3'); cv.rect(206, h - 9, 18, 1, 'stone3')
+    cv.rect(190, h - 13, 18, 5, 'wood3'); cv.rect(190, h - 9, 18, 1, 'stone3')
     for x in range(84, w - 14):                            # clothes line for the cards
         sag = int(5 * math.sin(math.pi * (x - 84) / (w - 98)))
         cv.px(x, 11 + sag, 'paper2')
@@ -284,15 +301,15 @@ def _recipe_card(seed, icon):
     return cv
 
 
-for _i, (_ic, _x, _y) in enumerate((('leaf', 324, 80), ('teapot', 362, 80), ('flower', 400, 81), ('drops', 438, 80),
-                                     ('burnt', 448, 132))):
+for _i, (_ic, _x, _y) in enumerate((('leaf', 326, 80), ('teapot', 362, 80), ('flower', 398, 81), ('drops', 434, 80),
+                                     ('burnt', 436, 132))):
     def _mk(i=_i, ic=_ic):
         return _recipe_card(1110 + i, ic)
     prop(f'recipe_card_{"abcde"[_i]}', 1, 'wall', _x, _y, f'Recipe card ({_ic})')(_mk)
 
 
 # ---------------------------------------------------------------- storage shelf
-@prop('wall_shelf_long', 1, 'wall', 224, SHELF1_Y, 'Long storage shelf with carved brackets')
+@prop('wall_shelf_long', 1, 'wall', 224, 66, 'Long storage shelf with carved brackets', preview=False)
 def wall_shelf():
     rng = random.Random(1200)
     w = 412
@@ -365,24 +382,28 @@ def _mortar(rng, w, h, pestle=True):
     return O.outline(cv)
 
 
+ON_CHEST = {'jar_green_tea': 492, 'jar_dried_blossom': 516, 'jar_hojicha': 538, 'potted_basil': 562}
 for _i, (_n, _x, _fn, _d) in enumerate(SHELF_ITEMS):
     def _mk(i=_i, fn=_fn):
         return fn(random.Random(1210 + i))
     _probe = _fn(random.Random(1210 + _i))
-    prop(_n, 1, 'wall', _x, SHELF1_Y - _probe.h + 1, _d)(_mk)
+    if _n in ON_CHEST:                                 # these stand on top of the apothecary chest
+        prop(_n, 1, 'wall', ON_CHEST[_n], CHEST_TOP_Y - _probe.h + 1, _d)(_mk)
+    else:                                              # spare storage pieces, not placed by default
+        prop(_n, 1, 'wall', _x, 66 - _probe.h + 1, _d, preview=False)(_mk)
 
 
 # ---------------------------------------------------------------- apothecary chest
-@prop('apothecary_chest', 1, 'wall', 496, 68, 'Tea-ingredient apothecary chest: 42 drawers, one missing, one pulled out')
+@prop('apothecary_chest', 1, 'wall', 490, CHEST_TOP_Y, 'Tea-ingredient apothecary chest: 25 drawers, one missing, one pulled out')
 def apothecary():
     rng = random.Random(1300)
-    w, h = 124, 130
+    w, h = 97, 100
     cv = Canvas(w, h)
     wood_face(cv, 0, 10, w, h - 16, rng, 'wood', 2, 'v')
     cv.rect(-1, 0, w + 2, 10, 'wood3'); cv.hline(0, w - 1, 0, 'wood5'); cv.hline(0, w - 1, 1, 'wood4')
     cv.hline(0, w - 1, 9, 'wood1'); cv.rect(3, 3, w - 6, 3, 'jade2'); cv.hline(3, w - 4, 3, 'jade4')
-    cols, rows = 6, 7
-    dw, dh = 18, 15
+    cols, rows = 5, 5
+    dw, dh = 17, 15
     ox, oy = 4, 13
     missing, pulled = (3, 4), (1, 2)
     for r in range(rows):
@@ -416,7 +437,7 @@ def apothecary():
 
 
 # ---------------------------------------------------------------- prep table
-@prop('cutting_board_leaves', 1, 'counter', 228, TABLE_Y - 18, 'Cutting board with fresh tea leaves and a cleaver')
+@prop('cutting_board_leaves', 1, 'counter', 272, TABLE_Y - 18, 'Cutting board with fresh tea leaves and a cleaver')
 def cutting_board():
     rng = random.Random(1400)
     cv = Canvas(80, 18)
@@ -437,18 +458,18 @@ def cutting_board():
     return O.outline(cv)
 
 
-@prop('mortar_pestle', 1, 'counter', 312, TABLE_Y - 28, 'Stone mortar and pestle with ground matcha')
+@prop('mortar_pestle', 1, 'counter', 364, TABLE_Y - 28, 'Stone mortar and pestle with ground matcha')
 def mortar():
     return _mortar(random.Random(1410), 30, 20)
 
 
-@prop('basket_fresh_leaves', 1, 'counter', 350, TABLE_Y - 34, 'Woven basket heaped with fresh tea leaves')
+@prop('basket_fresh_leaves', 1, 'counter', 404, TABLE_Y - 34, 'Woven basket heaped with fresh tea leaves')
 def basket_leaves():
     rng = random.Random(1420)
     return O.basket(rng, 62, 34, O.leaf_heap(rng, 54, 22))
 
 
-@prop('balance_scale', 1, 'counter', 420, TABLE_Y - 48, 'Brass balance scale for weighing leaves')
+@prop('balance_scale', 1, 'counter', 476, TABLE_Y - 48, 'Brass balance scale for weighing leaves')
 def scale():
     cv = Canvas(52, 48)
     base = lathe_shade(20, 6, lambda t: 10 - t * 2, O.BRASS[1:], spec=0.1)
@@ -468,14 +489,14 @@ def scale():
     return O.outline(cv)
 
 
-@prop('jar_open_table', 1, 'counter', 478, TABLE_Y - 34, 'Jar of hojicha on the table, lid off')
+@prop('jar_open_table', 1, 'counter', 478, TABLE_Y - 34, 'Jar of hojicha on the table, lid off', preview=False)
 def jar_open():
     cv = O.glass_jar(random.Random(1430), 22, 34, ('wood2', 'wood3', 'wood1'), lid='wood', word='HOJ')
     cv.rect(0, 0, cv.w, 6, None)
     return cv
 
 
-@prop('tea_brick', 1, 'counter', 506, TABLE_Y - 14, 'Paper-wrapped pressed tea cake, half unwrapped')
+@prop('tea_brick', 1, 'counter', 506, TABLE_Y - 14, 'Paper-wrapped pressed tea cake, half unwrapped', preview=False)
 def tea_brick():
     cv = Canvas(36, 14)
     cv.ellipse(18, 7, 17, 6, 'paper3')
@@ -488,12 +509,12 @@ def tea_brick():
 
 
 # ---------------------------------------------------------------- under the table
-@prop('sack_big', 1, 'floor', 226, TABLE_SHELF_Y - 48, 'Big slumped sack of tea')
+@prop('sack_big', 1, 'floor', 286, TABLE_SHELF_Y - 48, 'Big slumped sack of tea')
 def sack_big():
     return O.sack(random.Random(1500), 48, 48, slump=0.5)
 
 
-@prop('sack_big_torn', 1, 'floor', 272, TABLE_SHELF_Y - 42, 'Torn sack, leaves spilling out')
+@prop('sack_big_torn', 1, 'floor', 272, TABLE_SHELF_Y - 42, 'Torn sack, leaves spilling out', preview=False)
 def sack_torn():
     cv = O.sack(random.Random(1501), 42, 42, base='paper', tie='jade2')
     for k in range(14):
@@ -502,7 +523,7 @@ def sack_torn():
     return cv
 
 
-@prop('firewood', 1, 'floor', 324, TABLE_SHELF_Y - 28, 'Stack of split firewood for the hearth')
+@prop('firewood', 1, 'floor', 340, TABLE_SHELF_Y - 28, 'Stack of split firewood for the hearth')
 def firewood():
     cv = Canvas(74, 28)
     for (x, y) in ((0, 16), (8, 9), (18, 17), (4, 1), (22, 9), (30, 18)):
@@ -518,7 +539,7 @@ def firewood():
     return O.outline(cv)
 
 
-@prop('bucket_water', 1, 'floor', 404, TABLE_SHELF_Y - 36, 'Wooden water bucket with iron hoops')
+@prop('bucket_water', 1, 'floor', 444, TABLE_SHELF_Y - 36, 'Wooden water bucket with iron hoops')
 def bucket():
     cv = Canvas(38, 36)
     staves = lathe_shade(38, 30, lambda t: 19 - t * 3, ['wood1', 'wood2', 'wood3', 'wood4'])
@@ -536,7 +557,7 @@ def bucket():
     return O.outline(cv)
 
 
-@prop('crate_jars', 1, 'floor', 448, TABLE_SHELF_Y - 38, 'Crate of spare jars, one broken')
+@prop('crate_jars', 1, 'floor', 448, TABLE_SHELF_Y - 38, 'Crate of spare jars, one broken', preview=False)
 def crate():
     rng = random.Random(1520)
     cv = Canvas(64, 38)
@@ -551,7 +572,7 @@ def crate():
     return O.outline(cv)
 
 
-@prop('basket_dried_flowers', 1, 'floor', 520, TABLE_SHELF_Y - 28, 'Round basket of dried flowers')
+@prop('basket_dried_flowers', 1, 'floor', 530, TABLE_SHELF_Y - 28, 'Round basket of dried flowers')
 def basket_round():
     rng = random.Random(1530)
     heap = Canvas(36, 12)
@@ -561,6 +582,6 @@ def basket_round():
     return O.basket(rng, 44, 28, heap)
 
 
-@prop('tsubo_jar', 1, 'floor', 568, TABLE_SHELF_Y - 40, 'Glazed clay storage jar (tsubo)')
+@prop('tsubo_jar', 1, 'floor', 490, TABLE_SHELF_Y - 40, 'Glazed clay storage jar (tsubo)')
 def tsubo():
     return O.ceramic_jar(random.Random(1540), 34, 38, ['wood0', 'wood1', 'wood2', 'copper2', 'copper3'], pattern='drip')

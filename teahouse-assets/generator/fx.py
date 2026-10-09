@@ -1,4 +1,4 @@
-"""Foreground (ivy curtains, dark corner plants) and the animated light
+"""Foreground (the posts between rooms, ivy, dark corner plants) and the animated light
 overlay - the only layer with partial alpha: warm window shafts with
 drifting dust, the hearth's flickering glow, the bedroom lamp and the
 pool of light under the moon window."""
@@ -7,7 +7,7 @@ import random
 import numpy as np
 from pixel import Canvas, PAL, step
 from leaves import leafy, leaf_stamp
-from layout import W, H, WIN_MAIN, WIN_ROUND, FLOOR, HEARTH
+from layout import W, H, WIN_MAIN, WIN_ROUND, FLOOR, HEARTH, POSTS, POST_W
 from counter import FIREBOX
 
 F = 8
@@ -31,16 +31,19 @@ def _ivy_strand(cv, x, y0, length, f, ph):
 
 def foreground():
     rng = random.Random(900)
+    import room
+    posts = room.posts()
     strands = []
-    for cx in (630, 652, 1270, 1292, 1910, 1932):
-        for k in range(rng.randint(3, 5)):
-            strands.append((cx + rng.randint(-12, 12), 34, rng.randint(34, 96), rng.uniform(0, 6.28)))
+    for cx in POSTS[1:-1]:                       # ivy hanging off the posts
+        for k in range(rng.randint(4, 6)):
+            strands.append((cx + rng.randint(-POST_W // 2 - 4, POST_W // 2 + 4), 0, rng.randint(40, 120),
+                            rng.uniform(0, 6.28)))
     plant, ox, oy, _ = leafy(rng, [(0, 0, 44, 32), (-26, 18, 28, 22), (30, 22, 24, 20)], DARK_GREEN,
                              leaf_len=(9, 14), droop=0.1)
     plant2, ox2, oy2, _ = leafy(rng, [(0, 0, 34, 28), (22, 12, 22, 18)], DARK_GREEN, leaf_len=(9, 13), droop=0.1)
     frames = []
     for f in range(F):
-        cv = Canvas(W, H)
+        cv = posts.copy()
         layer = Canvas(W, H)
         for (x, y0, ln, ph) in strands:
             _ivy_strand(layer, x, y0, ln, f, ph)

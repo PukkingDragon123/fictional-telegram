@@ -56,7 +56,7 @@ def towel():
 # ---------------------------------------------------------------- window drapes
 def _drape(side, seed):
     """Gathered linen drape hanging beside the big window. side -1 = left."""
-    c = C.Cloth(12, 42, 3.8, origin=(0, 0, 0))
+    c = C.Cloth(12, 39, 3.8, origin=(0, 0, 0))
     c.pin_row(0, gather=0.55, pleat=2.2)
     c.wall_z = -3
     w = C.breeze(base=(side * -2.0, 0, 7), amp=(4, 1, 9), period=1.0, waves=0.07, seed=seed)
@@ -73,10 +73,10 @@ def _drape(side, seed):
             return ['jade0', 'jade1', 'jade2', 'jade3']   # woven stripe
         return JADE
     x_min = min(P[:, 0].min() for P in snaps) - 4
-    return [C.render(c, P, tex, 72, 172, ox=-x_min, oy=4, fold=1.5, mid=0.58, spread=0.8) for P in snaps], x_min
+    return [C.render(c, P, tex, 72, 160, ox=-x_min, oy=4, fold=1.5, mid=0.58, spread=0.8) for P in snaps], x_min
 
 
-@prop('curtain_rod', 2, 'wall', WIN_MAIN['x'] - 30, 34, 'Bamboo curtain pole over the big window')
+@prop('curtain_rod', 2, 'wall', WIN_MAIN['x'] - 30, 55, 'Bamboo curtain pole over the big window')
 def rod():
     w = WIN_MAIN['w'] + 60
     cv = Canvas(w, 10)
@@ -92,18 +92,18 @@ def rod():
     return outline(cv)
 
 
-@prop('curtain_left', 2, 'wall', WIN_MAIN['x'] - 30, 38, 'Jade linen drape, tied back, breathing in the breeze (cloth physics, 12 frames)', fps=8)
+@prop('curtain_left', 2, 'wall', WIN_MAIN['x'] - 30, 59, 'Jade linen drape, tied back, breathing in the breeze (cloth physics, 12 frames)', fps=8)
 def curtain_left():
     return cached('cl', lambda: _drape(-1, 5)[0])
 
 
-@prop('curtain_right', 2, 'wall', WIN_MAIN['x'] + WIN_MAIN['w'] - 34, 38, 'Jade linen drape, right side (cloth physics, 12 frames)', fps=8)
+@prop('curtain_right', 2, 'wall', WIN_MAIN['x'] + WIN_MAIN['w'] - 34, 59, 'Jade linen drape, right side (cloth physics, 12 frames)', fps=8)
 def curtain_right():
     return cached('cr', lambda: _drape(1, 6)[0])
 
 
 # ---------------------------------------------------------------- noren
-@prop('noren_doorway', 4, 'ceiling', 1934, 34, "Indigo noren over the bedroom doorway, swaying (3 simulated panels, 12 frames)", fps=8)
+@prop('noren_doorway', 4, 'front', 1934, 30, "Indigo noren over the bedroom doorway, swaying (3 simulated panels, 12 frames)", fps=8)
 def noren():
     def build():
         panels = []
@@ -148,7 +148,7 @@ def noren():
 
 
 # ---------------------------------------------------------------- moon-window curtain
-@prop('curtain_moon_window', 4, 'wall', WIN_ROUND['cx'] + 18, 40, 'Striped linen curtain half drawn over the moon window, billowing in (cloth physics, 12 frames)', fps=8)
+@prop('curtain_moon_window', 4, 'wall', WIN_ROUND['cx'] + 16, 58, 'Striped linen curtain half drawn over the moon window, billowing in (cloth physics, 12 frames)', fps=8)
 def moon_curtain():
     def build():
         c = C.Cloth(15, 34, 4.0, origin=(0, 0, 0))
@@ -171,7 +171,7 @@ def moon_curtain():
 
 
 # ---------------------------------------------------------------- cloak
-@prop('cloak_on_hook', 4, 'wall', 2452, 64, "Traveler's patched cloak on a wall hook, swaying (cloth physics, 12 frames)", fps=8)
+@prop('cloak_on_hook', 4, 'wall', 2436, 70, "Traveler's patched cloak on a wall hook, swaying (cloth physics, 12 frames)", fps=8)
 def cloak():
     def build():
         c = C.Cloth(15, 28, 3.2, origin=(0, 0, 0))

@@ -48,6 +48,11 @@ RAMPS = {
     'indigo': [(20, 24, 48), (32, 42, 80), (48, 66, 116), (76, 100, 150), (118, 144, 184)],
     'copper': [(58, 28, 26), (100, 46, 32), (148, 76, 44), (194, 114, 64), (232, 164, 104)],
     'teal':  [(26, 58, 70), (40, 90, 100), (64, 128, 132), (104, 168, 162)],
+    # Uncle Pong: slate-blue fireback plumage-fur, and the bird's scarlet face skin
+    'pong':  [(24, 24, 44), (40, 44, 72), (62, 70, 104), (90, 102, 138), (126, 140, 176), (172, 184, 212)],
+    'scarlet': [(96, 18, 36), (156, 28, 44), (206, 48, 54), (236, 92, 78), (252, 152, 126)],
+    # pale hinoki cypress (the v3 serving counter)
+    'hinoki': [(96, 64, 46), (140, 100, 66), (184, 140, 90), (214, 176, 118), (236, 208, 152), (250, 234, 192)],
 }
 
 PAL = {}
@@ -409,12 +414,45 @@ FONT = {
 }
 
 
-def text(cv, x, y, s, c, rng=None, wobble=False):
-    """Draw text with the 3x5 font. wobble=True nudges letters by a pixel so
-    chalk / handwriting doesn't sit on a perfect baseline."""
+# The teahouse's own script: angular runes in the spirit of the enchanting-
+# table alphabet. Every in-game word is written in it (the strings in the
+# code stay readable English, so the layouts read like the real thing).
+RUNES = {
+    'A': ['###', '..#', '.##', '..#', '#..'], 'B': ['.#.', '.#.', '.#.', '#.#', '.#.'],
+    'C': ['.#.', '#..', '.#.', '..#', '#..'], 'D': ['###', '#..', '#.#', '..#', '.##'],
+    'E': ['#.#', '#.#', '.#.', '...', '###'], 'F': ['###', '...', '#.#', '...', '...'],
+    'G': ['..#', '..#', '###', '..#', '..#'], 'H': ['###', '...', '###', '.#.', '.#.'],
+    'I': ['.#.', '.#.', '...', '.#.', '.#.'], 'J': ['.#.', '...', '.#.', '...', '.#.'],
+    'K': ['#.#', '.#.', '###', '...', '.#.'], 'L': ['#..', '#..', '###', '..#', '...'],
+    'M': ['#.#', '#.#', '###', '...', '#..'], 'N': ['#.#', '#.#', '#.#', '..#', '.#.'],
+    'O': ['##.', '..#', '###', '#..', '.##'], 'P': ['#.#', '#.#', '#..', '..#', '#.#'],
+    'Q': ['###', '..#', '###', '...', '.#.'], 'R': ['#.#', '...', '#.#', '...', '...'],
+    'S': ['#..', '##.', '#.#', '.##', '..#'], 'T': ['###', '..#', '..#', '...', '.#.'],
+    'U': ['###', '...', '#.#', '#.#', '...'], 'V': ['.#.', '.#.', '###', '...', '###'],
+    'W': ['.#.', '...', '#.#', '...', '...'], 'X': ['..#', '..#', '.#.', '#..', '#..'],
+    'Y': ['#.#', '#.#', '#.#', '#.#', '...'], 'Z': ['###', '#.#', '#.#', '#.#', '...'],
+    '0': ['...', '.#.', '#.#', '.#.', '...'], '1': ['.#.', '.#.', '.#.', '.#.', '#.#'],
+    '2': ['#.#', '#.#', '.#.', '.#.', '.#.'], '3': ['#.#', '.#.', '#.#', '.#.', '#.#'],
+    '4': ['###', '#.#', '###', '...', '#.#'], '5': ['#..', '###', '..#', '###', '#..'],
+    '6': ['.#.', '###', '.#.', '#.#', '#.#'], '7': ['###', '.#.', '#.#', '.#.', '###'],
+    '8': ['#.#', '###', '#.#', '###', '#.#'], '9': ['#..', '#.#', '#.#', '###', '..#'],
+}
+SCRIPT = 'rune'          # 'rune' for in-game art, 'latin' for preview labels
+
+
+def glyph_of(ch, script=None):
+    if (script or SCRIPT) == 'rune' and ch in RUNES:
+        return RUNES[ch]
+    return FONT.get(ch, FONT[' '])
+
+
+def text(cv, x, y, s, c, rng=None, wobble=False, script=None):
+    """Draw text with the 3x5 font (runes by default). wobble=True nudges
+    letters by a pixel so chalk / handwriting doesn't sit on a perfect
+    baseline."""
     cx = x
     for ch in s.upper():
-        g = FONT.get(ch, FONT[' '])
+        g = glyph_of(ch, script)
         oy = rng.choice((0, 0, 0, 1)) if (wobble and rng) else 0
         for gy, row in enumerate(g):
             for gx, v in enumerate(row):

@@ -17,7 +17,7 @@ F8 = 8
 
 
 # ---------------------------------------------------------------- corkboard + notes
-@prop('corkboard', 3, 'wall', 1300, 64, 'Corkboard for orders and notes; red string linking pins')
+@prop('corkboard', 3, 'wall', 1334, 64, 'Corkboard for orders and notes; red string linking pins')
 def corkboard():
     rng = random.Random(3001)
     w, h = 244, 134
@@ -113,14 +113,14 @@ def _note_talisman(cv, rng, w, h):
     cv.rect(3, h - 10, 7, 7, 'red3'); cv.px(4, h - 9, 'red5')
 
 
-NOTES = [('note_receipt', 1310, 70, 18, 40, _note_receipt, 'red3', 'paper4'),
-         ('note_spirit_customer', 1350, 72, 34, 40, _note_customer, 'jade3', 'paper3'),
-         ('note_unpaid_tab', 1400, 70, 28, 46, _note_tab, 'red3', 'paper3'),
-         ('note_map_scrap', 1448, 72, 38, 30, _note_map, 'gold3', 'paper2'),
-         ('note_order_slip', 1496, 74, 28, 34, _note_receipt, 'jade3', 'paper3'),
-         ('note_photo', 1326, 132, 30, 40, _note_photo, 'sky2', 'paper4'),
-         ('note_talisman', 1414, 134, 14, 48, _note_talisman, 'red3', 'paper4'),
-         ('note_recipe_scrap', 1478, 130, 36, 30, _note_receipt, 'gold3', 'paper2')]
+NOTES = [('note_receipt', 1344, 70, 18, 40, _note_receipt, 'red3', 'paper4'),
+         ('note_spirit_customer', 1384, 72, 34, 40, _note_customer, 'jade3', 'paper3'),
+         ('note_unpaid_tab', 1434, 70, 28, 46, _note_tab, 'red3', 'paper3'),
+         ('note_map_scrap', 1482, 72, 38, 30, _note_map, 'gold3', 'paper2'),
+         ('note_order_slip', 1530, 74, 28, 34, _note_receipt, 'jade3', 'paper3'),
+         ('note_photo', 1360, 132, 30, 40, _note_photo, 'sky2', 'paper4'),
+         ('note_talisman', 1448, 134, 14, 48, _note_talisman, 'red3', 'paper4'),
+         ('note_recipe_scrap', 1512, 130, 36, 30, _note_receipt, 'gold3', 'paper2')]
 for _i, (_n, _x, _y, _w, _h, _fn, _pc, _base) in enumerate(NOTES):
     def _mk(i=_i, w=_w, h=_h, fn=_fn, pc=_pc, base=_base):
         rng = random.Random(3010 + i)
@@ -131,10 +131,10 @@ for _i, (_n, _x, _y, _w, _h, _fn, _pc, _base) in enumerate(NOTES):
 
 
 # ---------------------------------------------------------------- scroll
-@prop('kakejiku_scroll', 3, 'wall', 1554, 42, 'Hanging scroll: ink pine on a cliff, calligraphy, red seal; water-stained')
+@prop('kakejiku_scroll', 3, 'wall', 1588, 58, 'Hanging scroll: ink pine on a cliff, calligraphy, red seal; water-stained')
 def scroll():
     rng = random.Random(3100)
-    w, h = 58, 156
+    w, h = 58, 140
     cv = Canvas(w, h)
     cv.line(w // 2, 0, 5, 8, 'paper1'); cv.line(w // 2, 0, w - 6, 8, 'paper1')
     rod = lathe_shade(w - 2, 6, lambda t: (w - 2) / 2, ['wood1', 'wood2', 'wood3', 'wood4'])
@@ -180,10 +180,10 @@ def scroll():
 
 
 # ---------------------------------------------------------------- cabinet + shelf
-@prop('glazed_cabinet', 3, 'wall', 1660, 40, 'Jade storage cabinet: glazed lattice doors over teaware, one door ajar')
+@prop('glazed_cabinet', 3, 'wall', 1656, 58, 'Jade storage cabinet: glazed lattice doors over teaware, one door ajar')
 def cabinet():
     rng = random.Random(3200)
-    w, h = 240, 112
+    w, h = 212, 100
     cv = Canvas(w, h)
     wood_face(cv, 0, 6, w, h - 6, rng, 'wood', 2, 'v')
     cv.rect(-1, 0, w + 2, 8, 'wood3'); cv.hline(0, w - 1, 0, 'wood5'); cv.hline(0, w - 1, 7, 'wood1')
@@ -195,8 +195,8 @@ def cabinet():
         cv.rect(x + 4, 12, dw - 8, 54, 'wood0')
         for k, sy in enumerate((38, 64)):
             cv.rect(x + 4, sy, dw - 8, 2, 'wood2')
-        for k in range(5):
-            jx = x + 10 + k * 20
+        for k in range(4):
+            jx = x + 12 + k * 22
             body = rng.choice((O.CELADON[1:], O.CERAMIC_WHITE[1:], ['red1', 'red2', 'red3', 'red4'], O.IRON[1:]))
             pot = O.ceramic_jar(rng, 14, 18, list(body)[:4], lid=k % 2 == 0)
             cv.blit(pot, jx, 20)
@@ -229,15 +229,15 @@ def cabinet():
             for yy in range(gy0, gy0 + gh):
                 for xx in range(gx0, gx0 + gw):
                     cv.px(xx, yy, 'wood0')
-            for k in range(5):
-                jx = gx0 + 4 + k * 19
+            for k in range(4):
+                jx = gx0 + 6 + k * 21
                 pot = O.ceramic_jar(rng, 13, 17, ['jade0', 'jade1', 'jade2', 'jade3'], lid=k % 2 == 1)
                 cv.blit(pot, jx, gy0 + 8)
                 cv.blit(O.cup(11, 7, glaze=O.CERAMIC_WHITE, tea=None, top=0), jx + 1, gy0 + 36)
             for xx in range(gx0, gx0 + gw, 20):          # lattice muntins
                 cv.vline(xx, gy0, gy0 + gh - 1, 'jade1')
             cv.hline(gx0, gx0 + gw - 1, gy0 + 24, 'jade1')
-            for k in range(4):                           # glass glints
+            for k in range(3):                           # glass glints
                 cv.line(gx0 + 6 + k * 24, gy0 + 4, gx0 + 12 + k * 24, gy0 + 18, 'sky3')
             cv.frame(gx0 - 1, gy0 - 1, gw + 2, gh + 2, 'jade0')
             inset(cv, x + 6, gy0 + gh + 6, dw - 12, h - gy0 - gh - 24, 'jade', 2, raised=True)
@@ -252,10 +252,10 @@ def cabinet():
     return O.outline(cv)
 
 
-@prop('teaware_shelf', 3, 'wall', 1660, SHELF3_Y, 'Open shelf for teaware')
+@prop('teaware_shelf', 3, 'wall', 1656, SHELF3_Y, 'Open shelf for teaware')
 def teaware_shelf():
     rng = random.Random(3300)
-    w = 240
+    w = 212
     cv = Canvas(w, 18)
     wood_grain_h(cv, 0, 0, w, 5, R('wood', 3), rng, dark=R('wood', 2), light=R('wood', 4))
     cv.hline(0, w - 1, 0, 'wood5'); cv.hline(0, w - 1, 5, 'wood1')
@@ -268,12 +268,12 @@ def teaware_shelf():
 
 
 SHELF3 = [
-    ('teapot_celadon', 1668, lambda r: O.teapot(40, 26, O.CELADON[1:]), 'Celadon teapot'),
-    ('cup_stack', 1714, lambda r: _cup_stack(r), 'Stack of handleless teacups'),
-    ('honey_pot', 1738, lambda r: _honey(r), 'Honey pot with a wooden dipper'),
+    ('teapot_celadon', 1662, lambda r: O.teapot(40, 26, O.CELADON[1:]), 'Celadon teapot'),
+    ('cup_stack', 1708, lambda r: _cup_stack(r), 'Stack of handleless teacups'),
+    ('honey_pot', 1736, lambda r: _honey(r), 'Honey pot with a wooden dipper'),
     ('daruma_doll', 1766, lambda r: _daruma(r), 'Red daruma with one eye painted (a wish not yet granted)'),
-    ('tin_gold_band', 1792, lambda r: O.tin(r, 18, 22, 'wood', 'gold', glyph_c='gold3'), 'Gold-banded tea tin'),
-    ('matcha_bowls', 1816, lambda r: _bowl_stack(r), 'Two matcha bowls stacked'),
+    ('tin_gold_band', 1794, lambda r: O.tin(r, 18, 22, 'wood', 'gold', glyph_c='gold3'), 'Gold-banded tea tin'),
+    ('matcha_bowls', 1820, lambda r: _bowl_stack(r), 'Two matcha bowls stacked'),
     ('whisk_on_stand', 1852, lambda r: _whisk_stand(r), 'Chasen whisk drying on its ceramic stand'),
     ('incense_box', 1874, lambda r: _incense_box(r), 'Little lacquer box of incense sticks'),
 ]
@@ -342,11 +342,12 @@ for _i, (_n, _x, _fn, _d) in enumerate(SHELF3):
     def _mk(i=_i, fn=_fn):
         return fn(random.Random(3310 + i))
     _probe = _fn(random.Random(3310 + _i))
-    prop(_n, 3, 'wall', _x, SHELF3_Y - _probe.h + 1, _d)(_mk)
+    prop(_n, 3, 'wall', _x, SHELF3_Y - _probe.h + 1, _d,
+         preview=_n not in ('whisk_on_stand', 'incense_box'))(_mk)
 
 
 # ---------------------------------------------------------------- counter (room 3)
-@prop('tea_runner', 3, 'counter', 1294, COUNTER_Y - 10, 'Indigo cloth runner the tea set is laid out on', shadow='none')
+@prop('tea_runner', 3, 'counter', 1306, COUNTER_Y - 10, 'Indigo cloth runner the tea set is laid out on', shadow='none')
 def tea_runner():
     rng = random.Random(3390)
     w, h = 186, 12
@@ -365,12 +366,12 @@ def tea_runner():
     return O.outline(cv)
 
 
-@prop('kyusu_teapot', 3, 'counter', 1298, COUNTER_Y - 42, 'Red clay kyusu teapot with a side handle (chipped lid)')
+@prop('kyusu_teapot', 3, 'counter', 1310, COUNTER_Y - 42, 'Red clay kyusu teapot with a side handle (chipped lid)')
 def kyusu():
     return TW.kyusu()
 
 
-@prop('chawan_matcha', 3, 'counter', 1360, COUNTER_Y - 22, 'Tea bowl of freshly whisked matcha')
+@prop('chawan_matcha', 3, 'counter', 1372, COUNTER_Y - 22, 'Tea bowl of freshly whisked matcha')
 def chawan():
     cv = O.bowl(34, 14, ['stone0', 'stone1', 'stone2', 'stone3', 'stone4'], inside=('leaf2', 'leaf3', 'leaf4'), top=5)
     for x in range(4, 30, 3):
@@ -382,7 +383,7 @@ def chawan():
     return cv
 
 
-@prop('chasen_whisk', 3, 'counter', 1402, COUNTER_Y - 26, 'Bamboo matcha whisk')
+@prop('chasen_whisk', 3, 'counter', 1414, COUNTER_Y - 26, 'Bamboo matcha whisk')
 def chasen():
     cv = Canvas(18, 26)
     cv.rect(6, 0, 6, 9, 'gold2'); cv.vline(6, 0, 8, 'gold3'); cv.vline(11, 0, 8, 'gold1')
@@ -392,7 +393,7 @@ def chasen():
     return O.outline(cv)
 
 
-@prop('natsume_caddy', 3, 'counter', 1428, COUNTER_Y - 22, 'Black lacquer natsume tea caddy with a gold pine sprig')
+@prop('natsume_caddy', 3, 'counter', 1440, COUNTER_Y - 22, 'Black lacquer natsume tea caddy with a gold pine sprig')
 def natsume():
     cv = Canvas(24, 22)
     body = lathe_shade(22, 16, lambda t: 11 * (1 - 0.15 * abs(t - 0.5) * 2), O.LACQUER, spec=0.14, spec_col='stone3')
@@ -405,7 +406,7 @@ def natsume():
     return O.outline(cv)
 
 
-@prop('chashaku_scoop', 3, 'counter', 1440, COUNTER_Y - 6, 'Bamboo tea scoop')
+@prop('chashaku_scoop', 3, 'counter', 1452, COUNTER_Y - 6, 'Bamboo tea scoop')
 def chashaku():
     cv = Canvas(34, 6)
     cv.hline(0, 28, 3, 'gold2'); cv.hline(0, 28, 2, 'gold3'); cv.hline(2, 26, 4, 'gold1')
@@ -413,7 +414,7 @@ def chashaku():
     return O.outline(cv)
 
 
-@prop('yunomi_tray', 3, 'counter', 1490, COUNTER_Y - 36, 'Lacquer tray with four ribbed yunomi: matcha, hojicha, sencha, water')
+@prop('yunomi_tray', 3, 'counter', 1500, COUNTER_Y - 36, 'Lacquer tray with four ribbed yunomi: matcha, hojicha, sencha, water')
 def tray():
     cv = Canvas(112, 38)
     cv.rect(0, 26, 112, 7, 'red2'); cv.hline(0, 111, 26, 'red4'); cv.hline(1, 110, 27, 'red3')
@@ -428,11 +429,11 @@ def tray():
 for _i, _t in enumerate(('matcha', 'hojicha', 'sencha', 'water')):
     def _mk(t=_t, i=_i):
         return TW.yunomi(t, seed=i)
-    prop(f'yunomi_{_t}', 3, 'counter', 1490 + 7 + _i * 26, COUNTER_Y - 40,
+    prop(f'yunomi_{_t}', 3, 'counter', 1500 + 7 + _i * 26, COUNTER_Y - 40,
          f'Ribbed yunomi cup of {_t} (single, for dragging)', preview=False)(_mk)
 
 
-@prop('incense_burner', 3, 'counter', 1612, COUNTER_Y - 58, 'Bronze incense burner, smoke curling up (8 frames)', fps=6)
+@prop('incense_burner', 3, 'counter', 1612, COUNTER_Y - 58, 'Bronze incense burner, smoke curling up (8 frames)', fps=6, preview=False)
 def incense():
     frames = []
     for f in range(F8):
@@ -455,7 +456,7 @@ def incense():
     return frames
 
 
-@prop('candle', 3, 'counter', 1656, COUNTER_Y - 42, 'Melted candle stub, flickering flame (8 frames)', fps=10)
+@prop('candle', 3, 'counter', 1656, COUNTER_Y - 42, 'Melted candle stub, flickering flame (8 frames)', fps=10, preview=False)
 def candle():
     frames = []
     for f in range(F8):
@@ -511,21 +512,26 @@ def journal_open():
 
 
 @prop('drawer_open', 3, 'counter', DRAWERS[0][0] - 8, DRAWERS[0][1] - 8,
-      'Drawer pulled open with the journal inside - swap in over the closed drawer', drag=False, shadow='none')
+      'Drawer pulled open with the journal inside - swap in over the closed drawer', drag=False, shadow='none',
+      preview=False)
 def drawer_open():
     rng = random.Random(3410)
     dx, dy, dw, dh = DRAWERS[0]
     cv = Canvas(dw + 16, dh + 20)
-    cv.rect(0, 0, dw + 16, 12, 'wood1')
+    cv.rect(0, 0, dw + 16, 12, 'hinoki1')
     cv.rect(3, 2, dw + 10, 9, 'wood0')
     j = _journal(False)
     cv.blit(j, 14, -2)
     cv.rect(62, 3, 14, 4, 'paper3'); cv.hline(62, 75, 3, 'paper4')
     cv.ellipse(84, 6, 3, 2, 'gold3'); cv.px(83, 5, 'gold4')
-    wood_face(cv, 0, 12, dw + 16, dh + 6, rng, 'wood', 3, 'h')
-    cv.hline(0, dw + 15, 12, 'wood5'); cv.vline(0, 12, dh + 17, 'wood4')
-    cv.hline(0, dw + 15, dh + 17, 'wood1'); cv.vline(dw + 15, 12, dh + 17, 'wood1')
-    bar_pull(cv, (dw + 16) // 2, 12 + (dh + 6) // 2 - 1, 14)
+    wood_face(cv, 0, 12, dw + 16, dh + 6, rng, 'hinoki', 2, 'h', knots=False)
+    cv.hline(0, dw + 15, 12, 'hinoki4'); cv.vline(0, 12, dh + 17, 'hinoki3')
+    cv.hline(0, dw + 15, dh + 17, 'hinoki1'); cv.vline(dw + 15, 12, dh + 17, 'hinoki1')
+    cx_, cy_ = (dw + 16) // 2, 12 + (dh + 6) // 2
+    for a in range(0, 360, 20):                            # iron ring pull, like the closed drawers
+        cv.px(int(round(cx_ + math.cos(math.radians(a)) * 4)), int(round(cy_ + 1 + math.sin(math.radians(a)) * 3)),
+              'stone1')
+    cv.px(cx_, cy_ - 2, 'stone3')
     return O.outline(cv)
 
 

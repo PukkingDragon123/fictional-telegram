@@ -28,15 +28,17 @@
   <label><input id="petals" type="checkbox" checked> leaves</label>
   <button id="drawer">open drawer</button>
   <button id="fire">fire: idle</button>
+  <button id="pong">Uncle Pong: idle</button>
   <button id="reset">reset props</button>
   <button id="export">copy layout JSON</button>
 </header>
 <div id="stage"><canvas id="c" width="640" height="360"></canvas></div>
 <div id="info">
   <div id="hover">Drag props around. Drag empty space (or arrow keys / A D) to pan between the four rooms.</div>
-  <p>Window layers scroll at their own parallax speed and tile horizontally. The fire spirit (try the fire button),
-     the alien cat, the cloth (curtains, noren, quilt, cloak, scarf, towel), lanterns, lamp, candles, incense,
-     steam, trees and flowers are all looping sprite sheets.</p>
+  <p>Each room is a box in perspective; dark posts in front hide the joins. Window layers scroll at their own
+     parallax speed and tile horizontally. Uncle Pong (try his button for each mood), the fire spirit, the alien
+     cat, the cloth (curtains, noren, quilt, cloak, scarf, towel), lanterns, lamp, candles, steam, trees and
+     flowers are all looping sprite sheets.</p>
 </div>
 <script src="scene.js"></script>
 <script>
@@ -61,10 +63,10 @@
     load(p.file); if (p.sheet) load(p.sheet);
     if (p.anims) Object.values(p.anims).forEach(a => load(a.sheet));
   });
+  props.forEach(p => { if (p.anims) p.anim = Object.keys(p.anims)[0]; });
   const fireSpirit = props.find(p => p.name === 'fire_spirit');
-  const moods = fireSpirit && fireSpirit.anims ? Object.keys(fireSpirit.anims) : [];
-  let mood = 0;
-  const order = ['wall', 'ceiling', '#counter', 'floor', 'counter', 'front'];
+  const pong = props.find(p => p.name === 'uncle_pong');
+  const order = ['wall', 'ceiling', '#counter', 'npc', 'floor', 'counter', 'front'];
   const drawer = props.find(p => p.name === 'drawer_open');
   if (drawer) drawer.show = false;
 
@@ -100,8 +102,8 @@
   }
   function drawProp(p, t) {
     if (!p.show) return;
-    if (p.anims && moods.length) {
-      const a = p.anims[moods[mood]];
+    if (p.anims) {
+      const a = p.anims[p.anim];
       const f = Math.floor(t * (a.fps || 8)) % a.frames;
       const im = img[a.sheet];
       if (im && im.complete) g.drawImage(im, f * p.w, 0, p.w, p.h, Math.round(p.x - cam), Math.round(p.y), p.w, p.h);
@@ -176,12 +178,15 @@
     if (['ArrowLeft', 'a', 'A'].includes(e.key)) setCam(cam - 12);
     if (['ArrowRight', 'd', 'D'].includes(e.key)) setCam(cam + 12);
   });
-  document.getElementById('fire').onclick = (e) => {
-    if (!moods.length) return;
-    mood = (mood + 1) % moods.length;
-    e.target.textContent = 'fire: ' + moods[mood];
-    setCam(0);
-  };
+  function cycle(p, label, el, cam) {
+    if (!p || !p.anims) return;
+    const keys = Object.keys(p.anims);
+    p.anim = keys[(keys.indexOf(p.anim) + 1) % keys.length];
+    el.textContent = label + ': ' + p.anim;
+    setCam(cam);
+  }
+  document.getElementById('fire').onclick = (e) => cycle(fireSpirit, 'fire', e.target, 0);
+  document.getElementById('pong').onclick = (e) => cycle(pong, 'Uncle Pong', e.target, 640);
   document.getElementById('reset').onclick = () => props.forEach(p => { p.x = p.ox; p.y = p.oy; });
   document.getElementById('drawer').onclick = (e) => {
     if (!drawer) return;

@@ -17,18 +17,18 @@ from layout import SILL_Y, COUNTER_Y, WIN_MAIN
 F8 = 8
 
 
-@prop('menu_tags', 2, 'wall', 656, 50, 'Hanging wooden menu tags with brush glyphs and prices; one crooked, one missing')
+@prop('menu_tags', 2, 'wall', 692, 58, 'Hanging wooden menu tags with brush glyphs and prices; one crooked, one missing')
 def menu_tags():
     rng = random.Random(2001)
-    w, h = 92, 124
+    w, h = 82, 124
     cv = Canvas(w, h)
     wood_face(cv, 0, 0, w, 7, rng, 'wood', 2, 'h')
     cv.hline(0, w - 1, 0, 'wood4'); cv.hline(0, w - 1, 6, 'wood0')
-    prices = ['3', '4', '5', '3', '6']
-    names = ['MATCHA', 'SENCHA', 'HOJI', '', 'OOLONG']
-    for i in range(5):
+    prices = ['3', '4', '', '5']
+    names = ['MATCHA', 'SENCHA', '', 'HOJI']
+    for i in range(4):
         x = 4 + i * 17
-        if i == 3:
+        if i == 2:
             cv.px(x + 7, 10, 'stone2')
             continue
         hgt = rng.randint(80, 104)
@@ -41,7 +41,7 @@ def menu_tags():
             text(tag, 6, 7 + k * 7, ch, 'ink', rng, True)
         tag.rect(3, hgt - 16, 9, 12, 'red3'); tag.hline(3, 11, hgt - 16, 'red4')
         text(tag, 6, hgt - 13, prices[i], 'paper4')
-        if i == 2:
+        if i == 3:
             for yy in range(hgt):
                 for xx in range(15):
                     p = tag.get(xx, yy)
@@ -53,11 +53,11 @@ def menu_tags():
     strip = torn_paper(rng, 13, 26, lines=False, curl=False)
     for k, ch in enumerate('OUT'):
         text(strip, 5, 4 + k * 7, ch, 'red2', rng, True)
-    cv.blit(strip, 60, 40)
+    cv.blit(strip, 39, 40)
     return O.outline(cv)
 
 
-@prop('pendulum_clock', 2, 'wall', 1190, 58, 'Old pendulum clock stopped at 4:20 - carved crown, cracked glass, cobweb')
+@prop('pendulum_clock', 2, 'wall', 1164, 60, 'Old pendulum clock stopped at 4:20 - carved crown, cracked glass, cobweb')
 def clock():
     rng = random.Random(2010)
     w, h = 56, 122
@@ -132,17 +132,17 @@ def _lantern(seed, torn, f, n=F8):
     return O.outline(cv)
 
 
-@prop('paper_lantern_a', 2, 'ceiling', 820, 36, 'Red paper lantern swaying in front of the window (8 frames)', fps=5)
+@prop('paper_lantern_a', 2, 'ceiling', 832, 36, 'Red paper lantern swaying in front of the window (8 frames)', fps=5)
 def lantern_a():
     return [_lantern(2020, False, f) for f in range(F8)]
 
 
-@prop('paper_lantern_b', 2, 'ceiling', 1062, 36, 'Torn red paper lantern, glowing through the tear (8 frames)', fps=5)
+@prop('paper_lantern_b', 2, 'ceiling', 1042, 36, 'Torn red paper lantern, glowing through the tear (8 frames)', fps=5)
 def lantern_b():
     return [_lantern(2021, True, f) for f in range(F8)]
 
 
-@prop('wind_chime', 2, 'wall', 990, 52, 'Glass furin wind chime: the paper strip catches the breeze (8 frames)', fps=6)
+@prop('wind_chime', 2, 'wall', 990, 60, 'Glass furin wind chime: the paper strip catches the breeze (8 frames)', fps=6)
 def wind_chime():
     rng = random.Random(2030)
     frames = []
@@ -190,12 +190,12 @@ def _bonsai(rng):
     return O.outline(cv)
 
 
-@prop('bonsai_pine', 2, 'wall', 820, SILL_Y - 55, 'Green bonsai pine in a blue pot on the sill')
+@prop('bonsai_pine', 2, 'wall', 812, SILL_Y - 55, 'Green bonsai pine in a blue pot on the sill')
 def bonsai():
     return _bonsai(random.Random(2040))
 
 
-@prop('succulent_cup', 2, 'wall', 900, SILL_Y - 22, 'Succulent rosette in a celadon cup')
+@prop('succulent_cup', 2, 'wall', 882, SILL_Y - 22, 'Succulent rosette in a celadon cup')
 def succulent():
     rng = random.Random(2041)
     cv = Canvas(26, 22)
@@ -209,7 +209,7 @@ def succulent():
     return O.outline(cv)
 
 
-@prop('sake_bottle_vase', 2, 'wall', 950, SILL_Y - 42, 'Old sake bottle used as a vase - one white camellia')
+@prop('sake_bottle_vase', 2, 'wall', 1022, SILL_Y - 42, 'Old sake bottle used as a vase - one white camellia')
 def sake_vase():
     cv = Canvas(22, 42)
     body = lathe_shade(14, 24, lambda t: 7 * (0.55 + 0.45 * math.sin(math.pi * min(1, 0.2 + t))), O.IRON[1:],
@@ -224,7 +224,7 @@ def sake_vase():
     return O.outline(cv)
 
 
-@prop('fern_pot', 2, 'wall', 990, SILL_Y - 40, 'Fern spilling out of a chipped clay pot')
+@prop('fern_pot', 2, 'wall', 990, SILL_Y - 40, 'Fern spilling out of a chipped clay pot', preview=False)
 def fern():
     rng = random.Random(2050)
     cv = Canvas(48, 40)
@@ -245,7 +245,7 @@ def fern():
     return O.outline(cv)
 
 
-@prop('white_flower_pot', 2, 'wall', 1056, SILL_Y - 38, 'Pot of white daisies and green leaves')
+@prop('white_flower_pot', 2, 'wall', 1052, SILL_Y - 38, 'Pot of white daisies and green leaves')
 def flower_pot():
     rng = random.Random(2060)
     plant = O.leafy_plant(rng, 32, 24, flowers=['white', 'paper4', 'gold3'])
@@ -254,7 +254,7 @@ def flower_pot():
 
 # ---------------------------------------------------------------- counter (room 2)
 # three seats at x ~ 800 / 960 / 1120, shared things in between
-@prop('menu_tent_card', 2, 'counter', 724, COUNTER_Y - 32, 'Folded paper menu card standing on the counter')
+@prop('menu_tent_card', 2, 'counter', 724, COUNTER_Y - 32, 'Folded paper menu card standing on the counter', preview=False)
 def menu_card():
     rng = random.Random(2070)
     cv = Canvas(34, 32)
@@ -267,17 +267,17 @@ def menu_card():
     return O.outline(cv)
 
 
-@prop('teacup_black_tea', 2, 'counter', 776, COUNTER_Y - 34, 'Teacup of black tea on its saucer (seat 1)')
+@prop('teacup_black_tea', 2, 'counter', 1012, COUNTER_Y - 34, "Teacup of black tea on its saucer (Uncle Pong's)")
 def teacup_black():
     return TW.teacup_saucer('black', seed=1)
 
 
-@prop('steam_cup', 2, 'front', 788, COUNTER_Y - 64, 'Steam from the seat-1 teacup (8 frames)', drag=False, fps=7)
+@prop('steam_cup', 2, 'front', 1024, COUNTER_Y - 64, 'Steam from the teacup (8 frames)', drag=False, fps=7)
 def steam_cup():
     return O.steam_frames(18, 32, F8, 2)
 
 
-@prop('bud_vase', 2, 'counter', 870, COUNTER_Y - 40, 'Celadon bud vase with wild grasses')
+@prop('bud_vase', 2, 'counter', 870, COUNTER_Y - 40, 'Celadon bud vase with wild grasses', preview=False)
 def bud_vase():
     cv = Canvas(24, 40)
     body = lathe_shade(14, 20, lambda t: 7 * (0.45 + 0.55 * math.sin(math.pi * min(1, 0.15 + t))), O.CELADON[1:],
@@ -289,7 +289,7 @@ def bud_vase():
     return O.outline(cv)
 
 
-@prop('dango_plate', 2, 'counter', 916, COUNTER_Y - 18, 'Plate of tri-colour dango skewers (seat 2)')
+@prop('dango_plate', 2, 'counter', 916, COUNTER_Y - 18, 'Plate of tri-colour dango skewers', preview=False)
 def dango():
     cv = Canvas(48, 18)
     cv.ellipse(24, 14, 23, 4, 'paper3'); cv.ellipse(24, 13.5, 20, 3, 'paper4'); cv.hline(4, 44, 17, 'paper1')
@@ -301,12 +301,12 @@ def dango():
     return O.outline(cv)
 
 
-@prop('yunomi_matcha_seat', 2, 'counter', 968, COUNTER_Y - 32, 'Ribbed yunomi cup of matcha (seat 2)')
+@prop('yunomi_matcha_seat', 2, 'counter', 772, COUNTER_Y - 32, 'Ribbed yunomi cup of matcha')
 def yunomi_seat():
     return TW.yunomi('matcha', seed=3)
 
 
-@prop('sugar_pot', 2, 'counter', 1034, COUNTER_Y - 24, 'Lidded blue sugar pot')
+@prop('sugar_pot', 2, 'counter', 1034, COUNTER_Y - 24, 'Lidded blue sugar pot', preview=False)
 def sugar_pot():
     cv = Canvas(24, 24)
     body = lathe_shade(22, 14, lambda t: 11 * math.sqrt(max(0.1, 1 - (t * 0.8) ** 2)), ['indigo1', 'indigo2', 'indigo3', 'indigo4'],
@@ -318,12 +318,12 @@ def sugar_pot():
     return O.outline(cv)
 
 
-@prop('teacup_green_tea', 2, 'counter', 1086, COUNTER_Y - 34, 'Teacup of green tea on its saucer (seat 3)')
+@prop('teacup_green_tea', 2, 'counter', 1086, COUNTER_Y - 34, 'Teacup of green tea on its saucer', preview=False)
 def teacup_green():
     return TW.teacup_saucer('green', seed=2)
 
 
-@prop('service_bell', 2, 'counter', 1170, COUNTER_Y - 20, 'Brass service bell, tarnished')
+@prop('service_bell', 2, 'counter', 1170, COUNTER_Y - 20, 'Brass service bell, tarnished', preview=False)
 def bell():
     cv = Canvas(28, 20)
     m = ellipse_mask(24, 22, 12, 13, 12, 12)
@@ -335,6 +335,6 @@ def bell():
     return O.outline(cv)
 
 
-@prop('teapot_customer', 2, 'counter', 1208, COUNTER_Y - 42, 'Glazed white teapot with a cobalt band, for refills')
+@prop('teapot_customer', 2, 'counter', 1150, COUNTER_Y - 42, 'Glazed white teapot with a cobalt band, for refills')
 def teapot_customer():
     return TW.teapot_white()

@@ -1,4 +1,4 @@
-"""Build the whole teahouse asset pack (v2, 640x360 per room).
+"""Build the whole teahouse asset pack (v3, 640x360 per room).
 
     python3 teahouse-assets/generator/build.py            # everything
     python3 teahouse-assets/generator/build.py --quick    # skip GIF/WebP previews
@@ -32,9 +32,10 @@ import props_seating                                       # noqa: E402,F401
 import props_ritual                                        # noqa: E402,F401
 import props_bedroom                                       # noqa: E402,F401
 import cloth_props                                         # noqa: E402,F401
+import npc                                                 # noqa: E402,F401
 
 SCALE_HI = 3
-LAYER_ORDER = ['wall', 'ceiling', 'counter_layer', 'floor', 'counter', 'front']
+LAYER_ORDER = ['wall', 'ceiling', 'counter_layer', 'npc', 'floor', 'counter', 'front']
 PREVIEW_FPS = 12
 LAYER_FPS = 6
 OUTPUT_DIRS = ['layers', 'props', 'props_3x', 'props_4x', 'nature', 'atlas', 'preview', 'palette']
@@ -153,7 +154,7 @@ def export_palette():
     for r, (ramp, cs) in enumerate(cols):
         for i, c in enumerate(cs):
             cv.rect(46 + i * sw, r * sw, sw, sw, c)
-        text(cv, 1, r * sw + 5, ramp[:10], 'white')
+        text(cv, 1, r * sw + 5, ramp[:10], 'white', script='latin')
     save(cv, 'palette', 'teahouse_palette.png', scale=3)
     uniq = []
     for _, cs in cols:
@@ -190,10 +191,10 @@ def export_layers(sc):
         dict(name='11_room_shell_furnished', file=save(furnished, 'layers', 'room', '11_room_shell_furnished.png'),
              parallax=1.0, frames=1, note='shell with every wall/ceiling prop baked in (frame 0)'),
         dict(name='20_counter', file=save(sc.counter, 'layers', 'room', '20_counter.png'), parallax=1.0, frames=1,
-             note='hearth + prep table + serving counter; draw customers before this'),
+             note='stone furnace + prep table + serving counter; draw NPCs (layer npc) after this'),
         dict(name='30_foreground', file=save(sc.fg[0], 'layers', 'room', '30_foreground.png'),
              sheet=save(sheet(sc.fg, vertical=True), 'layers', 'room', '30_foreground_sheet.png'),
-             parallax=1.12, frames=len(sc.fg), fps=LAYER_FPS, note='ivy + corner plants'),
+             parallax=1.0, frames=len(sc.fg), fps=LAYER_FPS, note='posts between the rooms, ivy, corner plants'),
         dict(name='40_light_overlay', file=save(sc.light[0], 'layers', 'room', '40_light_overlay.png'),
              sheet=save(sheet(sc.light, vertical=True), 'layers', 'room', '40_light_overlay_sheet.png'),
              parallax=1.0, frames=len(sc.light), fps=LAYER_FPS, blend='normal (or screen)',
@@ -319,7 +320,7 @@ def label_sheet(sc):
     cv = Canvas(W, y + row_h + 4, fill='wood1')
     for name, fr, x, y in pos:
         cv.blit(fr, x + 5, y + 2)
-        text(cv, x + 5, y + fr.h + 5, name.replace('_', ' ')[:44], 'paper3')
+        text(cv, x + 5, y + fr.h + 5, name.replace('_', ' ')[:44], 'paper3', script='latin')
     save(cv, 'preview', 'props_contact_sheet.png', scale=2)
 
 
@@ -342,6 +343,19 @@ def export_previews(sc, anims=True):
         ims = [f.image(5) for f in frs]
         ims[0].save(os.path.join(ROOT, 'preview', f'fire_spirit_{an}.gif'), save_all=True, append_images=ims[1:],
                     duration=90, loop=0)
+    pong = next(p for p in sc.props if p['name'] == 'uncle_pong')
+    for an, frs in pong['anims'].items():
+        ims = [f.image(4) for f in frs]
+        ims[0].save(os.path.join(ROOT, 'preview', f'uncle_pong_{an}.gif'), save_all=True, append_images=ims[1:],
+                    duration=125, loop=0, disposal=2)
+    cells = list(pong['anims'].items())
+    w, h = pong['frames'][0].w, pong['frames'][0].h
+    sheet_cv = Canvas(w * 3, (h + 12) * 2, fill='hinoki2')
+    for i, (an, frs) in enumerate(cells):
+        x, y = (i % 3) * w, (i // 3) * (h + 12)
+        sheet_cv.blit(frs[4 if an != 'idle' else 0], x, y)
+        text(sheet_cv, x + w // 2 - len(an) * 2, y + h + 3, an.upper(), 'wood0', script='latin')
+    save(sheet_cv, 'preview', 'uncle_pong_moods.png', scale=3)
     cat = next(p for p in sc.props if p['name'] == 'alien_lucky_cat')
     ims = [f.image(5) for f in cat['frames']]
     ims[0].save(os.path.join(ROOT, 'preview', 'alien_lucky_cat.gif'), save_all=True, append_images=ims[1:],
@@ -364,18 +378,22 @@ def export_previews(sc, anims=True):
 
 def export_scene_json(layer_info, prop_recs, nature_recs, ncolors):
     scene = dict(
-        name='Old Rundown Teahouse', version=2,
+        name='Old Rundown Teahouse', version=3,
         native_resolution=[LY.W, LY.H], viewport=[LY.SW, LY.SH],
         recommended_scale='integer (3x -> 1920x1080), nearest-neighbour filtering',
         eye_line_y=LY.EYE_Y,
         rooms=LY.ROOMS,
         windows=dict(main=LY.WIN_MAIN, round=LY.WIN_ROUND),
         surfaces=dict(prep_table_top_y=LY.TABLE_Y, prep_table_shelf_y=LY.TABLE_SHELF_Y, counter_top_y=LY.COUNTER_Y,
-                      window_sill_y=LY.SILL_Y, wall_shelf_room1_y=LY.SHELF1_Y, teaware_shelf_room3_y=LY.SHELF3_Y,
+                      window_sill_y=LY.SILL_Y, apothecary_chest_top_room1_y=LY.CHEST_TOP_Y, teaware_shelf_room3_y=LY.SHELF3_Y,
                       floor_y=LY.FLOOR, hearth_firebox=counter.FIREBOX),
         draw_order=['layers/outside/* (parallax, tile horizontally)', '10_room_shell', 'props: wall',
-                    'props: ceiling', '<customers>', '20_counter', 'props: floor', 'props: counter', 'props: front',
-                    '30_foreground', '40_light_overlay'],
+                    'props: ceiling', '20_counter', 'props: npc (customers sit behind the counter)', 'props: floor',
+                    'props: counter', 'props: front', '30_foreground', '40_light_overlay'],
+        perspective=dict(note='each room is a one-point perspective box; vanishing point at the room centre on '
+                              'the eye line', back_wall_inset=LY.BX, wall_top_y=LY.WALL_TOP, ceiling_y=LY.CEIL_Y,
+                         vanishing_points=[list(LY.vp(i)) for i in range(4)]),
+        npc_note='NPC sprites end at the counter back edge (y=%d); slide them along x to seat them' % LY.COUNTER['back'],
         parallax_note='screen_x = -camera_x * parallax (tile outside layers every tile_width px)',
         palette_colors=ncolors, layers=layer_info, props=prop_recs, nature=nature_recs)
     with open(os.path.join(ROOT, 'scene.json'), 'w') as fh:

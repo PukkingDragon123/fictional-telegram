@@ -103,3 +103,20 @@ Columns: 8
  40  90 100	teal1
  64 128 132	teal2
 104 168 162	teal3
+ 24  24  44	pong0
+ 40  44  72	pong1
+ 62  70 104	pong2
+ 90 102 138	pong3
+126 140 176	pong4
+172 184 212	pong5
+ 96  18  36	scarlet0
+156  28  44	scarlet1
+206  48  54	scarlet2
+236  92  78	scarlet3
+252 152 126	scarlet4
+ 96  64  46	hinoki0
+140 100  66	hinoki1
+184 140  90	hinoki2
+214 176 118	hinoki3
+236 208 152	hinoki4
+250 234 192	hinoki5

@@ -30,7 +30,7 @@ PATCHES = [['red0', 'red1', 'red2', 'red3', 'red4'], ['jade0', 'jade1', 'jade2',
            ['paper0', 'paper1', 'paper2', 'paper3', 'paper4'], ['teal0', 'teal1', 'teal2', 'teal3']]
 
 
-@prop('bed_messy', 4, 'floor', 2288, 186, "Traveler's bed: patchwork quilt (cloth physics) draped over the mattress and a rumpled lump, dented pillow (12 frames)", fps=6)
+@prop('bed_messy', 4, 'floor', 2250, 186, "Traveler's old bed: patchwork quilt (cloth physics) draped over a stained, split mattress; cracked frame (12 frames)", fps=6)
 def bed():
     def build():
         rng = random.Random(4001)
@@ -54,10 +54,21 @@ def bed():
         base.hline(6, 245, oy + 11, 'wood5'); base.hline(6, 245, oy + 23, 'wood0')
         for lx in (6, 236):
             base.rect(lx, oy + 24, 10, H_ - oy - 24, 'wood2'); base.vline(lx, oy + 24, H_ - 1, 'wood3')
-        # pillow (dented), soft-shaded
-        pm = ellipse_mask(W_, H_, 220, oy - 14, 22, 9)
-        paint(pm, ['paper1', 'paper2', 'paper3', 'paper4', 'white'], profile='soft', R=7, canvas=base)
-        base.ellipse(222, oy - 17, 8, 3, 'paper2'); base.ellipse(222, oy - 18, 6, 2, 'paper3')
+        # old mattress: water stains, a split seam with the straw stuffing showing
+        for (sx, sy, r) in ((200, oy - 12, 16), (120, oy - 6, 10), (230, oy + 4, 7)):
+            for yy in range(int(sy - r / 2), int(sy + r / 2) + 1):
+                for xx in range(int(sx - r), int(sx + r) + 1):
+                    d = ((xx - sx) / r) ** 2 + ((yy - sy) / (r / 2)) ** 2
+                    if d < 1 and base.get(xx, yy)[3]:
+                        if d > 0.72:
+                            base.px(xx, yy, 'paper1')               # tide line
+                        else:
+                            base.px(xx, yy, 'paper2')
+        for k in range(26):
+            base.px(206 + k, oy - 20 + (k % 3 == 0), 'paper0')
+            if k % 2 == 0:
+                base.px(206 + k, oy - 21, 'gold3' if k % 4 else 'gold2')       # straw poking out
+        base.line(246, 30, 252, 58, 'wood0'); base.line(247, 30, 253, 58, 'wood3')   # split in the headboard
         # quilt: settle over mattress + lump, then breathe in the breeze
         # The quilt lies bunched on the mattress and spills over the front edge.
         # Where it folds over the edge it is gathered (that is what friction and
@@ -112,18 +123,6 @@ def bed():
             wood_face(cv, 0, 30, 12, H_ - 30, rng, 'wood', 2, 'v')
             cv.rect(-1, 26, 14, 6, 'wood3'); cv.hline(-1, 12, 26, 'wood5')
             cv.vline(0, 30, H_ - 1, 'wood4'); cv.vline(11, 30, H_ - 1, 'wood0')
-            # a shirt flung on the bed: body, a twisted sleeve, collar - hand shaped
-            shirt = [(140, 44), (146, 37), (153, 35), (160, 36), (166, 39), (170, 44), (164, 47), (156, 48), (147, 48)]
-            cv.poly(shirt, 'sky2')
-            cv.poly([(162, 40), (172, 36), (178, 40), (172, 43)], 'sky1')          # sleeve
-            cv.line(146, 38, 160, 37, 'sky3'); cv.line(141, 44, 150, 41, 'sky3')
-            cv.line(152, 36, 156, 40, 'paper4'); cv.line(156, 40, 159, 36, 'paper4')  # collar
-            cv.line(156, 41, 156, 47, 'sky0'); cv.px(156, 43, 'paper4'); cv.px(156, 46, 'paper4')
-            # a book left face down, spine up, pages fanning
-            cv.poly([(186, 47), (192, 40), (204, 40), (208, 47)], 'jade1')
-            cv.line(192, 40, 204, 40, 'jade3'); cv.line(186, 47, 192, 40, 'jade2')
-            cv.hline(188, 206, 47, 'paper3'); cv.hline(190, 204, 48, 'paper2')
-            cv.vline(198, 40, 47, 'jade0'); cv.px(197, 41, 'gold2')
             frames.append(O.outline(cv))
         return frames
     return cached('bed', build)
@@ -345,7 +344,7 @@ def hat():
     return O.outline(cv)
 
 
-@prop('route_map', 4, 'wall', 2330, 66, 'Old route map pinned to the plaster: coast, mountains, dotted path, compass rose')
+@prop('route_map', 4, 'wall', 2330, 66, 'Old route map pinned to the plaster: coast, mountains, dotted path, compass rose', preview=False)
 def route_map():
     rng = random.Random(4400)
     w, h = 92, 64
@@ -379,7 +378,7 @@ def route_map():
     return out
 
 
-@prop('sketch_pinned', 4, 'wall', 2424, 136, 'Charcoal sketch of a tree, pinned')
+@prop('sketch_pinned', 4, 'wall', 2424, 136, 'Charcoal sketch of a tree, pinned', preview=False)
 def sketch():
     rng = random.Random(4410)
     cv = paper_note(rng, 26, 32, base='paper3', pin_c='gold3', lines=False)
@@ -414,7 +413,7 @@ def oil_lamp():
     return frames
 
 
-@prop('walking_staff', 4, 'floor', 2262, 160, 'Knotted walking staff with a bell and charm, leaning on the wall')
+@prop('walking_staff', 4, 'floor', 2236, 160, 'Knotted walking staff with a bell and charm, leaning on the wall', preview=False)
 def staff():
     cv = Canvas(18, 142)
     for y in range(8, 142):
@@ -432,7 +431,7 @@ def staff():
 
 
 # ---------------------------------------------------------------- floor things
-@prop('worn_rug', 4, 'floor', 1996, 302, 'Worn woven rug in perspective: border, medallion, frayed fringe, burn hole', shadow='none')
+@prop('worn_rug', 4, 'floor', 1996, 302, 'Worn woven rug in perspective: border, medallion, frayed fringe, burn hole', shadow='none', preview=False)
 def rug():
     w, h = 244, 48
     cv = Canvas(w, h)
@@ -466,7 +465,7 @@ def rug():
     return O.outline(cv)
 
 
-@prop('backpack', 4, 'floor', 2250, 288, 'Traveler pack: bedroll, tin cup, small lantern, buckles')
+@prop('backpack', 4, 'floor', 2250, 288, 'Traveler pack: bedroll, tin cup, small lantern, buckles', preview=False)
 def backpack():
     rng = random.Random(4500)
     w, h = 52, 52
@@ -491,7 +490,7 @@ def backpack():
     return O.outline(cv)
 
 
-@prop('boots', 4, 'floor', 2468, 322, 'Muddy boots, one fallen over')
+@prop('boots', 4, 'floor', 2468, 322, 'Muddy boots, one fallen over', preview=False)
 def boots():
     cv = Canvas(40, 22)
     b1 = poly_mask(40, 22, [(4, 0), (13, 0), (14, 14), (20, 15), (20, 21), (3, 21)])
@@ -504,7 +503,7 @@ def boots():
     return O.outline(cv)
 
 
-@prop('book_pile', 4, 'floor', 2204, 302, 'Pile of books on the floor')
+@prop('book_pile', 4, 'floor', 2204, 302, 'Pile of books on the floor', preview=False)
 def book_pile():
     rng = random.Random(4600)
     cv = Canvas(44, 34)
@@ -519,7 +518,7 @@ def book_pile():
     return O.outline(cv)
 
 
-@prop('papers_scattered', 4, 'floor', 2094, 334, 'Letters and sketches scattered on the floor', shadow='none')
+@prop('papers_scattered', 4, 'floor', 2094, 334, 'Letters and sketches scattered on the floor', shadow='none', preview=False)
 def papers():
     rng = random.Random(4610)
     cv = Canvas(86, 18)
@@ -529,7 +528,7 @@ def papers():
     return O.outline(cv)
 
 
-@prop('ficus_plant', 4, 'floor', 1930, 186, 'Tall leafy green plant in a cracked glazed pot')
+@prop('ficus_plant', 4, 'floor', 1930, 186, 'Tall leafy green plant in a cracked glazed pot', preview=False)
 def ficus():
     rng = random.Random(4700)
     from trees import limbs_draw
