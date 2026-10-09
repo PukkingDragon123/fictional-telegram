@@ -7,3 +7,6 @@ tools/shots/
 
 # promo GIF frame renders (scratch)
 tools/promo/renders/anim/
+
+# python bytecode
+__pycache__/

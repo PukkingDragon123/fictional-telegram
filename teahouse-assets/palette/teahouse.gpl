@@ -1,0 +1,93 @@
+GIMP Palette
+Name: Teahouse (bathhouse lacquer)
+Columns: 8
+#
+ 20  12  18	ink0
+ 38  22  30	ink1
+ 34  20  24	wood0
+ 52  30  31	wood1
+ 74  43  37	wood2
+ 99  61  43	wood3
+128  84  53	wood4
+161 112  68	wood5
+198 150  94	wood6
+ 56  17  27	red0
+ 88  27  35	red1
+122  38  41	red2
+156  52  46	red3
+190  75  56	red4
+222 112  78	red5
+ 20  44  46	jade0
+ 30  70  62	jade1
+ 44 102  80	jade2
+ 68 138  98	jade3
+108 175 120	jade4
+166 210 152	jade5
+ 82  54  26	gold0
+138  96  36	gold1
+194 146  56	gold2
+234 198  96	gold3
+252 234 168	gold4
+ 96  78  62	paper0
+138 116  88	paper1
+182 160 120	paper2
+216 198 154	paper3
+240 228 194	paper4
+ 40  76 132	sky0
+ 52 110 178	sky1
+ 74 150 214	sky2
+118 190 232	sky3
+176 224 244	sky4
+118 126 156	cloud0
+166 174 198	cloud1
+212 218 230	cloud2
+248 248 242	cloud3
+ 48  50  64	smoke0
+ 74  78  94	smoke1
+104 108 124	smoke2
+ 70 100 146	haze0
+102 138 180	haze1
+140 176 208	haze2
+178 206 226	haze3
+ 18  40  34	leaf0
+ 30  70  46	leaf1
+ 46 104  50	leaf2
+ 80 142  54	leaf3
+128 182  66	leaf4
+180 214  98	leaf5
+ 44  22  36	bark0
+ 76  36  48	bark1
+110  52  58	bark2
+146  74  70	bark3
+180 104  88	bark4
+210 142 114	bark5
+106  38  70	pink0
+166  70 104	pink1
+220 120 148	pink2
+246 174 190	pink3
+252 222 226	pink4
+ 48  34  72	purp0
+ 86  64 120	purp1
+130 104 172	purp2
+178 156 214	purp3
+ 24  58  32	alien0
+ 50 110  38	alien1
+ 96 166  46	alien2
+154 218  72	alien3
+214 250 140	alien4
+ 42  40  52	stone0
+ 66  64  78	stone1
+ 98  94 106	stone2
+138 132 140	stone3
+184 178 176	stone4
+ 28  62  96	water0
+ 42  96 132	water1
+ 74 138 170	water2
+176  48  30	fire0
+234 118  40	fire1
+252 198  80	fire2
+255 244 190	fire3
+ 26  58  70	teal0
+ 40  90 100	teal1
+ 64 128 132	teal2
+104 168 162	teal3
