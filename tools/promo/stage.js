@@ -15,6 +15,9 @@ import { picnicModel } from '../../src/entities/structureModels.js';
 import { voxelMaterial } from '../../src/core/voxel.js';
 import { fishCanvasFor, FISH_TPU } from '../../src/game/fishSprites.js';
 import { WATER_Y } from '../../src/world/grid.js';
+// [F&S] mining + industry art
+import * as MM from '../../src/entities/extra/miningModels.js';
+import * as IM from '../../src/entities/extra/industryModels.js';
 
 const D2R = Math.PI / 180;
 const S = (window.__promo ||= { actors: [], t: 0, cfg: null, named: {} });
@@ -39,11 +42,15 @@ export function shockedFox(fox, o = {}) {
       const P = rig.__promoPose;
       if (!P) return;
       const w = Math.min(1, Math.max(0, (t - 0.1) / 0.16));
-      p.ik(p.aR, P.mx, P.my, P.mz, 1, -0.9, -0.2, w);
-      p.aR.st = P.st ?? 1.6;
-      p.aR.shZ = (P.shZ ?? 3) * w; p.aR.shY = (P.shY ?? 1.2) * w;
-      p.aR.wx = (P.wx ?? -1.3) * w; p.aR.wz = (P.wz ?? 0) * w;
-      p.pawR = P.rpaw || 'open';
+      if (!P.cheeks) {
+        p.ik(p.aR, P.mx, P.my, P.mz, 1, -0.9, -0.2, w);
+        p.aR.st = P.st ?? 1.6;
+        p.aR.shZ = (P.shZ ?? 3) * w; p.aR.shY = (P.shY ?? 1.2) * w;
+        p.aR.wx = (P.wx ?? -1.3) * w; p.aR.wz = (P.wz ?? 0) * w;
+        p.pawR = P.rpaw || 'open';
+      }
+      if (P.expr) f.expr = P.expr;
+      if (P.blush != null) f.blush = P.blush;
       if (P.left) {
         p.ik(p.aL, P.left[0], P.left[1], P.left[2], 1, -0.9, 0.1, w);
         p.aL.st = 1.6; p.aL.shZ = (P.lshZ ?? 0) * w; p.aL.shY = (P.lshY ?? 0) * w;
@@ -61,6 +68,11 @@ export function shockedFox(fox, o = {}) {
       if (P.ears != null) { p.eL.fl = p.eR.fl = P.ears; }
       if (P.tail) { p.tPuff = P.tail; p.tLift = 0.9; }
       f.sweat = P.sweat ?? 2;
+      // looping GIF: two little gasps per loop (hop, stretch, head back) on top of the trembling
+      if (rig.__promoPhase != null) {
+        const g = Math.max(0, Math.sin(rig.__promoPhase * Math.PI * 4)) ** 2;
+        p.y += g * 1.4; p.sq *= 1 + g * 0.07; p.hRx -= g * 0.1; p.tPuff = (p.tPuff || 1) + g * 0.3;
+      }
     };
     def.__promo = true;
   }
@@ -119,18 +131,19 @@ function applyCamera(T, cam) {
   const game = T.game, rig = game.rig, rr = game.renderer;
   const { focus, wupp, yaw } = cam, pitch = cam.pitch * D2R;
   rig.freeBounds = true; rig.follow = null;
+  S.camYaw = yaw;
   rig.yaw = rig.yawGoal = yaw;
   rig.pitch = rig.pitchGoal = pitch;
   rig.minWupp = Math.min(rig.minWupp, wupp);
   rig.wupp = rig.wuppGoal = wupp;
   const hh0 = (rr.rtH * wupp) / 2;
   rig.dist = Math.max(24, (hh0 * Math.cos(pitch) + 0.8) / Math.sin(pitch));
-  rig.goal.set(focus.x, 0.35, focus.z);
+  rig.goal.set(focus.x, (focus.y || 0) + 0.35, focus.z);
   rig.target.copy(rig.goal);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const SKY_D = cam.skyD ?? 3.4;
   if (T.skyMesh) {
-    T.skyMesh.position.set(focus.x - sy * SKY_D, 0, focus.z - cy * SKY_D);
+    T.skyMesh.position.set(focus.x - sy * SKY_D, focus.y || 0, focus.z - cy * SKY_D);
     T.skyMesh.rotation.set(0, yaw, 0);
     const hh = rr.rtH * wupp * 0.5, viewW = rr.rtW * wupp;
     const topH = (hh + 0.35 * Math.cos(pitch) - SKY_D * Math.sin(pitch)) / Math.cos(pitch);
@@ -193,7 +206,7 @@ function add(o, name) {
   if (name) S.named[name] = o;
   return o;
 }
-function facing(T, off = 0) { return Math.atan2(-T.fwd.x, -T.fwd.z) + off; } // +Z towards the camera
+function facing(T, off = 0) { return (S.camYaw ?? Math.atan2(-T.fwd.x, -T.fwd.z)) + off; } // +Z towards the camera
 
 function placeFox(T, pos, { scale = 0.85, rot = 0, anim = 'idle', t = 1, shadow = true, expr = null, outfit = null } = {}) {
   const fox = new FoxRig({ shadows: shadow });
@@ -241,6 +254,102 @@ function placeProp(T, type, pos, { rot = 0, scale = 1, tilt = null } = {}) {
   return g;
 }
 
+// ------------------------------------------------------------------ [F&S] mining + industry cast kinds
+// All take world coords (wx, wz) or screen (sx, sy) like the rest of the cast; `ry` = absolute yaw.
+const yawOf = (T, a) => (a.ry != null ? a.ry : facing(T, a.rot || 0));
+function machineDriver(obj) { return (dt) => { S.clock = (S.clock || 0) + dt; obj.userData.update?.(dt, S.clock); }; }
+const FS_KINDS = {
+  // any model factory: make = 'mine.makeMineEntrance' | 'ind.ind_smelter' | ...
+  model(T, p, a, o) {
+    const [lib, fn] = a.make.split('.');
+    const L = lib === 'mine' ? MM : IM;
+    const obj = lib === 'ind' ? IM.STRUCTURE_MODELS[fn]({ seed: 1 }) : L[fn](...(a.args || []));
+    obj.position.copy(p); obj.rotation.y = yawOf(T, a); if (a.scale) obj.scale.setScalar(a.scale);
+    obj.traverse((m) => { if (m.isMesh && !m.userData.glow) m.castShadow = true; });
+    if (a.st) Object.assign(obj.userData.st || {}, a.st);
+    if (a.load) obj.userData.setLoad?.(a.load);
+    if (a.left != null) obj.userData.setLeft?.(a.left);
+    if (a.fill != null) obj.userData.setFill?.(a.fill);
+    if (a.meals != null) obj.userData.setMeals?.(a.meals);
+    if (a.dig != null) obj.userData.dig?.(a.dig);
+    T.group.add(obj);
+    if (obj.userData.update) { const d = machineDriver(obj); for (let k = 0; k < 2; k += 1 / 30) d(1 / 30); if (o.loop) S.drivers.push(d); }
+    if (o.loop && a.digLoop) S.drivers.push((dt, ph) => obj.userData.dig?.(0.5 - 0.5 * Math.cos(ph * Math.PI * 2 * (a.digLoop || 1))));
+    return obj;
+  },
+  // a mine cart rolling out of the mine and back along (wx,wz) -> (wx2,wz2)
+  cart(T, p, a, o) {
+    const c = MM.makeMineCart();
+    c.userData.setLoad(a.load || 'gold');
+    const q = new THREE.Vector3(a.wx2, 0, a.wz2); q.y = T.game.grid.groundAt(q.x, q.z);
+    c.rotation.y = Math.atan2(q.x - p.x, q.z - p.z);
+    if (a.scale) c.scale.setScalar(a.scale);
+    c.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+    T.group.add(c);
+    const set = (ph) => { const u = 0.5 - 0.5 * Math.cos((ph + (a.off || 0)) * Math.PI * 2); c.position.lerpVectors(p, q, u); c.position.y += a.lift || 0; c.userData.spin(u * (p.distanceTo(q) / 0.1)); };
+    set(0);
+    if (o.loop) S.drivers.push((dt, ph) => set(ph));
+    return c;
+  },
+  // rail between two points
+  rail(T, p, a) {
+    const q = new THREE.Vector3(a.wx2, 0, a.wz2);
+    const len = Math.hypot(q.x - p.x, q.z - p.z);
+    const m = MM.makeRail(len);
+    m.position.copy(p); m.position.y += a.lift || 0;
+    m.rotation.y = Math.atan2(q.x - p.x, q.z - p.z);
+    T.group.add(m);
+    return m;
+  },
+  // conveyor: n belt tiles from (wx,wz) along yaw ry, items riding it (loop-seamless spacing)
+  belt(T, p, a, o) {
+    const g = new THREE.Group();
+    g.position.copy(p); g.rotation.y = a.ry ?? 0;
+    T.group.add(g);
+    const n = a.n || 4;
+    for (let i = 0; i < n; i++) {
+      const b = IM.STRUCTURE_MODELS.ind_belt({ seed: i });
+      b.position.set(0, 0, i); b.userData.st.on = true; b.userData.st.k = 1.04;
+      g.add(b);
+      const d = machineDriver(b); for (let k = 0; k < 2; k += 1 / 30) d(1 / 30); if (o.loop) S.drivers.push(d);
+    }
+    const ids = a.items || ['coal', 'copper', 'iron', 'gold'];
+    const per = a.per || 2, total = n * per, items = [];
+    for (let i = 0; i < total; i++) { const it = IM.makeBeltItem(ids[i % ids.length]); it.scale.setScalar(a.itemScale || 1.4); g.add(it); items.push(it); }
+    const set = (ph) => items.forEach((it, i) => { const z = ((i / total + ph * (a.laps || 1) / n) % 1) * n - 0.5; it.position.set(0, 0.27, z); });
+    set(0);
+    if (o.loop) S.drivers.push((dt, ph) => set(ph));
+    return g;
+  },
+  // beaver miner: pickaxe in the paw, drill helmet, chopping at the rock
+  beaver(T, p, a, o) {
+    const r = new C3.BeaverRig({ shadows: true });
+    r.root.position.copy(p); r.root.rotation.y = yawOf(T, a); r.root.scale.multiplyScalar(a.scale || 1);
+    const pick = new THREE.Mesh(MM.beaverPickGeo(), MM.MINING_MAT());
+    pick.rotation.x = Math.PI / 2; pick.position.set(0, -0.05, 0.02); pick.castShadow = true;
+    r.gripR?.add(pick);
+    if (r.props?.mallet) r.props.mallet.visible = false;
+    const helm = new THREE.Mesh(MM.beaverHelmetGeo(), MM.MINING_MAT());
+    r.hat?.add(helm); if (r.hatMesh) r.hatMesh.visible = false;
+    T.group.add(r.root);
+    r.play(a.anim || 'chop', { fade: 0 });
+    for (let k = 0; k < 1; k += 1 / 60) r.update(1 / 60);
+    if (r.props?.mallet) r.props.mallet.visible = false;
+    if (o.loop) S.drivers.push(loopNpc(r, { anim: a.anim || 'chop', dur: 0.32, cycles: a.cycles || 4, off: a.off || 0, ...(a.loop || {}) }));
+    return r.root;
+  },
+  // Flint the badger, swinging his pick (looping the two swings)
+  badger(T, p, a, o) {
+    const r = new C3.BadgerProspector({ shadows: true });
+    r.root.position.copy(p); r.root.rotation.y = yawOf(T, a); r.root.scale.multiplyScalar(a.scale || 1);
+    T.group.add(r.root);
+    r.play(a.anim || 'swing_pick', { fade: 0 });
+    for (let k = 0; k < (a.t ?? 1.25); k += 1 / 60) r.update(1 / 60);
+    if (o.loop) S.drivers.push(loopNpc(r, { anim: a.anim || 'swing_pick', range: a.range || [0.95, 2.0], cycles: a.cycles || 2 }));
+    return r.root;
+  },
+};
+
 // ------------------------------------------------------------------ scenes
 const SCENES = {};
 
@@ -253,40 +362,66 @@ SCENES.thumb = (T, o) => {
   const B = o.bear || {};
   const bp = ground(T, B.sx ?? 0.66, B.sy ?? 0.66, WATER_Y);
   bp.y -= B.sink ?? 0.8;
-  add(placeBear(T, B.type || 'office', bp, { rot: B.rot ?? -0.25, pose: B.pose || 'roar', t01: B.t01 ?? 0.62, scale: B.scale ?? 2.0, seed: B.seed ?? 3.7 }).root, 'bear');
+  const bear = placeBear(T, B.type || 'office', bp, { rot: B.rot ?? -0.25, pose: B.pose || 'roar', t01: B.t01 ?? 0.62, scale: B.scale ?? 2.0, seed: B.seed ?? 3.7 });
+  add(bear.root, 'bear');
+  if (o.loop && B.loop) S.drivers.push(loopBear(bear, { pose: B.pose || 'roar', ...B.loop }));
   const F = o.fox || {};
   const fp = front(T, F.sx ?? 0.27, F.sy ?? 1.05, F.d ?? 5);
   const fox = placeFox(T, fp, { scale: F.scale ?? 3.3, rot: F.rot ?? 0.3, anim: null, shadow: false });
   shockedFox(fox, F.pose || {});
   for (let k = 0; k < 1.6; k += 1 / 30) fox.update(1 / 30);
   add(fox.root, 'fox');
+  if (o.loop) S.drivers.push((dt, ph) => { fox.__promoPhase = ph; fox.update(dt); });
   for (const f of o.fish || []) {
     const m = fishSprite(f.id, f.s ?? 1.5, f.rot ?? 0, f.dir ?? 1);
     m.position.copy(ground(T, f.sx, f.sy, WATER_Y)).add(new THREE.Vector3(0, f.y ?? 0, 0));
     T.group.add(m);
     add(m);
+    if (o.loop && f.arc) S.drivers.push(loopFish(T, m, f));
   }
   S.splashAt = [{ x: bp.x, z: bp.z, n: o.splash ?? 3 }];
+  if (o.loop) for (const L of o.loopFx || []) S.drivers.push(loopFx(T, L));
   return C;
 };
 
 // Itch banner: the neighbours dance by the pond around a party, Reynard busting a
 // move; suited bears charge in from the right, one smashing the picnic table.
 SCENES.banner = (T, o) => {
-  const C = { yaw: facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6] };
+  const C = { yaw: o.yaw ?? facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: o.focusWorld ? new THREE.Vector3(o.focusWorld[0], T.game.grid.groundAt(o.focusWorld[0], o.focusWorld[1]), o.focusWorld[1]) : T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6], skyD: o.skyD };
   applyCamera(T, C);
   clearRects(T, o.clear);
   for (const a of o.cast || []) {
     let obj;
-    const p = a.front != null ? front(T, a.sx, a.sy, a.front) : a.h != null ? ground(T, a.sx, a.sy, a.h) : ground(T, a.sx, a.sy);
+    const p = a.wx != null ? new THREE.Vector3(a.wx, T.game.grid.groundAt(a.wx, a.wz), a.wz)
+      : a.front != null ? front(T, a.sx, a.sy, a.front) : a.h != null ? ground(T, a.sx, a.sy, a.h) : ground(T, a.sx, a.sy);
     if (a.lift) p.y += a.lift;
-    if (a.kind === 'fox') obj = placeFox(T, p, a).root;
-    else if (a.kind === 'bear') obj = placeBear(T, a.type, p, a).root;
+    let rig = null;
+    if (FS_KINDS[a.kind]) { obj = FS_KINDS[a.kind](T, p, a, o); add(obj, a.name); continue; }
+    if (a.kind === 'fox' && a.shock) {
+      rig = placeFox(T, p, { ...a, anim: null, shadow: false });
+      shockedFox(rig, a.shock);
+      for (let k = 0; k < 1.6; k += 1 / 30) rig.update(1 / 30);
+      add(rig.root, a.name);
+      if (o.loop) { const r = rig; S.drivers.push((dt, ph) => { r.__promoPhase = ph; r.update(dt); }); }
+      continue;
+    }
+    if (a.kind === 'fox') { rig = placeFox(T, p, a); obj = rig.root; }
+    else if (a.kind === 'bear') {
+      rig = placeBear(T, a.type, p, a); obj = rig.root;
+      if (a.pick) { const m = new THREE.Mesh(MM.beaverPickGeo(), MM.MINING_MAT()); const g = new THREE.Group(); g.add(m); m.rotation.set(a.pick.rx ?? 0, a.pick.ry ?? 0, a.pick.rz ?? 0); g.scale.setScalar(a.pick.s ?? 2.2); rig.hold(g); rig.handAnchorR.add(g); g.position.set(a.pick.x ?? 0, a.pick.y ?? 0, a.pick.z ?? 0); }
+    }
     else if (a.kind === 'prop') obj = placeProp(T, a.type, p, a);
     else if (a.kind === 'fish') { obj = fishSprite(a.id, a.s ?? 1.3, a.rot ?? 0, a.dir ?? 1); obj.position.copy(p); T.group.add(obj); }
-    else obj = placeNpc(T, a.cls, p, a).root;
+    else { rig = placeNpc(T, a.cls, p, a); obj = rig.root; }
     add(obj, a.name);
+    if (o.loop && a.loop) {
+      if (a.kind === 'fox') S.drivers.push(loopFox(rig, { anim: a.anim, ...a.loop }));
+      else if (a.kind === 'bear') S.drivers.push(loopBear(rig, { pose: a.pose, ...a.loop }));
+      else if (a.kind === 'fish') S.drivers.push(loopFish(T, obj, a));
+      else if (rig) S.drivers.push(loopNpc(rig, { anim: a.anim, ...a.loop }));
+    }
   }
+  if (o.loop) for (const L of o.loopFx || []) S.drivers.push(loopFx(T, L));
   S.splashAt = (o.splashes || []).map((s) => { const p = ground(T, s.sx, s.sy, WATER_Y); return { x: p.x, z: p.z, n: s.n ?? 2, power: s.power }; });
   return C;
 };
@@ -297,7 +432,8 @@ export async function setup(kind, o = {}) {
   if (!T) throw new Error('no title scene');
   S.cfg = o;
   for (const a of S.actors) a.obj.removeFromParent();
-  S.actors = []; S.named = {}; S.t = 0;
+  S.actors = []; S.named = {}; S.t = 0; S.drivers = [];
+  S.loopOn = !!o.loop;
   for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
   hideTitleCast(T);
   T.gag = null; T.gagT = 1e9; T.beatT = 1e9; T.flyT = 1e9;
@@ -305,6 +441,17 @@ export async function setup(kind, o = {}) {
   game.state.hour = o.hour ?? 18.25;
   // pixel density -> pixel scale (the banner wants exactly 2 screen px per low-res px)
   if (o.px && game.renderer.pixelDensity !== o.px) { game.renderer.pixelDensity = o.px; game.resize(); }
+  // daylight: undo the title screen's sunset grade + sky patch (o.hour sets the time of day)
+  if (o.daylight && T._saved) {
+    const sv = T._saved, R = game.renderer, U = R.postMat.uniforms;
+    game.sky.update = sv.skyOwn || Object.getPrototypeOf(game.sky).update;
+    R.bloomStrength = sv.bloomStrength; R.brightPass.mat.uniforms.threshold.value = sv.threshold;
+    for (const k of ['haze', 'vignette', 'saturation', 'contrast', 'outlineAmt', 'highlightAmt']) U[k].value = sv.u[k];
+    for (const k of ['hazeColor', 'vignetteColor', 'grade', 'lift', 'outlineTint']) U[k].value.copy(sv.u[k]);
+    if (T.skyMesh) T.skyMesh.visible = false;
+  }
+  if (o.haze != null) game.renderer.postMat.uniforms.haze.value = o.haze;
+  if (o.bloom != null) game.renderer.bloomStrength = o.bloom;
   const cam = SCENES[kind](T, o);
   // optional soft fill light from the camera so faces read against the low sun
   if (S.fill) { S.fill.removeFromParent(); S.fill.target.removeFromParent(); S.fill = null; }
@@ -322,13 +469,151 @@ export async function setup(kind, o = {}) {
     game.state.phase = 'day';
     game.fox.rig.root.visible = false;
     T.skyUniforms.uTime.value = o.skyT ?? 3;
-    if (o.glints !== false) T._ambientFx(dt);
-    T._updateWords(dt);
-    game.world.sim.update(dt * 0.5, game.wind);
+    if (!S.loopOn) {
+      if (o.glints !== false) T._ambientFx(dt);
+      T._updateWords(dt);
+      game.world.sim.update(dt * 0.5, game.wind);
+    }
     applyCamera(T, cam);
   };
   applyCamera(T, cam);
+  if (o.loop) loopMode(game);
   return true;
+}
+
+// ------------------------------------------------------------------ looping (animated GIF) mode
+// o.loop = { frames: N, period: P (s) }. Every animated thing gets a driver (dt, phase) that is
+// periodic in P; frame(i) steps all drivers by P / N. prepLoop() runs one full period first so
+// springs / follow-through settle and the sequence wraps seamlessly.
+// Random game systems (particles, ambient critters, the water sim) are frozen; the world clock
+// swings back and forth (sin) so water and plants move but still loop.
+function loopMode(game) {
+  if (!game.__promoRender) {
+    const orig = game.render.bind(game);
+    game.__promoRender = orig;
+    game.render = (dt) => { if (S.loopOn && S.gameTime != null) game.time = S.gameTime; orig(dt); };
+    game.__promoAmbient = game.ambient.update.bind(game.ambient);
+    game.ambient.update = (dt) => { if (!S.loopOn) game.__promoAmbient(dt); };
+    const P = game.particles, pu = P.update.bind(P);
+    P.update = (dt) => { if (!S.loopOn) pu(dt); };
+  }
+  const P = game.particles;
+  for (const m of [P.fx.batch.mesh, P.decals.batch.mesh, P.lit.mesh, P.glow.mesh]) m.visible = false;
+  S.gameTime = S.cfg.loop.timeBase ?? 100;
+}
+
+export function prepLoop() { const N = S.cfg.loop.frames; for (let i = 0; i < N; i++) frame(i); }
+
+export function frame(i) {
+  const L = S.cfg.loop, N = L.frames, dt = L.period / N, ph = (i % N) / N;
+  S.phase = ph;
+  for (const d of S.drivers) d(dt, ph);
+  S.gameTime = (L.timeBase ?? 100) + (L.timeAmp ?? 0.5) * Math.sin(2 * Math.PI * ph);
+  return ph;
+}
+
+// a looping critter anim, `cycles` full plays per GIF loop, starting `off` (0..1) into it
+function loopNpc(rig, L) {
+  const P = S.cfg.loop.period;
+  rig.play(L.anim, { fade: 0, loop: true, restart: true });
+  if (L.range) { // scrub a time window of the anim, `cycles` times per loop
+    const cur = rig._cur; cur.speed = 0;
+    return (dt, ph) => { const u = (ph * (L.cycles || 1) + (L.off || 0)) % 1; cur.t = L.range[0] + (L.range[1] - L.range[0]) * u; rig.update(dt); };
+  }
+  const cur = rig._cur, dur = cur.def.dur || L.dur || 2;
+  cur.speed = (dur * (L.cycles || 1)) / P;
+  cur.t = (L.off || 0) * dur;
+  return (dt) => rig.update(dt);
+}
+// Reynard: FoxRig loops keep counting past `dur`, so wrap the clock ourselves
+function loopFox(fox, L) {
+  const P = S.cfg.loop.period;
+  fox.play(L.anim, { fade: 0, loop: true, restart: true });
+  const cur = fox._cur, dur = cur.def.dur || L.dur || 2.16;
+  cur.speed = (dur * (L.cycles || 1)) / P;
+  cur.t = (L.off || 0) * dur;
+  return (dt) => { while (cur.t >= dur) cur.t -= dur; fox.update(dt); };
+}
+// bears: one-shot poses sweep t01 over `range` once per loop; gaits set the stride phase directly
+function loopBear(b, L) {
+  return (dt, ph) => {
+    const u = (ph + (L.off || 0)) % 1;
+    if (L.strides) { b.phase = u * L.strides * Math.PI * 2; b.pose(L.pose, dt, { speed: L.speed ?? 3 }); return; }
+    const r = L.range || [0, 1];
+    const w = L.pingpong ? 0.5 - 0.5 * Math.cos(u * Math.PI * 2) : u;
+    b.pose(L.pose, dt, { t01: r[0] + (r[1] - r[0]) * w });
+  };
+}
+// a fish leaping out of the pond along an arc (sx, sy) -> (sx2, sy2), height h, `rate` leaps per loop
+function loopFish(T, m, f) {
+  const a = ground(T, f.sx, f.sy, WATER_Y), b = ground(T, f.arc[0], f.arc[1], WATER_Y);
+  const h = f.arc[2] ?? 1.2, dir = f.dir ?? 1, rate = f.rate ?? 1;
+  const w = Math.abs(m.scale.x), hh = m.scale.y;
+  return (dt, ph) => {
+    const u = (ph * rate + (f.off || 0)) % 1;
+    m.position.lerpVectors(a, b, u);
+    m.position.y = WATER_Y - 0.15 + Math.sin(u * Math.PI) * h;
+    m.material.rotation = Math.cos(u * Math.PI) * 0.9 * dir;
+    m.scale.set(w * dir, hh, 1);
+  };
+}
+// loopable particle effects built from small voxel cubes (deterministic, seeded)
+function seeded(seed) { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return (x >>> 0) / 4294967296; }; }
+const CONFETTI = [0xff5c5c, 0xffd23a, 0x5cccff, 0x7aff8a, 0xff8ae0, 0xffffff];
+function loopFx(T, L) {
+  const g = new THREE.Group();
+  T.group.add(g);
+  add(g);
+  const r = seeded(L.seed || 7);
+  const c = L.wx != null ? new THREE.Vector3(L.wx, T.game.grid.groundAt(L.wx, L.wz), L.wz) : L.h != null ? ground(T, L.sx, L.sy, L.h) : ground(T, L.sx, L.sy);
+  const parts = [];
+  const n = L.n || 30;
+  for (let i = 0; i < n; i++) {
+    let mat, geo;
+    if (L.type === 'confetti') {
+      mat = new THREE.MeshBasicMaterial({ color: CONFETTI[i % CONFETTI.length], side: THREE.DoubleSide });
+      geo = new THREE.PlaneGeometry(L.size || 0.09, (L.size || 0.09) * 0.6);
+    } else if (L.type === 'smoke') {
+      mat = new THREE.MeshLambertMaterial({ color: L.color ?? [0x9a94a0, 0x8a8490, 0xb0aab4][i % 3], transparent: true, opacity: 0.85, depthWrite: false });
+      geo = new THREE.BoxGeometry(1, 1, 1);
+    } else if (L.type === 'sparks') {
+      mat = new THREE.MeshBasicMaterial({ color: [0xfff4a0, 0xffd040, 0xff9a20, 0xffffff][i % 4] });
+      const s = (L.size || 0.05) * (0.6 + r() * 0.8);
+      geo = new THREE.BoxGeometry(s, s, s);
+    } else {
+      mat = new THREE.MeshBasicMaterial({ color: L.color ?? [0xffffff, 0xbfeaff, 0x8fd8f8, 0xe8fbff][i % 4] });
+      const s = (L.size || 0.08) * (0.6 + r() * 0.8);
+      geo = new THREE.BoxGeometry(s, s, s);
+    }
+    const m = new THREE.Mesh(geo, mat);
+    g.add(m);
+    parts.push({ m, a: r() * Math.PI * 2, sp: 0.4 + r() * 0.6, up: 0.6 + r() * 0.6, off: r(), spin: (r() - 0.5) * 20, dx: (r() - 0.5) * 2, dz: (r() - 0.5) * 2 });
+  }
+  const rate = L.rate || 2;
+  return (dt, ph) => {
+    for (const p of parts) {
+      const u = (ph * rate + p.off) % 1;
+      if (L.type === 'confetti') {
+        const W = L.spread || 3, H = L.fall || 2.5;
+        p.m.position.set(c.x + p.dx * W + Math.sin((u * 2 + p.off) * Math.PI * 2) * 0.15, c.y + (L.top || 2.6) - u * H, c.z + p.dz * W * 0.4);
+        p.m.rotation.set(u * p.spin, u * p.spin * 0.7, p.off * 6);
+      } else if (L.type === 'smoke') { // puffs rising, swelling, thinning out
+        const sz = (L.size || 0.35) * (0.4 + u * 1.4) * (0.7 + p.sp * 0.5);
+        p.m.position.set(c.x + (L.drift || 0.4) * u + p.dx * 0.12, c.y + (L.y || 0) + u * (L.rise || 1.6), c.z + p.dz * 0.12 - (L.driftZ || 0) * u);
+        p.m.scale.setScalar(sz);
+        p.m.rotation.set(p.off * 3 + u, p.off * 5 + u * 0.7, 0);
+        p.m.material.opacity = 0.85 * (1 - u) ** 1.2;
+      } else if (L.type === 'sparks') { // a burst of embers from the strike point
+        const R = (L.radius || 0.5) * p.sp, Hh = (L.height || 0.6) * p.up;
+        p.m.position.set(c.x + Math.cos(p.a) * R * u, c.y + (L.y || 0) + 4 * u * (0.7 - u) * Hh, c.z + Math.sin(p.a) * R * u);
+        p.m.scale.setScalar(Math.max(0.05, 1 - u));
+      } else { // splash: droplets thrown up and out, falling back
+        const R = (L.radius || 0.9) * p.sp, Hh = (L.height || 1.4) * p.up, r0 = (L.r0 || 0) * (0.85 + p.sp * 0.3);
+        p.m.position.set(c.x + Math.cos(p.a) * (r0 + R * u), c.y + 4 * u * (1 - u) * Hh, c.z + Math.sin(p.a) * (r0 + R * u));
+        p.m.scale.setScalar(Math.max(0.05, 1 - u * 0.7));
+      }
+    }
+  };
 }
 
 // splash bursts at the configured spots (call right before the screenshot)
