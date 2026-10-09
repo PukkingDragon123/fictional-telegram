@@ -122,7 +122,7 @@ function frameCam(cam, frame, aspect) {
   let cy, span;
   if (frame === 'full') { span = top * 1.18; cy = top * 0.5; }
   else if (frame === 'half') { span = top * 0.78; cy = top - span / 2 + 0.03; }
-  else { span = 0.42; cy = head + 0.04; }
+  else { span = 0.62; cy = head - 0.02; }
   const fov = (cam.fov * Math.PI) / 180;
   const vis = aspect < 1 ? span / aspect : span;
   const d = vis / 2 / Math.tan(fov / 2);

@@ -138,7 +138,7 @@ class Resort {
       cool: Math.min(1, hot * 0.9 + r() * 0.15),
       care: Math.min(1, b.hurt || 0),
     };
-    b.rs = { ticket: null, needs, joy: 0, gripes: [], visits: 0, visited: [], wet: 0, props: {}, propT: {}, best: null, steamT: 0, ate: 0, pre: false };
+    b.rs = { ticket: null, needs, joy: 0, gripes: [], visits: 0, visited: [], wet: 0, props: {}, propT: {}, best: null, steamT: 0, preT: 0 };
     return b.rs;
   }
 
@@ -168,8 +168,9 @@ class Resort {
     // 2) facilities by need (pressing needs before dinner, nice-to-haves after)
     if (rs.visits >= 3) return false;
     const hungry = b.eaten < b.appetite;
-    if (hungry && rs.pre) return false;
-    if (hungry) rs.pre = true;
+    // hungry bears only break off for something pressing, and only now and then
+    if (hungry && (rs.preT || 0) > this.time) return false;
+    if (hungry) rs.preT = this.time + 10;
     rs.needs.dry = Math.max(rs.needs.dry, rs.wet);
     rs.needs.clean = Math.min(1, rs.needs.clean + 0);
     rs.needs.care = Math.max(rs.needs.care, Math.min(1, b.hurt || 0));

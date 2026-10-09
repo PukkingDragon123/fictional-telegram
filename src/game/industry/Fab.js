@@ -224,7 +224,7 @@ export class Fab {
     const R = RECIPES[rid];
     if (!this.roomFor(s, rid)) { r.why = 'full'; return { on: false, lamp: 'warn' }; }
     // work to do but no power: nobody hauls ore to a dead machine (the plug flashes)
-    if (pw < 0.15) { r.why = 'nopower'; r.dark = true; return { on: false, lamp: 'warn' }; }
+    if (pw < 0.15) { r.why = 'nopower'; r.dark = true; r.want = true; return { on: false, lamp: 'warn' }; } // asking for power lights a standby generator
     const miss = this.missing(r, rid);
     if (!Object.keys(miss).length) {
       // everything is in the hopper: start when there's power
