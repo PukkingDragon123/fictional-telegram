@@ -34,7 +34,7 @@ export function glyph(name, color = '#52e47e', scale = 1) {
   c = document.createElement('canvas');
   c.width = rows[0].length * scale;
   c.height = rows.length * scale;
-  const x = c.getContext('2d');
+  const x = c.getContext('2d', { willReadFrequently: true }); // CPU canvas: toDataURL stays cheap
   x.fillStyle = color;
   rows.forEach((r, y) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') x.fillRect(i * scale, y * scale, scale, scale); });
   cache.set(k, c);

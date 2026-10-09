@@ -13,6 +13,81 @@ import { hash2, fbm2 } from '../core/rng.js';
 import { STONE_GLSL, stoneUniforms } from '../art/stoneArt.js'; // [v20 map]
 
 const BASE_Y = -4;
+// [v26 world] cube walls: flat vertex shade (each block is shaded in the shader)
+const CUBE_LO = [0.86, 0.86, 0.88], CUBE_HI = [0.92, 0.92, 0.92];
+// [v26 world] True cubes for mountains, cliffs and the Highland: 0.5-unit blocks
+// (every grid height there is a whole number of them). Each block face picks
+// its own 12x12 window of the pixel texture and gets a bevel (lit top-left edge,
+// dark bottom-right edge), so a cliff reads as a stack of blocks, never as one
+// stretched column. The top block of a grassy / snowy column wears its lip.
+export const CUBE_GLSL = /* glsl */ `
+float cbH(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
+vec3 atlasWin(int id, vec2 win, vec2 lu) {
+  vec4 r = uRects[id];
+  vec2 t = (win * 12.0 + floor(lu * 12.0) + 0.5) / 48.0;
+  return texture2D(uAtlas, r.xy + t * r.zw).rgb;
+}
+vec3 stoneWin(float v, vec2 win, vec2 lu) {
+  vec2 t = (win * 12.0 + floor(lu * 12.0) + 0.5) / 48.0;
+  return texture2D(uStone, vec2((v + t.x) / 7.0, t.y)).rgb;
+}
+int cubeSurf(vec2 tile) { return int(texture2D(uSurf, (tile + 0.5) / uGridSize).r * 255.0 / 16.0 + 0.5); }
+vec3 cubeBlock(vec3 wp, vec3 wn, vec3 cb) {
+  const float BS = 0.5;
+  vec3 an = abs(wn);
+  vec3 c;
+  vec2 lu, bp;
+  if (an.y > 0.5) {
+    bp = floor(wp.xz / BS + 0.001);
+    lu = fract(wp.xz / BS + 0.001);
+    float hb = cbH(bp + floor(wp.y * 2.0 + 0.5) * 0.37);
+    // the surface of this block's tile (edge blocks borrow a neighbour's now and then: blocky borders)
+    vec2 tile = floor((bp + 0.5) * BS + (vec2(cbH(bp + 3.1), cbH(bp + 7.7)) - 0.5) * 0.7);
+    int id = cubeSurf(tile);
+    vec2 win = floor(vec2(hb, cbH(bp + 1.3)) * 4.0);
+    if (id == 5 || id == 9) c = stoneWin(hb < 0.7 ? 0.0 : (hb < 0.85 ? 1.0 : 2.0), win, lu) * 1.22;
+    else c = atlasWin(id, win, lu);
+    c *= 0.93 + hb * 0.14;
+  } else {
+    float u = (an.x > 0.5 ? wp.z : wp.x) / BS, v = wp.y / BS;
+    bp = vec2(floor(u + 0.001), floor(v + 0.001));
+    lu = vec2(fract(u + 0.001), fract(v + 0.001));
+    if (wn.x < -0.5 || wn.z > 0.5) lu.x = 1.0 - lu.x;
+    vec2 tile = floor(wp.xz - wn.xz * 0.5);
+    float hb = cbH(bp + tile * 0.173);
+    vec2 win = floor(vec2(hb, cbH(bp + 5.9)) * 4.0);
+    int top = cubeSurf(tile);
+    float depthB = (cb.y - wp.y) / BS; // blocks below the column top
+    float band = floor(wp.y / 1.5);
+    float hs = cbH(vec2(band, tile.x * 0.01 + 3.0));
+    float sv = hs < 0.45 ? 0.0 : hs < 0.75 ? 1.0 : hs < 0.9 ? 3.0 : 6.0;
+    if (wp.y < 2.0 && cbH(bp + 9.1) < 0.5) sv = 2.0; // mossy at the foot
+    if (wp.y > 14.0 && hs < 0.6) sv = 5.0; // frosted up high
+    bool soil = (top == 8 || top == 0 || top == 1 || top == 2 || top == 7 || top == 3) && depthB < 1.0;
+    bool snowy = top == 6 && depthB < 1.0;
+    if (soil) c = atlasWin(2, win, lu) * 0.95;
+    else if (snowy) c = stoneWin(5.0, win, lu) * 1.18;
+    else c = stoneWin(sv, win, lu) * 1.22;
+    // the lip of the top block: grass / forest floor / snow hanging over the edge
+    float lipT = floor((1.0 - lu.y) * 12.0);
+    if (depthB < 1.0 && lipT < 2.0 + step(0.5, cbH(vec2(floor(lu.x * 12.0), bp.x)))) {
+      if (top == 6) c = vec3(0.93, 0.96, 1.0);
+      else if (top == 8 || top == 0 || top == 1) c = atlasWin(top, win, vec2(lu.x, 0.95)) * 0.95;
+    }
+    c *= 0.9 + hb * 0.14;
+    // contact shade at the foot of the wall
+    c *= mix(0.72, 1.0, smoothstep(0.0, 1.0, (wp.y - cb.z) / BS));
+    // shade by side (the camera usually sees south / east faces): a touch of depth
+    c *= an.x > 0.5 ? 0.9 : 0.97;
+  }
+  // bevel: a lit top-left edge and a dark bottom-right edge on every block
+  float px = 1.0 / 12.0;
+  float ly = an.y > 0.5 ? 1.0 - lu.y : lu.y; // tops: the far edge is "up"
+  if (lu.x < px || ly > 1.0 - px) c *= 1.13;
+  if (lu.x > 1.0 - px || ly < px) c *= 0.74;
+  return c;
+}
+`;
 
 // surface ids (must match SURF_NAMES order)
 export const SURF = { GRASS: 0, AUTUMN: 1, DIRT: 2, SAND: 3, POND: 4, ROCK: 5, SNOW: 6, TRAIL: 7, FOREST: 8, CLIFF: 9 };
@@ -134,8 +209,8 @@ export function buildSurfaceTexture(grid, tex) {
 // ------------------------------------------------------------------ terrain material
 const terrainVert = (shader) => {
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\nattribute float aSide;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vSide;')
-    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;');
+    .replace('#include <common>', '#include <common>\nattribute float aSide;\nattribute vec3 aCube;\nvarying vec3 vCube;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vSide;')
+    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;\nvCube = aCube;');
 };
 
 export function makeTerrainMaterial(uniforms) {
@@ -160,6 +235,7 @@ export function makeTerrainMaterial(uniforms) {
 varying vec3 vWPos;
 varying vec3 vWNor;
 varying float vSide;
+varying vec3 vCube;
 uniform float uTime;
 uniform float uWaterY;
 uniform float uCaustic;
@@ -174,6 +250,7 @@ ${STONE_GLSL}
 float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn2(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
+${CUBE_GLSL}
 vec3 surfTex(int id, vec2 p) {
   vec4 r = uRects[id];
   vec2 t = fract(p / 2.0);            // one 48px texture covers 2x2 tiles
@@ -207,6 +284,7 @@ vec3 surfTex(int id, vec2 p) {
     // grassy lip along the top edge of banks
     if (vSide < 0.5 && fract(vWPos.y) > 0.0) {}
   }
+  if (vCube.x > 0.5) tex = cubeBlock(vWPos, vWNor, vCube); // [v26 world] true cubes: one block texture per face
   diffuseColor.rgb *= tex * 1.12;
   if (vWPos.y < uWaterY - 0.02) {
     // underwater: tint + caustics that follow the simulated ripples
@@ -238,17 +316,19 @@ vec3 surfTex(int id, vec2 p) {
 }`,
       );
   };
-  mat.customProgramCacheKey = () => 'terrain2';
+  mat.customProgramCacheKey = () => 'terrain3'; // [v26 world] (cubes)
   return mat;
 }
 
 export function buildTerrainGeometry(grid) {
   const { w, h } = grid;
-  const pos = [], nor = [], col = [], side = [], idx = [];
+  const pos = [], nor = [], col = [], side = [], idx = [], cub = [];
   let vi = 0;
+  // [v26 world] cube tiles (mountains, cliffs, the Highland): aCube = (1, column top, wall bottom)
+  let cubeF = 0, cubeTop = 0, cubeBot = 0;
   const quad = (a, b, c, d, n, rgb, sd) => {
-    pos.push(...a, ...b, ...c, ...d);
-    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); side.push(sd); }
+    pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]); // [v26 world] (no spreads: the map is twice as big)
+    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); side.push(sd); cub.push(cubeF, cubeTop, cubeBot); }
     for (let k = 0; k < 4; k++) col.push(rgb[k][0], rgb[k][1], rgb[k][2]);
     idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
     vi += 4;
@@ -274,6 +354,7 @@ export function buildTerrainGeometry(grid) {
     if (!grid.inb(x, z)) return false;
     const i = z * w + x, k = grid.kind[i];
     if (terra && terra[i]) return true;
+    if (grid.cube && grid.cube[i]) return false; // [v26 world] true cubes, never smoothed
     return !grid.meadow[i] && k !== KIND.WATER && k !== KIND.TRAIL && grid.occ[i] !== -2 && z >= 22 && !(grid.biome && grid.biome[i] === 4);
   };
   // [line fix] tiles actually drawn as a smoothed slope (low ones stay flat tops)
@@ -309,6 +390,7 @@ export function buildTerrainGeometry(grid) {
       const i = z * w + x;
       const y = grid.height[i];
       const k = grid.kind[i];
+      cubeF = 0; // [v26 world]
       if (smoothDrawn(x, z)) { // [line fix] same test, shared with the seals
         const a = [x, LH(x, z), z], b = [x, LH(x, z + 1), z + 1], c = [x + 1, LH(x + 1, z + 1), z + 1], d = [x + 1, LH(x + 1, z), z];
         _e1[0] = c[0] - a[0]; _e1[1] = c[1] - a[1]; _e1[2] = c[2] - a[2];
@@ -354,12 +436,14 @@ export function buildTerrainGeometry(grid) {
         }
         continue;
       }
+      cubeF = 0; // [v26 world]
       if (k === KIND.WATER) {
         const c00 = 0.92, f = [c00, c00, c00];
         const a = [x, CH(x, z), z], b = [x, CH(x, z + 1), z + 1], c = [x + 1, CH(x + 1, z + 1), z + 1], d = [x + 1, CH(x + 1, z), z];
         quad(a, b, c, d, [0, 1, 0], [f, f, f, f], 0);
         continue;
       }
+      cubeF = grid.cube && grid.cube[i] ? 1 : 0; cubeTop = y; cubeBot = y; // [v26 world]
       // simple corner AO on top face: darker where neighbours are higher
       const ao = (dx, dz) => {
         const hs = [Hs(x + dx, z), Hs(x, z + dz), Hs(x + dx, z + dz)];
@@ -388,7 +472,8 @@ export function buildTerrainGeometry(grid) {
         }
         if (ny >= y) continue;
         const y0 = Math.max(ny, BASE_Y), y1 = y;
-        const lo = [0.62, 0.62, 0.66], hi = [0.95, 0.95, 0.95];
+        cubeBot = y0; // [v26 world]
+        const lo = cubeF ? CUBE_LO : [0.62, 0.62, 0.66], hi = cubeF ? CUBE_HI : [0.95, 0.95, 0.95]; // [v26 world] cube walls: shaded per block in the shader
         let A, B, C, D;
         if (dx === 1) { A = [x + 1, y0, z + 1]; B = [x + 1, y0, z]; C = [x + 1, y1, z]; D = [x + 1, y1, z + 1]; }
         else if (dx === -1) { A = [x, y0, z]; B = [x, y0, z + 1]; C = [x, y1, z + 1]; D = [x, y1, z]; }
@@ -402,6 +487,7 @@ export function buildTerrainGeometry(grid) {
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setAttribute('aSide', new THREE.Float32BufferAttribute(side, 1));
+  g.setAttribute('aCube', new THREE.Float32BufferAttribute(cub, 3)); // [v26 world]
   g.setIndex(new THREE.Uint32BufferAttribute(idx, 1));
   g.computeBoundingSphere();
   return g;

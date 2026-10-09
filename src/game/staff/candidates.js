@@ -72,7 +72,7 @@ export class Candidates {
         const p = this.queueSpot(tent, qi);
         if (this.step(a, p.x, p.z, simDt, c.st === 'walk' ? 1.7 : 1.2, 0.06)) {
           if (c.st === 'walk') { c.st = 'wait'; game.audio.play('st_knock', { volume: 0.3 }); }
-          a.heading += angleDiff(a.heading, 2.4) * Math.min(1, (simDt || 0) * 4);
+          a.heading += angleDiff(a.heading, 1.85) * Math.min(1, (simDt || 0) * 4);
         }
         qi++;
       } else if (c.st === 'leave') {

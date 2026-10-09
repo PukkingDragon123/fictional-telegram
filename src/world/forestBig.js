@@ -54,6 +54,7 @@ export function riverHalfWidth(R, f, x, z) {
 // cliff edge row of the Highland (first cliff row) at column x (x < 74)
 export function cliffEdge(x) {
   if (x >= 29 && x <= 39) return 192;
+  if (x >= 48 && x <= 62) return 191; // Heron Steps and the Fallen Giant above them
   return 191 + Math.round(1.3 * Math.sin(x * 0.17) + 0.8 * Math.sin(x * 0.071 + 2));
 }
 const HIGH_X1 = 74; // the hollow's east wall starts here
@@ -355,11 +356,10 @@ export function extendWorld(gen) {
         mark(x, z); B.tiles.push([x, z]);
       }
       B.near = path[0]; B.far = path[path.length - 1];
-      // the landing at the foot of the steps (outside the hollow's fog)
-      const [fx, fz] = B.far;
-      for (let z = fz + 1; z <= fz + 3; z++) for (let x = fx - 2; x <= fx + 1; x++) {
+      // the landing at the foot of the steps (outside the hollow's fog: clear into it to arrive)
+      for (let z = 195; z <= 198; z++) for (let x = 52; x <= 60; x++) {
         const i = z * W + x;
-        if (!g.inb(x, z) || g.kind[i] === KIND.WATER) continue;
+        if (!g.inb(x, z) || g.kind[i] === KIND.WATER || g.barrier[i]) continue;
         g.biome[i] = BIOME.HIGHLAND; g.cube[i] = 0; g.height[i] = 0.5; g.kind[i] = KIND.FOREST; g.glade[i] = GLADE.OPEN;
       }
     }
@@ -378,6 +378,11 @@ export function extendWorld(gen) {
       if (b === BIOME.OLDWOOD || b === BIOME.DEEP) v = big > 0.62 || path ? GLADE.GLADE : mid > 0.46 || big > 0.52 ? GLADE.OPEN : GLADE.GROVE;
       else if (b === BIOME.HIGHLAND) v = big > 0.66 ? GLADE.GLADE : mid > 0.55 ? GLADE.OPEN : GLADE.GROVE;
       else if (b === BIOME.MASSIF) v = GLADE.OPEN;
+      // the pond's meadow: open shores, and nothing tall between the camera and the falls
+      if (b === BIOME.DEEP) {
+        const pdx = (x + 0.5 - DEEP_POND.cx) / (DEEP_POND.rx + 3), pdz = (z + 0.5 - DEEP_POND.cz) / (DEEP_POND.rz + 3);
+        if (pdx * pdx + pdz * pdz < 1 || (Math.abs(x + 0.5 - DEEP_POND.cx) < DEEP_POND.rx + 2 && z + 0.5 > DEEP_POND.cz && z + 0.5 < DEEP_POND.cz + DEEP_POND.rz + 9)) v = hash2(x, z, 1151) < 0.8 ? GLADE.GLADE : GLADE.OPEN;
+      }
       if (!g.glade[i]) g.glade[i] = v;
     }
 

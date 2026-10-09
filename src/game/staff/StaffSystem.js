@@ -67,6 +67,12 @@ export class StaffSystem {
     game.on('day', () => this.onDay());
     game.on('structureMoved', (e) => this.onMoved(e));
     game.on('research', (r) => { if (r?.id === 'r_st_tent') game.unlockFeature?.('staff'); });
+    // tapping the Interview Tent opens the interviews
+    const ts = game.tapStructure.bind(game);
+    game.tapStructure = (s) => {
+      if (s?.type === 'st_tent' && s.built && this.ui) { this.ui.openInterview(s); return true; }
+      return ts(s);
+    };
   }
 
   // ------------------------------------------------------------------ state
@@ -271,6 +277,93 @@ export class StaffSystem {
     this.game.emit('staffLeft', { staff: r, why });
   }
 
+  // ------------------------------------------------------------------ scripting (feast events)
+  /** Take a beaver out of its routine for a scene; returns its agent (x, y, z, rig). */
+  hold(id, anim = 'idle') {
+    const r = this.get(id), b = r?.agent;
+    if (!b || r.hurt) return null;
+    if (b.task) this.failTask(b);
+    this.takeControl(b);
+    b.rig.root.visible = true;
+    b.sx = { st: 'script', t: 0, anim };
+    return b;
+  }
+  pose(id, anim, face = null) { const b = this.get(id)?.agent; if (b?.sx?.st === 'script') { b.sx.anim = anim; if (face != null) b.sx.face = face; } }
+  unhold(id) { const b = this.get(id)?.agent; if (b?.sx?.st === 'script') b.sx = { st: 'idle', t: 0 }; }
+  /** The most tired beaver that is out and about (feast events). */
+  pickTired(maxEnergy = 100) {
+    let best = null;
+    for (const r of this.S.list) {
+      const b = r.agent;
+      if (!b || r.hurt || r.train || !b.rig.root.visible || b.sx?.st === 'inside' || b.sx?.st === 'script' || r.energy > maxEnergy) continue;
+      if (!best || r.energy < best.energy) best = r;
+    }
+    return best;
+  }
+
+  // ------------------------------------------------------------------ UI hooks
+  /** Input: a beaver was tapped -> its card (or the rescue bill). */
+  tapBeaver(b) {
+    const r = b?.staff;
+    if (!r || !this.ui) return false;
+    if (r.hurt && (r.hurt.state === 'down' || r.hurt.state === 'limp')) this.ui.openRescue(r); else this.ui.openStaffCard(r);
+    return true;
+  }
+  /** BuildMove: workers / residents section on a building's tap card. */
+  decorateCard(el, s, bm) { try { this.ui?.decorateCard(el, s, bm); } catch (e) { console.error('[staff] card', e); } }
+  openRoster() { this.ui?.openRoster(); }
+
+  // ------------------------------------------------------------------ upgrades + training
+  upgradeCost(s, kind) {
+    const k = this.keyOf(s);
+    if (kind === 'slots') { const n = this.S.slots[k] || 0; return n >= 2 ? 0 : 150 * (n + 1); }
+    const u = this.S.homes[k] || {};
+    if (kind === 'comfort') { const n = u.comfort || 0; return n >= 2 ? 0 : 90 * (n + 1) + this.homeDef(s)?.comfort * 20; }
+    if (kind === 'beds') { const n = u.beds || 0; return n >= 2 ? 0 : 110 * (n + 1); }
+    return 0;
+  }
+  /** kind: 'comfort' | 'beds' (homes) | 'slots' (job buildings). */
+  upgrade(s, kind) {
+    const cost = this.upgradeCost(s, kind);
+    if (!cost || !this.game.spend(cost, 'builds')) return false;
+    const k = this.keyOf(s);
+    if (kind === 'slots') this.S.slots[k] = (this.S.slots[k] || 0) + 1;
+    else { const u = (this.S.homes[k] ||= {}); u[kind] = (u[kind] || 0) + 1; }
+    const [w, d] = s.def.size || [1, 1];
+    this.game.particles?.stars?.(s.x + w / 2, this.game.structures.baseY(s) + 1, s.z + d / 2, 8);
+    this.game.audio.play('levelup', { volume: 0.35 });
+    this.boostCache.clear();
+    return true;
+  }
+  canTrain() { return !!this.game.state.research?.includes?.('r_st_training'); }
+  trainCost(r, skill) { return 60 + 45 * (r.skills[skill] || 1); }
+  /** A day-long course: +1 skill tomorrow morning. */
+  train(id, skill) {
+    const r = this.get(id);
+    if (!r || r.hurt || r.train || !this.canTrain() || (r.skills[skill] || 1) >= 5) return false;
+    if (!this.game.spend(this.trainCost(r, skill), 'wages')) return false;
+    r.train = { skill, until: this.game.state.day + 1 };
+    if (r.agent) { if (r.agent.task) this.failTask(r.agent); this.takeControl(r.agent); r.agent.sx = { st: 'idle', t: 0 }; }
+    this.game.notify?.(`${firstName(r)} is off to a ${skill.toUpperCase()} course. Back tomorrow!`, 'info');
+    return true;
+  }
+  /** What a beaver is up to, for the UI. */
+  status(r) {
+    if (r.train) return 'At training';
+    if (r.hurt) return r.hurt.state === 'recover' ? 'Recovering' : r.hurt.state === 'rescue' ? 'On a stretcher' : r.hurt.state === 'limp' ? 'Limping home' : 'HURT!';
+    const b = r.agent;
+    if (!b) return 'Away';
+    const st = b.sx?.st;
+    if (st === 'inside' || st === 'sleepout') return WORK_PHASES.has(this.game.state.phase) ? 'Waking up' : 'Asleep';
+    if (st === 'eat' || st === 'lunchgo') return 'Lunch break';
+    if (st === 'break') return 'On a break';
+    if (st?.startsWith('task')) return 'On a job';
+    if (st === 'work') return 'Working';
+    if (!b.ctl) return b.strike ? 'On strike' : b.state === 'idle' ? 'Waiting for work' : 'Crew work';
+    return 'Walking';
+  }
+  jobTitle(r) { const s = this.byKey(r.job); return s ? this.jobsDef(s).title || s.def.name : 'Crew'; }
+
   // ------------------------------------------------------------------ rigs + agents
   /** A fresh chibi rig for a profile / record (falls back to the old BeaverRig). */
   newRig(p, outfit = null) {
@@ -428,7 +521,7 @@ export class StaffSystem {
     const st = this.game.state;
     if (r.hurt || r.train || r.gone) return true;
     const sx = b.sx?.st;
-    if (sx === 'exit' || sx === 'cheer' || sx === 'eat' || sx === 'leave' || sx === 'enter' || (sx && sx.startsWith('task'))) return true;
+    if (sx === 'script' || sx === 'exit' || sx === 'cheer' || sx === 'eat' || sx === 'leave' || sx === 'enter' || (sx && sx.startsWith('task'))) return true;
     if (!WORK_PHASES.has(st.phase)) return true;
     if (sx === 'inside' || sx === 'sleepout') return true; // still in bed: walks out at its shift start
     if (r.job && this.byKey(r.job)) return true;
@@ -667,6 +760,9 @@ export class StaffSystem {
       case 'cheer':
         if (sx.t > 1.6) b.sx = { st: 'idle', t: 0 };
         break;
+      case 'script': // a feast event holds this beaver (hold / pose / unhold)
+        if (sx.face != null) b.heading += angleDiff(b.heading, sx.face) * Math.min(1, dt * 5);
+        break;
       case 'inside': {
         b.rig.root.visible = false;
         if (!night && !(st.phase === 'day' && st.hour < this.shiftStart(r))) {
@@ -793,8 +889,11 @@ export class StaffSystem {
     const team = this.assignedTo(s);
     const p = this.workSpot(s, Math.max(0, team.indexOf(r)), Math.max(1, team.length));
     if (Math.hypot(p.x - b.x, p.z - b.z) > 0.3) { b.sx = { st: 'go', tx: p.x, tz: p.z, next: 'work', nextData: { s, face: p.face } }; return; }
-    b.heading += angleDiff(b.heading, sx.face ?? -Math.PI / 2) * Math.min(1, dt * 5);
     sx.anim = J.anim || SKILL_ANIM[J.skill] || 'hammer';
+    // counter jobs face the customers (and the camera); bench jobs show a 3/4 profile
+    const outward = sx.anim === 'serve' || sx.anim === 'type' || sx.anim === 'fold' || sx.anim === 'carry';
+    const face = outward ? Math.PI / 2 : (team.indexOf(r) % 2 ? Math.PI * 0.85 : Math.PI * 0.15);
+    b.heading += angleDiff(b.heading, face) * Math.min(1, dt * 5);
     r.energy = clamp(r.energy - dt * 0.2 * (r.has('hardworker') ? 0.85 : 1), 0, 100);
     this.gainXp(r, dt * 0.17);
     // little work FX at the building
@@ -1088,6 +1187,7 @@ export class StaffSystem {
     if (b.carryItem) return b.moving ? 'carry' : 'carry_idle';
     switch (st) {
       case 'cheer': return 'cheer';
+      case 'script': return sx.anim || 'idle';
       case 'exit': return 'stretch';
       case 'enter': return 'walk';
       case 'sleepout': return 'sleep';

@@ -307,7 +307,7 @@ class Paths {
     w.removeClutter(x, z);
     this.clutterDirty = true;
     const g = this.grid, y = Math.max(0, g.height[this.idx(x, z)]) + 0.15;
-    for (let k = 0; k < 5; k++) game.particles.leaf?.(x + 0.3 + Math.random() * 0.4, y + 0.1, z + 0.3 + Math.random() * 0.4, [0xf06a8a, 0xffd84a, 0xb48aff, 0xffffff][k % 4]);
+    for (let k = 0; k < 6; k++) game.particles.fx.spawn('petal', x + 0.3 + Math.random() * 0.4, y + 0.1, z + 0.3 + Math.random() * 0.4, { vx: (Math.random() - 0.5) * 1.6, vy: 1 + Math.random(), vz: (Math.random() - 0.5) * 1.6, grav: 3, drag: 1.5, life: 1.4, size: 0.12, spin: 4, flags: 64 });
     game.audio.play('rs_squish', { volume: 0.3, pitch: 0.9 + Math.random() * 0.3 });
     b.trampled = (b.trampled || 0) + 1;
     game.emit('trample', { bear: b, x, z });

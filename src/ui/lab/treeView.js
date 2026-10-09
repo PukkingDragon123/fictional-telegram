@@ -278,7 +278,7 @@ export class TreeView {
       const fpx = Math.max(13 * D, Math.round(20 * k));
       ctx.font = `${fpx}px ${FONT}`;
       const num = String(Sec.i + 1).padStart(2, '0');
-      const x = X(G.PADL);
+      const x = Math.max(X(G.PADL), Math.round(10 * D)); // the title sticks to the left edge
       const by = y0 + Math.max(Math.round(fpx * 1.05), Math.round(29 * k));
       const sel = S.selSec === Sec;
       const title = `${num} ${String(Sec.b.name || Sec.id).toUpperCase()}`;

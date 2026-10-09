@@ -89,7 +89,18 @@ class Storage {
   baseY(s) { return s.site ? this.game.grid.groundAt(s.x, s.z) : this.game.structures.baseY(s); }
   topY(s) { if (s.site) return this.baseY(s) + (s.badgeY || 1.4); const [w] = s.def.size || [1, 1]; return this.baseY(s) + (s.def.depot.badgeY || (w > 1 ? 2.05 : 1.45)); }
 
+  // the list follows the builds (placed / built / removed since last time)
+  sync() {
+    const L = this.game.structures.list;
+    let n = L.length;
+    for (const s of L) if (s.def.depot && s.built) n += 1000;
+    if (n !== this._sig) this.refreshList();
+  }
   refreshList() {
+    const L0 = this.game.structures.list;
+    let n0 = L0.length;
+    for (const s of L0) if (s.def.depot && s.built) n0 += 1000;
+    this._sig = n0;
     const out = [];
     for (const s of this.game.structures.list) if (s.def.depot && s.built && !s.removed) out.push(s);
     for (const s of this.sites.values()) out.push(s);
@@ -131,11 +142,12 @@ class Storage {
     this.game.emit('res', { id, n: -k, total: this.total(id), s });
     return k;
   }
-  total(id) { let n = 0; for (const s of this.list) n += this.stock(s, id); return n; }
+  total(id) { this.sync(); let n = 0; for (const s of this.list) n += this.stock(s, id); return n; }
   totalRoom(id, { piles = false } = {}) { let n = 0; for (const s of this.list) if (piles || !this.isPile(s)) n += this.room(s, id); return n; }
   dist(s, x, z) { const d = this.door(s); return x == null ? 0 : Math.hypot(d.x - x, d.z - z); }
 
   nearestWithRoom(id, x, z, { n = 1, piles = false, except = null } = {}) {
+    this.sync();
     let best = null, bd = Infinity;
     for (const s of this.list) {
       if (s === except || (!piles && this.isPile(s))) continue;
@@ -147,6 +159,7 @@ class Storage {
   }
   // nearest storage holding id (Supply Piles get emptied first)
   nearestWithStock(id, x, z, { n = 1, except = null } = {}) {
+    this.sync();
     let best = null, bd = Infinity;
     for (const s of this.list) {
       if (s === except || this.stock(s, id) < n) continue;

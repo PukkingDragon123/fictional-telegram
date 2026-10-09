@@ -95,6 +95,7 @@ export class HomeMode {
   tapDoor(sx, sy) {
     if (this.active) return false;
     const game = this.game;
+    if (game.homePC?.tapDoor?.(sx, sy)) return true; // [v26 evening] Reynard's own front door -> his den
     let best = null, bd = 34 * 34;
     for (const [id, d] of this.doors) {
       const v = game.villagers?.get(id);

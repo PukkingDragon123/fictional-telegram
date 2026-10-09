@@ -19,6 +19,8 @@ import { CameraRig } from '../core/cameraRig.js';
 import { Transition } from '../ui/Transition.js';
 import { spriteCanvas, hasSprite } from '../ui/sprites.js';
 import { buildBedroom } from '../entities/bedroomScene.js';
+import { makeMug } from '../entities/foxOffice.js'; // [v26 evening]
+import { NightSky } from '../ui/NightSky.js'; // [v26 evening]
 import '../ui/bedtime.css';
 
 const mods = import.meta.glob(['../entities/foxRig.js'], { eager: true });
@@ -138,6 +140,8 @@ export class Bedtime {
     const fr = this.walk?.res;
     if (fr) { this.walk.res = null; this.walk.goal = null; fr(); }
     for (const t of this._timers.splice(0)) t.res();
+    this._sky?.skip(); // [v26 evening]
+    if (this._sw) { const r = this._sw.res; this._sw = null; r(); }
   }
 
   /** Call every frame with the real dt (optional: it drives itself otherwise). */
@@ -227,13 +231,17 @@ export class Bedtime {
     this.clock = 0;
     this._build();
     const result = { completed: false, skipped: false };
+    // [v26 evening] the end-of-day PC session leaves us in this very room: carry on from the desk
+    const fromRoom = !!game.overrideScene && game.overrideScene === this.scene;
+    if (fromRoom) game.homePC?.releaseRoom?.();
     this.saved = {
-      overrideScene: game.overrideScene ?? null, overrideRig: game.overrideRig ?? null,
+      overrideScene: fromRoom ? null : game.overrideScene ?? null, overrideRig: fromRoom ? null : game.overrideRig ?? null,
       paused: game.state ? game.state.paused : undefined, inputLocked: game.inputLocked,
     };
     this._selfDrive();
     try {
-      await this._wipe(() => this._enter(skippable));
+      if (fromRoom) this._enter(skippable, true);
+      else await this._wipe(() => this._enter(skippable, false));
       this._check();
       await this._sequence();
       result.completed = true;
@@ -243,7 +251,7 @@ export class Bedtime {
     }
     // to black (quickly when skipped), then restore everything behind it
     this._skip = false;
-    await this._toBlack(result.skipped ? 0.25 : 0);
+    await this._toBlack(result.skipped ? 0.25 : 0.4);
     this._leave();
     this._active = false;
     cancelAnimationFrame(this._raf); this._raf = 0;
@@ -256,23 +264,28 @@ export class Bedtime {
     try { this._trans ||= new Transition(); return this._trans.wipe('iris', mid); } catch { mid(); return Promise.resolve(); }
   }
 
-  _enter(skippable) {
+  _enter(skippable, keep = false) {
     const game = this.game, room = this.room, f = this.fox;
     game.overrideScene = this.scene;
     game.overrideRig = this.rig;
     if (game.state) game.state.paused = true;
     game.inputLocked = true;
     document.body.classList.add('bedtime-mode');
-    room.setLamp(true, true); room.setQuilt(0, true); room.setPajamasHung(true); room.setMonocle(false);
-    if (f) {
-      f.setOutfit('default'); f.holdProp(null); f.holdBoth(null); f.setAim(null); f.setExpression(null);
-      const a = room.anchors.start;
-      f.root.position.copy(a.position);
-      f.root.rotation.y = this.walk.yaw = a.rotationY;
-      f.play('yawn_big', { fade: 0, restart: true });
-    }
+    if (!keep) {
+      // [v26 evening] he starts at his desk, the books on screen
+      room.setLamp(true, true); room.setSky('night'); room.setQuilt(0, true); room.setPajamasHung(true); room.setMonocle(false);
+      room.office.setPC('on'); room.office.ringAlarm(false);
+      if (f) {
+        f.setOutfit('default'); f.holdProp(null); f.hold(null); f.holdBoth(null); f.setAim(null); f.setExpression(null);
+        const seat = room.anchors.seat;
+        f.root.position.copy(seat.position);
+        f.root.rotation.y = this.walk.yaw = seat.rotationY;
+        room.office.chair.rotation.y = seat.rotationY;
+        f.play('sit_type', { fade: 0, restart: true });
+      }
+    } else if (f) this.walk.yaw = f.root.rotation.y;
     this._fxOff();
-    this.cam('wide', true);
+    this.cam(keep ? 'office' : 'room', true);
     this._buildUI(skippable);
     this._tick(0);
   }
@@ -288,6 +301,10 @@ export class Bedtime {
     this.iris?.remove(); this.iris = null;
     this._fxOff();
     this.fox?.stopTalking?.();
+    this.fox?.hold(null); // [v26 evening] the morning mug
+    this.room?.office.ringAlarm(false);
+    this._sky?.destroy(); this._sky = null;
+    this._glide = null; this._sw = null;
   }
 
   _buildUI(skippable) {
@@ -312,53 +329,155 @@ export class Bedtime {
     this._irisK = 0;
   }
 
+  // [v26 evening] desk -> pajamas -> bed -> lights out -> the camera drifts out through the
+  // window up to the stars (src/ui/NightSky.js: time-lapse) -> black. ~12 s, skippable.
   async _sequence() {
-    const room = this.room, A = room.anchors, f = this.fox;
-    this._sfx('bed_yawn', { volume: 0.5 });
-    await this.wait(1.7);
-    // to the sink, brush brush brush
-    await this.walkTo(A.sink.position, A.sink.rotationY);
-    this.cam('sink');
-    f?.holdProp('toothbrush');
-    f?.play('brush_teeth', { fade: 0.2 });
-    await this.wait(2.0);
-    // sparkly clean teeth: ding!
-    f?.play('idle', { fade: 0.25 });
-    f?.holdProp(null);
-    f?.setExpression('happy', { hold: 0.9 });
+    const room = this.room, A = room.anchors, f = this.fox, O = room.office;
+    O.setPC('off');
+    this._sfx('crt_off', { volume: 0.35 });
     if (f) {
-      const m = f.root.worldToLocal(f.headTop(new THREE.Vector3()));
-      for (let i = 0; i < 4; i++) f.puff('star', new THREE.Vector3(m.x + (i - 1.5) * 0.06, m.y - 0.33 + (i % 2) * 0.04, m.z + 0.3), { vel: new THREE.Vector3((i - 1.5) * 0.15, 0.25, 0.1), life: 0.7, size: 0.06, delay: i * 0.05 });
+      f.play('sit', { fade: 0.15 });
+      await this._swivel(0, 0.4);
     }
-    this._sfx('bed_ding', { volume: 0.55 });
-    await this.wait(0.65);
-    // behind the screen... poof! pajamas
-    this.cam('wide');
-    await this.walkTo(A.screen.position, A.screen.rotationY);
-    this.cam('screen');
-    if (f) {
-      const ch = f.changeInto('pajamas');
-      await Promise.race([ch, this.wait(1.75)]);
-    } else await this.wait(1.6);
+    O.setDeskLamp(false);
+    this._sfx('bed_click', { volume: 0.45, pitch: 1.3 });
+    this.cam('room');
+    this.walk.speed = 1.9;
+    await this.walkTo(A.deskExit);
+    // poof: pajamas, right there on the rug
+    this._sfx('bed_yawn', { volume: 0.45 });
+    if (f) await Promise.race([f.changeInto('pajamas'), this.wait(1.75)]);
+    else await this.wait(1.2);
     this._check();
-    // hop into bed
+    await this.walkTo(A.bedApproach.position, Math.PI);
+    this.walk.speed = WALK_SPEED;
     this.cam('bed');
-    await this.walkTo(A.bed.position, Math.PI);
-    if (f) { f.root.rotation.y = this.walk.yaw = A.bed.rotationY; f.play('climb_bed', { fade: 0, restart: true }); }
-    await this.wait(2.15);
-    await this.wait(0.35);
-    // lamp off: click
+    if (f) { f.root.position.copy(A.bed.position); f.root.rotation.y = this.walk.yaw = A.bed.rotationY; f.play('climb_bed', { fade: 0, restart: true }); }
+    await this.wait(2.1);
+    // lights out: click, moonlight
     this._sfx('bed_click', { volume: 0.6 });
     room.setLamp(false);
-    await this.wait(0.7);
-    // the cute sleep effect, slowly pushing in
+    await this.wait(0.35);
+    // the sleep effect, and the camera floats toward the moonlit window...
     this.cam('close');
+    this._push = null;
     this._fxOn();
     this._sfx('bed_lullaby', { volume: 0.45 });
-    await this.wait(4.4);
-    // iris close
-    this._irisGoal = 1; this._irisDur = 1.6;
-    await this.wait(1.7);
+    await this.wait(0.6);
+    this._glideTo('window', 2.0);
+    await this.wait(1.85);
+    // ...and out through it, up to the stars over the valley
+    this._sky = new NightSky();
+    this._sfx('ev_twinkle', { volume: 0.5 });
+    await Promise.race([this._sky.play('night', { dur: 3.9 }), this.wait(4.2)]);
+    this._check();
+  }
+
+  // [v26 evening] the morning: sunrise sweeps the valley, the camera dives back into the room,
+  // the alarm clock rings and rattles, Reynard jolts awake, stretches, coffee. ~12 s, skippable.
+  // Resolves with the screen BLACK (call reveal()).
+  wake({ skippable = true } = {}) {
+    const run = this._chain.then(() => this._wake({ skippable }));
+    this._chain = run.catch(() => {});
+    return run;
+  }
+
+  async _wake({ skippable }) {
+    const game = this.game;
+    this._skip = false;
+    this._active = true;
+    this.clock = 0;
+    this._build();
+    const room = this.room, A = room.anchors, f = this.fox, O = room.office;
+    this.saved = { overrideScene: null, overrideRig: null, paused: game.state ? game.state.paused : undefined, inputLocked: false };
+    if (game.state) game.state.paused = true;
+    game.inputLocked = true;
+    document.body.classList.add('bedtime-mode');
+    this._selfDrive();
+    this._buildUI(skippable);
+    const result = { completed: false, skipped: false };
+    try {
+      this.black.style.opacity = '1';
+      this._sky = new NightSky();
+      const sp = this._sky.play('dawn', { dur: 4.0 });
+      this.black.style.transition = 'opacity 0.3s ease';
+      void this.black.offsetWidth;
+      this.black.style.opacity = '0';
+      this._sfx('sunrise', { volume: 0.45 });
+      this.later(1.7, () => this._sfx('ev_chirp', { volume: 0.35 }));
+      this.later(2.3, () => this._sfx('ev_chirp', { volume: 0.3, pitch: 1.2 }));
+      await Promise.race([sp, this.wait(4.3)]);
+      this._check();
+      // dive into the room: start on the window, pull back to the bed
+      game.overrideScene = this.scene; game.overrideRig = this.rig;
+      room.setMood('morning', true); room.setSky('morning'); room.setQuilt(1, true); room.setPajamasHung(false); room.setMonocle(true);
+      O.setPC('off'); O.ringAlarm(false); O.setDeskLamp(false, true);
+      if (f) {
+        f.setOutfit('pajamas'); f.holdProp(null); f.hold(null); f.setExpression(null);
+        f.root.position.copy(A.bed.position); f.root.rotation.y = this.walk.yaw = A.bed.rotationY;
+        f.play('sleep_bed', { fade: 0, restart: true });
+      }
+      this._fxOff();
+      this.cam('window', true);
+      this._glideTo('wake', 1.0);
+      const sky = this._sky; this._sky = null;
+      sky.cv.style.transition = 'opacity 0.3s steps(4)'; void sky.cv.offsetWidth; sky.cv.style.opacity = '0';
+      setTimeout(() => sky.destroy(), 350);
+      await this.wait(1.0);
+      // BRRRRING
+      O.ringAlarm(true);
+      this._sfx('alarm', { volume: 0.55 });
+      await this.wait(0.85);
+      if (f) { room.setQuilt(0); f.play('bed_wake', { fade: 0.05, restart: true }); }
+      await this.wait(0.72);
+      O.ringAlarm(false);
+      this._sfx('bed_ding', { volume: 0.4, pitch: 0.7 });
+      await this.wait(1.0);
+      f?.play('stretch', { fade: 0.2, speed: 1.45, restart: true });
+      await this.wait(1.9);
+      // coffee
+      if (f) {
+        const mug = makeMug();
+        mug.position.set(0, -0.1, 0.01);
+        f.hold(mug);
+        f.puff('star', new THREE.Vector3(-0.25, 0.55, 0.3), { vel: new THREE.Vector3(0, 0.3, 0.1), life: 0.6, size: 0.07 });
+        this._sfx('pop_in', { volume: 0.35 });
+        f.play('sip_coffee', { fade: 0.15, restart: true });
+      }
+      await this.wait(2.35);
+      result.completed = true;
+    } catch (e) {
+      if (e !== SKIP) console.warn('Bedtime wake', e);
+      result.skipped = e === SKIP;
+    }
+    this._skip = false;
+    await this._toBlack(result.skipped ? 0.2 : 0.35);
+    this._leave();
+    this.room?.setMood('lamp', true);
+    this.fox?.setOutfit('default');
+    this._active = false;
+    cancelAnimationFrame(this._raf); this._raf = 0;
+    return result;
+  }
+
+  later(sec, fn) { this._timers.push({ t: this.clock + sec, res: () => { if (!this._skip) fn(); } }); }
+
+  // camera glide from wherever it is to an anchor view (eased), driven by _tick
+  _glideTo(name, dur) {
+    const a = this.room.anchors['cam' + name[0].toUpperCase() + name.slice(1)];
+    if (!a) return;
+    const r = this.game.renderer, rig = this.rig;
+    const wupp = Math.max(a.fit.w / Math.max(1, r?.lowW || 640), a.fit.h / Math.max(1, r?.lowH || 360));
+    this._push = null;
+    this._glide = { from: { target: rig.target.clone(), wupp: rig.wupp, pitch: rig.pitch }, to: { target: a.target.clone(), wupp, pitch: a.pitch }, t: 0, dur };
+  }
+
+  // swivel the office chair (with him in it) round to a yaw
+  _swivel(yaw, dur) {
+    const f = this.fox;
+    if (!f) return Promise.resolve();
+    this._sfx('bed_creak', { volume: 0.3, pitch: 1.6 });
+    return new Promise((res) => { this._sw = { from: f.root.rotation.y, to: yaw, t: 0, dur, res }; });
   }
 
   // ---------------------------------------------------------------- fox events -> sounds + room
@@ -376,8 +495,14 @@ export class Bedtime {
       case 'snore': if (this.fx.on) this._sfx('bed_snore', { volume: 0.35 }); break;
       case 'mumble': this._sfx('bed_mumble', { volume: 0.35 }); break;
       case 'pop': this._sfx('bed_foam', { volume: 0.25, pitch: 0.7 }); break;
+      // [v26 evening] the office + the morning
+      case 'startle': this._sfx('fox_startle', { volume: 0.5 }); break;
+      case 'land': this._sfx('bed_creak', { volume: 0.4, pitch: 0.7 }); break;
+      case 'gulp': this._sfx('bed_foam', { volume: 0.3, pitch: 0.5 }); break;
+      case 'zing': this._sfx('star_pop', { volume: 0.45 }); break;
       default:
     }
+    try { this.onFoxEvent?.(name); } catch (e) { console.warn(e); } // [v26 evening] homePC: desk slams, keys
   }
 
   // ---------------------------------------------------------------- walking
@@ -400,7 +525,7 @@ export class Bedtime {
       const d = new THREE.Vector3().subVectors(w.goal, root.position).setY(0);
       const L = d.length();
       if (L > 0.03) {
-        root.position.addScaledVector(d, Math.min(L, WALK_SPEED * dt) / L);
+        root.position.addScaledVector(d, Math.min(L, (w.speed || WALK_SPEED) * dt) / L);
         w.yaw = Math.atan2(d.x, d.z);
       } else {
         root.position.copy(w.goal);
@@ -421,15 +546,19 @@ export class Bedtime {
   cam(name, instant = false) {
     const a = this.room.anchors['cam' + name[0].toUpperCase() + name.slice(1)] || this.room.anchors.camWide;
     this._camA = a; this._camName = name;
+    this._glide = null;
     const rig = this.rig, r = this.game.renderer;
     const wupp = Math.max(a.fit.w / Math.max(1, r?.lowW || 640), a.fit.h / Math.max(1, r?.lowH || 360));
-    rig.goal.copy(a.target);
+    // [v26 evening] never show the void past the office (the room's right edge)
+    const tgt = a.target.clone(), halfW = (wupp * (r?.lowW || 640)) / 2;
+    if (tgt.x + halfW > 4.36 && halfW < 3.3) tgt.x = Math.max(4.36 - halfW, -2.2 + halfW);
+    rig.goal.copy(tgt);
     rig.wuppGoal = wupp;
     rig.yawGoal = a.yaw || 0;
     rig.pitchGoal = a.pitch;
     rig.minWupp = 0.0003; rig.maxWupp = 1;
     // cuts are cuts: jump there
-    rig.target.copy(a.target); rig.wupp = wupp; rig.yaw = rig.yawGoal; rig.pitch = rig.pitchGoal;
+    rig.target.copy(tgt); rig.wupp = wupp; rig.yaw = rig.yawGoal; rig.pitch = rig.pitchGoal;
     void instant;
     // the sleep shot slowly pushes in toward head-and-shoulders on the pillow (and never closer)
     const face = this.room.anchors.camFace;
@@ -569,6 +698,7 @@ export class Bedtime {
       const t = this._timers[i];
       if (this.clock >= t.t) { this._timers.splice(i, 1); t.res(); }
     }
+    this._sky?.update(dt); // [v26 evening]
     if (!this.room) return;
     this._tickFox(dt);
     this.room.update(dt, this.clock);
@@ -581,6 +711,25 @@ export class Bedtime {
       this.rig.wuppGoal = this.rig.wupp = P.w0 + (P.w1 - P.w0) * e;
       this.rig.target.lerpVectors(P.a.target, P.face.target, e); this.rig.goal.copy(this.rig.target);
       this.rig.pitch = this.rig.pitchGoal = P.a.pitch + (P.face.pitch - P.a.pitch) * e;
+    }
+    // [v26 evening] chair swivel + camera glides
+    if (this._sw && this.fox) {
+      const S = this._sw;
+      S.t += dt;
+      const k = Math.min(1, S.t / S.dur), c = 1.7, e = 1 + (c + 1) * (k - 1) ** 3 + c * (k - 1) ** 2;
+      const yaw = S.from + (S.to - S.from) * e;
+      this.fox.root.rotation.y = this.walk.yaw = yaw;
+      this.room.office.chair.rotation.y = yaw;
+      if (k >= 1) { this._sw = null; S.res(); }
+    }
+    if (this._glide) {
+      const G = this._glide, rig = this.rig;
+      G.t += dt;
+      const k = Math.min(1, G.t / G.dur), e = k * k * (3 - 2 * k);
+      rig.target.lerpVectors(G.from.target, G.to.target, e); rig.goal.copy(rig.target);
+      rig.wupp = rig.wuppGoal = Math.exp(Math.log(G.from.wupp) + (Math.log(G.to.wupp) - Math.log(G.from.wupp)) * e);
+      rig.pitch = rig.pitchGoal = G.from.pitch + (G.to.pitch - G.from.pitch) * e;
+      if (k >= 1) this._glide = null;
     }
     if (this.game.renderer) this.rig.update(dt, this.game.renderer);
     this._tickIris(dt);

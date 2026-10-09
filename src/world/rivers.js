@@ -114,10 +114,15 @@ void main() {
   col *= 1.0 - uNight * 0.35;
   float alpha = mix(0.82, 0.9, drop);
   if (uCurtain > 0.5) {
-    // the tall fall: sheets with gaps you can see the house through
-    float sheet = vn(vec2(c * 5.0 + 11.0, a * 0.35 - t * 2.2));
-    alpha = mix(0.38, 0.92, smoothstep(0.35, 0.7, sheet)) * smoothstep(0.0, 0.12, edge);
-    col = mix(col, foamC, smoothstep(0.55, 0.85, sheet) * 0.7 + 0.15);
+    // the tall fall: solid ropes of water with slits between them (the house shows through)
+    float colk = floor(across * 14.0);
+    float rope = hh(vec2(colk, 3.0));
+    float sheet = vn(vec2(colk * 1.7 + 11.0, a * 0.5 - t * (2.0 + rope)));
+    float gap = step(0.62, rope) * step(0.45, vn(vec2(colk, a * 0.25 - t * 0.7)));
+    alpha = (1.0 - gap * 0.85) * smoothstep(0.0, 0.08, edge);
+    col = mix(uShallow * vec3(0.9, 1.1, 1.1), foamC, 0.35 + smoothstep(0.45, 0.8, sheet) * 0.55);
+    col *= 0.92 + 0.12 * hh(vec2(colk, 7.0));
+    col *= 1.0 - uNight * 0.35;
   }
   if (alpha < bayer4(gl_FragCoord.xy) * 0.98) discard;
   gl_FragColor = vec4(col, 1.0);
@@ -147,7 +152,7 @@ void main() {
     // mist: billows up and out, slowly
     p += vec3(cos(ang), 0.0, sin(ang)) * aSeed.z * (0.3 + life * 1.1) + vec3(sin(uTime * 0.3 + r2 * 6.0) * 0.3, life * (1.4 + r3 * 1.8), 0.0);
     size = aSeed.w * (0.7 + life * 1.6);
-    vA = smoothstep(0.0, 0.15, life) * (1.0 - smoothstep(0.55, 1.0, life)) * 0.55;
+    vA = smoothstep(0.0, 0.15, life) * (1.0 - smoothstep(0.45, 1.0, life)) * 0.42;
   } else {
     // spray: droplets flung out of the impact in arcs
     float v = 1.6 + r2 * 2.2;
@@ -310,8 +315,8 @@ export class RiverFX {
   buildParticles() {
     const origin = [], seed = [];
     for (const d of this.drops) {
-      const nMist = d.big ? 70 : Math.round(4 + d.k * 8), nSpray = d.big ? 90 : Math.round(3 + d.k * 8);
-      for (let k = 0; k < nMist; k++) { origin.push(d.x + (hash2(k, 1, d.x * 7) - 0.5) * (d.big ? 2.4 : 0.4), d.y + 0.05, d.z + (hash2(k, 2, d.z * 7) - 0.5) * (d.big ? 1.2 : 0.3)); seed.push(hash2(k, 3, d.x * 13 + d.z), 0, d.big ? 1.4 : 0.35, d.big ? 1.3 : 0.45); }
+      const nMist = d.big ? 46 : Math.round(4 + d.k * 8), nSpray = d.big ? 90 : Math.round(3 + d.k * 8);
+      for (let k = 0; k < nMist; k++) { origin.push(d.x + (hash2(k, 1, d.x * 7) - 0.5) * (d.big ? 2.4 : 0.4), d.y + 0.05, d.z + (hash2(k, 2, d.z * 7) - 0.5) * (d.big ? 1.2 : 0.3)); seed.push(hash2(k, 3, d.x * 13 + d.z), 0, d.big ? 1.5 : 0.35, d.big ? 1.0 : 0.45); }
       for (let k = 0; k < nSpray; k++) { origin.push(d.x + (hash2(k, 4, d.x * 7) - 0.5) * (d.big ? 2.6 : 0.3), d.y + 0.02, d.z + (hash2(k, 5, d.z * 7) - 0.5) * (d.big ? 0.8 : 0.2)); seed.push(hash2(k, 6, d.x * 17 + d.z), 1, d.big ? 0.75 : 0.22, d.big ? 0.12 : 0.07); }
     }
     const geo = new THREE.InstancedBufferGeometry();

@@ -60,8 +60,8 @@ export class TitleWorld {
     this.cam.lookAt(0, 0, 0);
     this.rig = { camera: this.cam, subpixel: new THREE.Vector2(0, 0) };
     // light for the 3D cast: a low golden sun from the right, a warm rim from behind, lilac sky fill
-    const hemi = new THREE.HemisphereLight(0xd8b0d0, 0x6a5440, 1.35);
-    const sun = new THREE.DirectionalLight(0xffc896, 2.3);
+    const hemi = new THREE.HemisphereLight(0xe8c4dc, 0x7a6448, 1.9);
+    const sun = new THREE.DirectionalLight(0xffd0a0, 2.7);
     sun.position.set(6, 3.2, 4.5);
     const rim = new THREE.DirectionalLight(0xffa860, 1.5);
     rim.position.set(4, 2.5, -6);
@@ -112,7 +112,7 @@ export class TitleWorld {
     cam.left = -rtW * WUPP / 2; cam.right = rtW * WUPP / 2; cam.top = rtH * WUPP / 2; cam.bottom = -rtH * WUPP / 2;
     cam.updateProjectionMatrix();
     // the sky fills the frame plus the render target's 1 px margin
-    this._addLayer('sky', L.sky, -2, -2, 0, ORDER.sky, { pad: 2 });
+    this._addLayer('sky', L.sky, 0, 0, 0, ORDER.sky, { pad: 2 });
     for (const ly of L.layers || []) {
       if (ly.name === 'water') this._addWater(ly);
       else this._addLayer(ly.name, ly.c, -L.M, ly.y, ly.par, ORDER[ly.name] ?? 7);
@@ -193,6 +193,7 @@ export class TitleWorld {
   _buildFx() {
     const L = this.L, lw = this.lw, lh = this.lh, M = L.M, g = this.layerGroup;
     const W = lw + M * 2;
+    this.dyn.mists = [];
     const mist = (name, y0, h, order, par, opts) => {
       const mat = mistMaterial(W, h, opts);
       mat.uniforms.uSunX.value = L.sun.x + M;
@@ -244,7 +245,7 @@ export class TitleWorld {
     // birds: two loose flocks
     fx.birds.length = 0;
     for (let f = 0; f < 2; f++) {
-      const n = f ? 3 : 5, y = L.hy * (f ? 0.38 : 0.22) + rand(-6, 6), x = f ? -40 : lw * 0.15, v = f ? 7 : 5.5;
+      const n = f ? 3 : 5, y = L.hy * (f ? 0.38 : 0.22) + rand(-6, 6), x = f ? -90 : -24, v = f ? 7 : 6.5;
       for (let i = 0; i < n; i++) fx.birds.push({ x: x - i * 7 - Math.abs(i - n / 2) * 2, y: y + Math.abs(i - (n - 1) / 2) * 3, v, ph: rand(0, 6), f });
     }
     // fireflies around the pond and the woods' edge
@@ -261,7 +262,7 @@ export class TitleWorld {
     fx.motes.length = 0;
     for (let i = 0; i < 40; i++) fx.motes.push({ x: rand(lw * 0.3, lw), y: rand(L.hy * 0.5, L.f2), ph: rand(0, 9), sp: rand(0.5, 1.5) });
     // office windows: which are lit (some go dark at five)
-    fx.lights = (L.office?.windows || []).map((w) => ({ x: w[0], y: w[1], on: w[2] > 0, flick: rand(4, 30) }));
+    fx.lights = (L.office?.windows || []).map((w) => ({ x: w[0], y: w[1], on: w[2] > 0, painted: w[2] > 0, hi: w[3] > 0, flick: rand(4, 30) }));
   }
 
   // ============================================================ post grade
@@ -322,7 +323,7 @@ export class TitleWorld {
       this.dyn.rays.mat.uniforms.uTime.value = t;
     }
     for (const m of this.dyn.mists) m.mat.uniforms.uTime.value = t;
-    if (this.dyn.water) this.dyn.water.mat.uniforms.uTime.value = t;
+    if (this.dyn.water) { this.dyn.water.mat.uniforms.uTime.value = t; this.dyn.water.mat.uniforms.uAmp.value = smooth((t - 0.4) / 2); }
     // phases: intro -> quiet (the calm before five) -> rush
     if (this.phase === 'intro' && t > 2.6) this._setPhase('quiet');
     else if (this.phase === 'quiet') {
@@ -400,8 +401,9 @@ export class TitleWorld {
     for (const w of fx.lights) {
       w.flick -= dt;
       if (w.flick < 0) { w.flick = rush ? rand(0.6, 6) : rand(6, 40); w.on = rush ? Math.random() < 0.45 : Math.random() < 0.8; }
-      if (!w.on) pt.office.add(w.x + mox, w.y + moy, 0x4a4062, 2);
-      else pt.office.add(w.x + mox, w.y + moy, 0xffd27a, 2, 1.25);
+      if (w.on === w.painted) continue; // the painted window shows through
+      const c = w.on ? (w.hi ? 0xffe9a8 : 0xffd27a) : 0x4a4062;
+      for (let k = 0; k < 3; k++) { pt.office.add(w.x + mox, w.y + k + moy, c, 1, w.on ? 1.2 : 1); pt.office.add(w.x + 1 + mox, w.y + k + moy, c, 1, w.on ? 1.2 : 1); }
     }
     // steam puffs (the five o'clock whistle)
     for (let i = fx.steam.length - 1; i >= 0; i--) {

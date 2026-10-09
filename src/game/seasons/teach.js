@@ -120,7 +120,7 @@ export class Teacher {
   // called from the bear system the first time something happens
   onBuilt(s) {
     if (!s?.def) return;
-    if (s.def.fuel) this.say('A fire needs fuel: 1 wood (or coal) each cold evening. Keep the Wood Garage stocked.', 'info', { key: 'fuel_tip', prio: 2 });
+    if (s.def.fuel) this.say('A fire needs fuel: 1 wood (or coal) each cold day. Keep the Wood Garage stocked.', 'info', { key: 'fuel_tip', prio: 2 });
     if (s.def.greenhouse) this.say('Crops near the Greenhouse keep growing all winter. Frost can\'t touch them.', 'happy', { key: 'gh_tip', prio: 2 });
     if (s.def.dry) this.say('Bears in the rain will run for that roof. Dry bears, happy bears.', 'happy', { key: 'dry_tip', prio: 1 });
     if (s.def.cool) this.say('Hot bears love a misting fan. Like a spa, but cheaper. For me.', 'happy', { key: 'cool_tip', prio: 1 });

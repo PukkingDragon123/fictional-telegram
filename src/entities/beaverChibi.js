@@ -258,12 +258,13 @@ function headModel(o) {
     if (z >= 2 && y <= 3 && Math.abs(x + 0.5) <= 4.6) return vt(SL.MUZ, x, y, z, 0.1, 0.06);
     return furV(x, y, z);
   };
-  rbox(v, -6, 5, 0, 9, -5, 4, 2.4, col);
+  rbox(v, -6, 5, 0, 9, -5, 4, 3.3, col);
+  ell(v, 0, 5.2, -0.4, 6.2, 5.0, 5.0, (x, y, z) => (z > 4 ? null : col(x, y, z)));
   // chubby cheek pouches
   for (const s of [-1, 1]) ell(v, s * 4.6, 2.8, 2.6, 2.0, 1.8, 1.7, (x, y, z) => vt(SL.MUZ, x, y, z, 0.12, 0.06));
   // muzzle + nose
   rbox(v, -2, 1, 0, 3, 4, 6, 0.9, (x, y, z) => vt(SL.MUZ, x, y, z, 0.1, 0.12));
-  v.set(-1, 3, 7, V(SL.NOSE)); v.set(0, 3, 7, V(SL.NOSE)); v.set(-1, 4, 6, V(SL.NOSE, 2)); v.set(0, 4, 6, V(SL.NOSE));
+  v.set(-1, 3, 7, V(SL.NOSE)); v.set(0, 3, 7, V(SL.NOSE, 2));
   // buck teeth peeking under the muzzle
   v.set(-1, -1, 6, V(SL.TOOTH)); v.set(0, -1, 6, V(SL.TOOTH));
   if (o.teeth) { v.set(-1, -1, 5, V(SL.TOOTH, 1)); v.set(0, -1, 5, V(SL.TOOTH, 1)); }

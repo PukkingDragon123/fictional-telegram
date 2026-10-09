@@ -83,6 +83,7 @@ const TOOLS = [
   { panel: 'match', icon: 'heart', label: 'Match', key: 0, title: 'Matchmaker: pick the parents', feature: 'match' },
   { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },
   { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 9, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
+  { panel: 'staff', icon: 'staff', label: 'Staff', key: 0, title: 'Staff roster: your beavers, jobs and homes', feature: 'staff' }, // [v26 staff]
 ];
 const stripTags = (t) => String(t).replace(/<[^>]+>/g, '');
 
@@ -206,6 +207,7 @@ export class UI {
       } else if (b.dataset.panel) {
         if (b.dataset.panel === 'lab') { if (this.panel === 'lab') this.closePanel(); else this.openLab(); return; }
         if (b.dataset.panel === 'match') { if (this.matchCard) this.closeMatchmaker(); else this.openMatchmaker(); return; }
+        if (b.dataset.panel === 'staff') { this.closePanel(); this.game.staff?.openRoster?.(); return; } // [v26 staff]
         if (this.panel === b.dataset.panel) this.closePanel();
         else this.openPanel(b.dataset.panel);
       }
@@ -292,7 +294,7 @@ export class UI {
     }
     const BC = C('BigClock');
     if (BC?.BigClock) {
-      try { this.clock = new BC.BigClock(this.hud.clockwrap, { onSpeed: (n) => { game.state.paused = false; game.setSpeed(n); }, sfx, icon }); } catch (e) { console.warn('BigClock failed', e); }
+      try { this.clock = new BC.BigClock(this.hud.clockwrap, { onSpeed: (n) => { game.state.paused = false; game.setSpeed(n); }, sfx, icon, game }); } catch (e) { console.warn('BigClock failed', e); } // [v26 evening] game: seasons sub-dial, blood-moon pip
     }
     this.blueprint = new Blueprint(this);
     this.pointers = [];
@@ -1892,6 +1894,7 @@ export class UI {
     const finish = () => { this.busy = Math.max(0, this.busy - 1); done?.(); };
     this.busy++;
     this.closePanel();
+    if (game.homePC?.evening) { game.homePC.evening(r, finish); return; } // [v26 evening] Reynard's home PC (FinanceSheet = fallback)
     this.flashTransition('rain', { dur: 0.6, color: '#1a1420', peak: 0.7 });
     if (FS?.showFinanceSheet) {
       FS.showFinanceSheet(this.hud['ceremony-root'], r, {

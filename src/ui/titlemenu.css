@@ -1,106 +1,74 @@
-/* TitleMenu: wooden logo sign on ropes + kraft paper tag buttons (see TitleMenu.js) */
+/* TitleMenu: a hanging logo board + a trail signpost with arrow planks (see TitleMenu.js).
+   --s = CSS px per art pixel (3, or 2 on small screens); every canvas is pixel art at that scale. */
 .tm {
+  --left: max(18px, 4.5vw);
+  --top: max(30px, 6.5vh);
   position: fixed; inset: 0; z-index: 40; pointer-events: none;
   font-family: var(--font-title); color: #3b2414;
-  -webkit-font-smoothing: antialiased; font-synthesis: none;
 }
-.tm-px { image-rendering: pixelated; display: block; }
-.tm-col {
-  position: absolute; left: max(24px, 6vw); top: 0; width: 318px;
-  display: flex; flex-direction: column; align-items: center; gap: 18px;
-  pointer-events: none;
-}
-/* ---------- the sign */
+.tm-px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+/* ---------- the logo board on its ropes */
 .tm-sign {
-  position: relative; padding-top: max(48px, 9vh); pointer-events: auto;
-  transform-origin: 50% 0; animation: tm-swing 1.9s cubic-bezier(.3,.7,.3,1) both;
+  position: absolute; left: var(--left); top: 0; width: var(--w); padding-top: var(--top);
+  transform-origin: 50% 0; pointer-events: auto;
+  animation: tm-swing 1.8s cubic-bezier(.3,.7,.3,1) both, tm-sway 8s ease-in-out 1.8s infinite;
 }
 .tm-rope {
-  position: absolute; top: 0; width: 6px; height: calc(max(48px, 9vh) + 12px);
-  background: repeating-linear-gradient(180deg, #c8955a 0 6px, #a8763e 6px 12px);
-  box-shadow: 3px 0 0 rgba(40, 20, 10, .35);
+  position: absolute; top: 0; width: calc(var(--s) * 2); height: calc(var(--top) + var(--s) * 5);
+  background: repeating-linear-gradient(180deg, #d8a466 0 calc(var(--s) * 2), #a8743e calc(var(--s) * 2) calc(var(--s) * 4));
+  box-shadow: calc(var(--s) * 1) 0 0 rgba(40, 14, 30, .35);
 }
-.tm-rope--l { left: 54px; } .tm-rope--r { right: 54px; }
-.tm-board {
-  position: relative; width: 306px; height: 138px; box-sizing: border-box;
-  background-color: #8b5a2b; background-size: 100% 100%; image-rendering: pixelated;
-  border: 3px solid #3b2414; border-radius: 3px;
-  box-shadow: 0 0 0 3px #a86d38 inset, 0 6px 0 #3b2414, 6px 12px 0 rgba(40, 14, 30, .35);
-  display: flex; align-items: center; justify-content: center;
+.tm-rope--l { left: calc(var(--s) * 9); } .tm-rope--r { right: calc(var(--s) * 11); }
+.tm-logo { margin: 0; font-size: 0; filter: drop-shadow(calc(var(--s) * 2) calc(var(--s) * 2) 0 rgba(40, 12, 36, .42)); }
+/* ---------- the signpost: a pole from the meadow, arrow planks nailed to it */
+.tm-post {
+  position: absolute; left: calc(var(--left) + var(--s) * 14); top: calc(var(--top) + var(--bh, 150px) + var(--s) * 12);
+  display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--s) * 3);
+  animation: tm-rise .75s cubic-bezier(.25,1.35,.5,1) .55s both;
 }
-.tm-nail { position: absolute; top: 9px; width: 9px; height: 9px; background: #d8dde6; box-shadow: inset -3px -3px 0 #8a909e, 0 0 0 3px #3b2414; }
-.tm-nail--l { left: 51px; } .tm-nail--r { right: 51px; }
-.tm-logo { display: flex; flex-direction: column; align-items: center; line-height: 1; margin-top: 6px; }
-.tm-logo span {
-  display: block; font-family: 'TBME Logo', 'TBME Title', monospace; font-size: 62.5px; line-height: 56px; letter-spacing: 3px; /* TBME Goofy at exactly 3x (1 font px = 62.5 x .96 / 20 = 3px) */ color: #ffe9b0;
-  /* chunky painted look: 1-font-pixel ink outline + deep drop shadow */
-  text-shadow:
-    0 -3px 0 #3b1a0c, 3px 0 0 #3b1a0c, -3px 0 0 #3b1a0c, 0 3px 0 #3b1a0c,
-    3px 3px 0 #3b1a0c, -3px 3px 0 #3b1a0c, 3px -3px 0 #3b1a0c, -3px -3px 0 #3b1a0c,
-    0 6px 0 #3b1a0c, 3px 6px 0 #3b1a0c, -3px 6px 0 #3b1a0c, 0 9px 0 rgba(30, 10, 4, .45);
+.tm-pole {
+  position: absolute; left: 0; top: calc(var(--s) * -5); width: calc(var(--s) * 7); height: 140vh;
+  background-repeat: repeat-y; background-size: calc(var(--s) * 7) calc(var(--s) * 24); image-rendering: pixelated;
+  filter: drop-shadow(calc(var(--s) * 2) 0 0 rgba(40, 12, 36, .35));
 }
-.tm-l1 { color: #ffd05a !important; transform: rotate(-1.5deg); }
-.tm-l2 { color: #ff9a4a !important; transform: rotate(1deg); }
-.tm-cap { position: absolute; right: -18px; top: -21px; transform: rotate(14deg); filter: drop-shadow(3px 3px 0 rgba(40, 14, 30, .45)); animation: tm-cap 4.6s ease-in-out 2s infinite; }
-.tm-leaf { position: absolute; left: 9px; bottom: 9px; transform: rotate(-20deg); }
-.tm-spark { position: absolute; animation: tm-twinkle 2.2s steps(2) infinite; }
-.tm-spark--a { left: 30px; top: 30px; }
-.tm-spark--b { right: 42px; bottom: 18px; animation-delay: 1.1s; }
-/* ---------- buttons: kraft paper tags */
-.tm-btns {
-  display: flex; flex-direction: column; gap: 12px; align-items: center; pointer-events: auto;
-  animation: tm-drop .7s cubic-bezier(.3,1.6,.5,1) .9s both;
+.tm-pole::before { /* the pole's cut top */
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: var(--s); background: #e2b07a; box-shadow: 0 calc(var(--s) * -1) 0 #2a160c;
 }
+.tm-planks { position: relative; display: flex; flex-direction: column; gap: calc(var(--s) * 3); margin-left: calc(var(--s) * 2); pointer-events: auto; }
 .tm-btn {
-  --r: 0deg;
-  position: relative; display: flex; align-items: center; justify-content: center; gap: 12px;
-  min-width: 216px; height: 54px; padding: 0 21px; box-sizing: border-box; cursor: pointer;
-  font-family: var(--font-title); font-size: 32px; line-height: 1; color: #3b2414;
-  background-color: #c8955a; background-size: 100% 100%; image-rendering: pixelated;
-  border: 3px solid #3b2414; border-radius: 0;
-  box-shadow: 0 6px 0 #3b2414, 6px 9px 0 rgba(40, 14, 30, .3);
-  transform: rotate(var(--r)); transition: transform .12s;
-  text-shadow: 0 3px 0 rgba(255, 240, 200, .45);
+  display: block; padding: 0; margin: 0; border: 0; background: none; cursor: pointer; pointer-events: auto;
+  transform-origin: calc(var(--s) * 4) 50%;
+  filter: drop-shadow(calc(var(--s) * 2) calc(var(--s) * 2) 0 rgba(40, 12, 36, .4));
+  animation: tm-plank .55s cubic-bezier(.3,1.6,.5,1) both;
+  transition: transform .14s, filter .14s;
 }
-.tm-btn::before { /* tag hole + string */
-  content: ''; position: absolute; left: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px;
-  background: #3b2414; box-shadow: 0 0 0 3px #e8c890;
-}
-.tm-btn:hover, .tm-btn:focus-visible { transform: rotate(calc(var(--r) * -1)) translateY(-3px) scale(1.04); outline: none; }
-.tm-btn:active { transform: rotate(var(--r)) translateY(3px); box-shadow: 0 3px 0 #3b2414; }
-.tm-btn--go { color: #fdf4d8; background-blend-mode: multiply; background-color: #4fa860; text-shadow: 0 3px 0 #1f3f2c; }
-.tm-btn--go .tm-ico img { filter: invert(1) sepia(1) saturate(.3) brightness(1.1); }
-.tm-btn.is-armed { font-size: 18px; background-color: #e86a4a; background-blend-mode: multiply; color: #fdf4d8; text-shadow: 0 3px 0 #5a1a10; animation: tm-wobble .4s; }
-.tm-ico { display: inline-flex; }
-/* ---------- sound stamp */
+.tm-btn:nth-child(1) { animation-delay: 1.05s; } .tm-btn:nth-child(2) { animation-delay: 1.2s; }
+.tm-btn:hover, .tm-btn:focus-visible { transform: rotate(-3.5deg) translateX(calc(var(--s) * 2)); filter: drop-shadow(calc(var(--s) * 2) calc(var(--s) * 3) 0 rgba(40, 12, 36, .4)) brightness(1.12); outline: none; }
+.tm-btn:active { transform: translateY(var(--s)); filter: drop-shadow(var(--s) var(--s) 0 rgba(40, 12, 36, .4)); }
+.tm-btn.is-armed { animation: tm-wobble .4s; }
 .tm-snd {
-  position: relative; margin-top: -6px; width: 48px; height: 48px; pointer-events: auto; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  background: #fdf4d8; border: 3px solid #3b2414; border-radius: 50%;
-  box-shadow: 0 0 0 3px #fdf4d8 inset, 0 0 0 6px #c8955a inset, 0 3px 0 #3b2414; transform: rotate(-6deg);
-  animation: tm-drop .6s cubic-bezier(.3,1.6,.5,1) 1.3s both;
+  position: relative; margin: calc(var(--s) * 1) 0 0 calc(var(--s) * -4); padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto;
+  filter: drop-shadow(var(--s) var(--s) 0 rgba(40, 12, 36, .45)); transform: rotate(-5deg);
+  animation: tm-plank .5s cubic-bezier(.3,1.6,.5,1) 1.35s both;
 }
-.tm-snd.is-off { background: #e2c992; }
 .tm-snd.tm-pop { animation: tm-wobble .35s; }
-/* ---------- credit */
 .tm-credit {
-  position: absolute; left: 0; right: 0; bottom: 9px; text-align: center; pointer-events: auto;
-  font-family: var(--font-body); font-size: 16px; line-height: 17px; color: #fdf4d8; opacity: .85;
-  text-shadow: 2px 2px 0 rgba(40, 14, 30, .7);
-  animation: tm-fade 1s 1.8s both;
+  position: absolute; right: 10px; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); max-width: 46vw; text-align: right; pointer-events: auto;
+  font-family: var(--font-body); font-size: 13px; line-height: 15px; color: #fdf4d8; opacity: .7;
+  text-shadow: 1px 1px 0 rgba(30, 10, 30, .8);
+  animation: tm-fade 1s 2s both;
 }
 /* ---------- exit */
 .tm--out .tm-sign { animation: tm-up .4s cubic-bezier(.6,-0.4,.8,.6) both; }
-.tm--out .tm-btns, .tm--out .tm-snd { animation: tm-fall .38s cubic-bezier(.6,-0.3,.9,.5) both; }
+.tm--out .tm-post { animation: tm-down .38s cubic-bezier(.6,-0.3,.9,.5) both; }
 .tm--out .tm-credit { animation: tm-fade .3s reverse both; }
-/* ---------- portrait / narrow: sign on top, tags at the bottom */
+/* ---------- portrait / narrow: the board at the top, the signpost low in the meadow */
 @media (max-aspect-ratio: 5/4) {
-  .tm-col { left: 50%; margin-left: -159px; height: 100%; justify-content: flex-start; padding-bottom: 36px; box-sizing: border-box; }
-  .tm-btns { margin-top: auto; }
-  .tm-sign { padding-top: max(24px, 4vh); }
-  .tm-rope { height: calc(max(24px, 4vh) + 12px); }
+  .tm-sign { left: 50%; margin-left: calc(var(--w) / -2); }
+  .tm-post { top: auto; left: 50%; margin-left: calc(var(--s) * -34); bottom: calc(var(--s) * 9 + env(safe-area-inset-bottom, 0px)); }
+  .tm-credit { left: 0; right: 0; max-width: none; text-align: center; font-size: 11px; line-height: 12px; bottom: calc(2px + env(safe-area-inset-bottom, 0px)); }
 }
-@media (max-width: 360px) { .tm-col { transform: scale(.85); transform-origin: 50% 0; } }
+@media (prefers-reduced-motion: reduce) { .tm-sign { animation: tm-swing 1.2s both; } }
 @keyframes tm-swing {
   0% { transform: translateY(-120%) rotate(-8deg); }
   35% { transform: translateY(0) rotate(6deg); }
@@ -109,10 +77,10 @@
   86% { transform: rotate(-1deg); }
   100% { transform: rotate(0); }
 }
-@keyframes tm-drop { 0% { opacity: 0; transform: translateY(-24px) scale(.9); } 100% { opacity: 1; transform: none; } }
+@keyframes tm-sway { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(.7deg); } 70% { transform: rotate(-.6deg); } }
+@keyframes tm-rise { 0% { transform: translateY(110vh); } 100% { transform: none; } }
+@keyframes tm-plank { 0% { transform: rotate(-80deg); opacity: 0; } 30% { opacity: 1; } 100% { transform: none; } }
 @keyframes tm-up { to { transform: translateY(-130%) rotate(6deg); } }
-@keyframes tm-fall { to { opacity: 0; transform: translateY(60px) rotate(8deg); } }
-@keyframes tm-fade { from { opacity: 0; } to { opacity: .85; } }
-@keyframes tm-twinkle { 0% { opacity: 1; } 50% { opacity: 0; } }
-@keyframes tm-cap { 0%, 80%, 100% { transform: rotate(14deg); } 86% { transform: rotate(4deg) scale(1.1); } 92% { transform: rotate(20deg); } }
-@keyframes tm-wobble { 0% { transform: rotate(-6deg) scale(1); } 40% { transform: rotate(4deg) scale(1.12); } 100% { transform: rotate(-3deg) scale(1); } }
+@keyframes tm-down { to { transform: translateY(110vh); } }
+@keyframes tm-fade { from { opacity: 0; } to { opacity: .7; } }
+@keyframes tm-wobble { 0% { transform: rotate(-6deg) scale(1); } 40% { transform: rotate(4deg) scale(1.08); } 100% { transform: rotate(0) scale(1); } }

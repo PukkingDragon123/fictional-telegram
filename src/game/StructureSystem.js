@@ -291,9 +291,11 @@ export class StructureSystem {
     if (s.hp <= 0) {
       this.game.audio.play('smash', { volume: 0.7 });
       this.game.stats.smashed++;
+      this.game.breakage?.shatter(s); // [v26 resort] the build comes apart: chunks, planks, flying roof
       this.remove(s);
       return true;
     }
+    this.game.breakage?.hit(s, amt); // [v26 resort] bits fly off the side that was hit
     this.tint(s);
     return false;
   }
@@ -306,9 +308,11 @@ export class StructureSystem {
   tint(s) {
     if (!s.obj) return;
     const dmg = s.hp < s.maxHp * 0.99 && s.maxHp < 90;
+    const bm = dmg ? this.game.breakage?.brokenMat?.(s) : null; // [v26 resort] chipped + cracked broken look
     s.obj.traverse((o) => {
-      if (o.isMesh && o.userData.tintable) o.material = dmg ? this.damagedMat() : voxelMaterial();
+      if (o.isMesh && o.userData.tintable) o.material = dmg ? bm || this.damagedMat() : voxelMaterial();
     });
+    this.game.breakage?.pose?.(s, dmg); // [v26 resort] broken builds lean, roofs skew, signs hang
   }
 
   damagedMat() {

@@ -24,3 +24,7 @@ body.bedtime-mode .tch-layer, body.bedtime-mode .tch-bubbles, body.bedtime-mode 
 .bt-black {
   position: fixed; inset: 0; z-index: 95; background: #000; pointer-events: none; opacity: 0;
 }
+/* [v26 evening] newer HUD bits step aside for the bedtime + morning cutscenes too */
+body.bedtime-mode .fp, body.bedtime-mode .qn, body.bedtime-mode .ev-pill, body.bedtime-mode .pcroom-ui, body.bedtime-mode .stp, body.bedtime-mode .fox-notifier {
+  opacity: 0 !important; pointer-events: none !important;
+}

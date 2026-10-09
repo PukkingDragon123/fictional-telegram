@@ -19,9 +19,9 @@ import * as THREE from 'three';
 import { FoxRig, FOX_KEYBOARD_Z, FOX_DESK_HEIGHT, FOX_SEAT_SURFACE } from '../entities/foxRig.js';
 import * as Guide from './lab/guide.js';
 
-const AW = 72; // art canvas (px)
-const AH = 88;
-const VIEW_H = 2.05; // world units visible top to bottom
+const AW = 64; // art canvas (px)
+const AH = 76;
+const VIEW_H = 2.3; // world units visible top to bottom
 const FPS = 24;
 const TINT = 0.0; // 0 = full colour, 1 = green phosphor ramp
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -41,6 +41,7 @@ uniform sampler2D tColor;
 uniform sampler2D tDepth;
 uniform vec2 size;
 uniform vec3 ink;
+uniform vec3 edge;
 uniform float cNear;
 uniform float cFar;
 uniform float tint;
@@ -53,7 +54,7 @@ void main() {
   vec4 c = texture2D(tColor, vUv);
   if (c.a < 0.5) {
     float n = max(max(A(vec2(px.x, 0.0)), A(vec2(-px.x, 0.0))), max(A(vec2(0.0, px.y)), A(vec2(0.0, -px.y))));
-    gl_FragColor = n > 0.5 ? vec4(ink, 1.0) : vec4(0.0);
+    gl_FragColor = n > 0.5 ? vec4(edge, 1.0) : vec4(0.0);
   } else {
     float z = Z(vec2(0.0));
     float zn = min(min(Z(vec2(px.x, 0.0)), Z(vec2(-px.x, 0.0))), min(Z(vec2(0.0, px.y)), Z(vec2(0.0, -px.y))));
@@ -91,10 +92,6 @@ function holoKeyboard() {
     new THREE.MeshBasicMaterial({ color: 0x52e47e }), new THREE.MeshBasicMaterial({ color: 0x1f7d3d }),
   ]);
   g.add(top);
-  // a thin glowing stand (it hovers)
-  const beam = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 0.04), new THREE.MeshBasicMaterial({ color: 0x1f7d3d }));
-  beam.position.set(0, -0.17, 0);
-  g.add(beam);
   g.position.set(0, FOX_DESK_HEIGHT - 0.05, FOX_KEYBOARD_Z + 0.06);
   g.visible = false;
   return g;
@@ -128,7 +125,7 @@ function pool() {
       vertexShader: POST_VERT, fragmentShader: POST_FRAG,
       uniforms: {
         tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, size: { value: new THREE.Vector2(AW, AH) },
-        ink: { value: new THREE.Color(0x03140a) }, cNear: { value: cam.near }, cFar: { value: cam.far }, tint: { value: TINT },
+        ink: { value: new THREE.Color(0x1a0d12) }, edge: { value: new THREE.Color(0x2f9a52) }, cNear: { value: cam.near }, cFar: { value: cam.far }, tint: { value: TINT },
         g0: { value: col('#03160b') }, g1: { value: col('#1f7d3d') }, g2: { value: col('#52e47e') }, g3: { value: col('#d0ffd8') },
       },
       depthTest: false, depthWrite: false,
@@ -153,8 +150,8 @@ function pool() {
 export function setLabFoxTint(k) { if (POOL && !POOL.failed) POOL.post.material.uniforms.tint.value = k; }
 
 const _v = new THREE.Vector3();
-const CAM_OFF = new THREE.Vector3(0, 1.0, 6.4);
-const CAM_LOOK = new THREE.Vector3(0, 0.84, 0);
+const CAM_OFF = new THREE.Vector3(0, 1.25, 6.4);
+const CAM_LOOK = new THREE.Vector3(0, 0.95, 0);
 
 // ------------------------------------------------------------------ the fox
 export class LabFox {
@@ -177,8 +174,8 @@ export class LabFox {
     this.pending = null;
     this.idleT = 0;
     this.lastAct = 0;
-    this.yaw = 0.3;
-    this.yawGoal = 0.3;
+    this.yaw = 0.2;
+    this.yawGoal = 0.2;
     this.squash = { x: 0, v: 0 };
     this.say1 = null; // { text, n, hold, prio }
     this._typeT = 0;
@@ -403,7 +400,7 @@ export class LabFox {
     this.at = N;
     this.mode = 'type';
     this.P.kb.visible = true;
-    this.yawGoal = 0.35;
+    this.yawGoal = 0.5; // three-quarter: you see his face and the keyboard
     this.rig.play('sit_type', { loop: true, fade: 0.2 });
   }
 
@@ -422,7 +419,7 @@ export class LabFox {
     this.tree._sfx('fox');
   }
 
-  _face(dir) { this.yawGoal = dir > 0 ? 0.95 : -0.95; }
+  _face(dir) { this.yawGoal = dir > 0 ? 0.6 : -0.6; }
 
   // hop over to N (or act right away when already there); `then` runs on landing
   _goTo(N, then, { far = false } = {}) {
@@ -441,7 +438,9 @@ export class LabFox {
     if (REDUCED) { this.wx = tx; this.wy = ty; this.at = N; then?.(); return; }
     if (off0 || d > 900 || far) { this._drop(N, then); return; }
     const dur = clamp(0.32 + Math.sqrt(d) * 0.018, 0.36, 0.8);
-    this.hop = { kind: 'hop', x0: this.wx, y0: this.wy, x1: tx, y1: ty, t: -0.1, T: dur, h: clamp(36 + d * 0.22, 36, 170), N, then };
+    // the apex stays on screen (his head must not leave the top of the view)
+    const room = Math.min(sy0, sy1) - AH * (this.s || 1) * 0.8;
+    this.hop = { kind: 'hop', x0: this.wx, y0: this.wy, x1: tx, y1: ty, t: -0.1, T: dur, h: clamp(Math.min(36 + d * 0.22, room), 14, 170), N, then };
     if (Math.abs(sx1 - sx0) > 6) this._face(sx1 > sx0 ? 1 : -1);
     this.squash.v -= 2.2; // crouch
     this.rig.play('idle', { loop: true, fade: 0.1 });
@@ -466,7 +465,7 @@ export class LabFox {
     this.at = H.N;
     this.squash.v -= H.kind === 'drop' ? 4.2 : 3;
     this.tree._sfx('land');
-    this.yawGoal = this.yawGoal > 0 ? 0.3 : -0.3;
+    this.yawGoal = this.yawGoal > 0 ? 0.2 : -0.2;
     this.mode = 'stand';
     this.rig.play('idle', { loop: true, fade: 0.15 });
     this.lastAct = this.t;
@@ -552,7 +551,7 @@ export class LabFox {
       sq.v += (-180 * sq.x - 12 * sq.v) * h;
       sq.x += sq.v * h;
     }
-    sq.x = clamp(sq.x, -0.32, 0.32);
+    sq.x = clamp(sq.x, -0.26, 0.18);
     // yaw
     let dy = this.yawGoal - this.yaw;
     dy = Math.atan2(Math.sin(dy), Math.cos(dy));

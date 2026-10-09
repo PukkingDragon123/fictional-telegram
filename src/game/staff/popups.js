@@ -61,7 +61,7 @@ export class Popups {
         const it = this.item('tent', (i) => { i.onClick = () => sys.ui?.openInterview?.(sys.tents()[0]); });
         const d = sys.door(t);
         const bob = Math.sin(sys.time * 3) * 0.04;
-        this.place(it, d.x, sys.groundAt(d.x, d.z).gy + 1.75 + bob, d.z - 0.9, `${ico('st_clip', 2)}<b>${n}</b>`, 'tent');
+        this.place(it, d.x, sys.groundAt(d.x, d.z).gy + 1.35 + bob, d.z - 0.4, `${ico('st_clip', 2)}<b>${n}</b>`, 'tent');
       }
       // hurt beavers
       for (const r of sys.list) {

@@ -139,6 +139,7 @@ export class LabTree {
     this.hover = null;
     this.hoverTag = null;
     this._dirty = true;
+    this._frames = 0;
 
     const branches = (opts.branches || []).filter(Boolean);
     const research = (opts.research || []).filter((d) => d && d.id && branches.some((b) => b.id === d.branch));
@@ -150,17 +151,27 @@ export class LabTree {
 
     if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
     if (++PC_OPEN === 1) document.body.classList.add('lt-pc');
+    const tm = (this._tm = {});
+    let tp = t0;
+    const mark = (k) => { const t = now(); tm[k] = +(t - tp).toFixed(1); tp = t; };
+    mark('layout');
     this._buildDOM();
+    mark('dom');
     this.view3 = new TreeView(this.cv, this.L, this.icons);
     if (!this.L.nodes[0]?.nameLines) this.view3.measure();
+    mark('measure');
     this._pollJobs(true);
     this.refresh(true);
+    mark('refresh');
     this._bind();
     this._resize();
+    mark('resize');
     const first = this._initialNode();
     if (first) this._select(first, { pan: false, sound: false, open: false });
     this._centerOn(first, true);
+    mark('select');
     this._draw();
+    mark('draw');
     this._sfx('open');
     this.openMs = now() - t0;
     this._raf = requestAnimationFrame(this._loop);
@@ -170,9 +181,8 @@ export class LabTree {
     }
     if (!opts.fishCanvas) loadFish().then((m) => { if (this._alive && m?.fishCanvas) { this.icons = new IconBank({ fishCanvas: m.fishCanvas }); this.view3.icons = this.icons; this._renderDetail(); this._renderBench(); this._dirty = true; } });
     // Reynard hops in a moment later (building his voxel rig must not delay the screen)
-    this._later(() => {
-      try { this.fox = new LabFox(this); } catch (err) { console.warn('LabFox failed', err); this.fox = null; }
-    }, 30);
+    // (built on the second frame, see _loop)
+    this._t0 = t0;
   }
 
   // ------------------------------------------------------------ public API
@@ -484,7 +494,7 @@ export class LabTree {
   // which section is under the middle of the view
   _hereSec() {
     const vh = this.view.clientHeight;
-    const wy = (vh * 0.4 - this.cam.y) / this.cam.z;
+    const wy = (vh * 0.22 - this.cam.y) / this.cam.z;
     let S = this.L.sectionAt(wy);
     if (!S) S = wy < 0 ? this.sections[0] : this.sections[this.sections.length - 1];
     if (S !== this._here) {
@@ -846,9 +856,10 @@ export class LabTree {
     const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500;
     const sheet = this._compact && this._sheetOpen ? this.$det.offsetHeight : 0;
     const m = Math.min(60, vw * 0.2), mh = Math.min(60, vh * 0.2);
+    const mt = Math.min(150, vh * 0.3); // room above the first section for the fox's head
     const ww = this.L.W * c.z, wh = this.L.H * c.z;
     c.x = ww + 2 * m < vw ? clamp(c.x, m, vw - ww - m) : clamp(c.x, vw - ww - m, m);
-    c.y = wh + 2 * mh < vh - sheet ? clamp(c.y, mh, vh - sheet - wh - mh) : clamp(c.y, vh - sheet - wh - mh, mh);
+    c.y = wh + mt + mh < vh - sheet ? clamp(c.y, mt, vh - sheet - wh - mh) : clamp(c.y, vh - sheet - wh - mh, mt);
     return c;
   }
 
@@ -877,15 +888,18 @@ export class LabTree {
 
   _baseZoom() {
     const vw = this.view.clientWidth;
-    return vw < 520 ? 0.72 : vw < 760 ? 0.85 : 1;
+    return vw < 520 ? 0.8 : 1;
   }
 
   _centerOn(N, instant = false) {
     if (!N) return;
     const z = instant ? this._baseZoom() : Math.max(this.cam.z, 0.8);
     const vw = this.view.clientWidth, vh = this._visH();
-    // a little left of centre: the fox + his speech bubble stand to the right
-    const g = { z, x: vw * 0.45 - N.cx * z, y: vh * 0.5 - N.cy * z };
+    // a little left of centre (the fox + his speech line stand to the right); keep the
+    // map's left edge (section titles, first column) in view when the node allows it
+    let x = vw * 0.45 - N.cx * z;
+    if ((N.x + N.w) * z + 20 < vw * 0.8) x = Math.max(x, 12);
+    const g = { z, x, y: vh * 0.55 - N.cy * z };
     if (instant) { Object.assign(this.cam, this._clampCam(g)); this._camMoved(); } else this._goTo(g);
   }
 
@@ -1331,7 +1345,7 @@ export class LabTree {
     const dtms = Math.min(50, t - (this._lastFrame || t));
     this._lastFrame = t;
     const dt = dtms / 1000;
-    this.time = (this.time || 0) + dt;
+    this.clock = (this.clock || 0) + dt;
     // camera easing / fling
     if (this.goal) {
       const g = this.goal, k = 1 - Math.exp(-dtms / 85);
@@ -1376,7 +1390,14 @@ export class LabTree {
     if (t - (this._pvLast || 0) > 80 || this._pvT === -1) {
       this._pvLast = t;
       this._pvT = 0;
-      if (this.$det.offsetParent !== null) this._drawPreview(this.time);
+      if (this.$det.offsetParent !== null) this._drawPreview(this.clock);
+    }
+    if (!this._foxTried && ++this._frames >= 2) {
+      this._foxTried = true;
+      const f0 = now();
+      try { this.fox = new LabFox(this); } catch (err) { console.warn('LabFox failed', err); this.fox = null; }
+      this._tm.fox = +(now() - f0).toFixed(1);
+      this._tm.foxAt = +(now() - this._t0).toFixed(1);
     }
     try { this.fox?.update(dt); } catch (err) { console.warn('LabFox', err); try { this.fox?.destroy(); } catch { /* ignore */ } this.fox = null; }
   };
@@ -1385,7 +1406,7 @@ export class LabTree {
     this._dirty = false;
     const t0 = now();
     this.view3.draw(this.cam, {
-      sel: this.sel, selSec: this.selSec, hover: this.hover, hoverTag: this.hoverTag, t: this.time || 0, fx: this._fx,
+      sel: this.sel, selSec: this.selSec, hover: this.hover, hoverTag: this.hoverTag, t: this.clock || 0, fx: this._fx,
       secInfo: (S) => this._secInfo(S), job: (N) => this.job(N), isDone: (id) => this._isRes(id),
     });
     this.drawMs = now() - t0;

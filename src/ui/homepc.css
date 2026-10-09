@@ -251,3 +251,16 @@
 
 /* the rest of the HUD steps aside while the PC is on */
 body.pc-mode .qn, body.pc-mode .fox-notifier, body.pc-mode .toasts, body.pc-mode .fp, body.pc-mode .ev-pill { opacity: 0 !important; pointer-events: none !important; }
+
+/* Reynard's den (visits): back arrow + room name, hover tips, a bouncing marker over the PC */
+.pcroom-ui { position: fixed; inset: 0; z-index: 22; pointer-events: none; }
+.pcroom-ui .lab-top { position: absolute; top: calc(10px + var(--safe-t, 0px)); left: 12px; display: flex; gap: 12px; align-items: center; pointer-events: auto; }
+.pcroom-ui .home-name { font-family: var(--font-title, "TBME Title"), monospace; font-size: 22px; color: #fff3d8; text-shadow: 2px 2px 0 #1a1420, -1px -1px 0 #1a1420; pointer-events: none; letter-spacing: 1px; }
+.pcroom-ui .home-tip { position: absolute; padding: 3px 8px; background: #fffbea; border: 3px solid #1a1420; box-shadow: 0 3px 0 #1a1420; font-family: var(--font-title, "TBME Title"), monospace; font-size: 15px; color: #1a1420; pointer-events: none; white-space: nowrap; transform: translate(0, -100%); }
+.pcroom-ui .home-tip.hidden { display: none; }
+.pcroom-mark { position: absolute; transform: translate(-50%, -100%); font-family: var(--font2, 'TBME Title'); font-size: 26px; color: #ffe85a; text-shadow: 2px 2px 0 #1a1420, -2px -2px 0 #1a1420, 2px -2px 0 #1a1420, -2px 2px 0 #1a1420; animation: pcroom-bob 0.6s steps(3) infinite alternate; pointer-events: none; }
+@keyframes pcroom-bob { to { margin-top: -8px; } }
+body.pc-mode .pcroom-ui .lab-top, body.pc-mode .pcroom-mark { opacity: 0; pointer-events: none; }
+
+/* the walk-home shot is a cutscene too */
+body.pc-walk .fp, body.pc-walk .qn, body.pc-walk .ev-pill, body.pc-walk .fox-notifier, body.pc-walk .stp { opacity: 0 !important; pointer-events: none !important; }

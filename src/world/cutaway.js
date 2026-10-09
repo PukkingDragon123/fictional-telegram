@@ -28,11 +28,14 @@ uniform float uCutK;
 float cutAmount(vec3 p, float clearance) {
   if (uCutK <= 0.0) return 0.0;
   vec3 d = p - uCutPos;
+  // in front of the spot on the ground (things standing AT the spot - the office
+  // you're looking at - are never cut), and off the view line by less than uCutR
+  float alongH = dot(d.xz, normalize(uCutBack.xz + vec2(1e-5)));
+  if (alongH < 2.0) return 0.0;
   float along = dot(d, uCutBack);
-  if (along < 1.0) return 0.0;
   float r = length(d - uCutBack * along);
   float up = p.y - uCutPos.y;
-  return uCutK * (1.0 - smoothstep(uCutR * 0.5, uCutR, r)) * smoothstep(1.0, 3.5, along) * smoothstep(clearance, clearance + 1.2, up);
+  return uCutK * (1.0 - smoothstep(uCutR * 0.5, uCutR, r)) * smoothstep(2.0, 4.5, alongH) * smoothstep(clearance, clearance + 1.2, up);
 }
 float cutBayer(vec2 a) {
   ivec2 q = ivec2(mod(floor(a), 4.0));

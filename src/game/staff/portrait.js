@@ -11,7 +11,7 @@ import * as THREE from 'three';
 
 const rigMods = import.meta.glob('../../entities/beaverChibi.js', { eager: true });
 const RIG = rigMods['../../entities/beaverChibi.js'] || null;
-const FPS = 30;
+const FPS = 20;
 
 const POST_VERT = `varying vec2 vUv;
 void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
@@ -118,7 +118,7 @@ function renderInto(P, scene, cam, rt, w, h) {
 }
 // framing: head-and-shoulders ('bust') or the whole beaver ('full')
 function frameCam(cam, frame, aspect) {
-  const top = 0.76, head = 0.52;
+  const top = 0.92, head = 0.5;
   let cy, span;
   if (frame === 'full') { span = top * 1.18; cy = top * 0.5; }
   else if (frame === 'half') { span = top * 0.78; cy = top - span / 2 + 0.03; }
@@ -139,7 +139,7 @@ class Portrait {
     this.rig = makeRig(profile, outfit);
     if (!this.rig) throw new Error('no beaver rig');
     this.wrap = document.createElement('div');
-    this.wrap.className = 'stp';
+    this.wrap.className = 'bvp-wrap';
     this.wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none';
     this.cv = document.createElement('canvas');
     this.cv.style.cssText = 'position:absolute;left:50%;bottom:0;display:block;image-rendering:pixelated';

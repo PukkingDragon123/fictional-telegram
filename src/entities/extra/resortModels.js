@@ -120,7 +120,7 @@ function rs_ticket(d, rnd, v) {
   for (const [x, z] of [[-9, 5], [-9, 9]]) { f.box(x, 0, z, x, 9, z, BRASS); f.set(x, 10, z, BRASS_L); f.set(x, 0, z, BRASS_D); }
   for (let z = 6; z <= 8; z++) f.set(-9, z === 7 ? 6 : 7, z, 0xa8203a);
   tufts(c, rnd, 6, { w: 1, d: 1 }, (x, z) => x >= -5 && x <= 3 && z >= -5 && z <= 2);
-  d.seat(-0.12, 0.78, PI, 0, { pose: 'stand' });
+  d.seat(0.2, 1.22, PI, 0, { pose: 'stand' });
 }
 sub('rs_ticket_roof', (d, rnd, v) => {
   const p = d.part({ pivot: [-0.1, 1.2, -0.15] });
@@ -200,7 +200,7 @@ sub('rs_restroom_roof', (d) => {
   // single slope, high at the back, dark shingles
   for (let z = -5; z <= 3; z++) for (let x = -4; x <= 3; x++) {
     const y = 13 + Math.floor((3 - z) / 3);
-    p.c.set(x, y, z, (x + z) % 3 === 0 ? 0x5a4a5a : (x === -4 || x === 3) ? 0x3a2e3a : 0x6a5a6a);
+    p.c.set(x, y, z, (x + z) % 3 === 0 ? 0x8a4a34 : (x === -4 || x === 3) ? 0x5a2e22 : 0x9a5a40);
   }
 });
 sub('rs_restroom_door', (d) => {
@@ -352,8 +352,8 @@ function rs_icecream(d, rnd, v) {
   // canopy poles
   for (const [x, z] of [[-8, -5], [6, -5]]) f.box(x, 16, z, x, 30, z, CHROME);
   tufts(d.c, rnd, 4, { w: 1, d: 1 }, (x, z) => x >= -5 && x <= 4 && z >= -4 && z <= 3);
-  d.seat(0.0, 0.72, PI, 0, { pose: 'stand' });
-  d.seat(-0.42, 0.66, PI - 0.25, 0, { pose: 'stand' });
+  d.seat(0.3, 1.0, PI + 0.2, 0, { pose: 'stand' });
+  d.seat(-0.35, 1.0, PI - 0.2, 0, { pose: 'stand' });
 }
 sub('rs_icecream_top', (d, rnd, v) => {
   const p = d.part({ pivot: [-0.05, 1.5, -0.25], anim: 'sway', axis: 'x', amp: 0.02, speed: 1.1 });
@@ -397,8 +397,8 @@ function rs_souvenir(d, rnd, v) {
     if ((x + 10) % 4 === 1) { const col = [0xd84a3a, 0xf2c230, 0x3a8ae8, 0x4aa85a][(((x + 10) / 4) | 0) % 4]; f.set(x, y - 1, 3, col); f.set(x + 1, y - 1, 3, col); f.set(x, y - 2, 3, col); f.set(x + 1, y - 2, 3, col); f.set(x, y - 3, 3, col); }
   }
   tufts(c, rnd, 4, { w: 1, d: 1 }, (x, z) => z >= -5 && z <= 3);
-  d.seat(0.0, 0.72, PI, 0, { pose: 'stand' });
-  d.seat(-0.4, 0.68, PI - 0.25, 0, { pose: 'stand' });
+  d.seat(0.32, 1.0, PI + 0.2, 0, { pose: 'stand' });
+  d.seat(-0.34, 1.0, PI - 0.2, 0, { pose: 'stand' });
 }
 sub('rs_souvenir_roof', (d, rnd, v) => {
   const p = d.part({ pivot: [0.0, 1.3, -0.2] });
@@ -579,8 +579,8 @@ function rs_towels(d, rnd, v) {
   for (let x = 6; x <= 9; x++) for (let z = 4; z <= 8; z++) for (let y = 0; y <= 4; y++) if (x === 6 || x === 9 || z === 4 || z === 8 || y === 0) f.set(x, y, z, (x + y + z) % 2 ? 0xd8b880 : 0xc8a870);
   f.box(7, 4, 5, 8, 5, 7, TOWELS[3][0]);
   tufts(c, rnd, 4, { w: 1, d: 1 }, (x, z) => z >= -5 && z <= 2);
-  d.seat(-0.05, 0.7, PI, 0, { pose: 'stand' });
-  d.seat(0.38, 0.66, PI + 0.25, 0, { pose: 'stand' });
+  d.seat(0.32, 1.0, PI + 0.2, 0, { pose: 'stand' });
+  d.seat(-0.34, 1.0, PI - 0.2, 0, { pose: 'stand' });
 }
 sub('rs_towels_roof', (d) => {
   const p = d.part({ pivot: [0, 1.3, -0.15] });
@@ -800,13 +800,13 @@ function rs_spa(d, rnd, v) {
   d.seat(0.48, 0.66, PI, 0.42, { pose: 'lie' });
 }
 sub('rs_spa_roof', (d, rnd, v) => {
+  // an open pergola (so you can see who's on the tables) with a fabric shade over the back
   const p = d.part({ pivot: [0, 1.4, -0.1] });
   const T = [[0x2a7a78, 0x3a8a88], [0xb85a7a, 0xc86a8a], [0x8a6a3a, 0x9a7a4a]][v || 0];
-  for (let x = -11; x <= 10; x++) for (let z = -11; z <= 9; z++) {
-    const rim = x === -11 || x === 10 || z === -11 || z === 9;
-    p.c.set(x, 14, z, rim ? WHITE : (x + z) % 2 ? T[0] : T[1]);
-    if (!rim && Math.abs(x + 0.5) < 6 && Math.abs(z + 1) < 5) p.c.set(x, 15, z, T[0]);
-  }
+  for (let z = -10; z <= 8; z += 3) for (let x = -11; x <= 10; x++) p.c.set(x, 14, z, (x + z) % 2 ? WHITE : 0xe8e4dc);
+  for (const x of [-11, 10]) for (let z = -11; z <= 9; z++) p.c.set(x, 14, z, WHITE);
+  for (let z = -11; z <= -5; z++) for (let x = -11; x <= 10; x++) p.c.set(x, 15, z, (x + 30) % 4 < 2 ? T[0] : T[1]);
+  for (let x = -11; x <= 10; x += 2) p.f.set(x * 2, 28, -9, T[0]);
 });
 sub('rs_spa_sign', (d) => {
   const p = d.part({ pivot: [0, 1.55, 0.95] });
@@ -848,17 +848,17 @@ const SUBM = defineModels(SUBS);
 // per type: named sub-models, where the CLOSED sign hangs (local units, + scale),
 // the service point (queue starts there, queue runs along +z) and staff work spots
 const LAYOUT = {
-  rs_ticket: { parts: { roof: 'rs_ticket_roof', sign: 'rs_ticket_sign', turnstile: 'rs_ticket_turnstile', clerk: 'rs_ticket_clerk' }, closed: [-0.1, 0.92, 0.3, 0.55], front: [-0.12, 0.85], work: [[-0.1, -0.05, 0]] },
+  rs_ticket: { parts: { roof: 'rs_ticket_roof', sign: 'rs_ticket_sign', turnstile: 'rs_ticket_turnstile', clerk: 'rs_ticket_clerk' }, closed: [-0.1, 0.92, 0.3, 0.55], front: [0.2, 1.35], work: [[-0.1, -0.05, 0]] },
   rs_restroom: { parts: { roof: 'rs_restroom_roof', door: 'rs_restroom_door' }, closed: [0, 1.0, 0.33, 0.45], front: [-0.05, 0.75] },
   rs_bench: { parts: {}, front: [0, 0.6] },
   rs_infoboard: { parts: {}, front: [0, 0.8] },
   rs_umbrella: { parts: { top: 'rs_umbrella_top' }, front: [0.1, 0.75] },
-  rs_icecream: { parts: { top: 'rs_icecream_top' }, closed: [0, 0.68, 0.32, 0.5], front: [0, 0.82], work: [[0, -0.5, 0]] },
-  rs_souvenir: { parts: { roof: 'rs_souvenir_roof' }, closed: [0, 0.78, 0.3, 0.5], front: [0, 0.82], work: [[0, -0.2, 0]] },
+  rs_icecream: { parts: { top: 'rs_icecream_top' }, closed: [0, 0.68, 0.32, 0.5], front: [0, 1.15], work: [[0, -0.5, 0]] },
+  rs_souvenir: { parts: { roof: 'rs_souvenir_roof' }, closed: [0, 0.78, 0.3, 0.5], front: [0, 1.15], work: [[0, -0.2, 0]] },
   rs_photo: { parts: { sign: 'rs_photo_sign', flash: 'rs_photo_flash', curtain: 'rs_photo_curtain' }, closed: [-0.1, 1.2, 0.3, 0.45], front: [-0.15, 0.75] },
   rs_campfire: { parts: { fire: 'rs_campfire_fire' }, front: [0, 1.15] },
   rs_firstaid: { parts: { roof: 'rs_firstaid_roof' }, closed: [0, 1.45, 0.9, 0.6], front: [0, 1.2], work: [[0, -0.35, 0]] },
-  rs_towels: { parts: { roof: 'rs_towels_roof', line: 'rs_towels_line' }, closed: [0, 0.98, 0.25, 0.5], front: [-0.05, 0.82], work: [[0, -0.15, 0]] },
+  rs_towels: { parts: { roof: 'rs_towels_roof', line: 'rs_towels_line' }, closed: [0, 0.98, 0.25, 0.5], front: [0, 1.15], work: [[0, -0.15, 0]] },
   rs_lockers: { parts: { roof: null, door: 'rs_lockers_door0', door2: 'rs_lockers_door1' }, closed: [0, 1.25, 0.3, 0.55], front: [0, 0.75] },
   rs_hottub: { parts: { water: 'rs_hottub_water' }, closed: [0, 0.9, 1.0, 0.6], front: [0, 1.25] },
   rs_sauna: { parts: { roof: 'rs_sauna_roof', steam: 'rs_sauna_steam', door: 'rs_sauna_door' }, closed: [-0.25, 1.0, 0.3, 0.5], front: [-0.5, 0.75] },
@@ -877,7 +877,7 @@ function makeFacility(type, opts = {}) {
     const sr = SUBM[subName]({ variant: opts.variant, seed: opts.seed });
     sr.name = name;
     root.add(sr);
-    parts[name] = sr.children[0] || sr;
+    parts[name] = sr.children.length === 1 ? sr.children[0] : sr; // one pivoted piece (door, roof...) or the whole sub (water + bubbles + duck)
     parts[name].name = name;
     if (sr.userData.update) updates.push(sr.userData.update);
   }

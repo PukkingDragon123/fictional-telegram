@@ -56,7 +56,7 @@ export function tintCanvas(src, ramp = 'on') {
 function scaled(src, s) {
   if (s <= 1) return src;
   const c = mk(src.width * s, src.height * s);
-  const x = c.getContext('2d');
+  const x = c.getContext('2d', { willReadFrequently: true });
   x.imageSmoothingEnabled = false;
   x.drawImage(src, 0, 0, c.width, c.height);
   return c;

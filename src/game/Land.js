@@ -66,6 +66,7 @@ export class Land {
     if (mine >= n * 0.9) { out.reason = 'already yours'; return out; }
     if (rock > n * 0.5 || water > n * 0.7) { out.reason = 'too rocky'; return out; }
     if (fog > n * 0.4) { out.reason = 'lost in the fog: explore there first'; return out; }
+    { const bar = this.game.world.plotBlocked?.(px, pz, PLOT); if (bar) { out.reason = bar; return out; } } // [v26 world] the Deep's route can't be bought round
     if (!edge) { out.reason = 'buy the land next to it first'; return out; }
     out.forSale = true;
     out.price = this.price(out);

@@ -157,9 +157,9 @@ export class BearWeather {
       w.soakMax = Math.max(w.soakMax, w.rain);
       // --- felt temperature
       const felt = temp - windChill * (shelter ? 0.4 : 1) - b.wet * 3 - (b.inWater ? 3 : 0) + warmth * 22;
-      const coldT = clamp((6 - felt) / 12, 0, 1) * w.coldK;
+      const coldT = Math.min(1, clamp((6 - felt) / 12, 0, 1) * w.coldK);
       const feltHot = temp - (shelter ? 4 : 0) - coolth * 12 - (b.inWater ? 10 : 0) - b.wet * 4;
-      const hotT = clamp((feltHot - 27) / 9, 0, 1) * w.hotK;
+      const hotT = Math.min(1, clamp((feltHot - 27) / 9, 0, 1) * w.hotK);
       b.cold = b.cold ?? 0; b.hot = b.hot ?? 0;
       b.cold += (coldT - b.cold) * Math.min(1, t * (coldT < b.cold ? (warmth > 0 ? 1.1 : 0.3) : 0.32));
       b.hot += (hotT - b.hot) * Math.min(1, t * (hotT < b.hot ? 0.9 : 0.28));

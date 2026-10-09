@@ -154,7 +154,7 @@ const SPRITE_FRAG_MAIN = /* glsl */ `
         } else if (cls < 1.5) {
           if (th < uSeaGreen) col = seaGreen(ls, uSeaFresh) * tnt;
           vec2 cl = floor(tx * 0.5);
-          if (ls > 0.28 && seaH(cl * 0.913 + ih * 7.0) < uSeaBloom * 0.24 * step(0.3, ih)) col = (ih > 0.7 ? vec3(0.96, 0.9, 0.9) : vec3(0.92, 0.36, 0.5)) * tnt;
+          if (ls > 0.28 && seaH(cl * 0.913 + ih * 7.0) < uSeaBloom * 0.13 * step(0.3, ih)) col = (ih > 0.85 ? vec3(0.96, 0.9, 0.9) : vec3(0.92, 0.36, 0.5)) * tnt;
         } else {
           col = mix(col, col * vec3(1.1, 1.15, 0.7), uSeaFresh * 0.5);
           if (th >= uSeaGreen) col = seaAutumn(ls, ih) * tnt;
@@ -166,7 +166,7 @@ const SPRITE_FRAG_MAIN = /* glsl */ `
     } else if (cls < 3.5) {
       if (ih < uSeaSnow * 0.92 - 0.04) discard;
       float gr = clamp((sr.g - max(sr.r, sr.b)) * 5.0, 0.0, 1.0);
-      col = mix(col, seaStraw(ls) * tnt, gr * clamp(uSeaFall * 0.7 + uSeaDry * 0.5 + uSeaWinter * 0.65, 0.0, 0.9));
+      col = mix(col, seaStraw(ls) * tnt, gr * clamp(uSeaFall * 0.7 + uSeaDry * 0.5 + uSeaWinter * 0.9, 0.0, 0.92));
       col = mix(col, col * vec3(1.0, 1.16, 0.8), gr * uSeaFresh * 0.5);
       col *= 1.0 - uSeaWet * 0.12;
     } else if (cls < 5.5) {
@@ -265,7 +265,7 @@ if (abs(vWNor.y) > 0.5 && vWPos.y > uWaterY - 0.02) {
     // fallen leaves / spring flowers, one texel each
     float lh = h21(sp * 0.71 + 9.3);
     if (lh < uSeaFall * 0.05) { float k = h21(sp * 3.1); c = (k < 0.33 ? vec3(0.62, 0.06, 0.03) : k < 0.66 ? vec3(0.85, 0.3, 0.04) : vec3(0.9, 0.62, 0.1)) * vColor.rgb; }
-    else if (lh > 1.0 - uSeaBloom * 0.022) { float k = h21(sp * 2.3); c = (k < 0.4 ? vec3(0.95, 0.95, 0.9) : k < 0.7 ? vec3(0.95, 0.78, 0.15) : vec3(0.92, 0.45, 0.62)) * vColor.rgb; }
+    else if (lh > 1.0 - uSeaBloom * 0.004) { float k = h21(sp * 2.3); c = (k < 0.2 ? vec3(0.95, 0.95, 0.9) : k < 0.6 ? vec3(0.95, 0.78, 0.15) : vec3(0.92, 0.45, 0.62)) * vColor.rgb; }
   }
   if (uSeaWet > 0.01) {
     c *= 1.0 - 0.26 * uSeaWet;
@@ -579,7 +579,7 @@ class MistLayer {
     g.instanceCount = count;
     this.u = {
       uTime: { value: 0 }, uAmount: { value: 0 }, uExtent: { value: 30 }, uCenter: { value: new THREE.Vector3() }, uWind: { value: new THREE.Vector2() },
-      uCamRight: SPRITE_UNIFORMS.uCamRight, uCamUp: SPRITE_UNIFORMS.uCamUp, uColor: { value: new THREE.Color(0.85, 0.88, 0.92) }, uAlpha: { value: 0.6 },
+      uCamRight: SPRITE_UNIFORMS.uCamRight, uCamUp: SPRITE_UNIFORMS.uCamUp, uColor: { value: new THREE.Color(0.85, 0.88, 0.92) }, uAlpha: { value: 0.4 },
     };
     this.mat = new THREE.ShaderMaterial({ vertexShader: MIST_VERT, fragmentShader: MIST_FRAG, uniforms: this.u, transparent: true, depthWrite: false });
     this.mesh = new THREE.Mesh(g, this.mat);
@@ -668,7 +668,7 @@ export class WeatherFx {
     this.windV = new THREE.Vector2();
     this.res = new THREE.Vector2(640, 400);
     const scene = game.scene;
-    this.rain = new PrecipLayer(scene, { count: 1800, kind: 0, color: 0xc4d8ee, color2: 0xa8c0dc, color3: 0xe0ecf8, alpha: 0.62, width: 1, len: 0.045, fall: 19, height: 14, name: 'rain' });
+    this.rain = new PrecipLayer(scene, { count: 1800, kind: 0, color: 0xc4d8ee, color2: 0xa8c0dc, color3: 0xe0ecf8, alpha: 0.8, width: 1, len: 0.05, fall: 19, height: 14, name: 'rain' });
     this.snow = new PrecipLayer(scene, { count: 1400, kind: 1, color: 0xffffff, color2: 0xe8f0fa, color3: 0xd0dcec, alpha: 0.95, width: 1.4, fall: 1.25, height: 12, name: 'snowfall' });
     this.leaves = new PrecipLayer(scene, { count: 260, kind: 2, color: 0xd8401e, color2: 0xf08a1c, color3: 0xf2c030, alpha: 1, width: 1.6, fall: 1.0, height: 10, name: 'leaves' });
     this.petals = new PrecipLayer(scene, { count: 220, kind: 3, color: 0xf8b4c8, color2: 0xffe8ee, color3: 0xf27aa0, alpha: 1, width: 1.2, fall: 0.7, height: 9, name: 'petals' });
@@ -776,7 +776,7 @@ export class WeatherFx {
     const S = this.S;
     const W = S.info;
     this.over = lerp(this.over, W.over * (W.precip || S.weather === 'fog' ? 0.6 + 0.4 * S.intensity : 1), Math.min(1, dt * 0.5));
-    this.fogK = lerp(this.fogK, S.weather === 'fog' ? S.intensity : W.precip ? S.intensity * 0.12 : 0, Math.min(1, dt * 0.4));
+    this.fogK = lerp(this.fogK, S.weather === 'fog' ? S.intensity : W.precip ? S.intensity * 0.05 : 0, Math.min(1, dt * 0.4));
     this.heatK = lerp(this.heatK, S.weather === 'heat' ? S.intensity : 0, Math.min(1, dt * 0.4));
     this.applyUniforms(Math.min(1, dt * 0.5));
     // late-built sprite batches (garden plants, forage) get the season look too
@@ -818,7 +818,7 @@ export class WeatherFx {
     this.shimmer.set(show ? this.heatK * day * 0.9 : 0, this.center, ext * 0.5, this.windV.clone().multiplyScalar(0.2), this.res, this.time);
     // ground mist on foggy days (and a little after rain)
     const M = this.mist;
-    const mistAmt = show ? clamp(this.fogK * 1.1, 0, 1) : 0;
+    const mistAmt = show && S.weather === 'fog' ? clamp(this.fogK * 1.1, 0, 1) * clamp((half - 6) / 10, 0, 1) : 0; // close up the puffs would fill the screen
     M.u.uAmount.value = mistAmt;
     M.mesh.visible = mistAmt > 0.01;
     M.u.uTime.value = this.time;
@@ -861,9 +861,9 @@ export class WeatherFx {
       const nk = 1 - night * 0.75;
       u.uTop.value.lerp(top.multiplyScalar(nk), ov * 0.85);
       u.uBottom.value.lerp(bot.multiplyScalar(nk), ov * 0.8);
-      sky.sun.intensity *= 1 - 0.55 * ov;
+      sky.sun.intensity *= 1 - 0.68 * ov;
       sky.sun.color.lerp(GREY, ov * 0.45);
-      sky.hemi.intensity *= 1 - 0.1 * ov + sn * 0.08;
+      sky.hemi.intensity *= 1 - 0.3 * ov + sn * 0.16;
       sky.hemi.color.lerp(_c.setRGB(0.78, 0.82, 0.9), ov * 0.4);
       s.waterShallow.lerp(_c.setRGB(0.25, 0.42, 0.45), ov * 0.4);
       s.waterDeep.lerp(_c.setRGB(0.16, 0.26, 0.36), ov * 0.4);

@@ -21,6 +21,7 @@ import * as THREE from 'three';
 import { KIND, WATER_Y } from './grid.js';
 import { SPRITE_UNIFORMS } from '../core/spriteBatch.js';
 import { HAZE_PARS } from './outerRing.js';
+import { buildWhiteInfo } from './rivers.js'; // [v26 world]
 
 const RES = 4; // info texels per tile
 const SHORE_SPAN = 3.5; // tiles from the bank to "deep"
@@ -78,7 +79,10 @@ export function buildWaterInfo(grid, tex) {
   // river flow per tile: principal axis of the nearby river tiles, pointing downstream (+z)
   const fx = new Float32Array(w * h), fz = new Float32Array(w * h);
   const bio = grid.biome;
-  if (bio) {
+  if (grid.flowS) {
+    // [v26 world] the real current (world/flow.js): direction x speed (1.6 tiles/s = full)
+    for (let i = 0; i < w * h; i++) { const k = Math.min(1, grid.flowS[i] / 1.6) * (grid.kind[i] === KIND.WATER ? 1 : 0); fx[i] = grid.flowX[i] * k; fz[i] = grid.flowZ[i] * k; }
+  } else if (bio) {
     const R = 4;
     for (let z = 0; z < h; z++)
       for (let x = 0; x < w; x++) {
@@ -154,9 +158,8 @@ void main() {
 #else
   vInfo = aInfo;
   // the valley on the camera's side sinks into a dark plate (outerRing.js): follow it
-  float fk = flatK(wp.xyz);
-  wp.y = mix(wp.y, 2.0 + (wp.y - 2.0) * 0.18, fk) + fk * 0.012;
-  vRing = vec2(fk, ringHaze(wp.xyz));
+  // [v26 world] the ranges no longer sink (they are capped, world/cubeMountains.js): the water stays put
+  vRing = vec2(0.0, ringHaze(wp.xyz));
 #endif
   vSimH = h;
   vWPos = wp.xyz;
@@ -167,6 +170,7 @@ void main() {
 const FRAG = /* glsl */ `
 uniform float uTime;
 uniform sampler2D uShore;      // water info (R shore, G depth, BA flow)
+uniform sampler2D uWhite;      // [v26 world] R white water (rapids, rock wakes, the falls), G speed
 uniform sampler2D uSim;
 uniform vec4 uSimRect;
 uniform vec2 uGridSize;
@@ -338,11 +342,29 @@ void main() {
   float fs = noised(p * 9.0 + vec2(t * 0.8, -t * 0.6)).x * 0.7 + hash2(floor(p * 24.0)) * 0.3;
   float crest = smoothstep(0.1, 0.55, simH) + smoothstep(0.7, 2.2, waveE) * 0.6;
   foam = max(foam, step(fs, crest * 0.85) * min(1.0, crest * 2.0));
-  // current streaks on the river
-  if (flowK > 0.05) {
+  // [v26 world] the current: long light streaks and foam lines sliding downstream,
+  // churning white water on rapids, behind rocks and under the falls
+  float whiteW = 0.0;
+#ifndef OUTER
+  whiteW = texture2D(uWhite, p / uGridSize).r;
+#endif
+  if (flowK > 0.03) {
     vec2 fd = flow / flowK;
-    vec2 q = vec2(dot(p, vec2(fd.y, -fd.x)) * 3.2, dot(p, fd) * 0.7 - t * 0.9);
-    foam = max(foam, flowK * step(0.84, noised(q).x) * step(0.5, fn2) * 0.5);
+    float spd = 0.35 + flowK * 2.2;
+    vec2 q = vec2(dot(p, vec2(fd.y, -fd.x)) * 2.6, dot(p, fd) * 0.55 - t * spd);
+    float lines = step(0.8 - flowK * 0.12, noised(q).x) * step(0.45, fn2);
+    foam = max(foam, lines * min(1.0, flowK * 1.6) * 0.62);
+    // glints that ride the current (bright dashes, stretched along the flow)
+    vec2 q2 = vec2(dot(p, vec2(fd.y, -fd.x)) * 6.0, dot(p, fd) * 1.4 - t * spd * 1.3);
+    col += uSkyTint * 0.16 * step(0.88, noised(q2).x) * min(1.0, flowK * 2.0) * (1.0 - uNight * 0.6);
+    // foam strings hugging the banks
+    foam = max(foam, step(shore, 0.16) * step(0.62, noised(q * vec2(1.6, 0.8)).x) * min(1.0, flowK * 2.4) * 0.8);
+  }
+  if (whiteW > 0.02) {
+    vec2 fd = flowK > 0.03 ? flow / flowK : vec2(0.0, 1.0);
+    vec2 q3 = vec2(dot(p, vec2(fd.y, -fd.x)) * 5.0, dot(p, fd) * 2.2 - t * 2.4);
+    float churn = noised(q3).x * 0.65 + noised(p * 7.0 + vec2(t * 1.3, -t * 0.9)).x * 0.35;
+    foam = max(foam, step(1.0 - whiteW * 0.95, churn));
   }
   vec3 foamCol = uFoam * mix(vec3(1.0), uSunCol * 0.6 + 0.4, 0.3) * (1.0 - uNight * 0.6);
   col = mix(col, foamCol, foam);
@@ -357,6 +379,7 @@ void main() {
 #endif
   float alpha = mix(0.4, 0.68, smoothstep(0.05, 0.8, deep));
   alpha = max(alpha, max(foam, glit));
+  alpha = max(alpha, whiteW * 0.7); // [v26 world] white water is opaque
   gl_FragColor = vec4(col, alpha);
 }
 `;
@@ -432,6 +455,7 @@ export class WaterFX {
     world.shoreTex?.dispose?.();
     world.shoreTex = buildWaterInfo(world.grid);
     u.uShore.value = world.shoreTex;
+    u.uWhite = { value: buildWhiteInfo(world.grid) }; // [v26 world]
     Object.assign(u, {
       uSkyTop: { value: new THREE.Color(0x62a4ea) },
       uSkyBot: { value: new THREE.Color(0xcfe8f8) },
@@ -466,6 +490,7 @@ export class WaterFX {
     const u = this.world.waterUniforms;
     this.world.shoreTex = buildWaterInfo(this.world.grid, this.world.shoreTex);
     u.uShore.value = this.world.shoreTex;
+    if (u.uWhite) u.uWhite.value = buildWhiteInfo(this.world.grid, u.uWhite.value); // [v26 world]
   }
 
   update(sky, camera, wind = 1) {

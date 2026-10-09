@@ -149,6 +149,7 @@ export class Fab {
     const rt = this.rt(s);
     r.running = false;
     r.want = false;
+    r.dark = false;
     if (rt.pend && this.staff() && game.time - rt.since > WATCHDOG) this.lost(s, r, rt);
     if (r.off) { r.why = 'off'; return { on: false, lamp: 'off' }; }
     if (!working || (this.staff() && !STAFF_PHASES.has(game.state.phase))) { r.why = 'closed'; return { on: false, lamp: 'idle' }; }
@@ -182,7 +183,7 @@ export class Fab {
       const R = RECIPES[r.job.rid];
       if (!R) { r.job = null; return { on: false, lamp: 'idle' }; }
       r.want = true;
-      if (pw < 0.15) { r.why = 'nopower'; if (rt.pend !== 'fab') return { on: false, lamp: 'warn' }; }
+      if (pw < 0.15) { r.why = 'nopower'; r.dark = true; if (rt.pend !== 'fab') return { on: false, lamp: 'warn' }; }
       if (!rt.pend) {
         const sp = this.speed(s);
         const est = Math.max(1, (R.time * (1 - (r.job.p || 0))) / (sp * Math.max(0.3, pw)));
@@ -222,6 +223,8 @@ export class Fab {
     r.cur = rid;
     const R = RECIPES[rid];
     if (!this.roomFor(s, rid)) { r.why = 'full'; return { on: false, lamp: 'warn' }; }
+    // work to do but no power: nobody hauls ore to a dead machine (the plug flashes)
+    if (pw < 0.15) { r.why = 'nopower'; r.dark = true; return { on: false, lamp: 'warn' }; }
     const miss = this.missing(r, rid);
     if (!Object.keys(miss).length) {
       // everything is in the hopper: start when there's power

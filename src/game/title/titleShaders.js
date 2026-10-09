@@ -34,7 +34,7 @@ export const RINGS = 8;
 export function waterMaterial(tex, w, h) {
   const uniforms = {
     map: { value: tex }, uSize: { value: new THREE.Vector2(w, h) }, uTime: { value: 0 },
-    uSunX: { value: 0 }, uRings: { value: Array.from({ length: RINGS }, () => new THREE.Vector4(0, 0, -99, 0)) },
+    uSunX: { value: 0 }, uAmp: { value: 0 }, uRings: { value: Array.from({ length: RINGS }, () => new THREE.Vector4(0, 0, -99, 0)) },
   };
   const mat = new THREE.ShaderMaterial({
     uniforms, vertexShader: VERT, depthTest: false, depthWrite: true,
@@ -43,6 +43,7 @@ uniform sampler2D map;
 uniform vec2 uSize;
 uniform float uTime;
 uniform float uSunX;
+uniform float uAmp;
 uniform vec4 uRings[${RINGS}];
 varying vec2 vUv;
 ${COMMON}
@@ -51,7 +52,7 @@ void main() {
   float row = uSize.y - 1.0 - p.y;      // texel row from the top
   // whole-pixel row wobble, slower and smaller near the far bank
   float k = clamp(row / uSize.y, 0.0, 1.0);
-  float wob = sin(row * 1.37 + uTime * (1.2 + k) + sin(row * 0.29 - uTime * 0.7) * 2.0) * (0.35 + k * 0.9);
+  float wob = sin(row * 1.37 + uTime * (1.2 + k) + sin(row * 0.29 - uTime * 0.7) * 2.0) * (0.35 + k * 0.9) * uAmp;
   float dx = floor(wob + 0.5);
   vec4 c = texture2D(map, (p + vec2(dx, 0.0) + 0.5) / uSize);
   vec4 c0 = texture2D(map, (p + 0.5) / uSize);
@@ -61,8 +62,8 @@ void main() {
   // glitter under the sun: pixels flicker on and off
   float gx = abs(p.x - uSunX) - row * 0.18;
   float tw = h21(p + floor(uTime * 5.0 + h21(p) * 7.0));
-  if (gx < 3.0 + k * 9.0 && tw > 0.86 && row > 3.0) col = mix(col, vec3(1.0, 0.93, 0.74), 0.85) * 1.25;
-  else if (tw > 0.995) col += vec3(0.35, 0.3, 0.2);
+  if (gx < 3.0 + k * 9.0 && tw > 1.0 - 0.14 * uAmp && row > 3.0) col = mix(col, vec3(1.0, 0.93, 0.74), 0.85) * 1.25;
+  else if (tw > 1.0 - 0.005 * uAmp) col += vec3(0.35, 0.3, 0.2);
   // ripple rings from splashes (x, y in strip texels, t0, strength)
   for (int i = 0; i < ${RINGS}; i++) {
     vec4 R = uRings[i];

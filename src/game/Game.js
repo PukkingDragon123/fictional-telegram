@@ -740,12 +740,13 @@ export class Game {
     add('Tips from happy bears', inc.tips, 'coins', 'income');
     add('Trophy prizes', inc.trophies, 'trophy', 'income');
     add('Refunds (demolition)', inc.refunds, 'trash', 'income');
+    add('Bear Resort (tickets, spa, tub...)', inc.resort, 'rs_tab', 'income'); // [v26 resort] per facility: game.resort.dayIncome
     add('Fish eggs bought', -exp.eggs, 'egg', 'expense');
     add('Construction', -exp.builds, 'hammer', 'expense');
     add('Research & development', -exp.research, 'flask', 'expense');
     add('Digging the pond', -exp.digging, 'shovel', 'expense');
     add('Land clearing', -exp.clearing, 'trash', 'expense');
-    const income = inc.bills + inc.snacks + inc.tips + inc.trophies + inc.refunds;
+    const income = inc.bills + inc.snacks + inc.tips + inc.trophies + inc.refunds + (inc.resort || 0); // [v26 resort] + resort
     const expense = exp.eggs + exp.builds + exp.research + exp.digging + exp.clearing;
     const net = Math.round(income - expense);
     const eaten = this.stats.fishEaten - d.eaten;
@@ -792,6 +793,7 @@ export class Game {
     this.audio.play('day_end', { volume: 0.4 });
     if (st.rating < 1.0 && !this.isDayOff()) { this.gameOver(); return; }
     const report = this.buildReport();
+    try { this.homePC?.record?.(report); } catch (e) { console.warn('[homePC] record', e); } // [v26 evening] the books
     if (st.rating < 1.8) this.audio.play('warning', { volume: 0.5 });
     this.save();
     const done = () => this.startBedtime();
@@ -805,6 +807,8 @@ export class Game {
     st.phase = 'bedtime';
     this.audio.setMusic('sleep');
     this.bedT = 0;
+    // [v26 evening] he's already home at his desk (homePC): straight into the bedtime cutscene
+    if (this.homePC?.handover) { this.fox.bed = { stage: 'asleep', t: 0 }; this.fox.asleep = true; this.fox.rig.root.visible = false; this.ui?.onBedtime?.(); this.startNight(); return; }
     this.fox.goToBed?.();
     this.ui?.onBedtime?.();
   }
@@ -861,8 +865,19 @@ export class Game {
     const st = this.state;
     st.phase = 'dawn';
     st.day++;
-    this.transition = { kind: 'dawn', from: 6, to: 9, t: 0, dur: 3.2 };
-    this.audio.play('sunrise', { volume: 0.5 });
+    // [v26 evening] the morning plays in Reynard's room first (sunrise over the valley, the alarm, coffee)
+    const bed = this.bedtime;
+    if (bed?.wake && !this.skipBedtime) {
+      st.hour = 6.2;
+      bed.wake().catch((e) => console.warn('wake', e)).finally(() => { if (this.state.phase !== 'dawn') return; this.dawnBreak(true); bed.reveal({ dur: 0.7 }); });
+      return;
+    }
+    this.dawnBreak(false);
+  }
+
+  dawnBreak(short = false) { // [v26 evening] (was the body of startDawn)
+    this.transition = { kind: 'dawn', from: short ? 7.6 : 6, to: 9, t: 0, dur: short ? 1.4 : 3.2 };
+    if (!short) this.audio.play('sunrise', { volume: 0.5 });
     this.fox.rig.root.visible = true;
     this.fox.wakeUp?.();
     this.nightTour?.showTally(); // [v19 overnight] "3 eggs hatched · 2 crops ripe", fades by itself
@@ -1182,6 +1197,7 @@ export class Game {
     if (r.reason === 'far') this.notify('Too far! Start from the edge of your land.', 'no');
     else if (r.reason === 'fog') this.notify('Too foggy! Clear right up to the fog and it lifts.', 'no');
     else if (r.reason === 'level') this.notify(`Need Lv${r.need} beaver tools! Upgrade on e-Buy.`, 'no');
+    else if (r.reason === 'barrier') this.notify(`${r.barrier.name}: ${r.barrier.hint}`, 'no'); // [v26 world]
     this.audio.play('error', { volume: 0.3 });
     return false;
   }

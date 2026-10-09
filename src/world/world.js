@@ -131,6 +131,20 @@ export class World {
     return r && r.speed > 0.02 ? r : null;
   }
 
+  // [v26 world] a plot that can't be bought: it holds a closed barrier tile or the Highland cliff
+  plotBlocked(px, pz, P = 8) {
+    const g = this.grid;
+    if (!g.barrier) return null;
+    for (let z = pz * P; z < (pz + 1) * P; z++)
+      for (let x = px * P; x < (px + 1) * P; x++) {
+        if (!g.inb(x, z)) continue;
+        const i = z * g.w + x;
+        if (g.barrier[i] && this.barrierAt(x, z)) return BARRIERS[g.barrier[i] - 1].name.toLowerCase() + ' in the way';
+        if (g.cube[i] && g.biome[i] === BIOME.HIGHLAND && g.kind[i] === KIND.ROCK) return 'a cliff in the way';
+      }
+    return null;
+  }
+
   // [v26 world] a closed natural barrier on this tile (the Deep's route): { id, name, hint } or null
   barrierAt(x, z) {
     const g = this.grid;

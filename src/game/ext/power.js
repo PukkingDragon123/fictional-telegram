@@ -463,7 +463,7 @@ class Power {
         continue;
       }
       // consumers: a flashing plug when they want to run but get no power, a bolt in a brownout
-      if (this.isConsumer(s) && this.wants(s)) {
+      if (this.isConsumer(s) && (this.wants(s) || (s.def.ind && this.game.industry?.rec?.(s)?.dark))) {
         const st = this.status(s);
         const y = this.baseY(s) + ((s.def.size?.[0] || 1) > 1 ? 2.1 : 1.45);
         if (st === 'nogrid' || st === 'dark') this.badges.set('plug:' + keyOf(s), 'pw_plug', c.x, y, c.z, { blink: true });

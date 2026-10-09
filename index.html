@@ -3,9 +3,616 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f1a24" />
+    <meta name="theme-color" content="#33396e" />
     <title>The Bear Must Eat</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cg fill='%23e8743b'%3E%3Crect x='2' y='5' width='2' height='2'/%3E%3Crect x='2' y='9' width='2' height='2'/%3E%3Crect x='3' y='7' width='2' height='2'/%3E%3Crect x='5' y='6' width='8' height='4'/%3E%3Crect x='6' y='5' width='6' height='6'/%3E%3Crect x='13' y='7' width='1' height='2'/%3E%3C/g%3E%3Crect x='11' y='7' width='1' height='1' fill='%23fff'/%3E%3C/svg%3E" />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #614b87; }
+      #tbme-paint { position: fixed; left: 0; bottom: 0; z-index: 2; image-rendering: pixelated; pointer-events: none; }
+    </style>
+    <script>
+/* The Bear Must Eat: the title screen's first frame. Runs inline in index.html
+   before any module loads and paints the whole golden-hour diorama in pixel art:
+   sky, far ranges, the stone mountain with the Bear St. office and its
+   switchback trail, layered forest, the meadow and Reynard's pond. The live
+   scene (src/game/title/) reuses the very same layers as its backdrop (pixel
+   exact hand-over) and adds everything that moves. */
+(function () {
+  var BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  var R = Math.round, F = Math.floor, A = Math.abs, MAX = Math.max, MIN = Math.min;
+  function by(x, y) { return (BAY[(y & 3) * 4 + (x & 3)] + 0.5) / 16; }
+  function h1(n) { n = Math.sin(n * 127.1 + 311.7) * 43758.5453; return n - F(n); }
+  function n1(x, s) { var i = F(x), f = x - i; f = f * f * (3 - 2 * f); return h1(i + s * 57.3) * (1 - f) + h1(i + 1 + s * 57.3) * f; }
+  function hex(c) { return [(c >> 16) & 255, (c >> 8) & 255, c & 255]; }
+  function mixc(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function ramp(stops, t, d) {
+    if (t <= stops[0][0]) return stops[0][1];
+    for (var i = 1; i < stops.length; i++) if (t <= stops[i][0]) return (t - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]) > d ? stops[i][1] : stops[i - 1][1];
+    return stops[stops.length - 1][1];
+  }
+  function layer(w, h) {
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d'), img = x.createImageData(w, h), d = img.data;
+    return { c: c, w: w, h: h, d: d,
+      put: function (px, py, rgb) { px = F(px); py = F(py); if (px < 0 || py < 0 || px >= w || py >= h) return; var o = (py * w + px) * 4; d[o] = rgb[0]; d[o + 1] = rgb[1]; d[o + 2] = rgb[2]; d[o + 3] = 255; },
+      has: function (px, py) { return px >= 0 && py >= 0 && px < w && py < h && d[(py * w + px) * 4 + 3] > 0; },
+      get: function (px, py) { var o = (py * w + px) * 4; return [d[o], d[o + 1], d[o + 2]]; },
+      clear: function (px, py) { if (px >= 0 && py >= 0 && px < w && py < h) d[(py * w + px) * 4 + 3] = 0; },
+      done: function () { x.putImageData(img, 0, 0); return c; } };
+  }
+  var C = {
+    sky: [[0.0, 0xffe6a8], [0.07, 0xffcf82], [0.16, 0xffb172], [0.27, 0xf9926f], [0.39, 0xe8767a], [0.52, 0xc2648c], [0.65, 0x91588f], [0.79, 0x614b87], [1.0, 0x33396e]],
+  };
+  var SKY = C.sky.map(function (s) { return [s[0], hex(s[1])]; });
+
+  function size() {
+    var dpr = MIN(window.devicePixelRatio || 1, 3), dens = 1;
+    try { dens = +localStorage.getItem('tbme.px') || 1; } catch (e) { /* no storage */ }
+    var W = MAX(1, F(innerWidth * dpr)), H = MAX(1, F(innerHeight * dpr));
+    var ps = MAX(1, R(Math.sqrt(W * W + H * H) / (760 * dens)));
+    return { dpr: dpr, ps: ps, lw: Math.ceil(W / ps), lh: Math.ceil(H / ps) };
+  }
+
+  // ------------------------------------------------------------ layout (low-res px, y down)
+  function layout(lw, lh) {
+    var tall = lh > lw * 1.15, hy = R(lh * (tall ? 0.5 : 0.585)), below = lh - hy;
+    var L = { lw: lw, lh: lh, tall: tall, hy: hy, M: 16, u: MIN(1.7, MAX(1, tall ? lw / 293 : lh / 267)) };
+    L.sun = tall ? { x: R(lw * 0.86), y: R(lh * 0.4), r: MAX(8, R(lw * 0.04)) } : { x: R(lw * 0.865), y: R(lh * 0.43), r: MAX(8, R(lh * 0.042)) };
+    L.f3 = hy + R(below * (tall ? 0.06 : 0.1)); // far forest: tree bases
+    L.f2 = hy + R(below * (tall ? 0.24 : 0.33)); // near forest: tree bases (the meadow starts here)
+    L.mt = tall ? { l: R(lw * 0.0), r: R(lw * 1.0), peakX: R(lw * 0.32), peakY: R(lh * 0.222), plat: R(lh * 0.302), offX: R(lw * 0.66), base: L.f3 + 6 }
+      : { l: R(lw * 0.2), r: R(lw * 0.86), peakX: R(lw * 0.43), peakY: R(lh * 0.065), plat: R(lh * 0.255), offX: R(lw * 0.59), base: L.f3 + 6 };
+    L.gapX = R(lw * (tall ? 0.28 : 0.37));
+    var mt = lh - L.f2;
+    L.pond = tall ? { x: R(lw * 0.52), y: L.f2 + R(mt * 0.3), rx: R(lw * 0.43), ry: MAX(14, R(mt * 0.11)) }
+      : { x: R(lw * 0.6), y: L.f2 + R(mt * 0.46), rx: R(lw * 0.22), ry: MAX(11, R(mt * 0.19)) };
+    L.fox = { x: R(L.pond.x + L.pond.rx * 0.48), y: L.pond.y + L.pond.ry + (tall ? 7 : 5) };
+    return L;
+  }
+
+  // ------------------------------------------------------------ sky
+  function paintSky(L) {
+    var lw = L.lw, lh = L.lh, hy = L.hy, S = L.sun, s = layer(lw, lh), span = MAX(40, hy + 6);
+    var glow = [hex(0xfff6dc), hex(0xffeab4), hex(0xffd994)];
+    for (var y = 0; y < lh; y++) for (var x = 0; x < lw; x++) {
+      var d = by(x, y), dx = (x - S.x) / lw, dy = (y - S.y) / span;
+      var near = Math.exp(-(dx * dx * 5 + dy * dy * 3));
+      var c = ramp(SKY, (hy - y) / span - near * 0.22 + (1 - near) * 0.05, d);
+      var gx = (x - S.x) * 0.62, gy = (y - S.y) * 1.25, g = Math.sqrt(gx * gx + gy * gy) / S.r;
+      if (g < 7.5) {
+        var k = g < 2 ? 0 : g < 3.3 ? 1 : g < 5 ? 2 : 3;
+        var e = g < 2 ? (g - 1.5) / 0.5 : g < 3.3 ? (g - 2.6) / 0.7 : g < 5 ? (g - 4.1) / 0.9 : (g - 6.2) / 1.3;
+        if (e > d * 1.4 - 0.2 && k < 3) k++;
+        c = k < 3 ? mixc(c, glow[k], k === 0 ? 0.9 : k === 1 ? 0.6 : 0.38) : mixc(c, glow[2], 0.16);
+      }
+      s.put(x, y, c);
+    }
+    for (var yy = -S.r; yy <= S.r; yy++) for (var xx = -S.r; xx <= S.r; xx++) {
+      var rr = Math.sqrt(xx * xx + yy * yy);
+      if (rr > S.r + 0.3) continue;
+      var cc = rr > S.r - 1.2 ? hex(0xffe08a) : rr > S.r * 0.6 ? hex(0xfff2c0) : hex(0xfffbea);
+      if (yy === R(S.r * 0.4) || yy === R(S.r * 0.75)) cc = mixc(cc, hex(0xffb070), 0.7);
+      s.put(S.x + xx, S.y + yy, cc);
+    }
+    var nst = R(lw * lh / 3800);
+    for (var i = 0; i < nst; i++) {
+      var sx = F(h1(i * 3.1 + 1) * lw * 0.66), sy = F(h1(i * 7.7 + 2) * hy * 0.42);
+      if (sy / hy > 0.34 + h1(i) * 0.1) continue;
+      var big = h1(i * 13.3) > 0.86, dim = hex(0xb89ac8);
+      s.put(sx, sy, hex(big ? 0xfff6ff : 0xe6cfe8));
+      if (big) { s.put(sx - 1, sy, dim); s.put(sx + 1, sy, dim); s.put(sx, sy - 1, dim); s.put(sx, sy + 1, dim); }
+    }
+    return s.done();
+  }
+
+  // ------------------------------------------------------------ clouds: puffy, flat-bottomed, lit from below-right
+  function shadeEdges(L, s0, col, M) {
+    var out = layer(s0.w, s0.h), S = L.sun, W0 = s0.w;
+    var s = { w: s0.w, h: s0.h, has: function (x, y) { return s0.has(((x % W0) + W0) % W0, y); } };
+    for (var y = 0; y < s.h; y++) for (var x = 0; x < s.w; x++) {
+      if (!s.has(x, y)) continue;
+      var dS = A(x - M - S.x) / L.lw, hot = dS < 0.1 ? col.hot : dS < 0.28 ? col.warm : col.lit;
+      var c = col.body;
+      if (!s.has(x, y + 1)) c = hot;
+      else if (!s.has(x, y + 2)) c = by(x, y) > 0.5 ? hot : mixc(hot, col.body, 0.5);
+      else if (!s.has(x + 1, y) || !s.has(x + 2, y + 1)) c = mixc(hot, col.body, 0.35);
+      else if (!s.has(x, y - 1) || (!s.has(x, y - 2) && by(x, y) > 0.6)) c = col.top;
+      out.put(x, y, c);
+    }
+    return out;
+  }
+  function paintClouds(L, top, bot, seed, col, count) {
+    var M = L.M, w = L.lw + M * 2, h = bot - top + 1, s = layer(w, h), blobs = [];
+    for (var k = 0; k < count; k++) {
+      var len = L.lw * (0.12 + h1(seed + k * 3.3) * 0.22), cx = h1(seed + k * 5.1) * w, base = R(h * (0.3 + h1(seed + k * 9.7) * 0.62));
+      var th = (L.tall ? 3 : 4) + h1(seed + k * 1.9) * (L.tall ? 5 : 7), n = 3 + F(h1(seed + k * 4.4) * 4);
+      var dsx = cx - M - L.sun.x, dsy = base + top - L.sun.y;
+      if (A(dsx) < len * 0.7 + L.sun.r * 2 && A(dsy) < L.sun.r * 2.2) continue; // keep the sun clear
+      for (var j = 0; j < n; j++) {
+        var u = (j + 0.5) / n - 0.5, mid = 1 - A(u) * 1.6;
+        blobs.push({ x: cx + u * len, rx: len / n * (0.9 + h1(seed + k + j) * 0.7), ry: th * (0.45 + mid * 0.7) * (0.7 + h1(seed * 2 + k + j) * 0.6), base: base });
+      }
+    }
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) for (var b = 0; b < blobs.length; b++) {
+      var B = blobs[b];
+      if (y > B.base) continue;
+      var dxw = x - B.x; dxw -= w * R(dxw / w);
+      var ex = dxw / B.rx, ey = (y - B.base) / B.ry;
+      if (ex * ex + ey * ey < 1) { s.put(x, y, col.body); break; }
+    }
+    return { c: shadeEdges(L, s, col, M).done(), y: top };
+  }
+
+  // ------------------------------------------------------------ far ranges
+  function paintRange(L, base, peak, seed, col, snowAt) {
+    var M = L.M, w = L.lw + M * 2, top = MAX(0, base - peak - 2), h = base - top + 1, s = layer(w, h), hs = [], x;
+    for (x = 0; x < w; x++) {
+      var f = x / L.lw, r1 = 1 - A(n1(f * 5.2, seed) * 2 - 1), r2 = 1 - A(n1(f * 11.0, seed + 3) * 2 - 1);
+      hs.push(peak * MIN(1, 0.22 + r1 * r1 * 0.6 + r2 * 0.18 + n1(f * 23, seed + 7) * 0.05));
+    }
+    var pk = [];
+    for (x = 0; x < w; x++) {
+      var isP = true;
+      for (var k = 1; k <= 5 && isP; k++) if (hs[MAX(0, x - k)] > hs[x] || hs[MIN(w - 1, x + k)] > hs[x]) isP = false;
+      if (isP && (!pk.length || x - pk[pk.length - 1].x > 4)) pk.push({ x: x, h: hs[x] });
+    }
+    if (!pk.length) pk.push({ x: w >> 1, h: hs[w >> 1] });
+    for (x = 0; x < w; x++) {
+      var ht = R(hs[x]), P = pk[0], bd = 1e9;
+      for (var i = 0; i < pk.length; i++) { var dd = A(x - pk[i].x) * 1.2 - pk[i].h; if (dd < bd) { bd = dd; P = pk[i]; } }
+      for (var j = 0; j <= ht; j++) {
+        var py = base - j, d = by(x, py), below = P.h - j;
+        var div = P.x + below * 0.32 + (n1(j * 0.4, seed + 11) - 0.5) * 3, lit = x > div;
+        var c = lit ? (x > div + 3 + below * 0.6 && d > 0.5 ? mixc(col.lit, col.body, 0.4) : col.lit) : col.body;
+        if (!lit && x < div - 1 && n1(x * 0.5 + j * 0.9, seed + 5) > 0.72) c = col.crease;
+        if (j >= ht) c = lit ? col.rimLit : col.rim;
+        var sl = peak * snowAt + (n1(x * 0.35, seed + 9) - 0.5) * peak * 0.12;
+        if (snowAt && j > sl && P.h > peak * (snowAt + 0.08)) c = lit ? col.snowLit : col.snow;
+        var hz = MAX(0, 1 - j / (peak * 0.6));
+        if (hz > d * 1.25) c = mixc(c, col.haze, 0.55 * hz + 0.1);
+        s.put(x, py - top, c);
+      }
+    }
+    return { c: s.done(), y: top };
+  }
+
+  // ------------------------------------------------------------ the stone mountain + office + trail
+  var GLYPH = { B: '##.#.###.#.##.', E: '####..##.#..###', A: '.#.#.####.##.#', R: '##.#.###.##.#', S: '.###...#...###.', T: '###.#..#..#.', '.': '.....#' };
+  var FONT3 = { // 3x5 caps
+    B: ['##.', '#.#', '##.', '#.#', '##.'], E: ['###', '#..', '##.', '#..', '###'], A: ['.#.', '#.#', '###', '#.#', '#.#'], R: ['##.', '#.#', '##.', '#.#', '#.#'],
+    S: ['.##', '#..', '.#.', '..#', '##.'], T: ['###', '.#.', '.#.', '.#.', '.#.'], '.': ['...', '...', '...', '...', '.#.'], ' ': ['...', '...', '...', '...', '...'] };
+  function text3(s, str, x0, y0, rgb) {
+    for (var i = 0; i < str.length; i++) { var g = FONT3[str[i]] || FONT3[' ']; for (var r = 0; r < 5; r++) for (var c = 0; c < 3; c++) if (g[r][c] === '#') s.put(x0 + i * 4 + c, y0 + r, rgb); }
+  }
+  function paintMountain(L) {
+    var M = L.M, mt = L.mt, w = L.lw + M * 2, top = MAX(0, mt.peakY - 4), base = mt.base, h = base - top + 1, s = layer(w, h);
+    var ox = mt.offX, plat = mt.plat, ow = 27;
+    // silhouette key points (x, y) left -> right
+    var kp = [[mt.l - 30, base + 4], [mt.l, base - (base - plat) * 0.08], [mt.l + (mt.peakX - mt.l) * 0.45, plat + (base - plat) * 0.18],
+      [mt.peakX - (mt.peakX - mt.l) * 0.18, mt.peakY + (plat - mt.peakY) * 0.45], [mt.peakX, mt.peakY],
+      [mt.peakX + (ox - ow - mt.peakX) * 0.55, mt.peakY + (plat - mt.peakY) * 0.62], [ox - ow, plat], [ox + ow, plat],
+      [ox + ow + 8, plat + 6], [ox + ow + (mt.r - ox - ow) * 0.45, plat + (base - plat) * 0.42], [mt.r, base - (base - plat) * 0.1], [mt.r + 30, base + 4]];
+    var prof = new Float32Array(w);
+    for (var x = 0; x < w; x++) {
+      var X = x - M, y = base + 10;
+      for (var i = 0; i < kp.length - 1; i++) {
+        var a = kp[i], b = kp[i + 1];
+        if (X >= a[0] && X <= b[0]) { var u = (X - a[0]) / MAX(1, b[0] - a[0]); y = a[1] + (b[1] - a[1]) * (u * u * (3 - 2 * u) * 0.35 + u * 0.65); break; }
+      }
+      var flat = X >= ox - ow - 1 && X <= ox + ow + 1;
+      if (!flat) y += (n1(X * 0.18, 13) - 0.5) * 6 + (n1(X * 0.6, 17) - 0.5) * 2.4 + (h1(X * 3.3) > 0.85 ? -1 : 0);
+      prof[x] = y;
+    }
+    // spurs: ridge lines running down from the summit and the shoulders (x positions per row)
+    var spurs = [];
+    var addSpur = function (x0, y0, drift, seed) { spurs.push({ x0: x0, y0: y0, drift: drift, seed: seed }); };
+    addSpur(mt.peakX, mt.peakY, 0.18, 1);
+    addSpur(mt.peakX - (mt.peakX - mt.l) * 0.35, mt.peakY + (plat - mt.peakY) * 0.9, -0.35, 2);
+    addSpur(mt.peakX + (ox - ow - mt.peakX) * 0.55, mt.peakY + (plat - mt.peakY) * 0.6, 0.12, 3);
+    addSpur(ox - ow + 4, plat + 3, -0.2, 4);
+    addSpur(ox + ow - 2, plat + 2, 0.3, 5);
+    addSpur(ox + ow + (mt.r - ox - ow) * 0.4, plat + (base - plat) * 0.42, 0.25, 6);
+    addSpur(mt.l + (mt.peakX - mt.l) * 0.3, plat + (base - plat) * 0.3, -0.15, 7);
+    var spurX = function (sp, y) { var d = y - sp.y0; return d < 0 ? null : sp.x0 + d * sp.drift + (n1(y * 0.22, sp.seed * 7) - 0.5) * 4; };
+    var col = { lit: hex(0xe9a17c), lit2: hex(0xd18a7c), mid: hex(0xa2707e), mid2: hex(0x8e6478), shade: hex(0x6a5274), shade2: hex(0x5a4668),
+      crack: hex(0x4a3a5c), rim: hex(0xffd2a0), snow: hex(0xc9b6dc), snowLit: hex(0xfff1dc), snowMid: hex(0xf0d2d0), grass: hex(0x8a8a5a), grassLit: hex(0xc8b062), haze: hex(0xe8a69a) };
+    var snowLine = mt.peakY + (plat - mt.peakY) * 0.55;
+    for (var x2 = 0; x2 < w; x2++) {
+      var X2 = x2 - M, ty = Math.ceil(prof[x2]);
+      for (var y2 = MAX(top, ty); y2 <= base; y2++) {
+        var d = by(x2, y2);
+        // which facet: distance to the nearest spur on the left / right in this row
+        var left = -1e9, right = 1e9;
+        for (var k = 0; k < spurs.length; k++) { var sx = spurX(spurs[k], y2); if (sx == null) continue; if (sx <= X2 && sx > left) left = sx; if (sx > X2 && sx < right) right = sx; }
+        var dl = X2 - left, dr = right - X2, c;
+        var fromTop = y2 - ty;
+        if (dl < 2.5 + (y2 - top) * 0.04) c = d > 0.3 ? col.lit : col.lit2;
+        else if (dr < 3 + (y2 - top) * 0.05) c = d > 0.6 ? col.shade2 : col.shade;
+        else if (dl < dr * 0.7) c = d > 0.55 ? col.lit2 : col.mid;
+        else c = d > 0.5 ? col.mid : col.mid2;
+        // strata: broken dark lines sloping gently down to the left
+        var sy = y2 + X2 * 0.18 + n1(X2 * 0.07, 3) * 5;
+        if (sy % 9 < 1 && n1(X2 * 0.21 + y2, 8) > 0.45) c = mixc(c, col.crack, 0.7);
+        // the silhouette catches the sun on its right-facing ridges
+        if (fromTop < 1) c = prof[MIN(w - 1, x2 + 1)] > prof[x2] - 0.2 ? col.rim : mixc(col.mid, col.rim, 0.3);
+        // snow above the snow line, jagged
+        var sn = snowLine + (n1(X2 * 0.3, 21) - 0.5) * 10 + (X2 > mt.peakX ? 4 : 0);
+        if (y2 < sn && X2 < ox - ow - 4) c = dl < dr * 0.9 ? (fromTop < 2 || d > 0.4 ? col.snowLit : col.snowMid) : col.snow;
+        // grassy ledges low down
+        var low = (y2 - plat) / MAX(1, base - plat);
+
+        // haze thickens towards the valley
+        var hz = MAX(0, low - 0.55) * 1.6;
+        if (hz > d) c = mixc(c, col.haze, 0.35);
+        s.put(x2, y2 - top, c);
+      }
+    }
+    // the switchback trail: ledges cut across the face, alternating, wider further down
+    var legs = L.tall ? 5 : 4, pts = [[ox - 3, plat + 1]], yA = plat + 1, yB = base - 3;
+    var faceAt = function (yy) {
+      var a = -1, b = -1;
+      for (var xs = 0; xs < w; xs++) if (prof[xs] < yy - 7) { a = xs - M; break; }
+      for (var xe = w - 1; xe >= 0; xe--) if (prof[xe] < yy - 7) { b = xe - M; break; }
+      return [a, b];
+    };
+    for (var lg = 1; lg <= legs; lg++) {
+      var tt = lg / legs, yy = R(yA + (yB - yA) * Math.pow(tt, 0.85));
+      var fb = faceAt(yy), wd = fb[1] - fb[0];
+      var xx = lg === legs ? L.gapX : lg % 2 ? fb[0] + wd * (0.12 + 0.06 * tt) : fb[1] - wd * (0.16 + 0.04 * tt);
+      if (lg % 2 === 0) xx = MIN(xx, L.sun.x - L.sun.r - 14);
+      pts.push([R(xx), yy]);
+    }
+    var trail = [];
+    var path = hex(0xf2c690), pathD = hex(0xd09c74), lip = hex(0x4a3656), lip2 = hex(0x5e4466), cut = hex(0x7a5672);
+    for (var p = 0; p < pts.length - 1; p++) {
+      var P0 = pts[p], P1 = pts[p + 1], n = MAX(A(P1[0] - P0[0]), A(P1[1] - P0[1])) * 2;
+      for (var q = 0; q <= n; q++) {
+        var tq = q / n, sag = Math.sin(Math.PI * tq) * MIN(3, A(P1[0] - P0[0]) * 0.03);
+        var px = P0[0] + (P1[0] - P0[0]) * tq, py = P0[1] + (P1[1] - P0[1]) * tq + sag;
+        if (q % 2 === 0) trail.push([px, py]);
+        var X3 = R(px) + M, Y3 = R(py) - top;
+        s.put(X3, Y3 - 2, cut); s.put(X3, Y3 - 1, by(X3, Y3) > 0.2 ? path : pathD); s.put(X3, Y3, by(X3, Y3 + 1) > 0.6 ? pathD : path);
+        s.put(X3, Y3 + 1, lip); s.put(X3, Y3 + 2, by(X3, Y3 + 2) > 0.5 ? lip2 : lip);
+      }
+      // a rounded switchback at the end of each leg
+      if (p < pts.length - 2) {
+        var dir = P1[0] > P0[0] ? 1 : -1;
+        for (var k2 = 0; k2 < 3; k2++) { s.put(P1[0] + M + dir * (k2 > 0 ? 1 : 0), P1[1] - top + k2 - 1, path); s.put(P1[0] + M + dir * 2, P1[1] - top + k2, lip); }
+      }
+    }
+    // pines climbing the lower slopes in clumps, never on the trail
+    var nTrees = L.tall ? 240 : 260;
+    for (var tI = 0; tI < nTrees; tI++) {
+      var clump = F(tI / 6), cxT = h1(clump * 1.31 + 2) * (w - 8) + 4;
+      var tx = R(cxT + (h1(tI * 9.1) - 0.5) * 14), ttop = prof[MAX(0, MIN(w - 1, tx))];
+      var low2 = Math.pow(h1(clump * 2.77 + 1), 0.5);
+      var tyy = R(ttop + 6 + (base - ttop - 6) * low2 + (h1(tI * 3.7) - 0.5) * 8);
+      if (tyy < plat + 10 || tyy > base || tyy < ttop + 4) continue;
+      var near = false;
+      for (var tr = 0; tr < trail.length; tr++) if (A(trail[tr][0] + M - tx) < 4 && tyy - trail[tr][1] > -2 && tyy - trail[tr][1] < 9) { near = true; break; }
+      if (near) continue;
+      var th = R((4 + F(h1(tI * 4.1) * 3 + low2 * 4)) * L.u);
+      for (var j = 0; j < th; j++) {
+        var hw = F((th - j) * 0.4 + 0.35);
+        for (var dx = -hw; dx <= hw; dx++) s.put(tx + dx, tyy - j - top, dx === hw && dx > 0 ? hex(0xe8a070) : dx < 0 ? hex(0x263a42) : hex(0x31484c));
+      }
+      s.put(tx, tyy - top + 1, hex(0x3a2a34));
+    }
+    // ---- the Bear St. office (front face + a sunlit side wall)
+    var OW = 2 * R(18 * L.u), OH = R(30 * L.u), x0 = ox - OW / 2, yb = plat; // tower spans x0..x0+OW, sits on the plateau
+    var stone = hex(0xb4a2a8), stoneD = hex(0x8a7888), stoneL = hex(0xe8c4a8), line = hex(0x6e5e72), winLit = hex(0xffd27a), winLit2 = hex(0xffe9a8), winDark = hex(0x4a4062);
+    var office = { doors: null, windows: [], whistle: null, flag: null, sign: null };
+    // shadow on the plateau (the sun is to the right)
+    for (var sxs = x0 - 12; sxs < x0 + 4; sxs++) { s.put(sxs + M, yb - top, hex(0x5a4668)); s.put(sxs + M, yb + 1 - top, hex(0x6a5274)); }
+    // lobby base (wider) and steps
+    for (var ly = yb - 6; ly <= yb; ly++) for (var lx = x0 - 3; lx <= x0 + OW + 2; lx++) s.put(lx + M, ly - top, ly === yb - 6 ? stoneL : lx > x0 + OW - 1 ? stoneL : (lx + ly) % 7 === 0 ? stoneD : stone);
+    // tower
+    for (var ty2 = yb - 6 - OH; ty2 < yb - 6; ty2++) for (var tx2 = x0; tx2 < x0 + OW; tx2++) {
+      var fx = tx2 - x0, fy = ty2 - (yb - 6 - OH);
+      var c2 = stone;
+      if (fx >= OW - 3) c2 = fx === OW - 1 ? hex(0xfff0d8) : stoneL; // sunlit corner pier
+      else if (fx < 2) c2 = stoneD;
+      else if (fy % 4 === 3) c2 = line; // floor lines
+      else if ((fx - 2) % 3 === 2) c2 = stone; // column
+      else if (fy > 1) {
+        var cxw = F((fx - 2) / 3), cyw = F(fy / 4), lit2 = h1(cxw * 7.3 + cyw * 13.1) > 0.3;
+        c2 = lit2 ? (h1(cxw * 3.1 + cyw) > 0.7 ? winLit2 : winLit) : winDark;
+        if ((fx - 2) % 3 === 0 && fy % 4 === 2) office.windows.push([tx2, ty2 - 1, lit2 ? 1 : 0, h1(cxw * 3.1 + cyw) > 0.7 ? 1 : 0]);
+      }
+      if (fy === 0) c2 = stoneL;
+      s.put(tx2 + M, ty2 - top, c2);
+    }
+    // the HOLDINGS band, the clock, the doors
+    var bandY = yb - 6 - 3;
+    for (var bx = x0 + 3; bx < x0 + OW - 3; bx++) for (var byy = bandY - 1; byy <= bandY + 1; byy++) s.put(bx + M, byy - top, hex(0x2a3350));
+    for (var bx2 = x0 + 5; bx2 < x0 + OW - 5; bx2 += 2) s.put(bx2 + M, bandY - top, hex(0xfff6d8));
+    var ccx = R(ox), ccy = yb - 6 - OH + 6;
+    for (var cy = -2; cy <= 2; cy++) for (var cx = -2; cx <= 2; cx++) if (cx * cx + cy * cy <= 5) s.put(ccx + cx + M, ccy + cy - top, cx * cx + cy * cy >= 4 ? hex(0x3a3440) : hex(0xfff8ec));
+    s.put(ccx + M, ccy - 1 - top, hex(0x202020)); s.put(ccx + M, ccy - top, hex(0x202020)); s.put(ccx + 1 + M, ccy - top, hex(0x202020));
+    var dW = 8, dH = 5, dx0 = R(ox - dW / 2);
+    for (var dy2 = yb - dH; dy2 < yb; dy2++) for (var dx2 = dx0; dx2 < dx0 + dW; dx2++) s.put(dx2 + M, dy2 - top, dx2 === dx0 + dW / 2 - 1 || dx2 === dx0 + dW / 2 ? hex(0x2a1e26) : hex(0x5a3a32));
+    for (var ax = dx0 - 1; ax <= dx0 + dW; ax++) s.put(ax + M, yb - dH - 1 - top, hex(0x3a3a3e));
+    office.doors = { x: dx0, y: yb - dH, w: dW, h: dH };
+    // roof: parapet, the red BEAR ST. sign on posts, steam whistle, flag pole
+    var roofY = yb - 6 - OH;
+    for (var rx = x0 - 1; rx <= x0 + OW; rx++) s.put(rx + M, roofY - 1 - top, rx > x0 + OW - 4 ? stoneL : stoneD);
+    var sgW = 33, sgX = R(ox - sgW / 2), sgY = roofY - 9;
+    for (var gy = sgY; gy < sgY + 7; gy++) for (var gx = sgX; gx < sgX + sgW; gx++) s.put(gx + M, gy - top, hex(0x3a3442));
+    s.put(sgX + 2 + M, roofY - 2 - top, hex(0x3a3442)); s.put(sgX + sgW - 3 + M, roofY - 2 - top, hex(0x3a3442));
+    text3(s, 'BEAR ST.', sgX + 2 + M, sgY + 1 - top, hex(0xff6a50));
+    office.sign = { x: sgX, y: sgY, w: sgW, h: 7 };
+    var whX = R(x0 + OW + 1);
+    for (var wy = roofY - 6; wy < roofY - 1; wy++) { s.put(whX + M, wy - top, hex(0xc89a40)); s.put(whX + 1 + M, wy - top, hex(0xf0c860)); }
+    s.put(whX - 1 + M, roofY - 6 - top, hex(0xd8a848)); s.put(whX + 2 + M, roofY - 6 - top, hex(0xd8a848));
+    office.whistle = { x: whX + 0.5, y: roofY - 7 };
+    var fpX = R(x0 + 2);
+    for (var fy2 = roofY - 16; fy2 < roofY - 1; fy2++) s.put(fpX + M, fy2 - top, hex(0xe8e0e0));
+    office.flag = { x: fpX + 1, y: roofY - 16 };
+    for (var fy3 = 0; fy3 < 5; fy3++) for (var fx3 = 0; fx3 < 8; fx3++) s.put(fpX + 1 + fx3 + M, roofY - 16 + fy3 - top, fx3 < 2 || fx3 > 5 ? hex(0xe8402e) : (fx3 === 3 || fx3 === 4) && fy3 > 0 && fy3 < 4 ? hex(0xe8402e) : hex(0xfff4ec));
+    L.trail = trail.map(function (q) { return [q[0], q[1]]; });
+    L.trailPts = pts;
+    L.office = office;
+    L.prof = function (X) { var i = R(X) + M; return prof[MAX(0, MIN(w - 1, i))]; };
+    return { c: s.done(), y: top };
+  }
+
+  // ------------------------------------------------------------ trees + forest bands
+  // a tiered spruce: drooping tier tips, lit band + warm rim on the sun side (right)
+  function spruce(s, cx, by0, hh, col, k, edge) {
+    var hw = MAX(1.5, hh * 0.29), tiers = MAX(3, R(hh / (hh > 60 ? 11 : hh > 30 ? 7 : 5)));
+    for (var j = 0; j < hh; j++) {
+      var yy = by0 - j, u = j / hh, tu = (u * tiers) % 1;
+      var wid = hw * Math.pow(1 - u, 0.92) * (1 - 0.42 * tu) + 0.45;
+      if (j >= hh - 1) wid = 0.3;
+      var jag = h1(cx * 3.1 + j * 7.7) > 0.72 ? 1 : 0;
+      var wl = R(wid + jag), wr = R(wid);
+      for (var dx = -wl; dx <= wr; dx++) {
+        var c = col.body[k];
+        var rel = (dx + wl) / MAX(1, wl + wr);
+        if (dx === wr && wr > 0) c = col.rim;
+        else if (dx === wr - 1 && wr > 3 && by(cx + dx, yy) > 0.45) c = col.rim;
+        else if (rel > 0.62) c = by(cx + dx, yy) > 0.35 ? col.lit : col.body[k];
+        else if (rel < 0.3) c = col.shade;
+        if (tu < 0.14 && j > 1 && dx < wr - 1) c = col.shade;
+        s.put(cx + dx, yy, c);
+      }
+    }
+    if (edge) for (var t = 1; t <= edge; t++) { s.put(cx, by0 + t, col.trunk); if (hh > 30) s.put(cx + 1, by0 + t, col.trunk); }
+  }
+  // a lumpy autumn crown on a short trunk
+  function roundTree(s, cx, by0, hh, col, k, seed) {
+    var Rr = MAX(3, hh * 0.36), cy = by0 - hh + Rr, sub = [];
+    for (var i = 0; i < 5; i++) { var a = i / 5 * 6.283 + seed; sub.push([cx + Math.cos(a) * Rr * 0.45, cy + Math.sin(a) * Rr * 0.38, Rr * (0.5 + h1(seed + i) * 0.25)]); }
+    sub.push([cx, cy, Rr * 0.62]);
+    for (var y = F(cy - Rr - 2); y <= by0; y++) for (var x = F(cx - Rr - 2); x <= cx + Rr + 2; x++) {
+      var inC = false;
+      for (var q = 0; q < sub.length; q++) { var dx = x - sub[q][0], dy = y - sub[q][1]; if (dx * dx + dy * dy < sub[q][2] * sub[q][2]) { inC = true; break; } }
+      if (inC) {
+        var lv = (x - cx) / Rr * 0.7 - (y - cy) / Rr * 0.7, d = by(x, y), c;
+        c = lv > 0.55 ? col.autumnLit[k % 2] : lv > 0.1 ? (d > 0.45 ? col.autumnLit[k % 2] : col.autumn[k % 2]) : lv > -0.45 ? col.autumn[k % 2] : (d > 0.5 ? col.autumn[k % 2] : col.autumnShade);
+        if (h1(x * 5.3 + y * 2.9) > 0.94 && lv < 0.3) c = col.autumnShade;
+        s.put(x, y, c);
+      } else if (y > cy + Rr * 0.4 && x >= cx - 0.5 && x <= cx + 0.5 + (hh > 30 ? 1 : 0)) s.put(x, y, col.trunk);
+    }
+  }
+  function birchTree(s, cx, by0, hh, col) {
+    var R2 = MAX(2, hh * 0.2), cy2 = by0 - hh + R2 * 1.3;
+    for (var y = F(cy2 - R2 * 1.4); y <= by0; y++) {
+      if (y > cy2 + R2 * 0.7) { s.put(cx, y, (y * 7 + cx) % 5 === 0 ? col.trunk : col.birch); continue; }
+      for (var x = F(cx - R2); x <= cx + R2; x++) {
+        var ex = (x - cx) / R2, ey = (y - cy2) / (R2 * 1.45);
+        if (ex * ex + ey * ey < 1 && h1(x * 3.1 + y * 7.3) > 0.12) s.put(x, y, ex - ey * 0.5 > 0.3 ? col.leafLit : col.leaf);
+      }
+    }
+  }
+  function paintForest(L, baseY, hMin, hMax, seed, col, o) {
+    var M = L.M, w = L.lw + M * 2, top = MAX(0, baseY - hMax - 3), h = L.lh - top, s = layer(w, h), t, x, y, i;
+    var trees = [], step = MAX(2, hMax * (o.dense || 0.2));
+    var rows = o.rows || 3;
+    for (var row = 0; row < rows; row++) for (t = -10 + row * step * 0.37; t < w + 10; t += step * (0.8 + h1(t + row) * 0.5)) {
+      var r = h1(seed + t * 0.731 + row * 9);
+      var th = R((hMin + (hMax - hMin) * Math.pow(h1(seed * 3 + t * 1.37 + row * 5), 1.2)) * (1 - row * 0.12));
+      if (o.gapW && A(t - M - o.gapX) < o.gapW + th * 0.25) continue;
+      var kind = r < (o.autumn || 0) ? 'round' : r < (o.autumn || 0) + (o.birch || 0) ? 'birch' : 'pine';
+      trees.push({ x: R(t), b: baseY - top - R((rows - 1 - row) * (o.rowDy || 2)) + R(h1(t * 2.3 + seed) * 2), h: th, kind: kind, k: F(h1(t * 5.1 + seed) * 3), row: row });
+    }
+    trees.sort(function (a, b) { return a.row - b.row || a.b - b.b; });
+    for (i = 0; i < trees.length; i++) {
+      var T = trees[i];
+      if (T.kind === 'pine') spruce(s, T.x, T.b, T.h, col, T.k, o.trunks ? 2 : 0);
+      else if (T.kind === 'round') roundTree(s, T.x, T.b, T.h, col, T.k, seed + i);
+      else birchTree(s, T.x, T.b, T.h, col);
+    }
+    // solid woods below the tree line, with a glowing mist band and a path into the trees
+    var line = baseY - top + 1;
+    for (y = line - 3; y < h; y++) for (x = 0; x < w; x++) {
+      if (y < line && s.has(x, y)) continue;
+      var dd = by(x, y + top), depth = (y - line) / MAX(10, h - line), c2 = depth * 3 > dd ? col.floor : col.floorTop;
+      if (o.mist) {
+        var m = Math.exp(-A((y - line) - o.mist.at) / o.mist.spread) * (0.5 + 0.5 * n1(x * 0.05 + y * 0.01, seed + 2));
+        if (m > dd * 0.85 + 0.1) c2 = m > 0.75 && dd < 0.5 ? col.mist2 || col.mist : col.mist;
+      }
+      if (o.gapW) {
+        var gxx = x - M - o.gapX, half = o.gapW * 0.55;
+        if (A(gxx) < half && y >= line - 4 && y < line + 6) c2 = A(gxx) < half * 0.45 && y >= line - 1 ? col.path : col.floorDeep || col.floor;
+      }
+      s.put(x, y, c2);
+    }
+    return { c: s.done(), y: top };
+  }
+
+  // ------------------------------------------------------------ the meadow, the pond's banks, Reynard's dock
+  function pondEdge(P, X) { var u = (X - P.x) / P.rx; if (A(u) >= 1) return null; var k = Math.sqrt(1 - u * u); return [P.y - P.ry * k * (0.84 + 0.16 * n1(X * 0.11, 5)), P.y + P.ry * k * (0.8 + 0.2 * n1(X * 0.09, 9))]; }
+  function paintMeadow(L) {
+    var M = L.M, w = L.lw + M * 2, top = L.f2 - 4, h = L.lh - top, s = layer(w, h), P = L.pond;
+    var gS = [hex(0xc4b862), hex(0xa8ac56)], gM = [hex(0x8e9a4a), hex(0x7e8c44)], gD = [hex(0x5a6a3c), hex(0x4c5c38)], gF = [hex(0x3c4c34), hex(0x34422e)];
+    var path = hex(0xd8ae7a), pathD = hex(0xb08660), pathE = hex(0x8a7650);
+    var ex = L.gapX, ey = L.f2 - 1, px2 = P.x - P.rx * 0.8, py2 = P.y - P.ry * 0.1, span = L.lh - L.f2;
+    L.meadowPath = { x0: ex, y0: ey + 2, x1: px2, y1: py2 };
+    for (var y = 0; y < h; y++) {
+      var Y = y + top, u = MAX(0, (Y - L.f2) / MAX(1, span));
+      for (var x = 0; x < w; x++) {
+        var X = x - M, d = by(x, Y), c;
+        // a few long shadows thrown by the woods (the low sun shines through the gaps towards the camera)
+        var sc = X + (Y - L.f2) * 0.62, gapLit = n1(sc * 0.045, 7) * 0.75 + n1(sc * 0.17, 3) * 0.25;
+        var reach = (0.12 + n1(sc * 0.03, 8) * 0.38) * span, edgeD = Y - L.f2;
+        var inShadow = gapLit < 0.42 && edgeD < reach - d * 6;
+        var fg = u * 0.9 + Math.pow(A(X / L.lw - 0.55) * 1.4, 2) * 0.5 + (n1(X * 0.04 + Y * 0.02, 4) - 0.5) * 0.12; // darker towards the camera and the corners
+        if (fg > 0.98 - d * 0.06) c = gF[d > 0.5 ? 0 : 1];
+        else if (fg > 0.78 - d * 0.06) c = gD[d > 0.45 ? 0 : 1];
+        else if (inShadow) c = gD[d > 0.3 ? 0 : 1];
+        else if (gapLit > 0.6 && edgeD < reach * 1.4) c = gS[d > 0.4 ? 0 : 1];
+        else c = fg < 0.3 ? gS[d > 0.7 ? 0 : 1] : gM[d > 0.5 ? 0 : 1];
+        // the bears' worn path from the woods down to the pond
+        var tp = (Y - ey) / MAX(1, py2 - ey);
+        if (tp >= 0 && tp <= 1.08) {
+          var pc = ex + (px2 - ex) * (tp * tp * (3 - 2 * tp)), pw = 1.5 + tp * 3.5;
+          if (A(X - pc) < pw + 1) c = A(X - pc) < pw - 0.5 ? (d > 0.35 ? path : pathD) : pathE;
+        }
+        s.put(x, y, c);
+      }
+    }
+    // grass blades with lit tips, flowers in the sun
+    for (var i = 0; i < w * h / 18; i++) {
+      var gx = F(h1(i * 1.7) * w), gy = F(h1(i * 2.9 + 1) * h), Y2 = gy + top, X2 = gx - M;
+      var pe = pondEdge(P, X2);
+      if (pe && Y2 > pe[0] - 3 && Y2 < pe[1] + 3) continue;
+      var uu = (Y2 - L.f2) / MAX(1, span), len = 1 + F(h1(i * 5.3) * (2 + uu * 5));
+      var base = s.get(gx, MIN(h - 1, gy)), lit = base[0] > 140;
+      for (var j = 0; j < len; j++) s.put(gx, gy - j, j === len - 1 ? (lit ? hex(0xf0d27a) : hex(0x9aa452)) : mixc(base, hex(0x2a3a26), 0.35));
+      if (h1(i * 7.9) > 0.94 && lit) { var fc = [hex(0xff8ab0), hex(0xffe066), hex(0xffffff), hex(0xc890ff), hex(0xff9a4a)][F(h1(i * 3.3) * 5)]; s.put(gx, gy - len, fc); if (uu > 0.4) s.put(gx + 1, gy - len, fc); }
+    }
+    // the pond: a hole for the water layer, a sandy far bank and a grassy near lip
+    for (var x5 = 0; x5 < w; x5++) {
+      var X5 = x5 - M, e = pondEdge(P, X5);
+      if (!e) continue;
+      var t0 = R(e[0]), t1 = R(e[1]);
+      for (var y5 = t0; y5 <= t1; y5++) s.clear(x5, y5 - top);
+      s.put(x5, t0 - 1 - top, hex(0x5a4a40)); s.put(x5, t0 - 2 - top, by(x5, t0) > 0.45 ? hex(0xf0c890) : hex(0xd0a676)); s.put(x5, t0 - 3 - top, hex(0xb08a5e));
+      s.put(x5, t1 + 1 - top, hex(0x2e3c2a)); s.put(x5, t1 + 2 - top, by(x5, t1) > 0.4 ? hex(0x4e6034) : hex(0x3e4e30));
+    }
+    // reeds and cattails at both ends
+    for (var k = 0; k < 34; k++) {
+      var side = k % 2 ? 1 : -1, rx = R(P.x + side * P.rx * (0.74 + h1(k * 3.1) * 0.32)), e2 = pondEdge(P, rx - 0.01 * side) || [P.y - 2, P.y + 2];
+      var ry = R(e2[1] - h1(k * 1.3) * (e2[1] - e2[0]) * 0.7), rh = 5 + F(h1(k * 7.1) * (L.tall ? 9 : 7));
+      var lean = h1(k * 2.2) > 0.5 ? side : 0;
+      for (var j2 = 0; j2 < rh; j2++) s.put(rx + M + (j2 > rh * 0.65 ? lean : 0), ry - j2 - top, j2 >= rh - 1 ? hex(0xf0d080) : j2 > rh * 0.6 ? hex(0x7a9a44) : hex(0x4a6a34));
+      if (k % 3 === 1) { s.put(rx + M, ry - rh - top, hex(0x7a4226)); s.put(rx + M, ry - rh - 1 - top, hex(0x6a3a22)); s.put(rx + M + 1, ry - rh - top, hex(0xa86a3a)); }
+    }
+    // Reynard's little dock reaching into the pond
+    var F0 = L.fox, dw = 2 * R((L.tall ? 6 : 5) * L.u), dlen = R(P.ry * 1.05), dTop = F0.y - dlen;
+    for (var dy = dTop; dy <= F0.y + 1; dy++) for (var dx = -dw / 2; dx < dw / 2; dx++) {
+      var plank = (dy - dTop) % 3 === 2 ? hex(0x7a4e2c) : (dx + 5) % 9 === 0 ? hex(0x9a6a3a) : by(dx + 9, dy) > 0.8 ? hex(0xb07a48) : hex(0xc89058);
+      if (dx >= dw / 2 - 1) plank = hex(0xf0bc78);
+      if (dx === -dw / 2) plank = hex(0x6a4428);
+      s.put(F0.x + dx + M, dy - top, plank);
+    }
+    for (var pp = 0; pp < 2; pp++) for (var py3 = 0; py3 < 3; py3++) s.put(F0.x + (pp ? dw / 2 - 1 : -dw / 2) + M, F0.y + 2 + py3 - top, hex(0x3a261a));
+    for (var pp2 = 0; pp2 < 2; pp2++) s.put(F0.x + (pp2 ? dw / 2 - 1 : -dw / 2) + M, dTop - 1 - top, hex(0x5a3a22));
+    L.dock = { x: F0.x, y0: dTop, y1: F0.y, w: dw };
+    return { c: s.done(), y: top };
+  }
+
+  // ------------------------------------------------------------ the water (the live scene adds ripples and glitter)
+  function paintWater(L) {
+    var M = L.M, w = L.lw + M * 2, P = L.pond, top = P.y - P.ry - 3, h = P.ry * 2 + 6, s = layer(w, h), S = L.sun;
+    for (var x = 0; x < w; x++) {
+      var X = x - M, e = pondEdge(P, X);
+      if (!e) continue;
+      var rl = e[0] + 2 + n1(X * 0.3, 4) * 3 + (h1(X * 1.7) > 0.75 ? 2 : 0) + (n1(X * 0.08, 6) > 0.6 ? 3 : 0);
+      for (var Y = F(e[0]) - 1; Y <= Math.ceil(e[1]) + 1; Y++) {
+        var d = by(x, Y), v = (Y - e[0]) / MAX(1, e[1] - e[0]);
+        var sunK = MAX(0, 0.3 - A(X - S.x) / L.lw);
+        var c = ramp(SKY, 0.03 + v * 0.62 - sunK * 0.6, d);
+        c = mixc(c, hex(0x42487a), 0.1 + v * 0.22);
+        if (Y < rl) c = mixc(hex(0x23363c), c, 0.22); // the forest's reflection
+        else if (Y < rl + 2 && d > 0.5) c = mixc(hex(0x23363c), c, 0.5);
+        if (n1(X * 0.15 + Y * 2.3, 3) > 0.76 && Y > rl + 1) c = mixc(c, hex(0xffe6c0), 0.3);
+        if (n1(X * 0.11 - Y * 1.7, 5) > 0.8 && Y > rl + 1) c = mixc(c, hex(0x302a5a), 0.25);
+        s.put(x, Y - top, c);
+      }
+    }
+    for (var k = 0; k < 10; k++) {
+      var lx = R(P.x + (h1(k * 2.3) - 0.5) * P.rx * 1.5), ly = R(P.y + (h1(k * 5.7) - 0.25) * P.ry * 0.8);
+      if (!s.has(lx + M, ly - top) || !s.has(lx + M + 2, ly - top) || !s.has(lx + M - 2, ly - top)) continue;
+      for (var j = -1; j <= 1; j++) for (var i = -2; i <= 2; i++) if (!(A(i) === 2 && j !== 0)) s.put(lx + i + M, ly + j - top, j < 0 ? hex(0x86b84e) : j === 0 ? hex(0x5e9038) : hex(0x3e6a2e));
+      if (k % 3 === 0) { s.put(lx + M, ly - 2 - top, hex(0xffd0e4)); s.put(lx + M - 1, ly - 1 - top, hex(0xff9ac0)); s.put(lx + M + 1, ly - 1 - top, hex(0xff9ac0)); }
+    }
+    return { c: s.done(), y: top };
+  }
+
+  // ------------------------------------------------------------ foreground framing (in front of the actors)
+  function paintFront(L) {
+    var M = L.M, w = L.lw + M * 2, top = R(L.lh * (L.tall ? 0.5 : 0.12)), h = L.lh - top, s = layer(w, h);
+    var col = { body: [hex(0x1c2a2c), hex(0x1e2c2e), hex(0x1a2628)], shade: hex(0x141e20), lit: hex(0x2a3c3a), rim: hex(0xf0a060), trunk: hex(0x24181a) };
+    var put = function (dx, dy) { return [dx + M, dy - top]; };
+    var tree = function (cx, baseY, th) { var p0 = put(cx, baseY); spruce(s, p0[0], p0[1], th, col, 0, 0); for (var y = p0[1] + 1; y < h; y++) for (var x = -2; x <= 2; x++) s.put(p0[0] + x, y, x === 2 ? hex(0x8a4a3a) : col.trunk); };
+    if (L.tall) { tree(L.lw - 2, L.lh - 6, R(L.lh * 0.36)); tree(6, L.lh + 2, R(L.lh * 0.3)); }
+    else { tree(L.lw + 2, L.lh - 4, R(L.lh * 0.84)); tree(-2, L.lh + 4, R(L.lh * 0.7)); }
+    for (var i = 0; i < w * 1.6; i++) {
+      var gx = F(h1(i * 2.1) * w), gl = 2 + F(h1(i * 4.3) * (L.tall ? 12 : 9)), lean = h1(i * 6.1) > 0.5 ? 1 : -1;
+      for (var j2 = 0; j2 < gl; j2++) s.put(gx + (j2 > gl * 0.65 ? lean : 0), h - 1 - j2, j2 === gl - 1 ? hex(0xe0a060) : j2 > gl - 3 ? hex(0x3e4e30) : hex(0x1e2a20));
+    }
+    return { c: s.done(), y: top };
+  }
+
+  function lay(name, par, o) { o.name = name; o.par = par; return o; }
+  function paint(lw, lh) {
+    var L = layout(lw, lh), hy = L.hy, H = hy;
+    L.sky = paintSky(L);
+    L.layers = [];
+    L.layers.push(lay('cloudsHigh', 0.04, paintClouds(L, R(H * 0.06), R(H * 0.4), 11,
+      { body: hex(0x6a4f8c), top: hex(0x8a6aa8), lit: hex(0xd0789e), warm: hex(0xec8e98), hot: hex(0xffc4a4) }, L.tall ? 3 : 4)));
+    L.layers.push(lay('rangeFar', 0.08, paintRange(L, hy + 1, R(H * (L.tall ? 0.36 : 0.44)), 3, {
+      body: hex(0xa47aa2), lit: hex(0xeeaa9a), rim: hex(0xc08ab0), rimLit: hex(0xffcfae), crease: hex(0x94709a),
+      snow: hex(0xd8bcd6), snowLit: hex(0xfff0dc), haze: hex(0xf0b4a0) }, 0.6)));
+    L.layers.push(lay('cloudsLow', 0.07, paintClouds(L, R(H * 0.4), R(H * 0.82), 23,
+      { body: hex(0xa8628e), top: hex(0xc07c9e), lit: hex(0xf09c96), warm: hex(0xffb886), hot: hex(0xfff0c8) }, L.tall ? 2 : 3)));
+    L.layers.push(lay('rangeNear', 0.13, paintRange(L, hy + 2, R(H * (L.tall ? 0.24 : 0.3)), 8, {
+      body: hex(0x7c5c8c), lit: hex(0xdc9488), rim: hex(0x9a6c96), rimLit: hex(0xffc29a), crease: hex(0x6c5080),
+      snow: hex(0xc8aed0), snowLit: hex(0xffe2c8), haze: hex(0xe8a294) }, 0.7)));
+    L.layers.push(lay('horizon', 0.18, paintForest(L, hy + 1, 3, 9, 41, {
+      body: [hex(0x7a5478), hex(0x744e74), hex(0x7e587c)], shade: hex(0x6a4870), rim: hex(0xe8988a), lit: hex(0x9a6a82),
+      autumn: [hex(0xa05c6e), hex(0x96566a)], autumnLit: [hex(0xe8a08c), hex(0xe0968a)], autumnShade: hex(0x744e74), trunk: hex(0x5a3c60),
+      birch: hex(0xc49aa8), leaf: hex(0x8a6a7c), leafLit: hex(0xd8a08e), floorTop: hex(0xb07a8e), floor: hex(0x9a6c88), mist: hex(0xf6c09a), mist2: hex(0xffd8b0), path: hex(0x9a6c88) },
+      { autumn: 0.1, jitter: 2, dense: 0.5, mist: { at: 1, spread: 2.5 } })));
+    L.layers.push(lay('mountain', 0.24, paintMountain(L)));
+    L.layers.push(lay('forestFar', 0.38, paintForest(L, L.f3, R((L.tall ? 10 : 11) * L.u), R((L.tall ? 24 : 26) * L.u), 7, {
+      body: [hex(0x4a4a6c), hex(0x444466), hex(0x504e70)], shade: hex(0x3c3c5c), rim: hex(0xf2a27c), lit: hex(0x5e5a78),
+      autumn: [hex(0xa85a58), hex(0xb86c4e)], autumnLit: [hex(0xf6a470), hex(0xffba78)], autumnShade: hex(0x6e4058), trunk: hex(0x3c2e4a),
+      birch: hex(0xd8bcb4), leaf: hex(0xb08a5a), leafLit: hex(0xf0c07a), floorTop: hex(0x3e3c5c), floor: hex(0x343252), mist: hex(0xd08e86), mist2: hex(0xf4b08e), path: hex(0x343252) },
+      { autumn: 0.14, birch: 0.07, rowDy: 3, dense: 0.24, mist: { at: 3, spread: 2.2 } })));
+    L.layers.push(lay('forestNear', 0.6, paintForest(L, L.f2, R((L.tall ? 26 : 24) * L.u), R((L.tall ? 56 : 52) * L.u), 19, {
+      body: [hex(0x2c464a), hex(0x274044), hex(0x324e50)], shade: hex(0x1f3436), rim: hex(0xffb46a), lit: hex(0x3e5c54),
+      autumn: [hex(0xc0542c), hex(0xd8802a)], autumnLit: [hex(0xffac52), hex(0xffd472)], autumnShade: hex(0x7a3428), trunk: hex(0x3a2622),
+      birch: hex(0xf2e6da), leaf: hex(0xd0a63a), leafLit: hex(0xffe27a), floorTop: hex(0x22342e), floor: hex(0x1c2c28), floorDeep: hex(0x141e1c), path: hex(0x9a7652) },
+      { autumn: 0.2, birch: 0.1, rows: 4, rowDy: 5, dense: 0.21, trunks: 1, gapX: L.gapX, gapW: L.tall ? 9 : 10 })));
+    var water = paintWater(L);
+    L.layers.push(lay('water', 0.85, water));
+    L.layers.push(lay('meadow', 0.85, paintMeadow(L)));
+    L.layers.push(lay('front', 1.25, paintFront(L)));
+    return L;
+  }
+
+  function composite(L, ctx) {
+    ctx.drawImage(L.sky, 0, 0);
+    for (var i = 0; i < L.layers.length; i++) ctx.drawImage(L.layers[i].c, -L.M, L.layers[i].y);
+  }
+
+  var api = { size: size, layout: layout, paint: paint, composite: composite };
+  window.__tbmePaint = api;
+  try {
+    var t0 = performance.now(), z = size(), L = paint(z.lw, z.lh), cv = document.createElement('canvas');
+    cv.id = 'tbme-paint';
+    cv.width = z.lw; cv.height = z.lh;
+    cv.style.width = (z.lw * z.ps / z.dpr) + 'px';
+    cv.style.height = (z.lh * z.ps / z.dpr) + 'px';
+    composite(L, cv.getContext('2d'));
+    api.first = { L: L, size: z, canvas: cv, ms: performance.now() - t0 };
+    document.documentElement.appendChild(cv);
+  } catch (e) { if (window.console) console.warn('title paint', e); }
+})();
+    </script>
   </head>
   <body>
     <canvas id="game"></canvas>

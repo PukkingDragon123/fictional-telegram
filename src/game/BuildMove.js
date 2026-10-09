@@ -172,6 +172,7 @@ export class BuildMove {
         <div class="bm-tip">${mv.ok ? '<b>Hold</b> a build to drag it' : esc(mv.reason)}</div>`;
     }
     el.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.act(b.dataset.a); }));
+    if (view === 'main') game.staff?.decorateCard?.(el, s, this); // [v26 staff] workers / residents + Assign / Upgrade
     el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   }
 
@@ -442,6 +443,7 @@ export class BuildMove {
       if (r.reason === 'far') game.notify('Too far! Start from the edge of your land.', 'no');
       else if (r.reason === 'fog') game.notify('Too foggy! Clear right up to the fog and it lifts.', 'no');
       else if (r.reason === 'level') game.notify(`Need Lv${r.need} beaver tools! Upgrade on e-Buy.`, 'no');
+      else if (r.reason === 'barrier') game.notify(`${r.barrier.name}: ${r.barrier.hint}`, 'no'); // [v26 world]
       else if (r.reason === 'nothing') { game.notify('Nothing to clear here. Tap a tree, rock or weed!', 'no'); }
       game.audio.play('error', { volume: 0.3 });
       return false;

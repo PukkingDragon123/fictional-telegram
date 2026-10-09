@@ -159,6 +159,7 @@ export class BeaverSystem {
     const i = z * g.w + x;
     if (this.clears.has(i)) return { ok: false, reason: 'queued' };
     if (this.game.zones?.fogAt(x, z) > 0.45) return { ok: false, reason: 'fog' };
+    { const bar = this.game.world.barrierAt?.(x, z); if (bar) return { ok: false, reason: 'barrier', barrier: bar }; } // [v26 world] the Deep's route: brambles, the Fallen Giant, the cliff
     const need = this.levelFor(x, z, k);
     if (need > this.level()) return { ok: false, reason: 'level', need, kind: k };
     if (g.meadow[i] || this.game.land?.ownsTile(i)) return { ok: true, kind: k };

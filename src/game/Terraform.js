@@ -246,8 +246,7 @@ export class Terraform {
       if (this.reason(t.x, t.z, 'dig')) continue;
       if (!this.pay(this.stroke, TF_COST.dig)) break;
       const i = t.z * g.w + t.x;
-      g.kind[i] = KIND.WATER;
-      g.height[i] = 0;
+      if (!game.waterworks?.dig(i)) { g.kind[i] = KIND.WATER; g.height[i] = 0; } // [v26 world] a dry channel: the water runs in tile by tile (game/ext/waterworks.js)
       g.paint[i] = 0;
       game.world.removeClutter?.(t.x, t.z);
       for (const c of game.world.clutter) if (Math.floor(c.x) === t.x && Math.floor(c.z) === t.z) c.removed = true;

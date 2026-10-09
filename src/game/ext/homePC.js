@@ -401,15 +401,15 @@ class HomePCSystem {
   viewForRect(rect) {
     const g = this.game, r = g.renderer, base = this.viewOf('camOffice');
     const W = innerWidth, H = innerHeight;
-    const k = Math.min((rect.h * 0.78) / 1.75, (rect.w * 0.9) / 1.25); // CSS px per world unit
+    const k = Math.min((rect.h * 0.56) / 1.75, (rect.w * 0.78) / 1.25); // CSS px per world unit (room above his head for the speech bubble)
     const wpc = 1 / Math.max(1, k);
     const wupp = (wpc * r.pixelScale) / (r.dpr || 1);
     const yaw = base.yaw, pitch = base.pitch;
     const dir = _v.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
     const R = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
     const U = new THREE.Vector3().crossVectors(dir, R).normalize();
-    const P = this.room.office.seat.position.clone().add(_v2.set(0, 0.86, 0.1));
-    const ox = rect.x + rect.w / 2 - W / 2, oy = rect.y + rect.h * 0.52 - H / 2;
+    const P = this.room.office.seat.position.clone().add(_v2.set(0, 0.8, 0.1));
+    const ox = rect.x + rect.w / 2 - W / 2, oy = rect.y + rect.h * 0.64 - H / 2;
     const target = P.addScaledVector(R, -ox * wpc).addScaledVector(U, oy * wpc);
     return { target, wupp, pitch, yaw };
   }
@@ -472,7 +472,7 @@ class HomePCSystem {
   // a short shot of Reynard walking into his hut (world camera)
   async walkHome() {
     const g = this.game, fox = g.fox, rig = g.rig;
-    this.savedCam = { x: rig.goal.x, z: rig.goal.z, wupp: rig.wuppGoal, yaw: rig.yawGoal, free: rig.freeBounds, follow: rig.follow, paused: g.state.paused };
+    this.savedCam = { x: rig.goal.x, z: rig.goal.z, wupp: rig.wuppGoal, yaw: rig.yawGoal, pitch: rig.pitchGoal ?? rig.pitch, free: rig.freeBounds, follow: rig.follow, paused: g.state.paused };
     g.inputLocked = true;
     document.body.classList.add('cine', 'pc-walk');
     this.skippable(true);
@@ -482,11 +482,12 @@ class HomePCSystem {
     fox.mood = 'idle'; fox.moodT = 0;
     fox.rig.root.visible = true;
     // cut to the porch: he comes up the path
-    fox.x = door.x + 0.9; fox.z = door.z + 2.4; fox.heading = -Math.PI / 2;
+    fox.x = door.x + 1.2; fox.z = door.z + 3.6; fox.heading = -Math.PI / 2;
     fox.target = { x: door.x, z: door.z + 0.45 };
     rig.follow = null; rig.freeBounds = true;
-    rig.goal.set(door.x + 0.2, 0.5, door.z + 1.1); rig.target.copy(rig.goal);
-    rig.wupp = rig.wuppGoal = 0.017; rig.yaw = rig.yawGoal = 0.25;
+    // low and close: under the porch roof, the door in view
+    rig.goal.set(door.x + 0.3, 0.7, door.z + 1.4); rig.target.copy(rig.goal);
+    rig.wupp = rig.wuppGoal = 0.016; rig.yaw = rig.yawGoal = 0.3; rig.pitch = rig.pitchGoal = 0.36;
     this.sfx('footsteps', 0.25);
     const t0 = this.t;
     while (fox.target && this.t - t0 < 2.6 && !this.skipped) await this.wait(0.05);
@@ -528,6 +529,7 @@ class HomePCSystem {
     rig.freeBounds = s.free; rig.follow = s.follow;
     rig.goal.set(s.x, 0, s.z); rig.clampGoal?.();
     rig.wuppGoal = s.wupp; rig.yawGoal = s.yaw;
+    if (s.pitch != null) rig.pitch = rig.pitchGoal = s.pitch;
     this.savedCam = null;
   }
 

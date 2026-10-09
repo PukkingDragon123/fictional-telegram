@@ -59,7 +59,7 @@ export const BARRIERS = [
     hint: 'Too wide to wade. Research a Rope Bridge, then clear the forest up to the river bank.' },
   { id: 'thorns', name: 'The Bramblewall', kind: 'thorns', research: 'r_xp_thorns', z0: 176, z1: 179,
     hint: 'Thorns as long as your arm. The beavers refuse. Research Bramble Hooks.' },
-  { id: 'log', name: 'The Fallen Giant', kind: 'log', research: 'r_xp_saw', trigger: true, near: [54, 188], x0: 51, x1: 58, z: 189,
+  { id: 'log', name: 'The Fallen Giant', kind: 'log', research: 'r_xp_saw', trigger: true, near: [54, 189], x0: 51, x1: 58, z: 190,
     hint: 'An ancient tree lies across the only way down. Research a Crosscut Saw, then clear up to it.' },
   { id: 'cliff', name: 'Heron Steps', kind: 'cliff', research: 'r_xp_ropes',
     hint: 'A goat path down the cliff. Too steep without ropes: research Climbing Ropes.' },

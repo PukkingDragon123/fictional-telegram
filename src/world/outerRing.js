@@ -17,6 +17,7 @@ import { KIND, WATER_Y } from './grid.js';
 import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
 import { terrainAtlasUniforms } from './terrain.js';
 import { STONE, STONE_GLSL, stoneUniforms } from '../art/stoneArt.js';
+import { buildCubeGround, SPRITE_CAP } from './cubeMountains.js'; // [v26 world]
 
 const E = 100; // how far the valley reaches past the map edge (tiles)
 const TREE_D = 14; // the thick sprite forest band
@@ -72,8 +73,7 @@ export class OuterRing {
     this.scene.add(this.group);
     this.buildSeam();
     this.buildRivers();
-    this.buildLattice();
-    this.buildGround();
+    buildCubeGround(this); // [v26 world] true cubes (was buildLattice + buildGround: smooth / stretched columns)
     this.buildWaterfall();
     this.buildTrees();
     this.buildCritters();
@@ -611,8 +611,9 @@ vec3 ringTex(int id, vec2 p) {
       prev.call(mat, shader, r);
       Object.assign(shader.uniforms, { uHaze: U.uHaze, uRect: U.uRect, uRingCam: U.uRingCam, uHazeK: U.uHazeK });
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\n' + HAZE_PARS + '\nvarying float vRingHaze;')
-        .replace('vec3 transformed = sprW;', 'vec3 transformed = sprW;\ntransformed.y += (2.0 + (aPos.y - 2.0) * 0.35 - aPos.y) * flatK(aPos);')
+        .replace('#include <common>', '#include <common>\n' + HAZE_PARS + SPRITE_CAP + '\nvarying float vRingHaze;') // [v26 world] the cut ranges' cap (was a squash)
+        .replace('vec3 transformed = sprW;', 'vec3 transformed = sprW;\nfloat ringCap = capAt(aPos.xz, 0.5);\ntransformed.y += min(aPos.y, ringCap) - aPos.y;')
+        .replace('vSEmis = aExtra.z;\n', 'vSEmis = aExtra.z;\nvSAlpha *= 1.0 - smoothstep(0.3, 1.6, aPos.y - capAt(aPos.xz, 0.5));\n')
         .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringHaze(aPos);');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;')

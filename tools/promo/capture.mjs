@@ -47,7 +47,7 @@ async function render(kind) {
   const P = PRESETS[kind];
   const [w, h] = P.viewport;
   const page = await newPage(w, h);
-  await page.goto(`${URL0}/`, { waitUntil: 'load' });
+  await page.goto(`${URL0}/?title=pond`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__title && window.__title.active, null, { timeout: 120000 });
   await page.waitForTimeout(6000); // shader warm-up
   await page.evaluate(async ([k, o]) => { const S = await import('/tools/promo/stage.js'); await S.setup(k, o); }, [kind, { px: P.px, ...P.opts }]);
@@ -69,7 +69,7 @@ async function renderAnim(name) {
   const P = PRESETS[name], kind = P.kind;
   const [w, h] = P.viewport;
   const page = await newPage(w, h);
-  await page.goto(`${URL0}/`, { waitUntil: 'load' });
+  await page.goto(`${URL0}/?title=pond`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__title && window.__title.active, null, { timeout: 120000 });
   await page.waitForTimeout(6000);
   const N = await page.evaluate(async ([k, o]) => { const S = await import('/tools/promo/stage.js'); await S.setup(k, o); S.prepLoop(); return o.loop.frames; }, [P.scene || kind, { px: P.px, ...P.opts }]);
