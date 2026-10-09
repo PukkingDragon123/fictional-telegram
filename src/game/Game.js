@@ -50,6 +50,8 @@ import { Resources } from './Resources.js'; // [F&S mining] ore + parts inventor
 import { Mining } from './Mining.js'; // [F&S mining] veins, the bear mine, Flint
 import { Industry } from './Industry.js'; // [F&S industry] machines, belts, power, worker bears, pollution
 const bedMods = import.meta.glob('./Bedtime.js', { eager: true });
+// [v26] extension systems (see installExt below)
+const EXT_SYSTEMS = import.meta.glob('./ext/*.js', { eager: true });
 const Bedtime = bedMods['./Bedtime.js']?.Bedtime || null;
 import { FOOD_ITEMS, STARTING_FOOD, STORAGE, BAG_IDS } from '../data/foods.js';
 import { SIGNING_BONUS } from './BeaverSystem.js';
@@ -164,6 +166,7 @@ export class Game {
     this.res = new Resources(this); // [F&S mining]
     this.mining = new Mining(this); // [F&S mining]
     this.industry = new Industry(this); // [F&S industry]
+    this.installExt(); // [v26] src/game/ext/*.js systems
     this.ui = null;
     this.cine = null; // cinematic director (set by main)
     this.tool = { kind: 'feed' };
@@ -212,6 +215,25 @@ export class Game {
   }
 
   // ------------------------------------------------------------ setup
+  // [v26] every src/game/ext/<name>.js exports install(game) -> a system object, set as
+  // game.<name>. Optional hooks: update(simDt, dt) (every frame unless game over),
+  // render(dt), onNewGame(), onLoad(). Save data lives in game.state.<name> (saved as is).
+  installExt() {
+    this.extSystems = [];
+    for (const [p, m] of Object.entries(EXT_SYSTEMS)) {
+      const name = p.match(/([^/]+)\.js$/)[1];
+      if (name in this) { console.error('[ext] name taken:', name); continue; }
+      try { const sys = m.install?.(this); if (sys) { this[name] = sys; sys.extName = name; this.extSystems.push(sys); } } catch (e) { console.error('[ext]', name, e); }
+    }
+  }
+
+  extCall(hook, ...args) {
+    for (const s of this.extSystems || []) {
+      if (typeof s[hook] !== 'function') continue;
+      try { s[hook](...args); } catch (e) { if (!s['_err_' + hook]) { s['_err_' + hook] = 1; console.error('[ext]', s.extName, hook, e); } }
+    }
+  }
+
   newGame() {
     safeDel(SAVE_KEY);
     this.state = this.freshState();
@@ -248,8 +270,10 @@ export class Game {
     this.villagers.onLoad();
     this.refreshMods();
     this.quests?.onLoad();
+    this.extCall('onNewGame'); // [v26]
     this.mining?.onLoad(); // [F&S mining]
     this.industry?.onLoad(); // [F&S industry]
+    this.extCall('onLoad'); // [v26]
     this.onTopologyChanged();
     this.startDay(true);
     this.started = true;
@@ -1586,6 +1610,7 @@ export class Game {
     this.homes?.update(realDt); // [v20 npc homes]
     if (st.phase !== 'gameover') this.mining?.update(simDt, dt); // [F&S mining]
     if (st.phase !== 'gameover') this.industry?.update(simDt, dt); // [F&S industry]
+    if (st.phase !== 'gameover') this.extCall('update', simDt, dt); // [v26]
     this.classroom?.update(realDt);
     this.particles.update(simDt || dt * 0.5);
     try { updateWakes(this, simDt || dt * 0.5); } catch (e) { console.warn('wakes', e); } // [v20 water] fish/bear/bird/beaver wakes
@@ -1613,6 +1638,7 @@ export class Game {
     this.food.render();
     this.bears.render(realDt);
     this.beavers.render(realDt);
+    this.extCall('render', realDt); // [v26]
     const pushers = this._pushers || (this._pushers = []);
     pushers.length = 0;
     pushers.push({ x: this.fox.x, y: this.fox.y, z: this.fox.z, r: 0.7 });
@@ -1716,6 +1742,7 @@ export class Game {
     this.quests?.onLoad();
     this.mining?.onLoad(); // [F&S mining]
     this.industry?.onLoad(); // [F&S industry]
+    this.extCall('onLoad'); // [v26] (also called at the end of newGame: state is ready)
     this.applyLandmarkMods();
     this.world.landVersion++;
     if (data.cam) { this.rig.lookAt(data.cam[0], data.cam[1], true); this.rig.wupp = this.rig.wuppGoal = data.cam[2]; this.rig.yaw = this.rig.yawGoal = data.cam[3] || 0; }

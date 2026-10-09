@@ -264,6 +264,13 @@ if (INDUSTRY_MOD && Array.isArray(INDUSTRY_MOD.INDUSTRY_RESEARCH)) {
   }
 }
 
+// [v26] extension research: every src/data/ext/*.js may export BRANCHES ([{ id, name, icon, color, key }]) and RESEARCH (nodes)
+for (const m of Object.values(import.meta.glob('./ext/*.js', { eager: true }))) {
+  for (const b of m.BRANCHES || []) { if (!BRANCHES.some((x) => x.id === b.id)) BRANCHES.push({ icon: 'gear', color: '#8a8f9c', ...b }); if (b.key) SECTION_KEYS[b.id] = { ...b.key }; }
+  const have = new Set(RESEARCH.map((r) => r.id));
+  for (const r of m.RESEARCH || []) { if (!r || !r.id || have.has(r.id)) continue; have.add(r.id); RESEARCH.push({ icon: 'gear', time: 60, desc: '', ...r, req: Array.isArray(r.req) ? r.req : [] }); }
+}
+
 export const RESEARCH_BY_ID = Object.fromEntries(RESEARCH.map((r) => [r.id, r]));
 // [v18 research] section lookups
 export const BRANCH_BY_ID = Object.fromEntries(BRANCHES.map((b) => [b.id, b]));
