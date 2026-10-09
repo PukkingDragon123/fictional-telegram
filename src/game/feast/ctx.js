@@ -194,7 +194,7 @@ export class FeastCtx {
     return h;
   }
 
-  attach(h, b, slot = 'hand') {
+  attach(h, b, slot = 'hand', off = null) {
     const o = h?.obj || h;
     const r = b?.rig;
     if (!o || !r) return h;
@@ -204,7 +204,7 @@ export class FeastCtx {
     else if (slot === 'mouth') parent = r.mouthAnchor;
     else if (slot === 'top') parent = r.topAnchor;
     else if (slot === 'head') parent = headAnchor(r);
-    o.position.set(0, 0, 0);
+    o.position.set(off?.x || 0, off?.y || 0, off?.z ?? (slot === 'hold' ? 0.16 : 0));
     parent.add(o);
     return h;
   }

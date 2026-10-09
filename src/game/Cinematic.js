@@ -172,7 +172,7 @@ export class Cinematic {
     const bears = this.activeBears();
     // global chatter now and then
     this.chatT -= dt * (this.fast ? 3 : 1);
-    if (this.chatT <= 0 && bears.length > 1) {
+    if (this.chatT <= 0 && bears.length > 1 && !this.feast?.focusInst) {
       this.chatT = 4.5 + Math.random() * 4;
       const free = bears.filter((b) => !b.script);
       const talker = pick(free.filter((b) => b.inWater || b.state === 'eat' || b.state === 'yummy')) || pick(free);

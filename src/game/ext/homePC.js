@@ -350,10 +350,14 @@ class HomePCSystem {
       if (k >= 1) this.camK = null;
     }
     if (this.mode === 'visit' && this.state === 'inside' && !this.pc && this.camK == null && f) {
-      // gentle drift following Reynard a little
-      const base = this.viewOf('camRoom');
-      this.rig.goal.set(base.target.x + (f.root.position.x - 1) * 0.06, base.target.y, base.target.z);
+      // follow Reynard a little (a lot on a tall phone screen, where the room is zoomed in)
+      const base = this.roomView(), rig = this.rig;
+      const x = base.halfW < 3.2 ? clamp(f.root.position.x, -2.2 + base.halfW, 4.36 - base.halfW) : base.target.x + (f.root.position.x - 1) * 0.06;
+      rig.goal.set(x, base.target.y, base.target.z);
+      rig.wuppGoal = base.wupp;
     }
+    this.notifyT = (this.notifyT || 0) - dt;
+    if (this.notifyT <= 0) { this.notifyT = 0.5; try { g.ui?.bubbles?.clear?.((b) => b.key === 'notify'); } catch { /* ignore */ } }
     this.rig.update(dt, g.renderer);
     this.updateMarkerPC(dt);
   }
@@ -383,6 +387,14 @@ class HomePCSystem {
     const maxX = 4.36 - halfW;
     if (target.x > maxX && halfW < 3.4) target.x = Math.max(maxX, -2.2 + halfW);
     return { target, wupp, pitch: a.pitch, yaw: a.yaw || 0 };
+  }
+
+  // the whole room; zoomed in on tall (portrait) screens, where it would be tiny
+  roomView() {
+    const v = this.viewOf('camRoom'), r = this.game.renderer;
+    if (innerWidth < innerHeight * 0.9) v.wupp *= 0.6;
+    v.halfW = (v.wupp * r.lowW) / 2;
+    return v;
   }
 
   setView(v, dur = 0) {
@@ -837,7 +849,8 @@ class HomePCSystem {
       this.walk = { x: 1.95, z: 0.35, done: () => { this.lookAt = new THREE.Vector3(1.95, 0, 3); if (Math.random() < 0.7) this.say(pick(FOX_LINES.enter), { size: 's' }); } };
       this.room.office.chair.rotation.y = Math.PI;
     }
-    this.setView(this.viewOf('camRoom'));
+    const rv = this.roomView(); if (rv.halfW < 3.2) rv.target.x = clamp(A.door.x - 1.5, -2.2 + rv.halfW, 4.36 - rv.halfW);
+    this.setView(rv);
     g.audio.setMusic?.(night ? 'sleep' : 'morning');
     this.buildVisitUI();
     this.idleT = 14;
@@ -1008,7 +1021,7 @@ class HomePCSystem {
       // done browsing: swivel back round, stay seated, the room view returns
       f?.play('sit', { fade: 0.25 });
       await this.turnChair('room', 0.5);
-      this.setView(this.viewOf('camRoom'), 0.7);
+      this.setView(this.roomView(), 0.7);
       if (f) { this.seated = false; f.play('walk', { fade: 0.2 }); this.walk = { x: O.seat.position.x - 0.3, z: O.seat.position.z + 0.7 }; this.later(0.2, () => { O.chair.rotation.y = Math.PI; }); }
     } catch (e) { console.warn('[homePC] browse', e); }
     this.sitting = false;

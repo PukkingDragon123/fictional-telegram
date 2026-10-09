@@ -523,8 +523,8 @@ function rs_firstaid(d, rnd) {
   // a red-cross flag on a pole by the entrance
   f.box(18, 0, 16, 18, 38, 16, METAL); f.box(19, 32, 16, 25, 37, 16, WHITE); f.box(21, 33, 16, 23, 36, 16, RED); f.box(20, 34, 16, 24, 35, 16, RED);
   ftufts(f, rnd, 12, { w: 2, d: 2 }, (x, z) => z > 16 || x > 17 || x < -18);
-  d.seat(-0.48, 0.62, PI, 0.42, { pose: 'lie' });
-  d.seat(0.48, 0.62, PI, 0.42, { pose: 'lie' });
+  d.seat(-0.48, 0.8, PI, 0.45, { pose: 'lie' });
+  d.seat(0.48, 0.8, PI, 0.45, { pose: 'lie' });
 }
 sub('rs_firstaid_roof', (d) => {
   const p = d.part({ pivot: [0, 0.8, -0.1] });
@@ -796,8 +796,8 @@ function rs_spa(d, rnd, v) {
   // stepping stones out front
   for (const [x, z] of [[-3, 16], [2, 18], [-1, 19]]) f.box(x, 0, z, x + 2, 0, z + 1, (xx, y, zz) => toneOf(STONE, xx, 0, zz));
   // lying seats: feet at the front of each table, head toward the back
-  d.seat(-0.48, 0.66, PI, 0.42, { pose: 'lie' });
-  d.seat(0.48, 0.66, PI, 0.42, { pose: 'lie' });
+  d.seat(-0.48, 0.82, PI, 0.42, { pose: 'lie' });
+  d.seat(0.48, 0.82, PI, 0.42, { pose: 'lie' });
 }
 sub('rs_spa_roof', (d, rnd, v) => {
   // an open pergola: front + back beams and side rails only (you see who's on the tables),

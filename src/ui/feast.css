@@ -64,7 +64,7 @@ body.feast-focus .fe-ctrl { opacity: 0; pointer-events: none; }
 @keyframes fe-ffw { 50% { transform: translateX(3px); } }
 
 /* ---------------------------------------------------------------- event icons */
-.fe-icons { position: absolute; inset: 0; z-index: 35; pointer-events: none; }
+.fe-icons { position: absolute; inset: 0; z-index: 42; pointer-events: none; }
 .fe-ico { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
 .fe-ico.hidden { display: none; }
 .fe-ico-pop { position: absolute; left: -30px; top: -66px; width: 60px; height: 68px; transform-origin: 30px 66px; animation: fe-pop .62s cubic-bezier(.3,1.5,.5,1) both; pointer-events: auto; cursor: pointer; }
@@ -152,7 +152,7 @@ body.feast-focus .fe-arrow, body.feast-intro .fe-arrow { display: none; }
 }
 
 /* ---------------------------------------------------------------- comic words, coins */
-.fe-fly { position: absolute; inset: 0; z-index: 41; pointer-events: none; overflow: hidden; }
+.fe-fly { position: absolute; inset: 0; z-index: 43; pointer-events: none; overflow: hidden; }
 .fe-word-w { position: absolute; left: 0; top: 0; }
 .fe-word { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%) rotate(var(--rot, 0deg)); animation: fe-word .5s cubic-bezier(.3,1.8,.5,1) both; }
 .fe-word-w.out .fe-word { transition: opacity .35s, transform .35s; opacity: 0; transform: translate(-50%, -80%) rotate(var(--rot, 0deg)) scale(.8); }

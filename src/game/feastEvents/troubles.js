@@ -259,7 +259,7 @@ export const EVENTS = [
         // circle above, laughing
         const a = (t - 1.4) * 0.9;
         e.flap = 1;
-        e.obj.position.set(b.x + Math.cos(a) * 2.6, b.y + 4.5 + Math.sin(t * 2) * 0.3, b.z + Math.sin(a) * 2.6);
+        e.obj.position.set(b.x + Math.cos(a) * 1.9, b.y + 3.3 + Math.sin(t * 2) * 0.25, b.z + Math.sin(a) * 1.9);
         e.obj.rotation.y = -a;
         return !ctx.data.leave;
       });
@@ -271,7 +271,7 @@ export const EVENTS = [
       ctx.track(ctx.data.eagle, { zoom: 0.02 });
       ctx.sfx('feast_screech', { volume: 0.6 });
       await ctx.wait(1.6);
-      ctx.cam(b, { zoom: 0.016, dy: 1 });
+      ctx.cam(b, { zoom: 0.021, dy: 1.3 });
       await ctx.say(b, 'Come back here, you feathery thief!', { mood: 'angry' });
     },
     choices: (ctx) => [

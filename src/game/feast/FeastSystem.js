@@ -24,6 +24,7 @@ const MODS = import.meta.glob('../feastEvents/*.js', { eager: true });
 const CAM_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', 'z', 'x', '+', '=', '-', '_', 'pageup', 'pagedown', 'shift']);
 const SLOW = 0.35; // world time scale during a close-up
 let instId = 1;
+const _up = new THREE.Vector3();
 
 export class FeastSystem {
   constructor(game) {
@@ -476,10 +477,20 @@ export class FeastSystem {
     const c = this.camGoal;
     if (!c || !this.focusInst) return;
     const rig = this.game.rig;
-    if (!c.set || c.track) {
+    const card = this.ui?.card;
+    if (!c.set || c.track || !!card !== !!c.shifted) {
       const p = c.ctx.mid(c.who);
       rig.goal.set(p.x + c.dx, p.y + c.dy, p.z + c.dz);
       c.set = true;
+      c.shifted = !!card;
+      if (card) {
+        // the choice card covers the bottom of the screen: frame the subject higher up
+        card.h ||= card.el.getBoundingClientRect().height || 280;
+        const R = this.game.renderer;
+        const k = (card.h * 0.55 + 10) * c.zoom * (R.dpr || 1) / (R.pixelScale || 1);
+        _up.setFromMatrixColumn(rig.camera.matrixWorld, 1);
+        rig.goal.addScaledVector(_up, -k);
+      }
     }
     rig.wuppGoal = c.zoom;
     const cs = this.game.cine?.shot;

@@ -390,15 +390,15 @@ export class FeastUI {
     el.className = 'fe-word-w';
     el.appendChild(cv);
     this.$.fly.appendChild(el);
-    this.words.push({ el, x: p.x, y: p.y, z: p.z, t: 0, life });
+    this.words.push({ el, x: p.x, y: p.y, z: p.z, t0: performance.now(), t: 0, life });
   }
 
   renderWords() {
     const game = this.game;
-    const dt = 1 / 60;
+    const now = performance.now();
     for (let i = this.words.length - 1; i >= 0; i--) {
       const w = this.words[i];
-      w.t += dt;
+      w.t = (now - w.t0) / 1000;
       _v.set(w.x, w.y, w.z);
       const p = game.rig.worldToScreen(_v, game.renderer);
       w.el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y - w.t * 26)}px)`;
