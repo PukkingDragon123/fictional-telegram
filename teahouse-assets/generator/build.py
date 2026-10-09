@@ -27,6 +27,7 @@ import trees                                               # noqa: E402
 import meadow                                              # noqa: E402
 import propkit                                             # noqa: E402
 import shadows                                             # noqa: E402
+import weather                                             # noqa: E402
 import props_cook                                          # noqa: E402,F401
 import props_seating                                       # noqa: E402,F401
 import props_ritual                                        # noqa: E402,F401
@@ -79,7 +80,7 @@ class Scene:
         t = time.time()
         self.shell = room.build_shell()
         counter.floor_shadows(self.shell)
-        self.counter = counter.build_counter()
+        self.counter = weather.age(counter.build_counter(), seed=5, amount=1.4)
         self.fg = fx.foreground()
         self.light = fx.light()
         print(f'  room + fx        {time.time() - t:5.1f}s')
@@ -96,6 +97,8 @@ class Scene:
                 frames = next(iter(anims.values()))
             else:
                 frames = out if isinstance(out, list) else [out]
+                if p['name'] in weather.WORN and len(frames) == 1:
+                    frames = [weather.age(frames[0], seed=len(p['name']) * 131 + p['x'])]
                 frames, dx = shadows.apply(p, frames, surfaces)
                 anims = None
             self.props.append(dict(p, frames=frames, anims=anims, sx=p['x'] - 1 - dx, sy=p['y'] - 1,

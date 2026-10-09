@@ -171,9 +171,9 @@ def _side_walls(img, M, mask, rng, ri):
             img[lw & (h == i)] = cols[i]
         mortar = lw & (_edge_y(row) | _edge_x(brick))
         img[mortar] = _c('stone1')
-        _planks(img, rw, D, ri)
+        _planks(img, rw, D, ri, yb)
     else:
-        _planks(img, up, D, ri)
+        _planks(img, up, D, ri, yb)
     rail = mask & (band == 2)
     img[rail] = _c('jade1')
     img[rail & top] = _c('jade3')
@@ -196,13 +196,36 @@ def _side_walls(img, M, mask, rng, ri):
     _darken(img, mask & (D > 60) & _dither_mask(D.shape, far))
 
 
-def _planks(img, m, D, ri):
+def _planks(img, m, D, ri, yb=None):
     plank = np.floor((D + 5 + ri * 7) / 16).astype(int)
     h = _hash_arr(plank, 11 + ri) % 10
     img[m] = _c('red1')
     img[m & (h < 3)] = _c('red2')
+    if yb is not None:                                    # peeled to bare wood, rain streaks
+        seg = np.floor((yb + (_hash_arr(plank, 3) % 40)) / 34)
+        fr = np.mod(yb + (_hash_arr(plank, 3) % 40), 34) / 34
+        jit = 0.12 * np.sin(D * 1.7 + yb * 0.4)
+        bare = m & (_hash_arr(plank * 31 + seg, 21 + ri) % 5 == 0) & (fr > 0.12 + jit) & (fr < 0.88 - jit)
+        img[bare] = _c('wood2')
+        img[bare & (np.mod(np.floor(D * 4), 3) == 0)] = _c('wood1')
+        lip = m & ~bare & (_shift_down(bare) | _shift_right(bare))
+        img[lip] = _c('red3')
+        streak = m & ~bare & (_hash_arr(plank, 40 + ri) % 4 == 0) & (yb < WALL_TOP + 40 + (_hash_arr(plank, 5) % 90))
+        img[streak & _dither_mask(D.shape, np.full(D.shape, 0.6))] = _c('red0')
     seam = m & _edge_x(plank)
     img[seam] = _c('red0')
+
+
+def _shift_down(m):
+    o = np.zeros_like(m)
+    o[1:] = m[:-1]
+    return o
+
+
+def _shift_right(m):
+    o = np.zeros_like(m)
+    o[:, 1:] = m[:, :-1]
+    return o
 
 
 # ---------------------------------------------------------------- floor
@@ -274,6 +297,113 @@ def _plank_wall(cv, rng, x0, x1, y0, y1):
             chip(cv, x + rng.randint(2, max(2, pw - 8)), rng.randint(y0 + 10, y1 - ph - 4), rng.randint(5, 8), ph,
                  rng, under='wood3', under_dark='wood1', n=3, rmin=1.4, rmax=2.6, elong=2.6)
         x += pw
+
+
+def _age_planks(cv, rng, x0, x1, y0, y1):
+    """Years of neglect on a lacquered plank wall: paint peeled back to
+    grey bare wood, rain run-off, grime, broken and patched boards, rusty
+    nails, splits and mould."""
+    # peeled lacquer: bare, silvered wood with a lifted paint lip
+    for _ in range((x1 - x0) // 70):
+        pw, ph = rng.randint(14, 44), rng.randint(16, 70)
+        px_, py_ = rng.randint(x0, x1 - pw), rng.randint(y0 + 4, y1 - ph - 2)
+        m = blob_mask(rng, pw, ph, n=rng.randint(4, 8), rmin=min(pw, ph) * 0.15, rmax=min(pw, ph) * 0.45)
+        for yy in range(ph):
+            for xx in range(pw):
+                X, Y = px_ + xx, py_ + yy
+                if not (x0 <= X < x1):
+                    continue
+                if m[yy, xx]:
+                    old = cv.get(X, Y)[:3]
+                    g = (X * 7) % 5                              # vertical grain, broken up
+                    if old == PAL['red0'] or old == PAL['wood0']:
+                        c = 'wood0'                              # keep the plank seam
+                    elif g == 0 and (Y // (3 + X % 4)) % 3:
+                        c = 'wood2'
+                    elif g == 2 and (Y // 5 + X) % 4 == 0:
+                        c = 'stone2'                             # silvered fibres
+                    else:
+                        c = 'wood3'
+                    cv.px(X, Y, c)
+                else:
+                    up = yy + 1 < ph and m[yy + 1, xx]
+                    lf = xx + 1 < pw and m[yy, xx + 1]
+                    dn = yy > 0 and m[yy - 1, xx]
+                    if up or lf:
+                        cv.px(X, Y, 'red3')                      # curled paint edge
+                    elif dn:
+                        cv.px(X, Y, 'red0')
+    # rain run-off from the roof
+    for _ in range((x1 - x0) // 60):
+        sx = rng.randint(x0 + 2, x1 - 10)
+        ln = rng.randint(30, y1 - y0 - 10)
+        w = rng.randint(3, 8)
+        for k in range(ln):
+            ww = w if k < ln * 0.75 else max(1, int(w * (1 - (k - ln * 0.75) / (ln * 0.25))))
+            for d in range(ww):
+                if k < ln * 0.6 or (d + k) % 2 == 0:
+                    cv.shift(sx + d, y0 + k, -1)
+        cv.hline(sx - 1, sx + w, y0 + ln, 'red0')
+    # grime under the girder and above the rail
+    for yy in list(range(y0, y0 + 8)) + list(range(y1 - 16, y1)):
+        t = (yy - y0) / 8 if yy < y0 + 8 else (y1 - yy) / 16
+        for xx in range(x0, x1):
+            if BAYER4[yy % 4][xx % 4] / 16 > t:
+                cv.shift(xx, yy, -1)
+    # broken-out holes with splintered edges
+    for _ in range(max(1, (x1 - x0) // 260)):
+        hx, hy = rng.randint(x0 + 20, x1 - 30), rng.randint(y0 + 30, y1 - 40)
+        hw, hh = rng.randint(6, 12), rng.randint(14, 26)
+        for k in range(hw):
+            top = hy + int(abs(math.sin(k * 1.7)) * 4)
+            bot = hy + hh - int(abs(math.cos(k * 1.3)) * 5)
+            cv.vline(hx + k, top, bot, 'ink')
+            cv.px(hx + k, top - 1, 'wood3'); cv.px(hx + k, bot + 1, 'wood2')
+    # a board nailed over an old hole
+    bx, by = rng.randint(x0 + 30, x1 - 70), rng.randint(y0 + 40, y1 - 30)
+    bw = rng.randint(34, 52)
+    cv.rect(bx, by, bw, 7, 'wood2')
+    cv.hline(bx, bx + bw - 1, by, 'wood3'); cv.hline(bx, bx + bw - 1, by + 6, 'wood0')
+    cv.hline(bx + 1, bx + bw - 2, by + 7, 'red0')
+    for nx in (bx + 3, bx + bw - 4):
+        cv.px(nx, by + 3, 'stone3'); cv.vline(nx, by + 4, by + 9, 'copper1')
+    # rust drips under nails, splits, mould
+    for _ in range((x1 - x0) // 30):
+        nx, ny = rng.randint(x0, x1), rng.choice((y0 + 8, y1 - 8))
+        cv.px(nx, ny, 'wood0'); cv.vline(nx, ny + 1, ny + rng.randint(2, 7), 'copper1')
+    for _ in range((x1 - x0) // 40):
+        sx, sy = rng.randint(x0, x1), rng.randint(y0, y1 - 30)
+        cv.vline(sx, sy, sy + rng.randint(8, 40), 'red0')
+    for _ in range((x1 - x0) // 4):
+        mx, my = rng.randint(x0, x1), y1 - rng.randint(1, 14)
+        if rng.random() < 0.5:
+            cv.px(mx, my, rng.choice(('leaf0', 'leaf1', 'stone1')))
+
+
+def _age_wainscot(cv, rng, x0, x1):
+    y0, y1 = WAINS
+    for xx in range(x0, x1):                                  # rot creeping up from the floor
+        h = int(4 + 4 * abs(math.sin(xx * 0.05)) + 3 * abs(math.sin(xx * 0.21)))
+        for yy in range(y1 - h, y1):
+            cv.shift(xx, yy, -1)
+            if yy > y1 - h // 2 and (xx + yy) % 2 == 0:
+                cv.shift(xx, yy, -1)
+    for _ in range((x1 - x0) // 90):                          # water marks and scuffs
+        sx, sy = rng.randint(x0, x1 - 30), rng.randint(y0 + 4, y1 - 14)
+        sw, sh = rng.randint(14, 34), rng.randint(5, 12)
+        for yy in range(sy, sy + sh):
+            for xx in range(sx, sx + sw):
+                d = ((xx - sx - sw / 2) / (sw / 2)) ** 2 + ((yy - sy - sh / 2) / (sh / 2)) ** 2
+                if d < 1:
+                    if d > 0.7:
+                        cv.px(xx, yy, 'wood1')
+                    elif (xx + yy) % 2 == 0:
+                        cv.shift(xx, yy, -1)
+    gx = rng.randint(x0 + 40, x1 - 60)                       # one board gone
+    cv.rect(gx, y0 + (y1 - y0) // 3, rng.randint(22, 40), (y1 - y0) // 3 - 1, 'ink')
+    for _ in range((x1 - x0) // 5):
+        mx = rng.randint(x0, x1)
+        cv.px(mx, y1 - rng.randint(0, 3), rng.choice(('leaf0', 'leaf1', 'stone1', 'wood0')))
 
 
 def _brick(cv, rng, x0, x1, y0, y1):
@@ -634,9 +764,11 @@ def build_shell(seed=7):
         bx0, bx1 = ox + BX, ox + SW - BX
         if ri < 3:
             _plank_wall(cv, rng, bx0, bx1, WALL_TOP, RAIL[0])
+            _age_planks(cv, rng, bx0, bx1, WALL_TOP, RAIL[0])
             if ri == 0:
                 _brick(cv, rng, bx0, HEARTH['x1'] + 14, WALL_TOP, RAIL[0])
             _rail_wains_base(cv, rng, bx0, bx1, ri)
+            _age_wainscot(cv, rng, bx0, bx1)
         else:
             _plaster(cv, rng, bx0, bx1)
         _girder(cv, bx0, bx1)

@@ -92,7 +92,7 @@ def steam_kettle():
     return O.steam_frames(18, 46, F8, 2)
 
 
-@prop('hearth_hood', 1, 'wall', FIREBOX['cx'] - 106, 36, 'Copper smoke hood and flue over the furnace, with a fire-god charm')
+@prop('hearth_hood', 1, 'wall', FIREBOX['cx'] - 106, 36, 'Copper smoke hood and flue (not placed: the furnace stands bare)', preview=False)
 def hood():
     rng = random.Random(1010)
     w, h = 212, 174
@@ -180,7 +180,27 @@ def _herb_bundle(seed, colors, f, n=F8):
     return O.outline(cv)
 
 
-_HX = FIREBOX['cx'] - 106                     # herbs hang from the hood's drying rod
+_HX = FIREBOX['cx'] - 106                     # herbs hang from a plain drying pole over the furnace
+
+
+@prop('drying_pole', 1, 'ceiling', _HX, 40, 'Old bamboo drying pole hung from the roof on frayed rope, herbs tied along it')
+def drying_pole():
+    rng = random.Random(1015)
+    w = 212
+    cv = Canvas(w, 24)
+    for rx in (12, w - 14):                         # frayed rope up to the rafters
+        for y in range(0, 19):
+            cv.px(rx + (1 if y % 5 == 2 else 0), y, 'paper1' if y % 3 else 'paper0')
+        cv.px(rx - 1, 19, 'paper0'); cv.px(rx + 1, 19, 'paper1')
+    for x in range(2, w - 2):                       # the pole: weathered bamboo with nodes
+        cv.px(x, 18, 'paper2'); cv.px(x, 19, 'paper1'); cv.px(x, 20, 'wood2'); cv.px(x, 21, 'wood1')
+        if x % 37 == 5:
+            cv.vline(x, 18, 21, 'wood1'); cv.px(x + 1, 18, 'paper3')
+    for _ in range(10):                             # mould and soot along it
+        x = rng.randint(4, w - 6)
+        cv.px(x, 19, 'stone1'); cv.px(x + 1, 20, 'wood0')
+    cv.px(1, 19, 'wood1'); cv.px(w - 2, 19, 'wood1')
+    return O.outline(cv)
 for _i, (_name, _x, _cols) in enumerate((('herbs_drying_a', _HX + 12, ['leaf1', 'leaf2', 'leaf3', 'paper1']),
                                           ('herbs_drying_b', _HX + 38, ['leaf1', 'purp1', 'purp2', 'purp3']),
                                           ('herbs_drying_c', _HX + 132, ['leaf2', 'leaf1', 'paper3', 'gold3']),

@@ -326,9 +326,22 @@
    "w": 220,
    "h": 182,
    "draggable": true,
-   "desc": "Copper smoke hood and flue over the furnace, with a fire-god charm",
-   "placed_by_default": true,
+   "desc": "Copper smoke hood and flue (not placed: the furnace stands bare)",
+   "placed_by_default": false,
    "file": "props/room1/hearth_hood.png"
+  },
+  {
+   "name": "drying_pole",
+   "room": 1,
+   "layer": "ceiling",
+   "x": 34,
+   "y": 39,
+   "w": 219,
+   "h": 32,
+   "draggable": true,
+   "desc": "Old bamboo drying pole hung from the roof on frayed rope, herbs tied along it",
+   "placed_by_default": true,
+   "file": "props/room1/drying_pole.png"
   },
   {
    "name": "herbs_drying_a",
@@ -1573,7 +1586,7 @@
    "name": "drawer_open",
    "room": 3,
    "layer": "counter",
-   "x": 1539,
+   "x": 1472,
    "y": 311,
    "w": 114,
    "h": 46,
@@ -1931,12 +1944,12 @@
    "name": "uncle_pong",
    "room": 2,
    "layer": "npc",
-   "x": 884,
-   "y": 113,
-   "w": 150,
-   "h": 184,
+   "x": 875,
+   "y": 82,
+   "w": 168,
+   "h": 216,
    "draggable": true,
-   "desc": "Uncle Pong, warrior elephant x Siamese fireback. Moods: idle (blinks), talk, happy, angry, surprised, sad, sip (12 frames each). Draw after the counter layer; his body stops at the counter edge.",
+   "desc": "Uncle Pong: big bare-chested elephant x fireback uncle in a checked pha khao ma, chunky 3x pixels. Moods: idle (blinks), talk, happy (thumbs up), angry (fist slam), surprised, sad, sip, flex (12 frames each). Draw after the counter layer; his body stops at the counter edge.",
    "placed_by_default": true,
    "file": "props/room2/uncle_pong.png",
    "frames": 12,
@@ -1977,6 +1990,11 @@
      "frames": 12,
      "fps": 8,
      "sheet": "props/room2/uncle_pong_sip_sheet.png"
+    },
+    "flex": {
+     "frames": 12,
+     "fps": 8,
+     "sheet": "props/room2/uncle_pong_flex_sheet.png"
     }
    }
   }

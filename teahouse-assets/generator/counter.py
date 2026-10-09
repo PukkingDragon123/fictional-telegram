@@ -19,7 +19,8 @@ _HC = (HEARTH['x0'] + HEARTH['x1']) // 2
 MOUTH = dict(cx=_HC, x0=_HC - 56, x1=_HC + 56, spring=288, top=258, bottom=350)   # arched firebox opening
 FIREBOX = dict(cx=_HC, top=MOUTH['top'], w=MOUTH['x1'] - MOUTH['x0'], bottom=MOUTH['bottom'])
 BURNERS = [(_HC - 50, 210), (_HC + 48, 210)]               # where pots would stand on the wooden top
-DRAWERS = [(1548, 320, 96, 24), (1656, 320, 96, 24)]       # room 3 (x, y, w, h)
+DRAWERS = [(1481, 320, 96, 24)]                            # room 3: the one journal drawer (x, y, w, h)
+BAYER = [[0.0, 0.5], [0.75, 0.25]]
 STONE = ['stone1', 'stone2', 'stone3', 'stone4']
 WARM_STONE = ['wood1', 'wood2', 'paper0', 'paper1']
 
@@ -335,8 +336,29 @@ def _counter(cv, rng):
         for k in range(ln):
             if cv.get(gx + k, gy)[3] and cv.get(gx + k, gy)[:3] != PAL['hinoki1']:
                 cv.px(gx + k, gy + (k * 3 // ln), 'hinoki1' if k % 9 else 'hinoki2')
-    for (rx, ry) in ((1010, tb + 15), (1500, tb + 20)):     # two old tea rings
-        _ring(cv, rx, ry, 7, 2.5, 'hinoki1', 8)
+    for _ in range(14):                                     # old tea rings and spills
+        rx, ry = rng.randint(x0 + 60, x1 - 40), rng.randint(tb + 7, tf - 6)
+        _ring(cv, rx, ry, rng.uniform(5, 8), rng.uniform(1.8, 2.8), 'hinoki1', 8)
+    for _ in range(9):
+        sx, sy, r = rng.randint(x0 + 50, x1 - 50), rng.randint(tb + 6, tf - 6), rng.uniform(6, 16)
+        for yy in range(int(sy - r / 3), int(sy + r / 3) + 1):
+            for xx in range(int(sx - r), int(sx + r) + 1):
+                d = ((xx - sx) / r) ** 2 + ((yy - sy) / (r / 3)) ** 2
+                if d < 1 and cv.get(xx, yy)[3] and ((xx + yy) % 2 == 0 or d < 0.4):
+                    cv.shift(xx, yy, -1)
+    for (cx0, cx1) in ((880, 1110), (1330, 1520), (1700, 1820)):     # splits along the grain
+        y = tb + rng.randint(10, 26)
+        for xx in range(cx0, cx1):
+            if rng.random() < 0.18:
+                y += rng.choice((-1, 1))
+            y = max(tb + 4, min(tf - 4, y))
+            cv.px(xx, y, 'hinoki0')
+            if rng.random() < 0.5:
+                cv.px(xx, y + 1, 'hinoki1')
+    for yy in range(tb, tb + 6):                            # grime along the far edge
+        for xx in range(x0, x1):
+            if cv.get(xx, yy)[3] and BAYER[yy % 2][xx % 2] < (tb + 6 - yy) / 6:
+                cv.shift(xx, yy, -1)
     # end bevels follow the perspective
     cv.line(x0, tf, int(round(bx0)), tb, 'hinoki4')
     cv.line(x1 - 1, tf, int(round(bx1)), tb, 'hinoki1')
@@ -346,11 +368,20 @@ def _counter(cv, rng):
     cv.hline(x0, x1 - 1, fy, 'hinoki5'); cv.hline(x0, x1 - 1, fy + 1, 'hinoki4')
     cv.hline(x0, x1 - 1, fy + 6, 'hinoki1')
     cv.hline(x0, x1 - 1, fy + 7, 'ink'); cv.hline(x0, x1 - 1, fy + 8, 'wood0')
+    for _ in range(22):                                     # chips and dents in the slab edge
+        ex = rng.randint(x0 + 4, x1 - 10)
+        ew = rng.randint(2, 7)
+        for k in range(ew):
+            dep = 1 + int(2 * (1 - abs(k - ew / 2) / (ew / 2 + 0.1)))
+            for d in range(dep):
+                cv.px(ex + k, fy + d, 'hinoki1' if d < dep - 1 else 'hinoki2')
     # lattice front: dark frame, vertical slats over a dark recess
     ly0, ly1 = fy + 9, H - 8
     cv.rect(x0, ly0, x1 - x0, H - ly0, 'wood0')
     stiles = list(range(x0, x1, 152)) + [x1 - 7]
-    drawer_zone = (DRAWERS[0][0] - 8, DRAWERS[-1][0] + DRAWERS[-1][2] + 8)
+    dcx = DRAWERS[0][0] + DRAWERS[0][2] // 2                 # the drawer fills the panel it sits in
+    k = max(i for i in range(len(stiles) - 1) if stiles[i] <= dcx)
+    drawer_zone = (stiles[k] + 7, stiles[k + 1])
     for i in range(len(stiles) - 1):
         sx0, sx1 = stiles[i] + 7, stiles[i + 1]
         if sx1 - sx0 < 8:
@@ -360,10 +391,16 @@ def _counter(cv, rng):
         cv.rect(sx0, ly0, sx1 - sx0, 4, 'wood1'); cv.hline(sx0, sx1 - 1, ly0, 'wood2')
         cv.rect(sx0, ly1 - 4, sx1 - sx0, 4, 'wood1'); cv.hline(sx0, sx1 - 1, ly1 - 4, 'wood2')
         for sx in range(sx0 + 3, sx1 - 2, 6):
-            cv.vline(sx, ly0 + 4, ly1 - 5, 'wood2')
-            cv.vline(sx + 1, ly0 + 4, ly1 - 5, 'wood3')
-            cv.vline(sx + 2, ly0 + 4, ly1 - 5, 'wood2')
-            cv.px(sx + 1, ly0 + 4, 'wood1')
+            r = rng.random()
+            if r < 0.06:                                    # slat gone
+                continue
+            top = ly0 + 4 + (rng.randint(6, 18) if r < 0.14 else 0)     # snapped slat
+            cv.vline(sx, top, ly1 - 5, 'wood2')
+            cv.vline(sx + 1, top, ly1 - 5, 'wood3')
+            cv.vline(sx + 2, top, ly1 - 5, 'wood2')
+            cv.px(sx + 1, top, 'wood4' if top > ly0 + 4 else 'wood1')
+            if rng.random() < 0.3:                          # rot at the foot
+                cv.vline(sx + 1, ly1 - 5 - rng.randint(2, 7), ly1 - 5, 'wood1')
     for sx in stiles:
         cv.rect(sx, ly0, 7, H - ly0, 'wood1')
         cv.vline(sx, ly0, H - 1, 'wood2'); cv.vline(sx + 6, ly0, H - 1, 'wood0')
