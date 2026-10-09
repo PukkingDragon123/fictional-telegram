@@ -31,7 +31,7 @@ export function bigForestTree(bio, r, x, z, k, ground) {
     return { name: 'shroomcluster_' + Math.floor(h7 * 3), sc: 1, sway: 0.1 };
   }
   if (bio === BIOME.HIGHLAND) {
-    if (ground > 7) return { name: h7 < 0.6 ? 'spruce_snow_0' : 'spruce_2', sc: 1.1 + h7 * 0.25 };
+    if (ground > 11) return { name: h7 < 0.6 ? 'spruce_snow_0' : 'spruce_2', sc: 1.1 + h7 * 0.25 };
     if (r < 0.55) return { name: ['spruce_0', 'spruce_1', 'spruce_2'][Math.floor(h7 * 3)], sc: 1.2 + h7 * 0.3 };
     if (r < 0.85) return { name: r < 0.7 ? 'pine_0' : 'pine_1', sc: 1.2 };
     return { name: 'birch_0', sc: 1 };

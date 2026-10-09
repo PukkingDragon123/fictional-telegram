@@ -10,7 +10,7 @@ export const chance = (p) => Math.random() < p;
 export const price = (game, base, perDay = 1) => Math.round(Math.min(base * 4, base + game.state.day * perDay));
 
 // a bear with no hat and a normal size (for wigs, party hats...)
-export const plainBear = (b) => !b.def.hat && b.def.scale >= 0.8 && b.def.scale <= 1.2 && !b.def.boss;
+export const plainBear = (b) => b.def.scale >= 0.8 && b.def.scale <= 1.25 && !b.def.boss;
 
 // turn a customer into Karen: blond bob, big shades, the name
 export function karenify(ctx, b) {
@@ -19,7 +19,7 @@ export function karenify(ctx, b) {
   b.name = 'Karen';
   const f = b.rig?.face;
   if (f) { f.o.shades = 0x16121a; f.key = ''; }
-  const wig = ctx.prop('wig_bob', { keep: true });
+  const wig = ctx.prop('wig_bob', { keep: true, capped: !!b.def.hat });
   if (wig && b.rig) headAnchor(b.rig).add(wig.obj);
 }
 
@@ -108,3 +108,8 @@ export function glide(ctx, h, to, { dur = 1, from = null, bob = 0 } = {}) {
 
 // heading from a to b (bear heading convention: atan2(dz, dx))
 export const headingTo = (a, b) => Math.atan2(b.z - a.z, b.x - a.x);
+
+// a party hat: on the crown, or perched on top of the bear's own hat
+export function partyHat(ctx, b) {
+  return ctx.attach(ctx.prop('party_hat', { keep: true, top: !!b.def.hat }), b, b.def.hat ? 'top' : 'head');
+}

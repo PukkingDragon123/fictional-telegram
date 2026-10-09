@@ -563,7 +563,9 @@ export class LabTree {
     this._on(this.root.querySelector('.lt-det-x'), 'click', () => { this._sfx('click'); if (this._compact) this._openSheet(false); else this._close(); });
     this._on(this.$det, 'click', (e) => {
       const j = e.target.closest('[data-goto]');
-      if (j) { const N = this.byId.get(j.dataset.goto); if (N) this._select(N, { pan: true, sound: 'select', open: true }); }
+      if (j) { const N = this.byId.get(j.dataset.goto); if (N) this._select(N, { pan: true, sound: 'select', open: true }); return; }
+      const sc = e.target.closest('[data-sec]');
+      if (sc) this._selectSection(this.sections[+sc.dataset.sec], { pan: false, sound: true, open: true });
     });
     this._on(this.$slots, 'click', (e) => {
       const r = e.target.closest('[data-rush]');

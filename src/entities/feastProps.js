@@ -122,7 +122,7 @@ function makeBowl({ rotten = false } = {}) {
 }
 
 // ---------------------------------------------------------------- Karen's blond bob (head anchor, bear voxels)
-function wigModel() {
+function wigModel(capped = false) {
   const v = new VoxelModel();
   const se = (x, y, z, cx, cy, cz, rx, ry, rz, p) => Math.pow(Math.abs(x - cx) / rx, p) + Math.pow(Math.abs(y - cy) / ry, p) + Math.pow(Math.abs(z - cz) / rz, p);
   for (let x = -11; x <= 11; x++)
@@ -133,7 +133,7 @@ function wigModel() {
         if (out > 1) continue;
         const inner = se(x, y, z, 0, 23.5, 0.3, 8.5, 6.6, 6.9, 2.5);
         if (inner <= 1 && y < 30) continue;
-        if (y < 19) continue;
+        if (y < 19 || (capped && y > 28)) continue;
         // the face stays open; bangs swept to one side across the forehead
         if (z > 1.5 && Math.abs(x) <= 7 && y < 27) continue;
         if (z > 1.5 && Math.abs(x) <= 7 && y === 27 && x > -2 && x < 5) continue;
@@ -146,8 +146,8 @@ function wigModel() {
   for (let z = -2; z <= 7; z++) v.set(-2, 31, z, C.blondDD);
   return v;
 }
-function makeWig() {
-  const m = mesh(memo('wig_bob', wigModel, [0.5, 23.5, 0.3], BV));
+function makeWig({ capped = false } = {}) {
+  const m = mesh(memo('wig_bob' + (capped ? 'C' : ''), () => wigModel(capped), [0.5, 23.5, 0.3], BV));
   return { obj: grp(m) };
 }
 
@@ -164,9 +164,11 @@ function partyHatModel() {
   ell(v, 0.5, 11.5, 0.5, 1.8, 1.8, 1.8, (x, y, z) => (hash3(x, y, z) > 0.6 ? C.white : C.yellow));
   return v;
 }
-function makePartyHat() {
-  const m = mesh(memo('party_hat', partyHatModel, [0.5, -29.5 + 23.5, 0.5], BV));
-  m.position.set(0.14, 0, -0.05);
+function makePartyHat({ top = false } = {}) {
+  // head anchor: sits on the crown; top anchor (bears with a hat): perched on the hat
+  const m = mesh(memo('party_hat', partyHatModel, [0.5, 0, 0.5], BV));
+  if (top) m.position.set(0.04, -0.05, 0);
+  else m.position.set(0.14, (29.5 - 23.5) * BV, -0.05);
   m.rotation.z = -0.32;
   return { obj: grp(m) };
 }

@@ -746,8 +746,15 @@ export class Game {
     add('Research & development', -exp.research, 'flask', 'expense');
     add('Digging the pond', -exp.digging, 'shovel', 'expense');
     add('Land clearing', -exp.clearing, 'trash', 'expense');
-    const income = inc.bills + inc.snacks + inc.tips + inc.trophies + inc.refunds + (inc.resort || 0); // [v26 resort] + resort
-    const expense = exp.eggs + exp.builds + exp.research + exp.digging + exp.clearing;
+    // [v26 evening] every other income / expense key too (staff wages, rescues, power, ...), labelled if known
+    const EXTRA_LABEL = { wages: ['Staff wages', 'beaver'], rescue: ['Rescues', 'beaver'], gifts: ['Gifts', 'heart'], shop: ['e-Buy shopping', 'coin'], clearing: ['Land clearing', 'trash'], power: ['Power bill', 'pw_bolt'], food: ['Fish food', 'food'], repairs: ['Repairs', 'hammer'] };
+    const OLD_IN = ['bills', 'snacks', 'tips', 'trophies', 'refunds', 'resort'], OLD_OUT = ['eggs', 'builds', 'research', 'digging', 'clearing'];
+    const extraLine = (k, v, kind) => { const [label, icon] = EXTRA_LABEL[k] || [k.replace(/[_-]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase()), 'coin']; add(label, kind === 'income' ? v : -v, icon, kind); };
+    for (const [k, v] of Object.entries(inc)) if (!OLD_IN.includes(k) && +v > 0) extraLine(k, +v, 'income');
+    for (const [k, v] of Object.entries(exp)) if (!OLD_OUT.includes(k) && +v > 0) extraLine(k, +v, 'expense');
+    const sumOf = (o) => Object.values(o).reduce((a, v) => a + (+v > 0 ? +v : 0), 0);
+    const income = sumOf(inc); // [v26 evening] was the six old categories only
+    const expense = sumOf(exp);
     const net = Math.round(income - expense);
     const eaten = this.stats.fishEaten - d.eaten;
     const born = this.stats.hatched - d.hatched;

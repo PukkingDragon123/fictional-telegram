@@ -1,6 +1,6 @@
 // [v26 feast] Special guests: critics, birthdays, phones in the pond, influencers,
 // proposals, inspectors, lost cubs, raccoons, dine-and-dashers. Format: ./README.md
-import { disguise, plainBear, price, chance, spotNear, headingTo, toss, glide, nearestWater, shoreNear, pick } from '../feast/kit.js';
+import { partyHat, disguise, plainBear, price, chance, spotNear, headingTo, toss, glide, nearestWater, shoreNear, pick } from '../feast/kit.js';
 import { SPECIES_BY_ID } from '../../data/species.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -116,7 +116,7 @@ export const EVENTS = [
     pick: (game, f) => f.pickBear(plainBear, { land: true }),
     setup(ctx) {
       const b = ctx.bear;
-      ctx.data.hat = ctx.attach(ctx.prop('party_hat', { keep: true }), b, 'head');
+      ctx.data.hat = partyHat(ctx, b);
       ctx.pose(b, 'sad', { face: 'sad' });
       ctx.say(b, 'Happy birthday... to me...', { mood: 'whisper', wait: false });
     },
@@ -543,7 +543,7 @@ export const EVENTS = [
       c.noReview = c.noReview || !!c.feastBoss;
       if (ch === 'mascot') {
         ctx.pay(5, c);
-        ctx.attach(ctx.prop('party_hat', { keep: true }), c, 'head');
+        partyHat(ctx, c);
         ctx.pose(c, 'cheer', { face: 'cheer' });
         ctx.sfx('feast_party', { volume: 0.5 });
         await ctx.say(c, 'I\'m the MASCOT! Fish fish hooray!', { mood: 'happy' });

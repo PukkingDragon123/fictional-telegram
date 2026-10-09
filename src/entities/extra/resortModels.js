@@ -800,13 +800,14 @@ function rs_spa(d, rnd, v) {
   d.seat(0.48, 0.66, PI, 0.42, { pose: 'lie' });
 }
 sub('rs_spa_roof', (d, rnd, v) => {
-  // an open pergola (so you can see who's on the tables) with a fabric shade over the back
+  // an open pergola: front + back beams and side rails only (you see who's on the tables),
+  // a fabric shade over the back shelf
   const p = d.part({ pivot: [0, 1.4, -0.1] });
   const T = [[0x2a7a78, 0x3a8a88], [0xb85a7a, 0xc86a8a], [0x8a6a3a, 0x9a7a4a]][v || 0];
-  for (let z = -10; z <= 8; z += 3) for (let x = -11; x <= 10; x++) p.c.set(x, 14, z, (x + z) % 2 ? WHITE : 0xe8e4dc);
+  for (const z of [-10, 8]) for (let x = -11; x <= 10; x++) p.c.set(x, 14, z, (x + z) % 2 ? WHITE : 0xe8e4dc);
   for (const x of [-11, 10]) for (let z = -11; z <= 9; z++) p.c.set(x, 14, z, WHITE);
-  for (let z = -11; z <= -5; z++) for (let x = -11; x <= 10; x++) p.c.set(x, 15, z, (x + 30) % 4 < 2 ? T[0] : T[1]);
-  for (let x = -11; x <= 10; x += 2) p.f.set(x * 2, 28, -9, T[0]);
+  for (let z = -11; z <= -9; z++) for (let x = -11; x <= 10; x++) p.c.set(x, 15, z, (x + 30) % 4 < 2 ? T[0] : T[1]);
+  for (let x = -22; x <= 21; x += 4) p.f.set(x, 28, -16, T[0]);
 });
 sub('rs_spa_sign', (d) => {
   const p = d.part({ pivot: [0, 1.55, 0.95] });

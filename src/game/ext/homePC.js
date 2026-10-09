@@ -488,8 +488,8 @@ class HomePCSystem {
     this.walkShot = { x: fox.x, z: fox.z, tx: door.x, tz: door.z + 0.45, sp: 1.5 }; // a stroll, not his usual dash
     rig.follow = null; rig.freeBounds = true;
     // low and close: under the porch roof, the door in view
-    rig.goal.set(door.x + 0.3, 0.7, door.z + 1.4); rig.target.copy(rig.goal);
-    rig.wupp = rig.wuppGoal = 0.016; rig.yaw = rig.yawGoal = 0.3; rig.pitch = rig.pitchGoal = 0.36;
+    rig.goal.set(door.x + 0.15, 0.6, door.z + 1.0); rig.target.copy(rig.goal);
+    rig.wupp = rig.wuppGoal = 0.015; rig.yaw = rig.yawGoal = 0.2; rig.pitch = rig.pitchGoal = 0.52;
     this.sfx('footsteps', 0.25);
     const t0 = this.t;
     while (this.walkShot && this.t - t0 < 2.8 && !this.skipped) await this.wait(0.05);

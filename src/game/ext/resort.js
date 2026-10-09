@@ -605,6 +605,7 @@ class Resort {
         if (P.closed) P.closed.visible = !open;
         if (P.clerk) P.clerk.visible = open && !game.staff;
         if (P.water) P.water.position.y = s._rsEvent?.kind === 'leak' ? -0.18 : 0;
+        if (P.roof && s.def.visit.use === 'lie' && s.type !== 'rs_spa') P.roof.visible = !rt.users.length; // dollhouse view: see the patients on their cots
       }
       if (P.door) { const tgt = rt.door ? -1.5 : 0; P.door.userData.open = rt.door > 0; P.door.rotation.y += (tgt - P.door.rotation.y) * Math.min(1, dt * 8); }
       if (P.door2) { const tgt = rt.door ? -1.5 : 0; P.door2.rotation.y += (tgt - P.door2.rotation.y) * Math.min(1, dt * 8); }
