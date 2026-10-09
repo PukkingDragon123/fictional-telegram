@@ -22,6 +22,8 @@ export function buildWhiteInfo(grid, tex) {
   if (S) {
     for (let j = 0; j < H; j++)
       for (let i = 0; i < W; i++) {
+        const ti = ((j / RES) | 0) * w + ((i / RES) | 0);
+        if (!S[ti] && !Wt[ti] && grid.kind[ti] !== KIND.WATER) continue; // dry land: nothing to do
         const px = (i + 0.5) / RES - 0.5, pz = (j + 0.5) / RES - 0.5;
         const ax = clamp(Math.floor(px), 0, w - 2), az = clamp(Math.floor(pz), 0, h - 2);
         const ux = clamp(px - ax, 0, 1), uz = clamp(pz - az, 0, 1);

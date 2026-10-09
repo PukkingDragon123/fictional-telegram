@@ -15,6 +15,9 @@ import { STONE_GLSL, stoneUniforms } from '../art/stoneArt.js'; // [v20 map]
 const BASE_Y = -4;
 // [v26 world] cube walls: flat vertex shade (each block is shaded in the shader)
 const CUBE_LO = [0.86, 0.86, 0.88], CUBE_HI = [0.92, 0.92, 0.92];
+const SOIL_LO = [0.62, 0.62, 0.66], SOIL_HI = [0.95, 0.95, 0.95];
+const AO_K = [1, 0.84, 0.74, 0.66];
+const SIDES4 = [[1, 0, [1, 0, 0]], [-1, 0, [-1, 0, 0]], [0, 1, [0, 0, 1]], [0, -1, [0, 0, -1]]];
 // [v26 world] True cubes for mountains, cliffs and the Highland: 0.5-unit blocks
 // (every grid height there is a whole number of them). Each block face picks
 // its own 12x12 window of the pixel texture and gets a bevel (lit top-left edge,
@@ -342,7 +345,7 @@ export function buildTerrainGeometry(grid) {
   for (let cz = 0; cz <= h; cz++)
     for (let cx = 0; cx <= w; cx++) {
       let sum = 0, n = 0;
-      for (const [tx, tz] of [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]]) if (isW(tx, tz)) { sum += grid.height[tz * w + tx]; n++; }
+      for (let q = 0; q < 4; q++) { const tx = cx - 1 + (q & 1), tz = cz - 1 + (q >> 1); if (isW(tx, tz)) { sum += grid.height[tz * w + tx]; n++; } } // [v26 world] (no per-corner arrays)
       cornerH[cz * CW + cx] = n ? sum / n : 0;
     }
   const CH = (cx, cz) => cornerH[cz * CW + cx];
@@ -363,7 +366,8 @@ export function buildTerrainGeometry(grid) {
   for (let cz = 0; cz <= h; cz++)
     for (let cx = 0; cx <= w; cx++) {
       let sum = 0, n = 0, mx = -99;
-      for (const [tx, tz] of [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]]) {
+      for (let q = 0; q < 4; q++) { // [v26 world] (no per-corner arrays)
+        const tx = cx - 1 + (q & 1), tz = cz - 1 + (q >> 1);
         if (!grid.inb(tx, tz)) continue;
         const ti = tz * w + tx;
         if (grid.kind[ti] === KIND.WATER) continue;
@@ -445,20 +449,14 @@ export function buildTerrainGeometry(grid) {
       }
       cubeF = grid.cube && grid.cube[i] ? 1 : 0; cubeTop = y; cubeBot = y; // [v26 world]
       // simple corner AO on top face: darker where neighbours are higher
-      const ao = (dx, dz) => {
-        const hs = [Hs(x + dx, z), Hs(x, z + dz), Hs(x + dx, z + dz)];
-        let occ = 0;
-        for (const v of hs) if (v > y + 0.01) occ++;
-        return [1, 0.84, 0.74, 0.66][occ];
-      };
+      const ao = (dx, dz) => AO_K[(Hs(x + dx, z) > y + 0.01) + (Hs(x, z + dz) > y + 0.01) + (Hs(x + dx, z + dz) > y + 0.01)]; // [v26 world] (no arrays)
       const tint = k === KIND.WATER ? 0.92 : 1;
       const g = (f) => [f * tint, f * tint, f * tint];
       const c00 = ao(-1, -1), c10 = ao(1, -1), c11 = ao(1, 1), c01 = ao(-1, 1);
       quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0], [g(c00), g(c01), g(c11), g(c10)], 0);
       // rock/snow/mountain sides use the cliff texture, meadow & pond banks use soil
       const rocky = k === KIND.ROCK || k === KIND.SNOW || (!grid.meadow[i] && y > 0.6);
-      const sides = [[1, 0, [1, 0, 0]], [-1, 0, [-1, 0, 0]], [0, 1, [0, 0, 1]], [0, -1, [0, 0, -1]]];
-      for (const [dx, dz, n] of sides) {
+      for (const [dx, dz, n] of SIDES4) { // [v26 world] (hoisted)
         let ny = Hs(x + dx, z + dz);
         if (isW(x + dx, z + dz)) {
           // bank down to the smoothed pond floor (overlaps slightly below it)
@@ -473,7 +471,7 @@ export function buildTerrainGeometry(grid) {
         if (ny >= y) continue;
         const y0 = Math.max(ny, BASE_Y), y1 = y;
         cubeBot = y0; // [v26 world]
-        const lo = cubeF ? CUBE_LO : [0.62, 0.62, 0.66], hi = cubeF ? CUBE_HI : [0.95, 0.95, 0.95]; // [v26 world] cube walls: shaded per block in the shader
+        const lo = cubeF ? CUBE_LO : SOIL_LO, hi = cubeF ? CUBE_HI : SOIL_HI; // [v26 world] cube walls: shaded per block in the shader
         let A, B, C, D;
         if (dx === 1) { A = [x + 1, y0, z + 1]; B = [x + 1, y0, z]; C = [x + 1, y1, z]; D = [x + 1, y1, z + 1]; }
         else if (dx === -1) { A = [x, y0, z]; B = [x, y0, z + 1]; C = [x, y1, z + 1]; D = [x, y1, z]; }

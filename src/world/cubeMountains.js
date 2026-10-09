@@ -30,7 +30,7 @@ float capAt(vec2 c, float bs) {
   float fk = flatK(p);
   if (fk <= 0.002) return 999.0;
   float d = ringDist(c);
-  float cap = 1.0 + d * 0.3 + (1.0 - fk) * 70.0;
+  float cap = 1.0 + d * 0.2 + (1.0 - fk) * 70.0;
   return floor(cap / bs + 0.001) * bs;
 }
 `;

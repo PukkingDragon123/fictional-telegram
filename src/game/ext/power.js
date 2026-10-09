@@ -466,7 +466,7 @@ class Power {
       if (this.isConsumer(s) && (this.wants(s) || (s.def.ind && this.game.industry?.rec?.(s)?.dark))) {
         const st = this.status(s);
         const y = this.baseY(s) + ((s.def.size?.[0] || 1) > 1 ? 2.1 : 1.45);
-        if (st === 'nogrid' || st === 'dark') this.badges.set('plug:' + keyOf(s), 'pw_plug', c.x, y, c.z, { blink: true });
+        if (st === 'nogrid' || st === 'dark') this.badges.set('plug:' + keyOf(s), 'pw_plug', c.x, y, c.z, { blink: true, size: 0.58 });
         else if (st === 'brown') this.badges.set('brown:' + keyOf(s), 'pw_bolt', c.x, y, c.z, { blink: Math.floor(this.time * 0.8) % 2 === 0, size: 0.38 });
       }
     }

@@ -1535,10 +1535,11 @@ def('dizzy', {
 });
 def('lie_stretcher', {
   loop: true, expr: 'dizzy',
-  enter(s, rig) { rig._lyingY = { x: 0, y: 0.16, z: -0.6 }; },
+  enter(s, rig) { rig._lyingY = { x: 0, y: 0.16, z: -0.26 }; },
   exit(s, rig) { rig._lyingY = null; },
   fn(t, p, f) {
-    p.mover.rx = -1.52; p.mover.y = 1.0; p.mover.z = -1.6;
+    // centred on the stretcher (the root is the stretcher's middle)
+    p.mover.rx = -1.52; p.mover.y = 1.0; p.mover.z = 7;
     arm(p, 1, 1.1, -0.35, 1.5); arm(p, -1, 1.1, -0.35, 1.5);
     p.legL.rx = -0.15; p.legR.rx = -0.15;
     p.head.rz = sin(t * 1.6) * 0.12; p.head.rx = 0.2;

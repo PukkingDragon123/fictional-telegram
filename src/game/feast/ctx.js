@@ -219,6 +219,12 @@ export class FeastCtx {
     if (i >= 0) this.props.splice(i, 1);
   }
 
+  // the timing mini-game (close-ups only): resolves 0..1 (quality) or -1 (missed)
+  timing(opts = {}) {
+    if (!this.focused || this.aborted || !this.feast.ui) return Promise.resolve(-1);
+    return this.feast.ui.timing(opts);
+  }
+
   // ------------------------------------------------------------ helpers
   async crew({ from = null, near = null, hat } = {}) {
     if (this.aborted) return null;

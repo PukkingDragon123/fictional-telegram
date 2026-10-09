@@ -194,7 +194,7 @@ export const STRUCTURE_MODELS = {
         st.speed = speed;
         spin += dt * speed * 3.2;
         st.spin = spin;
-        if (n.rig) { n.rig.rotation.y = yaw || 0; if (depth != null) n.rig.position.y = depth - 0.36; }
+        if (n.rig) { n.rig.rotation.y = yaw || 0; if (depth != null) n.rig.position.y = depth - 0.26; }
       },
     });
   },

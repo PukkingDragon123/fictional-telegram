@@ -85,7 +85,7 @@ export const EVENTS = [
         t += 0.016;
         u.position.x += 0.06; u.position.y += 0.03 + Math.sin(t * 5) * 0.02; u.position.z -= 0.025;
         u.rotation.z += 0.12; u.rotation.x += 0.05;
-        requestAnimationFrame(fly);
+        globalThis.requestAnimationFrame(fly);
       };
       fly();
     },

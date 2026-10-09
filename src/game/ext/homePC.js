@@ -308,6 +308,7 @@ class HomePCSystem {
     this.t += dt;
     for (let i = this.timers.length - 1; i >= 0; i--) { const tm = this.timers[i]; tm.t -= dt; if (tm.t <= 0) { this.timers.splice(i, 1); tm.fn(); } }
     this.updateMarker(dt);
+    if (this.walkShot) this.tickWalkShot(dt);
     if (this.iris) this.tickIris(dt);
     if (this.state === 'zoom' || this.state === 'irisin' || this.state === 'leaving') this.updateVisitIris(dt);
     if (!this.roomActive || this.bed.active) return;
@@ -482,15 +483,17 @@ class HomePCSystem {
     fox.mood = 'idle'; fox.moodT = 0;
     fox.rig.root.visible = true;
     // cut to the porch: he comes up the path
-    fox.x = door.x + 1.2; fox.z = door.z + 3.6; fox.heading = -Math.PI / 2;
+    fox.x = door.x + 0.7; fox.z = door.z + 2.3; fox.heading = -Math.PI / 2;
     fox.target = { x: door.x, z: door.z + 0.45 };
+    this.walkShot = { x: fox.x, z: fox.z, tx: door.x, tz: door.z + 0.45, sp: 1.5 }; // a stroll, not his usual dash
     rig.follow = null; rig.freeBounds = true;
     // low and close: under the porch roof, the door in view
     rig.goal.set(door.x + 0.3, 0.7, door.z + 1.4); rig.target.copy(rig.goal);
     rig.wupp = rig.wuppGoal = 0.016; rig.yaw = rig.yawGoal = 0.3; rig.pitch = rig.pitchGoal = 0.36;
     this.sfx('footsteps', 0.25);
     const t0 = this.t;
-    while (fox.target && this.t - t0 < 2.6 && !this.skipped) await this.wait(0.05);
+    while (this.walkShot && this.t - t0 < 2.8 && !this.skipped) await this.wait(0.05);
+    this.walkShot = null;
     if (!this.skipped) {
       fox.heading = -Math.PI / 2;
       this.doorFx(true);
@@ -503,6 +506,19 @@ class HomePCSystem {
     fox.rig.root.visible = false;
     this.doorFx(false);
     if (!this.skipped) { this.sfx('drop', 0.3, { pitch: 0.7 }); await this.wait(0.3); }
+  }
+
+  // Fox.update walks him at his usual dash: hold him to a stroll (runs after it every frame)
+  tickWalkShot(dt) {
+    const W = this.walkShot, fox = this.game.fox;
+    const dx = W.tx - W.x, dz = W.tz - W.z, d = Math.hypot(dx, dz);
+    if (d < 0.05) { this.walkShot = null; fox.target = null; return; }
+    const st = Math.min(d, W.sp * dt);
+    W.x += (dx / d) * st; W.z += (dz / d) * st;
+    fox.x = W.x; fox.z = W.z; fox.target = { x: W.tx, z: W.tz };
+    fox.heading = Math.atan2(dz, dx);
+    fox.rig.root.position.x = W.x; fox.rig.root.position.z = W.z;
+    fox.rig.root.rotation.y = Math.PI / 2 - fox.heading;
   }
 
   // the hut door swings open: a warm-lit doorway on the hut front

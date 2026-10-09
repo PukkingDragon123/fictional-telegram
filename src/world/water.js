@@ -106,9 +106,13 @@ export function buildWaterInfo(grid, tex) {
   }
   const data = new Uint8Array(n * 4);
   const span = SHORE_SPAN * RES * 3; // chamfer units
+  // [v26 world] only texels on / next to water need the depth + flow lookups
+  const nearW = new Uint8Array(w * h);
+  for (let z = 0; z < h; z++) for (let x = 0; x < w; x++) if (grid.kind[z * w + x] === KIND.WATER) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, nz = z + dz; if (nx >= 0 && nz >= 0 && nx < w && nz < h) nearW[nz * w + nx] = 1; }
   for (let j = 0; j < H; j++)
     for (let i = 0; i < W; i++) {
       const k = j * W + i, o = k * 4;
+      if (!nearW[((j / RES) | 0) * w + ((i / RES) | 0)]) { data[o] = 0; data[o + 1] = 0; data[o + 2] = 128; data[o + 3] = 128; continue; }
       data[o] = Math.min(255, Math.round((d[k] >= INF ? span : Math.min(d[k], span)) / span * 255));
       // floor depth, bilinear over the tile corners
       const px = (i + 0.5) / RES, pz = (j + 0.5) / RES;

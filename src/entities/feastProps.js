@@ -258,6 +258,17 @@ function makePlate({ fish = 'gold' } = {}) {
   return { obj: grp(p, f.obj), update: f.update, dispose: f.dispose, top: 0.25 };
 }
 
+// a plain fish (eagle snacks, comped dinners) and a pinecone (for throwing)
+function plainFishModel() { const v = goldFishModel(); v.paint((x, y, z, c) => (c === C.gold ? 0x7ab8d8 : c === C.goldL ? 0xc8e8f4 : c === C.goldD || c === C.goldDD ? 0x4a88b0 : c)); return v; }
+function makeFish() { const m = mesh(memo('plainfish', plainFishModel, [0.5, 4.5, 0.5], 0.03)); return { obj: grp(m), top: 0.15, update(dt, t) { m.rotation.z = Math.sin(t * 11) * 0.25; } }; }
+function pineconeModel() {
+  const v = new VoxelModel();
+  ell(v, 0.5, 4, 0.5, 2.6, 4, 2.6, (x, y, z) => ((x + y + z) % 2 ? 0x7a4e26 : 0x5a3418));
+  v.set(0, 8, 0, 0x3e2614);
+  return v;
+}
+function makePinecone() { return { obj: grp(mesh(memo('pinecone', pineconeModel, [0.5, 4, 0.5], 0.03))), top: 0.24 }; }
+
 // ---------------------------------------------------------------- notepad, clipboard, phone, selfie stick, ring box
 function notepadModel() {
   const v = new VoxelModel();
@@ -614,7 +625,7 @@ const MAKERS = {
   notepad: makeNotepad, clipboard: makeClipboard, phone: makePhone, selfie_stick: makeSelfieStick, ring_box: makeRingBox,
   cake: makeCake, tissues: makeTissues, medkit: makeMedkit, bucket: makeBucket, lunchbox: makeLunchbox, jar: makeJar,
   extinguisher: makeExtinguisher, wrench: makeWrench, mud: makeMud, flames: makeFlames, lantern: makeLantern, sign: makeSign,
-  eagle: makeEagle, raccoon: makeRaccoon, bees: makeBees, notes: makeNotes, rope: makeRope,
+  fish: makeFish, pinecone: makePinecone, eagle: makeEagle, raccoon: makeRaccoon, bees: makeBees, notes: makeNotes, rope: makeRope,
 };
 export const FEAST_PROPS = Object.keys(MAKERS);
 
