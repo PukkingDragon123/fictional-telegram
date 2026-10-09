@@ -1,128 +1,127 @@
-"""Foreground layer (things between the player and the room) and the light
-overlay (the only layer that uses partial alpha)."""
+"""Foreground (ivy curtains, dark corner plants) and the animated light
+overlay - the only layer with partial alpha: warm window shafts with
+drifting dust, the hearth's flickering glow, the bedroom lamp and the
+pool of light under the moon window."""
 import math
 import random
 import numpy as np
 from pixel import Canvas, PAL, step
-from leaves import leafy
-from room import W, H, WIN_MAIN, WIN_ROUND, FLOOR
+from leaves import leafy, leaf_stamp
+from layout import W, H, WIN_MAIN, WIN_ROUND, FLOOR, HEARTH
+from counter import FIREBOX
 
 F = 8
 GREEN = ['leaf0', 'leaf1', 'leaf2', 'leaf3', 'leaf4', 'leaf5']
 DARK_GREEN = ['ink', 'leaf0', 'leaf0', 'leaf1', 'leaf2', 'leaf3']
+WARM = (255, 236, 190)
+FIRE = (255, 150, 60)
 
 
-def _ivy_strand(cv, rng, x, y0, length, f, ph, ramp=GREEN):
-    from leaves import leaf_stamp
+def _ivy_strand(cv, x, y0, length, f, ph):
     for j in range(length):
         t = j / length
-        xx = int(round(x + math.sin(2 * math.pi * f / F + ph) * 2.0 * t * t + math.sin(j * 0.25 + ph)))
+        xx = int(round(x + math.sin(2 * math.pi * f / F + ph) * 2.4 * t * t + math.sin(j * 0.25 + ph)))
         yy = y0 + j
-        cv.px(xx, yy, ramp[1])
+        cv.px(xx, yy, 'leaf1')
         if j % 3 == 0:
             side = -1 if (j // 3) % 2 == 0 else 1
-            for (dx, dy, sd) in leaf_stamp(math.atan2(1.2, side), 4, 1.5):
-                cv.px(xx + dx, yy + dy, ramp[3] if sd > 0 else ramp[2])
+            for (dx, dy, sd) in leaf_stamp(math.atan2(1.2, side), 5, 1.8):
+                cv.px(xx + dx, yy + dy, 'leaf3' if sd > 0 else 'leaf2')
 
 
 def foreground():
-    """F frames: ivy curtains hanging from the beam in front of the pillars
-    and a big dark leafy plant in the bottom-left corner."""
     rng = random.Random(900)
     strands = []
-    for cx in (470, 492, 950, 1430, 1452):
+    for cx in (630, 652, 1270, 1292, 1910, 1932):
         for k in range(rng.randint(3, 5)):
-            strands.append((cx + rng.randint(-10, 10), 16, rng.randint(26, 70), rng.uniform(0, 6.28)))
-    plant, ox, oy, _ = leafy(rng, [(0, 0, 34, 26), (-20, 14, 22, 18), (24, 18, 18, 16)], DARK_GREEN,
-                             leaf_len=(7, 11), droop=0.1)
-    plant2, ox2, oy2, _ = leafy(rng, [(0, 0, 26, 22), (18, 10, 16, 14)], DARK_GREEN, leaf_len=(7, 10), droop=0.1)
+            strands.append((cx + rng.randint(-12, 12), 34, rng.randint(34, 96), rng.uniform(0, 6.28)))
+    plant, ox, oy, _ = leafy(rng, [(0, 0, 44, 32), (-26, 18, 28, 22), (30, 22, 24, 20)], DARK_GREEN,
+                             leaf_len=(9, 14), droop=0.1)
+    plant2, ox2, oy2, _ = leafy(rng, [(0, 0, 34, 28), (22, 12, 22, 18)], DARK_GREEN, leaf_len=(9, 13), droop=0.1)
     frames = []
     for f in range(F):
         cv = Canvas(W, H)
         layer = Canvas(W, H)
         for (x, y0, ln, ph) in strands:
-            _ivy_strand(layer, rng, x, y0, ln, f, ph)
+            _ivy_strand(layer, x, y0, ln, f, ph)
         layer.outline('leaf0', selective=False)
         cv.blit(layer, 0, 0)
         sw = int(round(math.sin(2 * math.pi * f / F)))
-        cv.blit(plant, -16 - ox + 26 + sw, 262 - oy)
-        cv.blit(plant2, 1906 - ox2 + sw, 268 - oy2)
+        cv.blit(plant, 12 - ox + sw, H + 8 - oy)
+        cv.blit(plant2, W - 14 - ox2 + sw, H + 14 - oy2)
         frames.append(cv)
     return frames
 
 
+def _add(a, x0, x1, y0, y1, fn):
+    for y in range(max(0, y0), min(H, y1)):
+        for x in range(max(0, x0), min(W, x1)):
+            r = fn(x, y)
+            if r:
+                col, al = r
+                if al > a[y, x, 3]:
+                    a[y, x] = (*col, al)
+
+
 def light():
-    """RGBA overlay: warm shafts from the windows, a pool of light on the
-    bedroom floor and dust motes. Use with normal or 'screen' blending."""
-    a = np.zeros((H, W, 4), np.uint8)
-    warm = (255, 236, 190)
+    """F frames of RGBA light."""
+    base = np.zeros((H, W, 4), np.uint8)
     wx, wy, ww, wh = WIN_MAIN['x'], WIN_MAIN['y'], WIN_MAIN['w'], WIN_MAIN['h']
-    # main window: slanted shafts falling down-right to the counter
-    for k, (x0, x1) in enumerate(((wx + 4, wx + 54), (wx + 64, wx + 114), (wx + 124, wx + 174), (wx + 184, wx + 234))):
-        for y in range(wy, 236):
-            t = (y - wy) / (236 - wy)
-            off = int(t * 70)
-            alpha = int(34 * (1 - t * 0.55))
+    for k in range(4):
+        x0 = wx + ww * k // 4 + 6
+        x1 = wx + ww * (k + 1) // 4 - 6
+        for y in range(wy, 312):
+            t = (y - wy) / (312 - wy)
+            off = int(t * 96)
+            alpha = int(30 * (1 - t * 0.5))
             for x in range(x0 + off, x1 + off):
                 if 0 <= x < W:
                     edge = min(x - (x0 + off), (x1 + off) - x)
-                    al = alpha if edge > 3 else alpha // 2
-                    if a[y, x, 3] < al:
-                        a[y, x] = (*warm, al)
-    # bedroom: a soft round pool on the floor below the moon window
-    cx, cy = WIN_ROUND['cx'] + 46, FLOOR + 30
-    for y in range(FLOOR, H):
-        for x in range(cx - 70, cx + 70):
-            d = ((x - cx) / 64) ** 2 + ((y - cy) / 22) ** 2
-            if d < 1:
-                al = 38 if d < 0.6 else 20
-                a[y, x] = (*warm, max(a[y, x, 3], al))
-    # round window glow shaft
-    for y in range(WIN_ROUND['cy'], FLOOR + 10):
-        t = (y - WIN_ROUND['cy']) / (FLOOR + 10 - WIN_ROUND['cy'])
-        r = int(WIN_ROUND['r'] * (0.9 - 0.2 * t))
-        c = int(WIN_ROUND['cx'] + t * 46)
+                    al = alpha if edge > 4 else alpha // 2
+                    if base[y, x, 3] < al:
+                        base[y, x] = (*WARM, al)
+    cx, cy = WIN_ROUND['cx'] + 60, FLOOR + 44             # moon-window pool on the floor
+    _add(base, cx - 96, cx + 96, FLOOR, H,
+         lambda x, y: (WARM, 34 if ((x - cx) / 90) ** 2 + ((y - cy) / 30) ** 2 < 0.6 else
+                       (18 if ((x - cx) / 90) ** 2 + ((y - cy) / 30) ** 2 < 1 else 0)))
+    for y in range(WIN_ROUND['cy'], FLOOR + 14):
+        t = (y - WIN_ROUND['cy']) / (FLOOR + 14 - WIN_ROUND['cy'])
+        r = int(WIN_ROUND['r'] * (0.9 - 0.25 * t))
+        c = int(WIN_ROUND['cx'] + t * 60)
         for x in range(c - r, c + r):
-            al = int(26 * (1 - t * 0.5))
-            if a[y, x, 3] < al:
-                a[y, x] = (*warm, al)
-    # dust motes in the shafts
+            al = int(22 * (1 - t * 0.5))
+            if base[y, x, 3] < al:
+                base[y, x] = (*WARM, al)
+    lx, ly = 2441, 96                                     # bedroom oil lamp glow
+    _add(base, lx - 70, lx + 70, ly - 60, ly + 70,
+         lambda x, y: (FIRE, int(max(0, 40 * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))
+    frames = []
     rng = random.Random(910)
-    for _ in range(260):
-        x, y = rng.randint(wx, wx + 320), rng.randint(wy, 230)
-        if a[y, x, 3]:
-            a[y, x] = (255, 250, 230, 150)
-    for _ in range(60):
-        x, y = rng.randint(WIN_ROUND['cx'] - 40, WIN_ROUND['cx'] + 90), rng.randint(WIN_ROUND['cy'], 220)
-        if a[y, x, 3]:
-            a[y, x] = (255, 250, 230, 140)
-    cv = Canvas(W, H)
-    cv.a = a
-    return cv
+    motes = [(rng.uniform(wx, wx + ww + 120), rng.uniform(wy, 300), rng.uniform(0, 6.28)) for _ in range(360)]
+    motes2 = [(rng.uniform(WIN_ROUND['cx'] - 60, WIN_ROUND['cx'] + 120), rng.uniform(WIN_ROUND['cy'], 300),
+               rng.uniform(0, 6.28)) for _ in range(90)]
+    fcx, fcy = FIREBOX['cx'], FIREBOX['bottom'] - 34
+    for f in range(F):
+        a = base.copy()
+        flick = 0.82 + 0.18 * math.sin(2 * math.pi * f / F) + 0.08 * math.sin(2 * math.pi * 3 * f / F + 1)
+        R_ = 150 * flick
+        _add(a, int(fcx - R_), int(fcx + R_), int(fcy - R_), H,
+             lambda x, y: (FIRE, int(70 * flick * max(0.0, 1 - math.hypot(x - fcx, (y - fcy) * 1.1) / R_) ** 1.4)))
+        for (mx, my, ph) in motes + motes2:               # dust drifting in the beams
+            x = int(mx + math.sin(2 * math.pi * f / F + ph) * 2)
+            y = int(my - (f / F) * 3 + math.cos(ph) * 1)
+            if 0 <= x < W and 0 <= y < H and base[y, x, 3] > 0:
+                a[y, x] = (255, 250, 230, 160)
+        cv = Canvas(W, H)
+        cv.a = a
+        frames.append(cv)
+    return frames
 
 
 def leaf_particles():
-    """Tiny tumbling leaf / petal sprites (4 frames each) for the engine to
-    drift across the window - falling sakura petals, maple and green leaves."""
-    sets = {}
-    sets['petal'] = ['''
-.pP
-pPp
-.p.
-''', '''
-pP.
-.Pp
-...
-''', '''
-.P.
-.p.
-.p.
-''', '''
-.Pp
-pP.
-...
-''']
-    sets['leaf_green'] = ['''
+    """Tiny tumbling leaf sprites (4 frames each) for the engine to drift
+    past the windows - green leaves only, plus pine needles."""
+    sets = {'leaf_green': ['''
 ..gG
 .gGg
 gGg.
@@ -142,30 +141,26 @@ gGg.
 gGg.
 .Gg.
 ..o.
-''']
-    sets['leaf_maple'] = ['''
-.r.r.
-rRRRr
-.rRr.
-..o..
+'''], 'leaf_jade': ['''
+..jJ
+.jJj
+jJj.
+o...
 ''', '''
-..r..
-.rRr.
-rRRRr
-..o..
+.jJ.
+jJJj
+.jj.
+..o.
 ''', '''
-.r...
-rRRr.
-.rRRr
-...o.
+jJ..
+jJj.
+.jJj
+...o
 ''', '''
-..r..
-rRRr.
-.Rr..
-.o...
-''']
-    leg = {'p': 'pink2', 'P': 'pink4', 'g': 'leaf2', 'G': 'leaf4', 'o': 'wood2', 'r': 'red2', 'R': 'red4'}
-    out = {}
-    for k, frames in sets.items():
-        out[k] = [Canvas.from_ascii(a, leg) for a in frames]
-    return out
+.j..
+jJj.
+.Jj.
+..o.
+''']}
+    leg = {'g': 'leaf2', 'G': 'leaf4', 'j': 'jade2', 'J': 'jade4', 'o': 'wood2'}
+    return {k: [Canvas.from_ascii(a, leg) for a in frames] for k, frames in sets.items()}

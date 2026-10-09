@@ -18,6 +18,7 @@ F = 8
 GREEN = ['leaf0', 'leaf1', 'leaf2', 'leaf3', 'leaf4', 'leaf5']
 DEEP = ['ink', 'leaf0', 'leaf1', 'leaf2', 'leaf3', 'leaf4']     # pine
 PINK = ['pink0', 'pink1', 'pink2', 'pink3', 'pink4', 'white']
+JADE = ['leaf0', 'jade1', 'jade2', 'jade3', 'jade4', 'jade5']
 MAPLE = ['red0', 'red1', 'red2', 'red3', 'red4', 'red5']
 BARK = ['bark0', 'bark1', 'bark2', 'bark3', 'bark4', 'bark5']
 
@@ -124,16 +125,38 @@ def roots(bx, by, rng, spread=1.0, r=3.4):
 
 # ---------------------------------------------------------------- tree
 class Tree:
-    def __init__(self, w, h, base):
-        self.w, self.h, self.base = w, h, base
-        self.trunk = Canvas(w, h)
+    """Species code works in a logical frame (base = lbase); k scales the
+    whole tree up into pixels, so big trees get more leaves, not fatter ones."""
+
+    def __init__(self, w, h, base, k=1.0):
+        self.k = k
+        self.lbase = base
+        self.w, self.h = int(w * k), int(h * k)
+        self.base = (int(base[0] * k), int(base[1] * k))
+        self.trunk = Canvas(self.w, self.h)
         self.masses = []   # dicts: sprite, x, y, behind, phase, amp
         self.extra = []
 
+    def map(self, x, y):
+        return (self.base[0] + (x - self.lbase[0]) * self.k, self.base[1] + (y - self.lbase[1]) * self.k)
+
+    def limbs(self, L, rng):
+        k = self.k
+        out = []
+        for limb in L:
+            pts = [self.map(x, y) for (x, y) in limb[0]]
+            rest = [max(0.7, limb[1] * k), max(0.7, limb[2] * k)] + ([limb[3] * k] if len(limb) > 3 else [])
+            out.append((pts, *rest))
+        return limbs_draw(self.trunk, out, rng)
+
     def add_mass(self, rng, cx, cy, lobes, ramp, behind=False, amp=1, kind='leaf', flowers=None,
                  leaf_len=(5, 8), **_):
+        k = self.k
+        cx, cy = self.map(cx, cy)
+        lobes = [(a * k, b * k, c * k, d * k) for (a, b, c, d) in lobes]
+        ll = (leaf_len[0] * k ** 0.45, leaf_len[1] * k ** 0.45)
         spr, ox, oy, m = leafy(rng, lobes, ramp, kind=kind, dark=1 if behind else 0,
-                               flowers=flowers, leaf_len=leaf_len)
+                               flowers=flowers, leaf_len=ll)
         self.masses.append(dict(s=spr, x=int(cx) - ox, y=int(cy) - oy, behind=behind,
                                 ph=rng.uniform(0, 6.28), amp=amp, mask=m))
 
@@ -180,12 +203,12 @@ def _jit(rng, lobes, j=1.5):
 
 
 # ---------------------------------------------------------------- species
-def tree_oak(seed=4, ramp=GREEN, kind='leaf', flowers=None, w=170, h=160):
+def tree_oak(seed=4, ramp=GREEN, kind='leaf', flowers=None, w=170, h=160, k=1.0):
     """Big gnarled tree: twisted trunk splitting into three limbs, separate
     foliage masses with sky between them (reference 'old oak')."""
     rng = random.Random(seed)
-    T = Tree(w, h, (w // 2 - 4, h - 4))
-    bx, by = T.base
+    T = Tree(w, h, (w // 2 - 4, h - 4), k)
+    bx, by = T.lbase
     L = []
     L.append(([(bx - 2, by - 58), (bx - 18, by - 70), (bx - 34, by - 84), (bx - 48, by - 92)], 4.2, 1.2))
     L.append(([(bx + 2, by - 54), (bx + 18, by - 66), (bx + 34, by - 82), (bx + 50, by - 94)], 4.2, 1.2))
@@ -196,7 +219,7 @@ def tree_oak(seed=4, ramp=GREEN, kind='leaf', flowers=None, w=170, h=160):
     L.append(([(bx - 20, by - 72), (bx - 34, by - 66), (bx - 44, by - 62)], 1.8, 0.7))
     L += roots(bx, by, rng, 1.3, 4)
     L.append(([(bx, by), (bx - 5, by - 22), (bx + 4, by - 44), (bx - 2, by - 62), (bx + 3, by - 76)], 7.5, 4.2, 6))
-    limbs_draw(T.trunk, L, rng)
+    T.limbs(L, rng)
     kw = dict(kind=kind, flowers=flowers)
     T.add_mass(rng, bx - 2, by - 120, _jit(rng, [(-16, -6, 22, 13), (10, -10, 20, 14), (0, 6, 18, 9)]),
                ramp, behind=True, **kw)
@@ -210,16 +233,16 @@ def tree_oak(seed=4, ramp=GREEN, kind='leaf', flowers=None, w=170, h=160):
     return T
 
 
-def tree_bushy(seed=5, ramp=GREEN, w=110, h=150):
+def tree_bushy(seed=5, ramp=GREEN, w=110, h=150, k=1.0):
     """Tall dense tree: one big stacked mass, trunk + roots below
     (reference 'tall bushy')."""
     rng = random.Random(seed)
-    T = Tree(w, h, (w // 2, h - 4))
-    bx, by = T.base
+    T = Tree(w, h, (w // 2, h - 4), k)
+    bx, by = T.lbase
     L = [([(bx, by - 30), (bx + 12, by - 44), (bx + 18, by - 52)], 3, 1)]
     L += roots(bx, by, rng, 1.1, 3.6)
     L.append(([(bx, by), (bx - 4, by - 16), (bx + 3, by - 32), (bx, by - 48)], 6.5, 3.5, 5))
-    limbs_draw(T.trunk, L, rng)
+    T.limbs(L, rng)
     lobes = []
     y = -8
     side = 1
@@ -234,17 +257,17 @@ def tree_bushy(seed=5, ramp=GREEN, w=110, h=150):
     return T
 
 
-def tree_windswept(seed=6, ramp=GREEN, w=150, h=140, flowers=None, kind='leaf'):
+def tree_windswept(seed=6, ramp=GREEN, w=150, h=140, flowers=None, kind='leaf', k=1.0):
     """Leaning trunk, foliage blown into separate drifts (reference #1)."""
     rng = random.Random(seed)
-    T = Tree(w, h, (w // 2 - 16, h - 4))
-    bx, by = T.base
+    T = Tree(w, h, (w // 2 - 16, h - 4), k)
+    bx, by = T.lbase
     L = [([(bx + 10, by - 50), (bx + 26, by - 66), (bx + 44, by - 76)], 3.4, 1),
          ([(bx + 6, by - 58), (bx - 4, by - 76), (bx - 22, by - 86)], 3.2, 1),
          ([(bx + 26, by - 66), (bx + 34, by - 86), (bx + 30, by - 98)], 2, 0.8)]
     L += roots(bx, by, rng, 1.1, 3.6)
     L.append(([(bx, by), (bx + 6, by - 20), (bx + 14, by - 40), (bx + 8, by - 58)], 6.5, 3.4, 5))
-    limbs_draw(T.trunk, L, rng)
+    T.limbs(L, rng)
     T.add_mass(rng, bx - 20, by - 92, _jit(rng, [(-8, -2, 20, 12), (10, 4, 14, 9), (-18, 6, 11, 7)]), ramp,
                flowers=flowers, kind=kind)
     T.add_mass(rng, bx + 36, by - 100, _jit(rng, [(0, -4, 18, 12), (12, 4, 13, 8), (-10, 6, 10, 7)]), ramp,
@@ -263,12 +286,12 @@ def tree_maple(seed=3):
     return tree_windswept(seed, MAPLE, kind='maple')
 
 
-def tree_pine(seed=2):
+def tree_pine(seed=2, k=1.0):
     """Japanese black pine: S-curved trunk, flat layered needle pads."""
     rng = random.Random(seed)
     w, h = 236, 190
-    T = Tree(w, h, (100, h - 4))
-    bx, by = T.base
+    T = Tree(w, h, (100, h - 4), k)
+    bx, by = T.lbase
     trunk = [(bx, by), (bx - 9, by - 30), (bx + 8, by - 62), (bx - 4, by - 98), (bx + 12, by - 130), (bx + 18, by - 150)]
     pads = [(-48, -54, 32, 8), (44, -82, 36, 9), (-38, -108, 30, 8), (38, -130, 28, 8),
             (6, -156, 22, 7), (72, -106, 18, 6), (-72, -70, 16, 6)]
@@ -279,7 +302,7 @@ def tree_pine(seed=2):
         L.append(([(bx + dx * 0.55, by + dy + 6), (bx + dx * 0.95 + 6, by + dy + 3)], 1.5, 0.7))
     L += roots(bx, by, rng, 1.4, 4)
     L.append((trunk, 8, 3, 6))
-    limbs_draw(T.trunk, L, rng)
+    T.limbs(L, rng)
     for (dx, dy, rx, ry) in pads:
         lob = [(-rx * 0.45, 0, rx * 0.6, ry), (rx * 0.4, -1, rx * 0.6, ry), (0, -ry * 0.4, rx * 0.5, ry * 0.8)]
         T.add_mass(rng, bx + dx + 5, by + dy - 4, _jit(rng, [(a, b - 2, c * 0.9, d) for (a, b, c, d) in lob]),
@@ -289,26 +312,27 @@ def tree_pine(seed=2):
     return T
 
 
-def tree_willow(seed=7, ramp=GREEN, racemes=None, w=170, h=150):
+def tree_willow(seed=7, ramp=GREEN, racemes=None, w=170, h=150, k=1.0):
     """Weeping tree: domed crown with hanging curtains that swing. With
     racemes=(ramp...) the curtains become wisteria flower chains."""
     rng = random.Random(seed)
-    T = Tree(w, h, (w // 2, h - 4))
-    bx, by = T.base
+    T = Tree(w, h, (w // 2, h - 4), k)
+    bx, by = T.lbase
     L = [([(bx, by - 46), (bx - 24, by - 70), (bx - 50, by - 80)], 3.8, 1),
          ([(bx + 2, by - 50), (bx + 28, by - 70), (bx + 54, by - 76)], 3.8, 1)]
     L += roots(bx, by, rng, 1.2, 4)
     L.append(([(bx, by), (bx + 6, by - 16), (bx - 6, by - 34), (bx + 3, by - 52), (bx, by - 66)], 7, 3.8, 6))
-    limbs_draw(T.trunk, L, rng)
+    T.limbs(L, rng)
     crown = _jit(rng, [(-40, 4, 24, 12), (-14, -6, 24, 15), (14, -8, 24, 15), (42, 4, 22, 12),
                        (0, -20, 20, 12), (0, 8, 30, 9)])
     T.add_mass(rng, bx, by - 92, crown, ramp, leaf_len=(6, 9))
     curtains = []
-    for k in range(32):
-        x = bx - 68 + k * 4.4 + rng.uniform(-1.5, 1.5)
+    for ci in range(int(32 * T.k)):
+        x = bx - 68 + ci * 4.4 / T.k + rng.uniform(-1.5, 1.5)
         top = by - 92 + 2 + abs(x - bx) * 0.06 + rng.uniform(0, 5)
-        ln = rng.randint(14, 34) if racemes is None else rng.randint(14, 28)
-        curtains.append((x, top, ln, rng.uniform(0, 6.28)))
+        ln = (rng.randint(14, 34) if racemes is None else rng.randint(14, 28)) * T.k
+        px_, py_ = T.map(x, top)
+        curtains.append((px_, py_, int(ln), rng.uniform(0, 6.28)))
     curtains.sort(key=lambda c: c[2])
     cols = racemes or ('leaf0', 'leaf1', 'leaf2', 'leaf3', 'leaf4')
 
@@ -366,7 +390,7 @@ def small_tree(seed, ramp=GREEN, scale=0.5, outline=True):
     rng = random.Random(seed)
     w, h = int(40 * scale) + 10, int(60 * scale) + 8
     T = Tree(w, h, (w // 2, h - 2))
-    bx, by = T.base
+    bx, by = T.lbase
     limbs_draw(T.trunk, [([(bx, by), (bx + 1, by - 20 * scale)], 2.0 * scale + 0.6, 1)], rng)
     T.add_mass(rng, bx, by - 30 * scale,
                _jit(rng, [(-6 * scale, 0, 12 * scale, 10 * scale), (6 * scale, -4 * scale, 11 * scale, 10 * scale)], 1),

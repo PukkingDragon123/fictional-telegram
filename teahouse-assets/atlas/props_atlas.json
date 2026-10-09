@@ -1,2054 +1,3985 @@
 {
  "image": "props_atlas.png",
  "size": [
-  1024,
-  359
+  2048,
+  1228
  ],
  "props": {
-  "recipe_board": {
-   "frames": [
-    {
-     "x": 138,
-     "y": 0,
-     "w": 256,
-     "h": 96
-    }
+  "fire_spirit": {
+   "anims": {
+    "idle": [
+     {
+      "x": 1522,
+      "y": 868,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1595,
+      "y": 868,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1668,
+      "y": 868,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1741,
+      "y": 868,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1814,
+      "y": 868,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1887,
+      "y": 868,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1960,
+      "y": 868,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 0,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 73,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 146,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 219,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 292,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     }
+    ],
+    "talk": [
+     {
+      "x": 365,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 438,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 511,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 584,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 657,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 730,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 803,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 876,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 949,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1022,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1095,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1168,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     }
+    ],
+    "happy": [
+     {
+      "x": 1241,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1314,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1387,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1460,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1533,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1606,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1679,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1752,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1825,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1898,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 1971,
+      "y": 959,
+      "w": 72,
+      "h": 72
+     },
+     {
+      "x": 0,
+      "y": 1032,
+      "w": 72,
+      "h": 72
+     }
+    ]
+   },
+   "fps": 10,
+   "room": 1,
+   "layer": "counter",
+   "scene": [
+    74,
+    278
    ],
+   "draggable": true,
+   "desc": "Talking fire spirit in the hearth - all mouth and teeth: idle / talk / happy loops (12 frames each)"
+  },
+  "kama_pot": {
+   "anims": {
+    "default": [
+     {
+      "x": 453,
+      "y": 1105,
+      "w": 68,
+      "h": 51
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "counter",
+   "scene": [
+    32,
+    187
+   ],
+   "draggable": true,
+   "desc": "Big iron kama pot with a wooden lid on the hearth"
+  },
+  "kettle_tetsubin": {
+   "anims": {
+    "default": [
+     {
+      "x": 465,
+      "y": 1032,
+      "w": 64,
+      "h": 62
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "counter",
+   "scene": [
+    126,
+    177
+   ],
+   "draggable": true,
+   "desc": "Cast-iron tetsubin kettle: arare bumps, curved spout, rattan-wrapped bail"
+  },
+  "steam_kama": {
+   "anims": {
+    "default": [
+     {
+      "x": 1432,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     },
+     {
+      "x": 1457,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     },
+     {
+      "x": 1482,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     },
+     {
+      "x": 1507,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     },
+     {
+      "x": 1532,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     },
+     {
+      "x": 1557,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     },
+     {
+      "x": 1582,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     },
+     {
+      "x": 1607,
+      "y": 1032,
+      "w": 24,
+      "h": 56
+     }
+    ]
+   },
+   "fps": 7,
+   "room": 1,
+   "layer": "front",
+   "scene": [
+    53,
+    139
+   ],
+   "draggable": false,
+   "desc": "Steam lifting off the kama lid (8 frames)"
+  },
+  "steam_kettle": {
+   "anims": {
+    "default": [
+     {
+      "x": 1124,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     },
+     {
+      "x": 1143,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     },
+     {
+      "x": 1162,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     },
+     {
+      "x": 1181,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     },
+     {
+      "x": 1200,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     },
+     {
+      "x": 1219,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     },
+     {
+      "x": 1238,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     },
+     {
+      "x": 1257,
+      "y": 1105,
+      "w": 18,
+      "h": 46
+     }
+    ]
+   },
+   "fps": 7,
+   "room": 1,
+   "layer": "front",
+   "scene": [
+    187,
+    133
+   ],
+   "draggable": false,
+   "desc": "Steam from the kettle spout (8 frames)"
+  },
+  "hearth_hood": {
+   "anims": {
+    "default": [
+     {
+      "x": 99,
+      "y": 0,
+      "w": 214,
+      "h": 181
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "wall",
    "scene": [
-    125,
-    47
+    9,
+    35
    ],
    "draggable": true,
-   "desc": "Giant chalk recipe board with clothes-line for recipe cards"
+   "desc": "Copper smoke hood and flue over the hearth, with a fire-god charm and ladle rail"
   },
-  "recipe_card_a": {
-   "frames": [
-    {
-     "x": 135,
-     "y": 258,
-     "w": 29,
-     "h": 37
-    }
-   ],
-   "fps": 0,
+  "herbs_drying_a": {
+   "anims": {
+    "default": [
+     {
+      "x": 124,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     },
+     {
+      "x": 156,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     },
+     {
+      "x": 188,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     },
+     {
+      "x": 220,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     },
+     {
+      "x": 252,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     },
+     {
+      "x": 284,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     },
+     {
+      "x": 316,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     },
+     {
+      "x": 348,
+      "y": 1105,
+      "w": 31,
+      "h": 53
+     }
+    ]
+   },
+   "fps": 5,
    "room": 1,
-   "layer": "wall",
+   "layer": "ceiling",
    "scene": [
-    213,
-    55
+    21,
+    59
    ],
    "draggable": true,
-   "desc": "Recipe card (leaf) pegged on the board line"
+   "desc": "Herb bundle drying in the hearth smoke (8-frame sway)"
   },
-  "recipe_card_b": {
-   "frames": [
-    {
-     "x": 165,
-     "y": 258,
-     "w": 32,
-     "h": 37
-    }
-   ],
-   "fps": 0,
+  "herbs_drying_b": {
+   "anims": {
+    "default": [
+     {
+      "x": 821,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     },
+     {
+      "x": 853,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     },
+     {
+      "x": 885,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     },
+     {
+      "x": 917,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     },
+     {
+      "x": 949,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     },
+     {
+      "x": 981,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     },
+     {
+      "x": 1013,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     },
+     {
+      "x": 1045,
+      "y": 1032,
+      "w": 31,
+      "h": 60
+     }
+    ]
+   },
+   "fps": 5,
    "room": 1,
-   "layer": "wall",
+   "layer": "ceiling",
    "scene": [
-    245,
-    55
+    47,
+    59
    ],
    "draggable": true,
-   "desc": "Recipe card (teapot) pegged on the board line"
+   "desc": "Herb bundle drying in the hearth smoke (8-frame sway)"
   },
-  "recipe_card_c": {
-   "frames": [
-    {
-     "x": 67,
-     "y": 258,
-     "w": 29,
-     "h": 38
-    }
-   ],
-   "fps": 0,
+  "herbs_drying_c": {
+   "anims": {
+    "default": [
+     {
+      "x": 1849,
+      "y": 1032,
+      "w": 31,
+      "h": 54
+     },
+     {
+      "x": 1881,
+      "y": 1032,
+      "w": 31,
+      "h": 54
+     },
+     {
+      "x": 1913,
+      "y": 1032,
+      "w": 31,
+      "h": 54
+     },
+     {
+      "x": 1945,
+      "y": 1032,
+      "w": 31,
+      "h": 54
+     },
+     {
+      "x": 1977,
+      "y": 1032,
+      "w": 31,
+      "h": 54
+     },
+     {
+      "x": 2009,
+      "y": 1032,
+      "w": 31,
+      "h": 54
+     },
+     {
+      "x": 0,
+      "y": 1105,
+      "w": 31,
+      "h": 54
+     },
+     {
+      "x": 32,
+      "y": 1105,
+      "w": 31,
+      "h": 54
+     }
+    ]
+   },
+   "fps": 5,
    "room": 1,
-   "layer": "wall",
+   "layer": "ceiling",
    "scene": [
-    279,
-    55
+    141,
+    59
    ],
    "draggable": true,
-   "desc": "Recipe card (flower) pegged on the board line"
+   "desc": "Herb bundle drying in the hearth smoke (8-frame sway)"
   },
-  "recipe_card_d": {
-   "frames": [
-    {
-     "x": 97,
-     "y": 258,
-     "w": 26,
-     "h": 38
-    }
-   ],
-   "fps": 0,
+  "herbs_drying_d": {
+   "anims": {
+    "default": [
+     {
+      "x": 1132,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     },
+     {
+      "x": 1164,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     },
+     {
+      "x": 1196,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     },
+     {
+      "x": 1228,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     },
+     {
+      "x": 1260,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     },
+     {
+      "x": 1292,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     },
+     {
+      "x": 1324,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     },
+     {
+      "x": 1356,
+      "y": 1032,
+      "w": 31,
+      "h": 59
+     }
+    ]
+   },
+   "fps": 5,
    "room": 1,
-   "layer": "wall",
-   "scene": [
-    311,
-    55
-   ],
-   "draggable": true,
-   "desc": "Recipe card (drops) pegged on the board line"
-  },
-  "recipe_card_e": {
-   "frames": [
-    {
-     "x": 289,
-     "y": 258,
-     "w": 27,
-     "h": 35
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    343,
-    55
-   ],
-   "draggable": true,
-   "desc": "Recipe card (burnt) pegged on the board line"
-  },
-  "apothecary_drawers": {
-   "frames": [
-    {
-     "x": 395,
-     "y": 0,
-     "w": 68,
-     "h": 92
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    397,
-    53
-   ],
-   "draggable": true,
-   "desc": "Tea-ingredient apothecary chest; a drawer missing, one pulled out"
-  },
-  "wall_shelf_long": {
-   "frames": [
-    {
-     "x": 0,
-     "y": 332,
-     "w": 342,
-     "h": 16
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    119,
-    37
-   ],
-   "draggable": true,
-   "desc": "Long storage shelf plank with brackets"
-  },
-  "jar_leaves_green": {
-   "frames": [
-    {
-     "x": 513,
-     "y": 303,
-     "w": 16,
-     "h": 20
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    131,
-    21
-   ],
-   "draggable": true,
-   "desc": "Glass jar of green tea leaves"
-  },
-  "jar_leaves_dark": {
-   "frames": [
-    {
-     "x": 710,
-     "y": 303,
-     "w": 14,
-     "h": 18
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    149,
-    23
-   ],
-   "draggable": true,
-   "desc": "Glass jar of roasted dark leaves"
-  },
-  "jar_flowers_dried": {
-   "frames": [
-    {
-     "x": 725,
-     "y": 303,
-     "w": 16,
-     "h": 18
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
+   "layer": "ceiling",
    "scene": [
     167,
-    23
+    59
    ],
    "draggable": true,
-   "desc": "Jar of dried pink blossoms"
+   "desc": "Herb bundle drying in the hearth smoke (8-frame sway)"
   },
-  "jar_berries": {
-   "frames": [
-    {
-     "x": 414,
-     "y": 332,
-     "w": 12,
-     "h": 14
-    }
-   ],
+  "recipe_board": {
+   "anims": {
+    "default": [
+     {
+      "x": 1510,
+      "y": 511,
+      "w": 261,
+      "h": 125
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "wall",
    "scene": [
-    185,
-    27
+    231,
+    73
    ],
    "draggable": true,
-   "desc": "Small jar of red berries"
+   "desc": "Giant chalk recipe board: brewing diagram, steps, leaf sketches, card line"
   },
-  "tin_caddy_red": {
-   "frames": [
-    {
-     "x": 343,
-     "y": 332,
-     "w": 14,
-     "h": 16
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    205,
-    25
-   ],
-   "draggable": true,
-   "desc": "Red tea tin with a gold band"
-  },
-  "tin_caddy_jade": {
-   "frames": [
-    {
-     "x": 427,
-     "y": 332,
-     "w": 14,
-     "h": 14
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    221,
-    27
-   ],
-   "draggable": true,
-   "desc": "Jade tea tin, dented"
-  },
-  "sack_tea_small": {
-   "frames": [
-    {
-     "x": 530,
-     "y": 303,
-     "w": 20,
-     "h": 20
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    239,
-    21
-   ],
-   "draggable": true,
-   "desc": "Small burlap sack of tea leaves"
-  },
-  "sack_tea_small_b": {
-   "frames": [
-    {
-     "x": 742,
-     "y": 303,
-     "w": 18,
-     "h": 18
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    261,
-    23
-   ],
-   "draggable": true,
-   "desc": "Small burlap sack (tied)"
-  },
-  "bottle_amber": {
-   "frames": [
-    {
-     "x": 551,
-     "y": 303,
-     "w": 10,
-     "h": 20
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    283,
-    21
-   ],
-   "draggable": true,
-   "desc": "Amber tincture bottle with a cork"
-  },
-  "bowl_stack": {
-   "frames": [
-    {
-     "x": 805,
-     "y": 332,
-     "w": 22,
-     "h": 12
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "wall",
-   "scene": [
-    297,
-    29
-   ],
-   "draggable": true,
-   "desc": "Stack of ceramic tea bowls"
-  },
-  "scroll_bundle": {
-   "frames": [
-    {
-     "x": 828,
-     "y": 332,
-     "w": 32,
-     "h": 12
-    }
-   ],
+  "recipe_card_a": {
+   "anims": {
+    "default": [
+     {
+      "x": 1632,
+      "y": 1032,
+      "w": 42,
+      "h": 56
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "wall",
    "scene": [
     323,
-    29
+    79
    ],
    "draggable": true,
-   "desc": "Bundle of rolled recipe scrolls tied with string"
+   "desc": "Recipe card (leaf)"
   },
-  "jar_leaves_green_b": {
-   "frames": [
-    {
-     "x": 496,
-     "y": 303,
-     "w": 16,
-     "h": 22
-    }
-   ],
+  "recipe_card_b": {
+   "anims": {
+    "default": [
+     {
+      "x": 1675,
+      "y": 1032,
+      "w": 40,
+      "h": 56
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "wall",
    "scene": [
     361,
-    19
+    79
    ],
    "draggable": true,
-   "desc": "Tall jar of long-leaf tea"
+   "desc": "Recipe card (teapot)"
   },
-  "mortar_pestle_shelf": {
-   "frames": [
-    {
-     "x": 562,
-     "y": 303,
-     "w": 18,
-     "h": 20
-    }
-   ],
+  "recipe_card_c": {
+   "anims": {
+    "default": [
+     {
+      "x": 1716,
+      "y": 1032,
+      "w": 41,
+      "h": 55
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "wall",
    "scene": [
-    383,
-    27
+    399,
+    80
+   ],
+   "draggable": true,
+   "desc": "Recipe card (flower)"
+  },
+  "recipe_card_d": {
+   "anims": {
+    "default": [
+     {
+      "x": 1758,
+      "y": 1032,
+      "w": 39,
+      "h": 55
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    437,
+    79
+   ],
+   "draggable": true,
+   "desc": "Recipe card (drops)"
+  },
+  "recipe_card_e": {
+   "anims": {
+    "default": [
+     {
+      "x": 1388,
+      "y": 1032,
+      "w": 43,
+      "h": 57
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    447,
+    131
+   ],
+   "draggable": true,
+   "desc": "Recipe card (burnt)"
+  },
+  "wall_shelf_long": {
+   "anims": {
+    "default": [
+     {
+      "x": 0,
+      "y": 1202,
+      "w": 417,
+      "h": 25
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    223,
+    65
+   ],
+   "draggable": true,
+   "desc": "Long storage shelf with carved brackets"
+  },
+  "jar_green_tea": {
+   "anims": {
+    "default": [
+     {
+      "x": 280,
+      "y": 1160,
+      "w": 30,
+      "h": 38
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    232,
+    32
+   ],
+   "draggable": true,
+   "desc": "Jar of green tea leaves"
+  },
+  "jar_dried_blossom": {
+   "anims": {
+    "default": [
+     {
+      "x": 944,
+      "y": 1160,
+      "w": 28,
+      "h": 34
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    258,
+    36
+   ],
+   "draggable": true,
+   "desc": "Jar of dried blossoms"
+  },
+  "jar_goji": {
+   "anims": {
+    "default": [
+     {
+      "x": 1682,
+      "y": 1160,
+      "w": 24,
+      "h": 27
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    282,
+    42
+   ],
+   "draggable": true,
+   "desc": "Small jar of berries"
+  },
+  "tin_red": {
+   "anims": {
+    "default": [
+     {
+      "x": 1037,
+      "y": 1160,
+      "w": 28,
+      "h": 32
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    302,
+    38
+   ],
+   "draggable": true,
+   "desc": "Red tea tin"
+  },
+  "tin_jade": {
+   "anims": {
+    "default": [
+     {
+      "x": 1599,
+      "y": 1160,
+      "w": 26,
+      "h": 28
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    326,
+    42
+   ],
+   "draggable": true,
+   "desc": "Dented jade tea tin"
+  },
+  "sack_leaves_small": {
+   "anims": {
+    "default": [
+     {
+      "x": 311,
+      "y": 1160,
+      "w": 34,
+      "h": 38
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    350,
+    32
+   ],
+   "draggable": true,
+   "desc": "Small sack of tea leaves"
+  },
+  "sack_roasted": {
+   "anims": {
+    "default": [
+     {
+      "x": 973,
+      "y": 1160,
+      "w": 30,
+      "h": 34
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    382,
+    36
+   ],
+   "draggable": true,
+   "desc": "Small sack of roasted leaves"
+  },
+  "bottle_amber": {
+   "anims": {
+    "default": [
+     {
+      "x": 346,
+      "y": 1160,
+      "w": 20,
+      "h": 37
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    408,
+    32
+   ],
+   "draggable": true,
+   "desc": "Amber tincture bottle"
+  },
+  "crock_celadon": {
+   "anims": {
+    "default": [
+     {
+      "x": 477,
+      "y": 1160,
+      "w": 28,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    427,
+    34
+   ],
+   "draggable": true,
+   "desc": "Celadon storage crock"
+  },
+  "scroll_bundle": {
+   "anims": {
+    "default": [
+     {
+      "x": 506,
+      "y": 1202,
+      "w": 46,
+      "h": 23
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    457,
+    48
+   ],
+   "draggable": true,
+   "desc": "Bundle of rolled recipe scrolls"
+  },
+  "jar_hojicha": {
+   "anims": {
+    "default": [
+     {
+      "x": 147,
+      "y": 1160,
+      "w": 30,
+      "h": 40
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    502,
+    30
+   ],
+   "draggable": true,
+   "desc": "Tall jar of hojicha"
+  },
+  "potted_basil": {
+   "anims": {
+    "default": [
+     {
+      "x": 554,
+      "y": 1105,
+      "w": 52,
+      "h": 50
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    533,
+    19
+   ],
+   "draggable": true,
+   "desc": "Pot of fresh herbs"
+  },
+  "mortar_spare": {
+   "anims": {
+    "default": [
+     {
+      "x": 1066,
+      "y": 1160,
+      "w": 28,
+      "h": 32
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 1,
+   "layer": "wall",
+   "scene": [
+    565,
+    38
    ],
    "draggable": true,
    "desc": "Spare stone mortar"
   },
-  "stove_pipe": {
-   "frames": [
-    {
-     "x": 69,
-     "y": 0,
-     "w": 14,
-     "h": 168
-    }
-   ],
+  "apothecary_chest": {
+   "anims": {
+    "default": [
+     {
+      "x": 1681,
+      "y": 199,
+      "w": 129,
+      "h": 135
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "wall",
    "scene": [
-    49,
-    17
+    495,
+    67
    ],
    "draggable": true,
-   "desc": "Rusty stove flue running up through the ceiling"
+   "desc": "Tea-ingredient apothecary chest: 42 drawers, one missing, one pulled out"
   },
-  "stove_clay": {
-   "frames": [
-    {
-     "x": 371,
-     "y": 258,
-     "w": 44,
-     "h": 32
-    },
-    {
-     "x": 416,
-     "y": 258,
-     "w": 44,
-     "h": 32
-    },
-    {
-     "x": 461,
-     "y": 258,
-     "w": 44,
-     "h": 32
-    },
-    {
-     "x": 506,
-     "y": 258,
-     "w": 44,
-     "h": 32
-    }
-   ],
-   "fps": 8,
-   "room": 1,
-   "layer": "counter",
-   "scene": [
-    19,
-    180
-   ],
-   "draggable": true,
-   "desc": "Clay boiling stove; fire window flickers (4 frames)"
-  },
-  "kettle_iron": {
-   "frames": [
-    {
-     "x": 944,
-     "y": 258,
-     "w": 34,
-     "h": 28
-    }
-   ],
+  "cutting_board_leaves": {
+   "anims": {
+    "default": [
+     {
+      "x": 1761,
+      "y": 1160,
+      "w": 85,
+      "h": 26
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "counter",
    "scene": [
-    25,
-    158
+    224,
+    265
    ],
    "draggable": true,
-   "desc": "Cast-iron tetsubin kettle with bumpy arare texture"
-  },
-  "steam_puff": {
-   "frames": [
-    {
-     "x": 791,
-     "y": 258,
-     "w": 18,
-     "h": 30
-    },
-    {
-     "x": 810,
-     "y": 258,
-     "w": 18,
-     "h": 30
-    },
-    {
-     "x": 829,
-     "y": 258,
-     "w": 18,
-     "h": 30
-    },
-    {
-     "x": 848,
-     "y": 258,
-     "w": 18,
-     "h": 30
-    }
-   ],
-   "fps": 6,
-   "room": 1,
-   "layer": "front",
-   "scene": [
-    49,
-    131
-   ],
-   "draggable": false,
-   "desc": "Rising steam (4-frame loop) for kettles and cups"
-  },
-  "cutting_board_herbs": {
-   "frames": [
-    {
-     "x": 882,
-     "y": 332,
-     "w": 48,
-     "h": 11
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "counter",
-   "scene": [
-    109,
-    201
-   ],
-   "draggable": true,
-   "desc": "Cutting board with chopped herbs and a knife"
+   "desc": "Cutting board with fresh tea leaves and a cleaver"
   },
   "mortar_pestle": {
-   "frames": [
-    {
-     "x": 581,
-     "y": 303,
-     "w": 20,
-     "h": 20
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1004,
+      "y": 1160,
+      "w": 32,
+      "h": 34
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "counter",
    "scene": [
-    165,
-    192
+    311,
+    255
    ],
    "draggable": true,
    "desc": "Stone mortar and pestle with ground matcha"
   },
-  "basket_tea_leaves": {
-   "frames": [
-    {
-     "x": 602,
-     "y": 303,
-     "w": 38,
-     "h": 20
-    }
-   ],
+  "basket_fresh_leaves": {
+   "anims": {
+    "default": [
+     {
+      "x": 1953,
+      "y": 1105,
+      "w": 64,
+      "h": 42
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "counter",
    "scene": [
-    203,
-    193
+    349,
+    249
    ],
    "draggable": true,
-   "desc": "Woven bamboo basket heaped with fresh tea leaves"
+   "desc": "Woven basket heaped with fresh tea leaves"
   },
   "balance_scale": {
-   "frames": [
-    {
-     "x": 867,
-     "y": 258,
-     "w": 34,
-     "h": 30
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 380,
+      "y": 1105,
+      "w": 54,
+      "h": 53
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "counter",
    "scene": [
-    327,
-    182
+    419,
+    235
    ],
    "draggable": true,
    "desc": "Brass balance scale for weighing leaves"
   },
-  "jar_glass_table": {
-   "frames": [
-    {
-     "x": 641,
-     "y": 303,
-     "w": 16,
-     "h": 20
-    }
-   ],
+  "jar_open_table": {
+   "anims": {
+    "default": [
+     {
+      "x": 178,
+      "y": 1160,
+      "w": 30,
+      "h": 40
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "counter",
    "scene": [
-    373,
-    192
+    474,
+    249
    ],
    "draggable": true,
    "desc": "Jar of hojicha on the table, lid off"
   },
-  "drying_tray": {
-   "frames": [
-    {
-     "x": 0,
-     "y": 349,
-     "w": 66,
-     "h": 9
-    }
-   ],
+  "tea_brick": {
+   "anims": {
+    "default": [
+     {
+      "x": 834,
+      "y": 1202,
+      "w": 38,
+      "h": 20
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "counter",
    "scene": [
-    247,
-    203
+    505,
+    269
    ],
    "draggable": true,
-   "desc": "Flat bamboo tray of leaves drying"
+   "desc": "Paper-wrapped pressed tea cake, half unwrapped"
   },
   "sack_big": {
-   "frames": [
-    {
-     "x": 551,
-     "y": 258,
-     "w": 36,
-     "h": 32
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1798,
+      "y": 1032,
+      "w": 50,
+      "h": 55
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "floor",
    "scene": [
-    21,
-    216
+    225,
+    287
    ],
    "draggable": true,
-   "desc": "Big burlap sack of tea, slumped"
+   "desc": "Big slumped sack of tea"
   },
-  "sack_big_b": {
-   "frames": [
-    {
-     "x": 979,
-     "y": 258,
-     "w": 32,
-     "h": 28
-    }
-   ],
+  "sack_big_torn": {
+   "anims": {
+    "default": [
+     {
+      "x": 854,
+      "y": 1105,
+      "w": 44,
+      "h": 49
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "floor",
    "scene": [
-    59,
-    220
+    271,
+    293
    ],
    "draggable": true,
-   "desc": "Burlap sack, torn, leaves spilling"
+   "desc": "Torn sack, leaves spilling out"
   },
   "firewood": {
-   "frames": [
-    {
-     "x": 761,
-     "y": 303,
-     "w": 46,
-     "h": 18
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 397,
+      "y": 1160,
+      "w": 79,
+      "h": 36
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "floor",
    "scene": [
-    171,
-    230
+    323,
+    307
    ],
    "draggable": true,
-   "desc": "Bundle of firewood for the stove"
+   "desc": "Stack of split firewood for the hearth"
   },
   "bucket_water": {
-   "frames": [
-    {
-     "x": 355,
-     "y": 303,
-     "w": 26,
-     "h": 24
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1874,
+      "y": 1105,
+      "w": 41,
+      "h": 43
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "floor",
    "scene": [
-    243,
-    224
+    402,
+    299
    ],
    "draggable": true,
    "desc": "Wooden water bucket with iron hoops"
   },
   "crate_jars": {
-   "frames": [
-    {
-     "x": 62,
-     "y": 303,
-     "w": 46,
-     "h": 26
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1276,
+      "y": 1105,
+      "w": 72,
+      "h": 46
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "floor",
    "scene": [
-    317,
-    222
+    444,
+    297
    ],
    "draggable": true,
    "desc": "Crate of spare jars, one broken"
   },
-  "basket_round": {
-   "frames": [
-    {
-     "x": 808,
-     "y": 303,
-     "w": 30,
-     "h": 18
-    }
-   ],
+  "basket_dried_flowers": {
+   "anims": {
+    "default": [
+     {
+      "x": 506,
+      "y": 1160,
+      "w": 46,
+      "h": 35
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
    "layer": "floor",
    "scene": [
-    391,
-    230
+    519,
+    307
    ],
    "draggable": true,
    "desc": "Round basket of dried flowers"
   },
-  "herbs_hanging_a": {
-   "frames": [
-    {
-     "x": 317,
-     "y": 258,
-     "w": 16,
-     "h": 34
-    }
-   ],
+  "tsubo_jar": {
+   "anims": {
+    "default": [
+     {
+      "x": 1916,
+      "y": 1105,
+      "w": 36,
+      "h": 43
+     }
+    ]
+   },
    "fps": 0,
    "room": 1,
-   "layer": "ceiling",
+   "layer": "floor",
    "scene": [
-    69,
-    18
+    567,
+    295
    ],
    "draggable": true,
-   "desc": "Bundle of drying herbs hanging from the beam"
+   "desc": "Glazed clay storage jar (tsubo)"
   },
-  "herbs_hanging_b": {
-   "frames": [
-    {
-     "x": 33,
-     "y": 258,
-     "w": 16,
-     "h": 39
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "ceiling",
-   "scene": [
-    85,
-    18
-   ],
-   "draggable": true,
-   "desc": "Bundle of drying lavender"
-  },
-  "herbs_hanging_c": {
-   "frames": [
-    {
-     "x": 50,
-     "y": 258,
-     "w": 16,
-     "h": 39
-    }
-   ],
-   "fps": 0,
-   "room": 1,
-   "layer": "ceiling",
-   "scene": [
-    101,
-    18
-   ],
-   "draggable": true,
-   "desc": "Bundle of drying chamomile"
-  },
-  "menu_plaques": {
-   "frames": [
-    {
-     "x": 641,
-     "y": 0,
-     "w": 92,
-     "h": 86
-    }
-   ],
+  "menu_tags": {
+   "anims": {
+    "default": [
+     {
+      "x": 1415,
+      "y": 511,
+      "w": 94,
+      "h": 129
+     }
+    ]
+   },
    "fps": 0,
    "room": 2,
    "layer": "wall",
    "scene": [
-    497,
-    41
+    655,
+    49
    ],
    "draggable": true,
-   "desc": "Hanging wooden menu tags (one fallen crooked, one missing)"
+   "desc": "Hanging wooden menu tags with brush glyphs and prices; one crooked, one missing"
+  },
+  "pendulum_clock": {
+   "anims": {
+    "default": [
+     {
+      "x": 1350,
+      "y": 511,
+      "w": 64,
+      "h": 130
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "wall",
+   "scene": [
+    1186,
+    57
+   ],
+   "draggable": true,
+   "desc": "Old pendulum clock stopped at 4:20 - carved crown, cracked glass, cobweb"
   },
   "paper_lantern_a": {
-   "frames": [
-    {
-     "x": 872,
-     "y": 185,
-     "w": 24,
-     "h": 44
-    }
-   ],
-   "fps": 0,
-   "room": 2,
-   "layer": "ceiling",
-   "scene": [
-    543,
-    18
-   ],
-   "draggable": true,
-   "desc": "Red paper lantern (chochin), faded"
-  },
-  "paper_lantern_b": {
-   "frames": [
-    {
-     "x": 897,
-     "y": 185,
-     "w": 24,
-     "h": 44
-    }
-   ],
-   "fps": 0,
-   "room": 2,
-   "layer": "ceiling",
-   "scene": [
-    917,
-    18
-   ],
-   "draggable": true,
-   "desc": "Red paper lantern, torn"
-  },
-  "wall_clock": {
-   "frames": [
-    {
-     "x": 734,
-     "y": 0,
-     "w": 42,
-     "h": 82
-    }
-   ],
-   "fps": 0,
-   "room": 2,
-   "layer": "wall",
-   "scene": [
-    865,
-    55
-   ],
-   "draggable": true,
-   "desc": "Old pendulum clock - stopped at 4:20, cracked glass"
-  },
-  "wind_chime": {
-   "frames": [
-    {
-     "x": 198,
-     "y": 258,
-     "w": 16,
-     "h": 36
-    },
-    {
-     "x": 215,
-     "y": 258,
-     "w": 16,
-     "h": 36
-    },
-    {
-     "x": 232,
-     "y": 258,
-     "w": 16,
-     "h": 36
-    },
-    {
-     "x": 249,
-     "y": 258,
-     "w": 16,
-     "h": 36
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 190,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 238,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 286,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 334,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 382,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 430,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 478,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 526,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     }
+    ]
+   },
    "fps": 5,
    "room": 2,
-   "layer": "wall",
+   "layer": "ceiling",
    "scene": [
-    645,
-    38
+    819,
+    35
    ],
    "draggable": true,
-   "desc": "Glass furin wind chime with a paper strip (4-frame sway)"
+   "desc": "Red paper lantern swaying in front of the window (8 frames)"
   },
-  "hanging_planter": {
-   "frames": [
-    {
-     "x": 942,
-     "y": 0,
-     "w": 36,
-     "h": 72
-    }
-   ],
-   "fps": 0,
+  "paper_lantern_b": {
+   "anims": {
+    "default": [
+     {
+      "x": 574,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 622,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 670,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 718,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 766,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 814,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 862,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     },
+     {
+      "x": 910,
+      "y": 868,
+      "w": 47,
+      "h": 84
+     }
+    ]
+   },
+   "fps": 5,
    "room": 2,
    "layer": "ceiling",
    "scene": [
-    699,
-    18
+    1061,
+    35
    ],
    "draggable": true,
-   "desc": "Rope planter with trailing ivy hanging in front of the window"
+   "desc": "Torn red paper lantern, glowing through the tear (8 frames)"
   },
-  "pot_flowers_pink": {
-   "frames": [
-    {
-     "x": 0,
-     "y": 303,
-     "w": 28,
-     "h": 28
-    }
+  "wind_chime": {
+   "anims": {
+    "default": [
+     {
+      "x": 530,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     },
+     {
+      "x": 558,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     },
+     {
+      "x": 586,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     },
+     {
+      "x": 614,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     },
+     {
+      "x": 642,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     },
+     {
+      "x": 670,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     },
+     {
+      "x": 698,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     },
+     {
+      "x": 726,
+      "y": 1032,
+      "w": 27,
+      "h": 61
+     }
+    ]
+   },
+   "fps": 6,
+   "room": 2,
+   "layer": "wall",
+   "scene": [
+    989,
+    51
    ],
+   "draggable": true,
+   "desc": "Glass furin wind chime: the paper strip catches the breeze (8 frames)"
+  },
+  "bonsai_pine": {
+   "anims": {
+    "default": [
+     {
+      "x": 754,
+      "y": 1032,
+      "w": 66,
+      "h": 61
+     }
+    ]
+   },
    "fps": 0,
    "room": 2,
    "layer": "wall",
    "scene": [
-    609,
-    127
+    819,
+    156
    ],
    "draggable": true,
-   "desc": "Cracked pot of pink cosmos on the sill"
+   "desc": "Green bonsai pine in a blue pot on the sill"
   },
-  "pot_succulent": {
-   "frames": [
-    {
-     "x": 1000,
-     "y": 303,
-     "w": 18,
-     "h": 17
-    }
-   ],
+  "succulent_cup": {
+   "anims": {
+    "default": [
+     {
+      "x": 1707,
+      "y": 1160,
+      "w": 28,
+      "h": 27
+     }
+    ]
+   },
    "fps": 0,
    "room": 2,
    "layer": "wall",
    "scene": [
-    693,
-    138
+    899,
+    189
    ],
    "draggable": true,
-   "desc": "Little succulent in a jade glazed cup"
+   "desc": "Succulent rosette in a celadon cup"
   },
-  "bottle_bud_vase": {
-   "frames": [
-    {
-     "x": 902,
-     "y": 258,
-     "w": 14,
-     "h": 30
-    }
-   ],
+  "sake_bottle_vase": {
+   "anims": {
+    "default": [
+     {
+      "x": 899,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     }
+    ]
+   },
    "fps": 0,
    "room": 2,
    "layer": "wall",
    "scene": [
-    771,
-    125
+    949,
+    169
    ],
    "draggable": true,
-   "desc": "Old sake bottle used as a vase, one camellia"
+   "desc": "Old sake bottle used as a vase - one white camellia"
   },
-  "pot_fern": {
-   "frames": [
-    {
-     "x": 29,
-     "y": 303,
-     "w": 32,
-     "h": 28
-    }
-   ],
+  "fern_pot": {
+   "anims": {
+    "default": [
+     {
+      "x": 1349,
+      "y": 1105,
+      "w": 50,
+      "h": 46
+     }
+    ]
+   },
    "fps": 0,
    "room": 2,
    "layer": "wall",
    "scene": [
-    805,
-    127
+    989,
+    171
    ],
    "draggable": true,
-   "desc": "Fern spilling out of a chipped pot"
+   "desc": "Fern spilling out of a chipped clay pot"
   },
-  "teacup_customer": {
-   "frames": [
-    {
-     "x": 931,
-     "y": 332,
-     "w": 16,
-     "h": 11
-    }
+  "white_flower_pot": {
+   "anims": {
+    "default": [
+     {
+      "x": 64,
+      "y": 1105,
+      "w": 59,
+      "h": 54
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "wall",
+   "scene": [
+    1055,
+    173
    ],
+   "draggable": true,
+   "desc": "Pot of white daisies and green leaves"
+  },
+  "menu_tent_card": {
+   "anims": {
+    "default": [
+     {
+      "x": 209,
+      "y": 1160,
+      "w": 38,
+      "h": 39
+     }
+    ]
+   },
    "fps": 0,
    "room": 2,
    "layer": "counter",
    "scene": [
-    639,
-    212
-   ],
-   "draggable": true,
-   "desc": "Customer teacup (pair it with steam_puff)"
-  },
-  "bud_vase_counter": {
-   "frames": [
-    {
-     "x": 109,
-     "y": 303,
-     "w": 16,
-     "h": 26
-    }
-   ],
-   "fps": 0,
-   "room": 2,
-   "layer": "counter",
-   "scene": [
-    721,
-    197
-   ],
-   "draggable": true,
-   "desc": "Bud vase with wildflowers on the counter"
-  },
-  "service_bell": {
-   "frames": [
-    {
-     "x": 788,
-     "y": 332,
-     "w": 16,
-     "h": 13
-    }
-   ],
-   "fps": 0,
-   "room": 2,
-   "layer": "counter",
-   "scene": [
-    879,
-    210
-   ],
-   "draggable": true,
-   "desc": "Brass service bell, tarnished"
-  },
-  "menu_card_tent": {
-   "frames": [
-    {
-     "x": 658,
-     "y": 303,
-     "w": 20,
-     "h": 20
-    }
-   ],
-   "fps": 0,
-   "room": 2,
-   "layer": "counter",
-   "scene": [
-    587,
-    203
+    722,
+    259
    ],
    "draggable": true,
    "desc": "Folded paper menu card standing on the counter"
   },
-  "sugar_pot": {
-   "frames": [
-    {
-     "x": 442,
-     "y": 332,
-     "w": 14,
-     "h": 14
-    }
-   ],
+  "teacup_black_tea": {
+   "anims": {
+    "default": [
+     {
+      "x": 0,
+      "y": 1160,
+      "w": 48,
+      "h": 41
+     }
+    ]
+   },
    "fps": 0,
    "room": 2,
    "layer": "counter",
    "scene": [
-    799,
-    209
+    775,
+    257
    ],
    "draggable": true,
-   "desc": "Lidded sugar pot"
+   "desc": "Teacup of black tea on its saucer (seat 1)"
+  },
+  "steam_cup": {
+   "anims": {
+    "default": [
+     {
+      "x": 1095,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     },
+     {
+      "x": 1114,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     },
+     {
+      "x": 1133,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     },
+     {
+      "x": 1152,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     },
+     {
+      "x": 1171,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     },
+     {
+      "x": 1190,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     },
+     {
+      "x": 1209,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     },
+     {
+      "x": 1228,
+      "y": 1160,
+      "w": 18,
+      "h": 32
+     }
+    ]
+   },
+   "fps": 7,
+   "room": 2,
+   "layer": "front",
+   "scene": [
+    787,
+    227
+   ],
+   "draggable": false,
+   "desc": "Steam from the seat-1 teacup (8 frames)"
+  },
+  "bud_vase": {
+   "anims": {
+    "default": [
+     {
+      "x": 1728,
+      "y": 1105,
+      "w": 26,
+      "h": 45
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "counter",
+   "scene": [
+    869,
+    251
+   ],
+   "draggable": true,
+   "desc": "Celadon bud vase with wild grasses"
+  },
+  "dango_plate": {
+   "anims": {
+    "default": [
+     {
+      "x": 418,
+      "y": 1202,
+      "w": 50,
+      "h": 25
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "counter",
+   "scene": [
+    915,
+    273
+   ],
+   "draggable": true,
+   "desc": "Plate of tri-colour dango skewers (seat 2)"
+  },
+  "yunomi_matcha_seat": {
+   "anims": {
+    "default": [
+     {
+      "x": 553,
+      "y": 1160,
+      "w": 24,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "counter",
+   "scene": [
+    967,
+    259
+   ],
+   "draggable": true,
+   "desc": "Ribbed yunomi cup of matcha (seat 2)"
+  },
+  "sugar_pot": {
+   "anims": {
+    "default": [
+     {
+      "x": 1419,
+      "y": 1160,
+      "w": 26,
+      "h": 29
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "counter",
+   "scene": [
+    1033,
+    267
+   ],
+   "draggable": true,
+   "desc": "Lidded blue sugar pot"
+  },
+  "teacup_green_tea": {
+   "anims": {
+    "default": [
+     {
+      "x": 49,
+      "y": 1160,
+      "w": 48,
+      "h": 41
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "counter",
+   "scene": [
+    1085,
+    257
+   ],
+   "draggable": true,
+   "desc": "Teacup of green tea on its saucer (seat 3)"
+  },
+  "service_bell": {
+   "anims": {
+    "default": [
+     {
+      "x": 1847,
+      "y": 1160,
+      "w": 36,
+      "h": 26
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "counter",
+   "scene": [
+    1166,
+    271
+   ],
+   "draggable": true,
+   "desc": "Brass service bell, tarnished"
+  },
+  "teapot_customer": {
+   "anims": {
+    "default": [
+     {
+      "x": 1400,
+      "y": 1105,
+      "w": 56,
+      "h": 46
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 2,
+   "layer": "counter",
+   "scene": [
+    1207,
+    249
+   ],
+   "draggable": true,
+   "desc": "Glazed white teapot with a cobalt band, for refills"
   },
   "corkboard": {
-   "frames": [
-    {
-     "x": 464,
-     "y": 0,
-     "w": 176,
-     "h": 92
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    977,
-    47
-   ],
-   "draggable": true,
-   "desc": "Corkboard for orders and notes; red string between pins"
-  },
-  "note_receipt": {
-   "frames": [
-    {
-     "x": 588,
-     "y": 258,
-     "w": 14,
-     "h": 32
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    989,
-    53
-   ],
-   "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard"
-  },
-  "note_sketch_customer": {
-   "frames": [
-    {
-     "x": 917,
-     "y": 258,
-     "w": 26,
-     "h": 30
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1019,
-    55
-   ],
-   "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard"
-  },
-  "note_unpaid_tab": {
-   "frames": [
-    {
-     "x": 266,
-     "y": 258,
-     "w": 22,
-     "h": 36
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1057,
-    53
-   ],
-   "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard"
-  },
-  "note_map_scrap": {
-   "frames": [
-    {
-     "x": 382,
-     "y": 303,
-     "w": 28,
-     "h": 24
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1097,
-    55
-   ],
-   "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard"
-  },
-  "note_photo": {
-   "frames": [
-    {
-     "x": 603,
-     "y": 258,
-     "w": 22,
-     "h": 32
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1009,
-    93
-   ],
-   "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard"
-  },
-  "note_talisman": {
-   "frames": [
-    {
-     "x": 124,
-     "y": 258,
-     "w": 10,
-     "h": 38
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1073,
-    95
-   ],
-   "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard"
-  },
-  "note_order_slip": {
-   "frames": [
-    {
-     "x": 126,
-     "y": 303,
-     "w": 20,
-     "h": 26
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1117,
-    91
-   ],
-   "draggable": true,
-   "desc": "Worn paper note pinned to the corkboard"
-  },
-  "kakejiku_scroll": {
-   "frames": [
-    {
-     "x": 84,
-     "y": 0,
-     "w": 40,
-     "h": 114
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1161,
-    27
-   ],
-   "draggable": true,
-   "desc": "Hanging scroll: ink plum branch, water-stained, torn corner"
-  },
-  "wall_cabinet": {
-   "frames": [
-    {
-     "x": 777,
-     "y": 0,
-     "w": 164,
-     "h": 82
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1249,
-    21
-   ],
-   "draggable": true,
-   "desc": "Two-door storage cabinet, faded jade doors; left door ajar"
-  },
-  "teaware_shelf": {
-   "frames": [
-    {
-     "x": 457,
-     "y": 332,
-     "w": 180,
-     "h": 14
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1243,
-    121
-   ],
-   "draggable": true,
-   "desc": "Open shelf for teaware"
-  },
-  "teapot_jade": {
-   "frames": [
-    {
-     "x": 839,
-     "y": 303,
-     "w": 26,
-     "h": 18
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1251,
-    105
-   ],
-   "draggable": true,
-   "desc": "Glazed jade teapot (shelf)"
-  },
-  "teacup_stack": {
-   "frames": [
-    {
-     "x": 638,
-     "y": 332,
-     "w": 14,
-     "h": 14
-    }
-   ],
-   "fps": 0,
-   "room": 3,
-   "layer": "wall",
-   "scene": [
-    1281,
-    109
-   ],
-   "draggable": true,
-   "desc": "Stack of handleless teacups"
-  },
-  "jar_honey": {
-   "frames": [
-    {
-     "x": 866,
-     "y": 303,
-     "w": 16,
-     "h": 18
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1358,
+      "y": 199,
+      "w": 249,
+      "h": 139
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "wall",
    "scene": [
     1299,
-    107
+    63
    ],
    "draggable": true,
-   "desc": "Honey pot with a dipper"
+   "desc": "Corkboard for orders and notes; red string linking pins"
+  },
+  "note_receipt": {
+   "anims": {
+    "default": [
+     {
+      "x": 1755,
+      "y": 1105,
+      "w": 21,
+      "h": 45
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1309,
+    69
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "note_spirit_customer": {
+   "anims": {
+    "default": [
+     {
+      "x": 1777,
+      "y": 1105,
+      "w": 37,
+      "h": 45
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1349,
+    71
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "note_unpaid_tab": {
+   "anims": {
+    "default": [
+     {
+      "x": 522,
+      "y": 1105,
+      "w": 31,
+      "h": 51
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1399,
+    69
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "note_map_scrap": {
+   "anims": {
+    "default": [
+     {
+      "x": 578,
+      "y": 1160,
+      "w": 41,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1447,
+    71
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "note_order_slip": {
+   "anims": {
+    "default": [
+     {
+      "x": 248,
+      "y": 1160,
+      "w": 31,
+      "h": 39
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1495,
+    73
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "note_photo": {
+   "anims": {
+    "default": [
+     {
+      "x": 1457,
+      "y": 1105,
+      "w": 34,
+      "h": 46
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1323,
+    131
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "note_talisman": {
+   "anims": {
+    "default": [
+     {
+      "x": 435,
+      "y": 1105,
+      "w": 17,
+      "h": 53
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1413,
+    133
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "note_recipe_scrap": {
+   "anims": {
+    "default": [
+     {
+      "x": 620,
+      "y": 1160,
+      "w": 39,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1477,
+    129
+   ],
+   "draggable": true,
+   "desc": "Worn paper note pinned to the corkboard"
+  },
+  "kakejiku_scroll": {
+   "anims": {
+    "default": [
+     {
+      "x": 73,
+      "y": 199,
+      "w": 63,
+      "h": 161
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1553,
+    41
+   ],
+   "draggable": true,
+   "desc": "Hanging scroll: ink pine on a cliff, calligraphy, red seal; water-stained"
+  },
+  "glazed_cabinet": {
+   "anims": {
+    "default": [
+     {
+      "x": 1772,
+      "y": 511,
+      "w": 245,
+      "h": 117
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1659,
+    39
+   ],
+   "draggable": true,
+   "desc": "Jade storage cabinet: glazed lattice doors over teaware, one door ajar"
+  },
+  "teaware_shelf": {
+   "anims": {
+    "default": [
+     {
+      "x": 553,
+      "y": 1202,
+      "w": 245,
+      "h": 23
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1659,
+    175
+   ],
+   "draggable": true,
+   "desc": "Open shelf for teaware"
+  },
+  "teapot_celadon": {
+   "anims": {
+    "default": [
+     {
+      "x": 1247,
+      "y": 1160,
+      "w": 42,
+      "h": 32
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1667,
+    148
+   ],
+   "draggable": true,
+   "desc": "Celadon teapot"
+  },
+  "cup_stack": {
+   "anims": {
+    "default": [
+     {
+      "x": 1736,
+      "y": 1160,
+      "w": 24,
+      "h": 27
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1711,
+    152
+   ],
+   "draggable": true,
+   "desc": "Stack of handleless teacups"
+  },
+  "honey_pot": {
+   "anims": {
+    "default": [
+     {
+      "x": 1317,
+      "y": 1160,
+      "w": 26,
+      "h": 31
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1737,
+    148
+   ],
+   "draggable": true,
+   "desc": "Honey pot with a wooden dipper"
   },
   "daruma_doll": {
-   "frames": [
-    {
-     "x": 399,
-     "y": 332,
-     "w": 14,
-     "h": 15
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1446,
+      "y": 1160,
+      "w": 24,
+      "h": 29
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "wall",
    "scene": [
-    1319,
-    108
+    1765,
+    150
    ],
    "draggable": true,
-   "desc": "Red daruma with one eye filled in (a wish not yet granted)"
+   "desc": "Red daruma with one eye painted (a wish not yet granted)"
   },
-  "tin_caddy_gold": {
-   "frames": [
-    {
-     "x": 358,
-     "y": 332,
-     "w": 14,
-     "h": 16
-    }
-   ],
+  "tin_gold_band": {
+   "anims": {
+    "default": [
+     {
+      "x": 1626,
+      "y": 1160,
+      "w": 26,
+      "h": 28
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "wall",
    "scene": [
-    1337,
-    107
+    1788,
+    152
    ],
    "draggable": true,
    "desc": "Gold-banded tea tin"
   },
-  "bowl_matcha_stack": {
-   "frames": [
-    {
-     "x": 948,
-     "y": 332,
-     "w": 20,
-     "h": 11
-    }
-   ],
+  "matcha_bowls": {
+   "anims": {
+    "default": [
+     {
+      "x": 799,
+      "y": 1202,
+      "w": 34,
+      "h": 22
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "wall",
    "scene": [
-    1355,
-    112
+    1815,
+    158
    ],
    "draggable": true,
    "desc": "Two matcha bowls stacked"
   },
-  "whisk_stand": {
-   "frames": [
-    {
-     "x": 373,
-     "y": 332,
-     "w": 12,
-     "h": 16
-    }
-   ],
+  "whisk_on_stand": {
+   "anims": {
+    "default": [
+     {
+      "x": 1471,
+      "y": 1160,
+      "w": 18,
+      "h": 29
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "wall",
    "scene": [
-    1379,
-    107
+    1851,
+    150
    ],
    "draggable": true,
-   "desc": "Chasen whisk resting on its ceramic stand"
+   "desc": "Chasen whisk drying on its ceramic stand"
   },
-  "teapot_kyusu": {
-   "frames": [
-    {
-     "x": 679,
-     "y": 303,
-     "w": 30,
-     "h": 20
-    }
+  "incense_box": {
+   "anims": {
+    "default": [
+     {
+      "x": 1006,
+      "y": 1202,
+      "w": 32,
+      "h": 18
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "wall",
+   "scene": [
+    1870,
+    162
    ],
+   "draggable": true,
+   "desc": "Little lacquer box of incense sticks"
+  },
+  "tea_runner": {
+   "anims": {
+    "default": [
+     {
+      "x": 1481,
+      "y": 1202,
+      "w": 188,
+      "h": 14
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1005,
-    203
+    1293,
+    281
    ],
    "draggable": true,
-   "desc": "Kyusu teapot with side handle (chipped)"
+   "desc": "Indigo cloth runner the tea set is laid out on"
+  },
+  "kyusu_teapot": {
+   "anims": {
+    "default": [
+     {
+      "x": 1815,
+      "y": 1105,
+      "w": 58,
+      "h": 44
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "counter",
+   "scene": [
+    1297,
+    249
+   ],
+   "draggable": true,
+   "desc": "Red clay kyusu teapot with a side handle (chipped lid)"
   },
   "chawan_matcha": {
-   "frames": [
-    {
-     "x": 861,
-     "y": 332,
-     "w": 20,
-     "h": 12
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 469,
+      "y": 1202,
+      "w": 36,
+      "h": 25
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1045,
-    211
+    1359,
+    269
    ],
    "draggable": true,
-   "desc": "Tea bowl with whisked matcha"
+   "desc": "Tea bowl of freshly whisked matcha"
   },
   "chasen_whisk": {
-   "frames": [
-    {
-     "x": 386,
-     "y": 332,
-     "w": 12,
-     "h": 16
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1290,
+      "y": 1160,
+      "w": 26,
+      "h": 32
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1067,
-    207
+    1398,
+    265
    ],
    "draggable": true,
    "desc": "Bamboo matcha whisk"
   },
   "natsume_caddy": {
-   "frames": [
-    {
-     "x": 653,
-     "y": 332,
-     "w": 14,
-     "h": 14
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1653,
+      "y": 1160,
+      "w": 28,
+      "h": 28
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1083,
-    209
+    1426,
+    269
    ],
    "draggable": true,
-   "desc": "Black lacquer natsume tea caddy with gold maple"
+   "desc": "Black lacquer natsume tea caddy with a gold pine sprig"
   },
   "chashaku_scoop": {
-   "frames": [
-    {
-     "x": 67,
-     "y": 349,
-     "w": 20,
-     "h": 6
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1670,
+      "y": 1202,
+      "w": 41,
+      "h": 13
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1099,
-    217
+    1436,
+    285
    ],
    "draggable": true,
    "desc": "Bamboo tea scoop"
   },
-  "serving_tray": {
-   "frames": [
-    {
-     "x": 668,
-     "y": 332,
-     "w": 56,
-     "h": 14
-    }
-   ],
+  "yunomi_tray": {
+   "anims": {
+    "default": [
+     {
+      "x": 1492,
+      "y": 1105,
+      "w": 120,
+      "h": 46
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1119,
-    209
+    1486,
+    255
    ],
    "draggable": true,
-   "desc": "Lacquer serving tray with two cups"
+   "desc": "Lacquer tray with four ribbed yunomi: matcha, hojicha, sencha, water"
+  },
+  "yunomi_matcha": {
+   "anims": {
+    "default": [
+     {
+      "x": 660,
+      "y": 1160,
+      "w": 24,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "counter",
+   "scene": [
+    1496,
+    251
+   ],
+   "draggable": true,
+   "desc": "Ribbed yunomi cup of matcha (single, for dragging)"
+  },
+  "yunomi_hojicha": {
+   "anims": {
+    "default": [
+     {
+      "x": 685,
+      "y": 1160,
+      "w": 24,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "counter",
+   "scene": [
+    1522,
+    251
+   ],
+   "draggable": true,
+   "desc": "Ribbed yunomi cup of hojicha (single, for dragging)"
+  },
+  "yunomi_sencha": {
+   "anims": {
+    "default": [
+     {
+      "x": 710,
+      "y": 1160,
+      "w": 24,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "counter",
+   "scene": [
+    1548,
+    251
+   ],
+   "draggable": true,
+   "desc": "Ribbed yunomi cup of sencha (single, for dragging)"
+  },
+  "yunomi_water": {
+   "anims": {
+    "default": [
+     {
+      "x": 735,
+      "y": 1160,
+      "w": 24,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 3,
+   "layer": "counter",
+   "scene": [
+    1574,
+    251
+   ],
+   "draggable": true,
+   "desc": "Ribbed yunomi cup of water (single, for dragging)"
   },
   "incense_burner": {
-   "frames": [
-    {
-     "x": 626,
-     "y": 258,
-     "w": 20,
-     "h": 32
-    },
-    {
-     "x": 647,
-     "y": 258,
-     "w": 20,
-     "h": 32
-    },
-    {
-     "x": 668,
-     "y": 258,
-     "w": 20,
-     "h": 32
-    },
-    {
-     "x": 689,
-     "y": 258,
-     "w": 20,
-     "h": 32
-    }
-   ],
-   "fps": 5,
+   "anims": {
+    "default": [
+     {
+      "x": 169,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     },
+     {
+      "x": 206,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     },
+     {
+      "x": 243,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     },
+     {
+      "x": 280,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     },
+     {
+      "x": 317,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     },
+     {
+      "x": 354,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     },
+     {
+      "x": 391,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     },
+     {
+      "x": 428,
+      "y": 1032,
+      "w": 36,
+      "h": 64
+     }
+    ]
+   },
+   "fps": 6,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1217,
-    191
+    1611,
+    233
    ],
    "draggable": true,
-   "desc": "Bronze incense burner with curling smoke (4 frames)"
+   "desc": "Bronze incense burner, smoke curling up (8 frames)"
   },
   "candle": {
-   "frames": [
-    {
-     "x": 411,
-     "y": 303,
-     "w": 12,
-     "h": 24
-    },
-    {
-     "x": 424,
-     "y": 303,
-     "w": 12,
-     "h": 24
-    },
-    {
-     "x": 437,
-     "y": 303,
-     "w": 12,
-     "h": 24
-    },
-    {
-     "x": 450,
-     "y": 303,
-     "w": 12,
-     "h": 24
-    }
-   ],
-   "fps": 8,
+   "anims": {
+    "default": [
+     {
+      "x": 924,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     },
+     {
+      "x": 949,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     },
+     {
+      "x": 974,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     },
+     {
+      "x": 999,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     },
+     {
+      "x": 1024,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     },
+     {
+      "x": 1049,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     },
+     {
+      "x": 1074,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     },
+     {
+      "x": 1099,
+      "y": 1105,
+      "w": 24,
+      "h": 47
+     }
+    ]
+   },
+   "fps": 10,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1297,
-    199
+    1653,
+    249
    ],
    "draggable": true,
-   "desc": "Melted candle stub with flickering flame (4 frames)"
+   "desc": "Melted candle stub, flickering flame (8 frames)"
   },
   "journal_closed": {
-   "frames": [
-    {
-     "x": 969,
-     "y": 332,
-     "w": 28,
-     "h": 11
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 873,
+      "y": 1202,
+      "w": 43,
+      "h": 20
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
     1149,
-    212
+    278
    ],
    "draggable": true,
    "desc": "Keeper's journal (closed) - lives in the drawer"
   },
   "journal_open": {
-   "frames": [
-    {
-     "x": 883,
-     "y": 303,
-     "w": 48,
-     "h": 18
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1344,
+      "y": 1160,
+      "w": 74,
+      "h": 30
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1149,
-    205
+    1146,
+    269
    ],
    "draggable": true,
    "desc": "Keeper's journal lying open, pressed leaf inside"
   },
   "drawer_open": {
-   "frames": [
-    {
-     "x": 710,
-     "y": 258,
-     "w": 80,
-     "h": 32
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1613,
+      "y": 1105,
+      "w": 114,
+      "h": 46
+     }
+    ]
+   },
    "fps": 0,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1179,
-    236
+    1539,
+    313
    ],
    "draggable": false,
    "desc": "Drawer pulled open with the journal inside - swap in over the closed drawer"
   },
   "alien_lucky_cat": {
-   "frames": [
-    {
-     "x": 922,
-     "y": 185,
-     "w": 32,
-     "h": 44
-    },
-    {
-     "x": 955,
-     "y": 185,
-     "w": 32,
-     "h": 44
-    },
-    {
-     "x": 988,
-     "y": 185,
-     "w": 32,
-     "h": 44
-    },
-    {
-     "x": 0,
-     "y": 258,
-     "w": 32,
-     "h": 44
-    }
-   ],
-   "fps": 4,
+   "anims": {
+    "default": [
+     {
+      "x": 1368,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     },
+     {
+      "x": 1438,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     },
+     {
+      "x": 1508,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     },
+     {
+      "x": 1578,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     },
+     {
+      "x": 1648,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     },
+     {
+      "x": 1718,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     },
+     {
+      "x": 1788,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     },
+     {
+      "x": 1858,
+      "y": 761,
+      "w": 69,
+      "h": 92
+     }
+    ]
+   },
+   "fps": 8,
    "room": 3,
    "layer": "counter",
    "scene": [
-    1359,
-    179
+    1795,
+    206
    ],
    "draggable": true,
-   "desc": "Green alien maneki-neko: beckoning paw, blinking antennae (4 frames)"
+   "desc": "Green alien maneki-neko (glossy ceramic): beckoning paw, pulsing antennae, blink, coin glint (8 frames)"
   },
-  "noren_curtain": {
-   "frames": [
-    {
-     "x": 379,
-     "y": 185,
-     "w": 92,
-     "h": 58
-    },
-    {
-     "x": 472,
-     "y": 185,
-     "w": 92,
-     "h": 58
-    },
-    {
-     "x": 565,
-     "y": 185,
-     "w": 92,
-     "h": 58
-    },
-    {
-     "x": 658,
-     "y": 185,
-     "w": 92,
-     "h": 58
-    }
+  "bed_messy": {
+   "anims": {
+    "default": [
+     {
+      "x": 0,
+      "y": 378,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 270,
+      "y": 378,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 540,
+      "y": 378,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 810,
+      "y": 378,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 1080,
+      "y": 378,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 1350,
+      "y": 378,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 1620,
+      "y": 378,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 0,
+      "y": 511,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 270,
+      "y": 511,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 540,
+      "y": 511,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 810,
+      "y": 511,
+      "w": 269,
+      "h": 132
+     },
+     {
+      "x": 1080,
+      "y": 511,
+      "w": 269,
+      "h": 132
+     }
+    ]
+   },
+   "fps": 6,
+   "room": 4,
+   "layer": "floor",
+   "scene": [
+    2284,
+    185
    ],
-   "fps": 4,
+   "draggable": true,
+   "desc": "Traveler's bed: patchwork quilt (cloth physics) draped over the mattress and a rumpled lump, dented pillow (12 frames)"
+  },
+  "desk_messy": {
+   "anims": {
+    "default": [
+     {
+      "x": 0,
+      "y": 644,
+      "w": 178,
+      "h": 116
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 4,
+   "layer": "floor",
+   "scene": [
+    2071,
+    195
+   ],
+   "draggable": true,
+   "desc": "Messy writing desk: letters, open book, ink and quill, compass, magnifier, cold tea, plant"
+  },
+  "desk_candle": {
+   "anims": {
+    "default": [
+     {
+      "x": 760,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     },
+     {
+      "x": 783,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     },
+     {
+      "x": 806,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     },
+     {
+      "x": 829,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     },
+     {
+      "x": 852,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     },
+     {
+      "x": 875,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     },
+     {
+      "x": 898,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     },
+     {
+      "x": 921,
+      "y": 1160,
+      "w": 22,
+      "h": 35
+     }
+    ]
+   },
+   "fps": 10,
+   "room": 4,
+   "layer": "floor",
+   "scene": [
+    2081,
+    201
+   ],
+   "draggable": true,
+   "desc": "Candle on the desk, flickering (8 frames)"
+  },
+  "chair_with_scarf": {
+   "anims": {
+    "default": [
+     {
+      "x": 179,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 240,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 301,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 362,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 423,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 484,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 545,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 606,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 667,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 728,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 789,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     },
+     {
+      "x": 850,
+      "y": 644,
+      "w": 60,
+      "h": 112
+     }
+    ]
+   },
+   "fps": 6,
+   "room": 4,
+   "layer": "floor",
+   "scene": [
+    2175,
+    213
+   ],
+   "draggable": true,
+   "desc": "Wooden chair pushed back, a red scarf draped over it (cloth physics, 12 frames)"
+  },
+  "bookshelf": {
+   "anims": {
+    "default": [
+     {
+      "x": 0,
+      "y": 0,
+      "w": 98,
+      "h": 198
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 4,
+   "layer": "floor",
+   "scene": [
+    1976,
+    119
+   ],
+   "draggable": true,
+   "desc": "Leaning bookshelf: crooked books, scrolls, brass telescope, jar plant, a broken shelf, cobwebs"
+  },
+  "straw_kasa_hat": {
+   "anims": {
+    "default": [
+     {
+      "x": 1490,
+      "y": 1160,
+      "w": 63,
+      "h": 29
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 4,
+   "layer": "wall",
+   "scene": [
+    2295,
+    69
+   ],
+   "draggable": true,
+   "desc": "Woven straw kasa hat on a peg"
+  },
+  "route_map": {
+   "anims": {
+    "default": [
+     {
+      "x": 73,
+      "y": 1032,
+      "w": 95,
+      "h": 70
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 4,
+   "layer": "wall",
+   "scene": [
+    2329,
+    65
+   ],
+   "draggable": true,
+   "desc": "Old route map pinned to the plaster: coast, mountains, dotted path, compass rose"
+  },
+  "sketch_pinned": {
+   "anims": {
+    "default": [
+     {
+      "x": 367,
+      "y": 1160,
+      "w": 29,
+      "h": 37
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 4,
+   "layer": "wall",
+   "scene": [
+    2423,
+    135
+   ],
+   "draggable": true,
+   "desc": "Charcoal sketch of a tree, pinned"
+  },
+  "oil_lamp": {
+   "anims": {
+    "default": [
+     {
+      "x": 1928,
+      "y": 761,
+      "w": 37,
+      "h": 90
+     },
+     {
+      "x": 1966,
+      "y": 761,
+      "w": 37,
+      "h": 90
+     },
+     {
+      "x": 2004,
+      "y": 761,
+      "w": 37,
+      "h": 90
+     },
+     {
+      "x": 0,
+      "y": 868,
+      "w": 37,
+      "h": 90
+     },
+     {
+      "x": 38,
+      "y": 868,
+      "w": 37,
+      "h": 90
+     },
+     {
+      "x": 76,
+      "y": 868,
+      "w": 37,
+      "h": 90
+     },
+     {
+      "x": 114,
+      "y": 868,
+      "w": 37,
+      "h": 90
+     },
+     {
+      "x": 152,
+      "y": 868,
+      "w": 37,
+      "h": 90
+     }
+    ]
+   },
+   "fps": 5,
    "room": 4,
    "layer": "ceiling",
    "scene": [
-    1447,
-    18
+    2425,
+    35
    ],
    "draggable": true,
-   "desc": "Torn jade noren curtain at the bedroom doorway (4-frame sway)"
-  },
-  "desk_messy": {
-   "frames": [
-    {
-     "x": 205,
-     "y": 185,
-     "w": 142,
-     "h": 68
-    }
-   ],
-   "fps": 0,
-   "room": 4,
-   "layer": "floor",
-   "scene": [
-    1489,
-    147
-   ],
-   "draggable": true,
-   "desc": "Messy writing desk: papers, ink, map, candle stub, cold tea"
-  },
-  "chair_wood": {
-   "frames": [
-    {
-     "x": 751,
-     "y": 185,
-     "w": 32,
-     "h": 48
-    }
-   ],
-   "fps": 0,
-   "room": 4,
-   "layer": "floor",
-   "scene": [
-    1603,
-    171
-   ],
-   "draggable": true,
-   "desc": "Wooden chair pushed back, scarf draped over it"
-  },
-  "bookshelf": {
-   "frames": [
-    {
-     "x": 0,
-     "y": 0,
-     "w": 68,
-     "h": 184
-    }
-   ],
-   "fps": 0,
-   "room": 4,
-   "layer": "floor",
-   "scene": [
-    1637,
-    29
-   ],
-   "draggable": true,
-   "desc": "Leaning bookshelf: crooked books, scrolls, jar plant, cobweb"
-  },
-  "bed_messy": {
-   "frames": [
-    {
-     "x": 0,
-     "y": 185,
-     "w": 204,
-     "h": 72
-    }
-   ],
-   "fps": 0,
-   "room": 4,
-   "layer": "floor",
-   "scene": [
-    1707,
-    145
-   ],
-   "draggable": true,
-   "desc": "Traveler's bed: rumpled patchwork quilt hanging off, dented pillow, clothes"
-  },
-  "straw_hat": {
-   "frames": [
-    {
-     "x": 932,
-     "y": 303,
-     "w": 38,
-     "h": 18
-    }
-   ],
-   "fps": 0,
-   "room": 4,
-   "layer": "wall",
-   "scene": [
-    1715,
-    63
-   ],
-   "draggable": true,
-   "desc": "Woven straw traveler hat (kasa) on a peg"
-  },
-  "cloak_hanging": {
-   "frames": [
-    {
-     "x": 348,
-     "y": 185,
-     "w": 30,
-     "h": 62
-    }
-   ],
-   "fps": 0,
-   "room": 4,
-   "layer": "wall",
-   "scene": [
-    1849,
-    57
-   ],
-   "draggable": true,
-   "desc": "Patched traveling cloak on a hook"
+   "desc": "Hanging oil lamp, gently swinging, warm glow (8 frames)"
   },
   "walking_staff": {
-   "frames": [
-    {
-     "x": 125,
-     "y": 0,
-     "w": 12,
-     "h": 100
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1337,
+      "y": 199,
+      "w": 20,
+      "h": 147
+     }
+    ]
+   },
    "fps": 0,
    "room": 4,
    "layer": "floor",
    "scene": [
-    1701,
-    115
+    2261,
+    159
    ],
    "draggable": true,
-   "desc": "Knotted walking staff with a bell and charm"
+   "desc": "Knotted walking staff with a bell and charm, leaning on the wall"
+  },
+  "worn_rug": {
+   "anims": {
+    "default": [
+     {
+      "x": 607,
+      "y": 1105,
+      "w": 246,
+      "h": 50
+     }
+    ]
+   },
+   "fps": 0,
+   "room": 4,
+   "layer": "floor",
+   "scene": [
+    1995,
+    301
+   ],
+   "draggable": true,
+   "desc": "Worn woven rug in perspective: border, medallion, frayed fringe, burn hole"
   },
   "backpack": {
-   "frames": [
-    {
-     "x": 334,
-     "y": 258,
-     "w": 36,
-     "h": 34
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 1077,
+      "y": 1032,
+      "w": 54,
+      "h": 60
+     }
+    ]
+   },
    "fps": 0,
    "room": 4,
    "layer": "floor",
    "scene": [
-    1759,
-    211
+    2249,
+    287
    ],
    "draggable": true,
-   "desc": "Traveler backpack: bedroll, pot and lantern strapped on"
+   "desc": "Traveler pack: bedroll, tin cup, small lantern, buckles"
   },
-  "rug_worn": {
-   "frames": [
-    {
-     "x": 147,
-     "y": 303,
-     "w": 186,
-     "h": 26
-    }
-   ],
+  "boots": {
+   "anims": {
+    "default": [
+     {
+      "x": 1554,
+      "y": 1160,
+      "w": 44,
+      "h": 29
+     }
+    ]
+   },
    "fps": 0,
    "room": 4,
    "layer": "floor",
    "scene": [
-    1487,
-    227
+    2467,
+    321
    ],
    "draggable": true,
-   "desc": "Worn woven rug, frayed edges, a burn hole"
+   "desc": "Muddy boots, one fallen over"
   },
-  "books_pile": {
-   "frames": [
-    {
-     "x": 463,
-     "y": 303,
-     "w": 32,
-     "h": 24
-    }
-   ],
+  "book_pile": {
+   "anims": {
+    "default": [
+     {
+      "x": 98,
+      "y": 1160,
+      "w": 48,
+      "h": 41
+     }
+    ]
+   },
    "fps": 0,
    "room": 4,
    "layer": "floor",
    "scene": [
-    1675,
-    217
+    2203,
+    301
    ],
    "draggable": true,
    "desc": "Pile of books on the floor"
   },
   "papers_scattered": {
-   "frames": [
-    {
-     "x": 725,
-     "y": 332,
-     "w": 62,
-     "h": 14
-    }
-   ],
+   "anims": {
+    "default": [
+     {
+      "x": 917,
+      "y": 1202,
+      "w": 88,
+      "h": 20
+     }
+    ]
+   },
    "fps": 0,
    "room": 4,
    "layer": "floor",
    "scene": [
-    1555,
-    243
+    2093,
+    333
    ],
    "draggable": true,
-   "desc": "Sheets scattered across the floor"
+   "desc": "Letters and sketches scattered on the floor"
   },
-  "boots": {
-   "frames": [
-    {
-     "x": 971,
-     "y": 303,
-     "w": 28,
-     "h": 18
-    }
-   ],
+  "ficus_plant": {
+   "anims": {
+    "default": [
+     {
+      "x": 1608,
+      "y": 199,
+      "w": 72,
+      "h": 136
+     }
+    ]
+   },
    "fps": 0,
    "room": 4,
    "layer": "floor",
    "scene": [
-    1845,
-    229
+    1929,
+    185
    ],
    "draggable": true,
-   "desc": "Muddy boots, one fallen over"
+   "desc": "Tall leafy green plant in a cracked glazed pot"
   },
-  "lamp_hanging": {
-   "frames": [
-    {
-     "x": 784,
-     "y": 185,
-     "w": 20,
-     "h": 48
-    }
+  "tenugui_towel": {
+   "anims": {
+    "default": [
+     {
+      "x": 958,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1005,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1052,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1099,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1146,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1193,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1240,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1287,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1334,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1381,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1428,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     },
+     {
+      "x": 1475,
+      "y": 868,
+      "w": 46,
+      "h": 74
+     }
+    ]
+   },
+   "fps": 8,
+   "room": 1,
+   "layer": "counter",
+   "scene": [
+    553,
+    271
    ],
+   "draggable": true,
+   "desc": "Indigo tenugui towel draped over the table edge, stirring in the hearth heat (cloth physics, 12 frames)"
+  },
+  "curtain_rod": {
+   "anims": {
+    "default": [
+     {
+      "x": 1039,
+      "y": 1202,
+      "w": 441,
+      "h": 15
+     }
+    ]
+   },
    "fps": 0,
+   "room": 2,
+   "layer": "wall",
+   "scene": [
+    741,
+    33
+   ],
+   "draggable": true,
+   "desc": "Bamboo curtain pole over the big window"
+  },
+  "curtain_left": {
+   "anims": {
+    "default": [
+     {
+      "x": 314,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 387,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 460,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 533,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 606,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 679,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 752,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 825,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 898,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 971,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1044,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1117,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     }
+    ]
+   },
+   "fps": 8,
+   "room": 2,
+   "layer": "wall",
+   "scene": [
+    741,
+    37
+   ],
+   "draggable": true,
+   "desc": "Jade linen drape, tied back, breathing in the breeze (cloth physics, 12 frames)"
+  },
+  "curtain_right": {
+   "anims": {
+    "default": [
+     {
+      "x": 1190,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1263,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1336,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1409,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1482,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1555,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1628,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1701,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1774,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1847,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 1920,
+      "y": 0,
+      "w": 72,
+      "h": 178
+     },
+     {
+      "x": 0,
+      "y": 199,
+      "w": 72,
+      "h": 178
+     }
+    ]
+   },
+   "fps": 8,
+   "room": 2,
+   "layer": "wall",
+   "scene": [
+    1113,
+    37
+   ],
+   "draggable": true,
+   "desc": "Jade linen drape, right side (cloth physics, 12 frames)"
+  },
+  "noren_doorway": {
+   "anims": {
+    "default": [
+     {
+      "x": 911,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 1049,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 1187,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 1325,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 1463,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 1601,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 1739,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 1877,
+      "y": 644,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 0,
+      "y": 761,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 138,
+      "y": 761,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 276,
+      "y": 761,
+      "w": 137,
+      "h": 106
+     },
+     {
+      "x": 414,
+      "y": 761,
+      "w": 137,
+      "h": 106
+     }
+    ]
+   },
+   "fps": 8,
    "room": 4,
    "layer": "ceiling",
    "scene": [
-    1809,
-    18
+    1933,
+    33
    ],
    "draggable": true,
-   "desc": "Hanging oil lamp, glowing"
+   "desc": "Indigo noren over the bedroom doorway, swaying (3 simulated panels, 12 frames)"
   },
-  "map_pinned": {
-   "frames": [
-    {
-     "x": 805,
-     "y": 185,
-     "w": 66,
-     "h": 48
-    }
-   ],
-   "fps": 0,
+  "curtain_moon_window": {
+   "anims": {
+    "default": [
+     {
+      "x": 137,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 237,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 337,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 437,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 537,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 637,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 737,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 837,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 937,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 1037,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 1137,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     },
+     {
+      "x": 1237,
+      "y": 199,
+      "w": 99,
+      "h": 153
+     }
+    ]
+   },
+   "fps": 8,
    "room": 4,
    "layer": "wall",
    "scene": [
-    1755,
+    2167,
+    39
+   ],
+   "draggable": true,
+   "desc": "Striped linen curtain half drawn over the moon window, billowing in (cloth physics, 12 frames)"
+  },
+  "cloak_on_hook": {
+   "anims": {
+    "default": [
+     {
+      "x": 552,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 620,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 688,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 756,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 824,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 892,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 960,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 1028,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 1096,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 1164,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 1232,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     },
+     {
+      "x": 1300,
+      "y": 761,
+      "w": 67,
+      "h": 103
+     }
+    ]
+   },
+   "fps": 8,
+   "room": 4,
+   "layer": "wall",
+   "scene": [
+    2451,
     63
    ],
    "draggable": true,
-   "desc": "Old route map pinned to the plaster"
-  },
-  "sketch_pinned": {
-   "frames": [
-    {
-     "x": 334,
-     "y": 303,
-     "w": 20,
-     "h": 26
-    }
-   ],
-   "fps": 0,
-   "room": 4,
-   "layer": "wall",
-   "scene": [
-    1827,
-    69
-   ],
-   "draggable": true,
-   "desc": "Charcoal sketch of the teahouse, pinned"
+   "desc": "Traveler's patched cloak on a wall hook, swaying (cloth physics, 12 frames)"
   }
  }
 }

@@ -42,7 +42,11 @@ RAMPS = {
     'stone': [(42, 40, 52), (66, 64, 78), (98, 94, 106), (138, 132, 140),
               (184, 178, 176)],
     'water': [(28, 62, 96), (42, 96, 132), (74, 138, 170)],
-    'fire':  [(176, 48, 30), (234, 118, 40), (252, 198, 80), (255, 244, 190)],
+    'fire':  [(88, 22, 30), (150, 38, 32), (208, 72, 34), (240, 128, 44), (252, 198, 80),
+              (255, 244, 190)],
+    # Japanese indigo cloth (noren, cushions) and old copper (hood, pots)
+    'indigo': [(20, 24, 48), (32, 42, 80), (48, 66, 116), (76, 100, 150), (118, 144, 184)],
+    'copper': [(58, 28, 26), (100, 46, 32), (148, 76, 44), (194, 114, 64), (232, 164, 104)],
     'teal':  [(26, 58, 70), (40, 90, 100), (64, 128, 132), (104, 168, 162)],
 }
 
@@ -229,8 +233,16 @@ class Canvas:
             return
         s = src[y0 - y:y1 - y, x0 - x:x1 - x]
         d = self.a[y0:y1, x0:x1]
-        m = s[:, :, 3] > 0
-        d[m] = s[m]
+        full = s[:, :, 3] == 255
+        d[full] = s[full]
+        part = (s[:, :, 3] > 0) & ~full
+        if part.any():                    # semi-transparent (shadows): blend over
+            sa = s[part][:, 3:4].astype(np.float32) / 255.0
+            dd = d[part].astype(np.float32)
+            empty = dd[:, 3] == 0
+            rgb = np.where(empty[:, None], s[part][:, :3], s[part][:, :3] * sa + dd[:, :3] * (1 - sa))
+            al = np.where(empty, s[part][:, 3], np.maximum(dd[:, 3], s[part][:, 3]))
+            d[part] = np.concatenate([rgb, al[:, None]], axis=1).astype(np.uint8)
 
     def copy(self):
         c = Canvas(self.w, self.h, wrap=self.wrap)

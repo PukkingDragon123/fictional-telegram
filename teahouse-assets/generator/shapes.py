@@ -4,6 +4,10 @@ import math
 import numpy as np
 from pixel import Canvas, PAL, RAMPS, col, step, blob_mask, jag, scribble
 
+
+def _rgb(c):
+    return PAL[c] if isinstance(c, str) else tuple(c[:3])
+
 BAYER = [[0, 2], [3, 1]]
 
 
@@ -56,8 +60,8 @@ def shade_puffs(cv, circles, ramp, light=(-0.45, -0.75, 0.5), cuts=None,
 
 def wood_grain_v(cv, x, y, w, h, base, rng, dark=None, light=None, knots=True):
     """Vertical plank grain: long broken lines, an occasional knot."""
-    dark = dark or step(PAL[base], -1)
-    light = light or step(PAL[base], 1)
+    dark = dark or step(_rgb(base), -1)
+    light = light or step(_rgb(base), 1)
     cv.rect(x, y, w, h, base)
     lines = max(1, w // 4)
     for _ in range(lines):
@@ -76,14 +80,14 @@ def wood_grain_v(cv, x, y, w, h, base, rng, dark=None, light=None, knots=True):
         ky = y + rng.randint(4, h - 6)
         cv.px(kx, ky, dark)
         cv.px(kx + 1, ky, dark)
-        cv.px(kx, ky + 1, step(PAL[base], -2))
+        cv.px(kx, ky + 1, step(_rgb(base), -2))
         cv.px(kx + 1, ky + 1, dark)
         cv.px(kx, ky - 1, light)
 
 
 def wood_grain_h(cv, x, y, w, h, base, rng, dark=None, light=None, knots=True):
-    dark = dark or step(PAL[base], -1)
-    light = light or step(PAL[base], 1)
+    dark = dark or step(_rgb(base), -1)
+    light = light or step(_rgb(base), 1)
     cv.rect(x, y, w, h, base)
     for _ in range(max(1, h // 3)):
         gy = y + rng.randint(0, max(0, h - 1))
@@ -99,7 +103,7 @@ def wood_grain_h(cv, x, y, w, h, base, rng, dark=None, light=None, knots=True):
     if knots and w > 24 and h >= 4 and rng.random() < 0.6:
         kx = x + rng.randint(3, w - 5)
         ky = y + rng.randint(1, max(1, h - 2))
-        cv.px(kx, ky, step(PAL[base], -2))
+        cv.px(kx, ky, step(_rgb(base), -2))
         cv.px(kx + 1, ky, dark)
         cv.px(kx - 1, ky, dark)
         cv.px(kx, ky - 1, light)
@@ -176,7 +180,7 @@ def cobweb(cv, x, y, size, c='stone3', c2='stone2', corner='tl'):
 
 def torn_paper(rng, w, h, base='paper3', light='paper4', dark='paper2',
                edge='paper1', lines=True, stain=True, curl=True, burnt=False,
-               holes=True):
+               holes=True, fold=True, age=0.72):
     """Worn paper scrap: jagged torn edges, a curled corner, coffee/tea
     stains and handwriting. Returns a Canvas sized (w, h)."""
     cv = Canvas(w, h)
@@ -209,10 +213,10 @@ def torn_paper(rng, w, h, base='paper3', light='paper4', dark='paper2',
     # aged gradient: darker toward the bottom, sun-bleached top
     for y in range(h):
         for x in range(w):
-            if cv.opaque(x, y) and y > h * 0.72 and (x + y) % 2 == 0:
+            if cv.opaque(x, y) and y > h * age and (x + y) % 2 == 0:
                 cv.px(x, y, dark)
     # folds
-    if h > 14 and rng.random() < 0.6:
+    if fold and h > 14 and rng.random() < 0.6:
         fy = rng.randint(h // 3, 2 * h // 3)
         for x in range(w):
             if cv.opaque(x, fy):

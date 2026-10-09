@@ -83,10 +83,22 @@ Columns: 8
  28  62  96	water0
  42  96 132	water1
  74 138 170	water2
-176  48  30	fire0
-234 118  40	fire1
-252 198  80	fire2
-255 244 190	fire3
+ 88  22  30	fire0
+150  38  32	fire1
+208  72  34	fire2
+240 128  44	fire3
+252 198  80	fire4
+255 244 190	fire5
+ 20  24  48	indigo0
+ 32  42  80	indigo1
+ 48  66 116	indigo2
+ 76 100 150	indigo3
+118 144 184	indigo4
+ 58  28  26	copper0
+100  46  32	copper1
+148  76  44	copper2
+194 114  64	copper3
+232 164 104	copper4
  26  58  70	teal0
  40  90 100	teal1
  64 128 132	teal2

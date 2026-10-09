@@ -7,22 +7,19 @@ from shapes import torn_paper, pin, wood_grain_h, wood_grain_v, chip
 PROPS = []
 
 
-def prop(name, room, layer, x, y, desc, drag=True, fps=None, preview=True):
+def prop(name, room, layer, x, y, desc, drag=True, fps=None, preview=True, shadow='auto'):
     """Register a prop. (x, y) = top-left of its default spot in the
     1920x270 scene. layer: wall | floor | counter | ceiling | front."""
     def deco(fn):
         PROPS.append(dict(name=name, room=room, layer=layer, x=x, y=y, desc=desc,
-                          drag=drag, fps=fps, fn=fn, preview=preview))
+                          drag=drag, fps=fps, fn=fn, preview=preview, shadow=shadow))
         return fn
     return deco
 
 
 def finish(cv, sel=True):
-    """Selective outline (each edge takes the darkest tone of its own
-    colour ramp) - the hand-pixelled way to outline props."""
-    out = cv.padded(1)
-    out.outline(selective=sel)
-    return out
+    from objects import outline
+    return outline(cv, sel)
 
 
 def box(cv, x, y, w, h, base, light=1, dark=-1):
@@ -109,9 +106,10 @@ def clay_pot(w, h, base='red3', cracked=True, rng=None):
     return cv
 
 
-def paper_note(rng, w, h, base='paper3', pin_c=None, lines=True, burnt=False):
+def paper_note(rng, w, h, base='paper3', pin_c=None, lines=True, burnt=False, clean=True):
     cv = torn_paper(rng, w, h, base=base, light=step(PAL[base], 1), dark=step(PAL[base], -1),
-                    edge=step(PAL[base], -2), lines=lines, burnt=burnt)
+                    edge=step(PAL[base], -2), lines=lines, burnt=burnt, fold=not clean,
+                    stain=not clean, age=0.9 if clean else 0.72)
     out = Canvas(w, h + 2)
     out.blit(cv, 0, 2)
     if pin_c:
