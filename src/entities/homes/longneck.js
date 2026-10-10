@@ -41,18 +41,21 @@ export function buildLongneck(k, { game, night }) {
   const fall = k.canvasPlane(28, 34, W(29), W(33), null);
   fall.mesh.position.set(W(-27.5), W(30), W(-40) + 0.02);
   k.group.add(fall.mesh);
+  const inWin = (x, y) => ((x + 0.5 - 14) / 14.2) ** 2 + ((y + 0.5 - 17) / 17.2) ** 2 <= 1; // the round window
   const drawFall = (t) => {
     const c = fall.ctx;
+    c.clearRect(0, 0, 28, 34);
     for (let x = 0; x < 28; x++) {
       const sp = 9 + (x * 7) % 5, ph = (x * 13) % 17;
       for (let y = 0; y < 34; y++) {
+        if (!inWin(x, y)) continue;
         const s = (y - t * sp * 6 + ph * 3) % 11;
         const w = ((s % 11) + 11) % 11;
         c.fillStyle = w < 1 ? '#f4fcff' : w < 3 ? '#b8e4f4' : x % 3 === 0 ? '#5aa8d0' : '#7cc0e0';
         c.fillRect(x, y, 1, 1);
       }
     }
-    for (let x = 0; x < 28; x++) if (hash3(x, Math.floor(t * 8), 1) < 0.4) { c.fillStyle = '#ffffff'; c.fillRect(x, 32 + (x % 2), 1, 1); }
+    for (let x = 0; x < 28; x++) if (hash3(x, Math.floor(t * 8), 1) < 0.4 && inWin(x, 30)) { c.fillStyle = '#ffffff'; c.fillRect(x, 29 + (x % 2), 1, 1); }
     fall.tex.needsUpdate = true;
   };
   drawFall(0);
@@ -101,7 +104,7 @@ export function buildLongneck(k, { game, night }) {
   for (const [bx, bz] of [[7, 3], [-8, 4]]) for (let y = 0; y < 2; y++) for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) bowls.set(bx + x, y, bz + z, y === 1 && !x && !z ? 0x8aa846 : 0x8a5a3a);
   k.add(k.obj('bowls', bowls), -0.25, W(8), 0.55);
   const steam = steamer(k, new THREE.Vector3(-0.05, W(16), 0.5), { n: 3, rise: 0.4, rate: 0.12 });
-  for (const [cx, cz] of [[-1.15, 0.85], [0.75, 1.0]]) { const cu = k.v(); ell(cu, 0, 1.5, 0, 6, 2, 5, (x, y, z) => tone(x, y, z, 0x5f8c3a, 0x4f7a32, 0x6a9a44)); k.add(k.obj('cushion', cu), cx, 0, cz); }
+  for (const [cx, cz] of [[-1.0, 1.15], [0.75, 1.0]]) { const cu = k.v(); ell(cu, 0, 1.5, 0, 6, 2, 5, (x, y, z) => tone(x, y, z, 0x5f8c3a, 0x4f7a32, 0x6a9a44)); k.add(k.obj('cushion', cu), cx, 0, cz); }
   k.prop('tea', pot, {
     x: -0.35, y: W(8), z: 0.45, label: 'Pine-needle tea', pad: 0.12,
     tap: {
@@ -153,7 +156,7 @@ export function buildLongneck(k, { game, night }) {
   for (const [rx, rz, r] of rocks) ell(sg, rx, 1, rz, r, r * 0.8, r * 0.9, (x, y, z) => tone(x, y, z, 0x7c8278, 0x6c7268, 0x9aa096));
   const garden = k.obj('sandgarden', sg);
   k.prop('garden', garden, {
-    x: -1.7, z: 1.2, rot: 0.08, label: 'Sand garden',
+    x: -1.85, z: 0.15, rot: 0.08, label: 'Sand garden',
     tap: {
       anim: ['nod', 'talk'], sfx: 'rs_path', fx: 'puff', fxN: 3,
       lines: ['...I rake it... ... once a year.', '...The lines... ... are a map. ... ... Of nothing.', '...Do not... step... ... on the... ... ... ah.'],
@@ -214,26 +217,25 @@ export function buildLongneck(k, { game, night }) {
   ell(sd, 0, 0, 0, 7, 3, 7, (x, y, z) => (y < 0 ? null : y >= 2 ? ((Math.round(Math.atan2(z, x) * 6 / Math.PI) % 2) ? 0xc8c2b0 : 0xb0aa98) : 0x8a9088));
   for (let y = 3; y <= 7; y++) sd.set(0, y, 3 - Math.round(y * 0.4), 0xa8822a);
   k.prop('sundial', k.obj('sundial', sd), {
-    x: -2.55, z: -0.45, label: 'Indoor sundial',
+    x: -2.45, z: -1.35, label: 'Indoor sundial',
     tap: { anim: ['point', 'talk'], lines: ['...It is... ... about... ... now.', '...A sundial. ... Indoors. ... ... I am... ... never late.', '...It has... ... never... been wrong. ... ... It has never... been right.'], fox: ['There is no sun in here. ...I\'m not going to say anything.'] },
   });
 
   // decor: a fern in a stone pot, a stack of river stones, a lantern of glowing moss
   k.add(plant(k, { pot: 0x7c8278, leaf: 0x5a9a44, h: 12 }), 2.6, 0, 1.45);
-  k.add(plant(k, { pot: 0x6c7268, leaf: 0x4f7a32, h: 9 }), -2.7, 0, 1.5);
+  k.add(plant(k, { pot: 0x6c7268, leaf: 0x4f7a32, h: 9 }), -2.7, 0, 1.45);
   const cairn = k.v();
   [[0, 0, 4], [0, 2, 3], [1, 4, 2], [0, 6, 1.4]].forEach(([x, y, r]) => ell(cairn, x, y, 0, r, 1.2, r * 0.8, (xx, yy, zz) => tone(xx, yy, zz, 0x8a9088, 0x6c7268, 0xaab0a2)));
   k.add(k.obj('cairn', cairn), 2.65, 0, -0.55);
-  k.deco((R, G) => { for (let x = 30; x < 52; x++) for (let y = 30; y < 50; y++) if (hash3(x, y, 77) < 0.04) G.set(x, y, -40, 0x9af0a0); }); // glowing moss specks
   k.light(0xffd8a0, 0.7, 6, [0.4, 1.8, 0.4]);
   k.light(night ? 0x8ab8ff : 0xfff0d0, 0.5, 6, [-1.6, 2.2, -0.6]);
 
   const line = LN?.homeLine?.();
   return {
     title: "Longneck's Grotto", bg: 0x161c1a, music: 'sleep',
-    light: { sky: 0xd8ecf0, ground: 0x34402e, hemi: 1.3, fillI: 0.6 },
-    npc: { x: -0.2, z: -0.35, rot: 0.45 }, npcScale: 0.86,
-    fox: { x: -1.3, z: 1.3 },
+    light: { sky: 0xfff0d8, ground: 0x34402e, hemi: 1.45, fillI: 0.7 },
+    npc: { x: 0.3, z: -0.6, rot: 0.3 }, npcScale: 0.86,
+    fox: { x: -0.85, z: 1.45 },
     idle: ['idle'],
     specials: ['sip_tea', 'nod', 'doze', 'point'],
     greet: line ? [line] : ['...Ah. ... ... Come in. ... ... Slowly.', '...Shoes... ... off. ... ... Shell... on.'],

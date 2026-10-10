@@ -61,9 +61,7 @@ function css() {
   transform-origin: 20% 0; animation: lnp-in .45s cubic-bezier(.3, 1.4, .5, 1) both; }
 .lnp:hover { animation: lnp-sway .9s ease-in-out; }
 .lnp:active { translate: 0 2px; }
-.lnp.lnp-out { animation: lnp-out .3s ease-in both; }
 @keyframes lnp-in { 0% { transform: translateX(-180px) rotate(-10deg); } 100% { transform: none; } }
-@keyframes lnp-out { 100% { transform: translateX(-190px) rotate(-12deg); opacity: 0; } }
 @keyframes lnp-sway { 0%, 100% { rotate: 0deg; } 30% { rotate: -3deg; } 65% { rotate: 2deg; } }
 .lnp canvas { position: absolute; left: 4px; top: 5px; width: 24px; height: 28px; image-rendering: pixelated; }
 .lnp b { font-family: var(--font-title, 'TBME Title'); font-weight: normal; font-size: 13px; }
@@ -148,12 +146,11 @@ export class TalkPip {
     if (!show) { this.hide(); return; }
     const el = this.ensure();
     if (!el) return;
-    el.classList.remove('lnp-out');
-    el.style.display = '';
-    const w = wordsIn(n);
-    const key = `${w}|${day}`;
+    if (el.style.display === 'none') el.style.display = '';
+    const key = `${n}|${day}`;
     if (key === this.key) return;
     this.key = key;
+    const w = wordsIn(n);
     el.querySelector('.lnp-bar i').style.width = `${Math.round((100 * n) / N_TOKENS)}%`;
     el.querySelector('.lnp-n').textContent = `word ${w}/${N_WORDS} · day ${day} of ${LONG_TALK_DAYS}`;
   }

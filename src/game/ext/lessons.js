@@ -123,6 +123,13 @@ class Lessons {
     return true;
   }
 
+  /** a full-screen mode is up (feast camera, home PC, lab, a cutscene...): no class now */
+  blocked() {
+    const g = this.game;
+    if (g.feast?.active || g.cutscene?.active || g.cine?.active || g.lab?.active || g.homes?.active || g.bedtime?.active || g.tutorial?.active) return true;
+    try { return BUSY_BODY.some((c) => document.body.classList.contains(c)); } catch { return false; }
+  }
+
   // ---------------------------------------------------------------- the teacher
   teacher() {
     if (this.teacherObj) return this.teacherObj;
@@ -254,7 +261,7 @@ class Lessons {
 
   async playClass(id) {
     const g = this.game;
-    if (!CLASS_BOOK[id] || g.classroom?.active) return false;
+    if (!CLASS_BOOK[id] || g.classroom?.active || this.blocked()) return false;
     const S = this.S;
     if (!S.played.includes(id)) S.played.push(id);
     if (!S.classes.includes(id) && !DAY1_CLASSES.some(([k]) => k === id)) S.classes.push(id);
@@ -274,6 +281,7 @@ class Lessons {
     const QL = this.game.ui?.questLog;
     if (QL?.isOpen) { try { await Promise.race([QL.close(), wait(1.5)]); } catch { /* ignore */ } }
     await wait(0.2);
+    if (this.busy || this.blocked()) { this.game.notify?.('Not now, partner. Ask me again in a quiet moment.', 'info', { dur: 3 }); return false; }
     if (kind === 'class') return this.playClass(id);
     return this.play(id, { replay: true });
   }

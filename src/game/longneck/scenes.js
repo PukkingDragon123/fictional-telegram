@@ -93,7 +93,7 @@ export function mist() {
   a.style.opacity = '0.9'; b.style.opacity = '0.7';
   el.append(a, b);
   document.body.appendChild(el);
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     a.style.transform = 'translateX(-38%) scale(1.3)'; a.style.opacity = '0';
     b.style.transform = 'translateX(34%) scale(1.5)'; b.style.opacity = '0';
   }));

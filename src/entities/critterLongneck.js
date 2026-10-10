@@ -16,8 +16,8 @@
 // Units: 1 voxel = 0.05. Root at the feet, facing +Z. ~1.75 tall to the top of the head.
 import * as THREE from 'three';
 import {
-  VS, FV, VoxelModel, rbox, ell, tone, hash3, buildGeo, geoCache, mirrorX, handModel, K, pulse, beat, win,
-  sin, cos, abs, max, min, PI, TAU, clamp, lerp, smooth, ZZZ_ROWS, SPARK_ROWS,
+  VS, FV, VoxelModel, rbox, ell, tone, hash3, buildGeo, geoCache, mirrorX, handModel, K, pulse, beat,
+  sin, cos, abs, max, PI, TAU, clamp, lerp, smooth, ZZZ_ROWS, SPARK_ROWS,
 } from './critterKit.js';
 import { BASE_EXPRS } from './critterFaces.js';
 import { BipedRig, HAND_KINDS } from './critterBiped.js';
@@ -35,7 +35,7 @@ const C = {
   brass: 0xd8b04a, brassD: 0xa8822a, brassL: 0xf0d27a, lens: 0xd8f0f8,
   clay: 0x8a5a3a, clayD: 0x6a4028, clayL: 0xb07a52, tea: 0x8aa846,
   mush: 0xc8743a, mushD: 0x9a5426, stem: 0xf0e6cc, cream: 0xfff0d0,
-  beak: 0x9a9a80, beakD: 0x6e6e58, beakL: 0xb6b69c, mouthIn: 0x5a2a2a, claw: 0x3e3a30,
+  beak: 0xc8bf96, beakD: 0x9a9070, beakL: 0xe2dab4, mouthIn: 0x5a2a2a, claw: 0x3e3a30,
 };
 
 const D = {

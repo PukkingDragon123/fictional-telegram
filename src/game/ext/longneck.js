@@ -57,7 +57,7 @@ class Longneck {
     // The Old Ways: a permanent mods bonus once he has finished (rides on zoneMods, so
     // every refreshMods / load / research picks it up)
     const zm = game.zoneMods?.bind(game);
-    if (zm) game.zoneMods = () => { const out = zm(); if (this.S.oldWays) out.push(OLD_WAYS.mods); return out; };
+    if (zm) game.zoneMods = () => { const out = zm(); if (game.state?.longneck?.oldWays) out.push(OLD_WAYS.mods); return out; };
     game.on?.('zone', (Z) => { if (Z?.id === ZONE && !this.S.arrived) { this.S.arrivePending = true; } });
     game.on?.('day', () => this.morning());
   }
@@ -124,7 +124,7 @@ class Longneck {
   }
 
   update(simDt, dt) {
-    const game = this.game, S = this.S;
+    const S = this.S;
     // game time -> talk time (only forward; big jumps are a night going by)
     const now = this.absHours();
     if (S.last == null || !Number.isFinite(S.last)) S.last = now;
@@ -147,7 +147,7 @@ class Longneck {
     if (n !== this.n) { const prev = this.n; this.n = n; if (prev >= 0 && S.phase === 'talking' && n > prev) this.onWords(prev, n, v); }
     if (S.phase === 'talking' && n >= N_TOKENS) this.finish();
     if (!open || !v?.rig) { this.bubble(false); this.pip.set(false); this.dropAudience(); return; }
-    slowAll(game, 'npclongneck', 6); // his lines from other systems (gift scenes, pond visits) come out slowly too
+    slowAll(game, 'npclongneck', 9); // his lines from other systems (gift scenes, pond visits) come out slowly too
     // stage moments
     if (S.arrivePending && this.canStage()) { S.arrivePending = false; S.arrived = true; this.play(arrival(this, v)); }
     else if (S.finalePending && this.canStage()) { S.finalePending = false; this.play(finale(this, v)); }
@@ -193,7 +193,8 @@ class Longneck {
   // ------------------------------------------------------------ the bubble
   bubble(want, v, n) {
     if (!want) { if (this.bh) { this.bh.close(); this.bh = null; this.btext = ''; } return; }
-    const text = bubbleText(n);
+    if (this._btN !== n) { this._btN = n; this._bt = bubbleText(n); }
+    const text = this._bt;
     const alive = bubbleOf(this.bh);
     if (!alive) {
       this.bh = this.game.say(headAnchor(v), text, { key: 'lnTalk', size: 'm', mood: 'normal', dur: 1e9 });
@@ -264,9 +265,9 @@ class Longneck {
         }
         if (BR.BearRig && BEAR_TYPES.intern) {
           const bear = new BR.BearRig('intern', BEAR_TYPES.intern);
-          const p = at(40.85, 197.35);
+          const p = at(40.5, 197.45);
           bear.root.position.copy(p);
-          bear.root.rotation.y = Math.atan2(v.x - p.x, v.z - p.z);
+          bear.root.rotation.y = Math.atan2(v.x - p.x, v.z - p.z) * 0.45; // half towards him, half towards us (so we see it nod off)
           bear.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
           bear.setFace?.('sleepy');
           game.villagers.group.add(bear.root);
