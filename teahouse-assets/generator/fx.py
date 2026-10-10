@@ -91,6 +91,22 @@ def light():
             al = int(22 * (1 - t) ** 1.5)
             if base[y, x, 3] < al:
                 base[y, x] = (*WARM, al)
+    # glass: soft diagonal sheen across every pane (two wide bands and a thin one)
+    from layout import WIN_BELL
+    from room import bell_halfwidth
+    yy, xx = np.mgrid[0:H, 0:W]
+    glass = np.zeros((H, W), bool)
+    glass[WIN_MAIN['y']:WIN_MAIN['y'] + WIN_MAIN['h'], WIN_MAIN['x']:WIN_MAIN['x'] + WIN_MAIN['w']] = True
+    glass |= (xx - WIN_ROUND['cx']) ** 2 + (yy - WIN_ROUND['cy']) ** 2 < (WIN_ROUND['r'] - 2) ** 2
+    for y in range(WIN_BELL['top'], WIN_BELL['bottom']):
+        hw = bell_halfwidth(y)
+        if hw > 0:
+            glass[y, int(WIN_BELL['cx'] - hw):int(WIN_BELL['cx'] + hw)] = True
+    band = (xx + yy * 0.7) % 150
+    sheen = glass & (((band > 18) & (band < 30)) | ((band > 36) & (band < 40)))
+    soft = glass & (((band > 14) & (band < 18)) | ((band > 30) & (band < 33)))
+    base[sheen] = (255, 255, 250, 30)
+    base[soft & (base[..., 3] < 16)] = (255, 255, 250, 16)
     lx, ly = 2441, 96                                     # bedroom oil lamp glow
     _add(base, lx - 70, lx + 70, ly - 60, ly + 70,
          lambda x, y: (FIRE, int(max(0, 40 * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))

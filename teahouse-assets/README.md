@@ -109,9 +109,9 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 | Bell and rock wyvern | 10 + 43 (+ a 25-frame `rest` loop) | Click the bell: it rings. The wyvern slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
 | Alien lucky cat | 8 | Eased beckoning paw, pulsing antenna lights, a blink, a glint that travels across the coin |
 | Garden trees, flower bed, ivy | 8 | Each leaf mass sways on its own phase |
-| Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing |
+| Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing. The chochin lanterns glow from inside, flicker softly and swing their tassels |
 | Candles, steam | 8 | Flicker and curl |
-| Light overlay | 8 | The furnace glow flickers; dust drifts in the window shafts |
+| Light overlay | 8 | The furnace glow flickers, dust drifts in the window shafts, and a soft diagonal sheen sits on every window pane |
 
 ## How it's drawn
 

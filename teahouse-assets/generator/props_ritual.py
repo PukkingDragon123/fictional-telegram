@@ -550,11 +550,11 @@ def alien_cat(f):
     # tail curling round the haunch
     tail = _smask([(cx + 14, 70), (cx + 22, 66), (cx + 25, 58), (cx + 23, 52), (cx + 20, 53), (cx + 21, 59),
                    (cx + 18, 65), (cx + 12, 68)])
-    paint(tail, G, R=3, spec=0.05, spec_col='white', canvas=cv)
+    paint(tail, G[1:], R=3, amb=0.3, spec=0.05, spec_col='white', canvas=cv)
     # body: pear-shaped, wider haunches, a soft chest
     bm = _smask([(cx - 12, 44), (cx - 4, 42), (cx + 6, 42), (cx + 13, 45), (cx + 17, 53), (cx + 19, 62),
                  (cx + 16, 69), (cx + 6, 71), (cx - 6, 71), (cx - 16, 69), (cx - 19, 62), (cx - 17, 52)])
-    paint(bm, G, R=12, spec=0.05, spec_col='white', canvas=cv)
+    paint(bm, G[1:], R=12, amb=0.3, spec=0.05, spec_col='white', canvas=cv)
     belly = _smask([(cx - 6, 52), (cx + 2, 51), (cx + 6, 56), (cx + 5, 64), (cx - 1, 67), (cx - 7, 64), (cx - 9, 57)])
     paint(belly, G[2:], R=6, amb=0.4, canvas=cv)
     haunch = _smask([(cx - 18, 60), (cx - 13, 56), (cx - 8, 60), (cx - 8, 68), (cx - 15, 70), (cx - 19, 66)])
@@ -564,7 +564,7 @@ def alien_cat(f):
                  (cx - 23, 33), (cx - 20, 36), (cx - 21, 40), (cx - 15, 44), (cx - 6, 46), (cx + 6, 46),
                  (cx + 15, 44), (cx + 21, 40), (cx + 20, 36), (cx + 23, 33), (cx + 21, 27), (cx + 19, 19),
                  (cx + 17, 9), (cx + 15, 5), (cx + 9, 12), (cx + 3, 15)])
-    paint(hm, G, R=13, spec=0.05, spec_col='white', canvas=cv)
+    paint(hm, G[1:], R=13, amb=0.35, spec=0.05, spec_col='white', canvas=cv)
     for side in (-1, 1):                                           # inner ears, curved
         inner = _smask([(cx + side * 6, 15), (cx + side * 11, 11), (cx + side * 15, 8), (cx + side * 16, 13),
                         (cx + side * 16, 20), (cx + side * 11, 18)])
@@ -641,7 +641,7 @@ def alien_cat(f):
                  (px_ - 4 + lean, py_ + 6), (px_ - 5, py_ + 1), (px_ - 3, py_ - 4), (px_ + 1, py_ - 5.5),
                  (px_ + 4.5, py_ - 3), (px_ + 4.5 - lean, py_ + 3), (px_ + 2.5, py_ + 9), (ex + 2, ey - 4),
                  (cx - 15, 42)])
-    paint(am, G, R=4, spec=0.06, spec_col='white', canvas=arm)
+    paint(am, G[1:], R=4, amb=0.3, spec=0.06, spec_col='white', canvas=arm)
     _sline(arm, [(ex - 3, ey - 2), (ex - 1, ey + 2)], G[1])           # crease at the elbow
     curl = int(t * 2)                                       # toes curl as the paw dips
     for (dx, dy) in ((-3, -3 + curl), (0, -4 + curl), (3, -3 + curl)):

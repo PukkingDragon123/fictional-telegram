@@ -101,35 +101,86 @@ def clock():
 
 
 def _lantern(seed, torn, f, n=F8):
+    """Chochin paper lantern lit from inside: a barrel of paper over bamboo ribs
+    that curve with the paper, warm glow strongest at the middle, black lacquer
+    caps with a gold rim, a cord and a swaying tassel, a soft halo."""
     rng = random.Random(seed)
     sw = math.sin(2 * math.pi * f / n + seed)
-    w, h = 40, 76
+    flick = 0.92 + 0.08 * math.sin(2 * math.pi * f * 2 / n + seed * 3)
+    w, h = 46, 82
     cv = Canvas(w, h)
-    off = int(round(sw * 1.4))
-    for j in range(18):
-        cv.px(w // 2 + int(round(sw * 1.4 * j / 18)), j, 'paper1')
-    body_y = 20
-    cv.rect(w // 2 - 7 + off, 17, 14, 4, 'ink'); cv.hline(w // 2 - 7 + off, w // 2 + 6 + off, 17, 'gold2')
-    m = ellipse_mask(32, 44, 16, 22, 16, 22)
-    lam = Canvas(32, 44)
-    paint(m, ['red1', 'red2', 'red3', 'red4', 'red5'], R=12, amb=0.35, canvas=lam)
-    for y in range(0, 44, 5):                       # bamboo ribs
-        for x in range(32):
-            if m[y, x]:
-                lam.shift(x, y, -1)
-    lam.rect(10, 11, 12, 18, 'red4')
-    glyph(lam, rng, 11, 12, 10, 'ink'); glyph(lam, rng, 11, 22, 7, 'ink')
-    if torn:
-        lam.rect(22, 26, 5, 7, 'fire3'); lam.px(21, 26, 'paper3'); lam.px(27, 32, 'paper3')
-        lam.line(4, 8, 7, 18, 'red1')
-    lam.px(7, 9, 'red5'); lam.px(8, 8, 'pink4')
-    cv.blit(lam, w // 2 - 16 + off, body_y)
-    cv.rect(w // 2 - 7 + off, body_y + 43, 14, 4, 'ink'); cv.hline(w // 2 - 7 + off, w // 2 + 6 + off, body_y + 46, 'gold1')
-    tx = w // 2 + off + int(round(sw * 1.5))
-    for j in range(7):
-        cv.px(tx, body_y + 47 + j, 'gold2')
-    cv.px(tx - 1, body_y + 54, 'gold1'); cv.px(tx + 1, body_y + 54, 'gold1')
-    return O.outline(cv)
+    off = sw * 1.4
+    cx = w / 2 + off
+    y0, y1 = 21, 65
+    # soft halo on its own layer (partial alpha), so the glow spills onto the wall
+    halo = Canvas(w, h)
+    for y in range(y0 - 6, y1 + 6):
+        for x in range(w):
+            t = min(1, max(0, (y - y0) / (y1 - y0)))
+            hw = 7 + 10.5 * math.sin(math.pi * t)
+            d = max(0.0, abs(x + 0.5 - cx) - hw, (y0 - y) if y < y0 else 0, (y - y1) if y > y1 else 0)
+            if 0 < d < 5:
+                halo.a[y, x] = (*PAL['fire3'], int(46 * (1 - d / 5) * flick))
+    # cord from the beam
+    for j in range(y0 - 3):
+        cv.px(int(round(w / 2 + off * j / (y0 - 3))), j, 'paper1')
+    ramp = ['red0', 'red1', 'red2', 'red3', 'red4', 'fire3', 'fire4']
+    for y in range(y0, y1):
+        t = (y - y0) / (y1 - y0)
+        hw = 7 + 10.5 * math.sin(math.pi * t)
+        for x in range(int(cx - hw - 1), int(cx + hw + 2)):
+            u = (x + 0.5 - cx) / hw
+            if abs(u) > 1:
+                continue
+            glow = (1 - u * u) * (0.55 + 0.45 * math.sin(math.pi * t)) * flick
+            v = 0.12 + 0.88 * glow - 0.12 * max(0, u)          # the right side turns a touch darker
+            # bamboo ribs: curved bands that follow the barrel
+            rib = ((y - y0) - 2.2 * (1 - u * u)) % 5.5 < 1.0
+            if rib:
+                v -= 0.22
+            k = int(max(0, min(len(ramp) - 1, v * len(ramp))))
+            cv.px(x, y, ramp[k])
+    # a few vertical paper seams catching the light
+    for su in (-0.55, 0.2):
+        for y in range(y0 + 3, y1 - 3):
+            t = (y - y0) / (y1 - y0)
+            hw = 7 + 10.5 * math.sin(math.pi * t)
+            x = int(round(cx + su * hw))
+            if (y * 3) % 7:
+                cv.shift(x, y, -1)
+    if torn:                                              # a tear with the flame showing through
+        tx, ty = int(cx + 6), y0 + 26
+        for (dx, dy, c) in ((0, 0, 'fire5'), (1, 0, 'fire4'), (0, 1, 'fire4'), (1, 1, 'fire5'), (2, 1, 'fire4'),
+                            (1, 2, 'fire4'), (0, 2, 'fire3'), (2, 2, 'fire3'), (1, 3, 'fire3')):
+            cv.px(tx + dx, ty + dy, c)
+        for (dx, dy) in ((-1, 0), (-1, 1), (-1, 2), (3, 1), (3, 2), (0, -1), (2, 3), (1, 4)):
+            cv.px(tx + dx, ty + dy, 'red0')
+        cv.px(tx + 3, ty + 4, 'paper3'); cv.px(tx - 2, ty + 3, 'paper3')
+    # lacquer caps: shallow drums with a gold rim
+    for (cy, top) in ((y0 - 2, True), (y1 + 1, False)):
+        for y in range(cy - 2, cy + 3):
+            for x in range(int(cx - 8), int(cx + 9)):
+                dx = (x + 0.5 - cx) / 8.5
+                if abs(dx) <= 1:
+                    c = 'stone0' if abs(dx) > 0.55 else ('stone1' if dx < 0 else 'ink')
+                    if (top and y == cy + 2) or (not top and y == cy - 2):
+                        c = 'gold2' if dx < 0.3 else 'gold1'
+                    cv.px(x, y, c)
+        cv.px(int(cx - 5), cy - 1, 'stone2')
+    # tassel, swinging a little behind the lantern
+    tx = cx + sw * 1.2
+    for j in range(3):
+        cv.px(int(round(cx)), y1 + 4 + j, 'gold1')
+    for j in range(8):
+        sx = int(round(tx + sw * j * 0.15))
+        for k in (-1, 0, 1):
+            cv.px(sx + k, y1 + 7 + j, 'red3' if k < 0 else ('red2' if k == 0 else 'red1'))
+    cv.px(int(round(tx)), y1 + 6, 'gold3')
+    body = O.outline(cv)
+    out = Canvas(body.w, body.h)
+    out.blit(halo, 1, 1)
+    out.blit(body, 0, 0)
+    return out
 
 
 @prop('paper_lantern_a', 2, 'ceiling', 832, 36, 'Red paper lantern swaying in front of the window (8 frames)', fps=5)

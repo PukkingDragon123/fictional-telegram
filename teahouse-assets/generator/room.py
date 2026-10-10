@@ -664,19 +664,6 @@ def _main_window(cv, rng):
     for k in range(4):
         px0, px1 = fx0 + fw * k // 4 + 3, fx0 + fw * (k + 1) // 4 - 4
         cv.hline(px0, px1, fy0 + 86, 'wood1'); cv.hline(px0, px1, fy0 + 87, 'wood3')
-    # cracked pane and a pane patched with paper and tape
-    ccx, ccy = fx0 + 200, fy0 + 60
-    for a in (0.3, 1.2, 2.2, 3.3, 4.4, 5.4):
-        px_, py_ = ccx, ccy
-        for k in range(rng.randint(10, 18)):
-            px_ += math.cos(a) + rng.uniform(-0.4, 0.4)
-            py_ += math.sin(a) + rng.uniform(-0.4, 0.4)
-            if not cv.opaque(int(px_), int(py_)):
-                cv.px(int(px_), int(py_), 'sky4' if k % 3 else 'white')
-    patch = torn_paper(random.Random(77), 36, 28, lines=False, curl=False, holes=False)
-    cv.blit(patch, fx0 + 18, fy0 + 96)
-    for (tx, ty) in ((fx0 + 15, fy0 + 95), (fx0 + 48, fy0 + 118)):
-        cv.rect(tx, ty, 8, 4, 'paper4'); cv.hline(tx, tx + 7, ty + 3, 'paper2')
 
 
 def _round_window(cv, rng):
