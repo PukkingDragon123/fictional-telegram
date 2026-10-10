@@ -16,26 +16,19 @@ import { WATER_Y } from './grid.js';
 import { STONE, STONE_GLSL, stoneUniforms } from '../art/stoneArt.js';
 import { terrainAtlasUniforms } from './terrain.js';
 import { HAZE_PARS } from './outerRing.js';
-import { patchCutawayMaterial } from './cutaway.js';
+import { CUT_UNIFORMS, CUT_PLANE_GLSL, RING_CAP_GLSL } from './cutaway.js'; // [v26 mountains]
 
 const E = 100;
 const CHUNK = 36;
 const chunkKey = (x, z) => Math.floor((x + 400) / CHUNK) * 1000 + Math.floor((z + 400) / CHUNK);
 const B1 = 26, B2 = 58; // band edges (distance from the map, tiles)
 
+// [v26 mountains] the camera-side cut now ramps up in whole-block terraces towards
+// the sides (no sheer cliff where it begins), and the line-of-sight window
+// (cutaway.js) notches ranges that really hide the spot you look at
 const CAP_GLSL = /* glsl */ `
-// the camera-side cut: columns there are capped (whole blocks)
-// everything on the camera's side of the map is cut flat to one block above the
-// ground (a clean forest-floor plain, real top faces); the sides keep their ranges,
-// ending in a clean block cliff where the cut begins
-float capAt(vec2 c, float bs) {
-  vec2 cl = clamp(c, uRect.xy, uRect.zw);
-  float d = length(c - cl);
-  if (d < 0.5) return 999.0;
-  vec2 outDir = (c - cl) / d;
-  if (dot(outDir, uRingCam) < 0.42) return 999.0;
-  return bs;
-}
+${RING_CAP_GLSL}
+float capAt(vec2 c, float bs) { return min(ringCapRaw(c, bs), cutCapQ(c, bs)); }
 `;
 
 export function buildCubeGround(ring) {
@@ -179,10 +172,11 @@ export function buildCubeGround(ring) {
   const TA = terrainAtlasUniforms();
   const SU = stoneUniforms();
   mat.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, U, TA, SU);
+    Object.assign(shader.uniforms, U, TA, SU, CUT_UNIFORMS);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 ${HAZE_PARS}
+${CUT_PLANE_GLSL}
 ${CAP_GLSL}
 attribute vec2 aSurf;
 attribute vec4 aBlk; // block size, column top, cell centre
@@ -205,7 +199,7 @@ varying float vCapK;`)
   bool isTop = abs(position.y - hi) < 0.001;
   transformed.y = isTop ? tp : bot;
   vCutTop = (abs(objectNormal.y) > 0.5 && hi - tp > 0.01) ? 1.0 : 0.0;
-  vCapK = capS < 900.0 ? 1.0 : 0.0;
+  vCapK = ringCapRaw(aBlk.zw, bs) < 900.0 ? 1.0 : 0.0;
   vRPos = transformed;
   vSurf = aSurf;
   vBlk = vec4(bs, min(aBlk.y, capS), 0.0, 0.0);
@@ -266,8 +260,7 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
 }`)
       .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze * (1.0 - vCapK));\n#include <opaque_fragment>'); // the cut foreground: solid, no haze slivers
   };
-  mat.customProgramCacheKey = () => 'outerRingCubes3';
-  patchCutawayMaterial(mat, 'ringCubes', 1.4);
+  mat.customProgramCacheKey = () => 'outerRingCubes4';
   ring.ground = [];
   for (const P of chunks.values()) {
     if (!P.n) continue;
@@ -291,6 +284,7 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
 
 // sprites on the ranges follow the cap (and fade where the ground was cut away)
 export const SPRITE_CAP = /* glsl */ `
+${CUT_PLANE_GLSL}
 ${CAP_GLSL}
 `;
 export { clamp };

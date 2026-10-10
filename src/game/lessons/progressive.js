@@ -55,7 +55,8 @@ export const LESSONS = [
   },
   // ------------------------------------------------------------------ genetics
   {
-    id: 'l_stars', title: 'Where stars come from', icon: 'star', cls: 'genetics', goal: 'lq_3star',
+    id: 'l_stars', title: 'Where stars come from', icon: 'star', cls: 'breeding', // [v26 class2] Genetics merged into Smart Breeding
+    goal: 'lq_3star',
     when: (g, L) => !!L.flags.hatch2,
     beats: (g, L) => {
       const f = (L.refs.hatch2 && !L.refs.hatch2.dead && L.refs.hatch2) || bestFish(g);

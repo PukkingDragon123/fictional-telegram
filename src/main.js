@@ -3,17 +3,20 @@ import './ui/style.css';
 import audio from './game/audioProxy.js';
 import { PixelRenderer } from './core/pixelRenderer.js';
 
-// Startup (v26): no loading screen. index.html paints the title's first frame
-// inline before any module loads; this file starts the live title right away on
-// the shared renderer (src/game/title/TitleWorld.js, its menu src/ui/TitleMenu.js)
-// and builds the game in the background once the intro has settled. The game is
+// Startup (v26): no loading screen. index.html shows the title's first frame
+// inline before any module loads (a still of the pond diorama saved on the last
+// visit, else the painted valley); this file shows the menu (src/ui/TitleMenu.js)
+// at once, builds the game, starts the 3D pond diorama (src/game/TitleScene.js)
+// in the real game world and crossfades from that frame to it. The game is
 // handed the same PixelRenderer (one WebGL context, shaders compiled once).
 //   ?autostart=new | continue   straight into the game (tests), &notut=1 skips the tutorial
-//   ?title=pond                 the old pond diorama (src/game/TitleScene.js; tools/promo needs it)
+//   ?title=pond                 the pond diorama with no cover frame (tools/promo poses it)
+//   ?title=valley               the 2D painted valley title (src/game/title/TitleWorld.js)
 const params = new URLSearchParams(location.search);
 const canvas = document.getElementById('game');
 const autostart = params.has('autostart') ? (params.get('autostart') === 'continue' ? 'continue' : 'new') : null;
 const pondTitle = !autostart && params.get('title') === 'pond';
+const valleyTitle = !autostart && params.get('title') === 'valley'; // [v26 title2]
 const SAVE_KEY = 'tbme.save.v3';
 
 const renderer = new PixelRenderer(canvas);
@@ -23,7 +26,7 @@ try {
 } catch { /* storage unavailable */ }
 
 let game = null, ui = null, titleWorld = null, titleScene = null, titleMenu = null;
-let mode = autostart ? 'boot' : pondTitle ? 'boot' : 'title';
+let mode = autostart ? 'boot' : 'title';
 
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -146,23 +149,7 @@ window.addEventListener('pointerdown', () => { if (mode === 'title' || mode === 
 
 if (autostart) {
   bootGame().then(() => startGame(autostart));
-} else if (pondTitle) {
-  // the old pond diorama inside the game world (tools/promo/stage.js poses it)
-  document.body.classList.add('at-title');
-  document.getElementById('tbme-paint')?.remove();
-  bootGame().then(async () => {
-    const [{ TitleScene }, { showTitleMenu }] = await Promise.all([import('./game/TitleScene.js'), import('./ui/TitleMenu.js')]);
-    game.state.hour = 17.4;
-    for (let i = 0; i < 10; i++) {
-      const p = game.fish.randomWaterPoint();
-      if (p) game.fish.spawn(['bluegill', 'perch', 'brook', 'sockeye', 'aurora'][i % 5], p.x, p.z, { adult: true });
-    }
-    titleScene = new TitleScene(game);
-    titleScene.start();
-    mode = 'pond';
-    titleMenu = showTitleMenu(document.body, menuOpts((c) => ui.wipeTransition('iris', () => startGame(c), { inDur: 0.55, hold: 0.25, outDur: 0.7 })));
-  });
-} else {
+} else if (valleyTitle) {
   document.body.classList.add('at-title');
   import('./ui/TitleMenu.js').then(({ showTitleMenu }) => {
     if (mode !== 'title') return;
@@ -175,8 +162,64 @@ if (autostart) {
     titleWorld.start();
     if (game) titleWorld.gameReady = true;
   }).catch((e) => { console.warn('TitleWorld failed', e); bootGame(); });
-  // whatever happens, the game gets built
   setTimeout(() => bootGame(), 9000);
+} else {
+  // the pond diorama, live in the game world. The cover frame (#tbme-paint)
+  // stays up until the 3D scene has drawn a few frames, then fades out.
+  document.body.classList.add('at-title');
+  if (pondTitle) document.getElementById('tbme-paint')?.remove(); // tools/promo/stage.js wants the bare canvas
+  import('./ui/TitleMenu.js').then(({ showTitleMenu }) => {
+    if (mode !== 'title') return;
+    titleMenu = showTitleMenu(document.body, menuOpts((c) => irisToGame(c)));
+  }).catch((e) => console.warn('TitleMenu failed', e));
+  Promise.all([bootGame(), import('./game/TitleScene.js')]).then(([, { TitleScene }]) => {
+    if (mode !== 'title' || starting) return;
+    game.state.hour = 17.4;
+    for (let i = 0; i < 10; i++) {
+      const p = game.fish.randomWaterPoint();
+      if (p) game.fish.spawn(['bluegill', 'perch', 'brook', 'sockeye', 'aurora'][i % 5], p.x, p.z, { adult: true });
+    }
+    titleScene = new TitleScene(game);
+    titleScene.start();
+    mode = 'pond';
+  }).catch((e) => { console.error('title scene failed', e); });
+}
+
+// the cover frame: fade it out once the live scene is on screen, and keep a
+// still of the scene for the next visit's first frame (index.html shows it)
+const STILL_KEY = 'tbme.titleStill', STILL_VER = 4;
+let coverFading = false, stillDone = pondTitle;
+function titleCover(dt) {
+  if (!titleScene) return;
+  titleCover.frames = (titleCover.frames || 0) + 1;
+  if (!stillDone && titleScene.T > 0.6) { stillDone = true; saveStill(); }
+  if (!coverFading && titleCover.frames > 4 && titleScene.T > 0.3) {
+    coverFading = true;
+    const el = document.getElementById('tbme-paint');
+    if (el) {
+      el.style.transition = 'opacity 0.9s ease';
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 1000);
+    }
+  }
+}
+function saveStill() {
+  // runs right after game.render in the same task, so the canvas still holds the frame
+  try {
+    const W = renderer.lowW, H = renderer.lowH;
+    if (!W || !H || W * H > 400000) return;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(canvas, 0, 0, W, H);
+    const src = c.toDataURL('image/png');
+    if (src.length > 800000) return;
+    let used = 0;
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k !== STILL_KEY) used += (localStorage.getItem(k) || '').length; }
+    if (used + src.length > 2400000) return; // never crowd out the save
+    localStorage.setItem(STILL_KEY, JSON.stringify({ v: STILL_VER, w: window.innerWidth, h: window.innerHeight, px: renderer.pixelDensity, src }));
+  } catch { /* storage full / unavailable: the painted frame it is */ }
 }
 
 // ---- adaptive quality: if the device struggles, cheapen shadows
@@ -250,6 +293,7 @@ function frame(now) {
     game.particles.update(dt);
     game.time += dt;
     game.render(dt);
+    titleCover(dt);
   }
   requestAnimationFrame(frame);
 }

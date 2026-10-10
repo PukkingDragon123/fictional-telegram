@@ -51,6 +51,7 @@ const DEER_ROT = -0.42;
 const PITCH = 17; // degrees
 const SUN_EL = 0.3; // sun elevation (radians): long shadows
 const SKY_D = 3.4; // distance of the sky curtain behind the focus point
+const LEAF_COLS = [[1.7, 1.05, 0.35], [1.6, 0.7, 0.3], [1.5, 1.3, 0.45], [1.3, 0.5, 0.28]]; // golden / amber / straw / rust
 
 // ---------------------------------------------------------------- sky curtain
 const SKY_VERT = /* glsl */ `
@@ -62,17 +63,17 @@ uniform float uTime;
 uniform vec2 uSun;
 uniform float uPx;
 uniform float uTop;
+uniform float uNarrow;
 varying vec3 vL;
 float h11(float p) { p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
 float n11(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h11(i), h11(i + 1.0), f); }
 float bayer(vec2 p) {
   vec2 q = mod(floor(p), 4.0);
-  float b = 0.0;
-  b += mod(q.x + q.y * 2.0, 4.0) == 0.0 ? 0.0 : 0.0;
   int i = int(q.x) + int(q.y) * 4;
   float m[16];
   m[0]=0.0; m[1]=8.0; m[2]=2.0; m[3]=10.0; m[4]=12.0; m[5]=4.0; m[6]=14.0; m[7]=6.0;
   m[8]=3.0; m[9]=11.0; m[10]=1.0; m[11]=9.0; m[12]=15.0; m[13]=7.0; m[14]=13.0; m[15]=5.0;
+  float b = 0.0;
   for (int k = 0; k < 16; k++) if (k == i) b = m[k];
   return (b + 0.5) / 16.0;
 }
@@ -87,89 +88,143 @@ float pines(float x, float w, float hmin, float hmax, float seed) {
     float th = mix(hmin, hmax, h11(c * 7.1 + seed));
     float d = abs(x - cx);
     float hw = w * 0.62;
-    // tiered spruce: a triangle with little notches
     float y = th * (1.0 - d / hw);
     y -= step(0.5, fract((th - y) / (th * 0.22))) * 0.06 * th * (d / hw);
     h = max(h, y);
   }
   return h;
 }
+// round-topped broadleaf crowns between the pines
+float crowns(float x, float w, float hmin, float hmax, float seed) {
+  float h = 0.0;
+  for (int k = -1; k <= 1; k++) {
+    float c = floor(x / w) + float(k);
+    if (h11(c * 2.31 + seed) < 0.45) continue;
+    float cx = (c + 0.5) * w;
+    float th = mix(hmin, hmax, h11(c * 5.3 + seed));
+    float d = (x - cx) / (w * 0.75);
+    h = max(h, th * sqrt(max(0.0, 1.0 - d * d)));
+  }
+  return h;
+}
+// a jagged mountain range: height at x, and whether x is on a face lit from sunX
+vec2 range(float x, float w, float hmin, float hmax, float seed, float sunX) {
+  float h = 0.0, lit = 0.0;
+  for (int k = -1; k <= 1; k++) {
+    float c = floor(x / w) + float(k);
+    float cx = (c + 0.25 + 0.5 * h11(c * 3.7 + seed)) * w;
+    float th = mix(hmin, hmax, h11(c * 9.13 + seed));
+    float hw = w * mix(0.75, 1.15, h11(c * 1.9 + seed));
+    float d = abs(x - cx) / hw;
+    float y = th * (1.0 - d) + (n11(x * 2.6 + seed) - 0.5) * 0.18 * th + (n11(x * 7.0 + seed) - 0.5) * 0.06 * th;
+    if (y > h) { h = y; lit = step(0.0, (x - cx) * (sunX - cx)) ; }
+  }
+  return vec2(h, lit);
+}
 vec3 srgb(vec3 c) { return pow(c, vec3(2.2)); }
 void main() {
   vec2 p = vL.xy;
   vec2 fc = gl_FragCoord.xy;
   float dith = bayer(fc) - 0.5;
-  // banded, dithered sunset gradient (height above the horizon, world units)
-  float sk = 11.0 / max(uTop, 0.5); // sky features scale with the visible sky height
-  float y = p.y * sk + dith * 0.55;
-  vec3 c0 = vec3(1.00, 0.86, 0.52), c1 = vec3(1.00, 0.66, 0.40), c2 = vec3(0.98, 0.50, 0.46), c3 = vec3(0.86, 0.40, 0.58), c4 = vec3(0.52, 0.32, 0.62), c5 = vec3(0.26, 0.22, 0.50);
-  float yb = floor(y / 0.42) * 0.42; // chunky bands
+  float sk = 11.0 / max(uTop, 0.5); // sky units: 0 = curtain base, 11 = top of the screen
+  float X = p.x * sk, Y = p.y * sk;
+  vec2 sun = uSun * sk;
+  float lift = 1.12 * sk - 4.7; // the horizon follows the treeline (tall screens show more sky)
+  float y = Y - lift + dith * 0.55;
+  // golden-hour gradient in chunky dithered bands: gold at the horizon up to indigo
+  vec3 c0 = vec3(1.00, 0.88, 0.56), c1 = vec3(1.00, 0.72, 0.46), c2 = vec3(0.99, 0.56, 0.48), c3 = vec3(0.88, 0.44, 0.58), c4 = vec3(0.56, 0.34, 0.64), c5 = vec3(0.28, 0.24, 0.52);
+  float yb = floor(y / 0.42) * 0.42;
   vec3 col = c0;
-  col = mix(col, c1, smoothstep(0.6, 2.2, yb));
-  col = mix(col, c2, smoothstep(2.2, 4.0, yb));
-  col = mix(col, c3, smoothstep(4.0, 6.2, yb));
-  col = mix(col, c4, smoothstep(6.2, 9.0, yb));
-  col = mix(col, c5, smoothstep(9.0, 13.0, yb));
-  // sun glow (warmer + brighter towards the sun)
-  vec2 ds = (p - uSun) * vec2(0.8, 1.0) * sk;
+  col = mix(col, c1, smoothstep(4.6, 6.0, yb));
+  col = mix(col, c2, smoothstep(6.0, 7.4, yb));
+  col = mix(col, c3, smoothstep(7.4, 8.8, yb));
+  col = mix(col, c4, smoothstep(8.8, 10.6, yb));
+  col = mix(col, c5, smoothstep(10.6, 13.5, yb));
+  // sun glow
+  vec2 ds = (vec2(X, Y) - sun) * vec2(0.75, 1.0) / uNarrow; // narrow screens: a tighter glow
   float dsun = length(ds);
-  float glow = exp(-dsun * 0.3);
+  float glow = exp(-dsun * 0.28);
   float gq = floor((glow + dith * 0.12) * 7.0) / 7.0;
-  col = mix(col, vec3(1.0, 0.82, 0.5), gq * 0.75);
+  col = mix(col, vec3(1.0, 0.84, 0.52), gq * 0.75);
   col += vec3(0.25, 0.14, 0.04) * gq;
-  // clouds: long stratus streaks, pink-lit undersides, violet tops
+  // slow crepuscular rays fanning from the sun
+  float ang = atan(ds.y, ds.x);
+  float ray = n11(ang * 7.0 + uTime * 0.05) * n11(ang * 17.0 - uTime * 0.035 + 3.0);
+  float rq = step(0.36 + dith * 0.18, ray) * exp(-dsun * 0.12) * smoothstep(0.8, 2.5, dsun);
+  col = mix(col, vec3(1.0, 0.86, 0.62), rq * 0.22);
+  // clouds: long stratus streaks, gold-lit undersides, violet tops; one slices the sun
   for (int k = 0; k < 4; k++) {
     float fk = float(k);
-    float cy = 3.6 + fk * 1.9 + 0.5 * h11(fk * 9.0);
-    float sx = p.x * sk * (0.16 + 0.05 * fk) * 0.6 + uTime * (0.02 + 0.008 * fk) + fk * 13.0;
-    float thick = (n11(sx) * 0.9 + n11(sx * 2.7) * 0.45 - 0.62) * (0.9 + 0.25 * fk);
-    float dy = p.y * sk - cy - (n11(sx * 0.5 + 4.0) - 0.5) * 0.7;
+    float cy = k == 0 ? sun.y - 0.25 : 7.4 + lift + fk * 1.15 + 0.5 * h11(fk * 9.0);
+    float sx = X * (0.16 + 0.05 * fk) * 0.6 + uTime * (0.02 + 0.008 * fk) + fk * 13.0;
+    float thick = (n11(sx) * 0.9 + n11(sx * 2.7) * 0.45 - 0.62) * (k == 0 ? 0.5 : 0.9 + 0.25 * fk);
+    float dy = Y - cy - (n11(sx * 0.5 + 4.0) - 0.5) * 0.7;
     if (thick > 0.0 && abs(dy) < thick) {
-      float u = clamp(dy / max(thick, 0.001) * 0.5 + 0.5, 0.0, 1.0); // 0 = underside
-      vec3 lit = mix(vec3(1.0, 0.72, 0.52), vec3(1.0, 0.9, 0.7), glow);
-      vec3 cc = mix(lit, mix(vec3(0.74, 0.44, 0.66), vec3(0.5, 0.36, 0.64), fk / 3.0), step(0.38 + dith * 0.25, u));
-      if (u < 0.16) cc = mix(cc, vec3(1.1, 0.95, 0.72), 0.6 + glow * 0.5);
-      col = mix(col, cc, 0.92);
+      float u = clamp(dy / max(thick, 0.001) * 0.5 + 0.5, 0.0, 1.0);
+      vec3 lit = mix(vec3(1.0, 0.74, 0.5), vec3(1.0, 0.92, 0.7), glow);
+      vec3 cc = mix(lit, mix(vec3(0.78, 0.46, 0.64), vec3(0.52, 0.36, 0.64), fk / 3.0), step(0.38 + dith * 0.25, u));
+      if (u < 0.16) cc = mix(cc, vec3(1.1, 0.96, 0.72), 0.6 + glow * 0.5);
+      col = mix(col, cc, k == 0 ? 0.55 : 0.92);
     }
   }
   // the sun disc, sliced by thin cloud lines
-  float r = 1.6;
+  float r = 1.35;
   if (dsun < r) {
-    vec3 sc = mix(vec3(2.4, 2.0, 1.25), vec3(1.9, 1.25, 0.6), smoothstep(0.0, r, dsun + dith * 0.3));
-    float slice = step(0.82, fract((p.y - uSun.y) * sk * 1.3 + 0.35)) * step(-r * 0.9, (p.y - uSun.y) * sk) * step((p.y - uSun.y) * sk, 0.1);
+    vec3 sc = mix(vec3(2.4, 2.05, 1.3), vec3(1.95, 1.3, 0.62), smoothstep(0.0, r, dsun + dith * 0.3));
+    float sl = (Y - sun.y) * 1.3 + 0.35;
+    float slice = step(0.82, fract(sl)) * step(-r * 0.9, Y - sun.y) * step(Y - sun.y, 0.1);
     col = mix(sc, col * 1.1, slice * 0.8);
   }
-  // birds: tiny "v" shapes drifting
-  for (int k = 0; k < 3; k++) {
+  // birds: little "v"s drifting, and a skein in formation
+  for (int k = 0; k < 7; k++) {
     float fk = float(k);
-    vec2 b = vec2(mod(uTime * (0.25 + fk * 0.05) + fk * 5.0, 20.0) - 10.0 + uSun.x * 0.5, (6.6 + fk * 0.9 + sin(uTime * 0.7 + fk) * 0.2) / sk);
-    vec2 q = (p - b) / (uPx * 1.0);
-    float flap = step(0.0, sin(uTime * 6.0 + fk * 2.0));
-    if (abs(q.y + abs(q.x) * (flap > 0.5 ? -0.7 : 0.25)) < 0.75 && abs(q.x) < 3.2) col = mix(col, vec3(0.32, 0.18, 0.32), 0.85);
+    vec2 b;
+    if (k < 3) b = vec2(mod(uTime * (0.25 + fk * 0.05) + fk * 5.0, 20.0) - 10.0 + uSun.x * 0.5, (8.3 + lift + fk * 0.7 + sin(uTime * 0.7 + fk) * 0.2) / sk);
+    else { float j = fk - 3.0; float lead = mod(uTime * 0.18 + 4.0, 26.0) - 13.0; b = vec2(lead - abs(j - 1.5) * 0.28 - (j > 1.5 ? 0.0 : 0.05), (9.0 + lift - abs(j - 1.5) * 0.22 + sin(uTime * 0.5) * 0.08) / sk); }
+    vec2 q = (p - b) / uPx;
+    float flap = step(0.0, sin(uTime * (k < 3 ? 6.0 : 4.5) + fk * 2.0));
+    if (abs(q.y + abs(q.x) * (flap > 0.5 ? -0.7 : 0.25)) < 0.75 && abs(q.x) < (k < 3 ? 3.2 : 2.4)) col = mix(col, vec3(0.34, 0.2, 0.34), 0.85);
   }
-  // distant mountains, hazy in the warm light
-  float mx = p.x * 0.11;
-  float mh = 1.25 + 0.9 * n11(mx) + 0.45 * n11(mx * 2.3 + 7.0) + 0.15 * abs(fract(mx * 3.0) - 0.5);
-  float ym = p.y * sk / 3.7;
-  if (ym < mh) {
-    vec3 mc = mix(vec3(0.84, 0.48, 0.6), vec3(0.98, 0.66, 0.6), glow * 0.8);
-    if (ym > mh - 0.18 && dith > -0.2) mc = mix(mc, vec3(1.0, 0.82, 0.62), 0.5 + glow * 0.4);
-    // snow caps on the tallest peaks
-    if (mh > 2.25 && ym > mh - 0.3) mc = mix(mc, vec3(1.0, 0.86, 0.78), 0.55);
+  // far range: pale, hazy, snow-capped, with a saddle where the sun sets
+  float saddle = 1.5 * exp(-pow((X - sun.x) / 3.2, 2.0));
+  vec2 m1 = range(X, 3.4, 1.4, 2.9, 5.0, sun.x);
+  float mh1 = 4.7 + lift + m1.x - saddle;
+  if (Y < mh1) {
+    float t = clamp((mh1 - Y) / 2.2, 0.0, 1.0);
+    vec3 mc = mix(vec3(0.86, 0.6, 0.74), vec3(0.98, 0.72, 0.66), glow * 0.7);
+    if (m1.y > 0.5) mc = mix(mc, vec3(1.0, 0.82, 0.62), 0.42 + glow * 0.3);
+    if (m1.x > 2.1 && Y > mh1 - 0.55 + dith * 0.2) mc = mix(mc, m1.y > 0.5 ? vec3(1.0, 0.93, 0.82) : vec3(0.82, 0.72, 0.88), 0.75);
+    if (Y > mh1 - 0.09) mc = mix(mc, vec3(1.0, 0.88, 0.7), 0.35 + glow * 0.4); // backlit rim
+    // aerial haze swallows the foot of the range
+    mc = mix(mc, vec3(1.0, 0.8, 0.64), smoothstep(0.25, 1.0, t + dith * 0.15) * 0.65);
     col = mc;
   }
-  // far forest (pink-violet) and near forest (deep plum), backlit rims
-  float hf = 0.45 + 0.2 * n11(p.x * 0.3) + pines(p.x, 0.36, 0.35, 0.8, 3.0);
+  // near range: rosier, darker, ridges catching the last light
+  vec2 m2 = range(X + 7.3, 2.3, 0.7, 1.7, 11.0, sun.x + 7.3);
+  float mh2 = 4.4 + lift + m2.x - saddle * 0.4;
+  if (Y < mh2) {
+    float t = clamp((mh2 - Y) / 1.6, 0.0, 1.0);
+    vec3 mc = mix(vec3(0.64, 0.4, 0.58), vec3(0.78, 0.48, 0.56), glow);
+    if (m2.y > 0.5) mc = mix(mc, vec3(0.98, 0.64, 0.52), 0.38 + glow * 0.3);
+    if (Y > mh2 - 0.08) mc = mix(mc, vec3(1.0, 0.76, 0.56), 0.4 + glow * 0.4);
+    mc = mix(mc, vec3(0.98, 0.72, 0.62), smoothstep(0.3, 1.0, t + dith * 0.15) * 0.55);
+    col = mc;
+  }
+  // drifting mist band over the valley floor
+  float mist = n11(X * 0.35 + uTime * 0.04) * 0.6 + n11(X * 0.9 - uTime * 0.03 + 5.0) * 0.4;
+  float mb = 1.0 - abs(Y - lift - 4.5 - (mist - 0.5) * 0.5) / (0.35 + mist * 0.4);
+  if (mb + dith * 0.35 > 0.25) col = mix(col, vec3(1.0, 0.84, 0.7), 0.45 + glow * 0.25);
+  // far forest (rose-violet, hazy) and near forest (deep plum), backlit rims
+  float hf = 0.45 + 0.2 * n11(p.x * 0.3) + max(pines(p.x, 0.36, 0.35, 0.8, 3.0), crowns(p.x, 0.5, 0.3, 0.55, 8.0));
   if (p.y < hf) {
-    vec3 fc2 = mix(vec3(0.6, 0.36, 0.5), vec3(0.72, 0.42, 0.5), glow);
-    if (p.y > hf - 0.05) fc2 = mix(fc2, vec3(1.0, 0.7, 0.5), 0.5 + glow * 0.5);
+    vec3 fc2 = mix(vec3(0.62, 0.38, 0.52), vec3(0.76, 0.46, 0.52), glow);
+    if (p.y > hf - 0.05) fc2 = mix(fc2, vec3(1.0, 0.72, 0.5), 0.5 + glow * 0.5);
     col = fc2;
   }
-  float hn = 0.12 + 0.15 * n11(p.x * 0.5 + 11.0) + pines(p.x + 0.31, 0.3, 0.3, 0.95, 17.0);
+  float hn = 0.12 + 0.15 * n11(p.x * 0.5 + 11.0) + max(pines(p.x + 0.31, 0.3, 0.3, 0.95, 17.0), crowns(p.x + 0.1, 0.42, 0.25, 0.6, 21.0));
   if (p.y < hn) {
     vec3 nc = vec3(0.30, 0.17, 0.28);
     if (p.y > hn - 0.04) nc = mix(nc, vec3(0.95, 0.55, 0.42), 0.35 + glow * 0.6);
-    // a few twinkly windows / fireflies in the dark woods
     float fx = floor(p.x / (uPx * 2.0)), fy = floor(p.y / (uPx * 2.0));
     float tw = h11(fx * 3.7 + fy * 11.3);
     if (tw > 0.996 && p.y < hn - 0.3) nc = vec3(1.4, 1.2, 0.5) * (0.6 + 0.4 * sin(uTime * 2.0 + tw * 90.0));
@@ -405,14 +460,16 @@ export class TitleScene {
       sky.hemi.groundColor.setHex(0x7a5a40);
       sky.hemi.intensity = 1.25;
       sky.state.skyTint.setHex(0xffc49a);
-      sky.state.waterShallow.lerp(col.setHex(0x58a0a0), 0.6);
-      sky.state.waterDeep.lerp(col.setHex(0x4a5a98), 0.6);
+      sky.state.waterShallow.lerp(col.setHex(0x6a9c9a), 0.6);
+      sky.state.waterDeep.lerp(col.setHex(0x584f92), 0.65);
       sky.state.night = 0;
+      // the pond mirrors the sunset: violet overhead, peach at the horizon
+      if (sky.uniforms?.uTop?.value?.isColor) { sky.uniforms.uTop.value.setHex(0x9a6aa8); sky.uniforms.uBottom.value.setHex(0xffb888); }
     };
   }
 
   _buildSky() {
-    this.skyUniforms = { uTime: { value: 0 }, uSun: { value: new THREE.Vector2(-5.2, 3.6) }, uPx: { value: 0.03 }, uTop: { value: 3 } };
+    this.skyUniforms = { uTime: { value: 0 }, uSun: { value: new THREE.Vector2(-5.2, 3.6) }, uPx: { value: 0.03 }, uTop: { value: 3 }, uNarrow: { value: 1 } };
     const geo = new THREE.PlaneGeometry(90, 40, 1, 1);
     geo.translate(0, 40 / 2 - 3, 0);
     const mat = new THREE.ShaderMaterial({ vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, uniforms: this.skyUniforms });
@@ -1210,6 +1267,28 @@ export class TitleScene {
     // a few fireflies always about, more as the evening goes on
     this.flyT -= dt;
     if (this.flyT <= 0) { this.flyT = rand(0.9, 1.8); this._firefly(); }
+    // autumn leaves let go of the trees on the left and drift over the pond on the breeze
+    this.leafT = (this.leafT ?? 1) - dt;
+    if (this.leafT <= 0) {
+      this.leafT = rand(0.8, 1.9);
+      const r = rand(-6.5, -1.5), f = rand(-3.5, 1.5);
+      const c = LEAF_COLS[Math.floor(Math.random() * LEAF_COLS.length)];
+      P.fx.spawn('leaf', s.x + R.x * r + F.x * f, rand(2.2, 3.4), s.z + R.z * r + F.z * f, {
+        vx: R.x * rand(0.2, 0.4) + rand(-0.08, 0.08), vy: -rand(0.22, 0.34), vz: R.z * rand(0.2, 0.4) + rand(-0.08, 0.08),
+        life: rand(9, 13), size: rand(0.07, 0.1), fps: 3, spin: 1.5, flags: FX.FLOAT | FX.WOBBLE | FX.FADE, tint: c,
+      });
+    }
+    // fish rising: soft rings spreading across the still water
+    this.rippleT = (this.rippleT ?? 0.5) - dt;
+    if (this.rippleT <= 0) {
+      this.rippleT = rand(1.2, 2.8);
+      const r = rand(-3.5, 2.5), f = -rand(0.8, 4.6);
+      const x = s.x + R.x * r + F.x * f, z = s.z + R.z * r + F.z * f;
+      if (game.grid.isWater(Math.floor(x), Math.floor(z))) {
+        P.ripple(x, z, rand(0.35, 0.6), 1, rand(0.12, 0.22));
+        if (Math.random() < 0.4) this._later(0.35, () => P.ripple(x + rand(-0.2, 0.2), z + rand(-0.2, 0.2), 0.3, 1, 0.1));
+      }
+    }
   }
 
   _firefly() {
@@ -1229,7 +1308,7 @@ export class TitleScene {
     const push = smooth(T / 26);
     const rr = this.game.renderer;
     const tall = (rr.rtW || 16) / (rr.rtH || 9) < 1; // phones in portrait: closer in
-    rig.wuppGoal = lerp(0.018, 0.0145, push) * (tall ? 0.72 : 1) * (1 + Math.sin(T * 0.07) * 0.025) * (1 - 0.2 * (this.punch || 0));
+    rig.wuppGoal = lerp(0.0168, 0.0138, push) * (tall ? 0.72 : 1) * (1 + Math.sin(T * 0.07) * 0.025) * (1 - 0.2 * (this.punch || 0));
     // keep the near plane below the bottom of the screen at this low pitch
     const hh0 = ((rr.rtH || 300) * rig.wupp) / 2;
     rig.dist = Math.max(24, (hh0 * Math.cos(rig.pitch) + 0.8) / Math.sin(rig.pitch));
@@ -1251,7 +1330,7 @@ export class TitleScene {
     const gx = fx + cy * shift, gz = fz - sy * shift;
     this._camFocus.x = lerp(this._camFocus.x, gx, k);
     this._camFocus.z = lerp(this._camFocus.z, gz, k);
-    rig.goal.set(this._camFocus.x, 0.35, this._camFocus.z);
+    rig.goal.set(this._camFocus.x, tall ? 1.6 : 0.35, this._camFocus.z); // tall: the diorama sits lower, under the logo
     if (instant) rig.target.copy(rig.goal);
     // the sky curtain hangs behind the diorama, facing the camera
     if (this.skyMesh) {
@@ -1261,9 +1340,10 @@ export class TitleScene {
       // sun disc sits upper-left in the sky
       const hh = (renderer.rtH || 300) * rig.wupp * 0.5;
       const pitch = rig.pitch;
-      const topH = (hh + 0.35 * Math.cos(pitch) - SKY_D * Math.sin(pitch)) / Math.cos(pitch);
+      const topH = (hh + rig.target.y * Math.cos(pitch) - SKY_D * Math.sin(pitch)) / Math.cos(pitch);
       this.skyUniforms.uTop.value = Math.max(0.8, topH);
-      this.skyUniforms.uSun.value.set(-viewW * 0.08 - shift * 0.5, Math.max(0.5, topH * 0.58));
+      this.skyUniforms.uNarrow.value = clamp(aspect, 0.62, 1);
+      this.skyUniforms.uSun.value.set(-viewW * 0.08 - shift * 0.5, 1.12 + topH * 0.1); // low, in the saddle above the ranges
     }
   }
 

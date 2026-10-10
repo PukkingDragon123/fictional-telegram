@@ -32,6 +32,7 @@ import { createFoxTalk } from '../ui/FoxTalk3D.js';
 import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
 import { CLASS_LESSONS } from './lessons/classes.js'; // [v26 tutorial]
+import { runQuiz } from './lessons/quiz.js'; // [v26 class2] interactive pop quizzes
 
 const mods = import.meta.glob(['../entities/foxRig.js'], { eager: true });
 const FoxMod = mods['../entities/foxRig.js'] || null;
@@ -320,6 +321,7 @@ export class Classroom {
       try { script = { ...script, steps: script.steps(this.game).filter(Boolean) }; } catch (e) { console.warn('Classroom: lesson build failed', e); script = null; }
     }
     if (!script || !Array.isArray(script.steps)) { console.warn('Classroom: unknown lesson', idOrScript); return Promise.resolve({ completed: false, skipped: false }); }
+    this._lessonKey = typeof idOrScript === 'string' ? idOrScript : script.title; // [v26 class2] quiz rewards are paid once per question
     const run = this._chain.then(() => this._run(script, opts));
     this._chain = run.catch(() => {});
     return run;
@@ -332,6 +334,7 @@ export class Classroom {
     this.board?.finish();
     this.titleBoard?.finish();
     this._finishType();
+    this._quiz?.abort(); // [v26 class2]
     const fr = this.foxState?.res;
     if (fr) { this.foxState.res = null; this.foxState.goal = null; fr(); }
     this.game.audio?.stopBabble?.();
@@ -395,6 +398,7 @@ export class Classroom {
     this.clock = 0;
     this._build();
     const result = { completed: false, skipped: false };
+    this._score = { right: 0, total: 0, coins: 0 }; // [v26 class2] quiz score for the stamp
     // remember everything we touch, restore it exactly on the way out
     this.saved = {
       overrideScene: game.overrideScene ?? null, overrideRig: game.overrideRig ?? null,
@@ -496,6 +500,7 @@ export class Classroom {
   }
 
   async _step(st) {
+    if (st.quiz) return this._quizStep(st); // [v26 class2]
     const room = this.room;
     if (st.erase) {
       this._hideSay();
@@ -543,6 +548,31 @@ export class Classroom {
     if (st.wait != null) await Promise.race([this.wait(st.wait), this._click()]);
     else await this._click();
     room.board.chalk.finish();
+    this._sfx('class_pop', { volume: 0.25, pitch: 1.3 });
+  }
+
+  // [v26 class2] a pop quiz: Reynard draws, asks, and the player taps / drags the answer on the board
+  async _quizStep(st) {
+    const room = this.room;
+    if (st.erase) { this._hideSay(); await this._erase(); }
+    this._check();
+    room.setDim?.(st.dim ? (st.dim === true ? 1 : st.dim) : 0);
+    if (st.sfx) this._sfx(st.sfx, { volume: 0.6 });
+    this.cam('board');
+    this._busy = true;
+    const line = this._say(st.say || '', st.expr || 'teacher');
+    if (st.draw) await this._draw(st.draw, st.speed || 1.3);
+    this._check();
+    await line.typed;
+    this._check();
+    this._sfx('class_tap', { volume: 0.5 });
+    const r = await runQuiz(this, st.quiz, [].concat(st.draw || []));
+    this._check();
+    this._busy = false;
+    if (r?.skipped) return;
+    await this._click(0.35);
+    room.board.chalk.finish();
+    this._idle();
     this._sfx('class_pop', { volume: 0.25, pitch: 1.3 });
   }
 
@@ -804,6 +834,7 @@ export class Classroom {
       <div class="cls-bars"><i></i><i></i></div>
       <div class="cls-hit" data-h="hit"></div>
       <button class="cls-skip${this.ff ? ' on' : ''}" data-h="skip" type="button" title="Fast forward x3"><i class="cls-ff-ico"><i></i><i></i></i><span class="cls-ff-x">x3</span><span class="cls-ff-lbl">FAST</span></button>
+      <button class="cls-out" data-h="out" type="button" title="Skip this class (Esc)">SKIP CLASS</button>
       <div class="cls-ask hidden" data-h="ask"></div>
       <div class="cls-title hidden" data-h="title"><div class="cls-title-wood"><canvas data-h="tcv"></canvas></div><i class="cls-title-nail l"></i><i class="cls-title-nail r"></i></div>
       <div class="cls-say hidden" data-h="say">
@@ -820,9 +851,11 @@ export class Classroom {
     this.q('say').addEventListener('pointerdown', adv);
     this.q('title').addEventListener('pointerdown', adv);
     this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_pop', { volume: 0.3 }); this.ff = !this.ff; e.currentTarget.classList.toggle('on', this.ff); this._askWrap(this.ff); });
+    this.q('out').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_erase', { volume: 0.4 }); this.skip(); }); // [v26 class2]
     this._onKey = (e) => {
       if (!this._active) return;
       const k = e.key;
+      if (this._quiz && /^[1-9]$/.test(k)) { e.preventDefault(); e.stopImmediatePropagation(); this._quiz.key(+k); return; } // [v26 class2]
       if (k === ' ' || k === 'Enter' || k === 'ArrowRight') { e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) this._advance(); }
       else if (k === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); this.skip(); }
     };
@@ -936,6 +969,7 @@ export class Classroom {
     if (this.titleBoard) {
       this.titleBoard.update(dt);
     }
+    this._quiz?.tick(); // [v26 class2] keep the answer rings on the board
   }
 
   // lesson title card: a little slate on a wooden frame, chalk-written live
@@ -971,7 +1005,10 @@ export class Classroom {
   _stamp() {
     const el = this.q('stamp');
     if (!el) return;
-    el.innerHTML = `<canvas width="40" height="40"></canvas><b>LESSON COMPLETE!</b><i>Gold star for you!</i>`;
+    // [v26 class2] the quiz score
+    const sc = this._score || { right: 0, total: 0, coins: 0 };
+    const sub = sc.total ? `${sc.right}/${sc.total} right first try${sc.coins ? ` &middot; +${sc.coins} coins` : ''}` : 'Gold star for you!';
+    el.innerHTML = `<canvas width="40" height="40"></canvas><b>${sc.total && sc.right === sc.total ? 'TOP OF THE CLASS!' : 'LESSON COMPLETE!'}</b><i>${sub}</i>`;
     drawGoldStar(el.querySelector('canvas'));
     el.classList.remove('hidden');
     void el.offsetWidth;

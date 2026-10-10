@@ -4,7 +4,7 @@ import { hutDecals } from '../entities/structureDecals.js';
 import { generateWorld, OFFICE, HUT, MEADOW, WORLD_W, WORLD_H, SIM_RECT, BIOME, LANDMARKS, WILLOW, GLADE, BARRIERS } from './worldgen.js';
 const landmarkMods = import.meta.glob('../entities/landmarkModels.js', { eager: true });
 const LM = landmarkMods['../entities/landmarkModels.js'] || null;
-import { buildTerrainGeometry, makeTerrainMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture, SURF, surfaceOf } from './terrain.js';
+import { buildTerrainGeometry, makeTerrainMaterial, makeTerrainDepthMaterial, buildWaterGeometry, makeWaterMaterial, buildShoreTexture, buildSurfaceTexture, SURF, surfaceOf } from './terrain.js'; // [v26 mountains] +depth
 import { buildPaintAtlas } from '../art/paintArt.js';
 import { WaterSim } from './waterSim.js';
 import { WaterFX } from './water.js'; // [v20 water]
@@ -78,12 +78,13 @@ export class World {
     };
     this.terrainMat = makeTerrainMaterial(this.uniforms);
     this.patchPaintShader();
-    try { patchCutawayMaterial(this.terrainMat, 'terrain', 1.4); } catch (e) { console.warn('terrain cutaway', e); } // [v26 world] mountains / cliffs in front of what you look at go see-through
+    // [v26 mountains] (no dither on the terrain any more: block columns that hide the spot are cut in whole blocks, terrain.js)
     this.terrain = new THREE.Mesh(buildTerrainGeometry(this.grid), this.terrainMat);
     this.terrain.receiveShadow = true;
     // bears walk the trail on the smoothed slope surface
     for (const tp of this.trail) tp[1] = this.grid.surfaceAtVisual(tp[0], tp[2]);
     this.terrain.castShadow = true;
+    try { this.terrain.customDepthMaterial = makeTerrainDepthMaterial(); } catch (e) { console.warn('terrain depth', e); } // [v26 mountains]
     scene.add(this.terrain);
 
     this.shoreTex = buildShoreTexture(this.grid);
@@ -680,6 +681,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     if (!this.clutterBatch) {
       this.clutterBatch = new SpriteBatch(tex, { max: 56000, lit: true, castShadow: false, receiveShadow: true, name: 'clutter' }); // [v26 world] (was 16000)
       this.flatBatch = new SpriteBatch(tex, { max: 9000, lit: true, castShadow: false, receiveShadow: true, renderOrder: 11, name: 'flatnature' }); // [v26 world] (was 3000)
+      try { patchCutawaySprites(this.clutterBatch.mesh.material, 'clutterCut', 0); patchCutawaySprites(this.flatBatch.mesh.material, 'flatCut', 0); } catch (e) { console.warn('clutter cutaway', e); } // [v26 mountains] rocks / bushes on cut blocks go too (no floating rocks)
     }
     const B = this.clutterBatch, F = this.flatBatch;
     B.clear();

@@ -601,6 +601,18 @@
 
   var api = { size: size, layout: layout, paint: paint, composite: composite };
   window.__tbmePaint = api;
+  // the pond diorama's still from the last visit (src/main.js saves it) when the window matches
+  try {
+    var st = /autostart|title=/.test(location.search) ? null : JSON.parse(localStorage.getItem('tbme.titleStill') || 'null');
+    if (st && st.v === 4 && st.w === window.innerWidth && st.h === window.innerHeight && st.src) {
+      var im = new Image();
+      im.id = 'tbme-paint';
+      im.src = st.src;
+      im.style.cssText = 'width:100vw;height:100vh;background:#614b87';
+      document.documentElement.appendChild(im);
+      return;
+    }
+  } catch (e) { /* no still: paint */ }
   try {
     var t0 = performance.now(), z = size(), L = paint(z.lw, z.lh), cv = document.createElement('canvas');
     cv.id = 'tbme-paint';

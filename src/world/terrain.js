@@ -227,6 +227,24 @@ if (aCube.x > 0.5) {
     .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;\nvCube = cubeV;');
 };
 
+// [v26 mountains] the shadow pass follows the line-of-sight cut (no shadow of a cut ridge over the window)
+export function makeTerrainDepthMaterial() {
+  const mat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, CUT_UNIFORMS);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 aCube;\nattribute vec4 aCutC;\n' + CUT_PLANE_GLSL)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+if (aCube.x > 0.5) {
+  float capS = mapCap(aCutC.xy), capN = mapCap(aCutC.zw);
+  float bot = min(aCube.z, capN);
+  transformed.y = abs(position.y - aCube.y) < 0.001 ? max(bot, min(aCube.y, capS)) : bot;
+}`);
+  };
+  mat.customProgramCacheKey = () => 'terrainDepthCut';
+  return mat;
+}
+
 export function makeTerrainMaterial(uniforms) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   mat.onBeforeCompile = (shader) => {

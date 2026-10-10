@@ -18,6 +18,7 @@ import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
 import { terrainAtlasUniforms } from './terrain.js';
 import { STONE, STONE_GLSL, stoneUniforms } from '../art/stoneArt.js';
 import { buildCubeGround, SPRITE_CAP } from './cubeMountains.js'; // [v26 world]
+import { CUT_UNIFORMS } from './cutaway.js'; // [v26 mountains]
 
 const E = 100; // how far the valley reaches past the map edge (tiles)
 const TREE_D = 14; // the thick sprite forest band
@@ -609,17 +610,17 @@ vec3 ringTex(int id, vec2 p) {
     const U = this.uniforms;
     mat.onBeforeCompile = (shader, r) => {
       prev.call(mat, shader, r);
-      Object.assign(shader.uniforms, { uHaze: U.uHaze, uRect: U.uRect, uRingCam: U.uRingCam, uHazeK: U.uHazeK });
+      Object.assign(shader.uniforms, { uHaze: U.uHaze, uRect: U.uRect, uRingCam: U.uRingCam, uHazeK: U.uHazeK }, CUT_UNIFORMS); // [v26 mountains] (+ the sight-line window)
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\n' + HAZE_PARS + SPRITE_CAP + '\nvarying float vRingHaze;') // [v26 world] the cut ranges' cap (was a squash)
         .replace('vec3 transformed = sprW;', 'vec3 transformed = sprW;\ntransformed.y += min(aPos.y, capAt(aPos.xz, 0.5)) - aPos.y;')
         .replace('vSEmis = aExtra.z;\n', 'vSEmis = aExtra.z;\nvSAlpha *= step(aPos.y - capAt(aPos.xz, 0.5), 0.6);\n')
-        .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = capAt(aPos.xz, 0.5) < 900.0 ? 0.0 : ringHaze(aPos);');
+        .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringCapRaw(aPos.xz, 0.5) < 900.0 ? 0.0 : ringHaze(aPos);');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;')
         .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze);\n#include <opaque_fragment>');
     };
-    mat.customProgramCacheKey = () => key + '3'; // [v26 world] (cap patch v3)
+    mat.customProgramCacheKey = () => key + '4'; // [v26 world] (cap patch v3) [v26 mountains] v4
     mat.needsUpdate = true;
   }
 

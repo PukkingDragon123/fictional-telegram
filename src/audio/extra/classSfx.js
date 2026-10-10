@@ -115,7 +115,24 @@ function rumble(ctx, dest, o, kit) {
   return v.end;
 }
 
+// [v26 class2] quiz answers: a bright two-note "ding-ding!" and a goofy slide-whistle "bwomp"
+function right(ctx, dest, o, kit) {
+  const v = new kit.Voice(ctx, dest, o, 0.3, 0.01);
+  v.bell({ t: 0, f: 1318, parts: kit.GLOCK, peak: 0.2, rel: 0.4 });
+  v.bell({ t: 0.09, f: 1976, parts: kit.GLOCK, peak: 0.22, rel: 0.6 });
+  v.tone({ t: 0.09, type: 'triangle', f: 988, a: 0.005, rel: 0.25, peak: 0.08 });
+  return v.end;
+}
+function wrong(ctx, dest, o, kit) {
+  const v = new kit.Voice(ctx, dest, o, 0.3, 0.02);
+  v.tone({ type: 'square', f: 330, f2: 140, gl: 0.38, a: 0.01, hold: 0.12, rel: 0.2, peak: 0.12, lp: 1200, vr: 6, vc: 18 });
+  v.tone({ t: 0.02, type: 'triangle', f: 220, f2: 92, gl: 0.4, a: 0.01, hold: 0.1, rel: 0.2, peak: 0.16 });
+  return v.end;
+}
+
 export const EXTRA_SFX = {
+  class_right: { fn: right, max: 2, gap: 0.08, g: 1.3 },
+  class_wrong: { fn: wrong, max: 1, gap: 0.2, g: 1.3 },
   class_gasp: { fn: gasp, max: 1, gap: 0.4, g: 1.3 },
   class_rumble: { fn: rumble, max: 1, gap: 0.4, g: 1.4 },
   class_chalk: { fn: chalk, max: 3, gap: 0.05, g: 1.3 },
