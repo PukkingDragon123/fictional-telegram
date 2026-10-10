@@ -49,7 +49,7 @@ class Wardrobe {
         <div class="wd-info"></div>
         <div class="wd-btns"><button class="wd-btn" data-a="wear"></button></div>
       </div>
-      <div class="wd-mirror" data-a="mirror"><i class="wd-glint"></i><span class="wd-hint">◀ drag to turn ▶</span></div>`;
+      <div class="wd-mirror" data-a="mirror"><i class="wd-glint"></i><span class="wd-hint">&lsaquo; drag to turn &rsaquo;</span></div>`;
     root.appendChild(el);
     this.el = el;
     this.$hang = el.querySelector('.wd-hangers');

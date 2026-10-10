@@ -239,6 +239,7 @@ export function buildLongneck(k, { game, night }) {
     greet: line ? [line] : ['...Ah. ... ... Come in. ... ... Slowly.', '...Shoes... ... off. ... ... Shell... on.'],
     bye: ['...Off you... ... go.', '...Come back... ... in a century... ... or two.'],
     chatter: ['...', '...Hm.', '...Tea.'],
-    update: () => slowAll(game, 'homelongneck', 3.5), // everything he says in here types slowly
+    // everything he says in here types slowly (but not the goodbye: that bubble outlives the room)
+    update: (dt, t, mode) => { if (mode?.state === 'inside') slowAll(game, 'homelongneck', 3.5); else for (const b of game.ui?.bubbles?.list || []) if (b.key === 'homelongneck') b.__ln = 1; },
   };
 }

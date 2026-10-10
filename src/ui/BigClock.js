@@ -1,22 +1,20 @@
-// BigClock: the one and only time UI. [v26 evening] Restyled as a vintage brass alarm
-// clock: an engraved (knurled) brass bezel, a cream enamel dial with Roman numerals, ornate
-// blued hands, a glass glint, twin bells on top that rattle at 5 PM, a day/date window,
-// a weather/season sub-dial (when game.seasons exists) and the blood-moon countdown pip.
-// Still a cute face in the middle (its moods tell you how close the feast is). No text.
+// BigClock: the one and only time UI. [v26 evening] An antique brass alarm clock: a patinated,
+// engraved bezel (verdigris specks, dents) with the day's schedule as thin enamel inlays (work,
+// lunch, the 5 PM feast with a tiny bear-head pip, night with a moon pip), an ivory enamel dial
+// with fine ticks and Roman numerals, slim blued hands (fleur-de-lis hour hand), a sub-dial for
+// the weather / season (game.seasons) or a running seconds hand, a day/date window, the blood-
+// moon pip, glass glare, and twin bells that rattle at 5 PM. No face, no text.
 //
 //   const clock = new BigClock(container, { onSpeed, sfx, icon, game });
 //   clock.update(dt, { hour, phase, day, weekday, speed, paused,
 //                      sections: [{ from, to, kind: 'work'|'lunch'|'rush'|'night'|'off' }] });
 //   clock.setVisible(on); clock.destroy();
 //
-// Dial: a 24-hour "day dial": noon at the top, midnight at the bottom (morning on the
-// left, evening on the right), so the whole day's schedule fits once round the chapter
-// ring as enamel arcs with a tiny pictogram each (work green + fish, lunch orange + fork,
-// rush red + paw, night navy + moon, off sky + sun). The short (blued, spade-tipped) hand
-// turns once a day, the long one sweeps once an hour.
-// Moods: calm -> (rush < 2h) worried pulse -> (< 1h) wobble -> (< 15 min until a bit after
-// the start) RING: the bells rattle, the hammer flails. paused: sleepy face + z's.
-// weekday 0 / 'sun' / phase 'off': a sunny day-off dial.
+// Dial: a 24-hour "day dial": noon at the top, midnight at the bottom. The hour hand turns
+// once a day, the minute hand sweeps once an hour.
+// Moods (CSS): calm -> (feast < 2h) pulse -> (< 1h) wobble -> (< 15 min until just after the
+// start) RING: the bells rattle, the hammer flails. paused: the z's drift off the bells.
+// weekday 0 / 'sun' / phase 'off': the inlay turns sky blue (day off).
 // Click: speed 1x -> 2x -> 3x -> 1x (chevrons on the brass plate under the clock), onSpeed(n).
 // Size: 72 art px dial at 2x on desktop, 48 px on phones.
 import './bigclock.css';
@@ -26,25 +24,16 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const mod24 = (h) => ((h % 24) + 24) % 24;
 
 const INK = '#2a1a14';
+// [v26 evening] antique: patinated brass, ivory enamel, blued steel; the schedule as thin enamel inlays
 const C = {
-  enamel: '#f8f0dc', enamelSh: '#eadcbc', enamelDk: '#d8c69c',
-  brass: '#e2b04a', brassHi: '#fff0a6', brassLt: '#f6d47a', brassSh: '#b0802c', brassDk: '#7a5418',
-  steel: '#2c3c78', steelHi: '#5a74c8', red: '#c8322a', blush: '#f2a0a6', sweat: '#7cc4f0', white: '#ffffff',
-  sun: '#ffd23f', sunSh: '#f0a020', moonRed: '#e0302a', moonDk: '#6a0e10',
+  enamel: '#f1e6cb', enamelSh: '#e4d5b0', enamelDk: '#cdbb92', crack: '#d6c69e', tick: '#3a2a1c', tickL: '#8a7458',
+  brass: '#b08a42', brassHi: '#ecd28c', brassLt: '#cfac62', brassSh: '#86642c', brassDk: '#54401c', verd: '#6f8f74', verdL: '#8fae92', dent: '#634a22',
+  steel: '#2a3a6e', steelHi: '#5a72b8', red: '#9a2a22', white: '#fbf6e8',
+  sun: '#e8b83a', sunSh: '#b8862a', moonRed: '#c8302a', moonDk: '#5a0e10',
 };
-const KIND = {
-  work: ['#8ccf84', '#62ac60', INK],
-  lunch: ['#f4a650', '#d2822e', INK],
-  rush: ['#e65a4c', '#bc3a36', '#fff4dc'],
-  night: ['#34427c', '#252e5c', '#fff1a0'],
-  off: ['#bfe3f4', '#93c6e0', INK],
-};
-const PICTO = {
-  work: ['.kkk.k', 'k.kkkk', '.kkk.k'],
-  lunch: ['k.k.k', 'kkk.k', '.k.kk', '.k..k'],
-  rush: ['k.k.k', '.....', '.kkk.', 'kkkkk', '.kkk.'],
-  night: ['.kkk', 'kk..', 'kk..', '.kkk'],
-  off: ['k.k.k', '.kkk.', 'kkkkk', '.kkk.', 'k.k.k'],
+const KIND = { // thin inlays: [colour, shade]
+  work: ['#6f8a5c', '#56704a'], lunch: ['#c08a46', '#9a6c34'], rush: ['#8e2c26', '#6a1e1a'],
+  night: ['#2e3864', '#222a4c'], off: ['#7aa4c4', '#5a86a8'],
 };
 // tiny engraved glyphs (Roman numerals, the date window)
 const GL = {
@@ -103,7 +92,7 @@ export class BigClock {
     this.speed = 1;
     this.st = { hour: 9, sections: [], speed: 1, paused: false };
     this.el = document.createElement('div');
-    this.el.className = 'bclock bclock-vintage';
+    this.el.className = 'bclock bclock-vintage bclock-antique';
     this.btn = document.createElement('button');
     this.btn.type = 'button';
     this.btn.className = 'bclock-btn';
@@ -236,88 +225,81 @@ export class BigClock {
     const cx = W / 2, cy = H - R - 9;
     this.cx = cx; this.cy = cy;
     const big = D >= 64;
-    const bez = big ? 6 : 4, ringW = big ? 6 : 4;
-    const rOut = R - bez, rIn = rOut - ringW;
+    const bez = big ? 7 : 5, inl = big ? 2 : 1;
+    const rOut = R - bez, rIn = rOut - inl;
     this.rIn = rIn; this.rOut = rOut;
     const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+    const hsh = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
     const dayOff = this.dayOff;
-    const merged = mergeSections(sections);
-    // brass legs
+    // feet
     for (const sx of [-1, 1]) {
       const fx = Math.round(cx + sx * R * 0.6), fy = Math.round(cy + R * 0.8);
-      for (let y = 0; y < 5; y++) for (let x = -2; x <= 2; x++) {
-        const edge = y === 4 || Math.abs(x) === 2;
-        px(fx + x + Math.round(sx * y * 0.6), fy + y, edge ? INK : x * sx < 0 ? C.brassLt : C.brassSh);
-      }
+      for (let y = 0; y < 5; y++) for (let x = -2; x <= 2; x++) px(fx + x + Math.round(sx * y * 0.6), fy + y, y === 4 || Math.abs(x) === 2 ? '#2a1c10' : x * sx < 0 ? C.brassLt : C.brassSh);
     }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const dx = x + 0.5 - cx, dy = y + 0.5 - cy, r = Math.hypot(dx, dy);
       if (r > R + 0.5) continue;
-      const lit = (-dx - dy) / (R * 1.4);
-      const dith = (x + y) & 1;
-      const ang = (Math.atan2(dx, -dy) + TAU) % TAU;
-      if (r > R - 0.7) px(x, y, INK);
-      else if (r > rOut) {
-        // engraved, knurled brass bezel: bright top-left, deep bottom-right, a groove in the middle, notches
+      const lit = (-dx - dy) / (R * 1.4), ang = (Math.atan2(dx, -dy) + Math.PI * 2) % (Math.PI * 2);
+      const h = hsh(x, y);
+      if (r > R - 0.7) { px(x, y, '#2a1c10'); continue; }
+      if (r > rOut) {
+        // patinated brass bezel: worn bright where hands touch it, a beaded groove, engraved scroll, verdigris + dents
         const u = (r - rOut) / bez;
-        const notch = Math.floor(ang / TAU * (big ? 64 : 44)) % 2 === 0;
-        let col = lit > 0.45 ? C.brassHi : lit > 0.1 ? C.brassLt : lit < -0.5 ? C.brassDk : lit < -0.15 ? C.brassSh : C.brass;
-        if (u > 0.42 && u < 0.62) col = notch ? (lit > 0 ? C.brassSh : C.brassDk) : (lit > 0 ? C.brassLt : C.brassSh);
-        else if (dayOff && u < 0.42) col = lit > 0 ? C.sun : C.sunSh;
-        px(x, y, col);
-      } else if (r > rOut - 1 || (r <= rIn + 0.5 && r > rIn - 0.5)) px(x, y, INK);
-      else if (r > rIn) {
-        // the chapter ring: the day's schedule in enamel
-        if (dayOff) { px(x, y, lit < -0.3 && dith ? KIND.off[1] : KIND.off[0]); continue; }
-        const hr = mod24((ang / TAU) * 24 + 12);
-        const sec = secAt(sections, hr);
-        let base = C.enamelSh, sh = C.enamelDk;
-        if (sec && KIND[sec.kind]) [base, sh] = KIND[sec.kind];
-        let sep = false;
-        for (const q of merged) {
-          const a = ((q.from - 12) / 24) * TAU;
-          const da = Math.abs(((ang - a + TAU * 1.5) % TAU) - Math.PI);
-          if (da * r < 0.55) sep = true;
-        }
-        const rr = (r - rIn) / ringW;
-        px(x, y, sep ? INK : rr < 0.3 || (lit < -0.2 && dith) ? sh : base);
-      } else {
-        // cream enamel dial with a soft shadow at the bottom right
-        px(x, y, lit < -0.5 && dith ? C.enamelDk : lit < -0.3 ? C.enamelSh : C.enamel);
+        let col = lit > 0.5 ? C.brassHi : lit > 0.15 ? C.brassLt : lit < -0.5 ? C.brassDk : lit < -0.15 ? C.brassSh : C.brass;
+        if (u > 0.4 && u < 0.62) col = Math.floor(ang / (Math.PI * 2) * (big ? 72 : 48)) % 2 ? (lit > 0 ? C.brassSh : C.brassDk) : (lit > 0 ? C.brassLt : C.brassSh);
+        else if (u >= 0.62 && big && Math.sin(ang * 36 + u * 9) > 0.55) col = lit > 0 ? C.brass : C.brassDk; // engraved scroll
+        if (h < 0.045) col = h < 0.02 ? C.verd : C.verdL;
+        else if (h > 0.985) col = C.dent;
+        px(x, y, col); continue;
+      }
+      if (r > rIn - 0.5) {
+        // thin enamel inlay: the day's schedule (work / lunch / the feast / night)
+        const hr = (((ang / (Math.PI * 2)) * 24 + 12) % 24 + 24) % 24;
+        const sec = dayOff ? { kind: 'off' } : secAt(sections, hr);
+        const k = sec && KIND[sec.kind];
+        px(x, y, k ? (lit < -0.2 && (x + y) & 1 ? k[1] : k[0]) : C.brassSh);
+        continue;
+      }
+      // ivory enamel, aged toward the edge, a few hairline crazing cracks
+      let col = r > rIn - 2.5 ? C.enamelSh : lit < -0.45 && (x + y) & 1 ? C.enamelDk : lit < -0.25 ? C.enamelSh : C.enamel;
+      if (big && Math.abs(Math.sin(dx * 0.9 + dy * 0.35) * 6 - dy * 0.4) < 0.18 && r > rIn * 0.55) col = C.crack;
+      px(x, y, col);
+    }
+    // a hairline chapter circle, then minute ticks (every 15 min of the day), hour ticks, Roman numerals
+    const tickR = rIn - 1.6;
+    const steps = big ? 96 : 24;
+    for (let i = 0; i < steps; i++) {
+      const hr = (i / steps) * 24, a = ((hr - 12) / 24) * Math.PI * 2;
+      const hour = Math.abs(hr - Math.round(hr)) < 1e-6, three = hour && Math.round(hr) % 3 === 0;
+      const len = three ? (big ? 3 : 2) : hour ? 2 : 1;
+      for (let k = 0; k < len; k++) {
+        const rr = tickR - k;
+        px(Math.round(cx + Math.sin(a) * rr - 0.5), Math.round(cy - Math.cos(a) * rr - 0.5), hour ? C.tick : C.tickL);
       }
     }
-    // hour pips + Roman numerals every 3 hours (XII at noon / midnight, VI at 6 AM / 6 PM)
-    for (let h = 0; h < 24; h++) {
-      const a = ((h - 12) / 24) * TAU, rr = rIn - 1.6;
-      const x = Math.round(cx + Math.sin(a) * rr - 0.5), y = Math.round(cy - Math.cos(a) * rr - 0.5);
-      if (h % 3) { if (big) px(x, y, C.enamelDk); continue; }
+    for (let h = 0; h < 24; h += 3) {
+      if (!big && h % 6) continue;
+      const a = ((h - 12) / 24) * Math.PI * 2;
       const num = ['XII', 'III', 'VI', 'IX'][(h % 12) / 3];
-      if (!big && h % 6) { px(x, y, INK); continue; }
       const glyphs = [...num].map((ch) => GL[ch]);
       const w = glyphs.reduce((s2, gl) => s2 + gl[0].length + 1, -1);
-      const rn = rIn - (big ? 5.5 : 4.5);
+      const rn = tickR - (big ? 6.5 : 4.5);
+      if (h === 0 && big) continue; // the date window lives there
       const nx = Math.round(cx + Math.sin(a) * rn - w / 2), ny = Math.round(cy - Math.cos(a) * rn - 2.5);
       let ox = nx;
-      for (const gl of glyphs) { gl.forEach((row, yy) => { for (let xx = 0; xx < row.length; xx++) if (row[xx] === 'k') px(ox + xx, ny + yy, '#4a3420'); }); ox += gl[0].length + 1; }
+      for (const gl of glyphs) { gl.forEach((row, yy) => { for (let xx = 0; xx < row.length; xx++) if (row[xx] === 'k') px(ox + xx, ny + yy, C.tick); }); ox += gl[0].length + 1; }
     }
-    // pictogram badges on the chapter ring
-    if (!dayOff && big)
-      for (const q of merged) {
-        const p = PICTO[q.kind];
-        if (!p) continue;
-        let len = q.to - q.from;
-        if (len <= 0) len += 24;
-        if (len < 1.5) continue;
-        const mid = q.from + len / 2, rm = (rIn + rOut) / 2, a = ((mid - 12) / 24) * TAU;
-        const [base, , fg] = KIND[q.kind];
-        const bcx = cx + Math.sin(a) * rm, bcy = cy - Math.cos(a) * rm, br = 4.6;
-        for (let y = Math.floor(bcy - br - 1); y <= bcy + br + 1; y++) for (let x = Math.floor(bcx - br - 1); x <= bcx + br + 1; x++) {
-          const d = Math.hypot(x + 0.5 - bcx, y + 0.5 - bcy);
-          if (d <= br - 0.6) px(x, y, base); else if (d <= br + 0.5) px(x, y, INK);
-        }
-        const w = p[0].length, h = p.length, ox = Math.round(bcx - w / 2), oy = Math.round(bcy - h / 2);
-        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (p[y][x] === 'k') px(ox + x, oy + y, fg);
-      }
+    // tiny inlaid pips on the bezel: a bear head at the feast, a moon in the night
+    const pip = (hr, rows, col) => {
+      const a = ((hr - 12) / 24) * Math.PI * 2, rr = rOut + bez * 0.5;
+      const bx = Math.round(cx + Math.sin(a) * rr), by = Math.round(cy - Math.cos(a) * rr);
+      rows.forEach((row, yy) => { for (let xx = 0; xx < row.length; xx++) if (row[xx] !== '.') px(bx - (row.length >> 1) + xx, by - (rows.length >> 1) + yy, row[xx] === 'k' ? '#2a1c10' : col); });
+    };
+    if (!dayOff) {
+      const rush = sections.find((q) => q.kind === 'rush'), night = mergeSections(sections).find((q) => q.kind === 'night');
+      if (rush) pip(rush.from, big ? ['b.b', 'bbb', '.b.'] : ['b.b', 'bbb'], '#e8c8a0');
+      if (night) { let len = night.to - night.from; if (len <= 0) len += 24; pip((night.from + len / 2) % 24, big ? ['.mm', 'm..', 'm..', '.mm'] : ['mm', 'm.'], '#f4e6a8'); }
+    }
     this._face = c;
     return c;
   }
@@ -332,41 +314,39 @@ export class BigClock {
     const px = (x, y, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), 1, 1); };
     const rows = (r, ox, oy, pal) => { for (let y = 0; y < r.length; y++) for (let x = 0; x < r[y].length; x++) if (pal[r[y][x]]) px(ox + x, oy + y, pal[r[y][x]]); };
 
-    // ---- twin bells + hammer (behind the case)
+    // ---- twin bells + hammer (behind the case), rattling at the feast
     const ring = mode === 'ring', fr = Math.floor(t * 18);
     for (const sx of [-1, 1]) {
       const sh = ring ? (fr % 2 ? 1 : -1) * sx : 0;
       const bx = cx + sx * R * 0.62 + sh, by = cy - R * 0.78 - (ring && fr % 4 < 2 ? 1 : 0);
-      // the bell's stem into the case
       for (let k = 0; k < 4; k++) px(cx + sx * (R * 0.5 - k), cy - R * 0.62 - k * 0.6, C.brassDk);
       this._bell(px, bx, by, big ? 7 : 5);
-      if (ring) {
-        const far = fr % 2 ? 1 : 0, L = big ? 3 : 2;
-        for (const [ux, uy] of [[0.96, 0.28], [0.7, -0.7], [0.28, -0.96]]) for (let k = 0; k < L; k++) px(bx + sx * ux * ((big ? 9 : 7) + far + k), by - 1 + uy * ((big ? 9 : 7) + far + k), INK);
-      }
+      if (ring) for (const [ux, uy] of [[0.96, 0.28], [0.7, -0.7], [0.28, -0.96]]) for (let k = 0; k < (big ? 3 : 2); k++) px(bx + sx * ux * ((big ? 9 : 7) + (fr % 2) + k), by - 1 + uy * ((big ? 9 : 7) + (fr % 2) + k), '#2a1c10');
     }
     {
       const hx = cx + (ring ? (fr % 2 ? 3 : -3) : 0), hy = cy - R - (big ? 4 : 3);
       for (let y = 0; y < (big ? 5 : 4); y++) px(cx, cy - R - y + 1, C.brassDk);
-      for (let x = -1; x <= 1; x++) for (let y = 0; y < 2; y++) px(hx + x, hy + y - 1, x === 0 && y === 0 && !ring ? C.brassHi : INK);
-      // the carry ring on top
+      for (let x = -1; x <= 1; x++) for (let y = 0; y < 2; y++) px(hx + x, hy + y - 1, x === 0 && y === 0 && !ring ? C.brassHi : '#2a1c10');
       if (big) for (const [dx, dy] of [[-2, -2], [-1, -3], [0, -3], [1, -3], [2, -2]]) px(cx + dx, hy - 2 + dy, C.brassSh);
     }
-
     g.drawImage(face, 0, 0);
 
-    // ---- weather / season sub-dial (top of the dial) and the date window (bottom)
-    const sdy = Math.round(cy - R * (big ? 0.24 : 0.3)), sdr = big ? 5 : 4;
+    // ---- sub-dial: the weather (seasons) or a little running seconds hand
+    const sdy = Math.round(cy - R * (big ? 0.26 : 0.3)), sdr = big ? 5 : 4;
+    for (let y = -sdr - 1; y <= sdr + 1; y++) for (let x = -sdr - 1; x <= sdr + 1; x++) {
+      const d = Math.hypot(x, y);
+      if (d <= sdr - 0.5) px(cx + x, sdy + y, x0.season ? SEASON_TINT[x0.season] : C.enamelSh); else if (d <= sdr + 0.6) px(cx + x, sdy + y, C.brassSh);
+    }
     if (x0.wx || this.dayOff) {
-      const tint = SEASON_TINT[x0.season] || '#f0e6cc';
-      for (let y = -sdr - 1; y <= sdr + 1; y++) for (let x = -sdr - 1; x <= sdr + 1; x++) {
-        const d = Math.hypot(x, y);
-        if (d <= sdr - 0.5) px(cx + x, sdy + y, tint); else if (d <= sdr + 0.6) px(cx + x, sdy + y, C.brassSh);
-      }
-      const gl = WX[this.dayOff && !x0.wx ? 'clear' : x0.wx] || WX.clear;
+      const gl = WX[x0.wx || 'clear'] || WX.clear;
       if (big) rows(gl.slice(1, 6).map((r) => r.slice(1, 6)), cx - 2, sdy - 2, WXPAL);
       else rows(gl.filter((_, i) => i % 2 === 0).map((r) => r.split('').filter((_, i) => i % 2 === 0).join('')), cx - 2, sdy - 2, WXPAL);
+    } else {
+      const sa = ((Date.now() / 1000) % 60) / 60 * Math.PI * 2;
+      for (let k = 0; k <= sdr - 1; k++) px(cx + Math.sin(sa) * k, sdy - Math.cos(sa) * k, C.red);
+      px(cx, sdy, C.tick);
     }
+    // ---- the date window
     {
       const wd = typeof this.st.weekday === 'string' ? this.st.weekday.slice(0, 3).toUpperCase() : '';
       const dayN = String(this.st.day ?? '');
@@ -375,113 +355,71 @@ export class BigClock {
       let w = 0;
       for (const gl of glyphs) w += gl ? gl[0].length + 1 : 2;
       w = Math.max(5, w - 1);
-      const wy = Math.round(cy + R * (big ? 0.42 : 0.4)), wx0 = Math.round(cx - w / 2);
+      const wy = Math.round(cy + R * (big ? 0.4 : 0.36)), wx0 = Math.round(cx - w / 2);
       for (let y = -2; y <= 6; y++) for (let x = -2; x <= w + 1; x++) {
         const edge = y === -2 || y === 6 || x === -2 || x === w + 1;
-        px(wx0 + x, wy + y, edge ? C.brassSh : y === -1 ? '#d8d0bc' : C.white);
+        px(wx0 + x, wy + y, edge ? C.brassSh : y === -1 ? '#ddd2b8' : C.white);
       }
       let ox = wx0;
       for (const gl of glyphs) {
         if (!gl) { ox += 2; continue; }
-        gl.forEach((row, yy) => { for (let xx = 0; xx < row.length; xx++) if (row[xx] === 'k') px(ox + xx, wy + yy, ox - wx0 > (big ? 12 : -1) ? C.red : INK); });
+        gl.forEach((row, yy) => { for (let xx = 0; xx < row.length; xx++) if (row[xx] === 'k') px(ox + xx, wy + yy, ox - wx0 > (big ? 12 : -1) ? C.red : C.tick); });
         ox += gl[0].length + 1;
       }
     }
-
     // ---- blood-moon pip on the bezel (lower right): a red moon + one dot per day to go
     if (x0.moon && (x0.moon.tonight || x0.moon.days <= 6)) {
-      const a = 0.62 * Math.PI, rr = R - (big ? 3 : 2);
+      const a = 0.62 * Math.PI, rr = R - (big ? 3.5 : 2.5);
       const mx = Math.round(cx + Math.sin(a) * rr), my = Math.round(cy - Math.cos(a) * rr);
-      const hot = x0.moon.tonight || x0.moon.days <= 1;
-      const on = !hot || Math.floor(t * 3) % 2 === 0;
-      const mr = big ? 3 : 2;
+      const hot = x0.moon.tonight || x0.moon.days <= 1, on = !hot || Math.floor(t * 3) % 2 === 0, mr = big ? 3 : 2;
       for (let y = -mr - 1; y <= mr + 1; y++) for (let x = -mr - 1; x <= mr + 1; x++) {
         const d = Math.hypot(x, y);
-        if (d <= mr + 0.4) px(mx + x, my + y, (x + 1.4) ** 2 + (y - 0.6) ** 2 < (mr - 0.5) ** 2 ? C.moonDk : on ? C.moonRed : '#902020');
-        else if (d <= mr + 1.3) px(mx + x, my + y, INK);
+        if (d <= mr + 0.4) px(mx + x, my + y, (x + 1.4) ** 2 + (y - 0.6) ** 2 < (mr - 0.5) ** 2 ? C.moonDk : on ? C.moonRed : '#802020');
+        else if (d <= mr + 1.3) px(mx + x, my + y, '#2a1c10');
       }
-      if (!x0.moon.tonight) for (let i = 0; i < x0.moon.days; i++) {
-        const aa = a - (i + 1) * (big ? 0.11 : 0.15);
-        px(cx + Math.sin(aa) * rr, cy - Math.cos(aa) * rr, i === 0 && hot ? C.moonRed : C.moonDk);
-      }
+      if (!x0.moon.tonight) for (let i = 0; i < x0.moon.days; i++) { const aa = a - (i + 1) * (big ? 0.11 : 0.15); px(cx + Math.sin(aa) * rr, cy - Math.cos(aa) * rr, i === 0 && hot ? C.moonRed : C.moonDk); }
     }
-
-    // ---- the face (eyes + mouth sit between the sub-dial and the date window)
-    const ey = Math.round(cy - (big ? 2 : 1)), ex = Math.max(4, Math.round(R * 0.27));
-    const my = Math.round(cy + R * (big ? 0.18 : 0.16));
-    const pal = { k: INK, w: C.white, p: C.blush, b: C.sweat, r: '#e04040' };
-    const blink = mode !== 'sleep' && Math.floor(t * 10) % 37 === 0;
-    const blush = () => { if (!big) return; rows(['pp'], cx - ex - 4, ey + 3, pal); rows(['pp'], cx + ex + 3, ey + 3, pal); };
-    if (mode === 'sun') {
-      rows(['.k.', 'k.k'], cx - ex - 1, ey, pal); rows(['.k.', 'k.k'], cx + ex - 1, ey, pal);
-      rows(['k...k', '.kkk.'], cx - 2, my, pal); blush();
-    } else if (mode === 'sleep') {
-      const se = big ? ['k..k', '.kk.'] : ['kk'];
-      rows(se, cx - ex - (big ? 2 : 1), ey, pal); rows(se, cx + ex - (big ? 1 : 0), ey, pal);
-      rows(big ? ['.k.', 'k.k', '.k.'] : ['k'], cx - (big ? 1 : 0), my, pal); blush();
-      for (let i = 0; i < 3; i++) {
-        const p = (t * 0.45 + i / 3) % 1;
-        if (p > 0.92) continue;
-        const zx = Math.round(cx + R * 0.5 + p * (big ? 10 : 7) + Math.sin(p * 7 + i) * 1.2), zy = Math.round(cy - R * 0.6 - p * (big ? 22 : 15));
-        const zr = p < 0.3 ? ['kk', '.k', 'kk'] : Z;
-        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) rows(zr, zx + dx, zy + dy, { k: C.white });
-        rows(zr, zx, zy, { k: INK });
-      }
-    } else if (mode === 'ring') {
-      rows(big ? ['kk..', '..kk', 'kk..'] : ['k..', '.k.', 'k..'], cx - ex - (big ? 2 : 1), ey - 1, pal);
-      rows(big ? ['..kk', 'kk..', '..kk'] : ['..k', '.k.', '..k'], cx + ex - 1, ey - 1, pal);
-      rows(big ? ['.kkk.', 'kwwwk', 'krrrk', '.kkk.'] : ['kkk', 'krk', 'kkk'], cx - (big ? 2 : 1), my - 1 + (fr % 2), pal);
-      rows(['b', 'bb'], cx + ex + 3, ey - 3, { b: C.sweat });
-    } else if (mode === 'wobble') {
-      rows(['kk', 'kk'], cx - ex - 1, ey, pal); rows(['kk', 'kk'], cx + ex, ey, pal);
-      rows(['.k.', 'k.k', '.k.'], cx - 1, my, pal);
-      rows(['.b', 'bb', 'bb'], cx + ex + 3, ey - 3, { b: C.sweat });
-    } else if (mode === 'pulse' || mode === 'busy') {
-      rows(['k..', '.k.'], cx - ex - 1, ey - 2, pal); rows(['..k', '.k.'], cx + ex - 1, ey - 2, pal);
-      rows(blink ? ['kk'] : ['k', 'k'], cx - ex, ey + 1, pal); rows(blink ? ['kk'] : ['k', 'k'], cx + ex, ey + 1, pal);
-      rows(['.kkk.', 'k...k'], cx - 2, my, pal);
-      if (mode === 'pulse') rows(['.b', 'bb'], cx + ex + 3, ey - 2, { b: C.sweat });
-    } else {
-      const eye = blink ? ['kk'] : big ? ['kk', 'kk'] : ['k', 'k'];
-      rows(eye, cx - ex - 1, ey - 1, pal); rows(eye, cx + ex - (big ? 1 : 0), ey - 1, pal);
-      rows(big ? ['k...k', '.kkk.'] : ['k.k', '.k.'], cx - (big ? 2 : 1), my, pal); blush();
-    }
-
-    // ---- ornate hands: blued steel hour hand with a spade tip, slim minute hand with a red tail
+    // ---- slim blued hands: the hour hand with a fleur-de-lis spade, a thin minute hand with a counterweight
     const hour = mod24(this.st.hour ?? 0);
-    const ah = ((hour - 12) / 24) * TAU, am = (hour % 1) * TAU, rIn = this.rIn;
-    this._hand(px, cx, cy, ah, rIn * 0.6, 2, C.steel, C.steelHi);
-    this._spade(px, cx, cy, ah, rIn * 0.6, big);
-    this._hand(px, cx, cy, am + Math.PI, rIn * 0.22, 1, C.red);
-    this._hand(px, cx, cy, am, rIn * 0.88, 1, INK);
+    const ah = ((hour - 12) / 24) * Math.PI * 2, am = (hour % 1) * Math.PI * 2, rIn = this.rIn;
+    this._hand(px, cx, cy, ah, rIn * 0.58, 1, C.steel);
+    this._spade(px, cx, cy, ah, rIn * 0.58, big);
+    this._hand(px, cx, cy, am + Math.PI, rIn * 0.2, 1, C.steel);
+    const cwx = cx - Math.sin(am) * rIn * 0.2, cwy = cy + Math.cos(am) * rIn * 0.2;
+    rows(['.s.', 'sSs', '.s.'], cwx - 1, cwy - 1, { s: C.steel, S: C.steelHi });
+    this._hand(px, cx, cy, am, rIn * 0.86, 1, '#1a1420');
     rows(big ? ['.yy.', 'yYyy', 'yyyy', '.yy.'] : ['yy', 'yy'], cx - (big ? 2 : 1), cy - (big ? 2 : 1), { y: C.brass, Y: C.brassHi });
 
-    // ---- the glass: a fixed double glint + an occasional sweeping one
-    const gr = R - (big ? 9 : 6);
-    for (let k = 0; k < (big ? 5 : 3); k++) { px(cx - gr * 0.55 + k, cy - gr * 0.62 + k * 0.1 - k, 'rgba(255,255,255,0.75)'); }
-    if (big) for (let k = 0; k < 2; k++) px(cx - gr * 0.62 + k, cy - gr * 0.42 - k, 'rgba(255,255,255,0.55)');
+    // ---- the glass: a soft crescent of glare, a faint band, an occasional sweeping glint
+    const gr = this.rOut - 1;
+    for (let a = -2.5; a <= -1.0; a += 0.05) { const rr = gr - 2; px(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 'rgba(255,255,240,0.5)'); }
+    if (big) for (let k = -6; k <= 6; k++) { const xx = cx - gr * 0.35 + k, yy = cy - gr * 0.35 - k; px(xx, yy, 'rgba(255,255,255,0.18)'); px(xx + 1, yy, 'rgba(255,255,255,0.1)'); }
     if (this._glintT < 0) {
       const k = clamp(-this._glintT / 0.6, 0, 1), off = -R + k * D * 1.4;
-      for (let i = -R; i <= R; i++) {
-        const x = cx + i, y = cy - i + off;
-        if (Math.hypot(x - cx, y - cy) < this.rOut - 1) { px(x, y, 'rgba(255,255,255,0.55)'); px(x + 1, y, 'rgba(255,255,255,0.3)'); }
-      }
+      for (let i = -R; i <= R; i++) { const x = cx + i, y = cy - i + off; if (Math.hypot(x - cx, y - cy) < gr) { px(x, y, 'rgba(255,255,255,0.45)'); px(x + 1, y, 'rgba(255,255,255,0.25)'); } }
     }
-
-    // ---- engraved brass speed plate under the clock: 1-3 chevrons
+    // ---- paused: the escapement stops; little z's drift off the bells
+    if (mode === 'sleep') for (let i = 0; i < 3; i++) {
+      const p = (t * 0.45 + i / 3) % 1;
+      if (p > 0.92) continue;
+      const zx = Math.round(cx + R * 0.55 + p * (big ? 10 : 7)), zy = Math.round(cy - R * 0.7 - p * (big ? 20 : 14));
+      const zr = p < 0.3 ? ['kk', '.k', 'kk'] : Z;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) rows(zr, zx + dx, zy + dy, { k: C.white });
+      rows(zr, zx, zy, { k: '#2a1c10' });
+    }
+    // ---- engraved brass speed plate: 1-3 chevrons
     if (mode !== 'sleep') {
       const sp = clamp(this.st.speed || this.speed || 1, 1, 3);
       const chev = big ? ['k..', 'kk.', 'kkk', 'kk.', 'k..'] : ['k.', 'kk', 'k.'];
-      const cw = chev[0].length;
-      const pw = big ? 17 : 12, ph = big ? 9 : 7;
+      const cw = chev[0].length, pw = big ? 17 : 12, ph = big ? 9 : 7;
       const pop = this._pipPop > 0.18 ? 1 : 0;
       const bx0 = Math.round(cx - pw / 2), by0 = Math.round(cy + R - (big ? 3 : 2)) - pop;
       for (let y = 0; y < ph; y++) for (let x = 0; x < pw; x++) {
         if ((x === 0 || x === pw - 1) && (y === 0 || y === ph - 1)) continue;
         const edge = x === 0 || x === pw - 1 || y === 0 || y === ph - 1;
-        px(bx0 + x, by0 + y, edge ? INK : y === 1 ? C.brassHi : y === ph - 2 ? C.brassSh : C.brass);
+        px(bx0 + x, by0 + y, edge ? '#2a1c10' : y === 1 ? C.brassHi : y === ph - 2 ? C.brassSh : C.brass);
       }
-      const colr = sp === 1 ? C.brassDk : sp === 2 ? '#a8401c' : C.red;
+      const colr = sp === 1 ? C.brassDk : sp === 2 ? '#8a3a18' : C.red;
       const ox = Math.round(cx - (sp * cw) / 2), oy = by0 + Math.round((ph - chev.length) / 2);
       for (let i = 0; i < sp; i++) rows(chev, ox + i * cw, oy, { k: colr });
     }
@@ -490,10 +428,10 @@ export class BigClock {
   _bell(px, bx, by, r) {
     for (let y = -r; y <= 1; y++) for (let x = -r - 1; x <= r + 1; x++) {
       const d = Math.hypot(x / (r + 0.5), (y + 0.4) / (r + 0.5));
-      if (y > 0 && Math.abs(x) <= r + 1) { px(bx + x, by + y, Math.abs(x) === r + 1 || y === 1 ? INK : C.brassSh); continue; }
+      if (y > 0 && Math.abs(x) <= r + 1) { px(bx + x, by + y, Math.abs(x) === r + 1 || y === 1 ? '#2a1c10' : C.brassSh); continue; }
       if (d > 1.12) continue;
       const edge = d > 0.86, lit = (-x - y) / r;
-      px(bx + x, by + y, edge ? INK : lit > 0.55 ? C.brassHi : lit > 0.15 ? C.brassLt : lit < -0.5 ? C.brassSh : C.brass);
+      px(bx + x, by + y, edge ? '#2a1c10' : lit > 0.55 ? C.brassHi : lit > 0.15 ? C.brassLt : lit < -0.5 ? C.brassSh : (x * 7 + y * 3) % 11 === 0 ? C.verd : C.brass);
     }
     px(bx, by - r - 1, INK);
   }
@@ -512,11 +450,14 @@ export class BigClock {
 
   // a little open diamond (spade) near the tip of the hour hand
   _spade(px, cx, cy, a, L, big) {
-    const sx = Math.sin(a), sy = -Math.cos(a), r = big ? 2.2 : 1.4, d = L - r - 0.5;
+    // a small open diamond near the tip with two little curls (a fleur-de-lis at this size)
+    const sx = Math.sin(a), sy = -Math.cos(a), r = big ? 2.2 : 1.5, d = L - r - 0.5;
     const mx = cx + sx * d, my = cy + sy * d;
-    for (let i = 0; i < 16; i++) {
-      const t2 = (i / 16) * TAU, u = Math.cos(t2) * r * 1.3, v = Math.sin(t2) * r * 0.8;
+    for (let i = 0; i < 18; i++) {
+      const t2 = (i / 18) * Math.PI * 2, u = Math.cos(t2) * r * 1.3, v = Math.sin(t2) * r * 0.8;
       px(Math.floor(mx + sx * u - sy * v), Math.floor(my + sy * u + sx * v), C.steel);
     }
+    if (big) for (const side of [-1, 1]) px(Math.floor(mx - sx * (r + 0.8) - sy * side * 1.6), Math.floor(my - sy * (r + 0.8) + sx * side * 1.6), C.steelHi);
   }
+
 }

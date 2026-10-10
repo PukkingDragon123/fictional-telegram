@@ -37,7 +37,7 @@ export function slowAll(game, key, cps = 6) {
 export function slowSay(game, anchor, text, { cps = 3, hold = 1.2, key = 'npclongneck', size = 'm', mood = 'normal', keepOpen = false } = {}) {
   const h = game.say(anchor, text, { key, size, mood, dur: 1e9 });
   if (!h) return { h: null, done: Promise.resolve(), secs: 0 };
-  slowText(h, text, 0, cps);
+  slowText(h, text, Math.min(1, text.length), cps); // the first character shows at once (no empty bubble)
   const b = bubbleOf(h);
   if (b) b.__ln = 1;
   const secs = text.length / cps + hold;
@@ -54,7 +54,7 @@ function css() {
   s.dataset.v26 = 'turtle';
   s.textContent = `
 .bb-ch.ln-old > span { animation: none !important; }
-.lnp { position: absolute; left: 14px; top: calc(228px + env(safe-area-inset-top, 0px)); z-index: 19; width: 156px;
+.lnp { position: absolute; left: 14px; top: calc(228px + env(safe-area-inset-top, 0px)); z-index: 19; width: 168px;
   padding: 5px 7px 6px 34px; background: #f4e8c8; color: #3b2414; border: 2px solid #3b2414; border-radius: 3px;
   box-shadow: 0 3px 0 rgba(30, 16, 8, .45); font-family: var(--font-body, 'TBME Body'); font-size: 13px; line-height: 13px;
   pointer-events: auto; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
@@ -73,7 +73,7 @@ function css() {
 .lnp .lnp-bar { position: relative; height: 8px; margin: 4px 0 3px; border: 2px solid #3b2414; background: #d8c8a0; }
 .lnp .lnp-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #5a8a3a; }
 .lnp .lnp-bar s { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #3b2414; }
-.lnp .lnp-n { font-size: 11px; color: #6a4a2a; }
+.lnp .lnp-n { font-size: 11px; color: #6a4a2a; white-space: nowrap; }
 body.feast-cam .lnp, body.lab-mode .lnp, body.pc-mode .lnp, body.lt-pc .lnp, body.home-mode .lnp { display: none; }
 .lnt-dim { position: fixed; inset: 0; z-index: 80; background: rgba(20, 12, 8, .55); }
 .lnt { position: fixed; z-index: 81; left: 50%; top: 50%; width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 40px);
@@ -155,7 +155,7 @@ export class TalkPip {
     if (key === this.key) return;
     this.key = key;
     el.querySelector('.lnp-bar i').style.width = `${Math.round((100 * n) / N_TOKENS)}%`;
-    el.querySelector('.lnp-n').textContent = `word ${w} of ${N_WORDS} · day ${day} of ${LONG_TALK_DAYS}`;
+    el.querySelector('.lnp-n').textContent = `word ${w}/${N_WORDS} · day ${day} of ${LONG_TALK_DAYS}`;
   }
   hide() {
     if (!this.el || this.el.style.display === 'none') return;

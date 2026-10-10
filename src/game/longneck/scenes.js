@@ -33,6 +33,7 @@ async function staged(sys, v, shots, body) {
   const open = [];
   const ctx = {
     skipped,
+    glide: shots.reduce((a, sh) => a + (sh.dur ?? 2), 0) * 0.65, // the camera lands (Cutscene runs shots at 65%)
     fox: async (text, mood = 'happy', hold = 1.4) => {
       if (skipped()) return;
       portrait ||= scenes?.portrait?.() || null;
@@ -67,6 +68,37 @@ async function staged(sys, v, shots, body) {
   }
   return true;
 }
+// pixel mist the camera glides through: two dithered cloud layers drifting apart and fading out
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function mistLayer(seed, W = 160, H = 100) {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const img = x.createImageData(W, H);
+  let r = seed * 9301 + 49297; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  const blobs = Array.from({ length: 26 }, () => [rnd() * W, rnd() * H, 10 + rnd() * 26]);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    let d = 0;
+    for (const [bx, by, br] of blobs) { const q = 1 - Math.hypot(i - bx, (j - by) * 1.6) / br; if (q > d) d = q; }
+    if (d * 17 > BAYER[(j % 4) * 4 + (i % 4)] + 1) { const k = (j * W + i) * 4; const hi = d > 0.55; img.data[k] = hi ? 248 : 222; img.data[k + 1] = hi ? 250 : 232; img.data[k + 2] = hi ? 246 : 236; img.data[k + 3] = 255; }
+  }
+  x.putImageData(img, 0, 0);
+  c.style.cssText = 'position:absolute;inset:-10%;width:120%;height:120%;image-rendering:pixelated;transition:transform 5.5s ease-in, opacity 5.5s ease-in;';
+  return c;
+}
+export function mist() {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;inset:0;z-index:6;pointer-events:none;overflow:hidden;';
+  const a = mistLayer(3), b = mistLayer(11);
+  a.style.opacity = '0.9'; b.style.opacity = '0.7';
+  el.append(a, b);
+  document.body.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    a.style.transform = 'translateX(-38%) scale(1.3)'; a.style.opacity = '0';
+    b.style.transform = 'translateX(34%) scale(1.5)'; b.style.opacity = '0';
+  }));
+  return { remove: () => el.remove() };
+}
 async function waitOr(secs, stop) {
   const t0 = performance.now();
   while (performance.now() - t0 < secs * 1000 && !stop()) await wait(0.08);
@@ -79,17 +111,10 @@ export async function arrival(sys, v) {
   if (!r) return false;
   // he is looking away at the falls when we arrive
   if (hasAnim(r, 'turn_head')) r.play('turn_head', { loop: false, restart: true, fade: 0, speed: 0 });
-  // mist drifting over the pond while the camera glides in
-  let mistOn = true;
-  const mist = () => {
-    if (!mistOn) return;
-    for (let k = 0; k < 3; k++) {
-      const a = Math.random() * Math.PI * 2, d = 2 + Math.random() * 8;
-      try { game.particles?.puff?.(34 + Math.cos(a) * d, 0.4 + Math.random() * 0.8, 203 + Math.sin(a) * d * 0.7, 3, 0.9); } catch { /* fx optional */ }
-    }
-    setTimeout(mist, 260);
-  };
-  mist();
+  // the camera glides in through the mist
+  let fog = null;
+  try { fog = mist(); } catch { fog = null; }
+  setTimeout(() => fog?.remove(), 7000);
   const focus = focusOn(game, v);
   game.audio?.play?.('ln_roar', { volume: 0.5 });
   const ok = await staged(sys, v, [
@@ -97,28 +122,26 @@ export async function arrival(sys, v) {
     { at: { x: 35.2, z: 201 }, wupp: 0.028, dur: 3.2 },
     { at: focus, wupp: 0.016, dur: 2.6, call: () => game.audio?.play?.('ln_chime', { volume: 0.45 }) },
   ], async (c) => {
-    await wait(2.4);
-    mistOn = false;
+    await waitOr(c.glide - 0.4, c.skipped);
     if (c.skipped()) return;
     // slowly... slowly... he turns his head
     if (r.current === 'turn_head' && r._cur) r._cur.speed = 1;
-    await c.npc(LN.arrive.first, { cps: 0.6, hold: 2.4 });
-    await c.npc(LN.arrive.hello, { cps: 0.9, hold: 1.6 });
+    c.caption(null);
+    await c.npc(LN.arrive.first, { cps: 1, hold: 1.6 });
+    await c.npc(LN.arrive.hello, { cps: 1.4, hold: 1.0 });
     r.play('talk', { loop: true });
-    const welcome = c.npc(LN.arrive.welcome, { cps: 3.2, hold: 1.2 });
-    await wait(4.5);
-    await c.fox(LN.arrive.fox1, 'confused', 0.6);
+    const welcome = c.npc(LN.arrive.welcome, { cps: 4.6, hold: 0.8 });
+    await wait(3.4);
+    await c.fox(LN.arrive.fox1, 'confused', 0.4);
     await welcome;
-    await c.fox(LN.arrive.fox2, 'sleepy', 1.2);
-    await c.npc(LN.arrive.last, { cps: 4.2, hold: 1.2, anim: 'nod' });
-    await c.fox(LN.arrive.fox3, 'happy', 0.8);
-    c.caption(LN.arrive.caption, LN.arrive.sub);
+    await c.fox(LN.arrive.fox2, 'sleepy', 0.8);
+    await c.npc(LN.arrive.last, { cps: 6, hold: 0.8, anim: 'nod' });
+    await c.fox(LN.arrive.fox3, 'happy', 0.4);
+    c.caption(LN.arrive.caption, LN.arrive.hint);
     game.audio?.play?.('ln_chime', { volume: 0.45 });
-    await waitOr(3.2, c.skipped);
-    c.caption('Old Longneck', LN.arrive.hint);
-    await waitOr(3.2, c.skipped);
+    await waitOr(3.4, c.skipped);
   });
-  mistOn = false;
+  fog?.remove();
   if (r.current === 'turn_head' && r._cur && !r._cur.speed) r._cur.speed = 1;
   sys.idle(v);
   return ok;
@@ -134,11 +157,11 @@ export async function finale(sys, v) {
   const ok = await staged(sys, v, [
     { at: focus, wupp: 0.017, dur: 2.2, caption: 'Old Longneck', sub: 'has finished talking', sfx: 'whoosh' },
   ], async (c) => {
-    await wait(1.0);
-    await c.npc('...Be... ... brief.', { cps: 2.2, hold: 1.4 });
-    await c.fox(LN.finale.fox1, 'shocked', 0.6);
-    await c.npc(LN.finale.npc1, { cps: 1.2, hold: 1.4, anim: 'nod' });
-    await c.npc(LN.finale.npc2, { cps: 5, hold: 0.8, anim: 'point' });
+    await waitOr(c.glide, c.skipped);
+    await c.npc('...Be... ... brief.', { cps: 6, hold: 1.2 });
+    await c.fox(LN.finale.fox1, 'shocked', 0.4);
+    await c.npc(LN.finale.npc1, { cps: 2, hold: 1.0, anim: 'nod' });
+    await c.npc(LN.finale.npc2, { cps: 7, hold: 0.6, anim: 'point' });
     if (c.skipped()) return;
     give();
     r?.play?.('happy', { loop: false, restart: true, onDone: () => sys.idle(v) });

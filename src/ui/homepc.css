@@ -270,7 +270,7 @@ body.pc-room .qn, body.pc-room .fox-notifier, body.pc-room .ev-pill { display: n
 
 /* [v26 evening] the wardrobe: walnut inside, brass rail, hangers, a gilded mirror over the live room */
 .wd { position: fixed; inset: 0; z-index: 36; pointer-events: none; font-family: var(--font2, 'TBME Title'), monospace; }
-.wd-closet { position: absolute; left: calc(14px + var(--safe-l, 0px)); top: 50%; transform: translateY(-50%); width: min(48vw, 560px); max-height: calc(100vh - 40px); box-sizing: border-box;
+.wd-closet { position: absolute; z-index: 2; left: calc(14px + var(--safe-l, 0px)); top: 50%; transform: translateY(-50%); width: min(48vw, 560px); max-height: calc(100vh - 40px); box-sizing: border-box;
   display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; pointer-events: auto;
   background: repeating-linear-gradient(90deg, #4a2c18 0 22px, #3e2414 22px 24px, #52321c 24px 46px, #3a2212 46px 48px);
   border: 4px solid #2a160a; box-shadow: inset 0 0 0 4px #7a4a26, inset 0 14px 22px rgba(0,0,0,.55), 6px 8px 0 rgba(20,10,4,.5);
@@ -303,12 +303,12 @@ body.pc-room .qn, body.pc-room .fox-notifier, body.pc-room .ev-pill { display: n
 .wd-btn:disabled { background: #b8a888; cursor: default; opacity: .8; }
 .wd-btn:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 #2a160a; }
 .wd-mirror { position: absolute; pointer-events: auto; cursor: grab; border-radius: 50% / 50%; box-sizing: border-box;
-  border: 12px solid #d8a83a; box-shadow: 0 0 0 4px #6a4a14, inset 0 0 0 4px #fff0a0, inset 0 0 0 7px #8a6a20, 0 0 0 9px #2a1a08, 8px 10px 0 9px rgba(20, 10, 4, .45);
+  border: 12px solid #d8a83a; box-shadow: 0 0 0 4px #6a4a14, inset 0 0 0 4px #fff0a0, inset 0 0 0 7px #8a6a20, 0 0 0 9px #2a1a08, 0 0 0 200vmax rgba(14, 8, 4, .55);
   animation: wd-in2 .4s cubic-bezier(.2,1.4,.4,1) both; }
 @keyframes wd-in2 { from { transform: scale(.8); opacity: 0; } }
 .wd-mirror:active { cursor: grabbing; }
 .wd-glint { position: absolute; left: 14%; top: 10%; width: 18%; height: 30%; border-radius: 50%; background: linear-gradient(135deg, rgba(255,255,255,.28), rgba(255,255,255,0) 60%); pointer-events: none; }
-.wd-hint { position: absolute; left: 50%; bottom: -34px; transform: translateX(-50%); white-space: nowrap; font-size: 14px; color: #fff3d8; text-shadow: 2px 2px 0 #1a1420; pointer-events: none; }
+.wd-hint { position: absolute; z-index: 1; left: 50%; bottom: -34px; transform: translateX(-50%); white-space: nowrap; font-size: 14px; color: #fff3d8; text-shadow: 2px 2px 0 #1a1420; pointer-events: none; }
 .wd-narrow .wd-closet { left: 8px; right: 8px; top: auto; bottom: 8px; transform: none; width: auto; max-height: 52vh; }
 .wd-narrow .wd-hint { bottom: -26px; }
 @keyframes wd-in-n { from { transform: translateY(30px); opacity: 0; } }
