@@ -25,13 +25,16 @@ const B1 = 26, B2 = 58; // band edges (distance from the map, tiles)
 
 const CAP_GLSL = /* glsl */ `
 // the camera-side cut: columns there are capped (whole blocks)
+// everything on the camera's side of the map is cut flat to one block above the
+// ground (a clean forest-floor plain, real top faces); the sides keep their ranges,
+// ending in a clean block cliff where the cut begins
 float capAt(vec2 c, float bs) {
-  vec3 p = vec3(c.x, 0.0, c.y);
-  float fk = flatK(p);
-  if (fk <= 0.002) return 999.0;
-  float d = ringDist(c);
-  float cap = 1.0 + d * 0.2 + (1.0 - fk) * 70.0;
-  return floor(cap / bs + 0.001) * bs;
+  vec2 cl = clamp(c, uRect.xy, uRect.zw);
+  float d = length(c - cl);
+  if (d < 0.5) return 999.0;
+  vec2 outDir = (c - cl) / d;
+  if (dot(outDir, uRingCam) < 0.42) return 999.0;
+  return bs;
 }
 `;
 
@@ -202,7 +205,7 @@ varying float vCapK;`)
   bool isTop = abs(position.y - hi) < 0.001;
   transformed.y = isTop ? tp : bot;
   vCutTop = (abs(objectNormal.y) > 0.5 && hi - tp > 0.01) ? 1.0 : 0.0;
-  vCapK = clamp((hi - tp) / 3.0, 0.0, 1.0) * smoothstep(0.0, 0.5, flatK(vec3(aBlk.z, 0.0, aBlk.w)));
+  vCapK = capS < 900.0 ? 1.0 : 0.0;
   vRPos = transformed;
   vSurf = aSurf;
   vBlk = vec4(bs, min(aBlk.y, capS), 0.0, 0.0);
@@ -238,8 +241,7 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
     bp = floor(vRPos.xz / bs + 0.001); lu = fract(vRPos.xz / bs + 0.001);
     float hb = rbH(bp + floor(vRPos.y) * 0.31);
     vec2 win = floor(vec2(hb, rbH(bp + 1.3)) * 4.0);
-    c = ringWin(vCutTop > 0.5 ? 26 : topId, win, lu);
-    if (vCutTop > 0.5) c *= 0.55; // the cut: dark rock inside the range
+    c = ringWin(vCutTop > 0.5 ? 8 : topId, win, lu); // the cut: plain forest floor
     c *= 0.93 + hb * 0.14;
   } else {
     float u = (an.x > 0.5 ? vRPos.z : vRPos.x) / bs, v = vRPos.y / bs;
@@ -262,9 +264,9 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
   if (lu.x > 1.0 - px || ly < px) c *= 0.74;
   diffuseColor.rgb *= c * 1.08;
 }`)
-      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, max(vRingHaze, vCapK * 0.55 + vCutTop * 0.12));\n#include <opaque_fragment>'); // the cut foreground fades into the valley haze
+      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze * (1.0 - vCapK));\n#include <opaque_fragment>'); // the cut foreground: solid, no haze slivers
   };
-  mat.customProgramCacheKey = () => 'outerRingCubes2';
+  mat.customProgramCacheKey = () => 'outerRingCubes3';
   patchCutawayMaterial(mat, 'ringCubes', 1.4);
   ring.ground = [];
   for (const P of chunks.values()) {

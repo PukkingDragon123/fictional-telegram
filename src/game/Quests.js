@@ -4,6 +4,7 @@
 // pays a reward. State lives in game.state.quests.
 import { ZONES } from '../data/zones.js';
 import { MINING_QUESTS } from '../data/questsMining.js'; // [F&S mining]
+import { LONGNECK_QUESTS } from '../data/longneck.js'; // [v26 turtle]
 
 const rare = (g) => g.fish.list.some((f) => !f.dead && f.g.stars >= 3 && !f.tagged);
 const couple = (g) => {
@@ -112,6 +113,7 @@ export const QUESTS = [
   },
 ];
 QUESTS.push(...MINING_QUESTS); // [F&S mining] src/data/questsMining.js
+QUESTS.push(...LONGNECK_QUESTS); // [v26 turtle] the way to Old Longneck (src/data/longneck.js)
 const BY_ID = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 
 export class Quests {

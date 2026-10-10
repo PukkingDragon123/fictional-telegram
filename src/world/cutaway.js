@@ -18,13 +18,29 @@ export const CUT_UNIFORMS = {
   uCutBack: { value: new THREE.Vector3(0, 0.7, 0.7) },
   uCutR: { value: 0 },
   uCutK: { value: 0 },
+  uCutPlane: { value: 999 }, // cube columns (and big buildings) in front of the spot are cut flat to this height
+  uCutFar: { value: 40 }, // ... out to this far in front (beyond: off screen anyway)
+  uCubeMask: { value: null }, // 1 on cube tiles (trees standing on cut ground hide)
+  uCubeGrid: { value: new THREE.Vector2(1, 1) },
 };
+// vertex-stage helpers for the flat cut (declares its own uniforms)
+export const CUT_PLANE_GLSL = /* glsl */ `
+uniform vec3 uCutPos;
+uniform vec3 uCutBack;
+uniform float uCutK;
+uniform float uCutPlane;
+uniform float uCutFar;
+float cutAhead(vec2 xz) { return dot(xz - uCutPos.xz, normalize(uCutBack.xz + vec2(1e-5))); }
+float mapCap(vec2 c) { float a = cutAhead(c); return (uCutK > 0.5 && a > 3.0 && a < uCutFar) ? uCutPlane : 999.0; }
+`;
 
 export const CUT_GLSL = /* glsl */ `
 uniform vec3 uCutPos;
 uniform vec3 uCutBack;
 uniform float uCutR;
 uniform float uCutK;
+uniform float uCutPlane;
+uniform float uCutFar;
 float cutAmount(vec3 p, float clearance) {
   if (uCutK <= 0.0) return 0.0;
   vec3 d = p - uCutPos;
@@ -46,7 +62,7 @@ float cutBayer(vec2 a) {
 `;
 
 // opaque (Lambert / Basic) materials: dithered discard. clearance in world units.
-export function patchCutawayMaterial(mat, key, clearance = 1.2) {
+export function patchCutawayMaterial(mat, key, clearance = 1.2, plane = false) {
   if (mat.userData?.cutaway) return mat;
   const prev = mat.onBeforeCompile;
   const prevKey = mat.customProgramCacheKey ? mat.customProgramCacheKey.bind(mat) : null;
@@ -69,9 +85,10 @@ export function patchCutawayMaterial(mat, key, clearance = 1.2) {
 {
   float ck = cutAmount(vCutW, ${clearance.toFixed(2)});
   if (ck > 0.0 && ck * 0.86 > cutBayer(gl_FragCoord.xy)) discard;
+  ${plane ? 'if (uCutK > 0.5 && vCutW.y > uCutPlane + 0.05) { float a = dot(vCutW.xz - uCutPos.xz, normalize(uCutBack.xz + vec2(1e-5))); if (a > 3.0 && a < uCutFar) discard; }' : ''}
 }`);
   };
-  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|cut:' + key;
+  mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|cut:' + key + (plane ? 'P' : '');
   mat.userData = { ...(mat.userData || {}), cutaway: true };
   mat.needsUpdate = true;
   return mat;
@@ -85,10 +102,16 @@ export function patchCutawaySprites(mat, key) {
     if (prev) prev.call(mat, shader, r);
     Object.assign(shader.uniforms, CUT_UNIFORMS);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\n' + CUT_GLSL)
-      .replace('vSEmis = aExtra.z;\n', 'vSEmis = aExtra.z;\nvSAlpha *= 1.0 - cutAmount(aPos + vec3(0.0, 0.3, 0.0), 1.4) * 0.9;\n');
+      .replace('#include <common>', '#include <common>\n' + CUT_GLSL + '\nuniform sampler2D uCubeMask;\nuniform vec2 uCubeGrid;')
+      .replace('vSEmis = aExtra.z;\n', `vSEmis = aExtra.z;
+vSAlpha *= 1.0 - cutAmount(aPos + vec3(0.0, 0.3, 0.0), 1.4) * 0.9;
+if (uCutK > 0.5 && aPos.y > uCutPlane + 0.3 && texture2D(uCubeMask, aPos.xz / uCubeGrid).r > 0.5) {
+  float ca = dot(aPos.xz - uCutPos.xz, normalize(uCutBack.xz + vec2(1e-5)));
+  if (ca > 2.5 && ca < uCutFar) vSAlpha = 0.0;
+}
+`);
   };
-  mat.customProgramCacheKey = () => key;
+  mat.customProgramCacheKey = () => key + '2';
   mat.needsUpdate = true;
   return mat;
 }
@@ -96,7 +119,7 @@ export function patchCutawaySprites(mat, key) {
 // one shared see-through copy of the voxel material (office, houses, landmarks, big builds)
 let cutVoxel = null;
 export function cutVoxelMaterial() {
-  if (!cutVoxel) cutVoxel = patchCutawayMaterial(addGrain(new THREE.MeshLambertMaterial({ vertexColors: true })), 'voxel', 1.0);
+  if (!cutVoxel) cutVoxel = patchCutawayMaterial(addGrain(new THREE.MeshLambertMaterial({ vertexColors: true })), 'voxel', 1.0, true);
   return cutVoxel;
 }
 
@@ -119,10 +142,17 @@ export class Cutaway {
       if (_box.isEmpty() || _box.max.y - _box.min.y < minH) return;
     }
     if (obj.userData?.noCut) return;
+    const glow = this.world.glowMat;
     obj.traverse((o) => {
       if (!o.isMesh || this.swapped.has(o)) return;
       this.swapped.add(o);
       const m = o.material;
+      // lit windows: a see-through copy that shares the world's glow colour (day / night)
+      if (glow && m === glow) {
+        if (!this.cutGlow) { this.cutGlow = new THREE.MeshBasicMaterial({ vertexColors: true }); this.cutGlow.color = glow.color; patchCutawayMaterial(this.cutGlow, 'glow', 1.0, true); }
+        o.material = this.cutGlow;
+        return;
+      }
       if (!m || Array.isArray(m) || !m.isMeshLambertMaterial || !m.vertexColors || m.map || m.transparent) return;
       if (m.userData?.cutaway) return;
       // only the (shared) grainy voxel material: same look + the cut
@@ -161,6 +191,16 @@ export class Cutaway {
     U.uCutBack.value.set(e[8], e[9], e[10]).normalize();
     const vw = (rig._rt?.w || 400) * rig.wupp, vh = (rig._rt?.h || 300) * rig.wupp;
     U.uCutR.value = Math.max(3.5, Math.min(vw, vh) * 0.46);
+    U.uCutPlane.value = Math.floor((y + 1) * 2) / 2;
+    U.uCutFar.value = (vh * 0.5 + 20) / Math.max(0.3, Math.sin(rig.pitch || 0.77)) + 4;
+    if (!U.uCubeMask.value && g.cube) {
+      const d = new Uint8Array(g.w * g.h);
+      for (let i = 0; i < d.length; i++) d[i] = g.cube[i] ? 255 : 0;
+      const t = new THREE.DataTexture(d, g.w, g.h, THREE.RedFormat, THREE.UnsignedByteType);
+      t.unpackAlignment = 1; t.needsUpdate = true;
+      U.uCubeMask.value = t;
+      U.uCubeGrid.value.set(g.w, g.h);
+    }
   }
 }
 

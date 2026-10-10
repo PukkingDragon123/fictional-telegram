@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { KIND, WATER_Y } from './grid.js';
 import { hash2, fbm2 } from '../core/rng.js';
 import { STONE_GLSL, stoneUniforms } from '../art/stoneArt.js'; // [v20 map]
+import { CUT_UNIFORMS, CUT_PLANE_GLSL } from './cutaway.js'; // [v26 world]
 
 const BASE_Y = -4;
 // [v26 world] cube walls: flat vertex shade (each block is shaded in the shader)
@@ -212,8 +213,18 @@ export function buildSurfaceTexture(grid, tex) {
 // ------------------------------------------------------------------ terrain material
 const terrainVert = (shader) => {
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\nattribute float aSide;\nattribute vec3 aCube;\nvarying vec3 vCube;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vSide;')
-    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;\nvCube = aCube;');
+    .replace('#include <common>', '#include <common>\nattribute float aSide;\nattribute vec3 aCube;\nattribute vec4 aCutC;\nvarying vec3 vCube;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vSide;\n' + CUT_PLANE_GLSL)
+    // [v26 world] cube columns between the camera and the spot you look at are cut flat (whole blocks, real tops)
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+vec3 cubeV = aCube;
+if (aCube.x > 0.5) {
+  float capS = mapCap(aCutC.xy), capN = mapCap(aCutC.zw);
+  float bot = min(aCube.z, capN);
+  float tp = max(bot, min(aCube.y, capS));
+  transformed.y = abs(position.y - aCube.y) < 0.001 ? tp : bot;
+  cubeV = vec3(aCube.x, tp, bot);
+}`)
+    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;\nvCube = cubeV;');
 };
 
 export function makeTerrainMaterial(uniforms) {
@@ -230,6 +241,7 @@ export function makeTerrainMaterial(uniforms) {
     shader.uniforms.uSimRect = uniforms.uSimRect;
     shader.uniforms.uBlueprint = uniforms.uBlueprint;
     Object.assign(shader.uniforms, stoneUniforms()); // [v20 map] mountain stone, shared with the valley
+    Object.assign(shader.uniforms, CUT_UNIFORMS); // [v26 world]
     terrainVert(shader);
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -319,19 +331,20 @@ vec3 surfTex(int id, vec2 p) {
 }`,
       );
   };
-  mat.customProgramCacheKey = () => 'terrain3'; // [v26 world] (cubes)
+  mat.customProgramCacheKey = () => 'terrain4'; // [v26 world] (cubes + cut)
   return mat;
 }
 
 export function buildTerrainGeometry(grid) {
   const { w, h } = grid;
-  const pos = [], nor = [], col = [], side = [], idx = [], cub = [];
+  const pos = [], nor = [], col = [], side = [], idx = [], cub = [], cutc = [];
+  let cutSx = 0, cutSz = 0, cutNx = 0, cutNz = 0; // [v26 world] the tile (and the wall foot's tile) centres: the camera-side cut is per column
   let vi = 0;
   // [v26 world] cube tiles (mountains, cliffs, the Highland): aCube = (1, column top, wall bottom)
   let cubeF = 0, cubeTop = 0, cubeBot = 0;
   const quad = (a, b, c, d, n, rgb, sd) => {
     pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]); // [v26 world] (no spreads: the map is twice as big)
-    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); side.push(sd); cub.push(cubeF, cubeTop, cubeBot); }
+    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); side.push(sd); cub.push(cubeF, cubeTop, cubeBot); cutc.push(cutSx, cutSz, cutNx, cutNz); }
     for (let k = 0; k < 4; k++) col.push(rgb[k][0], rgb[k][1], rgb[k][2]);
     idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
     vi += 4;
@@ -448,6 +461,7 @@ export function buildTerrainGeometry(grid) {
         continue;
       }
       cubeF = grid.cube && grid.cube[i] ? 1 : 0; cubeTop = y; cubeBot = y; // [v26 world]
+      cutSx = cutNx = x + 0.5; cutSz = cutNz = z + 0.5; // [v26 world]
       // simple corner AO on top face: darker where neighbours are higher
       const ao = (dx, dz) => AO_K[(Hs(x + dx, z) > y + 0.01) + (Hs(x, z + dz) > y + 0.01) + (Hs(x + dx, z + dz) > y + 0.01)]; // [v26 world] (no arrays)
       const tint = k === KIND.WATER ? 0.92 : 1;
@@ -470,7 +484,7 @@ export function buildTerrainGeometry(grid) {
         }
         if (ny >= y) continue;
         const y0 = Math.max(ny, BASE_Y), y1 = y;
-        cubeBot = y0; // [v26 world]
+        cubeBot = y0; cutNx = x + dx + 0.5; cutNz = z + dz + 0.5; // [v26 world]
         const lo = cubeF ? CUBE_LO : SOIL_LO, hi = cubeF ? CUBE_HI : SOIL_HI; // [v26 world] cube walls: shaded per block in the shader
         let A, B, C, D;
         if (dx === 1) { A = [x + 1, y0, z + 1]; B = [x + 1, y0, z]; C = [x + 1, y1, z]; D = [x + 1, y1, z + 1]; }
@@ -486,6 +500,7 @@ export function buildTerrainGeometry(grid) {
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setAttribute('aSide', new THREE.Float32BufferAttribute(side, 1));
   g.setAttribute('aCube', new THREE.Float32BufferAttribute(cub, 3)); // [v26 world]
+  g.setAttribute('aCutC', new THREE.Float32BufferAttribute(cutc, 4)); // [v26 world]
   g.setIndex(new THREE.Uint32BufferAttribute(idx, 1));
   g.computeBoundingSphere();
   return g;

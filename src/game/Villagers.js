@@ -38,6 +38,7 @@ const CAST = {
   chip: { cls: 'WoodpeckerCarpenter', voice: 'cub', specials: ['peck_wood', 'measure', 'saw', 'inspect', 'hammer'], height: 1.45, sign: 'WORKSHOP' },
   hazel: { cls: 'HedgehogBaker', voice: 'cub', specials: ['roll_dough', 'taste', 'curl_up'], height: 1.5, sign: 'BAKERY' },
   flint: { cls: 'BadgerProspector', voice: 'ceo', specials: ['swing_pick', 'bite_nugget', 'gentle_boom'], height: 1.4, sign: 'QUARRY' }, // [F&S mining]
+  longneck: { cls: 'LongneckElder', voice: 'ceo', specials: ['sip_tea', 'doze', 'nod', 'point', 'retract'], height: 1.75, sign: 'SLOW' }, // [v26 turtle]
 };
 
 function fallbackRig(color) {

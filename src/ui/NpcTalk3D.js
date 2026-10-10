@@ -28,6 +28,7 @@ export const NPC_RIGS = {
   dale: 'DeerGuy', granny: 'FrogGranny', hoot: 'OwlRanger', rocco: 'RaccoonMerchant', shellby: 'TurtleElder',
   clover: 'BunnyGardener', otis: 'OtterFisher', pip: 'ChipmunkTrader', chip: 'WoodpeckerCarpenter', hazel: 'HedgehogBaker',
   flint: 'BadgerProspector', // [F&S mining]
+  longneck: 'LongneckElder', // [v26 turtle]
 };
 const FPS = 30;
 

@@ -19,7 +19,7 @@ import { OuterRing } from './outerRing.js'; // [v20 map]
 import { flowAt } from './flow.js'; // [v26 world] river currents
 import { bigForestTree, deepBarrierSprites, DeepZone } from './deepZone.js'; // [v26 world] the big forest's trees + the Deep's shells
 import { RiverFX } from './rivers.js'; // [v26 world] flowing rivers, streams, waterfalls, mist
-import { patchCutawaySprites, patchCutawayMaterial, Cutaway } from './cutaway.js'; // [v26 world] see-through mountains / buildings
+import { patchCutawaySprites, patchCutawayMaterial, Cutaway, CUT_UNIFORMS } from './cutaway.js'; // [v26 world] see-through mountains / buildings
 
 // Terraform ground paints (grid.paint) and the terrain surface each one draws
 // with: ids < 10 are the base atlas tiles, 10+ the extra paint atlas tiles.
@@ -122,6 +122,7 @@ export class World {
     try { this.rivers = new RiverFX(this); } catch (e) { console.warn('rivers', e); }
     try { this.deep = new DeepZone(this); } catch (e) { console.warn('deep zone', e); }
     this.cutaway = new Cutaway(this);
+    this.cutUniforms = CUT_UNIFORMS; // [v26 world] (debug / other systems)
     this.barrierOpen = new Set(); // ids of BARRIERS that are open (game/ext/expedition.js)
   }
 

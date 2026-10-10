@@ -613,13 +613,13 @@ vec3 ringTex(int id, vec2 p) {
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\n' + HAZE_PARS + SPRITE_CAP + '\nvarying float vRingHaze;') // [v26 world] the cut ranges' cap (was a squash)
         .replace('vec3 transformed = sprW;', 'vec3 transformed = sprW;\ntransformed.y += min(aPos.y, capAt(aPos.xz, 0.5)) - aPos.y;')
-        .replace('vSEmis = aExtra.z;\n', 'vSEmis = aExtra.z;\nvSAlpha *= 1.0 - smoothstep(0.3, 1.6, aPos.y - capAt(aPos.xz, 0.5));\n')
-        .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringHaze(aPos);');
+        .replace('vSEmis = aExtra.z;\n', 'vSEmis = aExtra.z;\nvSAlpha *= step(aPos.y - capAt(aPos.xz, 0.5), 0.6);\n')
+        .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = capAt(aPos.xz, 0.5) < 900.0 ? 0.0 : ringHaze(aPos);');
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;')
         .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze);\n#include <opaque_fragment>');
     };
-    mat.customProgramCacheKey = () => key + '2'; // [v26 world] (cap patch v2)
+    mat.customProgramCacheKey = () => key + '3'; // [v26 world] (cap patch v3)
     mat.needsUpdate = true;
   }
 
