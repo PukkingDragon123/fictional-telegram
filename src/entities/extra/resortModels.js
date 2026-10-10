@@ -141,11 +141,12 @@ sub('rs_ticket_roof', (d, rnd, v) => {
   p.f.box(-2, 32, -2, -1, 33, -1, GOLD); p.f.set(-2, 34, -2, GOLD_L);
 });
 sub('rs_ticket_sign', (d) => {
-  const p = d.part({ pivot: [-0.1, 1.35, 0.25] });
-  // "TIX" board on the roof front
-  for (let x = -6; x <= 3; x++) for (let y = 25; y <= 31; y++) { p.f.set(x, y, 6, x === -6 || x === 3 || y === 25 || y === 31 ? WOOD_D : 0xf6e6b8); p.f.set(x, y, 5, WOOD_D); }
-  ctext(p.f, 'TIX', -1, 30, 7, RED_D);
-  p.f.set(-6, 32, 6, GOLD); p.f.set(3, 32, 6, GOLD);
+  // "TIX" board standing on the roof ridge, facing the queue
+  const p = d.part({ pivot: [-0.1, 1.85, 0.05] });
+  for (let x = -8; x <= 5; x++) for (let y = 34; y <= 42; y++) { p.f.set(x, y, 1, x === -8 || x === 5 || y === 34 || y === 42 ? WOOD_D : 0xf6e6b8); p.f.set(x, y, 0, WOOD_D); }
+  ctext(p.f, 'TIX', -1.5, 40, 2, RED_D);
+  for (const x of [-6, 3]) p.f.box(x, 30, 0, x, 33, 0, WOOD_D);
+  p.f.set(-8, 43, 1, GOLD); p.f.set(5, 43, 1, GOLD);
 });
 sub('rs_ticket_turnstile', (d) => {
   const p = d.part({ pivot: [fw(6.5, 0, 3.5)[0], 0.5, fw(6.5, 0, 3.5)[2]] });
@@ -405,9 +406,9 @@ sub('rs_souvenir_roof', (d, rnd, v) => {
   const [A] = AWN[((v || 0) + 1) % 3];
   for (let x = -6; x <= 5; x++) for (let z = -6; z <= 3; z++) p.c.set(x, 14 + Math.round((-z - 1) * 0.2), z, stripe(x + 10, A, 0xf6f2ea, 1));
   for (let x = -12; x <= 11; x++) if (x % 2 === 0) p.f.set(x, 26, 7, A);
-  // "GIFTS" board
-  for (let x = -7; x <= 6; x++) for (let y = 31; y <= 37; y++) p.f.set(x, y, -3, x === -7 || x === 6 || y === 31 || y === 37 ? WOOD_D : 0xf6e6b8);
-  ctext(p.f, 'GIFTS', 0, 36, -2, RED_D);
+  // "GIFTS" board up on the awning ridge
+  for (let x = -12; x <= 11; x++) for (let y = 34; y <= 41; y++) { p.f.set(x, y, -4, x === -12 || x === 11 || y === 34 || y === 41 ? WOOD_D : 0xf6e6b8); p.f.set(x, y, -5, WOOD_D); }
+  ctext(p.f, 'GIFTS', -0.5, 39, -3, RED_D);
 });
 
 // ================================================================ PHOTO BOOTH (1x1)
