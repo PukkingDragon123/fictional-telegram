@@ -725,6 +725,7 @@ export class Bubbles {
 
   update(dt) {
     dt = clamp(+dt || 0, 0, 0.1);
+    if (!this.list.length) { this._rx = this._ry = undefined; return; } // [v26 perf] no bubbles: skip the forced layout read
     const r = this.root.getBoundingClientRect();
     this._rx = r.left;
     this._ry = r.top;

@@ -9,6 +9,7 @@
 // tilt-shift haze at the screen edges, a vignette and an iris wipe used for
 // scene transitions.
 import * as THREE from 'three';
+import { fitShadowScissor } from './shadowFit.js'; // [v26 perf]
 
 const FS_VERT = /* glsl */ `
 varying vec2 vUv;
@@ -527,7 +528,11 @@ export class PixelRenderer {
       sun.set(-e[0] * 0.75 + (fx / fl) * 0.65, 1.1, -e[2] * 0.75 + (fz / fl) * 0.65).normalize();
     }
     r.setRenderTarget(this.rt);
-    r.render(scene, cam);
+    // [v26 perf] only redraw the shadow-map texels that visible receivers can sample (see shadowFit.js)
+    const fit = this.shadowFit !== false ? fitShadowScissor(r, scene, cam) : null;
+    if (fit) scene.matrixWorldAutoUpdate = false; // fitShadowScissor just updated it
+    this.shadowFitFrac = fit ? (fit.shadow.map.scissor.z * fit.shadow.map.scissor.w) / (fit.shadow.map.width * fit.shadow.map.height) : 1;
+    try { r.render(scene, cam); } finally { if (fit) { scene.matrixWorldAutoUpdate = true; fit.shadow.map.scissorTest = false; } }
     if (u.fogOn.value) {
       // the fog, once per low-res pixel
       const F = this.fogPass;
