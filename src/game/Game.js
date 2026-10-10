@@ -1667,13 +1667,16 @@ export class Game {
     this.beavers.render(realDt);
     this.extCall('render', realDt); // [v26]
     const pushers = this._pushers || (this._pushers = []);
+    // [v26 perf] pooled pusher objects (no per-frame allocations)
+    const pool = this._pushPool || (this._pushPool = Array.from({ length: 8 }, () => ({ x: 0, y: 0, z: 0, r: 0 })));
+    const push = (x, y, z, r) => { const p = pool[pushers.length]; p.x = x; p.y = y; p.z = z; p.r = r; pushers.push(p); };
     pushers.length = 0;
-    pushers.push({ x: this.fox.x, y: this.fox.y, z: this.fox.z, r: 0.7 });
+    push(this.fox.x, this.fox.y, this.fox.z, 0.7);
     for (const b of this.bears.list) {
       if (!b.visible || pushers.length >= 8) continue;
-      pushers.push({ x: b.x, y: b.y, z: b.z, r: 0.9 * b.def.scale });
+      push(b.x, b.y, b.z, 0.9 * b.def.scale);
     }
-    for (const bv of this.beavers.list) { if (pushers.length >= 8) break; pushers.push({ x: bv.x, y: bv.y || 0, z: bv.z, r: 0.5 }); }
+    for (const bv of this.beavers.list) { if (pushers.length >= 8) break; push(bv.x, bv.y || 0, bv.z, 0.5); }
     // foliage in front of whoever the camera is about goes see-through
     const csh = this.cine?.active && this.cine.shot;
     const cut = csh && csh.kind === 'close' && csh.bear?.visible

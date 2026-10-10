@@ -23,6 +23,7 @@ const MARGIN_WORLD = 0.6;
 const MARGIN_TEX = 6;
 const FLOOR_Y = -4;
 const EMPTY = 2; // worldBox(): nothing drawn
+const SPRITES = 3; // worldBox(): a sprite batch, see spriteCells()
 
 function findSun(scene) {
   for (const c of scene.children) if (c.isDirectionalLight && c.castShadow && c.visible) return c;
@@ -41,38 +42,43 @@ function geoBox(geo) {
   return c.box.isEmpty() ? null : c.box;
 }
 
-// a SpriteBatch mesh (see spriteBatch.js): bound its instances from aPos/aSize
-function spriteBox(o, out) {
-  const g = o.geometry, P = g.attributes.aPos, S = g.attributes.aSize, Pr = g.attributes.aParams, X = g.attributes.aExtra;
+// a SpriteBatch mesh (see spriteBatch.js): its instances, binned into CELL x CELL
+// columns, each with its own box (one world-wide box would be far too tall)
+const CELL = 12;
+function spriteCells(o) {
+  const g = o.geometry, P = g.attributes.aPos, S = g.attributes.aSize, Pr = g.attributes.aParams, X = g.attributes.aExtra, An = g.attributes.aAnchor;
   const n = Math.min(g.instanceCount, P.count);
+  if (!n) return EMPTY;
+  const hc = Math.max(1, SPRITE_UNIFORMS.uHeightComp.value, SPRITE_UNIFORMS.uFlatComp.value);
   let c = _sprCache.get(g);
-  const ver = P.version + S.version * 7 + (Pr ? Pr.version * 13 : 0) + (X ? X.version * 31 : 0);
-  if (!c || c.ver !== ver || c.n !== n || c.P !== P) {
-    let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity, wh = 0, sw = 0, swh = 0, bend = 0;
-    const p = P.array, s = S.array, pr = Pr?.array, ex = X?.array;
+  const ver = P.version + S.version * 7 + (Pr ? Pr.version * 13 : 0) + (X ? X.version * 31 : 0) + (An ? An.version * 61 : 0);
+  if (!c || c.ver !== ver || c.n !== n || c.P !== P || c.hc !== hc) {
+    const p = P.array, s = S.array, pr = Pr?.array, ex = X?.array, an = An?.array;
+    const idx = new Map(), B = [];
+    let ok = true;
     for (let i = 0; i < n; i++) {
       const x = p[i * 3], y = p[i * 3 + 1], z = p[i * 3 + 2];
-      if (x < x0) x0 = x; if (x > x1) x1 = x;
-      if (y < y0) y0 = y; if (y > y1) y1 = y;
-      if (z < z0) z0 = z; if (z > z1) z1 = z;
       const w = Math.abs(s[i * 2]), h = Math.abs(s[i * 2 + 1]);
-      if (w + h > wh) wh = w + h;
-      if (pr) { const a = Math.abs(pr[i * 4]); if (a > sw) sw = a; if (a * Math.max(0.35, h) > swh) swh = a * Math.max(0.35, h); }
-      if (ex) { const b = Math.abs(ex[i * 4 + 3]) * h; if (b > bend) bend = b; }
+      if (!Number.isFinite(x + y + z + w + h)) { ok = false; break; }
+      const sw = pr ? Math.abs(pr[i * 4]) : 0;
+      const bend = ex ? Math.abs(ex[i * 4 + 3]) : 0;
+      const ax = an ? an[i * 2] : 0.5, ay = an ? an[i * 2 + 1] : 0;
+      const aw = Math.max(Math.abs(ax), Math.abs(1 - ax)), ah = Math.max(Math.abs(ay), Math.abs(1 - ay));
+      // corner offsets (any rotation, height / flat compensation), push, tail bend, water bob
+      const r = (aw * w + ah * h) * hc + sw * (0.6 + 0.15 * h) + bend * (0.2 * h * hc + 0.05) + 0.5;
+      if (!Number.isFinite(r)) { ok = false; break; }
+      const swh = sw * Math.max(0.35, h); // wind sway, scaled by uWind per frame
+      const key = Math.floor(x / CELL) * 65536 + Math.floor(z / CELL);
+      let j = idx.get(key);
+      if (j === undefined) { j = B.length; idx.set(key, j); B.push(Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity, 0); }
+      if (x - r < B[j]) B[j] = x - r; if (y - r < B[j + 1]) B[j + 1] = y - r; if (z - r < B[j + 2]) B[j + 2] = z - r;
+      if (x + r > B[j + 3]) B[j + 3] = x + r; if (y + r > B[j + 4]) B[j + 4] = y + r; if (z + r > B[j + 5]) B[j + 5] = z + r;
+      if (swh > B[j + 6]) B[j + 6] = swh;
     }
-    c = { ver, n, P, x0, y0, z0, x1, y1, z1, wh, sw, swh, bend };
+    c = { ver, n, P, hc, ok, B };
     _sprCache.set(g, c);
   }
-  if (!c.n) return EMPTY;
-  if (!Number.isFinite(c.x0)) return false;
-  const hc = Math.max(1, SPRITE_UNIFORMS.uHeightComp.value, SPRITE_UNIFORMS.uFlatComp.value);
-  const wind = Math.max(1, Math.abs(SPRITE_UNIFORMS.uWind.value || 0));
-  // corner offsets, wind sway + push, tail bend, water bob
-  const R = c.wh * hc + c.swh * 0.2 * wind + c.sw * 0.6 + c.bend * 0.3 * hc + 0.5;
-  out.min.set(c.x0 - R, c.y0 - R, c.z0 - R);
-  out.max.set(c.x1 + R, c.y1 + R, c.z1 + R);
-  out.applyMatrix4(o.matrixWorld);
-  return true;
+  return c.ok ? c.B : false;
 }
 
 // world-space bounds of what `o` can draw: true, EMPTY (draws nothing) or false (unknown)
@@ -81,7 +87,7 @@ function worldBox(o, out) {
   if (!g) return false;
   if (o.isBatchedMesh) return false;
   if (g.isInstancedBufferGeometry) {
-    if (g.attributes.aPos && g.attributes.aSize && String(o.customDepthMaterial?.customProgramCacheKey?.()).startsWith('spriteDepth')) return spriteBox(o, out);
+    if (g.attributes.aPos && g.attributes.aSize && String(o.customDepthMaterial?.customProgramCacheKey?.()).startsWith('spriteDepth')) return SPRITES;
     return false;
   }
   if (o.isInstancedMesh) {
@@ -133,20 +139,17 @@ export function fitShadowScissor(renderer, scene, cam) {
   let u0 = Infinity, v0 = Infinity, u1 = -Infinity, v1 = -Infinity, bad = false;
   const uOf = (x, y, z) => m[0] * x + m[4] * y + m[8] * z + m[12];
   const vOf = (x, y, z) => m[1] * x + m[5] * y + m[9] * z + m[13];
-  scene.traverseVisible((o) => {
-    if (bad || !o.receiveShadow || !(o.isMesh || o.isPoints || o.isLine)) return;
-    const wb = worldBox(o, _box);
-    if (wb === EMPTY) return;
-    if (!wb) { bad = true; fitShadowScissor.unbounded = o; return; } // (debug: what forced a full pass)
-    _box.expandByScalar(MARGIN_WORLD);
+  // one receiver box (world space): grow the scissor by what of it the camera can see
+  const addBox = (box) => {
+    box.expandByScalar(MARGIN_WORLD);
     // shader cuts can drop cube tops down to the floor, and the ring flattens towards y = 2
-    if (_box.min.y > FLOOR_Y) _box.min.y = FLOOR_Y;
-    if (_box.max.y < 2.1) _box.max.y = 2.1;
-    if (!_frustum.intersectsBox(_box)) return;
+    if (box.min.y > FLOOR_Y) box.min.y = FLOOR_Y;
+    if (box.max.y < 2.1) box.max.y = 2.1;
+    if (!_frustum.intersectsBox(box)) return;
     // (a) the box itself, in light texture space
     let a0 = Infinity, b0 = Infinity, a1 = -Infinity, b1 = -Infinity;
     for (let i = 0; i < 8; i++) {
-      const x = i & 1 ? _box.max.x : _box.min.x, y = i & 2 ? _box.max.y : _box.min.y, z = i & 4 ? _box.max.z : _box.min.z;
+      const x = i & 1 ? box.max.x : box.min.x, y = i & 2 ? box.max.y : box.min.y, z = i & 4 ? box.max.z : box.min.z;
       const u = uOf(x, y, z), v = vOf(x, y, z);
       if (u < a0) a0 = u; if (u > a1) a1 = u; if (v < b0) b0 = v; if (v > b1) b1 = v;
     }
@@ -156,7 +159,7 @@ export function fitShadowScissor(renderer, scene, cam) {
       const A = _A[k], D = _D[k];
       if (Math.abs(D.y) < 1e-6) { slab = false; break; }
       for (let j = 0; j < 2; j++) {
-        const t = ((j ? _box.max.y : _box.min.y) - A.y) / D.y;
+        const t = ((j ? box.max.y : box.min.y) - A.y) / D.y;
         const x = A.x + D.x * t, y = A.y + D.y * t, z = A.z + D.z * t;
         const u = uOf(x, y, z), v = vOf(x, y, z);
         if (u < c0) c0 = u; if (u > c1) c1 = u; if (v < d0) d0 = v; if (v > d1) d1 = v;
@@ -165,6 +168,26 @@ export function fitShadowScissor(renderer, scene, cam) {
     if (slab) { a0 = Math.max(a0, c0); a1 = Math.min(a1, c1); b0 = Math.max(b0, d0); b1 = Math.min(b1, d1); }
     if (a0 > a1 || b0 > b1) return;
     if (a0 < u0) u0 = a0; if (a1 > u1) u1 = a1; if (b0 < v0) v0 = b0; if (b1 > v1) v1 = b1;
+  };
+  const wind = Math.max(1, Math.abs(SPRITE_UNIFORMS.uWind.value || 0));
+  scene.traverseVisible((o) => {
+    if (bad || !o.receiveShadow || !(o.isMesh || o.isPoints || o.isLine)) return;
+    const wb = worldBox(o, _box);
+    if (wb === EMPTY) return;
+    if (wb === SPRITES) {
+      const B = spriteCells(o);
+      if (B === EMPTY) return;
+      if (!B) { bad = true; fitShadowScissor.unbounded = o; return; }
+      for (let j = 0; j < B.length; j += 7) {
+        const sway = B[j + 6] * 0.2 * wind;
+        _box.min.set(B[j] - sway, B[j + 1] - sway, B[j + 2] - sway);
+        _box.max.set(B[j + 3] + sway, B[j + 4] + sway, B[j + 5] + sway);
+        addBox(_box.applyMatrix4(o.matrixWorld));
+      }
+      return;
+    }
+    if (!wb) { bad = true; fitShadowScissor.unbounded = o; return; } // (debug aid: what forced a full pass)
+    addBox(_box);
   });
   if (bad) return null;
   let x0 = 0, y0 = 0, x1 = 1, y1 = 1; // nothing visible receives: a 1-texel pass
