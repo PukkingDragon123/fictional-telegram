@@ -131,7 +131,7 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 - **The lucky cat** is drawn from hand-placed curves:
   - a pear-shaped sitting body with haunches and a curling tail
   - a soft head with cheek fluff, and curved ears with fur tufts
-  - almond eyes, curved antennae with glazed bulbs; the beckoning arm casts a shadow on the head that moves with it, a bent beckoning arm (elbow at its side, paw held up beside the head)
+  - almond eyes, curved antennae with glazed bulbs; the beckoning arm casts a shadow on the head, and the whole cat (arm included) casts a shadow on the counter that moves with the paw, a bent beckoning arm (elbow at its side, paw held up beside the head)
   - a squashy cushion with tassels
 - **Real wood grain (`woodgrain.py`):**
   - Each board is modelled as a cut through a log: the growth rings sliced by the board's surface.

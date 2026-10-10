@@ -648,19 +648,54 @@ def alien_cat(f):
         arm.px(int(px_) + dx, int(py_) + dy, 'pink3'); arm.px(int(px_) + dx + 1, int(py_) + dy, 'pink2')
     pad = _smask([(px_ - 2.4, py_ + 1.5), (px_, py_ - 0.3), (px_ + 2.4, py_ + 1.5), (px_, py_ + 3.3)])
     arm.a[pad] = (*PAL['pink2'], 255)
-    arm.outline(G[0], selective=False)
-    # the arm's shadow falls on the head and body below-right of it, and moves with it
+    # the arm's shadow falls softly on the head behind it (light from the upper left), and moves with it
+    from wyvern import _step
     am_ = arm.a[..., 3] > 0
     shadow = np.zeros_like(am_)
-    shadow[2:, 2:] = am_[:-2, :-2]
-    shadow &= (cv.a[..., 3] > 0) & ~am_
-    from wyvern import _step
+    shadow[3:, 3:] = am_[:-3, :-3]
+    lum = cv.a[..., :3].astype(int).sum(axis=2)
+    yy, xx = np.mgrid[0:CAT_H, 0:CAT_W]
+    shadow &= (cv.a[..., 3] > 0) & ~am_ & (lum > 300) & (((xx + yy) % 2 == 0) | np.roll(np.roll(shadow, 1, 0), 1, 1))
     _step(cv.a[..., :3], shadow, -1)
+    # thin outline on the arm, dark only on its shadow side where it crosses the head
+    edge = am_ & ~(np.roll(am_, 1, 0) & np.roll(am_, -1, 0) & np.roll(am_, 1, 1) & np.roll(am_, -1, 1))
+    shade_side = edge & (~np.roll(am_, -1, 0) | ~np.roll(am_, -1, 1))
+    arm.a[edge] = (*PAL[G[1]], 255)
+    arm.a[shade_side] = (*PAL[G[0]], 255)
     cv.blit(arm, 0, 0)
     return O.outline(cv)
 
 
 @prop('alien_lucky_cat', 3, 'counter', 1796, COUNTER_Y - CAT_H - 1,
-      'Green alien maneki-neko (glossy ceramic): beckoning paw whose shadow moves with it, blink, coin glint (8 frames)', fps=8)
+      'Green alien maneki-neko (glossy ceramic): beckoning paw whose shadow moves with it, blink, coin glint (8 frames)', fps=8,
+      shadow='none')
 def alien_cat_prop():
-    return [alien_cat(f) for f in range(F8)]
+    """Each frame carries its own cast shadow on the counter: the whole cat
+    (ears, antennae, the waving arm) projected away from the light, so the
+    shadow moves with the paw."""
+    from shadows import SHADOW
+    out = []
+    for f in range(F8):
+        cat = alien_cat(f)
+        a = cat.a[..., 3] > 0
+        rows = np.nonzero(a.any(axis=1))[0]
+        B = rows[-1]
+        pad_r, pad_b = 52, 4
+        cv = Canvas(cat.w + pad_r, cat.h + pad_b)
+        sm = np.zeros((cv.h, cv.w), bool)
+        ys, xs = np.nonzero(a)
+        for y, x in zip(ys, xs):
+            hgt = B - y
+            sx = int(round(x + 6 + hgt * 0.55))
+            sy = int(round(B + 1 - hgt * 0.16))
+            if 0 <= sx < cv.w and 0 <= sy < cv.h:
+                sm[sy, sx] = True
+                if sy + 1 < cv.h:
+                    sm[sy + 1, sx] = True
+        # soften: core and a lighter rim
+        core = sm & np.roll(sm, 1, 1) & np.roll(sm, -1, 1)
+        cv.a[sm] = (*SHADOW, 55)
+        cv.a[core] = (*SHADOW, 95)
+        cv.blit(cat, 0, 0)
+        out.append(cv)
+    return out
