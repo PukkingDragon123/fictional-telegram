@@ -540,8 +540,10 @@ class HomePCSystem {
     rig.goal.set(door.x + 0.15, 0.6, door.z + 1.0); rig.target.copy(rig.goal);
     rig.wupp = rig.wuppGoal = 0.015; rig.yaw = rig.yawGoal = 0.2; rig.pitch = rig.pitchGoal = 0.52;
     this.sfx('footsteps', 0.25);
+    // [v26 lead] the evening is already dark at 19:30: light the walk with the last of the sunset, put the clock back after
+    const hour0 = g.state.hour; if (hour0 > 18.7) g.state.hour = 18.7;
     const t0 = this.t;
-    while (this.walkShot && this.t - t0 < 2.8 && !this.skipped) await this.wait(0.05);
+    try { while (this.walkShot && this.t - t0 < 2.8 && !this.skipped) await this.wait(0.05); } finally { if (g.state.hour === 18.7) g.state.hour = hour0; }
     this.walkShot = null;
     if (!this.skipped) {
       fox.heading = -Math.PI / 2;
