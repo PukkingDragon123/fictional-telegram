@@ -12,7 +12,19 @@ import { VoxelModel } from '../core/voxel.js';
 const VS = 0.05; // rig voxels
 const FV = 0.025; // fine voxels
 
-export const FOX_OUTFITS = ['default', 'teacher', 'chef', 'pajamas', 'scientist'];
+import { EXTRA_OUTFIT_IDS, extraOutfitParts } from './foxOutfits.js'; // [v26 evening] the wardrobe
+export const FOX_OUTFITS = ['default', 'teacher', 'chef', 'pajamas', 'scientist', 'tycoon', ...EXTRA_OUTFIT_IDS]; // [v26 evening] + wardrobe ('tycoon' = the classic look)
+// [v26 evening] what 'default' means: the outfit picked in Reynard's wardrobe. Every live rig that wears
+// 'default' (setOutfit('default') or never told otherwise) follows it; forced looks (teacher, pajamas...) don't.
+export const FOX_STYLE = { outfit: 'default', rigs: new Set() };
+export function setFoxStyle(id) {
+  FOX_STYLE.outfit = FOX_OUTFITS.includes(id) ? id : 'default';
+  for (const ref of [...FOX_STYLE.rigs]) {
+    const r = ref.deref?.();
+    if (!r) { FOX_STYLE.rigs.delete(ref); continue; }
+    if (r._followStyle) { try { r.setOutfit('default'); } catch { /* ignore */ } }
+  }
+}
 export const FOX_PROPS = ['pointer', 'chalk', 'ladle', 'toothbrush', 'magnifier', 'pencil', 'clipboard'];
 
 // ------------------------------------------------------------------ palette
@@ -646,6 +658,7 @@ function geo(key, build, pivot, scale) {
  * `extras.tassel` (teacher): { cord, hang, cordPos, pivot } meshes in fine voxels.
  */
 export function outfitParts(name) {
+  const xp = extraOutfitParts(name); if (xp) return xp; // [v26 evening] wardrobe outfits
   if (name === 'teacher') {
     const up = geo('t_up', () => upperSleeve('teacher'), [0.5, 0, 0.5], VS);
     const fo = geo('t_fo', () => foreSleeve('teacher'), [0.5, 0, 0.5], VS);

@@ -98,6 +98,7 @@ export class LabMode {
     if (FoxMod?.FoxRig) {
       try {
         this.fox = new FoxMod.FoxRig({ shadows: false });
+        this.fox.setOutfit?.('scientist'); // [v26 evening] lab coat in the lab, whatever the wardrobe says
         const seat = this.lab.anchors.foxSeat;
         this.fox.root.position.copy(seat.position);
         this.fox.root.rotation.y = this.seatYaw = seat.rotationY || 0;

@@ -759,6 +759,7 @@ export function createQuestLog(root, o = {}) {
   let fox = null;
   let waiters = { open: [], close: [] };
   const completing = new Set(); // ids stamped DONE! while open (waiting for set() to drop them)
+  let lessons = [], onLesson = null, page = 'todo'; // [v26 tutorial] the Lessons page: [{ id, title, kind: 'class'|'lesson', fresh?, icon? }]
 
   // ------------------------------------------------------------- HUD behaviour
   function count() {
@@ -768,7 +769,7 @@ export function createQuestLog(root, o = {}) {
       anim(badge, [{ transform: 'scale(1.7)' }, { transform: 'scale(.85)' }, { transform: 'scale(1)' }], { duration: 380, easing: 'cubic-bezier(.3,1.6,.5,1)' });
     }
     el.classList.toggle('qn-zero', n === 0);
-    el.classList.toggle('qn-empty', n === 0 && !done.length);
+    el.classList.toggle('qn-empty', n === 0 && !done.length && !lessons.length); // [v26 tutorial] + lessons
     // the slip: first unfinished step of the first quest
     const q = quests.find((x) => !completing.has(String(x.id)));
     const st = q ? (q.steps || []).find((s) => !s.done) : null;
@@ -840,6 +841,11 @@ export function createQuestLog(root, o = {}) {
     s.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
     // tap a quest: the caller can point at the right tool
     stage.prc.addEventListener('click', (e) => {
+      // [v26 tutorial] the Lessons page: flip to it / back, or replay a lesson
+      const go = e.target.closest?.('.qn-lsn-link');
+      if (go && state === 'open') { e.stopPropagation(); sfx('page', { volume: 0.5 }); page = go.dataset.go === 'lessons' ? 'lessons' : 'todo'; renderPages(); return; }
+      const ls = e.target.closest?.('.qn-lsn');
+      if (ls && state === 'open') { e.stopPropagation(); sfx('click'); try { onLesson?.(ls.dataset.lsn); } catch (err) { console.error(err); } return; }
       const q = e.target.closest?.('.qn-q');
       if (!q || state !== 'open') return;
       sfx('click');
@@ -962,9 +968,22 @@ export function createQuestLog(root, o = {}) {
   }
 
   function rightHTML() {
+    if (page === 'lessons' && lessons.length) return lessonsHTML(); // [v26 tutorial]
     let h = `<div class="qn-ln qn-hd" style="${tilt('todo', 0.5)}">${hw('To do:', { cls: 'qn-big', ink: RED })}${img(doodle('sparkle', RED), 2, 'qn-hsp')}</div>`;
     if (!quests.length) h += `<div class="qn-ln qn-none">${hw('nothing to do... yet!', { ink: PENCIL })}</div><div class="qn-ln qn-none2">${hw('(go make money)', { ink: PENCIL })}</div>`;
     else h += quests.map(questHTML).join('');
+    if (lessons.length) h += `<div class="qn-ln qn-lsn-link" data-go="lessons" style="${tilt('lsnlink', 0.6)}">${hw(`My lessons (${lessons.length}) ->`, { ink: GREEN })}</div>`; // [v26 tutorial]
+    return h;
+  }
+  // [v26 tutorial] the Lessons page: classes (chalkboard) and the lessons learned, tap one to replay
+  function lessonsHTML() {
+    const row = (l) => `<div class="qn-ln qn-lsn" data-lsn="${esc(l.id)}" style="${tilt(l.id, 0.6)}"><span class="qn-lsn-ic">${icon(l.kind === 'class' ? 'book' : (l.icon || 'star'), 2) || img(doodle('sparkle', INK), 2)}</span><span class="qn-lsn-tt">${hw(l.title, { ink: l.kind === 'class' ? INK_D : INK })}</span>${l.fresh ? '<b class="qn-lsn-new">NEW</b>' : ''}</div>`;
+    const cls = lessons.filter((l) => l.kind === 'class'), les = lessons.filter((l) => l.kind !== 'class');
+    let h = `<div class="qn-ln qn-hd" style="${tilt('lsnh', 0.5)}">${hw('Lessons', { cls: 'qn-big', ink: RED })}${img(doodle('sparkle', RED), 2, 'qn-hsp')}</div>`;
+    h += `<div class="qn-ln qn-none2">${hw('(tap one to replay it)', { ink: PENCIL })}</div>`;
+    if (cls.length) h += `<div class="qn-ln">${hw('Classes:', { ink: GREEN })}</div>` + cls.map(row).join('');
+    if (les.length) h += `<div class="qn-ln">${hw('Quick lessons:', { ink: GREEN })}</div>` + les.map(row).join('');
+    h += `<div class="qn-ln qn-lsn-link" data-go="todo" style="${tilt('lsnback', 0.6)}">${hw('<- back to my quests', { ink: GREEN })}</div>`;
     return h;
   }
   function doneListHTML() {
@@ -1401,6 +1420,15 @@ export function createQuestLog(root, o = {}) {
   // ------------------------------------------------------------- API
   const api = {
     el,
+    // [v26 tutorial] the Lessons page (game.lessons keeps it up to date)
+    setLessons(list, fn) {
+      if (destroyed) return;
+      lessons = (Array.isArray(list) ? list : []).filter((l) => l && l.id != null);
+      if (fn) onLesson = fn;
+      count();
+      if (stage && state === 'open' && page === 'lessons') renderPages();
+    },
+    showLessons() { api._lsnOpen = true; page = 'lessons'; return api.open(); },
     get isOpen() { return state === 'open' || state === 'opening'; },
     set(qs) {
       if (destroyed) return;
@@ -1461,6 +1489,8 @@ export function createQuestLog(root, o = {}) {
     open() {
       if (destroyed) return Promise.resolve();
       if (state === 'open') return Promise.resolve();
+      if (state === 'closed' && !api._lsnOpen) page = 'todo'; // [v26 tutorial]
+      api._lsnOpen = false;
       const p = new Promise((r) => waiters.open.push(r));
       if (state === 'opening') return p;
       if (state === 'closing') { waiters.close.push(() => api.open()); return p; }

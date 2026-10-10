@@ -131,7 +131,7 @@ export function makeLongneckYard(game, v) {
   };
   // two stone lanterns, one each side of the falls
   const lanterns = [];
-  for (const [x, z, ry] of [[37.8, 195.75, 0.3], [31.7, 195.8, -0.3]]) {
+  for (const [x, z, ry] of [[40.5, 195.7, 0.3], [31.7, 195.8, -0.3]]) {
     const L = new THREE.Group();
     L.add(meshOf(memo('ln_lantern', lanternModel, [0.5, 0, 0.5])));
     const glow = meshOf(memo('ln_lglow', lanternGlow, [0.5, 0, 0.5]), 0xb07020);
@@ -146,7 +146,7 @@ export function makeLongneckYard(game, v) {
   const b1 = meshOf(memo('ln_bowl', bowlModel, [0.5, 0, 0.5])); b1.position.set(0.13, 9 * FV, 0.07);
   const b2 = meshOf(memo('ln_bowl', bowlModel, [0.5, 0, 0.5])); b2.position.set(-0.15, 9 * FV, 0.11);
   tt.add(pot, b1, b2);
-  at(tt, 37.45, 196.9, -0.25);
+  at(tt, 38.55, 197.05, -0.25);
   // wind chimes by the curtain of water
   const pole = new THREE.Group();
   pole.add(meshOf(memo('ln_pole', poleModel)));
@@ -159,22 +159,22 @@ export function makeLongneckYard(game, v) {
     pole.add(piv);
     chimes.push(piv);
   });
-  at(pole, 36.05, 195.5, Math.PI * 0.9);
+  at(pole, 35.85, 195.5, Math.PI * 0.9);
   // stepping stones in under the falls, to his door
-  [[35.55, 195.98], [35.0, 195.72], [34.5, 195.5]].forEach(([x, z], i) => at(meshOf(memo('ln_step' + (i % 2), () => stoneStepModel(i % 2), [0.5, 0, 0.5])), x, z, i * 0.7, 0.01));
+  [[36.55, 196.05], [35.9, 195.8], [35.25, 195.6], [34.6, 195.42]].forEach(([x, z], i) => at(meshOf(memo('ln_step' + (i % 2), () => stoneStepModel(i % 2), [0.5, 0, 0.5])), x, z, i * 0.7, 0.01));
   // a tiny dock out into his pond
-  at(meshOf(memo('ln_dock', dockModel, [0.5, 0, 0])), 36.75, 196.95, 0, 0.12, true);
+  at(meshOf(memo('ln_dock', dockModel, [0.5, 0, 0])), 36.95, 196.95, 0, 0.12, true);
   // lily pads, one in flower
-  at(meshOf(memo('ln_pad1', () => padModel(true), [0.5, 0, 0.5])), 38.1, 198.7, 0.4, 0.02, true);
-  at(meshOf(memo('ln_pad0', () => padModel(false), [0.5, 0, 0.5])), 37.6, 199.5, 2.1, 0.02, true);
+  at(meshOf(memo('ln_pad1', () => padModel(true), [0.5, 0, 0.5])), 38.4, 198.6, 0.4, 0.02, true);
+  at(meshOf(memo('ln_pad0', () => padModel(false), [0.5, 0, 0.5])), 37.6, 199.4, 2.1, 0.02, true);
   at(meshOf(memo('ln_pad0', () => padModel(false), [0.5, 0, 0.5])), 39.0, 199.2, 4.0, 0.02, true);
   // a moss pouf for visitors (the audience naps on it)
-  at(meshOf(memo('ln_pouf', poufModel, [0.5, 0, 0.5])), 38.25, 196.75, 0);
+  at(meshOf(memo('ln_pouf', poufModel, [0.5, 0, 0.5])), 39.45, 196.6, 0);
   // the door, behind the water
   const [dx, dz] = DEEP_HOUSE.door;
   root.userData.door = new THREE.Vector3(dx - v.x, DEEP_HOUSE.y - y0, dz - v.z);
-  root.userData.pouf = new THREE.Vector3(38.25, g.groundAt(38.25, 196.75) + 6.5 * FV, 196.75);
-  root.userData.chimeAt = new THREE.Vector3(36.05, g.groundAt(36.05, 195.5) + 1.0, 195.5);
+  root.userData.pouf = new THREE.Vector3(39.45, g.groundAt(39.45, 196.6) + 6.5 * FV, 196.6);
+  root.userData.chimeAt = new THREE.Vector3(35.85, g.groundAt(35.85, 195.5) + 1.0, 195.5);
   let t = 0;
   const update = (dt) => {
     t += dt;

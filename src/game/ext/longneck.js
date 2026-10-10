@@ -254,7 +254,7 @@ class Longneck {
       try {
         if (C3.BeaverRig) {
           const b = new C3.BeaverRig({ shadows: true });
-          const p = this.yard?.group?.userData?.pouf || at(38.25, 196.75);
+          const p = this.yard?.group?.userData?.pouf || at(39.45, 196.6);
           b.root.position.copy(p);
           b.root.rotation.y = -1.9;
           b.root.scale.setScalar(0.9);
@@ -264,7 +264,7 @@ class Longneck {
         }
         if (BR.BearRig && BEAR_TYPES.intern) {
           const bear = new BR.BearRig('intern', BEAR_TYPES.intern);
-          const p = at(39.55, 197.35);
+          const p = at(40.85, 197.35);
           bear.root.position.copy(p);
           bear.root.rotation.y = Math.atan2(v.x - p.x, v.z - p.z);
           bear.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });

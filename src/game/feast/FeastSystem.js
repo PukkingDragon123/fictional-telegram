@@ -340,7 +340,7 @@ export class FeastSystem {
   async runFocus(inst) {
     const ctx = inst.ctx, def = inst.def;
     try {
-      ctx.cam(inst.actor, { zoom: def.zoom ?? 0.017 });
+      ctx.cam(inst.actor, { zoom: def.zoom ?? 0.015 });
       await ctx.wait(0.5);
       if (def.scene) await def.scene(ctx);
       if (!ctx.aborted) {

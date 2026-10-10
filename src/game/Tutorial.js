@@ -530,12 +530,15 @@ export class Tutorial {
     await this.teach('Bears come <b>TOMORROW</b> at 5. Tap the clock to go faster!', { target: 'sel:#clockwrap', wait: true, mood: 'scared' });
     stop?.();
     game.particles.confetti(game.fox.x, game.fox.y + 1.5, game.fox.z, 40);
-    // ---- recap: how you get NEW stuff from now on
-    stop = this.pointAt('tool:lab');
-    await this.teach('Want NEW stuff? The <b>LAB</b>! Research is <b>FREE</b>, it just takes time.', { target: 'tool:lab', circle: true, wait: true, mood: 'happy' });
-    await this.teach('One project per <b>bench</b>. Research a 2nd bench later to run two at once!', { wait: true });
-    await this.teach('Locked nodes? Meet the <b>neighbours</b> in the forest: they open up more of the tree!', { wait: true, mood: 'scheming' });
+    // ---- recap: the money loop, and where NEW stuff comes from [v26 tutorial]
+    stop = this.pointAt('sel:.hud2-tag');
+    await this.teach('The <b>money loop</b>: breed fish, bears pay at <b>5 PM</b>, and <b>bigger + rarer</b> fish pay MORE.', { target: 'sel:.hud2-tag', circle: true, wait: true, mood: 'excited' });
     stop?.();
+    await this.teach('Full bears <b>tip</b> and rate you. A good <b>rating</b> brings <b>more bears</b> tomorrow!', { wait: true, mood: 'happy' });
+    stop = this.pointAt('tool:lab');
+    await this.teach('New stuff? The <b>LAB</b>: research is <b>FREE</b>, it just takes time. Neighbours open more!', { target: 'tool:lab', circle: true, wait: true, mood: 'happy' });
+    stop?.();
+    await this.teach('I\'ll teach you the rest <b>as it happens</b>. Every lesson goes in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
     await this.teach('<b>Class dismissed!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
     game.unlockFeature('speed');
     game.setTool({ kind: 'feed' });

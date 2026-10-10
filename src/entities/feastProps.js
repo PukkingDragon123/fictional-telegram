@@ -36,7 +36,7 @@ function spriteOf(rows, pal, { size = 0.1, own = false } = {}) {
 
 const C = {
   wood: 0xa8743e, woodD: 0x7a4e26, woodL: 0xc89058, ink: 0x1e1418,
-  blond: 0xf0c860, blondL: 0xffe6a0, blondD: 0xc8963a, blondDD: 0xa07228,
+  blond: 0xfad468, blondL: 0xfff0b0, blondD: 0xdcaa48, blondDD: 0xb88a34,
   berry: 0x3a4ab8, berryD: 0x26307a, berryL: 0x7a8ae8, leaf: 0x4caa3c, leafD: 0x2e7a2c,
   rot: 0x6a4a2a, rotD: 0x4a3018, rotG: 0x7a8a34, rotM: 0xc8d8a0, rotW: 0xe8ecd8,
   bone: 0xf2ead8, boneD: 0xd2c4a6, boneL: 0xfffaf0,

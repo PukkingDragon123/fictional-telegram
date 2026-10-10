@@ -22,6 +22,11 @@ import { HUT } from '../../world/worldgen.js';
 import { Bedtime } from '../Bedtime.js';
 import { openHomePC } from '../../ui/HomePC.js';
 import { makeDoorMarker } from '../../entities/homes/homeExteriors.js';
+import { openWardrobe } from '../../ui/Wardrobe.js';
+import { WARDROBE } from '../../entities/foxOutfits.js';
+import { setFoxStyle } from '../../entities/foxProps.js';
+import { ACHIEVEMENTS } from '../../data/achievements.js';
+const ACH = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
 
 const CAP = 60; // days kept
 const DETAIL_DAYS = 14; // reviews / events kept for the most recent days only
@@ -96,8 +101,39 @@ class HomePCSystem {
     return s.homePC;
   }
   get history() { return this.st.history; }
-  onNewGame() { this.game.state.homePC = { history: [] }; }
-  onLoad() { void this.st; }
+  onNewGame() { this.game.state.homePC = { history: [], outfit: 'default' }; }
+  onLoad() {
+    const S = this.st;
+    setFoxStyle(this.outfitUnlocked(S.outfit) ? S.outfit || 'default' : 'default');
+    this.achN = (this.game.state.achievements || []).length;
+    S.outfitsSeen ||= WARDROBE.filter((o) => this.outfitUnlocked(o.id)).map((o) => o.id);
+  }
+
+  // ---------------------------------------------------------------- the wardrobe (outfits unlocked by trophies)
+  outfitUnlocked(id) {
+    const o = WARDROBE.find((w) => w.id === id);
+    if (!o) return false;
+    return !o.trophy || !ACH[o.trophy] || (this.game.state.achievements || []).includes(o.trophy);
+  }
+
+  // a trophy that unlocks an outfit -> a little note (checked once a second)
+  checkOutfits(dt) {
+    this.outT = (this.outT || 0) - dt;
+    if (this.outT > 0) return;
+    this.outT = 1;
+    const n = (this.game.state.achievements || []).length;
+    if (this.achN == null) this.achN = n;
+    if (n === this.achN) return;
+    this.achN = n;
+    const S = this.st;
+    S.outfitsSeen ||= [];
+    for (const o of WARDROBE) {
+      if (S.outfitsSeen.includes(o.id) || !this.outfitUnlocked(o.id)) continue;
+      S.outfitsSeen.push(o.id);
+      (this.fresh ||= new Set()).add(o.id);
+      this.later(2.2, () => this.game.notify?.(`New outfit in the wardrobe: ${o.name}!`, 'happy'));
+    }
+  }
 
   // ---------------------------------------------------------------- the books
   /** Snapshot today's numbers (call after Game.buildReport). Returns the history entry. */
@@ -308,6 +344,7 @@ class HomePCSystem {
     this.t += dt;
     for (let i = this.timers.length - 1; i >= 0; i--) { const tm = this.timers[i]; tm.t -= dt; if (tm.t <= 0) { this.timers.splice(i, 1); tm.fn(); } }
     this.updateMarker(dt);
+    this.checkOutfits(dt);
     if (this.walkShot) this.tickWalkShot(dt);
     if (this.iris) this.tickIris(dt);
     if (this.state === 'zoom' || this.state === 'irisin' || this.state === 'leaving') this.updateVisitIris(dt);
@@ -349,7 +386,7 @@ class HomePCSystem {
       rig.yaw = rig.yawGoal = a.yaw + (b.yaw - a.yaw) * e;
       if (k >= 1) this.camK = null;
     }
-    if (this.mode === 'visit' && this.state === 'inside' && !this.pc && this.camK == null && f) {
+    if (this.mode === 'visit' && this.state === 'inside' && !this.pc && !this.wd && this.camK == null && f) {
       // follow Reynard a little (a lot on a tall phone screen, where the room is zoomed in)
       const base = this.roomView(), rig = this.rig;
       const x = base.halfW < 3.2 ? clamp(f.root.position.x, -2.2 + base.halfW, 4.36 - base.halfW) : base.target.x + (f.root.position.x - 1) * 0.06;
@@ -411,18 +448,18 @@ class HomePCSystem {
   }
 
   // frame Reynard (seated) inside a screen rect (CSS px), e.g. the space next to the PC monitor
-  viewForRect(rect) {
+  viewForRect(rect, o = {}) {
     const g = this.game, r = g.renderer, base = this.viewOf('camOffice');
     const W = innerWidth, H = innerHeight;
-    const k = Math.min((rect.h * 0.56) / 1.75, (rect.w * 0.78) / 1.25); // CSS px per world unit (room above his head for the speech bubble)
+    const k = o.k || Math.min((rect.h * 0.56) / 1.75, (rect.w * 0.78) / 1.25); // CSS px per world unit (room above his head for the speech bubble)
     const wpc = 1 / Math.max(1, k);
     const wupp = (wpc * r.pixelScale) / (r.dpr || 1);
     const yaw = base.yaw, pitch = base.pitch;
     const dir = _v.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
     const R = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
     const U = new THREE.Vector3().crossVectors(dir, R).normalize();
-    const P = this.room.office.seat.position.clone().add(_v2.set(0, 0.8, 0.1));
-    const ox = rect.x + rect.w / 2 - W / 2, oy = rect.y + rect.h * 0.64 - H / 2;
+    const P = (o.at || this.room.office.seat.position).clone().add(_v2.set(0, o.up ?? 0.8, 0.1));
+    const ox = rect.x + rect.w / 2 - W / 2, oy = rect.y + rect.h * (o.fy ?? 0.64) - H / 2;
     const target = P.addScaledVector(R, -ox * wpc).addScaledVector(U, oy * wpc);
     return { target, wupp, pitch, yaw };
   }
@@ -805,7 +842,7 @@ class HomePCSystem {
   }
 
   leaveHouse() {
-    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc) return;
+    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc || this.wd) return;
     this.sfx('iris', 0.4);
     this.state = 'leaving';
     this.vt = 0;
@@ -858,6 +895,7 @@ class HomePCSystem {
 
   finishVisit() {
     const g = this.game;
+    if (this.wd) this.closeWardrobe();
     this.removeVisitUI();
     this.hideRoom();
     const s = this.savedCam, rig = g.rig;
@@ -912,7 +950,7 @@ class HomePCSystem {
 
   // a bouncing pixel hand over the PC until you've used it once
   updateMarkerPC() {
-    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc) { if (this.pcMark) this.pcMark.style.display = 'none'; return; }
+    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc || this.wd) { if (this.pcMark) this.pcMark.style.display = 'none'; return; }
     if (!this.pcMark) {
       const m = document.createElement('div');
       m.className = 'pcroom-mark';
@@ -939,6 +977,7 @@ class HomePCSystem {
         { id: 'cabinet', label: 'Filing cabinet', box: box(3.88, 0, -1.62, 4.3, 1.1, -1.18) },
         { id: 'bed', label: 'Bed', box: box(0.25, 0, -1.62, 1.3, 1.0, -0.05) },
         { id: 'window', label: 'Window', box: box(-0.62, 0.92, -1.66, 0.25, 1.8, -1.5) },
+        { id: 'wardrobe', label: 'Wardrobe', box: box(1.78, 0, -1.62, 2.48, 1.8, -1.1) },
       ];
     }
     void O; void A;
@@ -961,7 +1000,7 @@ class HomePCSystem {
   }
 
   onMove(e) {
-    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc || e.pointerType === 'touch') { this.tip(null); return; }
+    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc || this.wd || e.pointerType === 'touch') { this.tip(null); return; }
     const q = this.local(e);
     const p = this.pickAt(q.x, q.y);
     if (p?.id !== this.hoverId) { this.hoverId = p?.id; if (p) this.sfx('tick', 0.12); }
@@ -973,7 +1012,7 @@ class HomePCSystem {
   onDown(e) {
     if (!this.roomActive) return false;
     this.game.ui?.advanceBubble?.();
-    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc || this.sitting) return true;
+    if (this.mode !== 'visit' || this.state !== 'inside' || this.pc || this.sitting || this.wd) return true;
     const q = this.local(e);
     const p = this.pickAt(q.x, q.y);
     if (p) { this.use(p); return true; }
@@ -988,6 +1027,7 @@ class HomePCSystem {
     this.sfx('click', 0.3);
     this.tip(null);
     if (p.id === 'pc' || p.id === 'chair') { this.sitAndBrowse(); return; }
+    if (p.id === 'wardrobe') { this.openWardrobe(); return; }
     const c = p.box.getCenter(new THREE.Vector3());
     this.lookAt = c;
     const lines = FOX_LINES[p.id];
@@ -998,6 +1038,63 @@ class HomePCSystem {
     } else if (p.id === 'piggy') { this.sfx('coins', 0.4); this.room.office.joltDesk(0.35); }
     if (!this.seated && f) this.walk = { x: clamp(c.x + (c.x > 1.5 ? -0.5 : 0.45), -1.9, 4.0), z: clamp(c.z + 0.75, -0.6, 0.9), done: () => { if (lines) this.say(pick(lines), { size: 's' }); } };
     else if (lines) this.say(pick(lines), { size: 's' });
+  }
+
+  // walk to the wardrobe, doors creak open, he turns to the mirror; hangers on the left
+  async openWardrobe() {
+    if (this.wd || this.sitting) return;
+    const f = this.fox, O = this.room.office, g = this.game;
+    if (!f) return;
+    this.sitting = true;
+    try {
+      if (this.seated) { this.seated = false; O.chair.rotation.y = Math.PI; }
+      const spot = O.wardrobeSpot;
+      await new Promise((res) => { this.walk = { x: spot.x, z: spot.z, done: res }; });
+      this.lookAt = new THREE.Vector3(spot.x, 0, -2);
+      this.sfx('bed_creak', 0.45, { pitch: 0.55 }); this.sfx('gate', 0.25, { pitch: 0.8 });
+      O.openWardrobe(true);
+      await this.wait(0.45);
+      this.lookAt = new THREE.Vector3(spot.x, 0, 3);
+      const S = this.st, fresh = this.fresh || new Set();
+      const items = WARDROBE.map((o) => {
+        const a = o.trophy ? ACH[o.trophy] : null;
+        return { id: o.id, name: o.name, swatch: o.swatch, locked: !this.outfitUnlocked(o.id), earn: a?.name || '', earnDesc: a?.desc || '', isNew: fresh.has(o.id) };
+      });
+      this.fresh = new Set();
+      const cur = S.outfit || 'default';
+      const show = (id) => { f.setOutfit(id === 'default' ? 'tycoon' : id); f.puff?.('cloud', new THREE.Vector3(0, 0.6, 0.2), { vel: new THREE.Vector3(0, 0.3, 0), life: 0.5, size: 0.4, grow: 1.4 }); };
+      document.body.classList.add('wd-open');
+      this.wd = openWardrobe(document.getElementById('ui') || document.body, {
+        items, current: cur,
+        sfx: (n, o) => this.sfx(n, o?.volume ?? 0.3),
+        onPick: (id) => { show(id); this.sfx('bed_poof', 0.4); f.play('cheer', { fade: 0.15, restart: true }); this.later(1.1, () => { if (this.wd) f.play('idle', { fade: 0.3 }); }); },
+        onWear: (id) => {
+          S.outfit = id;
+          setFoxStyle(id);
+          show(id);
+          this.sfx('star_pop', 0.45);
+          this.say(pick(['Magnifique.', 'Now THAT is a look.', 'The bears will weep.', 'Dressed for success. As always.']), { size: 's' });
+          g.save?.();
+        },
+        onTurn: (dx) => { f.root.rotation.y += dx; },
+        onClose: () => this.closeWardrobe(),
+      });
+      this.setView(this.viewForRect(this.wd.mirrorRect(), { at: spot, up: 0.95, fy: 0.55, k: Math.min(this.wd.mirrorRect().h * 0.62 / 2.0, this.wd.mirrorRect().w * 0.85 / 1.1) }), 0.6);
+      f.root.rotation.y = 0;
+      this.lookAt = null;
+    } catch (e) { console.warn('[homePC] wardrobe', e); this.closeWardrobe(); }
+    this.sitting = false;
+  }
+
+  closeWardrobe() {
+    const f = this.fox, O = this.room.office;
+    this.wd?.close(); this.wd = null;
+    document.body.classList.remove('wd-open');
+    f?.setOutfit('default'); // back to following the wardrobe pick
+    O.openWardrobe(false);
+    this.sfx('drop', 0.3, { pitch: 0.6 });
+    this.lookAt = new THREE.Vector3(2.1, 0, 3);
+    this.setView(this.roomView(), 0.6);
   }
 
   // walk to the chair, sit, swivel to the desk, the PC comes on (browse mode)

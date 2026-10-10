@@ -353,15 +353,16 @@ export class FeastUI {
       const showArrow = !on && !hide;
       h.arrow.classList.toggle('hidden', !showArrow);
       if (showArrow) {
-        const cx = W / 2, cy = H / 2;
+        // where the ray from the screen centre leaves the safe rect (below the strip, above the buttons)
+        const x0 = 44, x1 = W - 44, y0 = 120, y1 = H - 84;
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
         let dx = p.x - cx, dy = p.y - cy;
         const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
-        const ex = W / 2 - 40, ey = H / 2 - 54;
-        const k = Math.min(Math.abs(ex / (dx || 1e-6)), Math.abs(ey / (dy || 1e-6)));
+        const k = Math.min(Math.abs((dx > 0 ? x1 - cx : cx - x0) / (dx || 1e-6)), Math.abs((dy > 0 ? y1 - cy : cy - y0) / (dy || 1e-6)));
         const ax = Math.round(cx + dx * k), ay = Math.round(cy + dy * k);
         h.arrow.style.transform = `translate(${ax}px, ${ay}px)`;
         const ang = Math.atan2(dy, dx);
-        h.arrow.firstChild.style.transform = `translate(-50%, -50%) rotate(${ang}rad) translateX(26px)`;
+        h.arrow.firstChild.style.transform = `translate(-50%, -50%) rotate(${ang}rad) translateX(42px)`;
       }
       // countdown pips
       if (h.pips && inst.ttl) {

@@ -24,7 +24,7 @@ import {
   FoxFace, expressionState, EXPRESSION_NAMES, FACE_W, FACE_H, MOUTH_W, MOUTH_H,
   makeSpriteTexture, BUBBLE_ROWS, POP_ROWS, ZZZ_ROWS, EYE_R,
 } from './foxFace.js';
-import { outfitParts, propParts, disposeFoxProps, FOX_OUTFITS, FOX_PROPS } from './foxProps.js';
+import { outfitParts, propParts, disposeFoxProps, FOX_OUTFITS, FOX_PROPS, FOX_STYLE } from './foxProps.js'; // [v26 evening] + FOX_STYLE
 
 export { FOX_OUTFITS, FOX_PROPS };
 
@@ -900,6 +900,10 @@ export class FoxRig {
     this._prevSnot = 0; this._popT = 0;
     this._zzzT = 0;
     this.play('idle', { fade: 0 });
+    // [v26 evening] wear the wardrobe pick, and follow it when it changes
+    this._followStyle = true;
+    try { FOX_STYLE.rigs.add(new WeakRef(this)); } catch { /* old browsers: no live updates */ }
+    if (FOX_STYLE.outfit && FOX_STYLE.outfit !== 'default') this.setOutfit('default');
     this.update(0);
   }
 
@@ -988,6 +992,10 @@ export class FoxRig {
    * Hat pops / the hat-in-hand bows work with whatever hat is on.
    */
   setOutfit(name = 'default') {
+    // [v26 evening] 'default' = the wardrobe pick (FOX_STYLE.outfit); 'tycoon' = always the classic top hat
+    this._followStyle = name === 'default';
+    if (name === 'default') name = FOX_STYLE.outfit || 'default';
+    if (name === 'tycoon') name = 'default';
     const id = FOX_OUTFITS.includes(name) ? name : 'default';
     if (id !== name) console.warn('FoxRig: unknown outfit', name);
     if (id === this.outfit) return this;

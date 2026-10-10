@@ -80,7 +80,7 @@ function buildDesk(R, F) {
 function buildWallDecor(R, F) {
   const z = -32;
   // framed profit chart above the desk: cream paper, a green zig-zag going UP, red arrow head, a coin
-  const cx0 = 59, cx1 = 74, cy0 = 22, cy1 = 33;
+  const cx0 = 61, cx1 = 74, cy0 = 22, cy1 = 33; // [v26 evening] was 59: room for the cork board next to the wardrobe
   for (let x = cx0; x <= cx1; x++) for (let y = cy0; y <= cy1; y++) {
     const fr = x === cx0 || x === cx1 || y === cy0 || y === cy1;
     R.set(x, y, z, fr ? (x + y) % 3 ? 0xd8a83a : 0xb88a2a : 0xf6ecd2);
@@ -95,17 +95,17 @@ function buildWallDecor(R, F) {
   for (let x = 61; x <= 63; x++) for (let y = 30; y <= 32; y++) if (!(x !== 62 && y !== 31)) R.set(x, y, z, 0xffd23f);
   R.set(62, 31, z, 0xf0a020);
   // cork board with pinned notes and a "wanted" bear photo (red X)
-  const bx0 = 45, bx1 = 56, by0 = 20, by1 = 30;
+  const bx0 = 49, bx1 = 59, by0 = 20, by1 = 30;
   for (let x = bx0; x <= bx1; x++) for (let y = by0; y <= by1; y++) {
     const fr = x === bx0 || x === bx1 || y === by0 || y === by1;
     R.set(x, y, z, fr ? WAL_D : hash3(x, y, 3) < 0.3 ? 0xb88a5a : 0xc89a68);
   }
   const note = (x, y, c) => { for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) R.set(x + i, y + j, z, c); };
-  note(46, 26, 0xffe46a); note(50, 27, 0xffa0c0); note(46, 21, 0xf6f2e6);
-  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) R.set(51 + i, 21 + j, z, j === 0 || j === 3 || i === 0 || i === 3 ? 0xf6f2e6 : 0x6a4a3a);
-  R.set(51, 21, z, 0xd8463e); R.set(52, 22, z, 0xd8463e); R.set(53, 23, z, 0xd8463e); R.set(54, 24, z, 0xd8463e);
-  R.set(54, 21, z, 0xd8463e); R.set(53, 22, z, 0xd8463e); R.set(52, 23, z, 0xd8463e); R.set(51, 24, z, 0xd8463e);
-  for (const [x, y] of [[47, 28], [51, 29], [47, 23], [52, 25]]) F.set(x * 2 + 1, y * 2 + 1, z * 2 + 2, 0xd83a32);
+  note(50, 26, 0xffe46a); note(54, 27, 0xffa0c0); note(50, 21, 0xf6f2e6);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) R.set(55 + i, 21 + j, z, j === 0 || j === 3 || i === 0 || i === 3 ? 0xf6f2e6 : 0x6a4a3a);
+  R.set(55, 21, z, 0xd8463e); R.set(56, 22, z, 0xd8463e); R.set(57, 23, z, 0xd8463e); R.set(58, 24, z, 0xd8463e);
+  R.set(58, 21, z, 0xd8463e); R.set(57, 22, z, 0xd8463e); R.set(56, 23, z, 0xd8463e); R.set(55, 24, z, 0xd8463e);
+  for (const [x, y] of [[51, 28], [55, 29], [51, 23], [56, 25]]) F.set(x * 2 + 1, y * 2 + 1, z * 2 + 2, 0xd83a32);
 }
 
 function buildCabinet(R) {
@@ -302,6 +302,44 @@ function lampModel() {
   return { v, glass };
 }
 
+// [v26 evening] tall walnut wardrobe: carcass (open front, rail + clothes inside) + two hinged doors.
+// Group-local voxels: x 0..12, y 0..32, z 0..8 (front at z 8); doors hinge at x 0 / x 13.
+const WD_H = 32;
+function wardrobeModels() {
+  const body = new VoxelModel(), doorL = new VoxelModel(), doorR = new VoxelModel();
+  const grain = (x, y, z) => { const h = hash3(x, y, z); return h < 0.14 ? WAL_D : h > 0.88 ? WAL_L : WAL; };
+  for (let x = 0; x <= 12; x++) for (let y = 0; y <= WD_H; y++) for (let z = 0; z <= 8; z++) {
+    const side = x === 0 || x === 12, back = z === 0, top = y >= WD_H - 1, base = y <= 1;
+    if (!(side || back || top || base)) continue;
+    let c = back ? 0x3a2214 : grain(x >> 1, y >> 2, z);
+    if (base && z === 8) c = WAL_D;
+    if (top && z >= 7) c = y === WD_H ? WAL_L : WAL_D;
+    body.set(x, y, z, c);
+  }
+  // crown moulding + a carved coin up top
+  for (let x = -1; x <= 13; x++) for (let z = 0; z <= 9; z++) body.set(x, WD_H + 1, z, z === 9 || x === -1 || x === 13 ? WAL_L : WAL_D);
+  for (let x = 4; x <= 8; x++) for (let y = WD_H + 2; y <= WD_H + 4; y++) if (Math.hypot(x - 6, y - (WD_H + 3)) < 2.4) body.set(x, y, 5, (x + y) % 3 ? BRASS : BRASS_D);
+  // brass rail + hanging clothes (only seen with the doors open)
+  for (let x = 1; x <= 11; x++) body.set(x, WD_H - 4, 4, BRASS);
+  const clothes = [[1, 3, 0x6c3b90], [4, 6, 0xc8282a], [7, 8, 0xf8f6f2], [9, 11, 0x1e2c5a]];
+  for (const [a, b, c] of clothes) for (let x = a; x <= b; x++) for (let y = 12; y <= WD_H - 5; y++) for (let z = 2; z <= 5; z++) {
+    if (y < 16 && (x === a || x === b)) continue;
+    body.set(x, y, z, (x + y) % 5 === 0 ? 0x2a1a20 : c);
+  }
+  // doors: a raised panel, brass knob at the meeting edge
+  const door = (v, x0, x1, knobX) => {
+    for (let x = x0; x <= x1; x++) for (let y = 2; y <= WD_H - 2; y++) {
+      const fr = x === x0 || x === x1 || y === 2 || y === WD_H - 2 || y === 17;
+      v.set(x, y, 0, fr ? WAL_D : grain(x, y >> 2, 3));
+      if (!fr && (x === x0 + 1 || x === x1 - 1 || y === 3 || y === WD_H - 3 || y === 16 || y === 18)) v.set(x, y, 1, WAL_L);
+    }
+    v.set(knobX, 17, 1, BRASS); v.set(knobX, 17, 2, BRASS_L); v.set(knobX, 16, 1, BRASS_D);
+  };
+  door(doorL, 0, 5, 5);
+  door(doorR, -6, -1, -6);
+  return { body, doorL, doorR };
+}
+
 function alarmModels() {
   // classic twin-bell alarm clock, fine voxels, origin bottom centre, dial faces +z
   const body = new VoxelModel(), bells = new VoxelModel();
@@ -483,12 +521,28 @@ export function buildOffice({ R, F, group, litMat, litFine, glowMat, track }) {
   group.add(alarm);
   const alarmRest = { p: alarm.position.clone(), r: alarm.rotation.y };
 
+  // [v26 evening] the wardrobe (between the nightstand and the desk), doors swing open with a creak
+  const wm = wardrobeModels();
+  const wardrobe = new THREE.Group();
+  wardrobe.name = 'wardrobe';
+  wardrobe.add(mk(wm.body.build({ scale: V, pivot: [0, 0, 0] }), litMat, 'wardrobeBody'));
+  const doorL = mk(wm.doorL.build({ scale: V, pivot: [0, 0, 0] }), litMat, 'wardrobeDoorL');
+  const doorR = mk(wm.doorR.build({ scale: V, pivot: [0, 0, 0] }), litMat, 'wardrobeDoorR');
+  doorL.position.set(0, 0, 9 * V); doorR.position.set(13 * V, 0, 9 * V);
+  wardrobe.add(doorL, doorR);
+  wardrobe.position.set(1.8, 0, -1.6);
+  group.add(wardrobe);
+  const wdSt = { k: 0, goal: 0 };
+
   // ---- animation state
   const st = { ringing: false, ringT: 0, jolt: 0, pcJolt: 0, lampOn: 1, lampGoal: 1, glow: 0, glowGoal: 0 };
   const api = {
     desk, chair, pc, junk, alarm, lamp, lampLight, glow, screen, screenMesh,
     seat: { position: new THREE.Vector3(OFFICE.seatX, 0, OFFICE.seatZ), rotationY: Math.PI },
     /** set the desk lamp (eased) */
+    wardrobe, wardrobeSpot: new THREE.Vector3(2.13, 0, -0.78),
+    /** open / close the wardrobe doors (eased, with a little overshoot) */
+    openWardrobe(on) { wdSt.goal = on ? 1 : 0; },
     setDeskLamp(on, instant = false) { st.lampGoal = on ? 1 : 0; if (instant) st.lampOn = st.lampGoal; },
     /** the CRT: 'off' | 'boot' | 'on' | 'alert' */
     setPC(mode) { screen.setMode(mode); st.glowGoal = mode === 'off' ? 0 : mode === 'boot' ? 1.4 : 1; },
@@ -498,6 +552,11 @@ export function buildOffice({ R, F, group, litMat, litFine, glowMat, track }) {
     get ringing() { return st.ringing; },
     update(dt, t) {
       screen.update(dt);
+      if (Math.abs(wdSt.goal - wdSt.k) > 1e-3) {
+        wdSt.k += Math.sign(wdSt.goal - wdSt.k) * Math.min(Math.abs(wdSt.goal - wdSt.k), dt / 0.45);
+        const e = wdSt.k < 1 ? 1 - (1 - wdSt.k) ** 3 : 1;
+        doorL.rotation.y = -1.95 * e; doorR.rotation.y = 1.95 * e;
+      }
       st.lampOn += (st.lampGoal - st.lampOn) * Math.min(1, dt * 10);
       lampLight.intensity = 1.6 * st.lampOn;
       glassMat.color.setScalar(0.45 + 0.55 * st.lampOn);

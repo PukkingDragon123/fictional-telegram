@@ -21,7 +21,7 @@ export const EVENTS = [
       ctx.pose(b, 'angry_stomp', { face: 'furious' });
       await ctx.say(b, 'These berries are ROTTEN! I need a refund!', { mood: 'shout' });
       // the close-up: brown, green, fuzzy berries, flies, stink lines
-      ctx.cam(bowl, { zoom: 0.0112, dy: 0.25 });
+      ctx.cam(bowl, { zoom: 0.0078, dy: 0.25 });
       ctx.pose(b, 'idle', { face: 'disgusted' });
       ctx.sfx('feast_flies', { volume: 0.6 });
       await ctx.wait(1.4);

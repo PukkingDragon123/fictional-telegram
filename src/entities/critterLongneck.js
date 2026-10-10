@@ -24,9 +24,10 @@ import { BipedRig, HAND_KINDS } from './critterBiped.js';
 import { NpcFace, stepEvents, plantStick, orientIn, PUFF_ROWS } from './npcProps.js';
 
 const C = {
-  skin: 0xa3ad92, skinD: 0x8a947a, skinL: 0xbcc4aa, skinDD: 0x5c6454, spot: 0x7e8870,
+  skin: 0xa8b67c, skinD: 0x8a9a62, skinL: 0xc4d098, skinDD: 0x5a663e, spot: 0x7e8c56,
   belly: 0xd6cc9e, bellyD: 0xb8ad80, bellyL: 0xe8e0bc,
-  shell: 0x5f6a42, shellD: 0x485230, shellL: 0x7c8858, ring: 0x3a4226, seam: 0x2e3420,
+  shell: 0x5c6c68, shellD: 0x46544f, shellL: 0x7e9088, ring: 0x37423e, seam: 0x283230,
+  scarf: 0xc8503a, scarfD: 0x9a3a2a, scarfL: 0xf0e0c0,
   moss: 0x4f9a3c, mossD: 0x3a7a2e, mossL: 0x7cc256, fern: 0x62b84c, fernD: 0x3e8a34,
   stone: 0x9c9c90, stoneD: 0x727268, stoneL: 0xc4c4b6,
   hair: 0xf6f4ec, hairD: 0xd8d4c8,
@@ -144,6 +145,20 @@ function neckModel(i) {
       }
   // a fold of loose skin on the sides at the base of every segment
   v.set(-3, 0, 0, C.skinDD); v.set(2, 0, 0, C.skinDD);
+  return v;
+}
+function scarfModel() {
+  // a long knitted scarf (a long neck needs a long scarf): a striped ring + one end hanging down the front
+  const v = new VoxelModel();
+  const col = (y, k) => ((y + k) % 3 === 0 ? C.scarfL : (y + k) % 3 === 1 ? C.scarf : C.scarfD);
+  for (let y = 0; y <= 2; y++)
+    for (let x = -4; x <= 3; x++)
+      for (let z = -4; z <= 3; z++) {
+        const d = Math.hypot(x + 0.5, z + 0.5);
+        if (d <= 3.6 && d > 2.2) v.set(x, y, z, col(y, Math.floor((x + z + 20) / 2)));
+      }
+  for (let k = 0; k < 7; k++) for (let x = 0; x <= 2; x++) v.set(x - (k > 4 ? 1 : 0), -k, 3 + (k > 2 ? 1 : 0), col(k, x));
+  for (let x = 0; x <= 2; x++) v.set(x - 1, -7, 4, C.scarfL); // fringe
   return v;
 }
 function headModel() {
@@ -280,6 +295,7 @@ const cache = geoCache(() => {
     staff: buildGeo(staffModel(), [0, 0, 0], FV), cup: buildGeo(cupModel(), [0, 0, 0], FV),
   };
   for (let i = 0; i < NSEG; i++) G['neck' + i] = buildGeo(neckModel(i), [0, 0, 0]);
+  G.scarf = buildGeo(scarfModel(), [0, 0, 0]);
   for (const k of HAND_KINDS) {
     G['hand_' + k + 'L'] = buildGeo(handModel(k, 1, C.skin, C.skinDD), [0, 0, 0], FV);
     G['hand_' + k + 'R'] = buildGeo(handModel(k, -1, C.skin, C.skinDD), [0, 0, 0], FV);
@@ -292,7 +308,7 @@ const FACE = {
   w: 40, h: 16, eyes: [{ x: 11.6, y: 8 }, { x: 28.4, y: 8 }], rx: 4.4, ry: 5.0, style: 'bead', lash: false,
   blush: [{ x: 4, y: 13 }, { x: 36, y: 13 }], blushW: 2,
   mw: 24, mh: 10, mx: 12, my: 2, mstyle: 'turtle', mHalf: 5,
-  pal: { b: '#f6f4ec', i: '#6a4a18', I: '#d0a040', f: '#a3ad92', F: '#5c6454' },
+  pal: { b: '#f6f4ec', i: '#6a4a18', I: '#d0a040', f: '#a8b67c', F: '#5a663e' },
 };
 // heavy, droopy old lids drawn over the bead eyes (st.lid 0 = open .. 1 = shut) + a wrinkle under each eye
 function lids(P, st) {
@@ -358,6 +374,7 @@ export class LongneckElder extends BipedRig {
       this.mesh(G['neck' + i], j);
       par = j;
     }
+    this.mesh(G.scarf, this.neck0, { y: 0.6 * VS });
     par.add(this.head);
     const hj = this._joints.find((j) => j.name === 'head');
     hj.rest.set(0, (SEG - 0.6) * VS, 0.2 * VS);

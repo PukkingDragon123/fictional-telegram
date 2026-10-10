@@ -130,7 +130,7 @@ export class Villagers {
         v.rig.root.worldToLocal(v.rig.castTarget);
       }
     }
-    const so = v.id === 'longneck' ? [2.0, 0.85] : [v.id === 'rocco' ? 1.3 : -1.4, 1.1]; // [v26 turtle] his sign stays out of the pond
+    const so = v.id === 'longneck' ? [-0.85, -0.9] : [v.id === 'rocco' ? 1.3 : -1.4, 1.1]; // [v26 turtle] his sign stays out of the pond
     put(tryMake(NP.makeSignpost, v.cast.sign || v.name.split(' ').pop().toUpperCase()), so[0], so[1], 0.2);
     game.homes?.addExterior?.(v, g, put); // [v20 npc homes] their house, mailbox + door marker
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });

@@ -5,6 +5,7 @@
 import { ZONES } from '../data/zones.js';
 import { MINING_QUESTS } from '../data/questsMining.js'; // [F&S mining]
 import { LONGNECK_QUESTS } from '../data/longneck.js'; // [v26 turtle]
+import { LESSON_QUESTS } from '../data/lessons.js'; // [v26 tutorial] lesson goals (started by game.lessons)
 
 const rare = (g) => g.fish.list.some((f) => !f.dead && f.g.stars >= 3 && !f.tagged);
 const couple = (g) => {
@@ -114,6 +115,7 @@ export const QUESTS = [
 ];
 QUESTS.push(...MINING_QUESTS); // [F&S mining] src/data/questsMining.js
 QUESTS.push(...LONGNECK_QUESTS); // [v26 turtle] the way to Old Longneck (src/data/longneck.js)
+QUESTS.push(...LESSON_QUESTS); // [v26 tutorial] src/data/lessons.js
 const BY_ID = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 
 export class Quests {

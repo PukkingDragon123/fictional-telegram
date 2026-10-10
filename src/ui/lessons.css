@@ -1,0 +1,36 @@
+/* [v26 tutorial] Reynard's progressive lessons (src/game/ext/lessons.js):
+   a little chalk slate hangs at the top while a lesson runs, and the
+   notebook's Lessons page (src/ui/QuestLog.js). */
+.lsn-tag {
+  --wood: #8a5430; --wood-d: #5e3519; --wood-l: #b47442; --ink: #1d1410;
+  position: fixed; left: 50%; top: calc(10px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  z-index: 61; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); box-sizing: border-box;
+  padding: 6px 8px 7px 12px; background: #2a4335; border: 4px solid var(--wood);
+  box-shadow: 0 0 0 3px var(--ink), 0 6px 0 3px rgba(0, 0, 0, .35);
+  font-family: var(--font-title); color: #f3f0e2; pointer-events: none; image-rendering: pixelated;
+  animation: lsn-drop .35s cubic-bezier(.3, 1.6, .5, 1);
+}
+.lsn-tag::before { content: ''; position: absolute; left: 50%; top: -18px; width: 3px; height: 14px; background: var(--ink); transform: translateX(-50%); }
+.lsn-tag .lsn-k { font-size: 13px; color: #f7e07a; letter-spacing: 1px; }
+.lsn-tag .lsn-t { font-size: 20px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 6px rgba(243, 240, 226, .25); }
+.lsn-tag .lsn-n { font-size: 14px; color: #98cff2; }
+.lsn-tag .lsn-skip {
+  pointer-events: auto; cursor: pointer; font-family: var(--font-title); font-size: 15px; color: var(--ink);
+  background: #efe2c4; border: 3px solid var(--ink); padding: 1px 8px 2px; box-shadow: 0 3px 0 var(--ink); margin-left: 4px;
+}
+.lsn-tag .lsn-skip:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+@keyframes lsn-drop { from { transform: translateX(-50%) translateY(-60px) rotate(-4deg); } to { transform: translateX(-50%); } }
+.lsn-choice { z-index: 92; }
+@media (max-width: 560px) {
+  .lsn-tag .lsn-t { font-size: 16px; }
+  .lsn-tag .lsn-k { display: none; }
+}
+
+/* ---- the notebook's Lessons page (QuestLog) */
+.qn-lsn-link { cursor: pointer; pointer-events: auto; }
+.qn-lsn-link:hover { filter: brightness(1.15); }
+.qn-lsn { cursor: pointer; pointer-events: auto; display: flex; align-items: center; gap: 6px; }
+.qn-lsn:hover .qn-lsn-tt { text-decoration: underline; text-decoration-thickness: 2px; }
+.qn-lsn .qn-lsn-ic { flex: 0 0 auto; display: inline-flex; width: 22px; justify-content: center; }
+.qn-lsn .qn-lsn-new { font-family: var(--font-title); font-size: 12px; color: #fff; background: #c8323c; padding: 0 4px 1px; transform: rotate(-6deg); margin-left: 4px; }
+.qn-tab-lsn { cursor: pointer; pointer-events: auto; }
