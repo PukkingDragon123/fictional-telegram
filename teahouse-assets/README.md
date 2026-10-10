@@ -9,8 +9,8 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | Room | x range | What's there |
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit** (all mouth and teeth). Herbs dry on an old bamboo pole above it. Also the giant chalk **recipe board** with recipe cards, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
-| 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, wind chime, plants on the sill, menu tags, pendulum clock. **Uncle Pong** sits at a plain hinoki counter: his tea, one yunomi, a teapot |
-| 3 Tea ritual | 1280 to 1920 | An empty **corkboard** (only pin holes left) and a hanging scroll. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set on an indigo seigaiha runner (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
+| 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. **Uncle Pong** sits at a plain hinoki counter: his tea, one yunomi, a teapot |
+| 3 Tea ritual | 1280 to 1920 | An empty **corkboard** (only pin holes left) and a hanging scroll. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
 | 4 Traveler's bedroom | 1920 to 2560 | The most run-down room. Plaster has fallen off the walls to show the bamboo lath, rain has streaked them, there is mould in the corners, boards are missing from the roof so daylight shows, and the floor is broken and bare. Indigo noren hanging in front, moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, straw hat and cloak on the wall, oil lamp |
 
 ## Uncle Pong
@@ -80,7 +80,7 @@ The **rock wyvern** is drawn by hand at full scene resolution (one sprite pixel 
 
 It lives on its own layer, **`outside`**. Draw it after the window view and before the room shell, so the window frame hides the rest of its body.
 
-`dragon_bell` carries an **`on_click`** list in `scene.json`. Each entry names a prop, a one-shot anim to `play`, the anim to go back to (`then`), and an optional fps. Clicking the bell plays `ring` on the bell (then `idle`) and `peek` on `dragon_peek` (then `hidden`). The demo has a *ring the bell* button too.
+`dragon_bell` carries an **`on_click`** list in `scene.json`. Each entry names a prop, a one-shot anim to `play`, the anim to go back to (`then`), and an optional fps. Clicking the bell plays `ring` on the bell (then `idle`) and `peek` on `dragon_peek` (then `hidden`). If you want the wyvern to stay at the window, switch it to its `rest` loop after the peek instead. The demo has a *ring the bell* button too.
 
 ## Moss
 
@@ -106,7 +106,7 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 | Fire spirit: `idle`, `talk`, `happy` | 12 each | Sits down in the coals. Flame body is a noise field rising through a teardrop. A jagged maw of uneven teeth opens and closes as it talks; zigzag grin when shut; fangs when it laughs |
 | Cloth: noren, curtains, moon curtain, cloak, scarf, towel | 12 | **Real cloth physics**: Verlet particles with stretch/shear/bend constraints, pins, gravity, a looping breeze, and collisions. One wind period is captured so the loop closes |
 | Silk bed | 12 | The quilt's hanging folds sway, so the sheen slides across the silk |
-| Bell and rock wyvern | 10 + 43 | Click the bell: it rings. The wyvern slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
+| Bell and rock wyvern | 10 + 43 (+ a 25-frame `rest` loop) | Click the bell: it rings. The wyvern slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
 | Alien lucky cat | 8 | Eased beckoning paw, pulsing antenna lights, a blink, a glint that travels across the coin |
 | Garden trees, flower bed, ivy | 8 | Each leaf mass sways on its own phase |
 | Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing |
@@ -184,6 +184,7 @@ Default positions are in `scene.json` (`x`, `y` = top-left in scene pixels). Dro
 Some props are exported but not placed by default, which keeps the counter and shelves clean. You can drag any of them in:
 
 - **Tea room:** the old glazed cabinet, the teaware shelf and the corkboard notes (receipts, an unpaid tab, a map scrap).
+- **Cloth:** the indigo tenugui towel (prep table) and the seigaiha tea runner (tea counter), and the glass wind chime.
 - **Counter extras:** menu tent card, bud vase, dango plate, sugar pot, green-tea cup, service bell, incense burner, candle.
 - **Cook room:** the copper smoke hood, the kama pot, the iron kettle and their steam (for the furnace top, later). Also the long wall shelf, spare jars and tins, small sacks, scroll bundle, spare mortar, open jar, tea brick, torn sack and crate of jars.
 - **Bedroom:** the rug, pack, boots, book pile, scattered papers, walking staff and potted plant, plus the route map and the sketch (posters). The floor and walls are bare by default.
@@ -197,6 +198,7 @@ Some props are exported but not placed by default, which keeps the counter and s
 - `preview/uncle_pong_<mood>.gif` and `uncle_pong_moods.png`: Uncle Pong close up
 - `preview/dragon_bell_peek.gif`: the bell and the rock wyvern
 - `preview/wyvern_process.png` and `wyvern_process.gif`: how the wyvern is drawn, stage by stage
+- `preview/wyvern_peek.gif` and `wyvern_rest.gif`: the wyvern on its own in its window (the peek, and a resting loop of it breathing and blinking)
 - `preview/silk_bed.png`: the silk bed close up
 - `preview/fire_spirit_idle.gif`, `fire_spirit_talk.gif`, `fire_spirit_happy.gif`, `alien_lucky_cat.gif`: close-ups
 - `preview/pan_parallax.webp`: a camera pan across the four rooms

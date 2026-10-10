@@ -918,7 +918,7 @@
    "h": 61,
    "draggable": true,
    "desc": "Glass furin wind chime: the paper strip catches the breeze (8 frames)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room2/wind_chime.png",
    "frames": 8,
    "fps": 6,
@@ -1392,7 +1392,7 @@
    "h": 21,
    "draggable": true,
    "desc": "Indigo cotton tea mat with seigaiha wave stitching, fringed ends",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/tea_runner.png"
   },
   {
@@ -1842,7 +1842,7 @@
    "h": 74,
    "draggable": true,
    "desc": "Indigo tenugui towel draped over the table edge, stirring in the hearth heat (cloth physics, 12 frames)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/tenugui_towel.png",
    "frames": 12,
    "fps": 8,
@@ -2046,7 +2046,7 @@
    "w": 140,
    "h": 150,
    "draggable": false,
-   "desc": "Old rock wyvern, drawn by hand, who rises behind the bell window when the bell rings: settles its chin on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, parts its overbite jaws with a sigh and sinks back down (43 frames)",
+   "desc": "Old rock wyvern, drawn by hand, who rises behind the bell window when the bell rings: settles its chin on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, parts its overbite jaws with a sigh and sinks back down (43 frames); rest: a loop of it staying at the window, breathing and blinking (25 frames)",
    "placed_by_default": true,
    "file": "props/room3/dragon_peek.png",
    "anims": {
@@ -2059,6 +2059,11 @@
      "frames": 43,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_peek_sheet.png"
+    },
+    "rest": {
+     "frames": 25,
+     "fps": 10,
+     "sheet": "props/room3/dragon_peek_rest_sheet.png"
     }
    }
   }

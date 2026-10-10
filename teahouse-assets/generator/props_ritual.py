@@ -346,7 +346,8 @@ for _i, (_n, _x, _fn, _d) in enumerate(SHELF3):
 
 
 # ---------------------------------------------------------------- counter (room 3)
-@prop('tea_runner', 3, 'counter', 1298, COUNTER_Y - 14, 'Indigo cotton tea mat with seigaiha wave stitching, fringed ends', shadow='none')
+@prop('tea_runner', 3, 'counter', 1298, COUNTER_Y - 14, 'Indigo cotton tea mat with seigaiha wave stitching, fringed ends',
+      shadow='none', preview=False)
 def tea_runner():
     return TS.runner()
 

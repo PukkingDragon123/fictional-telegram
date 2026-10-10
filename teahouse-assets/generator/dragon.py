@@ -9,7 +9,7 @@ parallax garden, before the room shell), so the window frame hides the
 rest of it.
 
   dragon_bell  anims: idle (1 frame), ring (10 frames, 12 fps)
-  dragon_peek  anims: hidden (1 empty frame), peek (10 fps)
+  dragon_peek  anims: hidden (1 empty frame), peek (one-shot), rest (loop), 10 fps
 """
 import math
 from pixel import Canvas
@@ -75,7 +75,8 @@ def dragon_bell():
 @prop('dragon_peek', 3, 'outside', PEEK_X, PEEK_Y,
       'Old rock wyvern, drawn by hand, who rises behind the bell window when the bell rings: settles its chin '
       'on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, '
-      f'parts its overbite jaws with a sigh and sinks back down ({len(wyvern.SCRIPT)} frames)', drag=False,
+      f'parts its overbite jaws with a sigh and sinks back down ({len(wyvern.SCRIPT)} frames); rest: a loop of it '
+      f'staying at the window, breathing and blinking ({len(wyvern.REST)} frames)', drag=False,
       fps=10, shadow='none')
 def dragon_peek():
-    return {'hidden': [Canvas(wyvern.W, wyvern.H)], 'peek': wyvern.peek_frames()}
+    return {'hidden': [Canvas(wyvern.W, wyvern.H)], 'peek': wyvern.peek_frames(), 'rest': wyvern.rest_frames()}

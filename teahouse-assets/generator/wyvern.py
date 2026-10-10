@@ -613,6 +613,21 @@ def _script():
 SCRIPT = _script()
 
 
+def _rest_script():
+    """A seamless loop for a wyvern that stays at the window: it breathes, blinks
+    slowly (the third eyelid follows the lid) and glances at the bell."""
+    S = [_state() for _ in range(4)]
+    S += [_state(breath=1), _state(breath=2), _state(breath=3), _state()]
+    S += [_state(lid=0.8), _state(lid=1.0), _state(lid=1.0, membrane=0.6), _state(lid=0.72, membrane=0.3), _state()]
+    S += [_state(look=-0.5), _state(look=-1), _state(look=-1), _state(look=-1, lid=0.5)]
+    S += [_state(look=-1, breath=1), _state(look=-1, breath=2), _state(look=-1, breath=3), _state(look=-0.5)]
+    S += [_state(), _state(jaw=0.2), _state(jaw=0.3), _state(jaw=0.15)]
+    return S
+
+
+REST = _rest_script()
+
+
 def frame(s):
     s = dict(s)
     if s['rise'] <= 0:
@@ -624,6 +639,10 @@ def frame(s):
 
 def peek_frames():
     return [frame(s) for s in SCRIPT]
+
+
+def rest_frames():
+    return [frame(s) for s in REST]
 
 
 STAGES = (('construction', '1 CONSTRUCTION'), ('sketch', '2 SKETCH'), ('lines', '3 LINE ART'), ('flats', '4 FLATS'),

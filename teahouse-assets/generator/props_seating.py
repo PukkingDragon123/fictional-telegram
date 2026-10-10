@@ -142,7 +142,8 @@ def lantern_b():
     return [_lantern(2021, True, f) for f in range(F8)]
 
 
-@prop('wind_chime', 2, 'wall', 990, 60, 'Glass furin wind chime: the paper strip catches the breeze (8 frames)', fps=6)
+@prop('wind_chime', 2, 'wall', 990, 60, 'Glass furin wind chime: the paper strip catches the breeze (8 frames)', fps=6,
+      preview=False)
 def wind_chime():
     rng = random.Random(2030)
     frames = []

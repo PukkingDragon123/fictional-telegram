@@ -398,6 +398,18 @@ def export_previews(sc, anims=True):
     bell['frames'], drg['frames'] = keep_b, keep_d
     ims[0].save(os.path.join(ROOT, 'preview', 'dragon_bell_peek.gif'), save_all=True, append_images=ims[1:],
                 duration=100, loop=0, optimize=True)
+    # the wyvern on its own, framed by its window: the peek and the resting loop
+    for anim, name, ms in (('peek', 'wyvern_peek.gif', 100), ('rest', 'wyvern_rest.gif', 120)):
+        ims = []
+        for f in drg['anims'][anim]:
+            drg['frames'] = [f]
+            v = sc.view(0, cam)
+            x0 = LY.WIN_BELL['cx'] - cam - 76
+            ims.append(v.crop(x0, LY.WIN_BELL['top'] - 18, 152, LY.WIN_BELL['bottom'] - LY.WIN_BELL['top'] + 34)
+                       .image(4).convert('RGB'))
+        drg['frames'] = keep_d
+        ims[0].save(os.path.join(ROOT, 'preview', name), save_all=True, append_images=ims[1:], duration=ms, loop=0,
+                    optimize=True)
     # how the wyvern is drawn, stage by stage
     sheet, pframes = wyvern.process_sheet()
     save(sheet, 'preview', 'wyvern_process.png', scale=3)

@@ -30,7 +30,7 @@ def cached(key, fn):
 # ---------------------------------------------------------------- towel
 @prop('tenugui_towel', 1, 'counter', TABLE['x1'] - 52, TABLE['front'] - 22,
       'Indigo tenugui towel draped over the table edge, stirring in the hearth heat (cloth physics, 12 frames)', fps=8,
-      shadow='none')
+      shadow='none', preview=False)
 def towel():
     def build():
         c = C.Cloth(11, 22, 3.0, origin=(0, -0.5, -27), axis='horizontal')
