@@ -31,6 +31,7 @@ import { spriteImg, spriteCanvas, hasSprite } from '../ui/sprites.js';
 import { createFoxTalk } from '../ui/FoxTalk3D.js';
 import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
+import { CLASS_LESSONS } from './lessons/classes.js'; // [v26 tutorial]
 
 const mods = import.meta.glob(['../entities/foxRig.js'], { eager: true });
 const FoxMod = mods['../entities/foxRig.js'] || null;
@@ -276,6 +277,10 @@ export const LESSONS = {
     ],
   },
 };
+// [v26 tutorial] the smart classes (money, genetics, mutations, selective breeding,
+// unlocking, weather, resort & staff, power & storage, the feast). They replace the
+// old 'mutations' lesson; `steps` is a function of the game (real numbers).
+Object.assign(LESSONS, CLASS_LESSONS);
 export const LESSON_IDS = Object.keys(LESSONS);
 
 // portrait sprite for a rig expression
@@ -309,7 +314,11 @@ export class Classroom {
 
   /** Play a lesson (id or script). Resolves { completed, skipped } after the room is gone. */
   lesson(idOrScript, opts = {}) {
-    const script = typeof idOrScript === 'string' ? LESSONS[idOrScript] : idOrScript;
+    let script = typeof idOrScript === 'string' ? LESSONS[idOrScript] : idOrScript;
+    // [v26 tutorial] steps(game): built when the class starts, with the player's own numbers
+    if (script && typeof script.steps === 'function') {
+      try { script = { ...script, steps: script.steps(this.game).filter(Boolean) }; } catch (e) { console.warn('Classroom: lesson build failed', e); script = null; }
+    }
     if (!script || !Array.isArray(script.steps)) { console.warn('Classroom: unknown lesson', idOrScript); return Promise.resolve({ completed: false, skipped: false }); }
     const run = this._chain.then(() => this._run(script, opts));
     this._chain = run.catch(() => {});

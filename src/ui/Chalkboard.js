@@ -1045,6 +1045,18 @@ function eggPile(centres, W, H, r = 2.25) {
   }
   return g.map((r) => r.join(''));
 }
+// [v26 tutorial] doodles for the new classes (unlocking, seasons, staff, industry)
+Object.assign(DOODLE_ART, {
+  lock: ['..WWW..', '.W...W.', '.W...W.', 'YYYYYYY', 'YyyKyyY', 'YyyKyyY', 'YyyyyyY', 'YYYYYYY'],
+  key: ['.YYY.......', 'Y...Y......', 'Y.K.YYYYYYY', 'Y...Y..Y.Y.', '.YYY...Y.Y.'],
+  flask: ['..WWW..', '...W...', '...W...', '..WgW..', '.WgggW.', 'WgggggW', 'WgGgggW', '.WWWWW.'],
+  bolt: ['...YYY', '..YyY.', '.YyY..', 'YyyyY.', '..YyY.', '.YyY..', '.YY...', 'Y.....'],
+  thermo: ['.WW..', 'W..W.', 'W..W.', 'WrrW.', 'WrrW.', 'WrrW.', 'RrrR.', 'RrrrR', 'RrrrR', '.RRR.'],
+  tent: ['....O....', '...OoO...', '..OoKoO..', '.OooKooO.', 'OoooKoooO', 'OOOOOOOOO'],
+  crate: ['OOOOOOO', 'OoOoOoO', 'OOOOOOO', 'OoooooO', 'OoOoOoO', 'OOOOOOO'],
+  fire: ['...R...', '..RrR..', '.RryrR.', '.RyyyR.', '..RyR..', 'OOOOOOO', '.O.O.O.'],
+  tub: ['.B.B.B.', '..B.B..', 'WWWWWWW', 'WbbbbbW', 'WbbbbbW', '.WWWWW.'],
+});
 const _art = new Map();
 function doodleArt(name) {
   if (_art.has(name)) return _art.get(name);
@@ -1178,7 +1190,7 @@ function normalize(it) {
   const o = { ...it };
   if (it.text != null) o.type = 'text';
   else if (it.doodle) { o.type = 'doodle'; o.name = it.doodle; }
-  else for (const t of ['line', 'arrow', 'circle', 'box', 'check', 'cross', 'underline', 'star', 'heart', 'meter', 'dots']) {
+  else for (const t of ['line', 'arrow', 'circle', 'box', 'check', 'cross', 'underline', 'star', 'heart', 'meter', 'dots', 'bar', 'grid']) { // [v26 tutorial] + bar, grid
     if (it[t] == null) continue;
     o.type = t;
     const v = it[t];
@@ -1460,6 +1472,21 @@ export class Chalkboard {
         push('line', polyPts([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y - 0.5]], false, 0.2, seed), cIdx('white'));
         const fw = Math.round((w - 3) * v);
         if (fw > 0) push('fill', hatchOrder(fillPoly(() => true, x + 2, y + 2, x + 1 + fw, y + h - 2)), col, { a: 0.85 });
+        break;
+      }
+      // [v26 tutorial] a chart bar standing on its baseline: [x, yBottom, w, h]
+      case 'bar': {
+        const [x, yb, w, h] = A.length ? A : [it.x, it.y, it.w, it.h];
+        const y = yb - Math.max(1, h);
+        push('line', polyPts([[x, yb], [x, y], [x + w, y], [x + w, yb]], false, 0.2, seed), col);
+        if (h > 2 && w > 2 && it.fill !== false) push('fill', hatchOrder(fillPoly(() => true, x + 1, y + 1, x + w - 1, yb - 1)), col, { a: 0.8 });
+        break;
+      }
+      // [v26 tutorial] a table / Punnett square: [x, y, cols, rows, cellW, cellH]
+      case 'grid': {
+        const [x, y, cols, rows, cw, ch] = A.length ? A : [it.x, it.y, it.cols, it.rows, it.cw, it.ch];
+        for (let j = 0; j <= rows; j++) push('line', linePts(x, y + j * ch, x + cols * cw, y + j * ch, 0.35, seed + j), col);
+        for (let i = 0; i <= cols; i++) push('line', linePts(x + i * cw, y, x + i * cw, y + rows * ch, 0.35, seed + 40 + i), col);
         break;
       }
       case 'dots': {

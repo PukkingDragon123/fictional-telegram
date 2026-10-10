@@ -158,7 +158,7 @@ ZONES.push(QUARRY_ZONE); // [F&S mining] Flint's Quarry (src/data/zoneQuarry.js)
 // The turtle's story, house interior and lines get filled in later.
 ZONES.push({
   id: 'deep', landmark: null, name: 'Mistfall Hollow', cx: 34, cz: 206, r: 14, biome: 7, requires: 'r_xp_ropes', deep: true,
-  npc: { id: 'longneck', name: 'Old Longneck', title: 'The Old Wise Long-Neck Turtle', x: 34.5, z: 196.2, color: '#6a8a5a' },
+  npc: { id: 'longneck', name: 'Old Longneck', title: 'The Old Wise Long-Neck Turtle', x: 36.6, z: 196.4, color: '#6a8a5a' }, // [v26 turtle] on the sand just east of the falls (34.5 stood inside the water curtain)
   sub: 'Somebody very old lives behind the falls',
   intro: ['...Visitors. Took you long enough.', 'Sit. The water has been talking about you.', 'I am older than your pond. Older than the bears.'],
   lines: ['Slow water runs deep. So do slow turtles.', 'The falls never stop. Neither should you.', 'Patience is just hurry, with better posture.', 'Mind the moss. It has been here longer than you.'],

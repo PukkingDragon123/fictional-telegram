@@ -341,7 +341,7 @@ export class FeastUI {
     for (const [inst, h] of this.icons) {
       if (h.leaving) continue;
       const p = game.rig.worldToScreen(this.iconPoint(inst), game.renderer);
-      const on = p.x > M * 0.5 && p.x < W - M * 0.5 && p.y > M && p.y < H - M * 0.4;
+      const on = p.x > M && p.x < W - M && p.y > M * 1.9 && p.y < H - M * 0.6;
       const hide = intro || (focus && inst !== this.feast.focusInst);
       h.el.classList.toggle('dim', focus);
       h.el.classList.toggle('hidden', hide || !on);

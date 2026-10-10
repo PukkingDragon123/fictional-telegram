@@ -120,6 +120,7 @@ export class Villagers {
     }
     else if (v.id === 'hazel') put(tryMake(NP2.makeBakeryCart), 1.1, -0.55, 0.0);
     else if (v.id === 'flint') tryMake((vv, pp) => game.mining?.flintProps(vv, pp), v, put); // [F&S mining] shack + rig sounds
+    else if (v.id === 'longneck') tryMake((vv, pp) => game.longneck?.props(vv, pp), v, put); // [v26 turtle] lanterns, chimes, dock + his door behind the falls
     else if (v.id === 'otis') {
       const dock = tryMake(NP2.makeFishingDock);
       put(dock, 0.85, 0.0, Math.PI + 0.3); // the jetty and its little pond run out front-right of him
@@ -129,7 +130,8 @@ export class Villagers {
         v.rig.root.worldToLocal(v.rig.castTarget);
       }
     }
-    put(tryMake(NP.makeSignpost, v.cast.sign || v.name.split(' ').pop().toUpperCase()), v.id === 'rocco' ? 1.3 : -1.4, 1.1, 0.2);
+    const so = v.id === 'longneck' ? [2.0, 0.85] : [v.id === 'rocco' ? 1.3 : -1.4, 1.1]; // [v26 turtle] his sign stays out of the pond
+    put(tryMake(NP.makeSignpost, v.cast.sign || v.name.split(' ').pop().toUpperCase()), so[0], so[1], 0.2);
     game.homes?.addExterior?.(v, g, put); // [v20 npc homes] their house, mailbox + door marker
     g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.group.add(g);
@@ -178,6 +180,7 @@ export class Villagers {
   }
 
   async intro(v) {
+    if (v.id === 'longneck' && this.game.longneck?.intro) return this.game.longneck.intro(v); // [v26 turtle] he only manages a very slow "..."
     const r = v.rig;
     r?.play?.('wave', { loop: false, onDone: () => this.idle(v) });
     for (const line of v.zone.intro) {
@@ -200,6 +203,7 @@ export class Villagers {
   open(v) {
     const game = this.game;
     // [npc cutscenes] the first tap plays a short welcome scene, then comes back here
+    if (v.id === 'longneck' && game.longneck?.onTap?.(v)) return; // [v26 turtle] the Long Talk starts / Reynard gets impatient
     if (game.npcScenes?.firstVisit?.(v)) return;
     // [v19 npc] Pip and Chip get the same chat card; their counter / workshop is the first offer
     const ui = game.ui;
@@ -221,6 +225,7 @@ export class Villagers {
     if (v.id === 'pip' && game.pipVisit) offers.unshift({ icon: 'tree', title: 'Sell logs', desc: `Today: ${game.pipVisit.price?.() ?? '?'} coins a log`, tag: 'OPEN', onClick: panel(() => game.pipVisit.openTrade()) });
     if (v.id === 'chip' && game.workshop) offers.unshift({ icon: 'hammer', title: 'Open the workshop', desc: 'Furniture orders and repairs', tag: 'OPEN', onClick: panel(() => game.workshop.open()) });
     if (v.id === 'flint' && game.mining) offers.unshift(...game.mining.cardOffers(panel)); // [F&S mining] the Bear Mine + ore trade
+    if (v.id === 'longneck' && game.longneck) offers.unshift(...game.longneck.cardOffers(v, panel)); // [v26 turtle] the Long Talk
     if (game.homes?.doors?.has(v.id) && !game.homes.active) offers.unshift({ icon: 'home', title: 'Visit home', desc: 'Pop in for a look around', tag: 'OPEN', onClick: panel(() => game.homes.enter(v.id)) }); // [v20 npc homes]
     if (this.card) this.card.close?.();
     const talk = this.talk;

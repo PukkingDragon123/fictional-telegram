@@ -11,9 +11,11 @@ import { buildHazel } from './hazel.js';
 import { buildChip } from './chip.js';
 import { buildPip } from './pip.js';
 import { buildFlint } from './flint.js'; // [F&S mining]
+import { buildLongneck } from './longneck.js'; // [v26 turtle]
 
 export const HOME_BUILDERS = {
   hoot: buildHoot, shellby: buildShellby, dale: buildDale, granny: buildGranny, rocco: buildRocco,
   otis: buildOtis, clover: buildClover, hazel: buildHazel, chip: buildChip, pip: buildPip,
   flint: buildFlint, // [F&S mining]
+  longneck: buildLongneck, // [v26 turtle] the grotto behind the falls
 };

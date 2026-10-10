@@ -7,12 +7,12 @@ export const EVENTS = [
   {
     id: 'karen', name: 'Karen Wants a Refund', icon: 'fe_karen', kind: 'customer', weight: 10, ttl: 26, minDay: 2,
     text: (ctx) => `${ctx.bear.name} swears her berries are rotten. She wants her money back. Right now.`,
-    pick: (game, f) => f.pickBear(plainBear, { land: true }),
+    pick: (game, f) => f.pickBear((b) => plainBear(b) && !b.def.hat, { land: true }) || f.pickBear(plainBear, { land: true }),
     setup(ctx) {
       const b = ctx.bear;
       karenify(ctx, b);
       ctx.pose(b, 'angry_stomp', { face: 'angry' });
-      ctx.data.bowl = ctx.attach(ctx.prop('bowl', { rotten: true }), b, 'hold');
+      ctx.data.bowl = ctx.attach(ctx.prop('bowl', { rotten: true, scale: 1.7 }), b, 'hold', { z: 0.3, y: -0.12 });
       ctx.say(b, 'Excuse me? EXCUSE ME!', { mood: 'angry', wait: false });
     },
     async scene(ctx) {
@@ -21,7 +21,7 @@ export const EVENTS = [
       ctx.pose(b, 'angry_stomp', { face: 'furious' });
       await ctx.say(b, 'These berries are ROTTEN! I need a refund!', { mood: 'shout' });
       // the close-up: brown, green, fuzzy berries, flies, stink lines
-      ctx.cam(bowl, { zoom: 0.0105, dy: 0.1 });
+      ctx.cam(bowl, { zoom: 0.0112, dy: 0.25 });
       ctx.pose(b, 'idle', { face: 'disgusted' });
       ctx.sfx('feast_flies', { volume: 0.6 });
       await ctx.wait(1.4);
@@ -68,7 +68,8 @@ export const EVENTS = [
         c.face(b);
         c.drop();
         ctx.drop(bowl);
-        ctx.data.bowl = ctx.attach(fresh, b, 'hold');
+        fresh.obj.scale.setScalar(1.7);
+        ctx.data.bowl = ctx.attach(fresh, b, 'hold', { z: 0.3, y: -0.12 });
         c.play('wave');
         await ctx.say(c, 'Fresh from the bush, ma\'am!', { voice: 'beaver' });
         ctx.pose(b, 'search', { face: 'disgusted' });
