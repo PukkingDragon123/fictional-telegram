@@ -10,7 +10,7 @@ PROPS = []
 # taken out of the default scene (still exported): no tea anywhere, no hanging noren in the bedroom
 UNPLACED = {'jar_green_tea', 'jar_dried_blossom', 'jar_hojicha', 'cutting_board_leaves', 'basket_fresh_leaves',
             'teacup_black_tea', 'steam_cup', 'yunomi_matcha_seat', 'kyusu_teapot', 'chawan_matcha', 'chasen_whisk',
-            'natsume_caddy', 'chashaku_scoop', 'yunomi_tray', 'noren_doorway'}
+            'natsume_caddy', 'chashaku_scoop', 'yunomi_tray', 'noren_doorway', 'kakejiku_scroll'}
 
 
 def prop(name, room, layer, x, y, desc, drag=True, fps=None, preview=True, shadow='auto', meta=None):

@@ -39,7 +39,7 @@ separate drag-and-drop props.
   1 cook room       stone furnace with a live fire spirit, recipe board,
                     apothecary chest, prep table
   2 seating room    lattice window onto the garden, lanterns, clock
-  3 tea room        empty corkboard, CHAI TEA scroll, bell-shaped window,
+  3 tea room        empty corkboard, bell-shaped window,
                     brass bell, lucky cat. Ring the bell and the old rock
                     wyvern comes up to the window.
   4 bedroom         silk bed, desk, bookcase, moon window
@@ -92,6 +92,28 @@ Also in here
                   process, a labelled sheet of every prop
   demo/           open demo/index.html in a browser to drag things around
 """
+
+
+def _zip(tmp, out):
+    """Plain zip that every unzipper opens, phones included: deflate only,
+    ASCII names, an entry for every folder, sensible permissions."""
+    if os.path.exists(out):
+        os.remove(out)
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, allowZip64=False) as z:
+        for dp, dirs, files in os.walk(tmp):
+            dirs.sort()
+            rel = os.path.relpath(dp, tmp)
+            if rel != '.':
+                zi = zipfile.ZipInfo(rel.replace(os.sep, '/') + '/')
+                zi.external_attr = (0o40755 << 16) | 0x10
+                z.writestr(zi, '')
+            for f in sorted(files):
+                full = os.path.join(dp, f)
+                zi = zipfile.ZipInfo.from_file(full, os.path.relpath(full, tmp).replace(os.sep, '/'))
+                zi.compress_type = zipfile.ZIP_DEFLATED
+                zi.external_attr = 0o644 << 16
+                with open(full, 'rb') as fh:
+                    z.writestr(zi, fh.read())
 
 
 def main(out):
@@ -175,13 +197,16 @@ def main(out):
         fh.write('window.SCENE = ' + json.dumps(scene) + ';\n')
     with open(os.path.join(base, 'README.txt'), 'w') as fh:
         fh.write(README)
-    if os.path.exists(out):
-        os.remove(out)
-    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
-        for dp, _, files in os.walk(tmp):
-            for f in sorted(files):
-                full = os.path.join(dp, f)
-                z.write(full, os.path.relpath(full, tmp))
+    _zip(tmp, out)
+    lite = out.replace('.zip', '_mobile.zip')
+    # phone-friendly copy: 1x art, backgrounds, scene and the still previews only (no 3x, no gifs, no demo)
+    for d in ('props/3x', 'demo', 'sprite_atlas'):
+        shutil.rmtree(os.path.join(base, d), ignore_errors=True)
+    for f in os.listdir(os.path.join(base, 'previews')):
+        if not f.endswith('.png') or f.startswith(('props_contact', 'teahouse_full_1x', 'trees_sheet')):
+            os.remove(os.path.join(base, 'previews', f))
+    _zip(tmp, lite)
+    print('wrote', lite)
     shutil.rmtree(tmp)
     print('wrote', out)
 

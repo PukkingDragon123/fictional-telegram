@@ -1249,7 +1249,7 @@
    "h": 145,
    "draggable": true,
    "desc": "Hanging scroll with CHAI TEA brushed sideways down it, red seal; water-stained",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/kakejiku_scroll.png"
   },
   {

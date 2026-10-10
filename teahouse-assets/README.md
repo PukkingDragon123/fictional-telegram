@@ -10,7 +10,7 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit** (all mouth and teeth). Herbs dry on an old bamboo pole above it. Also the giant chalk **recipe board** with recipe cards, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
 | 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
-| 3 Tea ritual | 1280 to 1920 | An empty **corkboard** and a hanging scroll with **CHAI TEA** brushed sideways down it. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
+| 3 Tea ritual | 1280 to 1920 | An empty **corkboard**. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
 | 4 Traveler's bedroom | 1920 to 2560 | The most run-down room. Plaster has fallen off the walls to show the bamboo lath, rain has streaked them, there is mould in the corners, boards are missing from the roof so daylight shows, and the floor is broken and bare. Indigo noren hanging in front, moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, straw hat and cloak on the wall, oil lamp |
 
 ## Uncle Pong (optional, not placed)
@@ -131,7 +131,7 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 - **The lucky cat** is drawn from hand-placed curves:
   - a pear-shaped sitting body with haunches and a curling tail
   - a soft head with cheek fluff, and curved ears with fur tufts
-  - almond eyes, curved antennae with glowing bulbs, a tapering beckoning arm
+  - almond eyes, curved antennae with glowing bulbs, a bent beckoning arm (elbow at its side, paw held up beside the head)
   - a squashy cushion with tassels
 - **Real wood grain (`woodgrain.py`):**
   - Each board is modelled as a cut through a log: the growth rings sliced by the board's surface.
@@ -193,6 +193,7 @@ Some props are exported but not placed by default, which keeps the counter and s
 - **Uncle Pong** (the elephant NPC, all his moods) and the white teapot in the seating room.
 - **All the tea:** the tea set (kyusu, chawan, chasen, natsume, chashaku), the yunomi tray and cups, the cup of tea and its steam, the tea jars on the apothecary chest, and the tea leaves on the cutting board and in the basket.
 - **Bedroom:** the indigo noren hanging at the top left.
+- **Tea room:** the hanging scroll with CHAI TEA brushed down it.
 - **Cloth:** the indigo tenugui towel (prep table) and the seigaiha tea runner (tea counter), and the glass wind chime.
 - **Counter extras:** menu tent card, bud vase, dango plate, sugar pot, green-tea cup, service bell, incense burner, candle.
 - **Cook room:** the copper smoke hood, the kama pot, the iron kettle and their steam (for the furnace top, later). Also the long wall shelf, spare jars and tins, small sacks, scroll bundle, spare mortar, open jar, tea brick, torn sack and crate of jars.

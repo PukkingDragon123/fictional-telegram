@@ -634,17 +634,22 @@ def alien_cat(f):
     paw = _smask([(cx + 3, 66), (cx + 7, 63.5), (cx + 12, 64.5), (cx + 13, 68), (cx + 8, 70), (cx + 3, 69)])
     paint(paw, G[1:], R=3, amb=0.4, canvas=cv)
     cv.px(cx + 6, 66, 'pink2'); cv.px(cx + 9, 66, 'pink2')
-    # beckoning arm: a tapering curved limb with a rounded paw, eased up and down
+    # beckoning arm, bent like a real maneki-neko: out from the shoulder, elbow at
+    # the side, forearm raised so the paw is held up clear of the head
     arm = Canvas(CAT_W, CAT_H)
-    px_, py_ = cx - 23, 24 + t * 7
-    am = _smask([(cx - 12, 44), (cx - 17, 41), (px_ + 2, py_ + 9), (px_ - 4, py_ + 3), (px_ - 5, py_ - 2),
-                 (px_ - 2, py_ - 6), (px_ + 3, py_ - 6), (px_ + 6, py_ - 2), (px_ + 5, py_ + 4), (cx - 15, 37),
-                 (cx - 9, 41)])
+    ex, ey = cx - 22, 49                                    # elbow
+    px_, py_ = cx - 27, 27 + t * 6                          # paw dips as it beckons
+    lean = t * 1.5
+    am = _smask([(cx - 13, 44), (cx - 16, 50), (ex + 1, ey + 4), (ex - 4, ey + 2), (ex - 5.5, ey - 3),
+                 (px_ - 4 + lean, py_ + 6), (px_ - 5, py_ + 1), (px_ - 3, py_ - 4), (px_ + 1, py_ - 5.5),
+                 (px_ + 4.5, py_ - 3), (px_ + 4.5 - lean, py_ + 3), (px_ + 2.5, py_ + 9), (ex + 2, ey - 4),
+                 (cx - 15, 42)])
     paint(am, G, R=4, spec=0.06, spec_col='white', canvas=arm)
+    _sline(arm, [(ex - 3, ey - 2), (ex - 1, ey + 2)], G[1])           # crease at the elbow
     curl = int(t * 2)                                       # toes curl as the paw dips
-    for (dx, dy) in ((-3, -4 + curl), (0, -5 + curl), (3, -4 + curl)):
+    for (dx, dy) in ((-3, -3 + curl), (0, -4 + curl), (3, -3 + curl)):
         arm.px(int(px_) + dx, int(py_) + dy, 'pink3'); arm.px(int(px_) + dx + 1, int(py_) + dy, 'pink2')
-    pad = _smask([(px_ - 2.4, py_ + 0.5), (px_, py_ - 1.3), (px_ + 2.4, py_ + 0.5), (px_, py_ + 2.3)])
+    pad = _smask([(px_ - 2.4, py_ + 1.5), (px_, py_ - 0.3), (px_ + 2.4, py_ + 1.5), (px_, py_ + 3.3)])
     arm.a[pad] = (*PAL['pink2'], 255)
     arm.outline(G[0], selective=False)
     cv.blit(arm, 0, 0)
