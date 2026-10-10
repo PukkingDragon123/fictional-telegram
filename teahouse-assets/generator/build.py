@@ -35,6 +35,7 @@ import props_bedroom                                       # noqa: E402,F401
 import cloth_props                                         # noqa: E402,F401
 import npc                                                 # noqa: E402,F401
 import dragon
+import organic                                             # noqa: E402
 import wyvern                                              # noqa: E402,F401
 
 SCALE_HI = 3
@@ -74,15 +75,18 @@ def frame_at(frames, fps, t):
 
 
 # ---------------------------------------------------------------- scene
+# hand-drawn wobble everywhere except the characters and the fx
+ORGANIC_SKIP = {'dragon_peek', 'fire_spirit', 'furnace_fire', 'furnace_coals', 'uncle_pong', 'alien_lucky_cat'}
+
 class Scene:
     def __init__(self):
         t = time.time()
         self.outs = outside.all_layers()
         print(f'  outside layers   {time.time() - t:5.1f}s')
         t = time.time()
-        self.shell = room.build_shell()
+        self.shell = organic.warp(room.build_shell(), amp=1.3)
         counter.floor_shadows(self.shell)
-        self.counter = weather.age(counter.build_counter(), seed=5, amount=1.4)
+        self.counter = organic.warp(weather.age(counter.build_counter(), seed=5, amount=1.4), amp=1.3)
         self.fg = fx.foreground()
         self.light = fx.light()
         print(f'  room + fx        {time.time() - t:5.1f}s')
@@ -91,6 +95,12 @@ class Scene:
         surfaces = [LY.SHELF1_Y, LY.SHELF3_Y, LY.SILL_Y]
         for p in propkit.PROPS:
             out = p['fn']()
+            if p['name'] not in ORGANIC_SKIP:
+                sd = len(p['name']) * 1.7
+                if isinstance(out, dict):
+                    out = {k: organic.organic_prop(v, p['x'], p['y'], sd) for k, v in out.items()}
+                else:
+                    out = organic.organic_prop(out if isinstance(out, list) else [out], p['x'], p['y'], sd)
             if isinstance(out, dict):
                 anims = {}
                 dx = 0

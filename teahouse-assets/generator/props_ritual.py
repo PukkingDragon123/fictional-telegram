@@ -513,98 +513,139 @@ def _ease(f, n=F8):
     return 0.5 - 0.5 * math.cos(2 * math.pi * f / n)
 
 
+def _smask(pts, closed=True):
+    """A shape from hand-placed points through a smooth curve (no circles or boxes)."""
+    from PIL import Image, ImageDraw
+    from wyvern import spline
+    im = Image.new('L', (CAT_W, CAT_H), 0)
+    c = spline(pts, closed=closed, n=8)
+    ImageDraw.Draw(im).polygon(c, fill=1)
+    return np.array(im, bool)
+
+
+def _sline(cv, pts, c, width=1):
+    from PIL import Image, ImageDraw
+    from wyvern import spline
+    im = Image.new('L', (CAT_W, CAT_H), 0)
+    ImageDraw.Draw(im).line(spline(pts, closed=False, n=8), fill=1, width=width)
+    cv.a[np.array(im, bool)] = (*PAL[c], 255)
+
+
 def alien_cat(f):
-    """Ceramic maneki-neko from another world. Glossy lime glaze, cat ears
-    AND antennae, three eyes, beckoning paw (eased 8-frame loop), pulsing
-    antenna lights, a blink, a coin whose glint travels."""
+    """Ceramic maneki-neko from another world, drawn from curves: a pear-shaped
+    sitting body with haunches, a soft head with cheek fluff, curved ears with
+    tufts, a curling tail, a squashy cushion. Glossy lime glaze, three eyes,
+    antennae with pulsing lights, an eased beckoning paw, a blink, a coin glint."""
     cv = Canvas(CAT_W, CAT_H)
     cx = CAT_W // 2 + 2
-    # satin cushion with tassels
-    cm = poly_mask(CAT_W, CAT_H, [(6, 72), (10, 66), (CAT_W - 6, 66), (CAT_W - 2, 72), (CAT_W - 6, 80), (8, 80)])
+    t = _ease(f)
+    # squashy cushion: sagging edges, corners pulled into tassel points
+    cm = _smask([(5, 73), (12, 67), (cx, 65.5), (CAT_W - 8, 67), (CAT_W - 2, 72), (CAT_W - 5, 78), (cx + 4, 80.5),
+                 (12, 80), (4, 77)])
     paint(cm, ['red0', 'red1', 'red2', 'red3', 'red4'], profile='soft', R=6, spec=0.08, spec_col='red5', canvas=cv)
-    for (x, y) in ((cx - 2, 70), (cx + 10, 72), (cx - 16, 73)):
-        cv.px(x, y, 'gold3')
-    for tx in (5, CAT_W - 4):
-        cv.vline(tx, 74, 81, 'gold2'); cv.px(tx, 82, 'gold3'); cv.px(tx - 1, 82, 'gold1'); cv.px(tx + 1, 82, 'gold1')
-    # body
-    bm = ellipse_mask(CAT_W, CAT_H, cx, 56, 18, 15)
+    _sline(cv, [(10, 70), (cx - 6, 68.5), (cx + 8, 69), (CAT_W - 10, 70.5)], 'red4')        # seam piping
+    for (tx, ty, d) in ((4, 76, -1), (CAT_W - 3, 74, 1)):
+        _sline(cv, [(tx, ty), (tx + d, ty + 4), (tx + d * 0.5, ty + 7)], 'gold2')
+        cv.px(tx + d, ty + 8, 'gold3'); cv.px(tx, ty + 8, 'gold1')
+    # tail curling round the haunch
+    tail = _smask([(cx + 14, 70), (cx + 22, 66), (cx + 25, 58), (cx + 23, 52), (cx + 20, 53), (cx + 21, 59),
+                   (cx + 18, 65), (cx + 12, 68)])
+    paint(tail, G, R=3, spec=0.05, spec_col='white', canvas=cv)
+    # body: pear-shaped, wider haunches, a soft chest
+    bm = _smask([(cx - 12, 44), (cx - 4, 42), (cx + 6, 42), (cx + 13, 45), (cx + 17, 53), (cx + 19, 62),
+                 (cx + 16, 69), (cx + 6, 71), (cx - 6, 71), (cx - 16, 69), (cx - 19, 62), (cx - 17, 52)])
     paint(bm, G, R=12, spec=0.05, spec_col='white', canvas=cv)
-    belly = ellipse_mask(CAT_W, CAT_H, cx - 2, 59, 7.5, 7)
+    belly = _smask([(cx - 6, 52), (cx + 2, 51), (cx + 6, 56), (cx + 5, 64), (cx - 1, 67), (cx - 7, 64), (cx - 9, 57)])
     paint(belly, G[2:], R=6, amb=0.4, canvas=cv)
-    # head + ears as one glossy shape
-    hm = ellipse_mask(CAT_W, CAT_H, cx, 30, 20, 16.5)
-    hm |= poly_mask(CAT_W, CAT_H, [(cx - 19, 26), (cx - 15, 6), (cx - 4, 16)])
-    hm |= poly_mask(CAT_W, CAT_H, [(cx + 4, 16), (cx + 15, 6), (cx + 19, 26)])
+    haunch = _smask([(cx - 18, 60), (cx - 13, 56), (cx - 8, 60), (cx - 8, 68), (cx - 15, 70), (cx - 19, 66)])
+    paint(haunch, G[1:], R=4, amb=0.3, canvas=cv)
+    # head and ears in one curved outline: cheeks puff out, ears curve with a tuft at the tips
+    hm = _smask([(cx - 3, 15), (cx - 9, 12), (cx - 15, 5), (cx - 17, 9), (cx - 19, 19), (cx - 21, 27),
+                 (cx - 23, 33), (cx - 20, 36), (cx - 21, 40), (cx - 15, 44), (cx - 6, 46), (cx + 6, 46),
+                 (cx + 15, 44), (cx + 21, 40), (cx + 20, 36), (cx + 23, 33), (cx + 21, 27), (cx + 19, 19),
+                 (cx + 17, 9), (cx + 15, 5), (cx + 9, 12), (cx + 3, 15)])
     paint(hm, G, R=13, spec=0.05, spec_col='white', canvas=cv)
-    cv.poly([(cx - 16, 21), (cx - 14, 10), (cx - 7, 17)], 'pink2')
-    cv.poly([(cx + 7, 17), (cx + 14, 10), (cx + 16, 21)], 'pink1')
-    cv.px(cx - 13, 14, 'pink3'); cv.px(cx - 13, 15, 'pink3')
-    # antennae with pulsing lights
-    pulse = _ease(f)
-    for (x0, y0, x1, y1) in ((cx - 4, 15, cx - 9, 2), (cx + 4, 15, cx + 9, 2)):
-        cv.line(x0, y0, x1, y1 + 2, G[1]); cv.line(x0 + 1, y0, x1 + 1, y1 + 2, G[2])
-        r = 2.2 + pulse * 0.9
-        orb = ellipse_mask(9, 9, 4.5, 4.5, r, r)
-        paint(orb, [G[3], G[4], 'white'], R=2, amb=0.5, canvas=cv, ox=x1 - 4, oy=y1 - 4)
-        if pulse > 0.6:
-            for (dx, dy) in ((-4, 0), (4, 0), (0, -4), (0, 4)):
+    for side in (-1, 1):                                           # inner ears, curved
+        inner = _smask([(cx + side * 6, 15), (cx + side * 11, 11), (cx + side * 15, 8), (cx + side * 16, 13),
+                        (cx + side * 16, 20), (cx + side * 11, 18)])
+        cv.a[inner] = (*PAL['pink2' if side < 0 else 'pink1'], 255)
+        _sline(cv, [(cx + side * 14, 10), (cx + side * 13, 15)], 'pink3')
+        for k in range(3):                                         # fur tuft at the ear tip
+            cv.px(cx + side * (15 + k * 0.5), 4 - k, G[2] if k < 2 else G[3])
+    for side in (-1, 1):                                           # cheek fluff
+        for k in range(3):
+            cv.px(cx + side * (22 - k), 34 + k * 2, G[3]); cv.px(cx + side * (23 - k), 35 + k * 2, G[1])
+    # antennae: curved stalks with pulsing lights
+    for side in (-1, 1):
+        x1, y1 = cx + side * 9, 2
+        _sline(cv, [(cx + side * 3, 14), (cx + side * 4, 9), (cx + side * 7, 5), (x1, y1 + 2)], G[1])
+        _sline(cv, [(cx + side * 3 + 1, 14), (cx + side * 4 + 1, 9), (cx + side * 7 + 1, 5)], G[2])
+        bulb = ['.aba.', 'abccb', 'bccdb', 'abcdb', '.bbb.']        # a round glowing bulb, drawn by hand
+        cmap = {'a': G[1], 'b': G[2], 'c': G[4] if t > 0.4 else G[3], 'd': 'white' if t > 0.5 else G[4]}
+        for yy, row in enumerate(bulb):
+            for xx, ch in enumerate(row):
+                if ch in cmap:
+                    cv.px(x1 - 2 + xx, y1 - 2 + yy, cmap[ch])
+        if t > 0.6:
+            for (dx, dy) in ((-4, -1), (4, -1), (0, -5)):
                 cv.px(x1 + dx, y1 + dy, G[3])
-    # eyes: big glossy almonds + third eye; blink on frame 5
+    # eyes: curved almonds, lids, a third eye; blink on frame 5
     blink = f == 5
-    for (ex, ey, rx, ry) in ((cx - 8, 31, 5.4, 4.8), (cx + 8, 31, 5.4, 4.8), (cx, 21, 3.0, 2.6)):
+    for (ex, ey, rx, ry, tilt) in ((cx - 8, 31, 5.4, 4.6, -1), (cx + 8, 31, 5.4, 4.6, 1), (cx, 21, 3.0, 2.4, 0)):
         if blink:
-            cv.hline(int(ex - rx), int(ex + rx), int(ey + 1), G[0])
-            cv.hline(int(ex - rx + 1), int(ex + rx - 1), int(ey + 2), G[0])
+            _sline(cv, [(ex - rx, ey), (ex, ey + 2), (ex + rx, ey)], G[0], 1)
             continue
-        cv.ellipse(ex, ey, rx + 0.8, ry + 0.8, G[0])
-        cv.ellipse(ex, ey, rx, ry, 'ink')
-        cv.ellipse(ex + rx * 0.25, ey + ry * 0.35, rx * 0.55, ry * 0.4, 'teal1')
-        cv.px(int(ex - rx * 0.4), int(ey - ry * 0.45), 'white')
-        cv.px(int(ex - rx * 0.4) + 1, int(ey - ry * 0.45), 'white')
-        cv.px(int(ex - rx * 0.4), int(ey - ry * 0.45) + 1, 'white')
-        cv.px(int(ex + rx * 0.35), int(ey + ry * 0.3), 'teal3')
-    # nose, mouth, whiskers (painted on, like a real figurine), blush
+        eye = _smask([(ex - rx, ey + tilt * 0.6), (ex - rx * 0.4, ey - ry), (ex + rx * 0.5, ey - ry + abs(tilt) * 0.3),
+                      (ex + rx, ey - tilt * 0.6), (ex + rx * 0.3, ey + ry), (ex - rx * 0.5, ey + ry * 0.9)])
+        rim = eye & ~(np.roll(eye, 1, 0) & np.roll(eye, -1, 0) & np.roll(eye, 1, 1) & np.roll(eye, -1, 1))
+        cv.a[eye] = (*PAL['ink'], 255)
+        iris = _smask([(ex - rx * 0.2, ey + ry * 0.2), (ex + rx * 0.4, ey - ry * 0.1), (ex + rx * 0.7, ey + ry * 0.5),
+                       (ex + rx * 0.2, ey + ry * 0.85)])
+        cv.a[iris & eye] = (*PAL['teal1'], 255)
+        cv.a[rim] = (*PAL[G[0]], 255)
+        cv.px(int(ex - rx * 0.4), int(ey - ry * 0.4), 'white'); cv.px(int(ex - rx * 0.4) + 1, int(ey - ry * 0.4), 'white')
+        cv.px(int(ex - rx * 0.4), int(ey - ry * 0.4) + 1, 'white')
+        cv.px(int(ex + rx * 0.35), int(ey + ry * 0.35), 'teal3')
+    # nose, a curved w-mouth, whiskers painted on, blush
     cv.px(cx, 37, 'pink2'); cv.px(cx - 1, 37, 'pink3')
-    for (dx, dy) in ((-3, 38), (-2, 39), (-1, 39), (0, 38), (1, 39), (2, 39), (3, 38)):
-        cv.px(cx + dx, dy, G[0])
-    for (x0, x1, y0, y1) in ((cx - 22, cx - 13, 34, 36), (cx - 22, cx - 13, 39, 38), (cx + 13, cx + 22, 36, 34),
-                             (cx + 13, cx + 22, 38, 39)):
-        cv.line(x0, y0, x1, y1, G[1])
+    _sline(cv, [(cx - 3, 38), (cx - 1.5, 39.5), (cx, 38.5)], G[0])
+    _sline(cv, [(cx, 38.5), (cx + 1.5, 39.5), (cx + 3, 38)], G[0])
+    for side in (-1, 1):
+        _sline(cv, [(cx + side * 12, 35), (cx + side * 17, 34), (cx + side * 22, 34.5)], G[1])
+        _sline(cv, [(cx + side * 12, 38), (cx + side * 17, 38.5), (cx + side * 22, 40)], G[1])
     for (bx, by) in ((cx - 14, 37), (cx + 13, 37)):
-        cv.ellipse(bx, by, 2.6, 1.4, 'pink2')
-    # collar with a glossy gold bell
-    cv.hline(cx - 15, cx + 15, 44, 'red4'); cv.hline(cx - 15, cx + 15, 45, 'red3'); cv.hline(cx - 14, cx + 14, 46, 'red2')
+        blush = _smask([(bx - 2.6, by), (bx, by - 1.4), (bx + 2.6, by), (bx, by + 1.4)])
+        cv.a[blush] = (*PAL['pink2'], 255)
+    # collar dipping in a curve, a glossy bell
+    _sline(cv, [(cx - 15, 43), (cx - 7, 46), (cx, 46.5), (cx + 7, 46), (cx + 15, 43)], 'red4', 1)
+    _sline(cv, [(cx - 15, 44), (cx - 7, 47), (cx, 47.5), (cx + 7, 47), (cx + 15, 44)], 'red2', 1)
     bell = ellipse_mask(9, 9, 4.5, 4.5, 4, 4)
-    paint(bell, O.BRASS, R=3, spec=0.15, spec_col='gold4', canvas=cv, ox=cx - 4, oy=45)
-    cv.hline(cx - 2, cx + 2, 50, 'gold0'); cv.px(cx, 51, 'gold0')
-    # koban coin with an alien glyph; the glint travels across it
-    coin = ellipse_mask(16, 22, 8, 11, 7, 10.5)
-    paint(coin, O.BRASS, R=5, spec=0.06, spec_col='gold4', canvas=cv, ox=cx + 6, oy=48)
+    paint(bell, O.BRASS, R=3, spec=0.15, spec_col='gold4', canvas=cv, ox=cx - 4, oy=46)
+    cv.hline(cx - 2, cx + 2, 51, 'gold0'); cv.px(cx, 52, 'gold0')
+    # koban coin held against the body, the glint travels
+    coin = _smask([(cx + 14, 49), (cx + 19, 51), (cx + 21, 59), (cx + 19, 67), (cx + 14, 69), (cx + 9, 67),
+                   (cx + 7, 59), (cx + 9, 51)])
+    paint(coin, O.BRASS, R=5, spec=0.06, spec_col='gold4', canvas=cv)
     ccx, ccy = cx + 14, 59
     for a in range(0, 360, 20):
         cv.px(int(round(ccx + math.cos(math.radians(a)) * 3)), int(round(ccy + math.sin(math.radians(a)) * 4)), 'gold1')
-    cv.px(ccx, ccy, 'gold1'); cv.px(ccx, ccy - 7, 'gold1'); cv.px(ccx, ccy + 7, 'gold1')
-    gy = 50 + int(_ease(f) * 16)
+    gy = 51 + int(t * 15)
     cv.px(ccx - 4, gy, 'white'); cv.px(ccx - 3, gy + 1, 'gold4'); cv.px(ccx - 5, gy + 1, 'gold4')
-    paw = ellipse_mask(10, 8, 5, 4, 4.6, 3.6)
-    paint(paw, G[1:], R=3, amb=0.4, canvas=cv, ox=cx + 2, oy=63)
-    cv.px(cx + 5, 66, 'pink2'); cv.px(cx + 7, 66, 'pink2')
-    # beckoning arm on its own layer so it reads apart from the head
+    paw = _smask([(cx + 3, 66), (cx + 7, 63.5), (cx + 12, 64.5), (cx + 13, 68), (cx + 8, 70), (cx + 3, 69)])
+    paint(paw, G[1:], R=3, amb=0.4, canvas=cv)
+    cv.px(cx + 6, 66, 'pink2'); cv.px(cx + 9, 66, 'pink2')
+    # beckoning arm: a tapering curved limb with a rounded paw, eased up and down
     arm = Canvas(CAT_W, CAT_H)
-    t = _ease(f)
-    sx, sy = cx - 15, 47
     px_, py_ = cx - 23, 24 + t * 7
-    am = Canvas(CAT_W, CAT_H)
-    for k in range(11):
-        u = k / 10
-        am.ellipse(sx + (px_ - sx) * u, sy + (py_ - sy) * u, 5.4 - u * 0.6, 5.4 - u * 0.6, 'white')
-    am.ellipse(px_, py_ - 1, 6, 5.2, 'white')
-    amask = mask_of(am)
-    paint(amask, G, R=4, spec=0.06, spec_col='white', canvas=arm)
-    curl = int(t * 2)                                       # fingers curl as the paw dips
+    am = _smask([(cx - 12, 44), (cx - 17, 41), (px_ + 2, py_ + 9), (px_ - 4, py_ + 3), (px_ - 5, py_ - 2),
+                 (px_ - 2, py_ - 6), (px_ + 3, py_ - 6), (px_ + 6, py_ - 2), (px_ + 5, py_ + 4), (cx - 15, 37),
+                 (cx - 9, 41)])
+    paint(am, G, R=4, spec=0.06, spec_col='white', canvas=arm)
+    curl = int(t * 2)                                       # toes curl as the paw dips
     for (dx, dy) in ((-3, -4 + curl), (0, -5 + curl), (3, -4 + curl)):
         arm.px(int(px_) + dx, int(py_) + dy, 'pink3'); arm.px(int(px_) + dx + 1, int(py_) + dy, 'pink2')
-    arm.ellipse(px_, py_ + 0.5, 2.4, 1.8, 'pink2')
+    pad = _smask([(px_ - 2.4, py_ + 0.5), (px_, py_ - 1.3), (px_ + 2.4, py_ + 0.5), (px_, py_ + 2.3)])
+    arm.a[pad] = (*PAL['pink2'], 255)
     arm.outline(G[0], selective=False)
     cv.blit(arm, 0, 0)
     return O.outline(cv)

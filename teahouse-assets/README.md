@@ -127,6 +127,12 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
   - The lacquered walls are peeling back to grey bare wood, streaked by rain, grimy above the rail and rotting at the skirting.
   - Boards are broken or missing, some old holes are boarded over, and the nails bleed rust.
   - Wooden and metal props get a weathering pass (`weather.py`): grime in the creases, paint worn through on the edges, tarnished brass, scratches and water stains.
+- **No ruler-straight shapes (`organic.py`):** the room layers and every prop go through an organic pass. A smooth noise field bends long straight edges by a pixel or so, the way old timber sags and a hand wobbles. Hard silhouette corners are worn off. Every frame of an animated prop bends the same way, so nothing shimmers. The characters and the fire are left as drawn.
+- **The lucky cat** is drawn from hand-placed curves:
+  - a pear-shaped sitting body with haunches and a curling tail
+  - a soft head with cheek fluff, and curved ears with fur tufts
+  - almond eyes, curved antennae with glowing bulbs, a tapering beckoning arm
+  - a squashy cushion with tassels
 - **Real wood grain (`woodgrain.py`):**
   - Each board is modelled as a cut through a log: the growth rings sliced by the board's surface.
   - That gives flat-sawn cathedral arches where the cut runs close to the pith, and straight lines further out.
