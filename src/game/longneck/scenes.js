@@ -70,17 +70,17 @@ async function staged(sys, v, shots, body) {
 }
 // pixel mist the camera glides through: two dithered cloud layers drifting apart and fading out
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-function mistLayer(seed, W = 160, H = 100) {
+function mistLayer(seed, W = 280, H = 175) {
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
   const img = x.createImageData(W, H);
   let r = seed * 9301 + 49297; const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
-  const blobs = Array.from({ length: 26 }, () => [rnd() * W, rnd() * H, 10 + rnd() * 26]);
+  const blobs = Array.from({ length: 30 }, () => [rnd() * W, rnd() * H, 18 + rnd() * 44]);
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
     let d = 0;
     for (const [bx, by, br] of blobs) { const q = 1 - Math.hypot(i - bx, (j - by) * 1.6) / br; if (q > d) d = q; }
-    if (d * 17 > BAYER[(j % 4) * 4 + (i % 4)] + 1) { const k = (j * W + i) * 4; const hi = d > 0.55; img.data[k] = hi ? 248 : 222; img.data[k + 1] = hi ? 250 : 232; img.data[k + 2] = hi ? 246 : 236; img.data[k + 3] = 255; }
+    if (d * 26 > BAYER[(j % 4) * 4 + (i % 4)] + 1) { const k = (j * W + i) * 4; const hi = d > 0.55; img.data[k] = hi ? 248 : 222; img.data[k + 1] = hi ? 250 : 232; img.data[k + 2] = hi ? 246 : 236; img.data[k + 3] = 255; }
   }
   x.putImageData(img, 0, 0);
   c.style.cssText = 'position:absolute;inset:-10%;width:120%;height:120%;image-rendering:pixelated;transition:transform 5.5s ease-in, opacity 5.5s ease-in;';

@@ -144,6 +144,7 @@ const _b = new THREE.Box3(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 // per-rig framing tweaks: bust height multiplier, vertical nudge (in head heights)
 // bust: k = share of the full height shown (from the top of the hat / ears down), dy = shift in body heights
 const TWEAK = { hoot: { k: 0.7 }, rocco: { k: 0.66, dy: -0.1 }, shellby: { k: 0.74, dy: -0.04 }, clover: { k: 0.78 }, pip: { k: 0.72 } };
+TWEAK.longneck = { k: 0.5, dy: -0.02 }; // [v26 turtle] head + the top of that long neck
 
 class NpcTalk {
   constructor(el, { npc, frame = 'bust', scale = 'auto', ps = 1, turn = 0.28, anim = 'idle', cover = false } = {}) {
