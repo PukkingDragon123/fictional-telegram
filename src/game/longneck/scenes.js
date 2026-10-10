@@ -2,17 +2,21 @@
 // opens (a glide through the mist to the falls; he slowly... slowly... turns
 // his head; his first line takes forever; Reynard reacts) and the finale when
 // the last word of the Long Talk lands (the reward: The Old Ways).
+import { Vector3 } from 'three';
 import { LN, OLD_WAYS } from '../../data/longneck.js';
 import { slowSay } from './ui.js';
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
+const _hp = new Vector3();
 const hasAnim = (r, n) => { const A = r?.anims; return !!A && (Array.isArray(A) ? A.includes(n) : !!A[n]); };
 
-// where to aim so he (tall, on the sand) sits a little above the screen centre
-function focusOn(game, v, lift = 1.2) {
+// where to aim so his HEAD (high up on that neck) sits a little above the screen centre
+export function focusOn(game, v, nudge = 0.2) {
   const rig = game.rig;
   const yaw = rig.yawGoal ?? rig.yaw ?? 0;
-  const off = -(v.y + lift - (rig.goal?.y || 0)) / Math.tan(rig.pitch || 0.77) + 0.55;
+  let hy = v.y + 1.75;
+  if (v.rig?.headFx) { v.rig.root.updateMatrixWorld(true); hy = v.rig.headFx.getWorldPosition(_hp).y; }
+  const off = -(hy - (rig.goal?.y || 0)) / Math.tan(rig.pitch || 0.77) + nudge;
   return { x: v.x + Math.sin(yaw) * off, z: v.z + Math.cos(yaw) * off };
 }
 export function headAnchor(v) {

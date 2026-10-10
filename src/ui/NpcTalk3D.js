@@ -144,7 +144,7 @@ const _b = new THREE.Box3(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 // per-rig framing tweaks: bust height multiplier, vertical nudge (in head heights)
 // bust: k = share of the full height shown (from the top of the hat / ears down), dy = shift in body heights
 const TWEAK = { hoot: { k: 0.7 }, rocco: { k: 0.66, dy: -0.1 }, shellby: { k: 0.74, dy: -0.04 }, clover: { k: 0.78 }, pip: { k: 0.72 } };
-TWEAK.longneck = { k: 0.5, dy: -0.02 }; // [v26 turtle] head + the top of that long neck
+TWEAK.longneck = { head: 1.9, dy: -0.12 }; // [v26 turtle] bust framed on the head box itself (his head sits out in front on a long neck)
 
 class NpcTalk {
   constructor(el, { npc, frame = 'bust', scale = 'auto', ps = 1, turn = 0.28, anim = 'idle', cover = false } = {}) {
@@ -235,16 +235,18 @@ class NpcTalk {
 
   _frameCam() {
     const c = this.cam, T = TWEAK[this.npc] || {};
-    let cy, span;
-    if (this.frame === 'full') { span = this.headTop * 1.12; cy = this.headTop * 0.5; }
+    let cy, span, hx = null, hz = 0;
+    if (this.frame === 'bust' && T.head) { span = this.headH * T.head; cy = this.headC.y + (T.dy || 0) * this.headH; hx = this.headC.x; hz = this.headC.z; } // [v26 turtle]
+    else if (this.frame === 'full') { span = this.headTop * 1.12; cy = this.headTop * 0.5; }
     else if (this.frame === 'half') { span = this.headTop * 0.72; cy = this.headTop * 1.04 - span / 2; } // [v20 npc rigs] chibi: small bodies, so a bit tighter
     else { span = this.headTop * (T.k || 0.74); cy = this.headTop * (1.05 + (T.dy || 0)) - span / 2; }
     // fit the span to the narrower side
     const fov = (c.fov * Math.PI) / 180;
     const vis = c.aspect < 1 ? span / c.aspect : span;
     const d = vis / 2 / Math.tan(fov / 2);
-    c.position.set(this.headC.x * 0.5 + 0.02, cy + d * 0.08, d);
-    c.lookAt(this.headC.x * 0.5, cy, 0);
+    const cx = hx ?? this.headC.x * 0.5; // [v26 turtle] hx/hz: head-box framing
+    c.position.set(cx + 0.02, cy + d * 0.08, hz + d);
+    c.lookAt(cx, cy, hz);
     c.near = Math.max(0.05, d - 2); c.far = d + 3;
     c.updateProjectionMatrix();
     c.updateMatrixWorld();

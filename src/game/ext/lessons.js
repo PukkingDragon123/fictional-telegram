@@ -100,6 +100,9 @@ class Lessons {
     if (!S.queue.length) return;
     S.queue.sort((a, b) => LESSONS.findIndex((l) => l.id === a) - LESSONS.findIndex((l) => l.id === b));
     if (!this.quiet()) return;
+    // Reynard's own notes (FoxNotifier) get a few seconds to finish first
+    if (g.ui.foxTalking?.()) { this.talkT = (this.talkT || 0) + 1; if (this.talkT < 6) return; }
+    this.talkT = 0;
     const now = g.state.day * 24 + g.state.hour;
     if (now - (S.last ?? -99) < 1) return; // never more than one lesson per in-game hour
     if (g.state.hour < 9.6 || g.state.hour > 16.45) return; // not in the morning bustle, not right before the feast
@@ -114,7 +117,6 @@ class Lessons {
     if (g.feast?.active || g.tutorial?.active || g.cutscene?.active || g.cine?.active || g.lab?.active || g.classroom?.active) return false;
     if (g.homes?.active || g.bedtime?.active || g.npcScenes?.busy || g.zones?.busy || g.bossFight?.active) return false;
     if (ui.panel || ui.ebuy || ui.blueprint?.open || ui.busy || ui.unboxing || ui.matchCard || ui.questLog?.isOpen) return false;
-    if (ui.foxTalking?.()) return false;
     try {
       const b = document.body.classList;
       if (BUSY_BODY.some((c) => b.contains(c))) return false;

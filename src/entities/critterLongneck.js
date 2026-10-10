@@ -24,9 +24,9 @@ import { BipedRig, HAND_KINDS } from './critterBiped.js';
 import { NpcFace, stepEvents, plantStick, orientIn, PUFF_ROWS } from './npcProps.js';
 
 const C = {
-  skin: 0xa8b67c, skinD: 0x8a9a62, skinL: 0xc4d098, skinDD: 0x5a663e, spot: 0x7e8c56,
-  belly: 0xd6cc9e, bellyD: 0xb8ad80, bellyL: 0xe8e0bc,
-  shell: 0x5c6c68, shellD: 0x46544f, shellL: 0x7e9088, ring: 0x37423e, seam: 0x283230,
+  skin: 0xcdd6aa, skinD: 0xb2bd8e, skinL: 0xdfe6c2, skinDD: 0x6a7452, spot: 0xb8c294,
+  belly: 0xefe6c4, bellyD: 0xd8cca4, bellyL: 0xf8f2dc,
+  shell: 0x46503a, shellD: 0x3a4230, shellL: 0x5e6a48, ring: 0x9aa47a, seam: 0x1e2418,
   scarf: 0xc8503a, scarfD: 0x9a3a2a, scarfL: 0xf0e0c0,
   moss: 0x4f9a3c, mossD: 0x3a7a2e, mossL: 0x7cc256, fern: 0x62b84c, fernD: 0x3e8a34,
   stone: 0x9c9c90, stoneD: 0x727268, stoneL: 0xc4c4b6,
@@ -35,7 +35,7 @@ const C = {
   brass: 0xd8b04a, brassD: 0xa8822a, brassL: 0xf0d27a, lens: 0xd8f0f8,
   clay: 0x8a5a3a, clayD: 0x6a4028, clayL: 0xb07a52, tea: 0x8aa846,
   mush: 0xc8743a, mushD: 0x9a5426, stem: 0xf0e6cc, cream: 0xfff0d0,
-  beak: 0xc8bf96, beakD: 0x9a9070, beakL: 0xe2dab4, mouthIn: 0x5a2a2a, claw: 0x3e3a30,
+  beak: 0xd8cfa4, beakD: 0xa89e78, beakL: 0xeee6c4, mouthIn: 0x5a2a2a, mouth: 0x3a2420, claw: 0x3e3a30,
 };
 
 const D = {
@@ -45,16 +45,16 @@ const D = {
   THIGH: 2.4, SHIN: 2.8, LEG_X: 3.2, EAR: [0.9, 6.1, 4.8], TAIL: [-0.6, -7.6],
 };
 const NB = [9.4, 2.4]; // neck base (y, z) in chest space
-const SEG = 4.0, NSEG = 5; // neck segments (voxels, body space)
-const NECK_REST = [-0.14, -0.1, 0.06, 0.26, 0.36]; // the S-curve (rx per segment, + = forward)
+const SEG = 3.6, NSEG = 5; // neck segments (voxels, body space)
+const NECK_REST = [0.06, 0.1, 0.24, 0.24, 0.06]; // up out of the shell, then a question mark: the head leans out in front // the S-curve (rx per segment, + = forward)
 const STAFF_L = 20 * FV; // grip -> foot of the crook
-const LID = 0.42; // resting heavy lids (0 = wide open, 1 = shut)
+const LID = 0.3; // resting heavy lids (0 = wide open, 1 = shut)
 
 // ------------------------------------------------------------------ models
 const skinCol = (x, y, z) => {
   const h = hash3(x, y, z);
-  if (h < 0.06) return C.spot;
-  return (x * 3 + y * 5 + z * 7) % 13 === 0 ? C.skinD : tone(x, y, z, C.skin, C.skinD, C.skinL, 0.12, 0.08);
+  if (h < 0.015) return C.spot;
+  return tone(x, y, z, C.skin, C.skinD, C.skinL, 0.05, 0.04);
 };
 function pelvisModel() {
   const v = new VoxelModel();
@@ -74,9 +74,9 @@ function torsoModel() {
     if (cell(x + 1, y, z) !== c0 || cell(x, y + 1, z) !== c0 || cell(x, y, z - 1) !== c0) return C.seam;
     const u = abs(((thOf(x, y, z) + 10) % 1) - 0.5) * 2, w = abs((rowOf(y) % 1) - 0.5) * 2;
     const d = max(u, w);
-    if (d < 0.22) return C.shellL;
-    if (d > 0.4 && (d * 3.2) % 1 < 0.3) return C.ring;
-    return tone(x, y, z, C.shell, C.shellD, C.shell, 0.12, 0.05);
+    if (d < 0.2) return C.shellL;
+    if (d > 0.42 && d < 0.56) return C.ring; // one bold growth ring per scute
+    return d > 0.8 ? C.shellD : C.shell;
   };
   ell(v, 0, CY, CZ, RX, RY, RZ, (x, y, z) => (y < -2 ? null : z <= 0 || (y >= 11 && z <= 2.6) ? shellCol(x, y, z) : null));
   // marginal scutes around the bottom rim
@@ -93,10 +93,10 @@ function torsoModel() {
     for (let z = -11; z <= 3; z++) {
       let top = null;
       for (let y = 17; y >= 0; y--) if (v.has(x, y, z)) { top = y; break; }
-      if (top === null || top < 10) continue;
-      if (z > 0 && top < 13) continue;
+      if (top === null || top < 14) continue;
+      if (z > 0 && top < 15) continue;
       const h = hash3(x, 7, z);
-      if (h < 0.82) v.set(x, top, z, h < 0.3 ? C.mossD : h > 0.68 ? C.mossL : C.moss);
+      if (h < 0.9) v.set(x, top, z, h < 0.25 ? C.mossD : h > 0.75 ? C.mossL : C.moss);
       if (h > 0.5) v.set(x, top + 1, z, h > 0.8 ? C.mossL : C.moss);
       tops.push([x, top + (h > 0.5 ? 1 : 0), z]);
     }
@@ -171,13 +171,14 @@ function headModel() {
   });
   rbox(v, -2, 1, 1, 2, 4, 6, 1.0, (x, y, z) => (z >= 6 ? (y === 1 ? C.beakD : C.beak) : skinCol(x, y, z)));
   // the beak's hooked tip, nostrils
-  v.set(-1, 2, 7, C.beakL).set(0, 2, 7, C.beakL).set(-1, 1, 7, C.beakD).set(0, 1, 7, C.beakD).set(-1, 0, 7, C.beakD).set(0, 0, 7, C.beakD);
+  v.set(-1, 2, 7, C.beakL).set(0, 2, 7, C.beakL).set(-1, 1, 7, C.mouth).set(0, 1, 7, C.mouth).set(-1, 0, 7, C.beakD).set(0, 0, 7, C.beakD);
+  for (let x = -2; x <= 1; x++) v.set(x, 1, 6, C.mouth); // a clear mouth line under the beak
   v.set(-2, 2, 6, C.skinDD).set(1, 2, 6, C.skinDD);
   // a heavy brow ridge and forehead wrinkles over the face disc
   for (let x = -4; x <= 3; x++) if (v.has(x, 7, 4)) v.set(x, 7, 5, (x + 10) % 3 ? C.skinD : C.skinDD);
   for (let x = -2; x <= 1; x++) v.set(x, 8, 4, C.skinDD);
   // a mouth line along the sides
-  for (const x of [-5, 4]) for (let z = -1; z <= 2; z++) if (v.has(x, 1, z)) v.set(x, 1, z, C.skinDD);
+  for (const x of [-5, -4, 3, 4]) for (let z = -1; z <= 5; z++) if (v.has(x, 1, z) && !v.has(x + (x < 0 ? -1 : 1), 1, z)) v.set(x, 1, z, C.mouth);
   // the throat where the neck goes in
   rbox(v, -3, 2, -1, 1, -2, 1, 1.2, skinCol);
   return v;
@@ -208,19 +209,19 @@ function beardModel() {
   return v;
 }
 function specsModel() {
-  // tiny round brass spectacles (quarter voxels: 4 per voxel), perched low on the beak; origin between the lenses
+  // round brass spectacles (quarter voxels: 4 per voxel) right over the eyes; origin between the lenses
   const v = new VoxelModel();
   for (const cx of [-9, 9])
-    for (let x = cx - 6; x <= cx + 6; x++)
-      for (let y = -6; y <= 6; y++) {
+    for (let x = cx - 8; x <= cx + 8; x++)
+      for (let y = -8; y <= 8; y++) {
         const d = Math.hypot(x + 0.5 - cx, y + 0.5);
-        if (d <= 5.2 && d > 3.9) v.set(x, y, 0, y > 2 ? C.brassL : y < -3 ? C.brassD : C.brass);
+        if (d <= 6.6 && d > 5.3) v.set(x, y, 0, y > 3 ? C.brassL : y < -4 ? C.brassD : C.brass);
       }
-  // lens glints
-  v.set(-7, 2, 1, C.lens).set(-6, 1, 1, C.lens).set(11, 2, 1, C.lens).set(12, 1, 1, C.lens);
-  for (let x = -4; x <= 3; x++) v.set(x, 1 + (abs(x + 0.5) < 2 ? 1 : 0), 0, C.brass); // bridge
+  // white glints on the lenses (up-left of each)
+  for (const cx of [-9, 9]) v.set(cx - 3, 3, 1, 0xffffff).set(cx - 2, 4, 1, 0xffffff).set(cx - 4, 2, 1, 0xffffff);
+  for (let x = -3; x <= 2; x++) v.set(x, 1 + (abs(x + 0.5) < 2 ? 1 : 0), 0, C.brass); // bridge
   // temples back to the sides of the head
-  for (let k = 0; k <= 12; k++) { const x = 14 + Math.round(k * 0.5), z = -k; v.set(x, 1, z, C.brassD); v.set(-1 - x, 1, z, C.brassD); }
+  for (let k = 0; k <= 12; k++) { const x = 15 + Math.round(k * 0.4), z = -k; v.set(x, 1, z, C.brassD); v.set(-1 - x, 1, z, C.brassD); }
   return v;
 }
 function upperModel() {
@@ -305,7 +306,7 @@ const cache = geoCache(() => {
 
 // ------------------------------------------------------------------ face
 const FACE = {
-  w: 40, h: 16, eyes: [{ x: 11.6, y: 8 }, { x: 28.4, y: 8 }], rx: 4.4, ry: 5.0, style: 'bead', lash: false,
+  w: 40, h: 16, eyes: [{ x: 11.6, y: 8 }, { x: 28.4, y: 8 }], rx: 5.2, ry: 5.8, style: 'bead', lash: false,
   blush: [{ x: 4, y: 13 }, { x: 36, y: 13 }], blushW: 2,
   mw: 24, mh: 10, mx: 12, my: 2, mstyle: 'turtle', mHalf: 5,
   pal: { b: '#f6f4ec', i: '#6a4a18', I: '#d0a040', f: '#a8b67c', F: '#5a663e' },
@@ -317,7 +318,7 @@ function lids(P, st) {
   const lid = st.lid ?? LID;
   FACE.eyes.forEach((e, i) => {
     const side = i === 0 ? -1 : 1;
-    const rx = 4.4 * 0.7 + 1, ry = 5.0 * 0.7 + 1;
+    const rx = 5.2 * 0.7 + 1, ry = 5.8 * 0.7 + 1;
     const y0 = Math.floor(e.y - ry), y1 = Math.ceil(e.y + ry);
     for (let x = Math.floor(e.x - rx - 1); x <= Math.ceil(e.x + rx); x++) {
       const xo = (x + 0.5 - e.x) * side; // + toward the outer corner: the lid droops there
@@ -388,7 +389,7 @@ export class LongneckElder extends BipedRig {
     // face + spectacles perched low on the beak
     this.face = new LongneckFace(FACE, { eyes: lids, ownBrows: true });
     this.facePlane(this.face.eyes.tex, this.head, FACE.w, FACE.h, 0, 4.6, 5);
-    this.specs = this.mesh(G.specs, this.head, { y: 3.6 * VS, z: 5.35 * VS });
+    this.specs = this.mesh(G.specs, this.head, { y: 4.6 * VS, z: 5.3 * VS });
     // driftwood crook (left hand, planted) + tea bowl (right hand, only when sipping)
     this.staff = this.mesh(G.staff, this.gripL);
     this._staffRest = new THREE.Quaternion().setFromEuler(new THREE.Euler(PI / 2, 0, 0));
@@ -524,7 +525,7 @@ def('idle', {
     stand(p, rig, t);
     const T = t % 24;
     // a slow look around: left... (a long time) ... right ... back
-    const look = K(T, [[0, 0], [6, 0], [9, 0.45, 'io'], [12, 0.45], [15, -0.35, 'io'], [18, -0.35], [21, 0, 'io']]);
+    const look = K(T, [[0, 0], [8, 0], [10.5, 0.3, 'io'], [13, 0.3], [15.5, -0.22, 'io'], [18, -0.22], [21, 0, 'io']]);
     neck(p, t, { turn: look * 0.6 });
     p.head.ry += look * 0.4;
     f.look = [look * 1.2, 0];

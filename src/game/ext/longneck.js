@@ -26,7 +26,7 @@ import * as THREE from 'three';
 import { LN, OLD_WAYS } from '../../data/longneck.js';
 import { TALK_HOURS, N_TOKENS, N_WORDS, TOKENS, spokenAt, wordsIn, bubbleText } from '../longneck/speech.js';
 import { TalkPip, openTranscript, slowText, slowSay, slowAll, bubbleOf } from '../longneck/ui.js';
-import { arrival, finale, headAnchor } from '../longneck/scenes.js';
+import { arrival, finale, headAnchor, focusOn } from '../longneck/scenes.js';
 import { makeLongneckYard } from '../longneck/props.js';
 import { SPECIES_BY_ID } from '../../data/species.js';
 import { BEAR_TYPES } from '../../data/bears.js';
@@ -156,7 +156,7 @@ class Longneck {
     // the bubble, the pip, the audience
     const cs = game.cutscene?.active, over = !!game.overrideScene;
     const near = Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 26 && (game.rig.wupp || 0) < 0.07;
-    this.bubble(S.phase === 'talking' && near && !cs && !over && !this.sceneBusy && !game.titleMode && game.state.phase !== 'night', v, n);
+    this.bubble(S.phase === 'talking' && near && !cs && !over && !this.sceneBusy && !game.villagers?.card && !game.titleMode && game.state.phase !== 'night', v, n);
     this.pip.set(S.phase === 'talking' && !game.titleMode && !cs && game.state.phase !== 'night', { n, day: this.talkDay() });
     if (S.phase === 'talking') this.audience(v, dt, near && !over); else this.dropAudience();
     if (this.yard && near && !over) this.yard.update(dt);
@@ -306,6 +306,7 @@ class Longneck {
   onTap(v) {
     const S = this.S, game = this.game;
     if (this.sceneBusy) return true;
+    this.frameHead(v);
     if (S.phase === 'idle') { if (!game.villagers.vstate(v).met) game.villagers.vstate(v).met = true; this.start(v); return true; }
     if (S.phase === 'talking') {
       const now = performance.now();
@@ -338,13 +339,23 @@ class Longneck {
     const v = this.v, game = this.game;
     if (!v || game.homes?.active || game.cutscene?.active) return;
     game.ui?.stopTracking?.();
-    game.rig.lookAt(v.x, v.z + 1.2);
+    const f = focusOn(game, v);
+    game.rig.lookAt(f.x, f.z);
     game.rig.wuppGoal = 0.022;
+  }
+  /** On a tap: if the camera is already near him, ease it up so his head and face are in view. */
+  frameHead(v = this.v) {
+    const game = this.game, r = game.rig;
+    if (!v || game.cutscene?.active || game.homes?.active || Math.hypot(r.target.x - v.x, r.target.z - v.z) > 12) return;
+    const f = focusOn(game, v);
+    r.goal.x = f.x; r.goal.z = f.z;
   }
   /** Villagers.intro hook (Zones.reveal): he only manages a very slow "..." */
   async intro(v) {
     const game = this.game;
     v.rig?.play?.('idle', { loop: true });
+    const f = focusOn(game, v); // the reveal looked at his feet: up to his face
+    game.rig.lookAt(f.x, f.z);
     const s = slowSay(game, headAnchor(v), '...', { cps: 0.9, hold: 1.2 });
     await s.done;
     game.villagers.vstate(v).met = true;

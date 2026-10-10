@@ -63,7 +63,7 @@ export const LESSONS = [
       const sp = starParts(f.sp.id, f.g);
       const sum = sp.parts.map((p) => (p.k === 'base' ? '1' : `${p.v >= 0 ? '+' : ''}${p.v.toFixed(1)} ${p.label}`)).join(' ');
       return [
-        { at: { fish: f }, say: `A ${B(stars(f.g.stars))} baby! Stars are maths, not magic. Watch:`, mood: 'excited' },
+        { at: { fish: f }, say: `A ${B(f.g.stars + "-star")} baby! Stars are maths, not magic. Watch:`, mood: 'excited' },
         { at: { fish: f }, say: `${sum} = ${B(sp.stars)}. Size counts x5: 1.2 is a whole star!`, mood: 'think' },
         { say: `Babies get the ${B('average size')} of mum and dad, plus a little. Big x big = big.`, mood: 'happy' },
         { say: `Breed your best with your next best. Go for ${B('3 stars')}!`, mood: 'excited' },
