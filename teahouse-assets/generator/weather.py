@@ -19,7 +19,7 @@ WORN = {
     # room 2
     'menu_tags', 'pendulum_clock', 'curtain_rod',
     # room 3
-    'corkboard', 'kakejiku_scroll', 'glazed_cabinet', 'teaware_shelf', 'tea_runner', 'daruma_doll',
+    'kakejiku_scroll', 'glazed_cabinet', 'teaware_shelf', 'tea_runner', 'daruma_doll',
     'tin_gold_band', 'honey_pot',
     # room 4
     'bookshelf', 'desk_messy', 'straw_kasa_hat',

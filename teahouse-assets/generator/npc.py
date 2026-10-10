@@ -570,6 +570,6 @@ from layout import COUNTER                                  # noqa: E402
       'Uncle Pong: big bare-chested elephant x fireback uncle in a checked pha khao ma, chunky 3x pixels. '
       'Moods: idle (blinks), talk, happy (thumbs up), angry (fist slam), surprised, sad, sip, flex '
       '(12 frames each). Draw after the counter layer; his body stops at the counter edge.',
-      fps=8, shadow='none')
+      fps=8, shadow='none', preview=False)
 def uncle_pong_prop():
     return sheets()

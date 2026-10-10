@@ -1,6 +1,6 @@
 # Old Rundown Teahouse: pixel art asset pack (v3.3)
 
-A first-person view of four rooms in an old, run-down teahouse. It comes with more than 120 separate drag-and-drop props and **Uncle Pong**, the first NPC. Each room is a box in perspective: you see the timber roof with its rafters running away from you, both side walls, the back wall and a plank floor. The palette follows the Spirited Away bathhouse: faded vermilion lacquer, jade trim, tarnished gold, indigo cloth and cream paper. Every word in the teahouse is written in its own rune script, like the enchanting-table language. Moss has crept over everything damp.
+A first-person view of four rooms in an old, run-down teahouse. It comes with more than 120 separate drag-and-drop props, and Uncle Pong (an optional NPC). Each room is a box in perspective: you see the timber roof with its rafters running away from you, both side walls, the back wall and a plank floor. The palette follows the Spirited Away bathhouse: faded vermilion lacquer, jade trim, tarnished gold, indigo cloth and cream paper. Every word in the teahouse is written in its own rune script, like the enchanting-table language. Moss has crept over everything damp.
 
 ![The whole teahouse](preview/teahouse_full_2x.png)
 
@@ -9,11 +9,13 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | Room | x range | What's there |
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit** (all mouth and teeth). Herbs dry on an old bamboo pole above it. Also the giant chalk **recipe board** with recipe cards, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
-| 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. **Uncle Pong** sits at a plain hinoki counter: his tea, one yunomi, a teapot |
+| 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
 | 3 Tea ritual | 1280 to 1920 | An empty **corkboard** (only pin holes left) and a hanging scroll. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
 | 4 Traveler's bedroom | 1920 to 2560 | The most run-down room. Plaster has fallen off the walls to show the bamboo lath, rain has streaked them, there is mould in the corners, boards are missing from the roof so daylight shows, and the floor is broken and bare. Indigo noren hanging in front, moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, straw hat and cloak on the wall, oil lamp |
 
-## Uncle Pong
+## Uncle Pong (optional, not placed)
+
+Uncle Pong is no longer in the scene by default. He is still exported (`props/room2/uncle_pong_*`) if you want to drag him back in.
 
 ![Uncle Pong's moods](preview/uncle_pong_moods.png)
 
@@ -55,19 +57,17 @@ The **rock wyvern** is drawn by hand at full scene resolution (one sprite pixel 
 
 ![How the wyvern is drawn](preview/wyvern_process.png)
 
-**The drawing process** (`wyvern.py` keeps every stage; `preview/wyvern_process.gif` steps through them):
+**The drawing process** (`wyvern.py` keeps every stage). `preview/wyvern_process.gif` is a timelapse of it being drawn, stroke by stroke:
 
-1. **Construction:** a circle for the cranium, a box for the snout, the head axis, the eye line, and gesture lines for the jaw, neck, horns and wing-wrist.
-2. **Sketch:** loose pencil outlines over the construction, with hatching where the big shadows will fall.
-3. **Line art:** clean ink outlines of every part, plus the cheek ridge, the jaw muscle and the throat folds.
-4. **Flats:** local colours: cool grey stone, old horn, ivory teeth and an amber eye.
-5. **Shading:** light from the upper left. Each form is a slab with rounded edges rather than a balloon. The brow, the upper jaw, the head and the horns cast shadows, and the lip catches reflected light.
-6. **Texture:** scales by region, like a real reptile's:
-   - big domed osteoderms on the crown and down the neck
-   - a row of knobs along the cheekbone
-   - fine granular scales on the face, lips and jaw
-   - weathering cracks, pale lichen crusts, and moss along the crown and horn roots
-7. **Final:** the lines are folded into the colours, dark only on the shadow side. Parts get contact shadows where they overlap. Horn ridges and tooth tips are worn bright, the eye gets a wet glint, and a cool sky rim lights its back.
+1. **Gesture:** a few loose sweeps for the action of the head, the neck and the horns.
+2. **Construction:** a circle for the cranium, a box for the snout, the eye line and the head axis, drawn over the gesture.
+3. **Sketch:** pencil over the turned-down construction. Short, overlapping strokes bow a little off the line and overshoot their ends, and the main contours are gone over twice. Shadows are hatched with short diagonal strokes.
+4. **Ink:** clean lines over the faded sketch, one pixel on the lit side and two on the shadow side.
+5. **Flats:** local colour, part by part.
+6. **Shadow shapes:** the shadows blocked in with one darker tone, before any rendering.
+7. **Render:** planes with rounded edges, cast shadows under the brow, jaw, head and horns, and reflected light on the lip.
+8. **Texture:** scales by region: big osteoderms on the crown and neck, knobs along the cheekbone, fine scales on the face and jaw. Then cracks, lichen and moss.
+9. **Final:** the lines folded into the colours, contact shadows, worn highlights, the wet glint in the eye and the sky rim.
 
 **The anatomy** is drawn from hand-placed points (smooth spline curves):
 
@@ -158,7 +158,7 @@ atlas/            all prop frames packed into one PNG + JSON (anims, fps, layer,
 nature/           stand-alone green trees, flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
-demo/index.html   open in a browser: drag props, pan the rooms, cycle Uncle Pong's and the fire's moods
+demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
 generator/        the Python that draws all of it (deterministic, seeded)
 ```
@@ -184,6 +184,7 @@ Default positions are in `scene.json` (`x`, `y` = top-left in scene pixels). Dro
 Some props are exported but not placed by default, which keeps the counter and shelves clean. You can drag any of them in:
 
 - **Tea room:** the old glazed cabinet, the teaware shelf and the corkboard notes (receipts, an unpaid tab, a map scrap).
+- **Uncle Pong** (the elephant NPC, all his moods) and the white teapot in the seating room.
 - **Cloth:** the indigo tenugui towel (prep table) and the seigaiha tea runner (tea counter), and the glass wind chime.
 - **Counter extras:** menu tent card, bud vase, dango plate, sugar pot, green-tea cup, service bell, incense burner, candle.
 - **Cook room:** the copper smoke hood, the kama pot, the iron kettle and their steam (for the furnace top, later). Also the long wall shelf, spare jars and tins, small sacks, scroll bundle, spare mortar, open jar, tea brick, torn sack and crate of jars.

@@ -173,9 +173,17 @@ def anatomy(s):
     """All shapes for a pose. s: dict with oy (rise offset), jaw (0..1)."""
     oy = s['oy']
     T = lambda pts: [(x, y + oy) for x, y in pts]
-    a = {'oy': oy}
-    a['horn_far'] = taper(T([(95, 80), (101, 66), (110, 55), (121, 48), (131, 46)]), 4.5, 1.2)
-    a['neck'] = fill(T([(98, 86), (108, 79), (120, 74), (132, 74), (142, 80), (144, 152), (86, 152), (88, 136),
+    a = {'oy': oy, 'pts': {}, 'lines': {}}
+
+    def F(name, pts):
+        a['pts'][name] = pts
+        return fill(pts)
+
+    def TP(name, pts, r0, r1, n=6):
+        a['lines'][name] = (pts, r0)
+        return taper(pts, r0, r1, n)
+    a['horn_far'] = TP('horn_far', T([(95, 80), (101, 66), (110, 55), (121, 48), (131, 46)]), 4.5, 1.2)
+    a['neck'] = F('neck', T([(98, 86), (108, 79), (120, 74), (132, 74), (142, 80), (144, 152), (86, 152), (88, 136),
                         (94, 122), (100, 108)]))
     plates = np.zeros((H, W), bool)                                       # dorsal plates along the neck
     for (x, y, r) in ((112, 77, 4.2), (121, 73, 4.6), (131, 72, 4.8), (140, 74, 4.8)):
@@ -190,23 +198,23 @@ def anatomy(s):
         return (hinge[0] + x * ca - y * sa, hinge[1] + x * sa + y * ca)
     jaw_pts = [(29, 121), (26, 126), (29, 132), (38, 137), (52, 141), (68, 142), (82, 140), (92, 134), (99, 124),
                (100, 117), (94, 118), (80, 122), (60, 123), (42, 122)]
-    a['jaw'] = fill([R(p) for p in jaw_pts])
+    a['jaw'] = F('jaw', [R(p) for p in jaw_pts])
     if s['jaw'] > 0.05:
         a['mouth'] = fill([(26, 117 + oy), (60, 121 + oy), (88, 119 + oy), R((88, 121)), R((60, 123)), R((30, 121))])
     else:
         a['mouth'] = np.zeros((H, W), bool)
-    a['head'] = fill(T([(106, 84), (100, 77), (92, 73), (84, 72), (78, 73), (70, 72), (62, 74), (57, 79), (52, 84),
+    a['head'] = F('head', T([(106, 84), (100, 77), (92, 73), (84, 72), (78, 73), (70, 72), (62, 74), (57, 79), (52, 84),
                         (46, 88), (40, 90), (34, 92), (28, 95), (24, 99), (21, 104), (20, 109), (22, 114), (27, 117),
                         (33, 116), (40, 119), (47, 118), (54, 121), (62, 120), (70, 122), (78, 121), (86, 119),
                         (94, 117), (100, 113), (105, 106), (108, 96)]))
-    a['brow'] = fill(T([(55, 81), (60, 75), (70, 71), (82, 72), (90, 76), (92, 81), (86, 82), (76, 80), (66, 81),
+    a['brow'] = F('brow', T([(55, 81), (60, 75), (70, 71), (82, 72), (90, 76), (92, 81), (86, 82), (76, 80), (66, 81),
                         (60, 84)]))
-    a['spike'] = taper(T([(87, 80), (93, 76), (100, 73)]), 2.2, 0.5, n=3)      # spike behind the eye
-    a['cheek'] = fill(T([(60, 97), (74, 95), (90, 98), (100, 104), (98, 112), (86, 114), (70, 112), (60, 106)]))
-    a['eye'] = fill(T([(63, 87), (67, 84), (74, 83), (80, 86), (75, 89), (67, 90)]))
-    a['socket'] = fill(T([(59, 87), (65, 81), (75, 80), (84, 85), (78, 92), (66, 93)]))
-    a['nostril'] = fill(T([(28, 101), (31, 99.5), (35, 100), (32, 102)]))
-    a['horn_near'] = taper(T([(99, 84), (106, 72), (116, 62), (127, 56), (137, 55)]), 5.5, 1.3)
+    a['spike'] = TP('spike', T([(87, 80), (93, 76), (100, 73)]), 2.2, 0.5, n=3)      # spike behind the eye
+    a['cheek'] = F('cheek', T([(60, 97), (74, 95), (90, 98), (100, 104), (98, 112), (86, 114), (70, 112), (60, 106)]))
+    a['eye'] = F('eye', T([(63, 87), (67, 84), (74, 83), (80, 86), (75, 89), (67, 90)]))
+    a['socket'] = F('socket', T([(59, 87), (65, 81), (75, 80), (84, 85), (78, 92), (66, 93)]))
+    a['nostril'] = F('nostril', T([(28, 101), (31, 99.5), (35, 100), (32, 102)]))
+    a['horn_near'] = TP('horn_near', T([(99, 84), (106, 72), (116, 62), (127, 56), (137, 55)]), 5.5, 1.3)
     teeth = []                                                            # upper teeth hang over the jaw: the overbite
     lip = {24: 116, 29: 116.5, 34: 116.5, 39: 118.5, 46: 118, 51: 119.5, 58: 120.5, 64: 120.5, 71: 121.5, 78: 121,
            85: 119.5}
@@ -219,13 +227,149 @@ def anatomy(s):
         teeth.append(taper([R((x, 122)), R((x - 0.4, 122 - ln))], r, 0.3, n=2))
     a['teeth'] = teeth
     a['throat'] = a['neck'] & ((~sh(a['neck'], 7, 0) & (YY > 118 + oy)) | ((XX < 104) & (YY > 124 + oy)))
-    a['wrist'] = fill([(106, 132), (114, 126), (124, 127), (130, 134), (126, 142), (112, 143)])
+    a['wrist'] = F('wrist', [(106, 132), (114, 126), (124, 127), (130, 134), (126, 142), (112, 143)])
     a['claws'] = [taper([(111, 140), (109, 144), (106, 147.5)], 2.0, 0.4, n=3),
                   taper([(120, 141), (119, 145), (116, 148)], 2.2, 0.4, n=3)]
     return a
 
 
 # ---------------------------------------------------------------- the stages
+def _dense(c, step=1.0):
+    out = [c[0]]
+    for p in c[1:]:
+        q = out[-1]
+        d = math.hypot(p[0] - q[0], p[1] - q[1])
+        k = max(1, int(d / step))
+        for i in range(1, k + 1):
+            out.append((q[0] + (p[0] - q[0]) * i / k, q[1] + (p[1] - q[1]) * i / k))
+    return out
+
+
+def hand_strokes(pts, closed, rng, wobble=0.7, overshoot=3.0, seg=(10, 26), overlap=3):
+    """Pencil strokes along a curve the way a hand draws it: broken into strokes
+    that overlap, each bowing a little off the true line, ends overshooting."""
+    c = _dense(spline(pts, closed=closed) + ([spline(pts, closed=True)[0]] if closed else []))
+    strokes = []
+    i = 0
+    L = len(c)
+    while i < L - 2:
+        n = rng.randint(*seg)
+        j = min(L - 1, i + n)
+        part = c[max(0, i - overlap):j + 1]
+        if len(part) < 3:
+            break
+        amp = rng.uniform(-wobble, wobble)
+        ph = rng.uniform(0, math.pi)
+        pts2 = []
+        m = len(part)
+        for k, (x, y) in enumerate(part):
+            q0, q1 = part[max(0, k - 1)], part[min(m - 1, k + 1)]
+            dx, dy = q1[0] - q0[0], q1[1] - q0[1]
+            ln = math.hypot(dx, dy) or 1
+            off = amp * math.sin(math.pi * k / (m - 1) + ph * 0.3)
+            pts2.append((x - dy / ln * off, y + dx / ln * off))
+        for end, nb in ((0, 1), (-1, -2)):                                 # overshoot past the ends
+            ex, ey = pts2[end]
+            nx, ny = pts2[nb]
+            dx, dy = ex - nx, ey - ny
+            ln = math.hypot(dx, dy) or 1
+            o = rng.uniform(0.5, overshoot)
+            pts2.insert(0 if end == 0 else len(pts2), (ex + dx / ln * o, ey + dy / ln * o))
+        im = Image.new('L', (W, H), 0)
+        ImageDraw.Draw(im).line(pts2, fill=1, width=1)
+        strokes.append(np.array(im, bool))
+        i = j
+    return strokes
+
+
+def gesture_strokes(s, rng):
+    """The first loose lines: the action of the head and neck in a few sweeps."""
+    oy = s['oy']
+    T = lambda pts: [(x, y + oy) for x, y in pts]
+    curves = [T([(144, 70), (122, 72), (104, 82), (82, 74), (60, 76), (40, 90), (20, 106)]),       # top line
+              T([(18, 112), (40, 120), (70, 122), (98, 116), (112, 100)]),                          # mouth line
+              T([(24, 124), (40, 138), (66, 143), (90, 136), (100, 120)]),                          # jaw sweep
+              T([(98, 86), (114, 64), (138, 54)]), T([(94, 82), (110, 58), (132, 46)]),             # horns
+              T([(100, 112), (92, 132), (88, 152)]), T([(140, 80), (144, 152)]),                    # neck
+              T([(104, 140), (114, 126), (128, 132), (126, 146)])]                                   # wing-wrist
+    out = []
+    for c in curves:
+        out += hand_strokes(c, False, rng, wobble=1.3, overshoot=6, seg=(30, 60), overlap=0)
+    return out
+
+
+def construction_strokes(s, rng):
+    oy = s['oy']
+    out = []
+    circ = [(86 + 19 * math.cos(t), 94 + oy + 19 * math.sin(t)) for t in np.linspace(0, 2 * math.pi, 12, endpoint=False)]
+    out += hand_strokes(circ, True, rng, wobble=1.0, overshoot=4, seg=(18, 40))          # cranium
+    for c in ([(56, 84), (24, 100), (22, 116), (58, 122)], [(56, 84), (58, 122)],        # snout box
+              [(48, 86), (96, 86)], [(110, 98), (66, 100), (18, 110)]):                # eye line, head axis
+        out += hand_strokes([(x, y + oy) for x, y in c], False, rng, wobble=0.6, overshoot=5, seg=(20, 50))
+    return out
+
+
+def sketch_strokes(a, rng):
+    """Pencil over the construction: every part drawn in short overlapping strokes,
+    the important contours gone over twice."""
+    out = []
+    for key in ('head', 'jaw', 'neck', 'brow', 'cheek', 'eye', 'wrist', 'nostril'):
+        pts = a['pts'][key]
+        out += hand_strokes(pts, True, rng, wobble=0.8, overshoot=2.5)
+        if key in ('head', 'jaw', 'brow'):
+            out += hand_strokes(pts, True, rng, wobble=1.1, overshoot=3.5, seg=(14, 34))
+    for key, (pts, r) in a['lines'].items():
+        for side in (-1, 1):
+            off = []
+            c = spline(pts, closed=False)
+            for k, (x, y) in enumerate(c):
+                q0, q1 = c[max(0, k - 1)], c[min(len(c) - 1, k + 1)]
+                dx, dy = q1[0] - q0[0], q1[1] - q0[1]
+                ln = math.hypot(dx, dy) or 1
+                rr = r * (1 - 0.75 * k / max(1, len(c) - 1))
+                off.append((x - dy / ln * rr * side, y + dx / ln * rr * side))
+            out += hand_strokes(off, False, rng, wobble=0.5, overshoot=2)
+    for t in a['teeth'] + a['claws']:
+        out.append(edge(t) & (np.random.RandomState(len(out)).rand(H, W) < 0.8))
+    return out
+
+
+def hatch_strokes(a, rng):
+    """Shadow hatching: short diagonal strokes, each placed by hand."""
+    oy = a['oy']
+    shade = (a['neck'] & ~sh(a['head'], 0, -4) & (XX > 104)) | (sh(a['brow'], 1, 3) & a['head']) | \
+            (a['jaw'] & (YY > 132 + oy)) | (a['head'] & (XX > 92) & (YY > 104 + oy))
+    out = []
+    ys, xs = np.nonzero(shade)
+    if not len(ys):
+        return out
+    order = list(range(len(ys)))
+    rng.shuffle(order)
+    taken = np.zeros((H, W), bool)
+    for i in order[:400]:
+        x, y = xs[i], ys[i]
+        if taken[max(0, y - 2):y + 3, max(0, x - 2):x + 3].any():
+            continue
+        ln = rng.uniform(3, 6)
+        im = Image.new('L', (W, H), 0)
+        ImageDraw.Draw(im).line([(x - ln * 0.5, y + ln * 0.5), (x + ln * 0.5, y - ln * 0.5)], fill=1)
+        m = np.array(im, bool) & shade
+        taken |= m
+        out.append(m)
+    return out
+
+
+def ink_weighted(a):
+    """Clean ink with line weight: one pixel on the lit side, two on the shadow side."""
+    m = ink_lines(a)
+    for key in ('head', 'jaw', 'neck', 'horn_near', 'wrist'):
+        e = edge(a[key])
+        shadow = e & (~sh(a[key], -1, 0) | ~sh(a[key], 0, -1))
+        m |= (sh(shadow, 1, 0) | sh(shadow, 0, 1)) & ~a[key] & ~a['head'] if key != 'head' else \
+            (sh(shadow, 1, 0) | sh(shadow, 0, 1)) & ~a[key]
+    return m
+
+
 def construction(s):
     """Stage 1: the construction lines an artist starts from."""
     oy = s['oy']
@@ -544,43 +688,159 @@ def _effects(cv, s):
 
 
 def draw(s, stages=False):
-    """Draw one pose. With stages=True return every stage of the process."""
+    """Draw one pose. With stages=True return the whole process: each stage's
+    canvas, and the strokes/regions in the order they were put down."""
     a = anatomy(s)
-    st = {}
-    if stages:
-        cons = Canvas(W, H)
-        cm = construction(s)
-        put(cons, cm, 'haze2')
-        st['construction'] = cons
-        sk = Canvas(W, H)
-        put(sk, cm, 'haze3')
-        put(sk, sketch_lines(a), 'stone2')
-        put(sk, hatching(a), 'stone3')
-        st['sketch'] = sk
-        ln = Canvas(W, H)
-        put(ln, ink_lines(a), INK)
-        st['lines'] = ln
-        fl = flats(a)
-        put(fl, ink_lines(a), INK)
-        st['flats'] = fl
-    cv = shading(a)
-    eye(a, s, cv)
-    if stages:
-        c = cv.copy()
-        put(c, ink_lines(a), INK)
-        st['shading'] = c
-    texture(a, cv)
-    eye(a, s, cv)
-    if stages:
-        c = cv.copy()
-        put(c, ink_lines(a) & edge(c.a[..., 3] == 255), INK)
-        st['texture'] = c
-    final(a, cv)
-    _effects(cv, s)
-    if stages:
-        st['final'] = cv
-        return st
-    return cv
+    if not stages:
+        cv = shading(a)
+        eye(a, s, cv)
+        texture(a, cv)
+        eye(a, s, cv)
+        final(a, cv)
+        _effects(cv, s)
+        return cv
+    rng = random.Random(17)
+    P = {}
+    P['gesture'] = gesture_strokes(s, rng)
+    P['construction'] = construction_strokes(s, rng)
+    P['sketch'] = sketch_strokes(a, rng)
+    P['hatch'] = hatch_strokes(a, rng)
+    P['ink'] = ink_weighted(a)
+    fl = flats(a)
+    sh_cv = shading(a)
+    eye(a, s, sh_cv)
+    # two-tone shadow shapes: wherever the render is darker than the flat colour
+    two = fl.copy()
+    lum = lambda c: c.a[..., :3].astype(int).sum(axis=2)
+    dark = (lum(sh_cv) < lum(fl) - 30) & (fl.a[..., 3] == 255)
+    _step(two.a[..., :3], dark, -1)
+    tex = sh_cv.copy()
+    texture(a, tex)
+    eye(a, s, tex)
+    fin = tex.copy()
+    final(a, fin)
+    P.update(a=a, flats=fl, two=two, render=sh_cv, texture=tex, final=fin)
+    return P
+
+
+def _union(ms):
+    out = np.zeros((H, W), bool)
+    for m in ms:
+        out |= m
+    return out
+
+
+def _count(ms):
+    out = np.zeros((H, W), int)
+    for m in ms:
+        out += m
+    return out
+
+
+def _paper():
+    return Canvas(W, H, fill='paper3')
+
+
+def stage_canvases(P):
+    """The canvas after each stage, the way it looks in the artist's file: earlier
+    layers fade under the new one, the way a sketch layer is turned down."""
+    a = P['a']
+    G, C = _union(P['gesture']), _union(P['construction'])
+    SK, HT = _count(P['sketch']), _union(P['hatch'])
+    ink = P['ink']
+    out = []
+    c = _paper(); put(c, G, 'haze2'); out.append(('1 GESTURE', c))
+    c = _paper(); put(c, G, 'haze3'); put(c, C, 'haze2'); out.append(('2 CONSTRUCTION', c))
+    c = _paper(); put(c, G | C, 'haze3'); put(c, HT, 'stone3'); put(c, SK >= 1, 'stone2'); put(c, SK >= 2, 'stone1')
+    out.append(('3 SKETCH', c))
+    c = _paper(); put(c, SK >= 1, 'paper1'); put(c, ink, INK); out.append(('4 INK', c))
+    c = _paper(); c.blit(P['flats'], 0, 0); put(c, ink, INK); out.append(('5 FLATS', c))
+    c = _paper(); c.blit(P['two'], 0, 0); put(c, ink, INK); out.append(('6 SHADOW SHAPES', c))
+    c = _paper(); c.blit(P['render'], 0, 0); put(c, ink, INK); out.append(('7 RENDER', c))
+    c = _paper(); c.blit(P['texture'], 0, 0); put(c, ink & edge(P['texture'].a[..., 3] == 255), INK)
+    out.append(('8 TEXTURE', c))
+    c = Canvas(W, H, fill='sky3'); c.blit(P['final'], 0, 0); out.append(('9 FINAL', c))
+    return out
+
+
+def timelapse(P):
+    """Frames of the drawing being made: strokes appear one after another, colour
+    goes on part by part, shading sweeps in from the light, texture in patches."""
+    a = P['a']
+    frames = []
+    base = _paper()
+
+    def snap(c, label):
+        frames.append((label, c.copy()))
+
+    # gesture, then construction, a few strokes per frame
+    c = base.copy()
+    for k, m in enumerate(P['gesture']):
+        put(c, m, 'haze2')
+        if k % 2 == 1:
+            snap(c, '1 GESTURE')
+    snap(c, '1 GESTURE')
+    for k, m in enumerate(P['construction']):
+        put(c, m, 'haze2')
+        if k % 3 == 2:
+            snap(c, '2 CONSTRUCTION')
+    snap(c, '2 CONSTRUCTION')
+    # turn the construction down, pencil over it
+    c2 = base.copy(); put(c2, c.a[..., 3] > 0 if False else (c.a[..., :3] != np.array(PAL['paper3'])).any(axis=2), 'haze3')
+    c = c2
+    cnt = np.zeros((H, W), int)
+    sk = P['sketch']
+    per = max(1, len(sk) // 9)
+    for k, m in enumerate(sk):
+        cnt += m
+        put(c, m, 'stone2')
+        put(c, m & (cnt >= 2), 'stone1')
+        if k % per == per - 1:
+            snap(c, '3 SKETCH')
+    ht = P['hatch']
+    per = max(1, len(ht) // 3)
+    for k, m in enumerate(ht):
+        put(c, m & (cnt == 0), 'stone3')
+        if k % per == per - 1:
+            snap(c, '3 SKETCH')
+    # ink over the turned-down sketch, part by part, left to right
+    c = base.copy(); put(c, cnt >= 1, 'paper1')
+    ink = P['ink']
+    for x0 in range(0, W, 24):
+        put(c, ink & (XX < x0 + 24), INK)
+        snap(c, '4 INK')
+    # flats part by part
+    order = ['neck', 'horn_far', 'jaw', 'head', 'brow', 'horn_near', 'wrist']
+    done = np.zeros((H, W), bool)
+    for key in order:
+        done |= a[key]
+        if key == 'head':
+            for t in a['teeth']:
+                done |= t
+            done |= a['eye'] | a['nostril']
+        m = done & (P['flats'].a[..., 3] == 255)
+        c.a[m] = P['flats'].a[m]
+        put(c, ink, INK)
+        snap(c, '5 FLATS')
+    # shadow shapes, then the render, sweeping in from the light (upper left)
+    for src, label in ((P['two'], '6 SHADOW SHAPES'), (P['render'], '7 RENDER')):
+        for k in range(1, 6):
+            m = ((XX + YY) < k * (W + H) / 5) & (src.a[..., 3] == 255)
+            c.a[m] = src.a[m]
+            put(c, ink, INK)
+            snap(c, label)
+    # texture in patches
+    tex = P['texture']
+    rnd = noise(XX / 9.0, YY / 9.0, 7)
+    for k in range(1, 6):
+        m = (rnd < k / 5 + 0.01) & (tex.a[..., 3] == 255)
+        c.a[m] = tex.a[m]
+        put(c, ink & edge(tex.a[..., 3] == 255), INK)
+        snap(c, '8 TEXTURE')
+    fin = Canvas(W, H, fill='sky3'); fin.blit(P['final'], 0, 0)
+    for _ in range(3):
+        snap(fin, '9 FINAL')
+    return frames
 
 
 # ---------------------------------------------------------------- animation
@@ -645,26 +905,22 @@ def rest_frames():
     return [frame(s) for s in REST]
 
 
-STAGES = (('construction', '1 CONSTRUCTION'), ('sketch', '2 SKETCH'), ('lines', '3 LINE ART'), ('flats', '4 FLATS'),
-          ('shading', '5 SHADING'), ('texture', '6 TEXTURE'), ('final', '7 FINAL'))
-
-
 def process_sheet():
-    """The drawing process stage by stage: a sheet, and one frame per stage."""
+    """The drawing process: a sheet of the stages, and a timelapse of it being drawn."""
     s = _state(lid=0.5, look=-1)
     s['oy'] = 0
-    st = draw(s, stages=True)
+    P = draw(s, stages=True)
+    stages = stage_canvases(P)
     pad, lab = 6, 12
-    sheet = Canvas((W + pad) * len(STAGES) + pad, H + pad * 2 + lab, fill='paper4')
-    frames = []
-    for i, (key, label) in enumerate(STAGES):
-        bg = Canvas(W, H, fill='sky3' if key == 'final' else 'paper3')
-        bg.blit(st[key], 0, 0)
+    sheet = Canvas((W + pad) * len(stages) + pad, H + pad * 2 + lab, fill='paper4')
+    for i, (label, c) in enumerate(stages):
         x = pad + i * (W + pad)
-        sheet.blit(bg, x, pad)
+        sheet.blit(c, x, pad)
         text(sheet, x + 2, pad + H + 4, label, 'wood0', script='latin')
+    frames = []
+    for label, c in timelapse(P):
         f = Canvas(W, H + lab, fill='paper4')
-        f.blit(bg, 0, 0)
+        f.blit(c, 0, 0)
         text(f, 2, H + 3, label, 'wood0', script='latin')
         frames.append(f)
     return sheet, frames

@@ -31,10 +31,6 @@ def corkboard():
         cv.px(x, y, c); cv.px(x + 1, y, c)
         if rng.random() < 0.5:
             cv.px(x, y + 1, c)
-    # nothing pinned up any more: only old pin holes
-    for _ in range(26):
-        px_, py_ = rng.randint(12, w - 14), rng.randint(12, h - 14)
-        cv.px(px_, py_, 'wood1'); cv.px(px_ + 1, py_ + 1, 'wood2')
     # frame: bevelled wood with mitred corners, a little worn
     for i, c in enumerate(['wood0', 'wood2', 'wood4', 'wood3', 'wood3', 'wood2', 'wood1']):
         cv.frame(i, i, w - 2 * i, h - 2 * i, c)

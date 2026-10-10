@@ -336,6 +336,6 @@ def bell():
     return O.outline(cv)
 
 
-@prop('teapot_customer', 2, 'counter', 1150, COUNTER_Y - 42, 'Glazed white teapot with a cobalt band, for refills')
+@prop('teapot_customer', 2, 'counter', 1150, COUNTER_Y - 42, 'Glazed white teapot with a cobalt band, for refills', preview=False)
 def teapot_customer():
     return TW.teapot_white()

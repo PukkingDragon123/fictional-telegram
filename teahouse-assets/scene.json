@@ -1119,7 +1119,7 @@
    "h": 46,
    "draggable": true,
    "desc": "Glazed white teapot with a cobalt band, for refills",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room2/teapot_customer.png"
   },
   {
@@ -1951,7 +1951,7 @@
    "h": 216,
    "draggable": true,
    "desc": "Uncle Pong: big bare-chested elephant x fireback uncle in a checked pha khao ma, chunky 3x pixels. Moods: idle (blinks), talk, happy (thumbs up), angry (fist slam), surprised, sad, sip, flex (12 frames each). Draw after the counter layer; his body stops at the counter edge.",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room2/uncle_pong.png",
    "frames": 12,
    "fps": 8,

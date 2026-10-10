@@ -414,8 +414,9 @@ def export_previews(sc, anims=True):
     sheet, pframes = wyvern.process_sheet()
     save(sheet, 'preview', 'wyvern_process.png', scale=3)
     ims = [f.image(3).convert('RGB') for f in pframes]
+    durs = [160] * (len(ims) - 1) + [2500]
     ims[0].save(os.path.join(ROOT, 'preview', 'wyvern_process.gif'), save_all=True, append_images=ims[1:],
-                duration=900, loop=0)
+                duration=durs, loop=0)
     cat = next(p for p in sc.props if p['name'] == 'alien_lucky_cat')
     ims = [f.image(5) for f in cat['frames']]
     ims[0].save(os.path.join(ROOT, 'preview', 'alien_lucky_cat.gif'), save_all=True, append_images=ims[1:],
