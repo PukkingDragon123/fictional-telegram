@@ -591,4 +591,6 @@ body.lab-panel .bb-layer { z-index: 40; }
 body.home-mode #toasts { display: none; }
 
 /* [v26 lead] the corner fox is hidden during the free-camera feast, cutscenes and the PC walk: hide his note bubbles too */
-body.feast-cam .bb[data-key="notify"], body.cine .bb[data-key="notify"], body.cutscene-on .bb[data-key="notify"], body.pc-mode .bb[data-key="notify"], body.pc-walk .bb[data-key="notify"] { visibility: hidden !important; }
+body.feast-cam .bb[data-key="notify"], body.cine .bb[data-key="notify"], body.cutscene-on .bb[data-key="notify"], body.pc-mode .bb[data-key="notify"], body.pc-walk .bb[data-key="notify"] { opacity: 0 !important; transition: none !important; }
+/* [v26 lead] during a feast event close-up only the event's cast talks: background chatter and craving pips are muted */
+body.feast-focus .bb[data-chat="1"] { opacity: 0 !important; transition: none !important; }

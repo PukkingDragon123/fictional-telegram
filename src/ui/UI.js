@@ -984,7 +984,7 @@ export class UI {
     if (!this.bubbles) return;
     const mood = emote === 'emo_anger' || b.angry ? 'angry' : emote === 'emo_sweat' ? 'scared' : emote === 'emo_heart' || emote === 'emo_drool' ? 'happy' : b.def.boss ? 'shout' : 'normal';
     const voice = text ? (b.def.boss ? 'ceo' : b.def.scale < 0.7 ? 'cub' : 'bear') : null;
-    const h = this.bubbles.say(this.bearAnchor(b), text || '', { emote: hasSprite(emote) ? emote : null, item: hasSprite(item) ? item : null, dur: dur + (text ? text.length * 0.03 : 0), voice, mood, key: 'bear' + b.id, size: text ? 's' : 's' });
+    const h = this.bubbles.say(this.bearAnchor(b), text || '', { emote: hasSprite(emote) ? emote : null, item: hasSprite(item) ? item : null, dur: dur + (text ? text.length * 0.03 : 0), voice, mood, key: 'bear' + b.id, size: text ? 's' : 's', chat: true }); // [v26 lead] chat flag
     this.says.set(b.id, { t: dur, h });
   }
 
