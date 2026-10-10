@@ -589,3 +589,6 @@ body.lab-panel .bb-layer { z-index: 40; }
 
 /* [v20] inside a neighbour's home: no toasts over the room */
 body.home-mode #toasts { display: none; }
+
+/* [v26 lead] the corner fox is hidden during the free-camera feast, cutscenes and the PC walk: hide his note bubbles too */
+body.feast-cam .bb[data-key="notify"], body.cine .bb[data-key="notify"], body.cutscene-on .bb[data-key="notify"], body.pc-mode .bb[data-key="notify"], body.pc-walk .bb[data-key="notify"] { visibility: hidden !important; }

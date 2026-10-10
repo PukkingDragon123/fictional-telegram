@@ -23,6 +23,7 @@ import '../../ui/lessons.css';
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const CORE = ['l_price', 'l_tips', 'l_stars', 'l_mutant', 'l_select', 'l_sections'];
 const CORE_CLASSES = ['money101', 'genetics', 'mutations', 'breeding', 'unlocking'];
+const PER_DAY = 3; // at most this many new lessons a day
 const BUSY_BODY = ['feast-cam', 'lt-pc', 'home-mode', 'pc-mode', 'class-mode'];
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -106,8 +107,14 @@ class Lessons {
     const now = g.state.day * 24 + g.state.hour;
     if (now - (S.last ?? -99) < 1) return; // never more than one lesson per in-game hour
     if (g.state.hour < 9.6 || g.state.hour > 16.45) return; // not in the morning bustle, not right before the feast
-    const id = S.queue.shift();
-    if (LESSON_BY_ID[id]) this.play(id);
+    if (S.dayN?.d === g.state.day && S.dayN.n >= PER_DAY) return; // enough school for one day
+    // still true right now? (a time-of-day lesson that missed its window waits for the next one)
+    while (S.queue.length) {
+      const id = S.queue.shift();
+      let ok = false;
+      try { ok = !!LESSON_BY_ID[id]?.when(g, this); } catch { ok = false; }
+      if (ok) { this.play(id); break; }
+    }
   }
 
   /** a calm moment of the day: nothing on screen that a lesson would talk over */
@@ -135,7 +142,8 @@ class Lessons {
   // ---------------------------------------------------------------- the teacher
   teacher() {
     if (this.teacherObj) return this.teacherObj;
-    try { this.teacherObj = new TeacherOverlay({ game: this.game, root: document.body }); } catch (e) { console.warn('[lessons] teacher', e); this.teacherObj = null; }
+    // the tour's teacher if it is still around (one WebGL fox is plenty), else our own
+    try { this.teacherObj = this.game.tutorial?.teacher || new TeacherOverlay({ game: this.game, root: document.body }); } catch (e) { console.warn('[lessons] teacher', e); this.teacherObj = null; }
     return this.teacherObj;
   }
 
@@ -212,7 +220,10 @@ class Lessons {
     const st = g.state, wasPaused = st.paused;
     st.paused = true;
     S.last = st.day * 24 + st.hour;
-    if (!replay && !S.seen.includes(id)) S.seen.push(id);
+    if (!replay && !S.seen.includes(id)) {
+      S.seen.push(id);
+      S.dayN = S.dayN?.d === st.day ? { d: st.day, n: S.dayN.n + 1 } : { d: st.day, n: 1 };
+    }
     g.ui?.foodPicker?.hide?.();
     this.tag(def, beats.length);
     g.audio?.play?.('page', { volume: 0.4 });

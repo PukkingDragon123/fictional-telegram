@@ -450,6 +450,7 @@ export class Bubbles {
 
     const el = document.createElement('div');
     el.className = `bb bb-v-${b.variant} bb-m-${mood} bb-s-${b.size}` + (b.wait ? ' bb-wait' : '');
+    if (opts.key) el.dataset.key = opts.key; // [v26 lead] lets CSS hide the corner-fox notes during the feast camera / cutscenes
     el.style.zIndex = String(++this._z);
     el.innerHTML =
       `<div class="bb-bob" style="animation-delay:${(-Math.random() * 3).toFixed(2)}s"><div class="bb-pop">` +

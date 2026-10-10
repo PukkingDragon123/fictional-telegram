@@ -120,7 +120,7 @@ export const LESSONS = [
   // ------------------------------------------------------------------ the feast
   {
     id: 'l_feast', title: 'The feast', icon: 'bear', cls: 'feastClass', goal: 'lq_feast',
-    when: (g) => !!g.feast && g.state.day >= 2 && g.state.hour >= 14 && g.state.hour < 16.4,
+    when: (g, L) => !!g.feast && !L.flags.feastDone && g.state.day >= 2 && g.state.hour >= 14 && g.state.hour < 16.4,
     beats: () => [
       { at: 'sel:#clockwrap', say: `At ${B('5 PM')} the feast starts and the camera is ${B('YOURS')}: drag, zoom, spy on customers.`, mood: 'excited' },
       { say: `Little ${B('icons')} pop up over bears and beavers. ${B('Tap')} one, watch, pick a choice.`, mood: 'normal' },
@@ -241,7 +241,7 @@ export const LESSONS = [
   // ------------------------------------------------------------------ home PC, the road south, Old Longneck
   {
     id: 'l_homepc', title: 'The books', icon: 'coin',
-    when: (g) => !!g.homePC && g.state.day >= 3,
+    when: (g) => !!g.homePC && g.state.day >= 4,
     beats: () => [
       { at: { x: HUT.x + 1.5, z: HUT.z + 1.5 }, say: `Every evening my ${B('home PC')} graphs the day: bills, tips, costs, bears.`, mood: 'smug' },
       { at: { x: HUT.x + 1.5, z: HUT.z + 1.5 }, say: `Tap my ${B('hut door')} anytime to see them. Watch what makes money... and what eats it.`, mood: 'normal' },

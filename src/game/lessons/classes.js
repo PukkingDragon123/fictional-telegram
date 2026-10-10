@@ -131,7 +131,7 @@ export const CLASS_LESSONS = {
             S('PEARLS', 34, 68, 'lilac'), S('CLOVER', 80, 68, 'green'), S('MOONBERRY', 124, 68, 'blue'), S('GOLD CARROT', 166, 68, 'yellow'), T('LUCK IS USED UP AT THE DATE', 96, 90, { color: 'orange' })] },
         { erase: true, say: 'And a mutant parent passes its mutation on **30%** of the time. Breed your mutants!',
           draw: [D('galaxy', 40, 50, { scale: 2 }), T('+', 70, 50, { scale: 2 }), D('fish', 100, 50, { scale: 2 }), { arrow: [124, 50, 144, 50] }, D('galaxy', 166, 50, { scale: 2 }), T('30%', 166, 74, { color: 'yellow' })] },
-        { cam: 'teacher', say: 'Want more? The **Swamp Shack** neighbour boosts mutations **x1.6**. Old Longneck knows even more...', expr: 'scheming', react: 'heart' },
+        { cam: 'teacher', say: 'Want more? Find the **Swamp Shack** in the woods: mutations **x1.6**. Old Longneck knows even more...', expr: 'scheming', react: 'heart' },
       ];
     },
   },

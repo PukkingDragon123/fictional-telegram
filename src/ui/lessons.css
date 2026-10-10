@@ -21,6 +21,7 @@
 .lsn-tag .lsn-skip:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 @keyframes lsn-drop { from { transform: translateX(-50%) translateY(-60px) rotate(-4deg); } to { transform: translateX(-50%); } }
 .lsn-choice { z-index: 92; }
+@media (max-width: 760px) { .lsn-tag { top: calc(96px + env(safe-area-inset-top, 0px)); } } /* below the coin tag and the clock */
 @media (max-width: 560px) {
   .lsn-tag .lsn-t { font-size: 16px; }
   .lsn-tag .lsn-k { display: none; }
@@ -34,3 +35,6 @@
 .qn-lsn .qn-lsn-ic { flex: 0 0 auto; display: inline-flex; width: 22px; justify-content: center; }
 .qn-lsn .qn-lsn-new { font-family: var(--font-title); font-size: 12px; color: #fff; background: #c8323c; padding: 0 4px 1px; transform: rotate(-6deg); margin-left: 4px; }
 .qn-tab-lsn { cursor: pointer; pointer-events: auto; }
+.qn-lsn-nav { display: flex; justify-content: space-between; gap: 12px; }
+/* the classroom covers the whole screen: Reynard's corner notes wait outside */
+body.class-mode .bb-layer { visibility: hidden; }

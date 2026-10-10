@@ -759,7 +759,7 @@ export function createQuestLog(root, o = {}) {
   let fox = null;
   let waiters = { open: [], close: [] };
   const completing = new Set(); // ids stamped DONE! while open (waiting for set() to drop them)
-  let lessons = [], onLesson = null, page = 'todo'; // [v26 tutorial] the Lessons page: [{ id, title, kind: 'class'|'lesson', fresh?, icon? }]
+  let lessons = [], onLesson = null, page = 'todo', lpage = 0; // [v26 tutorial] the Lessons page: [{ id, title, kind: 'class'|'lesson', fresh?, icon? }]
 
   // ------------------------------------------------------------- HUD behaviour
   function count() {
@@ -843,7 +843,11 @@ export function createQuestLog(root, o = {}) {
     stage.prc.addEventListener('click', (e) => {
       // [v26 tutorial] the Lessons page: flip to it / back, or replay a lesson
       const go = e.target.closest?.('.qn-lsn-link');
-      if (go && state === 'open') { e.stopPropagation(); sfx('page', { volume: 0.5 }); page = go.dataset.go === 'lessons' ? 'lessons' : 'todo'; renderPages(); return; }
+      if (go && state === 'open') {
+        e.stopPropagation(); sfx('page', { volume: 0.5 });
+        if (go.dataset.go === 'more') lpage++; else { page = go.dataset.go === 'lessons' ? 'lessons' : 'todo'; lpage = 0; }
+        renderPages(); return;
+      }
       const ls = e.target.closest?.('.qn-lsn');
       if (ls && state === 'open') { e.stopPropagation(); sfx('click'); try { onLesson?.(ls.dataset.lsn); } catch (err) { console.error(err); } return; }
       const q = e.target.closest?.('.qn-q');
@@ -969,21 +973,34 @@ export function createQuestLog(root, o = {}) {
 
   function rightHTML() {
     if (page === 'lessons' && lessons.length) return lessonsHTML(); // [v26 tutorial]
-    let h = `<div class="qn-ln qn-hd" style="${tilt('todo', 0.5)}">${hw('To do:', { cls: 'qn-big', ink: RED })}${img(doodle('sparkle', RED), 2, 'qn-hsp')}</div>`;
+    let h = `<div class="qn-ln qn-hd" style="${tilt('todo', 0.5)}">${hw('To do:', { cls: 'qn-big', ink: RED })}${img(doodle('sparkle', RED), 2, 'qn-hsp')}</div>`
+    if (lessons.length) h = `<div class="qn-ln qn-lsn-nav" style="${tilt('lsnlink', 0.6)}">${h.replace(/^<div[^>]*>|<\/div>$/g, '')}<span class="qn-lsn-link" data-go="lessons">${hw(`lessons (${lessons.length}) ->`, { ink: GREEN })}</span></div>`; // [v26 tutorial]
+
     if (!quests.length) h += `<div class="qn-ln qn-none">${hw('nothing to do... yet!', { ink: PENCIL })}</div><div class="qn-ln qn-none2">${hw('(go make money)', { ink: PENCIL })}</div>`;
     else h += quests.map(questHTML).join('');
-    if (lessons.length) h += `<div class="qn-ln qn-lsn-link" data-go="lessons" style="${tilt('lsnlink', 0.6)}">${hw(`My lessons (${lessons.length}) ->`, { ink: GREEN })}</div>`; // [v26 tutorial]
     return h;
   }
-  // [v26 tutorial] the Lessons page: classes (chalkboard) and the lessons learned, tap one to replay
+  // [v26 tutorial] the Lessons page: classes (chalkboard) and the lessons learned, tap one to replay.
+  // Two-page spread: classes on the left page, quick lessons on the right (paged); one page: both, paged.
+  function lsnRow(l) {
+    return `<div class="qn-ln qn-lsn" data-lsn="${esc(l.id)}" style="${tilt(l.id, 0.6)}"><span class="qn-lsn-ic">${icon(l.kind === 'class' ? 'book' : (l.icon || 'star'), 2) || img(doodle('sparkle', INK), 2)}</span><span class="qn-lsn-tt">${hw(l.title, { ink: l.kind === 'class' ? INK_D : INK })}</span>${l.fresh ? '<b class="qn-lsn-new">NEW</b>' : ''}</div>`;
+  }
   function lessonsHTML() {
-    const row = (l) => `<div class="qn-ln qn-lsn" data-lsn="${esc(l.id)}" style="${tilt(l.id, 0.6)}"><span class="qn-lsn-ic">${icon(l.kind === 'class' ? 'book' : (l.icon || 'star'), 2) || img(doodle('sparkle', INK), 2)}</span><span class="qn-lsn-tt">${hw(l.title, { ink: l.kind === 'class' ? INK_D : INK })}</span>${l.fresh ? '<b class="qn-lsn-new">NEW</b>' : ''}</div>`;
     const cls = lessons.filter((l) => l.kind === 'class'), les = lessons.filter((l) => l.kind !== 'class');
-    let h = `<div class="qn-ln qn-hd" style="${tilt('lsnh', 0.5)}">${hw('Lessons', { cls: 'qn-big', ink: RED })}${img(doodle('sparkle', RED), 2, 'qn-hsp')}</div>`;
+    const list = L.spread ? les : [...cls, ...les];
+    const per = L.spread ? 9 : 8, pages = Math.max(1, Math.ceil(list.length / per));
+    lpage = clamp(lpage, 0, pages - 1);
+    let h = `<div class="qn-ln qn-hd" style="${tilt('lsnh', 0.5)}">${hw(L.spread ? 'Quick lessons' : 'Lessons', { cls: 'qn-big', ink: RED })}${img(doodle('sparkle', RED), 2, 'qn-hsp')}</div>`;
     h += `<div class="qn-ln qn-none2">${hw('(tap one to replay it)', { ink: PENCIL })}</div>`;
-    if (cls.length) h += `<div class="qn-ln">${hw('Classes:', { ink: GREEN })}</div>` + cls.map(row).join('');
-    if (les.length) h += `<div class="qn-ln">${hw('Quick lessons:', { ink: GREEN })}</div>` + les.map(row).join('');
-    h += `<div class="qn-ln qn-lsn-link" data-go="todo" style="${tilt('lsnback', 0.6)}">${hw('<- back to my quests', { ink: GREEN })}</div>`;
+    h += list.length ? list.slice(lpage * per, lpage * per + per).map(lsnRow).join('') : `<div class="qn-ln qn-none">${hw('none yet... soon!', { ink: PENCIL })}</div>`;
+    h += `<div class="qn-ln qn-lsn-nav" style="${tilt('lsnback', 0.6)}"><span class="qn-lsn-link" data-go="todo">${hw('<- my quests', { ink: GREEN })}</span>${pages > 1 ? `<span class="qn-lsn-link" data-go="more">${hw(`more ${lpage + 1}/${pages} ->`, { ink: GREEN })}</span>` : ''}</div>`;
+    return h;
+  }
+  function lessonsLeftHTML() {
+    const cls = lessons.filter((l) => l.kind === 'class').slice(0, 11);
+    let h = `<div class="qn-ln qn-hd" style="${tilt('clsh', 0.5)}">${hw('Classes', { cls: 'qn-big', ink: RED })}${img(doodle('sparkle', RED), 2, 'qn-hsp')}</div>`;
+    h += `<div class="qn-ln qn-none2">${hw('(chalkboard, diagrams, the works)', { ink: PENCIL })}</div>`;
+    h += cls.length ? cls.map(lsnRow).join('') : `<div class="qn-ln qn-none">${hw('none yet...', { ink: PENCIL })}</div>`;
     return h;
   }
   function doneListHTML() {
@@ -994,6 +1011,7 @@ export function createQuestLog(root, o = {}) {
     return h;
   }
   function leftHTML() {
+    if (page === 'lessons' && lessons.length) return lessonsLeftHTML(); // [v26 tutorial]
     return `
       <div class="qn-ln qn-own" style="${tilt('own', 0.4)}">${hw('this book belongs to:', { ink: PENCIL })}</div>
       <div class="qn-ln qn-name" style="${tilt('name', 0.6)}">${hw('REYNARD', { cls: 'qn-big', ink: RED })}${img(doodle('crown', RED, ['#ffd84a']), 2, 'qn-crown')}${hw('(genius)', { ink: PENCIL })}${img(doodle('fox', INK, ['#f6a060', '#fff1d8', '#3a3348'], 2), 2, 'qn-d qn-d-fox')}</div>
