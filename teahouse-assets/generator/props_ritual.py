@@ -535,7 +535,7 @@ def alien_cat(f):
     """Ceramic maneki-neko from another world, drawn from curves: a pear-shaped
     sitting body with haunches, a soft head with cheek fluff, curved ears with
     tufts, a curling tail, a squashy cushion. Glossy lime glaze, three eyes,
-    antennae with pulsing lights, an eased beckoning paw, a blink, a coin glint."""
+    antennae with glazed bulbs, an eased beckoning paw, a blink, a coin glint."""
     cv = Canvas(CAT_W, CAT_H)
     cx = CAT_W // 2 + 2
     t = _ease(f)
@@ -581,14 +581,11 @@ def alien_cat(f):
         _sline(cv, [(cx + side * 3, 14), (cx + side * 4, 9), (cx + side * 7, 5), (x1, y1 + 2)], G[1])
         _sline(cv, [(cx + side * 3 + 1, 14), (cx + side * 4 + 1, 9), (cx + side * 7 + 1, 5)], G[2])
         bulb = ['.aba.', 'abccb', 'bccdb', 'abcdb', '.bbb.']        # a round glowing bulb, drawn by hand
-        cmap = {'a': G[1], 'b': G[2], 'c': G[4] if t > 0.4 else G[3], 'd': 'white' if t > 0.5 else G[4]}
+        cmap = {'a': G[1], 'b': G[2], 'c': G[3], 'd': G[4]}         # plain glazed bulbs, no glow
         for yy, row in enumerate(bulb):
             for xx, ch in enumerate(row):
                 if ch in cmap:
                     cv.px(x1 - 2 + xx, y1 - 2 + yy, cmap[ch])
-        if t > 0.6:
-            for (dx, dy) in ((-4, -1), (4, -1), (0, -5)):
-                cv.px(x1 + dx, y1 + dy, G[3])
     # eyes: curved almonds, lids, a third eye; blink on frame 5
     blink = f == 5
     for (ex, ey, rx, ry, tilt) in ((cx - 8, 31, 5.4, 4.6, -1), (cx + 8, 31, 5.4, 4.6, 1), (cx, 21, 3.0, 2.4, 0)):
@@ -652,11 +649,18 @@ def alien_cat(f):
     pad = _smask([(px_ - 2.4, py_ + 1.5), (px_, py_ - 0.3), (px_ + 2.4, py_ + 1.5), (px_, py_ + 3.3)])
     arm.a[pad] = (*PAL['pink2'], 255)
     arm.outline(G[0], selective=False)
+    # the arm's shadow falls on the head and body below-right of it, and moves with it
+    am_ = arm.a[..., 3] > 0
+    shadow = np.zeros_like(am_)
+    shadow[2:, 2:] = am_[:-2, :-2]
+    shadow &= (cv.a[..., 3] > 0) & ~am_
+    from wyvern import _step
+    _step(cv.a[..., :3], shadow, -1)
     cv.blit(arm, 0, 0)
     return O.outline(cv)
 
 
 @prop('alien_lucky_cat', 3, 'counter', 1796, COUNTER_Y - CAT_H - 1,
-      'Green alien maneki-neko (glossy ceramic): beckoning paw, pulsing antennae, blink, coin glint (8 frames)', fps=8)
+      'Green alien maneki-neko (glossy ceramic): beckoning paw whose shadow moves with it, blink, coin glint (8 frames)', fps=8)
 def alien_cat_prop():
     return [alien_cat(f) for f in range(F8)]

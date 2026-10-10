@@ -417,7 +417,7 @@
    "w": 239,
    "h": 125,
    "draggable": true,
-   "desc": "Giant chalk recipe board: brewing diagram, steps, leaf sketches, card line",
+   "desc": "Big chalkboard, wiped clean: only faint smudges of old chalk, a chalk ledge, brass corners",
    "placed_by_default": true,
    "file": "props/room1/recipe_board.png"
   },
@@ -431,7 +431,7 @@
    "h": 56,
    "draggable": true,
    "desc": "Recipe card (leaf)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/recipe_card_a.png"
   },
   {
@@ -444,7 +444,7 @@
    "h": 56,
    "draggable": true,
    "desc": "Recipe card (teapot)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/recipe_card_b.png"
   },
   {
@@ -457,7 +457,7 @@
    "h": 55,
    "draggable": true,
    "desc": "Recipe card (flower)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/recipe_card_c.png"
   },
   {
@@ -470,7 +470,7 @@
    "h": 55,
    "draggable": true,
    "desc": "Recipe card (drops)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/recipe_card_d.png"
   },
   {
@@ -483,7 +483,7 @@
    "h": 59,
    "draggable": true,
    "desc": "Recipe card (burnt)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/recipe_card_e.png"
   },
   {
@@ -847,7 +847,7 @@
    "h": 47,
    "draggable": true,
    "desc": "Clay storage jar with an ash-glaze shoulder, its mouth tied over with indigo cloth",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/tsubo_jar.png"
   },
   {
@@ -1605,7 +1605,7 @@
    "w": 70,
    "h": 92,
    "draggable": true,
-   "desc": "Green alien maneki-neko (glossy ceramic): beckoning paw, pulsing antennae, blink, coin glint (8 frames)",
+   "desc": "Green alien maneki-neko (glossy ceramic): beckoning paw whose shadow moves with it, blink, coin glint (8 frames)",
    "placed_by_default": true,
    "file": "props/room3/alien_lucky_cat.png",
    "frames": 8,

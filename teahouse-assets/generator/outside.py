@@ -179,34 +179,15 @@ def sky():
         cv.rect(0, y0, OUT_W, y1 - y0, c)
     for i in range(1, len(bands)):
         dither_seam(cv, bands[i][0] - 5, 10, bands[i - 1][1], bands[i][1])
-    rng = random.Random(3)
-    for _ in range(18):
-        x = rng.randint(0, OUT_W)
-        y = rng.randint(30, 130)
-        ln = rng.randint(14, 50)
-        c = step(cv.get(x, y)[:3], 1)
-        cv.hline(x, x + ln, y, c)
-        cv.hline(x + 5, x + ln - 8, y + 1, c)
     return cv
 
 
 def clouds():
     cv = Canvas(OUT_W, H, wrap=True)
     rng = random.Random(11)
-    storm = []
-    for i in range(26):
-        t = i / 25
-        storm.append((760 + i * 12 + rng.uniform(-4, 4), 128 - math.sin(math.pi * t) * 24 + rng.uniform(-4, 4),
-                      rng.uniform(8, 15) + math.sin(math.pi * t) * 8))
-    shade_puffs(cv, storm, STORM, clip_bottom=150, dither=0.04, cuts=[-0.05, 0.35, 0.8])
-    for (x, base, w, h) in ((140, 138, 170, 66), (430, 108, 90, 30), (600, 146, 120, 40), (920, 140, 200, 76),
-                            (1180, 92, 80, 24)):
+    for (x, base, w, h) in ((140, 138, 170, 66), (470, 110, 90, 30), (700, 146, 130, 44), (980, 140, 200, 76),
+                            (1200, 96, 80, 24)):
         _cumulus(cv, rng, x, base, w, h)
-    for (x, y, w) in ((300, 66, 34), (560, 56, 24), (1040, 50, 40), (60, 40, 26), (800, 30, 30)):
-        for k in range(w):
-            cv.px(x + k, y, 'cloud3' if k % 7 else 'cloud2')
-            if 3 < k < w - 4:
-                cv.px(x + k, y + 1, 'cloud2')
     return cv
 
 
@@ -220,72 +201,101 @@ def _tree_band(cv, rng, y, c, c2):
     cv.rect(0, y, OUT_W, 3, c)
 
 
+def _ridge(rng, base, amp, octaves):
+    """A natural ridge line: layered noise plus sharpened crests."""
+    n = periodic_noise(OUT_W, octaves, rng, 1.0)
+    n = n - n.min()
+    n = n / (n.max() or 1)
+    crest = 1 - np.abs(np.sin(np.linspace(0, math.pi * 7, OUT_W) + rng.uniform(0, 6)))
+    return base - amp * (0.75 * n + 0.25 * crest * n)
+
+
+def _paint_range(cv, prof, ramp, rng, floor_y, lit_side=True, tex=0.0):
+    """Fill a mountain range under prof: lighter near the crest, shaded on slopes
+    that face away from the light, a few gullies, fading toward the foot."""
+    slope = np.gradient(prof)
+    for x in range(OUT_W):
+        top = int(round(prof[x]))
+        for y in range(top, floor_y):
+            d = y - top
+            k = 2 if d < 3 else (1 if d < 14 else 0)
+            if slope[x] > 0.35 and d < 30:              # this slope faces right, away from the light
+                k = max(0, k - 1)
+            if slope[x] < -0.35 and d < 6:
+                k = min(len(ramp) - 1, k + 1)           # sunlit crest
+            if tex and (math.sin(x * 0.21 + y * 0.6) + math.sin(x * 0.05 - y * 0.13)) > 1.55 - tex:
+                k = max(0, k - 1)                        # gullies
+            cv.px(x, y, ramp[k])
+
+
 def mountains():
     cv = Canvas(OUT_W, H, wrap=True)
     rng = random.Random(21)
-    far = 128 - periodic_noise(OUT_W, [(2, 10), (5, 6), (9, 3.5), (19, 1.6), (37, 0.7)], rng, 1.0)
-    near = 148 - periodic_noise(OUT_W, [(3, 7), (7, 5), (13, 3), (29, 1.2)], rng, 1.0)
-    _faceted(cv, far, 'haze3', 'haze2', 'cloud2', rng)
-    _faceted(cv, near, 'haze2', 'haze1', 'haze3', rng)
-    _tree_band(cv, rng, HORIZON - 3, 'haze1', 'haze2')
+    far = _ridge(rng, 140, 34, [(2, 10), (5, 6), (9, 3.5), (19, 1.6), (37, 0.7), (71, 0.3)])
+    near = _ridge(rng, 156, 20, [(3, 7), (7, 5), (13, 3), (29, 1.2), (57, 0.5)])
+    _paint_range(cv, far, ['haze2', 'haze3', 'cloud2'], rng, HORIZON, tex=0.25)
+    _paint_range(cv, near, ['haze1', 'haze2', 'haze3'], rng, HORIZON, tex=0.4)
+    # lake: calm, with a faint upside-down reflection of the near ridge
     for y in range(HORIZON, H):
-        cv.hline(0, OUT_W - 1, y, 'water1' if y < HORIZON + 10 else 'water0')
-    dither_seam(cv, HORIZON + 8, 5, 'water1', 'water0')
-    cv.hline(0, OUT_W - 1, HORIZON, 'haze2')
+        cv.hline(0, OUT_W - 1, y, 'water1' if y < HORIZON + 12 else 'water0')
+    dither_seam(cv, HORIZON + 10, 6, 'water1', 'water0')
     for x in range(OUT_W):
-        depth = int((HORIZON - near[x]) * 0.3)
-        for d in range(1, depth, 2):
-            if (x // 4 + d) % 3:
-                cv.px(x, HORIZON + 1 + d, 'haze0')
-    tx = 520
-    _tower(cv, tx, HORIZON)
-    for d in range(2, 24, 2):
-        for xx in range(tx - 8 + d // 4, tx + 9 - d // 4):
-            if (xx // 2 + d) % 3:
-                cv.px(xx, HORIZON + 2 + d, 'red1')
+        depth = int((HORIZON - near[x]) * 0.45)
+        for d in range(1, depth):
+            if (x + d) % 2 == 0 or d < 3:
+                cv.px(x, HORIZON + d, 'haze1' if d < depth * 0.6 else 'water1')
+    cv.hline(0, OUT_W - 1, HORIZON, 'haze3')
     rng = random.Random(8)
-    for _ in range(140):
-        x, y = rng.randint(0, OUT_W), rng.randint(HORIZON + 2, HORIZON + 34)
-        cv.hline(x, x + rng.randint(2, 8), y, 'cloud3' if rng.random() < 0.35 else 'water2')
+    for _ in range(70):                                  # a few soft glints
+        x, y = rng.randint(0, OUT_W), rng.randint(HORIZON + 4, HORIZON + 30)
+        cv.hline(x, x + rng.randint(2, 5), y, 'water2')
     return cv
 
 
 def hills():
-    """Mid-distance green shore with medium trees (static, softer outline)."""
+    """Rolling wooded hills along the far shore: a canopy of many small tree
+    crowns, each lit from the upper left, darker down in the folds."""
     cv = Canvas(OUT_W, H, wrap=True)
     rng = random.Random(31)
-    prof = 182 - periodic_noise(OUT_W, [(3, 1), (5, 0.6), (9, 0.3)], rng, 12)
-    for x in range(OUT_W):
-        top = int(prof[x])
-        if top > HORIZON + 12:
-            top = H
-        for y in range(top, H):
-            cv.px(x, y, 'leaf2' if y < top + 3 else 'leaf1')
-        if top < H:
-            cv.px(x, top, 'leaf3')
-    for x in range(OUT_W):
-        if not cv.get(x, HORIZON + 16)[3]:
-            for y in range(HORIZON + 16, H):
-                cv.px(x, y, 'leaf1')
-    # red footbridge (the one warm accent out there)
-    bx0, bx1, by = 900, 1010, HORIZON + 10
-    for x in range(bx0, bx1 + 1):
-        t = (x - bx0) / (bx1 - bx0)
-        arch = int(math.sin(math.pi * t) * 7)
-        cv.px(x, by - arch, 'red3'); cv.px(x, by - arch + 1, 'red1'); cv.px(x, by - arch - 5, 'red4')
-        if (x - bx0) % 6 == 0:
-            cv.vline(x, by - arch - 5, by - arch, 'red2')
-        if (x - bx0) % 18 == 0:
-            cv.vline(x, by - arch + 1, by + 7, 'red1')
-    hazy = ['leaf1', 'leaf1', 'leaf2', 'leaf3', 'leaf4']
-    hazy_j = ['jade1', 'jade1', 'jade2', 'jade3', 'jade4']
-    for i in range(34):
-        x = rng.randint(0, OUT_W)
-        ground = int(prof[x % OUT_W])
-        if ground > HORIZON + 12:
-            continue
-        T = small_tree(rng.randint(0, 9999), hazy if i % 3 else hazy_j, scale=rng.uniform(0.45, 0.8))
-        cv.blit(T.frame(0), x - T.base[0], ground + 3 - T.base[1])
+    prof = 184 - periodic_noise(OUT_W, [(2, 1), (4, 0.7), (7, 0.4), (13, 0.15)], rng, 16)
+    yy = np.arange(H)[:, None]
+    ground = yy >= prof[None, :]
+    a = cv.a
+    base = np.zeros((H, OUT_W), int)
+    crowns = []
+    for _ in range(900):                                 # tree crowns along the hill tops and slopes
+        x = rng.uniform(0, OUT_W)
+        top = prof[int(x) % OUT_W]
+        y = top + rng.uniform(-1, 18) ** 1.0
+        r = rng.uniform(2.6, 5.2) * (1.0 - min(0.4, (y - top) / 60))
+        crowns.append((x, y, r))
+    crowns.sort(key=lambda c: c[1])
+    cols = ['jade0', 'leaf1', 'jade1', 'leaf2', 'leaf3']
+    canopy = np.zeros((H, OUT_W), bool)
+    for (x, y, r) in crowns:
+        x0, x1 = int(x - r - 1), int(x + r + 2)
+        y0, y1 = max(0, int(y - r - 1)), min(H, int(y + r + 2))
+        for X in range(x0, x1):
+            Xw = X % OUT_W
+            for Y in range(y0, y1):
+                dx, dy = (X + 0.5 - x) / r, (Y + 0.5 - y) / (r * 0.9)
+                d = dx * dx + dy * dy
+                if d <= 1:
+                    lit = -dx * 0.55 - dy * 0.8
+                    k = 3 if lit > 0.35 else (2 if lit > -0.1 else 1)
+                    if lit > 0.75 and d < 0.5:
+                        k = 4
+                    if Y > prof[Xw] + 14:
+                        k = max(0, k - 1)
+                    base[Y, Xw] = k
+                    canopy[Y, Xw] = True
+    fill = ground | canopy
+    for k, c in enumerate(cols):
+        m = fill & (base == k) & canopy
+        a[m] = (*PAL[c], 255)
+    rest = ground & ~canopy
+    a[rest] = (*PAL['jade0'], 255)
+    a[(yy >= HORIZON + 20) & np.ones((1, OUT_W), bool)] = (*PAL['jade0'], 255)
     return cv
 
 

@@ -895,7 +895,7 @@
     73
    ],
    "draggable": true,
-   "desc": "Giant chalk recipe board: brewing diagram, steps, leaf sketches, card line"
+   "desc": "Big chalkboard, wiped clean: only faint smudges of old chalk, a chalk ledge, brass corners"
   },
   "recipe_card_a": {
    "anims": {
@@ -3079,7 +3079,7 @@
     206
    ],
    "draggable": true,
-   "desc": "Green alien maneki-neko (glossy ceramic): beckoning paw, pulsing antennae, blink, coin glint (8 frames)"
+   "desc": "Green alien maneki-neko (glossy ceramic): beckoning paw whose shadow moves with it, blink, coin glint (8 frames)"
   },
   "silk_bed": {
    "anims": {

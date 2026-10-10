@@ -5,7 +5,6 @@
 Layout of the zip:
 
     Old_Rundown_Teahouse/
-      README.txt
       scene.json              every prop's default spot, layers, draw order (paths match this layout)
       backgrounds/window_view the scrolling view through the windows
       backgrounds/rooms       room shell, counter, foreground posts, light overlay
@@ -13,7 +12,9 @@ Layout of the zip:
       props/1x/extras/<room>/ props you can drag in (not placed by default)
       props/3x/...            the same at 3x
       sprite_atlas/           every prop frame in one png + json
-      nature/  palette/  previews/  demo/
+      nature/  palette/  previews/
+
+No readme, demo page, descriptions or labelled sheets: just the art and the scene data.
 """
 import json
 import os
@@ -28,70 +29,8 @@ ROOMS = {1: '1_cook_room', 2: '2_seating_room', 3: '3_tea_room', 4: '4_bedroom'}
 ROOM_LAYERS = {'10_room_shell': 'room_shell', '11_room_shell_furnished': 'room_shell_with_wall_props',
                '20_counter': 'counter_furnace_table', '30_foreground': 'foreground_posts',
                '40_light_overlay': 'light_overlay'}
-SKIP_PREVIEWS = ('uncle_pong', 'teahouse_no_fx')
+SKIP_PREVIEWS = ('uncle_pong', 'teahouse_no_fx', 'props_contact_sheet', 'wyvern_process', 'trees_sheet')
 
-README = """OLD RUNDOWN TEAHOUSE - pixel art pack
-=====================================
-
-Four rooms of an old teahouse seen from inside, plus everything in them as
-separate drag-and-drop props.
-
-  1 cook room       stone furnace with a live fire spirit, recipe board,
-                    apothecary chest, prep table
-  2 seating room    lattice window onto the garden, lanterns, clock
-  3 tea room        empty corkboard, bell-shaped window,
-                    brass bell, lucky cat. Ring the bell and the old rock
-                    wyvern comes up to the window.
-  4 bedroom         silk bed, desk, bookcase, moon window
-
-Size: each room is 640x360 (the whole strip is 2560x360). Scale up by whole
-numbers with nearest-neighbour: 3x = 1920x1080. A 3x copy of every prop is in
-props/3x.
-
-
-Putting a room together (back to front)
----------------------------------------
-  1. backgrounds/window_view/00..05, each scrolled at its own speed
-     (the "parallax" value in scene.json) and repeated every 1280 px
-  2. props on layer "outside" (the wyvern)
-  3. backgrounds/rooms/room_shell.png
-  4. props on layer "wall", then "ceiling"
-  5. backgrounds/rooms/counter_furnace_table.png
-  6. props on layer "npc", then "floor", "counter", "front"
-  7. backgrounds/rooms/foreground_posts.png
-  8. backgrounds/rooms/light_overlay.png
-
-scene.json has the x/y of every prop (top-left, in scene pixels), the layer it
-goes on, its frame count and fps, and the surfaces things stand on.
-
-
-Animated props
---------------
-Anything that moves has a *_sheet.png next to it: frames side by side, all
-the same size. Props with more than one animation (the fire spirit, the bell,
-the wyvern) have one sheet per animation, e.g. dragon_peek_peek_sheet.png and
-dragon_peek_rest_sheet.png.
-
-The bell is clickable in scene.json ("on_click"): play the bell's "ring" and
-the wyvern's "peek" once. Use the wyvern's "rest" loop if you want it to stay.
-
-
-Extras
-------
-props/1x/extras holds things that are drawn but not placed in the scene: the
-tea set and cups, tea jars, the towel and tea runner, the kettle and pot, the
-wind chime, notes for the corkboard, bedroom clutter, and Uncle Pong.
-
-
-Also in here
-------------
-  sprite_atlas/   all prop frames packed into one image + json
-  nature/         loose trees, flowers, grass, falling leaves
-  palette/        the colours (.gpl for Aseprite/GIMP, .hex)
-  previews/       each room at 1920x1080, animated gifs, the wyvern drawing
-                  process, a labelled sheet of every prop
-  demo/           open demo/index.html in a browser to drag things around
-"""
 
 
 def _zip(tmp, out):
@@ -188,19 +127,19 @@ def main(out):
     for f in sorted(os.listdir(os.path.join(ROOT, 'preview'))):
         if not f.startswith(SKIP_PREVIEWS):
             put('preview/' + f, 'previews/' + f)
-    # scene + demo
+    # scene data only: positions, sizes, layers, frames - no descriptions or notes
+    for key in [k for k in scene if k.endswith('_note') or k in ('perspective', 'recommended_scale')]:
+        del scene[key]
+    for p in scene['props']:
+        p.pop('desc', None)
+    for L in scene['layers']:
+        L.pop('note', None)
     with open(os.path.join(base, 'scene.json'), 'w') as fh:
         json.dump(scene, fh, indent=1)
-    os.makedirs(os.path.join(base, 'demo'), exist_ok=True)
-    shutil.copy2(os.path.join(ROOT, 'demo', 'index.html'), os.path.join(base, 'demo', 'index.html'))
-    with open(os.path.join(base, 'demo', 'scene.js'), 'w') as fh:
-        fh.write('window.SCENE = ' + json.dumps(scene) + ';\n')
-    with open(os.path.join(base, 'README.txt'), 'w') as fh:
-        fh.write(README)
     _zip(tmp, out)
     lite = out.replace('.zip', '_mobile.zip')
     # phone-friendly copy: 1x art, backgrounds, scene and the still previews only (no 3x, no gifs, no demo)
-    for d in ('props/3x', 'demo', 'sprite_atlas'):
+    for d in ('props/3x', 'sprite_atlas'):
         shutil.rmtree(os.path.join(base, d), ignore_errors=True)
     for f in os.listdir(os.path.join(base, 'previews')):
         if not f.endswith('.png') or f.startswith(('props_contact', 'teahouse_full_1x', 'trees_sheet')):

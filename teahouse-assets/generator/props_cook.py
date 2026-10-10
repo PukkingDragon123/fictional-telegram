@@ -212,55 +212,18 @@ for _i, (_name, _x, _cols) in enumerate((('herbs_drying_a', _HX + 12, ['leaf1', 
 
 
 # ---------------------------------------------------------------- recipe board
-@prop('recipe_board', 1, 'wall', 246, 74, 'Giant chalk recipe board: brewing diagram, steps, leaf sketches, card line')
+@prop('recipe_board', 1, 'wall', 246, 74, 'Big chalkboard, wiped clean: only faint smudges of old chalk, a chalk ledge, brass corners')
 def recipe_board():
     rng = random.Random(1100)
     w, h = 236, 122
     cv = Canvas(w, h)
     cv.rect(0, 0, w, h, 'teal0')
-    for _ in range(260):                                  # half-erased ghosts of old chalk
+    for _ in range(120):                                  # faint smudges where the chalk was wiped off
         x, y = rng.randint(10, w - 26), rng.randint(10, h - 18)
         ln = rng.randint(6, 26)
         for k in range(ln):
             if (x + k + y) % 2 == 0:
                 cv.px(x + k, y + (k * 3) // ln, 'teal1')
-    text2x(cv, 16, 14, 'RECIPES', 'cloud2', rng)
-    cv.hline(14, 72, 26, 'cloud1'); cv.hline(16, 70, 27, 'teal2')
-    steps = ['BOIL WATER', 'COOL TO 80C', 'LEAVES 3G', 'STEEP 4 MIN', 'STEEP 2 MIN', 'POUR SLOW', 'SERVE WARM']
-    for i, yy in enumerate(range(36, 106, 10)):           # the steps, in chalk
-        text(cv, 12, yy, str(i + 1) if i < 4 else str(i), 'cloud2')
-        text(cv, 20, yy, steps[i], 'cloud1' if i != 3 else 'teal2', rng, True)
-        if i == 3:
-            cv.line(19, yy + 2, 20 + len(steps[i]) * 4, yy + 3, 'red4')   # crossed out: too long!
-    # brewing diagram: kettle -> thermometer -> teapot -> cup
-    def chalk_ring(cx, cy, rx, ry, c='cloud2'):
-        for a in range(0, 360, 5):
-            if a % 40 < 34:
-                cv.px(int(round(cx + math.cos(math.radians(a)) * rx)), int(round(cy + math.sin(math.radians(a)) * ry)), c)
-    chalk_ring(112, 92, 13, 9)                            # teapot
-    cv.line(125, 89, 135, 80, 'cloud2'); cv.line(99, 88, 93, 95, 'cloud1'); cv.hline(106, 118, 82, 'cloud2')
-    for k in range(3):
-        for j in range(7):
-            cv.px(135 + int(math.sin(j * 1.1 + k) * 1.5) + k * 4, 76 - j, 'cloud1')
-    cv.line(140, 92, 156, 92, 'cloud1'); cv.line(153, 89, 156, 92, 'cloud1'); cv.line(153, 95, 156, 92, 'cloud1')
-    chalk_ring(170, 94, 8, 6)                             # cup
-    cv.hline(162, 178, 88, 'cloud2')
-    cv.rect(190, 70, 4, 26, 'cloud1'); cv.ellipse(192, 98, 4, 4, 'red4')   # thermometer
-    for k in range(5):
-        cv.hline(195, 197, 74 + k * 5, 'cloud2')
-    text(cv, 200, 76, '80C', 'cloud2', rng, True)
-    text(cv, 138, 102, '3 MIN', 'cloud1', rng, True)
-    # leaf anatomy sketch with labels
-    for k in range(17):
-        cv.px(96 + k, 52 - k // 3, 'jade4')
-        cv.px(96 + k, 46 - k // 3 + (2 if 4 < k < 13 else 0), 'jade4')
-    cv.line(97, 50, 112, 45, 'jade3')
-    cv.line(114, 46, 122, 41, 'cloud1'); text(cv, 124, 38, 'BUD', 'cloud1', rng, True)
-    text(cv, 210, 104, '?!', 'cloud2', rng, True)
-    for yy in range(56, 70):                              # wiped smear
-        for xx in range(140, 186):
-            if (xx * 3 + yy) % 7 == 0:
-                cv.px(xx, yy, 'teal1')
     # frame with brass corners
     ring = ['wood1', 'wood3', 'wood4', 'wood4', 'wood3', 'wood2', 'wood0']
     for i, c in enumerate(ring):
@@ -276,9 +239,6 @@ def recipe_board():
     cv.rect(12, h - 8, w - 24, 5, 'wood4'); cv.hline(12, w - 13, h - 8, 'wood5'); cv.hline(12, w - 13, h - 4, 'wood2')
     cv.rect(44, h - 11, 8, 3, 'white'); cv.rect(56, h - 11, 6, 3, 'pink3')
     cv.rect(190, h - 13, 18, 5, 'wood3'); cv.rect(190, h - 9, 18, 1, 'stone3')
-    for x in range(84, w - 14):                            # clothes line for the cards
-        sag = int(5 * math.sin(math.pi * (x - 84) / (w - 98)))
-        cv.px(x, 11 + sag, 'paper2')
     return cv
 
 
