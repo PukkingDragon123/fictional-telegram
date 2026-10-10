@@ -3,6 +3,7 @@ cabinet, teaware shelf, the full tea set on the counter, incense, candle,
 the journal drawer, and the polished green alien lucky cat."""
 import math
 import random
+import numpy as np
 from pixel import Canvas, PAL, step, scribble, text
 from shapes import torn_paper, pin, wood_grain_h, wood_grain_v, chip, cobweb, flower
 from propkit import prop, glyph, paper_note
@@ -127,7 +128,7 @@ for _i, (_n, _x, _y, _w, _h, _fn, _pc, _base) in enumerate(NOTES):
 
 
 # ---------------------------------------------------------------- scroll
-@prop('kakejiku_scroll', 3, 'wall', 1588, 58, 'Hanging scroll: ink pine on a cliff, calligraphy, red seal; water-stained')
+@prop('kakejiku_scroll', 3, 'wall', 1588, 58, 'Hanging scroll with CHAI TEA brushed sideways down it, red seal; water-stained')
 def scroll():
     rng = random.Random(3100)
     w, h = 58, 140
@@ -149,21 +150,30 @@ def scroll():
         for x in range(px0, px0 + pw):
             if (x * 3 + y * 7) % 23 == 0:
                 cv.px(x, y, 'paper2')
-    # ink painting: a pine leaning off a cliff (green-grey washes)
-    cv.poly([(px0, py0 + ph), (px0, py0 + ph - 30), (px0 + 14, py0 + ph - 38), (px0 + 22, py0 + ph - 20),
-             (px0 + 18, py0 + ph)], 'stone2')
-    cv.line(px0 + 10, py0 + ph - 36, px0 + 20, py0 + ph - 60, 'ink')
-    cv.line(px0 + 20, py0 + ph - 60, px0 + 30, py0 + ph - 74, 'ink')
-    cv.line(px0 + 11, py0 + ph - 36, px0 + 21, py0 + ph - 60, 'stone1')
-    for (cx, cy, rw) in ((px0 + 30, py0 + ph - 78, 12), (px0 + 18, py0 + ph - 62, 9), (px0 + 33, py0 + ph - 62, 8)):
-        for k in range(-rw, rw + 1):
-            cv.px(cx + k, cy, 'stone0' if abs(k) < rw - 2 else 'stone1')
-            if abs(k) < rw - 3:
-                cv.px(cx + k, cy - 1, 'leaf1' if k % 3 else 'stone0')
-                cv.px(cx + k, cy + 1, 'stone1')
-    for k in range(4):
-        glyph(cv, rng, px0 + pw - 9, py0 + 6 + k * 10, 7, 'ink')
-    cv.rect(px0 + pw - 9, py0 + 48, 6, 6, 'red3'); cv.px(px0 + pw - 8, py0 + 49, 'red5')
+    # brushed lettering, sideways down the scroll: CHAI TEA
+    from pixel import FONT
+    word = 'CHAI TEA'
+    sc = 2
+    lw = len(word) * (3 * sc + 2) - 2
+    strip = np.zeros((5 * sc + 2, lw + 2), bool)
+    for k, ch in enumerate(word):
+        rows = FONT.get(ch)
+        if not rows:
+            continue
+        for yy, row in enumerate(rows):
+            for xx, c in enumerate(row):
+                if c == '#':
+                    strip[1 + yy * sc:1 + (yy + 1) * sc, 1 + k * (3 * sc + 2) + xx * sc:1 + k * (3 * sc + 2) + (xx + 1) * sc] = True
+    rot = np.rot90(strip, -1)                       # turned to run down the scroll
+    th, tw = rot.shape
+    ox, oy = px0 + (pw - tw) // 2 - 3, py0 + (ph - th) // 2
+    for yy in range(th):
+        for xx in range(tw):
+            if rot[yy, xx]:
+                cv.px(ox + xx, oy + yy, 'ink')
+                if rng.random() < 0.12:
+                    cv.px(ox + xx + 1, oy + yy, 'stone1')       # dry-brush edge
+    cv.rect(px0 + pw - 9, py0 + ph - 16, 6, 6, 'red3'); cv.px(px0 + pw - 8, py0 + ph - 15, 'red5')   # seal
     for y in range(py0 + ph - 34, py0 + ph):           # water stain + torn corner
         for x in range(px0, px0 + 16):
             if (x + y) % 2 == 0 and (x - px0) + (py0 + ph - y) < 30:

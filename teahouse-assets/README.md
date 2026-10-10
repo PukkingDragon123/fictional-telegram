@@ -10,7 +10,7 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit** (all mouth and teeth). Herbs dry on an old bamboo pole above it. Also the giant chalk **recipe board** with recipe cards, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
 | 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
-| 3 Tea ritual | 1280 to 1920 | An empty **corkboard** (only pin holes left) and a hanging scroll. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
+| 3 Tea ritual | 1280 to 1920 | An empty **corkboard** and a hanging scroll with **CHAI TEA** brushed sideways down it. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
 | 4 Traveler's bedroom | 1920 to 2560 | The most run-down room. Plaster has fallen off the walls to show the bamboo lath, rain has streaked them, there is mould in the corners, boards are missing from the roof so daylight shows, and the floor is broken and bare. Indigo noren hanging in front, moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, straw hat and cloak on the wall, oil lamp |
 
 ## Uncle Pong (optional, not placed)
@@ -212,6 +212,7 @@ Some props are exported but not placed by default, which keeps the counter and s
 ```bash
 python3 teahouse-assets/generator/build.py          # a few minutes, needs Pillow + numpy
 python3 teahouse-assets/generator/build.py --quick  # skip the animated previews
+python3 teahouse-assets/generator/package.py out.zip  # the tidy game-ready zip (Old_Rundown_Teahouse/)
 ```
 
 | What | Where |
