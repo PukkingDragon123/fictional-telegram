@@ -1,590 +1,612 @@
-"""The old rock wyvern who lives outside the tea-room window.
+"""The old rock wyvern who lives outside the tea-room window, drawn by hand.
 
-A fat, friendly old giant of a wyvern, drawn at full scene resolution
-(one sprite pixel = one scene pixel). Its head is modelled, not outlined:
-a set of soft 3D blobs (cranium, jowls, a broad muzzle, a receding chin,
-a thick neck) melted together into one height field, lit from the upper
-left with a cool sky rim from behind, ambient occlusion in the creases,
-then snapped to the palette. Parts that sit in front of others (muzzle
-over chin, brows, horns, teeth, ears, fingers) get a contour line where
-they overlap.
+The head is drawn the way a painter would build it, and every stage is
+kept so the drawing process can be shown:
 
-On top of the shading go the details of an old giant: sleepy kind eyes
-with heavy lids and bags, crow's feet and smile lines, forehead wrinkles,
-weathered cracks, bushy lichen eyebrows and beard, worn and chipped horns,
-moss with tiny flowers and a mushroom on its crown, old blunt fangs
-hanging over its lower lip (it still has its overbite), and fat fingers
-with worn claws resting on the sill.
+  1 construction  cranium circle, snout box, head axis, eye line, neck and horn gestures
+  2 sketch        loose pencil outlines over the construction, shadow hatching
+  3 line art      clean ink outlines of every part and the key inner lines
+  4 flats         local colour per material: cool grey stone, old horn, ivory teeth, amber eye
+  5 shading       light from the upper left: planes with rounded edges, cast shadows under
+                  the brow, the upper jaw, the head and the horns, reflected light below
+  6 texture       armoured rock scutes (big on the skull and neck, small on the snout and
+                  lips), cracks, pale and orange lichen, moss in the hollows
+  7 final         lines folded into the colours (dark only on the shadow side), a wet glint
+                  in the eye, worn highlights on teeth and horns, a cool sky rim from behind
+
+The anatomy is a real reptile's: a long heavy skull with a bony brow shelf
+over a deep-set eye, a crocodile overbite with irregular interlocking teeth,
+nostrils on top of the snout, a banded throat, a thick armoured neck and a
+clawed wing-wrist gripping the sill. It rests its chin on the sill, calm and
+old, and only its eye, breath and jaw move.
 """
 import math
 import random
 import numpy as np
-from pixel import Canvas, PAL
+from PIL import Image, ImageDraw
+from pixel import Canvas, PAL, text
 
 W, H = 140, 150
-NEG = -1e9
-
-X, Y = np.meshgrid(np.arange(W, dtype=float) + 0.5, np.arange(H, dtype=float) + 0.5)
-# The model is built in its own units and drawn at 80% so the whole fat head
-# (horns and mossy crown in the window's pointed top, chin on the sill) fits.
-S = 0.8
-AX, AY, DX = 70.0, 147.0, 3.0
-XM = (X - AX - DX) / S + AX
-YM = (Y - AY) / S + AY
-
-
-def to_screen(x, y):
-    return AX + DX + (x - AX) * S, AY + (y - AY) * S
-
-RAMP = {
-    'rock': ('stone0', 'stone1', 'stone2', 'stone3', 'stone4'),
-    'jowl': ('stone0', 'stone1', 'stone2', 'stone3', 'stone4'),
-    'plate': ('stone1', 'paper0', 'paper1', 'paper2', 'paper3'),
-    'horn': ('wood1', 'wood3', 'paper1', 'paper2', 'paper3'),
-    'tooth': ('stone2', 'paper2', 'paper3', 'paper4', 'white'),
-    'lichen': ('jade0', 'jade1', 'jade2', 'jade3', 'jade4'),
-    'mouth': ('red0', 'red0', 'red1', 'red2', 'red3'),
-    'tongue': ('red1', 'red2', 'red3', 'pink2', 'pink3'),
-    'claw': ('wood1', 'paper0', 'paper1', 'paper2', 'paper3'),
-    'frill': ('stone0', 'stone1', 'stone2', 'stone3', 'stone4'),
-}
-LIGHT = np.array([-0.5, -0.62, 0.6])
+LIGHT = np.array([-0.55, -0.72, 0.42])
 LIGHT = LIGHT / np.linalg.norm(LIGHT)
-RIM = np.array([0.75, -0.35, -0.2])
-RIM = RIM / np.linalg.norm(RIM)
+
+ROCK = ('stone0', 'stone1', 'stone2', 'stone3', 'stone4', 'paper3')
+HORN = ('wood0', 'wood1', 'wood3', 'paper1', 'paper2', 'paper3')
+TOOTH = ('stone1', 'paper0', 'paper1', 'paper2', 'paper3', 'paper4')
+BELLY = ('stone1', 'stone2', 'paper0', 'paper1', 'paper2', 'paper3')
+MOUTH = ('ink', 'red0', 'red0', 'red1', 'red2', 'red3')
+IRIS = ('copper1', 'copper2', 'gold2', 'gold3', 'gold4', 'gold4')
+INK = 'wood0'
 
 
-def _noise(seed, scale):
-    """Smooth value noise over the sprite (bilinear on a coarse grid)."""
-    rng = np.random.RandomState(seed)
-    gw, gh = W // scale + 3, (H + 140) // scale + 3
-    g = rng.rand(gh, gw)
-    xs = np.arange(W) / scale
-    ys = np.arange(H + 140) / scale
-    x0 = np.floor(xs).astype(int); fx = xs - x0
-    y0 = np.floor(ys).astype(int); fy = ys - y0
-    fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy)
-    a = g[y0][:, x0]; b = g[y0][:, x0 + 1]; c = g[y0 + 1][:, x0]; d = g[y0 + 1][:, x0 + 1]
-    top = a * (1 - fx) + b * fx
-    bot = c * (1 - fx) + d * fx
-    return top * (1 - fy[:, None]) + bot * fy[:, None]
+# ---------------------------------------------------------------- drawing tools
+def spline(pts, closed=True, n=6):
+    """Catmull-Rom through the points: hand-placed points, smooth hand-drawn curves."""
+    P = list(pts)
+    P = ([P[-1]] + P + [P[0], P[1]]) if closed else ([P[0]] + P + [P[-1]])
+    out = []
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = (np.array(q, float) for q in P[i - 1:i + 3])
+        for k in range(n):
+            t = k / n
+            out.append(0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t
+                              + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3))
+    if not closed:
+        out.append(np.array(P[-2], float))
+    return [tuple(p) for p in out]
 
 
-GRAIN = 0.6 * _noise(3, 3) + 0.4 * _noise(8, 9)          # rock grain, scrolls with the head
+def fill(pts):
+    im = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(im).polygon(spline(pts), fill=1)
+    return np.array(im, bool)
 
 
-# ---------------------------------------------------------------- primitives (height fields)
-def ell(cx, cy, cz, rx, ry, rz):
-    q = 1 - ((XM - cx) / rx) ** 2 - ((YM - cy) / ry) ** 2
-    return np.where(q > 0, (cz + rz * np.sqrt(np.clip(q, 0, None))) * S, NEG)
+def taper(pts, r0, r1, n=6):
+    """A tapering stroke (horn, tooth, claw) as a filled outline."""
+    c = spline(pts, closed=False, n=n)
+    left, right = [], []
+    L = len(c)
+    for i, p in enumerate(c):
+        q0, q1 = c[max(0, i - 1)], c[min(L - 1, i + 1)]
+        dx, dy = q1[0] - q0[0], q1[1] - q0[1]
+        ln = math.hypot(dx, dy) or 1
+        nx, ny = -dy / ln, dx / ln
+        r = r0 + (r1 - r0) * i / max(1, L - 1)
+        left.append((p[0] + nx * r, p[1] + ny * r))
+        right.append((p[0] - nx * r, p[1] - ny * r))
+    im = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(im).polygon(left + right[::-1], fill=1)
+    return np.array(im, bool)
 
 
-def tube(pts, r0, r1, z0, z1):
-    """A tube along a polyline, radius and centre depth easing from one end to the other."""
-    out = np.full((H, W), NEG)
-    n = len(pts) - 1
-    L = [math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(n)]
-    tot = sum(L) or 1
-    acc = 0
-    for i in range(n):
-        (ax, ay), (bx, by) = pts[i], pts[i + 1]
-        dx, dy = bx - ax, by - ay
-        ll = dx * dx + dy * dy or 1
-        t = np.clip(((XM - ax) * dx + (YM - ay) * dy) / ll, 0, 1)
-        d = np.hypot(XM - (ax + t * dx), YM - (ay + t * dy))
-        g = (acc + t * L[i]) / tot
-        r = r0 + (r1 - r0) * g
-        z = z0 + (z1 - z0) * g
-        h = np.where(d < r, (z + np.sqrt(np.clip(r * r - d * d, 0, None))) * S, NEG)
-        out = np.maximum(out, h)
-        acc += L[i]
+def line_mask(pts, width=1, closed=False):
+    c = spline(pts, closed=closed)
+    im = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(im).line(c + ([c[0]] if closed else []), fill=1, width=width)
+    return np.array(im, bool)
+
+
+def sh(m, dx, dy):
+    out = np.zeros_like(m)
+    h, w = m.shape
+    out[max(0, dy):h + min(0, dy), max(0, dx):w + min(0, dx)] = m[max(0, -dy):h - max(0, dy), max(0, -dx):w - max(0, dx)]
     return out
 
 
-def smooth_union(fields, k=5.0):
-    """Melt height fields together (log-sum-exp): fat, soft creases."""
-    F = np.stack(fields)
-    m = F.max(axis=0)
-    ok = m > NEG / 2
-    s = np.exp(np.clip((F - m) / k, -60, 0)).sum(axis=0)
-    h = np.where(ok, m + k * np.log(np.where(ok, s, 1)), NEG)
-    return h, F.argmax(axis=0)
+def edge(m):
+    return m & ~(sh(m, 1, 0) & sh(m, -1, 0) & sh(m, 0, 1) & sh(m, 0, -1))
 
 
-def _blur(a, r):
-    k = 2 * r + 1
-    p = np.pad(a, r, mode='edge')
-    c = np.cumsum(np.cumsum(p, 0), 1)
-    c = np.pad(c, ((1, 0), (1, 0)))
-    return (c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]) / (k * k)
+def dist(m, maxd=14):
+    d = np.zeros(m.shape, float)
+    cur = m.copy()
+    for _ in range(maxd):
+        cur = cur & sh(cur, 1, 0) & sh(cur, -1, 0) & sh(cur, 0, 1) & sh(cur, 0, -1)
+        if not cur.any():
+            break
+        d += cur
+    return d
 
 
-# ---------------------------------------------------------------- the model
-MUZ = (46, 104, 26, 36, 15, 30)                     # the broad upper jaw (cx, cy, cz, rx, ry, rz)
-
-
-def _lip_y(x, s):
-    """Bottom edge of the upper jaw (where the fangs hang from)."""
-    cx, cy, _, rx, ry, _ = MUZ
-    cx += s['look'] * 2
-    q = 1 - ((x - cx) / rx) ** 2
-    return cy + s['oy'] + ry * math.sqrt(max(0.0, q)) - 1.5
-
-
-def _parts(s):
-    """Groups of parts for state s: (name, [(field, material)], smoothness)."""
-    oy = s['oy']
-    sq = s['squash']
-    jaw = s['jaw'] * 15
-    lx = s['look'] * 2                      # the head turns a little toward what it looks at
-    cx, cy, cz, rx, ry, rz = MUZ
-    head = [
-        (ell(70 + lx * 0.5, 66 + oy, 0, 40, 33, 36), 'rock'),          # cranium
-        (ell(68 + lx * 0.6, 52 + oy, 10, 26, 16, 28), 'rock'),         # brow mound
-        (ell(44 + lx, 93 + oy + sq, 14, 24, 21, 27), 'jowl'),          # near jowl (fat)
-        (ell(96 + lx * 0.6, 91 + oy + sq, 8, 22, 20, 25), 'jowl'),     # far jowl
-        (ell(cx + lx, cy + oy, cz, rx, ry, rz), 'rock'),               # long broad muzzle
-        (ell(24 + lx * 1.2, 99 + oy, 44, 14, 11, 14), 'rock'),         # bulbous old nose
-    ]
-    hh, _ = smooth_union([p[0] for p in head], 6.0)
-    ridge = []                                                          # rounded plates up the nose
-    for k, (x, y, r) in enumerate(((30, 91, 4.2), (37, 86, 4.6), (44, 80, 0), (52, 70, 4.4), (58, 62, 4.6),
-                                    (63, 54, 4.2), (67, 46, 3.6))):
-        if not r:
-            continue
-        x += lx
-        y += oy
-        sx_, sy_ = to_screen(x, y)
-        xi, yi = int(min(W - 1, max(0, sx_))), int(min(H - 1, max(0, sy_)))
-        z = hh[yi, xi] / S if hh[yi, xi] > NEG / 2 else 30
-        ridge.append((ell(x, y, z - 2.0, r, r * 0.8, 4.0), 'rock'))
-    jawg = [
-        (ell(56 + lx, 121 + oy + jaw, 18, 24, 9 + sq, 21), 'rock'),    # lower jaw, tucked back: the overbite
-        (ell(64 + lx * 0.5, 131 + oy + jaw * 0.7 + sq, 6, 34 + 3 * sq, 13 - sq, 28), 'rock'),   # double chin
-        (ell(74, 156 + oy, 0, 52, 32, 42), 'plate'),                    # thick neck, plated throat
-    ]
-    frill = [(ell(15 + lx * 0.5, 85 + oy, 0, 14, 19, 8), 'frill'), (ell(126 + lx * 0.4, 81 + oy, -4, 12, 17, 7), 'frill')]
-    spines = []
-    for (root, tips, z) in (((30, 86), ((10, 66), (5, 82), (9, 99)), 12), ((112, 82), ((132, 64), (136, 79), (131, 95)), 6)):
-        for t in tips:
-            mid = ((root[0] + t[0]) / 2 + lx * 0.5, (root[1] + t[1]) / 2 + oy - 2)
-            spines.append((tube([(root[0] + lx * 0.5, root[1] + oy), mid, (t[0] + lx * 0.5, t[1] + oy)], 2.2, 0.8, z + 2, z),
-                           'horn'))
-    horn = [
-        (tube([(50 + lx * 0.5, 50 + oy), (51 + lx * 0.5, 36 + oy), (56 + lx * 0.5, 24 + oy), (65 + lx * 0.5, 16 + oy),
-               (75 + lx * 0.5, 14 + oy), (80 + lx * 0.5, 17 + oy)], 7.0, 2.2, -6, -8), 'horn'),
-        (tube([(88 + lx * 0.5, 48 + oy), (95 + lx * 0.5, 34 + oy), (104 + lx * 0.5, 25 + oy), (113 + lx * 0.5, 22 + oy),
-               (119 + lx * 0.5, 26 + oy)], 6.5, 2.4, -10, -12), 'horn'),
-    ]
-    brow = [
-        (tube([(27 + lx, 68 + oy - s['brow']), (40 + lx, 62 + oy - s['brow'] * 1.5), (55 + lx, 64 + oy - s['brow'])],
-              4.0, 3.2, 40, 42), 'lichen'),
-        (tube([(77 + lx * 0.7, 62 + oy - s['brow']), (89 + lx * 0.7, 59 + oy - s['brow'] * 1.5),
-               (100 + lx * 0.7, 64 + oy - s['brow'])], 3.4, 3.0, 34, 34), 'lichen'),
-    ]
-    whisk = []
-    sw = math.sin(s['t'] * 1.7) * 1.2
-    whisk.append((tube([(18 + lx, 104 + oy), (12 + lx + sw * 0.3, 112 + oy), (14 + sw, 124 + oy), (20 + sw, 134 + oy)],
-                       2.8, 1.0, 54, 46), 'lichen'))
-    whisk.append((tube([(74 + lx, 111 + oy), (82 + lx * 0.6, 118 + oy), (86 + sw, 128 + oy), (83 + sw, 138 + oy)],
-                       2.4, 0.9, 44, 40), 'lichen'))
-    teeth = []
-    for (x, ln, r) in ((30, 11, 3.4), (40, 6, 2.2), (57, 5, 2.0), (64, 9, 3.0)):     # a gap where one fell out
-        x += lx
-        top = _lip_y(x, s)
-        bend = -1.2 if x < 50 else 1.0
-        teeth.append((tube([(x, top - 1), (x + bend * 0.3, top + ln * 0.6), (x + bend, top + ln)], r, 0.7, 52, 50),
-                      'tooth'))
-    beard = []
-    for k, (bx, ln, r) in enumerate(((57, 9, 2.0), (62, 15, 2.6), (68, 19, 3.0), (74, 14, 2.4), (79, 8, 1.8))):
-        sway = math.sin(s['t'] * 2 + k * 0.7) * 1.0
-        y0 = 136 + oy + jaw * 0.7
-        ex = 68 + (bx - 68) * 0.35 + sway                             # strands gather to a point: a goatee
-        beard.append((tube([(bx + lx * 0.5, y0), ((bx + ex) / 2 + lx * 0.3, y0 + ln * 0.55), (ex, y0 + ln)],
-                           r, 0.6, 44 + k % 2, 40), 'lichen'))
-    hand = []
-    if s['hands']:
-        for (hx, flip) in ((24, 1), (115, -1)):
-            hy = 141 + s['grip']
-            hand.append((ell(hx, hy + 6, 30, 14, 9, 14), 'rock'))
-            for j, fx in enumerate((-8, 0, 8)):
-                hand.append((ell(hx + fx, hy, 34, 5.0, 5.5, 8), 'rock'))
-    mouth = []
-    if s['jaw'] > 0.05:
-        mouth.append((ell(52 + lx, 119 + oy + jaw * 0.5, 34, 25, 3 + jaw * 0.6, 4), 'mouth'))
-        mouth.append((ell(54 + lx, 122 + oy + jaw * 0.85, 36, 14, 2 + jaw * 0.25, 3), 'tongue'))
-    return [('neck', jawg, 6.0), ('mouth', mouth, 2.0), ('frill', frill, 2.0), ('spine', spines, 1.0),
-            ('horn', horn, 1.5), ('head', head, 6.0), ('ridge', ridge, 1.0), ('brow', brow, 1.5),
-            ('beard', beard, 1.0), ('teeth', teeth, 1.0), ('whisker', whisk, 1.0), ('hand', hand, 3.0)]
-
-
-def _render(s):
-    groups = _parts(s)
-    h = np.full((H, W), NEG)
-    gid = np.full((H, W), -1)
-    mat = np.full((H, W), '', dtype=object)
-    names = []
-    for gi, (name, parts, k) in enumerate(groups):
-        names.append(name)
-        if not parts:
-            continue
-        hg, am = smooth_union([p[0] for p in parts], k)
-        mats = np.array([p[1] for p in parts], dtype=object)[am]
-        front = hg > h
-        h = np.where(front, hg, h)
-        gid = np.where(front, gi, gid)
-        mat = np.where(front, mats, mat)
-    solid = h > NEG / 2
-    # normals per group (one-sided at group edges)
-    hf = np.where(solid, h, 0)
-    gx = np.zeros_like(hf); gy = np.zeros_like(hf)
-    for (dx, dy) in ((1, 0), (0, 1)):
-        nb = np.roll(np.roll(hf, -dy, 0), -dx, 1)
-        nb_same = np.roll(np.roll(gid, -dy, 0), -dx, 1) == gid
-        pb = np.roll(np.roll(hf, dy, 0), dx, 1)
-        pb_same = np.roll(np.roll(gid, dy, 0), dx, 1) == gid
-        d = np.where(nb_same & pb_same, (nb - pb) / 2, np.where(nb_same, nb - hf, np.where(pb_same, hf - pb, 0)))
-        d = np.where(nb_same | pb_same, d, 0)
-        # silhouette: falls off steeply
-        out_n = ~(np.roll(np.roll(solid, -dy, 0), -dx, 1))
-        out_p = ~(np.roll(np.roll(solid, dy, 0), dx, 1))
-        d = np.where(out_n & ~out_p, -4.0, np.where(out_p & ~out_n, 4.0, d))
-        if dx:
-            gx = np.clip(d, -5, 5)
-        else:
-            gy = np.clip(d, -5, 5)
-    n = np.stack([-gx, -gy, np.ones_like(gx)], axis=-1)
+def form(m, r=7.0, round_=2.0):
+    """Normals of a part seen as a slab with rounded edges (flat planes, not balloons)."""
+    d = dist(m, int(r) + 2)
+    t = np.clip(d / r, 0, 1)
+    hgt = (1 - (1 - t) ** round_) * r
+    gy, gx = np.gradient(hgt)
+    n = np.stack([-gx, -gy, np.full_like(gx, 0.9)], axis=-1)
     n /= np.linalg.norm(n, axis=-1, keepdims=True)
-    dif = np.clip(n @ LIGHT, 0, 1)
-    rim = np.clip(n @ RIM, 0, 1) ** 2 * (1 - n[..., 2])
-    # ambient occlusion: lower than the surroundings
-    hb = _blur(np.where(solid, h, np.where(solid.any(), h[solid].min() if solid.any() else 0, 0)), 4)
-    ao = np.clip((hb - hf) / 7, 0, 1) * solid
-    gy_ = np.clip((YM - s['oy']).astype(int) + 70, 0, GRAIN.shape[0] - 1)
-    grain = GRAIN[gy_, np.clip(XM.astype(int), 0, W - 1)]
-    v = 0.12 + 0.8 * dif - 0.55 * ao + (grain - 0.5) * 0.16
-    v = np.where(np.isin(mat, ['tooth', 'claw']), v + 0.1, v)
-    v = np.where(mat == 'lichen', v + (grain - 0.5) * 0.25, v)
-    cv = Canvas(W, H)
-    cuts = (0.2, 0.36, 0.54, 0.74)
-    idx = np.zeros((H, W), int)
-    for c in cuts:
-        idx += (v > c)
-    for name, ramp in RAMP.items():
-        m = solid & (mat == name)
-        if not m.any():
-            continue
-        for i, cname in enumerate(ramp):
-            sel = m & (idx == i)
-            cv.a[sel] = (*PAL[cname], 255)
-    # sky light from behind: a cool rim on the far edges of the rock
-    rimm = solid & (rim > 0.32) & np.isin(mat, ['rock', 'jowl', 'frill', 'plate'])
-    cv.a[rimm] = (*PAL['cloud1'], 255)
-    # contours where a part sits in front of another
-    for (dx, dy) in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        og = np.roll(np.roll(gid, dy, 0), dx, 1)
-        oh = np.roll(np.roll(h, dy, 0), dx, 1)
-        line = solid & (og != gid) & (og >= 0) & (oh > h + 1.5)
-        cv.a[line] = (*PAL['stone0'], 255)
-    # neck plates: bands across the throat
-    plate = solid & (mat == 'plate')
-    band = plate & (((YM - s['oy']) % 7) < 1.25)
-    cv.a[band] = (*PAL['stone1'], 255)
-    return cv, h, gid, mat, solid, names
+    return n
 
 
-# ---------------------------------------------------------------- painted details
-def _px(cv, x, y, c):
-    x, y = to_screen(x, y)
-    x, y = int(round(x)), int(round(y))
-    if 0 <= x < W and 0 <= y < H and cv.a[y, x, 3]:
-        cv.a[y, x] = (*PAL[c], 255)
+def lit(n, tilt=(0.0, 0.0)):
+    """Lambert with a plane tilt (dx, dy) so whole planes face toward or away from the light."""
+    nn = n + np.array([tilt[0], tilt[1], 0.0])
+    nn /= np.linalg.norm(nn, axis=-1, keepdims=True)
+    return np.clip(nn @ LIGHT, 0, 1)
 
 
-def _pxa(cv, x, y, c):
-    x, y = to_screen(x, y)
-    x, y = int(round(x)), int(round(y))
-    if 0 <= x < W and 0 <= y < H:
-        cv.a[y, x] = (*PAL[c], 255)
+def put(cv, m, c):
+    cv.a[m] = (*PAL[c], 255)
 
 
-def _line(cv, pts, c, only=None):
-    for (x0, y0), (x1, y1) in zip(pts[:-1], pts[1:]):
-        n = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
-        for k in range(n + 1):
-            t = k / n
-            x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
-            _px(cv, x, y, c)
+def put_ramp(cv, m, ramp, v):
+    """Snap a light value 0..1 to a ramp."""
+    v = np.broadcast_to(v, m.shape)
+    idx = np.clip((v * (len(ramp) - 0.01)).astype(int), 0, len(ramp) - 1)
+    for i, c in enumerate(ramp):
+        sel = m & (idx == i)
+        if sel.any():
+            cv.a[sel] = (*PAL[c], 255)
 
 
-def _arc(cv, cx, cy, rx, ry, a0, a1, c, step=4):
-    pts = [(cx + rx * math.cos(math.radians(a)), cy + ry * math.sin(math.radians(a))) for a in range(a0, a1 + 1, step)]
-    _line(cv, pts, c)
+def _hash2(x, y, s):
+    h = np.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453
+    return h - np.floor(h)
 
 
-def _eye(cv, cx, cy, rx, ry, s, near):
-    look = s['look']
-    if s['eyes'] == 'happy':                                    # ^^ smiling eyes
-        for k, c in ((2, 'stone0'), (3, 'stone0'), (4, 'stone0'), (5, 'stone0'), (6.5, 'stone3')):
-            _arc(cv, cx, cy + k, rx, ry * 0.95, 200, 340, c, 3)
-        _arc(cv, cx, cy + 9, rx * 0.8, ry * 0.5, 30, 150, 'stone3', 5)             # cheeks pushed up
+def noise(x, y, s=0.0):
+    ix, iy = np.floor(x), np.floor(y)
+    fx, fy = x - ix, y - iy
+    ux, uy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+    a, b = _hash2(ix, iy, s), _hash2(ix + 1, iy, s)
+    c, d = _hash2(ix, iy + 1, s), _hash2(ix + 1, iy + 1, s)
+    return a + (b - a) * ux + (c - a + (a - b - c + d) * ux) * uy
+
+
+def _step(rgb, m, n):
+    from pixel import step
+    if not m.any():
         return
-    if s['eyes'] == 'closed':                                   # sleepy, closed
-        for k, c in ((-4.5, 'stone3'), (-3, 'stone0'), (-2, 'stone0'), (-1, 'stone0')):
-            _arc(cv, cx, cy + k, rx, ry * 0.7, 15, 165, c, 3)
-        for k in (-0.6, 0, 0.6):                                                # lashes
-            _line(cv, [(cx + k * rx, cy - 1 + ry * 0.7), (cx + k * rx * 1.15, cy + 1.5 + ry * 0.7)], 'stone0')
-        return
-    # socket shadow, then the glowing amber eye
-    for y in range(int(cy - ry - 2), int(cy + ry + 3)):
-        for x in range(int(cx - rx - 2), int(cx + rx + 3)):
-            d = ((x + 0.5 - cx) / (rx + 1.6)) ** 2 + ((y + 0.5 - cy) / (ry + 1.6)) ** 2
-            if d <= 1:
-                _px(cv, x, y, 'stone1')
-    for y in range(int(cy - ry - 1), int(cy + ry + 2)):
-        for x in range(int(cx - rx - 1), int(cx + rx + 2)):
-            dx, dy = (x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry
-            d = dx * dx + dy * dy
-            if d <= 1:
-                c = 'gold1' if d > 0.72 else ('gold2' if d > 0.35 else 'gold3')
-                if dx < -0.1 and dy < -0.1 and d < 0.5:
-                    c = 'gold4'
-                _px(cv, x, y, c)
-    # big round pupil (friendly, not a slit)
-    px_, py_ = cx + look * rx * 0.32, cy + 0.6
-    pr = rx * 0.48
-    for y in range(int(py_ - pr - 1), int(py_ + pr + 2)):
-        for x in range(int(px_ - pr - 1), int(px_ + pr + 2)):
-            if ((x + 0.5 - px_) / pr) ** 2 + ((y + 0.5 - py_) / (pr * 1.05)) ** 2 <= 1:
-                _px(cv, x, y, 'ink')
-    _px(cv, px_ - pr * 0.45, py_ - pr * 0.5, 'white'); _px(cv, px_ - pr * 0.45 + 1, py_ - pr * 0.5, 'white')
-    _px(cv, px_ - pr * 0.45, py_ - pr * 0.5 + 1, 'white')
-    _px(cv, px_ + pr * 0.5, py_ + pr * 0.45, 'paper4')
-    # heavy old upper lid, drooping over the top of the eye
-    lid = s['lid']
-    edge = cy - ry + 2 * ry * lid
-    for y in range(int(cy - ry - 2), int(edge) + 1):
-        for x in range(int(cx - rx - 2), int(cx + rx + 3)):
-            d = ((x + 0.5 - cx) / (rx + 1.6)) ** 2 + ((y + 0.5 - cy) / (ry + 1.6)) ** 2
-            if d <= 1:
-                _px(cv, x, y, 'stone3' if y < edge - 2 else 'stone2')
-    for x in range(int(cx - rx - 1), int(cx + rx + 2)):
-        t = (x + 0.5 - cx) / (rx + 1)
-        if abs(t) <= 1:
-            yy = edge + 0.8 * (1 - t * t) - 0.4
-            _px(cv, x, yy, 'stone0')
-            if abs(t) > 0.55:
-                _px(cv, x, yy + 1, 'stone0')                  # lid crease thickens at the corners
-    # bags under the eye (old), and crow's feet at the outer corner
-    _arc(cv, cx, cy + 1, rx + 1, ry + 2.5, 30, 150, 'stone1', 3)
-    _arc(cv, cx, cy + 2, rx + 1, ry + 3.5, 40, 140, 'stone3', 3)
-    _arc(cv, cx, cy + 3, rx, ry + 5, 50, 130, 'stone1', 4)
-    ox = cx - rx - 2 if near else cx + rx + 2
-    sgn = -1 if near else 1
-    for k in (-3, 0, 3):
-        _line(cv, [(ox, cy + k * 0.6), (ox + sgn * 4, cy + k * 1.3)], 'stone1')
+    cols = rgb[m]
+    uniq, inv = np.unique(cols.reshape(-1, 3), axis=0, return_inverse=True)
+    new = np.array([step(tuple(int(v) for v in c), n) for c in uniq], np.uint8)
+    rgb[m] = new[inv.reshape(-1)]
 
 
-def _details(cv, s, solid):
+YY, XX = np.mgrid[0:H, 0:W].astype(float)
+
+
+# ---------------------------------------------------------------- the anatomy (hand-placed points)
+def anatomy(s):
+    """All shapes for a pose. s: dict with oy (rise offset), jaw (0..1)."""
     oy = s['oy']
-    lx = s['look'] * 2
-    # weathered cracks and old wrinkles
-    for pts in (((50, 41), (54, 47), (52, 52)), ((92, 46), (95, 52), (99, 54)), ((108, 70), (112, 77), (110, 84)),
-                ((26, 92), (29, 98)), ((96, 104), (100, 110), (99, 116))):
-        P = [(x + lx * 0.6, y + oy) for x, y in pts]
-        _line(cv, P, 'stone0')
-        _line(cv, [(x + 1, y) for x, y in P], 'stone3')
-    for k in range(3):                                         # forehead wrinkles
-        _arc(cv, 71 + lx * 0.6, 58 + oy + k * 3.2 - s['brow'] * 0.5, 13 - k * 2, 3, 200, 340, 'stone1', 5)
-    # smile lines from nose to mouth corners, deepening with the smile
-    sm = s['smile']
-    _line(cv, [(36 + lx, 97 + oy), (46 + lx, 103 + oy), (58 + lx, 108 + oy - sm), (66 + lx, 111 + oy - sm * 2)], 'stone1')
-    _line(cv, [(80 + lx * 0.6, 99 + oy), (80 + lx * 0.6, 105 + oy - sm), (77 + lx * 0.6, 110 + oy - sm * 2)], 'stone1')
-    # the mouth: upper lip overhangs; a smile curls up at the corner
-    mx, my = 74 + lx, 114 + oy
-    _line(cv, [(mx - 6, my + 1), (mx - 2, my + 1 - sm), (mx + 2, my - sm * 2), (mx + 4, my - 1 - sm * 3)], 'stone0')
-    _px(cv, mx + 5, my - 2 - sm * 3, 'stone3')                    # dimple
-    # nostrils on the round nose
-    for (nx, ny, rr) in ((16, 98, 2.6), (29, 96, 2.2)):
-        nx += lx * 1.2
-        flare = s['snort']
-        for y in range(int(ny - rr - flare + oy), int(ny + rr + flare + oy) + 1):
-            for x in range(int(nx - rr - flare), int(nx + rr + flare) + 1):
-                if ((x + 0.5 - nx) / (rr + flare)) ** 2 + ((y + 0.5 - ny - oy) / (rr * 0.7 + flare * 0.5)) ** 2 <= 1:
-                    _px(cv, x, y, 'stone0')
-        _px(cv, nx - rr, ny - rr * 0.6 + oy, 'stone4')
-    # eyes
-    _eye(cv, 42 + lx, 79 + oy, 9.5, 8.5, s, True)
-    _eye(cv, 86 + lx * 0.7, 76 + oy, 7.5, 7.5, s, False)
-    # bushy brows: a fringe of lichen hairs hanging down at the outer ends
-    for (x, y, ln) in ((28, 71, 4), (31, 70, 5), (34, 69, 3), (98, 66, 4), (95, 66, 3)):
-        _line(cv, [(x + lx, y + oy - s['brow']), (x + lx - 1, y + oy - s['brow'] + ln)], 'jade2')
-    # rings on the old horns, and the chipped tip of the far one
-    for (x0, y0, x1, y1) in ((45, 38, 57, 36), (48, 28, 59, 31), (56, 19, 63, 25), (64, 12, 67, 19),
-                             (90, 33, 99, 37), (97, 25, 104, 30), (106, 20, 108, 27)):
-        _line(cv, [(x0 + lx * 0.5, y0 + oy), (x1 + lx * 0.5, y1 + oy)], 'wood1')
-    # moss on the crown, with tiny flowers and a red mushroom
-    import moss
-    rng = random.Random(5)
-    crown = s['crown']
-    top = np.argmax(crown, axis=0)
-    tmp = Canvas(W, H)
-    tmp.a[...] = cv.a
-    for (x0, w_, h_) in ((44, 10, 5), (52, 14, 7), (63, 14, 8), (75, 14, 7), (86, 12, 6), (96, 10, 5), (104, 8, 4)):
-        sx0 = int(to_screen(x0 + lx * 0.5, 0)[0])
-        w_, h_ = max(4, int(w_ * S)), max(3, int(h_ * S))
-        if not (0 <= sx0 + w_ // 2 < W) or not crown[:, sx0 + w_ // 2].any():
+    T = lambda pts: [(x, y + oy) for x, y in pts]
+    a = {'oy': oy}
+    a['horn_far'] = taper(T([(95, 80), (101, 66), (110, 55), (121, 48), (131, 46)]), 4.5, 1.2)
+    a['neck'] = fill(T([(98, 86), (108, 79), (120, 74), (132, 74), (142, 80), (144, 152), (86, 152), (88, 136),
+                        (94, 122), (100, 108)]))
+    plates = np.zeros((H, W), bool)                                       # dorsal plates along the neck
+    for (x, y, r) in ((112, 77, 4.2), (121, 73, 4.6), (131, 72, 4.8), (140, 74, 4.8)):
+        plates |= taper(T([(x - 3, y + 3), (x, y - r), (x + 3, y + 3)]), 2.6, 0.8, n=3)
+    a['plates'] = plates
+    hinge = (96, 114 + oy)                                                # lower jaw opens round its hinge
+    ang = -math.radians(16) * s['jaw']
+
+    def R(p):
+        x, y = p[0] - hinge[0], p[1] + oy - hinge[1]
+        ca, sa = math.cos(ang), math.sin(ang)
+        return (hinge[0] + x * ca - y * sa, hinge[1] + x * sa + y * ca)
+    jaw_pts = [(29, 121), (26, 126), (29, 132), (38, 137), (52, 141), (68, 142), (82, 140), (92, 134), (99, 124),
+               (100, 117), (94, 118), (80, 122), (60, 123), (42, 122)]
+    a['jaw'] = fill([R(p) for p in jaw_pts])
+    if s['jaw'] > 0.05:
+        a['mouth'] = fill([(26, 117 + oy), (60, 121 + oy), (88, 119 + oy), R((88, 121)), R((60, 123)), R((30, 121))])
+    else:
+        a['mouth'] = np.zeros((H, W), bool)
+    a['head'] = fill(T([(106, 84), (100, 77), (92, 73), (84, 72), (78, 73), (70, 72), (62, 74), (57, 79), (52, 84),
+                        (46, 88), (40, 90), (34, 92), (28, 95), (24, 99), (21, 104), (20, 109), (22, 114), (27, 117),
+                        (33, 116), (40, 119), (47, 118), (54, 121), (62, 120), (70, 122), (78, 121), (86, 119),
+                        (94, 117), (100, 113), (105, 106), (108, 96)]))
+    a['brow'] = fill(T([(55, 81), (60, 75), (70, 71), (82, 72), (90, 76), (92, 81), (86, 82), (76, 80), (66, 81),
+                        (60, 84)]))
+    a['spike'] = taper(T([(87, 80), (93, 76), (100, 73)]), 2.2, 0.5, n=3)      # spike behind the eye
+    a['cheek'] = fill(T([(60, 97), (74, 95), (90, 98), (100, 104), (98, 112), (86, 114), (70, 112), (60, 106)]))
+    a['eye'] = fill(T([(63, 87), (67, 84), (74, 83), (80, 86), (75, 89), (67, 90)]))
+    a['socket'] = fill(T([(59, 87), (65, 81), (75, 80), (84, 85), (78, 92), (66, 93)]))
+    a['nostril'] = fill(T([(28, 101), (31, 99.5), (35, 100), (32, 102)]))
+    a['horn_near'] = taper(T([(99, 84), (106, 72), (116, 62), (127, 56), (137, 55)]), 5.5, 1.3)
+    teeth = []                                                            # upper teeth hang over the jaw: the overbite
+    lip = {24: 116, 29: 116.5, 34: 116.5, 39: 118.5, 46: 118, 51: 119.5, 58: 120.5, 64: 120.5, 71: 121.5, 78: 121,
+           85: 119.5}
+    for (x, ln, r) in ((24, 4, 1.3), (29, 8, 2.0), (34, 3, 1.1), (39, 6, 1.6), (46, 3, 1.1), (51, 5, 1.5),
+                       (58, 2, 0.9), (64, 5, 1.4), (71, 3, 1.1), (78, 4, 1.2), (85, 2, 0.9)):
+        y0 = lip[x] + oy
+        bend = 0.8 if x < 50 else 0.4
+        teeth.append(taper([(x, y0 - 1), (x + bend * 0.4, y0 + ln * 0.6), (x + bend, y0 + ln)], r, 0.35, n=3))
+    for (x, ln, r) in ((31, 5, 1.3), (43, 3, 1.0)):                             # the front lower teeth interlock
+        teeth.append(taper([R((x, 122)), R((x - 0.4, 122 - ln))], r, 0.3, n=2))
+    a['teeth'] = teeth
+    a['throat'] = a['neck'] & ((~sh(a['neck'], 7, 0) & (YY > 118 + oy)) | ((XX < 104) & (YY > 124 + oy)))
+    a['wrist'] = fill([(106, 132), (114, 126), (124, 127), (130, 134), (126, 142), (112, 143)])
+    a['claws'] = [taper([(111, 140), (109, 144), (106, 147.5)], 2.0, 0.4, n=3),
+                  taper([(120, 141), (119, 145), (116, 148)], 2.2, 0.4, n=3)]
+    return a
+
+
+# ---------------------------------------------------------------- the stages
+def construction(s):
+    """Stage 1: the construction lines an artist starts from."""
+    oy = s['oy']
+    m = np.zeros((H, W), bool)
+    circ = [(86 + 19 * math.cos(t), 94 + oy + 19 * math.sin(t)) for t in np.linspace(0, 2 * math.pi, 24, endpoint=False)]
+    m |= line_mask(circ, closed=True)                                       # cranium
+    m |= line_mask([(56, 84 + oy), (24, 100 + oy), (22, 116 + oy), (58, 122 + oy)])        # snout box
+    m |= line_mask([(56, 84 + oy), (58, 122 + oy)])
+    m |= line_mask([(110, 98 + oy), (66, 100 + oy), (18, 110 + oy)])                       # head axis
+    m |= line_mask([(48, 86 + oy), (96, 86 + oy)])                                          # eye line
+    m |= line_mask([(26, 124 + oy), (50, 140 + oy), (82, 141 + oy), (98, 120 + oy)])       # jaw
+    m |= line_mask([(100, 84 + oy), (124, 72 + oy), (144, 78 + oy)])                       # neck top
+    m |= line_mask([(90, 128 + oy), (86, 150 + oy)])                                        # throat
+    m |= line_mask([(99, 84 + oy), (118, 60 + oy), (138, 55 + oy)])                        # horn gesture
+    m |= line_mask([(108, 136), (124, 128), (128, 144)])                                    # wing-wrist
+    return m
+
+
+def sketch_lines(a, seed=3):
+    """Loose pencil: outlines with gaps and the odd doubled stroke."""
+    m = np.zeros((H, W), bool)
+    for k, key in enumerate(('head', 'jaw', 'neck', 'brow', 'eye', 'cheek', 'wrist', 'horn_near', 'horn_far',
+                             'plates')):
+        e = edge(a[key])
+        ys, xs = np.nonzero(e)
+        rng = random.Random(seed + k)
+        for y, x in zip(ys, xs):
+            if rng.random() < 0.82:
+                m[y, x] = True
+            if rng.random() < 0.25:
+                yy, xx = y + rng.choice((-1, 0, 1)), x + rng.choice((-1, 0, 1))
+                if 0 <= yy < H and 0 <= xx < W:
+                    m[yy, xx] = True
+    for t in a['teeth'] + a['claws']:
+        m |= edge(t)
+    return m
+
+
+def hatching(a):
+    """Diagonal pencil hatching where the big shadows will go."""
+    oy = a['oy']
+    shade = (a['neck'] & ~sh(a['head'], 0, -4) & (XX > 104)) | (sh(a['brow'], 1, 3) & a['head']) | \
+            (a['jaw'] & (YY > 132 + oy)) | (a['head'] & (XX > 90) & (YY > 104 + oy))
+    return shade & ((XX + YY) % 4 == 0)
+
+
+def ink_lines(a):
+    """Stage 3: clean outlines and the key inner lines."""
+    oy = a['oy']
+    m = np.zeros((H, W), bool)
+    for key in ('head', 'jaw', 'neck', 'brow', 'horn_near', 'horn_far', 'wrist', 'plates', 'spike'):
+        m |= edge(a[key])
+    m |= edge(a['eye']) | edge(a['nostril'])
+    for t in a['teeth'] + a['claws']:
+        m |= edge(t)
+    m |= line_mask([(62, 98 + oy), (78, 96 + oy), (96, 102 + oy)]) & a['head']             # cheek ridge
+    m |= line_mask([(92, 116 + oy), (100, 108 + oy), (104, 96 + oy)]) & a['head']          # jaw muscle
+    for k in range(4):                                                                      # throat folds
+        m |= line_mask([(90 + k * 2, 126 + oy + k * 6), (100 + k * 2, 125 + oy + k * 6), (112, 128 + oy + k * 6)]) & a['neck']
+    return m
+
+
+def flats(a):
+    cv = Canvas(W, H)
+    put(cv, a['horn_far'], 'wood1')
+    put(cv, a['neck'] | a['plates'], 'stone2')
+    put(cv, a['throat'], 'paper0')
+    put(cv, a['jaw'], 'stone2')
+    put(cv, a['mouth'], 'red1')
+    put(cv, a['head'] | a['brow'], 'stone2')
+    put(cv, a['horn_near'] | a['spike'], 'wood3')
+    for t in a['teeth']:
+        put(cv, t, 'paper2')
+    put(cv, a['eye'], 'gold2')
+    put(cv, a['nostril'], 'stone0')
+    put(cv, a['wrist'], 'stone2')
+    for c in a['claws']:
+        put(cv, c, 'paper1')
+    return cv
+
+
+def shading(a):
+    """Stage 5: light the planes, then cast shadows and reflected light."""
+    cv = Canvas(W, H)
+    oy = a['oy']
+    put_ramp(cv, a['horn_far'], HORN, 0.15 + 0.55 * lit(form(a['horn_far'], 3)))
+    neck = a['neck'] | a['plates']
+    nv = 0.12 + 0.75 * lit(form(a['neck'], 9), (0.25, -0.1))
+    nv = nv - 0.22 * (sh(a['head'], 2, 5) & a['neck'])                     # the head's cast shadow
+    put_ramp(cv, a['neck'], ROCK, np.clip(nv, 0, 1))
+    put_ramp(cv, a['plates'] & ~a['neck'], ROCK, 0.25 + 0.6 * lit(form(a['plates'], 2)))
+    bands = ((YY - oy) % 6 < 1)
+    put_ramp(cv, a['throat'], BELLY, np.clip(0.1 + 0.7 * lit(form(a['neck'], 9), (0.2, 0.3)) - 0.3 * bands, 0, 1))
+    jv = 0.1 + 0.6 * lit(form(a['jaw'], 5), (0.0, 0.35))
+    jv = jv - 0.25 * (sh(a['head'], 1, 3) & a['jaw'])                      # under the upper jaw
+    bulge = ((XX - 90) / 9) ** 2 + ((YY - 126 - oy) / 7) ** 2 < 1                # jaw muscle
+    jv = jv + 0.15 * (bulge & (XX + YY < 90 + 126 + oy + 2)) - 0.1 * (bulge & (XX + YY > 90 + 126 + oy + 6))
+    jv = jv - 0.12 * (np.abs(YY - (126 + oy + (XX - 30) * 0.05)) < 0.8) * (XX < 84)   # groove along the lower lip
+    put_ramp(cv, a['jaw'], ROCK, np.clip(jv, 0, 1))
+    if a['mouth'].any():
+        put_ramp(cv, a['mouth'], MOUTH, np.clip(0.2 + 0.5 * (YY - YY[a['mouth']].min()) / 8, 0, 1))
+    n = form(a['head'], 8, 2.4)
+    v = 0.16 + 0.78 * lit(n)
+    v = v + 0.08 * (a['head'] & ~sh(a['head'], 0, 4)) + 0.05 * (a['head'] & ~sh(a['head'], 0, 2))
+    v = v - 0.14 * np.clip(dist(a['cheek'], 5) / 4, 0, 1)                    # the cheek turns away, softly
+    ridge = np.abs(YY - (96 + oy + (XX - 60) * 0.12)) < 1.5
+    under = (YY > 98 + oy + (XX - 60) * 0.12) & (YY < 106 + oy + (XX - 60) * 0.1) & (XX > 58)
+    v = v + 0.1 * (ridge & (XX > 58) & (XX < 100)) - 0.12 * under             # cheekbone and its shadow
+    v = v - 0.1 * (YY > 108 + oy)                                           # the lower side turns under
+    v = v - 0.08 * ((XX < 56) & (YY > 104 + oy))                            # the side of the muzzle
+    v = v + 0.06 * (noise(XX / 9.0, (YY - oy) / 9.0, 31) - 0.5) * 2         # broad mottling in the stone
+    v = v - 0.3 * (sh(a['brow'], 1, 3) & ~a['brow'])                        # brow shadow over the eye
+    v = v - 0.25 * (sh(a['horn_near'], 1, 3) & ~a['horn_near'])
+    v = v - 0.22 * a['socket']
+    v = v + 0.1 * (~sh(a['head'], 0, -3) & (XX < 90))                       # reflected light on the lip
+    put_ramp(cv, a['head'], ROCK, np.clip(v, 0, 1))
+    put_ramp(cv, a['brow'], ROCK, np.clip(0.3 + 0.7 * lit(form(a['brow'], 2)), 0, 1))
+    put_ramp(cv, a['horn_near'], HORN, np.clip(0.2 + 0.75 * lit(form(a['horn_near'], 3)), 0, 1))
+    put_ramp(cv, a['spike'], HORN, np.clip(0.25 + 0.7 * lit(form(a['spike'], 1.5)), 0, 1))
+    for t in a['teeth']:
+        tv = 0.35 + 0.6 * lit(form(t, 1.5))
+        put_ramp(cv, t, TOOTH, np.clip(tv, 0, 1))
+    put(cv, a['nostril'], 'ink')
+    put(cv, sh(a['nostril'], 0, -1) & ~a['nostril'] & a['head'], 'stone4')
+    put_ramp(cv, a['wrist'], ROCK, np.clip(0.18 + 0.75 * lit(form(a['wrist'], 4)), 0, 1))
+    for c in a['claws']:
+        put_ramp(cv, c, HORN, np.clip(0.3 + 0.6 * lit(form(c, 1.2)), 0, 1))
+    return cv
+
+
+def _voronoi(mask, spacing, seed):
+    """Poisson-disc seeds inside mask (spacing may be a function), and per-pixel
+    nearest / second-nearest distances and the owning seed."""
+    rng = random.Random(seed)
+    cands = [(x + rng.uniform(0, 2), y + rng.uniform(0, 2)) for y in range(0, H - 1, 2) for x in range(0, W - 1, 2)]
+    rng.shuffle(cands)
+    seeds = []
+    for (x, y) in cands:
+        yi, xi = int(y), int(x)
+        if not mask[yi, xi]:
             continue
-        y0 = int(top[sx0 + w_ // 2]) + 3
-        moss.clump(tmp, rng, sx0, y0, w_, h_, 'ledge', opaque_only=False, spores=0.0, shadow=False)
-    ok = (crown | ~solid) & (tmp.a[..., 3] > 0)              # never over the horns, brows or eyes
-    cv.a[ok] = tmp.a[ok]
-    s['mossy'] = ok
-    for (x, y, c) in ((58, 34, 'pink3'), (86, 33, 'paper4'), (95, 37, 'pink3'), (50, 39, 'paper4'), (64, 32, 'gold4')):
-        _pxa(cv, x + lx * 0.5, y + oy, c)
-        _pxa(cv, x + lx * 0.5, y + oy + 1, 'leaf3')
-    mx_, my_ = 76 + lx * 0.5, 27 + oy                          # a mushroom in the moss
-    for y in range(int(my_), int(my_) + 6):
-        _pxa(cv, mx_, y, 'paper3'); _pxa(cv, mx_ + 1, y, 'paper2')
-    for y in range(-3, 1):
-        for x in range(-4, 6):
-            if (x - 0.5) ** 2 / 20 + (y + 0.5) ** 2 / 5 <= 1:
-                _pxa(cv, mx_ + x, my_ + y, 'red1' if y == 0 else ('red2' if y > -2 else 'red3'))
-    for (x, y) in ((-2, -2), (2, -3), (3, -1)):
-        _pxa(cv, mx_ + x, my_ + y, 'paper4')
-    for x in range(-5, 7):
-        _pxa(cv, mx_ + x, my_ + 1, 'ink') if abs(x - 0.5) > 4.6 else None
-    # lichen spots on the cheeks
-    for (x, y) in ((22, 88), (26, 86), (104, 98), (107, 101), (60, 47)):
-        _px(cv, x + lx, y + oy, 'jade3'); _px(cv, x + 1 + lx, y + oy, 'jade2')
-    # rosy rock cheeks when happy
-    if s['blush']:
-        for (bx, by, r) in ((34, 92, 6), (93, 88, 5)):
-            for yy in range(-3, 4):
-                for xx in range(-r - 1, r + 2):
-                    d = (xx / r) ** 2 + (yy / 2.6) ** 2
-                    if d <= 1 and (d < 0.45 or (xx + yy) % 2 == 0):
-                        _px(cv, bx + xx + lx, by + yy + oy, 'pink2' if d > 0.3 else 'pink3')
-    # claws on the fingers resting on the sill
-    if s['hands']:
-        for cx in (24, 115):
-            for fx in (-8, 0, 8):
-                x, y = cx + fx, 141 + s['grip']
-                for k in range(3):
-                    _px(cv, x - 1 + k, y + 4, 'paper2' if k else 'paper3')
-                _px(cv, x, y + 5, 'paper1')
+        sp = spacing(xi, yi) if callable(spacing) else spacing
+        if all((sx - x) ** 2 + (sy - y) ** 2 >= (min(sp, ss) * 0.92) ** 2 for (sx, sy, ss) in seeds):
+            seeds.append((x, y, sp))
+    if len(seeds) < 2:
+        return None
+    S = np.array(seeds)
+    d = np.hypot(XX[None] - S[:, 0, None, None], YY[None] - S[:, 1, None, None])
+    order = np.argsort(d, axis=0)[:2]
+    d1 = np.take_along_axis(d, order[:1], 0)[0]
+    d2 = np.take_along_axis(d, order[1:2], 0)[0]
+    return S, order[0], d1, d2
 
 
-_PRNG = np.random.RandomState(21)
-SEEDS = np.stack([_PRNG.uniform(-10, W + 10, 70), _PRNG.uniform(10, H + 20, 70)], axis=1)
+def scutes(a, cv):
+    """Scales by region, like a real reptile's: big domed osteoderms over the crown
+    and down the neck, a row of knobs along the cheek ridge, and fine granular
+    scales on the face, lips and jaw."""
+    oy = a['oy']
+    rgb = cv.a[..., :3]
+    body = (a['head'] | a['neck'] | a['jaw'] | a['brow'] | a['wrist']) & ~a['eye'] & ~a['nostril'] & ~a['throat']
+    crown = (a['head'] | a['brow']) & ~sh(a['head'] | a['brow'], 0, 9) & (XX > 50)
+    big = body & ((a['neck'] & ~a['head'] & ~a['jaw']) | crown | a['wrist'])
+    small = body & ~big
+    # big osteoderms: domes with a lit upper-left, shaded lower-right, deep cracks, each its own tone
+    v = _voronoi(big, lambda x, y: 7.0 if a['neck'][y, x] and not a['head'][y, x] else 5.6, 9)
+    if v:
+        S, near, d1, d2 = v
+        sp = S[near, 2]
+        rx, ry = (XX - S[near, 0]) / sp, (YY - S[near, 1]) / sp
+        face = rx * LIGHT[0] + ry * LIGHT[1]
+        crack = big & (d2 - d1 < 0.9)
+        tone = _hash2(S[near, 0].round(), S[near, 1].round(), 5.0)
+        _step(rgb, big & ~crack & (face > 0.1), 1)
+        _step(rgb, big & ~crack & (face < -0.25), -1)
+        _step(rgb, big & ~crack & (tone > 0.8), 1)
+        _step(rgb, big & ~crack & (tone < 0.15), -1)
+        _step(rgb, crack, -1)
+        _step(rgb, crack & ~sh(crack, 0, 1), -1)
+    # cheek ridge: a row of knobby scutes from under the eye back to the jaw
+    for k, (x, y) in enumerate(((62, 97), (68, 96), (74, 96), (80, 97), (86, 98), (92, 100), (97, 103))):
+        r = 2.2 + 0.25 * k
+        m = (((XX - x) / r) ** 2 + ((YY - y - oy) / (r * 0.8)) ** 2 <= 1) & a['head']
+        _step(rgb, m & ~sh(m, 1, 1), 1)
+        _step(rgb, m & ~sh(m, -1, -1), -1)
+    # fine granular scales: only a faint crack pattern, a few lighter grains
+    v = _voronoi(small, lambda x, y: 3.6 if x > 40 else 3.0, 12)
+    if v:
+        S, near, d1, d2 = v
+        crack = small & (d2 - d1 < 0.7)
+        _step(rgb, crack & ((XX + YY) % 3 != 0), -1)
+        grain = small & ~crack & (_hash2(S[near, 0].round(), S[near, 1].round(), 8.0) > 0.85)
+        _step(rgb, grain, 1)
 
 
-def _plates(cv, s, mat, solid):
-    """The hide is a mosaic of worn stone plates: thin cracks between cells,
-    a light bevel on the upper-left of each crack and a dark one below."""
-    lx = s['look'] * 2
-    sx = SEEDS[:, 0][:, None, None] + lx * 0.6
-    sy = SEEDS[:, 1][:, None, None] + s['oy']
-    d = np.hypot(XM[None] - sx, (YM[None] - sy) * 1.15)
-    d.sort(axis=0)
-    gap = d[1] - d[0]
-    rocky = solid & np.isin(mat, ['rock', 'jowl'])
-    # keep the face clean: fewer cracks round the eyes and on the muzzle
-    face = ((XM - 40 - lx) / 34) ** 2 + ((YM - 92 - s['oy']) / 24) ** 2 < 1
-    crack = rocky & (gap < 1.1) & ~face
-    below = np.roll(np.roll(crack, 1, 0), 1, 1) & rocky & ~crack
-    above = np.roll(np.roll(crack, -1, 0), -1, 1) & rocky & ~crack
-    rgb = cv.a[..., :3].astype(int)
-    lum = rgb.sum(axis=2)
-    cv.a[crack & (lum > 260)] = (*PAL['stone1'], 255)
-    cv.a[crack & (lum <= 260)] = (*PAL['stone0'], 255)
-    cv.a[above & (lum > 200) & (lum < 480)] = (*PAL['stone3'], 255)
-    cv.a[below & (lum > 260)] = (*PAL['stone2'], 255)
+def texture(a, cv):
+    """Stage 6: scutes, weathering, lichen and moss."""
+    oy = a['oy']
+    scutes(a, cv)
+    rgb = cv.a[..., :3]
+    body = a['head'] | a['neck'] | a['jaw'] | a['brow']
+    rng = random.Random(4)
+    for pts in (((88, 78), (92, 84), (90, 90)), ((112, 90), (116, 98), (114, 108), (118, 116)), ((44, 104), (47, 110)),
+                ((124, 96), (128, 104)), ((70, 128), (74, 134))):          # weathering cracks
+        m = line_mask([(x, y + oy) for x, y in pts]) & body
+        _step(rgb, m, -2)
+        _step(rgb, sh(m, 1, 0) & body & ~m, 1)
+    for k in range(3):                                                    # wrinkles under the eye
+        m = line_mask([(60 - k, 91 + oy + k * 2), (70, 94 + oy + k * 2.4), (82 - k, 91 + oy + k * 2)]) & a['head'] & ~a['eye']
+        _step(rgb, m, -1)
+    # crustose lichen: pale grey-green blotches with ragged edges on the old upper surfaces
+    up = body & ~sh(body, 0, 7)
+    lich = up & (noise(XX / 4.0, (YY - oy) / 4.0, 11) > 0.62) & (noise(XX * 0.8, YY * 0.8, 13) > 0.35)
+    _step(rgb, lich, 1)
+    put(cv, lich & ((XX * 3 + YY * 5) % 7 == 0), 'haze3')
+    put(cv, lich & ((XX * 5 + YY * 3) % 9 == 0), 'jade3')
+    crown = (a['head'] | a['neck']) & ~sh(a['head'] | a['neck'], 0, 4) & (XX > 70)
+    mossy = crown & (noise(XX / 4.0, (YY - oy) / 4.0, 5) > 0.42)
+    put(cv, mossy, 'leaf2')
+    put(cv, mossy & ~sh(mossy, 0, 1), 'leaf3')
+    put(cv, mossy & ~sh(mossy, -1, -1) & (noise(XX, YY, 3) > 0.6), 'leaf4')
+    put(cv, mossy & ~sh(mossy, 0, -1), 'leaf1')
+    tufts = np.zeros((H, W), bool)
+    for x in range(72, 140, 5):
+        col = np.nonzero(crown[:, x])[0]
+        if len(col) and rng.random() < 0.6:
+            for k in range(1, rng.randint(2, 4)):
+                if col[0] - k >= 0:
+                    tufts[col[0] - k, x] = True
+    put(cv, tufts, 'leaf3')
+    for k in range(5):                                                    # throat folds
+        m = line_mask([(88, 124 + oy + k * 6), (100, 122 + oy + k * 6), (114, 125 + oy + k * 6)]) & a['throat']
+        _step(rgb, m, -1)
+    for key, ring in (('horn_near', ((104, 76), (111, 67), (118, 61), (126, 57))),
+                      ('horn_far', ((101, 68), (108, 58), (116, 52)))):  # growth rings on the horns
+        for (x, y) in ring:
+            m = line_mask([(x - 3, y + oy - 3), (x + 3, y + oy + 3)]) & a[key]
+            _step(rgb, m, -1)
+
+
+def eye(a, s, cv):
+    """Amber iris, vertical pupil, a heavy lid, the wet glint, the third eyelid."""
+    oy = a['oy']
+    e = a['eye']
+    ys, xs = np.nonzero(e)
+    if not len(ys):
+        return
+    y0, y1 = ys.min(), ys.max()
+    put_ramp(cv, e, IRIS, np.clip(0.2 + 0.75 * (YY - y0) / max(1, y1 - y0), 0, 1))
+    cx, cy = 72 + s['look'] * 3, 86.5 + oy
+    pupil = e & (np.abs(XX - cx) < 1.2) & (np.abs(YY - cy) < 3.2)
+    put(cv, e & (np.abs(XX - cx) < 2.2) & ~pupil & (np.abs(YY - cy) < 2), 'copper1')
+    put(cv, pupil, 'ink')
+    if s['membrane'] > 0:                                                 # third eyelid, from the front corner
+        film = e & (XX < 63 + 18 * s['membrane'])
+        put(cv, film & ((XX + YY) % 2 == 0), 'haze3')
+        put(cv, film & ((XX + YY) % 2 == 1), 'haze2')
+    lid_y = y0 - 1 + (y1 - y0 + 2) * s['lid']
+    lidm = a['socket'] & (YY <= lid_y) & (e | sh(e, 0, -1) | sh(e, 0, 1))
+    lv = 0.26 + 0.3 * lit(form(lidm | a['brow'], 2)) + 0.12 * ((YY - y0) < 2)
+    put_ramp(cv, lidm, ROCK, np.clip(lv, 0, 1))
+    put(cv, lidm & (((XX * 2 + YY) % 5) == 0), 'stone1')                  # fine scales on the lid
+    put(cv, sh(lidm, 0, 1) & e & ~lidm, 'stone0')                         # the lid's shadow on the eye
+    seam = lidm & ~sh(lidm, 0, -1) & (sh(e, 0, 1) | e)                    # the lid's edge: a dark slit when shut
+    put(cv, seam, 'ink' if s['lid'] >= 0.95 else 'stone1')
+    if s['lid'] >= 0.95:
+        put(cv, sh(seam, 0, 1) & a['head'] & ~seam, 'stone1')
+    if s['lid'] < 0.85:
+        gx, gy = int(round(cx - 3)), int(round(max(lid_y + 1.5, 85 + oy)))
+        if 0 <= gy < H and 0 <= gx < W - 1 and e[gy, gx]:
+            cv.a[gy, gx] = (*PAL['white'], 255)                              # wet glint
+            if e[gy, gx + 1]:
+                cv.a[gy, gx + 1] = (*PAL['paper4'], 255)
+    low = sh(e, 0, 1) & ~e & a['head']
+    put(cv, low, 'stone3')
+    put(cv, sh(low, 0, 1) & ~e & ~low & a['head'], 'stone1')
+
+
+def final(a, cv):
+    """Stage 7: fold the lines into the colours, highlights and the sky rim."""
+    solid = cv.a[..., 3] == 255
+    rgb = cv.a[..., :3]
+    out = edge(solid)
+    put(cv, out, 'stone1')
+    put(cv, out & (~sh(solid, -1, 0) | ~sh(solid, 0, -1)), 'ink')         # dark only on the shadow side
+    for front, back in (('head', 'neck'), ('head', 'jaw'), ('horn_near', 'head'), ('horn_near', 'neck'),
+                        ('brow', 'head'), ('wrist', 'neck'), ('jaw', 'neck'), ('spike', 'head')):
+        contact = sh(a[front], 1, 1) & ~a[front] & a[back]
+        _step(rgb, contact & solid, -2)
+    for t in a['teeth']:
+        _step(rgb, sh(t, 1, 1) & ~t & (a['jaw'] | a['mouth']), -1)
+    for key in ('horn_near', 'plates', 'spike'):                          # worn ridges catch the light
+        put(cv, a[key] & ~sh(a[key], 1, 1) & ~edge(a[key]) & (noise(XX * 0.7, YY * 0.7, 2) > 0.45), 'paper3')
+    rim = solid & ~sh(solid, -2, 0) & ~sh(solid, -1, 1) & (XX > 96) & ~out  # cool sky light from behind
+    put(cv, rim & (a['neck'] | a['plates'] | a['horn_near']), 'haze2')
 
 
 def _effects(cv, s):
     oy = s['oy']
-    lx = s['look'] * 2
-    if s['steam']:                                             # a warm huff from the nostrils
-        k = s['steam']
-        for j, (dx, dy, r) in enumerate(((-2, -6, 3.2), (-5, -13, 4.4), (-4, -21, 5.4))):
-            if j >= k + 1:
+    if s['breath']:                                                       # breath condensing in the cool air
+        k = s['breath']
+        for j, (dx, dy, r) in enumerate(((-4, -2, 1.6), (-8, -5, 2.4), (-11, -10, 3.2))):
+            if j >= k:
                 continue
-            cx, cy = 22 + lx + dx, 96 + oy + dy - k * 2
-            for y in range(int(cy - r - 2), int(cy + r + 3)):
-                for x in range(int(cx - r - 2), int(cx + r + 3)):
-                    d = ((x + 0.5 - cx) / r) ** 2 + ((y + 0.5 - cy) / (r * 0.85)) ** 2
-                    if d <= 1:
-                        _pxa(cv, x, y, 'white' if d < 0.3 and y < cy else ('cloud3' if d < 0.7 else 'cloud2'))
-                    elif d <= 1.35 and j < 2:
-                        _pxa(cv, x, y, 'cloud1')
+            cx, cy = 26 + dx - k, 99 + oy + dy
+            d = ((XX - cx) / r) ** 2 + ((YY - cy) / (r * 0.8)) ** 2
+            cv.a[(d <= 1) & ((XX + YY) % 2 == 0)] = (*PAL['cloud3'], 255)
+            cv.a[(d < 0.4) & ((XX + YY) % 2 == 1)] = (*PAL['cloud2'], 255)
     if s['dust']:
         rng = random.Random(s['dust'])
-        for _ in range(10):
-            x = rng.choice((rng.uniform(10, 40), rng.uniform(100, 130)))
-            y = 140 + rng.uniform(0, 8)
-            _pxa(cv, x, y, 'stone3')
-    if s['sparkle']:
-        for (x, y) in ((22, 60), (116, 56)):
-            for (dx, dy) in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
-                _pxa(cv, x + dx / S, y + dy / S, 'gold4' if (dx or dy) else 'white')
-    if s['zz']:                                                # dozing: z z z drifting up
-        Z = ('####', '..#.', '.#..', '####')
-        for j in range(s['zz']):
-            x0, y0 = to_screen(96 + j * 7, 36 + oy - j * 8)
-            for yy, row in enumerate(Z):
-                for xx, ch in enumerate(row):
-                    if ch == '#' and 0 <= int(x0) + xx < W and 0 <= int(y0) + yy < H:
-                        cv.a[int(y0) + yy, int(x0) + xx] = (*PAL['white'], 255)
+        for _ in range(12):
+            x = rng.choice((rng.uniform(26, 90), rng.uniform(104, 128)))
+            y = 143 + rng.uniform(0, 6)
+            if 0 <= int(y) < H and 0 <= int(x) < W:
+                cv.a[int(y), int(x)] = (*PAL['stone3'], 255)
 
 
-def _outline(cv, solid):
-    up = np.roll(solid, 1, 0); dn = np.roll(solid, -1, 0)
-    lf = np.roll(solid, 1, 1); rt = np.roll(solid, -1, 1)
-    edge = solid & ~(up & dn & lf & rt)
-    lit = edge & (~up | ~lf)
-    cv.a[edge & ~lit] = (*PAL['ink'], 255)
-    cv.a[lit] = (*PAL['stone0'], 255)
+def draw(s, stages=False):
+    """Draw one pose. With stages=True return every stage of the process."""
+    a = anatomy(s)
+    st = {}
+    if stages:
+        cons = Canvas(W, H)
+        cm = construction(s)
+        put(cons, cm, 'haze2')
+        st['construction'] = cons
+        sk = Canvas(W, H)
+        put(sk, cm, 'haze3')
+        put(sk, sketch_lines(a), 'stone2')
+        put(sk, hatching(a), 'stone3')
+        st['sketch'] = sk
+        ln = Canvas(W, H)
+        put(ln, ink_lines(a), INK)
+        st['lines'] = ln
+        fl = flats(a)
+        put(fl, ink_lines(a), INK)
+        st['flats'] = fl
+    cv = shading(a)
+    eye(a, s, cv)
+    if stages:
+        c = cv.copy()
+        put(c, ink_lines(a), INK)
+        st['shading'] = c
+    texture(a, cv)
+    eye(a, s, cv)
+    if stages:
+        c = cv.copy()
+        put(c, ink_lines(a) & edge(c.a[..., 3] == 255), INK)
+        st['texture'] = c
+    final(a, cv)
+    _effects(cv, s)
+    if stages:
+        st['final'] = cv
+        return st
+    return cv
 
 
 # ---------------------------------------------------------------- animation
 def _state(**kw):
-    s = dict(rise=1.0, squash=0, jaw=0, look=0, lid=0.42, eyes='open', smile=1, brow=0, snort=0, steam=0, dust=0,
-             hands=True, grip=0, blush=False, sparkle=False, zz=0, t=0.0)
+    s = dict(rise=1.0, jaw=0.0, look=0.0, lid=0.55, membrane=0.0, breath=0, dust=0)
     s.update(kw)
     return s
 
 
 def _script():
     S = []
-    for i, r in enumerate((0.0, 0.08, 0.2, 0.34, 0.5, 0.66, 0.8, 0.9, 0.97)):        # slowly rises, still dozing
-        S.append(_state(rise=r, eyes='closed', hands=r > 0.85, smile=0, zz=(i % 3) + 1 if r > 0.5 else 0))
-    S.append(_state(squash=2, eyes='closed', dust=1, smile=0, grip=1))              # chin settles on the sill
-    S.append(_state(squash=1, eyes='closed', dust=2, smile=0))
-    S.append(_state(lid=0.7, smile=0))                                              # eyes creak open
-    S.append(_state(lid=0.5, smile=0))
-    S.append(_state(lid=0.42, look=-1, smile=0))                                    # looks at the bell
-    S.append(_state(lid=0.42, look=-1, smile=1))
-    S.append(_state(lid=0.36, look=-1, smile=2, brow=2))                            # a slow, kind smile
-    S.append(_state(lid=0.36, look=0, smile=2, brow=2))
-    S.append(_state(lid=0.4, look=0, smile=2, snort=1, steam=1))                     # a warm huff
-    S.append(_state(lid=0.4, look=0, smile=2, snort=1, steam=2))
-    S.append(_state(lid=0.4, look=0, smile=2, steam=3))
-    S.append(_state(eyes='closed', jaw=0.4, smile=0, brow=1))                       # a big old yawn
-    S.append(_state(eyes='closed', jaw=0.85, smile=0, brow=2))
-    S.append(_state(eyes='closed', jaw=1.0, smile=0, brow=2, dust=3))
-    S.append(_state(eyes='closed', jaw=0.6, smile=0, brow=1))
-    S.append(_state(eyes='closed', jaw=0.15, smile=1))
-    S.append(_state(eyes='happy', smile=3, brow=2, blush=True, sparkle=True))       # happy to see you
-    S.append(_state(eyes='happy', smile=3, brow=2, blush=True))
-    S.append(_state(eyes='happy', smile=3, brow=2, blush=True, sparkle=True))
-    S.append(_state(lid=0.4, look=1, smile=2, brow=1))
-    S.append(_state(eyes='closed', smile=2))                                        # slow blink
-    S.append(_state(lid=0.45, smile=2))
-    for i, r in enumerate((0.95, 0.86, 0.72, 0.56, 0.4, 0.24, 0.1, 0.0)):           # sinks back down
-        S.append(_state(rise=r, lid=0.55 + i * 0.05, hands=r > 0.85, smile=1, grip=1 if r > 0.85 else 0))
-    for i, st in enumerate(S):
-        st['t'] = i * 0.35
+    for r in (0.0, 0.06, 0.16, 0.3, 0.46, 0.62, 0.77, 0.88, 0.96):         # rises slowly, eyes shut
+        S.append(_state(rise=r, lid=1.0))
+    S += [_state(lid=1.0, dust=1), _state(lid=1.0, dust=2), _state(lid=1.0)]  # settles its chin on the sill
+    S += [_state(lid=0.9, membrane=1.0), _state(lid=0.72, membrane=0.8), _state(lid=0.6, membrane=0.4),
+          _state(lid=0.55)]                                                    # the eye opens, the film slides back
+    S += [_state(lid=0.55, look=-1), _state(lid=0.5, look=-1), _state(lid=0.5, look=-1)]   # looks at the bell
+    S += [_state(lid=0.5, look=-1, breath=1), _state(lid=0.5, look=-1, breath=2), _state(lid=0.52, look=-1, breath=3),
+          _state(lid=0.55, look=-0.5)]                                        # a long breath out
+    S += [_state(lid=0.8), _state(lid=1.0), _state(lid=1.0, membrane=0.6), _state(lid=0.7, membrane=0.3),
+          _state(lid=0.55)]                                                   # slow blink
+    S += [_state(lid=0.6, jaw=0.35), _state(lid=0.7, jaw=0.8), _state(lid=0.8, jaw=1.0), _state(lid=0.75, jaw=0.6),
+          _state(lid=0.6, jaw=0.15)]                                          # the jaw parts with a sigh
+    S += [_state(lid=0.55, look=0.5), _state(lid=0.55, look=0.5)]
+    for r in (0.94, 0.84, 0.7, 0.54, 0.38, 0.22, 0.08, 0.0):                # sinks back down
+        S.append(_state(rise=r, lid=0.7 + 0.3 * (1 - r)))
     return S
 
 
@@ -592,20 +614,38 @@ SCRIPT = _script()
 
 
 def frame(s):
-    ease = 1 - (1 - s['rise']) ** 2 if s['rise'] < 1 else 1
     s = dict(s)
-    s['oy'] = (1 - ease) * 125
-    s['oy_px'] = int(round(s['oy']))
     if s['rise'] <= 0:
         return Canvas(W, H)
-    cv, h, gid, mat, solid, names = _render(s)
-    s['crown'] = np.isin(gid, [names.index('head'), names.index('ridge')])
-    _plates(cv, s, mat, solid)
-    _details(cv, s, solid)
-    _outline(cv, solid)
-    _effects(cv, s)
-    return cv
+    ease = 1 - (1 - s['rise']) ** 2
+    s['oy'] = int(round((1 - ease) * 110))
+    return draw(s)
 
 
 def peek_frames():
     return [frame(s) for s in SCRIPT]
+
+
+STAGES = (('construction', '1 CONSTRUCTION'), ('sketch', '2 SKETCH'), ('lines', '3 LINE ART'), ('flats', '4 FLATS'),
+          ('shading', '5 SHADING'), ('texture', '6 TEXTURE'), ('final', '7 FINAL'))
+
+
+def process_sheet():
+    """The drawing process stage by stage: a sheet, and one frame per stage."""
+    s = _state(lid=0.5, look=-1)
+    s['oy'] = 0
+    st = draw(s, stages=True)
+    pad, lab = 6, 12
+    sheet = Canvas((W + pad) * len(STAGES) + pad, H + pad * 2 + lab, fill='paper4')
+    frames = []
+    for i, (key, label) in enumerate(STAGES):
+        bg = Canvas(W, H, fill='sky3' if key == 'final' else 'paper3')
+        bg.blit(st[key], 0, 0)
+        x = pad + i * (W + pad)
+        sheet.blit(bg, x, pad)
+        text(sheet, x + 2, pad + H + 4, label, 'wood0', script='latin')
+        f = Canvas(W, H + lab, fill='paper4')
+        f.blit(bg, 0, 0)
+        text(f, 2, H + 3, label, 'wood0', script='latin')
+        frames.append(f)
+    return sheet, frames

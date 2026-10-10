@@ -58,55 +58,32 @@ def shade_puffs(cv, circles, ramp, light=(-0.45, -0.75, 0.5), cuts=None,
     return mask
 
 
-def wood_grain_v(cv, x, y, w, h, base, rng, dark=None, light=None, knots=True):
-    """Vertical plank grain: long broken lines, an occasional knot."""
-    dark = dark or step(_rgb(base), -1)
-    light = light or step(_rgb(base), 1)
+def _wood_grain(cv, x, y, w, h, base, rng, along, knots):
+    import woodgrain as WG
+    ramp, idx = WG.ramp_of(base)
     cv.rect(x, y, w, h, base)
-    lines = max(1, w // 4)
-    for _ in range(lines):
-        gx = x + rng.randint(1, max(1, w - 2))
-        yy = y + rng.randint(0, 6)
-        while yy < y + h:
-            seg = rng.randint(6, 26)
-            for k in range(seg):
-                if yy + k < y + h:
-                    cv.px(gx, yy + k, dark)
-            yy += seg + rng.randint(3, 14)
-            if rng.random() < 0.3:
-                gx = min(x + w - 2, max(x + 1, gx + rng.choice((-1, 1))))
-    if knots and h > 20 and rng.random() < 0.5:
-        kx = x + rng.randint(2, max(2, w - 4))
-        ky = y + rng.randint(4, h - 6)
-        cv.px(kx, ky, dark)
-        cv.px(kx + 1, ky, dark)
-        cv.px(kx, ky + 1, step(_rgb(base), -2))
-        cv.px(kx + 1, ky + 1, dark)
-        cv.px(kx, ky - 1, light)
+    if ramp is None:
+        return False
+    seed = rng.random() * 100
+    yy, xx = np.mgrid[0:h, 0:w].astype(float)
+    if along == 'v':
+        lv = WG.levels(yy + seed * 7, xx, seed, max(1, w), 3.2, knots and h > 20)
+    else:
+        lv = WG.levels(xx + seed * 7, yy, seed, max(1, h), 3.2, knots and w > 20)
+    WG.paint(cv, x, y, np.clip(lv, -3, 1), ramp, idx)
+    return True
+
+
+def wood_grain_v(cv, x, y, w, h, base, rng, dark=None, light=None, knots=True):
+    """Vertical plank grain: growth rings, cathedral arches, the odd knot."""
+    if w > 0 and h > 0:
+        _wood_grain(cv, x, y, w, h, base, rng, 'v', knots)
 
 
 def wood_grain_h(cv, x, y, w, h, base, rng, dark=None, light=None, knots=True):
-    dark = dark or step(_rgb(base), -1)
-    light = light or step(_rgb(base), 1)
-    cv.rect(x, y, w, h, base)
-    for _ in range(max(1, h // 3)):
-        gy = y + rng.randint(0, max(0, h - 1))
-        xx = x + rng.randint(0, 8)
-        while xx < x + w:
-            seg = rng.randint(8, 34)
-            for k in range(seg):
-                if xx + k < x + w:
-                    cv.px(xx + k, gy, dark)
-            xx += seg + rng.randint(4, 18)
-            if rng.random() < 0.25:
-                gy = min(y + h - 1, max(y, gy + rng.choice((-1, 1))))
-    if knots and w > 24 and h >= 4 and rng.random() < 0.6:
-        kx = x + rng.randint(3, w - 5)
-        ky = y + rng.randint(1, max(1, h - 2))
-        cv.px(kx, ky, step(_rgb(base), -2))
-        cv.px(kx + 1, ky, dark)
-        cv.px(kx - 1, ky, dark)
-        cv.px(kx, ky - 1, light)
+    """Horizontal plank grain: growth rings, cathedral arches, the odd knot."""
+    if w > 0 and h > 0:
+        _wood_grain(cv, x, y, w, h, base, rng, 'h', knots)
 
 
 def peel(cv, x, y, w, h, rng, under='wood1', curl=None, shadow=None, n=6, rmin=1.5, rmax=4):

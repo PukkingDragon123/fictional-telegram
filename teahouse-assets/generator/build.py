@@ -34,7 +34,8 @@ import props_ritual                                        # noqa: E402,F401
 import props_bedroom                                       # noqa: E402,F401
 import cloth_props                                         # noqa: E402,F401
 import npc                                                 # noqa: E402,F401
-import dragon                                              # noqa: E402,F401
+import dragon
+import wyvern                                              # noqa: E402,F401
 
 SCALE_HI = 3
 LAYER_ORDER = ['wall', 'ceiling', 'counter_layer', 'npc', 'floor', 'counter', 'front']
@@ -397,6 +398,12 @@ def export_previews(sc, anims=True):
     bell['frames'], drg['frames'] = keep_b, keep_d
     ims[0].save(os.path.join(ROOT, 'preview', 'dragon_bell_peek.gif'), save_all=True, append_images=ims[1:],
                 duration=100, loop=0, optimize=True)
+    # how the wyvern is drawn, stage by stage
+    sheet, pframes = wyvern.process_sheet()
+    save(sheet, 'preview', 'wyvern_process.png', scale=3)
+    ims = [f.image(3).convert('RGB') for f in pframes]
+    ims[0].save(os.path.join(ROOT, 'preview', 'wyvern_process.gif'), save_all=True, append_images=ims[1:],
+                duration=900, loop=0)
     cat = next(p for p in sc.props if p['name'] == 'alien_lucky_cat')
     ims = [f.image(5) for f in cat['frames']]
     ims[0].save(os.path.join(ROOT, 'preview', 'alien_lucky_cat.gif'), save_all=True, append_images=ims[1:],

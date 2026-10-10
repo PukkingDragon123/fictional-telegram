@@ -15,6 +15,7 @@ between two rooms."""
 import math
 import random
 import moss
+import woodgrain as WG
 import numpy as np
 from pixel import Canvas, PAL, step, blob_mask
 from shapes import chip, crack, cobweb, vine, flower, torn_paper
@@ -109,6 +110,11 @@ def _ceiling(img, M, mask, rng, ri):
     left_lit = np.zeros_like(raf)
     left_lit[:, :-1] = raf[:, :-1] & ~raf[:, 1:]
     img[left_lit & (xb < SW / 2)] = _c('wood3')
+    lvb = WG.levels(xb * 1.2 + board * 29.0, np.mod(D, 13), board * 1.7 + ri, 13, ring=2.8)
+    WG.apply_levels(img, mask & ~raf & ~_edge_y(board), np.round(lvb * 0.8).astype(int), ('wood',))
+    col_r = np.floor((xb - BX + 4) / RAFTER)
+    lvr = WG.levels(D * 2.0 + col_r * 31.0, rel, col_r * 2.3 + ri, 9, ring=2.6)
+    WG.apply_levels(img, raf, np.round(lvr * 0.8).astype(int), ('wood',))
     if ri == 3:                                           # bedroom roof: boards gone, light through the gap
         col_i = np.floor((xb - BX + 4) / RAFTER)
         relx = np.mod(xb - BX + 4, RAFTER)
@@ -191,6 +197,11 @@ def _side_walls(img, M, mask, rng, ri):
     if ri == 3:
         img[rail | wain] = _c('paper1')
         img[(rail | wain) & top & (band == 2)] = _c('paper1')
+    lvg = WG.levels(D * 2.0, yb - CEIL_Y, 3.0 + ri, 12, ring=3.0)
+    WG.apply_levels(img, g & ~top & ~bot, lvg, ('wood',))
+    rowh = (WAINS[1] - WAINS[0]) / 3
+    lvw = WG.levels(D * 2.0 + row * 37.0, np.mod(yb - WAINS[0], rowh), row * 1.9 + joint * 0.7 + ri, rowh, ring=3.0)
+    WG.apply_levels(img, wain & ~_edge_x(joint), lvw, ('wood',))
     # corner shade and the darker front edge
     _darken(img, mask & (D < 8) & _dither_mask(D.shape, 1 - D / 8))
     far = np.clip((D - 60) / 30, 0, 1)
@@ -213,6 +224,11 @@ def _planks(img, m, D, ri, yb=None):
         img[lip] = _c('red3')
         streak = m & ~bare & (_hash_arr(plank, 40 + ri) % 4 == 0) & (yb < WALL_TOP + 40 + (_hash_arr(plank, 5) % 90))
         img[streak & _dither_mask(D.shape, np.full(D.shape, 0.6))] = _c('red0')
+    if yb is not None:
+        pin = np.mod(D + 5 + ri * 7, 16)
+        lv = WG.levels(yb * 1.0 + plank * 47.0, pin, plank * 1.13 + ri, 16, ring=3.2)
+        WG.apply_levels(img, m, np.round(lv * 0.5).astype(int), ('red',))
+        WG.apply_levels(img, m, lv, ('wood',))
     seam = m & _edge_x(plank)
     img[seam] = _c('red0')
 
@@ -246,10 +262,9 @@ def _floor(img, M, mask, rng, ri):
     lip = np.zeros_like(es)
     lip[1:] = es[:-1]
     img[mask & lip & ~ej] = _c('wood3')
-    # a few long grain streaks along the boards
-    streak = mask & (np.abs(np.mod(xb - 6, 22) - (5 + _hash_arr(j, 77) % 12)) < 0.5 / M['k']) & \
-        (np.mod(D + off * 1.7, 61) < 26)
-    img[streak] = _c('wood1')
+    # real grain: growth rings along each board, knots, streaks
+    lv = WG.levels(D * 1.4 + j * 41.0 + seg * 17.0, np.mod(xb - 6, 22), j * 1.31 + seg * 0.37 + ri * 5, 22, ring=3.0)
+    WG.apply_levels(img, mask & ~ej & ~es, lv, ('wood',))
     if ri == 3:                                           # bedroom: broken and missing boards, a dark stain
         hole = mask & (((j == 16) & (seg == 1)) | ((j == 9) & (seg == 2)) | ((j == 21) & (seg == 0)))
         frac = np.mod(D + off, 96) / 96
@@ -270,6 +285,7 @@ def _floor(img, M, mask, rng, ri):
 # ---------------------------------------------------------------- back walls
 def _plank_wall(cv, rng, x0, x1, y0, y1):
     x = x0
+    spans = []
     while x < x1:
         pw = min(rng.choice((15, 16, 17, 18, 20)), x1 - x)
         base = 'red2' if rng.random() < 0.78 else 'red1'
@@ -282,13 +298,8 @@ def _plank_wall(cv, rng, x0, x1, y0, y1):
                 for xx in range(x, x + pw):
                     if BAYER4[yy % 4][xx % 4] / 16 > (yy - fade + 4) / 8:
                         cv.px(xx, yy, lite)
-        for _ in range(max(1, pw // 8) if pw > 7 else 0):   # a few long grain lines
-            gx = x + rng.randint(3, pw - 3)
-            gy = y0 + rng.randint(0, 40)
-            while gy < y1:
-                ln = rng.randint(14, 40)
-                cv.vline(gx, gy, min(y1 - 1, gy + ln), step(PAL[base], -1))
-                gy += ln + rng.randint(20, 60)
+        WG.grain_pass(cv, x + 1, y0, x + pw, y1, 'v', seed=x * 0.37, board=pw, contrast=0.55, ramps=('red',))
+        spans.append((x, pw))
         cv.vline(x, y0, y1 - 1, 'red0')
         cv.vline(x + 1, y0, y1 - 1, step(PAL[base], 1))
         for ny in (y0 + 8, y1 - 8):
@@ -316,13 +327,8 @@ def _age_planks(cv, rng, x0, x1, y0, y1):
                     continue
                 if m[yy, xx]:
                     old = cv.get(X, Y)[:3]
-                    g = (X * 7) % 5                              # vertical grain, broken up
                     if old == PAL['red0'] or old == PAL['wood0']:
                         c = 'wood0'                              # keep the plank seam
-                    elif g == 0 and (Y // (3 + X % 4)) % 3:
-                        c = 'wood2'
-                    elif g == 2 and (Y // 5 + X) % 4 == 0:
-                        c = 'stone2'                             # silvered fibres
                     else:
                         c = 'wood3'
                     cv.px(X, Y, c)
@@ -452,9 +458,11 @@ def _rail_wains_base(cv, rng, x0, x1, ri):
             gy = yy + rng.randint(3, h_ - 4)
             cv.hline(max(x0, x + 8), min(x1 - 1, x + rng.randint(30, 70)), gy, 'wood1')
             x += rng.randint(70, 150)
+    WG.grain_pass(cv, x0, WAINS[0] + 1, x1, WAINS[1] - 1, 'h', seed=ri * 3.1 + 1, board=hh, contrast=1.0)
     y0, y1 = BASE
     cv.rect(x0, y0, x1 - x0, y1 - y0, 'wood1')
     cv.hline(x0, x1 - 1, y0, 'wood3'); cv.hline(x0, x1 - 1, y1 - 1, 'wood0')
+    WG.grain_pass(cv, x0, y0 + 1, x1, y1 - 1, 'h', seed=ri * 5.3 + 2, board=y1 - y0, contrast=0.8)
 
 
 def _fallen_patch(cv, rng, x, y, w, h):
@@ -551,6 +559,7 @@ def _plaster(cv, rng, x0, x1):
     y0, y1 = BASE
     cv.rect(x0, y0, x1 - x0, y1 - y0, 'wood1')
     cv.hline(x0, x1 - 1, y0, 'wood3'); cv.hline(x0, x1 - 1, y1 - 1, 'wood0')
+    WG.grain_pass(cv, x0, y0 + 1, x1, y1 - 1, 'h', seed=x0 * 0.01 + 2, board=y1 - y0, contrast=0.8)
 
 
 def _girder(cv, x0, x1):
@@ -559,8 +568,7 @@ def _girder(cv, x0, x1):
     cv.rect(x0, y0, x1 - x0, y1 - y0, 'wood2')
     cv.hline(x0, x1 - 1, y0, 'wood3')
     cv.hline(x0, x1 - 1, y1 - 2, 'wood1'); cv.hline(x0, x1 - 1, y1 - 1, 'wood0')
-    for xx in range(x0 + 20, x1 - 10, 46):
-        cv.hline(xx, xx + 18, y0 + 4 + (xx // 46) % 4, 'wood1')
+    WG.grain_pass(cv, x0, y0 + 1, x1, y1 - 2, 'h', seed=x0 * 0.11, board=y1 - y0 - 3, contrast=1.0)
     for yy in range(y1, y1 + 4):                        # shade under the girder
         for xx in range(x0, x1):
             if yy < y1 + 2 or (xx + yy) % 2 == 0:
@@ -573,6 +581,7 @@ def _corner_post(cv, x, inner):
         c = 'wood1' if k * inner < -1 else ('wood2' if k * inner < 2 else 'wood3')
         cv.vline(x + k, CEIL_Y, FLOOR, c)
     cv.vline(x - 4 * inner, CEIL_Y, FLOOR, 'wood0')
+    WG.grain_pass(cv, x - 3, CEIL_Y, x + 4, FLOOR, 'v', seed=x * 0.07, board=7, contrast=0.8)
 
 
 # ---------------------------------------------------------------- windows
@@ -827,6 +836,7 @@ def build_shell(seed=7):
         if ri < 3:
             _plank_wall(cv, rng, bx0, bx1, WALL_TOP, RAIL[0])
             _age_planks(cv, rng, bx0, bx1, WALL_TOP, RAIL[0])
+            WG.grain_pass(cv, bx0, WALL_TOP, bx1, RAIL[0], 'v', seed=ri * 7.7, board=17, ramps=('wood',))
             if ri == 0:
                 _brick(cv, rng, bx0, HEARTH['x1'] + 14, WALL_TOP, RAIL[0])
             _rail_wains_base(cv, rng, bx0, bx1, ri)
@@ -884,6 +894,11 @@ def build_shell(seed=7):
             cv.vline(mx + 1, my - 3, my, 'leaf2')
             flower(cv, mx + 1, my - 4, rng.choice(('paper4', 'purp3')), 'gold3')
     simplify(cv)
+    # the deep sills are old planks too
+    sy = WIN_MAIN['y'] + WIN_MAIN['h'] + 6
+    WG.grain_pass(cv, WIN_MAIN['x'] - 18, sy + 1, WIN_MAIN['x'] + WIN_MAIN['w'] + 18, sy + 9, 'h', seed=11.0, board=8)
+    WG.grain_pass(cv, WIN_BELL['cx'] - WIN_BELL['hw'] - 14, WIN_BELL['bottom'] + 1,
+                  WIN_BELL['cx'] + WIN_BELL['hw'] + 14, WIN_BELL['bottom'] + 6, 'h', seed=13.0, board=6)
     _moss(cv, M, random.Random(seed + 101))
     return cv
 
@@ -956,6 +971,8 @@ def posts():
             for rx in range(x0 + 2, x0 + POST_W - 1, 5):
                 cv.px(rx, by + 3, 'gold2')
             cv.px(x0 + 4, by + 5, 'teal1'); cv.px(x0 + 5, by + 5, 'teal2')
+        WG.grain_pass(cv, x0 + 1, 0, x0 + POST_W - 1, H - 14, 'v', seed=px * 0.013, board=POST_W - 2, contrast=0.5,
+                      ramps=('red', 'wood'))
         cv.rect(x0 - 5, H - 14, POST_W + 10, 14, 'stone0')        # stone foot
         cv.hline(x0 - 5, x0 + POST_W + 4, H - 14, 'stone2')
         cv.hline(x0 - 4, x0 + POST_W + 3, H - 13, 'stone1')

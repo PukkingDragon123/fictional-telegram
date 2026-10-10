@@ -60,12 +60,12 @@ def bell_frames():
     return [_bell(p, w, r) for (p, w, r) in seq]
 
 
-PEEK_X = WIN_BELL['cx'] - wyvern.W // 2
+PEEK_X = WIN_BELL['cx'] - wyvern.W // 2 + 4
 PEEK_Y = WIN_BELL['bottom'] + 4 - wyvern.H
 
 
 @prop('dragon_bell', 3, 'counter', WIN_BELL['cx'] - BW // 2 - 40, COUNTER_Y - BH + 1,
-      'Brass call bell. Click it: it rings, and an old rock wyvern rises behind the window to say hello', fps=12,
+      'Brass call bell. Click it: it rings, and an old rock wyvern rises behind the window', fps=12,
       meta=dict(on_click=[dict(prop='dragon_bell', play='ring', then='idle'),
                           dict(prop='dragon_peek', play='peek', then='hidden', fps=10)]))
 def dragon_bell():
@@ -73,9 +73,9 @@ def dragon_bell():
 
 
 @prop('dragon_peek', 3, 'outside', PEEK_X, PEEK_Y,
-      'Fat, friendly old rock wyvern who rises behind the bell window when the bell rings: dozes up, settles '
-      'its chin on the sill, blinks its sleepy amber eyes, smiles, huffs warm steam, yawns (it still has its '
-      f'overbite), beams at you and sinks back down ({len(wyvern.SCRIPT)} frames)', drag=False,
+      'Old rock wyvern, drawn by hand, who rises behind the bell window when the bell rings: settles its chin '
+      'on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, '
+      f'parts its overbite jaws with a sigh and sinks back down ({len(wyvern.SCRIPT)} frames)', drag=False,
       fps=10, shadow='none')
 def dragon_peek():
     return {'hidden': [Canvas(wyvern.W, wyvern.H)], 'peek': wyvern.peek_frames()}

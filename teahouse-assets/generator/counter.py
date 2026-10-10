@@ -12,6 +12,7 @@ import numpy as np
 from pixel import Canvas, PAL, step
 from shapes import crack
 import moss
+import woodgrain as WG
 from furn import R, wood_face, knob
 from layout import W, H, TABLE, COUNTER, HEARTH, FLOOR, EYE_Y, FURN_CONV, room_of, vp
 
@@ -252,13 +253,7 @@ def _furnace(cv, rng):
             c = 'wood1'
         return c
     _quad(cv, [(x0 - 4, tf), (bx0w, tb), (bx1w, tb), (x1 + 4, tf)], top)
-    for _ in range(26):                                       # grain
-        gy = rng.randint(tb + 2, tf - 2)
-        gx = rng.randint(x0 + 6, x1 - 30)
-        ln = rng.randint(10, 34)
-        for k in range(ln):
-            if cv.get(gx + k, gy)[:3] in (PAL['wood3'], PAL['wood4']):
-                cv.px(gx + k, gy, 'wood2' if k % 7 else 'wood5')
+    WG.grain_pass(cv, int(bx0w), tb, int(bx1w) + 1, tf, 'h', seed=9.0, board=(tf - tb) // 4 + 1)
     for (sx, sy_, r) in ((m['cx'] - 10, tf - 6, 9), (m['cx'] + 22, tf - 12, 5), (x0 + 30, tb + 8, 4)):  # scorch
         for yy in range(int(sy_ - r / 2), int(sy_ + r / 2) + 1):
             for xx in range(int(sx - r), int(sx + r) + 1):
@@ -269,6 +264,7 @@ def _furnace(cv, rng):
     cv.rect(x0 - 4, tf, x1 - x0 + 8, lip, 'wood3')
     cv.hline(x0 - 4, x1 + 3, tf, 'wood5'); cv.hline(x0 - 4, x1 + 3, tf + 1, 'wood4')
     cv.hline(x0 - 4, x1 + 3, tf + lip - 1, 'wood1'); cv.hline(x0 - 2, x1 + 1, tf + lip, 'ink')
+    WG.grain_pass(cv, x0 - 4, tf + 2, x1 + 4, tf + lip - 1, 'h', seed=10.0, board=lip - 3)
     for nx in range(x0 + 6, x1, 34):
         cv.px(nx, tf + 4, 'stone1'); cv.px(nx, tf + 3, 'stone3')
     for xx in range(m['cx'] - 30, m['cx'] + 31):
@@ -316,6 +312,11 @@ def _prep_table(cv, rng):
     cv.rect(x0 + 8, sy, x1 - x0 - 16, 4, 'wood3')
     cv.hline(x0 + 8, x1 - 9, sy, 'wood5')
     cv.rect(x0 + 8, sy + 4, x1 - x0 - 16, 4, 'wood2'); cv.hline(x0 + 8, x1 - 9, sy + 7, 'wood0')
+    WG.grain_pass(cv, int(min(x0, bx0)), tb, int(max(x1, bx1)), tf, 'h', seed=1.0, board=11)
+    WG.grain_pass(cv, x0, fy + 2, x1, fy + 8, 'h', seed=2.0, board=6)
+    for lx in (x0 + 8, (x0 + x1) // 2 - 6, x1 - 20):
+        WG.grain_pass(cv, lx + 2, fy + 10, lx + 10, H - 4, 'v', seed=lx * 0.1, board=8)
+    WG.grain_pass(cv, x0 + 8, sy + 1, x1 - 8, sy + 7, 'h', seed=3.0, board=4)
 
 
 # ---------------------------------------------------------------- serving counter
@@ -330,13 +331,8 @@ def _counter(cv, rng):
         c = 'hinoki3' if 0.45 < t < 0.75 else 'hinoki2'
         return c
     _quad(cv, [(x0, tf), (bx0, tb), (bx1, tb), (x1, tf)], top)
-    for _ in range(60):                                    # long, quiet grain
-        gy = rng.randint(tb + 3, tf - 3)
-        gx = rng.randint(x0 + 30, x1 - 80)
-        ln = rng.randint(30, 110)
-        for k in range(ln):
-            if cv.get(gx + k, gy)[3] and cv.get(gx + k, gy)[:3] != PAL['hinoki1']:
-                cv.px(gx + k, gy + (k * 3 // ln), 'hinoki1' if k % 9 else 'hinoki2')
+    WG.grain_pass(cv, x0, tb + 3, x1, tf, 'h', seed=5.0, board=13, contrast=0.55, ring=3.4, ramps=('hinoki',),
+                  knots=False)
     for _ in range(14):                                     # old tea rings and spills
         rx, ry = rng.randint(x0 + 60, x1 - 40), rng.randint(tb + 7, tf - 6)
         _ring(cv, rx, ry, rng.uniform(5, 8), rng.uniform(1.8, 2.8), 'hinoki1', 8)
@@ -402,9 +398,12 @@ def _counter(cv, rng):
             cv.px(sx + 1, top, 'wood4' if top > ly0 + 4 else 'wood1')
             if rng.random() < 0.3:                          # rot at the foot
                 cv.vline(sx + 1, ly1 - 5 - rng.randint(2, 7), ly1 - 5, 'wood1')
+    WG.grain_pass(cv, x0, ly0 + 4, x1, ly1 - 4, 'v', seed=6.0, board=3, contrast=0.6, knots=False)
     for sx in stiles:
         cv.rect(sx, ly0, 7, H - ly0, 'wood1')
         cv.vline(sx, ly0, H - 1, 'wood2'); cv.vline(sx + 6, ly0, H - 1, 'wood0')
+        WG.grain_pass(cv, sx + 1, ly0, sx + 6, H - 1, 'v', seed=sx * 0.05, board=5, contrast=0.8)
+    WG.grain_pass(cv, x0, fy + 2, x1, fy + 6, 'h', seed=7.0, board=4, contrast=0.8, ramps=('hinoki',))
     # drawers (the journal lives in the left one)
     dz0, dz1 = drawer_zone
     cv.rect(dz0, ly0, dz1 - dz0, H - ly0, 'wood1')

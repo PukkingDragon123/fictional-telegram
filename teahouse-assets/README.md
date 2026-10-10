@@ -10,7 +10,7 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit** (all mouth and teeth). Herbs dry on an old bamboo pole above it. Also the giant chalk **recipe board** with recipe cards, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
 | 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, wind chime, plants on the sill, menu tags, pendulum clock. **Uncle Pong** sits at a plain hinoki counter: his tea, one yunomi, a teapot |
-| 3 Tea ritual | 1280 to 1920 | An empty **corkboard** (only pin holes left) and a hanging scroll. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set on an indigo seigaiha runner (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and a fat, friendly old **rock wyvern** rises behind the window to say hello. In the counter front is one drawer, the **journal drawer** |
+| 3 Tea ritual | 1280 to 1920 | An empty **corkboard** (only pin holes left) and a hanging scroll. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set on an indigo seigaiha runner (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
 | 4 Traveler's bedroom | 1920 to 2560 | The most run-down room. Plaster has fallen off the walls to show the bamboo lath, rain has streaked them, there is mould in the corners, boards are missing from the roof so daylight shows, and the floor is broken and bare. Indigo noren hanging in front, moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, straw hat and cloak on the wall, oil lamp |
 
 ## Uncle Pong
@@ -51,24 +51,32 @@ The silk is modelled, not hand-dotted. The top is a height field and the front i
 
 ![Ring the bell](preview/dragon_bell_peek.gif)
 
-The **rock wyvern** is a fat, friendly old giant, drawn at full scene resolution (one sprite pixel is one scene pixel, no upscaling).
+The **rock wyvern** is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's an old, calm, realistic reptile, not a cartoon: it rests its chin on the sill, and only its eye, breath and jaw move.
 
-**How the head is built (`wyvern.py`):**
+![How the wyvern is drawn](preview/wyvern_process.png)
 
-- It is modelled, not outlined: soft 3D blobs (cranium, fat jowls, a broad muzzle, a bulbous nose, a receding double chin, a thick neck) melted into one height field.
-- That field is lit from the upper left, with a cool sky rim from behind and shadow in the creases, then snapped to the palette.
-- Wherever one part sits in front of another, it gets a contour line.
+**The drawing process** (`wyvern.py` keeps every stage; `preview/wyvern_process.gif` steps through them):
 
-**Details of an old giant:**
+1. **Construction:** a circle for the cranium, a box for the snout, the head axis, the eye line, and gesture lines for the jaw, neck, horns and wing-wrist.
+2. **Sketch:** loose pencil outlines over the construction, with hatching where the big shadows will fall.
+3. **Line art:** clean ink outlines of every part, plus the cheek ridge, the jaw muscle and the throat folds.
+4. **Flats:** local colours: cool grey stone, old horn, ivory teeth and an amber eye.
+5. **Shading:** light from the upper left. Each form is a slab with rounded edges rather than a balloon. The brow, the upper jaw, the head and the horns cast shadows, and the lip catches reflected light.
+6. **Texture:** scales by region, like a real reptile's:
+   - big domed osteoderms on the crown and down the neck
+   - a row of knobs along the cheekbone
+   - fine granular scales on the face, lips and jaw
+   - weathering cracks, pale lichen crusts, and moss along the crown and horn roots
+7. **Final:** the lines are folded into the colours, dark only on the shadow side. Parts get contact shadows where they overlap. Horn ridges and tooth tips are worn bright, the eye gets a wet glint, and a cool sky rim lights its back.
 
-- sleepy amber eyes with heavy lids, bags and crow's feet
-- smile lines and forehead wrinkles
-- a hide of worn stone plates, with rounded plates running up its nose
-- bushy lichen eyebrows, long drooping whiskers and a lichen goatee
-- spined fin ears
-- worn, ringed horns curling back out of a mossy crown, with tiny flowers and a red mushroom
-- old blunt fangs hanging over its lower lip (it keeps its overbite), with a gap where one fell out and one chipped
-- fat fingers with worn claws resting on the sill
+**The anatomy** is drawn from hand-placed points (smooth spline curves):
+
+- a long, heavy skull with a domed cranium, a bony brow shelf over a deep-set amber eye with a vertical pupil, and a spike behind the eye
+- nostrils on top of the snout
+- a crocodile overbite: irregular upper teeth hang over the recessed lower jaw, and two lower teeth interlock at the front
+- a jaw-muscle bulge, a banded throat, an armoured neck with dorsal plates
+- ringed horns sweeping back
+- a clawed wing-wrist gripping the sill
 
 It lives on its own layer, **`outside`**. Draw it after the window view and before the room shell, so the window frame hides the rest of its body.
 
@@ -98,7 +106,7 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 | Fire spirit: `idle`, `talk`, `happy` | 12 each | Sits down in the coals. Flame body is a noise field rising through a teardrop. A jagged maw of uneven teeth opens and closes as it talks; zigzag grin when shut; fangs when it laughs |
 | Cloth: noren, curtains, moon curtain, cloak, scarf, towel | 12 | **Real cloth physics**: Verlet particles with stretch/shear/bend constraints, pins, gravity, a looping breeze, and collisions. One wind period is captured so the loop closes |
 | Silk bed | 12 | The quilt's hanging folds sway, so the sheen slides across the silk |
-| Bell and rock wyvern | 10 + 39 | Click the bell: it rings, and the old wyvern slowly rises behind the window, still dozing (z z z). It settles its chin on the sill (dust falls), its eyes creak open and it looks at the bell. Then it smiles, huffs a warm puff of steam, gives a big old yawn, beams at you with ^^ eyes and rosy cheeks, blinks and sinks back down. Both are one-shot animations (see below) |
+| Bell and rock wyvern | 10 + 43 | Click the bell: it rings. The wyvern slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
 | Alien lucky cat | 8 | Eased beckoning paw, pulsing antenna lights, a blink, a glint that travels across the coin |
 | Garden trees, flower bed, ivy | 8 | Each leaf mass sways on its own phase |
 | Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing |
@@ -119,6 +127,17 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
   - The lacquered walls are peeling back to grey bare wood, streaked by rain, grimy above the rail and rotting at the skirting.
   - Boards are broken or missing, some old holes are boarded over, and the nails bleed rust.
   - Wooden and metal props get a weathering pass (`weather.py`): grime in the creases, paint worn through on the edges, tarnished brass, scratches and water stains.
+- **Real wood grain (`woodgrain.py`):**
+  - Each board is modelled as a cut through a log: the growth rings sliced by the board's surface.
+  - That gives flat-sawn cathedral arches where the cut runs close to the pith, and straight lines further out.
+  - Knots have the rings swirling round them, with dark latewood lines, sheen and dark streaks, and pores.
+  - Every board gets its own pith, depth and tone, so neighbours differ.
+  - It runs over everything wooden:
+    - the lacquered plank walls (the grain shows faintly through the red, and strongly where the lacquer has peeled)
+    - the wainscot, skirting, girders, corner posts and sills
+    - the floor and ceiling boards in perspective
+    - the counter top (fine, straight hinoki), the counter slats, the prep table and the furnace's wooden top
+    - every piece of wooden furniture
   - The hinoki counter is split along the grain, ringed with tea stains, chipped on the edge, and missing slats.
   - A clean-up pass removes stray single pixels.
 - **A Japanese counter:** a pale hinoki top over a dark lattice of vertical slats (*tategoshi*), with only a few things on it.
@@ -177,6 +196,7 @@ Some props are exported but not placed by default, which keeps the counter and s
 - `preview/room1_cook_anim.gif` to `room4_bedroom_anim.gif`: every room animated (2 s loops)
 - `preview/uncle_pong_<mood>.gif` and `uncle_pong_moods.png`: Uncle Pong close up
 - `preview/dragon_bell_peek.gif`: the bell and the rock wyvern
+- `preview/wyvern_process.png` and `wyvern_process.gif`: how the wyvern is drawn, stage by stage
 - `preview/silk_bed.png`: the silk bed close up
 - `preview/fire_spirit_idle.gif`, `fire_spirit_talk.gif`, `fire_spirit_happy.gif`, `alien_lucky_cat.gif`: close-ups
 - `preview/pan_parallax.webp`: a camera pan across the four rooms
@@ -192,9 +212,9 @@ python3 teahouse-assets/generator/build.py --quick  # skip the animated previews
 | What | Where |
 | --- | --- |
 | Layout, perspective | `generator/layout.py` |
-| Rooms | `room.py` (perspective boxes, walls, windows, posts, wear), `counter.py` (stone furnace, table, counter), `furnace.py` (fire, coals, smoke), `weather.py` (aging for props), `moss.py` (moss) |
+| Rooms | `room.py` (perspective boxes, walls, windows, posts, wear), `counter.py` (stone furnace, table, counter), `furnace.py` (fire, coals, smoke), `weather.py` (aging for props), `moss.py` (moss), `woodgrain.py` (wood grain) |
 | Props | `props_cook.py`, `props_seating.py`, `props_ritual.py`, `props_bedroom.py`; `crafted.py` (cook-room baskets, sacks, firewood, bucket, jar), `tea_set.py` (the tea-room set), `silk_bed.py` |
-| NPCs | `npc.py` (chunky 3× rig, pixel templates for eyes, brows, mouths and hands, poses per mood), `dragon.py` (the bell), `wyvern.py` (the rock wyvern) |
+| NPCs | `npc.py` (chunky 3× rig, pixel templates for eyes, brows, mouths and hands, poses per mood), `dragon.py` (the bell), `wyvern.py` (the hand-drawn rock wyvern and its drawing process) |
 | Cloth | `cloth.py` (simulation), `cloth_props.py` |
 | Teaware | `teaware.py` |
 | Fire spirit | `fire.py` |

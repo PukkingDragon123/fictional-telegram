@@ -856,7 +856,7 @@
    "layer": "wall",
    "x": 691,
    "y": 57,
-   "w": 84,
+   "w": 85,
    "h": 129,
    "draggable": true,
    "desc": "Hanging wooden menu tags with brush glyphs and prices; one crooked, one missing",
@@ -2008,7 +2008,7 @@
    "w": 50,
    "h": 42,
    "draggable": true,
-   "desc": "Brass call bell. Click it: it rings, and an old rock wyvern rises behind the window to say hello",
+   "desc": "Brass call bell. Click it: it rings, and an old rock wyvern rises behind the window",
    "placed_by_default": true,
    "file": "props/room3/dragon_bell.png",
    "on_click": [
@@ -2041,12 +2041,12 @@
    "name": "dragon_peek",
    "room": 3,
    "layer": "outside",
-   "x": 1693,
+   "x": 1697,
    "y": 45,
    "w": 140,
    "h": 150,
    "draggable": false,
-   "desc": "Fat, friendly old rock wyvern who rises behind the bell window when the bell rings: dozes up, settles its chin on the sill, blinks its sleepy amber eyes, smiles, huffs warm steam, yawns (it still has its overbite), beams at you and sinks back down (39 frames)",
+   "desc": "Old rock wyvern, drawn by hand, who rises behind the bell window when the bell rings: settles its chin on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, parts its overbite jaws with a sigh and sinks back down (43 frames)",
    "placed_by_default": true,
    "file": "props/room3/dragon_peek.png",
    "anims": {
@@ -2056,7 +2056,7 @@
      "sheet": "props/room3/dragon_peek_hidden_sheet.png"
     },
     "peek": {
-     "frames": 39,
+     "frames": 43,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_peek_sheet.png"
     }
