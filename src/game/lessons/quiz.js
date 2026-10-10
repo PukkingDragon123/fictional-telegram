@@ -21,7 +21,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const WRONG_ANIMS = ['facepalm', 'laugh_evil', 'shrug'];
 const RIGHT_ANIMS = ['cheer', 'count_coins', 'dance'];
 const TIMEOUT = ['Too slow! Bears do not wait.', 'Tick tock... TOCK. Time is up!'];
-const HINT = ['Tick tock, class...', 'Any day now!', 'Take a guess. Chalk is cheap.'];
+const HINT = ['Tick tock, class... **Tap one!**', 'Any day now! **Tap your answer.**', 'Take a guess. Chalk is cheap. **Tap one!**'];
 
 /** Screen rect (CSS px) of a chalkboard item (+ its `_l` label). */
 function rectOf(cls, id, pad = 3) {
@@ -185,7 +185,7 @@ export function runQuiz(cls, q, drawn = []) {
     for (const z of zones.values()) z.classList.add('done');
     setTimeout(() => layer.remove(), 300);
     // reveal the answer(s) on the board
-    for (const id of ok) if (!zones.get(id)?.classList.contains('good')) mark(id, true);
+    for (const id of ok) if (!all || !zones.get(id)?.classList.contains('good')) mark(id, true); // all-mode picks are circled as they're tapped
     let coins = 0;
     if (right && firstTry) {
       score.right++;

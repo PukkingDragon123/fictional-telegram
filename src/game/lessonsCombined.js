@@ -38,7 +38,7 @@ export const COMBINED_LESSONS = {
       { cam: 'board', say: 'Small stuff pops in **instantly**. Big builds? The **beavers** build them.', expr: 'determined', sfx: 'class_bell', react: 'bang', tap: 'lodge',
         draw: [TITLE('BUILDER BEAVERS', 'blue'), D('flower', 26, 50, { scale: 2 }), T('POP!', 56, 48, { color: 'yellow' }), D('lodge', 116, 48, { scale: 2, id: 'lodge' }), D('beaver', 160, 54), D('hammer', 180, 46)] },
       { erase: true, say: 'But beavers only work when **PAID**. What do they want? **Tap it!**', expr: 'smug',
-        draw: [TITLE('BEAVER PAY', 'orange'), D('beaver', 30, 54, { scale: 2 }), D('coin', 82, 54, { scale: 2, id: 'coin' }), D('bowl', 128, 58, { scale: 2, id: 'food' }), D('carrot', 128, 40), D('gnome', 170, 54, { scale: 2, id: 'gnome' })],
+        draw: [TITLE('BEAVER PAY', 'orange'), D('beaver', 30, 54, { scale: 2 }), D('coin', 82, 54, { scale: 2, id: 'coin' }), D('bowl', 128, 58, { scale: 2, id: 'food' }), D('carrot', 128, 40, { id: 'food_l' }), D('gnome', 170, 54, { scale: 2, id: 'gnome' })],
         quiz: { id: 'pay', opts: ['coin', 'food', 'gnome'], ok: 'food', coins: 10,
           no: { coin: 'Coins? They\'re **beavers**! They eat their wages. Literally.', gnome: 'A garden gnome. As PAY. Bold strategy.' },
           yes: '**Food**, at their **Snack Bar**. No pay, no work!', show: [T('NO PAY, NO WORK!', 96, 86, { color: 'orange' })] } },

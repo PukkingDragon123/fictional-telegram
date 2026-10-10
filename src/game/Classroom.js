@@ -1007,7 +1007,7 @@ export class Classroom {
     if (!el) return;
     // [v26 class2] the quiz score
     const sc = this._score || { right: 0, total: 0, coins: 0 };
-    const sub = sc.total ? `${sc.right}/${sc.total} right first try${sc.coins ? ` &middot; +${sc.coins} coins` : ''}` : 'Gold star for you!';
+    const sub = sc.right ? `${sc.right}/${sc.total} right first try${sc.coins ? ` &middot; +${sc.coins} coins` : ''}` : 'Gold star for you!';
     el.innerHTML = `<canvas width="40" height="40"></canvas><b>${sc.total && sc.right === sc.total ? 'TOP OF THE CLASS!' : 'LESSON COMPLETE!'}</b><i>${sub}</i>`;
     drawGoldStar(el.querySelector('canvas'));
     el.classList.remove('hidden');
