@@ -35,7 +35,7 @@ def bed():
 
 
 # ---------------------------------------------------------------- desk
-@prop('desk_messy', 4, 'floor', 2072, 196, 'Messy writing desk: letters, open book, ink and quill, compass, magnifier, cold tea, plant')
+@prop('desk_messy', 4, 'floor', 2072, 196, 'Messy writing desk: letters, open book, ink and quill, compass, magnifier, plant')
 def desk():
     rng = random.Random(4100)
     w, h = 176, 108
@@ -81,8 +81,6 @@ def desk():
     cv.px(141, tf - 7, 'red3'); cv.px(140, tf - 6, 'stone0')
     cv.ellipse(158, tf - 6, 7, 3, 'gold1'); cv.ellipse(158, tf - 6, 5.5, 2, 'sky3')                # magnifier
     cv.line(164, tf - 4, 170, tf - 1, 'wood2'); cv.px(156, tf - 7, 'white')
-    cup = O.cup(14, 9, band='indigo2', tea=('wood1', 'wood2', 'wood3'), top=2)
-    cv.blit(cup, 150, tb - 10)
     plant = O.potted(rng, 14, 10, O.leafy_plant(rng, 22, 18))
     cv.blit(plant, w - plant.w - 2, tb - plant.h + 4)
     for _ in range(3):                    # sheets hanging over the front edge

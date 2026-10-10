@@ -185,6 +185,8 @@ Some props are exported but not placed by default, which keeps the counter and s
 
 - **Tea room:** the old glazed cabinet, the teaware shelf and the corkboard notes (receipts, an unpaid tab, a map scrap).
 - **Uncle Pong** (the elephant NPC, all his moods) and the white teapot in the seating room.
+- **All the tea:** the tea set (kyusu, chawan, chasen, natsume, chashaku), the yunomi tray and cups, the cup of tea and its steam, the tea jars on the apothecary chest, and the tea leaves on the cutting board and in the basket.
+- **Bedroom:** the indigo noren hanging at the top left.
 - **Cloth:** the indigo tenugui towel (prep table) and the seigaiha tea runner (tea counter), and the glass wind chime.
 - **Counter extras:** menu tent card, bud vase, dango plate, sugar pot, green-tea cup, service bell, incense burner, candle.
 - **Cook room:** the copper smoke hood, the kama pot, the iron kettle and their steam (for the furnace top, later). Also the long wall shelf, spare jars and tins, small sacks, scroll bundle, spare mortar, open jar, tea brick, torn sack and crate of jars.

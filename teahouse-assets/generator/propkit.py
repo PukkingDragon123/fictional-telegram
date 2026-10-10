@@ -7,13 +7,20 @@ from shapes import torn_paper, pin, wood_grain_h, wood_grain_v, chip
 PROPS = []
 
 
+# taken out of the default scene (still exported): no tea anywhere, no hanging noren in the bedroom
+UNPLACED = {'jar_green_tea', 'jar_dried_blossom', 'jar_hojicha', 'cutting_board_leaves', 'basket_fresh_leaves',
+            'teacup_black_tea', 'steam_cup', 'yunomi_matcha_seat', 'kyusu_teapot', 'chawan_matcha', 'chasen_whisk',
+            'natsume_caddy', 'chashaku_scoop', 'yunomi_tray', 'noren_doorway'}
+
+
 def prop(name, room, layer, x, y, desc, drag=True, fps=None, preview=True, shadow='auto', meta=None):
     """Register a prop. (x, y) = top-left of its default spot in the scene.
     layer: outside | wall | ceiling | npc | floor | counter | front.
     meta: extra data exported to scene.json (e.g. click interactions)."""
     def deco(fn):
         PROPS.append(dict(name=name, room=room, layer=layer, x=x, y=y, desc=desc,
-                          drag=drag, fps=fps, fn=fn, preview=preview, shadow=shadow, meta=meta))
+                          drag=drag, fps=fps, fn=fn, preview=preview and name not in UNPLACED, shadow=shadow,
+                          meta=meta))
         return fn
     return deco
 

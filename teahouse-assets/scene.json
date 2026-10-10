@@ -509,7 +509,7 @@
    "h": 38,
    "draggable": true,
    "desc": "Jar of green tea leaves",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/jar_green_tea.png"
   },
   {
@@ -522,7 +522,7 @@
    "h": 34,
    "draggable": true,
    "desc": "Jar of dried blossoms",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/jar_dried_blossom.png"
   },
   {
@@ -639,7 +639,7 @@
    "h": 40,
    "draggable": true,
    "desc": "Tall jar of hojicha",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/jar_hojicha.png"
   },
   {
@@ -691,7 +691,7 @@
    "h": 30,
    "draggable": true,
    "desc": "Thick hinoki cutting board: a heap of fresh tea leaves, chopped bits, a nakiri knife",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/cutting_board_leaves.png"
   },
   {
@@ -717,7 +717,7 @@
    "h": 54,
    "draggable": true,
    "desc": "Woven bamboo basket heaped with fresh-picked tea leaves",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room1/basket_fresh_leaves.png"
   },
   {
@@ -1012,7 +1012,7 @@
    "h": 41,
    "draggable": true,
    "desc": "Teacup of black tea on its saucer (Uncle Pong's)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room2/teacup_black_tea.png"
   },
   {
@@ -1025,7 +1025,7 @@
    "h": 32,
    "draggable": false,
    "desc": "Steam from the teacup (8 frames)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room2/steam_cup.png",
    "frames": 8,
    "fps": 7,
@@ -1067,7 +1067,7 @@
    "h": 35,
    "draggable": true,
    "desc": "Ribbed yunomi cup of matcha",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room2/yunomi_matcha_seat.png"
   },
   {
@@ -1405,7 +1405,7 @@
    "h": 48,
    "draggable": true,
    "desc": "Tokoname red-clay kyusu: squat round body, side handle, chipped lid",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/kyusu_teapot.png"
   },
   {
@@ -1418,7 +1418,7 @@
    "h": 33,
    "draggable": true,
    "desc": "Black raku tea bowl of frothy matcha, a glaze run on its side",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/chawan_matcha.png"
   },
   {
@@ -1431,7 +1431,7 @@
    "h": 39,
    "draggable": true,
    "desc": "Bamboo matcha whisk: node on the handle, a bulb of fine tines",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/chasen_whisk.png"
   },
   {
@@ -1444,7 +1444,7 @@
    "h": 32,
    "draggable": true,
    "desc": "Black lacquer natsume tea caddy with a gold maki-e pine bough",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/natsume_caddy.png"
   },
   {
@@ -1457,7 +1457,7 @@
    "h": 16,
    "draggable": true,
    "desc": "Bamboo tea scoop with its node and bent tip",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/chashaku_scoop.png"
   },
   {
@@ -1470,7 +1470,7 @@
    "h": 46,
    "draggable": true,
    "desc": "Lacquer tray with four ribbed yunomi: matcha, hojicha, sencha, water",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room3/yunomi_tray.png"
   },
   {
@@ -1637,7 +1637,7 @@
    "w": 178,
    "h": 116,
    "draggable": true,
-   "desc": "Messy writing desk: letters, open book, ink and quill, compass, magnifier, cold tea, plant",
+   "desc": "Messy writing desk: letters, open book, ink and quill, compass, magnifier, plant",
    "placed_by_default": true,
    "file": "props/room4/desk_messy.png"
   },
@@ -1903,7 +1903,7 @@
    "h": 100,
    "draggable": true,
    "desc": "Indigo noren over the bedroom doorway, swaying (3 simulated panels, 12 frames)",
-   "placed_by_default": true,
+   "placed_by_default": false,
    "file": "props/room4/noren_doorway.png",
    "frames": 12,
    "fps": 8,
