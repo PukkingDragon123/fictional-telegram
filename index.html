@@ -612,7 +612,16 @@
       document.documentElement.appendChild(im);
       return;
     }
-  } catch (e) { /* no still: paint */ }
+  } catch (e) { /* no still */ }
+  // the painted valley is only for ?title=valley; the default title is the 3D pond (a sunset backdrop until it is up)
+  if (!/title=valley/.test(location.search)) {
+    if (/autostart|title=/.test(location.search)) return;
+    var bd = document.createElement('div');
+    bd.id = 'tbme-paint';
+    bd.style.cssText = 'width:100vw;height:100vh;background:linear-gradient(#3a2f6a 0%,#8a4f86 34%,#e98a6e 52%,#ffc98a 60%,#5a3450 62%,#2e1e34 100%)';
+    document.documentElement.appendChild(bd);
+    return;
+  }
   try {
     var t0 = performance.now(), z = size(), L = paint(z.lw, z.lh), cv = document.createElement('canvas');
     cv.id = 'tbme-paint';

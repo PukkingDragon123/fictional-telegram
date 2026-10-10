@@ -32,6 +32,7 @@ import { fishCanvasFor, FISH_TPU } from './fishSprites.js';
 import { WATER_Y } from '../world/grid.js';
 import { FX } from './Particles.js';
 import { comicWordSize, paintComicWord } from '../ui/goofyText.js';
+import { natureCanvas } from '../art/natureArt.js';
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -64,6 +65,10 @@ uniform vec2 uSun;
 uniform float uPx;
 uniform float uTop;
 uniform float uNarrow;
+uniform sampler2D uFar;
+uniform sampler2D uNear;
+uniform vec3 uFarS; // world width, world height, texel height
+uniform vec3 uNearS;
 varying vec3 vL;
 float h11(float p) { p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
 float n11(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h11(i), h11(i + 1.0), f); }
@@ -214,25 +219,64 @@ void main() {
   float mist = n11(X * 0.35 + uTime * 0.04) * 0.6 + n11(X * 0.9 - uTime * 0.03 + 5.0) * 0.4;
   float mb = 1.0 - abs(Y - lift - 4.5 - (mist - 0.5) * 0.5) / (0.35 + mist * 0.4);
   if (mb + dith * 0.35 > 0.25) col = mix(col, vec3(1.0, 0.84, 0.7), 0.45 + glow * 0.25);
-  // far forest (rose-violet, hazy) and near forest (deep plum), backlit rims
-  float hf = 0.45 + 0.2 * n11(p.x * 0.3) + max(pines(p.x, 0.36, 0.35, 0.8, 3.0), crowns(p.x, 0.5, 0.3, 0.55, 8.0));
-  if (p.y < hf) {
-    vec3 fc2 = mix(vec3(0.62, 0.38, 0.52), vec3(0.76, 0.46, 0.52), glow);
-    if (p.y > hf - 0.05) fc2 = mix(fc2, vec3(1.0, 0.72, 0.5), 0.5 + glow * 0.5);
-    col = fc2;
+  // tree lines painted from the game's own tree sprites: a hazy far one and a darker near one
+  if (p.y < uFarS.y) {
+    vec2 uv = vec2(p.x / uFarS.x + 0.37, p.y / uFarS.y);
+    vec4 tf = texture2D(uFar, uv);
+    if (tf.a > 0.5) {
+      float l = dot(tf.rgb, vec3(0.3, 0.59, 0.11));
+      vec3 fc2 = mix(vec3(0.5, 0.3, 0.48), vec3(0.86, 0.56, 0.6), clamp(l * 2.2, 0.0, 1.0));
+      fc2 = mix(fc2, vec3(0.98, 0.72, 0.62), 0.32 + glow * 0.25); // aerial haze
+      if (texture2D(uFar, uv + vec2(0.0, uFarS.z)).a < 0.5) fc2 = mix(fc2, vec3(1.0, 0.76, 0.52), 0.55 + glow * 0.4);
+      col = fc2;
+    }
   }
-  float hn = 0.12 + 0.15 * n11(p.x * 0.5 + 11.0) + max(pines(p.x + 0.31, 0.3, 0.3, 0.95, 17.0), crowns(p.x + 0.1, 0.42, 0.25, 0.6, 21.0));
-  if (p.y < hn) {
-    vec3 nc = vec3(0.30, 0.17, 0.28);
-    if (p.y > hn - 0.04) nc = mix(nc, vec3(0.95, 0.55, 0.42), 0.35 + glow * 0.6);
-    float fx = floor(p.x / (uPx * 2.0)), fy = floor(p.y / (uPx * 2.0));
-    float tw = h11(fx * 3.7 + fy * 11.3);
-    if (tw > 0.996 && p.y < hn - 0.3) nc = vec3(1.4, 1.2, 0.5) * (0.6 + 0.4 * sin(uTime * 2.0 + tw * 90.0));
-    col = nc;
+  if (p.y < uNearS.y) {
+    vec2 uv = vec2(p.x / uNearS.x + 0.11, p.y / uNearS.y);
+    vec4 tn = texture2D(uNear, uv);
+    if (tn.a > 0.5) {
+      float l = dot(tn.rgb, vec3(0.3, 0.59, 0.11));
+      vec3 nc = mix(vec3(0.2, 0.11, 0.2), vec3(0.62, 0.36, 0.38), clamp(l * 1.8, 0.0, 1.0));
+      nc = mix(nc, vec3(0.9, 0.6, 0.55), 0.1 + glow * 0.12);
+      if (texture2D(uNear, uv + vec2(0.0, uNearS.z)).a < 0.5) nc = mix(nc, vec3(1.0, 0.62, 0.42), 0.45 + glow * 0.5);
+      float fx = floor(p.x / (uPx * 2.0)), fy = floor(p.y / (uPx * 2.0));
+      float tw = h11(fx * 3.7 + fy * 11.3);
+      if (tw > 0.997 && p.y < uNearS.y * 0.4) nc = vec3(1.4, 1.2, 0.5) * (0.6 + 0.4 * sin(uTime * 2.0 + tw * 90.0));
+      col = nc;
+    }
   }
   gl_FragColor = vec4(srgb(max(col, 0.0)), 1.0);
 }
 `;
+
+// ---------------------------------------------------------------- backdrop tree lines
+// A repeating strip of the world's real tree sprites (natureArt), packed tight
+// and overlapping, with a solid wood floor under them. The sky shader tints it.
+function treeLine({ W, H, units, base, seed, n, minH, maxH, kinds }) {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  let r = seed * 9301 + 49297;
+  const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  const pxU = H / units, floorY = Math.round(H - base * pxU);
+  const list = [];
+  for (let i = 0; i < n; i++) list.push({ x: (i + rnd() * 0.8) / n * W, h: minH + (maxH - minH) * rnd() * rnd() + (maxH - minH) * 0.3 * rnd(), k: kinds[Math.floor(rnd() * kinds.length)] });
+  list.sort((a, b) => b.h - a.h); // tall ones behind
+  for (const t of list) {
+    const sc = natureCanvas(t.k, 0, 1);
+    if (!sc || sc.width < 2) continue;
+    const h = Math.min(t.h, floorY), w = Math.round(sc.width * h / sc.height), y = floorY - h + Math.round(h * 0.06);
+    for (const dx of [0, -W, W]) g.drawImage(sc, Math.round(t.x - w / 2 + dx), y, w, h);
+  }
+  g.fillStyle = '#1e3a26';
+  g.fillRect(0, floorY, W, H - floorY);
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.wrapS = THREE.RepeatWrapping;
+  return { tex, wu: W / pxU };
+}
 
 // ---------------------------------------------------------------- comic word sprites
 const WORD_STYLE = {
@@ -410,7 +454,7 @@ export class TitleScene {
     for (const d of [this.deer, ...this.ducks]) d.dispose?.();
     game.scene.remove(this.group);
     this.group.traverse((o) => {
-      if (o === this.skyMesh) { o.geometry.dispose(); o.material.dispose(); }
+      if (o === this.skyMesh) { o.geometry.dispose(); o.material.dispose(); for (const t of this._treeTex || []) t.dispose(); }
     });
     this.fishMesh?.material?.map?.dispose?.();
     this.group = null;
@@ -470,6 +514,13 @@ export class TitleScene {
 
   _buildSky() {
     this.skyUniforms = { uTime: { value: 0 }, uSun: { value: new THREE.Vector2(-5.2, 3.6) }, uPx: { value: 0.03 }, uTop: { value: 3 }, uNarrow: { value: 1 } };
+    const far = treeLine({ W: 1024, H: 160, units: 1.5, base: 0.5, seed: 7, n: 70, minH: 46, maxH: 100, kinds: ['spruce_0', 'spruce_1', 'spruce_2', 'pine_0', 'pine_1', 'spruce_0'] });
+    const near = treeLine({ W: 1024, H: 160, units: 1.35, base: 0.2, seed: 19, n: 46, minH: 60, maxH: 150, kinds: ['spruce_0', 'spruce_1', 'pine_0', 'pine_1', 'birch_0', 'maple_orange', 'spruce_2', 'aspen_0'] });
+    this._treeTex = [far.tex, near.tex];
+    Object.assign(this.skyUniforms, {
+      uFar: { value: far.tex }, uFarS: { value: new THREE.Vector3(far.wu, 1.5, 1 / 160) },
+      uNear: { value: near.tex }, uNearS: { value: new THREE.Vector3(near.wu, 1.35, 1 / 160) },
+    });
     const geo = new THREE.PlaneGeometry(90, 40, 1, 1);
     geo.translate(0, 40 / 2 - 3, 0);
     const mat = new THREE.ShaderMaterial({ vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, uniforms: this.skyUniforms });
