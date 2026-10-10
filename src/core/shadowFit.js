@@ -177,7 +177,7 @@ export function fitShadowScissor(renderer, scene, cam) {
     if (wb === SPRITES) {
       const B = spriteCells(o);
       if (B === EMPTY) return;
-      if (!B) { bad = true; fitShadowScissor.unbounded = o; return; }
+      if (!B) { bad = true; fitShadowScissor.unbounded = o.name || o.type; return; }
       for (let j = 0; j < B.length; j += 7) {
         const sway = B[j + 6] * 0.2 * wind;
         _box.min.set(B[j] - sway, B[j + 1] - sway, B[j + 2] - sway);
@@ -186,7 +186,7 @@ export function fitShadowScissor(renderer, scene, cam) {
       }
       return;
     }
-    if (!wb) { bad = true; fitShadowScissor.unbounded = o; return; } // (debug aid: what forced a full pass)
+    if (!wb) { bad = true; fitShadowScissor.unbounded = o.name || o.type; return; } // (debug aid: what forced a full pass)
     addBox(_box);
   });
   if (bad) return null;
