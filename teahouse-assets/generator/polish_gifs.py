@@ -1,6 +1,6 @@
 """Long, smooth animated GIFs of whole rooms, for showing the scene off.
 
-    python3 teahouse-assets/generator/polish_gifs.py OUT_DIR
+    python3 teahouse-assets/generator/polish_gifs.py OUT_DIR [room names, e.g. bedroom]
 
 Each room is drawn at 2x (1280 x 720), 10 fps, with every layer and prop
 animating: the seating room runs 12 s so the leviathan breaches, the others
@@ -19,10 +19,12 @@ FPS = 10
 ROOMS = [('room1_cook_room', 0, 6.0), ('room2_seating_room', LY.SW, 12.0), ('room4_bedroom', 3 * LY.SW, 6.0)]
 
 
-def main(out):
+def main(out, only=None):
     os.makedirs(out, exist_ok=True)
     sc = build.Scene()
     for name, cam, dur in ROOMS:
+        if only and not any(o in name for o in only):
+            continue
         frames = [sc.view(k / FPS, cam).image(2).convert('RGB') for k in range(int(dur * FPS))]
         # one palette from a strip of frames spread through the loop
         picks = frames[::max(1, len(frames) // 8)]
@@ -37,4 +39,4 @@ def main(out):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'polish'))
+    main(sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', 'polish'), sys.argv[2:])

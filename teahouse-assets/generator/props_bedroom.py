@@ -24,6 +24,65 @@ def cached(key, fn):
     return _CACHE[key]
 
 
+# ---------------------------------------------------------------- rug (drawn first: everything stands on it)
+@prop('woven_rug', 4, 'floor', 2030, 306, 'Old woven rug in perspective: faded madder field, indigo border bands, a '
+      'lozenge medallion, wool texture, a worn path, a soft fold, frayed fringe', shadow='none')
+def woven_rug():
+    rng = random.Random(306)
+    w, h = 270, 46
+    cv = Canvas(w, h)
+    for y in range(h - 4):
+        t = y / (h - 5)                                    # 0 back edge .. 1 front edge
+        half = 112 + 23 * t                                # the back edge is narrower: perspective
+        cx = w / 2
+        for x in range(int(cx - half), int(cx + half) + 1):
+            u = (x - (cx - half)) / (2 * half)             # 0..1 across
+            v = t
+            bu, bv = min(u, 1 - u), min(v, 1 - v) * (2 * half / (h - 4)) * 0.18
+            b = min(bu * 2 * half / 2, min(v, 1 - v) * (h - 4) * 2.4)
+            if b < 2:
+                c = 'indigo0'
+            elif b < 7:
+                c = 'indigo2' if (int(x * 0.5) + y) % 6 else 'paper3'
+            elif b < 9:
+                c = 'paper3'
+            elif b < 13:
+                c = 'red0' if (x // 3 + y) % 4 == 0 else 'indigo1'
+            else:
+                du, dv = abs(u - 0.5) * 2, abs(v - 0.5) * 2
+                lz = du * 1.0 + dv * 1.0
+                if lz < 0.28:
+                    c = 'jade2' if lz < 0.14 else 'gold2'
+                elif lz < 0.34:
+                    c = 'paper3'
+                elif lz < 0.42:
+                    c = 'indigo1'
+                else:
+                    c = 'red2' if ((x // 6 + y // 3) % 2) else 'red1'
+                    if (abs(((x - cx) * 0.11 + y * 0.6) % 9 - 4.5) < 0.6):
+                        c = 'red3'                         # diagonal hooks in the field
+            # wool texture: a weave of slightly darker rows and the odd slub
+            col = PAL[c]
+            if (x + y) % 2 == 0 and y % 2 == 0:
+                col = step(col, -1)
+            if rng.random() < 0.04:
+                col = step(col, 1)
+            # faded where feet have worn a path, and a soft fold across
+            if abs(u - 0.62 - 0.1 * (v - 0.5)) < 0.12 and rng.random() < 0.55:
+                col = step(col, 1)
+            fold = (u - 0.3) - (v - 0.5) * 0.4
+            if 0.0 < fold < 0.025:
+                col = step(col, 1)
+            elif 0.025 <= fold < 0.05:
+                col = step(col, -1)
+            cv.px(x, y, col)
+    for x in range(int(w / 2 - 135), int(w / 2 + 136), 2):    # frayed fringe along the front
+        ln = 2 + (x * 7) % 3
+        for k in range(ln):
+            cv.px(x, h - 4 + k, 'paper3' if k < ln - 1 else 'paper1')
+    return cv
+
+
 # ---------------------------------------------------------------- bed
 @prop('silk_bed', 4, 'floor', 2250, 186,
       'Low lacquered bed with a torii-style headboard and brass fittings: a crimson silk quilt embroidered with '
@@ -232,22 +291,6 @@ def bookshelf():
 
 
 # ---------------------------------------------------------------- wall things
-@prop('straw_kasa_hat', 4, 'wall', 2296, 70, 'Woven straw kasa hat on a peg')
-def hat():
-    cv = Canvas(58, 24)
-    cv.px(29, 0, 'wood1'); cv.px(29, 1, 'wood2')
-    cv.poly([(1, 20), (29, 2), (57, 20)], 'gold2')
-    for k in range(4, 21, 3):
-        cv.line(29 - k * 1.45, 2 + k * 0.9, 29 + k * 1.45, 2 + k * 0.9, 'gold1')
-    for a in range(-60, 61, 8):
-        cv.line(29, 2, 29 + math.tan(math.radians(a)) * 18, 20, 'gold3' if a < 0 else 'gold1')
-    cv.line(1, 20, 29, 2, 'gold4')
-    cv.hline(1, 57, 20, 'gold0'); cv.hline(3, 55, 21, 'gold1')
-    cv.line(18, 21, 14, 24, 'red3'); cv.line(40, 21, 44, 24, 'red3')
-    cv.px(40, 13, None); cv.px(41, 14, 'gold0'); cv.px(39, 14, 'gold0')
-    return O.outline(cv)
-
-
 @prop('route_map', 4, 'wall', 2330, 66, 'Old route map pinned to the plaster: coast, mountains, dotted path, compass rose', preview=False)
 def route_map():
     rng = random.Random(4400)
@@ -335,78 +378,6 @@ def staff():
 
 
 # ---------------------------------------------------------------- floor things
-@prop('worn_rug', 4, 'floor', 1996, 302, 'Worn woven rug in perspective: border, medallion, frayed fringe, burn hole', shadow='none', preview=False)
-def rug():
-    w, h = 244, 48
-    cv = Canvas(w, h)
-    for y in range(h):
-        t = y / (h - 1)
-        inset_ = int((1 - t) * 18)
-        for x in range(inset_, w - inset_):
-            u = (x - inset_) / (w - 2 * inset_)
-            border = t < 0.12 or t > 0.88 or u < 0.05 or u > 0.95
-            inner = 0.18 < t < 0.82 and 0.09 < u < 0.91
-            c = 'red2'
-            if border:
-                c = 'indigo1' if (int(u * 60) + int(t * 10)) % 3 else 'gold2'
-            elif inner:
-                c = 'red3' if (int(u * 24) + int(t * 8)) % 2 else 'red2'
-                du, dt = (u - 0.5) * 2.2, (t - 0.5) * 2.4
-                if abs(du) + abs(dt) < 0.55:
-                    c = 'jade2' if abs(du) + abs(dt) < 0.4 else 'gold2'
-                if abs(du) + abs(dt) < 0.15:
-                    c = 'paper3'
-            cv.px(x, y, c)
-    for x in range(4, w - 4, 3):
-        cv.px(x, h - 1, 'paper2'); cv.px(x, h - 2, 'paper3')
-    for y in range(h):
-        for x in range(w):
-            if cv.opaque(x, y) and (x * 7 + y * 13) % 29 == 0:
-                cv.shift(x, y, 1)
-    cv.ellipse(176, 30, 6, 2.6, 'ink')
-    for a in range(0, 360, 10):
-        cv.px(int(176 + math.cos(math.radians(a)) * 7), int(30 + math.sin(math.radians(a)) * 3.4), 'wood1')
-    return O.outline(cv)
-
-
-@prop('backpack', 4, 'floor', 2250, 288, 'Traveler pack: bedroll, tin cup, small lantern, buckles', preview=False)
-def backpack():
-    rng = random.Random(4500)
-    w, h = 52, 52
-    cv = Canvas(w, h)
-    bm = poly_mask(w, h, [(8, 14), (44, 14), (47, 50), (5, 50)])
-    paint(bm, ['wood1', 'wood2', 'wood3', 'wood4'], profile='soft', R=10, canvas=cv)
-    flap = poly_mask(w, h, [(7, 14), (45, 14), (43, 30), (9, 30)])
-    paint(flap, ['wood2', 'wood3', 'wood4', 'wood5'], profile='soft', R=6, canvas=cv)
-    for x in (16, 34):
-        cv.vline(x, 14, 40, 'wood1'); cv.rect(x - 2, 34, 5, 4, 'gold2'); cv.px(x - 2, 34, 'gold4')
-    roll = Canvas(46, 14)
-    for yy in range(14):
-        roll.hline(0, 45, yy, ['red4', 'red3', 'red3', 'red2', 'red2', 'red2', 'red2', 'red1', 'red1', 'red1', 'red0',
-                               'red0', 'red0', 'red0'][yy])
-    roll.ellipse(2, 7, 3, 6.5, 'red3'); roll.ellipse(2, 7, 1.5, 3.5, 'red1')
-    roll.vline(12, 0, 13, 'wood1'); roll.vline(34, 0, 13, 'wood1')
-    cv.blit(roll, 4, 1)
-    cupm = ellipse_mask(10, 10, 5, 5, 5, 5)
-    paint(cupm, O.IRON, R=4, spec=0.1, canvas=cv, ox=w - 10, oy=30)
-    cv.rect(0, 30, 7, 12, 'gold1'); cv.rect(1, 32, 5, 7, 'fire4'); cv.px(2, 33, 'fire5')
-    cv.vline(3, 26, 30, 'stone2')
-    return O.outline(cv)
-
-
-@prop('boots', 4, 'floor', 2468, 322, 'Muddy boots, one fallen over', preview=False)
-def boots():
-    cv = Canvas(40, 22)
-    b1 = poly_mask(40, 22, [(4, 0), (13, 0), (14, 14), (20, 15), (20, 21), (3, 21)])
-    paint(b1, ['wood0', 'wood1', 'wood2', 'wood3'], profile='soft', R=5, canvas=cv)
-    b2 = poly_mask(40, 22, [(22, 12), (36, 9), (39, 13), (39, 21), (22, 21)])
-    paint(b2, ['wood0', 'wood1', 'wood2', 'wood3'], profile='soft', R=4, canvas=cv)
-    for (x, y) in ((6, 19), (11, 18), (16, 20), (26, 20), (33, 19)):
-        cv.px(x, y, 'stone1'); cv.px(x + 1, y, 'stone2')
-    cv.hline(4, 13, 3, 'wood3')
-    return O.outline(cv)
-
-
 @prop('book_pile', 4, 'floor', 2204, 302, 'Pile of books on the floor', preview=False)
 def book_pile():
     rng = random.Random(4600)

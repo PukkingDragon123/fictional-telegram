@@ -562,6 +562,176 @@ def _plaster(cv, rng, x0, x1):
     WG.grain_pass(cv, x0, y0 + 1, x1, y1 - 1, 'h', seed=x0 * 0.01 + 2, board=y1 - y0, contrast=0.8)
 
 
+# ---------------------------------------------------------------- the traveler's bedroom wall
+WAIN4 = 196                        # bedroom: top of the cedar wainscot
+
+
+def _noise2(x, y, s):
+    return WG.noise2(x, y, s)
+
+
+def _bedroom_wall(cv, rng, x0, x1):
+    """Structure of the bedroom's back wall: tie rail, posts, a cedar-board
+    wainscot with its rail and skirting; the plaster is laid flat here and
+    given its texture, stains and broken patches by _bedroom_plaster()."""
+    y0, y1 = WALL_TOP, BASE[0]
+    cv.rect(x0, y0, x1 - x0, WAIN4 - y0, 'paper2')
+    # cedar wainscot: vertical boards, each its own tone, grain, nail heads
+    bx = x0
+    while bx < x1:
+        bw = rng.randint(12, 17)
+        tone = rng.choice((2, 2, 3, 1))
+        cv.rect(bx, WAIN4 + 4, min(bw, x1 - bx), y1 - WAIN4 - 4, 'wood%d' % tone)
+        cv.vline(bx, WAIN4 + 4, y1 - 1, 'wood0')
+        if bx + 1 < x1:
+            cv.vline(bx + 1, WAIN4 + 4, y1 - 1, 'wood%d' % min(4, tone + 1))
+        for ny in (WAIN4 + 9, y1 - 6):
+            cv.px(bx + bw // 2, ny, 'stone2'); cv.px(bx + bw // 2 + 1, ny + 1, 'wood0')
+        bx += bw
+    WG.grain_pass(cv, x0, WAIN4 + 4, x1, y1, 'v', seed=41.0, board=15, ramps=('wood',), contrast=1.1)
+    # wainscot rail
+    cv.rect(x0, WAIN4, x1 - x0, 4, 'wood1')
+    cv.hline(x0, x1 - 1, WAIN4, 'wood3'); cv.hline(x0, x1 - 1, WAIN4 + 3, 'wood0')
+    cv.hline(x0, x1 - 1, WAIN4 - 1, 'paper0')
+    # posts, with a chamfer catching the light
+    for px_ in (x0 + 4, (x0 + x1) // 2, x1 - 5):
+        cv.rect(px_ - 4, y0, 9, y1 - y0, 'wood1')
+        cv.vline(px_ - 4, y0, y1 - 1, 'wood3'); cv.vline(px_ - 3, y0, y1 - 1, 'wood2')
+        cv.vline(px_ + 4, y0, y1 - 1, 'wood0')
+        cv.vline(px_ + 5, y0, WAIN4 - 1, 'paper0')                    # shadow the post throws on the plaster
+    WG.grain_pass(cv, x0, y0, x1, y1, 'v', seed=43.0, board=9, ramps=('wood',), contrast=0.8)
+    ry = 60                                                             # tie rail (nageshi)
+    cv.rect(x0, ry, x1 - x0, 8, 'wood2')
+    cv.hline(x0, x1 - 1, ry, 'wood3'); cv.hline(x0, x1 - 1, ry + 7, 'wood0'); cv.hline(x0, x1 - 1, ry + 8, 'paper0')
+    WG.grain_pass(cv, x0, ry + 1, x1, ry + 7, 'h', seed=44.0, board=6, ramps=('wood',))
+    y0, y1 = BASE
+    cv.rect(x0, y0, x1 - x0, y1 - y0, 'wood1')
+    cv.hline(x0, x1 - 1, y0, 'wood3'); cv.hline(x0, x1 - 1, y1 - 1, 'wood0')
+    WG.grain_pass(cv, x0, y0 + 1, x1, y1 - 1, 'h', seed=x0 * 0.01 + 2, board=y1 - y0, contrast=0.8)
+
+
+def _plaster_layers(cv, rng, x, y, w, h):
+    """A hole where the plaster has fallen: the broken crust (lit on top, shadow
+    underneath), the rough straw-and-clay coat, and in the middle the woven
+    bamboo lath (komai) tied with cord, dark gaps between."""
+    m = blob_mask(rng, w, h, n=8, rmin=min(w, h) * 0.2, rmax=min(w, h) * 0.44)
+    inner = m.copy()
+    for _ in range(3):
+        inner = inner & np.roll(inner, 1, 0) & np.roll(inner, -1, 0) & np.roll(inner, 1, 1) & np.roll(inner, -1, 1)
+    core = inner.copy()
+    for _ in range(3):
+        core = core & np.roll(core, 1, 0) & np.roll(core, -1, 0) & np.roll(core, 1, 1) & np.roll(core, -1, 1)
+    for yy in range(h):
+        for xx in range(w):
+            if not m[yy, xx]:
+                continue
+            X, Y = x + xx, y + yy
+            n = _hash(X, Y, 5) % 100
+            c = 'copper1' if n < 30 else ('wood2' if n < 70 else 'paper0')          # straw-and-clay coat
+            if n > 93:
+                c = 'gold2'                                                       # straw
+            if core[yy, xx]:
+                vx, hy = (X - x) % 5, (Y - y) % 6
+                c = 'ink' if (vx > 1 and hy > 1) else c
+                if vx <= 1:                                                       # vertical bamboo
+                    c = ('gold2', 'gold1')[vx]
+                    if (Y - y) % 11 == 0:
+                        c = 'wood2'                                               # bamboo node
+                if hy <= 1 and vx > 1:                                            # horizontal bamboo, woven
+                    over = ((X - x) // 5 + (Y - y) // 6) % 2 == 0
+                    c = ('gold3' if over else 'gold1') if hy == 0 else 'wood1'
+                if (vx > 1 and hy > 1) and n > 55:
+                    c = 'copper0'                                                 # clay squeezed through
+                if n < 6:
+                    c = 'paper1'                                                  # cord
+            elif inner[yy, xx] and ((X + Y) % 3 == 0):
+                c = 'copper0' if n < 50 else 'wood1'
+            cv.px(X, Y, c)
+    for yy in range(h):
+        for xx in range(w):
+            if m[yy, xx]:
+                continue
+            up = yy + 1 < h and m[yy + 1, xx]
+            left = xx + 1 < w and m[yy, xx + 1]
+            down = yy > 0 and m[yy - 1, xx]
+            right = xx > 0 and m[yy, xx - 1]
+            if up or left:
+                cv.px(x + xx, y + yy, 'paper4')                                   # broken crust, lit
+                if yy + 2 < h and m[yy + 2, xx]:
+                    cv.px(x + xx, y + yy + 1, 'paper3')
+            elif down or right:
+                cv.px(x + xx, y + yy, 'paper0')
+    # the hole's own shadow on its lower inner edge
+    for yy in range(1, h):
+        for xx in range(1, w):
+            if m[yy, xx] and not m[yy - 1, xx]:
+                cv.px(x + xx, y + yy, 'wood0')
+                if yy + 1 < h and m[yy + 1, xx]:
+                    cv.px(x + xx, y + yy + 1, 'wood1')
+    for _ in range(6):                                                            # crumbs on the rail below
+        fx = x + rng.randint(0, w)
+        cv.px(fx, WAIN4 - 1, 'paper3'); cv.px(fx + 1, WAIN4 - 1, 'paper1')
+
+
+def _bedroom_plaster(cv, rng):
+    """Texture for all of the bedroom's plaster (back and side walls), run after
+    the speck clean-up so it survives: soft mottling, soot under the rail and
+    by the posts, water stains with tide lines, hairline cracks, nail holes,
+    and holes showing the layers of the wall."""
+    x0, x1 = 3 * SW, 4 * SW
+    a = cv.a[:, x0:x1]
+    rgb = a[..., :3]
+    plaster = np.zeros(a.shape[:2], bool)
+    for c in ('paper1', 'paper2', 'paper3'):
+        p = PAL[c]
+        plaster |= (rgb[..., 0] == p[0]) & (rgb[..., 1] == p[1]) & (rgb[..., 2] == p[2])
+    plaster[:WALL_TOP] = False
+    plaster[FLOOR:] = False
+    yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]].astype(float)
+    n = 0.55 * _noise2(xx / 38.0, yy / 30.0, 3.0) + 0.3 * _noise2(xx / 11.0, yy / 9.0, 7.0) + \
+        0.15 * _noise2(xx / 3.0, yy / 3.0, 9.0)
+    th = (np.array(BAYER4)[yy.astype(int) % 4, xx.astype(int) % 4] / 16.0 - 0.47) * 0.09
+    v = n + th
+    v -= 0.2 * np.clip(1 - (yy - 69) / 16.0, 0, 1)                      # soot under the tie rail
+    v -= 0.08 * np.clip((yy - 160) / 36.0, 0, 1)                        # grime toward the floor
+    lvl = np.where(v < 0.3, 1, np.where(v < 0.7, 2, 3))
+    for k, c in ((1, 'paper1'), (2, 'paper2'), (3, 'paper3')):
+        a[plaster & (lvl == k)] = (*PAL[c], 255)
+    sh_ = plaster & (v < 0.12)
+    a[sh_] = (*PAL['paper0'], 255)
+    # water stains running down from the rail, each with a tide line
+    for (sx, ln, w0) in ((70, 96, 9), (222, 60, 7), (402, 120, 11), (520, 70, 8)):
+        X = x0 + BX + sx
+        off = 0.0
+        last = None
+        for k in range(ln):
+            off += rng.uniform(-0.4, 0.4)
+            ww = w0 * (1 - 0.6 * (k / ln) ** 2) + 1.5 * math.sin(k * 0.21)
+            for d in range(int(-ww / 2), int(ww / 2) + 1):
+                px_, py_ = int(X + off + d) - x0, 69 + k
+                if 0 <= px_ < SW and plaster[py_, px_] and (d + k) % 2 == 0:
+                    a[py_, px_, :3] = step(tuple(int(t) for t in a[py_, px_, :3]), -1)
+            last = (int(X + off), 69 + ln, ww)
+        cx, cy, ww = last
+        for d in range(int(-ww / 2) - 1, int(ww / 2) + 2):                  # tide line
+            yb = cy + int(1.2 * math.sin(d * 0.8))
+            px_ = cx + d - x0
+            if 0 <= px_ < SW and 0 <= yb < a.shape[0] and plaster[yb, px_]:
+                a[yb, px_] = (*PAL['paper0'], 255)
+    sub = Canvas(SW, a.shape[0])
+    sub.a = a.copy()
+    for _ in range(8):                                                      # hairline cracks
+        crack(sub, rng, rng.randint(BX + 20, SW - BX - 20), rng.randint(74, 180), rng.randint(14, 40),
+              'paper0', 'paper3', dirx=rng.uniform(-0.7, 0.7), branch=0.15)
+    for (hx, hy) in ((BX + 150, 96), (BX + 300, 84), (BX + 470, 110), (BX + 520, 150)):   # nail holes, a rusty nail
+        sub.px(hx, hy, 'wood0'); sub.px(hx + 1, hy, 'paper0')
+    sub.px(BX + 300, 83, 'stone2'); sub.vline(BX + 300, 85, 98, 'copper1')
+    for (px_, py_, pw, ph) in ((BX + 22, 138, 44, 46), (BX + 452, 146, 58, 40), (BX + 318, 74, 40, 24)):
+        _plaster_layers(sub, rng, px_, py_, pw, ph)
+    a[plaster] = sub.a[plaster]                                             # only ever on the plaster
+    cv.a[:, x0:x1] = a
+
+
 def _girder(cv, x0, x1):
     """Beam along the top of the back wall that the rafters rest on."""
     y0, y1 = CEIL_Y, WALL_TOP
@@ -829,7 +999,7 @@ def build_shell(seed=7):
             _rail_wains_base(cv, rng, bx0, bx1, ri)
             _age_wainscot(cv, rng, bx0, bx1)
         else:
-            _plaster(cv, rng, bx0, bx1)
+            _bedroom_wall(cv, rng, bx0, bx1)
         _girder(cv, bx0, bx1)
         _corner_post(cv, bx0, 1)
         _corner_post(cv, bx1 - 1, -1)
@@ -886,6 +1056,7 @@ def build_shell(seed=7):
     WG.grain_pass(cv, WIN_MAIN['x'] - 18, sy + 1, WIN_MAIN['x'] + WIN_MAIN['w'] + 18, sy + 9, 'h', seed=11.0, board=8)
     WG.grain_pass(cv, WIN_BELL['cx'] - WIN_BELL['hw'] - 14, WIN_BELL['bottom'] + 1,
                   WIN_BELL['cx'] + WIN_BELL['hw'] + 14, WIN_BELL['bottom'] + 6, 'h', seed=13.0, board=6)
+    _bedroom_plaster(cv, random.Random(seed + 77))
     _moss(cv, M, random.Random(seed + 101))
     return cv
 

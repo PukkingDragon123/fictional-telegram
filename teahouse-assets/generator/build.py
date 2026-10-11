@@ -33,6 +33,7 @@ import props_cook                                          # noqa: E402,F401
 import props_seating                                       # noqa: E402,F401
 import props_ritual                                        # noqa: E402,F401
 import props_bedroom                                       # noqa: E402,F401
+import props_traveler                                      # noqa: E402,F401
 import cloth_props                                         # noqa: E402,F401
 import npc                                                 # noqa: E402,F401
 import dragon

@@ -2,8 +2,7 @@
 
 The flame body is a teardrop field broken up by noise that rises through
 it; the noise uses whole-number temporal frequencies so every animation
-loops perfectly. Big round eyes, a mouth with three openings (closed smile,
-small 'o', wide open), blinking, a wobbling pair of flame arms, rising
+loops perfectly. Big round eyes, a toothless wobbly mouth that sucks at the air, blinking, a wobbling pair of flame arms, rising
 sparks. Animations: idle, talk, happy - each FF frames."""
 import math
 import random
@@ -108,95 +107,51 @@ TALK = [0.0, 0.5, 1.0, 0.6, 0.2, 1.0, 0.8, 0.35, 0.0, 0.6, 1.0, 0.45]
 IDLE = [0.0, 0.0, 0.0, 0.15, 0.3, 0.2, 0.05, 0.0, 0.0, 0.0, 0.12, 0.0]
 HAPPY = [0.7, 0.75, 0.8, 0.75, 0.7, 0.72, 0.78, 0.82, 0.78, 0.72, 0.7, 0.68]
 
-# uneven, hand-drawn teeth (fixed for every frame): (width, length)
-_TR = random.Random(9)
-UPPER = [(_TR.choice((3, 3, 4, 4, 5)), _TR.uniform(0.7, 1.25)) for _ in range(9)]
-LOWER = [(_TR.choice((3, 4, 4, 5)), _TR.uniform(0.6, 1.15)) for _ in range(8)]
-
-
-def _tooth(cv, x, y, w, ln, down):
-    """One sharp, slightly crooked tooth: lit left face, shaded right face,
-    dark outline - drawn like a hand-placed cluster, not a perfect wedge."""
-    lean = 1 if (x * 7) % 5 == 0 else (0 if (x * 3) % 4 else -1)
-    for k in range(ln):
-        t = k / max(1, ln - 1)
-        half = (w / 2) * (1 - t) + 0.3
-        cxk = x + lean * t
-        yy = y + k if down else y - k
-        for xx in range(int(round(cxk - half)), int(round(cxk + half)) + 1):
-            c = 'white' if xx < cxk - half * 0.2 else ('paper3' if xx < cxk + half * 0.5 else 'paper2')
-            if k == 0:
-                c = 'paper2' if down else 'paper3'      # root sits in the gum shadow
-            cv.px(xx, yy, c)
-    tip_y = y + ln if down else y - ln
-    cv.px(int(round(x + lean)), tip_y, 'fire0')
-
-
 def _mouth(cv, f, mood, cx, my):
-    """A wide, jagged maw full of teeth. Openness o in 0..1."""
+    """A toothless, wobbly, organic mouth that sucks at the air: a soft opening
+    whose rim ripples all the way round (two travelling waves, whole-number
+    frequencies so it loops), a dark throat glowing red inside, glowing lips,
+    pucker creases when it pinches small, and sparks drawn into it."""
     o = {'idle': IDLE, 'talk': TALK, 'happy': HAPPY}[mood][f]
-    half = 15 if mood != 'happy' else 17
-    curl = 3.5 if mood != 'happy' else 6.0
-    top, bot = {}, {}
-    for x in range(cx - half, cx + half + 1):
-        u = (x - cx) / half
-        smile = -curl * u * u
-        top[x] = my + smile - o * 5 * (1 - u * u)
-        bot[x] = my + smile + 2 + o * 11 * (1 - u * u) ** 0.8
-    if o < 0.12:
-        # closed: a tight band of interlocking pointed teeth between dark lips
-        for x in range(cx - half, cx + half + 1):
-            m = int(round(top[x])) + 1
-            edge = abs(x - cx) > half - 2
-            for y in range(m - 2, m + 3):
-                cv.px(x, y, 'fire0' if edge else ('white' if y < m else 'paper3'))
-            cv.px(x, m - 3, 'fire0'); cv.px(x, m + 3, 'fire0')
-            cv.px(x, m - 4, 'fire1'); cv.px(x, m + 4, 'fire1')
-            zig = m + (1 if (x // 3) % 2 else -1) * (1 if x % 3 else 0)
-            cv.px(x, zig, 'fire0')
-            if (x + 1) % 3 == 0:
-                cv.px(x, zig + (1 if (x // 3) % 2 else -1), 'paper2')
-        return
-    # lips: the dark rim of the mouth
-    for x in range(cx - half, cx + half + 1):
-        yt, yb = int(round(top[x])), int(round(bot[x]))
-        for y in range(yt, yb + 1):
-            depth = (y - yt) / max(1, yb - yt)
-            c = 'fire0'
-            if o > 0.25 and 0.25 < depth < 0.85 and abs(x - cx) < half - 3:
-                c = 'ink'                                    # throat
-            cv.px(x, y, c)
-        cv.px(x, yt - 1, 'fire1'); cv.px(x, yb + 1, 'fire1')  # hot glowing lip edge
-    if o > 0.45:                                             # tongue
-        ty = int(round(bot[cx])) - 3
-        for x in range(cx - 6, cx + 7):
-            u = (x - cx) / 6
-            for y in range(int(ty + 2 - 3 * (1 - u * u)), ty + 2):
-                cv.px(x, y, 'red3' if x < cx + 2 else 'red2')
-        cv.px(cx - 2, ty - 1, 'red4'); cv.vline(cx, ty - 1, ty + 1, 'red1')
-    # teeth along both jaws (they interlock into a zigzag when closed)
-    span = 2 * half - 4
-    x = cx - half + 3
-    for (w, ln) in UPPER:
-        if x > cx + half - 3:
-            break
-        u = (x - cx) / half
-        L = max(2, int(round((3 + 3 * (1 - abs(u))) * ln * (0.6 + 0.4 * (o > 0.1)))))
-        _tooth(cv, x, int(round(top[x])) + 1, w, L, True)
-        x += w + (0 if w > 3 else 1)
-    x = cx - half + 5
-    for (w, ln) in LOWER:
-        if x > cx + half - 4:
-            break
-        u = (x - cx) / half
-        L = max(2, int(round((2.5 + 2.5 * (1 - abs(u))) * ln)))
-        _tooth(cv, x, int(round(bot[x])) - 1, w, L, False)
-        x += w + 1
-    # fangs at the corners when it grins
-    if mood == 'happy' or o > 0.7:
-        for side in (-1, 1):
-            fx = cx + side * (half - 4)
-            _tooth(cv, fx, int(round(top[fx])) + 1, 4, 7, True)
+    t = 2 * math.pi * f / FF
+    suck = 0.5 + 0.5 * math.sin(t * (2 if mood == 'idle' else 1))           # it purses and opens
+    pucker = (1 - o) * suck if mood != 'happy' else 0.0
+    rx = (4 + 6 * o + 2 * (mood == 'happy')) * (1 - 0.45 * pucker) + 2.5
+    ry = 2.0 + 5.0 * o + 1.4 * pucker
+    curl = 4.0 if mood == 'happy' else 0.0
+    for y in range(int(my - ry * 1.6 - curl - 3), int(my + ry * 1.6 + 4)):
+        for x in range(int(cx - rx * 1.5 - 2), int(cx + rx * 1.5 + 3)):
+            dx = x + 0.5 - cx
+            u = dx / max(1.0, rx)
+            dy = y + 0.5 - my + curl * u * u
+            ang = math.atan2(dy, dx)
+            wob = 1 + 0.16 * math.sin(3 * ang + t) + 0.09 * math.sin(5 * ang - 2 * t) + 0.05 * math.sin(7 * ang + 3 * t)
+            d = math.hypot(dx / rx, dy / ry) / wob
+            if d < 1.0:
+                c = 'ink' if d < 0.5 else ('red0' if d < 0.78 else 'fire0')         # throat, glowing red
+                if d < 0.3 and o > 0.5:
+                    c = 'red1'                                                    # the hot glow deep inside
+                cv.px(x, y, c)
+            elif d < 1.28:
+                c = 'fire2' if dy < 0 else 'fire1'                                # lips, lit along the top
+                if d < 1.12 and dy < 0:
+                    c = 'fire3'
+                cv.px(x, y, c)
+    if pucker > 0.35:                                                             # pucker creases round the lips
+        for k in range(8):
+            a = 2 * math.pi * k / 8 + 0.2 * math.sin(t + k)
+            for r in (1.4, 1.6):
+                x = cx + math.cos(a) * rx * r
+                y = my + math.sin(a) * ry * r * 1.2
+                cv.px(int(x), int(y), 'fire1')
+    if mood != 'happy':                                                           # sparks sucked in
+        for k in range(5):
+            ph = (f / FF + k / 5.0) % 1
+            a = 2 * math.pi * k / 5 + 0.7
+            r = (1 - ph) * 16 + rx
+            x = cx + math.cos(a) * r
+            y = my + math.sin(a) * r * 0.6
+            cv.px(int(x), int(y), 'fire5' if ph < 0.5 else 'fire4')
 
 
 def frame(f, mood='idle'):

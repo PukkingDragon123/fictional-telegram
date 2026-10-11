@@ -194,6 +194,21 @@ POSE_IN = (1.24, math.radians(-52), (54.0, 84.0))      # leaning in: head closer
 
 
 YAW = 0.0                                 # head turned toward the viewer (radians)
+HORN_NEAR = [(58, 64), (60, 57), (65, 52.5), (72, 51.5), (79, 53), (84, 57), (86.5, 63), (87, 69)]
+HORN_FAR = [(63.5, 63), (66, 56.5), (70.5, 52.5), (77, 51), (83.5, 52.5), (88, 56.5), (90.5, 62), (91, 68)]
+EAR = [(62, 68.5), (71, 70), (80, 74.5), (86.5, 81), (89, 86.5), (85, 87), (77, 83), (69, 78.5), (63, 76)]
+EAR_IN = [(66, 72), (74, 73.8), (81, 78), (85.5, 83.5), (80.5, 82.5), (73, 78.6), (66.5, 75.5)]
+EAR_BASE = (62.5, 70.0)
+EAR_RINGS = [(76.5, 81.5), (83.5, 85.5)]                       # hoops along the ear's lower edge (resting coords)
+EAR_STUD = (73, 71.5)
+
+
+def ear_rot(pts, ear):
+    """Turn resting-pose ear points about the ear's root (ear > 0 lifts it)."""
+    ang = -ear * math.radians(16)
+    c, s_ = math.cos(ang), math.sin(ang)
+    bx, by = EAR_BASE
+    return [(bx + (x - bx) * c - (y - by) * s_, by + (x - bx) * s_ + (y - by) * c) for x, y in pts]
 
 
 def set_pose(lean, yaw=0.0):
@@ -302,10 +317,9 @@ def anatomy(s):
         a['lines'][name] = (pts, r0)
         return taper(pts, r0, r1, n)
     # horns rise from the poll and sweep back, the far one a little behind
-    a['horn_far'] = TP('horn_far', Gp([(64, 61), (66, 54), (70, 49), (76, 46.5), (82.5, 48), (87.5, 53), (90.5, 60),
-                                      (91.5, 66)]), 5.2, 1.3)
-    a['horn_near'] = TP('horn_near', Gp([(58.5, 62), (60, 54), (64, 48.5), (70.5, 45.5), (77.5, 46.5), (83, 51),
-                                        (86.5, 57.5), (88, 64)]), 6.6, 1.6)
+    # horns rise from the poll and sweep back close over the skull and mane (no daylight under them)
+    a['horn_far'] = TP('horn_far', Gp(HORN_FAR), 5.4, 1.3)
+    a['horn_near'] = TP('horn_near', Gp(HORN_NEAR), 7.0, 1.6)
     # a thick neck under a shaggy mane
     neck_pts = Gn([(56, 62), (70, 59), (84, 63), (98, 72), (110, 87), (122, 110), (132, 138), (134, 152), (70, 152),
                   (73, 136), (77, 118), (78, 104), (74, 94)])
@@ -338,9 +352,12 @@ def anatomy(s):
     a['muzzle'] = F('muzzle', Lp(MUZZLE))
     a['nostril'] = F('nostril', Lp(NOSTRIL))
     # a floppy goat ear, sticking out behind the eye
-    a['spike'] = F('spike', Gp([(62, 68.5), (71, 70), (80, 74.5), (86.5, 81), (89, 86.5), (85, 87), (77, 83),
-                               (69, 78.5), (63, 76)]))
-    a['ear_in'] = F('ear_in', Gp([(66, 72), (74, 73.8), (81, 78), (85.5, 83.5), (80.5, 82.5), (73, 78.6), (66.5, 75.5)]))
+    ear = s.get('ear', 0.0)
+    a['spike'] = F('spike', Gp(ear_rot(EAR, ear)))
+    a['ear_in'] = F('ear_in', Gp(ear_rot(EAR_IN, ear)))
+    a['rings'] = [('ear', p) for p in Gp(ear_rot(EAR_RINGS, ear))] + [('stud', p) for p in Gp(ear_rot([EAR_STUD], ear))] + \
+        [('nose', LP((-67.5, 18.5), oy))]
+
     # goatee from the chin, hanging straight down
     cx, cy = Rl((-58, 34))
     cy -= oy
@@ -544,14 +561,14 @@ def turn_head(a, s):
     dep, part, LXs, LYs, LZs = _splat(x, y, z, ids, oy)
     # parts on both sides
     layers = {}
-    near_horn = [(*_to_local(X, Y), 0) for X, Y in [(58.5, 62), (60, 54), (64, 48.5), (70.5, 45.5), (77.5, 46.5),
-                                                     (83, 51), (86.5, 57.5), (88, 64)]]
+    near_horn = [(*_to_local(X, Y), 0) for X, Y in HORN_NEAR]
     lines = {}
     for side, key in ((1, 'horn_near'), (-1, 'horn_far')):
         h3 = [(p[0], p[1], side * (4.5 + 7.0 * k / 7)) for k, p in enumerate(near_horn)]
-        m, d, cl = _tube(h3, 6.6 / POSE_OUT[0], 1.6 / POSE_OUT[0], oy)
+        h3 = [(h3[0][0] + 1.5, h3[0][1] + 4.0, h3[0][2] * 0.6)] + h3            # the root sinks into the skull
+        m, d, cl = _tube(h3, 7.0 / POSE_OUT[0], 1.6 / POSE_OUT[0], oy)
         layers[key] = (m, d)
-        lines[key] = (cl, 6.6 * K / POSE_OUT[0])
+        lines[key] = (cl, 7.0 * K / POSE_OUT[0])
     for nm, pl, r0, r1 in (('spurs', [(-17, -0.5), (-10, -4.5), (-5, -7.5)], 1.9, 0.3),
                            ('spurs', [(-23, -1.5), (-17, -6), (-13, -8.5)], 1.6, 0.3),
                            ('frills', [(-14, 28), (-5, 33), (3, 39)], 3.2, 0.4),
@@ -582,15 +599,23 @@ def turn_head(a, s):
     tx_, ty_ = _to_local(88.0, 86.0)
     v2 = np.array([tx_ - bx, ty_ - by])
     ln2 = np.linalg.norm(v2)
+    rings = []
+    ea = s.get('ear', 0.0) * 0.28
     for side in (1, -1):
         dL = np.array([v2[0] / ln2, v2[1] / ln2, side * 0.95])
         dL /= np.linalg.norm(dL)
         dW = np.array([math.sin(ANG), math.cos(ANG), 0.0])          # the leaf's width runs up and down on screen
+        dL = math.cos(ea) * dL - math.sin(ea) * dW                  # the ear lifts and droops
+        dL /= np.linalg.norm(dL)
         base = np.array([bx, by, side * 13.0])
         length = ln2 / math.hypot(dL[0], dL[1])
         hw = lambda u: 4.6 * math.sin(math.pi * min(1, u) ** 0.75) * (1 - 0.25 * u) + 0.6
         m, d = _sheet(base, dL, dW, length, hw, oy)
         mi, di = _sheet(base + dW * 0.2, dL, dW, length, lambda u: hw(u) * 0.5, oy, 0.15, 0.9)
+        for u, kind, sgn in ((0.55, 'ear', 1), (0.82, 'ear', 1), (0.3, 'stud', -1)):
+            q = base + dL * length * u + dW * hw(u) * 0.8 * sgn
+            X, Y, _ = project(q[0], q[1], q[2], oy)
+            rings.append((kind, (float(X), float(Y))))
         for key, mm, dd in (('spike', m, d), ('ear_in', mi, di + 0.05)):
             if key in layers:
                 om, od = layers[key]
@@ -635,6 +660,8 @@ def turn_head(a, s):
                     (cx + 6.5, cy + 15), (cx + 3.5, cy + 21), (cx + 1.5, cy + 14), (cx - 3, cy + 6), (cx - 5, cy)]))
     a['beard'] = beard
     a['lines'] = dict(a['lines'], **lines)
+    nx_, ny_, _ = project(-69.5, 20.5, 0.0, oy)
+    a['rings'] = rings + [('nose', (float(nx_), float(ny_)))]
     LX0, LY0 = a['LX'], a['LY']
     a['LX'] = np.where(hs, LXs, LX0)
     a['LY'] = np.where(hs, LYs, LY0)
@@ -1082,7 +1109,9 @@ def _one_eye(a, s, cv, e):
     v = 0.25 + 0.75 * np.clip((YY - y0) / max(1, y1 - y0), 0, 1) - 0.25 * (r > 0.75)
     put_ramp(cv, e, IRIS, np.clip(v, 0, 0.999))
     pw = max(1.6, rx * 0.5)
-    pupil = e & (np.abs(XX + 0.5 - cx) < pw) & (np.abs(YY + 0.5 - cy) < 1.0)
+    ax_ = np.abs(XX + 0.5 - cx)
+    pupil = e & (ax_ < pw) & (np.abs(YY + 0.5 - cy) < 0.75)                 # the goat's bar...
+    pupil |= e & (ax_ < pw) & (ax_ > pw - 1.6) & (np.abs(YY + 0.5 - cy) < 1.7)   # ...flaring at both ends
     put(cv, (sh(pupil, 0, 1) & e & ~pupil), 'gold4')                      # thin gold edge below the pupil
     put(cv, pupil, 'ink')
     if s['membrane'] > 0:                                                 # third eyelid, from the front corner
@@ -1129,6 +1158,34 @@ def final(a, cv):
     put(cv, rim & (a['neck'] | a['plates'] | a['horn_near'] | a['horn_far']), 'cloud3')
 
 
+def jewelry(a, cv):
+    """Piercings: gold hoops along the ear's edge, a stud near its root, a ring
+    through the nose. Drawn last, only where the ear or muzzle shows. Returns
+    the mask of what was drawn."""
+    m = np.zeros((H, W), bool)
+    for kind, (x, y) in a.get('rings', []):
+        xi, yi = int(round(x)), int(round(y))
+        if not (2 <= xi < W - 3 and 2 <= yi < H - 5):
+            continue
+        host = a['spike'] if kind in ('ear', 'stud') else (a['head'] | a['muzzle'])
+        if not host[max(0, yi - 1):yi + 2, max(0, xi - 1):xi + 2].any():
+            continue
+        if kind == 'stud':
+            cv.a[yi, xi] = (*PAL['gold4'], 255); m[yi, xi] = True
+            cv.a[yi + 1, xi] = (*PAL['gold2'], 255); m[yi + 1, xi] = True
+            continue
+        r = 2.4 if kind == 'ear' else 2.8
+        cy = yi + (1.6 if kind == 'ear' else 2.2)                       # the hoop hangs below the hole
+        for k in range(28):
+            t = 2 * math.pi * k / 28
+            px_, py_ = int(round(xi + math.cos(t) * r * 0.85)), int(round(cy + math.sin(t) * r))
+            if 0 <= px_ < W and 0 <= py_ < H:
+                c = 'gold4' if (math.cos(t) < -0.3 and math.sin(t) < 0.2) else ('gold1' if math.sin(t) > 0.6 else 'gold3')
+                cv.a[py_, px_] = (*PAL[c], 255)
+                m[py_, px_] = True
+    return m
+
+
 def _effects(cv, s):
     oy = s['oy']
     if s['breath']:                                                       # breath condensing in the cool air
@@ -1160,6 +1217,7 @@ def draw(s, stages=False):
         texture(a, cv)
         eye(a, s, cv)
         final(a, cv)
+        jm = jewelry(a, cv)
         if s.get('lean', 0) <= 0:
             _effects(cv, s)
             return cv
@@ -1168,7 +1226,7 @@ def draw(s, stages=False):
             a['muzzle'] | a['spurs'] | a['frills'] | a['mouth'] | a['eye']
         for t in a['teeth']:
             hg |= t
-        hg = (hg | sh(hg, 1, 0) | sh(hg, -1, 0) | sh(hg, 0, 1) | sh(hg, 0, -1)) & (cv.a[..., 3] > 0)
+        hg = ((hg | sh(hg, 1, 0) | sh(hg, -1, 0) | sh(hg, 0, 1) | sh(hg, 0, -1)) | jm) & (cv.a[..., 3] > 0)
         front = Canvas(W, H)
         front.a[hg] = cv.a[hg]
         _effects(cv, s)
@@ -1354,6 +1412,17 @@ def _script():
 SCRIPT = _script()
 
 
+def _ears(S, flicks):
+    """A slow sway of the ears plus quick flicks at the given frames."""
+    n = len(S)
+    for i, st in enumerate(S):
+        st['ear'] = 0.3 * math.sin(2 * math.pi * 3 * i / n) + (0.9 if i in flicks else 0.45 if (i - 1) in flicks else 0)
+    return S
+
+
+SCRIPT = _ears(SCRIPT, {14, 27, 40, 52})
+
+
 def _rest_script():
     """A seamless loop for a wyvern that stays at the window: it breathes, blinks
     slowly (the third eyelid follows the lid) and glances at the bell."""
@@ -1372,7 +1441,7 @@ def _rest_script():
     return S
 
 
-REST = _rest_script()
+REST = _ears(_rest_script(), {6, 19, 30})
 
 
 def frame(s):
