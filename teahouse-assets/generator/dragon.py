@@ -73,7 +73,7 @@ def dragon_bell():
 
 
 @prop('dragon_peek', 3, 'outside', PEEK_X, PEEK_Y,
-      'Old goat-dragon (shaggy fur, goat horns and eyes, a dragon skull), drawn by hand, who rises behind the bell window when the bell rings: settles its chin '
+      'Old white goat-dragon (a goat head and shaggy white fur, with a dragon fang, spines and claw), drawn by hand, who rises behind the bell window when the bell rings: settles its chin '
       'on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, '
       f'parts its overbite jaws with a sigh and sinks back down ({len(wyvern.SCRIPT)} frames); rest: a loop of it '
       f'staying at the window, breathing and blinking ({len(wyvern.REST)} frames)', drag=False,

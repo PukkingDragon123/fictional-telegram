@@ -53,7 +53,7 @@ The silk is modelled, not hand-dotted. The top is a height field and the front i
 
 ![Ring the bell](preview/dragon_bell_peek.gif)
 
-The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon: shaggy brown fur, ridged goat horns, a floppy ear, a goatee and a goat's amber eyes with wide bar pupils, on a dragon's long skull with an overbite of teeth and a clawed wing-wrist. It it rests its chin on the sill, and only its eye, breath and jaw move.
+The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon. It has a goat's head, held nose-down: a long face with a gently roman nose, a bare pink muzzle, a round cheek, a floppy pink-lined ear, ridged horns sweeping back, a white goatee and a goat's eye (pale amber, with a wide horizontal bar pupil). Thick white fur and a shaggy mane cover it. The dragon shows in a small fang over the lip, grey spines poking through the mane and a scaly three-clawed hand gripping the sill. It rests its chin on the sill, and only its eye, breath and jaw move.
 
 ![How the wyvern is drawn](preview/wyvern_process.png)
 
@@ -66,18 +66,18 @@ The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full s
 5. **Flats:** local colour, part by part.
 6. **Shadow shapes:** the shadows blocked in with one darker tone, before any rendering.
 7. **Render:** planes with rounded edges, cast shadows under the brow, jaw, head and horns, and reflected light on the lip.
-8. **Texture:** fur, stroke by stroke, following the lie of the hair: back along the head from the nose, down the neck and jaw, long strands in the beard, a shaggy fringe down the back of the neck. Growth rings across the horns.
+8. **Texture:** white fur, stroke by stroke, following the lie of the hair: down the face toward the nose, down the cheek, jaw and neck, long strands in the beard. Locks of the mane stand off the outline. Growth rings across the horns, fine scales on the dragon's hand and spines.
 9. **Final:** the lines folded into the colours, contact shadows, worn highlights, the wet glint in the eye and the sky rim.
 
 **The anatomy** is drawn from hand-placed points (smooth spline curves):
 
-- a long, heavy skull with a domed cranium and a brow over a wide-open goat eye: an amber iris with a wide horizontal bar pupil
-- a floppy goat ear behind the eye and a goatee under the chin
-- nostrils on top of the snout
-- a crocodile overbite: irregular upper teeth hang over the recessed lower jaw, and two lower teeth interlock at the front
-- a jaw-muscle bulge and a thick, shaggy neck
-- ridged goat horns that sweep back and curl down over the neck
-- a clawed wing-wrist gripping the sill
+- a goat's head, drawn in its own frame and tipped nose-down: a long face with a gently roman nose, a soft brow over the eye, a bare pink muzzle with slit nostrils
+- a goat's eye: pale amber iris, wide horizontal bar pupil, a soft upper lid with a dark lash line, bare grey skin round it
+- a floppy ear with a pink inside, and a white goatee hanging from the chin
+- one small dragon fang over the lower lip
+- a round cheek, and a thick neck under a shaggy white mane with grey dragon spines poking through
+- ridged goat horns that rise from the poll and sweep back
+- a scaly dragon hand with three clawed fingers that grips the sill
 
 It lives on its own layer, **`outside`**. Draw it after the window view and before the room shell, so the window frame hides the rest of its body.
 
@@ -107,12 +107,12 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 | Fire spirit: `idle`, `talk`, `happy` | 12 each | Sits down in the coals. Flame body is a noise field rising through a teardrop. A jagged maw of uneven teeth opens and closes as it talks; zigzag grin when shut; fangs when it laughs |
 | Cloth: noren, curtains, moon curtain, cloak, scarf, towel | 12 | **Real cloth physics**: Verlet particles with stretch/shear/bend constraints, pins, gravity, a looping breeze, and collisions. One wind period is captured so the loop closes |
 | Silk bed | 12 | The quilt's hanging folds sway, so the sheen slides across the silk |
-| Bell and goat-dragon | 10 + 43 (+ a 25-frame `rest` loop) | Click the bell: it rings. The wyvern slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
+| Bell and goat-dragon | 10 + 43 (+ a 25-frame `rest` loop) | Click the bell: it rings. The goat-dragon slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
 | Alien lucky cat | 8 | Eased beckoning paw, pulsing antenna lights, a blink, a glint that travels across the coin |
 | Garden trees, flower bed, ivy | 8 | Each leaf mass sways on its own phase |
 | Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing. The chochin lanterns glow from inside, flicker softly and swing their tassels |
 | Candles, steam | 8 | Flicker and curl |
-| Light overlay | 8 | The furnace glow flickers, dust drifts in the window shafts, and every window pane has a blocky glass look: a pale edge round each 16 px tile and two little diagonal glints in it |
+| Light overlay | 8 | The furnace glow flickers, dust drifts in the window shafts, and every window pane has a light, blocky glass look: a faint one-pixel edge round each 16 px tile and one small diagonal glint in it |
 
 ## How it's drawn
 

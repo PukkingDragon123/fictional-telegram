@@ -2046,7 +2046,7 @@
    "w": 140,
    "h": 150,
    "draggable": false,
-   "desc": "Old goat-dragon (shaggy fur, goat horns and eyes, a dragon skull), drawn by hand, who rises behind the bell window when the bell rings: settles its chin on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, parts its overbite jaws with a sigh and sinks back down (43 frames); rest: a loop of it staying at the window, breathing and blinking (25 frames)",
+   "desc": "Old white goat-dragon (a goat head and shaggy white fur, with a dragon fang, spines and claw), drawn by hand, who rises behind the bell window when the bell rings: settles its chin on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, parts its overbite jaws with a sigh and sinks back down (43 frames); rest: a loop of it staying at the window, breathing and blinking (25 frames)",
    "placed_by_default": true,
    "file": "props/room3/dragon_peek.png",
    "anims": {

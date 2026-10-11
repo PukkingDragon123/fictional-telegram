@@ -101,17 +101,15 @@ def light():
         hw = bell_halfwidth(y)
         if hw > 0:
             glass[y, int(WIN_BELL['cx'] - hw):int(WIN_BELL['cx'] + hw)] = True
-    # blocky glass in the spirit of Minecraft's: a 16 px tile with a faint light rim
-    # and short diagonal glints in two corners, repeated over every pane
+    # blocky glass in the spirit of Minecraft's, kept light: a 16 px tile with a
+    # faint one-pixel rim and one short diagonal glint, repeated over every pane
     tile = np.zeros((16, 16), int)
     tile[0, :] = tile[:, 0] = 1
-    tile[15, :] = tile[:, 15] = 1
-    for (r, c) in ((2, 5), (3, 4), (4, 3), (5, 2), (3, 6), (4, 5), (5, 4), (6, 3), (11, 13), (12, 12), (13, 11),
-                   (10, 13), (11, 12), (12, 11), (13, 10)):
+    for (r, c) in ((3, 5), (4, 4), (5, 3), (4, 6), (5, 5), (6, 4)):
         tile[r, c] = 2
     t = tile[yy % 16, xx % 16]
-    base[glass & (t == 1)] = (235, 248, 255, 70)
-    base[glass & (t == 2)] = (255, 255, 255, 150)
+    base[glass & (t == 1)] = (235, 248, 255, 26)
+    base[glass & (t == 2)] = (255, 255, 255, 70)
     lx, ly = 2441, 96                                     # bedroom oil lamp glow
     _add(base, lx - 70, lx + 70, ly - 60, ly + 70,
          lambda x, y: (FIRE, int(max(0, 40 * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))
