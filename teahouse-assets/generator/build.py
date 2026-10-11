@@ -441,6 +441,10 @@ def export_previews(sc, anims=True):
                 duration=110, loop=0)
     if not anims:
         return
+    # the black axolotl under the bed, close up (its whole 48-frame loop at 12 fps)
+    ims = [sc.view(k / 12, 3 * LY.SW).crop(2262 - 3 * LY.SW, 250, 236, 80).image(4).convert('RGB') for k in range(48)]
+    ims[0].save(os.path.join(ROOT, 'preview', 'black_axolotl.gif'), save_all=True, append_images=ims[1:],
+                duration=83, loop=0, optimize=True)
     # the leviathan breaching, seen through the seating-room window (its whole 72-frame loop)
     wm = LY.WIN_MAIN
     ims = [sc.view(k / LAYER_FPS, LY.SW).crop(wm['x'] - LY.SW - 8, wm['y'] - 8, wm['w'] + 16, wm['h'] + 40)

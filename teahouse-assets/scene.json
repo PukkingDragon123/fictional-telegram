@@ -1664,20 +1664,20 @@
    "file": "props/room4/under_bed_dark.png"
   },
   {
-   "name": "shelled_frog",
+   "name": "black_axolotl",
    "room": 4,
    "layer": "floor",
-   "x": 2327,
-   "y": 285,
-   "w": 56,
-   "h": 34,
+   "x": 2275,
+   "y": 265,
+   "w": 196,
+   "h": 57,
    "draggable": true,
-   "desc": "A shelled frog hiding in the dark under the bed: a domed shell of ridged scutes, warty olive skin, golden eyes with horizontal pupils shining out of the dark, a pulsing throat, webbed toes; it breathes and now and then blinks (12 frames)",
+   "desc": "A black axolotl-frog living under the bed, drawn as a 3D creature: wet black skin with a soft shine, a broad head, frog-like golden eyes, feathery purple gills that sway, a tail fin, four legs stepping with splayed toes. It crawls a slow loop on the floor, turning in depth (side on, from behind, head on) and dimming as it goes deeper into the dark (48 frames, 12 fps)",
    "placed_by_default": true,
-   "file": "props/room4/shelled_frog.png",
-   "frames": 12,
-   "fps": 6,
-   "sheet": "props/room4/shelled_frog_sheet.png"
+   "file": "props/room4/black_axolotl.png",
+   "frames": 48,
+   "fps": 12,
+   "sheet": "props/room4/black_axolotl_sheet.png"
   },
   {
    "name": "silk_bed",

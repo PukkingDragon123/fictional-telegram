@@ -99,99 +99,13 @@ def under_bed_dark():
     return cv
 
 
-SHELL = ['ink', 'wood0', 'wood1', 'wood2', 'copper1', 'paper0']
-FROG = ['leaf0', 'jade0', 'leaf1', 'jade1', 'leaf2', 'leaf3']
-
-
-def _frog(f, n=12):
-    """A shelled frog crouched in the dark under the bed: a domed shell of
-    ridged scutes on its back, warty olive skin, bulging golden eyes with
-    horizontal pupils catching the light, a pulsing throat, webbed toes."""
-    rng = random.Random(77)
-    w, h = 52, 28
-    cv = Canvas(w, h)
-    t = 2 * math.pi * f / n
-    breath = 0.5 + 0.5 * math.sin(t)
-    # hind legs folded at the sides
-    for (cx, cy) in ((40, 21), (9, 22)):
-        m = ellipse_mask(w, h, cx, cy, 6, 3.4, wobble=0.08)
-        paint(m, FROG, R=3, amb=0.15, canvas=cv)
-    # the shell: a dome of scutes with growth rings
-    sm = ellipse_mask(w, h, 28, 11 - breath * 0.5, 17, 9.5, wobble=0.05) & (np.mgrid[0:h, 0:w][0] < 19)
-    paint(sm, SHELL, R=8, amb=0.28, kd=0.75, canvas=cv)
-    yy, xx = np.mgrid[0:h, 0:w]
-    cells = [(20, 6), (28, 4), (36, 6), (16, 12), (24, 11), (32, 11), (40, 12), (20, 16), (30, 16), (38, 16)]
-    near = np.full((h, w), 1e9)
-    second = np.full((h, w), 1e9)
-    for (sx, sy) in cells:
-        d = np.hypot(xx - sx, (yy - sy) * 1.3)
-        second = np.where(d < near, near, np.minimum(second, d))
-        near = np.minimum(near, d)
-    seam = sm & (second - near < 1.0)
-    ring = sm & ((np.floor(near) % 3) == 2) & ~seam
-    centre = sm & (near < 2.2) & ~seam
-    for y, x in zip(*np.nonzero(seam)):
-        cv.px(x, y, 'ink')
-    for y, x in zip(*np.nonzero(ring)):
-        cv.a[y, x, :3] = step(tuple(int(v) for v in cv.a[y, x, :3]), -1)          # growth rings
-    for y, x in zip(*np.nonzero(centre)):
-        cv.a[y, x, :3] = step(tuple(int(v) for v in cv.a[y, x, :3]), 1)           # raised plate centres
-    rim = sm & ~np.roll(sm, -1, axis=0)
-    for y, x in zip(*np.nonzero(rim)):
-        cv.px(x, y, 'wood0')
-    # head: broad and flat, pushed out under the front of the shell
-    hm = ellipse_mask(w, h, 14, 18, 11.5, 5.2, wobble=0.06)
-    paint(hm, FROG, R=4, amb=0.2, canvas=cv)
-    # throat pouch, pulsing as it breathes
-    tr = 2.0 + 1.6 * breath
-    tm = ellipse_mask(w, h, 14, 22, 5.5, tr, wobble=0)
-    paint(tm, ['paper0', 'paper1', 'paper2', 'paper3'], R=2, amb=0.35, canvas=cv)
-    # warts and dark spots on the skin
-    for _ in range(40):
-        x, y = rng.randint(3, 25), rng.randint(13, 23)
-        if hm[y, x] and not tm[y, x]:
-            cv.px(x, y, rng.choice(('leaf3', 'jade0', 'leaf3', 'ink')))
-    cv.line(4, 19, 22, 20, 'ink')                                  # the wide mouth
-    cv.line(4, 20, 21, 21, 'paper1')                               # pale lip line under it
-    cv.px(3, 18, 'ink'); cv.px(23, 19, 'jade0')
-    cv.px(5, 15, 'ink'); cv.px(8, 15, 'ink')                        # nostrils
-    # front legs splayed forward, webbed toes with round pads
-    for (lx, ly, sgn) in ((6, 21, -1), (20, 22, 1)):
-        cv.line(lx, ly, lx + sgn * 3, ly + 4, 'leaf1'); cv.line(lx + 1, ly, lx + sgn * 3 + 1, ly + 4, 'jade0')
-        for k in (-2, 0, 2):
-            tx = lx + sgn * 3 + k
-            cv.px(tx, ly + 5, 'leaf2'); cv.px(tx, ly + 6, 'paper1')
-        cv.hline(lx + sgn * 3 - 2, lx + sgn * 3 + 2, ly + 5, 'leaf1')
-    # bulging eyes on top of the head, golden, horizontal pupils, eyeshine in the dark
-    shut = f in (8, 9)
-    for (ex, ey) in ((8, 13), (19, 12)):
-        em = ellipse_mask(w, h, ex, ey, 3.2, 2.8, wobble=0)
-        paint(em, FROG, R=2, amb=0.3, canvas=cv)
-        if shut:
-            cv.hline(ex - 2, ex + 2, ey, 'jade0'); cv.hline(ex - 2, ex + 2, ey - 1, 'leaf2')
-            continue
-        for y in range(ey - 2, ey + 2):
-            for x in range(ex - 2, ex + 3):
-                if (x - ex) ** 2 / 5.0 + (y - ey + 0.3) ** 2 / 3.0 <= 1:
-                    cv.px(x, y, 'gold3' if y >= ey else 'gold2')
-        cv.hline(ex - 2, ex + 2, ey, 'ink')                           # horizontal pupil
-        cv.px(ex - 1, ey - 1, 'white')                                # eyeshine
-        cv.px(ex - 2, ey - 2, 'jade0'); cv.px(ex + 2, ey - 2, 'jade0')
-    # it sits in the dark: everything but the eyes and the front edge falls into shadow
-    for y in range(h):
-        for x in range(w):
-            if cv.a[y, x, 3] and x > 30 and y < 14:
-                c = tuple(int(v) for v in cv.a[y, x, :3])
-                if c not in (PAL['white'], PAL['gold2'], PAL['gold3']):
-                    cv.a[y, x, :3] = step(c, -1)
-    return O.outline(cv)
-
-
-@prop('shelled_frog', 4, 'floor', 2330, 286, 'A shelled frog hiding in the dark under the bed: a domed shell of ridged '
-      'scutes, warty olive skin, golden eyes with horizontal pupils shining out of the dark, a pulsing throat, '
-      'webbed toes; it breathes and now and then blinks (12 frames)', fps=6, drag=True)
-def shelled_frog():
-    return [_frog(f) for f in range(12)]
+@prop('black_axolotl', 4, 'floor', 2276, 266, 'A black axolotl-frog living under the bed, drawn as a 3D creature: '
+      'wet black skin with a soft shine, a broad head, frog-like golden eyes, feathery purple gills that sway, a tail '
+      'fin, four legs stepping with splayed toes. It crawls a slow loop on the floor, turning in depth (side on, from '
+      'behind, head on) and dimming as it goes deeper into the dark (48 frames, 12 fps)', fps=12, drag=True)
+def black_axolotl():
+    import axolotl
+    return axolotl.frames()
 
 
 # ---------------------------------------------------------------- bed
