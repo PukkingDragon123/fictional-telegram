@@ -24,6 +24,7 @@ import room                                                # noqa: E402
 import counter                                             # noqa: E402
 import fx                                                  # noqa: E402
 import trees                                               # noqa: E402
+import grove                                               # noqa: E402
 import meadow                                              # noqa: E402
 import propkit                                             # noqa: E402
 import shadows                                             # noqa: E402
@@ -298,14 +299,15 @@ def export_atlas(sc):
 def export_nature():
     import random
     recs = []
-    builders = [('tree_black_pine', lambda: trees.tree_pine(2, k=1.25)),
-                ('tree_oak', lambda: trees.tree_oak(4, k=1.5)),
-                ('tree_oak_jade', lambda: trees.tree_oak(12, trees.JADE, k=1.2)),
-                ('tree_willow', lambda: trees.tree_willow(7, k=1.4)),
-                ('tree_windswept_jade', lambda: trees.tree_windswept(6, trees.JADE, k=1.5)),
-                ('tree_tall_bushy', lambda: trees.tree_bushy(5, k=1.4)),
-                ('tree_tall_bushy_jade', lambda: trees.tree_bushy(9, trees.JADE, k=1.1)),
-                ('tree_windswept', lambda: trees.tree_windswept(3, k=1.3))]
+    builders = [('tree_black_pine', lambda: grove.black_pine(2)),
+                ('tree_zelkova', lambda: grove.zelkova(3)),
+                ('tree_oak', lambda: grove.oak(4)),
+                ('tree_oak_rich', lambda: grove.oak(21, ramp=grove.LEAF_RICH)),
+                ('tree_weeping_willow', lambda: grove.willow(7)),
+                ('tree_white_birch', lambda: grove.birch(9)),
+                ('tree_hinoki_cypress', lambda: grove.cypress(11)),
+                ('shrub_green', lambda: grove.shrub(13, 44, 26))]
+    shutil.rmtree(os.path.join(ROOT, 'nature', 'trees'), ignore_errors=True)
     tree_frames = []
     for name, fn in builders:
         T = fn()

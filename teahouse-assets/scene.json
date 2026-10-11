@@ -2071,11 +2071,11 @@
  "nature": [
   {
    "name": "tree_black_pine",
-   "w": 295,
-   "h": 237,
+   "w": 190,
+   "h": 170,
    "base": [
-    125,
-    232
+    79,
+    166
    ],
    "frames": 8,
    "fps": 6,
@@ -2083,12 +2083,25 @@
    "sheet": "nature/trees/tree_black_pine_sheet.png"
   },
   {
-   "name": "tree_oak",
-   "w": 255,
-   "h": 240,
+   "name": "tree_zelkova",
+   "w": 230,
+   "h": 186,
    "base": [
-    121,
-    234
+    113,
+    182
+   ],
+   "frames": 8,
+   "fps": 6,
+   "file": "nature/trees/tree_zelkova.png",
+   "sheet": "nature/trees/tree_zelkova_sheet.png"
+  },
+  {
+   "name": "tree_oak",
+   "w": 200,
+   "h": 168,
+   "base": [
+    98,
+    164
    ],
    "frames": 8,
    "fps": 6,
@@ -2096,82 +2109,69 @@
    "sheet": "nature/trees/tree_oak_sheet.png"
   },
   {
-   "name": "tree_oak_jade",
-   "w": 204,
-   "h": 192,
+   "name": "tree_oak_rich",
+   "w": 200,
+   "h": 168,
    "base": [
     97,
-    187
+    164
    ],
    "frames": 8,
    "fps": 6,
-   "file": "nature/trees/tree_oak_jade.png",
-   "sheet": "nature/trees/tree_oak_jade_sheet.png"
+   "file": "nature/trees/tree_oak_rich.png",
+   "sheet": "nature/trees/tree_oak_rich_sheet.png"
   },
   {
-   "name": "tree_willow",
-   "w": 237,
-   "h": 210,
+   "name": "tree_weeping_willow",
+   "w": 200,
+   "h": 172,
    "base": [
-    118,
-    204
+    98,
+    168
    ],
    "frames": 8,
    "fps": 6,
-   "file": "nature/trees/tree_willow.png",
-   "sheet": "nature/trees/tree_willow_sheet.png"
+   "file": "nature/trees/tree_weeping_willow.png",
+   "sheet": "nature/trees/tree_weeping_willow_sheet.png"
   },
   {
-   "name": "tree_windswept_jade",
-   "w": 225,
-   "h": 210,
+   "name": "tree_white_birch",
+   "w": 130,
+   "h": 176,
    "base": [
-    88,
-    204
+    64,
+    172
    ],
    "frames": 8,
    "fps": 6,
-   "file": "nature/trees/tree_windswept_jade.png",
-   "sheet": "nature/trees/tree_windswept_jade_sheet.png"
+   "file": "nature/trees/tree_white_birch.png",
+   "sheet": "nature/trees/tree_white_birch_sheet.png"
   },
   {
-   "name": "tree_tall_bushy",
-   "w": 154,
-   "h": 210,
+   "name": "tree_hinoki_cypress",
+   "w": 90,
+   "h": 176,
    "base": [
-    77,
-    204
+    44,
+    172
    ],
    "frames": 8,
    "fps": 6,
-   "file": "nature/trees/tree_tall_bushy.png",
-   "sheet": "nature/trees/tree_tall_bushy_sheet.png"
+   "file": "nature/trees/tree_hinoki_cypress.png",
+   "sheet": "nature/trees/tree_hinoki_cypress_sheet.png"
   },
   {
-   "name": "tree_tall_bushy_jade",
-   "w": 121,
-   "h": 165,
+   "name": "shrub_green",
+   "w": 44,
+   "h": 26,
    "base": [
-    60,
-    160
+    22,
+    25
    ],
    "frames": 8,
    "fps": 6,
-   "file": "nature/trees/tree_tall_bushy_jade.png",
-   "sheet": "nature/trees/tree_tall_bushy_jade_sheet.png"
-  },
-  {
-   "name": "tree_windswept",
-   "w": 195,
-   "h": 182,
-   "base": [
-    76,
-    176
-   ],
-   "frames": 8,
-   "fps": 6,
-   "file": "nature/trees/tree_windswept.png",
-   "sheet": "nature/trees/tree_windswept_sheet.png"
+   "file": "nature/trees/shrub_green.png",
+   "sheet": "nature/trees/shrub_green_sheet.png"
   },
   {
    "name": "flower_daisy",

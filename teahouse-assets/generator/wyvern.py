@@ -13,14 +13,14 @@ kept so the drawing process can be shown:
   6 texture       long fur strokes that follow the lie of the hair, beard strands, growth
                   rings across the horns, fine scales on the dragon parts
   7 final         lines folded into the colours (darker only on the shadow side), contact
-                  shadows, worn highlights on horns and claws, a cool sky rim from behind
+                  shadows, worn highlights on the horns, a cool sky rim from behind
 
 Half goat, half dragon. The head is a goat's, held nose-down: a long face with
 a gently roman nose, a bare pink muzzle with slit nostrils, a round cheek, a
 floppy ear, ridged horns rising from the poll and sweeping back, a goatee, and
 a goat's eye - pale amber with a wide horizontal bar pupil. Thick white fur and
-a shaggy mane. The dragon shows in two small fangs over the lip, grey spines
-poking through the mane and a scaly clawed wing-wrist gripping the sill. It
+a shaggy mane. The dragon shows in a small fang over the lip and grey spines
+poking through the mane. Only the head and neck show at the window. It
 rests at the window, calm and old, and only its eye, breath and jaw move.
 """
 import math
@@ -215,7 +215,10 @@ MUZZLE = [(-60, 7.5), (-65, 9.5), (-69, 13.5), (-70.3, 18.5), (-69, 23), (-64.5,
 NOSTRIL = [(-68.5, 13.5), (-66, 13), (-64.5, 14.5), (-66.5, 16.3)]
 EYE = [(-33.5, 9.5), (-30, 5.6), (-24.5, 4.6), (-19, 7), (-20, 11), (-26.5, 12.8)]
 SOCKET = [(-36.5, 9.5), (-31, 3.2), (-24, 2.2), (-16, 6.2), (-17.5, 13.2), (-27, 15.6)]
-BROW = [(-37, 2.6), (-30.5, -1), (-21, -1.2), (-14, 2.2), (-20, 3.4), (-29.5, 3)]
+_EC = (-26.3, 8.7)
+EYE = [(_EC[0] + (x - _EC[0]) * 1.25, _EC[1] + (y - _EC[1]) * 1.25) for x, y in EYE]          # a little bigger
+SOCKET = [(_EC[0] + (x - _EC[0]) * 1.2, _EC[1] + (y - _EC[1]) * 1.2) for x, y in SOCKET]
+BROW = [(-38, 1.6), (-31, -2.2), (-21, -2.4), (-13.5, 1.2), (-20, 2.2), (-30, 1.8)]
 CHEEK = [(-42, 17), (-31, 13), (-18, 15), (-10, 23), (-16, 33), (-29, 33), (-40, 26)]
 
 
@@ -312,16 +315,8 @@ def anatomy(s):
     # two small dragon fangs over the lower lip
     a['teeth'] = [taper(Lp([(-59, 26), (-59.6, 30.5), (-58.3, 34)]), 1.8, 0.35, n=3)]   # one dragon fang
     a['throat'] = a['neck'] & (XX < 86) & (YY > 98 + oy)
-    # the dragon's scaly wing-wrist gripping the sill
-    wrist = F('wrist', G([(95, 116), (106, 114), (109, 124), (107, 134), (101, 139), (91, 140), (88, 137), (92, 133),
-                        (94, 126)]))
-    for pts, r0 in (([(99, 135), (93, 137.5), (88, 140.5)], 2.6), ([(103, 136), (99, 140.5), (95.5, 143.5)], 2.6),
-                    ([(106.5, 133), (105.5, 139), (103.5, 142.5)], 2.3)):     # three scaly fingers over the sill
-        wrist |= taper(G(pts), r0, 1.5, n=3)
-    a['wrist'] = wrist
-    a['claws'] = [taper(G([(88, 140), (85.5, 142.5), (84.8, 146)]), 1.6, 0.3, n=3),
-                  taper(G([(95.5, 143), (94, 145.5), (93.5, 148)]), 1.6, 0.3, n=3),
-                  taper(G([(103.5, 142), (103, 145), (102.2, 147.5)]), 1.4, 0.3, n=3)]
+    a['wrist'] = np.zeros((H, W), bool)                                   # no arm: just the head and neck
+    a['claws'] = []
     a['LX'], a['LY'] = LX, LY
     return a
 
@@ -385,8 +380,7 @@ def gesture_strokes(s, rng):
               Lp([(-65, 30), (-50, 35), (-30, 38), (-8, 34), (0, 14)]),
               G([(58, 64), (61, 48), (72, 43), (80, 58)]), G([(65, 62), (69, 48), (79, 45), (85, 58)]),          # horns
               G([(74, 94), (78, 118), (72, 150)]), G([(122, 110), (134, 152)]),                                  # neck
-              G([(64, 69), (84, 80)]),                                                                           # ear
-              [(100, 116), (94, 128), (90, 140)], [(99, 135), (88, 141)], [(106, 133), (103, 143)]]           # the claw
+              G([(64, 69), (84, 80)])]                                                                           # ear
     out = []
     for c in curves:
         out += hand_strokes(c, False, rng, wobble=1.3, overshoot=6, seg=(30, 60), overlap=0)
@@ -417,7 +411,7 @@ def sketch_strokes(a, rng):
     """Pencil over the construction: every part drawn in short overlapping strokes,
     the important contours gone over twice."""
     out = []
-    for key in ('head', 'jaw', 'neck', 'brow', 'cheek', 'eye', 'wrist', 'nostril', 'muzzle', 'beard'):
+    for key in ('head', 'jaw', 'neck', 'brow', 'cheek', 'eye', 'nostril', 'muzzle', 'beard'):
         pts = a['pts'][key]
         out += hand_strokes(pts, True, rng, wobble=0.8, overshoot=2.5)
         if key in ('head', 'jaw', 'beard'):
@@ -487,7 +481,6 @@ def construction(s):
     m |= line_mask([(62, 59 + oy), (90, 66 + oy), (120, 104 + oy)])                       # neck top
     m |= line_mask([(74, 94 + oy), (72, 150 + oy)])                                        # throat
     m |= line_mask([(59, 63 + oy), (64, 46 + oy), (78, 46 + oy)])                          # horn gesture
-    m |= line_mask([(100, 116), (94, 130), (89, 140)])                                     # the claw
     return m
 
 
@@ -714,8 +707,8 @@ def eye(a, s, cv):
     t = (YY - y0) / max(1, y1 - y0)
     put_ramp(cv, e, IRIS, np.clip(0.15 + 0.85 * t, 0, 1))                  # darker under the lid, glowing low
     cx, cy = ecx + s['look'] * 1.5, ecy + 0.3
-    pupil = e & (np.abs(XX - cx) < 3.2) & (YY >= np.floor(cy)) & (YY <= np.floor(cy) + 1)   # the bar pupil
-    pupil &= ~((np.abs(XX - cx) >= 2.6) & (YY == np.floor(cy) + 1))        # softened ends
+    pupil = e & (np.abs(XX - cx) < 3.8) & (YY >= np.floor(cy)) & (YY <= np.floor(cy) + 1)   # the bar pupil
+    pupil &= ~((np.abs(XX - cx) >= 3.2) & (YY == np.floor(cy) + 1))        # softened ends
     put(cv, pupil, 'ink')
     put(cv, sh(pupil, 0, -1) & e & ~pupil & (YY > ecy), 'gold4')           # the iris glows under the pupil
     if s['membrane'] > 0:                                                 # third eyelid, from the front corner
@@ -750,15 +743,13 @@ def final(a, cv):
         _step(rgb, contact & solid, k)
     for t in a['teeth']:
         _step(rgb, sh(t, 1, 1) & ~t & (a['jaw'] | a['mouth']), -1)
-    put(cv, edge(a['wrist']) & solid & ~_union(a['claws']), 'stone1')
-    _step(rgb, a['wrist'] & ~edge(a['wrist']) & (YY < 134) & ((YY.astype(int) % 4) == 0), -1)   # bands of scutes up the forearm
     ear = edge(a['spike']) & solid & ~out
     put(cv, ear, 'stone2')
     put(cv, ear & ~sh(a['spike'], 0, -1), 'stone1')
     back = edge(a['head'] | a['jaw']) & (sh(a['neck'] & ~a['head'] & ~a['jaw'], -1, 0) | sh(a['neck'] & ~a['head'] & ~a['jaw'], 0, -1)) & ~out
     put(cv, back & (XX > 60), 'stone3')
-    for key in ('horn_near', 'claws'):                                    # worn ridges catch the light
-        m = a[key] if key != 'claws' else _union(a['claws'])
+    for key in ('horn_near',):                                            # worn ridges catch the light
+        m = a[key]
         put(cv, m & ~sh(m, 1, 1) & ~edge(m) & (noise(XX * 0.7, YY * 0.7, 2) > 0.45), 'paper3')
     rim = solid & ~sh(solid, -2, 0) & ~sh(solid, -1, 1) & (XX > 70) & ~out  # cool sky light from behind
     put(cv, rim & (a['neck'] | a['plates'] | a['horn_near'] | a['horn_far']), 'cloud3')
@@ -779,7 +770,7 @@ def _effects(cv, s):
     if s['dust']:
         rng = random.Random(s['dust'])
         for _ in range(12):
-            x = rng.choice((rng.uniform(28, 60), rng.uniform(84, 108)))
+            x = rng.choice((rng.uniform(28, 60), rng.uniform(72, 108)))
             y = 143 + rng.uniform(0, 6)
             if 0 <= int(y) < H and 0 <= int(x) < W:
                 cv.a[int(y), int(x)] = (*PAL['stone3'], 255)

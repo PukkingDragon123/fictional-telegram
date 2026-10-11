@@ -9,7 +9,7 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | Room | x range | What's there |
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit** (all mouth and teeth). Herbs dry on an old bamboo pole above it. Also a big **chalkboard**, wiped clean, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
-| 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
+| 2 Seating | 640 to 1280 | Big lattice **window** onto a garden of detailed green trees by a lake, with butterflies, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
 | 3 Tea ritual | 1280 to 1920 | An empty **corkboard**. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **goat-dragon** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
 | 4 Traveler's bedroom | 1920 to 2560 | The most run-down room. Plaster has fallen off the walls to show the bamboo lath, rain has streaked them, there is mould in the corners, boards are missing from the roof so daylight shows, and the floor is broken and bare. Indigo noren hanging in front, moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, straw hat and cloak on the wall, oil lamp |
 
@@ -49,11 +49,21 @@ A low lacquered bed with brass fittings and a torii-style headboard (the top rai
 
 The silk is modelled, not hand-dotted. The top is a height field and the front is a row of hanging folds, with rounded crests and sharp creases between them. Both are lit with a diffuse term plus a tight specular term, then snapped to the palette. That gives deep shadow in the creases, a broad bright band where a fold turns to the light, and a near-white streak on the crest.
 
+## The garden trees
+
+The trees outside are grown, not stamped (`grove.py`):
+
+- **Branches:** space colonisation in 3D. A cloud of points fills the crown, and the trunk grows up into it, forking toward the points until they are used up. The big limbs fork from the top of the trunk. Branch thickness follows the pipe model, so the trunk flares at the foot and the limbs taper to twigs.
+- **Bark:** each branch is lit across its width from the upper left, with fissures stretched along the grain. The birches are white, with black marks.
+- **Leaves:** hundreds of small clusters on the twigs, each with leafy, broken edges. Each cluster is lit as a little ball and blended with the light on the whole crown, so the top left is bright, and the underside and interior are dark. Clusters further back are darker. Gaps in the crown show the inner limbs and the sky.
+- **Species:** a Japanese black pine with flat clouds of needles, a zelkova, oaks, a weeping willow with hanging strands, white birches and conical hinoki cypresses. A hazed back row of smaller trees stands behind them.
+- **Garden life:** butterflies flap and fly looping figure-eights over the flowers, and dragonflies dart and hover over the lake. Every path loops over the layer's 8 frames.
+
 ## The bell and the goat-dragon
 
 ![Ring the bell](preview/dragon_bell_peek.gif)
 
-The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon. It has a goat's head, held nose-down: a long face with a gently roman nose, a bare pink muzzle, a round cheek, a floppy pink-lined ear, ridged horns sweeping back, a white goatee and a goat's eye (pale amber, with a wide horizontal bar pupil). Thick white fur and a shaggy mane cover it. The dragon shows in a small fang over the lip, grey spines poking through the mane and a scaly three-clawed hand gripping the sill. It rests its chin on the sill, and only its eye, breath and jaw move.
+The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon. It has a goat's head, held nose-down: a long face with a gently roman nose, a bare pink muzzle, a round cheek, a floppy pink-lined ear, ridged horns sweeping back, a white goatee and a goat's eye (pale amber, with a wide horizontal bar pupil). Thick white fur and a shaggy mane cover it. The dragon shows in a small fang over the lip and grey spines poking through the mane. Only its head and neck show at the window; there is no arm. It rests at the sill, and only its eye, breath and jaw move.
 
 ![How the wyvern is drawn](preview/wyvern_process.png)
 
@@ -72,12 +82,11 @@ The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full s
 **The anatomy** is drawn from hand-placed points (smooth spline curves):
 
 - a goat's head, drawn in its own frame and tipped nose-down: a long face with a gently roman nose, a soft brow over the eye, a bare pink muzzle with slit nostrils
-- a goat's eye: pale amber iris, wide horizontal bar pupil, a soft upper lid with a dark lash line, bare grey skin round it
+- a goat's eye, a little big and soft: pale amber iris, wide horizontal bar pupil, a soft upper lid with a dark lash line, bare grey skin round it
 - a floppy ear with a pink inside, and a white goatee hanging from the chin
 - one small dragon fang over the lower lip
 - a round cheek, and a thick neck under a shaggy white mane with grey dragon spines poking through
 - ridged goat horns that rise from the poll and sweep back
-- a scaly dragon hand with three clawed fingers that grips the sill
 
 It lives on its own layer, **`outside`**. Draw it after the window view and before the room shell, so the window frame hides the rest of its body.
 
@@ -109,10 +118,10 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 | Silk bed | 12 | The quilt's hanging folds sway, so the sheen slides across the silk |
 | Bell and goat-dragon | 10 + 43 (+ a 25-frame `rest` loop) | Click the bell: it rings. The goat-dragon slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
 | Alien lucky cat | 8 | Eased beckoning paw, pulsing antenna lights, a blink, a glint that travels across the coin |
-| Garden trees, flower bed, ivy | 8 | Each leaf mass sways on its own phase |
+| Garden trees, flower bed, ivy | 8 | Each tree's crown sways, more toward the top. Butterflies (white, yellow, blue, orange) flap and fly looping paths over the meadow, and dragonflies dart and hover over the lake |
 | Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing. The chochin lanterns glow from inside, flicker softly and swing their tassels |
 | Candles, steam | 8 | Flicker and curl |
-| Light overlay | 8 | The furnace glow flickers, dust drifts in the window shafts, and every window pane has a light, blocky glass look: a faint one-pixel edge round each 16 px tile and one small diagonal glint in it |
+| Light overlay | 8 | The furnace glow flickers, dust drifts in the window shafts, and every window pane has a soft glass reflection: two faint diagonal bands of sky light, brighter toward the top, and nothing else |
 
 ## How it's drawn
 
@@ -158,13 +167,16 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 ```
 layers/outside/   window view: 6 parallax layers (1280 px wide, tile horizontally): a dithered sky with
                   cirrus and cumulus, snow-capped far peaks, hazy ranges, a forested ridge over a
-                  still lake, then a canopy of tree crowns and the garden
+                  still lake, a canopy of tree crowns, then the garden: grown trees (a black pine,
+                  zelkova, white birches, a weeping willow, oaks, hinoki cypresses) with butterflies
+                  and dragonflies
 layers/room/      10 shell (window panes transparent) / 11 shell with wall props baked in
                   20 furnace + prep table + counter / 30 foreground posts + ivy / 40 light overlay
 props/roomN/      every prop at 1x (+ _sheet.png; Uncle Pong and the fire spirit have one sheet per mood)
 props_3x/roomN/   the same at 3x (1080p size)
 atlas/            all prop frames packed into one PNG + JSON (anims, fps, layer, default spot)
-nature/           stand-alone green trees, flowers, grass, pampas, falling-leaf particles
+nature/           stand-alone grown trees (black pine, zelkova, oaks, weeping willow, white birch,
+                  hinoki cypress, a shrub), flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
@@ -235,7 +247,7 @@ python3 teahouse-assets/generator/package.py out.zip  # the tidy game-ready zip 
 | Cloth | `cloth.py` (simulation), `cloth_props.py` |
 | Teaware | `teaware.py` |
 | Fire spirit | `fire.py` |
-| Trees and garden | `trees.py`, `leaves.py`, `outside.py` |
+| Trees and garden | `grove.py` (grown trees, butterflies, dragonflies), `outside.py`, `meadow.py`, `trees.py`, `leaves.py` |
 | Colours | `RAMPS` in `pixel.py` |
 
 You can also drag props around in `demo/index.html` and press **copy layout JSON** to get their new positions.

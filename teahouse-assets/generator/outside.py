@@ -1,6 +1,7 @@
-"""The view through the windows (v2): six horizontally tileable parallax
-layers, OUT_W wide and the full scene height. Green trees only - big,
-close and animated so the garden fills the windows."""
+"""The view through the windows: six horizontally tileable parallax layers,
+OUT_W wide and the full scene height. Green trees only - grown branch by
+branch and leaf cluster by leaf cluster (grove.py), big and close so the
+garden fills the windows, swaying, with butterflies and dragonflies."""
 import math
 import random
 import numpy as np
@@ -9,6 +10,7 @@ from shapes import shade_puffs, flower, small_leaf
 from trees import (F, GREEN, DEEP, JADE, tree_pine, tree_oak, tree_bushy, tree_windswept, tree_willow,
                    bush, small_tree)
 import meadow
+import grove
 from layout import H
 
 OUT_W = 1280
@@ -362,23 +364,33 @@ def trees():
         y = int(prof[x]) + 4 + i % 2
         base.ellipse(x, y, 3.5, 1.4, 'stone3')
         base.hline(x - 2, x + 1, y - 1, 'stone4')
-    specs = [(tree_pine(2, k=0.72), 140), (tree_oak(4, k=0.8), 330), (tree_willow(7, k=0.75), 560),
-             (tree_windswept(6, JADE, k=0.78), 800), (tree_bushy(5, k=0.72), 1010),
-             (tree_bushy(9, JADE, k=0.6), 450), (tree_oak(12, JADE, k=0.65), 1190), (tree_bushy(13, k=0.55), 690),
-             (tree_pine(14, k=0.55), 920)]
+    # grown trees (grove.py): a back row, hazed, then the big ones
+    back = [(grove.oak(21, k=0.62, ramp=grove.LEAF_RICH), 40), (grove.cypress(22, k=0.7), 250),
+            (grove.oak(23, k=0.66), 470), (grove.zelkova(24, k=0.58), 790), (grove.cypress(25, k=0.66), 1010),
+            (grove.oak(26, k=0.62), 1140)]
+    front = [(grove.black_pine(2, k=0.95), 130), (grove.zelkova(3, k=0.92), 365), (grove.birch(9, k=0.85), 560),
+             (grove.willow(7, k=0.95), 690), (grove.oak(4, k=0.95), 910), (grove.cypress(11, k=0.88), 1065),
+             (grove.birch(19, k=0.78), 1205)]
     tree_frames = []
-    for T, x in specs:
+    for T, x in back:
         frs = T.frames()
         for fr in frs:
             _haze(fr, 1)
-        tree_frames.append((frs, x - T.base[0], int(prof[x % OUT_W]) + 3 - T.base[1], T.h))
+        tree_frames.append((frs, x - T.base[0], int(prof[x % OUT_W]) + 2 - T.base[1], T.h + 1000))
+    for T, x in front:
+        frs = T.frames()
+        tree_frames.append((frs, x - T.base[0], int(prof[x % OUT_W]) + 4 - T.base[1], T.h))
     tree_frames.sort(key=lambda t: -t[3])        # tallest drawn first (behind)
     bushes = []
-    for (sd, x, rx, ry, kind) in ((11, 240, 14, 8, 'hyd'), (12, 760, 12, 7, 'hyd'), (13, 1080, 12, 7, 'green'),
+    for (sd, x, rx, ry, kind) in ((11, 240, 14, 8, 'hyd'), (12, 760, 12, 7, 'green'), (13, 1080, 12, 7, 'green'),
                                   (14, 620, 10, 6, 'green'), (15, 40, 13, 8, 'hyd'), (16, 1230, 11, 6, 'green')):
-        spr = _hydrangea_bush(sd, rx, ry) if kind == 'hyd' else bush(sd, rx, ry)
-        _haze(spr, 1)
-        bushes.append((spr, x - spr.w // 2, int(prof[x % OUT_W]) + 4 - spr.h))
+        if kind == 'hyd':
+            spr = _hydrangea_bush(sd, rx, ry)
+            bushes.append((spr, x - spr.w // 2, int(prof[x % OUT_W]) + 4 - spr.h))
+        else:
+            S = grove.shrub(sd, rx * 3, ry * 3)
+            frs = S.frames()
+            bushes.append((frs, x - S.w // 2, int(prof[x % OUT_W]) + 4 - S.h))
     grass = meadow.meadow(OUT_W, GROUND, random.Random(42),
                           [(2, 5, 5, 1, 7), (5, 7, 6, 1, 9)], ['daisy'],
                           flower_rate=0.05, height=H, fill=False)
@@ -388,10 +400,10 @@ def trees():
         for (fr, x, y, _) in tree_frames:
             cv.blit(fr[f], x, y)
         for (spr, x, y) in bushes:
-            cv.blit(spr, x, y)
+            cv.blit(spr[f] if isinstance(spr, list) else spr, x, y)
         cv.blit(grass[f], 0, 0)
         frames.append(cv)
-    return frames
+    return grove.garden_life(frames, random.Random(43), GROUND)
 
 
 def flowers_close():
