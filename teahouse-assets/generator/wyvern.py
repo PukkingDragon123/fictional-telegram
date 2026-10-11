@@ -29,7 +29,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 from pixel import Canvas, PAL, text
 
-W, H = 140, 150
+W, H = 140, 192
+H_WIN = 150                # the part above the sill; below it the head can hang into the room
 LIGHT = np.array([-0.55, -0.72, 0.42])
 LIGHT = LIGHT / np.linalg.norm(LIGHT)
 
@@ -188,6 +189,30 @@ YY, XX = np.mgrid[0:H, 0:W].astype(float)
 K = 0.97                                  # scale of the head frame
 ANG = math.radians(-46)                   # nose tipped down
 POLL = (60.0, 59.0)
+POSE_OUT = (0.97, math.radians(-46), (60.0, 59.0))     # resting at the window
+POSE_IN = (1.24, math.radians(-52), (54.0, 84.0))      # leaning in: head closer, snout out over the sill
+
+
+def set_pose(lean):
+    """Blend the head frame between resting at the window and leaning in."""
+    global K, ANG, POLL
+    e = lean * lean * (3 - 2 * lean)
+    K = POSE_OUT[0] + (POSE_IN[0] - POSE_OUT[0]) * e
+    ANG = POSE_OUT[1] + (POSE_IN[1] - POSE_OUT[1]) * e
+    POLL = (POSE_OUT[2][0] + (POSE_IN[2][0] - POSE_OUT[2][0]) * e, POSE_OUT[2][1] + (POSE_IN[2][1] - POSE_OUT[2][1]) * e)
+
+
+def follow(pts, oy, w_of_y=None):
+    """Points drawn for the resting pose, carried along with the head: moved and
+    scaled about the poll. w_of_y: how much each point follows (by its y)."""
+    p0 = POSE_OUT[2]
+    sc = K / POSE_OUT[0]
+    out = []
+    for x, y in pts:
+        nx, ny = POLL[0] + (x - p0[0]) * sc, POLL[1] + (y - p0[1]) * sc
+        w = 1.0 if w_of_y is None else w_of_y(y)
+        out.append((x + (nx - x) * w, y + (ny - y) * w + oy))
+    return out
 HINGE = (-24.0, 26.0)                     # the lower jaw opens round this point
 
 
@@ -261,6 +286,8 @@ def anatomy(s):
         return LP((HINGE[0] + x * ca - y * sa, HINGE[1] + x * sa + y * ca), oy)
     a = {'oy': oy, 'pts': {}, 'lines': {}}
     rng = random.Random(41)
+    Gp = lambda pts: follow(pts, oy)                                    # parts that move with the head
+    Gn = lambda pts: follow(pts, oy, lambda y: float(np.clip((118 - y) / 56, 0, 1)))   # the neck bends to follow
 
     def F(name, pts):
         a['pts'][name] = pts
@@ -270,12 +297,12 @@ def anatomy(s):
         a['lines'][name] = (pts, r0)
         return taper(pts, r0, r1, n)
     # horns rise from the poll and sweep back, the far one a little behind
-    a['horn_far'] = TP('horn_far', G([(64, 61), (66, 54), (70, 49), (76, 46.5), (82.5, 48), (87.5, 53), (90.5, 60),
+    a['horn_far'] = TP('horn_far', Gp([(64, 61), (66, 54), (70, 49), (76, 46.5), (82.5, 48), (87.5, 53), (90.5, 60),
                                       (91.5, 66)]), 5.2, 1.3)
-    a['horn_near'] = TP('horn_near', G([(58.5, 62), (60, 54), (64, 48.5), (70.5, 45.5), (77.5, 46.5), (83, 51),
+    a['horn_near'] = TP('horn_near', Gp([(58.5, 62), (60, 54), (64, 48.5), (70.5, 45.5), (77.5, 46.5), (83, 51),
                                         (86.5, 57.5), (88, 64)]), 6.6, 1.6)
     # a thick neck under a shaggy mane
-    neck_pts = G([(56, 62), (70, 59), (84, 63), (98, 72), (110, 87), (122, 110), (132, 138), (134, 152), (70, 152),
+    neck_pts = Gn([(56, 62), (70, 59), (84, 63), (98, 72), (110, 87), (122, 110), (132, 138), (134, 152), (70, 152),
                   (73, 136), (77, 118), (78, 104), (74, 94)])
     neck = F('neck', neck_pts)
     mane = tufts(neck & (YY < 118 + oy) & (XX > 64) & ~sh(neck, -2, 2), rng, 70, (3, 7), (1.4, 2.2),
@@ -286,7 +313,7 @@ def anatomy(s):
     for (x, y, dx, dy) in ((70, 58.5, 0.2, -1), (79, 60, 0.4, -1), (88, 65, 0.6, -0.9), (97, 71, 0.75, -0.7),
                            (105, 79, 0.85, -0.55), (112, 89, 0.95, -0.4)):
         n = math.hypot(dx, dy)
-        plates |= taper(G([(x, y), (x + dx / n * 4, y + dy / n * 4), (x + dx / n * 8.5, y + dy / n * 8.5)]), 2.8, 0.4, n=3)
+        plates |= taper(Gn([(x, y), (x + dx / n * 4, y + dy / n * 4), (x + dx / n * 8.5, y + dy / n * 8.5)]), 2.8, 0.4, n=3)
     a['plates'] = plates
     # head, lower jaw, mouth
     a['jaw'] = F('jaw', [Rl(p) for p in JAW])
@@ -306,9 +333,9 @@ def anatomy(s):
     a['muzzle'] = F('muzzle', Lp(MUZZLE))
     a['nostril'] = F('nostril', Lp(NOSTRIL))
     # a floppy goat ear, sticking out behind the eye
-    a['spike'] = F('spike', G([(62, 68.5), (71, 70), (80, 74.5), (86.5, 81), (89, 86.5), (85, 87), (77, 83),
+    a['spike'] = F('spike', Gp([(62, 68.5), (71, 70), (80, 74.5), (86.5, 81), (89, 86.5), (85, 87), (77, 83),
                                (69, 78.5), (63, 76)]))
-    a['ear_in'] = F('ear_in', G([(66, 72), (74, 73.8), (81, 78), (85.5, 83.5), (80.5, 82.5), (73, 78.6), (66.5, 75.5)]))
+    a['ear_in'] = F('ear_in', Gp([(66, 72), (74, 73.8), (81, 78), (85.5, 83.5), (80.5, 82.5), (73, 78.6), (66.5, 75.5)]))
     # goatee from the chin, hanging straight down
     cx, cy = Rl((-58, 34))
     cy -= oy
@@ -330,7 +357,7 @@ def anatomy(s):
     a['frills'] = taper(Lp([(-14, 28), (-5, 33), (3, 39)]), 3.2, 0.4, n=4) | \
         taper(Lp([(-19, 32.5), (-12, 39), (-7, 45)]), 2.8, 0.4, n=4) | \
         taper(Lp([(-10, 20), (-1, 23), (7, 26)]), 2.8, 0.4, n=4)
-    a['belly'] = fill(G([(74, 95), (78.5, 104), (77.5, 118), (73.5, 136), (70.5, 152), (80, 152), (83, 136),
+    a['belly'] = fill(Gn([(74, 95), (78.5, 104), (77.5, 118), (73.5, 136), (70.5, 152), (80, 152), (83, 136),
                          (85.5, 118), (85, 104), (80, 95)])) & neck & ~a['beard']
     a['throat'] = a['neck'] & (XX < 86) & (YY > 98 + oy)
     a['wrist'] = np.zeros((H, W), bool)                                   # no arm: just the head and neck
@@ -777,8 +804,8 @@ def eye(a, s, cv):
     lid_y = y0 - 0.5 + (y1 - y0 + 1.5) * lid
     lidm = (e | (ring & (YY < ecy))) & (YY <= lid_y)
     lv = 0.5 + 0.35 * lit(form(lidm | a['brow'], 2))
-    put_ramp(cv, lidm, SCALE_FACE, np.clip(lv, 0, 0.999))                 # a scaly lid
-    put(cv, lidm & ((XX + YY * 2).astype(int) % 4 == 0), 'teal2')
+    put_ramp(cv, lidm, FUR, np.clip(lv, 0, 0.999))                        # a furry lid
+    put(cv, lidm & ~sh(lidm, 0, 1) & ~(e & ~sh(e, 0, 1)), 'stone3')       # its rounded top edge
     seam = lidm & ~sh(lidm, 0, -1)                                        # the black lash line
     put(cv, seam & (e | sh(e, 0, 1) | sh(e, 1, 0)), 'ink' if s['lid'] < 0.95 else 'stone0')
     put(cv, sh(seam, 0, 1) & e & ~lidm & ~pupil, 'copper1')               # the lid's shadow on the eye
@@ -851,8 +878,20 @@ def draw(s, stages=False):
         texture(a, cv)
         eye(a, s, cv)
         final(a, cv)
+        if s.get('lean', 0) <= 0:
+            _effects(cv, s)
+            return cv
+        # leaning in: the head (and its outline) also goes on a front canvas, drawn over the sill
+        hg = a['head'] | a['jaw'] | a['brow'] | a['horn_near'] | a['horn_far'] | a['spike'] | a['beard'] | \
+            a['muzzle'] | a['spurs'] | a['frills'] | a['mouth'] | a['eye']
+        for t in a['teeth']:
+            hg |= t
+        hg = (hg | sh(hg, 1, 0) | sh(hg, -1, 0) | sh(hg, 0, 1) | sh(hg, 0, -1)) & (cv.a[..., 3] > 0)
+        front = Canvas(W, H)
+        front.a[hg] = cv.a[hg]
         _effects(cv, s)
-        return cv
+        _effects(front, dict(s, dust=0))
+        return cv, front
     rng = random.Random(17)
     P = {}
     P['gesture'] = gesture_strokes(s, rng)
@@ -999,7 +1038,7 @@ def timelapse(P):
 
 # ---------------------------------------------------------------- animation
 def _state(**kw):
-    s = dict(rise=1.0, jaw=0.0, look=0.0, lid=0.55, membrane=0.0, breath=0, dust=0)
+    s = dict(rise=1.0, jaw=0.0, look=0.0, lid=0.55, membrane=0.0, breath=0, dust=0, lean=0.0)
     s.update(kw)
     return s
 
@@ -1012,13 +1051,15 @@ def _script():
     S += [_state(lid=0.9, membrane=1.0), _state(lid=0.72, membrane=0.8), _state(lid=0.6, membrane=0.4),
           _state(lid=0.55)]                                                    # the eye opens, the film slides back
     S += [_state(lid=0.55, look=-1), _state(lid=0.5, look=-1), _state(lid=0.5, look=-1)]   # looks at the bell
-    S += [_state(lid=0.5, look=-1, breath=1), _state(lid=0.5, look=-1, breath=2), _state(lid=0.52, look=-1, breath=3),
-          _state(lid=0.55, look=-0.5)]                                        # a long breath out
-    S += [_state(lid=0.8), _state(lid=1.0), _state(lid=1.0, membrane=0.6), _state(lid=0.7, membrane=0.3),
-          _state(lid=0.55)]                                                   # slow blink
-    S += [_state(lid=0.6, jaw=0.35), _state(lid=0.7, jaw=0.8), _state(lid=0.8, jaw=1.0), _state(lid=0.75, jaw=0.6),
-          _state(lid=0.6, jaw=0.15)]                                          # the jaw parts with a sigh
-    S += [_state(lid=0.55, look=0.5), _state(lid=0.55, look=0.5)]
+    S += [_state(lid=0.5, look=-1, lean=v) for v in (0.2, 0.45, 0.7, 0.9, 1.0)]   # leans in over the sill
+    S += [_state(lid=0.5, look=-1, lean=1, breath=1), _state(lid=0.5, look=-1, lean=1, breath=2),
+          _state(lid=0.52, look=-1, lean=1, breath=3), _state(lid=0.55, look=-0.5, lean=1)]   # a long breath out
+    S += [_state(lid=0.8, lean=1), _state(lid=1.0, lean=1), _state(lid=1.0, membrane=0.6, lean=1),
+          _state(lid=0.7, membrane=0.3, lean=1), _state(lid=0.55, lean=1)]      # slow blink
+    S += [_state(lid=0.6, jaw=0.35, lean=1), _state(lid=0.7, jaw=0.8, lean=1), _state(lid=0.8, jaw=1.0, lean=1),
+          _state(lid=0.75, jaw=0.6, lean=1), _state(lid=0.6, jaw=0.15, lean=1)]   # the jaw parts with a sigh
+    S += [_state(lid=0.55, look=0.5, lean=1), _state(lid=0.55, look=0.5, lean=1)]
+    S += [_state(lid=0.55, look=0.5, lean=v) for v in (0.8, 0.5, 0.2)]          # leans back out
     for r in (0.94, 0.84, 0.7, 0.54, 0.38, 0.22, 0.08, 0.0):                # sinks back down
         S.append(_state(rise=r, lid=0.7 + 0.3 * (1 - r)))
     return S
@@ -1030,12 +1071,15 @@ SCRIPT = _script()
 def _rest_script():
     """A seamless loop for a wyvern that stays at the window: it breathes, blinks
     slowly (the third eyelid follows the lid) and glances at the bell."""
-    S = [_state() for _ in range(4)]
-    S += [_state(breath=1), _state(breath=2), _state(breath=3), _state()]
-    S += [_state(lid=0.8), _state(lid=1.0), _state(lid=1.0, membrane=0.6), _state(lid=0.72, membrane=0.3), _state()]
-    S += [_state(look=-0.5), _state(look=-1), _state(look=-1), _state(look=-1, lid=0.5)]
-    S += [_state(look=-1, breath=1), _state(look=-1, breath=2), _state(look=-1, breath=3), _state(look=-0.5)]
-    S += [_state(), _state(jaw=0.2), _state(jaw=0.3), _state(jaw=0.15)]
+    L = dict(lean=1.0)                                                    # head in over the sill
+    S = [_state(**L) for _ in range(4)]
+    S += [_state(breath=1, **L), _state(breath=2, **L), _state(breath=3, **L), _state(**L)]
+    S += [_state(lid=0.8, **L), _state(lid=1.0, **L), _state(lid=1.0, membrane=0.6, **L),
+          _state(lid=0.72, membrane=0.3, **L), _state(**L)]
+    S += [_state(look=-0.5, **L), _state(look=-1, **L), _state(look=-1, **L), _state(look=-1, lid=0.5, **L)]
+    S += [_state(look=-1, breath=1, **L), _state(look=-1, breath=2, **L), _state(look=-1, breath=3, **L),
+          _state(look=-0.5, **L)]
+    S += [_state(**L), _state(jaw=0.2, **L), _state(jaw=0.3, **L), _state(jaw=0.15, **L)]
     return S
 
 
@@ -1043,20 +1087,44 @@ REST = _rest_script()
 
 
 def frame(s):
+    """(outside, front): the goat behind the window, and the part of its head that
+    leans in over the sill (empty unless it is leaning in)."""
     s = dict(s)
     if s['rise'] <= 0:
-        return Canvas(W, H)
+        return Canvas(W, H), Canvas(W, H)
     ease = 1 - (1 - s['rise']) ** 2
     s['oy'] = int(round((1 - ease) * 110))
-    return draw(s)
+    set_pose(s.get('lean', 0.0))
+    try:
+        out = draw(s)
+    finally:
+        set_pose(0.0)
+    return out if isinstance(out, tuple) else (out, Canvas(W, H))
+
+
+_CACHE = {}
+
+
+def _pairs(name):
+    if name not in _CACHE:
+        _CACHE[name] = [frame(s) for s in (SCRIPT if name == 'peek' else REST)]
+    return _CACHE[name]
 
 
 def peek_frames():
-    return [frame(s) for s in SCRIPT]
+    return [b for b, _ in _pairs('peek')]
 
 
 def rest_frames():
-    return [frame(s) for s in REST]
+    return [b for b, _ in _pairs('rest')]
+
+
+def peek_front_frames():
+    return [f for _, f in _pairs('peek')]
+
+
+def rest_front_frames():
+    return [f for _, f in _pairs('rest')]
 
 
 def process_sheet():

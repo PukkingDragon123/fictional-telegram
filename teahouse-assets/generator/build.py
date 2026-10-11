@@ -77,7 +77,7 @@ def frame_at(frames, fps, t):
 
 # ---------------------------------------------------------------- scene
 # hand-drawn wobble everywhere except the characters and the fx
-ORGANIC_SKIP = {'dragon_peek', 'fire_spirit', 'furnace_fire', 'furnace_coals', 'uncle_pong', 'alien_lucky_cat'}
+ORGANIC_SKIP = {'dragon_peek', 'dragon_peek_front', 'fire_spirit', 'furnace_fire', 'furnace_coals', 'uncle_pong', 'alien_lucky_cat'}
 
 class Scene:
     def __init__(self):
@@ -400,7 +400,8 @@ def export_previews(sc, anims=True):
     # ring the bell, the dragon peeks in (room 3, close up)
     bell = next(p for p in sc.props if p['name'] == 'dragon_bell')
     drg = next(p for p in sc.props if p['name'] == 'dragon_peek')
-    keep_b, keep_d = bell['frames'], drg['frames']
+    drf = next(p for p in sc.props if p['name'] == 'dragon_peek_front')
+    keep_b, keep_d, keep_f = bell['frames'], drg['frames'], drf['frames']
     ims = []
     peek = drg['anims']['peek']
     ring = bell['anims']['ring']
@@ -408,21 +409,22 @@ def export_previews(sc, anims=True):
     for f in range(len(peek) + 4):
         bell['frames'] = [ring[f]] if f < len(ring) else [bell['anims']['idle'][0]]
         drg['frames'] = [peek[f]] if f < len(peek) else [drg['anims']['hidden'][0]]
+        drf['frames'] = [drf['anims']['peek'][f]] if f < len(peek) else [drf['anims']['hidden'][0]]
         v = sc.view(f / 10, cam)
         ims.append(v.crop(LY.WIN_BELL['cx'] - cam - 150, 40, 300, 270).image(3).convert('RGB'))
-    bell['frames'], drg['frames'] = keep_b, keep_d
+    bell['frames'], drg['frames'], drf['frames'] = keep_b, keep_d, keep_f
     ims[0].save(os.path.join(ROOT, 'preview', 'dragon_bell_peek.gif'), save_all=True, append_images=ims[1:],
                 duration=100, loop=0, optimize=True)
     # the wyvern on its own, framed by its window: the peek and the resting loop
     for anim, name, ms in (('peek', 'wyvern_peek.gif', 100), ('rest', 'wyvern_rest.gif', 120)):
         ims = []
-        for f in drg['anims'][anim]:
-            drg['frames'] = [f]
+        for f, ff in zip(drg['anims'][anim], drf['anims'][anim]):
+            drg['frames'], drf['frames'] = [f], [ff]
             v = sc.view(0, cam)
             x0 = LY.WIN_BELL['cx'] - cam - 76
-            ims.append(v.crop(x0, LY.WIN_BELL['top'] - 18, 152, LY.WIN_BELL['bottom'] - LY.WIN_BELL['top'] + 34)
+            ims.append(v.crop(x0, LY.WIN_BELL['top'] - 18, 152, LY.WIN_BELL['bottom'] - LY.WIN_BELL['top'] + 66)
                        .image(4).convert('RGB'))
-        drg['frames'] = keep_d
+        drg['frames'], drf['frames'] = keep_d, keep_f
         ims[0].save(os.path.join(ROOT, 'preview', name), save_all=True, append_images=ims[1:], duration=ms, loop=0,
                     optimize=True)
     # how the wyvern is drawn, stage by stage

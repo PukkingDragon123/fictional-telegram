@@ -2047,6 +2047,12 @@
      "play": "peek",
      "then": "hidden",
      "fps": 10
+    },
+    {
+     "prop": "dragon_peek_front",
+     "play": "peek",
+     "then": "hidden",
+     "fps": 10
     }
    ],
    "anims": {
@@ -2069,9 +2075,9 @@
    "x": 1697,
    "y": 45,
    "w": 140,
-   "h": 150,
+   "h": 192,
    "draggable": false,
-   "desc": "Old white goat-dragon (a goat head and shaggy white fur, with a dragon fang, spines and claw), drawn by hand, who rises behind the bell window when the bell rings: settles its chin on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, parts its overbite jaws with a sigh and sinks back down (43 frames); rest: a loop of it staying at the window, breathing and blinking (25 frames)",
+   "desc": "Old white goat-dragon (a goat head and shaggy white fur, with dragon scales, fangs, spurs, frills and spines), drawn by hand, who rises behind the bell window when the bell rings: opens its amber eye (the third eyelid slides back), looks at the bell, leans in and puts its head over the sill into the room, breathes out, blinks, parts its jaws with a sigh, leans back out and sinks down (51 frames); rest: a loop of it with its head in over the sill, breathing and blinking (25 frames). Play it together with dragon_peek_front",
    "placed_by_default": true,
    "file": "props/room3/dragon_peek.png",
    "anims": {
@@ -2081,7 +2087,7 @@
      "sheet": "props/room3/dragon_peek_hidden_sheet.png"
     },
     "peek": {
-     "frames": 43,
+     "frames": 51,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_peek_sheet.png"
     },
@@ -2089,6 +2095,36 @@
      "frames": 25,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_rest_sheet.png"
+    }
+   }
+  },
+  {
+   "name": "dragon_peek_front",
+   "room": 3,
+   "layer": "wall",
+   "x": 1697,
+   "y": 45,
+   "w": 140,
+   "h": 192,
+   "draggable": false,
+   "desc": "The goat-dragon's head where it leans in over the sill: draw it after the room shell, with the same anims and timing as dragon_peek (it is empty while the goat is outside the window). Casts a soft shadow on the wall",
+   "placed_by_default": true,
+   "file": "props/room3/dragon_peek_front.png",
+   "anims": {
+    "hidden": {
+     "frames": 1,
+     "fps": 10,
+     "sheet": "props/room3/dragon_peek_front_hidden_sheet.png"
+    },
+    "peek": {
+     "frames": 51,
+     "fps": 10,
+     "sheet": "props/room3/dragon_peek_front_peek_sheet.png"
+    },
+    "rest": {
+     "frames": 25,
+     "fps": 10,
+     "sheet": "props/room3/dragon_peek_front_rest_sheet.png"
     }
    }
   }

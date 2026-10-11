@@ -6,10 +6,13 @@ window, rests its chin on the sill and says hello.
 
 The wyvern lives just outside the window (layer 'outside': after the
 parallax garden, before the room shell), so the window frame hides the
-rest of it.
+rest of it. When it leans in and puts its head over the sill, the head is also
+drawn on dragon_peek_front (layer 'wall', after the room shell), so it comes
+in front of the window frame and sill and casts a shadow on the wall.
 
-  dragon_bell  anims: idle (1 frame), ring (10 frames, 12 fps)
-  dragon_peek  anims: hidden (1 empty frame), peek (one-shot), rest (loop), 10 fps
+  dragon_bell        anims: idle (1 frame), ring (10 frames, 12 fps)
+  dragon_peek        anims: hidden (1 empty frame), peek (one-shot), rest (loop), 10 fps
+  dragon_peek_front  the same anims, timed together with dragon_peek
 """
 import math
 from pixel import Canvas
@@ -61,22 +64,66 @@ def bell_frames():
 
 
 PEEK_X = WIN_BELL['cx'] - wyvern.W // 2 + 4
-PEEK_Y = WIN_BELL['bottom'] + 4 - wyvern.H
+PEEK_Y = WIN_BELL['bottom'] + 4 - wyvern.H_WIN
 
 
 @prop('dragon_bell', 3, 'counter', WIN_BELL['cx'] - BW // 2 - 40, COUNTER_Y - BH + 1,
       'Brass call bell. Click it: it rings, and an old goat-dragon rises behind the window', fps=12,
       meta=dict(on_click=[dict(prop='dragon_bell', play='ring', then='idle'),
-                          dict(prop='dragon_peek', play='peek', then='hidden', fps=10)]))
+                          dict(prop='dragon_peek', play='peek', then='hidden', fps=10),
+                          dict(prop='dragon_peek_front', play='peek', then='hidden', fps=10)]))
 def dragon_bell():
     return {'idle': [_bell()], 'ring': bell_frames()}
 
 
 @prop('dragon_peek', 3, 'outside', PEEK_X, PEEK_Y,
-      'Old white goat-dragon (a goat head and shaggy white fur, with a dragon fang, spines and claw), drawn by hand, who rises behind the bell window when the bell rings: settles its chin '
-      'on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, '
-      f'parts its overbite jaws with a sigh and sinks back down ({len(wyvern.SCRIPT)} frames); rest: a loop of it '
-      f'staying at the window, breathing and blinking ({len(wyvern.REST)} frames)', drag=False,
-      fps=10, shadow='none')
+      'Old white goat-dragon (a goat head and shaggy white fur, with dragon scales, fangs, spurs, frills and spines), '
+      'drawn by hand, who rises behind the bell window when the bell rings: opens its amber eye (the third eyelid '
+      'slides back), looks at the bell, leans in and puts its head over the sill into the room, breathes out, '
+      f'blinks, parts its jaws with a sigh, leans back out and sinks down ({len(wyvern.SCRIPT)} frames); rest: a '
+      f'loop of it with its head in over the sill, breathing and blinking ({len(wyvern.REST)} frames). Play it '
+      'together with dragon_peek_front', drag=False, fps=10, shadow='none')
 def dragon_peek():
     return {'hidden': [Canvas(wyvern.W, wyvern.H)], 'peek': wyvern.peek_frames(), 'rest': wyvern.rest_frames()}
+
+
+def _opening():
+    """The bell window's opening, in the goat sprite's coordinates."""
+    import numpy as np
+    from room import bell_halfwidth
+    m = np.zeros((wyvern.H, wyvern.W), bool)
+    for yy in range(wyvern.H):
+        y = PEEK_Y + yy
+        if WIN_BELL['top'] <= y < WIN_BELL['bottom']:
+            hw = bell_halfwidth(y)
+            if hw > 0:
+                x0 = int(WIN_BELL['cx'] - hw) - PEEK_X
+                x1 = int(WIN_BELL['cx'] + hw) - PEEK_X
+                m[yy, max(0, x0):max(0, min(wyvern.W, x1))] = True
+    return m
+
+
+def _with_shadow(frames):
+    """The head leaning in casts a soft shadow on the wall and sill (not on the glass)."""
+    import numpy as np
+    from pixel import PAL
+    op = _opening()
+    out = []
+    for f in frames:
+        c = f.copy()
+        solid = c.a[..., 3] > 0
+        shd = np.zeros_like(solid)
+        shd[4:, 3:] = solid[:-4, :-3]
+        shd &= ~solid & ~op
+        c.a[shd] = (*PAL['ink'], 70)
+        out.append(c)
+    return out
+
+
+@prop('dragon_peek_front', 3, 'wall', PEEK_X, PEEK_Y,
+      'The goat-dragon\'s head where it leans in over the sill: draw it after the room shell, with the same '
+      'anims and timing as dragon_peek (it is empty while the goat is outside the window). Casts a soft shadow '
+      'on the wall', drag=False, fps=10, shadow='none')
+def dragon_peek_front():
+    return {'hidden': [Canvas(wyvern.W, wyvern.H)], 'peek': _with_shadow(wyvern.peek_front_frames()),
+            'rest': _with_shadow(wyvern.rest_front_frames())}
