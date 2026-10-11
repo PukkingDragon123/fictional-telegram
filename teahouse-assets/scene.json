@@ -1651,6 +1651,35 @@
    "file": "props/room4/woven_rug.png"
   },
   {
+   "name": "under_bed_dark",
+   "room": 4,
+   "layer": "floor",
+   "x": 2261,
+   "y": 279,
+   "w": 226,
+   "h": 40,
+   "draggable": false,
+   "desc": "The dark under the bed: a deep shadow between the legs, darkest under the quilt, fading toward the front",
+   "placed_by_default": true,
+   "file": "props/room4/under_bed_dark.png"
+  },
+  {
+   "name": "shelled_frog",
+   "room": 4,
+   "layer": "floor",
+   "x": 2327,
+   "y": 285,
+   "w": 56,
+   "h": 34,
+   "draggable": true,
+   "desc": "A shelled frog hiding in the dark under the bed: a domed shell of ridged scutes, warty olive skin, golden eyes with horizontal pupils shining out of the dark, a pulsing throat, webbed toes; it breathes and now and then blinks (12 frames)",
+   "placed_by_default": true,
+   "file": "props/room4/shelled_frog.png",
+   "frames": 12,
+   "fps": 6,
+   "sheet": "props/room4/shelled_frog_sheet.png"
+  },
+  {
    "name": "silk_bed",
    "room": 4,
    "layer": "floor",
@@ -1817,19 +1846,6 @@
    "desc": "Tall leafy green plant in a cracked glazed pot",
    "placed_by_default": false,
    "file": "props/room4/ficus_plant.png"
-  },
-  {
-   "name": "leather_boots",
-   "room": 4,
-   "layer": "floor",
-   "x": 2439,
-   "y": 321,
-   "w": 48,
-   "h": 39,
-   "draggable": true,
-   "desc": "A pair of worn leather boots, one standing, one slumped on its side, laces trailing, dried mud on the soles",
-   "placed_by_default": true,
-   "file": "props/room4/leather_boots.png"
   },
   {
    "name": "wall_shelf",

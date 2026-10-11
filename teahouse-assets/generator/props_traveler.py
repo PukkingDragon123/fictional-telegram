@@ -2,7 +2,6 @@
 a solid lit from the upper left (height-field shading from its silhouette),
 with worn edges, contact shadows and small true-to-life details.
 
-  leather_boots     a pair of worn boots, one standing, one slumped over, laces trailing
   wall_shelf        plank shelf on carved brackets: folded linen, a clay bottle, a box, a candle stub,
                     a rolled map tied with cord, dried lavender in a cup
   bronze_mirror     round bronze mirror on a cord, with a tassel, patina at the rim
@@ -46,28 +45,6 @@ def _buckle(cv, x, y, w=6, h=5):
     cv.hline(x, x + w - 1, y, 'gold4'); cv.vline(x, y, y + h - 1, 'gold3')
     cv.hline(x, x + w - 1, y + h - 1, 'gold1')
     cv.vline(x + w // 2, y + 1, y + h - 2, 'stone3')                     # tongue
-
-
-# ---------------------------------------------------------------- boots
-@prop('leather_boots', 4, 'floor', 2440, 322, 'A pair of worn leather boots, one standing, one slumped on its side, '
-      'laces trailing, dried mud on the soles')
-def leather_boots():
-    w, h = 46, 32
-    cv = Canvas(w, h)
-    stand = poly_mask(w, h, [(4, 2), (13, 2), (14, 18), (24, 22), (25, 29), (3, 29), (3, 16)])
-    _blit_mask(cv, stand, LEATHER, R_=4, amb=0.25, spec=0.08, spec_col='copper4')
-    cv.hline(3, 25, 29, 'wood0'); cv.hline(3, 24, 28, 'stone2')             # sole and mud
-    for k in range(3):                                                      # creases at the ankle
-        cv.line(4, 14 + k * 3, 12, 15 + k * 3, 'wood1')
-    for y in range(4, 16, 3):                                               # laces
-        cv.px(13, y, 'paper3'); cv.px(12, y + 1, 'paper2')
-    cv.hline(4, 13, 2, 'copper3')
-    slump = poly_mask(w, h, [(22, 20), (33, 12), (42, 15), (44, 22), (40, 29), (26, 30), (22, 27)])
-    _blit_mask(cv, slump, LEATHER, R_=4, amb=0.22)
-    cv.ellipse(38, 16, 3.2, 2.2, 'wood0')                                   # the open top, dark inside
-    cv.line(26, 30, 40, 30, 'stone2')
-    cv.line(36, 20, 31, 27, 'paper3'); cv.line(31, 27, 33, 31, 'paper2')    # lace trailing on the floor
-    return O.outline(cv)
 
 
 # ---------------------------------------------------------------- wall shelf
