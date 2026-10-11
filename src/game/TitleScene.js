@@ -256,7 +256,8 @@ function treeLine({ W, H, units, base, seed, n, minH, maxH, kinds }) {
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
-  g.imageSmoothingEnabled = false;
+  g.imageSmoothingEnabled = true; // downscaled sprites: averaged, then cut at alpha 0.5 by the shader (clean edges)
+  g.imageSmoothingQuality = 'high';
   let r = seed * 9301 + 49297;
   const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
   const pxU = H / units, floorY = Math.round(H - base * pxU);
@@ -514,12 +515,13 @@ export class TitleScene {
 
   _buildSky() {
     this.skyUniforms = { uTime: { value: 0 }, uSun: { value: new THREE.Vector2(-5.2, 3.6) }, uPx: { value: 0.03 }, uTop: { value: 3 }, uNarrow: { value: 1 } };
-    const far = treeLine({ W: 1024, H: 160, units: 1.5, base: 0.5, seed: 7, n: 70, minH: 46, maxH: 100, kinds: ['spruce_0', 'spruce_1', 'spruce_2', 'pine_0', 'pine_1', 'spruce_0'] });
-    const near = treeLine({ W: 1024, H: 160, units: 1.35, base: 0.2, seed: 19, n: 46, minH: 60, maxH: 150, kinds: ['spruce_0', 'spruce_1', 'pine_0', 'pine_1', 'birch_0', 'maple_orange', 'spruce_2', 'aspen_0'] });
+    const tpx = Math.max(64, Math.round(1.5 / 0.0138)), npx = Math.max(64, Math.round(1.35 / 0.0138)); // ~1 texel per screen pixel: no shimmer
+    const far = treeLine({ W: 1024, H: tpx, units: 1.5, base: 0.5, seed: 7, n: 70, minH: 30, maxH: 66, kinds: ['spruce_0', 'spruce_1', 'spruce_2', 'pine_0', 'pine_1', 'spruce_0'] });
+    const near = treeLine({ W: 1024, H: npx, units: 1.35, base: 0.2, seed: 19, n: 46, minH: 38, maxH: 92, kinds: ['spruce_0', 'spruce_1', 'pine_0', 'pine_1', 'birch_0', 'maple_orange', 'spruce_2', 'aspen_0'] });
     this._treeTex = [far.tex, near.tex];
     Object.assign(this.skyUniforms, {
-      uFar: { value: far.tex }, uFarS: { value: new THREE.Vector3(far.wu, 1.5, 1 / 160) },
-      uNear: { value: near.tex }, uNearS: { value: new THREE.Vector3(near.wu, 1.35, 1 / 160) },
+      uFar: { value: far.tex }, uFarS: { value: new THREE.Vector3(far.wu, 1.5, 1 / tpx) },
+      uNear: { value: near.tex }, uNearS: { value: new THREE.Vector3(near.wu, 1.35, 1 / npx) },
     });
     const geo = new THREE.PlaneGeometry(90, 40, 1, 1);
     geo.translate(0, 40 / 2 - 3, 0);

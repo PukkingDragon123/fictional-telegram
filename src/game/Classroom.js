@@ -494,9 +494,7 @@ export class Classroom {
     this.room.students.react('cheer', { stagger: 0.1 });
     this._sfx('class_cheer', { volume: 0.5 });
     this._hideSay();
-    await this.wait(0.5);
-    this._stamp();
-    await Promise.race([this.wait(4.5), this._click(0.8)]);
+    await this.wait(1.2); // [v26 class2] no stamp: the class just ends
   }
 
   async _step(st) {

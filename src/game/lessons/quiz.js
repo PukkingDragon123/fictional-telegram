@@ -11,7 +11,6 @@
 //       timer: 7,                   // optional: seconds before time runs out (a mini-game)
 //       no: 'joke' | { a: 'joke for a' },   // Reynard's line on a wrong pick
 //       yes: 'line after the right answer', show: [items drawn after the answer],
-//       coins: 5,                   // reward for a first-try answer (paid once per question, ever)
 //     } }
 // Keys 1-9 pick an option. Skip / Escape ends the class as usual.
 import * as THREE from 'three';
@@ -20,8 +19,8 @@ const V = new THREE.Vector3();
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const WRONG_ANIMS = ['facepalm', 'laugh_evil', 'shrug'];
 const RIGHT_ANIMS = ['cheer', 'count_coins', 'dance'];
-const TIMEOUT = ['Too slow! Bears do not wait.', 'Tick tock... TOCK. Time is up!'];
-const HINT = ['Tick tock, class... **Tap one!**', 'Any day now! **Tap your answer.**', 'Take a guess. Chalk is cheap. **Tap one!**'];
+const TIMEOUT = ['Too slow. At the feast, that one picks itself.'];
+const HINT = ['Well? **Tap** your answer.', 'I am not getting any younger. **Tap one.**'];
 
 /** Screen rect (CSS px) of a chalkboard item (+ its `_l` label). */
 function rectOf(cls, id, pad = 3) {
@@ -51,8 +50,7 @@ export function runQuiz(cls, q, drawn = []) {
   const ok = new Set([].concat(q.ok));
   const all = !!q.all;
   const need = new Set(all ? ok : []);
-  const key = `${cls._lessonKey || 'class'}:${q.id || opts.join(',')}`;
-  const score = (cls._score ||= { right: 0, total: 0, coins: 0 });
+  const score = (cls._score ||= { right: 0, total: 0 });
   score.total++;
   let firstTry = true, wrongs = 0, closed = false, res;
   const result = new Promise((r) => { res = r; });
@@ -173,7 +171,7 @@ export function runQuiz(cls, q, drawn = []) {
       cls._react({ kind: 'laugh' });
       react(false);
       const joke = typeof q.no === 'object' && q.no ? (q.no[id] || q.no._) : q.no;
-      cls._say(joke || pick(['Nope! Try again.', 'Wrong! Bold, but wrong.', 'Ha! No.']), pick(['smug', 'laugh', 'shocked']));
+      cls._say(joke || 'No. Look again.', pick(['smug', 'laugh', 'shocked']));
       if (!all && wrongs >= 2) setTimeout(() => finish(false), 900);
     }
   }
@@ -186,18 +184,7 @@ export function runQuiz(cls, q, drawn = []) {
     setTimeout(() => layer.remove(), 300);
     // reveal the answer(s) on the board
     for (const id of ok) if (!all || !zones.get(id)?.classList.contains('good')) mark(id, true); // all-mode picks are circled as they're tapped
-    let coins = 0;
-    if (right && firstTry) {
-      score.right++;
-      const seen = (game.state.classQuiz ||= {});
-      if (!seen[key] && game.state) {
-        seen[key] = 1;
-        coins = q.coins ?? 5;
-        if (coins > 0) { try { game.earnMisc ? game.earnMisc(coins, 'trophies') : (game.state.coins += coins); } catch { /* ignore */ } }
-        score.coins += coins;
-      }
-      popReward(coins, [...ok][ok.size - 1]);
-    }
+    if (right && firstTry) score.right++;
     if (right) {
       cls._sfx('class_right', { volume: 0.55 });
       setTimeout(() => cls._sfx('class_star', { volume: 0.4 }), 180);
@@ -215,23 +202,10 @@ export function runQuiz(cls, q, drawn = []) {
       if (src && tgt && src.doodle) board.draw({ ...src, id: undefined, x: tgt.cx, y: tgt.y0 - 6, scale: 1 }, { speed: 3 });
     }
     if (q.show) board.draw(q.show, { speed: 2.2 });
-    const lead = right ? '' : timeout ? pick(TIMEOUT) + ' ' : 'Here, THIS one. ';
+    const lead = right ? '' : timeout ? pick(TIMEOUT) + ' ' : 'It was this one. ';
     const line = cls._say(lead + (q.yes || 'Correct!'), right ? (firstTry ? 'excited' : 'happy') : 'smug');
     await line.typed;
-    res({ right: right && firstTry, coins });
-  }
-
-  // a "+5" coin flying up from the right answer
-  function popReward(coins, id) {
-    const r = rectOf(cls, id, 0);
-    const el = document.createElement('div');
-    el.className = 'cls-reward';
-    el.innerHTML = coins > 0 ? `<i class="cls-coin"></i>+${coins}` : '<i class="cls-gstar"></i>';
-    el.style.left = `${r ? r.cx : innerWidth / 2}px`;
-    el.style.top = `${r ? r.y : innerHeight / 3}px`;
-    cls.ui?.appendChild(el);
-    setTimeout(() => el.remove(), 1600);
-    if (coins > 0) cls._sfx('coin', { volume: 0.45 });
+    res({ right: right && firstTry });
   }
 
   // ---- input: tap, or drag onto the drop target
