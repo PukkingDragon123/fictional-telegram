@@ -71,6 +71,8 @@ The trees outside are grown, not stamped (`grove.py`):
 
 `generator/polish_gifs.py OUT_DIR` renders long, smooth GIFs of rooms 1, 2 and 4: 2x, 10 fps, every animation running, one shared palette, no dithering. The seating room runs 12 s, so you see the leviathan breach.
 
+`generator/artist_process.py OUT_DIR [goat 0 1 2 3]` replays how each piece is painted, like a Procreate timelapse. You see the layers panel, the tools and the cursor, and the mistakes stay in: a wrong horn stroke erased, an undo, a hidden first-idea sketch, a misplaced box rubbed out, a layer added then deleted, a prop dragged into place, colours adjusted darker, a canvas flip to check the drawing. It covers the goat-dragon model and all 4 rooms. For each one it writes `*_process.gif`, a layered `*_layers.psd` (sketch and grid layers kept but hidden; it flattens to the final) and `*_final.png`.
+
 ## The pendulum clock
 
 `pendulum_clock` runs: 120 frames at 4 fps. The brass pendulum swings tick-tock, and the red second hand ticks once per swing, all the way round, so the loop is seamless.
