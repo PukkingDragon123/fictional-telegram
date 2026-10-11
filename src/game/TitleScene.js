@@ -225,8 +225,8 @@ void main() {
     vec4 tf = texture2D(uFar, uv);
     if (tf.a > 0.5) {
       float l = dot(tf.rgb, vec3(0.3, 0.59, 0.11));
-      vec3 fc2 = mix(vec3(0.5, 0.3, 0.48), vec3(0.86, 0.56, 0.6), clamp(l * 2.2, 0.0, 1.0));
-      fc2 = mix(fc2, vec3(0.98, 0.72, 0.62), 0.32 + glow * 0.25); // aerial haze
+      vec3 fc2 = mix(vec3(0.52, 0.32, 0.48), vec3(0.66, 0.42, 0.54), clamp(l * 2.0, 0.0, 1.0)); // one solid hazy silhouette
+      fc2 = mix(fc2, vec3(0.9, 0.62, 0.6), 0.18 + glow * 0.18); // aerial haze
       if (texture2D(uFar, uv + vec2(0.0, uFarS.z)).a < 0.5) fc2 = mix(fc2, vec3(1.0, 0.76, 0.52), 0.55 + glow * 0.4);
       col = fc2;
     }
@@ -270,7 +270,15 @@ function treeLine({ W, H, units, base, seed, n, minH, maxH, kinds }) {
     const h = Math.min(t.h, floorY), w = Math.round(sc.width * h / sc.height), y = floorY - h + Math.round(h * 0.06);
     for (const dx of [0, -W, W]) g.drawImage(sc, Math.round(t.x - w / 2 + dx), y, w, h);
   }
-  g.fillStyle = '#1e3a26';
+  // a dense undergrowth of small trees breaks up the floor line (no hard strip edge)
+  const small = ['spruce_2', 'sapling', 'spruce_1', 'bush_0', 'bush_1'];
+  for (let i = 0; i < n * 3; i++) {
+    const sc = natureCanvas(small[Math.floor(rnd() * small.length)], 0, 1);
+    if (!sc || sc.width < 2) continue;
+    const h = Math.round(minH * (0.35 + 0.35 * rnd())), w = Math.round(sc.width * h / sc.height), x = (i + rnd()) / (n * 3) * W;
+    for (const dx of [0, -W, W]) g.drawImage(sc, Math.round(x - w / 2 + dx), floorY - h + Math.round(h * 0.25), w, h);
+  }
+  g.fillStyle = '#2a4a2e';
   g.fillRect(0, floorY, W, H - floorY);
   const tex = new THREE.CanvasTexture(c);
   tex.magFilter = tex.minFilter = THREE.NearestFilter;

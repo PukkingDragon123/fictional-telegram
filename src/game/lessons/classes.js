@@ -32,7 +32,7 @@ export const CLASS_LESSONS = {
         { erase: true, say: 'So: a plain **XL** Bluegill, or a small **Golden** one. Which pays more?',
           draw: [TITLE('WHICH PAYS MORE?'), D('fish', 50, 54, { scale: 2, id: 'xl' }), S('PLAIN, XL', 50, 74, 'blue', { id: 'xl_l' }), T('VS', 96, 54, { color: 'yellow' }), D('fish_gold', 142, 54, { id: 'gold' }), S('GOLDEN, SMALL', 142, 74, 'yellow', { id: 'gold_l' })],
           quiz: { id: 'hl', opts: ['xl', 'gold'], ok: 'gold',
-            no: `Size only adds 40%: **${xl}**. Golden multiplies by five: **${gS}**, even small.`,
+            no: `The XL pays **${xl}**: size only adds 40%. The small Golden pays **${gS}**.`,
             yes: `Golden. **${gS}** against **${xl}**. Colour beats size every time.`,
             show: [T(`${xl}`, 50, 90), T(`${gS}`, 142, 90, { color: 'yellow' })] } },
         { erase: true, say: `A plain Bluegill pays **${b}**. Same fish, Galaxy mutant, **x${gal}**. What's the bill?`, expr: 'scheming',
