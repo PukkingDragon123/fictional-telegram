@@ -2,7 +2,7 @@
 
 The flame body is a teardrop field broken up by noise that rises through
 it; the noise uses whole-number temporal frequencies so every animation
-loops perfectly. Big round eyes, a toothless wobbly mouth that sucks at the air, blinking, a wobbling pair of flame arms, rising
+loops perfectly. No eyes: just a toothless, wobbly frown, blinking, a wobbling pair of flame arms, rising
 sparks. Animations: idle, talk, happy - each FF frames."""
 import math
 import random
@@ -108,50 +108,78 @@ IDLE = [0.0, 0.0, 0.0, 0.15, 0.3, 0.2, 0.05, 0.0, 0.0, 0.0, 0.12, 0.0]
 HAPPY = [0.7, 0.75, 0.8, 0.75, 0.7, 0.72, 0.78, 0.82, 0.78, 0.72, 0.7, 0.68]
 
 def _mouth(cv, f, mood, cx, my):
-    """A toothless, wobbly, organic mouth that sucks at the air: a soft opening
-    whose rim ripples all the way round (two travelling waves, whole-number
-    frequencies so it loops), a dark throat glowing red inside, glowing lips,
-    pucker creases when it pinches small, and sparks drawn into it."""
+    """A toothless, wobbly mouth, turned down in a sad frown: a soft opening whose
+    rim ripples all the way round (travelling waves with whole-number frequencies,
+    so it loops), a dark throat glowing red inside and glowing lips."""
     o = {'idle': IDLE, 'talk': TALK, 'happy': HAPPY}[mood][f]
     t = 2 * math.pi * f / FF
-    suck = 0.5 + 0.5 * math.sin(t * (2 if mood == 'idle' else 1))           # it purses and opens
-    pucker = (1 - o) * suck if mood != 'happy' else 0.0
-    rx = (4 + 6 * o + 2 * (mood == 'happy')) * (1 - 0.45 * pucker) + 2.5
-    ry = 2.0 + 5.0 * o + 1.4 * pucker
-    curl = 4.0 if mood == 'happy' else 0.0
-    for y in range(int(my - ry * 1.6 - curl - 3), int(my + ry * 1.6 + 4)):
+    rx = 4.5 + 6 * o + 1.5 * (mood == 'happy')
+    ry = 1.8 + 4.5 * o + 0.6 * math.sin(t)
+    curl = -3.0                                                                # corners down: a frown
+    for y in range(int(my - ry * 1.6 - 4), int(my + ry * 1.6 + 6)):
         for x in range(int(cx - rx * 1.5 - 2), int(cx + rx * 1.5 + 3)):
             dx = x + 0.5 - cx
             u = dx / max(1.0, rx)
             dy = y + 0.5 - my + curl * u * u
             ang = math.atan2(dy, dx)
-            wob = 1 + 0.16 * math.sin(3 * ang + t) + 0.09 * math.sin(5 * ang - 2 * t) + 0.05 * math.sin(7 * ang + 3 * t)
+            wob = 1 + 0.17 * math.sin(3 * ang + t) + 0.1 * math.sin(5 * ang - 2 * t) + 0.05 * math.sin(7 * ang + 3 * t)
             d = math.hypot(dx / rx, dy / ry) / wob
             if d < 1.0:
-                c = 'ink' if d < 0.5 else ('red0' if d < 0.78 else 'fire0')         # throat, glowing red
+                c = 'ink' if d < 0.5 else ('red0' if d < 0.78 else 'fire0')
                 if d < 0.3 and o > 0.5:
-                    c = 'red1'                                                    # the hot glow deep inside
+                    c = 'red1'
                 cv.px(x, y, c)
             elif d < 1.28:
-                c = 'fire2' if dy < 0 else 'fire1'                                # lips, lit along the top
+                c = 'fire2' if dy < 0 else 'fire1'
                 if d < 1.12 and dy < 0:
                     c = 'fire3'
                 cv.px(x, y, c)
-    if pucker > 0.35:                                                             # pucker creases round the lips
+
+
+def _eyes(cv, f, mood, cx, ey):
+    """Big googly eyes, sad and crying: wobbly white eyeballs whose pupils jiggle
+    and sag, worried brows (inner ends up), a watery line welling along the lower
+    lid, and tears that run down and sizzle into steam."""
+    t = 2 * math.pi * f / FF
+    for side in (-1, 1):
+        ex, eyy = cx + side * 9, ey - 6
+        r = 5.6 + 0.4 * math.sin(t + side)                                    # the eyeball wobbles
+        for y in range(int(eyy - r - 1), int(eyy + r + 2)):
+            for x in range(int(ex - r - 1), int(ex + r + 2)):
+                d = math.hypot(x + 0.5 - ex, (y + 0.5 - eyy) * 1.08)
+                if d <= r:
+                    cv.px(x, y, 'white' if d < r - 1 else 'paper3')
+                elif d <= r + 1:
+                    cv.px(x, y, 'fire0')
+        # tears welling along the bottom of the eye
+        for x in range(int(ex - r + 1), int(ex + r)):
+            yb = int(eyy + math.sqrt(max(0.0, r * r - (x + 0.5 - ex) ** 2)) / 1.08) - 1
+            cv.px(x, yb, 'sky3'); cv.px(x, yb - 1, 'sky4')
+        # googly pupil: sags low, jiggles a little out of step with the other eye
+        px_ = ex + 1.3 * math.sin(2 * t + side * 1.7) - side * 0.6
+        py_ = eyy + 1.6 + 0.9 * math.sin(3 * t + side)
+        for y in range(int(py_ - 3), int(py_ + 4)):
+            for x in range(int(px_ - 3), int(px_ + 4)):
+                if math.hypot(x + 0.5 - px_, y + 0.5 - py_) <= 2.7:
+                    cv.px(x, y, 'ink')
+        cv.px(int(px_ - 1), int(py_ - 1), 'white')                           # glint
+        cv.px(int(ex - side * 2), int(eyy - 3), 'white')
+        # worried brow: inner end raised
         for k in range(8):
-            a = 2 * math.pi * k / 8 + 0.2 * math.sin(t + k)
-            for r in (1.4, 1.6):
-                x = cx + math.cos(a) * rx * r
-                y = my + math.sin(a) * ry * r * 1.2
-                cv.px(int(x), int(y), 'fire1')
-    if mood != 'happy':                                                           # sparks sucked in
-        for k in range(5):
-            ph = (f / FF + k / 5.0) % 1
-            a = 2 * math.pi * k / 5 + 0.7
-            r = (1 - ph) * 16 + rx
-            x = cx + math.cos(a) * r
-            y = my + math.sin(a) * r * 0.6
-            cv.px(int(x), int(y), 'fire5' if ph < 0.5 else 'fire4')
+            bx = ex - side * 4 + side * k
+            by = eyy - r - 2 - (3.2 - k * 0.45) + 0.4 * math.sin(t)
+            cv.px(int(bx), int(by), 'fire0'); cv.px(int(bx), int(by) + 1, 'red0')
+        # tears running down from the outer corner, hissing into steam at the bottom
+        for k in range(3):
+            ph = (f / FF + k / 3.0) % 1
+            tx = ex + side * (r - 1) + side * ph * 2
+            ty = eyy + 2 + ph * 18
+            c = 'sky4' if ph < 0.4 else ('sky3' if ph < 0.75 else 'cloud2')
+            cv.px(int(tx), int(ty), c)
+            if ph < 0.75:
+                cv.px(int(tx), int(ty) + 1, 'sky2')
+            else:
+                cv.px(int(tx) + side, int(ty) - 1, 'cloud3')                   # sizzle
 
 
 def frame(f, mood='idle'):
@@ -172,7 +200,7 @@ def frame(f, mood='idle'):
     _logs(cv)
     cx = W // 2 + int(round(math.sin(2 * math.pi * f / FF) * 0.6))
     ey = H - 34 + int(round(math.sin(2 * math.pi * f / FF) * 1.0))
-    _mouth(cv, f, mood, cx, ey + 4)
+    _mouth(cv, f, mood, cx, ey + 6)
     # rising sparks (periodic)
     rng = random.Random(5)
     for k in range(7):

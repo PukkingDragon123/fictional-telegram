@@ -1704,7 +1704,7 @@
    "w": 60,
    "h": 112,
    "draggable": true,
-   "desc": "Wooden chair pushed back, a red scarf draped over it (cloth physics, 12 frames)",
+   "desc": "Wooden chair at the desk, seen from behind (it faces the desk), a red scarf draped over its back (cloth physics, 12 frames)",
    "placed_by_default": true,
    "file": "props/room4/chair_with_scarf.png",
    "frames": 12,
@@ -1751,20 +1751,20 @@
    "file": "props/room4/sketch_pinned.png"
   },
   {
-   "name": "oil_lamp",
+   "name": "red_lantern",
    "room": 4,
    "layer": "ceiling",
-   "x": 2425,
+   "x": 2417,
    "y": 35,
-   "w": 37,
+   "w": 53,
    "h": 90,
    "draggable": true,
-   "desc": "Hanging oil lamp, gently swinging, warm glow (8 frames)",
+   "desc": "Big red paper chochin lantern hanging from the beam, lit from inside, gently swinging, tassel and soft halo (8 frames)",
    "placed_by_default": true,
-   "file": "props/room4/oil_lamp.png",
+   "file": "props/room4/red_lantern.png",
    "frames": 8,
    "fps": 5,
-   "sheet": "props/room4/oil_lamp_sheet.png"
+   "sheet": "props/room4/red_lantern_sheet.png"
   },
   {
    "name": "walking_staff",
@@ -1819,32 +1819,6 @@
    "file": "props/room4/ficus_plant.png"
   },
   {
-   "name": "travel_trunk",
-   "room": 4,
-   "layer": "floor",
-   "x": 2293,
-   "y": 307,
-   "w": 87,
-   "h": 54,
-   "draggable": true,
-   "desc": "Wooden travel trunk with leather straps and buckles, brass corners and lock plate, scuffed; an indigo blanket folded over the lid",
-   "placed_by_default": true,
-   "file": "props/room4/travel_trunk.png"
-  },
-  {
-   "name": "traveler_pack",
-   "room": 4,
-   "layer": "floor",
-   "x": 2377,
-   "y": 305,
-   "w": 46,
-   "h": 56,
-   "draggable": true,
-   "desc": "Canvas traveler's pack leaning on the trunk: rolled bedroll strapped on top, buckled flap, side pocket, a tin cup hanging from a cord",
-   "placed_by_default": true,
-   "file": "props/room4/traveler_pack.png"
-  },
-  {
    "name": "leather_boots",
    "room": 4,
    "layer": "floor",
@@ -1856,22 +1830,6 @@
    "desc": "A pair of worn leather boots, one standing, one slumped on its side, laces trailing, dried mud on the soles",
    "placed_by_default": true,
    "file": "props/room4/leather_boots.png"
-  },
-  {
-   "name": "hibachi_brazier",
-   "room": 4,
-   "layer": "floor",
-   "x": 1993,
-   "y": 299,
-   "w": 48,
-   "h": 53,
-   "draggable": true,
-   "desc": "Glazed hibachi brazier: ash, glowing charcoal that breathes, iron tongs, sparks rising (8 frames)",
-   "placed_by_default": true,
-   "file": "props/room4/hibachi_brazier.png",
-   "frames": 8,
-   "fps": 6,
-   "sheet": "props/room4/hibachi_brazier_sheet.png"
   },
   {
    "name": "wall_shelf",

@@ -110,10 +110,7 @@ def light():
     sel = glass & (al > 0)
     base[sel, 0], base[sel, 1], base[sel, 2] = 236, 246, 255
     base[sel, 3] = np.maximum(base[sel, 3], al[sel])
-    bx_, by_ = 2017, 322                                  # bedroom brazier: a low warm glow on the floor and wall
-    _add(base, bx_ - 60, bx_ + 60, by_ - 70, by_ + 40,
-         lambda x, y: (FIRE, int(max(0, 34 * (1 - math.hypot(x - bx_, (y - by_) * 1.4) / 60)))))
-    lx, ly = 2441, 96                                     # bedroom oil lamp glow
+    lx, ly = 2441, 80                                     # bedroom red lantern glow
     _add(base, lx - 70, lx + 70, ly - 60, ly + 70,
          lambda x, y: (FIRE, int(max(0, 40 * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))
     frames = []

@@ -172,27 +172,32 @@ def desk_candle():
 
 
 # ---------------------------------------------------------------- chair + scarf
-@prop('chair_with_scarf', 4, 'floor', 2176, 214, 'Wooden chair pushed back, a red scarf draped over it (cloth physics, 12 frames)', fps=6)
+@prop('chair_with_scarf', 4, 'floor', 2176, 214, 'Wooden chair at the desk, seen from behind (it faces the desk), a red scarf draped over its back (cloth physics, 12 frames)', fps=6)
 def chair():
     def build():
         rng = random.Random(4200)
         w, h = 58, 104
         base = Canvas(w, h)
-        for lx in (6, w - 14):                               # back posts / rear legs
+        # seen from behind, facing the desk: the far parts first - the seat's top
+        # beyond the backrest, the front legs (their feet higher: further away)
+        for y in range(44, 56):
+            inset_ = (56 - y) * 0.3
+            base.hline(int(4 + inset_), int(w - 5 - inset_), y, 'wood4' if y < 47 else 'wood3')
+        base.hline(6, w - 7, 44, 'wood5')
+        for lx in (9, w - 17):
+            wood_face(base, lx, 54, 7, h - 64, rng, 'wood', 2, 'v', knots=False)
+            base.vline(lx, 54, h - 11, 'wood3'); base.vline(lx + 6, 54, h - 11, 'wood0')
+        base.rect(14, h - 24, w - 28, 3, 'wood1')                         # front stretcher, far
+        # then the near parts: back posts down to the floor, rails, slats
+        for lx in (4, w - 12):
             wood_face(base, lx, 0, 8, h, rng, 'wood', 2, 'v', knots=False)
             base.vline(lx, 0, h - 1, 'wood3'); base.vline(lx + 7, 0, h - 1, 'wood0')
-        for sy in (6, 20):                                   # top rail + mid rail
-            base.rect(6, sy, w - 12, 6, 'wood3'); base.hline(6, w - 7, sy, 'wood5'); base.hline(6, w - 7, sy + 5, 'wood1')
-        for sx in (20, 28, 36):                              # slats
-            base.rect(sx, 26, 4, 22, 'wood3'); base.vline(sx, 26, 47, 'wood4'); base.vline(sx + 3, 26, 47, 'wood1')
-        # seat (top visible) + front legs
-        for y in range(50, 60):
-            base.hline(2, w - 3, y, 'wood4' if y > 51 else 'wood3')
-        base.rect(2, 60, w - 4, 6, 'wood3'); base.hline(2, w - 3, 60, 'wood5'); base.hline(2, w - 3, 65, 'wood0')
-        for lx in (4, w - 12):
-            wood_face(base, lx, 66, 8, h - 66, rng, 'wood', 3, 'v', knots=False)
-            base.vline(lx, 66, h - 1, 'wood4'); base.vline(lx + 7, 66, h - 1, 'wood1')
-        base.rect(10, h - 16, w - 20, 3, 'wood1')
+        for sy in (6, 20):                                   # top rail + mid rail (their backs)
+            base.rect(4, sy, w - 8, 6, 'wood2'); base.hline(4, w - 5, sy, 'wood4'); base.hline(4, w - 5, sy + 5, 'wood0')
+        for sx in (20, 28, 36):                              # slats, seat showing between them
+            base.rect(sx, 26, 4, 28, 'wood2'); base.vline(sx, 26, 53, 'wood3'); base.vline(sx + 3, 26, 53, 'wood0')
+        base.rect(4, 54, w - 8, 6, 'wood2'); base.hline(4, w - 5, 54, 'wood4'); base.hline(4, w - 5, 59, 'wood0')   # seat back rail
+        base.rect(10, h - 14, w - 20, 3, 'wood1')                         # back stretcher, near
         s = C.Cloth(6, 30, 2.6, origin=(30, 6, 1))
         for i in range(6):
             s.pin(i, 0, (22 + i * 2.8, 6, 2))
@@ -334,31 +339,11 @@ def sketch():
     return cv
 
 
-@prop('oil_lamp', 4, 'ceiling', 2426, 36, 'Hanging oil lamp, gently swinging, warm glow (8 frames)', fps=5)
-def oil_lamp():
-    frames = []
-    for f in range(F8):
-        sw = math.sin(2 * math.pi * f / F8)
-        cv = Canvas(30, 82)
-        L = 40
-        bx = 15 + sw * 2.2
-        for j in range(L):
-            x = 15 + sw * 2.2 * j / L
-            cv.px(int(round(x)), j, 'stone1' if j % 3 else 'stone2')
-        cap = lathe_shade(14, 4, lambda t: 7, O.BRASS[1:], spec=0.1)
-        cv.blit(cap, int(round(bx)) - 7, L)
-        glass = ellipse_mask(16, 22, 8, 11, 7.5, 10.5)
-        paint(glass, ['fire3', 'fire4', 'fire5', 'white'], R=6, amb=0.5, canvas=cv, ox=int(round(bx)) - 8, oy=L + 4)
-        fx = int(round(bx))
-        for k in range(6):
-            cv.px(fx, L + 18 - k, 'fire5' if k < 3 else 'white')
-        cv.px(fx - 1, L + 16, 'fire4'); cv.px(fx + 1, L + 16, 'fire4')
-        base = lathe_shade(18, 8, lambda t: 9 - t * 3, O.BRASS[1:], spec=0.12, spec_col='gold4')
-        cv.blit(base, fx - 9, L + 25)
-        cv.px(fx, L + 33, 'gold2'); cv.px(fx, L + 34, 'gold1')
-        frames.append(O.outline(cv))
-    return frames
-
+@prop('red_lantern', 4, 'ceiling', 2418, 36, 'Big red paper chochin lantern hanging from the beam, lit from inside, '
+      'gently swinging, tassel and soft halo (8 frames)', fps=5)
+def red_lantern():
+    from props_seating import _lantern
+    return [_lantern(2022, False, f) for f in range(F8)]
 
 @prop('walking_staff', 4, 'floor', 2236, 160, 'Knotted walking staff with a bell and charm, leaning on the wall', preview=False)
 def staff():

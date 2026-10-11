@@ -2,10 +2,7 @@
 a solid lit from the upper left (height-field shading from its silhouette),
 with worn edges, contact shadows and small true-to-life details.
 
-  travel_trunk      wooden trunk with leather straps, brass corners and lock, a folded blanket over it
-  traveler_pack     canvas rucksack: rolled bedroll on top, buckled flap, side pocket, tin cup
   leather_boots     a pair of worn boots, one standing, one slumped over, laces trailing
-  hibachi_brazier   glazed brazier with ash, glowing charcoal and iron tongs (embers pulse, sparks rise)
   wall_shelf        plank shelf on carved brackets: folded linen, a clay bottle, a box, a candle stub,
                     a rolled map tied with cord, dried lavender in a cup
   bronze_mirror     round bronze mirror on a cord, with a tassel, patina at the rim
@@ -51,104 +48,6 @@ def _buckle(cv, x, y, w=6, h=5):
     cv.vline(x + w // 2, y + 1, y + h - 2, 'stone3')                     # tongue
 
 
-# ---------------------------------------------------------------- trunk
-@prop('travel_trunk', 4, 'floor', 2296, 308, 'Wooden travel trunk with leather straps and buckles, brass corners and '
-      'lock plate, scuffed; an indigo blanket folded over the lid')
-def travel_trunk():
-    rng = random.Random(404)
-    w, h = 82, 46
-    cv = Canvas(w, h)
-    top_d, fy, fh = 12, 14, 30                                           # lid top depth, front face y and height
-    # body: planks with grain, lid seam, the lid's top in perspective
-    wood_face(cv, 1, fy, w - 2, fh, rng, 'wood', 2, 'h', plank=10)
-    pts = [(4, 2), (w - 5, 2), (w - 1, fy), (1, fy)]
-    m = poly_mask(w, h, pts)
-    ys, xs = np.nonzero(m)
-    for y, x in zip(ys, xs):
-        cv.px(x, y, 'wood3' if (y + x // 9) % 4 else 'wood2')
-    WG.grain_pass(cv, 1, 2, w - 1, fy, 'h', seed=4.0, board=4, ramps=('wood',))
-    cv.hline(4, w - 5, 2, 'wood1'); cv.hline(1, w - 2, fy - 1, 'wood4')
-    cv.hline(1, w - 2, fy + 8, 'wood0'); cv.hline(1, w - 2, fy + 9, 'wood3')    # lid seam
-    cv.vline(1, fy, fy + fh - 1, 'wood3'); cv.vline(w - 2, fy, fy + fh - 1, 'wood0')
-    cv.hline(1, w - 2, fy + fh - 1, 'wood0')
-    # brass corner caps and the lock plate
-    for (cx, cy) in ((1, fy), (w - 8, fy), (1, fy + fh - 7), (w - 8, fy + fh - 7)):
-        m = np.zeros((7, 7), bool)
-        for yy in range(7):
-            for xx in range(7):
-                m[yy, xx] = (xx < 3 or yy < 3) if cy == fy else (xx < 3 or yy > 3)
-                if cx > w // 2:
-                    m[yy, xx] = (xx > 3 or yy < 3) if cy == fy else (xx > 3 or yy > 3)
-        _blit_mask(cv, m, O.BRASS, cx, cy, R_=2, spec=0.15, spec_col='gold4')
-        cv.px(cx + 1, cy + 1, 'gold0'); cv.px(cx + 5, cy + 5, 'gold0')    # rivets
-    lm = ellipse_mask(10, 12, 5, 6, 4.6, 5.6, wobble=0)
-    _blit_mask(cv, lm, O.BRASS, w // 2 - 5, fy + 5, R_=3, spec=0.2, spec_col='gold4')
-    cv.px(w // 2, fy + 11, 'ink'); cv.px(w // 2, fy + 12, 'ink')         # keyhole
-    # leather straps round the trunk, with buckles
-    for sx in (16, w - 22):
-        _strap(cv, sx, 2, fy + fh - 1, 6)
-        _buckle(cv, sx, fy + 12)
-    # an indigo blanket folded over the left of the lid, hanging down the front
-    bm = poly_mask(w, h, [(4, 0), (34, 0), (37, 4), (36, fy + 15), (31, fy + 19), (27, fy + 15), (21, fy + 20),
-                          (15, fy + 16), (9, fy + 21), (5, fy + 14), (3, 4)])
-    _blit_mask(cv, bm, BLANKET, 0, 0, R_=5, amb=0.3)
-    for x in range(4, 37):                                               # woven stripes, folds
-        for y in range(0, fy + 21):
-            if bm[y, x] and y in (fy - 2, fy - 1):
-                cv.px(x, y, 'paper3' if x % 2 else 'paper2')
-            if bm[y, x] and (x in (14, 25)) and y > fy:
-                cv.px(x, y, 'indigo0')
-    for x in (6, 10, 16, 20, 23, 28, 32):                                 # fringe at the hanging edge
-        for k in range(1, 3):
-            yy = fy + 14 + (x % 5) + k
-            if yy < h:
-                cv.px(x, yy, 'indigo3' if k == 1 else 'indigo2')
-    # scuffs on the wood
-    for _ in range(14):
-        sx, sy = rng.randint(40, w - 10), rng.randint(fy + 2, fy + fh - 3)
-        cv.hline(sx, sx + rng.randint(1, 3), sy, 'wood4')
-    return O.outline(cv)
-
-
-# ---------------------------------------------------------------- pack
-@prop('traveler_pack', 4, 'floor', 2378, 306, "Canvas traveler's pack leaning on the trunk: rolled bedroll strapped on "
-      'top, buckled flap, side pocket, a tin cup hanging from a cord')
-def traveler_pack():
-    w, h = 44, 50
-    cv = Canvas(w, h)
-    body = poly_mask(w, h, [(8, 14), (34, 12), (39, 22), (40, 44), (35, 49), (9, 49), (4, 42), (5, 22)])
-    _blit_mask(cv, body, CANVAS, R_=8, amb=0.25)
-    yy, xx = np.mgrid[0:h, 0:w]
-    for y, x in zip(*np.nonzero(body & ((xx + yy) % 3 == 0) & ((xx * 7 + yy * 3) % 11 < 3))):
-        cv.px(x, y, step(PAL[CANVAS[1]], 0))                               # canvas weave
-    for (x0, y0, x1, y1) in ((12, 30, 16, 46), (28, 28, 25, 46)):          # folds in the canvas
-        cv.line(x0, y0, x1, y1, 'paper1')
-    flap = poly_mask(w, h, [(7, 14), (35, 13), (37, 28), (30, 31), (14, 31), (6, 27)])
-    _blit_mask(cv, flap, ['wood1', 'copper1', 'copper2', 'copper3', 'paper2'], R_=4, amb=0.3)
-    for sx in (13, 26):
-        _strap(cv, sx, 24, 40, 4)
-        _buckle(cv, sx - 1, 37, 6, 4)
-    pk = poly_mask(w, h, [(33, 30), (41, 31), (42, 44), (35, 46)])        # side pocket
-    _blit_mask(cv, pk, CANVAS, R_=3, amb=0.2)
-    # rolled bedroll on top: a cylinder lying across, spiral end showing
-    for x in range(2, w - 2):
-        for y in range(3, 15):
-            ty = (y - 3) / 11.0
-            v = 0.25 + 0.75 * math.sin(math.pi * ty) * (1 - 0.35 * ty)
-            c = BLANKET[min(4, int(v * 5))] if (x // 6) % 2 else ['red0', 'red1', 'red2', 'red3', 'red4'][min(4, int(v * 5))]
-            cv.px(x, y, c)
-    for r in (5, 3, 1):                                                  # rolled end
-        for a in range(0, 360, 12):
-            cv.px(int(3 + math.cos(math.radians(a)) * r * 0.5), int(9 + math.sin(math.radians(a)) * r), 'indigo3' if r == 3 else 'indigo1')
-    for sx in (10, 30):
-        cv.vline(sx, 3, 14, 'wood1'); cv.vline(sx + 1, 3, 14, 'copper2')     # ties round the roll
-    # tin cup hanging from a cord on the right
-    cv.line(39, 22, 41, 30, 'paper1')
-    cup = lathe_shade(8, 8, lambda t: 3.5, O.IRON[1:], spec=0.2)
-    cv.blit(cup, 36, 30)
-    return O.outline(cv)
-
-
 # ---------------------------------------------------------------- boots
 @prop('leather_boots', 4, 'floor', 2440, 322, 'A pair of worn leather boots, one standing, one slumped on its side, '
       'laces trailing, dried mud on the soles')
@@ -169,53 +68,6 @@ def leather_boots():
     cv.line(26, 30, 40, 30, 'stone2')
     cv.line(36, 20, 31, 27, 'paper3'); cv.line(31, 27, 33, 31, 'paper2')    # lace trailing on the floor
     return O.outline(cv)
-
-
-# ---------------------------------------------------------------- brazier
-def _brazier(f):
-    rng = random.Random(77)
-    w, h = 46, 46
-    cv = Canvas(w, h)
-    bowl = lathe_shade(40, 22, lambda t: 19.5 - 3 * t * t, ['indigo0', 'indigo1', 'teal1', 'teal2', 'teal3'],
-                       spec=0.12, spec_col='cloud2')
-    cv.blit(bowl, 3, 22)
-    cv.ellipse(23, 23, 19.5, 6, 'teal1')                                    # the rim
-    cv.ellipse(23, 23, 17.5, 5, 'stone2')                                   # ash bed
-    for _ in range(60):
-        ax, ay = rng.uniform(8, 38), rng.uniform(19, 27)
-        if ((ax - 23) / 17) ** 2 + ((ay - 23) / 4.6) ** 2 < 1:
-            cv.px(int(ax), int(ay), rng.choice(('stone3', 'stone1', 'stone2', 'cloud1')))
-    # charcoal pieces, glowing from inside; the glow breathes
-    pulse = 0.5 + 0.5 * math.sin(2 * math.pi * f / F8)
-    for k, (cx, cy, r) in enumerate(((17, 21, 3.4), (24, 20, 3.8), (30, 22, 3.0), (21, 24, 2.8), (28, 25, 2.6))):
-        for yy in range(int(cy - r), int(cy + r) + 1):
-            for xx in range(int(cx - r), int(cx + r) + 1):
-                d = math.hypot(xx - cx, (yy - cy) * 1.4) / r
-                if d <= 1:
-                    hot = (1 - d) * (0.6 + 0.4 * math.sin(2 * math.pi * f / F8 + k * 1.3))
-                    c = 'ink' if d > 0.8 else ('fire4' if hot > 0.55 else ('fire3' if hot > 0.35 else
-                                                                         ('fire2' if hot > 0.18 else 'red0')))
-                    if (xx + yy * 2 + k) % 5 == 0 and d < 0.8:
-                        c = 'stone1'                                              # cracks of grey ash on the coal
-                    cv.px(xx, yy, c)
-    # iron tongs (hibashi) stuck in the ash
-    cv.line(32, 21, 40, 2, 'stone1'); cv.line(33, 21, 42, 3, 'stone2'); cv.px(41, 2, 'stone3')
-    # sparks rising
-    for k in range(4):
-        t = ((f + k * 2) % F8) / F8
-        sx = 22 + k * 3 + math.sin(t * 6 + k) * 2
-        sy = 17 - t * 16
-        if sy > 0:
-            cv.px(int(sx), int(sy), 'fire4' if t < 0.5 else 'fire3')
-    glow = int(70 + 50 * pulse)
-    out = O.outline(cv)
-    return out
-
-
-@prop('hibachi_brazier', 4, 'floor', 1994, 300, 'Glazed hibachi brazier: ash, glowing charcoal that breathes, iron tongs, '
-      'sparks rising (8 frames)', fps=6)
-def hibachi_brazier():
-    return [_brazier(f) for f in range(F8)]
 
 
 # ---------------------------------------------------------------- wall shelf
