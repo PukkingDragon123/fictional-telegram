@@ -123,12 +123,13 @@ class Scene:
 
     def outside_at(self, t, cam_x, width=LY.W):
         cv = Canvas(width, LY.H)
-        for name, frames, fac in self.outs:
+        for name, frames, fac, *off in self.outs:
             fr = frame_at(frames, LAYER_FPS, t)
+            ox, oy = off[0] if off else (0, 0)
             origin = int(round(cam_x * (1 - fac)))
             x = origin % outside.OUT_W - outside.OUT_W
             while x < width:
-                cv.blit(fr, x, 0)
+                cv.blit(fr, x + ox, oy)
                 x += outside.OUT_W
         return cv
 
@@ -201,9 +202,11 @@ def export_palette():
 
 def export_layers(sc):
     info = []
-    for name, frames, fac in sc.outs:
+    for name, frames, fac, *off in sc.outs:
         rec = dict(name=name, file=save(frames[0], 'layers', 'outside', name + '.png'),
                    parallax=fac, tile_width=outside.OUT_W, frames=len(frames))
+        if off:                                       # a cropped layer: drawn at (x, y) inside each tile
+            rec.update(x=off[0][0], y=off[0][1], w=frames[0].w, h=frames[0].h)
         if len(frames) > 1:
             rec['sheet'] = save(sheet(frames, vertical=True), 'layers', 'outside', name + '_sheet.png')
             rec['fps'] = LAYER_FPS
@@ -435,6 +438,12 @@ def export_previews(sc, anims=True):
                 duration=110, loop=0)
     if not anims:
         return
+    # the leviathan breaching, seen through the seating-room window (its whole 72-frame loop)
+    wm = LY.WIN_MAIN
+    ims = [sc.view(k / LAYER_FPS, LY.SW).crop(wm['x'] - LY.SW - 8, wm['y'] - 8, wm['w'] + 16, wm['h'] + 40)
+           .image(3).convert('RGB') for k in range(72)]
+    ims[0].save(os.path.join(ROOT, 'preview', 'leviathan_breach.gif'), save_all=True, append_images=ims[1:],
+                duration=1000 // LAYER_FPS, loop=0, optimize=True)
     n = 24                                      # 2 s at 12 fps: every loop (8 or 12 frames) closes
     for name, cam in (('room1_cook_anim.gif', 0), ('room2_window_anim.gif', LY.SW), ('room3_ritual_anim.gif', 2 * LY.SW),
                       ('room4_bedroom_anim.gif', 3 * LY.SW)):

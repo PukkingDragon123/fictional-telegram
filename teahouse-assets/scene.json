@@ -122,35 +122,57 @@
    "frames": 1
   },
   {
-   "name": "02_mountains_lake",
-   "file": "layers/outside/02_mountains_lake.png",
+   "name": "02_mountains",
+   "file": "layers/outside/02_mountains.png",
    "parallax": 0.12,
    "tile_width": 1280,
    "frames": 1
   },
   {
-   "name": "03_hills_trees",
-   "file": "layers/outside/03_hills_trees.png",
+   "name": "03_lake",
+   "file": "layers/outside/03_lake.png",
+   "parallax": 0.12,
+   "tile_width": 1280,
+   "frames": 12,
+   "sheet": "layers/outside/03_lake_sheet.png",
+   "fps": 6
+  },
+  {
+   "name": "04_leviathan",
+   "file": "layers/outside/04_leviathan.png",
+   "parallax": 0.12,
+   "tile_width": 1280,
+   "frames": 72,
+   "x": 340,
+   "y": 57,
+   "w": 198,
+   "h": 140,
+   "sheet": "layers/outside/04_leviathan_sheet.png",
+   "fps": 6
+  },
+  {
+   "name": "05_hills_trees",
+   "file": "layers/outside/05_hills_trees.png",
    "parallax": 0.22,
    "tile_width": 1280,
    "frames": 1
   },
   {
-   "name": "04_garden_trees",
-   "file": "layers/outside/04_garden_trees.png",
+   "name": "06_garden_trees",
+   "file": "layers/outside/06_garden_trees.png",
    "parallax": 0.34,
    "tile_width": 1280,
    "frames": 8,
-   "sheet": "layers/outside/04_garden_trees_sheet.png",
+   "sheet": "layers/outside/06_garden_trees_sheet.png",
    "fps": 6
   },
   {
-   "name": "05_flowers_close",
-   "file": "layers/outside/05_flowers_close.png",
+   "name": "07_flowers_close",
+   "file": "layers/outside/07_flowers_close.png",
    "parallax": 0.62,
    "tile_width": 1280,
    "frames": 8,
-   "sheet": "layers/outside/05_flowers_close_sheet.png",
+   "sheet": "layers/outside/07_flowers_close_sheet.png",
    "fps": 6
   },
   {
@@ -872,9 +894,12 @@
    "w": 63,
    "h": 130,
    "draggable": true,
-   "desc": "Old pendulum clock stopped at 4:20 - carved crown, cracked glass, cobweb",
+   "desc": "Old pendulum clock, still running: the brass pendulum swings tick-tock and the red second hand ticks all the way round (one tick per swing) - carved crown, cobweb",
    "placed_by_default": true,
-   "file": "props/room2/pendulum_clock.png"
+   "file": "props/room2/pendulum_clock.png",
+   "frames": 120,
+   "fps": 4,
+   "sheet": "props/room2/pendulum_clock_sheet.png"
   },
   {
    "name": "paper_lantern_a",

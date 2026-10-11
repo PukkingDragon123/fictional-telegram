@@ -216,8 +216,12 @@ NOSTRIL = [(-68.5, 13.5), (-66, 13), (-64.5, 14.5), (-66.5, 16.3)]
 EYE = [(-33.5, 9.5), (-30, 5.6), (-24.5, 4.6), (-19, 7), (-20, 11), (-26.5, 12.8)]
 SOCKET = [(-36.5, 9.5), (-31, 3.2), (-24, 2.2), (-16, 6.2), (-17.5, 13.2), (-27, 15.6)]
 _EC = (-26.3, 8.7)
-EYE = [(_EC[0] + (x - _EC[0]) * 1.25, _EC[1] + (y - _EC[1]) * 1.25) for x, y in EYE]          # a little bigger
-SOCKET = [(_EC[0] + (x - _EC[0]) * 1.2, _EC[1] + (y - _EC[1]) * 1.2) for x, y in SOCKET]
+EYE = [(_EC[0] + (x - _EC[0]) * 1.4, _EC[1] + (y - _EC[1]) * 1.4) for x, y in EYE]            # big enough for detail
+SOCKET = [(_EC[0] + (x - _EC[0]) * 1.32, _EC[1] + (y - _EC[1]) * 1.32) for x, y in SOCKET]
+BRIDGE = [(-30, -2.5), (-45, 1.2), (-54, 3.8), (-61, 6.3), (-66.8, 9.5), (-63, 14.5), (-55, 11.5), (-46, 9),
+          (-36, 7.5), (-32, 4)]                                                    # dragon scales down the nose
+SCALE_FACE = ('teal0', 'teal1', 'teal2', 'stone3', 'stone4', 'cloud2')  # pearly scales with teal edges
+PLATE = ('stone1', 'paper0', 'paper1', 'paper2', 'paper3', 'paper4')    # cream belly plates
 BROW = [(-38, 1.6), (-31, -2.2), (-21, -2.4), (-13.5, 1.2), (-20, 2.2), (-30, 1.8)]
 CHEEK = [(-42, 17), (-31, 13), (-18, 15), (-10, 23), (-16, 33), (-29, 33), (-40, 26)]
 
@@ -279,9 +283,10 @@ def anatomy(s):
     a['mane'] = mane & ~neck
     a['neck'] = neck | a['mane']
     plates = np.zeros((H, W), bool)                                       # dragon spines poking through the mane
-    for (x, y, dx, dy) in ((77, 60, 0.35, -1), (88, 65, 0.6, -0.9), (98, 72, 0.75, -0.7), (107, 82, 0.9, -0.5)):
+    for (x, y, dx, dy) in ((70, 58.5, 0.2, -1), (79, 60, 0.4, -1), (88, 65, 0.6, -0.9), (97, 71, 0.75, -0.7),
+                           (105, 79, 0.85, -0.55), (112, 89, 0.95, -0.4)):
         n = math.hypot(dx, dy)
-        plates |= taper(G([(x, y), (x + dx / n * 3, y + dy / n * 3), (x + dx / n * 6, y + dy / n * 6)]), 2.2, 0.4, n=3)
+        plates |= taper(G([(x, y), (x + dx / n * 4, y + dy / n * 4), (x + dx / n * 8.5, y + dy / n * 8.5)]), 2.8, 0.4, n=3)
     a['plates'] = plates
     # head, lower jaw, mouth
     a['jaw'] = F('jaw', [Rl(p) for p in JAW])
@@ -313,7 +318,20 @@ def anatomy(s):
     a['beard'] = beard
     a['beard_root'] = (cx, cy + oy)
     # two small dragon fangs over the lower lip
-    a['teeth'] = [taper(Lp([(-59, 26), (-59.6, 30.5), (-58.3, 34)]), 1.8, 0.35, n=3)]   # one dragon fang
+    a['teeth'] = [taper(Lp([(-60.5, 25.6), (-61.3, 31.2), (-59.8, 35.6)]), 2.0, 0.35, n=3),    # dragon fangs
+                  taper(Lp([(-52.5, 27.0), (-52.9, 30.6), (-52.0, 33.0)]), 1.5, 0.3, n=3),
+                  taper([Rl((-64.5, 30.5)), Rl((-64.8, 26.5)), Rl((-63.8, 23.2))], 1.6, 0.3, n=3)]   # lower fang, up
+    # dragon parts: scaled nose bridge, a bony brow ridge with spurs, spiked frills at the jaw, belly plates
+    a['bridge'] = fill(Lp(BRIDGE)) & head & ~a['muzzle'] & ~a['socket']
+    a['lipscale'] = fill(Lp([(-60, 22.6), (-50, 23.6), (-40, 25.2), (-31, 28.5), (-27, 33), (-33, 32), (-42, 29.5),
+                             (-52, 27.5), (-60, 26.5)])) & head & ~a['muzzle']
+    a['spurs'] = taper(Lp([(-17, -0.5), (-10, -4.5), (-5, -7.5)]), 1.9, 0.3, n=3) | \
+        taper(Lp([(-23, -1.5), (-17, -6), (-13, -8.5)]), 1.6, 0.3, n=3)
+    a['frills'] = taper(Lp([(-14, 28), (-5, 33), (3, 39)]), 3.2, 0.4, n=4) | \
+        taper(Lp([(-19, 32.5), (-12, 39), (-7, 45)]), 2.8, 0.4, n=4) | \
+        taper(Lp([(-10, 20), (-1, 23), (7, 26)]), 2.8, 0.4, n=4)
+    a['belly'] = fill(G([(74, 95), (78.5, 104), (77.5, 118), (73.5, 136), (70.5, 152), (80, 152), (83, 136),
+                         (85.5, 118), (85, 104), (80, 95)])) & neck & ~a['beard']
     a['throat'] = a['neck'] & (XX < 86) & (YY > 98 + oy)
     a['wrist'] = np.zeros((H, W), bool)                                   # no arm: just the head and neck
     a['claws'] = []
@@ -574,6 +592,8 @@ def shading(a):
     v = v + 0.06 * (noise(XX / 7.0, YY / 7.0, 31) - 0.5) * 2
     put_ramp(cv, a['head'], FUR, np.clip(v, 0, 1))
     put_ramp(cv, a['brow'], FUR, np.clip(0.45 + 0.6 * lit(form(a['brow'], 2)), 0, 1))
+    for key in ('spurs', 'frills'):                                         # bony dragon spurs and frill spikes
+        put_ramp(cv, a[key], HORN, np.clip(0.25 + 0.7 * lit(form(a[key], 1.6)), 0, 1))
     put_ramp(cv, a['muzzle'], NOSE, np.clip(0.25 + 0.7 * lit(form(a['muzzle'], 3)) - 0.15 * (LY > 18), 0, 1))
     put_ramp(cv, a['horn_near'], HORN, np.clip(0.2 + 0.75 * lit(form(a['horn_near'], 3)), 0, 1))
     ev = 0.35 + 0.6 * lit(form(a['spike'], 2), (0.0, -0.2))
@@ -620,7 +640,7 @@ def fur(a, cv):
     toward the nose, down the cheek, jaw and neck, long in the beard - each
     lock with a darker root and a lighter tip."""
     body = (a['head'] | a['neck'] | a['jaw'] | a['brow'] | a['beard'] | a['spike']) & ~a['eye'] & \
-        ~a['nostril'] & ~a['muzzle'] & ~a['ear_in']
+        ~a['nostril'] & ~a['muzzle'] & ~a['ear_in'] & ~a['bridge'] & ~a['lipscale'] & ~a['belly'] & ~a['spurs'] & ~a['frills']
     LY = a['LY']
     c, s = math.cos(ANG), math.sin(ANG)
     face = (-1 * c - 0.3 * s, -1 * s + 0.3 * c)                     # head frame (-1, 0.3): toward the nose
@@ -663,8 +683,37 @@ def fur(a, cv):
 
 def texture(a, cv):
     """Stage 6: fur, the growth ridges of the horns, the dragon's scales."""
-    fur(a, cv)
     rgb = cv.a[..., :3]
+    furc = [tuple(PAL[c]) for c in FUR]
+    idx = np.full((H, W), 3)
+    for i, c in enumerate(furc):                                            # light on the fur before texture
+        idx[(rgb[..., 0] == c[0]) & (rgb[..., 1] == c[1]) & (rgb[..., 2] == c[2])] = i
+    fur(a, cv)
+    LX, LY = a['LX'], a['LY']
+    # overlapping scales down the nose bridge: rows across the face, each scale a rounded plate with a
+    # lit upper edge and a dark curved rim where it overlaps the next
+    su, sv = 3.8, 2.7
+    row = np.floor(LY / sv)
+    u = -LX / su + 0.5 * (row % 2)
+    fu, fv = u - np.floor(u), LY / sv - row
+    rim = np.abs(fv - (0.8 - 0.6 * (2 * fu - 1) ** 2)) < 0.2
+    top = (fv < 0.3) & (fu > 0.2) & (fu < 0.65)
+    tone = _hash2(np.floor(u), row, 4.0)
+    base_i = np.where(a['lipscale'], np.clip(idx + 1, 3, 4), np.minimum(idx, 4))     # the lip band stays pale
+    sc = base_i - np.where(a['lipscale'], 2, 3) * rim + 1 * (top & ~rim) - 1 * ((tone < 0.25) & ~rim)
+    m = a['bridge'] | a['lipscale']
+    put_ramp(cv, m, SCALE_FACE, np.clip((sc + 0.5) / len(SCALE_FACE), 0, 0.999))
+    # small scales round the eye and along the brow
+    ring = (sh(a['socket'], 1, 0) | sh(a['socket'], -1, 0) | sh(a['socket'], 0, 2)) & a['head'] & ~a['socket'] & \
+        ~a['bridge'] & ~a['eye']
+    cell = _hash2(np.floor(XX / 2), np.floor(YY / 2), 6.0)
+    put_ramp(cv, ring, SCALE_FACE, np.clip((idx - 1 + (cell > 0.5) + 0.5) / len(SCALE_FACE), 0, 0.999))
+    # cream belly plates down the throat, with dark seams
+    bm = a['belly']
+    seam = ((YY - a['oy'] + (XX - 78) * 0.25) % 4.5) < 1.0
+    pv = idx + 0 - 2 * seam + 1 * (((YY - a['oy'] + (XX - 78) * 0.25) % 4.5) < 2.0) * ~seam
+    put_ramp(cv, bm, PLATE, np.clip((pv + 0.5) / len(PLATE), 0, 0.999))
+    put(cv, edge(bm) & bm & (XX < 80), 'paper0')
     for key in ('horn_near', 'horn_far'):                 # ridged like a goat's horn: rings across the curve
         pts, r0 = a['lines'][key]
         dense = spline(pts, closed=False, n=12)
@@ -692,41 +741,56 @@ def texture(a, cv):
 
 
 def eye(a, s, cv):
-    """A goat's eye: pale amber iris, a wide horizontal bar pupil, a soft upper
-    lid with a dark lash line, bare grey skin round it, a wet glint."""
+    """A dragon-goat eye, drawn in detail: a dark limbal ring round an amber iris
+    with radial fibres and gold flecks, hot gold round the wide horizontal bar
+    pupil, a heavy upper lid with a black lash line, a lower lid, scales round
+    it, a bright window glint and a smaller second one, and the third eyelid."""
     e = a['eye']
     ys, xs = np.nonzero(e)
     if not len(ys):
         return
     y0, y1 = ys.min(), ys.max()
     x0, x1 = xs.min(), xs.max()
-    ecx, ecy = (x0 + x1) / 2, (y0 + y1) / 2
-    ring = sh(e, 1, 0) | sh(e, -1, 0) | sh(e, 0, 1) | sh(e, 0, -1)
-    put(cv, ring & ~e, 'stone2')                                           # bare skin round the eye
-    put(cv, sh(ring, 0, 1) & ~ring & ~e & a['head'] & (YY > ecy), 'stone3')
-    t = (YY - y0) / max(1, y1 - y0)
-    put_ramp(cv, e, IRIS, np.clip(0.15 + 0.85 * t, 0, 1))                  # darker under the lid, glowing low
-    cx, cy = ecx + s['look'] * 1.5, ecy + 0.3
-    pupil = e & (np.abs(XX - cx) < 3.8) & (YY >= np.floor(cy)) & (YY <= np.floor(cy) + 1)   # the bar pupil
-    pupil &= ~((np.abs(XX - cx) >= 3.2) & (YY == np.floor(cy) + 1))        # softened ends
+    ecx, ecy = (x0 + x1) / 2, (y0 + y1) / 2 + 0.3
+    rx, ry = (x1 - x0 + 1) / 2, (y1 - y0 + 1) / 2
+    cx, cy = ecx + s['look'] * 1.5, ecy
+    r = np.sqrt(((XX - cx) / rx) ** 2 + ((YY - cy) / (ry * 1.1)) ** 2)
+    ang = np.arctan2(YY - cy, XX - cx)
+    fib = np.sin(ang * 11 + 0.8 * np.sin(ang * 3)) > 0.35                  # radial fibres
+    v = 0.95 - 0.55 * r + 0.18 * (YY > cy) - 0.2 * fib * (r > 0.3)
+    put_ramp(cv, e, IRIS, np.clip(v, 0, 0.999))
+    put(cv, e & (_hash2(XX, YY, 9.0) > 0.9) & (r > 0.35) & (r < 0.8), 'gold4')   # flecks
+    put(cv, e & edge(e) & ~((YY > cy + 1) & (np.abs(XX - cx) < rx * 0.5)), 'copper1')   # the dark limbal ring
+    pw = rx * 0.48
+    pupil = e & (np.abs(XX - cx) < pw) & (np.abs(YY - cy) < 0.9)           # the wide bar pupil
+    pupil |= e & (np.abs(XX - cx) < pw - 1.6) & (np.abs(YY - cy) < 1.4)    # a touch fuller in the middle
+    halo = (sh(pupil, 0, 1) | sh(pupil, 0, -1) | sh(pupil, 1, 0) | sh(pupil, -1, 0)) & e & ~pupil
+    put(cv, halo & (YY > cy), 'gold4')                                    # hot gold round the pupil
+    put(cv, halo & (YY <= cy), 'gold3')
     put(cv, pupil, 'ink')
-    put(cv, sh(pupil, 0, -1) & e & ~pupil & (YY > ecy), 'gold4')           # the iris glows under the pupil
     if s['membrane'] > 0:                                                 # third eyelid, from the front corner
         film = e & (XX < x0 + (x1 - x0 + 1) * s['membrane'])
         put(cv, film & ((XX + YY) % 2 == 0), 'cloud2')
         put(cv, film & ((XX + YY) % 2 == 1), 'cloud1')
+    ring = sh(e, 1, 0) | sh(e, -1, 0) | sh(e, 0, 1) | sh(e, 0, -1)
     lid = 1.0 if s['lid'] >= 0.95 else float(np.clip((s['lid'] - 0.45) / 0.55, 0, 1))
     lid_y = y0 - 0.5 + (y1 - y0 + 1.5) * lid
     lidm = (e | (ring & (YY < ecy))) & (YY <= lid_y)
-    lv = 0.55 + 0.35 * lit(form(lidm | a['brow'], 2))
-    put_ramp(cv, lidm, FUR, np.clip(lv, 0, 1))
-    seam = lidm & ~sh(lidm, 0, -1)                                        # the lash line along the lid's edge
-    put(cv, seam & (e | sh(e, 0, 1)), 'stone0' if s['lid'] < 0.95 else 'stone1')
-    put(cv, sh(seam, 0, 1) & e & ~lidm & ~pupil, 'gold1')                 # the lid's shadow on the eye
+    lv = 0.5 + 0.35 * lit(form(lidm | a['brow'], 2))
+    put_ramp(cv, lidm, SCALE_FACE, np.clip(lv, 0, 0.999))                 # a scaly lid
+    put(cv, lidm & ((XX + YY * 2).astype(int) % 4 == 0), 'teal2')
+    seam = lidm & ~sh(lidm, 0, -1)                                        # the black lash line
+    put(cv, seam & (e | sh(e, 0, 1) | sh(e, 1, 0)), 'ink' if s['lid'] < 0.95 else 'stone0')
+    put(cv, sh(seam, 0, 1) & e & ~lidm & ~pupil, 'copper1')               # the lid's shadow on the eye
+    low = ring & ~e & (YY > ecy + 1) & ~lidm                              # the lower lid
+    put(cv, low, 'stone2')
+    put(cv, sh(low, 0, 1) & ~low & ~e & a['head'], 'stone3')
     if s['lid'] < 0.85:
-        gx, gy = int(round(cx - 2)), int(round(max(lid_y + 1.5, cy - 1)))
-        if 0 <= gy < H and 0 <= gx < W and e[gy, gx]:
-            cv.a[gy, gx] = (*PAL['white'], 255)                              # wet glint
+        for (gx, gy, c) in ((int(round(cx - rx * 0.45)), int(round(max(lid_y + 1.5, cy - ry * 0.5))), 'white'),
+                            (int(round(cx - rx * 0.45)) + 1, int(round(max(lid_y + 1.5, cy - ry * 0.5))), 'white'),
+                            (int(round(cx + rx * 0.45)), int(round(cy + ry * 0.45)), 'paper4')):
+            if 0 <= gy < H and 0 <= gx < W and e[gy, gx] and not lidm[gy, gx]:
+                cv.a[gy, gx] = (*PAL[c], 255)                             # window glint and a second one
 
 
 def final(a, cv):
@@ -738,7 +802,8 @@ def final(a, cv):
     put(cv, out & (~sh(solid, -1, 0) | ~sh(solid, 0, -1)), 'stone1')      # darker only on the shadow side
     for front, back, k in (('head', 'neck', -1), ('jaw', 'neck', -1), ('horn_near', 'head', -2), ('horn_near', 'neck', -2),
                            ('spike', 'neck', -1), ('spike', 'head', -1), ('beard', 'neck', -1), ('jaw', 'beard', -1),
-                           ('wrist', 'neck', -2), ('horn_near', 'horn_far', -1)):
+                           ('wrist', 'neck', -2), ('horn_near', 'horn_far', -1), ('frills', 'neck', -2),
+                           ('spurs', 'head', -1), ('bridge', 'head', 0)):
         contact = sh(a[front], 1, 1) & ~a[front] & a[back]
         _step(rgb, contact & solid, k)
     for t in a['teeth']:

@@ -59,11 +59,25 @@ The trees outside are grown, not stamped (`grove.py`):
 - **Species:** a Japanese black pine with flat clouds of needles, a zelkova, oaks, a weeping willow with hanging strands, white birches and conical hinoki cypresses. A hazed back row of smaller trees stands behind them.
 - **Garden life:** butterflies flap and fly looping figure-eights over the flowers, and dragonflies dart and hover over the lake. Every path loops over the layer's 8 frames.
 
+## The lake and the leviathan
+
+- **The lake** (`03_lake`, 12 frames) is a mirror. Every row reflects the sky, clouds and mountains, flipped, and broken by ripples that run along the rows, stronger toward the shore. Near the horizon it is nearly all reflection; nearer the shore its own deep blue-teal shows through. Bands of light ride the ripple crests toward the shore, and glitter sparkles on and off.
+- **The leviathan** (`04_leviathan`, 72 frames, 12 s at 6 fps) breaches once per loop, far out on the lake:
+  - a dark swell rolls toward the spot, then the head bursts up through a spray of water
+  - the long body follows along a high arc: a glossy blue-black back with ridge spines and barnacles, a pale pleated throat, a long knobbly flipper, and water streaming off it
+  - it crashes back down head first, flukes last, under a huge splash crown that falls back as drops
+  - foam spreads, rings ripple out, and its reflection follows it in the water
+- `preview/leviathan_breach.gif` shows the whole loop through the seating-room window.
+
+## The pendulum clock
+
+`pendulum_clock` runs: 120 frames at 4 fps. The brass pendulum swings tick-tock, and the red second hand ticks once per swing, all the way round, so the loop is seamless.
+
 ## The bell and the goat-dragon
 
 ![Ring the bell](preview/dragon_bell_peek.gif)
 
-The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon. It has a goat's head, held nose-down: a long face with a gently roman nose, a bare pink muzzle, a round cheek, a floppy pink-lined ear, ridged horns sweeping back, a white goatee and a goat's eye (pale amber, with a wide horizontal bar pupil). Thick white fur and a shaggy mane cover it. The dragon shows in a small fang over the lip and grey spines poking through the mane. Only its head and neck show at the window; there is no arm. It rests at the sill, and only its eye, breath and jaw move.
+The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon. It has a goat's head, held nose-down, with dragon parts: a long face with a gently roman nose, a bare pink muzzle, a round cheek, a floppy pink-lined ear, ridged horns sweeping back, a white goatee and a goat's eye (pale amber, with a wide horizontal bar pupil). Thick white fur and a shaggy mane cover it. The dragon shows in pearly scales with teal edges down the nose bridge, along the lips, round the eye and on the lid; a bony brow ridge with two spurs; spiked frills at the back of the jaw; cream belly plates down the throat; three fangs (two upper, one lower, pointing up); and big grey spines along the mane. Only its head and neck show at the window; there is no arm. It rests at the sill, and only its eye, breath and jaw move.
 
 ![How the wyvern is drawn](preview/wyvern_process.png)
 
@@ -82,7 +96,7 @@ The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full s
 **The anatomy** is drawn from hand-placed points (smooth spline curves):
 
 - a goat's head, drawn in its own frame and tipped nose-down: a long face with a gently roman nose, a soft brow over the eye, a bare pink muzzle with slit nostrils
-- a goat's eye, a little big and soft: pale amber iris, wide horizontal bar pupil, a soft upper lid with a dark lash line, bare grey skin round it
+- a detailed eye: a goat's wide horizontal bar pupil with hot gold round it, an amber iris with radial fibres and gold flecks inside a dark limbal ring, a window glint and a second small one, a scaly upper lid with a black lash line, a lower lid, and small scales round it
 - a floppy ear with a pink inside, and a white goatee hanging from the chin
 - one small dragon fang over the lower lip
 - a round cheek, and a thick neck under a shaggy white mane with grey dragon spines poking through
@@ -165,7 +179,7 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 ## Folder map
 
 ```
-layers/outside/   window view: 6 parallax layers (1280 px wide, tile horizontally): a dithered sky with
+layers/outside/   window view: 8 parallax layers (1280 px wide, tile horizontally): a dithered sky with
                   cirrus and cumulus, snow-capped far peaks, hazy ranges, a forested ridge over a
                   still lake, a canopy of tree crowns, then the garden: grown trees (a black pine,
                   zelkova, white birches, a weeping willow, oaks, hinoki cypresses) with butterflies
@@ -188,7 +202,7 @@ generator/        the Python that draws all of it (deterministic, seeded)
 
 Draw these back to front:
 
-1. `layers/outside/00_sky` to `05_flowers_close`, each at `screen_x = -camera_x * parallax` and repeated every 1280 px. They only show through the window panes.
+1. `layers/outside/00_sky` to `07_flowers_close`, each at `screen_x = -camera_x * parallax` and repeated every 1280 px. They only show through the window panes. `04_leviathan` is cropped: its record has `x`, `y`, `w`, `h`, so draw its frame at (`x`, `y`) inside every 1280 px tile.
 2. props with `layer: outside` (the goat-dragon behind the bell window)
 3. `layers/room/10_room_shell.png`
 4. props with `layer: wall`, then `layer: ceiling`

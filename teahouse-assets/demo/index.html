@@ -91,6 +91,10 @@
     if (!im || !im.complete) return;
     const origin = Math.round(cam * (1 - fac));        // world-space offset of the tile
     let x = ((origin % tw) + tw) % tw - tw - cam;
+    if (l.w) {                                          // a cropped layer (the leviathan): its own box in the tile
+      for (; x < VW; x += tw) g.drawImage(im, 0, f * l.h, l.w, l.h, Math.round(x + l.x), l.y, l.w, l.h);
+      return;
+    }
     for (; x < VW; x += tw) g.drawImage(im, 0, f * VH, tw, VH, Math.round(x), 0, tw, VH);
   }
   function drawWorld(l, t) {

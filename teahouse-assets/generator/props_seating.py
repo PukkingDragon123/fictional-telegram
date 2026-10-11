@@ -57,8 +57,11 @@ def menu_tags():
     return O.outline(cv)
 
 
-@prop('pendulum_clock', 2, 'wall', 1164, 60, 'Old pendulum clock stopped at 4:20 - carved crown, cracked glass, cobweb')
+@prop('pendulum_clock', 2, 'wall', 1164, 60, 'Old pendulum clock, still running: the brass pendulum swings tick-tock '
+      'and the red second hand ticks all the way round (one tick per swing) - carved crown, cobweb', fps=4)
 def clock():
+    """120 frames: 60 ticks, two frames each (the pendulum at the end of its swing,
+    then passing the middle), so the second hand goes once round and the loop is seamless."""
     rng = random.Random(2010)
     w, h = 56, 122
     cv = Canvas(w, h)
@@ -69,7 +72,7 @@ def clock():
     cv.ellipse(w / 2, 5, 3, 3, 'gold2'); cv.px(w // 2 - 1, 4, 'gold4')
     cv.rect(0, 9, w, 3, 'wood3'); cv.hline(0, w - 1, 9, 'wood5')
     cv.rect(0, h - 9, w, 9, 'wood3'); cv.hline(0, w - 1, h - 9, 'wood5'); cv.hline(0, w - 1, h - 1, 'wood0')
-    # face: brass bezel, paper dial, numerals as ticks, hands at 4:20
+    # face: brass bezel, paper dial, numerals as ticks
     cx, cy = w // 2, 34
     m = ellipse_mask(36, 36, 18, 18, 18, 18)
     paint(m, O.BRASS, R=8, spec=0.08, spec_col='gold4', canvas=cv, ox=cx - 18, oy=cy - 18)
@@ -80,24 +83,41 @@ def clock():
         x1, y1 = cx + math.cos(a) * 12, cy + math.sin(a) * 12
         x2, y2 = cx + math.cos(a) * (9.5 if k % 3 else 8.5), cy + math.sin(a) * (9.5 if k % 3 else 8.5)
         cv.line(x1, y1, x2, y2, 'ink')
-    cv.line(cx, cy, cx + 5, cy + 3, 'ink'); cv.line(cx, cy, cx + 3, cy - 9, 'ink')
-    cv.px(cx, cy, 'red3')
-    for (dx, dy) in ((-8, -8), (-7, -6), (-5, -4), (-6, -2), (3, -11), (5, -8), (6, -6)):
-        cv.px(cx + dx, cy + dy, 'white')
-    cv.px(cx - 9, cy - 4, 'sky4'); cv.px(cx - 10, cy - 3, 'white')
     # pendulum window
     cv.rect(13, 58, w - 26, 46, 'wood0')
     for k in range(4):
         cv.vline(15 + k * 8, 60, 102, 'ink')
-    rod = lathe_shade(3, 30, lambda t: 1.5, O.BRASS[1:], spec=0.1)
-    cv.blit(rod, cx - 1, 58)
-    m2 = ellipse_mask(14, 14, 7, 7, 7, 7)
-    paint(m2, O.BRASS, R=5, spec=0.12, spec_col='gold4', canvas=cv, ox=cx - 7, oy=86)
     cv.frame(12, 57, w - 24, 48, 'wood3'); cv.hline(12, w - 13, 57, 'wood5')
-    for (x, y) in ((16, 62), (18, 64), (20, 61)):
-        cv.px(x, y, 'sky3')
-    cobweb(cv, 13, 58, 12, 'stone3', 'stone2', 'tl')
-    return O.outline(cv)
+    bob = Canvas(14, 14)
+    paint(ellipse_mask(14, 14, 7, 7, 7, 7), O.BRASS, R=5, spec=0.12, spec_col='gold4', canvas=bob, ox=0, oy=0)
+    rod_c = [PAL[c] for c in O.BRASS[1:4]]
+    frames = []
+    for f in range(120):
+        tick, half = divmod(f, 2)
+        c = cv.copy()
+        # the pendulum: at the end of a swing on the tick, passing the middle between ticks
+        side = 1 if tick % 2 == 0 else -1
+        ang = math.radians(10.5) * (side if half == 0 else side * 0.35)
+        px0, py0 = cx + 0.5, 59
+        L = 30
+        for t in range(L):
+            x = px0 + math.sin(ang) * t
+            y = py0 + math.cos(ang) * t
+            c.px(int(x), int(y), rod_c[1]); c.px(int(x) + 1, int(y), rod_c[0] if t % 7 else rod_c[2])
+        bx, by = px0 + math.sin(ang) * (L + 2), py0 + math.cos(ang) * (L + 2)
+        c.blit(bob, int(round(bx - 7)), int(round(by - 7)))
+        # hands: hour and minute stay put this loop, the red second hand ticks round
+        c.line(cx, cy, cx + 5, cy + 3, 'ink'); c.line(cx, cy, cx + 3, cy - 9, 'ink')
+        a = math.radians(tick * 6 - 90)
+        c.line(cx - math.cos(a) * 3, cy - math.sin(a) * 3, cx + math.cos(a) * 11, cy + math.sin(a) * 11, 'red2')
+        c.px(cx, cy, 'red3')
+        for (dx, dy) in ((-8, -8), (-7, -6), (-5, -4), (-6, -2)):          # glint on the glass
+            c.px(cx + dx, cy + dy, 'white')
+        for (x, y) in ((16, 62), (18, 64), (20, 61)):
+            c.px(x, y, 'sky3')
+        cobweb(c, 13, 58, 12, 'stone3', 'stone2', 'tl')
+        frames.append(O.outline(c))
+    return frames
 
 
 def _lantern(seed, torn, f, n=F8):

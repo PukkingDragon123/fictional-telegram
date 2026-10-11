@@ -14,7 +14,7 @@ import grove
 from layout import H
 
 OUT_W = 1280
-HORIZON = 168          # lake line in scene coordinates
+HORIZON = 150          # lake line in scene coordinates
 GROUND = 190           # far garden ground, just in front of the lake
 
 CLOUD = ['cloud0', 'cloud1', 'cloud2', 'cloud3']
@@ -252,9 +252,9 @@ def _paint_range(cv, prof, ramp, rng, floor_y, lit_side=True, tex=0.0):
 def mountains():
     cv = Canvas(OUT_W, H, wrap=True)
     rng = random.Random(21)
-    far = _ridge(rng, 138, 40, [(2, 10), (5, 6), (9, 3.5), (19, 1.6), (37, 0.7), (71, 0.3)])
-    mid = _ridge(rng, 150, 24, [(3, 7), (6, 5), (11, 3), (23, 1.2), (47, 0.5)])
-    near = _ridge(rng, 162, 12, [(4, 6), (9, 4), (17, 2), (41, 0.8)])
+    far = _ridge(rng, 122, 40, [(2, 10), (5, 6), (9, 3.5), (19, 1.6), (37, 0.7), (71, 0.3)])
+    mid = _ridge(rng, 134, 22, [(3, 7), (6, 5), (11, 3), (23, 1.2), (47, 0.5)])
+    near = _ridge(rng, 146, 10, [(4, 6), (9, 4), (17, 2), (41, 0.8)])
     _paint_range(cv, far, ['haze2', 'haze3', 'cloud2'], rng, HORIZON, tex=0.25)
     # snow on the high peaks: bright on the sunlit side, blue in shade
     slope = np.gradient(far)
@@ -275,21 +275,6 @@ def mountains():
             d = y - top
             c = 'teal2' if d < 2 else ('teal1' if (x * 3 + y * 5) % 7 else 'teal0')
             cv.px(x, y, c)
-    near = np.minimum(near, mid)
-    # lake: calm, with a faint upside-down reflection of the near ridge
-    for y in range(HORIZON, H):
-        cv.hline(0, OUT_W - 1, y, 'water1' if y < HORIZON + 12 else 'water0')
-    dither_seam(cv, HORIZON + 10, 6, 'water1', 'water0')
-    for x in range(OUT_W):
-        depth = int((HORIZON - near[x]) * 0.45)
-        for d in range(1, depth):
-            if (x + d) % 2 == 0 or d < 3:
-                cv.px(x, HORIZON + d, 'haze1' if d < depth * 0.6 else 'water1')
-    cv.hline(0, OUT_W - 1, HORIZON, 'haze3')
-    rng = random.Random(8)
-    for _ in range(70):                                  # a few soft glints
-        x, y = rng.randint(0, OUT_W), rng.randint(HORIZON + 4, HORIZON + 30)
-        cv.hline(x, x + rng.randint(2, 5), y, 'water2')
     return cv
 
 
@@ -298,7 +283,8 @@ def hills():
     crowns, each lit from the upper left, darker down in the folds."""
     cv = Canvas(OUT_W, H, wrap=True)
     rng = random.Random(31)
-    prof = 184 - periodic_noise(OUT_W, [(2, 1), (4, 0.7), (7, 0.4), (13, 0.15)], rng, 16)
+    # the near bank: wooded points and a little island, with open water between them
+    prof = 200 - periodic_noise(OUT_W, [(2, 1), (4, 0.7), (7, 0.4), (13, 0.15)], rng, 34)
     yy = np.arange(H)[:, None]
     ground = yy >= prof[None, :]
     a = cv.a
@@ -307,7 +293,9 @@ def hills():
     for _ in range(900):                                 # tree crowns along the hill tops and slopes
         x = rng.uniform(0, OUT_W)
         top = prof[int(x) % OUT_W]
-        y = top + rng.uniform(-1, 18) ** 1.0
+        if top > GROUND - 2:
+            continue
+        y = top + rng.uniform(-1, 14) ** 1.0
         r = rng.uniform(2.6, 5.2) * (1.0 - min(0.4, (y - top) / 60))
         crowns.append((x, y, r))
     crowns.sort(key=lambda c: c[1])
@@ -336,7 +324,6 @@ def hills():
         a[m] = (*PAL[c], 255)
     rest = ground & ~canopy
     a[rest] = (*PAL['jade0'], 255)
-    a[(yy >= HORIZON + 20) & np.ones((1, OUT_W), bool)] = (*PAL['jade0'], 255)
     return cv
 
 
@@ -417,11 +404,31 @@ def flowers_close():
 
 
 def all_layers():
+    """(name, frames, parallax[, (x, y) crop offset]) back to front."""
+    import lake
+    sk, cl, mt = sky(), clouds(), mountains()
+    above = sk.a.copy()
+    for L in (cl, mt):
+        m = L.a[..., 3] > 0
+        above[m] = L.a[m]
+    water = []
+    for arr in lake.lake_frames(above, HORIZON, OUT_W, H):
+        c = Canvas(OUT_W, H)
+        c.a = arr
+        water.append(c)
+    lev, (lx, ly) = lake.leviathan_frames(400, HORIZON + 13)     # seen through the seating-room window
+    levc = []
+    for arr in lev:
+        c = Canvas(arr.shape[1], arr.shape[0])
+        c.a = arr
+        levc.append(c)
     return [
-        ('00_sky', [sky()], 0.04),
-        ('01_clouds', [clouds()], 0.08),
-        ('02_mountains_lake', [mountains()], 0.12),
-        ('03_hills_trees', [hills()], 0.22),
-        ('04_garden_trees', trees(), 0.34),
-        ('05_flowers_close', flowers_close(), 0.62),
+        ('00_sky', [sk], 0.04),
+        ('01_clouds', [cl], 0.08),
+        ('02_mountains', [mt], 0.12),
+        ('03_lake', water, 0.12),
+        ('04_leviathan', levc, 0.12, (lx, ly)),
+        ('05_hills_trees', [hills()], 0.22),
+        ('06_garden_trees', trees(), 0.34),
+        ('07_flowers_close', flowers_close(), 0.62),
     ]
