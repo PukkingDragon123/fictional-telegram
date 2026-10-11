@@ -525,7 +525,7 @@ export class TitleScene {
     this.skyUniforms = { uTime: { value: 0 }, uSun: { value: new THREE.Vector2(-5.2, 3.6) }, uPx: { value: 0.03 }, uTop: { value: 3 }, uNarrow: { value: 1 } };
     const tpx = Math.max(64, Math.round(1.5 / 0.0138)), npx = Math.max(64, Math.round(1.35 / 0.0138)); // ~1 texel per screen pixel: no shimmer
     const far = treeLine({ W: 1024, H: tpx, units: 1.5, base: 0.5, seed: 7, n: 70, minH: 30, maxH: 66, kinds: ['spruce_0', 'spruce_1', 'spruce_2', 'pine_0', 'pine_1', 'spruce_0'] });
-    const near = treeLine({ W: 1024, H: npx, units: 1.35, base: 0.2, seed: 19, n: 46, minH: 38, maxH: 92, kinds: ['spruce_0', 'spruce_1', 'pine_0', 'pine_1', 'birch_0', 'maple_orange', 'spruce_2', 'aspen_0'] });
+    const near = treeLine({ W: 1024, H: npx, units: 1.35, base: 0.06, seed: 19, n: 46, minH: 38, maxH: 92, kinds: ['spruce_0', 'spruce_1', 'pine_0', 'pine_1', 'birch_0', 'maple_orange', 'spruce_2', 'aspen_0'] });
     this._treeTex = [far.tex, near.tex];
     Object.assign(this.skyUniforms, {
       uFar: { value: far.tex }, uFarS: { value: new THREE.Vector3(far.wu, 1.5, 1 / tpx) },
