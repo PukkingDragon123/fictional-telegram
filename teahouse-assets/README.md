@@ -10,7 +10,7 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit** (all mouth and teeth). Herbs dry on an old bamboo pole above it. Also a big **chalkboard**, wiped clean, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
 | 2 Seating | 640 to 1280 | Big lattice **window** onto distant green trees, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
-| 3 Tea ritual | 1280 to 1920 | An empty **corkboard**. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **rock wyvern** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
+| 3 Tea ritual | 1280 to 1920 | An empty **corkboard**. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **goat-dragon** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
 | 4 Traveler's bedroom | 1920 to 2560 | The most run-down room. Plaster has fallen off the walls to show the bamboo lath, rain has streaked them, there is mould in the corners, boards are missing from the roof so daylight shows, and the floor is broken and bare. Indigo noren hanging in front, moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, straw hat and cloak on the wall, oil lamp |
 
 ## Uncle Pong (optional, not placed)
@@ -49,11 +49,11 @@ A low lacquered bed with brass fittings and a torii-style headboard (the top rai
 
 The silk is modelled, not hand-dotted. The top is a height field and the front is a row of hanging folds, with rounded crests and sharp creases between them. Both are lit with a diffuse term plus a tight specular term, then snapped to the palette. That gives deep shadow in the creases, a broad bright band where a fold turns to the light, and a near-white streak on the crest.
 
-## The bell and the rock wyvern
+## The bell and the goat-dragon
 
 ![Ring the bell](preview/dragon_bell_peek.gif)
 
-The **rock wyvern** is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's an old, calm, realistic reptile, not a cartoon: it rests its chin on the sill, and only its eye, breath and jaw move.
+The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon: shaggy brown fur, ridged goat horns, a floppy ear, a goatee and a goat's amber eyes with wide bar pupils, on a dragon's long skull with an overbite of teeth and a clawed wing-wrist. It it rests its chin on the sill, and only its eye, breath and jaw move.
 
 ![How the wyvern is drawn](preview/wyvern_process.png)
 
@@ -66,16 +66,17 @@ The **rock wyvern** is drawn by hand at full scene resolution (one sprite pixel 
 5. **Flats:** local colour, part by part.
 6. **Shadow shapes:** the shadows blocked in with one darker tone, before any rendering.
 7. **Render:** planes with rounded edges, cast shadows under the brow, jaw, head and horns, and reflected light on the lip.
-8. **Texture:** scales by region: big osteoderms on the crown and neck, knobs along the cheekbone, fine scales on the face and jaw. Then cracks, lichen and moss.
+8. **Texture:** fur, stroke by stroke, following the lie of the hair: back along the head from the nose, down the neck and jaw, long strands in the beard, a shaggy fringe down the back of the neck. Growth rings across the horns.
 9. **Final:** the lines folded into the colours, contact shadows, worn highlights, the wet glint in the eye and the sky rim.
 
 **The anatomy** is drawn from hand-placed points (smooth spline curves):
 
-- a long, heavy skull with a domed cranium, a bony brow shelf over a deep-set amber eye with a vertical pupil, and a spike behind the eye
+- a long, heavy skull with a domed cranium and a brow over a wide-open goat eye: an amber iris with a wide horizontal bar pupil
+- a floppy goat ear behind the eye and a goatee under the chin
 - nostrils on top of the snout
 - a crocodile overbite: irregular upper teeth hang over the recessed lower jaw, and two lower teeth interlock at the front
-- a jaw-muscle bulge, a banded throat, an armoured neck with dorsal plates
-- ringed horns sweeping back
+- a jaw-muscle bulge and a thick, shaggy neck
+- ridged goat horns that sweep back and curl down over the neck
 - a clawed wing-wrist gripping the sill
 
 It lives on its own layer, **`outside`**. Draw it after the window view and before the room shell, so the window frame hides the rest of its body.
@@ -106,12 +107,12 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 | Fire spirit: `idle`, `talk`, `happy` | 12 each | Sits down in the coals. Flame body is a noise field rising through a teardrop. A jagged maw of uneven teeth opens and closes as it talks; zigzag grin when shut; fangs when it laughs |
 | Cloth: noren, curtains, moon curtain, cloak, scarf, towel | 12 | **Real cloth physics**: Verlet particles with stretch/shear/bend constraints, pins, gravity, a looping breeze, and collisions. One wind period is captured so the loop closes |
 | Silk bed | 12 | The quilt's hanging folds sway, so the sheen slides across the silk |
-| Bell and rock wyvern | 10 + 43 (+ a 25-frame `rest` loop) | Click the bell: it rings. The wyvern slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
+| Bell and goat-dragon | 10 + 43 (+ a 25-frame `rest` loop) | Click the bell: it rings. The wyvern slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell and breathes out a long cloud of breath. Then it blinks slowly, parts its jaws with a sigh, glances at you and sinks back down. Both are one-shot animations (see below) |
 | Alien lucky cat | 8 | Eased beckoning paw, pulsing antenna lights, a blink, a glint that travels across the coin |
 | Garden trees, flower bed, ivy | 8 | Each leaf mass sways on its own phase |
 | Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing. The chochin lanterns glow from inside, flicker softly and swing their tassels |
 | Candles, steam | 8 | Flicker and curl |
-| Light overlay | 8 | The furnace glow flickers, dust drifts in the window shafts, and a soft diagonal sheen sits on every window pane |
+| Light overlay | 8 | The furnace glow flickers, dust drifts in the window shafts, and every window pane has a blocky glass look: a pale edge round each 16 px tile and two little diagonal glints in it |
 
 ## How it's drawn
 
@@ -142,11 +143,11 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
     - the lacquered plank walls (the grain shows faintly through the red, and strongly where the lacquer has peeled)
     - the wainscot, skirting, girders, corner posts and sills
     - the floor and ceiling boards in perspective
-    - the counter top (fine, straight hinoki), the counter slats, the prep table and the furnace's wooden top
+    - the counter top (fine, straight grain, stained dark), the counter slats, the prep table and the furnace's wooden top
     - every piece of wooden furniture
-  - The hinoki counter is split along the grain, ringed with tea stains, chipped on the edge, and missing slats.
+  - The counter is dark old wood, split along the grain, ringed with tea stains, chipped on the edge, and missing slats.
   - A clean-up pass removes stray single pixels.
-- **A Japanese counter:** a pale hinoki top over a dark lattice of vertical slats (*tategoshi*), with only a few things on it.
+- **A Japanese counter:** a dark wooden top over a dark lattice of vertical slats (*tategoshi*), with only a few things on it.
 - **3D shading from silhouettes:** ceramics, iron, brass and the cat are lit from a height field. Glossy surfaces get a specular glint.
 - **Teaware:** cool blue-grey shadows on white glaze, reflected light on the shadow side, a crisp rim, and a glossy tea surface.
 - **Nothing floats:** props that stand on something carry a soft contact shadow. Wall and hanging pieces carry a drop shadow on the wall behind them. These shadows are semi-transparent, so they work wherever a prop is dropped.
@@ -155,7 +156,9 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 ## Folder map
 
 ```
-layers/outside/   window view: 6 parallax layers (1280 px wide, tile horizontally)
+layers/outside/   window view: 6 parallax layers (1280 px wide, tile horizontally): a dithered sky with
+                  cirrus and cumulus, snow-capped far peaks, hazy ranges, a forested ridge over a
+                  still lake, then a canopy of tree crowns and the garden
 layers/room/      10 shell (window panes transparent) / 11 shell with wall props baked in
                   20 furnace + prep table + counter / 30 foreground posts + ivy / 40 light overlay
 props/roomN/      every prop at 1x (+ _sheet.png; Uncle Pong and the fire spirit have one sheet per mood)
@@ -174,7 +177,7 @@ generator/        the Python that draws all of it (deterministic, seeded)
 Draw these back to front:
 
 1. `layers/outside/00_sky` to `05_flowers_close`, each at `screen_x = -camera_x * parallax` and repeated every 1280 px. They only show through the window panes.
-2. props with `layer: outside` (the rock wyvern behind the bell window)
+2. props with `layer: outside` (the goat-dragon behind the bell window)
 3. `layers/room/10_room_shell.png`
 4. props with `layer: wall`, then `layer: ceiling`
 5. `layers/room/20_counter.png`
@@ -207,7 +210,7 @@ Some props are exported but not placed by default, which keeps the counter and s
 - `preview/room_1_3x.png` to `room_4_3x.png`: each room at 1920×1080
 - `preview/room1_cook_anim.gif` to `room4_bedroom_anim.gif`: every room animated (2 s loops)
 - `preview/uncle_pong_<mood>.gif` and `uncle_pong_moods.png`: Uncle Pong close up
-- `preview/dragon_bell_peek.gif`: the bell and the rock wyvern
+- `preview/dragon_bell_peek.gif`: the bell and the goat-dragon
 - `preview/wyvern_process.png` and `wyvern_process.gif`: how the wyvern is drawn, stage by stage
 - `preview/wyvern_peek.gif` and `wyvern_rest.gif`: the wyvern on its own in its window (the peek, and a resting loop of it breathing and blinking)
 - `preview/silk_bed.png`: the silk bed close up
@@ -228,7 +231,7 @@ python3 teahouse-assets/generator/package.py out.zip  # the tidy game-ready zip 
 | Layout, perspective | `generator/layout.py` |
 | Rooms | `room.py` (perspective boxes, walls, windows, posts, wear), `counter.py` (stone furnace, table, counter), `furnace.py` (fire, coals, smoke), `weather.py` (aging for props), `moss.py` (moss), `woodgrain.py` (wood grain) |
 | Props | `props_cook.py`, `props_seating.py`, `props_ritual.py`, `props_bedroom.py`; `crafted.py` (cook-room baskets, sacks, firewood, bucket, jar), `tea_set.py` (the tea-room set), `silk_bed.py` |
-| NPCs | `npc.py` (chunky 3× rig, pixel templates for eyes, brows, mouths and hands, poses per mood), `dragon.py` (the bell), `wyvern.py` (the hand-drawn rock wyvern and its drawing process) |
+| NPCs | `npc.py` (chunky 3× rig, pixel templates for eyes, brows, mouths and hands, poses per mood), `dragon.py` (the bell), `wyvern.py` (the hand-drawn goat-dragon and its drawing process) |
 | Cloth | `cloth.py` (simulation), `cloth_props.py` |
 | Teaware | `teaware.py` |
 | Fire spirit | `fire.py` |

@@ -419,6 +419,13 @@ def _counter(cv, rng):
     # plinth
     cv.rect(x0, H - 8, x1 - x0, 8, 'ink')
     cv.hline(x0, x1 - 1, H - 8, 'wood1')
+    # darker, older timber: every pale hinoki tone of the counter steps to a deeper brown
+    from pixel import RAMPS
+    reg = cv.a[tb - 2:H, x0 - 2:x1 + 2]
+    hin, wd = RAMPS['hinoki'], RAMPS['wood']
+    for k, c in enumerate(hin):
+        m = (reg[..., 0] == c[0]) & (reg[..., 1] == c[1]) & (reg[..., 2] == c[2]) & (reg[..., 3] > 0)
+        reg[m, :3] = wd[min(len(wd) - 1, k + 1)]
 
 
 def build_counter(seed=17):

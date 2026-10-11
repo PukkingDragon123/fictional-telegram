@@ -1,7 +1,7 @@
 """The bell and the window wyvern (room 3).
 
 Ring the brass call bell on the counter and something answers: a fat,
-friendly old rock wyvern (see wyvern.py) rises behind the bell-shaped
+friendly old goat-dragon (see wyvern.py) rises behind the bell-shaped
 window, rests its chin on the sill and says hello.
 
 The wyvern lives just outside the window (layer 'outside': after the
@@ -65,7 +65,7 @@ PEEK_Y = WIN_BELL['bottom'] + 4 - wyvern.H
 
 
 @prop('dragon_bell', 3, 'counter', WIN_BELL['cx'] - BW // 2 - 40, COUNTER_Y - BH + 1,
-      'Brass call bell. Click it: it rings, and an old rock wyvern rises behind the window', fps=12,
+      'Brass call bell. Click it: it rings, and an old goat-dragon rises behind the window', fps=12,
       meta=dict(on_click=[dict(prop='dragon_bell', play='ring', then='idle'),
                           dict(prop='dragon_peek', play='peek', then='hidden', fps=10)]))
 def dragon_bell():
@@ -73,7 +73,7 @@ def dragon_bell():
 
 
 @prop('dragon_peek', 3, 'outside', PEEK_X, PEEK_Y,
-      'Old rock wyvern, drawn by hand, who rises behind the bell window when the bell rings: settles its chin '
+      'Old goat-dragon (shaggy fur, goat horns and eyes, a dragon skull), drawn by hand, who rises behind the bell window when the bell rings: settles its chin '
       'on the sill, opens its amber eye (the third eyelid slides back), looks at the bell, breathes out, blinks, '
       f'parts its overbite jaws with a sigh and sinks back down ({len(wyvern.SCRIPT)} frames); rest: a loop of it '
       f'staying at the window, breathing and blinking ({len(wyvern.REST)} frames)', drag=False,

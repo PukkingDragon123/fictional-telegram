@@ -91,7 +91,6 @@ def light():
             al = int(22 * (1 - t) ** 1.5)
             if base[y, x, 3] < al:
                 base[y, x] = (*WARM, al)
-    # glass: soft diagonal sheen across every pane (two wide bands and a thin one)
     from layout import WIN_BELL
     from room import bell_halfwidth
     yy, xx = np.mgrid[0:H, 0:W]
@@ -102,11 +101,17 @@ def light():
         hw = bell_halfwidth(y)
         if hw > 0:
             glass[y, int(WIN_BELL['cx'] - hw):int(WIN_BELL['cx'] + hw)] = True
-    band = (xx + yy * 0.7) % 150
-    sheen = glass & (((band > 18) & (band < 30)) | ((band > 36) & (band < 40)))
-    soft = glass & (((band > 14) & (band < 18)) | ((band > 30) & (band < 33)))
-    base[sheen] = (255, 255, 250, 30)
-    base[soft & (base[..., 3] < 16)] = (255, 255, 250, 16)
+    # blocky glass in the spirit of Minecraft's: a 16 px tile with a faint light rim
+    # and short diagonal glints in two corners, repeated over every pane
+    tile = np.zeros((16, 16), int)
+    tile[0, :] = tile[:, 0] = 1
+    tile[15, :] = tile[:, 15] = 1
+    for (r, c) in ((2, 5), (3, 4), (4, 3), (5, 2), (3, 6), (4, 5), (5, 4), (6, 3), (11, 13), (12, 12), (13, 11),
+                   (10, 13), (11, 12), (12, 11), (13, 10)):
+        tile[r, c] = 2
+    t = tile[yy % 16, xx % 16]
+    base[glass & (t == 1)] = (235, 248, 255, 70)
+    base[glass & (t == 2)] = (255, 255, 255, 150)
     lx, ly = 2441, 96                                     # bedroom oil lamp glow
     _add(base, lx - 70, lx + 70, ly - 60, ly + 70,
          lambda x, y: (FIRE, int(max(0, 40 * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))

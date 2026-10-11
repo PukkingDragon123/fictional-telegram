@@ -1,4 +1,4 @@
-"""The old rock wyvern who lives outside the tea-room window, drawn by hand.
+"""The old goat-dragon who lives outside the tea-room window, drawn by hand.
 
 The head is drawn the way a painter would build it, and every stage is
 kept so the drawing process can be shown:
@@ -6,18 +6,18 @@ kept so the drawing process can be shown:
   1 construction  cranium circle, snout box, head axis, eye line, neck and horn gestures
   2 sketch        loose pencil outlines over the construction, shadow hatching
   3 line art      clean ink outlines of every part and the key inner lines
-  4 flats         local colour per material: cool grey stone, old horn, ivory teeth, amber eye
+  4 flats         local colour per material: brown fur, old horn, ivory teeth, amber eye
   5 shading       light from the upper left: planes with rounded edges, cast shadows under
                   the brow, the upper jaw, the head and the horns, reflected light below
-  6 texture       armoured rock scutes (big on the skull and neck, small on the snout and
-                  lips), cracks, pale and orange lichen, moss in the hollows
+  6 texture       fur strokes that follow the lie of the hair, a long goatee, a shaggy
+                  fringe down the neck, growth rings across the horns
   7 final         lines folded into the colours (dark only on the shadow side), a wet glint
                   in the eye, worn highlights on teeth and horns, a cool sky rim from behind
 
-The anatomy is a real reptile's: a long heavy skull with a bony brow shelf
-over a deep-set eye, a crocodile overbite with irregular interlocking teeth,
-nostrils on top of the snout, a banded throat, a thick armoured neck and a
-clawed wing-wrist gripping the sill. It rests its chin on the sill, calm and
+Half goat, half dragon: a dragon's long heavy skull with a crocodile overbite
+and a clawed wing-wrist gripping the sill, under a goat's shaggy coat, ridged
+horns curling back, a floppy ear, a goatee and wide-open amber eyes with
+horizontal bar pupils. It rests its chin on the sill, calm and
 old, and only its eye, breath and jaw move.
 """
 import math
@@ -30,12 +30,12 @@ W, H = 140, 150
 LIGHT = np.array([-0.55, -0.72, 0.42])
 LIGHT = LIGHT / np.linalg.norm(LIGHT)
 
-ROCK = ('stone0', 'stone1', 'stone2', 'stone3', 'stone4', 'paper3')
+ROCK = ('wood0', 'wood1', 'wood2', 'wood3', 'paper0', 'paper1')       # goat fur, warm grey-brown
 HORN = ('wood0', 'wood1', 'wood3', 'paper1', 'paper2', 'paper3')
 TOOTH = ('stone1', 'paper0', 'paper1', 'paper2', 'paper3', 'paper4')
-BELLY = ('stone1', 'stone2', 'paper0', 'paper1', 'paper2', 'paper3')
+BELLY = ('wood2', 'paper0', 'paper1', 'paper2', 'paper3', 'paper4')
 MOUTH = ('ink', 'red0', 'red0', 'red1', 'red2', 'red3')
-IRIS = ('copper1', 'copper2', 'gold2', 'gold3', 'gold4', 'gold4')
+IRIS = ('copper2', 'gold1', 'gold2', 'gold3', 'gold4', 'gold4')
 INK = 'wood0'
 
 
@@ -182,7 +182,7 @@ def anatomy(s):
     def TP(name, pts, r0, r1, n=6):
         a['lines'][name] = (pts, r0)
         return taper(pts, r0, r1, n)
-    a['horn_far'] = TP('horn_far', T([(95, 80), (101, 66), (110, 55), (121, 48), (131, 46)]), 4.5, 1.2)
+    a['horn_far'] = TP('horn_far', T([(77, 75), (81, 64), (89, 57), (100, 55), (109, 59), (113, 66)]), 5.2, 1.4)
     a['neck'] = F('neck', T([(98, 86), (108, 79), (120, 74), (132, 74), (142, 80), (144, 152), (86, 152), (88, 136),
                         (94, 122), (100, 108)]))
     plates = np.zeros((H, W), bool)                                       # dorsal plates along the neck
@@ -209,12 +209,13 @@ def anatomy(s):
                         (94, 117), (100, 113), (105, 106), (108, 96)]))
     a['brow'] = F('brow', T([(55, 81), (60, 75), (70, 71), (82, 72), (90, 76), (92, 81), (86, 82), (76, 80), (66, 81),
                         (60, 84)]))
-    a['spike'] = TP('spike', T([(87, 80), (93, 76), (100, 73)]), 2.2, 0.5, n=3)      # spike behind the eye
+    a['spike'] = TP('spike', T([(90, 81), (100, 83), (109, 88), (114, 94)]), 3.8, 1.4)      # floppy goat ear
+    a['beard'] = F('beard', [R(p) for p in [(27, 125), (36, 127), (43, 131), (43, 139), (39, 147), (35, 157), (33, 149), (29, 140), (26, 132)]])
     a['cheek'] = F('cheek', T([(60, 97), (74, 95), (90, 98), (100, 104), (98, 112), (86, 114), (70, 112), (60, 106)]))
-    a['eye'] = F('eye', T([(63, 87), (67, 84), (74, 83), (80, 86), (75, 89), (67, 90)]))
-    a['socket'] = F('socket', T([(59, 87), (65, 81), (75, 80), (84, 85), (78, 92), (66, 93)]))
+    a['eye'] = F('eye', T([(62, 87), (66, 82.5), (73, 81.5), (79.5, 84), (80.5, 88), (75, 91.5), (67, 91.5)]))
+    a['socket'] = F('socket', T([(58, 87), (64, 79.5), (75, 78.5), (84, 83), (83, 92), (75, 94.5), (65, 94.5)]))
     a['nostril'] = F('nostril', T([(28, 101), (31, 99.5), (35, 100), (32, 102)]))
-    a['horn_near'] = TP('horn_near', T([(99, 84), (106, 72), (116, 62), (127, 56), (137, 55)]), 5.5, 1.3)
+    a['horn_near'] = TP('horn_near', T([(84, 77), (88, 65), (97, 57), (110, 55), (121, 60), (127, 69), (127, 78)]), 6.8, 1.6)
     teeth = []                                                            # upper teeth hang over the jaw: the overbite
     lip = {24: 116, 29: 116.5, 34: 116.5, 39: 118.5, 46: 118, 51: 119.5, 58: 120.5, 64: 120.5, 71: 121.5, 78: 121,
            85: 119.5}
@@ -420,7 +421,7 @@ def ink_lines(a):
     """Stage 3: clean outlines and the key inner lines."""
     oy = a['oy']
     m = np.zeros((H, W), bool)
-    for key in ('head', 'jaw', 'neck', 'brow', 'horn_near', 'horn_far', 'wrist', 'plates', 'spike'):
+    for key in ('head', 'jaw', 'neck', 'brow', 'horn_near', 'horn_far', 'wrist', 'plates', 'spike', 'beard'):
         m |= edge(a[key])
     m |= edge(a['eye']) | edge(a['nostril'])
     for t in a['teeth'] + a['claws']:
@@ -435,17 +436,17 @@ def ink_lines(a):
 def flats(a):
     cv = Canvas(W, H)
     put(cv, a['horn_far'], 'wood1')
-    put(cv, a['neck'] | a['plates'], 'stone2')
+    put(cv, a['neck'] | a['plates'], 'wood2')
     put(cv, a['throat'], 'paper0')
-    put(cv, a['jaw'], 'stone2')
+    put(cv, a['jaw'], 'wood2')
     put(cv, a['mouth'], 'red1')
-    put(cv, a['head'] | a['brow'], 'stone2')
+    put(cv, a['head'] | a['brow'] | a['beard'], 'wood2')
     put(cv, a['horn_near'] | a['spike'], 'wood3')
     for t in a['teeth']:
         put(cv, t, 'paper2')
     put(cv, a['eye'], 'gold2')
     put(cv, a['nostril'], 'stone0')
-    put(cv, a['wrist'], 'stone2')
+    put(cv, a['wrist'], 'wood2')
     for c in a['claws']:
         put(cv, c, 'paper1')
     return cv
@@ -488,7 +489,8 @@ def shading(a):
     put_ramp(cv, a['head'], ROCK, np.clip(v, 0, 1))
     put_ramp(cv, a['brow'], ROCK, np.clip(0.3 + 0.7 * lit(form(a['brow'], 2)), 0, 1))
     put_ramp(cv, a['horn_near'], HORN, np.clip(0.2 + 0.75 * lit(form(a['horn_near'], 3)), 0, 1))
-    put_ramp(cv, a['spike'], HORN, np.clip(0.25 + 0.7 * lit(form(a['spike'], 1.5)), 0, 1))
+    put_ramp(cv, a['spike'], ROCK, np.clip(0.2 + 0.7 * lit(form(a['spike'], 2)), 0, 1))       # drooping goat ear
+    put_ramp(cv, a['beard'], BELLY, np.clip(0.05 + 0.5 * lit(form(a['beard'], 2)), 0, 1))
     for t in a['teeth']:
         tv = 0.35 + 0.6 * lit(form(t, 1.5))
         put_ramp(cv, t, TOOTH, np.clip(tv, 0, 1))
@@ -565,87 +567,109 @@ def scutes(a, cv):
         _step(rgb, grain, 1)
 
 
-def texture(a, cv):
-    """Stage 6: scutes, weathering, lichen and moss."""
+def fur(a, cv):
+    """Shaggy fur: short strokes that follow the lie of the hair - back along the
+    head from the nose, down the neck and jaw - light on the tips, dark between."""
     oy = a['oy']
-    scutes(a, cv)
+    body = (a['head'] | a['neck'] | a['jaw'] | a['brow'] | a['wrist'] | a['beard'] | a['spike']) & ~a['eye'] & \
+        ~a['nostril']
     rgb = cv.a[..., :3]
-    body = a['head'] | a['neck'] | a['jaw'] | a['brow']
-    rng = random.Random(4)
-    for pts in (((88, 78), (92, 84), (90, 90)), ((112, 90), (116, 98), (114, 108), (118, 116)), ((44, 104), (47, 110)),
-                ((124, 96), (128, 104)), ((70, 128), (74, 134))):          # weathering cracks
-        m = line_mask([(x, y + oy) for x, y in pts]) & body
-        _step(rgb, m, -2)
-        _step(rgb, sh(m, 1, 0) & body & ~m, 1)
-    for k in range(3):                                                    # wrinkles under the eye
-        m = line_mask([(60 - k, 91 + oy + k * 2), (70, 94 + oy + k * 2.4), (82 - k, 91 + oy + k * 2)]) & a['head'] & ~a['eye']
-        _step(rgb, m, -1)
-    # crustose lichen: pale grey-green blotches with ragged edges on the old upper surfaces
-    up = body & ~sh(body, 0, 7)
-    lich = up & (noise(XX / 4.0, (YY - oy) / 4.0, 11) > 0.62) & (noise(XX * 0.8, YY * 0.8, 13) > 0.35)
-    _step(rgb, lich, 1)
-    put(cv, lich & ((XX * 3 + YY * 5) % 7 == 0), 'haze3')
-    put(cv, lich & ((XX * 5 + YY * 3) % 9 == 0), 'jade3')
-    crown = (a['head'] | a['neck']) & ~sh(a['head'] | a['neck'], 0, 4) & (XX > 70)
-    mossy = crown & (noise(XX / 4.0, (YY - oy) / 4.0, 5) > 0.42)
-    put(cv, mossy, 'leaf2')
-    put(cv, mossy & ~sh(mossy, 0, 1), 'leaf3')
-    put(cv, mossy & ~sh(mossy, -1, -1) & (noise(XX, YY, 3) > 0.6), 'leaf4')
-    put(cv, mossy & ~sh(mossy, 0, -1), 'leaf1')
-    tufts = np.zeros((H, W), bool)
-    for x in range(72, 140, 5):
-        col = np.nonzero(crown[:, x])[0]
-        if len(col) and rng.random() < 0.6:
-            for k in range(1, rng.randint(2, 4)):
-                if col[0] - k >= 0:
-                    tufts[col[0] - k, x] = True
-    put(cv, tufts, 'leaf3')
-    for k in range(5):                                                    # throat folds
-        m = line_mask([(88, 124 + oy + k * 6), (100, 122 + oy + k * 6), (114, 125 + oy + k * 6)]) & a['throat']
-        _step(rgb, m, -1)
-    for key, ring in (('horn_near', ((104, 76), (111, 67), (118, 61), (126, 57))),
-                      ('horn_far', ((101, 68), (108, 58), (116, 52)))):  # growth rings on the horns
-        for (x, y) in ring:
-            m = line_mask([(x - 3, y + oy - 3), (x + 3, y + oy + 3)]) & a[key]
+    rng = random.Random(23)
+    hi = np.zeros((H, W), bool)
+    lo = np.zeros((H, W), bool)
+    for y in range(0, H, 2):
+        for x in range(0, W, 2):
+            X, Y = x + rng.uniform(0, 2), y + rng.uniform(0, 2)
+            if not body[int(Y), int(X)]:
+                continue
+            if a['neck'][int(Y), int(X)] and not a['head'][int(Y), int(X)]:
+                dx, dy = 0.35, 1.0                        # neck fur falls downward
+            elif a['jaw'][int(Y), int(X)] or a['beard'][int(Y), int(X)]:
+                dx, dy = 0.15, 1.0
+            else:
+                dx, dy = 1.0, 0.25                        # head fur runs back from the nose
+            n = math.hypot(dx, dy)
+            dx, dy = dx / n, dy / n
+            ln = rng.randint(2, 4) + (2 if a['beard'][int(Y), int(X)] else 0)
+            tgt = hi if rng.random() < 0.5 else lo
+            for k in range(ln):
+                xi, yi = int(X + dx * k), int(Y + dy * k)
+                if 0 <= xi < W and 0 <= yi < H and body[yi, xi]:
+                    tgt[yi, xi] = True
+    _step(rgb, hi & ~lo, 1)
+    _step(rgb, lo & ~hi, -1)
+    # the long shaggy fringe along the back of the neck
+    edge_ = body & ~sh(body, 0, 2) & (XX > 100)
+    _step(rgb, edge_ & ((XX + YY) % 3 == 0), 1)
+
+
+def texture(a, cv):
+    """Stage 6: fur, and the growth ridges of the horns."""
+    oy = a['oy']
+    fur(a, cv)
+    rgb = cv.a[..., :3]
+    for key in ('horn_near', 'horn_far'):                 # ridged like a goat's horn: rings across the curve
+        pts, r0 = a['lines'][key]
+        dense = spline(pts, closed=False, n=12)
+        for k in range(3, len(dense) - 3, 3):
+            (x0, y0), (x1, y1) = dense[k - 1], dense[k + 1]
+            tx, ty = x1 - x0, y1 - y0
+            n = math.hypot(tx, ty) or 1
+            nx, ny = -ty / n * (r0 + 1), tx / n * (r0 + 1)
+            x, y = dense[k]
+            m = line_mask([(x - nx, y - ny), (x + nx, y + ny)]) & a[key]
             _step(rgb, m, -1)
+            _step(rgb, sh(m, 1, 1) & a[key] & ~m, 1)
+    # beard: long strands, dark partings with light hair either side
+    bd = a['beard']
+    _step(rgb, bd & (XX % 3 == 0) & ((YY + XX // 3) % 7 != 0), -1)
+    _step(rgb, bd & (XX % 3 == 1) & ((YY + XX) % 5 == 0), 1)
+    # inside of the ear shows pale
+    ear = a['spike'] & sh(a['spike'], 0, -1) & sh(a['spike'], 0, 1) & sh(a['spike'], -1, 0)
+    put(cv, ear & ~sh(ear, 0, -1), 'paper0')
 
 
 def eye(a, s, cv):
-    """Amber iris, vertical pupil, a heavy lid, the wet glint, the third eyelid."""
+    """Amber iris, wide bar pupil, a heavy lid, the wet glint, the third eyelid."""
     oy = a['oy']
     e = a['eye']
     ys, xs = np.nonzero(e)
     if not len(ys):
         return
     y0, y1 = ys.min(), ys.max()
-    put_ramp(cv, e, IRIS, np.clip(0.2 + 0.75 * (YY - y0) / max(1, y1 - y0), 0, 1))
-    cx, cy = 72 + s['look'] * 3, 86.5 + oy
-    pupil = e & (np.abs(XX - cx) < 1.2) & (np.abs(YY - cy) < 3.2)
-    put(cv, e & (np.abs(XX - cx) < 2.2) & ~pupil & (np.abs(YY - cy) < 2), 'copper1')
+    ecx, ecy = xs.mean(), ys.mean()
+    rad = np.sqrt(((XX - ecx) / 9.5) ** 2 + ((YY - ecy - 1.2) / 5.5) ** 2)
+    put_ramp(cv, e, IRIS, np.clip(0.95 - 0.8 * rad - 0.25 * (YY < ecy - 2), 0, 1))   # amber, lit from below
+    put(cv, e & ~sh(e, 0, 1) | e & ~sh(e, 0, -1) & (XX < ecx - 3), 'copper1')        # darker iris rim
+    cx, cy = ecx + s['look'] * 2, ecy
+    pupil = e & (np.abs(XX - cx) < 4.6) & (np.abs(YY - cy) < 1.1)          # the goat's wide bar pupil
+    pupil |= e & (np.abs(XX - cx) < 3.4) & (np.abs(YY - cy) < 1.6)         # a little fuller in the middle
+    put(cv, sh(pupil, 0, -1) & e & ~pupil, 'gold4')
     put(cv, pupil, 'ink')
     if s['membrane'] > 0:                                                 # third eyelid, from the front corner
         film = e & (XX < 63 + 18 * s['membrane'])
         put(cv, film & ((XX + YY) % 2 == 0), 'haze3')
         put(cv, film & ((XX + YY) % 2 == 1), 'haze2')
-    lid_y = y0 - 1 + (y1 - y0 + 2) * s['lid']
+    lid = s['lid'] if s['lid'] >= 0.95 else max(0.0, (s['lid'] - 0.4) * 1.2)   # goats stare wide open
+    lid_y = y0 - 1 + (y1 - y0 + 2) * lid
     lidm = a['socket'] & (YY <= lid_y) & (e | sh(e, 0, -1) | sh(e, 0, 1))
     lv = 0.26 + 0.3 * lit(form(lidm | a['brow'], 2)) + 0.12 * ((YY - y0) < 2)
     put_ramp(cv, lidm, ROCK, np.clip(lv, 0, 1))
-    put(cv, lidm & (((XX * 2 + YY) % 5) == 0), 'stone1')                  # fine scales on the lid
-    put(cv, sh(lidm, 0, 1) & e & ~lidm, 'stone0')                         # the lid's shadow on the eye
+    put(cv, lidm & (((XX * 2 + YY) % 5) == 0), 'wood1')                   # short lashes of fur on the lid
+    put(cv, sh(lidm, 0, 1) & e & ~lidm, 'wood0')                         # the lid's shadow on the eye
     seam = lidm & ~sh(lidm, 0, -1) & (sh(e, 0, 1) | e)                    # the lid's edge: a dark slit when shut
-    put(cv, seam, 'ink' if s['lid'] >= 0.95 else 'stone1')
+    put(cv, seam, 'ink' if s['lid'] >= 0.95 else 'wood0')
     if s['lid'] >= 0.95:
-        put(cv, sh(seam, 0, 1) & a['head'] & ~seam, 'stone1')
+        put(cv, sh(seam, 0, 1) & a['head'] & ~seam, 'wood1')
     if s['lid'] < 0.85:
-        gx, gy = int(round(cx - 3)), int(round(max(lid_y + 1.5, 85 + oy)))
+        gx, gy = int(round(cx - 4)), int(round(max(lid_y + 1.5, cy - 2.5)))
         if 0 <= gy < H and 0 <= gx < W - 1 and e[gy, gx]:
             cv.a[gy, gx] = (*PAL['white'], 255)                              # wet glint
             if e[gy, gx + 1]:
                 cv.a[gy, gx + 1] = (*PAL['paper4'], 255)
     low = sh(e, 0, 1) & ~e & a['head']
-    put(cv, low, 'stone3')
-    put(cv, sh(low, 0, 1) & ~e & ~low & a['head'], 'stone1')
+    put(cv, low, 'wood1')
+    put(cv, sh(low, 0, 1) & ~e & ~low & a['head'], 'wood2')
 
 
 def final(a, cv):

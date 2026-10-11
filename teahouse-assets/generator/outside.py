@@ -172,13 +172,32 @@ def _hydrangea_bush(seed, rx, ry, kinds=('hydrangea_blue', 'hydrangea_purple')):
 
 
 def sky():
+    """Smooth sky: five tones blended with a fine ordered dither, a pale haze
+    at the horizon and a few thin high clouds."""
     cv = Canvas(OUT_W, H, wrap=True)
-    bands = [(0, 'sky1'), (96, 'sky2'), (124, 'sky3'), (148, 'sky4')]
-    for i, (y0, c) in enumerate(bands):
-        y1 = bands[i + 1][0] if i + 1 < len(bands) else H
-        cv.rect(0, y0, OUT_W, y1 - y0, c)
-    for i in range(1, len(bands)):
-        dither_seam(cv, bands[i][0] - 5, 10, bands[i - 1][1], bands[i][1])
+    stops = [(0, 0), (60, 1), (108, 2), (140, 3), (162, 4)]
+    cols = ['sky0', 'sky1', 'sky2', 'sky3', 'sky4']
+    for y in range(H):
+        v = stops[-1][1]
+        for (y0, a), (y1, b) in zip(stops, stops[1:]):
+            if y0 <= y < y1:
+                v = a + (y - y0) / (y1 - y0) * (b - a)
+                break
+        lo = int(v)
+        fr = v - lo
+        for x in range(OUT_W):
+            k = lo + (1 if fr > (BAYER4[y % 4][x % 4] + 0.5) / 16 else 0)
+            cv.px(x, y, cols[min(4, k)])
+    rng = random.Random(3)
+    for _ in range(9):                                   # thin high cirrus, wispy and broken
+        x, y = rng.randint(0, OUT_W), rng.randint(24, 80)
+        ln = rng.randint(40, 110)
+        for k in range(ln):
+            yy = y + int(math.sin(k * 0.06 + x) * 2)
+            if rng.random() < 0.8:
+                cv.px(x + k, yy, 'sky3' if y > 50 else 'sky2')
+            if 6 < k < ln - 8 and rng.random() < 0.5:
+                cv.px(x + k, yy + 1, 'sky4' if y > 50 else 'sky3')
     return cv
 
 
@@ -231,10 +250,30 @@ def _paint_range(cv, prof, ramp, rng, floor_y, lit_side=True, tex=0.0):
 def mountains():
     cv = Canvas(OUT_W, H, wrap=True)
     rng = random.Random(21)
-    far = _ridge(rng, 140, 34, [(2, 10), (5, 6), (9, 3.5), (19, 1.6), (37, 0.7), (71, 0.3)])
-    near = _ridge(rng, 156, 20, [(3, 7), (7, 5), (13, 3), (29, 1.2), (57, 0.5)])
+    far = _ridge(rng, 138, 40, [(2, 10), (5, 6), (9, 3.5), (19, 1.6), (37, 0.7), (71, 0.3)])
+    mid = _ridge(rng, 150, 24, [(3, 7), (6, 5), (11, 3), (23, 1.2), (47, 0.5)])
+    near = _ridge(rng, 162, 12, [(4, 6), (9, 4), (17, 2), (41, 0.8)])
     _paint_range(cv, far, ['haze2', 'haze3', 'cloud2'], rng, HORIZON, tex=0.25)
-    _paint_range(cv, near, ['haze1', 'haze2', 'haze3'], rng, HORIZON, tex=0.4)
+    # snow on the high peaks: bright on the sunlit side, blue in shade
+    slope = np.gradient(far)
+    snowline = np.percentile(far, 30)
+    for x in range(OUT_W):
+        top = int(round(far[x]))
+        if far[x] < snowline:
+            depth = int((snowline - far[x]) * 0.7) + 2
+            for d in range(depth):
+                if (x * 7 + d * 3) % 11 == 0 and d > depth - 3:
+                    continue
+                cv.px(x, top + d, 'cloud3' if slope[x] < 0.1 else 'cloud1')
+    _paint_range(cv, mid, ['haze0', 'haze1', 'haze2'], rng, HORIZON, tex=0.4)
+    # the near range is forested: dark teal with a bumpy canopy edge and tree texture
+    for x in range(OUT_W):
+        top = int(round(near[x] - abs(math.sin(x * 0.9)) * 1.5))
+        for y in range(top, HORIZON):
+            d = y - top
+            c = 'teal2' if d < 2 else ('teal1' if (x * 3 + y * 5) % 7 else 'teal0')
+            cv.px(x, y, c)
+    near = np.minimum(near, mid)
     # lake: calm, with a faint upside-down reflection of the near ridge
     for y in range(HORIZON, H):
         cv.hline(0, OUT_W - 1, y, 'water1' if y < HORIZON + 12 else 'water0')
