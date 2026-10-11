@@ -2077,7 +2077,7 @@
    "w": 140,
    "h": 192,
    "draggable": false,
-   "desc": "Old white goat-dragon (a goat head and shaggy white fur, with dragon scales, fangs, spurs, frills and spines), drawn by hand, who rises behind the bell window when the bell rings: opens its amber eye (the third eyelid slides back), looks at the bell, leans in and puts its head over the sill into the room, breathes out, blinks, parts its jaws with a sigh, leans back out and sinks down (51 frames); rest: a loop of it with its head in over the sill, breathing and blinking (25 frames). Play it together with dragon_peek_front",
+   "desc": "Old white goat-dragon (a goat head and shaggy white fur, with dragon scales, fangs, spurs, frills and spines), drawn by hand, who rises behind the bell window when the bell rings: opens its amber eye (the third eyelid slides back), looks at the bell, leans in and puts its head over the sill into the room, breathes out, blinks, parts its jaws with a sigh, leans back out and sinks down (63 frames); rest: a loop of it with its head in over the sill, breathing and blinking (37 frames). Play it together with dragon_peek_front",
    "placed_by_default": true,
    "file": "props/room3/dragon_peek.png",
    "anims": {
@@ -2087,12 +2087,12 @@
      "sheet": "props/room3/dragon_peek_hidden_sheet.png"
     },
     "peek": {
-     "frames": 51,
+     "frames": 63,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_peek_sheet.png"
     },
     "rest": {
-     "frames": 25,
+     "frames": 37,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_rest_sheet.png"
     }
@@ -2117,12 +2117,12 @@
      "sheet": "props/room3/dragon_peek_front_hidden_sheet.png"
     },
     "peek": {
-     "frames": 51,
+     "frames": 63,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_front_peek_sheet.png"
     },
     "rest": {
-     "frames": 25,
+     "frames": 37,
      "fps": 10,
      "sheet": "props/room3/dragon_peek_front_rest_sheet.png"
     }

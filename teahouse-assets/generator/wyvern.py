@@ -193,9 +193,14 @@ POSE_OUT = (0.97, math.radians(-46), (60.0, 59.0))     # resting at the window
 POSE_IN = (1.24, math.radians(-52), (54.0, 84.0))      # leaning in: head closer, snout out over the sill
 
 
-def set_pose(lean):
-    """Blend the head frame between resting at the window and leaning in."""
-    global K, ANG, POLL
+YAW = 0.0                                 # head turned toward the viewer (radians)
+
+
+def set_pose(lean, yaw=0.0):
+    """Blend the head frame between resting at the window and leaning in, and
+    turn it toward the viewer by yaw (0..1 of a quarter turn)."""
+    global K, ANG, POLL, YAW
+    YAW = yaw * math.pi / 2
     e = lean * lean * (3 - 2 * lean)
     K = POSE_OUT[0] + (POSE_IN[0] - POSE_OUT[0]) * e
     ANG = POSE_OUT[1] + (POSE_IN[1] - POSE_OUT[1]) * e
@@ -241,8 +246,8 @@ NOSTRIL = [(-68.5, 13.5), (-66, 13), (-64.5, 14.5), (-66.5, 16.3)]
 EYE = [(-33.5, 9.5), (-30, 5.6), (-24.5, 4.6), (-19, 7), (-20, 11), (-26.5, 12.8)]
 SOCKET = [(-36.5, 9.5), (-31, 3.2), (-24, 2.2), (-16, 6.2), (-17.5, 13.2), (-27, 15.6)]
 _EC = (-26.3, 8.7)
-EYE = [(_EC[0] + (x - _EC[0]) * 1.4, _EC[1] + (y - _EC[1]) * 1.4) for x, y in EYE]            # big enough for detail
-SOCKET = [(_EC[0] + (x - _EC[0]) * 1.32, _EC[1] + (y - _EC[1]) * 1.32) for x, y in SOCKET]
+EYE = [(_EC[0] + (x - _EC[0]) * 1.08, _EC[1] + (y - _EC[1]) * 1.08) for x, y in EYE]
+SOCKET = [(_EC[0] + (x - _EC[0]) * 1.1, _EC[1] + (y - _EC[1]) * 1.1) for x, y in SOCKET]
 BRIDGE = [(-30, -2.5), (-45, 1.2), (-54, 3.8), (-61, 6.3), (-66.8, 9.5), (-63, 14.5), (-55, 11.5), (-46, 9),
           (-36, 7.5), (-32, 4)]                                                    # dragon scales down the nose
 SCALE_FACE = ('teal0', 'teal1', 'teal2', 'stone3', 'stone4', 'cloud2')  # pearly scales with teal edges
@@ -363,6 +368,279 @@ def anatomy(s):
     a['wrist'] = np.zeros((H, W), bool)                                   # no arm: just the head and neck
     a['claws'] = []
     a['LX'], a['LY'] = LX, LY
+    a['eyes'] = [a['eye']]
+    if s.get('yaw', 0) > 0:
+        turn_head(a, s)
+    return a
+
+
+# ---------------------------------------------------------------- turning the head (3D)
+# For a turned head (yaw), the head is a solid: the profile outline lofted out to
+# a width that grows from the muzzle to the cheeks, the jaw the same, and the
+# markings (eyes, sockets, nostrils, muzzle, brow, scales) painted onto that
+# surface by where they sit on the profile, once on each side. Horns, ears,
+# spurs, frills and fangs are placed on both sides. Everything is projected with
+# the head's pitch, then turned about the vertical, and the nearest surface wins.
+# The resulting masks go through the same shading, fur and eye passes.
+LIPS = [(-60, 22.6), (-50, 23.6), (-40, 25.2), (-31, 28.5), (-27, 33), (-33, 32), (-42, 29.5), (-52, 27.5), (-60, 26.5)]
+LR_S, LR_X0, LR_Y0 = 4.0, -90.0, -20.0
+LR_W, LR_H = int(110 * LR_S), int(75 * LR_S)
+_LR = {}
+
+
+def _lraster(name, poly):
+    if name not in _LR:
+        im = Image.new('L', (LR_W, LR_H), 0)
+        ImageDraw.Draw(im).polygon([((x - LR_X0) * LR_S, (y - LR_Y0) * LR_S) for x, y in spline(poly)], fill=1)
+        _LR[name] = np.array(im, bool)
+    return _LR[name]
+
+
+def _look(name, poly, x, y):
+    R = _lraster(name, poly)
+    i = np.clip(((y - LR_Y0) * LR_S).astype(int), 0, LR_H - 1)
+    j = np.clip(((x - LR_X0) * LR_S).astype(int), 0, LR_W - 1)
+    return R[i, j]
+
+
+def _profile(name, poly, xs):
+    """Top and bottom of a profile polygon at each x (nan where it has none)."""
+    R = _lraster(name, poly)
+    j = np.clip(((xs - LR_X0) * LR_S).astype(int), 0, LR_W - 1)
+    col = R[:, j]
+    has = col.any(axis=0)
+    top = np.where(has, col.argmax(axis=0), 0) / LR_S + LR_Y0
+    bot = np.where(has, LR_H - 1 - col[::-1].argmax(axis=0), 0) / LR_S + LR_Y0
+    return np.where(has, top, np.nan), np.where(has, bot, np.nan)
+
+
+def head_width(x):
+    # narrow muzzle, the orbits bulging out round the eyes, broad cheeks, then the poll
+    return np.interp(x, [-71, -64, -50, -38, -30, -24, -16, -8, -2, 3],
+                     [6.0, 9.5, 12.0, 14.0, 19.5, 20.5, 18.5, 17.5, 15.0, 9.0])
+
+
+def project(x, y, z, oy):
+    """Head frame -> sprite (X, Y) and depth (bigger is nearer)."""
+    c, s = math.cos(ANG), math.sin(ANG)
+    xp, yp = x * c - y * s, x * s + y * c
+    cy_, sy_ = math.cos(YAW), math.sin(YAW)
+    xpp = xp * cy_ + z * sy_
+    d = -xp * sy_ + z * cy_
+    return POLL[0] + K * xpp, POLL[1] + oy + K * yp, d
+
+
+def _to_local(X, Y):
+    """Sprite point (resting pose, risen) -> head frame."""
+    k, a = POSE_OUT[0], POSE_OUT[1]
+    c, s = math.cos(a), math.sin(a)
+    dX, dY = X - POSE_OUT[2][0], Y - POSE_OUT[2][1]
+    return (dX * c + dY * s) / k, (-dX * s + dY * c) / k
+
+
+def _loft_points(name, poly, x0, x1, wscale, rot=None):
+    xs = np.arange(x0, x1, 0.28)
+    top, bot = _profile(name, poly, xs)
+    ok = ~np.isnan(top)
+    xs, top, bot = xs[ok], top[ok], bot[ok]
+    phi = np.linspace(0, 2 * math.pi, 300, endpoint=False)[None, :]
+    yc, ry = ((top + bot) / 2)[:, None], ((bot - top) / 2 + 0.3)[:, None]
+    w = (head_width(xs) * wscale)[:, None]
+    sp = np.sin(phi)
+    y = yc + ry * sp
+    z = w * (0.62 + 0.38 * (1 + sp) / 2) * np.cos(phi)
+    x = np.broadcast_to(xs[:, None], y.shape)
+    x, y, z = x.ravel(), y.ravel(), z.ravel()
+    if rot is not None:
+        hx, hy, ang = rot
+        ca, sa = math.cos(ang), math.sin(ang)
+        x, y = hx + (x - hx) * ca - (y - hy) * sa, hy + (x - hx) * sa + (y - hy) * ca
+    return x, y, z
+
+
+def _splat(x, y, z, ids, oy):
+    X, Y, D = project(x, y, z, oy)
+    xi, yi = np.round(X - 0.5).astype(int), np.round(Y - 0.5).astype(int)
+    ok = (xi >= 0) & (xi < W) & (yi >= 0) & (yi < H)
+    xi, yi, D, ids, x, y, z = xi[ok], yi[ok], D[ok], ids[ok], x[ok], y[ok], z[ok]
+    key = yi * W + xi
+    order = np.lexsort((D, key))
+    ks = key[order]
+    last = np.r_[ks[1:] != ks[:-1], True]
+    sel = order[last]
+    depth = np.full(H * W, -1e9)
+    part = np.zeros(H * W, int)
+    lx, ly, lz = (np.zeros(H * W) for _ in range(3))
+    depth[key[sel]] = D[sel]
+    part[key[sel]] = ids[sel]
+    lx[key[sel]], ly[key[sel]], lz[key[sel]] = x[sel], y[sel], z[sel]
+    sh_ = (H, W)
+    return depth.reshape(sh_), part.reshape(sh_), lx.reshape(sh_), ly.reshape(sh_), lz.reshape(sh_)
+
+
+def _poly3(pts3, n=16):
+    """Densify a 3D polyline (Catmull-Rom on each coordinate)."""
+    P = np.array(pts3, float)
+    xy = spline([(p[0], p[1]) for p in P], closed=False, n=n)
+    xz = spline([(p[0], p[2]) for p in P], closed=False, n=n)
+    return np.array([(a[0], a[1], b[1]) for a, b in zip(xy, xz)])
+
+
+def _tube(pts3, r0, r1, oy):
+    """A tapering tube (horn, spur, fang) along a 3D line: mask and depth."""
+    Q = _poly3(pts3)
+    X, Y, D = project(Q[:, 0], Q[:, 1], Q[:, 2], oy)
+    m = taper(list(zip(X, Y)), r0 * K, r1 * K, n=2)
+    dep = np.full((H, W), -1e9)
+    ys, xs = np.nonzero(m)
+    if len(ys):
+        d2 = (xs[:, None] + 0.5 - X[None, :]) ** 2 + (ys[:, None] + 0.5 - Y[None, :]) ** 2
+        dep[ys, xs] = D[d2.argmin(1)] + 0.6
+    return m, dep, list(zip(X, Y))
+
+
+def _sheet(base, dirL, dirW, length, hw_of_u, oy, u0=0.0, u1=1.0):
+    """A leaf-shaped sheet (an ear) in 3D: mask and depth."""
+    us = np.linspace(u0, u1, 24)
+    left = [base + dirL * length * u + dirW * hw_of_u(u) for u in us]
+    right = [base + dirL * length * u - dirW * hw_of_u(u) for u in us[::-1]]
+    P = np.array(left + right)
+    X, Y, D = project(P[:, 0], P[:, 1], P[:, 2], oy)
+    im = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(im).polygon(list(zip(X, Y)), fill=1)
+    m = np.array(im, bool)
+    dep = np.full((H, W), -1e9)
+    ys, xs = np.nonzero(m)
+    if len(ys):
+        d2 = (xs[:, None] + 0.5 - X[None, :]) ** 2 + (ys[:, None] + 0.5 - Y[None, :]) ** 2
+        dep[ys, xs] = D[d2.argmin(1)] + 0.4
+    return m, dep
+
+
+def turn_head(a, s):
+    """Replace the head's masks with the turned (yawed) solid head."""
+    oy = a['oy']
+    ang = -math.radians(8) * s['jaw']
+    hx, hy = HINGE
+    pts = []
+    x, y, z = _loft_points('head', HEAD, -71.5, 3.5, 1.0)
+    pts.append((x, y, z, np.full(len(x), 1)))
+    x, y, z = _loft_points('jaw', JAW, -66.5, -23.5, 0.82, rot=(hx, hy, ang))
+    pts.append((x, y, z, np.full(len(x), 2)))
+    if s['jaw'] > 0.05:                                         # the inside of the open mouth
+        xs = np.arange(-65, -44, 0.3)
+        lt = np.interp(xs, [p[0] for p in LIP], [p[1] for p in LIP])
+        mx, my, mz = [], [], []
+        for zz in np.linspace(-0.62, 0.62, 13):
+            for t in np.linspace(0, 1, 7):
+                yy = lt + 0.3 + t * 4.5
+                ca, sa = math.cos(ang * t), math.sin(ang * t)
+                rx_, ry_ = hx + (xs - hx) * ca - (yy - hy) * sa, hy + (xs - hx) * sa + (yy - hy) * ca
+                mx.append(rx_); my.append(ry_); mz.append(head_width(xs) * zz)
+        mx, my, mz = np.concatenate(mx), np.concatenate(my), np.concatenate(mz)
+        pts.append((mx, my, mz, np.full(len(mx), 3)))
+    x = np.concatenate([p[0] for p in pts]); y = np.concatenate([p[1] for p in pts])
+    z = np.concatenate([p[2] for p in pts]); ids = np.concatenate([p[3] for p in pts])
+    dep, part, LXs, LYs, LZs = _splat(x, y, z, ids, oy)
+    # parts on both sides
+    layers = {}
+    near_horn = [(*_to_local(X, Y), 0) for X, Y in [(58.5, 62), (60, 54), (64, 48.5), (70.5, 45.5), (77.5, 46.5),
+                                                     (83, 51), (86.5, 57.5), (88, 64)]]
+    lines = {}
+    for side, key in ((1, 'horn_near'), (-1, 'horn_far')):
+        h3 = [(p[0], p[1], side * (4.5 + 7.0 * k / 7)) for k, p in enumerate(near_horn)]
+        m, d, cl = _tube(h3, 6.6 / POSE_OUT[0], 1.6 / POSE_OUT[0], oy)
+        layers[key] = (m, d)
+        lines[key] = (cl, 6.6 * K / POSE_OUT[0])
+    for nm, pl, r0, r1 in (('spurs', [(-17, -0.5), (-10, -4.5), (-5, -7.5)], 1.9, 0.3),
+                           ('spurs', [(-23, -1.5), (-17, -6), (-13, -8.5)], 1.6, 0.3),
+                           ('frills', [(-14, 28), (-5, 33), (3, 39)], 3.2, 0.4),
+                           ('frills', [(-19, 32.5), (-12, 39), (-7, 45)], 2.8, 0.4),
+                           ('frills', [(-10, 20), (-1, 23), (7, 26)], 2.8, 0.4),
+                           ('teeth', [(-60.5, 25.6), (-61.3, 31.2), (-59.8, 35.6)], 2.0, 0.35),
+                           ('teeth', [(-52.5, 27.0), (-52.9, 30.6), (-52.0, 33.0)], 1.5, 0.3),
+                           ('teeth_low', [(-64.5, 30.5), (-64.8, 26.5), (-63.8, 23.2)], 1.6, 0.3)):
+        for side in (1, -1):
+            p3 = []
+            for k, (px_, py_) in enumerate(pl):
+                if nm == 'teeth_low':
+                    ca, sa = math.cos(ang), math.sin(ang)
+                    px_, py_ = hx + (px_ - hx) * ca - (py_ - hy) * sa, hy + (px_ - hx) * sa + (py_ - hy) * ca
+                wz = head_width(px_)
+                zz = {'spurs': 0.7 * wz, 'frills': 0.85 * wz + 2.5 * k, 'teeth': 0.62 * wz,
+                      'teeth_low': 0.55 * wz}[nm]
+                p3.append((px_, py_, side * zz))
+            m, d, _ = _tube(p3, r0, r1, oy)
+            key = 'teeth' if nm.startswith('teeth') else nm
+            if key in layers:
+                om, od = layers[key]
+                layers[key] = (om | m, np.maximum(od, d))
+            else:
+                layers[key] = (m, d)
+    # ears: leaves sticking out to each side, back and down
+    bx, by = _to_local(62.5, 70)
+    tx_, ty_ = _to_local(88.0, 86.0)
+    v2 = np.array([tx_ - bx, ty_ - by])
+    ln2 = np.linalg.norm(v2)
+    for side in (1, -1):
+        dL = np.array([v2[0] / ln2, v2[1] / ln2, side * 0.95])
+        dL /= np.linalg.norm(dL)
+        dW = np.array([math.sin(ANG), math.cos(ANG), 0.0])          # the leaf's width runs up and down on screen
+        base = np.array([bx, by, side * 13.0])
+        length = ln2 / math.hypot(dL[0], dL[1])
+        hw = lambda u: 4.6 * math.sin(math.pi * min(1, u) ** 0.75) * (1 - 0.25 * u) + 0.6
+        m, d = _sheet(base, dL, dW, length, hw, oy)
+        mi, di = _sheet(base + dW * 0.2, dL, dW, length, lambda u: hw(u) * 0.5, oy, 0.15, 0.9)
+        for key, mm, dd in (('spike', m, d), ('ear_in', mi, di + 0.05)):
+            if key in layers:
+                om, od = layers[key]
+                layers[key] = (om | mm, np.maximum(od, dd))
+            else:
+                layers[key] = (mm, dd)
+    # nearest wins
+    names = ['surface'] + list(layers)
+    stack = np.stack([dep] + [layers[k][1] for k in layers])
+    win = stack.argmax(0)
+    any_ = stack.max(0) > -1e8
+    surf = any_ & (win == 0)
+    head = surf & (part == 1)
+    jaw = surf & (part == 2)
+    a['head'], a['jaw'] = head, jaw
+    a['mouth'] = surf & (part == 3)
+    for k in layers:
+        i = names.index(k)
+        a[k] = any_ & (win == i)
+    a['spike'] = a['spike'] | a['ear_in']
+    a['teeth'] = [a.pop('teeth')]
+    hs = head | jaw
+    w_ = head_width(LXs)
+    side_n, side_f = LZs > 0, LZs < 0
+    eye_r = _look('eye', EYE, LXs, LYs) & head
+    a['eyes'] = [m for m in (eye_r & side_n, eye_r & side_f) if m.sum() > 2]
+    a['eye'] = eye_r if a['eyes'] else np.zeros((H, W), bool)
+    a['socket'] = _look('socket', SOCKET, LXs, LYs) & head
+    a['brow'] = _look('brow', BROW, LXs, LYs) & head
+    a['cheek'] = _look('cheek', CHEEK, LXs, LYs) & head
+    a['muzzle'] = _look('muzzle', MUZZLE, LXs, LYs) & head
+    a['nostril'] = _look('nostril', NOSTRIL, LXs, LYs) & head & (np.abs(LZs) > 0.6)
+    a['bridge'] = _look('bridge', BRIDGE, LXs, LYs) & head & (np.abs(LZs) < 0.34 * w_) & ~a['muzzle'] & ~a['socket']
+    a['lipscale'] = _look('lips', LIPS, LXs, LYs) & head & ~a['muzzle']
+    # the goatee hangs straight down from the chin
+    ca, sa = math.cos(ang), math.sin(ang)
+    chx, chy = hx + (-58 - hx) * ca - (34 - hy) * sa, hy + (-58 - hx) * sa + (34 - hy) * ca
+    cx, cy, _ = project(chx, chy, 0.0, oy)
+    cy -= oy
+    G = lambda pts_: [(px_, py_ + oy) for px_, py_ in pts_]
+    beard = fill(G([(cx - 5, cy - 6), (cx + 3, cy - 5), (cx + 11, cy - 6), (cx + 13, cy + 1), (cx + 10, cy + 8),
+                    (cx + 6.5, cy + 15), (cx + 3.5, cy + 21), (cx + 1.5, cy + 14), (cx - 3, cy + 6), (cx - 5, cy)]))
+    a['beard'] = beard
+    a['lines'] = dict(a['lines'], **lines)
+    LX0, LY0 = a['LX'], a['LY']
+    a['LX'] = np.where(hs, LXs, LX0)
+    a['LY'] = np.where(hs, LYs, LY0)
+    a['LZ'] = np.where(hs, LZs, 0.0)
+    a['belly'] = a['belly'] & ~hs & ~beard
+    a['throat'] = a['throat'] & ~hs
     return a
 
 
@@ -598,7 +876,8 @@ def shading(a):
     """Stage 5: light the planes, then cast shadows and reflected light."""
     cv = Canvas(W, H)
     LX, LY = a['LX'], a['LY']
-    put_ramp(cv, a['horn_far'], HORN, np.clip(0.1 + 0.5 * lit(form(a['horn_far'], 3)), 0, 1))
+    far_v = 0.1 + 0.5 * lit(form(a['horn_far'], 3)) if YAW < 0.5 else 0.2 + 0.7 * lit(form(a['horn_far'], 3))
+    put_ramp(cv, a['horn_far'], HORN, np.clip(far_v, 0, 1))
     nv = 0.32 + 0.68 * lit(form(a['neck'], 10), (0.2, -0.1))
     nv = nv - 0.2 * (sh(a['head'] | a['jaw'] | a['beard'], 2, 4) & ~a['head'] & ~a['jaw'])   # the head's cast shadow
     nv = nv - 0.3 * (sh(a['spike'], 1, 3) & ~a['spike'])                                   # the ear's
@@ -670,7 +949,7 @@ def fur(a, cv):
         ~a['nostril'] & ~a['muzzle'] & ~a['ear_in'] & ~a['bridge'] & ~a['lipscale'] & ~a['belly'] & ~a['spurs'] & ~a['frills']
     LY = a['LY']
     c, s = math.cos(ANG), math.sin(ANG)
-    face = (-1 * c - 0.3 * s, -1 * s + 0.3 * c)                     # head frame (-1, 0.3): toward the nose
+    face = ((-1 * c - 0.3 * s) * math.cos(YAW), -1 * s + 0.3 * c)   # head frame (-1, 0.3): toward the nose
     rgb = cv.a[..., :3]
     rng = random.Random(23)
     hi = np.zeros((H, W), bool)
@@ -768,56 +1047,59 @@ def texture(a, cv):
 
 
 def eye(a, s, cv):
-    """A dragon-goat eye, drawn in detail: a dark limbal ring round an amber iris
-    with radial fibres and gold flecks, hot gold round the wide horizontal bar
-    pupil, a heavy upper lid with a black lash line, a lower lid, scales round
-    it, a bright window glint and a smaller second one, and the third eyelid."""
-    e = a['eye']
+    """Each visible eye (one in profile, two when the head turns to you)."""
+    for e in a.get('eyes', [a['eye']]):
+        _one_eye(a, s, cv, e)
+
+
+def _one_eye(a, s, cv, e):
+    """A goat-dragon eye, kept clean: a dark rim all round, an amber iris that is
+    deeper at the top and glows at the bottom, a crisp horizontal bar pupil with a
+    thin gold edge, one window glint, a soft furry upper lid with a black lash
+    line, and when shut, a curved crease with a few lashes."""
     ys, xs = np.nonzero(e)
-    if not len(ys):
+    if len(ys) < 3:
         return
     y0, y1 = ys.min(), ys.max()
     x0, x1 = xs.min(), xs.max()
-    ecx, ecy = (x0 + x1) / 2, (y0 + y1) / 2 + 0.3
-    rx, ry = (x1 - x0 + 1) / 2, (y1 - y0 + 1) / 2
-    cx, cy = ecx + s['look'] * 1.5, ecy
-    r = np.sqrt(((XX - cx) / rx) ** 2 + ((YY - cy) / (ry * 1.1)) ** 2)
-    ang = np.arctan2(YY - cy, XX - cx)
-    fib = np.sin(ang * 11 + 0.8 * np.sin(ang * 3)) > 0.35                  # radial fibres
-    v = 0.95 - 0.55 * r + 0.18 * (YY > cy) - 0.2 * fib * (r > 0.3)
+    ecx, ecy = (x0 + x1) / 2, (y0 + y1) / 2
+    rx, ry = max(1.0, (x1 - x0 + 1) / 2), max(1.0, (y1 - y0 + 1) / 2)
+    ring = (sh(e, 1, 0) | sh(e, -1, 0) | sh(e, 0, 1) | sh(e, 0, -1)) & ~e
+    lid = 1.0 if s['lid'] >= 0.95 else float(np.clip((s['lid'] - 0.45) / 0.55, 0, 1))
+    if lid >= 0.99:                                                       # shut: fur over it, a curved crease
+        put_ramp(cv, e | ring, FUR, np.clip(0.55 + 0.3 * lit(form(e | ring | a['brow'], 2)), 0, 0.999))
+        crease = e & (np.abs(YY - (ecy + 0.35 * ry - 0.45 * ry * (1 - ((XX - ecx) / rx) ** 2))) < 0.6)
+        put(cv, crease, 'stone0')
+        put(cv, sh(crease, 0, 1) & e & ~crease, 'stone2')
+        for k in (-0.5, 0.0, 0.45):                                        # lashes
+            lx_ = int(round(ecx + k * rx))
+            col = np.nonzero(crease[:, lx_])[0] if 0 <= lx_ < W else []
+            if len(col) and col[-1] + 1 < H:
+                cv.a[col[-1] + 1, lx_] = (*PAL['stone1'], 255)
+        return
+    cx, cy = ecx + s['look'] * 1.2, ecy + 0.2
+    r = np.sqrt(((XX - cx) / rx) ** 2 + ((YY - cy) / ry) ** 2)
+    v = 0.25 + 0.75 * np.clip((YY - y0) / max(1, y1 - y0), 0, 1) - 0.25 * (r > 0.75)
     put_ramp(cv, e, IRIS, np.clip(v, 0, 0.999))
-    put(cv, e & (_hash2(XX, YY, 9.0) > 0.9) & (r > 0.35) & (r < 0.8), 'gold4')   # flecks
-    put(cv, e & edge(e) & ~((YY > cy + 1) & (np.abs(XX - cx) < rx * 0.5)), 'copper1')   # the dark limbal ring
-    pw = rx * 0.48
-    pupil = e & (np.abs(XX - cx) < pw) & (np.abs(YY - cy) < 0.9)           # the wide bar pupil
-    pupil |= e & (np.abs(XX - cx) < pw - 1.6) & (np.abs(YY - cy) < 1.4)    # a touch fuller in the middle
-    halo = (sh(pupil, 0, 1) | sh(pupil, 0, -1) | sh(pupil, 1, 0) | sh(pupil, -1, 0)) & e & ~pupil
-    put(cv, halo & (YY > cy), 'gold4')                                    # hot gold round the pupil
-    put(cv, halo & (YY <= cy), 'gold3')
+    pw = max(1.6, rx * 0.5)
+    pupil = e & (np.abs(XX + 0.5 - cx) < pw) & (np.abs(YY + 0.5 - cy) < 1.0)
+    put(cv, (sh(pupil, 0, 1) & e & ~pupil), 'gold4')                      # thin gold edge below the pupil
     put(cv, pupil, 'ink')
     if s['membrane'] > 0:                                                 # third eyelid, from the front corner
         film = e & (XX < x0 + (x1 - x0 + 1) * s['membrane'])
         put(cv, film & ((XX + YY) % 2 == 0), 'cloud2')
         put(cv, film & ((XX + YY) % 2 == 1), 'cloud1')
-    ring = sh(e, 1, 0) | sh(e, -1, 0) | sh(e, 0, 1) | sh(e, 0, -1)
-    lid = 1.0 if s['lid'] >= 0.95 else float(np.clip((s['lid'] - 0.45) / 0.55, 0, 1))
+    put(cv, ring, 'stone1')                                               # dark rim all round
+    put(cv, ring & (YY > ecy + 0.5), 'stone2')
     lid_y = y0 - 0.5 + (y1 - y0 + 1.5) * lid
     lidm = (e | (ring & (YY < ecy))) & (YY <= lid_y)
-    lv = 0.5 + 0.35 * lit(form(lidm | a['brow'], 2))
-    put_ramp(cv, lidm, FUR, np.clip(lv, 0, 0.999))                        # a furry lid
-    put(cv, lidm & ~sh(lidm, 0, 1) & ~(e & ~sh(e, 0, 1)), 'stone3')       # its rounded top edge
-    seam = lidm & ~sh(lidm, 0, -1)                                        # the black lash line
-    put(cv, seam & (e | sh(e, 0, 1) | sh(e, 1, 0)), 'ink' if s['lid'] < 0.95 else 'stone0')
-    put(cv, sh(seam, 0, 1) & e & ~lidm & ~pupil, 'copper1')               # the lid's shadow on the eye
-    low = ring & ~e & (YY > ecy + 1) & ~lidm                              # the lower lid
-    put(cv, low, 'stone2')
-    put(cv, sh(low, 0, 1) & ~low & ~e & a['head'], 'stone3')
+    put_ramp(cv, lidm, FUR, np.clip(0.55 + 0.3 * lit(form(lidm | a['brow'], 2)), 0, 0.999))
+    seam = (lidm & ~sh(lidm, 0, -1)) | (ring & (YY < ecy) & ~lidm)          # black lash line over the eye
+    put(cv, seam & (e | ring), 'ink')
     if s['lid'] < 0.85:
-        for (gx, gy, c) in ((int(round(cx - rx * 0.45)), int(round(max(lid_y + 1.5, cy - ry * 0.5))), 'white'),
-                            (int(round(cx - rx * 0.45)) + 1, int(round(max(lid_y + 1.5, cy - ry * 0.5))), 'white'),
-                            (int(round(cx + rx * 0.45)), int(round(cy + ry * 0.45)), 'paper4')):
-            if 0 <= gy < H and 0 <= gx < W and e[gy, gx] and not lidm[gy, gx]:
-                cv.a[gy, gx] = (*PAL[c], 255)                             # window glint and a second one
+        gx, gy = int(round(cx - rx * 0.45)), int(round(max(lid_y + 1, cy - ry * 0.45)))
+        if 0 <= gy < H and 0 <= gx < W and e[gy, gx] and not lidm[gy, gx] and not pupil[gy, gx]:
+            cv.a[gy, gx] = (*PAL['white'], 255)                              # window glint
 
 
 def final(a, cv):
@@ -851,7 +1133,7 @@ def _effects(cv, s):
     oy = s['oy']
     if s['breath']:                                                       # breath condensing in the cool air
         k = s['breath']
-        nx, ny = LP((-66, 15), oy)
+        nx, ny, _ = project(-66.0, 15.0, 0.0, oy)
         for j, (dx, dy, r) in enumerate(((-1, 3, 1.6), (-2, 7, 2.3), (-1, 12, 3.0))):
             if j >= k:
                 continue
@@ -1038,7 +1320,7 @@ def timelapse(P):
 
 # ---------------------------------------------------------------- animation
 def _state(**kw):
-    s = dict(rise=1.0, jaw=0.0, look=0.0, lid=0.55, membrane=0.0, breath=0, dust=0, lean=0.0)
+    s = dict(rise=1.0, jaw=0.0, look=0.0, lid=0.55, membrane=0.0, breath=0, dust=0, lean=0.0, yaw=0.0)
     s.update(kw)
     return s
 
@@ -1054,8 +1336,12 @@ def _script():
     S += [_state(lid=0.5, look=-1, lean=v) for v in (0.2, 0.45, 0.7, 0.9, 1.0)]   # leans in over the sill
     S += [_state(lid=0.5, look=-1, lean=1, breath=1), _state(lid=0.5, look=-1, lean=1, breath=2),
           _state(lid=0.52, look=-1, lean=1, breath=3), _state(lid=0.55, look=-0.5, lean=1)]   # a long breath out
-    S += [_state(lid=0.8, lean=1), _state(lid=1.0, lean=1), _state(lid=1.0, membrane=0.6, lean=1),
-          _state(lid=0.7, membrane=0.3, lean=1), _state(lid=0.55, lean=1)]      # slow blink
+    S += [_state(lid=0.55, lean=1, yaw=v) for v in (0.2, 0.45, 0.75, 1.0)]       # turns to face you
+    S += [_state(lid=0.55, lean=1, yaw=1), _state(lid=0.55, lean=1, yaw=1), _state(lid=0.8, lean=1, yaw=1),
+          _state(lid=1.0, lean=1, yaw=1), _state(lid=0.7, lean=1, yaw=1), _state(lid=0.55, lean=1, yaw=1),
+          _state(lid=0.55, lean=1, yaw=1, breath=1), _state(lid=0.55, lean=1, yaw=1, breath=2),
+          _state(lid=0.55, lean=1, yaw=1, breath=3), _state(lid=0.55, lean=1, yaw=1)]   # looks at you, blinks, huffs
+    S += [_state(lid=0.55, lean=1, yaw=v) for v in (0.75, 0.45, 0.2)]            # turns back
     S += [_state(lid=0.6, jaw=0.35, lean=1), _state(lid=0.7, jaw=0.8, lean=1), _state(lid=0.8, jaw=1.0, lean=1),
           _state(lid=0.75, jaw=0.6, lean=1), _state(lid=0.6, jaw=0.15, lean=1)]   # the jaw parts with a sigh
     S += [_state(lid=0.55, look=0.5, lean=1), _state(lid=0.55, look=0.5, lean=1)]
@@ -1072,13 +1358,16 @@ def _rest_script():
     """A seamless loop for a wyvern that stays at the window: it breathes, blinks
     slowly (the third eyelid follows the lid) and glances at the bell."""
     L = dict(lean=1.0)                                                    # head in over the sill
-    S = [_state(**L) for _ in range(4)]
+    S = [_state(**L) for _ in range(3)]
     S += [_state(breath=1, **L), _state(breath=2, **L), _state(breath=3, **L), _state(**L)]
     S += [_state(lid=0.8, **L), _state(lid=1.0, **L), _state(lid=1.0, membrane=0.6, **L),
           _state(lid=0.72, membrane=0.3, **L), _state(**L)]
+    S += [_state(yaw=v, **L) for v in (0.25, 0.55, 0.85, 1.0)]                  # turns to look at you
+    S += [_state(yaw=1, **L), _state(yaw=1, **L), _state(yaw=1, lid=0.85, **L), _state(yaw=1, lid=1.0, **L),
+          _state(yaw=1, lid=0.7, **L), _state(yaw=1, **L), _state(yaw=1, breath=1, **L), _state(yaw=1, breath=2, **L),
+          _state(yaw=1, breath=3, **L), _state(yaw=1, **L)]
+    S += [_state(yaw=v, **L) for v in (0.85, 0.55, 0.25)]                       # and back
     S += [_state(look=-0.5, **L), _state(look=-1, **L), _state(look=-1, **L), _state(look=-1, lid=0.5, **L)]
-    S += [_state(look=-1, breath=1, **L), _state(look=-1, breath=2, **L), _state(look=-1, breath=3, **L),
-          _state(look=-0.5, **L)]
     S += [_state(**L), _state(jaw=0.2, **L), _state(jaw=0.3, **L), _state(jaw=0.15, **L)]
     return S
 
@@ -1094,7 +1383,7 @@ def frame(s):
         return Canvas(W, H), Canvas(W, H)
     ease = 1 - (1 - s['rise']) ** 2
     s['oy'] = int(round((1 - ease) * 110))
-    set_pose(s.get('lean', 0.0))
+    set_pose(s.get('lean', 0.0), s.get('yaw', 0.0))
     try:
         out = draw(s)
     finally:

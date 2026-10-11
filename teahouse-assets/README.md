@@ -69,6 +69,8 @@ The trees outside are grown, not stamped (`grove.py`):
   - foam spreads, rings ripple out, and its reflection follows it in the water
 - `preview/leviathan_breach.gif` shows the whole loop through the seating-room window.
 
+`generator/polish_gifs.py OUT_DIR` renders long, smooth GIFs of rooms 1, 2 and 4: 2x, 10 fps, every animation running, one shared palette, no dithering. The seating room runs 12 s, so you see the leviathan breach.
+
 ## The pendulum clock
 
 `pendulum_clock` runs: 120 frames at 4 fps. The brass pendulum swings tick-tock, and the red second hand ticks once per swing, all the way round, so the loop is seamless.
@@ -77,9 +79,17 @@ The trees outside are grown, not stamped (`grove.py`):
 
 ![Ring the bell](preview/dragon_bell_peek.gif)
 
-The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon. It has a goat's head, held nose-down, with dragon parts: a long face with a gently roman nose, a bare pink muzzle, a round cheek, a floppy pink-lined ear, ridged horns sweeping back, a white goatee and a goat's eye (pale amber, with a wide horizontal bar pupil). Thick white fur and a shaggy mane cover it. The dragon shows in pearly scales with teal edges down the nose bridge, along the lips, and round the eye; a bony brow ridge with two spurs; spiked frills at the back of the jaw; cream belly plates down the throat; three fangs (two upper, one lower, pointing up); and big grey spines along the mane. Only its head and neck show at the window; there is no arm. It leans in and puts its head over the sill into the room, in front of the window frame, casting a soft shadow on the wall. It rests there, and only its eye, breath and jaw move.
+The **goat-dragon** (a hybrid of a goat and a dragon) is drawn by hand at full scene resolution (one sprite pixel is one scene pixel). It's old, calm and realistic, not a cartoon. It has a goat's head, held nose-down, with dragon parts: a long face with a gently roman nose, a bare pink muzzle, a round cheek, a floppy pink-lined ear, ridged horns sweeping back, a white goatee and a goat's eye (pale amber, with a wide horizontal bar pupil). Thick white fur and a shaggy mane cover it. The dragon shows in pearly scales with teal edges down the nose bridge, along the lips, and round the eye; a bony brow ridge with two spurs; spiked frills at the back of the jaw; cream belly plates down the throat; three fangs (two upper, one lower, pointing up); and big grey spines along the mane. Only its head and neck show at the window; there is no arm. It leans in and puts its head over the sill into the room, in front of the window frame, casting a soft shadow on the wall, and it can turn its head to face you. It rests there, and only its eye, breath and jaw move.
 
 ![How the wyvern is drawn](preview/wyvern_process.png)
+
+**Turning to face you.** For a turned head the goat is drawn as a solid:
+- the profile outline is lofted out to a width that grows from the narrow muzzle, bulges round the eyes and is broadest at the cheeks
+- the eyes, sockets, nostrils, muzzle, brow and scales are painted onto that surface by where they sit on the profile, once on each side
+- the horns, ears, brow spurs, jaw frills and fangs sit on both sides
+- it is projected with the head's tilt, turned toward you, and the nearest surface wins
+
+The masks then go through the same shading, fur and eye passes, so the front view matches the side view. Facing you, both eyes, both ears, both horns, the scaled stripe down the face, the two nostrils and the beard all show.
 
 **The drawing process** (`wyvern.py` keeps every stage). `preview/wyvern_process.gif` is a timelapse of it being drawn, stroke by stroke:
 
@@ -130,7 +140,7 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 | Fire spirit: `idle`, `talk`, `happy` | 12 each | Sits down in the coals. Flame body is a noise field rising through a teardrop. A jagged maw of uneven teeth opens and closes as it talks; zigzag grin when shut; fangs when it laughs |
 | Cloth: noren, curtains, moon curtain, cloak, scarf, towel | 12 | **Real cloth physics**: Verlet particles with stretch/shear/bend constraints, pins, gravity, a looping breeze, and collisions. One wind period is captured so the loop closes |
 | Silk bed | 12 | The quilt's hanging folds sway, so the sheen slides across the silk |
-| Bell and goat-dragon | 10 + 51 (+ a 25-frame `rest` loop) | Click the bell: it rings. The goat-dragon slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell. Then it leans in and puts its head over the sill into the room, breathes out a long cloud of breath, blinks slowly, parts its jaws with a sigh, glances at you, leans back out and sinks down. In the `rest` loop it keeps its head in over the sill. Both are one-shot animations (see below) |
+| Bell and goat-dragon | 10 + 63 (+ a 37-frame `rest` loop) | Click the bell: it rings. The goat-dragon slowly rises behind the window with its eyes shut and settles its chin on the sill (dust falls). Its eye opens as the third eyelid slides back, and it looks at the bell. Then it leans in and puts its head over the sill into the room and breathes out a long cloud of breath. It turns its head to face you, looks at you with both eyes, blinks and huffs, turns back, parts its jaws with a sigh, glances at you, leans back out and sinks down. In the `rest` loop it keeps its head in over the sill and now and then turns to look at you. Both are one-shot animations (see below) |
 | Alien lucky cat | 8 | Eased beckoning paw, pulsing antenna lights, a blink, a glint that travels across the coin |
 | Garden trees, flower bed, ivy | 8 | Each tree's crown sways, more toward the top. Butterflies (white, yellow, blue, orange) flap and fly looping paths over the meadow, and dragonflies dart and hover over the lake |
 | Lanterns, oil lamp, herb bundles, wind chime | 8 | Swing. The chochin lanterns glow from inside, flicker softly and swing their tassels |
