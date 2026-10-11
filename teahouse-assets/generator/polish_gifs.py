@@ -16,7 +16,8 @@ import build                              # noqa: E402
 import layout as LY                       # noqa: E402
 
 FPS = 10
-ROOMS = [('room1_cook_room', 0, 6.0), ('room2_seating_room', LY.SW, 12.0), ('room4_bedroom', 3 * LY.SW, 6.0)]
+ROOMS = [('room1_cook_room', 0, 6.0), ('room2_seating_room', LY.SW, 12.0), ('room3_counter_room', 2 * LY.SW, 6.0),
+         ('room4_bedroom', 3 * LY.SW, 6.0)]
 
 
 def main(out, only=None):
