@@ -616,6 +616,11 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     rig.bubble.visible = false; rig.pop.visible = false;
     for (const z of rig.zzz) z.visible = false; // the DOM Zzz are bigger
     rig.head.rotation.z += NAP.headTilt + Math.sin(T * 0.45) * 0.03; // head tipped onto the paw
+    // sleepy ears folded back under the nightcap (their black tips read as paws in the air otherwise)
+    rig.earL.rotation.set(-1.75 + Math.sin(T * 0.8) * 0.04, 0, -0.2);
+    rig.earR.rotation.set(-1.75 + Math.sin(T * 0.8 + 1) * 0.04, 0, 0.2);
+    // tail curled down inside the box
+    rig.tail[0].rotation.set(-0.7, 0, 0); rig.tail[1].rotation.set(0.25, 0, 0); rig.tail[2].rotation.set(0.35, 0, 0);
     // slow breathing bob, and a jolt when poked
     poked = Math.max(0, poked - dt * 2.4);
     const j = Math.sin(poked * 18) * poked * 0.12, br = Math.sin(T * 1.6);

@@ -44,6 +44,7 @@ import { IconBank } from './lab/icons.js';
 import { glyphHTML } from './lab/glyphs.js';
 import * as Guide from './lab/guide.js';
 import { LabFox } from './labFox.js';
+import { crispScale } from './uiScale.js'; // [v26 uiscale]
 
 export { fmtClock };
 
@@ -838,6 +839,10 @@ export class LabTree {
       if (!compact) this._openSheet(false, true);
     }
     this.root.classList.toggle('is-short', h < 620);
+    // [v26 uiscale] the preview window's pixel canvas at a whole number of device px per pixel, centred
+    // (was stretched to 100% of the column: 2.18 CSS px per pixel, uneven on every screen)
+    const pv = this.pcv, pvBox = pv?.parentElement;
+    if (pv && pvBox?.clientWidth) { const k = crispScale(pvBox.clientWidth / pv.width, 1); Object.assign(pv.style, { width: `${pv.width * k}px`, height: `${pv.height * k}px`, margin: '0 auto' }); }
     const vw = this.view.clientWidth, vh = this.view.clientHeight;
     this._vr = null;
     if (vw && vh) this.view3.setSize(vw, vh, Math.min(3, window.devicePixelRatio || 1));
