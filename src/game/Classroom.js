@@ -1000,7 +1000,7 @@ export class Classroom {
       im.style.cssText = 'position:absolute;left:12px;top:12px;width:0;height:0;image-rendering:pixelated;pointer-events:none;opacity:0;transition:opacity .2s steps(2)';
       const wood = host.querySelector('.cls-title-wood');
       wood.style.position = 'relative';
-      const place = () => { const W = cv.clientWidth, k = W / 176; Object.assign(im.style, { left: `${12 + (88 - 14) * k}px`, top: `${12 + (53 - 14) * k}px`, width: `${28 * k}px`, height: `${28 * k}px` }); };
+      const place = () => { const W = cv.clientWidth, k = W / 176; Object.assign(im.style, { left: `${12 + (88 - 14) * k}px`, top: `${12 + (52 - 14) * k}px`, width: `${28 * k}px`, height: `${28 * k}px` }); };
       wood.appendChild(im); place(); requestAnimationFrame(place);
     } else if (script.doodle) items.push({ doodle: script.doodle, x: 88, y: 53, scale: 2 });
     await this.wait(0.35);
