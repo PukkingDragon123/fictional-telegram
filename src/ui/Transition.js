@@ -11,12 +11,21 @@ export class Transition {
   constructor() {
     const c = document.createElement('canvas');
     c.className = 'px-trans';
-    Object.assign(c.style, { position: 'fixed', left: '0', top: '0', width: '100%', height: '100%', zIndex: 80, pointerEvents: 'none', imageRendering: 'pixelated' }); // [v26 uiscale] sized in tick()
+    Object.assign(c.style, { position: 'fixed', left: '0', top: '0', zIndex: 80, pointerEvents: 'none', imageRendering: 'pixelated' }); // [v26 uiscale] sized by fit()
     document.body.appendChild(c);
     this.c = c;
+    this.fit();
     this.ctx = c.getContext('2d');
     this.runs = [];
     this.raf = 0;
+  }
+
+  // [v26 uiscale] one canvas px = a whole number of device px (~3 CSS px), shown at exactly that size
+  // (was 100% x 100%: a ceil'd canvas squeezed into the window, uneven blocks and day-card letters)
+  fit() {
+    const c = this.c, B = crispPx(3), W = Math.ceil(window.innerWidth / B), H = Math.ceil(window.innerHeight / B);
+    if (c.width !== W || c.height !== H || this.B !== B) { this.B = B; c.width = W; c.height = H; c.style.width = `${W * B}px`; c.style.height = `${H * B}px`; }
+    return { W, H };
   }
 
   // order value 0..1 for block (i,j) in a grid of (w,h)
@@ -35,11 +44,8 @@ export class Transition {
   }
 
   tick = (now) => {
-    const c = this.c, ctx = this.ctx;
-    // [v26 uiscale] one canvas px = a whole number of device px (~3 CSS px), shown at exactly that size
-    // (was 100% x 100%: a ceil'd canvas squeezed into the window, uneven blocks and day-card letters)
-    const B = crispPx(3), W = Math.ceil(window.innerWidth / B), H = Math.ceil(window.innerHeight / B);
-    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; c.style.width = `${W * B}px`; c.style.height = `${H * B}px`; }
+    const ctx = this.ctx;
+    const { W, H } = this.fit(); // [v26 uiscale]
     ctx.clearRect(0, 0, W, H);
     for (const r of this.runs) {
       r.t0 ??= now;
