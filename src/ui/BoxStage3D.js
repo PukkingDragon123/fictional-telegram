@@ -488,8 +488,9 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     }
     if (nap) {
       const rc = nap.getBoundingClientRect(), hr = host.getBoundingClientRect();
-      toPlane(rc.left - hr.left + rc.width / 2, rc.top - hr.top + rc.height * 0.95, _p);
-      const s = Math.min((rc.height * 0.92 * wpp) / napH, (rc.width * 0.9 * wpp) / napW);
+      // a little off-centre, away from the SHH! sign (right of him on wide screens, left on tall ones)
+      toPlane(rc.left - hr.left + rc.width * (host.classList.contains('tbx--tall') ? 0.6 : 0.4), rc.top - hr.top + rc.height * 0.95, _p);
+      const s = Math.min((rc.height * 0.88 * wpp) / napH, (rc.width * 0.86 * wpp) / napW);
       napG.position.copy(_p);
       napG.scale.setScalar(s);
       napSh.position.set(_p.x, _p.y - 0.02, _p.z + 0.05 * s);
@@ -586,7 +587,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     const rows = ['kkkkkk', 'kwwwBk', 'kkkwBk', '.kwBk.', 'kwBkkk', 'kwwwwk', 'kkkkkk'];
     const P = { k: '#2a1626', w: '#ffffff', B: '#9ccff2' };
     rows.forEach((rr, y) => { for (let x = 0; x < 6; x++) if (P[rr[x]]) { g.fillStyle = P[rr[x]]; g.fillRect(x, y, 1, 1); } });
-    const s = ps * (zs.length % 2 ? 1 : 1.4) * big;
+    const s = 3 * (zs.length % 2 ? 1 : 1.4) * big;
     c.style.cssText = `position:absolute;left:0;top:0;width:${6 * s}px;height:${7 * s}px;image-rendering:pixelated;opacity:0`;
     zl.appendChild(c);
     rig.headTop(head);
@@ -629,7 +630,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
       if (u >= 1) { z.c.remove(); zs.splice(k, 1); continue; }
       const x = z.x + u * 34 + Math.sin(z.t * 2.4 + z.ph) * 6, y = z.y - u * 58;
       const a = u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1;
-      z.c.style.transform = `translate(${Math.round(x / ps) * ps}px,${Math.round(y / ps) * ps}px) rotate(${(Math.sin(z.t * 1.7 + z.ph) * 0.25).toFixed(2)}rad) scale(${(0.7 + u * 0.6).toFixed(2)})`;
+      z.c.style.transform = `translate(${Math.round(x / 3) * 3}px,${Math.round(y / 3) * 3}px) rotate(${(Math.sin(z.t * 1.7 + z.ph) * 0.25).toFixed(2)}rad) scale(${(0.7 + u * 0.6).toFixed(2)})`;
       z.c.style.opacity = a.toFixed(2);
     }
     snoreT -= dt;

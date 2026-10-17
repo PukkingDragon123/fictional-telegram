@@ -105,7 +105,7 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
     const ui = Math.max(2, Math.min(3, Math.round(s)));
     el.style.setProperty('--u', `${ui}px`);
     scaleEl(back, ui); scaleEl(head, ui);
-    scaleEl(sign, s);
+    scaleEl(sign, el.classList.contains('tbx--3d') ? Math.max(1.5, Math.round(s * 0.67 * 2) / 2) : s);
     for (const sl of slots) scaleEl(sl.canvas, s);
     return s;
   }
@@ -115,10 +115,15 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
   // the 3D stage: one renderer for the three boxes and Reynard
   let stage = null;
   try {
-    stage = createBoxStage(el, { ps: Math.max(2, Math.min(3, Math.round(S))), sfx: (n, o) => { if (!closed) play(n, o); }, slots: slots.map((sl) => sl.bw), nap: el.querySelector('.tbx-nap') });
+    // the same pixel size as the game's own renderer (PixelRenderer: ~760 px diagonal, Settings > Pixel size)
+    const dpr = window.devicePixelRatio || 1;
+    let dens = 1; try { dens = +localStorage.getItem('tbme.px') || 1; } catch { /* default */ }
+    const gps = Math.max(1, Math.round(Math.hypot(window.innerWidth, window.innerHeight) * dpr / (760 * dens))) / dpr;
+    stage = createBoxStage(el, { ps: gps, sfx: (n, o) => { if (!closed) play(n, o); }, slots: slots.map((sl) => sl.bw), nap: el.querySelector('.tbx-nap') });
   } catch (e) { console.warn('box stage', e); stage = null; }
   if (stage) {
     el.classList.add('tbx--3d');
+    S = layout();
     el.insertBefore(stage.el, el.querySelector('.tbx-back'));
     slots.forEach((sl, i) => stage.setBox(i, { empty: true, label: `SAVE ${sl.n}` }));
   }
