@@ -28,6 +28,7 @@ import './fonts.css';
 import './matchmaker.css';
 import { paperTexture, injectPaperCSS, deco, stamp, handwriting, PX } from './paper.js';
 import { spriteCanvas, hasSprite } from './sprites.js';
+import { crispScale } from './uiScale.js'; // [v26 uiscale]
 
 const REDUCED = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -206,9 +207,9 @@ function portrait(f, boxW, boxH) {
   x.drawImage(src, 0, 0);
   // integer upscale that fits the box (fall back to a plain fit for huge art)
   const k = Math.min(boxW / src.width, boxH / src.height);
-  const s = k >= 1 ? Math.floor(k) : k;
-  cv.style.width = `${Math.round(src.width * s)}px`;
-  cv.style.height = `${Math.round(src.height * s)}px`;
+  const s = k >= 1 ? Math.floor(k) : crispScale(k, 1); // [v26 uiscale] small boxes (phones): whole device px per art px, one scale for both axes
+  cv.style.width = `${src.width * s}px`;
+  cv.style.height = `${src.height * s}px`;
   return cv;
 }
 

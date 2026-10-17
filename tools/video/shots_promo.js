@@ -498,12 +498,12 @@ SHOTS.endcard = {
     const chip = addRig(c, 'WoodpeckerCarpenter', 66.9, 39.8, { ry: 0.3 });
     c.presim(2);
     c.path([
-      { t: 0, x: 68.6, z: 36.8, y: 0.5, yaw: 0.05, pitch: 28, wupp: 0.0185 },
-      { t: 7.0, x: 68.6, z: 37.4, y: 0.5, yaw: -0.02, pitch: 26, wupp: 0.0165 },
+      { t: 0, x: 68.6, z: 35.5, y: 0.5, yaw: 0.05, pitch: 28, wupp: 0.0185 },
+      { t: 7.0, x: 68.6, z: 35.9, y: 0.5, yaw: -0.02, pitch: 26, wupp: 0.0172 },
     ]);
     c.at(0.05, () => { pip.play('wave', { loop: true }); chip.play('wave', { loop: true }); fox.play('wave_hello', { fade: 0.1 }); });
-    c.at(0.1, () => c.say(c.above(pip, 1.6), 'See ya at *5 PM*!', { voice: 'cub', mood: 'excited', dur: 1.75 }));
-    card(c, ['THE BEAR', 'MUST EAT'], { t0: 1.9, t1: 99, anim: 'slam', y: 0.33, size: 125, sizes: [104.17, 145.83], gap: -14, fill: FILL_GOLD, rot: -3, ribbon: 'a cozy incremental / tycoon', ribbonSize: 31.25, ribbonGap: 18 });
-    c.ov.text('Music: "Fluffing a Duck" by Kevin MacLeod (incompetech.com), CC BY 4.0', { t0: 2.6, t1: 99, x: 0.5, y: 0.955, size: 20.83, anim: 'fade', color: '#fff3dc', outline: 2 });
+    c.at(1.15, () => c.say(c.above(pip, 1.6), 'See ya at *5 PM*!', { voice: 'cub', mood: 'excited', dur: 4.0, size: 's' }));
+    card(c, ['THE BEAR', 'MUST EAT'], { t0: 0.0, t1: 99, anim: 'slam', y: 0.235, size: 125, sizes: [83.33, 125], gap: -12, fill: FILL_GOLD, rot: -3, ribbon: 'a cozy incremental / tycoon', ribbonSize: 31.25, ribbonGap: 18 });
+    c.ov.text('Music: "Fluffing a Duck" by Kevin MacLeod (incompetech.com), CC BY 4.0', { t0: 0.8, t1: 99, x: 0.5, y: 0.955, size: 20.83, anim: 'fade', color: '#fff3dc', outline: 2 });
   },
 };

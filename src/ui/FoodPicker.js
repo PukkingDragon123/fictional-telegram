@@ -17,6 +17,7 @@ import { FOOD_ITEMS } from '../data/foods.js';
 import { RARITIES } from '../data/species.js';
 import { bagCanvas, produceCanvas } from './bagArt.js';
 import { spriteImg, spriteCanvas, hasSprite } from './sprites.js';
+import { crispScale } from './uiScale.js'; // [v26 uiscale]
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const isBag = (id) => ['bag', 'made'].includes(FOOD_ITEMS[id]?.kind);
@@ -102,7 +103,7 @@ export class FoodPicker {
     el.addEventListener('click', (e) => this.onClick(e));
     el.addEventListener('pointerdown', (e) => e.stopPropagation());
     this.root.appendChild(el);
-    this.onResize = () => this.anchor();
+    this.onResize = () => { this.anchor(); if (this.$hero && FOOD_ITEMS[this.sel]) this.renderHero(); }; // [v26 uiscale] re-fit the hero art (phone <-> wide)
     addEventListener('resize', this.onResize);
     this.refresh(true);
   }
@@ -219,7 +220,14 @@ export class FoodPicker {
     const cv = bag ? bagCanvas(id, { scale: 2, fill: fillOf(id, n), open: n > 0, shake }) : produceCanvas(id, 3);
     this.$hero.dataset.kind = bag ? 'bag' : 'crate';
     this.$hero.textContent = '';
-    this.$hero.appendChild(copyCanvas(cv));
+    const art = copyCanvas(cv);
+    // [v26 uiscale] phones shrink the hero (foodpicker.css <= 760px: a 72 / 60 px box): keep its art pixels on whole
+    // device pixels (a 1.5 CSS px texel was 4.5 device px on a 3x phone, smeared)
+    if (typeof matchMedia === 'function' && matchMedia('(max-width: 760px)').matches) {
+      const tex = bag ? 2 : 3, tw = cv.width / tex, th = cv.height / tex, k = crispScale((bag ? 72 : 60) / tw, 1);
+      Object.assign(art.style, { width: `${tw * k}px`, height: `${th * k}px` });
+    }
+    this.$hero.appendChild(art);
     this.el.querySelector('.fp-hero').classList.toggle('empty', n <= 0);
     if (this.$num.textContent !== String(n)) this.$num.textContent = String(n);
   }

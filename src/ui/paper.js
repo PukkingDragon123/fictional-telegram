@@ -731,7 +731,7 @@ export function injectPaperCSS() {
   const rules = [];
   for (const k of PAPER_KINDS) {
     const t = paperTile(k);
-    rules.push(`.paper--${k}{--pp-tile:url(${t.url});background-color:${t.base};background-image:url(${t.url});background-size:${t.w * PX}px ${t.h * PX}px;}`);
+    rules.push(`.paper--${k}{--pp-tile:url(${t.url});background-color:${t.base};background-image:url(${t.url});background-size:${t.w * PX}px ${t.h * PX}px;image-rendering:pixelated;}`); // [v26 uiscale] pixelated: a bare .paper--wood (Matchmaker board) was smoothed 3x
     rules.push(`.paper--${k}.paper--torn{border:${4 * PX}px solid transparent;border-image:url(${tornURL(k)}) 4 / ${4 * PX}px round;background-clip:padding-box;}`);
   }
   // notebook: margin line on top of the tile; book spread: spine strip

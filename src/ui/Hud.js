@@ -214,9 +214,11 @@ export class Hud {
   retag() {
     requestAnimationFrame(() => {
       const t = this.$.tag;
+      t.style.width = ''; // [v26 uiscale] measure the content, then snap the tag to whole texels
       const w = t.offsetWidth, h = t.offsetHeight;
       if (!w || !h) return;
-      const tw = Math.round(w / PX), th = Math.round(h / PX);
+      const tw = Math.ceil(w / PX), th = Math.round(h / PX);
+      t.style.width = `${tw * PX}px`; // [v26 uiscale] the paper art at exactly PX CSS px per texel (was squeezed into any width)
       const o = tagURL(tw, th);
       const apply = (u) => { t.style.backgroundImage = `url(${u})`; };
       if (o.url) apply(o.url); else (o.wait = o.wait || []).push(apply);

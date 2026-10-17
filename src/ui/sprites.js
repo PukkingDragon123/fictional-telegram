@@ -4333,7 +4333,15 @@ export function spriteImg(name, scale = 2, cls = '') {
     const f = face3d(name, s.w * scale * k, s.h * scale * k);
     if (f) return `<img class="${klass} f3d" src="${f.url}" width="${s.w * scale}" height="${s.h * scale}" alt="" draggable="false" style="image-rendering:pixelated">`;
   }
-  return `<img class="${klass}" src="${spriteURL(name, scale)}" width="${s.w * scale}" height="${s.h * scale}" alt="" draggable="false" style="image-rendering:pixelated">`;
+  const k = crispArt(scale); // [v26 uiscale]
+  return `<img class="${klass}" src="${spriteURL(name, scale)}" width="${s.w * k}" height="${s.h * k}" alt="" draggable="false" style="image-rendering:pixelated">`;
+}
+// [v26 uiscale] CSS px per art pixel that is a whole number of device px. Integer devicePixelRatio: just
+// `scale`. Fractional (browser / Safari page zoom, Windows 125%): 2 CSS px would be 2.5 device px, i.e.
+// uneven, smeared pixels; snap to the nearest whole device px (the size attributes, so CSS sizes still win)
+function crispArt(scale) {
+  const r = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, d = scale * r;
+  return Math.abs(d - Math.round(d)) < 0.01 ? scale : +(Math.max(1, Math.round(d)) / r).toFixed(4);
 }
 
 export function foxPortraitURL(expr = 'smug', scale = 4) {
