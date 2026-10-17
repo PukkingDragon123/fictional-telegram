@@ -1,0 +1,34 @@
+/* [v27 knobs] chunky YES / NO planks (ynButtons.js). The art is two canvases at whole
+   device pixels: .yn-up (resting) and .yn-dn (pressed, the face sunk into its lip). */
+button.yn.yn {
+  position: relative; display: inline-block; flex: 0 0 auto; padding: 0; margin: 0; border: 0; border-radius: 0;
+  background: none; box-shadow: none; outline: none; color: inherit; font: inherit; line-height: 0; letter-spacing: 0;
+  text-shadow: none; filter: none; min-width: 0; min-height: 0; width: auto; height: auto; transform: none; rotate: none;
+  cursor: pointer; vertical-align: middle; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  animation: yn-in .4s cubic-bezier(.3, 1.6, .5, 1) calc(var(--yn-i, 0) * .08s) backwards;
+}
+.yn .yn-art { display: block; position: relative; pointer-events: none; transform-origin: 50% 80%; }
+.yn .yn-art canvas { display: block; image-rendering: pixelated; }
+.yn .yn-art .yn-dn { display: none; }
+.yn.is-down .yn-art .yn-up, .yn:active:not([disabled]) .yn-art .yn-up { display: none; }
+.yn.is-down .yn-art .yn-dn, .yn:active:not([disabled]) .yn-art .yn-dn { display: block; }
+.yn .yn-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* hover: the plank lifts one art pixel and wobbles once (only with a real pointer, never stuck on touch) */
+@media (hover: hover) {
+  button.yn.yn:not([disabled]):hover .yn-art { translate: 0 calc(var(--yn-t, 2px) * -1); animation: yn-wob .45s ease-in-out; }
+}
+button.yn.yn.is-down .yn-art, button.yn.yn:active .yn-art { translate: none; animation: none; }
+button.yn.yn:focus-visible { outline: var(--yn-t, 2px) dashed #ffd84a; outline-offset: calc(var(--yn-t, 2px) * 2); }
+button.yn.yn[disabled] { cursor: not-allowed; filter: grayscale(.9) brightness(.92); opacity: .75; }
+.yn-row { display: flex; flex-wrap: nowrap; align-items: flex-end; justify-content: center; gap: 16px; }
+/* the tutorial / lesson question: a full-width centered row (no half-pixel translate) */
+.tut-choice.yn-row { left: 0; right: 0; transform: none; animation: none; gap: 20px; pointer-events: none; padding: 0 12px; }
+.tut-choice.yn-row > .yn { pointer-events: auto; }
+.tut-choice.yn-row.bye { opacity: 0; transform: translateY(10px); transition: opacity .22s, transform .22s; }
+.tut-choice.yn-row.bye .yn { pointer-events: none; }
+@keyframes yn-in { from { opacity: 0; transform: translateY(16px) scale(.6); } }
+@keyframes yn-wob { 0% { rotate: 0deg; } 30% { rotate: -2.5deg; } 65% { rotate: 1.5deg; } 100% { rotate: 0deg; } }
+@media (prefers-reduced-motion: reduce) {
+  button.yn.yn, button.yn.yn:hover .yn-art { animation: none; }
+}

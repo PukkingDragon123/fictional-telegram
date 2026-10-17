@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { STRUCTURES } from '../data/structures.js';
 import { COMBINED_LESSONS } from './lessonsCombined.js';
+import { ynPair } from '../ui/ynButtons.js'; // [v27 knobs] painted YES / NO planks
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const clsMods = import.meta.glob('./Classroom.js', { eager: true });
@@ -97,6 +98,7 @@ export class Tutorial {
       el.querySelector('.yes').addEventListener('click', (e) => { e.stopPropagation(); done(true); });
       el.querySelector('.no').addEventListener('click', (e) => { e.stopPropagation(); done(false); });
       document.body.appendChild(el);
+      try { ynPair(el.querySelector('.yes'), el.querySelector('.no'), { keys: true }); } catch (e) { console.warn('yn', e); } // [v27 knobs]
       game.audio.play('page', { volume: 0.4 });
     });
   }
