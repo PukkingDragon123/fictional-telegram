@@ -503,7 +503,7 @@ SHOTS.endcard = {
     ]);
     c.at(0.05, () => { pip.play('wave', { loop: true }); chip.play('wave', { loop: true }); fox.play('wave_hello', { fade: 0.1 }); });
     c.at(1.15, () => c.say(c.above(pip, 1.6), 'See ya at *5 PM*!', { voice: 'cub', mood: 'excited', dur: 4.0, size: 's' }));
-    card(c, ['THE BEAR', 'MUST EAT'], { t0: 0.0, t1: 99, anim: 'slam', y: 0.235, size: 125, sizes: [83.33, 125], gap: -12, fill: FILL_GOLD, rot: -3, ribbon: 'a cozy incremental / tycoon', ribbonSize: 31.25, ribbonGap: 18 });
+    card(c, ['THE BEAR', 'MUST EAT'], { t0: 0.0, t1: 99, anim: 'slam', y: 0.25, size: 125, sizes: [104.17, 145.83], gap: -14, fill: FILL_GOLD, rot: -3 });
     c.ov.text('Music: "Fluffing a Duck" by Kevin MacLeod (incompetech.com), CC BY 4.0', { t0: 0.8, t1: 99, x: 0.5, y: 0.955, size: 20.83, anim: 'fade', color: '#fff3dc', outline: 2 });
   },
 };

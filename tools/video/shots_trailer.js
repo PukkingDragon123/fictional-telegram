@@ -434,7 +434,7 @@ SHOTS.title = {
     c.every((t) => { skyCam(c, camAt(keys, t), [-0.08, 0.5], t); g.state.hour = 18.2; });
     letterbox(c);
     c.ov.fade(0, 0.8, 1, 0.35, '#000');
-    c.ov.card(['THE BEAR', 'MUST EAT'], { t0: 0.6, t1: 99, anim: 'slam', y: 0.42, size: 125, sizes: [104.17, 145.83], gap: -14, outline: 5, outer: 4, outlineColor: '#3a1408', outerColor: '#fff6e0', fill: FILL_GOLD, rot: -3, ribbon: 'a cozy incremental / tycoon', ribbonSize: 31.25, ribbonGap: 18 });
+    c.ov.card(['THE BEAR', 'MUST EAT'], { t0: 0.6, t1: 99, anim: 'slam', y: 0.45, size: 125, sizes: [104.17, 145.83], gap: -14, outline: 5, outer: 4, outlineColor: '#3a1408', outerColor: '#fff6e0', fill: FILL_GOLD, rot: -3 });
     c.at(0.58, () => c.sfx('dramatic_boom', { vol: 0.55 }));
     c.ov.text('Music: "Morning" and "Fireflies and Stardust" by Kevin MacLeod (incompetech.com), CC BY 4.0', { t0: 2.0, t1: 99, x: 0.5, y: 0.935, size: 20.83, anim: 'fade', color: '#e8dcc8', outline: 2 });
   },

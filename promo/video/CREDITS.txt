@@ -40,7 +40,34 @@ Trailer:
 
 SOUND EFFECTS (all CC0 1.0 public domain - no attribution required, listed for the record)
 ------------------------------------------------------------------------------------------
-@@SFX@@
+  air_horn        (promo)  "Air Horn Hype.wav by zar.265"
+                  https://freesound.org/people/zar.265/sounds/581334/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/581/581334_11304525-hq.mp3 (freesound HQ preview)
+  bell_ring       (promo)  Kenney "Impact Sounds" pack, impactBell_heavy_001.ogg
+                  https://kenney.nl/assets/impact-sounds  - CC0 1.0 (License.txt in the pack: "Creative Commons Zero, CC0")
+  coins_jingle    (promo)  Kenney "RPG Audio" pack, handleCoins.ogg
+                  https://kenney.nl/assets/rpg-audio  - CC0 1.0 (License.txt in the pack: "Creative Commons Zero, CC0")
+  crowd_gasp      (promo)  "small crowd gasp shock surprise by HowardV"
+                  https://freesound.org/people/HowardV/sounds/264376/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/264/264376_1654262-hq.mp3 (freesound HQ preview)
+  dramatic_boom   (promo, trailer)  "Drama Boom 02 by modusmogulus"
+                  https://freesound.org/people/modusmogulus/sounds/802074/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/802/802074_15956618-hq.mp3 (freesound HQ preview)
+  lake_morning    (trailer)  "Calm lakeside on the morning by xkeril"
+                  https://freesound.org/people/xkeril/sounds/700637/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/700/700637_13504080-hq.mp3 (freesound HQ preview)
+  morning_birds   (trailer)  "MidwestForestSummerMorningMay2018.WAV by kvgarlic"
+                  https://freesound.org/people/kvgarlic/sounds/427769/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/427/427769_1050391-hq.mp3 (freesound HQ preview)
+  sad_trombone    (promo)  "wah wah sad trombone.wav by kirbydx"
+                  https://freesound.org/people/kirbydx/sounds/175409/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/175/175409_1326576-hq.mp3 (freesound HQ preview)
+  slide_whistle   (promo)  "FX swanee whistle up.wav by v0idation"
+                  https://freesound.org/people/v0idation/sounds/497092/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/497/497092_942821-hq.mp3 (freesound HQ preview)
+  swish           (promo)  "Swish Single 4 by deleted_user_6479820"
+                  https://freesound.org/people/deleted_user_6479820/sounds/393811/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/393/393811_6479820-hq.mp3 (freesound HQ preview)
 
 Why not myinstants.com: most clips there are unlicensed rips of TV shows, films and songs
 (no license is given for them), which can get an uploaded trailer muted or taken down. The

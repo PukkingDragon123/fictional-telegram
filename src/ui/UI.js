@@ -2421,9 +2421,10 @@ export class UI {
     const game = this.game;
     const has = game.hasSave();
     const root = document.getElementById('title-root');
+    // [v27 title] no tagline under the logo
     root.innerHTML = `
       <div class="title-wrap" id="title">
-        <div class="logo"><div class="l1">THE</div><div class="l2">BEAR MUST EAT</div><div class="l3">A greedy fox's all-u-can-eat fish pond</div></div>
+        <div class="logo"><div class="l1">THE</div><div class="l2">BEAR MUST EAT</div></div>
         <div class="title-fox"><img class="px" src="${foxPortraitURL('smug', 4)}" width="128" height="128" alt=""></div>
         <div class="btns">
           ${has ? `<button class="btn green big" id="t-cont">${ico('play', 1)} Continue</button>` : ''}
