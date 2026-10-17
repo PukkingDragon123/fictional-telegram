@@ -40,124 +40,116 @@ def _px(a, x, y, c, al=255):
 
 
 # ---------------------------------------------------------------- birds
-def _small_bird(a, x, y, flap, body='ink', wing='gloss1', belly=None, tail=False, d=1):
-    """A swallow-size bird seen against the sky: wings up in a V, level, or down."""
-    _px(a, x, y, body)
-    _px(a, x + d, y, body)
-    if belly:
-        _px(a, x, y + 1, belly)
-    if tail:                                                       # a forked tail
-        _px(a, x - d, y + 1, body)
-        _px(a, x - 2 * d, y + 2, body)
-    if flap == 0:                                                  # up
-        for k in (1, 2):
-            _px(a, x - k + (d > 0), y - k, wing)
-            _px(a, x + k + (d > 0), y - k, wing)
-    elif flap == 1:                                                # level
-        for k in (1, 2, 3):
-            _px(a, x - k, y, wing)
-            _px(a, x + 1 + k, y, wing)
-    else:                                                          # down
-        for k in (1, 2):
-            _px(a, x - k, y + (1 if k == 2 else 0), wing)
-            _px(a, x + 1 + k, y + (1 if k == 2 else 0), wing)
+# Hand-drawn flight poses, the way birds read at a distance: wings raised in a V,
+# spread in a gull's M, level, and pulled down. 'w' wing, 't' wing tip, 'b' body.
+BIG = dict(
+    up=['t.........t', '.w.......w.', '..ww...ww..', '....wbw....', '.....b.....'],
+    high=['...........', 'tw.......wt', '..www.www..', '....wbw....', '.....b.....'],
+    level=['...........', '...........', 'ttwwwbwwwtt', '....bbb....', '...........'],
+    down=['...........', '....wbw....', '..ww.b.ww..', '.w.......w.', 't.........t'])
+SMALL = dict(
+    up=['.w...w.', '..w.w..', '...b...'],
+    high=['w.....w', '.ww.ww.', '...b...'],
+    level=['.......', 'wwwbwww', '..b.b..'],
+    down=['...b...', '.ww.ww.', 'w.....w'])
+CYCLE = ['up', 'high', 'level', 'down', 'level', 'high']        # one wingbeat, six poses
+GLIDE = ['high', 'high', 'high', 'level', 'level', 'high']      # big birds sailing between beats
+
+# colours: (wing, tip, body)
+KINDS = dict(sparrow=('wood1', 'wood0', 'wood0'), starling=('gloss1', 'ink', 'ink'),
+             swallow=('indigo1', 'indigo0', 'indigo0'), crow=('gloss0', 'ink', 'ink'),
+             goose=('wood2', 'wood0', 'wood1'), crane=('white', 'ink', 'cloud3'),
+             egret=('white', 'cloud2', 'cloud3'), gull=('cloud3', 'stone1', 'white'))
 
 
-def _big_bird(a, x, y, flap, kind, d=1, al=255):
-    """A bird seen side on, flying (d=1 right, -1 left): goose, egret or crane.
-    flap in 0..1 round the wingbeat."""
-    if kind == 'goose':
-        body, neck, head, wing, wtip, bill = 'wood1', 'ink', 'ink', 'wood2', 'wood0', 'ink'
-        blen, nlen, span = 4, 3, 6
-    elif kind == 'egret':
-        body, neck, head, wing, wtip, bill = 'cloud3', 'cloud3', 'white', 'white', 'cloud2', 'gold3'
-        blen, nlen, span = 4, 2, 8
-    else:                                                          # red-crowned crane
-        body, neck, head, wing, wtip, bill = 'white', 'ink', 'scarlet2', 'white', 'ink', 'paper2'
-        blen, nlen, span = 5, 5, 10
-    for k in range(-blen // 2, blen - blen // 2):                 # body
-        _px(a, x + k * d, y, body, al)
-        _px(a, x + k * d, y + 1, body if kind != 'goose' else 'paper1', al)
-    for k in range(1, nlen + 1):                                   # neck stretched out ahead
-        _px(a, x + (blen // 2 + k) * d, y - (1 if kind == 'egret' and k > 1 else 0), neck, al)
-    hx = x + (blen // 2 + nlen + 1) * d
-    hy = y - (1 if kind == 'egret' else 0)
-    _px(a, hx, hy, head, al)
-    _px(a, hx + d, hy, bill, al)
-    if kind != 'goose':
-        _px(a, hx + 2 * d, hy, bill, al)
-    if kind in ('crane', 'egret'):                                 # legs trailing behind
-        for k in range(1, 4):
-            _px(a, x - (blen // 2 + k) * d, y + 1, 'ink' if kind == 'crane' else 'stone2', al)
-    ang = math.sin(2 * math.pi * flap) * 1.1                       # wing: up on + , down on -
-    for k in range(1, span + 1):
-        t = k / span
-        wx = x - int(t * 2) * d
-        wy = y - int(round(math.sin(ang) * k * 0.9))
-        c = wtip if t > 0.7 else wing
-        if kind == 'crane' and t <= 0.7:
-            c = 'white'
-        _px(a, wx, wy, c, al)
-        if t < 0.6:
-            _px(a, wx - d, wy, c, al)                              # the inner wing is broad
+def _bird(a, x, y, pose, kind, big=False):
+    rows = (BIG if big else SMALL)[pose]
+    wing, tip, body = KINDS[kind]
+    ox, oy = len(rows[0]) // 2, len(rows) // 2
+    for r, row in enumerate(rows):
+        for c, ch in enumerate(row):
+            if ch != '.':
+                _px(a, x + c - ox, y + r - oy, {'w': wing, 't': tip, 'b': body}[ch])
+
+
+def _flock(frames, rng, kind, n, x0, y0, spread, big=False, vx=1.0, path=None, beat=6, glide=False, shape='cloud'):
+    """A flock flying together. Each bird keeps its place in the group (with a
+    little drift of its own) and beats its wings in its own time.
+    path(f) -> (x, y) of the flock's centre; default: straight across the tile,
+    once round per loop, with a gentle rise and fall."""
+    N = len(frames)
+    if shape == 'v':                                                # a skein: two arms behind a leader
+        offs = []
+        for k in range(n):
+            arm, side = (k + 1) // 2, (1 if k % 2 else -1)
+            offs.append((-arm * spread - rng.uniform(0, 1.5), side * arm * spread * 0.45 + rng.uniform(-0.6, 0.6)))
+    elif shape == 'line':                                           # a loose line, wingtip to wingtip
+        offs = [(-k * spread + rng.uniform(-2, 2), rng.uniform(-2, 2) + k * 0.6) for k in range(n)]
+    else:                                                           # a loose cloud, denser in the middle,
+        offs = []                                                   # no two birds on top of each other
+        gap = 9 if big else 6
+        tries = 0
+        while len(offs) < n and tries < n * 200:
+            tries += 1
+            o = (rng.gauss(0, spread), rng.gauss(0, spread * 0.45))
+            if all((o[0] - q[0]) ** 2 + ((o[1] - q[1]) * 1.6) ** 2 >= gap * gap for q in offs):
+                offs.append(o)
+    ph = [rng.randrange(beat * 6) for _ in range(n)]
+    wob = [(rng.uniform(0, 6.3), rng.uniform(0.6, 1.8)) for _ in range(n)]
+    for f in range(N):
+        if path:
+            cx, cy = path(f)
+        else:
+            cx = x0 + vx * TILE * f / N
+            cy = y0 + 4 * math.sin(2 * math.pi * f / N * 2 + x0)
+        breathe = 1 + 0.18 * math.sin(2 * math.pi * f / N * 3 + x0)      # the flock opening and closing
+        for k, (dx, dy) in enumerate(offs):
+            w0, wa = wob[k]
+            x = cx + dx * (breathe if shape == 'cloud' else 1) + wa * math.sin(2 * math.pi * f / 24 + w0)
+            y = cy + dy * (breathe if shape == 'cloud' else 1) + wa * 0.7 * math.cos(2 * math.pi * f / 30 + w0)
+            seq = GLIDE if glide else CYCLE
+            pose = seq[((f + ph[k]) // max(1, beat // 2)) % len(seq)]
+            _bird(frames[f], x, y, pose, kind, big)
 
 
 def birds(season):
+    """Birds in flocks over the lake, by season. Crossing flocks go once round the
+    tile per loop; the starling murmuration and the swallows wheel in place."""
     w, h = TILE, BIRDS_H
     frames = [np.zeros((h, w, 4), np.uint8) for _ in range(NB)]
     rng = random.Random({'spring': 1, 'summer': 2, 'autumn': 3, 'winter': 4}[season])
-    # swallows: quick loops low over the water, now and then a dive
-    n_sw = dict(spring=9, summer=7, autumn=0, winter=0)[season]
-    for i in range(n_sw):
-        cx, cy = rng.uniform(0, w), rng.uniform(h - 50, h - 14)
-        rx, ry = rng.uniform(30, 90), rng.uniform(6, 18)
-        ph, rev = rng.uniform(0, 6.3), rng.choice((2, 3))
-        for f in range(NB):
-            t = 2 * math.pi * f / NB * rev + ph
-            x = cx + rx * math.sin(t)
-            y = cy + ry * math.sin(2 * t) * 0.6 - 4 * math.sin(t * 3) ** 2
-            d = 1 if math.cos(t) > 0 else -1
-            _small_bird(frames[f], x, y, (f // 2 + i) % 3, 'indigo0', 'indigo1', belly='cloud3', tail=True, d=d)
-    # flocks that cross the whole tile once per loop
-    if season == 'autumn':                                         # a skein of geese in a V
-        for g in range(2):
-            x0, y0 = rng.uniform(0, w), 22 + g * 30
-            n = 9 if g == 0 else 6
-            for f in range(NB):
-                xl = x0 + w * f / NB
-                for k in range(n):
-                    arm = (k + 1) // 2
-                    side = 1 if k % 2 else -1
-                    x = xl - arm * 9
-                    y = y0 + side * arm * 4
-                    _big_bird(frames[f], x, y, (f / 14.0 + k * 0.13) % 1, 'goose')
-        for i in range(14):                                         # sparrows, bobbing as they fly
-            x0, y0 = rng.uniform(0, w), rng.uniform(h - 60, h - 30)
-            for f in range(NB):
-                x = x0 + w * f / NB * 1.0 + 6 * math.sin(i)
-                y = y0 + 3 * math.sin(2 * math.pi * f / 12 + i)
-                _small_bird(frames[f], x, y, (f // 2 + i) % 3, 'wood0', 'wood1')
-    elif season == 'summer':                                       # an egret, slow wingbeats
-        x0, y0 = rng.uniform(0, w), h - 46
-        for f in range(NB):
-            _big_bird(frames[f], x0 + w * f / NB, y0 + 2 * math.sin(2 * math.pi * f / 24), (f / 24.0) % 1, 'egret')
-    elif season == 'winter':                                       # a pair of cranes, crows
-        x0, y0 = rng.uniform(0, w), 40
-        for f in range(NB):
-            for k, (dx, dy) in enumerate(((0, 0), (-16, 7))):
-                _big_bird(frames[f], x0 - w * f / NB + dx * -1, y0 + dy + 2 * math.sin(2 * math.pi * f / 36 + k),
-                          (f / 30.0 + k * 0.3) % 1, 'crane', d=-1)
-        for i in range(6):
-            x0, y0 = rng.uniform(0, w), rng.uniform(20, h - 50)
-            for f in range(NB):
-                _small_bird(frames[f], x0 + w * f / NB * 2 % w, y0 + 2 * math.sin(f / 5 + i), (f // 3 + i) % 3,
-                            'ink', 'gloss0')
-    elif season == 'spring':                                       # a few small birds crossing
-        for i in range(5):
-            x0, y0 = rng.uniform(0, w), rng.uniform(20, 60)
-            for f in range(NB):
-                _small_bird(frames[f], x0 + w * f / NB, y0 + 3 * math.sin(2 * math.pi * f / 14 + i),
-                            (f // 2 + i) % 3, 'wood0', 'wood2')
+
+    def wheel(cx, cy, rx, ry, turns=1, phase=0.0):
+        return lambda f: (cx + rx * math.sin(2 * math.pi * f / NB * turns + phase),
+                          cy + ry * math.sin(4 * math.pi * f / NB * turns + phase) * 0.6)
+    if season == 'spring':
+        for k in range(4):                                          # swallows, wheeling low over the water
+            _flock(frames, rng, 'swallow', rng.randint(6, 10), 0, 0, 12,
+                   path=wheel(k * w / 4 + rng.uniform(0, 200), h - 30 - rng.uniform(0, 20), rng.uniform(50, 110),
+                              rng.uniform(8, 16), turns=2, phase=k), beat=4)
+        for k in range(3):                                          # small birds crossing in little flocks
+            _flock(frames, rng, 'sparrow', rng.randint(8, 14), k * w / 3, rng.uniform(22, 60), 12, vx=1)
+        _flock(frames, rng, 'gull', 5, w * 0.6, 40, 10, big=True, vx=1, beat=10, glide=True, shape='line')
+    elif season == 'summer':
+        for k in range(3):
+            _flock(frames, rng, 'swallow', rng.randint(6, 9), 0, 0, 12,
+                   path=wheel(k * w / 3 + 100, h - 34, rng.uniform(60, 110), 12, turns=2, phase=k * 2), beat=4)
+        _flock(frames, rng, 'egret', 6, w * 0.15, 46, 11, big=True, vx=1, beat=10, glide=True, shape='line')
+        for k in range(2):
+            _flock(frames, rng, 'sparrow', rng.randint(10, 16), k * w / 2 + 300, rng.uniform(24, 50), 13, vx=1)
+    elif season == 'autumn':
+        _flock(frames, rng, 'goose', 13, w * 0.1, 30, 9, big=True, vx=1, beat=8, shape='v')
+        _flock(frames, rng, 'goose', 9, w * 0.62, 56, 9, big=True, vx=1, beat=8, shape='v')
+        # a starling murmuration: a big swirling cloud over the far shore
+        for k in range(2):
+            cx = w * (0.3 + 0.45 * k)
+            _flock(frames, rng, 'starling', 60, 0, 0, 24,
+                   path=wheel(cx, h - 50, 70, 18, turns=1, phase=k * 3), beat=3)
+    else:                                                           # winter
+        _flock(frames, rng, 'crane', 7, w * 0.2, 36, 13, big=True, vx=-1, beat=12, glide=True, shape='line')
+        _flock(frames, rng, 'crane', 4, w * 0.7, 60, 13, big=True, vx=-1, beat=12, glide=True, shape='line')
+        for k in range(3):
+            _flock(frames, rng, 'crow', rng.randint(7, 12), k * w / 3, rng.uniform(24, 70), 14, vx=1, beat=5)
     return frames, (0, BIRDS_Y)
 
 

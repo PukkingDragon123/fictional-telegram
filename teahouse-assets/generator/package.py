@@ -13,7 +13,7 @@ Layout of the zip:
       props/3x/...            the same at 3x
       sprite_atlas/           every prop frame in one png + json
       nature/  palette/  previews/
-      seasons/<season>/       spring, summer, autumn, winter: window view, window glass, light, props, previews
+      seasons/<season>/       spring, summer, autumn, winter: window view, window glass, light, previews
 
 No readme, demo page, descriptions or labelled sheets: just the art and the scene data.
 
@@ -147,14 +147,6 @@ def main(out):
                     lo[key] = moves[src]
                 else:
                     lo[key] = put(src, sb + 'backgrounds/rooms/' + os.path.basename(src).replace('40_', ''))
-        for p in rec.get('props', []):
-            room = ROOMS.get(p['room'], 'room%d' % p['room'])
-            name = os.path.basename(p['file'])
-            src = p['file']
-            p['file'] = put(src, sb + 'props/1x/%s/%s' % (room, name))
-            put(src.replace('/props/', '/props_3x/', 1), sb + 'props/3x/%s/%s' % (room, name))
-            p.pop('desc', None)
-        rec.pop('giant', None)
         pdir = os.path.join(ROOT, 'seasons', sname, 'preview')
         if os.path.isdir(pdir):
             for f in sorted(os.listdir(pdir)):
@@ -200,7 +192,6 @@ def main(out):
     sdir = os.path.join(base, 'seasons')
     if os.path.isdir(sdir):
         for sname in os.listdir(sdir):
-            shutil.rmtree(os.path.join(sdir, sname, 'props', '3x'), ignore_errors=True)
             pv = os.path.join(sdir, sname, 'previews')
             if os.path.isdir(pv):
                 for f in os.listdir(pv):

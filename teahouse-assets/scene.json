@@ -2444,7 +2444,7 @@
    "sheet": "nature/particles/particle_leaf_jade_sheet.png"
   }
  ],
- "seasons_note": "the base scene is summer with nothing seasonal added. For a season, use its outside_layers instead of the base ones, draw window_glass just before 10_room_shell, use its light_overlay, and add its props",
+ "seasons_note": "the base scene is summer. For a season, use its outside_layers instead of the base ones, draw window_glass just before 10_room_shell, and use its light_overlay",
  "seasons": {
   "spring": {
    "outside_layers": [
@@ -2538,47 +2538,6 @@
      "frames": 24,
      "sheet": "seasons/spring/layers/outside/08_petals_sheet.png",
      "fps": 6
-    }
-   ],
-   "props": [
-    {
-     "name": "sakura_branch_vase",
-     "room": 2,
-     "layer": "counter",
-     "x": 1175,
-     "y": 199,
-     "w": 66,
-     "h": 100,
-     "draggable": true,
-     "desc": "A branch of cherry blossom in a tall indigo-and-white vase, a few petals fallen on the counter",
-     "placed_by_default": true,
-     "file": "seasons/spring/props/room2/sakura_branch_vase.png"
-    },
-    {
-     "name": "hanami_dango",
-     "room": 3,
-     "layer": "counter",
-     "x": 1413,
-     "y": 267,
-     "w": 48,
-     "h": 31,
-     "draggable": true,
-     "desc": "Two skewers of hanami dango - pink, white and green - on a red lacquer plate",
-     "placed_by_default": true,
-     "file": "seasons/spring/props/room3/hanami_dango.png"
-    },
-    {
-     "name": "bamboo_shoots_basket",
-     "room": 1,
-     "layer": "counter",
-     "x": 403,
-     "y": 229,
-     "w": 48,
-     "h": 59,
-     "draggable": true,
-     "desc": "Fresh bamboo shoots, still in their brown husks, in a bamboo basket",
-     "placed_by_default": true,
-     "file": "seasons/spring/props/room1/bamboo_shoots_basket.png"
     }
    ],
    "window_glass": {
@@ -2686,47 +2645,6 @@
      "fps": 6
     }
    ],
-   "props": [
-    {
-     "name": "kakigori",
-     "room": 2,
-     "layer": "counter",
-     "x": 951,
-     "y": 261,
-     "w": 36,
-     "h": 35,
-     "draggable": true,
-     "desc": "Shaved ice heaped in a glass bowl, red strawberry syrup running down it, a little spoon",
-     "placed_by_default": true,
-     "file": "seasons/summer/props/room2/kakigori.png"
-    },
-    {
-     "name": "uchiwa_fan",
-     "room": 3,
-     "layer": "counter",
-     "x": 1429,
-     "y": 271,
-     "w": 54,
-     "h": 25,
-     "draggable": true,
-     "desc": "A round paper fan lying on the counter, painted with a goldfish among waves",
-     "placed_by_default": true,
-     "file": "seasons/summer/props/room3/uchiwa_fan.png"
-    },
-    {
-     "name": "watermelon_plate",
-     "room": 1,
-     "layer": "counter",
-     "x": 409,
-     "y": 263,
-     "w": 50,
-     "h": 27,
-     "draggable": true,
-     "desc": "Wedges of watermelon on a plain plate, black seeds, green rind",
-     "placed_by_default": true,
-     "file": "seasons/summer/props/room1/watermelon_plate.png"
-    }
-   ],
    "light_overlay": {
     "file": "layers/room/40_light_overlay.png",
     "sheet": "layers/room/40_light_overlay_sheet.png",
@@ -2826,47 +2744,6 @@
      "frames": 24,
      "sheet": "seasons/autumn/layers/outside/08_leaves_sheet.png",
      "fps": 6
-    }
-   ],
-   "props": [
-    {
-     "name": "hoshigaki_persimmons",
-     "room": 1,
-     "layer": "ceiling",
-     "x": 103,
-     "y": 61,
-     "w": 67,
-     "h": 74,
-     "draggable": true,
-     "desc": "Strings of persimmons drying on the pole, turning from bright orange to deep amber",
-     "placed_by_default": true,
-     "file": "seasons/autumn/props/room1/hoshigaki_persimmons.png"
-    },
-    {
-     "name": "persimmon_bowl",
-     "room": 2,
-     "layer": "counter",
-     "x": 949,
-     "y": 265,
-     "w": 46,
-     "h": 32,
-     "draggable": true,
-     "desc": "A wooden bowl heaped with ripe persimmons, one with a leaf still on",
-     "placed_by_default": true,
-     "file": "seasons/autumn/props/room2/persimmon_bowl.png"
-    },
-    {
-     "name": "tsukimi_offering",
-     "room": 3,
-     "layer": "counter",
-     "x": 1403,
-     "y": 229,
-     "w": 74,
-     "h": 70,
-     "draggable": true,
-     "desc": "A moon-viewing offering: white dango stacked on a wooden stand, pampas grass in a jar beside it",
-     "placed_by_default": true,
-     "file": "seasons/autumn/props/room3/tsukimi_offering.png"
     }
    ],
    "window_glass": {
@@ -2972,60 +2849,6 @@
      "frames": 24,
      "sheet": "seasons/winter/layers/outside/08_snowfall_sheet.png",
      "fps": 6
-    }
-   ],
-   "props": [
-    {
-     "name": "hanging_daikon",
-     "room": 1,
-     "layer": "ceiling",
-     "x": 103,
-     "y": 59,
-     "w": 67,
-     "h": 78,
-     "draggable": true,
-     "desc": "Daikon radishes hung from the pole to dry for the winter, tied by their leaves",
-     "placed_by_default": true,
-     "file": "seasons/winter/props/room1/hanging_daikon.png"
-    },
-    {
-     "name": "mikan_bowl",
-     "room": 2,
-     "layer": "counter",
-     "x": 949,
-     "y": 265,
-     "w": 46,
-     "h": 32,
-     "draggable": true,
-     "desc": "A bowl of mandarin oranges, a couple with leaves",
-     "placed_by_default": true,
-     "file": "seasons/winter/props/room2/mikan_bowl.png"
-    },
-    {
-     "name": "yuki_usagi",
-     "room": 2,
-     "layer": "wall",
-     "x": 945,
-     "y": 191,
-     "w": 36,
-     "h": 26,
-     "draggable": true,
-     "desc": "A snow rabbit on the window sill: a mound of snow with red berry eyes and leaf ears, on a little tray",
-     "placed_by_default": true,
-     "file": "seasons/winter/props/room2/yuki_usagi.png"
-    },
-    {
-     "name": "kagami_mochi",
-     "room": 3,
-     "layer": "counter",
-     "x": 1413,
-     "y": 251,
-     "w": 42,
-     "h": 46,
-     "draggable": true,
-     "desc": "Kagami mochi for the new year: two rounds of mochi on a stand, a bitter orange on top, white paper beneath",
-     "placed_by_default": true,
-     "file": "seasons/winter/props/room3/kagami_mochi.png"
     }
    ],
    "window_glass": {

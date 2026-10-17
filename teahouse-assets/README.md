@@ -67,10 +67,11 @@ The trees outside are grown, not stamped (`grove.py`):
   - fish glide under the surface on slow loops with their tails beating: dark carp, and orange-and-white koi
   - now and then a fish jumps clear, bending as it goes, with a splash where it leaves and lands and rings spreading
   - a pair of mandarin ducks paddles round with a V of ripples behind them (swans in winter)
-- **Birds** (`04_birds`, 144 frames, 12 s at 12 fps) fly over the lake:
-  - swallows swoop and dart low over the water
-  - small birds cross, and in summer a white egret flaps slowly across
-  - the flocks that cross go once round the 1280 px tile per loop, so the layer loops seamlessly
+- **Birds** (`04_birds`, 144 frames, 12 s at 12 fps) fly over the lake in flocks:
+  - every bird is a hand-drawn flight pose: wings raised in a V, spread in a gull's M, level, and pulled down. Six poses make one wingbeat, and the big birds sail between beats.
+  - each flock keeps together: a loose cloud with no bird on top of another (sparrows, crows), a line wingtip to wingtip (egrets, cranes), or a V behind a leader (geese). Each bird drifts a little on its own and beats its wings in its own time, and the cloud flocks open and close as they fly.
+  - in summer, groups of swallows wheel low over the water, two flocks of small birds cross, and a line of white egrets glides by
+  - flocks that cross go once round the 1280 px tile per loop, and the wheeling ones fly closed loops, so the layer loops seamlessly
 - **Wind:** faint gust strokes sweep across in front of the garden (`08_wind` in summer, and in the seasons' drift layers).
 - `preview/window_life.gif` shows 8 s of it through the seating-room window.
 - Both life layers are cropped bands: their records have `x`, `y`, `w`, `h`. The birds' sheet is a grid with `sheet_columns`, because a single column would be taller than a texture can be.
@@ -106,10 +107,10 @@ The base scene is summer. `seasons/<season>/` holds what changes for spring, sum
 The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.75) is the drift in front of the garden.
 
 **Life outside** changes with the season too:
-- **Spring:** cherry petals come off the blossom trees and lie pink on the ground under them. Swallows swoop low over the lake, and small birds cross.
-- **Summer:** swallows, and a white egret.
-- **Autumn:** leaves fall from the red and gold trees and carpet the ground. A skein of geese crosses in a V, with a flock of sparrows.
-- **Winter:** a pair of red-crowned cranes glides across, crows fly over, fewer fish move under the cold water, and swans replace the ducks.
+- **Spring:** cherry petals come off the blossom trees and lie pink on the ground under them. Four groups of swallows wheel over the lake, little flocks of small birds cross, and a line of gulls glides past.
+- **Summer:** swallows wheeling, flocks of small birds, and a line of white egrets.
+- **Autumn:** leaves fall from the red and gold trees and carpet the ground. Two skeins of geese cross in V's, and starling murmurations swirl over the far shore, sixty birds each, the cloud opening and closing.
+- **Winter:** a line of seven red-crowned cranes and a smaller group glide across, flocks of crows fly over, fewer fish move under the cold water, and swans replace the ducks.
 
 **The rooms**
 - **The glass** (`layers/room/09_window_glass.png`) is drawn between the outside and the room shell, so it only shows in the panes:
@@ -117,11 +118,7 @@ The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.7
   - autumn: maple leaves
   - winter: frost growing in from the edge of every pane, snow heaped on the outer sills, and icicles
 - **The light** (`40_light_overlay`) changes with the season: soft in spring, low golden autumn sun that reaches further across the floor, and cool snow-light in winter, with the hearth and the lantern glowing warmer against it.
-- **Seasonal things** in the rooms (`props`):
-  - **Spring:** a cherry branch in an indigo vase (seating counter), hanami dango (tea counter), bamboo shoots in a basket (prep table).
-  - **Summer:** shaved ice with strawberry syrup, a paper fan, watermelon.
-  - **Autumn:** strings of dried persimmons on the drying pole, a bowl of persimmons, a moon-viewing offering of dango and pampas grass.
-  - **Winter:** daikon hung to dry, a bowl of mandarins, a snow rabbit on the window sill, kagami mochi.
+- Inside, the rooms and their things stay the same all year.
 - `preview/seasons_overview.png` shows the seating room in all four seasons. `seasons/<season>/preview/` has the whole teahouse, each room, and `window_life.gif`.
 
 ## The pendulum clock
@@ -257,7 +254,7 @@ nature/           stand-alone grown trees (black pine, zelkova, oaks, weeping wi
                   hinoki cypress, a shrub), flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
 seasons/<season>/ spring, summer, autumn, winter: layers/outside (the view, its birds and fish), layers/room
-                  (09_window_glass, 40_light_overlay), props + props_3x (seasonal things), preview
+                  (09_window_glass, 40_light_overlay), preview
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
@@ -282,7 +279,6 @@ Draw these back to front:
 - Use its `outside_layers` in place of the base ones in step 1 (summer points at the base files). Some sheets are grids (`sheet_columns`), and the life layers have their own `fps`.
 - Draw its `window_glass` between steps 2 and 3.
 - Use its `light_overlay` in step 9.
-- Draw its `props` with the others of the same layer.
 
 Props with an `on_click` list in `scene.json` are interactive: on a click, play each listed one-shot anim once, then switch that prop to its `then` anim.
 

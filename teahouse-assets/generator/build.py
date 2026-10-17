@@ -146,15 +146,14 @@ class Scene:
         print(f'  {len(self.props)} props        {time.time() - t:5.1f}s')
         # the base scene is summer with nothing seasonal added; use_season() swaps the rest in
         self.base_outs, self.base_light = self.outs, self.light
-        self.window, self.sprops, self.season = None, [], None
+        self.window, self.season = None, None
         self._seasons = {}
 
     def use_season(self, s):
-        """Swap in a season's outside view, giant, window glass, light and seasonal props
+        """Swap in a season's outside view (with its birds and fish), window glass and light
         (s=None: back to the plain base scene)."""
         if s is None:
-            self.outs, self.light, self.window, self.sprops, self.season = \
-                self.base_outs, self.base_light, None, [], None
+            self.outs, self.light, self.window, self.season = self.base_outs, self.base_light, None, None
             return
         if s not in self._seasons:
             t = time.time()
@@ -165,12 +164,11 @@ class Scene:
                 else:
                     outs, light = outside.all_layers(), fx.light(s)
                 win = seasons_room.window_layer(s, self.shell)
-                sp = [_process_prop(p) for p in seasons_room.placed(s)]
             finally:
                 season.set_season('summer')
-            self._seasons[s] = (outs, light, win, sp)
+            self._seasons[s] = (outs, light, win)
             print(f'  {s:<8} season    {time.time() - t:5.1f}s')
-        self.outs, self.light, self.window, self.sprops = self._seasons[s]
+        self.outs, self.light, self.window = self._seasons[s]
         self.season = s
 
     def outside_at(self, t, cam_x, width=LY.W):
@@ -198,7 +196,7 @@ class Scene:
             if layer == 'counter_layer':
                 cv.blit(self.counter, 0, 0)
                 continue
-            for p in self.props + self.sprops:
+            for p in self.props:
                 if p['layer'] == layer and p.get('preview', True):
                     cv.blit(frame_at(p['frames'], p['fps'], t), p['sx'], p['sy'])
         if fg:
@@ -537,9 +535,9 @@ def grid_sheet(frames, cols):
 
 
 def export_seasons(sc, anims=True):
-    """seasons/<season>/: the outside view, the giant, the window glass, the light and the
-    seasonal props for each season, plus previews. Summer's outside and light are the base
-    layers, so its record points at those."""
+    """seasons/<season>/: the outside view, the window glass and the light for each
+    season, plus previews. Summer's outside and light are the base layers, so its record
+    points at those."""
     shutil.rmtree(os.path.join(ROOT, 'seasons'), ignore_errors=True)
     info = {}
     wm = LY.WIN_MAIN
@@ -547,7 +545,7 @@ def export_seasons(sc, anims=True):
     for s in season.NAMES:
         sc.use_season(s)
         d = ('seasons', s)
-        rec = dict(outside_layers=[], props=[])
+        rec = dict(outside_layers=[])
         for name, frames, fac, *off in sc.outs:
             if s == 'summer':                                # the base layers
                 L = dict(name=name, file=f'layers/outside/{name}.png', parallax=fac, tile_width=outside.OUT_W,
@@ -580,14 +578,6 @@ def export_seasons(sc, anims=True):
                                         sheet=save(sheet(sc.light, vertical=True), *d, 'layers', 'room',
                                                    '40_light_overlay_sheet.png'),
                                         frames=len(sc.light), fps=LAYER_FPS)
-        for p in sc.sprops:
-            fr = p['frames']
-            rd = f'room{p["room"]}'
-            r = dict(name=p['name'], room=p['room'], layer=p['layer'], x=p['sx'], y=p['sy'], w=fr[0].w, h=fr[0].h,
-                     draggable=p['drag'], desc=p['desc'], placed_by_default=True,
-                     file=save(fr[0], *d, 'props', rd, p['name'] + '.png'))
-            save(fr[0], *d, 'props_3x', rd, p['name'] + '.png', scale=SCALE_HI)
-            rec['props'].append(r)
         # previews: the whole teahouse, each room, and the giant through the seating-room window
         full = sc.compose(0)
         save(full, *d, 'preview', 'teahouse_full_1x.png')
@@ -628,9 +618,8 @@ def export_scene_json(layer_info, prop_recs, nature_recs, ncolors, seasons_info=
         parallax_note='screen_x = -camera_x * parallax (tile outside layers every tile_width px)',
         palette_colors=ncolors, layers=layer_info, props=prop_recs, nature=nature_recs)
     if seasons_info:
-        scene['seasons_note'] = ('the base scene is summer with nothing seasonal added. For a season, use its '
-                                 'outside_layers instead of the base ones, draw window_glass just before '
-                                 '10_room_shell, use its light_overlay, and add its props')
+        scene['seasons_note'] = ('the base scene is summer. For a season, use its outside_layers instead of the '
+                                 'base ones, draw window_glass just before 10_room_shell, and use its light_overlay')
         scene['seasons'] = seasons_info
     with open(os.path.join(ROOT, 'scene.json'), 'w') as fh:
         json.dump(scene, fh, indent=1)

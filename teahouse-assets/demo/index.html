@@ -55,7 +55,7 @@
   const baseOutside = S.layers.filter(l => l.name.match(/^0\d_/));
   let outside = baseOutside;
   const byName = Object.fromEntries(S.layers.map(l => [l.name, l]));
-  let lightL = byName['40_light_overlay'], glass = null, sprops = [];
+  let lightL = byName['40_light_overlay'], glass = null;
   [...outside, byName['10_room_shell'], byName['20_counter'], byName['30_foreground'], byName['40_light_overlay']]
     .forEach(l => { load(l.file); if (l.sheet) load(l.sheet); });
 
@@ -141,7 +141,6 @@
     order.forEach(layer => {
       if (layer === '#counter') return drawWorld(byName['20_counter'], t);
       props.filter(p => p.layer === layer).forEach(p => drawProp(p, t));
-      sprops.filter(p => p.layer === layer).forEach(p => drawProp(p, t));
     });
     if (opt('fg')) drawWorld(byName['30_foreground'], t);
     if (opt('light')) drawWorld(lightL, t);
@@ -152,17 +151,15 @@
     if (pt.y > 205) { pt.y = 50; pt.x = Math.random() * VW; }
   }), 33);
 
-  // the seasons: swap the view outside, the glass, the light and the seasonal things
+  // the seasons: swap the view outside, the glass and the light
   document.getElementById('season').addEventListener('change', e => {
     const rec = S.seasons && S.seasons[e.target.value];
-    if (!rec) { outside = baseOutside; lightL = byName['40_light_overlay']; glass = null; sprops = []; return; }
+    if (!rec) { outside = baseOutside; lightL = byName['40_light_overlay']; glass = null; return; }
     outside = rec.outside_layers;
     outside.forEach(l => { load(l.file); if (l.sheet) load(l.sheet); });
     lightL = rec.light_overlay; load(lightL.file); if (lightL.sheet) load(lightL.sheet);
     glass = rec.window_glass ? { file: rec.window_glass.file, frames: 1 } : null;
     if (glass) load(glass.file);
-    sprops = rec.props.map(p => ({ ...p, show: true }));
-    sprops.forEach(p => load(p.file));
   });
 
   // scale to fit
