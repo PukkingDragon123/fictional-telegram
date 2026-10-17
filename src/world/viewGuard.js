@@ -105,6 +105,7 @@ export class ViewGuard {
     if (this.H && geo === this.geo) return this.H;
     this.geo = geo;
     this.cache.clear();
+    this.soft = null;
     const E = 100, PW = G.w + 2 * E, PH = G.h + 2 * E;
     const H = new Float32Array(PW * PH);
     for (let z = 0; z < PH; z++)
@@ -114,6 +115,27 @@ export class ViewGuard {
       }
     this.H = { H, PW, PH, E };
     return this.H;
+  }
+
+  // the ground the camera looks at (the spot under the screen centre): tile heights
+  // softened over 3x3 tiles, so panning over a cliff edge glides instead of jumping
+  groundAt(x, z) {
+    const W = this.world, G = W.grid;
+    this.heights();
+    if (!this.soft) {
+      const s = new Float32Array(G.w * G.h);
+      for (let iz = 0; iz < G.h; iz++)
+        for (let ix = 0; ix < G.w; ix++) {
+          let a = 0, n = 0;
+          for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const tx = ix + dx, tz = iz + dz; if (!G.inb(tx, tz)) continue; const wgt = dx || dz ? 1 : 4; a += G.height[tz * G.w + tx] * wgt; n += wgt; }
+          s[iz * G.w + ix] = Math.max(0, a / n);
+        }
+      this.soft = s;
+    }
+    const fx = Math.max(0, Math.min(G.w - 1.001, x - 0.5)), fz = Math.max(0, Math.min(G.h - 1.001, z - 0.5));
+    const ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz, S = this.soft, w = G.w;
+    const i1 = Math.min(ix + 1, G.w - 1), j1 = Math.min(iz + 1, G.h - 1);
+    return (S[iz * w + ix] * (1 - u) + S[iz * w + i1] * u) * (1 - v) + (S[j1 * w + ix] * (1 - u) + S[j1 * w + i1] * u) * v;
   }
 
   grid(yi, pitch) {

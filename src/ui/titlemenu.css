@@ -201,7 +201,7 @@
 .tbx-nap { position: relative; width: calc(var(--b) * 84); height: calc(var(--b) * 70); cursor: pointer; flex: none; transform: translateY(120vh); transition: transform .6s cubic-bezier(.25,1.2,.5,1) .4s; }
 .tbx--in .tbx-nap { transform: none; }
 .tbx-fox { position: absolute; inset: 0; }
-.tbx-sign { position: absolute; right: calc(var(--b) * -30); bottom: calc(var(--b) * 4); transform: rotate(7deg); transform-origin: 50% 100%; filter: drop-shadow(var(--b) var(--b) 0 rgba(40, 12, 36, .4)); }
+.tbx-sign { position: absolute; right: calc(var(--b) * -16); bottom: calc(var(--b) * 40); transform: rotate(7deg); transform-origin: 50% 100%; filter: drop-shadow(var(--b) var(--b) 0 rgba(40, 12, 36, .4)); }
 .tbx-nap:hover .tbx-sign { animation: tm-jiggle .5s; }
 .tbx-nap.is-poked .tbx-fox { animation: tbx-squash .4s cubic-bezier(.3,1.6,.5,1); }
 /* ---------- tall screens: the boxes in a column, tags beside them, the boss below */
@@ -211,7 +211,7 @@
 .tbx--tall .tbx-slot:nth-child(2) { flex-direction: row-reverse; }
 .tbx--tall .tbx-tag { min-width: calc(var(--b) * 64); transform: rotate(calc((var(--i) - 1) * -3deg)); }
 .tbx--tall .tbx-floor { height: 74%; }
-.tbx--tall .tbx-sign { right: auto; left: calc(var(--b) * -40); bottom: calc(var(--b) * 2); transform: rotate(-7deg); }
+.tbx--tall .tbx-sign { right: auto; left: calc(var(--b) * -44); bottom: calc(var(--b) * 30); transform: rotate(-7deg); }
 .tbx--out .tbx-dim { opacity: 0; }
 .tbx--out .tbx-slot, .tbx--out .tbx-nap { transform: translateY(120vh); transition-delay: 0s; transition-duration: .4s; transition-timing-function: cubic-bezier(.6,-0.3,.9,.5); }
 .tbx--out .tbx-head { transform: translateY(-160%); transition-delay: 0s; }

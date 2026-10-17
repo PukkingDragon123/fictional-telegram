@@ -81,7 +81,9 @@ export class CameraRig {
   }
 
   // [v26 mountains] mountains stay solid, so the camera keeps out of their way
-  // (world/viewGuard.js): a pan can't slide the spot behind rock (it slides
+  // (world/viewGuard.js). The centre of the screen is the ground of the spot
+  // (goal.y follows it), so high ground shows itself, not the rock in front of
+  // it. A pan can't slide the spot behind rock (it slides
   // along it instead), a turn that would put rock in front of the spot first
   // moves the spot out (or is refused with a bump), and when something else
   // puts the spot behind rock (a look-at, a followed bear) the camera turns
@@ -99,6 +101,7 @@ export class CameraRig {
     this._vCool = Math.max(0, (this._vCool || 0) - dt);
     if (!V || !V.active()) return;
     const g = this.goal, p = this._vPitch();
+    if (V.groundAt) g.y = V.groundAt(g.x, g.z); // look at the ground itself (high ground: not at the rock in front of it)
     if (V.visible(g.x, g.z, this.yawGoal, p)) return;
     if (!this._rawOn && !this.freeBounds && this._vCool <= 0) {
       for (const k of [1, -1, 2, -2, 3, -3, 4]) {
@@ -154,7 +157,7 @@ export class CameraRig {
     this.zoom(factor);
     const k = this.wuppGoal / before;
     if (Math.abs(k - 1) < 1e-4 || !renderer) return;
-    const p = this.screenToGround(cssX, cssY, renderer, 0, new THREE.Vector3());
+    const p = this.screenToGround(cssX, cssY, renderer, this.target.y || 0, new THREE.Vector3()); // [v26 mountains] (the camera looks at the ground height)
     if (!Number.isFinite(p.x)) return;
     // the camera moves from the cursor's point towards the current centre by the zoom ratio
     const gx = this.follow ? this.follow.x : this.goal.x, gz = this.follow ? this.follow.z : this.goal.z;

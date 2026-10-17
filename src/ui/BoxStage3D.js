@@ -170,6 +170,7 @@ function buildBox(seed, label) {
 }
 
 // open angles per flap (radians from closed-flat), idle and on hover
+const NAP = { yaw: 1.45, tilt: 0.4 }; // bed flat along the screen, head on the pillow to the left, tipped gently toward us
 const OPEN = { front: 3.25, back: 1.85, left: 2.2, right: 2.2 };
 function setFlaps(B, k, wob = 0) {
   for (const f of B.flaps) {
@@ -429,16 +430,27 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
 
   // ---- Reynard, asleep on his box bed
   const napG = new THREE.Group();
-  const napTilt = new THREE.Group(); napTilt.rotation.x = 0.55; napG.add(napTilt);
+  // the bed lies on the floor, side-on to the camera (head on the left), seen from about the boxes' 3/4 view
+  const napTilt = new THREE.Group(); napG.add(napTilt);
+  const napYaw = new THREE.Group(); napTilt.add(napYaw);
   const rig = new FoxRig({ shadows: false });
   rig.setOutfit('pajamas');
-  rig.root.rotation.y = -0.35;
-  const bed = makeBed(); bed.rotation.y = -0.35;
-  napTilt.add(rig.root, bed);
+  const bed = makeBed();
+  const napC = new THREE.Group(); napYaw.add(napC);
+  napC.add(rig.root, bed);
+  { const bb = new THREE.Box3().setFromObject(bed); napC.position.set(-(bb.min.x + bb.max.x) / 2, 0, -(bb.min.z + bb.max.z) / 2); } // centre the bed
   rig.play('sleep_bed', { fade: 0 });
   for (let k = 0; k < 4; k++) rig.update(0.25);
-  const bedBox = new THREE.Box3().setFromObject(bed); bedBox.max.y += 0.5;
-  const bedW = bedBox.getSize(new THREE.Vector3()).x;
+  let bedW = 1;
+  function setNapPose({ yaw = NAP.yaw, tilt = NAP.tilt } = {}) {
+    NAP.yaw = yaw; NAP.tilt = tilt;
+    napYaw.rotation.y = yaw; napTilt.rotation.x = tilt;
+    napG.updateMatrixWorld(true);
+    const sc = napG.scale.x || 1;
+    const bb = new THREE.Box3().setFromObject(bed);
+    bedW = Math.max(bb.max.x - bb.min.x, 0.01) / sc;
+  }
+  setNapPose();
   scene.add(napG);
   const napSh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), shMat); napSh.rotation.x = -Math.PI / 2; scene.add(napSh);
   let poked = 0;
@@ -456,7 +468,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     if (nap) {
       const rc = nap.getBoundingClientRect(), hr = host.getBoundingClientRect();
       toPlane(rc.left - hr.left + rc.width / 2, rc.top - hr.top + rc.height * 0.95, _p);
-      const s = (rc.width * 0.62 * wpp) / bedW;
+      const s = (rc.width * 0.66 * wpp) / bedW;
       napG.position.copy(_p);
       napG.scale.setScalar(s);
       napSh.position.set(_p.x, _p.y - 0.02, _p.z + 0.2 * s);
@@ -579,6 +591,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     }
     // Reynard
     rig.update(dt);
+    rig.bubble.visible = false; rig.pop.visible = false; // no snot bubble: keep his sleeping face readable
     poked = Math.max(0, poked - dt * 2.4);
     const j = Math.sin(poked * 18) * poked * 0.12;
     napTilt.scale.set(1 - j * 0.5, 1 + j, 1 - j * 0.5);
@@ -663,6 +676,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
         };
       });
     },
+    setNapPose,
     poke() { poked = 1; for (let k = 0; k < 3; k++) setTimeout(() => !dead && spawnZ(1.3), k * 140); play('bed_mumble', { volume: 0.35 }); },
     dispose() {
       if (dead) return;
