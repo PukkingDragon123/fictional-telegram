@@ -390,7 +390,9 @@ SHOTS.m_falls = {
     if (v) v.t = 1e9;
     c.hour = 18.7; c.phase = 'night';
     clearDecos(g, 29, 197.5, 45, 232);
+    // a short eye distance: the default one would sit out in the mountains south of the valley
     glimpse(c, { x: 36.0, z: 195.6, y: 1.6, yaw: 0.1, pitch: 13, wupp: 0.0122 }, { x: 36.2, z: 195.3, y: 1.6, yaw: 0.05, pitch: 13, wupp: 0.0108 });
+    c.every(() => { c.g.rig.dist = 16; });
     // dusk + mist: only the silhouette reads
     const veil = document.createElement('div');
     Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'radial-gradient(ellipse at 50% 42%, rgba(40,50,90,0.0) 0%, rgba(20,22,48,0.35) 50%, rgba(8,8,20,0.85) 100%)' });
