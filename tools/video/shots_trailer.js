@@ -16,7 +16,9 @@ export const SHOTS = {};
 function skyCurtain(c) {
   const g = c.g;
   const T = new TitleScene(g);
+  const keep = { hour: g.state.hour, phase: g.state.phase };
   T.start();
+  g.state.hour = keep.hour; g.state.phase = keep.phase; // (the title diorama sets its own golden hour + 'day')
   for (const o of [T.fox?.root, T.deer?.root, T.foxChair?.base, T.deerChair?.base, T.cooler, T.floatCan, T.dfly, T.fishMesh]) if (o) o.visible = false;
   for (const d of T.ducks || []) d.d.root.visible = false;
   if (T.school?.batch?.mesh) T.school.batch.mesh.visible = false;
@@ -79,10 +81,10 @@ function dawnVeil(c, t0, t1, from = 0.62) {
   c.ov.root.appendChild(d);
   c.ov.fn((t) => { d.style.opacity = (from * (1 - smooth((t - t0) / (t1 - t0)))).toFixed(3); });
 }
-function letterbox(c, t0 = 0, t1 = 999, h = 0.1, inDur = 0.001) { c.ov.bars(t0, t1, h, inDur); }
+function letterbox(c, t0 = -1, t1 = 999, h = 0.1, inDur = 0.001) { c.ov.bars(Math.min(t0, -1), t1, h, inDur); }
 
 // ================================================================== T1: sunrise -> the hut -> through the window
-const WIN = { x: 77.7, y: 0.8, z: 43.12 }; // the left front window of Reynard's hut (hutModel voxels 5..8, y 6..9)
+const WIN = { x: 77.7, y: 0.76, z: 43.12 }; // the left front window of Reynard's hut (hutModel voxels 5..8, y 6..9)
 SHOTS.sunrise = {
   dur: 14.6,
   async setup(c) {
@@ -90,8 +92,10 @@ SHOTS.sunrise = {
     prep(c, { hour: 6.5 });
     stockPond(g, 24);
     clearDecos(g, 60, 36, 86, 60);
-    for (const d of g.world.decos) if (!d.removed && d.x >= 74 && d.x <= 83 && d.z >= 44 && d.z <= 60) d.removed = true;
-    g.world.buildDecos();
+    // a clear corridor in front of the hut for the dive (the trees either side stay for depth)
+    clearDecos(g, 75.5, 44, 81.5, 92);
+    // the two shop signs hanging from the porch roof cover the front windows: take them down
+    g.world.hut?.traverse((o) => { if (o.parent?.name === 'hutDecals' && o.position.z > 2.9 && o.position.y > 0.6) o.visible = false; });
     const T = skyCurtain(c);
     g.state.hour = 6.6;
     c.presim(1);
@@ -114,7 +118,7 @@ SHOTS.sunrise = {
       skyCam(c, { ...cam, skyD: cam.wupp < 0.008 ? 1.2 : 3.4 }, sun, t);
       g.state.hour = 6.4 + t * 0.06;
     });
-    letterbox(c, 0, 999, 0.1);
+    letterbox(c);
     dawnVeil(c, 0, 6.5, 0.6);
     // the window glow swallows the screen
     const glow = document.createElement('div');
@@ -165,7 +169,18 @@ SHOTS.wake = {
     });
     c.at(7.6, () => { f.setExpression('scheming', { hold: 2 }); f.talk('The bears must eat...'); c.say(head, 'The bears must eat...', { voice: 'fox', mood: 'normal', dur: 2.0, size: 'm' }); });
     c.at(9.8, () => { f.setExpression('evil_grin', { hold: 3 }); f.talk('...and the bears must PAY.'); c.say(head, '...and the bears must *PAY*.', { voice: 'fox', mood: 'excited', dur: 2.5, size: 'l' }); });
-    letterbox(c, 0, 999, 0.1);
+    // a slow push-in on Reynard for his lines
+    let P = null;
+    c.every((t) => {
+      if (t < 7.0) return;
+      const rig = bed.rig;
+      if (!P) { const hp = new THREE.Vector3(); (f.head || f.root).getWorldPosition(hp); P = { t0: target(rig), w0: rig.wupp, t1: new THREE.Vector3(hp.x, hp.y - 0.12, hp.z), w1: rig.wupp * 0.7 }; }
+      const k = smooth((t - 7.0) / 3.6);
+      rig.goal.lerpVectors(P.t0, P.t1, k); rig.target.copy(rig.goal);
+      rig.wupp = rig.wuppGoal = P.w0 + (P.w1 - P.w0) * k;
+    });
+    function target(rig) { return rig.target.clone(); }
+    letterbox(c);
     const glow = document.createElement('div');
     Object.assign(glow.style, { position: 'absolute', inset: '0', background: 'radial-gradient(circle at 50% 50%, #fff6d8 0%, #ffd890 35%, rgba(255,200,120,0) 70%)', opacity: 1 });
     c.ov.root.appendChild(glow);
@@ -177,7 +192,7 @@ SHOTS.wake = {
 // a quick look: letterbox + a slow camera drift between two framings
 function glimpse(c, a, b) {
   c.path([{ t: 0, ...a }, { t: c.dur, ...b, ease: 'linear' }]);
-  letterbox(c, 0, 999, 0.1);
+  letterbox(c);
 }
 
 // a. new life: two fish fall in love, the eggs hatch
@@ -186,6 +201,7 @@ SHOTS.m_hatch = {
   async setup(c) {
     const g = c.g;
     prep(c, { hour: 8.2 });
+    clearDecos(g, 56, 36, 82, 60);
     stockPond(g, 30, ['aurora', 'mapleKoi', 'tiger', 'sockeye', 'brook', 'bluegill']);
     c.presim(1.5);
     const near = (x, z) => g.fish.list.filter((f) => f.adult && !f.dead).sort((p, q) => Math.hypot(p.x - x, p.z - z) - Math.hypot(q.x - x, q.z - z));
@@ -214,24 +230,21 @@ SHOTS.m_clock = {
   update(c, t) { if (t < 0.15) c.g.state.hour = 16.97 + t * 0.15; },
 };
 
-// c. the bears march in against the evening sky
+// c. the bears march in against the evening sky (camera south of the herd, the sky curtain behind it)
 SHOTS.m_march = {
   dur: 3.0,
   async setup(c) {
     const g = c.g;
     prep(c, { hour: 17.1 });
     stockPond(g, 24);
-    clearDecos(g, 62, 14, 84, 30);
-    g.state.day = 9; g.wave = g.bears.planWave(9);
-    g.state.hour = 16.95; g.startRush();
-    for (const b of g.bears.list) b.t = Math.min(b.t ?? 0, 0.2 + Math.random() * 2);
-    c.presim(10);
-    const T = skyCurtain(c);
-    let K = 1;
-    // evening: keep the title's sunset grade (no dawn patch)
-    const keys = [{ t: 0, x: 72.4, z: 22.6, y: 0.5, yaw: Math.PI + 0.25, pitch: 11, wupp: 0.016 }, { t: 3.0, x: 72.2, z: 21.8, y: 0.5, yaw: Math.PI + 0.18, pitch: 11, wupp: 0.0145, ease: 'linear' }];
-    c.every((t) => { skyCam(c, camAt(keys, t), [-0.12, 0.42], t); g.state.hour = 17.4; });
-    letterbox(c, 0, 999, 0.1);
+    clearDecos(g, 56, 14, 90, 70);
+    const { herdShot } = await import('./shots_promo.js');
+    g.state.day = 9;
+    const { cx, cz } = herdShot(c, { day: 9, minZ: 21 });
+    skyCurtain(c);
+    const keys = [{ t: 0, x: cx, z: cz + 1.0, y: 0.6, yaw: 0.15, pitch: 10, wupp: 0.0145 }, { t: 3.0, x: cx, z: cz + 2.4, y: 0.6, yaw: 0.1, pitch: 10, wupp: 0.0135, ease: 'linear' }];
+    c.every((t) => { skyCam(c, { ...camAt(keys, t), skyD: 4.2 }, [-0.18, 0.42], t); });
+    letterbox(c);
   },
 };
 
@@ -313,8 +326,8 @@ SHOTS.m_resort = {
     const bs = [bearAt(g, 65.5, 27.5), bearAt(g, 66.5, 27.6, 'intern'), bearAt(g, 75, 28.2, 'hipster'), bearAt(g, 74.5, 28.6, 'office'), bearAt(g, 70.5, 27.5, 'jogger')];
     try { g.resort.visit(bs[0], S.spa); g.resort.visit(bs[1], S.spa); g.resort.visit(bs[2], S.tub); g.resort.visit(bs[3], S.tub); g.resort.visit(bs[4], S.sauna); } catch (e) { console.warn('[dir] visits', e); }
     c.presim(5);
-    c.hour = 21.2; c.phase = 'night';
-    glimpse(c, { x: 70.6, z: 26.4, y: 0.4, yaw: -0.3, pitch: 22, wupp: 0.019 }, { x: 71.4, z: 26.4, y: 0.4, yaw: -0.2, pitch: 22, wupp: 0.0175 });
+    c.hour = 19.9; c.phase = 'night';
+    glimpse(c, { x: 70.6, z: 25.4, y: 0.4, yaw: -0.3, pitch: 24, wupp: 0.0175 }, { x: 71.4, z: 25.4, y: 0.4, yaw: -0.2, pitch: 24, wupp: 0.0162 });
   },
 };
 
@@ -335,7 +348,7 @@ SHOTS.m_karen = {
   dur: 9.5,
   async setup(c) {
     await (await import('./shots_promo.js')).SHOTS.karen.setup(c);
-    letterbox(c, 0, 999, 0.1);
+    letterbox(c);
   },
 };
 
@@ -374,10 +387,11 @@ SHOTS.m_falls = {
     const v = g.villagers.get('longneck');
     if (v) v.t = 1e9;
     c.hour = 19.6; c.phase = 'night';
-    glimpse(c, { x: 35.0, z: 198.6, y: 1.6, yaw: 0.12, pitch: 14, wupp: 0.0175 }, { x: 35.2, z: 198.0, y: 1.6, yaw: 0.06, pitch: 14, wupp: 0.0145 });
+    clearDecos(g, 30, 196.5, 44, 230, { forest: false });
+    glimpse(c, { x: 36.0, z: 195.6, y: 1.5, yaw: 0.1, pitch: 12, wupp: 0.0135 }, { x: 36.2, z: 195.3, y: 1.5, yaw: 0.05, pitch: 12, wupp: 0.0118 });
     // dusk + mist: only the silhouette reads
     const veil = document.createElement('div');
-    Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'radial-gradient(ellipse at 52% 45%, rgba(40,50,90,0.15) 0%, rgba(20,22,48,0.7) 55%, rgba(8,8,20,0.92) 100%)' });
+    Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'radial-gradient(ellipse at 50% 42%, rgba(40,50,90,0.0) 0%, rgba(20,22,48,0.55) 55%, rgba(8,8,20,0.9) 100%)' });
     c.ov.root.appendChild(veil);
     c.ov.fade(0, 0.6, 1, 0, '#000');
     c.ov.fade(2.6, 3.2, 0, 1, '#000');
@@ -413,7 +427,7 @@ SHOTS.title = {
     const T = skyCurtain(c);
     const keys = [{ t: 0, x: 70.5, z: 35.8, y: 0.3, yaw: -0.6, pitch: 15, wupp: 0.02 }, { t: 9, x: 71.5, z: 35.2, y: 0.3, yaw: -0.5, pitch: 15, wupp: 0.018, ease: 'linear' }];
     c.every((t) => { skyCam(c, camAt(keys, t), [-0.08, 0.5], t); g.state.hour = 18.2; });
-    letterbox(c, 0, 999, 0.1);
+    letterbox(c);
     c.ov.fade(0, 0.8, 1, 0.35, '#000');
     c.ov.card(['THE BEAR', 'MUST EAT'], { t0: 0.6, t1: 99, anim: 'slam', y: 0.42, size: 125, sizes: [104.17, 145.83], gap: -14, outline: 5, outer: 4, outlineColor: '#3a1408', outerColor: '#fff6e0', fill: FILL_GOLD, rot: -3, ribbon: 'a cozy incremental / tycoon', ribbonSize: 31.25, ribbonGap: 18 });
     c.ov.text('Music: "Morning" and "Fireflies and Stardust" by Kevin MacLeod (incompetech.com), CC BY 4.0', { t0: 2.0, t1: 99, x: 0.5, y: 0.935, size: 20.83, anim: 'fade', color: '#e8dcc8', outline: 2 });

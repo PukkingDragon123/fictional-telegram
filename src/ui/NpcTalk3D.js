@@ -29,6 +29,7 @@ export const NPC_RIGS = {
   clover: 'BunnyGardener', otis: 'OtterFisher', pip: 'ChipmunkTrader', chip: 'WoodpeckerCarpenter', hazel: 'HedgehogBaker',
   flint: 'BadgerProspector', // [F&S mining]
   longneck: 'LongneckElder', // [v26 turtle]
+  moose: 'MooseCourier', // [v26 faces3d] the Moose Express courier (e-Buy's delivery faces)
 };
 const FPS = 30;
 

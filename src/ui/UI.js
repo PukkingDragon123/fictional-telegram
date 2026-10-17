@@ -565,7 +565,7 @@ export class UI {
     const listings = () => game.ebuyListings().map((l) => ({ ...l, image: this.listingImage(l) }));
     this.ebuy = E.openEBuy(host, {
       listings, coins: game.state.coins, focus, // [v26 ebuy] a function: the first open builds the item art behind e-Buy's loading screen
-      icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
+      icon: (n, sc) => (n === 'moose' && game.faces3d?.img({ who: 'npc', npc: 'moose', frame: 'bust' }, 20 * sc, 20 * sc)) || (hasSprite(n) ? ico(n, sc) : ''), // [v26 faces3d] the courier's face is his 3D rig, not the statue icon
       sfx: (n) => game.audio.play(n, { volume: 0.35 }),
       onBuy: (l, qty) => {
         const ok = game.ebuyBuy(l, qty);

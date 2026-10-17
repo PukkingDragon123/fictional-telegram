@@ -128,7 +128,7 @@
   background:
     repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px),
     linear-gradient(115deg, transparent 0 62%, rgba(255, 255, 255, 0.035) 62% 70%, transparent 70% 74%, rgba(255, 255, 255, 0.025) 74% 76%, transparent 76%);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25), inset 0 0 40px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25), inset 0 0 0 6px rgba(0, 0, 0, 0.06);
 }
 .eb-chin { height: 26px; flex: none; display: flex; align-items: center; justify-content: center; position: relative; }
 .eb-brand { font: 700 11px var(--eb-title); letter-spacing: 2px; color: #8a7e66; text-shadow: 0 1px 0 #f4ecd8; }
@@ -194,7 +194,9 @@
 @keyframes eb-bfill { to { clip-path: inset(0 0 0 0); } }
 .eb-bline { min-height: 1.2em; font: 15px var(--eb-body); color: var(--eb-ink); }
 .ebuy.eb-go .eb-bline.bump { animation: eb-linein 0.22s steps(4) both; }
-@keyframes eb-linein { from { transform: translateY(6px); opacity: 0; } }
+@keyframes eb-linein { from { transform: translateY(5px) scale(0.96); } }
+/* the shop stays dark behind the splash (the CRT line powers on over a black screen) */
+.ebuy:is(.eb-o-full, .eb-o-short):not(.eb-ready) .eb-app { visibility: hidden; }
 .eb-bfine { font: 11px var(--eb-body); color: #a08a6a; }
 .eb-bskip { position: absolute; right: 12px; bottom: 10px; font: 11px var(--eb-body); color: #a08a6a; animation: eb-blink 1.4s steps(1) infinite; }
 
@@ -1030,6 +1032,21 @@
   .eb-ticker { display: none; }
   .eb-promo { display: none; }
   .eb-logo { font-size: 36px; }
+}
+
+@container ebuy (max-height: 480px) and (min-width: 641px) {
+  .ebuy { padding: 4px; }
+  .eb-chrome, .eb-base, .eb-cam { display: none; }
+  .eb-bezel { padding: 6px 6px 0; }
+  .eb-top { padding: 5px 10px 6px; }
+  .eb-top .eb-hback { display: flex; width: 38px; justify-content: center; padding: 0; background: #ffd23f; }
+  .ebuy:not(.eb-detail):not(.eb-searching):not(.eb-drawer-on) .eb-hback .eb-ia { display: none; }
+  .ebuy:is(.eb-detail, .eb-searching, .eb-drawer-on) .eb-hback .eb-ix { display: none; }
+  .eb-logo { font-size: 30px; }
+  .eb-bar { padding: 6px 12px; }
+  .eb-side { width: 150px; padding: 8px; }
+  .eb-sideh { display: none; }
+  .eb-cat { height: 32px; }
 }
 
 /* ------------------------------------------------------------ phone */
