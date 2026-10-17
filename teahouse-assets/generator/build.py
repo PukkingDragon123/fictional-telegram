@@ -39,12 +39,15 @@ import npc                                                 # noqa: E402,F401
 import dragon
 import organic                                             # noqa: E402
 import wyvern                                              # noqa: E402,F401
+import season                                              # noqa: E402
+import seasons_room                                        # noqa: E402
+import giants                                              # noqa: E402
 
 SCALE_HI = 3
 LAYER_ORDER = ['wall', 'ceiling', 'counter_layer', 'npc', 'floor', 'counter', 'front']
 PREVIEW_FPS = 12
 LAYER_FPS = 6
-OUTPUT_DIRS = ['layers', 'props', 'props_3x', 'props_4x', 'nature', 'atlas', 'preview', 'palette']
+OUTPUT_DIRS = ['layers', 'props', 'props_3x', 'props_4x', 'nature', 'atlas', 'preview', 'palette', 'seasons']
 
 
 def save(cv, *p, scale=1):
@@ -76,6 +79,43 @@ def frame_at(frames, fps, t):
     return frames[int(t * fps) % len(frames)] if len(frames) > 1 else frames[0]
 
 
+def layer_fps(name, frames):
+    """The seasonal giants run at their own frame rate; every other layer at LAYER_FPS."""
+    return giants.FPS if name == '04_leviathan' and len(frames) == giants.NG else LAYER_FPS
+
+
+SURFACES = [LY.SHELF1_Y, LY.SHELF3_Y, LY.SILL_Y]
+
+
+def _process_prop(p):
+    """Draw a registered prop and finish it: the hand-drawn wobble, wear and moss,
+    and its shadow."""
+    out = p['fn']()
+    if p['name'] not in ORGANIC_SKIP:
+        sd = len(p['name']) * 1.7
+        if isinstance(out, dict):
+            out = {k: organic.organic_prop(v, p['x'], p['y'], sd) for k, v in out.items()}
+        else:
+            out = organic.organic_prop(out if isinstance(out, list) else [out], p['x'], p['y'], sd)
+    if isinstance(out, dict):
+        anims = {}
+        dx = 0
+        for k, v in out.items():
+            anims[k], dx = shadows.apply(p, v, SURFACES)
+        frames = next(iter(anims.values()))
+    else:
+        frames = out if isinstance(out, list) else [out]
+        if p['name'] in weather.WORN and len(frames) == 1:
+            frames = [weather.age(frames[0], seed=len(p['name']) * 131 + p['x'])]
+        if p['name'] in weather.MOSSY and len(frames) == 1:
+            frames = [weather.mossy(frames[0], seed=p['x'] + 7, n=weather.MOSSY[p['name']],
+                                    flat=p['name'] in weather.FLAT)]
+        frames, dx = shadows.apply(p, frames, SURFACES)
+        anims = None
+    return dict(p, frames=frames, anims=anims, sx=p['x'] - 1 - dx, sy=p['y'] - 1,
+                fps=p['fps'] or (6 if len(frames) > 1 else 0))
+
+
 # ---------------------------------------------------------------- scene
 # hand-drawn wobble everywhere except the characters and the fx
 ORGANIC_SKIP = {'dragon_peek', 'dragon_peek_front', 'fire_spirit', 'furnace_fire', 'furnace_coals', 'uncle_pong', 'alien_lucky_cat'}
@@ -93,39 +133,41 @@ class Scene:
         self.light = fx.light()
         print(f'  room + fx        {time.time() - t:5.1f}s')
         t = time.time()
-        self.props = []
-        surfaces = [LY.SHELF1_Y, LY.SHELF3_Y, LY.SILL_Y]
-        for p in propkit.PROPS:
-            out = p['fn']()
-            if p['name'] not in ORGANIC_SKIP:
-                sd = len(p['name']) * 1.7
-                if isinstance(out, dict):
-                    out = {k: organic.organic_prop(v, p['x'], p['y'], sd) for k, v in out.items()}
-                else:
-                    out = organic.organic_prop(out if isinstance(out, list) else [out], p['x'], p['y'], sd)
-            if isinstance(out, dict):
-                anims = {}
-                dx = 0
-                for k, v in out.items():
-                    anims[k], dx = shadows.apply(p, v, surfaces)
-                frames = next(iter(anims.values()))
-            else:
-                frames = out if isinstance(out, list) else [out]
-                if p['name'] in weather.WORN and len(frames) == 1:
-                    frames = [weather.age(frames[0], seed=len(p['name']) * 131 + p['x'])]
-                if p['name'] in weather.MOSSY and len(frames) == 1:
-                    frames = [weather.mossy(frames[0], seed=p['x'] + 7, n=weather.MOSSY[p['name']],
-                                            flat=p['name'] in weather.FLAT)]
-                frames, dx = shadows.apply(p, frames, surfaces)
-                anims = None
-            self.props.append(dict(p, frames=frames, anims=anims, sx=p['x'] - 1 - dx, sy=p['y'] - 1,
-                                   fps=p['fps'] or (6 if len(frames) > 1 else 0)))
+        self.props = [_process_prop(p) for p in propkit.PROPS]
         print(f'  {len(self.props)} props        {time.time() - t:5.1f}s')
+        # the base scene is summer with nothing seasonal added; use_season() swaps the rest in
+        self.base_outs, self.base_light = self.outs, self.light
+        self.window, self.sprops, self.season = None, [], None
+        self._seasons = {}
+
+    def use_season(self, s):
+        """Swap in a season's outside view, giant, window glass, light and seasonal props
+        (s=None: back to the plain base scene)."""
+        if s is None:
+            self.outs, self.light, self.window, self.sprops, self.season = \
+                self.base_outs, self.base_light, None, [], None
+            return
+        if s not in self._seasons:
+            t = time.time()
+            season.set_season(s)
+            try:
+                if s == 'summer':
+                    outs, light = self.base_outs, self.base_light
+                else:
+                    outs, light = outside.all_layers(), fx.light(s)
+                win = seasons_room.window_layer(s, self.shell)
+                sp = [_process_prop(p) for p in seasons_room.placed(s)]
+            finally:
+                season.set_season('summer')
+            self._seasons[s] = (outs, light, win, sp)
+            print(f'  {s:<8} season    {time.time() - t:5.1f}s')
+        self.outs, self.light, self.window, self.sprops = self._seasons[s]
+        self.season = s
 
     def outside_at(self, t, cam_x, width=LY.W):
         cv = Canvas(width, LY.H)
         for name, frames, fac, *off in self.outs:
-            fr = frame_at(frames, LAYER_FPS, t)
+            fr = frame_at(frames, layer_fps(name, frames), t)
             ox, oy = off[0] if off else (0, 0)
             origin = int(round(cam_x * (1 - fac)))
             x = origin % outside.OUT_W - outside.OUT_W
@@ -138,6 +180,8 @@ class Scene:
         for p in self.props:
             if p['layer'] == 'outside' and p.get('preview', True):
                 cv.blit(frame_at(p['frames'], p['fps'], t), p['sx'], p['sy'])
+        if self.window is not None:                     # the season on the glass
+            cv.blit(self.window, 0, 0)
 
     def _interior(self, cv, t, fg=True):
         cv.blit(self.shell, 0, 0)
@@ -145,7 +189,7 @@ class Scene:
             if layer == 'counter_layer':
                 cv.blit(self.counter, 0, 0)
                 continue
-            for p in self.props:
+            for p in self.props + self.sprops:
                 if p['layer'] == layer and p.get('preview', True):
                     cv.blit(frame_at(p['frames'], p['fps'], t), p['sx'], p['sy'])
         if fg:
@@ -465,7 +509,93 @@ def export_previews(sc, anims=True):
                 append_images=ims[1:] + ims[::-1][1:], duration=80, loop=0, lossless=True, method=4)
 
 
-def export_scene_json(layer_info, prop_recs, nature_recs, ncolors):
+def grid_sheet(frames, cols):
+    """Frames in rows of `cols` (left to right, top to bottom), for long loops."""
+    w, h = frames[0].w, frames[0].h
+    rows = (len(frames) + cols - 1) // cols
+    cv = Canvas(w * cols, h * rows)
+    for i, fr in enumerate(frames):
+        cv.blit(fr, (i % cols) * w, (i // cols) * h)
+    return cv
+
+
+GIANT = dict(spring='a giant koi leaping', summer='the whale-like leviathan breaching',
+             autumn='a giant fox skipping across the water', winter='a giant red-crowned crane gliding over the lake')
+
+
+def export_seasons(sc, anims=True):
+    """seasons/<season>/: the outside view, the giant, the window glass, the light and the
+    seasonal props for each season, plus previews. Summer's outside and light are the base
+    layers, so its record points at those."""
+    shutil.rmtree(os.path.join(ROOT, 'seasons'), ignore_errors=True)
+    info = {}
+    wm = LY.WIN_MAIN
+    views = {}
+    for s in season.NAMES:
+        sc.use_season(s)
+        d = ('seasons', s)
+        rec = dict(giant=GIANT[s], outside_layers=[], props=[])
+        for name, frames, fac, *off in sc.outs:
+            if s == 'summer':
+                L = dict(name=name, file=f'layers/outside/{name}.png', parallax=fac, tile_width=outside.OUT_W,
+                         frames=len(frames))
+                if len(frames) > 1:
+                    L.update(sheet=f'layers/outside/{name}_sheet.png', fps=layer_fps(name, frames))
+            else:
+                L = dict(name=name, file=save(frames[0], *d, 'layers', 'outside', name + '.png'), parallax=fac,
+                         tile_width=outside.OUT_W, frames=len(frames))
+                if len(frames) > 1:
+                    cols = 10 if len(frames) >= 60 else 1
+                    L['sheet'] = save(grid_sheet(frames, cols) if cols > 1 else sheet(frames, vertical=True),
+                                      *d, 'layers', 'outside', name + '_sheet.png')
+                    L['fps'] = layer_fps(name, frames)
+                    if cols > 1:
+                        L['sheet_columns'] = cols
+            if off:
+                L.update(x=off[0][0], y=off[0][1], w=frames[0].w, h=frames[0].h)
+            rec['outside_layers'].append(L)
+        if sc.window is not None:
+            rec['window_glass'] = dict(file=save(sc.window, *d, 'layers', 'room', '09_window_glass.png'),
+                                       draw='after the outside layers and outside props, before 10_room_shell')
+        if s == 'summer':
+            rec['light_overlay'] = dict(file='layers/room/40_light_overlay.png',
+                                        sheet='layers/room/40_light_overlay_sheet.png', frames=len(sc.light),
+                                        fps=LAYER_FPS)
+        else:
+            rec['light_overlay'] = dict(file=save(sc.light[0], *d, 'layers', 'room', '40_light_overlay.png'),
+                                        sheet=save(sheet(sc.light, vertical=True), *d, 'layers', 'room',
+                                                   '40_light_overlay_sheet.png'),
+                                        frames=len(sc.light), fps=LAYER_FPS)
+        for p in sc.sprops:
+            fr = p['frames']
+            rd = f'room{p["room"]}'
+            r = dict(name=p['name'], room=p['room'], layer=p['layer'], x=p['sx'], y=p['sy'], w=fr[0].w, h=fr[0].h,
+                     draggable=p['drag'], desc=p['desc'], placed_by_default=True,
+                     file=save(fr[0], *d, 'props', rd, p['name'] + '.png'))
+            save(fr[0], *d, 'props_3x', rd, p['name'] + '.png', scale=SCALE_HI)
+            rec['props'].append(r)
+        # previews: the whole teahouse, each room, and the giant through the seating-room window
+        full = sc.compose(0)
+        save(full, *d, 'preview', 'teahouse_full_1x.png')
+        for i in range(4):
+            save(full.crop(i * LY.SW, 0, LY.SW, LY.H), *d, 'preview', f'room_{i + 1}_2x.png', scale=2)
+        views[s] = full.crop(LY.SW, 0, LY.SW, LY.H)
+        if anims and s != 'summer':
+            ims = [sc.view(k / giants.FPS, LY.SW).crop(wm['x'] - LY.SW - 8, wm['y'] - 8, wm['w'] + 16, wm['h'] + 40)
+                   .image(2).convert('RGB') for k in range(giants.NG)]
+            path = os.path.join(ROOT, *d, 'preview', 'giant_through_window.gif')
+            ims[0].save(path, save_all=True, append_images=ims[1:], duration=1000 // giants.FPS, loop=0, optimize=True)
+        info[s] = rec
+    sc.use_season(None)
+    # the seating room through the year, side by side
+    cv = Canvas(LY.SW * 2 + 4, LY.H * 2 + 4, fill='ink')
+    for i, s in enumerate(season.NAMES):
+        cv.blit(views[s], (i % 2) * (LY.SW + 4), (i // 2) * (LY.H + 4))
+    save(cv, 'preview', 'seasons_overview.png', scale=2)
+    return info
+
+
+def export_scene_json(layer_info, prop_recs, nature_recs, ncolors, seasons_info=None):
     scene = dict(
         name='Old Rundown Teahouse', version=3,
         native_resolution=[LY.W, LY.H], viewport=[LY.SW, LY.SH],
@@ -486,6 +616,11 @@ def export_scene_json(layer_info, prop_recs, nature_recs, ncolors):
         npc_note='NPC sprites end at the counter back edge (y=%d); slide them along x to seat them' % LY.COUNTER['back'],
         parallax_note='screen_x = -camera_x * parallax (tile outside layers every tile_width px)',
         palette_colors=ncolors, layers=layer_info, props=prop_recs, nature=nature_recs)
+    if seasons_info:
+        scene['seasons_note'] = ('the base scene is summer with nothing seasonal added. For a season, use its '
+                                 'outside_layers instead of the base ones, draw window_glass just before '
+                                 '10_room_shell, use its light_overlay, and add its props')
+        scene['seasons'] = seasons_info
     with open(os.path.join(ROOT, 'scene.json'), 'w') as fh:
         json.dump(scene, fh, indent=1)
     os.makedirs(os.path.join(ROOT, 'demo'), exist_ok=True)
@@ -508,7 +643,8 @@ def main():
     nat = export_nature()
     label_sheet(sc)
     export_previews(sc, anims=not quick)
-    export_scene_json(layers, props, nat, ncol)
+    seas = export_seasons(sc, anims=not quick)
+    export_scene_json(layers, props, nat, ncol, seas)
     print(f'done in {time.time() - t0:.1f}s -> {ROOT}')
 
 

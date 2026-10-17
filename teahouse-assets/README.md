@@ -87,6 +87,37 @@ The order is a painter's order: rough, sketch, flat colour, light and shadow, de
 
 Each piece writes `*_timelapse.mp4`, `*_timelapse.gif`, a layered `*_layers.psd` and `*_final.png`. The PSD keeps the rough layers, hidden, and flattens to the finished art. Pass `--cache=DIR` to keep the room data between runs.
 
+## The four seasons
+
+The base scene is summer. `seasons/<season>/` holds what changes for spring, summer, autumn and winter. `scene.json` lists it under `seasons`.
+
+**Outside, through every window**
+- **Spring:** cherry blossom on the zelkovas and some of the oaks, fresh green, azaleas, daisies and cosmos. Petals turn in the air and float on the lake. The sky goes pale toward a pink horizon, and late snow is left on the high peaks.
+- **Summer:** the base garden: deep green, hydrangeas, butterflies and dragonflies.
+- **Autumn:** the maples go red, orange and gold, the birches gold and the willow yellow, while the pines and cypresses stay green. The far forest turns rust and red. The grass is gold, with pampas and red spider lilies. Red dragonflies fly, leaves blow on the wind and float on the lake, and the sky is clear with a warm horizon.
+- **Winter:** the broadleaf trees are bare, with snow on every branch. Snow caps the pines and cypresses. Snow covers the ground and the flower bed, with dry stalks poking through. The mountains are white to their feet, there is ice along the near shore, the sky is a low grey snow-cloud, and snow is falling.
+
+The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.75) is the drift in front of the garden.
+
+**The lake's giant** (`04_leviathan`) changes with the season. Each one is a small 3D model rendered frame by frame, at 120 frames and 12 fps (10 s). The sheet is a grid; its record has `sheet_columns`.
+- **Spring:** a giant koi, white with red patches and long see-through butterfly fins. It leaps in a slow arc, bending as it swims through the air, and slips back in among the petals.
+- **Summer:** the whale-like leviathan breaches (as above).
+- **Autumn:** a giant fox comes skipping across the water from left to right, bound after bound. Every time its paws touch down, the water splashes and rings spread out. Its reflection runs with it, and a few fox-fire wisps trail behind.
+- **Winter:** a giant red-crowned crane glides in low over the lake with slow, deep wingbeats. It has black-edged wings, a black neck and a red crown, and its legs trail behind. Its wingtips brush the water, and it climbs away.
+
+**The rooms**
+- **The glass** (`layers/room/09_window_glass.png`) is drawn between the outside and the room shell, so it only shows in the panes:
+  - spring: petals on the sills and the glass
+  - autumn: maple leaves
+  - winter: frost growing in from the edge of every pane, snow heaped on the outer sills, and icicles
+- **The light** (`40_light_overlay`) changes with the season: soft in spring, low golden autumn sun that reaches further across the floor, and cool snow-light in winter, with the hearth and the lantern glowing warmer against it.
+- **Seasonal things** in the rooms (`props`):
+  - **Spring:** a cherry branch in an indigo vase (seating counter), hanami dango (tea counter), bamboo shoots in a basket (prep table).
+  - **Summer:** shaved ice with strawberry syrup, a paper fan, watermelon.
+  - **Autumn:** strings of dried persimmons on the drying pole, a bowl of persimmons, a moon-viewing offering of dango and pampas grass.
+  - **Winter:** daikon hung to dry, a bowl of mandarins, a snow rabbit on the window sill, kagami mochi.
+- `preview/seasons_overview.png` shows the seating room in all four seasons. `seasons/<season>/preview/` has the whole teahouse, each room, and `giant_through_window.gif`.
+
 ## The pendulum clock
 
 `pendulum_clock` runs: 120 frames at 4 fps. The brass pendulum swings tick-tock, and the red second hand ticks once per swing, all the way round, so the loop is seamless.
@@ -218,6 +249,8 @@ atlas/            all prop frames packed into one PNG + JSON (anims, fps, layer,
 nature/           stand-alone grown trees (black pine, zelkova, oaks, weeping willow, white birch,
                   hinoki cypress, a shrub), flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
+seasons/<season>/ spring, summer, autumn, winter: layers/outside (the view and its giant), layers/room
+                  (09_window_glass, 40_light_overlay), props + props_3x (seasonal things), preview
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
@@ -237,6 +270,12 @@ Draw these back to front:
 7. props with `layer: floor`, then `layer: counter`, then `layer: front`
 8. `layers/room/30_foreground` (the posts between rooms, parallax 1)
 9. `layers/room/40_light_overlay` (normal or screen blend)
+
+**Seasons:** for a season, take `scene.json` → `seasons.<season>`:
+- Use its `outside_layers` in place of the base ones in step 1 (summer points at the base files). The giant's sheet is a grid with `sheet_columns`, at its own `fps`.
+- Draw its `window_glass` between steps 2 and 3.
+- Use its `light_overlay` in step 9.
+- Draw its `props` with the others of the same layer.
 
 Props with an `on_click` list in `scene.json` are interactive: on a click, play each listed one-shot anim once, then switch that prop to its `then` anim.
 
@@ -268,6 +307,7 @@ Some props are exported but not placed by default, which keeps the counter and s
 - `preview/silk_bed.png`: the silk bed close up
 - `preview/fire_spirit_idle.gif`, `fire_spirit_talk.gif`, `fire_spirit_happy.gif`, `alien_lucky_cat.gif`: close-ups
 - `preview/pan_parallax.webp`: a camera pan across the four rooms
+- `preview/seasons_overview.png`: the seating room in spring, summer, autumn and winter
 - `preview/props_contact_sheet.png`: every prop, labelled
 
 ## Regenerating / tweaking

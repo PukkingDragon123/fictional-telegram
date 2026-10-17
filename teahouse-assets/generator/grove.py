@@ -40,6 +40,40 @@ LEAF_PINE = ('ink', 'jade0', 'jade1', 'leaf1', 'jade2', 'leaf2', 'jade3', 'leaf3
 LEAF_CYPRESS = ('jade0', 'leaf0', 'jade1', 'jade2', 'jade3', 'leaf3')
 BARK = ('ink', 'wood0', 'wood1', 'wood2', 'paper0', 'stone2', 'stone3')
 BARK_BIRCH = ('stone0', 'stone1', 'stone2', 'stone3', 'stone4', 'cloud2', 'cloud3')
+# the seasons (season.py)
+SAKURA = ('pink0', 'pink1', 'pink2', 'pink3', 'pink4', 'pink4', 'white')
+AZALEA = ('pink0', 'pink1', 'pink1', 'pink2', 'pink3', 'pink4')
+AUT_RED = ('red0', 'red1', 'scarlet1', 'scarlet2', 'scarlet3', 'fire3', 'fire4')
+AUT_ORANGE = ('red0', 'copper1', 'copper2', 'fire2', 'fire3', 'gold3', 'fire4')
+AUT_GOLD = ('wood1', 'gold0', 'gold1', 'gold2', 'gold3', 'gold4', 'gold4')
+AUT_RUST = ('wood0', 'copper0', 'copper1', 'copper2', 'copper3', 'copper4')
+AUT_WILLOW = ('leaf0', 'leaf1', 'gold1', 'gold2', 'gold3', 'gold4', 'gold4')
+TWIG = ('ink', 'wood0', 'wood1', 'wood2', 'wood3')
+SNOW_LIT, SNOW_SHADE = 'white', 'cloud2'
+# kind -> {season: ramp, or None for bare branches}
+SEASON_LEAF = {
+    'zelkova': dict(spring=SAKURA, autumn=AUT_ORANGE, winter=None),
+    'oak': dict(spring=LEAF_SPRING, autumn=AUT_RED, winter=None),
+    'oak_alt': dict(spring=SAKURA, autumn=AUT_RUST, winter=None),
+    'willow': dict(spring=LEAF_SPRING, autumn=AUT_WILLOW, winter=None),
+    'birch': dict(spring=LEAF_SPRING, autumn=AUT_GOLD, winter=None),
+}
+
+
+def _season():
+    import season
+    return season.current
+
+
+def season_ramp(kind, ramp, seed=0):
+    """(ramp, bare) for this kind of tree in the current season."""
+    s = _season()
+    if s == 'summer' or kind not in SEASON_LEAF:
+        return ramp, False
+    if kind == 'oak' and seed % 2 == 1:
+        kind = 'oak_alt'
+    r = SEASON_LEAF[kind][s]
+    return (ramp, True) if r is None else (r, False)
 
 
 def _hash(x, y, s):
@@ -271,7 +305,35 @@ class Painter:
             n = len(ramp)
             idx = np.clip(np.floor(self.v * (n - 1) + 0.5) - 1, 0, n - 1).astype(int)
             cv.a[m, :3] = rgb[idx[m]]
+        if _season() == 'winter':
+            snow(cv, self.mat > 0, self.v, leafy=self.mat >= 2)
         return cv
+
+
+def snow(cv, solid, v=None, leafy=None, depth=2):
+    """Snow settled on every upward-facing surface: a bright cap on the lit
+    side, blue-grey in shade, thicker on leaves and needles than on twigs."""
+    h, w = solid.shape
+    above = np.zeros_like(solid)
+    above[1:] = solid[:-1]
+    top = solid & ~above
+    if v is None:
+        v = np.full(solid.shape, 0.6)
+    yy, xx = np.mgrid[0:h, 0:w]
+    gap = _hash(np.floor(xx / 3.0), np.floor(yy / 2.0), 5.3) < 0.12          # a few bare spots
+    cap = top & ~gap
+    cv.a[cap & (v >= 0.42), :3] = PAL[SNOW_LIT]
+    cv.a[cap & (v < 0.42), :3] = PAL[SNOW_SHADE]
+    if leafy is not None and depth > 1:
+        second = np.zeros_like(cap)
+        second[1:] = cap[:-1]
+        second &= solid & leafy & (_hash(xx, yy, 9.1) < 0.85)
+        cv.a[second & (v >= 0.5), :3] = PAL['cloud3']
+        cv.a[second & (v < 0.5), :3] = PAL['cloud1']
+        third = np.zeros_like(cap)
+        third[1:] = second[:-1]
+        third &= solid & leafy & (_hash(xx, yy, 3.7) < 0.45)
+        cv.a[third, :3] = PAL['cloud1']
 
 
 # ---------------------------------------------------------------- trees
@@ -293,8 +355,9 @@ def _sway(f, y, base_y, h, amp=1.3, phase=0.0):
 
 def broadleaf(seed=1, w=200, h=180, crown=(0.5, 0.36, 0.42, 0.3), ramp=LEAF_RICH, bark=BARK, n_points=520,
               trunk_frac=0.5, lean=4.0, cluster=(3.4, 5.2), umbrella=False, birch=False, stems=1,
-              holes=0.32, weeping=False, conical=False, r_max=9.0, limbs=(), fork=0.5):
+              holes=0.32, weeping=False, conical=False, r_max=9.0, limbs=(), fork=0.5, kind=None):
     """A broadleaf tree grown into the crown ellipse (fractions of w and h)."""
+    ramp, bare = season_ramp(kind, ramp, seed)
     rng = random.Random(seed)
     bx, by = w * 0.5 + rng.uniform(-3, 3), h - 4
     C = (w * crown[0], h * crown[1])
@@ -354,7 +417,10 @@ def broadleaf(seed=1, w=200, h=180, crown=(0.5, 0.36, 0.42, 0.3), ramp=LEAF_RICH
         for (x, y, z, rad, sd) in clusters:
             if rng.random() < 0.55:
                 strands.append((x, y, z, rng.uniform(16, 46) * (0.6 + 0.4 * (y - C[1] + R[1]) / (2 * R[1])), sd))
-    mats = {1: bark, 2: ramp}
+    mats = {1: bark, 2: ramp, 3: TWIG}
+    if bare:                                                    # winter: the bare branches, twigs to the tips
+        clusters = []
+        strands = [(x, y, z, ln * 0.8, sd) for (x, y, z, ln, sd) in strands]
 
     def draw(f):
         P = Painter(w, h)
@@ -391,7 +457,9 @@ def broadleaf(seed=1, w=200, h=180, crown=(0.5, 0.36, 0.42, 0.3), ramp=LEAF_RICH
                         P.z[int(yy), int(xx)] = zz
                         P.v[int(yy), int(xx)] = 0.45 + 0.35 * (1 - t) * (xx < C[0]) + 0.12 * math.sin(k + sd) \
                             - 0.15 * (z < 0)
-                        P.mat[int(yy), int(xx)] = 2
+                        P.mat[int(yy), int(xx)] = 3 if bare else 2
+                    if bare:
+                        continue
                     if k % 3 == 1 and 0 <= int(xx) + 1 < w and zz > P.z[int(yy), int(xx) + 1]:   # little leaves
                         P.z[int(yy), int(xx) + 1] = zz
                         P.v[int(yy), int(xx) + 1] = 0.35 + 0.2 * (1 - t)
@@ -448,25 +516,26 @@ def _k(v, k):
 def zelkova(seed=3, k=1.0):
     return broadleaf(seed, _k(230, k), _k(186, k), (0.5, 0.33, 0.45, 0.3), LEAF_RICH, umbrella=True,
                      n_points=_k(640, k), lean=3 * k, cluster=(3.2, 5.2), trunk_frac=0.62,
-                     limbs=((-48, 34 * k), (-16, 30 * k), (14, 32 * k), (44, 34 * k)), fork=0.42, r_max=9 * k)
+                     limbs=((-48, 34 * k), (-16, 30 * k), (14, 32 * k), (44, 34 * k)), fork=0.42, r_max=9 * k,
+                     kind='zelkova')
 
 
 def oak(seed=4, k=1.0, ramp=LEAF_COOL):
     return broadleaf(seed, _k(200, k), _k(168, k), (0.5, 0.38, 0.42, 0.31), ramp, n_points=_k(560, k),
                      lean=5 * k, cluster=(3.2, 5.2), holes=0.28, limbs=((-55, 30 * k), (-8, 22 * k), (40, 30 * k)),
-                     fork=0.55, r_max=8 * k)
+                     fork=0.55, r_max=8 * k, kind='oak')
 
 
 def willow(seed=7, k=1.0):
     return broadleaf(seed, _k(200, k), _k(172, k), (0.5, 0.3, 0.38, 0.22), LEAF_SPRING, n_points=_k(380, k),
                      lean=7 * k, cluster=(2.6, 3.8), weeping=True, holes=0.42,
-                     limbs=((-50, 26 * k), (-5, 20 * k), (45, 26 * k)), fork=0.6, r_max=7 * k)
+                     limbs=((-50, 26 * k), (-5, 20 * k), (45, 26 * k)), fork=0.6, r_max=7 * k, kind='willow')
 
 
 def birch(seed=9, k=1.0):
     return broadleaf(seed, _k(130, k), _k(176, k), (0.5, 0.3, 0.36, 0.26), LEAF_SPRING, BARK_BIRCH,
                      n_points=_k(360, k), lean=3 * k, cluster=(2.4, 3.6), birch=True, stems=2, holes=0.42,
-                     r_max=4.5 * k)
+                     r_max=4.5 * k, kind='birch')
 
 
 def cypress(seed=11, k=1.0):
@@ -475,6 +544,13 @@ def cypress(seed=11, k=1.0):
 
 
 def shrub(seed, w=44, h=26, ramp=LEAF_RICH):
+    s_ = _season()
+    if s_ == 'spring':
+        ramp = AZALEA if seed % 2 else LEAF_SPRING
+    elif s_ == 'autumn':
+        ramp = (LEAF_RICH, AUT_RED, AUT_ORANGE)[seed % 3]
+    elif s_ == 'winter':
+        ramp = LEAF_CYPRESS                                  # dark evergreen under the snow
     rng = random.Random(seed)
     C, R = (w / 2, h * 0.55), (w * 0.46, h * 0.45, 10)
     cl = [(C[0] + x, C[1] + y, z, rng.uniform(3, 4.6), rng.random() * 9)
@@ -553,20 +629,47 @@ def drifting_leaf(cv, x, y, f, ramp=LEAF_RICH):
             cv.a[Y, X] = (*c, 255)
 
 
+def red_dragonfly(cv, x, y, f):
+    body, wing = PAL['scarlet2'], PAL['cloud3']
+    for k in range(6):
+        X, Y = int(x + k), int(y)
+        if 0 <= X < cv.w and 0 <= Y < cv.h:
+            cv.a[Y, X] = (*(PAL['red0'] if k == 0 else (body if k < 4 else PAL['scarlet3'])), 255)
+    up = f % 2 == 0
+    for dx in (1, 2):
+        for dy in ((-1, -2) if up else (1,)):
+            X, Y = int(x + dx), int(y + dy)
+            if 0 <= X < cv.w and 0 <= Y < cv.h:
+                cv.a[Y, X] = (*wing, 150) if not cv.a[Y, X, 3] else cv.a[Y, X]
+
+
 def garden_life(frames, rng, ground):
-    """Butterflies over the flowers and dragonflies by the lake.
+    """Butterflies over the flowers and dragonflies by the lake; in spring
+    white and yellow butterflies and petals turning in the air, in autumn red
+    dragonflies and leaves, in winter the garden is still.
     Every path is periodic over F frames, so the layer loops."""
+    s_ = _season()
+    if s_ == 'winter':
+        return frames
     W = frames[0].w
     flyers = []
     kinds = list(BUTTERFLIES)
-    for i in range(26):
+    if s_ == 'spring':
+        kinds = ['white', 'yellow', 'white', 'blue']
+    elif s_ == 'autumn':
+        kinds = ['orange', 'yellow', 'orange', 'orange']
+    for i in range(26 if s_ != 'autumn' else 8):
         x0 = rng.uniform(0, W)
         y0 = rng.uniform(ground - 44, ground - 6)
         flyers.append(('b', x0, y0, rng.uniform(5, 11), rng.uniform(3, 7), rng.random() * 6.3, kinds[i % 4],
                        rng.choice((1, 1, -1))))
-    for i in range(6):
+    for i in range(6 if s_ != 'autumn' else 18):
         flyers.append(('d', rng.uniform(0, W), rng.uniform(ground - 30, ground - 18), rng.uniform(6, 14), 2,
                        rng.random() * 6.3, None, rng.choice((1, -1))))
+    if s_ in ('spring', 'autumn'):                         # petals or leaves turning in the air
+        for i in range(40):
+            flyers.append(('l', rng.uniform(0, W), rng.uniform(ground - 60, ground - 4), rng.uniform(3, 8),
+                           rng.uniform(2, 5), rng.random() * 6.3, i % 3, 1))
     for f, cv in enumerate(frames):
         t = 2 * math.pi * f / F
         for (kind, x0, y0, ax, ay, ph, sp, dr) in flyers:
@@ -578,5 +681,10 @@ def garden_life(frames, rng, ground):
                 k = (f + int(ph * 2)) % F
                 x = x0 + ax * (0 if k < 3 else (k - 3) / 4.0) * dr
                 y = y0 + (1 if k in (2, 6) else 0)
-                dragonfly(cv, x, y, f)
+                (red_dragonfly if s_ == 'autumn' else dragonfly)(cv, x, y, f)
+            elif kind == 'l':
+                x = x0 + ax * math.sin(t + ph)
+                y = y0 + ay * math.sin(2 * t + ph) * 0.5
+                ramp = ((SAKURA, AZALEA, SAKURA) if s_ == 'spring' else (AUT_RED, AUT_ORANGE, AUT_GOLD))[sp]
+                drifting_leaf(cv, x, y, f + int(ph * 2), ramp)
     return frames

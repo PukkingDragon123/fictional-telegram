@@ -2420,5 +2420,543 @@
    "fps": 8,
    "sheet": "nature/particles/particle_leaf_jade_sheet.png"
   }
- ]
+ ],
+ "seasons_note": "the base scene is summer with nothing seasonal added. For a season, use its outside_layers instead of the base ones, draw window_glass just before 10_room_shell, use its light_overlay, and add its props",
+ "seasons": {
+  "spring": {
+   "giant": "a giant koi leaping",
+   "outside_layers": [
+    {
+     "name": "00_sky",
+     "file": "seasons/spring/layers/outside/00_sky.png",
+     "parallax": 0.04,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "01_clouds",
+     "file": "seasons/spring/layers/outside/01_clouds.png",
+     "parallax": 0.08,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "02_mountains",
+     "file": "seasons/spring/layers/outside/02_mountains.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "03_lake",
+     "file": "seasons/spring/layers/outside/03_lake.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 12,
+     "sheet": "seasons/spring/layers/outside/03_lake_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "04_leviathan",
+     "file": "seasons/spring/layers/outside/04_leviathan.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 120,
+     "sheet": "seasons/spring/layers/outside/04_leviathan_sheet.png",
+     "fps": 12,
+     "sheet_columns": 10,
+     "x": 190,
+     "y": 44,
+     "w": 440,
+     "h": 160
+    },
+    {
+     "name": "05_hills_trees",
+     "file": "seasons/spring/layers/outside/05_hills_trees.png",
+     "parallax": 0.22,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "06_garden_trees",
+     "file": "seasons/spring/layers/outside/06_garden_trees.png",
+     "parallax": 0.34,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/spring/layers/outside/06_garden_trees_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "07_flowers_close",
+     "file": "seasons/spring/layers/outside/07_flowers_close.png",
+     "parallax": 0.62,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/spring/layers/outside/07_flowers_close_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "08_petals",
+     "file": "seasons/spring/layers/outside/08_petals.png",
+     "parallax": 0.75,
+     "tile_width": 1280,
+     "frames": 24,
+     "sheet": "seasons/spring/layers/outside/08_petals_sheet.png",
+     "fps": 6
+    }
+   ],
+   "props": [
+    {
+     "name": "sakura_branch_vase",
+     "room": 2,
+     "layer": "counter",
+     "x": 1175,
+     "y": 199,
+     "w": 66,
+     "h": 100,
+     "draggable": true,
+     "desc": "A branch of cherry blossom in a tall indigo-and-white vase, a few petals fallen on the counter",
+     "placed_by_default": true,
+     "file": "seasons/spring/props/room2/sakura_branch_vase.png"
+    },
+    {
+     "name": "hanami_dango",
+     "room": 3,
+     "layer": "counter",
+     "x": 1413,
+     "y": 267,
+     "w": 48,
+     "h": 31,
+     "draggable": true,
+     "desc": "Two skewers of hanami dango - pink, white and green - on a red lacquer plate",
+     "placed_by_default": true,
+     "file": "seasons/spring/props/room3/hanami_dango.png"
+    },
+    {
+     "name": "bamboo_shoots_basket",
+     "room": 1,
+     "layer": "counter",
+     "x": 403,
+     "y": 229,
+     "w": 48,
+     "h": 59,
+     "draggable": true,
+     "desc": "Fresh bamboo shoots, still in their brown husks, in a bamboo basket",
+     "placed_by_default": true,
+     "file": "seasons/spring/props/room1/bamboo_shoots_basket.png"
+    }
+   ],
+   "window_glass": {
+    "file": "seasons/spring/layers/room/09_window_glass.png",
+    "draw": "after the outside layers and outside props, before 10_room_shell"
+   },
+   "light_overlay": {
+    "file": "seasons/spring/layers/room/40_light_overlay.png",
+    "sheet": "seasons/spring/layers/room/40_light_overlay_sheet.png",
+    "frames": 8,
+    "fps": 6
+   }
+  },
+  "summer": {
+   "giant": "the whale-like leviathan breaching",
+   "outside_layers": [
+    {
+     "name": "00_sky",
+     "file": "layers/outside/00_sky.png",
+     "parallax": 0.04,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "01_clouds",
+     "file": "layers/outside/01_clouds.png",
+     "parallax": 0.08,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "02_mountains",
+     "file": "layers/outside/02_mountains.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "03_lake",
+     "file": "layers/outside/03_lake.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 12,
+     "sheet": "layers/outside/03_lake_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "04_leviathan",
+     "file": "layers/outside/04_leviathan.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 72,
+     "sheet": "layers/outside/04_leviathan_sheet.png",
+     "fps": 6,
+     "x": 340,
+     "y": 57,
+     "w": 198,
+     "h": 140
+    },
+    {
+     "name": "05_hills_trees",
+     "file": "layers/outside/05_hills_trees.png",
+     "parallax": 0.22,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "06_garden_trees",
+     "file": "layers/outside/06_garden_trees.png",
+     "parallax": 0.34,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "layers/outside/06_garden_trees_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "07_flowers_close",
+     "file": "layers/outside/07_flowers_close.png",
+     "parallax": 0.62,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "layers/outside/07_flowers_close_sheet.png",
+     "fps": 6
+    }
+   ],
+   "props": [
+    {
+     "name": "kakigori",
+     "room": 2,
+     "layer": "counter",
+     "x": 951,
+     "y": 261,
+     "w": 36,
+     "h": 35,
+     "draggable": true,
+     "desc": "Shaved ice heaped in a glass bowl, red strawberry syrup running down it, a little spoon",
+     "placed_by_default": true,
+     "file": "seasons/summer/props/room2/kakigori.png"
+    },
+    {
+     "name": "uchiwa_fan",
+     "room": 3,
+     "layer": "counter",
+     "x": 1429,
+     "y": 271,
+     "w": 54,
+     "h": 25,
+     "draggable": true,
+     "desc": "A round paper fan lying on the counter, painted with a goldfish among waves",
+     "placed_by_default": true,
+     "file": "seasons/summer/props/room3/uchiwa_fan.png"
+    },
+    {
+     "name": "watermelon_plate",
+     "room": 1,
+     "layer": "counter",
+     "x": 409,
+     "y": 263,
+     "w": 50,
+     "h": 27,
+     "draggable": true,
+     "desc": "Wedges of watermelon on a plain plate, black seeds, green rind",
+     "placed_by_default": true,
+     "file": "seasons/summer/props/room1/watermelon_plate.png"
+    }
+   ],
+   "light_overlay": {
+    "file": "layers/room/40_light_overlay.png",
+    "sheet": "layers/room/40_light_overlay_sheet.png",
+    "frames": 8,
+    "fps": 6
+   }
+  },
+  "autumn": {
+   "giant": "a giant fox skipping across the water",
+   "outside_layers": [
+    {
+     "name": "00_sky",
+     "file": "seasons/autumn/layers/outside/00_sky.png",
+     "parallax": 0.04,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "01_clouds",
+     "file": "seasons/autumn/layers/outside/01_clouds.png",
+     "parallax": 0.08,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "02_mountains",
+     "file": "seasons/autumn/layers/outside/02_mountains.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "03_lake",
+     "file": "seasons/autumn/layers/outside/03_lake.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 12,
+     "sheet": "seasons/autumn/layers/outside/03_lake_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "04_leviathan",
+     "file": "seasons/autumn/layers/outside/04_leviathan.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 120,
+     "sheet": "seasons/autumn/layers/outside/04_leviathan_sheet.png",
+     "fps": 12,
+     "sheet_columns": 10,
+     "x": 170,
+     "y": 70,
+     "w": 460,
+     "h": 120
+    },
+    {
+     "name": "05_hills_trees",
+     "file": "seasons/autumn/layers/outside/05_hills_trees.png",
+     "parallax": 0.22,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "06_garden_trees",
+     "file": "seasons/autumn/layers/outside/06_garden_trees.png",
+     "parallax": 0.34,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/autumn/layers/outside/06_garden_trees_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "07_flowers_close",
+     "file": "seasons/autumn/layers/outside/07_flowers_close.png",
+     "parallax": 0.62,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/autumn/layers/outside/07_flowers_close_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "08_leaves",
+     "file": "seasons/autumn/layers/outside/08_leaves.png",
+     "parallax": 0.75,
+     "tile_width": 1280,
+     "frames": 24,
+     "sheet": "seasons/autumn/layers/outside/08_leaves_sheet.png",
+     "fps": 6
+    }
+   ],
+   "props": [
+    {
+     "name": "hoshigaki_persimmons",
+     "room": 1,
+     "layer": "ceiling",
+     "x": 103,
+     "y": 61,
+     "w": 67,
+     "h": 74,
+     "draggable": true,
+     "desc": "Strings of persimmons drying on the pole, turning from bright orange to deep amber",
+     "placed_by_default": true,
+     "file": "seasons/autumn/props/room1/hoshigaki_persimmons.png"
+    },
+    {
+     "name": "persimmon_bowl",
+     "room": 2,
+     "layer": "counter",
+     "x": 949,
+     "y": 265,
+     "w": 46,
+     "h": 32,
+     "draggable": true,
+     "desc": "A wooden bowl heaped with ripe persimmons, one with a leaf still on",
+     "placed_by_default": true,
+     "file": "seasons/autumn/props/room2/persimmon_bowl.png"
+    },
+    {
+     "name": "tsukimi_offering",
+     "room": 3,
+     "layer": "counter",
+     "x": 1403,
+     "y": 229,
+     "w": 74,
+     "h": 70,
+     "draggable": true,
+     "desc": "A moon-viewing offering: white dango stacked on a wooden stand, pampas grass in a jar beside it",
+     "placed_by_default": true,
+     "file": "seasons/autumn/props/room3/tsukimi_offering.png"
+    }
+   ],
+   "window_glass": {
+    "file": "seasons/autumn/layers/room/09_window_glass.png",
+    "draw": "after the outside layers and outside props, before 10_room_shell"
+   },
+   "light_overlay": {
+    "file": "seasons/autumn/layers/room/40_light_overlay.png",
+    "sheet": "seasons/autumn/layers/room/40_light_overlay_sheet.png",
+    "frames": 8,
+    "fps": 6
+   }
+  },
+  "winter": {
+   "giant": "a giant red-crowned crane gliding over the lake",
+   "outside_layers": [
+    {
+     "name": "00_sky",
+     "file": "seasons/winter/layers/outside/00_sky.png",
+     "parallax": 0.04,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "01_clouds",
+     "file": "seasons/winter/layers/outside/01_clouds.png",
+     "parallax": 0.08,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "02_mountains",
+     "file": "seasons/winter/layers/outside/02_mountains.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "03_lake",
+     "file": "seasons/winter/layers/outside/03_lake.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 12,
+     "sheet": "seasons/winter/layers/outside/03_lake_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "04_leviathan",
+     "file": "seasons/winter/layers/outside/04_leviathan.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 120,
+     "sheet": "seasons/winter/layers/outside/04_leviathan_sheet.png",
+     "fps": 12,
+     "sheet_columns": 10,
+     "x": 160,
+     "y": 22,
+     "w": 470,
+     "h": 170
+    },
+    {
+     "name": "05_hills_trees",
+     "file": "seasons/winter/layers/outside/05_hills_trees.png",
+     "parallax": 0.22,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "06_garden_trees",
+     "file": "seasons/winter/layers/outside/06_garden_trees.png",
+     "parallax": 0.34,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/winter/layers/outside/06_garden_trees_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "07_flowers_close",
+     "file": "seasons/winter/layers/outside/07_flowers_close.png",
+     "parallax": 0.62,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/winter/layers/outside/07_flowers_close_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "08_snowfall",
+     "file": "seasons/winter/layers/outside/08_snowfall.png",
+     "parallax": 0.75,
+     "tile_width": 1280,
+     "frames": 24,
+     "sheet": "seasons/winter/layers/outside/08_snowfall_sheet.png",
+     "fps": 6
+    }
+   ],
+   "props": [
+    {
+     "name": "hanging_daikon",
+     "room": 1,
+     "layer": "ceiling",
+     "x": 103,
+     "y": 59,
+     "w": 67,
+     "h": 78,
+     "draggable": true,
+     "desc": "Daikon radishes hung from the pole to dry for the winter, tied by their leaves",
+     "placed_by_default": true,
+     "file": "seasons/winter/props/room1/hanging_daikon.png"
+    },
+    {
+     "name": "mikan_bowl",
+     "room": 2,
+     "layer": "counter",
+     "x": 949,
+     "y": 265,
+     "w": 46,
+     "h": 32,
+     "draggable": true,
+     "desc": "A bowl of mandarin oranges, a couple with leaves",
+     "placed_by_default": true,
+     "file": "seasons/winter/props/room2/mikan_bowl.png"
+    },
+    {
+     "name": "yuki_usagi",
+     "room": 2,
+     "layer": "wall",
+     "x": 945,
+     "y": 191,
+     "w": 36,
+     "h": 26,
+     "draggable": true,
+     "desc": "A snow rabbit on the window sill: a mound of snow with red berry eyes and leaf ears, on a little tray",
+     "placed_by_default": true,
+     "file": "seasons/winter/props/room2/yuki_usagi.png"
+    },
+    {
+     "name": "kagami_mochi",
+     "room": 3,
+     "layer": "counter",
+     "x": 1413,
+     "y": 251,
+     "w": 42,
+     "h": 46,
+     "draggable": true,
+     "desc": "Kagami mochi for the new year: two rounds of mochi on a stand, a bitter orange on top, white paper beneath",
+     "placed_by_default": true,
+     "file": "seasons/winter/props/room3/kagami_mochi.png"
+    }
+   ],
+   "window_glass": {
+    "file": "seasons/winter/layers/room/09_window_glass.png",
+    "draw": "after the outside layers and outside props, before 10_room_shell"
+   },
+   "light_overlay": {
+    "file": "seasons/winter/layers/room/40_light_overlay.png",
+    "sheet": "seasons/winter/layers/room/40_light_overlay_sheet.png",
+    "frames": 8,
+    "fps": 6
+   }
+  }
+ }
 }

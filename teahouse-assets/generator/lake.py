@@ -40,9 +40,10 @@ def _quant(rgb, names, dither=10.0, yy=None, xx=None):
     return pal[d.argmin(-1)].astype(np.uint8)
 
 
-def lake_frames(above, horizon, W, H):
+def lake_frames(above, horizon, W, H, season='summer'):
     """above: (H, W, 4) uint8 composite of sky, clouds and mountains. Returns NL
-    RGBA arrays (H, W, 4), transparent above the horizon."""
+    RGBA arrays (H, W, 4), transparent above the horizon. The season adds what
+    floats on it: cherry petals, fallen leaves, or ice along the shore."""
     src = above[..., :3].astype(float)
     rows = H - horizon
     d = np.arange(1, rows + 1, dtype=float)[:, None]                       # distance below the horizon
@@ -50,6 +51,11 @@ def lake_frames(above, horizon, W, H):
     yy, xx = np.mgrid[0:rows, 0:W]
     deep = np.array(PAL['water0'], float) * 0.6 + np.array(PAL['teal1'], float) * 0.4
     mid = np.array(PAL['water1'], float)
+    names = WATER_PAL
+    if season == 'winter':                                                 # cold steel water
+        deep = np.array(PAL['indigo1'], float) * 0.6 + np.array(PAL['stone1'], float) * 0.4
+        mid = np.array(PAL['stone2'], float) * 0.5 + np.array(PAL['water0'], float) * 0.5
+        names = WATER_PAL + ['stone1', 'stone2', 'stone3']
     rng = np.random.RandomState(5)
     ph = rng.uniform(0, 6.28, (rows, 1))
     out = []
@@ -69,13 +75,14 @@ def lake_frames(above, horizon, W, H):
         crest = np.sin(d * 1.3 - 2 * t + np.sin(xs * 0.031 + d * 0.2) * 2.2)
         rgb += (crest > 0.86)[..., None] * 34.0 * np.clip(1.1 - d / 60.0, 0.3, 1)[..., None]
         rgb -= (crest < -0.9)[..., None] * 16.0
-        q = _quant(rgb, WATER_PAL, 12.0, yy, xx)
+        q = _quant(rgb, names, 12.0, yy, xx)
         a = np.zeros((H, W, 4), np.uint8)
         a[horizon:, :, :3] = q
         a[horizon:, :, 3] = 255
+        _float(a, horizon, rows, W, f, season)
         # glitter: sparkles that come and go, thickest on the lit (left) side of each window's view
         g = random.Random(100 + f)
-        for _ in range(260):
+        for _ in range(60 if season == 'winter' else 260):
             x = g.randrange(W)
             y = horizon + 1 + int(g.random() ** 1.6 * min(rows - 2, 36))
             ln = g.choice((1, 1, 2, 3))
@@ -85,6 +92,44 @@ def lake_frames(above, horizon, W, H):
         a[horizon, :, :3] = PAL['haze3']                                   # the far shore's bright waterline
         out.append(a)
     return out
+
+
+def _float(a, horizon, rows, W, f, season):
+    """What floats on the lake this season. Drifting things move on a loop of NL frames."""
+    t = 2 * math.pi * f / NL
+    if season in ('spring', 'autumn'):
+        g = random.Random(7)
+        cols = (['pink4', 'pink3', 'white', 'pink4'] if season == 'spring'
+                else ['scarlet2', 'fire3', 'gold3', 'copper2'])
+        for _ in range(900 if season == 'spring' else 520):
+            depth = g.random() ** 0.7
+            y = horizon + 2 + int(depth * min(rows - 3, 60))
+            x = int(g.uniform(0, W) + 1.5 * math.sin(t + g.uniform(0, 6.3))) % W
+            c = PAL[g.choice(cols)]
+            a[y, x, :3] = c
+            if depth > 0.45 and g.random() < 0.6:                   # nearer ones are bigger
+                a[y, (x + 1) % W, :3] = c
+    elif season == 'winter':
+        g = random.Random(8)
+        # ice along the near shore: floes, thin skim ice and snow on the bigger plates
+        for _ in range(110):
+            y = horizon + 20 + int(g.random() ** 0.6 * min(rows - 22, 40))
+            x = g.uniform(0, W)
+            ln = g.uniform(6, 30) * (0.5 + (y - horizon) / 60.0)
+            for k in range(int(ln)):
+                X = int(x + k) % W
+                u = k / max(1.0, ln - 1)
+                a[y, X, :3] = PAL['white' if 0.1 < u < 0.8 else 'cloud3']
+                if ln > 14 and 0.2 < u < 0.7:                              # the bigger plates are two rows deep
+                    a[y + 1, X, :3] = PAL['cloud2']
+                if (k * 7) % 5 == 0:
+                    a[y + 1 + (ln > 14 and 0.2 < u < 0.7), X, :3] = PAL['cloud1']
+        # a thin shelf of ice all along the near shore
+        for x in range(W):
+            y = horizon + rows - 1
+            y = min(y, horizon + 58 + int(2 * math.sin(x * 0.05)))
+            a[y - 1, x, :3] = PAL['cloud3']
+            a[y, x, :3] = PAL['white']
 
 
 # ---------------------------------------------------------------- the leviathan

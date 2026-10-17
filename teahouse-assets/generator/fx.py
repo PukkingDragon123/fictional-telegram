@@ -66,8 +66,15 @@ def _add(a, x0, x1, y0, y1, fn):
                     a[y, x] = (*col, al)
 
 
-def light():
+# the sun through the windows, by season: colour, strength, how far the low sun throws the shafts,
+# and how strongly the fire and lanterns glow against it
+SUN = dict(summer=(WARM, 1.0, 96, 1.0), spring=((255, 238, 226), 0.9, 90, 1.0),
+           autumn=((255, 204, 132), 1.3, 126, 1.1), winter=((228, 238, 255), 0.85, 110, 1.35))
+
+
+def light(season='summer'):
     """F frames of RGBA light."""
+    sun, k_sun, throw, k_fire = SUN[season]
     base = np.zeros((H, W, 4), np.uint8)
     wx, wy, ww, wh = WIN_MAIN['x'], WIN_MAIN['y'], WIN_MAIN['w'], WIN_MAIN['h']
     for k in range(4):
@@ -75,22 +82,22 @@ def light():
         x1 = wx + ww * (k + 1) // 4 - 6
         for y in range(wy, 312):
             t = (y - wy) / (312 - wy)
-            off = int(t * 96)
-            alpha = int(30 * (1 - t * 0.5))
+            off = int(t * throw)
+            alpha = int(30 * k_sun * (1 - t * 0.5))
             for x in range(x0 + off, x1 + off):
                 if 0 <= x < W:
                     edge = min(x - (x0 + off), (x1 + off) - x)
                     al = alpha if edge > 4 else alpha // 2
                     if base[y, x, 3] < al:
-                        base[y, x] = (*WARM, al)
+                        base[y, x] = (*sun, al)
     for y in range(WIN_ROUND['cy'], FLOOR + 14):          # moon-window shaft, fading out before the floor
         t = (y - WIN_ROUND['cy']) / (FLOOR + 14 - WIN_ROUND['cy'])
         r = int(WIN_ROUND['r'] * (0.9 - 0.25 * t))
-        c = int(WIN_ROUND['cx'] + t * 60)
+        c = int(WIN_ROUND['cx'] + t * 60 * throw / 96)
         for x in range(c - r, c + r):
-            al = int(22 * (1 - t) ** 1.5)
+            al = int(22 * k_sun * (1 - t) ** 1.5)
             if base[y, x, 3] < al:
-                base[y, x] = (*WARM, al)
+                base[y, x] = (*sun, al)
     from layout import WIN_BELL
     from room import bell_halfwidth
     yy, xx = np.mgrid[0:H, 0:W]
@@ -112,7 +119,13 @@ def light():
     base[sel, 3] = np.maximum(base[sel, 3], al[sel])
     lx, ly = 2441, 80                                     # bedroom red lantern glow
     _add(base, lx - 70, lx + 70, ly - 60, ly + 70,
-         lambda x, y: (FIRE, int(max(0, 40 * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))
+         lambda x, y: (FIRE, int(max(0, 40 * k_fire * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))
+    if season == 'winter':                                # cold snow-light spilling in under each window
+        for (cx, cy, rx) in ((wx + ww // 2, wy + wh + 14, ww * 0.6), (WIN_ROUND['cx'], WIN_ROUND['cy'] + 66, 80),
+                             (WIN_BELL['cx'], WIN_BELL['bottom'] + 12, 70)):
+            _add(base, int(cx - rx), int(cx + rx), int(cy - 30), int(cy + 50),
+                 lambda x, y, cx=cx, cy=cy, rx=rx: ((236, 244, 255),
+                                                     int(max(0, 26 * (1 - math.hypot((x - cx) / rx, (y - cy) / 40.0))))))
     frames = []
     rng = random.Random(910)
     motes = [(rng.uniform(wx, wx + ww + 120), rng.uniform(wy, 300), rng.uniform(0, 6.28)) for _ in range(360)]
@@ -124,7 +137,7 @@ def light():
         flick = 0.82 + 0.18 * math.sin(2 * math.pi * f / F) + 0.08 * math.sin(2 * math.pi * 3 * f / F + 1)
         R_ = 150 * flick
         _add(a, int(fcx - R_), int(fcx + R_), int(fcy - R_), H,
-             lambda x, y: (FIRE, int(70 * flick * max(0.0, 1 - math.hypot(x - fcx, (y - fcy) * 1.1) / R_) ** 1.4)))
+             lambda x, y: (FIRE, int(70 * k_fire * flick * max(0.0, 1 - math.hypot(x - fcx, (y - fcy) * 1.1) / R_) ** 1.4)))
         for (mx, my, ph) in motes + motes2:               # dust drifting in the beams
             x = int(mx + math.sin(2 * math.pi * f / F + ph) * 2)
             y = int(my - (f / F) * 3 + math.cos(ph) * 1)

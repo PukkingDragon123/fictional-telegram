@@ -13,8 +13,12 @@ Layout of the zip:
       props/3x/...            the same at 3x
       sprite_atlas/           every prop frame in one png + json
       nature/  palette/  previews/
+      seasons/<season>/       spring, summer, autumn, winter: window view, window glass, light, props, previews
 
 No readme, demo page, descriptions or labelled sheets: just the art and the scene data.
+
+Three zips: OUT.zip (everything but the seasons), OUT_seasons.zip (the seasons; unpack
+both into the same place) and OUT_mobile.zip (all of it at 1x with still previews, for phones).
 """
 import json
 import os
@@ -33,15 +37,20 @@ SKIP_PREVIEWS = ('uncle_pong', 'teahouse_no_fx', 'props_contact_sheet', 'wyvern_
 
 
 
-def _zip(tmp, out):
+def _zip(tmp, out, keep=None):
     """Plain zip that every unzipper opens, phones included: deflate only,
-    ASCII names, an entry for every folder, sensible permissions."""
+    ASCII names, an entry for every folder, sensible permissions. keep(rel_path)
+    can leave files and folders out."""
     if os.path.exists(out):
         os.remove(out)
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, allowZip64=False) as z:
         for dp, dirs, files in os.walk(tmp):
             dirs.sort()
             rel = os.path.relpath(dp, tmp)
+            if keep is not None and rel != '.' and not keep(rel.replace(os.sep, '/') + '/'):
+                continue
+            files = [f for f in files if keep is None or keep(os.path.relpath(os.path.join(dp, f), tmp)
+                                                             .replace(os.sep, '/'))]
             if rel != '.':
                 zi = zipfile.ZipInfo(rel.replace(os.sep, '/') + '/')
                 zi.external_attr = (0o40755 << 16) | 0x10
@@ -113,6 +122,43 @@ def main(out):
             sub = ROOMS[ri] if placed else 'extras/' + ROOMS[ri]
             put(rel, 'props/1x/%s/%s' % (sub, name))
             put(rel.replace('props/', 'props_3x/', 1), 'props/3x/%s/%s' % (sub, name))
+    # the seasons: each one's window view, glass, light, props and previews
+    for sname, rec in scene.get('seasons', {}).items():
+        sb = 'seasons/%s/' % sname
+        for L in rec.get('outside_layers', []):
+            for key in ('file', 'sheet'):
+                if key in L:
+                    src = L[key]
+                    name = os.path.basename(src)
+                    if src in moves:
+                        L[key] = moves[src]
+                    else:
+                        L[key] = put(src, sb + 'backgrounds/window_view/' + name)
+        if 'window_glass' in rec:
+            rec['window_glass'].pop('draw', None)
+            rec['window_glass']['file'] = put(rec['window_glass']['file'], sb + 'backgrounds/rooms/window_glass.png')
+        lo = rec.get('light_overlay')
+        if lo:
+            for key in ('file', 'sheet'):
+                src = lo.get(key)
+                if not src:
+                    continue
+                if src in moves:
+                    lo[key] = moves[src]
+                else:
+                    lo[key] = put(src, sb + 'backgrounds/rooms/' + os.path.basename(src).replace('40_', ''))
+        for p in rec.get('props', []):
+            room = ROOMS.get(p['room'], 'room%d' % p['room'])
+            name = os.path.basename(p['file'])
+            src = p['file']
+            p['file'] = put(src, sb + 'props/1x/%s/%s' % (room, name))
+            put(src.replace('/props/', '/props_3x/', 1), sb + 'props/3x/%s/%s' % (room, name))
+            p.pop('desc', None)
+        rec.pop('giant', None)
+        pdir = os.path.join(ROOT, 'seasons', sname, 'preview')
+        if os.path.isdir(pdir):
+            for f in sorted(os.listdir(pdir)):
+                put('seasons/%s/preview/%s' % (sname, f), sb + 'previews/' + f)
     # nature, atlas, palette, previews
     for n in scene.get('nature', []):
         for key in ('file', 'sheet'):
@@ -136,7 +182,14 @@ def main(out):
         L.pop('note', None)
     with open(os.path.join(base, 'scene.json'), 'w') as fh:
         json.dump(scene, fh, indent=1)
-    _zip(tmp, out)
+    # the full set in two zips that unpack into the same folder (each stays small enough to
+    # send): everything but the seasons, and the seasons (with the same scene.json)
+    seas = TOP + '/seasons/'
+    _zip(tmp, out, keep=lambda r: not r.startswith(seas) and r != seas)
+    _zip(tmp, out.replace('.zip', '_seasons.zip'),
+         keep=lambda r: r in (TOP + '/', TOP + '/scene.json', TOP + '/previews/', TOP + '/previews/seasons_overview.png')
+         or r.startswith(seas) or seas.startswith(r))
+    print('wrote', out.replace('.zip', '_seasons.zip'))
     lite = out.replace('.zip', '_mobile.zip')
     # phone-friendly copy: 1x art, backgrounds, scene and the still previews only (no 3x, no gifs, no demo)
     for d in ('props/3x', 'sprite_atlas'):
@@ -144,6 +197,15 @@ def main(out):
     for f in os.listdir(os.path.join(base, 'previews')):
         if not f.endswith('.png') or f.startswith(('props_contact', 'teahouse_full_1x', 'trees_sheet')):
             os.remove(os.path.join(base, 'previews', f))
+    sdir = os.path.join(base, 'seasons')
+    if os.path.isdir(sdir):
+        for sname in os.listdir(sdir):
+            shutil.rmtree(os.path.join(sdir, sname, 'props', '3x'), ignore_errors=True)
+            pv = os.path.join(sdir, sname, 'previews')
+            if os.path.isdir(pv):
+                for f in os.listdir(pv):
+                    if not f.endswith('.png') or f.startswith('teahouse_full_1x'):
+                        os.remove(os.path.join(pv, f))
     _zip(tmp, lite)
     print('wrote', lite)
     shutil.rmtree(tmp)
