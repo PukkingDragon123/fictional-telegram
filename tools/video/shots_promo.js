@@ -96,7 +96,11 @@ export function holdBear(b, { pose = 'idle', heading = null } = {}) {
 }
 // title-card shorthands
 const CARD = { y: 0.2, size: 104.17, outline: 5, outer: 4 };
-function card(c, lines, o) { return c.ov.card(lines, { ...CARD, ...o }); }
+function card(c, lines, o) {
+  // every card lands with a swish (slams with a boom)
+  c.at(Math.max(0, (o.t0 ?? 0) - 0.02), () => c.sfx(o.anim === 'slam' ? 'dramatic_boom' : 'swish', { vol: o.anim === 'slam' ? 0.7 : 0.8 }));
+  return c.ov.card(lines, { ...CARD, ...o });
+}
 
 // ------------------------------------------------------------------ the cast's spots
 const SHORE_S = { x: 67.4, z: 38.7 }; // the sand south of the pond
@@ -354,7 +358,7 @@ SHOTS.rampage = {
       { t: 0, x: 71.6, z: 26.0, y: 0.4, yaw: 0, pitch: 36, wupp: 0.0165 },
       { t: 4.6, x: 71.9, z: 25.9, y: 0.4, yaw: 0.04, pitch: 36, wupp: 0.0152 },
     ]);
-    c.at(0.15, () => { try { g.bears.startRampage(b); } catch (e) { console.warn('[dir] rampage', e); } c.sfx('dramatic_boom', { vol: 0.8 }); });
+    c.at(0.15, () => { try { g.bears.startRampage(b); } catch (e) { console.warn('[dir] rampage', e); } });
     c.at(1.25, () => { try { g.structures.damage(tub, 2); } catch (e) { console.warn('[dir] dmg', e); } g.rig.shake = 0.6; });
     c.at(1.55, () => { try { g.structures.damage(tub, 99); } catch (e) { console.warn('[dir] dmg', e); } g.rig.shake = 1.0; c.sfx('air_horn', { vol: 0.7 }); });
     c.at(1.75, () => { fox.play('horror', { fade: 0.1 }); fox.setExpression('horror', { hold: 3 }); });
@@ -401,6 +405,8 @@ export function winterScene(c) {
   const bs = [bearAt(g, 64.6, 42.3, 'office'), bearAt(g, 67.1, 42.5, 'intern'), bearAt(g, 69.6, 40.6, 'hipster'), bearAt(g, 63.9, 39.9, 'jogger')];
   for (const b of bs) b.cold = 1;
   try { g.resort?.visit?.(bs[2], tub); } catch (e) { console.warn('[dir] visit', e); }
+  // the others huddle round the campfire, shivering (scripted: they stay put)
+  for (const b of [bs[0], bs[1], bs[3]]) holdBear(b, { pose: 'idle', heading: Math.atan2(66 - b.x, 41 - b.z) });
   c.presim(0.4);
   c.every(() => { for (const b of bs) b.cold = Math.max(b.cold || 0, 0.92); });
   return { tub, bs };

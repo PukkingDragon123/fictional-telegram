@@ -128,6 +128,7 @@ SHOTS.sunrise = {
     c.ov.text('In a quiet valley...', { t0: 1.2, t1: 4.6, x: 0.5, y: 0.8, size: 41.67, anim: 'fade', outDur: 0.8, color: '#fff3dc', outlineColor: '#2a1630' });
     c.ov.text('...lives a fox with a plan.', { t0: 6.2, t1: 9.4, x: 0.5, y: 0.8, size: 41.67, anim: 'fade', outDur: 0.8, color: '#fff3dc', outlineColor: '#2a1630' });
     c.sfx('lake_morning', { vol: 1 });
+    c.sfx('morning_birds', { vol: 0.8 });
   },
 };
 
@@ -357,17 +358,18 @@ SHOTS.m_rampage = {
   dur: 2.4,
   async setup(c) {
     const g = c.g;
-    prep(c, { hour: 17.6 });
-    clearDecos(g, 60, 20, 84, 32);
-    g.structures.place('rs_hottub', 72, 24, { instant: true, free: true });
+    prep(c, { hour: 15.8 });
+    clearDecos(g, 60, 20, 84, 40);
+    const tub = g.structures.place('rs_hottub', 72, 24, { instant: true, free: true });
     g.structures.place('rs_ticket', 68, 24, { instant: true, free: true });
-    g.structures.place('lodge', 75, 27, { instant: true, free: true });
+    g.structures.place('lodge', 76, 27, { instant: true, free: true });
     c.presim(2);
-    const b = bearAt(g, 67.2, 26.2, 'office');
-    for (const bv of g.beavers.list) { bv.x = 70 + Math.random() * 2; bv.z = 26 + Math.random(); }
+    const b = bearAt(g, 70.6, 26.2, 'office');
+    for (const bv of g.beavers.list) { bv.x = 71 + Math.random() * 2; bv.z = 26.5 + Math.random(); }
     try { g.bears.startRampage(b); } catch (e) { console.warn('[dir] rampage', e); }
-    c.presim(0.9);
-    glimpse(c, { x: 71.0, z: 26.6, y: 0.4, yaw: 0.25, pitch: 26, wupp: 0.016 }, { x: 71.4, z: 26.4, y: 0.4, yaw: 0.2, pitch: 26, wupp: 0.0145 });
+    c.presim(0.5);
+    c.at(0.35, () => { try { g.structures.damage(tub, 99); } catch (e) { console.warn('[dir] dmg', e); } g.rig.shake = 1.0; });
+    glimpse(c, { x: 72.2, z: 26.4, y: 0.4, yaw: 0.25, pitch: 26, wupp: 0.0145 }, { x: 72.5, z: 26.2, y: 0.4, yaw: 0.2, pitch: 26, wupp: 0.0132 });
   },
 };
 
@@ -406,6 +408,7 @@ SHOTS.m_reynard = {
     const g = c.g;
     prep(c, { hour: 21.5 });
     clearDecos(g, 60, 39, 90, 56);
+    clearDecos(g, 75.5, 44, 81.5, 92);
     stockPond(g, 12);
     const fox = addFox(c, 78.6, 45.5, { ry: 0.0, anim: 'laugh_evil' });
     fox.setExpression('mwaha', { hold: 9 });
@@ -413,7 +416,7 @@ SHOTS.m_reynard = {
     c.hour = 21.5; c.phase = 'night';
     c.at(0.4, () => g.particles.coins(78.6, 1.7, 45.5, 14));
     c.at(1.4, () => g.particles.coins(78.6, 1.7, 45.5, 14));
-    glimpse(c, { x: 78.5, z: 45.3, y: 0.85, yaw: 0.0, pitch: 16, wupp: 0.0105 }, { x: 78.55, z: 45.4, y: 0.85, yaw: 0.0, pitch: 15, wupp: 0.0088 });
+    glimpse(c, { x: 78.5, z: 45.2, y: 1.0, yaw: 0.0, pitch: 18, wupp: 0.0098 }, { x: 78.55, z: 45.3, y: 0.95, yaw: 0.0, pitch: 17, wupp: 0.0084 });
   },
 };
 
@@ -430,6 +433,7 @@ SHOTS.title = {
     letterbox(c);
     c.ov.fade(0, 0.8, 1, 0.35, '#000');
     c.ov.card(['THE BEAR', 'MUST EAT'], { t0: 0.6, t1: 99, anim: 'slam', y: 0.42, size: 125, sizes: [104.17, 145.83], gap: -14, outline: 5, outer: 4, outlineColor: '#3a1408', outerColor: '#fff6e0', fill: FILL_GOLD, rot: -3, ribbon: 'a cozy incremental / tycoon', ribbonSize: 31.25, ribbonGap: 18 });
+    c.at(0.58, () => c.sfx('dramatic_boom', { vol: 0.55 }));
     c.ov.text('Music: "Morning" and "Fireflies and Stardust" by Kevin MacLeod (incompetech.com), CC BY 4.0', { t0: 2.0, t1: 99, x: 0.5, y: 0.935, size: 20.83, anim: 'fade', color: '#e8dcc8', outline: 2 });
   },
 };
