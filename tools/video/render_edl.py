@@ -17,7 +17,8 @@ for s in E['shots']:
         continue
     out = os.path.join(root, sid)
     f0, f1 = int(round(s['in'] * 30)), int(math.ceil(s['out'] * 30)) + 2
-    have = all(os.path.exists(os.path.join(out, 'f%05d.jpg' % i)) for i in range(f0, f1 - 2))
+    need = f0 + int(round((s['out'] - s['in']) * 30))  # frames build.py takes
+    have = all(os.path.exists(os.path.join(out, 'f%05d.jpg' % i)) for i in range(f0, need))
     if have and os.path.exists(os.path.join(out, 'game.wav')):
         print('skip', sid, flush=True)
         continue

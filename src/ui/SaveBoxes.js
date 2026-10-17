@@ -177,12 +177,11 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
     slot.el.classList.remove('is-asking');
     slot.tag.innerHTML = '<b class="tbx-ask">Bye!</b>';
     if (stage) {
+      // gone for real right away (the show below can be cut short by leaving)
+      deleteSlot(slot.n);
+      slot.info = { n: slot.n, empty: true, meta: null };
       // flaps shut, tape wraps, the boot; a fresh box drops in
-      stage.toss(slot.n - 1, () => {
-        deleteSlot(slot.n);
-        slot.info = { n: slot.n, empty: true, meta: null };
-        paint(slot);
-      }).then(() => { slot.busy = false; });
+      stage.toss(slot.n - 1, () => paint(slot)).then(() => { slot.busy = false; });
       return;
     }
     // flaps shut, tape, boot

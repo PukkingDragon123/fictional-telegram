@@ -455,7 +455,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     }
     if (nap) {
       const rc = nap.getBoundingClientRect(), hr = host.getBoundingClientRect();
-      toPlane(rc.left - hr.left + rc.width / 2, rc.top - hr.top + rc.height * 0.86, _p);
+      toPlane(rc.left - hr.left + rc.width / 2, rc.top - hr.top + rc.height * 0.95, _p);
       const s = (rc.width * 0.62 * wpp) / bedW;
       napG.position.copy(_p);
       napG.scale.setScalar(s);
