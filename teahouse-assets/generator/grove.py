@@ -28,7 +28,7 @@ import random
 import numpy as np
 from pixel import Canvas, PAL
 
-F = 8
+F = 16                     # frames per loop: one slow sway of the wind
 LIGHT = np.array([-0.5, -0.72, 0.48])
 LIGHT = LIGHT / np.linalg.norm(LIGHT)
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0 - 0.47
@@ -50,13 +50,17 @@ AUT_RUST = ('wood0', 'copper0', 'copper1', 'copper2', 'copper3', 'copper4')
 AUT_WILLOW = ('leaf0', 'leaf1', 'gold1', 'gold2', 'gold3', 'gold4', 'gold4')
 TWIG = ('ink', 'wood0', 'wood1', 'wood2', 'wood3')
 SNOW_LIT, SNOW_SHADE = 'white', 'cloud2'
-# kind -> {season: ramp, or None for bare branches}
+SAKURA_DEEP = ('pink0', 'pink1', 'pink1', 'pink2', 'pink3', 'pink4')
+# kind -> {season: [(weight, ramp)] - each foliage clump picks one, so a crown is never one flat colour -
+# or None for bare branches}
 SEASON_LEAF = {
-    'zelkova': dict(spring=SAKURA, autumn=AUT_ORANGE, winter=None),
-    'oak': dict(spring=LEAF_SPRING, autumn=AUT_RED, winter=None),
-    'oak_alt': dict(spring=SAKURA, autumn=AUT_RUST, winter=None),
-    'willow': dict(spring=LEAF_SPRING, autumn=AUT_WILLOW, winter=None),
-    'birch': dict(spring=LEAF_SPRING, autumn=AUT_GOLD, winter=None),
+    'zelkova': dict(spring=[(7, SAKURA), (3, SAKURA_DEEP)], autumn=[(6, AUT_ORANGE), (3, AUT_GOLD), (2, AUT_RED)],
+                    winter=None),
+    'oak': dict(spring=[(1, LEAF_SPRING)], autumn=[(6, AUT_RED), (3, AUT_ORANGE), (1, AUT_GOLD)], winter=None),
+    'oak_alt': dict(spring=[(7, SAKURA), (3, SAKURA_DEEP)], autumn=[(5, AUT_RUST), (3, AUT_ORANGE), (2, AUT_GOLD)],
+                    winter=None),
+    'willow': dict(spring=[(1, LEAF_SPRING)], autumn=[(1, AUT_WILLOW)], winter=None),
+    'birch': dict(spring=[(1, LEAF_SPRING)], autumn=[(4, AUT_GOLD), (1, AUT_ORANGE)], winter=None),
 }
 
 
@@ -65,15 +69,56 @@ def _season():
     return season.current
 
 
-def season_ramp(kind, ramp, seed=0):
-    """(ramp, bare) for this kind of tree in the current season."""
+def season_ramps(kind, ramp, seed=0):
+    """([(weight, ramp)], bare) for this kind of tree in the current season."""
     s = _season()
     if s == 'summer' or kind not in SEASON_LEAF:
-        return ramp, False
+        deeper = tuple([ramp[0]] + list(ramp[:-1]))                 # a few clumps a shade deeper
+        return [(5, ramp), (2, deeper)], False
     if kind == 'oak' and seed % 2 == 1:
         kind = 'oak_alt'
     r = SEASON_LEAF[kind][s]
-    return (ramp, True) if r is None else (r, False)
+    return ([(1, ramp)], True) if r is None else (r, False)
+
+
+def is_blossom(ramps):
+    return any(r is SAKURA for _, r in ramps)
+
+
+def _kmeans(P, k, rng, iters=14):
+    """Group points into k clumps (Lloyd's algorithm, seeded)."""
+    k = max(1, min(k, len(P)))
+    C = P[rng.sample(range(len(P)), k)].astype(float)
+    for _ in range(iters):
+        lab = np.argmin(((P[:, None, :] - C[None, :, :]) ** 2).sum(-1), axis=1)
+        for j in range(k):
+            if (lab == j).any():
+                C[j] = P[lab == j].mean(0)
+    return C, lab
+
+
+def blossom_detail(cv, P, mats, seed):
+    """Cherry blossom up close: flowers picked out across the crown - white with a
+    pink heart on the lit side, deeper pink in the shade - and dark twigs
+    showing through between the clusters."""
+    rng = random.Random(seed)
+    leaf = np.isin(P.mat, [m for m, r in mats.items() if r in (SAKURA, SAKURA_DEEP)])
+    ys, xs = np.nonzero(leaf)
+    if not len(ys):
+        return
+    for i in rng.sample(range(len(ys)), min(len(ys), len(ys) // 13)):
+        y, x = ys[i], xs[i]
+        v = P.v[y, x]
+        if v > 0.62:
+            cells = ((0, 0, 'pink3'), (-1, 0, 'white'), (1, 0, 'white'), (0, -1, 'white'), (0, 1, 'pink4'))
+        elif v > 0.35:
+            cells = ((0, 0, 'pink2'), (-1, 0, 'pink4'), (1, 0, 'pink3'), (0, -1, 'pink4'))
+        else:
+            cells = ((0, 0, 'pink1'), (1, 0, 'pink2'))
+        for dx, dy, c in cells:
+            X, Y = x + dx, y + dy
+            if 0 <= X < cv.w and 0 <= Y < cv.h and leaf[Y, X]:
+                cv.a[Y, X, :3] = PAL[c]
 
 
 def _hash(x, y, s):
@@ -280,17 +325,68 @@ class Painter:
         self.v[y0:y1, x0:x1][win] = val[win] - depth
         self.mat[y0:y1, x0:x1][win] = mat
 
-    def render(self, ramps):
-        """ramps: {mat: ramp tuple}. Ordered dither between tones."""
+    def clump(self, c, R, z, gnorm, mat, seed, flat=0.85, base_v=0.0, depth=0.0, holes=0.0, needles=False):
+        """A big mass of foliage, the way a painter blocks a tree in: a rounded clump
+        with a few big lobes and a leafy, notched edge; lit as one form (bright top
+        left, its underside in its own shade) with small leaf shapes over it -
+        lighter flecks on the lit side, darker ones in the shade - and a sunlit
+        rim on the upper left edge."""
+        cx, cy = c
+        Rx, Ry = R * 1.3 + 2, R * flat * 1.3 + 2
+        x0, x1 = int(max(0, cx - Rx)), int(min(self.w, cx + Rx + 1))
+        y0, y1 = int(max(0, cy - Ry)), int(min(self.h, cy + Ry + 1))
+        if x1 <= x0 or y1 <= y0:
+            return
+        X, Y = self.xx[y0:y1, x0:x1] + 0.5, self.yy[y0:y1, x0:x1] + 0.5
+        lx, ly = (X - cx) / R, (Y - cy) / (R * flat)
+        rr = np.sqrt(lx * lx + ly * ly)
+        th = np.arctan2(ly, lx)
+        edge = 1 + 0.09 * np.sin(th * 4 + seed) + 0.06 * np.sin(th * 7 + seed * 1.3) + 0.04 * np.sin(th * 11 + seed * 0.7)
+        edge = edge + (noise(X * 0.55, Y * 0.55, seed) - 0.5) * (0.34 if R > 6 else 0.2)
+        inside = rr < edge
+        if holes:
+            inside &= ~((noise(X * 0.2, Y * 0.2, seed + 4) < holes) & (rr < 0.82) & (rr > 0.25))
+        if not inside.any():
+            return
+        q = np.clip(rr / np.maximum(edge, 0.3), 0, 1)
+        nz = np.sqrt(np.clip(1 - q * q, 0, 1))
+        n = np.stack([lx * 0.85, ly * 0.85, nz], axis=-1)
+        n = n / np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-6)
+        n = n * 0.62 + gnorm[None, None, :] * 0.48
+        n = n / np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-6)
+        lit = np.clip(n @ LIGHT, 0, 1)
+        val = 0.06 + 0.94 * lit + base_v
+        val = val - 0.24 * np.clip(ly, 0, 1) ** 1.4                  # the underside in its own shade
+        if needles:                                                  # pine: strokes of needles, lit tips
+            gx, gy = np.floor((X + np.floor(Y / 2) * 1.5) / 3.0), np.floor(Y / 2.0)
+        else:                                                        # leaves: little offset leaf shapes
+            gx, gy = np.floor((X + (np.floor(Y / 2) % 2) * 1.3) / 2.6), np.floor(Y / 2.0)
+        g = _hash(gx, gy, seed + 2)
+        val = val + np.where((g > 0.76) & (lit > 0.3), 0.14, 0.0) - np.where((g < 0.24) & (lit < 0.8), 0.14, 0.0)
+        # a sunlit rim along the upper-left edge
+        rim = inside & ~np.roll(np.roll(inside, 1, 0), 1, 1)
+        val = val + np.where(rim & (lit > 0.45), 0.16, 0.0)
+        val = val - depth
+        zz = z + nz * R * 1.1 + R * 0.5                              # a clump is deep: it hides the twigs inside it
+        win = inside & (zz > self.z[y0:y1, x0:x1])
+        self.z[y0:y1, x0:x1][win] = zz[win]
+        self.v[y0:y1, x0:x1][win] = val[win]
+        self.mat[y0:y1, x0:x1][win] = mat
+
+    def render(self, ramps, dither=None):
+        """ramps: {mat: ramp tuple}. Ordered dither between tones; dither {mat: amount}
+        (default 0.9 for leaves, none for bark)."""
         cv = Canvas(self.w, self.h)
-        th = BAYER[(self.yy.astype(int) % 4), (self.xx.astype(int) % 4)] * 0.9
+        th = BAYER[(self.yy.astype(int) % 4), (self.xx.astype(int) % 4)]
+        dither = dither or {}
         for mat, ramp in ramps.items():
             m = self.mat == mat
             if not m.any():
                 continue
             rgb = _ramp_rgb(ramp)
             n = len(ramp)
-            idx = np.clip(np.floor(self.v * (n - 1) + 0.5 + th * (mat != 1)), 0, n - 1).astype(int)
+            amt = dither.get(mat, 0.0 if mat == 1 else 0.9)
+            idx = np.clip(np.floor(self.v * (n - 1) + 0.5 + th * amt), 0, n - 1).astype(int)
             cv.a[m, :3] = rgb[idx[m]]
             cv.a[m, 3] = 255
         # the silhouette: one darker step along the underside and the shaded side of the leaves
@@ -332,32 +428,50 @@ def snow(cv, solid, v=None, leafy=None, depth=2):
         cv.a[second & (v < 0.5), :3] = PAL['cloud1']
         third = np.zeros_like(cap)
         third[1:] = second[:-1]
-        third &= solid & leafy & (_hash(xx, yy, 3.7) < 0.45)
-        cv.a[third, :3] = PAL['cloud1']
+        third &= solid & leafy & (_hash(xx, yy, 3.7) < 0.75)
+        cv.a[third & (v >= 0.5), :3] = PAL['cloud2']
+        cv.a[third & (v < 0.5), :3] = PAL['cloud1']
+        fourth = np.zeros_like(cap)
+        fourth[1:] = third[:-1]
+        fourth &= solid & leafy & (_hash(xx, yy, 6.1) < 0.35)
+        cv.a[fourth, :3] = PAL['cloud1']
 
 
 # ---------------------------------------------------------------- trees
 class Tree:
-    """frames(): F canvases; base: trunk foot in sprite coords; h: height."""
+    """frames(): F canvases; base: trunk foot in sprite coords; h: height.
+    wind_phase: where this tree stands in the gust (trees further along the
+    garden bend a little later, so the wind is seen moving across)."""
 
     def __init__(self, w, h, base, draw):
         self.w, self.h, self.base = w, h, base
         self._draw = draw
 
-    def frames(self):
-        return [self._draw(f) for f in range(F)]
+    def frames(self, wind_phase=0.0, wind=1.0):
+        _WIND['phase'], _WIND['amp'] = wind_phase, wind
+        try:
+            return [self._draw(f) for f in range(F)]
+        finally:
+            _WIND['phase'], _WIND['amp'] = 0.0, 1.0
 
 
-def _sway(f, y, base_y, h, amp=1.3, phase=0.0):
+_WIND = dict(phase=0.0, amp=1.0)
+
+
+def _sway(f, y, base_y, h, amp=1.6, phase=0.0):
+    """The bend of a tree in the wind at height y: a slow sway with a quicker
+    flutter on top, growing toward the crown."""
     k = np.clip((base_y - y) / h, 0, 1) ** 1.6
-    return amp * k * math.sin(2 * math.pi * f / F + phase + y * 0.02)
+    t = 2 * math.pi * f / F + _WIND['phase']
+    return amp * _WIND['amp'] * k * (0.8 * math.sin(t + phase + y * 0.02) + 0.3 * math.sin(2 * t + phase * 1.7 + 0.8))
 
 
 def broadleaf(seed=1, w=200, h=180, crown=(0.5, 0.36, 0.42, 0.3), ramp=LEAF_RICH, bark=BARK, n_points=520,
               trunk_frac=0.5, lean=4.0, cluster=(3.4, 5.2), umbrella=False, birch=False, stems=1,
               holes=0.32, weeping=False, conical=False, r_max=9.0, limbs=(), fork=0.5, kind=None):
     """A broadleaf tree grown into the crown ellipse (fractions of w and h)."""
-    ramp, bare = season_ramp(kind, ramp, seed)
+    ramps, bare = season_ramps(kind, ramp, seed)
+    ramp = ramps[0][1]
     rng = random.Random(seed)
     bx, by = w * 0.5 + rng.uniform(-3, 3), h - 4
     C = (w * crown[0], h * crown[1])
@@ -418,9 +532,39 @@ def broadleaf(seed=1, w=200, h=180, crown=(0.5, 0.36, 0.42, 0.3), ramp=LEAF_RICH
             if rng.random() < 0.55:
                 strands.append((x, y, z, rng.uniform(16, 46) * (0.6 + 0.4 * (y - C[1] + R[1]) / (2 * R[1])), sd))
     mats = {1: bark, 2: ramp, 3: TWIG}
+    for i, (_, r_) in enumerate(ramps):
+        mats[10 + i] = r_
+    weights = [w_ for w_, _ in ramps]
+    # the leaf clusters gathered into big clumps (what a painter would block in), plus a
+    # leafy fringe of small ones round the outside
+    clumps = []
+    blossom_ = is_blossom(ramps) and not bare
+    if clusters and not bare:
+        Pc = np.array([(c_[0], c_[1]) for c_ in clusters])
+        T = float(np.clip(min(R[0], R[1]) * 0.42, 5.0, 20.0))
+        kc = int(np.clip(math.pi * R[0] * R[1] / (math.pi * T * T) * 2.0, 3, 40))
+        cen, lab = _kmeans(Pc, kc, rng)
+        for j in range(len(cen)):
+            mem = [clusters[i] for i in np.nonzero(lab == j)[0]]
+            if not mem:
+                continue
+            d = np.hypot(*(np.array([(m_[0], m_[1]) for m_ in mem]) - cen[j]).T)
+            lo, hi = (0.6, 1.1) if blossom_ else (0.75, 1.4)
+            Rc = float(np.clip(np.percentile(d, 85) + np.mean([m_[3] for m_ in mem]) * 1.2 + 2, T * lo, T * hi))
+            zc = float(np.percentile([m_[2] for m_ in mem], 65 if blossom_ else 88))   # most twigs inside stay hidden
+            mat = 10 + rng.choices(range(len(ramps)), weights=weights)[0]
+            clumps.append((cen[j][0], cen[j][1], zc, Rc, rng.random() * 9, mat))
+        for (x, y, z, rad, sd) in clusters:                      # the fringe
+            gl = math.hypot((x - C[0]) / R[0], (y - C[1]) / R[1])
+            if gl > 0.8 and rng.random() < (0.5 if blossom_ else 0.3):
+                mat = 10 + rng.choices(range(len(ramps)), weights=weights)[0]
+                clumps.append((x, y, z + 2, rad * 1.15, sd, mat))
     if bare:                                                    # winter: the bare branches, twigs to the tips
         clusters = []
         strands = [(x, y, z, ln * 0.8, sd) for (x, y, z, ln, sd) in strands]
+    blossom = is_blossom(ramps) and not bare
+    dith = {m_: 0.3 for m_ in mats if m_ >= 10}
+    dith[2] = 0.3
 
     def draw(f):
         P = Painter(w, h)
@@ -438,13 +582,14 @@ def broadleaf(seed=1, w=200, h=180, crown=(0.5, 0.36, 0.42, 0.3), ramp=LEAF_RICH
         for (a, b, _) in roots:
             P.segment(a, b, rt * 0.7, 1.0, -1, -1, seed + 2.3, birch=birch)
         P.segment((bx, by + 1), (bx, by - 9), rt * 1.35, rt * 1.0, -0.5, -0.5, seed + 1.7, birch=birch)   # flare
-        for (x, y, z, rad, sd) in clusters:
+        for (x, y, z, rad, sd, mat) in clumps:
             g = np.array([(x - C[0]) / R[0], (y - C[1]) / R[1], z / R[2]])
             gl = np.linalg.norm(g)
             g = g / (gl + 1e-6)
             inner = np.clip(1 - gl, 0, 1)
-            P.blob((x + _sway(f, y, by, h), y), rad, z * 3, g, 2, sd, base_v=0.05 - 0.28 * inner,
-                   depth=0.1 * np.clip(-z / R[2], 0, 1), flat=0.85 if not conical else 0.7)
+            P.clump((x + _sway(f, y, by, h), y), rad, z * 3, g, mat, sd, base_v=0.06 - 0.24 * inner,
+                    depth=0.1 * np.clip(-z / R[2], 0, 1), flat=0.85 if not conical else 0.72,
+                    holes=(0.3 if blossom else 0.22) if rad > 8 else 0.0)
         for (x, y, z, ln, sd) in strands:                         # weeping strands, swaying more at the tips
             n = int(ln)
             for k in range(n):
@@ -457,14 +602,17 @@ def broadleaf(seed=1, w=200, h=180, crown=(0.5, 0.36, 0.42, 0.3), ramp=LEAF_RICH
                         P.z[int(yy), int(xx)] = zz
                         P.v[int(yy), int(xx)] = 0.45 + 0.35 * (1 - t) * (xx < C[0]) + 0.12 * math.sin(k + sd) \
                             - 0.15 * (z < 0)
-                        P.mat[int(yy), int(xx)] = 3 if bare else 2
+                        P.mat[int(yy), int(xx)] = 3 if bare else 10
                     if bare:
                         continue
                     if k % 3 == 1 and 0 <= int(xx) + 1 < w and zz > P.z[int(yy), int(xx) + 1]:   # little leaves
                         P.z[int(yy), int(xx) + 1] = zz
                         P.v[int(yy), int(xx) + 1] = 0.35 + 0.2 * (1 - t)
-                        P.mat[int(yy), int(xx) + 1] = 2
-        return P.render(mats)
+                        P.mat[int(yy), int(xx) + 1] = 10
+        cv = P.render(mats, dith)
+        if blossom:
+            blossom_detail(cv, P, mats, seed * 31 + f)
+        return cv
     return Tree(w, h, (int(bx), int(by)), draw)
 
 
@@ -499,13 +647,17 @@ def black_pine(seed=2, k=1.0):
             a, b = nodes[j], nodes[i]
             P.segment((a[0] + _sway(f, a[1], by, h, 0.8), a[1]), (b[0] + _sway(f, b[1], by, h, 0.8), b[1]),
                       r[j] * 1.1, r[i] * 1.1, a[2] * 3, b[2] * 3, seed + 0.9)
-        for (x, y, z, rad, sd) in clusters:
+        for i_, (cx, cy, rx, ry) in enumerate(pads):              # each pad of needles painted as one cloud
+            g = np.array([0.0, -0.6, 0.8])
+            P.clump((cx + _sway(f, cy, by, h, 0.8), cy), rx * k * 1.02, 20 + i_ * 2.0, g / np.linalg.norm(g), 2,
+                    cx * 0.37, flat=ry / rx * 1.1, base_v=0.12, needles=True)
+        for (x, y, z, rad, sd) in clusters[::3]:                   # tufts along the pad edges
             pad = min(pads, key=lambda p: ((x - p[0]) / p[2]) ** 2 + ((y - p[1]) / p[3]) ** 2)
             g = np.array([(x - pad[0]) / (pad[2] * k) * 0.6, (y - pad[1]) / (pad[3] * k), 0.5])
             g = g / np.linalg.norm(g)
-            P.blob((x + _sway(f, y, by, h, 0.8), y), rad * 1.35, z * 3, g, 2, sd, flat=0.55, needles=True,
-                   base_v=0.16, depth=0.05 * (z < 0), squash_top=True)
-        return P.render(mats)
+            P.clump((x + _sway(f, y, by, h, 0.8), y), rad * 1.1, 18 + z, g, 2, sd, flat=0.6, base_v=0.1,
+                    needles=True)
+        return P.render(mats, {2: 0.3})
     return Tree(w, h, (int(bx), int(by)), draw)
 
 
@@ -556,14 +708,28 @@ def shrub(seed, w=44, h=26, ramp=LEAF_RICH):
     cl = [(C[0] + x, C[1] + y, z, rng.uniform(3, 4.6), rng.random() * 9)
           for (x, y, z) in [(p[0] - C[0], p[1] - C[1], p[2]) for p in ellipsoid_points(rng, 34, C, R, seed=seed)]]
 
+    Pc = np.array([(c_[0], c_[1]) for c_ in cl])
+    cen, lab = _kmeans(Pc, max(3, int(w * h / 260)), rng)
+    clumps = []
+    for j in range(len(cen)):
+        mem = [cl[i] for i in np.nonzero(lab == j)[0]]
+        if mem:
+            d = np.hypot(*(np.array([(m_[0], m_[1]) for m_ in mem]) - cen[j]).T)
+            clumps.append((cen[j][0], cen[j][1], float(np.mean([m_[2] for m_ in mem])),
+                           float(np.percentile(d, 85) + 4.5), rng.random() * 9))
+
     def draw(f):
         P = Painter(w, h)
-        for (x, y, z, rad, sd) in cl:
+        for (x, y, z, rad, sd) in clumps:
             g = np.array([(x - C[0]) / R[0], (y - C[1]) / R[1], z / R[2]])
             g = g / (np.linalg.norm(g) + 1e-6)
-            P.blob((x + 0.5 * math.sin(2 * math.pi * f / F + sd), min(y, h - rad * 0.7)), rad, z, g, 2, sd,
-                   base_v=0.02, depth=0.1 * (z < 0))
-        return P.render({2: ramp})
+            P.clump((x + 0.6 * math.sin(2 * math.pi * f / F + sd), min(y, h - rad * 0.75)), rad, z, g, 2, sd,
+                    base_v=0.04, depth=0.08 * (z < 0))
+        cv = P.render({2: ramp}, {2: 0.3})
+        if ramp is AZALEA:
+            blossom_like = {2: SAKURA}
+            blossom_detail(cv, P, blossom_like, seed + f)
+        return cv
     return Tree(w, h, (w // 2, h - 1), draw)
 
 

@@ -41,7 +41,7 @@ import organic                                             # noqa: E402
 import wyvern                                              # noqa: E402,F401
 import season                                              # noqa: E402
 import seasons_room                                        # noqa: E402
-import giants                                              # noqa: E402
+import life                                                # noqa: E402
 
 SCALE_HI = 3
 LAYER_ORDER = ['wall', 'ceiling', 'counter_layer', 'npc', 'floor', 'counter', 'front']
@@ -80,8 +80,17 @@ def frame_at(frames, fps, t):
 
 
 def layer_fps(name, frames):
-    """The seasonal giants run at their own frame rate; every other layer at LAYER_FPS."""
-    return giants.FPS if name == '04_leviathan' and len(frames) == giants.NG else LAYER_FPS
+    """The birds and the life on the lake run at their own frame rate; every other layer at LAYER_FPS."""
+    return life.FPS if name in outside.LIFE_LAYERS else LAYER_FPS
+
+
+def layer_sheet(frames):
+    """(sheet, columns): frames stacked top to bottom, or in a grid when a column
+    would be taller than a texture can be."""
+    if frames[0].h * len(frames) <= 16000:
+        return sheet(frames, vertical=True), 1
+    cols = int(math.ceil(frames[0].h * len(frames) / 16000.0))
+    return grid_sheet(frames, cols), cols
 
 
 SURFACES = [LY.SHELF1_Y, LY.SHELF3_Y, LY.SILL_Y]
@@ -253,8 +262,11 @@ def export_layers(sc):
         if off:                                       # a cropped layer: drawn at (x, y) inside each tile
             rec.update(x=off[0][0], y=off[0][1], w=frames[0].w, h=frames[0].h)
         if len(frames) > 1:
-            rec['sheet'] = save(sheet(frames, vertical=True), 'layers', 'outside', name + '_sheet.png')
-            rec['fps'] = LAYER_FPS
+            sh, cols = layer_sheet(frames)
+            rec['sheet'] = save(sh, 'layers', 'outside', name + '_sheet.png')
+            rec['fps'] = layer_fps(name, frames)
+            if cols > 1:
+                rec['sheet_columns'] = cols
         info.append(rec)
     furnished = sc.shell.copy()
     for p in sc.props:
@@ -414,6 +426,15 @@ def gif(frames, path, ms):
                 optimize=True)
 
 
+def window_life_gif(sc, path, seconds=8):
+    """The view from the seating room for a while, at 12 fps, 2x."""
+    wm = LY.WIN_MAIN
+    ims = [sc.view(k / life.FPS, LY.SW).crop(wm['x'] - LY.SW - 8, wm['y'] - 8, wm['w'] + 16, wm['h'] + 40)
+           .image(2).convert('RGB') for k in range(seconds * life.FPS)]
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    ims[0].save(path, save_all=True, append_images=ims[1:], duration=1000 // life.FPS, loop=0, optimize=True)
+
+
 def export_previews(sc, anims=True):
     full = sc.compose(0)
     save(full, 'preview', 'teahouse_full_1x.png')
@@ -489,12 +510,8 @@ def export_previews(sc, anims=True):
     ims = [sc.view(k / 12, 3 * LY.SW).crop(2262 - 3 * LY.SW, 250, 236, 80).image(4).convert('RGB') for k in range(48)]
     ims[0].save(os.path.join(ROOT, 'preview', 'black_axolotl.gif'), save_all=True, append_images=ims[1:],
                 duration=83, loop=0, optimize=True)
-    # the leviathan breaching, seen through the seating-room window (its whole 72-frame loop)
-    wm = LY.WIN_MAIN
-    ims = [sc.view(k / LAYER_FPS, LY.SW).crop(wm['x'] - LY.SW - 8, wm['y'] - 8, wm['w'] + 16, wm['h'] + 40)
-           .image(3).convert('RGB') for k in range(72)]
-    ims[0].save(os.path.join(ROOT, 'preview', 'leviathan_breach.gif'), save_all=True, append_images=ims[1:],
-                duration=1000 // LAYER_FPS, loop=0, optimize=True)
+    # life out of the seating-room window: birds, fish, ducks, the wind in the garden
+    window_life_gif(sc, os.path.join(ROOT, 'preview', 'window_life.gif'))
     n = 24                                      # 2 s at 12 fps: every loop (8 or 12 frames) closes
     for name, cam in (('room1_cook_anim.gif', 0), ('room2_window_anim.gif', LY.SW), ('room3_ritual_anim.gif', 2 * LY.SW),
                       ('room4_bedroom_anim.gif', 3 * LY.SW)):
@@ -519,10 +536,6 @@ def grid_sheet(frames, cols):
     return cv
 
 
-GIANT = dict(spring='a giant koi leaping', summer='the whale-like leviathan breaching',
-             autumn='a giant fox skipping across the water', winter='a giant red-crowned crane gliding over the lake')
-
-
 def export_seasons(sc, anims=True):
     """seasons/<season>/: the outside view, the giant, the window glass, the light and the
     seasonal props for each season, plus previews. Summer's outside and light are the base
@@ -534,20 +547,21 @@ def export_seasons(sc, anims=True):
     for s in season.NAMES:
         sc.use_season(s)
         d = ('seasons', s)
-        rec = dict(giant=GIANT[s], outside_layers=[], props=[])
+        rec = dict(outside_layers=[], props=[])
         for name, frames, fac, *off in sc.outs:
-            if s == 'summer':
+            if s == 'summer':                                # the base layers
                 L = dict(name=name, file=f'layers/outside/{name}.png', parallax=fac, tile_width=outside.OUT_W,
                          frames=len(frames))
                 if len(frames) > 1:
                     L.update(sheet=f'layers/outside/{name}_sheet.png', fps=layer_fps(name, frames))
+                    if frames[0].h * len(frames) > 16000:
+                        L['sheet_columns'] = int(math.ceil(frames[0].h * len(frames) / 16000.0))
             else:
                 L = dict(name=name, file=save(frames[0], *d, 'layers', 'outside', name + '.png'), parallax=fac,
                          tile_width=outside.OUT_W, frames=len(frames))
                 if len(frames) > 1:
-                    cols = 10 if len(frames) >= 60 else 1
-                    L['sheet'] = save(grid_sheet(frames, cols) if cols > 1 else sheet(frames, vertical=True),
-                                      *d, 'layers', 'outside', name + '_sheet.png')
+                    sh, cols = layer_sheet(frames)
+                    L['sheet'] = save(sh, *d, 'layers', 'outside', name + '_sheet.png')
                     L['fps'] = layer_fps(name, frames)
                     if cols > 1:
                         L['sheet_columns'] = cols
@@ -581,10 +595,7 @@ def export_seasons(sc, anims=True):
             save(full.crop(i * LY.SW, 0, LY.SW, LY.H), *d, 'preview', f'room_{i + 1}_2x.png', scale=2)
         views[s] = full.crop(LY.SW, 0, LY.SW, LY.H)
         if anims and s != 'summer':
-            ims = [sc.view(k / giants.FPS, LY.SW).crop(wm['x'] - LY.SW - 8, wm['y'] - 8, wm['w'] + 16, wm['h'] + 40)
-                   .image(2).convert('RGB') for k in range(giants.NG)]
-            path = os.path.join(ROOT, *d, 'preview', 'giant_through_window.gif')
-            ims[0].save(path, save_all=True, append_images=ims[1:], duration=1000 // giants.FPS, loop=0, optimize=True)
+            window_life_gif(sc, os.path.join(ROOT, *d, 'preview', 'window_life.gif'))
         info[s] = rec
     sc.use_season(None)
     # the seating room through the year, side by side

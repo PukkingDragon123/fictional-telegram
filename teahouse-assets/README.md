@@ -55,21 +55,27 @@ The trees outside are grown, not stamped (`grove.py`):
 
 - **Branches:** space colonisation in 3D. A cloud of points fills the crown, and the trunk grows up into it, forking toward the points until they are used up. The big limbs fork from the top of the trunk. Branch thickness follows the pipe model, so the trunk flares at the foot and the limbs taper to twigs.
 - **Bark:** each branch is lit across its width from the upper left, with fissures stretched along the grain. The birches are white, with black marks.
-- **Leaves:** hundreds of small clusters on the twigs, each with leafy, broken edges. Each cluster is lit as a little ball and blended with the light on the whole crown, so the top left is bright, and the underside and interior are dark. Clusters further back are darker. Gaps in the crown show the inner limbs and the sky.
-- **Species:** a Japanese black pine with flat clouds of needles, a zelkova, oaks, a weeping willow with hanging strands, white birches and conical hinoki cypresses. A hazed back row of smaller trees stands behind them.
-- **Garden life:** butterflies flap and fly looping figure-eights over the flowers, and dragonflies dart and hover over the lake. Every path loops over the layer's 8 frames.
+- **Leaves:** painted the way a pixel artist blocks in a tree. The leaf clusters on the twigs are gathered into a few big clumps. Each clump is a rounded mass with big lobes and a notched, leafy edge, lit as one form: bright at the top left, its underside in its own shade, and a sunlit rim along the upper-left edge. Small leaf shapes run over it, lighter on the lit side and darker in the shade, with very little dither, so the tones read cleanly. Clumps further back and inside the crown are darker, and every clump takes its own shade of the tree's colour, so no crown is one flat green. Gaps between clumps show the limbs and the sky, and a fringe of small tufts breaks the outline.
+- **Wind:** each tree sways slowly with a quicker flutter on top, more toward the crown, over 16 frames. Trees further right bend a little later, so you see the gust go across the garden. The grass leans together in the same gusts.
+- **Species:** a Japanese black pine with flat pads of needles (each pad painted as one cloud, with needle strokes), a zelkova, oaks, a weeping willow with hanging strands, white birches and conical hinoki cypresses. A hazed back row of smaller trees stands behind them.
+- **Garden life:** butterflies flap and fly looping figure-eights over the flowers, and dragonflies dart and hover over the lake. In spring petals, and in autumn leaves, come off the trees and turn as they fall, and lie in a carpet on the ground under them. Every path loops over the layer's 16 frames.
 
-## The lake and the leviathan
+## The lake, the fish and the birds
 
 - **The lake** (`03_lake`, 12 frames) is a mirror. Every row reflects the sky, clouds and mountains, flipped, and broken by ripples that run along the rows, stronger toward the shore. Near the horizon it is nearly all reflection; nearer the shore its own deep blue-teal shows through. Bands of light ride the ripple crests toward the shore, and glitter sparkles on and off.
-- **The leviathan** (`04_leviathan`, 72 frames, 12 s at 6 fps) breaches once per loop, far out on the lake:
-  - a dark swell rolls toward the spot, then the head bursts up through a spray of water
-  - the long body follows along a high arc: a glossy blue-black back with ridge spines and barnacles, a pale pleated throat, a long knobbly flipper, and water streaming off it
-  - it crashes back down head first, flukes last, under a huge splash crown that falls back as drops
-  - foam spreads, rings ripple out, and its reflection follows it in the water
-- `preview/leviathan_breach.gif` shows the whole loop through the seating-room window.
+- **Life on the lake** (`04_lake_life`, 96 frames, 8 s at 12 fps):
+  - fish glide under the surface on slow loops with their tails beating: dark carp, and orange-and-white koi
+  - now and then a fish jumps clear, bending as it goes, with a splash where it leaves and lands and rings spreading
+  - a pair of mandarin ducks paddles round with a V of ripples behind them (swans in winter)
+- **Birds** (`04_birds`, 144 frames, 12 s at 12 fps) fly over the lake:
+  - swallows swoop and dart low over the water
+  - small birds cross, and in summer a white egret flaps slowly across
+  - the flocks that cross go once round the 1280 px tile per loop, so the layer loops seamlessly
+- **Wind:** faint gust strokes sweep across in front of the garden (`08_wind` in summer, and in the seasons' drift layers).
+- `preview/window_life.gif` shows 8 s of it through the seating-room window.
+- Both life layers are cropped bands: their records have `x`, `y`, `w`, `h`. The birds' sheet is a grid with `sheet_columns`, because a single column would be taller than a texture can be.
 
-`generator/polish_gifs.py OUT_DIR` renders long, smooth GIFs of rooms 1, 2 and 4: 2x, 10 fps, every animation running, one shared palette, no dithering. The seating room runs 12 s, so you see the leviathan breach.
+`generator/polish_gifs.py OUT_DIR` renders long, smooth GIFs of rooms 1, 2 and 4: 2x, 10 fps, every animation running, one shared palette, no dithering. The seating room runs 12 s, so the birds and ducks go by. Add `--season=winter` (or any season) to draw the rooms in that season.
 
 `generator/artist_process.py OUT_DIR [goat 0 1 2 3]` paints the goat-dragon model and each room from a blank canvas, stroke by stroke, and records it like a Procreate timelapse: canvas only, one frame per stroke. Each line is a wobbling, overshooting path. Big areas are covered in back-and-forth strokes inside a selection. Fills are bucket fills, and colour changes are slider drags.
 
@@ -93,17 +99,17 @@ The base scene is summer. `seasons/<season>/` holds what changes for spring, sum
 
 **Outside, through every window**
 - **Spring:** cherry blossom on the zelkovas and some of the oaks, fresh green, azaleas, daisies and cosmos. Petals turn in the air and float on the lake. The sky goes pale toward a pink horizon, and late snow is left on the high peaks.
-- **Summer:** the base garden: deep green, hydrangeas, butterflies and dragonflies.
+- **Summer:** the base garden: deep green, hydrangeas, butterflies and dragonflies, seeds drifting on the wind.
 - **Autumn:** the maples go red, orange and gold, the birches gold and the willow yellow, while the pines and cypresses stay green. The far forest turns rust and red. The grass is gold, with pampas and red spider lilies. Red dragonflies fly, leaves blow on the wind and float on the lake, and the sky is clear with a warm horizon.
 - **Winter:** the broadleaf trees are bare, with snow on every branch. Snow caps the pines and cypresses. Snow covers the ground and the flower bed, with dry stalks poking through. The mountains are white to their feet, there is ice along the near shore, the sky is a low grey snow-cloud, and snow is falling.
 
 The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.75) is the drift in front of the garden.
 
-**The lake's giant** (`04_leviathan`) changes with the season. Each one is a small 3D model rendered frame by frame, at 120 frames and 12 fps (10 s). The sheet is a grid; its record has `sheet_columns`.
-- **Spring:** a giant koi, white with red patches and long see-through butterfly fins. It leaps in a slow arc, bending as it swims through the air, and slips back in among the petals.
-- **Summer:** the whale-like leviathan breaches (as above).
-- **Autumn:** a giant fox comes skipping across the water from left to right, bound after bound. Every time its paws touch down, the water splashes and rings spread out. Its reflection runs with it, and a few fox-fire wisps trail behind.
-- **Winter:** a giant red-crowned crane glides in low over the lake with slow, deep wingbeats. It has black-edged wings, a black neck and a red crown, and its legs trail behind. Its wingtips brush the water, and it climbs away.
+**Life outside** changes with the season too:
+- **Spring:** cherry petals come off the blossom trees and lie pink on the ground under them. Swallows swoop low over the lake, and small birds cross.
+- **Summer:** swallows, and a white egret.
+- **Autumn:** leaves fall from the red and gold trees and carpet the ground. A skein of geese crosses in a V, with a flock of sparrows.
+- **Winter:** a pair of red-crowned cranes glides across, crows fly over, fewer fish move under the cold water, and swans replace the ducks.
 
 **The rooms**
 - **The glass** (`layers/room/09_window_glass.png`) is drawn between the outside and the room shell, so it only shows in the panes:
@@ -116,7 +122,7 @@ The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.7
   - **Summer:** shaved ice with strawberry syrup, a paper fan, watermelon.
   - **Autumn:** strings of dried persimmons on the drying pole, a bowl of persimmons, a moon-viewing offering of dango and pampas grass.
   - **Winter:** daikon hung to dry, a bowl of mandarins, a snow rabbit on the window sill, kagami mochi.
-- `preview/seasons_overview.png` shows the seating room in all four seasons. `seasons/<season>/preview/` has the whole teahouse, each room, and `giant_through_window.gif`.
+- `preview/seasons_overview.png` shows the seating room in all four seasons. `seasons/<season>/preview/` has the whole teahouse, each room, and `window_life.gif`.
 
 ## The pendulum clock
 
@@ -239,7 +245,8 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 layers/outside/   window view: 8 parallax layers (1280 px wide, tile horizontally): a dithered sky with
                   cirrus and cumulus, snow-capped far peaks, hazy ranges, a forested ridge over a
                   still lake, a canopy of tree crowns, then the garden: grown trees (a black pine,
-                  zelkova, white birches, a weeping willow, oaks, hinoki cypresses) with butterflies
+                  zelkova, white birches, a weeping willow, oaks, hinoki cypresses) with butterflies,
+                  fish and ducks on the lake, birds over it
                   and dragonflies
 layers/room/      10 shell (window panes transparent) / 11 shell with wall props baked in
                   20 furnace + prep table + counter / 30 foreground posts + ivy / 40 light overlay
@@ -249,7 +256,7 @@ atlas/            all prop frames packed into one PNG + JSON (anims, fps, layer,
 nature/           stand-alone grown trees (black pine, zelkova, oaks, weeping willow, white birch,
                   hinoki cypress, a shrub), flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
-seasons/<season>/ spring, summer, autumn, winter: layers/outside (the view and its giant), layers/room
+seasons/<season>/ spring, summer, autumn, winter: layers/outside (the view, its birds and fish), layers/room
                   (09_window_glass, 40_light_overlay), props + props_3x (seasonal things), preview
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
@@ -261,7 +268,7 @@ generator/        the Python that draws all of it (deterministic, seeded)
 
 Draw these back to front:
 
-1. `layers/outside/00_sky` to `07_flowers_close`, each at `screen_x = -camera_x * parallax` and repeated every 1280 px. They only show through the window panes. `04_leviathan` is cropped: its record has `x`, `y`, `w`, `h`, so draw its frame at (`x`, `y`) inside every 1280 px tile.
+1. `layers/outside/00_sky` to `07_flowers_close`, each at `screen_x = -camera_x * parallax` and repeated every 1280 px. They only show through the window panes. `04_lake_life` and `04_birds` are cropped bands that run at 12 fps: their records have `x`, `y`, `w`, `h`, so draw each frame at (`x`, `y`) inside every 1280 px tile. When a record has `sheet_columns`, its sheet is a grid (left to right, then down).
 2. props with `layer: outside` (the goat-dragon behind the bell window)
 3. `layers/room/10_room_shell.png`
 4. props with `layer: wall`, then `layer: ceiling`
@@ -272,7 +279,7 @@ Draw these back to front:
 9. `layers/room/40_light_overlay` (normal or screen blend)
 
 **Seasons:** for a season, take `scene.json` → `seasons.<season>`:
-- Use its `outside_layers` in place of the base ones in step 1 (summer points at the base files). The giant's sheet is a grid with `sheet_columns`, at its own `fps`.
+- Use its `outside_layers` in place of the base ones in step 1 (summer points at the base files). Some sheets are grids (`sheet_columns`), and the life layers have their own `fps`.
 - Draw its `window_glass` between steps 2 and 3.
 - Use its `light_overlay` in step 9.
 - Draw its `props` with the others of the same layer.
@@ -327,7 +334,7 @@ python3 teahouse-assets/generator/package.py out.zip  # the tidy game-ready zip 
 | Cloth | `cloth.py` (simulation), `cloth_props.py` |
 | Teaware | `teaware.py` |
 | Fire spirit | `fire.py` |
-| Trees and garden | `grove.py` (grown trees, butterflies, dragonflies), `outside.py`, `meadow.py`, `trees.py`, `leaves.py` |
+| Trees and garden | `grove.py` (grown trees, butterflies, dragonflies), `life.py` (birds, fish, ducks, falling leaves, wind), `outside.py`, `meadow.py`, `trees.py`, `leaves.py` |
 | Colours | `RAMPS` in `pixel.py` |
 
 You can also drag props around in `demo/index.html` and press **copy layout JSON** to get their new positions.

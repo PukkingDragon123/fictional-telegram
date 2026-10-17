@@ -1006,8 +1006,8 @@ def room_pieces(sc, ri):
             c.blit(frames[0], x + ox, oy)
             x += 1280
         nice = {'00_sky': 'Sky', '01_clouds': 'Clouds', '02_mountains': 'Mountains', '03_lake': 'Lake',
-                '04_leviathan': None, '05_hills_trees': 'Far shore', '06_garden_trees': 'Garden trees',
-                '07_flowers_close': 'Flower bed'}[name]
+                '05_hills_trees': 'Far shore', '06_garden_trees': 'Garden trees',
+                '07_flowers_close': 'Flower bed'}.get(name)          # birds, fish and drift are animation only
         if nice:
             outs.append((nice, crop(c)))
     props = []

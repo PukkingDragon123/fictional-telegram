@@ -11,6 +11,7 @@ from trees import (F, GREEN, DEEP, JADE, tree_pine, tree_oak, tree_bushy, tree_w
                    bush, small_tree)
 import meadow
 import grove
+import life
 import season
 from layout import H
 
@@ -453,13 +454,14 @@ def trees():
              (grove.willow(7, k=0.95), 690), (grove.oak(4, k=0.95), 910), (grove.cypress(11, k=0.88), 1065),
              (grove.birch(19, k=0.78), 1205)]
     tree_frames = []
+    gust = lambda x: -2 * math.pi * x / (OUT_W / 4.0)               # the wind reaches trees further right later
     for T, x in back:
-        frs = T.frames()
+        frs = T.frames(wind_phase=gust(x), wind=0.8)
         for fr in frs:
             _haze(fr, 1)
         tree_frames.append((frs, x - T.base[0], int(prof[x % OUT_W]) + 2 - T.base[1], T.h + 1000))
     for T, x in front:
-        frs = T.frames()
+        frs = T.frames(wind_phase=gust(x), wind=1.0)
         tree_frames.append((frs, x - T.base[0], int(prof[x % OUT_W]) + 4 - T.base[1], T.h))
     tree_frames.sort(key=lambda t: -t[3])        # tallest drawn first (behind)
     bushes = []
@@ -489,19 +491,27 @@ def trees():
                               [(4, 5, 4, 1, 26)], [], flower_rate=0.0, susuki_rate=0.1, height=H, fill=False)
     _season_grass(grass)
     frames = []
-    for f in range(F):
+    for f in range(grove.F):
         cv = base.copy()
         for (fr, x, y, _) in tree_frames:
             cv.blit(fr[f], x, y)
         for (spr, x, y) in bushes:
-            cv.blit(spr[f] if isinstance(spr, list) else spr, x, y)
-        cv.blit(grass[f], 0, 0)
+            cv.blit(spr[f % len(spr)] if isinstance(spr, list) else spr, x, y)
+        cv.blit(grass[f % len(grass)], 0, 0)
         if se == 'winter':                                         # snow drifted against the stalks
             for x in range(OUT_W):
                 top = int(prof[x]) + 3 + int(1.5 * math.sin(x * 0.13) + math.sin(x * 0.041))
                 cv.vline(x, top, top + 2, 'cloud3')
                 cv.px(x, top, 'white')
         frames.append(cv)
+    # leaves or petals coming off the trees, and lying under them
+    boxes = []
+    for (fr, x, y, _) in tree_frames:
+        a = fr[0].a
+        turned = sum(int(((a[..., :3] == PAL[c]).all(-1) & (a[..., 3] > 0)).sum())
+                     for c in ('pink3', 'pink4', 'scarlet2', 'fire3', 'gold3', 'copper2'))
+        boxes.append((x, y, fr[0].w, fr[0].h * 0.6, turned > 120))
+    life.garden_fall(frames, boxes, lambda x: prof[int(x) % OUT_W] + 3, se)
     return grove.garden_life(frames, random.Random(43), GROUND)
 
 
@@ -569,11 +579,9 @@ def particles():
     leaves in autumn, snow in winter. PARTICLES_N frames that loop: each piece
     fades in, drifts down and across, tumbling, and fades out. None in summer."""
     se = season.current
-    if se == 'summer':
-        return None
     rng = random.Random(61)
     frames = [Canvas(OUT_W, H, wrap=True) for _ in range(PARTICLES_N)]
-    count = dict(spring=230, autumn=150, winter=620)[se]
+    count = dict(spring=230, autumn=150, winter=620, summer=40)[se]
     for i in range(count):
         x0, y0 = rng.uniform(0, OUT_W), rng.uniform(-30, H - 40)
         if se == 'winter':
@@ -594,6 +602,8 @@ def particles():
             if se == 'winter':
                 cells = [(0, 0, 'white')] if not near else [(0, 0, 'white'), (1, 0, 'cloud3'), (0, 1, 'cloud3'),
                                                             (1, 1, 'cloud2')]
+            elif se == 'summer':                                 # dandelion seeds floating by
+                cells = [(0, 0, 'white'), (0, 1, 'cloud2')] if tumble % 2 else [(0, 0, 'cloud3'), (1, 0, 'white')]
             elif se == 'spring':
                 c1, c2 = ('pink4', 'pink3') if kind else ('white', 'pink4')
                 cells = ([(0, 0, c1), (1, 0, c2)], [(0, 0, c1), (1, 1, c2)], [(0, 0, c1), (0, 1, c2)],
@@ -608,6 +618,8 @@ def particles():
                 X, Y = int(x) + dx, int(y) + dy
                 if 0 <= Y < H:
                     cv.a[Y, X % OUT_W] = (*PAL[c], al)
+    if se != 'winter':
+        life.wind_streaks(frames, se)
     return frames
 
 
@@ -624,22 +636,22 @@ def all_layers():
         c = Canvas(OUT_W, H)
         c.a = arr
         water.append(c)
-    if season.current == 'summer':
-        lev, (lx, ly) = lake.leviathan_frames(400, HORIZON + 13)     # seen through the seating-room window
-    else:
-        import giants
-        lev, (lx, ly) = giants.frames(season.current, HORIZON)
-    levc = []
-    for arr in lev:
-        c = Canvas(arr.shape[1], arr.shape[0])
-        c.a = arr
-        levc.append(c)
+    def crop_layer(arrs):
+        out = []
+        for arr in arrs:
+            c = Canvas(arr.shape[1], arr.shape[0])
+            c.a = arr
+            out.append(c)
+        return out
+    fish, (fx, fy) = life.lake(season.current)
+    birds, (bx_, by_) = life.birds(season.current)
     out = [
         ('00_sky', [sk], 0.04),
         ('01_clouds', [cl], 0.08),
         ('02_mountains', [mt], 0.12),
         ('03_lake', water, 0.12),
-        ('04_leviathan', levc, 0.12, (lx, ly)),
+        ('04_lake_life', crop_layer(fish), 0.12, (fx, fy)),
+        ('04_birds', crop_layer(birds), 0.14, (bx_, by_)),
         ('05_hills_trees', [hills()], 0.22),
         ('06_garden_trees', trees(), 0.34),
         ('07_flowers_close', flowers_close(), 0.62),
@@ -650,4 +662,5 @@ def all_layers():
     return out
 
 
-PARTICLE_NAME = dict(spring='petals', autumn='leaves', winter='snowfall')
+PARTICLE_NAME = dict(spring='petals', autumn='leaves', winter='snowfall', summer='wind')
+LIFE_LAYERS = ('04_lake_life', '04_birds')         # these run at life.FPS

@@ -3,12 +3,11 @@
     python3 teahouse-assets/generator/polish_gifs.py OUT_DIR [room names, e.g. bedroom] [--season=winter ...]
 
 Each room is drawn at 2x (1280 x 720), 10 fps, with every layer and prop
-animating: the seating room runs 12 s so the leviathan breaches, the others
+animating: the seating room runs 12 s so the birds and ducks cross, the others
 6 s. One palette is shared by all frames (no colour flicker) and there is no
 dithering, so the pixel art stays crisp. With --season=<name> (any of spring,
 summer, autumn, winter, repeatable) the rooms are drawn in that season, named
-<season>_<room>.gif; the seating room then runs 10 s, the giant's loop. Not part
-of the build or the zip."""
+<season>_<room>.gif. Not part of the build or the zip."""
 import os
 import sys
 
@@ -35,8 +34,6 @@ def _rooms(sc, out, only, se):
     for name, cam, dur in ROOMS:
         if only and not any(o in name for o in only):
             continue
-        if se and se != 'summer' and cam == LY.SW:
-            dur = 10.0
         frames = [sc.view(k / FPS, cam).image(2).convert('RGB') for k in range(int(dur * FPS))]
         if se:
             name = se + '_' + name

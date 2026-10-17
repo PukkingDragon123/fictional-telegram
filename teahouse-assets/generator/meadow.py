@@ -10,8 +10,14 @@ F = 8
 GREEN = ['leaf0', 'leaf1', 'leaf2', 'leaf3', 'leaf4', 'leaf5']
 
 
+_GUST = 0.0          # where the plant being drawn stands in the passing gust (set by meadow())
+
+
 def _sw(f, ph, amp=1.0):
-    return amp * math.sin(2 * math.pi * f / F + ph)
+    """Sway: each blade a little on its own, all of them leaning together as the
+    wind goes by (the gust reaches plants further right a little later)."""
+    t = 2 * math.pi * f / F
+    return amp * (0.45 * math.sin(t + ph) + 0.8 * math.sin(t + _GUST))
 
 
 # ---------------------------------------------------------------- grass
@@ -186,10 +192,12 @@ def meadow(width, ground, rng, rows, flower_kinds, flower_rate=0.25, wrap=True, 
            fill_to=None, susuki_rate=0.0, fill=True):
     """Rows of tufts + flowers on a ground strip, as F frames.
     rows: [(y_offset, tuft_h, blades, dark, spacing)] back to front."""
+    global _GUST
     items = []
     for (yo, th, nb, dark, spc) in rows:
         x = rng.uniform(0, spc)
         while x < width:
+            _GUST = -2 * math.pi * x / (width / 4.0)                # four gusts across the strip, seamless
             y = ground + yo + rng.randint(-1, 1)
             r = rng.random()
             if r < susuki_rate:
@@ -201,6 +209,7 @@ def meadow(width, ground, rng, rows, flower_kinds, flower_rate=0.25, wrap=True, 
                 fr = tuft(rng, int(th * rng.uniform(0.7, 1.15)), nb + rng.randint(-1, 2), dark)
             items.append((y, x, fr))
             x += spc * rng.uniform(0.6, 1.2)
+    _GUST = 0.0
     items.sort(key=lambda it: it[0])
     frames = []
     for f in range(F):
