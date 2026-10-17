@@ -2407,7 +2407,7 @@
     35
    ],
    "draggable": true,
-   "desc": "Red paper lantern swaying in front of the window (8 frames)"
+   "desc": "Paper lantern swaying in front of the window, painted for the season (8 frames)"
   },
   "paper_lantern_b": {
    "anims": {
@@ -2470,7 +2470,7 @@
     35
    ],
    "draggable": true,
-   "desc": "Torn red paper lantern, glowing through the tear (8 frames)"
+   "desc": "Torn paper lantern, glowing through the tear, painted for the season (8 frames)"
   },
   "wind_chime": {
    "anims": {

@@ -9,9 +9,9 @@ A first-person view of four rooms in an old, run-down teahouse. It comes with mo
 | Room | x range | What's there |
 | --- | --- | --- |
 | 1 Cook room | 0 to 640 | A big **stone furnace**, built rock by rock, with a thick wooden top and a wedge-stone arch with a carved keystone. Inside are burning coal, glowing embers, sparks, smoke, and the **talking fire spirit**: no eyes, just a toothless, wobbly frown. Herbs dry on an old bamboo pole above it. Also a big **chalkboard**, wiped clean, an apothecary chest with labelled jars on top, and a prep table. On the table: a hinoki cutting board with a nakiri knife and fresh leaves, a suribachi mortar, and a woven basket. Under it: a burlap sack with a rune stencil, end-grain firewood, a copper-hooped bucket, a basket of dried flowers, and an ash-glazed tsubo jar with a cloth lid |
-| 2 Seating | 640 to 1280 | Big lattice **window** onto a garden of detailed green trees by a lake, with butterflies, jade drapes, paper lanterns, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
+| 2 Seating | 640 to 1280 | Big lattice **window** onto a garden of detailed green trees by a lake, with butterflies, jade drapes, paper lanterns painted for the season, plants on the sill, menu tags, pendulum clock. A plain hinoki counter with a cup of tea and one yunomi |
 | 3 Tea ritual | 1280 to 1920 | An empty **corkboard**. Where the shelf was there is now a **bell-shaped katōmado window**. On the counter: a new tea set straight on the hinoki (a squat kyusu with a side handle, a black raku chawan of matcha, a chasen whisk, a lacquered natsume with gold pines, a chashaku scoop), a tray of four yunomi, the **green alien lucky cat**, and a **brass call bell**. Ring it and an old **goat-dragon** rises behind the window and rests its chin on the sill. In the counter front is one drawer, the **journal drawer** |
-| 4 Traveler's bedroom | 1920 to 2560 | A lived-in, run-down room drawn for realism. The walls are old mud plaster: softly mottled, sooty under the tie rail, streaked by rain with tide lines, hairline cracks and nail holes, and holes where the plaster has fallen to show the straw-and-clay coat and the woven bamboo lath behind. Below runs a wainscot of cedar boards. Moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, cloak on a hook, and a big red paper lantern hanging from the beam. The chair stands at the desk, seen from behind, with a red scarf over its back. A wall shelf above the bed holds folded linen, a clay bottle, a small box, a candle stub, a rolled map and dried lavender. There is a round bronze mirror with a tassel, pegs with a coil of rope and a leather satchel, and dried herbs hanging on the post. The floor is kept clear apart from a woven rug. Under the bed it is dark, and something lives there: a **black axolotl-frog**. It is drawn as a 3D creature: a smooth tube of wet black skin with a soft shine and faint speckles, a broad head, frog-like golden eyes, feathery purple gills that sway, a tail fin, and four legs stepping in a diagonal gait with splayed toes. It crawls a slow loop on the floor. It turns in depth, so you see it side on, from behind and head on, and the tail passes behind the body. It dims as it goes deeper into the dark (48 frames at 12 fps; `preview/black_axolotl.gif`) |
+| 4 Traveler's bedroom | 1920 to 2560 | A lived-in, run-down room drawn for realism. The walls are old mud plaster: softly mottled, sooty under the tie rail, streaked by rain with tide lines, hairline cracks and nail holes, and holes where the plaster has fallen to show the straw-and-clay coat and the woven bamboo lath behind. Below runs a wainscot of cedar boards. Moon window with a billowing curtain, a **silk bed**, desk, chair with a draped scarf, bookcase, cloak on a hook, and a big paper lantern hanging from the beam (red in summer, repainted each season). The chair stands at the desk, seen from behind, with a red scarf over its back. A wall shelf above the bed holds folded linen, a clay bottle, a small box, a candle stub, a rolled map and dried lavender. There is a round bronze mirror with a tassel, pegs with a coil of rope and a leather satchel, and dried herbs hanging on the post. The floor is kept clear apart from a woven rug. Under the bed it is dark, and something lives there: a **black axolotl-frog**. It is drawn as a 3D creature: a smooth tube of wet black skin with a soft shine and faint speckles, a broad head, frog-like golden eyes, feathery purple gills that sway, a tail fin, and four legs stepping in a diagonal gait with splayed toes. It crawls a slow loop on the floor. It turns in depth, so you see it side on, from behind and head on, and the tail passes behind the body. It dims as it goes deeper into the dark (48 frames at 12 fps; `preview/black_axolotl.gif`) |
 
 ## Uncle Pong (optional, not placed)
 
@@ -118,7 +118,13 @@ The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.7
   - autumn: maple leaves
   - winter: frost growing in from the edge of every pane, snow heaped on the outer sills, and icicles
 - **The light** (`40_light_overlay`) changes with the season: soft in spring, low golden autumn sun that reaches further across the floor, and cool snow-light in winter, with the hearth and the lantern glowing warmer against it.
-- Inside, the rooms and their things stay the same all year.
+- **The lanterns** (the two in the seating room and the big one in the bedroom) are repainted for each season. Each has a new paper colour and a new pattern painted round the barrel, and the pattern turns as the lantern twists on its cord:
+  - **Spring:** pale pink paper scattered with cherry blossoms and buds, pink tassel, a sprig of blossom tied at the top.
+  - **Summer:** red paper with white fireworks bursting above a band of waves.
+  - **Autumn:** persimmon-orange paper glowing gold, maple leaves drifting down it, a dark wood cap and a red leaf caught on the cord.
+  - **Winter:** white washi with red camellias and blue snowflakes, a red tassel, pine needles and red nanten berries at the top.
+  - The bedroom lantern's glow on the walls takes the colour of its paper.
+- Everything else inside stays the same all year.
 - `preview/seasons_overview.png` shows the seating room in all four seasons. `seasons/<season>/preview/` has the whole teahouse, each room, and `window_life.gif`.
 
 ## The pendulum clock
@@ -254,7 +260,7 @@ nature/           stand-alone grown trees (black pine, zelkova, oaks, weeping wi
                   hinoki cypress, a shrub), flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
 seasons/<season>/ spring, summer, autumn, winter: layers/outside (the view, its birds and fish), layers/room
-                  (09_window_glass, 40_light_overlay), preview
+                  (09_window_glass, 40_light_overlay), props + props_3x (the season's lanterns), preview
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
@@ -279,6 +285,7 @@ Draw these back to front:
 - Use its `outside_layers` in place of the base ones in step 1 (summer points at the base files). Some sheets are grids (`sheet_columns`), and the life layers have their own `fps`.
 - Draw its `window_glass` between steps 2 and 3.
 - Use its `light_overlay` in step 9.
+- Draw each of its `prop_swaps` in place of the base prop with the same `name` (the lanterns).
 
 Props with an `on_click` list in `scene.json` are interactive: on a click, play each listed one-shot anim once, then switch that prop to its `then` anim.
 

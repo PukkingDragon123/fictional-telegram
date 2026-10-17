@@ -72,6 +72,9 @@ SUN = dict(summer=(WARM, 1.0, 96, 1.0), spring=((255, 238, 226), 0.9, 90, 1.0),
            autumn=((255, 204, 132), 1.3, 126, 1.1), winter=((228, 238, 255), 0.85, 110, 1.35))
 
 
+LANTERN_GLOW = dict(summer=FIRE, spring=(255, 196, 206), autumn=(255, 168, 76), winter=(255, 226, 172))
+
+
 def light(season='summer'):
     """F frames of RGBA light."""
     sun, k_sun, throw, k_fire = SUN[season]
@@ -117,9 +120,10 @@ def light(season='summer'):
     sel = glass & (al > 0)
     base[sel, 0], base[sel, 1], base[sel, 2] = 236, 246, 255
     base[sel, 3] = np.maximum(base[sel, 3], al[sel])
-    lx, ly = 2441, 80                                     # bedroom red lantern glow
+    lx, ly = 2441, 80                                     # bedroom lantern glow, the colour of its paper
+    lantern = LANTERN_GLOW[season]
     _add(base, lx - 70, lx + 70, ly - 60, ly + 70,
-         lambda x, y: (FIRE, int(max(0, 40 * k_fire * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))
+         lambda x, y: (lantern, int(max(0, 40 * k_fire * (1 - math.hypot(x - lx, (y - ly) * 1.2) / 70)))))
     if season == 'winter':                                # cold snow-light spilling in under each window
         for (cx, cy, rx) in ((wx + ww // 2, wy + wh + 14, ww * 0.6), (WIN_ROUND['cx'], WIN_ROUND['cy'] + 66, 80),
                              (WIN_BELL['cx'], WIN_BELL['bottom'] + 12, 70)):

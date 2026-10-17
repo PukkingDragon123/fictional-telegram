@@ -933,7 +933,7 @@
    "w": 53,
    "h": 90,
    "draggable": true,
-   "desc": "Red paper lantern swaying in front of the window (8 frames)",
+   "desc": "Paper lantern swaying in front of the window, painted for the season (8 frames)",
    "placed_by_default": true,
    "file": "props/room2/paper_lantern_a.png",
    "frames": 8,
@@ -949,7 +949,7 @@
    "w": 53,
    "h": 90,
    "draggable": true,
-   "desc": "Torn red paper lantern, glowing through the tear (8 frames)",
+   "desc": "Torn paper lantern, glowing through the tear, painted for the season (8 frames)",
    "placed_by_default": true,
    "file": "props/room2/paper_lantern_b.png",
    "frames": 8,
@@ -2444,7 +2444,7 @@
    "sheet": "nature/particles/particle_leaf_jade_sheet.png"
   }
  ],
- "seasons_note": "the base scene is summer. For a season, use its outside_layers instead of the base ones, draw window_glass just before 10_room_shell, and use its light_overlay",
+ "seasons_note": "the base scene is summer. For a season, use its outside_layers instead of the base ones, draw window_glass just before 10_room_shell, use its light_overlay, and draw each of its prop_swaps in place of the base prop of the same name",
  "seasons": {
   "spring": {
    "outside_layers": [
@@ -2549,7 +2549,45 @@
     "sheet": "seasons/spring/layers/room/40_light_overlay_sheet.png",
     "frames": 8,
     "fps": 6
-   }
+   },
+   "prop_swaps": [
+    {
+     "name": "paper_lantern_a",
+     "room": 2,
+     "x": 831,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/spring/props/room2/paper_lantern_a.png",
+     "sheet": "seasons/spring/props/room2/paper_lantern_a_sheet.png"
+    },
+    {
+     "name": "paper_lantern_b",
+     "room": 2,
+     "x": 1041,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/spring/props/room2/paper_lantern_b.png",
+     "sheet": "seasons/spring/props/room2/paper_lantern_b_sheet.png"
+    },
+    {
+     "name": "red_lantern",
+     "room": 4,
+     "x": 2417,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/spring/props/room4/red_lantern.png",
+     "sheet": "seasons/spring/props/room4/red_lantern_sheet.png"
+    }
+   ]
   },
   "summer": {
    "outside_layers": [
@@ -2755,7 +2793,45 @@
     "sheet": "seasons/autumn/layers/room/40_light_overlay_sheet.png",
     "frames": 8,
     "fps": 6
-   }
+   },
+   "prop_swaps": [
+    {
+     "name": "paper_lantern_a",
+     "room": 2,
+     "x": 831,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/autumn/props/room2/paper_lantern_a.png",
+     "sheet": "seasons/autumn/props/room2/paper_lantern_a_sheet.png"
+    },
+    {
+     "name": "paper_lantern_b",
+     "room": 2,
+     "x": 1041,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/autumn/props/room2/paper_lantern_b.png",
+     "sheet": "seasons/autumn/props/room2/paper_lantern_b_sheet.png"
+    },
+    {
+     "name": "red_lantern",
+     "room": 4,
+     "x": 2417,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/autumn/props/room4/red_lantern.png",
+     "sheet": "seasons/autumn/props/room4/red_lantern_sheet.png"
+    }
+   ]
   },
   "winter": {
    "outside_layers": [
@@ -2860,7 +2936,45 @@
     "sheet": "seasons/winter/layers/room/40_light_overlay_sheet.png",
     "frames": 8,
     "fps": 6
-   }
+   },
+   "prop_swaps": [
+    {
+     "name": "paper_lantern_a",
+     "room": 2,
+     "x": 831,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/winter/props/room2/paper_lantern_a.png",
+     "sheet": "seasons/winter/props/room2/paper_lantern_a_sheet.png"
+    },
+    {
+     "name": "paper_lantern_b",
+     "room": 2,
+     "x": 1041,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/winter/props/room2/paper_lantern_b.png",
+     "sheet": "seasons/winter/props/room2/paper_lantern_b_sheet.png"
+    },
+    {
+     "name": "red_lantern",
+     "room": 4,
+     "x": 2417,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/winter/props/room4/red_lantern.png",
+     "sheet": "seasons/winter/props/room4/red_lantern_sheet.png"
+    }
+   ]
   }
  }
 }

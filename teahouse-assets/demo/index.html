@@ -151,9 +151,20 @@
     if (pt.y > 205) { pt.y = 50; pt.x = Math.random() * VW; }
   }), 33);
 
-  // the seasons: swap the view outside, the glass and the light
+  // the seasons: swap the view outside, the glass, the light and the lanterns
+  const baseLook = Object.fromEntries(props.map(p => [p.name, { file: p.file, sheet: p.sheet, w: p.w, h: p.h }]));
+  function swapProps(list) {                              // the lanterns, redrawn for the season
+    props.forEach(p => Object.assign(p, baseLook[p.name]));
+    (list || []).forEach(sw => {
+      const p = props.find(q => q.name === sw.name);
+      if (!p) return;
+      Object.assign(p, { file: sw.file, sheet: sw.sheet, w: sw.w, h: sw.h });
+      load(sw.file); if (sw.sheet) load(sw.sheet);
+    });
+  }
   document.getElementById('season').addEventListener('change', e => {
     const rec = S.seasons && S.seasons[e.target.value];
+    swapProps(rec && rec.prop_swaps);
     if (!rec) { outside = baseOutside; lightL = byName['40_light_overlay']; glass = null; return; }
     outside = rec.outside_layers;
     outside.forEach(l => { load(l.file); if (l.sheet) load(l.sheet); });

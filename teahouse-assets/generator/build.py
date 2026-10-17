@@ -94,6 +94,7 @@ def layer_sheet(frames):
 
 
 SURFACES = [LY.SHELF1_Y, LY.SHELF3_Y, LY.SILL_Y]
+SEASONAL_PROPS = ('paper_lantern_a', 'paper_lantern_b', 'red_lantern')     # redrawn for each season
 
 
 def _process_prop(p):
@@ -144,16 +145,17 @@ class Scene:
         t = time.time()
         self.props = [_process_prop(p) for p in propkit.PROPS]
         print(f'  {len(self.props)} props        {time.time() - t:5.1f}s')
-        # the base scene is summer with nothing seasonal added; use_season() swaps the rest in
-        self.base_outs, self.base_light = self.outs, self.light
-        self.window, self.season = None, None
+        # the base scene is summer; use_season() swaps the rest in
+        self.base_outs, self.base_light, self.base_props = self.outs, self.light, self.props
+        self.window, self.season, self.swaps = None, None, {}
         self._seasons = {}
 
     def use_season(self, s):
-        """Swap in a season's outside view (with its birds and fish), window glass and light
-        (s=None: back to the plain base scene)."""
+        """Swap in a season's outside view (with its birds and fish), window glass, light
+        and its lanterns (s=None: back to the plain base scene)."""
         if s is None:
             self.outs, self.light, self.window, self.season = self.base_outs, self.base_light, None, None
+            self.props, self.swaps = self.base_props, {}
             return
         if s not in self._seasons:
             t = time.time()
@@ -164,11 +166,14 @@ class Scene:
                 else:
                     outs, light = outside.all_layers(), fx.light(s)
                 win = seasons_room.window_layer(s, self.shell)
+                swaps = {} if s == 'summer' else {p['name']: _process_prop(p) for p in propkit.PROPS
+                                                  if p['name'] in SEASONAL_PROPS}
             finally:
                 season.set_season('summer')
-            self._seasons[s] = (outs, light, win)
+            self._seasons[s] = (outs, light, win, swaps)
             print(f'  {s:<8} season    {time.time() - t:5.1f}s')
-        self.outs, self.light, self.window = self._seasons[s]
+        self.outs, self.light, self.window, self.swaps = self._seasons[s]
+        self.props = [self.swaps.get(p['name'], p) for p in self.base_props]
         self.season = s
 
     def outside_at(self, t, cam_x, width=LY.W):
@@ -578,6 +583,18 @@ def export_seasons(sc, anims=True):
                                         sheet=save(sheet(sc.light, vertical=True), *d, 'layers', 'room',
                                                    '40_light_overlay_sheet.png'),
                                         frames=len(sc.light), fps=LAYER_FPS)
+        if sc.swaps:                                    # the props redrawn for the season (the lanterns)
+            rec['prop_swaps'] = []
+            for name, p in sc.swaps.items():
+                fr = p['frames']
+                rd = f'room{p["room"]}'
+                r = dict(name=name, room=p['room'], x=p['sx'], y=p['sy'], w=fr[0].w, h=fr[0].h, frames=len(fr),
+                         fps=p['fps'], file=save(fr[0], *d, 'props', rd, name + '.png'))
+                save(fr[0], *d, 'props_3x', rd, name + '.png', scale=SCALE_HI)
+                if len(fr) > 1:
+                    r['sheet'] = save(sheet(fr), *d, 'props', rd, name + '_sheet.png')
+                    save(sheet(fr), *d, 'props_3x', rd, name + '_sheet.png', scale=SCALE_HI)
+                rec['prop_swaps'].append(r)
         # previews: the whole teahouse, each room, and the giant through the seating-room window
         full = sc.compose(0)
         save(full, *d, 'preview', 'teahouse_full_1x.png')
@@ -619,7 +636,8 @@ def export_scene_json(layer_info, prop_recs, nature_recs, ncolors, seasons_info=
         palette_colors=ncolors, layers=layer_info, props=prop_recs, nature=nature_recs)
     if seasons_info:
         scene['seasons_note'] = ('the base scene is summer. For a season, use its outside_layers instead of the '
-                                 'base ones, draw window_glass just before 10_room_shell, and use its light_overlay')
+                                 'base ones, draw window_glass just before 10_room_shell, use its light_overlay, and '
+                                 'draw each of its prop_swaps in place of the base prop of the same name')
         scene['seasons'] = seasons_info
     with open(os.path.join(ROOT, 'scene.json'), 'w') as fh:
         json.dump(scene, fh, indent=1)

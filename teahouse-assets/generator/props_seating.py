@@ -120,12 +120,113 @@ def clock():
     return frames
 
 
-def _lantern(seed, torn, f, n=F8):
+# the paper, lacquer and pattern of the lanterns through the year (season.py)
+LANTERN = dict(
+    summer=dict(ramp=['red0', 'red1', 'red2', 'red3', 'red4', 'fire3', 'fire4'], cap=('stone0', 'stone1', 'ink'),
+                tassel=('red3', 'red2', 'red1'), halo='fire3', motif='summer'),
+    spring=dict(ramp=['pink0', 'pink1', 'pink2', 'pink3', 'pink4', 'white', 'white'], cap=('stone0', 'stone1', 'ink'),
+                tassel=('pink3', 'pink2', 'pink1'), halo='pink3', motif='spring'),
+    autumn=dict(ramp=['red0', 'copper1', 'copper2', 'fire2', 'fire3', 'fire4', 'fire5'], cap=('wood0', 'wood1', 'ink'),
+                tassel=('copper3', 'copper2', 'copper1'), halo='fire3', motif='autumn'),
+    winter=dict(ramp=['stone1', 'paper1', 'paper2', 'paper3', 'paper4', 'white', 'fire5'], cap=('stone0', 'stone1', 'ink'),
+                tassel=('scarlet3', 'scarlet2', 'scarlet1'), halo='fire4', motif='winter'))
+
+
+def _wrap(a):
+    return (a + math.pi) % (2 * math.pi) - math.pi
+
+
+def _motifs(kind):
+    """Painted motifs on the paper: (angle round the lantern, height 0..1, shape).
+    Eight round each row so a gentle twist keeps them going round."""
+    out = []
+    if kind == 'summer':                         # fireworks above, a band of waves below
+        for k in range(8):
+            out.append((k * math.pi / 4, 0.3, 'burst'))
+        for k in range(10):
+            out.append((k * math.pi / 5, 0.86, 'wave'))
+            out.append((k * math.pi / 5 + math.pi / 10, 0.78, 'wave'))
+    elif kind == 'spring':                       # cherry blossoms scattered all over
+        for r, t in enumerate((0.22, 0.42, 0.62, 0.82)):
+            for k in range(8):
+                out.append((k * math.pi / 4 + (r % 2) * math.pi / 8, t, 'blossom' if (k + r) % 3 else 'bud'))
+    elif kind == 'autumn':                       # maple leaves falling down the paper
+        for r, t in enumerate((0.24, 0.5, 0.76)):
+            for k in range(8):
+                out.append((k * math.pi / 4 + (r % 2) * math.pi / 8 + r * 0.2, t, 'maple'))
+    else:                                        # red camellias among snowflakes
+        for k in range(8):
+            out.append((k * math.pi / 4, 0.32, 'camellia' if k % 2 else 'flake'))
+            out.append((k * math.pi / 4 + math.pi / 8, 0.68, 'flake' if k % 2 else 'camellia'))
+    return out
+
+
+def _motif_px(shape, dx, dy):
+    """Colour key of a motif at (dx, dy) from its centre, or None."""
+    r = math.hypot(dx, dy)
+    a = math.atan2(dy, dx)
+    if shape == 'blossom':
+        if r < 1.0:
+            return 'c'
+        petal = min(abs(_wrap(a - (k * 2 * math.pi / 5 - math.pi / 2))) for k in range(5))
+        if r < 3.4 - 1.6 * petal:
+            return 'p' if r > 2.2 else 'q'
+    elif shape == 'bud':
+        if r < 1.3:
+            return 'p'
+    elif shape == 'maple':
+        if 0 < dy < 3.2 and abs(dx - dy * 0.2) < 0.5:
+            return 's'                                                # the stem
+        lobe = abs(math.cos(2.5 * (a + math.pi / 2)))
+        if r < 1.4 + 2.4 * lobe ** 2.2 and dy < 1.6:
+            return 'p' if r > 1.2 else 'q'
+    elif shape == 'flake':
+        if r < 3.4:
+            arm = min(abs(_wrap(a - k * math.pi / 3)) for k in range(6))
+            if arm * r < 0.55 or (1.6 < r < 2.4 and arm * r < 1.1):
+                return 'f'
+    elif shape == 'camellia':
+        if r < 0.9:
+            return 'c'
+        if r < 2.9:
+            return 'p' if (r > 2.0 or dx > 0.5) else 'q'
+        if 2.9 <= r < 4.2 and -2.4 < a < -0.9:
+            return 'l'                                                # a dark leaf behind it
+    elif shape == 'burst':
+        if r < 4.4:
+            arm = min(abs(_wrap(a - k * math.pi / 4)) for k in range(8))
+            if arm * r < 0.5 and r > 1.0:
+                return 'f'
+            if r < 0.8:
+                return 'c'
+    elif shape == 'wave':
+        if 1.8 < r < 3.0 and dy < 0:
+            return 'f'
+    return None
+
+
+MOTIF_COLS = dict(
+    summer=dict(f=('paper3', 'paper4'), c=('gold3', 'gold4')),
+    spring=dict(p=('pink1', 'pink2'), q=('pink2', 'pink3'), c=('gold2', 'gold3')),
+    autumn=dict(p=('red1', 'red2'), q=('red0', 'red1'), s=('wood0', 'wood1')),
+    winter=dict(f=('indigo1', 'indigo2'), p=('scarlet1', 'scarlet2'), q=('scarlet2', 'scarlet3'), c=('gold2', 'gold3'),
+                l=('leaf0', 'leaf1')))
+
+
+def _lantern(seed, torn, f, n=F8, style=None):
     """Chochin paper lantern lit from inside: a barrel of paper over bamboo ribs
-    that curve with the paper, warm glow strongest at the middle, black lacquer
-    caps with a gold rim, a cord and a swaying tassel, a soft halo."""
+    that curve with the paper, warm glow strongest at the middle, lacquer caps
+    with a gold rim, a cord and a swaying tassel, a soft halo. The paper and its
+    painted pattern change with the season: red with fireworks and waves in
+    summer, pale pink with cherry blossom in spring, persimmon orange with
+    maple leaves in autumn, white washi with red camellias and snowflakes in
+    winter. The lantern twists a little as it sways, so the pattern turns."""
+    import season
+    style = style or season.current
+    S = LANTERN[style]
     rng = random.Random(seed)
     sw = math.sin(2 * math.pi * f / n + seed)
+    twist = 0.22 * math.sin(2 * math.pi * f / n + seed + 0.8)
     flick = 0.92 + 0.08 * math.sin(2 * math.pi * f * 2 / n + seed * 3)
     w, h = 46, 82
     cv = Canvas(w, h)
@@ -140,11 +241,14 @@ def _lantern(seed, torn, f, n=F8):
             hw = 7 + 10.5 * math.sin(math.pi * t)
             d = max(0.0, abs(x + 0.5 - cx) - hw, (y0 - y) if y < y0 else 0, (y - y1) if y > y1 else 0)
             if 0 < d < 5:
-                halo.a[y, x] = (*PAL['fire3'], int(46 * (1 - d / 5) * flick))
+                halo.a[y, x] = (*PAL[S['halo']], int(46 * (1 - d / 5) * flick))
     # cord from the beam
     for j in range(y0 - 3):
         cv.px(int(round(w / 2 + off * j / (y0 - 3))), j, 'paper1')
-    ramp = ['red0', 'red1', 'red2', 'red3', 'red4', 'fire3', 'fire4']
+    ramp = S['ramp']
+    motifs = _motifs(S['motif'])
+    mcols = MOTIF_COLS[S['motif']]
+    Rm = 13.0
     for y in range(y0, y1):
         t = (y - y0) / (y1 - y0)
         hw = 7 + 10.5 * math.sin(math.pi * t)
@@ -159,7 +263,21 @@ def _lantern(seed, torn, f, n=F8):
             if rib:
                 v -= 0.22
             k = int(max(0, min(len(ramp) - 1, v * len(ramp))))
-            cv.px(x, y, ramp[k])
+            c = ramp[k]
+            # the painted pattern, wrapped round the barrel (squeezed toward the edges)
+            th = math.asin(max(-1.0, min(1.0, u)))
+            for (mt, mh, shape) in motifs:
+                dth = _wrap(th - mt - twist)
+                if abs(dth) > 0.9:
+                    continue
+                key = _motif_px(shape, dth * Rm, (y - y0) - mh * (y1 - y0))
+                if key:
+                    lo, hi = mcols[key]
+                    c = hi if v > 0.55 else lo
+                    if rib:
+                        c = lo
+                    break
+            cv.px(x, y, c)
     # a few vertical paper seams catching the light
     for su in (-0.55, 0.2):
         for y in range(y0 + 3, y1 - 3):
@@ -174,27 +292,44 @@ def _lantern(seed, torn, f, n=F8):
                             (1, 2, 'fire4'), (0, 2, 'fire3'), (2, 2, 'fire3'), (1, 3, 'fire3')):
             cv.px(tx + dx, ty + dy, c)
         for (dx, dy) in ((-1, 0), (-1, 1), (-1, 2), (3, 1), (3, 2), (0, -1), (2, 3), (1, 4)):
-            cv.px(tx + dx, ty + dy, 'red0')
+            cv.px(tx + dx, ty + dy, ramp[0])
         cv.px(tx + 3, ty + 4, 'paper3'); cv.px(tx - 2, ty + 3, 'paper3')
     # lacquer caps: shallow drums with a gold rim
+    c_edge, c_lit, c_dark = S['cap']
     for (cy, top) in ((y0 - 2, True), (y1 + 1, False)):
         for y in range(cy - 2, cy + 3):
             for x in range(int(cx - 8), int(cx + 9)):
                 dx = (x + 0.5 - cx) / 8.5
                 if abs(dx) <= 1:
-                    c = 'stone0' if abs(dx) > 0.55 else ('stone1' if dx < 0 else 'ink')
+                    c = c_edge if abs(dx) > 0.55 else (c_lit if dx < 0 else c_dark)
                     if (top and y == cy + 2) or (not top and y == cy - 2):
                         c = 'gold2' if dx < 0.3 else 'gold1'
                     cv.px(x, y, c)
         cv.px(int(cx - 5), cy - 1, 'stone2')
+    # something tied at the top for the season
+    tx0, ty0 = int(cx + 6), y0 - 3
+    if style == 'spring':                                 # a sprig of blossom
+        cv.line(tx0, ty0, tx0 + 5, ty0 - 4, 'bark1')
+        for (dx, dy) in ((3, -4), (5, -5), (6, -3), (2, -2)):
+            cv.px(tx0 + dx, ty0 + dy, 'pink4'); cv.px(tx0 + dx + 1, ty0 + dy, 'pink3')
+    elif style == 'winter':                               # pine needles and red nanten berries
+        for k in range(5):
+            cv.line(tx0, ty0, tx0 + 2 + k, ty0 - 4 + k // 2, 'leaf1' if k % 2 else 'jade1')
+        for (dx, dy) in ((1, 1), (3, 1), (2, 2)):
+            cv.px(tx0 + dx, ty0 + dy, 'scarlet2')
+    elif style == 'autumn':                               # a red maple leaf caught on the cord
+        for (dx, dy, c) in ((0, 0, 'red2'), (-1, 0, 'red1'), (1, 0, 'red2'), (0, -1, 'red2'), (-1, -1, 'red1'),
+                            (1, -1, 'red3'), (0, 1, 'wood0')):
+            cv.px(tx0 - 9 + dx, ty0 - 6 + dy, c)
     # tassel, swinging a little behind the lantern
     tx = cx + sw * 1.2
     for j in range(3):
         cv.px(int(round(cx)), y1 + 4 + j, 'gold1')
+    t_a, t_b, t_c = S['tassel']
     for j in range(8):
         sx = int(round(tx + sw * j * 0.15))
         for k in (-1, 0, 1):
-            cv.px(sx + k, y1 + 7 + j, 'red3' if k < 0 else ('red2' if k == 0 else 'red1'))
+            cv.px(sx + k, y1 + 7 + j, t_a if k < 0 else (t_b if k == 0 else t_c))
     cv.px(int(round(tx)), y1 + 6, 'gold3')
     body = O.outline(cv)
     out = Canvas(body.w, body.h)
@@ -203,12 +338,12 @@ def _lantern(seed, torn, f, n=F8):
     return out
 
 
-@prop('paper_lantern_a', 2, 'ceiling', 832, 36, 'Red paper lantern swaying in front of the window (8 frames)', fps=5)
+@prop('paper_lantern_a', 2, 'ceiling', 832, 36, 'Paper lantern swaying in front of the window, painted for the season (8 frames)', fps=5)
 def lantern_a():
     return [_lantern(2020, False, f) for f in range(F8)]
 
 
-@prop('paper_lantern_b', 2, 'ceiling', 1042, 36, 'Torn red paper lantern, glowing through the tear (8 frames)', fps=5)
+@prop('paper_lantern_b', 2, 'ceiling', 1042, 36, 'Torn paper lantern, glowing through the tear, painted for the season (8 frames)', fps=5)
 def lantern_b():
     return [_lantern(2021, True, f) for f in range(F8)]
 
