@@ -82,7 +82,7 @@ export class ZoneSystem {
 
   isOpen(id) { return (this.game.state.zones || []).includes(id); }
   // [F&S mining] the camera aims at y = 0: shift the goal so a spot on high ground is framed (only for real heights)
-  hOff(x, z) { const h = this.game.grid.groundAt(x, z) || 0; return h > 2.5 ? h / Math.tan(this.game.rig.pitch || 0.77) : 0; }
+  hOff(x, z) { if (this.game.rig.viewGuard?.active?.()) return 0; /* [v26 mountains] the camera already looks at the ground height */ const h = this.game.grid.groundAt(x, z) || 0; return h > 2.5 ? h / Math.tan(this.game.rig.pitch || 0.77) : 0; }
 
   // Every area's footprint: its circle plus its whole themed biome (the giant
   // mushrooms, the swamp, the willow hill), never your meadow. Stored as a
