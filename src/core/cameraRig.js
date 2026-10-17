@@ -67,7 +67,8 @@ export class CameraRig {
   // springs back once you let go (see update)
   _pan(dx, dz) {
     this.follow = null;
-    if (this.freeBounds) { this.goal.x += dx; this.goal.z += dz; this.clampGoal(); return; }
+    const px = this.goal.x, pz = this.goal.z; // [v26 mountains]
+    if (this.freeBounds) { this.goal.x += dx; this.goal.z += dz; this.clampGoal(); this._viewClamp(px, pz); return; }
     if (!this._rawOn) { this._raw.set(this.goal.x, this.goal.z); this._rawOn = true; }
     this._raw.x += dx; this._raw.y += dz;
     const b = this.bounds;
@@ -76,6 +77,38 @@ export class CameraRig {
     this._panT = 0;
     this._anchor = null;
     this._sv.set(0, 0);
+    this._viewClamp(px, pz); // [v26 mountains]
+  }
+
+  // [v26 mountains] mountains stay solid, so the camera keeps out of their way
+  // (world/viewGuard.js): a pan can't slide the spot behind rock (it slides
+  // along it instead), a turn that would put rock in front of the spot first
+  // moves the spot out (or is refused with a bump), and when something else
+  // puts the spot behind rock (a look-at, a followed bear) the camera turns
+  _vPitch() { return this.pitchGoal ?? this.pitch; }
+  _viewClamp(px, pz) {
+    const V = this.viewGuard, g = this.goal, y = this.yawGoal, p = this._vPitch();
+    if (!V || !V.active() || V.visible(g.x, g.z, y, p) || !V.visible(px, pz, y, p)) return;
+    if (V.visible(g.x, pz, y, p)) g.z = pz;
+    else if (V.visible(px, g.z, y, p)) g.x = px;
+    else { g.x = px; g.z = pz; }
+    this._raw.set(g.x, g.z);
+  }
+  _viewKeep(dt) {
+    const V = this.viewGuard;
+    this._vCool = Math.max(0, (this._vCool || 0) - dt);
+    if (!V || !V.active()) return;
+    const g = this.goal, p = this._vPitch();
+    if (V.visible(g.x, g.z, this.yawGoal, p)) return;
+    if (!this._rawOn && !this.freeBounds && this._vCool <= 0) {
+      for (const k of [1, -1, 2, -2, 3, -3, 4]) {
+        const ny = this.yawGoal + (k * Math.PI) / 4;
+        if (V.visible(g.x, g.z, ny, p)) { this.yawGoal = ny; this._vCool = 2.5; return; }
+      }
+    }
+    if (this.follow) return;
+    const q = V.nearest(g.x, g.z, this.yawGoal, p, 10, this.freeBounds ? null : this.bounds);
+    if (q) { g.x = q.x; g.z = q.z; this._raw.set(q.x, q.z); this._anchor = null; }
   }
 
   rubberR() { return 0.8 + this.wupp * 26; }
@@ -132,7 +165,15 @@ export class CameraRig {
   }
 
   rotate(steps) {
-    this.yawGoal += steps * Math.PI / 4;
+    const ny = this.yawGoal + steps * Math.PI / 4;
+    const V = this.viewGuard, p = this._vPitch(); // [v26 mountains] never turn rock in front of the spot
+    if (V && V.active() && !V.visible(this.goal.x, this.goal.z, ny, p)) {
+      const q = V.nearest(this.goal.x, this.goal.z, ny, p, 14, this.freeBounds ? null : this.bounds);
+      if (!q) { this.shake = Math.max(this.shake, 0.7); V.blocked?.(); return; }
+      this.follow = null; this._rawOn = false; this._anchor = null;
+      this.goal.x = q.x; this.goal.z = q.z;
+    }
+    this.yawGoal = ny;
   }
 
   lookAt(x, z, instant = false) {
@@ -152,6 +193,7 @@ export class CameraRig {
     }
     // [v20 map] the edge of the world
     this.updateEdge(dt);
+    this._viewKeep(dt); // [v26 mountains]
     const k = this.freeBounds ? 6 : 10;
     this.target.x = damp(this.target.x, this.goal.x, k, dt);
     this.target.y = damp(this.target.y, this.goal.y, k, dt);

@@ -28,28 +28,7 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
 .cls-bars i:last-child { bottom: 0; }
 @keyframes cls-bar { to { height: 5.5vh; } }
 
-/* skip */
-.cls-skip {
-  position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); right: 10px; pointer-events: auto; cursor: pointer;
-  font: 18px/1 var(--font-title); color: #f6ead0; letter-spacing: 0;
-  padding: 6px 10px 7px; background: var(--wood); border: 0; border-radius: 0;
-  box-shadow: inset 0 -3px 0 var(--wood-d), inset 0 3px 0 var(--wood-l), 0 0 0 3px var(--ink), 0 4px 0 3px rgba(0,0,0,.35);
-  opacity: .82; transition: transform .1s, opacity .2s;
-}
-.cls-skip b { font-weight: 400; color: var(--chalk-y); }
-.cls-skip:hover { opacity: 1; transform: translateY(-1px); }
-.cls-skip:active { transform: translateY(2px); }
-.cls-skip { display: flex; align-items: center; gap: 8px; padding: 8px 14px 9px 10px; font-size: 22px; opacity: .92; }
-.cls-ff-ico { position: relative; width: 26px; height: 18px; display: inline-block; }
-.cls-ff-ico i { position: absolute; top: 0; width: 0; height: 0; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-left: 13px solid var(--chalk-y); filter: drop-shadow(2px 2px 0 var(--ink)); }
-.cls-ff-ico i:first-child { left: 0; } .cls-ff-ico i:last-child { left: 12px; }
-.cls-ff-x { color: var(--chalk-y); font-size: 24px; text-shadow: 2px 2px 0 var(--ink); }
-.cls-ff-lbl { font-size: 14px; color: #f6ead0; opacity: .8; letter-spacing: 1px; }
-.cls-skip.on { opacity: 1; background: #3f8a3a; box-shadow: inset 0 -3px 0 #2a5e27, inset 0 3px 0 #6cc060, 0 0 0 3px var(--ink), 0 0 0 6px var(--chalk-y), 0 4px 0 6px rgba(0,0,0,.35); }
-.cls-skip.on .cls-ff-ico i { animation: cls-ffa .45s steps(3) infinite; }
-.cls-skip.on .cls-ff-ico i:last-child { animation-delay: .15s; }
-.cls-skip.on .cls-ff-lbl { color: #fff7c0; }
-@keyframes cls-ffa { 0% { transform: translateX(-3px); opacity: .5; } 50% { transform: translateX(2px); opacity: 1; } 100% { transform: translateX(5px); opacity: .6; } }
+/* the corner buttons (SKIP, x3 FAST): see the [v26 class2] block at the end */
 .cls-ask { position: absolute; top: calc(64px + env(safe-area-inset-top, 0px)); right: 14px; max-width: 280px; pointer-events: none;
   font: 20px/1.15 var(--font-title); color: #2a1a10; background: #fffaf0; padding: 10px 14px; box-shadow: 0 0 0 3px var(--ink), 0 5px 0 3px rgba(0,0,0,.3); }
 .cls-ask::before { content: ''; position: absolute; top: -12px; right: 34px; border: 6px solid transparent; border-bottom: 9px solid var(--ink); }
@@ -147,16 +126,6 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
   .cls-stamp canvas { width: 160px; height: 160px; }
 }
 
-/* [v26 class2] skip the whole class */
-.cls-out {
-  position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); right: 150px; pointer-events: auto; cursor: pointer;
-  font: 16px/1 var(--font-title); color: #f6ead0; padding: 9px 10px 10px; background: #5e3519; border: 0; border-radius: 0;
-  box-shadow: inset 0 -3px 0 #3e2210, inset 0 3px 0 var(--wood), 0 0 0 3px var(--ink), 0 4px 0 3px rgba(0,0,0,.35);
-  opacity: .78; transition: transform .1s, opacity .2s;
-}
-.cls-out:hover { opacity: 1; transform: translateY(-1px); }
-.cls-out:active { transform: translateY(2px); }
-
 /* [v26 class2] pop quiz: chalk rings over the board doodles you can tap / drag */
 .cls-quiz { position: absolute; inset: 0; pointer-events: none; }
 .cls-opt {
@@ -202,6 +171,56 @@ body.class-mode .tch-layer, body.class-mode .tch-bubbles, body.class-mode .bubbl
 @keyframes cls-optglow { 50% { border-color: rgba(255, 255, 255, .95); } }
 @keyframes cls-shake { 25% { transform: translateX(-6px) rotate(-3deg); } 75% { transform: translateX(6px) rotate(3deg); } }
 @keyframes cls-reward { 0% { transform: translate(-50%, 10px) scale(.4); opacity: 0; } 20% { transform: translate(-50%, -14px) scale(1.2); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-50%, -70px) scale(1); opacity: 0; } }
-@media (max-width: 640px) { .cls-out { right: 130px; font-size: 13px; padding: 7px 8px 8px; } }
 /* [v26 class2] corner-fox speech bubbles type their letters with visibility:visible, which leaked through the classroom */
 body.class-mode .bb-layer, body.class-mode .bb-layer * { visibility: hidden !important; }
+
+/* [v26 class2] SKIP + x3 FAST: little wooden signs with a slate inset, painted pixel by pixel in
+   src/ui/classButtons.js and shown at an integer scale (--s) so they stay crisp. Positions are in art px. */
+.cls-btns {
+  --s: 3px;
+  position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(10px + env(safe-area-inset-right, 0px));
+  display: flex; gap: calc(var(--s) * 2); align-items: flex-start; pointer-events: none;
+}
+.cls-pbtn {
+  position: relative; display: block; flex: 0 0 auto; padding: 0; margin: 0; border: 0; border-radius: 0; background: none;
+  height: calc(var(--s) * 18); pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  image-rendering: pixelated; background-size: 100% 100%; background-repeat: no-repeat;
+  filter: drop-shadow(0 calc(var(--s) * 2) 0 rgba(18, 10, 8, .5));
+  font: calc(var(--s) * 7)/1 var(--font-title); color: #f6ead0; letter-spacing: 0;
+}
+.cls-pbtn::after { content: ''; position: absolute; inset: calc(var(--s) * -3); } /* a fatter touch target */
+.cls-skip.cls-pbtn { width: calc(var(--s) * 38); background-image: var(--a-ff); }
+.cls-skip.cls-pbtn.on { background-image: var(--a-ff-on); animation: cls-ffglow .9s steps(2) infinite; }
+.cls-out.cls-pbtn { width: calc(var(--s) * 44); background-image: var(--a-skip); }
+.cls-pico { position: absolute; display: block; image-rendering: pixelated; background-size: 100% 100%; pointer-events: none; }
+.cls-chev { top: calc(var(--s) * 5); width: calc(var(--s) * 6); height: calc(var(--s) * 8); background-image: var(--a-chev); }
+.cls-chev.a { left: calc(var(--s) * 6); } .cls-chev.b { left: calc(var(--s) * 11); }
+.cls-skip.on .cls-chev { background-image: var(--a-chev-on); animation: cls-chevrun .48s steps(1) infinite; }
+.cls-skip.on .cls-chev.b { animation-delay: -.24s; }
+.cls-door { left: calc(var(--s) * 5); top: calc(var(--s) * 5); width: calc(var(--s) * 7); height: calc(var(--s) * 9); background-image: var(--a-door); }
+.cls-exit { left: calc(var(--s) * 10); top: calc(var(--s) * 6); width: calc(var(--s) * 6); height: calc(var(--s) * 6); background-image: var(--a-arrow); }
+.cls-plbl {
+  position: absolute; top: calc(var(--s) * 3); bottom: calc(var(--s) * 5); right: calc(var(--s) * 6); display: flex; align-items: center; justify-content: center;
+  text-shadow: var(--s) var(--s) 0 #1d1410, 0 var(--s) 0 #1d1410; white-space: nowrap; pointer-events: none;
+}
+.cls-skip .cls-plbl { left: calc(var(--s) * 19); color: #f6ead0; }
+.cls-skip.on .cls-plbl { color: #fff3a0; }
+.cls-out .cls-plbl { left: calc(var(--s) * 18); }
+/* hover: a stepped little wobble, the exit arrow leans out of the door */
+@media (hover: hover) {
+  .cls-pbtn:hover { animation: cls-pwob .36s steps(1) 1; }
+  .cls-skip.on:hover { animation: cls-pwob .36s steps(1) 1, cls-ffglow .9s steps(2) infinite; }
+  .cls-out:hover .cls-exit { transform: translateX(var(--s)); }
+}
+.cls-pbtn:active, .cls-pbtn.boop { transform: translateY(calc(var(--s) * 2)); filter: drop-shadow(0 0 0 rgba(18, 10, 8, .5)); }
+.cls-pbtn.boop { animation: cls-pboop .22s steps(1) 1; }
+.cls-pbtn:focus-visible { outline: var(--s) dashed #f7e07a; outline-offset: var(--s); }
+@keyframes cls-pwob { 0% { transform: translate(0, calc(var(--s) * -1)); } 33% { transform: translate(var(--s), calc(var(--s) * -1)); } 66% { transform: translate(calc(var(--s) * -1), calc(var(--s) * -1)); } 100% { transform: none; } }
+@keyframes cls-pboop {
+  0% { transform: translateY(calc(var(--s) * 2)); filter: drop-shadow(0 0 0 rgba(18, 10, 8, .5)); }
+  50% { transform: translateY(var(--s)); filter: drop-shadow(0 var(--s) 0 rgba(18, 10, 8, .5)); }
+  100% { transform: none; }
+}
+@keyframes cls-chevrun { 0% { transform: none; } 50% { transform: translateX(var(--s)); } }
+@keyframes cls-ffglow { 0% { filter: drop-shadow(0 calc(var(--s) * 2) 0 rgba(18, 10, 8, .5)) brightness(1); } 50% { filter: drop-shadow(0 calc(var(--s) * 2) 0 rgba(18, 10, 8, .5)) brightness(1.12); } }
+@media (max-width: 640px) { .cls-btns { --s: 2px; right: calc(8px + env(safe-area-inset-right, 0px)); } }

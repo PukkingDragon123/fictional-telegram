@@ -34,6 +34,7 @@ import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
 import { CLASS_LESSONS } from './lessons/classes.js'; // [v26 tutorial]
 import { runQuiz } from './lessons/quiz.js'; // [v26 class2] interactive pop quizzes
+import { classButtonsHTML, paintClassButtons, boop } from '../ui/classButtons.js'; // [v26 class2]
 
 const mods = import.meta.glob(['../entities/foxRig.js'], { eager: true });
 const FoxMod = mods['../entities/foxRig.js'] || null;
@@ -832,8 +833,7 @@ export class Classroom {
     el.innerHTML = `
       <div class="cls-bars"><i></i><i></i></div>
       <div class="cls-hit" data-h="hit"></div>
-      <button class="cls-skip${this.ff ? ' on' : ''}" data-h="skip" type="button" title="Fast forward x3"><i class="cls-ff-ico"><i></i><i></i></i><span class="cls-ff-x">x3</span><span class="cls-ff-lbl">FAST</span></button>
-      <button class="cls-out" data-h="out" type="button" title="Skip this class (Esc)">SKIP CLASS</button>
+      ${classButtonsHTML(this.ff)}
       <div class="cls-ask hidden" data-h="ask"></div>
       <div class="cls-title hidden" data-h="title"><div class="cls-title-wood"><canvas data-h="tcv"></canvas></div><i class="cls-title-nail l"></i><i class="cls-title-nail r"></i></div>
       <div class="cls-say hidden" data-h="say">
@@ -844,13 +844,14 @@ export class Classroom {
       <div class="cls-stamp hidden" data-h="stamp"></div>`;
     document.body.appendChild(el);
     this.ui = el;
+    paintClassButtons(el); // [v26 class2] pixel-art SKIP / x3 buttons
     try { this.q('say').style.backgroundImage = `url(${slateURL(96, 40, 9)})`; } catch { /* no canvas */ }
     const adv = (e) => { e.preventDefault(); e.stopPropagation(); this.game.audio?.unlock?.(); this._advance(); };
     this.q('hit').addEventListener('pointerdown', adv);
     this.q('say').addEventListener('pointerdown', adv);
     this.q('title').addEventListener('pointerdown', adv);
-    this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_pop', { volume: 0.3 }); this.ff = !this.ff; e.currentTarget.classList.toggle('on', this.ff); this._askWrap(this.ff); });
-    this.q('out').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this._sfx('class_erase', { volume: 0.4 }); this.skip(); }); // [v26 class2]
+    this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); const b = e.currentTarget; this.ff = !this.ff; boop(b); b.classList.toggle('on', this.ff); b.setAttribute('aria-pressed', String(this.ff)); this._sfx('class_tap', { volume: 0.45 }); this._sfx(this.ff ? 'class_right' : 'class_pop', { volume: 0.3, pitch: this.ff ? 1.2 : 0.8 }); this._askWrap(this.ff); });
+    this.q('out').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); boop(e.currentTarget); this._sfx('class_tap', { volume: 0.45 }); this._sfx('class_whoosh', { volume: 0.35 }); this.skip(); }); // [v26 class2]
     this._onKey = (e) => {
       if (!this._active) return;
       const k = e.key;

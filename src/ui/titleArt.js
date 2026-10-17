@@ -137,13 +137,13 @@ function speckle(g, x0, y0, w, h, color, seed, p = 0.06) {
 }
 
 // item sprites: rows of palette letters, origin = bottom centre
-const IP = {
+export const IP = {
   k: INK, w: '#ffffff', W: '#e8e0d0', b: '#6aa6d0', B: '#3c6c96', o: '#f09a3a', O: '#c86a1e',
   y: '#ffd84a', Y: '#fff3a0', g: '#d08a1c', G: '#5cd24c', n: '#2a8a3a', N: '#b8f29a',
   r: '#dc3a30', R: '#a01e2c', p: '#f2e2b8', P: '#d8bf88', s: '#a8b0bc', S: '#6c7482', t: '#8a5a2a', T: '#5e3a1a',
   e: '#f4f0e0', E: '#c8bfa4', c: '#ff8a3a', v: '#7a3ea0', V: '#c08ae0', m: '#5ab0ff',
 };
-const ITEMS = {
+export const ITEMS = {
   fish: ['...kkk...', '..kbbbk..', '.kbwkbbk.', '.kbbbbbk.', 'kbbBbbbbk', 'kbBBbbBbk', 'kbbBbbBbk', 'kbbbBBbbk', '.kboobbk.', '.kbOobbk.', '..kbbbk..', '..kbbbk..', '...kbk...', '..kbbbk..', '.kbbkbbk.', '.kkk.kkk.'],
   goldfish: ['...kkk...', '..kyyyk..', '.kywkyyk.', '.kyyyyyk.', 'kyyoyyyyk', 'kyooyyoyk', 'kyyoyyoyk', 'kyyyooyyk', '.kyYYyyk.', '.kyYYyyk.', '..kyyyk..', '..kyyyk..', '...kyk...', '..kyyyk..', '.kyykyyk.', '.kkk.kkk.'],
   tie: ['.kkkkk.', '.kRrRk.', '..kRk..', '.krrrk.', '.kRrrk.', 'krrRrrk', 'krrrRrk', 'krrrrRk', 'kRrrrrk', '.krrRk.', '..krk..', '...k...'],

@@ -5,30 +5,29 @@
 // cubes) - flat tops, walls a whole number of blocks tall, each face with its
 // own block of pixel texture (no stretching, no smearing).
 //
-// The ranges on the camera's side used to sink by squashing their height
-// (which smeared the walls). Now they are cut: every column on that side is
-// capped at a height that grows with the distance from the map, blocks above
-// the cap simply aren't there (whole blocks, so it stays a block world), and
-// the cut tops show dark rock. It follows the camera as you rotate.
+// [v26 mountains] The ranges are never cut or sunk (that read as the mountain
+// vanishing when you turned): they are solid from every side, and near the map
+// each column is kept under the lowest line of sight that crosses it from any
+// spot the camera may look at, in any of the 8 directions (viewGuard.js
+// ringEnvelope), so they rise as foothills and never hide what you look at.
 import * as THREE from 'three';
 import { fbm2, hash2, clamp } from '../core/rng.js';
 import { WATER_Y } from './grid.js';
 import { STONE, STONE_GLSL, stoneUniforms } from '../art/stoneArt.js';
 import { terrainAtlasUniforms } from './terrain.js';
 import { HAZE_PARS } from './outerRing.js';
-import { CUT_UNIFORMS, CUT_PLANE_GLSL, RING_CAP_GLSL } from './cutaway.js'; // [v26 mountains]
+import { ringEnvelope } from './viewGuard.js'; // [v26 mountains]
 
 const E = 100;
 const CHUNK = 36;
 const chunkKey = (x, z) => Math.floor((x + 400) / CHUNK) * 1000 + Math.floor((z + 400) / CHUNK);
 const B1 = 26, B2 = 58; // band edges (distance from the map, tiles)
 
-// [v26 mountains] the camera-side cut now ramps up in whole-block terraces towards
-// the sides (no sheer cliff where it begins), and the line-of-sight window
-// (cutaway.js) notches ranges that really hide the spot you look at
+// [v26 mountains] nothing is cut any more (the ranges looked like they vanished
+// as you turned): the ranges are solid from every side, and kept low enough near
+// the map that they never hide a spot the camera can look at (viewGuard.js)
 const CAP_GLSL = /* glsl */ `
-${RING_CAP_GLSL}
-float capAt(vec2 c, float bs) { return min(ringCapRaw(c, bs), cutCapQ(c, bs)); }
+float capAt(vec2 c, float bs) { return 999.0; }
 `;
 
 export function buildCubeGround(ring) {
@@ -59,6 +58,7 @@ export function buildCubeGround(ring) {
   };
   // ---- sample every cell (square, aligned to its size)
   const cells = [];
+  const env = ringEnvelope(ring.grid, E); // [v26 mountains] the lowest line of sight over each column
   for (let z = -E; z < H + E; z++)
     for (let x = -E; x < W + E; x++) {
       if (x >= 0 && x < W && z >= 0 && z < H) continue;
@@ -70,6 +70,11 @@ export function buildCubeGround(ring) {
       const s = ring.sample(cx, cz);
       const bs = cs === 1 ? 0.5 : cs === 2 ? 1 : 2;
       let y = s.water ? WATER_Y - 0.05 : Math.max(0, Math.round(s.y / bs) * bs);
+      if (!s.water) { // [v26 mountains] foothills: under every line of sight that crosses this column
+        let em = 1e9;
+        for (let zz = z0; zz < z0 + cs; zz++) for (let xx = x0; xx < x0 + cs; xx++) em = Math.min(em, env.at(xx, zz));
+        if (em < 1e8) y = Math.min(y, Math.max(0, Math.floor((em - 0.05) / bs) * bs));
+      }
       // the first row by the map: never below the map's own edge there (no crack)
       const dd = ring.dist(cx, cz);
       if (!s.water && dd < 1.01) y = Math.max(y, Math.ceil(ring.edgeH(cx, cz) / bs - 0.02) * bs);
@@ -172,11 +177,10 @@ export function buildCubeGround(ring) {
   const TA = terrainAtlasUniforms();
   const SU = stoneUniforms();
   mat.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, U, TA, SU, CUT_UNIFORMS);
+    Object.assign(shader.uniforms, U, TA, SU);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 ${HAZE_PARS}
-${CUT_PLANE_GLSL}
 ${CAP_GLSL}
 attribute vec2 aSurf;
 attribute vec4 aBlk; // block size, column top, cell centre
@@ -199,7 +203,7 @@ varying float vCapK;`)
   bool isTop = abs(position.y - hi) < 0.001;
   transformed.y = isTop ? tp : bot;
   vCutTop = (abs(objectNormal.y) > 0.5 && hi - tp > 0.01) ? 1.0 : 0.0;
-  vCapK = ringCapRaw(aBlk.zw, bs) < 900.0 ? 1.0 : 0.0;
+  vCapK = 0.0;
   vRPos = transformed;
   vSurf = aSurf;
   vBlk = vec4(bs, min(aBlk.y, capS), 0.0, 0.0);
@@ -260,7 +264,7 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
 }`)
       .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze * (1.0 - vCapK));\n#include <opaque_fragment>'); // the cut foreground: solid, no haze slivers
   };
-  mat.customProgramCacheKey = () => 'outerRingCubes4';
+  mat.customProgramCacheKey = () => 'outerRingCubes5';
   ring.ground = [];
   for (const P of chunks.values()) {
     if (!P.n) continue;
@@ -284,7 +288,6 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
 
 // sprites on the ranges follow the cap (and fade where the ground was cut away)
 export const SPRITE_CAP = /* glsl */ `
-${CUT_PLANE_GLSL}
 ${CAP_GLSL}
 `;
 export { clamp };

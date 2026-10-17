@@ -59,7 +59,7 @@ function pixTex(w, h, paint) {
   t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
-function makeBed() {
+export function makeBed() {
   const g = new THREE.Group();
   const H = FOX_BED.height, z0 = -0.3, z1 = -FOX_BED.head - 0.32, L = z0 - z1, W = 0.78;
   const card = pixTex(16, 16, (x, w, h) => {

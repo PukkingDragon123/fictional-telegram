@@ -1,5 +1,7 @@
-// [v26 menu] The save-slot screen: three moving boxes on Reynard's porch, one per
-// save. A box holds that save's stuff (more the further along it is) and a kraft
+// [v26 menu] The save-slot screen: three moving boxes floating over Reynard's porch,
+// one per save. The boxes, their stuff and the napping boss are real 3D voxels in
+// one small pixelated scene (BoxStage3D.js); this file keeps the layout, the hit
+// areas and the tags hanging on strings (2D painted boxes if WebGL is missing). A box holds that save's stuff (more the further along it is) and a kraft
 // tag with its completion %, money and day; an empty box starts a new game. Toss a
 // save: the box gets taped shut and kicked off the porch, a fresh one drops in.
 // Reynard naps next to them in his pajamas on a box of his own (the real 3D rig,
@@ -8,6 +10,7 @@
 //   const tbx = openSaveBoxes(root, { sfx, onPick({ slot, mode: 'continue' | 'new' }), onBack() });
 //   tbx.close();
 import { SLOTS, slotInfo, deleteSlot, boxItems } from '../game/saveSlots.js';
+import { createBoxStage } from './BoxStage3D.js';
 import { INK, FONTS, cv, scaleEl, text, measure, wood, arrowPlank, board, paintBox, coinIcon, BOX_W, BOX_H } from './titleArt.js';
 
 const fmt = (n) => Math.floor(n).toLocaleString('en-US');
@@ -86,7 +89,7 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
       <button class="tbx-toss" aria-label="Toss save ${n}" title="Toss this save"><img class="tm-px" src="${toss}" alt=""></button></div>
       <div class="tbx-tag"></div>`;
     row.appendChild(s);
-    const slot = { n, el: s, box: s.querySelector('.tbx-box'), canvas: s.querySelector('canvas'), tag: s.querySelector('.tbx-tag'), info: null, busy: false };
+    const slot = { n, el: s, bw: s.querySelector('.tbx-bw'), box: s.querySelector('.tbx-box'), canvas: s.querySelector('canvas'), tag: s.querySelector('.tbx-tag'), info: null, busy: false };
     slots.push(slot);
     paintBox(slot.canvas, { state: 'closed', label: `SAVE ${n}`, seed: n });
   }
@@ -109,6 +112,16 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
   let S = layout();
   const onResize = () => { S = layout(); };
   window.addEventListener('resize', onResize);
+  // the 3D stage: one renderer for the three boxes and Reynard
+  let stage = null;
+  try {
+    stage = createBoxStage(el, { ps: Math.max(2, Math.min(3, Math.round(S))), sfx: (n, o) => { if (!closed) play(n, o); }, slots: slots.map((sl) => sl.bw), nap: el.querySelector('.tbx-nap') });
+  } catch (e) { console.warn('box stage', e); stage = null; }
+  if (stage) {
+    el.classList.add('tbx--3d');
+    el.insertBefore(stage.el, el.querySelector('.tbx-back'));
+    slots.forEach((sl, i) => stage.setBox(i, { empty: true, label: `SAVE ${sl.n}` }));
+  }
 
   // ---- fill the boxes
   function tagHTML(info) {
@@ -120,8 +133,11 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
   }
   function paint(slot) {
     const info = slot.info;
-    paintBox(slot.canvas, { state: info.empty ? 'empty' : 'open', items: boxItems(info.meta), label: `SAVE ${slot.n}`, seed: slot.n });
-    scaleEl(slot.canvas, S);
+    if (stage) stage.setBox(slot.n - 1, { empty: info.empty, items: boxItems(info.meta), label: `SAVE ${slot.n}` });
+    else {
+      paintBox(slot.canvas, { state: info.empty ? 'empty' : 'open', items: boxItems(info.meta), label: `SAVE ${slot.n}`, seed: slot.n });
+      scaleEl(slot.canvas, S);
+    }
     slot.el.classList.toggle('is-empty', info.empty);
     slot.el.classList.remove('is-loading');
     slot.tag.innerHTML = tagHTML(info);
@@ -136,12 +152,12 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
   // ---- the napping boss
   let fox = null;
   const foxEl = el.querySelector('.tbx-fox');
-  import('./SleepyFox3D.js').then(({ createSleepyFox }) => {
+  if (!stage) import('./SleepyFox3D.js').then(({ createSleepyFox }) => {
     if (closed) return;
     fox = createSleepyFox(foxEl, { ps: S, sfx: (n, o) => { if (!closed) play(n, o); } });
   }).catch((e) => console.warn('sleepy fox', e));
   el.querySelector('.tbx-nap').addEventListener('click', () => {
-    fox?.poke();
+    fox?.poke(); stage?.poke();
     const nap = el.querySelector('.tbx-nap');
     nap.classList.remove('is-poked'); void nap.offsetWidth; nap.classList.add('is-poked');
   });
@@ -160,6 +176,15 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
     slot.busy = true;
     slot.el.classList.remove('is-asking');
     slot.tag.innerHTML = '<b class="tbx-ask">Bye!</b>';
+    if (stage) {
+      // flaps shut, tape wraps, the boot; a fresh box drops in
+      stage.toss(slot.n - 1, () => {
+        deleteSlot(slot.n);
+        slot.info = { n: slot.n, empty: true, meta: null };
+        paint(slot);
+      }).then(() => { slot.busy = false; });
+      return;
+    }
     // flaps shut, tape, boot
     paintBox(slot.canvas, { state: 'closed', label: `SAVE ${slot.n}`, seed: slot.n });
     scaleEl(slot.canvas, S);
@@ -178,7 +203,11 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
     }, 1350);
   }
   for (const slot of slots) {
-    slot.box.addEventListener('pointerenter', () => { if (!picking && slot.info) play('box_flap', { volume: 0.25 }); });
+    const hov = (on) => { if (!picking && !slot.busy && slot.info) { stage?.hover(slot.n - 1, on); if (on) play('box_flap', { volume: 0.25 }); } };
+    slot.box.addEventListener('pointerenter', () => hov(true));
+    slot.box.addEventListener('pointerleave', () => hov(false));
+    slot.box.addEventListener('focus', () => hov(true));
+    slot.box.addEventListener('blur', () => hov(false));
     slot.box.addEventListener('click', () => {
       if (picking || slot.busy || !slot.info || closed) return;
       if (slot.el.classList.contains('is-asking')) { slot.el.classList.remove('is-asking'); slot.tag.innerHTML = tagHTML(slot.info); }
@@ -188,7 +217,8 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
       slot.el.classList.add('is-picked');
       el.classList.add('tbx--picked');
       const mode = slot.info.empty ? 'new' : 'continue';
-      setTimeout(() => { close(); onPick?.({ slot: slot.n, mode }); }, 520);
+      const go = () => { close(); onPick?.({ slot: slot.n, mode }); };
+      if (stage) stage.pick(slot.n - 1).then(go); else setTimeout(go, 520);
     });
     slot.el.querySelector('.tbx-toss').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -211,7 +241,7 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('resize', onResize);
     el.classList.add('tbx--out');
-    setTimeout(() => { fox?.dispose(); el.remove(); }, 420);
+    setTimeout(() => { fox?.dispose(); stage?.dispose(); el.remove(); }, 420);
   }
-  return { el, close, slots, get fox() { return fox; } };
+  return { el, close, slots, get fox() { return fox; }, get stage() { return stage; } };
 }

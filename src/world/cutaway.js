@@ -10,11 +10,12 @@
 // of F and widening with steep block steps `uCutW.x` to each side. So a slope
 // you look at, a cliff you stand next to, or a mountain beside the view is
 // never touched; a ridge in front of the spot gets a stepped notch, whole
-// blocks, with real block tops (terrain + valley cubes do it per column in the
-// vertex shader), buildings / trees in that notch dither out over ~1 unit (no
-// hard slice planes). When uCutK fades the window sinks block by block.
+// blocks... [v26 mountains] no longer: terrain and ranges are never cut (the camera
+// keeps clear of them, viewGuard.js); only buildings / trees in that window
+// dither out over ~1 unit (no hard slice planes).
 import * as THREE from 'three';
 import { addGrain } from '../core/voxel.js';
+import { ViewGuard } from './viewGuard.js';
 
 export const CUT_UNIFORMS = {
   uCutPos: { value: new THREE.Vector3(0, -999, 0) },
@@ -51,8 +52,10 @@ float cutCapQ(vec2 xz, float bs) { float c = cutCap(xz); return c > 900.0 ? 999.
 `;
 
 // vertex-stage helpers for block columns (declares its own uniforms)
+// [v26 mountains] terrain is never cut any more (it read as the mountain vanishing): the camera keeps
+// clear of it instead (viewGuard.js). Kept as a no-op for terrain.js.
 export const CUT_PLANE_GLSL = CUT_CORE + /* glsl */ `
-float mapCap(vec2 c) { return cutCapQ(c, 0.5); }
+float mapCap(vec2 c) { return 999.0; }
 `;
 
 export const CUT_GLSL = CUT_CORE + /* glsl */ `
@@ -132,29 +135,6 @@ export function cutVoxelMaterial() {
   return cutVoxel;
 }
 
-// ---- CPU mirrors (the occlusion test must see the world the shaders draw)
-// the valley ranges' camera-side cut (cubeMountains.js capAt)
-export const RING_CAP_GLSL = /* glsl */ `
-float ringCapRaw(vec2 c, float bs) {
-  vec2 cl = clamp(c, uRect.xy, uRect.zw);
-  float d = length(c - cl);
-  if (d < 0.5) return 999.0;
-  vec2 outDir = (c - cl) / d;
-  float r = smoothstep(0.42, -0.12, dot(outDir, uRingCam));
-  if (r >= 0.97) return 999.0;
-  return bs + floor(r * r * (4.0 + d) / max(0.03, 1.0 - r) / bs) * bs;
-}
-`;
-const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-export function ringCapJS(x, z, W, H, cx, cz, bs = 1) {
-  const lx = Math.min(W, Math.max(0, x)), lz = Math.min(H, Math.max(0, z));
-  const d = Math.hypot(x - lx, z - lz);
-  if (d < 0.5) return 999;
-  const r = smooth(0.42, -0.12, ((x - lx) * cx + (z - lz) * cz) / d);
-  if (r >= 0.97) return 999;
-  return bs + Math.floor(r * r * (4 + d) / Math.max(0.03, 1 - r) / bs) * bs;
-}
-
 const _box = new THREE.Box3();
 
 export class Cutaway {
@@ -227,7 +207,7 @@ export class Cutaway {
     if (g.inb(ix, iz)) return g.cube?.[iz * g.w + ix] ? g.height[iz * g.w + ix] : g.surfaceAtVisual(x, z);
     const R = this.world.ring;
     if (!R?.heightAt) return 0;
-    return Math.min(R.heightAt(x, z), ringCapJS(x, z, g.w, g.h, this._rc[0], this._rc[1], 1));
+    return R.heightAt(x, z);
   }
 
   // does anything stand between (x, y, z) and the camera?
@@ -280,7 +260,6 @@ export class Cutaway {
     const bx = sy * cp, by = sp, bz = cy * cp; // towards the eye
     const rx = cy, rz = -sy; // screen right (horizontal)
     const ux = -sy * sp, uy = cp, uz = -cy * sp; // screen up
-    this._rc = [sy, cy];
     const NX = 32, NY = 24, M = 3.5; // margin: trees on the ranges too
     let d = d0;
     for (let it = 0; it < 200; it++) {
@@ -305,6 +284,7 @@ export class Cutaway {
     const W = this.world, g = W.grid;
     if (!rig?.camera) return;
     if (!rig.eyeGuard) { this.game = game; rig.eyeGuard = this.eyeGuard.bind(this); } // [v26 mountains]
+    if (!rig.viewGuard && game) rig.viewGuard = new ViewGuard(W, game); // [v26 mountains] rotate / pan never put rock in front of the spot
     this.scanT -= dt;
     if (this.scanT <= 0) { this.scanT = 2; try { this.scan(game); } catch (e) { console.warn('cutaway scan', e); this.scanT = 30; } }
     const off = game?.titleMode || game?.overrideScene || game?.classroom?.active || game?.homes?.active;
@@ -316,7 +296,6 @@ export class Cutaway {
     const back = U.uCutBack.value.set(e[8], e[9], e[10]).normalize();
     const hl = Math.hypot(back.x, back.z) || 1e-5;
     const bx = back.x / hl, bz = back.z / hl, tanP = Math.max(0.05, back.y / hl);
-    this._rc = [Math.sin(rig.yaw || 0), Math.cos(rig.yaw || 0)];
     // the window: a fraction of the view, a few tiles at most
     const vw = (rig._rt?.w || 400) * rig.wupp, vh = (rig._rt?.h || 300) * rig.wupp;
     const half = Math.max(1.6, Math.min(6.5, Math.min(vw, vh) * 0.36));
