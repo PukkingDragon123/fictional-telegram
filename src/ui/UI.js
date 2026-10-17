@@ -28,6 +28,7 @@ import { sizeLabel, hatchCard as hatchCardFor, rollGenes as rollGenesFor } from 
 const comp = import.meta.glob(['./CorpClock.js', './EggHatch.js', './FinanceSheet.js', './LabTree.js', './frames.js', './Hud.js', './FoxNotifier.js', './paper.js', './EBuy.js', './Bubbles.js', './BigClock.js', './DeliveryTracker.js', './VillagerCard.js', './ZoneBanner.js', './Unbox.js', './bagArt.js', './FoodPicker.js', './Encyclopedia.js', './RestaurantMenu.js', './TeacherOverlay.js', './Matchmaker.js', './QuestLog.js'], { eager: true });
 import.meta.glob(['./fonts.css', './foodpicker.css', './encyclopedia.css', './restaurantmenu.css', './teacher.css', './classroom.css'], { eager: true });
 import { Blueprint } from './Blueprint.js';
+import { autoPlaceCamPad } from './campadLayout.js'; // [v26 uiscale]
 import { natureCanvas } from '../art/natureArt.js';
 import { BREEDS, KIND_INFO } from '../data/livestock.js';
 import { BUG_BY_ID, BUG_FARMS, EFFECTS, BUG_RARITY } from '../data/bugs.js';
@@ -378,6 +379,7 @@ export class UI {
     pad.innerHTML = `<div class="cp-zoom">${b('zin', 'zoom_in', 'Zoom in (Z / wheel)')}${b('zout', 'zoom_out', 'Zoom out (X / wheel)')}</div>
       <div class="cp-rot"><button class="cp rl" title="Turn the view left (Q)"><img class="cp-rimg" src="${pixIcon('rotate', 2)}" alt=""></button>${b('home', 'home', 'Back to the pond')}<button class="cp rr" title="Turn the view right (E)"><img class="cp-rimg" src="${pixIcon('rotate', 2)}" alt=""></button></div>`;
     this.root.appendChild(pad);
+    this.campadStop = autoPlaceCamPad(pad); // [v26 uiscale] never on the toolbar / food shelf (phones, iPad portrait)
     const act = {
       zin: () => game.rig.zoom(0.94), zout: () => game.rig.zoom(1.065),
       up: () => game.rig.panRelative(0.5 * game.rig.wupp / 0.04, 0), down: () => game.rig.panRelative(-0.5 * game.rig.wupp / 0.04, 0),

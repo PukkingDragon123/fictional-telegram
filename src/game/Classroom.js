@@ -29,6 +29,7 @@ import { Transition } from '../ui/Transition.js';
 import { Chalkboard, measureText, slateURL } from '../ui/Chalkboard.js';
 import { spriteImg, hasSprite } from '../ui/sprites.js';
 import { FACE3D } from '../ui/faceHook.js'; // [v26 faces3d]
+import { crispScale } from '../ui/uiScale.js'; // [v26 uiscale]
 import { createFoxTalk } from '../ui/FoxTalk3D.js';
 import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
@@ -978,9 +979,14 @@ export class Classroom {
     if (!host) return;
     const cv = this.q('tcv');
     const b = new Chalkboard({ w: 176, h: 68, canvas: cv, seed: 5 + (script.number || 0), ghosts: false });
+    // [v26 uiscale] the slate at a whole number of device px per chalk pixel (CSS min(704px, 100vw - 60px) was any
+    // width on phones: smeared chalk), its left edge on a whole device px (translateX(-50%) of an odd width blurred it)
+    const sk = crispScale(Math.min(704, (window.innerWidth || 800) - 60) / 176, 1, { max: 4 });
+    Object.assign(cv.style, { width: `${176 * sk}px`, height: `${68 * sk}px` });
     b.onSound = (n, o) => this._sfx(n === 'chalk' ? 'class_chalk' : 'class_chalk_down', { ...o, volume: (o?.volume || 0.4) * 0.6 });
     this.titleBoard = b;
     host.classList.remove('hidden', 'out');
+    { const r = window.devicePixelRatio || 1, hw = host.getBoundingClientRect().width || 0; host.style.left = hw ? `${Math.round(((window.innerWidth || 800) - hw) / 2 * r) / r + hw / 2}px` : ''; } // [v26 uiscale]
     host.classList.add('in');
     this._sfx('class_whoosh', { volume: 0.4 });
     const title = String(script.title || 'Lesson').toUpperCase();

@@ -175,7 +175,7 @@ SHOTS.wake = {
     c.every((t) => {
       if (t < 7.0) return;
       const rig = bed.rig;
-      if (!P) { const hp = new THREE.Vector3(); (f.head || f.root).getWorldPosition(hp); P = { t0: target(rig), w0: rig.wupp, t1: new THREE.Vector3(hp.x, hp.y - 0.42, hp.z), w1: rig.wupp * 0.78 }; }
+      if (!P) { const hp = new THREE.Vector3(); (f.head || f.root).getWorldPosition(hp); P = { t0: target(rig), w0: rig.wupp, t1: new THREE.Vector3(hp.x, hp.y + 0.3, hp.z), w1: rig.wupp * 0.84 }; }
       const k = smooth((t - 7.0) / 3.6);
       rig.goal.lerpVectors(P.t0, P.t1, k); rig.target.copy(rig.goal);
       rig.wupp = rig.wuppGoal = P.w0 + (P.w1 - P.w0) * k;
