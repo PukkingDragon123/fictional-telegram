@@ -20,6 +20,7 @@ import './encyclopedia.css';
 import { buildEncyclopedia, commitDexSeen, CHAPTERS, encArt, medalArt } from './encyclopediaData.js';
 import { hasSprite, spriteURL } from './sprites.js';
 import { FACE3D } from './faceHook.js'; // [v26 faces3d]
+import { crispScale } from './uiScale.js'; // [v26 uiscale]
 
 const { Pix, hexc, mixc, hash, strHash, bayer, dq, mkCanvas, scaled, clamp } = encArt;
 
@@ -902,8 +903,9 @@ export class Encyclopedia {
     const fit1 = Math.min((vw - 6) / W1, (vh - 8) / H);
     const single = fitS < 0.62 && fit1 > fitS * 1.12;
     const fit = single ? fit1 : fitS;
-    let s = fit;
-    for (const c of [2, 5 / 3, 3 / 2, 4 / 3, 1]) if (fit >= c) { s = c; break; }
+    // [v26 uiscale] a book texel (TX CSS px) on whole device px: 5/3 and 4/3 of a 2 px texel
+    // were 3.33 / 2.67 px (5.33 device px on iPad Pro), smeared art; tiny screens got a raw fit
+    const s = crispScale(fit, TX, { max: 2 });
     this.scale = s;
     const changed = this.single !== single;
     this.single = single;

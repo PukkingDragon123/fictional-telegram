@@ -43,6 +43,8 @@
 
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
 body { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+/* [v26 uiscale] iOS: no text inflation on rotate (fonts sized by Safari, not by us), no pinch / double-tap page zoom (it magnifies and blurs the whole UI); scroll panels still pan */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: pan-x pan-y; }
 #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; image-rendering: pixelated; touch-action: none; outline: none; }
 #overlay { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
 #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; font-size: 17px; }

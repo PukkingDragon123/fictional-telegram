@@ -3,6 +3,7 @@
 //   flash(kind)      - a quick pass that never fully covers (camera snaps)
 //   dayCard(text)    - a paper "DAY 3" card that drops in and flips away
 // kinds: 'blocks' (diagonal), 'iris' (centre out), 'zoom' (edges in), 'rain' (columns)
+import { crispPx } from './uiScale.js'; // [v26 uiscale]
 const INK = '#1a1420';
 const PAPER = '#f3e7cf';
 
@@ -10,7 +11,7 @@ export class Transition {
   constructor() {
     const c = document.createElement('canvas');
     c.className = 'px-trans';
-    Object.assign(c.style, { position: 'fixed', inset: '0', width: '100%', height: '100%', zIndex: 80, pointerEvents: 'none', imageRendering: 'pixelated' });
+    Object.assign(c.style, { position: 'fixed', left: '0', top: '0', width: '100%', height: '100%', zIndex: 80, pointerEvents: 'none', imageRendering: 'pixelated' }); // [v26 uiscale] sized in tick()
     document.body.appendChild(c);
     this.c = c;
     this.ctx = c.getContext('2d');
@@ -35,8 +36,10 @@ export class Transition {
 
   tick = (now) => {
     const c = this.c, ctx = this.ctx;
-    const W = Math.ceil(window.innerWidth / 3), H = Math.ceil(window.innerHeight / 3);
-    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    // [v26 uiscale] one canvas px = a whole number of device px (~3 CSS px), shown at exactly that size
+    // (was 100% x 100%: a ceil'd canvas squeezed into the window, uneven blocks and day-card letters)
+    const B = crispPx(3), W = Math.ceil(window.innerWidth / B), H = Math.ceil(window.innerHeight / B);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; c.style.width = `${W * B}px`; c.style.height = `${H * B}px`; }
     ctx.clearRect(0, 0, W, H);
     for (const r of this.runs) {
       r.t0 ??= now;

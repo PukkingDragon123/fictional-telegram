@@ -604,11 +604,17 @@
   // the pond diorama's still from the last visit (src/main.js saves it) when the window matches
   try {
     var st = /autostart|title=/.test(location.search) ? null : JSON.parse(localStorage.getItem('tbme.titleStill') || 'null');
-    if (st && st.v === 4 && st.w === window.innerWidth && st.h === window.innerHeight && st.src) {
+    if (st && st.v === 5 && st.w === window.innerWidth && st.h === window.innerHeight && st.src && st.ps > 0 && st.dpr > 0) {
       var im = new Image();
       im.id = 'tbme-paint';
       im.src = st.src;
-      im.style.cssText = 'width:100vw;height:100vh;background:#614b87';
+      /* [v26 uiscale] the exact pixel size of the live canvas's blocks (ps device px each, from its bottom-left),
+         never 100vw x 100vh: iPad Safari's 100vh is taller than the visible window, which stretched the still */
+      im.style.cssText = 'width:100vw;height:100vh;background:#614b87;visibility:hidden';
+      im.onload = function () {
+        var cw = im.naturalWidth * st.ps / st.dpr, ch = im.naturalHeight * st.ps / st.dpr;
+        im.style.cssText = 'width:' + cw + 'px;height:' + ch + 'px;top:' + (window.innerHeight - ch) + 'px;bottom:auto;background:#614b87';
+      };
       document.documentElement.appendChild(im);
       return;
     }

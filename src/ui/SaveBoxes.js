@@ -99,7 +99,7 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
     const W = window.innerWidth, H = window.innerHeight, dpr = window.devicePixelRatio || 1;
     const tall = W / H < 0.85;
     el.classList.toggle('tbx--tall', tall);
-    let s = tall ? Math.min((W - 210) / BOX_W, (H - 330) / (3 * BOX_H)) : Math.min((W - 48) / (3 * BOX_W + 130), (H - 250) / BOX_H);
+    let s = tall ? Math.min((W - 210) / BOX_W, (H - 330) / (3 * BOX_H)) : Math.min((W - 48) / (3 * BOX_W + 150), (H - 250) / BOX_H);
     s = Math.max(1, Math.min(3, Math.floor(s * dpr) / dpr));
     el.style.setProperty('--b', `${s}px`);
     const ui = Math.max(2, Math.min(3, Math.round(s)));

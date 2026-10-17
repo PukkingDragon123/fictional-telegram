@@ -14,7 +14,6 @@
 import * as THREE from 'three';
 import { VoxelModel, voxelMaterial } from '../core/voxel.js';
 import { FoxRig } from '../entities/foxRig.js';
-import { makeBed } from './SleepyFox3D.js';
 import { makeProp } from '../entities/feastProps.js';
 import { makeTrophy } from '../entities/trophyModels.js';
 import { goofyBitmap, GOOFY_SMALL } from './goofyFont.js';
@@ -170,7 +169,7 @@ function buildBox(seed, label) {
 }
 
 // open angles per flap (radians from closed-flat), idle and on hover
-const NAP = { yaw: 1.45, tilt: 0.4 }; // bed flat along the screen, head on the pillow to the left, tipped gently toward us
+const NAP = { yaw: -0.22, tilt: 0.1, headTilt: 0.2 }; // facing us, a touch turned; head tipped onto his paw
 const OPEN = { front: 3.25, back: 1.85, left: 2.2, right: 2.2 };
 function setFlaps(B, k, wob = 0) {
   for (const f of B.flaps) {
@@ -428,27 +427,49 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     }
   }
 
-  // ---- Reynard, asleep on his box bed
+  // ---- Reynard, asleep sitting up in an open box of his own: walls to his chest, the quilt over
+  // the rim, chin on his paw (the 'think' pose with an asleep face), nightcap drooping
   const napG = new THREE.Group();
-  // the bed lies on the floor, side-on to the camera (head on the left), seen from about the boxes' 3/4 view
   const napTilt = new THREE.Group(); napG.add(napTilt);
   const napYaw = new THREE.Group(); napTilt.add(napYaw);
+  const napBob = new THREE.Group(); napYaw.add(napBob);
   const rig = new FoxRig({ shadows: false });
   rig.setOutfit('pajamas');
-  const bed = makeBed();
-  const napC = new THREE.Group(); napYaw.add(napC);
-  napC.add(rig.root, bed);
-  { const bb = new THREE.Box3().setFromObject(bed); napC.position.set(-(bb.min.x + bb.max.x) / 2, 0, -(bb.min.z + bb.max.z) / 2); } // centre the bed
-  rig.play('sleep_bed', { fade: 0 });
+  rig.play('think', { fade: 0 });
+  rig.setExpression('asleep', { hold: 1e9 });
+  napBob.add(rig.root);
   for (let k = 0; k < 4; k++) rig.update(0.25);
-  let bedW = 1;
-  function setNapPose({ yaw = NAP.yaw, tilt = NAP.tilt } = {}) {
-    NAP.yaw = yaw; NAP.tilt = tilt;
+  const _c = new THREE.Vector3();
+  rig.root.updateMatrixWorld(true);
+  rig.headTop(_c);
+  const napBox = buildBox(77, 'FRAGILE');
+  const kb = (_c.y * 0.36) / (BH + 1), ky = (_c.y * 0.23) / (BH + 1); // roomy, walls up to his chest
+  napBox.root.scale.set(kb, ky, kb);
+  napBox.root.position.z = -0.04;
+  setFlaps(napBox, 1);
+  napYaw.add(napBox.root);
+  // the quilt, draped over the front rim
+  const quiltTex = pixTex(8, 16, (x, w, h) => {
+    for (let y = 0; y < h; y++) { x.fillStyle = (y >> 1) % 2 ? '#f4e6c4' : '#d8402e'; x.fillRect(0, y, w, 1); }
+    x.fillStyle = '#ffd84a'; x.fillRect(3, 2, 2, 2); x.fillRect(3, 10, 2, 2);
+  });
+  const quiltMat = new THREE.MeshLambertMaterial({ map: quiltTex });
+  const qTop = new THREE.Mesh(new THREE.BoxGeometry(BW * kb * 0.86, 0.035, BD * kb * 0.36), quiltMat);
+  qTop.position.set(0.02, (BH + 1.2) * ky, BD * kb * 0.32);
+  const qHang = new THREE.Mesh(new THREE.BoxGeometry(BW * kb * 0.86, BH * ky * 0.5, 0.035), quiltMat);
+  qHang.position.set(0.02, (BH + 1.2) * ky - BH * ky * 0.25, (BD / 2 + 1.6) * kb);
+  qHang.rotation.x = -0.08;
+  napYaw.add(qTop, qHang);
+  let napH = 1, napW = 1;
+  function setNapPose({ yaw = NAP.yaw, tilt = NAP.tilt, headTilt = NAP.headTilt } = {}) {
+    NAP.yaw = yaw; NAP.tilt = tilt; NAP.headTilt = headTilt;
     napYaw.rotation.y = yaw; napTilt.rotation.x = tilt;
-    napG.updateMatrixWorld(true);
     const sc = napG.scale.x || 1;
-    const bb = new THREE.Box3().setFromObject(bed);
-    bedW = Math.max(bb.max.x - bb.min.x, 0.01) / sc;
+    napG.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(napBox.root);
+    rig.headTop(_c);
+    napH = (Math.max(bb.max.y, _c.y) - bb.min.y) / sc + 0.1;
+    napW = (bb.max.x - bb.min.x) / sc;
   }
   setNapPose();
   scene.add(napG);
@@ -468,11 +489,11 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     if (nap) {
       const rc = nap.getBoundingClientRect(), hr = host.getBoundingClientRect();
       toPlane(rc.left - hr.left + rc.width / 2, rc.top - hr.top + rc.height * 0.95, _p);
-      const s = (rc.width * 0.66 * wpp) / bedW;
+      const s = Math.min((rc.height * 0.92 * wpp) / napH, (rc.width * 0.9 * wpp) / napW);
       napG.position.copy(_p);
       napG.scale.setScalar(s);
-      napSh.position.set(_p.x, _p.y - 0.02, _p.z + 0.2 * s);
-      napSh.scale.set(bedW * s * 1.5, bedW * s * 1.1, 1);
+      napSh.position.set(_p.x, _p.y - 0.02, _p.z + 0.05 * s);
+      napSh.scale.set(napW * s * 1.35, napW * s * 0.8, 1);
     }
   }
   // damped spring, sub-stepped so slow frames can't blow it up
@@ -591,10 +612,14 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
     }
     // Reynard
     rig.update(dt);
-    rig.bubble.visible = false; rig.pop.visible = false; // no snot bubble: keep his sleeping face readable
+    rig.bubble.visible = false; rig.pop.visible = false;
+    for (const z of rig.zzz) z.visible = false; // the DOM Zzz are bigger
+    rig.head.rotation.z += NAP.headTilt + Math.sin(T * 0.45) * 0.03; // head tipped onto the paw
+    // slow breathing bob, and a jolt when poked
     poked = Math.max(0, poked - dt * 2.4);
-    const j = Math.sin(poked * 18) * poked * 0.12;
-    napTilt.scale.set(1 - j * 0.5, 1 + j, 1 - j * 0.5);
+    const j = Math.sin(poked * 18) * poked * 0.12, br = Math.sin(T * 1.6);
+    napBob.position.y = br * 0.008;
+    napBob.scale.set(1 - j * 0.5 - br * 0.006, 1 + j + br * 0.012, 1 - j * 0.5 - br * 0.006);
     zT -= dt;
     if (zT <= 0 && nap) { zT = 1.4; spawnZ(); }
     for (let k = zs.length - 1; k >= 0; k--) {
@@ -677,6 +702,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
       });
     },
     setNapPose,
+    get debug() { return { rig, napBox, napG, kb, ky, napH, napW }; },
     poke() { poked = 1; for (let k = 0; k < 3; k++) setTimeout(() => !dead && spawnZ(1.3), k * 140); play('bed_mumble', { volume: 0.35 }); },
     dispose() {
       if (dead) return;
@@ -684,7 +710,7 @@ export function createBoxStage(host, { ps = 3, sfx = null, slots = [], nap = nul
       cancelAnimationFrame(raf);
       for (const b of boxes) if (b.B) disposeTree(b.B.root);
       rig.dispose?.();
-      disposeTree(bed);
+      disposeTree(napBox.root); quiltTex.dispose(); quiltMat.dispose(); qTop.geometry.dispose(); qHang.geometry.dispose();
       for (const s of sparks) scene.remove(s.s);
       shTex.dispose(); spTex.dispose(); shMat.dispose(); spMat.dispose(); post.dispose(); tri.dispose();
       rt.depthTexture.dispose(); rt.dispose();

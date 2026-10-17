@@ -13,6 +13,7 @@ import {
   esc, clamp, fmtInt, mkSfx, mkIcon, bindInput, Seq, shake, PixelFX, gridCanvas, outline, rng,
 } from './EggHatch.js';
 import { injectPaperCSS, paperTexture, deco, decoCanvas, arrowSVG, PX } from './paper.js';
+import { crispScale } from './uiScale.js'; // [v26 uiscale]
 
 const GRADES = {
   'A+': { id: 'Aplus', col: '#2d8a3c', sfx: 'grade_good', stamp2: 'approved', fox: 'laugh' },
@@ -341,6 +342,7 @@ class Ledger {
     const fit = Math.min((vw - 12) / W, (vh - 12) / H);
     let s = fit;
     for (const c of [5 / 3, 4 / 3, 1]) if (fit >= c) { s = c; break; }
+    if (s === fit) s = crispScale(fit, PX); // [v26 uiscale] small screens: a texel on whole device px, not a raw fit (smeared)
     this.s = s;
     $.scene.style.width = `${W}px`; $.scene.style.height = `${H}px`;
     $.scene.style.left = `${Math.round((vw - W * s) / 2)}px`;

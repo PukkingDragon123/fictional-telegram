@@ -10,6 +10,7 @@
 }
 .enc-ov *, .enc-ov *::before, .enc-ov *::after { box-sizing: border-box; }
 .enc-ov img, .enc-ov canvas, .enc-ov [class*="enc-x-"] { image-rendering: pixelated; image-rendering: crisp-edges; }
+.enc-ov .enc-ribbon, .enc-ov .enc-close, .enc-ov .enc-bookplate, .enc-ov .enc-tab i, .enc-ov .enc-plate { image-rendering: pixelated; } /* [v26 uiscale] 2x pixel art, was smoothed (blurry) */
 .enc-ov [class*="enc-x-"] { background-size: 100% 100%; background-repeat: no-repeat; }
 .enc-ov button { font: inherit; color: inherit; }
 

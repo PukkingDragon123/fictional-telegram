@@ -2,6 +2,7 @@ import './ui/fonts.css'; // TBME Goofy, the game font (everything uses it)
 import './ui/style.css';
 import audio from './game/audioProxy.js';
 import { PixelRenderer } from './core/pixelRenderer.js';
+import { viewSize, lockPageZoom } from './ui/uiScale.js'; // [v26 uiscale]
 import { DEMO, demoBoot } from './demo/demo.js'; // [v26 demo]
 if (DEMO) demoBoot(); // [v26 demo] the demo build: its own saves + the DEMO ribbon on the title sign
 
@@ -33,15 +34,25 @@ settings.bind({ audio, renderer, resize: () => resize() }); // [v26 menu]
 let game = null, ui = null, titleWorld = null, titleScene = null, titleMenu = null;
 let mode = autostart ? 'boot' : 'title';
 
+// [v26 uiscale] the canvas backing store maps 1:1 onto device pixels at any devicePixelRatio
+// (fractional ones too: browser zoom, Windows 125%, Safari page zoom), so the world's pixels are
+// never resampled; sized from the layout viewport (what #ui covers), which iOS Safari keeps
+// steady while innerWidth/innerHeight follow a pinch-zoomed visual viewport
+let lastView = '';
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  renderer.resize(window.innerWidth, window.innerHeight, dpr);
-  canvas.style.width = `${window.innerWidth}px`;
-  canvas.style.height = `${window.innerHeight}px`;
+  const { w, h } = viewSize();
+  const raw = window.devicePixelRatio || 1;
+  const dpr = raw > 3 ? raw / Math.ceil(raw / 3) : raw; // very dense screens: a <= 3x canvas shown at an exact integer zoom
+  renderer.resize(w, h, dpr);
+  canvas.style.width = `${renderer.W / dpr}px`;
+  canvas.style.height = `${renderer.H / dpr}px`;
+  lastView = `${w}x${h}@${raw}`;
   titleWorld?.resize();
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+window.visualViewport?.addEventListener('resize', () => { const v = viewSize(); if (`${v.w}x${v.h}@${window.devicePixelRatio || 1}` !== lastView) resize(); }); // [v26 uiscale] iPad Safari: toolbars, split view
+lockPageZoom(); // [v26 uiscale] a pinch / double-tap on the HUD must not zoom (and blur) the whole page on iOS
 resize();
 
 // a frame for the browser to breathe between the big build steps
@@ -189,7 +200,7 @@ if (autostart) {
 
 // the cover frame: fade it out once the live scene is on screen, and keep a
 // still of the scene for the next visit's first frame (index.html shows it)
-const STILL_KEY = 'tbme.titleStill', STILL_VER = 4;
+const STILL_KEY = 'tbme.titleStill', STILL_VER = 5; // [v26 uiscale] 5: + ps / dpr, block-exact samples
 let coverFading = false, stillDone = pondTitle;
 function titleCover(dt) {
   if (!titleScene) return;
@@ -214,13 +225,14 @@ function saveStill() {
     c.width = W; c.height = H;
     const g = c.getContext('2d');
     g.imageSmoothingEnabled = false;
-    g.drawImage(canvas, 0, 0, W, H);
+    const ps = renderer.pixelScale; // [v26 uiscale] one sample per low-res pixel (its blocks start at the canvas's bottom-left)
+    g.drawImage(canvas, 0, canvas.height - H * ps, W * ps, H * ps, 0, 0, W, H);
     const src = c.toDataURL('image/png');
     if (src.length > 800000) return;
     let used = 0;
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k !== STILL_KEY) used += (localStorage.getItem(k) || '').length; }
     if (used + src.length > 2400000) return; // never crowd out the save
-    localStorage.setItem(STILL_KEY, JSON.stringify({ v: STILL_VER, w: window.innerWidth, h: window.innerHeight, px: renderer.pixelDensity, src }));
+    localStorage.setItem(STILL_KEY, JSON.stringify({ v: STILL_VER, w: window.innerWidth, h: window.innerHeight, px: renderer.pixelDensity, ps, dpr: renderer.dpr, src })); // [v26 uiscale] ps / dpr: index.html shows it at the live canvas's exact pixel size
   } catch { /* storage full / unavailable: the painted frame it is */ }
 }
 

@@ -246,3 +246,8 @@
 .tbx--tall.tbx--3d .tbx-tag { margin-top: 0; transform-origin: 50% 0; }
 .tbx--tall.tbx--3d .tbx-tag::before { height: calc(var(--b) * 8); top: calc(var(--b) * -8); }
 @keyframes tbx-swing { 0%, 100% { rotate: -2.5deg; } 50% { rotate: 2.5deg; } }
+/* Reynard asleep sitting up in his box: a bigger spot, the sign beside him */
+.tbx--3d .tbx-nap { width: calc(var(--b) * 96); height: calc(var(--b) * 118); }
+.tbx--3d .tbx-sign { right: calc(var(--b) * -26); bottom: calc(var(--b) * 2); transform: rotate(6deg); }
+.tbx--tall.tbx--3d .tbx-nap { width: calc(var(--b) * 100); height: calc(var(--b) * 112); }
+.tbx--tall.tbx--3d .tbx-sign { right: auto; left: calc(var(--b) * -46); bottom: calc(var(--b) * 6); transform: rotate(-6deg); }
