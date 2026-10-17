@@ -333,6 +333,9 @@ SHOTS.karen = {
     c.inst = inst;
     console.log('[dir] karen', !!inst, inst?.ready, g.feast.free);
     if (!inst) console.warn('[dir] karen did not start');
+    // the meme beat: MANAGER lands (the line starts ~6.8 s in, types out by ~8.6 s)
+    c.at(8.55, () => { c.sfx('dramatic_boom', { vol: 0.9 }); g.rig.shake = 0.5; });
+    c.at(8.7, () => c.sfx('crowd_gasp', { vol: 0.55 }));
     // click the icon as soon as it can be clicked
     c.every(() => { if (!c.focused && inst) { try { c.focused = g.feast.focus(inst); if (c.focused) console.log('[dir] karen focus at', c.t.toFixed(2)); } catch (e) { console.warn('[dir] focus', e); c.focused = true; } } });
   },

@@ -141,7 +141,7 @@ def main():
         else:
             print('  ! no game.wav for', s['id'])
         aj = os.path.join(d, 'audio.json')
-        if os.path.exists(aj):
+        if os.path.exists(aj) and s.get('ext', True):
             for ev in json.load(open(aj))['audio']:
                 if ev['kind'] == 'ext' and s['in'] - 0.05 <= ev['t'] < s['out']:
                     cue(ev['name'], s['at'] + ev['t'] - s['in'], 20 * np.log10(max(1e-4, ev.get('vol', 1))) + E.get('ext_gain_db', 0), ev.get('rate', 1))

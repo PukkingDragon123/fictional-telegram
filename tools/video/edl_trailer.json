@@ -41,8 +41,9 @@
     },
     {
       "id": "m_karen",
-      "in": 5.0,
-      "out": 7.7491
+      "in": 6.6,
+      "out": 9.3491,
+      "ext": false
     },
     {
       "id": "m_beavers",
