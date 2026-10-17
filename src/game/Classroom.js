@@ -27,7 +27,7 @@ import * as THREE from 'three';
 import { CameraRig } from '../core/cameraRig.js';
 import { Transition } from '../ui/Transition.js';
 import { Chalkboard, measureText, slateURL } from '../ui/Chalkboard.js';
-import { spriteImg, spriteCanvas, hasSprite } from '../ui/sprites.js';
+import { spriteImg, hasSprite } from '../ui/sprites.js';
 import { FACE3D } from '../ui/faceHook.js'; // [v26 faces3d]
 import { createFoxTalk } from '../ui/FoxTalk3D.js';
 import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
@@ -904,7 +904,7 @@ export class Classroom {
       this._ftk.setExpression(ex);
     } else {
       const port = PORTRAIT[ex] || 'smug';
-      const url = FACE3D.url?.({ who: 'fox', expr: ex, outfit: this.fox?.outfit || 'teacher', frame: 'bust' }, 96, 96) || teacherPortrait(port); // [v26 faces3d]
+      const url = FACE3D.url?.({ who: 'fox', expr: ex, outfit: this.fox?.outfit || 'teacher', frame: 'bust' }, 96, 96); // [v26 faces3d] 3D, in his teacher outfit
       pEl.innerHTML = url ? `<img src="${url}" width="96" height="96" alt="" draggable="false" style="image-rendering:pixelated">` : (hasSprite('fox_' + port) ? spriteImg('fox_' + port, 3) : '');
     }
     pEl.classList.remove('bop'); void pEl.offsetWidth; pEl.classList.add('bop');
@@ -1034,54 +1034,7 @@ export class Classroom {
   _sfx(name, o) { try { this.game.audio?.play?.(name, o); } catch { /* ignore */ } }
 }
 
-// the dialogue portrait in teacher garb: swap the top hat for a mortarboard
-const _portraits = new Map();
-function teacherPortrait(expr) {
-  if (_portraits.has(expr)) return _portraits.get(expr);
-  let url = null;
-  try {
-    const name = 'fox_' + expr;
-    if (!hasSprite(name)) throw new Error('no sprite');
-    const src = spriteCanvas(name, 1);
-    const w = src.width, h = src.height;
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const ctx = c.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(src, 0, 0);
-    const d = ctx.getImageData(0, 0, w, h).data;
-    // the hat band: the row with the most warm (orange/red) pixels over the head
-    let band = -1, best = 3;
-    for (let y = 0; y < 10; y++) {
-      let n = 0;
-      for (let x = 10; x <= 21; x++) { const i = (y * w + x) * 4; if (d[i + 3] > 0 && d[i] > 170 && d[i + 1] < 150) n++; }
-      if (n > best) { best = n; band = y; }
-    }
-    if (band < 0) throw new Error('no hat');
-    const brim = band + 2;
-    ctx.clearRect(9, 0, 14, brim);
-    const P = (x, y, col) => { if (y >= 0) { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); } };
-    const K = '#120e18', B = '#2c2640', BL = '#4a4064', BD = '#1e1a2c', G = '#f2c230', GD = '#b8861c';
-    // skull cap
-    for (let y = brim - 2; y <= brim; y++) for (let x = 11; x <= 20; x++) P(x, y, x === 11 || x === 20 ? K : y === brim - 2 ? BL : B);
-    // the flat board, a squashed diamond seen from the front
-    const rows = [[11, 20], [7, 24], [5, 26], [8, 23]];
-    rows.forEach(([a, b], i) => { for (let x = a - 1; x <= b + 1; x++) P(x, brim - 6 + i, x < a || x > b ? K : i === 0 ? BL : i === 3 ? BD : B); });
-    for (let x = 10; x <= 21; x++) P(x, brim - 7, K);
-    // button + tassel swinging off the right corner
-    P(15, brim - 6, G); P(16, brim - 6, G);
-    for (let x = 17; x <= 24; x++) P(x, brim - 5 + (x > 21 ? 1 : 0), G);
-    for (let y = brim - 3; y <= brim + 2; y++) P(25, y, y > brim ? GD : G);
-    P(24, brim + 2, G); P(26, brim + 2, GD); P(25, brim + 3, GD);
-    const big = document.createElement('canvas');
-    big.width = w * 3; big.height = h * 3;
-    const b2 = big.getContext('2d');
-    b2.imageSmoothingEnabled = false;
-    b2.drawImage(c, 0, 0, big.width, big.height);
-    url = big.toDataURL();
-  } catch { url = null; }
-  _portraits.set(expr, url);
-  return url;
-}
+// [v26 faces3d] (the 2D mortarboard-on-a-sprite portrait is gone: the fallback portrait is a 3D render too)
 
 // a smiling gold star sticker (pixel art)
 function drawGoldStar(cv) {

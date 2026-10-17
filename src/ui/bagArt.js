@@ -597,47 +597,7 @@ export function eachTextPixel(str, x, y, put) {
 // MASCOTS (Grid art, rendered with the shared ramps)
 // ===========================================================================
 const MASCOT_ART = {
-  // Reynard: winking, monocle on a chain, top hat at a jaunty angle, bow tie
-  fox: () => {
-    const g = new Grid(26, 27);
-    const key = {
-      H: 'black.x@hat', h: 'black.y@brim', r: 'red.y@band', E: 'fox.r@earL', F: 'fox.r@earR', e: 'cream:3', t: 'dkbear:2',
-      O: 'fox.r@head', o: 'fox:1', W: 'furw.r@muz', N: 'black.R@nose', K: '#2a1a14', w: '#ffffff', y: 'gold:4',
-      m: 'gold:4', M: 'gold:2', g: 'gold:3', R: 'red.R@bow', q: 'red:1', T: '#ffffff', G: 'glass:5',
-    };
-    g.poly([[0.8, 2.8], [10.6, 9.2], [3.4, 13.8]], 'E');
-    g.poly([[25.2, 2.8], [15.4, 9.2], [22.6, 13.8]], 'F');
-    g.poly([[2.8, 5.6], [8.6, 9.6], [4.4, 12.4]], 'e');
-    g.poly([[23.2, 5.6], [17.4, 9.6], [21.6, 12.4]], 'e');
-    g.stamp(1, 3, ['tt', 'ttt']).stamp(23, 3, ['.tt', 'ttt']);
-    g.ellipse(13, 15, 9.6, 6.6, 'O');
-    // cheek tufts + the white lower face
-    g.poly([[5.4, 14.6], [0.8, 18.4], [3.2, 18.2], [2.2, 20.6], [5.8, 19.8], [7, 21.4], [9.4, 18.6]], 'W');
-    g.poly([[20.6, 14.6], [25.2, 18.4], [22.8, 18.2], [23.8, 20.6], [20.2, 19.8], [19, 21.4], [16.6, 18.6]], 'W');
-    g.poly([[5.6, 16.8], [9.4, 15.8], [13, 17.2], [16.6, 15.8], [20.4, 16.8], [17.8, 20.6], [13, 22.8], [8.2, 20.6]], 'W');
-    // brows: one down for the wink, one cocked up over the monocle
-    g.stamp(5, 11, ['ooo']).stamp(16, 9, ['oooo']);
-    // the wink, and the sly half-lidded eye behind the monocle
-    g.stamp(6, 13, ['.KKK', 'K...K']);
-    g.stamp(16, 12, ['KKKK', 'KwyK', '.KK.']);
-    for (let y = 8; y < 20; y++)
-      for (let x = 12; x < 24; x++) {
-        const r = Math.hypot(x + 0.5 - 18, y + 0.5 - 13.5);
-        if (r > 2.7 && r <= 3.55) g.set(x, y, x + y < 31 ? 'm' : 'M');
-      }
-    g.set(16, 11, 'G');
-    for (const [x, y] of [[20, 17], [21, 18], [21, 19], [22, 20], [22, 21]]) g.set(x, y, 'g');
-    g.stamp(11, 16, ['NNNN', '.NN.']);
-    // sly grin with a fang
-    g.stamp(9, 18, ['K......K', '.KKKKKK.']).set(11, 20, 'T');
-    // top hat, tipped to the right
-    g.poly([[10, 0.2], [18.4, 0.2], [17.8, 6.8], [9.4, 6.8]], 'H');
-    g.rect(9, 5, 9, 2, 'r');
-    g.ellipse(13.6, 7.5, 7.6, 1.25, 'h');
-    // bow tie
-    g.stamp(8, 23, ['RRR....RRR', 'RRRRqqRRRR', 'RRR....RRR']);
-    return { g, key };
-  },
+  // [v26 faces3d] Reynard (the pellet sack's mascot) is no 2D art: see mascotPix (a render of his 3D rig)
 
   // Flakey Jake: a jolly rainbow trout in a chef's toque
   trout: () => {
@@ -831,15 +791,17 @@ export function mascotPix(name) {
   name = MASCOTS[name] || name;
   let p = MASCOT_PIX.get(name);
   if (!p) {
-    const art = MASCOT_ART[name] || MASCOT_ART.fox;
+    const art = MASCOT_ART[name];
     // [v26 faces3d] Reynard on his own pellet sack is the real 3D rig (classic top hat, winking), not 2D art
-    if (art === MASCOT_ART.fox && FACE3D.canvas) {
-      const cv = FACE3D.canvas({ who: 'fox', expr: 'wink', outfit: 'tycoon', frame: 'bust' }, 26, 27);
-      if (cv) { p = new Pix(26, 27); p.d.set(cv.getContext('2d').getImageData(0, 0, 26, 27).data); MASCOT_PIX.set(name, p); return p; }
+    if (!art) {
+      const cv = FACE3D.canvas?.({ who: 'fox', expr: 'wink', outfit: 'tycoon', frame: 'bust' }, 26, 27);
+      p = new Pix(26, 27);
+      if (cv) { p.d.set(cv.getContext('2d').getImageData(0, 0, 26, 27).data); MASCOT_PIX.set(name, p); }
+      return p; // (blank until the 3D renderer is up; not cached, so the next call retries)
     }
     const { g, key } = art();
     p = render(g, key);
-    if (art !== MASCOT_ART.fox) MASCOT_PIX.set(name, p); // [v26 faces3d] (the fox retries once the 3D renderer is up)
+    MASCOT_PIX.set(name, p);
   }
   return p;
 }
