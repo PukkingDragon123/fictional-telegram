@@ -18,6 +18,7 @@
 // entry: see src/game/ext/homePC.js (record) for the fields.
 import './homepc.css';
 import { hasSprite, spriteImg } from './sprites.js';
+import { FACE3D } from './faceHook.js'; // [v26 faces3d]
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const fmt = (n) => Math.round(+n || 0).toLocaleString('en-US');
@@ -121,19 +122,44 @@ function drawCols(cv, vals, k, sel = -1) {
   });
 }
 // bear pictograms: one little head per bear served, coloured by how it went
-const BEAR_PX = ['.k.k.', 'kbbbk', 'kebek', 'kbnbk', '.kkk.'];
+// [v26 faces3d] each head is the real 3D bear rig (furious / happy / plain), phosphor-tinted, at 2x the chart's
+// pixel grid so its face reads; no 2D bear faces
+const HEAD3D = new Map();
+function bearHead3D(kind, col, S) {
+  const key = kind + S;
+  if (HEAD3D.has(key)) return HEAD3D.get(key);
+  const src = FACE3D.canvas?.({ who: 'bear', type: 'office', expr: kind === 'r' ? 'furious' : kind === 'h' ? 'happy' : 'neutral' }, S, S);
+  let out = null;
+  if (src) {
+    out = document.createElement('canvas'); out.width = S; out.height = S;
+    const g = out.getContext('2d'), d = src.getContext('2d').getImageData(0, 0, S, S), p = d.data;
+    const c = [1, 3, 5].map((i) => parseInt(col.slice(i, i + 2), 16)), ink = [1, 3, 5].map((i) => parseInt(PAL.ink.slice(i, i + 2), 16));
+    for (let i = 0; i < p.length; i += 4) {
+      if (p[i + 3] < 128) { p[i + 3] = 0; continue; }
+      const l = (0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2]) / 255;
+      const t = l < 0.13 ? 0 : Math.min(1.15, 0.35 + l * 1.1); // ink stays ink
+      for (let k = 0; k < 3; k++) p[i + k] = t ? Math.min(255, c[k] * t) : ink[k];
+      p[i + 3] = 255;
+    }
+    g.putImageData(d, 0, 0);
+  }
+  HEAD3D.set(key, out);
+  return out;
+}
 function drawBears(cv, served, happy, rampages) {
   const g = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
+  const W = cv.width, H = cv.height, P = H >= 24 ? 12 : 6, S = P - 2;
   g.clearRect(0, 0, W, H);
   const n = Math.min(served + rampages, 24);
-  const per = Math.max(1, Math.floor((W + 1) / 6));
+  const per = Math.max(1, Math.floor((W + 2) / P));
   for (let i = 0; i < n; i++) {
     const kind = i < rampages ? 'r' : i < rampages + happy ? 'h' : 'o';
     const col = kind === 'r' ? PAL.red : kind === 'h' ? PAL.green : PAL.grey;
-    const ox = (i % per) * 6, oy = Math.floor(i / per) * 6;
-    if (oy + 5 > H) break;
-    BEAR_PX.forEach((row, y) => { for (let x = 0; x < 5; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = ch === 'k' ? PAL.ink : ch === 'e' ? PAL.ink : ch === 'n' ? '#3a2a20' : col; g.fillRect(ox + x, oy + y, 1, 1); } });
+    const ox = (i % per) * P, oy = Math.floor(i / per) * P;
+    if (oy + S > H) break;
+    const head = bearHead3D(kind, col, S);
+    if (head) g.drawImage(head, ox, oy);
+    else { g.fillStyle = col; g.fillRect(ox, oy, S, S); } // no WebGL: a plain tally block
   }
 }
 
@@ -416,7 +442,8 @@ class HomePC {
     const coinVals = last.map((x) => x.coins), rateVals = last.map((x) => x.r1);
     this.anims.push({ dur: 0.9, fn: (k) => drawLine(cv1, coinVals, k, { col: PAL.yellow, fill: 'rgba(255,232,90,0.35)', mark: PAL.white }) });
     this.anims.push({ dur: 0.9, delay: 0.15, fn: (k) => drawLine(cv2, rateVals, k, { lo: 0, hi: 5, col: PAL.cyan, fill: 'rgba(90,224,232,0.3)', mark: dr < 0 ? PAL.red : PAL.white }) });
-    if (bc) { const cv3 = pxCanvas(60, 12); bc.appendChild(cv3); drawBears(cv3, e.served || 0, e.happy || 0, e.rampages || 0); }
+    if (bc) { const k3 = FACE3D.canvas ? 2 : 1, cv3 = pxCanvas(60 * k3, 12 * k3); bc.appendChild(cv3); // [v26 faces3d] 2x grid: 3D heads
+      drawBears(cv3, e.served || 0, e.happy || 0, e.rampages || 0); }
     // bars grow + the net counts up
     requestAnimationFrame(() => this.$body.querySelector('.hpc-day-grid')?.classList.add('grown'));
     const nb = this.$body.querySelector('[data-count]');

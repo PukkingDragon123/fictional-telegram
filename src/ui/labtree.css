@@ -61,6 +61,7 @@
 .lt-sec-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lt-sec-c { flex: none; display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--lt-mid); }
 .lt-sec-c .is-key { display: flex; }
+.lt-sec-c .is-full { display: flex; align-items: center; gap: 4px; font-style: normal; color: #ffc04a; letter-spacing: 1px; } /* [v26 demo] */
 .lt-dot { display: inline-block; width: 6px; height: 6px; background: var(--lt-on); }
 .lt-sec.is-sealed .lt-sec-t { color: var(--lt-dim); }
 .lt-sec.is-full .lt-sec-c { color: var(--lt-dim); }

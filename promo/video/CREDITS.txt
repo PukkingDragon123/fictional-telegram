@@ -1,0 +1,48 @@
+The Bear Must Eat - promo video + trailer: credits and licenses
+================================================================
+
+Files
+  the-bear-must-eat-promo.mp4     promo: the villagers explain the game in their own speech bubbles
+  the-bear-must-eat-trailer.mp4   trailer: sunrise, Reynard wakes up, a short montage, title
+
+Picture: 100% real in-game footage of The Bear Must Eat (its own renderer, rigs, speech
+bubbles, fonts), captured frame by frame with tools/video/ (render.mjs + director.js +
+shots_promo.js / shots_trailer.js) and cut with tools/video/build.py.
+
+Game sound effects and the villagers' "voices" (babble): the game's own procedural synth
+(src/audio/audio.js), rendered offline from the logged in-game events (tools/video/sfx.mjs).
+
+
+MUSIC (Creative Commons Attribution 4.0 - attribution required, shown in the videos too)
+----------------------------------------------------------------------------------------
+Promo:
+  "Fluffing a Duck" Kevin MacLeod (incompetech.com)
+  Licensed under Creative Commons: By Attribution 4.0 License
+  http://creativecommons.org/licenses/by/4.0/
+  Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Fluffing%20a%20Duck.mp3
+          (catalog: https://incompetech.com/music/royalty-free/music.html , ISRC USUAN1100768)
+
+Trailer:
+  "Morning" Kevin MacLeod (incompetech.com)
+  Licensed under Creative Commons: By Attribution 4.0 License
+  http://creativecommons.org/licenses/by/4.0/
+  Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Morning.mp3  (ISRC USUAN2300003)
+
+  "Fireflies and Stardust" Kevin MacLeod (incompetech.com)
+  Licensed under Creative Commons: By Attribution 4.0 License
+  http://creativecommons.org/licenses/by/4.0/
+  Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Fireflies%20and%20Stardust.mp3  (ISRC USUAN1600061)
+
+  License text checked on incompetech.com ("Licensed under Creative Commons: By Attribution
+  4.0 License", https://incompetech.com/music/royalty-free/licenses/). When you upload a video,
+  paste the three lines above for each track into the description as well.
+
+
+SOUND EFFECTS (all CC0 1.0 public domain - no attribution required, listed for the record)
+------------------------------------------------------------------------------------------
+@@SFX@@
+
+Why not myinstants.com: most clips there are unlicensed rips of TV shows, films and songs
+(no license is given for them), which can get an uploaded trailer muted or taken down. The
+meme-style sounds above (boom, air horn, record scratch, slide whistle, sad trombone, crowd
+gasp, ...) are free-licensed (CC0) equivalents.

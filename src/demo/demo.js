@@ -33,7 +33,7 @@ export const DEMO_LOCKED_NODES = ['r_mine_survey'];
 // ---- saves: the demo keeps its own. Every 'tbme.*' key the game reads or writes
 // (the save, save slots, golden tails, ...) lives under 'tbme.demo.*' instead, so
 // a demo run never touches (or sees) a full-game save. Device settings stay shared.
-const SHARED_KEYS = /^tbme\.(px|muted|volumes|titleStill)$/;
+const SHARED_KEYS = /^tbme\.(px|muted|volumes|titleStill|settings\.v\d+)$/;
 const DEMO_NS = 'tbme.demo.';
 const scoped = (k) => typeof k === 'string' && k.startsWith('tbme.') && !k.startsWith(DEMO_NS) && !SHARED_KEYS.test(k);
 

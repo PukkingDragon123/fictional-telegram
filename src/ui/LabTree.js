@@ -309,6 +309,7 @@ export class LabTree {
   _calc(N) {
     if (this._isRes(N.id)) return 'done';
     if (N.S.sealed) return 'sealed';
+    if (N.d.demoLock) return 'locked'; // [v26 demo] a full-game node in an open section
     if (this._jobIds?.has(N.id)) return 'run';
     if (!N.req.every((r) => this._isRes(r) || !this.byId.has(r))) return 'locked';
     if (N.d.zone && !this._zoneOpen(N.d.zone)) return 'zone';
@@ -321,6 +322,7 @@ export class LabTree {
   // the node's status line on the map
   _line(N, st, sp) {
     if (st === 'done') return 'RESEARCHED';
+    if (N.d.demoLock && st !== 'done') return 'FULL GAME'; // [v26 demo]
     if (st === 'sealed') return 'SECTION LOCKED';
     if (st === 'run') return '';
     if (st === 'zone') return `MEET ${this.zoneName(N.d.zone).toUpperCase()}`;
@@ -483,7 +485,8 @@ export class LabTree {
       if (!el) continue;
       const I = this._secInfo(S);
       let c;
-      if (I.sealed) c = I.key?.canUnlock ? `<em class="is-key">${glyphHTML('key', '#ffc04a', 2)}</em>` : glyphHTML('lock', '#2b7442', 2);
+      if (I.sealed && I.key?.demo) c = `<em class="is-full" title="Full game">${glyphHTML('lock', '#ffc04a', 2)}FULL</em>`; // [v26 demo]
+      else if (I.sealed) c = I.key?.canUnlock ? `<em class="is-key">${glyphHTML('key', '#ffc04a', 2)}</em>` : glyphHTML('lock', '#2b7442', 2);
       else c = `${I.ready ? '<i class="lt-dot"></i>' : ''}${I.done}/${I.total}`;
       if (c !== el._c) { el._c = c; el.querySelector('.lt-sec-c').innerHTML = c; }
       el.classList.toggle('is-sealed', I.sealed);
@@ -972,7 +975,7 @@ export class LabTree {
     this.$det.dataset.state = st;
     this.$detK.textContent = `${String(N.S.i + 1).padStart(2, '0')} ${N.S.b.name}`.toUpperCase() + (d.tier != null ? `  /  TIER ${d.tier}` : '');
     this.$name.textContent = d.name || N.id;
-    this.$pvSt.textContent = STATE_TEXT[st] || '';
+    this.$pvSt.textContent = d.demoLock && st !== 'done' ? 'FULL GAME' : STATE_TEXT[st] || ''; // [v26 demo]
     this.$pvSt.className = `lt-pv-st st-${st}`;
     let sub = '';
     if (d.species) { const sp = SPECIES_DATA.SPECIES_BY_ID?.[d.species]; if (sp?.latin) sub = ` <i class="lt-latin">${esc(sp.latin)}</i>`; }
@@ -1024,16 +1027,18 @@ export class LabTree {
     let fish = 0, builds = 0, ups = 0;
     for (const N of S.nodes) { if (N.d.species) fish++; else if (N.d.build) builds++; else if (N.d.mods) ups++; }
     this.$desc.innerHTML = `<b>${S.nodes.length}</b> projects are locked in this section. Use its <b>section key</b> to open it.`;
+    if (k.demo) { this.$detK.textContent = this.$detK.textContent.replace(/LOCKED$/, 'FULL GAME'); this.$pvSt.textContent = 'FULL GAME'; this.$desc.innerHTML = `<b>${S.nodes.length}</b> projects wait in this section. They come with the <b>full game</b>.`; } // [v26 demo]
     this.$hUnl.textContent = 'INSIDE';
     this.$hTime.textContent = 'PRICE';
     this.$hReq.textContent = 'SECTION KEY';
     const row = (icon, num, what) => (num ? `<li><span class="lt-art">${this.icons.iconHTML(icon, 26, 'dim')}</span><span class="lt-unl-t"><b>${num} ${esc(what)}</b></span></li>` : '');
     this.$unl.innerHTML = row('fish', fish, 'fish species') + row('hammer', builds, builds === 1 ? 'thing to build' : 'things to build') + row('bolt', ups, ups === 1 ? 'upgrade' : 'upgrades') || '<li class="is-none"><span class="lt-unl-t"><b>Secrets</b></span></li>';
     this.$time.innerHTML = k.coins ? `${glyphHTML('coin', '#ffc04a', 2)}<b class="lt-amb">${k.coins}</b><span>coins, once</span>` : '<b>FREE</b><span class="lt-free">KEY ONLY</span>';
+    if (k.demo) this.$time.innerHTML = `${glyphHTML('lock', '#ffc04a', 2)}<b class="lt-amb">FULL GAME</b><span>not in the demo</span>`; // [v26 demo]
     let reqs = '';
     for (const x of k.needs || []) {
       const go = x.kind === 'node' && this.byId.has(x.id) ? ` data-goto="${esc(x.id)}" role="button" tabindex="0"` : '';
-      const art = x.kind === 'node' && this.byId.get(x.id) ? this.icons.nodeHTML(this.byId.get(x.id).d, 20, x.ok ? 'on' : 'dim') : x.kind === 'zone' ? glyphHTML('paw', x.ok ? '#52e47e' : '#ffc04a', 2) : glyphHTML('coin', '#ffc04a', 2);
+      const art = x.kind === 'node' && this.byId.get(x.id) ? this.icons.nodeHTML(this.byId.get(x.id).d, 20, x.ok ? 'on' : 'dim') : x.kind === 'zone' ? glyphHTML('paw', x.ok ? '#52e47e' : '#ffc04a', 2) : x.kind === 'demo' ? glyphHTML('lock', '#ffc04a', 2) : glyphHTML('coin', '#ffc04a', 2); // [v26 demo] + demo
       reqs += `<li class="${x.ok ? 'ok' : 'bad'}"${go}>${glyphHTML(x.ok ? 'check' : 'cross', x.ok ? '#52e47e' : '#2b7442', 2)}<span class="lt-art sm">${art}</span><span>${esc(x.text)}</span></li>`;
     }
     this.$reqs.innerHTML = reqs || `<li class="ok">${glyphHTML('check', '#52e47e', 2)}<span>No key needed!</span></li>`;
@@ -1058,8 +1063,8 @@ export class LabTree {
         this.$goS.textContent = k.coins ? `pay ${k.coins} coins` : 'free!';
       } else {
         b.classList.add('is-no');
-        this.$goL.textContent = 'LOCKED';
-        this.$goS.textContent = miss ? `key: ${miss.text}` : `needs ${k.coins} coins`;
+        this.$goL.textContent = k.demo ? 'FULL GAME' : 'LOCKED'; // [v26 demo]
+        this.$goS.textContent = k.demo ? 'not in the demo' : miss ? `key: ${miss.text}` : `needs ${k.coins} coins`;
       }
       return;
     }
@@ -1085,8 +1090,8 @@ export class LabTree {
     if (st === 'sealed') {
       b.disabled = false;
       b.classList.add('is-no', 'is-seal');
-      this.$goL.textContent = 'SECTION LOCKED';
-      this.$goS.textContent = 'tap to see its key';
+      this.$goL.textContent = N.d.demoLock ? 'FULL GAME' : 'SECTION LOCKED'; // [v26 demo]
+      this.$goS.textContent = N.d.demoLock ? 'not in the demo' : 'tap to see its key';
       return;
     }
     const chk = this._check(N);
@@ -1100,7 +1105,7 @@ export class LabTree {
     b.classList.add('is-no');
     const busy = /bench busy/i.test(chk.reason || '');
     if (busy) b.classList.add('is-busy');
-    this.$goL.textContent = busy ? 'BENCH BUSY' : 'NOT YET';
+    this.$goL.textContent = busy ? 'BENCH BUSY' : N.d.demoLock ? 'FULL GAME' : 'NOT YET'; // [v26 demo]
     this.$goS.textContent = busy ? this._busyText() : String(chk.reason || '');
   }
 

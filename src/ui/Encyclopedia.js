@@ -19,6 +19,7 @@ import './fonts.css';
 import './encyclopedia.css';
 import { buildEncyclopedia, commitDexSeen, CHAPTERS, encArt, medalArt } from './encyclopediaData.js';
 import { hasSprite, spriteURL } from './sprites.js';
+import { FACE3D } from './faceHook.js'; // [v26 faces3d]
 
 const { Pix, hexc, mixc, hash, strHash, bayer, dq, mkCanvas, scaled, clamp } = encArt;
 
@@ -500,7 +501,6 @@ const DOODLES = {
   sprout: ['.##...##.', '#..#.#..#', '.##.#.##.', '....#....', '....#....', '..#####..'],
   bee: ['#.#.#.#........', '..............#', '.#.#.#.#.....##', '...........###.', '.........##k##.', '..........###..'],
   coin: ['.####.', '#....#', '#.##.#', '#.#..#', '#.##.#', '.####.'],
-  fox: ['#.....#', '##...##', '#.###.#', '#######', '.#.#.#.', '..###..', '...#...'],
   magnifier: ['.###...', '#...#..', '#...#..', '#...#..', '.###...', '....#..', '.....#.', '......#'],
   feather: GLYPHS.feather,
   leafd: GLYPHS.leaf,
@@ -1033,6 +1033,13 @@ export class Encyclopedia {
   }
 
   doodle(name, { x, y, rot = 0, s = 2, op = 0.55, right, bottom } = {}) {
+    if (name === 'fox') { // [v26 faces3d] Reynard's face is never a 2D doodle: a faded 3D render of his rig, square to the page (crisp)
+      const S = 10 * s, o = 3.5 * s - S / 2; // centred where the 7 x 7 doodle was
+      const at = [x != null ? `left:${x + o}px` : '', y != null ? `top:${y + o}px` : '', right != null ? `right:${right + o}px` : '', bottom != null ? `bottom:${bottom + o}px` : ''].filter(Boolean).join(';');
+      const im = FACE3D.img?.({ who: 'fox', expr: 'wink', frame: 'head' }, S, S, 'enc-doodle', `${at};--r:0deg;opacity:${Math.min(1, op + 0.25)}`);
+      if (im) return im;
+      name = 'star';
+    }
     const u = cached(`doodle:${name}`, () => doodlePix(name).canvas().toDataURL());
     const d = DOODLES[name] || DOODLES.star;
     const w = Math.max(...d.map((r) => r.length)) * s, h = d.length * s;

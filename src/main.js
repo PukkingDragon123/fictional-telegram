@@ -2,6 +2,8 @@ import './ui/fonts.css'; // TBME Goofy, the game font (everything uses it)
 import './ui/style.css';
 import audio from './game/audioProxy.js';
 import { PixelRenderer } from './core/pixelRenderer.js';
+import { DEMO, demoBoot } from './demo/demo.js'; // [v26 demo]
+if (DEMO) demoBoot(); // [v26 demo] the demo build: its own saves + the DEMO ribbon on the title sign
 
 // Startup (v26): no loading screen. index.html shows the title's first frame
 // inline before any module loads (a still of the pond diorama saved on the last

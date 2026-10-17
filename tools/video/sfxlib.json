@@ -1,0 +1,21 @@
+{
+  "_doc": "Cue name -> audio file (+ trim). ${DL} = the download dir of the third-party audio (see promo/video/CREDITS.txt for every source URL + license). from/dur in seconds, gain_db, lead = seconds before the cue time the clip starts.",
+  "dramatic_boom":  { "file": "${DL}/freesound/802074.mp3", "from": 0.0, "dur": 2.6, "gain_db": 3, "fade_out": 0.6 },
+  "air_horn":       { "file": "${DL}/freesound/581334.mp3", "from": 0.0, "dur": 2.0, "gain_db": -9, "fade_out": 0.4 },
+  "record_scratch": { "file": "${DL}/freesound/762848.mp3", "from": 0.0, "dur": 0.62, "gain_db": -3, "fade_out": 0.08 },
+  "slide_whistle":  { "file": "${DL}/freesound/497092.mp3", "from": 0.0, "dur": 1.2, "gain_db": -9, "fade_out": 0.15 },
+  "slide_down":     { "file": "${DL}/freesound/497093.mp3", "from": 0.0, "dur": 1.2, "gain_db": -9, "fade_out": 0.15 },
+  "whoosh":         { "file": "${DL}/freesound/812666.mp3", "from": 0.25, "dur": 1.6, "gain_db": -8, "lead": 0.55, "fade_out": 0.4 },
+  "swish":          { "file": "${DL}/freesound/393811.mp3", "from": 0.0, "dur": 0.25, "gain_db": -8 },
+  "boing":          { "file": "${DL}/freesound/731261.mp3", "from": 0.0, "dur": 1.6, "gain_db": -8, "fade_out": 0.3 },
+  "sad_trombone":   { "file": "${DL}/freesound/175409.mp3", "from": 0.1, "dur": 4.2, "gain_db": -7, "fade_out": 0.5 },
+  "crowd_gasp":     { "file": "${DL}/freesound/264376.mp3", "from": 0.5, "dur": 2.2, "gain_db": -6, "fade_out": 0.6 },
+  "crowd_laugh":    { "file": "${DL}/freesound/346682.mp3", "from": 0.2, "dur": 3.0, "gain_db": -6, "fade_out": 0.8 },
+  "riser_hit":      { "file": "${DL}/freesound/822419.mp3", "from": 0.0, "dur": 9.0, "gain_db": -4, "lead": 4.4, "fade_out": 2.0 },
+  "gong":           { "file": "${DL}/freesound/473523.mp3", "from": 0.3, "dur": 8.0, "gain_db": -10, "fade_out": 3.0 },
+  "morning_birds":  { "file": "${DL}/freesound/427769.mp3", "from": 20.0, "dur": 40.0, "gain_db": 14, "fade_in": 1.5, "fade_out": 2.0 },
+  "lake_morning":   { "file": "${DL}/freesound/700637.mp3", "from": 10.0, "dur": 40.0, "gain_db": 10, "fade_in": 1.5, "fade_out": 2.0 },
+  "bell_ring":      { "file": "${DL}/kenney/pk_impact-sounds/x/Audio/impactBell_heavy_001.ogg", "gain_db": -2, "fade_out": 0.4 },
+  "coins_jingle":   { "file": "${DL}/kenney/pk_rpg-audio/x/Audio/handleCoins.ogg", "gain_db": -4 },
+  "jingle_win":     { "file": "${DL}/kenney/pk_music-jingles/x/Audio/Pizzicato jingles/jingles_PIZZI00.ogg", "gain_db": -6 }
+}

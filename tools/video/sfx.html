@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>TBME video sfx render</title></head>
+<body>
+<script type="module">
+// Offline renderer for tools/video/sfx.mjs: the game's own synth (src/audio/audio.js)
+// renders each logged SFX / babble line into an OfflineAudioContext.
+import audio from '../../src/audio/audio.js';
+const b64 = (f32) => { const u8 = new Uint8Array(f32.buffer, f32.byteOffset, f32.byteLength); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+window.renderEv = async (ev) => {
+  let buf;
+  if (ev.kind === 'babble') buf = await audio._debugRenderBabble(ev.voice, ev.text, { volume: ev.vol, pitch: ev.pitch, cps: ev.cps });
+  else buf = await audio._debugRenderSfx(ev.name, ev.len || 5, { volume: ev.vol, pitch: ev.pitch, pan: ev.pan });
+  const L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+  // trim the silent tail
+  let n = L.length;
+  while (n > 0 && Math.abs(L[n - 1]) < 1e-5 && Math.abs(R[n - 1]) < 1e-5) n--;
+  const out = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) { out[2 * i] = L[i]; out[2 * i + 1] = R[i]; }
+  return { sr: buf.sampleRate, n, data: b64(out) };
+};
+window.__ready = true;
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:single": "vite build --mode single",
+    "build:demo": "vite build --mode demo && node tools/make-artifact.mjs dist-demo/index.html dist-demo/the-bear-must-eat-demo.html",
     "preview": "vite preview"
   },
   "dependencies": {

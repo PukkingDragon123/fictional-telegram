@@ -28,6 +28,7 @@ import { CameraRig } from '../core/cameraRig.js';
 import { Transition } from '../ui/Transition.js';
 import { Chalkboard, measureText, slateURL } from '../ui/Chalkboard.js';
 import { spriteImg, spriteCanvas, hasSprite } from '../ui/sprites.js';
+import { FACE3D } from '../ui/faceHook.js'; // [v26 faces3d]
 import { createFoxTalk } from '../ui/FoxTalk3D.js';
 import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
@@ -903,7 +904,7 @@ export class Classroom {
       this._ftk.setExpression(ex);
     } else {
       const port = PORTRAIT[ex] || 'smug';
-      const url = teacherPortrait(port);
+      const url = FACE3D.url?.({ who: 'fox', expr: ex, outfit: this.fox?.outfit || 'teacher', frame: 'bust' }, 96, 96) || teacherPortrait(port); // [v26 faces3d]
       pEl.innerHTML = url ? `<img src="${url}" width="96" height="96" alt="" draggable="false" style="image-rendering:pixelated">` : (hasSprite('fox_' + port) ? spriteImg('fox_' + port, 3) : '');
     }
     pEl.classList.remove('bop'); void pEl.offsetWidth; pEl.classList.add('bop');
@@ -988,14 +989,29 @@ export class Classroom {
       { text: title, x: 88, y: 26, scale: sc, id: 't' },
       { underline: 't', color: script.color || 'yellow', wavy: true },
     ];
-    if (script.doodle) items.push({ doodle: script.doodle, x: 88, y: 53, scale: 2 });
+    // [v26 faces3d] a character face on the slate is never a 2D doodle: the real rig's 3D render, pinned on
+    // at the slate's own pixel scale (28 x 28 slate px) while the chalk writes
+    const F3 = { bear: { who: 'bear', type: 'office', expr: 'happy' }, beaver: { who: 'beaver', outfit: 'hardhat', expr: 'happy' } }[script.doodle];
+    host.querySelector('.cls-f3d')?.remove();
+    const f3 = F3 && FACE3D.canvas?.(F3, 28, 28);
+    if (f3) {
+      const im = document.createElement('img');
+      im.className = 'cls-f3d'; im.alt = ''; im.src = FACE3D.url(F3, 28, 28);
+      im.style.cssText = 'position:absolute;left:12px;top:12px;width:0;height:0;image-rendering:pixelated;pointer-events:none;opacity:0;transition:opacity .2s steps(2)';
+      const wood = host.querySelector('.cls-title-wood');
+      wood.style.position = 'relative';
+      const place = () => { const W = cv.clientWidth, k = W / 176; Object.assign(im.style, { left: `${12 + (88 - 14) * k}px`, top: `${12 + (53 - 14) * k}px`, width: `${28 * k}px`, height: `${28 * k}px` }); };
+      wood.appendChild(im); place(); requestAnimationFrame(place);
+    } else if (script.doodle) items.push({ doodle: script.doodle, x: 88, y: 53, scale: 2 });
     await this.wait(0.35);
     await Promise.race([b.draw(items, { speed: 1.6 }), this.wait(5)]);
+    const fi = host.querySelector('.cls-f3d'); if (fi) { fi.style.opacity = '1'; this._sfx('class_chalk_down', { volume: 0.3 }); } // [v26 faces3d]
     await Promise.race([this.wait(1.1), this._click(0.1)]);
     host.classList.remove('in'); host.classList.add('out');
     this._sfx('class_whoosh', { volume: 0.3, pitch: 1.2 });
     await this.wait(0.45);
     host.classList.add('hidden');
+    host.querySelector('.cls-f3d')?.remove(); // [v26 faces3d]
     this.titleBoard = null;
   }
 

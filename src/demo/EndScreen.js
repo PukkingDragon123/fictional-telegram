@@ -70,6 +70,8 @@ export function showDemoEnd(game, { onRestart, storeUrl = '', lastDay = 5 } = {}
       <section class="dm-list paper paper--parchment">
         <h2>In the full game</h2>
         <ul>${FULL_GAME.map(([ic, t, s]) => `<li>${icon(ic)}<span><b>${esc(t)}</b><small>${esc(s)}</small></span></li>`).join('')}</ul>
+      </section>
+      <footer class="dm-foot">
         <div class="dm-receipt paper paper--receipt paper--zig">
           <b>YOUR ${lastDay} DAYS</b>
           <div><span>Bears served</span><i>${fmt(stats.bearsServed)}</i></div>
@@ -79,8 +81,6 @@ export function showDemoEnd(game, { onRestart, storeUrl = '', lastDay = 5 } = {}
           <div class="dm-tot"><span>Coins earned</span><i>${fmt(st.totalEarned)}</i></div>
           <em>Reynard's cut: 100%</em>
         </div>
-      </section>
-      <footer class="dm-foot">
         <div class="dm-queue">${bears}</div>
         <div class="dm-btns">
           <a class="dm-btn dm-buy" href="${esc(storeUrl || '#')}" target="_blank" rel="noopener">Get the full game</a>
@@ -99,16 +99,15 @@ export function showDemoEnd(game, { onRestart, storeUrl = '', lastDay = 5 } = {}
   const line = el.querySelector('.dm-line');
   let li = 0, timer = 0, typer = 0;
   const say = () => {
-    const [expr, text] = PITCH[li % PITCH.length];
-    li++;
+    const [expr, text] = PITCH[li];
+    if (++li >= PITCH.length) clearInterval(timer); // the pitch ends on the sales line
     try { ft?.setExpression(expr); ft?.talk(text); } catch { /* optional */ }
     clearInterval(typer);
-    let n = 0;
+    const t0 = performance.now();
     line.textContent = '';
-    typer = setInterval(() => { n += 2; line.textContent = text.slice(0, n); if (n >= text.length) clearInterval(typer); }, 40);
+    typer = setInterval(() => { const n = Math.ceil((performance.now() - t0) / 28); line.textContent = text.slice(0, n); if (n >= text.length) clearInterval(typer); }, 30);
   };
-  setTimeout(say, 900);
-  timer = setInterval(say, 5200);
+  setTimeout(() => { if (!el.isConnected) return; say(); timer = setInterval(say, 4600); }, 900);
 
   el.querySelector('.dm-buy').addEventListener('click', (e) => {
     play('coins', 0.5);

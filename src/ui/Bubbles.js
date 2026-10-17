@@ -29,6 +29,7 @@
 import { Vector3 } from 'three';
 import './fonts.css';
 import './bubbles.css';
+import { textSpeed } from './settings.js'; // [v26 menu] Settings > Text speed
 
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -581,6 +582,7 @@ export class Bubbles {
         /* ignore */
       }
     }
+    cps *= textSpeed(); // [v26 menu]
     if (REDUCED) cps = 1e4;
     b.cps = cps;
     const typeT = n / cps;

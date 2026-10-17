@@ -1,0 +1,32 @@
+{
+  "_doc": "Trailer cut list for tools/video/build.py. 'Morning' (60 bpm) under the sunrise + bedroom until the alarm cuts it; 'Fireflies and Stardust' (174.6 bpm, bar = 1.37457 s) from a bar line at 212.60 s under the montage, its ending under the title.",
+  "out": "promo/video/the-bear-must-eat-trailer.mp4",
+  "frames": "${VFRAMES}",
+  "size": [1920, 1080],
+  "kbps": 3900,
+  "shots": [
+    { "id": "sunrise",   "in": 0.0, "out": 14.6 },
+    { "id": "wake",      "in": 0.0, "out": 12.4 },
+    { "id": "m_hatch",   "in": 0.0, "out": 2.7491 },
+    { "id": "m_clock",   "in": 0.0, "out": 1.3746 },
+    { "id": "m_march",   "in": 0.0, "out": 2.7491 },
+    { "id": "m_feast",   "in": 0.0, "out": 2.7491 },
+    { "id": "m_karen",   "in": 5.0, "out": 7.7491 },
+    { "id": "m_beavers", "in": 0.0, "out": 2.7491 },
+    { "id": "m_build",   "in": 0.0, "out": 2.7491 },
+    { "id": "m_resort",  "in": 0.0, "out": 2.7491 },
+    { "id": "m_winter",  "in": 0.0, "out": 2.7491 },
+    { "id": "m_rampage", "in": 0.0, "out": 1.3746 },
+    { "id": "m_falls",   "in": 0.0, "out": 2.7491 },
+    { "id": "m_reynard", "in": 0.0, "out": 2.7491 },
+    { "id": "title",     "in": 0.0, "out": 9.0 }
+  ],
+  "music": [
+    { "file": "${DL}/music/Morning.mp3", "at": 0.0, "from": 0.0, "to": 16.45, "gain_db": -2, "fade_in": 1.5, "fade_out": 0.12 },
+    { "file": "${DL}/music/Fireflies and Stardust.mp3", "at": 27.0, "from": 212.60, "to": 251.8, "gain_db": -4, "fade_out": 2.5 }
+  ],
+  "duck": [],
+  "sfx": [],
+  "game_gain_db": 0,
+  "ext_gain_db": 0
+}

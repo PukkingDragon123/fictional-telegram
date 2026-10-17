@@ -294,11 +294,12 @@ export class TreeView {
         const key = info.key || {};
         const parts = [];
         for (const n of key.needs || []) parts.push([n.ok ? 'check' : 'cross', n.text.replace(/^Research /, '').replace(/^Pay /, ''), n.ok]);
-        ctx.fillStyle = key.canUnlock ? COL.amber : COL.headDim;
-        const lab = key.canUnlock ? 'LOCKED - KEY READY' : 'LOCKED  KEY:';
+        ctx.fillStyle = key.canUnlock || key.demo ? COL.amber : COL.headDim; // [v26 demo] key.demo: a full-game section
+        const lab = key.demo ? 'FULL GAME' : key.canUnlock ? 'LOCKED - KEY READY' : 'LOCKED  KEY:';
+        if (key.demo) { const gs = Math.max(1, Math.round(spx / 7)); drawGlyph(ctx, 'lock', COL.amber, tx, by - spx * 0.7, gs); tx += 9 * gs; } // [v26 demo]
         ctx.fillText(lab, tx, by);
         tx += ctx.measureText(lab).width + 10 * D;
-        if (!key.canUnlock && z > 0.35) {
+        if (!key.canUnlock && !key.demo && z > 0.35) {
           for (const [g, txt, ok] of parts) {
             const gs = Math.max(1, Math.round(spx / 7));
             const c = ok ? COL.done[3] : COL.locked[2];

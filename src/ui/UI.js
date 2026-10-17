@@ -564,7 +564,7 @@ export class UI {
     this.root.appendChild(host);
     const listings = () => game.ebuyListings().map((l) => ({ ...l, image: this.listingImage(l) }));
     this.ebuy = E.openEBuy(host, {
-      listings: listings(), coins: game.state.coins, focus,
+      listings, coins: game.state.coins, focus, // [v26 ebuy] a function: the first open builds the item art behind e-Buy's loading screen
       icon: (n, sc) => (hasSprite(n) ? ico(n, sc) : ''),
       sfx: (n) => game.audio.play(n, { volume: 0.35 }),
       onBuy: (l, qty) => {
@@ -575,6 +575,10 @@ export class UI {
         return ok;
       },
       onClose: () => this.closeEBuy(),
+      // [v26 ebuy] order tracking (Orders drawer) + the cart's delivery estimate
+      orders: () => game.delivery?.tracker?.() || [],
+      ship: () => (game.delivery ? { ride: game.delivery.routeLength() / 6.5 + 3, night: !game.delivery.canRide() } : null),
+      onTrack: (id) => { this.closeEBuy(); this.onTrackerClick(id); },
     });
     this.ebuyHost = host;
     document.body.classList.add('ebuy-open');
@@ -2364,6 +2368,7 @@ export class UI {
         <span>Pixel size</span><b><select id="v-px"><option value="0.7">Chunky</option><option value="1">Normal</option><option value="1.4">Fine</option></select></b>
       </div>
       <div class="btns">
+        <button class="btn" id="m-settings">${ico('menu', 1)} Settings</button><!-- [v26 menu] -->
         <button class="btn" id="m-help">${ico('info', 1)} How to play</button>
         <button class="btn" id="m-save">${ico('save', 1)} Save</button>
         ${canRetire ? `<button class="btn gold" id="m-retire">${ico('trophy', 1)} Retire (prestige)</button>` : ''}
@@ -2380,6 +2385,7 @@ export class UI {
         px.onchange = () => { game.renderer.pixelDensity = +px.value; game.resize(); try { localStorage.setItem('tbme.px', px.value); } catch { /* ignore */ } };
         $('#m-ok', c).onclick = () => { this.click(); this.closeModal(); };
         $('#m-help', c).onclick = () => { this.click(); this.showHelp(); };
+        $('#m-settings', c).onclick = () => { this.click(); this.closeModal(); import('./SettingsScreen.js').then((m) => m.openSettings({ inGame: true, sfx: (n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) }), onClose: () => this.showMenu() })); }; // [v26 menu] the whole settings page
         $('#m-save', c).onclick = () => { game.save(); this.toast('Saved!', 'good'); };
         const rt = $('#m-retire', c);
         if (rt) rt.onclick = () => { this.closeModal(); game.retire(); };

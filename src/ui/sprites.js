@@ -19,6 +19,7 @@
 //
 // Everything is plain data until a sprite is first read; canvases are built
 // on first render and cached. Importing this module never touches the DOM.
+import { FACE3D } from './faceHook.js'; // [v26 faces3d] character faces are 3D renders (src/ui/faces3d.js)
 
 // ===========================================================================
 // COLOUR
@@ -4749,8 +4750,17 @@ function baseCanvas(s) {
   return cv;
 }
 
+// [v26 faces3d] a character face (Reynard, bears, beavers) is never 2D: it is a render of the
+// real 3D rig at the sprite's exact frame size (the pixel art below is only the no-WebGL fallback)
+function face3d(name, w, h) {
+  if (!FACE3D.sprite || !FACE3D.test(name) || !hasSprite(name)) return null;
+  const s = getSprite(name);
+  return FACE3D.sprite(name, w ? Math.round(w) : s.w, h ? Math.round(h) : s.h);
+}
+
 export function spriteCanvas(name, scale = 1) {
   scale = normScale(scale);
+  if (FACE3D.sprite && FACE3D.test(name)) { const s = getSprite(name), f = face3d(name, s.w * scale, s.h * scale); if (f) return f.canvas; } // [v26 faces3d]
   const key = cacheKey(name, scale);
   const hit = canvasCache.get(key);
   if (hit) return hit;
@@ -4772,6 +4782,7 @@ export function spriteCanvas(name, scale = 1) {
 
 export function spriteURL(name, scale = 1) {
   scale = normScale(scale);
+  if (FACE3D.sprite && FACE3D.test(name)) { const s = getSprite(name), f = face3d(name, s.w * scale, s.h * scale); if (f) return f.url; } // [v26 faces3d]
   const key = cacheKey(name, scale);
   let url = urlCache.get(key);
   if (!url) {
@@ -4785,6 +4796,11 @@ export function spriteImg(name, scale = 2, cls = '') {
   scale = normScale(scale);
   const s = getSprite(name);
   const klass = cls ? `px ${cls}` : 'px';
+  if (FACE3D.sprite && FACE3D.test(name)) { // [v26 faces3d] rendered at the device pixel size: 1 render px per screen px
+    const k = Math.max(1, Math.min(3, Math.round((typeof window !== 'undefined' && window.devicePixelRatio) || 1)));
+    const f = face3d(name, s.w * scale * k, s.h * scale * k);
+    if (f) return `<img class="${klass} f3d" src="${f.url}" width="${s.w * scale}" height="${s.h * scale}" alt="" draggable="false" style="image-rendering:pixelated">`;
+  }
   return `<img class="${klass}" src="${spriteURL(name, scale)}" width="${s.w * scale}" height="${s.h * scale}" alt="" draggable="false" style="image-rendering:pixelated">`;
 }
 

@@ -55,6 +55,7 @@ import { FoxRig } from '../entities/foxRig.js';
 import defaultAudio from '../audio/audio.js';
 import './fonts.css';
 import './teacher.css';
+import { textSpeed } from './settings.js'; // [v26 menu] Settings > Text speed
 
 const TAU = Math.PI * 2;
 const { abs, min, max, sin, cos, hypot, sqrt, floor, round, ceil, PI } = Math;
@@ -1714,6 +1715,7 @@ export class TeacherOverlay {
       if (secs > 0.05) cps = clamp(n / secs, 14, 70);
       this.rig?.talk(plain, { cps: clamp(cps, 10, 30) });
     }
+    cps *= textSpeed(); // [v26 menu]
     if (REDUCED) cps = 1e4;
     b.cps = cps;
     b.dur = dur != null ? dur : 1.4 + 0.055 * n;

@@ -28,6 +28,7 @@ import { RESEARCH_BY_ID } from '../data/research.js';
 import { fishCanvasFor } from '../game/fishSprites.js';
 import { natureCanvas, NATURE_NAMES } from '../art/natureArt.js';
 import { hasSprite, spriteCanvas, foxPortraitURL } from './sprites.js';
+import { FACE3D } from './faceHook.js'; // [v26 faces3d]
 
 // optional modules: newer data / art that may not exist (yet)
 const OPT = import.meta.glob(['../data/landAnimals.js', '../data/crops.js', '../data/foods.js', './bagArt.js', './VillagerCard.js', '../entities/critters3d.js'], { eager: true });
@@ -716,7 +717,7 @@ function villagerChapter(game, S) {
   const out = [{
     id: 'reynard', num: 1, name: 'Reynard Fox', sub: 'Esq. · Proprietor & author', known: true,
     desc: 'Owner of the All-U-Can-Eat Pond. Greedy, handsome, and humble (the greatest fox alive).',
-    art: lazyArt('vil:reynard', () => iconArt('fox_smug') || iconArt('fox')), silhouette: false,
+    art: lazyArt('vil:reynard', () => FACE3D.canvas?.({ who: 'fox', expr: 'smug', frame: 'bust' }, 36, 36) || iconArt('fox_smug')), silhouette: false, // [v26 faces3d] 3D, framed like the neighbours' snapshots
     rarity: { name: 'One of a kind', color: '#e8702c', tier: 4 },
     stats: [{ icon: 'home', label: 'Home', value: 'The pond' }, { icon: 'tophat', label: 'Wears', value: 'Top hat' }, { icon: 'coin', label: 'Loves', value: 'Coins' }],
     variants: [], quote: 'Heh heh heh. Business is GOOD.', perks: [], how: 'You!', hint: '', note: 'Me! Magnificent.', plate: 'cameo', hearts: 5, portrait: 'fox',

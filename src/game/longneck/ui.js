@@ -3,6 +3,7 @@
 // "still talking" pip under Reynard's quest notebook and the transcript scroll.
 import { N_WORDS, N_TOKENS, transcript, wordsIn } from './speech.js';
 import { LONG_TALK_DAYS } from '../../data/longneck.js';
+import { FACE3D } from '../../ui/faceHook.js'; // [v26 faces3d]
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -94,27 +95,12 @@ body.feast-cam .lnp, body.lab-mode .lnp, body.pc-mode .lnp, body.lt-pc .lnp, bod
   document.head.appendChild(s);
 }
 
-// a tiny pixel portrait of the long neck for the pip (12 x 14 art pixels)
-const HEAD = [
-  '....kkkk....',
-  '...kgggGk...',
-  '..kgwkgggk..',
-  '..kgggggggk.',
-  '..kyykggggk.',
-  '...kkkgggk..',
-  '.....kggk...',
-  '.....kgGk...',
-  '....kggk....',
-  '....kgGk....',
-  '...kggk.....',
-  '..kssssk....',
-  '.kssSssSk...',
-  'kssssssssk..',
-];
-const PAL = { k: '#2a1a12', g: '#a3ad92', G: '#7e8870', w: '#fffaf0', y: '#d8b04a', s: '#5f6a42', S: '#7cc256' };
+// [v26 faces3d] the pip's portrait is the real 3D Longneck rig (NpcTalk3D snapshot, 24 x 28 px = its CSS box), never 2D
 function drawHead(cv) {
-  const x = cv.getContext('2d');
-  HEAD.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { x.fillStyle = PAL[ch]; x.fillRect(i, j, 1, 1); } }));
+  const k = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
+  const src = FACE3D.canvas?.({ who: 'npc', npc: 'longneck', frame: 'bust' }, 24 * k, 28 * k);
+  cv.width = 24 * k; cv.height = 28 * k;
+  if (src) cv.getContext('2d').drawImage(src, 0, 0);
 }
 
 // ------------------------------------------------------------------ the pip
@@ -134,7 +120,7 @@ export class TalkPip {
     el.className = 'lnp';
     el.setAttribute('role', 'button');
     el.setAttribute('aria-label', 'Old Longneck is still talking. Tap to read what he said so far.');
-    el.innerHTML = `<canvas width="12" height="14"></canvas><div class="lnp-t"><b>Old Longneck</b></div><div class="lnp-t">is still talking<span class="lnp-dots"></span></div><div class="lnp-bar"><i></i>${[1, 2].map((k) => `<s style="left:calc(${(100 * k) / LONG_TALK_DAYS}% - 1px)"></s>`).join('')}</div><div class="lnp-n"></div>`;
+    el.innerHTML = `<canvas width="24" height="28"></canvas><div class="lnp-t"><b>Old Longneck</b></div><div class="lnp-t">is still talking<span class="lnp-dots"></span></div><div class="lnp-bar"><i></i>${[1, 2].map((k) => `<s style="left:calc(${(100 * k) / LONG_TALK_DAYS}% - 1px)"></s>`).join('')}</div><div class="lnp-n"></div>`;
     drawHead(el.querySelector('canvas'));
     el.addEventListener('pointerdown', (e) => e.stopPropagation());
     el.addEventListener('click', (e) => { e.stopPropagation(); this.game.audio?.play?.('page', { volume: 0.4 }); this.onTap?.(); });

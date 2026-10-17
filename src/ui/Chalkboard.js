@@ -997,6 +997,7 @@ const DOODLE_ART = {
   ],
   menu: ['.LLLLLLLLL.', 'LlllllllllL', 'LlWWWWWWWlL', 'LlllllllllL', 'LlYlYlYlllL', 'LlllllllllL', 'LlWWWWWlllL', 'LlWWWWWWllL', 'LlllllllllL', '.LLLLLLLLL.'],
   boss: () => compose([[DOODLE_ART.crown, 4, 0], [DOODLE_ART.bear, 0, 4]]),
+
 };
 
 // Overlay several pieces of art into one; per-piece letter remaps

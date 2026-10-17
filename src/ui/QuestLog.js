@@ -29,6 +29,7 @@
 // Everything heavy (textures, the WebGL fox) is built lazily on first use.
 import * as THREE from 'three';
 import { FoxRig } from '../entities/foxRig.js';
+import { FACE3D } from './faceHook.js'; // [v26 faces3d]
 import './fonts.css';
 import './questlog.css';
 import { paperTexture, injectPaperCSS, deco, stamp } from './paper.js';
@@ -154,6 +155,8 @@ const art = (key, fn) => {
 };
 // <img> for an art entry at `s` CSS px per texel
 const img = (a, s = 2, cls = '', style = '') => `<img class="qn-px ${cls}" src="${a.url}" width="${a.w * s}" height="${a.h * s}" alt="" draggable="false"${style ? ` style="${style}"` : ''}>`;
+// [v26 faces3d] character faces are never 2D doodles: a die-cut sticker of the real 3D rig
+const face3d = (spec, w, h, cls = '') => FACE3D.img?.({ sticker: true, ...spec }, w, h, `qn-px ${cls}`) || '';
 
 // ink + paint
 const INK = '#2b3d8f', INK_D = '#1f2a66', RED = '#c3323e', GREEN = '#2e7a3a', PENCIL = '#77727e';
@@ -173,19 +176,7 @@ const DOODLE = {
     p.path([[8, 2], [10, 0], [12, 2]], ink); // fin
     p.set(1, 3, f[1] || ink); p.set(0, 1, f[1] || ink); // bubbles
   }],
-  bear: [19, 22, (p, ink, f) => {
-    p.ell(4, 3.5, 2.6, 2.6, ink); p.ell(14, 3.5, 2.6, 2.6, ink);
-    p.fill(4, 3.5, f[0]); p.fill(14, 3.5, f[0]);
-    p.ell(9, 9, 7, 6.2, ink, 0, TAU, 0.08, 9);
-    p.fill(9, 6, f[0]);
-    p.ell(9, 11, 2.8, 2, ink); p.fill(9, 11, f[1]);
-    p.set(9, 10, ink); p.set(8, 10, ink);
-    p.set(6, 7, ink); p.set(12, 7, ink);
-    p.path([[8, 12], [9, 13], [10, 12]], ink);
-    // business suit: collar + red tie
-    p.path([[3, 17], [8, 15], [9, 16], [10, 15], [15, 17]], ink);
-    p.path([[8, 16], [9, 17], [10, 16]], RED); p.path([[9, 17], [8, 20], [9, 21], [10, 20], [9, 17]], RED); p.fill(9, 19, '#e8606a');
-  }],
+  // [v26 faces3d] the bear + Reynard face doodles are gone: their faces are 3D stickers now (face3d)
   coins: [20, 17, (p, ink, f) => {
     // a little stack (drawn back to front so each coin hides the one under it) + one standing coin
     const k = p.k || 1, P = p.p || p;
@@ -215,18 +206,6 @@ const DOODLE = {
     p.fill(5, 4, f[0]);
   }],
   sparkle: [7, 7, (p, ink) => { p.line(3, 0, 3, 6, ink); p.line(0, 3, 6, 3, ink); p.set(1, 1, ink); p.set(5, 5, ink); p.set(5, 1, ink); p.set(1, 5, ink); }],
-  fox: [18, 21, (p, ink, f) => {
-    // Reynard: top hat, pointy ears, monocle (closed outlines so the fills stay inside at 2x)
-    p.path([[5, 0], [12, 0], [12, 5], [15, 5], [15, 6], [2, 6], [2, 5], [5, 5], [5, 0]], ink);
-    p.fill(8, 3, f[2] || '#3a3348');
-    p.line(6, 4, 11, 4, RED);
-    p.path([[3, 7], [1, 6], [2, 11], [2, 13], [8, 19], [9, 19], [15, 13], [15, 11], [16, 6], [14, 7], [3, 7]], ink);
-    p.fill(8, 10, f[0]);
-    p.path([[5, 14], [8, 17], [9, 17], [12, 14]], f[1]);
-    p.set(8, 18, ink); p.set(9, 18, ink);
-    p.set(5, 11, ink); p.ell(11, 11, 2, 2, GOLD[1]); p.set(11, 11, ink); p.line(13, 12, 14, 16, GOLD[1]);
-    p.path([[6, 15], [8, 16]], ink);
-  }],
   arrow: [16, 8, (p, ink) => { p.path([[0, 5], [4, 3], [9, 4], [14, 3]], ink); p.path([[11, 0], [15, 3], [11, 7]], ink); }],
   check: [12, 10, (p, ink) => { p.path([[0, 5], [3, 8], [4, 8], [11, 0]], ink); p.path([[1, 5], [3, 7], [4, 9], [11, 1]], ink); }],
   swirl: [11, 11, (p, ink) => { const pts = []; for (let i = 0; i < 40; i++) { const a = i * 0.42, r = 0.3 + i * 0.13; pts.push([5 + Math.cos(a) * r, 5 + Math.sin(a) * r]); } p.path(pts, ink); }],
@@ -1014,13 +993,13 @@ export function createQuestLog(root, o = {}) {
     if (page === 'lessons' && lessons.length) return lessonsLeftHTML(); // [v26 tutorial]
     return `
       <div class="qn-ln qn-own" style="${tilt('own', 0.4)}">${hw('this book belongs to:', { ink: PENCIL })}</div>
-      <div class="qn-ln qn-name" style="${tilt('name', 0.6)}">${hw('REYNARD', { cls: 'qn-big', ink: RED })}${img(doodle('crown', RED, ['#ffd84a']), 2, 'qn-crown')}${hw('(genius)', { ink: PENCIL })}${img(doodle('fox', INK, ['#f6a060', '#fff1d8', '#3a3348'], 2), 2, 'qn-d qn-d-fox')}</div>
+      <div class="qn-ln qn-name" style="${tilt('name', 0.6)}">${hw('REYNARD', { cls: 'qn-big', ink: RED })}${img(doodle('crown', RED, ['#ffd84a']), 2, 'qn-crown')}${hw('(genius)', { ink: PENCIL })}${face3d({ who: 'fox', expr: 'proud', frame: 'bust' }, 66, 76, 'qn-d qn-d-fox')}</div>
       <div class="qn-ln"></div>
       <div class="qn-dlist">${doneListHTML()}</div>
       <div class="qn-dd">
         ${deco('coffee', { px: 2, cls: 'qn-coffee', r: 15, seed: 5 })}
         ${img(doodle('fish', INK, ['#a8d8f0', '#7ab0e0'], 2), 2, 'qn-d qn-d-fish')}
-        ${img(doodle('bear', INK, ['#d8a870', '#f0d0a8'], 2), 2, 'qn-d qn-d-bear')}
+        ${face3d({ who: 'bear', type: 'office', expr: 'hungry' }, 70, 70, 'qn-d qn-d-bear')}
         ${img(doodle('coins', INK, ['#ffe066', GOLD[3]], 2), 2, 'qn-d qn-d-coins')}
         <span class="qn-mine">${hw('MINE!', { cls: 'qn-big', ink: RED, delay: 0 })}</span>
         ${img(doodle('heart', INK, ['#f08090'], 2), 2, 'qn-d qn-d-heart')}

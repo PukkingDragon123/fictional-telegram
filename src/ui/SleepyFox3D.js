@@ -8,7 +8,7 @@
 //
 // Own small WebGL context (released on dispose), ~20 fps, paused while hidden.
 import * as THREE from 'three';
-import { FoxRig } from '../entities/foxRig.js';
+import { FoxRig, FOX_BED } from '../entities/foxRig.js';
 
 const VERT = /* glsl */ `
 varying vec2 vUv;
@@ -40,6 +40,7 @@ void main() {
 }
 `;
 
+const _c = new THREE.Vector3();
 const ZROWS = ['kkkkkk', 'kwwwBk', 'kkkwBk', '.kwBk.', 'kwBkkk', 'kwwwwk', 'kkkkkk'];
 function zArt() {
   const c = document.createElement('canvas');
@@ -50,7 +51,55 @@ function zArt() {
   return c;
 }
 
-export function createSleepyFox(el, { ps = 3, sfx = null, outfit = 'pajamas', fps = 20 } = {}) {
+// a cardboard box for a bed, a pillow and a striped quilt (pixel textures, lit like the rig)
+function pixTex(w, h, paint) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  paint(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function makeBed() {
+  const g = new THREE.Group();
+  const H = FOX_BED.height, z0 = -0.3, z1 = -FOX_BED.head - 0.32, L = z0 - z1, W = 0.78;
+  const card = pixTex(16, 16, (x, w, h) => {
+    const C = ['#c99558', '#bf8b4f', '#d3a064'];
+    for (let y = 0; y < h; y++) for (let i = 0; i < w; i++) { x.fillStyle = C[(i * 7 + y * 3 + ((i * y) % 5)) % 3]; x.fillRect(i, y, 1, 1); }
+  });
+  const side = pixTex(32, 12, (x, w, h) => {
+    x.fillStyle = '#b8844a'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#a5723f'; for (let i = 0; i < w; i += 3) x.fillRect(i, (i * 5) % h, 1, 1);
+    x.fillStyle = '#e7c37c'; x.fillRect(14, 0, 4, 5); // tape
+    x.fillStyle = '#7a4e2a'; for (const ax of [4, 9]) { x.fillRect(ax, 4, 1, 5); x.fillRect(ax - 1, 5, 3, 1); x.fillRect(ax - 2, 6, 5, 1); }
+  });
+  const mBox = new THREE.Mesh(new THREE.BoxGeometry(W, H, L), [
+    new THREE.MeshLambertMaterial({ map: side }), new THREE.MeshLambertMaterial({ map: side }),
+    new THREE.MeshLambertMaterial({ map: card }), new THREE.MeshLambertMaterial({ color: 0x8a5a30 }),
+    new THREE.MeshLambertMaterial({ map: side }), new THREE.MeshLambertMaterial({ map: side }),
+  ]);
+  mBox.position.set(0, H / 2, (z0 + z1) / 2);
+  g.add(mBox);
+  const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.12, 0.3), new THREE.MeshLambertMaterial({ color: 0xf4efe4 }));
+  pillow.position.set(0, H + 0.06, -FOX_BED.head - 0.08);
+  g.add(pillow);
+  const quilt = pixTex(8, 16, (x, w, h) => {
+    for (let y = 0; y < h; y++) { x.fillStyle = (y >> 1) % 2 ? '#f4e6c4' : '#d8402e'; x.fillRect(0, y, w, 1); }
+    x.fillStyle = '#ffd84a'; x.fillRect(3, 2, 2, 2); x.fillRect(3, 10, 2, 2);
+  });
+  const q = new THREE.Mesh(new THREE.BoxGeometry(W + 0.04, 0.05, 0.62), new THREE.MeshLambertMaterial({ map: quilt }));
+  q.position.set(0, H + 0.2, -0.62);
+  q.rotation.x = -0.12;
+  g.add(q);
+  // the quilt hangs over the box edges
+  for (const sx of [-1, 1]) {
+    const f = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.2, 0.6), new THREE.MeshLambertMaterial({ map: quilt }));
+    f.position.set(sx * (W / 2 + 0.03), H + 0.09, -0.62);
+    g.add(f);
+  }
+  return g;
+}
+
+export function createSleepyFox(el, { ps = 3, sfx = null, outfit = 'pajamas', fps = 20, yaw = -0.35, pitch = 0.85 } = {}) {
   let r;
   try {
     r = new THREE.WebGLRenderer({ alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'low-power' });
@@ -81,16 +130,20 @@ export function createSleepyFox(el, { ps = 3, sfx = null, outfit = 'pajamas', fp
   scene.add(pivot);
   const rig = new FoxRig({ shadows: false });
   rig.setOutfit(outfit);
-  rig.root.rotation.y = 0.5;
+  rig.root.rotation.y = yaw;
   pivot.add(rig.root);
-  rig.play('sleep_lie', { fade: 0 });
+  const bed = makeBed();
+  bed.rotation.y = yaw;
+  pivot.add(bed);
+  rig.play('sleep_bed', { fade: 0 });
   for (let i = 0; i < 4; i++) rig.update(0.25);
 
   // frame him: an orthographic camera from the front, a little above
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 20);
-  const box = new THREE.Box3().setFromObject(rig.root);
-  const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
-  const pitch = 0.42;
+  // frame the bed, with the sleeper on top of it (the rig's hidden FX sprites would skew a full bound)
+  const box = new THREE.Box3().setFromObject(bed);
+  box.max.y += 0.5; box.expandByScalar(0.06);
+  const ctr = box.getCenter(new THREE.Vector3());
   cam.position.set(ctr.x, ctr.y + Math.sin(pitch) * 6, ctr.z + Math.cos(pitch) * 6);
   cam.lookAt(ctr);
   cam.updateMatrixWorld();
@@ -120,9 +173,16 @@ export function createSleepyFox(el, { ps = 3, sfx = null, outfit = 'pajamas', fp
     r.setSize(w, h, false);
     mat.uniforms.size.value.set(w, h);
     // fit the sleeping fox (plus room for his Zzz) into the view
-    const need = Math.max(sz.x * 1.25 / (w / h), sz.y * 1.6, sz.z * 0.9);
-    const hh = need / 2;
-    cam.left = -hh * (w / h); cam.right = hh * (w / h); cam.top = hh * 1.1; cam.bottom = -hh * 0.9;
+    // fit the bed + fox (bounding box corners in camera space) with room above for the Zzz
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      _c.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).applyMatrix4(cam.matrixWorldInverse);
+      x0 = Math.min(x0, _c.x); x1 = Math.max(x1, _c.x); y0 = Math.min(y0, _c.y); y1 = Math.max(y1, _c.y);
+    }
+    y1 += (y1 - y0) * 0.12;
+    const a = w / h, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const hh = Math.max((y1 - y0) / 2, (x1 - x0) / 2 / a) * 1.04;
+    cam.left = cx - hh * a; cam.right = cx + hh * a; cam.top = cy + hh; cam.bottom = cy - hh;
     cam.updateProjectionMatrix();
   }
 
@@ -171,7 +231,7 @@ export function createSleepyFox(el, { ps = 3, sfx = null, outfit = 'pajamas', fp
       z.c.style.transform = `translate(${Math.round(x / ps) * ps}px,${Math.round(y / ps) * ps}px) rotate(${(Math.sin(z.t * 1.7 + z.ph) * 0.25).toFixed(2)}rad) scale(${(0.7 + u * 0.6).toFixed(2)})`;
       z.c.style.opacity = a.toFixed(2);
     }
-    // a soft snore on every other breath (sleep_lie breathes on sin(t * 1.5))
+    // a soft snore on every other breath (sleep_bed breathes on sin(t * 1.5))
     snoreT -= dt;
     if (snoreT <= 0) { snoreT = (Math.PI * 2 / 1.5) * 2; try { sfx?.('bed_snore', { volume: 0.18 }); } catch { /* optional */ } }
   }
@@ -202,6 +262,7 @@ export function createSleepyFox(el, { ps = 3, sfx = null, outfit = 'pajamas', fp
       dead = true;
       cancelAnimationFrame(raf);
       rig.dispose?.();
+      bed.traverse((o) => { o.geometry?.dispose(); for (const m of [].concat(o.material || [])) { m.map?.dispose(); m.dispose(); } });
       rt.depthTexture.dispose(); rt.dispose();
       mat.dispose(); tri.dispose();
       r.dispose();

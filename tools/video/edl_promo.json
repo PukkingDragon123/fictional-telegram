@@ -1,0 +1,29 @@
+{
+  "_doc": "Promo cut list for tools/video/build.py. Shot lengths are whole bars of the music (122 bpm, bar = 1.96721 s, downbeat at 0.021 s): take 1 of the track carries part A (Pip explains the loop), take 2 the chaos montage.",
+  "out": "promo/video/the-bear-must-eat-promo.mp4",
+  "frames": "${VFRAMES}",
+  "size": [1920, 1080],
+  "kbps": 4200,
+  "shots": [
+    { "id": "pip_intro",  "in": 0.0,  "out": 5.9016 },
+    { "id": "breed",      "in": 0.0,  "out": 5.9016 },
+    { "id": "reynard",    "in": 0.0,  "out": 5.9016 },
+    { "id": "clock5",     "in": 0.0,  "out": 5.9016 },
+    { "id": "bears_come", "in": 0.0,  "out": 7.8689 },
+    { "id": "cash",       "in": 0.0,  "out": 3.9344 },
+    { "id": "build",      "in": 0.0,  "out": 3.9344 },
+    { "id": "karen",      "in": 3.0,  "out": 6.9344 },
+    { "id": "rampage",    "in": 0.0,  "out": 3.9344 },
+    { "id": "beavers",    "in": 0.0,  "out": 3.9344 },
+    { "id": "winter",     "in": 0.0,  "out": 3.9344 },
+    { "id": "resort",     "in": 0.0,  "out": 3.9344 },
+    { "id": "endcard",    "in": 0.0,  "out": 7.0 }
+  ],
+  "music": [
+    { "file": "${DL}/music/Fluffing a Duck.mp3", "at": 0.0, "from": 0.0, "to": 63.5, "gain_db": -5, "fade_out": 1.0 }
+  ],
+  "duck": [],
+  "sfx": [],
+  "game_gain_db": 2,
+  "ext_gain_db": 0
+}

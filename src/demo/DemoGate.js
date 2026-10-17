@@ -15,6 +15,7 @@
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES } from '../data/research.js';
 import { DEMO_SECTIONS, DEMO_LOCKED_NODES, DEMO_LAST_DAY, DEMO_STORE_URL, clearDemoSaves } from './demo.js';
 import { showDemoEnd } from './EndScreen.js';
+import { QUESTS } from '../game/Quests.js';
 
 export function installDemo(game) { return new DemoGate(game); }
 
@@ -29,6 +30,8 @@ class DemoGate {
     // has no gateway node any more, so no "Section key found!" for it either
     for (const B of BRANCHES) if (this.lockedSections.has(B.id)) { B.demo = true; B.key = { demo: true }; }
     for (const r of RESEARCH) if (this.lockedSections.has(r.branch) || DEMO_LOCKED_NODES.includes(r.id)) r.demoLock = true;
+    // quest chains into full-game content never start (Flint & Steel, the road to Old Longneck)
+    for (const q of QUESTS) if (/^(fs|ln)_/.test(q.id || '')) q.when = () => false;
     this.wrap();
     game.on('day', (d) => this.onDay(d?.day ?? game.state.day));
   }
@@ -40,14 +43,16 @@ class DemoGate {
   wrap() {
     const g = this.game;
     const orig = {};
-    for (const k of ['canResearch', 'sectionKey', 'unlockSection', 'lockReason', 'startBedtime', 'save']) orig[k] = g[k].bind(g);
+    for (const k of ['canResearch', 'sectionKey', 'unlockSection', 'researchSections', 'lockReason', 'startBedtime', 'save']) orig[k] = g[k].bind(g);
     this.orig = orig;
-    g.canResearch = (id) => (this.isLocked(id) ? { ok: false, reason: 'Full game only', demo: true } : orig.canResearch(id));
+    g.canResearch = (id) => (this.isLocked(id) ? { ok: false, reason: 'Comes with the full game', demo: true } : orig.canResearch(id));
     g.sectionKey = (b) => {
       const k = orig.sectionKey(b);
       if (!k || k.open || !this.sectionLocked(b)) return k;
       return { ...k, demo: true, coins: 0, ready: false, canUnlock: false, needs: [{ kind: 'demo', id: 'demo', ok: false, text: 'Full game only' }] };
     };
+    // the demo's own sections first (Reynard's "next section" hints point at one you can open)
+    g.researchSections = () => { const all = orig.researchSections(); return [...all.filter((k) => !k?.demo), ...all.filter((k) => k?.demo)]; };
     g.unlockSection = (b, o) => (this.sectionLocked(b) && !g.sectionOpen(b) ? { ok: false, msg: 'That section comes with the full game', demo: true } : orig.unlockSection(b, o));
     g.lockReason = (rid) => (this.isLocked(rid) ? 'Full game' : orig.lockReason(rid));
     g.startBedtime = () => {
@@ -86,12 +91,18 @@ class DemoGate {
     document.body.classList.add('demo-over');
     g.emit('demoEnd', { day: st.day });
     this.screen = showDemoEnd(g, { storeUrl: DEMO_STORE_URL, lastDay: this.lastDay, onRestart: () => this.restart() });
+    // behind the screen: the pond at dusk, Reynard back outside (the evening may have left him in his hut)
+    setTimeout(() => { try { g.fox.rig.root.visible = true; g.rig.lookAt(68.5, 36); } catch { /* ignore */ } }, 700);
     return this.screen;
   }
 
   // PLAY AGAIN: a clean demo from the title
   restart() {
     clearDemoSaves();
-    try { location.reload(); } catch { /* ignore */ }
+    try {
+      const u = new URL(location.href);
+      for (const k of ['autostart', 'notut', 'slot']) u.searchParams.delete(k); // tests' shortcuts: back to the title
+      if (u.href === location.href) location.reload(); else location.replace(u.href);
+    } catch { /* ignore */ }
   }
 }

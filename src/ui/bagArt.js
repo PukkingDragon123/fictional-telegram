@@ -21,6 +21,7 @@
 // imports no other UI module (the icon glob in sprites.js imports
 // foodIcons.js, which imports this file), and nothing is built until asked.
 import { FOOD_ITEMS } from '../data/foods.js';
+import { FACE3D } from './faceHook.js'; // [v26 faces3d]
 
 // ===========================================================================
 // COLOUR
@@ -831,9 +832,14 @@ export function mascotPix(name) {
   let p = MASCOT_PIX.get(name);
   if (!p) {
     const art = MASCOT_ART[name] || MASCOT_ART.fox;
+    // [v26 faces3d] Reynard on his own pellet sack is the real 3D rig (classic top hat, winking), not 2D art
+    if (art === MASCOT_ART.fox && FACE3D.canvas) {
+      const cv = FACE3D.canvas({ who: 'fox', expr: 'wink', outfit: 'tycoon', frame: 'bust' }, 26, 27);
+      if (cv) { p = new Pix(26, 27); p.d.set(cv.getContext('2d').getImageData(0, 0, 26, 27).data); MASCOT_PIX.set(name, p); return p; }
+    }
     const { g, key } = art();
     p = render(g, key);
-    MASCOT_PIX.set(name, p);
+    if (art !== MASCOT_ART.fox) MASCOT_PIX.set(name, p); // [v26 faces3d] (the fox retries once the 3D renderer is up)
   }
   return p;
 }

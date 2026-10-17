@@ -221,6 +221,9 @@
 .qn-d-sp1 { left: 120px; bottom: 30px; }
 .qn-d-sp2 { left: 236px; bottom: 96px; }
 .qn-d-fox { position: absolute; right: 16px; top: -26px; rotate: 6deg; }
+/* [v26 faces3d] 3D face stickers stay square to the page: a rotated render resamples (blurry) */
+.qn-d.f3d { rotate: none; filter: drop-shadow(1px 2px 0 rgba(60, 40, 20, .25)); }
+.qn-d-fox.f3d { top: -40px; right: 6px; }
 .qn-coffee { position: absolute; left: 196px; bottom: -14px; opacity: .85; }
 .qn-name { position: relative; }
 
