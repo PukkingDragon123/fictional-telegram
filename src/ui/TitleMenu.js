@@ -16,6 +16,7 @@
 import './titlemenu.css';
 import { anySave, lastSlot, slotMeta, slotInfo } from '../game/saveSlots.js';
 import { INK, cv, scaleEl, wood, arrowPlank, board, WOOD } from './titleArt.js';
+import { createTitleWords } from './TitleWords.js'; // [v27 title] the title as floating voxel words (the board is the no-WebGL fallback)
 
 function soundTag(on) {
   const c = cv(15, 15), g = c.getContext('2d');
@@ -111,6 +112,15 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
   btn('new', 'NEW GAME', has ? 'PICK A BOX' : null, 7, has ? null : WOOD.green);
   btn('settings', 'SETTINGS', null, 11, WOOD.dark, gearIcon());
   root.appendChild(el);
+  // [v27 title] floating words instead of the hanging board (they size the .tm-logo box themselves)
+  const boardVars = [el.style.getPropertyValue('--bh'), el.querySelector('.tm-sign').style.getPropertyValue('--w')];
+  const mountWords = () => {
+    const w = createTitleWords(el, { sfx: play });
+    el.classList.toggle('tm--words', !!w);
+    if (!w) { el.style.setProperty('--bh', boardVars[0]); el.querySelector('.tm-sign').style.setProperty('--w', boardVars[1]); el.querySelector('.tm-logo').removeAttribute('style'); }
+    return w;
+  };
+  let words = mountWords();
 
   const snd = el.querySelector('.tm-snd');
   const paintSnd = () => {
@@ -143,7 +153,10 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
     setTimeout(() => onStart?.(choice), 340);
   };
   // the boxes / settings slide in over the pond; the signpost steps aside meanwhile
-  const stepAside = (on) => { away = on; el.classList.toggle('tm--away', on); if (on) pointAt(null); };
+  const stepAside = (on) => {
+    away = on; el.classList.toggle('tm--away', on); if (on) pointAt(null);
+    if (on) { words?.leave(); words = null; } else if (!closed && !words) words = mountWords(); // [v27 title] the words float off and back
+  };
   function openBoxes() {
     stepAside(true);
     import('./SaveBoxes.js').then(({ openSaveBoxes }) => {
@@ -208,6 +221,7 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
     closed = true;
     window.removeEventListener('keydown', onKey);
     sub?.close?.();
+    words?.leave(); words = null; // [v27 title]
     el.classList.add('tm--out');
     setTimeout(() => el.remove(), 420);
   }

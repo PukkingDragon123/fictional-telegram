@@ -292,3 +292,37 @@ export function ynPair(yes, no, { size = 'l', texel, keys = false, enter = true,
   }
   return { dispose: () => off?.() };
 }
+
+// ---------------------------------------------------------------- the "Are you sure?" card
+const SWEAT = [
+  '...#...',
+  '..#b#..',
+  '..#b#..',
+  '.#hbb#.',
+  '#hbbbb#',
+  '#hbbbd#',
+  '#bbbdd#',
+  '.#bdd#.',
+  '..###..',
+];
+let sweatCache = null;
+function sweatImg(t) {
+  const { c, g } = artCanvas(7, 9);
+  pattern(g, SWEAT, 0, 0, { '#': '#1d3550', b: '#8fd4f6', h: '#ffffff', d: '#4f9fd0' });
+  const out = blit(c, t);
+  return { url: out.toDataURL(), w: parseFloat(out.style.width), h: parseFloat(out.style.height) };
+}
+const escHTML = (s) => String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+/** body of a confirm card: Reynard's worried face pinned up, the question, YES / NO planks
+ *  (ids #cf-yes / #cf-no). `text` is HTML (as before); `face` is an <img> (sprites.js spriteImg). */
+export function confirmHTML(text, { yes = 'Yes', no = 'Cancel', face = '', title = 'Are you sure?' } = {}) {
+  const t = texelPx(3);
+  if (!sweatCache || sweatCache.t !== t) sweatCache = { t, ...sweatImg(t) };
+  const sw = sweatCache;
+  return `<div class="cf-card">
+      <div class="cf-pic">${face}<img class="cf-sweat" src="${sw.url}" style="width:${sw.w}px;height:${sw.h}px" alt="" draggable="false"></div>
+      <div class="cf-say"><h2>${title}</h2><p>${text}</p></div>
+    </div>
+    <div class="btns cf-btns"><button id="cf-yes">${escHTML(yes)}</button><button id="cf-no">${escHTML(no)}</button></div>`;
+}

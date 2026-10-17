@@ -374,7 +374,7 @@ function halfArt(side, pw, ph, B, rules, single) {
   const px = single ? B : side === 'L' ? B : 0, py = B;
   paintStack(p, px, py, pw, ph, side === 'L' ? -1 : 1);
   paintPage(p, px, py, pw, ph, single ? 'S' : side, side === 'L' ? 5 : 8, single || side === 'L' ? 'frame' : 'rules', rules);
-  if (!single) paintHeadband(p, side === 'L' ? w - 3 : 0, B - 2, 3), paintHeadband(p, side === 'L' ? w - 3 : 0, B + ph, 3);
+  if (!single) { paintHeadband(p, side === 'L' ? w - 3 : 0, B - 2, 3); paintHeadband(p, side === 'L' ? w - 3 : 0, B + ph, 3); }
   return p;
 }
 // the front cover (shut): leather, gold tooling, brass corners, a fox medallion, a title plate
@@ -556,7 +556,7 @@ export function decorateMenuButton(btn) {
     btn.setAttribute('aria-label', 'Menu');
     btn.style.setProperty('--hw', `${HW * T}px`);
     btn.style.setProperty('--hh', `${HH * T}px`);
-    btn.innerHTML = `<span class="mbk-hb" aria-hidden="true">${artImg('hud:base', T, hudBase, 'mbk-h0')}${artImg('hud:rib', T, hudRibbon, 'mbk-hr', `left:${HUD_RIB[0] * T}px;top:${HUD_RIB[1] * T}px`)}<span class="mbk-hc">${artImg('hud:cover', T, hudCover)}<i class="mbk-hcs"></i></span></span>`;
+    btn.innerHTML = `<span class="mbk-hb" aria-hidden="true">${artImg('hud:base', T, hudBase, 'mbk-h0')}${artImg('hud:rib', T, hudRibbon, 'mbk-hr', `left:${HUD_RIB[0] * T}px;top:${HUD_RIB[1] * T}px`)}<span class="mbk-hc">${artImg('hud:cover', T, hudCover)}</span></span>`;
   };
   draw();
   if (!btn.dataset.mbkBound) {
@@ -806,18 +806,19 @@ class MenuBook {
     const L = this.L, T = L.T, R = L.R, list = this.chapters();
     const el = document.createElement('div');
     el.className = 'mbk-pc mbk-toc';
-    const rowH = 2 * R * T, tabH = 2 * R - 4, tabW = L.B + L.TAB + 4;
+    const rowH = 2 * R * T, tabH = 2 * R - 5, tabW = L.B + L.TAB + 4;
     let h = `<div class="mbk-toch" style="top:${(L.r0 - R) * T}px;height:${R * T}px"><span>Contents</span></div>`;
     list.forEach((c, i) => {
-      const top = (L.r0 + 2 * i * R - R + R) * T - rowH + rowH; // row spans rules (r0 + 2iR) .. (r0 + 2(i+1)R)
+      const top = (L.r0 + 2 * i * R) * T; // the row spans rules r0 + 2iR .. r0 + 2(i+1)R, the words sit on the lower one
       h += `<button type="button" class="mbk-ch ${c.cls || ''}" id="${c.id}" data-act="${c.act}" style="top:${top}px;height:${rowH}px;--i:${i}">
         <span class="mbk-num">${ROMAN[i]}.</span><span class="mbk-cht">${esc(c.t)}</span><span class="mbk-dots"></span>${artImg(`dood:${c.d}`, T, doodleArt(c.d), 'mbk-dood')}
         ${L.single ? '' : `<span class="mbk-tab" style="right:${-(tabW - 4) * T}px;top:${3 * T}px">${artImg(`tab:${c.tab}:${tabW}x${tabH}`, T, () => tabArt(c.tab, tabW, tabH, 4))}</span>`}
       </button>`;
     });
     const noteTop = (L.r0 + 2 * list.length * R + R) * T;
-    if (!L.single && noteTop + R * T < L.ph * T) h += `<p class="mbk-note" style="top:${noteTop - R * T}px;height:${R * T}px">Property of R. Fox. Paws off!</p>`;
+    if (!L.single && noteTop + R * T < L.ph * T) h += `<p class="mbk-note" style="top:${noteTop - R * T}px;height:${R * T}px"><span>Property of R. Fox. Paws off!</span></p>`;
     el.innerHTML = h;
+    if (L.single) el.style.height = `${(L.r0 + 2 * list.length * R + 4) * T}px`;
     // leader dots tile at device px
     const dots = artURL('dots', L.s, dotsArt);
     el.style.setProperty('--dots', `url(${dots.url})`);
@@ -940,7 +941,7 @@ class MenuBook {
   }
 
   showHelp() {
-    if (!this.isOpen) { this.open(); this.pending = 'help'; return; }
+    if (!this.isOpen) { this.open({ help: true }); return; }
     if (this.view !== 'help') this.turn('help');
   }
 

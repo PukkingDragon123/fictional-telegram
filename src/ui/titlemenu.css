@@ -104,6 +104,18 @@
 @keyframes tm-jiggle { 0%, 100% { transform: none; } 30% { transform: rotate(-1.5deg); } 65% { transform: rotate(1deg); } }
 @keyframes tm-poke { 0%, 100% { translate: 0 0; } 50% { translate: calc(var(--s) * -2) 0; } }
 
+/* [v27 title] the title as floating voxel words (TitleWords.js): the sign is only their layout box now,
+   the words live in a pixelated canvas (.tmw-gl) under the signpost; the board stays as the no-WebGL fallback */
+.tm--words .tm-sign { animation: none; pointer-events: none; }
+.tm--words .tm-rope, .tm--words .tm-logo > canvas { display: none; }
+.tm--words .tm-logo { filter: none; }
+.tmw-gl { position: absolute; left: 0; top: 0; pointer-events: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+html.tmw-hand, html.tmw-hand * { cursor: pointer !important; }
+/* the DEMO ribbon floats under the words, bobbing on its own */
+.tm--words .tm-demo { right: calc(var(--s) * 4); bottom: calc(var(--s) * -11); animation: tm-demo-slap .42s cubic-bezier(.5, 0, .8, .4) 1.7s both, tmw-ribbon 3.4s ease-in-out 2.2s infinite; }
+@keyframes tmw-ribbon { 0%, 100% { translate: 0 0; } 50% { translate: 0 calc(var(--s) * -2); } }
+@media (prefers-reduced-motion: reduce) { .tm--words .tm-demo { animation: none; } }
+
 /* =====================================================================
    [v26 menu] Save boxes (SaveBoxes.js): --b = CSS px per box-art pixel,
    --u = px per UI-art pixel (back plank, header board).

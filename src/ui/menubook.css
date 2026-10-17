@@ -1,0 +1,165 @@
+/* [v27 book] MenuBook (src/ui/MenuBook.js): the HUD menu book + Reynard's Handbook spread.
+   Every art piece is an <img>/<canvas> drawn at whole device px per texel and shown at
+   its CSS size (never scaled at rest). --T = CSS px per texel, --R = one ledger rule. */
+
+/* ================================================================ HUD book button */
+#ui .menubtn.mbk-hud {
+  position: relative; display: block; width: var(--hw); height: var(--hh); padding: 0; margin: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none; transform: none;
+  filter: drop-shadow(0 2px 0 rgba(26, 8, 10, .45)); -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+#ui .menubtn.mbk-hud:hover, #ui .menubtn.mbk-hud:active { transform: none; box-shadow: none; }
+#ui .menubtn.mbk-hud:focus-visible { outline: 2px solid #efc650; outline-offset: 3px; }
+.mbk-hb { position: absolute; inset: 0; display: block; pointer-events: none; }
+.mbk-hud .mbk-px, .mbk-stage .mbk-px { display: block; max-width: none; image-rendering: pixelated; }
+.mbk-hud .mbk-h0 { position: absolute; left: 0; top: 0; }
+.mbk-hud .mbk-hr { position: absolute; transform-origin: 50% 0; }
+.mbk-hc { position: absolute; left: 0; top: 0; display: block; transform-origin: 0 50%; transition: transform .32s cubic-bezier(.3, 1.5, .5, 1); }
+.mbk-hc .mbk-px { transition: filter .3s; }
+@media (hover: hover) {
+  .mbk-hud:hover .mbk-hc { transform: perspective(140px) rotateY(-38deg); }
+  .mbk-hud:hover .mbk-hc .mbk-px { filter: brightness(.86); }
+  .mbk-hud:hover .mbk-hr { animation: mbk-wig .8s ease-in-out; }
+}
+.mbk-hud:active .mbk-hc { transform: perspective(140px) rotateY(-26deg); transition-duration: .08s; }
+#ui .menubtn.mbk-hud.mbk-out { opacity: 0; pointer-events: none; }
+.mbk-hud.mbk-land .mbk-hb { animation: mbk-land .45s cubic-bezier(.3, 1.6, .5, 1); transform-origin: 50% 100%; }
+@keyframes mbk-land { 0% { transform: translateY(-5px) scale(1.1, .9); } 60% { transform: translateY(1px) scale(.96, 1.05); } 100% { transform: none; } }
+@keyframes mbk-wig { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(16deg); } 55% { transform: rotate(-11deg); } 80% { transform: rotate(5deg); } }
+
+/* ================================================================ the stage */
+.mbk-stage {
+  position: fixed; inset: 0; z-index: 290; pointer-events: auto; overflow: hidden;
+  color: #3b2414; font-family: var(--font-body); font-size: 20px; line-height: 1.25;
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased; font-synthesis: none; font-kerning: none; font-variant-ligatures: none;
+}
+.mbk-stage *, .mbk-stage *::before, .mbk-stage *::after { box-sizing: border-box; }
+.mbk-stage :where(button) { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; -webkit-tap-highlight-color: transparent; }
+.mbk-dim {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  background: repeating-conic-gradient(rgba(14, 6, 4, .24) 0 25%, transparent 0 50%) 0 0 / 4px 4px, radial-gradient(ellipse at 50% 52%, rgba(40, 18, 12, .3), rgba(16, 6, 4, .66));
+}
+.mbk-book { position: absolute; transform-origin: 0 0; filter: drop-shadow(0 calc(var(--T) * 4) 0 rgba(20, 6, 8, .35)); }
+.mbk-flying .mbk-book { filter: none; }
+.mbk-half { position: absolute; top: 0; }
+.mbk-tex { position: absolute; left: 0; top: 0; display: block; }
+.mbk-page { position: absolute; z-index: 3; }
+.mbk-pc { position: absolute; inset: 0; }
+.mbk-rib { position: absolute; z-index: 2; pointer-events: none; }
+.mbk-tailw { position: absolute; z-index: 2; display: block; transform-origin: 50% 0; pointer-events: none; }
+.mbk-open .mbk-tailw { animation: mbk-swing 1.2s ease-out .05s; }
+@keyframes mbk-swing { 0% { transform: rotate(0); } 18% { transform: rotate(-14deg); } 42% { transform: rotate(9deg); } 66% { transform: rotate(-4deg); } 100% { transform: rotate(0); } }
+
+/* the cover and turning leaves (two faces; the back one is mirrored) */
+.mbk-cover { position: absolute; top: 0; z-index: 10; transform-origin: 0 50%; }
+.mbk-leaf { position: absolute; z-index: 8; transform-origin: 0 50%; pointer-events: none; }
+.mbk-face { position: absolute; inset: 0; }
+.mbk-cb, .mbk-lb { transform: scaleX(-1); visibility: hidden; }
+.mbk-cb .mbk-page, .mbk-lb .mbk-slot { transform: scaleX(-1); }
+.mbk-slot { position: absolute; inset: 0; }
+.mbk-shade { position: absolute; inset: 0; background: #1a0a08; opacity: 0; pointer-events: none; z-index: 20; }
+.mbk-cf .mbk-shade { background: #0e0406; }
+.mbk-ct1 { position: absolute; text-align: center; font-family: var(--font-title); font-weight: 400; font-style: normal; color: #efc650; letter-spacing: 2px; line-height: 1.26; text-shadow: 0 2px 0 #3a1014; }
+.mbk-ct2 { position: absolute; display: flex; align-items: center; justify-content: center; font-family: var(--font-title); font-weight: 400; color: #a8302a; line-height: 1; padding-top: 2px; }
+.mbk-thud { animation: mbk-thud .22s ease-out; }
+@keyframes mbk-thud { 0% { transform: translateY(calc(var(--T) * -2)); } 55% { transform: translateY(var(--T)); } 100% { transform: none; } }
+.mbk-quick .mbk-book { animation: mbk-pop .22s ease-out; }
+.mbk-quick .mbk-dim { animation: mbk-fade .22s ease-out; }
+@keyframes mbk-pop { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: none; } }
+@keyframes mbk-fade { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+/* ================================================================ left page: Paused + settings */
+.mbk-set { padding: calc(var(--T) * 13) calc(var(--T) * 14) calc(var(--T) * 11) calc(var(--T) * 15); display: flex; flex-direction: column; }
+.mbk-h { margin: 0; font-family: var(--font-title); font-weight: 400; font-size: 48px; line-height: 1.12; color: #a8302a; white-space: nowrap; }
+.mbk-swash { margin: 0 0 0 calc(var(--T) * -1); }
+.mbk-fox { position: absolute; right: calc(var(--T) * 12); top: calc(var(--T) * 11); filter: drop-shadow(0 2px 0 rgba(40, 20, 10, .25)); }
+.mbk-date { margin-top: calc(var(--T) * 4); font-size: 22px; line-height: 1.25; color: #3b2414; }
+.mbk-date i { font-style: normal; color: #7a5a3c; }
+.mbk-tails { margin-top: calc(var(--T) * 3); display: flex; align-items: center; gap: calc(var(--T) * 3); font-size: 15px; line-height: 1.25; color: #8a5a10; }
+.mbk-taili { flex: none; }
+.mbk-sec { margin: calc(var(--T) * 10) 0 calc(var(--T) * 5); display: flex; align-items: center; gap: calc(var(--T) * 4); font-family: var(--font-title); font-size: 17px; line-height: 1.2; color: #a8302a; letter-spacing: 1px; text-transform: uppercase; }
+.mbk-sec::after { content: ''; flex: 1; height: var(--T); background: repeating-linear-gradient(90deg, #c2ad86 0 calc(var(--T) * 3), transparent 0 calc(var(--T) * 5)); }
+.mbk-vol { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: calc(var(--T) * 6) calc(var(--T) * 7); }
+.mbk-vol label { font-size: 20px; line-height: 1.2; color: #3b2414; white-space: nowrap; cursor: pointer; }
+.mbk-vol input[type=range] { width: 100%; min-width: 0; margin: 0; }
+.mbk-pxs { display: flex; flex-wrap: wrap; gap: calc(var(--T) * 3); margin-left: calc(var(--T) * -3); }
+.mbk-pxs button { position: relative; padding: calc(var(--T) * 2) calc(var(--T) * 5); font-size: 20px; line-height: 1.25; color: #3b2414; }
+.mbk-pxs button.on { color: #a8302a; }
+.mbk-pxs button:focus-visible { outline: 2px dashed #a8302a; outline-offset: -2px; }
+.mbk-circ { position: absolute; pointer-events: none; }
+.mbk-draw { animation: mbk-draw .3s steps(6) both; }
+@keyframes mbk-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* ================================================================ right page: the contents */
+.mbk-toch { position: absolute; left: calc(var(--T) * 27); right: calc(var(--T) * 10); display: flex; align-items: flex-end; }
+.mbk-toch span { font-family: var(--font-title); font-size: calc(var(--fsC) * .82); line-height: 1.2604; margin-bottom: calc(var(--T) - .2708em); color: #a8302a; letter-spacing: 2px; text-transform: uppercase; }
+.mbk-ch {
+  position: absolute; left: 0; right: 0; display: flex; align-items: flex-end;
+  padding: 0 calc(var(--T) * 10) 0 calc(var(--T) * 27) !important;
+  font-family: var(--font-title) !important; font-size: var(--fsC) !important; color: #3b2414 !important;
+}
+.mbk-ch:focus-visible { outline: none; }
+.mbk-num { position: absolute; left: calc(var(--T) * 6); width: calc(var(--T) * 14); bottom: calc(var(--T) - .2708em); text-align: right; font-size: .66em; line-height: 1.2604; color: #a8302a; }
+.mbk-cht { position: relative; z-index: 0; isolation: isolate; line-height: 1.2604; margin-bottom: calc(var(--T) - .2708em); white-space: nowrap; overflow: visible; }
+.mbk-cht::before {
+  content: ''; position: absolute; z-index: -1; left: -.22em; right: -.28em; top: .36em; bottom: .14em; background: #ffd84a; opacity: .6;
+  clip-path: polygon(0 22%, 4% 0, 96% 10%, 100% 34%, 98% 100%, 3% 86%); transform: scaleX(0); transform-origin: 0 50%; transition: transform .2s ease-out;
+}
+@media (hover: hover) { .mbk-ch:hover .mbk-cht::before { transform: scaleX(1); } }
+.mbk-ch:focus-visible .mbk-cht::before, .mbk-ch:active .mbk-cht::before { transform: scaleX(1); }
+.mbk-red .mbk-cht { color: #a8302a; }
+.mbk-gold .mbk-cht { color: #8a5a10; }
+.mbk-dots { flex: 1 1 auto; min-width: calc(var(--T) * 4); height: var(--T); margin: 0 calc(var(--T) * 3) calc(var(--T) * 2); background: var(--dots) repeat-x 0 0 / calc(var(--T) * 4) var(--T); }
+.mbk-dood { flex: none; margin-bottom: var(--T); }
+.mbk-tab { position: absolute; display: block; opacity: 0; transform: translateX(calc(var(--T) * -8)); transition: transform .25s cubic-bezier(.3, 1.5, .5, 1), opacity .15s; }
+.mbk-open .mbk-tab { opacity: 1; transform: none; transition-delay: calc(var(--i) * 45ms); }
+@media (hover: hover) { .mbk-open .mbk-ch:hover .mbk-tab { transform: translateX(calc(var(--T) * 2)); transition-delay: 0s; } }
+.mbk-open .mbk-ch:focus-visible .mbk-tab { transform: translateX(calc(var(--T) * 2)); transition-delay: 0s; }
+.mbk-note { position: absolute; left: calc(var(--T) * 27); right: calc(var(--T) * 10); margin: 0; display: flex; align-items: flex-end; }
+.mbk-note span { font-size: calc(var(--fsC) * .6); line-height: 1.2604; margin-bottom: calc(var(--T) - .2708em); color: #8a8494; }
+.mbk-stamp {
+  position: absolute; right: calc(var(--T) * 28); bottom: calc(var(--T) * 4); padding: 0 calc(var(--T) * 3); border: var(--T) solid currentColor;
+  color: #2e7a3a; background: rgba(251, 245, 230, .7); font-family: var(--font-title); font-size: calc(var(--fsC) * .66); line-height: 1.3;
+  rotate: -7deg; pointer-events: none; animation: mbk-stamp .32s cubic-bezier(.3, 1.6, .5, 1) both;
+}
+@keyframes mbk-stamp { 0% { transform: scale(2.2); opacity: 0; } 100% { transform: none; opacity: 1; } }
+
+/* ================================================================ "How to play" spread */
+.mbk-help { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+.mbk-help::-webkit-scrollbar { display: none; }
+.mbk-helpL { padding: calc(var(--T) * 13) calc(var(--T) * 14) calc(var(--T) * 10) calc(var(--T) * 15); }
+.mbk-helpL .mbk-swash { margin-bottom: calc(var(--T) * 4); }
+.mbk-hp p { margin: 0 0 calc(var(--T) * 4); font-size: var(--fsH); line-height: 1.32; color: #3b2414; }
+.mbk-hp b { color: #a8302a; font-weight: 400; }
+.mbk-hi { display: inline-block; vertical-align: -3px; margin-right: 2px; }
+/* the right page writes on the ledger rules: one rule per line */
+.mbk-helpR { padding: calc(var(--hTop) + var(--R) * .5 - var(--T) - var(--fsH) * .3594) calc(var(--T) * 10) calc(var(--T) * 6) calc(var(--T) * 27); }
+.mbk-helpR .mbk-hp p { margin: 0; line-height: var(--R); }
+.mbk-back { display: block; margin-top: var(--R) !important; font-family: var(--font-title) !important; font-size: var(--fsH) !important; line-height: var(--R) !important; color: #a8302a !important; }
+.mbk-back:hover, .mbk-back:focus-visible { color: #3b2414 !important; outline: none; }
+.mbk-turning .mbk-page { pointer-events: none; }
+
+/* ================================================================ small screens */
+.mbk-compact .mbk-set, .mbk-compact .mbk-helpL { padding: calc(var(--T) * 11) calc(var(--T) * 12) calc(var(--T) * 9) calc(var(--T) * 13); }
+.mbk-compact .mbk-h { font-size: 34px; }
+.mbk-compact .mbk-fox { right: calc(var(--T) * 10); top: calc(var(--T) * 9); }
+.mbk-compact .mbk-date { font-size: 17px; margin-top: calc(var(--T) * 2); }
+.mbk-compact .mbk-tails { font-size: 12px; margin-top: calc(var(--T) * 2); }
+.mbk-compact .mbk-sec { font-size: 13px; margin: calc(var(--T) * 5) 0 calc(var(--T) * 3); }
+.mbk-compact .mbk-vol { gap: calc(var(--T) * 3) calc(var(--T) * 5); }
+.mbk-compact .mbk-vol label, .mbk-compact .mbk-pxs button { font-size: 16px; }
+.mbk-compact .mbk-pxs button { padding: var(--T) calc(var(--T) * 4); }
+.mbk-compact .mbk-hp p { margin-bottom: calc(var(--T) * 2); }
+/* one page (narrow phones): settings on top, the contents below, the page scrolls */
+.mbk-single .mbk-page { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+.mbk-single .mbk-pc { position: relative; inset: auto; }
+.mbk-single .mbk-set { padding-bottom: calc(var(--T) * 2); }
+.mbk-single .mbk-help { overflow: visible; }
+.mbk-single .mbk-helpR { padding-top: 0; }
+.mbk-single .mbk-helpR .mbk-hp p { line-height: 1.32; margin-bottom: calc(var(--T) * 3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mbk-hc, .mbk-tab { transition: none; }
+  .mbk-open .mbk-tailw, .mbk-thud, .mbk-quick .mbk-book, .mbk-hud.mbk-land .mbk-hb { animation: none; }
+}

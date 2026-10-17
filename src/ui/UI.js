@@ -35,6 +35,7 @@ import { BUG_BY_ID, BUG_FARMS, EFFECTS, BUG_RARITY } from '../data/bugs.js';
 import { Transition } from './Transition.js';
 import { injectPaperCSS, openPaper, setPaperSfx } from './paper.js';
 import { Tutorial } from '../game/Tutorial.js';
+import { ynPair, confirmHTML } from './ynButtons.js'; // [v27 knobs] painted YES / NO planks
 const C = (name) => comp[`./${name}.js`] || null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -214,6 +215,7 @@ export class UI {
       }
     });
     $('#b-menu').addEventListener('click', () => { this.click(); this.showMenu(); });
+    import('./MenuBook.js').then((m) => { this.menuBookMod = m; m.decorateMenuButton?.($('#b-menu')); }).catch((e) => console.warn('menu book', e)); // [v27 book] the menu button is a little book; the menu opens as one
     $('#p-close').addEventListener('click', () => { this.closePanel(); this.closeSound(); });
     h['fox-ok'].addEventListener('click', () => { this.click(); this.foxNext(); });
     h.modal.addEventListener('click', (e) => { if (e.target === h.modal && this.modalDismissable) this.closeModal(); });
@@ -1608,6 +1610,7 @@ export class UI {
     if (this.game.lab?.active) { this.game.lab.exit?.(); return true; }
     if (this.game.homes?.active && !this.game.villagers?.card) { this.game.homes.exit(); return true; } // [v20 npc homes]
     if (this.book?.isOpen) { this.book.close(); return true; }
+    if (this.menuBook?.isOpen && !this.paperModal) { this.menuBook.close(); return true; } // [v27 book]
     if (this.menu?.isOpen) return this.menu.back();
     if (this.ebuy) { this.closeEBuy(); return true; }
     if (this.blueprint?.open) { this.blueprint.exit(); return true; }
@@ -1854,12 +1857,12 @@ export class UI {
 
   // ------------------------------------------------------------ modals
   // every popup is a real piece of paper (letter, note, mail, book...)
-  showModal(html, { dismissable = true, onBind, cls = '', kind = null } = {}) {
+  showModal(html, { dismissable = true, onBind, cls = '', kind = null, width = null } = {}) { // [v27 knobs] width
     if (this.paperModal) { const old = this.paperModal; this.paperModal = null; old.close?.(); }
     const k = kind || (cls.includes('gameover') ? 'notebook' : cls.includes('menu') ? 'book' : 'letter');
     let p;
     try {
-      p = openPaper({ kind: k, html, dismissable, root: this.root, onClose: () => { if (this.paperModal === p) this.paperModal = null; } });
+      p = openPaper({ kind: k, html, dismissable, root: this.root, width: width || undefined, onClose: () => { if (this.paperModal === p) this.paperModal = null; } }); // [v27 knobs] width
     } catch (e) {
       console.warn('paper modal', e);
       const m = this.hud.modal, card = this.hud['modal-card'];
@@ -1878,17 +1881,20 @@ export class UI {
 
   closeModal() {
     if (this.paperModal) { const p = this.paperModal; this.paperModal = null; p.close?.(); return; }
+    if (this.menuBook?.isOpen) { this.menuBook.close(); return; } // [v27 book]
     this.hud.modal.classList.add('hidden');
     this.hud['modal-card'].innerHTML = '';
   }
 
   confirmBox(text, onYes, { yes = 'Yes', no = 'Cancel' } = {}) {
-    const html = `<h2 class="center">Are you sure?</h2><p class="center">${text}</p>
-      <div class="btns"><button class="btn red" id="cf-yes">${esc(yes)}</button><button class="btn green" id="cf-no">${esc(no)}</button></div>`;
+    // [v27 knobs] Reynard's worried face pinned up + painted YES / NO planks (Y = yes, N / Esc = no)
+    const html = confirmHTML(text, { yes, no, face: spriteImg('fox_worried', 3) });
     this.showModal(html, {
+      cls: 'cf-modal', width: 540,
       onBind: (c) => {
         $('#cf-yes', c).onclick = () => { this.click(); this.closeModal(); onYes(); };
         $('#cf-no', c).onclick = () => { this.click(); this.closeModal(); };
+        try { ynPair($('#cf-yes', c), $('#cf-no', c), { keys: true, enter: false }); } catch (e) { console.warn('yn', e); }
       },
     });
   }
@@ -2358,6 +2364,9 @@ export class UI {
   }
 
   showMenu() {
+    if (this.menuBookMod?.createMenuBook) { // [v27 book] Reynard's Handbook (src/ui/MenuBook.js); the paper modal below is the fallback
+      try { this.menuBook ||= this.menuBookMod.createMenuBook(this); if (this.menuBook.isOpen || this.menuBook.open() !== false) return; } catch (e) { console.warn('menu book', e); }
+    }
     const game = this.game;
     const v = game.audio.getVolumes();
     const canRetire = game.state.research.includes('r_franchise') || game.structures.countBuilt('franchise') > 0;
