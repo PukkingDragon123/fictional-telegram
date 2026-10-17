@@ -213,9 +213,10 @@ export function herdShot(c, { day = 5, minZ = 14.5 } = {}) {
   g.state.day = day; g.wave = g.bears.planWave(day);
   g.state.hour = 16.95; g.startRush();
   for (const b of g.bears.list) b.t = Math.min(b.t ?? 0, 0.3 + Math.random() * 2.2);
-  const herd = () => g.bears.list.filter((b) => b.visible && b.state === 'commute');
-  for (let k = 0; k < 50; k++) {
-    c.presim(0.4);
+  // the walking herd: visible bears between the cliff path and the pond
+  const herd = () => g.bears.list.filter((b) => b.visible && b.state !== 'queued' && b.z > 12 && b.z < 31);
+  for (let k = 0; k < 90; k++) {
+    c.presim(0.3);
     const H = herd();
     if (H.length >= 3 && H.reduce((s, b) => s + b.z, 0) / H.length > minZ) break;
   }
@@ -224,20 +225,43 @@ export function herdShot(c, { day = 5, minZ = 14.5 } = {}) {
   console.log('[dir] herd', H.length, cx.toFixed(1), cz.toFixed(1), H.map((b) => b.x.toFixed(1) + ',' + b.z.toFixed(1)).join(' '));
   return { cx, cz, H };
 }
+// a scripted parade: n bears in a loose wedge walking from (x, z0) towards +z (the camera at yaw 0)
+export function bearParade(c, { x = 71, z0 = 16.5, speed = 1.15, types = ['office', 'hipster', 'construction', 'intern', 'jogger', 'tourist', 'lumberjack', 'grandma', 'accountant'], n = 8 } = {}) {
+  const g = c.g, B = g.bears;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor((i + 1) / 2), side = i === 0 ? 0 : (i % 2 ? -1 : 1);
+    const bx = x + side * (1.05 * row + 0.25 * Math.sin(i * 2.1)), bz = z0 - row * 1.25 - 0.3 * Math.cos(i * 1.7);
+    const b = bearAt(g, bx, bz, types[i % types.length]);
+    b.y = c.ground(bx, bz);
+    const sp = speed * (0.92 + 0.16 * Math.sin(i * 3.3));
+    b.heading = Math.PI / 2; // (bear headings: x = cos, z = sin; pi/2 walks towards +z)
+    b.script = {
+      update: (bb, dt) => { bb.z += sp * dt; bb.x += Math.sin(c.t * 1.3 + i) * 0.05 * dt; bb.moving = true; bb.heading = Math.PI / 2; try { B.ground(bb, dt, true); } catch { bb.y = c.ground(bb.x, bb.z); } return true; },
+    };
+    out.push(b);
+  }
+  return out;
+}
 SHOTS.bears_come = {
   dur: 7.9,
   async setup(c) {
     const g = c.g;
     prep(c, { hour: 16.95 });
     stockPond(g, 30);
-    clearDecos(g, 58, 12, 86, 32);
-    const { cx, cz } = herdShot(c, { minZ: 20 });
-    const pip = addRig(c, 'ChipmunkTrader', cx + 2.2, cz + 6.2, { ry: -0.25 });
+    clearDecos(g, 58, 12, 86, 34);
+    g.state.day = 5; g.wave = g.bears.planWave(5);
+    const bs = bearParade(c, { x: 71, z0: 20.6 });
+    c.presim(0.5);
+    const pip = addRig(c, 'ChipmunkTrader', 73.4, 26.4, { ry: -0.35 });
     c.path([
-      { t: 0, x: cx + 0.6, z: cz + 2.4, y: 0.4, yaw: 0.18, pitch: 32, wupp: 0.0165 },
-      { t: 7.9, x: cx + 0.2, z: cz + 4.8, y: 0.4, yaw: 0.08, pitch: 30, wupp: 0.0152 },
+      { t: 0, x: 71.6, z: 21.4, y: 0.5, yaw: 0.12, pitch: 28, wupp: 0.0165 },
+      { t: 7.9, x: 71.4, z: 24.2, y: 0.5, yaw: 0.05, pitch: 26, wupp: 0.0152 },
     ]);
     c.at(0.4, () => { pip.play('happy', { loop: true }); c.say(c.above(pip, 1.6), '...the *BEARS* come to eat!', { voice: 'cub', mood: 'shout', dur: 3.4, size: 'm' }); });
+    c.at(2.2, () => c.say(c.above(bs[0].rig.root, 2.2), 'Dinner time!', { voice: 'bear', mood: 'happy', dur: 2.0, size: 's' }));
+    c.at(3.4, () => c.say(c.above(bs[3].rig.root, 2.0), 'I smell FISH.', { voice: 'bear', mood: 'excited', dur: 2.0, size: 's' }));
+    c.at(4.3, () => c.say(c.above(bs[2].rig.root, 2.2), 'Table for eight!', { voice: 'bear', mood: 'normal', dur: 1.8, size: 's' }));
     card(c, ['FEED THE', 'BEARS!'], { t0: 5.85, t1: 7.8, anim: 'slam', y: 0.25, size: 104.17, gap: -8, fill: FILL_HOT });
   },
 };
@@ -409,7 +433,7 @@ export function winterScene(c) {
   for (const b of bs) b.cold = 1;
   try { g.resort?.visit?.(bs[2], tub); } catch (e) { console.warn('[dir] visit', e); }
   // the others huddle round the campfire, shivering (scripted: they stay put)
-  for (const b of [bs[0], bs[1], bs[3]]) holdBear(b, { pose: 'idle', heading: Math.atan2(66 - b.x, 41 - b.z) });
+  for (const b of [bs[0], bs[1], bs[3]]) holdBear(b, { pose: 'idle', heading: Math.atan2(41 - b.z, 66 - b.x) });
   c.presim(0.4);
   c.every(() => { for (const b of bs) b.cold = Math.max(b.cold || 0, 0.92); });
   return { tub, bs };

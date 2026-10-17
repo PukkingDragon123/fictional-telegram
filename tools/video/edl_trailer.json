@@ -12,7 +12,8 @@
     {
       "id": "sunrise",
       "in": 0.0,
-      "out": 14.6
+      "out": 14.6,
+      "game_db": -3
     },
     {
       "id": "wake",
@@ -22,63 +23,75 @@
     {
       "id": "m_hatch",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_clock",
       "in": 0.0,
-      "out": 1.3746
+      "out": 1.3746,
+      "game_db": -6
     },
     {
       "id": "m_march",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_feast",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_karen",
       "in": 6.6,
       "out": 9.3491,
-      "ext": false
+      "ext": false,
+      "game_db": -6
     },
     {
       "id": "m_beavers",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_build",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_resort",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_winter",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_rampage",
       "in": 0.0,
-      "out": 1.3746
+      "out": 1.3746,
+      "game_db": -6
     },
     {
       "id": "m_falls",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "m_reynard",
       "in": 0.0,
-      "out": 2.7491
+      "out": 2.7491,
+      "game_db": -6
     },
     {
       "id": "title",

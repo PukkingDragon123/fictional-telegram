@@ -175,7 +175,7 @@ SHOTS.wake = {
     c.every((t) => {
       if (t < 7.0) return;
       const rig = bed.rig;
-      if (!P) { const hp = new THREE.Vector3(); (f.head || f.root).getWorldPosition(hp); P = { t0: target(rig), w0: rig.wupp, t1: new THREE.Vector3(hp.x, hp.y - 0.12, hp.z), w1: rig.wupp * 0.7 }; }
+      if (!P) { const hp = new THREE.Vector3(); (f.head || f.root).getWorldPosition(hp); P = { t0: target(rig), w0: rig.wupp, t1: new THREE.Vector3(hp.x, hp.y - 0.42, hp.z), w1: rig.wupp * 0.78 }; }
       const k = smooth((t - 7.0) / 3.6);
       rig.goal.lerpVectors(P.t0, P.t1, k); rig.target.copy(rig.goal);
       rig.wupp = rig.wuppGoal = P.w0 + (P.w1 - P.w0) * k;
@@ -239,12 +239,12 @@ SHOTS.m_march = {
     prep(c, { hour: 17.1 });
     stockPond(g, 24);
     clearDecos(g, 56, 14, 90, 70);
-    const { herdShot } = await import('./shots_promo.js');
-    g.state.day = 9;
-    const { cx, cz } = herdShot(c, { day: 9, minZ: 21 });
+    const { bearParade } = await import('./shots_promo.js');
+    bearParade(c, { x: 71, z0: 21.5, speed: 1.2 });
+    c.presim(0.3);
     skyCurtain(c);
-    const keys = [{ t: 0, x: cx, z: cz + 1.0, y: 0.6, yaw: 0.15, pitch: 10, wupp: 0.0145 }, { t: 3.0, x: cx, z: cz + 2.4, y: 0.6, yaw: 0.1, pitch: 10, wupp: 0.0135, ease: 'linear' }];
-    c.every((t) => { skyCam(c, { ...camAt(keys, t), skyD: 4.2 }, [-0.18, 0.42], t); });
+    const keys = [{ t: 0, x: 71, z: 22.6, y: 0.7, yaw: 0.1, pitch: 9, wupp: 0.0155 }, { t: 3.0, x: 71, z: 23.8, y: 0.7, yaw: 0.06, pitch: 9, wupp: 0.0145, ease: 'linear' }];
+    c.every((t) => { skyCam(c, { ...camAt(keys, t), skyD: 5.5 }, [-0.16, 0.4], t); });
     letterbox(c);
   },
 };
@@ -378,7 +378,7 @@ SHOTS.m_falls = {
   dur: 3.2,
   async setup(c) {
     const g = c.g;
-    prep(c, { hour: 19.6 });
+    prep(c, { hour: 18.7 });
     D_noFog(false);
     try {
       const { ZONE_BY_ID } = await import('../../src/data/zones.js');
@@ -388,12 +388,12 @@ SHOTS.m_falls = {
     c.presim(2);
     const v = g.villagers.get('longneck');
     if (v) v.t = 1e9;
-    c.hour = 19.6; c.phase = 'night';
-    clearDecos(g, 30, 196.5, 44, 230, { forest: false });
-    glimpse(c, { x: 36.0, z: 195.6, y: 1.5, yaw: 0.1, pitch: 12, wupp: 0.0135 }, { x: 36.2, z: 195.3, y: 1.5, yaw: 0.05, pitch: 12, wupp: 0.0118 });
+    c.hour = 18.7; c.phase = 'night';
+    clearDecos(g, 29, 197.5, 45, 232);
+    glimpse(c, { x: 36.0, z: 195.6, y: 1.6, yaw: 0.1, pitch: 13, wupp: 0.0122 }, { x: 36.2, z: 195.3, y: 1.6, yaw: 0.05, pitch: 13, wupp: 0.0108 });
     // dusk + mist: only the silhouette reads
     const veil = document.createElement('div');
-    Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'radial-gradient(ellipse at 50% 42%, rgba(40,50,90,0.0) 0%, rgba(20,22,48,0.55) 55%, rgba(8,8,20,0.9) 100%)' });
+    Object.assign(veil.style, { position: 'absolute', inset: '0', background: 'radial-gradient(ellipse at 50% 42%, rgba(40,50,90,0.0) 0%, rgba(20,22,48,0.35) 50%, rgba(8,8,20,0.85) 100%)' });
     c.ov.root.appendChild(veil);
     c.ov.fade(0, 0.6, 1, 0, '#000');
     c.ov.fade(2.6, 3.2, 0, 1, '#000');
@@ -416,7 +416,7 @@ SHOTS.m_reynard = {
     c.hour = 21.5; c.phase = 'night';
     c.at(0.4, () => g.particles.coins(78.6, 1.7, 45.5, 14));
     c.at(1.4, () => g.particles.coins(78.6, 1.7, 45.5, 14));
-    glimpse(c, { x: 78.5, z: 45.2, y: 1.0, yaw: 0.0, pitch: 18, wupp: 0.0098 }, { x: 78.55, z: 45.3, y: 0.95, yaw: 0.0, pitch: 17, wupp: 0.0084 });
+    glimpse(c, { x: 78.6, z: 45.5, y: 0.75, yaw: 0.0, pitch: 16, wupp: 0.0078 }, { x: 78.6, z: 45.5, y: 0.72, yaw: 0.0, pitch: 15, wupp: 0.0068 });
   },
 };
 
