@@ -4334,7 +4334,11 @@ export function spriteImg(name, scale = 2, cls = '') {
     if (f) return `<img class="${klass} f3d" src="${f.url}" width="${s.w * scale}" height="${s.h * scale}" alt="" draggable="false" style="image-rendering:pixelated">`;
   }
   const k = crispArt(scale); // [v26 uiscale]
-  return `<img class="${klass}" src="${spriteURL(name, scale)}" width="${s.w * k}" height="${s.h * k}" alt="" draggable="false" style="image-rendering:pixelated">`;
+  // [v28 crisp] whole-number screen ratio: paint the icon at device resolution and show it 1:1
+  // (iPad Safari otherwise smooths the 2x upscale, so toolbar icons looked smeared / stretched)
+  const r = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, dk = Math.round(r);
+  const src = k === scale && dk >= 2 && dk <= 4 && Math.abs(r - dk) < 0.01 ? spriteURL(name, scale * dk) : spriteURL(name, scale);
+  return `<img class="${klass}" src="${src}" width="${s.w * k}" height="${s.h * k}" alt="" draggable="false" style="image-rendering:pixelated">`;
 }
 // [v26 uiscale] CSS px per art pixel that is a whole number of device px. Integer devicePixelRatio: just
 // `scale`. Fractional (browser / Safari page zoom, Windows 125%): 2 CSS px would be 2.5 device px, i.e.

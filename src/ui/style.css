@@ -390,6 +390,10 @@ html, body { font-size: 16px; -webkit-font-smoothing: antialiased; }
 .tool.locked { display: none !important; }
 .toolbar.empty { opacity: 0; pointer-events: none; transform: translate(-50%, 140%); }
 .toolbar { transition: transform .45s cubic-bezier(.3, 1.6, .5, 1), opacity .3s; }
+/* [v28 crisp] centred with auto margins instead of translateX(-50%): an odd bar width put every icon and frame
+   on a half pixel, which on 3x phones means resampled, smeared art */
+.toolbar { left: 0; right: 0; margin: 0 auto; width: max-content; transform: none; }
+.toolbar.empty { transform: translateY(140%); }
 .tool { width: 58px; height: 58px; }
 .tool span { display: none; }
 .tool-new { animation: tool-new .8s cubic-bezier(.3, 1.8, .5, 1); }
@@ -412,7 +416,7 @@ html, body { font-size: 16px; -webkit-font-smoothing: antialiased; }
 @keyframes ptr-bob { from { margin-top: 0; } to { margin-top: 10px; } }
 @keyframes ptr-bob-d { from { margin-top: 0; } to { margin-top: -10px; } }
 .tool.pulse { animation: tool-pulse .8s ease-in-out infinite; }
-@keyframes tool-pulse { 50% { transform: translateY(-6px) scale(1.08); } }
+@keyframes tool-pulse { 50% { transform: translateY(-6px); } } /* [v28 crisp] no scale: a 1.08 zoom smears the pixel icon */
 
 /* e-Buy fills the screen over the game */
 .ebuy-host { position: absolute; inset: 0; z-index: 45; pointer-events: auto; }

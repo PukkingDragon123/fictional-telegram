@@ -143,10 +143,6 @@ function thumb() {
   animate(bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 14, y: 4, size: 83.33, sizes: [72.92, 104.17], gap: -12, indent: [6, 0], rot: -4, origin: 'left top',
     outline: 5, outlineColor: '#3a1408', outer: 4, outerColor: '#fff6e0', fill: FILL_GOLD,
     shadow: { x: 0, y: 8, color: 'rgba(40,8,40,.75)', glow: '0 0 26px rgba(255,140,60,.6)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 5}px) rotate(${wob(ph, 1, 1.2)}deg) scale(${1 + Math.abs(Math.sin(ph * TAU)) * 0.02})`);
-  // tagline ribbon
-  const tag = el('div', '', { left: '50%', bottom: '14px', transform: 'translateX(-50%) rotate(-2deg)', padding: '7px 18px 9px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '3px solid #2a0f1e', borderRadius: '10px', boxShadow: '0 0 0 3px #fff6e0, 0 6px 0 3px rgba(40,8,40,.7)' });
-  bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 31.25, outline: 3, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
-  animate(tag, (ph) => `rotate(${wob(ph, 1, 0.8)}deg)`);
 }
 
 // ------------------------------------------------------------------ the banner
@@ -168,13 +164,10 @@ function banner() {
     fill: 'linear-gradient(180deg, #ffe46a 0%, #ff8a2a 55%, #ff2a2a 100%)', shadow: { x: 0, y: 4, color: 'rgba(42,15,30,.7)' } });
   rawr.style.transformOrigin = '50% 50%';
   animate(rawr, (ph) => { const g = Math.max(0, Math.sin(ph * TAU * 2)); return `scale(${1 + g * 0.12}) translate(${wob(ph, 8, 1.5) * g}px, ${wob(ph, 6, 1) * g}px)`; });
-  // title + tagline
+  // title
   animate(bigText(stage, ['THE BEAR', 'MUST EAT'], { x: 18, y: 20, size: 62.5, sizes: [50, 66.67], gap: -6, indent: [4, 0], rot: -3,
     outline: 4, outlineColor: '#3a1408', outer: 3, outerColor: '#fff6e0', fill: FILL_GOLD,
     shadow: { x: 0, y: 6, color: 'rgba(40,8,40,.8)', glow: '0 0 20px rgba(255,140,60,.55)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 3}px) rotate(${wob(ph, 1, 1)}deg)`);
-  const tag = el('div', '', { left: '22px', top: '170px', transform: 'rotate(-2deg)', padding: '4px 12px 6px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '2px solid #2a0f1e', borderRadius: '8px', boxShadow: '0 0 0 2px #fff6e0, 0 4px 0 2px rgba(40,8,40,.7)' });
-  bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 20.83, outline: 2, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
-  animate(tag, (ph) => `rotate(${wob(ph, 1, 0.8)}deg)`);
 }
 
 // ------------------------------------------------------------------ "Flint & Steel" update art
@@ -218,9 +211,6 @@ function fsthumb() {
     outline: 4, outlineColor: '#3a1408', outer: 3, outerColor: '#fff6e0', fill: FILL_GOLD,
     shadow: { x: 0, y: 6, color: 'rgba(40,8,40,.75)', glow: '0 0 22px rgba(255,140,60,.6)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 4}px) rotate(${wob(ph, 1, 1)}deg)`);
   badge(stage, { x: 330, y: 22, w: 286, rot: 6, size: 37.5, sub: 25 });
-  const tag = el('div', '', { left: '50%', bottom: '12px', transform: 'translateX(-50%) rotate(-2deg)', padding: '6px 16px 8px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '3px solid #2a0f1e', borderRadius: '10px', boxShadow: '0 0 0 3px #fff6e0, 0 6px 0 3px rgba(40,8,40,.7)' });
-  bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 29.17, outline: 3, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
-  animate(tag, (ph) => `rotate(${wob(ph, 1, 0.8)}deg)`);
 }
 
 function fsbanner() {
@@ -236,8 +226,6 @@ function fsbanner() {
     outline: 3, outlineColor: '#3a1408', outer: 3, outerColor: '#fff6e0', fill: FILL_GOLD,
     shadow: { x: 0, y: 5, color: 'rgba(40,8,40,.8)', glow: '0 0 18px rgba(255,140,60,.55)' } }), (ph) => `translateY(${-Math.abs(Math.sin(ph * TAU)) * 3}px) rotate(${wob(ph, 1, 1)}deg)`);
   badge(stage, { x: 14, y: 116, w: 262, rot: -3, size: 29.17, sub: 18.75, pad: 7 });
-  const tag = el('div', '', { left: '24px', top: '204px', transform: 'rotate(-1deg)', padding: '2px 10px 4px', background: 'linear-gradient(180deg, #ff4d6d, #d0204a)', border: '2px solid #2a0f1e', borderRadius: '7px', boxShadow: '0 0 0 2px #fff6e0, 0 3px 0 2px rgba(40,8,40,.7)' });
-  bigText(tag, ['a cozy incremental / tycoon'], { x: 0, y: 0, size: 18.75, outline: 2, outlineColor: '#2a0f1e', fill: 'linear-gradient(180deg,#ffffff,#ffe9c0)' }).style.position = 'relative';
 }
 
 const SCENES = { thumb, banner, fsthumb, fsbanner };

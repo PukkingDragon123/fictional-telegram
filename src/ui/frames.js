@@ -628,19 +628,30 @@ export function frameURL(name, scale = 2) {
   return u;
 }
 
+// [v28 crisp] device px per CSS px when the screen ratio is a whole number (iPad / iPhone 2x-3x).
+// The frame image is painted at device resolution and shown 1:1, so the browser never resamples
+// it: iPad Safari smooths scaled border-images (image-rendering is ignored there), which made the
+// gold tool slots and every other frame look smeared / stretched.
+const devK = () => {
+  const r = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, k = Math.round(r);
+  return k >= 2 && k <= 4 && Math.abs(r - k) < 0.01 ? k : 1;
+};
+
 export function frameStyle(name, scale = 2) {
   scale = normScale(scale);
   const f = getFrame(name);
-  const url = frameURL(name, scale);
+  const k = devK(); // [v28 crisp]
+  const url = frameURL(name, scale * k);
   if (f.fixed) {
     return `width:${f.w * scale}px;height:${f.h * scale}px;background:url("${url}") no-repeat 0 0/100% 100%;image-rendering:pixelated`;
   }
   const [t, r, b, l] = f.slice.map((v) => v * scale);
+  const [st, sr, sb, sl] = f.slice.map((v) => v * scale * k); // [v28 crisp] slice in source (device) px
   return [
     'border-style:solid',
     `border-width:${t}px ${r}px ${b}px ${l}px`,
     `border-image-source:url("${url}")`,
-    `border-image-slice:${t} ${r} ${b} ${l}${f.fill ? ' fill' : ''}`,
+    `border-image-slice:${st} ${sr} ${sb} ${sl}${f.fill ? ' fill' : ''}`,
     `border-image-width:${t}px ${r}px ${b}px ${l}px`,
     `border-image-repeat:${f.repeat}`,
     'image-rendering:pixelated',
