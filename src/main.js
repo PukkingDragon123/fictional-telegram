@@ -17,13 +17,16 @@ const canvas = document.getElementById('game');
 const autostart = params.has('autostart') ? (params.get('autostart') === 'continue' ? 'continue' : 'new') : null;
 const pondTitle = !autostart && params.get('title') === 'pond';
 const valleyTitle = !autostart && params.get('title') === 'valley'; // [v26 title2]
-const SAVE_KEY = 'tbme.save.v3';
+import settings from './ui/settings.js'; // [v26 menu] player settings (applied to the renderer here, the game once built)
+import { clampSlot, setLastSlot } from './game/saveSlots.js'; // [v26 menu] 3 save slots
+const startSlot = clampSlot(params.get('slot') || 1); // [v26 menu] ?slot=N for autostart (default 1)
 
 const renderer = new PixelRenderer(canvas);
 try {
   const px = localStorage.getItem('tbme.px');
   if (px) renderer.pixelDensity = +px;
 } catch { /* storage unavailable */ }
+settings.bind({ audio, renderer, resize: () => resize() }); // [v26 menu]
 
 let game = null, ui = null, titleWorld = null, titleScene = null, titleMenu = null;
 let mode = autostart ? 'boot' : 'title';
@@ -55,6 +58,7 @@ function bootGame() {
     game = new Game(canvas, { renderer });
     game.titleMode = !autostart;
     game.resize = resize;
+    settings.bind({ game }); // [v26 menu] camera / particles / shadows on the real game
     window.__game = game;
     if (!autostart) await breathe();
     ui = new UI(game);
@@ -73,6 +77,11 @@ function bootGame() {
 }
 
 function startGame(choice) {
+  // [v26 menu] choice: 'new' | 'continue' | { slot, mode: 'new' | 'continue' }
+  const slot = clampSlot(typeof choice === 'object' ? choice.slot : startSlot);
+  if (typeof choice === 'object') choice = choice.mode;
+  game.slot = slot;
+  setLastSlot(slot);
   mode = 'play';
   try { titleWorld?.stop(); } catch (e) { console.warn(e); }
   try { titleScene?.stop(); } catch (e) { console.warn(e); }
@@ -126,19 +135,10 @@ async function irisToGame(choice) {
   setTimeout(() => { run.done = true; }, (outDur + 0.6) * 1000);
 }
 
-function saveInfo() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const m = /"day":(\d+)/.exec(raw.slice(0, 6000));
-    return { day: m ? +m[1] : null };
-  } catch { return null; }
-}
-
+// [v26 menu] the title menu reads the save slots itself (src/game/saveSlots.js)
 function menuOpts(onStart) {
-  const save = saveInfo();
   return {
-    hasSave: !!save, saveDay: save?.day ?? null, onStart,
+    onStart,
     sfx: (n, o) => audio.play(n, { volume: 0.4, ...(o || {}) }),
     onSound: (on) => { audio.unlock(); audio.setMuted(!on); },
     isMuted: () => audio.isMuted(),

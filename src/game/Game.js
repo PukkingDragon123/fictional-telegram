@@ -68,7 +68,7 @@ import { clamp } from '../core/rng.js';
 import { rollGenes, rarityOf, hatchCard, valueMult } from './genes.js';
 import { updateWakes } from '../world/water.js'; // [v20 water]
 
-const SAVE_KEY = 'tbme.save.v3';
+import { slotKey, metaOf, writeSlotMeta, deleteSlot } from './saveSlots.js'; // [v26 menu] 3 save slots: game.slot (1..3) picks the key; slot 1 = the old single save
 const LEGACY_KEY = 'tbme.legacy.v1';
 export const RUSH_HOUR = 17;
 export const LUNCH = [12, 13];
@@ -236,7 +236,7 @@ export class Game {
   }
 
   newGame() {
-    safeDel(SAVE_KEY);
+    deleteSlot(this.slot); // [v26 menu]
     this.state = this.freshState();
     this.stats = this.freshStats();
     this.mods = computeMods([], this.legacy.tails);
@@ -923,7 +923,7 @@ export class Game {
     this.legacy.tails = Math.max(this.legacy.tails, tails);
     this.legacy.best = Math.max(this.legacy.best || 0, st.day);
     this.saveLegacy();
-    safeDel(SAVE_KEY);
+    deleteSlot(this.slot); // [v26 menu]
     this.audio.setMusic(null);
     this.audio.play('gameover', { volume: 0.6 });
     this.ui?.showGameOver({ day: st.day, earned: st.totalEarned, stats: this.stats, tails: this.legacy.tails, gained });
@@ -937,7 +937,7 @@ export class Game {
     this.legacy.best = Math.max(this.legacy.best || 0, st.day);
     this.legacy.retired = (this.legacy.retired || 0) + 1;
     this.saveLegacy();
-    safeDel(SAVE_KEY);
+    deleteSlot(this.slot); // [v26 menu]
     this.audio.play('fanfare', { volume: 0.6 });
     this.ui?.showGameOver({ day: st.day, earned: st.totalEarned, stats: this.stats, tails: this.legacy.tails, gained, retired: true });
     st.phase = 'gameover';
@@ -1714,13 +1714,15 @@ export class Game {
 
   save() {
     if (!this.started || this.state.gameOver) return;
-    try { safeSet(SAVE_KEY, JSON.stringify(this.serialize())); } catch { /* ignore */ }
+    try { safeSet(this.saveKey, JSON.stringify(this.serialize())); } catch { /* ignore */ }
+    try { writeSlotMeta(this.slot, metaOf(this, { research: RESEARCH.length, zones: ZONES.length })); } catch { /* ignore */ } // [v26 menu] the title's box for this slot
   }
 
-  hasSave() { return !!safeGet(SAVE_KEY); }
+  hasSave() { return !!safeGet(this.saveKey); }
+  get saveKey() { return slotKey(this.slot); } // [v26 menu] this.slot: 1..3 (unset = 1)
 
   load() {
-    const raw = safeGet(SAVE_KEY);
+    const raw = safeGet(this.saveKey); // [v26 menu]
     if (!raw) return false;
     let data;
     try { data = JSON.parse(raw); } catch { return false; }

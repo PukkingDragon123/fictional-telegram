@@ -172,10 +172,16 @@ export class CameraRig {
       tx += (Math.random() - 0.5) * a;
       tz += (Math.random() - 0.5) * a;
     }
+    // [v26 mountains] the eye (near plane) never sits inside rock: `eyeGuard` (world/cutaway.js) returns how far
+    // back along the view line it must go (ortho: the picture is the same, nothing gets clipped open)
+    let ed = this.dist;
+    if (this.eyeGuard) { try { ed = Math.max(ed, this.eyeGuard(tx, this.target.y, tz, this.yaw, this.pitch, (rtW * this.wupp) / 2, (rtH * this.wupp) / 2, ed, cam.near) || ed); } catch (err) { this.eyeGuard = null; console.warn('eyeGuard', err); } }
+    this.eyeDist = ed;
+    cam.far = Math.max(260, ed + 150); // [v26 mountains]
     cam.position.set(
-      tx + Math.sin(this.yaw) * cp * this.dist,
-      this.target.y + sp * this.dist,
-      tz + Math.cos(this.yaw) * cp * this.dist,
+      tx + Math.sin(this.yaw) * cp * ed,
+      this.target.y + sp * ed,
+      tz + Math.cos(this.yaw) * cp * ed,
     );
     cam.up.set(0, 1, 0);
     cam.lookAt(tx, this.target.y, tz);

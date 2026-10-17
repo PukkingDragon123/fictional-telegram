@@ -260,10 +260,51 @@ export class Cutaway {
     return false;
   }
 
+  // [v26 mountains] how far back along the view line the camera eye must sit so
+  // that no pixel's ray starts inside rock (the near plane would cut a range open
+  // and show hollow blocks). Ortho: moving the eye back changes nothing else on
+  // screen. Samples a grid of pixel rays over the whole view.
+  eyeGuard(tx, ty, tz, yaw, pitch, hw, hh, d0, near = 1) {
+    const game = this.game;
+    if (!game || game.titleMode || game.overrideScene || game.classroom?.active || game.homes?.active) return d0;
+    // same view as last frame (to a few cm): same answer
+    const key = `${(tx * 8) | 0},${(ty * 8) | 0},${(tz * 8) | 0},${(yaw * 500) | 0},${(pitch * 500) | 0},${(hw * 8) | 0},${(hh * 8) | 0},${d0},${near}`;
+    if (key === this._eyeKey) return this._eyeD;
+    this._eyeKey = key;
+    this._eyeD = this._eyeFind(tx, ty, tz, yaw, pitch, hw, hh, d0, near);
+    return this._eyeD;
+  }
+
+  _eyeFind(tx, ty, tz, yaw, pitch, hw, hh, d0, near) {
+    const cp = Math.cos(pitch), sp = Math.sin(pitch), sy = Math.sin(yaw), cy = Math.cos(yaw);
+    const bx = sy * cp, by = sp, bz = cy * cp; // towards the eye
+    const rx = cy, rz = -sy; // screen right (horizontal)
+    const ux = -sy * sp, uy = cp, uz = -cy * sp; // screen up
+    this._rc = [sy, cy];
+    const NX = 32, NY = 24, M = 3.5; // margin: trees on the ranges too
+    let d = d0;
+    for (let it = 0; it < 200; it++) {
+      const dd = d - near; // the near plane
+      let ok = true;
+      for (let j = 0; j <= NY && ok; j++) {
+        const y = -hh + (2 * hh * j) / NY;
+        for (let i = 0; i <= NX; i++) {
+          const x = -hw + (2 * hw * i) / NX;
+          const ox = tx + rx * x + ux * y + bx * dd, oy = ty + uy * y + by * dd, oz = tz + rz * x + uz * y + bz * dd;
+          if (this.heightAt(ox, oz) > oy - M) { ok = false; break; }
+        }
+      }
+      if (ok) return d;
+      d += 3;
+    }
+    return d;
+  }
+
   update(rig, game, dt = 0.016) {
     const U = CUT_UNIFORMS;
     const W = this.world, g = W.grid;
     if (!rig?.camera) return;
+    if (!rig.eyeGuard) { this.game = game; rig.eyeGuard = this.eyeGuard.bind(this); } // [v26 mountains]
     this.scanT -= dt;
     if (this.scanT <= 0) { this.scanT = 2; try { this.scan(game); } catch (e) { console.warn('cutaway scan', e); this.scanT = 30; } }
     const off = game?.titleMode || game?.overrideScene || game?.classroom?.active || game?.homes?.active;

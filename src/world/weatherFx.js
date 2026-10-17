@@ -832,7 +832,7 @@ export class WeatherFx {
     if (F && game.scene.fog === F) {
       const k = show ? this.fogK : 0;
       if (k > 0.01) {
-        const dist = rig.dist || 110;
+        const dist = rig.eyeDist || rig.dist || 110; // [v26 mountains] (the eye may step back out of the rock)
         F.near = dist - 45 * k;
         F.far = dist + 30 + 160 * (1 - k);
         F.color.copy(FOG_COL).lerp(_c.setRGB(0.12, 0.14, 0.22), night * 0.85);
