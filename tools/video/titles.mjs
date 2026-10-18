@@ -22,10 +22,11 @@ await page.waitForFunction(() => window.__ready === true, null, { timeout: 12000
 await page.evaluate(async () => { await document.fonts.load('80px "TBME Title"'); });
 const n = await page.evaluate(([it, o]) => window.__setTrack(it, o), [items, { w: W, h: H, scale }]);
 fs.mkdirSync(out, { recursive: true });
-for (const f of fs.readdirSync(out)) if (/^t\d+\.png$/.test(f)) fs.unlinkSync(path.join(out, f));
+if (!args.includes('--keep')) for (const f of fs.readdirSync(out)) if (/^t\d+\.png$/.test(f)) fs.unlinkSync(path.join(out, f));
 const idx = [];
 const t0 = Date.now();
-for (let i = 0; i < N; i++) {
+const F0 = +opt('from', 0), F1 = +opt('to', N);
+for (let i = F0; i < Math.min(N, F1); i++) {
   const any = await page.evaluate((t) => window.__at(t), i / fps);
   if (!any) continue;
   await page.screenshot({ path: path.join(out, `t${String(i).padStart(5, '0')}.png`), omitBackground: true });

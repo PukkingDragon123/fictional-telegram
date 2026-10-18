@@ -124,8 +124,8 @@ SHOTS.t2_hatch = {
     c.at(0.55, () => { const n = g.fish.eggs.length; try { g.fish.mate(a, b); } catch (e) { console.warn('[dir] mate', e); } if (g.fish.eggs.length > n) egg = g.fish.eggs[g.fish.eggs.length - 1]; });
     c.at(1.95, () => { if (egg) g.fish.hatchNow(egg); });
     path(c, [
-      { t: 0, x: 67.2, z: 33.25, y: 0, yaw: 0.35, pitch: 64, wupp: 0.0118 },
-      { t: 4.2, x: 67.2, z: 33.05, y: 0, yaw: -0.05, pitch: 60, wupp: 0.0082, ease: 'linear' },
+      { t: 0, x: 67.2, z: 33.25, y: 0, yaw: 0.35, pitch: 64, wupp: 0.0138 },
+      { t: 4.2, x: 67.2, z: 33.05, y: 0, yaw: -0.05, pitch: 60, wupp: 0.0104, ease: 'linear' },
     ]);
   },
 };
@@ -138,12 +138,12 @@ SHOTS.t2_march = {
     quiet(c, { hour: 17.2 });
     stockPond(g, 24);
     clearDecos(g, 56, 14, 90, 70);
-    bearParade(c, { x: 71, z0: 20.4, speed: 1.05, n: 9 });
+    bearParade(c, { x: 71, z0: 25.6, speed: 1.05, n: 9 });
     c.presim(0.3);
     skyCurtain(c);
     const keys = [
-      { t: 0, x: 71, z: 21.3, y: 0.8, yaw: 0.18, pitch: 8, wupp: 0.0135 },
-      { t: 5.4, x: 71, z: 24.6, y: 0.7, yaw: 0.04, pitch: 12, wupp: 0.0162, ease: 'linear' },
+      { t: 0, x: 71, z: 26.8, y: 1.5, yaw: 0.16, pitch: 8, wupp: 0.0138 },
+      { t: 5.4, x: 71, z: 30.4, y: 1.4, yaw: 0.04, pitch: 10, wupp: 0.0158, ease: 'linear' },
     ];
     c.every((t) => skyCam(c, { ...camAt(keys, t), skyD: 5.5 }, [-0.16, 0.36], t));
   },
@@ -189,8 +189,8 @@ SHOTS.t2_rich = {
     for (const t of [0.5, 1.3, 2.1, 2.9]) c.at(t, () => g.particles.coins(69.6, 1.9, 38.9, 12));
     c.at(1.8, () => fox.play('greedy', { fade: 0.15 }));
     path(c, [
-      { t: 0, x: 69.2, z: 37.6, y: 0.6, yaw: -0.3, pitch: 24, wupp: 0.0122 },
-      { t: 4.0, x: 69.55, z: 38.6, y: 0.9, yaw: -0.12, pitch: 20, wupp: 0.0068, ease: 'smooth' },
+      { t: 0, x: 69.3, z: 38.2, y: 0.9, yaw: -0.25, pitch: 14, wupp: 0.0105 },
+      { t: 4.0, x: 69.6, z: 38.9, y: 1.05, yaw: -0.08, pitch: 11, wupp: 0.0062, ease: 'smooth' },
     ]);
   },
 };
@@ -205,10 +205,10 @@ SHOTS.t2_build = {
     clearDecos(g, 56, 36, 84, 56);
     c.presim(1);
     const builds = [
-      [0.15, 'rs_umbrella', 63, 40], [0.35, 'picnic', 66, 40], [0.5, 'lantern', 69, 39], [0.65, 'flag', 72, 39], [0.8, 'rs_bench', 74, 41],
-      [0.95, 'flowers', 62, 42], [1.1, 'picnic', 68, 42], [1.25, 'maple', 60, 41], [1.4, 'rs_campfire', 71, 42], [1.55, 'beehive', 75, 43],
-      [1.7, 'flowers', 65, 43], [1.85, 'willow', 77, 40], [2.0, 'lantern', 64, 44], [2.15, 'rs_icecream', 69, 44], [2.3, 'flowers', 73, 45],
-      [2.45, 'rs_photo', 61, 44], [2.6, 'lantern', 72, 45], [2.75, 'rs_souvenir', 66, 46], [2.9, 'flowers', 70, 46], [3.05, 'maple', 76, 45],
+      [0.15, 'rs_umbrella', 63, 38], [0.3, 'picnic', 66, 39], [0.45, 'lantern', 68, 38], [0.6, 'flag', 71, 38], [0.75, 'rs_bench', 73, 39],
+      [0.9, 'flowers', 62, 40], [1.05, 'picnic', 69, 40], [1.2, 'maple', 60, 39], [1.35, 'rs_campfire', 71, 40], [1.5, 'beehive', 75, 41],
+      [1.65, 'flowers', 64, 41], [1.8, 'willow', 77, 39], [1.95, 'lantern', 65, 42], [2.1, 'rs_icecream', 67, 41], [2.25, 'flowers', 73, 42],
+      [2.4, 'rs_photo', 62, 42], [2.55, 'lantern', 70, 42], [2.7, 'rs_souvenir', 75, 43], [2.85, 'flowers', 68, 43], [3.0, 'maple', 60, 43],
     ];
     for (const [t, type, x, z] of builds) {
       c.at(t, () => {
@@ -222,8 +222,8 @@ SHOTS.t2_build = {
       });
     }
     path(c, [
-      { t: 0, x: 68.5, z: 41.4, y: 0.3, yaw: 0.55, pitch: 24, wupp: 0.0138 },
-      { t: 4.0, x: 68.6, z: 42.0, y: 0.3, yaw: 0.25, pitch: 46, wupp: 0.0205, ease: 'smooth' },
+      { t: 0, x: 68.6, z: 40.2, y: 0.3, yaw: 0.5, pitch: 26, wupp: 0.0132 },
+      { t: 4.0, x: 68.6, z: 40.6, y: 0.3, yaw: 0.2, pitch: 46, wupp: 0.0185, ease: 'smooth' },
     ]);
   },
 };

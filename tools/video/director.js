@@ -28,7 +28,7 @@ export const D2R = Math.PI / 180;
 // ------------------------------------------------------------------ CSS: hide the game UI, keep the bubbles
 const CSS = `
 body.vid-noui #ui > *:not(.bb-layer):not(.vid-keep),
-body.vid-noui > *:not(#game):not(#ui):not(#vid-ov):not(.vid-keep):not(.bt-black):not(.bt-iris) { opacity: 0 !important; visibility: hidden !important; }
+body.vid-noui > *:not(#game):not(#ui):not(#vid-ov):not(.vid-keep):not(.bt-black):not(.bt-iris) { opacity: 0 !important; visibility: hidden !important; transition: none !important; animation: none !important; }
 body.vid-noui .vid-keep { opacity: 1 !important; visibility: visible !important; }
 body.vid-nocursor * { cursor: none !important; }
 #vid-ov { position: fixed; inset: 0; pointer-events: none; z-index: 2147483000; overflow: hidden; }

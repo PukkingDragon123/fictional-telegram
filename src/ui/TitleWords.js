@@ -592,7 +592,8 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     else if (b.mode === 'land') { seatPos(b, _v); landK = clamp01(1 - (_v.distanceTo(b.pos) - 0.5) / 5); }
     b.land = lerp(b.land, landK, Math.min(1, dt * 7));
     if (b.land > 0.01 && b.L) {
-      _ay.set(b.dir, 0, 0); _az.set(0, 1, 0); _ax.set(0, 0, b.dir);
+      // side-on on the letter top, its back tipped towards us so open wings still show
+      _ay.set(b.dir, 0, 0); _az.set(0, Math.cos(0.75), Math.sin(0.75)); _ax.crossVectors(_ay, _az);
       _mb.makeBasis(_ax, _ay, _az);
       _qLand.setFromRotationMatrix(_mb).premultiply(b.L.group.quaternion);
       b.q.slerpQuaternions(_qFly, _qLand, b.land);
@@ -942,6 +943,13 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     paused: false, // tests: freeze the clock (still renders)
     /** tests: run the clock forward `sec` seconds in 1/30 s steps (slow headless GPUs) */
     advance(sec) { for (let i = Math.ceil(sec * 30); i > 0 && !dead; i--) if (!step(1 / 30)) return; if (!dead) render(); },
+    /** tests: css px of the bear's face on screen (null when it's not up) */
+    bearScreen() {
+      if (!bear?.busy) return null;
+      bear.rig.mawPos(_v2); _v2.y += 5; _v2.project(cam);
+      const R = cv.getBoundingClientRect();
+      return { x: R.left + (_v2.x + 1) / 2 * R.width, y: R.top + (1 - _v2.y) / 2 * R.height };
+    },
     /** tests: css px centre of letter i on screen */
     letterScreen(i) {
       const L = letters[i];

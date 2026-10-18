@@ -101,7 +101,7 @@ export class WordBear {
     c.face = P.face;
   }
 
-  get debug() { const G = this.G; return G ? { kind: G.kind, t: +G.t.toFixed(2), letter: G.L?.d.ch, type: this.type } : { type: this.type }; }
+  get debug() { const G = this.G; return G ? { kind: G.kind, t: +G.t.toFixed(2), letter: G.L?.d.ch, type: this.type, bonked: G.bonked != null } : { type: this.type }; }
 
   /** start a bite: { kind: 'chomp' | 'nibble' | 'gulp' | 'miss', L } */
   start({ kind = 'chomp', L = null } = {}) {
@@ -120,7 +120,9 @@ export class WordBear {
       L = pool[(Math.random() * pool.length) | 0];
     }
     const d = L.d;
-    const side = (d.bx > 0 ? -1 : 1) * (Math.random() < 0.75 ? 1 : -1); // the bear leans in from the inner side mostly
+    // the bear leans in from the inner side (always for a line's first / last letter: it hides behind the others)
+    const line = h.letters.filter((x) => x.d.line === d.line), edge = L === line[0] || L === line[line.length - 1];
+    const side = (d.bx > 0 ? -1 : 1) * (edge || Math.random() < 0.75 ? 1 : -1);
     const G = {
       kind, L, bug, t: 0, side, burp: Math.random() < (kind === 'gulp' ? 0.85 : kind === 'chomp' ? 0.45 : 0.15),
       grumpBite: kind === 'miss' && Math.random() < 0.55, bitten: false, cues: new Set(),
