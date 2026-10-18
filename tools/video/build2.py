@@ -266,6 +266,24 @@ def mix_audio(E, TL, total, wav):
     mix.astype(np.float32).tofile(wav)
 
 
+LOUD = 'I=-14:TP=-1.5:LRA=11'
+
+
+def mux(vid, wav, ss, out):
+    """Masters the f32 mix to -14 LUFS with two-pass loudnorm (measure, then a linear gain, so the
+    level lands on target instead of drifting like the one-pass dynamic mode) and muxes it as AAC."""
+    src = ['-ss', str(ss), '-f', 'f32le', '-ar', str(SR), '-ac', '2', '-i', wav]
+    r = subprocess.run([FF, '-hide_banner', '-nostats'] + src + ['-af', 'loudnorm=%s:print_format=json' % LOUD, '-f', 'null', '-'], capture_output=True, text=True, check=True)
+    js = r.stderr[r.stderr.rindex('{'):r.stderr.rindex('}') + 1]
+    m = json.loads(js)
+    ln = ('loudnorm=%s:measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s:linear=true'
+          % (LOUD, m['input_i'], m['input_tp'], m['input_lra'], m['input_thresh'], m['target_offset']))
+    print('  loudness in %s LUFS (tp %s) -> -14' % (m['input_i'], m['input_tp']), flush=True)
+    subprocess.run([FF, '-v', 'error', '-y', '-i', vid] + src +
+                   ['-map', '0:v:0', '-map', '1:a:0', '-af', ln + ',aresample=192000,lowpass=f=17000,alimiter=limit=0.84:level=false:attack=3:release=60,aresample=%d' % SR,  # limit at 192 kHz: catches inter-sample peaks
+                    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-shortest', out], check=True)
+
+
 def main():
     E = json.load(open(sys.argv[1]))
     preview = '--preview' in sys.argv
@@ -279,6 +297,15 @@ def main():
     for s in E['shots']:
         print('  %-14s at %6.2f  len %5.2f  %s' % (s['id'], s['at'], s['len'], (s.get('tin') or {}).get('type', '')))
     tmp = tempfile.mkdtemp(prefix='tbme_b2_')
+    if '--remux' in sys.argv:  # audio only: remix + re-master the sound under the existing picture
+        vid = os.path.join(tmp, 'video.mp4')
+        subprocess.run([FF, '-v', 'error', '-y', '-i', out, '-map', '0:v:0', '-c', 'copy', vid], check=True)
+        wav = os.path.join(tmp, 'mix.f32')
+        mix_audio(E, TL, total, wav)
+        mux(vid, wav, 0.0, out)
+        shutil.rmtree(tmp, ignore_errors=True)
+        print('remuxed %s  (%.1f MB)' % (out, os.path.getsize(out) / 1e6))
+        return
     # overlay track
     titles_dir = os.path.join(tmp, 'titles')
     title_idx = set()
@@ -315,10 +342,7 @@ def main():
         log = os.path.join(tmp, 'x264')
         subprocess.run(base + ['-b:v', '%dk' % kbps, '-pass', '1', '-passlogfile', log, '-an', '-f', 'mp4', os.devnull], check=True)
         subprocess.run(base + ['-b:v', '%dk' % kbps, '-maxrate', '%dk' % int(kbps * 1.8), '-bufsize', '%dk' % int(kbps * 2), '-pass', '2', '-passlogfile', log, vid], check=True)
-    ss = k0 / fps
-    subprocess.run([FF, '-v', 'error', '-y', '-i', vid, '-ss', str(ss), '-f', 'f32le', '-ar', str(SR), '-ac', '2', '-i', wav,
-                    '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11,aresample=%d,alimiter=limit=0.8:level=false:attack=3:release=60' % SR,
-                    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-shortest', out], check=True)
+    mux(vid, wav, k0 / fps, out)
     shutil.rmtree(tmp, ignore_errors=True)
     print('wrote %s  (%.1f MB, %.2f s)' % (out, os.path.getsize(out) / 1e6, (k1 - k0) / fps))
 

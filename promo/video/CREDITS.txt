@@ -12,7 +12,8 @@ checked on each sound page before download.
 
 Picture: 100% real in-game footage of The Bear Must Eat (its own renderer, rigs, speech
 bubbles, fonts), captured frame by frame with tools/video/ (render.mjs + director.js +
-shots_promo.js / shots_trailer.js) and cut with tools/video/build.py.
+shots_promo.js / shots_trailer.js / shots_trailer2.js / shots_reel.js) and cut with
+tools/video/build.py (promo, trailer v1) and tools/video/build2.py (trailer v2, reel).
 
 Game sound effects and the villagers' "voices" (babble): the game's own procedural synth
 (src/audio/audio.js), rendered offline from the logged in-game events (tools/video/sfx.mjs).
@@ -32,7 +33,7 @@ Trailer (v2):
   Licensed under Creative Commons: By Attribution 4.0 License
   http://creativecommons.org/licenses/by/4.0/
   Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Call%20to%20Adventure.mp3
-  (used: 2:42.5-3:17.0 and 3:28.4-end, one phrase-aligned edit)
+  (used: 2:42.5-3:17.0 and 3:28.4-4:04, one phrase-aligned edit)
 
 Reel:
   "Pixel Peeker Polka - faster" Kevin MacLeod (incompetech.com)
@@ -69,24 +70,39 @@ SOUND EFFECTS (all CC0 1.0 public domain - no attribution required, listed for t
   crowd_gasp      (promo)  "small crowd gasp shock surprise by HowardV"
                   https://freesound.org/people/HowardV/sounds/264376/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
                   file used: https://cdn.freesound.org/previews/264/264376_1654262-hq.mp3 (freesound HQ preview)
-  dramatic_boom   (promo, trailer)  "Drama Boom 02 by modusmogulus"
+  ding            (reel)  Kenney "Interface Sounds" pack, glass_002.ogg
+                  https://kenney.nl/assets/interface-sounds  - CC0 1.0 (License.txt in the pack: "Creative Commons Zero, CC0")
+  dramatic_boom   (promo, reel, trailer, trailer v1)  "Drama Boom 02 by modusmogulus"
                   https://freesound.org/people/modusmogulus/sounds/802074/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
                   file used: https://cdn.freesound.org/previews/802/802074_15956618-hq.mp3 (freesound HQ preview)
-  lake_morning    (trailer)  "Calm lakeside on the morning by xkeril"
+  lake_morning    (trailer, trailer v1)  "Calm lakeside on the morning by xkeril"
                   https://freesound.org/people/xkeril/sounds/700637/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
                   file used: https://cdn.freesound.org/previews/700/700637_13504080-hq.mp3 (freesound HQ preview)
-  morning_birds   (trailer)  "MidwestForestSummerMorningMay2018.WAV by kvgarlic"
+  morning_birds   (trailer, trailer v1)  "MidwestForestSummerMorningMay2018.WAV by kvgarlic"
                   https://freesound.org/people/kvgarlic/sounds/427769/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
                   file used: https://cdn.freesound.org/previews/427/427769_1050391-hq.mp3 (freesound HQ preview)
+  pop             (reel)  Kenney "Interface Sounds" pack, drop_002.ogg
+                  https://kenney.nl/assets/interface-sounds  - CC0 1.0 (License.txt in the pack: "Creative Commons Zero, CC0")
+  record_scratch  (reel)  "Dj turntable Scratch sound by Boatlanman-"
+                  https://freesound.org/people/Boatlanman-/sounds/762848/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/762/762848_16161631-hq.mp3 (freesound HQ preview)
+  riser_hit       (trailer)  "Riser Hit sfx 119 by AudioPapkin"
+                  https://freesound.org/people/AudioPapkin/sounds/822419/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/822/822419_8698658-hq.mp3 (freesound HQ preview)
   sad_trombone    (promo)  "wah wah sad trombone.wav by kirbydx"
                   https://freesound.org/people/kirbydx/sounds/175409/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
                   file used: https://cdn.freesound.org/previews/175/175409_1326576-hq.mp3 (freesound HQ preview)
   slide_whistle   (promo)  "FX swanee whistle up.wav by v0idation"
                   https://freesound.org/people/v0idation/sounds/497092/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
                   file used: https://cdn.freesound.org/previews/497/497092_942821-hq.mp3 (freesound HQ preview)
-  swish           (promo)  "Swish Single 4 by deleted_user_6479820"
+  swish           (promo, reel, trailer)  "Swish Single 4 by deleted_user_6479820"
                   https://freesound.org/people/deleted_user_6479820/sounds/393811/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
                   file used: https://cdn.freesound.org/previews/393/393811_6479820-hq.mp3 (freesound HQ preview)
+  ui_whoosh       (reel)  Kenney "Interface Sounds" pack, maximize_006.ogg
+                  https://kenney.nl/assets/interface-sounds  - CC0 1.0 (License.txt in the pack: "Creative Commons Zero, CC0")
+  whoosh          (trailer)  "Sound Design Elements Whoosh SFX 031 by AudioPapkin"
+                  https://freesound.org/people/AudioPapkin/sounds/812666/  - CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+                  file used: https://cdn.freesound.org/previews/812/812666_8698658-hq.mp3 (freesound HQ preview)
 
 Why not myinstants.com: most clips there are unlicensed rips of TV shows, films and songs
 (no license is given for them), which can get an uploaded trailer muted or taken down. The
