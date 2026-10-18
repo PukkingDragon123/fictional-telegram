@@ -1,0 +1,27 @@
+/* [v27 knobs] pixel sliders (pxSlider.js). The art is a canvas at whole device pixels;
+   the hidden original input stays in the DOM as the source of truth. */
+.pxs {
+  position: relative; display: inline-block; vertical-align: middle; flex: 0 0 auto;
+  width: var(--pxs-w, 220px); min-width: 80px; min-height: 44px; line-height: 0;
+  cursor: pointer; outline: none; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+}
+.pxs canvas { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; pointer-events: none; }
+.pxs.is-grab { cursor: grabbing !important; }
+.pxs:focus-visible { outline: 2px dashed #ffd84a; outline-offset: 3px; }
+.pxs.is-pfocus:focus-visible { outline: none; }
+.pxs.is-off { cursor: not-allowed; filter: grayscale(.9); opacity: .6; }
+/* the value tag pops above the knob while dragging (it lives in <body>: never clipped) */
+canvas.pxs-tag {
+  position: fixed; z-index: 100000; display: block; pointer-events: none; image-rendering: pixelated;
+  opacity: 0; transform: translateY(4px) scale(.5); transform-origin: 50% 100%; transition: opacity .1s, transform .12s;
+}
+canvas.pxs-tag.is-on { opacity: 1; transform: none; transition: opacity .08s, transform .18s cubic-bezier(.3, 1.8, .5, 1); }
+input.pxs-src.pxs-src {
+  position: absolute !important; width: 1px !important; height: 1px !important; margin: 0 !important; padding: 0 !important;
+  opacity: 0 !important; pointer-events: none !important; clip-path: inset(50%); overflow: hidden;
+}
+/* the in-game menu card (UI.showMenu, paper book): fill the value column */
+.pp-body .kv .pxs { --pxs-w: 100%; display: block; }
+.pp-body .kv > b:has(.pxs) { position: relative; }
+@media (prefers-reduced-motion: reduce) { canvas.pxs-tag { transition: none; } }

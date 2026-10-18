@@ -106,6 +106,7 @@
 
 /* [v27 title] the title as floating voxel words (TitleWords.js): the sign is only their layout box now,
    the words live in a pixelated canvas (.tmw-gl) under the signpost; the board stays as the no-WebGL fallback */
+.tm.tm--words { --top: max(40px, 9vh); } /* head room for the bear */
 .tm--words .tm-sign { animation: none; pointer-events: none; }
 .tm--words .tm-rope, .tm--words .tm-logo > canvas { display: none; }
 .tm--words .tm-logo { filter: none; }

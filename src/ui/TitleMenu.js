@@ -6,6 +6,8 @@
 // tag nailed to the post. A pointing paw follows the plank you're on.
 // Everything is pixel art painted on canvases (labels straight from the TBME
 // Goofy bitmap glyphs: crisp, no font loading, there on the first frame).
+// [v27 title] The logo is now the title as floating voxel words with butterflies and a
+// hungry bear (TitleWords.js); the hanging board stays as the no-WebGL fallback.
 //
 //   const m = showTitleMenu(root, {
 //     onStart({ slot, mode }),      // mode 'continue' | 'new' (after the exit animation, ~0.35 s)

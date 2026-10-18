@@ -1,6 +1,7 @@
 /* [v27 knobs] chunky YES / NO planks (ynButtons.js). The art is two canvases at whole
    device pixels: .yn-up (resting) and .yn-dn (pressed, the face sunk into its lip). */
-button.yn.yn {
+/* :not(#yn) lifts these over older per-screen button styles (.tut-choice button, .tbx-yn button:hover...) */
+button.yn.yn:not(#yn) {
   position: relative; display: inline-block; flex: 0 0 auto; padding: 0; margin: 0; border: 0; border-radius: 0;
   background: none; box-shadow: none; outline: none; color: inherit; font: inherit; line-height: 0; letter-spacing: 0;
   text-shadow: none; filter: none; min-width: 0; min-height: 0; width: auto; height: auto; transform: none; rotate: none;
@@ -19,18 +20,19 @@ button.yn.yn {
   button.yn.yn:not([disabled]):hover .yn-art { translate: 0 calc(var(--yn-t, 2px) * -1); animation: yn-wob .45s ease-in-out; }
 }
 button.yn.yn.is-down .yn-art, button.yn.yn:active .yn-art { translate: none; animation: none; }
-button.yn.yn:focus-visible { outline: var(--yn-t, 2px) dashed #ffd84a; outline-offset: calc(var(--yn-t, 2px) * 2); }
-button.yn.yn[disabled] { cursor: not-allowed; filter: grayscale(.9) brightness(.92); opacity: .75; }
+button.yn.yn:not(#yn):focus-visible { outline: var(--yn-t, 2px) dashed #ffd84a; outline-offset: calc(var(--yn-t, 2px) * 2); }
+button.yn.yn:not(#yn)[disabled] { cursor: not-allowed; filter: grayscale(.9) brightness(.92); opacity: .75; }
 .yn-row { display: flex; flex-wrap: nowrap; align-items: flex-end; justify-content: center; gap: 16px; }
 /* the tutorial / lesson question: a full-width centered row (no half-pixel translate) */
 .tut-choice.yn-row { left: 0; right: 0; transform: none; animation: none; gap: 20px; pointer-events: none; padding: 0 12px; }
 .tut-choice.yn-row > .yn { pointer-events: auto; }
+@media (max-height: 500px) { .tut-choice.yn-row { bottom: max(18%, 104px); } } /* above the phone toolbar */
 .tut-choice.yn-row.bye { opacity: 0; transform: translateY(10px); transition: opacity .22s, transform .22s; }
 .tut-choice.yn-row.bye .yn { pointer-events: none; }
 @keyframes yn-in { from { opacity: 0; transform: translateY(16px) scale(.6); } }
 @keyframes yn-wob { 0% { rotate: 0deg; } 30% { rotate: -2.5deg; } 65% { rotate: 1.5deg; } 100% { rotate: 0deg; } }
 @media (prefers-reduced-motion: reduce) {
-  button.yn.yn, button.yn.yn:hover .yn-art { animation: none; }
+  button.yn.yn:not(#yn), button.yn.yn:hover .yn-art { animation: none; }
 }
 /* ---------- the "Are you sure?" card (UI.confirmBox) */
 .cf-card { display: flex; align-items: center; gap: 22px; margin: 2px 2px 18px; }
@@ -47,7 +49,7 @@ button.yn.yn[disabled] { cursor: not-allowed; filter: grayscale(.9) brightness(.
 .cf-say { min-width: 0; }
 .cf-say h2 { margin: 0 0 8px; font-family: var(--font-title); font-size: 30px; line-height: 1; font-weight: 400; color: #a0361e; text-align: left; text-shadow: 0 2px 0 rgba(255, 255, 255, .5); }
 .cf-say p { margin: 0; font-size: 19px; line-height: 1.3; text-align: left; color: #3b2414; }
-.cf-btns.cf-btns { margin-top: 4px; gap: 18px; }
+.cf-btns.cf-btns { margin-top: 4px; gap: 16px; }
 @keyframes cf-drip { 0%, 55% { transform: translateY(0); opacity: 1; } 85% { transform: translateY(16px); opacity: 1; } 100% { transform: translateY(22px); opacity: 0; } }
 @media (max-width: 600px), (max-height: 430px) {
   .cf-card { gap: 14px; margin-bottom: 12px; }

@@ -19,6 +19,7 @@ import { Classroom, LESSONS as CLASS_BOOK } from '../Classroom.js';
 import { LESSONS, LESSON_BY_ID, DAY1_CLASSES } from '../lessons/progressive.js';
 import { CLASS_ORDER } from '../lessons/classes.js';
 import '../../ui/lessons.css';
+import { ynPair } from '../../ui/ynButtons.js'; // [v27 knobs] painted YES / NO planks
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const CORE = ['l_price', 'l_tips', 'l_stars', 'l_mutant', 'l_select', 'l_sections'];
@@ -201,6 +202,7 @@ class Lessons {
       el.querySelector('.no').addEventListener('click', (e) => { e.stopPropagation(); done(false); });
       this._choiceRes = done;
       document.body.appendChild(el);
+      try { ynPair(el.querySelector('.yes'), el.querySelector('.no'), { keys: true }); } catch (e) { console.warn('yn', e); } // [v27 knobs]
       this.game.audio?.play?.('page', { volume: 0.4 });
     });
   }

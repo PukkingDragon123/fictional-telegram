@@ -125,8 +125,6 @@ SHOTS.sunrise = {
     Object.assign(glow.style, { position: 'absolute', inset: '0', background: 'radial-gradient(circle at 50% 50%, #fff6d8 0%, #ffd890 35%, rgba(255,200,120,0) 70%)', opacity: 0 });
     c.ov.root.appendChild(glow);
     c.ov.fn((t) => { glow.style.opacity = smooth((t - 13.1) / 1.3).toFixed(3); });
-    c.ov.text('In a quiet valley...', { t0: 1.2, t1: 4.6, x: 0.5, y: 0.8, size: 41.67, anim: 'fade', outDur: 0.8, color: '#fff3dc', outlineColor: '#2a1630' });
-    c.ov.text('...lives a fox with a plan.', { t0: 6.2, t1: 9.4, x: 0.5, y: 0.8, size: 41.67, anim: 'fade', outDur: 0.8, color: '#fff3dc', outlineColor: '#2a1630' });
     c.sfx('lake_morning', { vol: 1 });
     c.sfx('morning_birds', { vol: 0.8 });
   },
@@ -346,7 +344,7 @@ SHOTS.m_winter = {
 
 // i. a feast event: Karen wants the manager (one line)
 SHOTS.m_karen = {
-  dur: 9.5,
+  dur: 10.6,
   async setup(c) {
     await (await import('./shots_promo.js')).SHOTS.karen.setup(c);
     letterbox(c);

@@ -11,6 +11,7 @@
 //   tbx.close();
 import { SLOTS, slotInfo, deleteSlot, boxItems } from '../game/saveSlots.js';
 import { createBoxStage } from './BoxStage3D.js';
+import { ynPair } from './ynButtons.js'; // [v27 knobs] painted YES / NO planks
 import { INK, FONTS, cv, scaleEl, text, measure, wood, arrowPlank, board, paintBox, coinIcon, BOX_W, BOX_H } from './titleArt.js';
 
 const fmt = (n) => Math.floor(n).toLocaleString('en-US');
@@ -174,6 +175,7 @@ export function openSaveBoxes(root, { sfx, onPick, onBack } = {}) {
     play('paper');
     slot.tag.querySelector('.tbx-no').onclick = (e) => { e.stopPropagation(); play('click'); slot.el.classList.remove('is-asking'); slot.tag.innerHTML = tagHTML(slot.info); };
     slot.tag.querySelector('.tbx-yes').onclick = (e) => { e.stopPropagation(); tossIt(slot); };
+    try { ynPair(slot.tag.querySelector('.tbx-yes'), slot.tag.querySelector('.tbx-no'), { size: 's', keys: true, enter: false, esc: false, fit: false }); } catch (err) { console.warn('yn', err); } // [v27 knobs] Y / N keys
     slot.tag.querySelector('.tbx-no').focus({ preventScroll: true });
   };
   function tossIt(slot) {

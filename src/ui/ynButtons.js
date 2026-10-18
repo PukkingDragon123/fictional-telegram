@@ -104,8 +104,8 @@ const CROSS_S = [
 
 const KINDS = {
   yes: {
-    wood: { base: [88, 162, 70], dark: [62, 126, 52], light: [130, 202, 98] },
-    lip: '#3c7c30', lipD: '#2a5c22', line: 'rgba(24,60,18,.38)',
+    wood: { base: [104, 184, 72], dark: [74, 144, 56], light: [150, 218, 102] },
+    lip: '#3e8430', lipD: '#2a5e20', line: 'rgba(24,64,16,.36)',
     fill: '#fff8e2', shade: '#e2f4c4', mark: '#3c9a30', markD: '#1f5e1a', glyph: { l: CHECK_L, s: CHECK_S },
   },
   no: {
@@ -116,12 +116,14 @@ const KINDS = {
 };
 // t: CSS px per texel (default); padY/padX/gap in texels; thick = the lip under the face
 const SIZES = {
-  l: { font: FONTS.hi, badge: BADGE_L, g: 'l', t: 2, padX: 5, padY: 2, gap: 3, thick: 3, shadow: 2 },
+  l: { font: FONTS.hi, badge: BADGE_L, g: 'l', t: 2, padX: 4, padY: 2, gap: 3, thick: 3, shadow: 2 },
   m: { font: FONTS.big, badge: BADGE_S, g: 's', t: 3, padX: 4, padY: 3, gap: 3, thick: 2, shadow: 2 },
   s: { font: FONTS.big, badge: BADGE_S, g: 's', t: 2, padX: 3, padY: 2, gap: 2, thick: 2, shadow: 1 },
 };
 const BADGE_PAL = { '#': INK, h: '#ffffff', c: '#fbf3dc', d: '#dcc89c' };
 
+// short screens (phone landscape): a size smaller, the planks must not eat the view
+const baseTexel = (S) => (typeof window !== 'undefined' && window.innerHeight < 500 ? S.t * 0.75 : S.t);
 function seedOf(s) { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) % 997; return h; }
 
 /** paint one plank frame into a texel canvas. down: the pressed frame */
@@ -211,7 +213,8 @@ export function ynButton(btn, kind = 'yes', { label, size = 'l', texel } = {}) {
   const txt = String(label ?? btn.dataset.ynLabel ?? btn.textContent ?? '').replace(/\s+/g, ' ').trim() || (kind === 'yes' ? 'Yes' : 'No');
   btn.dataset.ynLabel = txt;
   const S = SIZES[size] || SIZES.l;
-  btn._yn = { kind: kind === 'no' ? 'no' : 'yes', txt, size, t: texelPx(texel ?? S.t), base: texel ?? S.t };
+  const t0 = texel ?? baseTexel(S);
+  btn._yn = { kind: kind === 'no' ? 'no' : 'yes', txt, size, t: texelPx(t0), base: t0 };
   btn.classList.add('yn', `yn--${btn._yn.kind}`);
   btn.classList.remove('btn', 'red', 'green', 'gold');
   if (btn.tagName === 'BUTTON') btn.type = 'button';
@@ -272,7 +275,7 @@ export function ynPair(yes, no, { size = 'l', texel, keys = false, enter = true,
   }
   if (fit && yes && no) {
     const S = SIZES[size] || SIZES.l;
-    const t0 = texel ?? S.t;
+    const t0 = texel ?? baseTexel(S);
     const cands = [...new Set([t0, t0 * 0.75, t0 * 0.5].map((t) => texelPx(t)))].sort((a, b) => b - a);
     const doFit = () => {
       const row = yes.parentElement;

@@ -14,6 +14,7 @@ import { PAINT } from '../world/world.js';
 import { buildPaintAtlas } from '../art/paintArt.js';
 import { buildTerrainAtlas } from '../art/terrainArt.js';
 import '../ui/terraform.css';
+import { ynPair } from '../ui/ynButtons.js'; // [v27 knobs] painted YES / NO planks
 
 export const STEP = 0.25; // one terrace step
 export const MAX_H = 2.5; // tallest hill
@@ -471,6 +472,7 @@ export class Terraform {
         <div class="tf-card-btns"><button class="tf-btn no">Cancel</button><button class="tf-btn ok">Name it!</button></div>
       </div>`;
     (game.ui?.root || document.body).appendChild(wrap);
+    try { ynPair(wrap.querySelector('.tf-btn.ok'), wrap.querySelector('.tf-btn.no'), { size: 'm' }); } catch (e) { console.warn('yn', e); } // [v27 knobs]
     const input = wrap.querySelector('.tf-input');
     const close = () => { wrap.classList.add('out'); setTimeout(() => wrap.remove(), 200); };
     const ok = () => {

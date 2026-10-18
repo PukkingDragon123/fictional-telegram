@@ -166,3 +166,10 @@
 @keyframes stg-stamp { 0% { transform: scale(1.35) rotate(-6deg); } 100% { transform: rotate(-2deg); } }
 @keyframes stg-shake { 0% { translate: -2px 0; } 100% { translate: 2px 0; } }
 @keyframes stg-note { from { transform: translateY(14px) rotate(-6deg); opacity: 0; } }
+/* [v27 knobs] pixel sliders (pxSlider.js) on the sheet: wider rail, the % plate next to it.
+   The sheet hangs level: a tilt resamples every pixel-art canvas on it (soft edges on iPad). */
+.stg-sheet { rotate: none; }
+.stg-ctl .pxs { --pxs-w: min(340px, 33vw); }
+.stg-ctl:has(.pxs) { gap: 8px; }
+.stg-ctl:has(.pxs) .stg-val { min-width: 3em; font-size: 20px; }
+@media (max-width: 720px) { .stg-ctl .pxs { --pxs-w: min(260px, 56vw); } }

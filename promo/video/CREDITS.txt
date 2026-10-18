@@ -5,6 +5,9 @@ Files
   the-bear-must-eat-promo.mp4     promo: the villagers explain the game in their own speech bubbles
   the-bear-must-eat-trailer.mp4   trailer: sunrise, Reynard wakes up, a short montage, title
 
+Kenney packs (CC0): impact-sounds, rpg-audio (kenney.nl). freesound.org clips: CC0 only, license
+checked on each sound page before download.
+
 Picture: 100% real in-game footage of The Bear Must Eat (its own renderer, rigs, speech
 bubbles, fonts), captured frame by frame with tools/video/ (render.mjs + director.js +
 shots_promo.js / shots_trailer.js) and cut with tools/video/build.py.

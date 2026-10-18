@@ -39,10 +39,11 @@ const LH = 17; // line box in voxels (the font's caps hop; a few glyphs hang one
 const GAP = 3; // between the lines
 const SPACE = 6;
 const CAM_D = 150; // camera distance (voxel units); 1 voxel = V css px on the z = 0 plane
+const LINE1_Z = -14; // the first line floats further back (the bear can come up between the lines)
 // line palettes: like the old board's text (gold over orange, then orange over deep orange)
 const PAL = [
-  { hi: '#fff4c6', top: '#ffe08a', low: '#ffb84a', bot: '#f0922e', side: '#d0702c', bite: '#b8541e' },
-  { hi: '#ffe4ae', top: '#ffc070', low: '#ff8a3a', bot: '#e4662a', side: '#c0522a', bite: '#a0401a' },
+  { hi: '#fff4c6', top: '#ffe08a', low: '#ffb84a', bot: '#f0922e', side: '#d0702c', core: '#fff6d8', bite: '#e8a050' },
+  { hi: '#ffe4ae', top: '#ffc070', low: '#ff8a3a', bot: '#e4662a', side: '#c0522a', core: '#ffecc8', bite: '#e88a48' },
 ];
 
 /** voxel size etc. for the current screen: P device px per art pixel (whole), V css px per voxel (2 art px) */
@@ -101,6 +102,9 @@ function wordsData() {
       L.hw = (L.maxU - L.minU + 1) / 2; // half width
       L.hh = L.maxY - L.minY + 1; // height
       L.lineBase = base;
+      // the lines float at different depths ("THE BEAR" behind "MUST EAT"), sized to look the same
+      L.z = li === 0 ? LINE1_Z : 0;
+      L.k = (CAM_D - L.z) / CAM_D;
       list.push(L);
     }
   });
@@ -113,9 +117,11 @@ const VERT = 'varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_
 const FRAG = /* glsl */ `
 #include <packing>
 uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 size; uniform vec3 ink; uniform vec4 shade;
-uniform float cNear; uniform float cFar; uniform float crease;
+uniform float cNear; uniform float cFar; uniform float crease; uniform vec4 glow;
 varying vec2 vUv;
 float A(vec2 o) { return texture2D(tColor, vUv + o).a; }
+float b2(vec2 q) { return mod(2.0 * q.x + 3.0 * q.y, 4.0); }
+float bayer4(vec2 p) { vec2 f = floor(p); return (4.0 * b2(mod(f, 2.0)) + b2(mod(floor(f * 0.5), 2.0)) + 0.5) / 16.0; }
 float Z(vec2 o) { return -perspectiveDepthToViewZ(texture2D(tDepth, vUv + o).x, cNear, cFar); }
 void main() {
   vec2 px = 1.0 / size;
@@ -127,7 +133,18 @@ void main() {
       // drop shadow down-right: the outlined shape, 2 px over and 2 px down
       vec2 o = vec2(-2.0 * px.x, 2.0 * px.y);
       float s = max(max(A(o), max(A(o + vec2(px.x, 0.0)), A(o - vec2(px.x, 0.0)))), max(A(o + vec2(0.0, px.y)), A(o - vec2(0.0, px.y))));
-      gl_FragColor = s > 0.5 ? shade : vec4(0.0);
+      if (s > 0.5) gl_FragColor = shade;
+      else {
+        // a warm, dithered halo so the words read over the busy pond
+        float g = 0.0;
+        for (int i = 0; i < 8; i++) {
+          float a = float(i) * 0.7853982;
+          vec2 d = vec2(cos(a), sin(a)) * px;
+          g += A(d * 3.0) + A(d * 5.5) * 0.7;
+        }
+        g /= 13.6;
+        gl_FragColor = g * glow.a > bayer4(gl_FragCoord.xy) ? vec4(glow.rgb, 0.34) : vec4(0.0);
+      }
     }
   } else {
     float z = Z(vec2(0.0));
@@ -236,7 +253,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     uniforms: {
       tColor: { value: rt.texture }, tDepth: { value: rt.depthTexture }, size: { value: new THREE.Vector2(4, 4) },
       ink: { value: new THREE.Color('#1e0c10') }, shade: { value: new THREE.Vector4(0.03, 0.006, 0.025, 0.42) },
-      cNear: { value: cam.near }, cFar: { value: cam.far }, crease: { value: 2.0 },
+      cNear: { value: cam.near }, cFar: { value: cam.far }, crease: { value: 2.0 }, glow: { value: new THREE.Vector4(1, 0.82, 0.5, 1.7) },
     },
   });
   const tri = new THREE.BufferGeometry();
@@ -288,6 +305,15 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
   // ---------------------------------------------------------------- letters
   const boxGeo = shadedBox();
   const letterMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // a shine that sweeps across the words now and then (a crisp diagonal band on the front faces)
+  const shineU = { value: 1e4 };
+  letterMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uShine = shineU;
+    sh.vertexShader = 'varying float vSx;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vSx = mvPosition.x + mvPosition.y * 0.6;');
+    sh.fragmentShader = 'uniform float uShine;\nvarying float vSx;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
+      'float shk = step(abs(vSx - uShine), 1.3) + 0.5 * step(abs(vSx - uShine + 3.2), 0.6);\n  outgoingLight = mix(outgoingLight, vec3(1.0, 0.97, 0.86), min(1.0, shk) * 0.62 * step(0.6, normal.z));\n#include <opaque_fragment>');
+  };
+  letterMat.customProgramCacheKey = () => 'tmw-shine';
   const _m = new THREE.Matrix4(), _c = new THREE.Color(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion();
   const letters = D.list.map((d, i) => {
     const n = d.vox.length;
@@ -307,7 +333,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
       delay: 0.12 + i * 0.075, dir: i % 2 ? 1 : -1, tilt: rand(-0.06, 0.06), ph: rand(0, TAU),
       hy: 0, hv: 0, sq: 0, sqv: 0, tw: 0, twv: 0, rz: 0, taps: 0, tapT: 0, missing: 0, regrowAt: 0, regrowing: false,
       eatK: 0, eatTo: new THREE.Vector3(), gone: false, leaveT: -1,
-      box: new THREE.Box3(new THREE.Vector3(-d.hw - 1, -1, -3), new THREE.Vector3(d.hw + 1, d.hh + 1, 1)),
+      box: new THREE.Box3(new THREE.Vector3(-d.hw - 1, -1, -4), new THREE.Vector3(d.hw + 1, d.hh + 1, 1)),
     };
     for (let j = 0; j < n; j++) writeVoxel(L, j, 1);
     return L;
@@ -316,7 +342,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     const x = L.d.lx[j], y = L.d.ly[j], n = L.n;
     _m.makeScale(s, s, s); _m.elements[12] = x; _m.elements[13] = y; _m.elements[14] = 0;
     L.mesh.setMatrixAt(j, _m);
-    _m.makeScale(s, s, s * 2); _m.elements[12] = x; _m.elements[13] = y; _m.elements[14] = -1.5;
+    _m.makeScale(s, s, s * 3); _m.elements[12] = x; _m.elements[13] = y; _m.elements[14] = -2;
     L.mesh.setMatrixAt(j + n, _m);
     L.scale[j] = s;
     L.mesh.instanceMatrix.needsUpdate = true;
@@ -421,10 +447,10 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
   }
 
   // ---------------------------------------------------------------- butterflies
-  const bfBody = new THREE.BoxGeometry(0.7, 3.2, 0.7);
-  const WS = 4.6;
+  const bfBody = new THREE.BoxGeometry(1, 4.2, 1);
+  const WS = 6; // 12 texels: one art pixel each
   const bfWing = new THREE.PlaneGeometry(WS, WS).translate(WS / 2, -WS * 0.12, 0);
-  const bfAnt = new THREE.BoxGeometry(0.3, 1.6, 0.3).translate(0, 0.8, 0);
+  const bfAnt = new THREE.BoxGeometry(0.5, 2.2, 0.5).translate(0, 1.1, 0);
   const bfMats = [];
   const nBf = reduced ? 2 : M.small ? 3 : 4;
   const bugs = [];
@@ -439,7 +465,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     const wr = new THREE.Mesh(bfWing, wm), wl = new THREE.Mesh(bfWing, wm);
     wl.scale.x = -1;
     const a1 = new THREE.Mesh(bfAnt, bm), a2 = new THREE.Mesh(bfAnt, bm);
-    a1.position.set(0.2, 1.5, 0); a1.rotation.z = -0.45; a2.position.set(-0.2, 1.5, 0); a2.rotation.z = 0.45;
+    a1.position.set(0.3, 1.9, 0); a1.rotation.z = -0.5; a2.position.set(-0.3, 1.9, 0); a2.rotation.z = 0.5;
     g.add(body, wr, wl, a1, a2);
     g.visible = false;
     scene.add(g);
@@ -491,7 +517,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     b.mode = 'land'; b.t = 0;
     return true;
   }
-  function seatPos(b, out) { const L = b.L; return letterPoint(L, b.col, L.d.ly[b.colJ] + 0.5 + 0.9, -1.0, out); }
+  function seatPos(b, out) { const L = b.L; return letterPoint(L, b.col, L.d.ly[b.colJ] + 0.5 + 0.6, -1.5, out); }
   function updateBug(b, dt) {
     b.t += dt;
     const B = view.bounds;
@@ -580,7 +606,11 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
   // ---------------------------------------------------------------- bites
   /** remove a bite-shaped chunk (a big circle + two scallops) around a local point; returns voxels removed */
   function biteLetter(L, x, y, rad, { crumbs = true, dir = 1 } = {}) {
-    const circ = [[x, y, rad], [x + rad * 0.78 * dir, y - rad * 0.42, rad * 0.62], [x - rad * 0.72 * dir, y - rad * 0.3, rad * 0.56]];
+    // the big bite, plus two tooth-scallops poking further in (a cartoon bite mark)
+    let nx = -x, ny = L.d.hh * 0.45 - y;
+    const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    const sc = (a) => [x + (nx * Math.cos(a) - ny * Math.sin(a)) * rad * 0.82, y + (nx * Math.sin(a) + ny * Math.cos(a)) * rad * 0.82, rad * 0.5];
+    const circ = [[x, y, rad], sc(0.95 * dir), sc(-0.95 * dir)];
     const inside = (px, py, grow = 0) => circ.some(([cx, cy, cr]) => (px - cx) ** 2 + (py - cy) ** 2 < (cr + grow) ** 2);
     let removed = 0;
     L.group.updateMatrixWorld();
@@ -597,8 +627,8 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
       }
     }
     if (!removed) return 0;
-    // darker bite marks around the hole
-    for (let j = 0; j < L.n; j++) if (L.alive[j] && inside(L.d.lx[j], L.d.ly[j], 1.25)) { L.edge[j] = 1; L.mesh.setColorAt(j, _c.set(L.pal.bite)); }
+    // the bitten rim shows the pale inside (with a darker tooth mark here and there)
+    for (let j = 0; j < L.n; j++) if (L.alive[j] && inside(L.d.lx[j], L.d.ly[j], 1.3)) { L.edge[j] = 1; L.mesh.setColorAt(j, _c.set((j * 7) % 5 === 0 ? L.pal.bite : L.pal.core)); }
     L.mesh.instanceColor.needsUpdate = true;
     L.missing += removed;
     L.biteX = x; L.biteY = y;
@@ -612,7 +642,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
   function swallowLetter(L) {
     for (let j = 0; j < L.n; j++) { if (L.alive[j]) { L.alive[j] = 0; L.missing++; } writeVoxel(L, j, 0); L.grow[j] = -1; }
     L.gone = true; L.eatK = 0;
-    L.biteX = 0; L.biteY = -50;
+    L.biteX = 0; L.biteY = 200; // regrows bottom-up
     L.regrowAt = T + rand(3.2, 4.4);
     for (const b of bugs) if (b.L === L) takeOff(b, 1.3);
   }
@@ -687,6 +717,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
   const onDown = (e) => {
     if (dead || leaving || blocked(e.target) || (e.button != null && e.button > 0)) return;
     if (!rayAt(e.clientX, e.clientY)) return;
+    if (bear?.busy && bear.hit(ray.ray)) { bear.bonk(); letterSpark(bear.rig.mawPos(_v2), 5, ['#ffffff', '#fff6c8']); return; }
     const L = hitLetter();
     if (L) { tapLetter(L); return; }
     const b = hitBug();
@@ -699,13 +730,13 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     if (!pendMove) { if (hoverL) { hoverL = null; setHand(false); } return; }
     const { x, y } = pendMove;
     pendMove = null;
-    let L = null, b = null;
-    if (rayAt(x, y)) { L = hitLetter(); if (!L) b = hitBug(); }
-    setHand(!!(L || b));
+    let L = null, b = null, br = false;
+    if (rayAt(x, y)) { br = !!(bear?.busy && bear.hit(ray.ray)); if (!br) L = hitLetter(); if (!L && !br) b = hitBug(); }
+    setHand(!!(L || b || br));
     if (L && L !== hoverL) {
       L.hv = Math.max(L.hv, 9); L.sq = Math.max(L.sq, 0.1); L.twv += L.dir * 2.5;
       letterPoint(L, rand(-L.d.hw, L.d.hw), L.d.hh, 1, _v);
-      spark(_v.x, _v.y, _v.z, { n: 2, spread: 1.5, big: 5 });
+      spark(_v.x, _v.y, _v.z, { n: 3, spread: 2, big: 7 });
       play('bubble', { volume: 0.1, pitch: 1.5 + L.i * 0.05 });
     }
     hoverL = L;
@@ -713,7 +744,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
   function tapLetter(L) {
     L.sq = 0.32; L.hv = 24; L.twv += L.dir * 7;
     letterPoint(L, 0, L.d.hh * 0.55, 1.5, _v);
-    spark(_v.x, _v.y, _v.z, { n: 7, spread: L.d.hw * 0.9, big: 7, up: 9 });
+    spark(_v.x, _v.y, _v.z, { n: 9, spread: L.d.hw * 1.1, big: 9, up: 11, life: 0.8 });
     play('star_pop', { volume: 0.22, pitch: 0.85 + (L.i % 7) * 0.07 });
     // tap a letter a few times and the bear smells a snack
     L.taps = T - L.tapT < 2.5 ? L.taps + 1 : 1;
@@ -773,8 +804,12 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
   let T = 0, dead = false, leaving = false, leaveDone = null, raf = 0, last = performance.now();
   let pulseAt = rand(7, 10), pulseT = -10;
   const amp = reduced ? 0.35 : 1;
+  let shineAt = 2.2, shineT = -10;
   function updateLetters(dt) {
     if (!reduced && T > pulseAt) { pulseT = T; pulseAt = T + rand(9, 15); }
+    if (T > shineAt) { shineT = T; shineAt = T + rand(6.5, 11); }
+    const sk = (T - shineT) / 1.0;
+    shineU.value = sk >= 0 && sk <= 1 ? lerp(-D.W * 0.5 - 30, D.W * 0.5 + 30, sk) : 1e4;
     for (let i = 0; i < letters.length; i++) {
       const L = letters[i], g = L.group;
       const ti = T - L.delay;
@@ -796,26 +831,24 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
       // idle float: bob + a wave running through the words + a sway that shows the sides
       const bob = (Math.sin(T * 1.55 - i * 0.6 + 0.3) * 0.95 + Math.sin(T * 0.61 + L.ph) * 0.45) * amp;
       const rz = L.tilt * amp + Math.sin(T * 1.05 + L.ph) * 0.045 * amp + L.tw + (1 - clamp01(kIn)) * 0.9 * L.dir;
-      const ry = Math.sin(T * 0.72 - i * 0.42 + L.ph * 0.3) * 0.24 * amp;
-      const rx = Math.sin(T * 1.21 + i * 0.7) * 0.08 * amp;
+      const ry = Math.sin(T * 0.72 - i * 0.42 + L.ph * 0.3) * 0.3 * amp;
+      const rx = 0.14 + Math.sin(T * 1.21 + i * 0.7) * 0.08 * amp; // tipped back a little: the tops catch the light
       // squash-and-stretch (stretch while flying up)
       const st = clamp(L.hv * 0.005, -0.1, 0.14);
       const sy = (1 - L.sq + st) * inS, sxz = (1 + L.sq * 0.6 - st * 0.5) * inS;
-      let px = L.d.bx, py = L.d.by + bob + L.hy + inY, pz = 0, extraS = 1;
+      let px = L.d.bx, py = L.d.by + bob + L.hy + inY, extraS = L.d.k;
+      // leaving: up and away with a spin
+      if (L.leaveT >= 0) {
+        const tl = T - L.leaveT;
+        if (tl > 0) { const k = easeIn(tl / 0.5); py += k * 70; extraS *= 1 - 0.6 * k; }
+      }
+      px *= L.d.k; py *= L.d.k;
+      let pz = L.d.z;
       // being sucked into a bear's maw
       if (L.eatK > 0) {
         const k = easeIn(L.eatK);
         px = lerp(px, L.eatTo.x, k); py = lerp(py, L.eatTo.y, k); pz = lerp(pz, L.eatTo.z, k);
-        extraS = 1 - 0.85 * k;
-      }
-      // leaving: up and away with a spin
-      if (L.leaveT >= 0) {
-        const tl = T - L.leaveT;
-        if (tl > 0) {
-          const k = easeIn(tl / 0.5);
-          py += k * 70; extraS *= 1 - 0.6 * k;
-          g.rotation.z += 0;
-        }
+        extraS *= 1 - 0.85 * k;
       }
       g.position.set(px, py, pz);
       g.rotation.set(rx, ry, rz + (L.leaveT >= 0 ? Math.max(0, T - L.leaveT) * 3 * L.dir : 0));
@@ -832,16 +865,24 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     last = now;
     if (dead || lost || document.hidden) return;
     if (!cv.isConnected) { dispose(); return; }
-    T += dt;
+    if (api.paused) { render(); return; }
+    const c0 = performance.now();
     processHover();
+    if (!step(dt)) return;
+    render();
+    msAvg += (performance.now() - c0 - msAvg) * 0.05;
+  }
+  function step(dt) {
+    T += dt;
     updateLetters(dt);
     for (const b of bugs) updateBug(b, dt);
     updateBear(dt);
     updateCrumbs(dt);
     updateSparks(dt);
-    if (leaving && T > leaving) { dispose(); return; }
-    render();
+    if (leaving && T > leaving) { dispose(); return false; }
+    return true;
   }
+  let msAvg = 0;
   function render() {
     r.setRenderTarget(rt);
     r.clear();
@@ -897,9 +938,21 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
       scatter(0, -40, 0);
       bear?.duck?.();
       setHand(false);
+      setTimeout(dispose, 1400); // even if no frame runs (hidden tab)
       return new Promise((res) => { leaveDone = res; });
     },
     dispose,
+    paused: false, // tests: freeze the clock (still renders)
+    /** tests: run the clock forward `sec` seconds in 1/30 s steps (slow headless GPUs) */
+    advance(sec) { for (let i = Math.ceil(sec * 30); i > 0 && !dead; i--) if (!step(1 / 30)) return; if (!dead) render(); },
+    /** tests: css px centre of letter i on screen */
+    letterScreen(i) {
+      const L = letters[i];
+      if (!L) return null;
+      letterPoint(L, 0, L.d.hh * 0.5, 0, _v2).project(cam);
+      const R = cv.getBoundingClientRect();
+      return { x: R.left + (_v2.x + 1) / 2 * R.width, y: R.top + (1 - _v2.y) / 2 * R.height };
+    },
     // tests / tools
     bite(opts = {}) {
       const o = { ...opts };
@@ -910,7 +963,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
       return {
         T, leaving: !!leaving, bites: nBites, bear: bear ? bear.debug : null,
         letters: letters.map((L) => ({ ch: L.d.ch, missing: L.missing, gone: L.gone, regrowing: L.regrowing })),
-        bugs: bugs.map((b) => b.mode), size: [cv.width, cv.height], V,
+        bugs: bugs.map((b) => b.mode), size: [cv.width, cv.height], V, ms: +msAvg.toFixed(2),
       };
     },
     _host: host,

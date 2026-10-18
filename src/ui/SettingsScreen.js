@@ -11,6 +11,7 @@ import settings from './settings.js';
 import { SLOTS, slotKey, deleteSlot, anySave } from '../game/saveSlots.js';
 import { cv, scaleEl, wood, arrowPlank, board, FONTS } from './titleArt.js';
 import { paperTile } from './paper.js';
+import { upgradeSliders } from './pxSlider.js'; // [v27 knobs] pixel sliders
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -154,6 +155,7 @@ export function openSettings({ sfx, onClose, inGame = false } = {}) {
     pages.appendChild(pg);
   }
   document.body.appendChild(el);
+  try { upgradeSliders(el, { texel: u, sfx: false }); } catch (e) { console.warn('pxSlider', e); } // [v27 knobs] (tick sounds: the input handler below)
 
   // ---- bind the knobs
   const refresh = () => {

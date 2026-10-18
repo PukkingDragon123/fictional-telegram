@@ -215,7 +215,7 @@ export class UI {
       }
     });
     $('#b-menu').addEventListener('click', () => { this.click(); this.showMenu(); });
-    import('./MenuBook.js').then((m) => { this.menuBookMod = m; m.decorateMenuButton?.($('#b-menu')); }).catch((e) => console.warn('menu book', e)); // [v27 book] the menu button is a little book; the menu opens as one
+    this.menuBookP = import('./MenuBook.js').then((m) => { this.menuBookMod = m; m.decorateMenuButton?.($('#b-menu')); }).catch((e) => { this.menuBookP = null; console.warn('menu book', e); }); // [v27 book] the menu button is a little book; the menu opens as one
     $('#p-close').addEventListener('click', () => { this.closePanel(); this.closeSound(); });
     h['fox-ok'].addEventListener('click', () => { this.click(); this.foxNext(); });
     h.modal.addEventListener('click', (e) => { if (e.target === h.modal && this.modalDismissable) this.closeModal(); });
@@ -1355,6 +1355,7 @@ export class UI {
       onBind: (c) => {
         $('#m-no', c).onclick = () => { this.click(); this.closeModal(); };
         $('#m-buy', c).onclick = () => { this.closeModal(); game.land.buy(I.px, I.pz); };
+        try { ynPair($('#m-buy', c), $('#m-no', c), { size: 'm', keys: true, enter: false }); } catch (e) { console.warn('yn', e); } // [v27 knobs] painted YES / NO planks
       },
     });
   }
@@ -1890,7 +1891,7 @@ export class UI {
     // [v27 knobs] Reynard's worried face pinned up + painted YES / NO planks (Y = yes, N / Esc = no)
     const html = confirmHTML(text, { yes, no, face: spriteImg('fox_worried', 3) });
     this.showModal(html, {
-      cls: 'cf-modal', width: 540,
+      cls: 'cf-modal', width: 580,
       onBind: (c) => {
         $('#cf-yes', c).onclick = () => { this.click(); this.closeModal(); onYes(); };
         $('#cf-no', c).onclick = () => { this.click(); this.closeModal(); };
@@ -2364,6 +2365,7 @@ export class UI {
   }
 
   showMenu() {
+    if (!this.menuBookMod && this.menuBookP) { this.menuBookP.then(() => this.showMenu()); return; } // [v27 book] still loading
     if (this.menuBookMod?.createMenuBook) { // [v27 book] Reynard's Handbook (src/ui/MenuBook.js); the paper modal below is the fallback
       try { this.menuBook ||= this.menuBookMod.createMenuBook(this); if (this.menuBook.isOpen || this.menuBook.open() !== false) return; } catch (e) { console.warn('menu book', e); }
     }
@@ -2391,6 +2393,7 @@ export class UI {
       onBind: (c) => {
         const setV = () => game.audio.setVolumes({ music: $('#v-music', c).value / 100, sfx: $('#v-sfx', c).value / 100, ambience: $('#v-amb', c).value / 100 });
         for (const id of ['#v-music', '#v-sfx', '#v-amb']) $(id, c).oninput = setV;
+        import('./pxSlider.js').then((m) => m.upgradeSliders?.(c, { sfx: (n, o) => game.audio.play(n, { volume: 0.4, ...(o || {}) }) })).catch(() => {}); // [v27 knobs] pixel sliders
         const px = $('#v-px', c);
         px.value = String(game.renderer.pixelDensity);
         px.onchange = () => { game.renderer.pixelDensity = +px.value; game.resize(); try { localStorage.setItem('tbme.px', px.value); } catch { /* ignore */ } };

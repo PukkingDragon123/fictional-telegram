@@ -26,10 +26,10 @@ import { FACE3D } from './faceHook.js';
 // the knobs helper's pixel sliders (src/ui/pxSlider.js). A glob, not import('./pxSlider.js'):
 // Vite refuses a module that names a missing file, a glob is just {} until the file exists.
 const PX_SLIDER = import.meta.glob('./pxSlider.js');
-function upgradeSliders(root) {
+function upgradeSliders(root, texel = 2) {
   const load = PX_SLIDER['./pxSlider.js'];
   if (!load || !root) return;
-  load().then((m) => m.upgradeSliders?.(root)).catch(() => {});
+  load().then((m) => m.upgradeSliders?.(root, { texel })).catch(() => {});
 }
 
 const REDUCED = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
@@ -40,7 +40,6 @@ const TAU = Math.PI * 2;
 const eOut3 = (t) => 1 - (1 - t) ** 3;
 const eIn2 = (t) => t * t;
 const eIO2 = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
-const eBack = (t) => { const c = 1.5; return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2; };
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 // ===========================================================================
@@ -175,7 +174,7 @@ const LEA = ['#1a080a', '#3a1014', '#55171a', '#6e2020', '#882c26', '#a03c2e', '
 const BRASS = ['#3e2408', '#6e4410', '#a26a1a', '#cf9a2c', '#efc650', '#fff0a8'];
 const PAPER = ['#9c8460', '#c2ad86', '#dccba6', '#eadcbc', '#f4ead2', '#fbf5e6'];
 const RIB = ['#0e2a1c', '#1a4a2e', '#28683e', '#3c8a50', '#64b06a'];
-const INK = '#3b2414', INK_L = '#7a5a3c', RED = '#a8302a', GOLD_INK = '#8a5a10', RULE = '#9fb4d4', MARGIN = '#d98c84';
+const INK = '#3b2414', INK_L = '#7a5a3c', RED = '#a8302a', RULE = '#9fb4d4', MARGIN = '#d98c84';
 const TABS = {
   green: ['#10301c', '#1e5a32', '#2e7a46', '#58a865'],
   blue: ['#141e40', '#24407a', '#3462a8', '#6a92d0'],
@@ -209,7 +208,7 @@ function brassCorner(p, cx, cy, dx, dy, n) {
 
 // ---------------------------------------------------------------- the HUD book (24 x 30 texels)
 const HW = 24, HH = 30, HCW = 20, HCH = 25;
-const HUD_FOX = ['#.....#', '##...##', '#######', '#o###o#', '.#####.', '..###..', '...n...'];
+const HUD_FOX = ['#.....#', '##...##', '#######', '#o#*#o#', '.##m##.', '..mmm..', '...n...'];
 function hudCover() {
   const p = new Px(HW, HH);
   for (let y = 0; y < HCH; y++) for (let x = 0; x < HCW; x++) {
@@ -231,10 +230,9 @@ function hudCover() {
   HUD_FOX.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.' && HUD_FOX[j + 1]?.[i + 1] !== '#') p.set(fx + i + 1, fy + j + 1, LEA[1]); }));
   HUD_FOX.forEach((row, j) => [...row].forEach((ch, i) => {
     if (ch === '.') return;
-    const c = ch === 'o' ? LEA[1] : ch === 'n' ? BRASS[1] : j === 0 || (j === 2 && (i === 0 || i === 6)) ? BRASS[5] : i >= 5 || j >= 5 ? BRASS[2] : BRASS[4];
+    const c = ch === 'o' ? LEA[0] : ch === 'n' ? LEA[1] : ch === 'm' || ch === '*' ? BRASS[5] : j === 0 ? BRASS[5] : i >= 5 ? BRASS[2] : j >= 4 ? BRASS[3] : BRASS[4];
     p.set(fx + i, fy + j, c);
   }));
-  p.set(fx + 3, fy + 2, BRASS[5]);
   // the index plate: three inked lines (the old menu icon, now an index card)
   const px0 = 7, py0 = 11, pw = 11, ph = 9;
   for (let x = px0 + 1; x < px0 + pw + 1; x++) p.set(x, py0 + ph, LEA[1]); // plate shadow
@@ -289,7 +287,7 @@ function hudRibbon() {
 
 // ---------------------------------------------------------------- the big book
 // board (cover leather) behind one page. side: 'L' (outer edge left), 'R' (outer edge right), 'S' (single: both)
-function paintBoard(p, w, h, side, seed) {
+function paintBoard(p, w, h, side, seed, n = 10) {
   const outL = side !== 'R', outR = side !== 'L';
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const rx = w - 1 - x, ry = h - 1 - y;
@@ -309,7 +307,6 @@ function paintBoard(p, w, h, side, seed) {
   // the spine: a dark crease where the boards meet
   if (side === 'L') for (let y = 1; y < h - 1; y++) { p.set(w - 1, y, LEA[1]); p.set(w - 2, y, LEA[2]); }
   if (side === 'R') for (let y = 1; y < h - 1; y++) { p.set(0, y, LEA[1]); p.set(1, y, LEA[3]); }
-  const n = 8;
   if (outL) { brassCorner(p, 0, 0, 1, 1, n); brassCorner(p, 0, h - 1, 1, -1, n); }
   if (outR) { brassCorner(p, w - 1, 0, -1, 1, n); brassCorner(p, w - 1, h - 1, -1, -1, n); }
 }
@@ -358,12 +355,13 @@ function paintPage(p, x0, y0, w, h, side, seed, deco, rules) {
     };
     box(a, 0.55); box(b, 0.35);
     for (const [cx, cy] of [[x0 + a, y0 + a], [x0 + w - 1 - a, y0 + a], [x0 + a, y0 + h - 1 - a], [x0 + w - 1 - a, y0 + h - 1 - a]]) {
-      for (const [dx, dy] of [[0, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]]) p.mix(cx + dx, cy + dy, RED, 0.75);
+      for (const [dx, dy] of [[0, -2], [1, -1], [2, 0], [1, 1], [0, 2], [-1, 1], [-2, 0], [-1, -1]]) p.mix(cx + dx, cy + dy, RED, 0.7);
+      p.mix(cx, cy, PAPER[5], 0.9);
     }
   } else if (deco === 'rules' && rules) {
     const { r0, R: step } = rules;
     for (let y = y0 + r0; y < y0 + h - 4; y += step) for (let x = x0 + 3; x < x0 + w - 3; x++) p.mix(x, y, RULE, h2(x, y, 4) < 0.06 ? 0.3 : 0.62);
-    for (let y = y0 + 1; y < y0 + h - 1; y++) { p.mix(gx(22), y, MARGIN, 0.8); p.mix(gx(24), y, MARGIN, 0.55); }
+    for (let y = y0 + 1; y < y0 + h - 1; y++) { p.mix(gx(28), y, MARGIN, 0.8); p.mix(gx(30), y, MARGIN, 0.55); }
   }
 }
 // one half of the open book: board + page stack + page
@@ -396,7 +394,7 @@ function coverGeo(cw, ch) {
 }
 function coverArt(cw, ch) {
   const p = new Px(cw, ch);
-  paintBoard(p, cw, ch, 'R', 47);
+  paintBoard(p, cw, ch, 'R', 47, Math.round(clamp(Math.min(cw, ch) * 0.1, 10, 22)));
   // hinge groove along the spine
   for (let y = 1; y < ch - 1; y++) { p.set(4, y, LEA[1]); p.set(5, y, LEA[5]); for (let x = 1; x < 4; x++) p.mix(x, y, LEA[0], 0.35); }
   const G = coverGeo(cw, ch);
@@ -462,10 +460,10 @@ function innerCoverArt(cw, ch) {
 }
 // the ribbon: a strip lying on the page (top) and the tail hanging out of the book (swings)
 function ribbonLay(h) {
-  const p = new Px(6, h);
+  const p = new Px(5, h);
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < 5; x++) p.set(x, y, x === 0 ? RIB[4] : x === 4 ? RIB[1] : y % 7 === 3 && x === 2 ? RIB[2] : RIB[3]);
-    if (y > 2) p.set(5, y, '#000000', 40); // shadow on the paper
+    for (let x = 0; x < 4; x++) p.set(x, y, x === 0 ? RIB[1] : x === 3 ? RIB[1] : x === 1 ? RIB[3] : y % 9 === 4 ? RIB[1] : RIB[2]);
+    if (y > 2) p.set(4, y, '#000000', 46); // shadow on the paper
   }
   return p;
 }
@@ -535,10 +533,14 @@ function swashArt(w) {
   return p;
 }
 function tailArt() {
-  const p = new Px(15, 9);
-  for (let x = 0; x < 14; x++) {
-    const t = x / 13, cy = 5 - Math.sin(t * 3.2) * 2.2, r = 0.6 + Math.sin(t * Math.PI) * 2.6 * (1 - t * 0.25);
-    for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) if (Math.abs(y - cy) <= r) p.set(x, y, x > 10 ? '#fff6d8' : y < cy - r * 0.3 ? BRASS[4] : BRASS[3]);
+  // a fluffy fox tail sweeping up, white tip
+  const p = new Px(16, 11);
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40, cx = 1.5 + t * 12, cy = 8.2 - t * 5.4 + Math.sin(t * TAU) * 0.9, r = 0.7 + Math.sin(Math.min(1, t * 1.15) * Math.PI) ** 0.8 * 2.5;
+    for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+      if (Math.hypot(x - cx, y - cy) > r) continue;
+      p.set(x, y, t > 0.78 ? (y < cy ? '#ffffff' : '#f4ead2') : y < cy - r * 0.35 ? BRASS[5] : y > cy + r * 0.4 ? BRASS[2] : BRASS[3]);
+    }
   }
   p.outline(BRASS[0]);
   return p;
@@ -622,14 +624,14 @@ class MenuBook {
     const { w: VW, h: VH } = viewSize();
     const sf = safeInsets(this.ui.root);
     const T = crispPx(2), s = Math.round(T * dpr());
-    const B = 6, TAB = 5, TAIL = 12;
+    const B = 8, TAB = 5, TAIL = 12;
     const AW = VW - sf.l - sf.r - 20, AH = VH - sf.t - sf.b - 14;
     const aw = AW / T, ah = AH / T;
     const single = AW < 600;
     let pw, ph;
     if (!single) {
-      ph = Math.floor(Math.min(272, ah - 2 * B - TAIL));
-      pw = Math.floor(Math.min(216, (aw - 2 * B - TAB - 2) / 2, ph * 1.04));
+      ph = Math.floor(Math.min(232, ah - 2 * B - TAIL));
+      pw = Math.floor(Math.min(212, (aw - 2 * B - TAB - 2) / 2, ph * 1.04));
     } else {
       pw = Math.floor(Math.min(210, aw - 2 * B - TAB - 2));
       ph = Math.floor(Math.min(340, ah - 2 * B - TAIL));
@@ -639,7 +641,7 @@ class MenuBook {
     const W = single ? pw + 2 * B : 2 * (pw + B), H = ph + 2 * B;
     const snap = (v) => Math.round(v * dpr()) / dpr();
     const x = snap(sf.l + 10 + (AW - (W + TAB) * T) / 2), y = snap(sf.t + 7 + (AH - (H + TAIL) * T) / 2);
-    const compact = ph * T < 470;
+    const compact = ph * T < 420;
     return { T, s, B, TAB, TAIL, pw, ph, R, r0, W, H, x, y, single, compact, spine: single ? 0 : pw + B };
   }
 
@@ -686,7 +688,7 @@ class MenuBook {
     } else { this.halfL = null; this.pageL = null; }
     this.halfR = mk('mbk-hrr', L.spine, single ? pw + 2 * B : pw + B);
     this.halfR.appendChild(canvasEl(this.texR, T));
-    const ribX = single ? B + 3 : 4;
+    const ribX = single ? B - 2 : 2;
     this.halfR.insertAdjacentHTML('beforeend', artImg(`rib:lay:${ph + B + 3}`, T, () => ribbonLay(ph + B + 3), 'mbk-rib', `left:${ribX * T}px;top:${(B - 3) * T}px`));
     this.halfR.insertAdjacentHTML('beforeend', `<span class="mbk-tailw" style="left:${ribX * T}px;top:${(L.H - 1) * T}px">${artImg(`rib:tail:${L.TAIL}`, T, () => ribbonTail(L.TAIL))}</span>`);
     this.pageR = page(this.halfR, single ? B : 0);
@@ -721,7 +723,7 @@ class MenuBook {
     // contents
     this.menuL = this.buildSettings();
     this.menuR = this.buildChapters();
-    this.helpL = this.helpR = null;
+    this.hPages = null;
     if (single) this.pageR.append(this.menuL, this.menuR);
     else this.pageR.appendChild(this.menuR);
     ui.root.appendChild(st);
@@ -748,7 +750,8 @@ class MenuBook {
     const wd = (() => { try { return game.weekday?.() || ''; } catch { return ''; } })();
     const season = game.seasons?.season ? String(game.seasons.season) : '';
     const tails = game.legacy?.tails || 0, best = game.legacy?.best || 0;
-    const fox = FACE3D.img?.({ sticker: true, who: 'fox', expr: 'sleepy', frame: 'bust' }, (L.compact ? 22 : 32) * T, (L.compact ? 25 : 36) * T, 'mbk-px mbk-fox') || '';
+    const fox = FACE3D.img?.({ sticker: true, who: 'fox', expr: 'sleepy', frame: 'bust' }, (L.compact ? 26 : 40) * T, (L.compact ? 30 : 46) * T, 'mbk-px mbk-fox') || '';
+    const pxs = '<div class="mbk-pxs" role="radiogroup" aria-label="Pixel size"><button type="button" role="radio" data-px="0.7">Chunky</button><button type="button" role="radio" data-px="1">Normal</button><button type="button" role="radio" data-px="1.4">Fine</button></div>';
     const el = document.createElement('div');
     el.className = 'mbk-pc mbk-set';
     el.innerHTML = `
@@ -757,16 +760,14 @@ class MenuBook {
       ${artImg('swash:64', T, () => swashArt(64), 'mbk-swash')}
       <div class="mbk-date">${esc(wd)}${wd ? ' · ' : ''}Day ${day}${season ? ` <i>(${esc(season)})</i>` : ''}</div>
       <div class="mbk-tails">${artImg('tail', T, tailArt, 'mbk-taili')}<span>Golden tails: ${tails} (+${tails * 10}% coins) · Best: day ${best}</span></div>
-      <div class="mbk-sec"><span>Volume</span></div>
+      ${L.compact ? '' : '<div class="mbk-sec"><span>Volume</span></div>'}
       <div class="mbk-vol">
-        <label for="v-music">Music</label><input type="range" min="0" max="100" value="${Math.round(v.music * 100)}" id="v-music">
-        <label for="v-sfx">Sound effects</label><input type="range" min="0" max="100" value="${Math.round(v.sfx * 100)}" id="v-sfx">
-        <label for="v-amb">Ambience</label><input type="range" min="0" max="100" value="${Math.round(v.ambience * 100)}" id="v-amb">
+        <label for="v-music">Music</label><span class="mbk-sl"><input type="range" min="0" max="100" value="${Math.round(v.music * 100)}" id="v-music"></span>
+        <label for="v-sfx">Sound effects</label><span class="mbk-sl"><input type="range" min="0" max="100" value="${Math.round(v.sfx * 100)}" id="v-sfx"></span>
+        <label for="v-amb">Ambience</label><span class="mbk-sl"><input type="range" min="0" max="100" value="${Math.round(v.ambience * 100)}" id="v-amb"></span>
+        ${L.compact ? `<span class="mbk-pxl">Pixel size</span>${pxs}` : ''}
       </div>
-      <div class="mbk-sec"><span>Pixel size</span></div>
-      <div class="mbk-pxs" role="radiogroup" aria-label="Pixel size">
-        <button type="button" role="radio" data-px="0.7">Chunky</button><button type="button" role="radio" data-px="1">Normal</button><button type="button" role="radio" data-px="1.4">Fine</button>
-      </div>`;
+      ${L.compact ? '' : `<div class="mbk-sec"><span>Pixel size</span></div>${pxs}`}`;
     const setV = () => game.audio?.setVolumes?.({ music: el.querySelector('#v-music').value / 100, sfx: el.querySelector('#v-sfx').value / 100, ambience: el.querySelector('#v-amb').value / 100 });
     for (const id of ['#v-music', '#v-sfx', '#v-amb']) el.querySelector(id).oninput = setV;
     const cur = String(game.renderer?.pixelDensity ?? 1);
@@ -826,9 +827,9 @@ class MenuBook {
   }
 
   // ------------------------------------------------------------ "How to play" pages
-  buildHelp() {
+  helpParas() {
     const ico = (n) => spriteImg(n, 1, 'mbk-hi');
-    const paras = [
+    return [
       `${ico('fox')} You are <b>Reynard</b>, a greedy fox who runs a fish-pond buffet in the Canadian wilds.`,
       `${ico('food')} <b>Tap the water</b> to toss food. Fed adult fish (a ♂ and a ♀) fall in love, lay eggs and the fry grow up.`,
       `${ico('egg')} Buy <b>eggs</b> on e-Buy. They hatch in your egg tray with random <b>genes</b>: size, colour morphs, traits and stars.`,
@@ -839,23 +840,69 @@ class MenuBook {
       `${ico('beauty')} <b>Decor</b> adds beauty: more customers and bigger bills.`,
       `${ico('info')} <b>Controls:</b> drag to pan, scroll/pinch to zoom, <b>Q/E</b> rotate, <b>WASD</b> move, <b>1-9</b> tools, <b>Space</b> pause, <b>B</b> open early, <b>Esc</b> cancel.`,
     ];
+  }
+  // one help page: 'L' pages are plain, 'R' pages write on the ledger rules and carry the page links
+  helpPage(side, first) {
     const L = this.L, T = L.T;
-    const hl = document.createElement('div');
-    hl.className = 'mbk-pc mbk-help mbk-helpL';
-    hl.innerHTML = `<h2 class="mbk-h">How to play</h2>${artImg('swash:64', T, () => swashArt(64), 'mbk-swash')}<div class="mbk-hp">${paras.map((p) => `<p>${p}</p>`).join('')}</div>`;
-    const hr = document.createElement('div');
-    hr.className = 'mbk-pc mbk-help mbk-helpR';
-    // first text line sits on the first ledger rule under the header band
-    hr.style.setProperty('--hTop', `${(L.r0 - L.R) * T}px`);
-    hr.innerHTML = '<div class="mbk-hp"></div><button type="button" class="mbk-back" data-act="back">◀ Back to the contents</button>';
-    return [hl, hr];
+    const el = document.createElement('div');
+    el.className = `mbk-pc mbk-help mbk-help${side}`;
+    if (side === 'R') el.style.setProperty('--hTop', `${(L.r0 - L.R) * T}px`);
+    el.innerHTML = `${first ? `<h2 class="mbk-h">How to play</h2>${artImg('swash:64', T, () => swashArt(64), 'mbk-swash')}` : ''}<div class="mbk-hp"></div>${side === 'R' ? '<div class="mbk-nav"><button type="button" class="mbk-back" data-act="back">◀ Contents</button><button type="button" class="mbk-next" data-act="next">Next page ▶</button></div>' : first ? '' : '<div class="mbk-nav"><button type="button" class="mbk-prev" data-act="prev">◀ Back a page</button></div>'}`;
+    return el;
   }
-  // move paragraphs that do not fit on the left page over to the right page (hl must be laid out)
-  flowHelp(hl, hr) {
-    const src = hl.querySelector('.mbk-hp'), dst = hr.querySelector('.mbk-hp');
-    let guard = 20;
-    while (guard-- > 0 && hl.scrollHeight > hl.clientHeight + 1 && src.children.length > 1) dst.prepend(src.lastElementChild);
+  // "How to play" laid out page by page (measured at the real page size), two pages per spread
+  helpPages() {
+    if (this.hPages) return this.hPages;
+    const L = this.L, T = L.T, paras = this.helpParas();
+    if (L.single) {
+      const one = this.helpPage('R', true);
+      one.classList.add('mbk-one');
+      one.querySelector('.mbk-hp').innerHTML = paras.map((p) => `<p>${p}</p>`).join('');
+      one.querySelector('.mbk-next').remove();
+      return (this.hPages = [one]);
+    }
+    const box = document.createElement('div');
+    box.className = 'mbk-page mbk-measure';
+    Object.assign(box.style, { left: '0px', top: '0px', width: `${L.pw * T}px`, height: `${L.ph * T}px` });
+    this.book.appendChild(box);
+    const pages = [];
+    let i = 0;
+    while (i < paras.length && pages.length < 12) {
+      const side = pages.length % 2 ? 'R' : 'L', pg = this.helpPage(side, !pages.length);
+      box.replaceChildren(pg);
+      const hp = pg.querySelector('.mbk-hp');
+      let n = 0;
+      while (i < paras.length) {
+        const p = document.createElement('p');
+        p.innerHTML = paras[i];
+        hp.appendChild(p);
+        if (n > 0 && pg.scrollHeight > pg.clientHeight + 1) { p.remove(); break; }
+        i++; n++;
+      }
+      pages.push(pg);
+    }
+    if (pages.length % 2) pages.push(this.helpPage('R', false));
+    // a right page with nothing on it gets Reynard's sign-off
+    const last = pages[pages.length - 1];
+    if (!last.querySelector('.mbk-hp').children.length) {
+      const fox = FACE3D.img?.({ sticker: true, who: 'fox', expr: 'wink', frame: 'bust' }, 36 * T, 41 * T, 'mbk-px mbk-signfox') || '';
+      last.querySelector('.mbk-hp').innerHTML = `<p class="mbk-sign">That's all. Now go and make me rich.</p><p class="mbk-sign mbk-sign2">- R. Fox</p>${fox}`;
+    }
+    box.remove();
+    const spreads = pages.length / 2;
+    pages.forEach((pg, k) => {
+      const next = pg.querySelector('.mbk-next');
+      if (next && Math.floor(k / 2) >= spreads - 1) next.remove();
+    });
+    return (this.hPages = pages);
   }
+  viewNodes(view) {
+    if (view === 'menu') return [this.menuL, this.menuR];
+    const pages = this.helpPages(), k = +String(view).slice(4) || 0;
+    if (this.L.single) return [pages[0], null];
+    return [pages[2 * k], pages[2 * k + 1]];
+  }
+  viewIndex(view) { return view === 'menu' ? -1 : +String(view).slice(4) || 0; }
 
   // ------------------------------------------------------------ events
   bindStage() {
@@ -893,8 +940,10 @@ class MenuBook {
   act(a, b) {
     const ui = this.ui, game = this.game;
     if (a === 'resume') { ui.click(); this.close(); return; }
-    if (a === 'help') { ui.click(); this.turn('help'); return; }
+    if (a === 'help') { ui.click(); this.turn('help0'); return; }
     if (a === 'back') { ui.click(); this.turn('menu'); return; }
+    if (a === 'next') { ui.click(); this.turn(`help${this.viewIndex(this.view) + 1}`); return; }
+    if (a === 'prev') { ui.click(); this.turn(`help${Math.max(0, this.viewIndex(this.view) - 1)}`); return; }
     if (a === 'settings') {
       ui.click();
       this.close(true);
@@ -933,8 +982,9 @@ class MenuBook {
     const gen = ++this.gen;
     try { this.build(); } catch (e) { console.warn('menu book', e); this.isOpen = false; if (st) st.paused = this.wasPaused; this.stage?.remove(); return false; }
     this.btn?.classList.add('mbk-out');
+    document.body.classList.add('mbk-reading');
     upgradeSliders(this.stage);
-    if (o.help) this.view = 'help';
+    if (o.help) this.view = 'help0';
     if (REDUCED() || quick) this.settleOpen(gen, quick);
     else this.animateOpen(gen);
     return true;
@@ -942,7 +992,7 @@ class MenuBook {
 
   showHelp() {
     if (!this.isOpen) { this.open({ help: true }); return; }
-    if (this.view !== 'help') this.turn('help');
+    if (this.view === 'menu') this.turn('help0');
   }
 
   // where the HUD book's cover sits, as a transform of the big book
@@ -1018,7 +1068,7 @@ class MenuBook {
     const p = this.pending;
     this.pending = null;
     if (p === 'close') this.close();
-    else if (p === 'help' || this.view === 'help') { this.view = 'menu'; this.turn('help'); }
+    else if (this.view !== 'menu') { const v = this.view; this.view = 'menu'; this.turn(v); }
   }
 
   async close(instant = false) {
@@ -1057,6 +1107,7 @@ class MenuBook {
     this.unbind();
     this.stage?.remove();
     this.stage = this.book = null;
+    document.body.classList.remove('mbk-reading');
     const st = this.game.state;
     if (st) st.paused = !!this.wasPaused;
     const b = this.btn;
@@ -1077,23 +1128,15 @@ class MenuBook {
     upgradeSliders(this.stage);
     this.settleOpen(this.gen, false);
     this.stage.classList.add('mbk-quick');
-    if (view === 'help') this.showSpread('help');
+    if (view !== 'menu') this.showSpread(view);
   }
 
   // ------------------------------------------------------------ page turning
-  helpNodes() {
-    if (!this.helpL) [this.helpL, this.helpR] = this.buildHelp();
-    return [this.helpL, this.helpR];
-  }
   // no animation (relayout)
   showSpread(view) {
-    const L = this.L;
-    if (view === 'help') {
-      const [hl, hr] = this.helpNodes();
-      if (L.single) { this.pageR.replaceChildren(hl, hr); hl.classList.add('mbk-one'); }
-      else { this.pageL.replaceChildren(hl); this.pageR.replaceChildren(hr); this.flowHelp(hl, hr); }
-    } else if (L.single) this.pageR.replaceChildren(this.menuL, this.menuR);
-    else { this.pageL.replaceChildren(this.menuL); this.pageR.replaceChildren(this.menuR); }
+    const [nl, nr] = this.viewNodes(view);
+    if (this.L.single) this.pageR.replaceChildren(...(view === 'menu' ? [this.menuL, this.menuR] : [nl]));
+    else { this.pageL.replaceChildren(nl); this.pageR.replaceChildren(nr); }
     this.view = view;
   }
   makeLeaf() {
@@ -1130,24 +1173,21 @@ class MenuBook {
     if (!this.isOpen || this.busy || view === this.view || !this.stage) return;
     const gen = this.gen, L = this.L;
     this.busy = true;
-    const fwd = view === 'help';
-    let newL, newR;
-    if (fwd) [newL, newR] = this.helpNodes();
-    else { newL = this.menuL; newR = this.menuR; }
+    const fwd = this.viewIndex(view) > this.viewIndex(this.view);
+    const [newL, newR] = this.viewNodes(view);
     const F = this.makeLeaf();
     this.sfx('page_flip', { volume: 0.55 });
     this.stage.classList.add('mbk-turning');
     if (L.single) {
       // one page: the old page lifts away, the new one is underneath
       F.fs.append(...this.pageR.children);
-      if (fwd) { newL.classList.add('mbk-one'); this.pageR.replaceChildren(newL, newR); }
-      else this.pageR.replaceChildren(newL, newR);
+      if (view === 'menu') this.pageR.replaceChildren(this.menuL, this.menuR);
+      else this.pageR.replaceChildren(newL);
       this.setLeaf(F, 0);
       await tween(560, (e) => this.setLeaf(F, -180 * e), eIO2);
     } else if (fwd) {
       F.fs.appendChild(this.pageR.firstElementChild);
       F.bs.appendChild(newL);
-      this.flowHelp(newL, newR);
       this.pageR.replaceChildren(newR);
       this.setLeaf(F, 0);
       let r = false;
