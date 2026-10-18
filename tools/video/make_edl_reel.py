@@ -41,7 +41,9 @@ TOTAL = at
 T = []
 def cap(text, t0, t1, y=0.64, size=118, hi=(), step=0.12, **kw):
     words = text.split()
-    T.append(dict(type='caption', words=[{'w': w, 't': round(t0 + i * step, 3)} for i, w in enumerate(words)], t1=round(t1, 3), x=0.5, y=y, size=size, hi=list(hi), maxW=0.88, outline=9, **kw))
+    d = dict(type='caption', words=[{'w': w, 't': round(t0 + i * step, 3)} for i, w in enumerate(words)], t1=round(t1, 3), x=0.5, y=y, size=size, hi=list(hi), maxW=0.88, outline=9)
+    d.update(kw)
+    T.append(d)
 S = []
 def sfx(name, at, gain_db=0.0):
     S.append({'name': name, 'at': round(at, 3), 'gain_db': gain_db})
@@ -63,11 +65,12 @@ cap('not scared of bears', b(12) + 0.03, b(13) - 0.06, step=0.12)
 cap('(mostly)', b(12) + 0.95, b(13) - 0.06, y=0.73, size=96, step=0.1, color='#fff3c8')
 sfx('record_scratch', b(12) + 0.92, -6)
 e = starts['r_end']
-cap('FOLLOW for more', e + 0.03, TOTAL, y=0.36, size=128, hi=['FOLLOW'], step=0.16)
+# three single lines between the comment bubble (top) and Pip + Reynard (from y .44 down)
+cap('FOLLOW for more', e + 0.03, TOTAL, y=0.27, size=100, hi=['FOLLOW'], step=0.16)
 sfx('ding', e + 1.7 - 0.1 + 0.02, -3)
-cap('COMMENT your name', e + 2.6, TOTAL, y=0.45, size=112, hi=['COMMENT'], step=0.15)
-cap('you could be the NEXT NPC', e + 3.9, TOTAL, y=0.535, size=96, hi=['NEXT', 'NPC'], step=0.13)
-T.append(dict(type='text', text='Music: "Pixel Peeker Polka - faster"\nby Kevin MacLeod (incompetech.com), CC BY 4.0', t0=round(e + 4.4, 3), t1=999, x=0.5, y=0.86, size=28, color='#fff6e0', outline=3, lh='1.3'))
+cap('COMMENT your name', e + 2.6, TOTAL, y=0.335, size=86, hi=['COMMENT'], step=0.15)
+cap('you could be the NEXT NPC', e + 3.9, TOTAL, y=0.395, size=64, hi=['NEXT', 'NPC'], step=0.13, outline=7)
+T.append(dict(type='text', text='Music: "Pixel Peeker Polka - faster"\nby Kevin MacLeod (incompetech.com), CC BY 4.0', t0=round(e + 4.4, 3), t1=999, x=0.5, y=0.93, size=28, color='#fff6e0', outline=3, lh='1.3'))
 # a pop on every caption line, swishes on the whips
 for it in T:
     if it['type'] == 'caption':
