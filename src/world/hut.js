@@ -72,7 +72,11 @@ const porchY = (x) => 13 + Math.min(x - 9, 20 - x); // porch gable roof, x 9..20
 const SIGN_Z = 18;
 const FLAG = { x: 12, z: 5, top: 35 };
 
-// world-space (local) centres of the front panes and the door, for cameras
+// Local positions (add HUT.x, 0, HUT.z for world space) of the front windows and the door, for cameras.
+//   windows[i]        centre of a window = the crossing of its mullion and transom (wood), z = the glass
+//   windows[i].panes  the 4 glass panes (lower-left, lower-right, upper-left, upper-right), 0.2 x 0.3 each
+//   dive              the pane to fly through: the left window's upper-right pane, the lit lamp shade behind it
+//   door / doorPane   the door's face (recessed one voxel) / its little window
 export const HUT_SPOTS = (() => {
   const zGlass = (Z1) * S + 0.004; // the glass sits on the inside face of the front logs
   const panes = [];
@@ -80,8 +84,10 @@ export const HUT_SPOTS = (() => {
     for (const [px, py] of [[w.x, WY0 + 1], [w.x + 3, WY0 + 1], [w.x, WT + 1], [w.x + 3, WT + 1]])
       panes.push({ x: (px + 1) * S, y: (py + 1.5) * S, z: zGlass, w: 2 * S, h: 3 * S });
   }
+  const windows = WINS.map((w) => ({ x: (w.x + 2.5) * S, y: ((WY0 + WY1 + 1) / 2) * S, z: zGlass, panes: panes.splice(0, 4) }));
   return {
-    windows: WINS.map((w) => ({ x: (w.x + 2.5) * S, y: ((WY0 + WY1 + 1) / 2) * S, z: zGlass, panes: panes.splice(0, 4) })),
+    windows,
+    dive: { ...windows[0].panes[3] },
     door: { x: ((DOOR.x0 + DOOR.x1 + 1) / 2) * S, y: ((DOOR.y0 + DOOR.y1 + 1) / 2) * S, z: DOOR.z * S + 0.1 },
     doorPane: { x: ((DOORWIN.x0 + DOORWIN.x1 + 1) / 2) * S, y: ((DOORWIN.y0 + DOORWIN.y1 + 1) / 2) * S, z: DOOR.z * S + 0.004 },
     chimney: { x: 0.8, y: 3.3, z: 0.8 },
