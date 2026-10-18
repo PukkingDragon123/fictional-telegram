@@ -759,6 +759,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     get T() { return T; }, get reduced() { return reduced; },
     play, spark, crumb, scatter, takeOff, biteLetter, swallowLetter, letterPoint, columnTop,
     protect(b) { protect = b; },
+    compile() { r.compile(scene, cam); },
     get canvasW() { return cv.width; },
   };
   function loadBear() {
@@ -766,11 +767,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
       bearP = import('./titleWordsBear.js').then(({ WordBear }) => {
         if (dead) return null;
         bear = new WordBear(host);
-        // compile the bear's shaders now, between gags (compile() skips hidden things)
-        const root = bear.rig?.root;
-        if (root) root.visible = true;
-        try { r.compile(scene, cam); } catch { /* warm-up only */ }
-        if (root) root.visible = false;
+        bear.warm(); // compile its shaders now, between gags
         return bear;
       }).catch((e) => { console.warn('TitleWords: bear failed', e); return null; });
     }

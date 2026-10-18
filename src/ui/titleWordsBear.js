@@ -75,6 +75,20 @@ export class WordBear {
     this.nch = EX + 14;
   }
 
+  /** compile this bear's shaders now (maw / cheek pieces too), between gags */
+  warm() {
+    const rig = this.rig;
+    if (!rig || !this.h.compile) return;
+    let parts = [];
+    try { const k = rig._kit?.(); if (k) parts = [k.top, k.inner, k.bot, k.cheekL, k.cheekR]; } catch { /* older rigs */ }
+    const vis = parts.map((m) => m.visible);
+    rig.root.visible = true;
+    for (const m of parts) { m.visible = true; m.material = rig.body.material; }
+    try { this.h.compile(); } catch { /* warm-up only */ }
+    parts.forEach((m, i) => { m.visible = vis[i]; });
+    rig.root.visible = !!this.busy;
+  }
+
   // the pose layer: our head / jaw / maw / face on top of the idle pose
   _layer(F, c, B) {
     const P = this.P, a = F.a;
@@ -202,7 +216,7 @@ export class WordBear {
     } else {
       // wind up (lean back, maw over the bite), snap down onto it, pull back behind to chew
       const w = smooth(span(t, 1.05, 1.38));
-      x = lerp(x, bite.x + G.side * 1.2, w); y = lerp(y, bite.y + G.r + 6.5, w); z = lerp(z, zl - 2, w);
+      x = lerp(x, bite.x + G.side * 1.2, w); y = lerp(y, bite.y + G.r + (d.line === 0 ? 3.5 : 6.5), w); z = lerp(z, zl - 2, w);
       let target = bite;
       if (K === 'miss' && G.bug) target = this._m.copy(G.missAt || G.bug.pos);
       const s = easeIn(span(t, 1.38, 1.5));
@@ -413,7 +427,7 @@ export class WordBear {
     // a new bear in a while (built now, between gags)
     if (this.n % 2 === 0 && !G?.fast) {
       this.typeI = (this.typeI + 1) % CAST.length;
-      try { this._build(CAST[this.typeI]); } catch (e) { console.warn('TitleWords bear', e); }
+      try { this._build(CAST[this.typeI]); this.warm(); } catch (e) { console.warn('TitleWords bear', e); }
     }
   }
 
