@@ -71,19 +71,27 @@ SHOTS.t2_dawn = {
     c.presim(1);
     const W = HOUSE.win;
     console.log('[dir] window', JSON.stringify(W));
+    // the rig's view guard (v26 mountains) pulls the look-at height to the ground every frame
+    // (y * 0.82 at 30 fps): switched off here so the dive lands on the pane exactly; the early keys
+    // keep the heights they were framed with
+    g.rig.viewGuard = { active: () => false };
+    const KY = Math.exp(-6 / 30);
     const keys = [
       { t: 0.0, x: 64.0, z: 29.5, y: 0.0, yaw: -0.55, pitch: 62, wupp: 0.03 },
-      { t: 8.5, x: 69.5, z: 34.5, y: 0.3, yaw: -0.22, pitch: 13, wupp: 0.021 },
-      { t: 13.5, x: 77.9, z: 41.0, y: 0.7, yaw: -0.04, pitch: 10, wupp: 0.0125 },
-      { t: 17.0, x: W.x, z: W.z - 0.2, y: W.y + 0.05, yaw: 0.0, pitch: 8, wupp: 0.0058 },
-      { t: 19.6, x: W.x, z: W.z, y: W.y, yaw: 0.0, pitch: 6.5, wupp: 0.0013 },
-      { t: 22.2, x: W.x, z: W.z, y: W.y, yaw: 0.0, pitch: 6, wupp: 0.00058 },
+      { t: 8.5, x: 69.5, z: 34.5, y: 0.3 * KY, yaw: -0.22, pitch: 13, wupp: 0.021 },
+      { t: 13.5, x: 77.9, z: 41.0, y: 0.7 * KY, yaw: -0.04, pitch: 10, wupp: 0.0125 },
+      { t: 17.0, x: W.x - 0.02, z: W.z - 0.2, y: W.y - 0.02, yaw: 0.0, pitch: 8, wupp: 0.0058 },
+      { t: 19.6, x: W.x - 0.04, z: W.z, y: W.y - 0.03, yaw: 0.0, pitch: 6.5, wupp: 0.00125 },
+      { t: 22.2, x: W.x + 0.02, z: W.z, y: W.y - 0.05, yaw: 0.0, pitch: 6, wupp: 0.00098 },
     ];
-    // one continuous push from 13.5 s (log wupp through these, monotone cubic, starting at rest)
-    const zoomK = pchip([[13.5, 0.0125], [17.0, 0.0058], [19.6, 0.0013], [20.4, 0.00095], [21.2, 0.0007], [22.2, 0.00058]].map(([t, w]) => [t, Math.log(w)]), 0);
-    // through the glass: the ortho eye comes in close so its near plane (1 unit ahead of the eye) sweeps
-    // through the shutters (19.8 s), the glass (20.1 s) and the curtains, and stops just short of the lamp
-    const eyeAt = (t) => (t < 19.3 ? null : 0.82 + 0.88 * (1 - clamp((t - 19.3) / 1.5, 0, 1)) ** 2);
+    // one continuous push from 13.5 s (log wupp, monotone cubic, from rest): fast down the path,
+    // easing off at the glass, then a slow glide through it; the frame stays inside the lit room
+    // (x 77.1 .. 78.2) once the wall is cut away
+    const zoomK = pchip([[13.5, 0.0125], [17.0, 0.0058], [19.6, 0.00125], [20.6, 0.0011], [22.2, 0.00098]].map(([t, w]) => [t, Math.log(w)]), 0);
+    // through the glass: the ortho eye comes in close, so its near plane (1 unit ahead of the eye)
+    // sweeps through the shutters (19.9 s), the frame and the glass (20.1 s) and stops just in front
+    // of the lamp shade
+    const eyeAt = (t) => (t < 19.4 ? null : 0.8 + 0.9 * (1 - clamp((t - 19.4) / 1.4, 0, 1)) ** 2);
     c.at(0, () => console.log('[dir] dawn rt', g.renderer.rtW, g.renderer.rtH));
     c.every((t) => {
       K = smooth(t / 12);

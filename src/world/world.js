@@ -685,7 +685,8 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     const B = this.clutterBatch, F = this.flatBatch;
     B.clear();
     F.clear();
-    const free = (i) => g.kind[i] !== KIND.WATER && g.deco[i] !== -3 && g.occ[i] < 0;
+    const onHut = (i) => { const x = i % g.w, z = (i / g.w) | 0; return x >= HUT.x && x < HUT.x + 3 && z >= HUT.z && z < HUT.z + 3; }; // [v28 house] no flowers / tufts poking through the cottage's porch
+    const free = (i) => g.kind[i] !== KIND.WATER && g.deco[i] !== -3 && g.occ[i] < 0 && !onHut(i);
     const items = [];
     const add = (name, x, z, o) => {
       const f = this.frame(name);

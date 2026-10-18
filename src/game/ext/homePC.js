@@ -8,7 +8,7 @@
 //   THIS?"), fingertips steepled and smug on a good one. "View full detail" opens the
 //   ledger on the PC; "Go to bed" hands the room straight to the bedtime cutscene
 //   (src/game/Bedtime.js, which starts from the desk).
-// - ANYTIME: a bobbing door marker on his hut; tap the door -> his room (game paused,
+// - ANYTIME: tap the door of his hut -> his room (game paused,
 //   Back / Esc leaves); click the PC -> the same app in browse mode (pick a day,
 //   all-time graphs). A few other props do little things.
 //
@@ -21,7 +21,6 @@ import * as THREE from 'three';
 import { HUT } from '../../world/worldgen.js';
 import { Bedtime } from '../Bedtime.js';
 import { openHomePC } from '../../ui/HomePC.js';
-import { makeDoorMarker } from '../../entities/homes/homeExteriors.js';
 import { openWardrobe } from '../../ui/Wardrobe.js';
 import { WARDROBE } from '../../entities/foxOutfits.js';
 import { setFoxStyle } from '../../entities/foxProps.js';
@@ -787,27 +786,22 @@ class HomePCSystem {
     return (ph === 'day' || ph === 'morning') && g.rig.wupp < 0.05;
   }
 
+  // [v28 house] no floating house badge over the cottage door any more (the user asked for it gone): the door
+  // itself stays tappable exactly when the badge used to show (tapDoor reads doorLive)
   updateMarker(dt) {
     const g = this.game;
-    if (!g.scene || !g.started) return;
-    if (!this.marker) {
-      try { this.marker = makeDoorMarker(); } catch { this.marker = null; return; }
-      this.marker.visible = false;
-      g.scene.add(this.marker);
-    }
+    if (!g.scene || !g.started) { this.doorLive = false; return; }
     const d = this.doorPos();
-    const near = this.markerShown() && Math.hypot(d.x - g.rig.target.x, d.z - g.rig.target.z) < 9;
-    this.marker.visible = near;
-    if (near) { this.mT = (this.mT || 0) + dt; this.marker.position.set(d.x, 1.75 + Math.sin(this.mT * 3) * 0.08, d.z + 0.1); }
+    this.doorLive = this.markerShown() && Math.hypot(d.x - g.rig.target.x, d.z - g.rig.target.z) < 9;
   }
 
   /** world tap (HomeMode.tapDoor delegates here first): Reynard's front door -> his room */
   tapDoor(sx, sy) {
     const g = this.game;
-    if (!this.marker?.visible) return false;
+    if (!this.doorLive) return false; // [v28 house] (was: the badge visible)
     const d = this.doorPos();
     let bd = Infinity;
-    for (const y of [0.35, 0.8, 1.75]) {
+    for (const y of [0.35, 0.8, 1.15]) { // [v28 house] the door's bottom / middle / top (no badge at 1.75)
       const p = g.rig.worldToScreen(_v.set(d.x, d.y + y, d.z), g.renderer);
       bd = Math.min(bd, (p.x - sx) ** 2 + (p.y - sy) ** 2);
     }

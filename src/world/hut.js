@@ -100,6 +100,7 @@ export function hutModel() {
   const body = new VoxelModel();
   const glow = new VoxelModel();
   const room = new VoxelModel();
+  const porch = new VoxelModel(); // the porch roof: lit, receives shadows, casts none
   const rnd = mulberry32(7);
   const panes = []; // { x, y, z, nx, nz } pane quads (lower-left corner in voxels, along +x or +z)
 
@@ -230,19 +231,21 @@ export function hutModel() {
   // corner brackets + the tie beam
   body.set(PORCH.x0 + 1, 12, PORCH.z1, P.postL); body.set(PORCH.x1 - 1, 12, PORCH.z1, P.postL);
   for (let x = PORCH.x0; x <= PORCH.x1; x++) body.set(x, 13, PORCH.z1, P.shutD);
-  // porch roof (gable to the front), cream bargeboards on the front edge
+  // porch roof (gable to the front), cream bargeboards on the front edge. Its own model: it casts no
+  // shadow (with the sun low on the right its diagonal shadow sliced the left window's cream cross into
+  // a grey X that read as a floating icon)
   for (let z = PORCH.z0 + 1; z <= PORCH.z1 + 1; z++)
     for (let x = 9; x <= 20; x++) {
       const y = porchY(x);
       const row = Math.min(x - 9, 20 - x);
       const front = z === PORCH.z1 + 1;
-      body.set(x, y, z, front ? P.fascia : shingle(x * 2 + z, row, rnd));
-      if (x > 9 && x < 20) body.set(x, y - 1, z, front ? P.fascia : P.soffit);
+      porch.set(x, y, z, front ? P.fascia : shingle(x * 2 + z, row, rnd));
+      if (x > 9 && x < 20) porch.set(x, y - 1, z, front ? P.fascia : P.soffit);
     }
-  for (let z = PORCH.z0 + 1; z <= PORCH.z1 + 1; z++) { body.set(14, 19, z, P.ridge); body.set(15, 19, z, P.ridge); }
+  for (let z = PORCH.z0 + 1; z <= PORCH.z1 + 1; z++) { porch.set(14, 19, z, P.ridge); porch.set(15, 19, z, P.ridge); }
   // gable infill: vertical cream boards
   for (let x = 11; x <= 18; x++)
-    for (let y = 14; y <= porchY(x) - 2; y++) body.set(x, y, PORCH.z1, (x & 1) ? P.trim : P.trimD);
+    for (let y = 14; y <= porchY(x) - 2; y++) porch.set(x, y, PORCH.z1, (x & 1) ? P.trim : P.trimD);
 
   // ---------- main roof: shingle rows, eaves, gable ends, ridge cap
   function shingle(x, row, r) {
@@ -365,7 +368,8 @@ export function hutModel() {
   }
 
   buildRooms(room, glow);
-  return { body, glow, interior: room, panes };
+  for (const k of porch.vox.keys()) body.vox.delete(k); // the porch roof wins where it meets the main eave
+  return { body, glow, interior: room, porch, panes };
 }
 
 // ------------------------------------------------------------------ the rooms behind the windows
@@ -592,6 +596,9 @@ export function buildHut() {
   const body = new THREE.Mesh(m.body.build({ scale: S }), voxelMaterial());
   body.castShadow = true; body.receiveShadow = true;
   body.name = 'hutBody';
+  const porchRoof = new THREE.Mesh(m.porch.build({ scale: S }), voxelMaterial());
+  porchRoof.receiveShadow = true;
+  porchRoof.name = 'hutPorchRoof';
   const roomMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: DAY_ROOM.clone() });
   const rooms = new THREE.Mesh(m.interior.build({ scale: S }), roomMat);
   rooms.name = 'hutRooms';
@@ -602,7 +609,7 @@ export function buildHut() {
   const glass = new THREE.Mesh(glassGeometry(m.panes), glassMat);
   glass.name = 'hutGlass';
   glass.renderOrder = 2;
-  g.add(body, rooms, glow, glass);
+  g.add(body, porchRoof, rooms, glow, glass);
 
   // light pools (front windows + door), additive, faded in at night
   const poolMat = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
