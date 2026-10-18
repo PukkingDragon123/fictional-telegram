@@ -44,7 +44,7 @@ flashes = [('t2_hatch', 2.0), ('t2_build', 2.2), ('t2_resort', 2.4), ('t2_winter
 for k, (src, i0) in enumerate(flashes):
     shot('fl%d_%s' % (k, src), e0 + k * half, e0 + (k + 1) * half, i0, src=src, tin={'type': 'flash', 'dur': 0.16, 'amt': 0.7}, game_db=-14, ext=False)
 shot('t2_laugh', bar(e0, 2), bar(e0, 3), 0.3, tin={'type': 'whip', 'dur': 0.3, 'dir': -1}, game_db=-2)
-END = HIT + 6.9
+END = HIT + 6.5
 shot('t2_title', bar(e0, 3), END, 0.6, tin={'type': 'zoom', 'dur': 0.6, 'cx': 0.5, 'cy': 0.45, 'za': 1.4, 'zb': 0.35, 'glow': 0.5}, game_db=-12)
 
 shots = []

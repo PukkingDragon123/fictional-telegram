@@ -34,7 +34,7 @@ const P = {
   endA: 0xe0b47c, endB: 0xc28d56,
   trim: 0xf1e6cb, trimD: 0xd8c7a1, trimS: 0xbfae8a,
   shut: [0x3d7a55, 0x478a60], shutD: 0x2c5c3f, iron: 0x2b2a2d,
-  door: [0x3b7480, 0x346a75], doorD: 0x24505a, brass: 0xe8bc48, brassD: 0xa9822c,
+  door: [0xc2483a, 0xb23f32], doorD: 0x7e2a20, brass: 0xe8bc48, brassD: 0xa9822c,
   shingle: [[0xb2483a, 0xa64234], [0x9c3e31, 0xa94536]], shingleL: 0xc65a44, seam: 0x7a2c22, moss: [0x7f8f46, 0x6c7d3c],
   ridge: 0x5b241c, ridgeL: 0x7a3326, soffit: 0x5e3d26, fascia: 0xe9dcbc,
   gable: [0x84593a, 0x76502f],
@@ -42,7 +42,8 @@ const P = {
   box: [0x7d5232, 0x6e4829], soil: 0x3f2b1e,
   leaf: [0x4f8b3c, 0x3f7a31, 0x5c9a44], bloom: [0xe0453a, 0xf06d9c, 0xf6f1e6, 0xf3c335, 0xd8433a],
   copper: 0xc4793e, copperD: 0x9a5a2c, flag: 0xdadada,
-  post: 0xece0c2,
+  post: 0xa8703e, postL: 0xbc844c,
+  sign: [0x4a3020, 0x543724], signFr: 0x2e1e14,
 };
 const pick = (arr, r) => arr[Math.floor(r * arr.length) % arr.length];
 function scaleHex(hex, k, kg = k, kb = k) {
@@ -213,15 +214,15 @@ export function hutModel() {
     }
   for (let x = PORCH.x0 + 1; x <= PORCH.x1 - 1; x++) body.set(x, 0, PORCH.z1 + 1, x === PORCH.x0 + 1 || x === PORCH.x1 - 1 ? P.deckEdge : P.deck[x & 1]);
   for (const px of [PORCH.x0, PORCH.x1]) {
-    for (let y = 2; y <= 13; y++) body.set(px, y, PORCH.z1, y === 2 || y === 12 ? P.trimD : P.post);
+    for (let y = 2; y <= 13; y++) body.set(px, y, PORCH.z1, y === 2 ? P.stone[3] : y === 12 ? P.plate : (y & 1) ? P.post : P.postL);
     // side rail + balusters
     for (let z = PORCH.z0 + 1; z < PORCH.z1; z++) {
-      body.set(px, 6, z, P.post);
-      if ((z - PORCH.z0) % 2 === 1) for (let y = 2; y <= 5; y++) body.set(px, y, z, P.trimD);
+      body.set(px, 6, z, P.postL);
+      if ((z - PORCH.z0) % 2 === 1) for (let y = 2; y <= 5; y++) body.set(px, y, z, P.post);
     }
   }
   // corner brackets + the tie beam
-  body.set(PORCH.x0 + 1, 12, PORCH.z1, P.post); body.set(PORCH.x1 - 1, 12, PORCH.z1, P.post);
+  body.set(PORCH.x0 + 1, 12, PORCH.z1, P.postL); body.set(PORCH.x1 - 1, 12, PORCH.z1, P.postL);
   for (let x = PORCH.x0; x <= PORCH.x1; x++) body.set(x, 13, PORCH.z1, P.shutD);
   // porch roof (gable to the front), cream bargeboards on the front edge
   for (let z = PORCH.z0 + 1; z <= PORCH.z1 + 1; z++)
@@ -290,10 +291,18 @@ export function hutModel() {
   glow.ellipsoid(18.5, 27, 6.5, 1.7, 1.9, 1.7, (x, y) => (y >= 28 ? 0x9affb0 : 0x58e07a));
   glow.set(18, 29, 6, 0xc8ffd8); glow.set(19, 29, 6, 0xc8ffd8);
 
-  // ---------- rooftop sign: REYNARD in chunky letters on a rail, lit at night
-  for (let x = 0; x <= 28; x++) body.set(x, roofY(SIGN_Z) + 1, SIGN_Z, x % 7 === 0 ? P.iron : P.soffit);
-  for (const sx of [0, 14, 28]) body.set(sx, roofY(SIGN_Z) + 2, SIGN_Z, P.iron);
-  voxelText(glow, 'REYNARD', 1, roofY(SIGN_Z) + 7, SIGN_Z, 0xfff0c4);
+  // ---------- rooftop sign: a plank board on two legs, REYNARD in chunky letters (lit at night)
+  {
+    const y0 = roofY(SIGN_Z) + 2, y1 = y0 + 6, zb = SIGN_Z - 1;
+    for (let x = 0; x <= 28; x++)
+      for (let y = y0; y <= y1; y++) {
+        const fr = x === 0 || x === 28 || y === y0 || y === y1;
+        body.set(x, y, zb, fr ? P.signFr : (y & 1) ? P.sign[0] : P.sign[1]);
+      }
+    for (const lx of [3, 25]) for (let y = roofY(zb) + 1; y < y0; y++) { body.set(lx, y, zb, P.signFr); body.set(lx, y, zb - 1, P.signFr); }
+    for (const [cx, cy] of [[0, y0], [28, y0], [0, y1], [28, y1]]) body.set(cx, cy, SIGN_Z, P.brass);
+    voxelText(glow, 'REYNARD', 1, y1 - 1, SIGN_Z, 0xfff0c4);
+  }
 
   // ---------- the flag flies from a pole on the back slope; the FISH 4 SALE stand at the front-right
   for (let y = roofY(FLAG.z) + 1; y <= FLAG.top; y++) body.set(FLAG.x, y, FLAG.z, P.flag);
@@ -301,6 +310,16 @@ export function hutModel() {
   flagModel(body, FLAG.x + 1, FLAG.top - 6, FLAG.z);
   for (const px of [23, 29]) for (let y = 0; y <= 5; y++) body.set(px, y, 29, P.soffit);
   for (let x = 23; x <= 29; x++) body.set(x, 6, 29, P.deckEdge);
+  // a red mailbox at the front-left corner (its little flag is up: e-Buy parcels)
+  for (let y = 0; y <= 4; y++) body.set(1, y, 28, P.soffit);
+  for (let x = 0; x <= 2; x++) for (let z = 26; z <= 29; z++) { body.set(x, 5, z, 0xb83a30); body.set(x, 6, z, x === 1 ? 0xc8463a : 0xb83a30); }
+  for (let z = 26; z <= 29; z++) body.set(1, 7, z, 0xa8342c);
+  body.set(1, 6, 29, 0x2b2a2d); body.set(3, 6, 27, P.iron); body.set(3, 7, 27, 0xf3c335); body.set(3, 8, 27, 0xf3c335);
+  // potted plants either side of the door
+  for (const px of [PORCH.x0 + 1, PORCH.x1 - 1]) {
+    body.set(px, 2, PORCH.z0 + 1, 0xb5653a); body.set(px, 3, PORCH.z0 + 1, 0xc4744a);
+    body.set(px, 4, PORCH.z0 + 1, P.leaf[0]); body.set(px, 5, PORCH.z0 + 1, P.leaf[2]);
+  }
 
   // ---------- back: a shuttered window (heart cut-out glows at night), woodpile under the eave
   {
@@ -313,9 +332,14 @@ export function hutModel() {
       }
     for (const [hx, hy] of [[20, 9], [21, 9], [20, 10], [21, 10], [19, 10], [22, 10]]) { body.set(hx, hy, Z0 - 1, null); glow.set(hx, hy, Z0 - 1, 0xffc870); }
     for (let x = a - 1; x <= b + 1; x++) { body.set(x, WY1 + 1, Z0 - 1, P.trimD); body.set(x, WY0 - 1, Z0 - 1, P.trim); }
-    for (let x = 2; x <= 12; x++)
-      for (let y = 0; y <= 5 - (x === 2 || x === 12 ? 1 : 0); y++)
-        for (let z = 0; z <= 1; z++) body.set(x, y, z, z === 0 ? ((x + y) % 2 ? P.endA : P.endB) : P.logD[1]);
+    // stacked firewood: 2x2 log ends, staggered rows
+    for (let y = 0; y <= 5; y++)
+      for (let x = 2; x <= 12; x++) {
+        if (y >= 4 && (x < 4 || x > 10)) continue;
+        const u = (x + (y >> 1) % 2) % 2, v = y % 2;
+        const c = u === 0 && v === 1 ? P.endA : u === 1 && v === 0 ? P.logD[0] : P.endB;
+        body.set(x, y, 0, c); body.set(x, y, 1, P.logD[1]);
+      }
   }
 
   // ---------- east lab window (green light inside), shutters
@@ -333,147 +357,150 @@ export function hutModel() {
     for (let z = a - 2; z <= b + 2; z++) { body.set(x + 1, WY1 + 1, z, P.trimD); body.set(x + 1, WY0 - 1, z, P.trim); body.set(x + 2, WY0 - 1, z, P.trimS); }
   }
 
-  buildRooms(room, glow, rnd);
+  buildRooms(room, glow);
   return { body, glow, interior: room, panes };
 }
 
 // ------------------------------------------------------------------ the rooms behind the windows
-// Unlit voxels with the lamp light baked in: colour * (ambient + warm falloff).
-function buildRooms(R, G, rnd) {
+// Unlit voxels with the lamp light baked in: colour * (ambient + warm falloff round the lamp).
+// Each room is a closed box (no gaps whatever the angle) open on the window side.
+function buildRooms(R, G) {
   const lit = (lamp, amb = 0.5, k = 0.75, r2 = 34) => (x, y, z, hex) => {
     const d2 = (x - lamp[0]) ** 2 + (y - lamp[1]) ** 2 * 0.8 + (z - lamp[2]) ** 2;
     const f = amb + k * Math.exp(-d2 / r2);
     return scaleHex(hex, f * 1.04, f, f * 0.9);
   };
-  // a closed box x a..b, y 1..top, z c..d (walls + floor + ceiling), painted by fn(x,y,z,part)
-  function roomBox(a, b, c, d, top, paint, light) {
+  // box x a..b, z c..d, floor y 1, ceiling y top; open side +z (front rooms) or +x (the lab)
+  function roomBox(a, b, c, d, top, paint, light, openX = false) {
     for (let x = a; x <= b; x++)
       for (let z = c; z <= d; z++) {
         R.set(x, 1, z, light(x, 1, z, paint(x, 1, z, 'floor')));
         R.set(x, top, z, light(x, top, z, paint(x, top, z, 'ceil')));
       }
     for (let y = 2; y < top; y++) {
-      for (let x = a; x <= b; x++) R.set(x, y, c, light(x, y, c, paint(x, y, c, 'back')));
-      for (let z = c; z <= d; z++) { R.set(a, y, z, light(a, y, z, paint(a, y, z, 'side'))); R.set(b, y, z, light(b, y, z, paint(b, y, z, 'side'))); }
+      if (!openX) {
+        for (let x = a; x <= b; x++) R.set(x, y, c, light(x, y, c, paint(x, y, c, 'back')));
+        for (let z = c; z <= d; z++) { R.set(a, y, z, light(a, y, z, paint(a, y, z, 'side'))); R.set(b, y, z, light(b, y, z, paint(b, y, z, 'side'))); }
+      } else {
+        for (let z = c; z <= d; z++) R.set(a, y, z, light(a, y, z, paint(a, y, z, 'back')));
+        for (let x = a; x <= b; x++) { R.set(x, y, c, light(x, y, c, paint(x, y, c, 'side'))); R.set(x, y, d, light(x, y, d, paint(x, y, d, 'side'))); }
+      }
     }
   }
   const put = (x, y, z, hex, light) => R.set(x, y, z, light(x, y, z, hex));
+  // tied-back curtains just inside a window opening x o0..o1: hidden behind the logs either side,
+  // only the top corners and the flared hems peek into the outer panes
+  function curtains(o0, o1, cols, light) {
+    for (const [cx, out] of [[o0, -1], [o1, 1]])
+      for (let y = 5; y <= 14; y++) {
+        const c = (cx + y) & 1 ? cols[0] : cols[1];
+        put(cx + out, y, 18, c, light); put(cx + out * 2, y, 18, c, light);
+        if (y >= 12 || y <= 6) put(cx, y, 18, c, light);
+      }
+    for (const cx of [o0 - 1, o1 + 1]) put(cx, 9, 17, 0xe8bc48, light); // tie-backs
+    for (let x = o0 - 2; x <= o1 + 2; x++) put(x, 14, 17, 0x5e3a20, light); // rod
+  }
 
-  // --- living room behind the left window (opening x 4..8): table lamp, shelf, painting, armchair
+  // --- living room behind the left window (opening x 4..8): table lamp, shelf of books, painting, armchair
   {
     const L = lit([8, 10.5, 16]);
-    const paper = (x, y) => (y >= 8 ? ((x & 1) ? 0xecd49c : 0xe2c78a) : y === 7 ? 0x6e4a2c : (x & 1) ? 0x9a6a40 : 0x8c5f38);
+    const paper = (u, y) => (y >= 8 ? ((u & 1) ? 0xecd49c : 0xe2c78a) : y === 7 ? 0x6e4a2c : (u & 1) ? 0x9a6a40 : 0x8c5f38);
     roomBox(1, 11, 13, 19, 16, (x, y, z, part) => {
       if (part === 'floor') return (x + z) % 5 === 0 ? 0x7a5230 : z & 1 ? 0xa0703f : 0x936638;
       if (part === 'ceil') return x % 3 === 0 ? 0x6a4428 : 0x82583a;
-      const dot = y >= 9 && (x + y) % 4 === 0 && part === 'back' ? 0xc8584a : 0;
-      return dot || paper(part === 'back' ? x : z, y);
+      if (part === 'back' && y >= 9 && (x + y) % 4 === 0) return 0xc8584a; // little red flowers on the paper
+      return paper(part === 'back' ? x : z, y);
     }, L);
     // rug
-    for (let x = 4; x <= 9; x++) for (let z = 15; z <= 18; z++) put(x, 1, z, (x === 4 || x === 9 || z === 15 || z === 18) ? 0xe8d8b0 : (x + z) & 1 ? 0xb83c34 : 0xa8322c, L);
+    for (let x = 3; x <= 9; x++) for (let z = 15; z <= 18; z++) put(x, 1, z, (x === 3 || x === 9 || z === 15 || z === 18) ? 0xe8d8b0 : (x + z) & 1 ? 0xb83c34 : 0xa8322c, L);
     // shelf with books + a jar
     for (let x = 2; x <= 6; x++) put(x, 10, 14, 0x6e4628, L);
-    put(2, 11, 14, 0xb03a32, L); put(2, 12, 14, 0xb03a32, L); put(2, 13, 14, 0xb03a32, L);
-    put(3, 11, 14, 0x3a5a9a, L); put(3, 12, 14, 0x3a5a9a, L);
-    put(4, 11, 14, 0x4a7a3a, L); put(4, 12, 14, 0x4a7a3a, L); put(4, 13, 14, 0x4a7a3a, L);
-    put(5, 11, 14, 0xd0a030, L); put(5, 12, 14, 0xd0a030, L);
+    const books = [[2, 0xb03a32, 3], [3, 0x3a5a9a, 2], [4, 0x4a7a3a, 3], [5, 0xd0a030, 2]];
+    for (const [x, c, h] of books) for (let y = 11; y < 11 + h; y++) put(x, y, 14, c, L);
     put(6, 11, 14, 0x8fd0c8, L); put(6, 12, 14, 0xd8f0e8, L);
-    // painting: a pond at sunset in a gold frame
+    // painting: the pond at sunset, gold frame
     for (let x = 7; x <= 10; x++)
       for (let y = 11; y <= 14; y++) {
         const fr = x === 7 || x === 10 || y === 11 || y === 14;
         put(x, y, 14, fr ? 0xd0a840 : y === 13 ? (x === 8 ? 0xffd070 : 0xf09a68) : 0x4a86b0, L);
       }
-    // side table + lamp (shade glows)
+    // side table + lamp (the shade glows)
     for (let x = 7; x <= 9; x++) for (let z = 15; z <= 17; z++) put(x, 6, z, 0x7a4c2a, L);
     for (const [x, z] of [[7, 15], [9, 15], [7, 17], [9, 17]]) for (let y = 2; y <= 5; y++) put(x, y, z, 0x5e3a20, L);
     put(8, 7, 16, 0xb08a3a, L); put(8, 8, 16, 0xc8a048, L); put(8, 9, 16, 0xc8a048, L);
     for (let x = 7; x <= 9; x++) for (let z = 15; z <= 17; z++) { G.set(x, 10, z, 0xffe0a0); G.set(x, 11, z, (x + z) & 1 ? 0xffd488 : 0xffe8b8); }
-    // armchair (red velvet) in the corner
+    // armchair (red velvet)
     for (let x = 2; x <= 5; x++) for (let z = 15; z <= 17; z++) { put(x, 2, z, 0x7a2a26, L); put(x, 3, z, 0xb8423a, L); }
-    for (let x = 2; x <= 5; x++) for (let y = 4; y <= 7; y++) put(x, y, 14 + 1, y === 7 ? 0xa83a34 : 0xb8423a, L);
+    for (let x = 2; x <= 5; x++) for (let y = 4; y <= 7; y++) put(x, y, 15, y === 7 ? 0xa83a34 : 0xb8423a, L);
     for (const x of [2, 5]) for (let z = 16; z <= 17; z++) put(x, 4, z, 0xa83a34, L);
     // inner sill + a potted fern
     for (let x = 3; x <= 9; x++) put(x, 4, 19, 0xe4d6b4, L);
     put(5, 5, 19, 0xb5653a, L); put(5, 6, 19, 0x4f8b3c, L); put(4, 6, 19, 0x5c9a44, L); put(5, 7, 19, 0x3f7a31, L);
-    // curtains: red gingham, tied back at the sides
-    for (const [cx, dir] of [[3, -1], [9, 1]])
-      for (let y = 5; y <= 14; y++) {
-        const g = (cx + y) & 1 ? 0xc8423a : 0xf2e4d2;
-        put(cx, y, 18, g, L); put(cx - dir, y, 18, g, L);
-        if (y >= 11) put(cx + dir * -1 + dir * 2, y, 18, g, L); // wider at the top: peeks into the pane
-      }
-    for (const cx of [3, 9]) put(cx, 9, 19, 0xe8bc48, L); // tie-backs
-    for (let x = 3; x <= 9; x++) put(x, 14, 18, x === 3 || x === 9 ? 0xc8423a : 0x5e3a20, L); // rod / valance
+    curtains(4, 8, [0xc8423a, 0xf2e4d2], L);
   }
 
-  // --- kitchen / lab nook behind the right window (opening x 21..25): pendant lamp, shelves, counter
+  // --- kitchen behind the right window (opening x 21..25): pendant lamp, counter, shelf with jars
   {
-    const L = lit([23, 11, 16.5], 0.48, 0.8);
-    roomBox(18, 28, 13, 19, 16, (x, y, z, part) => {
+    const L = lit([23, 11, 17], 0.48, 0.8);
+    roomBox(18, 28, 15, 19, 16, (x, y, z, part) => {
       if (part === 'floor') return (x + z) & 1 ? 0xd8c8a8 : 0x6a5a48; // checker
       if (part === 'ceil') return x % 3 === 0 ? 0x6a4428 : 0x82583a;
       const u = part === 'back' ? x : z;
-      if (y <= 6) return (u & 1) ? 0x5f8f74 : 0x557f68; // green cabinets
-      return ((u + y) % 3 === 0) ? 0xc9dce0 : 0xeae6da; // tiles
+      if (y <= 5) return (u & 1) ? 0x5f8f74 : 0x557f68;
+      return ((u + y) % 3 === 0) ? 0xbcd4dc : 0xeae6da; // tiles
     }, L);
-    // counter top + items
-    for (let x = 19; x <= 27; x++) for (let z = 14; z <= 15; z++) { put(x, 6, z, 0x8a5a32, L); for (let y = 2; y <= 5; y++) put(x, y, z, y === 4 ? 0x46705a : (x & 1) ? 0x5f8f74 : 0x557f68, L); }
-    put(20, 7, 15, 0xc4793e, L); put(21, 7, 15, 0xc4793e, L); put(20, 8, 15, 0xd88a4a, L); put(21, 8, 15, 0x9a5a2c, L); // kettle
-    put(24, 7, 15, 0xe8e4dc, L); put(25, 7, 15, 0xe8e4dc, L); put(26, 7, 15, 0xe8e4dc, L); // plate
-    put(24, 8, 15, 0x8ab0c8, L); put(25, 8, 15, 0x9ac0d8, L); put(26, 8, 15, 0x6a90a8, L); // a fish on it
-    // shelves with jars, one glowing lab flask
-    for (const sy of [10, 13]) for (let x = 19; x <= 27; x++) put(x, sy, 14, 0x6e4628, L);
-    const jars = [0xd09030, 0x6ab060, 0xb03040, 0xe8d8b0, 0x5a7ab8, 0xd09030, 0x8a5a9a];
-    for (let i = 0; i < 7; i++) { const x = 19 + i + (i > 3 ? 1 : 0); put(x, 11, 14, jars[i], L); if (i % 2 === 0) put(x, 12, 14, jars[(i + 3) % 7], L); }
-    G.set(23, 14, 14, 0x7cff9a); G.set(23, 15, 14, 0xb8ffc8);
-    put(20, 14, 14, 0xb03a32, L); put(21, 14, 14, 0x3a5a9a, L); put(26, 14, 14, 0xd0a030, L); put(27, 14, 14, 0x4a7a3a, L);
+    // counter + things on it
+    for (let x = 19; x <= 27; x++) { put(x, 6, 16, 0x8a5a32, L); for (let y = 2; y <= 5; y++) put(x, y, 16, y === 4 ? 0x46705a : (x & 1) ? 0x5f8f74 : 0x557f68, L); }
+    put(21, 7, 16, 0xc4793e, L); put(22, 7, 16, 0xc4793e, L); put(21, 8, 16, 0xd88a4a, L); put(22, 8, 16, 0x9a5a2c, L); // copper kettle
+    for (let x = 24; x <= 26; x++) put(x, 7, 16, 0xe8e4dc, L); // a plate...
+    put(24, 8, 16, 0x6a90a8, L); put(25, 8, 16, 0x9ac0d8, L); put(26, 8, 16, 0x8ab0c8, L); // ...with a fish
+    // shelf with jars and a glowing lab flask
+    for (let x = 19; x <= 27; x++) put(x, 10, 16, 0x6e4628, L);
+    const jars = [[19, 0xd09030], [20, 0x6ab060], [21, 0xb03040], [24, 0xe8d8b0], [25, 0x5a7ab8], [26, 0xd09030], [27, 0x8a5a9a]];
+    for (const [x, c] of jars) { put(x, 11, 16, c, L); if (x & 1) put(x, 12, 16, scaleHex(c, 1.15), L); }
+    G.set(22, 11, 16, 0x7cff9a); G.set(22, 12, 16, 0xb8ffc8);
     // pendant lamp
-    put(23, 15, 17, 0x2b2a2d, L); put(23, 14, 17, 0x2b2a2d, L);
-    for (let x = 22; x <= 24; x++) put(x, 13, 17, 0x3d7a55, L);
-    put(21, 12, 17, 0x3d7a55, L); put(25, 12, 17, 0x3d7a55, L);
-    G.set(22, 12, 17, 0xffe6a8); G.set(23, 12, 17, 0xfff4d0); G.set(24, 12, 17, 0xffe6a8); G.set(23, 11, 17, 0xffd890);
+    put(23, 15, 18, 0x2b2a2d, L); put(23, 14, 18, 0x2b2a2d, L);
+    for (let x = 22; x <= 24; x++) put(x, 13, 18, 0x3d7a55, L);
+    put(21, 12, 18, 0x3d7a55, L); put(25, 12, 18, 0x3d7a55, L);
+    G.set(22, 12, 18, 0xffe6a8); G.set(23, 12, 18, 0xfff4d0); G.set(24, 12, 18, 0xffe6a8); G.set(23, 11, 18, 0xffd890);
     // inner sill + a little cactus
     for (let x = 20; x <= 26; x++) put(x, 4, 19, 0xe4d6b4, L);
-    put(24, 5, 19, 0xb5653a, L); put(24, 6, 19, 0x5c9a44, L); put(24, 7, 19, 0x4f8b3c, L); put(25, 7, 19, 0x4f8b3c, L);
-    // curtains: green gingham
-    for (const cx of [20, 26])
-      for (let y = 5; y <= 14; y++) {
-        const g = (cx + y) & 1 ? 0x4a8a5a : 0xeef0e2;
-        put(cx, y, 18, g, L); put(cx + (cx < 23 ? -1 : 1), y, 18, g, L);
-        if (y >= 11) put(cx + (cx < 23 ? 1 : -1), y, 18, g, L);
-      }
-    for (const cx of [20, 26]) put(cx, 9, 19, 0xe8bc48, L);
-    for (let x = 20; x <= 26; x++) put(x, 14, 18, x === 20 || x === 26 ? 0x4a8a5a : 0x5e3a20, L);
+    put(25, 5, 19, 0xb5653a, L); put(25, 6, 19, 0x5c9a44, L); put(25, 7, 19, 0x4f8b3c, L); put(24, 7, 19, 0x4f8b3c, L);
+    curtains(21, 25, [0x4a8a5a, 0xeef0e2], L);
   }
 
   // --- the hall behind the door window: a coat hook with Reynard's spare top hat
   {
-    const L = lit([14.5, 12, 18], 0.6, 0.6);
+    const L = lit([13.5, 13, 17], 0.62, 0.7, 18);
     roomBox(12, 17, 15, 18, 16, (x, y, z, part) => (part === 'floor' ? 0x936638 : part === 'ceil' ? 0x82583a : (x + z) & 1 ? 0xecd49c : 0xe2c78a), L);
-    for (let x = 13; x <= 16; x++) put(x, 12, 16, 0x6e4628, L);
-    put(14, 10, 16, 0x24222a, L); put(15, 10, 16, 0x24222a, L); put(14, 11, 16, 0xb8423a, L); put(15, 11, 16, 0xb8423a, L);
-    put(13, 9, 16, 0x24222a, L); put(14, 9, 16, 0x24222a, L); put(15, 9, 16, 0x24222a, L); put(16, 9, 16, 0x24222a, L);
-    G.set(16, 14, 17, 0xffe0a0);
+    for (let x = 13; x <= 16; x++) put(x, 13, 16, 0x6e4628, L); // hat shelf
+    put(15, 12, 16, 0x2b2a2d, L); // hook
+    for (let x = 15; x <= 16; x++) { put(x, 11, 16, 0x24222a, L); put(x, 10, 16, 0xb8423a, L); } // crown + red band
+    for (let x = 14; x <= 16; x++) put(x, 9, 16, 0x24222a, L); // brim
+    put(13, 9, 16, 0x8a5a32, L); put(13, 10, 16, 0x6e8a5a, L); // umbrella handle peeking in
+    G.set(13, 14, 17, 0xffe0a0); G.set(14, 14, 17, 0xffe8b8);
   }
 
   // --- the lab behind the east window (opening z 9..13): teal panels, glowing flasks, a bubbling tank
   {
-    const L = lit([26, 9, 11], 0.42, 0.55, 20);
-    roomBox(23, 28, 7, 15, 16, (x, y, z, part) => {
-      if (part === 'floor') return (x + z) & 1 ? 0x4a4a52 : 0x3e3e46;
-      if (part === 'ceil') return 0x3a3a40;
-      return (y % 4 === 0) ? 0x2a4a44 : (z & 1) ? 0x3a6a62 : 0x35625a;
-    }, L);
-    // the room's back wall is x = 23: shelf with flasks
-    for (let z = 8; z <= 14; z++) put(24, 10, z, 0x6e4628, L);
-    const fl = [0x7cff9a, 0xb07cff, 0x7ce8ff, 0xffd060, 0x7cff9a];
-    for (let i = 0; i < 5; i++) { G.set(24, 11, 8 + i + (i > 1 ? 2 : 0), fl[i]); if (i % 2 === 0) G.set(24, 12, 8 + i + (i > 1 ? 2 : 0), 0xe0ffe8); }
-    // bubbling tank
-    for (let z = 9; z <= 13; z++) { put(25, 2, z, 0x2b2a2d, L); for (let y = 3; y <= 6; y++) G.set(25, y, z, y === 6 ? 0xa0ffd0 : (z + y) % 3 ? 0x40d0a0 : 0x70f0c0); put(25, 7, z, 0x2b2a2d, L); }
-    // brass lab lamp
-    put(26, 15, 11, 0x2b2a2d, L); put(26, 14, 11, 0xa9822c, L); G.set(26, 13, 11, 0xd8ffe0);
-    for (let z = 8; z <= 14; z++) put(28, 4, z, 0xe4d6b4, L);
+    const L = lit([26, 9, 11], 0.62, 0.6, 22);
+    roomBox(24, 28, 8, 14, 16, (x, y, z, part) => {
+      if (part === 'floor') return (x + z) & 1 ? 0x5a5a62 : 0x4c4c56;
+      if (part === 'ceil') return 0x44444c;
+      return (y % 4 === 0) ? 0x3a6a5e : ((part === 'back' ? z : x) & 1) ? 0x5a9a88 : 0x52907e;
+    }, L, true);
+    for (let z = 9; z <= 13; z++) put(25, 10, z, 0x6e4628, L);
+    const fl = [[9, 0x7cff9a], [10, 0xb07cff], [12, 0x7ce8ff], [13, 0xffd060]];
+    for (const [z, c] of fl) { G.set(25, 11, z, c); G.set(25, 12, z, z & 1 ? 0xe0ffe8 : c); }
+    // bubbling specimen tank on a bench (shows through the lower panes)
+    for (let z = 9; z <= 13; z++) {
+      put(26, 4, z, 0x2b2a2d, L); put(26, 3, z, 0x6e4628, L); put(26, 2, z, 0x6e4628, L);
+      for (let y = 5; y <= 8; y++) G.set(26, y, z, y === 8 ? 0xa0ffd0 : (z + y) % 3 ? 0x40d0a0 : 0x80f8d0);
+      put(26, 9, z, 0x2b2a2d, L);
+    }
+    G.set(26, 6, 11, 0xff9a40); G.set(26, 7, 10, 0xffffff); // a goldfish in the tank, a bubble
+    put(27, 15, 11, 0x2b2a2d, L); put(27, 14, 11, 0xa9822c, L); G.set(27, 13, 11, 0xd8ffe0);
   }
 }
 
@@ -486,14 +513,14 @@ function glassTexture() {
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const yy = H - 1 - y; // row 0 = top of the pane
-      let c = [150, 196, 226, 36];
-      if (x === W - 1 || yy === H - 1) c = [64, 92, 132, 96];
-      if (x === 0 || yy === 0) c = [226, 242, 255, 150];
+      let c = [150, 196, 226, 28];
+      if (x === W - 1 || yy === H - 1) c = [64, 92, 132, 80];
+      if (x === 0 || yy === 0) c = [226, 242, 255, 120];
       const s = x + yy;
       if (x > 0 && yy > 0 && x < W - 1 && yy < H - 1) {
-        if (s === 5 || s === 6) c = [255, 255, 255, 150];
-        else if (s === 9 && x >= 2) c = [240, 250, 255, 90];
-        else if (x === 1 && yy < 4) c = [210, 236, 255, 90];
+        if (s === 5 && yy <= 4) c = [255, 255, 255, 120];
+        else if (s === 6 && yy >= 2 && yy <= 4) c = [255, 255, 255, 70];
+        else if (s === 13 && x >= 4) c = [235, 248, 255, 60];
       }
       data.set(c, (y * W + x) * 4);
     }
@@ -537,7 +564,7 @@ function poolTexture() {
     for (let x = 0; x < N; x++) {
       const dx = (x + 0.5) / N - 0.5, dy = (y + 0.5) / N - 0.5;
       const d = Math.sqrt(dx * dx * 4 + dy * dy * 4);
-      const a = d < 0.45 ? 0.55 : d < 0.7 ? 0.32 : d < 0.95 ? 0.14 : 0; // stepped, pixel-art rings
+      const a = d < 0.4 ? 0.42 : d < 0.68 ? 0.24 : d < 0.95 ? 0.1 : 0; // stepped, pixel-art rings
       data.set([255, 200, 120, Math.round(a * 255)], (y * N + x) * 4);
     }
   const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
@@ -546,7 +573,7 @@ function poolTexture() {
 }
 
 // ------------------------------------------------------------------ assembled group
-const DAY_ROOM = new THREE.Color(0.6, 0.56, 0.52), NIGHT_ROOM = new THREE.Color(1.08, 0.9, 0.66);
+const DAY_ROOM = new THREE.Color(0.5, 0.45, 0.4), NIGHT_ROOM = new THREE.Color(1.08, 0.9, 0.66);
 const DAY_GLOW = new THREE.Color(0.86, 0.84, 0.8), NIGHT_GLOW = new THREE.Color(1.35, 1.2, 0.95);
 const DAY_GLASS = new THREE.Color(1, 1, 1), NIGHT_GLASS = new THREE.Color(0.5, 0.48, 0.46);
 const DAY_SMOKE = new THREE.Color(0xdcd8d2), NIGHT_SMOKE = new THREE.Color(0x7c7c92);
@@ -574,8 +601,8 @@ export function buildHut() {
   const poolMat = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const pg = [];
   const quad = (cx, cz, w, d) => { const q = new THREE.PlaneGeometry(w, d); q.rotateX(-Math.PI / 2); q.translate(cx, 0.012, cz); pg.push(q); };
-  for (const w of WINS) quad((w.x + 2.5) * S, 3.25, 0.95, 0.7);
-  quad(1.5, 3.2, 0.8, 0.55);
+  for (const w of WINS) quad((w.x + 2.5) * S, 3.15, 0.9, 0.5);
+  quad(1.5, 3.12, 0.7, 0.4);
   const pools = new THREE.Mesh(mergeGeos(pg), poolMat);
   pools.name = 'hutPools';
   pools.renderOrder = 1;
@@ -603,7 +630,7 @@ export function buildHut() {
         glowMat.color.copy(DAY_GLOW).lerp(NIGHT_GLOW, n);
         glassMat.color.copy(DAY_GLASS).lerp(NIGHT_GLASS, n);
         smokeMat.color.copy(DAY_SMOKE).lerp(NIGHT_SMOKE, n);
-        poolMat.opacity = Math.max(0, (n - 0.25) / 0.75) * 0.75;
+        poolMat.opacity = Math.max(0, (n - 0.25) / 0.75) * 0.6;
         pools.visible = poolMat.opacity > 0.01;
       }
       const t = time || 0;

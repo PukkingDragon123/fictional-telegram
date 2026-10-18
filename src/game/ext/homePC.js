@@ -577,14 +577,14 @@ class HomePCSystem {
     const g = this.game;
     if (!this.doorway) {
       const c = document.createElement('canvas');
-      c.width = 8; c.height = 14;
+      c.width = 8; c.height = 22; // [v28 house] the cottage door: 0.4 x 1.1 (one texel = half a voxel)
       const x = c.getContext('2d');
-      for (let y = 0; y < 14; y++) { x.fillStyle = y < 3 ? '#3a2412' : y < 9 ? '#ffb85a' : '#ffd890'; x.fillRect(0, y, 8, 1); }
-      x.fillStyle = '#2a160a'; x.fillRect(0, 0, 1, 14); x.fillRect(7, 0, 1, 14); x.fillRect(0, 0, 8, 1);
+      for (let y = 0; y < 22; y++) { x.fillStyle = y < 3 ? '#3a2412' : y < 13 ? '#ffb85a' : '#ffd890'; x.fillRect(0, y, 8, 1); }
+      x.fillStyle = '#2a160a'; x.fillRect(0, 0, 1, 22); x.fillRect(7, 0, 1, 22); x.fillRect(0, 0, 8, 1); x.fillRect(1, 1, 1, 1); x.fillRect(6, 1, 1, 1);
       const tex = new THREE.CanvasTexture(c);
       tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.colorSpace = THREE.SRGBColorSpace;
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.82), new THREE.MeshBasicMaterial({ map: tex }));
-      m.position.set(HUT.x + 1.45, 0.62, HUT.z + 2.115);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 1.1), new THREE.MeshBasicMaterial({ map: tex }));
+      m.position.set(HUT.x + 1.5, 0.75, HUT.z + 2.115); // [v28 house] fills the cottage's doorway (src/world/hut.js HUT_SPOTS.door)
       this.doorway = m;
     }
     if (on) g.scene.add(this.doorway); else this.doorway.removeFromParent();

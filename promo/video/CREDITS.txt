@@ -1,11 +1,13 @@
-The Bear Must Eat - promo video + trailer: credits and licenses
-================================================================
+The Bear Must Eat - videos: credits and licenses
+================================================
 
 Files
-  the-bear-must-eat-promo.mp4     promo: the villagers explain the game in their own speech bubbles
-  the-bear-must-eat-trailer.mp4   trailer: sunrise, Reynard wakes up, a short montage, title
+  the-bear-must-eat-trailer.mp4     trailer (v2): cinematic, wordless, 16:9 letterboxed
+  the-bear-must-eat-reel.mp4        vertical reel (1080x1920): the dev introduces the new NPC, Pip
+  the-bear-must-eat-promo.mp4       promo: the villagers explain the game in their own speech bubbles
+  the-bear-must-eat-trailer-v1.mp4  the first trailer, kept for reference
 
-Kenney packs (CC0): impact-sounds, rpg-audio (kenney.nl). freesound.org clips: CC0 only, license
+Kenney packs (CC0): impact-sounds, rpg-audio, interface-sounds (kenney.nl). freesound.org clips: CC0 only, license
 checked on each sound page before download.
 
 Picture: 100% real in-game footage of The Bear Must Eat (its own renderer, rigs, speech
@@ -25,7 +27,20 @@ Promo:
   Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Fluffing%20a%20Duck.mp3
           (catalog: https://incompetech.com/music/royalty-free/music.html , ISRC USUAN1100768)
 
-Trailer:
+Trailer (v2):
+  "Call to Adventure" Kevin MacLeod (incompetech.com)
+  Licensed under Creative Commons: By Attribution 4.0 License
+  http://creativecommons.org/licenses/by/4.0/
+  Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Call%20to%20Adventure.mp3
+  (used: 2:42.5-3:17.0 and 3:28.4-end, one phrase-aligned edit)
+
+Reel:
+  "Pixel Peeker Polka - faster" Kevin MacLeod (incompetech.com)
+  Licensed under Creative Commons: By Attribution 4.0 License
+  http://creativecommons.org/licenses/by/4.0/
+  Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Pixel%20Peeker%20Polka%20-%20faster.mp3  (ISRC USUAN1100833)
+
+Trailer v1:
   "Morning" Kevin MacLeod (incompetech.com)
   Licensed under Creative Commons: By Attribution 4.0 License
   http://creativecommons.org/licenses/by/4.0/
@@ -37,8 +52,9 @@ Trailer:
   Source: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Fireflies%20and%20Stardust.mp3  (ISRC USUAN1600061)
 
   License text checked on incompetech.com ("Licensed under Creative Commons: By Attribution
-  4.0 License", https://incompetech.com/music/royalty-free/licenses/). When you upload a video,
-  paste the three lines above for each track into the description as well.
+  4.0 License", https://incompetech.com/music/royalty-free/licenses/). Each video shows its
+  music credit on screen at the end; when you upload a video, paste the three lines above for
+  its track(s) into the description as well.
 
 
 SOUND EFFECTS (all CC0 1.0 public domain - no attribution required, listed for the record)

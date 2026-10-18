@@ -8,12 +8,27 @@ import { makeMug } from '../../src/entities/foxOffice.js';
 import { setCam, camAt, lerp, smooth, clamp, D2R } from './director.js';
 import { prep, clearDecos, stockPond, addRig, addFox, bearAt, holdBear, bearParade, winterScene, beaverWork } from './shots_promo.js';
 import { skyCurtain, skyCam, dawnLight } from './shots_trailer.js';
+import { HUT_SPOTS } from '../../src/world/hut.js';
+import { HUT } from '../../src/world/worldgen.js';
 
 export const SHOTS = {};
 
-// the left front window of Reynard's house (world coords: centre of the glass) and the porch
-// [the house helper's new model: update when it lands]
-export const HOUSE = { win: { x: 77.7, y: 0.76, z: 43.12 }, door: { x: 78.9, z: 43.2 }, front: { x: 78.5, z: 44.2 } };
+// Reynard's cottage (src/world/hut.js, v28): world positions of its left front window (centre of
+// the glass, the living room behind it) and the door, from the model's own HUT_SPOTS
+const SP = HUT_SPOTS, W0 = SP.windows[0];
+export const HOUSE = {
+  win: { x: HUT.x + W0.x, y: W0.y, z: HUT.z + W0.z },
+  door: { x: HUT.x + SP.door.x, z: HUT.z + SP.door.z },
+  front: { x: HUT.x + SP.door.x, z: HUT.z + SP.door.z + 0.4 },
+};
+// the rooms behind the windows glow (night look) whatever the hour
+function litHouse(g, k = 0.85) {
+  const fx = g.world.hutFx;
+  if (!fx || fx.__vid) return;
+  const up = fx.update.bind(fx);
+  fx.update = (time, night) => up(time, Math.max(night || 0, typeof k === 'function' ? k() : k));
+  fx.__vid = true;
+}
 
 function quiet(c, o) { prep(c, o); c.noTalk(); }
 function path(c, keys) { c.every((t) => setCam(c.g.rig, camAt(keys, t))); }
@@ -31,8 +46,10 @@ SHOTS.t2_dawn = {
     g.fox.rig.root.visible = false;
     let K = 0;
     dawnLight(c, () => K);
+    litHouse(g, 0.9);
     c.presim(1);
     const W = HOUSE.win;
+    console.log('[dir] window', JSON.stringify(W));
     const keys = [
       { t: 0.0, x: 64.0, z: 29.5, y: 0.0, yaw: -0.55, pitch: 62, wupp: 0.03 },
       { t: 8.5, x: 69.5, z: 34.5, y: 0.3, yaw: -0.22, pitch: 13, wupp: 0.021 },
@@ -45,7 +62,7 @@ SHOTS.t2_dawn = {
       const cam = camAt(keys, t);
       // high up, the sky curtain hangs just past the top of the frame, so it rises into view as the crane comes down
       const rr = g.renderer, sp = Math.sin(cam.pitch * D2R), hh = (rr.rtH * cam.wupp) / 2;
-      const skyD = cam.wupp < 0.008 ? 1.2 : Math.max(3.4, (hh + 0.6) / Math.max(0.05, sp));
+      const skyD = Math.max(3.6, (hh + 0.6) / Math.max(0.05, sp)); // always behind the house
       skyCam(c, { ...cam, skyD }, [lerp(0.05, 0.22, smooth(t / 13)), lerp(0.04, 0.52, smooth(t / 14))], t);
       g.state.hour = 6.3 + t * 0.05;
     });
@@ -345,6 +362,7 @@ SHOTS.t2_laugh = {
     clearDecos(g, 60, 39, 90, 56);
     clearDecos(g, 75.5, 44, 81.5, 92);
     stockPond(g, 12);
+    litHouse(g, 1);
     const fox = addFox(c, HOUSE.front.x, HOUSE.front.z + 1.3, { ry: 0.0, anim: 'laugh_evil' });
     fox.setExpression('mwaha', { hold: 9 });
     c.presim(0.3);

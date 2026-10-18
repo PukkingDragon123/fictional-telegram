@@ -39,7 +39,7 @@ for sid, bars, i0, tin in cuts:
 TOTAL = at
 
 T = []
-def cap(text, t0, t1, y=0.66, size=96, hi=(), step=0.12, **kw):
+def cap(text, t0, t1, y=0.64, size=118, hi=(), step=0.12, **kw):
     words = text.split()
     T.append(dict(type='caption', words=[{'w': w, 't': round(t0 + i * step, 3)} for i, w in enumerate(words)], t1=round(t1, 3), x=0.5, y=y, size=size, hi=list(hi), maxW=0.88, outline=9, **kw))
 S = []
@@ -47,27 +47,27 @@ def sfx(name, at, gain_db=0.0):
     S.append({'name': name, 'at': round(at, 3), 'gain_db': gain_db})
 
 # the hook (frame 0) and the reveal
-cap('YOU ASKED FOR A NEW NPC...', 0.0, b(1) - 0.08, y=0.62, size=104, hi=['NPC...'], step=0.16)
-cap('so today we got...', b(1) + 0.02, b(2) - 0.06, y=0.62, size=96, step=0.2)
+cap('YOU ASKED FOR A NEW NPC...', 0.0, b(1) - 0.08, y=0.6, size=132, hi=['NPC...'], step=0.16)
+cap('so today we got...', b(1) + 0.02, b(2) - 0.06, y=0.6, size=124, step=0.2)
 T.append(dict(type='card', lines=['PIP!'], t0=round(b(2) + 0.01, 3), t1=round(b(3) - 0.1, 3), x=0.5, y=0.3, size=260, anim='squash', fill='gold', rot=-4, outline=10, outer=7, outlineColor='#2a0f1e', outerColor='#fff6e0', outAnim='cut'))
 sfx('dramatic_boom', b(2), -2)
 cap("this is PIP'S HOUSE", b(3) + 0.05, b(4) + 0.6, hi=['HOUSE'], step=0.14)
-cap('(a lumber mill)', b(4) + 0.75, b(5) - 0.08, size=78, step=0.14, color='#fff3c8')
+cap('(a lumber mill)', b(4) + 0.75, b(5) - 0.08, size=96, step=0.14, color='#fff3c8')
 cap('inside: a CASH REGISTER', b(5) + 0.15, b(7) - 0.08, hi=['CASH', 'REGISTER'], step=0.14)
 cap('+ EMERGENCY ACORNS', b(7) + 0.03, b(8) - 0.06, hi=['ACORNS'], step=0.13)
 cap('Pip buys your LOGS', b(8) + 0.05, b(9) + 0.3, hi=['LOGS'], step=0.14)
-cap('fair and square', b(9) + 0.45, b(10) - 0.06, size=84, step=0.14, color='#fff3c8')
+cap('fair and square', b(9) + 0.45, b(10) - 0.06, size=100, y=0.72, step=0.14, color='#fff3c8')
 cap('says hi to EVERYONE', b(10) + 0.03, b(11) - 0.06, hi=['EVERYONE'], step=0.12)
 cap('counts EVERY. SINGLE. LOG.', b(11) + 0.03, b(12) - 0.06, hi=['LOG.'], step=0.2)
 cap('not scared of bears', b(12) + 0.03, b(13) - 0.06, step=0.12)
-cap('(mostly)', b(12) + 0.95, b(13) - 0.06, y=0.73, size=78, step=0.1, color='#fff3c8')
+cap('(mostly)', b(12) + 0.95, b(13) - 0.06, y=0.73, size=96, step=0.1, color='#fff3c8')
 sfx('record_scratch', b(12) + 0.92, -6)
 e = starts['r_end']
-cap('FOLLOW for more', e + 0.03, TOTAL, y=0.5, size=110, hi=['FOLLOW'], step=0.16)
+cap('FOLLOW for more', e + 0.03, TOTAL, y=0.36, size=128, hi=['FOLLOW'], step=0.16)
 sfx('ding', e + 1.7 - 0.1 + 0.02, -3)
-cap('COMMENT your name', e + 2.6, TOTAL, y=0.6, size=96, hi=['COMMENT'], step=0.15)
-cap('you could be the NEXT NPC', e + 3.9, TOTAL, y=0.68, size=84, hi=['NEXT', 'NPC'], step=0.13)
-T.append(dict(type='text', text='Music: "Pixel Peeker Polka - faster"\nby Kevin MacLeod (incompetech.com), CC BY 4.0', t0=round(e + 4.4, 3), t1=999, x=0.5, y=0.76, size=26, color='#fff6e0', outline=3, lh='1.3'))
+cap('COMMENT your name', e + 2.6, TOTAL, y=0.45, size=112, hi=['COMMENT'], step=0.15)
+cap('you could be the NEXT NPC', e + 3.9, TOTAL, y=0.535, size=96, hi=['NEXT', 'NPC'], step=0.13)
+T.append(dict(type='text', text='Music: "Pixel Peeker Polka - faster"\nby Kevin MacLeod (incompetech.com), CC BY 4.0', t0=round(e + 4.4, 3), t1=999, x=0.5, y=0.86, size=28, color='#fff6e0', outline=3, lh='1.3'))
 # a pop on every caption line, swishes on the whips
 for it in T:
     if it['type'] == 'caption':

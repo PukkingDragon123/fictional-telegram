@@ -772,17 +772,19 @@ export function hutDecals() {
   const g = new THREE.Group();
   g.name = 'hutDecals';
   if (!hasDOM) return g;
-  // west wall (x0 = 2, outer face x = 0.2), seen from -x
-  put(g, 'poster:wanted', 40, [0.2 - EPS, 0.86, 0.8], { n: [-1, 0, 0] });
-  put(g, 'poster:moose', 40, [0.2 - EPS, 0.86, 1.6], { n: [-1, 0, 0] });
-  // east wall (x1 = 27, outer face x = 2.8), either side of the lab window
-  put(g, 'sign:keepout', 40, [2.8 + EPS, 0.9, 1.76], { n: [1, 0, 0] });
-  put(g, 'memo:tps', 40, [2.8 + EPS, 0.86, 0.55], { n: [1, 0, 0] });
-  // hanging from the porch roof's front edge (roof slab bottom y = 1.3, front z = 3.0)
-  put(g, 'hang:fish', 40, [0.8, 1.3 - 18 / 80, 2.95], { stand: true });
-  put(g, 'hang:ebuy', 40, [2.15, 1.3 - 18 / 80, 2.95], { stand: true });
+  // [v28 house] re-placed for the new cottage (src/world/hut.js): nothing covers a window or the door
+  // west wall (x0 = 0, outer face x = 0.0), seen from -x
+  put(g, 'poster:wanted', 40, [0 - EPS, 0.86, 0.8], { n: [-1, 0, 0] });
+  put(g, 'poster:moose', 40, [0 - EPS, 0.86, 1.6], { n: [-1, 0, 0] });
+  // east wall (x1 = 29, outer face x = 3.0), either side of the shuttered lab window (z 0.7..1.6)
+  put(g, 'sign:keepout', 40, [3.0 + EPS, 0.9, 1.83], { n: [1, 0, 0] });
+  put(g, 'memo:tps', 40, [3.0 + EPS, 0.86, 0.48], { n: [1, 0, 0] });
+  // e-Buy seller plaque on the porch gable (above the porch tie beam, y 1.4)
+  put(g, 'hang:ebuy', 60, [1.5, 1.565, 2.8 + EPS]);
+  // FISH 4 SALE hangs from the little stand at the front-right corner (crossbar bottom y = 0.6)
+  put(g, 'hang:fish', 48, [2.65, 0.6 - 18 / 96, 2.95], { stand: true });
   // doormat on the porch deck in front of the door (deck top y = 0.2)
-  put(g, 'mat:refunds', 40, [1.45, 0.203, 2.3], { n: UP });
+  put(g, 'mat:refunds', 40, [1.5, 0.203, 2.33], { n: UP });
   return g;
 }
 

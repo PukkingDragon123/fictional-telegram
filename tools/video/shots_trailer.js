@@ -84,7 +84,7 @@ function dawnVeil(c, t0, t1, from = 0.62) {
 function letterbox(c, t0 = -1, t1 = 999, h = 0.1, inDur = 0.001) { c.ov.bars(Math.min(t0, -1), t1, h, inDur); }
 
 // ================================================================== T1: sunrise -> the hut -> through the window
-const WIN = { x: 77.7, y: 0.76, z: 43.12 }; // the left front window of Reynard's hut (hutModel voxels 5..8, y 6..9)
+const WIN = { x: 77.8, y: 1.15, z: 43.004 }; // [v28 house] upper-right pane of the cottage's left front window: the lit lamp shade behind it (src/world/hut.js HUT_SPOTS)
 SHOTS.sunrise = {
   dur: 14.6,
   async setup(c) {

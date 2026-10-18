@@ -9,7 +9,8 @@ import { buildPaintAtlas } from '../art/paintArt.js';
 import { WaterSim } from './waterSim.js';
 import { WaterFX } from './water.js'; // [v20 water]
 import { pineModel, mapleModel, birchModel, boulderModel, tuftModel, flowerModel } from './models.js';
-import { officeModel, hutModel } from './buildings.js';
+import { officeModel } from './buildings.js';
+import { buildHut } from './hut.js'; // [v28 house] Reynard's new cottage
 import { voxelMaterial, linearRGB } from '../core/voxel.js';
 import { fbm2, hash2 } from '../core/rng.js';
 import { WATER_Y, KIND } from './grid.js';
@@ -879,13 +880,9 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     this.scene.add(og);
     this.office = og;
     this.officeDoor = new THREE.Vector3(OFFICE.x, OFFICE.h, OFFICE.z + 2.4);
-    // hut
-    const hut = hutModel();
-    const hg = new THREE.Group();
-    const hb = new THREE.Mesh(hut.body.build({ scale: 0.1 }), voxelMaterial());
-    hb.castShadow = true; hb.receiveShadow = true;
-    const hw = new THREE.Mesh(hut.glow.build({ scale: 0.1, ao: false }), this.glowMat);
-    hg.add(hb, hw);
+    // hut [v28 house] the cottage (src/world/hut.js): body, lit rooms behind real windows, glass, lanterns, smoke
+    const hg = buildHut();
+    this.hutFx = hg.userData.fx; // [v28 house] day / night + smoke, from update()
     try { hg.add(hutDecals()); } catch (e) { console.warn('hut decals', e); }
     hg.position.set(HUT.x, 0, HUT.z);
     this.scene.add(hg);
@@ -939,6 +936,7 @@ float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 
     // windows: dark reflective by day, warm glow at night
     const n = Math.max(s.night, 0);
     this.glowMat.color.setRGB(0.28 + 0.72 * n, 0.33 + 0.62 * n, 0.42 + 0.4 * n);
+    this.hutFx?.update(time, n); // [v28 house]
   }
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Fill the SFX section of promo/video/CREDITS.txt with every library cue the two cuts use.
-    python3 tools/video/credits.py <frames-root>
+"""Fill the SFX section of promo/video/CREDITS.txt with every library cue the cuts use.
+    python3 tools/video/credits.py <v1-frames-root> <v2-frames-root>
 """
 import json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -10,21 +10,22 @@ frames = sys.argv[1]
 lib = json.load(open(os.path.join(HERE, 'sfxlib.json')))
 fsmeta = json.load(open(os.path.join(DL, 'freesound', 'meta.json')))
 used = {}
-for edl in ('edl_promo.json', 'edl_trailer.json'):
+EDLS = {'edl_promo.json': ('promo', None), 'edl_trailer.json': ('trailer v1', None), 'edl_trailer2.json': ('trailer', 2), 'edl_reel.json': ('reel', 2)}
+for edl, (tag, ver) in EDLS.items():
     E = json.load(open(os.path.join(HERE, edl)))
-    tag = 'promo' if 'promo' in edl else 'trailer'
+    fr = sys.argv[2] if (ver and len(sys.argv) > 2) else frames
     for c in E.get('sfx', []):
         used.setdefault(c['name'], set()).add(tag)
     for s in E['shots']:
         if not s.get('ext', True):
             continue
-        aj = os.path.join(frames, s.get('src', s['id']), 'audio.json')
+        aj = os.path.join(fr, s.get('src', s['id']), 'audio.json')
         if not os.path.exists(aj):
             continue
         for ev in json.load(open(aj))['audio']:
             if ev['kind'] == 'ext' and s['in'] - 0.05 <= ev['t'] < s['out']:
                 used.setdefault(ev['name'], set()).add(tag)
-KENNEY = {'impact-sounds': 'Impact Sounds', 'rpg-audio': 'RPG Audio', 'music-jingles': 'Music Jingles'}
+KENNEY = {'impact-sounds': 'Impact Sounds', 'rpg-audio': 'RPG Audio', 'music-jingles': 'Music Jingles', 'interface-sounds': 'Interface Sounds'}
 lines = []
 for name in sorted(used):
     f = lib[name]['file']

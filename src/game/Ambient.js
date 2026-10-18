@@ -661,10 +661,10 @@ export class Ambient {
       parts.leaf(d.x + 0.5 + (Math.random() - 0.5) * 2, 2.5 + Math.random() * 1.5, d.z + 0.5 + (Math.random() - 0.5) * 2, cols[Math.floor(Math.random() * 3)]);
     }
     // chimney smoke (the hut, plus any landmark cabins out in the woods)
-    if (Math.random() < dt * 3) parts.smoke(HUT.x + 0.75, 3.1, HUT.z + 0.75, night > 0.5 ? 0x8a8aa0 : 0xc8c4c0);
+    if (Math.random() < dt * 3) parts.smoke(HUT.x + 0.8, 3.32, HUT.z + 0.8, night > 0.5 ? 0x8a8aa0 : 0xc8c4c0); // [v28 house] the cottage's chimney pots
     for (const sp of game.world.smokePoints || []) if (Math.random() < dt * 2) parts.smoke(sp[0], sp[1], sp[2], night > 0.5 ? 0x8a8aa0 : 0xc8c4c0);
     // lab flask bubbles
-    if (Math.random() < dt * 1.5) game.particles.glow.spawn(HUT.x + 1.95, 2.75, HUT.z + 0.35, 0, 0.5, 0, 0.8, 0.05, 0x7cff9a, 0, 0.5, 32);
+    if (Math.random() < dt * 1.5) game.particles.glow.spawn(HUT.x + 1.9, 2.92, HUT.z + 0.7, 0, 0.5, 0, 0.8, 0.05, 0x7cff9a, 0, 0.5, 32); // [v28 house] the flask on the cottage roof
     // office whistle steam
     if (this.whistleT > 0) {
       this.whistleT -= dt;

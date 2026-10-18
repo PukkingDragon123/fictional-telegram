@@ -8,7 +8,7 @@ import { PIP_CART_SPEED } from '../../src/entities/critters3d.js';
 
 export const SHOTS = {};
 
-function path(c, keys, rig = null) { c.every((t) => setCam(rig || c.g.rig, camAt(keys, t))); }
+function path(c, keys, rig = null) { c.every((t) => { setCam(rig || c.g.rig, camAt(keys, t)); if (rig) rig.update(0, c.g.renderer); }); }
 
 // the mill zone opened: Pip lives at his lumber mill. Returns the game's own villager record.
 async function openMill(c) {
@@ -18,6 +18,8 @@ async function openMill(c) {
   c.presim(0.6);
   const v = g.villagers.get('pip');
   v.t = 1e9;
+  // giant mushrooms + trees between the camera (south) and the mill would cover him
+  clearDecos(g, v.x - 7, v.z + 0.6, v.x + 7, v.z + 14);
   try { g.villagers.vstate(v).met = true; } catch { /* ignore */ }
   const d = g.homes?.doors?.get('pip');
   if (d?.marker) d.marker.visible = false;
@@ -39,8 +41,8 @@ SHOTS.r_hook = {
     c.at(2.7, () => once(v.rig, 'wave', 'idle'));
     path(c, [
       { t: 0, x: 72.0, z: 52.0, y: 0, yaw: -0.35, pitch: 62, wupp: 0.075 },
-      { t: 2.2, x: p.x - 0.2, z: p.z + 0.4, y: 0.5, yaw: 0.25, pitch: 38, wupp: 0.016, ease: 'expo' },
-      { t: 3.8, x: p.x, z: p.z + 0.3, y: 0.7, yaw: 0.1, pitch: 30, wupp: 0.0085, ease: 'out' },
+      { t: 2.2, x: p.x - 0.2, z: p.z + 0.4, y: v.y + 0.5, yaw: 0.25, pitch: 38, wupp: 0.016, ease: 'expo' },
+      { t: 3.8, x: p.x, z: p.z + 0.3, y: v.y + 0.7, yaw: 0.1, pitch: 30, wupp: 0.0085, ease: 'out' },
     ]);
   },
 };
@@ -54,8 +56,8 @@ SHOTS.r_pip = {
     const v = await openMill(c);
     c.at(0.0, () => { v.rig.play('wave', { fade: 0.05, loop: false, restart: true, onDone: () => v.rig.play('happy', { loop: true }) }); g.particles.confetti(v.x, v.y + 1.6, v.z, 50); });
     path(c, [
-      { t: 0, x: v.x, z: v.z + 0.2, y: 0.75, yaw: 0.15, pitch: 26, wupp: 0.0058 },
-      { t: 2.2, x: v.x, z: v.z + 0.2, y: 0.72, yaw: -0.05, pitch: 24, wupp: 0.0052, ease: 'linear' },
+      { t: 0, x: v.x, z: v.z + 0.2, y: v.y + 0.75, yaw: 0.15, pitch: 26, wupp: 0.0058 },
+      { t: 2.2, x: v.x, z: v.z + 0.2, y: v.y + 0.72, yaw: -0.05, pitch: 24, wupp: 0.0052, ease: 'linear' },
     ]);
   },
 };
@@ -70,8 +72,8 @@ SHOTS.r_mill = {
     v.rig.play('idle', { loop: true });
     const m = { x: v.x + 0.45, z: v.z - 0.7 };
     path(c, [
-      { t: 0, x: m.x, z: m.z + 0.2, y: 0.6, yaw: -0.55, pitch: 30, wupp: 0.0118 },
-      { t: 3.8, x: m.x + 0.1, z: m.z + 0.2, y: 0.6, yaw: 0.35, pitch: 26, wupp: 0.0108, ease: 'linear' },
+      { t: 0, x: m.x, z: m.z - 0.2, y: v.y + 1.1, yaw: -0.55, pitch: 30, wupp: 0.0094 },
+      { t: 3.8, x: m.x + 0.1, z: m.z - 0.2, y: v.y + 1.1, yaw: 0.35, pitch: 27, wupp: 0.0086, ease: 'linear' },
     ]);
   },
 };
@@ -87,7 +89,11 @@ async function interior(c) {
   g.overrideScene = H.scene; g.overrideRig = H.rig;
   g.state.paused = true;
   c.every((t, dt) => { H.kit?.update?.(dt); H.npc?.update?.(dt); });
-  return { H, pip: H.npc, kit: H.kit };
+  // the diorama's own framing (fits the room's width in this portrait frame)
+  const R = H.rig;
+  const base = { x: R.target.x, y: R.target.y, z: R.target.z, yaw: R.yaw, pitch: R.pitch / D2R, wupp: R.wupp };
+  console.log('[dir] interior view', JSON.stringify(base));
+  return { H, pip: H.npc, kit: H.kit, base };
 }
 
 // 4. inside: Pip at the cash register, haggling (coins)
@@ -96,15 +102,14 @@ SHOTS.r_inside = {
   async setup(c) {
     const g = c.g;
     reelPrep(c, { hour: 11 });
-    const { H, pip, kit } = await interior(c);
+    const { H, pip, kit, base } = await interior(c);
     pip.root.position.set(1.05, 0, -0.95);
     pip.root.rotation.y = 0.55;
     pip.play('haggle', { loop: true, fade: 0 });
     for (const t of [0.5, 1.7, 2.9]) c.at(t, () => { try { kit.fx('coins', new THREE.Vector3(1.55, 1.0, -1.45), 5); } catch { /* ignore */ } g.audio.play('coins', { volume: 0.35 }); });
-    const V = H.spec?.view || kit.view;
     path(c, [
-      { t: 0, x: 1.1, z: -1.0, y: 0.75, yaw: 0.25, pitch: 30, wupp: 0.0062 },
-      { t: 3.8, x: 1.2, z: -1.1, y: 0.75, yaw: 0.05, pitch: 28, wupp: 0.0052, ease: 'linear' },
+      { t: 0, ...base, y: base.y - 0.3, wupp: base.wupp * 0.62 },
+      { t: 3.8, ...base, x: 1.05, y: 0.55, z: -0.95, yaw: base.yaw + 0.12, wupp: base.wupp * 0.5 },
     ], H.rig);
   },
 };
@@ -115,14 +120,14 @@ SHOTS.r_acorn = {
   async setup(c) {
     const g = c.g;
     reelPrep(c, { hour: 11 });
-    const { H, pip } = await interior(c);
+    const { H, pip, base } = await interior(c);
     pip.root.position.set(-1.85, 0, -0.55);
     pip.root.rotation.y = -0.35;
     c.at(0.05, () => { pip.play('stuff_cheeks', { loop: true, fade: 0, restart: true }); g.audio.play('nibble', { volume: 0.45 }); });
     c.at(1.0, () => g.audio.play('nibble', { volume: 0.45, pitch: 1.2 }));
     path(c, [
-      { t: 0, x: -2.0, z: -0.7, y: 0.7, yaw: -0.2, pitch: 24, wupp: 0.0048 },
-      { t: 2.2, x: -2.0, z: -0.7, y: 0.7, yaw: -0.05, pitch: 22, wupp: 0.0042, ease: 'linear' },
+      { t: 0, ...base, x: -1.85, y: 0.6, z: -0.55, yaw: base.yaw - 0.1, wupp: base.wupp * 0.42 },
+      { t: 2.2, ...base, x: -1.85, y: 0.6, z: -0.55, yaw: base.yaw + 0.02, wupp: base.wupp * 0.36, ease: 'linear' },
     ], H.rig);
   },
 };
@@ -174,8 +179,8 @@ SHOTS.r_count = {
     const v = await openMill(c);
     c.at(0.0, () => v.rig.play('count_logs', { loop: true, fade: 0, restart: true }));
     path(c, [
-      { t: 0, x: v.x, z: v.z + 0.1, y: 0.8, yaw: -0.25, pitch: 24, wupp: 0.0058 },
-      { t: 2.2, x: v.x, z: v.z + 0.1, y: 0.8, yaw: -0.1, pitch: 24, wupp: 0.0052, ease: 'linear' },
+      { t: 0, x: v.x, z: v.z + 0.1, y: v.y + 0.8, yaw: -0.25, pitch: 24, wupp: 0.0058 },
+      { t: 2.2, x: v.x, z: v.z + 0.1, y: v.y + 0.8, yaw: -0.1, pitch: 24, wupp: 0.0052, ease: 'linear' },
     ]);
   },
 };
@@ -192,8 +197,8 @@ SHOTS.r_bears = {
     const pip = addRig(c, 'ChipmunkTrader', 69.4, 25.2, { ry: 0.5, anim: 'happy' });
     c.at(1.2, () => once(pip, 'stuff_cheeks', 'happy'));
     path(c, [
-      { t: 0, x: 70.4, z: 24.4, y: 0.7, yaw: 0.2, pitch: 24, wupp: 0.0098 },
-      { t: 2.2, x: 70.4, z: 24.8, y: 0.7, yaw: 0.1, pitch: 24, wupp: 0.0092, ease: 'linear' },
+      { t: 0, x: 70.0, z: 24.8, y: 0.8, yaw: 0.2, pitch: 22, wupp: 0.0082 },
+      { t: 2.2, x: 70.0, z: 25.0, y: 0.8, yaw: 0.1, pitch: 22, wupp: 0.0076, ease: 'linear' },
     ]);
   },
 };
@@ -204,16 +209,18 @@ SHOTS.r_end = {
   async setup(c) {
     const g = c.g;
     reelPrep(c, { hour: 18.0 });
+    c.bubbles(4);
     stockPond(g, 26);
     clearDecos(g, 56, 36, 84, 56);
     const pip = addRig(c, 'ChipmunkTrader', 67.7, 39.0, { ry: 0.1 });
     const fox = addFox(c, 69.0, 39.3, { ry: -0.2, anim: 'idle' });
     c.at(0.05, () => { pip.play('wave', { loop: true }); fox.play('wave_hello', { fade: 0.1 }); });
     const W = window.innerWidth, Hh = window.innerHeight;
-    c.at(1.7, () => c.say(() => ({ x: W * 0.5, y: Hh * 0.27, visible: true }), '@pond_fan: add a raccoon! ♥', { voice: 'cub', mood: 'happy', dur: 9, size: 'm' }));
+    c.at(1.7, () => c.say(() => ({ x: W * 0.5, y: Hh * 0.22, visible: true }), '@pond_fan: add a raccoon! ♥', { voice: 'cub', mood: 'happy', dur: 9, size: 'm' }));
+    // the two of them sit low in the frame, under the captions
     path(c, [
-      { t: 0, x: 68.3, z: 38.4, y: 0.6, yaw: 0.05, pitch: 26, wupp: 0.0102 },
-      { t: 7.6, x: 68.3, z: 38.9, y: 0.6, yaw: -0.03, pitch: 24, wupp: 0.0094, ease: 'linear' },
+      { t: 0, x: 68.3, z: 37.2, y: 0.6, yaw: 0.05, pitch: 26, wupp: 0.0102 },
+      { t: 7.6, x: 68.3, z: 37.6, y: 0.6, yaw: -0.03, pitch: 24, wupp: 0.0094, ease: 'linear' },
     ]);
   },
 };
