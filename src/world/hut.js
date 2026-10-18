@@ -403,7 +403,7 @@ function buildRooms(R, G) {
 
   // --- living room behind the left window (opening x 4..8): table lamp, shelf of books, painting, armchair
   {
-    const L = lit([8, 10.5, 16]);
+    const L = lit([8, 10.5, 16], 0.4, 0.85, 30);
     const paper = (u, y) => (y >= 8 ? ((u & 1) ? 0xecd49c : 0xe2c78a) : y === 7 ? 0x6e4a2c : (u & 1) ? 0x9a6a40 : 0x8c5f38);
     roomBox(1, 11, 13, 19, 16, (x, y, z, part) => {
       if (part === 'floor') return (x + z) % 5 === 0 ? 0x7a5230 : z & 1 ? 0xa0703f : 0x936638;
@@ -441,7 +441,7 @@ function buildRooms(R, G) {
 
   // --- kitchen behind the right window (opening x 21..25): pendant lamp, counter, shelf with jars
   {
-    const L = lit([23, 11, 17], 0.48, 0.8);
+    const L = lit([23, 11, 17], 0.4, 0.85, 30);
     roomBox(18, 28, 15, 19, 16, (x, y, z, part) => {
       if (part === 'floor') return (x + z) & 1 ? 0xd8c8a8 : 0x6a5a48; // checker
       if (part === 'ceil') return x % 3 === 0 ? 0x6a4428 : 0x82583a;
@@ -564,7 +564,7 @@ function poolTexture() {
     for (let x = 0; x < N; x++) {
       const dx = (x + 0.5) / N - 0.5, dy = (y + 0.5) / N - 0.5;
       const d = Math.sqrt(dx * dx * 4 + dy * dy * 4);
-      const a = d < 0.4 ? 0.42 : d < 0.68 ? 0.24 : d < 0.95 ? 0.1 : 0; // stepped, pixel-art rings
+      const a = d < 0.42 ? 0.34 : d < 0.7 ? 0.2 : d < 0.95 ? 0.08 : 0; // stepped, pixel-art rings
       data.set([255, 200, 120, Math.round(a * 255)], (y * N + x) * 4);
     }
   const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
@@ -601,8 +601,7 @@ export function buildHut() {
   const poolMat = new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const pg = [];
   const quad = (cx, cz, w, d) => { const q = new THREE.PlaneGeometry(w, d); q.rotateX(-Math.PI / 2); q.translate(cx, 0.012, cz); pg.push(q); };
-  for (const w of WINS) quad((w.x + 2.5) * S, 3.15, 0.9, 0.5);
-  quad(1.5, 3.12, 0.7, 0.4);
+  quad(1.5, 3.18, 3.0, 0.62); // one soft spill along the front (windows + door + lanterns)
   const pools = new THREE.Mesh(mergeGeos(pg), poolMat);
   pools.name = 'hutPools';
   pools.renderOrder = 1;
