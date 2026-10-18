@@ -13,11 +13,12 @@ import { HUT } from '../../src/world/worldgen.js';
 
 export const SHOTS = {};
 
-// Reynard's cottage (src/world/hut.js, v28): world positions of its left front window (centre of
-// the glass, the living room behind it) and the door, from the model's own HUT_SPOTS
-const SP = HUT_SPOTS, W0 = SP.windows[0];
+// Reynard's cottage (src/world/hut.js, v28): world positions of the pane the camera dives through
+// (HUT_SPOTS.dive: the left window's upper-right pane, the living room's lit lamp shade right behind
+// it; NOT windows[0], which is the mullion crossing) and the door, from the model's own HUT_SPOTS
+const SP = HUT_SPOTS, DV = SP.dive || SP.windows[0].panes[3];
 export const HOUSE = {
-  win: { x: HUT.x + W0.x, y: W0.y, z: HUT.z + W0.z },
+  win: { x: HUT.x + DV.x, y: DV.y, z: HUT.z + DV.z },
   door: { x: HUT.x + SP.door.x, z: HUT.z + SP.door.z },
   front: { x: HUT.x + SP.door.x, z: HUT.z + SP.door.z + 0.4 },
 };
@@ -32,10 +33,30 @@ function litHouse(g, k = 0.85) {
 
 function quiet(c, o) { prep(c, o); c.noTalk(); }
 function path(c, keys) { c.every((t) => setCam(c.g.rig, camAt(keys, t))); }
+// monotone cubic (Fritsch-Carlson) through pts [[t, v], ...]; d0 = slope at the first point (null: natural)
+function pchip(pts, d0 = null) {
+  const n = pts.length, h = [], m = [];
+  for (let i = 0; i < n - 1; i++) { h[i] = pts[i + 1][0] - pts[i][0]; m[i] = (pts[i + 1][1] - pts[i][1]) / h[i]; }
+  const d = new Array(n).fill(0);
+  d[0] = d0 ?? m[0]; d[n - 1] = m[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    if (m[i - 1] * m[i] <= 0) { d[i] = 0; continue; }
+    const w1 = 2 * h[i] + h[i - 1], w2 = h[i] + 2 * h[i - 1];
+    d[i] = (w1 + w2) / (w1 / m[i - 1] + w2 / m[i]);
+  }
+  return (t) => {
+    if (t <= pts[0][0]) return pts[0][1];
+    if (t >= pts[n - 1][0]) return pts[n - 1][1];
+    let i = 0;
+    while (t > pts[i + 1][0]) i++;
+    const u = (t - pts[i][0]) / h[i], u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * pts[i][1] + (u3 - 2 * u2 + u) * h[i] * d[i] + (-2 * u3 + 3 * u2) * pts[i + 1][1] + (u3 - u2) * h[i] * d[i + 1];
+  };
+}
 
 // ================================================================== the opening: dawn crane -> the house -> the window
 SHOTS.t2_dawn = {
-  dur: 21.6,
+  dur: 22.2,
   async setup(c) {
     const g = c.g;
     quiet(c, { hour: 6.4 });
@@ -55,15 +76,25 @@ SHOTS.t2_dawn = {
       { t: 8.5, x: 69.5, z: 34.5, y: 0.3, yaw: -0.22, pitch: 13, wupp: 0.021 },
       { t: 13.5, x: 77.9, z: 41.0, y: 0.7, yaw: -0.04, pitch: 10, wupp: 0.0125 },
       { t: 17.0, x: W.x, z: W.z - 0.2, y: W.y + 0.05, yaw: 0.0, pitch: 8, wupp: 0.0058 },
-      { t: 21.6, x: W.x, z: W.z, y: W.y, yaw: 0.0, pitch: 6, wupp: 0.00055, ease: 'in' },
+      { t: 19.6, x: W.x, z: W.z, y: W.y, yaw: 0.0, pitch: 6.5, wupp: 0.0013 },
+      { t: 22.2, x: W.x, z: W.z, y: W.y, yaw: 0.0, pitch: 6, wupp: 0.00058 },
     ];
+    // one continuous push from 13.5 s (log wupp through these, monotone cubic, starting at rest)
+    const zoomK = pchip([[13.5, 0.0125], [17.0, 0.0058], [19.6, 0.0013], [20.4, 0.00095], [21.2, 0.0007], [22.2, 0.00058]].map(([t, w]) => [t, Math.log(w)]), 0);
+    // through the glass: the ortho eye comes in close so its near plane (1 unit ahead of the eye) sweeps
+    // through the shutters (19.8 s), the glass (20.1 s) and the curtains, and stops just short of the lamp
+    const eyeAt = (t) => (t < 19.3 ? null : 0.82 + 0.88 * (1 - clamp((t - 19.3) / 1.5, 0, 1)) ** 2);
+    c.at(0, () => console.log('[dir] dawn rt', g.renderer.rtW, g.renderer.rtH));
     c.every((t) => {
       K = smooth(t / 12);
       const cam = camAt(keys, t);
+      if (t > 13.5) cam.wupp = Math.exp(zoomK(t));
       // high up, the sky curtain hangs just past the top of the frame, so it rises into view as the crane comes down
       const rr = g.renderer, sp = Math.sin(cam.pitch * D2R), hh = (rr.rtH * cam.wupp) / 2;
       const skyD = Math.max(3.6, (hh + 0.6) / Math.max(0.05, sp)); // always behind the house
       skyCam(c, { ...cam, skyD }, [lerp(0.05, 0.22, smooth(t / 13)), lerp(0.04, 0.52, smooth(t / 14))], t);
+      const ed = eyeAt(t);
+      if (ed != null) { g.rig.dist = ed; g.rig.eyeGuard = (tx, ty, tz, yaw, pitch, hw, hh, d0) => d0; } // no rock to dodge here
       g.state.hour = 6.3 + t * 0.05;
     });
     // pre-dawn darkness lifting (multiply veil)

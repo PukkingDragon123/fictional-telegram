@@ -22,9 +22,9 @@ cuts = []                      # (shot id, src, timeline start, timeline end, in
 def shot(sid, t0, t1, i0=0.0, src=None, tin=None, **kw):
     cuts.append(dict(id=sid, src=src or sid, t0=t0, t1=t1, i0=i0, tin=tin, **kw))
 
-T_WAKE = 20.5
+T_WAKE = 21.1
 shot('t2_dawn', 0.0, T_WAKE, 0.0, game_db=-6)
-shot('t2_wake', T_WAKE, KICK, 0.9, tin={'type': 'zoom', 'dur': 1.3, 'cx': 0.5, 'cy': 0.5, 'za': 2.2, 'zb': 0.5, 'glow': 0.35}, game_db=-2)
+shot('t2_wake', T_WAKE, KICK, 1.5, tin={'type': 'zoom', 'dur': 1.2, 'cx': 0.5, 'cy': 0.5, 'za': 2.2, 'zb': 0.5, 'glow': 0.35}, game_db=-2)
 b = KICK
 shot('t2_hatch', b, bar(b, 2), 0.25, tin={'type': 'whip', 'dur': 0.36, 'dir': 1}, game_db=-8)
 shot('t2_march', bar(b, 2), SEG_B_AT, 0.2, game_db=-8)
