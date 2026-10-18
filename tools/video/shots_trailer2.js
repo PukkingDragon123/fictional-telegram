@@ -43,7 +43,10 @@ SHOTS.t2_dawn = {
     c.every((t) => {
       K = smooth(t / 12);
       const cam = camAt(keys, t);
-      skyCam(c, { ...cam, skyD: cam.wupp < 0.008 ? 1.2 : 3.4 }, [lerp(0.05, 0.22, smooth(t / 13)), lerp(0.04, 0.52, smooth(t / 14))], t);
+      // high up, the sky curtain hangs just past the top of the frame, so it rises into view as the crane comes down
+      const rr = g.renderer, sp = Math.sin(cam.pitch * D2R), hh = (rr.rtH * cam.wupp) / 2;
+      const skyD = cam.wupp < 0.008 ? 1.2 : Math.max(3.4, (hh + 0.6) / Math.max(0.05, sp));
+      skyCam(c, { ...cam, skyD }, [lerp(0.05, 0.22, smooth(t / 13)), lerp(0.04, 0.52, smooth(t / 14))], t);
       g.state.hour = 6.3 + t * 0.05;
     });
     // pre-dawn darkness lifting (multiply veil)
@@ -86,24 +89,24 @@ SHOTS.t2_wake = {
     for (let i = 0; i < 30; i++) bed._tick(1 / 30);
     const close = anchorCam(bed, 'bed', 0.62), wide = anchorCam(bed, 'wake', 1.0);
     const hp = new THREE.Vector3(); (f.head || f.root).getWorldPosition(hp);
-    const face = { x: hp.x, y: hp.y + 0.15, z: hp.z, yaw: wide.yaw, pitch: wide.pitch, wupp: wide.wupp * 0.62 };
+    const face = { x: hp.x, y: hp.y - 0.05, z: hp.z, yaw: wide.yaw, pitch: wide.pitch, wupp: wide.wupp * 0.7 };
     const keys = [
       { t: 0, ...close, x: close.x + 0.15 },
-      { t: 3.2, ...close, wupp: close.wupp * 1.15 },
-      { t: 5.0, ...wide, wupp: wide.wupp * 0.92 },
+      { t: 4.0, ...close, wupp: close.wupp * 1.15 },
+      { t: 5.8, ...wide, wupp: wide.wupp * 0.92 },
       { t: 8.4, ...face },
     ];
     c.every((t) => setCam(bed.rig, camAt(keys, t)));
-    c.at(2.6, () => { bed._fxOff(); O.ringAlarm(true); g.audio.play('alarm', { volume: 0.55 }); });
-    c.at(3.3, () => { room.setQuilt(0); f.play('bed_wake', { fade: 0.05, restart: true }); });
-    c.at(4.0, () => { O.ringAlarm(false); });
-    c.at(4.5, () => f.play('stretch', { fade: 0.2, speed: 1.45, restart: true }));
-    c.at(5.8, () => {
+    c.at(3.38, () => { bed._fxOff(); O.ringAlarm(true); g.audio.play('alarm', { volume: 0.55 }); });
+    c.at(4.1, () => { room.setQuilt(0); f.play('bed_wake', { fade: 0.05, restart: true }); });
+    c.at(4.8, () => { O.ringAlarm(false); });
+    c.at(5.3, () => f.play('stretch', { fade: 0.2, speed: 1.45, restart: true }));
+    c.at(6.4, () => {
       const mug = makeMug(); mug.position.set(0, -0.1, 0.01); f.hold(mug);
       g.audio.play('pop_in', { volume: 0.3 });
       f.play('sip_coffee', { fade: 0.15, restart: true });
     });
-    c.at(6.6, () => f.setExpression('smug', { hold: 3 }));
+    c.at(7.15, () => f.setExpression('smug', { hold: 3 }));
   },
 };
 

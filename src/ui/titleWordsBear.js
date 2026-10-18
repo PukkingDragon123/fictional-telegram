@@ -30,6 +30,7 @@ const CAST = ['office', 'cub', 'intern', 'tourist', 'hipster', 'grandma', 'lumbe
 const BEAR_H = 24; // head size in voxels of the words (the bear is about 2.5 lines tall)
 const Z_BACK = -9; // behind the letters
 const OCC_Z = 40;
+const HEAD_PAD = 1.6; // ear tips stay this far (voxels of the words) under the top of the screen
 
 export class WordBear {
   constructor(host) {
@@ -39,7 +40,7 @@ export class WordBear {
     this.typeI = 0;
     this.G = null;
     this.P = { pitch: 0, yaw: 0, roll: 0, lean: 0, jaw: 0, gape: 0, cheek: 0, face: 'neutral', lx: 0, ly: 0 };
-    this._v = new THREE.Vector3(); this._w = new THREE.Vector3(); this._m = new THREE.Vector3(); this._off = new THREE.Vector3();
+    this._v = new THREE.Vector3(); this._w = new THREE.Vector3(); this._m = new THREE.Vector3(); this._off = new THREE.Vector3(); this._hw = new THREE.Vector3();
     // the occluder: writes depth only, below the target line, after the words but before the bear
     this.occG = new THREE.Group();
     this.occG.renderOrder = 5;
@@ -69,6 +70,11 @@ export class WordBear {
     this.h.scene.add(rig.root);
     this.rig = rig;
     this.type = type;
+    this._ears = rig.bones.filter((b) => b.name === 'earL' || b.name === 'earR');
+    // how far the head (ears / hat) reaches over the maw, at full size and rest
+    rig.root.position.set(0, 0, 0); rig.root.scale.setScalar(1); rig.root.rotation.set(0, 0, 0);
+    rig.pose('idle', 0);
+    this._above = this._headTopY() - rig.mawPos(this._m).y;
     // channel slots of the unhinged maw / cheeks in a pose frame (see bearRig.js Frame)
     const EX = rig.bones.length * 9;
     this.X_GAPE = EX + 8; this.X_CHEEK = EX + 10;
@@ -89,6 +95,16 @@ export class WordBear {
     rig.root.visible = !!this.busy;
   }
 
+  // world y of the highest point of the head: hat / head top, or the ear tips
+  _headTopY() {
+    const rig = this.rig;
+    rig.root.updateMatrixWorld(true);
+    let y = rig.headTop(this._hw).y;
+    const vox = 0.1 * rig.scaler.scale.y * rig.root.scale.y; // one model voxel in world units
+    for (const b of this._ears) { b.getWorldPosition(this._hw); y = Math.max(y, this._hw.y + 4.8 * vox); }
+    return y;
+  }
+
   // the pose layer: our head / jaw / maw / face on top of the idle pose
   _layer(F, c, B) {
     const P = this.P, a = F.a;
@@ -101,39 +117,49 @@ export class WordBear {
     c.face = P.face;
   }
 
-  get debug() { const G = this.G; return G ? { kind: G.kind, t: +G.t.toFixed(2), letter: G.L?.d.ch, type: this.type, bonked: G.bonked != null } : { type: this.type }; }
+  get debug() { const G = this.G; return G ? { kind: G.kind, t: +G.t.toFixed(2), letter: G.L?.d.ch, type: this.type, bonked: G.bonked != null, ls: +(G.ls ?? 1).toFixed(2), hr: G.hr, clamped: G.clamped || 0 } : { type: this.type }; }
 
   /** start a bite: { kind: 'chomp' | 'nibble' | 'gulp' | 'miss', L } */
   start({ kind = 'chomp', L = null } = {}) {
     const h = this.h;
     if (this.busy || !this.rig) return false;
     const intact = (x) => x && !x.gone && x.missing === 0 && !x.regrowing && x.leaveT < 0 && h.T - x.delay > 1;
+    // head room: the whole head (ears, hat) must stay under the top of the screen. Short
+    // screens have no room over the top line: then the bear goes for the lower line, or
+    // (a tapped top-line letter) lunges up from between the lines and bites its underside.
+    const above = this._above; // head top over the maw (words' units, full size)
+    const roomOver = (line) => h.topEq - h.words.lineTop[line] - HEAD_PAD;
+    const topFits = roomOver(0) / (Math.max(4.5, 4.8 + 3.5 - 1.2) + above) >= 0.85;
     let bug = null;
     if (kind === 'miss') {
-      const sitting = h.bugs.filter((b) => b.mode === 'sit' && intact(b.L));
+      const sitting = h.bugs.filter((b) => b.mode === 'sit' && intact(b.L) && (topFits || b.L.d.line > 0));
       if (sitting.length) { bug = sitting[(Math.random() * sitting.length) | 0]; L = bug.L; } else kind = 'nibble';
     }
     if (!intact(L)) L = null;
     if (!L) {
-      const pool = h.letters.filter(intact);
+      let pool = h.letters.filter(intact);
+      if (!topFits && pool.some((x) => x.d.line > 0)) pool = pool.filter((x) => x.d.line > 0);
       if (!pool.length) return false;
       L = pool[(Math.random() * pool.length) | 0];
     }
     const d = L.d;
+    const below = d.line === 0 && !topFits;
     // the bear leans in from the inner side (always for a line's first / last letter: it hides behind the others)
     const line = h.letters.filter((x) => x.d.line === d.line), edge = L === line[0] || L === line[line.length - 1];
     const side = (d.bx > 0 ? -1 : 1) * (edge || Math.random() < 0.75 ? 1 : -1);
     const G = {
       kind, L, bug, t: 0, side, burp: Math.random() < (kind === 'gulp' ? 0.85 : kind === 'chomp' ? 0.45 : 0.15),
       grumpBite: kind === 'miss' && Math.random() < 0.55, bitten: false, cues: new Set(),
-      bx: 0, by: d.hh - 1.2, r: 4.6,
+      bx: 0, by: d.hh - 1.2, r: 4.6, below,
+      zl: below ? h.words.lineZ[1] : d.z, // the depth it works at: just behind its line (below: between the lines)
     };
-    // bites come out of the top corner nearest the bear
+    // bites come out of the top corner nearest the bear (from below: the bottom corner)
     if (kind === 'nibble') { G.bx = side * d.hw * 0.7; G.by = d.hh - 0.6; G.r = 2.7; }
     else if (kind === 'chomp') { G.bx = side * d.hw * rand(0.35, 0.6); G.by = d.hh - 1.2; G.r = rand(4.3, 5.1); }
     else if (kind === 'miss') { G.bx = side * d.hw * 0.6; G.by = d.hh - 0.6; G.r = 2.7; }
-    // the cut line under the target line, nudged up so the letters hide it
-    const cut = h.words.lineBase[d.line] + 2.2;
+    if (below) G.by = kind === 'nibble' ? 0.6 : 1.2;
+    // the cut line under the line it works behind, nudged up so the letters hide it
+    const cut = h.words.lineBase[below ? 1 : d.line] + 2.2;
     G.cut = cut;
     const D = 150; // CAM_D in TitleWords.js
     this.occ.position.set(0, (cut * (D - OCC_Z)) / D - 200, OCC_Z);
@@ -142,12 +168,25 @@ export class WordBear {
     const rig = this.rig;
     rig.root.rotation.set(0, -side * 0.22, 0);
     rig.root.position.set(0, 0, 0);
-    rig.root.scale.setScalar((150 - (d.z + Z_BACK)) / 150); // as big on screen at any depth
+    rig.root.scale.setScalar((150 - (G.zl + Z_BACK)) / 150); // as big on screen at any depth
     Object.assign(this.P, { pitch: 0, yaw: 0, roll: 0, lean: 0, jaw: 0, gape: 0, cheek: 0, face: 'neutral', lx: 0, ly: 0 });
     if (rig._fidget) { rig._fidget.t = 1e9; rig._fidget.w = 0; rig._fidget.dur = 0; }
     rig.pose('idle', 0);
     rig.root.updateMatrixWorld(true);
     rig.mawPos(this._off); // maw offset from the root at rest
+    // head room: the whole head (ears, hat) must stay under the top of the screen at the
+    // highest point of the bite. Not enough room (short screens, the top line)? A smaller
+    // bear that rises less high.
+    // highest the maw gets over the letter's top, then a smaller bear if even that won't fit
+    const lift = below ? G.by + 1 - d.hh : kind === 'gulp' ? 7.5 : Math.max(4.5, G.r + (d.line === 0 ? 3.5 : 6.5) - 1.2);
+    const room = roomOver(d.line);
+    G.ls = clamp(room / Math.max(1, lift + above), 0.55, 1);
+    G.hr = [+above.toFixed(1), +lift.toFixed(1), +room.toFixed(1)];
+    if (G.ls < 1) {
+      rig.root.scale.multiplyScalar(G.ls);
+      rig.root.updateMatrixWorld(true);
+      rig.mawPos(this._off);
+    }
     rig.root.visible = true;
     this.G = G;
     this.busy = true;
@@ -202,33 +241,36 @@ export class WordBear {
     const bite = h.letterPoint(L, G.bx, G.by, 0, this._w);
     const topY = bite.y + (d.hh - G.by);
     const hidden = G.cut - 24;
-    const peekX = bite.x + G.side * 5.5, peekY = topY + 4.5, zl = d.z, zb = Z_BACK + zl;
+    const ls = G.ls ?? 1, below = G.below, zl = G.zl, zb = Z_BACK + zl;
+    // where it peeks and chews: over the letter, or (below) under it and off to the side so the bite shows
+    const peekX = bite.x + G.side * (below ? 13 : 5.5), peekY = below ? bite.y - 3 : topY + 4.5 * ls;
     let x = peekX, y, z = zb;
     // pop up to peek over the letters (mouth still hidden), then sneak up a little
     const rise = easeOutBack(span(t, 0, 0.42), 2.2);
-    y = lerp(hidden, topY - 2.5, rise) + 2.2 * smooth(span(t, 0.62, 1.0));
+    y = lerp(hidden, below ? bite.y - 5.5 : topY - 2.5, rise) + 2.2 * smooth(span(t, 0.62, 1.0));
     const K = G.kind;
     if (K === 'gulp') {
       // rise right over the letter, maw wide open to the sky, and slurp it up
       const w = smooth(span(t, 1.05, 1.45));
-      const center = h.letterPoint(L, 0, d.hh, 0, this._m);
-      x = lerp(x, center.x + G.side * 1.5, w); y = lerp(y, center.y + 7.5, w); z = lerp(z, zl - 3, w);
+      const center = h.letterPoint(L, 0, below ? 0 : d.hh, 0, this._m); // its top (from below: its foot)
+      x = lerp(x, center.x + G.side * 1.5, w); y = lerp(y, below ? center.y - 5 : center.y + 7.5 * ls, w); z = lerp(z, below ? zb - 1 : zl - 3, w);
       const back = smooth(span(t, 2.0, 2.5));
       x = lerp(x, peekX, back); y = lerp(y, peekY, back); z = lerp(z, zb, back);
     } else {
       // wind up (lean back, maw over the bite), snap down onto it, pull back behind to chew
       const w = smooth(span(t, 1.05, 1.38));
-      x = lerp(x, bite.x + G.side * 1.2, w); y = lerp(y, bite.y + G.r + (d.line === 0 ? 3.5 : 6.5), w); z = lerp(z, zl - 2, w);
+      const wy = below ? bite.y - G.r - 2.5 : bite.y + (G.r + (d.line === 0 ? 3.5 : 6.5)) * ls;
+      x = lerp(x, bite.x + G.side * 1.2, w); y = lerp(y, wy, w); z = lerp(z, below ? zb - 1 : zl - 2, w);
       let target = bite;
       if (K === 'miss' && G.bug) target = this._m.copy(G.missAt || G.bug.pos);
       const s = easeIn(span(t, 1.38, 1.5));
-      x = lerp(x, target.x, s); y = lerp(y, target.y + (K === 'miss' ? 0.5 : 0.8), s); z = lerp(z, zl + 3, s);
+      x = lerp(x, target.x, s); y = lerp(y, target.y + (below ? -0.8 : K === 'miss' ? 0.5 : 0.8), s); z = lerp(z, below ? zb - 1.5 : zl + 3, s);
       const back = smooth(span(t, 1.56, 1.95));
-      x = lerp(x, peekX - G.side * 1.5, back); y = lerp(y, peekY + 0.5, back); z = lerp(z, zb + 1, back);
+      x = lerp(x, peekX - G.side * 1.5, back); y = lerp(y, peekY + 0.5, back); z = lerp(z, below ? zb : zb + 1, back);
       if (K === 'miss' && G.grumpBite) {
         // fine, the letter then: a grumpy little snap
         const s2 = easeIn(span(t, 2.75, 2.86)), b2 = smooth(span(t, 2.92, 3.25));
-        x = lerp(x, bite.x, s2); y = lerp(y, bite.y + 0.6, s2); z = lerp(z, zl + 3, s2);
+        x = lerp(x, bite.x, s2); y = lerp(y, bite.y + (below ? -0.8 : 0.6), s2); z = lerp(z, below ? zb - 1.5 : zl + 3, s2);
         x = lerp(x, peekX, b2); y = lerp(y, peekY, b2); z = lerp(z, zb, b2);
       }
     }
@@ -280,6 +322,10 @@ export class WordBear {
     this._maw(G, this._v);
     rig.root.position.copy(this._v).sub(this._off);
     rig.pose('idle', dt);
+    // never let the ears poke off the top of the screen (overshoots, head bobs)
+    const lim = h.topAt(rig.root.position.z) - HEAD_PAD;
+    const top = this._headTopY();
+    if (top > lim) { rig.root.position.y -= top - lim; G.clamped = (G.clamped || 0) + 1; }
     if (G.duckAt != null && t - G.duckAt > (G.fast ? 0.3 : 0.55)) this._finish();
   }
 

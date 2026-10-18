@@ -108,7 +108,7 @@ function wordsData() {
       list.push(L);
     }
   });
-  DATA = { list, W, H, lineBase: [H / 2 - LH, H / 2 - LH * 2 - GAP], lineTop: [H / 2, H / 2 - LH - GAP] };
+  DATA = { list, W, H, lineBase: [H / 2 - LH, H / 2 - LH * 2 - GAP], lineTop: [H / 2, H / 2 - LH - GAP], lineZ: [LINE1_Z, 0] };
   return DATA;
 }
 
@@ -277,7 +277,7 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     const { w: vw, h: vh } = viewSize();
     const g = M.p; // css px per art pixel
     let l = Math.max(0, cx - boxW / 2 - 22 * V), rgt = Math.min(vw, cx + boxW / 2 + 22 * V);
-    let t = Math.max(0, by - 34 * V), b = Math.min(vh, by + boxH + 20 * V);
+    let t = 0, b = Math.min(vh, by + boxH + 20 * V); // from the top of the screen: the bear's head may come up that far
     l = Math.floor(l / g + 1e-6) * g; t = Math.floor(t / g + 1e-6) * g;
     const pw = Math.max(8, Math.ceil((rgt - l) / g - 1e-6)), ph = Math.max(8, Math.ceil((b - t) / g - 1e-6));
     const cw = pw * g, ch = ph * g;
@@ -761,6 +761,10 @@ export function createTitleWords(menuEl, { sfx = null, reduced = null } = {}) {
     play, spark, crumb, scatter, takeOff, biteLetter, swallowLetter, letterPoint, columnTop,
     protect(b) { protect = b; },
     compile() { r.compile(scene, cam); },
+    /** world y of the top of the screen at depth z (the bear keeps its ears below it) */
+    topAt(z) { return (view.cy / V) * (CAM_D - z) / CAM_D; },
+    /** the top of the screen in z = 0 units (the words' own scale) */
+    get topEq() { return view.cy / V; },
     get canvasW() { return cv.width; },
   };
   function loadBear() {

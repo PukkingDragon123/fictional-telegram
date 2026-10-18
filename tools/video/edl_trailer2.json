@@ -27,8 +27,8 @@
   {
    "id": "t2_wake",
    "src": "t2_wake",
-   "in": 0.7,
-   "out": 7.49,
+   "in": 0.9,
+   "out": 7.69,
    "tin": {
     "type": "zoom",
     "dur": 1.3,
