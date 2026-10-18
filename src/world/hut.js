@@ -21,7 +21,7 @@
 //   g.userData.fx.update(time, night); // per frame (world.update)
 //   HUT_SPOTS                      // local centres of the front panes + door (trailer)
 import * as THREE from 'three';
-import { VoxelModel, voxelMaterial, linearRGB } from '../core/voxel.js';
+import { VoxelModel, voxelMaterial } from '../core/voxel.js';
 import { mulberry32 } from '../core/rng.js';
 import { voxelText, flagModel } from './buildings.js';
 
@@ -67,8 +67,9 @@ const LAB = { z: 9, x: X1 };
 // porch
 const PORCH = { x0: 10, x1: 19, z0: 21, z1: 27 };
 const porchY = (x) => 13 + Math.min(x - 9, 20 - x); // porch gable roof, x 9..20
-// rooftop letters
+// rooftop letters, flag pole (back slope)
 const SIGN_Z = 18;
+const FLAG = { x: 12, z: 5, top: 35 };
 
 // world-space (local) centres of the front panes and the door, for cameras
 export const HUT_SPOTS = (() => {
@@ -83,7 +84,7 @@ export const HUT_SPOTS = (() => {
     door: { x: ((DOOR.x0 + DOOR.x1 + 1) / 2) * S, y: ((DOOR.y0 + DOOR.y1 + 1) / 2) * S, z: DOOR.z * S + 0.1 },
     doorPane: { x: ((DOORWIN.x0 + DOORWIN.x1 + 1) / 2) * S, y: ((DOORWIN.y0 + DOORWIN.y1 + 1) / 2) * S, z: DOOR.z * S + 0.004 },
     chimney: { x: 0.8, y: 3.3, z: 0.8 },
-    flask: { x: 1.85, y: 2.95, z: 0.65 },
+    flask: { x: 1.9, y: 2.95, z: 0.7 },
   };
 })();
 
@@ -157,7 +158,6 @@ export function hutModel() {
     for (let x = a - 2; x <= b + 2; x++) body.set(x, WY1 + 1, Z1 + 1, P.trimD);
     for (let x = a - 3; x <= b + 3; x++) { body.set(x, WY1 + 2, Z1 + 1, P.trim); body.set(x, WY1 + 2, Z1 + 2, P.trimS); }
     for (let x = a - 2; x <= b + 2; x++) body.set(x, WY0 - 1, Z1 + 1, P.trim);
-    for (let x = a - 1; x <= b + 1; x++) body.set(x, WY0 - 1, Z1 + 2, P.trimS);
     // flower box under the sill, resting on the plinth
     for (let x = a - 1; x <= b + 1; x++)
       for (let y = 2; y <= 3; y++)
@@ -236,8 +236,6 @@ export function hutModel() {
   // gable infill: vertical cream boards
   for (let x = 11; x <= 18; x++)
     for (let y = 14; y <= porchY(x) - 2; y++) body.set(x, y, PORCH.z1, (x & 1) ? P.trim : P.trimD);
-  // close the back of the porch roof against the wall
-  for (let x = 10; x <= 19; x++) for (let y = WALL_TOP + 1; y <= porchY(x) - 2; y++) body.set(x, y, PORCH.z0 + 1, P.soffit);
 
   // ---------- main roof: shingle rows, eaves, gable ends, ridge cap
   function shingle(x, row, r) {
@@ -297,10 +295,10 @@ export function hutModel() {
   for (const sx of [0, 14, 28]) body.set(sx, roofY(SIGN_Z) + 2, SIGN_Z, P.iron);
   voxelText(glow, 'REYNARD', 1, roofY(SIGN_Z) + 7, SIGN_Z, 0xfff0c4);
 
-  // ---------- flag pole at the front-left corner, the FISH 4 SALE stand at the front-right
-  for (let y = 0; y < 31; y++) body.set(0, y, 29, y === 0 ? P.stone[3] : P.flag);
-  body.set(0, 31, 29, P.brass);
-  flagModel(body, 1, 24, 29);
+  // ---------- the flag flies from a pole on the back slope; the FISH 4 SALE stand at the front-right
+  for (let y = roofY(FLAG.z) + 1; y <= FLAG.top; y++) body.set(FLAG.x, y, FLAG.z, P.flag);
+  body.set(FLAG.x, FLAG.top + 1, FLAG.z, P.brass);
+  flagModel(body, FLAG.x + 1, FLAG.top - 6, FLAG.z);
   for (const px of [23, 29]) for (let y = 0; y <= 5; y++) body.set(px, y, 29, P.soffit);
   for (let x = 23; x <= 29; x++) body.set(x, 6, 29, P.deckEdge);
 
@@ -516,7 +514,7 @@ function glassGeometry(panes) {
       const z = p.z * S + 0.004, x0 = p.x * S, x1 = (p.x + p.w) * S, y0 = p.y * S, y1 = (p.y + p.h) * S;
       pos.push(x0, y0, z, x1, y0, z, x1, y1, z, x0, y1, z);
     } else {
-      const x = (p.x + 1) * S - 0.004, z0 = (p.z + p.w) * S, z1 = p.z * S, y0 = p.y * S, y1 = (p.y + p.h) * S;
+      const x = p.x * S + 0.004, z0 = (p.z + p.w) * S, z1 = p.z * S, y0 = p.y * S, y1 = (p.y + p.h) * S;
       pos.push(x, y0, z0, x, y0, z1, x, y1, z1, x, y1, z0);
     }
     uv.push(0, 0, 1, 0, 1, 1, 0, 1);
@@ -566,7 +564,7 @@ export function buildHut() {
   const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: DAY_GLOW.clone() });
   const glow = new THREE.Mesh(m.glow.build({ scale: S, ao: false }), glowMat);
   glow.name = 'hutGlow';
-  const glassMat = new THREE.MeshBasicMaterial({ map: glassTexture(), transparent: true, depthWrite: false, color: DAY_GLASS.clone() });
+  const glassMat = new THREE.MeshBasicMaterial({ map: glassTexture(), transparent: true, depthWrite: false, side: THREE.DoubleSide, color: DAY_GLASS.clone() });
   const glass = new THREE.Mesh(glassGeometry(m.panes), glassMat);
   glass.name = 'hutGlass';
   glass.renderOrder = 2;
@@ -645,4 +643,3 @@ function mergeGeos(list) {
   return g;
 }
 
-export { linearRGB };
