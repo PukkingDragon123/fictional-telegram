@@ -311,10 +311,11 @@ export function hutModel() {
   for (const px of [23, 29]) for (let y = 0; y <= 5; y++) body.set(px, y, 29, P.soffit);
   for (let x = 23; x <= 29; x++) body.set(x, 6, 29, P.deckEdge);
   // a red mailbox at the front-left corner (its little flag is up: e-Buy parcels)
-  for (let y = 0; y <= 4; y++) body.set(1, y, 28, P.soffit);
-  for (let x = 0; x <= 2; x++) for (let z = 26; z <= 29; z++) { body.set(x, 5, z, 0xb83a30); body.set(x, 6, z, x === 1 ? 0xc8463a : 0xb83a30); }
-  for (let z = 26; z <= 29; z++) body.set(1, 7, z, 0xa8342c);
-  body.set(1, 6, 29, 0x2b2a2d); body.set(3, 6, 27, P.iron); body.set(3, 7, 27, 0xf3c335); body.set(3, 8, 27, 0xf3c335);
+  // (kept low and at the corner so it never sits in front of the left window)
+  for (let y = 0; y <= 2; y++) body.set(0, y, 28, P.soffit);
+  for (let x = -1; x <= 1; x++) for (let z = 26; z <= 29; z++) { body.set(x, 3, z, 0xb83a30); body.set(x, 4, z, x === 0 ? 0xc8463a : 0xb83a30); }
+  for (let z = 26; z <= 29; z++) body.set(0, 5, z, 0xa8342c);
+  body.set(0, 4, 29, 0x2b2a2d); body.set(-2, 4, 27, P.iron); body.set(-2, 5, 27, 0xf3c335); body.set(-2, 6, 27, 0xf3c335);
   // potted plants either side of the door
   for (const px of [PORCH.x0 + 1, PORCH.x1 - 1]) {
     body.set(px, 2, PORCH.z0 + 1, 0xb5653a); body.set(px, 3, PORCH.z0 + 1, 0xc4744a);
