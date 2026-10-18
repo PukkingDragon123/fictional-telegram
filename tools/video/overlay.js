@@ -145,13 +145,21 @@ export class Overlay {
     const inD = o.inDur ?? (o.anim === 'fade' ? 0.4 : 0.32), outD = o.outDur ?? 0.22;
     if (t < t0 || t > t1 + outD) { it.w.style.opacity = 0; return; }
     const a = (t - t0) / inD, b = (t - t1) / outD;
-    let s = 1, op = 1, rot = o.rot ?? 0, dx = 0, dy = 0;
+    let s = 1, op = 1, rot = o.rot ?? 0, dx = 0, dy = 0, sx = 1, sy = 1;
     const anim = o.anim || 'pop';
     if (anim === 'pop') { s = 0.2 + 0.8 * easeOutBack(a, 2.4); op = clamp(a * 3, 0, 1); }
     else if (anim === 'slam') { s = a < 1 ? 2.6 - 1.6 * easeOut(a) : 1; op = clamp(a * 2.5, 0, 1); if (a >= 1 && a < 2.2) { const k = (2.2 - a) / 1.2; dx = Math.sin(t * 90) * 7 * k; dy = Math.cos(t * 77) * 5 * k; } }
     else if (anim === 'rise') { dy = (1 - easeOut(a)) * 40; op = clamp(a, 0, 1); }
     else if (anim === 'fade') { op = clamp(a, 0, 1); }
     else if (anim === 'stamp') { s = a < 1 ? 1.5 - 0.5 * easeOut(a) : 1; op = clamp(a * 4, 0, 1); rot += (1 - clamp(a, 0, 1)) * -8; }
+    else if (anim === 'squash') {
+      // pops in from a flat smear, overshoots tall, wobbles to rest (damped spring on the aspect)
+      const u = Math.max(0, t - t0), k = 9, w = 26;
+      s = u < 0.06 ? 0.35 + (u / 0.06) * 0.75 : 1 + 0.1 * Math.exp(-k * (u - 0.06)) * Math.cos(w * (u - 0.06));
+      const q = Math.exp(-k * u) * Math.cos(w * u + 0.3);
+      sx = 1 + 0.45 * q; sy = 1 - 0.38 * q;
+      op = clamp(u / 0.04, 0, 1);
+    }
     if (o.wobble) { rot += Math.sin(t * 5.2) * o.wobble; s *= 1 + Math.abs(Math.sin(t * 5.2)) * 0.015 * o.wobble; }
     if (o.drift) { dy += (t - t0) * (o.drift[1] || 0); dx += (t - t0) * (o.drift[0] || 0); s *= 1 + (t - t0) * (o.zoom || 0); }
     if (b > 0) {
@@ -159,8 +167,10 @@ export class Overlay {
       if (ob === 'fade') op *= 1 - clamp(b, 0, 1);
       else if (ob === 'shrink') { s *= 1 - easeIn(b) * 0.85; op *= 1 - clamp(b * 1.2 - 0.2, 0, 1); }
       else if (ob === 'up') { dy -= easeIn(b) * 600; }
+      else if (ob === 'squash') { sx *= 1 + easeIn(b) * 0.6; sy *= 1 - easeIn(b) * 0.95; op *= 1 - clamp(b * 1.3 - 0.3, 0, 1); }
+      else if (ob === 'cut') { op = 0; }
     }
     it.w.style.opacity = op.toFixed(3);
-    it.inner.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${s.toFixed(4)})`;
+    it.inner.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${(s * sx).toFixed(4)}, ${(s * sy).toFixed(4)})`;
   }
 }

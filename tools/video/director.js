@@ -56,7 +56,7 @@ function hookAudio(game) {
     return play.call(A, name, o);
   };
   A.babble = (voice, text, o = {}) => {
-    if (D.t0 != null && !D.muteGame) D.audio.push({ t: +now().toFixed(4), kind: 'babble', voice, text: String(text), vol: o.volume ?? 1, pitch: o.pitch ?? 1, cps: o.cps ?? 16 });
+    if (D.t0 != null && !D.muteGame && !D.noVoice) D.audio.push({ t: +now().toFixed(4), kind: 'babble', voice, text: String(text), vol: o.volume ?? 1, pitch: o.pitch ?? 1, cps: o.cps ?? 16 });
     return babble.call(A, voice, text, o);
   };
 }
@@ -146,6 +146,13 @@ class Ctx {
   }
   noUI(on = true) { document.body.classList.toggle('vid-noui', on); }
   bubbles(s = 3) { bubbleScale(this.game, s); }
+  // no speech bubbles at all (and so no babble voices): the game's bubble layer answers with a dummy
+  noTalk() {
+    const B = this.game.ui?.bubbles;
+    if (B) { B.say = () => ({ done: Promise.resolve(), close() {}, setText() {}, el: document.createElement('div') }); B.clear?.(); }
+    if (this.game.ui) this.game.ui.bearSay = () => {};
+    D.noVoice = true;
+  }
   // keep the villagers' random chatter out of the shot
   quietVillagers() { for (const v of this.game.villagers?.list || []) v.t = 1e9; }
   ground(x, z) { return this.game.grid.groundAt(x, z); }

@@ -58,3 +58,4 @@ button.yn.yn:not(#yn)[disabled] { cursor: not-allowed; filter: grayscale(.9) bri
   .cf-say p { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { .cf-sweat { animation: none; } }
+.cf-modal .pp-letter-seal { right: -12px; bottom: auto; top: -16px; } /* the wax seal moves up, clear of the planks */

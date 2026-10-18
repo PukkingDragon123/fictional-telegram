@@ -13,7 +13,7 @@ export const SHOTS = {};
 
 // ------------------------------------------------------------------ the painted sky curtain (from the title screen)
 // Starts the title diorama in the running game only for its sky curtain + grade, hides its cast.
-function skyCurtain(c) {
+export function skyCurtain(c) {
   const g = c.g;
   const T = new TitleScene(g);
   const keep = { hour: g.state.hour, phase: g.state.phase };
@@ -29,7 +29,7 @@ function skyCurtain(c) {
   return T;
 }
 // camera + curtain together. sun = [x (fraction of the view width from the centre), y (fraction of the sky height)]
-function skyCam(c, cam, sun, t) {
+export function skyCam(c, cam, sun, t) {
   const g = c.g, rig = g.rig, rr = g.renderer, T = c.title;
   const pitch = cam.pitch * D2R, yaw = cam.yaw;
   setCam(rig, cam);
@@ -48,7 +48,7 @@ function skyCam(c, cam, sun, t) {
   T.skyUniforms.uNarrow.value = 1;
 }
 // dawn lighting: low warm sun rising from the right of the view (k = 0 first light .. 1 morning)
-function dawnLight(c, getK) {
+export function dawnLight(c, getK) {
   const g = c.g, sky = g.sky;
   const orig = Object.getPrototypeOf(sky).update;
   const dir = new THREE.Vector3(), col = new THREE.Color(), A = new THREE.Color(), B = new THREE.Color();
