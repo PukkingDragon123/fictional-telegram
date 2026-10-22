@@ -273,7 +273,8 @@ class Timelapse:
         self.cam = Camera(doc.w, doc.h, self.W, self.H, zmax)
         self.proc = subprocess.Popen(
             ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % size,
-             '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
+             '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '25', '-tune', 'animation',
+             '-pix_fmt', 'yuv420p',
              '-movflags', '+faststart', path], stdin=subprocess.PIPE)
         self.n = 0
         self.pending = 0
@@ -1458,13 +1459,13 @@ def room(d, ri, out_dir):
     # 1 thumbnails: three quick value sketches of the room, small; the third one is picked
     pn.follow = False
     Th = doc.add('Thumbnails', group='rough')
-    tw_, th_ = 128, 72
+    tw_, th_ = 96, 54
     small = np.array(Image.fromarray(final[..., :3]).resize((tw_, th_), Image.BOX))
     zoomed = np.array(Image.fromarray(small).resize((int(tw_ * 1.4), int(th_ * 1.4)), Image.BOX))
     oz = (zoomed.shape[1] - tw_) // 2 + (12 if ri % 2 else -12), (zoomed.shape[0] - th_) // 2 + 4
     variants = [small[:, ::-1], zoomed[oz[1]:oz[1] + th_, oz[0]:oz[0] + tw_], small]
-    boxes = [(18 + i * 150, 20) for i in range(3)]
-    tl.look((10, 12, boxes[-1][0] + tw_ + 8, 20 + th_ + 10), zmax=2.4, settle=20, force=True)
+    boxes = [(14 + i * (tw_ + 14), 16) for i in range(3)]
+    tl.look((6, 6, boxes[-1][0] + tw_ + 8, 16 + th_ + 8), zmax=2.4, settle=24, force=True, pad=0.04)
     pencil = (62, 58, 64)
     for (bx, by), v in zip(boxes, variants):
         src = np.zeros((h, w, 4), np.uint8)
@@ -1489,7 +1490,7 @@ def room(d, ri, out_dir):
     tl.shot(16)
     # the pick, scaled up to the whole canvas with the transform tool, as an underlay
     pick = Th['a'][by:by + th_, bx:bx + tw_].copy()
-    Sc = doc.add('Thumbnail, scaled up', below=Th, group='rough')
+    Sc = doc.add('Thumbnail, scaled up', above=Th, group='rough')
     tl.full()
     for k in range(1, 21):
         t = k / 20.0
