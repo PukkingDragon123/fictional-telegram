@@ -24,7 +24,8 @@
   <b>Old Rundown Teahouse</b>
   <input id="cam" type="range" min="0" max="1440" value="240" aria-label="camera">
   <select id="season" aria-label="season"><option value="">no season</option><option>spring</option>
-    <option>summer</option><option>autumn</option><option>winter</option></select>
+    <option>summer</option><option>autumn</option><option>winter</option>
+    <option value="bloodmoon">blood moon</option></select>
   <label><input id="light" type="checkbox" checked> light</label>
   <label><input id="fg" type="checkbox" checked> foreground</label>
   <label><input id="petals" type="checkbox" checked> leaves</label>
@@ -152,14 +153,20 @@
   }), 33);
 
   // the seasons: swap the view outside, the glass, the light and the lanterns
-  const baseLook = Object.fromEntries(props.map(p => [p.name, { file: p.file, sheet: p.sheet, w: p.w, h: p.h }]));
-  function swapProps(list) {                              // the lanterns, redrawn for the season
+  const baseLook = Object.fromEntries(props.map(p => [p.name, { file: p.file, sheet: p.sheet, w: p.w, h: p.h,
+    anims: p.anims }]));
+  function swapProps(list) {                              // the lanterns (and at night the dragon), redrawn
     props.forEach(p => Object.assign(p, baseLook[p.name]));
     (list || []).forEach(sw => {
       const p = props.find(q => q.name === sw.name);
       if (!p) return;
       Object.assign(p, { file: sw.file, sheet: sw.sheet, w: sw.w, h: sw.h });
       load(sw.file); if (sw.sheet) load(sw.sheet);
+      if (sw.anims && p.anims) {                          // same animations and timing, new sheets
+        p.anims = Object.fromEntries(Object.entries(p.anims).map(([k, a]) =>
+          [k, sw.anims[k] ? { ...a, sheet: sw.anims[k].sheet } : a]));
+        Object.values(p.anims).forEach(a => load(a.sheet));
+      }
     });
   }
   document.getElementById('season').addEventListener('change', e => {

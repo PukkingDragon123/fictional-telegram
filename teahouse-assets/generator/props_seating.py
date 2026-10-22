@@ -129,7 +129,9 @@ LANTERN = dict(
     autumn=dict(ramp=['red0', 'copper1', 'copper2', 'fire2', 'fire3', 'fire4', 'fire5'], cap=('wood0', 'wood1', 'ink'),
                 tassel=('copper3', 'copper2', 'copper1'), halo='fire3', motif='autumn'),
     winter=dict(ramp=['stone1', 'paper1', 'paper2', 'paper3', 'paper4', 'white', 'fire5'], cap=('stone0', 'stone1', 'ink'),
-                tassel=('scarlet3', 'scarlet2', 'scarlet1'), halo='fire4', motif='winter'))
+                tassel=('scarlet3', 'scarlet2', 'scarlet1'), halo='fire4', motif='winter'),
+    bloodmoon=dict(ramp=['copper0', 'copper1', 'copper2', 'gold2', 'gold3', 'fire4', 'fire5'], cap=('gloss0', 'gloss1', 'ink'),
+                   tassel=('scarlet2', 'scarlet1', 'red0'), halo='fire4', motif='bloodmoon'))
 
 
 def _wrap(a):
@@ -154,6 +156,15 @@ def _motifs(kind):
         for r, t in enumerate((0.24, 0.5, 0.76)):
             for k in range(8):
                 out.append((k * math.pi / 4 + (r % 2) * math.pi / 8 + r * 0.2, t, 'maple'))
+    elif kind == 'bloodmoon':                    # the red moon with a bat crossing it, more bats, susuki below
+        for k in range(4):
+            out.append((k * math.pi / 2 + 0.22, 0.37, 'bat'))
+        for (a, t) in ((0.95, 0.15), (2.55, 0.21), (4.2, 0.13), (5.55, 0.24), (3.4, 0.62)):
+            out.append((a, t, 'bat'))
+        for k in range(4):
+            out.append((k * math.pi / 2, 0.44, 'moon'))
+        for k in range(16):
+            out.append((k * math.pi / 8, 0.9, 'grass'))
     else:                                        # red camellias among snowflakes
         for k in range(8):
             out.append((k * math.pi / 4, 0.32, 'camellia' if k % 2 else 'flake'))
@@ -202,7 +213,21 @@ def _motif_px(shape, dx, dy):
     elif shape == 'wave':
         if 1.8 < r < 3.0 and dy < 0:
             return 'f'
+    elif shape == 'moon':
+        if r < 5.6:
+            seas = math.hypot(dx + 1.5, dy + 1.0) < 1.8 or math.hypot(dx - 1.8, dy - 1.2) < 1.3
+            return 'n' if seas else ('l' if (r > 4.4 and dx - dy < -2) else 'm')
+    elif shape == 'bat':
+        row, col = int(round(dy + 2)), int(round(dx + 4))
+        if 0 <= row < len(BAT_MOTIF) and 0 <= col < 9 and BAT_MOTIF[row][col] == 'b':
+            return 'b'
+    elif shape == 'grass':
+        if -4.6 < dy < 1.6 and abs(dx + dy * 0.35) < 0.5:
+            return 'g' if dy > -2.5 else 'h'
     return None
+
+
+BAT_MOTIF = ['b.......b', 'bb.b.b.bb', '.bbbbbbb.', '..b.b.b..']
 
 
 MOTIF_COLS = dict(
@@ -210,7 +235,9 @@ MOTIF_COLS = dict(
     spring=dict(p=('pink1', 'pink2'), q=('pink2', 'pink3'), c=('gold2', 'gold3')),
     autumn=dict(p=('red1', 'red2'), q=('red0', 'red1'), s=('wood0', 'wood1')),
     winter=dict(f=('indigo1', 'indigo2'), p=('scarlet1', 'scarlet2'), q=('scarlet2', 'scarlet3'), c=('gold2', 'gold3'),
-                l=('leaf0', 'leaf1')))
+                l=('leaf0', 'leaf1')),
+    bloodmoon=dict(m=('scarlet1', 'scarlet2'), n=('red1', 'red2'), l=('scarlet2', 'scarlet3'), b=('ink', 'gloss0'),
+                   g=('wood1', 'wood2'), h=('wood2', 'wood3')))
 
 
 def _lantern(seed, torn, f, n=F8, style=None):
@@ -220,7 +247,9 @@ def _lantern(seed, torn, f, n=F8, style=None):
     painted pattern change with the season: red with fireworks and waves in
     summer, pale pink with cherry blossom in spring, persimmon orange with
     maple leaves in autumn, white washi with red camellias and snowflakes in
-    winter. The lantern twists a little as it sways, so the pattern turns."""
+    winter, and on the blood moon night gold washi with the red moon, bats
+    and susuki grass. The lantern twists a little as it sways, so the pattern
+    turns."""
     import season
     style = style or season.current
     S = LANTERN[style]
@@ -317,6 +346,11 @@ def _lantern(seed, torn, f, n=F8, style=None):
             cv.line(tx0, ty0, tx0 + 2 + k, ty0 - 4 + k // 2, 'leaf1' if k % 2 else 'jade1')
         for (dx, dy) in ((1, 1), (3, 1), (2, 2)):
             cv.px(tx0 + dx, ty0 + dy, 'scarlet2')
+    elif style == 'bloodmoon':                            # susuki plumes for moon viewing
+        for k, (ex, ey) in enumerate(((4, -7), (6, -6), (7, -4))):
+            cv.line(tx0, ty0, tx0 + ex, ty0 + ey, 'wood2')
+            cv.px(tx0 + ex, ty0 + ey, 'paper3'); cv.px(tx0 + ex - 1, ty0 + ey, 'paper2')
+            cv.px(tx0 + ex, ty0 + ey + 1, 'paper2')
     elif style == 'autumn':                               # a red maple leaf caught on the cord
         for (dx, dy, c) in ((0, 0, 'red2'), (-1, 0, 'red1'), (1, 0, 'red2'), (0, -1, 'red2'), (-1, -1, 'red1'),
                             (1, -1, 'red3'), (0, 1, 'wood0')):

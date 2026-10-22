@@ -153,14 +153,58 @@ def birds(season):
     return frames, (0, BIRDS_Y)
 
 
+# ---------------------------------------------------------------- bats
+# a bat at a distance: wings up, spread, and pulled down, beating fast
+BAT = dict(up=['w...w', '.wbw.', '..b..'], mid=['.....', 'wwbww', '.w.w.'], down=['..b..', '.wbw.', 'w...w'])
+BAT_BIG = dict(up=['w.....w', 'ww...ww', '.wwbww.', '...b...'], mid=['.......', 'wwwbwww', 'w.www.w', '.......'],
+               down=['...b...', '.wwbww.', 'ww...ww', 'w.....w'])
+BAT_CYCLE = ['up', 'mid', 'down', 'mid']
+
+
+def bats():
+    """The blood moon night: bats flitting over the lake and past the moon. They
+    don't hold a formation like birds - each one jinks about on its own around
+    the group, on a loop of NB frames."""
+    w, h = TILE, BIRDS_H
+    frames = [np.zeros((h, w, 4), np.uint8) for _ in range(NB)]
+    rng = random.Random(16)
+    # (x, y in the sky, reach across, reach up and down, how many, which way round): the first two round the moon
+    groups = [(372, 64, 60, 24, 7, 1), (380, 92, 110, 18, 5, -1), (900, 98, 140, 20, 6, 1), (150, 104, 120, 16, 5, 1),
+              (640, 112, 200, 12, 4, -1), (1130, 80, 90, 20, 4, 1)]
+    for (cx, cy, rx, ry, n, dirn) in groups:
+        for i in range(n):
+            big = rng.random() < 0.3
+            ox, oy = rng.uniform(-rx * 0.4, rx * 0.4), rng.uniform(-ry * 0.5, ry * 0.5)
+            ph = rng.uniform(0, 6.3)
+            turns = rng.choice((1, 2))
+            jit = [(rng.uniform(0, 6.3), rng.uniform(4, 9), rng.choice((5, 7, 9, 11))) for _ in range(3)]
+            beat = rng.randrange(4)
+            for f in range(NB):
+                t = 2 * math.pi * f / NB
+                x = cx + ox + dirn * rx * math.sin(turns * t + ph)
+                y = cy + oy + ry * math.sin(2 * turns * t + ph * 1.3) * 0.6
+                for (p, amp, k) in jit:                       # the jinking
+                    x += amp * 0.6 * math.sin(k * t + p)
+                    y += amp * 0.35 * math.cos((k + 2) * t + p * 1.7)
+                pose = BAT_CYCLE[(f + beat) % 4]
+                rows = (BAT_BIG if big else BAT)[pose]
+                ox_, oy_ = len(rows[0]) // 2, len(rows) // 2
+                for r, row in enumerate(rows):
+                    for c, ch in enumerate(row):
+                        if ch != '.':
+                            _px(frames[f], x + c - ox_, y - BIRDS_Y + r - oy_, 'gloss0' if ch == 'w' else 'ink')
+    return frames, (0, BIRDS_Y)
+
+
 # ---------------------------------------------------------------- the lake
 def lake(season):
     w, h = TILE, LAKE_H
     frames = [np.zeros((h, w, 4), np.uint8) for _ in range(NL)]
-    rng = random.Random({'spring': 11, 'summer': 12, 'autumn': 13, 'winter': 14}[season])
+    rng = random.Random({'spring': 11, 'summer': 12, 'autumn': 13, 'winter': 14, 'bloodmoon': 15}[season])
+    night = season == 'bloodmoon'
     yy, xx = np.mgrid[0:h, 0:w]
     # fish gliding under the surface: closed loops, tails beating; dark carp and bright koi
-    n_fish = dict(spring=26, summer=30, autumn=22, winter=10)[season]
+    n_fish = dict(spring=26, summer=30, autumn=22, winter=10, bloodmoon=0)[season]
     for i in range(n_fish):
         cx, cy = rng.uniform(0, w), rng.uniform(10, h - 14)
         rx, ry = rng.uniform(14, 44), rng.uniform(2, 6)
@@ -187,7 +231,9 @@ def lake(season):
             _px(a, x - ln * d, y + wag, 'fire2' if koi else 'indigo0', 150)
             _px(a, x - (ln + 1) * d, y + 2 * wag, 'fire2' if koi else 'indigo0', 110)
     # a fish jumping now and then: an arc, a splash, rings
-    n_jump = dict(spring=12, summer=14, autumn=9, winter=3)[season]
+    n_jump = dict(spring=12, summer=14, autumn=9, winter=3, bloodmoon=9)[season]
+    body = ('blood5', 'blood4', 'blood3', 'night4', 'night3') if night else ('white', 'cloud3', 'cloud2', 'stone3', 'stone2')
+    spray, ring = ('blood5', 'blood2') if night else ('white', 'haze3')
     for i in range(n_jump):
         jx, jy = (i + rng.uniform(0.1, 0.9)) * w / n_jump, rng.uniform(14, h - 16)
         t0, d = rng.randrange(NL), rng.choice((1, -1))
@@ -201,15 +247,15 @@ def lake(season):
                 y = jy - high * 4 * u * (1 - u)
                 tilt = 1 if u > 0.55 else (-1 if u < 0.45 else 0)
                 for q in range(5):
-                    _px(a, x - q * d, y + (q * tilt) // 2, ('white', 'cloud3', 'cloud2', 'stone3', 'stone2')[q])
-                _px(a, x - 1 * d, y + 1 + tilt // 2, 'stone3')
-                _px(a, x - 5 * d, y + (5 * tilt) // 2 - 1, 'stone2')
-                _px(a, x - 5 * d, y + (5 * tilt) // 2 + 1, 'stone2')
+                    _px(a, x - q * d, y + (q * tilt) // 2, body[q])
+                _px(a, x - 1 * d, y + 1 + tilt // 2, body[3])
+                _px(a, x - 5 * d, y + (5 * tilt) // 2 - 1, body[4])
+                _px(a, x - 5 * d, y + (5 * tilt) // 2 + 1, body[4])
             if k in (0, 1, 2, 8, 9, 10):                              # splashes where it leaves and lands
                 sx = jx if k < 4 else jx + d * span
                 kk = k if k < 4 else k - 8
                 for q in range(-3, 4):
-                    _px(a, sx + q, jy - max(0, (3 - abs(q)) * (2 - kk)) - 1, 'white')
+                    _px(a, sx + q, jy - max(0, (3 - abs(q)) * (2 - kk)) - 1, spray)
             if k >= 2:                                                # rings spreading
                 for (sx, k0) in ((jx, 2), (jx + d * span, 10)):
                     if k >= k0:
@@ -217,9 +263,9 @@ def lake(season):
                         al = int(200 * (1 - (k - k0) / 20.0))
                         if al > 0:
                             m = np.abs(np.hypot((xx - sx) / rr, (yy - jy) / (rr * 0.28)) - 1) < 0.09
-                            a[m & (a[..., 3] == 0)] = (*PAL['haze3'], al)
+                            a[m & (a[..., 3] == 0)] = (*PAL[ring], al)
     # ducks paddling (swans in winter), a V of ripples behind them
-    pairs = dict(spring=2, summer=2, autumn=2, winter=1)[season]
+    pairs = dict(spring=2, summer=2, autumn=2, winter=1, bloodmoon=0)[season]
     for i in range(pairs):
         cx, cy = rng.uniform(0, w), rng.uniform(16, h - 18)
         rx, ry = rng.uniform(40, 80), rng.uniform(3, 6)

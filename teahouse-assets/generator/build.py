@@ -40,6 +40,7 @@ import dragon
 import organic                                             # noqa: E402
 import wyvern                                              # noqa: E402,F401
 import season                                              # noqa: E402
+import bloodmoon                                           # noqa: E402
 import seasons_room                                        # noqa: E402
 import life                                                # noqa: E402
 
@@ -164,10 +165,17 @@ class Scene:
                 if s == 'summer':
                     outs, light = self.base_outs, self.base_light
                 else:
-                    outs, light = outside.all_layers(), fx.light(s)
+                    outs = outside.all_layers()
+                    light = fx.light(s, open_mask=self._open_mask() if s == 'bloodmoon' else None)
                 win = seasons_room.window_layer(s, self.shell)
                 swaps = {} if s == 'summer' else {p['name']: _process_prop(p) for p in propkit.PROPS
                                                   if p['name'] in SEASONAL_PROPS}
+                if s == 'bloodmoon':                    # what stands just outside a window sinks into the night too
+                    for p in self.base_props:
+                        if p['layer'] == 'outside':
+                            swaps[p['name']] = dict(
+                                p, frames=[bloodmoon.dim(f) for f in p['frames']],
+                                anims=p['anims'] and {k: [bloodmoon.dim(f) for f in v] for k, v in p['anims'].items()})
             finally:
                 season.set_season('summer')
             self._seasons[s] = (outs, light, win, swaps)
@@ -175,6 +183,12 @@ class Scene:
         self.outs, self.light, self.window, self.swaps = self._seasons[s]
         self.props = [self.swaps.get(p['name'], p) for p in self.base_props]
         self.season = s
+
+    def _open_mask(self):
+        """Where the outside shows through: the pixels no part of the room covers."""
+        cv = Canvas(LY.W, LY.H)
+        self._interior(cv, 0)
+        return cv.a[..., 3] == 0
 
     def outside_at(self, t, cam_x, width=LY.W):
         cv = Canvas(width, LY.H)
@@ -594,21 +608,29 @@ def export_seasons(sc, anims=True):
                 if len(fr) > 1:
                     r['sheet'] = save(sheet(fr), *d, 'props', rd, name + '_sheet.png')
                     save(sheet(fr), *d, 'props_3x', rd, name + '_sheet.png', scale=SCALE_HI)
+                if p['anims']:                          # the same animations as the base prop
+                    r['anims'] = {}
+                    for an, afr in p['anims'].items():
+                        r['anims'][an] = dict(frames=len(afr),
+                                              sheet=save(sheet(afr), *d, 'props', rd, f'{name}_{an}_sheet.png'))
+                        save(sheet(afr), *d, 'props_3x', rd, f'{name}_{an}_sheet.png', scale=SCALE_HI)
                 rec['prop_swaps'].append(r)
-        # previews: the whole teahouse, each room, and the giant through the seating-room window
+        # previews: the whole teahouse, each room, and the life through the seating-room window
         full = sc.compose(0)
         save(full, *d, 'preview', 'teahouse_full_1x.png')
         for i in range(4):
             save(full.crop(i * LY.SW, 0, LY.SW, LY.H), *d, 'preview', f'room_{i + 1}_2x.png', scale=2)
         views[s] = full.crop(LY.SW, 0, LY.SW, LY.H)
+        if s == 'bloodmoon':
+            views['bedroom at night'] = full.crop(3 * LY.SW, 0, LY.SW, LY.H)
         if anims and s != 'summer':
             window_life_gif(sc, os.path.join(ROOT, *d, 'preview', 'window_life.gif'))
         info[s] = rec
     sc.use_season(None)
-    # the seating room through the year, side by side
-    cv = Canvas(LY.SW * 2 + 4, LY.H * 2 + 4, fill='ink')
-    for i, s in enumerate(season.NAMES):
-        cv.blit(views[s], (i % 2) * (LY.SW + 4), (i // 2) * (LY.H + 4))
+    # the seating room through the year, side by side, and the bedroom on the blood moon night
+    cv = Canvas(LY.SW * 3 + 8, LY.H * 2 + 4, fill='ink')
+    for i, v in enumerate(views.values()):
+        cv.blit(v, (i % 3) * (LY.SW + 4), (i // 3) * (LY.H + 4))
     save(cv, 'preview', 'seasons_overview.png', scale=2)
     return info
 

@@ -76,41 +76,66 @@ The trees outside are grown, not stamped (`grove.py`):
 - `preview/window_life.gif` shows 8 s of it through the seating-room window.
 - Both life layers are cropped bands: their records have `x`, `y`, `w`, `h`. The birds' sheet is a grid with `sheet_columns`, because a single column would be taller than a texture can be.
 
-`generator/polish_gifs.py OUT_DIR` renders long, smooth GIFs of rooms 1, 2 and 4: 2x, 10 fps, every animation running, one shared palette, no dithering. The seating room runs 12 s, so the birds and ducks go by. Add `--season=winter` (or any season) to draw the rooms in that season.
+`generator/polish_gifs.py OUT_DIR` renders long, smooth GIFs of rooms 1, 2 and 4: 2x, 10 fps, every animation running, one shared palette, no dithering. The seating room runs 12 s, so the birds and ducks go by. Add `--season=winter` (or any season, or `bloodmoon`) to draw the rooms in that season.
 
-`generator/artist_process.py OUT_DIR [goat 0 1 2 3]` paints the goat-dragon model and each room from a blank canvas, stroke by stroke, and records it like a Procreate timelapse: canvas only, one frame per stroke. Each line is a wobbling, overshooting path. Big areas are covered in back-and-forth strokes inside a selection. Fills are bucket fills, and colour changes are slider drags.
+`generator/artist_process.py OUT_DIR [goat 0 1 2 3]` paints the goat-dragon model and each room from a blank canvas, stroke by stroke, and films it the way a painter records a speedpaint: 1080p at 30 fps. Each line is a wobbling, overshooting path. Big areas are covered in back-and-forth strokes inside a selection. Fills are bucket fills, colour changes are slider drags, and a scale-up is the transform tool.
 
-The order is a painter's order: rough, sketch, flat colour, light and shadow, detail. The mistakes stay in:
+**The camera** follows the brush. It glides to whatever is being painted and zooms in for small things: an eye, a hinge, a run of line art, a stray pixel. Then it pulls back out for the big passes. When it settles, every canvas pixel is a whole number of screen pixels, so the pixel art stays sharp.
+
+**A room** is painted in this order:
+1. Three small value thumbnails of the room. One is circled in red, and the other two are struck through.
+2. The pick is scaled up to the whole canvas with the transform tool and used as a faint underlay.
+3. Perspective guides: the horizon, rays from the vanishing point, and floor and ceiling lines stepping toward you.
+4. A rough sketch of the box, the windows and every piece, with the camera going to each one.
+5. A value study in greys only, with big loose strokes.
+6. A colour comp on a Color-blend layer over the values, so the greys take on colour.
+7. The walls, floor and ceiling: value shapes first, then rendered, then the grain and wear worked close up a patch at a time.
+8. The view through the window, layer by layer.
+9. Every piece on its own layer, close up: pixel line art on a layer above it, then the flat colour, light and shadow, render, and the last details a pixel or two at a time. Then the lines are merged down.
+10. The posts and the light.
+11. A pixel clean-up, zoomed right in.
+12. A gradient map tried over everything and deleted.
+13. The finished picture comes apart into its layers as panes of glass in 3D, turns, and goes back together.
+14. The room comes to life (birds, water, fire, lanterns) and goes through spring, summer, autumn, winter and the blood moon night.
+
+**The goat-dragon** goes from two roughs to a sketch, line art, flats, shading, fur and scales, and details. The camera goes in close on the horns, the eye and the teeth. At the end its layers come apart in 3D, and then it breathes, blinks and glances about.
+
+The mistakes stay in:
+- thumbnails that didn't make it
 - a first idea faded and hidden
 - an eye drawn too big and rubbed out
 - the jaw moved after a canvas flip
-- doubled pixels cleaned off the line art
+- doubled and stray pixels cleaned off afterwards
 - fur filled brown and slid to white
 - highlights pushed too bright and pulled back
+- a colour comp started too cold and adjusted
 - a sketch dragged into place
 - an idea erased
 - a prop painted then deleted
 - strokes undone
+- a gradient map tried and thrown away
 
-Each piece writes `*_timelapse.mp4`, `*_timelapse.gif`, a layered `*_layers.psd` and `*_final.png`. The PSD keeps the rough layers, hidden, and flattens to the finished art. Pass `--cache=DIR` to keep the room data between runs.
+Each piece writes `*_timelapse.mp4`, a layered `*_layers.psd` and `*_final.png`. The PSD keeps the thumbnails, roughs, value study and colour comp, hidden (the colour comp keeps its Color blend mode), and flattens to the finished art. Pass `--cache=DIR` to keep the room data between runs, and `--scene=PKL` to load a pickled scene.
 
-## The four seasons
+## The four seasons and the blood moon
 
-The base scene is summer. `seasons/<season>/` holds what changes for spring, summer, autumn and winter. `scene.json` lists it under `seasons`.
+The base scene is summer. `seasons/<season>/` holds what changes for spring, summer, autumn, winter and `bloodmoon`, one night of the year when a red moon rises over the lake. `scene.json` lists it under `seasons`.
 
 **Outside, through every window**
 - **Spring:** cherry blossom on the zelkovas and some of the oaks, fresh green, azaleas, daisies and cosmos. Petals turn in the air and float on the lake. The sky goes pale toward a pink horizon, and late snow is left on the high peaks.
 - **Summer:** the base garden: deep green, hydrangeas, butterflies and dragonflies, seeds drifting on the wind.
 - **Autumn:** the maples go red, orange and gold, the birches gold and the willow yellow, while the pines and cypresses stay green. The far forest turns rust and red. The grass is gold, with pampas and red spider lilies. Red dragonflies fly, leaves blow on the wind and float on the lake, and the sky is clear with a warm horizon.
 - **Winter:** the broadleaf trees are bare, with snow on every branch. Snow caps the pines and cypresses. Snow covers the ground and the flower bed, with dry stalks poking through. The mountains are white to their feet, there is ice along the near shore, the sky is a low grey snow-cloud, and snow is falling.
+- **Blood moon:** night. A big copper-red moon stands over the far mountains, brighter on its lower edge, with its seas and craters showing and a soft red glow round it. The sky is deep violet and full of stars, with a red glow along the horizon, and thin bands of cloud cross it. The one passing under the moon is dark against it with a bright red edge. The garden is the summer garden at night: leaves dark blue-green, pale things a dim rose, and red things glowing under the red light. Every edge that faces the sky catches a line of red moonlight, from the mountain ridges to the tree crowns and the grass. The lake mirrors the night, with a broken path of red light running from under the moon toward the shore and red glints on the ripples. The flower bed under the window is red spider lilies and susuki grass, as for moon viewing. Fireflies drift and glow over the garden (`08_fireflies`).
 
-The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.75) is the drift in front of the garden.
+The new layer `08_petals` / `08_leaves` / `08_snowfall` / `08_fireflies` (24 frames, parallax 0.75) is the drift in front of the garden.
 
 **Life outside** changes with the season too:
 - **Spring:** cherry petals come off the blossom trees and lie pink on the ground under them. Four groups of swallows wheel over the lake, little flocks of small birds cross, and a line of gulls glides past.
 - **Summer:** swallows wheeling, flocks of small birds, and a line of white egrets.
 - **Autumn:** leaves fall from the red and gold trees and carpet the ground. Two skeins of geese cross in V's, and starling murmurations swirl over the far shore, sixty birds each, the cloud opening and closing.
 - **Winter:** a line of seven red-crowned cranes and a smaller group glide across, flocks of crows fly over, fewer fish move under the cold water, and swans replace the ducks.
+- **Blood moon:** bats instead of birds (`04_bats`). They flit past the moon and over the lake in loose groups, each one jinking about on its own with fast wingbeats. Fish jump with red splashes and rings, and there are no ducks.
 
 **The rooms**
 - **The glass** (`layers/room/09_window_glass.png`) is drawn between the outside and the room shell, so it only shows in the panes:
@@ -118,14 +143,16 @@ The new layer `08_petals` / `08_leaves` / `08_snowfall` (24 frames, parallax 0.7
   - autumn: maple leaves
   - winter: frost growing in from the edge of every pane, snow heaped on the outer sills, and icicles
 - **The light** (`40_light_overlay`) changes with the season: soft in spring, low golden autumn sun that reaches further across the floor, and cool snow-light in winter, with the hearth and the lantern glowing warmer against it.
+- **On the blood moon night** the light overlay sinks every room into a violet dark. Warm pools of light flicker round the furnace fire, the three lanterns and the desk candle. Red moonlight falls through each window in slanting shafts, broken by the window bars, with dust turning in it. The window openings are left clear, because the night outside is already drawn dark. The goat-dragon behind the bell window is darkened to match, in every one of its animations, so it matches its head when it leans into the room.
 - **The lanterns** (the two in the seating room and the big one in the bedroom) are repainted for each season. Each has a new paper colour and a new pattern painted round the barrel, and the pattern turns as the lantern twists on its cord:
   - **Spring:** pale pink paper scattered with cherry blossoms and buds, pink tassel, a sprig of blossom tied at the top.
   - **Summer:** red paper with white fireworks bursting above a band of waves.
   - **Autumn:** persimmon-orange paper glowing gold, maple leaves drifting down it, a dark wood cap and a red leaf caught on the cord.
   - **Winter:** white washi with red camellias and blue snowflakes, a red tassel, pine needles and red nanten berries at the top.
+  - **Blood moon:** gold washi glowing amber, painted with the red moon with a bat crossing it, more bats flying, and a band of susuki grass round the bottom. Black lacquer caps, a crimson tassel, and susuki plumes tied at the top.
   - The bedroom lantern's glow on the walls takes the colour of its paper.
 - Everything else inside stays the same all year.
-- `preview/seasons_overview.png` shows the seating room in all four seasons. `seasons/<season>/preview/` has the whole teahouse, each room, and `window_life.gif`.
+- `preview/seasons_overview.png` shows the seating room in all four seasons and on the blood moon night, and the bedroom on the blood moon night. `seasons/<season>/preview/` has the whole teahouse, each room, and `window_life.gif`.
 
 ## The pendulum clock
 
@@ -259,8 +286,9 @@ atlas/            all prop frames packed into one PNG + JSON (anims, fps, layer,
 nature/           stand-alone grown trees (black pine, zelkova, oaks, weeping willow, white birch,
                   hinoki cypress, a shrub), flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
-seasons/<season>/ spring, summer, autumn, winter: layers/outside (the view, its birds and fish), layers/room
-                  (09_window_glass, 40_light_overlay), props + props_3x (the season's lanterns), preview
+seasons/<season>/ spring, summer, autumn, winter, bloodmoon: layers/outside (the view, its birds or bats, fish),
+                  layers/room (09_window_glass, 40_light_overlay), props + props_3x (the season's lanterns; at
+                  night the goat-dragon too), preview
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
@@ -271,7 +299,7 @@ generator/        the Python that draws all of it (deterministic, seeded)
 
 Draw these back to front:
 
-1. `layers/outside/00_sky` to `07_flowers_close`, each at `screen_x = -camera_x * parallax` and repeated every 1280 px. They only show through the window panes. `04_lake_life` and `04_birds` are cropped bands that run at 12 fps: their records have `x`, `y`, `w`, `h`, so draw each frame at (`x`, `y`) inside every 1280 px tile. When a record has `sheet_columns`, its sheet is a grid (left to right, then down).
+1. `layers/outside/00_sky` to `07_flowers_close`, each at `screen_x = -camera_x * parallax` and repeated every 1280 px. They only show through the window panes. `04_lake_life` and `04_birds` (`04_bats` on the blood moon night) are cropped bands that run at 12 fps: their records have `x`, `y`, `w`, `h`, so draw each frame at (`x`, `y`) inside every 1280 px tile. When a record has `sheet_columns`, its sheet is a grid (left to right, then down).
 2. props with `layer: outside` (the goat-dragon behind the bell window)
 3. `layers/room/10_room_shell.png`
 4. props with `layer: wall`, then `layer: ceiling`
@@ -285,7 +313,7 @@ Draw these back to front:
 - Use its `outside_layers` in place of the base ones in step 1 (summer points at the base files). Some sheets are grids (`sheet_columns`), and the life layers have their own `fps`.
 - Draw its `window_glass` between steps 2 and 3.
 - Use its `light_overlay` in step 9.
-- Draw each of its `prop_swaps` in place of the base prop with the same `name` (the lanterns).
+- Draw each of its `prop_swaps` in place of the base prop with the same `name`. These are the lanterns, and on the blood moon night the goat-dragon. A swap with `anims` has the same animations as the base prop (same frame counts and fps), so only swap the sheets.
 
 Props with an `on_click` list in `scene.json` are interactive: on a click, play each listed one-shot anim once, then switch that prop to its `then` anim.
 
@@ -317,7 +345,7 @@ Some props are exported but not placed by default, which keeps the counter and s
 - `preview/silk_bed.png`: the silk bed close up
 - `preview/fire_spirit_idle.gif`, `fire_spirit_talk.gif`, `fire_spirit_happy.gif`, `alien_lucky_cat.gif`: close-ups
 - `preview/pan_parallax.webp`: a camera pan across the four rooms
-- `preview/seasons_overview.png`: the seating room in spring, summer, autumn and winter
+- `preview/seasons_overview.png`: the seating room in spring, summer, autumn, winter and on the blood moon night, and the bedroom that night
 - `preview/props_contact_sheet.png`: every prop, labelled
 
 ## Regenerating / tweaking

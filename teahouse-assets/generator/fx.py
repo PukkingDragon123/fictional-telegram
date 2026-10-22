@@ -75,8 +75,99 @@ SUN = dict(summer=(WARM, 1.0, 96, 1.0), spring=((255, 238, 226), 0.9, 90, 1.0),
 LANTERN_GLOW = dict(summer=FIRE, spring=(255, 196, 206), autumn=(255, 168, 76), winter=(255, 226, 172))
 
 
-def light(season='summer'):
+LANTERN_GLOW['bloodmoon'] = (255, 196, 110)
+NIGHT = (16, 10, 30)                                       # the dark in the rooms on the blood moon night
+MOONLIGHT = (196, 40, 58)
+
+
+def _glass():
+    from layout import WIN_BELL
+    from room import bell_halfwidth
+    yy, xx = np.mgrid[0:H, 0:W]
+    glass = np.zeros((H, W), bool)
+    glass[WIN_MAIN['y']:WIN_MAIN['y'] + WIN_MAIN['h'], WIN_MAIN['x']:WIN_MAIN['x'] + WIN_MAIN['w']] = True
+    glass |= (xx - WIN_ROUND['cx']) ** 2 + (yy - WIN_ROUND['cy']) ** 2 < (WIN_ROUND['r'] - 2) ** 2
+    for y in range(WIN_BELL['top'], WIN_BELL['bottom']):
+        hw = bell_halfwidth(y)
+        if hw > 0:
+            glass[y, int(WIN_BELL['cx'] - hw):int(WIN_BELL['cx'] + hw)] = True
+    return glass
+
+
+def night_light(open_mask=None):
+    """The blood moon night: the rooms sunk in a violet dark, warm pools round
+    the furnace, the lanterns and the desk candle, flickering, and the red
+    moonlight falling through each window in slanting shafts with dust in it.
+    Where the night outside shows through (open_mask: the pixels no part of the
+    room covers) is left clear - it is already drawn dark. F frames of RGBA."""
+    from layout import WIN_BELL
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    glass = _glass() if open_mask is None else open_mask
+    # moonlight through the windows: the moon stands high, so the shafts fall steeply
+    shaft = np.zeros((H, W), np.float32)
+    wx, wy, ww = WIN_MAIN['x'], WIN_MAIN['y'], WIN_MAIN['w']
+    for k in range(4):
+        x0, x1 = wx + ww * k // 4 + 6, wx + ww * (k + 1) // 4 - 6
+        t = np.clip((yy - wy) / (312 - wy), 0, 1)
+        off = t * 46
+        inside = (xx >= x0 + off) & (xx < x1 + off) & (yy >= wy) & (yy < 312)
+        edge = np.minimum(xx - (x0 + off), (x1 + off) - xx)
+        shaft = np.maximum(shaft, inside * (1 - t * 0.55) * np.where(edge > 4, 1.0, 0.55))
+    for (cx, y0, r) in ((WIN_ROUND['cx'], WIN_ROUND['cy'] + WIN_ROUND['r'] * 0.7, WIN_ROUND['r']),
+                        (WIN_BELL['cx'], WIN_BELL['bottom'] - 6, WIN_BELL['hw'])):
+        t = np.clip((yy - y0) / (FLOOR + 30 - y0), 0, 1)          # a pool spreading from under the window
+        c = cx + t * 30
+        rr = r * (0.75 + 0.35 * t)
+        soft = np.clip(1 - np.abs(xx - c) / rr, 0, 1) ** 0.6
+        shaft = np.maximum(shaft, soft * (yy >= y0) * (yy < FLOOR + 30) * (1 - t) ** 1.2 * 0.85)
+    shaft[glass] = 0
+    # pools of warm light: (x, y, reach, strength, colour, flickers)
+    fx_, fy_ = FIREBOX['cx'], FIREBOX['bottom'] - 34
+    lantern = LANTERN_GLOW['bloodmoon']
+    pools = [(fx_, fy_, 230, 1.0, FIRE, 1.0), (855, 81, 120, 0.8, lantern, 0.3), (1065, 81, 120, 0.8, lantern, 0.3),
+             (2440, 81, 125, 0.8, lantern, 0.3), (2093, 210, 85, 0.7, (255, 186, 96), 0.6)]
+    rng = random.Random(911)
+    motes = [(rng.uniform(0, W), rng.uniform(60, 310), rng.uniform(0, 6.28)) for _ in range(2600)]
+    frames = []
+    for f in range(F):
+        L = np.zeros((H, W), np.float32)                         # how much warm light reaches each pixel
+        col = np.zeros((H, W, 3), np.float32)
+        gsum = np.zeros((H, W), np.float32)
+        for k, (cx, cy, R, st, c, fl) in enumerate(pools):
+            flick = 1 - fl * (0.12 - 0.12 * math.sin(2 * math.pi * f / F + k * 1.7)
+                              - 0.06 * math.sin(2 * math.pi * 3 * f / F + k))
+            Rk = R * (0.94 + 0.06 * flick)
+            g = st * flick * np.clip(1 - np.hypot(xx - cx, (yy - cy) * 1.15) / Rk, 0, 1) ** 1.6
+            col += g[..., None] * np.array(c, np.float32)
+            gsum += g
+            L = 1 - (1 - L) * (1 - g)
+        cg = np.clip(col / np.maximum(gsum, 1e-4)[..., None], 0, 255)      # the mix of the lights' colours
+        d = 0.68 * (1 - L) * (1 - 0.6 * shaft)                  # the dark, lifted by the light
+        G = 0.3 * L                                              # the warm tint
+        Gm = 0.34 * shaft                                        # the red moonlight
+        d[glass] = 0
+        G[glass] = 0
+        al = 1 - (1 - d) * (1 - G) * (1 - Gm)
+        rgb = (np.array(NIGHT, np.float32) * (d * (1 - G) * (1 - Gm))[..., None] + cg * (G * (1 - Gm))[..., None]
+               + np.array(MOONLIGHT, np.float32) * Gm[..., None]) / np.maximum(al, 1e-4)[..., None]
+        a = np.zeros((H, W, 4), np.uint8)
+        a[..., :3] = np.clip(rgb + 0.5, 0, 255).astype(np.uint8)
+        a[..., 3] = np.clip(al * 255 + 0.5, 0, 255).astype(np.uint8)
+        for (mx, my, ph) in motes:                               # dust turning in the moonbeams
+            x = int(mx + math.sin(2 * math.pi * f / F + ph) * 2)
+            y = int(my - (f / F) * 3 + math.cos(ph))
+            if 0 <= x < W and 0 <= y < H and shaft[y, x] > 0.15:
+                a[y, x] = (236, 120, 120, 150)
+        cv = Canvas(W, H)
+        cv.a = a
+        frames.append(cv)
+    return frames
+
+
+def light(season='summer', open_mask=None):
     """F frames of RGBA light."""
+    if season == 'bloodmoon':
+        return night_light(open_mask)
     sun, k_sun, throw, k_fire = SUN[season]
     base = np.zeros((H, W, 4), np.uint8)
     wx, wy, ww, wh = WIN_MAIN['x'], WIN_MAIN['y'], WIN_MAIN['w'], WIN_MAIN['h']

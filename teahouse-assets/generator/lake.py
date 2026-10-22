@@ -48,6 +48,12 @@ def lake_frames(above, horizon, W, H, season='summer'):
         deep = np.array(PAL['indigo1'], float) * 0.6 + np.array(PAL['stone1'], float) * 0.4
         mid = np.array(PAL['stone2'], float) * 0.5 + np.array(PAL['water0'], float) * 0.5
         names = WATER_PAL + ['stone1', 'stone2', 'stone3']
+    night = season == 'bloodmoon'
+    if night:                                                              # black water under the red moon
+        deep = np.array(PAL['night0'], float)
+        mid = np.array(PAL['night1'], float) * 0.7 + np.array(PAL['blood0'], float) * 0.3
+        names = ['night0', 'night1', 'night2', 'night3', 'night4', 'night5', 'blood0', 'blood1', 'blood2', 'blood3',
+                 'blood4', 'blood5', 'blood6', 'nleaf0', 'nleaf1', 'nleaf2']
     rng = np.random.RandomState(5)
     ph = rng.uniform(0, 6.28, (rows, 1))
     out = []
@@ -65,25 +71,45 @@ def lake_frames(above, horizon, W, H, season='summer'):
         rgb = rgb * 0.92                                                   # water darkens what it mirrors
         # light on the ripple crests, drifting toward the shore
         crest = np.sin(d * 1.3 - 2 * t + np.sin(xs * 0.031 + d * 0.2) * 2.2)
-        rgb += (crest > 0.86)[..., None] * 34.0 * np.clip(1.1 - d / 60.0, 0.3, 1)[..., None]
+        rgb += (crest > 0.86)[..., None] * (14.0 if night else 34.0) * np.clip(1.1 - d / 60.0, 0.3, 1)[..., None]
         rgb -= (crest < -0.9)[..., None] * 16.0
-        q = _quant(rgb, names, 12.0, yy, xx)
+        if night:
+            rgb += _glade(d, xs, crest, t, W)
+        q = _quant(rgb, names, 8.0 if night else 12.0, yy, xx)
         a = np.zeros((H, W, 4), np.uint8)
         a[horizon:, :, :3] = q
         a[horizon:, :, 3] = 255
         _float(a, horizon, rows, W, f, season)
         # glitter: sparkles that come and go, thickest on the lit (left) side of each window's view
         g = random.Random(100 + f)
-        for _ in range(60 if season == 'winter' else 260):
+        for _ in range(60 if season == 'winter' else (110 if night else 260)):
             x = g.randrange(W)
             y = horizon + 1 + int(g.random() ** 1.6 * min(rows - 2, 36))
             ln = g.choice((1, 1, 2, 3))
-            c = PAL['cloud3'] if g.random() < 0.6 else PAL['sky4']
+            if night:                                                      # red glints, most along the glade
+                if g.random() < 0.6:
+                    from bloodmoon import MOON_X, GLADE_SHIFT
+                    x = int(MOON_X + GLADE_SHIFT + g.gauss(0, 10 + (y - horizon) * 0.6)) % W
+                c = PAL['blood5'] if g.random() < 0.4 else PAL['blood3']
+            else:
+                c = PAL['cloud3'] if g.random() < 0.6 else PAL['sky4']
             for k in range(ln):
                 a[y, (x + k) % W, :3] = c
-        a[horizon, :, :3] = PAL['haze3']                                   # the far shore's bright waterline
+        a[horizon, :, :3] = PAL['blood1' if night else 'haze3']           # the far shore's bright waterline
         out.append(a)
     return out
+
+
+def _glade(d, xs, crest, t, W):
+    """The moon's path on the water: broken red light on the ripples in a band
+    under the moon, narrow at the horizon and widening toward the shore."""
+    from bloodmoon import MOON_X, GLADE_SHIFT
+    dx = (xs - (MOON_X + GLADE_SHIFT) + W / 2) % W - W / 2
+    half = 3.0 + d * 0.42
+    band = np.clip(1 - np.abs(dx) / half, 0, 1) ** 0.8
+    wave = np.sin(d * 1.7 + 2 * t + np.sin(xs * 0.19 + d * 0.5) * 1.6)
+    on = (wave > 0.1) * band
+    return on[..., None] * np.array([150.0, 40.0, 30.0]) * np.clip(1.25 - d / 70.0, 0.4, 1)[..., None]
 
 
 def _float(a, horizon, rows, W, f, season):

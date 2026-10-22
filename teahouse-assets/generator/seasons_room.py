@@ -6,7 +6,7 @@ so it only shows in the window openings (the lattice draws over it):
     autumn   maple leaves caught on the sills and the glass
     winter   frost growing in from the edge of every pane, snow heaped on the
              outer sills, icicles hanging from the top of each opening
-    (summer has none)"""
+    (summer and the blood moon night have none)"""
 import math
 import random
 import numpy as np
@@ -53,7 +53,7 @@ def _dist_in(m, n=12):
 
 
 def window_layer(season, shell):
-    if season == 'summer':
+    if season in ('summer', 'bloodmoon'):
         return None
     cv = Canvas(W, H)
     a = cv.a

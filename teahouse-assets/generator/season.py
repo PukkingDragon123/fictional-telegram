@@ -1,24 +1,24 @@
-"""The four seasons.
+"""The four seasons, and the night of the blood moon.
 
-The base build is summer. For the other seasons the outside view, the lake's
-giant, the glass of each window, the light in the rooms and a few seasonal
-things in each room are drawn again; everything else in the teahouse stays.
+The base build is summer. For the others the outside view (with its birds and
+fish), the glass of each window, the light in the rooms and the lanterns are
+drawn again; everything else in the teahouse stays.
 
-    spring   cherry blossom in the garden, fresh green, petals on the wind;
-             a giant koi leaps from the lake
-    summer   deep green, butterflies and dragonflies; the whale-like
-             leviathan breaches
-    autumn   maples red, orange and gold, pampas grass, leaves on the wind,
-             red dragonflies; a giant fox goes skipping across the water
-    winter   snow on everything, bare trees, ice at the lake edge, frost on
-             the glass, snow falling; a giant red-crowned crane glides low
-             over the lake
+    spring     cherry blossom in the garden, fresh green, petals on the wind
+    summer     deep green, butterflies and dragonflies
+    autumn     maples red, orange and gold, pampas grass, leaves on the wind,
+               red dragonflies
+    winter     snow on everything, bare trees, ice at the lake edge, frost on
+               the glass, snow falling
+    bloodmoon  night: a red moon over the lake, everything lit by it, bats and
+               fireflies; the rooms dark but for the lanterns, the fire and
+               the red moonlight through the windows (bloodmoon.py)
 
 Modules read `current` while they draw; build.py sets it."""
 import numpy as np
 from pixel import PAL
 
-NAMES = ('spring', 'summer', 'autumn', 'winter')
+NAMES = ('spring', 'summer', 'autumn', 'winter', 'bloodmoon')
 current = 'summer'
 
 
