@@ -1299,9 +1299,7 @@ def room(d, ri, out_dir):
     vis = grow(holes, 2)
     if vis.any():
         pn.paint(V, d['view'], vis, frames=max(40, int(math.sqrt(vis.sum()) * 1.1)), tile=20)
-    reveal(V, d['view'], np.ones((h, w), bool))                     # what the walls hide, for the parallax
-    Doc.touch(V)
-    tl.shot(6)
+        tl.shot(6)
 
     # 4 the walls, floor and ceiling: each part bucket-filled, its big shapes blocked in, then worked up
     Wl = doc.add('Walls, floor & ceiling', above=V)
@@ -1324,6 +1322,8 @@ def room(d, ri, out_dir):
             base_src[..., :3] = np.clip(col * np.array([0.7, 0.85, 1.25]) + np.array([0, 0, 30]), 0, 255).astype(np.uint8)
             base_src[..., 3] = 255
         pn.paint(Wl, shell, m, frames=max(40, int(math.sqrt(m.sum()) * 1.6)), tile=32, base_src=base_src)
+    reveal(V, d['view'], np.ones((h, w), bool))                     # the view the walls now hide, for the parallax
+    Doc.touch(V)
     tl.shot(6)
 
     # 5 every piece on its own layer: line art, flat, big shapes, then worked up
