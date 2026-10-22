@@ -136,3 +136,21 @@ Columns: 8
 214 176 118	hinoki3
 236 208 152	hinoki4
 250 234 192	hinoki5
+ 10   8  20	night0
+ 20  14  34	night1
+ 34  22  52	night2
+ 52  34  72	night3
+ 76  50  94	night4
+108  74 120	night5
+  8  16  24	nleaf0
+ 14  28  38	nleaf1
+ 22  42  52	nleaf2
+ 34  60  68	nleaf3
+ 52  82  86	nleaf4
+ 42   8  18	blood0
+ 78  14  26	blood1
+124  24  34	blood2
+174  42  40	blood3
+216  80  56	blood4
+246 140  96	blood5
+255 204 156	blood6
