@@ -153,29 +153,38 @@ NIGHT_RAMPS = dict(night=['night0', 'night1', 'night2', 'night3', 'night4', 'nig
 EMISSIVE = ('fire3', 'fire4', 'fire5')
 
 
-def _night_of():
-    """{day rgb: (night ramp, index)}"""
-    out = {}
+def scheme(family, ramps, boost=None, sink=(), sink_pow=1.35, gamma=0.85, rim='blood2', rim2='blood1',
+           emissive=EMISSIVE, fallback=((0.5, 0.32, 0.4), (4, 2, 10))):
+    """A way of re-lighting the day: each family of colours goes onto one of `ramps`
+    by how light it was by day. boost: {ramp: factor} for things the light picks
+    out; sink: ramps pushed darker."""
+    of = {}
     for name, rgb in PAL.items():
         fam = ''.join(ch for ch in name if not ch.isdigit())
-        if name in EMISSIVE or fam not in FAMILY:
+        if name in emissive or fam not in family:
             continue
-        ramp = NIGHT_RAMPS[FAMILY[fam]]
+        ramp = ramps[family[fam]]
         y = (0.3 * rgb[0] + 0.59 * rgb[1] + 0.11 * rgb[2]) / 255.0
-        if FAMILY[fam] == 'blood':                       # red things glow under a red moon
-            y = min(1.0, y * 1.35)
-        elif FAMILY[fam] in ('night', 'nleaf'):          # everything else sinks into the dark
-            y = y ** 1.35
-        out[tuple(rgb)] = (FAMILY[fam], int(min(len(ramp) - 1, (y ** 0.85) * len(ramp))))
-    return out
+        if family[fam] in (boost or {}):
+            y = min(1.0, y * boost[family[fam]])
+        elif family[fam] in sink:
+            y = y ** sink_pow
+        of[tuple(rgb)] = (family[fam], int(min(len(ramp) - 1, (y ** gamma) * len(ramp))))
+    return dict(of=of, ramps=ramps, rim=rim, rim2=rim2, emissive=emissive, fallback=fallback)
 
 
-NIGHT_OF = _night_of()
+PAL_RGB = {tuple(v) for v in PAL.values()}
+# red things glow under a red moon, everything else sinks into the dark
+BLOOD = scheme(FAMILY, NIGHT_RAMPS, boost={'blood': 1.35}, sink=('night', 'nleaf'))
+NIGHT_OF = BLOOD['of']
 
 
-def grade(cv, rim=True, rim_col=None, wrap=True):
-    """Re-light a daytime canvas for the blood moon night, in place. Every top edge
-    facing the sky catches a line of red moonlight."""
+def grade(cv, rim=True, rim_col=None, wrap=True, look=None):
+    """Re-light a daytime canvas, in place: for the blood moon night unless another
+    look (scheme()) is given. Every top edge facing the sky catches a line of the
+    look's rim light (red moonlight by default)."""
+    S = look or BLOOD
+    NIGHT_OF, NIGHT_RAMPS, EMISSIVE = S['of'], S['ramps'], S['emissive']
     a = cv.a
     solid = a[..., 3] > 0
     rgb = a[..., :3]
@@ -189,6 +198,8 @@ def grade(cv, rim=True, rim_col=None, wrap=True):
         t = (int(c) >> 16, (int(c) >> 8) & 255, int(c) & 255)
         if t in NIGHT_OF:
             keys[int(c)] = NIGHT_OF[t]
+        elif t in PAL_RGB:                                     # a palette colour this look leaves alone
+            lvl[solid & (codes == c)] = 0
     for c, (f, k) in keys.items():
         m = solid & (codes == c)
         out[m] = PAL[NIGHT_RAMPS[f][k]]
@@ -202,7 +213,8 @@ def grade(cv, rim=True, rim_col=None, wrap=True):
     if left.any():
         names = sorted({n for r in NIGHT_RAMPS.values() for n in r})
         pal = np.array([PAL[n] for n in names], float)
-        px = rgb[left].astype(float) * np.array([0.5, 0.32, 0.4]) + np.array([4, 2, 10])
+        mul, add = S['fallback']
+        px = rgb[left].astype(float) * np.array(mul) + np.array(add)
         d = ((px[:, None, :] - pal[None]) ** 2).sum(-1)
         out[left] = pal[d.argmin(-1)].astype(np.uint8)
     if rim:
@@ -211,8 +223,10 @@ def grade(cv, rim=True, rim_col=None, wrap=True):
         upl = np.roll(up, 1, 1) if wrap else up
         edge = solid & ~emis & ~up
         edge2 = solid & ~emis & up & ~upl & ~edge                  # a second step on the upper-left
-        out[edge] = PAL[rim_col or 'blood2']
-        out[edge2 & (lvl >= 2)] = PAL['blood1']
+        if rim_col or S['rim']:
+            out[edge] = PAL[rim_col or S['rim']]
+        if S['rim2']:
+            out[edge2 & (lvl >= 2)] = PAL[S['rim2']]
     a[..., :3] = np.where(solid[..., None], out, rgb)
     return cv
 
@@ -224,11 +238,14 @@ def grade_frames(frames, **kw):
 NIGHT_DIM = 0.68                    # as dark as the rooms are (fx.night_light)
 
 
-def dim(cv, where=None):
+def dim(cv, where=None, colour=None, amount=None):
     """A copy of a sprite sunk into the night the way the rooms are (so something
     outside a window matches its part that comes into the room), kept to the
-    palette. where: only these pixels (a mask the size of the sprite)."""
+    palette. where: only these pixels (a mask the size of the sprite). colour,
+    amount: another season's dark (fx.MOODS)."""
     from fx import NIGHT
+    colour = NIGHT if colour is None else colour
+    amount = NIGHT_DIM if amount is None else amount
     out = cv.copy()
     a = out.a
     m = a[..., 3] > 0
@@ -238,7 +255,7 @@ def dim(cv, where=None):
         return out
     names = [n for n in PAL if n not in ('ink', 'white')]
     pal = np.array([PAL[n] for n in names], float)
-    src = a[m][:, :3].astype(float) * (1 - NIGHT_DIM) + np.array(NIGHT, float) * NIGHT_DIM
+    src = a[m][:, :3].astype(float) * (1 - amount) + np.array(colour, float) * amount
     codes, inv = np.unique(src.round().astype(int), axis=0, return_inverse=True)
     d = ((codes[:, None, :] - pal[None]) ** 2).sum(-1)
     a[m, :3] = pal[d.argmin(-1)][inv.ravel()].astype(np.uint8)

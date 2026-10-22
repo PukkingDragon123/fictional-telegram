@@ -48,8 +48,19 @@ def lake_frames(above, horizon, W, H, season='summer'):
         deep = np.array(PAL['indigo1'], float) * 0.6 + np.array(PAL['stone1'], float) * 0.4
         mid = np.array(PAL['stone2'], float) * 0.5 + np.array(PAL['water0'], float) * 0.5
         names = WATER_PAL + ['stone1', 'stone2', 'stone3']
-    night = season == 'bloodmoon'
-    if night:                                                              # black water under the red moon
+    night = season in ('bloodmoon', 'eclipse')
+    rainy = season == 'rain'
+    if rainy:                                                              # grey-green under the cloud
+        deep = np.array(PAL['water0'], float) * 0.5 + np.array(PAL['smoke1'], float) * 0.5
+        mid = np.array(PAL['fgrey2'], float) * 0.6 + np.array(PAL['teal1'], float) * 0.4
+        names = WATER_PAL + ['smoke0', 'smoke1', 'smoke2', 'fgrey1', 'fgrey2', 'fgrey3', 'fgrey4', 'stone2', 'stone3']
+    if season == 'eclipse':                                                # the dark blue of totality
+        deep = np.array(PAL['gloss1'], float)
+        mid = np.array(PAL['indigo1'], float)
+        names = ['gloss0', 'gloss1', 'gloss2', 'gloss3', 'indigo0', 'indigo1', 'indigo2', 'indigo3', 'indigo4',
+                 'purp0', 'purp1', 'copper1', 'copper2', 'copper3', 'fire3', 'fire4', 'gold3', 'gold4', 'cloud2',
+                 'cloud3', 'nleaf0', 'nleaf1']
+    elif night:                                                              # black water under the red moon
         deep = np.array(PAL['night0'], float)
         mid = np.array(PAL['night1'], float) * 0.7 + np.array(PAL['blood0'], float) * 0.3
         names = ['night0', 'night1', 'night2', 'night3', 'night4', 'night5', 'blood0', 'blood1', 'blood2', 'blood3',
@@ -71,9 +82,9 @@ def lake_frames(above, horizon, W, H, season='summer'):
         rgb = rgb * 0.92                                                   # water darkens what it mirrors
         # light on the ripple crests, drifting toward the shore
         crest = np.sin(d * 1.3 - 2 * t + np.sin(xs * 0.031 + d * 0.2) * 2.2)
-        rgb += (crest > 0.86)[..., None] * (14.0 if night else 34.0) * np.clip(1.1 - d / 60.0, 0.3, 1)[..., None]
+        rgb += (crest > 0.86)[..., None] * (14.0 if night or rainy else 34.0) * np.clip(1.1 - d / 60.0, 0.3, 1)[..., None]
         rgb -= (crest < -0.9)[..., None] * 16.0
-        if night:
+        if season == 'bloodmoon':
             rgb += _glade(d, xs, crest, t, W)
         q = _quant(rgb, names, 8.0 if night else 12.0, yy, xx)
         a = np.zeros((H, W, 4), np.uint8)
@@ -82,11 +93,14 @@ def lake_frames(above, horizon, W, H, season='summer'):
         _float(a, horizon, rows, W, f, season)
         # glitter: sparkles that come and go, thickest on the lit (left) side of each window's view
         g = random.Random(100 + f)
-        for _ in range(60 if season == 'winter' else (110 if night else 260)):
+        for _ in range({'winter': 60, 'bloodmoon': 110, 'eclipse': 50, 'rain': 0}.get(season, 260)):
             x = g.randrange(W)
             y = horizon + 1 + int(g.random() ** 1.6 * min(rows - 2, 36))
             ln = g.choice((1, 1, 2, 3))
-            if night:                                                      # red glints, most along the glade
+            if season == 'eclipse':                                        # the last light, low on the water
+                y = horizon + 1 + int(g.random() ** 2.4 * min(rows - 2, 20))
+                c = PAL['fire4'] if g.random() < 0.4 else PAL['copper3']
+            elif night:                                                    # red glints, most along the glade
                 if g.random() < 0.6:
                     from bloodmoon import MOON_X, GLADE_SHIFT
                     x = int(MOON_X + GLADE_SHIFT + g.gauss(0, 10 + (y - horizon) * 0.6)) % W
@@ -95,7 +109,7 @@ def lake_frames(above, horizon, W, H, season='summer'):
                 c = PAL['cloud3'] if g.random() < 0.6 else PAL['sky4']
             for k in range(ln):
                 a[y, (x + k) % W, :3] = c
-        a[horizon, :, :3] = PAL['blood1' if night else 'haze3']           # the far shore's bright waterline
+        a[horizon, :, :3] = PAL[{'bloodmoon': 'blood1', 'eclipse': 'copper2', 'rain': 'fgrey3'}.get(season, 'haze3')]
         out.append(a)
     return out
 

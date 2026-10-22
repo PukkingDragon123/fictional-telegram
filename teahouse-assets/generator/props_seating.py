@@ -131,7 +131,11 @@ LANTERN = dict(
     winter=dict(ramp=['stone1', 'paper1', 'paper2', 'paper3', 'paper4', 'white', 'fire5'], cap=('stone0', 'stone1', 'ink'),
                 tassel=('scarlet3', 'scarlet2', 'scarlet1'), halo='fire4', motif='winter'),
     bloodmoon=dict(ramp=['copper0', 'copper1', 'copper2', 'gold2', 'gold3', 'fire4', 'fire5'], cap=('gloss0', 'gloss1', 'ink'),
-                   tassel=('scarlet2', 'scarlet1', 'red0'), halo='fire4', motif='bloodmoon'))
+                   tassel=('scarlet2', 'scarlet1', 'red0'), halo='fire4', motif='bloodmoon'),
+    rain=dict(ramp=['purp0', 'lilac0', 'lilac1', 'lilac2', 'lilac3', 'lilac4', 'fire5'], cap=('stone0', 'stone1', 'ink'),
+              tassel=('sky2', 'sky1', 'sky0'), halo='lilac3', motif='rain'),
+    eclipse=dict(ramp=['gloss1', 'indigo1', 'indigo2', 'indigo3', 'indigo4', 'haze3', 'cloud3'], cap=('gloss0', 'gloss1', 'ink'),
+                 tassel=('gold3', 'gold2', 'gold1'), halo='indigo4', motif='eclipse'))
 
 
 def _wrap(a):
@@ -156,6 +160,19 @@ def _motifs(kind):
         for r, t in enumerate((0.24, 0.5, 0.76)):
             for k in range(8):
                 out.append((k * math.pi / 4 + (r % 2) * math.pi / 8 + r * 0.2, t, 'maple'))
+    elif kind == 'rain':                         # hydrangeas in the rain
+        for r, t in enumerate((0.3, 0.66)):
+            for k in range(4):
+                out.append((k * math.pi / 2 + r * math.pi / 4, t, 'hydra'))
+        for r, t in enumerate((0.12, 0.48, 0.86)):
+            for k in range(8):
+                out.append((k * math.pi / 4 + r * 0.4 + 0.2, t, 'rainline'))
+    elif kind == 'eclipse':                      # the sun gone black in its gold corona, among stars
+        for k in range(4):
+            out.append((k * math.pi / 2, 0.46, 'corona'))
+        for (a, t) in ((0.8, 0.14), (2.3, 0.22), (3.9, 0.12), (5.4, 0.2), (1.6, 0.8), (3.1, 0.86), (4.7, 0.78),
+                       (6.0, 0.84), (0.2, 0.7), (2.6, 0.64)):
+            out.append((a, t, 'star'))
     elif kind == 'bloodmoon':                    # the red moon with a bat crossing it, more bats, susuki below
         for k in range(4):
             out.append((k * math.pi / 2 + 0.22, 0.37, 'bat'))
@@ -213,6 +230,25 @@ def _motif_px(shape, dx, dy):
     elif shape == 'wave':
         if 1.8 < r < 3.0 and dy < 0:
             return 'f'
+    elif shape == 'hydra':                                            # a ball of tiny florets, two shades
+        if r < 4.3:
+            return 'p' if math.sin(dx * 2.2 + 0.4) * math.sin(dy * 2.4 + 0.9) > -0.1 else 'q'
+    elif shape == 'rainline':
+        if -2.6 < dy < 2.6 and abs(dx - dy * 0.3) < 0.45:
+            return 'r'
+    elif shape == 'corona':
+        if r < 2.7:
+            return 'k'
+        if r < 3.5:
+            return 'g'
+        arm = min(abs(_wrap(a - k * math.pi / 6)) for k in range(12))
+        if r < 5.8 and arm * r < 0.42:
+            return 'h'
+    elif shape == 'star':
+        if r < 0.8:
+            return 'g'
+        if r < 2.0 and (abs(dx) < 0.4 or abs(dy) < 0.4):
+            return 'h'
     elif shape == 'moon':
         if r < 5.6:
             seas = math.hypot(dx + 1.5, dy + 1.0) < 1.8 or math.hypot(dx - 1.8, dy - 1.2) < 1.3
@@ -237,7 +273,9 @@ MOTIF_COLS = dict(
     winter=dict(f=('indigo1', 'indigo2'), p=('scarlet1', 'scarlet2'), q=('scarlet2', 'scarlet3'), c=('gold2', 'gold3'),
                 l=('leaf0', 'leaf1')),
     bloodmoon=dict(m=('scarlet1', 'scarlet2'), n=('red1', 'red2'), l=('scarlet2', 'scarlet3'), b=('ink', 'gloss0'),
-                   g=('wood1', 'wood2'), h=('wood2', 'wood3')))
+                   g=('wood1', 'wood2'), h=('wood2', 'wood3')),
+    rain=dict(p=('sky1', 'sky2'), q=('purp1', 'purp2'), r=('purp0', 'lilac0')),
+    eclipse=dict(k=('ink', 'gloss0'), g=('gold2', 'gold3'), h=('gold3', 'gold4')))
 
 
 def _lantern(seed, torn, f, n=F8, style=None):
@@ -346,6 +384,20 @@ def _lantern(seed, torn, f, n=F8, style=None):
             cv.line(tx0, ty0, tx0 + 2 + k, ty0 - 4 + k // 2, 'leaf1' if k % 2 else 'jade1')
         for (dx, dy) in ((1, 1), (3, 1), (2, 2)):
             cv.px(tx0 + dx, ty0 + dy, 'scarlet2')
+    elif style == 'rain':                                 # a teru teru bozu hung up to ask for sun
+        bx, by = tx0 + 3, ty0 + 6
+        cv.line(tx0, ty0, bx, by - 3, 'paper2')
+        for (dx, dy, c) in ((-1, -2, 'white'), (0, -2, 'white'), (1, -2, 'white'), (-2, -1, 'white'), (-1, -1, 'white'),
+                            (0, -1, 'white'), (1, -1, 'white'), (2, -1, 'cloud2'), (-2, 0, 'white'), (-1, 0, 'ink'),
+                            (0, 0, 'white'), (1, 0, 'ink'), (2, 0, 'cloud2'), (-1, 1, 'cloud2'), (0, 1, 'cloud2'),
+                            (1, 1, 'cloud2'), (0, 2, 'scarlet2'), (-2, 2, 'white'), (2, 2, 'cloud2'), (-2, 3, 'white'),
+                            (-1, 3, 'white'), (0, 3, 'cloud2'), (1, 3, 'cloud2'), (2, 3, 'cloud1'), (-3, 4, 'cloud2'),
+                            (-1, 4, 'white'), (1, 4, 'cloud1'), (3, 4, 'cloud1')):
+            cv.px(bx + dx, by + dy, c)
+    elif style == 'eclipse':                              # a little brass sun hung on the cord
+        for (dx, dy, c) in ((0, -1, 'gold3'), (-1, 0, 'gold3'), (0, 0, 'gold4'), (1, 0, 'gold2'), (0, 1, 'gold2'),
+                            (-2, 0, 'gold1'), (2, 0, 'gold1'), (0, -2, 'gold1'), (0, 2, 'gold1')):
+            cv.px(tx0 + 2 + dx, ty0 - 3 + dy, c)
     elif style == 'bloodmoon':                            # susuki plumes for moon viewing
         for k, (ex, ey) in enumerate(((4, -7), (6, -6), (7, -4))):
             cv.line(tx0, ty0, tx0 + ex, ty0 + ey, 'wood2')

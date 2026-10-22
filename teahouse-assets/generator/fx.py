@@ -75,7 +75,7 @@ SUN = dict(summer=(WARM, 1.0, 96, 1.0), spring=((255, 238, 226), 0.9, 90, 1.0),
 LANTERN_GLOW = dict(summer=FIRE, spring=(255, 196, 206), autumn=(255, 168, 76), winter=(255, 226, 172))
 
 
-LANTERN_GLOW['bloodmoon'] = (255, 196, 110)
+LANTERN_GLOW.update(bloodmoon=(255, 196, 110), rain=(255, 214, 160), eclipse=(255, 200, 120))
 NIGHT = (16, 10, 30)                                       # the dark in the rooms on the blood moon night
 MOONLIGHT = (196, 40, 58)
 
@@ -94,19 +94,39 @@ def _glass():
     return glass
 
 
-def night_light(open_mask=None):
-    """The blood moon night: the rooms sunk in a violet dark, warm pools round
-    the furnace, the lanterns and the desk candle, flickering, and the red
-    moonlight falling through each window in slanting shafts with dust in it.
-    Where the night outside shows through (open_mask: the pixels no part of the
-    room covers) is left clear - it is already drawn dark. F frames of RGBA."""
+# the light in the rooms when the day outside is dark or dull: how dark, the colour of
+# the dark, the light from the windows (slanting shafts or a soft spill), how much warm
+# light the fire and lanterns give, and the dust in the beams
+MOODS = dict(
+    bloodmoon=dict(dark=NIGHT, d0=0.68, beams=True, window=MOONLIGHT, lift=0.6, tint=0.34, warm=0.3, pool=1.0,
+                   lantern=(255, 196, 110), motes=(236, 120, 120, 150)),
+    eclipse=dict(dark=(14, 18, 46), d0=0.52, beams=False, window=(176, 192, 255), lift=0.55, tint=0.16, warm=0.3,
+                 pool=0.9, lantern=(255, 200, 120), motes=None),
+    rain=dict(dark=(36, 44, 60), d0=0.3, beams=False, window=(200, 214, 232), lift=0.75, tint=0.12, warm=0.2,
+              pool=0.55, lantern=(255, 214, 160), motes=None, streaks=True))
+
+
+def night_light(open_mask=None, mood='bloodmoon'):
+    """The rooms when the day outside is dark: on the blood moon night sunk in a
+    violet dark with the red moonlight falling through each window in slanting
+    shafts with dust in it; in the eclipse a blue twilight; in the rain a cool
+    grey, the window light moving with the shadows of the rain. Warm pools round
+    the furnace, the lanterns and the desk candle, flickering. Where the outside
+    shows through (open_mask: the pixels no part of the room covers) is left
+    clear - it is already drawn for the weather. F frames of RGBA."""
     from layout import WIN_BELL
+    M = MOODS[mood]
     yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
     glass = _glass() if open_mask is None else open_mask
-    # moonlight through the windows: the moon stands high, so the shafts fall steeply
     shaft = np.zeros((H, W), np.float32)
     wx, wy, ww = WIN_MAIN['x'], WIN_MAIN['y'], WIN_MAIN['w']
-    for k in range(4):
+    if not M['beams']:                                    # a soft spill of light under each window
+        wh = WIN_MAIN['h']
+        for (cx, cy, rx, ry) in ((wx + ww / 2, wy + wh + 8, ww * 0.8, 96), (wx + ww / 2, wy + wh / 2, ww * 0.75, 90),
+                                 (WIN_ROUND['cx'], WIN_ROUND['cy'] + WIN_ROUND['r'], 100, 80),
+                                 (WIN_BELL['cx'], WIN_BELL['bottom'], 90, 80)):
+            shaft = np.maximum(shaft, np.clip(1 - np.hypot((xx - cx) / rx, (yy - cy) / ry), 0, 1) ** 1.3 * 0.9)
+    for k in range(4 if M['beams'] else 0):
         x0, x1 = wx + ww * k // 4 + 6, wx + ww * (k + 1) // 4 - 6
         t = np.clip((yy - wy) / (312 - wy), 0, 1)
         off = t * 46
@@ -114,7 +134,7 @@ def night_light(open_mask=None):
         edge = np.minimum(xx - (x0 + off), (x1 + off) - xx)
         shaft = np.maximum(shaft, inside * (1 - t * 0.55) * np.where(edge > 4, 1.0, 0.55))
     for (cx, y0, r) in ((WIN_ROUND['cx'], WIN_ROUND['cy'] + WIN_ROUND['r'] * 0.7, WIN_ROUND['r']),
-                        (WIN_BELL['cx'], WIN_BELL['bottom'] - 6, WIN_BELL['hw'])):
+                        (WIN_BELL['cx'], WIN_BELL['bottom'] - 6, WIN_BELL['hw'])) if M['beams'] else ():
         t = np.clip((yy - y0) / (FLOOR + 30 - y0), 0, 1)          # a pool spreading from under the window
         c = cx + t * 30
         rr = r * (0.75 + 0.35 * t)
@@ -123,9 +143,10 @@ def night_light(open_mask=None):
     shaft[glass] = 0
     # pools of warm light: (x, y, reach, strength, colour, flickers)
     fx_, fy_ = FIREBOX['cx'], FIREBOX['bottom'] - 34
-    lantern = LANTERN_GLOW['bloodmoon']
-    pools = [(fx_, fy_, 230, 1.0, FIRE, 1.0), (855, 81, 120, 0.8, lantern, 0.3), (1065, 81, 120, 0.8, lantern, 0.3),
-             (2440, 81, 125, 0.8, lantern, 0.3), (2093, 210, 85, 0.7, (255, 186, 96), 0.6)]
+    lantern, pk = M['lantern'], M['pool']
+    pools = [(fx_, fy_, 230, 1.0, FIRE, 1.0), (855, 81, 120, 0.8 * pk, lantern, 0.3),
+             (1065, 81, 120, 0.8 * pk, lantern, 0.3), (2440, 81, 125, 0.8 * pk, lantern, 0.3),
+             (2093, 210, 85, 0.7 * pk, (255, 186, 96), 0.6)]
     rng = random.Random(911)
     motes = [(rng.uniform(0, W), rng.uniform(60, 310), rng.uniform(0, 6.28)) for _ in range(2600)]
     frames = []
@@ -142,22 +163,26 @@ def night_light(open_mask=None):
             gsum += g
             L = 1 - (1 - L) * (1 - g)
         cg = np.clip(col / np.maximum(gsum, 1e-4)[..., None], 0, 255)      # the mix of the lights' colours
-        d = 0.68 * (1 - L) * (1 - 0.6 * shaft)                  # the dark, lifted by the light
-        G = 0.3 * L                                              # the warm tint
-        Gm = 0.34 * shaft                                        # the red moonlight
+        sh = shaft
+        if M.get('streaks'):                                     # the shadows of the rain run down the light
+            run = np.sin(xx * 0.45 - yy * 1.6 + 2 * math.pi * f / F * 2) * np.sin(xx * 0.13 + 1.7)
+            sh = shaft * (1 - 0.35 * (run > 0.55))
+        d = M['d0'] * (1 - L) * (1 - M['lift'] * sh)            # the dark, lifted by the light
+        G = M['warm'] * L                                        # the warm tint
+        Gm = M['tint'] * sh                                      # the light from outside
         d[glass] = 0
         G[glass] = 0
         al = 1 - (1 - d) * (1 - G) * (1 - Gm)
-        rgb = (np.array(NIGHT, np.float32) * (d * (1 - G) * (1 - Gm))[..., None] + cg * (G * (1 - Gm))[..., None]
-               + np.array(MOONLIGHT, np.float32) * Gm[..., None]) / np.maximum(al, 1e-4)[..., None]
+        rgb = (np.array(M['dark'], np.float32) * (d * (1 - G) * (1 - Gm))[..., None] + cg * (G * (1 - Gm))[..., None]
+               + np.array(M['window'], np.float32) * Gm[..., None]) / np.maximum(al, 1e-4)[..., None]
         a = np.zeros((H, W, 4), np.uint8)
         a[..., :3] = np.clip(rgb + 0.5, 0, 255).astype(np.uint8)
         a[..., 3] = np.clip(al * 255 + 0.5, 0, 255).astype(np.uint8)
-        for (mx, my, ph) in motes:                               # dust turning in the moonbeams
+        for (mx, my, ph) in (motes if M['motes'] else ()):       # dust turning in the moonbeams
             x = int(mx + math.sin(2 * math.pi * f / F + ph) * 2)
             y = int(my - (f / F) * 3 + math.cos(ph))
             if 0 <= x < W and 0 <= y < H and shaft[y, x] > 0.15:
-                a[y, x] = (236, 120, 120, 150)
+                a[y, x] = M['motes']
         cv = Canvas(W, H)
         cv.a = a
         frames.append(cv)
@@ -166,8 +191,8 @@ def night_light(open_mask=None):
 
 def light(season='summer', open_mask=None):
     """F frames of RGBA light."""
-    if season == 'bloodmoon':
-        return night_light(open_mask)
+    if season in MOODS:
+        return night_light(open_mask, season)
     sun, k_sun, throw, k_fire = SUN[season]
     base = np.zeros((H, W, 4), np.uint8)
     wx, wy, ww, wh = WIN_MAIN['x'], WIN_MAIN['y'], WIN_MAIN['w'], WIN_MAIN['h']

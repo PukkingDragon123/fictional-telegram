@@ -13,13 +13,15 @@ Layout of the zip:
       props/3x/...            the same at 3x
       sprite_atlas/           every prop frame in one png + json
       nature/  palette/  previews/
-      seasons/<season>/       spring, summer, autumn, winter, bloodmoon: window view, window glass, light, lanterns
+      seasons/<season>/       spring, rain, summer, autumn, winter, eclipse, bloodmoon: window view, window glass,
+                              light, lanterns
                               (and the goat-dragon at night), previews
 
 No readme, demo page, descriptions or labelled sheets: just the art and the scene data.
 
-Three zips: OUT.zip (everything but the seasons), OUT_seasons.zip (the seasons; unpack
-both into the same place) and OUT_mobile.zip (all of it at 1x with still previews, for phones).
+Four zips: OUT.zip (everything but the seasons), OUT_seasons_1.zip (spring, summer, autumn,
+winter) and OUT_seasons_2.zip (the rains, the eclipse, the blood moon) - unpack all three into
+the same place - and OUT_mobile.zip (all of it at 1x with still previews, for phones).
 """
 import json
 import os
@@ -35,6 +37,7 @@ ROOM_LAYERS = {'10_room_shell': 'room_shell', '11_room_shell_furnished': 'room_s
                '20_counter': 'counter_furnace_table', '30_foreground': 'foreground_posts',
                '40_light_overlay': 'light_overlay'}
 SKIP_PREVIEWS = ('uncle_pong', 'teahouse_no_fx', 'props_contact_sheet', 'wyvern_process', 'trees_sheet')
+SEASON_ZIPS = (('spring', 'summer', 'autumn', 'winter'), ('rain', 'eclipse', 'bloodmoon'))
 
 
 
@@ -138,6 +141,9 @@ def main(out):
         if 'window_glass' in rec:
             rec['window_glass'].pop('draw', None)
             rec['window_glass']['file'] = put(rec['window_glass']['file'], sb + 'backgrounds/rooms/window_glass.png')
+            if 'sheet' in rec['window_glass']:
+                rec['window_glass']['sheet'] = put(rec['window_glass']['sheet'],
+                                                   sb + 'backgrounds/rooms/window_glass_sheet.png')
         lo = rec.get('light_overlay')
         if lo:
             for key in ('file', 'sheet'):
@@ -189,10 +195,12 @@ def main(out):
     # send): everything but the seasons, and the seasons (with the same scene.json)
     seas = TOP + '/seasons/'
     _zip(tmp, out, keep=lambda r: not r.startswith(seas) and r != seas)
-    _zip(tmp, out.replace('.zip', '_seasons.zip'),
-         keep=lambda r: r in (TOP + '/', TOP + '/scene.json', TOP + '/previews/', TOP + '/previews/seasons_overview.png')
-         or r.startswith(seas) or seas.startswith(r))
-    print('wrote', out.replace('.zip', '_seasons.zip'))
+    for k, names in enumerate(SEASON_ZIPS, 1):                  # the seasons in two zips, each small enough to send
+        part = out.replace('.zip', '_seasons_%d.zip' % k)
+        _zip(tmp, part, keep=lambda r, names=names: r in (TOP + '/', TOP + '/scene.json', TOP + '/previews/',
+                                                          TOP + '/previews/seasons_overview.png', seas)
+             or any(r.startswith(seas + n + '/') or r == seas + n + '/' for n in names))
+        print('wrote', part)
     lite = out.replace('.zip', '_mobile.zip')
     # phone-friendly copy: 1x art, backgrounds, scene and the still previews only (no 3x, no gifs, no demo)
     for d in ('props/3x', 'sprite_atlas'):

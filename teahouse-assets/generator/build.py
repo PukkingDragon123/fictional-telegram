@@ -162,7 +162,7 @@ class Scene:
             t = time.time()
             season.set_season(s)
             try:
-                om = self._open_mask() if s == 'bloodmoon' else None
+                om = self._open_mask() if s in fx.MOODS else None
                 if s == 'summer':
                     outs, light = self.base_outs, self.base_light
                 else:
@@ -171,12 +171,13 @@ class Scene:
                 win = seasons_room.window_layer(s, self.shell)
                 swaps = {} if s == 'summer' else {p['name']: _process_prop(p) for p in propkit.PROPS
                                                   if p['name'] in SEASONAL_PROPS}
-                if s == 'bloodmoon':                    # what stands just outside a window sinks into the night too,
+                if s in fx.MOODS:                       # what stands just outside a window sinks into the dark too,
+                    dk = dict(colour=fx.MOODS[s]['dark'], amount=fx.MOODS[s]['d0'])
                     for p in self.base_props:            # and so does what leans in across a window (the light leaves
                         if p['layer'] == 'outside':      # the openings clear)
                             swaps[p['name']] = dict(
-                                p, frames=[bloodmoon.dim(f) for f in p['frames']],
-                                anims=p['anims'] and {k: [bloodmoon.dim(f) for f in v] for k, v in p['anims'].items()})
+                                p, frames=[bloodmoon.dim(f, **dk) for f in p['frames']],
+                                anims=p['anims'] and {k: [bloodmoon.dim(f, **dk) for f in v] for k, v in p['anims'].items()})
                         elif p['anims'] and not p.get('drag', True):        # fixed in place, so the opening
                             fr0 = next(iter(p['anims'].values()))[0]        # it crosses is known
                             over = np.zeros((fr0.h, fr0.w), bool)
@@ -185,8 +186,8 @@ class Scene:
                             over[y0 - p['sy']:y1 - p['sy'], x0 - p['sx']:x1 - p['sx']] = om[y0:y1, x0:x1]
                             if any((f.a[..., 3] > 0)[over].any() for v in p['anims'].values() for f in v):
                                 swaps[p['name']] = dict(
-                                    p, frames=[bloodmoon.dim(f, over) for f in p['frames']],
-                                    anims={k: [bloodmoon.dim(f, over) for f in v] for k, v in p['anims'].items()})
+                                    p, frames=[bloodmoon.dim(f, over, **dk) for f in p['frames']],
+                                    anims={k: [bloodmoon.dim(f, over, **dk) for f in v] for k, v in p['anims'].items()})
             finally:
                 season.set_season('summer')
             self._seasons[s] = (outs, light, win, swaps)
@@ -217,8 +218,8 @@ class Scene:
         for p in self.props:
             if p['layer'] == 'outside' and p.get('preview', True):
                 cv.blit(frame_at(p['frames'], p['fps'], t), p['sx'], p['sy'])
-        if self.window is not None:                     # the season on the glass
-            cv.blit(self.window, 0, 0)
+        if self.window is not None:                     # the season on the glass (rain on it runs)
+            cv.blit(frame_at(self.window, LAYER_FPS, t) if isinstance(self.window, list) else self.window, 0, 0)
 
     def _interior(self, cv, t, fg=True):
         cv.blit(self.shell, 0, 0)
@@ -597,8 +598,12 @@ def export_seasons(sc, anims=True):
                 L.update(x=off[0][0], y=off[0][1], w=frames[0].w, h=frames[0].h)
             rec['outside_layers'].append(L)
         if sc.window is not None:
-            rec['window_glass'] = dict(file=save(sc.window, *d, 'layers', 'room', '09_window_glass.png'),
+            gl = sc.window if isinstance(sc.window, list) else [sc.window]
+            rec['window_glass'] = dict(file=save(gl[0], *d, 'layers', 'room', '09_window_glass.png'), frames=len(gl),
                                        draw='after the outside layers and outside props, before 10_room_shell')
+            if len(gl) > 1:
+                rec['window_glass'].update(sheet=save(sheet(gl, vertical=True), *d, 'layers', 'room',
+                                                      '09_window_glass_sheet.png'), fps=LAYER_FPS)
         if s == 'summer':
             rec['light_overlay'] = dict(file='layers/room/40_light_overlay.png',
                                         sheet='layers/room/40_light_overlay_sheet.png', frames=len(sc.light),
@@ -633,15 +638,16 @@ def export_seasons(sc, anims=True):
             save(full.crop(i * LY.SW, 0, LY.SW, LY.H), *d, 'preview', f'room_{i + 1}_2x.png', scale=2)
         views[s] = full.crop(LY.SW, 0, LY.SW, LY.H)
         if s == 'bloodmoon':
-            views['bedroom at night'] = full.crop(3 * LY.SW, 0, LY.SW, LY.H)
+            night_bedroom = full.crop(3 * LY.SW, 0, LY.SW, LY.H)
         if anims and s != 'summer':
             window_life_gif(sc, os.path.join(ROOT, *d, 'preview', 'window_life.gif'))
         info[s] = rec
     sc.use_season(None)
     # the seating room through the year, side by side, and the bedroom on the blood moon night
-    cv = Canvas(LY.SW * 3 + 8, LY.H * 2 + 4, fill='ink')
+    views['bedroom at night'] = night_bedroom
+    cv = Canvas(LY.SW * 4 + 12, LY.H * 2 + 4, fill='ink')
     for i, v in enumerate(views.values()):
-        cv.blit(v, (i % 3) * (LY.SW + 4), (i // 3) * (LY.H + 4))
+        cv.blit(v, (i % 4) * (LY.SW + 4), (i // 4) * (LY.H + 4))
     save(cv, 'preview', 'seasons_overview.png', scale=2)
     return info
 

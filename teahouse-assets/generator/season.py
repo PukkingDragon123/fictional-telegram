@@ -1,15 +1,20 @@
-"""The four seasons, and the night of the blood moon.
+"""The four seasons, the rains, the eclipse, and the night of the blood moon.
 
 The base build is summer. For the others the outside view (with its birds and
 fish), the glass of each window, the light in the rooms and the lanterns are
 drawn again; everything else in the teahouse stays.
 
     spring     cherry blossom in the garden, fresh green, petals on the wind
+    rain       the rainy season: a low grey sky, mist on the mountains, rain
+               falling and running down the glass, hydrangeas (rain.py)
     summer     deep green, butterflies and dragonflies
     autumn     maples red, orange and gold, pampas grass, leaves on the wind,
                red dragonflies
     winter     snow on everything, bare trees, ice at the lake edge, frost on
                the glass, snow falling
+    eclipse    a total eclipse of the sun: a black sun in its corona, a sunset
+               glow all round the horizon, the garden in a blue twilight, the
+               rooms dim and lit by their lanterns (eclipse.py)
     bloodmoon  night: a red moon over the lake, everything lit by it, bats and
                fireflies; the rooms dark but for the lanterns, the fire and
                the red moonlight through the windows (bloodmoon.py)
@@ -18,7 +23,7 @@ Modules read `current` while they draw; build.py sets it."""
 import numpy as np
 from pixel import PAL
 
-NAMES = ('spring', 'summer', 'autumn', 'winter', 'bloodmoon')
+NAMES = ('spring', 'rain', 'summer', 'autumn', 'winter', 'eclipse', 'bloodmoon')
 current = 'summer'
 
 

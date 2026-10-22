@@ -59,7 +59,7 @@ GLIDE = ['high', 'high', 'high', 'level', 'level', 'high']      # big birds sail
 KINDS = dict(sparrow=('wood1', 'wood0', 'wood0'), starling=('gloss1', 'ink', 'ink'),
              swallow=('indigo1', 'indigo0', 'indigo0'), crow=('gloss0', 'ink', 'ink'),
              goose=('wood2', 'wood0', 'wood1'), crane=('white', 'ink', 'cloud3'),
-             egret=('white', 'cloud2', 'cloud3'), gull=('cloud3', 'stone1', 'white'))
+             egret=('white', 'cloud2', 'cloud3'), gull=('cloud3', 'stone1', 'white'), heron=('stone2', 'stone1', 'stone3'))
 
 
 def _bird(a, x, y, pose, kind, big=False):
@@ -117,7 +117,7 @@ def birds(season):
     tile per loop; the starling murmuration and the swallows wheel in place."""
     w, h = TILE, BIRDS_H
     frames = [np.zeros((h, w, 4), np.uint8) for _ in range(NB)]
-    rng = random.Random({'spring': 1, 'summer': 2, 'autumn': 3, 'winter': 4}[season])
+    rng = random.Random({'spring': 1, 'summer': 2, 'autumn': 3, 'winter': 4, 'rain': 5, 'eclipse': 6}[season])
 
     def wheel(cx, cy, rx, ry, turns=1, phase=0.0):
         return lambda f: (cx + rx * math.sin(2 * math.pi * f / NB * turns + phase),
@@ -145,6 +145,18 @@ def birds(season):
             cx = w * (0.3 + 0.45 * k)
             _flock(frames, rng, 'starling', 60, 0, 0, 24,
                    path=wheel(cx, h - 50, 70, 18, turns=1, phase=k * 3), beat=3)
+    elif season == 'rain':                                          # swallows skim low before the rain,
+        for k in range(3):                                          # a heron goes over slowly
+            _flock(frames, rng, 'swallow', rng.randint(5, 8), 0, 0, 11,
+                   path=wheel(k * w / 3 + 160, h - 26, rng.uniform(70, 120), 8, turns=2, phase=k * 2.2), beat=4)
+        _flock(frames, rng, 'heron', 2, w * 0.4, 52, 16, big=True, vx=1, beat=14, glide=True, shape='line')
+        _flock(frames, rng, 'crow', 6, w * 0.8, 40, 12, vx=1, beat=5)
+    elif season == 'eclipse':                                       # everything heads home as the light goes:
+        for k in range(2):                                          # starlings swirl to roost, crows cross
+            _flock(frames, rng, 'starling', 70, 0, 0, 26,
+                   path=wheel(w * (0.25 + 0.5 * k), h - 34, 60, 14, turns=1, phase=k * 2.5), beat=3)
+        for k in range(3):
+            _flock(frames, rng, 'crow', rng.randint(6, 10), k * w / 3 + 80, rng.uniform(30, 70), 14, vx=-1, beat=5)
     else:                                                           # winter
         _flock(frames, rng, 'crane', 7, w * 0.2, 36, 13, big=True, vx=-1, beat=12, glide=True, shape='line')
         _flock(frames, rng, 'crane', 4, w * 0.7, 60, 13, big=True, vx=-1, beat=12, glide=True, shape='line')
@@ -200,11 +212,12 @@ def bats():
 def lake(season):
     w, h = TILE, LAKE_H
     frames = [np.zeros((h, w, 4), np.uint8) for _ in range(NL)]
-    rng = random.Random({'spring': 11, 'summer': 12, 'autumn': 13, 'winter': 14, 'bloodmoon': 15}[season])
+    rng = random.Random({'spring': 11, 'summer': 12, 'autumn': 13, 'winter': 14, 'bloodmoon': 15, 'rain': 16,
+                         'eclipse': 17}[season])
     night = season == 'bloodmoon'
     yy, xx = np.mgrid[0:h, 0:w]
     # fish gliding under the surface: closed loops, tails beating; dark carp and bright koi
-    n_fish = dict(spring=26, summer=30, autumn=22, winter=10, bloodmoon=0)[season]
+    n_fish = dict(spring=26, summer=30, autumn=22, winter=10, bloodmoon=0, rain=10, eclipse=0)[season]
     for i in range(n_fish):
         cx, cy = rng.uniform(0, w), rng.uniform(10, h - 14)
         rx, ry = rng.uniform(14, 44), rng.uniform(2, 6)
@@ -231,9 +244,11 @@ def lake(season):
             _px(a, x - ln * d, y + wag, 'fire2' if koi else 'indigo0', 150)
             _px(a, x - (ln + 1) * d, y + 2 * wag, 'fire2' if koi else 'indigo0', 110)
     # a fish jumping now and then: an arc, a splash, rings
-    n_jump = dict(spring=12, summer=14, autumn=9, winter=3, bloodmoon=9)[season]
+    n_jump = dict(spring=12, summer=14, autumn=9, winter=3, bloodmoon=9, rain=4, eclipse=2)[season]
     body = ('blood5', 'blood4', 'blood3', 'night4', 'night3') if night else ('white', 'cloud3', 'cloud2', 'stone3', 'stone2')
     spray, ring = ('blood5', 'blood2') if night else ('white', 'haze3')
+    if season == 'eclipse':                                          # silver-blue in the dusk of totality
+        body, spray, ring = ('indigo4', 'indigo3', 'indigo2', 'gloss2', 'gloss1'), 'indigo4', 'indigo3'
     for i in range(n_jump):
         jx, jy = (i + rng.uniform(0.1, 0.9)) * w / n_jump, rng.uniform(14, h - 16)
         t0, d = rng.randrange(NL), rng.choice((1, -1))
@@ -265,7 +280,23 @@ def lake(season):
                             m = np.abs(np.hypot((xx - sx) / rr, (yy - jy) / (rr * 0.28)) - 1) < 0.09
                             a[m & (a[..., 3] == 0)] = (*PAL[ring], al)
     # ducks paddling (swans in winter), a V of ripples behind them
-    pairs = dict(spring=2, summer=2, autumn=2, winter=1, bloodmoon=0)[season]
+    if season == 'rain':                                             # rain rings all over the water
+        for i in range(950):
+            x, y = rng.uniform(0, w), rng.uniform(3, h - 4)
+            t0, span = rng.randrange(NL), rng.choice((6, 7, 8))
+            for k in range(span):
+                a = frames[(t0 + k) % NL]
+                if k == 0:                                           # the drop lands
+                    _px(a, x, y - 1, 'cloud2', 210)
+                    continue
+                rr = 0.5 + k * 0.6
+                al = int(210 * (1 - k / span))
+                for q in range(max(6, int(rr * 7))):
+                    ang = 2 * math.pi * q / max(6, int(rr * 7))
+                    X, Y = x + rr * math.cos(ang), y + rr * 0.35 * math.sin(ang)
+                    if 0 <= int(Y) < h and a[int(Y), int(X) % w, 3] == 0:
+                        _px(a, X, Y, 'fgrey4' if math.sin(ang) < 0 else 'fgrey3', al)
+    pairs = dict(spring=2, summer=2, autumn=2, winter=1, bloodmoon=0, rain=2, eclipse=1)[season]
     for i in range(pairs):
         cx, cy = rng.uniform(0, w), rng.uniform(16, h - 18)
         rx, ry = rng.uniform(40, 80), rng.uniform(3, 6)

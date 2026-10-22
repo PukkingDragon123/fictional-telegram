@@ -626,9 +626,9 @@ def particles():
 def all_layers():
     """(name, frames, parallax[, (x, y) crop offset]) back to front."""
     import lake
-    if season.current == 'bloodmoon':
-        import bloodmoon
-        return bloodmoon.all_layers()
+    if season.current in ('bloodmoon', 'rain', 'eclipse'):          # the weather draws its own view
+        import importlib
+        return importlib.import_module(season.current).all_layers()
     sk, cl, mt = sky(), clouds(), mountains()
     above = sk.a.copy()
     for L in (cl, mt):
@@ -666,4 +666,4 @@ def all_layers():
 
 
 PARTICLE_NAME = dict(spring='petals', autumn='leaves', winter='snowfall', summer='wind')
-LIFE_LAYERS = ('04_lake_life', '04_birds', '04_bats')         # these run at life.FPS
+LIFE_LAYERS = ('04_lake_life', '04_birds', '04_bats', '08_rain')         # these run at life.FPS

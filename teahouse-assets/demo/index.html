@@ -24,8 +24,8 @@
   <b>Old Rundown Teahouse</b>
   <input id="cam" type="range" min="0" max="1440" value="240" aria-label="camera">
   <select id="season" aria-label="season"><option value="">no season</option><option>spring</option>
-    <option>summer</option><option>autumn</option><option>winter</option>
-    <option value="bloodmoon">blood moon</option></select>
+    <option value="rain">rainy season</option><option>summer</option><option>autumn</option><option>winter</option>
+    <option>eclipse</option><option value="bloodmoon">blood moon</option></select>
   <label><input id="light" type="checkbox" checked> light</label>
   <label><input id="fg" type="checkbox" checked> foreground</label>
   <label><input id="petals" type="checkbox" checked> leaves</label>
@@ -176,8 +176,8 @@
     outside = rec.outside_layers;
     outside.forEach(l => { load(l.file); if (l.sheet) load(l.sheet); });
     lightL = rec.light_overlay; load(lightL.file); if (lightL.sheet) load(lightL.sheet);
-    glass = rec.window_glass ? { file: rec.window_glass.file, frames: 1 } : null;
-    if (glass) load(glass.file);
+    glass = rec.window_glass ? { ...rec.window_glass, frames: rec.window_glass.frames || 1 } : null;
+    if (glass) { load(glass.file); if (glass.sheet) load(glass.sheet); }      // the rain on the glass runs
   });
 
   // scale to fit

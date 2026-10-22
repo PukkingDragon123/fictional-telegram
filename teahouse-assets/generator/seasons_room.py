@@ -6,7 +6,9 @@ so it only shows in the window openings (the lattice draws over it):
     autumn   maple leaves caught on the sills and the glass
     winter   frost growing in from the edge of every pane, snow heaped on the
              outer sills, icicles hanging from the top of each opening
-    (summer and the blood moon night have none)"""
+    rain     raindrops all over the glass, and now and then one running down
+             the pane, leaving a wet trail (GLASS_N frames: the only animated glass)
+    (summer, the blood moon night and the eclipse have none)"""
 import math
 import random
 import numpy as np
@@ -52,9 +54,58 @@ def _dist_in(m, n=12):
     return d
 
 
+GLASS_N = 12                       # the rain on the glass loops over this many frames
+
+
+def _rain_glass(shell):
+    """Raindrops on every pane: still beads (a dark lower edge, a bright glint on
+    top) and a few running down, each leaving a thin wet trail. GLASS_N frames."""
+    rng = random.Random(4)
+    frames = [Canvas(W, H) for _ in range(GLASS_N)]
+    beads, runners = [], []
+    for name, m, (x0, y0, x1, y1) in _openings(shell):
+        ys, xs = np.nonzero(m)
+        if not len(ys):
+            continue
+        for _ in range(int(len(ys) / 26)):
+            i = rng.randrange(len(ys))
+            beads.append((int(xs[i]), int(ys[i]), rng.choice((1, 1, 2, 2, 3))))
+        for _ in range(max(3, int(len(ys) / 1400))):
+            i = rng.randrange(len(ys))
+            runners.append((int(xs[i]), int(ys.min()), int(ys.max()), rng.uniform(0, 1), m))
+    for f, cv in enumerate(frames):
+        a = cv.a
+        for (x, y, size) in beads:
+            cells = {1: [(0, 0, 'fgrey4', 170)],
+                     2: [(0, 0, 'cloud2', 200), (1, 0, 'fgrey3', 170), (0, 1, 'fgrey2', 170), (1, 1, 'smoke2', 150)],
+                     3: [(0, 0, 'cloud3', 210), (1, 0, 'fgrey4', 180), (0, 1, 'fgrey3', 180), (1, 1, 'fgrey2', 170),
+                         (0, 2, 'smoke2', 160), (1, 2, 'smoke1', 140)]}[size]
+            for dx, dy, c, al in cells:
+                if 0 <= y + dy < H and 0 <= x + dx < W:
+                    a[y + dy, x + dx] = (*PAL[c], al)
+        for (x, top, bot, ph, m) in runners:
+            span = bot - top
+            y = int(top + ((ph + f / GLASS_N) % 1.0) * span)
+            for k in range(1, 14):                                  # the wet trail above it
+                if top <= y - k and m[y - k, x]:
+                    a[y - k, x] = (*PAL['cloud1'], max(30, 110 - k * 7))
+            for dx, dy, c, al in ((0, 0, 'cloud3', 220), (1, 0, 'fgrey3', 190), (0, 1, 'fgrey2', 190),
+                                  (1, 1, 'smoke2', 170)):
+                if 0 <= y + dy < H and m[min(H - 1, y + dy), min(W - 1, x + dx)]:
+                    a[y + dy, x + dx] = (*PAL[c], al)
+        # only on the glass
+        open_ = np.zeros((H, W), bool)
+        for _, m, _b in _openings(shell):
+            open_ |= m
+        a[~open_] = 0
+    return frames
+
+
 def window_layer(season, shell):
-    if season in ('summer', 'bloodmoon'):
+    if season in ('summer', 'bloodmoon', 'eclipse'):
         return None
+    if season == 'rain':
+        return _rain_glass(shell)
     cv = Canvas(W, H)
     a = cv.a
     rng = random.Random({'spring': 1, 'autumn': 2, 'winter': 3}[season])
