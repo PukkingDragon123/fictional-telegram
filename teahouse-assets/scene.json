@@ -2542,6 +2542,7 @@
    ],
    "window_glass": {
     "file": "seasons/spring/layers/room/09_window_glass.png",
+    "frames": 1,
     "draw": "after the outside layers and outside props, before 10_room_shell"
    },
    "light_overlay": {
@@ -2586,6 +2587,202 @@
      "fps": 5,
      "file": "seasons/spring/props/room4/red_lantern.png",
      "sheet": "seasons/spring/props/room4/red_lantern_sheet.png"
+    }
+   ]
+  },
+  "rain": {
+   "outside_layers": [
+    {
+     "name": "00_sky",
+     "file": "seasons/rain/layers/outside/00_sky.png",
+     "parallax": 0.04,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "01_clouds",
+     "file": "seasons/rain/layers/outside/01_clouds.png",
+     "parallax": 0.08,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "02_mountains",
+     "file": "seasons/rain/layers/outside/02_mountains.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "03_lake",
+     "file": "seasons/rain/layers/outside/03_lake.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 12,
+     "sheet": "seasons/rain/layers/outside/03_lake_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "04_lake_life",
+     "file": "seasons/rain/layers/outside/04_lake_life.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 96,
+     "sheet": "seasons/rain/layers/outside/04_lake_life_sheet.png",
+     "fps": 12,
+     "x": 0,
+     "y": 148,
+     "w": 1280,
+     "h": 64
+    },
+    {
+     "name": "04_birds",
+     "file": "seasons/rain/layers/outside/04_birds.png",
+     "parallax": 0.14,
+     "tile_width": 1280,
+     "frames": 144,
+     "sheet": "seasons/rain/layers/outside/04_birds_sheet.png",
+     "fps": 12,
+     "sheet_columns": 2,
+     "x": 0,
+     "y": 24,
+     "w": 1280,
+     "h": 128
+    },
+    {
+     "name": "05_hills_trees",
+     "file": "seasons/rain/layers/outside/05_hills_trees.png",
+     "parallax": 0.22,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "06_garden_trees",
+     "file": "seasons/rain/layers/outside/06_garden_trees.png",
+     "parallax": 0.34,
+     "tile_width": 1280,
+     "frames": 16,
+     "sheet": "seasons/rain/layers/outside/06_garden_trees_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "07_flowers_close",
+     "file": "seasons/rain/layers/outside/07_flowers_close.png",
+     "parallax": 0.62,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/rain/layers/outside/07_flowers_close_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "08_rain",
+     "file": "seasons/rain/layers/outside/08_rain.png",
+     "parallax": 0.75,
+     "tile_width": 1280,
+     "frames": 24,
+     "sheet": "seasons/rain/layers/outside/08_rain_sheet.png",
+     "fps": 12
+    }
+   ],
+   "window_glass": {
+    "file": "seasons/rain/layers/room/09_window_glass.png",
+    "frames": 12,
+    "draw": "after the outside layers and outside props, before 10_room_shell",
+    "sheet": "seasons/rain/layers/room/09_window_glass_sheet.png",
+    "fps": 6
+   },
+   "light_overlay": {
+    "file": "seasons/rain/layers/room/40_light_overlay.png",
+    "sheet": "seasons/rain/layers/room/40_light_overlay_sheet.png",
+    "frames": 8,
+    "fps": 6
+   },
+   "prop_swaps": [
+    {
+     "name": "paper_lantern_a",
+     "room": 2,
+     "x": 831,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/rain/props/room2/paper_lantern_a.png",
+     "sheet": "seasons/rain/props/room2/paper_lantern_a_sheet.png"
+    },
+    {
+     "name": "paper_lantern_b",
+     "room": 2,
+     "x": 1041,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/rain/props/room2/paper_lantern_b.png",
+     "sheet": "seasons/rain/props/room2/paper_lantern_b_sheet.png"
+    },
+    {
+     "name": "red_lantern",
+     "room": 4,
+     "x": 2417,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/rain/props/room4/red_lantern.png",
+     "sheet": "seasons/rain/props/room4/red_lantern_sheet.png"
+    },
+    {
+     "name": "dragon_peek",
+     "room": 3,
+     "x": 1697,
+     "y": 45,
+     "w": 140,
+     "h": 192,
+     "frames": 1,
+     "fps": 10,
+     "file": "seasons/rain/props/room3/dragon_peek.png",
+     "anims": {
+      "hidden": {
+       "frames": 1,
+       "sheet": "seasons/rain/props/room3/dragon_peek_hidden_sheet.png"
+      },
+      "peek": {
+       "frames": 63,
+       "sheet": "seasons/rain/props/room3/dragon_peek_peek_sheet.png"
+      },
+      "rest": {
+       "frames": 37,
+       "sheet": "seasons/rain/props/room3/dragon_peek_rest_sheet.png"
+      }
+     }
+    },
+    {
+     "name": "dragon_peek_front",
+     "room": 3,
+     "x": 1697,
+     "y": 45,
+     "w": 140,
+     "h": 192,
+     "frames": 1,
+     "fps": 10,
+     "file": "seasons/rain/props/room3/dragon_peek_front.png",
+     "anims": {
+      "hidden": {
+       "frames": 1,
+       "sheet": "seasons/rain/props/room3/dragon_peek_front_hidden_sheet.png"
+      },
+      "peek": {
+       "frames": 63,
+       "sheet": "seasons/rain/props/room3/dragon_peek_front_peek_sheet.png"
+      },
+      "rest": {
+       "frames": 37,
+       "sheet": "seasons/rain/props/room3/dragon_peek_front_rest_sheet.png"
+      }
+     }
     }
    ]
   },
@@ -2786,6 +2983,7 @@
    ],
    "window_glass": {
     "file": "seasons/autumn/layers/room/09_window_glass.png",
+    "frames": 1,
     "draw": "after the outside layers and outside props, before 10_room_shell"
    },
    "light_overlay": {
@@ -2929,6 +3127,7 @@
    ],
    "window_glass": {
     "file": "seasons/winter/layers/room/09_window_glass.png",
+    "frames": 1,
     "draw": "after the outside layers and outside props, before 10_room_shell"
    },
    "light_overlay": {
@@ -2973,6 +3172,186 @@
      "fps": 5,
      "file": "seasons/winter/props/room4/red_lantern.png",
      "sheet": "seasons/winter/props/room4/red_lantern_sheet.png"
+    }
+   ]
+  },
+  "eclipse": {
+   "outside_layers": [
+    {
+     "name": "00_sky",
+     "file": "seasons/eclipse/layers/outside/00_sky.png",
+     "parallax": 0.04,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "01_clouds",
+     "file": "seasons/eclipse/layers/outside/01_clouds.png",
+     "parallax": 0.08,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "02_mountains",
+     "file": "seasons/eclipse/layers/outside/02_mountains.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "03_lake",
+     "file": "seasons/eclipse/layers/outside/03_lake.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 12,
+     "sheet": "seasons/eclipse/layers/outside/03_lake_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "04_lake_life",
+     "file": "seasons/eclipse/layers/outside/04_lake_life.png",
+     "parallax": 0.12,
+     "tile_width": 1280,
+     "frames": 96,
+     "sheet": "seasons/eclipse/layers/outside/04_lake_life_sheet.png",
+     "fps": 12,
+     "x": 0,
+     "y": 148,
+     "w": 1280,
+     "h": 64
+    },
+    {
+     "name": "04_birds",
+     "file": "seasons/eclipse/layers/outside/04_birds.png",
+     "parallax": 0.14,
+     "tile_width": 1280,
+     "frames": 144,
+     "sheet": "seasons/eclipse/layers/outside/04_birds_sheet.png",
+     "fps": 12,
+     "sheet_columns": 2,
+     "x": 0,
+     "y": 24,
+     "w": 1280,
+     "h": 128
+    },
+    {
+     "name": "05_hills_trees",
+     "file": "seasons/eclipse/layers/outside/05_hills_trees.png",
+     "parallax": 0.22,
+     "tile_width": 1280,
+     "frames": 1
+    },
+    {
+     "name": "06_garden_trees",
+     "file": "seasons/eclipse/layers/outside/06_garden_trees.png",
+     "parallax": 0.34,
+     "tile_width": 1280,
+     "frames": 16,
+     "sheet": "seasons/eclipse/layers/outside/06_garden_trees_sheet.png",
+     "fps": 6
+    },
+    {
+     "name": "07_flowers_close",
+     "file": "seasons/eclipse/layers/outside/07_flowers_close.png",
+     "parallax": 0.62,
+     "tile_width": 1280,
+     "frames": 8,
+     "sheet": "seasons/eclipse/layers/outside/07_flowers_close_sheet.png",
+     "fps": 6
+    }
+   ],
+   "light_overlay": {
+    "file": "seasons/eclipse/layers/room/40_light_overlay.png",
+    "sheet": "seasons/eclipse/layers/room/40_light_overlay_sheet.png",
+    "frames": 8,
+    "fps": 6
+   },
+   "prop_swaps": [
+    {
+     "name": "paper_lantern_a",
+     "room": 2,
+     "x": 831,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/eclipse/props/room2/paper_lantern_a.png",
+     "sheet": "seasons/eclipse/props/room2/paper_lantern_a_sheet.png"
+    },
+    {
+     "name": "paper_lantern_b",
+     "room": 2,
+     "x": 1041,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/eclipse/props/room2/paper_lantern_b.png",
+     "sheet": "seasons/eclipse/props/room2/paper_lantern_b_sheet.png"
+    },
+    {
+     "name": "red_lantern",
+     "room": 4,
+     "x": 2417,
+     "y": 35,
+     "w": 53,
+     "h": 90,
+     "frames": 8,
+     "fps": 5,
+     "file": "seasons/eclipse/props/room4/red_lantern.png",
+     "sheet": "seasons/eclipse/props/room4/red_lantern_sheet.png"
+    },
+    {
+     "name": "dragon_peek",
+     "room": 3,
+     "x": 1697,
+     "y": 45,
+     "w": 140,
+     "h": 192,
+     "frames": 1,
+     "fps": 10,
+     "file": "seasons/eclipse/props/room3/dragon_peek.png",
+     "anims": {
+      "hidden": {
+       "frames": 1,
+       "sheet": "seasons/eclipse/props/room3/dragon_peek_hidden_sheet.png"
+      },
+      "peek": {
+       "frames": 63,
+       "sheet": "seasons/eclipse/props/room3/dragon_peek_peek_sheet.png"
+      },
+      "rest": {
+       "frames": 37,
+       "sheet": "seasons/eclipse/props/room3/dragon_peek_rest_sheet.png"
+      }
+     }
+    },
+    {
+     "name": "dragon_peek_front",
+     "room": 3,
+     "x": 1697,
+     "y": 45,
+     "w": 140,
+     "h": 192,
+     "frames": 1,
+     "fps": 10,
+     "file": "seasons/eclipse/props/room3/dragon_peek_front.png",
+     "anims": {
+      "hidden": {
+       "frames": 1,
+       "sheet": "seasons/eclipse/props/room3/dragon_peek_front_hidden_sheet.png"
+      },
+      "peek": {
+       "frames": 63,
+       "sheet": "seasons/eclipse/props/room3/dragon_peek_front_peek_sheet.png"
+      },
+      "rest": {
+       "frames": 37,
+       "sheet": "seasons/eclipse/props/room3/dragon_peek_front_rest_sheet.png"
+      }
+     }
     }
    ]
   },

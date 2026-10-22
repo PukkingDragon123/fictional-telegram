@@ -212,11 +212,7 @@ def main(out):
     if os.path.isdir(sdir):
         for sname in os.listdir(sdir):
             shutil.rmtree(os.path.join(sdir, sname, 'props', '3x'), ignore_errors=True)
-            pv = os.path.join(sdir, sname, 'previews')
-            if os.path.isdir(pv):
-                for f in os.listdir(pv):
-                    if not f.endswith('.png') or f.startswith('teahouse_full_1x'):
-                        os.remove(os.path.join(pv, f))
+            shutil.rmtree(os.path.join(sdir, sname, 'previews'), ignore_errors=True)    # keeps it small enough to send
     _zip(tmp, lite)
     print('wrote', lite)
     shutil.rmtree(tmp)
