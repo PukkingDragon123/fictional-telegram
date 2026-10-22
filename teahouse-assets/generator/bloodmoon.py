@@ -224,14 +224,16 @@ def grade_frames(frames, **kw):
 NIGHT_DIM = 0.68                    # as dark as the rooms are (fx.night_light)
 
 
-def dim(cv):
+def dim(cv, where=None):
     """A copy of a sprite sunk into the night the way the rooms are (so something
     outside a window matches its part that comes into the room), kept to the
-    palette."""
+    palette. where: only these pixels (a mask the size of the sprite)."""
     from fx import NIGHT
     out = cv.copy()
     a = out.a
     m = a[..., 3] > 0
+    if where is not None:
+        m &= where
     if not m.any():
         return out
     names = [n for n in PAL if n not in ('ink', 'white')]

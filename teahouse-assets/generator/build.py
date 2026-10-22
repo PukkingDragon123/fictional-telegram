@@ -162,20 +162,31 @@ class Scene:
             t = time.time()
             season.set_season(s)
             try:
+                om = self._open_mask() if s == 'bloodmoon' else None
                 if s == 'summer':
                     outs, light = self.base_outs, self.base_light
                 else:
                     outs = outside.all_layers()
-                    light = fx.light(s, open_mask=self._open_mask() if s == 'bloodmoon' else None)
+                    light = fx.light(s, open_mask=om)
                 win = seasons_room.window_layer(s, self.shell)
                 swaps = {} if s == 'summer' else {p['name']: _process_prop(p) for p in propkit.PROPS
                                                   if p['name'] in SEASONAL_PROPS}
-                if s == 'bloodmoon':                    # what stands just outside a window sinks into the night too
-                    for p in self.base_props:
-                        if p['layer'] == 'outside':
+                if s == 'bloodmoon':                    # what stands just outside a window sinks into the night too,
+                    for p in self.base_props:            # and so does what leans in across a window (the light leaves
+                        if p['layer'] == 'outside':      # the openings clear)
                             swaps[p['name']] = dict(
                                 p, frames=[bloodmoon.dim(f) for f in p['frames']],
                                 anims=p['anims'] and {k: [bloodmoon.dim(f) for f in v] for k, v in p['anims'].items()})
+                        elif p['anims'] and not p.get('drag', True):        # fixed in place, so the opening
+                            fr0 = next(iter(p['anims'].values()))[0]        # it crosses is known
+                            over = np.zeros((fr0.h, fr0.w), bool)
+                            y0, x0 = max(0, p['sy']), max(0, p['sx'])
+                            y1, x1 = min(LY.H, p['sy'] + fr0.h), min(LY.W, p['sx'] + fr0.w)
+                            over[y0 - p['sy']:y1 - p['sy'], x0 - p['sx']:x1 - p['sx']] = om[y0:y1, x0:x1]
+                            if any((f.a[..., 3] > 0)[over].any() for v in p['anims'].values() for f in v):
+                                swaps[p['name']] = dict(
+                                    p, frames=[bloodmoon.dim(f, over) for f in p['frames']],
+                                    anims={k: [bloodmoon.dim(f, over) for f in v] for k, v in p['anims'].items()})
             finally:
                 season.set_season('summer')
             self._seasons[s] = (outs, light, win, swaps)
