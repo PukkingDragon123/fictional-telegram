@@ -273,7 +273,7 @@ class Timelapse:
         self.cam = Camera(doc.w, doc.h, self.W, self.H, zmax)
         self.proc = subprocess.Popen(
             ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % size,
-             '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '25', '-tune', 'animation',
+             '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '26', '-tune', 'animation',
              '-pix_fmt', 'yuv420p',
              '-movflags', '+faststart', path], stdin=subprocess.PIPE)
         self.n = 0
