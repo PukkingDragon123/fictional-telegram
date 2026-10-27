@@ -74,7 +74,17 @@ def tube(path, radii, sides=7, jitter=0.0, rng=None, cap=True):
     return np.array(verts, np.float32), np.array(faces, np.int32)
 
 
+_ICO = {}
+
+
 def icosphere(sub=1):
+    if sub not in _ICO:
+        _ICO[sub] = _icosphere(sub)
+    v, f = _ICO[sub]
+    return v.copy(), f.copy()
+
+
+def _icosphere(sub):
     t = (1 + 5 ** 0.5) / 2
     v = [(-1, t, 0), (1, t, 0), (-1, -t, 0), (1, -t, 0), (0, -1, t), (0, 1, t), (0, -1, -t), (0, 1, -t),
          (t, 0, -1), (t, 0, 1), (-t, 0, -1), (-t, 0, 1)]

@@ -19,9 +19,9 @@ SNOW = np.array([248, 244, 240], np.float32)
 SAND = np.array([160, 205, 226], np.float32)
 SEA_NEAR = np.array([170, 150, 70], np.float32)
 SEA_FAR = np.array([140, 90, 36], np.float32)
-VOID = np.array([24, 8, 14], np.float32)
 LEAF = [np.array(c, np.float32) for c in ((70, 150, 84), (58, 132, 74), (84, 168, 100), (48, 112, 66))]
 DEAD = np.array([30, 26, 30], np.float32)
+BARK = np.array([40, 60, 80], np.float32)
 FORM = (0.0, 1500.0)                                                 # where it rises from the mountain
 
 
@@ -100,27 +100,47 @@ class World:
         self.scol_v = SEA_NEAR * (1 - dist[:, None]) + SEA_FAR * dist[:, None]
         # the trees
         self.trees = []
-        cand = rng.uniform([-1300, 280], [1300, 1700], (4200, 2))
+        cand = rng.uniform([-1300, 280], [1300, 1700], (16000, 2))
         dens = fbm(64, 64, seed + 3, 3)
         for (x, z) in cand:
             h = float(height(x, z))
             if not 5 < h < 360:
                 continue
             fx, fz = int((x + 1300) / 2600 * 63), int((z - 280) / 1420 * 63)
-            band = 1.0 if 330 < z < 1400 else 0.35
+            band = (1.0 if 330 < z < 1400 else 0.3) * (1.0 if abs(x) < 700 else 0.45)
             if rng.rand() > band * (0.35 + dens[fz, fx]):
                 continue
             g = (float(height(x + 6, z)) - float(height(x - 6, z))) / 12, (float(height(x, z + 6)) - float(height(x, z - 6))) / 12
             if math.hypot(*g) > 0.9:
                 continue
             self.trees.append(self._tree(rng, x, h - 1, z))
-            if len(self.trees) >= 620:
+            if len(self.trees) >= 1700:
                 break
-        self.rot = np.zeros(len(self.trees))                         # how far each tree has rotted
-        self.steps = []                                              # footsteps: (x, z, time, on water)
+        # all the trees as one mesh, so they sway and rot together
+        V, F, C, TI, K, CEN = [], [], [], [], [], []
+        n = 0
+        for i, tr in enumerate(self.trees):
+            tv, tf = tr['trunk']
+            for (v, f, c, trunk) in [(tv, tf, BARK, True)] + [(v, f, c, False) for (v, f, c) in tr['parts']]:
+                V.append(v)
+                F.append(f + n)
+                n += len(v)
+                C.append(np.broadcast_to(np.asarray(c, np.float32), (len(f), 3)))
+                TI.append(np.full(len(v), i))
+                K.append((v[:, 1] - tr['y']) / tr['s'])
+                CEN.append(v if trunk else np.broadcast_to(v.mean(0), v.shape))   # a trunk doesn't shrink
+        self.trv, self.trf, self.trc = np.concatenate(V), np.concatenate(F).astype(np.int32), np.concatenate(C)
+        self.tri, self.trk, self.trcen = np.concatenate(TI), np.concatenate(K), np.concatenate(CEN)
+        self.trft = self.tri[self.trf[:, 0]]
+        self.tx = np.array([tr['x'] for tr in self.trees])
+        self.ty = np.array([tr['y'] for tr in self.trees])
+        self.tz = np.array([tr['z'] for tr in self.trees])
+        self.ts = np.array([tr['s'] for tr in self.trees])
+        self.land = Mesh().add(self.tv, self.tf, self.tcol0, 4)
+        self._pass = None
 
     def _tree(self, rng, x, y, z):
-        s = rng.uniform(13, 24)
+        s = rng.uniform(12, 26)
         conifer = rng.rand() < 0.35
         tv, tf = tube([(x, y, z), (x, y + s * 0.45, z)], [s * 0.05, s * 0.035], sides=5)
         parts = []
@@ -137,79 +157,38 @@ class World:
                 r = s * rng.uniform(0.28, 0.4)
                 v, f = blob(c, (r, r * 0.85, r), sub=1, rng=rng, jitter=0.12)
                 parts.append((v, f, LEAF[rng.randint(4)] * rng.uniform(0.9, 1.1)))
-        return dict(x=x, y=y, z=z, s=s, trunk=(tv, tf), parts=parts, leaves=[])
+        return dict(x=x, y=y, z=z, s=s, trunk=(tv, tf), parts=parts)
 
     # ---------------------------------------------------------------- per frame
-    def sea_mesh(self, t, rot=None):
+    def sea_mesh(self, t):
         y = 0.9 * np.sin(self.sx * 0.021 + t * 1.3) + 0.6 * np.sin(self.sz * 0.017 - t * 1.1 + self.sx * 0.006) + \
             0.25 * np.sin(self.sx * 0.09 + self.sz * 0.07 + t * 2.4)
         v = np.stack([self.sx, y, self.sz], -1).astype(np.float32)
         col = self.scol_v[self.sf].mean(1)
-        if rot is not None:
-            r = rot[self.sf].mean(1)[:, None]
-            col = col * (1 - r) + VOID * r
-        m = Mesh()
-        m.add(v, self.sf, col, 5)
-        return m, y
+        return v, self.sf, col, np.full(len(self.sf), 5, np.int32)
 
-    def sea_rot(self, T):
-        """How rotten the water is at each sea vertex at story time T: black rings
-        spreading from every footstep in the water."""
-        r = np.zeros(len(self.sx))
-        for (x, z, t0, water) in self.steps:
-            if not water or T < t0:
-                continue
-            rad = 18 + 26 * (T - t0) ** 0.8
-            d = np.hypot(self.sx - x, self.sz - z)
-            r = np.maximum(r, np.clip(1 - (d - rad * 0.7) / (rad * 0.5), 0, 1))
-        return r
+    def tree_mesh(self, t, rot):
+        """The forest at time t, each tree rotted by rot[i] (0..1): it sags,
+        shrinks and goes black, and stops swaying."""
+        r = rot[self.tri]
+        v = self.trv.astype(np.float64)
+        sway = np.sin(t * 1.3 + self.tx * 0.01) * 0.6
+        v[:, 0] += sway[self.tri] * (1 - r) * self.trk
+        v = self.trcen + (v - self.trcen) * (1 - 0.3 * r)[:, None]
+        v[:, 1] -= r * self.ts[self.tri] * 0.18 * self.trk
+        rf = rot[self.trft][:, None]
+        return v.astype(np.float32), self.trf, self.trc * (1 - rf) + DEAD * rf, (1000 + self.trft).astype(np.int32)
 
-    def land_mesh(self, T):
-        col = self.tcol0.copy()
-        for (x, z, t0, water) in self.steps:                         # dead ground under each footstep
-            if water or T < t0:
-                continue
-            rad = 22 + 10 * min(4.0, T - t0)
-            d = np.hypot(self.tcen[:, 0] - x, self.tcen[:, 2] - z)
-            k = np.clip(1 - d / rad, 0, 1)[:, None]
-            col = col * (1 - k) + DEAD * k
-        m = Mesh()
-        m.add(self.tv, self.tf, col, 4)
-        return m
-
-    def tree_mesh(self, t):
-        m = Mesh()
-        for i, tr in enumerate(self.trees):
-            r = self.rot[i]
-            tv, tf = tr['trunk']
-            m.add(tv, tf, (40, 60, 80) if r < 0.5 else DEAD, 1000 + i)
-            sway = math.sin(t * 1.3 + tr['x'] * 0.01) * 0.6 * (1 - r)
-            for (v, f, c) in tr['parts']:
-                vv = v.copy()
-                if r > 0 or sway:
-                    cy = tr['y']
-                    k = (vv[:, 1] - cy) / tr['s']
-                    vv[:, 0] += sway * k
-                    if r > 0:                                        # sags, shrinks, goes black
-                        cen = vv.mean(0)
-                        vv = cen + (vv - cen) * (1 - 0.3 * r)
-                        vv[:, 1] -= r * tr['s'] * 0.18 * k
-                cc = c * (1 - r) + DEAD * r
-                m.add(vv, f, cc, 1000 + i)
-        return m
-
-    def rot_trees(self, path_fn, T, reach=150.0):
-        """Rot the trees the giant has passed: each starts when it goes by, the
-        rot spreading outward from its path."""
-        for i, tr in enumerate(self.trees):
-            if 't_pass' not in tr:
-                ts = np.linspace(0, 60, 1200)
-                pts = np.array([path_fn(u) for u in ts])
-                d = np.hypot(pts[:, 0] - tr['x'], pts[:, 2] - tr['z'])
-                j = int(np.argmin(d))
-                tr['t_pass'], tr['d_pass'] = float(ts[j]), float(d[j])
-            dt = T - tr['t_pass'] - tr['d_pass'] / 120.0
-            self.rot[i] = float(np.clip(dt / 2.2, 0, 1)) if tr['d_pass'] < reach else 0.0
+    def tree_rot(self, ts, P, T, reach=150.0, speed=120.0, dur=2.2):
+        """How rotten each tree is at time T, given the giant's path (times ts,
+        positions P): the rot starts when it passes, spreading out from its path.
+        Also returns when each tree starts to rot."""
+        if self._pass is None:
+            D = np.hypot(P[None, :, 0] - self.tx[:, None], P[None, :, 2] - self.tz[:, None])
+            j = D.argmin(1)
+            self._pass = (ts[j] + D[np.arange(len(j)), j] / speed, D[np.arange(len(j)), j])
+        t0, d = self._pass
+        return np.where(d < reach, np.clip((T - t0) / dur, 0, 1), 0.0), np.where(d < reach, t0, 1e9)
 
 
 def sky(W, H, cam, t, seed=2):
@@ -236,8 +215,8 @@ def sky(W, H, cam, t, seed=2):
     if y1 > y0:
         a[y0:y1] = cl[y0 - off:y1 - off, :, 0]
         shade[y0:y1] = cl[y0 - off:y1 - off, :, 1]
-    cloud = np.array([250, 246, 244], np.float32)[None, None] * (0.78 + 0.22 * shade[..., None]) + \
-        np.array([30, 10, -10], np.float32) * (1 - shade[..., None])
+    lo, hi = np.array([206, 176, 156], np.float32), np.array([250, 249, 248], np.float32)
+    cloud = lo + (hi - lo) * shade[..., None]
     return img * (1 - a[..., None]) + cloud * a[..., None], hz
 
 
@@ -245,15 +224,35 @@ _CLOUDS = {}
 
 
 def _clouds(W, H, seed):
-    """Big soft cumulus, lit from above: alpha and light, a wide strip."""
+    """Ghibli cumulus on a wide strip: heaps of round puffs, crisp-edged, lit
+    white on top and shaded blue-grey underneath with flat bottoms.
+    Returns alpha and light."""
     key = (W, H, seed)
     if key not in _CLOUDS:
-        Wb = W * 4
-        Hb = int(H * 0.7)
-        n = fbm(Hb, Wb, seed, 6) * 0.65 + fbm(Hb, Wb, seed + 1, 18) * 0.35
-        yy = np.linspace(0, 1, Hb)[:, None]
-        band = np.exp(-((yy - 0.55) / 0.28) ** 2)
-        a = np.clip((n * band - 0.42) * 6, 0, 1)
-        lit = np.clip((cv2.GaussianBlur(a, (0, 0), 6) - np.roll(cv2.GaussianBlur(a, (0, 0), 6), 10, 0)) * 3 + 0.6, 0, 1)
-        _CLOUDS[key] = np.stack([cv2.GaussianBlur(a, (0, 0), 1.5), lit], -1).astype(np.float32)
+        rng = np.random.RandomState(seed)
+        Wb, Hb = W * 4, int(H * 0.7)
+        a = np.zeros((Hb, Wb), np.float32)
+        lit = np.zeros((Hb, Wb), np.float32)
+        for k in range(16):
+            cx = rng.uniform(0, Wb)
+            size = rng.uniform(0.35, 1.0) * H * 0.22
+            base = Hb * rng.uniform(0.62, 0.92)
+            m = np.zeros((Hb, Wb), np.float32)
+            for j in range(int(18 + size / 6)):
+                u = rng.uniform(-1, 1)
+                r = size * rng.uniform(0.25, 0.55) * (1 - 0.55 * abs(u))
+                x = cx + u * size * 1.6
+                y = base - r * rng.uniform(0.2, 1.0) - size * (1 - abs(u)) * rng.uniform(0.2, 0.8)
+                for dx in (-Wb, 0, Wb):                              # it wraps round
+                    cv2.circle(m, (int(x + dx), int(y)), int(r), 1.0, -1, cv2.LINE_AA)
+            m[int(base):] = 0                                        # flat bottoms
+            yy = np.arange(Hb, dtype=np.float32)[:, None]
+            top = np.clip((base - yy) / (size * 1.6), 0, 1)
+            sh = cv2.GaussianBlur(m, (0, 0), size * 0.12)
+            l = np.clip(0.25 + 0.9 * top + 0.6 * (m - np.roll(sh, int(size * 0.1), 0)), 0, 1)
+            a = np.maximum(a, m)
+            lit = np.where(m > 0.5, l, lit)
+        a = cv2.GaussianBlur(a, (0, 0), 1.2)
+        lit = cv2.GaussianBlur(lit, (0, 0), 2.5)
+        _CLOUDS[key] = np.stack([a, lit], -1).astype(np.float32)
     return _CLOUDS[key]
