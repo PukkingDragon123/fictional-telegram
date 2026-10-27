@@ -307,7 +307,7 @@ class Scene:
         self._text = {}
 
     # ------------------------------------------------------------ text
-    def text(self, key, lines, size, font=FONT, ys=None, spacing=1.75, track_=0):
+    def text(self, key, lines, size, font=FONT, ys=None, spacing=1.75, track_=0, x0=None):
         """One mask per line, centred."""
         if key not in self._text:
             f = ImageFont.truetype(font, size)
@@ -324,18 +324,21 @@ class Scene:
                         d.text((x, y), c, font=f, fill=255)
                         x += wc + track_
                 else:
-                    d.text(((W - d.textlength(ln, font=f)) / 2, y), ln, font=f, fill=255)
+                    d.text(((W - d.textlength(ln, font=f)) / 2 if x0 is None else x0, y), ln, font=f, fill=255)
                 out.append(np.asarray(im, np.float32) / 255)
             self._text[key] = out
         return self._text[key]
 
-    def ink_text(self, img, masks, alphas, fi):
+    def ink_text(self, img, masks, alphas, fi, shadow=False):
         """White hand-lettered text that boils a little, on twos."""
         fx, fy = self.warps[(fi // 2) % 4]
         for m, a in zip(masks, alphas):
             if a <= 0:
                 continue
             m = cv2.remap(m, fx, fy, cv2.INTER_LINEAR) * a
+            if shadow:                                              # a soft dark bed, over a busy picture
+                sd = np.clip(cv2.GaussianBlur(m, (0, 0), 9) * 2.2, 0, 0.6)[..., None]
+                img[:] = img * (1 - sd) + np.array([12, 6, 10], np.float32) * sd
             g = cv2.GaussianBlur(m, (0, 0), 7) * 0.55
             al = np.clip(m + g, 0, 1)[..., None]
             img[:] = img * (1 - al) + INK * al
@@ -682,8 +685,9 @@ class Scene:
             self.ink_text(img, jp + ti + sub, [a * 0.8, a, float(smooth(t0 + 1.4, t0 + 2.6, T))], fi)
         for (s0, s1, line) in SUBS:                                 # a line of narration over the picture
             if s0 <= T < s1:
-                m = self.text('sub%.1f' % s0, [line], 30, ys=[H - 66])
-                self.ink_text(img, m, [float(smooth(s0, s0 + 0.6, T) * (1 - smooth(s1 - 0.6, s1, T)))], fi)
+                m = self.text('sub%.1f' % s0, [line], 30, ys=[H - 84], x0=72)
+                self.ink_text(img, m, [float(smooth(s0, s0 + 0.6, T) * (1 - smooth(s1 - 0.6, s1, T)))], fi,
+                              shadow=True)
         b = cv2.GaussianBlur(np.clip(img - 200, 0, 55), (0, 0), 8)   # bloom
         img = img + b * 0.6
         fade = 1.0
@@ -726,10 +730,10 @@ def _turn(k):
     return _SCENE.turntable(k, 8 * FPS).tobytes()
 
 
-def _ffmpeg(out):
+def _ffmpeg(out, crf=21):
     return subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s',
                              '%dx%d' % (W, H), '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf',
-                             '21', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
+                             str(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
 
 
 def turntable(out, workers=4):
@@ -741,10 +745,10 @@ def turntable(out, workers=4):
     ff.wait()
 
 
-def film(out, workers=4, a=0, b=None):
+def film(out, workers=4, a=0, b=None, crf=21):
     n = int(END * FPS)
     b = n if b is None else b
-    ff = _ffmpeg(out)
+    ff = _ffmpeg(out, crf)
     with Pool(workers, initializer=_init) as pool:
         for k, fr in enumerate(pool.imap(_frame, range(a, b), chunksize=2)):
             ff.stdin.write(fr)
