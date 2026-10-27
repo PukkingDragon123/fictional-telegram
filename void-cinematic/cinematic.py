@@ -8,6 +8,7 @@ it passes rotting into the void; the sky tearing open; its face.
 
     python cinematic.py out.mp4                 the film
     python cinematic.py --still 24.5 31 ...     test frames (png) at those times
+    python cinematic.py --turntable out.mp4     the model, turning, in the void
 """
 import math
 import os
@@ -696,6 +697,19 @@ class Scene:
         return grade(img, np.random.RandomState(fi + 99), grain=2.6, vignette=0.32)
 
 
+    def turntable(self, k, n, secs=8.0):
+        """The model, all the way round, standing in the void."""
+        T = 31 + secs * k / n
+        J = pose(0.0, run=0.0, lean=0.05, crouch=0.04 + 0.03 * math.sin(T * 1.4), sway=0.05 * math.sin(T * 0.7))
+        st = dict(J=J, pos=np.zeros(3), yaw=0.0, run=0.0, vel=np.zeros(3), grow=2.0, tgrow=1.0, eyes=1.0, t=T,
+                  drag=np.array([0, 0.3, -0.25]))
+        a = 2 * math.pi * k / n
+        img = self.shot(T, k, np.array([math.sin(a) * 125, 40, math.cos(a) * 125]), np.array([0, 33.0, 0]), 40,
+                        st=st, world=False, figure=dict(glow_r=10, amp=2.6, strokes=7, hatch=1.0))
+        img = img + cv2.GaussianBlur(np.clip(img - 200, 0, 55), (0, 0), 8) * 0.6
+        return grade(img, np.random.RandomState(k + 99), grain=2.6, vignette=0.32)
+
+
 _SCENE = None
 
 
@@ -708,12 +722,29 @@ def _frame(i):
     return _SCENE.frame(i).tobytes()
 
 
+def _turn(k):
+    return _SCENE.turntable(k, 8 * FPS).tobytes()
+
+
+def _ffmpeg(out):
+    return subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s',
+                             '%dx%d' % (W, H), '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf',
+                             '21', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
+
+
+def turntable(out, workers=4):
+    ff = _ffmpeg(out)
+    with Pool(workers, initializer=_init) as pool:
+        for fr in pool.imap(_turn, range(8 * FPS), chunksize=2):
+            ff.stdin.write(fr)
+    ff.stdin.close()
+    ff.wait()
+
+
 def film(out, workers=4, a=0, b=None):
     n = int(END * FPS)
     b = n if b is None else b
-    ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s',
-                           '%dx%d' % (W, H), '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf',
-                           '21', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
+    ff = _ffmpeg(out)
     with Pool(workers, initializer=_init) as pool:
         for k, fr in enumerate(pool.imap(_frame, range(a, b), chunksize=2)):
             ff.stdin.write(fr)
@@ -729,5 +760,7 @@ if __name__ == '__main__':
         s = Scene()
         for t in args[1:]:
             cv2.imwrite('still_%s.png' % t, s.frame(int(round(float(t) * FPS))))
+    elif args and args[0] == '--turntable':
+        turntable(args[1] if len(args) > 1 else 'gaki_turntable.mp4')
     else:
         film(args[0] if args else 'gaki.mp4')
