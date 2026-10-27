@@ -100,34 +100,40 @@ def scribble(layer, mask, rng, strokes=4, amp=1.6, thick=1, alpha=0.9, min_len=2
         t /= np.maximum(np.linalg.norm(t, axis=1, keepdims=True), 1e-9)
         nrm = np.stack([-t[:, 1], t[:, 0]], 1)
         s = np.arange(n, dtype=np.float64)
+        edge = (p[:, 0] < 2) | (p[:, 0] > W - 3) | (p[:, 1] < 2) | (p[:, 1] > H - 3)   # the frame, not the shape
         for k in range(strokes):
             f1, f2 = rng.uniform(0.02, 0.06), rng.uniform(0.15, 0.3)
             off = amp * (np.sin(s * f1 + rng.uniform(0, 6.3)) + 0.45 * np.sin(s * f2 + rng.uniform(0, 6.3)))
             q = p + nrm * off[:, None]
             if k == 0:                                               # one pass all the way round
-                segs = [np.vstack([q, q[:2]])]
+                runs = [np.r_[0:n, 0:2]]
             else:                                                    # the others in broken lengths
-                segs = []
+                runs = []
                 a = rng.randint(n)
                 left = n
                 while left > 6:
                     ln = min(left, rng.randint(max(6, n // 6), max(8, n // 2)))
-                    idx = (a + np.arange(ln)) % n
-                    seg = q[idx]
-                    over = rng.uniform(2, 7)                         # the pen runs on past the end
-                    e = seg[-1] + (seg[-1] - seg[-2]) / max(np.linalg.norm(seg[-1] - seg[-2]), 1e-9) * over
-                    segs.append(np.vstack([seg, e]))
+                    runs.append((a + np.arange(ln)) % n)
                     a = (a + ln + rng.randint(-4, 3)) % n
                     left -= ln
-            for sg in segs:
-                cv2.polylines(ink, [np.round(sg * 4).astype(np.int32)], False, 255,
-                              thick if rng.rand() > 0.15 else thick + 1, cv2.LINE_AA, shift=2)
+            for idx in runs:
+                cut = np.where(edge[idx])[0]
+                for part in np.split(idx, cut):
+                    part = part[~edge[part]]
+                    if len(part) < 3:
+                        continue
+                    seg = q[part]
+                    if k:                                            # the pen runs on past the end
+                        dv = seg[-1] - seg[-2]
+                        seg = np.vstack([seg, seg[-1] + dv / max(np.linalg.norm(dv), 1e-9) * rng.uniform(2, 7)])
+                    cv2.polylines(ink, [np.round(seg * 4).astype(np.int32)], False, 255,
+                                  thick if rng.rand() > 0.15 else thick + 1, cv2.LINE_AA, shift=2)
         if hatch > 0:                                                # shading strokes on the lit side
             L = np.asarray(light, float)
             L /= np.linalg.norm(L)
             facing = -(nrm @ L)
             for i in range(0, n, 2):
-                if facing[i] > 0.2 and rng.rand() < hatch * facing[i]:
+                if not edge[i] and facing[i] > 0.2 and rng.rand() < hatch * facing[i]:
                     ln = rng.uniform(5, 22) * facing[i]
                     d = -nrm[i] * ln + t[i] * rng.uniform(-3, 3)
                     a0 = p[i] + nrm[i] * rng.uniform(-1, 1.5)
@@ -192,7 +198,7 @@ def void_figure(img, shade, mask, paper, rng, eyes=(), eye_r=6.0, mouth=None, li
     m = mask.astype(bool)
     if not m.any():
         return img
-    body = 8 + 18 * paper + (shade - 0.25) * 52
+    body = 7 + 17 * paper + (shade - 0.3) * 36
     if stars is not None:
         body = body[..., None] + stars * 0.35
     else:

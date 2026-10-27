@@ -44,6 +44,7 @@ CARDS = {'card1': ["Long before the teahouse,", "people lived in this valley."],
                    "Then they were gone."],
          'card3': ["But greed does not die with the hungry.", "It sank into the stone, and waited."]}
 SUBS = [(26.6, 29.6, "It remembers their shape.")]
+TEAR_FROM = (0.5, -0.1)          # where the sky starts to tear (screen, 0..1)
 T_CRACK = 13.1                   # the mountain opens
 T_GROW = (20.0, 26.8)            # the swarm builds the body, feet first
 T_TEND = (25.4, 29.0)            # the tendrils grow out
@@ -51,7 +52,7 @@ T_RISE = (25.0, 28.4)            # it stands
 T_EYES = 27.8                    # the eyes light
 T_RUN = 29.3                     # it runs
 V_RUN, STRIDE = 95.0, 110.0      # m/s, m per stride (two steps)
-TEAR = (42.0, 49.6)              # the sky tears open
+TEAR = (41.5, 49.6)              # the sky tears open
 GY = float(height(*FORM))
 CENTRE = np.array([FORM[0], GY, FORM[1]])
 
@@ -117,7 +118,7 @@ def idle(T):
 def _steps():
     """Every footfall: where, when, on land or water, and how far its rot spreads.
     The first is the mountain shoulder itself, dying as the body forms on it."""
-    out = [(FORM[0], FORM[1], T_GROW[0] - 0.5, False, 170.0, 3.5)]
+    out = [(FORM[0], FORM[1], T_GROW[0] - 0.5, False, 62.0, 3.0)]
     ts = np.arange(T_RUN + 0.6, END, 1 / 96)
     for n in 'LR':
         ys, ps = [], []
@@ -130,7 +131,7 @@ def _steps():
             if ys[i] <= ys[i - 1] and ys[i] < ys[i + 1] and ys[i] < 0.2:
                 x, z = ps[i][0], ps[i][2]
                 water = z < shore(x) - 8
-                out.append((x, z, ts[i], water, 36.0, 0.8))
+                out.append((x, z, ts[i], water, 28.0, 0.8))
     return np.array(out, dtype=object)
 
 
@@ -181,7 +182,7 @@ class Swarm:
     """The bugs it is made of: out of the crack, round and round the mountain in
     a dark vortex, then down onto the body, each to its own place on it."""
 
-    def __init__(self, keys, F, n=3200, seed=21):
+    def __init__(self, keys, F, n=4400, seed=21):
         r = np.random.RandomState(seed)
         T0, T1 = T_GROW
         self.k = np.sort(r.uniform(0, 1.0, n))
@@ -201,7 +202,7 @@ class Swarm:
         self.w = r.choice([-1, 1], n) * r.uniform(0.5, 1.4, n)
         self.th = r.uniform(0, 2 * math.pi, n)
         self.wob = r.uniform(0, 6.3, n)
-        self.size = r.uniform(1.0, 2.3, n)
+        self.size = r.uniform(0.55, 1.3, n)
 
     def _orbit(self, t):
         a = self.th + self.w * (t - self.e)
@@ -227,7 +228,7 @@ class Swarm:
 class Shed:
     """Bugs coming loose from the body as it runs, trailing behind it."""
 
-    def __init__(self, nv, n=5200, seed=22):
+    def __init__(self, nv, n=3600, seed=22):
         r = np.random.RandomState(seed)
         self.b = np.sort(r.uniform(T_GROW[1] - 1.5, END, n))
         self.life = r.uniform(0.9, 2.2, n)
@@ -235,7 +236,7 @@ class Shed:
         d = r.normal(size=(n, 3))
         self.dir = d / np.linalg.norm(d, axis=1, keepdims=True)
         self.wob = r.uniform(0, 6.3, n)
-        self.size = r.uniform(0.8, 1.8, n)
+        self.size = r.uniform(0.45, 1.0, n)
 
     def at(self, T, V, vel, scale=1.0):
         a = T - self.b
@@ -265,7 +266,7 @@ def starfield(seed=11):
 
 
 def dread(T):
-    return float(np.interp(T, [19, 30, 39, 50], [0, 0.3, 0.5, 0.85]))
+    return float(np.interp(T, [19, 30, 39, 50], [0, 0.3, 0.45, 0.7]))
 
 
 def graded(img, d):
@@ -289,9 +290,11 @@ class Scene:
         self.paper = crumple(W, H)
         self.paper_rot = crumple(W, H, seed=8, cells=420)
         self.stars = starfield()
-        self.canvas = (0.95 + 0.1 * fbm(H, W, 31, 60))[..., None]
-        yy = np.linspace(0, 1, H)[:, None]
-        self.tearn = fbm(H, W, 41, 4) * 0.65 + (1 - yy) * 0.35
+        self.canvas = (0.97 + 0.06 * fbm(H, W, 31, 140))[..., None]
+        n = fbm(H, W, 41, 3) * 0.8 + fbm(H, W, 43, 9) * 0.2
+        self.ridge = 1 - np.abs(n - 0.5) * 2                        # 1 along the lines it cracks on
+        yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+        self.tear_d = np.hypot(xx / W - TEAR_FROM[0], (yy / H - TEAR_FROM[1]) * 0.6)
         ts = np.arange(T_GROW[0], END, 1 / 24)
         self.path = ts, np.array([[*track(dist(t))[:1], 0, track(dist(t))[1]] for t in ts])
         r = np.random.RandomState(9)
@@ -402,10 +405,10 @@ class Scene:
             ang = math.degrees(math.atan2(y2[i] - y[i], x2[i] - x[i]))
             c = (int(x[i] * 4), int(y[i] * 4))
             ax = (int(r[i] * 4), int(max(r[i] * 0.55, 0.6) * 4))
-            if r[i] > 1.8:
+            if r[i] > 2.6:
                 cv2.ellipse(img, c, (ax[0] + 4, ax[1] + 4), ang, 0, 360, (INK * edge).tolist(), -1, cv2.LINE_AA, 2)
             cv2.ellipse(img, c, ax, ang, 0, 360, dark, -1, cv2.LINE_AA, 2)
-            if r[i] > 3:                                             # wings, a blur of them
+            if r[i] > 4:                                             # wings, a blur of them
                 for s in (-1, 1):
                     wa = math.radians(ang + s * (80 + 25 * math.sin(i + x[i])))
                     e = (int((x[i] + math.cos(wa) * r[i] * 1.3) * 4), int((y[i] + math.sin(wa) * r[i] * 1.3) * 4))
@@ -451,7 +454,7 @@ class Scene:
             for dt, out in ((0, P), (0.04, P2)):
                 a = T - ST[i] + dt
                 out.append(np.array([SX[i], 0, SZ[i]]) + v * a - np.array([0, 15.0, 0]) * a * a)
-            S.append(r.uniform(1.4, 3.2, n))
+            S.append(r.uniform(0.7, 1.7, n))
         if not P:
             return np.zeros((0, 3)), np.zeros((0, 3)), np.zeros(0)
         P, P2, S = np.concatenate(P), np.concatenate(P2), np.concatenate(S)
@@ -486,12 +489,14 @@ class Scene:
         if world:
             sk, _ = sky(W, H, cam, T)
             rgb = cv2.resize(sk.astype(np.float32), (W * SS, H * SS), interpolation=cv2.INTER_LINEAR)
-            trot, t0 = self.world.tree_rot(*self.path, T) if T > T_GROW[0] else (np.zeros(len(self.world.trees)),
+            trot, t0 = self.world.tree_rot(*self.path, T, reach=85.0) if T > T_GROW[0] else (np.zeros(len(self.world.trees)),
                                                                                  np.full(len(self.world.trees), 1e9))
             render(camh, [self.world.land, self.world.sea_mesh(T), self.world.tree_mesh(T, trot)], light=LIGHT,
                    ambient=0.55, sky=(60, 40, 20), ground=(0, 20, 30), rgb=rgb, depth=dep, ids=ids)
-            f = (1 - np.exp(-np.minimum(dep, 1e5) / 2800))[..., None] * (ids > 0)[..., None]
-            rgb = rgb * (1 - f) + np.array([224, 222, 228], np.float32) * f
+            f = (1 - np.exp(-np.minimum(dep, 1e5) / 3800))[..., None] * (ids > 0)[..., None]
+            lum = rgb.mean(-1, keepdims=True)
+            rgb = lum + (rgb - lum) * 1.18                            # Ghibli greens and blues
+            rgb = rgb * (1 - f) + np.array([228, 216, 212], np.float32) * f
             wids, wdep = ids[::SS, ::SS].copy(), dep[::SS, ::SS].copy()
         else:
             rgb = np.zeros((H * SS, W * SS, 3), np.float32)
@@ -545,14 +550,15 @@ class Scene:
                 rot |= cm
                 halo += glow(cm, 6) * 0.9 * op
             if rot.any():                                           # the rot: the void, showing through
-                pv = 6 + 16 * self.paper_rot
-                vc = np.repeat(pv[..., None], 3, -1) + self.stars * 0.25 + np.array([18, 2, 10]) * sea[..., None]
+                pv = (0.35 + 0.65 * self.paper_rot)[..., None]
+                vc = 6 + self.neb_at(T, 0.3) * 0.42 * pv + self.stars * 0.2 + np.array([14, 2, 8]) * sea[..., None]
                 img[rot] = vc[rot]
                 scribble(ink, rot, rng, strokes=3, amp=1.3, alpha=0.8, min_len=10, step=2)
                 halo += glow(rot, 3) * 0.35
             tear = float(smooth(*TEAR, T))
             if tear > 0:                                            # the sky tears open
-                tm = (wids == 0) & (self.tearn > 1 - 0.95 * tear)
+                loc = np.clip(1 - self.tear_d / (1.4 * tear), 0, 1)      # cracks running out, opening behind
+                tm = (wids == 0) & (self.ridge > 1 - (0.012 + 0.6 * loc ** 1.6 * tear)) & (loc > 0)
                 if tm.any():
                     img[tm] = self.neb_at(T)[tm]
                     scribble(ink, tm, rng, strokes=4, amp=2.2, alpha=0.9, min_len=16)
@@ -636,34 +642,35 @@ class Scene:
             img = self.shot(T, fi, np.array([-250 + 15 * u, 360 + 4 * u, 1020 + 25 * u]) + sh,
                             np.array([0, GY + 30, FORM[1]]) + sh * 0.5, 40)
         elif name == 'forming':
-            ang = -0.55 + 0.35 * u
-            dd = 300 - 50 * u
-            eye = np.array([FORM[0] + dd * math.sin(ang), GY + 25 + 10 * u, FORM[1] - dd * math.cos(ang)])
-            tgt = np.array([FORM[0], GY + 28 + 12 * float(smooth(*T_RISE, T)), FORM[1]])
+            ang = -0.55 + 0.4 * u
+            k = float(smooth(0.0, 0.85, u))
+            dd = 330 - 190 * k
+            eye = np.array([FORM[0] + dd * math.sin(ang), GY + 18 + 22 * k, FORM[1] - dd * math.cos(ang)])
+            tgt = np.array([FORM[0], GY + 40 - 14 * k + 22 * float(smooth(*T_RISE, T)), FORM[1]])
             sh = shake(T, 0.6) + np.array([math.sin(T * 31), math.sin(T * 23), 0]) * 0.25
-            img = self.shot(T, fi, eye + sh, tgt + sh * 0.3, 38 - 4 * u, st=giant(T))
+            img = self.shot(T, fi, eye + sh, tgt + sh * 0.3, 44 - 8 * k, st=giant(T))
         elif name == 'forest':
             st = giant(T)
             gx, gz = track(dist(T))
             gy = ground(gx, gz)
-            ex, ez = gx + 330, gz - 40
-            eye = np.array([ex, max(gy + 55, ground(ex, ez) + 40), ez])
-            sh = shake(T, 0.9)
-            img = self.shot(T, fi, eye + sh, np.array([gx, gy + 35, gz - 30]) + sh * 0.4, 42, st=st)
+            ex, ez = gx + 125 - 20 * u, gz - 80 + 30 * u
+            eye = np.array([ex, max(gy + 30, ground(ex, ez) + 30), ez])
+            sh = shake(T, 1.1)
+            img = self.shot(T, fi, eye + sh, np.array([gx, gy + 36, gz - 20]) + sh * 0.4, 46, st=st)
         elif name == 'sea':
             st = giant(T)
-            ez = -830 + 220 * u
+            ez = -700 + 180 * u
             gx, gz = track(dist(T))
             tgt = np.array([gx, ground(gx, gz) + 35, gz])
             near = np.hypot(gz - ez, gx - 25)
             sh = shake(T, float(np.clip(260 / near, 0.2, 2.2)))
-            img = self.shot(T, fi, np.array([25, 26, ez]) + sh, tgt + sh * 0.4, 31 - 3 * u, st=st)
+            img = self.shot(T, fi, np.array([25, 52 - 18 * u, ez]) + sh, tgt + sh * 0.4, 31 - 3 * u, st=st)
         elif name == 'face':
             st = idle(T)
             head = place(st['J']['head'][None], st['pos'], st['yaw'])[0]
             eye = head + np.array([-22 + 3 * u, -4 + 2 * u, 26 - 4 * u])
             cam0 = Camera(eye, head, 34, W, H)
-            img = self.shot(T, fi, eye, head + cam0.R[0] * 7 - np.array([0, 4.0, 0]), 34, st=st, world=False,
+            img = self.shot(T, fi, eye, head - cam0.R[0] * 6 - np.array([0, 1.5, 0]), 34, st=st, world=False,
                             figure=dict(glow_r=12, amp=3.2, strokes=7, hatch=1.1))
         else:                                                       # the title
             img = self.neb_at(T, 0.5)
@@ -674,7 +681,7 @@ class Scene:
             self.ink_text(img, jp + ti + sub, [a * 0.8, a, float(smooth(t0 + 1.4, t0 + 2.6, T))], fi)
         for (s0, s1, line) in SUBS:                                 # a line of narration over the picture
             if s0 <= T < s1:
-                m = self.text('sub%.1f' % s0, [line], 30, ys=[H - 120])
+                m = self.text('sub%.1f' % s0, [line], 30, ys=[H - 66])
                 self.ink_text(img, m, [float(smooth(s0, s0 + 0.6, T) * (1 - smooth(s1 - 0.6, s1, T)))], fi)
         b = cv2.GaussianBlur(np.clip(img - 200, 0, 55), (0, 0), 8)   # bloom
         img = img + b * 0.6

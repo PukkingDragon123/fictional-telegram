@@ -182,8 +182,9 @@ class Rig:
         Rh = J['Rh']
         h = J['head']
         eyes = [h + Rh @ np.array([s * 0.052, 0.04, 0.125]) for s in (-1, 1)]
-        mouth = [h + Rh @ np.array([x, -0.06 + 0.01 * (abs(x) / 0.055) ** 2 - (0.018 if abs(x) < 0.006 else 0), 0.118])
+        mouth = [h + Rh @ np.array([x, -0.058 - 0.016 * (x / 0.055) ** 2, 0.12 - 0.012 * (x / 0.055) ** 2])
                  for x in np.linspace(-0.055, 0.055, 11)]
+        mouth.append(h + Rh @ np.array([0.066, -0.088, 0.104]))     # the frown ends in a tick
         return eyes, mouth, h + Rh @ np.array([0, 0, 0.13])
 
     def tendril_paths(self, J, t, drag=np.zeros(3), grow=1.0):
