@@ -192,6 +192,18 @@ It lives on its own layer, **`outside`**. Draw it after the window view and befo
 
 `dragon_bell` carries an **`on_click`** list in `scene.json`. Each entry names a prop, a one-shot anim to `play`, the anim to go back to (`then`), and an optional fps. Clicking the bell plays `ring` on the bell (then `idle`) and `peek` on `dragon_peek` (then `hidden`). If you want the wyvern to stay at the window, switch it to its `rest` loop after the peek instead. The demo has a *ring the bell* button too.
 
+### The goat-dragon flying
+
+`sprites/goat_dragon_flight/` has the whole goat-dragon in flight, for when he leaves the window: the goat head with its ridged horns, amber bar-pupil eyes, pink nose with a gold ring and gold ear hoops, a shaggy white mane, a chest ruff and a goatee, pearly teal-edged scales on the flanks, cream belly plates, grey spines down the back and tail, tucked goat legs with dark hooves, a long tail ending in a white tuft, and big lilac wings. `generator/goat_flight.py` builds him as a low-poly 3D model, renders it four times bigger, brings it down to pixels by material (each material shaded with its own palette ramp), and outlines it the way the rest of the pack is outlined.
+
+| Anim | Frames | fps | |
+|---|---|---|---|
+| `fly` | 16 | 12 | a slow, heavy wingbeat, side on, flying right; the wings fold on the upstroke and the tail waves |
+| `glide` | 12 | 12 | wings held out, riding the air |
+| `toward` | 16 | 12 | the same wingbeat, three-quarter front, coming at you |
+
+Each anim is a sheet (`goat_dragon_<anim>_sheet.png`, frames 258 x 194 left to right) and loose frames (`frames/<anim>/`), at 1x and 3x (`_3x`), with a GIF preview of each on a sky background. Flip the sheets for flying left.
+
 ## Moss
 
 `moss.py` grows moss wherever it is damp:
@@ -276,6 +288,7 @@ layers/room/      10 shell (window panes transparent) / 11 shell with wall props
 props/roomN/      every prop at 1x (+ _sheet.png; Uncle Pong and the fire spirit have one sheet per mood)
 props_3x/roomN/   the same at 3x (1080p size)
 atlas/            all prop frames packed into one PNG + JSON (anims, fps, layer, default spot)
+sprites/goat_dragon_flight/  the goat-dragon flying: fly, glide, toward (sheets + frames at 1x and 3x, GIFs)
 nature/           stand-alone grown trees (black pine, zelkova, oaks, weeping willow, white birch,
                   hinoki cypress, a shrub), flowers, grass, pampas, falling-leaf particles
 palette/          the palette (.gpl for Aseprite/GIMP, .hex, swatch PNG)
