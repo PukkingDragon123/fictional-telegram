@@ -704,7 +704,7 @@ class Scene:
         st = dict(J=J, pos=np.zeros(3), yaw=0.0, run=0.0, vel=np.zeros(3), grow=2.0, tgrow=1.0, eyes=1.0, t=T,
                   drag=np.array([0, 0.3, -0.25]))
         a = 2 * math.pi * k / n
-        img = self.shot(T, k, np.array([math.sin(a) * 125, 40, math.cos(a) * 125]), np.array([0, 33.0, 0]), 40,
+        img = self.shot(T, k, np.array([math.sin(a) * 100, 40, math.cos(a) * 100]), np.array([0, 33.0, 0]), 40,
                         st=st, world=False, figure=dict(glow_r=10, amp=2.6, strokes=7, hatch=1.0))
         img = img + cv2.GaussianBlur(np.clip(img - 200, 0, 55), (0, 0), 8) * 0.6
         return grade(img, np.random.RandomState(k + 99), grain=2.6, vignette=0.32)
