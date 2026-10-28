@@ -80,12 +80,12 @@ def catmull(pts, w):
 
 
 # ---------------------------------------------------------------- sky
-def moon(cv, mx, my, R, seed=5):
+def moon(cv, mx, my, R, seed=5, ramp_names=('blood1', 'blood2', 'blood3', 'blood4', 'blood5', 'blood6')):
     """The blood moon painted by hand: a flat disc with a darker rim and a bright
     lower edge, big soft seas with a shadowed edge, a handful of small craters
-    and a few bright strokes along the limb."""
+    and a few bright strokes along the limb (in another ramp for another moon)."""
     rng = np.random.RandomState(seed)
-    ramp = [PAL[c] for c in ('blood1', 'blood2', 'blood3', 'blood4', 'blood5', 'blood6')]
+    ramp = [PAL[c] for c in ramp_names]
     n = int(R) + 2
     yy, xx = np.mgrid[-n:n + 1, -n:n + 1].astype(float)
     nx, ny = (xx + 0.5) / R, (yy + 0.5) / R

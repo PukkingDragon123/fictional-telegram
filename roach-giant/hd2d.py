@@ -148,13 +148,15 @@ class GBuf:
         self.att = np.zeros((h, w), np.float32)
         self.aux = np.zeros((h, w), np.float32)
         self.uv = np.zeros((h, w, 2), np.float32)
+        self.alb = np.zeros((h, w, 3), np.float32)
+        self.ao = np.ones((h, w), np.float32)
 
     def bufs(self):
         return self.depth, self.nrm, self.mat, self.oid, self.var, self.att, self.aux
 
     def copy(self):
         g = GBuf.__new__(GBuf)
-        for k in ('depth', 'nrm', 'mat', 'oid', 'var', 'att', 'aux', 'uv'):
+        for k in ('depth', 'nrm', 'mat', 'oid', 'var', 'att', 'aux', 'uv', 'alb', 'ao'):
             setattr(g, k, getattr(self, k).copy())
         return g
 
@@ -284,7 +286,8 @@ def draw_tris(g, cam, v, f, vn, va, fmat, foid, fvar, faux=None, near=0.2):
 
 # ---------------------------------------------------------------- capsules
 @njit(cache=True, fastmath=True)
-def _capsules(eye, R, focal, A, B, rad, bbox, pmat, poid, pvar, paux, a0, a1, depth, nrm, mat, oid, var, att, aux):
+def _capsules(eye, R, focal, A, B, rad, bbox, pmat, poid, pvar, paux, a0, a1, pao, depth, nrm, mat, oid, var, att, aux,
+              ao):
     Hd, Wd = depth.shape
     ox, oy, oz = eye[0], eye[1], eye[2]
     for i in range(A.shape[0]):
@@ -342,6 +345,7 @@ def _capsules(eye, R, focal, A, B, rad, bbox, pmat, poid, pvar, paux, a0, a1, de
                 oid[py, px] = poid[i]
                 var[py, px] = pvar[i]
                 aux[py, px] = paux[i]
+                ao[py, px] = pao[i]
                 att[py, px] = a0[i] + (a1[i] - a0[i]) * hh
 
 
@@ -370,7 +374,7 @@ def min_radius(cam, P, r, px=0.6):
     return np.maximum(r, px * 0.5 * d / cam.focal)
 
 
-def draw_capsules(g, cam, A, B, r, mat, oid, var, a0=None, a1=None, widen=True, aux=0.0):
+def draw_capsules(g, cam, A, B, r, mat, oid, var, a0=None, a1=None, widen=True, aux=0.0, ao=1.0):
     n = len(A)
     if not n:
         return
@@ -390,13 +394,13 @@ def draw_capsules(g, cam, A, B, r, mat, oid, var, a0=None, a1=None, widen=True, 
     a1 = a0 if a1 is None else a1
     _capsules(*cam_args(cam), np.ascontiguousarray(A[keep]), np.ascontiguousarray(B[keep]), r[keep], bb[keep],
               f(mat, np.int16), f(oid, np.int32), f(var, np.float32), f(aux, np.float32), f(a0, np.float32),
-              f(a1, np.float32), *g.bufs())
+              f(a1, np.float32), f(ao, np.float32), *g.bufs(), g.ao)
 
 
 # ---------------------------------------------------------------- ellipsoids
 @njit(cache=True, fastmath=True)
-def _ellipsoids(eye, R, focal, C, M, bbox, pmat, poid, pvar, paux, leaf, ssx, ssy, srs, depth, nrm, mat, oid, var,
-                att, aux, uv):
+def _ellipsoids(eye, R, focal, C, M, bbox, pmat, poid, pvar, paux, leaf, ssx, ssy, srs, pao, depth, nrm, mat, oid, var,
+                att, aux, uv, ao):
     Hd, Wd = depth.shape
     for i in range(C.shape[0]):
         bx0, bx1, by0, by1 = bbox[i, 0], bbox[i, 1], bbox[i, 2], bbox[i, 3]
@@ -454,6 +458,7 @@ def _ellipsoids(eye, R, focal, C, M, bbox, pmat, poid, pvar, paux, leaf, ssx, ss
                 oid[py, px] = poid[i]
                 var[py, px] = pvar[i]
                 aux[py, px] = paux[i]
+                ao[py, px] = pao[i]
                 att[py, px] = at
                 uv[py, px, 0] = px_
                 uv[py, px, 1] = pz_
@@ -471,7 +476,7 @@ def ell_matrix(radii, Rm=None):
     return np.einsum('ni,nji->nij', 1 / radii, Rm)
 
 
-def draw_ellipsoids(g, cam, C, radii, mat, oid, var, leaf=None, Rm=None, widen=True, aux=0.0):
+def draw_ellipsoids(g, cam, C, radii, mat, oid, var, leaf=None, Rm=None, widen=True, aux=0.0, ao=1.0):
     n = len(C)
     if not n:
         return
@@ -491,7 +496,7 @@ def draw_ellipsoids(g, cam, C, radii, mat, oid, var, leaf=None, Rm=None, widen=T
     _ellipsoids(*cam_args(cam), np.ascontiguousarray(C[keep]), np.ascontiguousarray(M[keep]), bb[keep],
                 f(mat, np.int16), f(oid, np.int32), f(var, np.float32), f(aux, np.float32),
                 f(-1.0 if leaf is None else leaf, np.float32), f(sx, np.float64), f(sy, np.float64),
-                f(rs, np.float64), *g.bufs(), g.uv)
+                f(rs, np.float64), f(ao, np.float32), *g.bufs(), g.uv, g.ao)
 
 
 # ---------------------------------------------------------------- shadow maps

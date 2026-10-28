@@ -11,16 +11,23 @@ the moon to blood.
 Colours are BGR floats 0..255.
 """
 import math
+import os
+import sys
 
 import cv2
 import numpy as np
 from numba import njit
 
 import hd2d as K
-from terrain import Land, WATER, LAKE, lake_e
+from terrain import Land, WATER, LAKE, lake_e, PADDY, in_paddies
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, '..', 'gaki-rampage'))
+sys.path.insert(0, os.path.join(HERE, '..', 'teahouse-assets', 'generator'))
 
 # materials
-SKY, LAND, WATERM, BARK, LEAF, GRASS, PETAL, STEM, CORE, EYE, CRACK, ROCK, ROACH, MOUTH = range(14)
+SKY, LAND, WATERM, BARK, LEAF, GRASS, PETAL, STEM, CORE, EYE, CRACK, ROCK, ROACH, MOUTH, SPRITE, SKIN, TOOTH, LIP, DIKE, \
+    EYEBALL = range(20)
 
 
 def rgb(*c):
@@ -130,6 +137,7 @@ class Sky:
         return img
 
     def moon_disc(self, img, cam, look):
+        """The full moon: seas, craters and rays, cut into the moon's ramp."""
         m = look['moon']
         x, y, z = cam.project((cam.eye + m * 1e5)[None])
         if z[0] <= 0:
@@ -198,8 +206,13 @@ class World:
         a = np.linspace(0, 2 * math.pi, n, endpoint=False)
         ring = np.stack([cx + np.cos(a) * rx * 1.5, np.full(n, WATER), cz + np.sin(a) * rz * 1.5], 1)
         v = np.vstack([[cx, WATER, cz], ring])
-        f = np.array([[0, 1 + i, 1 + (i + 1) % n] for i in range(n)], np.int32)
-        return v, f
+        f = [[0, 1 + i, 1 + (i + 1) % n] for i in range(n)]
+        x0, x1, z0, z1 = PADDY                          # and the rice fields
+        b = len(v)
+        v = np.vstack([v, [[x0 - 6, WATER, z0 - 6], [x1 + 6, WATER, z0 - 6], [x1 + 6, WATER, z1 + 6],
+                           [x0 - 6, WATER, z1 + 6]]])
+        f += [[b, b + 1, b + 2], [b, b + 2, b + 3]]
+        return v, np.array(f, np.int32)
 
     # -------------------------------------------------------------- shadows
     def shadows(self, statics=()):
@@ -360,6 +373,12 @@ class World:
             ao = np.clip(1 + det * 0.5, 0.6, 1.2)
             amb_k[L] = ao
             ctx['_land_kind'] = (meadow, ffloor, canopy, rock, snow, shore)
+        S = mat == SPRITE                         # the pack's sprites: their own colours, the moon's rim on top edges
+        if S.any():
+            alb[S] = g.alb[idx][S]
+            wrap[S] = 0.5
+            amb_k[S] = 1.0
+            ibias[S] = np.where(att[S] > 0.5, 0.32, 0.0)
         mats = dict(MATERIALS)
         mats.update(ctx.get('materials', {}))
         for mm, fn in mats.items():
@@ -374,17 +393,29 @@ class World:
                 rim_k[S] = rk
         # -- light
         md = look['key']
+        lf = mat == LEAF
+        aob = g.ao[idx]
+        if lf.any():                                   # each leaf turned its own way
+            j = att[lf]
+            jit = np.stack([np.cos(j * 37.0), np.sin(j * 53.0) * 0.6 + 0.2, np.cos(j * 71.0)], 1) * (j > 0)[:, None]
+            q = n[lf] + jit * 0.6
+            n[lf] = q / np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-9)
+        deep = np.isin(mat, (LEAF, BARK, CORE, SKIN, LIP, TOOTH, EYEBALL))
+        amb_k = np.where(deep, amb_k * aob, amb_k)
         ndl = (n @ md)
         sh = self.lit(Pm + n * (0.2 + foot[:, None] * 1.5), ctx.get('dyn_shadow'))
         direct = np.clip((ndl + wrap) / (1 + wrap), 0, 1) * sh
+        direct = np.where(lf, direct * (0.45 + 0.55 * aob), direct)
+        trans = np.where(lf, np.clip((rd[idx] @ md), 0, 1) ** 2 * sh * 0.4 * aob, 0)
         sky_amb = (0.55 + 0.45 * n[:, 1]) * amb_k
         Hh = (V + md)
         Hh /= np.linalg.norm(Hh, axis=1, keepdims=True)
         sp = np.clip((n * Hh).sum(1), 0, 1) ** 24 * spec * sh
         nv = np.abs((n * V).sum(1))
         rim = (1 - nv) ** 3 * np.clip(n @ look['moon'] + 0.35, 0, 1) * rim_k
-        I = np.clip(direct * look['direct'] + sky_amb * look['ambient'] + sp + rim * look.get('rim', 0.6) + ibias, 0,
-                    1.4)
+        fill = np.where(mat == LAND, 0.0, np.clip(nv, 0, 1) * look.get('fill', 0.16))   # soft light from the camera
+        I = np.clip(direct * look['direct'] + sky_amb * look['ambient'] + sp + rim * look.get('rim', 0.6) + ibias + trans +
+                    fill, 0, 1.4)
         nb = look['bands']
         b = np.clip(np.floor(I / 1.4 * (nb - 1) + 0.5 + (dith - 0.5) * 0.75), 0, nb - 1).astype(np.int32)
         lc = look['light'][b]                                      # light colour of each band
@@ -446,6 +477,31 @@ class World:
         c[glint] = look['glint']
         dead = ctx['dead'](X, Z) if 'dead' in ctx else np.zeros(len(X))
         c = c * (1 - dead[:, None] * 0.5) + look['dead_water'] * dead[:, None] * 0.5
+        rip = ctx.get('ripples')                          # rings where they come up out of the water
+        if rip is not None and len(rip):
+            near = np.zeros(len(X), bool)
+            for (rx, rz, age, sz) in rip:
+                r = age * (0.4 + 1.6 * sz)
+                dd = np.abs(np.hypot(X - rx, Z - rz) - r)
+                near |= dd < (0.03 + 0.08 * sz) * (1 + r)
+            c[near] = c[near] * 0.7 + look['glint'] * 0.22
+        pad = in_paddies(X, Z) & (dist > ctx.get('rice_near', 0.0))
+        if pad.any():
+            foot = dist[pad] / cam.focal
+            u = (X[pad] - PADDY[0]) / 0.6
+            v = (Z[pad] - PADDY[2]) / 0.45
+            du = np.abs(u - np.floor(u) - 0.5)
+            dv = np.abs(v - np.floor(v) - 0.5)
+            hard = ((du < 0.16) & (dv < 0.3)).astype(float)
+            soft = 0.19
+            k = np.clip((foot - 0.15) / 0.5, 0, 1)
+            cov = hard * (1 - k) + soft * k
+            dd = dead[pad][:, None]
+            green = rgb(50, 88, 46) * (1 - dd) + rgb(82, 70, 50) * dd
+            bb = K.BAYER[idx[0][pad] % 4, idx[1][pad] % 4]
+            on = (cov > bb * 0.95)[:, None]
+            lit = 0.55 + 0.45 * np.clip(-rd[idx][pad][:, 1] * 3, 0, 1)
+            c[pad] = np.where(on, green * lit[:, None] * look['light'][2] * 1.6, c[pad])
         return c
 
     def fog(self, img, depth, P, rd, cam, look, solid):
@@ -476,7 +532,8 @@ def _leaf(P, n, var, att, aux, dith, t, uv=None):
     from flora import LEAF_COL, LEAF_DEAD, LEAF_ASH, SPECIES
     sp = np.clip(var.astype(int), 0, 3)
     vr = var - sp
-    tone = np.clip((att * 2.6 + (vr - 0.5) * 0.8).astype(int), 0, 2)
+    tone = np.where(att > 0, np.clip((att * 2.6 + (vr - 0.5) * 0.8).astype(int), 0, 2),
+                    np.clip((vr * 2.99).astype(int), 0, 2))
     alb = np.zeros((len(var), 3), np.float32)
     for k, name in enumerate(SPECIES):
         S = sp == k
@@ -574,8 +631,36 @@ def _core(P, n, var, att, aux, dith, t, uv=None):
     return np.tile(rgb(34, 22, 20) / 255, (len(P), 1)), 0.0, 0.6, 0.6, -0.05, 0.9
 
 
+def _skin(P, n, var, att, aux, dith, t, uv=None):
+    """Pale skin, a little waxy, the light soaking into it."""
+    return np.tile(rgb(214, 210, 204) / 255, (len(P), 1)), 0.35, 1.0, 0.12, 0.0, 1.3
+
+
+def _tooth(P, n, var, att, aux, dith, t, uv=None):
+    return np.tile(rgb(234, 222, 190) / 255, (len(P), 1)), 0.2, 1.0, 0.5, 0.05, 0.6
+
+
+def _lip(P, n, var, att, aux, dith, t, uv=None):
+    return np.tile(rgb(150, 100, 108) / 255, (len(P), 1)), 0.3, 1.0, 0.3, 0.0, 0.8
+
+
+def _dike(P, n, var, att, aux, dith, t, uv=None):
+    """The banks between the rice fields: packed earth under grass, grainy close up."""
+    k = (np.floor(P[:, 0] * 1.7) + np.floor(P[:, 2] * 1.3) + np.floor(P[:, 1] * 3)) % 3
+    fine = (np.floor(P[:, 0] * 160) * 7 + np.floor(P[:, 2] * 160) * 13 + np.floor(P[:, 1] * 160) * 5) % 5
+    k = np.where(fine == 0, (k + 1) % 3, k)
+    alive = _ramp3([(46, 66, 40), (58, 78, 44), (70, 70, 46)])[k.astype(int)]
+    deadc = _ramp3([(78, 68, 54), (92, 80, 62), (66, 60, 52)])[k.astype(int)]
+    a = np.where((aux * 1.6 > dith)[:, None], deadc, alive)
+    return a, 0.25, 0.9, 0.0, 0.0, 0.3
+
+
+def _eyeball(P, n, var, att, aux, dith, t, uv=None):
+    return np.tile(rgb(46, 14, 18) / 255, (len(P), 1)), 0.0, 0.7, 1.4, 0.0, 0.4
+
+
 MATERIALS = {LEAF: _leaf, BARK: _bark, GRASS: _grass, PETAL: _petal, STEM: _stem, ROCK: _rock, ROACH: _roach,
-             CORE: _core}
+             CORE: _core, SKIN: _skin, TOOTH: _tooth, LIP: _lip, DIKE: _dike, EYEBALL: _eyeball}
 
 
 def _eye(P, var, att, aux, t, band, uv=None):

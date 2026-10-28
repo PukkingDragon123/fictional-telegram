@@ -37,20 +37,22 @@ def _perp(d, ang):
 
 
 class Shape:
-    """One tree in its own frame (y up, base at 0): segments and clumps."""
+    """One tree in its own frame (y up, base at 0): segments, leaf clumps (each
+    with a yaw, so sprays can lie along their branch) and, later, its leaves."""
 
     def __init__(self):
         self.A, self.B, self.r = [], [], []
-        self.C, self.R = [], []
+        self.C, self.R, self.Y = [], [], []
 
     def seg(self, a, b, r):
         self.A.append(np.array(a, float))
         self.B.append(np.array(b, float))
         self.r.append(float(r))
 
-    def clump(self, c, rx, ry=None, rz=None):
+    def clump(self, c, rx, ry=None, rz=None, yaw=0.0):
         self.C.append(np.array(c, float))
         self.R.append((rx, rx if ry is None else ry, rx if rz is None else rz))
+        self.Y.append(float(yaw))
 
     def limb(self, p, d, L, r0, r1, n, rng, bend=0.0, up=0.0):
         """A wobbly branch of n segments; returns the end and its direction."""
@@ -62,9 +64,16 @@ class Shape:
             p = q
         return p, d
 
+    def roots(self, r0, rng, n=5):
+        """The trunk flaring into roots as it meets the ground."""
+        for k in range(n):
+            a = 2 * math.pi * k / n + rng.uniform(-0.3, 0.3)
+            d = np.array([math.cos(a), -0.35, math.sin(a)])
+            self.seg([0, r0 * 1.6, 0], d * r0 * 3.2 + [0, r0 * 1.6, 0], r0 * 0.55)
+
     def arrays(self):
         return (np.array(self.A).reshape(-1, 3), np.array(self.B).reshape(-1, 3), np.array(self.r),
-                np.array(self.C).reshape(-1, 3), np.array(self.R).reshape(-1, 3))
+                np.array(self.C).reshape(-1, 3), np.array(self.R).reshape(-1, 3), np.array(self.Y))
 
 
 def grow(kind, H, seed):
@@ -72,121 +81,155 @@ def grow(kind, H, seed):
     s = Shape()
     if kind == 'sugi':
         r0 = 0.018 * H + 0.15
-        top = np.array([rng.normal(0, 0.015 * H), H, rng.normal(0, 0.015 * H)])
-        n = 7
-        pts = [top * k / n + np.r_[rng.normal(0, 0.08, 1), 0, rng.normal(0, 0.08, 1)] * (0 < k < n) for k in range(n + 1)]
+        top = np.array([rng.normal(0, 0.012 * H), H, rng.normal(0, 0.012 * H)])
+        n = 8
+        pts = [top * k / n + np.r_[rng.normal(0, 0.06, 1), 0, rng.normal(0, 0.06, 1)] * (0 < k < n) for k in range(n + 1)]
         for k in range(n):
             s.seg(pts[k], pts[k + 1], r0 * (1 - k / n) ** 0.8 + 0.04)
-        y = 0.24 * H
+        s.roots(r0, rng)
+        y = 0.22 * H
         while y < 0.97 * H:
-            f = (y - 0.24 * H) / (0.73 * H)
+            f = (y - 0.22 * H) / (0.75 * H)
             p = top * y / H
-            L = (1 - f) ** 0.9 * 0.27 * H + 0.5
-            for j in range(rng.randint(3, 6)):
+            L = (1 - f) ** 0.85 * 0.28 * H + 0.6
+            for j in range(rng.randint(4, 7)):
                 a = rng.uniform(0, 2 * math.pi)
-                d = np.array([math.cos(a), -0.25 + 0.2 * rng.rand(), math.sin(a)])
-                e, _ = s.limb(p, d, L, r0 * 0.22 * (1 - f) + 0.03, 0.03, 2, rng, 0.08, 0.06)
-                rr = 0.42 * L + 0.55
-                s.clump(e * 0.8 + p * 0.2 + [0, 0.15 * rr, 0], rr, 0.62 * rr, rr)
-                s.clump(e * 0.45 + p * 0.55 + [0, 0.2 * rr, 0], rr * 0.9, 0.6 * rr, rr * 0.9)
-            y += H / rng.uniform(11, 14)
-        s.clump(top - [0, 0.6, 0], 0.9 + 0.02 * H, 1.4 + 0.03 * H, 0.9 + 0.02 * H)
+                d = np.array([math.cos(a), -0.3 + 0.15 * rng.rand(), math.sin(a)])
+                e, _ = s.limb(p, d, L, r0 * 0.2 * (1 - f) + 0.03, 0.03, 3, rng, 0.06, 0.1)
+                for k in range(3):                                 # a drooping spray along the branch
+                    u = 0.35 + 0.3 * k
+                    c = p + (e - p) * u + [0, 0.08 * L - 0.12 * L * u * u, 0]
+                    rr = (0.22 + 0.12 * (1 - u)) * L + 0.35
+                    s.clump(c, rr, 0.38 * rr, 0.6 * rr, yaw=-a)
+            y += H / rng.uniform(12, 15)
+        for k in range(3):
+            s.clump(top - [0, 0.5 + k * 0.9, 0], 0.7 + 0.015 * H, 1.1 + 0.02 * H, 0.7 + 0.015 * H)
     elif kind == 'keyaki':
         r0 = 0.03 * H + 0.12
-        h0 = H * rng.uniform(0.28, 0.38)
-        base = np.zeros(3)
-        p, _ = s.limb(base, [0, 1, 0], h0, r0, r0 * 0.8, 3, rng, 0.03)
+        h0 = H * rng.uniform(0.26, 0.34)
+        p, _ = s.limb(np.zeros(3), [0, 1, 0], h0, r0, r0 * 0.8, 3, rng, 0.03)
+        s.roots(r0, rng)
         nl = rng.randint(4, 6)
         for j in range(nl):
             a = 2 * math.pi * j / nl + rng.normal(0, 0.3)
-            tilt = rng.uniform(0.35, 0.6)
+            tilt = rng.uniform(0.32, 0.58)
             d = np.array([math.sin(tilt) * math.cos(a), math.cos(tilt), math.sin(tilt) * math.sin(a)])
-            e, d2 = s.limb(p, d, (H - h0) * rng.uniform(0.5, 0.65), r0 * 0.5, r0 * 0.22, 3, rng, 0.08, 0.04)
-            for k in range(rng.randint(2, 4)):
-                dd = _unit(d2 + _perp(d2, rng.uniform(0, 6.3)) * 0.8 + [0, 0.2, 0])
-                e2, _ = s.limb(e, dd, (H - h0) * rng.uniform(0.22, 0.34), r0 * 0.18, 0.04, 2, rng, 0.15)
-                rr = H * rng.uniform(0.11, 0.15)
-                s.clump(e2 + [0, rr * 0.2, 0], rr, rr * 0.8, rr)
-            rr = H * 0.12
-            s.clump(e + [0, rr * 0.3, 0], rr, rr * 0.85, rr)
-        for k in range(5):
-            c = np.array([rng.normal(0, 0.12 * H), H * rng.uniform(0.62, 0.85), rng.normal(0, 0.12 * H)])
-            s.clump(c, H * 0.14, H * 0.11, H * 0.14)
+            e, d2 = s.limb(p, d, (H - h0) * rng.uniform(0.48, 0.62), r0 * 0.5, r0 * 0.22, 3, rng, 0.08, 0.04)
+            for k in range(rng.randint(3, 5)):
+                dd = _unit(d2 + _perp(d2, rng.uniform(0, 6.3)) * 0.9 + [0, 0.15, 0])
+                e2, d3 = s.limb(e, dd, (H - h0) * rng.uniform(0.2, 0.32), r0 * 0.16, 0.05, 2, rng, 0.15)
+                for m in range(rng.randint(2, 4)):                 # twigs, each ending in leaves
+                    d4 = _unit(d3 + _perp(d3, rng.uniform(0, 6.3)) * 1.0)
+                    e3, _ = s.limb(e2, d4, H * rng.uniform(0.05, 0.09), 0.05, 0.025, 1, rng, 0.2)
+                    rr = H * rng.uniform(0.06, 0.085)
+                    s.clump(e3 + [0, rr * 0.25, 0], rr, rr * 0.75, rr, yaw=rng.uniform(0, 6.3))
+        for k in range(10):
+            c = np.array([rng.normal(0, 0.14 * H), H * rng.uniform(0.6, 0.9), rng.normal(0, 0.14 * H)])
+            s.clump(c, H * 0.08, H * 0.065, H * 0.08)
     elif kind == 'momiji':
         r0 = 0.03 * H + 0.08
-        h0 = H * rng.uniform(0.22, 0.3)
+        h0 = H * rng.uniform(0.2, 0.28)
         p, _ = s.limb(np.zeros(3), [rng.normal(0, 0.1), 1, rng.normal(0, 0.1)], h0, r0, r0 * 0.8, 2, rng, 0.05)
-        for j in range(rng.randint(5, 7)):
+        s.roots(r0, rng, 4)
+        for j in range(rng.randint(5, 8)):
             a = rng.uniform(0, 2 * math.pi)
-            tilt = rng.uniform(0.7, 1.05)
+            tilt = rng.uniform(0.75, 1.1)
             d = np.array([math.sin(tilt) * math.cos(a), math.cos(tilt), math.sin(tilt) * math.sin(a)])
-            e, d2 = s.limb(p, d, H * rng.uniform(0.4, 0.55), r0 * 0.45, 0.04, 3, rng, 0.12, 0.08)
-            for k in range(3):
-                rr = H * rng.uniform(0.12, 0.16)
-                c = p + (e - p) * (0.5 + 0.25 * k) + [0, rr * 0.4 + 0.08 * H * k, 0]
-                s.clump(c, rr, rr * 0.62, rr)
-        s.clump([0, H * 0.82, 0], H * 0.2, H * 0.14, H * 0.2)
+            e, d2 = s.limb(p, d, H * rng.uniform(0.38, 0.55), r0 * 0.45, 0.04, 3, rng, 0.12, 0.08)
+            for k in range(5):                                     # tiers of leaves along the limb
+                rr = H * rng.uniform(0.08, 0.11)
+                c = p + (e - p) * (0.3 + 0.17 * k) + [rng.normal(0, rr * 0.4), rr * 0.5 + 0.05 * H * k,
+                                                       rng.normal(0, rr * 0.4)]
+                s.clump(c, rr, rr * 0.5, rr, yaw=-a)
+        for k in range(4):
+            s.clump([rng.normal(0, 0.1 * H), H * rng.uniform(0.75, 0.9), rng.normal(0, 0.1 * H)], H * 0.12, H * 0.08,
+                    H * 0.12)
     else:   # matsu
         r0 = 0.032 * H + 0.15
         lean = rng.uniform(0, 2 * math.pi)
         ld = np.array([math.cos(lean), 0, math.sin(lean)])
         pts = [np.zeros(3)]
-        for k in range(1, 8):
-            f = k / 7
+        for k in range(1, 9):
+            f = k / 8
             off = ld * (0.32 * H * math.sin(f * 2.4)) + _perp(np.array([0, 1.0, 0]), lean + 1.6) * 0.08 * H * \
                 math.sin(f * 5.0)
             pts.append(np.array([0, f * H * 0.92, 0]) + off)
-        for k in range(7):
-            s.seg(pts[k], pts[k + 1], r0 * (1 - k / 8) ** 0.7 + 0.05)
-        for j in range(rng.randint(5, 8)):
-            f = rng.uniform(0.38, 0.95)
-            p = pts[int(f * 7)] + (pts[min(7, int(f * 7) + 1)] - pts[int(f * 7)]) * (f * 7 % 1)
+        for k in range(8):
+            s.seg(pts[k], pts[k + 1], r0 * (1 - k / 9) ** 0.7 + 0.05)
+        s.roots(r0, rng)
+        for j in range(rng.randint(6, 9)):
+            f = rng.uniform(0.35, 0.95)
+            i0 = int(f * 8)
+            p = pts[i0] + (pts[min(8, i0 + 1)] - pts[i0]) * (f * 8 % 1)
             a = rng.uniform(0, 2 * math.pi)
             d = np.array([math.cos(a), rng.uniform(-0.15, 0.25), math.sin(a)])
             L = H * rng.uniform(0.2, 0.42) * (1.25 - f * 0.6)
-            e, _ = s.limb(p, d, L, r0 * 0.3, 0.05, 3, rng, 0.18, -0.02)
-            pr = H * rng.uniform(0.09, 0.13)                       # a flat cloud of needles
-            for k in range(rng.randint(3, 6)):
-                o = np.array([rng.normal(0, pr * 0.6), rng.normal(0.15, 0.08) * pr, rng.normal(0, pr * 0.6)])
-                s.clump(e + o, pr * rng.uniform(0.75, 1.05), pr * 0.36, pr * rng.uniform(0.75, 1.05))
+            e, d2 = s.limb(p, d, L, r0 * 0.3, 0.05, 3, rng, 0.18, -0.02)
+            pr = H * rng.uniform(0.09, 0.13)                       # a flat cloud of needles, built of tufts
+            for k in range(rng.randint(7, 12)):
+                o = np.array([rng.normal(0, pr * 0.55), rng.normal(0.1, 0.08) * pr, rng.normal(0, pr * 0.55)])
+                rr = pr * rng.uniform(0.35, 0.55)
+                s.clump(e + o, rr, rr * 0.45, rr, yaw=rng.uniform(0, 6.3))
+            for k in range(2):                                     # side twigs to the pad
+                d3 = _unit(d2 + _perp(d2, rng.uniform(0, 6.3)) * 0.8)
+                s.limb(e - d2 * L * 0.25, d3, pr * 0.8, 0.08, 0.04, 1, rng)
         top = pts[-1]
         pr = H * 0.12
-        for k in range(4):
-            s.clump(top + [rng.normal(0, pr * 0.5), pr * 0.2, rng.normal(0, pr * 0.5)], pr, pr * 0.4, pr)
+        for k in range(8):
+            rr = pr * rng.uniform(0.35, 0.55)
+            s.clump(top + [rng.normal(0, pr * 0.5), pr * 0.15, rng.normal(0, pr * 0.5)], rr, rr * 0.45, rr,
+                    yaw=rng.uniform(0, 6.3))
     return s.arrays()
 
 
-def impostor(kind, H, A, C, R):
-    """A cheap stand-in: a trunk and the crown as a few clumps."""
-    lo = C.min(0) - R.max() * 0.4
-    hi = C.max(0) + R.max() * 0.4
-    mid = (lo + hi) / 2
-    ext = (hi - lo) / 2
-    if kind == 'sugi':
-        cl = [(mid + [0, -ext[1] * 0.55, 0], (ext[0] * 0.9, ext[1] * 0.4, ext[2] * 0.9)),
-              (mid + [0, -ext[1] * 0.1, 0], (ext[0] * 0.75, ext[1] * 0.38, ext[2] * 0.75)),
-              (mid + [0, ext[1] * 0.35, 0], (ext[0] * 0.52, ext[1] * 0.34, ext[2] * 0.52)),
-              (mid + [0, ext[1] * 0.75, 0], (ext[0] * 0.28, ext[1] * 0.28, ext[2] * 0.28))]
-    elif kind == 'matsu':
-        cl = [(C[i], R[i] * 1.4) for i in np.argsort(-R[:, 0])[:6]]
-    else:
-        e = ext * [1.0, 0.9, 1.0]
-        cl = [(mid + [0, -e[1] * 0.25, 0], e * [0.85, 0.6, 0.85])]
-        for k in range(4):
-            a = k * 1.5708 + 0.4
-            cl.append((mid + [math.cos(a) * e[0] * 0.42, e[1] * 0.05, math.sin(a) * e[2] * 0.42], e * [0.55, 0.6, 0.55]))
-        cl.append((mid + [0, e[1] * 0.45, 0], e * [0.55, 0.45, 0.55]))
-    return np.array([c for c, _ in cl]), np.array([r for _, r in cl], float)
+LEAF_SIZE = dict(sugi=(0.55, (1.0, 0.18, 0.38)), keyaki=(0.42, (1.0, 0.1, 0.72)), momiji=(0.4, (1.0, 0.1, 0.9)),
+                 matsu=(0.5, (1.0, 0.25, 0.32)))
+
+
+def leaves(kind, C, R, Y, rng, density=1.0):
+    """Leaves inside each clump: mostly near its surface, each turned its own
+    way (outward, with a scatter), with how deep in the crown it sits."""
+    s, shape = LEAF_SIZE[kind]
+    P, Rm, sz, ao, cl = [], [], [], [], []
+    centre = C.mean(0)
+    crown = np.linalg.norm(C - centre, axis=1).max() + R.max()
+    for i, (c, r, yaw) in enumerate(zip(C, R, Y)):
+        area = 4 * (r[0] * r[2] + r[0] * r[1] + r[1] * r[2])
+        n = int(np.clip(area / (s * s * 0.32) * density, 12, 160))
+        d = rng.normal(size=(n, 3))
+        d /= np.linalg.norm(d, axis=1, keepdims=True)
+        rr = 0.55 + 0.45 * rng.rand(n) ** 0.5
+        cy, sy = math.cos(yaw), math.sin(yaw)
+        Ry = np.array([[cy, 0, -sy], [0, 1, 0], [sy, 0, cy]])
+        loc = d * np.array(r) * rr[:, None]
+        p = c + loc @ Ry.T
+        nrm = _n_arr((d / np.array(r)) @ Ry.T + rng.normal(0, 0.55, (n, 3)) + np.array([0, 0.35, 0]))
+        # an orthonormal frame per leaf, its thin axis along the normal
+        t1 = _n_arr(np.cross(nrm, rng.normal(size=(n, 3))))
+        t2 = np.cross(nrm, t1)
+        Rm.append(np.stack([t1, nrm, t2], 2))
+        P.append(p)
+        sz.append(s * rng.uniform(0.75, 1.25, n))
+        depth = np.linalg.norm(p - centre, axis=1) / crown
+        ao.append(np.clip(0.3 + 0.75 * depth ** 1.3 + 0.15 * (rr - 0.75), 0.28, 1.0))
+        cl.append(np.full(n, i))
+    return (np.concatenate(P), np.concatenate(Rm), np.concatenate(sz), np.concatenate(ao), np.concatenate(cl),
+            np.array(shape))
+
+
+def _n_arr(v):
+    return v / np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-12)
 
 
 LEAF_COL = {   # alive leaf colours per species: (dark, mid, light) RGB
-    'sugi': [(26, 52, 46), (36, 68, 56), (52, 88, 66)],
-    'keyaki': [(40, 74, 40), (58, 98, 46), (84, 124, 56)],
+    'sugi': [(22, 46, 42), (32, 62, 52), (48, 82, 62)],
+    'keyaki': [(36, 66, 38), (54, 92, 44), (82, 120, 54)],
     'momiji': [(150, 36, 30), (196, 74, 34), (222, 150, 52)],
-    'matsu': [(30, 60, 44), (44, 80, 52), (66, 104, 62)],
+    'matsu': [(26, 54, 40), (40, 74, 48), (62, 98, 58)],
 }
 LEAF_DEAD = [(70, 58, 48), (92, 76, 58), (112, 96, 72)]
 LEAF_ASH = [(52, 50, 52), (70, 68, 68), (88, 86, 84)]
+H0 = dict(sugi=28.0, keyaki=18.0, momiji=9.0, matsu=16.0)
 
 
 def smooth(a, b, x):
@@ -195,114 +238,162 @@ def smooth(a, b, x):
 
 
 class Trees:
-    """All the trees of the valley, placed, with both their whole and cheap selves."""
+    """All the trees of the valley. A handful of shapes per kind, grown once,
+    scaled and turned for each tree; drawn three ways by how big they are on
+    screen: leaf by leaf, clump by clump, or as a few clumps on a stick."""
 
-    def __init__(self, land, spots, seed=1):
-        """spots: list of (x, z, kind, H)."""
+    def __init__(self, land, spots, seed=1, n_shapes=10):
         self.land = land
         r = np.random.RandomState(seed)
-        cache = {}
-        A, B, Rr, Ta, Hf_a = [], [], [], [], []
-        C, Rc, Tc, Hf_c = [], [], [], []
-        IC, IR, Ti = [], [], []
-        self.pos, self.H, self.kind, self.phase, self.lag = [], [], [], [], []
+        self.shapes = []
+        key_of = {}
+        for k, kind in enumerate(SPECIES):
+            for j in range(n_shapes):
+                a, b, rr, c, rc, yw = grow(kind, H0[kind], k * 7919 + j * 31 + 5)
+                lv = leaves(kind, c, rc, yw, np.random.RandomState(k * 100 + j))
+                big = np.argsort(-(rc[:, 0] * rc[:, 1] * rc[:, 2]))
+                pick = big[:: max(1, len(big) // 9)][:9]
+                centre = c.mean(0)
+                crown = np.linalg.norm(c - centre, axis=1).max() + rc.max()
+                cao = np.clip(0.38 + 0.7 * (np.linalg.norm(c - centre, axis=1) / crown) ** 1.2, 0.35, 1.0)
+                key_of[(kind, j)] = len(self.shapes)
+                self.shapes.append(dict(kind=kind, A=a, B=b, r=rr, C=c, R=rc, Y=yw, leaves=lv, imp=pick, cao=cao))
+        n = len(spots)
+        self.pos = np.zeros((n, 3))
+        self.H = np.zeros(n)
+        self.kind = np.zeros(n, int)
+        self.shape = np.zeros(n, int)
+        self.rot = r.uniform(0, 2 * math.pi, n)
+        self.phase = r.uniform(0, 6.3, n)
+        self.lag = r.uniform(0.2, 1.6, n)
         for i, (x, z, kind, Ht) in enumerate(spots):
-            key = (kind, int(Ht * 2), (i * 7) % 23)
-            if key not in cache:
-                a, b, rr, c, rc = grow(kind, int(Ht * 2) / 2, SPECIES.index(kind) * 7919 + key[1] * 31 + key[2])
-                ic, ir = impostor(kind, Ht, a, c, rc)
-                cache[key] = (a, b, rr, c, rc, ic, ir)
-            a, b, rr, c, rc, ic, ir = cache[key]
             y = float(land.height(np.array([x]), np.array([z]))[0])
-            ang = r.uniform(0, 2 * math.pi)
-            ca, sa = math.cos(ang), math.sin(ang)
-            Rot = np.array([[ca, 0, -sa], [0, 1, 0], [sa, 0, ca]])
-            base = np.array([x, y - 0.3, z])
-            A.append(a @ Rot.T + base)
-            B.append(b @ Rot.T + base)
-            Rr.append(rr)
-            Ta.append(np.full(len(a), i))
-            Hf_a.append(np.maximum(b[:, 1], 0) / Ht)
-            C.append(c @ Rot.T + base)
-            Rc.append(rc)
-            Tc.append(np.full(len(c), i))
-            Hf_c.append(np.clip(c[:, 1] / Ht, 0, 1.2))
-            IC.append(ic @ Rot.T + base)
-            IR.append(ir)
-            Ti.append(np.full(len(ic), i))
-            self.pos.append(base)
-            self.H.append(Ht)
-            self.kind.append(SPECIES.index(kind))
-            self.phase.append(r.uniform(0, 6.3))
-            self.lag.append(r.uniform(0.2, 1.6))
+            self.pos[i] = (x, y - 0.3, z)
+            self.H[i] = Ht
+            self.kind[i] = SPECIES.index(kind)
+            self.shape[i] = key_of[(kind, r.randint(n_shapes))]
+        self.scale = self.H / np.array([H0[SPECIES[k]] for k in self.kind])
+        # every clump and limb of every tree, placed (for the middle distance and the shadows)
+        A, B, Rr, Ta, Hfa, C, Rc, Rm, Tc, Hfc, Cao, IC, IR, IRm, Ti = ([] for _ in range(15))
+        for i in range(n):
+            sh = self.shapes[self.shape[i]]
+            Rot = self._rot(self.rot[i])
+            s = self.scale[i]
+            A.append(sh['A'] * s @ Rot.T + self.pos[i])
+            B.append(sh['B'] * s @ Rot.T + self.pos[i])
+            Rr.append(sh['r'] * s)
+            Ta.append(np.full(len(sh['A']), i))
+            Hfa.append(np.maximum(sh['B'][:, 1], 0) / H0[sh['kind']])
+            C.append(sh['C'] * s @ Rot.T + self.pos[i])
+            Rc.append(sh['R'] * s)
+            Rm.append(np.einsum('ij,njk->nik', Rot, np.stack([self._rot(y) for y in sh['Y']])))
+            Tc.append(np.full(len(sh['C']), i))
+            Hfc.append(np.clip(sh['C'][:, 1] / H0[sh['kind']], 0, 1.2))
+            Cao.append(sh['cao'])
+            p = sh['imp']
+            IC.append(sh['C'][p] * s @ Rot.T + self.pos[i])
+            IR.append(sh['R'][p] * s * 1.45)
+            IRm.append(np.einsum('ij,njk->nik', Rot, np.stack([self._rot(y) for y in sh['Y'][p]])))
+            Ti.append(np.full(len(p), i))
         cat = np.concatenate
-        self.A, self.B, self.Rr, self.Ta, self.Hfa = cat(A), cat(B), cat(Rr), cat(Ta), cat(Hf_a)
-        self.C, self.Rc, self.Tc, self.Hfc = cat(C), cat(Rc), cat(Tc), cat(Hf_c)
-        self.IC, self.IR, self.Ti = cat(IC), cat(IR), cat(Ti)
-        self.pos = np.array(self.pos)
-        self.H = np.array(self.H)
-        self.kind = np.array(self.kind)
-        self.phase = np.array(self.phase)
-        self.lag = np.array(self.lag)
+        self.A, self.B, self.Rr, self.Ta, self.Hfa = cat(A), cat(B), cat(Rr), cat(Ta), cat(Hfa)
+        self.C, self.Rc, self.Rm, self.Tc, self.Hfc, self.Cao = cat(C), cat(Rc), cat(Rm), cat(Tc), cat(Hfc), cat(Cao)
+        self.IC, self.IR, self.IRm, self.Ti = cat(IC), cat(IR), cat(IRm), cat(Ti)
         self.cvar = r.rand(len(self.C)).astype(np.float32)
         self.ivar = r.rand(len(self.IC)).astype(np.float32)
-        self.n = len(self.pos)
-        self.oid_c = (1000000 + np.arange(len(self.C))).astype(np.int32)
-        self.oid_i = (3000000 + np.arange(len(self.IC))).astype(np.int32)
-        self.oid_t = (100000 + self.Ta).astype(np.int32)
-        self.override = {}          # tree index -> fn(t) giving (dead, extra offset for clumps)
+        self.n = n
+        self.override = {}          # tree index -> fn(t) giving how dead it is
+        self.tilt = None            # fn(t) -> per-tree lean (footstep shakes, the pine's fall), radians
+        self.tilt_axis = np.stack([np.cos(self.rot + 1.0), np.zeros(n), np.sin(self.rot + 1.0)], 1)
+
+    @staticmethod
+    def _rot(a):
+        ca, sa = math.cos(a), math.sin(a)
+        return np.array([[ca, 0, -sa], [0, 1, 0], [sa, 0, ca]])
 
     def deadness(self, t, dead_at):
-        if dead_at is None:
-            return np.zeros(self.n)
-        return np.clip(dead_at(self.pos[:, 0], self.pos[:, 2], t - self.lag), 0, 1)
+        d = np.zeros(self.n) if dead_at is None else np.clip(dead_at(self.pos[:, 0], self.pos[:, 2], t - self.lag),
+                                                              0, 1)
+        for i, fn in self.override.items():
+            d[i] = fn(t)
+        return d
 
-    def draw(self, g, cam, t, dead_at=None, shadow=False, wind=1.0, full_px=30):
+    def _bend(self, P, ti, hf, sway, lean):
+        """Wind sway (more toward the top), and any lean of the whole tree about its foot."""
+        wdir = np.array([0.9, 0, 0.43])
+        out = P + (sway[ti] * hf ** 2)[:, None] * wdir
+        if lean is not None:
+            L = lean[ti]
+            if np.any(L != 0):
+                rel = out - self.pos[ti]
+                ax = self.tilt_axis[ti]
+                c, s = np.cos(L)[:, None], np.sin(L)[:, None]
+                rel = rel * c + np.cross(ax, rel) * s + ax * (ax * rel).sum(1, keepdims=True) * (1 - c)
+                out = self.pos[ti] + rel
+        return out
+
+    def draw(self, g, cam, t, dead_at=None, shadow=False, wind=1.0, leaf_px=75, clump_px=22):
         d = np.linalg.norm(self.pos - cam.eye, axis=1)
         top = self.pos + np.c_[np.zeros(self.n), self.H * 0.6, np.zeros(self.n)]
         c = cam.to_cam(top)
-        rad = self.H * 0.7
+        rad = self.H * 0.75
         vis = c[:, 2] > -rad
-        lim_x = cam.W / 2 / cam.focal
-        lim_y = cam.H / 2 / cam.focal
         zz = np.maximum(c[:, 2], 1e-3)
-        vis &= np.abs(c[:, 0]) - rad < lim_x * zz + rad
-        vis &= np.abs(c[:, 1]) - rad < lim_y * zz + rad
+        vis &= np.abs(c[:, 0]) - rad < cam.W / 2 / cam.focal * zz + rad
+        vis &= np.abs(c[:, 1]) - rad < cam.H / 2 / cam.focal * zz + rad
         px = self.H * cam.focal / np.maximum(d, 1)
-        full = vis & ((px > full_px) | shadow)
-        imp = vis & ~full
+        if shadow:
+            mode = np.where(vis, 1, 0)
+        else:
+            mode = np.where(~vis, 0, np.where(px > leaf_px, 2, np.where(px > clump_px, 1, 3)))
         dead = self.deadness(t, dead_at)
-        for i, fn in self.override.items():
-            dead[i] = fn(t)
         sway = wind * 0.012 * self.H * np.sin(t * 0.9 + self.phase) + wind * 0.006 * self.H * np.sin(t * 2.3 +
                                                                                                     self.phase * 2)
-        wdir = np.array([0.9, 0, 0.43])
-        # whole trees: limbs, then leaves
-        ma = full[self.Ta]
+        lean = self.tilt(t) if self.tilt is not None else None
+        # limbs of every tree drawn whole or in clumps
+        ma = (mode[self.Ta] == 1) | (mode[self.Ta] == 2)
         if ma.any():
             ta = self.Ta[ma]
-            off = (sway[ta] * self.Hfa[ma] ** 2)[:, None] * wdir * 0.6
-            K.draw_capsules(g, cam, self.A[ma] + off * 0.7, self.B[ma] + off, self.Rr[ma], BARK, self.oid_t[ma],
-                            self.kind[ta].astype(np.float32), aux=dead[ta].astype(np.float32), widen=not shadow)
-        mc = full[self.Tc]
+            hfa = self.Hfa[ma]
+            K.draw_capsules(g, cam, self._bend(self.A[ma], ta, hfa * 0.8, sway, lean),
+                            self._bend(self.B[ma], ta, hfa, sway, lean), self.Rr[ma], BARK,
+                            (100000 + ta).astype(np.int32), self.kind[ta].astype(np.float32),
+                            aux=dead[ta].astype(np.float32), widen=not shadow, ao=0.85)
+        mc = mode[self.Tc] == 1
         if mc.any():
             tc = self.Tc[mc]
-            off = (sway[tc] * self.Hfc[mc] ** 2)[:, None] * wdir
             leaf = np.clip(dead[tc] * 1.05 - 0.05, 0, 0.97) if not shadow else np.clip(dead[tc] - 0.2, 0, 0.97)
-            K.draw_ellipsoids(g, cam, self.C[mc] + off, self.Rc[mc], LEAF, self.oid_c[mc],
-                              self.kind[tc] + self.cvar[mc] * 0.99, leaf=leaf.astype(np.float32),
-                              aux=dead[tc].astype(np.float32), widen=not shadow)
-        mi = imp[self.Ti]
+            K.draw_ellipsoids(g, cam, self._bend(self.C[mc], tc, self.Hfc[mc], sway, lean), self.Rc[mc], LEAF,
+                              (100000 + tc).astype(np.int32), self.kind[tc] + self.cvar[mc] * 0.99,
+                              leaf=leaf.astype(np.float32), aux=dead[tc].astype(np.float32), widen=not shadow,
+                              Rm=self.Rm[mc], ao=self.Cao[mc].astype(np.float32))
+        for i in np.where(mode == 2)[0]:                      # leaf by leaf
+            sh = self.shapes[self.shape[i]]
+            P, Rm, sz, ao, cl, shape = sh['leaves']
+            s = self.scale[i]
+            Rot = self._rot(self.rot[i])
+            hsh = (np.arange(len(P)) * 2654435761 % 1000) / 1000.0
+            keep = hsh >= dead[i] * 0.97
+            if not keep.any():
+                continue
+            Pw = P[keep] * s @ Rot.T + self.pos[i]
+            hf = np.clip(P[keep][:, 1] / H0[sh['kind']], 0, 1.2)
+            flutter = 0.06 * np.sin(t * 5 + hsh[keep] * 40)[:, None] * np.array([1, 0.4, 0.7])
+            Pw = self._bend(Pw, np.full(len(Pw), i), hf, sway, lean) + flutter
+            Rw = np.einsum('ij,njk->nik', Rot, Rm[keep])
+            rad = (sz[keep] * s ** 0.5)[:, None] * shape[None]
+            K.draw_ellipsoids(g, cam, Pw, rad, LEAF, np.int32(100000 + i), self.kind[i] + hsh[keep] * 0.99, Rm=Rw,
+                              aux=np.float32(dead[i]), ao=ao[keep].astype(np.float32))
+        mi = mode[self.Ti] == 3
         if mi.any():
             ti = self.Ti[mi]
-            K.draw_capsules(g, cam, self.pos[ti] - [0, 0.0, 0], self.pos[ti] + np.c_[0 * ti, self.H[ti] * 0.5, 0 * ti],
-                            self.H[ti] * 0.02 + 0.1, BARK, self.oid_t[0] * 0 + 99999, self.kind[ti].astype(np.float32),
-                            aux=dead[ti].astype(np.float32))
-            off = (sway[ti] * 0.5)[:, None] * wdir
+            K.draw_capsules(g, cam, self.pos[ti], self.pos[ti] + np.c_[0 * ti, self.H[ti] * 0.45, 0 * ti],
+                            self.H[ti] * 0.02 + 0.1, BARK, (100000 + ti).astype(np.int32),
+                            self.kind[ti].astype(np.float32), aux=dead[ti].astype(np.float32), ao=0.8)
             leaf = np.clip(dead[ti] * 1.05 - 0.05, 0, 0.97)
-            K.draw_ellipsoids(g, cam, self.IC[mi] + off, self.IR[mi], LEAF, self.oid_i[mi],
-                              self.kind[ti] + self.ivar[mi] * 0.99, leaf=leaf.astype(np.float32),
-                              aux=dead[ti].astype(np.float32))
+            K.draw_ellipsoids(g, cam, self._bend(self.IC[mi], ti, 0.6, sway, lean), self.IR[mi], LEAF,
+                              (100000 + ti).astype(np.int32), self.kind[ti] + self.ivar[mi] * 0.99,
+                              leaf=leaf.astype(np.float32), aux=dead[ti].astype(np.float32), Rm=self.IRm[mi], ao=0.8)
         return dead
 
 
@@ -379,7 +470,7 @@ def place_trees(land, F, path, seed=3):
 RINGS = [(0.0, 3.5, 0.11), (3.5, 9.0, 0.22), (9.0, 22.0, 0.45), (22.0, 55.0, 0.95), (55.0, 140.0, 2.0)]
 
 
-def grass(cam, land, meadow_fn, t, dead_fn=None, density=1.0, parted=None, short=None):
+def grass(cam, land, meadow_fn, t, dead_fn=None, density=1.0, parted=None, short=None, height=None):
     """Blades round the camera: (A, B, C) points of two-segment blades, radius,
     variation, and how dead each is. Rings of cells, coarser further out."""
     eye = cam.eye
@@ -424,7 +515,7 @@ def grass(cam, land, meadow_fn, t, dead_fn=None, density=1.0, parted=None, short
     z = np.concatenate([o[1] for o in out])
     hv = np.concatenate([o[2] for o in out])
     s = np.concatenate([o[3] for o in out])
-    y = land.height(x, z)
+    y = land.height(x, z) if height is None else height(x, z)
     dead = dead_fn(x, z) if dead_fn is not None else np.zeros(len(x))
     ht = (0.4 + 0.7 * _h(x * 7.1, z * 3.3, 5)) * (0.75 + 0.5 * (s / 0.11) ** 0.25) * (1 - 0.45 * dead)
     if short is not None:

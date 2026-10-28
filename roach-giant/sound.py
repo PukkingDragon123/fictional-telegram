@@ -1,15 +1,17 @@
 """The soundtrack, synthesized.
 
-Night at the lake: crickets, frogs, water, a little wind. The ground splits
-with a deep crack, and the crickets stop. One roach: dry ticking legs. Then
-the pour - thousands of legs, a hiss of chitin that swells as the tide
-spreads, a drone underneath. While it climbs into its shape the clicking
-rises into a roar and a low tone climbs with it; its eyes catch with a shrill
-ring. It breathes in: a vast inhale and the sub-bass of the land dying. Each
-footstep is a boom with the rattle of roaches raining off it. The pine
-creaks, groans, and cracks as it is drunk. Close to its face the clicking is
-wet and near; its mouth opens in a scream made of chittering. The swarm comes
-over you, and cuts to silence. A low bell under the title.
+Night in the rice fields: frogs, crickets, water trickling between the
+fields, a little wind. One roach: the tick of its feet. The water starts to
+bubble and the frogs stop. Then thousands of legs, a hiss of chitin that
+swells as the swarm spreads and grows, a heartbeat and a drone underneath.
+While it climbs into its shape the clicking rises into a roar and a low tone
+climbs with it - then drops away to nothing as they crawl off its face; its
+eyes catch with a shrill ring. It breathes in: a vast inhale and the sub-bass
+of the land dying. Its joints crack as it moves. Each footstep is a boom with
+the rattle of roaches raining off it. The pine creaks and groans as it is
+drunk, and crashes down. At its face a slow wet laugh; its mouth opens in a
+scream made of chittering. The swarm comes over you, and cuts to silence. A
+low bell under the title.
 
     python sound.py out.wav
 """
@@ -20,7 +22,9 @@ import numpy as np
 from scipy.io import wavfile
 from scipy.signal import butter, lfilter, fftconvolve
 
-from film import END, T_CRACK, T_HERO, T_POUR, T_FORM, T_EYES, T_BREATH, T_DRINK, T_JAW, STEPS
+from timeline import END, T_SURFACE, T_POUR, T_FORM, T_REVEAL, T_EYES, T_BREATH, T_DRINK, T_JAW, T_CUT, \
+    T_TOPPLE, STEPS
+from physics import Topple
 
 SR = 44100
 N = int(END * SR)
@@ -63,17 +67,17 @@ def hit(t0, dur, fn):
 
 def night():
     """Crickets, frogs, the lake, until the ground splits."""
-    quiet = 1 - ramp(T_CRACK + 0.1, T_CRACK + 0.5)
+    quiet = 1 - ramp(T_SURFACE + 0.1, T_SURFACE + 0.5)
     chirp = np.sin(2 * math.pi * 4400 * t) * (np.sin(2 * math.pi * 30 * t) > 0.3) * (np.sin(2 * math.pi * 1.6 * t) > 0.1)
     chirp2 = np.sin(2 * math.pi * 3800 * t + 1) * (np.sin(2 * math.pi * 26 * t + 2) > 0.4) * \
         (np.sin(2 * math.pi * 1.1 * t + 1) > 0.2)
     frog = np.zeros(N)
     r = np.random.RandomState(4)
-    for k in range(14):
-        t0 = r.uniform(0.5, 8.0)
+    for k in range(40):
+        t0 = r.uniform(0.3, 8.6)
         f = r.uniform(180, 320)
         frog += hit(t0, 0.35, lambda x, f=f: np.sign(np.sin(2 * math.pi * f * x)) * np.sin(2 * math.pi * 18 * x) ** 2 *
-                    np.sin(math.pi * x / 0.35) * 0.05)
+                    np.sin(math.pi * x / 0.35) * 0.07)
     water = bp(rng.normal(size=N), 200, 900) * (0.6 + 0.4 * np.sin(2 * math.pi * 0.35 * t)) ** 2
     wind = lp(rng.normal(size=N), 380) * (0.5 + 0.5 * np.sin(2 * math.pi * 0.06 * t))
     return (0.07 * (chirp + chirp2) + lp(frog, 1500) + 0.1 * water) * quiet + 0.07 * wind
@@ -84,7 +88,7 @@ def drone():
     out = np.zeros(N)
     for f, a in ((36.7, 1.0), (55.0, 0.6), (73.4, 0.35), (38.9, 0.7 * d), (110.0, 0.15 * d)):
         out += a * np.sin(2 * math.pi * f * t + 1.5 * np.sin(2 * math.pi * 0.04 * t))
-    return out * (0.015 + (0.08 + 0.12 * d) * env(T_CRACK, 61.95, 0.5))
+    return out * (0.015 + (0.08 + 0.12 * d) * env(T_SURFACE, 61.95, 0.5))
 
 
 def boom(t0, amp=1.0, f=34, rattle=0.0):
@@ -100,12 +104,38 @@ def rumble(t0, dur, amp):
     return hit(t0, dur, lambda x: lp(rng.normal(size=len(x)), 70) * np.sin(math.pi * x / dur) * amp * 12)
 
 
-def earth_crack(t0):
+def bubbling(a, b, rate, amp, seed=8):
+    """The water boiling with them: little bursting bubbles."""
+    r = np.random.RandomState(seed)
+    out = np.zeros(N)
+    tt = a
+    while tt < b:
+        f = r.uniform(300, 900)
+        out += hit(tt, 0.08, lambda x, f=f: np.sin(2 * math.pi * f * x * (1 + 3 * x)) * np.exp(-x / 0.02) * amp *
+                   r.uniform(0.3, 1.0))
+        tt += r.exponential(1 / (rate * min(1.0, (tt - a) / 2 + 0.1)))
+    return out
+
+
+def cracks(times, amp, seed=6):
+    """Its joints: dry knuckle cracks."""
+    r = np.random.RandomState(seed)
+    out = np.zeros(N)
+    for t0 in times:
+        for k in range(r.randint(2, 5)):
+            out += hit(t0 + k * r.uniform(0.02, 0.06), 0.05, lambda x: hp(r.normal(size=len(x)), 1200) *
+                       np.exp(-x / 0.006) * amp)
+    return out
+
+
+def laugh(t0, dur, amp):
+    """A slow, wet, huge laugh: pulses of low breath through a throat."""
     def fn(x):
-        crackle = hp(rng.normal(size=len(x)), 600) * (rng.rand(len(x)) > 0.985) * 6 * np.exp(-x / 0.9)
-        tear = bp(rng.normal(size=len(x)), 120, 900) * np.exp(-x / 0.6) * 1.2
-        return crackle + tear
-    return hit(t0, 2.5, fn) + rumble(t0 - 0.2, 2.2, 0.5)
+        pulse = np.clip(np.sin(2 * math.pi * 2.6 * x), 0, 1) ** 2 * np.sin(math.pi * np.clip(x / dur, 0, 1))
+        voice = bp(rng.normal(size=len(x)), 120, 700) + 0.6 * np.sin(2 * math.pi * 72 * x) * \
+            (1 + 0.3 * np.sin(2 * math.pi * 5 * x))
+        return voice * pulse * amp
+    return hit(t0, dur, fn)
 
 
 def clicks(rate_fn, amp_fn, seed, lo=2500, hi=7500):
@@ -122,13 +152,13 @@ def clicks(rate_fn, amp_fn, seed, lo=2500, hi=7500):
 
 def swarm():
     """The pour and the tide: from a few legs to a sea of them."""
-    n_out = np.clip((t - T_POUR) / 4.5, 0, 1) ** 1.5
-    rate = 30 * ramp(T_HERO, T_HERO + 0.5) * (1 - ramp(T_POUR, T_POUR + 1)) + \
-        6000 * n_out * (1 - 0.55 * ramp(T_FORM[1], T_FORM[1] + 2)) + 2200 * ramp(51, 52) + 9000 * ramp(58.5, 61.5)
+    n_out = np.clip((t - T_SURFACE - 0.3) / 7.0, 0, 1) ** 1.6
+    hush = 1 - 0.85 * ramp(T_REVEAL - 0.4, T_REVEAL + 0.6)          # they crawl off its face: almost silence
+    rate = 6000 * n_out * hush + 1800 * ramp(T_BREATH, T_BREATH + 1) + 2200 * ramp(51, 52) + 9000 * ramp(58.5, 61.5)
     amp = lambda tt: (0.5 + 0.25 * np.sin(2 * math.pi * 0.3 * tt)) * (1 - ramp(61.94, 61.96))
     hiss = clicks(lambda tt: rate, amp, 3)
-    body = bp(rng.normal(size=N), 1200, 5000) * (0.05 * n_out * (1 - 0.5 * ramp(T_FORM[1], T_FORM[1] + 2)) +
-                                                  0.12 * ramp(58.5, 61.5)) * (1 - ramp(61.94, 61.96))
+    body = bp(rng.normal(size=N), 1200, 5000) * (0.05 * n_out * hush + 0.12 * ramp(58.5, 61.5)) * \
+        (1 - ramp(61.94, 61.96))
     return hiss * 0.7 + body
 
 
@@ -224,18 +254,24 @@ def reverb(x, secs=3.2):
 
 def mix():
     dry = night() + drone() + swarm()
-    dry += earth_crack(T_CRACK) + boom(T_CRACK + 0.05, 0.5, 40)
-    dry += heart(T_POUR, T_FORM[0], 58, 96, 0.35)
-    dry += riser(T_FORM[0] - 0.5, T_EYES, 40, 160, 0.12)
+    dry += bubbling(T_SURFACE, 16.0, 40, 0.06)
+    dry += clicks(lambda tt: 25 * ((tt > 0.5) & (tt < 8.6)) + 120 * ((tt > 7.2) & (tt < 8.6)),
+                  lambda tt: 0.5 * np.ones_like(tt), 5, 4000, 9000) * 0.6                      # the first one's feet
+    dry += heart(T_POUR, T_FORM[0], 58, 100, 0.35)
+    dry += riser(T_FORM[0] - 0.5, T_REVEAL, 40, 170, 0.12)
     dry += ring(T_EYES, 0.09) + boom(T_EYES, 0.5, 46)
     dry += inhale(T_BREATH - 0.2, 3.4, 0.5) + rumble(T_BREATH + 0.5, 3.0, 0.6)
-    for (x, z, t0) in STEPS:
+    for (t0, foot, x, z) in STEPS:
         dry += boom(t0, 0.55, 32, rattle=1.0)
-    dry += wood(T_DRINK[0] - 0.4, 1.8, 0.3) + wood(T_DRINK[0] + 1.2, 2.0, 0.35) + snap(T_DRINK[1] - 0.2, 0.8)
+    r = np.random.RandomState(17)
+    dry += cracks(np.sort(r.uniform(T_EYES, 60.0, 34)), 0.35)
+    dry += wood(T_DRINK[0] - 0.4, 1.8, 0.3) + wood(T_DRINK[0] + 1.2, 2.0, 0.35) + snap(T_TOPPLE, 0.7)
     dry += inhale(T_DRINK[0], T_DRINK[1] - T_DRINK[0] + 0.4, 0.25)
+    land = Topple(T_TOPPLE).t_land
+    dry += boom(land, 0.9, 30, rattle=0.6) + rumble(land, 1.6, 0.5)
+    dry += laugh(51.6, 2.6, 0.3)
     dry += scream(T_JAW + 0.1, 2.6, 1.0, 290) + scream(59.4, 2.4, 0.9, 340)
-    dry += boom(53.8, 0.3, 50)
-    dry *= 1 - ramp(61.94, 61.96)                                       # the cut to black: silence
+    dry *= 1 - ramp(T_CUT - 0.01, T_CUT + 0.01)                        # the cut to black: silence
     dry += bell(62.2)
     wet = reverb(dry)
     L = dry * 0.8 + wet * 0.32

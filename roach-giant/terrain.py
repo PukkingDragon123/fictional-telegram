@@ -24,8 +24,34 @@ X0, X1, Z0, Z1 = -8000.0, 8000.0, -4000.0, 12000.0
 N = 2048
 CELL = (X1 - X0) / N
 LAKE = (-650.0, 820.0, 430.0, 270.0)      # centre x, z, radii
-WATER = -0.8                              # the lake's surface
+WATER = -0.8                              # the lake's surface (and the flooded rice fields')
 CENTRE = (60.0, 520.0)                    # where the mesh is finest
+PADDY = (-140.0, 300.0, 420.0, 820.0)     # the rice fields: x0, x1, z0, z1
+PLOT_W, PLOT_D = 27.0, 20.0               # each field between its dikes
+
+
+def in_paddies(x, z, margin=0.0):
+    x0, x1, z0, z1 = PADDY
+    return (x > x0 - margin) & (x < x1 + margin) & (z > z0 - margin) & (z < z1 + margin)
+
+
+def dike_x(i, z):
+    return PADDY[0] + PLOT_W * i + 2.0 * np.sin(np.asarray(z) / 37.0 + i * 1.3)
+
+
+def dike_z(j, x):
+    return PADDY[2] + PLOT_D * j + 1.5 * np.sin(np.asarray(x) / 41.0 + j * 0.7)
+
+
+def dike_dist(x, z):
+    """Distance to the nearest dike."""
+    x = np.asarray(x, float)
+    z = np.asarray(z, float)
+    i = np.round((x - PADDY[0]) / PLOT_W)
+    j = np.round((z - PADDY[2]) / PLOT_D)
+    dx = np.min(np.stack([np.abs(x - dike_x(i + k, z)) for k in (-1, 0, 1)]), 0)
+    dz = np.min(np.stack([np.abs(z - dike_z(j + k, x)) for k in (-1, 0, 1)]), 0)
+    return np.minimum(dx, dz)
 
 
 @njit(cache=True)
@@ -199,9 +225,13 @@ def build():
     bowl = WATER - 0.4 - 7.0 * np.clip(1 - e, 0, 1) ** 0.6
     shore = smoothstep(1.0, 1.45, e)
     h = np.where(e < 1, bowl, np.maximum(h, 0) * shore + (WATER + 0.25) * (1 - shore))
-    # flatten where the crack opens
-    fd = np.hypot(X - 0, Z - 600)
-    h = h * smoothstep(25, 140, fd) + (h * 0.3) * (1 - smoothstep(25, 140, fd))
+    # the rice fields: levelled just under the water, banked up round the edge
+    x0, x1, z0, z1 = PADDY
+    ex = np.maximum(np.maximum(x0 - X, X - x1), 0)
+    ez = np.maximum(np.maximum(z0 - Z, Z - z1), 0)
+    edge = np.hypot(ex, ez)
+    k = smoothstep(0, 40, edge)
+    h = h * k + (WATER - 0.15) * (1 - k)
     h = h.astype(np.float32)
     nrm = normals(h)
     np.savez_compressed(path, h=h, nrm=nrm)
