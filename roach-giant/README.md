@@ -2,66 +2,83 @@
 
 A one-minute pixel-art horror film (1280×720, 30 fps, with sound). It is set in a real 3D valley that is drawn the way a pixel artist would paint it.
 
-**The story.** It is night over the valley and everything is alive:
-- fireflies over the lake;
-- the moon glittering on the water;
-- spider lilies in the grass;
-- the old pine standing alone.
-
-The ground splits. One roach the size of a cart pulls itself out of the crack, feeling the air. Then a hundred follow, then a black tide of thousands pours across the meadow. Where it runs, the grass bleaches and dies, and little lights of life lift out of it and are pulled into the crack. The moon goes red.
-
-The tide turns and runs back, and climbs itself: feet, legs, a body, arms, a head. It is a gaunt man a hundred metres tall, made of roaches crawling over each other, and its eyes catch fire. It breathes in, and the valley dies in a ring around it. It walks, and every step kills the ground under it as roaches rain off it. It lays a hand on the old pine and drinks it until the pine is grey. It turns its face to you, its mouth opens, and they pour out. It reaches for you.
+**The story.**
+1. It's night over the rice fields at the foot of the mountains: young rice in rows, the moon in the flooded fields, fireflies.
+2. One cockroach sits on a dike, cleaning its feelers. It turns and looks at you.
+3. The water starts to boil. Roaches come up out of it everywhere, and as they feed on the rice it browns and slumps and they grow, from the length of a finger to the length of a cart.
+4. They spread over the fields in a black tide, and lights of life lift out of everything they touch. The moon goes red.
+5. They turn, run back in, and climb each other to build it: a man a hundred and twenty metres tall, skinny past starving, with arms far too long and a beautiful face.
+6. They crawl off its face. It opens its eyes and smiles.
+7. It breathes in, and the valley dies in a ring around it.
+8. It walks wrong: loose, its spine swaying, its arms flopping and rippling, its head snapping from angle to angle. Every step kills the ground and shakes the trees, and roaches rain off it.
+9. It drinks the old pine dry and the pine falls.
+10. It turns its face to you. Its smile keeps going, its jaw comes off its hinges, and they pour out. It reaches for you.
 
 ## How it's made
 
 **3D that reads as 2D (`hd2d.py`).** Everything is drawn at 640×360 into a g-buffer, which holds per pixel:
 - depth, normal and material;
 - the object it belongs to;
-- a variation value and surface coordinates.
+- variation, surface coordinates, colour and occlusion.
 
-Three numba kernels fill it:
+These draw into it:
 
-| Kernel | Draws |
+| Drawer | What it draws |
 |---|---|
-| Triangles (rasterizer with near-plane clipping) | the land and the lake |
-| Ray-cast capsules | trunks, branches, grass blades, stems, roach legs, the giant's limbs and fingers |
-| Ray-cast ellipsoids | leaf clumps, flower heads, stones, roach shells, the giant's skull, jaw and ribcage |
-
-Leaf clumps get a ragged, leafy pixel edge and lose leaves in clumps as they die. Thin things are always kept at least a pixel wide.
+| Triangle rasterizer | the land and the water |
+| Ray-cast capsules | trunks, branches, grass, rice, dikes, the creature's bones |
+| Ray-cast ellipsoids | leaves, stones, the creature's body |
+| A ray-marched distance field | the creature's face |
+| Billboards | pixel-art sprites |
 
 Then it is lit like pixel art:
 - Moonlight is cut into six bands, with ordered dither where the bands meet.
-- Each band is a hue-shifted colour: cool and dark in shadow, pale in the light.
-- Shadows come from shadow maps rendered with the same kernels: one for the valley, one for the film's ground, and one that follows the giant.
-- Rim light comes from the moon.
-- Every edge where one thing stands in front of another gets a dark line.
+- Each band is a hue-shifted colour.
+- Shadows come from shadow maps, one of which follows the giant.
+- A rim light comes from the moon, and a soft fill from the camera.
+- Every edge where something stands in front of something else gets a dark line.
 
-**The world (`terrain.py`, `world.py`, `flora.py`, `valley.py`).**
-- **Land:** a 16 km valley from gradient-noise heights, with ridged, domain-warped ranges lightly worn by simulated rain. It shows meadow, forest floor, rock, snow and shore.
-- **Lake:** its reflection is the whole world drawn upside down and broken by ripples, with the moon's road glittering on it.
-- **Sky:** banded and dithered, with stars, stratus cloud lit on the moon's side, and a moon with seas, craters and rays.
-- **Air:** blue haze far off, and patches of mist lying low in the valley.
-- **Trees:** grown as real skeletons with leaf clumps at the twigs, in four kinds: cedar, zelkova, autumn maple and black pine. Far trees are simplified stand-ins.
-- **Grass:** regrown each frame around the camera, in rings that get coarser with distance.
-- **Death:** everything alive has a dying state. Grass bleaches and droops; leaves brown, grey, thin out and fall; bark greys.
+**The valley (`terrain.py`, `world.py`, `flora.py`, `valley.py`).**
+- **Land:** a 16 km valley of gradient-noise ranges worn by simulated rain, with snow on the peaks.
+- **Rice fields:** flooded and levelled, banked with dikes, planted in rows. Close up, each seedling is a clump of blades; far off, the rows are drawn into the water.
+- **Lake and fields:** both reflect the whole world upside down, broken by ripples, with the moon's road glittering. Rings spread where roaches surface.
+- **Sky:** banded and dithered, with stars, cloud lit on the moon's side, and a moon with seas and craters.
+- **Air:** blue haze far off and mist lying low.
+- **Trees:** grown as real skeletons (cedar, zelkova, maple, black pine). Their crowns are made of individually turned and lit leaves, darker deep inside the crown and glowing where the moon comes through. Further off they are drawn as clumps, and far off as a few clumps on a stick.
+- **The pack's own art:** the teahouse pack's pixel-art flowers and pampas stand in the meadows as billboards (`sprites2d.py`).
+- **Death:** everything alive has a dying state, so the drain can pass over it.
 
-**The giant and the roaches (`swarm.py`).**
-- **Each roach is a 3D model:** a glossy domed back with the wing seam, a dark shield behind the head with a pale rim, and a head. When it is big enough on screen it also gets six legs walking in a tripod gait and two antennae.
-- **The giant:** a dark core (capsules and ellipsoids on the skeleton from `../gaki-rampage/giant.py`) with thousands of roaches crawling along and around it.
-- **The face:** packed with smaller roaches. They keep out of the eye sockets, where the eyes burn, and out of the mouth when it opens.
-- **The tide:** pours out of the crack, spreads, turns, and climbs into its place on the body, feet first.
+**The roaches (`roach2d.py`).** Every roach is a pixel-art sprite, made from a small model of an American cockroach for its size, the angle it is seen from, its heading and its step:
+- folded glossy wings with the seam, veins and highlight;
+- the dark shield behind the head with its pale ring;
+- six spiny legs walking in a tripod gait;
+- antennae longer than the body.
 
-**The film (`film.py`).**
-- **Shots:** lake, crack, tide, rise, breath, walk, pine, face, reach, title.
-- **Life drain:** a field over the land and time, driven by the tide's front, the breath's ring, each footstep and the drinking of the pine.
-- **Effects:** lights of life streaming into the crack, the giant's mouth and its hand; fireflies; falling leaves; heaved clods; roaches dropping off it as it walks, pouring from its mouth, and crawling over the lens.
-- **Finishing:** depth of field on the doubled image, bloom, burning eyes, vignette and letterbox.
+Each sprite is drawn eight times too big as labelled parts, brought down part by part so legs and feelers stay a pixel wide, coloured from the pack's palette and outlined. About 4,300 are made once and cached. The first roach, seen close, gets its own full-size sprites.
 
-`sound.py` synthesizes the soundtrack.
+**The creature (`creature.py`, `face_sdf.py`).**
+- **Body:** pale skin over ribs, collarbones, hip bones and knobbed knees; stilt legs; 60 m arms with too many joints; long twitching fingers.
+- **Face:** one sculpted surface, ray-marched: brow, high cheekbones over hollow cheeks, a narrow nose, a hard jaw, lips, and eyes set deep under heavy lids. Its grin is cut too wide and lined with too many teeth. The jaw comes unhinged.
+- **The roaches on it:** they cover it evenly while they build it. Then each crawls to its place in one of the bands that wind around its limbs, ribs and neck like living bandages, plus a cap over the skull and a band across the jaw.
+- **Movement:** its spine, neck and arms are chains simulated with inertia and gravity. The spine sways like a snake standing up, the arms swing and ripple like seaweed, and the head snaps to new angles and overshoots on springs. The legs lift high and buckle. It is all simulated once over the whole timeline and kept.
+
+**The physics (`physics.py`).**
+- **The swarm:** a flock. Each roach keeps its distance from its neighbours, turns with them, and steers out over the fields while it feeds, then back to the feet of the thing it is becoming. It grows as it feeds.
+- **The pine:** a rigid body falling around its foot under gravity, bouncing when it lands.
+- **The camera:** a spring knocked by footsteps, the breath and the pine's fall.
+- **The trees:** each rings from the footsteps near it.
+
+`film.py` holds the shots and the effects:
+- the life drain, motes of life, fireflies and falling leaves;
+- roaches dropping off the creature, tumbling and bouncing;
+- clods and dust at its feet, roaches pouring from its mouth and crawling over the lens;
+- depth of field, bloom, burning eyes and the title.
+
+`sound.py` synthesizes the soundtrack. `timeline.py` says when everything happens.
 
 ```
 python film.py raw.mp4                  # the film, silent (builds .cache/ the first time)
 python sound.py hunger.wav              # its soundtrack
 ffmpeg -i raw.mp4 -i hunger.wav -c:v copy -c:a aac -b:a 128k -shortest THE_HUNGER.mp4
-python film.py --still 9.5 30 53        # test frames (seconds)
+python film.py --still 4 30 54          # test frames (seconds)
 ```

@@ -362,6 +362,8 @@ class RoachAtlas:
 
     def load_or_build(self, workers=4):
         """All the regular sprites, made once (in parallel) and kept on disk."""
+        if self.index:                                         # already loaded (or inherited by a forked worker)
+            return
         if os.path.exists(CACHE):
             import pickle
             with open(CACHE, 'rb') as fh:
