@@ -6,6 +6,7 @@ and the void cinematic.
     m = Mesh(); m.add(verts, faces, colour, oid)
     cam = Camera(eye, target, fov, W, H)
     rgb, depth, ids = render(cam, [m, ...], light=(...))
+    depth, ids, normal, albedo = render_smooth(cam, [m, ...])    # per-pixel normals, to light yourself
 """
 import math
 import numpy as np
@@ -234,3 +235,85 @@ def render(cam, meshes, light=(-0.4, 0.8, -0.45), ambient=0.42, bg=(0, 0, 0), sk
         _raster(sx.astype(np.float64), sy.astype(np.float64), sz.astype(np.float64), f, c.astype(np.float32),
                 o.astype(np.int32), W, H, rgb, depth, ids)
     return rgb, depth, ids
+
+
+# ---------------------------------------------------------------- smooth: per-pixel normals
+@njit(cache=True)
+def _raster_smooth(sx, sy, sz, faces, vn, cols, oids, W, H, depth, ids, nrm, alb):
+    for t in range(faces.shape[0]):
+        a, b, c = faces[t, 0], faces[t, 1], faces[t, 2]
+        za, zb, zc = sz[a], sz[b], sz[c]
+        if za <= 0.05 or zb <= 0.05 or zc <= 0.05:
+            continue
+        x0, y0, x1, y1, x2, y2 = sx[a], sy[a], sx[b], sy[b], sx[c], sy[c]
+        area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
+        if abs(area) < 1e-9:
+            continue
+        minx = max(int(min(x0, x1, x2)), 0)
+        maxx = min(int(max(x0, x1, x2)) + 1, W - 1)
+        miny = max(int(min(y0, y1, y2)), 0)
+        maxy = min(int(max(y0, y1, y2)) + 1, H - 1)
+        if minx > maxx or miny > maxy:
+            continue
+        iza, izb, izc = 1.0 / za, 1.0 / zb, 1.0 / zc
+        for py in range(miny, maxy + 1):
+            fy = py + 0.5
+            for px in range(minx, maxx + 1):
+                fx = px + 0.5
+                w0 = ((x1 - fx) * (y2 - fy) - (x2 - fx) * (y1 - fy)) / area
+                w1 = ((x2 - fx) * (y0 - fy) - (x0 - fx) * (y2 - fy)) / area
+                w2 = 1.0 - w0 - w1
+                if w0 < 0 or w1 < 0 or w2 < 0:
+                    continue
+                iz = w0 * iza + w1 * izb + w2 * izc
+                z = 1.0 / iz
+                if z < depth[py, px]:
+                    depth[py, px] = z
+                    p0, p1, p2 = w0 * iza * z, w1 * izb * z, w2 * izc * z        # perspective-correct
+                    for k in range(3):
+                        nrm[py, px, k] = p0 * vn[a, k] + p1 * vn[b, k] + p2 * vn[c, k]
+                        alb[py, px, k] = cols[t, k]
+                    ids[py, px] = oids[t]
+
+
+def vertex_normals(v, f):
+    """Area-weighted vertex normals (flat ones if every face has its own vertices)."""
+    p = v[f]
+    n = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])
+    vn = np.zeros_like(v, dtype=np.float64)
+    for k in range(3):
+        np.add.at(vn, f[:, k], n)
+    return vn / np.maximum(np.linalg.norm(vn, axis=1, keepdims=True), 1e-12)
+
+
+def unshare(v, f):
+    """Give every face its own vertices: it shades flat (facets) under render_smooth."""
+    return v[f].reshape(-1, 3), np.arange(len(f) * 3, dtype=np.int32).reshape(-1, 3)
+
+
+def render_smooth(cam, meshes, buffers=None):
+    """Rasterize meshes with interpolated vertex normals. Returns depth (H,W),
+    ids (H,W), normal (H,W,3, world space, not normalized, facing either way) and
+    albedo (H,W,3, the face colour). A mesh is a Mesh or (v, f, c, o); a Mesh's
+    parts each keep their own normals."""
+    W, H = cam.W, cam.H
+    if buffers is None:
+        buffers = (np.full((H, W), 1e30, np.float32), np.zeros((H, W), np.int32), np.zeros((H, W, 3), np.float32),
+                   np.zeros((H, W, 3), np.float32))
+    depth, ids, nrm, alb = buffers
+    for m in meshes:
+        parts = list(zip(m.v, [f - n0 for f, n0 in zip(m.f, np.cumsum([0] + [len(x) for x in m.v])[:-1])], m.c, m.o)) \
+            if isinstance(m, Mesh) else [m]
+        for (v, f, c, o) in parts:
+            if not len(f):
+                continue
+            v = np.asarray(v, np.float64)
+            f = np.asarray(f, np.int32)
+            vn = vertex_normals(v, f)
+            sx, sy, sz = cam.project(v)
+            c = np.broadcast_to(np.asarray(c, np.float32), (len(f), 3))
+            o = np.broadcast_to(np.asarray(o, np.int32), (len(f),))
+            _raster_smooth(sx.astype(np.float64), sy.astype(np.float64), sz.astype(np.float64), f,
+                           vn.astype(np.float64), np.ascontiguousarray(c), np.ascontiguousarray(o), W, H, depth, ids,
+                           nrm, alb)
+    return depth, ids, nrm, alb
