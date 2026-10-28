@@ -44,15 +44,21 @@ def frame_of(lay, T):
     return fr[int(T * lay.get('fps', 8)) % len(fr)]
 
 
-def composite(s, cx, ty, T, monster=None, wings=None, hide=(), extra=None):
+def zof(lay):
+    return lay['Z']
+
+
+def composite(s, cx, ty, T, monster=None, wings=None, hide=(), extra=None, sprites=()):
     """The set at camera pan cx (metres) and tilt ty (screen px). monster:
     (bgr float, alpha 0..1, depth) drawn between the layers by depth; wings the
     same, see-through. extra: {layer name: fn(img)} drawn right after a layer."""
     img = np.zeros((H, W, 3), np.float32)
-    layers = [l for l in s['layers'] if l['name'] not in hide]
-    Zs = [l['Z'] for l in layers]
+    layers = sorted([l for l in s['layers'] if l['name'] not in hide], key=lambda l: -zof(l))
+    Zs = [zof(l) for l in layers]
+    items = [(Z, lay) for lay, Z in zip(layers, Zs)] + [(sp[0], sp) for sp in sprites]
+    items.sort(key=lambda it: -it[0])
     prev = 1e12
-    for lay, Z in zip(layers, Zs):
+    for Z, lay in items:
         if monster is not None:                                     # the parts of it behind this layer
             m = monster[1] * ((monster[2] > Z) & (monster[2] <= prev))
             if m.any():
@@ -61,10 +67,13 @@ def composite(s, cx, ty, T, monster=None, wings=None, hide=(), extra=None):
                 m = wings[1] * ((wings[2] > Z) & (wings[2] <= prev))
                 if m.any():
                     img = img * (1 - m[..., None]) + wings[0] * m[..., None]
-        x0, y0 = offset(s, lay, cx, ty)
-        over(img, x2(frame_of(lay, T)), x0, y0)
-        if extra and lay['name'] in extra:
-            extra[lay['name']](img)
+        if isinstance(lay, tuple):                                  # a sprite: (Z, rgba, x0, y0)
+            over(img, lay[1], lay[2], lay[3])
+        else:
+            x0, y0 = offset(s, lay, cx, ty)
+            over(img, x2(frame_of(lay, T)), x0, y0)
+            if extra and lay['name'] in extra:
+                extra[lay['name']](img)
         prev = Z
     if monster is not None:
         m = monster[1] * (monster[2] <= prev)

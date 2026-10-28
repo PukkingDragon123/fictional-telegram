@@ -5,7 +5,7 @@ import numpy as np
 
 # material: shininess, specular, iridescence, emissive, wrap
 MATP = {1: (70, 0.9, 0.6, 0.0, 0.15), 2: (45, 0.7, 0.4, 0.0, 0.15), 3: (25, 0.4, 0.1, 0.0, 0.2),
-        4: (140, 1.6, 0.0, 0.55, 0.3), 5: (40, 0.9, 0.0, 0.15, 0.3), 6: (20, 0.4, 0.3, 0.0, 0.5),
+        4: (140, 1.6, 0.0, 0.32, 0.3), 5: (40, 0.9, 0.0, 0.15, 0.3), 6: (20, 0.4, 0.3, 0.0, 0.5),
         7: (12, 0.25, 0.0, 0.0, 0.35), 8: (110, 1.1, 0.5, 0.0, 0.1), 9: (60, 1.0, 0.0, 1.2, 0.3),
         10: (160, 1.6, 0.0, 0.05, 0.2)}
 IRID = (np.array([150, 255, 120], np.float32) / 255, np.array([255, 90, 190], np.float32) / 255)   # BGR green, violet
@@ -41,7 +41,8 @@ def light(cam, depth, ids, nrm, alb, moon=(-0.3, 0.45, 0.85), moon_col=(70, 60, 
     NV = np.clip((N * V).sum(-1), 0, 1)
     col = A * ambient * 255 + A * np.array(fill_col, np.float32) * np.clip(N @ _n(np.array(fill, np.float32)), 0, 1)[
         :, None] * 0.6
-    lights = [(_n(np.array(moon, np.float32)), np.array(moon_col, np.float32) * moon_k)]
+    lights = [(_n(np.array(moon, np.float32)), np.array(moon_col, np.float32) * moon_k),
+              (_n(np.array(fill, np.float32)), np.array(fill_col, np.float32) * 0.5)]     # cold sky on the plates
     if point is not None:
         pos, pc, pk, rng = point
         P = cam.eye + (-V) * depth[m][:, None] / np.maximum(NV[:, None] * 0 + (-V @ cam.R[2])[:, None], 1e-3)
