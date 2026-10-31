@@ -11,6 +11,7 @@ import { FISH_Y, WATER_Y } from '../world/grid.js';
 import { angleDiff, clamp } from '../core/rng.js';
 import { FOOD_ITEMS } from '../data/foods.js';
 import { FishEatFx, tickGulp, startLunge, pushGulp, lungeScale } from './fishEatFx.js';
+import { feedDepth } from './fx/foodFx.js'; // [v30 feeding]
 
 const HUNGER_RATE = 1 / 150; // per second -> starving after ~150 s
 export const GROW_TIME = 70; // seconds from fry to adult
@@ -342,6 +343,7 @@ export class FishSystem {
           if (t.kind === 'pellet') {
             if (t.ref.eaten) f.target = null;
             else {
+              if (d < 2.6) f.riseTo = t.ref.y; // [v30 feeding] come up for floating food
               // close enough: a quick lunge (speed burst, sharp turns)
               if (d < 1.1 && f.lungeRef !== t.ref) { f.lungeRef = t.ref; f.speed = Math.max(f.speed, maxSpeed * 2.3); startLunge(f); }
               if (f.lungeRef === t.ref) { targetSpeed = maxSpeed * 1.8; turnRate = 9; }
@@ -440,6 +442,7 @@ export class FishSystem {
       else { f.heading += Math.PI * 0.6; f.speed *= 0.3; }
       f.phase += dt * (4 + f.speed * 9);
       f.y = FISH_Y + Math.sin(this.time * 0.8 + f.seed) * 0.05 + (f.adult ? 0 : 0.1) + (sm ? sm.depth : 0); // [v26 seasons] winter: deep
+      f.y = feedDepth(f, f.y, dt); // [v30 feeding]
       if (f.speed > 1.3 && Math.random() < dt * 4) sim.wake(f.x, f.z, f.speed, 0.14, dt);
       if (f.love > 0.3 && Math.random() < dt * 0.25) game.particles.hearts(f.x, WATER_Y + 0.25, f.z, 1);
     }

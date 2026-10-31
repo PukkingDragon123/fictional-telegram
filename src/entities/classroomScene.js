@@ -22,6 +22,7 @@ import { VoxelModel, shade } from '../core/voxel.js';
 import { mulberry32, hash2, hash3 } from '../core/rng.js';
 import { Chalkboard, pixelText } from '../ui/Chalkboard.js';
 import { fishCanvasFor } from '../game/fishSprites.js';
+import { buildClassExtras } from './classroomExtras.js'; // [v30 classroom] front wall, ceiling, lamps, fish tank, plants
 
 export const CLASS_VOXEL = 0.05;
 export const CLASS_BACKGROUND = 0x1a1420;
@@ -149,7 +150,7 @@ function buildWalls(R) {
   // side walls, cut down in steps toward the front (dollhouse)
   for (const side of [-1, 1]) {
     for (let z = ZB - 4; z <= ZF - 3; z++) {
-      const top = Math.min(HT, Math.max(22, Math.floor((HT - Math.max(0, z - (ZB + 4)) * 0.75) / 4) * 4));
+      const top = HT; // [v30 classroom] full height: the room is filmed from inside now (perspective shots)
       for (let y = 0; y < top; y++) for (let t = 0; t < 4; t++) {
         const x = side < 0 ? X0 - 4 + t : X1 + 4 - t;
         let c = wallColor(z * 1 + 300, y, side < 0 ? 2 : 3);
@@ -637,6 +638,8 @@ export function buildClassroom(opts = {}) {
   buildBookshelf(R, fx);
   buildTeacherDesk(R, fx);
   for (const s of STUDENTS) buildStudentDesk(R, s.desk[0], s.desk[1], STUDENTS.indexOf(s));
+  const TK = new VoxelModel(); // [v30 classroom] fish tank water
+  Object.assign(fx, buildClassExtras(R, GL, G, TK, { X0, X1, ZB, ZF, HT, wallColor }));
   // rug under the student desks (braided border)
   for (let x = -78; x <= 60; x++) for (let z = -24; z <= 36; z++) {
     const e = Math.min(x + 78, 60 - x, z + 24, 36 - z);
@@ -680,6 +683,8 @@ export function buildClassroom(opts = {}) {
   GL.paint(() => 0xffffff);
   addMesh(GL.build({ scale: V, ao: false }), glassMat, { cast: false, receive: false, name: 'classGlass' });
   if (WT.vox.size) addMesh(WT.build({ scale: V, ao: false }), waterMat, { cast: false, receive: false });
+  const tankMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.42, depthWrite: false })); // [v30 classroom]
+  if (TK.vox.size) addMesh(TK.build({ scale: V, ao: false }), tankMat, { cast: false, receive: false, name: 'tankWater' }).renderOrder = 2;
 
   const place = (vm, pos, { pivot = [0, 0, 0], mat = litMat, rotY = 0, parent = group, cast = true, name, ao = true } = {}) => {
     const m = new THREE.Mesh(track(vm.build({ pivot, scale: V, ao })), mat);
@@ -792,6 +797,43 @@ export function buildClassroom(opts = {}) {
     group.add(m);
     views.push({ cv, ctx: cv.getContext('2d'), tex, w: VW, h: VH, seed: views.length * 20 });
   }
+  // [v30 classroom] the front wall's windows + the door's glass look out on the meadow too
+  for (const fw of [...(fx.frontWindows || []), ...(fx.doorGlass ? [{ ...fx.doorGlass, door: true }] : [])]) {
+    const VW = 48, VH = 56;
+    const cv = document.createElement('canvas'); cv.width = VW; cv.height = VH;
+    const tex = track(canvasTex(cv));
+    const m = new THREE.Mesh(track(new THREE.PlaneGeometry(W(fw.x1 - fw.x0 + 1) + 0.2, W(fw.y1 - fw.y0 + 1) + 0.2)), track(new THREE.MeshBasicMaterial({ map: tex })));
+    m.position.set(W((fw.x0 + fw.x1 + 1) / 2), W((fw.y0 + fw.y1 + 1) / 2), W(fw.z + 1) + 0.04);
+    m.rotation.y = Math.PI;
+    group.add(m);
+    views.push({ cv, ctx: cv.getContext('2d'), tex, w: VW, h: VH, seed: views.length * 20 + 7 });
+  }
+  // [v30 classroom] fish in the tank (sprite strips like the students') + rising bubbles
+  const tankFish = [];
+  if (fx.tank) {
+    const T = fx.tank;
+    const kinds = ['goldfish', 'bluegill', 'pumpkinseed', 'mapleKoi', 'goldfish'];
+    kinds.forEach((sp, i) => {
+      const frames = [0, 1, 2, 3].map((f) => fishCanvasFor(sp, { frame: f }));
+      const fw = frames[0].width, fh = frames[0].height;
+      const strip = document.createElement('canvas'); strip.width = fw * 4; strip.height = fh;
+      const c2 = strip.getContext('2d'); frames.forEach((c, k) => c2.drawImage(c, k * fw, 0));
+      const tex = track(canvasTex(strip)); tex.repeat.set(0.25, 1);
+      const size = i === 3 ? 0.3 : 0.2 + (i % 2) * 0.04;
+      const mat = track(new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.35 }));
+      const mesh = new THREE.Mesh(track(new THREE.PlaneGeometry(size, size * fh / fw)), mat);
+      mesh.rotation.y = -Math.PI / 2; // faces the room (-x)
+      mesh.renderOrder = 4;
+      group.add(mesh);
+      tankFish.push({ mesh, tex, r: mulberry32(i * 13 + 5), ph: i * 1.7, sp: 0.18 + i * 0.03, y: W(T.y0 + 3 + ((i * 5) % (T.y1 - T.y0 - 5))), x: W(T.x0) + 0.08 + (i % 3) * 0.12 });
+    });
+  }
+  const tankBubbles = [];
+  if (fx.tank) {
+    const geo = track(new THREE.BoxGeometry(0.018, 0.018, 0.018));
+    const mat = track(new THREE.MeshBasicMaterial({ color: 0xeefaff, transparent: true, opacity: 0.8 }));
+    for (let i = 0; i < 12; i++) { const b = new THREE.Mesh(geo, mat); b.userData = { t: i * 0.35, z: W(fx.tank.z0 + 3 + (i % 3) * 2) }; group.add(b); tankBubbles.push(b); }
+  }
   const WIN_DIR = new THREE.Vector3(0.16, -0.6, 0.78).normalize();
   const beamMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   {
@@ -821,7 +863,7 @@ export function buildClassroom(opts = {}) {
   const motes = [];
   {
     const geo = track(new THREE.BoxGeometry(0.022, 0.022, 0.022));
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 64; i++) { // [v30 classroom] more motes in the sun
       const r = mulberry32(i * 17 + 3);
       const wv = fx.windows[i % fx.windows.length];
       const t = 0.1 + r() * 0.8, y0 = wv.y0 + r() * (wv.y1 - wv.y0), x0 = wv.x0 + r() * (wv.x1 - wv.x0);
@@ -990,6 +1032,9 @@ export function buildClassroom(opts = {}) {
   lights.board = new THREE.PointLight(0xfff4e0, 0.5, 4.5, 1.2);
   lights.board.position.set(BOARD.cx, 2.0, BOARD.z + 1.6);
   group.add(lights.hemi, lights.sun, lights.sun.target, lights.fill, lights.fill.target, lights.desk, lights.board);
+  // [v30 classroom] warm pendant lamps + the tank's cool glow
+  lights.lamps = (fx.lamps || []).map(([x, y, z]) => { const L = new THREE.PointLight(0xffc878, 0.6, 3.2, 1.5); L.position.set(W(x), W(y) - 0.08, W(z)); group.add(L); return L; });
+  if (fx.tank) { lights.tank = new THREE.PointLight(0x7ad8ff, 0.7, 2.2, 1.6); lights.tank.position.set(W(fx.tank.x0) - 0.25, W((fx.tank.y0 + fx.tank.y1) / 2), W((fx.tank.z0 + fx.tank.z1) / 2)); group.add(lights.tank); }
 
   // ---- anchors
   const tdFront = new THREE.Vector3(W((TDESK.x0 + TDESK.x1) / 2), 0, W(TDESK.z1) + 0.45);
@@ -1013,14 +1058,19 @@ export function buildClassroom(opts = {}) {
     camStudents: box(-3.75, 2.95, -0.7, 1.45, -1.1, 1.75, 30, 1.02),
     camTeacher: box(tsx - 0.95, tsx + 1.0, 0, 1.95, BOARD.z + 0.3, BOARD.z + 0.9, 34, 1.05),
     camDesk: box(tdFront.x - 1.6, tdFront.x + 1.3, 0, 2.0, -2.9, tdFront.z + 0.4, 18, 1.05),
+    // [v30 classroom] world spots for the perspective shots (src/game/Classroom.js)
+    tank: fx.tank ? new THREE.Vector3(W((fx.tank.x0 + fx.tank.x1) / 2), W((fx.tank.y0 + fx.tank.y1) / 2), W((fx.tank.z0 + fx.tank.z1) / 2)) : null,
+    frontZ: W(fx.frontZ ?? ZF),
+    deskTop: new THREE.Vector3(W((TDESK.x0 + TDESK.x1) / 2), W(TDESK.top + 1), W((TDESK.z0 + TDESK.z1) / 2)),
+    students: STUDENTS.map((s) => new THREE.Vector3(W(s.desk[0]), W(11) + 0.3, W(s.desk[1]))),
   };
 
   // ---- state + animation
   let night = false;
   let viewT = -1;
   const MOOD = {
-    day: { hemi: [0xfff0d8, 0x6a4a36, 1.6], fill: [0xffe8cc, 0.8], sun: [0xfff0d0, 2.4], desk: 0, board: 0.5, beam: 0xffe8b0, beamK: 0.15, motes: 0.55 },
-    night: { hemi: [0x6a5aa8, 0x1e1628, 0.8], fill: [0x8a86d8, 0.32], sun: [0x8aa8ff, 1.2], desk: 2.6, board: 1.2, beam: 0x9ab8ff, beamK: 0.1, motes: 0.3 },
+    day: { hemi: [0xffecd0, 0x7a5236, 1.75], fill: [0xffe2c0, 0.75], sun: [0xffe2b0, 2.9], desk: 0, board: 0.55, beam: 0xffdc98, beamK: 0.2, motes: 0.75, lamp: 0.45 }, // [v30 classroom] warmer
+    night: { hemi: [0x6a5aa8, 0x1e1628, 0.8], fill: [0x8a86d8, 0.32], sun: [0x8aa8ff, 1.2], desk: 2.6, board: 1.2, beam: 0x9ab8ff, beamK: 0.1, motes: 0.3, lamp: 1.6 },
   };
   function setNight(on) {
     night = !!on;
@@ -1029,6 +1079,7 @@ export function buildClassroom(opts = {}) {
     lights.fill.color.setHex(m.fill[0]); lights.fill.intensity = m.fill[1];
     lights.sun.color.setHex(m.sun[0]); lights.sun.intensity = m.sun[1];
     lights.desk.intensity = m.desk; lights.board.intensity = m.board;
+    for (const L of lights.lamps || []) L.intensity = m.lamp ?? 0.5;
     beamMat.color.setHex(m.beam).multiplyScalar(m.beamK);
     moteMat.opacity = m.motes;
     viewT = -1;
@@ -1062,6 +1113,23 @@ export function buildClassroom(opts = {}) {
     chalk.update(dt);
     if (chalk.version !== boardVer) { boardVer = chalk.version; boardTex.needsUpdate = true; }
     globe.rotation.y = time * 0.35;
+    // [v30 classroom] tank life
+    if (fx.tank) {
+      const T = fx.tank, za = W(T.z0) + 0.1, zb = W(T.z1) - 0.1;
+      for (const f of tankFish) {
+        const u = Math.sin(time * f.sp + f.ph);
+        const z = (za + zb) / 2 + u * (zb - za) / 2;
+        const dir = Math.cos(time * f.sp + f.ph) >= 0 ? 1 : -1;
+        f.mesh.position.set(f.x, f.y + Math.sin(time * 1.3 + f.ph) * 0.04, z);
+        f.mesh.scale.x = dir;
+        f.tex.offset.x = (Math.floor(time * 6 + f.ph * 3) % 4) * 0.25;
+      }
+      for (const b of tankBubbles) {
+        const u = b.userData;
+        u.t = (u.t + dt * 0.5) % 1.6;
+        b.position.set(W(T.x1) - 0.05 + Math.sin(u.t * 9 + u.z) * 0.01, W(T.y0) + u.t * (W(T.y1) - W(T.y0)) / 1.6, u.z);
+      }
+    }
     plant.rotation.z = Math.sin(time * 1.2) * 0.035;
     for (const m of motes) {
       const u = m.userData;

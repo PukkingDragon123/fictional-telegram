@@ -1,21 +1,13 @@
-// Fish food pellets (thrown by the fox or dispensed by feeders) and flying
+// Fish food (thrown by the fox or dispensed by feeders: pixel sprites per food
+// kind that arc, land, float, drift and sink, see src/game/fx/foodFx.js) and flying
 // bugs (dragonflies) spawned by cattails, lily pads and bug hotels.
 import * as THREE from 'three';
 import { VoxelModel, voxelMaterial } from '../core/voxel.js';
 import { WATER_Y } from '../world/grid.js';
 import { FOOD_ITEMS } from '../data/foods.js';
-
-// pellet colours per food (cached as 0..1 rgb triples)
-const PCOL = new Map();
-function pelletColors(item) {
-  let c = PCOL.get(item);
-  if (!c) {
-    const list = FOOD_ITEMS[item]?.pellet || [0xb8742e];
-    c = list.map((h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255]);
-    PCOL.set(item, c);
-  }
-  return c;
-}
+import { FX } from './Particles.js';
+import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
+import { foodAtlas, foodFrames, foodStyle, FOOD_PHYS, FOOD_TPU } from './fx/foodFx.js'; // [v30 feeding]
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -29,13 +21,10 @@ export class FoodSystem {
     this.pellets = [];
     this.flying = []; // handfuls in the air
     this.bugs = [];
-    const pv = new VoxelModel();
-    pv.set(0, 0, 0, 0xb8742e);
-    this.pelletMesh = new THREE.InstancedMesh(pv.build({ pivot: [0.5, 0.5, 0.5], scale: 0.075, ao: false }), voxelMaterial(), 600);
-    this.pelletMesh.count = 0;
-    this.pelletMesh.frustumCulled = false;
-    this.pelletMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(600 * 3), 3);
-    game.scene.add(this.pelletMesh);
+    // [v30 feeding] food pieces are little pixel sprites (src/game/fx/foodFx.js)
+    this.foodTex = pixelTexture(foodAtlas().canvas);
+    this.foodBatch = new SpriteBatch(this.foodTex, { max: 700, lit: true, castShadow: false, receiveShadow: false, renderOrder: 14, name: 'food' });
+    game.scene.add(this.foodBatch.mesh);
     // dragonfly model
     const dv = new VoxelModel();
     const body = [0x2a6ad0, 0x3a8ae8, 0x48b0f0, 0x2a5ab0, 0x1a3a80];
@@ -51,22 +40,40 @@ export class FoodSystem {
     this.time = 0;
   }
 
-  // Throw a handful of pellets from (fx,fy,fz) to target (tx,tz).
+  // Throw a handful from (fx,fy,fz) (Reynard's paw, a feeder) to target (tx,tz).
+  // [v30 feeding] every piece flies its own arc: they leave the paw one after
+  // another, spin, land scattered with a plop ring, float, drift and sink.
   throwHandful(fx, fy, fz, tx, tz, n = 6, spread = 0.55, item = 'pellets') {
-    const dur = 0.45 + Math.min(0.5, Math.hypot(tx - fx, tz - fz) * 0.04);
+    const dist = Math.hypot(tx - fx, tz - fz);
+    const dur = 0.42 + Math.min(0.5, dist * 0.04);
     const items = [];
+    const style = foodStyle(item);
+    const heavy = style === 'berry' || style === 'chunk' || style === 'drop' ? 0.85 : 1;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
-      items.push({ tx: tx + Math.cos(a) * r, tz: tz + Math.sin(a) * r, delay: i * 0.02 });
+      items.push({
+        tx: tx + Math.cos(a) * r, tz: tz + Math.sin(a) * r, delay: i * 0.035 + Math.random() * 0.03,
+        dur: dur * (0.9 + Math.random() * 0.2), h: (1.1 + Math.random() * 0.6) * heavy, rot: Math.random() * 6.28,
+        spin: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 8), v: (Math.random() * 8) | 0, done: false,
+        ox: (Math.random() - 0.5) * 0.12, oz: (Math.random() - 0.5) * 0.12,
+      });
     }
-    this.flying.push({ fx, fy, fz, t: 0, dur, items, h: 1.4 + Math.random() * 0.4, item });
+    this.flying.push({ fx, fy, fz, t: 0, items, item, landed: 0, left: n, plopped: false });
   }
 
-  dropPellet(x, z, y = WATER_Y, item = 'pellets') {
+  dropPellet(x, z, y = WATER_Y, item = 'pellets', o = null) {
     const g = this.game.grid;
     const tx = Math.floor(x), tz = Math.floor(z);
     if (!g.isWater(tx, tz)) return null;
-    const p = { x, z, y, floor: g.surfaceY(tx, tz) + 0.05, life: 26, eaten: false, region: g.regionAt(x, z), seed: Math.random() * 10, item };
+    const style = foodStyle(item);
+    const ph = FOOD_PHYS[style] || FOOD_PHYS.kibble;
+    const floor = g.surfaceY(tx, tz) + 0.05;
+    const p = {
+      x, z, y, floor, life: 26, eaten: false, region: g.regionAt(x, z), seed: Math.random() * 10, item,
+      style, st: y <= floor + 0.01 ? 'rest' : 'float', ft: ph.float[0] + Math.random() * (ph.float[1] - ph.float[0]),
+      vx: o?.vx || 0, vz: o?.vz || 0, rot: o?.rot ?? Math.random() * 6.28, spin: o?.spin || 0, v: o?.v ?? ((Math.random() * 8) | 0), ringT: 0.8 + Math.random() * 2,
+    };
+    if (p.st === 'rest') p.y = floor;
     this.pellets.push(p);
     return p;
   }
@@ -125,28 +132,56 @@ export class FoodSystem {
     this.time += dt;
     const game = this.game;
     const parts = game.particles;
-    // flying handfuls
+    // [v30 feeding] flying handfuls: each piece lands on its own
+    const F = parts.fx;
     for (let i = this.flying.length - 1; i >= 0; i--) {
       const h = this.flying[i];
       h.t += dt;
-      if (h.t >= h.dur) {
-        this.flying.splice(i, 1);
-        let landed = 0;
-        for (const it of h.items) {
-          if (this.dropPellet(it.tx, it.tz, WATER_Y, h.item)) landed++;
-          parts.ripple(it.tx, it.tz, 0.35, 0.8, 0.3);
-        }
-        if (landed) game.audio.play('plop', { volume: 0.55, pitch: 0.9 + Math.random() * 0.3 });
-        else parts.dust(h.items[0].tx, 0.05, h.items[0].tz, 4);
+      for (const it of h.items) {
+        if (it.done || h.t < it.delay + it.dur) continue;
+        it.done = true;
+        h.left--;
+        // scatter: a little skid along the throw direction
+        const dx = it.tx - h.fx, dz = it.tz - h.fz, dl = Math.hypot(dx, dz) || 1;
+        const sk = 0.25 + Math.random() * 0.25;
+        const p = this.dropPellet(it.tx, it.tz, WATER_Y, h.item, { vx: (dx / dl) * sk + it.ox, vz: (dz / dl) * sk + it.oz, rot: it.rot, spin: it.spin * 0.3, v: it.v });
+        if (p) {
+          h.landed++;
+          F.spawn('ring_l', it.tx, WATER_Y + 0.012, it.tz, { life: 0.55, size: 0.16 + Math.random() * 0.06, flags: FX.FLAT | FX.FADE | FX.GROW, tint: [0.75, 0.9, 1], bright: true });
+          if (Math.random() < 0.55) F.spawn('drop_s', it.tx, WATER_Y + 0.03, it.tz, { vx: (Math.random() - 0.5) * 0.5, vy: 0.9 + Math.random() * 0.5, vz: (Math.random() - 0.5) * 0.5, grav: 8, life: 0.4, size: 0.045, flags: FX.WATER, bright: true });
+          parts.sim?.disturb(it.tx, it.tz, 0.1, 0.05);
+          if (!h.plopped) { h.plopped = true; game.audio.play('plop', { volume: 0.5, pitch: 0.95 + Math.random() * 0.3 }); }
+        } else parts.dust(it.tx, game.grid.surfaceY(Math.floor(it.tx), Math.floor(it.tz)) + 0.05, it.tz, 2);
       }
+      if (h.left <= 0) this.flying.splice(i, 1);
     }
-    // pellets sink & expire
+    // pieces float, drift, then sink (each kind its own way) & expire
+    const sim = parts.sim;
     let n = 0;
     for (const p of this.pellets) {
       if (p.eaten) continue;
       p.life -= dt;
       if (p.life <= 0) continue;
-      if (p.y > p.floor) p.y = Math.max(p.floor, p.y - dt * 0.16);
+      const ph = FOOD_PHYS[p.style] || FOOD_PHYS.kibble;
+      p.rot += p.spin * dt;
+      p.spin *= 1 - Math.min(1, dt * 2);
+      if (p.st === 'float') {
+        const sx = p.x + p.vx * dt, sz = p.z + p.vz * dt;
+        if (game.grid.isWater(Math.floor(sx), Math.floor(sz))) { p.x = sx; p.z = sz; } else { p.vx = -p.vx * 0.5; p.vz = -p.vz * 0.5; }
+        const dk = 1 - Math.min(1, dt * 1.6);
+        p.vx = p.vx * dk + Math.sin(this.time * 0.7 + p.seed) * dt * 0.03;
+        p.vz = p.vz * dk + Math.cos(this.time * 0.6 + p.seed * 1.3) * dt * 0.03;
+        p.y = WATER_Y + 0.012 + (sim ? sim.heightAt(p.x, p.z) * 0.1 : 0) + Math.sin(this.time * 2.4 * ph.bob + p.seed) * 0.006;
+        p.ft -= dt;
+        p.ringT -= dt;
+        if (p.ringT <= 0) { p.ringT = 1.6 + Math.random() * 2.4; if (this.pellets.length < 60) F.spawn('ring_l', p.x, WATER_Y + 0.012, p.z, { life: 0.7, size: 0.12, flags: FX.FLAT | FX.FADE | FX.GROW, tint: [0.7, 0.85, 0.95], bright: true }); }
+        if (p.ft <= 0) { p.st = 'sink'; p.sv = 0; }
+      } else if (p.st === 'sink') {
+        p.sv = Math.min(ph.sink, (p.sv || 0) + dt * ph.sink * 2);
+        p.y -= p.sv * dt;
+        if (ph.flutter) { p.x += Math.sin(this.time * 2.2 + p.seed) * dt * 0.05; p.z += Math.cos(this.time * 1.9 + p.seed) * dt * 0.04; p.rot = Math.sin(this.time * 3 + p.seed) * 0.7; }
+        if (p.y <= p.floor) { p.y = p.floor; p.st = 'rest'; }
+      }
       this.pellets[n++] = p;
     }
     this.pellets.length = n;
@@ -176,36 +211,41 @@ export class FoodSystem {
   }
 
   render() {
-    const pm = this.pelletMesh;
-    let n = 0;
-    const col = pm.instanceColor.array;
+    // [v30 feeding] food pieces: pixel sprites, tinted toward the water as they sink
+    const B = this.foodBatch;
+    B.clear();
+    const o = this._ro || (this._ro = { texels: FOOD_TPU, mode: 2, ax: 0.5, ay: 0.5, rot: 0, alpha: 1, tint: [1, 1, 1], flip: false });
+    const water = this.game.sky?.state?.waterShallow;
+    const wt = water ? [0.62 + water.r * 0.35, 0.78 + water.g * 0.28, 0.9 + water.b * 0.2] : [0.7, 0.85, 0.95];
+    const t = this.time;
     for (const p of this.pellets) {
-      if (n >= 600) break;
-      _m.makeTranslation(p.x, p.y, p.z);
-      pm.setMatrixAt(n, _m);
-      const k = 0.85 + ((p.seed * 13) % 1) * 0.3;
-      const pc = pelletColors(p.item);
-      const c = pc[Math.floor(p.seed * 7) % pc.length];
-      col[n * 3] = c[0] * k; col[n * 3 + 1] = c[1] * k; col[n * 3 + 2] = c[2] * k;
-      n++;
+      const fr = foodFrames(p.item);
+      let vi = p.v % fr.length;
+      if (p.style === 'worm' && p.st !== 'rest') vi = Math.floor(t * 5 + p.seed) % fr.length;
+      const f = fr[vi % fr.length];
+      const depth = Math.max(0, WATER_Y - p.y);
+      const k = Math.min(1, depth / 0.35) * 0.75;
+      o.tint[0] = 1 + (wt[0] - 1) * k; o.tint[1] = 1 + (wt[1] - 1) * k; o.tint[2] = 1 + (wt[2] - 1) * k;
+      o.alpha = p.life < 2 ? p.life / 2 : 1 - Math.min(0.45, depth * 0.9);
+      o.rot = p.style === 'berry' || p.style === 'drop' ? Math.sin(p.rot) * 0.25 : p.rot;
+      o.flip = (p.v & 1) === 1;
+      B.push(f, p.x, p.y, p.z, o);
     }
     for (const h of this.flying) {
-      const t = Math.min(1, h.t / h.dur);
       for (const it of h.items) {
-        if (n >= 600) break;
-        const x = h.fx + (it.tx - h.fx) * t, z = h.fz + (it.tz - h.fz) * t;
-        const y = h.fy + (WATER_Y - h.fy) * t + Math.sin(t * Math.PI) * h.h;
-        _m.makeTranslation(x, y, z);
-        pm.setMatrixAt(n, _m);
-        const pc = pelletColors(h.item);
-        const c = pc[(it.delay * 997 | 0) % pc.length];
-        col[n * 3] = c[0]; col[n * 3 + 1] = c[1]; col[n * 3 + 2] = c[2];
-        n++;
+        if (it.done || h.t < it.delay) continue;
+        const u = Math.min(1, (h.t - it.delay) / it.dur);
+        const x = h.fx + (it.tx - h.fx) * u, z = h.fz + (it.tz - h.fz) * u;
+        const y = h.fy + (WATER_Y - h.fy) * u + Math.sin(u * Math.PI) * it.h;
+        const fr = foodFrames(h.item);
+        o.tint[0] = o.tint[1] = o.tint[2] = 1;
+        o.alpha = 1;
+        o.rot = it.rot + it.spin * (h.t - it.delay);
+        o.flip = (it.v & 1) === 1;
+        B.push(fr[it.v % fr.length], x, y, z, o);
       }
     }
-    pm.count = n;
-    pm.instanceMatrix.needsUpdate = true;
-    pm.instanceColor.needsUpdate = true;
+    B.commit();
     // bugs
     const bm = this.bugMesh;
     let k = 0;

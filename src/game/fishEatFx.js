@@ -218,6 +218,16 @@ export class FishEatFx {
     this.bubbles(m.x, m.y, m.z, Math.max(1, Math.round(2 * calm)));
     this.surface(m.x, m.z, sz, calm > 0.5 ? 1 : 0);
     const P = this.game.particles;
+    // [v30 feeding] a bite at the surface: the mouth breaks the water with a slurp ring and a few drops
+    if (f.y > WATER_Y - 0.2) {
+      const F2 = P.fx;
+      F2.spawn('ring_l', m.x, WATER_Y + 0.012, m.z, { life: 0.6, size: 0.26 * sz, flags: FX.FLAT | FX.FADE | FX.GROW, tint: [0.8, 0.92, 1], bright: true });
+      for (let i = 0; i < Math.round(3 * calm) + 1; i++) {
+        const a = Math.random() * Math.PI * 2, sp = rnd(0.3, 0.7);
+        F2.spawn(i % 2 ? 'drop' : 'drop_s', m.x, WATER_Y + 0.04, m.z, { vx: Math.cos(a) * sp, vy: rnd(1.3, 2.1), vz: Math.sin(a) * sp, grav: 9, life: 0.7, size: rnd(0.045, 0.07), flags: FX.WATER, bright: true });
+      }
+      P.sim?.disturb(m.x, m.z, 0.16 * sz, 0.1 * sz);
+    }
     if (fancy) {
       const t = foodTints(item);
       for (let i = 0; i < 3; i++) {

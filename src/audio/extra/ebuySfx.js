@@ -30,7 +30,25 @@ function ebuyCart(ctx, dest, o, { Voice, SOFT }) {
   return v.end;
 }
 
+// [v30 ebuy] coin tick: one tiny metallic click per step while the wallet counts down
+function ebuyTick(ctx, dest, o, { Voice, COINP }) {
+  const v = new Voice(ctx, dest, o, 0.05, 0.04);
+  v.tone({ type: 'square', f: 2400, a: 0.001, hold: 0.004, rel: 0.025, peak: 0.05, lp: 5200 });
+  v.bell({ f: 3520, parts: COINP, peak: 0.08, rel: 0.07 });
+  return v.end;
+}
+
+// [v30 ebuy] card press: a soft wooden "tok"
+function ebuyTok(ctx, dest, o, { Voice }) {
+  const v = new Voice(ctx, dest, o, 0.04, 0.05);
+  v.tone({ f: 520, f2: 340, gl: 0.04, a: 0.002, rel: 0.05, peak: 0.22 });
+  v.noise({ buf: 'white', f: 1800, q: 2, bursts: [[0, 0.02, 0.004]] });
+  return v.end;
+}
+
 export const EXTRA_SFX = {
+  ebuy_tick: { fn: ebuyTick, max: 4, gap: 0.03, g: 1 },
+  ebuy_tok: { fn: ebuyTok, max: 2, gap: 0.04, g: 1.2 },
   ebuy_boot: { fn: ebuyBoot, max: 1, gap: 0.5, g: 1.2 },
   ebuy_cart: { fn: ebuyCart, max: 3, gap: 0.05, g: 1.6 },
 };

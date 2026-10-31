@@ -508,7 +508,8 @@ vec3 ringTex(int id, vec2 p) {
     const pickF = (names, r) => { for (let k = 0; k < names.length; k++) { const n = names[(Math.floor(r * names.length) + k) % names.length]; if (fr(n)) return fr(n); } return fr('pine_0'); };
     const items = [];
     const { W, H } = this;
-    const put = (f, x, z, o) => { if (f) items.push({ f, x, y: this.heightAt(x, z) - 0.12, z, o }); };
+    const gAt = this.visualAt || this.heightAt.bind(this); // [v30 world] stand on the drawn (sloped) ground
+    const put = (f, x, z, o) => { if (f) items.push({ f, x, y: gAt(x, z) - 0.12, z, o }); };
     for (let z = -SLOPE_D; z < H + SLOPE_D; z++)
       for (let x = -SLOPE_D; x < W + SLOPE_D; x++) {
         if (x >= 0 && x < W && z >= 0 && z < H) continue;
@@ -530,7 +531,7 @@ vec3 ringTex(int id, vec2 p) {
           const tint = [dk * 0.95, dk, dk * 1.06];
           const jx = x + 0.2 + hash2(x, z, 855) * 0.6, jz = z + 0.2 + hash2(x, z, 857) * 0.6;
           if (y > treeLine) {
-            if (y < snowLine && rr < 0.035) put(pickF(['spruce_snow_0', 'spruce_snow_1'], r3), jx, jz, { texels: 24, scale: 0.9 + r3 * 0.3, sway: 0.2, phase: rr * 6.28, flip: rr > 0.04, tint });
+            if (y < snowLine && rr < (y < treeLine + 8 ? 0.09 : 0.045)) put(pickF(y < treeLine + 4 && r3 < 0.5 ? ['spruce_0', 'spruce_2', 'pine_1'] : ['spruce_snow_0', 'spruce_snow_1'], r3), jx, jz, { texels: 24, scale: 0.75 + r3 * 0.35, sway: 0.2, phase: rr * 6.28, flip: rr > 0.045, tint }); // [v30 world] pines clinging to the ledges
             else if (rr > (y < treeLine + 4 ? 0.72 : 0.88)) put(pickF(['boulder_0', 'boulder_1', 'rock_0', 'rock_1', 'rock_2', 'mossrock'], r3), jx, jz, { texels: 24, scale: 1.1 + r3 * 0.9, tint: [dk * 1.15, dk * 1.15, dk * 1.18] }); // boulders and scree
             continue;
           }
@@ -729,7 +730,8 @@ void main() {
       const n = 1 + Math.floor(hash2(x, z, 911) * 2.4);
       for (let i = 0; i < n; i++) {
         const dx = (hash2(x, z, 920 + i) - 0.5) * 2.4, dz = (hash2(x, z, 930 + i) - 0.5) * 1.6;
-        this.deer.push({ x: x + dx, z: z + dz, y: this.heightAt(x + dx, z + dz), buck: i === 0 && hash2(x, z, 940) > 0.4, flip: hash2(x, z, 950 + i) > 0.5, t: hash2(x, z, 960 + i) * 9, graze: hash2(x, z, 970 + i) > 0.5 });
+        this.deer.push({ x: x + dx, z: z + dz, y: (this.visualAt || this.heightAt.bind(this))(x + dx, z + dz), // [v30 world]
+ buck: i === 0 && hash2(x, z, 940) > 0.4, flip: hash2(x, z, 950 + i) > 0.5, t: hash2(x, z, 960 + i) * 9, graze: hash2(x, z, 970 + i) > 0.5 });
       }
     }
     this.group.add(D.mesh);
