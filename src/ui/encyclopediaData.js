@@ -341,7 +341,7 @@ function morphChapter(game, S) {
       art: lazyArt(`fish:${sample}:${m}`, () => fishCanvasFor(sample, { morph: m, scale: 1 })), silhouette: true,
       rarity: rarityOfTier(clamp(M.stars + 1, 0, 4)),
       stats: [
-        { icon: 'clover', label: 'Chance', value: oneIn(M.chance) },
+        { icon: 'clover', label: 'Chance', value: M.chanceText || oneIn(M.chance) }, // [v32 dig] chanceText: the Prehistoric form only comes from the vial
         { icon: 'coin', label: 'Value', value: `×${M.value}` },
         { icon: 'star', label: 'Rarity', value: `+${M.stars}★` },
         { icon: 'eye', label: 'Seen on', value: `${on.length} sp.` },

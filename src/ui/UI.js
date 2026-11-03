@@ -36,6 +36,8 @@ import { Transition } from './Transition.js';
 import { injectPaperCSS, openPaper, setPaperSfx } from './paper.js';
 import { Tutorial } from '../game/Tutorial.js';
 import { ynPair, confirmHTML } from './ynButtons.js'; // [v27 knobs] painted YES / NO planks
+import { speakLine } from '../audio/voiceLines.js'; // [v32] voice lines
+const VOICE_WHO = { fox: 'fox', bear: 'bear', cub: 'cub', ceo: 'ceo', moose: 'bear', beaver: 'cub', deer: 'fox', turtle: 'turtle', otter: 'otter', duck: 'duck' };
 const C = (name) => comp[`./${name}.js`] || null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -278,7 +280,11 @@ export class UI {
             return rig.worldToScreen(v, game.renderer);
           },
           sfx, icon,
-          babble: (voice, text) => game.audio.babble?.(voice === 'moose' || voice === 'beaver' ? 'cub' : voice === 'deer' ? 'fox' : voice, text, { volume: 0.3 }) || 0,
+          babble: (voice, text, o) => {
+            // [v32] a dialogue line (it waits for a tap or asks something) is spoken out loud; chatter babbles
+            if (o && (o.wait || o.choices)) { const s = speakLine(text, { who: VOICE_WHO[voice] || 'npc', mood: o.mood }); if (s > 0) return s; }
+            return game.audio.babble?.(voice === 'moose' || voice === 'beaver' ? 'cub' : voice === 'deer' ? 'fox' : voice, text, { volume: 0.3 }) || 0;
+          },
         });
       } catch (e) { console.warn('Bubbles failed', e); }
     }

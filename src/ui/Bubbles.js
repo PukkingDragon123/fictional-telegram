@@ -576,7 +576,7 @@ export class Bubbles {
     let cps = b.mood === 'whisper' ? 22 : b.mood === 'shout' || b.mood === 'excited' ? 40 : 30;
     if (b.opts.voice && this.babble && b.text) {
       try {
-        const secs = this.babble(b.opts.voice, b.text.replace(/\{[a-z0-9_]+\}|\*/gi, ''));
+        const secs = this.babble(b.opts.voice, b.text.replace(/\{[a-z0-9_]+\}|\*/gi, ''), b.opts); // [v32] opts: dialogue lines get spoken
         if (secs > 0.05) cps = clamp(n / secs, 14, 70);
       } catch (e) {
         /* ignore */

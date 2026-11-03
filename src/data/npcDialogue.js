@@ -11,6 +11,7 @@
 //   ms:     friendship milestone scenes at 3 / 6 / 10 friendship: { 3: { lines, gift }, ... }
 //   visit:  morning visit lines at your pond; gift: { coins?, wood?, food? }
 // Lines are short and in character. No emoji.
+import { DIVE_DIALOGUE, DIVE_BICKER } from './dive.js'; // [v32 dive]
 
 export const DIALOGUE = {
   // -------------------------------------------------------------------- Dale
@@ -705,3 +706,4 @@ BICKER.push({ a: 'flint', b: 'pip', lines: [ // [F&S mining]
   { by: 'b', t: 'Is the difference... the price?', anim: 'haggle' },
   { by: 'a', t: 'The difference is I bite them and they don\'t bite back. Mostly.' },
 ], fox: 'Note to self: never sell Flint a coin. He\'ll eat it.' });
+Object.assign(DIALOGUE, DIVE_DIALOGUE); BICKER.push(...DIVE_BICKER); // [v32 dive] Noodles + Chief Buff (src/data/dive.js)

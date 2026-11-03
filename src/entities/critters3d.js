@@ -35,3 +35,6 @@ export { WoodpeckerCarpenter } from './critterWoodpecker.js';
 export { ChipmunkTrader, CHIPMUNK_ANIMS, PIP_WALK_SPEED, PIP_CART_SPEED, PIP_CART_Z } from './critterChipmunk.js';
 export { BadgerProspector } from './critterBadger.js'; // [F&S mining] Flint
 export { LongneckElder } from './critterLongneck.js'; // [v26 turtle] Old Longneck
+export { SnapperProf } from './critterSnapper.js'; // [v32 dig] Prof. Snapp, the alligator snapping turtle paleontologist
+export { NoodlesOtter } from './critterOtter2.js'; // [v32 dive] Noodles, the catfish noodler of Loon Lake
+export { ChiefBuff } from './critterDuck2.js'; // [v32 dive] Chief Buff, the diving duck

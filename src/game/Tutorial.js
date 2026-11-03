@@ -21,8 +21,11 @@ import { ynPair } from '../ui/ynButtons.js'; // [v27 knobs] painted YES / NO pla
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 import { TeacherOverlay } from '../ui/TeacherOverlay.js'; // the on-screen guide: Reynard runs to what to tap and talks in comic bubbles
 import { TUT_SCENES } from './cine/tutorialScenes.js'; // [v31 guide]
+// [v32] the classroom is back: the day-1 lessons are classes again (src/game/Classroom.js)
+const clsMods = import.meta.glob('./Classroom.js', { eager: true });
+const Classroom = clsMods['./Classroom.js']?.Classroom || null;
+if (clsMods['./Classroom.js']?.LESSONS) Object.assign(clsMods['./Classroom.js'].LESSONS, COMBINED_LESSONS);
 import { floatTitle } from '../ui/kinetic/floatText.js'; // [v31 guide]
-void COMBINED_LESSONS;
 
 // v17: the research tree's stable bits (src/ui/LabTree.js, owned by the labtree
 // helper). If the tree's markup changes, fix it here only.
@@ -188,9 +191,22 @@ export class Tutorial {
     return typeof target === 'string' ? this.game.ui?.pointAt?.(target) || (() => {}) : () => {};
   }
 
-  // [v31 guide] a cinematic cutscene in place of the old classroom lesson (fallback: a few lines)
+  // [v32] a full-screen classroom lesson (Professor Reynard, the chalkboard, the class of fish,
+  // the test paper at the end); fallback: a few lines from the fox
   async lesson(id) {
-    if (TUT_SCENES[id] && await this.scene(id)) return;
+    const game = this.game;
+    this.stage = 'lesson:' + id;
+    if (Classroom) {
+      try {
+        if (!this.classroom) this.classroom = game.classroom ||= new Classroom(game);
+        game.ui?.foodPicker?.hide?.();
+        const t = this.teacher;
+        if (t?.visible) { try { t.clearChalk(); await t.hide(); } catch { /* ignore */ } }
+        await this.classroom.lesson(id);
+        game.ui?.syncFoodPicker?.();
+        return;
+      } catch (e) { console.warn('lesson failed', id, e); }
+    }
     const lines = FALLBACK_LESSONS[id] || [];
     for (const l of lines) await this.fox(l, { mood: 'happy' });
   }
@@ -288,11 +304,10 @@ export class Tutorial {
     if (pond) fox.target = { x: pond[0] + 0.5, z: pond[1] + 0.5 };
     this.follow = true;
     await wait(1.6);
-    // ---- [v31 guide] the opening crane over the valley, then pond life (one cutscene)
-    if (!(await this.scene('opening', 'pondlife'))) {
-      await this.teach('Behold! The pond! ...It\'s <b>empty</b>.', { wait: true, mood: 'excited' });
-      await this.lesson('pondlife');
-    }
+    // ---- the opening crane over the valley, then class: Pond Life
+    if (!(await this.scene('opening'))) await this.teach('Behold! The pond! ...It\'s <b>empty</b>.', { wait: true, mood: 'excited' });
+    await this.teach('Quick <b>class</b> first. To the classroom!', { dur: 2.2, mood: 'excited' });
+    await this.lesson('pondlife');
 
     // ---- buy the first two fish
     await this.part(1, 'First Fish');
@@ -382,7 +397,7 @@ export class Tutorial {
     game.unlockFeature('pet');
 
     // ---- lesson 3: building (and who does the heavy lifting)
-    await this.teach('Fish: done! Now we <b>BUILD</b>!', { dur: 2.2, mood: 'excited' });
+    await this.teach('Fish: done! Now we <b>BUILD</b>. Class!', { dur: 2.2, mood: 'excited' });
     await this.lesson('builder');
 
     // ---- the LAB: nothing gets built until it's been researched
@@ -551,9 +566,10 @@ export class Tutorial {
     await this.teach('Wood = furniture from Chip... or cash from <b>Pip</b>, who visits tomorrow!', { wait: true, mood: 'scheming' });
 
     // ---- lessons: bears & stars
-    await this.teach('Now... our <b>customers</b>.', { dur: 2.2, mood: 'scared' });
+    await this.teach('Last class: our <b>customers</b>...', { dur: 2.2, mood: 'scared' });
     await this.part(7, 'Customers');
     await this.lesson('customers');
+    await this.scene('customers'); // meanwhile, up the mountain: the bears hear about the pond
 
     // ---- the clock (bears come tomorrow), with a peek up the mountain
     game.unlockFeature('clock');
@@ -576,8 +592,8 @@ export class Tutorial {
     stop = this.pointAt('tool:lab');
     await this.teach('New stuff? The <b>LAB</b>: research is <b>FREE</b>, it just takes time. Neighbours open more!', { target: 'tool:lab', circle: true, wait: true, mood: 'happy' });
     stop?.();
-    await this.teach('I\'ll show you the rest <b>as it happens</b>. Tips go in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
-    await this.teach('<b>Tour\'s over!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
+    await this.teach('I\'ll teach you the rest <b>as it happens</b>. Every lesson goes in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
+    await this.teach('<b>Class dismissed!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
     game.unlockFeature('speed');
     game.setTool({ kind: 'feed' });
     try { const t = this.teacher; if (t) { t.clearChalk(); await t.hide(); } } catch { /* ignore */ }

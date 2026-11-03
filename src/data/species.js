@@ -397,6 +397,8 @@ export const MORPHS = {
   ghost: { name: 'Ghost', chance: 0.012, value: 2.5, stars: 2, desc: 'Nearly see-through, glowing faintly blue.' },
   golden: { name: 'Golden', chance: 0.01, value: GOLDEN_MULT, stars: 2, desc: 'Solid gold shimmer. Worth five times as much.' },
   rainbow: { name: 'Prismatic', chance: 0.003, value: 8, stars: 3, desc: 'Every colour of the aurora at once. Once in a lifetime.' },
+  // [v32 dig] never rolled on an egg: the Primordial Vial wakes it (src/game/ext/digsite.js); own shapes per species (src/game/dig/ancientFish.js)
+  ancient: { name: 'Prehistoric', chance: 0, value: 6, stars: 3, desc: 'Woken by the Primordial Vial: fangs, armour, spines or lobed fins from a few hundred million years ago.', chanceText: 'Vial only' },
 };
 export const MORPH_IDS = Object.keys(MORPHS);
 

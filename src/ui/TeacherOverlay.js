@@ -56,6 +56,7 @@ import defaultAudio from '../audio/audio.js';
 import './fonts.css';
 import './teacher.css';
 import { textSpeed } from './settings.js'; // [v26 menu] Settings > Text speed
+import { speakLine } from '../audio/voiceLines.js'; // [v32]
 
 const TAU = Math.PI * 2;
 const { abs, min, max, sin, cos, hypot, sqrt, floor, round, ceil, PI } = Math;
@@ -1711,7 +1712,7 @@ export class TeacherOverlay {
     const n = chars.length;
     if (plain.trim()) {
       let secs = 0;
-      try { secs = +this.audio?.babble?.('fox', plain, { volume: 0.3 }) || 0; } catch (e) { secs = 0; }
+      try { secs = speakLine(plain, { who: 'fox', mood }) || +this.audio?.babble?.('fox', plain, { volume: 0.3 }) || 0; } catch (e) { secs = 0; } // [v32] voice lines
       if (secs > 0.05) cps = clamp(n / secs, 14, 70);
       this.rig?.talk(plain, { cps: clamp(cps, 10, 30) });
     }

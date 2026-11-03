@@ -19,6 +19,7 @@
 //   panSpeed  drag / pinch / WASD pan speed multiplier;  invertDrag  flips the drag
 //   rotButtons  the on-screen turn buttons (Q / E still work)
 //   textSpeed speech bubble typing speed (slow / normal / fast / instant)
+//   voiceLines  [v32] characters speak their dialogue lines out loud (browser speech), else babble
 //   reduceMotion  prefers-reduced-motion for every UI module that checks it (read at
 //             load by some: full effect after a reload), no camera shake, CSS
 //             animations cut short
@@ -26,6 +27,7 @@ const KEY = 'tbme.settings.v1';
 export const SETTING_DEFAULTS = Object.freeze({
   shadows: true, glow: true, particles: 1, panSpeed: 1, invertDrag: false, rotButtons: true,
   textSpeed: 1, reduceMotion: false, lang: 'en',
+  voiceLines: true, // [v32] spoken voice lines (src/audio/voiceLines.js)
 });
 
 function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -180,5 +182,6 @@ const settings = {
 
 /** typewriter speed multiplier for speech bubbles (Infinity-ish = instant) */
 export function textSpeed() { return S.textSpeed || 1; }
+export function voiceLinesOn() { return S.voiceLines !== false; } // [v32]
 if (typeof window !== 'undefined') window.__settings = settings;
 export default settings;

@@ -18,11 +18,12 @@
 // cached.
 
 import { SPECIES } from '../data/species.js';
+import { ancientDef, ancientColors } from '../game/dig/ancientFish.js'; // [v32 dig] the prehistoric form (morph 'ancient')
 
 export const FISH_TEXELS_PER_UNIT = 26;
 export const FISH_FRAMES = 5; // 0..3 swim cycle, 4 = flop (held up)
 
-const MORPH_LIST = ['normal', 'albino', 'melanistic', 'calico', 'ghost', 'golden', 'rainbow'];
+const MORPH_LIST = ['normal', 'albino', 'melanistic', 'calico', 'ghost', 'golden', 'rainbow', 'ancient']; // [v32 dig] + 'ancient' (own shapes, src/game/dig/ancientFish.js)
 
 // ===========================================================================
 // Small math helpers
@@ -2207,6 +2208,12 @@ const MORPHS = {
     return { C: D, bands, sparkle: 1, sparkCol: [A([255, 255, 255]), A([255, 255, 255])] };
   },
 };
+// [v32 dig] the prehistoric form's palette (per archetype, src/game/dig/ancientFish.js)
+MORPHS.ancient = (def, C) => {
+  const D = C.slice(), o = ancientColors(def);
+  for (const [k, v] of Object.entries(o.colors)) if (MAT_BY_NAME[k]) D[MAT_BY_NAME[k]] = v;
+  return { C: D, outK: o.outK };
+};
 
 function colorize(B, pal, seed = 0) {
   const n = B.w * B.h, w = B.w;
@@ -2338,11 +2345,12 @@ function defFor(id) {
 }
 function resolveId(id) { return DEFS[id] ? id : 'bluegill'; }
 
-function spriteSet(id) {
+function spriteSet(id, morph) {
   id = resolveId(id);
-  let S = _sets.get(id);
+  const anc = morph === 'ancient'; // [v32 dig] the prehistoric form has its own shapes (fangs, plates, lobes)
+  let S = _sets.get(anc ? id + '|ancient' : id);
   if (S) return S;
-  const def = defFor(id);
+  const def = anc ? ancientDef(defFor(id)) : defFor(id);
   const size = SPECIES_SIZE[id] || 1;
   const W = Math.round(size * FISH_TEXELS_PER_UNIT);
   const F = compile(def, W - 4);
@@ -2352,7 +2360,7 @@ function spriteSet(id) {
   const FF = compile(fryDef(def, fryLen - 2), fryLen - 2);
   const fry = cropShared([0, 1].map((f) => renderPose(FF, swimPose(FF, f, true))));
   S = { id, def, F, adult: [...swim, flop], fry };
-  _sets.set(id, S);
+  _sets.set(anc ? id + '|ancient' : id, S); // [v32 dig]
   return S;
 }
 
@@ -2374,7 +2382,7 @@ function frameIndex(frame, n) {
   return f < 0 ? f + n : f;
 }
 function spriteImageData(id, morph, frame, fry) {
-  const S = spriteSet(id);
+  const S = spriteSet(id, morph); // [v32 dig] morph: the ancient form's own sprite set
   const list = fry && S.fry.length ? S.fry : S.adult;
   frame = frameIndex(frame, list.length);
   const B = list[frame];
@@ -2585,8 +2593,8 @@ export function buildFishAtlas() {
   const items = [];
   const ids = Object.keys(DEFS);
   for (const id of ids) {
-    const S = spriteSet(id);
     for (const morph of MORPH_LIST) {
+      const S = spriteSet(id, morph); // [v32 dig] (was per species: the ancient form has its own sizes)
       S.adult.forEach((B, f) => items.push({ key: `${id}|${morph}|${f}|0`, id, morph, f, fry: false, w: B.w, h: B.h }));
       S.fry.forEach((B, f) => items.push({ key: `${id}|${morph}|${f}|1`, id, morph, f, fry: true, w: B.w, h: B.h }));
     }

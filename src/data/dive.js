@@ -62,8 +62,8 @@ export const DIVE_ZONES = [
 ];
 
 export const DIVE_CAST = {
-  noodles: { cls: 'NoodlesOtter', voice: 'bear', specials: ['noodle', 'tall_tale', 'toothpick', 'stretch_arms'], height: 1.5, sign: 'BAIT' },
-  buff: { cls: 'ChiefBuff', voice: 'ceo', specials: ['whistle', 'pushups', 'clipboard', 'salute'], height: 1.45, sign: 'DIVE' },
+  noodles: { cls: 'NoodlesOtter', voice: 'otter', specials: ['noodle', 'tall_tale', 'toothpick', 'stretch_arms'], height: 1.5, sign: 'BAIT' },
+  buff: { cls: 'ChiefBuff', voice: 'duck', specials: ['whistle', 'pushups', 'clipboard', 'salute'], height: 1.45, sign: 'DIVE' },
 };
 
 // ---------------------------------------------------------------- dialogue (chat cards)

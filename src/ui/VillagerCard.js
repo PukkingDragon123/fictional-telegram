@@ -160,6 +160,7 @@ export const VILLAGERS = {
   pip: { name: 'Pip', title: 'Lumber trader', bg: ['#e8b878', '#f8e0b0'], pitch: 1.4, shop: 'Lumber counter', gift: ['#c8402a', '#3a2a1a'] },
   flint: { name: 'Flint', title: 'Prospector', bg: ['#a8a0b0', '#d8d0c8'], pitch: 0.75, shop: 'The quarry', gift: ['#e0a838', '#4866a2'] }, // [F&S mining]
   longneck: { name: 'Old Longneck', title: 'The Old Wise Long-Neck Turtle', bg: ['#7aa8a0', '#b8dcd4'], pitch: 0.6, shop: 'The Old Ways', gift: ['#6a8a5a', '#d8b04a'] }, // [v26 turtle]
+  snapp: { name: 'Prof. Snapp', title: 'Grumpy paleontologist', bg: ['#c8a46a', '#ead6a4'], pitch: 0.55, shop: 'The lab bench', gift: ['#c0843a', '#4a4430'] }, // [v32 dig]
 };
 export const VILLAGER_IDS = Object.keys(VILLAGERS);
 

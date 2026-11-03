@@ -1,4 +1,6 @@
 import { QUARRY_ZONE } from './zoneQuarry.js'; // [F&S mining]
+import { DIVE_ZONES } from './dive.js'; // [v32 dive]
+import { DIG_ZONE } from './digSites.js'; // [v32 dig]
 // Fog-covered areas of the big forest. Each one hides a villager's home (and
 // a landmark). Clear the forest up to the edge of the fog and it lifts: the
 // villager becomes your friend and unlocks new things. `cx/cz/r` is the fog
@@ -167,6 +169,8 @@ ZONES.push({
   mods: {},
   gift: { coins: 150 },
 });
+ZONES.push(DIG_ZONE); // [v32 dig] Bonebed Bluff (Prof. Snapp), east Old Wood above Fern Brook (src/data/digSites.js)
+ZONES.push(...DIVE_ZONES); // [v32 dive] Loon Lake (Noodles) + Chief Buff's Dive School, north shore of the Broadwater basin (src/data/dive.js)
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 // zone id -> a short "who to meet" label (for locked things)
 export const ZONE_INFO = Object.fromEntries(ZONES.map((z) => [z.id, { npcName: z.npc.name, name: z.name }]));

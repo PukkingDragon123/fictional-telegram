@@ -8,6 +8,7 @@ import { STRUCTURES } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { rollGenes } from './genes.js';
 import { NpcDialogue } from './NpcDialogue.js'; // [v19 npc]
+import { DIVE_CAST } from '../data/dive.js'; // [v32 dive]
 
 const c3 = import.meta.glob('../entities/critters3d.js', { eager: true });
 const C3 = c3['../entities/critters3d.js'] || {};
@@ -40,6 +41,8 @@ const CAST = {
   flint: { cls: 'BadgerProspector', voice: 'ceo', specials: ['swing_pick', 'bite_nugget', 'gentle_boom'], height: 1.4, sign: 'QUARRY' }, // [F&S mining]
   longneck: { cls: 'LongneckElder', voice: 'ceo', specials: ['sip_tea', 'doze', 'nod', 'point', 'retract'], height: 1.75, sign: 'SLOW' }, // [v26 turtle]
 };
+Object.assign(CAST, DIVE_CAST); // [v32 dive] Noodles + Chief Buff (src/data/dive.js)
+CAST.snapp = { cls: 'SnapperProf', voice: 'turtle', specials: ['loupe', 'tap_hammer', 'lure', 'grumble', 'brush'], height: 1.45, sign: 'DIG SITE' }; // [v32 dig] Prof. Snapp (src/game/ext/digsite.js)
 
 function fallbackRig(color) {
   const root = new THREE.Group();
@@ -121,6 +124,8 @@ export class Villagers {
     else if (v.id === 'hazel') put(tryMake(NP2.makeBakeryCart), 1.1, -0.55, 0.0);
     else if (v.id === 'flint') tryMake((vv, pp) => game.mining?.flintProps(vv, pp), v, put); // [F&S mining] shack + rig sounds
     else if (v.id === 'longneck') tryMake((vv, pp) => game.longneck?.props(vv, pp), v, put); // [v26 turtle] lanterns, chimes, dock + his door behind the falls
+    else if (v.id === 'noodles' || v.id === 'buff') tryMake((vv, pp, gg) => game.dive?.props(vv, pp, gg), v, put, g); // [v32 dive] Noodles' camp / Chief's dock, shack + dive flag
+    else if (v.id === 'snapp') tryMake((vv, pp) => game.digsite?.props(vv, pp), v, put); // [v32 dig] the bluff, lab hut (his door), tent, trenches, display case
     else if (v.id === 'otis') {
       const dock = tryMake(NP2.makeFishingDock);
       put(dock, 0.85, 0.0, Math.PI + 0.3); // the jetty and its little pond run out front-right of him
@@ -181,6 +186,7 @@ export class Villagers {
 
   async intro(v) {
     if (v.id === 'longneck' && this.game.longneck?.intro) return this.game.longneck.intro(v); // [v26 turtle] he only manages a very slow "..."
+    if (v.id === 'snapp' && this.game.digsite?.intro) return this.game.digsite.intro(v); // [v32 dig] his arrival is a Director scene
     const r = v.rig;
     r?.play?.('wave', { loop: false, onDone: () => this.idle(v) });
     for (const line of v.zone.intro) {
@@ -204,6 +210,7 @@ export class Villagers {
     const game = this.game;
     // [npc cutscenes] the first tap plays a short welcome scene, then comes back here
     if (v.id === 'longneck' && game.longneck?.onTap?.(v)) return; // [v26 turtle] the Long Talk starts / Reynard gets impatient
+    if (v.id === 'snapp' && game.digsite?.onTap?.(v)) return; // [v32 dig] busy in a scene / first meeting
     if (game.npcScenes?.firstVisit?.(v)) return;
     // [v19 npc] Pip and Chip get the same chat card; their counter / workshop is the first offer
     const ui = game.ui;
@@ -226,6 +233,8 @@ export class Villagers {
     if (v.id === 'chip' && game.workshop) offers.unshift({ icon: 'hammer', title: 'Open the workshop', desc: 'Furniture orders and repairs', tag: 'OPEN', onClick: panel(() => game.workshop.open()) });
     if (v.id === 'flint' && game.mining) offers.unshift(...game.mining.cardOffers(panel)); // [F&S mining] the Bear Mine + ore trade
     if (v.id === 'longneck' && game.longneck) offers.unshift(...game.longneck.cardOffers(v, panel)); // [v26 turtle] the Long Talk
+    if ((v.id === 'noodles' || v.id === 'buff') && game.dive) offers.unshift(...game.dive.cardOffers(v, panel)); // [v32 dive] hire a catch / go diving / lessons
+    if (v.id === 'snapp' && game.digsite) offers.unshift(...game.digsite.cardOffers(v, panel)); // [v32 dig] lab bench, display, vial
     if (game.homes?.doors?.has(v.id) && !game.homes.active) offers.unshift({ icon: 'home', title: 'Visit home', desc: 'Pop in for a look around', tag: 'OPEN', onClick: panel(() => game.homes.enter(v.id)) }); // [v20 npc homes]
     if (this.card) this.card.close?.();
     const talk = this.talk;

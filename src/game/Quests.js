@@ -19,6 +19,7 @@ import { LESSON_QUESTS } from '../data/lessons.js'; // [v26 tutorial] lesson goa
 import { CHAPTERS, MAIN_QUESTS, MAIN_BY_ID, DAILY, DAILY_BY_ID, dailyCoins, dailyBonus } from '../data/questline.js';
 import { showQuestToast } from '../ui/QuestToast.js';
 import { BEAR_QUESTS } from '../data/questsBears.js'; // [v31 cine] errands the bears bring (started by their scenes)
+import { DIVE_QUESTS } from '../data/dive.js'; // [v32 dive]
 
 // side errands (the old after-tutorial quests that the main line does not cover)
 export const QUESTS = [
@@ -63,6 +64,7 @@ QUESTS.push(...MINING_QUESTS); // [F&S mining] src/data/questsMining.js
 QUESTS.push(...LONGNECK_QUESTS); // [v26 turtle] the way to Old Longneck (src/data/longneck.js)
 QUESTS.push(...LESSON_QUESTS); // [v26 tutorial] src/data/lessons.js
 QUESTS.push(...BEAR_QUESTS); // [v31 cine] src/data/questsBears.js (src/game/cine/bearQuests.js plays their scenes)
+QUESTS.push(...DIVE_QUESTS); // [v32 dive] src/data/dive.js (started by the story in src/game/ext/dive.js)
 const BY_ID = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 // old side quests that the main line took over (old saves: done there = done here)
 const OLD_TO_MAIN = { friend: 'm_friend', lab: null, tag: null, match: 'm_cupid', lq_match: 'm_cupid', lq_3star: 'm_3star', lq_hire: 'm_hire', lq_keeper: 'm_keeper', craft: 'm_chip', facility: 'm_facility' };
@@ -514,8 +516,6 @@ export class Quests {
 
   // a chapter's class plays at the next quiet moment (after its hour)
   maybeClass() {
-    return; // [v31 guide] the chalkboard classroom is gone: chapter classes no longer play
-    // eslint-disable-next-line no-unreachable
     const g = this.game, M = this.M;
     if (!M.cls.length || g.tutorial?.active || g.state.phase !== 'day' || g.skipTutorial) return;
     const L = g.lessons;

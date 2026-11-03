@@ -15,7 +15,7 @@
 //      force (true: run even with ?notut / no tutorial), seen(id), sync().
 // Save: game.state.lessons = { v, seen: [], queue: [], last, flags: {}, classes: [], played: [] }.
 import { TeacherOverlay } from '../../ui/TeacherOverlay.js';
-const CLASS_BOOK = {}; // [v31 guide] the chalkboard classroom is gone: no classes to offer or replay
+import { Classroom, LESSONS as CLASS_BOOK } from '../Classroom.js'; // [v32] the classroom is back
 import { LESSONS, LESSON_BY_ID, DAY1_CLASSES } from '../lessons/progressive.js';
 import { CLASS_ORDER } from '../lessons/classes.js';
 import '../../ui/lessons.css';
@@ -275,14 +275,15 @@ class Lessons {
   }
 
   async playClass(id) {
-    if (!CLASS_BOOK[id]) return false; // [v31 guide] no classroom any more
     const g = this.game;
     if (!CLASS_BOOK[id] || g.classroom?.active || this.blocked()) return false;
     const S = this.S;
     if (!S.played.includes(id)) S.played.push(id);
     if (!S.classes.includes(id) && !DAY1_CLASSES.some(([k]) => k === id)) S.classes.push(id);
     try {
+      g.classroom ||= new Classroom(g);
       g.ui?.foodPicker?.hide?.();
+      await g.classroom.lesson(id);
     } catch (e) { console.warn('[lessons] class', id, e); }
     g.ui?.syncFoodPicker?.();
     this.sync();
