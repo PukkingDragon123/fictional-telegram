@@ -211,7 +211,7 @@
 .ltree.is-tut .lt-crumb { pointer-events: none; color: var(--g6); background: none; }
 
 /* ------------------------------------------------------------ the window + the desktop */
-.ltree .lt-main { position: relative; flex: 1; min-height: 0; display: flex; }
+.ltree .lt-main { position: relative; flex: 1; min-height: 0; display: flex; overflow: hidden; }
 .ltree .lt-body { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; }
 .ltree.loc-desk .lt-body { visibility: hidden; }
 .ltree .lt-main.is-pop .lt-body { animation: lt-winpop .3s steps(5) both; }

@@ -55,7 +55,7 @@
 import './labtree.css';
 import * as SPECIES_DATA from '../data/species.js';
 import * as STRUCT_DATA from '../data/structures.js';
-import { crispScale } from './uiScale.js';
+import { crispPx } from './uiScale.js';
 import { faceImg } from './faces3d.js';
 import { Workbench } from './lab/workbench.js';
 import { Tube } from './lab/tube.js';
@@ -1273,6 +1273,7 @@ export class LabTree {
 
   // [v31 lab] where we are: null = the desktop | { k: 'all' } | { k: 'ready' } | { k: 'b', B }
   _go(loc, { anim = true, sound = true, from = null, then = null } = {}) {
+    if (this._opening) return; // a window is mid-open (~0.3 s)
     if (REDUCED) anim = false;
     const was = this.loc;
     if (!loc) { this._toDesk(was, { anim: anim && !!was, sound, from }); return; }
@@ -1331,6 +1332,9 @@ export class LabTree {
     } else if (this.selSec && !this.selSec.sealed) this._select(this.selSec.nodes[0], { pan: false, sound: false, open: false });
     this._resize();
     this._frameLoc();
+    if (this.root.contains(document.activeElement) && document.activeElement.closest('.lt-desk')) {
+      this.view.focus({ preventScroll: true }); // keyboard users carry on in the window (arrows, Enter)
+    }
     this._pathTo(loc, true);
     this._pathInfo();
     if (k === 'b') this._log(`cd ${loc.B.dos}${loc.B.sealed ? '   ** ENCRYPTED **' : ''}`, loc.B.sealed ? 'warn' : 'dim');
@@ -1401,9 +1405,12 @@ export class LabTree {
     const b = this._bounds;
     const fitZ = Math.min((vw - 40) / (b.x1 - b.x0), (vh - 40) / (b.y1 - b.y0));
     const z = clamp(Math.min(fitZ, this._baseZoom()), Math.max(this._minZ(), 0.55), MAXZ);
-    if (fitZ >= z - 1e-3 || !this.sel) { this._fitNow(b, z); return; }
-    const n = this.sel;
-    Object.assign(this.cam, this._clampCam({ z, x: vw / 2 - n.x * z, y: vh / 2 - (n.y + 18) * z }));
+    // per axis: centre the folder when it fits, else centre on the picked project
+    const n = this.sel || B.nodes[0];
+    const fx = (b.x1 - b.x0) * z <= vw - 40, fy = (b.y1 - b.y0) * z <= vh - 40;
+    const x = fx || !n ? vw / 2 - ((b.x0 + b.x1) / 2) * z : vw / 2 - n.x * z;
+    const y = fy || !n ? vh / 2 - ((b.y0 + b.y1) / 2) * z : vh / 2 - (n.y + 18) * z;
+    Object.assign(this.cam, this._clampCam({ z, x, y }));
     this._applyCam();
   }
 
@@ -1876,8 +1883,8 @@ export class LabTree {
       return;
     }
     const tree = this.loc.k !== 'ready';
-    if (k === 'ArrowLeft') { if (tree) this._move(-1, 0); else handled = false; }
-    else if (k === 'ArrowRight') { if (tree) this._move(1, 0); else handled = false; }
+    if (k === 'ArrowLeft') { if (tree) this._move(-1, 0); }
+    else if (k === 'ArrowRight') { if (tree) this._move(1, 0); }
     else if (k === 'ArrowUp') this._move(0, -1);
     else if (k === 'ArrowDown') this._move(0, 1);
     else if (k === 'Enter' || k === 'NumpadEnter' || k === ' ') {
@@ -1964,9 +1971,12 @@ export class LabTree {
   _sizeHero() {
     const w = this.$hero.clientWidth;
     if (!w) return;
-    const s = Math.max(1, crispScale((w - 4) / PW, 1, { min: 1, max: 4 }));
-    const cw = `${Math.round(PW * s * 100) / 100}px`;
-    if (this.pcv.style.width !== cw) { this.pcv.style.width = cw; this.pcv.style.height = `${Math.round(PH * s * 100) / 100}px`; }
+    const s = crispPx(2); // ~2 css px per art px, a whole number of device px
+    const pw = clamp(Math.floor((w - 16) / s), 96, 170), ph = Math.round((pw * PH) / PW);
+    if (pw === this._pw && ph === this._ph && s === this._ps) return;
+    this._pw = pw; this._ph = ph; this._ps = s;
+    this.pcv.style.width = `${pw * s}px`;
+    this.pcv.style.height = `${ph * s}px`;
   }
 
   // the world rect the camera may show: the open folder's band, or the whole tree
@@ -2733,7 +2743,7 @@ export class LabTree {
     const R = rng(now() | 0);
     for (let i = 0; i < 30; i++) {
       const a = R() * Math.PI * 2, v = 30 + R() * 70;
-      this._bursts.push({ x: PW / 2, y: PH / 2 - 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, t: 0, life: 0.6 + R() * 0.6, c: R() < 0.5 ? '#fff7c4' : R() < 0.5 ? '#7dffa8' : '#ffcc3a' });
+      this._bursts.push({ x: (this._pw || PW) / 2, y: (this._ph || PH) / 2 - 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, t: 0, life: 0.6 + R() * 0.6, c: R() < 0.5 ? '#fff7c4' : R() < 0.5 ? '#7dffa8' : '#ffcc3a' });
     }
   }
 
@@ -2825,17 +2835,19 @@ export class LabTree {
   };
 
   _drawHero(t, dt) {
+    if (!this.loc) return; // on the desktop the window (and its showcase) is hidden
     if (this.selSec && this.$hero.offsetParent !== null) { this._drawSealHero(t); return; }
     const n = this.sel;
     if (!n || this.$hero.offsetParent === null) return;
     const cv = this.pcv, ctx = this.pctx;
     const st = this._st.get(n.id);
     let custom = false;
+    const pw = this._pw || PW, ph = this._ph || PH;
+    if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
     if (this.o.preview && st !== 'locked' && st !== 'zone') {
       try { custom = !!this.o.preview(n.d, cv, t); } catch { custom = false; }
     }
     if (!custom) {
-      if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
       ctx.imageSmoothingEnabled = false;
       const W = cv.width, H = cv.height;
       drawBackdrop(ctx, W, H, t, st);
@@ -2859,8 +2871,8 @@ export class LabTree {
   // an encrypted folder: a brass padlock over scrambled phosphor data
   _drawSealHero(t) {
     const cv = this.pcv, ctx = this.pctx;
-    if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
-    const W = PW, H = PH;
+    const W = this._pw || PW, H = this._ph || PH;
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
     drawBackdrop(ctx, W, H, t, 'locked');
     const R = rng(Math.floor(t * 3) + 1);
     ctx.font = "8px 'TBME Body', monospace"; // [v18 font]

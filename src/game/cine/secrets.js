@@ -2,7 +2,7 @@
 // SECRET FOUND card (n of 9) and pays a little the first time. Found ids: game.state.secrets.
 //
 //   konami    up up down down left right left right B A: Reynard's victory dance, a cheat that isn't
-//   poke      tap Reynard a dozen times in a row: he gets crankier, then pays you to stop
+//   poke      tap Reynard ten times in a row: he gets crankier, then pays you to stop
 //   whistle   tap the office tower five times: someone blows the 5 PM whistle early. The CEO is NOT amused
 //   reynard   type his name: a very fancy bow
 //   money     type "money": a coin shower he won't let you keep
@@ -30,8 +30,8 @@ const N = Object.keys(SECRETS).length;
 const KONAMI = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
 const WORDS = { reynard: 'reynard', money: 'money', salmon: 'salmon' };
 const POKE_LINES = [
-  [3, 'Hm?', 'say'], [5, 'Can I help you?', 'say'], [7, 'Please stop that.', 'angry'], [9, 'I am a BUSINESS FOX!', 'shout'],
-  [11, 'My monocle! You\'ll knock it off!', 'scared'],
+  [2, 'Hm?', 'say'], [4, 'Can I help you?', 'say'], [6, 'Please stop that.', 'angry'], [9, 'I am a BUSINESS FOX!', 'shout'],
+  [8, 'My monocle! You\'ll knock it off!', 'scared'],
 ];
 const _v = new Vector3();
 
@@ -112,6 +112,7 @@ export class Secrets {
     // Reynard
     const fp = f && !f.asleep && f.rig?.root?.visible ? this.screenOf(f.x, f.y + 0.9, f.z) : null;
     if (fp && Math.hypot(e.clientX - fp.x, e.clientY - fp.y) < 34) {
+      e.stopPropagation(); // a poke is a poke: the feed tool doesn't send him running off to the shore
       this.pokes = this.pokes.filter((t) => now - t < 2600);
       this.pokes.push(now);
       this.pokeN = this.pokes.length >= 2 ? this.pokeN + 1 : 1;
@@ -140,7 +141,7 @@ export class Secrets {
     f.react?.(n >= 9 ? 'panic' : 'cheer', 0.5);
     const L = POKE_LINES.find((x) => x[0] === n);
     if (L) this.foxBark(L[1], L[2]);
-    if (n >= 12) {
+    if (n >= 10) {
       this.pokes.length = 0; this.pokeN = 0;
       this.foxBark('FINE. Here\'s a coin. Now SHOO.', 'angry', 2.4);
       g.particles?.coins?.(f.x, f.y + 1.4, f.z, 3);
