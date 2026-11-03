@@ -191,7 +191,7 @@ const plainOf = (toks) => toks.map((t) => (t.t === 'icon' ? '*' : t.t === 'nl' ?
 
 // ---------------------------------------------------------------- looks
 // font metrics: [cap, descender, line height]
-const FM = { body: [6, 2, 11], bold: [6, 2, 11], tiny: [5, 1, 8], script: [8, 3, 14] };
+const FM = { body: [6, 2, 11], bold: [6, 2, 11], tiny: [5, 1, 8], script: [8, 3, 14], alagard: [11, 3, 16] };
 function lookFor(style, speaker, plainLen) {
   const L = { font: 'body', k: 1, fill: '#fff6e4', out: OUT, em: '#ff7a52', kw: '#ffe066', aside: '#b8ac98', speed: 46, maxW: 168, track: 0, depth: 0 };
   const tint = speaker ? tintCol(speaker) : null;
@@ -723,15 +723,17 @@ export function floatTitle(o = {}) {
   const style = o.style || 'shout';
   // big for a word, smaller as the title grows (two chunky rows read as one dark slab)
   const len = String(o.title || '').length;
-  const k = o.k || Math.max(2, (len <= 9 ? 4 : len <= 15 ? 3 : 2) - (CW < 300 ? 1 : 0));
+  // [v31] titles are set in Alagard (11 px caps) when every letter is in it, else the bold face
+  const al = /^[\x20-\x7e]*$/.test(String(o.title || ''));
+  const k = o.k || (al ? (len <= 20 && CW >= 300 ? 2 : 1) : Math.max(2, (len <= 9 ? 4 : len <= 15 ? 3 : 2) - (CW < 300 ? 1 : 0)));
   const yk = o.y ?? 0.2;
   const ttl = o.ms != null ? o.ms / 1000 : 2.6;
   const group = nextId + 1000;
   const parts = [];
   const fill = o.color || (style === 'gold' ? '#ffd84a' : style === 'spooky' ? '#c8ffe8' : '#fff6e4');
-  const look = { font: 'bold', k, fill, fill2: o.color2 || mixHex(fill, style === 'gold' ? '#c87a1a' : '#e0a050', 0.45), out: OUT, depth: o.depth ?? Math.max(2, k - 1), speed: o.speed || 26, track: 1, maxW: 9999 };
+  const look = { font: al ? 'alagard' : 'bold', k, fill, fill2: o.color2 || mixHex(fill, style === 'gold' ? '#c87a1a' : '#e0a050', 0.45), out: OUT, depth: o.depth ?? Math.max(2, k - 1), speed: o.speed || 26, track: 1, maxW: 9999 };
   let kick = null, sub = null;
-  const tIt = make({ kind: 'title', style, text: String(o.title || '').toUpperCase(), hold: !!o.hold, ttl, look, k, group, delay: o.kicker ? 0.25 : 0, prio: 0, fixed: () => [Math.round(CW / 2 - tIt.W / 2), Math.round(CH * yk) + (kick ? kick.H + 3 : 0)] });
+  const tIt = make({ kind: 'title', style, text: al ? String(o.title || '') : String(o.title || '').toUpperCase(), hold: !!o.hold, ttl, look, k, group, delay: o.kicker ? 0.25 : 0, prio: 0, fixed: () => [Math.round(CW / 2 - tIt.W / 2), Math.round(CH * yk) + (kick ? kick.H + 3 : 0)] });
   if (o.kicker) {
     kick = make({ kind: 'title', style: 'say', text: String(o.kicker).toUpperCase(), hold: !!o.hold, ttl: ttl + 0.4, k: 2, look: { font: 'tiny', k: 2, fill: o.kickerColor || '#ffe066', speed: 40, track: 1, maxW: 9999 }, group, prio: 0, fixed: () => [Math.round(CW / 2 - kick.W / 2), Math.round(CH * yk)] });
     parts.push(kick);

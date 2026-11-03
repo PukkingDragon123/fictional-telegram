@@ -24,6 +24,15 @@ src/ui/goofyFont.js       (the same glyphs as bitmap tables for canvas pixel tex
 
   Credit (title screen): "Font: TBME Goofy, made from Chewy by Font Diner / Sideshow (Apache 2.0)"
 
+alagard.ttf (v31: kinetic title cards, itch promo art)
+  Alagard by Hewett Tsoi (Pix3M), a 16 px medieval pixel font. Supplied by the project
+  owner as alagard_3.zip (the TTF only, no licence file inside). Hewett Tsoi distributes
+  Alagard free to use with credit; check the licence on the author's page before a
+  commercial release. Credit: "Alagard font by Hewett Tsoi".
+  In the game it is not loaded as a web font: src/ui/kinetic/alagard.js holds its glyphs
+  as bitmap rows, generated from the TTF at its native 16 px grid by
+  src/assets/fonts/alagard-bitmap.py.
+
 Legacy files (no longer referenced by any CSS or JS; kept for old branches):
 
 Galmuri11.subset.woff2 / Galmuri11-Bold.subset.woff2 (v17 font)

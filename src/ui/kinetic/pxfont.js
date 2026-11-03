@@ -6,11 +6,14 @@
 //  - 'tiny'   3x5 caps (stamps, small labels, speaker names)
 //  - 'script' a marker hand: an 8px slanted print-script with heavy downstrokes and a little
 //             bounce in the baseline (thoughts, captions, narration)
+//  - 'alagard' Alagard by Hewett Tsoi, 11px caps: big title cards (v31)
 //
 // API: pxMeasure / pxWrap for layout, pxDraw onto a PixelBuffer, pxTextBuf / pxTextCanvas for a
 // ready sprite (wrapping, alignment, colours per run, 1px outline and drop shadow). Text is drawn
 // at art resolution (1 canvas px = 1 art px) with hard pixels only, so it scales by whole pixels.
 // Used by the kinetic floating text (src/ui/kinetic/floatText.js).
+
+import { ALAGARD_SRC } from './alagard.js';
 
 // ---------------------------------------------------------------- the tiny pixel buffer it draws into
 // colours are packed little-endian RGBA (0xAABBGGRR), 0 = empty
@@ -316,7 +319,9 @@ const FONTS = {
   body: { cap: 6, desc: 2, lineH: 10, gap: 1, space: 3, glyphs: table(BODY_SRC) },
   bold: { cap: 6, desc: 2, lineH: 10, gap: 1, space: 3, glyphs: table(BODY_SRC), bold: true },
   tiny: { cap: 5, desc: 1, lineH: 7, gap: 1, space: 2, glyphs: table(TINY_SRC), caps: true },
-  script: { cap: 8, desc: 3, lineH: 13, gap: 1, space: 4, glyphs: table(SCRIPT_SRC), script: true }
+  script: { cap: 8, desc: 3, lineH: 13, gap: 1, space: 4, glyphs: table(SCRIPT_SRC), script: true },
+  // [v31] Alagard by Hewett Tsoi: the 16 px medieval pixel face for big title cards (src/ui/kinetic/alagard.js)
+  alagard: { cap: 11, desc: 3, lineH: 16, gap: 1, space: 4, glyphs: table(ALAGARD_SRC) }
 };
 const MARKS = {
   \u0101: ["a", "macron"],
