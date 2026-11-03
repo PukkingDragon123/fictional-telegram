@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { BEAR_TYPES, FIRST_NAMES, DEPARTMENTS, WANT_INFO, REVIEWS, WANT_COMPLAINTS, LINES, BEAR_WANT_LINES, bearSpawnWeight } from '../data/bears.js';
 import { makeBearLook, lookDef, bearLine } from '../entities/bearLook.js'; // [v18 bear looks]
+import { floatText, floatTitle } from '../ui/kinetic/floatText.js'; // [v31 kinetic]
 import { BEAUTY_PER_BEAR } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { BearRig } from '../entities/bearRig.js';
@@ -827,7 +828,11 @@ export class BearSystem {
     b.eaten += meal * (miss ? 0.6 : 1);
     if (miss) b.preferMiss++;
     b.coins += game.fish.coinValue(f) * COIN_PER_MEAL * b.def.pay * game.mods.fishValueMult;
-    if (f.g && (f.g.morph === 'golden' || f.g.morph === 'rainbow')) b.gotGolden = true;
+    if (f.g && (f.g.morph === 'golden' || f.g.morph === 'rainbow')) {
+      b.gotGolden = true;
+      // [v31 kinetic] a golden bite glitters over the bear
+      try { floatText({ text: f.g.morph === 'rainbow' ? 'RAINBOW?!' : 'GOLDEN!!', at: { getWorldPos: (v) => v.set(b.x, b.y + 2.4 * (b.def?.scale || 1), b.z) }, style: 'gold', k: 2, ms: 1800, prio: 2 }); } catch { /* */ }
+    }
     if (f.g?.traits.includes('lucky')) b.tips += 4 * b.def.pay;
     game.fish.remove(f);
     game.stats.fishEaten++;
@@ -931,6 +936,8 @@ export class BearSystem {
     game.rig.shake = Math.max(game.rig.shake, 1);
     game.cine?.focusQueue?.unshift({ kind: 'rampage', bear: b });
     game.notify?.(`BOSS! ${b.def.name}!`, 'warn', { dur: 3 });
+    // [v31 kinetic] a fighting-game name card: the job as the kicker, the name slammed in
+    try { floatTitle({ kicker: `BOSS · ${b.def.job || ''}`, title: b.def.name, sub: game.state.bossesSeen?.length <= 1 ? 'Calm it down before it wrecks the place!' : '', style: 'shout', y: 0.14, ms: 2600, kickerColor: '#ff7a52' }); } catch { /* */ }
     setTimeout(() => this.say(b, pick(['ROOOAR!', 'WHO RUNS THIS DUMP?', 'I\'M HERE FOR THE BUFFET.', 'FEED ME. NOW.']), 'emo_anger', null, 2.6), 900);
   }
 

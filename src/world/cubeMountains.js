@@ -20,6 +20,16 @@
 // own rock colour, walls carry strata bands and a dark foot, ledges grow turf
 // and moss, and chunky voxel boulders sit on the rock (only where they stay
 // under the camera's lowest line of sight). `ring.visualAt` = the drawn ground.
+//
+// [v31 mountains] Shaded as rock with mass instead of tiled blocks: tops and
+// walls sample one continuous texture (no per-block window, no bevel grid);
+// every flat top knows the drop to each neighbour (aRim), so ledges get a lit
+// lip and the ground at the foot of a taller wall a dithered crease; walls
+// get a ragged snow / turf lip, a lit rock rim, stepped shade down tall faces
+// and a dithered crevice at the foot (aRim.x on walls = the foot line). The
+// range goes from dark forest foothills to lighter, cooler rock and snow with
+// altitude, the snow line drops on the far peaks (snowcaps that read from
+// afar), and the haze steps in dithered bands instead of a smooth fade.
 import * as THREE from 'three';
 import { fbm2, hash2, clamp } from '../core/rng.js';
 import { WATER_Y } from './grid.js';
@@ -63,7 +73,9 @@ export function buildCubeGround(ring) {
   const rockOf = (x, z) => { const m = fbm2(x * 0.045, z * 0.045, 741); return m > 0.58 ? STONE.SLATE : m < 0.4 ? STONE.CRACKED : STONE.GRANITE; };
   const lines = (x, z) => {
     const n = fbm2(x * 0.09, z * 0.09, 717);
-    return { snowLine: 31 + (n - 0.5) * 8 - (z < 0 ? 5 : 0), stoneLine: 10 + (n - 0.5) * 6 };
+    // [v31 mountains] the far peaks wear more snow (caps that read from a distance)
+    const far = clamp((ring.dist(x, z) - 26) * 0.12, 0, 9);
+    return { snowLine: 31 + (n - 0.5) * 8 - (z < 0 ? 5 : 0) - far, stoneLine: 10 + (n - 0.5) * 6 };
   };
   const topOf = (x, z, y, wet) => {
     if (wet) return S.POND;
@@ -161,14 +173,17 @@ export function buildCubeGround(ring) {
   };
   // ---- geometry
   const chunks = new Map();
-  const partOf = (x, z) => { const k = chunkKey(x, z); let c = chunks.get(k); if (!c) chunks.set(k, (c = { pos: [], nor: [], col: [], surf: [], blk: [], idx: [], n: 0 })); return c; };
+  const partOf = (x, z) => { const k = chunkKey(x, z); let c = chunks.get(k); if (!c) chunks.set(k, (c = { pos: [], nor: [], col: [], surf: [], blk: [], rim: [], idx: [], n: 0 })); return c; };
   // v4: 4 corners; rgb: 4 [r,g,b]; tops: per-vertex top line of the column (wall texturing)
-  const quad = (P, v4, nrm, rgb, topId, wallId, bs, tops) => {
+  // [v31 mountains] rim: tops = drop to the -x / +x / -z / +z neighbour (4 numbers); walls = per-vertex foot line (4 numbers)
+  const RIM0 = [0, 0, 0, 0];
+  const quad = (P, v4, nrm, rgb, topId, wallId, bs, tops, rim = RIM0, wall = false) => {
     const v = P.n;
     for (let k = 0; k < 4; k++) {
       const q = v4[k], cc = rgb[k];
       P.pos.push(q[0], q[1], q[2]); P.nor.push(nrm[0], nrm[1], nrm[2]); P.col.push(cc[0], cc[1], cc[2]);
       P.surf.push(topId, wallId); P.blk.push(bs, tops[k]);
+      if (wall) P.rim.push(rim[k], 0, 0, 0); else P.rim.push(rim[0], rim[1], rim[2], rim[3]);
     }
     P.idx.push(v, v + 1, v + 2, v, v + 2, v + 3);
     P.n += 4;
@@ -176,6 +191,7 @@ export function buildCubeGround(ring) {
   const wallStone = (x, z, lo) => {
     const hb = hash2(Math.floor(lo / 3), 0, 77);
     const rk = rockOf(x, z);
+    if (lo > lines(x, z).snowLine - 7 && hb < 0.85) return ST(STONE.SNOWROCK); // [v31 mountains] snowy faces up high
     if (lo > 26 && hb < 0.5) return ST(STONE.SNOWROCK);
     if (lo < 6 && hb < 0.4) return ST(STONE.MOSSY);
     if (hb > 0.82) return ST(STONE.DARK);
@@ -212,9 +228,14 @@ export function buildCubeGround(ring) {
     const wTint = rockTint(cx, cz);
     // ---- top
     if (!c.sm) {
-      // fake AO: corners next to taller neighbours darker
-      const ao = (sx, sz) => { const up = (nbAtU(sx < 0 ? x0 - 1 : x1, sz < 0 ? z0 : z1 - 1) > y + 0.3) + (nbAtU(sx < 0 ? x0 : x1 - 1, sz < 0 ? z0 - 1 : z1) > y + 0.3); return 1 - up * 0.14; };
-      quad(P, [[x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0]], [0, 1, 0], [mul(tint, ao(-1, -1)), mul(tint, ao(-1, 1)), mul(tint, ao(1, 1)), mul(tint, ao(1, -1))], id, wallStone(cx, cz, y - bs), bs, [y, y, y, y]);
+      // [v31 mountains] the drop to each side's neighbours (< 0: a taller neighbour rises there); shaded in the shader
+      const side = (fx, fz, dx, dz) => {
+        let mn = 1e9, mx = -1e9;
+        for (let k = 0; k < cs; k++) { const h = nbAtU(fx + dx * k, fz + dz * k); if (h < mn) mn = h; if (h > mx) mx = h; }
+        return clamp(mx > y + 0.2 ? y - mx : y - mn, -4, 4);
+      };
+      const rim = [side(x0 - 1, z0, 0, 1), side(x1, z0, 0, 1), side(x0, z0 - 1, 1, 0), side(x0, z1, 1, 0)];
+      quad(P, [[x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0]], [0, 1, 0], [tint, tint, tint, tint], id, wallStone(cx, cz, y - bs), bs, [y, y, y, y], rim);
     } else {
       // [v30 world] a faceted slope: corners sink towards lower ground
       const a = cornerOf(c, x0, z0), b = cornerOf(c, x0, z1), d = cornerOf(c, x1, z1), e = cornerOf(c, x1, z0);
@@ -269,12 +290,10 @@ export function buildCubeGround(ring) {
         const bA = Math.min(tA, na), bB = Math.min(tB, nb);
         const lo = Math.max(Math.min(bA, bB), -4);
         const wid = wallStone(cx + k, cz, lo);
-        // strata wall: darker foot (crevice) on tall walls, lit lip on top
-        const hA = tA - bA, hB = tB - bB;
-        const foot = (hh) => Math.max(0.58, 1 - hh * 0.035);
-        const cBA = mul(wTint, sh * foot(hA) * 0.82), cBB = mul(wTint, sh * foot(hB) * 0.82);
-        const cTA = mul(wTint, sh * Math.min(1.1, foot(hA) + 0.2)), cTB = mul(wTint, sh * Math.min(1.1, foot(hB) + 0.2));
-        quad(P, [[A[0], Math.max(bA, -4), A[1]], [B[0], Math.max(bB, -4), B[1]], [B[0], tB, B[1]], [A[0], tA, A[1]]], sd.n, [cBA, cBB, cTB, cTA], id, wid, bs, [tA, tB, tB, tA]);
+        // [v31 mountains] flat tint per face (the foot crevice, lip and strata are stepped in the shader)
+        const cw = mul(wTint, sh);
+        const fA = Math.max(bA, -4), fB = Math.max(bB, -4);
+        quad(P, [[A[0], fA, A[1]], [B[0], fB, B[1]], [B[0], tB, B[1]], [A[0], tA, A[1]]], sd.n, [cw, cw, cw, cw], id, wid, bs, [tA, tB, tB, tA], [fA, fB, fB, fA], true);
         k += L;
       }
     }
@@ -320,8 +339,10 @@ export function buildCubeGround(ring) {
 ${HAZE_PARS}
 attribute vec2 aSurf;
 attribute vec2 aBlk; // block size, top line of the column here
+attribute vec4 aRim; // [v31 mountains] tops: drops to the 4 neighbours; walls: x = foot line
 varying vec2 vSurf;
 varying vec2 vBlk;
+varying vec4 vRim;
 varying float vRingHaze;
 varying vec3 vRPos;
 varying vec3 vRNor;`)
@@ -329,7 +350,8 @@ varying vec3 vRNor;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 vRPos = transformed;
 vSurf = aSurf;
-vBlk = aBlk;`)
+vBlk = aBlk;
+vRim = aRim;`)
       .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringHaze((modelMatrix * vec4(transformed, 1.0)).xyz);');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
@@ -338,15 +360,20 @@ uniform sampler2D uAtlas;
 uniform vec4 uRects[10];
 varying vec2 vSurf;
 varying vec2 vBlk;
+varying vec4 vRim;
 varying float vRingHaze;
 varying vec3 vRPos;
 varying vec3 vRNor;
 ${STONE_GLSL}
 float rbH(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
-vec3 ringWin(int id, vec2 win, vec2 lu) {
-  vec2 t = (win * 12.0 + floor(lu * 12.0) + 0.5) / 48.0;
-  if (id >= 20) return texture2D(uStone, vec2((float(id - 20) + t.x) / 7.0, t.y)).rgb * 1.1;
+float rbBay2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
+float rbBay(vec2 a) { return rbBay2(0.5 * a) * 0.25 + rbBay2(a); }
+// one continuous texture over the range (12 texels per block: 24 / unit near the map, coarser far out)
+vec3 ringTex2(int id, vec2 p, float bs) {
+  float k = 0.5 / bs;
+  if (id >= 20) return stoneTex(float(id - 20), p * k) * 1.06;
   vec4 r = uRects[id];
+  vec2 t = (floor(fract(p * k / 2.0) * 48.0) + 0.5) / 48.0;
   return texture2D(uAtlas, r.xy + t * r.zw).rgb;
 }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -354,45 +381,59 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
   float bs = vBlk.x;
   int topId = int(vSurf.x + 0.5), wallId = int(vSurf.y + 0.5);
   vec3 an = abs(vRNor);
-  vec2 lu, bp; vec3 c;
-  float ly;
+  float bay = rbBay(gl_FragCoord.xy);
+  float px = bs / 12.0; // one texel, in world units
+  vec3 c;
   if (an.y > 0.5) {
-    bp = floor(vRPos.xz / bs + 0.001); lu = fract(vRPos.xz / bs + 0.001);
-    float hb = rbH(bp + floor(vRPos.y) * 0.31);
-    vec2 win = floor(vec2(hb, rbH(bp + 1.3)) * 4.0);
-    c = ringWin(topId, win, lu);
-    c *= 0.93 + hb * 0.14;
-    ly = 1.0 - lu.y;
-    // sloped facets: a touch of shade on the steep side
-    c *= mix(0.86, 1.0, smoothstep(0.55, 0.95, an.y));
-  } else {
-    float u = (an.x > 0.5 ? vRPos.z : vRPos.x) / bs, v = vRPos.y / bs;
-    bp = vec2(floor(u + 0.001), floor(v + 0.001)); lu = vec2(fract(u + 0.001), fract(v + 0.001));
-    float hb = rbH(bp);
-    vec2 win = floor(vec2(hb, rbH(bp + 5.9)) * 4.0);
-    float depthB = (vBlk.y - vRPos.y) / bs;
-    bool soil = (topId == 8 || topId == 0 || topId == 1) && depthB < 1.0;
-    c = soil ? ringWin(2, win, lu) * 0.95 : ringWin(topId == 6 && depthB < 1.0 ? 25 : wallId, win, lu);
-    float lipT = floor((vBlk.y - vRPos.y) / bs * 12.0);
-    if (depthB < 1.0 && lipT < 2.0 + step(0.5, rbH(vec2(floor(lu.x * 12.0), bp.x)))) {
-      if (topId == 6) c = vec3(0.93, 0.96, 1.0);
-      else if (soil) c = ringWin(topId, win, vec2(lu.x, 0.95)) * 0.95;
+    vec2 p = vRPos.xz;
+    c = ringTex2(topId, p, bs);
+    // sloped facets: stepped shade on the steep side
+    c *= an.y > 0.93 ? 1.0 : an.y > 0.78 ? 0.92 : 0.84;
+    // ledges: a lit lip where the ground drops away, a dithered crease under a taller neighbour
+    float cs = bs * 2.0;
+    vec2 f = fract(p / cs + 0.0005) * cs;
+    vec4 ed = vec4(f.x, cs - f.x, f.y, cs - f.y) / px;
+    float rag = rbH(floor(p / px) + 0.5);
+    float lip = 0.0, cr = 0.0;
+    for (int k = 0; k < 4; k++) {
+      float r = vRim[k], e = ed[k];
+      if (r > 0.2) lip = max(lip, e < 1.0 + step(0.55, rag) ? 1.0 : e < 2.0 + step(0.8, rag) ? 0.45 : 0.0);
+      if (r < -0.2) cr = max(cr, clamp(1.0 - e / (3.0 + min(-r / bs, 3.0) * 1.5), 0.0, 1.0));
     }
-    c *= 0.9 + hb * 0.14;
+    c *= 1.0 + lip * (topId == 6 ? 0.12 : 0.3);
+    c *= 1.0 - floor(cr * 3.0 + bay) / 3.0 * 0.38;
+  } else {
+    float u = an.x > 0.5 ? vRPos.z : vRPos.x;
+    if (vRNor.x < -0.5 || vRNor.z > 0.5) u = -u;
+    float depthB = vBlk.y - vRPos.y; // units below the lip
+    bool soil = (topId == 8 || topId == 0 || topId == 1) && depthB < bs;
+    vec2 sp = vec2(u, -vRPos.y);
+    c = soil ? ringTex2(2, sp, bs) * 0.92 : ringTex2(topId == 6 && depthB < bs * 2.0 ? 25 : wallId, sp, bs) * 1.12;
     // strata: broad warm / cool bands through the whole range
     float sb = floor(vRPos.y / 1.5 + rbH(vec2(floor(vRPos.x * 0.125), floor(vRPos.z * 0.125))) * 0.6);
     float sk = rbH(vec2(sb, 7.7));
-    if (wallId >= 20 && !soil) c *= mix(vec3(1.06, 0.98, 0.9), vec3(0.92, 0.97, 1.05), sk) * (0.94 + 0.1 * rbH(vec2(sb, 3.1)));
-    ly = lu.y;
+    if (wallId >= 20 && !soil) c *= mix(vec3(1.07, 0.98, 0.89), vec3(0.91, 0.97, 1.06), sk) * (0.93 + 0.12 * rbH(vec2(sb, 3.1)));
+    // the lip: snow / turf hanging over the edge (ragged), then a lit rim and the shade under it
+    float lt = depthB / px;
+    float rag = rbH(vec2(floor(u / px), floor(vBlk.y * 2.0)));
+    if (topId == 6 && lt < 2.0 + floor(rag * 6.0)) c = lt < 1.0 ? vec3(1.0) : vec3(0.84, 0.9, 1.0);
+    else if (soil && lt < 1.0 + floor(rag * 3.0)) c = ringTex2(topId, vec2(u, vBlk.y), bs) * (lt < 1.0 ? 1.12 : 0.9);
+    else if (lt < 1.0) c *= 1.3;
+    else if (lt < 2.0) c *= 1.1;
+    else if (lt < 4.0) c *= 0.88;
+    // a dithered crevice at the foot, stepped shade deeper down tall faces
+    float foot = clamp((vRPos.y - vRim.x) / max(bs * 1.4, 0.7), 0.0, 1.0);
+    c *= mix(0.5, 1.0, floor(foot * 3.0 + bay) / 3.0);
+    c *= 1.0 - floor(clamp(depthB / 8.0, 0.0, 1.0) * 3.0 + bay) / 3.0 * 0.1;
   }
-  float px = 1.0 / 12.0;
-  if (lu.x < px || ly > 1.0 - px) c *= 1.12;
-  if (lu.x > 1.0 - px || ly < px) c *= 0.74;
+  // altitude: dark forest foothills, lighter and cooler rock high up
+  float alt = clamp(vRPos.y / 60.0, 0.0, 1.0);
+  c *= mix(vec3(0.9, 0.95, 0.9), vec3(1.1, 1.12, 1.18), alt);
   diffuseColor.rgb *= c * 1.08;
 }`)
-      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze);\n#include <opaque_fragment>');
+      .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, floor(vRingHaze * 6.0 + rbBay(gl_FragCoord.xy)) / 6.0);\n#include <opaque_fragment>');
   };
-  mat.customProgramCacheKey = () => 'outerRingCubes30';
+  mat.customProgramCacheKey = () => 'outerRingCubes31';
   ring.ground = [];
   for (const P of chunks.values()) {
     if (!P.n) continue;
@@ -403,6 +444,7 @@ vec3 ringWin(int id, vec2 win, vec2 lu) {
     geo.setAttribute('color', new THREE.Float32BufferAttribute(P.col, 3));
     geo.setAttribute('aSurf', new THREE.Float32BufferAttribute(P.surf, 2));
     geo.setAttribute('aBlk', new THREE.Float32BufferAttribute(P.blk, 2));
+    geo.setAttribute('aRim', new THREE.Float32BufferAttribute(P.rim, 4)); // [v31 mountains]
     geo.computeBoundingSphere();
     geo.boundingSphere.radius += 4;
     const mesh = new THREE.Mesh(geo, mat);

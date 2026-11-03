@@ -39,6 +39,9 @@ import { Land } from './Land.js';
 import { Cutscene } from './Cutscene.js';
 import { NightTour } from './NightTour.js'; // [v19 overnight] the night shown in-world (no summary card)
 import { Quests } from './Quests.js';
+import { Director } from './cine/Director.js'; // [v31 cine] cinematic talk scenes
+import { BearQuests } from './cine/bearQuests.js'; // [v31 cine] bear errands with intro / outro scenes
+import { Secrets } from './cine/secrets.js'; // [v31 cine] easter eggs
 import { Matchmaking } from './Matchmaking.js';
 import { Workshop } from './Workshop.js';
 import { PipVisit } from './PipVisit.js';
@@ -158,6 +161,9 @@ export class Game {
     this.land = new Land(this);
     this.cutscene = new Cutscene(this);
     this.quests = new Quests(this);
+    this.director = new Director(this); // [v31 cine]
+    this.bearQuests = new BearQuests(this); // [v31 cine]
+    this.secrets = new Secrets(this); // [v31 cine]
     this.matchmaking = new Matchmaking(this);
     this.workshop = new Workshop(this);
     this.pipVisit = new PipVisit(this);
@@ -1632,6 +1638,9 @@ export class Game {
     this.zones.update(dt);
     this.villagers.update(dt);
     this.cine?.update(realDt);
+    this.director?.update(realDt); // [v31 cine]
+    this.bearQuests?.update(realDt); // [v31 cine]
+    this.secrets?.update(realDt); // [v31 cine]
     this.tutorial?.update(realDt);
     this.lab?.update(realDt);
     this.homes?.update(realDt); // [v20 npc homes]
@@ -1772,6 +1781,7 @@ export class Game {
     this.villagers.onLoad();
     this.refreshMods();
     this.quests?.onLoad();
+    this.bearQuests?.onLoad(); // [v31 cine]
     this.mining?.onLoad(); // [F&S mining]
     this.industry?.onLoad(); // [F&S industry]
     this.extCall('onLoad'); // [v26] (also called at the end of newGame: state is ready)

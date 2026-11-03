@@ -41,7 +41,7 @@ const MARGIN = 9; // art px around the body inside the canvas (spikes, cloud puf
 const TAIL_DEF = 7; // default tail length, art px
 const TAIL_MAX = 34;
 
-const MOODS = ['normal', 'happy', 'angry', 'shout', 'think', 'whisper', 'scared', 'excited'];
+const MOODS = ['normal', 'happy', 'angry', 'shout', 'think', 'whisper', 'scared', 'excited', 'sad']; // [v31 kinetic] + sad (letters sag)
 const VARIANT = { shout: 'shout', think: 'think', whisper: 'whisper', scared: 'scared' };
 const MOOD_SIZE = { shout: 'l', whisper: 's' };
 const PAUSE = { '.': 0.16, '!': 0.16, '?': 0.16, ',': 0.08, '…': 0.2 };

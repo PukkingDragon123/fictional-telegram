@@ -11,6 +11,7 @@ import { WILD_BIRDS, BIRD_RARITY_WEIGHT } from '../data/birds.js';
 // forest life (forestLife below)
 import { KIND as FKIND } from '../world/grid.js';
 import { GLADE as FGLADE } from '../world/worldgen.js';
+import { AmbientFx } from './fx/ambientFx.js'; // [v31 fx]
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -200,7 +201,7 @@ export class Fox {
     if (this.moodT <= 0 && this.mood !== 'idle') this.mood = 'idle';
     let moving = false;
     const phase = this.game.state.phase;
-    if (!this.target && this.mood === 'idle' && !this.bed && !this.errands?.length) {
+    if (!this.target && this.mood === 'idle' && !this.bed && !this.errands?.length && !this.cine) { // [v31 cine] not while a scene directs him
       const far = Math.hypot(this.home.x - this.x, this.home.z - this.z);
       if (far > 1 && Math.random() < dt * 0.15) this.target = { ...this.home };
     }
@@ -241,12 +242,14 @@ export class Fox {
         want = this.fidget;
       }
     }
+    if (this.cine?.anim && !moving) want = this.cine.anim; // [v31 cine] a scene picks his animation
     if (want !== this.anim) {
       r.play(want, { fade: 0.15, ...opts });
       this.anim = want;
     }
     r.update(dt);
-    if (!moving && this.mood === 'idle' && !this.target && Math.hypot(this.x - this.home.x, this.z - this.home.z) < 0.5) {
+    if (this.cine?.face != null && !moving) this.heading += angleDiff(this.heading, this.cine.face) * Math.min(1, dt * 8); // [v31 cine]
+    else if (!moving && this.mood === 'idle' && !this.target && Math.hypot(this.x - this.home.x, this.z - this.home.z) < 0.5) {
       // face the pond / camera
       this.heading += angleDiff(this.heading, Math.PI / 2 + Math.sin(this.time * 0.3) * 0.6) * Math.min(1, dt * 2);
     }
@@ -670,6 +673,8 @@ export class Ambient {
       this.whistleT -= dt;
       for (let i = 0; i < 3; i++) parts.smoke(OFFICE.x + 3.2, OFFICE.h + 11.9, OFFICE.z - 1.1, 0xffffff);
     }
+    // [v31 fx] ambient pixel life round the camera: pollen, seeds, motes, glints, mist, embers, spindrift, spray, running dust
+    try { (this.fx ||= new AmbientFx(game)).update(dt); } catch (e) { if (!this._fxErr) { this._fxErr = 1; console.warn('[ambient fx]', e); } }
   }
 
   // Forest life wherever you're looking: squirrels dash and hop from tree to

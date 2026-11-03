@@ -20,75 +20,97 @@ const SOIL_LO = [0.62, 0.62, 0.66], SOIL_HI = [0.95, 0.95, 0.95];
 const AO_K = [1, 0.84, 0.74, 0.66];
 const SIDES4 = [[1, 0, [1, 0, 0]], [-1, 0, [-1, 0, 0]], [0, 1, [0, 0, 1]], [0, -1, [0, 0, -1]]];
 // [v26 world] True cubes for mountains, cliffs and the Highland: 0.5-unit blocks
-// (every grid height there is a whole number of them). Each block face picks
-// its own 12x12 window of the pixel texture and gets a bevel (lit top-left edge,
-// dark bottom-right edge), so a cliff reads as a stack of blocks, never as one
-// stretched column. The top block of a grassy / snowy column wears its lip.
+// (every grid height there is a whole number of them).
+//
+// [v31 mountains] The cubes are shaded as rock, not as a stack of tiles: tops
+// and walls sample one continuous texture in world space (no per-block window,
+// no bevel grid). Form comes from where the ground really turns: a lit lip
+// along every ledge that drops away (vRim: the drop to each neighbour), a
+// dithered crease where a taller column rises next to a top, a ragged turf or
+// snow lip hanging over each wall, a lit rock rim under it, stepped shade
+// deeper down tall faces and a dithered crevice at the foot. Walls run through
+// broad strata (slate, granite, cracked, dark), moss at the foot, frost up
+// high; the whole massif goes lighter and cooler with altitude.
 export const CUBE_GLSL = /* glsl */ `
 float cbH(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
-vec3 atlasWin(int id, vec2 win, vec2 lu) {
+float cbBay2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
+float cbBay(vec2 a) { return cbBay2(0.5 * a) * 0.25 + cbBay2(a); }
+// the terrain atlas, continuous in world space (48 texels = 2 units)
+vec3 atlasC(int id, vec2 p) {
   vec4 r = uRects[id];
-  vec2 t = (win * 12.0 + floor(lu * 12.0) + 0.5) / 48.0;
+  vec2 t = (floor(fract(p / 2.0) * 48.0) + 0.5) / 48.0;
   return texture2D(uAtlas, r.xy + t * r.zw).rgb;
 }
-vec3 stoneWin(float v, vec2 win, vec2 lu) {
-  vec2 t = (win * 12.0 + floor(lu * 12.0) + 0.5) / 48.0;
-  return texture2D(uStone, vec2((v + t.x) / 7.0, t.y)).rgb;
-}
 int cubeSurf(vec2 tile) { return int(texture2D(uSurf, (tile + 0.5) / uGridSize).r * 255.0 / 16.0 + 0.5); }
-vec3 cubeBlock(vec3 wp, vec3 wn, vec3 cb) {
-  const float BS = 0.5;
+vec3 cubeBlock(vec3 wp, vec3 wn, vec3 cb, vec4 rim) {
   vec3 an = abs(wn);
   vec3 c;
-  vec2 lu, bp;
+  float bay = cbBay(gl_FragCoord.xy);
   if (an.y > 0.5) {
-    bp = floor(wp.xz / BS + 0.001);
-    lu = fract(wp.xz / BS + 0.001);
-    float hb = cbH(bp + floor(wp.y * 2.0 + 0.5) * 0.37);
-    // the surface of this block's tile (edge blocks borrow a neighbour's now and then: blocky borders)
-    vec2 tile = floor((bp + 0.5) * BS + (vec2(cbH(bp + 3.1), cbH(bp + 7.7)) - 0.5) * 0.7);
-    int id = cubeSurf(tile);
-    vec2 win = floor(vec2(hb, cbH(bp + 1.3)) * 4.0);
-    if (id == 5 || id == 9) c = stoneWin(hb < 0.7 ? 0.0 : (hb < 0.85 ? 1.0 : 2.0), win, lu) * 1.22;
-    else c = atlasWin(id, win, lu);
-    c *= 0.93 + hb * 0.14;
-  } else {
-    float u = (an.x > 0.5 ? wp.z : wp.x) / BS, v = wp.y / BS;
-    bp = vec2(floor(u + 0.001), floor(v + 0.001));
-    lu = vec2(fract(u + 0.001), fract(v + 0.001));
-    if (wn.x < -0.5 || wn.z > 0.5) lu.x = 1.0 - lu.x;
-    vec2 tile = floor(wp.xz - wn.xz * 0.5);
-    float hb = cbH(bp + tile * 0.173);
-    vec2 win = floor(vec2(hb, cbH(bp + 5.9)) * 4.0);
-    int top = cubeSurf(tile);
-    float depthB = (cb.y - wp.y) / BS; // blocks below the column top
-    float band = floor(wp.y / 1.5);
-    float hs = cbH(vec2(band, tile.x * 0.01 + 3.0));
-    float sv = hs < 0.45 ? 0.0 : hs < 0.75 ? 1.0 : hs < 0.9 ? 3.0 : 6.0;
-    if (wp.y < 2.0 && cbH(bp + 9.1) < 0.5) sv = 2.0; // mossy at the foot
-    if (wp.y > 14.0 && hs < 0.6) sv = 5.0; // frosted up high
-    bool soil = (top == 8 || top == 0 || top == 1 || top == 2 || top == 7 || top == 3) && depthB < 1.0;
-    bool snowy = top == 6 && depthB < 1.0;
-    if (soil) c = atlasWin(2, win, lu) * 0.95;
-    else if (snowy) c = stoneWin(5.0, win, lu) * 1.18;
-    else c = stoneWin(sv, win, lu) * 1.22;
-    // the lip of the top block: grass / forest floor / snow hanging over the edge
-    float lipT = floor((1.0 - lu.y) * 12.0);
-    if (depthB < 1.0 && lipT < 2.0 + step(0.5, cbH(vec2(floor(lu.x * 12.0), bp.x)))) {
-      if (top == 6) c = vec3(0.93, 0.96, 1.0);
-      else if (top == 8 || top == 0 || top == 1) c = atlasWin(top, win, vec2(lu.x, 0.95)) * 0.95;
+    vec2 p = wp.xz;
+    // the surface of this tile, read with a ragged jitter (no block steps between surfaces)
+    vec2 tp = floor(p * 24.0) / 24.0;
+    vec2 j = (vec2(cbH(tp), cbH(tp + 7.3)) - 0.5) * 0.22 + (vec2(vn2(p * 1.9), vn2(p * 1.9 + 4.1)) - 0.5) * 0.5;
+    int id = cubeSurf(floor(p + j));
+    if (id == 5 || id == 9) {
+      float rv = vn2(p * 0.13 + 2.0);
+      c = stoneTex(rv > 0.64 ? 4.0 : rv > 0.34 ? 0.0 : 3.0, p) * 1.16;
+    } else if (id == 7) {
+      // the mountain trail: packed earth with worn flat stepping slabs in it
+      c = atlasC(7, p);
+      float m = vn2(p * 2.4 + 5.0) * 0.62 + vn2(p * 5.3 + 1.0) * 0.38;
+      if (m > 0.6) c = stoneTex(0.0, p + 1.7) * vec3(1.28, 1.24, 1.16);
+      else if (m > 0.565) c *= 0.7;
+      else c *= 0.96 + 0.08 * step(0.5, vn2(p * 7.0));
+    } else c = atlasC(id, p);
+    // ledges: a lit lip where the ground drops away, a dithered crease under a taller neighbour
+    vec2 f = fract(p);
+    vec4 ed = vec4(f.x, 1.0 - f.x, f.y, 1.0 - f.y) * 24.0;
+    float rag = cbH(floor(p * 24.0) + 0.5);
+    float lip = 0.0, cr = 0.0;
+    for (int k = 0; k < 4; k++) {
+      float r = rim[k], e = ed[k];
+      if (r > 0.2) lip = max(lip, e < 1.0 + step(0.55, rag) ? 1.0 : e < 2.0 + step(0.8, rag) ? 0.45 : 0.0);
+      if (r < -0.2) cr = max(cr, clamp(1.0 - e / (3.0 + min(-r, 3.0) * 1.5), 0.0, 1.0));
     }
-    c *= 0.9 + hb * 0.14;
-    // contact shade at the foot of the wall
-    c *= mix(0.72, 1.0, smoothstep(0.0, 1.0, (wp.y - cb.z) / BS));
-    // shade by side (the camera usually sees south / east faces): a touch of depth
-    c *= an.x > 0.5 ? 0.9 : 0.97;
+    c *= 1.0 + lip * 0.32;
+    if (lip > 0.0 && (id == 0 || id == 1 || id == 8)) c *= vec3(1.05, 1.08, 0.9);
+    if (lip > 0.9 && id == 7) c = vec3(0.86, 0.8, 0.7); // worn stone edge of each step
+    c *= 1.0 - floor(cr * 3.0 + bay) / 3.0 * 0.36;
+  } else {
+    float u = an.x > 0.5 ? wp.z : wp.x;
+    if (wn.x < -0.5 || wn.z > 0.5) u = -u;
+    vec2 tile = floor(wp.xz - wn.xz * 0.5);
+    int top = cubeSurf(tile);
+    float depth = cb.y - wp.y; // units below the column's lip
+    // strata: broad bands of rock through the whole mountain
+    float sb = floor(wp.y / 1.5 + vn2(vec2(u * 0.3, 0.5)) * 0.8);
+    float hs = cbH(vec2(sb, 3.0));
+    float sv = hs < 0.24 ? 1.0 : hs < 0.74 ? 0.0 : hs < 0.88 ? 3.0 : 6.0;
+    if (wp.y < 2.0 && vn2(vec2(u, wp.y) * 1.3) > 0.45) sv = 2.0; // mossy at the foot
+    if (wp.y > 14.0 && hs < 0.6) sv = 5.0; // frosted up high
+    bool soil = (top == 8 || top == 0 || top == 1 || top == 2 || top == 7 || top == 3) && depth < 0.5;
+    vec2 sp = vec2(u, -wp.y);
+    if (soil) c = atlasC(2, sp) * 0.92;
+    else c = stoneTex(sv, sp) * 1.3;
+    c *= mix(vec3(1.05, 0.99, 0.92), vec3(0.93, 0.97, 1.05), hs);
+    // the lip: snow / turf hanging over the edge (ragged), then a lit rock rim and the shade under it
+    float lt = depth * 24.0;
+    float rag = cbH(vec2(floor(u * 24.0), floor(cb.y * 2.0)));
+    if (top == 6 && lt < 2.0 + floor(rag * 5.0)) c = lt < 1.0 ? vec3(1.0) : vec3(0.84, 0.9, 1.0);
+    else if ((top == 8 || top == 0 || top == 1) && lt < 1.0 + floor(rag * 3.0)) c = atlasC(top, vec2(u, cb.y)) * (lt < 1.0 ? 1.15 : 0.88);
+    else if (lt < 1.0) c *= 1.3;
+    else if (lt < 2.0) c *= 1.12;
+    else if (lt < 4.0) c *= 0.9;
+    // a dithered crevice at the foot, stepped shade deeper down tall faces
+    float foot = clamp((wp.y - cb.z) / 0.7, 0.0, 1.0);
+    c *= mix(0.56, 1.0, floor(foot * 3.0 + bay) / 3.0);
+    c *= 1.0 - floor(clamp(depth / 7.0, 0.0, 1.0) * 3.0 + bay) / 3.0 * 0.1;
+    c *= an.x > 0.5 ? 0.92 : 1.0;
   }
-  // bevel: a lit top-left edge and a dark bottom-right edge on every block
-  float px = 1.0 / 12.0;
-  float ly = an.y > 0.5 ? 1.0 - lu.y : lu.y; // tops: the far edge is "up"
-  if (lu.x < px || ly > 1.0 - px) c *= 1.13;
-  if (lu.x > 1.0 - px || ly < px) c *= 0.74;
+  // altitude: the lower slopes a touch darker and greener, high rock lighter and cooler
+  float alt = clamp(wp.y / 24.0, 0.0, 1.0);
+  c *= mix(vec3(0.95, 0.98, 0.93), vec3(1.06, 1.07, 1.13), alt);
   return c;
 }
 `;
@@ -213,7 +235,7 @@ export function buildSurfaceTexture(grid, tex) {
 // ------------------------------------------------------------------ terrain material
 const terrainVert = (shader) => {
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\nattribute float aSide;\nattribute vec3 aCube;\nattribute vec4 aCutC;\nvarying vec3 vCube;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vSide;\n' + CUT_PLANE_GLSL)
+    .replace('#include <common>', '#include <common>\nattribute float aSide;\nattribute vec3 aCube;\nattribute vec4 aCutC;\nattribute vec4 aRim;\nvarying vec4 vRim;\nvarying vec3 vCube;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vSide;\n' + CUT_PLANE_GLSL)
     // [v26 world] cube columns between the camera and the spot you look at are cut flat (whole blocks, real tops)
     .replace('#include <begin_vertex>', `#include <begin_vertex>
 vec3 cubeV = aCube;
@@ -224,7 +246,7 @@ if (aCube.x > 0.5) {
   transformed.y = abs(position.y - aCube.y) < 0.001 ? tp : bot;
   cubeV = vec3(aCube.x, tp, bot);
 }`)
-    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;\nvCube = cubeV;');
+    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvSide = aSide;\nvCube = cubeV;\nvRim = aRim;');
 };
 
 export function makeTerrainMaterial(uniforms) {
@@ -251,6 +273,7 @@ varying vec3 vWPos;
 varying vec3 vWNor;
 varying float vSide;
 varying vec3 vCube;
+varying vec4 vRim;
 uniform float uTime;
 uniform float uWaterY;
 uniform float uCaustic;
@@ -299,7 +322,7 @@ vec3 surfTex(int id, vec2 p) {
     // grassy lip along the top edge of banks
     if (vSide < 0.5 && fract(vWPos.y) > 0.0) {}
   }
-  if (vCube.x > 0.5) tex = cubeBlock(vWPos, vWNor, vCube); // [v26 world] true cubes: one block texture per face
+  if (vCube.x > 0.5) tex = cubeBlock(vWPos, vWNor, vCube, vRim); // [v26 world] true cubes [v31 mountains] (continuous rock, ledge rims)
   diffuseColor.rgb *= tex * 1.12;
   if (vWPos.y < uWaterY - 0.02) {
     // underwater: tint + caustics that follow the simulated ripples
@@ -331,20 +354,21 @@ vec3 surfTex(int id, vec2 p) {
 }`,
       );
   };
-  mat.customProgramCacheKey = () => 'terrain4'; // [v26 world] (cubes + cut)
+  mat.customProgramCacheKey = () => 'terrain5'; // [v26 world] (cubes + cut) [v31 mountains] (rims)
   return mat;
 }
 
 export function buildTerrainGeometry(grid) {
   const { w, h } = grid;
-  const pos = [], nor = [], col = [], side = [], idx = [], cub = [], cutc = [];
+  const pos = [], nor = [], col = [], side = [], idx = [], cub = [], cutc = [], rimA = [];
+  let r0 = 0, r1 = 0, r2 = 0, r3 = 0; // [v31 mountains] cube tops: drop to the -x / +x / -z / +z neighbour (< 0: it rises)
   let cutSx = 0, cutSz = 0, cutNx = 0, cutNz = 0; // [v26 world] the tile (and the wall foot's tile) centres: the camera-side cut is per column
   let vi = 0;
   // [v26 world] cube tiles (mountains, cliffs, the Highland): aCube = (1, column top, wall bottom)
   let cubeF = 0, cubeTop = 0, cubeBot = 0;
   const quad = (a, b, c, d, n, rgb, sd) => {
     pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]); // [v26 world] (no spreads: the map is twice as big)
-    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); side.push(sd); cub.push(cubeF, cubeTop, cubeBot); cutc.push(cutSx, cutSz, cutNx, cutNz); }
+    for (let k = 0; k < 4; k++) { nor.push(n[0], n[1], n[2]); side.push(sd); cub.push(cubeF, cubeTop, cubeBot); cutc.push(cutSx, cutSz, cutNx, cutNz); rimA.push(r0, r1, r2, r3); }
     for (let k = 0; k < 4; k++) col.push(rgb[k][0], rgb[k][1], rgb[k][2]);
     idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
     vi += 4;
@@ -467,7 +491,20 @@ export function buildTerrainGeometry(grid) {
       const tint = k === KIND.WATER ? 0.92 : 1;
       const g = (f) => [f * tint, f * tint, f * tint];
       const c00 = ao(-1, -1), c10 = ao(1, -1), c11 = ao(1, 1), c01 = ao(-1, 1);
-      quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0], [g(c00), g(c01), g(c11), g(c10)], 0);
+      if (cubeF) {
+        // [v31 mountains] ledge rims / creases are drawn in the shader (crisp, dithered): no smooth vertex AO
+        const rimTo = (dx, dz) => {
+          const nx = x + dx, nz = z + dz;
+          if (!grid.inb(nx, nz)) return 0;
+          let nh = grid.height[nz * w + nx];
+          if (isW(nx, nz)) nh = Math.min(nh, WATER_Y - 0.1);
+          else if (smoothDrawn(nx, nz)) { const [e0, e1] = edgeLH(x, z, dx, dz); nh = Math.min(e0, e1); }
+          return Math.max(-4, Math.min(4, y - nh));
+        };
+        r0 = rimTo(-1, 0); r1 = rimTo(1, 0); r2 = rimTo(0, -1); r3 = rimTo(0, 1);
+        quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0], [g(1), g(1), g(1), g(1)], 0);
+        r0 = r1 = r2 = r3 = 0;
+      } else quad([x, y, z], [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [0, 1, 0], [g(c00), g(c01), g(c11), g(c10)], 0);
       // rock/snow/mountain sides use the cliff texture, meadow & pond banks use soil
       const rocky = k === KIND.ROCK || k === KIND.SNOW || (!grid.meadow[i] && y > 0.6);
       for (const [dx, dz, n] of SIDES4) { // [v26 world] (hoisted)
@@ -501,6 +538,7 @@ export function buildTerrainGeometry(grid) {
   g.setAttribute('aSide', new THREE.Float32BufferAttribute(side, 1));
   g.setAttribute('aCube', new THREE.Float32BufferAttribute(cub, 3)); // [v26 world]
   g.setAttribute('aCutC', new THREE.Float32BufferAttribute(cutc, 4)); // [v26 world]
+  g.setAttribute('aRim', new THREE.Float32BufferAttribute(rimA, 4)); // [v31 mountains]
   g.setIndex(new THREE.Uint32BufferAttribute(idx, 1));
   g.computeBoundingSphere();
   return g;

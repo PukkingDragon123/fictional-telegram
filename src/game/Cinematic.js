@@ -15,6 +15,8 @@
 import { OFFICE } from '../world/worldgen.js';
 import { CHATTER } from '../data/bears.js';
 import { pick, clamp } from '../core/rng.js';
+import { FeastOpener } from './cine/feastOpener.js'; // [v31 cine] the super cinematic 5 PM opener
+import { floatText } from '../ui/kinetic/floatText.js'; // [v31 kinetic]
 
 export class Cinematic {
   constructor(game) {
@@ -52,6 +54,8 @@ export class Cinematic {
     this.autoCam = this.feast ? !!this.feast.st.autoCam : true;
     this.feast?.begin();
     this.cut('office');
+    // [v31 cine] whistle, clock, doors, crane: the opener drives the camera until it hands over
+    try { this.opener = this.feast ? new FeastOpener(game, { x: this.saved.x, z: this.saved.z, wupp: clamp(this.saved.wupp * 1.1, 0.034, 0.06), yaw: this.saved.yaw }) : null; } catch (e) { console.warn('[opener]', e); this.opener = null; }
   }
 
   // [v26 feast] a tap / key during the opening shot
@@ -59,10 +63,14 @@ export class Cinematic {
     if (this.intro && this.shot && this.shot.t > 0.3) this.endIntro();
   }
 
+  // [v31 cine] the opener's camera is done (or skipped)
+  stopOpener() { if (this.opener) { this.opener.stop(); this.opener = null; } }
+
   // [v26 feast] the doors are open: hand the camera over
   endIntro() {
     const game = this.game, rig = this.rig, f = this.feast;
     this.intro = false;
+    this.stopOpener(); // [v31 cine]
     if (!f) { this.cut('wide'); return; }
     game.inputLocked = false;
     rig.freeBounds = false;
@@ -106,7 +114,7 @@ export class Cinematic {
         rig.goal.set(OFFICE.x, OFFICE.h - 1.5, OFFICE.z + 3.5);
         rig.target.copy(rig.goal);
         rig.wupp = rig.wuppGoal = 0.032;
-        g.ui?.cineTitle?.('5:00 PM', 'OFF WORK!');
+        if (!this.feast) g.ui?.cineTitle?.('5:00 PM', 'OFF WORK!'); // [v31 cine] with the feast, the opener's kinetic title says it
         g.rig.shake = 0.6;
         break;
       case 'trail':
@@ -144,6 +152,8 @@ export class Cinematic {
 
   onRampage(b) {
     if (!this.active) return;
+    // [v31 kinetic] the rampage gets shouted over the bear's head, red-hot and shaking
+    try { floatText({ text: b.def?.boss ? `${b.def.name.toUpperCase()}!!` : pick(['RAMPAGE!', 'RAAAWR!', 'NO FISH?!', 'SMASH!']), at: { getWorldPos: (v) => v.set(b.x, b.y + 2.4 * (b.def?.scale || 1), b.z) }, style: 'angry', k: 2, ms: 1600, voice: 'bear', prio: 2 }); } catch { /* */ }
     this.focusQueue.unshift({ kind: 'rampage', bear: b });
   }
 
@@ -180,7 +190,8 @@ export class Cinematic {
     }
     if (this.intro && this.feast) {
       // [v26 feast] the doors burst open, then the camera is yours
-      if (sh.t > 2.9 || (bears.length && sh.t > 2.2)) this.endIntro();
+      if (this.opener) { if (this.opener.update(dt)) this.endIntro(); } // [v31 cine]
+      else if (sh.t > 2.9 || (bears.length && sh.t > 2.2)) this.endIntro();
     } else if (this.directing()) {
       // auto-cam yields the moment the player touches the camera
       if (this.feast && (rig.userCamT || 0) > this.userT0) { this.setAutoCam(false); this.feast.ui?.syncButtons?.(); }
@@ -262,6 +273,7 @@ export class Cinematic {
 
   finish() {
     if (!this.active) return;
+    this.stopOpener(); // [v31 cine]
     const game = this.game;
     const rig = this.rig;
     this.feast?.end(); // [v26 feast]

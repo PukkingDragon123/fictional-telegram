@@ -22,6 +22,8 @@ Every weekday at **5 PM** the steam whistle blows at *Bear St. Holdings*, the of
   - **auto-feeders** and **bubble aerators**
 - **Grow:** dig the pond bigger, research upgrades (breeding, prices, patience, bigger waves), and survive the Friday CEO visit.
 - **Prestige:** reach *Franchise Empire* and retire. Each run earns golden fox tails, and each tail permanently adds 10% to every bill.
+- **Bear errands:** most mornings a bear knocks on Reynard's door with a favour: Kevin the intern needs a story, Chad the gym bro wants buff fish, a cub wants to name the babies, the food critic wants five stars, the CEO wants a *golden* fish. Each errand opens and closes with a cinematic talk scene.
+- **Secrets:** nine easter eggs are hidden around the pond. The game tells you when you find one.
 
 ### Controls
 
@@ -36,6 +38,8 @@ Every weekday at **5 PM** the steam whistle blows at *Bear St. Holdings*, the of
 | Open early (ring the bell) | `B` | clock button |
 | Follow bears | `F` | camera button |
 | Cancel | `Esc` | Done button |
+| Next line in a scene | `Space` / `Enter`, click | tap |
+| Skip a scene | `Esc` | SKIP button |
 
 ## Development
 
@@ -57,5 +61,14 @@ src/data      species, bear types, structures, research tree
 src/ui        HUD, panels, modals, 3D-rendered icons, pixel sprites
 tools/        Playwright screenshot / play-test helpers used during development
 ```
+
+### Kinetic text and cinematic scenes (v31)
+
+- `src/ui/kinetic/` is the floating pixel text borrowed from Project Zealandia: its bitmap fonts (`pxfont.js`: body, bold, tiny and the script marker hand) and the letter-by-letter motion styles (`floatText.js`: say, shout, whisper, scared, happy, laugh, excited, angry, sad, think, radio, spooky, gold). Quest news (`src/ui/QuestToast.js`), chapter cards, boss name cards and feast callouts use it. The comic bubbles borrow the same letter motion for shouts, whispers, sad and think lines.
+- `src/game/cine/Director.js` (`game.director`) runs talk scenes: letterbox, camera shots that lean toward whoever speaks, bears as real rigged actors, Reynard directed through `game.fox.cine`. Scenes live in `src/game/cine/scenes.js`; the bear errands are `src/data/questsBears.js`, scheduled by `src/game/cine/bearQuests.js`.
+- `src/game/cine/feastOpener.js` is the 5 PM opener: the whistle, the clock and the day's title card, the doors in slow motion, a crane down to the pond.
+- `src/game/cine/secrets.js` holds the easter eggs (spoilers inside).
+
+Debug from the console: `__game.bearQuests.play('critic_in')` plays a scene, `__float.floatText({ text: 'HEY!', style: 'shout', at: [640, 300] })` floats a line.
 
 Useful URL flags while developing: `?autostart=new` skips the title screen, `?notut=1` skips the tutorial, and `window.__step(seconds)` fast-forwards the simulation from the console.

@@ -2,6 +2,16 @@
 // particles (droplets, cartoon blood, hearts, stars, coins, puffs, comic
 // words, build clouds...) and flat decals (splats) that fade out later.
 // Water hits disturb the height-field simulation so splashes make real waves.
+//
+// [v31 fx] A second pooled sprite system (`amb`) carries the ambient life from
+// src/game/fx/ambientFx.js (pollen, seeds, sun motes, water glints, pond mist,
+// embers, spindrift, waterfall spray), so it never evicts action effects. The
+// action effects grew: cannonballs throw a water crown, splash rings, spray
+// arcs and foam; hatching eggs burst into tumbling shell shards; debris throws
+// wood chips / rock chips and kicks up dust; comic impacts (POW!, SMASH!...)
+// flash a pixel starburst; spawnArc leaves a glittering trail. Unlit sprites
+// take the time of day's light colour (lightTint). Pool caps follow the
+// particles setting (the amb pool scales with the fx pool).
 import * as THREE from 'three';
 import { WATER_Y } from '../world/grid.js';
 import { SpriteBatch, pixelTexture } from '../core/spriteBatch.js';
@@ -125,6 +135,7 @@ class FxPool {
       life: o.life ?? 1, maxLife: o.life ?? 1, size: o.size || 0.2, fps: o.fps || 0, frame: o.frame || 0,
       rot: o.rot ?? 0, spin: o.spin || 0, flags: o.flags || 0, tint: o.tint || null, emissive: o.emissive || 0,
       seed: Math.random() * 10, onStick: o.onStick || null, bright: o.bright ?? false, flip: !!o.flip,
+      alpha: o.alpha ?? 1, fin: o.fadeIn || 0, // [v31 fx] base alpha (ordered-dither see-through), fade-in seconds
     };
     this.list.push(p);
     return p;
@@ -169,7 +180,9 @@ class FxPool {
     const B = this.batch;
     B.clear();
     const amb = this.brightness;
-    const opt = {};
+    const lt = this.light; // [v31 fx] the hour's light colour (unlit sprites), null = white
+    const opt = this._opt || (this._opt = { tint: [1, 1, 1] }); // [v31 fx] reused: no per-frame allocations
+    const tint = opt.tint;
     for (let i = 0; i < n; i++) {
       const p = L[i];
       const t = p.life / p.maxLife; // 1 -> 0
@@ -187,14 +200,29 @@ class FxPool {
       opt.mode = f & FX.FLAT ? 1 : f & FX.UPRIGHT ? 0 : 2;
       opt.ax = 0.5; opt.ay = opt.mode === 0 ? 0 : 0.5;
       opt.rot = p.rot;
-      opt.alpha = f & FX.FADE ? Math.min(1, t * 3) : 1;
+      opt.alpha = (f & FX.FADE ? Math.min(1, t * 3) : 1) * p.alpha;
+      if (p.fin > 0) opt.alpha *= Math.min(1, (p.maxLife - p.life) / p.fin);
       opt.emissive = p.emissive;
       opt.flip = p.flip;
-      opt.tint = p.tint ? [p.tint[0] * k, p.tint[1] * k, p.tint[2] * k] : [k, k, k];
+      const lr = lt && !p.bright && !p.emissive ? lt[0] : 1, lg = lt && !p.bright && !p.emissive ? lt[1] : 1, lb = lt && !p.bright && !p.emissive ? lt[2] : 1;
+      if (p.tint) { tint[0] = p.tint[0] * k * lr; tint[1] = p.tint[1] * k * lg; tint[2] = p.tint[2] * k * lb; }
+      else { tint[0] = k * lr; tint[1] = k * lg; tint[2] = k * lb; }
       B.push(fr, p.x, p.y, p.z, opt);
     }
     B.commit();
   }
+}
+
+// [v31 fx] comic words that are hits: they get a starburst
+const IMPACT = new Set(['pow', 'bonk', 'bam', 'smash', 'rawr', 'snap', 'chop', 'crunch']);
+// what a debris palette is made of (by its first colour): warm browns = wood, greys = stone
+function materialOf(hex) {
+  if (typeof hex !== 'number') return null;
+  const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  if (mx - mn < 34) return 'stone';
+  if (r > g && g > b && r - b > 50) return 'wood';
+  return null;
 }
 
 // --------------------------------------------------------------- facade
@@ -207,6 +235,8 @@ export class Particles {
     this.tex = pixelTexture(this.atlas.canvas);
     this.fx = new FxPool(scene, this.atlas, this.tex, 1400, { renderOrder: 21 });
     this.decals = new FxPool(scene, this.atlas, this.tex, 260, { lit: true, renderOrder: 9 });
+    this.amb = new FxPool(scene, this.atlas, this.tex, 480, { renderOrder: 20 }); // [v31 fx] ambient life (ambientFx.js)
+    this.amb.batch.mesh.name = 'fxAmbient';
     this.time = 0;
     this.groundAt = null;
     this.sim = null; // WaterSim (set by the game)
@@ -221,7 +251,11 @@ export class Particles {
     };
   }
 
-  setBrightness(b) { this.fx.brightness = b; }
+  setBrightness(b) { this.fx.brightness = b; this.amb.brightness = b; }
+  // [v31 fx] the hour's light colour for unlit sprites ([r, g, b] near 1), null = white
+  setLight(rgb) { this.fx.light = rgb; this.amb.light = rgb; }
+  // [v31 fx] 0..1: the particles setting (the amb pool follows the fx pool's cap)
+  quality() { const f = this.fx; return f.__baseMax ? Math.max(0.15, f.max / f.__baseMax) : 1; }
 
   update(dt) {
     this.time += dt;
@@ -230,7 +264,13 @@ export class Particles {
     this.glow.update(dt, this.time, hit, this.groundAt);
     this.fx.update(dt, this.time, this.env);
     this.decals.update(dt, this.time, this.env);
+    const q = this.quality();
+    this.amb.max = Math.max(24, Math.round(480 * q));
+    this.amb.update(dt, this.time, this.env);
   }
+
+  // [v31 fx] ambient sprite (pollen, motes, mist...): its own pool, never evicts action effects
+  ambSpawn(name, x, y, z, opts) { return this.amb.list.length < this.amb.max ? this.amb.spawn(name, x, y, z, opts) : null; }
 
   // ---- low level
   spawnFx(name, x, y, z, opts) { return this.fx.spawn(name, x, y, z, opts); }
@@ -249,6 +289,20 @@ export class Particles {
 
   word(id, x, y, z, { size = 0.34, life = 1.1, vy = 1.1 } = {}) {
     this.fx.spawn('word_' + id, x, y, z, { vy, drag: 2.4, life, size, flags: FX.POP | FX.FADE, rot: (Math.random() - 0.5) * 0.35, bright: true });
+    if (IMPACT.has(id)) this.impact(x, y - 0.5, z, size / 0.34); // [v31 fx]
+  }
+
+  // [v31 fx] a comic impact: a pixel starburst, flying stars and a few chips
+  impact(x, y, z, k = 1) {
+    this.fx.spawn('burst', x, y, z, { life: 0.32, size: 0.75 * k, fps: 10, flags: FX.ONCE, rot: Math.random() * 0.6 - 0.3, bright: true, emissive: 0.4 });
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + Math.random() * 0.5;
+      this.fx.spawn('star', x, y, z, { vx: Math.cos(a) * 2.2, vy: 1.6 + Math.random() * 1.2, vz: Math.sin(a) * 2.2, grav: 6, drag: 1.2, life: 0.7, size: 0.13 * k, spin: 9, flags: FX.POP | FX.FADE, bright: true });
+    }
+    for (let i = 0; i < 4; i++) {
+      const a = Math.random() * Math.PI * 2;
+      this.fx.spawn('rockchip', x, y, z, { vx: Math.cos(a) * 1.8, vy: 2 + Math.random() * 2, vz: Math.sin(a) * 1.8, grav: 12, life: 1.1, size: 0.07, fps: 9, spin: 8, flags: FX.BOUNCE | FX.FADE | FX.WATER });
+    }
   }
 
   // ---- water
@@ -261,6 +315,14 @@ export class Particles {
       });
     }
     this.sim?.disturb(x, z, 0.3 + 0.25 * power, 0.35 * power);
+    // [v31 fx] a splash ring on the water and a few foam flecks
+    if (n >= 6) {
+      this.fx.spawn('splashring', x, WATER_Y + 0.03, z, { life: 0.55, size: 0.5 + 0.35 * power, fps: 7.5, flags: FX.FLAT | FX.ONCE, rot: Math.random() * 6.28, bright: true });
+      for (let i = 0; i < Math.min(4, n >> 2); i++) {
+        const a = Math.random() * Math.PI * 2, r = 0.15 + Math.random() * 0.3 * power;
+        this.fx.spawn('foam', x + Math.cos(a) * r, WATER_Y + 0.02, z + Math.sin(a) * r, { vx: Math.cos(a) * 0.3, vz: Math.sin(a) * 0.3, drag: 1.5, life: 1.2 + Math.random(), size: 0.05, flags: FX.FADE | FX.FLAT, rot: a, bright: true });
+      }
+    }
   }
 
   bigSplash(x, z) {
@@ -273,6 +335,31 @@ export class Particles {
     }
     this.sim?.disturb(x, z, 1.1, 1.3);
     this.word('splash', x, 1.5, z, { size: 0.36 });
+    // [v31 fx] the cannonball crown, two splash rings, droplet arcs flung wide, spray and foam
+    this.fx.spawn('crown', x, WATER_Y - 0.05, z, { life: 0.62, size: 1.25, fps: 6.5, flags: FX.ONCE | FX.UPRIGHT, bright: true });
+    this.fx.spawn('splashring', x, WATER_Y + 0.03, z, { life: 0.7, size: 1.5, fps: 5.7, flags: FX.FLAT | FX.ONCE, rot: Math.random() * 6.28, bright: true });
+    this.fx.spawn('splashring', x, WATER_Y + 0.035, z, { life: 1.1, size: 2.6, fps: 3.6, flags: FX.FLAT | FX.ONCE, rot: Math.random() * 6.28, bright: true });
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3, sp = 2.4 + Math.random() * 1.6;
+      this.fx.spawn(i & 1 ? 'drop' : 'spray', x + Math.cos(a) * 0.4, WATER_Y + 0.2, z + Math.sin(a) * 0.4, {
+        vx: Math.cos(a) * sp, vy: 3.2 + Math.random() * 1.8, vz: Math.sin(a) * sp, grav: 10, drag: 0.25, life: 1.5, size: 0.08 + Math.random() * 0.05, flags: FX.WATER, bright: true,
+      });
+    }
+    for (let i = 0; i < 4; i++) this.fx.spawn('mist', x + (Math.random() - 0.5) * 0.8, WATER_Y + 0.35 + Math.random() * 0.3, z + (Math.random() - 0.5) * 0.8, { vx: (Math.random() - 0.5) * 0.6, vy: 0.25, drag: 1, life: 1.1 + Math.random() * 0.4, size: 0.5 + Math.random() * 0.3, frame: i & 1, alpha: 0.7, flags: FX.FADE | FX.GROW, bright: true });
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2, r = 0.4 + Math.random() * 0.9;
+      this.fx.spawn('foam', x + Math.cos(a) * r, WATER_Y + 0.02, z + Math.sin(a) * r, { vx: Math.cos(a) * 0.5, vz: Math.sin(a) * 0.5, drag: 1.2, life: 2.2 + Math.random() * 1.5, size: 0.06, frame: i & 1, flags: FX.FADE | FX.FLAT, rot: a, bright: true });
+    }
+  }
+
+  // [v31 fx] something tossed in an arc (eggs into the pond): a glittering dotted trail along it
+  spawnArc(x0, y0, z0, x1, y1, z1) {
+    const n = 9, top = Math.max(y0, y1) + 1.4;
+    for (let i = 1; i < n; i++) {
+      const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+      const y = y0 + (y1 - y0) * t + 4 * (top - Math.max(y0, y1)) * t * (1 - t);
+      this.fx.spawn(i % 3 ? 'mote' : 'sparkle', x, y, z, { life: 0.35 + t * 0.6, size: 0.1, fps: 8, frame: i % 4, vy: -0.2, flags: FX.FADE | FX.SHRINK, tint: [1, 0.96, 0.8], emissive: 0.7 });
+    }
   }
 
   bubbles(x, y, z, n = 3) {
@@ -344,13 +431,35 @@ export class Particles {
       this.lit.spawn(x, y, z, Math.cos(a) * sp, 3 + Math.random() * 3, Math.sin(a) * sp, 1 + Math.random() * 0.8, 0.07 + Math.random() * 0.1,
         colors[Math.floor(Math.random() * colors.length)], 12, 0.3, 64, 8);
     }
+    // [v31 fx] pixel chips by material (wood: chips + splinters, stone: rock chips), dust on big hits
+    const kind = materialOf(colors[0]);
+    if (kind) {
+      const m = Math.min(8, Math.ceil(n * 0.6));
+      for (let i = 0; i < m; i++) {
+        const a = Math.random() * Math.PI * 2, sp = 1.2 + Math.random() * 2.2;
+        const nm = kind === 'wood' ? (i % 3 === 2 ? 'splinter' : 'chip') : 'rockchip';
+        this.fx.spawn(nm, x, y, z, { vx: Math.cos(a) * sp, vy: 2.4 + Math.random() * 2.6, vz: Math.sin(a) * sp, grav: 11, drag: 0.3, life: 1.3 + Math.random() * 0.6, size: nm === 'splinter' ? 0.06 : 0.075, fps: nm === 'chip' || nm === 'rockchip' ? 10 + Math.random() * 6 : 0, spin: (Math.random() - 0.5) * 14, flags: FX.BOUNCE | FX.FADE | FX.WATER });
+      }
+    }
+    if (n >= 6) this.kick(x, Math.max(0, y - 0.3), z, n >= 12 ? 3 : 2);
+  }
+
+  // [v31 fx] ground dust kicked up low and wide (feet, impacts)
+  kick(x, y, z, n = 2, dir = null) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      let vx = Math.cos(a) * 0.5, vz = Math.sin(a) * 0.5;
+      if (dir) { vx = -dir.x * 0.7 + vx * 0.4; vz = -dir.z * 0.7 + vz * 0.4; }
+      this.fx.spawn('dustk', x + (Math.random() - 0.5) * 0.25, y + 0.06, z + (Math.random() - 0.5) * 0.25, { vx, vy: 0.18 + Math.random() * 0.2, vz, drag: 2.2, life: 0.55 + Math.random() * 0.3, size: 0.16 + Math.random() * 0.08, fps: 5, flags: FX.FADE | FX.ONCE, flip: Math.random() < 0.5 });
+    }
   }
 
   dust(x, y, z, n = 3) {
     for (let i = 0; i < n; i++)
       this.fx.spawn('dust', x + (Math.random() - 0.5) * 0.3, y + 0.08, z + (Math.random() - 0.5) * 0.3, {
-        vx: (Math.random() - 0.5) * 0.6, vy: 0.35 + Math.random() * 0.35, vz: (Math.random() - 0.5) * 0.6, drag: 2, life: 0.55 + Math.random() * 0.25, size: 0.16 + Math.random() * 0.1, fps: 5, flags: FX.FADE | FX.ONCE,
+        vx: (Math.random() - 0.5) * 0.6, vy: 0.35 + Math.random() * 0.35, vz: (Math.random() - 0.5) * 0.6, drag: 2, life: 0.55 + Math.random() * 0.25, size: 0.16 + Math.random() * 0.1, fps: 5, flags: FX.FADE | FX.ONCE, flip: Math.random() < 0.5,
       });
+    if (Math.random() < 0.35) this.fx.spawn('rockchip', x, y + 0.05, z, { vx: (Math.random() - 0.5) * 1.2, vy: 1 + Math.random(), vz: (Math.random() - 0.5) * 1.2, grav: 10, life: 0.7, size: 0.04, fps: 10, flags: FX.BOUNCE | FX.FADE }); // [v31 fx] a pebble flicked up
   }
 
   puff(x, y, z, n = 8, size = 0.35) {
@@ -382,7 +491,7 @@ export class Particles {
 
   leaf(x, y, z, color) {
     _c.set(color);
-    this.fx.spawn('leaf', x, y, z, { vx: (Math.random() - 0.5) * 0.4, vy: -0.35 - Math.random() * 0.2, vz: (Math.random() - 0.5) * 0.4, life: 14 + Math.random() * 8, size: 0.09, fps: 3, spin: 1.5, flags: FX.FLOAT | FX.WOBBLE | FX.FADE, tint: [_c.r * 1.6, _c.g * 1.6, _c.b * 1.6] });
+    this.fx.spawn('leaf', x, y, z, { vx: (Math.random() - 0.5) * 0.4, vy: -0.35 - Math.random() * 0.2, vz: (Math.random() - 0.5) * 0.4, life: 14 + Math.random() * 8, size: 0.1, fps: 5 + Math.random() * 3, spin: (Math.random() - 0.5) * 3, flip: Math.random() < 0.5, flags: FX.FLOAT | FX.WOBBLE | FX.FADE, tint: [_c.r * 1.25, _c.g * 1.25, _c.b * 1.25] }); // [v31 fx] tumbling maple leaf
   }
 
   feathers(x, y, z, n = 4) {
@@ -395,10 +504,17 @@ export class Particles {
       const a = Math.random() * Math.PI * 2;
       this.fx.spawn('shell', x, y, z, { vx: Math.cos(a) * 1.2, vy: 1.5 + Math.random() * 1.5, vz: Math.sin(a) * 1.2, grav: 8, life: 1.2, size: 0.07, spin: 10, flags: FX.BOUNCE | FX.FADE | FX.WATER });
     }
+    // [v31 fx] the shell cracks open: jagged speckled shards tumble out, a little pop of light
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.random() * 0.4, sp = 0.9 + Math.random() * 0.9;
+      this.fx.spawn('shard', x, y + 0.05, z, { vx: Math.cos(a) * sp, vy: 1.8 + Math.random() * 1.4, vz: Math.sin(a) * sp, grav: 9, life: 1.6, size: 0.085, frame: i % 3, spin: (Math.random() - 0.5) * 16, flags: FX.BOUNCE | FX.FADE | FX.WATER });
+    }
+    this.fx.spawn('burst', x, y + 0.12, z, { life: 0.26, size: 0.4, fps: 12, flags: FX.ONCE, bright: true, emissive: 0.6 });
+    this.sparkle(x, y + 0.15, z, 4, 0xfff6d0);
   }
 
   firefly(x, y, z) {
-    this.fx.spawn('firefly', x, y, z, { vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.1, vz: (Math.random() - 0.5) * 0.3, life: 6 + Math.random() * 5, size: 0.07, flags: FX.WOBBLE | FX.FADE, emissive: 1.4, tint: [1, 1, 0.8] });
+    this.fx.spawn('firefly', x, y, z, { vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.1, vz: (Math.random() - 0.5) * 0.3, life: 6 + Math.random() * 5, size: 0.12, fps: 1.6 + Math.random() * 1.4, flags: FX.WOBBLE | FX.FADE, emissive: 1.4, tint: [1, 1, 0.8] }); // [v31 fx] blinks, with a halo
   }
 
   zzz(x, y, z) {

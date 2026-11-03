@@ -40,9 +40,10 @@ uniform float uHazeK;
 float ringDist(vec2 p) { vec2 d = max(max(uRect.xy - p, p - uRect.zw), 0.0); return length(d); }
 float ringHaze(vec3 p) {
   float d = ringDist(p.xz);
-  // thin mist right at the edge, thicker over the far ranges; peaks poke out a bit
-  float h = smoothstep(30.0, 120.0, d) * 0.45;
-  h *= 1.0 - smoothstep(18.0, 60.0, p.y) * 0.25;
+  // [v31 mountains] layered depth: a breath of haze on the near ridges, each range
+  // further out paler and closer to the sky; the valleys hold it, the peaks rise out
+  float h = smoothstep(8.0, 40.0, d) * 0.1 + smoothstep(26.0, 115.0, d) * 0.52;
+  h *= 1.0 - smoothstep(14.0, 72.0, p.y) * 0.42;
   return clamp(h * uHazeK, 0.0, 0.85);
 }
 // 0..1: how far a point of the outer ranges sinks (it sits between the camera and the map)
@@ -615,10 +616,10 @@ vec3 ringTex(int id, vec2 p) {
         .replace('#include <common>', '#include <common>\n' + HAZE_PARS + SPRITE_CAP + '\nvarying float vRingHaze;') // [v26 world] the cut ranges' cap (was a squash)
         .replace('#include <fog_vertex>', '#include <fog_vertex>\nvRingHaze = ringHaze(aPos);');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;')
-        .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, vRingHaze);\n#include <opaque_fragment>');
+        .replace('#include <common>', '#include <common>\nuniform vec3 uHaze;\nvarying float vRingHaze;\nfloat hzBay2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }')
+        .replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, uHaze, floor(vRingHaze * 6.0 + hzBay2(0.5 * gl_FragCoord.xy) * 0.25 + hzBay2(gl_FragCoord.xy)) / 6.0); // [v31 mountains] stepped, dithered\n#include <opaque_fragment>');
     };
-    mat.customProgramCacheKey = () => key + '5'; // [v26 world] (cap patch v3) [v26 mountains] v5: no cut
+    mat.customProgramCacheKey = () => key + '6'; // [v26 world] (cap patch v3) [v26 mountains] v5: no cut [v31] v6: dithered haze
     mat.needsUpdate = true;
   }
 
@@ -795,7 +796,8 @@ void main() {
     this.updateEdgeMist(rig, night);
   }
 
-  // pushing the camera past the edge: a soft mist creeps in on that side of the screen
+  // pushing the camera past the edge: a mist creeps in on that side of the screen
+  // [v31 mountains] painted as an ordered-dithered pixel canvas (no smooth CSS gradient)
   updateEdgeMist(rig, night) {
     const ep = rig?.edgePush;
     let k = ep ? ep.k : 0;
@@ -806,11 +808,13 @@ void main() {
       if (typeof document === 'undefined') return;
       const cv = document.getElementById('game');
       if (!cv || !cv.parentNode) return;
-      const el = document.createElement('div');
+      const el = document.createElement('canvas');
       el.className = 'edge-mist';
-      el.style.cssText = 'position:fixed;inset:0;pointer-events:none;opacity:0;';
+      el.width = 160; el.height = 90;
+      el.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;image-rendering:pixelated;';
       cv.parentNode.insertBefore(el, cv.nextSibling);
       this.mistEl = el;
+      this.mistCtx = el.getContext('2d');
     }
     const el = this.mistEl;
     if (k < 0.01) { if (el.style.opacity !== '0') el.style.opacity = '0'; return; }
@@ -818,11 +822,27 @@ void main() {
     const cy = Math.cos(rig.yaw), sy = Math.sin(rig.yaw);
     const r = cy * ep.x - sy * ep.z, f = -sy * ep.x - cy * ep.z;
     const l = Math.hypot(r, f) || 1;
-    const sx = 50 + (r / l) * 62, syy = 50 - (f / l) * 62;
-    const c = night > 0.5 ? '40,52,80' : '232,240,244';
-    const bg = `radial-gradient(ellipse 70% 70% at ${sx.toFixed(1)}% ${syy.toFixed(1)}%, rgba(${c},0.85) 0%, rgba(${c},0.35) 45%, rgba(${c},0) 75%)`;
-    if (this._mistBg !== bg) { el.style.background = bg; this._mistBg = bg; }
-    el.style.opacity = (Math.min(1, k) * 0.75).toFixed(3);
+    const sx = 0.5 + (r / l) * 0.62, syy = 0.5 - (f / l) * 0.62;
+    const nightK = night > 0.5 ? 1 : 0;
+    const key = `${Math.round(sx * 40)},${Math.round(syy * 40)},${nightK}`;
+    if (this._mistKey !== key) {
+      this._mistKey = key;
+      const W = el.width, H = el.height, ctx = this.mistCtx;
+      const img = ctx.createImageData(W, H), d = img.data;
+      const c0 = nightK ? [40, 52, 80] : [232, 240, 244], c1 = nightK ? [28, 36, 62] : [196, 212, 226];
+      const B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const dx = (x / W - sx) / 0.7, dy = (y / H - syy) / 0.7;
+          const v = Math.max(0, Math.min(1, (0.75 - Math.hypot(dx, dy)) / 0.75)) * 0.95;
+          const b = (B[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+          const o = (y * W + x) * 4;
+          if (v > b) { const c = v > 0.62 ? c0 : c1; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 230; }
+          else d[o + 3] = 0;
+        }
+      ctx.putImageData(img, 0, 0);
+    }
+    el.style.opacity = (Math.min(1, k) * 0.8).toFixed(2);
   }
 }
 

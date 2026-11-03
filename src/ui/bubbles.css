@@ -174,6 +174,29 @@
 .bb-m-excited .bb-ch.on:nth-child(2n) > span { animation: bb-hop 0.2s linear both, bb-hopl 0.62s steps(1) 0.2s infinite; }
 @keyframes bb-hopl { 0%, 60%, 100% { transform: none; } 30% { transform: translateY(calc(var(--px) * -1)); } }
 .bb-v-whisper .bb-text { letter-spacing: 0; opacity: 0.86; }
+/* [v31 kinetic] letter motion borrowed from Project Zealandia's floating text:
+   shout = each letter punches up and slams down, then jitters a pixel; whisper = a slow pixel
+   waver along the line; sad = letters land high and sink; think = a lazy bob. Whole pixels only. */
+.bb-m-shout .bb-ch.on > span { animation: bb-punch 0.16s steps(1) both, bb-rattle 0.2s steps(1) 0.16s 5; animation-delay: 0s, calc(0.16s + var(--i) * 0.013s); }
+@keyframes bb-punch {
+  0% { transform: translateY(calc(var(--px) * -3)) scale(1.25); }
+  35% { transform: translateY(calc(var(--px) * -1)) scale(1.1); }
+  70% { transform: translateY(var(--px)); }
+  100% { transform: none; }
+}
+@keyframes bb-rattle {
+  0% { transform: translate(var(--px), 0); }
+  25% { transform: translate(0, calc(var(--px) * -1)); }
+  50% { transform: translate(calc(var(--px) * -1), 0); }
+  75% { transform: translate(0, var(--px)); }
+  100% { transform: none; }
+}
+.bb-m-whisper .bb-ch.on > span { animation: bb-hop-s 0.2s linear both, bb-waver 1.8s steps(1) 0.2s infinite; animation-delay: 0s, calc(var(--i) * -0.14s); }
+@keyframes bb-waver { 0%, 100% { transform: none; } 30% { transform: translateY(calc(var(--px) * -1)); } 60% { transform: none; } 80% { transform: translateY(var(--px)); } }
+.bb-m-sad .bb-ch.on > span { animation: bb-sag 1.4s steps(1) both; }
+@keyframes bb-sag { 0% { transform: translateY(calc(var(--px) * -1)); } 40% { transform: none; } 100% { transform: translateY(var(--px)); } }
+.bb-m-think .bb-ch.on > span { animation: bb-hop-s 0.2s linear both, bb-waver 2.6s steps(1) 0.2s infinite; animation-delay: 0s, calc(var(--i) * -0.3s); }
+@media (prefers-reduced-motion: reduce) { .bb-m-shout .bb-ch.on > span, .bb-m-whisper .bb-ch.on > span, .bb-m-sad .bb-ch.on > span, .bb-m-think .bb-ch.on > span { animation: none; } }
 
 /* ---- continue arrow */
 .bb-more {

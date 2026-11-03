@@ -4,10 +4,19 @@
 // can be snapped to whole pixels and the leftover sub-pixel offset applied
 // when blitting (smooth camera motion without pixel crawl).
 //
-// Cozy extras: a soft bloom (bright-pass at half resolution, separable blur),
+// Cozy extras: a bloom (bright-pass at half resolution, separable blur),
 // a warm colour grade with lifted purple shadows, tinted outlines, a gentle
 // tilt-shift haze at the screen edges, a vignette and an iris wipe used for
 // scene transitions.
+//
+// [v31 light] Everything soft is quantised and ordered-dithered on the low-res
+// pixel grid (bloom halos, vignette, tilt-shift haze), so nothing smooth ever
+// lands between the pixels. The time of day (world/sky.js `post`) adds a split
+// tone grade (a coloured lift into the shadows, a tint on the highlights,
+// saturation, contrast) and a low-res atmosphere pass: drifting cloud shadows
+// projected along the sun onto the valley, and crepuscular light shafts (the
+// gaps between those clouds, seen through the air above the ground), both in
+// dithered steps. At night lamps and windows bloom harder.
 import * as THREE from 'three';
 import { fitShadowScissor } from './shadowFit.js'; // [v26 perf]
 
@@ -19,11 +28,13 @@ void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0
 const BRIGHT_FRAG = /* glsl */ `
 uniform sampler2D tColor;
 uniform float threshold;
+uniform float thrOff; // [v31 light] night: lamps and windows bloom harder
 varying vec2 vUv;
 void main() {
   vec3 c = texture2D(tColor, vUv).rgb;
   float l = max(max(c.r, c.g), c.b);
-  float k = smoothstep(threshold, threshold + 0.6, l);
+  float th = threshold - thrOff;
+  float k = smoothstep(th, th + 0.6, l);
   gl_FragColor = vec4(c * k, 1.0);
 }
 `;
@@ -75,6 +86,22 @@ uniform float blueprint;
 // thick fog of the unexplored: drawn by its own low-res pass (FOG_FRAG)
 uniform float fogOn;
 uniform sampler2D tFog;
+// [v31 light] time-of-day grade + atmosphere (neutral unless the sky drives them)
+uniform vec3 todMul;
+uniform vec3 todShadow;
+uniform vec3 todHigh;
+uniform float todSat;
+uniform float todCon;
+uniform float atmoOn;
+uniform sampler2D tAtmo;
+uniform vec3 cloudCol;
+uniform vec3 shaftCol;
+uniform float cloudAmt;
+uniform float shaftAmt;
+uniform vec4 todHaze; // rgb = the hour's horizon, a = how much it replaces hazeColor
+
+float pbay2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
+float pbay4(vec2 a) { return pbay2(0.5 * a) * 0.25 + pbay2(a); }
 
 float D(vec2 p) { return texture2D(tDepth, (p + 0.5) / rtSize).x * depthRange; }
 vec3 C(vec2 p) { return texture2D(tColor, (p + 0.5) / rtSize).rgb; }
@@ -82,6 +109,7 @@ vec3 C(vec2 p) { return texture2D(tColor, (p + 0.5) / rtSize).rgb; }
 void main() {
   vec2 lp = floor(gl_FragCoord.xy / pixelScale + subpixel) + 1.0;
   vec3 col = C(lp);
+  float bay = pbay4(lp);
   float d = D(lp);
   float dl = D(lp + vec2(-1.0, 0.0));
   float dr = D(lp + vec2(1.0, 0.0));
@@ -94,10 +122,18 @@ void main() {
   // Tinted inner outline (darker, slightly purple, never flat black)
   col = mix(col, col * outlineTint, outlineAmt * edge);
   col *= 1.0 + highlightAmt * crease;
-  // soft bloom
+  // bloom, quantised into dithered steps (pixel-art halos, never a smooth glow)
   vec2 buv = (lp - 0.5) / rtSize;
   vec3 bl = texture2D(tBloom, buv).rgb;
+  float bm = max(bl.r, max(bl.g, bl.b));
+  bl *= bm > 0.002 ? (floor(bm * 7.0 + bay) / 7.0) / bm : 0.0;
   col += bl * bloomAmt;
+  // [v31 light] drifting cloud shadows and light shafts (low-res atmosphere pass)
+  if (atmoOn > 0.5) {
+    vec4 at = texture2D(tAtmo, (lp + 0.5) / rtSize);
+    col *= mix(vec3(1.0), cloudCol, at.r * cloudAmt);
+    col += shaftCol * at.g * shaftAmt * (0.6 + 0.4 * at.r);
+  }
   if (fogOn > 0.5) {
     vec4 fg = texture2D(tFog, (lp + 0.5) / rtSize);
     col = mix(col, fg.rgb, fg.a);
@@ -105,15 +141,21 @@ void main() {
   }
   // cozy grade: lifted cool shadows, warm gain, gentle contrast
   float l = dot(col, vec3(0.299, 0.587, 0.114));
-  col = mix(vec3(l), col, saturation);
-  col = col * grade + lift * (1.0 - clamp(l * 1.6, 0.0, 1.0));
-  col = mix(vec3(0.5), col, contrast);
+  col = mix(vec3(l), col, saturation * todSat);
+  col = col * grade * todMul + lift * (1.0 - clamp(l * 1.6, 0.0, 1.0));
+  // [v31 light] split tone: coloured shade, tinted light
+  col += todShadow * (1.0 - clamp(l * 2.2, 0.0, 1.0));
+  col *= mix(vec3(1.0), todHigh, clamp((l - 0.25) * 1.7, 0.0, 1.0));
+  col = mix(vec3(0.5), col, contrast * todCon);
   col = max(col, 0.0);
-  vec2 uv = gl_FragCoord.xy / screenSize;
-  // tilt-shift haze towards the top and bottom (miniature diorama feel)
+  // screen position of this low-res pixel (the haze / vignette step on the pixel grid)
+  vec2 uv = (lp - 0.5) / max(rtSize - 2.0, vec2(1.0));
+  // tilt-shift haze towards the top and bottom (miniature diorama feel), 4 dithered steps
   float ts = smoothstep(0.28, 0.5, abs(uv.y - 0.46));
-  col = mix(col, mix(col, hazeColor, 0.35) + bl * 0.4, ts * haze);
+  ts = floor(ts * 4.0 + bay) / 4.0;
+  col = mix(col, mix(col, mix(hazeColor, todHaze.rgb, todHaze.a), 0.35) + bl * 0.4, ts * haze);
   float v = smoothstep(0.95, 0.35, length((uv - 0.5) * vec2(1.0, 0.9)));
+  v = floor(v * 5.0 + bay) / 5.0;
   col = mix(col * mix(vignetteColor, vec3(1.0), 0.35), col, mix(1.0 - vignette, 1.0, v));
   col = mix(col, flashColor, flash);
   if (iris.z >= 0.0) {
@@ -293,6 +335,57 @@ void main() {
 }
 `;
 
+// [v31 light] The atmosphere, once per low-res pixel: r = cloud shadow (0 / .5 / 1),
+// g = light shafts (0..1 in thirds). Clouds are a drifting value-noise sheet
+// high above the valley; a pixel is in shadow when the sun ray through it
+// crosses a cloud. Shafts: the same test a few steps up the view ray, through
+// the air above the ground, so the gaps between the clouds hang in the air as
+// slanted rays that follow the sun.
+const ATMO_FRAG = /* glsl */ `
+uniform sampler2D tDepth;
+uniform vec2 rtSize;
+uniform float time;
+uniform mat4 invVP;
+uniform vec3 camDir;
+uniform sampler2D fogNoise;
+uniform vec3 atmoSun;
+uniform vec4 atmoK; // cloud on, shafts on, coverage threshold, cloud scale (1 / world units)
+uniform vec2 atmoWind;
+float abay2(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
+float abay4(vec2 a) { return abay2(0.5 * a) * 0.25 + abay2(a); }
+float cloudN(vec2 xz) {
+  vec2 p = (xz + atmoWind * time) * atmoK.w;
+  float a = textureLod(fogNoise, p * 0.0625, 0.0).r;
+  float b = textureLod(fogNoise, p * 0.17 + vec2(0.31, 0.77), 0.0).g;
+  return a * 0.72 + b * 0.28;
+}
+float shadeAt(vec3 P) {
+  float t = max(0.0, 34.0 - P.y) / max(atmoSun.y, 0.2);
+  return smoothstep(atmoK.z, atmoK.z + 0.06, cloudN(P.xz + atmoSun.xz * t));
+}
+void main() {
+  vec2 lp = floor(gl_FragCoord.xy);
+  vec2 uv = (lp + 0.5) / rtSize;
+  float z = textureLod(tDepth, uv, 0.0).x;
+  if (z > 0.99999) { gl_FragColor = vec4(0.0); return; }
+  vec4 wp = invVP * vec4(uv * 2.0 - 1.0, z * 2.0 - 1.0, 1.0);
+  vec3 P = wp.xyz / wp.w;
+  float d = abay4(lp);
+  float cs = 0.0, sf = 0.0;
+  if (atmoK.x > 0.001) cs = floor(shadeAt(P) * 2.0 + d * 0.999) / 2.0;
+  if (atmoK.y > 0.001) {
+    vec3 V = -camDir;
+    float st = 1.6 / max(V.y, 0.25);
+    float lit = 0.0;
+    for (int i = 1; i <= 5; i++) lit += 1.0 - shadeAt(P + V * (st * float(i)));
+    lit /= 5.0;
+    // only the air that is (almost) all lit makes a ray: solid bands with dithered edges
+    sf = floor(smoothstep(0.5, 0.95, lit) * 2.0 + d * 0.999) / 2.0;
+  }
+  gl_FragColor = vec4(cs, sf, 0.0, 1.0);
+}
+`;
+
 // 128x128 RGBA fog tile, so the fog pays one texture tap per octave:
 // r, g = smooth value noise (8 texels per feature, wraps every 16 features),
 // b, a = big / small piles of round cauliflower domes (the cloud puffs).
@@ -372,7 +465,7 @@ export class PixelRenderer {
       scene.add(q);
       return { mat, scene };
     };
-    this.brightPass = mkPass(BRIGHT_FRAG, { tColor: { value: null }, threshold: { value: 0.92 } });
+    this.brightPass = mkPass(BRIGHT_FRAG, { tColor: { value: null }, threshold: { value: 0.92 }, thrOff: { value: 0 } });
     this.blurPass = mkPass(BLUR_FRAG, { tSrc: { value: null }, dir: { value: new THREE.Vector2() } });
 
     this.postScene = new THREE.Scene();
@@ -417,6 +510,22 @@ export class PixelRenderer {
         fogNoise: { value: null },
         fogSun: { value: new THREE.Vector3(0, 1, 0) },
         tFog: { value: null },
+        // [v31 light]
+        todMul: { value: new THREE.Vector3(1, 1, 1) },
+        todShadow: { value: new THREE.Vector3(0, 0, 0) },
+        todHigh: { value: new THREE.Vector3(1, 1, 1) },
+        todSat: { value: 1 },
+        todCon: { value: 1 },
+        atmoOn: { value: 0 },
+        tAtmo: { value: null },
+        cloudCol: { value: new THREE.Vector3(0.75, 0.78, 0.9) },
+        shaftCol: { value: new THREE.Vector3(1, 0.9, 0.7) },
+        cloudAmt: { value: 0 },
+        shaftAmt: { value: 0 },
+        todHaze: { value: new THREE.Vector4(1, 0.88, 0.76, 0) },
+        atmoSun: { value: new THREE.Vector3(0, 1, 0) },
+        atmoK: { value: new THREE.Vector4(0, 0, 0.56, 1 / 15) },
+        atmoWind: { value: new THREE.Vector2(0.55, 0.22) },
       },
       depthTest: false,
       depthWrite: false,
@@ -431,6 +540,43 @@ export class PixelRenderer {
     const fq = new THREE.Mesh(quadGeo, this.fogPass.mat);
     fq.frustumCulled = false;
     this.fogPass.scene.add(fq);
+    // [v31 light] atmosphere pass (cloud shadows + light shafts), same uniform objects
+    const au = {};
+    for (const k of ['tDepth', 'rtSize', 'time', 'invVP', 'camDir', 'fogNoise', 'atmoSun', 'atmoK', 'atmoWind']) au[k] = pu[k];
+    this.atmoPass = { mat: new THREE.ShaderMaterial({ vertexShader: POST_VERT, fragmentShader: ATMO_FRAG, uniforms: au, depthTest: false, depthWrite: false }), scene: new THREE.Scene(), rt: null };
+    const aq = new THREE.Mesh(quadGeo, this.atmoPass.mat);
+    aq.frustumCulled = false;
+    this.atmoPass.scene.add(aq);
+    this.atmoEnabled = true; // [v31 light] cloud shadows + shafts (off: neutral)
+  }
+
+  // [v31 light] the sky's time-of-day grade + atmosphere for this frame (neutral when absent / stale)
+  applySkyPost(sp) {
+    const u = this.postMat.uniforms;
+    if (sp && sp.fresh) {
+      sp.fresh = false;
+      u.todMul.value.copy(sp.mul);
+      u.todShadow.value.copy(sp.shadow);
+      u.todHigh.value.copy(sp.high);
+      u.todSat.value = sp.sat; u.todCon.value = sp.con;
+      u.cloudCol.value.copy(sp.cloudCol); u.shaftCol.value.copy(sp.shaftCol);
+      u.cloudAmt.value = sp.cloud * 0.9; u.shaftAmt.value = sp.shaft * 0.16;
+      u.atmoSun.value.copy(sp.sunDir);
+      u.atmoWind.value.copy(sp.wind);
+      u.todHaze.value.set(sp.haze.x, sp.haze.y, sp.haze.z, 1);
+      this.brightPass.mat.uniforms.thrOff.value = sp.glow * 0.42;
+      this._glowBoost = sp.glow * 0.5;
+    } else {
+      u.todMul.value.set(1, 1, 1); u.todShadow.value.set(0, 0, 0); u.todHigh.value.set(1, 1, 1);
+      u.todSat.value = 1; u.todCon.value = 1; u.cloudAmt.value = 0; u.shaftAmt.value = 0; u.todHaze.value.w = 0;
+      this.brightPass.mat.uniforms.thrOff.value = 0;
+      this._glowBoost = 0;
+    }
+    const on = this.atmoEnabled && (u.cloudAmt.value > 0.01 || u.shaftAmt.value > 0.002);
+    u.atmoK.value.x = u.cloudAmt.value > 0.01 ? 1 : 0;
+    u.atmoK.value.y = u.shaftAmt.value > 0.002 ? 1 : 0;
+    u.atmoOn.value = on ? 1 : 0;
+    return on;
   }
 
   resize(cssW, cssH, dpr) {
@@ -519,9 +665,13 @@ export class PixelRenderer {
     u.subpixel.value.copy(cameraRig.subpixel);
     u.depthRange.value = cam.far - cam.near;
     u.time.value = performance.now() / 1000;
-    if (u.fogOn.value) {
+    const atmo = this.applySkyPost(scene.userData?.skyPost); // [v31 light]
+    if (u.fogOn.value || atmo) {
       u.invVP.value.multiplyMatrices(cam.matrixWorld, cam.projectionMatrixInverse);
       u.camDir.value.set(0, 0, -1).transformDirection(cam.matrixWorld);
+      if (!u.fogNoise.value) u.fogNoise.value = fogNoiseTexture();
+    }
+    if (u.fogOn.value) {
       // light from the screen's top-left, lifted high above the banks
       const e = cam.matrixWorld.elements, sun = u.fogSun.value;
       const fx = -e[8], fz = -e[10], fl = Math.hypot(fx, fz) || 1; // screen-up on the ground
@@ -544,6 +694,17 @@ export class PixelRenderer {
       r.setRenderTarget(F.rt);
       r.render(F.scene, this.fsCam);
     }
+    if (atmo) {
+      // [v31 light] cloud shadows + shafts, once per low-res pixel
+      const A = this.atmoPass;
+      if (!A.rt || A.rt.width !== this.rtW || A.rt.height !== this.rtH) {
+        A.rt?.dispose();
+        A.rt = new THREE.WebGLRenderTarget(this.rtW, this.rtH, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false, depthBuffer: false });
+        u.tAtmo.value = A.rt.texture;
+      }
+      r.setRenderTarget(A.rt);
+      r.render(A.scene, this.fsCam);
+    }
     if (this.bloomOn) {
       this.brightPass.mat.uniforms.tColor.value = this.rt.texture;
       r.setRenderTarget(this.bloomA);
@@ -555,7 +716,7 @@ export class PixelRenderer {
         bu.tSrc.value = this.bloomB.texture; bu.dir.value.set(0, this.bloomTexel.y * (1 + i));
         r.setRenderTarget(this.bloomA); r.render(this.blurPass.scene, this.fsCam);
       }
-      u.bloomAmt.value = this.bloomStrength;
+      u.bloomAmt.value = this.bloomStrength + (this._glowBoost || 0);
     } else {
       u.bloomAmt.value = 0;
     }
