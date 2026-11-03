@@ -73,7 +73,7 @@ export function shockedFox(fox, o = {}) {
       // looping GIF: two little gasps per loop (hop, stretch, head back) on top of the trembling
       if (rig.__promoPhase != null) {
         const g = Math.max(0, Math.sin((rig.__promoPhase * (P.gasps ?? 2) + (P.gaspOff ?? 0)) * Math.PI * 2)) ** 2;
-        p.y += g * 1.4; p.sq *= 1 + g * 0.07; p.hRx -= g * 0.1; p.tPuff = (p.tPuff || 1) + g * 0.3;
+        p.y += g * (P.hop ?? 1.4); p.sq *= 1 + g * 0.07; p.hRx -= g * 0.1; p.tPuff = (p.tPuff || 1) + g * 0.3;
       }
     };
     def.__promo = true;
@@ -140,7 +140,7 @@ function applyCamera(T, cam) {
   rig.wupp = rig.wuppGoal = wupp;
   const hh0 = (rr.rtH * wupp) / 2;
   rig.dist = Math.max(24, (hh0 * Math.cos(pitch) + 0.8) / Math.sin(pitch));
-  rig.goal.set(focus.x, (focus.y || 0) + 0.35, focus.z);
+  rig.goal.set(focus.x, (focus.y || 0) + 0.35 + (cam.lookUp || 0), focus.z); // [v4] lookUp: tilt the frame up (more sky), the sky curtain stays put
   rig.target.copy(rig.goal);
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const SKY_D = cam.skyD ?? 3.4;
@@ -148,7 +148,7 @@ function applyCamera(T, cam) {
     T.skyMesh.position.set(focus.x - sy * SKY_D, focus.y || 0, focus.z - cy * SKY_D);
     T.skyMesh.rotation.set(0, yaw, 0);
     const hh = rr.rtH * wupp * 0.5, viewW = rr.rtW * wupp;
-    const topH = (hh + 0.35 * Math.cos(pitch) - SKY_D * Math.sin(pitch)) / Math.cos(pitch);
+    const topH = (hh + (0.35 + (cam.lookUp || 0)) * Math.cos(pitch) - SKY_D * Math.sin(pitch)) / Math.cos(pitch);
     T.skyUniforms.uTop.value = Math.max(0.8, topH);
     const sun = cam.sun || [-0.08, 0.58];
     T.skyUniforms.uSun.value.set(viewW * sun[0], Math.max(0.5, topH * sun[1]));
@@ -411,9 +411,11 @@ const CINE_KINDS = {
     b.root.scale.multiplyScalar(sc);
     T.group.add(b.root);
     const A = pointOf(T, a.from);
-    const W = a.wx != null ? pointOf(T, { wx: a.wx, wz: a.wz, y: WATER_Y }) : ground(T, a.sx, a.sy, WATER_Y);
+    const W = a.to ? pointOf(T, a.to, true) : a.wx != null ? pointOf(T, { wx: a.wx, wz: a.wz, y: WATER_Y }) : ground(T, a.sx, a.sy, WATER_Y);
+    W.y = WATER_Y;
     const B = W.clone(); B.y = WATER_Y - (a.depth ?? 0.9) * sc;
     const H = a.arc ?? 1.6, air = a.air ?? 0.45, off = a.off ?? 0, dive = a.dive ?? 0.05;
+    b.root.rotation.order = 'YXZ';
     b.root.rotation.y = facing(T, a.rot ?? 0);
     if (a.face) b.setFace(a.face, { hold: 999 });
     const set = (ph, dt) => {
@@ -427,8 +429,13 @@ const CINE_KINDS = {
       } else { // under the surface, into the splash
         b.root.position.copy(B); b.root.position.y -= (k - 1) * 6 * sc;
       }
-      const t01 = (a.t01 ?? [0.02, 0.95]);
-      b.pose('cannonball', dt, { t01: Math.min(1, t01[0] + (t01[1] - t01[0]) * Math.min(1, k)), flip: a.flip });
+      const t01 = (a.t01 ?? [0.02, 0.95]), tt = Math.min(1, t01[0] + (t01[1] - t01[0]) * Math.min(1, k) ** (a.slowTuck ?? 1));
+      b.pose('cannonball', dt, { t01: tt, flip: a.flip ?? 'tuck' }); // explicit: the bear's own personality may flip
+      // lean back into the tuck so the face (cheeks puffed, eyes on the water) stays to camera
+      const tuck = Math.min(1, Math.max(0, (tt - 0.08) / 0.18));
+      const l0 = a.leanFrom ?? 0, lk = tuck * tuck * (3 - 2 * tuck);
+      b.root.rotation.x = (a.lean ?? 0) * (l0 + (1 - l0) * lk) + (a.tilt ?? 0) * Math.sin(k * Math.PI);
+      b.root.rotation.z = (a.roll ?? 0) * (k - 0.5);
     };
     for (let k = 0; k < 1; k += 1 / 30) set(a.still ?? 0.3, 1 / 30);
     if (o.loop) {
@@ -437,8 +444,9 @@ const CINE_KINDS = {
         const at = wrap01(air - off), Sp = a.splash || {};
         const big = Sp.k ?? sc;
         for (const L of [
-          { type: 'burst', at, dur: Sp.dur ?? 0.42, n: Sp.n ?? 46, radius: 1.5 * big, height: 2.5 * big, size: 0.13 * big, seed: (a.seed ?? 3) * 7 + 1 },
-          { type: 'burst', at, dur: Sp.dur ?? 0.42, n: Sp.crown ?? 22, radius: 0.35 * big, r0: 0.45 * big, height: 4.2 * big, size: 0.16 * big, seed: (a.seed ?? 3) * 7 + 2 },
+          { type: 'burst', at, dur: Sp.dur ?? 0.4, n: Sp.n ?? 50, radius: 1.5 * big, height: 1.2 * big, size: 0.12 * big, seed: (a.seed ?? 3) * 7 + 1 },
+          { type: 'burst', at, dur: Sp.dur ?? 0.4, n: Sp.crown ?? 44, radius: 0.35 * big, r0: 0.5 * big, height: 1.7 * big, size: 0.17 * big, lag: 0.4, seed: (a.seed ?? 3) * 7 + 2 },
+          { type: 'burst', at, dur: Sp.dur ?? 0.4, n: Sp.plume ?? 26, radius: 0.18 * big, r0: 0.05, height: 2.5 * big, size: 0.2 * big, lag: 0.6, seed: (a.seed ?? 3) * 7 + 4 },
           { type: 'ring', at, dur: 0.5, n: 26, r0: 0.4 * big, r1: 2.0 * big, size: 0.1 * big, seed: 5 },
           { type: 'ring', at: wrap01(at + 0.08), dur: 0.45, n: 20, r0: 0.3 * big, r1: 1.4 * big, size: 0.08 * big, seed: 6 },
           ...(Sp.coins ? [{ type: 'coins', at, dur: Sp.dur ?? 0.5, n: Sp.coins, radius: 1.3 * big, height: 3.0 * big, size: 0.16 * big, seed: (a.seed ?? 3) * 7 + 3 }] : []),
@@ -587,7 +595,7 @@ SCENES.thumb = (T, o) => {
 // Itch banner: the neighbours dance by the pond around a party, Reynard busting a
 // move; suited bears charge in from the right, one smashing the picnic table.
 SCENES.banner = (T, o) => {
-  const C = { yaw: o.yaw ?? facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: o.focusWorld ? new THREE.Vector3(o.focusWorld[0], T.game.grid.groundAt(o.focusWorld[0], o.focusWorld[1]), o.focusWorld[1]) : T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6], skyD: o.skyD };
+  const C = { lookUp: o.lookUp, yaw: o.yaw ?? facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: o.focusWorld ? new THREE.Vector3(o.focusWorld[0], T.game.grid.groundAt(o.focusWorld[0], o.focusWorld[1]), o.focusWorld[1]) : T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6], skyD: o.skyD };
   applyCamera(T, C);
   clearRects(T, o.clear);
   for (const a of o.cast || []) {

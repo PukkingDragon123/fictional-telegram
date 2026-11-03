@@ -147,3 +147,50 @@ PRESETS.fsThumbAnim = {
       { kind: 'fox', sx: 0.23, sy: 1.1, front: 6, scale: 3.4, rot: 0.3, shock: { cheeks: true, expr: 'excited', blush: 1, calm: true, look: [0.7, 0] }, name: 'fox' }],
     loopFx: [...quarryFx.slice(0, 2), { type: 'sparks', wx: 49.95, wz: 17.0, y: 0.1, n: 26, rate: 2, off: 0.743, radius: 0.8, height: 1.0, seed: 9 }, ...quarryFx.slice(3)] },
 };
+
+// ------------------------------------------------------------------ [v4] "Cinematic Update": the 5 PM feast
+// Golden hour over the title-screen pond (the title's own sunset grade + painted sky curtain, the sun
+// set behind the action). Bears in suits stream down from the Bear St. tower on the horizon (a small
+// forced-perspective copy, steam whistle puffing) and cannonball into Reynard's pond in slow motion,
+// staggered a third of the loop apart, each with its own splash; Reynard gasps big in front, once per
+// impact. 40 frames over 3.2 s (12.5 fps).
+const LOOP_CINE = { frames: 40, period: 3.2, timeAmp: 0.25 };
+const CINE_LOOK = { fill: 0.8, fillColor: 0xffe2c8, bloom: 0.9, rim: { color: 0xffb860, i: 1.1, dir: [0.25, 0.45, 1] } };
+const cineCannons = (o = {}) => [
+  { kind: 'cannon', type: 'ceo', seed: 4.4, from: [0.86, 0.47], to: [0.62, 0.68], arc: 1.55, scale: 0.9, rot: 0.1, off: 0.0, air: 0.52, lean: -1.6, roll: -0.3, slowTuck: 1.1, face: 'excited', name: 'b1', splash: { k: 1.2, coins: 10 } },
+  { kind: 'cannon', type: 'office', seed: 3.7, from: [0.5, 0.455], to: [0.44, 0.61], arc: 1.8, scale: 0.8, rot: 0.25, off: 0.333, air: 0.52, lean: -1.6, roll: 0.3, slowTuck: 1.1, face: 'cheer', name: 'b2', splash: { k: 1.0 } },
+  { kind: 'cannon', type: 'gymbro', seed: 7.7, from: [1.02, 0.5], to: [0.86, 0.6], arc: 1.7, scale: 0.8, rot: -0.2, off: 0.666, air: 0.52, lean: -1.6, roll: -0.2, slowTuck: 1.1, face: 'roar', name: 'b3', splash: { k: 1.0 } },
+].map((a) => ({ ...a, ...(o[a.name] || {}) }));
+const cineStream = (from, to, n = 3, scale = 0.34) => ['office', 'intern', 'accountant', 'office'].slice(0, n).map((type, i) => (
+  { kind: 'runner', type, seed: 1.3 + i * 2.1, from: { at: from }, to: { at: to }, scale, off: i / n, strides: 3, face: 'excited' }));
+PRESETS.cineThumbAnim = {
+  kind: 'cinethumb', scene: 'banner', viewport: [1260, 1000], px: 1, masks: ['fox', ['b1', 'b2', 'b3']], still: 12,
+  opts: { ...CINE_LOOK, loop: LOOP_CINE, wupp: 0.0155, pitch: 17, camR: 0.5, camF: -1.2, sun: [0.13, 0.47],
+    clear: [[0, 0.3, 0.45, 3], [0.4, 0.3, 0.98, 0.62]],
+    cast: [
+      { kind: 'office', at: [3.4, 1.7], s: 0.028, sink: 0.42, rot: 0.15 },
+      ...cineStream([3.3, 1.5], [2.3, 0.7]),
+      ...cineCannons(),
+      { kind: 'fox', sx: 0.2, sy: 1.16, front: 6, scale: 3.9, rot: 0.3, name: 'fox',
+        shock: { cheeks: true, expr: 'shocked', eyes: 'wide', blush: 1, calm: true, look: [0.75, -0.25], gasps: 3, gaspOff: 0.7, hop: 0.25 } },
+    ],
+    loopFx: [{ type: 'steam', spot: 'whistle', n: 10, rate: 2, rise: 0.8, drift: 0.3, size: 0.1, spread: 0.05 }] },
+};
+// the banner: wider and lower; Reynard gasping at the near shore, the tower on the far right
+PRESETS.cineBannerAnim = {
+  kind: 'cinebanner', scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox', ['b1', 'b2', 'b3']], still: 12,
+  opts: { ...CINE_LOOK, loop: LOOP_CINE, wupp: 0.017, pitch: 15, lookUp: 1.15, camR: -1.2, camF: -0.8, skyD: 3.2, sun: [0.12, 0.36],
+    clear: [[0.25, 0.15, 1, 3]],
+    cast: [
+      { kind: 'office', at: [5.2, 1.4], s: 0.026, sink: 0.4, rot: 0.1 },
+      ...cineStream([5.0, 1.2], [3.6, 0.5], 3, 0.3),
+      ...cineCannons({
+        b1: { from: [0.77, 0.665], to: [0.665, 0.9], arc: 1.75, scale: 0.75 },
+        b2: { from: [0.6, 0.665], to: [0.6, 0.87], arc: 1.45, scale: 0.68 },
+        b3: { from: [0.95, 0.69], to: [0.845, 0.88], arc: 1.35, scale: 0.68 },
+      }),
+      { kind: 'fox', sx: 0.465, sy: 1.12, front: 6, scale: 2.4, rot: 0.35, name: 'fox',
+        shock: { cheeks: true, expr: 'shocked', eyes: 'wide', blush: 1, calm: true, look: [0.8, -0.3], gasps: 3, gaspOff: 0.7, hop: 0.25 } },
+    ],
+    loopFx: [{ type: 'steam', spot: 'whistle', n: 10, rate: 2, rise: 0.7, drift: 0.3, size: 0.09, spread: 0.05 }] },
+};

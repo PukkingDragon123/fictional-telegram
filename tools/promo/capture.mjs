@@ -80,7 +80,7 @@ async function renderAnim(name) {
     await page.evaluate(async (i) => { const S = await import('/tools/promo/stage.js'); S.frame(i); }, i);
     await raf2();
     const ii = String(i).padStart(2, '0');
-    await page.screenshot({ path: path.join(dir, `${name}-f${ii}.png`) });
+    await page.screenshot({ path: path.join(dir, `${name}-f${ii}.png`), timeout: 300000 }); // SwiftShader is slow
     for (const m of P.masks || []) {
       const url = await page.evaluate(async (n) => { const S = await import('/tools/promo/stage.js'); return S.mask(Array.isArray(n) ? n : [n]); }, m);
       fs.writeFileSync(path.join(dir, `${name}-${[].concat(m).join('+')}-f${ii}.png`), Buffer.from(url.split(',')[1], 'base64'));
@@ -113,6 +113,7 @@ async function compositeAnim(name, dsf, outDir) {
 const SIZES = { thumb: { css: [630, 500], files: ['itch-thumbnail-630x500.png', 'itch-thumbnail-1260x1000.png'] },
   banner: { css: [960, 240], files: ['itch-banner-960x240.png', 'itch-banner-1920x480.png'] } };
 SIZES.fsthumb = SIZES.thumb; SIZES.fsbanner = SIZES.banner;
+SIZES.cinethumb = SIZES.thumb; SIZES.cinebanner = SIZES.banner; // [v4 cinematic]
 async function composite(kind) {
   const Z = SIZES[kind];
   fs.mkdirSync(OUT, { recursive: true });
@@ -127,23 +128,29 @@ async function composite(kind) {
 }
 
 const [what = 'all', which = 'all'] = process.argv.slice(2);
+const LOOP_FRAMES0 = Object.fromEntries(Object.entries(PRESETS).map(([k, v]) => [k, v.opts?.loop?.frames || 1]));
+const LOOP_FRAMES = (n) => LOOP_FRAMES0[n];
 // GIFs:  node tools/promo/capture.mjs gif [thumbAnim|bannerAnim|all] [outDir] [--big]
 if (what === 'gif') {
   const out = process.argv[4] && !process.argv[4].startsWith('--') ? path.resolve(process.argv[4]) : path.join(OUT, 'v1');
   const big = process.argv.includes('--big');
-  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : which === 'fs' ? ['fsThumbAnim', 'fsBannerAnim'] : [which];
+  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : which === 'fs' ? ['fsThumbAnim', 'fsBannerAnim'] : which === 'cine' ? ['cineThumbAnim', 'cineBannerAnim'] : [which];
   const { execFileSync } = await import('child_process');
+  // [v4] --frames N: a quick preview with fewer frames over the same loop; --big-only: just the 2x banner
+  const fa = process.argv.indexOf('--frames'), nFrames = fa > 0 ? +process.argv[fa + 1] : 0;
   for (const n of names) {
-    if (!process.argv.includes('--no-render')) await renderAnim(n);
     const P = PRESETS[n], Z = SIZES[P.kind];
+    if (nFrames) { P.opts.loop = { ...P.opts.loop, frames: nFrames }; P.still = Math.round(((P.still || 0) / LOOP_FRAMES(n)) * nFrames) % nFrames; }
+    if (!process.argv.includes('--no-render')) await renderAnim(n);
     const tmp = path.join(REN, 'anim', 'comp');
-    const sizes = [[1, Z.files[0]]];
-    if (big && P.kind === 'banner') sizes.push([2, Z.files[1]]);
+    const sizes = process.argv.includes('--big-only') ? [] : [[1, Z.files[0]]];
+    if (big && Z === SIZES.banner) sizes.push([2, Z.files[1]]);
     for (const [dsf, file] of sizes) {
       const frames = await compositeAnim(n, dsf, tmp);
       const gif = path.join(out, file.replace(/\.png$/, '.gif'));
       fs.mkdirSync(out, { recursive: true });
-      execFileSync('python3', [path.join(HERE, 'gif.py'), gif, String(1000 / (P.opts.loop.frames / P.opts.loop.period)), ...frames], { stdio: 'inherit' });
+      // the GIF starts on the still frame (itch shows the first frame until it plays)
+      execFileSync('python3', [path.join(HERE, 'gif.py'), gif, String(1000 / (P.opts.loop.frames / P.opts.loop.period)), '--start', String(P.still || 0), ...frames], { stdio: 'inherit' });
       if (dsf === 1) fs.copyFileSync(frames[P.still || 0], path.join(out, file));
     }
   }

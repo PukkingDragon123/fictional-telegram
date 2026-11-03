@@ -19,6 +19,10 @@
   .txt .l > span { position: absolute; left: 0; top: 0; }
   .txt .l > span.fill { position: relative; }
   svg { overflow: visible; }
+  /* [v4 cinematic] Alagard by Hewett Tsoi: a 16 px pixel font (64 units a pixel). The compositor
+     rasterises it on that grid with canvas fillText at 16 px and scales the bitmap by whole numbers. */
+  @font-face { font-family: 'Alagard'; src: url('../../src/assets/fonts/alagard.ttf') format('truetype'); font-display: block; }
+  canvas.px { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
 </style>
 </head>
 <body>
