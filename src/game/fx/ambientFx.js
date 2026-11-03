@@ -34,7 +34,9 @@ export class AmbientFx {
     this.crests = null;
     this.prev = new WeakMap(); // runner -> { x, z }
     this.windX = 0.6; this.windZ = 0.2;
-    this._view = { cx: 0, cz: 0, rx: 1, rz: 0, fx: 0, fz: -1, ex: 10, ez: 8 };
+    this.ground = this.ground.bind(this);
+    this.fogged = this.fogged.bind(this);
+    this._view = { cx: 0, cz: 0, rx: 1, rz: 0, fx: 0, fz: -1, ex: 10, ez: 8, cot: 1, cy: 0 };
   }
 
   // how many to spawn this frame for a rate (per real second): carries the fraction over
@@ -55,10 +57,39 @@ export class AmbientFx {
     return out;
   }
 
-  inView(x, z, pad = 1.2) {
+  // y: a raised point shows where the ground point y * cot(pitch) further up the screen is
+  inView(x, z, pad = 1.2, y = 0) {
     const V = this._view;
-    const dx = x - V.cx, dz = z - V.cz;
+    const dy = y ? y - V.cy : 0;
+    const dx = x + V.fx * dy * V.cot - V.cx, dz = z + V.fz * dy * V.cot - V.cz;
     return Math.abs(dx * V.rx + dz * V.rz) < V.ex * pad && Math.abs(dx * V.fx + dz * V.fz) < V.ez * pad * 1.6;
+  }
+
+  // ground height anywhere (the map, or the valley ranges round it)
+  ground(x, z) {
+    const g = this.game.grid;
+    return g.inb(Math.floor(x), Math.floor(z)) ? g.groundAt(x, z) : (this.game.world.ring?.heightAt?.(x, z) ?? 0);
+  }
+  fogged(x, z) { return (this.game.zones?.fogAt?.(Math.floor(x), Math.floor(z)) || 0) > 0.5; }
+
+  // dust kicked up behind something running on dry ground (bears, the fox)
+  runner(o, r, dt, q) {
+    if (!o || o.visible === false) return;
+    const g = this.game.grid, P = this.game.particles;
+    const pv = this.prev.get(o);
+    if (!pv) { this.prev.set(o, { x: o.x, z: o.z }); return; }
+    const dx = o.x - pv.x, dz = o.z - pv.z;
+    pv.x = o.x; pv.z = o.z;
+    const sp = Math.hypot(dx, dz) / dt;
+    if (sp < 1.6 || sp > 30 || o.inWater) return;
+    const ix = Math.floor(o.x), iz = Math.floor(o.z);
+    if (!g.inb(ix, iz) || g.isWater(ix, iz) || !this.inView(o.x, o.z)) return;
+    if (Math.random() < dt * Math.min(9, sp * 1.6) * q) {
+      const ux = dx / (sp * dt), uz = dz / (sp * dt);
+      const dir = this._dir || (this._dir = { x: 0, z: 0 });
+      dir.x = ux; dir.z = uz;
+      P.kick(o.x - ux * 0.3 * r, o.y || this.ground(o.x, o.z), o.z - uz * 0.3 * r, 1, dir);
+    }
   }
 
   // high, snowy crests of the valley ranges (spindrift sources), found once
@@ -99,19 +130,20 @@ export class AmbientFx {
     const rig = game.rig, V = this._view;
     const R = game.renderer;
     const wupp = rig?.wupp || 0.05;
-    V.cx = rig?.target?.x ?? 70; V.cz = rig?.target?.z ?? 40;
+    V.cx = rig?.target?.x ?? 70; V.cz = rig?.target?.z ?? 40; V.cy = rig?.target?.y || 0;
     const yaw = rig?.yaw || 0;
     V.rx = Math.cos(yaw); V.rz = -Math.sin(yaw); V.fx = -Math.sin(yaw); V.fz = -Math.cos(yaw);
     V.ex = (R?.lowW || 640) * wupp * 0.5;
-    V.ez = (R?.lowH || 360) * wupp * 0.5 / Math.max(0.4, Math.sin(rig?.pitch || 0.77));
+    const pitch = rig?.pitch || 0.77;
+    V.ez = (R?.lowH || 360) * wupp * 0.5 / Math.max(0.4, Math.sin(pitch));
+    V.cot = Math.cos(pitch) / Math.max(0.3, Math.sin(pitch));
     const wv = game.seasons?.fx?.windV;
     if (wv) { this.windX += (wv.x * 0.8 + 0.25 - this.windX) * Math.min(1, dt); this.windZ += (wv.y * 0.8 + 0.08 - this.windZ) * Math.min(1, dt); }
     const wet = game.seasons?.weather === 'rain' || game.seasons?.weather === 'storm' || game.seasons?.weather === 'snow';
     const area = Math.min(2.2, (V.ex * V.ez) / 220); // more of the world on screen: a few more
     const g = game.grid;
     const pt = this._pt || (this._pt = { x: 0, z: 0 });
-    const ground = (x, z) => (g.inb(Math.floor(x), Math.floor(z)) ? g.groundAt(x, z) : (game.world.ring?.heightAt?.(x, z) ?? 0));
-    const fogged = (x, z) => (game.zones?.fogAt?.(Math.floor(x), Math.floor(z)) || 0) > 0.5;
+    const ground = this.ground, fogged = this.fogged;
 
     // ---- pollen and dandelion seeds on the wind (by day, dry weather)
     const season = game.seasons?.season;
@@ -145,18 +177,18 @@ export class AmbientFx {
       for (let k = 0; k < 5 && !ok; k++) { this.viewPoint(pt, 0.95); ok = g.inb(Math.floor(pt.x), Math.floor(pt.z)) && g.isWater(Math.floor(pt.x), Math.floor(pt.z)); }
       if (!ok) continue;
       const gt = day > 0.5 ? [1.2 * sc.r, 1.15 * sc.g, 1.05 * sc.b] : [0.8, 0.9, 1.2];
-      P.ambSpawn('glint', pt.x, WATER_Y + 0.04, pt.z, { life: rand(0.35, 0.6), size: rand(0.16, 0.24), fps: 10, flags: FX.ONCE, emissive: 1.1, tint: gt, bright: true });
+      P.ambSpawn('wglint', pt.x, WATER_Y + 0.04, pt.z, { life: rand(0.35, 0.6), size: rand(0.16, 0.24), fps: 10, flags: FX.ONCE, emissive: 1.1, tint: gt, bright: true });
     }
     // ---- mist rolling over the water at dawn, a thinner veil after dusk
-    const mistK = Math.max(sm(4.5, 5.6, hour) * (1 - sm(7.8, 9.6, hour)), 0.45 * sm(19.4, 20.6, hour) * (1 - sm(23, 23.9, hour))) * (wet ? 0.5 : 1);
-    for (let i = this.n('mist', 9 * mistK * area * q); i > 0; i--) {
+    const mistK = Math.max(sm(4.5, 5.6, hour) * (1 - sm(7.2, 9.0, hour)), 0.45 * sm(19.4, 20.6, hour) * (1 - sm(23, 23.9, hour))) * (wet ? 0.5 : 1);
+    for (let i = this.n('mist', 6.5 * mistK * area * q); i > 0; i--) {
       let ok = false;
       for (let k = 0; k < 5 && !ok; k++) { this.viewPoint(pt, 1); ok = g.inb(Math.floor(pt.x), Math.floor(pt.z)) && g.isWater(Math.floor(pt.x), Math.floor(pt.z)); }
       if (!ok) continue;
       const dawn = hour < 12;
       P.ambSpawn('mist', pt.x, WATER_Y + rand(0.12, 0.45), pt.z, {
         vx: this.windX * rand(0.2, 0.45), vz: this.windZ * rand(0.2, 0.45), life: rand(5, 8), fadeIn: 1.6, alpha: dawn ? 0.55 : 0.4,
-        size: rand(0.45, 0.8), frame: Math.random() < 0.5 ? 1 : 0, flip: Math.random() < 0.5, flags: FX.FADE | FX.GROW,
+        size: rand(0.35, 0.95), frame: Math.random() < 0.5 ? 1 : 0, flip: Math.random() < 0.5, flags: FX.FADE | FX.GROW,
         tint: dawn ? [1.05, 0.98, 0.96] : [0.72, 0.78, 0.98],
       });
     }
@@ -169,7 +201,7 @@ export class AmbientFx {
       P.firefly(pt.x, ground(pt.x, pt.z) + rand(0.25, 1.1), pt.z);
     }
     // ---- embers from the cottage chimney at night
-    if (s.night > 0.3 && this.inView(HUT.x + 0.8, HUT.z + 0.8, 1.4)) {
+    if (s.night > 0.3 && this.inView(HUT.x + 0.8, HUT.z + 0.8, 1.4, 3.4)) {
       for (let i = this.n('ember', 2.4 * s.night * q); i > 0; i--)
         P.ambSpawn('ember', HUT.x + 0.8 + rand(-0.08, 0.08), 3.4, HUT.z + 0.8 + rand(-0.08, 0.08), { vx: this.windX * 0.4 + rand(-0.15, 0.15), vy: rand(0.6, 1.1), vz: this.windZ * 0.4 + rand(-0.15, 0.15), drag: 0.4, life: rand(1, 1.9), size: 0.045, frame: Math.random() < 0.5 ? 1 : 0, flags: FX.WOBBLE | FX.FADE | FX.SHRINK, emissive: 1.5, bright: true });
     }
@@ -181,7 +213,7 @@ export class AmbientFx {
       let seen = 0;
       for (let k = 0; k < cr.length && seen < 7; k++) {
         const c = cr[k];
-        if (!this.inView(c.x, c.z, 1.3)) continue;
+        if (!this.inView(c.x, c.z, 1.1, c.y)) continue;
         seen++;
         for (let i = this.n('sd' + k, (2.2 + 3.2 * gust) * q); i > 0; i--) {
           const wx = this.windX * 3.2 + 0.6, wz = this.windZ * 3.2;
@@ -204,7 +236,7 @@ export class AmbientFx {
       const dot = ((fa[0] - qx) / dd) * Math.sin(yaw) + ((fa[2] - qz) / dd) * Math.cos(yaw);
       sunk = sm(0.15, 0.75, dot) * sm(3, 20, dd);
     }
-    if (fa && sunk < 0.3 && this.inView(fa[0], fa[2], 1.3)) {
+    if (fa && sunk < 0.3 && this.inView(fa[0], fa[2], 1.3, fa[1])) {
       for (let i = this.n('fall', 9 * q); i > 0; i--) {
         if (Math.random() < 0.45) P.ambSpawn('mist', fa[0] + rand(-0.6, 0.6), fa[1] + rand(-0.1, 0.4), fa[2] + rand(-0.3, 0.5), { vx: rand(-0.3, 0.3), vy: rand(0.25, 0.6), vz: rand(0, 0.4), drag: 0.6, life: rand(1.2, 2), fadeIn: 0.3, alpha: 0.7, size: rand(0.5, 0.9), frame: Math.random() < 0.5 ? 1 : 0, flags: FX.FADE | FX.GROW, bright: true });
         else { const a = Math.random() * Math.PI * 2, sp = rand(0.6, 1.6); P.ambSpawn(Math.random() < 0.5 ? 'spray' : 'drop_s', fa[0] + rand(-0.4, 0.4), fa[1] + 0.1, fa[2] + rand(-0.2, 0.3), { vx: Math.cos(a) * sp, vy: rand(1.6, 3), vz: Math.abs(Math.sin(a)) * sp, grav: 7, life: rand(0.6, 1), size: rand(0.05, 0.08), flags: FX.FADE, bright: true }); }
@@ -213,24 +245,12 @@ export class AmbientFx {
       const fp = ring.fallPts;
       if (fp?.length && day > 0.3) for (let i = this.n('fallg', 4 * q); i > 0; i--) {
         const p = fp[Math.floor(Math.random() * fp.length)];
-        P.ambSpawn('glint', p[0] + rand(-0.4, 0.4), p[1] + 0.2, p[2] + 0.2, { life: 0.4, size: 0.18, fps: 10, flags: FX.ONCE, emissive: 1, bright: true });
+        P.ambSpawn('wglint', p[0] + rand(-0.4, 0.4), p[1] + 0.2, p[2] + 0.2, { life: 0.4, size: 0.18, fps: 10, flags: FX.ONCE, emissive: 1, bright: true });
       }
     }
     // ---- dust kicked up behind runners on dry ground
-    const run = (o, r, key) => {
-      if (!o || o.visible === false) return;
-      const pv = this.prev.get(o);
-      if (!pv) { this.prev.set(o, { x: o.x, z: o.z }); return; }
-      const dx = o.x - pv.x, dz = o.z - pv.z;
-      pv.x = o.x; pv.z = o.z;
-      const sp = Math.hypot(dx, dz) / dt;
-      if (sp < 1.6 || sp > 30 || o.inWater) return;
-      const ix = Math.floor(o.x), iz = Math.floor(o.z);
-      if (!g.inb(ix, iz) || g.isWater(ix, iz) || !this.inView(o.x, o.z)) return;
-      if (Math.random() < dt * Math.min(9, sp * 1.6) * q) P.kick(o.x - (dx / (sp * dt)) * 0.3 * r, (o.y || ground(o.x, o.z)), o.z - (dz / (sp * dt)) * 0.3 * r, 1, { x: dx / (sp * dt), z: dz / (sp * dt) });
-    };
     const bears = game.bears?.list;
-    if (bears) for (let i = 0; i < bears.length && i < 40; i++) run(bears[i], bears[i].def?.scale || 1);
-    run(game.fox, 0.7);
+    if (bears) for (let i = 0; i < bears.length && i < 40; i++) this.runner(bears[i], bears[i].def?.scale || 1, dt, q);
+    this.runner(game.fox, 0.7, dt, q);
   }
 }

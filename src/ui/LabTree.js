@@ -1,14 +1,20 @@
 // LabTree: Reynard's research skill tree, shown on the lab computer.
 //
-// v30 "cozy polish": the detailed R&D-OS tree is back (it was swapped for a plain
-// green terminal in v26), warmed up: walnut + brass bezel, ornate pixel icon slots,
-// one coloured band per branch, pipes routed around the nodes, a detail panel with
-// the unlock art + names, time, requirements and a big RESEARCH button, the bench
-// bar of running jobs. No boot screen: it opens at once.
-// While a job runs, the detail panel shows Reynard at his lab computer (a real 3D
-// render of his rig, src/ui/lab/workbench.js) above a GREEN LIQUID progress tube
-// (a glass tube filling with bubbling green liquid, src/ui/lab/tube.js). Nobody
-// walks around the tree any more (the v26 lab fox is gone).
+// v31 "green phosphor desktop": the lab is a beloved old green-phosphor terminal in an
+// olive-enamel case with brass trim (no neon: hard pixel edges, flat bands, dither, hard
+// offset shadows; panels and keycaps are 9-slice pixel frames, src/ui/lab/deskArt.js).
+// It opens on a DESKTOP: one pixel-art folder per research branch (tinted per branch,
+// its icon on a label sticker, a done/total tag, padlocked when the section is still
+// encrypted), a beige computer for "All projects" and an in-tray for "Ready". Opening a
+// folder plays the zoom-rect "open window" animation and shows just that branch's tree;
+// the path bar (C:\LAB\SUNFISH_BASS\) and the back key / Esc / Backspace go back to the
+// desktop. "Ready" opens an inbox list of everything you can research right now. During
+// the tutorial (or via tree.select(id)) it opens straight into the tree, so the tutorial's
+// selectors are on screen at once.
+// Inside a folder: the node tree with pipes, zoom/pan, a detail panel with the unlock art,
+// names, time, requirements and a big RESEARCH key, the bench bar of running jobs. While
+// a job runs the detail panel shows Reynard at his lab computer (a real 3D render of his
+// rig, src/ui/lab/workbench.js) above a GREEN LIQUID progress tube (src/ui/lab/tube.js).
 //
 // Research is FREE but TIMED: picking a node puts it on a lab "bench" and it
 // finishes after `time` seconds of game time. Running jobs can be rushed with
@@ -41,6 +47,8 @@
 //
 // Stable hooks for the tutorial (src/game/Tutorial.js LAB_SEL): `.lt-node[data-id]`,
 // `.lt-go`, `.lt-bench`, `.lt-slotc[data-job]`; body.lt-pc while a tree is on screen.
+// While the tutorial runs the tree opens on "All projects" (not the desktop) and the way
+// back to the desktop is hidden, so those hooks are always visible and clickable.
 // [v26 demo] a demo build marks full-game nodes `d.demoLock` and full-game sections `key.demo`.
 //
 // The container should be a positioned element with a size; the tree fills it.
@@ -51,6 +59,7 @@ import { crispScale } from './uiScale.js';
 import { faceImg } from './faces3d.js';
 import { Workbench } from './lab/workbench.js';
 import { Tube } from './lab/tube.js';
+import * as ART from './lab/deskArt.js';
 
 // fish art is optional (import.meta.glob keeps the build working without it)
 const OPTIONAL = import.meta.glob('../art/fishArt.js');
@@ -115,6 +124,12 @@ function modLine(k, v) {
 }
 const human = (s) => String(s || '').replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
 
+// [v31 lab] a branch name as a DOS-ish folder name: "Big & Ancient Fish" -> BIG_ANCIENT_FISH
+function dosName(s) {
+  const w = String(s || '').toUpperCase().replace(/['\u2019]/g, '').split(/[^A-Z0-9]+/).filter(Boolean);
+  return (w.join('_') || 'FOLDER').slice(0, 18);
+}
+
 function hashStr(s) {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
@@ -142,10 +157,10 @@ function makeCanvas(w, h) {
 // bevel, scroll ornaments in the corners, a status gem on top and a dark well.
 const SLOT_PALS = {
   gold: { k: '#1c1006', h: '#fff8c8', g: '#ffc936', a: '#d8901a', s: '#a0600e', i: '#3c2406', y: '#ffffff', o: '#5c3206', e: '#5dff8f', E: '#e6ffee', w: '#2a2410', v: '#241e0c' },
-  brass: { k: '#150b04', h: '#eec38a', g: '#b87c3a', a: '#8a5528', s: '#5e3719', i: '#241306', y: '#ffe2b4', o: '#3e220c', e: '#7dffa8', E: '#e8fff0', w: '#14262a', v: '#102024' },
-  teal: { k: '#03141a', h: '#d0f8ff', g: '#5fd0f0', a: '#2c9cc8', s: '#1a6688', i: '#06222c', y: '#ffffff', o: '#0c3a4a', e: '#ffe14a', E: '#fffbd0', w: '#0a2a34', v: '#08222c' },
-  iron: { k: '#040405', h: '#6e737d', g: '#454953', a: '#33363e', s: '#22242a', i: '#0a0b0d', y: '#8a8f99', o: '#141519', e: '#5a2020', E: '#8a3a3a', w: '#14181c', v: '#101418' },
-  ember: { k: '#070405', h: '#8a7a6a', g: '#5a4a40', a: '#463a32', s: '#2c2420', i: '#0c0908', y: '#a89a88', o: '#1a1410', e: '#ff9a3a', E: '#ffe0b0', w: '#1a1612', v: '#15120f' },
+  brass: { k: '#150b04', h: '#eec38a', g: '#b87c3a', a: '#8a5528', s: '#5e3719', i: '#241306', y: '#ffe2b4', o: '#3e220c', e: '#7cf29e', E: '#e8fff0', w: '#0c2414', v: '#0a1f11' },
+  phos: { k: '#03140a', h: '#d0ffd8', g: '#6fe08e', a: '#3fb866', s: '#1f7d3d', i: '#06200f', y: '#ffffff', o: '#0e4a22', e: '#ffc04a', E: '#fff0c0', w: '#0a2a14', v: '#08240f' },
+  iron: { k: '#030604', h: '#66766a', g: '#43504a', a: '#333e38', s: '#222a26', i: '#0a0e0b', y: '#84948a', o: '#141a16', e: '#5a2a18', E: '#8a4a2a', w: '#0e1610', v: '#0b120d' },
+  ember: { k: '#080602', h: '#b0a270', g: '#766a44', a: '#5e5636', s: '#3c3622', i: '#0e0c06', y: '#d0c090', o: '#201c0e', e: '#ffb040', E: '#ffe6b0', w: '#16140c', v: '#12100a' },
 };
 const CORNER = [
   '..kkkkk',
@@ -244,47 +259,40 @@ const FOX_LOGO = pixSVG([
 
 // tiny glyphs drawn here so they never depend on the sprite sheet
 const G_CHECK = pixSVG(['......k', '.....kg', 'k...kg.', 'gk.kg..', '.gkg...', '..g....'], { k: '#2a8a3a', g: '#7dffa8' }, 2, 'lt-g');
-const G_CROSS = pixSVG(['r...r', '.r.r.', '..r..', '.r.r.', 'r...r'], { r: '#ff6a5a' }, 2, 'lt-g');
+const G_CROSS = pixSVG(['r...r', '.r.r.', '..r..', '.r.r.', 'r...r'], { r: '#e8774a' }, 2, 'lt-g');
 const G_CLOCK = pixSVG(['.kkkk.', 'kwwkwk', 'kwwkwk', 'kwwkkk', 'kwwwwk', '.kkkk.'], { k: '#2b2a24', w: '#fff1c8' }, 2, 'lt-g');
 const G_LOCK = pixSVG(['.kkk.', 'k...k', 'k...k', 'kkkkk', 'kgggk', 'kgkgk', 'kgggk', 'kkkkk'], { k: '#1a1410', g: '#ffd23f' }, 2, 'lt-g');
 const G_PAW = pixSVG(['.k.k.', 'k.k.k', '.....', '.kkk.', 'kkkkk', '.kkk.'], { k: '#ffb060' }, 2, 'lt-g');
-const G_BOLT = pixSVG(['...kk', '..kk.', '.kkkk', 'kkkk.', '..kk.', '.kk..', '.k...'], { k: '#ffe14a' }, 2, 'lt-g');
-const G_FF = pixSVG(['k..k...', 'kk.kk..', 'kkkkkk.', 'kkkkkkk', 'kkkkkk.', 'kk.kk..', 'k..k...'], { k: '#ffffff' }, 2, 'lt-g');
+const G_BOLT = pixSVG(['...kk', '..kk.', '.kkkk', 'kkkk.', '..kk.', '.kk..', '.k...'], { k: '#2a1a04' }, 2, 'lt-g');
+const G_FF = pixSVG(['k..k...', 'kk.kk..', 'kkkkkk.', 'kkkkkkk', 'kkkkkk.', 'kk.kk..', 'k..k...'], { k: '#2a1600' }, 2, 'lt-g');
 const G_COIN = pixSVG(['.kkkk.', 'kyyyyk', 'kyhyyk', 'kyhyyk', 'kyyyyk', '.kkkk.'], { k: '#8a5a00', y: '#ffd23f', h: '#fff6c0' }, 2, 'lt-g lt-coin');
 const G_KEY = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.....'], { k: '#7dffa8' }, 2, 'lt-g');
-const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#04161c', g: '#5fd0f0', r: '#2c9cc8' }, 4, 'lt-g lt-sealg');
-const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#f4ecd2' }, 3, 'lt-g');
+const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#1a1004', g: '#e0a838', r: '#8a5a14' }, 4, 'lt-g lt-sealg');
+const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#141408' }, 3, 'lt-g');
 
-const G_PLUS = pixSVG(['..k..', '..k..', 'kkkkk', '..k..', '..k..'], { k: '#f4ecd2' }, 3, 'lt-g');
-const G_MINUS = pixSVG(['.....', '.....', 'kkkkk', '.....', '.....'], { k: '#f4ecd2' }, 3, 'lt-g');
-const G_X = pixSVG(['k...k', '.k.k.', '..k..', '.k.k.', 'k...k'], { k: '#ffffff' }, 3, 'lt-g');
+const G_PLUS = pixSVG(['..k..', '..k..', 'kkkkk', '..k..', '..k..'], { k: '#141408' }, 3, 'lt-g');
+const G_MINUS = pixSVG(['.....', '.....', 'kkkkk', '.....', '.....'], { k: '#141408' }, 3, 'lt-g');
+const G_X = pixSVG(['k...k', '.k.k.', '..k..', '.k.k.', 'k...k'], { k: '#141408' }, 3, 'lt-g');
+// [v31 lab] desktop glyphs: back arrow, a mini folder, a running dot
+const G_BACK = pixSVG(['...k...', '..kk...', '.kkkkkk', 'kkkkkkk', '.kkkkkk', '..kk...', '...k...'], { k: '#141408' }, 2, 'lt-g');
+const G_KEYD = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.....'], { k: '#2a1600' }, 2, 'lt-g');
+const G_FOLD = pixSVG(['kkkk.....', 'kyyyk....', 'kkkkkkkkk', 'kyyyyyyyk', 'kyyyyyyyk', 'kyyyyyyyk', 'kkkkkkkkk'], { k: '#141408', y: '#c9ad5e' }, 2, 'lt-g');
 
-// v19: the computer chrome (boot text, idle terminal chatter, side data streams)
+// the terminal's idle chatter (one line at a time in the ticker)
 const IDLE_LOG = [
   'scanning pond telemetry... 0 anomalies',
-  'cipher daemon idle. sectors standing by',
   'coffee levels: CRITICAL',
-  'holo-projector calibrated',
+  'phosphor warmed up. 61 C and cosy',
   'reticulating fish splines...',
   'uplink to e-Buy: stable',
   'beaver labour union: still not recognised',
-  'sweeping encrypted sectors...',
-  'quantum flask at 3.7 K',
+  'tape drive rewound. whirr',
+  'dot-matrix printer: out of paper again',
+  'defragmenting the fish database...',
   'world domination plan: 2% complete',
 ];
-const STREAMS = (() => {
-  const R = (() => { let a = 1234567; return () => ((a = (a * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); })();
-  const glyph = '01<>[]#=+*/ABCDEF0123456789';
-  let h = '';
-  for (let c = 0; c < 6; c++) {
-    let txt = '';
-    for (let i = 0; i < 40; i++) txt += glyph[Math.floor(R() * glyph.length)] + '\n';
-    txt += txt; // two copies: the column scrolls by half its height and loops seamlessly
-    h += `<i style="--x:${8 + c * 17 + Math.round(R() * 8)}%;--d:${(9 + R() * 9).toFixed(1)}s;--o:${(-R() * 9).toFixed(1)}s">${txt}</i>`;
-  }
-  return h;
-})();
 let PC_OPEN = 0; // trees on screen: the page body gets .lt-pc (the computer takes over)
+const STRIPS = new Map(); // [v31 lab] desktop icon strips as data URLs (per art, per device scale)
 
 // ---------------------------------------------------------------- pipe router
 // Orthogonal routing on a half-cell grid: node (col,lane) sits at (2col+1,
@@ -493,6 +501,8 @@ export class LabTree {
     this._t0 = now();
     this._fish = null;
     this.filter = null;
+    this.loc = null; // [v31 lab] null = the desktop | { k: 'all' | 'ready' | 'b', B }
+    this._bounds = null; // camera bounds (world px) of the open folder; null = the whole tree
     this.cam = { x: 0, y: 0, z: 1 };
     this.goal = null;
 
@@ -502,14 +512,16 @@ export class LabTree {
     if (++PC_OPEN === 1) document.body.classList.add('lt-pc');
     this._buildDOM();
     this._buildTree();
-    this._buildChips();
+    this._buildDesk();
     this._pollJobs(true);
     this.refresh(true);
     this._bind();
     this._resize();
     const first = this._initialNode();
     if (first) this._select(first, { pan: false, sound: false, open: false });
-    this._centerOn(first, true);
+    // [v31 lab] opens on the desktop; the tutorial goes straight to the whole tree (its hooks on screen)
+    if (this._tut()) { this._go({ k: 'all' }, { anim: false, sound: false }); this._centerOn(first, true); }
+    else this._go(null, { anim: false, sound: false, from: first ? this._deskItem(first.B) : null });
     this._sfx('open');
     this._raf = requestAnimationFrame(this._loop);
     loadFish().then((m) => this._onFish(m));
@@ -528,7 +540,7 @@ export class LabTree {
       if (!list.length) continue;
       const rows = list.reduce((m, x) => Math.max(m, Math.max(0, x.d.row | 0)), 0) + 1;
       const bi = this.branches.length;
-      const B = { b, i: bi, lane0: lane, lanes: rows, nodes: [], color: b.color || '#7dffa8' };
+      const B = { b, i: bi, lane0: lane, lanes: rows, nodes: [], color: ART.earthy(b.color || '#8a9a3a'), dos: dosName(b.name || b.id) };
       this.branches.push(B);
       for (const { d, idx } of list) {
         const col = Math.max(0, d.col | 0), ln = lane + Math.max(0, d.row | 0);
@@ -542,6 +554,8 @@ export class LabTree {
       lane += rows;
     }
     this.lanes = lane;
+    const seen = new Set();
+    for (const B of this.branches) { let d = B.dos, k = 2; while (seen.has(d)) d = `${B.dos.slice(0, 15)}_${k++}`; B.dos = d; seen.add(d); }
     this.byId = new Map(this.nodes.map((n) => [n.id, n]));
     // two nodes in one cell: nudge the later one right
     const taken = new Set();
@@ -592,7 +606,7 @@ export class LabTree {
       this._st.set(n.id, st);
       const el = n.el;
       for (const s of ['done', 'run', 'avail', 'zone', 'locked', 'sealed']) el.classList.toggle(`is-${s}`, st === s);
-      el.style.setProperty('--slot', `var(--lt-slot-${st === 'done' ? 'gold' : st === 'avail' ? 'brass' : st === 'run' ? 'teal' : st === 'zone' ? 'ember' : 'iron'})`);
+      el.style.setProperty('--slot', `var(--lt-slot-${st === 'done' ? 'gold' : st === 'avail' ? 'brass' : st === 'run' ? 'phos' : st === 'zone' ? 'ember' : 'iron'})`);
       el.tabIndex = st === 'sealed' ? -1 : el.tabIndex;
       el.setAttribute('aria-label', `${n.d.name}: ${STATE_TEXT[st]}`);
       this._nodeBadge(n, st);
@@ -618,19 +632,24 @@ export class LabTree {
     if (this.selSec && !this.selSec.sealed) { const B = this.selSec; this.selSec = null; const pick = B.nodes.find((n) => this._st.get(n.id) === 'avail') || B.nodes[0]; if (pick) this._select(pick, { pan: false, sound: false, open: false }); }
     const done = this.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
     const secs = this.branches.filter((B) => !B.sealed).length;
-    const cnt = `<b>${done}</b>/${this.nodes.length}<small>${secs}/${this.branches.length} SECTORS</small>`;
+    const cnt = `<b>${done}</b>/${this.nodes.length}<small>${secs}/${this.branches.length} FOLDERS OPEN</small>`;
     if (cnt !== this._cntHtml) { this._cntHtml = cnt; this.$count.innerHTML = cnt; }
     this.$cbar.style.width = `${this.nodes.length ? (done / this.nodes.length) * 100 : 0}%`;
-    this._updateChips();
+    this._updateDesk();
+    this._pathInfo();
+    if (this.loc?.k === 'ready') this._renderInbox();
+    const tut = this._tut();
+    if (tut !== this._tutOn) { this._tutOn = tut; this.root.classList.toggle('is-tut', tut); }
     if (this.filter) this._applyFilter(false);
     if (this.selSec) { if (initial || this._secSig !== this._keySig(this.selSec)) this._renderDetail(); }
     else if (this.sel && (initial || changed.some(([n]) => n === this.sel || n.kids.includes(this.sel) || this.sel.req.includes(n.id)))) this._renderDetail();
     else if (this.sel) this._renderAct();
   }
 
+  // (opens the node's folder first when it isn't on screen: the desktop / another folder)
   select(id) {
     const n = this.byId.get(id);
-    if (n) this._select(n, { pan: true, sound: false, open: true });
+    if (n) this._select(n, { pan: true, sound: false, open: true, nav: true });
   }
 
   destroy() {
@@ -781,6 +800,13 @@ export class LabTree {
     this._fishFrames.set(k, c);
     return c;
   }
+  // the raw art of a node (fish frame canvas or icon image), e.g. for the workbench CRT
+  _artSrc(n) {
+    if (!n) return null;
+    if (n.d.species) { const f = this._fishFrame(n.d.species, 0); if (f) return f; }
+    const m = this._iconMeta(n.d.icon);
+    return m.ok ? m.img : null;
+  }
   _fishImg(species, box) {
     const f = this._fishFrame(species, 0);
     if (!f) return '';
@@ -813,61 +839,69 @@ export class LabTree {
         <div class="lt-screen">
           <header class="lt-head">
             <span class="lt-logo">${logo || FOX_LOGO}</span>
-            <div class="lt-titles"><h1><span class="lt-h1t">Reynard Labs</span><span class="lt-ver">R&amp;D-OS v30</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
+            <div class="lt-titles"><h1><span class="lt-h1t">Reynard Labs</span><span class="lt-ver">FOX-DOS 3.1</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
             <div class="lt-coins" title="Your coins"${typeof this.o.coins === 'function' ? '' : ' hidden'}><span class="lt-coins-l">COINS</span><span class="lt-coins-v">${G_COIN}<b>0</b></span></div>
             <div class="lt-count" title="Researched"><span class="lt-count-t"></span><span class="lt-cbar"><i></i></span></div>
             <button class="lt-close" type="button" aria-label="Close research (Esc)"><span class="lt-close-x">${G_X}</span><span>EXIT</span><kbd>ESC</kbd></button>
           </header>
-          <nav class="lt-chips" aria-label="Branches"></nav>
-          <div class="lt-body">
-            <div class="lt-view" tabindex="0" aria-label="Research tree. Drag to pan, scroll or pinch to zoom.">
-              <div class="lt-par lt-par-a" aria-hidden="true"></div>
-              <div class="lt-par lt-par-b" aria-hidden="true"></div>
-              <div class="lt-streams" aria-hidden="true">${STREAMS}</div>
-              <div class="lt-world"></div>
-              <div class="lt-tabs" aria-hidden="true"></div>
-              <div class="lt-zoom">
-                <button type="button" data-z="in" aria-label="Zoom in">${G_PLUS}</button>
-                <button type="button" data-z="out" aria-label="Zoom out">${G_MINUS}</button>
-                <button type="button" data-z="fit" aria-label="Show everything">${G_FIT}</button>
+          <div class="lt-path">
+            <button class="lt-up" type="button" aria-label="Back to the desktop (Backspace)">${G_BACK}<span>DESKTOP</span></button>
+            <div class="lt-addr"><span class="lt-crumb" data-crumb="root" role="button" tabindex="-1">C:\\LAB\\</span><span class="lt-crumb-cur"></span><i class="lt-cur"></i></div>
+            <span class="lt-pinfo"></span>
+          </div>
+          <div class="lt-main">
+            <div class="lt-body">
+              <div class="lt-view" tabindex="0" aria-label="Research tree. Drag to pan, scroll or pinch to zoom.">
+                <div class="lt-world"></div>
+                <div class="lt-tabs" aria-hidden="true"></div>
+                <div class="lt-zoom">
+                  <button type="button" data-z="in" aria-label="Zoom in">${G_PLUS}</button>
+                  <button type="button" data-z="out" aria-label="Zoom out">${G_MINUS}</button>
+                  <button type="button" data-z="fit" aria-label="Show everything">${G_FIT}</button>
+                </div>
+                <div class="lt-inbox" hidden></div>
+                <div class="lt-tip" aria-hidden="true"></div>
               </div>
-              <div class="lt-tip" aria-hidden="true"></div>
-              <div class="lt-toast" aria-live="polite"></div>
+              <aside class="lt-det" aria-live="polite">
+                <button class="lt-det-x" type="button" aria-label="Close details">${G_X}</button>
+                <div class="lt-det-scroll">
+                  <div class="lt-hero"><canvas class="lt-hero-cv" width="${PW}" height="${PH}"></canvas><canvas class="lt-wb" aria-label="Reynard at his lab computer"></canvas><span class="lt-hero-st"></span></div>
+                  <div class="lt-work" hidden>
+                    <div class="lt-tubebox"><canvas class="lt-tube"></canvas><span class="lt-tube-p">0%</span><span class="lt-tube-t"></span></div>
+                  </div>
+                  <div class="lt-kicker"></div>
+                  <h2 class="lt-name"></h2>
+                  <p class="lt-desc"></p>
+                  <div class="lt-sec lt-sec-unl"><h3 class="lt-h-unl">Unlocks</h3><ul class="lt-unl"></ul></div>
+                  <div class="lt-sec lt-sec-time"><h3 class="lt-h-time">Time</h3><div class="lt-time"></div></div>
+                  <div class="lt-sec lt-sec-req"><h3 class="lt-h-req">Needs</h3><ul class="lt-reqs"></ul></div>
+                  <div class="lt-sec lt-sec-kids"><h3>Leads to</h3><div class="lt-kids"></div></div>
+                </div>
+                <div class="lt-act">
+                  <button class="lt-go" type="button"><span class="lt-go-fill"></span><span class="lt-go-l"></span><span class="lt-go-s"></span></button>
+                  <div class="lt-rush" hidden>
+                    <button type="button" class="lt-rbtn" data-rush="half"><span class="lt-rbtn-l">${G_BOLT}RUSH <em>-50%</em></span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
+                    <button type="button" class="lt-rbtn is-now" data-rush="now"><span class="lt-rbtn-l">${G_FF}FINISH NOW</span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
+                  </div>
+                </div>
+              </aside>
             </div>
-            <aside class="lt-det" aria-live="polite">
-              <button class="lt-det-x" type="button" aria-label="Close details">${G_X}</button>
-              <div class="lt-det-scroll">
-                <div class="lt-hero"><canvas class="lt-hero-cv" width="${PW}" height="${PH}"></canvas><canvas class="lt-wb" aria-label="Reynard at his lab computer"></canvas><span class="lt-hero-st"></span></div>
-                <div class="lt-work" hidden>
-                  <div class="lt-tubebox"><canvas class="lt-tube"></canvas><span class="lt-tube-p">0%</span><span class="lt-tube-t"></span></div>
-                </div>
-                <div class="lt-kicker"></div>
-                <h2 class="lt-name"></h2>
-                <p class="lt-desc"></p>
-                <div class="lt-sec lt-sec-unl"><h3 class="lt-h-unl">Unlocks</h3><ul class="lt-unl"></ul></div>
-                <div class="lt-sec lt-sec-time"><h3 class="lt-h-time">Time</h3><div class="lt-time"></div></div>
-                <div class="lt-sec lt-sec-req"><h3 class="lt-h-req">Needs</h3><ul class="lt-reqs"></ul></div>
-                <div class="lt-sec lt-sec-kids"><h3>Leads to</h3><div class="lt-kids"></div></div>
-              </div>
-              <div class="lt-act">
-                <button class="lt-go" type="button"><span class="lt-go-fill"></span><span class="lt-go-l"></span><span class="lt-go-s"></span></button>
-                <div class="lt-rush" hidden>
-                  <button type="button" class="lt-rbtn" data-rush="half"><span class="lt-rbtn-l">${G_BOLT}RUSH <em>-50%</em></span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
-                  <button type="button" class="lt-rbtn is-now" data-rush="now"><span class="lt-rbtn-l">${G_FF}FINISH NOW</span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
-                </div>
-              </div>
-            </aside>
+            <div class="lt-desk" role="listbox" aria-label="Research folders">
+              <div class="lt-desk-grid"></div>
+              <div class="lt-rubber" aria-hidden="true"></div>
+            </div>
+            <div class="lt-toast" aria-live="polite"></div>
           </div>
           <footer class="lt-bench">
             <span class="lt-bench-l">${this._iconFit('flask', 18)}<span>BENCH<small class="lt-bench-s"></small></span></span>
             <div class="lt-slots"></div>
             <div class="lt-keys"><kbd>DRAG</kbd> pan <kbd>WHEEL</kbd> zoom <kbd>ENTER</kbd> research</div>
           </footer>
-          <div class="lt-term" aria-live="off"><span class="lt-term-p">&gt;</span><span class="lt-term-l"></span><span class="lt-term-r"><i class="lt-led"></i>LAB OK<b class="lt-term-clk">00:00</b></span></div>
+          <div class="lt-term" aria-live="off"><span class="lt-term-p">C:\\LAB&gt;</span><span class="lt-term-l"></span><span class="lt-term-r"><i class="lt-led"></i>LAB OK<b class="lt-term-clk">00:00</b></span></div>
           <div class="lt-fx" aria-hidden="true"></div>
           <div class="lt-scan" aria-hidden="true"></div>
         </div>
-        <div class="lt-frame" aria-hidden="true"><i class="lt-fc tl"></i><i class="lt-fc tr"></i><i class="lt-fc bl"></i><i class="lt-fc br"></i><span class="lt-fled"><i></i><i></i><i></i></span><span class="lt-fname">REYNARD-TEK  RESEARCH TERMINAL  NO.30</span></div>
+        <div class="lt-frame" aria-hidden="true"><span class="lt-fled"><i></i><i></i><i></i></span><span class="lt-fname">REYNARD-TEK &middot; PHOSPHOR RESEARCH TERMINAL &middot; MOD 31</span></div>
       </div>`;
     this.container.appendChild(root);
     this.root = root;
@@ -877,7 +911,15 @@ export class LabTree {
     this.$tabs = $('.lt-tabs');
     this.$tip = $('.lt-tip');
     this.$toast = $('.lt-toast');
-    this.$chips = $('.lt-chips');
+    this.$main = $('.lt-main');
+    this.$body = $('.lt-body');
+    this.$desk = $('.lt-desk');
+    this.$deskGrid = $('.lt-desk-grid');
+    this.$rubber = $('.lt-rubber');
+    this.$up = $('.lt-up');
+    this.$crumbCur = $('.lt-crumb-cur');
+    this.$pinfo = $('.lt-pinfo');
+    this.$inbox = $('.lt-inbox');
     this.$det = $('.lt-det');
     this.$hero = $('.lt-hero');
     this.$heroSt = $('.lt-hero-st');
@@ -912,14 +954,19 @@ export class LabTree {
     this.$hUnl = $('.lt-h-unl');
     this.$hTime = $('.lt-h-time');
     this.$hReq = $('.lt-h-req');
-    this.$parA = $('.lt-par-a');
-    this.$parB = $('.lt-par-b');
     this.$term = $('.lt-term-l');
     this.$termClk = $('.lt-term-clk');
     this.tube = new Tube(this.$tube, { cssPx: 2, h: 16 });
     const rs = root.style;
     for (const [k, url] of Object.entries(slotURLs())) rs.setProperty(`--lt-slot-${k}`, `url(${url})`);
-    this._log('R&D-OS online. Welcome back, Doctor Reynard.', 'ok');
+    // [v31 lab] the pixel frames (border-images) and tiles, at whole device px
+    const u = ART.devU(2);
+    for (const [k, v] of Object.entries(ART.frames(u))) rs.setProperty(`--f-${k}`, v);
+    for (const k of ['dots', 'grid', 'hatch']) rs.setProperty(`--t-${k}`, `url(${ART.urlOf(ART.tile(k), u)})`);
+    rs.setProperty('--t-emblem', `url(${ART.urlOf(ART.emblem(), u)})`);
+    rs.setProperty('--t-shadow', `url(${ART.urlOf(ART.shadow(), u)})`);
+    this._u = u;
+    this._log('FOX-DOS 3.1 ready. Welcome back, Doctor Reynard.', 'ok');
     this._idleLog();
   }
 
@@ -953,7 +1000,6 @@ export class LabTree {
     }, 7000);
   }
 
-  // a quick RGB-split slice glitch over the screen (filter changes, sectors, boot)
   _glitch() { /* v30: no screen glitches (cozy) */ }
 
   _buildTree() {
@@ -968,7 +1014,7 @@ export class LabTree {
     let seals = '';
     for (const B of this.branches) {
       const c = esc(B.color);
-      bands += `<div class="lt-band${B.i % 2 ? ' odd' : ''}" data-b="${B.i}" style="top:${B.y}px;height:${B.h}px;--bc:${c}"><span class="lt-band-id">SECTOR ${String(B.i + 1).padStart(2, '0')} // ${esc(B.b.name.toUpperCase())}</span></div>`;
+      bands += `<div class="lt-band${B.i % 2 ? ' odd' : ''}" data-b="${B.i}" style="top:${B.y}px;height:${B.h}px;--bc:${c}"><span class="lt-band-id">C:\\LAB\\${esc(B.dos)}</span></div>`;
       // the encrypted seal over a locked section
       let x0 = PADL + B.c0 * COLW + 6, x1 = PADL + (B.c1 + 1) * COLW - 6;
       if (x1 - x0 < 560) { x1 = Math.min(W - 6, x0 + 560); x0 = Math.max(6, x1 - 560); }
@@ -1007,7 +1053,7 @@ export class LabTree {
         lx += `<path class="lp-o lp-bo" data-e="${i}" d="${bd}"/><path class="lp-c" data-e="${i}" d="${bd}"/>`;
       }
     });
-    const svg = `<svg class="lt-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+    const svg = `<svg class="lt-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" aria-hidden="true">
       <g>${lo}</g><g>${lg}</g><g>${lc}</g><g>${lf}</g><g>${lx}</g></svg>`;
 
     let nodes = '';
@@ -1058,54 +1104,414 @@ export class LabTree {
     n.$why.textContent = why;
   }
 
-  _buildChips() {
-    let h = `<button type="button" class="lt-chip is-on" data-f="">All</button>`;
-    h += `<button type="button" class="lt-chip lt-chip-ready" data-f="@ready"><i class="lt-dot"></i>Ready <b class="lt-chip-n"></b></button>`;
-    for (const B of this.branches) {
-      h += `<button type="button" class="lt-chip" data-f="${B.i}" style="--bc:${esc(B.color)}">${this._iconFit(B.b.icon, 18)}<span>${esc(B.b.name)}</span><b class="lt-chip-n"></b></button>`;
+  // ------------------------------------------------------------ [v31 lab] the desktop
+  // one icon per place: the computer (all projects), the in-tray (ready), then a folder per branch
+  _buildDesk() {
+    const items = [
+      { id: 'all', k: 'all', name: 'All Projects' },
+      { id: 'ready', k: 'ready', name: 'Ready' },
+      ...this.branches.map((B) => ({ id: `b${B.i}`, k: 'b', B, name: B.b.name })),
+    ];
+    let h = '';
+    for (const it of items) {
+      const b = it.k === 'b';
+      h += `<button type="button" class="lt-fd is-${it.k}" data-fd="${it.id}" role="option" aria-selected="false" tabindex="-1"${b ? ` style="--bc:${esc(it.B.color)}"` : ''}>
+        <span class="lt-fd-pic"><span class="lt-fd-sh"></span><span class="lt-fd-lift"><span class="lt-fd-art"></span>${b ? `<span class="lt-fd-ico">${this._iconFit(it.B.b.icon, 32)}</span><span class="lt-fd-lock"></span>` : ''}</span><span class="lt-fd-tag"><i class="lt-fd-led"></i><b></b></span></span>
+        <span class="lt-fd-name">${esc(it.name)}</span>
+      </button>`;
     }
-    this.$chips.innerHTML = h;
-    this.$chipEls = [...this.$chips.querySelectorAll('.lt-chip')];
+    this.$deskGrid.innerHTML = h;
+    this._desk = items;
+    this._deskBy = new Map(items.map((it) => [it.id, it]));
+    for (const it of items) {
+      it.el = this.$deskGrid.querySelector(`[data-fd="${it.id}"]`);
+      it.$pic = it.el.querySelector('.lt-fd-pic');
+      it.$art = it.el.querySelector('.lt-fd-art');
+      it.$ico = it.el.querySelector('.lt-fd-ico');
+      it.$lock = it.el.querySelector('.lt-fd-lock');
+      it.$tag = it.el.querySelector('.lt-fd-tag b');
+      it.f = 0;
+      it.ft = 0;
+    }
+    this._lockUrl = { shut: ART.urlOf(ART.padlock(false), this._u), open: ART.urlOf(ART.padlock(true), this._u) };
   }
 
-  _updateChips() {
-    if (!this.$chipEls) return;
-    let ready = 0;
-    for (const n of this.nodes) if (this._st.get(n.id) === 'avail') ready++;
-    for (const c of this.$chipEls) {
-      const f = c.dataset.f;
-      const nEl = c.querySelector('.lt-chip-n');
-      if (!nEl) continue;
-      if (f === '@ready') { nEl.textContent = String(ready); c.classList.toggle('is-zero', !ready); continue; }
-      const B = this.branches[+f];
-      if (!B) continue;
-      c.classList.toggle('is-sealed', !!B.sealed);
-      if (B.sealed) {
-        const k = this._secKey(B);
-        const html = `${G_LOCK}${B.nodes.length}`;
-        if (nEl.innerHTML !== html) nEl.innerHTML = html;
-        c.classList.toggle('has-ready', !!k.canUnlock);
-        c.classList.remove('is-full');
-        continue;
+  _deskItem(B) { return B ? this._deskBy?.get(`b${B.i}`) || null : null; }
+  _deskItemFor(loc) { return !loc ? null : this._deskBy?.get(loc.k === 'b' ? `b${loc.B.i}` : loc.k) || null; }
+
+  // icon strips (data URLs at whole device px), cached per art
+  _strip(key, make) {
+    const k = `${key}@${this._u}`;
+    let u = STRIPS.get(k);
+    if (!u) { u = ART.urlOf(make(), this._u); STRIPS.set(k, u); }
+    return u;
+  }
+
+  // badges, art (open / padlocked / empty tray) and lights for every desktop icon
+  _updateDesk() {
+    if (!this._desk) return;
+    let ready = 0, run = 0, done = 0;
+    for (const n of this.nodes) { const s = this._st.get(n.id); if (s === 'avail') ready++; else if (s === 'run') run++; else if (s === 'done') done++; }
+    this._counts = { ready, run, done };
+    for (const it of this._desk) {
+      let art, tag, full = false, rdy = false, sealed = false, key = false, zero = false, busy = false;
+      if (it.k === 'all') { art = 'drive'; tag = `${done}/${this.nodes.length}`; rdy = ready > 0; busy = run > 0; full = done === this.nodes.length; }
+      else if (it.k === 'ready') { art = ready ? 'tray1' : 'tray0'; tag = String(ready); rdy = ready > 0; zero = !ready; busy = run > 0; }
+      else {
+        const B = it.B;
+        if (B.sealed) { sealed = true; key = !!this._secKey(B).canUnlock; art = 'lock'; tag = String(B.nodes.length); }
+        else {
+          let d = 0;
+          for (const n of B.nodes) { const s = this._st.get(n.id); if (s === 'done') d++; else if (s === 'avail') rdy = true; else if (s === 'run') busy = true; }
+          art = 'open'; tag = `${d}/${B.nodes.length}`; full = d === B.nodes.length;
+        }
       }
-      const d = B.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
-      const av = B.nodes.some((n) => this._st.get(n.id) === 'avail');
-      nEl.textContent = `${d}/${B.nodes.length}`;
-      c.classList.toggle('has-ready', av);
-      c.classList.toggle('is-full', d === B.nodes.length);
+      const sig = [art, tag, full, rdy, key, zero, busy].join('|');
+      if (sig === it.sig) continue;
+      const artChanged = art !== it.art;
+      it.sig = sig;
+      it.art = art;
+      it.sealed = sealed;
+      const el = it.el;
+      el.classList.toggle('is-full', full);
+      el.classList.toggle('has-ready', rdy);
+      el.classList.toggle('is-sealed', sealed);
+      el.classList.toggle('has-key', key);
+      el.classList.toggle('is-zero', zero);
+      el.classList.toggle('is-busy', busy);
+      it.$tag.innerHTML = key ? `${G_KEYD}KEY!` : sealed ? `${G_LOCK}${tag}` : full && it.k === 'b' ? `${G_CHECK}${tag}` : tag;
+      if (artChanged) {
+        const url = it.k === 'all' ? this._strip('drive', ART.driveStrip)
+          : it.k === 'ready' ? this._strip(art, () => ART.inboxStrip(art === 'tray1'))
+            : this._strip(`f:${it.B.color}:${sealed ? 1 : 0}:${it.B.b.id}`, () => ART.folderStrip(it.B.color, { locked: sealed, seed: it.B.b.id }));
+        it.$art.style.backgroundImage = `url(${url})`;
+        this._fdFrame(it, sealed ? 0 : it.f);
+      }
+      if (it.$lock) it.$lock.style.backgroundImage = sealed ? `url(${key ? this._lockUrl.open : this._lockUrl.shut})` : '';
+      const lbl = it.k === 'all' ? `All projects: ${tag} researched` : it.k === 'ready' ? `Ready: ${tag} projects` : `${it.name}: ${sealed ? `encrypted, ${tag} projects${key ? ', key ready' : ''}` : `${tag} researched${rdy ? ', projects ready' : ''}`}`;
+      el.setAttribute('aria-label', lbl);
     }
   }
 
+  // one frame of an icon strip (0 closed .. 3 wide open); the folder's sticker icon rides on the flap
+  _fdFrame(it, f) {
+    it.f = f;
+    it.$art.style.backgroundPosition = `${-f * ART.FW * 2}px 0`;
+    if (it.$ico) {
+      const p = ART.folderLabel(f);
+      it.$ico.style.transform = `translate(${p.x * 2 - 18}px, ${Math.round(p.y * 2) - 18}px)`;
+    }
+  }
+
+  // step the strip toward frame `target`, one frame per `ms`
+  _fdTo(it, target, ms = 45) {
+    if (!it) return;
+    it.ft = it.sealed ? 0 : target;
+    if (it.tm) return;
+    const tick = () => {
+      it.tm = null;
+      if (!this._alive || it.f === it.ft) return;
+      this._fdFrame(it, it.f + Math.sign(it.ft - it.f));
+      if (it.f !== it.ft) it.tm = this._later(tick, ms);
+    };
+    tick();
+  }
+
+  _deskSel(it, { focus = false, sound = false } = {}) {
+    const prev = this._dsel;
+    if (prev && prev !== it) {
+      prev.el.classList.remove('is-sel');
+      prev.el.setAttribute('aria-selected', 'false');
+      prev.el.tabIndex = -1;
+      if (!prev.hover) this._fdTo(prev, 0);
+    }
+    this._dsel = it || null;
+    if (it) {
+      it.el.classList.add('is-sel');
+      it.el.setAttribute('aria-selected', 'true');
+      it.el.tabIndex = 0;
+      if (!it.hover) this._fdTo(it, 1);
+      if (focus) it.el.focus({ preventScroll: true });
+      this._deskReveal(it);
+      if (sound && prev !== it) this._sfx('select');
+    }
+  }
+
+  // keep an icon inside the (scrolling) desktop without scrolling anything else
+  _deskReveal(it) {
+    const d = this.$desk, el = it.el;
+    const top = el.offsetTop - 8, bot = el.offsetTop + el.offsetHeight + 8;
+    if (top < d.scrollTop) d.scrollTop = top;
+    else if (bot > d.scrollTop + d.clientHeight) d.scrollTop = bot - d.clientHeight;
+  }
+
+  // spatial arrow keys on the icon grid
+  _deskMove(dx, dy) {
+    const cur = this._dsel;
+    if (!cur) { this._deskSel(this._desk[0], { focus: true, sound: true }); return; }
+    const c = cur.el.getBoundingClientRect();
+    const cx = c.left + c.width / 2, cy = c.top + c.height / 2;
+    let best = null, bs = Infinity;
+    for (const it of this._desk) {
+      if (it === cur) continue;
+      const r = it.el.getBoundingClientRect();
+      const ax = (r.left + r.width / 2 - cx) / Math.max(1, c.width), ay = (r.top + r.height / 2 - cy) / Math.max(1, c.height);
+      const along = ax * dx + ay * dy;
+      if (along <= 0.3) continue;
+      const s = along + Math.abs(ax * dy - ay * dx) * 3;
+      if (s < bs) { bs = s; best = it; }
+    }
+    if (best) this._deskSel(best, { focus: this.root.contains(document.activeElement), sound: true });
+  }
+
+  // click / Enter on an icon: squash, flap swings wide open, zoom rects out to the window
+  _deskOpen(it) {
+    if (!it || this._opening) return;
+    this._deskSel(it);
+    this._go(it.k === 'b' ? { k: 'b', B: it.B } : { k: it.k }, { from: it });
+  }
+
+  // [v31 lab] where we are: null = the desktop | { k: 'all' } | { k: 'ready' } | { k: 'b', B }
+  _go(loc, { anim = true, sound = true, from = null, then = null } = {}) {
+    if (REDUCED) anim = false;
+    const was = this.loc;
+    if (!loc) { this._toDesk(was, { anim: anim && !!was, sound, from }); return; }
+    if (was && was.k === loc.k && was.B === loc.B) { then?.(); return; }
+    const it = from || this._deskItemFor(loc);
+    if (anim && !was && it) {
+      // from the desktop: the icon pops and opens wide, outline rects zoom out to the window
+      this._opening = true;
+      this._sfx('filter');
+      it.el.classList.remove('is-press');
+      this._fx(it.el, 'is-open', 420);
+      this._fdTo(it, 3, 30);
+      const rr = this.root.getBoundingClientRect();
+      const a = it.$pic.getBoundingClientRect(), b = this.$main.getBoundingClientRect();
+      const dur = this._zoomRects(a, b, rr, 90);
+      this._later(() => {
+        this._opening = false;
+        this._enter(loc, { sound: false, then });
+        this._fx(this.$main, 'is-pop', 320);
+        this._fdTo(it, it.hover ? 2 : 1, 60);
+      }, 90 + dur);
+      return;
+    }
+    if (sound) this._sfx(was ? 'select' : 'filter');
+    this._enter(loc, { then });
+    if (anim && was) this._fx(this.$main, 'is-swap', 260);
+  }
+
+  _setLocClass() {
+    const k = this.loc ? this.loc.k : 'desk';
+    for (const c of ['desk', 'all', 'ready', 'b']) this.root.classList.toggle(`loc-${c}`, c === k);
+  }
+
+  _enter(loc, { then = null } = {}) {
+    if (!this._alive) return;
+    const was = this.loc;
+    this.loc = loc;
+    const k = loc.k;
+    this.filter = k === 'all' ? null : k === 'ready' ? '@ready' : String(loc.B.i);
+    this._bounds = k === 'b' ? this._bandBounds(loc.B) : null;
+    this._setLocClass();
+    this.$inbox.hidden = k !== 'ready';
+    this.$tip.classList.remove('is-on');
+    this._applyFilter(false);
+    // what the detail panel shows
+    if (k === 'b') {
+      const B = loc.B;
+      if (B.sealed) this._selectSection(B, { pan: false, sound: false, open: false });
+      else if (this.selSec || !this.sel || this.sel.B !== B) {
+        const pick = B.nodes.find((n) => this._st.get(n.id) === 'run') || B.nodes.find((n) => this._st.get(n.id) === 'avail') || B.nodes.find((n) => this._st.get(n.id) !== 'done') || B.nodes[0];
+        if (pick) this._select(pick, { pan: false, sound: false, open: false });
+      }
+    } else if (k === 'ready') {
+      this._renderInbox(true);
+      if (this._ibList.length && (this.selSec || !this._ibList.includes(this.sel))) this._select(this._ibList[0], { pan: false, sound: false, open: false });
+    } else if (this.selSec && !this.selSec.sealed) this._select(this.selSec.nodes[0], { pan: false, sound: false, open: false });
+    this._resize();
+    this._frameLoc();
+    this._pathTo(loc, true);
+    this._pathInfo();
+    if (k === 'b') this._log(`cd ${loc.B.dos}${loc.B.sealed ? '   ** ENCRYPTED **' : ''}`, loc.B.sealed ? 'warn' : 'dim');
+    else this._log(k === 'ready' ? 'dir INBOX  /ready' : 'dir ALL_PROJECTS', 'dim');
+    then?.();
+  }
+
+  // back to the desktop; the window zooms back into its icon and the flap swings shut
+  _toDesk(was, { anim = false, sound = true, from = null } = {}) {
+    this.loc = null;
+    this.filter = null;
+    this._bounds = null;
+    this._setLocClass();
+    this.root.classList.remove('is-filtered');
+    this.$inbox.hidden = true;
+    this.$tip.classList.remove('is-on');
+    this._openSheet(false, true);
+    this._pathTo(null, !!was);
+    this._pathInfo();
+    const it = this._deskItemFor(was) || from || this._dsel || this._desk[0];
+    const focus = this.root.contains(document.activeElement);
+    this._deskSel(it, { focus });
+    if (anim && it) {
+      const rr = this.root.getBoundingClientRect();
+      this._zoomRects(this.$main.getBoundingClientRect(), it.$pic.getBoundingClientRect(), rr, 0);
+      if (!it.sealed) { this._fdFrame(it, 3); this._fdTo(it, it.hover ? 2 : 1, 70); }
+      this._fx(it.el, 'is-close', 420);
+    }
+    if (sound && was) this._sfx('click');
+    if (was) this._log('cd ..', 'dim');
+  }
+
+  // the classic "zoom rects": dotted outlines stepping from one box to another
+  _zoomRects(a, b, rr, delay = 0) {
+    if (REDUCED || !a || !b || !a.width || !b.width) return 0;
+    const N = 7, STEP = 26;
+    for (let i = 0; i < N; i++) {
+      const t = (i + 1) / N, e = t * t;
+      const L = a.left + (b.left - a.left) * e - rr.left, T = a.top + (b.top - a.top) * e - rr.top;
+      const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
+      const el = document.createElement('i');
+      el.className = 'lt-zr';
+      const ev = (v) => Math.round(v / 2) * 2;
+      el.style.cssText = `left:${ev(L)}px;top:${ev(T)}px;width:${ev(W)}px;height:${ev(H)}px;animation-delay:${delay + i * STEP}ms`;
+      this.$fxl.appendChild(el);
+      this._later(() => el.remove(), delay + i * STEP + 200);
+    }
+    return N * STEP;
+  }
+
+  // world rect a folder window may show: its band (+ the seal while it's encrypted)
+  _bandBounds(B) {
+    let x0 = Infinity, x1 = -Infinity;
+    for (const n of B.nodes) { x0 = Math.min(x0, n.x - COLW / 2 - 10); x1 = Math.max(x1, n.x + COLW / 2 + 10); }
+    if (B.sealed || B.sx != null) { x0 = Math.min(x0, B.sx - 10); x1 = Math.max(x1, B.sx + B.sw + 10); }
+    return { x0: Math.max(0, x0), x1: Math.min(this.W, x1), y0: B.y, y1: B.y + B.h };
+  }
+
+  // the camera when a window opens (instant)
+  _frameLoc() {
+    const loc = this.loc;
+    if (!loc || loc.k === 'ready') return;
+    this.goal = null;
+    this._vel = null;
+    if (loc.k === 'all') { this._centerOn(this.sel || this.selSec?.nodes[0] || this._initialNode(), true); return; }
+    const B = loc.B, vw = this.view.clientWidth || 800, vh = this._visibleH() || 500;
+    if (B.sealed) { const r = { x0: B.sx - 20, y0: B.sy - 30, x1: B.sx + B.sw + 20, y1: B.sy + B.sh + 30 }; this._fitNow(r, 1); return; }
+    const b = this._bounds;
+    const fitZ = Math.min((vw - 40) / (b.x1 - b.x0), (vh - 40) / (b.y1 - b.y0));
+    const z = clamp(Math.min(fitZ, this._baseZoom()), Math.max(this._minZ(), 0.55), MAXZ);
+    if (fitZ >= z - 1e-3 || !this.sel) { this._fitNow(b, z); return; }
+    const n = this.sel;
+    Object.assign(this.cam, this._clampCam({ z, x: vw / 2 - n.x * z, y: vh / 2 - (n.y + 18) * z }));
+    this._applyCam();
+  }
+
+  _fitNow(r, maxZ = 1) {
+    const vw = this.view.clientWidth || 800, vh = this._visibleH() || 500, pad = 20;
+    const z = clamp(Math.min((vw - pad * 2) / (r.x1 - r.x0), (vh - pad * 2) / (r.y1 - r.y0), maxZ), this._minZ(), MAXZ);
+    Object.assign(this.cam, this._clampCam({ z, x: vw / 2 - ((r.x0 + r.x1) / 2) * z, y: vh / 2 - ((r.y0 + r.y1) / 2) * z }));
+    this._applyCam();
+  }
+
+  // the address bar: C:\LAB\ + the open folder, typed out a letter at a time
+  _pathTo(loc, type = true) {
+    const seg = !loc ? '' : loc.k === 'all' ? 'ALL_PROJECTS\\' : loc.k === 'ready' ? 'INBOX\\' : `${loc.B.dos}\\`;
+    if (this._typeT) { clearTimeout(this._typeT); this._timers.delete(this._typeT); this._typeT = null; }
+    const el = this.$crumbCur;
+    if (!type || REDUCED || !seg) { el.textContent = seg; return; }
+    let i = 0;
+    const step = () => { this._typeT = null; el.textContent = seg.slice(0, ++i); if (i < seg.length) this._typeT = this._later(step, 18); };
+    el.textContent = '';
+    step();
+  }
+
+  _pathInfo() {
+    const loc = this.loc, c = this._counts || { ready: 0, run: 0, done: 0 };
+    let h;
+    if (!loc) h = `<b>${this.branches.length}</b> folders <i>&middot;</i> <b class="g">${c.ready}</b> ready${c.run ? ` <i>&middot;</i> <b class="g">${c.run}</b> running` : ''}`;
+    else if (loc.k === 'all') h = `<b>${c.done}</b>/${this.nodes.length} researched`;
+    else if (loc.k === 'ready') h = `<b class="g">${c.ready}</b> ready <i>&middot;</i> <b>${c.run}</b> running`;
+    else {
+      const B = loc.B;
+      if (B.sealed) h = `${G_LOCK}<b class="a">ENCRYPTED</b> <i>&middot;</i> ${B.nodes.length} projects`;
+      else {
+        let d = 0, r = 0;
+        for (const n of B.nodes) { const s = this._st.get(n.id); if (s === 'done') d++; else if (s === 'avail') r++; }
+        h = `<b>${d}</b>/${B.nodes.length} done <i>&middot;</i> <b class="g">${r}</b> ready`;
+      }
+    }
+    if (h !== this._pinfoH) { this._pinfoH = h; this.$pinfo.innerHTML = h; }
+  }
+
+  // ------------------------------------------------------------ [v31 lab] the Ready inbox
+  _renderInbox(force = false) {
+    const rank = (n) => (this._st.get(n.id) === 'run' ? 0 : 1);
+    const list = this.nodes.filter((n) => { const s = this._st.get(n.id); return s === 'avail' || s === 'run'; });
+    list.sort((a, b) => rank(a) - rank(b) || ((a.d.tier ?? 9) - (b.d.tier ?? 9)) || a.time - b.time || a.lane - b.lane || a.col - b.col);
+    const sig = list.map((n) => n.id + ':' + this._st.get(n.id)).join('|');
+    this._ibList = list;
+    if (!force && sig === this._ibSig) { this._inboxSel(); return; }
+    this._ibSig = sig;
+    if (!list.length) {
+      this.$inbox.innerHTML = `<div class="lt-ib-empty"><span class="lt-ib-tray" style="background-image:url(${this._strip('tray0', () => ART.inboxStrip(false))})"></span><b>Inbox empty</b><span>Nothing is ready right now. Let the bench finish, meet the neighbours, or decrypt a folder.</span></div>`;
+      this._ibRun = [];
+      return;
+    }
+    let h = `<div class="lt-ib-head"><span>READY TO RESEARCH</span><small>${list.length} ${list.length === 1 ? 'project' : 'projects'}</small></div><ul class="lt-ib-list">`;
+    for (const n of list) {
+      const st = this._st.get(n.id);
+      const j = st === 'run' ? this._job(n.id) : null;
+      const right = st === 'run'
+        ? `<span class="lt-ib-run"><b class="lt-ib-left">${fmtClock(j ? j.left : n.time)}</b><span class="lt-bar"><i></i></span></span>`
+        : this._timed() && n.time ? `${G_CLOCK}<b>${fmtDur(n.time)}</b>` : '<b>FREE</b>';
+      h += `<li class="lt-ib-row st-${st}" style="--bc:${esc(n.B.color)}">
+        <button type="button" class="lt-ib-it" data-ib="${esc(n.id)}">
+          <span class="lt-ib-slot" style="--slot:var(--lt-slot-${st === 'run' ? 'phos' : 'brass'})"><span>${this._nodeArt(n, 32)}</span></span>
+          <span class="lt-ib-t"><b>${esc(n.d.name)}</b><small><i class="lt-ib-fold"></i>${esc(n.B.b.name)}${n.d.tier != null ? ` &middot; Tier ${esc(n.d.tier)}` : ''}</small></span>
+          <span class="lt-ib-time">${right}</span>
+        </button>
+        <button type="button" class="lt-ib-open" data-ibopen="${esc(n.id)}" aria-label="Show ${esc(n.d.name)} in its folder" title="Show in its folder">${G_FOLD}</button>
+      </li>`;
+    }
+    this.$inbox.innerHTML = h + '</ul>';
+    this._ibRun = [...this.$inbox.querySelectorAll('.lt-ib-row.st-run')].map((row) => {
+      const id = row.querySelector('[data-ib]').dataset.ib;
+      return { id, t: row.querySelector('.lt-ib-left'), bar: row.querySelector('.lt-bar i') };
+    });
+    this._inboxSel();
+  }
+
+  _inboxSel() {
+    if (!this.$inbox || this.$inbox.hidden) return;
+    const id = this.sel && !this.selSec ? this.sel.id : null;
+    for (const b of this.$inbox.querySelectorAll('[data-ib]')) {
+      const on = b.dataset.ib === id;
+      if (b.classList.contains('is-sel') === on) continue;
+      b.classList.toggle('is-sel', on);
+      if (on) {
+        const box = this.$inbox, r = b.parentElement;
+        if (r.offsetTop < box.scrollTop + 40) box.scrollTop = Math.max(0, r.offsetTop - 40);
+        else if (r.offsetTop + r.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = r.offsetTop + r.offsetHeight - box.clientHeight;
+      }
+    }
+  }
+
+  // is node `n` on screen in the current window?
+  _onScreen(n) {
+    const loc = this.loc;
+    if (!loc) return false;
+    if (loc.k === 'all') return true;
+    if (loc.k === 'ready') return this._matches(n);
+    return n.B === loc.B;
+  }
+
+  // the old chips' filter values still work: '' / null = all, '@ready', or a branch index
   _setFilter(f) {
-    const v = f === '' || f == null ? null : f;
-    if (v === this.filter && v !== null) { this._setFilter(null); return; }
-    this.filter = v;
-    for (const c of this.$chipEls) c.classList.toggle('is-on', (c.dataset.f || null) === (v === null ? null : String(v)));
-    this._sfx('filter');
-    this._glitch();
-    const fb = v === null ? null : this.branches[+v];
-    this._log(v === null ? 'filter cleared: all sectors' : v === '@ready' ? 'query: projects ready to research' : `routing view to sector ${String(+v + 1).padStart(2, '0')}: ${fb ? fb.b.name : v}`, 'dim');
-    this._applyFilter(true);
+    const v = f === '' || f == null ? null : String(f);
+    if (v === null) this._go({ k: 'all' });
+    else if (v === '@ready') this._go({ k: 'ready' });
+    else { const B = this.branches[+v]; if (B) this._go({ k: 'b', B }, { from: this._deskItem(B) }); }
   }
 
   _matches(n) {
@@ -1115,25 +1521,30 @@ export class LabTree {
     return String(n.B.i) === String(f);
   }
 
+  // in a folder only its own branch is on the map (the rest is hidden, cables to other folders stay as stubs)
   _applyFilter(move) {
+    const fold = this.loc?.k === 'b';
     const list = [];
     for (const n of this.nodes) {
       const m = this._matches(n);
-      n.el.classList.toggle('is-dim', !m);
+      n.el.classList.toggle('is-dim', !m && !fold);
+      n.el.classList.toggle('is-out', !m && fold);
       if (m) list.push(n);
     }
     for (const e of this.edges) {
-      const dim = this.filter !== null && !(this._matches(e.src) && this._matches(e.dst));
+      const a = this._matches(e.src), b = this._matches(e.dst);
+      const out = fold && !a && !b;
+      const dim = this.filter !== null && !(a && b) && !out;
       if (e.dim !== dim) { e.dim = dim; for (const p of e.els) p.classList.toggle('is-dim', dim); }
+      if (e.out !== out) { e.out = out; for (const p of e.els) p.classList.toggle('is-out', out); }
     }
-    for (const B of this.branches) B.tab?.classList.toggle('is-dim', this.filter !== null && !B.nodes.some((n) => this._matches(n)));
+    for (const B of this.branches) {
+      const o = fold && B !== this.loc.B;
+      if (B.out !== o) { B.out = o; B.band?.classList.toggle('is-out', o); B.seal?.classList.toggle('is-out', o); }
+    }
     this.root.classList.toggle('is-filtered', this.filter !== null);
-    if (!move) return;
-    if (this.filter === null) { this._fitAll(); return; }
-    if (!list.length) return;
-    const x0 = Math.min(...list.map((n) => n.x)) - COLW / 2, x1 = Math.max(...list.map((n) => n.x)) + COLW / 2;
-    const y0 = Math.min(...list.map((n) => n.y)) - NODE_DY, y1 = Math.max(...list.map((n) => n.y)) + ROWH - NODE_DY;
-    this._fitRect(x0, y0, x1, y1, 1.1);
+    if (!move || !list.length) return;
+    if (this.loc?.k === 'b') { this._frameLoc(); return; }
     if (!this.sel || !this._matches(this.sel)) {
       const pick = list.find((n) => this._st.get(n.id) === 'avail') || list.find((n) => this._st.get(n.id) === 'run') || list[0];
       this._select(pick, { pan: false, sound: false, open: false });
@@ -1149,7 +1560,7 @@ export class LabTree {
       if (sealEl) {
         const B = this.branches[+sealEl.dataset.sec];
         const g = e.target.closest('[data-goto]');
-        if (g) { const n = this.byId.get(g.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true }); return; }
+        if (g) { const n = this.byId.get(g.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true, nav: true }); return; }
         if (e.target.closest('.lt-decrypt')) { this._selectSection(B, { pan: false, open: false }); this._decrypt(B, e.target.closest('.lt-decrypt')); return; }
         this._selectSection(B, { pan: false, sound: 'select', open: true });
         return;
@@ -1197,10 +1608,7 @@ export class LabTree {
       if (z === 'fit') this._fitAll();
       else this._zoomBy(z === 'in' ? 1.3 : 1 / 1.3);
     });
-    this._on(this.$chips, 'click', (e) => {
-      const c = e.target.closest('.lt-chip');
-      if (c) this._setFilter(c.dataset.f);
-    });
+    this._bindDesk();
     this._on(this.$tabs, 'click', (e) => {
       const t = e.target.closest('.lt-tab');
       if (t) this._setFilter(t.dataset.b);
@@ -1214,7 +1622,7 @@ export class LabTree {
     this._on(this.root.querySelector('.lt-det-x'), 'click', () => { this._sfx('click'); this._openSheet(false); });
     this._on(this.$det, 'click', (e) => {
       const j = e.target.closest('[data-goto]');
-      if (j) { const n = this.byId.get(j.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true }); }
+      if (j) { const n = this.byId.get(j.dataset.goto); if (n) this._select(n, { pan: true, sound: 'select', open: true, nav: true }); }
     });
     this._on(this.$slots, 'click', (e) => {
       const r = e.target.closest('[data-rush]');
@@ -1222,7 +1630,7 @@ export class LabTree {
       const s = e.target.closest('[data-goto]');
       if (!s) return;
       const n = this.byId.get(s.dataset.goto);
-      if (n) this._select(n, { pan: true, sound: 'select', open: true });
+      if (n) this._select(n, { pan: true, sound: 'select', open: true, nav: true });
     });
     if (typeof ResizeObserver === 'function') {
       this._ro = new ResizeObserver(() => this._resize());
@@ -1230,11 +1638,100 @@ export class LabTree {
     } else this._on(window, 'resize', () => this._resize());
   }
 
+  // [v31 lab] desktop icons, the rubber-band marquee, the path bar and the inbox
+  _bindDesk() {
+    const desk = this.$desk, grid = this.$deskGrid;
+    const itemOf = (t) => { const el = t?.closest?.('.lt-fd'); return el ? this._deskBy.get(el.dataset.fd) : null; };
+    this._on(grid, 'click', (e) => {
+      const it = itemOf(e.target);
+      if (!it || this._bandMoved) return;
+      this._deskOpen(it);
+    });
+    this._on(grid, 'pointerover', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      const it = itemOf(e.target);
+      if (!it || it.hover) return;
+      it.hover = true;
+      if (it.sealed) this._fx(it.el, 'is-rattle', 420);
+      else this._fdTo(it, 2);
+      const t = now();
+      if (!this._hoverT || t - this._hoverT > 70) { this._hoverT = t; this._sfx('hover'); }
+    });
+    this._on(grid, 'pointerout', (e) => {
+      const it = itemOf(e.target);
+      if (!it || it.el.contains(e.relatedTarget)) return;
+      it.hover = false;
+      it.el.classList.remove('is-press');
+      if (!this._opening) this._fdTo(it, it === this._dsel ? 1 : 0);
+    });
+    this._on(desk, 'pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const it = itemOf(e.target);
+      this._bandMoved = false;
+      if (it) { it.el.classList.add('is-press'); return; }
+      if (e.pointerType !== 'mouse') return;
+      // empty desktop: a rubber-band selection, like a real desktop
+      const r = desk.getBoundingClientRect();
+      this._band = { id: e.pointerId, x0: e.clientX - r.left + desk.scrollLeft, y0: e.clientY - r.top + desk.scrollTop };
+      for (const x of this._desk) x.el.classList.remove('is-hl');
+      this._deskSel(null);
+      try { desk.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    });
+    this._on(desk, 'pointermove', (e) => {
+      const b = this._band;
+      if (!b || b.id !== e.pointerId) return;
+      const r = desk.getBoundingClientRect();
+      const x1 = e.clientX - r.left + desk.scrollLeft, y1 = e.clientY - r.top + desk.scrollTop;
+      const L = Math.min(b.x0, x1), T = Math.min(b.y0, y1), W = Math.abs(x1 - b.x0), H = Math.abs(y1 - b.y0);
+      if (!this._bandMoved && W + H < 6) return;
+      this._bandMoved = true;
+      const rb = this.$rubber.style;
+      rb.display = 'block';
+      rb.transform = `translate(${Math.round(L / 2) * 2}px, ${Math.round(T / 2) * 2}px)`;
+      rb.width = `${Math.round(W / 2) * 2}px`;
+      rb.height = `${Math.round(H / 2) * 2}px`;
+      for (const it of this._desk) {
+        const el = it.el, ex = el.offsetLeft + grid.offsetLeft, ey = el.offsetTop + grid.offsetTop;
+        const hit = ex < L + W && ex + el.offsetWidth > L && ey < T + H && ey + el.offsetHeight > T;
+        el.classList.toggle('is-hl', hit);
+      }
+    });
+    const endBand = (e) => {
+      for (const it of this._desk) it.el.classList.remove('is-press');
+      const b = this._band;
+      if (!b || b.id !== e.pointerId) return;
+      this._band = null;
+      this.$rubber.style.display = 'none';
+      const hl = this._desk.filter((it) => it.el.classList.contains('is-hl'));
+      if (hl.length) { this._deskSel(hl[0]); this._sfx('select'); }
+      if (this._bandMoved) this._later(() => { this._bandMoved = false; }, 0);
+    };
+    this._on(desk, 'pointerup', endBand);
+    this._on(desk, 'pointercancel', endBand);
+    // the path bar: back key and the C:\LAB\ crumb go up to the desktop
+    this._on(this.$up, 'click', () => { if (this.loc && !this._tut()) this._go(null); });
+    this._on(this.root.querySelector('.lt-crumb'), 'click', () => { if (this.loc && !this._tut()) this._go(null); });
+    // the inbox: pick a project (the detail panel shows it), or jump to its folder
+    this._on(this.$inbox, 'click', (e) => {
+      const o = e.target.closest('[data-ibopen]');
+      if (o) { const n = this.byId.get(o.dataset.ibopen); if (n) { this._sfx('click'); this._go({ k: 'b', B: n.B }, { then: () => this._select(n, { pan: true, sound: false, open: true }) }); } return; }
+      const b = e.target.closest('[data-ib]');
+      const n = b && this.byId.get(b.dataset.ib);
+      if (!n) return;
+      if (n === this.sel && this._compact && !this._sheetOpen) { this._openSheet(true); return; }
+      this._select(n, { pan: false, sound: 'select', open: true });
+    });
+    this._on(this.$inbox, 'dblclick', (e) => {
+      const b = e.target.closest('[data-ib]');
+      if (b && !this._compact && this.byId.get(b.dataset.ib) === this.sel) this._research();
+    });
+  }
+
   _dragJustEnded() { return this._dragEndT && now() - this._dragEndT < 140; }
 
   _onDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (e.target.closest('.lt-zoom, .lt-toast, .lt-tab, .lt-decrypt')) return;
+    if (e.target.closest('.lt-zoom, .lt-toast, .lt-tab, .lt-decrypt, .lt-inbox')) return;
     this._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this._vel = null;
     this.goal = null;
@@ -1318,6 +1815,7 @@ export class LabTree {
   }
 
   _onWheel(e) {
+    if (this.loc?.k === 'ready' || e.target.closest?.('.lt-inbox')) return; // the inbox scrolls natively
     e.preventDefault();
     this._vel = null;
     this.goal = null;
@@ -1358,22 +1856,49 @@ export class LabTree {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     const k = e.key;
+    const btn = t && t.tagName === 'BUTTON' && this.root.contains(t) && !t.classList.contains('lt-node') && !t.classList.contains('lt-fd');
     let handled = true;
-    if (k === 'ArrowLeft') this._move(-1, 0);
-    else if (k === 'ArrowRight') this._move(1, 0);
+    if (!this.loc) {
+      // [v31 lab] the desktop: arrows walk the icons, Enter opens, Esc leaves the lab
+      if (this._opening) handled = k !== 'Escape';
+      else if (k === 'ArrowLeft') this._deskMove(-1, 0);
+      else if (k === 'ArrowRight') this._deskMove(1, 0);
+      else if (k === 'ArrowUp') this._deskMove(0, -1);
+      else if (k === 'ArrowDown') this._deskMove(0, 1);
+      else if (k === 'Enter' || k === 'NumpadEnter' || k === ' ') {
+        if (btn) handled = false;
+        else { const it = this._dsel || this._desk[0]; if (it) { this._fx(it.el, 'is-press', 120); this._deskOpen(it); } }
+      } else if (k === 'Home') this._deskSel(this._desk[0], { focus: true, sound: true });
+      else if (k === 'End') this._deskSel(this._desk[this._desk.length - 1], { focus: true, sound: true });
+      else if (k === 'Escape') this._close();
+      else handled = false;
+      if (handled) { e.preventDefault(); e.stopPropagation(); }
+      return;
+    }
+    const tree = this.loc.k !== 'ready';
+    if (k === 'ArrowLeft') { if (tree) this._move(-1, 0); else handled = false; }
+    else if (k === 'ArrowRight') { if (tree) this._move(1, 0); else handled = false; }
     else if (k === 'ArrowUp') this._move(0, -1);
     else if (k === 'ArrowDown') this._move(0, 1);
     else if (k === 'Enter' || k === 'NumpadEnter' || k === ' ') {
-      if (t && t.tagName === 'BUTTON' && !t.classList.contains('lt-node') && this.root.contains(t)) handled = false;
+      if (btn) handled = false;
       else this._research();
     } else if (k === 'Escape') {
-      if (this._compact && this._sheetOpen) { this._openSheet(false); this._sfx('click'); } else this._close();
-    } else if (k === '+' || k === '=') this._zoomBy(1.3);
-    else if (k === '-' || k === '_') this._zoomBy(1 / 1.3);
-    else if (k === '0') this._fitAll();
-    else if (k === 'f' || k === 'F') { if (this.sel) this._centerOn(this.sel); }
+      if (this._compact && this._sheetOpen) { this._openSheet(false); this._sfx('click'); } else if (this._tut()) this._close(); else this._go(null);
+    } else if (k === 'Backspace') { if (this._tut()) handled = false; else this._go(null); }
+    else if (tree && (k === '+' || k === '=')) this._zoomBy(1.3);
+    else if (tree && (k === '-' || k === '_')) this._zoomBy(1 / 1.3);
+    else if (tree && k === '0') this._fitAll();
+    else if (tree && (k === 'f' || k === 'F')) { if (this.sel) this._centerOn(this.sel); }
     else handled = false;
     if (handled) { e.preventDefault(); e.stopPropagation(); }
+  }
+
+  // [v31 lab] is the tutorial running? (it opens the lab straight into the tree and keeps you there)
+  _tut() {
+    try { if (this.o.quiet?.()) return true; } catch { /* ignore */ }
+    const G = this.o.game || (typeof window !== 'undefined' ? window.__game : null);
+    try { return !!(G && G.tutorial?.active && !G.state?.tutorialDone); } catch { return false; }
   }
 
   _close() {
@@ -1383,6 +1908,14 @@ export class LabTree {
 
   // spatial keyboard navigation
   _move(dx, dy) {
+    if (this.loc?.k === 'ready') {
+      const L = this._ibList || [];
+      if (!dy || !L.length) return;
+      const i = L.indexOf(this.sel);
+      const n = L[i < 0 ? 0 : clamp(i + dy, 0, L.length - 1)];
+      if (n && n !== this.sel) this._select(n, { pan: false, sound: 'select', open: false });
+      return;
+    }
     const cur = this.sel || (this.selSec && this.selSec.nodes[0]);
     if (!cur) { const f = this._initialNode(); if (f) this._select(f, { pan: true, sound: 'select' }); return; }
     let best = null, bs = Infinity;
@@ -1421,14 +1954,28 @@ export class LabTree {
     }
     this.root.classList.toggle('is-short', h < 640);
     this.root.classList.toggle('is-tiny', h < 460);
+    this._sizeHero();
+    if (this._isWorking) this._sizeWork();
     this._clampCam(this.cam);
     this._applyCam();
   }
 
-  // zoom-out limit: enough to see the whole tree (but never below 0.1)
+  // [v31 lab] the showcase canvas at a whole number of device px per art px (never a smeared 2.4x)
+  _sizeHero() {
+    const w = this.$hero.clientWidth;
+    if (!w) return;
+    const s = Math.max(1, crispScale((w - 4) / PW, 1, { min: 1, max: 4 }));
+    const cw = `${Math.round(PW * s * 100) / 100}px`;
+    if (this.pcv.style.width !== cw) { this.pcv.style.width = cw; this.pcv.style.height = `${Math.round(PH * s * 100) / 100}px`; }
+  }
+
+  // the world rect the camera may show: the open folder's band, or the whole tree
+  _bnd() { return this._bounds || { x0: 0, y0: 0, x1: this.W, y1: this.H }; }
+
+  // zoom-out limit: enough to see the whole tree / folder (but never below 0.1)
   _minZ() {
-    const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500;
-    return clamp(Math.min((vw - 60) / this.W, (vh - 60) / this.H), 0.1, MINZ);
+    const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500, b = this._bnd();
+    return clamp(Math.min((vw - 60) / (b.x1 - b.x0), (vh - 60) / (b.y1 - b.y0)), 0.1, MINZ);
   }
 
   _visibleH() {
@@ -1438,35 +1985,33 @@ export class LabTree {
   }
 
   _clampCam(c) {
-    const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500;
+    const vw = this.view.clientWidth || 800, vh = this.view.clientHeight || 500, b = this._bnd();
     const m = Math.min(40, vw * 0.1), mh = Math.min(40, vh * 0.1);
-    const ww = this.W * c.z, wh = this.H * c.z;
-    c.x = ww + 2 * m < vw ? clamp(c.x, m, vw - ww - m) : clamp(c.x, vw - ww - m, m);
+    const ww = (b.x1 - b.x0) * c.z, wh = (b.y1 - b.y0) * c.z;
+    // clamp where the bounds' top-left lands on screen
+    let sx = c.x + b.x0 * c.z, sy = c.y + b.y0 * c.z;
+    sx = ww + 2 * m < vw ? clamp(sx, m, vw - ww - m) : clamp(sx, vw - ww - m, m);
     const sheet = this._compact && this._sheetOpen ? this.$det.offsetHeight : 0;
-    c.y = wh + 2 * mh < vh - sheet ? clamp(c.y, mh, vh - sheet - wh - mh) : clamp(c.y, vh - sheet - wh - mh, mh);
-    if (ww + 2 * m < vw && c.x > vw - ww - m) c.x = vw - ww - m;
+    sy = wh + 2 * mh < vh - sheet ? clamp(sy, mh, vh - sheet - wh - mh) : clamp(sy, vh - sheet - wh - mh, mh);
+    c.x = sx - b.x0 * c.z;
+    c.y = sy - b.y0 * c.z;
     return c;
   }
 
   _applyCam() {
     const c = this._clampCam(this.cam);
     this.world.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
-    const hz = 56 * c.z;
+    // the dot grid moves with the map (32 css px per tile at zoom 1)
+    const hz = 32 * c.z;
     this.view.style.setProperty('--hex-pos', `${c.x.toFixed(1)}px ${c.y.toFixed(1)}px`);
-    this.view.style.setProperty('--hex-size', `${hz.toFixed(1)}px ${(hz * 100 / 56).toFixed(1)}px`);
-    // v19: holographic depth: two background layers drift slower than the tree (transform only)
-    if (this.$parA) {
-      const m = (v, t) => ((v % t) + t) % t - t;
-      this.$parA.style.transform = `translate3d(${m(c.x * 0.18, 96).toFixed(1)}px, ${m(c.y * 0.18, 96).toFixed(1)}px, 0)`;
-      this.$parB.style.transform = `translate3d(${m(c.x * 0.45, 240).toFixed(1)}px, ${m(c.y * 0.45, 160).toFixed(1)}px, 0)`;
-    }
+    this.view.style.setProperty('--hex-size', `${hz.toFixed(1)}px ${hz.toFixed(1)}px`);
     this.root.classList.toggle('is-far', c.z < 0.58);
     this.root.classList.toggle('is-vfar', c.z < 0.3);
     this.root.style.setProperty('--lt-z', c.z.toFixed(3));
-    // sticky branch tabs
+    // sticky branch tabs (only on the whole-tree view)
     const vh = this.view.clientHeight;
     const x = Math.max(6, (PADL - 34) * c.z + c.x);
-    for (const B of this.branches) {
+    if (this.loc?.k === 'all') for (const B of this.branches) {
       if (!B.tab) continue;
       const top = B.y * c.z + c.y, bot = (B.y + B.h) * c.z + c.y;
       const th = 26;
@@ -1493,7 +2038,7 @@ export class LabTree {
     this._goTo({ z, x: vw / 2 - ((x0 + x1) / 2) * z, y: vh / 2 - ((y0 + y1) / 2) * z });
   }
 
-  _fitAll() { this._fitRect(0, 0, this.W, this.H, 1); }
+  _fitAll() { const b = this._bnd(); this._fitRect(b.x0, b.y0, b.x1, b.y1, 1); }
 
   _baseZoom() {
     const vw = this.view.clientWidth;
@@ -1533,8 +2078,13 @@ export class LabTree {
   }
 
   // ------------------------------------------------------------ selection / detail
-  _select(n, { pan = true, sound = false, open = false } = {}) {
+  _select(n, { pan = true, sound = false, open = false, nav = false } = {}) {
     if (!n) return;
+    // [v31 lab] not in the open window (or on the desktop): open its folder first
+    if (nav && !this._onScreen(n)) {
+      this._go({ k: 'b', B: n.B }, { anim: !this._tut(), sound: !!sound, then: () => this._select(n, { pan, sound: false, open }) });
+      return;
+    }
     if (n.B.sealed) { this._selectSection(n.B, { pan, sound, open }); return; }
     const wasSec = !!this.selSec;
     this.selSec = null;
@@ -1553,13 +2103,15 @@ export class LabTree {
       this._renderDetail();
       if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
     }
+    if (this.loc?.k === 'ready') { pan = false; this._inboxSel(); }
     if (pan) this._ensureVisible(n);
-    if (sound && !same) this._log(`open ${n.id.replace(/^r_/, '')}.rnd  [${STATE_TEXT[this._st.get(n.id)] || ''}]`, 'dim');
+    if (sound && !same) this._log(`type ${n.id.replace(/^r_/, '').toUpperCase()}.RND  [${STATE_TEXT[this._st.get(n.id)] || ''}]`, 'dim');
   }
 
   // an encrypted section: the detail panel shows its section key
   _selectSection(B, { pan = true, sound = false, open = false } = {}) {
     if (!B) return;
+    if (this.loc && this.loc.k !== 'all' && this.loc.B !== B) { this._go({ k: 'b', B }, { anim: !this._tut() }); return; }
     const same = this.selSec === B;
     if (this.sel?.el) { this.sel.el.classList.remove('is-sel'); this.sel.el.tabIndex = -1; }
     this.sel = null;
@@ -1572,7 +2124,7 @@ export class LabTree {
     if (!same) {
       this._renderDetail();
       if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
-      if (sound) this._log(`sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}: ENCRYPTED. radar sweep active`, 'err');
+      if (sound) this._log(`${B.dos}: ACCESS DENIED. needs its section key`, 'err');
     }
     if (pan) this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
   }
@@ -1686,7 +2238,7 @@ export class LabTree {
     this.$name.textContent = B.b.name;
     this.$heroSt.textContent = 'ENCRYPTED';
     this.$heroSt.className = 'lt-hero-st st-sealed';
-    this.$desc.innerHTML = `<b>${B.nodes.length}</b> research projects are sealed in this sector. Use its <b>section key</b> to decrypt it.`;
+    this.$desc.innerHTML = `<b>${B.nodes.length}</b> research projects are sealed in this folder. Use its <b>section key</b> to decrypt it.`;
     let fish = 0, builds = 0, ups = 0, other = 0;
     for (const n of B.nodes) { if (n.d.species) fish++; else if (n.d.build) builds++; else if (n.d.mods) ups++; else other++; }
     const row = (art, num, what) => (num ? `<li><span class="lt-art">${art}</span><span class="lt-unl-t"><b>${num} ${esc(what)}</b><small>${esc(scramble(what.toUpperCase(), 0.6, num * 31 + what.length))}</small></span></li>` : '');
@@ -1863,7 +2415,7 @@ export class LabTree {
         h += `<div class="lt-slotc is-job" data-job="${esc(j.id)}"><span class="lt-slotc-m"><b>${esc(j.id)}</b><span class="lt-bar"><i></i></span></span><span class="lt-slotc-t">0:00</span></div>`;
       } else {
         const pick = this.nodes.find((n) => this._calc(n) === 'avail');
-        h += `<button type="button" class="lt-slotc is-empty"${pick ? ` data-goto="${esc(pick.id)}"` : ''}><span class="lt-plus">+</span><span class="lt-slotc-m"><b>Bench free</b><small>${pick ? 'Pick a glowing node!' : 'Nothing ready yet'}</small></span></button>`;
+        h += `<button type="button" class="lt-slotc is-empty"${pick ? ` data-goto="${esc(pick.id)}"` : ''}><span class="lt-plus">+</span><span class="lt-slotc-m"><b>Bench free</b><small>${pick ? 'Pick a ready project!' : 'Nothing ready yet'}</small></span></button>`;
       }
     }
     this.$slots.innerHTML = h;
@@ -1882,6 +2434,13 @@ export class LabTree {
       const txt = fmtClock(j.left);
       if (s.t.textContent !== txt) s.t.textContent = txt;
       if (s.rush.length) this._livePrices(s.rush, s.id);
+    }
+    for (const r of this._ibRun || []) {
+      const j = this._job(r.id);
+      if (!j) continue;
+      const txt = fmtClock(j.left);
+      if (r.t && r.t.textContent !== txt) r.t.textContent = txt;
+      if (r.bar) r.bar.style.width = `${(j.k * 100).toFixed(1)}%`;
     }
     for (const j of this._jobs) {
       const n = j.n;
@@ -2024,14 +2583,14 @@ export class LabTree {
     seal._sig = sig;
     const needs = (k.needs || []).map((x) => `<li class="${x.ok ? 'ok' : 'bad'}"${x.kind === 'node' && this.byId.has(x.id) ? ` data-goto="${esc(x.id)}"` : ''}>${x.ok ? G_CHECK : G_CROSS}<span>${esc(x.text)}</span></li>`).join('');
     const body = `<div class="lt-seal-card">
-        <div class="lt-seal-top">${G_SEAL}<div class="lt-seal-tt"><span class="lt-seal-k">ENCRYPTED SECTOR</span><span class="lt-seal-n">${esc(B.b.name)}</span><span class="lt-seal-c">${B.nodes.length} PROJECTS LOCKED <i>${esc(scramble('XXXXXXXX', 1, hashStr(B.b.id)))}</i></span></div></div>
+        <div class="lt-seal-top">${G_SEAL}<div class="lt-seal-tt"><span class="lt-seal-k">ENCRYPTED FOLDER</span><span class="lt-seal-n">${esc(B.b.name)}</span><span class="lt-seal-c">${B.nodes.length} PROJECTS LOCKED <i>${esc(scramble('XXXXXXXX', 1, hashStr(B.b.id)))}</i></span></div></div>
         ${needs ? `<ul class="lt-seal-req">${needs}</ul>` : ''}
         <button type="button" class="lt-decrypt${k.canUnlock ? ' is-ready' : ''}">${G_KEY}<span>DECRYPT</span>${k.coins ? `<small>${G_COIN}${k.coins}</small>` : '<small>FREE</small>'}</button>
       </div>`;
     if (first) {
       let ghosts = '';
       for (const n of B.nodes) ghosts += `<i style="left:${Math.round(n.x - B.sx - 28)}px;top:${Math.round(n.y - B.sy - 28)}px;--d:${hashStr(n.id) % 1200}ms"><b>?</b></i>`;
-      seal.innerHTML = `<div class="lt-seal-bg"><div class="lt-radar"><i></i><b></b></div></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
+      seal.innerHTML = `<div class="lt-seal-bg"></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
     } else seal.querySelector('.lt-seal-body').innerHTML = body;
   }
 
@@ -2047,12 +2606,12 @@ export class LabTree {
       if (src) this._fx(src, 'is-shake', 400);
       this._fx(B.seal, 'is-denied', 600);
       this._flash(src || this.$go, res?.msg || 'Access denied');
-      this._log(`ACCESS DENIED: sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}`, 'err');
+      this._log(`ACCESS DENIED: ${B.dos}`, 'err');
       this._glitch();
       return;
     }
     this._sfx('decrypt');
-    this._log(`brute-forcing sector ${String(B.i + 1).padStart(2, '0')} cipher...`, 'warn');
+    this._log(`decrypting ${B.dos}... key accepted`, 'warn');
     if (k.coins) { this._coinsFly(src, B.seal.querySelector('.lt-seal-top') || B.seal, Math.min(14, 4 + Math.round(k.coins / 15))); this._bumpCoins(); }
     this.refresh();
   }
@@ -2070,8 +2629,8 @@ export class LabTree {
       n.el.classList.add('is-hide');
       this._later(() => { n.el.classList.remove('is-hide'); this._fx(n.el, 'is-reveal', 900); }, REDUCED ? 0 : 650 + Math.min(i, 14) * 70);
     });
-    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-k">SECTOR DECRYPTED</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
-    this._log(`sector ${String(B.i + 1).padStart(2, '0')} decrypted: ${B.b.name} (${B.nodes.length} projects)`, 'ok', REDUCED ? 0 : 900);
+    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-k">FOLDER DECRYPTED</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
+    this._log(`${B.dos} decrypted: ${B.nodes.length} projects`, 'ok', REDUCED ? 0 : 900);
     this._glitch();
     this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
   }
@@ -2081,7 +2640,8 @@ export class LabTree {
     if (REDUCED) return;
     const slot = this.$slots.querySelector(`[data-job="${CSS.escape(n.id)}"] .lt-art`) || this.$slots;
     const rr = this.root.getBoundingClientRect();
-    const a = n.$ico.getBoundingClientRect(), b = slot.getBoundingClientRect();
+    const from = (this.loc?.k === 'ready' && this.$inbox.querySelector(`[data-ib="${CSS.escape(n.id)}"] .lt-ib-slot`)) || n.$ico;
+    const a = from.getBoundingClientRect(), b = slot.getBoundingClientRect();
     if (!a.width || !b.width) return;
     const el = document.createElement('div');
     el.className = 'lt-fly';
@@ -2234,6 +2794,18 @@ export class LabTree {
       this.refresh();
     }
     this._liveAct();
+    // [v31 lab] Reynard at his desk + the green liquid tube (only while a selected job runs)
+    if (this._isWorking && this.loc && t - (this._lastWork || 0) >= 33) {
+      const dt = clamp((t - (this._lastWork || t)) / 1000, 1 / 60, 0.1);
+      this._lastWork = t;
+      const n = this.sel;
+      const k = this._tubeK ?? 0;
+      this.tube.draw((t - this._t0) / 1000, k, { done: !!(n && this._finish?.id === n.id), dt });
+      if (this.wb) {
+        this.wb.setJob({ title: n?.d.name || '', art: this._artSrc(n), k });
+        try { this.wb.update(dt); } catch (err) { console.warn('Workbench', err); this.wb = null; this._wbFailed = true; this.$hero.classList.remove('has-wb'); }
+      }
+    }
     // wallet
     const coins = this._coins();
     if (coins !== this._lastCoins && this.$coinsV) {
@@ -2273,9 +2845,9 @@ export class LabTree {
       if (st === 'run') {
         const j = this._job(n.id);
         const k = j ? j.k : 0;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillStyle = '#03100a';
         ctx.fillRect(8, H - 8, W - 16, 4);
-        ctx.fillStyle = '#5fd0f0';
+        ctx.fillStyle = '#8ef5aa';
         ctx.fillRect(8, H - 8, Math.round((W - 16) * k), 4);
       }
       drawScan(ctx, W, H, t);
@@ -2284,42 +2856,40 @@ export class LabTree {
     this._drawBursts(ctx, dt);
   }
 
-  // an encrypted sector: a glitching padlock over scrambled data
+  // an encrypted folder: a brass padlock over scrambled phosphor data
   _drawSealHero(t) {
     const cv = this.pcv, ctx = this.pctx;
     if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
     const W = PW, H = PH;
     drawBackdrop(ctx, W, H, t, 'locked');
-    const R = rng(Math.floor(t * 8) + 1);
+    const R = rng(Math.floor(t * 3) + 1);
     ctx.font = "8px 'TBME Body', monospace"; // [v18 font]
     ctx.textAlign = 'left';
     for (let i = 0; i < 9; i++) {
-      ctx.fillStyle = `rgba(95,208,240,${0.08 + R() * 0.18})`;
-      ctx.fillText(scramble('XXXXXXXXXXXXXXXXXXXXXXX', 1, Math.floor(t * 6) * 13 + i), -4 + ((i * 37) % 11), 8 + i * 8);
+      ctx.fillStyle = i % 3 === 0 ? '#1b5a30' : '#123d21';
+      ctx.fillText(scramble('XXXXXXXXXXXXXXXXXXXXXXX', 1, Math.floor(t * 2) * 13 + i), -4 + ((i * 37) % 11), 8 + i * 8);
     }
-    const g = R() < 0.12 ? Math.round((R() - 0.5) * 6) : 0;
-    const cx = Math.round(W / 2) + g, cy = Math.round(H / 2) + 4;
-    // padlock: dark outline, shackle, body with a keyhole
-    ctx.fillStyle = '#04161c';
+    const cx = Math.round(W / 2), cy = Math.round(H / 2) + 4 + (Math.floor(t * 2) % 2);
+    // padlock: dark outline, steel shackle, brass body with a keyhole
+    ctx.fillStyle = '#120c02';
     ctx.fillRect(cx - 9, cy - 21, 18, 4);
     ctx.fillRect(cx - 9, cy - 21, 5, 14);
     ctx.fillRect(cx + 4, cy - 21, 5, 14);
     ctx.fillRect(cx - 13, cy - 9, 26, 21);
-    ctx.fillStyle = '#9adff0';
+    ctx.fillStyle = '#c8d0c0';
     ctx.fillRect(cx - 7, cy - 19, 14, 2);
     ctx.fillRect(cx - 7, cy - 19, 2, 11);
     ctx.fillRect(cx + 5, cy - 19, 2, 11);
-    ctx.fillStyle = '#5fd0f0';
+    ctx.fillStyle = '#e0a838';
     ctx.fillRect(cx - 11, cy - 7, 22, 17);
-    ctx.fillStyle = '#2c9cc8';
+    ctx.fillStyle = '#8a5a14';
     ctx.fillRect(cx + 7, cy - 7, 4, 17);
     ctx.fillRect(cx - 11, cy + 8, 22, 2);
-    ctx.fillStyle = '#d4fbff';
+    ctx.fillStyle = '#fff0a8';
     ctx.fillRect(cx - 11, cy - 7, 18, 1);
-    ctx.fillStyle = '#04161c';
+    ctx.fillStyle = '#120c02';
     ctx.fillRect(cx - 2, cy - 2, 4, 4);
     ctx.fillRect(cx - 1, cy + 2, 2, 4);
-    if (g) { ctx.fillStyle = 'rgba(255,90,120,.5)'; ctx.fillRect(0, cy - 4 + g * 2, W, 2); }
     drawScan(ctx, W, H, t);
     this._drawBursts(ctx, 0.033);
   }
@@ -2350,11 +2920,11 @@ export class LabTree {
     const bob = dark ? 0 : Math.round(Math.sin(t * 2.2) * 2.5);
     const x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2 - 5 + bob);
     const sw = Math.round(w * (0.62 - bob * 0.03));
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillStyle = '#020a05';
     ctx.fillRect(Math.round(W / 2 - sw / 2), H - 15, sw, 3);
     if (dark) {
       try { ctx.drawImage(this._silhouette(img, w, h), x, y); } catch { /* ignore */ }
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillStyle = '#1f5a34';
       ctx.font = "24px 'TBME Title', monospace"; // [v18 font]
       ctx.textAlign = 'center';
       ctx.fillText('?', W / 2, H / 2 + 4);
@@ -2391,7 +2961,7 @@ export class LabTree {
       const bx = Math.round(cx + (right ? w / 2 : -w / 2) * 0.8 + Math.sin(t * 3 + i) * 2);
       const by = Math.round(y + h * 0.3 - k * 34);
       if (by < 4) continue;
-      ctx.fillStyle = `rgba(190,240,255,${0.7 * (1 - k)})`;
+      ctx.fillStyle = k < 0.5 ? '#c8ffd2' : '#6fcf8e';
       ctx.fillRect(bx, by, i % 2 ? 1 : 2, i % 2 ? 1 : 2);
     }
   }
@@ -2417,43 +2987,51 @@ export class LabTree {
 }
 
 // ---------------------------------------------------------------- showcase drawing
-const HERO_TINT = { done: [255, 214, 90], run: [95, 208, 240], avail: [125, 255, 168], zone: [255, 154, 58], locked: [140, 150, 170] };
+// [v31 lab] a phosphor bench: dark green, a scrolling dot grid, a flat (quantised) pool of
+// light in the state's colour and a pulsing ring of dots under the art. No smooth gradients.
+const HERO_TINT = { done: '#ffd25a', run: '#8ef5aa', avail: '#7cf29e', zone: '#e8a030', locked: '#5a7a64' };
 function drawBackdrop(ctx, W, H, t, st) {
-  const [r, g, b] = HERO_TINT[st] || HERO_TINT.avail;
+  const tint = HERO_TINT[st] || HERO_TINT.avail;
   const dark = st === 'locked' || st === 'zone';
-  ctx.fillStyle = dark ? '#0b0f12' : '#0a1a1e';
+  ctx.fillStyle = dark ? '#06100a' : '#071a0e';
   ctx.fillRect(0, 0, W, H);
   const off = Math.floor(t * 4) % 8;
-  ctx.fillStyle = dark ? '#141a1e' : '#12303a';
-  for (let x = -off; x < W; x += 8) ctx.fillRect(x, 0, 1, H);
-  for (let y = off; y < H; y += 8) ctx.fillRect(0, y, W, 1);
-  const gr = ctx.createRadialGradient(W / 2, H / 2 - 4, 2, W / 2, H / 2, H * 0.8);
-  gr.addColorStop(0, `rgba(${r},${g},${b},${dark ? 0.08 : 0.24})`);
-  gr.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = dark ? '#0c1a10' : '#0f2c19';
+  for (let y = off % 4; y < H; y += 4) for (let x = (y >> 2) % 2 ? 2 : 0; x < W; x += 8) ctx.fillRect(x, y, 1, 1);
+  // a pool of light: three flat bands, stepped (not a gradient)
   const cx = W / 2, cy = H - 13;
+  ctx.fillStyle = tint;
+  for (const [rx, ry, a] of [[52, 20, 0.05], [36, 13, 0.07], [22, 8, 0.1]]) {
+    ctx.globalAlpha = dark ? a * 0.4 : a;
+    for (let y = -ry; y <= ry; y++) {
+      const w = Math.round(rx * Math.sqrt(1 - (y * y) / (ry * ry)));
+      ctx.fillRect(Math.round(cx - w), Math.round(cy + y - 12), w * 2, 1);
+    }
+  }
+  ctx.globalAlpha = 1;
   for (let i = 0; i < 3; i++) {
     const rx = 18 + i * 9, ry = 3 + i * 1.6;
     const pulse = (t * 0.9 + i / 3) % 1;
-    const a = (dark ? 0.08 : 0.18) + (dark ? 0.15 : 0.5) * (1 - Math.abs(pulse - 0.5) * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
-    for (let k = 0; k < 64; k++) {
-      const ang = (k / 64) * Math.PI * 2;
+    ctx.globalAlpha = (dark ? 0.12 : 0.25) + (dark ? 0.15 : 0.5) * (1 - Math.abs(pulse - 0.5) * 2);
+    for (let k = 0; k < 48; k++) {
+      const ang = (k / 48) * Math.PI * 2;
       ctx.fillRect(Math.round(cx + Math.cos(ang) * rx), Math.round(cy + Math.sin(ang) * ry), 1, 1);
     }
   }
+  ctx.globalAlpha = 1;
 }
 
 function drawScan(ctx, W, H, t) {
   const y = Math.floor(((t * 34) % (H + 26)) - 12);
-  for (let i = 0; i < 8; i++) {
-    const yy = y - i;
+  ctx.fillStyle = '#b8ffc8';
+  for (let i = 0; i < 4; i++) {
+    const yy = y - i * 2;
     if (yy < 0 || yy >= H) continue;
-    ctx.fillStyle = `rgba(200,240,255,${i === 0 ? 0.3 : 0.08 * (1 - i / 8)})`;
+    ctx.globalAlpha = i === 0 ? 0.16 : 0.05;
     ctx.fillRect(0, yy, W, 1);
   }
-  ctx.fillStyle = 'rgba(0,0,0,0.14)';
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
   for (let yy = 1; yy < H; yy += 2) ctx.fillRect(0, yy, W, 1);
 }
 
@@ -2466,7 +3044,7 @@ function drawSparkles(ctx, W, H, t, seed, count) {
     const x = Math.round(W * 0.22 + R() * W * 0.56), y = Math.round(H * 0.12 + R() * H * 0.62);
     if (ph > 0.6) continue;
     const s = ph < 0.2 || ph > 0.45 ? 0 : 1;
-    ctx.fillStyle = R() < 0.5 ? '#eafff0' : '#ffe890';
+    ctx.fillStyle = R() < 0.5 ? '#d0ffd8' : '#ffe890';
     ctx.fillRect(x, y, 1, 1);
     if (s) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
   }

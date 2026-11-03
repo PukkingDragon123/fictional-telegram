@@ -116,6 +116,7 @@ export function buildFxAtlas() {
   draw('star', ['...a...', '..aab..', 'aaabbbb', '.abbbc.', '.bbcbc.', 'bc...cb'], { a: '#fff8c0', b: '#ffd23a', c: '#e09a1a' }, '#6a3a10');
   draw('sparkle', ['..a..', '..b..', 'abcba', '..b..', '..a..'], { a: '#fff2a0', b: '#fffbe0', c: '#ffffff' });
   draw('sparkle', ['.....', '..b..', '.bcb.', '..b..', '.....'], { a: '#fff2a0', b: '#fffbe0', c: '#ffffff' });
+  draw('glint', ['.a.', 'aba', '.a.'], { a: '#ffffff', b: '#ffffff' }); // (the title scene's glints + motes use this one)
   draw('glow', ['.aaa.', 'abbba', 'abcba', 'abbba', '.aaa.'], { a: '#ffcf7a', b: '#ffe6a8', c: '#ffffff' });
   // [v31 fx] firefly: a dithered halo when it lights up, a dark spark between blinks
   draw('firefly', ['..c..', '.cac.', 'cabac', '.cac.', '..c..'], { a: '#d8ff7a', b: '#ffffe0', c: '#6a9a2a' });
@@ -129,9 +130,9 @@ export function buildFxAtlas() {
   // --- dust / smoke puffs (grow frames)
   // [v31 fx] dust puffs: same frame size, the cloud swells and breaks up (lit top-left, dithered edge)
   const dustPal = { a: '#fbf3dc', b: '#e6d8b4', c: '#c8b48c', d: '#a8946e' };
-  draw('dust', ['.........', '.........', '...aab...', '..abbbc..', '..bbccc..', '...ccd...', '.........'], dustPal);
-  draw('dust', ['.........', '...aa.a..', '.aabbba..', '.abbbbcc.', 'abbbcccc.', '.bccccdd.', '..c.dd...'], dustPal);
-  draw('dust', ['..a...a..', '.a.ab.b..', 'a.bb.bc.a', '.b.bc.cc.', 'b.c.cdc.d', '.c.d.d.c.', '..d...d..'], dustPal);
+  draw('dust', ['..aab..', '.abbbc.', 'abbbccc', '.bcccd.', '..cdd..'], dustPal);
+  draw('dust', ['.aa.ab.', 'aabbbbc', 'abbbccc', '.bccddc', '..c.dd.'], dustPal);
+  draw('dust', ['a..a..a', '.ab.b.c', 'b.bc.cc', '.c.cdc.', 'c..d..d'], dustPal);
   draw('smoke', ['..aaa...', '.aabbaa.', 'aabbbbba', 'abbbbbbb', '.bbbbbb.', '..bbbb..'], { a: '#e8e4e0', b: '#b8b2ae' });
   // --- cartoon fight cloud (2 frames) with a hammer and planks poking out
   const cloudPal = { a: '#ffffff', b: '#e8e4f0', c: '#c8c0d8', h: '#8a8a94', w: '#b07a44', d: '#7a4e2a' };
@@ -212,13 +213,13 @@ export function buildFxAtlas() {
   draw('mote', ['.....', '..a..', '.aba.', '..a..', '.....'], { a: '#ffe0a0', b: '#fffbe8' });
   draw('mote', ['..a..', '..b..', 'abcba', '..b..', '..a..'], { a: '#ffcf80', b: '#fff0c0', c: '#ffffff' });
   draw('mote', ['.....', '..a..', '.aba.', '..a..', '.....'], { a: '#ffe0a0', b: '#fffbe8' });
-  // water glint: a pinpoint flares into a 4-point star and dies
+  // water glint (wglint): a pinpoint flares into a 4-point star and dies
   const gl = { a: '#bfe8ff', b: '#ffffff', c: '#ffffff' };
-  draw('glint', ['.......', '.......', '.......', '...b...', '.......', '.......', '.......'], gl);
-  draw('glint', ['.......', '.......', '...a...', '..aba..', '...a...', '.......', '.......'], gl);
-  draw('glint', ['...a...', '...a...', '...b...', 'aabcbaa', '...b...', '...a...', '...a...'], gl);
-  draw('glint', ['.......', '...a...', '...a...', '.aabaa.', '...a...', '...a...', '.......'], gl);
-  draw('glint', ['.......', '.......', '...a...', '..a.a..', '...a...', '.......', '.......'], gl);
+  draw('wglint', ['.......', '.......', '.......', '...b...', '.......', '.......', '.......'], gl);
+  draw('wglint', ['.......', '.......', '...a...', '..aba..', '...a...', '.......', '.......'], gl);
+  draw('wglint', ['...a...', '...a...', '...b...', 'aabcbaa', '...b...', '...a...', '...a...'], gl);
+  draw('wglint', ['.......', '...a...', '...a...', '.aabaa.', '...a...', '...a...', '.......'], gl);
+  draw('wglint', ['.......', '.......', '...a...', '..a.a..', '...a...', '.......', '.......'], gl);
   // splash rings (flat on the water), drawn on the texel grid: expanding, thinning, breaking up
   const ringRows = (R, th, gap) => {
     const N = 17, c = 8, rows = [];
