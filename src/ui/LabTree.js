@@ -60,6 +60,11 @@ import { faceImg } from './faces3d.js';
 import { Workbench } from './lab/workbench.js';
 import { Tube } from './lab/tube.js';
 import * as ART from './lab/deskArt.js';
+import { Rain } from './lab/rain.js';
+import { Wallpaper } from './lab/wallpaper.js';
+import { IconBank } from './lab/icons.js';
+import '@fontsource/silkscreen/latin-400.css'; // [v31 lab] crisp pixel UI faces (whole-pixel sizes only)
+import '@fontsource/pixelify-sans/latin-400.css';
 
 // fish art is optional (import.meta.glob keeps the build working without it)
 const OPTIONAL = import.meta.glob('../art/fishArt.js');
@@ -146,87 +151,14 @@ function rng(seed) {
 }
 
 // ---------------------------------------------------------------- pixel art
-function makeCanvas(w, h) {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  return c;
-}
-
-// 32x32 ornate icon slot: rounded metal ring lit from the top left, dark
-// bevel, scroll ornaments in the corners, a status gem on top and a dark well.
-const SLOT_PALS = {
-  gold: { k: '#1c1006', h: '#fff8c8', g: '#ffc936', a: '#d8901a', s: '#a0600e', i: '#3c2406', y: '#ffffff', o: '#5c3206', e: '#5dff8f', E: '#e6ffee', w: '#2a2410', v: '#241e0c' },
-  brass: { k: '#150b04', h: '#eec38a', g: '#b87c3a', a: '#8a5528', s: '#5e3719', i: '#241306', y: '#ffe2b4', o: '#3e220c', e: '#7cf29e', E: '#e8fff0', w: '#0c2414', v: '#0a1f11' },
-  phos: { k: '#03140a', h: '#d0ffd8', g: '#6fe08e', a: '#3fb866', s: '#1f7d3d', i: '#06200f', y: '#ffffff', o: '#0e4a22', e: '#ffc04a', E: '#fff0c0', w: '#0a2a14', v: '#08240f' },
-  iron: { k: '#030604', h: '#66766a', g: '#43504a', a: '#333e38', s: '#222a26', i: '#0a0e0b', y: '#84948a', o: '#141a16', e: '#5a2a18', E: '#8a4a2a', w: '#0e1610', v: '#0b120d' },
-  ember: { k: '#080602', h: '#b0a270', g: '#766a44', a: '#5e5636', s: '#3c3622', i: '#0e0c06', y: '#d0c090', o: '#201c0e', e: '#ffb040', E: '#ffe6b0', w: '#16140c', v: '#12100a' },
-};
-const CORNER = [
-  '..kkkkk',
-  '.kyyyyH',
-  'kyoooyg',
-  'kyoyyog',
-  'kyoyo..',
-  'kyyo...',
-  'kVgg...',
-];
-function slotCanvas(p) {
-  const S = 32;
-  const cv = makeCanvas(S, S);
-  const c = cv.getContext('2d');
-  const put = (x, y, col) => { c.fillStyle = col; c.fillRect(x, y, 1, 1); };
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      const ex = Math.min(x, S - 1 - x), ey = Math.min(y, S - 1 - y);
-      if (ex + ey < 2) continue;
-      const d = Math.min(ex, ey);
-      const top = y === d && y <= S - 1 - y, left = x === d && x <= S - 1 - x;
-      let col;
-      if (d === 0 || ex + ey === 2) col = p.k;
-      else if (d === 1) col = top || left ? p.h : p.s;
-      else if (d === 2) col = p.g;
-      else if (d === 3) col = top || left ? p.a : p.g;
-      else if (d === 4) col = p.i;
-      else col = y % 2 ? p.v : p.w;
-      put(x, y, col);
-    }
-  }
-  for (const [fx, fy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-    CORNER.forEach((row, y) => {
-      for (let x = 0; x < row.length; x++) {
-        let ch = row[x];
-        if (ch === '.') continue;
-        if (ch === 'H') ch = fy ? 's' : 'h';
-        else if (ch === 'V') ch = fx ? 's' : 'h';
-        put(fx ? S - 1 - x : x, fy ? S - 1 - y : y, p[ch]);
-      }
-    });
-  }
-  const GEM = ['.kkkk.', 'kEeeek', 'keeeek', '.kkkk.'];
-  const gx = S / 2 - 3;
-  GEM.forEach((row, y) => { for (let x = 0; x < 6; x++) if (row[x] !== '.') put(gx + x, y, p[row[x]]); });
-  const m = S / 2;
-  for (const [x, y] of [[m - 1, S - 3], [m, S - 3], [2, m - 1], [2, m], [S - 3, m - 1], [S - 3, m]]) put(x, y, p.o);
-  for (const [x, y] of [[m - 1, S - 2], [2, m - 2], [S - 3, m - 2]]) put(x, y, p.y);
-  return cv;
-}
-
-// the slot frames as data URLs, pre-scaled (nearest) to the device px a 64 css px slot covers,
-// so the browser shows them 1:1 at zoom 1 (iPad Safari smooths scaled backgrounds)
+// [v31 lab] node slots are 32x32 pixel IC chips, one per research state (src/ui/lab/deskArt.js),
+// pre-scaled (nearest) to the device px a 64 css px slot covers, so they show 1:1 at zoom 1
 let SLOT_URLS = null;
 function slotURLs() {
   const u = Math.max(1, Math.round(2 * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)));
   if (SLOT_URLS && SLOT_URLS.u === u) return SLOT_URLS.map;
   const map = {};
-  for (const [k, p] of Object.entries(SLOT_PALS)) {
-    const src = slotCanvas(p);
-    const c = makeCanvas(src.width * u, src.height * u);
-    const x = c.getContext('2d');
-    x.imageSmoothingEnabled = false;
-    x.drawImage(src, 0, 0, c.width, c.height);
-    map[k] = c.toDataURL();
-  }
+  for (const [k, p] of Object.entries(ART.CHIP)) map[k] = ART.urlOf(ART.chipCanvas(p), u);
   SLOT_URLS = { u, map };
   return map;
 }
@@ -255,19 +187,19 @@ const FOX_LOGO = pixSVG([
   '..owwkwwo..',
   '...owwwo...',
   '....ooo....',
-], { o: '#ff9a3a', O: '#7a3a12', k: '#1a0c04', w: '#fff1d6' }, 3, 'lt-logo');
+], { o: '#3fb866', O: '#1f7d3d', k: '#010402', w: '#c8ffd2' }, 3, 'lt-logo');
 
 // tiny glyphs drawn here so they never depend on the sprite sheet
 const G_CHECK = pixSVG(['......k', '.....kg', 'k...kg.', 'gk.kg..', '.gkg...', '..g....'], { k: '#2a8a3a', g: '#7dffa8' }, 2, 'lt-g');
 const G_CROSS = pixSVG(['r...r', '.r.r.', '..r..', '.r.r.', 'r...r'], { r: '#e8774a' }, 2, 'lt-g');
-const G_CLOCK = pixSVG(['.kkkk.', 'kwwkwk', 'kwwkwk', 'kwwkkk', 'kwwwwk', '.kkkk.'], { k: '#2b2a24', w: '#fff1c8' }, 2, 'lt-g');
-const G_LOCK = pixSVG(['.kkk.', 'k...k', 'k...k', 'kkkkk', 'kgggk', 'kgkgk', 'kgggk', 'kkkkk'], { k: '#1a1410', g: '#ffd23f' }, 2, 'lt-g');
+const G_CLOCK = pixSVG(['.kkkk.', 'kwwkwk', 'kwwkwk', 'kwwkkk', 'kwwwwk', '.kkkk.'], { k: '#010402', w: '#7cf29e' }, 2, 'lt-g');
+const G_LOCK = pixSVG(['.kkk.', 'k...k', 'k...k', 'kkkkk', 'kgggk', 'kgkgk', 'kgggk', 'kkkkk'], { k: '#010402', g: '#5aa874' }, 2, 'lt-g');
 const G_PAW = pixSVG(['.k.k.', 'k.k.k', '.....', '.kkk.', 'kkkkk', '.kkk.'], { k: '#ffb060' }, 2, 'lt-g');
 const G_BOLT = pixSVG(['...kk', '..kk.', '.kkkk', 'kkkk.', '..kk.', '.kk..', '.k...'], { k: '#2a1a04' }, 2, 'lt-g');
 const G_FF = pixSVG(['k..k...', 'kk.kk..', 'kkkkkk.', 'kkkkkkk', 'kkkkkk.', 'kk.kk..', 'k..k...'], { k: '#2a1600' }, 2, 'lt-g');
 const G_COIN = pixSVG(['.kkkk.', 'kyyyyk', 'kyhyyk', 'kyhyyk', 'kyyyyk', '.kkkk.'], { k: '#8a5a00', y: '#ffd23f', h: '#fff6c0' }, 2, 'lt-g lt-coin');
 const G_KEY = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.....'], { k: '#7dffa8' }, 2, 'lt-g');
-const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#1a1004', g: '#e0a838', r: '#8a5a14' }, 4, 'lt-g lt-sealg');
+const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#010402', g: '#5aa874', r: '#2c6e44' }, 4, 'lt-g lt-sealg');
 const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#141408' }, 3, 'lt-g');
 
 const G_PLUS = pixSVG(['..k..', '..k..', 'kkkkk', '..k..', '..k..'], { k: '#141408' }, 3, 'lt-g');
@@ -276,7 +208,7 @@ const G_X = pixSVG(['k...k', '.k.k.', '..k..', '.k.k.', 'k...k'], { k: '#141408'
 // [v31 lab] desktop glyphs: back arrow, a mini folder, a running dot
 const G_BACK = pixSVG(['...k...', '..kk...', '.kkkkkk', 'kkkkkkk', '.kkkkkk', '..kk...', '...k...'], { k: '#141408' }, 2, 'lt-g');
 const G_KEYD = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.....'], { k: '#2a1600' }, 2, 'lt-g');
-const G_FOLD = pixSVG(['kkkk.....', 'kyyyk....', 'kkkkkkkkk', 'kyyyyyyyk', 'kyyyyyyyk', 'kyyyyyyyk', 'kkkkkkkkk'], { k: '#141408', y: '#c9ad5e' }, 2, 'lt-g');
+const G_FOLD = pixSVG(['kkkk.....', 'kyyyk....', 'kkkkkkkkk', 'kyyyyyyyk', 'kyyyyyyyk', 'kyyyyyyyk', 'kkkkkkkkk'], { k: '#010402', y: '#7cf29e' }, 2, 'lt-g');
 
 // the terminal's idle chatter (one line at a time in the ticker)
 const IDLE_LOG = [
@@ -479,7 +411,7 @@ function withGame(opts) {
 }
 
 export class LabTree {
-  static _art = { slotCanvas, SLOT_PALS };
+  static _art = { chipCanvas: ART.chipCanvas, CHIP: ART.CHIP };
 
   constructor(container, opts = {}) {
     this.container = container;
@@ -490,7 +422,6 @@ export class LabTree {
     this._st = new Map();
     this._iconInfo = new Map();
     this._fishFrames = new Map();
-    this._silhouettes = new Map();
     this._ptrs = new Map();
     this._toasts = [];
     this._bursts = [];
@@ -506,6 +437,8 @@ export class LabTree {
     this.cam = { x: 0, y: 0, z: 1 };
     this.goal = null;
 
+    // [v31 lab] phosphor-green icons + fish (tinted once, cached)
+    this.bank = new IconBank({ fishCanvas: (sp, o) => { const fn = this.o.fishCanvas || this._fish?.fishCanvas; return typeof fn === 'function' ? fn(sp, o) : null; } });
     this._layout(opts);
     if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
     // v19: just the computer: the game HUD steps aside while a tree is on screen
@@ -523,6 +456,7 @@ export class LabTree {
     if (this._tut()) { this._go({ k: 'all' }, { anim: false, sound: false }); this._centerOn(first, true); }
     else this._go(null, { anim: false, sound: false, from: first ? this._deskItem(first.B) : null });
     this._sfx('open');
+    this._boot();
     this._raf = requestAnimationFrame(this._loop);
     loadFish().then((m) => this._onFish(m));
   }
@@ -554,6 +488,9 @@ export class LabTree {
       lane += rows;
     }
     this.lanes = lane;
+    // [v31 lab] the desktop is in colour: every branch folder gets its own vivid rainbow hue
+    const hues = ART.rainbowHues(this.branches.map((B) => B.b.color || '#888888'));
+    this.branches.forEach((B, i) => { B.hue = hues[i]; B.vivid = ART.vividRamp(hues[i]); });
     const seen = new Set();
     for (const B of this.branches) { let d = B.dos, k = 2; while (seen.has(d)) d = `${B.dos.slice(0, 15)}_${k++}`; B.dos = d; seen.add(d); }
     this.byId = new Map(this.nodes.map((n) => [n.id, n]));
@@ -606,7 +543,8 @@ export class LabTree {
       this._st.set(n.id, st);
       const el = n.el;
       for (const s of ['done', 'run', 'avail', 'zone', 'locked', 'sealed']) el.classList.toggle(`is-${s}`, st === s);
-      el.style.setProperty('--slot', `var(--lt-slot-${st === 'done' ? 'gold' : st === 'avail' ? 'brass' : st === 'run' ? 'phos' : st === 'zone' ? 'ember' : 'iron'})`);
+      el.style.setProperty('--slot', `var(--lt-slot-${st === 'sealed' ? 'locked' : st})`);
+      n.$ico.innerHTML = this._nodeArt(n); // the icon is re-inked for its state (dim when locked)
       el.tabIndex = st === 'sealed' ? -1 : el.tabIndex;
       el.setAttribute('aria-label', `${n.d.name}: ${STATE_TEXT[st]}`);
       this._nodeBadge(n, st);
@@ -778,8 +716,16 @@ export class LabTree {
     }
     return m;
   }
-  // icon html scaled to fit `box` css px
-  _iconFit(name, box) {
+  // [v31 lab] every icon is re-inked in phosphor green (src/ui/lab/icons.js): 'on' | 'done' | 'mid' | 'dim' | 'amber'
+  _ramp(n) {
+    const s = this._st.get(n.id);
+    return s === 'done' ? 'done' : s === 'locked' || s === 'sealed' ? 'dim' : s === 'zone' ? 'mid' : 'on';
+  }
+  // icon html scaled to fit `box` css px (whole-number scale)
+  _iconFit(name, box, ramp = 'on') {
+    const c = this.bank.icon(name, ramp) || this.bank.icon('flask', ramp);
+    if (c) return this.bank.url(c, box, `i:${name}|${ramp}|${box}`);
+    // no game sprites here (a bare tree): the caller's own icon, in colour
     let m = this._iconMeta(name);
     if (!m.ok) { name = 'flask'; m = this._iconMeta(name); }
     if (!m.ok) return '';
@@ -800,25 +746,30 @@ export class LabTree {
     this._fishFrames.set(k, c);
     return c;
   }
-  // the raw art of a node (fish frame canvas or icon image), e.g. for the workbench CRT
+  // [v31 lab] the icon in its own colours (the desktop folders), whole-number scale to fit `box`
+  _iconColor(name, box) {
+    let m = this._iconMeta(name);
+    if (!m.ok) { name = 'flask'; m = this._iconMeta(name); }
+    if (!m.ok) return this._iconFit(name, box);
+    return this._icon(name, Math.max(1, Math.floor(box / Math.max(m.w, m.h, 1))));
+  }
+  // the raw (green) art of a node, e.g. for the workbench CRT
   _artSrc(n) {
     if (!n) return null;
+    const c = this.bank.node(n.d, 'on');
+    if (c) return c;
     if (n.d.species) { const f = this._fishFrame(n.d.species, 0); if (f) return f; }
     const m = this._iconMeta(n.d.icon);
     return m.ok ? m.img : null;
   }
-  _fishImg(species, box) {
-    const f = this._fishFrame(species, 0);
+  _fishImg(species, box, ramp = 'on') {
+    const f = this.bank.fish(species, 0, ramp);
     if (!f) return '';
-    const k = Math.min(box / f.width, (box * 0.8) / f.height, 3);
-    let url = '';
-    try { url = f.toDataURL(); } catch { url = ''; }
-    if (!url) return '';
-    return `<img class="px" src="${url}" width="${Math.round(f.width * k)}" height="${Math.round(f.height * k)}" alt="" draggable="false">`;
+    return this.bank.url(f, box, `f:${species}|${ramp}|${box}`);
   }
-  _nodeArt(n, box = WELL) {
-    if (n.d.species) { const f = this._fishImg(n.d.species, box); if (f) return f; }
-    return this._iconFit(n.d.icon, box);
+  _nodeArt(n, box = WELL, ramp = this._ramp(n)) {
+    if (n.d.species) { const f = this._fishImg(n.d.species, box, ramp); if (f) return f; }
+    return this._iconFit(n.d.icon, box, ramp);
   }
   _buildArt(id, box) {
     const s = STRUCT_DATA.STRUCTURES?.[id];
@@ -838,18 +789,20 @@ export class LabTree {
       <div class="lt-bezel">
         <div class="lt-screen">
           <header class="lt-head">
-            <span class="lt-logo">${logo || FOX_LOGO}</span>
-            <div class="lt-titles"><h1><span class="lt-h1t">Reynard Labs</span><span class="lt-ver">FOX-DOS 3.1</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
+            <span class="lt-logo"><span class="lt-avatar">${logo || FOX_LOGO}</span></span>
+            <div class="lt-titles"><h1><span class="lt-h1t">REYNARD<i>_</i>LABS</span><span class="lt-ver">FOX-DOS 3.1</span></h1><span class="lt-tagline"><span class="lt-prompt">root@reynard:~$</span> research is <b>FREE</b> <i>//</i> coins buy <b class="y">SPEED</b><i class="lt-cur"></i></span></div>
             <div class="lt-coins" title="Your coins"${typeof this.o.coins === 'function' ? '' : ' hidden'}><span class="lt-coins-l">COINS</span><span class="lt-coins-v">${G_COIN}<b>0</b></span></div>
             <div class="lt-count" title="Researched"><span class="lt-count-t"></span><span class="lt-cbar"><i></i></span></div>
             <button class="lt-close" type="button" aria-label="Close research (Esc)"><span class="lt-close-x">${G_X}</span><span>EXIT</span><kbd>ESC</kbd></button>
           </header>
           <div class="lt-path">
             <button class="lt-up" type="button" aria-label="Back to the desktop (Backspace)">${G_BACK}<span>DESKTOP</span></button>
-            <div class="lt-addr"><span class="lt-crumb" data-crumb="root" role="button" tabindex="-1">C:\\LAB\\</span><span class="lt-crumb-cur"></span><i class="lt-cur"></i></div>
+            <div class="lt-addr"><span class="lt-user">root@reynard:</span><span class="lt-crumb" data-crumb="root" role="button" tabindex="-1">C:\\LAB\\</span><span class="lt-crumb-cur"></span><span class="lt-gt">&gt;</span><i class="lt-cur"></i></div>
             <span class="lt-pinfo"></span>
           </div>
           <div class="lt-main">
+            <canvas class="lt-rain" aria-hidden="true"></canvas>
+            <canvas class="lt-wall" aria-hidden="true"></canvas>
             <div class="lt-body">
               <div class="lt-view" tabindex="0" aria-label="Research tree. Drag to pan, scroll or pinch to zoom.">
                 <div class="lt-world"></div>
@@ -865,7 +818,8 @@ export class LabTree {
               <aside class="lt-det" aria-live="polite">
                 <button class="lt-det-x" type="button" aria-label="Close details">${G_X}</button>
                 <div class="lt-det-scroll">
-                  <div class="lt-hero"><canvas class="lt-hero-cv" width="${PW}" height="${PH}"></canvas><canvas class="lt-wb" aria-label="Reynard at his lab computer"></canvas><span class="lt-hero-st"></span></div>
+                  <div class="lt-file"><span class="lt-file-p">FILE://</span><span class="lt-file-n"></span><span class="lt-file-s"></span></div>
+                  <div class="lt-hero"><canvas class="lt-hero-cv" width="${PW}" height="${PH}"></canvas><canvas class="lt-wb" aria-label="Reynard at his lab computer"></canvas><span class="lt-hero-st"></span><span class="lt-cam"><i></i>REC CAM-01</span></div>
                   <div class="lt-work" hidden>
                     <div class="lt-tubebox"><canvas class="lt-tube"></canvas><span class="lt-tube-p">0%</span><span class="lt-tube-t"></span></div>
                   </div>
@@ -897,11 +851,11 @@ export class LabTree {
             <div class="lt-slots"></div>
             <div class="lt-keys"><kbd>DRAG</kbd> pan <kbd>WHEEL</kbd> zoom <kbd>ENTER</kbd> research</div>
           </footer>
-          <div class="lt-term" aria-live="off"><span class="lt-term-p">C:\\LAB&gt;</span><span class="lt-term-l"></span><span class="lt-term-r"><i class="lt-led"></i>LAB OK<b class="lt-term-clk">00:00</b></span></div>
+          <div class="lt-term" aria-live="off"><span class="lt-term-p">root@reynard:~$</span><span class="lt-term-log"><span class="lt-term-l"></span></span><span class="lt-term-r"><span class="lt-hexc">0x0000</span><i class="lt-led"></i>LAB OK<b class="lt-term-clk">00:00</b></span></div>
+          <div class="lt-glitch" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
           <div class="lt-fx" aria-hidden="true"></div>
           <div class="lt-scan" aria-hidden="true"></div>
         </div>
-        <div class="lt-frame" aria-hidden="true"><span class="lt-fled"><i></i><i></i><i></i></span><span class="lt-fname">REYNARD-TEK &middot; PHOSPHOR RESEARCH TERMINAL &middot; MOD 31</span></div>
       </div>`;
     this.container.appendChild(root);
     this.root = root;
@@ -955,14 +909,22 @@ export class LabTree {
     this.$hTime = $('.lt-h-time');
     this.$hReq = $('.lt-h-req');
     this.$term = $('.lt-term-l');
+    this.$termLog = $('.lt-term-log');
     this.$termClk = $('.lt-term-clk');
+    this.$hexc = $('.lt-hexc');
+    this.$screen = $('.lt-screen');
+    this.$glitch = $('.lt-glitch');
+    this.$fileN = $('.lt-file-n');
+    this.$fileS = $('.lt-file-s');
+    this.rain = new Rain($('.lt-rain'));
+    this.wall = new Wallpaper($('.lt-wall'));
     this.tube = new Tube(this.$tube, { cssPx: 2, h: 16 });
     const rs = root.style;
     for (const [k, url] of Object.entries(slotURLs())) rs.setProperty(`--lt-slot-${k}`, `url(${url})`);
     // [v31 lab] the pixel frames (border-images) and tiles, at whole device px
     const u = ART.devU(2);
     for (const [k, v] of Object.entries(ART.frames(u))) rs.setProperty(`--f-${k}`, v);
-    for (const k of ['dots', 'grid', 'hatch']) rs.setProperty(`--t-${k}`, `url(${ART.urlOf(ART.tile(k), u)})`);
+    for (const k of ['dots', 'grid', 'hatch', 'scan', 'veil', 'dither']) rs.setProperty(`--t-${k}`, `url(${ART.urlOf(ART.tile(k), u)})`);
     rs.setProperty('--t-emblem', `url(${ART.urlOf(ART.emblem(), u)})`);
     rs.setProperty('--t-shadow', `url(${ART.urlOf(ART.shadow(), u)})`);
     this._u = u;
@@ -978,6 +940,14 @@ export class LabTree {
     const t = String(text || '');
     this._logT = now();
     const el = this.$term;
+    // [v31 lab] the old line scrolls up and out, the new one types in under it
+    if (el.textContent && !REDUCED && this.$termLog) {
+      const g = document.createElement('span');
+      g.className = `lt-term-ghost ${el.className.replace(/\b(lt-term-l|is-type)\b/g, '')}`;
+      g.textContent = el.textContent;
+      this.$termLog.appendChild(g);
+      this._later(() => g.remove(), 260);
+    }
     el.textContent = t;
     el.className = `lt-term-l${kind ? ` is-${kind}` : ''}`;
     el.style.setProperty('--n', Math.max(1, t.length));
@@ -1000,7 +970,46 @@ export class LabTree {
     }, 7000);
   }
 
-  _glitch() { /* v30: no screen glitches (cozy) */ }
+  // [v31 lab] a quick stepped glitch: dithered slices jump sideways for a few frames
+  _glitch(k = 1) {
+    if (REDUCED || !this.$glitch || !this._alive) return;
+    const R = rng((now() * 997) | 0);
+    for (const b of this.$glitch.children) {
+      b.style.top = `${(R() * 94).toFixed(1)}%`;
+      b.style.height = `${2 * Math.round(1 + R() * 5 * k)}px`;
+      b.style.setProperty('--gx', `${2 * Math.round((R() - 0.5) * 14 * k)}px`);
+    }
+    this._fx(this.$glitch, 'is-on', 240);
+    this._fx(this.$screen, 'is-glitch', 240);
+  }
+
+  // [v31 lab] the boot: a few lines typed in under a second, then ACCESS GRANTED (any key / tap skips)
+  _boot() {
+    if (REDUCED || this._tut()) return;
+    const el = document.createElement('div');
+    el.className = 'lt-boot';
+    const open = this.branches.filter((B) => !B.sealed).length;
+    const lines = [
+      '<b>root@reynard</b>:~# ./fox-dos --lab',
+      `[ <i>OK</i> ] mount C:\\LAB ........... ${open}/${this.branches.length} folders`,
+      `[ <i>OK</i> ] bench daemon ........ ${this._jobs.length}/${this._slots()} busy`,
+      `[ <i>OK</i> ] index ............... ${this.nodes.length} projects`,
+      '<em>ACCESS GRANTED</em><u></u>',
+    ];
+    el.innerHTML = `<div class="lt-boot-in">${lines.map((l, i) => `<p style="--i:${i}">${l}</p>`).join('')}</div>`;
+    this.$screen.appendChild(el);
+    this.$boot = el;
+    const end = () => {
+      if (this.$boot !== el) return;
+      this.$boot = null;
+      el.classList.add('is-out');
+      this._glitch(1.3);
+      this._later(() => el.remove(), 160);
+    };
+    this._bootEnd = end;
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); end(); });
+    this._later(end, 860);
+  }
 
   _buildTree() {
     const W = this.W, H = this.H;
@@ -1037,12 +1046,15 @@ export class LabTree {
         out.push(b);
       }
       out.push(px[px.length - 1]);
+      P.bends = out.slice(1, -1);
       return out.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('');
     };
-    let lo = '', lg = '', lc = '', lf = '', lx = '';
+    let lo = '', lg = '', lc = '', lf = '', lx = '', lv = '';
     this.edges.forEach((e, i) => {
       const d = P(e.pts);
       e.d = d;
+      // [v31 lab] solder pads (vias) on the circuit's bends
+      for (const [x, y] of P.bends || []) lv += `<rect class="lp-v" data-e="${i}" x="${x - 5}" y="${y - 5}" width="10" height="10"/>`;
       lo += `<path class="lp-o" data-e="${i}" d="${d}"/>`;
       lg += `<path class="lp-g" data-e="${i}" d="${d}"/>`;
       lc += `<path class="lp-c" data-e="${i}" d="${d}"/>`;
@@ -1053,8 +1065,11 @@ export class LabTree {
         lx += `<path class="lp-o lp-bo" data-e="${i}" d="${bd}"/><path class="lp-c" data-e="${i}" d="${bd}"/>`;
       }
     });
+    // the "glow" under lit traces is a dither pattern, never a blur
+    const dith = (id, c) => `<pattern id="${id}" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="${c}"/><rect x="2" y="2" width="2" height="2" fill="${c}"/></pattern>`;
     const svg = `<svg class="lt-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" aria-hidden="true">
-      <g>${lo}</g><g>${lg}</g><g>${lc}</g><g>${lf}</g><g>${lx}</g></svg>`;
+      <defs>${dith('lt-dg-on', '#0f3a1e')}${dith('lt-dg-run', '#1f5a34')}${dith('lt-dg-done', '#0c3018')}</defs>
+      <g>${lg}</g><g>${lo}</g><g>${lc}</g><g>${lv}</g><g>${lf}</g><g>${lx}</g></svg>`;
 
     let nodes = '';
     for (const n of this.nodes) {
@@ -1115,8 +1130,10 @@ export class LabTree {
     let h = '';
     for (const it of items) {
       const b = it.k === 'b';
-      h += `<button type="button" class="lt-fd is-${it.k}" data-fd="${it.id}" role="option" aria-selected="false" tabindex="-1"${b ? ` style="--bc:${esc(it.B.color)}"` : ''}>
-        <span class="lt-fd-pic"><span class="lt-fd-sh"></span><span class="lt-fd-lift"><span class="lt-fd-art"></span>${b ? `<span class="lt-fd-ico">${this._iconFit(it.B.b.icon, 32)}</span><span class="lt-fd-lock"></span>` : ''}</span><span class="lt-fd-tag"><i class="lt-fd-led"></i><b></b></span></span>
+      const R = b ? it.B.vivid : ART.vividRamp(it.k === 'all' ? 192 : 96);
+      const vars = `--fc:${R.base};--fl:${R.lit};--fh:${R.hi};--fd:${R.dp}${b ? `;--bc:${esc(it.B.color)}` : ''}`;
+      h += `<button type="button" class="lt-fd is-${it.k}" data-fd="${it.id}" role="option" aria-selected="false" tabindex="-1" style="${vars}">
+        <span class="lt-fd-pic"><span class="lt-fd-sh"></span><span class="lt-fd-lift"><span class="lt-fd-art"></span>${b ? `<span class="lt-fd-ico">${this._iconColor(it.B.b.icon, 32)}</span><span class="lt-fd-lock"></span>` : ''}</span><span class="lt-fd-tag"><i class="lt-fd-led"></i><b></b></span></span>
         <span class="lt-fd-name">${esc(it.name)}</span>
       </button>`;
     }
@@ -1133,7 +1150,7 @@ export class LabTree {
       it.f = 0;
       it.ft = 0;
     }
-    this._lockUrl = { shut: ART.urlOf(ART.padlock(false), this._u), open: ART.urlOf(ART.padlock(true), this._u) };
+    this._lockUrl = { shut: ART.urlOf(ART.padlock(false, 'slate'), this._u), open: ART.urlOf(ART.padlock(true, 'amber'), this._u) };
   }
 
   _deskItem(B) { return B ? this._deskBy?.get(`b${B.i}`) || null : null; }
@@ -1183,7 +1200,7 @@ export class LabTree {
       if (artChanged) {
         const url = it.k === 'all' ? this._strip('drive', ART.driveStrip)
           : it.k === 'ready' ? this._strip(art, () => ART.inboxStrip(art === 'tray1'))
-            : this._strip(`f:${it.B.color}:${sealed ? 1 : 0}:${it.B.b.id}`, () => ART.folderStrip(it.B.color, { locked: sealed, seed: it.B.b.id }));
+            : this._strip(`f:${it.B.hue}:${sealed ? 1 : 0}:${it.B.b.id}`, () => ART.folderStrip(it.B.hue, { locked: sealed, seed: it.B.b.id }));
         it.$art.style.backgroundImage = `url(${url})`;
         this._fdFrame(it, sealed ? 0 : it.f);
       }
@@ -1288,18 +1305,19 @@ export class LabTree {
       this._fdTo(it, 3, 30);
       const rr = this.root.getBoundingClientRect();
       const a = it.$pic.getBoundingClientRect(), b = this.$main.getBoundingClientRect();
-      const dur = this._zoomRects(a, b, rr, 90);
+      const dur = this._zoomRects(a, b, rr, 90, it.sealed ? '' : getComputedStyle(it.el).getPropertyValue('--fh').trim());
       this._later(() => {
         this._opening = false;
         this._enter(loc, { sound: false, then });
         this._fx(this.$main, 'is-pop', 320);
+        this._glitch(0.8);
         this._fdTo(it, it.hover ? 2 : 1, 60);
       }, 90 + dur);
       return;
     }
     if (sound) this._sfx(was ? 'select' : 'filter');
     this._enter(loc, { then });
-    if (anim && was) this._fx(this.$main, 'is-swap', 260);
+    if (anim && was) { this._fx(this.$main, 'is-swap', 260); this._glitch(0.6); }
   }
 
   _setLocClass() {
@@ -1359,16 +1377,17 @@ export class LabTree {
     this._deskSel(it, { focus });
     if (anim && it) {
       const rr = this.root.getBoundingClientRect();
-      this._zoomRects(this.$main.getBoundingClientRect(), it.$pic.getBoundingClientRect(), rr, 0);
+      this._zoomRects(this.$main.getBoundingClientRect(), it.$pic.getBoundingClientRect(), rr, 0, it.sealed ? '' : getComputedStyle(it.el).getPropertyValue('--fh').trim());
       if (!it.sealed) { this._fdFrame(it, 3); this._fdTo(it, it.hover ? 2 : 1, 70); }
       this._fx(it.el, 'is-close', 420);
+      this._glitch(0.6);
     }
     if (sound && was) this._sfx('click');
     if (was) this._log('cd ..', 'dim');
   }
 
   // the classic "zoom rects": dotted outlines stepping from one box to another
-  _zoomRects(a, b, rr, delay = 0) {
+  _zoomRects(a, b, rr, delay = 0, color = '') {
     if (REDUCED || !a || !b || !a.width || !b.width) return 0;
     const N = 7, STEP = 26;
     for (let i = 0; i < N; i++) {
@@ -1378,7 +1397,7 @@ export class LabTree {
       const el = document.createElement('i');
       el.className = 'lt-zr';
       const ev = (v) => Math.round(v / 2) * 2;
-      el.style.cssText = `left:${ev(L)}px;top:${ev(T)}px;width:${ev(W)}px;height:${ev(H)}px;animation-delay:${delay + i * STEP}ms`;
+      el.style.cssText = `left:${ev(L)}px;top:${ev(T)}px;width:${ev(W)}px;height:${ev(H)}px;animation-delay:${delay + i * STEP}ms${color ? `;border-color:${color}` : ''}`;
       this.$fxl.appendChild(el);
       this._later(() => el.remove(), delay + i * STEP + 200);
     }
@@ -1474,7 +1493,7 @@ export class LabTree {
         : this._timed() && n.time ? `${G_CLOCK}<b>${fmtDur(n.time)}</b>` : '<b>FREE</b>';
       h += `<li class="lt-ib-row st-${st}" style="--bc:${esc(n.B.color)}">
         <button type="button" class="lt-ib-it" data-ib="${esc(n.id)}">
-          <span class="lt-ib-slot" style="--slot:var(--lt-slot-${st === 'run' ? 'phos' : 'brass'})"><span>${this._nodeArt(n, 32)}</span></span>
+          <span class="lt-ib-slot" style="--slot:var(--lt-slot-${st})"><span>${this._nodeArt(n, 32)}</span></span>
           <span class="lt-ib-t"><b>${esc(n.d.name)}</b><small><i class="lt-ib-fold"></i>${esc(n.B.b.name)}${n.d.tier != null ? ` &middot; Tier ${esc(n.d.tier)}` : ''}</small></span>
           <span class="lt-ib-time">${right}</span>
         </button>
@@ -1863,7 +1882,10 @@ export class LabTree {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     const k = e.key;
+    if (this.$boot && !this._modalWaiting()) { this._bootEnd?.(); e.preventDefault(); e.stopPropagation(); return; } // any key skips the boot
     const btn = t && t.tagName === 'BUTTON' && this.root.contains(t) && !t.classList.contains('lt-node') && !t.classList.contains('lt-fd');
+    const enter = k === 'Enter' || k === 'NumpadEnter' || k === ' ';
+    if (enter && this._modalWaiting()) return; // a tutorial / speech bubble waits for this key: leave it alone
     let handled = true;
     if (!this.loc) {
       // [v31 lab] the desktop: arrows walk the icons, Enter opens, Esc leaves the lab
@@ -1887,9 +1909,9 @@ export class LabTree {
     else if (k === 'ArrowRight') { if (tree) this._move(1, 0); }
     else if (k === 'ArrowUp') this._move(0, -1);
     else if (k === 'ArrowDown') this._move(0, 1);
-    else if (k === 'Enter' || k === 'NumpadEnter' || k === ' ') {
+    else if (enter) {
       if (btn) handled = false;
-      else this._research();
+      else if (this._canGo()) this._research(); // only when RESEARCH (or DECRYPT) would really go
     } else if (k === 'Escape') {
       if (this._compact && this._sheetOpen) { this._openSheet(false); this._sfx('click'); } else if (this._tut()) this._close(); else this._go(null);
     } else if (k === 'Backspace') { if (this._tut()) handled = false; else this._go(null); }
@@ -1900,6 +1922,29 @@ export class LabTree {
     else handled = false;
     if (handled) { e.preventDefault(); e.stopPropagation(); }
   }
+
+  // [v31 lab] something modal waits for a key (the tutorial teacher's line, a speech bubble, a catch layer)
+  _modalWaiting() {
+    const G = this.o.game || (typeof window !== 'undefined' ? window.__game : null);
+    try {
+      if (G?.tutorial?.teacher?.waiting) return true;
+      if (G?.ui?.bubbleWaiting?.()) return true;
+    } catch { /* ignore */ }
+    for (const el of document.querySelectorAll('.tt-catch, .tutorial, .tch-wait')) {
+      if (el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden') return true;
+    }
+    return false;
+  }
+
+  // [v31 lab] would the RESEARCH key (or DECRYPT) do something right now?
+  _canGo() {
+    if (!this.loc) return false;
+    if (this.selSec) return !!this._secKey(this.selSec).canUnlock && this._onScreenSec(this.selSec);
+    const n = this.sel;
+    if (!n || !this._onScreen(n) || this.$go.hidden || this.$go.disabled) return false;
+    return !!this._check(n).ok;
+  }
+  _onScreenSec(B) { return !!this.loc && (this.loc.k === 'all' || this.loc.B === B); }
 
   // [v31 lab] is the tutorial running? (it opens the lab straight into the tree and keeps you there)
   _tut() {
@@ -1963,6 +2008,8 @@ export class LabTree {
     this.root.classList.toggle('is-tiny', h < 460);
     this._sizeHero();
     if (this._isWorking) this._sizeWork();
+    this.rain?.fit(this.$main.clientWidth, this.$main.clientHeight);
+    this.wall?.fit(this.$main.clientWidth, this.$main.clientHeight);
     this._clampCam(this.cam);
     this._applyCam();
   }
@@ -2194,9 +2241,12 @@ export class LabTree {
     this.$det.dataset.state = st;
     this.$det.style.setProperty('--bc', n.B.color);
     this._setWorking(this._working(n));
-    this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(n.B.b.icon, 16)}${esc(n.B.b.name)}</span>${d.tier != null ? `<span class="lt-tier">Tier ${esc(d.tier)}</span>` : ''}`;
+    this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(n.B.b.icon, 16)}${esc(n.B.b.name)}</span>${d.tier != null ? `<span class="lt-tier">TIER ${esc(d.tier)}</span>` : ''}`;
     this.$name.textContent = d.name || n.id;
     this.$heroSt.textContent = STATE_TEXT[st].toUpperCase();
+    this.$fileN.textContent = `${n.B.dos}/${n.id.replace(/^r_/, '').toUpperCase()}.RND`;
+    this.$fileS.textContent = `[${{ done: 'DONE', run: 'RUN', avail: 'READY', zone: 'WAIT', locked: 'LOCK', sealed: 'ENC' }[st] || '--'}]`;
+    this.$fileS.className = `lt-file-s st-${st}`;
     this.$heroSt.className = `lt-hero-st st-${st}`;
     let sub = '';
     if (d.species) { const sp = SPECIES_DATA.SPECIES_BY_ID?.[d.species]; if (sp?.latin) sub = ` <i class="lt-latin">${esc(sp.latin)}</i>`; }
@@ -2247,6 +2297,9 @@ export class LabTree {
     this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(B.b.icon, 16)}${esc(B.b.name)}</span><span class="lt-tier is-enc">ENCRYPTED</span>`;
     this.$name.textContent = B.b.name;
     this.$heroSt.textContent = 'ENCRYPTED';
+    this.$fileN.textContent = `${B.dos}/*.RND`;
+    this.$fileS.textContent = '[ENC]';
+    this.$fileS.className = 'lt-file-s st-sealed';
     this.$heroSt.className = 'lt-hero-st st-sealed';
     this.$desc.innerHTML = `<b>${B.nodes.length}</b> research projects are sealed in this folder. Use its <b>section key</b> to decrypt it.`;
     let fish = 0, builds = 0, ups = 0, other = 0;
@@ -2273,6 +2326,7 @@ export class LabTree {
       const B = this.selSec;
       const k = this._secKey(B);
       b.className = 'lt-go is-dec';
+      b.hidden = false; // (it may still be hidden from a running job's view)
       this.$goFill.style.width = '0%';
       this.$rush.hidden = true;
       b.disabled = !k.canUnlock;
@@ -2379,9 +2433,9 @@ export class LabTree {
 
   _sizeWork() {
     const bw = this.$hero.clientWidth;
-    if (this.wb && bw) this.wb.fit(bw - 8, Math.round(Math.min(220, Math.max(120, bw * 0.6))));
-    const tw = this.$work.clientWidth;
-    if (tw) this.tube.fit(tw);
+    if (this.wb && bw) this.wb.fit(bw - 16, Math.round(Math.min(168, Math.max(110, bw * 0.48))));
+    const tw = (this.$tube.parentElement?.clientWidth || this.$work.clientWidth) - 8; // inside the tube's box
+    if (tw > 24) this.tube.fit(tw);
   }
 
   // rush buttons: live price + "can't afford" state
@@ -2639,7 +2693,7 @@ export class LabTree {
       n.el.classList.add('is-hide');
       this._later(() => { n.el.classList.remove('is-hide'); this._fx(n.el, 'is-reveal', 900); }, REDUCED ? 0 : 650 + Math.min(i, 14) * 70);
     });
-    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-k">FOLDER DECRYPTED</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
+    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-tag">C:\\LAB\\${esc(B.dos)}\\ decrypted</span><span class="lt-toast-k"><i>&gt;&gt;</i> ACCESS GRANTED <i>&lt;&lt;</i></span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
     this._log(`${B.dos} decrypted: ${B.nodes.length} projects`, 'ok', REDUCED ? 0 : 900);
     this._glitch();
     this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
@@ -2720,30 +2774,51 @@ export class LabTree {
         this.$toast.classList.remove('is-on');
         void this.$toast.offsetWidth;
         this.$toast.classList.add('is-on');
-        this._later(() => { this.$toast.classList.remove('is-on'); this._later(next, 320); }, 2600);
+        this._glitch(1.2);
+        this._later(() => { this.$toast.classList.remove('is-on'); this._glitch(0.5); this._later(next, 320); }, 2400);
         return;
       }
       const items = this._unlockItems(m.d).slice(0, 3);
       const fresh = m.kids.filter((k) => this._st.get(k.id) === 'avail');
       this.$toast.innerHTML = `<div class="lt-toast-c" style="--bc:${esc(m.B.color)}">
-        <span class="lt-toast-k">RESEARCH COMPLETE!</span>
-        <div class="lt-toast-r"><span class="lt-art">${this._nodeArt(m, 44)}</span><b>${esc(m.d.name)}</b></div>
+        <span class="lt-toast-tag">C:\\LAB\\${esc(m.B.dos)}\\${esc(m.id.replace(/^r_/, '').toUpperCase())}.RND</span>
+        <span class="lt-toast-k"><i>&gt;&gt;</i> RESEARCH COMPLETE <i>&lt;&lt;</i></span>
+        <div class="lt-toast-r"><span class="lt-art">${this._nodeArt(m, 44, 'on')}</span><b>${esc(m.d.name)}</b></div>
         ${items.length ? `<div class="lt-toast-u">${items.map((it) => `<span><span class="lt-art sm">${it.art}</span>${esc(it.name)}</span>`).join('')}</div>` : ''}
         ${fresh.length ? `<div class="lt-toast-n">New: ${fresh.slice(0, 3).map((k) => esc(k.d.name)).join(', ')}${fresh.length > 3 ? '...' : ''}</div>` : ''}
       </div>`;
       this.$toast.classList.remove('is-on');
       void this.$toast.offsetWidth;
       this.$toast.classList.add('is-on');
-      this._later(() => { this.$toast.classList.remove('is-on'); this._later(next, 320); }, 2800);
+      this._glitch(1.2);
+      this._later(() => { this.$toast.classList.remove('is-on'); this._glitch(0.5); this._later(next, 320); }, 2600);
     };
     next();
+  }
+
+  // [v31 lab] the tube boils over: green pixel bubbles pop up out of it (was called but never defined)
+  _tubeBurst() {
+    const box = this.$tube;
+    if (!box?.isConnected || !this.$fxl) return;
+    const rr = this.root.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (!b.width) return;
+    for (let i = 0; i < 16; i++) {
+      const el = document.createElement('i');
+      el.className = 'lt-tbub';
+      el.style.left = `${Math.round((b.left - rr.left + 10 + Math.random() * (b.width - 20)) / 2) * 2}px`;
+      el.style.top = `${Math.round((b.top - rr.top + b.height / 2) / 2) * 2}px`;
+      el.style.setProperty('--dy', `${-2 * Math.round(14 + Math.random() * 26)}px`);
+      el.style.animationDelay = `${i * 28}ms`;
+      this.$fxl.appendChild(el);
+      this._later(() => el.remove(), 1300);
+    }
   }
 
   _burstHero() {
     const R = rng(now() | 0);
     for (let i = 0; i < 30; i++) {
       const a = R() * Math.PI * 2, v = 30 + R() * 70;
-      this._bursts.push({ x: (this._pw || PW) / 2, y: (this._ph || PH) / 2 - 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, t: 0, life: 0.6 + R() * 0.6, c: R() < 0.5 ? '#fff7c4' : R() < 0.5 ? '#7dffa8' : '#ffcc3a' });
+      this._bursts.push({ x: (this._pw || PW) / 2, y: (this._ph || PH) / 2 - 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, t: 0, life: 0.6 + R() * 0.6, c: R() < 0.5 ? '#e2ffe8' : R() < 0.6 ? '#7cf29e' : '#3fb866' });
     }
   }
 
@@ -2767,6 +2842,8 @@ export class LabTree {
     if (this.o.fishCanvas) return;
     this._fish = m;
     this._fishFrames.clear();
+    this.bank._c.clear();
+    this.bank._u.clear();
     for (const n of this.nodes) if (n.d.species) n.$ico.innerHTML = this._nodeArt(n);
     if (this.sel?.d.species) this._renderDetail();
     this._renderBench();
@@ -2822,9 +2899,14 @@ export class LabTree {
       this.$coinsV.textContent = coins == null ? '-' : Math.floor(coins).toLocaleString('en-US');
       this._lastCoins = coins;
     }
-    // v19: terminal uptime clock (text changes once a second)
+    // v19: terminal uptime clock (text changes once a second) + a busy hex counter
     const up = Math.floor((t - this._t0) / 1000);
     if (up !== this._up && this.$termClk) { this._up = up; this.$termClk.textContent = fmtClock(up); }
+    const hx = Math.floor(t / 90);
+    if (hx !== this._hx && this.$hexc) { this._hx = hx; this.$hexc.textContent = `0x${((hashStr(String(hx)) >>> 8) & 0xffff).toString(16).toUpperCase().padStart(4, '0')}`; }
+    // [v31 lab] the code rain (draws itself at ~12 fps)
+    if (this.loc) this.rain?.draw((t - this._t0) / 1000);
+    else this.wall?.draw((t - this._t0) / 1000); // the desktop: the aurora wallpaper instead
     // Reynard
     // showcase canvas ~30fps
     if (t - this._lastDraw >= 33) {
@@ -2834,6 +2916,7 @@ export class LabTree {
     }
   };
 
+  // [v31 lab] the dossier "scan": the project's art re-inked in phosphor, crop marks, a HUD
   _drawHero(t, dt) {
     if (!this.loc) return; // on the desktop the window (and its showcase) is hidden
     if (this.selSec && this.$hero.offsetParent !== null) { this._drawSealHero(t); return; }
@@ -2841,131 +2924,101 @@ export class LabTree {
     if (!n || this.$hero.offsetParent === null) return;
     const cv = this.pcv, ctx = this.pctx;
     const st = this._st.get(n.id);
-    let custom = false;
     const pw = this._pw || PW, ph = this._ph || PH;
     if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
-    if (this.o.preview && st !== 'locked' && st !== 'zone') {
-      try { custom = !!this.o.preview(n.d, cv, t); } catch { custom = false; }
+    ctx.imageSmoothingEnabled = false;
+    const W = cv.width, H = cv.height;
+    drawBackdrop(ctx, W, H, t, st);
+    const ramp = this._ramp(n);
+    const dark = st === 'locked' || st === 'zone';
+    if (n.d.species && this.bank.fish(n.d.species, 0, ramp)) this._drawFish(ctx, W, H, t, n.d.species, dark, ramp);
+    else this._drawIcon(ctx, W, H, t, n, dark, ramp);
+    if (st === 'locked') { // redacted
+      ctx.fillStyle = '#010402';
+      const y0 = Math.round(H / 2 - 9);
+      ctx.fillRect(Math.round(W * 0.28), y0, Math.round(W * 0.44), 5);
+      ctx.fillRect(Math.round(W * 0.36), y0 + 9, Math.round(W * 0.3), 5);
     }
-    if (!custom) {
-      ctx.imageSmoothingEnabled = false;
-      const W = cv.width, H = cv.height;
-      drawBackdrop(ctx, W, H, t, st);
-      const dark = st === 'locked' || st === 'zone';
-      if (n.d.species && this._fishFrame(n.d.species, 0)) this._drawFish(ctx, W, H, t, n.d.species, dark);
-      else this._drawIcon(ctx, W, H, t, n, dark);
-      if (st === 'run') {
-        const j = this._job(n.id);
-        const k = j ? j.k : 0;
-        ctx.fillStyle = '#03100a';
-        ctx.fillRect(8, H - 8, W - 16, 4);
-        ctx.fillStyle = '#8ef5aa';
-        ctx.fillRect(8, H - 8, Math.round((W - 16) * k), 4);
-      }
-      drawScan(ctx, W, H, t);
-      if (!dark) drawSparkles(ctx, W, H, t, hashStr(n.id), st === 'done' ? 7 : 4);
+    if (st === 'run') {
+      const j = this._job(n.id);
+      const k = j ? j.k : 0;
+      ctx.fillStyle = '#03100a';
+      ctx.fillRect(8, H - 8, W - 16, 4);
+      ctx.fillStyle = '#7cf29e';
+      for (let x = 0; x < Math.round((W - 16) * k); x += 3) ctx.fillRect(8 + x, H - 8, 2, 4);
     }
+    drawHud(ctx, W, H, t, st, n.id);
+    drawScan(ctx, W, H, t);
+    if (!dark) drawSparkles(ctx, W, H, t, hashStr(n.id), st === 'done' ? 7 : 4);
     this._drawBursts(ctx, dt);
   }
 
-  // an encrypted folder: a brass padlock over scrambled phosphor data
+  // an encrypted folder: a padlock over scrambled hex, ACCESS DENIED
   _drawSealHero(t) {
     const cv = this.pcv, ctx = this.pctx;
     const W = this._pw || PW, H = this._ph || PH;
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    ctx.imageSmoothingEnabled = false;
     drawBackdrop(ctx, W, H, t, 'locked');
-    const R = rng(Math.floor(t * 3) + 1);
-    ctx.font = "8px 'TBME Body', monospace"; // [v18 font]
+    ctx.font = "8px 'Silkscreen', monospace";
     ctx.textAlign = 'left';
-    for (let i = 0; i < 9; i++) {
-      ctx.fillStyle = i % 3 === 0 ? '#1b5a30' : '#123d21';
-      ctx.fillText(scramble('XXXXXXXXXXXXXXXXXXXXXXX', 1, Math.floor(t * 2) * 13 + i), -4 + ((i * 37) % 11), 8 + i * 8);
+    ctx.textBaseline = 'top';
+    for (let i = 0; i < Math.ceil(H / 9); i++) {
+      ctx.fillStyle = i % 3 === 0 ? '#14402a' : '#0c2a16';
+      ctx.fillText(scramble('XXXXXXXXXXXXXXXXXXXXXXXXXXXX', 1, Math.floor(t * 2) * 13 + i), -2 + ((i * 7) % 5), 2 + i * 9);
     }
-    const cx = Math.round(W / 2), cy = Math.round(H / 2) + 4 + (Math.floor(t * 2) % 2);
-    // padlock: dark outline, steel shackle, brass body with a keyhole
-    ctx.fillStyle = '#120c02';
-    ctx.fillRect(cx - 9, cy - 21, 18, 4);
-    ctx.fillRect(cx - 9, cy - 21, 5, 14);
-    ctx.fillRect(cx + 4, cy - 21, 5, 14);
-    ctx.fillRect(cx - 13, cy - 9, 26, 21);
-    ctx.fillStyle = '#c8d0c0';
-    ctx.fillRect(cx - 7, cy - 19, 14, 2);
-    ctx.fillRect(cx - 7, cy - 19, 2, 11);
-    ctx.fillRect(cx + 5, cy - 19, 2, 11);
-    ctx.fillStyle = '#e0a838';
-    ctx.fillRect(cx - 11, cy - 7, 22, 17);
-    ctx.fillStyle = '#8a5a14';
-    ctx.fillRect(cx + 7, cy - 7, 4, 17);
-    ctx.fillRect(cx - 11, cy + 8, 22, 2);
-    ctx.fillStyle = '#fff0a8';
-    ctx.fillRect(cx - 11, cy - 7, 18, 1);
-    ctx.fillStyle = '#120c02';
-    ctx.fillRect(cx - 2, cy - 2, 4, 4);
-    ctx.fillRect(cx - 1, cy + 2, 2, 4);
+    const cx = Math.round(W / 2), cy = Math.round(H / 2) + 2 + (Math.floor(t * 2) % 2);
+    const R = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(cx + x, cy + y, w, h); };
+    R(-13, -22, 26, 36, '#010402');
+    R(-7, -19, 14, 2, '#5aa874'); R(-7, -19, 2, 11, '#5aa874'); R(5, -19, 2, 11, '#5aa874');
+    R(-11, -7, 22, 17, '#2c6e44'); R(-11, -7, 22, 1, '#7cf29e'); R(7, -7, 4, 17, '#14402a'); R(-11, 8, 22, 2, '#14402a');
+    R(-2, -2, 4, 4, '#010402'); R(-1, 2, 2, 4, '#010402');
+    if (Math.floor(t * 2) % 2) {
+      ctx.fillStyle = '#010402';
+      ctx.fillRect(cx - 34, H - 25, 68, 11);
+      ctx.fillStyle = '#e8774a';
+      ctx.textAlign = 'center';
+      ctx.fillText('ACCESS DENIED', cx, H - 23);
+    }
+    drawHud(ctx, W, H, t, 'sealed', 'lock');
     drawScan(ctx, W, H, t);
     this._drawBursts(ctx, 0.033);
   }
 
-  _silhouette(img, w, h) {
-    const k = img.src + w + 'x' + h;
-    let c = this._silhouettes.get(k);
-    if (!c) {
-      c = makeCanvas(w, h);
-      const x = c.getContext('2d');
-      x.imageSmoothingEnabled = false;
-      x.drawImage(img, 0, 0, w, h);
-      x.globalCompositeOperation = 'source-in';
-      x.fillStyle = '#05080a';
-      x.fillRect(0, 0, w, h);
-      this._silhouettes.set(k, c);
-    }
-    return c;
-  }
-
-  _drawIcon(ctx, W, H, t, n, dark) {
-    let m = this._iconMeta(n.d.icon);
-    if (!m.ok) m = this._iconMeta('flask');
-    const img = m.img;
-    if (!img || !img.complete || !img.naturalWidth) return;
-    const s = Math.max(1, Math.floor(Math.min((H * 0.6) / m.h, (W * 0.5) / m.w)));
-    const w = m.w * s, h = m.h * s;
-    const bob = dark ? 0 : Math.round(Math.sin(t * 2.2) * 2.5);
-    const x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2 - 5 + bob);
-    const sw = Math.round(w * (0.62 - bob * 0.03));
-    ctx.fillStyle = '#020a05';
-    ctx.fillRect(Math.round(W / 2 - sw / 2), H - 15, sw, 3);
+  _drawIcon(ctx, W, H, t, n, dark, ramp) {
+    const c = this.bank.node(n.d, ramp);
+    if (!c) return;
+    const s = Math.max(1, Math.floor(Math.min((H * 0.62) / c.height, (W * 0.5) / c.width)));
+    const w = c.width * s, h = c.height * s;
+    const bob = dark ? 0 : Math.floor(t * 2.2) % 2;
+    const x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2 - 5 - bob);
+    ctx.fillStyle = '#0b2a16';
+    for (let i = 0; i < Math.round(w * 0.7); i += 2) ctx.fillRect(Math.round(W / 2 - w * 0.35) + i, H - 18, 1, 2);
+    ctx.drawImage(c, x, y, w, h);
     if (dark) {
-      try { ctx.drawImage(this._silhouette(img, w, h), x, y); } catch { /* ignore */ }
-      ctx.fillStyle = '#1f5a34';
-      ctx.font = "24px 'TBME Title', monospace"; // [v18 font]
+      ctx.fillStyle = '#3f8a58';
+      ctx.font = "16px 'Silkscreen', monospace";
       ctx.textAlign = 'center';
-      ctx.fillText('?', W / 2, H / 2 + 4);
-    } else ctx.drawImage(img, x, y, w, h);
+      ctx.textBaseline = 'middle';
+      ctx.fillText('?', W / 2, H / 2 - 4);
+    }
   }
 
-  _drawFish(ctx, W, H, t, sp, dark) {
+  _drawFish(ctx, W, H, t, sp, dark, ramp) {
     const frame = dark ? 0 : Math.floor(t * 6) % 4;
-    const f = this._fishFrame(sp, frame) || this._fishFrame(sp, 0);
+    const f = this.bank.fish(sp, frame, ramp) || this.bank.fish(sp, 0, ramp);
     if (!f) return;
     const s = Math.max(1, Math.floor(Math.min((W * 0.46) / f.width, (H * 0.5) / f.height)));
     const w = f.width * s, h = f.height * s;
-    const range = dark ? 0 : Math.max(0, (W - w) / 2 - 10);
+    const range = dark ? 0 : Math.max(0, (W - w) / 2 - 12);
     const ph = t * 0.75;
     const cx = W / 2 + Math.sin(ph) * range;
     const right = dark || Math.cos(ph) >= 0;
-    const y = Math.round(H / 2 - h / 2 - 4 + (dark ? 0 : Math.sin(t * 2.7) * 2));
+    const y = Math.round(H / 2 - h / 2 - 4 + (dark ? 0 : Math.round(Math.sin(t * 2.7) * 2)));
     const x = Math.round(cx - w / 2);
     ctx.save();
     if (!right) { ctx.translate(x * 2 + w, 0); ctx.scale(-1, 1); }
-    if (dark) {
-      const c = makeCanvas(w, h), cx2 = c.getContext('2d');
-      cx2.imageSmoothingEnabled = false;
-      cx2.drawImage(f, 0, 0, w, h);
-      cx2.globalCompositeOperation = 'source-in';
-      cx2.fillStyle = '#05080a';
-      cx2.fillRect(0, 0, w, h);
-      ctx.drawImage(c, x, y);
-    } else ctx.drawImage(f, x, y, w, h);
+    ctx.drawImage(f, x, y, w, h);
     ctx.restore();
     if (dark) return;
     for (let i = 0; i < 4; i++) {
@@ -2973,7 +3026,7 @@ export class LabTree {
       const bx = Math.round(cx + (right ? w / 2 : -w / 2) * 0.8 + Math.sin(t * 3 + i) * 2);
       const by = Math.round(y + h * 0.3 - k * 34);
       if (by < 4) continue;
-      ctx.fillStyle = k < 0.5 ? '#c8ffd2' : '#6fcf8e';
+      ctx.fillStyle = k < 0.5 ? '#c8ffd2' : '#3fb866';
       ctx.fillRect(bx, by, i % 2 ? 1 : 2, i % 2 ? 1 : 2);
     }
   }
@@ -3031,6 +3084,24 @@ function drawBackdrop(ctx, W, H, t, st) {
     }
   }
   ctx.globalAlpha = 1;
+}
+
+// crop marks in the corners, a SCAN readout and the file's hex id (Silkscreen at its 8 px grid)
+function drawHud(ctx, W, H, t, st, id) {
+  const c = st === 'zone' ? '#c8861e' : st === 'locked' || st === 'sealed' ? '#2c6e44' : '#3fb866';
+  ctx.fillStyle = c;
+  for (const [x, y, sx, sy] of [[3, 3, 1, 1], [W - 4, 3, -1, 1], [3, H - 4, 1, -1], [W - 4, H - 4, -1, -1]]) {
+    ctx.fillRect(sx > 0 ? x : x - 5, y, 6, 1);
+    ctx.fillRect(x, sy > 0 ? y : y - 5, 1, 6);
+  }
+  ctx.font = "8px 'Silkscreen', monospace";
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'right';
+  const pct = st === 'sealed' ? '---' : String(Math.min(99, 60 + Math.floor((t * 23) % 40))).padStart(3, '0');
+  ctx.fillText(`SCAN ${pct}`, W - 7, H - 13);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#14402a';
+  ctx.fillText(`0x${(hashStr(String(id)) & 0xffff).toString(16).toUpperCase().padStart(4, '0')}`, 7, H - 13);
 }
 
 function drawScan(ctx, W, H, t) {

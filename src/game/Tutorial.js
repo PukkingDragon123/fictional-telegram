@@ -576,8 +576,8 @@ export class Tutorial {
     stop = this.pointAt('tool:lab');
     await this.teach('New stuff? The <b>LAB</b>: research is <b>FREE</b>, it just takes time. Neighbours open more!', { target: 'tool:lab', circle: true, wait: true, mood: 'happy' });
     stop?.();
-    await this.teach('I\'ll teach you the rest <b>as it happens</b>. Every lesson goes in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
-    await this.teach('<b>Class dismissed!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
+    await this.teach('I\'ll show you the rest <b>as it happens</b>. Tips go in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
+    await this.teach('<b>Tour\'s over!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
     game.unlockFeature('speed');
     game.setTool({ kind: 'feed' });
     try { const t = this.teacher; if (t) { t.clearChalk(); await t.hide(); } } catch { /* ignore */ }

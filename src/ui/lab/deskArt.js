@@ -1,22 +1,26 @@
-// [v31 lab] Pixel art for the lab computer's green-phosphor "desktop" (src/ui/LabTree.js).
+// [v31 lab] Pixel art for the lab computer (src/ui/LabTree.js): a green "hacker terminal"
+// with a colourful desktop.
 //
-// Everything here is painted pixel by pixel at art resolution (hand-placed spans,
-// outlines, bevels, dither) and handed out pre-scaled to whole device px, so the
-// browser shows it 1:1 (crisp on iPad / fractional zoom too):
-//   - folder icons: 4-frame strips (closed, flap opening, open, wide open), tinted per
-//     research branch, a paper label sticker on the front for the branch icon, papers
-//     and an index tab peeking out; a grey-olive locked variant;
-//   - the "All" computer (a beige CRT whose screen wakes up on hover), the "Ready"
-//     in-tray (papers lift out on hover), a padlock, a pixel drop shadow;
-//   - the desktop wallpaper emblem and dither / dot tiles;
-//   - 9-slice frames (bevelled panels, sunken wells, keycaps with a side, brass plates)
-//     as ready-made CSS `border-image` values.
+// Everything is painted pixel by pixel at art resolution and handed out pre-scaled to
+// whole device px (shown 1:1, crisp on iPad and at fractional zoom). No blur anywhere:
+// a "glow" is a dithered halo of pixels, a gradient is a dither.
+//   - desktop folders in COLOUR: a vivid hand-tuned ramp per branch (vividRamp / rainbowHues:
+//     a full rainbow, highlights leaning yellow, shadows leaning blue-violet), papers, a
+//     contrasting index tab, a dark label screen for the full-colour branch icon; 4 frames:
+//     closed, flap opening, open, wide open; a muted slate variant when locked;
+//   - the "All" computer (a beige CRT whose green screen wakes up on hover), the "Ready"
+//     wooden in-tray, a padlock (slate / dim green / amber when the key is ready), a shadow;
+//   - node chips (green): an IC package per research state (pins, notch, LED, icon well);
+//   - tiles (dots, grid, hatch, dithered scanlines, a veil) and a dithered fox emblem;
+//   - 9-slice frames as CSS border-images: box-drawing panels (single + double line,
+//     bright corner joints), sunken wells, keys with a side.
 //
 //   devU()                  device px per art px for 2 css px per art px
 //   urlOf(canvas, u)        nearest-neighbour upscale -> data URL
-//   earthy(hex)             a branch colour pulled into the lab's earthy, non-neon range
-//   folderStrip(tint, o)    { cv, ico: [{x, y}] per frame (label centre, art px) }
-//   driveStrip(), inboxStrip(full), padlock(open), shadow(), emblem(), tile(kind)
+//   earthy(hex), vividRamp(hue), rainbowHues(colors), MUTED
+//   folderStrip(hue, o)     a FW*4 x FH strip; folderLabel(f) = label centre (art px)
+//   driveStrip(), inboxStrip(full), padlock(open, tone), shadow(), emblem(), tile(kind)
+//   chipCanvas(pal), CHIP    32x32 node chips
 //   frames(u)               { name: 'url(...) slices fill / widths stretch' }
 
 export const FW = 40; // icon frame size (art px); shown at 2 css px per art px
@@ -72,30 +76,42 @@ function hex(h, s, l) {
   const f = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
   return `#${f(r)}${f(g)}${f(b)}`;
 }
-// hue moved `k` of the way toward `to` (shortest way round)
-const toward = (h, to, k) => h + ((((to - h) % 360) + 540) % 360 - 180) * k;
 
 /** a branch colour pulled into the lab palette: no neon, no pink/magenta (-> clay), blues -> muted slate */
 export function earthy(c) {
   let [h, s, l] = hsl(c);
-  if (h >= 280 && h < 352) { h = 6 + ((h - 280) / 72) * 18; s = Math.min(s, 0.46); } // pink / magenta -> clay, terracotta
-  else if (h >= 175 && h < 280) s = Math.min(s, 0.3); // cyan / blue -> slate
+  if (h >= 280 && h < 352) { h = 6 + ((h - 280) / 72) * 18; s = Math.min(s, 0.46); }
+  else if (h >= 175 && h < 280) s = Math.min(s, 0.3);
   s = Math.min(s, 0.5);
   l = Math.max(0.4, Math.min(0.58, l));
   return hex(h, s, l);
 }
 
-/** 6 hand-tuned shades from one tint: highlights lean warm (toward yellow), shadows lean into the lab green */
-export function ramp(c) {
-  const [h, s, l] = hsl(c);
+// hue moved `k` of the way toward `to` (shortest way round)
+const toward = (h, to, k) => h + ((((to - h) % 360) + 540) % 360 - 180) * k;
+
+/** [v31 lab] a vivid hand-tuned pixel ramp for hue h: highlights lean to yellow, shadows to blue-violet */
+export function vividRamp(h) {
+  h = ((h % 360) + 360) % 360;
+  const L = h > 38 && h < 78 ? 0.5 : h >= 78 && h < 175 ? 0.44 : h >= 175 && h < 265 ? 0.52 : 0.56;
   return {
-    hi: hex(toward(h, 52, 0.35), s * 0.75, Math.min(0.9, l + 0.25)),
-    lit: hex(toward(h, 52, 0.18), s * 0.88, Math.min(0.82, l + 0.12)),
-    base: hex(h, s, l),
-    sh: hex(toward(h, 140, 0.25), s * 0.9, l - 0.13),
-    dp: hex(toward(h, 145, 0.4), s * 0.85, l - 0.25),
-    k: '#061309',
+    hi: hex(toward(h, 56, 0.3), 0.95, Math.min(0.88, L + 0.3)),
+    lit: hex(toward(h, 56, 0.15), 0.9, L + 0.14),
+    base: hex(h, 0.82, L),
+    sh: hex(toward(h, 250, 0.2), 0.72, L - 0.15),
+    dp: hex(toward(h, 258, 0.32), 0.62, L - 0.28),
+    k: '#0c0718',
   };
+}
+export const MUTED = { hi: '#9a97b0', lit: '#76738e', base: '#5a5772', sh: '#413f58', dp: '#2b2a40', k: '#0c0718' };
+
+/** distinct rainbow hues for a list of colours: keeps their order round the wheel, spaces them evenly */
+export function rainbowHues(colors) {
+  const n = Math.max(1, colors.length);
+  const idx = colors.map((c, i) => ({ i, h: hsl(c)[0] })).sort((a, b) => a.h - b.h);
+  const out = [];
+  idx.forEach((e, k) => { out[e.i] = (350 + (k * 360) / n) % 360; });
+  return out;
 }
 
 // ---------------------------------------------------------------- a tiny pixel painter
@@ -108,8 +124,10 @@ class Art {
   set(x, y, c) { if (c && x >= 0 && y >= 0 && x < this.w && y < this.h) this.p[y * this.w + x] = c; }
   get(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h ? this.p[y * this.w + x] : null; }
   rect(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, c); }
+  hline(x0, x1, y, c) { for (let x = x0; x <= x1; x++) this.set(x, y, c); }
+  vline(x, y0, y1, c) { for (let y = y0; y <= y1; y++) this.set(x, y, c); }
   // a filled shape from one span per row; outline pixels get `ink`, the inside gets shade(x, y, d)
-  // where d = { t, b, l, r }: 1 = the row/column right inside the outline, 2 = the next, 9 = deeper
+  // (d.t/b/l/r: 1 = the row/column right inside the outline, 2 = the next, 9 = deeper)
   shape(y0, y1, spans, shade, ink) {
     const rows = new Map();
     for (let y = y0; y <= y1; y++) { const s = spans(y); if (s && s[1] >= s[0]) rows.set(y, s); }
@@ -123,9 +141,24 @@ class Art {
           l: !inn(x - 2, y) ? 1 : !inn(x - 3, y) ? 2 : 9,
           r: !inn(x + 2, y) ? 1 : !inn(x + 3, y) ? 2 : 9,
         };
-        this.set(x, y, shade(x, y, d));
+        const c = shade(x, y, d);
+        if (c) this.set(x, y, c);
       }
     }
+  }
+  // the "glow": a dithered ring of `col` on the empty pixels touching any `src` colour
+  halo(src, col) {
+    const S = new Set(src);
+    const add = [];
+    for (let y = 0; y < this.h; y++) {
+      for (let x = 0; x < this.w; x++) {
+        if (this.get(x, y) || (x + y) % 2) continue;
+        let near = false;
+        for (let j = -1; j <= 1 && !near; j++) for (let i = -1; i <= 1; i++) if (S.has(this.get(x + i, y + j))) { near = true; break; }
+        if (near) add.push([x, y]);
+      }
+    }
+    for (const [x, y] of add) this.set(x, y, col);
   }
   draw(ctx, ox = 0, oy = 0) {
     for (let y = 0; y < this.h; y++) {
@@ -140,58 +173,50 @@ class Art {
   canvas() { const c = mk(this.w, this.h); this.draw(c.getContext('2d')); return c; }
 }
 
-function rngOf(seed) {
-  let s = seed >>> 0 || 7;
-  return () => {
-    s ^= s << 13; s >>>= 0;
-    s ^= s >> 17;
-    s ^= s << 5; s >>>= 0;
-    return s / 4294967296;
-  };
-}
 function hashStr(s) {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 }
 
-const PAPER = { k: '#4e4a32', hi: '#fffbe6', base: '#efe7c6', sh: '#cfc49c', line: '#a9bd9c' };
-const PAPER2 = { k: '#4e4a32', hi: '#ffffff', base: '#f8f3dc', sh: '#d8cfaa', line: '#9fb894' };
-const LABEL = { k: '#3c3620', hi: '#fbf3d2', base: '#e6dbb0', sh: '#c2b585', tape: '#f4f0dc', tapeD: '#cfc8a6' };
-const LABEL_LOCK = { k: '#2a2c22', hi: '#b8b8a0', base: '#9a9a84', sh: '#7a7c66', tape: '#c4c2ae', tapeD: '#a2a08c' };
-const AMBER = { k: '#3a2206', hi: '#ffe7a6', base: '#f0b040', sh: '#b8761a' };
-
-// ---------------------------------------------------------------- folders
+// ---------------------------------------------------------------- folders (in colour)
+const PAPER = { k: '#3a2f4a', hi: '#fffbe6', base: '#efe7d0', sh: '#cfc4b0', line: '#a8b8d8' };
+const PAPER2 = { k: '#3a2f4a', hi: '#ffffff', base: '#f8f3e4', sh: '#d8cfbe', line: '#9fb0d8' };
+const PAPER_LOCK = { k: '#1c1a2a', hi: '#a8a6b8', base: '#8a889c', sh: '#6e6c80', line: '#76748a' };
 const FT = [15, 17, 19, 22]; // front flap top row per frame
 const SK = [0, 1, 1, 2]; // how far the flap's top edge leans out (art px)
 const LIFT = [0, 0, 1, 2]; // papers rise as the flap opens
 const FB = 38; // flap bottom row
 
-/** where the label sticker's centre sits in frame f (art px, for the DOM icon) */
+/** where the label screen's centre sits in frame f (art px, for the DOM icon) */
 export function folderLabel(f) {
   const ft = FT[f], sk = SK[f];
   const off = Math.round((sk * (FB - (ft + 10))) / (FB - ft));
   return { x: 20 + off, y: ft + 10.5 };
 }
 
-function paintFolder(a, R, f, seed, locked) {
+function rngOf(seed) {
+  let s = seed >>> 0 || 7;
+  return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+}
+
+function paintFolder(a, R, f, seed, locked, tabCol) {
   const ft = FT[f], sk = SK[f], lift = LIFT[f], K = R.k;
   const rnd = rngOf(seed);
   // back panel + tab (we see its inside: a shade darker, lit rim)
   const tab = { 2: [5, 14], 3: [4, 15], 4: [3, 16], 5: [2, 17] };
   a.shape(2, 37, (y) => (tab[y] || (y === 6 ? [2, 36] : y === 37 ? [3, 36] : [2, 37])), (x, y, d) => {
-    if (y <= 5) return d.t === 1 ? R.lit : R.base;
-    if (d.t === 1) return R.base;
-    if (d.l === 1) return R.base;
+    if (y <= 5) return d.t === 1 ? R.hi : R.lit;
+    if (d.t === 1 || d.l === 1) return R.base;
     if (y >= ft - 2 && (x + y) % 2) return R.dp; // the shadow the flap throws on the back
     return R.sh;
   }, K);
-  // papers: a back sheet, an amber index tab, a front sheet set slightly crooked
-  const P = locked ? LABEL_LOCK : PAPER, P2 = locked ? LABEL_LOCK : PAPER2, A = locked ? LABEL_LOCK : AMBER;
+  // papers + a contrasting index tab
+  const P = locked ? PAPER_LOCK : PAPER, P2 = locked ? PAPER_LOCK : PAPER2;
   const py = 9 - lift;
-  const ruled = (Q, top) => (x, y, d) => (d.t === 1 ? Q.hi : d.r === 1 ? Q.sh : (y - top) % 3 === 0 && d.l > 1 && d.r > 2 ? Q.line || Q.sh : Q.base);
+  const ruled = (Q, top) => (x, y, d) => (d.t === 1 ? Q.hi : d.r === 1 ? Q.sh : (y - top) % 3 === 0 && d.l > 1 && d.r > 2 ? Q.line : Q.base);
   a.shape(py, ft + 1, () => [5, 29], ruled(P, py), P.k);
-  a.shape(py - 2, py + 2, () => [24, 28], (x, y, d) => (d.t === 1 ? A.hi : A.base), A.k);
+  a.shape(py - 2, py + 2, () => [24, 28], (x, y, d) => (d.t === 1 ? tabCol.hi : tabCol.base), tabCol.k);
   a.shape(py + 1, ft + 1, (y) => (y === py + 1 ? [9, 21] : [9, 33]), ruled(P2, py + 1), P2.k);
   // front flap: leans toward you as it opens (its top edge drops and slides right)
   const off = (y) => Math.round((sk * (FB - y)) / (FB - ft));
@@ -205,36 +230,32 @@ function paintFolder(a, R, f, seed, locked) {
     if (y >= FB - 6 && (x + y) % 2 === 0) return R.sh; // dithered fade toward the bottom
     return R.base;
   }, K);
-  // a few scuffs and a crease, placed by hand (seeded per branch so every folder is a little different)
+  // scuffs + a crease, seeded per branch
   for (let i = 0; i < 4; i++) {
     const y = ft + 3 + Math.floor(rnd() * 3), x = 4 + Math.floor(rnd() * 6) + off(y);
     if (a.get(x, y) === R.base) a.set(x, y, R.lit);
   }
-  for (let x = 30; x < 35; x++) { const y = FB - 3 - Math.floor((x - 30) / 2); if (a.get(x + off(y), y) && a.get(x + off(y), y) !== K) a.set(x + off(y), y, R.sh); }
-  // the label sticker (+ two bits of tape)
-  const L = locked ? LABEL_LOCK : LABEL;
+  for (let x = 30; x < 35; x++) { const y = FB - 3 - Math.floor((x - 30) / 2); const X = x + off(y); if (a.get(X, y) && a.get(X, y) !== K) a.set(X, y, R.sh); }
+  // the label is a little dark screen (the branch icon glows on it in full colour)
   const ly0 = ft + 3, ly1 = ft + 17;
-  a.shape(ly0, ly1, (y) => { const o = off(y); return [11 + o, 28 + o]; }, (x, y, d) => (d.t === 1 ? L.hi : d.b === 1 || d.r === 1 ? L.sh : L.base), L.k);
-  const o0 = off(ly0);
-  for (const [x, y] of [[10, ly0 - 1], [11, ly0 - 1], [11, ly0], [12, ly0]]) a.set(x + o0, y, L.tape);
-  a.set(12 + o0, ly0 + 1, L.tapeD);
-  for (const [x, y] of [[28, ly0 - 1], [29, ly0 - 1], [27, ly0], [28, ly0]]) a.set(x + o0, y, L.tape);
-  a.set(27 + o0, ly0 + 1, L.tapeD);
+  a.shape(ly0, ly1, (y) => { const o = off(y); return [11 + o, 28 + o]; }, (x, y, d) => (d.t === 1 || d.l === 1 ? '#05030c' : y % 2 ? '#140c26' : '#0e081c'), R.dp);
+  const lo = off(ly0), lb = off(ly1);
+  a.set(11 + lo, ly0, R.hi); a.set(28 + lo, ly0, R.hi); a.set(11 + lb, ly1, R.lit); a.set(28 + lb, ly1, R.lit);
 }
 
 const _folderCache = new Map();
-/** a 4-frame strip (FW*4 x FH) of a folder in `tint` */
-export function folderStrip(tint, { locked = false, seed = 'x' } = {}) {
-  const key = `${tint}|${locked ? 1 : 0}|${seed}`;
+/** a 4-frame strip (FW*4 x FH) of a folder; `hue` picks its vivid ramp (locked: muted slate) */
+export function folderStrip(hue, { locked = false, seed = 'x' } = {}) {
+  const key = `${hue}|${locked ? 1 : 0}|${seed}`;
   let c = _folderCache.get(key);
   if (c) return c;
-  const R = ramp(locked ? '#5f6654' : tint);
-  if (locked) R.base = '#5f6654';
+  const R = locked ? MUTED : vividRamp(hue);
+  const tabCol = locked ? { ...MUTED, base: MUTED.lit } : vividRamp(hue + 150);
   c = mk(FW * FRAMES, FH);
   const ctx = c.getContext('2d');
   for (let f = 0; f < FRAMES; f++) {
     const a = new Art(FW, FH);
-    paintFolder(a, R, f, hashStr(String(seed)), locked);
+    paintFolder(a, R, locked ? 0 : f, hashStr(String(seed)), locked, tabCol);
     a.draw(ctx, f * FW, 0);
   }
   _folderCache.set(key, c);
@@ -352,47 +373,53 @@ export function inboxStrip(full) {
 }
 
 // ---------------------------------------------------------------- padlock, shadow
-const LOCK_ROWS = [
-  '..kkkkk..',
-  '.kssssbk.',
-  '.ks...sk.',
-  '.ks...sk.',
-  'kkkkkkkkk',
-  'khhhhhhak',
-  'khaaaaadk',
-  'kaaakaadk',
-  'kaakkkadk',
-  'kaaakaadk',
-  'kdddddddk',
-  '.kkkkkkk.',
-];
-const LOCK_OPEN = [
-  '..kkkkk..',
-  '.kssssbk.',
-  '.ks...sk.',
-  '.ks...sk.',
-  '.ks......',
-  '.ks......',
-  'kkkkkkkkk',
-  'khhhhhhak',
-  'khaaaaadk',
-  'kaaakaadk',
-  'kaakkkadk',
-  'kdddddddk',
-  '.kkkkkkk.',
-];
-const LOCK_PAL = { k: '#120c02', s: '#a8b0a0', b: '#e8f0e0', h: '#fff0a8', a: '#e0a838', d: '#8a5a14' };
-export function padlock(open = false) {
-  const rows = open ? LOCK_OPEN : LOCK_ROWS;
+const LOCK_ROWS = ['..kkkkk..', '.ksssssk.', '.ks...sk.', '.ks...sk.', 'kkkkkkkkk', 'khhhhhhhk', 'kaaaaaaak', 'kaaakaaak', 'kaakkkaak', 'kaaakaaak', 'kdddddddk', '.kkkkkkk.'];
+const LOCK_OPEN = ['..kkkkk..', '.ksssssk.', '.ks...sk.', '.ks...sk.', '.ks......', '.ks......', 'kkkkkkkkk', 'khhhhhhhk', 'kaaaaaaak', 'kaaakaaak', 'kaakkkaak', 'kdddddddk', '.kkkkkkk.'];
+const LOCK_PALS = {
+  dim: { k: '#010804', s: '#3f8a58', h: '#5aa874', a: '#2c6e44', d: '#14402a' },
+  amber: { k: '#120a02', s: '#ffd27a', h: '#ffe6a8', a: '#e8a030', d: '#8a5010' },
+  slate: { k: '#0c0718', s: '#b8b6c8', h: '#a8a6bc', a: '#7a7892', d: '#4a4862' },
+};
+export function padlock(open = false, tone = 'dim') {
+  const rows = open ? LOCK_OPEN : LOCK_ROWS, P = LOCK_PALS[tone] || LOCK_PALS.dim;
   const a = new Art(9, rows.length);
-  rows.forEach((r, y) => { for (let x = 0; x < 9; x++) if (r[x] !== '.') a.set(x, y, LOCK_PAL[r[x]]); });
+  rows.forEach((r, y) => { for (let x = 0; x < 9; x++) if (r[x] !== '.') a.set(x, y, P[r[x]]); });
   return a.canvas();
 }
 
 export function shadow() {
   const a = new Art(36, 5);
   const rows = [[6, 29], [3, 32], [2, 33], [3, 32], [7, 28]];
-  rows.forEach(([x0, x1], y) => { for (let x = x0; x <= x1; x++) a.set(x, y, y === 0 || y === 4 || x < x0 + 2 || x > x1 - 2 ? 'rgba(1,8,4,0.32)' : 'rgba(1,8,4,0.55)'); });
+  rows.forEach(([x0, x1], y) => { for (let x = x0; x <= x1; x++) if ((x + y) % 2 === 0 || (y > 0 && y < 4 && x > x0 + 2 && x < x1 - 2)) a.set(x, y, '#000000'); });
+  return a.canvas();
+}
+
+// ---------------------------------------------------------------- node chips
+// an IC package: pins on four sides, a notch, an icon well, a status LED (+ a dithered glow)
+export const CHIP = {
+  avail: { line: '#7cf29e', mid: '#3fb866', pin: '#3fb866', body: '#05190d', scan: '#082414', well: '#010804', led: '#7cf29e', hi: '#e2ffe8', glow: '#0f3a1e' },
+  run: { line: '#e2ffe8', mid: '#7cf29e', pin: '#7cf29e', body: '#0a2a14', scan: '#0d3319', well: '#020c06', led: '#ffb83a', hi: '#ffffff', glow: '#1f5a34' },
+  done: { line: '#3fb866', mid: '#1f7d3d', pin: '#1f7d3d', body: '#082414', scan: '#0a2a16', well: '#03100a', led: '#c8ffd2', hi: '#9ef5b0', glow: null },
+  locked: { line: '#1f5a34', mid: '#14402a', pin: '#123d21', body: '#030c06', scan: '#051209', well: '#010603', led: '#5a1e10', hi: '#2c6e44', glow: null },
+  zone: { line: '#c8861e', mid: '#7a4c10', pin: '#6a4210', body: '#0c0a03', scan: '#120e04', well: '#050402', led: '#ffb83a', hi: '#ffd27a', glow: null },
+};
+export function chipCanvas(p) {
+  const a = new Art(32, 32);
+  // pins (behind the body edge)
+  for (const v of [7, 12, 18, 23]) {
+    for (let k = 1; k <= 3; k++) { a.set(k, v, p.pin); a.set(k, v + 1, p.pin); a.set(31 - k, v, p.pin); a.set(31 - k, v + 1, p.pin); }
+    for (let k = 1; k <= 3; k++) { a.set(v, k, p.pin); a.set(v + 1, k, p.pin); a.set(v, 31 - k, p.pin); a.set(v + 1, 31 - k, p.pin); }
+  }
+  // body
+  a.shape(4, 27, () => [4, 27], (x, y, d) => (d.t === 1 || d.l === 1 ? p.mid : y % 2 ? p.scan : p.body), p.line);
+  // notch + corner joints + LED
+  a.hline(14, 17, 4, p.body); a.hline(15, 16, 5, p.line);
+  a.set(4, 4, p.hi); a.set(27, 4, p.hi); a.set(4, 27, p.hi); a.set(27, 27, p.hi);
+  a.rect(23, 6, 2, 2, p.led);
+  a.set(6, 6, p.mid);
+  // the icon well
+  a.shape(8, 26, () => [6, 25], (x, y, d) => (d.t === 1 || d.l === 1 ? '#000000' : p.well), p.mid);
+  if (p.glow) a.halo([p.line, p.hi, p.pin], p.glow);
   return a.canvas();
 }
 
@@ -410,7 +437,7 @@ const FOX = [
   '...owwwo...',
   '....ooo....',
 ];
-/** a big dithered fox-head emblem for the desktop wallpaper (two dark greens) */
+/** a big dithered phosphor fox head for the desktop wallpaper (very dim) */
 export function emblem() {
   const S = 6;
   const a = new Art(FOX[0].length * S, FOX.length * S);
@@ -421,9 +448,8 @@ export function emblem() {
       for (let j = 0; j < S; j++) {
         for (let i = 0; i < S; i++) {
           const X = x * S + i, Y = y * S + j;
-          const solid = ch === 'O' || ch === 'k';
-          if (ch === 'k') a.set(X, Y, '#06180c');
-          else if (solid || (X + Y) % 2 === 0) a.set(X, Y, ch === 'w' ? '#14402a' : '#103620');
+          if (ch === 'k') continue;
+          if (ch === 'O' || ch === 'w' ? (X + Y) % 2 === 0 : (X % 2 === 0 && Y % 2 === 0)) a.set(X, Y, ch === 'w' ? '#0e3019' : '#0b2814');
         }
       }
     }
@@ -431,35 +457,32 @@ export function emblem() {
   return a.canvas();
 }
 
-/** small repeating tiles: 'dots' (wallpaper), 'grid' (tree view), 'hatch' (locked sections), 'ditherD' */
+/** small repeating tiles: dots (desktop), grid (tree), hatch (locked), scan (dithered scanlines), veil (dims the code rain) */
 export function tile(kind) {
-  if (kind === 'dots') { const a = new Art(8, 8); a.set(0, 0, '#0f2c19'); a.set(4, 4, '#0d2816'); return a.canvas(); }
-  if (kind === 'grid') { const a = new Art(16, 16); a.set(0, 0, '#163f24'); a.set(8, 0, '#0f2c19'); a.set(0, 8, '#0f2c19'); return a.canvas(); }
-  if (kind === 'hatch') {
-    const a = new Art(8, 8);
-    for (let i = 0; i < 8; i++) { a.set(i, (8 - i) % 8, '#1b2a14'); a.set(i, (9 - i) % 8, '#141f0f'); }
-    return a.canvas();
-  }
-  const a = new Art(2, 2); a.set(0, 0, 'rgba(0,0,0,0.35)'); a.set(1, 1, 'rgba(0,0,0,0.35)'); return a.canvas();
+  if (kind === 'dots') { const a = new Art(8, 8); a.set(0, 0, '#0a2413'); return a.canvas(); }
+  if (kind === 'grid') { const a = new Art(16, 16); a.set(0, 0, '#12381f'); a.set(8, 0, '#0a2413'); a.set(0, 8, '#0a2413'); a.set(8, 8, '#081d10'); return a.canvas(); }
+  if (kind === 'hatch') { const a = new Art(8, 8); for (let i = 0; i < 8; i++) { a.set(i, (8 - i) % 8, '#0c2414'); } return a.canvas(); }
+  if (kind === 'scan') { const a = new Art(2, 3); a.set(0, 0, 'rgba(0,0,0,0.26)'); a.set(1, 0, 'rgba(0,0,0,0.26)'); a.set(0, 2, 'rgba(0,0,0,0.12)'); return a.canvas(); }
+  if (kind === 'veil') { const a = new Art(2, 2); a.set(0, 0, 'rgba(1,5,3,0.92)'); a.set(1, 1, 'rgba(1,5,3,0.92)'); a.set(1, 0, 'rgba(1,5,3,0.55)'); a.set(0, 1, 'rgba(1,5,3,0.55)'); return a.canvas(); }
+  const a = new Art(2, 2); a.set(0, 0, '#0f3a1e'); return a.canvas(); // 'dither'
 }
 
 // ---------------------------------------------------------------- 9-slice frames
-// spec: c = corner (art px), r = pixel rounding, rings = colours from the outline inward
-// (a [lit, dark, corner?] pair is a bevel: lit on the top/left, dark on the bottom/right),
-// fill = the middle, depth = rows of keycap side under the face (dcol), rivets = brass dots.
+// c = corner (art px), r = pixel rounding, rings = colours from the outside in (null = clear;
+// a [lit, dark, corner?] pair is a bevel), fill = the middle, joints = the corner pixel of
+// ring 1 (the bright ┌ ┐ └ ┘ joints of a box-drawing frame), depth = rows of key side (dcol).
 const SPECS = {
-  panel: { c: 3, r: 1, rings: ['#010804', ['#2c7046', '#03120a', '#174a2a']], fill: '#0c2716' },
-  card: { c: 3, r: 1, rings: ['#010804', ['#1f5a34', '#03120a', '#123a20']], fill: '#081d10' },
-  inset: { c: 3, r: 1, rings: ['#010804', ['#020a05', '#246040', '#0d2a18']], fill: '#04120a' },
-  key: { c: 3, r: 1, rings: ['#141408', ['#f2ecc4', '#7d7646', '#bdb47c']], fill: '#bdb47c', depth: 2, dcol: '#5a5430' },
-  keyG: { c: 3, r: 1, rings: ['#03140a', ['#c4ffd0', '#1f7d3d', '#3fb866']], fill: '#3fb866', depth: 3, dcol: '#125a2a' },
-  keyA: { c: 3, r: 1, rings: ['#1c0e02', ['#ffe6a8', '#a0601a', '#e8a030']], fill: '#e8a030', depth: 3, dcol: '#6a3a0c' },
-  keyB: { c: 3, r: 1, rings: ['#1c1204', ['#ffeeb0', '#86601a', '#cc9a36']], fill: '#cc9a36', depth: 3, dcol: '#5a3c0c' },
-  keyD: { c: 3, r: 1, rings: ['#010804', ['#30583a', '#0a1a10', '#1c3a26']], fill: '#1c3a26', depth: 3, dcol: '#06140a' },
-  keyS: { c: 3, r: 1, rings: ['#010804', ['#3f7a52', '#0a2214', '#1f4a2c']], fill: '#1f4a2c', depth: 2, dcol: '#071a0d' },
-  plate: { c: 4, r: 1, rings: ['#1a1004', ['#ffe8a0', '#7a5216', '#c8952e'], '#c08a2a'], fill: '#c08a2a', rivets: ['#5a3a0c', '#ffe8a0'] },
-  bezel: { c: 6, r: 2, rings: ['#0e1006', ['#a8aa6c', '#2a2c14', '#6a6c3c'], '#5a5c30', '#5a5c30', ['#e8c060', '#6a4a14', '#a87a2a'], '#0a0c04'], fill: '#5a5c30', screws: true },
-  paper: { c: 3, r: 1, rings: ['#3c3620', ['#fffbe6', '#c2b585', '#e6dbb0']], fill: '#ece2bc', perf: true },
+  box: { c: 3, r: 0, rings: [null, '#1f7d3d'], fill: '#030c06', joints: '#7cf29e' },
+  boxHi: { c: 3, r: 0, rings: [null, '#3fb866'], fill: '#05140b', joints: '#e2ffe8' },
+  boxD: { c: 4, r: 0, rings: [null, '#3fb866', '#030c06', '#1f7d3d'], fill: '#030c06', joints: '#e2ffe8' },
+  boxA: { c: 3, r: 0, rings: [null, '#c8861e'], fill: '#0c0903', joints: '#ffd27a' },
+  well: { c: 3, r: 0, rings: ['#010402', '#0f3a1e'], fill: '#010603', joints: '#1f7d3d' },
+  keyG: { c: 3, r: 1, rings: ['#010402', ['#d0ffd8', '#1f7d3d', '#3fb866']], fill: '#3fb866', depth: 3, dcol: '#0f4a22' },
+  keyO: { c: 3, r: 1, rings: ['#010402', '#3fb866'], fill: '#04140a', depth: 2, dcol: '#0f3a1e', joints: '#9ef5b0' },
+  keyD: { c: 3, r: 1, rings: ['#010402', '#14402a'], fill: '#030c06', depth: 3, dcol: '#071a0e' },
+  keyS: { c: 3, r: 1, rings: ['#010402', '#14402a'], fill: '#030c06', depth: 2, dcol: '#071a0e' },
+  keyA: { c: 3, r: 1, rings: ['#120a02', ['#ffe0a0', '#8a5010', '#e8a030']], fill: '#e8a030', depth: 3, dcol: '#5a3008' },
+  keyAO: { c: 3, r: 1, rings: ['#010402', '#c8861e'], fill: '#0e0a02', depth: 2, dcol: '#3a2406', joints: '#ffd27a' },
 };
 
 function frameCanvas(s) {
@@ -470,31 +493,25 @@ function frameCanvas(s) {
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const ex = Math.min(x, W - 1 - x);
-      const eyR = Math.min(y, H - 1 - y); // rounding: against the very bottom (keycap side included)
+      const eyR = Math.min(y, H - 1 - y);
       if (ex + eyR < r) continue;
       if (ex + eyR === r && r > 0) { a.set(x, y, ink); continue; }
       if (y >= Hf) { a.set(x, y, ex === 0 || y === H - 1 ? ink : s.dcol); continue; }
       const ey = Math.min(y, Hf - 1 - y);
       const d = Math.min(ex, ey);
       const ring = d < s.rings.length ? s.rings[d] : s.fill;
+      if (ring == null) continue;
       let col = ring;
       if (Array.isArray(ring)) {
         const top = ey === d && y < Hf / 2, left = ex === d && x < W / 2;
         const bot = ey === d && y >= Hf / 2, right = ex === d && x >= W / 2;
         col = (top || left) && !(bot || right) ? ring[0] : (bot || right) && !(top || left) ? ring[1] : ring[2] || ring[0];
       }
-      if (s.perf && (y === 0 || y === Hf - 1) && x > c && x < W - 1 - c && x % 2 === 0) continue; // perforated paper edge
+      if (s.joints && d === 1 && ex === 1 && ey === 1) col = s.joints;
       a.set(x, y, col);
     }
   }
-  if (s.rivets) for (const [x, y] of [[2, 2], [W - 3, 2], [2, Hf - 3], [W - 3, Hf - 3]]) { a.set(x, y, s.rivets[0]); a.set(x - 1, y - 1, s.rivets[1]); }
-  if (s.screws) {
-    for (const [x, y] of [[3, 3], [W - 4, 3], [3, Hf - 4], [W - 4, Hf - 4]]) {
-      a.set(x - 1, y, '#2a2c14'); a.set(x + 1, y, '#2a2c14'); a.set(x, y - 1, '#c8c890'); a.set(x, y + 1, '#2a2c14'); a.set(x, y, '#8a8c58');
-      a.set(x - 1, y - 1, '#a8aa6c'); a.set(x + 1, y + 1, '#1a1c0c');
-    }
-  }
-  return { cv: a.canvas(), c, dep, W, H };
+  return { cv: a.canvas(), c, dep };
 }
 
 let _frames = null;
@@ -506,7 +523,7 @@ export function frames(u = devU()) {
     const f = frameCanvas(s);
     const url = urlOf(f.cv, u);
     const C = f.c * u, B = (f.c + f.dep) * u, cw = f.c * 2, bw = (f.c + f.dep) * 2;
-    map[k] = `url(${url}) ${C} ${C} ${B} ${C} fill / ${cw}px ${cw}px ${bw}px ${cw}px ${s.perf ? 'round' : 'stretch'}`;
+    map[k] = `url(${url}) ${C} ${C} ${B} ${C} fill / ${cw}px ${cw}px ${bw}px ${cw}px stretch`;
   }
   _frames = { u, map };
   return map;

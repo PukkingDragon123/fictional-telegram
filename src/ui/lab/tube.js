@@ -13,11 +13,12 @@
 import { dpr } from '../uiScale.js';
 
 // palette
+// [v31 lab] re-inked for the green hacker terminal: dark glass, phosphor liquid, gunmetal-green caps
 const C = {
-  ink: '#0b1410', glassD: '#123026', glass: '#173a2e', glassL: '#24503f', tick: '#3f7a5e', tickL: '#6fae8a',
-  liqD: '#147a32', liq: '#28b84a', liqM: '#46d862', liqL: '#8ef58a', foam: '#d6ffc8', bub: '#c8ffd0', bubD: '#5fe07a',
-  brassD: '#6a4214', brass: '#c88a2c', brassM: '#e2a83e', brassL: '#ffe08a', bolt: '#4a2c0c',
-  glint: 'rgba(255,255,255,0.55)', glint2: 'rgba(255,255,255,0.22)',
+  ink: '#010402', glassD: '#04140a', glass: '#071c0f', glassL: '#0f3a1e', tick: '#1f5a34', tickL: '#3fb866',
+  liqD: '#1f7d3d', liq: '#3fb866', liqM: '#7cf29e', liqL: '#c8ffd2', foam: '#eaffee', bub: '#d0ffd8', bubD: '#7cf29e',
+  brassD: '#0a2a14', brass: '#14402a', brassM: '#2c6e44', brassL: '#7cf29e', bolt: '#010804',
+  glint: 'rgba(200,255,210,0.5)', glint2: 'rgba(200,255,210,0.18)',
 };
 const CAP = 5; // brass cap width (art px)
 const frac = (x) => x - Math.floor(x);
@@ -129,12 +130,14 @@ function paintGlow(ctx, x, y, w, h, k, t, done) {
   const L = w - CAP * 2;
   const fw = Math.round(Math.max(0, Math.min(1, k)) * L);
   if (fw <= 0) return;
-  const p = 0.75 + 0.25 * Math.sin(t * 2.6);
-  const a = (done ? 0.3 : 0.16) * p;
-  ctx.fillStyle = `rgba(90,255,120,${a})`;
-  ctx.fillRect(x + CAP, y - 1, fw, h + 2);
-  ctx.fillStyle = `rgba(90,255,120,${a * 0.5})`;
-  ctx.fillRect(x + CAP + 1, y - 2, Math.max(0, fw - 2), h + 4);
+  // [v31 lab] a dithered halo (checker pixels), pulsing in two steps: never a soft blur
+  const ph = Math.floor(t * 3) % 2;
+  ctx.fillStyle = done ? '#3fb866' : '#1f7d3d';
+  for (let i = 0; i < fw; i++) {
+    const X = x + CAP + i;
+    if ((i + ph) % 2 === 0) { ctx.fillRect(X, y - 1, 1, 1); ctx.fillRect(X, y + h, 1, 1); }
+    if ((i + ph) % 4 === 1) { ctx.fillRect(X, y - 2, 1, 1); ctx.fillRect(X, y + h + 1, 1, 1); }
+  }
 }
 
 export class Tube {
