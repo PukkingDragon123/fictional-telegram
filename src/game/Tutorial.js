@@ -163,8 +163,8 @@ export class Tutorial {
     if (t) {
       try {
         if (!t.visible) await t.show();
-        await t.goTo(target || null); // [v31 guide] the line floats by its target, else over Reynard
-        if (circle && target) t.circle(target);
+        t.goTo(target || null); // [v31 guide] the box moves clear of the target
+        if (circle && target) t.circle(target); // drawn at once: a quick tap must not leave it behind
         if (arrowTo) t.arrow(target || { x: innerWidth / 2, y: innerHeight / 2 }, arrowTo);
         if (doodle) t.doodle(doodle, target || { x: innerWidth / 2, y: innerHeight / 3 });
         await t.say(text, { wait: w, dur, mood });

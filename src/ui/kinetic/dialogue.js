@@ -52,7 +52,8 @@ const barsOn = () => document.body.classList.contains('cine');
 
 /** where the box goes (art px) */
 function boxRect(pos) {
-  const w = Math.min(CW - 16, 252), h = 50;
+  // at the top it leaves the HUD corners (coins, notebook, clock) free
+  const w = pos === 'top' ? Math.min(CW - 130, 240) : Math.min(CW - 16, 252), h = 50;
   const x = Math.round((CW - w) / 2);
   const bar = barsOn() ? Math.ceil(CH * 0.11) : 0;
   const y = pos === 'top' ? Math.max(6, bar - 22) + 4 : CH - h - Math.max(6, bar - 30);

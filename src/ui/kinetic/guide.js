@@ -129,10 +129,10 @@ export class KineticGuide {
   }
 
   clearLine() { if (this.line) { this.line.dismiss(); this.line = null; } hideDialogue(); }
-  /** the box goes to the top when the thing to tap sits low on the screen */
+  /** the box sits at the top, clear of the toolbar; at the bottom only when the thing to tap is up there */
   boxPos() {
     const r = this.target ? targetRect(this.target) : null;
-    return r && r.top + r.height / 2 > innerHeight * 0.55 ? 'top' : 'bottom';
+    return r && r.top + r.height / 2 < innerHeight * 0.35 ? 'bottom' : 'top';
   }
 
   say(html, { wait: w = true, dur = null, mood = 'normal' } = {}) {
