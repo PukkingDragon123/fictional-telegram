@@ -514,6 +514,8 @@ export class Quests {
 
   // a chapter's class plays at the next quiet moment (after its hour)
   maybeClass() {
+    return; // [v31 guide] the chalkboard classroom is gone: chapter classes no longer play
+    // eslint-disable-next-line no-unreachable
     const g = this.game, M = this.M;
     if (!M.cls.length || g.tutorial?.active || g.state.phase !== 'day' || g.skipTutorial) return;
     const L = g.lessons;

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { BEAR_TYPES, FIRST_NAMES, DEPARTMENTS, WANT_INFO, REVIEWS, WANT_COMPLAINTS, LINES, BEAR_WANT_LINES, bearSpawnWeight } from '../data/bears.js';
 import { makeBearLook, lookDef, bearLine } from '../entities/bearLook.js'; // [v18 bear looks]
-import { floatText, floatTitle } from '../ui/kinetic/floatText.js'; // [v31 kinetic]
+import { floatTitle } from '../ui/kinetic/floatText.js'; // [v31 kinetic] boss name cards
 import { BEAUTY_PER_BEAR } from '../data/structures.js';
 import { SPECIES_BY_ID } from '../data/species.js';
 import { BearRig } from '../entities/bearRig.js';
@@ -830,8 +830,6 @@ export class BearSystem {
     b.coins += game.fish.coinValue(f) * COIN_PER_MEAL * b.def.pay * game.mods.fishValueMult;
     if (f.g && (f.g.morph === 'golden' || f.g.morph === 'rainbow')) {
       b.gotGolden = true;
-      // [v31 kinetic] a golden bite glitters over the bear
-      try { floatText({ text: f.g.morph === 'rainbow' ? 'RAINBOW?!' : 'GOLDEN!!', at: { getWorldPos: (v) => v.set(b.x, b.y + 2.4 * (b.def?.scale || 1), b.z) }, style: 'gold', k: 2, ms: 1800, prio: 2 }); } catch { /* */ }
     }
     if (f.g?.traits.includes('lucky')) b.tips += 4 * b.def.pay;
     game.fish.remove(f);

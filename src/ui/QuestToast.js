@@ -10,6 +10,7 @@
 //   kind 'dailyDone'    a goal ticked + its coins
 // Toasts queue up so two never talk over each other.
 import { floatAt, floatTitle, floatSize } from './kinetic/floatText.js';
+import { noticePanel } from './kinetic/dialogue.js'; // [v31 dialogue]
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 let chain = Promise.resolve();
@@ -87,7 +88,11 @@ async function centred(lines, ms, y = 0.13) {
     hs.push(h);
     top += h.height + 3;
   }
+  // [v31 dialogue] the news sits on a pixel panel, never as loose words on the world
+  const top0 = Math.round(H * y), boxW = Math.max(...hs.map((h) => h.width || 0)) + 22, boxH = top - top0 + 10;
+  const off = noticePanel(() => ({ x: Math.round(W / 2 - boxW / 2), y: top0 - 8, w: boxW, h: boxH }));
   await Promise.race([Promise.all(hs.map((h) => h.done)), wait(ms / 1000 + 1.6)]);
+  off();
 }
 
 /** a toast is playing or waiting (the director holds its scenes until they're done) */

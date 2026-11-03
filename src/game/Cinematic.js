@@ -16,7 +16,6 @@ import { OFFICE } from '../world/worldgen.js';
 import { CHATTER } from '../data/bears.js';
 import { pick, clamp } from '../core/rng.js';
 import { FeastOpener } from './cine/feastOpener.js'; // [v31 cine] the super cinematic 5 PM opener
-import { floatText } from '../ui/kinetic/floatText.js'; // [v31 kinetic]
 
 export class Cinematic {
   constructor(game) {
@@ -152,8 +151,6 @@ export class Cinematic {
 
   onRampage(b) {
     if (!this.active) return;
-    // [v31 kinetic] the rampage gets shouted over the bear's head, red-hot and shaking
-    try { floatText({ text: b.def?.boss ? `${b.def.name.toUpperCase()}!!` : pick(['RAMPAGE!', 'RAAAWR!', 'NO FISH?!', 'SMASH!']), at: { getWorldPos: (v) => v.set(b.x, b.y + 2.4 * (b.def?.scale || 1), b.z) }, style: 'angry', k: 2, ms: 1600, voice: 'bear', prio: 2 }); } catch { /* */ }
     this.focusQueue.unshift({ kind: 'rampage', bear: b });
   }
 

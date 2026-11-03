@@ -9,7 +9,7 @@
 //   D  4.0s  a crane shot sweeping down the trail to the pond, time back to full speed
 // The office model is voxels at 0.25 world units placed at OFFICE (src/world/buildings.js).
 import { OFFICE } from '../../world/worldgen.js';
-import { floatText, floatTitle, clearFloats } from '../../ui/kinetic/floatText.js';
+import { floatTitle, clearFloats } from '../../ui/kinetic/floatText.js';
 
 const VS = 0.25;
 const W = (vx, vy, vz) => ({ x: OFFICE.x + vx * VS, y: OFFICE.h + vy * VS, z: OFFICE.z + vz * VS });
@@ -62,7 +62,6 @@ export class FeastOpener {
         this.yaw0 = r.yawGoal;
         this.set({ x: WHISTLE.x - 0.6, y: WHISTLE.y - 1.2, z: WHISTLE.z + 0.8 }, 0.0105, this.yaw0 + 0.35);
         r.shake = Math.max(r.shake || 0, 0.55);
-        floatText({ text: 'TOOOOOOT!', at: { x: WHISTLE.x, y: WHISTLE.y + 0.6, z: WHISTLE.z }, style: 'shout', k: 2, ms: 900, cine: true, prio: 1, kick: false });
       }
       // a slow push and steam blasting out of the whistle
       r.wuppGoal = lerp(0.0105, 0.0094, t / 1.2);
@@ -102,10 +101,7 @@ export class FeastOpener {
       }
       if (!this.barked) {
         const b = g.bears?.list?.find((x) => x.visible && x.state !== 'queued');
-        if (b) {
-          this.barked = true;
-          floatText({ text: Math.random() < 0.5 ? 'FOOOOOD!!' : 'FISH O\'CLOCK!', at: { getWorldPos: (v) => v.set(b.x, b.y + 2.3 * (b.def?.scale || 1), b.z) }, style: 'shout', ms: 1300, cine: true, voice: 'bear', kick: false });
-        }
+        if (b) { this.barked = true; try { g.audio?.play?.('roar', { volume: 0.35, pitch: 1.1 }); } catch { /* */ } }
       }
       r.wuppGoal = lerp(0.0165, 0.0185, (t - 2.7) / 1.3);
       return false;

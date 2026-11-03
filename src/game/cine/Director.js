@@ -24,6 +24,7 @@ import { HUT, OFFICE } from '../../world/worldgen.js';
 import { angleDiff, damp, clamp } from '../../core/rng.js';
 import { bindFloat, floatText, floatTitle, floatCaption, clearFloats, skipAllFloats } from '../../ui/kinetic/floatText.js';
 import { questToastBusy } from '../../ui/QuestToast.js';
+import { sayLine, hideDialogue, hideDialogueSoon } from '../../ui/kinetic/dialogue.js'; // [v31 dialogue]
 
 const ease = { inout: (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2), out: (t) => 1 - (1 - t) ** 3, in: (t) => t * t * t, linear: (t) => t };
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
@@ -71,6 +72,8 @@ export class StageBear {
     } catch { return 0; }
   }
   get headY() { return this.y + 2.15 * (this.def.scale || 1) * this.scaleK; }
+  /** [v31 dialogue] the dialogue box portrait: a render of this very bear */
+  portrait(expr) { return { who: 'bear', type: this.type, def: this.def, ...(expr ? { expr } : {}) }; }
   getWorldPos(v) { return v.set(this.x, this.headY, this.z); }
   walkTo(x, z, { run = false, speed } = {}) {
     this.walk?.res?.(false);
@@ -126,6 +129,7 @@ class FoxActor {
   get y() { return this.f.y; }
   get headY() { return this.f.y + 1.75; }
   getWorldPos(v) { return v.set(this.f.x, this.f.y + 1.75, this.f.z); }
+  portrait() { return { who: 'fox' }; }
   take() { this.f.cine ||= { anim: null, face: null }; this.f.target = null; this.f.mood = 'idle'; }
   release() { if (this.f) { this.f.cine = null; this.f.anim = null; } }
   act(anim, secs) {
@@ -154,7 +158,11 @@ class FoxActor {
 }
 
 // a point that can speak (the office tower on the phone, a voice off screen)
-export const spot = (x, y, z, name, color, voice) => ({ kind: 'spot', x, y, z, name, color, voice, getWorldPos: (v) => v.set(x, y, z), act() {}, hold() {}, lookAt() {}, face() {} });
+export const spot = (x, y, z, name, color, voice) => ({
+  kind: 'spot', x, y, z, name, color, voice, getWorldPos: (v) => v.set(x, y, z), act() {}, hold() {}, lookAt() {}, face() {},
+  // [v31 dialogue] who's talking: Reynard off screen, or the CEO on the phone
+  portrait: (expr) => (voice === 'fox' ? { who: 'fox' } : voice === 'ceo' ? { who: 'bear', type: 'ceo', ...(expr ? { expr } : {}) } : voice === 'bear' ? { who: 'bear', type: 'office' } : null),
+});
 
 // ------------------------------------------------------------------ the director
 export class Director {
@@ -236,6 +244,7 @@ export class Director {
       window.removeEventListener('pointerdown', this._onPtr, true);
       this.showSkip(false);
       clearFloats((it) => it.cine);
+      hideDialogue(); // [v31 dialogue]
       for (const a of this.actors.slice()) if (!a.keep) a.dispose?.();
       this.actors = this.actors.filter((a) => a.keep && !a.removed);
       this.fox.release();
@@ -394,13 +403,14 @@ export class Director {
         // shot / reverse shot: the frame leans toward the speaker
         if (D.center && typeof who?.x === 'number' && who.kind !== 'spot') {
           const C0 = D.center;
-          c.shot([C0.x + (who.x - C0.x) * 0.38, C0.z + (who.z - C0.z) * 0.38], { zoom: rig.wuppGoal, dur: 0.9, ease: 'out' });
+          c.shot([C0.x + (who.x - C0.x) * 0.38, C0.z + (who.z - C0.z) * 0.38], { zoom: rig.wuppGoal, dur: 0.9, ease: 'out', lift: rig.goal.y || 0 });
         }
         if (shake) c.shake(shake);
         if (sfx) c.sfx(sfx);
-        const h = floatText({
-          text, at: who, style, name: name ?? who?.name, color: who?.color, voice: style === 'think' ? null : who?.voice, hold: true, cine: true, kind: 'line', prio: 3,
-        });
+        // [v31 dialogue] in the dialogue box, with the speaker's portrait and name plate
+        const expr = face || (style === 'shout' || style === 'angry' ? 'angry' : style === 'happy' || style === 'excited' || style === 'laugh' ? 'happy' : style === 'scared' ? 'shocked' : style === 'sad' ? 'sad' : null);
+        const h = sayLine({ name: name ?? who?.name, color: who?.color, portrait: who?.portrait?.(isFox ? null : expr) || null, text, style, voice: style === 'think' ? null : who?.voice, pos: 'bottom' });
+        if (!h) return;
         // a tap types the rest, the next tap moves on
         await new Promise((res) => {
           let typed = false;
@@ -414,19 +424,23 @@ export class Director {
         });
         D.adv = null;
         h.dismiss();
+        hideDialogueSoon(450);
         if (who?.act && !isFox) who.oneShot = null;
         if (isFox) who.hold(null);
         await wait(ms ?? 0.12);
       },
       /** a line that doesn't wait (barks over action) */
+      // [v31 dialogue] no loose floating words: a bark is a short line in the box that doesn't wait
       bark: (who, text, { style = 'say', ms = 1.8 } = {}) => {
         if (!live()) return null;
-        return floatText({ text, at: who, style, name: who?.name, color: who?.color, voice: who?.voice, ms: ms * 1000, cine: true, prio: 4 });
+        const h = sayLine({ name: who?.name, color: who?.color, portrait: who?.portrait?.() || null, text, style, voice: who?.voice, pos: 'bottom' });
+        setTimeout(() => { h?.dismiss(); hideDialogueSoon(300); }, ms * 1000);
+        return h;
       },
-      title: (o) => (live() ? floatTitle(o) : null),
+      title: (o) => (live() ? floatTitle({ cine: true, ...o }) : null),
       caption: (text, o) => (live() ? floatCaption(text, o) : null),
       /** a big title that waits until it has played */
-      card: async (o) => { if (!live()) return; const h = floatTitle(o); await Promise.race([h.done, c.wait((o.ms || 2600) / 1000 + 1.2)]); },
+      card: async (o) => { if (!live()) return; const h = floatTitle({ cine: true, ...o }); await Promise.race([h.done, c.wait((o.ms || 2600) / 1000 + 1.2)]); },
       dip: async (on) => {
         const el = D.dipEl || (D.dipEl = Object.assign(document.createElement('div'), { className: 'dir-dip' }));
         if (!el.isConnected) {

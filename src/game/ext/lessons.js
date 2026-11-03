@@ -5,7 +5,7 @@
 // first feast, winter coming, a tent, a powerless machine, a full store...) and
 // queue up. A queued lesson plays only in a quiet moment of the day (no feast
 // camera, menu, cutscene, lab, classroom, home PC...) and never within one
-// in-game hour of the last one. The teacher fox (src/ui/TeacherOverlay.js) runs
+// in-game hour of the last one. [v31 guide] Reynard (src/ui/kinetic/guide.js) marks
 // to the real thing on screen, circles it and says 2-4 short lines with the
 // player's own numbers; then a tiny goal goes into the notebook (a quest from
 // src/data/lessons.js) and the matching chalkboard class unlocks (offered once).
@@ -14,8 +14,8 @@
 // API: play(id) (now, tests), replay('lesson:<id>' | 'class:<id>'), queue, busy,
 //      force (true: run even with ?notut / no tutorial), seen(id), sync().
 // Save: game.state.lessons = { v, seen: [], queue: [], last, flags: {}, classes: [], played: [] }.
-import { TeacherOverlay } from '../../ui/TeacherOverlay.js';
-import { Classroom, LESSONS as CLASS_BOOK } from '../Classroom.js';
+import { KineticGuide } from '../../ui/kinetic/guide.js'; // [v31 guide] Reynard's kinetic lines + pixel markers (no teacher overlay)
+const CLASS_BOOK = {}; // [v31 guide] the chalkboard classroom is gone: no classes to offer or replay
 import { LESSONS, LESSON_BY_ID, DAY1_CLASSES } from '../lessons/progressive.js';
 import { CLASS_ORDER } from '../lessons/classes.js';
 import '../../ui/lessons.css';
@@ -144,7 +144,7 @@ class Lessons {
   teacher() {
     if (this.teacherObj) return this.teacherObj;
     // the tour's teacher if it is still around (one WebGL fox is plenty), else our own
-    try { this.teacherObj = this.game.tutorial?.teacher || new TeacherOverlay({ game: this.game, root: document.body }); } catch (e) { console.warn('[lessons] teacher', e); this.teacherObj = null; }
+    try { this.teacherObj = this.game.tutorial?.teacher || new KineticGuide({ game: this.game }); } catch (e) { console.warn('[lessons] teacher', e); this.teacherObj = null; }
     return this.teacherObj;
   }
 
@@ -275,15 +275,14 @@ class Lessons {
   }
 
   async playClass(id) {
+    if (!CLASS_BOOK[id]) return false; // [v31 guide] no classroom any more
     const g = this.game;
     if (!CLASS_BOOK[id] || g.classroom?.active || this.blocked()) return false;
     const S = this.S;
     if (!S.played.includes(id)) S.played.push(id);
     if (!S.classes.includes(id) && !DAY1_CLASSES.some(([k]) => k === id)) S.classes.push(id);
     try {
-      g.classroom ||= new Classroom(g);
       g.ui?.foodPicker?.hide?.();
-      await g.classroom.lesson(id);
     } catch (e) { console.warn('[lessons] class', id, e); }
     g.ui?.syncFoodPicker?.();
     this.sync();

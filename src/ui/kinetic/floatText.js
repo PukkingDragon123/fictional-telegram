@@ -371,11 +371,78 @@ function loop(ms) {
   tick(t, dt);
   placeAll(t, dt);
   g.clearRect(0, 0, CW, CH);
+  drawMarkers(t); // [v31] target markers sit under the words
   for (const it of items) drawItem(it, t);
   items = items.filter((it) => !it.gone);
-  if (items.length) raf = requestAnimationFrame(loop);
+  if (items.length || markers.length) raf = requestAnimationFrame(loop);
   else g.clearRect(0, 0, CW, CH);
 }
+
+// ---------------------------------------------------------------- target markers [v31]
+// Pixel brackets that pulse around a thing to tap (a toolbar button, a parcel tag, a fish), a
+// bobbing arrow pointing at it and a little burst when it lands. rect(): CSS px { left, top,
+// width, height } or null while it isn't on screen.
+let markers = [];
+let markerId = 1;
+const ARROW_DN = ['.kkkkk.', '.kyyyk.', '.kyyyk.', '.kyyyk.', 'kkyyykk', 'kyyyyyk', '.kyyyk.', '..kyk..', '...k...'];
+const MCOL = { yellow: ['#ffe066', '#fff6c0'], pink: ['#ff8ab4', '#ffd4e4'], blue: ['#7fd8ff', '#d4f4ff'], green: ['#8af07a', '#d8ffd0'], white: ['#fff6e4', '#ffffff'], orange: ['#ffa040', '#ffe0b0'] };
+function drawMarkers(t) {
+  for (const m of markers) {
+    let r = null;
+    try { r = m.rect(); } catch { r = null; }
+    if (!r) continue;
+    const [c1, c2] = MCOL[m.color] || MCOL.yellow;
+    const age = t - m.t0;
+    const pulse = reduced ? 0 : (Math.floor(t * 4) % 2);
+    const pop = reduced ? 0 : age < 0.08 ? 6 : age < 0.16 ? 3 : 0;
+    const pad = 3 + pulse + pop;
+    const x0 = Math.floor(r.left / S) - pad, y0 = Math.floor(r.top / S) - pad;
+    const x1 = Math.ceil((r.left + r.width) / S) + pad, y1 = Math.ceil((r.top + r.height) / S) + pad;
+    const L = Math.max(3, Math.min(7, Math.floor(Math.min(x1 - x0, y1 - y0) / 3)));
+    // four L-shaped corners: dark ring, then the fill, a lit pixel on each tip
+    const corner = (x, y, dx, dy) => {
+      g.fillStyle = OUT;
+      g.fillRect(dx > 0 ? x - 1 : x - L, y - 1, L + 1, 4); g.fillRect(x - 1, dy > 0 ? y - 1 : y - L, 4, L + 1);
+      g.fillStyle = c1;
+      g.fillRect(dx > 0 ? x : x - L + 1, y, L, 2); g.fillRect(x, dy > 0 ? y : y - L + 1, 2, L);
+      g.fillStyle = c2;
+      g.fillRect(x, y, 1, 1);
+    };
+    corner(x0, y0, 1, 1); corner(x1 - 2, y0, -1, 1); corner(x0, y1 - 2, 1, -1); corner(x1 - 2, y1 - 2, -1, -1);
+    // dotted marching edge between the corners
+    if (!reduced && m.ants) {
+      g.fillStyle = c1;
+      const off = Math.floor(t * 8) % 4;
+      for (let x = x0 + L + 1 + off; x < x1 - L - 1; x += 4) { g.fillRect(x, y0, 1, 1); g.fillRect(x, y1 - 1, 1, 1); }
+      for (let y = y0 + L + 1 + off; y < y1 - L - 1; y += 4) { g.fillRect(x0, y, 1, 1); g.fillRect(x1 - 1, y, 1, 1); }
+    }
+    // the arrow: above the target, or below it when the target hugs the top of the screen
+    if (m.arrow !== false) {
+      const below = y0 < 26;
+      const a = rowsSpr('arrowdn' + (m.color || 'y'), below ? [...ARROW_DN].reverse() : ARROW_DN, { k: OUT, y: c1 });
+      const bob = reduced ? 0 : Math.round(Math.abs(Math.sin(t * 5)) * 3);
+      const ax = Math.round((x0 + x1) / 2 - a.w / 2);
+      const ay = below ? y1 + 2 + bob : y0 - a.h - 2 - bob;
+      g.drawImage(a.c, ax, ay);
+    }
+    // a burst of sparks when it lands
+    if (!reduced && age < 0.35) {
+      g.fillStyle = c2;
+      const k = age / 0.35, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rr = (Math.max(x1 - x0, y1 - y0) / 2 + 4) * (0.6 + k);
+      for (let i = 0; i < 8; i++) { const an = (i / 8) * Math.PI * 2; g.fillRect(Math.round(cx + Math.cos(an) * rr), Math.round(cy + Math.sin(an) * rr), 1, 1); }
+    }
+  }
+}
+/** mark a thing to tap: rect() -> CSS px rect | null. Returns stop() */
+export function floatMarker(rect, o = {}) {
+  if (!layer()) return () => {};
+  fitLayer();
+  const m = { id: markerId++, rect, color: o.color || 'yellow', arrow: o.arrow, ants: o.ants !== false, t0: now() };
+  markers.push(m);
+  if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(loop); }
+  return () => { markers = markers.filter((x) => x !== m); };
+}
+export function clearMarkers() { markers = []; }
 
 const PUNCT_LONG = /[.!?…]/, PUNCT_SHORT = /[,;:—–]/;
 function tick(t, dt) {
@@ -450,7 +517,7 @@ function placeAll(t, dt) {
     if (!nat) { it.vis = false; continue; }
     let [x, y] = nat;
     x = Math.max(3, Math.min(CW - it.W - 3, x));
-    const ny = Math.max(top, Math.min(bot - it.H, y));
+    const ny = it.fixed ? y : Math.max(top, Math.min(bot - it.H, y)); // pinned text (the dialogue box) is never pushed
     y = ny;
     if (it.kind !== 'title' && !it.fixed) {
       // stack above whatever is in the way (below it once there's no room above)
@@ -465,7 +532,7 @@ function placeAll(t, dt) {
     if (!it.placed || it.kind === 'title') { it.off = off; it.placed = true; }
     else { it.off += (off - it.off) * Math.min(1, dt * 14); if (Math.abs(off - it.off) < 0.5) it.off = off; }
     it.px = x;
-    it.py = Math.max(top, Math.min(bot - it.H, Math.round(ny + it.off)));
+    it.py = it.fixed ? Math.round(ny) : Math.max(top, Math.min(bot - it.H, Math.round(ny + it.off)));
     it.vis = true;
     if (it.kind !== 'title' && it.outAt < 0) placed.push({ x: it.px, y: it.py, w: it.W, h: it.H });
   }
@@ -539,8 +606,8 @@ function motion(it, q, t) {
       break;
     case 'radio': {
       const ff = Math.floor(t * 20);
-      if (hash(i, ff) < 0.05) o.hide = true;
-      else if (hash(i + 31, ff) < 0.06) o.dx += hash(i, ff + 1) < 0.5 ? -1 : 1;
+      if (hash(i, ff) < 0.015) o.hide = true; // a rare crackle: lines in the dialogue box stay readable
+      else if (hash(i + 31, ff) < 0.05) o.dx += hash(i, ff + 1) < 0.5 ? -1 : 1;
       if (age < 0.06) o.col = '#ffffff';
       break;
     }
@@ -743,7 +810,7 @@ export function floatTitle(o = {}) {
     sub = make({ kind: 'title', style: 'say', text: o.sub, hold: !!o.hold, ttl: ttl - 0.2, k: 1, look: { font: 'script', k: 1, fill: o.subColor || '#f6ecd4', speed: 40, maxW: 9999 }, delay: 0.5 + String(o.title || '').length / 26, group, prio: 0, fixed: () => [Math.round(CW / 2 - sub.W / 2), Math.round(CH * yk) + (kick ? kick.H + 3 : 0) + tIt.H + 3] });
     parts.push(sub);
   }
-  for (const p of parts) add(p);
+  for (const p of parts) { if (o.cine) p.cine = true; add(p); }
   if (!reduced && game?.rig && style === 'shout') setTimeout(() => { game.rig.shake = Math.max(game.rig.shake || 0, 0.25); }, (o.kicker ? 250 : 0) + 60);
   const all = Promise.all(parts.map((p) => p.done)).then(() => {});
   return {
@@ -768,7 +835,7 @@ export function floatCaption(text, o = {}) {
 /** a stamp-like line pinned to a screen spot (quest toasts): fixed: () => [artX, artY] */
 export function floatAt(o = {}) {
   if (layer()) fitLayer();
-  const it = make({ kind: 'toast', style: o.style || 'say', text: o.text, hold: !!o.hold, ttl: o.ms != null ? o.ms / 1000 : 3, k: o.k, look: o.look, prio: o.prio ?? 2, delay: o.delay, name: o.name, color: o.color, fixed: o.fixed });
+  const it = make({ kind: 'toast', style: o.style || 'say', text: o.text, hold: !!o.hold, ttl: o.ms != null ? o.ms / 1000 : 3, k: o.k, look: o.look, prio: o.prio ?? 2, delay: o.delay, name: o.name, color: o.color, fixed: o.fixed, align: o.align, voice: o.voice });
   add(it);
   return handle(it);
 }

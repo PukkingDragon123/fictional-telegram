@@ -12,7 +12,7 @@
 //   title     name a pond "The Bear Must Eat"
 // (Typed words avoid B and F: those keys ring the bell and follow bears. The Konami B is swallowed.)
 import { OFFICE } from '../../world/worldgen.js';
-import { floatText, floatTitle } from '../../ui/kinetic/floatText.js';
+import { floatTitle } from '../../ui/kinetic/floatText.js';
 import { Vector3 } from 'three';
 
 export const SECRETS = {
@@ -130,9 +130,11 @@ export class Secrets {
     }
   }
 
+  // [v31 dialogue] Reynard's reactions are his own comic speech bubble, not loose words
   foxBark(text, style = 'say', ms = 1.6) {
     const f = this.game.fox;
-    return floatText({ text, at: { getWorldPos: (v) => v.set(f.x, f.y + 1.75, f.z) }, style, name: 'Reynard', color: '#ff9a3c', voice: 'fox', ms: ms * 1000, prio: 3 });
+    const mood = { shout: 'shout', angry: 'angry', scared: 'scared', excited: 'excited', happy: 'happy', whisper: 'whisper', spooky: 'whisper', sad: 'normal' }[style] || 'normal';
+    return this.game.say?.({ getWorldPos: (v) => v.set(f.x, f.y + 1.75, f.z) }, text, { voice: 'fox', mood, dur: ms, size: 's' });
   }
 
   poke(n) {
@@ -176,7 +178,6 @@ export class Secrets {
       await c.shot([W.x - 0.4, W.z + 0.8], { zoom: 0.013, dur: 0.9, lift: W.y - 1.2 });
       c.sfx('whistle', { volume: 0.4, pitch: 1.35 });
       c.fx('puff', W.x, W.y + 0.4, W.z, 4, 0.3);
-      c.bark(c.spot(W.x, W.y + 0.5, W.z), 'toot?', { style: 'whisper', ms: 1.4 });
       await c.beat(1.2);
       const tower = c.spot(O.x, O.h + 4, O.z + 2, 'The CEO', '#bfe6ff', 'ceo');
       await c.say(tower, 'WHO. TOUCHED. MY WHISTLE.', { style: 'radio', shake: 0.3 });
@@ -243,7 +244,7 @@ export class Secrets {
     this.dozing = true;
     f.cine = { anim: 'sit_doze', face: Math.PI / 2 };
     this.zzz = setInterval(() => { try { g.particles.zzz(f.x, f.y + 1.6, f.z); } catch { /* */ } }, 1400);
-    floatText({ text: 'zzz... money... zzz...', at: { getWorldPos: (v) => v.set(f.x, f.y + 1.5, f.z) }, style: 'think', ms: 5000, prio: 4 });
+    this.game.say?.({ getWorldPos: (v) => v.set(f.x, f.y + 1.75, f.z) }, 'zzz... money... zzz...', { mood: 'think', dur: 5, size: 's' });
   }
   wake() {
     const g = this.game, f = g.fox;
