@@ -256,7 +256,7 @@
 
 /* a desktop icon: picture (dithered colour halo, shadow, the art that lifts, a tag), and its name */
 .ltree .lt-fd {
-  --fc: #7cf29e; --fl: #a8ffc8; --fh: #eafff2; --fd: #13665a;
+  --fc: var(--vc, #7cf29e); --fl: var(--vl, #a8ffc8); --fh: var(--vh, #eafff2); --fd: var(--vd, #13665a);
   position: relative;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   min-width: 0;
@@ -274,6 +274,7 @@
 .ltree .lt-fd-art { position: absolute; inset: 0; background-repeat: no-repeat; background-size: 320px 80px; background-position: 0 0; image-rendering: pixelated; }
 .ltree .lt-fd-ico { position: absolute; left: 0; top: 0; width: 36px; height: 36px; display: grid; place-items: center; pointer-events: none; }
 .ltree .lt-fd-ico img { max-width: 32px; max-height: 32px; }
+.ltree .lt-fd.is-sealed { --fc: #5a5772; --fl: #76738e; --fh: #9a97b0; --fd: #2b2a40; } /* locked stays muted so the rest pop */
 .ltree .lt-fd.is-sealed .lt-fd-ico img { filter: grayscale(1) brightness(.7); }
 .ltree .lt-fd-lock { position: absolute; left: 54px; top: 46px; width: 18px; height: 26px; background: no-repeat 0 100% / 18px auto; image-rendering: pixelated; }
 .ltree .lt-fd.has-key .lt-fd-lock { animation: lt-keyhop 1s steps(1) infinite; }
@@ -1045,7 +1046,7 @@
 .ltree.is-compact .lt-close kbd, .ltree.is-compact .lt-close-x { display: none; }
 .ltree.is-compact .lt-up span, .ltree.is-compact .lt-user { display: none; }
 .ltree.is-compact .lt-pinfo { display: none; }
-.ltree.is-compact .lt-desk-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); padding: 8px 6px 16px; }
+.ltree.is-compact .lt-desk-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); padding: 8px 20px 16px 6px; }
 .ltree.is-compact .lt-det {
   position: absolute; left: 0; right: 0; bottom: 0;
   width: auto; max-height: 72%;

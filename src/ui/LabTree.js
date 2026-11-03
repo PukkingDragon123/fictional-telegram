@@ -1131,7 +1131,7 @@ export class LabTree {
     for (const it of items) {
       const b = it.k === 'b';
       const R = b ? it.B.vivid : ART.vividRamp(it.k === 'all' ? 192 : 96);
-      const vars = `--fc:${R.base};--fl:${R.lit};--fh:${R.hi};--fd:${R.dp}${b ? `;--bc:${esc(it.B.color)}` : ''}`;
+      const vars = `--vc:${R.base};--vl:${R.lit};--vh:${R.hi};--vd:${R.dp}${b ? `;--bc:${esc(it.B.color)}` : ''}`;
       h += `<button type="button" class="lt-fd is-${it.k}" data-fd="${it.id}" role="option" aria-selected="false" tabindex="-1" style="${vars}">
         <span class="lt-fd-pic"><span class="lt-fd-sh"></span><span class="lt-fd-lift"><span class="lt-fd-art"></span>${b ? `<span class="lt-fd-ico">${this._iconColor(it.B.b.icon, 32)}</span><span class="lt-fd-lock"></span>` : ''}</span><span class="lt-fd-tag"><i class="lt-fd-led"></i><b></b></span></span>
         <span class="lt-fd-name">${esc(it.name)}</span>

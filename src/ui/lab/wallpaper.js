@@ -13,9 +13,9 @@ const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced
 
 const SKY = ['#05061a', '#080a26', '#0d1033', '#141541', '#1e1a52', '#2c1f5e'].map(rgb);
 const LAKE = ['#0a0f2e', '#070a22', '#050719', '#030411'].map(rgb);
-const GREEN = ['#0c3a3a', '#13665a', '#22a874', '#4fe08e', '#a8ffc8', '#eafff2'].map(rgb); // dim -> bright
-const VIOLET = ['#241a52', '#42308a', '#7a4cc8', '#c08af0', '#f0d4ff'].map(rgb);
-const PINKISH = ['#3a1a4a', '#6e2a6a', '#b84a8a', '#f08ab8'].map(rgb);
+const GREEN = ['#0b3236', '#115a52', '#1e9268', '#3fc87e', '#8ef0b4'].map(rgb); // dim -> bright
+const VIOLET = ['#221850', '#3c2c80', '#6a44b8', '#a878e0'].map(rgb);
+const PINKISH = ['#341848', '#622864', '#a04482'].map(rgb);
 const STARS = ['#ffffff', '#bfe8ff', '#ffd2ec', '#fff2b0', '#c8ffd8'].map(rgb);
 const FAR = rgb('#141a40'), FAR_LIT = rgb('#2a3470'), SNOW = rgb('#8e9ad0');
 const NEAR = rgb('#0b0f2a'), NEAR_LIT = rgb('#18204a');
@@ -134,7 +134,7 @@ export class Wallpaper {
       const X = x + o.dx;
       const edge = Math.round(h * o.y + Math.sin(X * o.f1 + t * o.s1) * h * o.a1 + Math.sin(X * o.f2 - t * o.s2) * h * o.a2);
       const len = h * (o.len + 0.06 * Math.sin(X * 0.031 + t * 0.6));
-      const glow = Math.max(0, 0.55 + 0.45 * Math.sin(X * o.f3 - t * o.s3)) * (0.7 + 0.3 * Math.sin(X * 0.57 + o.ph) * Math.sin(X * 0.13 + t * 0.8));
+      const glow = 0.85 * Math.max(0, 0.55 + 0.45 * Math.sin(X * o.f3 - t * o.s3)) * (0.7 + 0.3 * Math.sin(X * 0.57 + o.ph) * Math.sin(X * 0.13 + t * 0.8));
       if (glow < 0.08) continue;
       const P = o.pal;
       for (let y = Math.max(0, Math.floor(edge - len)); y <= edge + 1 && y < h; y++) {
@@ -162,7 +162,7 @@ export class Wallpaper {
     const buf = this.img.data;
     buf.set(this.base);
     const tt = tick / 8;
-    this._curtain(buf, tt, { y: 0.34, len: 0.26, a1: 0.07, a2: 0.025, f1: 0.016, f2: 0.051, f3: 0.009, s1: 0.35, s2: 0.6, s3: 0.25, dx: 0, ph: 1.3, pal: GREEN });
+    this._curtain(buf, tt, { y: 0.3, len: 0.22, a1: 0.07, a2: 0.025, f1: 0.016, f2: 0.051, f3: 0.009, s1: 0.35, s2: 0.6, s3: 0.25, dx: 0, ph: 1.3, pal: GREEN });
     this._curtain(buf, tt, { y: 0.22, len: 0.16, a1: 0.05, a2: 0.02, f1: 0.022, f2: 0.07, f3: 0.013, s1: 0.28, s2: 0.5, s3: 0.32, dx: 310, ph: 4.1, pal: VIOLET });
     this._curtain(buf, tt, { y: 0.46, len: 0.1, a1: 0.03, a2: 0.02, f1: 0.03, f2: 0.09, f3: 0.017, s1: 0.4, s2: 0.7, s3: 0.4, dx: 900, ph: 2.2, pal: PINKISH });
     // twinkle
