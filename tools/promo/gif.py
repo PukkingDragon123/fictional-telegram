@@ -6,6 +6,8 @@ without dithering (keeps the pixel art clean and the file small). Each frame aft
 stores only what changed: pixels equal to the frame before become the transparent index, so the
 LZW runs stay long, and Pillow crops each frame to the rectangle that changed.
 --start N rotates the loop so it opens on frame N (the still), --colors K caps the palette (<= 255).
+--lossy T (optional, for big files): a pixel whose colour moved less than T (RGB distance) from what is
+already on screen keeps the old colour, so faint shimmer (water) stops costing bytes; real motion is kept.
 """
 import os
 import sys
@@ -15,10 +17,12 @@ from PIL import Image
 args = sys.argv[1:]
 out, ms = args[0], float(args[1])
 rest = args[2:]
-start, colors = 0, 255
+start, colors, lossy = 0, 255, 0
 while rest and rest[0].startswith('--'):
     if rest[0] == '--start':
         start = int(rest[1]); rest = rest[2:]
+    elif rest[0] == '--lossy':
+        lossy = float(rest[1]); rest = rest[2:]
     elif rest[0] == '--colors':
         colors = min(255, int(rest[1])); rest = rest[2:]
     else:
@@ -38,12 +42,16 @@ q = [f.quantize(palette=pal, dither=Image.Dither.NONE) for f in frames]
 # index 255 is never used by the palette (<= 255 colours): it marks "unchanged"
 TR = 255
 outq = [q[0]]
-prev = np.asarray(q[0])
+lut = np.array(q[0].getpalette()[:768] + [0] * max(0, 768 - len(q[0].getpalette())), dtype=np.int32).reshape(-1, 3)
+prev = np.asarray(q[0]).copy()  # what is on screen
 for im in q[1:]:
     cur = np.asarray(im)
-    d = Image.fromarray(np.where(cur == prev, TR, cur).astype(np.uint8), 'P')
+    keep = cur == prev
+    if lossy:
+        keep |= np.sqrt(((lut[cur] - lut[prev]) ** 2).sum(-1)) < lossy
+    d = Image.fromarray(np.where(keep, TR, cur).astype(np.uint8), 'P')
     d.putpalette(im.getpalette())
     outq.append(d)
-    prev = cur
+    prev = np.where(keep, prev, cur)
 outq[0].save(out, save_all=True, append_images=outq[1:], duration=int(round(ms)), loop=0, optimize=False, disposal=1, transparency=TR)
 print('wrote', out, f'{os.path.getsize(out) / 1e6:.2f} MB', len(q), 'frames', f'{w}x{h}', f'start {start}')

@@ -178,7 +178,7 @@ PRESETS.cineThumbAnim = {
 };
 // the banner: wider and lower; Reynard gasping at the near shore, the tower on the far right
 PRESETS.cineBannerAnim = {
-  kind: 'cinebanner', scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox', ['b1', 'b2', 'b3']], still: 12,
+  kind: 'cinebanner', scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox', ['b1', 'b2', 'b3']], still: 12, gif: { 2: ['--lossy', '36'] },
   opts: { ...CINE_LOOK, loop: LOOP_CINE, wupp: 0.017, pitch: 15, lookUp: 1.15, camR: -1.2, camF: -0.8, skyD: 3.2, sun: [0.12, 0.36],
     clear: [[0.25, 0.15, 1, 3]],
     cast: [

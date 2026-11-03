@@ -150,7 +150,8 @@ if (what === 'gif') {
       const gif = path.join(out, file.replace(/\.png$/, '.gif'));
       fs.mkdirSync(out, { recursive: true });
       // the GIF starts on the still frame (itch shows the first frame until it plays)
-      execFileSync('python3', [path.join(HERE, 'gif.py'), gif, String(1000 / (P.opts.loop.frames / P.opts.loop.period)), '--start', String(P.still || 0), ...frames], { stdio: 'inherit' });
+      // P.gif = { <dsf>: [extra gif.py args] }, e.g. { 2: ['--lossy', '36'] } to keep the 2x banner under 3 MB
+      execFileSync('python3', [path.join(HERE, 'gif.py'), gif, String(1000 / (P.opts.loop.frames / P.opts.loop.period)), '--start', String(P.still || 0), ...(P.gif?.[dsf] || []), ...frames], { stdio: 'inherit' });
       if (dsf === 1) fs.copyFileSync(frames[P.still || 0], path.join(out, file));
     }
   }
