@@ -59,7 +59,7 @@ const slider = (k, label, { min = 0, max = 100, step = 1, unit = '%' } = {}) => 
 const toggle = (k, label, on = 'On', off = 'Off', invert = false) => ({ type: 'toggle', k, label, on, off, invert });
 const choice = (k, label, opts) => ({ type: 'choice', k, label, opts });
 const PAGES = {
-  sound: [slider('music', 'Music'), slider('sfx', 'Sound effects'), slider('ambience', 'Ambience'), toggle('muted', 'Sound', 'On', 'Off', true)],
+  sound: [slider('music', 'Music'), slider('sfx', 'Sound effects'), slider('ambience', 'Ambience'), toggle('voiceLines', 'Voice lines'), toggle('muted', 'Sound', 'On', 'Off', true)], // [v32] voice lines
   picture: [
     toggle('fullscreen', 'Fullscreen'),
     choice('pixel', 'Pixel size', [[0.7, 'Chunky'], [1, 'Normal'], [1.4, 'Fine']]),
