@@ -24,6 +24,7 @@ import { HUT, OFFICE } from '../../world/worldgen.js';
 import { angleDiff, damp, clamp } from '../../core/rng.js';
 import { bindFloat, floatText, floatTitle, floatCaption, clearFloats, skipAllFloats } from '../../ui/kinetic/floatText.js';
 import { questToastBusy } from '../../ui/QuestToast.js';
+import { Words3D } from './words3d.js'; // [v32 cine] floating 3D voxel words
 
 const ease = { inout: (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2), out: (t) => 1 - (1 - t) ** 3, in: (t) => t * t * t, linear: (t) => t };
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
@@ -39,8 +40,9 @@ const VOICES = new Set(['fox', 'bear', 'cub', 'ceo']);
 const bubbleVoice = (who) => (VOICES.has(who?.voice) ? who.voice : who?.kind === 'fox' ? 'fox' : 'bear');
 // a voice with no body on screen (the CEO on the phone, Reynard narrating a shot) talks from the
 // top of the screen, with its name in front of the line
-function bubbleAnchor(who) {
-  if (who?.kind === 'spot') return () => ({ x: Math.round(innerWidth / 2), y: Math.round(innerHeight * 0.24), visible: true });
+function bubbleAnchor(who, tall = false) {
+  // (a question with reply buttons is a tall bubble: it hangs from lower down so it stays on screen)
+  if (who?.kind === 'spot') return () => ({ x: Math.round(innerWidth / 2), y: Math.round(innerHeight * (tall ? 0.5 : 0.3)), visible: true });
   return who;
 }
 const bubbleText = (who, text) => {
@@ -215,6 +217,7 @@ export class Director {
 
   update(dt) {
     for (const a of this.actors) a.update?.(dt);
+    if (this.words?.length) this.words = this.words.filter((w) => w.update(Math.min(0.1, dt))); // [v32 cine]
     if (this.active || !this.queueList.length) return;
     this.checkT -= dt;
     if (this.checkT > 0) return;
@@ -260,6 +263,7 @@ export class Director {
       this.showSkip(false);
       clearFloats((it) => it.cine);
       g.ui?.bubbles?.clear?.((b) => b.key === 'cine' || b.key === 'cinebark');
+      for (const w of this.words || []) if (w.scene) w.dismiss(); // [v32 cine] a scene's 3D words fly off with it
       for (const a of this.actors.slice()) if (!a.keep) a.dispose?.();
       this.actors = this.actors.filter((a) => a.keep && !a.removed);
       this.fox.release();
@@ -282,6 +286,15 @@ export class Director {
       g.emit?.('sceneEnd', { id, skipped: this.skipped });
     }
     return ok;
+  }
+
+  /** [v32 cine] floating 3D voxel words in the world (src/game/cine/words3d.js): returns the word */
+  words3d(text, opts = {}) {
+    try {
+      const w = new Words3D(this.game, text, opts);
+      (this.words ||= []).push(w);
+      return w;
+    } catch (e) { console.warn('[words3d]', e); return null; }
   }
 
   showSkip(on) {
@@ -322,7 +335,7 @@ export class Director {
   }
   onPtr(e) {
     if (!this.active) return;
-    if (e.target?.closest?.('.dir-skip')) return;
+    if (e.target?.closest?.('.dir-skip, .bb-pill')) return; // [v32 cine] reply buttons take their own clicks
     e.stopPropagation();
     this.adv?.();
   }
@@ -449,6 +462,45 @@ export class Director {
         return g.say(bubbleAnchor(who), bubbleText(who, text), { voice: bubbleVoice(who), mood: MOOD_OF[style] || 'normal', dur: ms, key: 'cinebark', size: 's' });
       },
       title: (o) => (live() ? floatTitle({ cine: true, ...o }) : null),
+      /**
+       * [v32 cine] floating 3D voxel words in the world. at: [x, z] | actor | { x, y, z }; y: height above
+       * the ground (default 2.4); pal: gold | red | green | blue | amber | white | pink; ms; hold
+       */
+      words3d: (text, { at, y = 2.4, ...o } = {}) => {
+        if (!live()) return null;
+        let pos;
+        if (Array.isArray(at)) pos = { x: at[0], y: (g.grid?.groundAt?.(at[0], at[1]) || 0) + y, z: at[1] };
+        else if (at && typeof at.getWorldPos === 'function') { const v = at.getWorldPos(new (rig.goal.constructor)()); pos = { x: v.x, y: v.y + y * 0.4, z: v.z }; }
+        else if (at && typeof at.x === 'number') pos = { x: at.x, y: at.y ?? y, z: at.z };
+        else pos = { x: rig.goal.x, y: (rig.goal.y || 0) + y, z: rig.goal.z };
+        const w = D.words3d(text, { at: pos, ...o });
+        if (w) w.scene = true;
+        return w;
+      },
+      /**
+       * [v32 cine] a question the player answers: a comic bubble with reply buttons (tap one, or press
+       * 1-9). Resolves to the chosen value (the first one if the scene is skipped).
+       *   const v = await c.ask(c.fox, 'Pop quiz!', [{ label: 'Snacks', value: 'ok' }, ...])
+       */
+      ask: async (who, text, choices, { style = 'say', anim } = {}) => {
+        const first = choices?.[0]?.value;
+        if (!live()) return first;
+        const isFox = who === D.fox || who?.kind === 'fox';
+        if (who?.act) { if (isFox) who.hold(anim || 'talk'); else who.act(anim || 'talk', 99); }
+        const h = g.say(bubbleAnchor(who, true), bubbleText(who, text), { voice: bubbleVoice(who), mood: MOOD_OF[style] || 'normal', choices: choices.map((x) => ({ label: x.label, value: x.value, icon: x.icon })), key: 'cine', size: 'm' });
+        if (!h) return first;
+        D.adv = () => {
+          const B = g.ui?.bubbles, b = B?.list?.find((x) => x.handle === h);
+          if (D.skipped) { h.close(); return; }
+          if (b && !b.typed) B._finishTyping?.(b);
+        };
+        const v = await h.done;
+        D.adv = null;
+        if (who?.act && !isFox) who.oneShot = null;
+        if (isFox) who.hold(null);
+        g.audio?.play?.('click', { volume: 0.4 });
+        return v === undefined ? first : v;
+      },
       caption: (text, o) => (live() ? floatCaption(text, o) : null),
       /** a big title that waits until it has played */
       card: async (o) => { if (!live()) return; const h = floatTitle({ cine: true, ...o }); await Promise.race([h.done, c.wait((o.ms || 2600) / 1000 + 1.2)]); },

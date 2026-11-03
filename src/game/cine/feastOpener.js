@@ -81,7 +81,9 @@ export class FeastOpener {
         this.set({ x: CLOCK.x, y: CLOCK.y - 1.4, z: CLOCK.z }, 0.021, this.yaw0);
         const name = g.weekday?.() || 'Monday';
         const [kick, title, style] = DAY_TITLE[name] || DAY_TITLE.Monday;
-        this.title = floatTitle({ kicker: `5:00 PM · ${kick}`, title, style, y: 0.15, ms: 2300 });
+        // [v32 cine] the day's shout hangs in front of the clock as 3D voxel letters; the time sits above as a card
+        this.title = floatTitle({ kicker: kick, title: '5:00 PM', style: style === 'gold' ? 'gold' : 'shout', y: 0.1, ms: 2300 });
+        this.word = g.director?.words3d?.(title, { at: { x: CLOCK.x, y: CLOCK.y - 1.6, z: CLOCK.z + 1.6 }, pal: style === 'gold' ? 'gold' : style === 'happy' ? 'green' : 'red', ms: 2600, size: 0.085 });
         g.audio?.play?.('bell', { volume: 0.35 });
       }
       const k = ease((t - 1.2) / 1.5);
@@ -131,6 +133,7 @@ export class FeastOpener {
     this.done = true;
     this.game.timeScale = 1;
     this.title?.dismiss?.();
+    this.word?.dismiss?.();
     clearFloats((it) => it.cine);
   }
 }
