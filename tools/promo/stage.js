@@ -18,6 +18,8 @@ import { WATER_Y } from '../../src/world/grid.js';
 // [F&S] mining + industry art
 import * as MM from '../../src/entities/extra/miningModels.js';
 import * as IM from '../../src/entities/extra/industryModels.js';
+// [v4 cinematic] the Bear St. office tower
+import { officeModel } from '../../src/world/buildings.js';
 
 const D2R = Math.PI / 180;
 const S = (window.__promo ||= { actors: [], t: 0, cfg: null, named: {} });
@@ -70,7 +72,7 @@ export function shockedFox(fox, o = {}) {
       f.sweat = P.sweat ?? 2;
       // looping GIF: two little gasps per loop (hop, stretch, head back) on top of the trembling
       if (rig.__promoPhase != null) {
-        const g = Math.max(0, Math.sin(rig.__promoPhase * Math.PI * 4)) ** 2;
+        const g = Math.max(0, Math.sin((rig.__promoPhase * (P.gasps ?? 2) + (P.gaspOff ?? 0)) * Math.PI * 2)) ** 2;
         p.y += g * 1.4; p.sq *= 1 + g * 0.07; p.hRx -= g * 0.1; p.tPuff = (p.tPuff || 1) + g * 0.3;
       }
     };
@@ -350,6 +352,204 @@ const FS_KINDS = {
   },
 };
 
+// ------------------------------------------------------------------ [v4 cinematic] the 5 PM feast
+// Cast kinds for the Cinematic Update art: the office tower as a far landmark, bears streaming
+// down to the pond, bears on cannonball arcs into it (each with its own splash, timed to the
+// impact). Points are [sx, sy] (screen fractions, on the ground / water), [sx, sy, h] (that screen
+// point at height h) or { wx, wz, y? } (world).
+function pointOf(T, q, onWater = false) {
+  if (!Array.isArray(q) && q.at) { const v = T._at(q.at[0], q.at[1]); v.y = q.y ?? Math.max(WATER_Y, T.game.grid.groundAt(v.x, v.z)) + (q.h ?? 0); return v; }
+  if (!Array.isArray(q)) { const v = new THREE.Vector3(q.wx, 0, q.wz); v.y = q.y ?? Math.max(WATER_Y, T.game.grid.groundAt(q.wx, q.wz)); return v; }
+  if (q.length >= 3) return ground(T, q[0], q[1], q[2]);
+  return onWater ? ground(T, q[0], q[1], WATER_Y) : ground(T, q[0], q[1]);
+}
+const wrap01 = (u) => ((u % 1) + 1) % 1;
+const CINE_KINDS = {
+  // Bear St. Holdings, forced perspective: a small copy of the real tower (src/world/buildings.js)
+  // sunk behind the far treeline so it reads as the office up on the mountain. s = voxel size.
+  office(T, p, a) {
+    const m = officeModel(), s = a.s ?? 0.03;
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(m.body.build({ scale: s }), voxelMaterial());
+    const glow = new THREE.Mesh(m.glow.build({ scale: s, ao: false }), new THREE.MeshBasicMaterial({ vertexColors: true, color: a.glow ?? 0xffffff }));
+    body.castShadow = !!a.shadow;
+    g.add(body, glow);
+    g.position.copy(p); g.position.y -= a.sink ?? 0;
+    g.rotation.y = yawOf(T, a);
+    T.group.add(g);
+    g.updateMatrixWorld(true);
+    S.spots.whistle = new THREE.Vector3(12.5 * s, 46 * s, -4.5 * s).applyMatrix4(g.matrixWorld);
+    S.spots.door = new THREE.Vector3(-0.5 * s, 1 * s, 10 * s).applyMatrix4(g.matrixWorld);
+    S.spots.roof = new THREE.Vector3(0, 48 * s, 0).applyMatrix4(g.matrixWorld);
+    return g;
+  },
+  // a bear running from `from` to `to` (rate laps per loop, off = phase offset); hidden outside [0, vis]
+  runner(T, p, a, o) {
+    const b = makeBear(a.type || 'office', a.seed ?? 3.7);
+    b.root.scale.multiplyScalar(a.scale ?? 0.4);
+    T.group.add(b.root);
+    const A = pointOf(T, a.from), B = pointOf(T, a.to);
+    b.root.rotation.y = Math.atan2(B.x - A.x, B.z - A.z) + (a.yawOff ?? 0);
+    if (a.face) b.setFace(a.face, { hold: 999 });
+    const set = (ph, dt) => {
+      const u = wrap01(ph * (a.rate ?? 1) + (a.off ?? 0));
+      b.root.visible = u <= (a.vis ?? 1);
+      b.root.position.lerpVectors(A, B, u);
+      if (!a.flat) b.root.position.y = Math.max(WATER_Y, T.game.grid.groundAt(b.root.position.x, b.root.position.z)) + (a.lift ?? 0);
+      b.phase = u * (a.strides ?? 3) * Math.PI * 2;
+      b.pose(a.pose || 'run', dt, { speed: a.speed ?? 3 });
+    };
+    for (let k = 0; k < 1; k += 1 / 30) set(a.still ?? 0.3, 1 / 30);
+    if (o.loop) S.drivers.push((dt, ph) => set(ph, dt));
+    return b.root;
+  },
+  // a bear cannonballing from `from` into the pond at (sx, sy) / (wx, wz): airborne for `air` of the
+  // loop (slow motion), then the splash (auto: burst + crown + rings, timed to the impact) and gone.
+  cannon(T, p, a, o) {
+    const sc = a.scale ?? 0.8;
+    const b = makeBear(a.type || 'office', a.seed ?? 3.7);
+    b.root.scale.multiplyScalar(sc);
+    T.group.add(b.root);
+    const A = pointOf(T, a.from);
+    const W = a.wx != null ? pointOf(T, { wx: a.wx, wz: a.wz, y: WATER_Y }) : ground(T, a.sx, a.sy, WATER_Y);
+    const B = W.clone(); B.y = WATER_Y - (a.depth ?? 0.9) * sc;
+    const H = a.arc ?? 1.6, air = a.air ?? 0.45, off = a.off ?? 0, dive = a.dive ?? 0.05;
+    b.root.rotation.y = facing(T, a.rot ?? 0);
+    if (a.face) b.setFace(a.face, { hold: 999 });
+    const set = (ph, dt) => {
+      const u = wrap01(ph + off);
+      if (u >= air + dive) { b.root.visible = false; return; }
+      b.root.visible = true;
+      const k = u / air;
+      if (k <= 1) {
+        b.root.position.lerpVectors(A, B, k);
+        b.root.position.y += Math.sin(k * Math.PI) * H;
+      } else { // under the surface, into the splash
+        b.root.position.copy(B); b.root.position.y -= (k - 1) * 6 * sc;
+      }
+      const t01 = (a.t01 ?? [0.02, 0.95]);
+      b.pose('cannonball', dt, { t01: Math.min(1, t01[0] + (t01[1] - t01[0]) * Math.min(1, k)), flip: a.flip });
+    };
+    for (let k = 0; k < 1; k += 1 / 30) set(a.still ?? 0.3, 1 / 30);
+    if (o.loop) {
+      S.drivers.push((dt, ph) => set(ph, dt));
+      if (a.splash !== false) {
+        const at = wrap01(air - off), Sp = a.splash || {};
+        const big = Sp.k ?? sc;
+        for (const L of [
+          { type: 'burst', at, dur: Sp.dur ?? 0.42, n: Sp.n ?? 46, radius: 1.5 * big, height: 2.5 * big, size: 0.13 * big, seed: (a.seed ?? 3) * 7 + 1 },
+          { type: 'burst', at, dur: Sp.dur ?? 0.42, n: Sp.crown ?? 22, radius: 0.35 * big, r0: 0.45 * big, height: 4.2 * big, size: 0.16 * big, seed: (a.seed ?? 3) * 7 + 2 },
+          { type: 'ring', at, dur: 0.5, n: 26, r0: 0.4 * big, r1: 2.0 * big, size: 0.1 * big, seed: 5 },
+          { type: 'ring', at: wrap01(at + 0.08), dur: 0.45, n: 20, r0: 0.3 * big, r1: 1.4 * big, size: 0.08 * big, seed: 6 },
+          ...(Sp.coins ? [{ type: 'coins', at, dur: Sp.dur ?? 0.5, n: Sp.coins, radius: 1.3 * big, height: 3.0 * big, size: 0.16 * big, seed: (a.seed ?? 3) * 7 + 3 }] : []),
+        ]) S.drivers.push(loopFx(T, { ...L, ...(Sp.over || {}), pos: [W.x, WATER_Y, W.z] }));
+      }
+    }
+    return b.root;
+  },
+};
+
+// one-shot effects inside the loop: everything starts at phase `at`, lasts `dur` (fractions of the loop)
+const SPLASH_COLS = [0xffffff, 0xfff6dc, 0xd8f6ff, 0x9fe2f8, 0xffffff, 0xbfeeff];
+const COIN_COLS = [0xffd84a, 0xffe98a, 0xe8a828, 0xfff2b0];
+function fxCenter(T, L) {
+  if (L.pos) return new THREE.Vector3(L.pos[0], L.pos[1], L.pos[2]);
+  if (L.spot) { const v = S.spots[L.spot]?.clone() || new THREE.Vector3(); return v; }
+  return L.wx != null ? new THREE.Vector3(L.wx, T.game.grid.groundAt(L.wx, L.wz), L.wz) : L.h != null ? ground(T, L.sx, L.sy, L.h) : ground(T, L.sx, L.sy);
+}
+const CINE_FX = {
+  // droplets thrown up and out under gravity (crown + spray)
+  burst(T, L) {
+    const g = new THREE.Group(); T.group.add(g); add(g);
+    const r = seeded(L.seed || 7), c = fxCenter(T, L), n = L.n || 40, parts = [];
+    const cols = L.colors || SPLASH_COLS;
+    for (let i = 0; i < n; i++) {
+      const s = (L.size || 0.1) * (0.55 + r() * 0.9);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), new THREE.MeshBasicMaterial({ color: cols[i % cols.length] }));
+      g.add(m);
+      parts.push({ m, a: r() * Math.PI * 2, vr: 0.35 + r() * 0.65, vy: 0.55 + r() * 0.45, d: r() * 0.12, rx: r() * 6, ry: r() * 6 });
+    }
+    return (dt, ph) => {
+      const t = wrap01(ph - L.at) / (L.dur || 0.4);
+      for (const p of parts) {
+        const k = t - p.d * (L.lag ?? 1);
+        if (t > 1 || k < 0) { p.m.visible = false; continue; }
+        const R = (L.r0 || 0) + (L.radius || 1) * p.vr * (1 - (1 - k) ** 2);
+        const y = c.y + (L.height || 1.5) * p.vy * 4 * k * (1 - k);
+        p.m.visible = y > c.y - 0.05 || k < 0.5;
+        p.m.position.set(c.x + Math.cos(p.a) * R, Math.max(c.y - 0.05, y), c.z + Math.sin(p.a) * R * (L.flatZ ?? 1));
+        p.m.scale.setScalar(Math.max(0.15, 1 - k * 0.75));
+        p.m.rotation.set(p.rx + k * 4, p.ry + k * 3, 0);
+      }
+    };
+  },
+  // gold coins flung out of a briefcase, spinning
+  coins(T, L) {
+    const g = new THREE.Group(); T.group.add(g); add(g);
+    const r = seeded(L.seed || 9), c = fxCenter(T, L), n = L.n || 10, parts = [];
+    for (let i = 0; i < n; i++) {
+      const s = (L.size || 0.14) * (0.8 + r() * 0.4);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(s, s, s * 0.28), new THREE.MeshBasicMaterial({ color: COIN_COLS[i % COIN_COLS.length] }));
+      g.add(m);
+      parts.push({ m, a: r() * Math.PI * 2, vr: 0.3 + r() * 0.7, vy: 0.6 + r() * 0.4, d: r() * 0.1, spin: 6 + r() * 10 });
+    }
+    return (dt, ph) => {
+      const t = wrap01(ph - L.at) / (L.dur || 0.5);
+      for (const p of parts) {
+        const k = t - p.d;
+        if (t > 1 || k < 0) { p.m.visible = false; continue; }
+        const R = (L.radius || 1) * p.vr * k;
+        const y = c.y + (L.height || 2) * p.vy * 4 * k * (1 - k);
+        p.m.visible = y > c.y - 0.05;
+        p.m.position.set(c.x + Math.cos(p.a) * R, y, c.z + Math.sin(p.a) * R);
+        p.m.rotation.set(0.3, k * p.spin, 0);
+      }
+    };
+  },
+  // foam ring spreading on the water
+  ring(T, L) {
+    const g = new THREE.Group(); T.group.add(g); add(g);
+    const r = seeded(L.seed || 5), c = fxCenter(T, L), n = L.n || 24, parts = [];
+    for (let i = 0; i < n; i++) {
+      const s = (L.size || 0.08) * (0.7 + r() * 0.6);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(s * 1.6, s * 0.5, s), new THREE.MeshBasicMaterial({ color: i % 3 ? 0xf4fcff : 0xbfeeff }));
+      g.add(m);
+      parts.push({ m, a: (i / n) * Math.PI * 2 + r() * 0.2, j: 0.85 + r() * 0.3 });
+    }
+    return (dt, ph) => {
+      const t = wrap01(ph - L.at) / (L.dur || 0.5);
+      for (const p of parts) {
+        if (t > 1) { p.m.visible = false; continue; }
+        p.m.visible = true;
+        const R = ((L.r0 || 0.3) + ((L.r1 || 1.6) - (L.r0 || 0.3)) * (1 - (1 - t) ** 2)) * p.j;
+        p.m.position.set(c.x + Math.cos(p.a) * R, c.y + 0.02, c.z + Math.sin(p.a) * R);
+        p.m.rotation.y = -p.a;
+        p.m.scale.setScalar(Math.max(0.1, 1 - t));
+      }
+    };
+  },
+  // steam / smoke puffs: like 'smoke' but opaque cubes that shrink away (crisp pixels, no alpha)
+  steam(T, L) {
+    const g = new THREE.Group(); T.group.add(g); add(g);
+    const r = seeded(L.seed || 17), c = fxCenter(T, L), n = L.n || 10, parts = [];
+    const cols = L.colors || [0xffffff, 0xfff2e0, 0xf0e4e8];
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: cols[i % cols.length], emissive: L.emissive ?? 0x403020 }));
+      g.add(m);
+      parts.push({ m, off: i / n + r() * 0.03, dx: (r() - 0.5), dz: (r() - 0.5), sp: 0.7 + r() * 0.6, rx: r() * 3 });
+    }
+    return (dt, ph) => {
+      for (const p of parts) {
+        const u = wrap01(ph * (L.rate || 1) + p.off);
+        const sz = (L.size || 0.3) * p.sp * Math.sin(Math.min(1, u * 1.6) * Math.PI * 0.5 + 0.2) * (1 - u ** 3);
+        p.m.position.set(c.x + (L.drift || 0.4) * u + p.dx * (L.spread ?? 0.15), c.y + u * (L.rise || 1.4), c.z + p.dz * (L.spread ?? 0.15));
+        p.m.scale.setScalar(Math.max(0.001, sz));
+        p.m.rotation.set(p.rx + u, p.rx * 1.3 + u * 0.7, 0);
+      }
+    };
+  },
+};
+
 // ------------------------------------------------------------------ scenes
 const SCENES = {};
 
@@ -392,11 +592,13 @@ SCENES.banner = (T, o) => {
   clearRects(T, o.clear);
   for (const a of o.cast || []) {
     let obj;
-    const p = a.wx != null ? new THREE.Vector3(a.wx, T.game.grid.groundAt(a.wx, a.wz), a.wz)
+    const p = a.at ? (() => { const v = T._at(a.at[0], a.at[1]); v.y = Math.max(WATER_Y, T.game.grid.groundAt(v.x, v.z)); return v; })()
+      : a.wx != null ? new THREE.Vector3(a.wx, T.game.grid.groundAt(a.wx, a.wz), a.wz)
       : a.front != null ? front(T, a.sx, a.sy, a.front) : a.h != null ? ground(T, a.sx, a.sy, a.h) : ground(T, a.sx, a.sy);
     if (a.lift) p.y += a.lift;
     let rig = null;
     if (FS_KINDS[a.kind]) { obj = FS_KINDS[a.kind](T, p, a, o); add(obj, a.name); continue; }
+    if (CINE_KINDS[a.kind]) { obj = CINE_KINDS[a.kind](T, p, a, o); add(obj, a.name); continue; }
     if (a.kind === 'fox' && a.shock) {
       rig = placeFox(T, p, { ...a, anim: null, shadow: false });
       shockedFox(rig, a.shock);
@@ -432,7 +634,7 @@ export async function setup(kind, o = {}) {
   if (!T) throw new Error('no title scene');
   S.cfg = o;
   for (const a of S.actors) a.obj.removeFromParent();
-  S.actors = []; S.named = {}; S.t = 0; S.drivers = [];
+  S.actors = []; S.named = {}; S.t = 0; S.drivers = []; S.spots = {};
   S.loopOn = !!o.loop;
   for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
   hideTitleCast(T);
@@ -452,6 +654,22 @@ export async function setup(kind, o = {}) {
   }
   if (o.haze != null) game.renderer.postMat.uniforms.haze.value = o.haze;
   if (o.bloom != null) game.renderer.bloomStrength = o.bloom;
+  // [v4 cinematic] post uniforms ({ haze: 0.2, grade: [1.1, 1, 0.9], ... }) and light overrides on top of the scene's sky
+  for (const [k, v] of Object.entries(o.post || {})) { const u = game.renderer.postMat.uniforms[k]; if (!u) continue; if (Array.isArray(v)) u.value.set(...v); else u.value = v; }
+  if (game.sky.update.__cineBase) game.sky.update = game.sky.update.__cineBase;
+  if (o.light) {
+    const base = game.sky.update, sky = game.sky, L = o.light;
+    const f = (...args) => {
+      base.apply(sky, args);
+      if (L.sun != null) sky.sun.color.setHex(L.sun);
+      if (L.sunI != null) sky.sun.intensity = L.sunI;
+      if (L.hemi != null) sky.hemi.color.setHex(L.hemi);
+      if (L.ground != null) sky.hemi.groundColor.setHex(L.ground);
+      if (L.hemiI != null) sky.hemi.intensity = L.hemiI;
+    };
+    f.__cineBase = base;
+    game.sky.update = f;
+  }
   const cam = SCENES[kind](T, o);
   // optional soft fill light from the camera so faces read against the low sun
   if (S.fill) { S.fill.removeFromParent(); S.fill.target.removeFromParent(); S.fill = null; }
@@ -459,6 +677,16 @@ export async function setup(kind, o = {}) {
     const L = (S.fill = new THREE.DirectionalLight(o.fillColor ?? 0xffe0d0, o.fill));
     const c = game.rig.camera.position, t = game.rig.target;
     L.position.copy(c); L.target.position.copy(t);
+    game.scene.add(L, L.target);
+  }
+  // [v4 cinematic] golden rim light from behind the action (back-lit by the low sun)
+  if (S.rim) { S.rim.removeFromParent(); S.rim.target.removeFromParent(); S.rim = null; }
+  if (o.rim) {
+    const L = (S.rim = new THREE.DirectionalLight(o.rim.color ?? 0xffc060, o.rim.i ?? 1.2));
+    const t = game.rig.target, yw = S.camYaw ?? 0, d = o.rim.dir || [0.4, 0.6, 1];
+    const right = new THREE.Vector3(Math.cos(yw), 0, -Math.sin(yw)), fwd = new THREE.Vector3(-Math.sin(yw), 0, -Math.cos(yw));
+    L.position.copy(t).addScaledVector(right, d[0] * 20).addScaledVector(fwd, d[2] * 20); L.position.y += d[1] * 20;
+    L.target.position.copy(t);
     game.scene.add(L, L.target);
   }
   T._updateCamera = () => applyCamera(T, cam);
@@ -561,6 +789,7 @@ function loopFish(T, m, f) {
 function seeded(seed) { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return (x >>> 0) / 4294967296; }; }
 const CONFETTI = [0xff5c5c, 0xffd23a, 0x5cccff, 0x7aff8a, 0xff8ae0, 0xffffff];
 function loopFx(T, L) {
+  if (CINE_FX[L.type]) return CINE_FX[L.type](T, L);
   const g = new THREE.Group();
   T.group.add(g);
   add(g);

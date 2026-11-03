@@ -21,10 +21,10 @@ const OUT = path.join(ROOT, 'promo');
 const REN = path.join(HERE, 'renders');
 const { PRESETS } = await import(pathToFileURL(path.join(HERE, 'presets.js')).href);
 
-const require = createRequire(process.env.PW || '/opt/node22/lib/node_modules/');
+const require = createRequire(process.env.PW || '/opt/node-tools/node_modules/');
 const { chromium } = require('playwright');
 const browser = await chromium.launch({
-  executablePath: process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROME || undefined, // the bundled Chromium needs no path
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 // keep Vite's HMR client from reloading the page mid-shot
