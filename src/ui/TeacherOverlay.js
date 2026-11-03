@@ -410,11 +410,11 @@ export class TeacherOverlay {
    *   autoUpdate  run its own rAF loop (default true); false: call update(dt) every frame
    *   project     (vec3) -> { x, y, visible } for world targets (default game.rig.worldToScreen)
    */
-  constructor({ game = null, root = null, audio = null, size = 132, phoneSize = 100, pixelScale = 2, zIndex = 56, autoUpdate = true, project = null } = {}) {
+  constructor({ game = null, root = null, audio = null, size = 132, phoneSize = 100, pixelScale = 2, zIndex = 56, autoUpdate = true, project = null, outfit = 'teacher' } = {}) {
     this.game = game;
     this.root = root || (typeof document !== 'undefined' ? document.body : null);
     this.audio = audio || game?.audio || defaultAudio;
-    this.opts = { size, phoneSize, zIndex };
+    this.opts = { size, phoneSize, zIndex, outfit }; // [v31] outfit: 'default' = his own top hat and suit (no classroom)
     this.ps = max(1, round(pixelScale));
     this.autoUpdate = autoUpdate;
     this.project = project;
@@ -775,7 +775,7 @@ export class TeacherOverlay {
     this.stage.add(this.squash);
     scene.add(this.stage);
     const rig = (this.rig = new FoxRig({ shadows: false }));
-    rig.setOutfit?.('teacher');
+    rig.setOutfit?.(this.opts.outfit || 'teacher');
     if (rig.holdProp) rig.holdProp('pointer');
     else this._fallbackPointer();
     // his real height in this outfit (the mortarboard is flatter than the top hat)

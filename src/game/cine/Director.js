@@ -24,7 +24,6 @@ import { HUT, OFFICE } from '../../world/worldgen.js';
 import { angleDiff, damp, clamp } from '../../core/rng.js';
 import { bindFloat, floatText, floatTitle, floatCaption, clearFloats, skipAllFloats } from '../../ui/kinetic/floatText.js';
 import { questToastBusy } from '../../ui/QuestToast.js';
-import { sayLine, hideDialogue, hideDialogueSoon } from '../../ui/kinetic/dialogue.js'; // [v31 dialogue]
 
 const ease = { inout: (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2), out: (t) => 1 - (1 - t) ** 3, in: (t) => t * t * t, linear: (t) => t };
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
@@ -32,6 +31,22 @@ const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 // speaker colours (the name tag and a light tint on the words)
 export const CAST_COLOR = { fox: '#ff9a3c', bear: '#c89a6a', cub: '#ffc890', ceo: '#bfe6ff', critic: '#d8b4ff', intern: '#9de08a', grandma: '#ffb4c8', gymbro: '#b8f060', janitor: '#8ad0c8', narrator: '#f6ecd4' };
 const VOICE_OF = { cub: 'cub', foreman_cub: 'cub', ceo: 'ceo', boss: 'ceo', shareholder: 'ceo', tycoon: 'ceo', spirit: 'ceo', ursa: 'ceo' };
+
+// ------------------------------------------------------------------ comic bubbles
+// how a line is said -> the Bubbles mood (src/ui/Bubbles.js: normal happy angry shout think whisper scared excited sad)
+const MOOD_OF = { say: 'normal', shout: 'shout', angry: 'angry', whisper: 'whisper', scared: 'scared', happy: 'happy', laugh: 'excited', excited: 'excited', sad: 'sad', think: 'think', radio: 'normal', spooky: 'whisper', gold: 'excited' };
+const VOICES = new Set(['fox', 'bear', 'cub', 'ceo']);
+const bubbleVoice = (who) => (VOICES.has(who?.voice) ? who.voice : who?.kind === 'fox' ? 'fox' : 'bear');
+// a voice with no body on screen (the CEO on the phone, Reynard narrating a shot) talks from the
+// top of the screen, with its name in front of the line
+function bubbleAnchor(who) {
+  if (who?.kind === 'spot') return () => ({ x: Math.round(innerWidth / 2), y: Math.round(innerHeight * 0.24), visible: true });
+  return who;
+}
+const bubbleText = (who, text) => {
+  const t = String(text).replace(/<\/?b>/g, '*'); // bubbles emphasise with *word*
+  return who?.kind === 'spot' && who.name ? `*${who.name}:* ${t}` : t;
+};
 
 // ------------------------------------------------------------------ actors
 // a bear on the stage: a real rig, walked and posed by the scene (not a customer: no AI, no review)
@@ -244,7 +259,7 @@ export class Director {
       window.removeEventListener('pointerdown', this._onPtr, true);
       this.showSkip(false);
       clearFloats((it) => it.cine);
-      hideDialogue(); // [v31 dialogue]
+      g.ui?.bubbles?.clear?.((b) => b.key === 'cine' || b.key === 'cinebark');
       for (const a of this.actors.slice()) if (!a.keep) a.dispose?.();
       this.actors = this.actors.filter((a) => a.keep && !a.removed);
       this.fox.release();
@@ -407,35 +422,31 @@ export class Director {
         }
         if (shake) c.shake(shake);
         if (sfx) c.sfx(sfx);
-        // [v31 dialogue] in the dialogue box, with the speaker's portrait and name plate
-        const expr = face || (style === 'shout' || style === 'angry' ? 'angry' : style === 'happy' || style === 'excited' || style === 'laugh' ? 'happy' : style === 'scared' ? 'shocked' : style === 'sad' ? 'sad' : null);
-        const h = sayLine({ name: name ?? who?.name, color: who?.color, portrait: who?.portrait?.(isFox ? null : expr) || null, text, style, voice: style === 'think' ? null : who?.voice, pos: 'bottom' });
+        // the game's own comic speech bubble over whoever talks (a voice off screen: top of the screen)
+        const h = g.say(bubbleAnchor(who), bubbleText(who, text), { voice: style === 'think' ? null : bubbleVoice(who), mood: MOOD_OF[style] || 'normal', wait: true, key: 'cine', size: style === 'whisper' ? 's' : 'm' });
         if (!h) return;
-        // a tap types the rest, the next tap moves on
+        // a tap types the rest, the next tap moves on (the bubble's own advance)
         await new Promise((res) => {
-          let typed = false;
-          h.typed.then(() => { typed = true; h.wait(true); if (auto != null) setTimeout(() => { D.adv === adv && adv(); }, auto * 1000); });
+          let over = false;
+          const finish = () => { if (!over) { over = true; res(); } };
+          h.done.then(finish);
           const adv = () => {
-            if (D.skipped) { res(); return; }
-            if (!typed) { h.skip(); return; }
-            res();
+            if (D.skipped) { h.close(); finish(); return; }
+            const B = g.ui?.bubbles, b = B?.list?.find((x) => x.handle === h);
+            if (b && B._advance) B._advance(b); else { h.close(); finish(); }
           };
           D.adv = adv;
+          if (auto != null) setTimeout(() => { if (D.adv === adv) { h.close(); finish(); } }, auto * 1000);
         });
         D.adv = null;
-        h.dismiss();
-        hideDialogueSoon(450);
         if (who?.act && !isFox) who.oneShot = null;
         if (isFox) who.hold(null);
         await wait(ms ?? 0.12);
       },
-      /** a line that doesn't wait (barks over action) */
-      // [v31 dialogue] no loose floating words: a bark is a short line in the box that doesn't wait
+      /** a line that doesn't wait (barks over action): a short comic bubble */
       bark: (who, text, { style = 'say', ms = 1.8 } = {}) => {
         if (!live()) return null;
-        const h = sayLine({ name: who?.name, color: who?.color, portrait: who?.portrait?.() || null, text, style, voice: who?.voice, pos: 'bottom' });
-        setTimeout(() => { h?.dismiss(); hideDialogueSoon(300); }, ms * 1000);
-        return h;
+        return g.say(bubbleAnchor(who), bubbleText(who, text), { voice: bubbleVoice(who), mood: MOOD_OF[style] || 'normal', dur: ms, key: 'cinebark', size: 's' });
       },
       title: (o) => (live() ? floatTitle({ cine: true, ...o }) : null),
       caption: (text, o) => (live() ? floatCaption(text, o) : null),

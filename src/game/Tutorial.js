@@ -19,7 +19,7 @@ import { COMBINED_LESSONS } from './lessonsCombined.js';
 import { ynPair } from '../ui/ynButtons.js'; // [v27 knobs] painted YES / NO planks
 
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
-import { KineticGuide } from '../ui/kinetic/guide.js'; // [v31 guide]
+import { TeacherOverlay } from '../ui/TeacherOverlay.js'; // the on-screen guide: Reynard runs to what to tap and talks in comic bubbles
 import { TUT_SCENES } from './cine/tutorialScenes.js'; // [v31 guide]
 import { floatTitle } from '../ui/kinetic/floatText.js'; // [v31 guide]
 void COMBINED_LESSONS;
@@ -87,7 +87,6 @@ export class Tutorial {
   async part(n, title) {
     const game = this.game;
     this.stage = 'part:' + n;
-    try { this.teacher?.clearLine?.(); } catch { /* ignore */ }
     game.audio?.play?.('page', { volume: 0.45 });
     const h = floatTitle({ kicker: `PART ${n} OF 7`, title, style: 'happy', y: 0.2, ms: 1700 });
     await Promise.race([h.done, wait(2.6)]);
@@ -98,7 +97,8 @@ export class Tutorial {
     const game = this.game;
     const f = game.fox;
     const p = at && !at.dead ? { x: at.x, y: (at.y || 0) + 0.8, z: at.z } : { x: f.x, y: f.y + 2.3, z: f.z };
-    void word; // [v31 dialogue] no loose floating words: confetti and a jingle
+    void word; // no floating words: Reynard cheers, confetti and a jingle
+    f.react?.('cheer', 1.4);
     game.particles?.confetti?.(p.x, p.y, p.z, 26);
     game.audio?.play?.('star_pop', { volume: 0.45 });
   }
@@ -152,7 +152,7 @@ export class Tutorial {
   // the screen-space teacher (runs around the UI with his pointer stick)
   getTeacher() {
     if (this.teacher) return this.teacher;
-    try { this.teacher = new KineticGuide({ game: this.game }); } catch (e) { console.warn('guide failed', e); this.teacher = null; }
+    try { this.teacher = new TeacherOverlay({ game: this.game, root: document.body, outfit: 'default' }); } catch (e) { console.warn('TeacherOverlay failed', e); this.teacher = null; }
     return this.teacher;
   }
 
@@ -163,8 +163,8 @@ export class Tutorial {
     if (t) {
       try {
         if (!t.visible) await t.show();
-        t.goTo(target || null); // [v31 guide] the box moves clear of the target
-        if (circle && target) t.circle(target); // drawn at once: a quick tap must not leave it behind
+        if (target) await t.goTo(target);
+        if (circle && target) t.circle(target);
         if (arrowTo) t.arrow(target || { x: innerWidth / 2, y: innerHeight / 2 }, arrowTo);
         if (doodle) t.doodle(doodle, target || { x: innerWidth / 2, y: innerHeight / 3 });
         await t.say(text, { wait: w, dur, mood });
@@ -201,7 +201,7 @@ export class Tutorial {
     if (!D) return false;
     this.stage = 'scene:' + ids.join('+');
     const t = this.teacher;
-    if (t) { try { t.clearChalk(); t.clearLine?.(); } catch { /* ignore */ } }
+    if (t?.visible) { try { t.clearChalk(); await t.hide(); } catch { /* ignore */ } }
     game.ui?.foodPicker?.hide?.();
     const follow = this.follow;
     this.follow = false;
@@ -219,6 +219,9 @@ export class Tutorial {
     // listen for the unboxing right away: a quick tap must not slip past us
     const delivered = this.until('delivered', pred);
     if (!landed()) await this.until('parcelLanded', (p) => pred(p.order));
+    // the camera swings over to the box so you can see what to tap
+    const box = game.delivery.waiting().find((p) => pred(p.order));
+    if (box) { this.follow = false; game.rig.lookAt(box.x, box.z); }
     let done = false;
     delivered.then(() => { done = true; });
     await wait(0.5);
@@ -577,7 +580,7 @@ export class Tutorial {
     await this.teach('<b>Class dismissed!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
     game.unlockFeature('speed');
     game.setTool({ kind: 'feed' });
-    try { const t = this.teacher; if (t) { t.clearChalk(); await t.hide(); t.dispose?.(); this.teacher = null; } } catch { /* ignore */ }
+    try { const t = this.teacher; if (t) { t.clearChalk(); await t.hide(); } } catch { /* ignore */ }
     try { game.fox.rig?.setOutfit?.('default'); } catch { /* ignore */ }
     this.follow = false;
     game.tutorialHold = false;
