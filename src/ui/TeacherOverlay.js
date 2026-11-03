@@ -706,7 +706,7 @@ export class TeacherOverlay {
     this._disposed = true;
     cancelAnimationFrame(this._raf); this._raf = 0;
     window.removeEventListener('resize', this._onResize);
-    window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('keydown', this._onKey, true);
     this._resolveAll(this._enterRes); this._resolveAll(this._leaveRes);
     if (this._tgt?.resolve) this._tgt.resolve();
     if (this.bub) this.bub.resolve();
@@ -754,7 +754,7 @@ export class TeacherOverlay {
     ct.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
     root.appendChild(cc); root.appendChild(fc); root.appendChild(bl); root.appendChild(ct);
     window.addEventListener('resize', this._onResize);
-    window.addEventListener('keydown', this._onKey);
+    window.addEventListener('keydown', this._onKey, true); // [v31] capture: ahead of the Lab / game keys
     if (document.fonts?.load) {
       Promise.all([document.fonts.load(`32px 'TBME Body'`), document.fonts.load(`36px 'TBME Title'`)])
         .then(() => { if (this.bub && !this.bub.closing) this._measureBubble(this.bub); })
@@ -1883,7 +1883,8 @@ export class TeacherOverlay {
     if (!this.waiting) return;
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-    if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); this._advance(); }
+    // [v31] taken first and kept: a waiting line must not also fire the Lab's Enter-to-research or the pause key
+    if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); this._advance(); }
   }
 
   // ---------------------------------------------------------------- misc
