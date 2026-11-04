@@ -99,6 +99,15 @@ Every mark is one colour. The mistakes stay in:
 
 The gecko's sheet shows it four ways: side on, three-quarters, coming at you and going away.
 
+`generator/season_process.py OUT_DIR` is a speedpaint of the seasons, of one picture: the garden and the lake seen from the seating-room window. It is painted the same plain way, then painted again for each season:
+
+1. The sketch: the horizon, the line of the mountains, the far shore, each garden tree and the flower bed. One tree is sketched in the wrong spot and dragged across, and an extra tree is tried and rubbed out.
+2. Spring, back to front, a layer per piece: sky, clouds, mountains, lake, far shore, garden trees (line art first), flower bed.
+3. Summer, autumn and winter each get one new layer, and only what changes is painted on it. In summer a cloud is painted and then deleted. In autumn the trees go down too red and are slid back.
+4. At the end the season layers are switched on and off, so the year goes round twice.
+
+It writes `seasons_speedpaint.mp4`, `seasons_layers.psd` (with the sketch kept but hidden) and a PNG per season.
+
 Each piece writes `*_speedpaint.mp4`, a layered `*_layers.psd` and `*_final.png`. The PSD keeps the sketches, hidden, and flattens to the finished art. Pass `--cache=DIR` to keep the room data between runs.
 
 ## The seasons, the rains, the eclipse and the blood moon
@@ -274,6 +283,42 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 - **Nothing floats:** props that stand on something carry a soft contact shadow. Wall and hanging pieces carry a drop shadow on the wall behind them. These shadows are semi-transparent, so they work wherever a prop is dropped.
 - **A fantasy script:** every word in the teahouse is written in its own runes, angular glyphs like the enchanting-table alphabet. That covers the recipe steps, recipe cards, jar labels, menu tags, receipts, the unpaid tab and the fire charm. The strings in the code are plain English (SENCHA 80C 2 MIN), so you can read what each sign says. `RUNES` in `pixel.py` holds the alphabet; `text(..., script='latin')` writes readable letters.
 
+## Copper Sky: a room over the city
+
+![Copper Sky](copper_sky/preview/copper_sky_3x.png)
+
+`copper_sky/` is one more room, built the same way as the four in the teahouse and on the same 640×360 screen: a box in one-point perspective, rafters, lacquered plank walls, the jade rail, the wainscot, and a counter across the front. This room stands high over a city at night, and one wide window fills its back wall. Nothing outside is neon. The city is lit only by its windows, its lamps and the haze they light up from below.
+
+**Outside** (`layers/outside`, back to front):
+- **Sky and clouds:** blue-violet smog warming to amber at the horizon, a hazy moon, and smoke-brown cloud banks lit from underneath, one crossing the moon.
+- **Searchlights:** two beams sweeping from the far towers.
+- **The far city:** towers in haze with pin-prick windows, and a great spire with a blimp moored to its mast. Red lights blink on the tops.
+- **The koi airship:** it swims across the sky, its copper body rippling.
+- **Traffic:** airship-cabs in lanes between the towers, white lamps one way and red the other.
+- **The near towers:** stone, brick and riveted plate with rows of lit windows, and green copper roofs: pagoda eaves, domes and stepped crowns. There are water tanks, brick chimneys and a lit skybridge, and smoke leans away off the chimneys.
+- **The viaduct:** a train of lit carriages crosses on it.
+- **The pufferfish blimp:** a riveted copper hull gone green in the rain, with big glass eyes and a brass beak. Ducted propellers serve as its fins, a rudder tail swings, and lit portholes run round its belly. A gondola hangs under it, and its searchlight sweeps the roofs. Every so often it puffs up, spines standing out, then slowly lets the air out.
+- **The roofs under the window:** tiles with a copper ridge, a water tower, chimney pots, and a line of lamps on a cable.
+
+**The room** (`layers/room`):
+- **The shell:** the window panes are transparent.
+- **Glass:** faint reflections on the panes.
+- **Walls and rafters:** copper pipes along the left wall with a gauge and a valve that leaks steam. Cables are draped over the rafters, and a fuse box sits on the right wall.
+- **Sill and lanterns:** a little pine and a fern on the sill, and two paper lanterns swaying on their cords.
+- **The copper spider:** an automaton hanging from the rafters on its cable. Its eight jointed legs slowly curl and open, and one tests the air. It has a cluster of red eyes, and a furnace glows through the slits of its abdomen. It bobs and turns on the cable.
+- **The counter:** dark timber with a copper kick-plate.
+- **On the counter:** a copper samovar with a teapot warming on its crown, a brass spyglass, a cup of tea, an oil lamp and a stack of old books. The steam and the flame move.
+- **Foreground and light:** the dark posts at the edges, and the night light: warm pools round the lanterns and the lamp, and the city's glow coming in at the window.
+
+The three animals are also in `sprites/` on their own (trimmed sheets, with the point the spider's cable meets it and where the blimp's searchlight shines from). They are sculpted in 3D (`cy_sdf.py`, `cy_beasts.py`) and drawn as pixel art with the pack's ramps, banded light and outline.
+
+Everything runs at 12 fps. Most layers loop every 96 frames. The koi, the traffic and the train loop every 192, so the whole room loops in 16 s. `scene.json` lists every layer in draw order, with its frames, its sheet and its crop.
+
+```bash
+python3 teahouse-assets/generator/cy_build.py              # copper_sky/: layers, sprites, scene.json, previews
+python3 teahouse-assets/generator/cy_build.py --zip out.zip
+```
+
 ## Folder map
 
 ```
@@ -298,6 +343,7 @@ seasons/<season>/ spring, rain, summer, autumn, winter, eclipse, bloodmoon: laye
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
+copper_sky/       the Copper Sky room: layers/outside, layers/room, sprites, scene.json, preview
 generator/        the Python that draws all of it (deterministic, seeded)
 ```
 
@@ -373,6 +419,7 @@ python3 teahouse-assets/generator/package.py out.zip  # the tidy game-ready zips
 | Teaware | `teaware.py` |
 | Fire spirit | `fire.py` |
 | Trees and garden | `grove.py` (grown trees, butterflies, dragonflies), `life.py` (birds, fish, ducks, falling leaves, wind), `outside.py`, `meadow.py`, `trees.py`, `leaves.py` |
-| Colours | `RAMPS` in `pixel.py` |
+| Colours | `RAMPS` in `pixel.py` (the Copper Sky room adds its own in `cy_pal.py`) |
+| Copper Sky | `cy_city.py` (the city), `cy_room.py` (the room), `cy_beasts.py` + `cy_sdf.py` (the copper animals), `cy_build.py` |
 
 You can also drag props around in `demo/index.html` and press **copy layout JSON** to get their new positions.
