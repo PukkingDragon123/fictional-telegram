@@ -110,11 +110,11 @@ function headModel() {
   // patch from behind the eye up and back round the nape
   const col = (x, y, z) => {
     const fx = abs(x + 0.5);
-    const bon = (fx > 3.2 && z < 1.4 && y > 3.0 && y < 9 && z > -6) || (z < -2.8 && y > 3.6 && y < 8.6);
+    const bon = (fx > 2.4 && z < 2.6 - max(0, 6 - y) * 0.5 && y > 3.2 && y < 9.6) || (z < -1.6 && y > 3.0);
     if (bon) return y > 7.6 && h3(x, y, z) < 0.3 ? C.whiteD : whiteCol(x, y, z);
     const hh = h3(x, y, z);
-    if (y > 6.5) return hh < 0.3 ? C.greenL : hh < 0.55 ? C.green : inkCol(x, y, z);
-    if (fx > 3 && y < 4) return hh < 0.35 ? C.purpleL : hh < 0.6 ? C.purple : inkCol(x, y, z);
+    if (y > 6.5) return hh < 0.18 ? C.greenL : hh < 0.4 ? C.green : inkCol(x, y, z);
+    if (fx > 3 && y < 4) return hh < 0.15 ? C.purpleL : hh < 0.32 ? C.purple : inkCol(x, y, z);
     return hh < 0.12 ? C.inkL : inkCol(x, y, z);
   };
   rbox(v, -7, 6, 0, 9, -6, 4, 3.8, col);
@@ -129,12 +129,12 @@ function tuftModel() {
 function capModel() {
   // navy knit watch cap: a rolled cuff, ribbed crown, perched on the crown and tipped forward
   const v = new VoxelModel();
-  for (let y = 0; y <= 5; y++) {
-    const R = y <= 1 ? 5.2 : 5.0 - (y - 2) * 0.8;
+  for (let y = 0; y <= 4; y++) {
+    const R = y <= 1 ? 4.2 : 4.0 - (y - 2) * 0.75;
     for (let x = -6; x <= 5; x++)
       for (let z = -6; z <= 5; z++) {
         const r = Math.hypot(x + 0.5, z + 0.5);
-        if (r > R || (y < 5 && r < R - 1.2)) continue;
+        if (r > R || (y < 4 && r < R - 1.2)) continue;
         v.set(x, y, z, y <= 1 ? ((x + z) & 1 ? C.navy : C.navyL) : (x & 1) ? C.knit : C.navyD);
       }
   }
@@ -272,10 +272,10 @@ const cache = geoCache(() => {
 
 // ------------------------------------------------------------------ face
 const FACE = {
-  w: 50, h: 20, eyes: [{ x: 13.5, y: 10.5 }, { x: 36.5, y: 10.5 }], rx: 3.6, ry: 4.2, style: 'bead', lash: false,
+  w: 50, h: 20, eyes: [{ x: 13.5, y: 11 }, { x: 36.5, y: 11 }], rx: 5.2, ry: 5.6, style: 'toon', lash: false,
   blush: [{ x: 5, y: 17 }, { x: 45, y: 17 }], blushW: 3,
   mw: 8, mh: 4, mx: 4, my: 1, mstyle: 'owl', mHalf: 2,
-  pal: { i: '#e8a020', I: '#ffd860', b: '#f6f4ee' }, // golden eyes, white brows
+  pal: { i: '#e8a020', I: '#ffd860', b: '#f6f4ee', p: '#1a1010' }, // golden eyes, white brows
 };
 /** Heavy white drill-sergeant brows, always on, tilted by mood. */
 function brows(P, st, cfg) {
@@ -285,8 +285,8 @@ function brows(P, st, cfg) {
     const lift = b === 'raised' ? -2 : b === 'up' ? -1 : 0;
     const tilt = b === 'worried' ? -1 : b === 'up' || b === 'raised' ? 0 : b === 'flat' ? 0.3 : 1; // stern by default
     for (let k = -4; k <= 4; k++) {
-      const x = e.x + k, y = e.y - 6 + lift + Math.round(k * s * tilt * 0.4);
-      P.set(x, y, 'b'); P.set(x, y + 1, abs(k) < 4 ? 'b' : null);
+      const x = e.x + k, y = e.y - 7 + lift + Math.round(k * -s * tilt * 0.4);
+      P.set(x, y, 'b'); P.set(x, y + 1, abs(k) < 4 ? 'b' : null); if (abs(k) < 3) P.set(x, y - 1, 'b');
     }
   });
 }
@@ -313,8 +313,8 @@ export class ChiefBuff extends BipedRig {
     this._geoCache = cache;
     this._buildBiped(G, D);
     this.tail.children[0].rotation.x = 0.5;
-    this.joint('cap', this.head, 0.2, 8.6, -1.0);
-    const tilt = new THREE.Group(); tilt.rotation.set(0.32, 0, -0.12); this.cap.add(tilt);
+    this.joint('cap', this.head, 0.4, 9.0, -2.2);
+    const tilt = new THREE.Group(); tilt.rotation.set(-0.38, 0, -0.18); this.cap.add(tilt);
     this.mesh(G.cap, tilt);
     this.mesh(G.beak, this.head, { y: BEAK[0] * VS, z: BEAK[1] * VS });
     this.beakLo = new THREE.Group(); this.beakLo.position.set(0, BEAK[0] * VS, BEAK[1] * VS); this.head.add(this.beakLo);

@@ -26,10 +26,11 @@ import { BipedRig, HAND_KINDS } from './critterBiped.js';
 import { NpcFace, talkMouth, stepEvents, orientIn, PUFF_ROWS } from './npcProps.js';
 
 const C = {
-  skin: 0x6e6852, skinD: 0x534e3c, skinL: 0x8a826a, skinDD: 0x3a3628, tub: 0x9c9478, belly: 0xb8aa82, bellyD: 0x968a66, bellyL: 0xd2c69e,
-  beak: 0x3e382c, beakD: 0x2a261e, beakL: 0x5e5644, mouthIn: 0xd8a8a0, mouthD: 0xa8746c, tongue: 0xe8908a,
-  shell: 0x4a4430, shellD: 0x36321f, shellL: 0x6a6244, seam: 0x221f14, keel: 0x5a5236, keelL: 0x7e7452, algae: 0x5c7a34, algaeL: 0x7c9c44,
-  vest: 0xc8b47c, vestD: 0xa08c58, vestL: 0xdccc96, stitch: 0x7a6640, pocket: 0xb4a06a,
+  skin: 0x6f7d4c, skinD: 0x55613a, skinL: 0x8c9a62, skinDD: 0x38402a, tub: 0xb6bc8a,
+  face: 0xc9c79c, faceD: 0xaaa67c, faceL: 0xdedab2, crown: 0x56603a, crownD: 0x424a2c, belly: 0xd8c890, bellyD: 0xb8a870, bellyL: 0xeee2b0,
+  beak: 0x6e6450, beakD: 0x4c4434, beakL: 0x948a70, mouthIn: 0xd8a8a0, mouthD: 0xa8746c, tongue: 0xe8908a,
+  shell: 0x5a4630, shellD: 0x42321f, shellL: 0x76603e, seam: 0x241a10, keel: 0x6a5434, keelL: 0x8e7650, algae: 0x5c7a34, algaeL: 0x7c9c44,
+  vest: 0xd4b06e, vestD: 0xac8a4e, vestL: 0xe8cc8e, stitch: 0x7a5a30, pocket: 0xc29e60, kerch: 0xd8402e, kerchD: 0xa82a20, kerchL: 0xf06a4a,
   hat: 0xe4d6a8, hatD: 0xc0b080, hatL: 0xf4ead0, band: 0x6a4a2a, bandD: 0x4a3018,
   brass: 0xe0b44a, brassD: 0xa8822a, brassL: 0xfff0a0, lens: 0x9ad0e0, lensL: 0xe8faff,
   wood: 0xa8743e, woodD: 0x7e5228, woodL: 0xc89058, steel: 0xa8b0bc, steelD: 0x6e7684, steelL: 0xe8eef4,
@@ -38,8 +39,8 @@ const C = {
 };
 
 const D = {
-  CHIBI: { body: 0.84, head: 1.3, hatTilt: 0.14, tail: 1.1 },
-  HIP_Y: 5, WAIST: 1, NECK: 6.4, NECK_Z: 1.6, SH: [6.0, 5.2, 0.8], L_UP: 3.0, L_FORE: 3.0, L_HAND: 1.8,
+  CHIBI: { body: 0.88, head: 1.14, hatTilt: 0.26, tail: 1.15 },
+  HIP_Y: 5, WAIST: 1, NECK: 7.0, NECK_Z: 1.0, SH: [6.0, 5.2, 0.8], L_UP: 3.0, L_FORE: 3.0, L_HAND: 1.8,
   THIGH: 2.4, SHIN: 2.6, LEG_X: 3.3, EAR: [5.2, 4.2, 1.2], TAIL: [0.4, -6.2],
 };
 
@@ -62,7 +63,7 @@ function torsoModel() {
   const v = new VoxelModel();
   // the body inside (vest in front), the carapace dome over the back and shoulders
   ell(v, 0, 3.2, 0.6, 5.8, 5.4, 4.8, (x, y, z) => (y < -1 ? null : vestCol(x, y, z)));
-  const CY = 4.4, CZ = -3.4, RX = 8.2, RY = 7.6, RZ = 7.0;
+  const CY = 4.6, CZ = -3.8, RX = 8.8, RY = 8.4, RZ = 7.4;
   const rowOf = (z) => Math.floor((z + 12) / 3.2);
   const colOf = (x, z) => Math.floor((x + 9 + (rowOf(z) % 2) * 1.6) / 3.4);
   const shellCol = (x, y, z) => {
@@ -86,7 +87,7 @@ function torsoModel() {
     for (let z = -9; z <= 0; z += 3) {
       const ty = topY(v, kx, z);
       if (ty == null || ty < 6) continue;
-      const hgt = big ? 4 : 3;
+      const hgt = big ? 5 : 4;
       for (let k = 0; k < hgt; k++) {
         const r = Math.max(0, (big ? 2 : 1) - Math.floor(k * 0.8));
         for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
@@ -127,62 +128,66 @@ function torsoModel() {
   for (let y = 3; y <= 6; y++) { const z = (surfZ(v, -1 + (y > 4 ? 1 : 0), y) ?? 4) + 1; v.set(-1 + (y > 4 ? 1 : 0), y, z, C.bandD); }
   // the neck where the big head goes on: wrinkled skin
   rbox(v, -3, 2, 6, 9, -1, 3, 1.4, skinCol);
+  // a red explorer's neckerchief: a ring round the neck, a knot and a point hanging down the vest
+  for (let x = -4; x <= 3; x++) for (let z = -2; z <= 4; z++) { const r = Math.hypot(x + 0.5, (z - 1) * 1.1); if (r <= 4.2 && r > 2.6) v.set(x, 7, z, (x + z) % 3 === 0 ? C.kerchD : C.kerch); }
+  for (const [x, y, z] of [[-1, 7, 5], [0, 7, 5], [-1, 6, 5], [0, 6, 5], [-2, 5, 5], [-1, 5, 6], [0, 5, 6], [1, 5, 5], [-1, 4, 6], [0, 4, 6], [-1, 3, 6], [0, 3, 5], [-1, 2, 6]]) v.set(x, y, z, y === 7 ? C.kerchL : y <= 3 ? C.kerchD : C.kerch);
   return v;
 }
 function headModel() {
-  // a big wedge of a head: wide at the back, narrowing to a heavy hooked beak (front = +z)
+  // a broad snapper head: a rough dark crown, a paler face (the eyes plane sits on it), heavy
+  // brows, jowls, and THE beak: a stubby horn hook jutting out under the eyes, curling down
   const v = new VoxelModel();
-  for (let z = -4; z <= 6; z++) {
-    const u = (z + 4) / 10; // 0 back .. 1 front
-    const hw = lerp(6.2, 3.2, u * u), hh = lerp(4.4, 2.9, u), cy = lerp(4.3, 3.4, u);
-    for (let x = -7; x <= 6; x++) for (let y = 0; y <= 9; y++) {
-      const dx = (x + 0.5) / hw, dy = (y + 0.5 - cy) / hh;
-      const d = dx * dx + dy * dy * (dy > 0 ? 1 : 1.3);
-      if (d > 1) continue;
-      let c = skinCol(x, y, z);
-      if (y <= 1 && abs(x + 0.5) < hw - 1.5) c = tone(x, y, z, C.belly, C.bellyD, C.bellyL, 0.1, 0.06); // pale throat
-      v.set(x, y, z, c);
+  rbox(v, -3, 2, -2, 2, -3, 1, 1.3, (x, y, z) => (y % 2 === 0 ? C.skinD : skinCol(x, y, z))); // the neck stalk
+  const col = (x, y, z) => {
+    const h = hash3(x, y, z);
+    if (z >= 3 && y <= 6) return h < 0.05 ? C.tub : tone(x, y, z, C.face, C.faceD, C.faceL, 0.1, 0.08);
+    if (h < 0.07) return C.tub;
+    if (y >= 8 && h < 0.15) return C.algae;
+    return y >= 7 ? tone(x, y, z, C.crown, C.crownD, C.skin, 0.14, 0.1) : skinCol(x, y, z);
+  };
+  rbox(v, -6, 5, 1, 9, -4, 4, 2.6, col);
+  for (const s of [-1, 1]) ell(v, s * 5.2 - 0.5, 3.6, 1.0, 1.8, 2.2, 3.0, (x, y, z) => tone(x, y, z, C.face, C.faceD, C.faceL, 0.12, 0.06)); // jowls
+  // brow ridges along the top-front edge: a permanent frown, a knobbly bump between
+  for (let x = -6; x <= 5; x++) { if (abs(x + 0.5) < 1) { v.set(x, 9, 4, C.tub); continue; } v.set(x, abs(x + 0.5) > 3.5 ? 8 : 9, 4, abs(x + 0.5) > 3.5 ? C.crownD : C.skinL); }
+  // tubercles over the crown
+  for (let k = 0; k < 22; k++) {
+    const x = Math.floor(hash3(k, 1, 7) * 12) - 6, z = Math.floor(hash3(k, 2, 7) * 8) - 4;
+    const ty = topY(v, x, z);
+    if (ty != null && ty >= 8) v.set(x, ty + 1, z, hash3(k, 3, 7) < 0.5 ? C.tub : C.skinL);
+  }
+  // the beak: an inverted triangle from the front (wide under the eyes, a point at the bottom),
+  // a long hook from the side and from above
+  for (let z = 5; z <= 9; z++) {
+    const top = z <= 6 ? 5 : z <= 8 ? 4 : 3, bot = z >= 8 ? 1 : 3;
+    for (let y = bot; y <= top; y++) {
+      const w = (0.7 + (y - 2) * 0.6) * (1 - (z - 5) * 0.14);
+      for (let x = -3; x <= 2; x++) {
+        if (abs(x + 0.5) > Math.max(0.6, w)) continue;
+        v.set(x, y, z, abs(x + 0.5) < 0.6 && y === top ? C.beakL : y === bot || abs(x + 0.5) > w - 0.7 ? C.beakD : C.beak);
+      }
     }
   }
-  // the beak: a hard horny upper jaw that hooks down over the lower one
-  for (let z = 5; z <= 8; z++) for (let x = -3; x <= 2; x++) for (let y = 1; y <= 5; y++) {
-    const half = z < 7 ? 3 : z === 7 ? 2 : 1;
-    if (abs(x + 0.5) > half) continue;
-    if (y > 5 - (z - 5)) continue; // the top slopes down to the tip
-    v.set(x, y, z, y === 1 ? C.beakL : (x + y + z) % 4 === 0 ? C.beakD : C.beak);
-  }
-  for (const x of [-1, 0]) { v.set(x, 0, 8, C.beak); v.set(x, -1, 8, C.beakD); v.set(x, 0, 7, C.beakD); } // the hook
-  v.set(-1, 4, 7, C.beakD).set(0, 4, 7, C.beakD); // nostrils
-  // the mouth line along the sides (a long grumpy downturn)
-  for (let z = -1; z <= 6; z++) for (const s of [-1, 1]) {
-    const hw = lerp(6.2, 3.2, ((z + 4) / 10) ** 2);
-    const x = s < 0 ? -Math.round(hw) : Math.round(hw) - 1;
-    const y = z < 2 ? 2 : 1;
-    if (v.has(x, y, z)) v.set(x, y, z, C.skinDD);
-  }
-  // heavy brow ridges + a bony knob on top, rough bumps over the skull
-  for (let x = -6; x <= 5; x++) { const z = 3; const ty = topY(v, x, z); if (ty != null && abs(x + 0.5) > 1.5) v.set(x, ty + 1, z, abs(x + 0.5) > 3.5 ? C.skinD : C.skinL); }
-  for (let k = 0; k < 26; k++) {
-    const x = Math.floor(hash3(k, 1, 7) * 11) - 6, z = Math.floor(hash3(k, 2, 7) * 9) - 4;
-    const ty = topY(v, x, z);
-    if (ty != null && ty >= 6) v.set(x, ty + 1, z, hash3(k, 3, 7) < 0.5 ? C.tub : C.skinL);
-  }
+  for (const x of [-1, 0]) { v.set(x, 0, 9, C.beakD); v.set(x, 1, 10, C.beak); v.set(x, 0, 10, C.beakD); } // the hook curls down
+  v.set(-1, 5, 6, C.beakD).set(0, 5, 6, C.beakD); // nostrils
+  v.set(-2, 4, 5, C.beakL); // a glint on the horn
+  // the long grumpy mouth line from the beak back along the jowls
+  for (let z = 0; z <= 4; z++) for (const x of [-7, 6]) if (v.has(x - Math.sign(x + 0.5), 2, z) && !v.has(x, 2, z)) v.set(x - Math.sign(x + 0.5), 2, z, C.skinDD);
   // fleshy filaments under the chin
-  for (const [x, z] of [[-3, 1], [2, 1], [-2, -1], [1, -1], [-4, -2], [3, -2]]) v.set(x, -1, z, C.skinD);
+  for (const [x, z] of [[-3, 2], [2, 2], [-2, 0], [1, 0]]) v.set(x, 0, z, C.faceD);
   return v;
 }
 function jawModel() {
+  // the lower jaw (pivot at the hinge, front = +z): pale inside, a pink tongue where Gerald lives
   const v = new VoxelModel();
-  for (let z = -1; z <= 7; z++) {
-    const u = (z + 1) / 8;
-    const hw = lerp(5.2, 2.2, u * u);
-    for (let x = -6; x <= 5; x++) for (let y = -2; y <= 0; y++) {
+  for (let z = -2; z <= 6; z++) {
+    const hw = z < 3 ? 4.8 : 4.8 - (z - 3) * 1.0;
+    for (let x = -5; x <= 4; x++) for (let y = -1; y <= 0; y++) {
       if (abs(x + 0.5) > hw) continue;
       const top = y === 0 && abs(x + 0.5) < hw - 1 && z < 6;
-      v.set(x, y, z, top ? (abs(x + 0.5) < 1.2 && z > 0 && z < 5 ? C.tongue : C.mouthIn) : z >= 6 ? C.beak : y === -2 ? tone(x, y, z, C.belly, C.bellyD, C.bellyL, 0.1, 0.06) : skinCol(x, y, z));
+      v.set(x, y, z, top ? (abs(x + 0.5) < 1.6 && z > 0 && z < 5 ? C.tongue : C.mouthIn) : z >= 6 ? C.beakD : tone(x, y, z, C.face, C.faceD, C.faceL, 0.1, 0.06));
     }
   }
-  for (const x of [-1, 0]) v.set(x, 1, 7, C.beakL); // the lower beak's little upturn
+  for (const x of [-1, 0]) v.set(x, 0, 6, C.beak);
   return v;
 }
 function geraldModel() {
@@ -197,26 +202,18 @@ function geraldModel() {
   return v;
 }
 function helmetModel() {
-  // a dented pith helmet: dome, wide brim, leather band, brass goggles on the front of the band
+  // a dented pith helmet: dome, a brim, leather band, a brass trilobite badge on the front
   const v = new VoxelModel();
-  for (let x = -10; x <= 9; x++) for (let z = -10; z <= 10; z++) {
-    const r = Math.hypot((x + 0.5) / 9.4, (z + 0.5) / 9.9);
-    if (r > 1 || r < 0.66) continue;
-    const droop = (abs(z + 0.5) > 7 ? -1 : 0);
-    v.set(x, droop, z, r > 0.93 ? C.hatD : (x + z) % 7 === 0 ? C.hatD : C.hat);
+  for (let x = -8; x <= 7; x++) for (let z = -8; z <= 8; z++) {
+    const r = Math.hypot((x + 0.5) / 7.4, (z + 0.5) / 7.8);
+    if (r > 1 || r < 0.58) continue;
+    v.set(x, abs(z + 0.5) > 6 ? -1 : 0, z, r > 0.9 ? C.hatD : (x + z) % 7 === 0 ? C.hatD : C.hat);
   }
-  ell(v, 0, 0.5, 0, 6.6, 5.6, 7.2, (x, y, z) => (y < 0 ? null : y <= 1 ? (y === 1 ? C.band : C.bandD) : hash3(x, y, z) < 0.08 ? C.hatD : y > 4 ? C.hatL : C.hat));
-  // a dent on the left side of the crown
-  for (const [x, y, z] of [[-5, 3, 1], [-5, 4, 2], [-4, 4, 1], [-5, 3, 2]]) v.set(x, y, z, C.hatD);
-  v.set(0, 6, 0, C.brassD).set(0, 7, 0, C.brass); // vent button
-  // brass field goggles strapped to the front of the band
-  for (const cx of [-2, 2]) for (let x = cx - 1; x <= cx + 1; x++) for (let y = 1; y <= 3; y++) {
-    const z = 7;
-    const ring = x !== cx || y !== 2;
-    v.set(x - (cx < 0 ? 1 : 0), y, z, ring ? (y === 3 ? C.brassL : C.brass) : C.lens);
-  }
-  v.set(-2, 3, 7, C.lensL).set(2, 3, 8, C.brassD);
-  v.set(-1, 2, 7, C.brassD).set(0, 2, 7, C.brassD);
+  ell(v, 0, 0.5, 0, 5.2, 4.8, 5.6, (x, y, z) => (y < 0 ? null : y <= 1 ? (y === 1 ? C.band : C.bandD) : hash3(x, y, z) < 0.08 ? C.hatD : y > 3 ? C.hatL : C.hat));
+  for (const [x, y, z] of [[-5, 3, 1], [-5, 2, 2], [-4, 4, 1]]) v.set(x, y, z, C.hatD); // a dent
+  v.set(0, 6, 0, C.brassD); // vent button
+  // a tiny brass trilobite badge on the band (flat, off-centre)
+  for (const [x, y, c] of [[2, 1, C.brass], [3, 1, C.brassD], [2, 2, C.brassL]]) v.set(x, y, 5, c);
   return v;
 }
 function earModel() {
@@ -306,7 +303,7 @@ const FACE = {
   w: 44, h: 18, eyes: [{ x: 11, y: 10 }, { x: 33, y: 10 }], rx: 4.6, ry: 5, style: 'toon',
   blush: [{ x: 4, y: 15 }, { x: 40, y: 15 }], blushW: 2,
   mw: 8, mh: 4, mx: 4, my: 1, mstyle: 'deer', mHalf: 2,
-  pal: { i: '#3a2a14', I: '#7a5a2a', b: '#2a2418', f: '#6e6852', F: '#3a3628', w: '#f4ecd0', W: '#d8ccb0' },
+  pal: { i: '#3a2a14', I: '#7a5a2a', b: '#2a2418', f: '#b4b088', F: '#4a4430', w: '#f4ecd0', W: '#d8ccb0', o: '#c89a5a', O: '#7a5a34' },
 };
 // the alligator snapper's star of fleshy filaments around each eye + heavy wrinkles
 function eyeRings(P, st, cfg) {
@@ -318,13 +315,13 @@ function eyeRings(P, st, cfg) {
       const a = (k / 9) * TAU + 0.3;
       for (let r = R; r <= R + (k % 2 ? 2.2 : 1.4); r += 0.7) {
         const x = Math.floor(e.x + cos(a) * r * 1.0), y = Math.floor(e.y + sin(a) * r * 0.9);
-        if (!P.get(x, y)) P.set(x, y, r > R + 1 ? 'F' : 'f');
+        if (!P.get(x, y)) P.set(x, y, r > R + 1 ? 'O' : 'o');
       }
     }
     // the deep crease under the eye
-    for (let x = -3; x <= 3; x++) if (!P.get(e.x + x, e.y + 6)) P.set(e.x + x, e.y + 6 - (abs(x) > 2 ? 1 : 0), 'F');
+    for (let x = -3; x <= 3; x++) if (!P.get(e.x + x, e.y + 6)) P.set(e.x + x, e.y + 6 - (abs(x) > 2 ? 1 : 0), 'O');
     // heavy brow wrinkle toward the middle (a permanent frown)
-    for (let k = 0; k < 3; k++) if (!P.get(e.x - side * (2 + k), e.y - 7 + k)) P.set(e.x - side * (2 + k), e.y - 7 + k, 'F');
+    for (let k = 0; k < 3; k++) if (!P.get(e.x - side * (2 + k), e.y - 7 + k)) P.set(e.x - side * (2 + k), e.y - 7 + k, 'O');
   });
 }
 const EXPRS = {
@@ -355,12 +352,12 @@ export class SnapperProf extends BipedRig {
     this.jaw = new THREE.Group(); this.jaw.position.set(0, 1.6 * VS, -1 * VS); this.head.add(this.jaw);
     this.mesh(G.jaw, this.jaw, { z: 1 * VS });
     this._jaw = 0;
-    this.gerald = new THREE.Group(); this.gerald.position.set(-0.4 * VS, 0.3 * VS, 3.4 * VS); this.jaw.add(this.gerald);
+    this.gerald = new THREE.Group(); this.gerald.position.set(-0.4 * VS, 0.6 * VS, 3.4 * VS); this.jaw.add(this.gerald);
     this.geraldMesh = this.mesh(G.gerald, this.gerald);
-    this.joint('hat', this.head, 0, 7.6, -0.2);
+    this.joint('hat', this.head, 0, 9.6, -0.6);
     this.mesh(G.helmet, this.hat);
     this.face = new NpcFace(FACE, { eyes: eyeRings });
-    this.facePlane(this.face.eyes.tex, this.head, FACE.w, FACE.h, 0, 6.2 - FACE.h / 8, 5.3);
+    this.facePlane(this.face.eyes.tex, this.head, FACE.w, FACE.h, 0, 7.05, 5.12);
     // tools: hammer (right), brush (right, when brushing), loupe (left)
     this.hammer = this.mesh(G.hammer, this.gripR);
     this.hammer.scale.setScalar(1.5);

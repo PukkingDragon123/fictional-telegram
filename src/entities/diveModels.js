@@ -70,11 +70,11 @@ export function diveGeo(key, build, { pivot = [0, 0, 0], scale = VS, sway = fals
 
 // ------------------------------------------------------------------ palettes
 const P = {
-  rock: [0x3c4450, 0x525c68, 0x6a7480, 0x84909a, 0xa2acb2], // deep .. lit (cool granite)
-  rockW: [0x4a3e36, 0x62544a, 0x7a6a5c, 0x948272, 0xb09c88], // warm sandstone
+  rock: [0x3e4652, 0x56626e, 0x72808a, 0x909ea6, 0xb6c2c6], // deep .. lit (cool granite)
+  rockW: [0x4e4238, 0x6a5a4c, 0x86725e, 0xa48c74, 0xc4ac90], // warm sandstone
   moss: [0x2e4a24, 0x3e6230, 0x527a3a, 0x6a9446],
   algae: [0x3a5a3a, 0x4e7448],
-  bark: [0x2a1c14, 0x3a281c, 0x4c3626, 0x5e4432, 0x74563e],
+  bark: [0x3a2818, 0x523a24, 0x6a4c30, 0x84623e, 0x9e7a50],
   wood: [0x6a4c32, 0x8a6644, 0xa88058, 0xc49c70],
   ring: [0xb08a5a, 0x8a6a44],
   kelp: [0x2c4a1e, 0x3e6226, 0x547e2e, 0x6e9a36, 0x8cb446],
@@ -102,9 +102,11 @@ export function rockModel(seed = 1, size = 24, { warm = false, moss = 1 } = {}) 
   const n = 2 + floor(r() * 3);
   for (let i = 0; i < n; i++) {
     const a = r() * TAU, d = R * (0.15 + r() * 0.45);
-    lobes.push({ x: cos(a) * d, z: sin(a) * d * 0.7, y: R * (0.15 + r() * 0.2), rx: R * (0.5 + r() * 0.4), ry: R * (0.45 + r() * 0.35), rz: R * (0.45 + r() * 0.35) });
+    lobes.push({ x: cos(a) * d, z: sin(a) * d * 0.7, y: R * (0.05 + r() * 0.15), rx: R * (0.5 + r() * 0.4), ry: R * (0.3 + r() * 0.28), rz: R * (0.45 + r() * 0.35) });
   }
-  lobes.push({ x: 0, z: 0, y: R * 0.3, rx: R * 0.85, ry: R * 0.62, rz: R * 0.7 });
+  lobes.push({ x: 0, z: 0, y: R * 0.2, rx: R * 0.9, ry: R * 0.5, rz: R * 0.7 });
+  // a tilted cleavage plane shears the top flat on some rocks (a slab look)
+  const cut = r() < 0.6 ? { a: (r() - 0.5) * 0.6, b: (r() - 0.5) * 0.6, h: R * (0.45 + r() * 0.25) } : null;
   const field = (x, y, z) => {
     let best = -1e9;
     for (const L of lobes) {
@@ -113,8 +115,10 @@ export function rockModel(seed = 1, size = 24, { warm = false, moss = 1 } = {}) 
     }
     // chunky facets: noise pushes the surface in and out in flat-ish planes
     const nz = fbm(x * 0.13, y * 0.13, z * 0.13, seed) - 0.5;
-    const facet = round(nz * 4) / 4;
-    return best + facet * 0.42 + (fbm(x * 0.4, y * 0.4, z * 0.4, seed + 5) - 0.5) * 0.08;
+    const facet = round(nz * 3) / 3;
+    let f = best + facet * 0.55 + (fbm(x * 0.4, y * 0.4, z * 0.4, seed + 5) - 0.5) * 0.08;
+    if (cut && y > cut.h + x * cut.a + z * cut.b) f = Math.min(f, -0.01);
+    return f;
   };
   const W = ceilR(R * 1.6);
   const H = ceilR(R * 1.5);
@@ -213,8 +217,8 @@ export function kelpModel(seed = 1, h = 90, { yellow = false } = {}) {
   let y = 6 + floor(r() * 4);
   let side = r() < 0.5 ? -1 : 1;
   while (y < h - 4) {
-    const bl = 10 + floor(r() * 14) * (1 - y / h * 0.4);
-    const wide = 2 + floor(r() * 2);
+    const bl = (14 + floor(r() * 14)) * (1 - y / h * 0.35);
+    const wide = 3 + floor(r() * 3);
     const x0 = sx(y);
     for (let i = 1; i <= bl; i++) {
       const u = i / bl;
@@ -228,7 +232,7 @@ export function kelpModel(seed = 1, h = 90, { yellow = false } = {}) {
       if (u > 0.85 && hash3(i, y, seed) < 0.4) v.set(bx + side, by + 1, 0, pal[pal.length - 1]);
     }
     side = -side;
-    y += 4 + floor(r() * 6);
+    y += 3 + floor(r() * 4);
   }
   // a seed head / float bladders near the top
   for (let k = 0; k < 3; k++) { const yy = h - 2 - k * 6; v.set(sx(yy) + (k & 1 ? 2 : -2), yy, 0, pal[pal.length - 1]); }
@@ -325,44 +329,73 @@ export function reedModel(seed = 1, h = 60) {
 /** The old barge on its side in the Deep Hole. restored: patched planks, brass lanterns, egg racks glowing inside. */
 export function bargeModel(restored = false) {
   const v = new VoxelModel();
-  const L = 60, Wd = 22, H = 14;
-  const plank = (x, y, z) => pick(P.wood, 0.25 + ((y >> 1) & 1) * 0.2 + (hash3(floor(x / 9), y >> 1, z) - 0.5) * 0.3);
-  for (let x = -L / 2; x <= L / 2; x++) {
+  const L = 64, Wd = 22, H = 15;
+  const WOOD = [0x4a3424, 0x5e4430, 0x765840, 0x8e6c4e, 0xa88460];
+  const NEW = [0x8a6a44, 0xa88458, 0xc4a070];
+  // planks run along the hull: a dark seam every third row, butt joints staggered per row
+  const plank = (x, y, z) => {
+    const row = Math.floor(y / 3);
+    if ((y % 3) === 2) return WOOD[0];
+    const joint = (x + 64 + row * 17) % 23 === 0;
+    if (joint) return WOOD[1];
+    const b = Math.floor((x + 64 + row * 17) / 23);
+    let t = 0.45 + (hash3(b, row, z > 0 ? 1 : 0) - 0.5) * 0.4 + (y > H - 3 ? 0.2 : 0) + (hash3(x, y, z) - 0.5) * 0.1;
+    if (restored && hash3(b, row, 9) < 0.25) return pick(NEW, t);
+    return pick(WOOD, t);
+  };
+  const hull = (x, y) => { // half width at (x, y): bluff bow, flat bottom, rounded bilge
     const u = (x + L / 2) / L;
-    const taper = u > 0.85 ? (u - 0.85) / 0.15 : 0;
-    const hw = Wd / 2 * (1 - taper * 0.55);
+    const bow = u > 0.82 ? 1 - ((u - 0.82) / 0.18) ** 1.6 * 0.6 : u < 0.06 ? 0.92 : 1;
+    const bilge = y < 3 ? 0.78 + y * 0.07 : 1;
+    return (Wd / 2) * bow * bilge;
+  };
+  const wreck = (x, y, z) => !restored && (fbm(x * 0.09, y * 0.16, z * 0.09, 7) > 0.66 || (y > H - 3 && fbm(x * 0.2, 0, z * 0.2, 4) > 0.6));
+  for (let x = -L / 2; x <= L / 2; x++) {
     for (let y = 0; y <= H; y++) {
-      const curve = (1 - (y / H)) ** 2 * 3;
-      for (let z = -hw; z <= hw; z++) {
-        const edge = abs(z) > hw - 1.5 + curve * 0 || y === 0;
-        if (!edge && x > -L / 2 && x < L / 2 - 1) continue; // hollow
-        // broken holes in the hull (patched when restored)
-        const hole = !restored && fbm(x * 0.12, y * 0.2, z * 0.12, 7) > 0.66;
-        if (hole) continue;
+      const hw = hull(x, y);
+      for (let z = -Math.ceil(hw); z <= Math.ceil(hw); z++) {
+        const d = abs(z) - hw;
+        const side = d > -1.5 && d <= 0.5;
+        const bottom = y === 0 && abs(z) <= hw;
+        const stern = x === -L / 2 && abs(z) <= hw;
+        if (!side && !bottom && !stern) continue;
+        if (wreck(x, y, z) && !bottom) continue;
         let c = plank(x, y, z);
-        if (y === H) c = P.wood[3];
-        if (!restored && y < 4 && hash3(x, y, z) < 0.35) c = pick(P.moss, hash3(z, y, x));
-        if (!restored && fbm(x * 0.2, y * 0.2, z * 0.2, 3) > 0.6) c = pick(P.algae, 0.5);
-        if (restored && hash3(x, y, z) < 0.03) c = 0xd8b04a; // brass nails
+        if (!restored && y < 5 && hash3(x, y, z) < 0.3) c = pick(P.moss, hash3(z, y, x)); // weed on the low strakes
+        if (!restored && y > H - 5 && fbm(x * 0.15, y * 0.3, z * 0.15, 3) > 0.58) c = pick(P.algae, 0.6);
+        if (!restored && y < 2 && hash3(x, y, z + 1) < 0.18) c = (x + z) & 1 ? 0x2a2e48 : 0x1e2238; // mussel clusters
+        if (restored && hash3(x, y, z) < 0.025) c = 0xd8b04a; // brass nails
         v.set(x, y, round(z), c);
       }
     }
+    // ribs inside, every 6
+    if ((x + 64) % 6 === 0) for (let y = 1; y <= H - 1; y++) { const hw = hull(x, y) - 1.5; for (const z of [-round(hw), round(hw)]) if (!wreck(x, y, z + 1)) v.set(x, y, z, WOOD[1]); }
+    // the gunwale rail
+    const hw = hull(x, H);
+    for (const z of [-round(hw), round(hw)]) if (!wreck(x, H + 1, z)) v.set(x, H + 1, z, WOOD[3]);
   }
-  // the deckhouse, a broken mast, ribs on the open side
-  for (let x = -8; x <= 6; x++) for (let y = H; y <= H + 8; y++) for (let z = -5; z <= 5; z++) {
-    const shell = x === -8 || x === 6 || abs(z) === 5 || y === H + 8;
+  // the deckhouse: board walls, two portholes, a hatch
+  for (let x = -10; x <= 6; x++) for (let y = H; y <= H + 9; y++) for (let z = -6; z <= 6; z++) {
+    const shell = x === -10 || x === 6 || abs(z) === 6 || y === H + 9;
     if (!shell) continue;
-    const port = (y === H + 4 || y === H + 5) && (abs(z) === 5) && (x === -4 || x === 2);
-    v.set(x, y, z, port ? (restored ? 0xffe070 : 0x1a2a30) : plank(x, y, z));
+    if (!restored && x > 2 && y > H + 5 && z > 0) continue; // the roof is stove in
+    const port = (y === H + 4 || y === H + 5) && abs(z) === 6 && (x === -6 || x === -5 || x === 1 || x === 2);
+    const rim = (y === H + 3 || y === H + 6) && abs(z) === 6 && (x >= -7 && x <= -4 || x >= 0 && x <= 3);
+    v.set(x, y, z, port ? (restored ? 0xffe070 : 0x10181c) : rim ? 0xb8902e : y === H + 9 ? WOOD[2] : ((x + 40) % 3 === 0 ? WOOD[1] : WOOD[3]));
   }
-  for (let y = H + 8; y < H + 8 + (restored ? 24 : 12); y++) v.set(-1, y, 0, P.wood[2]);
+  // the mast, snapped (or whole and flying a little pennant once restored)
+  const mh = restored ? 30 : 14;
+  for (let y = H + 9; y < H + 9 + mh; y++) for (let a = 0; a <= 1; a++) v.set(-2 + a, y, 0, WOOD[2 + a]);
+  if (!restored) { v.set(-2, H + 9 + mh, 0, WOOD[4]); v.set(-1, H + 9 + mh + 1, 1, WOOD[4]); for (let k = 0; k < 14; k++) v.set(-2 - k, H + 9 + mh - 1 - k, round(sin(k * 0.5) * 2), ROPE_C[k & 1]); }
+  else { for (let x = 0; x <= 8; x++) for (let y = 0; y <= 3 - (x >> 2); y++) v.set(x, H + 9 + mh - 4 + y, 0, x & 1 ? 0xd8403a : 0xf6f2ea); }
   if (restored) {
-    for (const x of [-20, 0, 18]) { v.set(x, H + 2, -Wd / 2 - 1, 0xffe070); v.set(x, H + 3, -Wd / 2 - 1, 0xb08a2a); v.set(x, H + 1, -Wd / 2 - 1, 0xb08a2a); }
-    // egg racks visible through the open side
-    for (let x = -24; x <= 22; x += 6) for (let y = 3; y <= 9; y += 3) { v.set(x, y, Wd / 2 - 2, 0xf8e6b8); v.set(x + 1, y, Wd / 2 - 2, 0xffd0a0); v.set(x, y - 1, Wd / 2 - 2, P.wood[0]); v.set(x + 1, y - 1, Wd / 2 - 2, P.wood[0]); }
+    for (const x of [-22, -2, 18]) { v.set(x, H - 1, -Wd / 2 - 1, 0xffe070); v.set(x, H, -Wd / 2 - 1, 0xb08a2a); v.set(x, H - 2, -Wd / 2 - 1, 0xb08a2a); v.set(x, H - 1, -Wd / 2 - 2, 0xfff4b0); }
+    // egg racks along the open deck
+    for (let x = -26; x <= 24; x += 5) for (let k = 0; k < 2; k++) { const z = k ? 5 : -5; v.set(x, 2, z, WOOD[0]); v.set(x + 1, 2, z, WOOD[0]); v.set(x, 3, z, 0xf8e6b8); v.set(x + 1, 3, z, 0xffd0a0); v.set(x, 4, z, 0xfff4d8); }
   }
   return v;
 }
+const ROPE_C = [0x9a7e4e, 0xc8a870];
 
 // ------------------------------------------------------------------ litter / lesson props (fine voxels)
 export function litterModel(kind = 'can') {
@@ -650,11 +683,12 @@ function propMesh(key, build, pivot = [0, 0, 0], scale = FV) {
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
-const PL = [0x7a5638, 0x94704c, 0xae8a60, 0xc8a676]; // weathered dock planks
+const PL = [0x86664a, 0xa4825e, 0xbe9c74, 0xd8b88c]; // weathered dock planks, sun-bleached
+const at = (m, x, y, z) => { m.position.set(x, y, z); return m; };
 /** Noodles' camp: an overturned canoe on two sawhorses, a smoky campfire with a fish rack, a bait bucket and a creel. */
 export function makeLakeCamp() {
   const g = new THREE.Group(); g.name = 'noodlesCamp';
-  g.add(Object.assign(propMesh('canoe', () => {
+  g.add(at(propMesh('canoe', () => {
     const v = new VoxelModel();
     for (let x = -28; x <= 28; x++) {
       const u = abs(x) / 28;
@@ -674,9 +708,9 @@ export function makeLakeCamp() {
     for (let k = -14; k <= 14; k++) v.set(k, 18, 0, k % 4 === 0 ? 0xd8c8a0 : null); // a paddle laid on top
     for (let x = 12; x <= 26; x++) v.set(x, 18, 3, x > 22 ? 0xa87c58 : 0xc49c70);
     return v;
-  }), { position: new THREE.Vector3(-0.9, 0, -0.9) }));
+  }), -0.9, 0, -0.9));
   // the campfire: stones ring, logs, a smoking rack of fish on forked sticks
-  g.add(Object.assign(propMesh('fire', () => {
+  g.add(at(propMesh('fire', () => {
     const v = new VoxelModel();
     for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; for (let y = 0; y <= 2; y++) for (let d = 0; d <= 1; d++) v.set(round(cos(a) * (8 + d)), y, round(sin(a) * (8 + d)), pick(P.rock, 0.3 + (y === 2 ? 0.4 : 0) + hash3(k, y, d) * 0.2)); }
     for (let k = -6; k <= 6; k++) { v.set(k, 1, round(k * 0.3), P.bark[2]); v.set(round(k * 0.3), 2, k, P.bark[3]); }
@@ -685,8 +719,8 @@ export function makeLakeCamp() {
     for (let x = -10; x <= 10; x++) v.set(x, 20, -4, P.bark[2]);
     for (const x of [-6, -1, 4]) for (let y = 12; y <= 19; y++) for (let z = -5; z <= -3; z++) if (abs(z + 4) + abs(y - 15.5) * 0.4 < 2.2) v.set(x + (y > 17 ? 0 : 0), y, z, y > 17 ? 0xc89050 : (z === -3 ? 0xd8a060 : 0xb07840)); // smoked fish
     return v;
-  }), { position: new THREE.Vector3(1.2, 0, 0.3) }));
-  g.add(Object.assign(propMesh('bucket', () => {
+  }), 1.2, 0, 0.3));
+  g.add(at(propMesh('bucket', () => {
     const v = new VoxelModel();
     for (let y = 0; y <= 10; y++) for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) { const d = hypot(x, z); const r = 4.6 + y * 0.12; if (d > r || (d < r - 1 && y > 0)) continue; v.set(x, y, z, y % 4 === 0 ? 0x8a909c : 0xb8bcc8); }
     for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) if (hypot(x, z) < 4.6) v.set(x, 9, z, 0x3a6a8a);
@@ -694,7 +728,7 @@ export function makeLakeCamp() {
     for (let a = 0; a <= 12; a++) v.set(round(-6 + a), 11 + round(sin(a / 12 * PI) * 4), 0, 0x5a5a62);
     // BAIT painted on the side
     return v;
-  }), { position: new THREE.Vector3(-1.3, 0, 0.6) }));
+  }), -1.3, 0, 0.6));
   return g;
 }
 /** Chief's dock: a plank jetty on posts running out over the water (length in tiles along +Z), a bollard, a coiled line and a ladder at the end. */
@@ -712,6 +746,7 @@ export function makeDiveDock(len = 4.2) {
       v.set(x, 0, z, pick(PL, t + (hash3(x, plankI, 7) < 0.08 ? -0.3 : 0)));
       if (hash3(x, plankI, 9) < 0.03) v.set(x, 1, z, 0x8a8a92); // nail heads
     }
+    for (let z = 0; z <= n; z++) for (const x of [-W - 1, W + 1]) { v.set(x, 0, z, PL[0]); v.set(x, -1, z, (z % 22) === 7 ? 0x5a5a62 : PL[0]); }
     for (let z = 6; z <= n; z += 22) for (const x of [-W, W - 1]) for (let y = -34; y <= 4; y++) for (let a = 0; a <= 1; a++) for (let b = 0; b <= 1; b++) v.set(x + a, y, z + b, y < -8 ? (hash3(x, y, z) < 0.4 ? 0x3e5a2e : PL[0]) : pick(PL, 0.2 + a * 0.3));
     // bollard + a coil of rope + the ladder at the far end
     for (let y = 1; y <= 6; y++) for (let x = W - 6; x <= W - 3; x++) for (let z = n - 8; z <= n - 5; z++) v.set(x, y, z, y === 6 ? 0x5a5a62 : 0x3a3a42);
@@ -786,6 +821,10 @@ export function makeDiveBuoy() {
   g.add(flag);
   g.userData.flag = flag;
   return g;
+}
+/** A lily pad floating on the lake (game material), some in bloom. */
+export function makeLakeLily(seed = 1) {
+  return propMesh('lily' + (seed % 3), () => lilyPadModel(2 + (seed % 3), seed % 3 === 1), [0, 0, 0], FV * 1.6);
 }
 /** A clump of shore reeds / cattails for the lake edge (game material). */
 export function makeReedClump(seed = 1) {

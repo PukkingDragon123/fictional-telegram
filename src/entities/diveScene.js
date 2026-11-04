@@ -25,7 +25,8 @@ import {
 } from './diveModels.js';
 
 export const SURF = 6.0; // water surface (world y)
-export const X0 = -29, X1 = 31, Z0 = -13, Z1 = 7;
+export const X0 = -29, X1 = 31, Z0 = -13, Z1 = 16;
+export const SURF_FRONT = -0.6; // the surface band ends here (toward the camera): the play layer sits in front of it
 export const DEEP_X = 11; // the Deep Hole starts here
 export const FARM_AREA = { x0: -12.5, x1: 9.5, z0: -4.6, z1: 2.4 };
 const { abs, floor, sin, PI } = Math;
@@ -80,14 +81,14 @@ float uwCaus(vec2 p, float t) {
 const GLSL_LIGHT = /* glsl */ `
 {
   float bay = uwBay(gl_FragCoord.xy);
-  float depthK = clamp((uSurf - vUwPos.y) / 10.0, 0.0, 1.0);
+  float depthK = clamp((uSurf - vUwPos.y) / 8.5, 0.0, 1.0);
   float up = clamp(vUwNor.y * 0.85 + 0.25, 0.0, 1.0);
   float cz = uwCaus(vUwPos.xz + vec2(vUwPos.y * 0.35, 0.0), uTime);
   cz = cz * cz * cz * cz * cz;
   float cq = floor(cz * 3.0 + bay * 0.92) / 3.0;
   outgoingLight += vec3(0.55, 0.9, 0.95) * cq * up * (1.0 - depthK * 0.75) * 0.42 * uCaus;
   float dk = floor(depthK * 4.0 + bay) / 4.0;
-  outgoingLight *= mix(vec3(1.0), vec3(0.36, 0.56, 0.7), dk * 0.8);
+  outgoingLight *= mix(vec3(1.0), vec3(0.28, 0.46, 0.62), dk * 0.85);
 }
 `;
 const GLSL_VERT_PRE = /* glsl */ `
@@ -185,39 +186,31 @@ function vn2(x, z, s) {
 /** Raw lake-bed height (world y) at (x, z), before terracing. */
 export function bedRaw(x, z) {
   let h = 0.3 + (vn2(x * 0.16, z * 0.16, 1) - 0.5) * 1.0 + (vn2(x * 0.5, z * 0.5, 2) - 0.5) * 0.25 + sin(x * 0.33) * 0.12;
-  h += smooth(-13, -28, x) * 4.0; // the shallows under the dock
+  h += smooth(-13, -28, x) * 4.0 * (1 - smooth(5, 13, z) * 0.75); // the shallows under the dock
   const deep = smooth(DEEP_X - 2, DEEP_X + 4, x) * (1 - smooth(26, 31, x));
   h -= deep * (4.3 - smooth(3.5, 9, abs(z + 2)) * 2.6); // the Deep Hole
   h += smooth(-5.5, -12, z) * 2.8; // the back ridge
-  h += smooth(3.2, 7, z) * 0.55; // the front lip
+  h += smooth(3.5, 8, z) * 0.45 - smooth(9, 16, z) * 0.35; // the near sand
   return h;
 }
-const TER = 0.1; // terrace step (2 voxels)
-export const bedH = (x, z) => Math.round(bedRaw(x, z) / TER) * TER;
-void bedNoise;
+/** Lake-bed height (world y) at (x, z). */
+export const bedH = (x, z) => Math.round(bedRaw(x, z) * 100) / 100;
 
+// a smooth heightfield: the pixel look comes from the sand drawn texel by texel in the shader
 function bedGeometry(cell = 0.25) {
   const nx = Math.round((X1 - X0) / cell), nz = Math.round((Z1 - Z0) / cell);
-  const H = new Float32Array((nx + 2) * (nz + 2));
-  const hAt = (i, k) => H[(k + 1) * (nx + 2) + (i + 1)];
-  for (let k = -1; k <= nz; k++) for (let i = -1; i <= nx; i++) H[(k + 1) * (nx + 2) + (i + 1)] = bedH(X0 + (i + 0.5) * cell, Z0 + (k + 0.5) * cell);
-  const pos = [], nor = [];
-  const quad = (a, b, c, d, n) => { pos.push(...a, ...b, ...c, ...a, ...c, ...d); for (let j = 0; j < 6; j++) nor.push(...n); };
-  for (let k = 0; k < nz; k++)
-    for (let i = 0; i < nx; i++) {
-      const x0 = X0 + i * cell, x1 = x0 + cell, z0 = Z0 + k * cell, z1 = z0 + cell, h = hAt(i, k);
-      quad([x0, h, z1], [x1, h, z1], [x1, h, z0], [x0, h, z0], [0, 1, 0]);
-      // sides down to lower neighbours (only the faces that can be seen)
-      const hr = i < nx - 1 ? hAt(i + 1, k) : h - 2;
-      if (hr < h) quad([x1, hr, z1], [x1, hr, z0], [x1, h, z0], [x1, h, z1], [1, 0, 0]);
-      const hl = i > 0 ? hAt(i - 1, k) : h - 2;
-      if (hl < h) quad([x0, hl, z0], [x0, hl, z1], [x0, h, z1], [x0, h, z0], [-1, 0, 0]);
-      const hf = k < nz - 1 ? hAt(i, k + 1) : h - 3;
-      if (hf < h) quad([x0, hf, z1], [x1, hf, z1], [x1, h, z1], [x0, h, z1], [0, 0, 1]);
-    }
+  const pos = new Float32Array((nx + 1) * (nz + 1) * 3);
+  let k3 = 0;
+  for (let k = 0; k <= nz; k++) for (let i = 0; i <= nx; i++) { const x = X0 + i * cell, z = Z0 + k * cell; pos[k3++] = x; pos[k3++] = bedRaw(x, z); pos[k3++] = z; }
+  const idx = [];
+  for (let k = 0; k < nz; k++) for (let i = 0; i < nx; i++) {
+    const a = k * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
   return g;
 }
 function bedMaterial() {
@@ -252,7 +245,8 @@ function bedMaterial() {
   float pb = uwHash(floor(P / 0.15));
   if (pb > 0.955) { vec2 f = fract(P / 0.15); c = f.y > 0.5 ? (f.x < 0.5 ? vec3(0.62, 0.62, 0.62) : vec3(0.5, 0.5, 0.52)) : vec3(0.36, 0.36, 0.38); }
   // steps and slopes: dark silt-rock, the deep: mud
-  if (vUwNor.y < 0.5) c = mix(vec3(0.30, 0.27, 0.22), vec3(0.40, 0.36, 0.28), step(0.5, n1));
+  // steep slopes: darker silt and rock showing through
+  if (vUwNor.y < 0.72) c = mix(c, n1 > 0.5 ? vec3(0.38, 0.34, 0.27) : vec3(0.30, 0.28, 0.24), 0.75);
   float deep = clamp((-vUwPos.y - 0.6) / 2.4, 0.0, 1.0);
   float dq = floor(deep * 3.0 + uwBay(gl_FragCoord.xy)) / 3.0;
   c = mix(c, mix(vec3(0.20, 0.22, 0.20), vec3(0.26, 0.28, 0.24), step(0.6, n1)), dq * 0.85);
@@ -284,7 +278,7 @@ function surfaceMaterial() {
         float bay = bay4(gl_FragCoord.xy);
         vec2 p = vWp.xz;
         // Snell's window: bright overhead (front), the back mirrors the dark lake (total internal reflection)
-        float win = clamp((vWp.z + 10.0) / 15.0, 0.0, 1.0);
+        float win = clamp((vWp.z + 17.0) / 15.0, 0.0, 1.0);
         float r = rip(p * 0.75, uTime);
         float r2 = rip(p * 1.6 + 3.0, uTime * 1.3);
         float t = win * 0.78 + r * r * 0.32 + r2 * 0.08 - 0.06;
@@ -315,7 +309,7 @@ function shaftMaterial(seed, strength = 1) {
         float a = edge * streak * flick * pow(vUv.y, 1.3) * uK;
         float q = floor(a * 3.2 + bay4(gl_FragCoord.xy) * 0.96) / 3.0;
         if (q <= 0.0) discard;
-        gl_FragColor = vec4(vec3(0.34, 0.6, 0.58) * q * 0.55, 1.0);
+        gl_FragColor = vec4(vec3(0.36, 0.62, 0.6) * q * 0.7, 1.0);
       }`,
   });
 }
@@ -406,11 +400,11 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
   const back = new THREE.Mesh(bdg, backdropMaterial());
   back.position.set(1, 1.5, Z0 - 2);
   root.add(back);
-  const sfg = new THREE.PlaneGeometry(150, 40);
+  const sfg = new THREE.PlaneGeometry(150, 30);
   sfg.rotateX(-PI / 2);
   disposables.push(sfg);
   const surf = new THREE.Mesh(sfg, surfaceMaterial());
-  surf.position.set(1, SURF, -6);
+  surf.position.set(1, SURF, SURF_FRONT - 15);
   root.add(surf);
 
   // light shafts, slanting down from the upper left
@@ -440,11 +434,11 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
   };
   const RR = rnd(7);
   // the back ridge: big boulders
-  for (let i = 0; i < 18; i++) { const x = X0 + 2 + i * 3.3 + RR() * 1.6; addRock(x, -9.2 - RR() * 2.6, 34 + floor(RR() * 30), 100 + i, { warm: RR() < 0.3 }); }
+  for (let i = 0; i < 13; i++) { const x = X0 + 3 + i * 4.6 + RR() * 2.2; addRock(x, -7.4 - RR() * 2.2, 26 + floor(RR() * 22), 100 + i, { warm: RR() < 0.35 }); }
   // the middle: scattered rocks
   for (const [x, z, s] of [[-17.5, -1.2, 22], [-10.4, -5.6, 30], [-6.2, 2.8, 16], [-2.4, -5.9, 26], [3.6, 3.0, 14], [7.8, -5.2, 24], [9.8, 1.6, 20], [-21.5, -4.0, 26], [-24.5, 1.0, 18]]) addRock(x, z, s, floor(x * 7 + z * 13 + 500));
   // the Deep Hole's walls
-  for (const [x, z, s] of [[12.2, -5.8, 40], [13.4, 1.6, 30], [22.6, -6.5, 44], [26.4, -1.0, 36], [16.0, 3.4, 22], [24.0, 3.0, 26]]) addRock(x, z, s, floor(x * 11 + z * 3 + 900), { warm: false, moss: 0.4 });
+  for (const [x, z, s] of [[12.2, -5.8, 40], [13.4, 1.6, 30], [22.6, -6.5, 44], [26.4, -1.0, 36], [16.0, 3.4, 22], [24.0, 3.0, 26], [11.4, -2.2, 28], [27.6, -3.8, 34], [14.6, -0.4, 16], [21.6, 1.4, 18]]) addRock(x, z, s, floor(x * 11 + z * 3 + 900), { warm: false, moss: 0.4 });
   const rockGroup = new THREE.Group();
   for (const r of rockList) {
     const g = diveGeo(`rock_${r.seed}_${r.size}_${r.warm ? 1 : 0}`, () => rockModel(r.seed, r.size, { warm: r.warm, moss: r.moss ?? 1 }));
@@ -468,10 +462,11 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
 
   // ---------------------------------------------------------------- the barge in the Deep Hole
   const bx = 19.4, bz = -3.0;
-  const bargeGeo = diveGeo(wreck === 'restored' ? 'barge_r' : 'barge_o', () => bargeModel(wreck === 'restored'), { scale: 0.1 });
+  const bargeGeo = diveGeo(wreck === 'restored' ? 'barge_r' : 'barge_o', () => bargeModel(wreck === 'restored'), { scale: 0.12 });
   const barge = new THREE.Mesh(bargeGeo, uwMat(bargeGeo, { emissive: wreck === 'restored' ? 0x221a08 : 0 }));
-  barge.position.set(bx, bedH(bx, bz) - 0.3, bz);
-  barge.rotation.set(0.05, -0.18, 0.32);
+  barge.position.set(bx, bedH(bx, bz) - 0.1, bz);
+  barge.rotation.set(0.04, -0.12, 0.22);
+  barge.userData.barge = true;
   root.add(barge);
   anchors.barge = { x: bx, y: bedH(bx, bz) + 1.4, z: bz + 1.2 };
   obstacles.push({ x: bx, z: bz, r: 3.4 });
@@ -480,13 +475,15 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
   const plants = new THREE.Group();
   const Kr = rnd(11);
   const kelp = [[], [], [], []];
-  const kelpAt = (x, z, k) => { kelp[k].push({ x, y: bedH(x, z) - 0.05, z, ry: Kr() < 0.5 ? 0 : PI, s: 0.85 + Kr() * 0.3 }); };
+  const KH = [92, 108, 80, 118];
+  const kelpAt = (x, z, k) => { const y = bedH(x, z) - 0.05; kelp[k].push({ x, y, z, ry: Kr() < 0.5 ? 0 : PI, s: Math.min(0.85 + Kr() * 0.3, (SURF - 0.25 - y) / (KH[k] * VS)) }); };
   // a kelp forest along the back ridge and two groves in the middle (the farm area stays open)
-  for (let i = 0; i < 46; i++) kelpAt(X0 + 1 + i * 1.3 + Kr() * 0.9, -6.4 - Kr() * 3.4, floor(Kr() * 4));
+  for (let i = 0; i < 74; i++) kelpAt(X0 + 1 + i * 0.82 + Kr() * 0.9, -5.6 - Kr() * 4.2, floor(Kr() * 4));
+  for (let i = 0; i < 16; i++) kelpAt(X0 + 2 + Kr() * (X1 - X0 - 4), -4.2 - Kr() * 1.2, floor(Kr() * 4));
   for (let i = 0; i < 9; i++) kelpAt(-20 + Kr() * 5, -2 + Kr() * 3.4, floor(Kr() * 4));
   for (let i = 0; i < 8; i++) kelpAt(10.5 + Kr() * 3, -1 + Kr() * 3, floor(Kr() * 4));
   for (let i = 0; i < 6; i++) kelpAt(-4.6 + Kr() * 3, -5.4 + Kr() * 0.8, floor(Kr() * 4));
-  const kh = [92, 108, 80, 118];
+  const kh = KH;
   for (let k = 0; k < 4; k++) {
     const g = diveGeo('kelp' + k, () => kelpModel(k + 1, kh[k], { yellow: k === 2 }), { sway: true });
     plants.add(inst(g, uwMat(g, { sway: 0.42 }), kelp[k]));
@@ -499,6 +496,7 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
     if (Kr() < 0.35 && x > FARM_AREA.x0 && x < FARM_AREA.x1 && z > FARM_AREA.z0 && z < FARM_AREA.z1) continue;
     grass[floor(Kr() * 3)].push({ x, y: bedH(x, z) - 0.03, z, ry: Kr() * PI * 2, s: 0.7 + Kr() * 0.6 });
   }
+  for (let i = 0; i < 70; i++) { const x = X0 + 2 + Kr() * (X1 - X0 - 4), z = 4 + Kr() * 7; if (x > DEEP_X + 1 && x < 27) continue; grass[floor(Kr() * 3)].push({ x, y: bedH(x, z) - 0.03, z, ry: Kr() * PI * 2, s: 0.5 + Kr() * 0.4 }); }
   for (let k = 0; k < 3; k++) {
     const g = diveGeo('grass' + k, () => grassModel(k + 4, 20 + k * 6), { sway: true });
     plants.add(inst(g, uwMat(g, { sway: 0.12 }), grass[k]));
@@ -511,7 +509,7 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
   const stems = [], pads = [[], []];
   const lilyX = [-23.5, -22, -19.8, -18.6, -9.6, -8.4, -7.6, 1.6, 2.6, 7.4, 8.2, 9.4, 28.2, 29.4];
   for (const x0 of lilyX) {
-    const x = x0 + Kr() * 0.6, z = -3.5 + Kr() * 4;
+    const x = x0 + Kr() * 0.6, z = -4.6 + Kr() * 3.4;
     const by = bedH(x, z);
     stems.push({ x, y: by, z, s: (SURF - by) / (110 * VS) });
     pads[Kr() < 0.3 ? 1 : 0].push({ x: x + 0.12, y: SURF + 0.03, z, ry: Kr() * 6, s: 0.9 + Kr() * 0.4 });
@@ -526,7 +524,7 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
 
   // ---------------------------------------------------------------- the dock pilings in the shallows (up through the surface)
   const dockX = -21.5;
-  for (const [x, z] of [[dockX - 1.4, -1.6], [dockX + 1.4, -1.6], [dockX - 1.4, 1.6], [dockX + 1.4, 1.6]]) {
+  for (const [x, z] of [[dockX - 1.4, -4.4], [dockX + 1.4, -4.4], [dockX - 1.4, -1.2], [dockX + 1.4, -1.2]]) {
     const by = bedH(x, z);
     const h = SURF - by + 0.7;
     const g = diveGeo('piling' + Math.round(h * 10), () => {
@@ -542,15 +540,6 @@ export function buildDiveScene({ wreck = 'old' } = {}) {
     });
     const m = new THREE.Mesh(g, uwMat(g));
     m.position.set(x, by, z);
-    root.add(m);
-  }
-  // the dock deck seen from below, lying on the surface band
-  {
-    const g = new THREE.BoxGeometry(4.2, 0.18, 4.6);
-    disposables.push(g);
-    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x2a2a20 }));
-    m.position.set(dockX, SURF + 0.14, 0);
-    disposables.push(m.material);
     root.add(m);
   }
   anchors.entry = { x: dockX + 0.8, y: SURF - 0.6, z: 0.4 };

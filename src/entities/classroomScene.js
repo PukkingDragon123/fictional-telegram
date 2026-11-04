@@ -338,6 +338,63 @@ function buildTeacherDesk(R, fx) {
   fx.bell = [bx, S + 3, bz];
 }
 
+// [v32 class] the science table in the front-left corner: the 3D demos (src/game/classroom/demos.js)
+// are set up on its top. Turned legs, an apron with a brass plaque, a lower shelf with a specimen
+// jar, a microscope and a stack of field guides.
+export const DEMO_TABLE = { x0: -86, x1: -56, z0: -45, z1: -24, top: 14 };
+function buildDemoTable(R, GL) {
+  const { x0, x1, z0, z1, top } = DEMO_TABLE;
+  const OAK = [0x9a6038, 0xa86a3e, 0x8e5832];
+  // top: planks along x, a lighter bevelled rim
+  for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+    const rim = x === x0 || x === x1 || z === z0 || z === z1;
+    const plank = Math.floor((z - z0) / 5);
+    let c = pick(OAK, hash2(plank, Math.floor(x / 9), 12));
+    if ((z - z0) % 5 === 0 && !rim) c = shade(c, 0.82);
+    if (hash3(x, z, 4, 4) < 0.05) c = shade(c, 0.9);
+    R.set(x, top, z, rim ? 0xb87a48 : c);
+    R.set(x, top - 1, z, rim ? 0x7a4626 : shade(c, 0.8));
+  }
+  // apron + plaque
+  for (let x = x0 + 1; x <= x1 - 1; x++) for (let y = top - 4; y <= top - 2; y++) { R.set(x, y, z1 - 1, y === top - 4 ? 0x6e4226 : 0x8a5430); R.set(x, y, z0 + 1, 0x7a4a2a); }
+  for (let z = z0 + 1; z <= z1 - 1; z++) for (let y = top - 4; y <= top - 2; y++) { R.set(x0 + 1, y, z, 0x7a4a2a); R.set(x1 - 1, y, z, 0x7a4a2a); }
+  const pmx = Math.round((x0 + x1) / 2);
+  R.box(pmx - 4, top - 4, z1, pmx + 4, top - 2, z1, (x, y) => (x === pmx - 4 || x === pmx + 4 || y === top - 4 ? GOLD_D : y === top - 2 ? GOLD_L : GOLD));
+  for (const dx of [-2, 0, 2]) R.set(pmx + dx, top - 3, z1, 0x7a5a20);
+  // turned legs: thick, with rings
+  for (const [lx, lz] of [[x0 + 1, z0 + 1], [x1 - 2, z0 + 1], [x0 + 1, z1 - 2], [x1 - 2, z1 - 2]]) {
+    for (let y = 0; y <= top - 2; y++) {
+      const ring = y === 2 || y === 9 || y === top - 5;
+      R.box(lx, y, lz, lx + 1, y, lz + 1, ring ? 0xb87a48 : y === 0 ? 0x4a2a14 : 0x7a4626);
+      if (ring) { R.set(lx - 1, y, lz, 0x9a6038); R.set(lx + 2, y, lz + 1, 0x9a6038); R.set(lx, y, lz + 2, 0x9a6038); R.set(lx + 1, y, lz - 1, 0x9a6038); }
+    }
+  }
+  // lower shelf
+  const sy = 3;
+  for (let x = x0 + 2; x <= x1 - 2; x++) for (let z = z0 + 2; z <= z1 - 2; z++) R.set(x, sy, z, (z - z0) % 4 === 0 ? 0x7a4626 : 0x8e5832);
+  // specimen jar: glass, yellowish liquid, a pale little fish inside, cork lid
+  const jx = x0 + 6, jz = z1 - 6;
+  for (let y = sy + 1; y <= sy + 7; y++) for (let x = jx - 2; x <= jx + 2; x++) for (let z = jz - 2; z <= jz + 2; z++) {
+    const edge = Math.abs(x - jx) === 2 || Math.abs(z - jz) === 2;
+    if (Math.abs(x - jx) === 2 && Math.abs(z - jz) === 2) continue;
+    if (edge) GL.set(x, y, z, 1);
+    else if (y <= sy + 5) R.set(x, y, z, (x === jx && y === sy + 3) || (x === jx + 1 && y === sy + 3) ? 0xd8c8a0 : y === sy + 5 ? 0xe8e0a0 : 0xd8d080);
+  }
+  R.box(jx - 1, sy + 8, jz - 1, jx + 1, sy + 8, jz + 1, 0xb8864e);
+  R.set(jx - 1, sy + 3, jz, 0xc0b090); R.set(jx + 2, sy + 4, jz + 2, 0xf4ecc8); // label
+  // microscope: black foot, brass tube
+  const mx = x1 - 8, mz = z1 - 6;
+  R.box(mx - 2, sy + 1, mz - 1, mx + 2, sy + 1, mz + 2, 0x2a2a30);
+  R.box(mx - 1, sy + 2, mz - 1, mx - 1, sy + 7, mz - 1, 0x34343c);
+  R.box(mx, sy + 4, mz, mx + 1, sy + 4, mz + 1, 0x2a2a30); // stage
+  for (let k = 0; k < 6; k++) R.set(mx + (k > 3 ? 1 : 0), sy + 5 + k, mz, k === 5 ? GOLD_L : GOLD);
+  R.set(mx + 1, sy + 10, mz, 0x2a2a30);
+  // field guides
+  R.box(pmx - 3, sy + 1, z0 + 3, pmx + 4, sy + 2, z0 + 8, 0x3a6a8a); R.box(pmx - 3, sy + 1, z0 + 8, pmx + 4, sy + 2, z0 + 8, PAPER);
+  R.box(pmx - 2, sy + 3, z0 + 3, pmx + 3, sy + 4, z0 + 7, 0x5aaa4a); R.box(pmx - 2, sy + 3, z0 + 7, pmx + 3, sy + 4, z0 + 7, PAPER);
+  R.box(pmx - 2, sy + 5, z0 + 4, pmx + 2, sy + 5, z0 + 7, 0xd84a3a);
+}
+
 // student desk: wooden top, metal frame, book shelf, a pencil
 function buildStudentDesk(R, cx, cz, seed) {
   const x0 = cx - 9, x1 = cx + 8, z0 = cz - 6, z1 = cz + 5, top = 9;
@@ -663,9 +720,10 @@ export function buildClassroom(opts = {}) {
     R.set(78, 34, ZB + 2, 0xf8f6f0);
     for (let y = 22; y <= 34; y++) { R.set(86, y, ZB + 1, Math.floor(y / 2) % 2 ? 0x3a7ad8 : 0xf2c230); R.set(87, y, ZB + 1, Math.floor(y / 2) % 2 ? 0x2a6ac8 : 0xe0b020); }
   }
-  // trash can with crumpled paper
-  R.cylinder(-74, 0, ZB + 14, 2.6, 7, (x, y) => (y === 6 ? 0x8a8a90 : y % 3 === 0 ? 0x6a6a72 : 0x7a7a82));
-  for (const [x, y, z] of [[-74, 7, ZB + 14], [-75, 7, ZB + 13], [-73, 8, ZB + 14], [-70, 0, ZB + 17]]) R.set(x, y, z, 0xf4f0e6);
+  // trash can with crumpled paper (between the bookshelf and the teacher's platform)
+  R.cylinder(-50, 0, ZB + 4, 2.6, 7, (x, y) => (y === 6 ? 0x8a8a90 : y % 3 === 0 ? 0x6a6a72 : 0x7a7a82));
+  for (const [x, y, z] of [[-50, 7, ZB + 4], [-51, 7, ZB + 3], [-49, 8, ZB + 4], [-46, 0, ZB + 8]]) R.set(x, y, z, 0xf4f0e6);
+  buildDemoTable(R, GL); // [v32 class]
   // clock on the wall (face is a canvas; hands animate)
   const CLK = { x: 30, y: 49 };
   for (let a = 0; a < 48; a++) { const t = (a / 48) * Math.PI * 2; R.set(CLK.x + Math.round(Math.cos(t) * 4.4), CLK.y + Math.round(Math.sin(t) * 4.4), ZB, 0x3a2418); }
@@ -1063,6 +1121,12 @@ export function buildClassroom(opts = {}) {
     frontZ: W(fx.frontZ ?? ZF),
     deskTop: new THREE.Vector3(W((TDESK.x0 + TDESK.x1) / 2), W(TDESK.top + 1), W((TDESK.z0 + TDESK.z1) / 2)),
     students: STUDENTS.map((s) => new THREE.Vector3(W(s.desk[0]), W(11) + 0.3, W(s.desk[1]))),
+    // [v32 class] the science table: the 3D demos stand on its top (y = table top)
+    demo: new THREE.Vector3(W((DEMO_TABLE.x0 + DEMO_TABLE.x1 + 1) / 2), W(DEMO_TABLE.top + 1), W((DEMO_TABLE.z0 + DEMO_TABLE.z1 + 1) / 2)),
+    demoSize: { w: W(DEMO_TABLE.x1 - DEMO_TABLE.x0 + 1), d: W(DEMO_TABLE.z1 - DEMO_TABLE.z0 + 1) },
+    demoSpot: { position: new THREE.Vector3(W(DEMO_TABLE.x1) + 0.36, 0, W(DEMO_TABLE.z0) + 0.22), rotationY: -1.15 }, // behind the table's right end, presenting
+    // [v32 class] Pip's desk top: where the test paper is handed out
+    paperDesk: new THREE.Vector3(W(STUDENTS[1].desk[0]), W(11), W(STUDENTS[1].desk[1])),
   };
 
   // ---- state + animation

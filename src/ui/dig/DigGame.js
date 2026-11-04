@@ -20,7 +20,7 @@ const TX = 8, TY = 8, TW = 120, TH = 78; // the tray inside the crate
 const CS = 3, CW = TW / CS, CH = TH / CS; // dirt cells
 const HP = { soil: 1.0, sand: 0.7, clay: 1.5, rock: 9 };
 const MAT = {
-  soil: [[96, 70, 46], [82, 58, 38], [112, 84, 56]],
+  soil: [[96, 70, 46], [86, 62, 40], [106, 78, 52]],
   sand: [[206, 170, 112], [184, 148, 94], [226, 194, 136]],
   clay: [[150, 104, 78], [128, 86, 62], [170, 124, 94]],
   rock: [[128, 124, 132], [104, 100, 110], [156, 152, 158]],
@@ -125,7 +125,7 @@ class DigGame {
       this.ptr.y = ((e.clientY - r.top) / r.height) * AH;
       this.ptr.inside = this.ptr.x >= 0 && this.ptr.y >= 0 && this.ptr.x < AW && this.ptr.y < AH;
     };
-    this.cv.addEventListener('pointerdown', (e) => { e.preventDefault(); this.cv.setPointerCapture?.(e.pointerId); P(e); this.ptr.down = true; this.ptr.moved = 0; this.press(); });
+    this.cv.addEventListener('pointerdown', (e) => { e.preventDefault(); try { this.cv.setPointerCapture?.(e.pointerId); } catch { /* synthetic pointer */ } P(e); this.ptr.down = true; this.ptr.moved = 0; this.press(); });
     this.cv.addEventListener('pointermove', (e) => { const ox = this.ptr.x, oy = this.ptr.y; P(e); this.ptr.moved += Math.hypot(this.ptr.x - ox, this.ptr.y - oy); });
     this.cv.addEventListener('pointerup', () => { this.ptr.down = false; if (this.tool === 'lamp') this.lampOn = false; });
     this.cv.addEventListener('pointerleave', () => { this.ptr.inside = false; });
@@ -183,7 +183,8 @@ class DigGame {
       const L = [];
       const rocky = vn2(cx * 0.3 + 40, cy * 0.3, sd + 7) > 0.6;
       for (let k = 0; k < depth; k++) {
-        let m = k === depth - 1 ? 'soil' : (k + Math.floor(n * 3)) % 2 ? 'sand' : 'clay';
+        const topM = vn2(cx * 0.16 + 9, cy * 0.16, sd + 21);
+        let m = k === depth - 1 ? (topM > 0.66 ? 'sand' : topM < 0.24 ? 'clay' : 'soil') : (k + Math.floor(n * 3)) % 2 ? 'sand' : 'clay';
         if (rocky && k > 0 && k < depth - 1) m = 'rock';
         L.push(m);
       }
@@ -303,9 +304,12 @@ class DigGame {
     // the condition meter: four little bones, one cracks per crack
     const c = this.bonesCv.getContext('2d');
     c.clearRect(0, 0, 44, 9);
-    const bone = ['.##.....##.', '####...####', '.#########.', '####...####', '.##.....##.'];
+    const bone = ['.#.......#.', '###.....###', '.#########.', '###.....###', '.#.......#.'];
     for (let k = 0; k < 4; k++) {
       const broken = k < this.cracks;
+      bone.forEach((row, y) => [...row].forEach((ch, x) => {
+        if (ch === '#') for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const r2 = bone[y + dy], ch2 = r2 ? r2[x + dx] : '.'; if (ch2 !== '#') { c.fillStyle = '#2a1e14'; c.fillRect(k * 11 + x + dx, y + dy + 2, 1, 1); } }
+      }));
       bone.forEach((row, y) => [...row].forEach((ch, x) => {
         if (ch !== '#') return;
         const split = broken && (x === 5 || (x === 6 && y % 2));
@@ -398,9 +402,11 @@ class DigGame {
         } else {
           const m = L[n - 1];
           const h = hsh(x, y, sd + n * 17);
-          c = (MAT[m] || MAT.soil)[h < 0.14 ? 1 : h > 0.88 ? 2 : 0].slice();
+          const tex = vn2(x * 0.45, y * 0.45, sd + n * 5);
+          c = (MAT[m] || MAT.soil)[tex < 0.32 ? 1 : tex > 0.7 ? 2 : 0].slice();
           if (m === 'rock' && ((x + y * 2) % 7 === 0 || hsh(x >> 1, y >> 1, sd + 5) < 0.08)) c = [88, 84, 94];
-          if (m === 'soil' && hsh(x, y, sd + 9) < 0.03) c = [170, 160, 140]; // a pebble
+          if (hsh(x >> 1, y >> 1, sd + 9) < 0.035) c = !(x & 1) && !(y & 1) ? [168, 158, 140] : [118, 108, 96]; // a 2x2 pebble, lit top-left
+          if (m === 'soil' && n >= 4 && hsh(x, y >> 1, sd + 13) < 0.05) c = [92, 120, 58]; // roots and moss on the top layer
           const depthK = 0.72 + n * 0.08;
           c = c.map((v) => v * depthK);
           // brushed-at cells look scuffed
@@ -501,6 +507,11 @@ class DigGame {
       <div class="dg-rstamp" style="--sc:${C.color}">${esc(C.stamp)}</div>
       <div class="dg-rline">Still crusted in rock. Take it to Snapp's lab bench to clean and identify it.</div>
       <button class="dg-rok">Into the bag <kbd>Space</kbd></button>`;
+    // keep the card clear of the find: the opposite corner of the tray
+    const cx = this.fx + this.fp.w / 2, cy = this.fy + this.fp.h / 2;
+    card.style.left = cx < AW / 2 ? 'auto' : '4%'; card.style.right = cx < AW / 2 ? '4%' : 'auto';
+    card.style.top = cy < AH / 2 ? 'auto' : '9%'; card.style.bottom = cy < AH / 2 ? '9%' : 'auto';
+    card.style.transform = 'none';
     this.el.querySelector('.dg-stage').appendChild(card);
     const go = () => this.close({ find: this.F.id, cracks: this.cracks, cond: Math.min(3, this.cracks) });
     card.querySelector('.dg-rok').addEventListener('click', (e) => { e.stopPropagation(); go(); });

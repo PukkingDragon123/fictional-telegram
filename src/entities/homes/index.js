@@ -12,10 +12,12 @@ import { buildChip } from './chip.js';
 import { buildPip } from './pip.js';
 import { buildFlint } from './flint.js'; // [F&S mining]
 import { buildLongneck } from './longneck.js'; // [v26 turtle]
+import { buildSnappLab } from '../digLab.js'; // [v32 dig]
 
 export const HOME_BUILDERS = {
   hoot: buildHoot, shellby: buildShellby, dale: buildDale, granny: buildGranny, rocco: buildRocco,
   otis: buildOtis, clover: buildClover, hazel: buildHazel, chip: buildChip, pip: buildPip,
   flint: buildFlint, // [F&S mining]
   longneck: buildLongneck, // [v26 turtle] the grotto behind the falls
+  snapp: buildSnappLab, // [v32 dig] Prof. Snapp's lab hut at Bonebed Bluff
 };

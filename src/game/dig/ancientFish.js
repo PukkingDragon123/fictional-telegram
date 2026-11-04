@@ -61,8 +61,8 @@ const SHAPE = {
     d.top = prof(d.top, (s, t) => t * (1 + 0.24 * smooth(0.08, 0.3, s) * (1 - smooth(0.36, 0.7, s))));
     const j = jawT(d), sn = 0.03;
     d.fangs = [
-      { pts: [[sn + 0.015, j + 0.01], [sn + 0.055, j + 0.008], [sn + 0.045, j - 0.06], [sn + 0.032, j - 0.125], [sn + 0.018, j - 0.122], [sn + 0.028, j - 0.06]], mat: 'teeth' },
-      { pts: [[sn + 0.07, j + 0.004], [sn + 0.1, j + 0.002], [sn + 0.09, j - 0.05], [sn + 0.078, j - 0.095], [sn + 0.066, j - 0.093], [sn + 0.074, j - 0.05]], mat: 'teeth' },
+      { pts: [[sn + 0.012, j + 0.012], [sn + 0.06, j + 0.01], [sn + 0.05, j - 0.07], [sn + 0.036, j - 0.16], [sn + 0.02, j - 0.156], [sn + 0.028, j - 0.07]], mat: 'teeth' },
+      { pts: [[sn + 0.075, j + 0.006], [sn + 0.11, j + 0.004], [sn + 0.1, j - 0.06], [sn + 0.086, j - 0.12], [sn + 0.072, j - 0.118], [sn + 0.08, j - 0.06]], mat: 'teeth' },
     ];
     for (const f of d.dorsal || []) if (!f.flat) { f.h = f.h.map(([a, h]) => [a, h * 1.35]); f.rays = Math.max(f.rays || 0, 4); }
     d.tail = { ...(d.tail || {}), type: 'deep', spread: (d.tail?.spread || 0.12) * 1.18, rays: 4 };
@@ -81,8 +81,8 @@ const SHAPE = {
     d.bot = prof(d.bot, (s, t) => t * (1 + 0.2 * (1 - smooth(0.06, 0.3, s))));
     const j = jawT(d);
     d.fangs = [
-      { pts: [[0.004, j + 0.012], [0.08, j + 0.006], [0.07, j - 0.022], [0.035, j - 0.05], [0.012, j - 0.03]], mat: 'scute' }, // the upper shear
-      { pts: [[0.09, j + 0.004], [0.13, j], [0.115, j - 0.03], [0.096, j - 0.038]], mat: 'scute' },
+      { pts: [[0.0, j + 0.014], [0.09, j + 0.008], [0.08, j - 0.03], [0.04, j - 0.07], [0.008, j - 0.045]], mat: 'teeth' }, // the upper shear: a bony blade
+      { pts: [[0.1, j + 0.006], [0.14, j + 0.002], [0.125, j - 0.04], [0.104, j - 0.05]], mat: 'teeth' },
     ];
     d.scutes = { s0: 0.3, s1: 0.68, step: 0.055, w: 0.024, h: 0.02 };
     d.pats = (d.pats || []).filter((p) => p.op !== 'spots');
@@ -135,7 +135,7 @@ const SHAPE = {
   },
   // spiny shark: a tall spine leading every fin, a bony helmet, a ridge of thorns
   thorn(d) {
-    for (const f of d.dorsal || []) { f.h = f.h.map(([a, h], i) => [a, h * (i === 0 ? 1.9 : 1.25)]); f.spines = Math.max(f.spines || 0, 4); f.dip = 0.55; f.lead = 'p6'; f.leadW = 0.12; }
+    for (const f of d.dorsal || []) { if (f.flat) continue; f.h = f.h.map(([a, h], i) => [a, h * (i <= 1 ? 2.3 : 1.4)]); f.spines = Math.max(f.spines || 0, 4); f.dip = 0.6; f.lead = 'p6'; f.leadW = 0.14; }
     for (const f of d.ventral || []) { f.h = f.h.map(([a, h], i) => [a, h * (i === 0 ? 1.5 : 1.1)]); f.lead = 'p6'; f.leadW = 0.15; }
     d.scutes = { s0: 0.22, s1: 0.7, step: 0.045, w: 0.02, h: 0.024 };
     const j = jawT(d);
@@ -165,7 +165,7 @@ export function ancientDef(def) {
 // Sockeye and a Sabre-tooth Coho are cousins, not clones
 const PALS = {
   sabre: { back: '#5a1018', side: '#a8202a', belly: '#d8c8b8', head: '#2a3426', fin: '#4a1418', fin2: '#5a2a24', finx: '#e8c8a8', p1: '#12080a', p4: '#f0b8a8', scute: '#f2ead2', teeth: '#fff8e8', iris: '#ffc030', mouth: '#2a0c10' },
-  armour: { back: '#2a3038', side: '#4a5260', belly: '#c8c4b4', head: '#6a5a3a', fin: '#3a4048', fin2: '#3a4048', finx: '#9aa2ac', p1: '#20262e', p2: '#3a2a14', scute: '#b89a5a', teeth: '#e8dcb8', iris: '#ff6a2a', mouth: '#1a1418' },
+  armour: { back: '#2a3038', side: '#4a5260', belly: '#c8c4b4', head: '#6a5a3a', fin: '#3a4048', fin2: '#3a4048', finx: '#9aa2ac', p1: '#20262e', p2: '#3a2a14', scute: '#d0aa5a', teeth: '#f4ead0', iris: '#ff6a2a', mouth: '#1a1418' },
   fossil: { back: '#4a4c50', side: '#6a6a66', belly: '#a8a498', head: '#8a8678', fin: '#5a5a58', fin2: '#5a5a58', finx: '#e8dcc0', p1: '#3a3c40', p3: '#c8bea4', p6: '#f2e6c8', scute: '#e8dcc0', iris: '#e8e0c8', pupil: '#2a2420', mouth: '#2a2826' },
   lobe: { back: '#1a2e5a', side: '#2a4a86', belly: '#6a86b8', head: '#1e3464', fin: '#2a4a86', fin2: '#2a4a86', finx: '#8ab0e8', p1: '#14244a', p6: '#f4f8ff', scute: '#c8d8f0', iris: '#a8ff7a', mouth: '#0e1a34' },
   thorn: { back: '#5a3a1a', side: '#a8622a', belly: '#e8d0a0', head: '#7a5a3a', fin: '#8a4a22', fin2: '#8a4a22', finx: '#f0dcb0', p2: '#3a2010', p6: '#fff4dc', scute: '#e8d8b0', teeth: '#fff8e8', iris: '#ffe04a', mouth: '#2a1408' },

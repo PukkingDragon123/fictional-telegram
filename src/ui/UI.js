@@ -283,7 +283,10 @@ export class UI {
           babble: (voice, text, o) => {
             // [v32] a dialogue line (it waits for a tap or asks something) is spoken out loud; chatter babbles
             if (o && (o.wait || o.choices)) { const s = speakLine(text, { who: VOICE_WHO[voice] || 'npc', mood: o.mood }); if (s > 0) return s; }
-            return game.audio.babble?.(voice === 'moose' || voice === 'beaver' ? 'cub' : voice === 'deer' ? 'fox' : voice, text, { volume: 0.3 }) || 0;
+            // the babble synth knows fox, bear, cub and ceo: the Dig & Dive cast borrow one at their own pitch
+            const BB = { moose: ['bear', 0.9], beaver: ['cub', 0.9], deer: ['fox', 1], otter: ['cub', 0.86], duck: ['fox', 1.25], turtle: ['bear', 0.72] };
+            const [bv, bp] = BB[voice] || [voice, 1];
+            return game.audio.babble?.(bv, text, { volume: 0.3, pitch: bp }) || 0;
           },
         });
       } catch (e) { console.warn('Bubbles failed', e); }

@@ -1,9 +1,13 @@
-// The short tutorial's three day-1 classes (merged into Classroom.js LESSONS by the Tutorial):
-//   pondlife  - feed, who can breed, hatching
-//   builder   - beavers build (and want food as pay), harvesting, clearing land
-//   customers - bigger/rarer fish pay more, empty pond = rampage, rating = more bears
-// [v26 class2] Each class is ~1 minute: 2-3 rules, each one a pop quiz the player answers on the
-// chalkboard (src/game/lessons/quiz.js). Same step format as Classroom.js LESSONS.
+// The tour's three day-1 classes (merged into Classroom.js LESSONS):
+//   pondlife  - fish eat and get hungry (cold-blooded), breathe with gills, float with a swim bladder;
+//               spawning, incubation and temperature, fry with yolk sacs; the game's feed / breed / hatch rules
+//   builder   - beavers are ecosystem engineers (a dam turns a stream into a wetland), what beavers eat,
+//               photosynthesis; the game's beaver crews, Snack Bar pay, ripe harvests, clearing land
+//   customers - bears are omnivores and fatten up for winter, hungry animals get aggressive, supply and
+//               demand (rarer fish pay more); the game's 5 PM rush, bills, rampages and reviews
+// [v32 class] No pop quizzes: each class teaches in a few punchy chalk + 3D steps (`show3d`, see
+// src/game/classroom/demos.js) and ends with a TEST PAPER (`test`, src/ui/testpaper/TestPaper.js).
+// Same step format as Classroom.js LESSONS. Real facts are kept short, accurate and kid-friendly.
 import { measureText } from '../ui/Chalkboard.js';
 import { priceOf, plain } from './lessons/econ.js'; // [v26 tutorial]
 
@@ -13,72 +17,111 @@ const S = (t, x, y, color = 'white', o = {}) => ({ text: t, x, y, font: 'small',
 const TITLE = (text, color = 'yellow', o = {}) => ({ text, x: 96, y: 9, scale: measureText(text, 2).w <= 184 ? 2 : 1, color, id: 'title', ...o });
 
 export const COMBINED_LESSONS = {
+  // ------------------------------------------------------------------ 1. POND LIFE
   pondlife: {
-    title: 'Pond Life 101', number: 1, doodle: 'fish', color: 'yellow',
+    title: 'Pond Life 101', number: 1, doodle: 'fish', color: 'yellow', testTitle: 'Pond Life',
     steps: [
-      { cam: 'board', say: 'Feeding. Pick the **Food tool**, tap the water, the pellets sink, the fish eat.', expr: 'teacher', react: 'bang', tap: 'full',
-        draw: [TITLE('POND LIFE 101'), D('bag', 30, 50, { scale: 2 }), D('pellet', 58, 42), { arrow: [66, 50, 90, 50] }, D('fish_full', 120, 50, { scale: 2, id: 'full' }), S('FOOD TOOL, TAP THE WATER', 96, 78, 'orange')] },
-      { erase: true, say: 'Babies need two **grown-ups**, a boy and a girl, and both **well fed**. A hungry fish won\'t date. A fry is too young.',
-        draw: [TITLE('LOVE RULES', 'pink'), D('fish_m', 50, 50, { scale: 2 }), T('+', 96, 50, { scale: 2 }), D('fish_f', 142, 50, { scale: 2 }), S('ADULT + WELL FED', 96, 78, 'yellow')] },
-      { erase: true, say: 'So. Which of these can breed right now?',
-        draw: [TITLE('WHO CAN BREED?', 'pink'), D('fish_hungry', 34, 52, { scale: 2, id: 'hungry' }), D('minifish', 96, 54, { scale: 2, id: 'fry' }), D('fish_heart', 158, 50, { scale: 2, id: 'ready' })],
-        quiz: { id: 'breed', opts: ['hungry', 'fry', 'ready'], ok: 'ready',
-          no: { hungry: 'That one\'s hungry. Feed it first, then we talk romance.', fry: 'That\'s a fry. It has to grow up first.' },
-          yes: 'The grown-up with the full belly. Feed a pair until they\'re well fed and they find each other.',
-          show: [S('HUNGRY', 34, 78, 'blue'), S('TOO YOUNG', 96, 78, 'orange'), S('READY', 158, 78, 'pink')] } },
-      { erase: true, say: 'Eggs take time. When they **glow**, they\'re ready, and you tap them to hatch. Tap all the ready ones.',
-        draw: [TITLE('HATCH TIME', 'green'), D('egg_glow', 28, 52, { scale: 2, id: 'e1' }), D('egg', 74, 52, { scale: 2, id: 'e0' }), D('egg_glow', 120, 52, { scale: 2, id: 'e2' }), D('egg_glow', 166, 52, { scale: 2, id: 'e3' })],
-        quiz: { id: 'hatch', opts: ['e1', 'e0', 'e2', 'e3'], ok: ['e1', 'e2', 'e3'], all: true,
-          no: 'Not glowing, not ready. Leave it.',
-          yes: 'Three fry. Each one gets about the **average size** of its parents. Bigger fish, bigger bills.' } },
+      { cam: 'board', say: 'Class! Today: what a fish **eats**, how it **breathes**, and where **babies** come from.', expr: 'teacher', react: 'bang',
+        draw: [TITLE('POND LIFE 101'), D('bag', 40, 50, { scale: 2 }), S('EAT', 40, 72, 'orange'), D('gills', 96, 50, { scale: 2, id: 'gills' }), S('BREATHE', 96, 72, 'blue'), D('egg_eye', 154, 50, { scale: 2 }), S('BABIES', 154, 72, 'pink')] },
+      { show3d: 'fishParts', cam: 'orbit', labels: ['mouth', 'eye', 'fins', 'tail'], hold: 2.5, expr: 'excited',
+        say: 'Meet a real **bluegill**. A **mouth**, big **eyes**, **fins** to steer and brake, and a **tail** that pushes it along.' },
+      { show3d: 'gills', cam: 'demoClose', labels: ['gills'], hold: 2.5, expr: 'teacher',
+        say: 'Fish need **oxygen** too, but they take it from the **water**. In through the mouth, over the red **gills**, out under the gill cover.' },
+      { show3d: 'bladder', cam: 'demo', labels: ['bladder'], hold: 3, expr: 'excited', react: 'wow',
+        say: 'X-ray! Inside is a **swim bladder**, a little bag of gas. More gas: the fish rises. Less gas: it sinks. Floating for free!' },
+      { erase: true, say: 'Fish need **food** to live and grow, and they get **hungry** again and again. In our pond: pick the **Food tool** and tap the water.', expr: 'teacher', tap: 'full',
+        draw: [TITLE('FOOD!', 'orange'), D('fish_hungry', 30, 48, { scale: 2 }), S('HUNGRY', 30, 68, 'blue'), D('bag', 80, 48, { scale: 2 }), D('pellet', 98, 40), { arrow: [104, 48, 122, 48] }, D('fish_full', 150, 48, { scale: 2, id: 'full' }), S('WELL FED', 150, 68, 'orange')] },
+      { say: 'Fish are **cold-blooded**: as warm as the water around them. Warm water, they burn food faster and get hungry **sooner**.', expr: 'focused',
+        draw: [D('thermo', 22, 92, { scale: 1 }), S('WARM WATER', 62, 92, 'orange'), { arrow: [92, 92, 108, 92] }, S('HUNGRY SOONER', 148, 92, 'red')] },
+      { erase: true, say: 'Babies need two **grown-ups**, a boy and a girl, both **well fed**. A hungry fish won\'t date, and a fry is too young.', expr: 'love',
+        draw: [TITLE('LOVE RULES', 'pink'), D('fish_m', 50, 48, { scale: 2 }), T('+', 96, 48, { scale: 2 }), D('fish_f', 142, 48, { scale: 2 }), S('ADULT + WELL FED', 96, 74, 'yellow'), { check: [96, 88, 4] }] },
+      { show3d: 'courtship', cam: 'demo', labels: ['nest', 'dad'], hold: 2.5, expr: 'love', react: 'heart',
+        say: 'Real bluegill dads sweep a round **nest** in the gravel with their tails. Then the date: lots of romantic circling.' },
+      { show3d: 'spawn', cam: 'demoClose', labels: ['egg'], hold: 3, expr: 'teacher',
+        say: 'Mum lays her **eggs** in the nest, and dad fertilizes them right there in the water. That\'s called **spawning**.' },
+      { show3d: 'develop', cam: 'demoClose', labels: ['thermo', 'dad'], hold: 2.5, expr: 'focused',
+        say: 'Now the eggs **incubate** while dad fans them fresh water. Warm water: they hatch in a few **days**. Cold water: it can take **weeks**.' },
+      { show3d: 'hatch', cam: 'demoClose', labels: ['yolk'], hold: 3, expr: 'excited', react: 'cheer',
+        say: 'Pop! Baby fish, called **fry**. Each one carries a **yolk sac**: a packed lunch for its first few days.' },
+      { erase: true, say: 'In our pond, ready eggs **glow**. **Tap** them to hatch, then feed the fry until they grow up.', expr: 'teacher', tap: 'egg', highlight: 'circle',
+        draw: [TITLE('HATCH TIME', 'green'), D('egg_glow', 34, 50, { scale: 2, id: 'egg' }), { arrow: [56, 50, 74, 50] }, D('fry_yolk', 98, 50, { scale: 2 }), { arrow: [122, 50, 140, 50] }, D('fish', 164, 50, { scale: 2 }),
+          S('TAP', 34, 72, 'yellow'), S('FEED', 98, 72, 'orange'), S('GROWN UP', 164, 72, 'green')] },
+    ],
+    test: [
+      { type: 'choice', q: 'Fish get their oxygen from...', opts: ['the air', 'the water', 'their food'], a: 1, why: 'The water, via the gills!' },
+      { type: 'label', q: 'Label the fish.', art: 'fish', slots: ['gills', 'fin', 'tail'] },
+      { type: 'tf', q: 'True or false?', items: [['A swim bladder helps a fish float.', true], ['Eggs hatch faster in cold water.', false], ['A hungry fish is ready to breed.', false]],
+        why: [null, 'Warm = faster!', 'Feed it first!'] },
+      { type: 'order', q: 'Number the steps in order.', steps: ['Feed', 'Date', 'Lay eggs', 'Hatch'], why: 'Feed, date, eggs, hatch!' },
     ],
   },
+
+  // ------------------------------------------------------------------ 2. BUILDER BEAVERS
   builder: {
-    title: 'Builder Beavers', number: 2, doodle: 'hammer', color: 'blue',
+    title: 'Builder Beavers', number: 2, doodle: 'beaver', color: 'blue', testTitle: 'Builder Beavers',
     steps: [
-      { cam: 'board', say: 'Small things like flowers appear the moment you place them. Big buildings, the **beavers** build.', expr: 'determined', sfx: 'class_bell', react: 'bang', tap: 'lodge',
+      { cam: 'board', say: 'Hard hats on! Small things like flowers **pop** in the moment you place them. The big builds? **Beavers.**', expr: 'determined', sfx: 'class_bell', react: 'bang', tap: 'lodge',
         draw: [TITLE('BUILDER BEAVERS', 'blue'), D('flower', 26, 50, { scale: 2 }), T('POP!', 56, 48, { color: 'yellow' }), D('lodge', 116, 48, { scale: 2, id: 'lodge' }), D('beaver', 160, 54), D('hammer', 180, 46)] },
-      { erase: true, say: 'Beavers don\'t take coins. They take **food**, served at their **Snack Bar**. No food, no work. What do you pay them with?', expr: 'smug',
-        draw: [TITLE('BEAVER PAY', 'orange'), D('beaver', 30, 54, { scale: 2 }), D('coin', 82, 54, { scale: 2, id: 'coin' }), D('bowl', 128, 58, { scale: 2, id: 'food' }), D('carrot', 128, 40, { id: 'food_l' }), D('gnome', 170, 54, { scale: 2, id: 'gnome' })],
-        quiz: { id: 'pay', opts: ['coin', 'food', 'gnome'], ok: 'food',
-          no: { coin: 'Coins mean nothing to a beaver. Food.', gnome: 'Decor makes bears happy. Beavers want dinner.' },
-          yes: 'Food. Keep the Snack Bar stocked or the hammers stop.' } },
-      { erase: true, say: 'That food comes from the garden. Seed, sprout, growing, and then **ripe**: only ripe plants can be harvested. Which one?',
-        draw: [TITLE('GREEN THUMB', 'green'), D('sprout', 30, 54, { scale: 2, id: 'p1' }), D('ready', 76, 52, { scale: 2, id: 'p2' }), D('growing', 122, 52, { scale: 2, id: 'p3' }), D('seed', 166, 56, { scale: 2, id: 'p4' })],
-        quiz: { id: 'ripe', opts: ['p1', 'p2', 'p3', 'p4'], ok: 'p2',
-          no: 'Not ripe yet. Tapping it now gets you nothing.',
-          yes: 'The ripe one. Tap it in the garden and the harvest goes to the fish, the bears and the beavers.' } },
-      { erase: true, say: 'Out of room? The **Destroy** tool. Drag a box over trees, pay the crew, they chop. You get the land and the wood. Mark the trees.', expr: 'excited',
-        draw: [TITLE('CLEAR THE LAND', 'yellow'), D('tree', 28, 52, { scale: 2, id: 't1' }), D('tree', 70, 50, { scale: 2, id: 't2' }), D('lodge', 116, 54, { scale: 2, id: 'home' }), D('tree', 162, 52, { scale: 2, id: 't3' })],
-        quiz: { id: 'clear', opts: ['t1', 't2', 'home', 't3'], ok: ['t1', 't2', 't3'], all: true,
-          no: 'That\'s the lodge. The beavers sleep there.',
-          yes: 'Trees go, logs come. Logs are wood, and wood is money.' } },
+      { show3d: 'stream', cam: 'demoTop', labels: ['stream'], hold: 1.5, expr: 'teacher',
+        say: 'Real beavers are master builders. Here is a plain little **stream** in a meadow. Watch what ONE beaver does to it.' },
+      { show3d: 'dam', cam: 'demo', labels: ['dam'], hold: 6, expr: 'excited',
+        say: 'Logs, sticks and mud: a **dam**! The water backs up behind it, and the stream starts turning into a **pond**.' },
+      { show3d: 'wetland', cam: 'orbit', orbit: [0.85, 0.05, 1.85, 0.95], labels: ['pond', 'wetland'], hold: 3, expr: 'magnifique', react: 'wow',
+        say: 'A whole new **wetland**: cattails, lilies, frogs, ducks, fish. Scientists call beavers **ecosystem engineers**: they build homes for everyone.' },
+      { erase: true, say: 'Beavers eat **bark**, leaves and water plants. Their front teeth **never stop growing**, so they chew all day. Iron makes them orange and tough!', expr: 'happy',
+        draw: [TITLE('BEAVER FACTS', 'orange'), D('beaver', 40, 50, { scale: 2 }), { arrow: [64, 50, 84, 50] }, D('tree', 108, 46, { scale: 2 }), D('logs', 160, 54, { scale: 2 }), S('BARK + LEAVES', 108, 74, 'green'), S('TEETH KEEP GROWING', 96, 90, 'orange')] },
+      { erase: true, say: 'Our beavers don\'t take coins. They work for **food**, served at their **Snack Bar**. No food, no work!', expr: 'smug', react: 'laugh', tap: 'bowl',
+        draw: [TITLE('BEAVER PAY', 'orange'), D('beaver', 36, 50, { scale: 2 }), T('+', 70, 50, { scale: 2 }), D('bowl', 104, 52, { scale: 2, id: 'bowl' }), D('carrot', 136, 46), D('honey', 160, 48), { cross: [168, 26, 5] }, D('coin', 152, 26),
+          T('NO FOOD, NO WORK!', 96, 80, { color: 'orange', id: 'nopay' }), { underline: 'nopay', color: 'red', wavy: true }] },
+      { erase: true, say: 'That food grows in the garden. Plants make their own food from **sunlight**, water and air: **photosynthesis**. Only **ripe** plants can be harvested.', expr: 'teacher', tap: 'ripe', highlight: 'circle',
+        draw: [TITLE('GREEN THUMB', 'green'), D('sun', 18, 34), { arrow: [26, 40, 34, 48] }, D('seed', 46, 56, { scale: 2 }), { arrow: [58, 56, 68, 56] }, D('sprout', 82, 54, { scale: 2 }), { arrow: [96, 56, 106, 56] },
+          D('growing', 120, 54, { scale: 2 }), { arrow: [134, 56, 144, 56] }, D('ready', 162, 52, { scale: 2, id: 'ripe' }), S('SEED', 46, 76), S('SPROUT', 82, 76), S('GROWING', 120, 76), S('RIPE!', 162, 76, 'yellow')] },
+      { erase: true, say: 'Out of room? The **Destroy** tool: drag a box over trees, pay the crew, they chop. You get the **land** and the **wood**.', expr: 'excited', camAfter: 'teacher',
+        draw: [TITLE('CLEAR THE LAND', 'yellow'), D('tree', 26, 50, { scale: 2 }), D('tree', 58, 48, { scale: 2 }), D('rock', 86, 58), { box: [8, 26, 92, 44], color: 'yellow' }, { arrow: [108, 50, 128, 50] }, D('logs', 156, 50, { scale: 2 }), S('+LAND  +WOOD', 150, 72, 'green')] },
+    ],
+    test: [
+      { type: 'label', q: 'Label the beaver\'s work.', art: 'dam', slots: ['pond', 'dam', 'stream'] },
+      { type: 'choice', q: 'Beavers are "ecosystem engineers" because they...', opts: ['make wetlands', 'fix machines', 'eat fish'], a: 0, why: 'Dams make wetlands!' },
+      { type: 'tf', q: 'True or false?', items: [['A beaver\'s front teeth never stop growing.', true], ['Our beavers work for coins.', false], ['Plants make food from sunlight.', true]],
+        why: [null, 'Food, not coins!', null] },
+      { type: 'order', q: 'Number the stages of a plant.', steps: ['Seed', 'Sprout', 'Growing', 'Ripe'], why: 'Seed, sprout, grow, ripe!' },
     ],
   },
-  // [v26 tutorial] the money loop, with the game's real numbers (src/game/lessons/econ.js)
+
+  // ------------------------------------------------------------------ 3. CUSTOMERS = MONEY (the game's real numbers, src/game/lessons/econ.js)
   customers: {
-    title: 'Customers = Money', number: 3, doodle: 'bear', color: 'orange',
+    title: 'Customers = Money', number: 3, doodle: 'bear', color: 'orange', testTitle: 'Customers',
     steps: (game) => {
       const b = priceOf(game, 'bluegill', plain(1));
       return [
-        { cam: 'wide', say: 'Our customers. Bears, in suits. From **tomorrow**, every day at **5 PM**.', expr: 'greedy', react: 'bang' },
-        { cam: 'board', say: `Each fish a bear eats is a **bill**. A plain Bluegill pays **${b}**. A **Golden** one pays five times that.`, tap: 'gold',
-          draw: [TITLE('WHAT PAYS?', 'orange'), D('fish', 50, 50, { scale: 2 }), S(`${b}`, 50, 72, 'white'), D('fish_gold', 142, 50, { scale: 2, id: 'gold' }), S(`${b * 5}`, 142, 72, 'yellow')] },
-        { erase: true, say: 'One fish for this bear. Drag the one that makes us more money onto the plate.',
-          draw: [TITLE('SERVE IT', 'orange'), D('fish', 34, 50, { scale: 2, id: 'plain' }), D('fish_gold', 86, 50, { scale: 2, id: 'gold' }), D('bear', 154, 46, { scale: 2 }), D('plate', 154, 80, { scale: 2, id: 'plate' })],
-          quiz: { id: 'bill', opts: ['plain', 'gold'], ok: 'gold', drop: 'plate',
-            no: `That's the plain one, **${b}**. The Golden pays **${b * 5}**.`,
-            yes: `Golden: **${b * 5}** instead of **${b}**. Same bite, five times the bill.` } },
-        { erase: true, dim: 0.8, shake: 0.7, say: 'Now the bad part. A hungry bear that finds **no fish** goes on a **rampage**: smashes things, pays nothing, leaves **zero stars**.', expr: 'worried', react: 'gasp',
-          draw: [D('bear_shadow', 96, 40, { scale: 2 }), D('smash', 30, 30, { scale: 2 }), D('review', 166, 30), { cross: [166, 30, 7] }] },
-        { erase: true, say: 'So. 5 PM, the pond is empty. What happens?',
-          draw: [D('bear', 96, 34, { scale: 2 }), T('THEY LEAVE', 34, 80, { color: 'blue', id: 'a1' }), T('RAMPAGE', 96, 80, { color: 'red', id: 'a2' }), T('THEY WAIT', 158, 80, { color: 'green', id: 'a3' })],
-          quiz: { id: 'empty', opts: ['a1', 'a2', 'a3'], ok: 'a2',
-            no: 'Bears don\'t leave quietly and they don\'t wait. Rampage.',
-            yes: 'Rampage. Keep enough fish in the pond for everyone who comes.' } },
-        { erase: true, say: 'Full bears leave good reviews. Good reviews bring **more bears** tomorrow. That\'s the whole business.', expr: 'proud', react: 'cheer', camAfter: 'teacher',
-          draw: [TITLE('THE MONEY LOOP', 'yellow'), D('fish_heart', 30, 50, { scale: 2 }), S('BREED', 30, 68, 'pink'), { arrow: [48, 50, 66, 50] }, D('bear', 84, 50, { scale: 2 }), S('5 PM', 84, 68, 'orange'),
-            { arrow: [102, 50, 120, 50] }, D('coin', 138, 50, { scale: 2 }), S('BILLS + TIPS', 138, 68, 'yellow'), { arrow: [150, 76, 120, 90] }, { star: [108, 92, 6] }, S('MORE BEARS', 70, 94, 'green')] },
+        { cam: 'wide', say: 'Our customers: **bears in suits**. From **tomorrow**, at **5 PM**, they come down that mountain. Hungry.', expr: 'greedy', react: 'bang' },
+        { show3d: 'bears', cam: 'demoTop', labels: ['office'], hold: 5, expr: 'excited',
+          say: 'The whistle blows at **Bear St. Holdings**, and down the trail they run. Straight into our pond. Splash!' },
+        { show3d: 'omnivore', cam: 'orbit', orbit: [0.85, 0.05, 1.85, 0.95], labels: ['berries', 'honey', 'fish'], hold: 3, expr: 'teacher',
+          say: 'Real bears are **omnivores**: they eat plants AND animals. Berries, honey, roots, bugs... and fish.' },
+        { erase: true, say: 'Before winter a wild bear can eat about **20,000 calories a day** to fatten up. That\'s like forty cheeseburgers. Every. Day.', expr: 'shocked', react: 'gasp',
+          draw: [TITLE('BEAR APPETITE', 'orange'), D('bear', 36, 52, { scale: 2 }), T('=', 70, 52, { scale: 2 }), D('berries', 96, 50, { scale: 2 }), D('honey', 128, 50), D('fish', 156, 50), S('20,000 CALORIES A DAY', 96, 80, 'yellow')] },
+        { erase: true, say: `Here, every fish a bear eats is a **bill**. A plain Bluegill pays **${b}**. A **Golden** Bluegill pays **${b * 5}**.`, expr: 'greedy', tap: 'gold',
+          draw: [TITLE('WHAT PAYS?', 'orange'), D('fish', 50, 48, { scale: 2 }), S(`${b}`, 50, 70, 'white'), D('fish_gold', 142, 48, { scale: 2, id: 'gold' }), S(`${b * 5}`, 142, 70, 'yellow'), T('X5', 96, 48, { color: 'yellow' })] },
+        { erase: true, say: 'Why? **Supply and demand.** Golden fish are **rare**, and every bear wants one. Few of them plus lots of wanting means a **high price**.', expr: 'scheming', react: 'wow',
+          draw: [TITLE('SUPPLY & DEMAND', 'yellow'), D('fish', 22, 40), D('fish', 46, 40), D('fish', 22, 54), D('fish', 46, 54), S('LOTS = CHEAP', 34, 72, 'blue'),
+            D('scale', 96, 50, { scale: 2 }), D('fish_gold', 156, 46, { scale: 2 }), S('RARE = $$$', 156, 72, 'yellow'), { bar: [138, 98, 10, 12], color: 'blue' }, { bar: [156, 98, 10, 24], color: 'yellow' }] },
+        { show3d: 'rampage', cam: 'demo', dim: 0.6, shake: 0.5, hold: 2.5, expr: 'worried', react: 'gasp',
+          say: 'Now the scary part. A hungry bear that finds **no fish** goes on a **rampage**. Smash, stomp, and **zero stars**.' },
+        { erase: true, say: 'That\'s real biology: a **hungry** animal takes bigger risks and gets **aggressive**. So keep enough fish for everyone. And never feed a wild bear!', expr: 'teacher',
+          draw: [TITLE('HUNGRY = GRUMPY', 'red'), D('bear_shadow', 50, 54, { scale: 2 }), D('smash', 96, 44, { scale: 2 }), D('review', 150, 46), { cross: [150, 46, 7] }, S('EMPTY POND = RAMPAGE', 96, 82, 'red')] },
+        { show3d: 'happyBears', cam: 'demo', hold: 2.5, expr: 'proud', react: 'cheer',
+          say: 'Full bears pay **bills and tips** and leave good **reviews**. Good reviews bring **more bears** tomorrow. That\'s the whole business!' },
+      ];
+    },
+    test: (game) => {
+      const b = priceOf(game, 'bluegill', plain(1));
+      return [
+        { type: 'choice', q: 'Real bears eat plants AND animals. They are...', opts: ['herbivores', 'carnivores', 'omnivores'], a: 2, why: 'Omnivores!' },
+        { type: 'match', q: 'Match what happens.', pairs: [['A rare fish', 'a high price'], ['An empty pond', 'a rampage'], ['Full bears', 'good reviews']] },
+        { type: 'tf', q: 'True or false?', items: [['Hungry animals stay calm.', false], ['Bears come down at 5 PM.', true], ['Lots of something makes it cheap.', true]],
+          why: ['They get grumpy!', null, null] },
+        { type: 'choice', q: `A plain Bluegill pays ${b}. A Golden one pays...`, opts: [`${b}`, `${b * 2}`, `${b * 5}`], a: 2, why: 'Five times more!' },
       ];
     },
   },

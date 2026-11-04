@@ -1,0 +1,48 @@
+/* [v32 class] The end-of-class test paper (src/ui/testpaper/TestPaper.js). The sheet is one canvas
+   shown at a whole number of device pixels per art pixel (--tps); every button is a painted canvas
+   at the same scale. The dim behind it is a 2x2 dither, not a blur. */
+.tp-layer {
+  position: absolute; inset: 0; z-index: 4; pointer-events: auto;
+  --tps: 2px; --tpw: 600px;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+.tp-dim {
+  position: absolute; inset: 0; pointer-events: none;
+  background: repeating-conic-gradient(rgba(16, 10, 22, .62) 0 25%, rgba(16, 10, 22, .34) 0 50%) 0 0 / calc(var(--tps) * 2) calc(var(--tps) * 2);
+  animation: tp-dimin .3s steps(3) both;
+}
+@keyframes tp-dimin { from { opacity: 0; } to { opacity: 1; } }
+.tp-scroll {
+  position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; -webkit-overflow-scrolling: touch;
+}
+.tp-sheet { margin: auto; flex: 0 0 auto; transform-origin: 50% 80%; will-change: transform; }
+.tp-tall .tp-sheet { margin: 4px auto calc(var(--tps) * 34) auto; }
+.tp-paper { display: block; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: pan-y; cursor: none; }
+
+/* HAND IN / SKIP TEST / NEXT: painted signs */
+.tp-btns {
+  position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--tps) * 4);
+  right: calc(10px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+.tp-side .tp-btns { right: auto; bottom: auto; left: calc(50% + var(--tpw) / 2 + 6px); top: 50%; transform: translateY(-50%); }
+.tp-btn {
+  display: block; padding: 0; margin: 0; border: 0; border-radius: 0; background: none no-repeat 0 0 / 100% 100%;
+  image-rendering: pixelated; pointer-events: auto; cursor: pointer; touch-action: manipulation;
+  animation: tp-btnin .35s steps(4) .45s both;
+}
+.tp-btn.hidden { display: none; }
+.tp-hand { filter: saturate(.75) brightness(.92); }
+.tp-hand.ready { filter: none; animation: tp-btnin .35s steps(4) both, tp-ready 1s steps(2) .4s infinite; }
+.tp-next { animation: tp-btnin .3s steps(4) both, tp-ready .9s steps(2) .3s infinite; }
+.tp-btn.focus, .tp-btn:focus-visible { outline: var(--tps) dashed #f7e07a; outline-offset: var(--tps); }
+@media (hover: hover) { .tp-btn:hover { transform: translateY(calc(var(--tps) * -1)); } }
+.tp-btn:active, .tp-btn.boop { transform: translateY(var(--tps)); }
+.tp-btn.nudge { animation: tp-nudge .4s steps(4); }
+@keyframes tp-btnin { from { transform: translateX(calc(var(--tps) * 20)); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes tp-ready { 50% { transform: translateY(calc(var(--tps) * -1)); } }
+@keyframes tp-nudge { 25% { transform: translateX(calc(var(--tps) * -3)); } 75% { transform: translateX(calc(var(--tps) * 3)); } }
+.tp-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+/* the class buttons stay on top of the paper */
+.cls-ui .cls-btns { z-index: 6; }

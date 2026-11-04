@@ -36,7 +36,7 @@ const VOICE_OF = { cub: 'cub', foreman_cub: 'cub', ceo: 'ceo', boss: 'ceo', shar
 // ------------------------------------------------------------------ comic bubbles
 // how a line is said -> the Bubbles mood (src/ui/Bubbles.js: normal happy angry shout think whisper scared excited sad)
 const MOOD_OF = { say: 'normal', shout: 'shout', angry: 'angry', whisper: 'whisper', scared: 'scared', happy: 'happy', laugh: 'excited', excited: 'excited', sad: 'sad', think: 'think', radio: 'normal', spooky: 'whisper', gold: 'excited' };
-const VOICES = new Set(['fox', 'bear', 'cub', 'ceo']);
+const VOICES = new Set(['fox', 'bear', 'cub', 'ceo', 'otter', 'duck', 'turtle']);
 const bubbleVoice = (who) => (VOICES.has(who?.voice) ? who.voice : who?.kind === 'fox' ? 'fox' : 'bear');
 // a voice with no body on screen (the CEO on the phone, Reynard narrating a shot) talks from the
 // top of the screen, with its name in front of the line

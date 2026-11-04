@@ -240,7 +240,7 @@ export const NIGHT_GROW = 150;
 export const FARMS = {
   pen: {
     name: 'Net Pen', icon: 'dv_pen', kind: 'pen', cost: 120, research: 'r_dv_pen', r: 1.3, cap: 6, grow: 260,
-    stock: [['perch', 18], ['crappie', 16], ['cisco', 22], ['whitefish', 26], ['smallmouth', 34]],
+    stock: [['perch', 7], ['crappie', 4], ['cisco', 9], ['whitefish', 14], ['smallmouth', 10]],
     desc: 'Cedar posts, a rope net and cork floats. Stock it with fingerlings; they grow up safe from bears.',
   },
   nursery: {
@@ -257,7 +257,7 @@ export const FARMS = {
   },
   cage: {
     name: 'Predator Cage', icon: 'dv_cage', kind: 'pen', cost: 280, research: 'r_dv_cage', r: 1.3, cap: 3, grow: 420,
-    stock: [['walleye', 60], ['pike', 75], ['laketrout', 70], ['muskie', 140]],
+    stock: [['walleye', 50], ['pike', 55], ['laketrout', 32], ['muskie', 140]],
     desc: 'An iron-banded cage for the big biters: walleye, pike, muskie. Slow, but worth a fortune.',
   },
   hatchery: {
@@ -334,9 +334,9 @@ export const DIVE_QUESTS = [
     id: 'dv_whiskers', title: 'Old Whiskers', icon: 'dv_whiskers', reward: { coins: 260 },
     intro: 'Noodles swears the golden catfish lives in the Deep Hole. Go look. Then hire the Big Noodle.',
     steps: [
-      { text: 'Spot Old Whiskers in the Deep Hole', ev: 'diveWhiskers' },
       { text: 'Research the Big Noodle (Lab)', ev: 'research', test: (r) => r?.id === 'r_dv_bignoodle' },
-      { text: 'Hire Noodles for the Big Noodle', ev: 'diveCatch', test: (d) => d?.tier === 'noodle' },
+      { text: 'Spot Old Whiskers in the Deep Hole', ev: 'diveWhiskers' },
+      { text: 'Hire Noodles for the Big Noodle', ev: 'diveCatch', test: (d) => d?.tier === 'noodle' && d?.seen },
     ],
   },
 ];

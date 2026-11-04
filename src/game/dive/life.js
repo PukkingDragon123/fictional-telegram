@@ -8,7 +8,7 @@
 //   L.update(dt, t, diver)   L.bubble(x, y, z, n, size)   L.whiskersSeen(diver) -> bool   L.dispose()
 import * as THREE from 'three';
 import { SPECIES_BY_ID } from '../../data/species.js';
-import { buildFishGeometry } from '../../entities/fishModels.js';
+import { fishAtlas, FISH_TPU } from '../fishSprites.js';
 import { diveGeo, crayfishModel, turtleModel } from '../../entities/diveModels.js';
 import { uwMat, UW, SURF, X0, X1, DEEP_X } from '../../entities/diveScene.js';
 import { FV, VS, pixTex } from '../../entities/critterKit.js';
@@ -19,97 +19,110 @@ const TAU = PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 function rnd(seed) { let s = seed >>> 0 || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
-// ------------------------------------------------------------------ the wiggling fish material
-const FISH_GLSL_V = /* glsl */ `
-attribute float bend;
-attribute float iPhase;
-attribute float iAmp;
+// ------------------------------------------------------------------ fish: the game's own pixel fish art
+// Each fish is a camera-facing quad cut from the fish atlas (src/art/fishArt.js: 5 swim frames per
+// species and morph), flipped by heading, darkened with depth and fogged in dithered steps like the
+// rest of the scene. One InstancedMesh per species pack.
+let ATLAS = null, ATLAS_TEX = null;
+function atlas() {
+  if (!ATLAS) { ATLAS = fishAtlas(); ATLAS_TEX = pixTex(ATLAS.canvas); ATLAS_TEX.flipY = true; ATLAS_TEX.needsUpdate = true; }
+  return ATLAS;
+}
+const FISH_VERT = /* glsl */ `
+attribute float aPhase;
+attribute float aFlip;
 uniform float uTime;
-varying vec3 vUwPos;
-varying vec3 vUwNor;
-`;
-const fishMats = new Map();
-function fishMat(golden = false) {
-  const k = golden ? 'g' : 'n';
-  if (fishMats.has(k)) return fishMats.get(k);
-  const m = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: golden ? 0x3a2600 : 0 });
-  m.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = UW.uTime; shader.uniforms.uSurf = UW.uSurf; shader.uniforms.uCaus = UW.uCaus;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\n' + FISH_GLSL_V)
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.z += sin(iPhase - position.x * 7.0) * iAmp * bend;')
-      .replace('#include <project_vertex>', `#include <project_vertex>
-{ vec4 w = vec4(transformed, 1.0);
-  #ifdef USE_INSTANCING
-  w = instanceMatrix * w;
-  #endif
-  w = modelMatrix * w; vUwPos = w.xyz;
-  vec3 n = objectNormal;
-  #ifdef USE_INSTANCING
-  n = mat3(instanceMatrix) * n;
-  #endif
-  vUwNor = normalize(mat3(modelMatrix) * n); }`);
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>
-uniform float uTime; uniform float uSurf; uniform float uCaus;
-varying vec3 vUwPos; varying vec3 vUwNor;
+uniform vec4 uRects[5];
+uniform vec2 uSize;
+uniform vec2 uTex;
+varying vec2 vUv;
+varying vec3 vWp;
+varying float vView;
+void main() {
+  float f = mod(floor(uTime * 9.0 + aPhase), 5.0);
+  vec4 R = uRects[0];
+  if (f > 0.5) R = uRects[1];
+  if (f > 1.5) R = uRects[2];
+  if (f > 2.5) R = uRects[3];
+  if (f > 3.5) R = uRects[4];
+  vec2 sz = uSize * vec2(R.z, R.w) / max(vec2(uRects[0].z, uRects[0].w), vec2(1.0));
+  float u = aFlip > 0.5 ? 1.0 - uv.x : uv.x;
+  vUv = vec2((R.x + u * R.z) / uTex.x, 1.0 - (R.y + (1.0 - uv.y) * R.w) / uTex.y);
+  vec4 c = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+  c.xy += position.xy * sz;
+  vWp = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  vView = -c.z;
+  gl_Position = projectionMatrix * c;
+}`;
+const FISH_FRAG = /* glsl */ `
+uniform sampler2D uMap;
+uniform float uSurf;
+uniform vec3 uFog;
+uniform float uGold;
+varying vec2 vUv;
+varying vec3 vWp;
+varying float vView;
 float uwB(vec2 a) { a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
-float uwBay(vec2 a) { return uwB(0.5 * a) * 0.25 + uwB(a); }`)
-      .replace('#include <opaque_fragment>', `{
+float uwBay(vec2 a) { return uwB(0.5 * a) * 0.25 + uwB(a); }
+void main() {
+  vec4 t = texture2D(uMap, vUv);
+  if (t.a < 0.5) discard;
+  vec3 col = t.rgb;
   float bay = uwBay(gl_FragCoord.xy);
-  float d = clamp((uSurf - vUwPos.y) / 10.0, 0.0, 1.0);
+  float d = clamp((uSurf - vWp.y) / 10.0, 0.0, 1.0);
   float dk = floor(d * 4.0 + bay) / 4.0;
-  outgoingLight *= mix(vec3(1.0), vec3(0.4, 0.6, 0.72), dk * 0.75);
-  float sheen = step(0.6, vUwNor.y) * step(0.7, fract(uTime * 0.6 + vUwPos.x * 0.7)) * step(1.4, bay + 0.7);
-  outgoingLight += vec3(0.25, 0.32, 0.3) * sheen;
-}
-#include <opaque_fragment>`);
-  };
-  m.customProgramCacheKey = () => 'uwfish' + k;
-  fishMats.set(k, m);
-  return m;
-}
-const geoCache = new Map();
-function fishGeo(id, golden = false) {
-  const k = id + (golden ? ':g' : '');
-  let g = geoCache.get(k);
-  if (!g) { const sp = SPECIES_BY_ID[id]; g = sp?.model ? buildFishGeometry(sp, golden) : null; geoCache.set(k, g); }
-  return g;
-}
+  col *= mix(vec3(1.0), vec3(0.42, 0.62, 0.74), dk * 0.75 * (1.0 - uGold * 0.6));
+  float ff = smoothstep(31.5, 47.0, vView);
+  ff = floor(ff * 5.0 + bay * 0.94) / 5.0;
+  col = mix(col, uFog, ff);
+  gl_FragColor = vec4(col, 1.0);
+  #include <colorspace_fragment>
+}`;
 
-/** A group of fish drawn as one InstancedMesh: positions/headings set per frame. */
-class FishPack {
+/** A group of fish drawn as one InstancedMesh of billboards: positions + headings set per frame. */
+export class FishPack {
   constructor(parent, id, n, { scale = 1, golden = false } = {}) {
-    const fg = fishGeo(id, golden);
-    this.ok = !!fg;
+    const A = atlas();
+    const morph = golden ? 'golden' : 'normal';
+    const rects = [0, 1, 2, 3, 4].map((f) => A.frame(id, morph, f, false));
+    this.ok = !!rects[0];
     this.n = n;
-    this.len = fg ? fg.len * scale : 0.5;
-    if (!fg) return;
-    const geo = fg.geo.clone();
-    this.phase = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
-    this.amp = new THREE.InstancedBufferAttribute(new Float32Array(n).fill(0.04), 1);
-    geo.setAttribute('iPhase', this.phase);
-    geo.setAttribute('iAmp', this.amp);
-    this.geo = geo;
-    this.mesh = new THREE.InstancedMesh(geo, fishMat(golden), n);
-    this.mesh.frustumCulled = false;
-    this.scale = scale;
-    parent.add(this.mesh);
-    this._o = new THREE.Object3D();
-  }
-  set(i, x, y, z, heading, pitch, phase, amp) {
     if (!this.ok) return;
-    const o = this._o;
-    o.position.set(x, y, z);
-    o.rotation.set(0, -heading, pitch, 'YZX');
-    o.scale.setScalar(this.scale);
-    o.updateMatrix();
-    this.mesh.setMatrixAt(i, o.matrix);
-    this.phase.array[i] = phase;
-    this.amp.array[i] = amp;
+    const r0 = rects[0];
+    this.w = (r0.w / FISH_TPU); this.h = (r0.h / FISH_TPU);
+    this.len = this.w * scale;
+    const geo = new THREE.PlaneGeometry(1, 1);
+    this.phase = new THREE.InstancedBufferAttribute(new Float32Array(n).map(() => Math.random() * 5), 1);
+    this.flip = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
+    geo.setAttribute('aPhase', this.phase);
+    geo.setAttribute('aFlip', this.flip);
+    this.geo = geo;
+    this.mat = new THREE.ShaderMaterial({
+      vertexShader: FISH_VERT, fragmentShader: FISH_FRAG,
+      uniforms: {
+        uTime: UW.uTime, uSurf: UW.uSurf, uMap: { value: ATLAS_TEX },
+        uRects: { value: rects.map((r) => new THREE.Vector4(r.x, r.y, r.w, r.h)) },
+        uSize: { value: new THREE.Vector2(this.w * scale, this.h * scale) },
+        uTex: { value: new THREE.Vector2(A.canvas.width, A.canvas.height) },
+        uFog: { value: new THREE.Color(0x174652) }, uGold: { value: golden ? 1 : 0 },
+      },
+    });
+    this.mesh = new THREE.InstancedMesh(geo, this.mat, n);
+    this.mesh.frustumCulled = false;
+    this.scaleK = scale;
+    parent.add(this.mesh);
+    this._m = new THREE.Matrix4();
   }
-  flush() { if (!this.ok) return; this.mesh.instanceMatrix.needsUpdate = true; this.phase.needsUpdate = true; this.amp.needsUpdate = true; }
-  dispose() { this.mesh?.removeFromParent(); this.geo?.dispose(); this.mesh?.dispose?.(); }
+  set scale(k) { if (this.ok) this.mat.uniforms.uSize.value.set(this.w * k, this.h * k); }
+  set(i, x, y, z, heading) {
+    if (!this.ok) return;
+    this._m.makeTranslation(x, y, z);
+    this.mesh.setMatrixAt(i, this._m);
+    const c = Math.cos(heading);
+    if (Math.abs(c) > 0.15) this.flip.array[i] = c < 0 ? 1 : 0;
+  }
+  flush() { if (!this.ok) return; this.mesh.instanceMatrix.needsUpdate = true; this.flip.needsUpdate = true; }
+  dispose() { this.mesh?.removeFromParent(); this.geo?.dispose(); this.mat?.dispose(); this.mesh?.dispose?.(); }
 }
 
 // ------------------------------------------------------------------ bubbles (pixel sprites)
@@ -161,16 +174,16 @@ export class DiveLife {
     const R = rnd(seed);
     // schools: species, count, home box, scale, speed
     const SCH = [
-      { id: 'cisco', n: 16, cx: -6, cy: 3.4, cz: -1.2, rx: 9, ry: 1.0, rz: 2.2, scale: 0.75, spd: 0.18 },
-      { id: 'perch', n: 9, cx: 2.5, cy: 1.9, cz: 0.2, rx: 6, ry: 0.7, rz: 1.8, scale: 0.85, spd: 0.13 },
-      { id: 'bluegill', n: 6, cx: -20, cy: 4.6, cz: -0.5, rx: 3.2, ry: 0.6, rz: 1.5, scale: 0.8, spd: 0.16 },
-      { id: 'whitefish', n: 7, cx: 18, cy: 0.6, cz: -1.5, rx: 6, ry: 1.2, rz: 1.8, scale: 0.9, spd: 0.1 },
-      { id: 'pumpkinseed', n: 5, cx: 8, cy: 3.6, cz: -2.4, rx: 3, ry: 0.6, rz: 1.2, scale: 0.8, spd: 0.15 },
+      { id: 'cisco', n: 14, cx: -6, cy: 3.6, cz: -1.2, rx: 9, ry: 1.0, rz: 2.2, scale: 0.55, spd: 0.18 },
+      { id: 'perch', n: 7, cx: 2.5, cy: 1.8, cz: 0.2, rx: 6, ry: 0.7, rz: 1.8, scale: 0.6, spd: 0.13 },
+      { id: 'bluegill', n: 5, cx: -20, cy: 4.6, cz: 0.4, rx: 3.2, ry: 0.6, rz: 1.5, scale: 0.6, spd: 0.16 },
+      { id: 'whitefish', n: 6, cx: 18, cy: 0.4, cz: -1.0, rx: 6, ry: 1.2, rz: 1.8, scale: 0.65, spd: 0.1 },
+      { id: 'pumpkinseed', n: 5, cx: 8, cy: 3.6, cz: -1.4, rx: 3, ry: 0.6, rz: 1.2, scale: 0.6, spd: 0.15 },
     ];
     this.schools = SCH.map((d, k) => {
       const pack = new FishPack(this.group, d.id, d.n, { scale: d.scale });
       const fish = [];
-      for (let i = 0; i < d.n; i++) fish.push({ ox: (R() - 0.5) * 2.4, oy: (R() - 0.5) * 0.9, oz: (R() - 0.5) * 1.6, ph: R() * TAU, wob: R() * TAU, x: d.cx, y: d.cy, z: d.cz, h: 0, sc: 0 });
+      for (let i = 0; i < d.n; i++) fish.push({ ox: (R() - 0.5) * 3.4, oy: (R() - 0.5) * 1.3, oz: (R() - 0.5) * 1.8, ph: R() * TAU, wob: R() * TAU, x: d.cx, y: d.cy, z: d.cz, h: 0, sc: 0 });
       return { d, pack, fish, t: R() * 50, x: d.cx, y: d.cy, z: d.cz, k };
     });
     // lurkers
@@ -220,6 +233,27 @@ export class DiveLife {
       m.visible = false;
       this.group.add(m);
       this.loon = { m, t: 0, next: 18 + R() * 14, on: false, x: 0, y: SURF, z: -1, dir: 1 };
+    }
+    // drifting motes (pollen, silt, tiny critters): single crisp pixels catching the light
+    {
+      const N = 170, pos = new Float32Array(N * 3), seed = new Float32Array(N);
+      for (let i = 0; i < N; i++) { const x = X0 + R() * (X1 - X0), z = -6 + R() * 9; pos[i * 3] = x; pos[i * 3 + 1] = S.bedH(x, z) + 0.2 + R() * (SURF - S.bedH(x, z) - 0.3); pos[i * 3 + 2] = z; seed[i] = R(); }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+      const m = new THREE.ShaderMaterial({
+        uniforms: { uTime: UW.uTime, uSurf: UW.uSurf },
+        vertexShader: `attribute float aSeed; uniform float uTime; varying float vK; varying float vY; uniform float uSurf;
+          void main() { vec3 p = position; float t = uTime * (0.15 + aSeed * 0.2) + aSeed * 40.0;
+            p.x += sin(t * 0.7) * 0.5 + uTime * 0.04 * (aSeed - 0.3); p.y += sin(t) * 0.25; p.z += cos(t * 0.6) * 0.3;
+            vK = 0.5 + 0.5 * sin(uTime * 2.0 + aSeed * 30.0); vY = p.y;
+            vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aSeed > 0.82 ? 2.0 : 1.0; }`,
+        fragmentShader: `varying float vK; varying float vY; uniform float uSurf;
+          void main() { if (vK < 0.35) discard; float d = clamp((uSurf - vY) / 9.0, 0.0, 1.0); gl_FragColor = vec4(mix(vec3(0.85, 0.96, 0.9), vec3(0.45, 0.65, 0.7), d), 1.0); }`,
+      });
+      this.motes = new THREE.Points(g, m);
+      this.motes.frustumCulled = false;
+      this.group.add(this.motes);
     }
     // bubbles
     this.bubbles = [];
@@ -398,6 +432,7 @@ export class DiveLife {
 
   dispose() {
     for (const s of this.schools) s.pack.dispose();
+    this.motes?.geometry.dispose(); this.motes?.material.dispose();
     for (const L of this.lurk) L.pack.dispose();
     this.whisk?.pack.dispose();
     this.group.removeFromParent();

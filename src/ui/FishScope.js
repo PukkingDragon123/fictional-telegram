@@ -424,6 +424,7 @@ class Scope {
       <button class="fsc-btn pink" data-a="pet">${ico('nurture', 2)}<span>Pet</span></button>
       ${tankBtn}
       ${game.ui?.openMatchmaker ? `<button class="fsc-btn" data-a="match">${ico('heart', 2)}<span>Match</span></button>` : ''}
+      ${game.digsite?.scopeButton?.(f) || ''}
       <button class="fsc-btn close" data-a="close">${ico('cross', 2)}<span>Close</span></button>`;
     this.$('.fsc-btns').querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.act(b.dataset.a); }));
   }
@@ -450,6 +451,10 @@ class Scope {
       const id = f.id;
       this.close(true);
       game.ui.openMatchmaker(id);
+      return;
+    } else if (a === 'vial') { // [v32 dig] the Primordial Vial: the fish wakes up prehistoric (src/game/ext/digsite.js)
+      this.close(true);
+      game.digsite?.feedVial?.(f);
       return;
     }
     this.render();

@@ -20,6 +20,7 @@ import { CHAPTERS, MAIN_QUESTS, MAIN_BY_ID, DAILY, DAILY_BY_ID, dailyCoins, dail
 import { showQuestToast } from '../ui/QuestToast.js';
 import { BEAR_QUESTS } from '../data/questsBears.js'; // [v31 cine] errands the bears bring (started by their scenes)
 import { DIVE_QUESTS } from '../data/dive.js'; // [v32 dive]
+import { DIG_QUESTS } from '../data/digQuests.js'; // [v32 dig]
 
 // side errands (the old after-tutorial quests that the main line does not cover)
 export const QUESTS = [
@@ -65,6 +66,7 @@ QUESTS.push(...LONGNECK_QUESTS); // [v26 turtle] the way to Old Longneck (src/da
 QUESTS.push(...LESSON_QUESTS); // [v26 tutorial] src/data/lessons.js
 QUESTS.push(...BEAR_QUESTS); // [v31 cine] src/data/questsBears.js (src/game/cine/bearQuests.js plays their scenes)
 QUESTS.push(...DIVE_QUESTS); // [v32 dive] src/data/dive.js (started by the story in src/game/ext/dive.js)
+QUESTS.push(...DIG_QUESTS); // [v32 dig] src/data/digQuests.js (Prof. Snapp's scenes start them, src/game/ext/digsite.js)
 const BY_ID = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 // old side quests that the main line took over (old saves: done there = done here)
 const OLD_TO_MAIN = { friend: 'm_friend', lab: null, tag: null, match: 'm_cupid', lq_match: 'm_cupid', lq_3star: 'm_3star', lq_hire: 'm_hire', lq_keeper: 'm_keeper', craft: 'm_chip', facility: 'm_facility' };

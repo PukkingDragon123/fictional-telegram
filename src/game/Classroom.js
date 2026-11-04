@@ -1,21 +1,28 @@
-// Professor Reynard's classroom: full-screen 3D lesson cutscenes for the
-// tutorial. The fox (teacher outfit, pointer stick) walks between his desk
-// and a big chalkboard, draws chalk doodles by hand (src/ui/Chalkboard.js),
-// taps them with his pointer while explaining, and a class of fish students
-// in fishbowls reacts (src/entities/classroomScene.js).
+// Professor Reynard's classroom: full-screen 3D lessons. The fox (teacher outfit, pointer stick)
+// walks between his desk, the big chalkboard and the science table, draws chalk diagrams by hand
+// (src/ui/Chalkboard.js), sets up REAL 3D demos on the table (src/game/classroom/demos.js: fish
+// anatomy, courtship and hatching, a beaver dam turning a stream into a wetland, bears running down
+// the mountain), and a class of fish students in fishbowls reacts (src/entities/classroomScene.js).
+// It is filmed from inside the room by a perspective ClassCam (src/game/classroom/ClassCam.js,
+// shots in src/game/classroom/shots.js). Reynard SPEAKS his lines (src/audio/voiceLines.js; babble
+// when speech is off or x3 is on). Every class ends with a TEST PAPER (src/ui/testpaper/TestPaper.js):
+// answered with a pencil, graded live with a red pen, stamped A+ to F; grades go to
+// game.state.grades and a first A pays a few coins.
 //
 //   const cls = new Classroom(game);
-//   await cls.lesson('fishlife');          // built-in: condition, fishlife, foods, plants, build, bears, stars
-//                                          // (+ the longer breeding / genes / mutations, merged in fishlife)
-//   await cls.lesson({ title: 'My Lesson', doodle: 'fish', steps: [
+//   await cls.lesson('pondlife');          // any id in LESSONS (src/game/lessonsCombined.js, src/game/lessons/classes.js)
+//   await cls.lesson({ title: 'My Lesson', number: 1, steps: [
 //     { say: 'Hello **class**!', cam: 'wide', expr: 'happy', react: 'heart' },
 //     { say: 'A fish!', draw: [{ doodle: 'fish', x: 96, y: 54, scale: 2, id: 'f' }], tap: 'f' },
+//     { say: 'Look at its gills.', show3d: 'gills', labels: ['gills'], cam: 'demoClose' },
 //     { erase: true, say: 'All gone.' },
-//   ] });
-//   step extras: cam ('wide'|'board'|'students'|'teacher'|'desk'), camAfter (cut after the drawing),
-//   at ('desk'|'teacher': walk there first), dim (0..1 lights down until a step without it),
-//   shake (camera shake + rumble), sfx (sound cue), anim, react ('gasp' = the class gasps),
-//   cutaway: false (no reaction cut to the students), wait (auto-advance seconds), speed.
+//   ], test: [{ type: 'choice', q: 'Fish breathe with...', opts: ['lungs', 'gills'], a: 1, why: 'Gills!' }] });
+//   step extras: cam ('wide'|'board'|'boardClose'|'students'|'teacher'|'desk'|'demo'|'demoClose'|'demoTop'|'orbit'),
+//   camAfter (cut after the drawing), at ('desk'|'teacher'|'demo': walk there first), dim (0..1 lights down
+//   until a step without it), shake (camera shake + rumble), sfx (sound cue), anim, react ('gasp' = the
+//   class gasps), cutaway: false (no reaction cut to the students), wait (auto-advance seconds), speed,
+//   show3d (a demo on the science table, see SHOW3D in demos.js), labels (paper tags on the 3D demo),
+//   hold (seconds the demo plays before the click is accepted).
 //   cls.active; cls.skip(); cls.update(realDt)   // call update every frame (else it self-drives)
 //
 // While a lesson runs it owns game.overrideScene / overrideRig, pauses the
@@ -24,7 +31,9 @@
 // tools/classroom-preview.js): only `renderer` (PixelRenderer-like: lowW,
 // lowH, rtW, rtH...) and `state` are really needed.
 import * as THREE from 'three';
-import { CameraRig } from '../core/cameraRig.js';
+import { ClassCam } from './classroom/ClassCam.js'; // [v32 class] perspective film camera, from inside the room
+import { classShots } from './classroom/shots.js'; // [v32 class]
+import { ClassDemos } from './classroom/demos.js'; // [v32 class] 3D demos on the science table
 import { Transition } from '../ui/Transition.js';
 import { Chalkboard, measureText, slateURL } from '../ui/Chalkboard.js';
 import { spriteImg, hasSprite } from '../ui/sprites.js';
@@ -34,8 +43,10 @@ import { createFoxTalk } from '../ui/FoxTalk3D.js';
 import { buildClassroom, BOARD, RISER } from '../entities/classroomScene.js';
 import '../ui/classroom.css';
 import { CLASS_LESSONS } from './lessons/classes.js'; // [v26 tutorial]
-import { runQuiz } from './lessons/quiz.js'; // [v26 class2] interactive pop quizzes
+import { COMBINED_LESSONS } from './lessonsCombined.js'; // [v32 class] the day-1 classes, always on the book
 import { classButtonsHTML, paintClassButtons, boop } from '../ui/classButtons.js'; // [v26 class2]
+import { TestPaper, GRADES } from '../ui/testpaper/TestPaper.js'; // [v32 class]
+import { speakLine, stopVoice } from '../audio/voiceLines.js'; // [v32 class]
 
 const mods = import.meta.glob(['../entities/foxRig.js'], { eager: true });
 const FoxMod = mods['../entities/foxRig.js'] || null;
@@ -285,11 +296,20 @@ export const LESSONS = {
 // unlocking, weather, resort & staff, power & storage, the feast). They replace the
 // old 'mutations' lesson; `steps` is a function of the game (real numbers).
 Object.assign(LESSONS, CLASS_LESSONS);
+Object.assign(LESSONS, COMBINED_LESSONS); // [v32 class]
 export const LESSON_IDS = Object.keys(LESSONS);
+
+/** [v32 class] the best grade the player has on a class, or null */
+export function classGrade(game, id) { return game?.state?.grades?.[id]?.best || null; }
 
 // portrait sprite for a rig expression
 const PORTRAIT = { smug: 'smug', greedy: 'greedy', shocked: 'shocked', laugh: 'laugh', wink: 'wink', angry: 'angry', worried: 'worried', sleepy: 'sleepy',
   happy: 'laugh', excited: 'laugh', proud: 'smug', teacher: 'smug', love: 'wink', yum: 'greedy', scheming: 'greedy', alarmed: 'shocked', confused: 'worried', focused: 'smug', magnifique: 'wink' };
+// [v32 class] how a line is spoken for each rig expression (src/audio/voiceLines.js moods)
+const VOICE_MOOD = { excited: 'excited', happy: 'happy', proud: 'happy', love: 'happy', yum: 'happy', laugh: 'happy', wink: 'happy', magnifique: 'excited',
+  shocked: 'shout', alarmed: 'shout', angry: 'angry', worried: 'scared', sad: 'sad', confused: 'think', think: 'think', scheming: 'whisper', determined: 'excited' };
+const TEST_INTRO = ['Pencils out! A little **test** on what we just learned.', 'Test time! Eyes on your own paper. Yes, you, Bubbles.', 'Right. A short **test**. No talking, no eating the paper.'];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -300,8 +320,7 @@ export class Classroom {
     this.room = null;
     this.scene = null;
     this.fox = null;
-    this.rig = new CameraRig();
-    this.rig.freeBounds = true;
+    this.rig = new ClassCam(); // [v32 class]
     this.clock = 0;
     this._timers = [];
     this._chain = Promise.resolve();
@@ -316,15 +335,17 @@ export class Classroom {
   /** Build the room + fox ahead of time (avoids a hitch on the first lesson). */
   preload() { this._build(); return this; }
 
-  /** Play a lesson (id or script). Resolves { completed, skipped } after the room is gone. */
+  /** Play a lesson (id or script). Resolves { completed, skipped, grade? } after the room is gone. */
   lesson(idOrScript, opts = {}) {
     let script = typeof idOrScript === 'string' ? LESSONS[idOrScript] : idOrScript;
+    const raw = script;
     // [v26 tutorial] steps(game): built when the class starts, with the player's own numbers
     if (script && typeof script.steps === 'function') {
       try { script = { ...script, steps: script.steps(this.game).filter(Boolean) }; } catch (e) { console.warn('Classroom: lesson build failed', e); script = null; }
     }
     if (!script || !Array.isArray(script.steps)) { console.warn('Classroom: unknown lesson', idOrScript); return Promise.resolve({ completed: false, skipped: false }); }
-    this._lessonKey = typeof idOrScript === 'string' ? idOrScript : script.title; // [v26 class2] quiz rewards are paid once per question
+    // [v32 class] grades are kept per class (an alias like 'genetics' files under its real id)
+    this._lessonKey = typeof idOrScript === 'string' ? (Object.keys(LESSONS).find((k) => LESSONS[k] === raw) || idOrScript) : (script.id || script.title);
     const run = this._chain.then(() => this._run(script, opts));
     this._chain = run.catch(() => {});
     return run;
@@ -337,7 +358,8 @@ export class Classroom {
     this.board?.finish();
     this.titleBoard?.finish();
     this._finishType();
-    this._quiz?.abort(); // [v26 class2]
+    this._paper?.abort(); // [v32 class]
+    stopVoice(); // [v32 class]
     const fr = this.foxState?.res;
     if (fr) { this.foxState.res = null; this.foxState.goal = null; fr(); }
     this.game.audio?.stopBabble?.();
@@ -354,9 +376,10 @@ export class Classroom {
 
   dispose() {
     this.skip();
+    this.demos?.dispose();
     this.room?.dispose();
     this.fox?.dispose?.();
-    this.room = null; this.fox = null; this.scene = null;
+    this.room = null; this.fox = null; this.scene = null; this.demos = null;
   }
 
   // ---------------------------------------------------------------- build
@@ -384,6 +407,12 @@ export class Classroom {
     }
     this.aimV = new THREE.Vector3();
     this.foxState = { goal: null, yaw: 0, follow: null, res: null };
+    this.shots = classShots(this.room, () => this.fox); // [v32 class]
+    // [v32 class] the science table's 3D demos (built lazily, the first time a step asks)
+    try {
+      this.demos = new ClassDemos(this.room.group, this.room.anchors.demo);
+      this.demos.sfx = (n, o = {}) => { if (o.delay) setTimeout(() => this._sfx(n, o), o.delay * 1000); else this._sfx(n, o); };
+    } catch (e) { console.warn('Classroom: demos failed', e); this.demos = null; }
   }
 
   // ---------------------------------------------------------------- timing
@@ -401,7 +430,6 @@ export class Classroom {
     this.clock = 0;
     this._build();
     const result = { completed: false, skipped: false };
-    this._score = { right: 0, total: 0, coins: 0 }; // [v26 class2] quiz score for the stamp
     // remember everything we touch, restore it exactly on the way out
     this.saved = {
       overrideScene: game.overrideScene ?? null, overrideRig: game.overrideRig ?? null,
@@ -415,6 +443,8 @@ export class Classroom {
       await this._intro(script);
       for (const st of script.steps) { this._check(); await this._step(st); }
       this._check();
+      if (script.test && opts.test !== false) result.grade = await this._test(script); // [v32 class]
+      this._check();
       await this._outro(script);
       result.completed = true;
     } catch (e) {
@@ -422,6 +452,7 @@ export class Classroom {
       result.skipped = e === SKIP;
     }
     this._skip = false;
+    stopVoice();
     await this._wipe('blocks', () => this._leaveScene());
     this._active = false;
     cancelAnimationFrame(this._raf); this._raf = 0;
@@ -446,6 +477,7 @@ export class Classroom {
     this.room.setNight(!!(game.sky?.state?.night > 0.5));
     if (game.state?.hour != null) this.room.setClock(game.state.hour);
     this.board.clear();
+    this.demos?.hide();
     this._buildUI();
     // fox at his desk, camera wide
     const f = this.fox;
@@ -459,6 +491,7 @@ export class Classroom {
     }
     this.room.students.setSleepy(true);
     this.room.students.lookAtX(this.room.anchors.teacherSpot.position.x);
+    this._camA = null; this._camKey = null;
     this.cam('wide', true);
     this._tick(0);
   }
@@ -471,9 +504,11 @@ export class Classroom {
     game.inputLocked = s.inputLocked ?? false;
     if (game.audio?.setMusic && s.music !== undefined) game.audio.setMusic(s.music);
     game.audio?.stopBabble?.();
+    stopVoice();
     document.body.classList.remove('class-mode');
     this.room?.setDim?.(0);
     this.fox?.setAim?.(null);
+    this._paper?.abort(); this._paper = null;
     this._removeUI();
   }
 
@@ -491,17 +526,18 @@ export class Classroom {
     this.room.setDim?.(0);
     this.cam('wide');
     this.fox?.setAim?.(null);
+    this.demos?.labels([]);
     await this.walkTo(this.room.anchors.teacherSpot.position, 0.15);
     this.fox?.play(this._anim('bow_fancy', 'bow'), { loop: false, onDone: () => this._idle() });
     this.fox?.setExpression?.('proud', { hold: 3 });
     this.room.students.react('cheer', { stagger: 0.1 });
     this._sfx('class_cheer', { volume: 0.5 });
     this._hideSay();
-    await this.wait(1.2); // [v26 class2] no stamp: the class just ends
+    await this.wait(1.2);
   }
 
   async _step(st) {
-    if (st.quiz) return this._quizStep(st); // [v26 class2]
+    if (st.show3d) return this._demoStep(st); // [v32 class]
     const room = this.room;
     if (st.erase) {
       this._hideSay();
@@ -515,7 +551,7 @@ export class Classroom {
     // walk somewhere first: 'desk' | 'teacher' (lines spoken to the class go back to the teacher spot)
     const at = st.at || (!st.draw && !st.tap && (st.cam === 'teacher' || st.cam === 'wide') ? 'teacher' : null);
     if (at && this.fox) {
-      const a = at === 'desk' ? room.anchors.deskSpot : room.anchors.teacherSpot;
+      const a = at === 'desk' ? room.anchors.deskSpot : at === 'demo' ? room.anchors.demoSpot : room.anchors.teacherSpot;
       if (this.fox.root.position.distanceTo(a.position) > 0.3) {
         if (st.cam) this.cam(st.cam);
         await this.walkTo(a.position, a.rotationY);
@@ -534,9 +570,8 @@ export class Classroom {
     if (st.react) {
       // quick cutaway to the class reacting, then back
       const kind = typeof st.react === 'string' ? st.react : st.react.kind;
-      const A = this.room.anchors;
-      if (st.cutaway !== false && kind !== 'zzz' && ![A.camStudents, A.camWide, A.camTeacher, A.camDesk].includes(this._camA)) {
-        const back = this._camA;
+      if (st.cutaway !== false && kind !== 'zzz' && !['students', 'wide', 'teacher', 'desk'].includes(this._camKey)) {
+        const back = this._camKey || this._camA;
         this.cam('students');
         this._react(st.react);
         await this.wait(1.5);
@@ -552,29 +587,125 @@ export class Classroom {
     this._sfx('class_pop', { volume: 0.25, pitch: 1.3 });
   }
 
-  // [v26 class2] a pop quiz: Reynard draws, asks, and the player taps / drags the answer on the board
-  async _quizStep(st) {
-    const room = this.room;
+  // [v32 class] a REAL 3D demo on the science table: Reynard walks over, the camera cuts to the
+  // diorama, it plays its beat (paper tags pop onto the parts) while he explains
+  async _demoStep(st) {
+    const room = this.room, A = room.anchors, f = this.fox;
     if (st.erase) { this._hideSay(); await this._erase(); }
     this._check();
     room.setDim?.(st.dim ? (st.dim === true ? 1 : st.dim) : 0);
     if (st.sfx) this._sfx(st.sfx, { volume: 0.6 });
-    this.cam('board');
+    if (st.shake) { this.rig.shake = Math.max(this.rig.shake || 0, st.shake === true ? 1 : st.shake); this._sfx('class_rumble', { volume: 0.55 }); }
+    const spot = A.demoSpot;
+    if (f && f.root.position.distanceTo(spot.position) > 0.3) {
+      this._hideSay();
+      this.cam('wide');
+      f.holdProp?.('pointer');
+      await this.walkTo(spot.position, spot.rotationY);
+      this._check();
+    }
+    const demo = this.demos?.show(st.show3d, st.beat);
+    const cam = st.cam || 'demo';
+    if (cam === 'orbit') this.cam(this.shots.demoOrbit(...(st.orbit || [])));
+    else this.cam(this.shots[cam] ? cam : 'demo');
+    this.demos?.labels(st.labels || []);
+    if (f) {
+      this.aimV.copy(A.demo).add(new THREE.Vector3(0.05, 0.25, 0.05));
+      f.setAim?.(this.aimV);
+      f.play(this._anim(st.anim || 'teach_explain', 'talk'), { loop: !st.anim, fade: 0.25, onDone: () => this._idle(true) });
+      this.foxState.yaw = spot.rotationY;
+    }
     this._busy = true;
-    const line = this._say(st.say || '', st.expr || 'teacher');
-    if (st.draw) await this._draw(st.draw, st.speed || 1.3);
-    this._check();
+    const line = this._say(st.say || '', st.expr);
+    if (st.react) this._react(st.react);
     await line.typed;
     this._check();
-    this._sfx('class_tap', { volume: 0.5 });
-    const r = await runQuiz(this, st.quiz, [].concat(st.draw || []));
-    this._check();
+    if (demo && st.hold) await Promise.race([this.wait(st.hold), this._click(0.6)]);
     this._busy = false;
-    if (r?.skipped) return;
-    await this._click(0.35);
-    room.board.chalk.finish();
-    this._idle();
+    this._check();
+    if (st.wait != null) await Promise.race([this.wait(st.wait), this._click()]);
+    else await this._click();
+    f?.setAim?.(null);
     this._sfx('class_pop', { volume: 0.25, pitch: 1.3 });
+  }
+
+  // ---------------------------------------------------------------- [v32 class] the test paper
+  async _test(script) {
+    let qs = script.test;
+    if (typeof qs === 'function') { try { qs = qs(this.game); } catch (e) { console.warn('Classroom: test build failed', e); qs = null; } }
+    if (!Array.isArray(qs) || !qs.filter(Boolean).length) return null;
+    const room = this.room;
+    this.demos?.labels([]);
+    this.cam('students');
+    this.fox?.setAim?.(null);
+    this.room.students.react('question', { stagger: 0.08 });
+    this._busy = true;
+    const line = this._say(pick(TEST_INTRO), 'teacher');
+    await line.typed;
+    this._busy = false;
+    this._check();
+    await Promise.race([this.wait(1.4), this._click(0.1)]);
+    this._check();
+    this._hideSay();
+    room.setDim?.(0.4);
+    const tp = this._paper = new TestPaper({
+      host: this.ui, questions: qs.filter(Boolean),
+      meta: { title: script.testTitle || script.title, classNo: script.number || 1, name: 'Partner', day: this.game.state?.day || 1 },
+      sfx: (n, o) => this._sfx(n, o),
+      say: (text, mood) => this._voiceOnly(text, mood),
+    });
+    let res;
+    try { res = await tp.run(); } finally { if (this._paper === tp) this._paper = null; }
+    this._check();
+    room.setDim?.(0);
+    this.cam('teacher');
+    if (!res || res.skipped) {
+      this._busy = true;
+      const l = this._say('Skipping my test? Fine. It waits for you in my **notebook**.', 'smug');
+      await l.typed; this._busy = false; this._check();
+      await Promise.race([this.wait(2.2), this._click()]);
+      return null;
+    }
+    const rec = this._recordGrade(res);
+    const g = res.grade;
+    const coinTxt = rec.coins ? ` And **${rec.coins} coins** for the piggy bank!` : '';
+    const say = g === 'A+' ? `**A plus!** ${res.score} out of ${res.total}. Top of the class!${coinTxt}`
+      : g === 'A' ? `**An A!** ${res.score} out of ${res.total}. Magnifique.${coinTxt}`
+      : g === 'B' ? `**B.** ${res.score} out of ${res.total}. Solid! My red notes show the rest.`
+      : g === 'C' ? `**C.** Read my red notes, partner. You can retake it from my notebook.`
+      : `**${g}.** Every mistake on paper is one you won't make at the pond. Retake it any time!`;
+    const ex = g.startsWith('A') ? 'excited' : g === 'B' ? 'happy' : 'worried';
+    this.fox?.play(this._anim(g.startsWith('A') ? 'cheer' : g === 'B' ? 'teach_explain' : 'shrug', 'talk'), { loop: false, onDone: () => this._idle() });
+    this.room.students.react(g.startsWith('A') ? 'cheer' : g === 'F' || g === 'D' ? 'sweat' : 'heart', { stagger: 0.1 });
+    this._busy = true;
+    const l = this._say(say, ex);
+    await l.typed; this._busy = false; this._check();
+    await this._click();
+    return g;
+  }
+  _recordGrade(res) {
+    const game = this.game, st = game.state;
+    if (!st) return { coins: 0 };
+    const all = (st.grades ||= {});
+    const key = this._lessonKey || 'class';
+    const prev = all[key];
+    const rank = (x) => (GRADES.indexOf(x) < 0 ? 99 : GRADES.indexOf(x));
+    const best = !prev?.best || rank(res.grade) < rank(prev.best) ? res.grade : prev.best;
+    let coins = 0;
+    if (res.grade.startsWith('A') && !prev?.paid) {
+      coins = res.grade === 'A+' ? 20 : 12;
+      try { if (game.earnMisc) game.earnMisc(coins, 'lessons'); else st.coins = (st.coins || 0) + coins; } catch { /* ignore */ }
+    }
+    all[key] = { grade: res.grade, best, score: res.score, total: res.total, tries: (prev?.tries || 0) + 1, day: st.day || 1, paid: !!(prev?.paid || coins) };
+    try { game.emit?.('grade', { id: key, grade: res.grade, best }); } catch { /* ignore */ }
+    try { game.lessons?.sync?.(); } catch { /* ignore */ }
+    return { coins, best };
+  }
+  /** Reynard's quick remarks while he grades: spoken only (the paper fills the screen) */
+  _voiceOnly(text, mood = 'normal') {
+    const d = this.ff ? 0 : speakLine(text, { who: 'fox', mood });
+    if (!d) { try { this.game.audio?.babble?.('fox', text); } catch { /* ignore */ } }
+    this.fox?.talk?.(text);
   }
 
   // ---------------------------------------------------------------- fox choreography
@@ -738,17 +869,17 @@ export class Classroom {
 
   // ---------------------------------------------------------------- camera
   cam(name, instant = false) {
-    const a = typeof name === 'object' ? name : this.room.anchors['cam' + name[0].toUpperCase() + name.slice(1)] || this.room.anchors.camWide;
-    if (a === this._camA && !instant) return;
-    this._camA = a;
-    const rig = this.rig, r = this.game.renderer;
-    const wupp = Math.max(a.fit.w / Math.max(1, r.lowW || 640), a.fit.h / Math.max(1, r.lowH || 360));
-    rig.goal.copy(a.target);
-    rig.wuppGoal = wupp;
-    rig.yawGoal = a.yaw || 0;
-    rig.pitchGoal = a.pitch ?? THREE.MathUtils.degToRad(30);
-    rig.minWupp = 0.0005; rig.maxWupp = 1;
-    if (instant) { rig.target.copy(a.target); rig.wupp = wupp; rig.yaw = rig.yawGoal; rig.pitch = rig.pitchGoal; }
+    // [v32 class] named film shots (src/game/classroom/shots.js) or a shot object; related framings
+    // ease into each other, everything else is a hard cut
+    if (!this.shots) return;
+    const key = typeof name === 'string' ? name : null;
+    const shot = key ? this.shots[key] || this.shots.wide : name;
+    if (!shot || (shot === this._camA && !instant)) return;
+    const prev = this._camKey;
+    this._camA = shot; this._camKey = key;
+    const SOFT = { board: ['teacher', 'boardClose'], teacher: ['board', 'boardClose'], boardClose: ['board', 'teacher'], demo: ['demoClose', 'demoTop'], demoClose: ['demo', 'demoTop'], demoTop: ['demo', 'demoClose'] };
+    if (!instant && prev && SOFT[prev]?.includes(key)) this.rig.move(shot, 0.9, 'inout');
+    else this.rig.cut(shot);
   }
 
   // ---------------------------------------------------------------- per frame
@@ -841,8 +972,7 @@ export class Classroom {
         <div class="cls-portrait" data-h="portrait"></div>
         <div class="cls-body"><div class="cls-name">PROF. REYNARD</div><div class="cls-text" data-h="text"></div></div>
         <div class="cls-next" data-h="next">▼</div>
-      </div>
-      <div class="cls-stamp hidden" data-h="stamp"></div>`;
+      </div>`;
     document.body.appendChild(el);
     this.ui = el;
     paintClassButtons(el); // [v26 class2] pixel-art SKIP / x3 buttons
@@ -853,10 +983,11 @@ export class Classroom {
     this.q('title').addEventListener('pointerdown', adv);
     this.q('skip').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); const b = e.currentTarget; this.ff = !this.ff; boop(b); b.classList.toggle('on', this.ff); b.setAttribute('aria-pressed', String(this.ff)); this._sfx('class_tap', { volume: 0.45 }); this._sfx(this.ff ? 'class_right' : 'class_pop', { volume: 0.3, pitch: this.ff ? 1.2 : 0.8 }); this._askWrap(this.ff); });
     this.q('out').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); boop(e.currentTarget); this._sfx('class_tap', { volume: 0.45 }); this._sfx('class_whoosh', { volume: 0.35 }); this.skip(); }); // [v26 class2]
+    this.q('out').addEventListener('click', (e) => { if (e.detail === 0) this.skip(); }); // [v32 class] keyboard Enter on the focused SKIP
     this._onKey = (e) => {
       if (!this._active) return;
       const k = e.key;
-      if (this._quiz && /^[1-9]$/.test(k)) { e.preventDefault(); e.stopImmediatePropagation(); this._quiz.key(+k); return; } // [v26 class2]
+      if (this._paper) { if (this._paper.key(e)) { e.preventDefault(); e.stopImmediatePropagation(); return; } } // [v32 class] the test paper first
       if (k === ' ' || k === 'Enter' || k === 'ArrowRight') { e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) this._advance(); }
       else if (k === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); this.skip(); }
     };
@@ -875,7 +1006,7 @@ export class Classroom {
   q(h) { return this.ui?.querySelector(`[data-h="${h}"]`); }
 
   _advance() {
-    if (this._clickRes && this.clock - this._clickT >= this._clickMin) { const r = this._clickRes; this._clickRes = null; r(); return; }
+    if (this._clickRes && this.clock - this._clickT >= this._clickMin) { const r = this._clickRes; this._clickRes = null; stopVoice(); r(); return; } // [v32 class] the line is skipped: stop talking
     // still busy: finish the line + drawing now
     if (this.type && !this.type.done) this._finishType();
     if (this.board?.busy) this.board.hurry(8);
@@ -944,12 +1075,18 @@ export class Classroom {
     }
     let res;
     const typed = new Promise((r) => { res = r; });
-    this.type = { atoms, i: 0, acc: 0, done: atoms.length === 0, res, cps: 42 };
-    if (this.type.done) res();
     const plain = String(text).replace(/\*\*|\[\[[a-z0-9_]+\]\]/g, '');
-    this.game.audio?.babble?.('fox', plain);
-    this.fox?.talk?.(plain);
-    this._ftk?.talk(plain);
+    // [v32 class] Reynard SAYS it (browser speech, src/audio/voiceLines.js); the letters type in step
+    // with the voice. x3 / speech off / unavailable: the babble voice and the usual typing speed.
+    let dur = 0;
+    if (!this.ff && plain.trim()) { try { dur = speakLine(plain, { who: 'fox', mood: VOICE_MOOD[ex] || 'normal' }); } catch { dur = 0; } }
+    const cps = dur > 0 ? Math.max(10, Math.min(60, atoms.length / Math.max(0.4, dur * 0.92))) : 42;
+    if (dur <= 0 && plain.trim()) this.game.audio?.babble?.('fox', plain);
+    this.type = { atoms, i: 0, acc: 0, done: atoms.length === 0, res, cps };
+    if (this.type.done) res();
+    const mouth = dur > 0 ? Math.max(8, plain.length / dur) : 16;
+    this.fox?.talk?.(plain, { cps: mouth });
+    this._ftk?.talk(plain, { cps: mouth });
     return { typed };
   }
   _finishType() {
@@ -970,7 +1107,8 @@ export class Classroom {
     if (this.titleBoard) {
       this.titleBoard.update(dt);
     }
-    this._quiz?.tick(); // [v26 class2] keep the answer rings on the board
+    this._paper?.update(dt); // [v32 class]
+    this.demos?.update(dt, this.rig.camera); // [v32 class]
   }
 
   // lesson title card: a little slate on a wooden frame, chalk-written live
@@ -1022,55 +1160,5 @@ export class Classroom {
     this.titleBoard = null;
   }
 
-  // gold-star "Lesson complete!" stamp
-  _stamp() {
-    const el = this.q('stamp');
-    if (!el) return;
-    // [v26 class2] the quiz score
-    const sc = this._score || { right: 0, total: 0, coins: 0 };
-    const sub = sc.right ? `${sc.right}/${sc.total} right first try${sc.coins ? ` &middot; +${sc.coins} coins` : ''}` : 'Gold star for you!';
-    el.innerHTML = `<canvas width="40" height="40"></canvas><b>${sc.total && sc.right === sc.total ? 'TOP OF THE CLASS!' : 'LESSON COMPLETE!'}</b><i>${sub}</i>`;
-    drawGoldStar(el.querySelector('canvas'));
-    el.classList.remove('hidden');
-    void el.offsetWidth;
-    el.classList.add('slam');
-    this._sfx('class_stamp', { volume: 0.6 });
-    setTimeout(() => this._sfx('class_star', { volume: 0.5 }), 260);
-  }
-
   _sfx(name, o) { try { this.game.audio?.play?.(name, o); } catch { /* ignore */ } }
-}
-
-// [v26 faces3d] (the 2D mortarboard-on-a-sprite portrait is gone: the fallback portrait is a 3D render too)
-
-// a smiling gold star sticker (pixel art)
-function drawGoldStar(cv) {
-  const ctx = cv.getContext('2d');
-  const W = 40, cx = 20, cy = 21;
-  const pts = [];
-  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 8 : 18.5; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
-  const inside = (x, y) => {
-    let ins = false;
-    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-      const [xi, yi] = pts[i], [xj, yj] = pts[j];
-      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ins = !ins;
-    }
-    return ins;
-  };
-  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
-    const i = inside(x + 0.5, y + 0.5);
-    if (!i) {
-      if (inside(x + 1.5, y + 0.5) || inside(x - 0.5, y + 0.5) || inside(x + 0.5, y + 1.5) || inside(x + 0.5, y - 0.5)) { ctx.fillStyle = '#8a4a10'; ctx.fillRect(x, y, 1, 1); }
-      continue;
-    }
-    const lit = (x - cx) * -0.6 + (y - cy) * -0.8;
-    ctx.fillStyle = lit > 6 ? '#fff4a0' : lit > 1 ? '#ffd23a' : lit > -5 ? '#f4b020' : '#d88a14';
-    ctx.fillRect(x, y, 1, 1);
-  }
-  // face
-  ctx.fillStyle = '#5a2a0a';
-  ctx.fillRect(16, 19, 2, 3); ctx.fillRect(23, 19, 2, 3);
-  ctx.fillRect(17, 25, 1, 1); ctx.fillRect(18, 26, 5, 1); ctx.fillRect(23, 25, 1, 1);
-  ctx.fillStyle = '#ff8a8a'; ctx.fillRect(13, 23, 2, 1); ctx.fillRect(26, 23, 2, 1);
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(16, 19, 1, 1); ctx.fillRect(23, 19, 1, 1); ctx.fillRect(19, 9, 1, 2);
 }

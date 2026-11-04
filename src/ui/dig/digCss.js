@@ -21,10 +21,10 @@ export function injectDigCSS() {
 .dg-cname{font-family:var(--font-title);font-size:16px;text-shadow:1px 1px 0 #2a1a14}
 .dg-stage{position:relative}
 .dg-cv{display:block;image-rendering:pixelated;cursor:none;touch-action:none}
-.dg-tip{position:absolute;left:50%;top:-6px;transform:translate(-50%,-100%);font-family:var(--font-title);font-size:16px;color:#2a1a14;background:#fff6e4;border:3px solid #2a1a14;box-shadow:3px 3px 0 #2a1a14;padding:3px 10px 1px;white-space:nowrap;pointer-events:none}
+.dg-tip{position:absolute;left:50%;bottom:4px;transform:translate(-50%,0);z-index:2;font-family:var(--font-title);font-size:16px;color:#2a1a14;background:#fff6e4;border:3px solid #2a1a14;box-shadow:3px 3px 0 #2a1a14;padding:3px 10px 1px;white-space:nowrap;pointer-events:none}
 .dg-tip.bad{background:#ffd8c8;color:#8a1a14}
 .dg-tip.pop{animation:dgPop .3s steps(3)}
-@keyframes dgPop{0%{transform:translate(-50%,-100%) scale(1.25)}100%{transform:translate(-50%,-100%) scale(1)}}
+@keyframes dgPop{0%{transform:translate(-50%,0) scale(1.25)}100%{transform:translate(-50%,0) scale(1)}}
 .dg-tools{display:flex;gap:6px}
 .dg-tool,.dg-leave,.dg-rok{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-title);font-size:17px;color:#2a1a14;background:#e8d4a8;border:3px solid #2a1a14;box-shadow:0 4px 0 #2a1a14;padding:3px 10px 2px;cursor:pointer;position:relative;top:0}
 .dg-tool:hover,.dg-leave:hover,.dg-rok:hover{background:#f6e6c0;top:-1px}
@@ -34,8 +34,8 @@ export function injectDigCSS() {
 .dg-ico{image-rendering:pixelated}
 .dg-leave{background:#c8a890}
 .dg-tape{display:flex;align-items:center;gap:6px;font-family:var(--font-title);font-size:16px;color:#fff6e4;text-shadow:1px 1px 0 #2a1a14}
-.dg-result{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;background:#f4e8c8;border:3px solid #2a1a14;box-shadow:4px 4px 0 #2a1a14;padding:8px 16px 10px;animation:dgCard .35s steps(5) both;max-width:80%}
-@keyframes dgCard{from{transform:translate(-50%,40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.dg-result{position:absolute;display:flex;flex-direction:column;align-items:center;gap:4px;background:#f4e8c8;border:3px solid #2a1a14;box-shadow:4px 4px 0 #2a1a14;padding:8px 16px 10px;animation:dgCard .35s steps(5) both;max-width:46%}
+@keyframes dgCard{from{margin-top:30px;opacity:0}to{margin-top:0;opacity:1}}
 .dg-rtag{font-family:var(--font-title);font-size:14px;color:#fff;background:var(--rc);border:2px solid #2a1a14;padding:1px 8px 0;text-shadow:1px 1px 0 #2a1a14}
 .dg-rname{font-family:var(--font-title);font-size:22px;color:#2a1a14}
 .dg-rstamp{font-family:var(--font-title);font-size:20px;color:var(--sc);border:3px solid var(--sc);padding:0 8px;transform:rotate(-6deg);text-shadow:1px 1px 0 #2a1a14;animation:dgStamp .3s steps(3) .25s both}
