@@ -2,7 +2,10 @@
 them from the seating-room window - painted by hand, then painted again for
 each season on a layer of its own.
 
-    python3 teahouse-assets/generator/season_process.py OUT_DIR [--cache=DIR]
+    python3 teahouse-assets/generator/season_process.py OUT_DIR [--cache=DIR] [--set=weather]
+
+--set=weather paints summer, then the rains, the eclipse and the blood moon
+over it, and writes weather_* instead of seasons_*.
 
 writes seasons_speedpaint.mp4 (the canvas only, like a Procreate timelapse,
 1920x1080 - a 384x216 canvas at 5x - one frame per stroke or dab), seasons_layers.psd (the sketch kept
@@ -38,6 +41,8 @@ from artist_process import Doc, Timelapse, Painter, reveal, rub, grow, silhouett
 import layout as LY                                     # noqa: E402
 
 SEASONS = ('spring', 'summer', 'autumn', 'winter')
+PREFIX = 'seasons'
+SETS = {'seasons': ('spring', 'summer', 'autumn', 'winter'), 'weather': ('summer', 'rain', 'eclipse', 'bloodmoon')}
 VW, VH = LY.SW, LY.SH                                            # the whole outside view
 CAM = LY.WIN_MAIN['x'] + LY.WIN_MAIN['w'] // 2 - LY.SW // 2      # the camera on the seating-room window
 CROP = (124, 0, 508, 216)            # the canvas: the garden round the window, 16:9 (the rest is under the room)
@@ -63,7 +68,7 @@ def _place(frames, fac, off):
 
 def views(cache=None):
     """{season: (pieces [(name, rgba)], final rgba)} for the window view."""
-    path = cache and os.path.join(cache, 'season_views_v1.pkl')
+    path = cache and os.path.join(cache, f'{PREFIX}_views_v1.pkl' if PREFIX != 'seasons' else 'season_views_v1.pkl')
     if path and os.path.exists(path):
         return pickle.load(open(path, 'rb'))
     import season
@@ -108,13 +113,13 @@ def main(out_dir, cache=None):
     x0, y0, x1, y1 = CROP
     V = {s: ([(nm, p[y0:y1, x0:x1].copy()) for nm, p in pcs], fin[y0:y1, x0:x1].copy())
          for s, (pcs, fin) in views(cache).items()}
-    rng = random.Random(77)
+    rng = random.Random(77 if PREFIX == 'seasons' else 91)
     paper = (244, 240, 230)
     doc = Doc(W, H, paper)
-    tl = Timelapse(doc, SCALE, os.path.join(out_dir, 'seasons_speedpaint.mp4'))
+    tl = Timelapse(doc, SCALE, os.path.join(out_dir, f'{PREFIX}_speedpaint.mp4'))
     pn = Painter(doc, tl, 501)
     tl.shot(14)
-    pieces, spring = V['spring']
+    pieces, spring = V[SEASONS[0]]
     P = dict(pieces)
     dk = (72, 58, 66)
     ra = 0.75
@@ -191,7 +196,7 @@ def main(out_dir, cache=None):
         area = int(m.sum())
         if area < 20:
             continue
-        L = doc.add('Spring - ' + NAMES[name], below=Sk)
+        L = doc.add(SEASONS[0].capitalize() + ' - ' + NAMES[name], below=Sk)
         layers[name] = L
         if name in ('06_garden_trees', '07_flowers_close', '05_hills_trees', '02_mountains'):
             ol = outline_of(img, m)
@@ -204,7 +209,7 @@ def main(out_dir, cache=None):
             pn.flip(12)
     tl.shot(16)
     pn.hide(Sk, 4)
-    season_layers = {'spring': [L for L in doc.layers if L['name'].startswith('Spring')]}
+    season_layers = {SEASONS[0]: [L for L in doc.layers if L['name'].startswith(SEASONS[0].capitalize())]}
 
     # 3 the other seasons: only what changes, on a layer of its own
     prev = spring
@@ -234,7 +239,7 @@ def main(out_dir, cache=None):
                     pn.lines(G, fin, ol & region, run=14, frames=max(6, int(math.sqrt(ol.sum()) * 0.7)))
             fr = int(math.sqrt(area) * (0.6 if name in ('00_sky', '03_lake') else 0.95))
             pn.paint(G, fin, region, frames=max(12, fr), tile=28 if area > 30000 else 16, base_src=base_src)
-            if s == 'summer' and name == '01_clouds':                 # a cloud painted, then deleted
+            if s == SEASONS[1] and name == '01_clouds':                 # a cloud painted, then deleted
                 Lx = doc.add('cloud?', below=Sk)
                 cx, cy = rng.randint(80, 300), rng.randint(30, 60)
                 blob = (((xx - cx) / 38.0) ** 2 + ((yy - cy) / 13.0) ** 2 < 1) | \
@@ -255,7 +260,7 @@ def main(out_dir, cache=None):
         prev = fin
 
     # 4 the year goes round: the season layers switched on and off
-    order = ['spring', 'summer', 'autumn', 'winter']
+    order = list(SEASONS)
 
     def show(upto):
         for k, s in enumerate(order[1:], 1):
@@ -271,17 +276,19 @@ def main(out_dir, cache=None):
     show(3)
     tl.shot(int(AP.FPS * 2.5))
     n = tl.close()
-    AP.save_psd(doc, os.path.join(out_dir, 'seasons_layers.psd'), 2)
+    AP.save_psd(doc, os.path.join(out_dir, f'{PREFIX}_layers.psd'), 2)
     for k, s in enumerate(order):
         show(k)
         Image.fromarray(doc.composite()).resize((W * 2, H * 2), Image.NEAREST).save(
-            os.path.join(out_dir, f'seasons_{s}.png'))
+            os.path.join(out_dir, f'{PREFIX}_{s}.png'))
         err = int(np.abs(doc.composite().astype(int) - V[s][1][..., :3].astype(int)).max())
         print(f'  {s}: max diff from the window view {err}')
-    print('seasons: %d frames (%.1f s), %d layers' % (n, n / AP.FPS, len(doc.layers)))
+    print(PREFIX + ': %d frames (%.1f s), %d layers' % (n, n / AP.FPS, len(doc.layers)))
 
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     cache = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--cache=')), None)
+    PREFIX = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--set=')), 'seasons')
+    SEASONS = SETS[PREFIX]
     main(args[0] if args else os.path.join(HERE, '..', 'process'), cache)

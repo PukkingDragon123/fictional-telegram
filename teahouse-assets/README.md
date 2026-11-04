@@ -108,6 +108,10 @@ The gecko's sheet shows it four ways: side on, three-quarters, coming at you and
 
 It writes `seasons_speedpaint.mp4`, `seasons_layers.psd` (with the sketch kept but hidden) and a PNG per season.
 
+`season_process.py OUT_DIR --set=weather` does the same for the weathers: summer is painted first, then the rains, the eclipse and the blood moon each go on a layer of their own (`weather_*`).
+
+`generator/more_process.py OUT_DIR [room puffer spider koi]` makes more speedpaints the same way. `room` is the Copper Sky room: perspective lines, the sketch, the city back to front, then the room, its props and the light. The others are model sheets of the pufferfish blimp, the copper spider and the koi airship, each in two or three poses. Each one ends by playing the finished picture, so it starts to move.
+
 Each piece writes `*_speedpaint.mp4`, a layered `*_layers.psd` and `*_final.png`. The PSD keeps the sketches, hidden, and flattens to the finished art. Pass `--cache=DIR` to keep the room data between runs.
 
 ## The seasons, the rains, the eclipse and the blood moon
