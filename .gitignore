@@ -11,5 +11,3 @@ tools/promo/renders/anim/
 # python bytecode
 __pycache__/
 
-# Copper Sky preview video (rebuilt by cy_build.py)
-teahouse-assets/copper_sky/preview/*.mp4
