@@ -27,12 +27,14 @@ const PW = 300; // paper width (art px)
 const LM = 28; // red margin line
 const CX0 = 34, CX1 = 290; // content columns
 const ROW = 12; // ruled line pitch
-const R0 = 62; // first ruled line under the header (row 0 holds the instructions)
+const R0 = 62; // first ruled line under the header
 const MG = 20; // canvas margin around the paper (tools hang over the edge)
 const INK = '#2c2a36', INK_L = '#5a5866', PAPER = '#f7f1df';
 const GR = ['#3c3c48', '#545462', '#46464f']; // graphite
 const RED = ['#d0262e', '#e0383a', '#b81c24'];
 const ROWY = (r) => R0 + r * ROW; // a ruled line's y; text rows sit on it
+const TFX = [CX1 - 52, CX1 - 34]; // the T / F bubble columns (ticks go to the right of them)
+const SCORE = { x: 212, y: 10, w: 38, h: 16 }, GRADE = { x: 256, y: 10, w: 38, h: 38 }; // header boxes
 
 export const GRADES = ['A+', 'A', 'B', 'C', 'D', 'F'];
 export function gradeFor(pct) { return pct >= 0.999 ? 'A+' : pct >= 0.85 ? 'A' : pct >= 0.7 ? 'B' : pct >= 0.55 ? 'C' : pct >= 0.4 ? 'D' : 'F'; }
@@ -67,15 +69,15 @@ function ringPx(cx, cy, rx, ry, seed = 1) {
   return out;
 }
 function bubbleFillPx(cx, cy, seed = 1) {
-  // a scribbled fill: zig-zags across the 5x5 inside, a stray pixel or two out of the lines
+  // a scribbled fill: zig-zags across the 7x7 inside, a stray pixel or two out of the lines
   const out = [];
-  for (let pass = 0; pass < 2; pass++) for (let y = -2; y <= 2; y++) {
-    const xs = [-2, -1, 0, 1, 2];
-    if ((y + pass) % 2) xs.reverse();
-    for (const x of xs) if (x * x + y * y <= 5) out.push([cx + x, cy + y]);
+  for (let y = -3; y <= 3; y++) {
+    const xs = [-3, -2, -1, 0, 1, 2, 3];
+    if (y % 2) xs.reverse();
+    for (const x of xs) if (x * x + y * y <= 11) out.push([cx + x, cy + y]);
   }
-  if (hash(cx, cy, seed) < 0.6) out.push([cx + 3, cy - 2]);
-  if (hash(cy, cx, seed) < 0.4) out.push([cx - 2, cy + 3]);
+  if (hash(cx, cy, seed) < 0.6) out.push([cx + 4, cy - 3], [cx + 5, cy - 4]);
+  if (hash(cy, cx, seed) < 0.4) out.push([cx - 3, cy + 4]);
   return out;
 }
 /** text -> pixels in writing order (left to right, each column top to bottom) */
@@ -199,7 +201,7 @@ export class TestPaper {
   // ---------------------------------------------------------------- layout (art px, paper space)
   _layout() {
     const T = []; // targets
-    let row = 1;
+    let row = 0;
     const W = CX1 - CX0;
     for (const q of this.qs) {
       q.row0 = row;
@@ -209,7 +211,7 @@ export class TestPaper {
       q.promptRows = lines.length;
       row += lines.length;
       if (q.type === 'choice') {
-        const ws = q.opts.map((t) => 12 + pxMeasure(String(t), 'body'));
+        const ws = q.opts.map((t) => 14 + pxMeasure(String(t), 'body'));
         const inline = ws.reduce((a, b) => a + b + 12, 0) <= W - 14;
         q.optPos = [];
         let x = CX0 + 14;
@@ -217,17 +219,17 @@ export class TestPaper {
           if (!inline && k) { row++; x = CX0 + 14; }
           const y = ROWY(row) - 4;
           q.optPos.push({ x, y, w: ws[k] });
-          T.push({ q, kind: 'bubble', k, r: [x - 2, y - 6, ws[k] + 4, 12], cx: x + 3, cy: y - 1 });
+          T.push({ q, kind: 'bubble', k, r: [x - 3, y - 7, ws[k] + 6, 13], cx: x + 3, cy: y - 2 });
           x += ws[k] + 12;
         });
         row++;
       } else if (q.type === 'tf') {
         q.itemPos = [];
         q.items.forEach((it, k) => {
-          const L = pxWrap(it.s, W - 70, 'body');
+          const L = pxWrap(it.s, TFX[0] - 10 - (CX0 + 26), 'body');
           const y = ROWY(row) - 4;
           q.itemPos.push({ y, lines: L, row });
-          for (const [v, bx] of [[true, CX1 - 40], [false, CX1 - 18]]) T.push({ q, kind: 'tf', k, v, r: [bx - 9, y - 7, 18, 13], cx: bx, cy: y - 1 });
+          for (const [v, bx] of [[true, TFX[0]], [false, TFX[1]]]) T.push({ q, kind: 'tf', k, v, r: [bx - 8, y - 8, 16, 13], cx: bx, cy: y - 2 });
           row += L.length;
         });
       } else if (q.type === 'label') {
@@ -272,7 +274,7 @@ export class TestPaper {
     }
     row -= 1;
     this.rows = row;
-    this.PH = ROWY(row) + 22;
+    this.PH = ROWY(row) + 16;
     this.CW = PW + MG * 2; this.CH = this.PH + MG * 2;
     this.targets = T;
     this.qs.forEach((q, i) => { q.num = i + 1; });
@@ -340,21 +342,23 @@ export class TestPaper {
     x.drawImage(t2.c, MG + CX0 + 22 + hd.w, MG + 7);
     const title = `Class ${this.meta.classNo || 1}: ${this.meta.title || 'Pond Life'}`;
     T(title, CX0, 21, 'bold');
-    // score box (Reynard fills it in)
-    const sx = PW - 82, sy = 8;
-    T('SCORE', sx + 1, sy - 3, 'tiny', INK_L);
-    for (let xx = sx; xx < sx + 44; xx++) { P(xx, sy + 6, INK); P(xx, sy + 22, INK); }
-    for (let yy = sy + 6; yy <= sy + 22; yy++) { P(sx, yy, INK); P(sx + 43, yy, INK); }
-    this.scoreBox = { x: sx, y: sy + 6, w: 44, h: 17 };
-    T(`/${this.total()}`, sx + 26, sy + 9, 'bold', INK_L);
+    // the score box and the grade box (Reynard fills them in)
+    T('SCORE', SCORE.x + 1, SCORE.y - 8, 'tiny', INK_L);
+    T('GRADE', GRADE.x + 1, GRADE.y - 8, 'tiny', INK_L);
+    for (const B of [SCORE, GRADE]) {
+      for (let xx = B.x; xx < B.x + B.w; xx++) { P(xx, B.y, INK); P(xx, B.y + B.h, INK); }
+      for (let yy = B.y; yy <= B.y + B.h; yy++) { P(B.x, yy, INK); P(B.x + B.w - 1, yy, INK); }
+    }
+    for (let xx = GRADE.x + 2; xx < GRADE.x + GRADE.w - 2; xx++) for (let yy = GRADE.y + 2; yy < GRADE.y + GRADE.h - 1; yy++) if ((xx + yy) % 4 === 0) P(xx, yy, '#ece4cc');
+    this.scoreBox = { x: SCORE.x, y: SCORE.y, w: SCORE.w, h: SCORE.h };
+    T(`/${this.total()}`, SCORE.x + 22, SCORE.y + 4, 'bold', INK_L);
     // Name / Date lines (filled in pencil by _preWrite)
     T('Name:', CX0, 33);
-    for (let xx = CX0 + 28; xx < CX0 + 120; xx++) P(xx, 43, INK_L);
-    T('Date:', CX0 + 130, 33);
-    for (let xx = CX0 + 158; xx < CX0 + 214; xx++) P(xx, 43, INK_L);
+    for (let xx = CX0 + 28; xx < CX0 + 100; xx++) P(xx, 43, INK_L);
+    T('Date:', CX0 + 106, 33);
+    for (let xx = CX0 + 134; xx < CX0 + 172; xx++) P(xx, 43, INK_L);
     // a heavy printed rule under the header
-    for (let xx = 4; xx < PW - 4; xx++) { P(xx, 48, INK); if (xx % 2 === 0) P(xx, 50, INK_L); }
-    T('Answer every question. Pencil only. No eating the paper.', CX0, ROWY(0) - 7, 'tiny', INK_L);
+    for (let xx = 4; xx < GRADE.x - 4; xx++) { P(xx, 49, INK); if (xx % 2 === 0) P(xx, 51, INK_L); }
     // ---- the questions
     for (const q of this.qs) {
       const y0 = ROWY(q.row0) - 9;
@@ -362,13 +366,14 @@ export class TestPaper {
       q.lines.forEach((L, k) => T(L, CX0 + 14, ROWY(q.row0 + k) - 9));
       const pts = `(${q.pts} pt${q.pts > 1 ? 's' : ''})`;
       const lastW = pxMeasure(q.lines[q.lines.length - 1] || '', 'body');
-      if (CX0 + 14 + lastW + 8 + pxMeasure(pts, 'tiny') < CX1) T(pts, CX1 - pxMeasure(pts, 'tiny'), ROWY(q.row0 + q.lines.length - 1) - 7, 'tiny', INK_L);
-      if (q.type === 'choice') q.opts.forEach((o, k) => { const p = q.optPos[k]; this._bubble(x, p.x + 3, p.y - 1, 'ABCDEFG'[k]); T(String(o), p.x + 10, p.y - 5); });
+      q.promptEnd = CX0 + 14 + lastW;
+      if (q.promptEnd + 6 + pxMeasure(pts, 'tiny') < CX1) { T(pts, q.promptEnd + 6, ROWY(q.row0 + q.lines.length - 1) - 7, 'tiny', INK_L); q.promptEnd += 8 + pxMeasure(pts, 'tiny'); }
+      if (q.type === 'choice') q.opts.forEach((o, k) => { const p = q.optPos[k]; this._bubble(x, p.x + 3, p.y - 2, 'ABCDEFG'[k]); T(String(o), p.x + 11, p.y - 5); });
       if (q.type === 'tf') q.items.forEach((it, k) => {
         const p = q.itemPos[k];
         T(`${'abcdef'[k]})`, CX0 + 14, p.y - 5, 'body', INK_L);
         p.lines.forEach((L, j) => T(L, CX0 + 26, ROWY(p.row + j) - 9));
-        this._bubble(x, CX1 - 40, p.y - 1, 'T'); this._bubble(x, CX1 - 18, p.y - 1, 'F');
+        this._bubble(x, TFX[0], p.y - 2, 'T'); this._bubble(x, TFX[1], p.y - 2, 'F');
       });
       if (q.type === 'label') {
         const D = DIAGRAMS[q.art];
@@ -409,11 +414,12 @@ export class TestPaper {
     this.out = canvas(this.CW, this.CH);
   }
   _bubble(x, cx, cy, letter) {
-    const pts = [[-1, -3], [0, -3], [1, -3], [2, -2], [3, -1], [3, 0], [3, 1], [2, 2], [1, 3], [0, 3], [-1, 3], [-2, 2], [-3, 1], [-3, 0], [-3, -1], [-2, -2]];
+    // a 9x9 answer bubble with the letter printed faintly inside
+    const pts = [[-2, -4], [-1, -4], [0, -4], [1, -4], [2, -4], [3, -3], [4, -2], [4, -1], [4, 0], [4, 1], [4, 2], [3, 3], [2, 4], [1, 4], [0, 4], [-1, 4], [-2, 4], [-3, 3], [-4, 2], [-4, 1], [-4, 0], [-4, -1], [-4, -2], [-3, -3]];
+    x.fillStyle = '#fffdf6'; x.fillRect(MG + cx - 3, MG + cy - 3, 7, 7);
     x.fillStyle = INK;
     for (const [dx, dy] of pts) x.fillRect(MG + cx + dx, MG + cy + dy, 1, 1);
-    x.fillStyle = '#fffdf6'; x.fillRect(MG + cx - 2, MG + cy - 2, 5, 5); x.fillRect(MG + cx - 1, MG + cy - 3 + 1, 3, 5);
-    const t = textCanvas(letter, 'tiny', '#9a98a6');
+    const t = textCanvas(letter, 'tiny', '#a8a6b4');
     x.drawImage(t.c, MG + cx - 1, MG + cy - 4);
   }
   _dot(x, cx, cy) { x.fillStyle = INK; x.fillRect(MG + cx - 1, MG + cy - 1, 3, 3); x.fillStyle = '#fffdf6'; x.fillRect(MG + cx, MG + cy, 1, 1); }
@@ -529,7 +535,9 @@ export class TestPaper {
       this.tool.writing = m; this.tool.kind = tool; this.tool.vis = 1;
     }
     this.inkDirty = true; this.dirty = true;
-    return new Promise((res, rej) => { if (instant) res(); else { m.res = res; this.waits.push({ rej }); } });
+    const pr = new Promise((res, rej) => { if (instant) res(); else { m.res = res; this.waits.push({ rej }); } });
+    pr.catch(() => {}); // a mark nobody waits for must not throw when the test is aborted
+    return pr;
   }
   _erase(key) {
     const m = this.marks.get(key);
@@ -544,7 +552,7 @@ export class TestPaper {
   _preWrite() {
     const name = this.meta.name || 'Partner';
     this._mark('name', textPx(name, 'script', CX0 + 32, 30).px, { instant: true });
-    this._mark('date', textPx(`Day ${this.meta.day || 1}`, 'script', CX0 + 162, 30).px, { instant: true });
+    this._mark('date', textPx(`Day ${this.meta.day || 1}`, 'script', CX0 + 138, 30).px, { instant: true });
   }
 
   // ---------------------------------------------------------------- answering
@@ -745,7 +753,7 @@ export class TestPaper {
     this.sfx('paper', { volume: 0.55, pitch: 0.9 });
     this._grade().catch(() => {});
   }
-  _wait(sec) { return new Promise((res, rej) => { this.waits.push({ t: sec, res, rej }); }); }
+  _wait(sec) { const pr = new Promise((res, rej) => { this.waits.push({ t: sec, res, rej }); }); pr.catch(() => {}); return pr; }
   _penTo(x, y, dur = 0.18) {
     const tl = this.tool;
     tl.kind = 'pen'; tl.vis = 1;
@@ -760,34 +768,39 @@ export class TestPaper {
     };
     let score = 0;
     const red = (key, px) => { this.sfx('pen', { volume: 0.32, pitch: 0.9 + Math.random() * 0.25 }); return this._mark(key, px, { tool: 'pen', cols: RED }); };
-    const verdict = async (x, y, ok, key) => {
+    const verdict = async (x, y, ok, key, big = false) => {
       await this._penTo(x + 2, y, 0.14);
-      await red(key, ok ? tickPx(x, y) : crossPx(x, y));
+      await red(key, ok ? tickPx(x, y, big ? 1.2 : 1) : crossPx(x, y, big ? 1.2 : 1));
     };
-    const note = async (text, x, y, key) => {
-      if (!text) return;
-      const maxX = PW - 6;
-      let t = textPx(text, 'script', x, y);
-      if (x + t.w > maxX) t = textPx(text, 'script', Math.max(CX0, maxX - t.w), y);
-      await this._penTo(t.px[0]?.[0] ?? x, y + 4, 0.16);
-      await red(key, t.px);
+    const strike = (key, x0, x1, y) => red(key, linePx(x0, y, x1, y - 1, { wob: 0.6, seed: x0 }));
+    // the teacher's notes: the first goes on the question's prompt line, the rest in the blank line under it
+    const notes = (q) => (q.notes ||= []);
+    const writeNotes = async (q) => {
+      const N = notes(q);
+      for (let k = 0; k < N.length; k++) {
+        const text = N[k];
+        let x, y;
+        const t0 = textPx(text, 'script', 0, 0);
+        if (k === 0 && q.promptEnd + 8 + t0.w <= (q.i === 0 ? GRADE.x - 4 : PW - 6)) { x = q.promptEnd + 8; y = ROWY(q.row0 + q.lines.length - 1) - 12; }
+        else { x = CX0 + 14 + (k > 1 ? 110 : 0); y = ROWY(q.row1) - 11; }
+        const t = textPx(text, 'script', x, y);
+        await this._penTo(t.px[0]?.[0] ?? x, y + 4, 0.16);
+        await red(`g${q.i}:n${k}`, t.px);
+      }
     };
     this.say(['Let\'s see what we have here...', 'Red pen time.', 'Hmm hm hm...'][Math.floor(Math.random() * 3)], 'think');
     await this._wait(0.6);
     for (const q of this.qs) {
-      const y0 = ROWY(q.row0) - 4;
+      const y0 = ROWY(q.row0) - 5;
       if (q.type === 'choice') {
         const ok = q.ans === q.a;
         if (ok) score++;
-        await verdict(4, y0, ok, `g${q.i}`);
+        await verdict(4, y0, ok, `g${q.i}`, true);
         if (!ok) {
           const p = q.optPos[q.a];
-          await this._penTo(p.x + 3, p.y - 1, 0.14);
-          await red(`g${q.i}:c`, ringPx(p.x + 3, p.y - 1, 6, 5, q.i));
-          const lineEnd = CX0 + 14 + pxMeasure(q.lines[q.lines.length - 1], 'body');
-          const txt = comment(q, 0) || String(q.opts[q.a]);
-          const yN = ROWY(q.row0 + q.lines.length - 1) - 12;
-          await note(txt, Math.max(lineEnd + 8, CX1 - 120), yN, `g${q.i}:n`);
+          await this._penTo(p.x + 3, p.y - 2, 0.14);
+          await red(`g${q.i}:c`, ringPx(p.x + 3, p.y - 2, 7, 6, q.i));
+          notes(q).push(comment(q, 0) || String(q.opts[q.a]));
         }
       } else if (q.type === 'tf') {
         let all = true;
@@ -795,24 +808,29 @@ export class TestPaper {
           const it = q.items[k], ok = q.ans[k] === it.a;
           if (ok) score++; else all = false;
           const y = q.itemPos[k].y;
-          await verdict(CX1 - 10, y - 1, ok, `g${q.i}:${k}`);
+          await verdict(CX1 - 20, y - 2, ok, `g${q.i}:${k}`);
           if (!ok) {
-            const bx = it.a ? CX1 - 40 : CX1 - 18;
-            await red(`g${q.i}:${k}:c`, ringPx(bx, y - 1, 6, 5, k));
+            await red(`g${q.i}:${k}:c`, ringPx(TFX[it.a ? 0 : 1], y - 2, 6, 6, k));
             const why = comment(q, k);
-            if (why) await note(why, CX0 + 26 + pxMeasure(q.itemPos[k].lines[0], 'body') + 6, y - 9, `g${q.i}:${k}:n`);
+            notes(q).push(`${'abcdef'[k]}) ${why || (it.a ? 'True!' : 'False!')}`);
           }
         }
-        await verdict(4, y0, all, `g${q.i}`);
+        await verdict(4, y0, all, `g${q.i}`, true);
       } else if (q.type === 'label') {
         let all = true;
         for (let k = 0; k < q.slots.length; k++) {
           const ok = q.ans[k] === k, s = q.slotPos[k];
           if (ok) score++; else all = false;
           await verdict(s.x + s.w + 2, s.y + 4, ok, `g${q.i}:${k}`);
-          if (!ok) await note(q.words[k], s.x + 2, s.y + 10, `g${q.i}:${k}:n`);
+          if (!ok) {
+            if (q.ans[k] != null) await strike(`g${q.i}:${k}:s`, s.x + 3, s.x + s.w - 4, s.y + 6);
+            const t = textPx(q.words[k], 'script', 0, 0);
+            const ty = s.y < q.diag.y + 20 ? s.y + 11 : s.y - 11;
+            await this._penTo(s.x + 4, ty + 4, 0.14);
+            await red(`g${q.i}:${k}:n`, t.px.map(([xx, yy]) => [xx + s.x + Math.max(2, Math.round((s.w - t.w) / 2)), yy + ty]));
+          }
         }
-        await verdict(4, y0, all, `g${q.i}`);
+        await verdict(4, y0, all, `g${q.i}`, true);
       } else if (q.type === 'match') {
         let all = true;
         for (let k = 0; k < q.pairs.length; k++) {
@@ -820,24 +838,30 @@ export class TestPaper {
           if (ok) score++; else all = false;
           const y = ROWY(q.mRow + k) - 5;
           const rx = q.mPos.rx + pxMeasure(q.pairs[q.right[k]][1], 'body') + 6;
-          await verdict(Math.min(CX1 - 10, rx), y, ok, `g${q.i}:${k}`);
+          await verdict(Math.min(CX1 - 12, rx), y, ok, `g${q.i}:${k}`);
           if (!ok) {
             const ry = ROWY(q.mRow + q.right.indexOf(k)) - 5;
-            const L = linePx(q.mPos.ldot + 2, y, q.mPos.rdot - 2, ry, { sag: -2 });
-            await red(`g${q.i}:${k}:l`, L.filter((_, j) => j % 4 < 2)); // a dashed red line: the right partner
+            const L = linePx(q.mPos.ldot + 2, y + 1, q.mPos.rdot - 2, ry + 1, { sag: -2 });
+            await red(`g${q.i}:${k}:l`, L.filter((_, j) => j % 4 < 2)); // a dashed red line to the right partner
           }
         }
-        await verdict(4, y0, all, `g${q.i}`);
+        await verdict(4, y0, all, `g${q.i}`, true);
       } else if (q.type === 'order') {
         const ok = q.ans.length === q.steps.length && q.ans.every((si, j) => si === j);
         if (ok) score++;
-        await verdict(4, y0, ok, `g${q.i}`);
+        await verdict(4, y0, ok, `g${q.i}`, true);
         if (!ok) {
-          for (const o of q.oPos) await red(`g${q.i}:o${o.si}`, textPx(String(o.si + 1), 'tiny', o.x + o.w - 6, o.y - 8).px);
-          await note(comment(q, 0) || q.steps.join(' > '), CX0 + 14, ROWY(q.row1 - 1) + 3, `g${q.i}:n`);
+          for (const o of q.oPos) {
+            const was = q.ans.indexOf(o.si);
+            if (was === o.si) continue;
+            if (was >= 0) await strike(`g${q.i}:o${o.si}:s`, o.x + 1, o.x + 10, o.y - 3);
+            await red(`g${q.i}:o${o.si}`, textPx(String(o.si + 1), 'script', o.x + 2, o.y + 3).px);
+          }
+          notes(q).push(comment(q, 0) || q.steps.join(', '));
         }
       }
-      await this._wait(0.12);
+      await writeNotes(q);
+      await this._wait(0.1);
     }
     const total = this.total();
     const pct = total ? score / total : 1;
@@ -845,22 +869,22 @@ export class TestPaper {
     this.result = { score, total, pct, grade };
     // the score, circled
     const sb = this.scoreBox;
-    const st = textPx(String(score), 'script', sb.x + 6, sb.y - 2);
+    const st = textPx(String(score), 'script', sb.x + 4, sb.y + 1);
     await this._penTo(sb.x + 8, sb.y + 6, 0.25);
     await red('score', st.px);
-    await red('score:c', ringPx(sb.x + 21, sb.y + 8, 21, 10, 5));
+    await red('score:c', ringPx(sb.x + 19, sb.y + 8, 21, 11, 5));
     await this._wait(0.25);
     // the stamp
     this.tool.goal = [PW + 30, -20]; this.tool.from = [this.tool.x, this.tool.y]; this.tool.gt = 0; this.tool.gd = 0.3;
     this.stampArt = gradeStamp(grade, { rot: -0.22 });
-    this.stamp = { t: 0, x: PW - 118, y: 4 };
+    this.stamp = { t: 0, x: GRADE.x + GRADE.w / 2 - this.stampArt.width / 2, y: GRADE.y + GRADE.h / 2 - this.stampArt.height / 2 };
     this.say(grade === 'A+' ? 'A PLUS!' : grade === 'A' ? 'An A!' : grade === 'F' ? 'Oh dear.' : `${grade}.`, grade.startsWith('A') ? 'excited' : grade === 'F' ? 'sad' : 'happy');
     await this._wait(0.42);
     this.sfx('stamp', { volume: 0.75 }); this.sfx('class_stamp', { volume: 0.55 });
     this.shake = 0.35;
     await this._wait(0.5);
     if (grade.startsWith('A')) {
-      this.sticker = { t: 0, x: PW - 140, y: 30, art: starSticker(12) };
+      this.sticker = { t: 0, x: GRADE.x - 30, y: 20, art: starSticker(12) };
       this.sfx('sticker', { volume: 0.6 }); this.sfx('class_star', { volume: 0.5 });
       await this._wait(0.55);
     }

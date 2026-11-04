@@ -12,6 +12,7 @@
 //   makeDisplayCase()    glass case, 3 shelves x 3 slots (userData.slots: local positions)
 //   makeSiteMound(kind)  a fossil site in the world: kind 'fresh' | 'dug' (userData.flag: the flag pivot)
 //   makeFindMini(id)     a tiny model of a find (display shelves, the lab)
+//   makeRibcage()        a giant half-buried skeleton: ribs arching out of the slope, a spine, a skull
 import * as THREE from 'three';
 import { VS, FV, VoxelModel, rbox, ell, tone, hash3, buildGeo, matFor, grainMaterial, sin, cos, abs, PI, TAU, clamp, lerp } from './critterKit.js';
 import { FIND_BY_ID } from '../data/digFinds.js';
@@ -589,5 +590,58 @@ export function makeFindMini(id) {
   const root = new THREE.Group();
   root.add(m);
   root.name = 'Find:' + F.id;
+  return root;
+}
+
+// ================================================================== a giant, half buried
+function ribsModel() {
+  const v = new VoxelModel();
+  const bone = (x, y, z, k = 0) => { const h = hash3(x, y, z); return h < 0.08 ? P.boneD : k > 0.6 ? P.boneL : h > 0.9 ? P.boneL : P.bone; };
+  // the spine: a row of knobbly vertebrae just breaking the ground
+  for (let x = -44; x <= 40; x += 4) {
+    const y = 1 + Math.round(Math.sin((x + 44) * 0.05) * 1.5);
+    for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) for (let dz = -2; dz <= 1; dz++) v.set(x + dx, y + dy, dz, bone(x + dx, dy, dz, dy / 3));
+    v.set(x + 1, y + 3, 0, P.boneL).set(x + 1, y + 4, -1, P.bone); // the spinous process
+  }
+  // the ribs: tall curved arcs, both sides, shrinking toward the tail; one snapped
+  for (let k = 0; k < 7; k++) {
+    const x0 = -30 + k * 9, H = 34 - k * 3.4, W = 15 - k * 1.1;
+    for (const side of [1, -1]) {
+      if (k === 4 && side < 0) continue; // a missing one
+      const broken = k === 2 && side > 0;
+      for (let q = 0; q <= 1.0001; q += 0.025) {
+        if (broken && q > 0.62) break;
+        const a = q * Math.PI * 0.62;
+        const y = Math.round(Math.sin(a) * H) + 2, z = Math.round((1 - Math.cos(a)) * W * side * 0.55) + (side > 0 ? 1 : -2);
+        const x = x0 - Math.round(q * 4);
+        for (let t = 0; t < 2; t++) v.set(x + t, y, z, bone(x, y, z, t ? 0.7 : 0));
+        if (q < 0.15) v.set(x, y, z + side, P.bone);
+      }
+      if (broken) { const y = Math.round(Math.sin(0.62 * Math.PI * 0.62) * H) + 2; v.set(x0 - 3, y + 1, 6, P.boneL).set(x0 - 2, y + 2, 6, P.boneD); }
+    }
+  }
+  // the skull, nose down in the dirt at the front: a long jaw with a row of teeth, one empty eye
+  for (let x = 42; x <= 62; x++) for (let y = 0; y <= 12; y++) for (let z = -6; z <= 5; z++) {
+    const u = (x - 42) / 20;
+    const hh = 12 * (1 - u * 0.65), hw = 6 * (1 - u * 0.45);
+    if (y > hh || Math.abs(z + 0.5) > hw * Math.sqrt(1 - (y / (hh + 0.01)) ** 2)) continue;
+    v.set(x, y, z, bone(x, y, z, y / 12));
+  }
+  for (let x = 50; x <= 55; x++) for (let y = 6; y <= 9; y++) if (Math.hypot(x - 52.5, y - 7.5) < 2.2) for (let z = 3; z <= 6; z++) v.set(x, y, z, null);
+  for (let x = 51; x <= 54; x++) for (let y = 6; y <= 9; y++) if (Math.hypot(x - 52.5, y - 7.5) < 1.8) v.set(x, y, 2, 0x2a1e14);
+  for (let x = 46; x <= 62; x += 2) { v.set(x, 1, 5, P.boneL); v.set(x, 0, 5, P.boneL); } // teeth along the jaw
+  // dirt heaped round the bones (they're coming out of the ground, not lying on it)
+  for (let x = -50; x <= 66; x++) for (let z = -16; z <= 14; z++) {
+    const d = Math.abs(z + 0.5) / (8 + vn(x * 0.11, 98) * 6);
+    if (d > 1) continue;
+    const h = Math.round((1 - d) * (2.5 + vn(x * 0.07 + z * 0.1, 99) * 2.5));
+    for (let y = 0; y < h; y++) if (!v.has(x, y, z)) v.set(x, y, z, y === h - 1 ? (nz(x, z, 100) < 0.1 ? P.stone : tone(x, y, z, P.soilL, P.soil, P.sand, 0.2, 0.15)) : P.soil);
+  }
+  return v;
+}
+export function makeRibcage() {
+  const root = new THREE.Group();
+  root.name = 'DigRibs';
+  root.add(lit(memo('ribs', ribsModel)));
   return root;
 }

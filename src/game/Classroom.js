@@ -7,7 +7,7 @@
 // shots in src/game/classroom/shots.js). Reynard SPEAKS his lines (src/audio/voiceLines.js; babble
 // when speech is off or x3 is on). Every class ends with a TEST PAPER (src/ui/testpaper/TestPaper.js):
 // answered with a pencil, graded live with a red pen, stamped A+ to F; grades go to
-// game.state.grades and a first A pays a few coins.
+// game.state.classGrades ({ [classId]: { grade, best, score, total, tries, day } }) and a first A pays a few coins.
 //
 //   const cls = new Classroom(game);
 //   await cls.lesson('pondlife');          // any id in LESSONS (src/game/lessonsCombined.js, src/game/lessons/classes.js)
@@ -300,7 +300,7 @@ Object.assign(LESSONS, COMBINED_LESSONS); // [v32 class]
 export const LESSON_IDS = Object.keys(LESSONS);
 
 /** [v32 class] the best grade the player has on a class, or null */
-export function classGrade(game, id) { return game?.state?.grades?.[id]?.best || null; }
+export function classGrade(game, id) { return game?.state?.classGrades?.[id]?.best || null; }
 
 // portrait sprite for a rig expression
 const PORTRAIT = { smug: 'smug', greedy: 'greedy', shocked: 'shocked', laugh: 'laugh', wink: 'wink', angry: 'angry', worried: 'worried', sleepy: 'sleepy',
@@ -686,7 +686,9 @@ export class Classroom {
   _recordGrade(res) {
     const game = this.game, st = game.state;
     if (!st) return { coins: 0 };
-    const all = (st.grades ||= {});
+    // (state.grades is already the daily report card's list, so classes keep their own book)
+    if (!st.classGrades || typeof st.classGrades !== 'object' || Array.isArray(st.classGrades)) st.classGrades = {};
+    const all = st.classGrades;
     const key = this._lessonKey || 'class';
     const prev = all[key];
     const rank = (x) => (GRADES.indexOf(x) < 0 ? 99 : GRADES.indexOf(x));
@@ -877,7 +879,7 @@ export class Classroom {
     if (!shot || (shot === this._camA && !instant)) return;
     const prev = this._camKey;
     this._camA = shot; this._camKey = key;
-    const SOFT = { board: ['teacher', 'boardClose'], teacher: ['board', 'boardClose'], boardClose: ['board', 'teacher'], demo: ['demoClose', 'demoTop'], demoClose: ['demo', 'demoTop'], demoTop: ['demo', 'demoClose'] };
+    const SOFT = { board: ['teacher', 'boardClose'], teacher: ['board', 'boardClose'], boardClose: ['board', 'teacher'], demo: ['demoClose', 'demoTop', 'demoHead'], demoClose: ['demo', 'demoTop', 'demoHead'], demoTop: ['demo', 'demoClose', 'demoHead'], demoHead: ['demo', 'demoClose', 'demoTop'] };
     if (!instant && prev && SOFT[prev]?.includes(key)) this.rig.move(shot, 0.9, 'inout');
     else this.rig.cut(shot);
   }

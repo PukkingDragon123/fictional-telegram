@@ -308,7 +308,7 @@ class Lessons {
     if (g.state.tutorialDone) for (const [id, title] of DAY1_CLASSES) if (CLASS_BOOK[id]) out.push({ id: 'class:' + id, title, kind: 'class' });
     for (const id of CLASS_ORDER) if (S.classes.includes(id) && CLASS_BOOK[id]) out.push({ id: 'class:' + id, title: CLASS_BOOK[id].title, kind: 'class', fresh: !S.played.includes(id) });
     for (const L of LESSONS) if (S.seen.includes(L.id)) out.push({ id: 'lesson:' + L.id, title: L.title, kind: 'lesson', icon: L.icon });
-    for (const o of out) { const gr = o.kind === 'class' && g.state.grades?.[o.id.slice(6)]?.best; if (gr) o.title += '  ' + gr; } // [v32 class] the best test grade
+    for (const o of out) { const gr = o.kind === 'class' && g.state.classGrades?.[o.id.slice(6)]?.best; if (gr) o.title += '  ' + gr; } // [v32 class] the best test grade
     return out;
   }
   sync() {

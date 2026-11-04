@@ -12,7 +12,8 @@
 export const BONEBED = {
   cx: 95, cz: 138.2, r: 9,
   npc: { x: 95.6, z: 139.7 },
-  bluff: { x: 95.2, z: 135.15 }, // the strata face (front at z ~136.3)
+  bluff: { x: 95.2, z: 136.3 }, // the strata face (front at z ~137.4)
+  ribs: { x: 99.4, z: 137.9 }, // a giant skeleton coming out of the slope
   hut: { x: 90.3, z: 139.9 }, // Snapp's lab hut (door on its front)
   tent: { x: 100.7, z: 139.6 },
   case: { x: 92.65, z: 140.5 }, // the glass display case by the hut

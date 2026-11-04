@@ -20,7 +20,9 @@ function rewardText(game, R) {
   try { return game.quests?.rewardText?.(R) || ''; } catch { return ''; }
 }
 
+let G = null;
 function play(game, t) {
+  G = game;
   const R = t.reward;
   switch (t.kind) {
     case 'new':
@@ -73,8 +75,11 @@ function play(game, t) {
   }
 }
 
-// lines centred under each other near the top of the screen
+// lines centred under each other near the top of the screen, always on their pixel panel: the lines
+// are held together and leave together, and the panel only goes once the last letter has left, so
+// news never floats loose over the world. A cutscene starting mid-toast clears it at once.
 async function centred(lines, ms, y = 0.13) {
+  const game = G;
   const { W, H } = floatSize();
   const L = lines.filter((x) => x && x.text);
   let top = Math.round(H * y);
@@ -84,14 +89,20 @@ async function centred(lines, ms, y = 0.13) {
     const maxW = Math.min(280, W - 24);
     const look = { font: l.font || 'body', k, ...(l.fill ? { fill: l.fill } : {}), maxW };
     const yy = top;
-    const h = floatAt({ text: l.text, style: l.style || 'say', k, ms: ms - (l.delay || 0) * 1000, delay: l.delay || 0, look, fixed: (it) => [Math.round(W / 2 - it.W / 2), yy] });
+    const h = floatAt({ text: l.text, style: l.style || 'say', k, hold: true, delay: l.delay || 0, look, fixed: (it) => [Math.round(W / 2 - it.W / 2), yy] });
     hs.push(h);
     top += h.height + 3;
   }
   // [v31 dialogue] the news sits on a pixel panel, never as loose words on the world
   const top0 = Math.round(H * y), boxW = Math.max(...hs.map((h) => h.width || 0)) + 22, boxH = top - top0 + 10;
   const off = noticePanel(() => ({ x: Math.round(W / 2 - boxW / 2), y: top0 - 8, w: boxW, h: boxH }));
-  await Promise.race([Promise.all(hs.map((h) => h.done)), wait(ms / 1000 + 1.6)]);
+  const cine = () => !!(game?.director?.active || game?.cutscene?.active);
+  const until = async (p, s) => { let end = false; p.then(() => { end = true; }); for (let t = 0; t < s && !end && !cine(); t += 0.1) await wait(0.1); };
+  const chars = L.reduce((n, l) => n + String(l.text).length, 0);
+  await until(Promise.all(hs.map((h) => h.typed)), 2 + chars / 20);
+  if (!cine()) await until(new Promise(() => {}), ms / 1000);
+  for (const h of hs) h.dismiss();
+  await Promise.race([Promise.all(hs.map((h) => h.done)), wait(1.5)]);
   off();
 }
 

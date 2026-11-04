@@ -46,9 +46,9 @@ function mats() {
     lit: new THREE.MeshLambertMaterial({ vertexColors: true }),
     glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
     water: new THREE.MeshLambertMaterial({ color: 0x3a9ad0, transparent: true, opacity: 0.62, depthWrite: false, emissive: 0x0a3a5a, emissiveIntensity: 0.6 }),
-    tankWater: new THREE.MeshBasicMaterial({ color: 0x5ac0e8, transparent: true, opacity: 0.16, depthWrite: false }),
-    tankTop: new THREE.MeshBasicMaterial({ color: 0xaaf0ff, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide }),
-    glass: new THREE.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.07, depthWrite: false }),
+    tankWater: new THREE.MeshBasicMaterial({ color: 0x5ac0e8, transparent: true, opacity: 0.1, depthWrite: false }),
+    tankTop: new THREE.MeshBasicMaterial({ color: 0xaaf0ff, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }),
+    glass: new THREE.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.045, depthWrite: false }),
     fall: new THREE.MeshBasicMaterial({ color: 0xd8f6ff, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }),
     ink: new THREE.LineBasicMaterial({ color: 0x2a1a10 }),
   };
@@ -133,13 +133,13 @@ function fishModel(spId, { male = true, L = 18, H = 12, W = 5, golden = false } 
   const side = male ? c.side : mix(c.side, 0xc8d0b0, 0.35);
   return {
     L, H, W, shape: 'round', back: male ? c.back : mix(c.back, 0x8a9a70, 0.3), side, belly: male ? 0xf0862a : mix(c.belly, 0xf4e0b0, 0.5), fin: c.fin,
-    pattern: [{ type: 'bars', from: 0.2, to: 0.78, count: 5, color: shade(side, 0.82) }, { type: 'patch', at: 0.74, y: 0.2, color: c.accent || 0x16223a }],
+    pattern: [{ type: 'bars', from: 0.18, to: 0.72, count: 5, color: shade(side, 0.7) }, { type: 'patch', at: 0.72, y: 0.25, color: c.accent || 0x16223a }],
     dorsal: 'long', tail: 'fork', cheek: male ? 0x2a4a9a : null, eye: 0x101418, golden,
   };
 }
 function wiggleMat(k, { xray = false } = {}) {
   const u = { uPhase: { value: 0 }, uAmp: { value: 0 }, uK: { value: k } };
-  const m = new THREE.MeshLambertMaterial(xray ? { vertexColors: true, transparent: true, opacity: 0.26, depthWrite: false } : { vertexColors: true });
+  const m = new THREE.MeshLambertMaterial(xray ? { vertexColors: true, transparent: true, opacity: 0.34, depthWrite: false, emissive: 0x18243a } : { vertexColors: true, emissive: 0x141c24 });
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
     sh.vertexShader = sh.vertexShader
@@ -152,8 +152,9 @@ function wiggleMat(k, { xray = false } = {}) {
 }
 class DemoFish {
   /** a voxel fish facing +x, centred; scale = world units per fish voxel */
-  constructor(model, scale, { xray = false } = {}) {
+  constructor(model, scale, { xray = false, edit = null } = {}) {
     const vm = fishVoxels(model, !!model.golden);
+    edit?.(vm);
     const cx = (vm.minX + vm.maxX + 1) / 2;
     this.vm = vm; this.cx = cx; this.scale = scale;
     const geo = vm.build({ pivot: [cx, 0.5, 0.5], scale });
@@ -328,15 +329,16 @@ function buildAquarium(g, { nest = false, deco = true } = {}) {
     }
     R.set(cx, G + 6, cz + 2, 0x2a2a30);
   }
-  // thermometer stuck on the right glass, inside (red alcohol column is a separate mesh)
-  for (let y = G + 2; y <= G + 17; y++) { R.set(X1, y, Z1 - 2, 0xf4f4f0); if (y % 3 === 0) R.set(X1, y, Z1 - 3, 0x3a3a40); }
-  R.set(X1, G + 1, Z1 - 2, 0xd8302a); R.set(X1, G + 2, Z1 - 2, 0xe8443a);
+  // a thermometer stuck inside the front glass, left corner (the red column is a separate mesh)
+  const TX = X0 + 1, TZ = Z1;
+  for (let y = G + 2; y <= G + 17; y++) { R.set(TX, y, TZ, 0xf4f4f0); if (y % 3 === 0) R.set(TX + 1, y, TZ, 0x3a3a40); }
+  R.set(TX, G + 1, TZ, 0xd8302a); R.set(TX, G + 2, TZ, 0xe8443a);
   // glass glints (bright hand-placed streaks on the front pane, in front of the water)
   for (let i = 0; i < 6; i++) { GLO.set(X0 + 3 + i, H - 2 - i, Z1 + 1, 0xffffff); GLO.set(X0 + 5 + i, H - 2 - i, Z1 + 1, 0xe8fbff); }
   for (let i = 0; i < 3; i++) GLO.set(X1 - 8 + i, 7 - i, Z1 + 1, 0xffffff);
-  // the hood with a lamp strip
-  R.box(X0 - 1, H + 2, Z0 - 1, X1 + 1, H + 2, Z1 + 1, (x, y, z) => (z === Z1 + 1 ? 0x34343c : 0x2a2a30));
-  for (let x = X0 + 2; x <= X1 - 2; x++) GLO.set(x, H + 1, Z0 + 2, 0xe8f8ff);
+  // an open top with a lamp bar along the back (so the camera can look in from above)
+  R.box(X0 - 1, H + 2, Z0 - 1, X1 + 1, H + 3, Z0 + 1, (x, y, z) => (y === H + 3 ? 0x3a3a44 : z === Z0 + 1 ? 0x34343c : 0x2a2a30));
+  for (let x = X0 + 2; x <= X1 - 2; x++) GLO.set(x, H + 1, Z0 + 1, x % 4 ? 0xe8f8ff : 0xc8e8f8);
   const m = vmesh(R); g.add(m);
   const gm = vmesh(GLO, mats().glow, { cast: false }); gm.castShadow = false; g.add(gm);
   // water volume + surface + glass skin
@@ -363,7 +365,7 @@ function buildAquarium(g, { nest = false, deco = true } = {}) {
   for (const [x, z, h, c] of [[X0 + 2, Z0 + 2, 18, 0x3a9a4a], [X0 + 4, Z0 + 3, 13, 0x5aba4a], [X0 + 3, Z0 + 6, 16, 0x4aaa3a], [X1 - 2, Z0 + 2, 19, 0x3a9a4a], [X1 - 6, Z0 + 2, 12, 0x6ac04a], [X1 - 1, Z0 + 8, 15, 0x4aaa3a], [-4, Z0 + 1, 10, 0x5aba4a], [6, Z0 + 2, 14, 0x3a9a4a]]) strand(x, z, h, c);
   // a thermometer column we can raise / lower
   const thermo = new THREE.Mesh(new THREE.BoxGeometry(VD * 0.6, VD, VD * 0.6), new THREE.MeshBasicMaterial({ color: 0xe8443a }));
-  thermo.position.set(X1 * VD + VD * 0.5, (G + 3) * VD, (Z1 - 2) * VD + VD * 0.5 + VD * 0.25);
+  thermo.position.set((X0 + 1) * VD + VD * 0.5, (G + 3) * VD, Z1 * VD + VD * 0.5 + VD * 0.3);
   g.add(thermo);
   return {
     plants, thermo, surfaceY: wy1, floorY: (G + 1) * VD, center: vol.position.clone(),
@@ -378,65 +380,90 @@ class FishPartsDemo extends Demo {
     super('fishParts');
     const g = this.group;
     this.tank = buildAquarium(g, { deco: true });
-    // the big bluegill (x-ray capable) + its insides
-    this.fish = new DemoFish(fishModel('bluegill', { male: true, L: 30, H: 19, W: 7 }), 0.0235, { xray: true });
+    const L = 40, H = 25, W = 9, S = 0.0175;
+    const gx = Math.round((L - 1) * 0.66); // the gill slit (front edge of the gill cover)
+    const surfZ = (vm, x, y, s) => { let z = s * 8; while (Math.abs(z) > 0 && !vm.has(x, y, z)) z -= s; return z; };
+    // the big bluegill, built by the game's voxel fish builder, then hand-finished: a gill pocket under
+    // a hinged gill cover, a proper eye, a darker "ear" flap
+    this.fish = new DemoFish(fishModel('bluegill', { male: true, L, H, W }), S, {
+      xray: true,
+      edit: (vm) => {
+        for (const s of [1, -1]) {
+          for (let y = -6; y <= 5; y++) for (let x = gx - 4; x <= gx; x++) {
+            const z = surfZ(vm, x, y, s);
+            if (!z) continue;
+            vm.set(x, y, z, null); vm.set(x, y, z - s, null); // the pocket
+            // feathery red gill filaments at the back of the pocket
+            vm.set(x, y, z - s * 2, (x + y) % 2 ? 0xd02838 : x % 2 ? 0xff5a62 : 0xe83a4a);
+          }
+          // the eye: dark pupil, gold rim, a white glint
+          const ex = Math.round((L - 1) * 0.83), ey = 3;
+          const z = surfZ(vm, ex, ey, s);
+          for (const [dx, dy, c] of [[0, 0, 0x101418], [1, 0, 0x101418], [0, 1, 0x101418], [1, 1, 0x101418], [-1, 0, 0xd8a838], [2, 0, 0xd8a838], [-1, 1, 0xd8a838], [2, 1, 0xd8a838], [0, -1, 0xd8a838], [1, -1, 0xd8a838], [0, 2, 0xd8a838], [1, 2, 0xd8a838]]) {
+            const zz = surfZ(vm, ex + dx, ey + dy, s); if (zz) vm.set(ex + dx, ey + dy, zz, c);
+          }
+          const zz = surfZ(vm, ex + 1, ey + 1, s); if (zz) vm.set(ex + 1, ey + 1, zz, 0xffffff);
+        }
+      },
+    });
     this.own(this.fish);
-    this.fish.amp = 0.025; this.fish.speed = 3.5;
-    this.fishHome = new THREE.Vector3(0, 0.33, 0.01);
+    this.fish.amp = 0.02; this.fish.speed = 3.2;
+    this.fishHome = new THREE.Vector3(-0.02, 0.32, 0.0);
     this.fish.root.position.copy(this.fishHome);
     g.add(this.fish.root);
-    const S = this.fish.scale, cx = this.fish.cx;
+    const cx = this.fish.cx;
     const at = (vx, vy, vz = 0) => new THREE.Vector3((vx - cx + 0.5) * S, (vy + 0.5) * S, (vz + 0.5) * S);
     this.at = at;
-    const L = 30;
-    // insides (seen in x-ray): swim bladder, spine, gills, heart, gut
+    // the gill covers: a half-moon flap on each side, hinged at its front edge
+    this.gillCovers = [];
+    const side = 0x5b86c9;
+    for (const s of [1, -1]) {
+      const cv = new VoxelModel();
+      for (let y = -7; y <= 6; y++) {
+        const w = Math.round(5.6 * Math.sqrt(Math.max(0, 1 - ((y + 0.5) / 7.2) ** 2)));
+        for (let k = 0; k <= w; k++) cv.set(-k, y, 0, k === w ? 0x24345a : (y === 1 || y === 2) && k > 1 && k < 4 ? 0x16223a : k === 0 ? shade(side, 1.1) : (k + y) % 4 === 0 ? shade(side, 0.88) : side);
+      }
+      const cm = new THREE.Mesh(build(cv, { scale: S, pivot: [0, 0, 0.5] }), mats().lit);
+      const z = s * 4.1;
+      cm.position.copy(at(gx + 0.5, 0, z)).add(new THREE.Vector3(0, 0, 0));
+      cm.position.x = (gx + 1 - cx) * S;
+      this.fish.mesh.add(cm);
+      this.gillCovers.push({ m: cm, s });
+    }
+    // insides (seen in x-ray): swim bladder, spine, gut, heart
     const ins = new THREE.Group();
     const bl = new VoxelModel();
-    bl.ellipsoid(0, 0, 0, 6.5, 2.4, 2.2, (x, y, z) => (y > 1 ? 0xffffff : hash3(x, y, z, 2) < 0.3 ? 0xd8e8f0 : 0xeaf4fa));
+    bl.ellipsoid(0, 0, 0, 8.5, 3, 2.6, (x, y, z) => (y > 1.5 ? 0xffffff : hash3(x, y, z, 2) < 0.3 ? 0xd8e8f0 : 0xeaf4fa));
     this.bladder = new THREE.Mesh(build(bl, { scale: S }), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x6a8aa0, emissiveIntensity: 0.6 }));
-    this.bladder.position.copy(at(L * 0.47, 2.2));
-    this.own(this.bladder.material);
+    this.bladder.position.copy(at(L * 0.45, 2.5));
+    this.own(this.bladder.material); this.own(this.bladder.geometry);
     const sp = new VoxelModel();
-    for (let x = Math.round(L * 0.08); x <= Math.round(L * 0.8); x++) { sp.set(x, 4 - Math.round(Math.sin((x / L) * Math.PI) * 1.2), 0, 0xf4f0e6); if (x % 2 === 0) { sp.set(x, 5 - Math.round(Math.sin((x / L) * Math.PI) * 1.2), 0, 0xe8e0d0); sp.set(x, 2 - Math.round(Math.sin((x / L) * Math.PI) * 1.2), 0, 0xe8e0d0); } }
+    for (let x = Math.round(L * 0.06); x <= Math.round(L * 0.78); x++) {
+      const yy = 6 - Math.round(Math.sin((x / L) * Math.PI) * 1.5);
+      sp.set(x, yy, 0, 0xf4f0e6);
+      if (x % 2 === 0) for (let k = 1; k <= 3; k++) { sp.set(x, yy + k, 0, 0xe8e0d0); sp.set(x, yy - k, 0, k < 3 ? 0xe8e0d0 : null); }
+    }
     const spine = new THREE.Mesh(build(sp, { scale: S, pivot: [cx - 0.5, -0.5, -0.5] }), mats().lit);
     const gu = new VoxelModel();
-    gu.ellipsoid(L * 0.6, -3, 0, 3.2, 2, 1.6, (x, y, z) => (hash3(x, y, z, 1) < 0.4 ? 0xb06a4a : 0xc8805a));
-    gu.ellipsoid(L * 0.73, -3.6, 0, 1.4, 1.2, 1, 0xd8303a); // heart
+    gu.ellipsoid(L * 0.58, -4, 0, 4.2, 2.6, 2, (x, y, z) => (hash3(x, y, z, 1) < 0.4 ? 0xb06a4a : 0xc8805a));
+    gu.ellipsoid(L * 0.71, -5, 0, 1.8, 1.6, 1.4, 0xd8303a); // heart
     const gut = new THREE.Mesh(build(gu, { scale: S, pivot: [cx - 0.5, -0.5, -0.5] }), mats().lit);
     ins.add(this.bladder, spine, gut);
     ins.visible = false;
     this.insides = ins;
     this.fish.mesh.add(ins);
-    // the gills: red feathery arches behind the head on both sides, under a gill cover that opens
-    this.gillCovers = [];
-    const gx = Math.round(L * 0.7);
-    for (const s of [1, -1]) {
-      const gv = new VoxelModel();
-      for (let y = -5; y <= 4; y++) for (let k = 0; k < 3; k++) { if (Math.abs(y) + k > 6) continue; gv.set(-k * 2, y, 0, (y + k) % 2 ? 0xe83a4a : 0xc8202e); gv.set(-k * 2 - 1, y, 0, 0xff6a6a); }
-      const gm = new THREE.Mesh(build(gv, { scale: S, pivot: [0, 0, 0.5] }), mats().lit);
-      gm.position.copy(at(gx, 0, s * 3.4));
-      this.fish.mesh.add(gm);
-      const cv = new VoxelModel();
-      for (let y = -6; y <= 5; y++) for (let k = 0; k < 4; k++) { if (Math.abs(y + 0.5) * 0.55 + k * 0.8 > 4.2) continue; cv.set(-k, y, 0, k === 3 || Math.abs(y + 0.5) > 4.5 ? 0x2a3a6a : 0x4a6aaa); }
-      const cm = new THREE.Mesh(build(cv, { scale: S, pivot: [0, 0, s > 0 ? -0.5 : 1.5] }), mats().lit);
-      cm.position.copy(at(gx + 1, 0, s * 3.5));
-      this.fish.mesh.add(cm);
-      this.gillCovers.push({ m: cm, s });
-    }
     // label anchors (fish-local, follow the fish)
-    const tagAt = (k, text, local, off) => {
-      const t = this.tag(k, text, new THREE.Vector3(), new THREE.Vector3());
-      t.local = local; t.off = off;
-    };
-    tagAt('gills', 'GILLS', at(gx, 1, 4.5), new THREE.Vector3(0.12, 0.2, 0.18));
-    tagAt('mouth', 'MOUTH', at(L - 1, -1, 1), new THREE.Vector3(0.2, -0.04, 0.12));
-    tagAt('eye', 'EYE', at(Math.round(L * 0.82), 2, 4), new THREE.Vector3(0.14, 0.12, 0.12));
-    tagAt('fins', 'FIN', at(Math.round(L * 0.5), 10, 0), new THREE.Vector3(0.02, 0.14, 0.14));
-    tagAt('pectoral', 'FIN', at(Math.round(L * 0.68), -3, 4.5), new THREE.Vector3(0.05, -0.17, 0.2));
-    tagAt('tail', 'TAIL', at(-3, 0, 0), new THREE.Vector3(-0.2, 0.14, 0.14));
-    tagAt('bladder', 'SWIM BLADDER', at(L * 0.47, 2.2, 0), new THREE.Vector3(-0.08, 0.26, 0.2));
-    this.flow = 0; this.inflate = 0.5; this.rise = 0; this.cover = 0;
+    const tagAt = (k, text, local, off) => { const t = this.tag(k, text, new THREE.Vector3(), new THREE.Vector3()); t.local = local; t.off = off; };
+    tagAt('gills', 'GILLS', at(gx - 2, 1, 4.5), new THREE.Vector3(0.06, 0.24, 0.16));
+    tagAt('mouth', 'MOUTH', at(L, -1, 1), new THREE.Vector3(0.12, -0.06, 0.14));
+    tagAt('eye', 'EYE', at(Math.round(L * 0.83), 3, 4), new THREE.Vector3(0.1, 0.16, 0.14));
+    tagAt('fins', 'FIN', at(Math.round(L * 0.45), 13, 0), new THREE.Vector3(-0.08, 0.1, 0.16));
+    tagAt('pectoral', 'FIN', at(Math.round(L * 0.68), -4, 4.5), new THREE.Vector3(0.05, -0.17, 0.2));
+    tagAt('tail', 'TAIL', at(-3, 0, 0), new THREE.Vector3(-0.14, 0.16, 0.14));
+    tagAt('bladder', 'SWIM BLADDER', at(L * 0.45, 3, 0), new THREE.Vector3(-0.1, 0.3, 0.2));
+    this.flow = 0; this.inflate = 0.5; this.rise = 0;
     this._v = new THREE.Vector3();
+    this.L = L;
   }
   onBeat(b) {
     this.fish.setXray(b === 'bladder');
@@ -448,36 +475,42 @@ class FishPartsDemo extends Demo {
     const f = this.fish, t = this.t;
     swayPlants(this.tank.plants, t);
     this.tank.setThermo(0.5);
-    // hover in place, gently yawing so the camera sees the side; drift up / down with the bladder
+    // hover in place, side-on to the front camera; drift up / down with the bladder
     const b = this.beatName;
     if (b === 'bladder') {
       const cyc = (this.bt % 7) / 7; // inflate, hold, deflate, hold
       const k = cyc < 0.35 ? smooth(cyc / 0.35) : cyc < 0.5 ? 1 : cyc < 0.85 ? 1 - smooth((cyc - 0.5) / 0.35) : 0;
       this.inflate = 0.35 + k * 0.85;
-      this.rise += (((k - 0.5) * 0.16) - this.rise) * Math.min(1, dt * 1.6);
+      this.rise += (((k - 0.5) * 0.14) - this.rise) * Math.min(1, dt * 1.6);
+      if (Math.random() < dt * 3) this.emit(k > 0.5 ? 'spark' : 'bubble', new THREE.Vector3(f.root.position.x, f.root.position.y + 0.15, 0.05), { vel: [0, 0.06, 0], life: 0.6, texel: 0.0028 });
     } else { this.inflate += (0.6 - this.inflate) * Math.min(1, dt * 2); this.rise += (0 - this.rise) * Math.min(1, dt * 2); }
     this.bladder.scale.set(0.75 + this.inflate * 0.3, this.inflate, this.inflate);
-    f.root.position.set(this.fishHome.x + Math.sin(t * 0.5) * 0.02, this.fishHome.y + this.rise + Math.sin(t * 1.1) * 0.008, this.fishHome.z);
-    f.heading = Math.sin(t * 0.3) * 0.12;
+    f.root.position.set(this.fishHome.x + Math.sin(t * 0.5) * 0.015, this.fishHome.y + this.rise + Math.sin(t * 1.1) * 0.006, this.fishHome.z);
+    f.heading = -0.42 + Math.sin(t * 0.3) * 0.08;
     f.pitch = b === 'bladder' ? (this.rise > 0.01 ? 0.05 : -0.03) : 0;
     f.update(dt);
-    // gill covers pump: open as the mouth closes
-    const pump = b === 'gills' ? (Math.sin(t * 4.2) * 0.5 + 0.5) : (Math.sin(t * 1.6) * 0.5 + 0.5) * 0.35;
-    for (const c of this.gillCovers) c.m.rotation.y = c.s * pump * 0.55;
-    // water in through the mouth, over the gills (oxygen sparks soak in), out under the gill cover
+    // gill covers pump (open as the mouth closes); wide open while we look at the gills
+    const pump = b === 'gills' ? 0.35 + (Math.sin(t * 3.6) * 0.5 + 0.5) * 0.65 : (Math.sin(t * 1.6) * 0.5 + 0.5) * 0.12;
+    for (const c of this.gillCovers) c.m.rotation.y = c.s * pump * 0.9;
+    // water in through the mouth, over the gills (the oxygen soaks in), out under the gill cover
     if (this.flowOn) {
       this.flow -= dt;
       if (this.flow <= 0) {
-        this.flow = 0.09;
-        const side = Math.random() < 0.5 ? 1 : -1;
-        const head = this.at(30 + 4, -0.5, 0); f.mesh.localToWorld(head); this.group.worldToLocal(head);
-        const s = this.emit(Math.random() < 0.55 ? 'o2' : 'bubble', head.add(new THREE.Vector3(0.02, (Math.random() - 0.5) * 0.03, (Math.random() - 0.5) * 0.03)), { vel: [-0.16, 0, side * 0.03], life: 1.5, texel: 0.0032 });
-        s.userData.side = side; s.userData.flow = true;
+        this.flow = 0.08;
+        const head = this.at(this.L + 3, -1, (Math.random() - 0.5) * 3); f.mesh.localToWorld(head); this.group.worldToLocal(head);
+        const dir = this._v.set(-1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), -f.heading);
+        const s = this.emit(Math.random() < 0.6 ? 'o2' : 'bubble', head, { vel: [dir.x * 0.13, (Math.random() - 0.5) * 0.02, dir.z * 0.13], life: 1.4, texel: 0.003 });
+        s.userData.flow = true; s.userData.dir = dir.clone();
       }
       for (const fx of this.fx) {
         if (!fx.s.userData.flow) continue;
-        // past the gills (~0.6 s in) the water turns outward and the O2 is gone
-        if (fx.t > 0.55 && !fx.s.userData.out) { fx.s.userData.out = true; fx.v.set(-0.07, -0.01, fx.s.userData.side * 0.14); fx.s.material.color?.setHex(0x9ab8c8); }
+        // past the gills the water turns outward through the gill slit and the oxygen is gone
+        if (fx.t > 0.62 && !fx.s.userData.out) {
+          fx.s.userData.out = true;
+          const d = fx.s.userData.dir, side = Math.random() < 0.5 ? 1 : -1;
+          fx.v.set(d.x * 0.05 - d.z * side * 0.12, -0.01, d.z * 0.05 + d.x * side * 0.12);
+          fx.s.material.color.setHex(0x8aa4b4);
+        }
       }
     }
     // tags follow their anchors on the fish
@@ -536,7 +569,7 @@ class NurseryDemo extends Demo {
     this.tag('egg', 'EGGS', new THREE.Vector3(-0.12, 0.2, 0.25), this.nest.clone().add(new THREE.Vector3(-0.03, 0.01, 0.03)));
     this.tag('dad', 'DAD', new THREE.Vector3(0.24, 0.42, 0.2), new THREE.Vector3(0.12, 0.3, 0));
     this.tag('nest', 'NEST', new THREE.Vector3(0.22, 0.14, 0.27), this.nest.clone().add(new THREE.Vector3(0.1, 0.0, 0.05)));
-    this.tag('thermo', 'WARM', new THREE.Vector3(0.36, 0.42, 0.22), new THREE.Vector3(21 * VD, 0.3, 9 * VD));
+    this.tag('thermo', 'WARM', new THREE.Vector3(-0.42, 0.5, 0.36), new THREE.Vector3(-21 * VD, 0.32, 11.5 * VD));
     this.tag('yolk', 'YOLK SAC', new THREE.Vector3(-0.2, 0.36, 0.25), new THREE.Vector3(-0.05, 0.2, 0.05));
   }
   onBeat(b) {

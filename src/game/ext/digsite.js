@@ -31,7 +31,7 @@ import { SPECIES_BY_ID } from '../../data/species.js';
 import { DigSites } from '../dig/sites.js';
 import { arrival, BEATS, snappLiving, vialScene } from '../dig/scenes.js';
 import { ancientName, archetypeOf } from '../dig/ancientFish.js';
-import { makeBluff, makeLabHut, makeFieldTent, makeTrench, makeSieveBench, makeDisplayCase, makeFindMini } from '../../entities/digModels.js';
+import { makeBluff, makeLabHut, makeFieldTent, makeTrench, makeSieveBench, makeDisplayCase, makeFindMini, makeRibcage } from '../../entities/digModels.js';
 import { openDigGame } from '../../ui/dig/DigGame.js';
 import { openLabBench, labBenchOpen } from '../../ui/dig/LabBench.js';
 import { injectDigCSS } from '../../ui/dig/digCss.js';
@@ -164,6 +164,7 @@ class DigSite {
     this.caseObj = at(makeDisplayCase(), B.case, 0.25);
     this.benchObj = at(makeSieveBench(), B.bench, -0.2);
     B.trench.forEach((T, k) => at(makeTrench(T.w, T.d, k), T, k ? 0.3 : -0.08));
+    at(makeRibcage(), B.ribs, -0.35, -0.04);
     this.hut = hut;
     this.yard = { hut, bluff };
     if (v.rig) { v.rig.onEvent = (name) => this.onSnappEvent(v, name); v.rig.root.rotation.y = 0.75; } // a three-quarter view: the spiky shell shows
@@ -249,6 +250,7 @@ class DigSite {
     const holdT = v.t; v.t = 1e9;
     D.play((c) => arrival(c, this, v), { id: 'snapp_arrive' }).catch((e) => console.warn('[dig] arrival', e)).finally(() => {
       this.busy = false; v.t = holdT;
+      if (v.rig) v.rig.root.rotation.y = 0.75;
       if (!this.questActive('dg_grunt') && !this.questDone('dg_grunt')) this.game.quests?.start?.('dg_grunt');
       this.sites.refresh(); this.sites.sync();
       this.game.save?.();
@@ -279,7 +281,7 @@ class DigSite {
     if (!fn || !v?.rig) { done(); return; }
     this.busy = true;
     const holdT = v.t; v.t = 1e9;
-    D.play((c) => fn(c, this, v), { id }).catch((e) => console.warn('[dig]', id, e)).finally(() => { this.busy = false; v.t = holdT; done(); });
+    D.play((c) => fn(c, this, v), { id }).catch((e) => console.warn('[dig]', id, e)).finally(() => { this.busy = false; v.t = holdT; if (v.rig) v.rig.root.rotation.y = 0.75; done(); });
   }
   focusBluff() {
     const g = this.game;

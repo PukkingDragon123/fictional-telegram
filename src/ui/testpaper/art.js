@@ -116,7 +116,7 @@ const STAMP_INK = { 'A+': '#c8202a', A: '#c8202a', B: '#c8202a', C: '#c8202a', D
 export function gradeStamp(grade, { rot = -0.2, word } = {}) {
   const ink = STAMP_INK[grade] || '#c8202a';
   const W = 52, H = 46;
-  const c = canvas(W, H), x = c.getContext('2d');
+  const c = canvas(W, H), x = c.getContext('2d', { willReadFrequently: true });
   const P = (px, py) => x.fillRect(px, py, 1, 1);
   x.fillStyle = ink;
   // double ring: a rounded box
@@ -140,11 +140,11 @@ export function gradeStamp(grade, { rot = -0.2, word } = {}) {
   const tw = textCanvas(word || (grade === 'F' ? 'SEE ME' : 'POND SCHOOL'), 'tiny', ink);
   x.drawImage(tw.c, Math.round((W - tw.w) / 2), H - 12);
   // rubber texture: knock out specks, heavier on one side (uneven pressure)
-  const id = x.getImageData(0, 0, W, H), d = id.data;
+  const id = x.getImageData(0, 0, W, H), d = id.data; // (one read, once per stamp)
   for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
     const i = (yy * W + xx) * 4;
     if (!d[i + 3]) continue;
-    const p = 0.06 + (xx / W) * 0.12 + (hash(xx >> 2, yy >> 2, 3) > 0.8 ? 0.18 : 0);
+    const p = 0.04 + (xx / W) * 0.08 + (hash(xx >> 2, yy >> 2, 3) > 0.85 ? 0.14 : 0);
     if (hash(xx, yy, 9) < p) d[i + 3] = 0;
     else if (hash(xx, yy, 4) < 0.12) { d[i] = Math.min(255, d[i] + 40); d[i + 1] += 30; d[i + 2] += 30; }
   }
@@ -156,7 +156,7 @@ export function rotatePx(src, a) {
   const w = src.width, h = src.height;
   const cs = Math.cos(a), sn = Math.sin(a);
   const W = Math.ceil(Math.abs(w * cs) + Math.abs(h * sn)) + 2, H = Math.ceil(Math.abs(w * sn) + Math.abs(h * cs)) + 2;
-  const sd = src.getContext('2d').getImageData(0, 0, w, h).data;
+  const sd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
   const out = canvas(W, H), ox = out.getContext('2d'), od = ox.createImageData(W, H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const dx = x - W / 2 + 0.5, dy = y - H / 2 + 0.5;
