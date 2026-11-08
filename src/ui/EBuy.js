@@ -320,20 +320,6 @@ class EBuy {
     const txt = this._countdown();
     for (const e of this.el.querySelectorAll('.eb-cd')) e.textContent = txt;
   }
-  _dealCard(l) {
-    const pct = this._pct(l);
-    return `<button class="eb-deal" data-deal="${esc(l.id)}" style="${this._rarVars(l)}">${stkHTML('tapeC', { cls: 'stk-dt' })}
-      <span class="dl-kick">${px('flame', 2)}DEAL OF THE DAY${px('flame', 2)}</span>
-      <span class="dl-pic"><img class="eb-img" src="${esc(imgSrc(l.image))}" alt="" draggable="false" />${l.cat === 'eggs' && l.kind !== 'fish' ? `<span class="eb-eggm">${this._eggIcon(l, 2)}</span>` : ''}<i class="dl-ped"></i></span>
-      <span class="dl-info">
-        <b class="dl-t">${esc(this._short(l))}</b>
-        <span class="dl-p"><span class="eb-tag">${this._coin(1)}<b>${fmt(l.price)}</b></span><s class="eb-old">${fmt(l.oldPrice)}</s><em class="dl-pct">-${pct}%</em></span>
-        <span class="dl-back">+10% back in coins today</span>
-        <span class="dl-clock">${px('clock', 2)}ends in <b class="eb-cd">${this._countdown()}</b></span>
-      </span>
-      <span class="eb-burst"><b>-${pct}%</b></span>
-    </button>`;
-  }
   _cols() {
     try {
       const n = getComputedStyle(this.$grid).gridTemplateColumns.split(' ').filter((x) => x && x !== 'none').length;
@@ -412,7 +398,7 @@ class EBuy {
                 <button class="eb-nl eb-nhot" data-gocat="deals">Today's Deals</button>
                 <span class="eb-ncats"></span>
                 <button class="eb-nl" data-hero="mystery">Mystery Box</button>
-                ${this.o.orders ? `<button class="eb-nl eb-ptrack">Track orders</button>` : ''}
+                ${this.o.orders ? `<button class="eb-nl eb-ntrk">Track orders</button>` : ''}
                 <span class="eb-marq" aria-hidden="true"><span class="eb-tick">${ticker}${ticker}</span></span>
               </nav>
               <div class="eb-body">
@@ -776,7 +762,7 @@ class EBuy {
     if (t.closest('.eb-home')) return this._goCat(null);
     if (t.closest('.eb-totop')) { this._sfx('whoosh'); this.$scroll.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' }); return; }
     if (t.closest('.eb-cart')) return this.drawer === 'cart' ? this._closeDrawer() : this._openDrawer('cart');
-    if (t.closest('.eb-ordb, .eb-ptrack')) return this.drawer === 'orders' ? this._closeDrawer() : this._openDrawer('orders');
+    if (t.closest('.eb-ordb, .eb-ptrack, .eb-ntrk')) return this.drawer === 'orders' ? this._closeDrawer() : this._openDrawer('orders');
     if (t.closest('.eb-shade')) return this._closeDrawer();
     // drawer
     if (this.drawer && t.closest('.eb-drawer')) return this._drawerClick(t);
@@ -1070,9 +1056,13 @@ class EBuy {
 
   // ------------------------------------------------------------ list
   _scope() {
-    if (!this.q) return this.listings.filter((l) => l.cat === this.cat);
+    if (!this.q) {
+      if (this.cat === 'deals') return this.listings.filter((l) => !l.mystery && this._pct(l) > 0); // [v33 shop] Today's Deals
+      return this.listings.filter((l) => l.cat === this.cat);
+    }
     const words = this.q.split(/\s+/).filter(Boolean);
     return this.listings.filter((l) => {
+      if (this.scat && l.cat !== this.scat) return false; // [v33 shop] the search bar's department
       const hay = [l.title, l.sub, l.cat, this._catName(l.cat), l.rarity, l.mutation?.name, l.seller?.name, ...(l.badges || []).map((b) => BADGES[b]?.t || b)].join(' ').toLowerCase();
       return words.every((w) => hay.includes(w));
     });
@@ -1083,26 +1073,44 @@ class EBuy {
     if (f.season) L = L.filter((l) => l.badges?.includes('inseason'));
     if (f.afford) L = L.filter((l) => !l.locked && l.stock !== 0 && l.price <= this.coins);
     if (f.locked) L = L.filter((l) => !l.locked);
+    if (f.stock) L = L.filter((l) => !l.locked && l.stock !== 0);
+    if (f.stars4) L = L.filter((l) => this._rate(l) >= 4);
+    const pb = PRICES.find((p) => p.id === f.price);
+    if (pb) L = L.filter((l) => l.price >= pb.lo && l.price < pb.hi);
+    if (f.rar.length) L = L.filter((l) => f.rar.includes(RAR[l.rarity] ? l.rarity : 'common'));
     const rank = (l) => (l.locked ? 2 : l.stock === 0 ? 1 : 0);
     const key = { low: (l) => l.price, high: (l) => -l.price, deal: (l) => -this._pct(l) }[SESSION.sort] || (() => 0);
     return L.map((l, i) => [l, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || key(a[0]) - key(b[0]) || a[1] - b[1]).map((x) => x[0]);
   }
   _render(anim = false) {
     this._renderCats();
+    this._etaC = new Map();
+    const home = !this.q && !this.cat;
+    this.el.classList.toggle('eb-homev', home);
+    this.el.classList.toggle('eb-searching', !!this.q);
+    this.el.classList.toggle('eb-catv', !home && !this.q);
+    if (!this.cur) this.$path.textContent = this.q ? '/s?k=' + this.q.replace(/\s+/g, '+') : home ? '/' : '/' + this.cat;
+    // [v33 shop] the top sellers anywhere get a BEST SELLER sticker
+    const pool = home ? this.listings : this._scope();
+    this._best = new Set(pool.filter((l) => !l.locked && l.stock !== 0 && l.seller?.sold).sort((a, b) => b.seller.sold - a.seller.sold).slice(0, Math.max(1, Math.round(pool.length / 9))).map((l) => l.id));
+    if (home) {
+      this.$grid.innerHTML = '';
+      this.$filters.innerHTML = '';
+      this.$home.innerHTML = this._homeHTML();
+      this._heroGo(this.hi, true);
+      this._fitImgs(this.$home);
+      if (anim) this._cascade();
+      return;
+    }
+    this.$home.innerHTML = '';
     const scope = this._scope();
     const list = this._filtered(scope);
-    // [v33 kit] the top sellers in view get a BEST SELLER sticker
-    this._best = new Set(list.filter((l) => !l.locked && l.stock !== 0 && l.seller?.sold).sort((a, b) => b.seller.sold - a.seller.sold).slice(0, Math.max(1, Math.round(list.length / 9))).map((l) => l.id));
-    // header + filters
+    this._renderFilters(scope);
+    // the results bar: what you're looking at, how many, the sort dropdown
     this.$h.textContent = this.q ? `“${this.q}”` : this._catName(this.cat);
-    this.$n.textContent = `${list.length} result${list.length === 1 ? '' : 's'}${this.q ? ' in all departments' : ''}`;
-    const seasonN = scope.filter((l) => l.badges?.includes('inseason')).length;
-    const sort = SORTS.find((s) => s.id === SESSION.sort) || SORTS[0];
-    this.$filt.innerHTML = FILTERS.filter((f) => f.id !== 'season' || seasonN || SESSION.f.season)
-      .map((f) => `<button class="eb-chip${SESSION.f[f.id] ? ' on' : ''}" data-f="${f.id}" aria-pressed="${!!SESSION.f[f.id]}">${SESSION.f[f.id] ? px('check', 2) : px(f.ic, 2)}<span>${f.n}</span>${f.id === 'season' ? `<i>${seasonN}</i>` : ''}</button>`).join('')
-      + `<button class="eb-sortb" title="sort">${px('sort', 2)}<span>${sort.n}</span></button>`;
-    this.el.classList.toggle('eb-searching', !!this.q);
-    if (!this.cur) this.$path.textContent = this.q ? '/sch?q=' + this.q.replace(/\s+/g, '+') : '/' + this.cat;
+    this.$n.textContent = list.length ? `1-${list.length} of ${list.length} result${list.length === 1 ? '' : 's'}${this.q ? (this.scat ? ` in ${this._catName(this.scat)}` : ' in all departments') : ''}` : '0 results';
+    const sort = SORTS.find((x) => x.id === SESSION.sort) || SORTS[0];
+    this.$filt.innerHTML = `${this._fOn() ? `<button class="eb-unfilter sm">${px('x', 1)}<span>Clear filters</span></button>` : ''}<button class="eb-sortb" title="sort"><small>Sort by:</small><span>${sort.n}</span>${px('chev', 1)}</button>`;
     // grid
     if (!list.length) {
       const filtered = scope.length > 0;
@@ -1110,39 +1118,53 @@ class EBuy {
       return;
     }
     const inCart = new Map(SESSION.cart.map((c) => [String(c.id), c.qty]));
-    // [v33 kit] the deal of the day up top, banner ads between card rows, UNDER CONSTRUCTION above the locked cards
+    // [v33 kit] banner ads between card rows, UNDER CONSTRUCTION above the locked cards
     const cols = this._cols();
-    const deal = !this.q ? this._deal() : null;
     const ads = this._banners(2);
     const out = [];
-    if (deal) out.push(this._dealCard(deal));
-    // the deal spans 2 columns (the whole row on a narrow shop), so the first row may already be full
-    const dealSpan = !deal ? 0 : (this.el?.clientWidth || 999) <= 640 ? cols : Math.min(2, cols);
-    let n = dealSpan % cols, adI = 0;
+    let n = 0, adI = 0;
     const firstLocked = list.findIndex((l) => l.locked);
     list.forEach((l, i) => {
       if (i === firstLocked) { out.push(adUnder(this._A, list.length - firstLocked)); n = 0; }
       out.push(this._card(l, i, inCart.get(String(l.id)) || 0));
       n++;
       const lockedZone = firstLocked >= 0 && i >= firstLocked - 1;
-      if (adI < ads.length && !lockedZone && n === cols * (adI === 0 ? 1 : 3)) { out.push(`<div class="eb-adrow">${adBanner(ads[adI++], this._A)}</div>`); n = 0; }
+      if (adI < ads.length && !lockedZone && n === cols * (adI === 0 ? 2 : 3)) { out.push(`<div class="eb-adrow">${adBanner(ads[adI++], this._A)}</div>`); n = 0; }
     });
     this.$grid.innerHTML = out.join('');
     this._fitImgs(this.$grid);
     if (anim) this._cascade();
   }
+  // [v33 shop] the category page's filter sidebar
+  _renderFilters(scope) {
+    const f = SESSION.f;
+    const chk = (on, attr, label, extra = '') => `<button class="eb-chk${on ? ' on' : ''}" ${attr} role="checkbox" aria-checked="${on}"><i class="eb-box">${on ? px('check', 2) : ''}</i><span class="eb-chkn">${label}</span>${extra}</button>`;
+    const cnt = (n) => `<i class="eb-fc">${n}</i>`;
+    const seasonN = scope.filter((l) => l.badges?.includes('inseason')).length;
+    const avail = FILTERS.filter((x) => x.id !== 'season' || seasonN || f.season)
+      .map((x) => chk(!!f[x.id], `data-f="${x.id}"`, x.n, x.id === 'season' ? cnt(seasonN) : '')).join('');
+    const prices = PRICES.map((p) => [p, scope.filter((l) => l.price >= p.lo && l.price < p.hi).length]).filter(([p, k]) => k || f.price === p.id)
+      .map(([p, k]) => chk(f.price === p.id, `data-price="${p.id}"`, `${this._coin(1)}${p.n}`, cnt(k))).join('');
+    const rars = Object.keys(RAR).map((r) => [r, scope.filter((l) => (RAR[l.rarity] ? l.rarity : 'common') === r).length]).filter(([r, k]) => k || f.rar.includes(r));
+    const rarH = rars.length > 1 || f.rar.length ? rars.map(([r, k]) => chk(f.rar.includes(r), `data-rar="${r}"`, `<span class="eb-gems" style="--rc:${RAR[r].c}">${'<i></i>'.repeat(RAR[r].t)}</span>${RAR[r].n}`, cnt(k))).join('') : '';
+    const sec = (h, body) => (body ? `<div class="eb-fsec"><b class="eb-fh">${h}</b>${body}</div>` : '');
+    this.$filters.innerHTML = sec('Availability', avail) + sec('Price', prices) + sec('Rarity', rarH)
+      + sec('Customer reviews', chk(f.stars4, 'data-f="stars4"', `${this._stars(4)}<span>&amp; up</span>`));
+  }
   _cascade() {
-    if (!this.$grid) return;
-    this.$grid.classList.remove('eb-anim');
-    void this.$grid.offsetWidth;
-    this.$grid.classList.add('eb-anim');
+    if (!this.$scroll) return;
+    this.$scroll.classList.remove('eb-anim');
+    void this.$scroll.offsetWidth;
+    this.$scroll.classList.add('eb-anim');
     clearTimeout(this._animT);
-    this._animT = this._later(() => this.$grid.classList.remove('eb-anim'), 1000);
+    this._animT = this._later(() => this.$scroll.classList.remove('eb-anim'), 1000);
   }
   _rerender() {
     const st = this.$scroll.scrollTop;
+    const rows = [...this.$home.querySelectorAll('.eb-rowt')].map((r) => r.scrollLeft);
     this._render();
     this.$scroll.scrollTop = st;
+    this.$home.querySelectorAll('.eb-rowt').forEach((r, i) => { r.scrollLeft = rows[i] || 0; });
   }
   _renderCats() {
     const cats = this._cats();
@@ -1152,6 +1174,81 @@ class EBuy {
       return `<button class="eb-cat${!this.q && c.id === this.cat ? ' on' : ''}" data-cat="${esc(c.id)}"><span class="eb-cati">${this._icon(c.icon, 2) || px('box', 2)}</span><span class="eb-catn">${esc(c.name)}</span><i class="eb-catc">${n || ''}</i></button>`;
     }).join('');
     if (html !== this._catsHtml) { this.$cats.innerHTML = html; this._catsHtml = html; }
+    // [v33 shop] the nav strip's department links
+    const nav = cats.map((c) => `<button class="eb-nl${!this.q && c.id === this.cat ? ' on' : ''}" data-gocat="${esc(c.id)}">${esc(c.name)}</button>`).join('');
+    if (nav !== this._navHtml) { this.$ncats.innerHTML = nav; this._navHtml = nav; }
+    this.el.querySelector('.eb-nhot')?.classList.toggle('on', !this.q && this.cat === 'deals');
+  }
+
+  // ------------------------------------------------------------ [v33 shop] the front page
+  _homeHTML() {
+    const inCart = new Map(SESSION.cart.map((c) => [String(c.id), c.qty]));
+    const open = this.listings.filter((l) => !l.locked && l.stock !== 0 && !l.mystery);
+    const card = (l, i) => this._card(l, i, inCart.get(String(l.id)) || 0);
+    const row = (title, list, more = '', sub = '') => (list.length ? `<section class="eb-row"><div class="eb-rowh"><b>${title}</b>${sub ? `<span class="eb-rows">${sub}</span>` : ''}${more}</div>
+      <div class="eb-rowwrap"><button class="eb-rnav l" data-rnav="-1" aria-label="scroll left">${px('arrow', 2)}</button><div class="eb-rowt">${list.map(card).join('')}</div><button class="eb-rnav r" data-rnav="1" aria-label="scroll right">${px('arrowR', 2)}</button></div></section>` : '');
+    const deals = open.filter((l) => this._pct(l) > 0).sort((a, b) => this._pct(b) - this._pct(a)).slice(0, 12);
+    const best = open.filter((l) => l.seller?.sold).sort((a, b) => b.seller.sold - a.seller.sold).slice(0, 12);
+    const season = open.filter((l) => l.badges?.includes('inseason')).slice(0, 12);
+    const fresh = open.filter((l) => l.badges?.includes('new') || l.badges?.includes('hot')).slice(0, 12);
+    const ad = this._banners(1)[0];
+    return `${this._hero()}
+      <div class="eb-tiles">${this._tiles()}</div>
+      ${row("Today's Deals", deals, `<button class="eb-rowl" data-gocat="deals">See all deals</button>`, `${px('clock', 1)} ends in <b class="eb-cd">${this._countdown()}</b>`)}
+      ${row('Best Sellers on e-Buy', best, '', 'the most-bought things this week (by bears)')}
+      ${ad ? `<div class="eb-adrow">${adBanner(ad, this._A)}</div>` : ''}
+      ${row('In season now', season, '', 'spawning season: 15% off')}
+      ${row('Hot &amp; new', fresh, '', 'fresh off the moose')}
+      <button class="eb-totop">${px('arrow', 1, 'eb-up')}<span>Back to top</span></button>
+      <footer class="eb-ftr">
+        <div class="eb-fcols">${FOOT.map(([h, items]) => `<div><b>${h}</b>${items.map((x) => `<span>${x}</span>`).join('')}</div>`).join('')}</div>
+        <div class="eb-fbot"><span class="eb-mini"><i class="l1">e</i><i class="l2">-</i><i class="l3">B</i><i class="l4">u</i><i class="l5">y</i></span><span>© 1999 e-Buy Inc. · a Reynard company · all sales final · no refunds, not even that one</span></div>
+      </footer>`;
+  }
+  _hero() {
+    const d = this._deal();
+    const S = [];
+    if (d) {
+      const pct = this._pct(d);
+      S.push(`<div class="eb-slide sl-deal" data-hero="deal" data-deal="${esc(d.id)}" style="${this._rarVars(d)}">
+        <span class="sl-txt ad-txt"><span class="sl-kick">${px('flame', 2)}DEAL OF THE DAY</span><b class="sl-h">${esc(this._short(d))}</b>
+          <span class="sl-p"><span class="eb-tag">${this._coin(1)}<b>${fmt(d.price)}</b></span><s class="eb-old">${fmt(d.oldPrice)}</s></span>
+          <span class="sl-sub">+10% back in coins · ends in <b class="eb-cd">${this._countdown()}</b></span><span class="sl-cta">Shop the deal ${px('arrowR', 1)}</span></span>
+        <span class="sl-art dl-pic"><img class="eb-img" src="${esc(imgSrc(d.image))}" alt="" draggable="false" />${d.cat === 'eggs' && d.kind !== 'fish' ? `<span class="eb-eggm">${this._eggIcon(d, 2)}</span>` : ''}<i class="dl-ped"></i></span>
+        <span class="eb-burst big"><b>-${pct}%</b></span></div>`);
+    }
+    S.push(`<div class="eb-slide sl-moose" data-hero="moose">
+        <span class="sl-txt ad-txt"><span class="sl-kick">${px('van', 1)}MOOSE EXPRESS</span><b class="sl-h">TURBO MOOSE is here</b>
+          <span class="sl-sub">2x faster delivery. He pedals like his rent is due. ROCKET Moose for the brave.</span><span class="sl-cta">Try TURBO ${px('arrowR', 1)}</span></span>
+        <span class="sl-art sl-road"><span class="sl-rider">${this._icon('moose', 3)}${px('bike', 4)}</span><i class="sl-lines"></i></span></div>`);
+    S.push(`<div class="eb-slide sl-myst" data-hero="mystery">
+        <span class="sl-txt ad-txt"><span class="sl-kick">${px('gift', 1)}MYSTERY BOX</span><b class="sl-h">??? could be ANYTHING</b>
+          <span class="sl-sub">Sometimes worth 3x. Sometimes a bag of pellets. Only ${this._coin(1)}${MYSTERY_PRICE}.</span><span class="sl-cta">Open it ${px('arrowR', 1)}</span></span>
+        <span class="sl-art sl-box"><img src="${mysteryArt()}" alt="" draggable="false" /><i class="sl-q q1">?</i><i class="sl-q q2">?</i><i class="sl-q q3">?</i></span></div>`);
+    return `<section class="eb-hero"><div class="eb-htrack" style="--hi:${this.hi}">${S.join('')}</div>
+      <button class="eb-hnav l" data-hnav="-1" aria-label="previous">${px('arrow', 3)}</button><button class="eb-hnav r" data-hnav="1" aria-label="next">${px('arrowR', 3)}</button>
+      <span class="eb-hdots">${S.map((_, i) => `<i class="eb-hdot${i === this.hi ? ' on' : ''}" data-hdot="${i}"></i>`).join('')}</span></section>`;
+  }
+  // the department tiles under the hero: four of its items each, plus the Club card
+  _tiles() {
+    const T = this._cats().map((c) => {
+      const L = this.listings.filter((l) => l.cat === c.id && !l.locked && !l.mystery);
+      if (!L.length) return '';
+      const pick = L.slice().sort((a, b) => (b.seller?.sold || 0) - (a.seller?.sold || 0)).slice(0, 4);
+      return `<div class="eb-tile"><b class="eb-tileh"><span class="eb-cati">${this._icon(c.icon, 2) || px('box', 2)}</span>${esc(c.name)}</b>
+        <span class="eb-tq">${pick.map((l) => `<button class="eb-tq1" data-also="${esc(l.id)}" style="${this._rarVars(l)}"><span class="eb-pic sm"><img class="eb-img" src="${esc(imgSrc(l.image))}" alt="" draggable="false" /></span><span class="eb-tqn">${esc(this._short(l))}</span></button>`).join('')}</span>
+        <button class="eb-rowl" data-gocat="${esc(c.id)}">Shop ${esc(c.name)}</button></div>`;
+    }).filter(Boolean);
+    // Today's Deals leads (the biggest cuts), then the departments; the Club card closes the row
+    const deals = this.listings.filter((l) => !l.locked && l.stock !== 0 && !l.mystery && this._pct(l) > 0).sort((a, b) => this._pct(b) - this._pct(a)).slice(0, 4);
+    if (deals.length >= 2) T.unshift(`<div class="eb-tile eb-tdeal"><b class="eb-tileh"><span class="eb-cati">${px('flame', 2)}</span>Today's Deals</b>
+        <span class="eb-tq">${deals.map((l) => `<button class="eb-tq1" data-also="${esc(l.id)}" style="${this._rarVars(l)}"><span class="eb-pic sm"><img class="eb-img" src="${esc(imgSrc(l.image))}" alt="" draggable="false" /><em class="eb-tqp">-${this._pct(l)}%</em></span><span class="eb-tqn">${this._coin(1)}<b>${fmt(l.price)}</b> <s>${fmt(l.oldPrice)}</s></span></button>`).join('')}</span>
+        <button class="eb-rowl" data-gocat="deals">See all deals</button></div>`);
+    T.splice(7);
+    T.push(`<div class="eb-tile eb-tclub"><b class="eb-tileh"><span class="eb-cati">${px('stamp', 2)}</span>e-Buy Club</b>${this._club(this.store.stamps)}
+      <span class="eb-tclubt">10 stamps = your next order's cheapest item FREE. Every order stamps the card.</span>
+      ${this.o.orders ? `<button class="eb-rowl eb-ptrack">Track my orders</button>` : ''}</div>`);
+    return T.join('');
   }
   _rarVars(l) {
     const r = RAR[l.rarity] || null;
@@ -1186,6 +1283,16 @@ class EBuy {
     if (l.badges?.includes('last')) return '<span class="eb-stock s-last">Last one!</span>';
     return '<span class="eb-stock s-ok">In stock</span>';
   }
+  // [v33 shop] a rating and a review count for every listing (the seller's stars, the count from its sales)
+  _rate(l) { return l.seller?.stars != null ? +l.seller.stars : 3.5 + (hash(String(l.id) + 'rt') % 4) * 0.5; }
+  _revN(l) { return Math.max(3, Math.round((l.seller?.sold || 0) * 0.17) + (hash(String(l.id) + 'rv') % 41)); }
+  // the delivery estimate per tier, cached per render (cards of the same size share it)
+  _cardEta(l, tier) {
+    const k = `${tier}|${l.kind === 'egg' || l.kind === 'fish' || l.kind === 'bird'}|${l.kind === 'fish' || l.pair ? 2 : l.qty || 1}`;
+    const C = (this._etaC ||= new Map());
+    if (!C.has(k)) { const e = this._eta([{ l, qty: 1 }], tier); C.set(k, !e ? '' : e.night ? 'at sunrise' : this._etaText(e).replace('arrives in ', '')); }
+    return C.get(k);
+  }
   _card(l, i, inCart = 0) {
     const r = rng(hash(l.id));
     const m = l.mutation, mk = mutKey(m);
@@ -1195,8 +1302,9 @@ class EBuy {
     const poor = !locked && !soldout && l.price > this.coins;
     const rt = RAR[l.rarity]?.t || 1;
     const sp = rt >= 3 ? [0, 1, 2].map(() => `<i class="eb-tw" style="left:${8 + r() * 80}%;top:${8 + r() * 70}%;animation-delay:${(r() * 3).toFixed(2)}s">${px('spark', 2)}</i>`).join('') : '';
-    const sel = l.seller;
     const cls = ['eb-card', locked && 'locked', soldout && 'soldout', mk && 'mu-' + mk, poor && 'poor', inCart && 'incart', l.badges?.includes('inseason') && 'inseason'].filter(Boolean).join(' ');
+    const open = !locked && !soldout;
+    const best = this._best?.has(l.id);
     return `<button class="${cls}" data-id="${esc(l.id)}" style="${this._rarVars(l)};--d:${(Math.min(i, 14) * 0.035).toFixed(3)}s;--bd:${(r() * 2).toFixed(2)}s">
       <span class="eb-pic">
         <img class="eb-img" src="${esc(imgSrc(l.image))}" alt="" draggable="false" />
@@ -1212,11 +1320,15 @@ class EBuy {
         ${this._cardStk(l)}
       </span>
       <span class="eb-info">
+        ${best && open ? '<span class="eb-bsell">#1 Best Seller</span>' : ''}
         <span class="eb-title">${esc(l.title)}</span>
+        <span class="eb-rate">${this._stars(this._rate(l))}<u>${fmt(this._revN(l))}</u></span>
         ${locked ? `<span class="eb-hint">${locked.icon ? this._icon(locked.icon, 1) : ''}${px('lockpad', 1)}<span>${esc(locked.reason || 'locked')}</span></span>` : ''}
-        <span class="eb-prow"><span class="eb-tag">${this._coin(1)}<b>${fmt(l.price)}</b></span>${l.oldPrice > l.price ? `<s class="eb-old">${fmt(l.oldPrice)}</s>` : ''}${locked || soldout ? '' : `<span class="eb-qadd" role="button" aria-label="add to cart" title="add to cart">${px('cart', 2)}<i>+</i></span>`}</span>
-        <span class="eb-meta">${this._stock(l)}${sel?.sold != null ? `<span class="eb-sold">${fmtK(sel.sold)} sold</span>` : ''}</span>
-        ${sel ? `<span class="eb-sel">${this._stars(sel.stars)}<span class="eb-seln">${esc(sel.name || '')}</span></span>` : ''}
+        <span class="eb-prow"><span class="eb-tag">${this._coin(1)}<b>${fmt(l.price)}</b></span>${l.oldPrice > l.price ? `<span class="eb-was2">List: <s class="eb-old">${fmt(l.oldPrice)}</s></span>` : ''}</span>
+        ${open ? `<span class="eb-dlv">${px('van', 1)}<span><b>FREE</b> Moose Express <em>${this._cardEta(l, 'std') || 'today'}</em></span></span>
+        <span class="eb-dlv t">${px('flame', 1)}<span>or <b>TURBO</b> <em>${this._cardEta(l, 'turbo') || 'faster'}</em></span></span>` : ''}
+        <span class="eb-meta">${this._stock(l)}${l.seller?.sold != null ? `<span class="eb-sold">${fmtK(l.seller.sold)} sold</span>` : ''}</span>
+        ${open ? `<span class="eb-qadd eb-atc" role="button" aria-label="add to cart">${px('cart', 1)}<span>Add to Cart</span></span>` : `<span class="eb-atc off">${soldout ? 'Sold out' : 'Coming soon'}</span>`}
       </span>
     </button>`;
   }
@@ -1343,15 +1455,19 @@ class EBuy {
     const pct = this._pct(l);
     this.qty = Math.max(1, Math.min(this._maxQ(l), this.qty));
     const pool = REVIEWS[l.cat] || REVIEWS.eggs;
-    const i0 = (r() * pool.length) | 0, i1 = (i0 + 1 + ((r() * (pool.length - 1)) | 0)) % pool.length;
-    const n0 = (r() * NAMES.length) | 0, n1 = (n0 + 1 + ((r() * (NAMES.length - 1)) | 0)) % NAMES.length;
-    const reviews = [[pool[i0], NAMES[n0], 5], [pool[i1], NAMES[n1], 4]];
+    // [v33 shop] three reviews (different lines, different names), a rating summary with pixel bars
+    const ri = [(r() * pool.length) | 0]; while (ri.length < Math.min(3, pool.length)) { const k = (r() * pool.length) | 0; if (!ri.includes(k)) ri.push(k); }
+    const ni = [(r() * NAMES.length) | 0]; while (ni.length < ri.length) { const k = (r() * NAMES.length) | 0; if (!ni.includes(k)) ni.push(k); }
+    const rate = this._rate(l), revN = this._revN(l);
+    const reviews = ri.map((k, j) => [pool[k], NAMES[ni[j]], j === 2 ? Math.max(1, Math.round(rate) - 2) : j ? 4 : 5, 1 + ((r() * 40) | 0)]);
+    const p5 = Math.round(30 + (rate - 3) * 28), p4 = Math.round((100 - p5) * 0.55), p1 = Math.max(2, Math.round((5 - rate) * 6)), p3 = Math.max(1, Math.round((100 - p5 - p4 - p1) * 0.6)), p2 = Math.max(0, 100 - p5 - p4 - p3 - p1);
     const watching = 3 + ((r() * 40) | 0);
     const sel = l.seller;
     const prevFx = keepFx ? this.$det.querySelector('.eb-fxl') : null;
     const fxHtml = prevFx ? prevFx.innerHTML : this._fx(mk, r);
     const deal = this._deal();
     const isDeal = deal && deal.id === l.id;
+    const best = this._best?.has(l.id);
     const specs = l.mystery ? [
       ['Contents', '??? (one random thing from the shelves)'],
       ['Odds', 'Sometimes worth 3x. Sometimes pellets.'],
@@ -1365,13 +1481,22 @@ class EBuy {
       sel && ['Seller', `<b class="eb-seln">${esc(sel.name)}</b> ${this._stars(sel.stars)} <span class="eb-sold">${fmtK(sel.sold || 0)} sold</span>`],
       ['Ships from', "Reynard's Garage, aisle 3"],
     ].filter(Boolean);
+    const about = [
+      l.desc || l.sub,
+      l.kind === 'egg' ? 'Hatches in your pond. Comes as an egg (we checked).' : l.kind === 'fish' ? 'Arrives alive, in a bag of pond water, slightly annoyed.' : null,
+      m ? `${esc(m.name || m.id)} mutation${m.mult ? `: sells for ×${esc(m.mult)}` : ''}. Rarer than a refund.` : null,
+      rar && rar.t >= 3 ? `${rar.n}. Bears will stare at it.` : null,
+      'Delivered by Moose Express. FREE. He insists.',
+    ].filter(Boolean).slice(0, 4);
     const inCart = SESSION.cart.find((c) => String(c.id) === String(l.id))?.qty || 0;
+    const img = esc(imgSrc(l.image));
     this.$det.innerHTML = `
+      <div class="eb-dcrumb"><button class="eb-back eb-dbk">${px('arrow', 1)}<span>Back to results</span></button><span class="eb-dpath">e-Buy <i>›</i> <button data-gocat="${esc(l.cat)}">${esc(this._catName(l.cat))}</button> <i>›</i> <span>${esc(this._short(l))}</span></span></div>
       <div class="eb-dwrap mu-${esc(mk)}" style="${this._rarVars(l)}">
         <div class="eb-dl">
-          <div class="eb-well">
+          <div class="eb-well v-0">
             <i class="eb-rays"></i><i class="eb-halo"></i>
-            <img class="eb-bigimg" src="${esc(imgSrc(l.image))}" alt="" draggable="false" />
+            <img class="eb-bigimg" src="${img}" alt="" draggable="false" />
             ${l.cat === 'eggs' && l.kind !== 'fish' ? `<span class="eb-eggm big">${this._eggIcon(l, 4)}</span>` : ''}
             <div class="eb-fxl">${fxHtml}</div>
             ${pct ? `<span class="eb-burst big"><b>-${pct}%!!</b></span>` : ''}
@@ -1381,30 +1506,48 @@ class EBuy {
             <i class="eb-ped"></i>
             ${this._stkKinds(l).filter((k) => k !== 'picked').map((k, i) => stkHTML(k, { cls: `stk-d stk-d${i}` })).join('')}
           </div>
-          <div class="eb-revs"><b class="eb-revh">Buyer reviews</b>${reviews.map(([t, n, s]) => `<div class="eb-rev">${this._stars(s)}<q>${esc(t)}</q><cite>${esc(n)}</cite></div>`).join('')}</div>
+          <div class="eb-thumbs">${['Front', 'Back', 'Actual size'].map((t, i) => `<button class="eb-thumb${i ? '' : ' on'} t${i}" data-v="${i}" aria-label="${t}"><img src="${img}" alt="" draggable="false" /><small>${t}</small></button>`).join('')}</div>
         </div>
-        <div class="eb-dr">
-          <div class="eb-dcrumb">e-Buy <i>›</i> ${esc(this._catName(l.cat))}</div>
+        <div class="eb-dm">
           <h2 class="eb-dt">${esc(l.title)}</h2>
-          ${l.sub || l.desc ? `<div class="eb-dsub">${esc(l.sub || '')}${l.desc ? `<span>${esc(l.desc)}</span>` : ''}</div>` : ''}
+          ${sel ? `<span class="eb-dstore">Visit the <u>${esc(sel.name)}</u> store</span>` : ''}
+          <div class="eb-drate"><b>${rate.toFixed(1)}</b>${this._stars(rate, 1)}<u>${fmt(revN)} ratings</u><i></i><span>${px('eye', 1)}${watching} watching</span></div>
+          ${best ? `<span class="eb-bsell big">#1 Best Seller <span>in ${esc(this._catName(l.cat))}</span></span>` : ''}
+          <hr class="eb-hr" />
+          <div class="eb-dpr">${pct ? `<em class="eb-dpct">-${pct}%</em>` : ''}<span class="eb-tag big">${this._coin(2)}<b>${fmt(l.price)}</b></span></div>
+          ${l.oldPrice > l.price ? `<div class="eb-was">List price: <s class="eb-old">${fmt(l.oldPrice)}</s> <em>you save ${this._coin(1)}${fmt(l.oldPrice - l.price)}</em></div>` : ''}
+          ${isDeal ? `<div class="eb-ddeal">${px('flame', 1)}<b>Deal of the day:</b> 10% back in coins · ends in <b class="eb-cd">${this._countdown()}</b></div>` : ''}
           <div class="eb-chips">${rar ? `<span class="eb-rchip">${rar.n}</span>` : ''}${this._mutChip(m, true)}</div>
-          <div class="eb-buybox">
-            ${this._stkKinds(l).includes('picked') ? stkHTML('pickedBig', { cls: 'stk-bb', title: 'Hand-picked by Reynard' }) : ''}
-            <div class="eb-dprice"><span class="eb-tag big">${this._coin(2)}<b>${fmt(l.price)}</b></span>${l.oldPrice > l.price ? `<span class="eb-was">was <s class="eb-old">${fmt(l.oldPrice)}</s>${pct ? ` <em>save ${pct}%</em>` : ''}</span>` : ''}</div>
-            ${l.locked ? `<div class="eb-dlock">${px('lockpad', 2)}<span>${esc(l.locked.reason || 'Locked')}</span></div>` : ''}
-            <div class="eb-qrow">
-              <span class="eb-ql">Qty</span>
-              <div class="eb-step"><button class="eb-minus" aria-label="less">−</button><b class="eb-qty">${this.qty}</b><button class="eb-plus" aria-label="more">+</button></div>
-              <span class="eb-totl">Total <span class="eb-totv">${this._coin(1)}<b class="eb-tot2">${fmt(l.price * this.qty)}</b></span></span>
-            </div>
-            ${l.locked ? '' : this._shipPick('d')}
-            <div class="eb-poor"></div>
-            <button class="eb-buy"><span class="eb-buyt">Buy It Now</span><span class="eb-buyc">${this._coin(2)}<b class="eb-tot">${fmt(l.price * this.qty)}</b></span><i class="eb-buyx">${px('bigx', 5)}</i></button>
-            <button class="eb-add">${px('cart', 2)}<span>Add to cart</span>${inCart ? `<i>${inCart} in cart</i>` : ''}</button>
-            <div class="eb-ship">${px('van', 2)}<span><b class="eb-shipn"></b> · <span class="eb-shipf"></span> · <span class="eb-etad">${esc(this._etaText(this._eta([{ l, qty: this.qty }]), l.eta))}</span></span></div>
-          </div>
+          <hr class="eb-hr" />
+          <b class="eb-abh">About this item</b>
+          <ul class="eb-about">${about.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
           <table class="eb-specs"><tbody>${specs.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>
-          ${this._alsoBought(l)}
+        </div>
+        <div class="eb-buybox">
+          ${this._stkKinds(l).includes('picked') ? stkHTML('pickedBig', { cls: 'stk-bb', title: 'Hand-picked by Reynard' }) : ''}
+          <div class="eb-dprice"><span class="eb-tag">${this._coin(1)}<b>${fmt(l.price)}</b></span>${pct ? `<em class="eb-dpct sm">-${pct}%</em>` : ''}</div>
+          <div class="eb-ship">${px('van', 2)}<span><b class="eb-shipf"></b> delivery by <b class="eb-shipn"></b><br /><b class="eb-etad">${esc(this._etaText(this._eta([{ l, qty: this.qty }]), l.eta))}</b></span></div>
+          <div class="eb-bbloc">${px('pin', 1)}<span>Deliver to Reynard's Hut</span></div>
+          <div class="eb-bbstock">${l.locked ? '' : this._stock(l)}</div>
+          ${l.locked ? `<div class="eb-dlock">${px('lockpad', 2)}<span>${esc(l.locked.reason || 'Locked')}</span></div>` : ''}
+          ${l.locked ? '' : this._shipPick('d')}
+          <div class="eb-qrow">
+            <span class="eb-ql">Qty:</span>
+            <div class="eb-step"><button class="eb-minus" aria-label="less">−</button><b class="eb-qty">${this.qty}</b><button class="eb-plus" aria-label="more">+</button></div>
+            <span class="eb-totl">Total <span class="eb-totv">${this._coin(1)}<b class="eb-tot2">${fmt(l.price * this.qty)}</b></span></span>
+          </div>
+          <div class="eb-poor"></div>
+          <button class="eb-add">${px('cart', 2)}<span>Add to Cart</span>${inCart ? `<i>${inCart} in cart</i>` : ''}</button>
+          <button class="eb-buy"><span class="eb-buyt">Buy Now</span><span class="eb-buyc">${this._coin(1)}<b class="eb-tot">${fmt(l.price * this.qty)}</b></span><i class="eb-buyx">${px('bigx', 4)}</i></button>
+          <table class="eb-bbtab"><tbody><tr><th>Ships from</th><td>Reynard's Garage</td></tr><tr><th>Sold by</th><td>${esc(sel?.name || 'e-Buy')}</td></tr><tr><th>Returns</th><td>Never. Not even that one.</td></tr><tr><th>Payment</th><td>Coins (all of them)</td></tr></tbody></table>
+        </div>
+        <div class="eb-dfull">${this._alsoBought(l)}
+          <section class="eb-revs">
+            <div class="eb-rsum"><b class="eb-revh">Customer reviews</b><span class="eb-rbig">${this._stars(rate, 2)}<b>${rate.toFixed(1)} out of 5</b></span><small>${fmt(revN)} global ratings</small>
+              ${[p5, p4, p3, p2, p1].map((p, i) => `<span class="eb-rbar"><u>${5 - i} star</u><i style="--p:${p}%"></i><em>${p}%</em></span>`).join('')}</div>
+            <div class="eb-rlist">${reviews.map(([t, n, st, h]) => `<div class="eb-rev"><span class="eb-rwho"><i class="eb-ava" style="--ac:${['#f0505a', '#3a7ae0', '#6cc04a', '#ffc22e', '#a050e0'][hash(n) % 5]}">${esc(n[0])}</i><b>${esc(n)}</b></span>
+              <span class="eb-rline">${this._stars(st)}<q>${esc(t)}</q></span><span class="eb-rver">Verified Moose Delivery</span><span class="eb-rhelp"><small>${h} bears found this helpful</small><button class="eb-helpful">Helpful</button></span></div>`).join('')}</div>
+          </section>
         </div>
       </div>`;
     this._updateTotal();
@@ -1583,8 +1726,10 @@ class EBuy {
     if (!pool.length) return '';
     const same = pool.filter((x) => x.cat === l.cat), other = pool.filter((x) => x.cat !== l.cat);
     const pick = [];
-    for (const src of [same, other, same, other, same]) { if (!src.length || pick.length >= 4) continue; const x = src[(R() * src.length) | 0]; if (!pick.includes(x)) pick.push(x); }
-    return `<div class="eb-also"><b class="eb-alsoh">Customers also bought</b><div class="eb-alsor">${pick.map((x) => `<button class="eb-mcard" data-also="${esc(x.id)}" style="${this._rarVars(x)}"><span class="eb-pic sm"><img class="eb-img" src="${esc(imgSrc(x.image))}" alt="" draggable="false" /></span><span class="mc-t">${esc(this._short(x))}</span><span class="eb-tag">${this._coin(1)}<b>${fmt(x.price)}</b></span></button>`).join('')}</div></div>`;
+    for (const src of [same, other, same, other, same, same, other, same]) { if (!src.length || pick.length >= 6) continue; const x = src[(R() * src.length) | 0]; if (!pick.includes(x)) pick.push(x); }
+    const inCart = new Map(SESSION.cart.map((c) => [String(c.id), c.qty]));
+    return `<section class="eb-row eb-also"><div class="eb-rowh"><b>Customers who bought this also bought</b></div>
+      <div class="eb-rowwrap"><button class="eb-rnav l" data-rnav="-1" aria-label="scroll left">${px('arrow', 2)}</button><div class="eb-rowt">${pick.map((x, i) => this._card(x, i, inCart.get(String(x.id)) || 0)).join('')}</div><button class="eb-rnav r" data-rnav="1" aria-label="scroll right">${px('arrowR', 2)}</button></div></section>`;
   }
   // the e-Buy Club card: 10 stamps, the newest one thumps on
   _club(n, fresh = -1) {
@@ -1648,12 +1793,14 @@ class EBuy {
     if (this.drawer === 'cart') this._renderDrawer();
   }
   _markCard(id) {
-    const card = [...this.$grid.querySelectorAll('.eb-card')].find((c) => c.dataset.id === String(id));
-    if (!card) return;
+    // [v33 shop] every card of it (a grid, the front page's rows, "also bought")
     const n = SESSION.cart.find((x) => String(x.id) === String(id))?.qty || 0;
-    card.classList.toggle('incart', !!n);
-    card.querySelector('.eb-inc')?.remove();
-    if (n) card.querySelector('.eb-pic')?.insertAdjacentHTML('beforeend', `<span class="eb-inc">${px('cartW', 2)}×${n}</span>`);
+    for (const card of this.el.querySelectorAll('.eb-card')) {
+      if (card.dataset.id !== String(id)) continue;
+      card.classList.toggle('incart', !!n);
+      card.querySelector('.eb-inc')?.remove();
+      if (n) card.querySelector('.eb-pic')?.insertAdjacentHTML('beforeend', `<span class="eb-inc">${px('cartW', 2)}×${n}</span>`);
+    }
   }
   _flyToCart(img, l) {
     if (!img || reduced()) return;
@@ -1805,43 +1952,50 @@ class EBuy {
     const after = this.coins - q.gross;
     const n = lines.reduce((s, x) => s + x.qty, 0);
     if (v === 'cart') {
-      const body = lines.length ? lines.map((x) => this._line(x, true)).join('') : `<div class="eb-dempty">${this._icon('fox_worried', 3) || px('cart', 6)}<b>Your cart is empty.</b><span>Reynard's wallet is sad. Tap ${px('cart', 1)}+ on anything.</span><button class="eb-keep">Keep shopping</button></div>`;
-      this.$drawer.innerHTML = `${head(`Your cart <em>${n ? `(${n})` : ''}</em>`)}${steps(0)}
+      // [v33 shop] the cart page: the lines on the left, the subtotal box on the right
+      const body = lines.length ? `<div class="eb-lhead"><span>${n} item${n === 1 ? '' : 's'}</span><span>Price</span></div>${lines.map((x) => this._line(x, true)).join('')}<div class="eb-lsubt">Subtotal (${n} item${n === 1 ? '' : 's'}): <b>${this._coin(1)}${fmt(q.items)}</b></div>`
+        : `<div class="eb-dempty">${this._icon('fox_worried', 3) || px('cart', 6)}<b>Your e-Buy Cart is empty.</b><span>Reynard's wallet is sad. Tap Add to Cart on anything.</span><button class="eb-keep">Keep shopping</button></div>`;
+      this.$drawer.innerHTML = `${head(`Shopping Cart <em>${n ? `(${n})` : ''}</em>`)}${steps(0)}
         <div class="eb-dbody">${body}</div>
         ${lines.length ? `<div class="eb-dfoot">
+          <div class="eb-freeok">${px('check', 2)}<span>Your order qualifies for <b>FREE Moose Express</b>. He insists.</span></div>
+          <div class="eb-sum big"><span>Subtotal (${n}):</span><i></i><b>${this._coin(1)}${fmt(total)}</b></div>
           ${this._sumRows(q)}
-          <div class="eb-sum"><span>Subtotal</span><i></i><b>${this._coin(1)}${fmt(total)}</b></div>
           <div class="eb-sum sm${after < 0 ? ' bad' : ''}"><span>Wallet after</span><i></i><b>${this._coin(1)}${fmt(this.coins - total)}</b></div>
-          <button class="eb-gocheck${after < 0 ? ' poor' : ''}"><span>Checkout</span>${px('arrowR', 2)}</button>
+          <button class="eb-gocheck${after < 0 ? ' poor' : ''}"><span>Proceed to checkout</span>${px('arrowR', 2)}</button>
+          ${this._club(this.store.stamps)}
         </div>` : ''}`;
       return;
     }
-    // checkout
+    // checkout: numbered steps on the left, the "Place your order" box on the right
     const eta = this._eta(ok);
+    const won = this.store.won.filter((c) => c !== SESSION.coupon && !this.store.used[c]);
+    const sec = (k, h, body) => `<section class="eb-csec"><b class="eb-csh"><i>${k}</i>${h}</b>${body}</section>`;
     this.$drawer.innerHTML = `${head('Checkout', true)}${steps(1)}
       <div class="eb-dbody">
-        <div class="eb-cbox"><span class="eb-cbi">${px('pin', 3)}</span><span><small>Ship to</small><b>The Pond, behind the hut</b><em>the moose knows the way</em></span></div>
-        <div class="eb-csec"><small class="eb-csh">Delivery</small>${this._shipPick('c', ok)}</div>
-        <button class="eb-cbox eb-giftb${SESSION.gift ? ' on' : ''}" data-gift><span class="eb-cbi">${px('gift', 3)}</span><span><small>Gift wrap · +${GIFT_FEE}</small><b>Pink paper + a bow</b><em>confetti when you unbox it</em></span><span class="eb-tick">${SESSION.gift ? px('check', 2) : ''}</span></button>
-        <label class="eb-cnote"><small>A note for the moose (he reads it out loud)</small><input class="eb-notei" type="text" maxlength="60" placeholder="e.g. Leave it by the pond, thanks!" value="${esc(SESSION.note || '')}" autocomplete="off" spellcheck="false" /></label>
-        <div class="eb-coupon"><small>Coupon code</small>
-          <span class="cp-row"><input class="eb-cpi" type="text" maxlength="12" placeholder="ENTER CODE" autocomplete="off" spellcheck="false" /><button class="eb-capply">Apply</button></span>
-          ${SESSION.coupon && this._cpn() ? `<span class="cp-on">${px('ticket', 2)}<b>${esc(SESSION.coupon)}</b><span>${esc(COUPONS[SESSION.coupon].n)}</span><button class="eb-cpx" aria-label="remove coupon">${px('x', 1)}</button></span>` : ''}
-          ${this.store.won.filter((c) => c !== SESSION.coupon && !this.store.used[c]).length ? `<span class="cp-won"><small>Your coupons:</small>${this.store.won.filter((c) => c !== SESSION.coupon && !this.store.used[c]).map((c) => `<button class="eb-cpn" data-code="${esc(c)}">${px('ticket', 1)}${esc(c)}</button>`).join('')}</span>` : ''}
-          <span class="cp-msg"></span>
-        </div>
-        ${this._club(this.store.stamps)}
-        <div class="eb-csum">${this._sumRows(q)}</div>
-        <div class="eb-cbox"><span class="eb-cbi">${px('coinp', 3)}</span><span><small>Pay with</small><b>Coins (all of them)</b><em>${this._coin(1)}${fmt(this.coins)} → <span class="${after < 0 ? 'bad' : ''}">${this._coin(1)}${fmt(after)}</span></em></span></div>
-        <div class="eb-clist">${ok.map((x) => this._line(x, false)).join('')}</div>
-        ${ok.length < lines.length ? `<div class="eb-cwarn">${px('lockpad', 2)}<span>${lines.length - ok.length} locked item${lines.length - ok.length > 1 ? 's' : ''} stay${lines.length - ok.length > 1 ? '' : 's'} in the cart.</span></div>` : ''}
-        <p class="eb-fine">By placing this order you agree to Reynard's 400-page Terms of Sale, including Section 12: “No refunds. Ever. Not even that one.”</p>
+        ${sec(1, 'Shipping address', `<div class="eb-cbox"><span class="eb-cbi">${px('pin', 3)}</span><span><small>Ship to</small><b>Reynard's Hut, the pond</b><em>the moose knows the way</em></span></div>`)}
+        ${sec(2, 'Choose a delivery speed', this._shipPick('c', ok))}
+        ${sec(3, 'Gift options', `<button class="eb-cbox eb-giftb${SESSION.gift ? ' on' : ''}" data-gift><span class="eb-cbi">${px('gift', 3)}</span><span><small>Gift wrap · +${GIFT_FEE}</small><b>Pink paper + a bow</b><em>confetti when you unbox it</em></span><span class="eb-tick">${SESSION.gift ? px('check', 2) : ''}</span></button>
+          <label class="eb-cnote"><small>A note for the moose (he reads it out loud)</small><input class="eb-notei" type="text" maxlength="60" placeholder="e.g. Leave it by the pond, thanks!" value="${esc(SESSION.note || '')}" autocomplete="off" spellcheck="false" /></label>`)}
+        ${sec(4, 'Payment &amp; coupons', `<div class="eb-cbox"><span class="eb-cbi">${px('coinp', 3)}</span><span><small>Pay with</small><b>Coins (all of them)</b><em>${this._coin(1)}${fmt(this.coins)} → <span class="${after < 0 ? 'bad' : ''}">${this._coin(1)}${fmt(after)}</span></em></span></div>
+          <div class="eb-coupon"><small>Coupon code</small>
+            <span class="cp-row"><input class="eb-cpi" type="text" maxlength="12" placeholder="ENTER CODE" autocomplete="off" spellcheck="false" /><button class="eb-capply">Apply</button></span>
+            ${SESSION.coupon && this._cpn() ? `<span class="cp-on">${px('ticket', 2)}<b>${esc(SESSION.coupon)}</b><span>${esc(COUPONS[SESSION.coupon].n)}</span><button class="eb-cpx" aria-label="remove coupon">${px('x', 1)}</button></span>` : ''}
+            ${won.length ? `<span class="cp-won"><small>Your coupons:</small>${won.map((c) => `<button class="eb-cpn" data-code="${esc(c)}">${px('ticket', 1)}${esc(c)}</button>`).join('')}</span>` : ''}
+            <span class="cp-msg"></span>
+          </div>`)}
+        ${sec(5, 'Review items', `<div class="eb-clist">${ok.map((x) => this._line(x, false)).join('')}</div>
+          ${ok.length < lines.length ? `<div class="eb-cwarn">${px('lockpad', 2)}<span>${lines.length - ok.length} locked item${lines.length - ok.length > 1 ? 's' : ''} stay${lines.length - ok.length > 1 ? '' : 's'} in the cart.</span></div>` : ''}`)}
       </div>
       <div class="eb-dfoot">
-        <div class="eb-sum big"><span>Order total</span><i></i><b>${this._coin(2)}${fmt(total)}</b></div>
+        <button class="eb-pay${after < 0 ? ' poor' : ''}"><span class="eb-buyt">Place your order</span><i class="eb-buyx">${px('bigx', 4)}</i></button>
+        <p class="eb-fine">By placing your order you agree to Reynard's 400-page Terms of Sale, including Section 12: “No refunds. Ever. Not even that one.”</p>
+        <b class="eb-osh">Order Summary</b>
+        <div class="eb-csum">${this._sumRows(q)}</div>
+        <div class="eb-sum big"><span>Order total</span><i></i><b>${this._coin(1)}${fmt(total)}</b></div>
         <div class="eb-sum sm"><span>${px(q.tier.ic, 1)} ${esc(q.tier.n)}</span><i></i><b class="eb-ceta">${esc(this._etaText(eta))}</b></div>
         ${after < 0 ? `<div class="eb-poor">${this._icon('fox_worried', 1)}<span>You need ${this._coin(1)}<b>${fmt(-after)}</b> more.</span></div>` : ''}
-        <button class="eb-pay${after < 0 ? ' poor' : ''}"><span class="eb-buyt">Place order</span><i class="eb-buyx">${px('bigx', 4)}</i></button>
+        ${this._club(this.store.stamps)}
       </div>`;
   }
   // a short name for cart lines and the receipt ("Candy Bluegill egg", "Classic Pellets ×40")
@@ -1874,14 +2028,13 @@ class EBuy {
   _line(x, edit) {
     const l = x.l;
     const bad = l.locked || l.stock === 0;
-    return `<div class="eb-line${bad ? ' bad' : ''}" data-lid="${esc(l.id)}" style="${this._rarVars(l)}">
+    return `<div class="eb-line${bad ? ' bad' : ''}${edit ? ' big' : ''}" data-lid="${esc(l.id)}" style="${this._rarVars(l)}">
       <span class="eb-lpic"><img src="${esc(imgSrc(l.image))}" alt="" draggable="false" /></span>
       <span class="eb-linfo">
-        <span class="eb-lt">${esc(this._short(l))}</span>
-        ${bad ? `<span class="eb-lwarn">${px('lockpad', 1)}${esc(l.locked?.reason || 'Sold out')}</span>` : `<span class="eb-lsub">${this._coin(1)}${fmt(l.price)} each</span>`}
-        <span class="eb-lrow">${edit ? `<span class="eb-step sm"><button class="eb-lminus" aria-label="less">−</button><b>${x.qty}</b><button class="eb-lplus" aria-label="more">+</button></span>` : `<span class="eb-lq">×${x.qty}</span>`}<b class="eb-lsum">${this._coin(1)}${fmt(l.price * x.qty)}</b></span>
+        <span class="eb-lt">${esc(edit ? l.title : this._short(l))}</span>
+        ${bad ? `<span class="eb-lwarn">${px('lockpad', 1)}${esc(l.locked?.reason || 'Sold out')}</span>` : edit ? `${this._stock(l)}<span class="eb-lsub">${px('van', 1)}FREE Moose Express · ${this._coin(1)}${fmt(l.price)} each</span>` : `<span class="eb-lsub">${this._coin(1)}${fmt(l.price)} each</span>`}
+        <span class="eb-lrow">${edit ? `<span class="eb-step sm"><button class="eb-lminus" aria-label="less">−</button><b>${x.qty}</b><button class="eb-lplus" aria-label="more">+</button></span><button class="eb-lrm" aria-label="remove">${px('trash', 1)}<span>Delete</span></button>` : `<span class="eb-lq">×${x.qty}</span>`}<b class="eb-lsum">${this._coin(1)}${fmt(l.price * x.qty)}</b></span>
       </span>
-      ${edit ? `<button class="eb-lrm" aria-label="remove">${px('trash', 2)}</button>` : ''}
     </div>`;
   }
   async _placeOrder() {
