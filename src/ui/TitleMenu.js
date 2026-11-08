@@ -60,6 +60,15 @@ function starIcon() {
   return c;
 }
 
+// [v33 menu] a little bluegill for the FISH plank
+function fishIcon() {
+  const rows = ['....kkk....', 'k..kbbbk...', 'kk.kbbbbkk.', 'kbkbbbbbwkk', 'kbbbbbbbkyk', 'kbkbbbbbyyk', 'kk.kyyyykk.', 'k...kkkk...'];
+  const P = { k: INK, b: '#4a7ac8', y: '#f0a830', w: '#ffffff' };
+  const c = cv(11, 8), g = c.getContext('2d');
+  rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (P[r[x]]) { g.fillStyle = P[r[x]]; g.fillRect(x, y, 1, 1); } });
+  return c;
+}
+
 // a tiny gear for the settings plank
 function gearIcon() {
   const rows = ['...k.k...', '..kskskk.', '.kssssssk', 'kssk.kssk', '.ks...sk.', 'kssk.kssk', '.kssssssk', '..kskskk.', '...k.k...'];
@@ -73,7 +82,7 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
   root = root || document.body;
   const play = (name, o) => { try { sfx?.(name, o); } catch { /* optional */ } };
   let soundOn = !(isMuted?.() ?? false);
-  let closed = false, away = false, sub = null;
+  let closed = false, away = false, sub = null, rain = null; // [v33 menu] rain: the FISH plank's fish
   const S = window.innerWidth < 560 || window.innerHeight < 520 ? 2 : 3;
 
   const logo = board(['THE BEAR', 'MUST EAT'], { bite: true, pad: 11 });
@@ -124,6 +133,7 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
   btn('new', 'NEW GAME', has ? 'PICK A BOX' : null, 7, has ? null : WOOD.green);
   btn('settings', 'SETTINGS', null, 11, WOOD.dark, gearIcon());
   btn('credits', 'CREDITS', null, 13, WOOD.dark, starIcon()); // [v33 title] the credits roll over the title scene
+  btn('fish', 'FISH', null, 17, WOOD.dark, fishIcon()); // [v33 menu] it rains fish (src/ui/fishRain.js)
   root.appendChild(el);
   // [v27 title] floating words instead of the hanging board (they size the .tm-logo box themselves)
   const boardVars = [el.style.getPropertyValue('--bh'), el.querySelector('.tm-sign').style.getPropertyValue('--w')];
@@ -219,6 +229,13 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
       else if (c === 'new') { play('click'); openBoxes(); }
       else if (c === 'settings') { play('click'); openSettingsPage(); }
       else if (c === 'credits') { play('click'); openCreditsRoll(); } // [v33 title]
+      else if (c === 'fish') { // [v33 menu] it rains fish: every press drops another dozen
+        import('./fishRain.js').then(({ fishRain }) => {
+          if (closed) return;
+          if (!rain) rain = fishRain({ sfx: (n, o) => play(n, o) });
+          rain.drop(12);
+        }).catch((e) => console.warn('fish rain failed', e));
+      }
     });
   }
   planks.addEventListener('pointerleave', () => { if (!planks.contains(document.activeElement)) pointAt(null); });
@@ -243,6 +260,7 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
     closed = true;
     window.removeEventListener('keydown', onKey);
     sub?.close?.();
+    rain?.destroy(); rain = null; // [v33 menu]
     words?.leave(); words = null; // [v27 title]
     el.classList.add('tm--out');
     setTimeout(() => el.remove(), 420);
