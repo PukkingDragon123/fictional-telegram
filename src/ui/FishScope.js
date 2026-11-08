@@ -103,30 +103,43 @@ function breedInfo(f) {
   return { checks, ready: ready || dating, dating, word, rest: Math.max(0, Math.ceil(f.loveT || 0)) };
 }
 
-// what Reynard says first (expression, line, magnifier pose first?)
+// [v33 tut2] Reynard's lines in the Scope are plain observations about THIS fish right now (its name,
+// numbers and state), the way you'd point things out to a friend: no jokes, nothing he could say anytime.
+const heOf = (f) => (f.g?.sex === 'M' ? 'he' : 'she');
+const himOf = (f) => (f.g?.sex === 'M' ? 'him' : 'her');
+const cap1 = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+/** what's missing before it can breed, in words ('' when ready) */
+function breedLine(F, f) {
+  const n = fishName(f), B = F.breed, he = heOf(f);
+  if (B.dating) return `${n} is on a date right now. Eggs soon.`;
+  if (!f.adult) return `${n} is a fry, ${pct(F.grow)}% grown. Fry can't breed until they're grown.`;
+  if (B.ready) return `${n} is ready to breed. ${cap1(he)} needs a ${f.g.sex === 'M' ? 'girl' : 'boy'} who's ready too.`;
+  const [, fed, hunger, rest] = B.checks;
+  if (fed.ok && hunger.ok && !rest.ok) return `${n}'s full and grown. ${cap1(he)} just needs rest before ${he} can breed${B.rest ? `, about ${B.rest} more seconds` : ''}.`;
+  if (!hunger.ok) return `${n} is starving. Feed ${himOf(f)} before anything else.`;
+  if (!fed.ok) return `${n}'s well-fed heart is at ${pct(f.fed)}%. Feed ${himOf(f)} until it's full.`;
+  return `${n} is too scared to breed right now.`;
+}
+// what Reynard says first (expression, line)
 function reaction(F, f) {
   const n = fishName(f);
-  if (!f.adult) return { expr: 'love', fx: 'hearts', line: `A tiny fry! ${pct(F.grow)}% grown. Adorable... and someday, delicious.` };
-  if (F.g.stars >= 5) return { expr: 'shocked', then: 'magnifique', line: `LEGENDARY?! ${n}... this is the find of my career!` };
-  if (F.mu && F.mu.stars >= 2) return { expr: 'excited', line: `A ${F.mu.name.toUpperCase()} mutation! Fetch my good monocle!` };
-  if (F.mu) return { expr: 'excited', line: `Ooh! A ${F.mu.name} mutation. Worth ${F.mu.value}x the coins!` };
-  if (F.g.morph !== 'normal') return { expr: 'excited', line: `${F.mo.name} colouring! You don't see that every day.` };
-  if (F.g.stars >= 3) return { expr: 'proud', line: `A ${F.rar.name.toLowerCase()} specimen. Fine genes indeed.` };
-  if ((f.hunger || 0) > 0.75) return { expr: 'worried', line: `${n} is STARVING! Feed the pond, quick!` };
-  return { expr: 'focused', fx: 'question', line: `Hmm. A plain ${F.sp.name}. Solid... ordinary... edible.` };
+  if ((f.hunger || 0) > 0.75) return { expr: 'worried', line: `${n} is ${pct(f.hunger)}% hungry. Feed ${himOf(f)} soon.` };
+  if (F.mu) return { expr: 'excited', line: `${n} has the ${F.mu.name} mutation. That multiplies ${F.g.sex === 'M' ? 'his' : 'her'} worth by ${F.mu.value}.` };
+  if (F.g.morph !== 'normal') return { expr: 'excited', line: `${n} is ${F.mo.name}. That colour is worth x${F.mo.value}.` };
+  if (!f.adult) return { expr: 'happy', line: `${n} is a fry, ${pct(F.grow)}% grown.` };
+  return { expr: 'focused', line: `${n}: a ${F.g.sex === 'M' ? 'boy' : 'girl'} ${F.sp.name}, ${pct(f.hunger)}% hungry, ${pct(f.love)}% happy.` };
 }
 // then he rambles on, one short fact at a time
 function chatter(F, f) {
   const out = [];
-  if (F.g.traits.length) for (const t of F.g.traits) out.push({ expr: TRAITS[t]?.good ? 'happy' : 'tsk', line: `Trait: ${TRAITS[t]?.name}. ${TRAITS[t]?.desc}` });
-  out.push({ expr: 'greedy', line: `Worth ${F.worth} coins to a hungry bear. Heh heh.` });
-  if (f.tagged) out.push({ expr: 'smug', line: 'Tagged DO NOT EAT. The bears keep their paws off.' });
-  else out.push({ expr: 'scheming', line: 'Not tagged... so it is on the menu at 5 PM.' });
-  if (!f.adult) out.push({ expr: 'happy', line: 'Fry grow up on their own. Keep them fed!' });
-  else if (F.fedFull) out.push({ expr: 'love', line: 'Well fed and ready for love. Romance is in the water!' });
-  else out.push({ expr: 'teacher', line: 'Fill the heart meter with food and it will fall in love.' });
-  if (F.match) out.push({ expr: 'love', line: `Engaged to ${fishName(F.match)}! I booked the date myself.` });
-  out.push({ expr: 'teacher', line: `${F.sp.name}: ${F.sp.latin || 'species unknown'}. I wrote the textbook.` });
+  const n = fishName(f), he = heOf(f), him = himOf(f);
+  out.push({ expr: F.breed.ready ? 'love' : 'teacher', line: breedLine(F, f) });
+  out.push({ expr: 'greedy', line: `A bear would pay ${F.worth} coins to eat ${n}.` });
+  if (f.tagged) out.push({ expr: 'smug', line: `${n} has a DO NOT EAT tag. The bears leave ${him} alone.` });
+  else if (f.tank) out.push({ expr: 'smug', line: `${n} is in a glass tank, out of the bears' reach.` });
+  else out.push({ expr: 'teacher', line: `${n} isn't tagged, so a bear could eat ${him} at 5 PM.` });
+  if (F.g.traits.length) for (const t of F.g.traits) out.push({ expr: TRAITS[t]?.good ? 'happy' : 'tsk', line: `${n} has the ${TRAITS[t]?.name} trait: ${TRAITS[t]?.desc}` });
+  if (F.match) out.push({ expr: 'love', line: `${n} is matched with ${fishName(F.match)}. ${cap1(he)} only dates ${fishName(F.match)}.` });
   return out;
 }
 
@@ -233,23 +246,16 @@ function callValue(k, F, f, P) {
   }
 }
 function callInfo(k, F, f) {
-  const g = F.g;
+  const g = F.g, n = fishName(f), he = heOf(f), him = himOf(f);
   switch (k) {
-    case 'mut': return F.mu ? `${F.mu.name}: a rare egg-roll bonus. Worth x${F.mu.value} coins, +${F.mu.stars} star${F.mu.stars === 1 ? '' : 's'}. It trails ${F.mu.fx === 'none' ? 'no' : F.mu.fx} fx.` : 'No mutation. Fancy food and the Matchmaker raise the odds for the babies.';
-    case 'mood': return `Happiness ${pct(f.love)}%. Pet fish to nurture them: nurtured parents make better babies.`;
-    case 'hunger': return `Hunger ${pct(f.hunger)}%. Feed the pond until the 4 hearts are full: a well-fed adult falls in love.`;
-    case 'breed': {
-      const B = F.breed;
-      if (B.dating) return 'On a date right now. Eggs soon!';
-      if (!f.adult) return `A fry can't breed yet. It's ${pct(F.grow)}% grown: keep it fed.`;
-      if (B.ready) return 'Grown, well fed, rested: it will swim off to find a mate of the other sex.';
-      const miss = B.checks.filter((c) => !c.ok).map((c) => c.label.toLowerCase());
-      return `Not yet. It still needs to be: ${miss.join(', ')}.${B.rest && !B.checks[3].ok ? ` About ${B.rest}s of rest left.` : ''}`;
-    }
-    case 'sex': return g.sex === 'M' ? 'A boy. He fertilizes the eggs a girl lays after their date.' : 'A girl. After a date she lays the eggs; a boy fertilizes them.';
-    case 'morph': return g.morph === 'normal' ? 'Wild Type: natural colours. Rare morphs (Albino, Golden, Prismatic...) sell for much more.' : `${F.mo.name}: ${F.mo.desc || ''} Worth x${F.mo.value}.`;
-    case 'age': return f.adult ? `Born on day ${F.born}. Grown up: it can date, breed and be served.` : `Born on day ${F.born}. A fry, ${pct(F.grow)}% grown: fry grow on their own when fed, can't breed and are worth less.`;
-    case 'size': return `Size ${F.size} = ${g.size.toFixed(2)}x normal. Bigger fish feed bears more and sell higher. Big parents, big babies.`;
+    case 'mut': return F.mu ? `${n} has the ${F.mu.name} mutation: worth x${F.mu.value}, and +${F.mu.stars} star${F.mu.stars === 1 ? '' : 's'} of rarity.` : `${n} has no mutation. Most fish don't; about one fresh egg in five rolls one.`;
+    case 'mood': return `${n} is ${pct(f.love)}% happy. ${f.love >= 0.9 ? 'Happy fish breed sooner and have luckier babies.' : `Pet ${him} to raise it.`}`;
+    case 'hunger': return `${n} is ${pct(f.hunger)}% hungry, and ${he === 'he' ? 'his' : 'her'} well-fed heart is at ${pct(f.fed)}%.${(f.fed || 0) < 0.9 ? ` Feed ${him} to fill it.` : ''}`;
+    case 'breed': return breedLine(F, f);
+    case 'sex': return g.sex === 'M' ? `${n} is a boy. After a date, he fertilizes the eggs the girl lays.` : `${n} is a girl. After a date, she lays the eggs.`;
+    case 'morph': return g.morph === 'normal' ? `${n} has the normal wild colours: x1 value.` : `${n} is ${F.mo.name}: worth x${F.mo.value}. ${F.mo.desc || ''}`;
+    case 'age': return f.adult ? `${n} is grown, born on day ${F.born}.` : `${n} is a fry, ${pct(F.grow)}% grown. Fry are worth about a third until they grow up.`;
+    case 'size': return `${n} is ${F.size}, x${g.size.toFixed(2)}. Bigger fish are worth more and fill a bear more.`;
     default: return '';
   }
 }
@@ -312,7 +318,7 @@ class Scope {
       <div class="fsc-console">
         <div class="fsc-foxbox"><div class="fsc-fox"></div></div>
         <div class="fsc-main fsc-sheet">
-          <div class="fsc-say"><b>PROF. REYNARD</b><span class="fsc-line"></span></div>
+          <div class="fsc-say"><b>REYNARD</b><span class="fsc-line"></span></div>
           <div class="fsc-chips"></div>
         </div>
         <div class="fsc-btns"></div>
@@ -492,17 +498,17 @@ class Scope {
   }
 
   tipText(key) {
-    const F = this.F, f = this.fish;
-    if (key.startsWith('trait:')) { const T = TRAITS[key.slice(6)]; return T ? `${T.name}: ${T.desc}` : ''; }
+    const F = this.F, f = this.fish, n = fishName(f), him = himOf(f);
+    if (key.startsWith('trait:')) { const T = TRAITS[key.slice(6)]; return T ? `${n} has the ${T.name} trait: ${T.desc}` : ''; }
     return {
-      notraits: 'No personality traits. Traits are inherited: breed fish that have good ones.',
-      age: f.adult ? 'Grown up: can date, breed and be served.' : `A fry: ${pct(F.grow)}% grown. Fry can't breed and are worth less.`,
-      tag: f.tagged ? 'Tagged DO NOT EAT: bears leave it alone.' : 'Untagged: any bear may eat it at dinner time.',
-      home: f.tank ? 'In a glass tank: safe from bears, fed for you, breeds with tank mates only.' : 'Swimming in the pond with everyone else.',
-      match: 'The Matchmaker engaged this pair: they only date each other.',
-      date: 'On a date right now. Eggs soon!',
-      luck: 'Fancy food raised its mutation luck for the next babies.',
-      parents: `Its parents: ${(F.parents || []).join(' and ')}. Babies inherit size, colour and traits.`,
+      notraits: `${n} has no traits. Babies can inherit traits from their parents.`,
+      age: f.adult ? `${n} is grown: ${heOf(f)} can breed and be served.` : `${n} is a fry, ${pct(F.grow)}% grown.`,
+      tag: f.tagged ? `${n} is tagged DO NOT EAT. The bears leave ${him} alone.` : `${n} isn't tagged. A bear could eat ${him} at 5 PM.`,
+      home: f.tank ? `${n} is in a glass tank: safe from bears, fed for you, breeds with tank mates only.` : `${n} is in the pond with the others.`,
+      match: `${n} is matched by the Matchmaker: this pair only dates each other.`,
+      date: `${n} is on a date right now. Eggs soon.`,
+      luck: `Fancy food raised ${n}'s luck for the next babies.`,
+      parents: `${n}'s parents: ${(F.parents || []).join(' and ')}. Babies get size, colour and traits from them.`,
     }[key] || '';
   }
   tip(key) {
@@ -686,6 +692,7 @@ class Scope {
       this.poseT = scrib ? 6 : 3.5;
       if (scrib) game.audio?.play('pen', { volume: 0.2 });
       else if (this.lines?.length && !this.tipKey) {
+        try { this.lines = chatter(facts(this.game, this.fish), this.fish); } catch { /* keep the last */ } // [v33 tut2] today's numbers, not the ones from when it opened
         const L = this.lines[this.lineI++ % this.lines.length];
         this.speak(L.line, L.expr);
       }

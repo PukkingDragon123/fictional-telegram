@@ -29,7 +29,7 @@ import * as THREE from 'three';
 // skip (skipNow), so it ends the tour from any step and catches the save up (finishSkipped).
 // Debug: ?autostart=new&tutfrom=<chapter> jumps straight to a chapter (ids in CHAPTERS below).
 import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
-import { STRUCTURES } from '../data/structures.js';
+import { STRUCTURES, BEAUTY_PER_BEAR } from '../data/structures.js';
 import { ynPair } from '../ui/ynButtons.js'; // [v27 knobs] painted YES / NO planks
 import { TUT_SCENES } from './cine/tutorialScenes.js'; // [v31 guide]
 import { floatTitle } from '../ui/kinetic/floatText.js'; // [v31 guide]
@@ -146,6 +146,35 @@ export class Tutorial {
     f.react?.('cheer', 1.4);
     game.particles?.confetti?.(p.x, p.y, p.z, 26);
     game.audio?.play?.('star_pop', { volume: 0.45 });
+  }
+
+  // ------------------------------------------------------------ live facts for Reynard's lines [v33 tut2]
+  // He talks about what's really on screen: names, numbers, the time, what you just did.
+  nm(f) { return f?.name || f?.sp?.name || 'that fish'; }
+  him(f) { return f?.g?.sex === 'M' ? 'him' : 'her'; }
+  he(f) { return f?.g?.sex === 'M' ? 'he' : 'she'; }
+  coins() { return Math.round(this.game.state.coins || 0); }
+  pondCount() { return this.game.fish.list.filter((f) => !f.dead && !f.tank).length; }
+  clockText() {
+    const h = this.game.state.hour ?? 9, H = Math.floor(h) % 24, M = Math.floor(((h - Math.floor(h)) * 60) / 5) * 5;
+    return `${((H + 11) % 12) + 1}${M ? ':' + String(M).padStart(2, '0') : ''} ${H < 12 ? 'AM' : 'PM'}`;
+  }
+  /** coins spent from now on: call the result later */
+  spentSince() { const c0 = this.coins(); return () => Math.max(0, c0 - this.coins()); }
+  /** about how many bears come tomorrow (BearSystem.planWave without its dice) */
+  bearsTomorrow() {
+    const g = this.game, day = (g.state.day || 1) + 1, r = g.state.rating ?? 3;
+    const ratingF = r >= 4.5 ? 1.25 : r >= 4 ? 1.1 : r >= 3 ? 1 : r >= 2 ? 0.85 : 0.7;
+    let beauty = 0;
+    try { beauty = Math.min(6, Math.floor(g.beauty() / BEAUTY_PER_BEAR)); } catch { beauty = 0; }
+    return Math.max(2, Math.round((1.5 + day * 0.75) * ratingF + beauty + (g.mods?.bearBonus || 0)));
+  }
+  /** listen to a game event until the returned off() */
+  listen(ev, fn) {
+    const game = this.game;
+    const h = (d) => { try { fn(d); } catch (e) { console.warn('[tut] listen', ev, e); } };
+    game.on(ev, h);
+    return () => { const L = game.listeners[ev]; const i = L ? L.indexOf(h) : -1; if (i >= 0) L.splice(i, 1); };
   }
 
   // ------------------------------------------------------------ the dialogue box [v33 tut2]
@@ -465,7 +494,7 @@ export class Tutorial {
       await this.lab('Then I\'ll walk you through it, step by step. You\'ll do every bit yourself.', 'happy');
     }
     await this.lab('The business: bears from the office up the hill eat at our pond at <b>5 PM</b>. We raise the fish, they <b>pay coins</b>.', 'scheming');
-    await this.lab('Coins buy more fish, food and buildings. A bigger pond feeds more bears, and more bears pay more.', 'greedy');
+    await this.lab(`We start with <b>${this.coins()} coins</b>. They buy fish, food and buildings. A bigger pond feeds more bears, and more bears pay more.`, 'greedy');
     await this.lab('Come on, the pond is outside.', 'excited', 'excited');
     await this.g(L.walkOut());
   }
@@ -487,9 +516,9 @@ export class Tutorial {
     // ---- the opening crane over the valley: where the bears come from, down to the empty pond
     await this.scene('opening');
     await this.part(1, 'The Goal');
-    await this.hud('coins', { line: 'Your <b>coins</b>. Bears pay into this. You spend it on fish, food and buildings.', mood: 'greedy' });
-    await this.hud('clock', { line: 'The <b>clock</b> runs the day. Daytime: get ready. <b>5 PM</b>: the bears\' feast. Night: the <b>report</b> on how you did.', mood: 'happy' });
-    await this.teach('Today is <b>day 1</b>: no bears yet. The clock waits while I show you around.', { target: this.slot('clock'), wait: true, mood: 'happy' });
+    await this.hud('coins', { line: `Your <b>coins</b>: ${this.coins()} right now. The bears pay into this; fish, food and buildings come out of it.`, mood: 'greedy' });
+    await this.hud('clock', { line: `The <b>clock</b>: it's ${this.clockText()}, day ${game.state.day || 1}. Daytime is for getting ready, at <b>5 PM</b> the bears eat, and at night you get the <b>report</b>.`, mood: 'happy' });
+    await this.teach(`No bears today. Tomorrow at <b>5 PM</b> about <b>${this.bearsTomorrow()}</b> come down. The clock is stopped while I show you around.`, { target: this.slot('clock'), wait: true, mood: 'happy' });
   }
 
   // ------------------------------------------------------------ 8. THE FEAST
@@ -502,7 +531,7 @@ export class Tutorial {
       const P = game.shoreTiles?.()[0];
       // up the mountain: Bear Corp
       await c.shot([O.x, O.z + 4], { zoom: 0.03, dur: 1.4, lift: (O.h || 6) + 2 }); // (the old 'tomorrow' framing: the tower in shot)
-      await c.say(c.fox, 'Up the hill is <b>Bear Corp</b>. From tomorrow, at <b>5 PM</b> every day but Sunday, the office empties.', { style: 'say' });
+      await c.say(c.fox, `Up the hill is <b>Bear Corp</b>. Every day but Sunday at <b>5 PM</b> the office empties. Tomorrow that's about ${this.bearsTomorrow()} bears.`, { style: 'say' });
       // down the trail to the pond
       await c.shot([(O.x + f.x) / 2, (O.z + f.z) / 2], { zoom: 0.032, dur: 1.8 });
       await c.say(c.fox, 'The bears run down this trail, jump in the pond and <b>catch fish</b>. They go for grown fish before fry.', { style: 'say' });
@@ -515,9 +544,12 @@ export class Tutorial {
       await c.say(c.fox, 'Reviews make your <b>rating</b>. A high rating brings more bears. Below 1 star, we\'re <b>closed</b>.', { style: 'say' });
       await c.say(c.fox, 'After the feast, the night <b>report</b>: coins in and out, the reviews, and a grade for the day.', { style: 'happy' });
     }, { pause: true, id: 'tut:feast' });
-    if (!ok) await this.teach('At 5 PM the bears eat our fish and pay their worth. Full bears give good reviews; hungry ones rampage.', { wait: true });
+    if (!ok) await this.teach(`Tomorrow at 5 PM about ${this.bearsTomorrow()} bears eat our fish and pay their worth. Full bears give good reviews; hungry ones rampage.`, { wait: true });
     const stop = this.pointAt(this.slot('clock'));
-    await this.teach('So before <b>5 PM</b>: enough fish for every bear, fed and grown, and your best one tagged.', { target: this.slot('clock'), wait: true, mood: 'scheming' });
+    {
+      const pop = this.pondCount(), n = this.bearsTomorrow();
+      await this.teach(`Right now we have <b>${pop} fish</b> for about <b>${n} bears</b>. ${pop < n * 2 ? 'Not enough yet: breed and buy more before 5 PM tomorrow.' : 'A good start. Keep them fed and tag your best breeder.'}`, { target: this.slot('clock'), wait: true, mood: 'scheming' });
+    }
     stop();
   }
 
@@ -534,9 +566,11 @@ export class Tutorial {
     try { this.labTree()?.select?.('r_beavers'); } catch { /* ignore */ }
     await this.wait(0.4);
     this.teach('Tap <b>RESEARCH</b> to start it.', { target: 'sel:' + LAB_SEL.go, mood: 'excited' });
+    const offR = this.listen('researchStart', (d) => { if (d?.id === 'r_beavers') this.line(`Started. Today it takes about <b>${Math.max(1, Math.round(d.time || 0))} seconds</b>.`, { target: 'sel:' + LAB_SEL.bench }); });
     this.nag(() => 'Tap RESEARCH on Hire Beavers.');
     await this.guideResearch('r_beavers', { until: 'start', autoAfter: 60 });
     this.stopNag();
+    offR();
     if (!game.state.research.includes('r_beavers')) {
       await this.teach('It runs on the <b>bench</b>. One project per bench at a time.', { target: 'sel:' + LAB_SEL.bench, wait: true, mood: 'happy' });
       if (!game.state.research.includes('r_beavers')) await this.teach('Greyed-out ones need something first: an earlier project, or a neighbour you haven\'t met yet.', { wait: true, mood: 'happy' });
@@ -545,7 +579,7 @@ export class Tutorial {
     await this.within(beaversDone, 3);
     game.audio.play('fanfare', { volume: 0.5 });
     this.win('EUREKA!');
-    await this.teach('Done! Whatever you research shows up in <b>e-Buy</b> or the <b>Build</b> menu.', { wait: true, mood: 'excited' });
+    await this.teach('Done: <b>Hire Beavers</b> is researched, so the <b>Beaver Crew</b> is for sale in e-Buy now. Everything you research turns up there or in Build.', { wait: true, mood: 'excited' });
     await this.leaveLab();
     await this.wait(0.4);
   }
@@ -555,9 +589,10 @@ export class Tutorial {
     const game = this.game;
     await this.part(10, 'Building');
     this.force('ebuy', { ebuyFocus: 'item_lodge' });
+    const spent = this.spentSince();
     const buyHand = this.guide.marks.ui(() => (!document.querySelector('.pointer-hand.ebuy-ptr') && document.querySelector('.ebuy-host .eb-buy')) || null, { label: 'BUY!' });
     let stop = this.pointAt(this.slot('ebuy'));
-    this.teach('Beavers are for sale now. Open <b>e-Buy</b> and order a <b>Beaver Crew</b>.', { target: this.slot('ebuy'), mood: 'excited' });
+    this.teach(`Open <b>e-Buy</b> and order the <b>Beaver Crew</b>. You have ${this.coins()} coins.`, { target: this.slot('ebuy'), mood: 'excited' });
     this.nag(() => 'Open e-Buy and order the Beaver Crew.');
     const ordered = this.until('ordered', (o) => o.items.some((it) => it.type === 'lodge'));
     if (!(await this.within(ordered, 120))) {
@@ -569,6 +604,7 @@ export class Tutorial {
     this.force(null);
     stop?.();
     buyHand.stop();
+    if (spent() > 0) this.line(`The crew cost <b>${spent()} coins</b>. You have ${this.coins()} left.`, { mood: 'happy' });
     if (!(game.state.inventory?.lodge > 0)) await this.unboxStep((o) => o.items.some((it) => it.type === 'lodge'));
     await this.wait(0.6);
     await this.placeStep('lodge', {
@@ -621,6 +657,7 @@ export class Tutorial {
     const ring = await this.tell(ripe, 'Ripe! <b>Tap the carrots</b> to harvest them.', { mark: true, label: 'RIPE!', color: 'green', mood: 'excited' });
     this.nag(() => 'Tap the ripe carrots to harvest them.', { world: true });
     const harvested = this.until('harvested');
+    harvested.then((d) => { const n = (d?.items || []).reduce((a, it) => a + (it.count || 0), 0); if (n) this.line(`That's <b>${n} carrots</b> into your Food bag.`, { mood: 'happy' }); }, () => {});
     if (!(await this.within(harvested, 60))) {
       this.line('I\'ll pick these for you.', { mood: 'happy' });
       const s = game.harvest.ripeList()[0];
@@ -638,7 +675,7 @@ export class Tutorial {
     game.ui?.syncFoodPicker?.();
     this.force('feed');
     if (bar()) this.frame(bar(), 0.022);
-    const pt = await this.tell(bar(), 'Harvests go in your <b>Food</b> bag. With carrots picked, <b>tap the Snack Bar</b> to stock it.', { mark: true, label: 'PAY HERE', color: 'gold' });
+    const pt = await this.tell(bar(), `You have <b>${game.foodStore.count?.('carrot') || 'some'} carrots</b> in the Food bag, and I've selected them. <b>Tap the Snack Bar</b> to stock it.`, { mark: true, label: 'PAY HERE', color: 'gold' });
     this.nag(() => 'Food: pick the carrots, then tap the Beaver Snack Bar.', { world: true });
     const stocked = this.until('stocked', (d) => d.s.type === 'beaverbar');
     if (!(await this.within(stocked, 60))) {
@@ -675,6 +712,7 @@ export class Tutorial {
     const pt = edge ? await this.tell([edge.x, edge.z], 'Now <b>drag a box</b> over these trees.', { mark: true, label: 'CLEAR', color: 'red' }) : null;
     this.nag(() => 'Destroy tool: drag a box over the trees at the edge.', { world: true });
     const area = this.until('clearArea');
+    area.then((d) => { if (d?.n) this.line(`${d.n} tiles marked. The beavers will chop them one by one.`, { mood: 'happy' }); }, () => {});
     if (!(await this.within(area, 75)) && edge) {
       this.line('Like this.', { mood: 'happy' });
       let n = 0;
@@ -685,7 +723,6 @@ export class Tutorial {
     pt?.();
     this.force(null);
     this.frame(null);
-    this.teach('Marked in red. The beavers chop them one by one.', { mood: 'happy' });
     await this.within(this.until('cleared'), 90);
     this.win('TIMBER!');
     game.setTool({ kind: 'feed' });
@@ -702,11 +739,10 @@ export class Tutorial {
       tryIt: () => this.until('speed'), tryLine: 'Try it: <b>tap the clock</b>.', timeout: 25,
       fallback: () => this.line('You can try it later.', { mood: 'happy' }),
     });
-    await this.teach('That\'s every day: buy, feed and breed in the daytime, the feast at <b>5 PM</b>, the report at night.', { wait: true, mood: 'happy' });
-    await this.teach('Spend the coins on research, buildings and better fish. New things get explained as they come up.', { wait: true, mood: 'happy' });
+    await this.teach(`It's ${this.clockText()} on day ${game.state.day || 1}. You have <b>${this.coins()} coins</b> and <b>${this.pondCount()} fish</b>. Every day goes the same way: feed and breed in the daytime, the feast at <b>5 PM</b>, the report at night.`, { wait: true, mood: 'happy' });
     await this.cine(async (c) => {
       c.low(c.fox, { zoom: 0.011, pitch: 0.38, lift: game.fox.y + 1 });
-      await c.say(c.fox, 'Tomorrow at <b>5 PM</b>, the first bears. Let\'s have a pond full of fish ready.', { style: 'excited', close: 0.0105 });
+      await c.say(c.fox, `When I stop talking, the clock starts. Tomorrow at <b>5 PM</b>, about ${this.bearsTomorrow()} bears. Let's have the fish ready.`, { style: 'excited', close: 0.0105 });
     }, { id: 'tut:bye' });
   }
 

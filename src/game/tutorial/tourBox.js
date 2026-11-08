@@ -89,7 +89,7 @@ export class TourBox {
     this.target = target;
     this.forcePlace = place;
     this.visible = true;
-    this._placeNow();
+    try { this._placeNow(); } catch (e) { console.warn('[tut] box place', e); }
     const fresh = box.classList.contains('hidden');
     box.classList.remove('hidden');
     if (fresh) { box.style.animation = 'none'; void box.offsetWidth; box.style.animation = ''; }
@@ -205,7 +205,7 @@ export class TourBox {
         if (t.i >= t.atoms.length) { t.done = true; t.res(); }
       }
       placeT -= dt;
-      if (placeT <= 0) { placeT = 0.3; this._placeNow(); }
+      if (placeT <= 0) { placeT = 0.3; try { this._placeNow(); } catch { /* ignore */ } }
       this._raf = requestAnimationFrame(step);
     };
     this._raf = requestAnimationFrame(step);
@@ -247,6 +247,7 @@ export class TourBox {
     if (typeof t === 'function') { try { t = t(); } catch { t = null; } }
     if (!t) return null;
     if (typeof t === 'string') { try { t = document.querySelector(t.startsWith('sel:') ? t.slice(4) : t); } catch { t = null; } }
+    if (!t) return null; // (a selector that isn't on screen yet)
     if (t instanceof Element) { if (!t.isConnected) return null; const r = t.getBoundingClientRect(); return r.width || r.height ? r : null; }
     if (typeof t.x === 'number' && typeof t.y === 'number' && typeof t.z !== 'number' && !t.sp) return { left: t.x - 30, right: t.x + 30, top: t.y - 30, bottom: t.y + 30 };
     const p = worldOf(this.game, t);
