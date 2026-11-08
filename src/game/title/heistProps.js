@@ -16,7 +16,7 @@ export const MONEY_V = 0.022;
 export const CRATE_V = 0.04;
 
 const C = {
-  gold: 0xf2be3a, goldL: 0xffe27a, goldH: 0xfff6c8, goldD: 0xb8801e, goldDD: 0x8a5a14,
+  gold: 0xffca3e, goldL: 0xffec96, goldH: 0xfffbe0, goldD: 0xe8a836, goldDD: 0xbc7c22,
   silver: 0xd6dce6, silverL: 0xf4f8ff, silverD: 0x8e98aa,
   bill: 0xd2ecb4, billL: 0xf0fadc, billD: 0x86c06a, billDD: 0x4a8a3e, ink: 0x2e6a32, // pale mint paper: reads on the grass band: 0xf2ead0, bandD: 0xc8b890, bandR: 0xc8483a,
   wood: 0xc28a50, woodL: 0xdcaa6a, woodD: 0x956236, woodDD: 0x5e3a1e, gap: 0x3a2414, nail: 0x6a6670, nailL: 0xaaa6b0,

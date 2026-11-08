@@ -301,6 +301,7 @@ export class BigClock {
       if (m?.daysUntil && s.day != null) x.moon = { tonight: !!m.isBloodDay?.(s.day), days: m.daysUntil(s.day) };
     } catch { /* optional */ }
     this.extra = x;
+    this._extraN = (this._extraN || 0) + 1;
   }
 
   update(dt, st = {}) {
@@ -404,7 +405,7 @@ export class BigClock {
       if (C.held) { C.x += (2 - C.x) * Math.min(1, h * 40); C.v = 0; }
       else { C.v += (-520 * C.x - 16 * C.v) * h; C.x += C.v * h; }
       // the lid: springs open with an overshoot, snaps shut with a bounce
-      const tgt = this.lidOpen ? this.phiOpen : -0.6;
+      const tgt = this.lidOpen ? this.phiOpen + 0.2 : -0.6;
       const k = this.lidOpen ? 150 : 300, c = this.lidOpen ? 8 : 3;
       Ld.v += (k * (tgt - Ld.a) - c * Ld.v) * h; Ld.a += Ld.v * h;
       if (!this.lidOpen && Ld.a <= 0) {
@@ -417,7 +418,8 @@ export class BigClock {
         } else Ld.v = 0;
         Ld.a = 0;
       }
-      if (this.lidOpen && Ld.a > this.phiOpen + 0.4) { Ld.a = this.phiOpen + 0.4; Ld.v = 0; }
+      // it can't open further than its hinge stop: it knocks against it and bounces back a little
+      if (this.lidOpen && Ld.a > this.phiOpen) { Ld.a = this.phiOpen; if (Ld.v > 1.5) { Ld.v = -Ld.v * 0.28; this.sw.v -= 0.05; } else Ld.v = 0; }
       if (this.lidOpen && Math.abs(Ld.a - this.phiOpen) < 0.002 && Math.abs(Ld.v) < 0.02) { Ld.a = this.phiOpen; Ld.v = 0; }
     }
     // the case shakes while the alarm rings
@@ -447,10 +449,11 @@ export class BigClock {
     const sky = hour >= 5 && hour < 7 ? 'dawn' : hour >= 7 && hour < 17.5 ? 'day' : hour >= 17.5 && hour < 20.5 ? 'dusk' : 'night';
     const sc = { sky, wx: x.wx || 'clear', season: x.season || 'summer', blood: !!x.moon?.tonight, t: this.t };
     const key = `${sc.wx}|${sc.season}|${this.st.day}|${sc.blood}`;
-    if (key !== this._sceneKey) {
+    // the disc only turns for a real change (not when the game's data first arrives)
+    if (key !== this._sceneKey && this._extraN > 1) {
       if (this._sceneKey && this._lastScene && !reduced()) { this._prevScene = { ...this._lastScene }; this._slide = 0.001; }
       this._sceneKey = key;
-    }
+    } else if (this._extraN <= 1) this._sceneKey = key;
     this._lastScene = sc;
     if (this._prevScene) this._prevScene.t = this.t;
     return sc;
@@ -465,7 +468,7 @@ export class BigClock {
     const d = rush.from - hour;
     if (d <= 0 || s.phase === 'night') return { kind: 'night', text: 'ZZZ' };
     const H = Math.floor(d), M = Math.floor((d - H) * 60);
-    const text = H >= 10 ? `${H}H` : H >= 1 ? `${H}H${String(M).padStart(2, '0')}` : `${Math.max(1, M)}M`;
+    const text = H >= 10 ? `${H}h` : H >= 1 ? `${H}h${String(M).padStart(2, '0')}` : `${Math.max(1, M)}m`;
     return { kind: 'count', text, red: d < 1, blink: d < 2, d };
   }
 
@@ -530,8 +533,10 @@ export class BigClock {
     drawHand(hb, cx, cy, am, L ? -4 : -3, H.min, (t) => (t < H.min * 0.62 ? 2.05 : 1.2), blue);
     drawHand(hb, cx, cy, ah, L ? -3 : -2, H.hour, (t) => (t < 0 ? 2.2 : t < H.hour * 0.5 ? 3.1 : t < H.hour * 0.82 ? 2.1 : 1.3), blue);
     if (L) { const mt = H.hour * 0.66; drawRing(hb, cx + Math.sin(ah) * mt, cy - Math.cos(ah) * mt, 1.05, 2.45, P.b1); }
-    drawHand(hb, cx, cy, as, L ? -6 : -4, H.sec, () => 1.05, [P.r1, P.r1, P.r1]);
-    if (L) drawRing(hb, cx - Math.sin(as) * 4.5, cy + Math.cos(as) * 4.5, -1, 1.25, P.r1);
+    // the seconds needle: thin dark red, a bright tip, a ring counterweight
+    drawHand(hb, cx, cy, as, L ? -6 : -4, H.sec, () => 1.05, [P.r0, P.r0, P.r0]);
+    drawHand(hb, cx, cy, as, H.sec - (L ? 4 : 3), H.sec, () => 1.05, [P.r1, P.r1, P.r1]);
+    if (L) drawRing(hb, cx - Math.sin(as) * 4.5, cy + Math.cos(as) * 4.5, -1, 1.25, P.r0);
     // the hands' crisp shadow on the enamel (one pixel down right), then the hands, then the hub
     const W = G.W, d = hb.d, bd = b.d;
     for (let i = 0; i < d.length - W - 1; i++) if (d[i] && !d[i + W + 1] && bd[i + W + 1]) bd[i + W + 1] = darken(bd[i + W + 1], 0.2);
@@ -587,14 +592,17 @@ export class BigClock {
     if (co > 0) {
       // the outside, foreshortened as it swings
       const ecx = hx + aw, src = this.lidOutBuf, c0 = R + 0.5;
-      for (let y = y0; y <= cy + R; y++) for (let x = Math.floor(ecx - aw - 1); x <= ecx + aw + 1; x++) {
-        const u = (x + 0.5 - ecx) / aw;
-        if (u < -1.04 || u > 1.04) continue;
-        const c = src.get(Math.floor(c0 + u * R), y - y0);
-        if (c) b.set(x, y, c);
+      for (let y = y0; y <= cy + R; y++) {
+        let first = null;
+        for (let x = Math.floor(ecx - aw - 1); x <= ecx + aw + 1; x++) {
+          const u = (x + 0.5 - ecx) / aw;
+          if (u < -1.04 || u > 1.04) continue;
+          const c = src.get(Math.floor(c0 + u * R), y - y0);
+          if (c) { b.set(x, y, c); if (first == null) first = x; }
+        }
+        // the lid's thickness shows as a sliver of rim on the hinge side
+        if (first != null && y > y0 + 1 && y < cy + R - 1) b.set(first - 1, y, P.g1);
       }
-      // its rim edge shows on the hinge side
-      for (let y = y0 + 3; y <= cy + R - 3; y++) if (!b.get(hx - 1, y)) b.set(hx - 1, y, P.g1);
     } else {
       // the inside (and the calendar card), squashed or stretched from its resting look
       const src = li.buf, s = aw / G.lidA, ecx = hx - aw;
@@ -681,24 +689,22 @@ export class BigClock {
     const s = this.st, x = this.extra, hour = mod24(s.hour ?? 0);
     const H = Math.floor(hour), M = Math.floor((hour - H) * 60);
     const h12 = ((H + 11) % 12) + 1, ap = H < 12 ? 'AM' : 'PM';
-    const wd = typeof s.weekday === 'string' ? s.weekday : '';
-    const lines = [[{ text: `${h12}:${String(M).padStart(2, '0')} ${ap}`, color: TAGC.ink }, { text: `  ${wd}${wd ? ', ' : ''}day ${s.day ?? 1}`, color: TAGC.grey }]];
+    const wd = typeof s.weekday === 'string' ? s.weekday.slice(0, 3) : '';
+    const lines = [[{ text: `${h12}:${String(M).padStart(2, '0')} ${ap}`, color: TAGC.ink }, { text: `  ${wd}${wd ? ' ' : ''}day ${s.day ?? 1}`, color: TAGC.grey }]];
     const p = this._plaque(hour);
     if (p.kind === 'count') {
       const hh = Math.floor(p.d), mm = Math.floor((p.d - hh) * 60);
-      lines.push([{ text: 'Feast at 5 PM: ', color: TAGC.ink }, { text: hh ? `${hh}h ${mm}m to go` : `${Math.max(1, mm)} min to go!`, color: p.red ? TAGC.red : TAGC.gold }]);
-    } else if (p.kind === 'feast') lines.push([{ text: 'Feast time! The bears are eating.', color: TAGC.red }]);
-    else if (p.kind === 'night') lines.push([{ text: 'Night. Next feast tomorrow, 5 PM', color: TAGC.blue }]);
-    else lines.push([{ text: this.dayOff ? 'Day off: no feast today' : 'No feast today', color: TAGC.blue }]);
+      lines.push([{ text: 'Feast in ', color: TAGC.ink }, { text: hh ? `${hh}h ${mm}m` : `${Math.max(1, mm)} min!`, color: p.red ? TAGC.red : TAGC.gold }]);
+    } else if (p.kind === 'feast') lines.push([{ text: 'Feast time!', color: TAGC.red }]);
+    else if (p.kind === 'night') lines.push([{ text: 'Night: feast tomorrow', color: TAGC.blue }]);
+    else lines.push([{ text: this.dayOff ? 'Day off: no feast' : 'No feast today', color: TAGC.blue }]);
     if (x.wx || x.label) {
-      const L = [{ text: `${x.label || WXNAME[x.wx] || ''}${x.temp != null ? ` ${x.temp}°C` : ''}`, color: TAGC.ink }];
-      if (x.season) L.push({ text: `, ${x.season}`, color: TAGC.green });
-      if (x.tomorrowLabel) L.push({ text: `  Tomorrow: ${x.tomorrowLabel}`, color: TAGC.grey });
-      lines.push(L);
+      lines.push([{ text: `${x.label || WXNAME[x.wx] || ''}${x.temp != null ? ` ${x.temp}\u00b0C` : ''}`, color: TAGC.ink }, ...(x.season ? [{ text: ` ${x.season}`, color: TAGC.green }] : [])]);
+      if (x.tomorrowLabel) lines.push([{ text: `Tomorrow: ${x.tomorrowLabel}`, color: TAGC.grey }]);
     }
-    if (x.moon && (x.moon.tonight || (x.moon.days > 0 && x.moon.days <= 6))) lines.push([{ text: x.moon.tonight ? 'Blood moon tonight!' : `Blood moon in ${x.moon.days} day${x.moon.days > 1 ? 's' : ''}`, color: TAGC.red }]);
-    lines.push(s.paused ? [{ text: 'Paused', color: TAGC.blue }, { text: '  tap the crown to go', color: TAGC.grey }]
-      : [{ text: `Speed ${s.speed || this.speed || 1}x`, color: TAGC.red }, { text: '  tap the crown to change', color: TAGC.grey }]);
+    if (x.moon && (x.moon.tonight || (x.moon.days > 0 && x.moon.days <= 6))) lines.push([{ text: x.moon.tonight ? 'Blood moon tonight!' : `Blood moon in ${x.moon.days}d`, color: TAGC.red }]);
+    lines.push(s.paused ? [{ text: 'Paused', color: TAGC.blue }, { text: ' (tap crown)', color: TAGC.grey }]
+      : [{ text: `Speed ${s.speed || this.speed || 1}x`, color: TAGC.red }, { text: ' (tap crown)', color: TAGC.grey }]);
     return lines;
   }
 

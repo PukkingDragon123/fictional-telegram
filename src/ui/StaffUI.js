@@ -15,7 +15,6 @@
 import './staff.css';
 import { spriteImg, hasSprite } from './sprites.js';
 import { Clipboard } from './physical/Clipboard.js';
-import { paintHighlight } from './physical/clipArt.js';
 import { createBeaverPortrait, beaverSnapshot } from '../game/staff/portrait.js';
 import { SKILLS, SKILL_INFO, TRAITS, PERSONALITIES, firstName, outfitFor } from '../data/staffGen.js';
 
@@ -25,7 +24,6 @@ const ico = (n, s = 2) => (hasSprite(n) ? spriteImg(n, s) : '');
 const INK_BLUE = '#2b3d8f'; // Reynard's notebook ink
 const RED_PENCIL = '#c0392b';
 const short = (t, n = 8) => String(t || '').replace(/^(the|beaver|cozy)\s+/i, '').split(/\s+/)[0].slice(0, n);
-let HILITE = null;
 
 export class StaffUI {
   constructor(sys) {
@@ -47,7 +45,6 @@ export class StaffUI {
       return this.cb;
     }
     this.close(true);
-    if (!HILITE) HILITE = paintHighlight(8, 8).url();
     const cb = new Clipboard({
       root: this.root,
       label: o.label,
@@ -66,7 +63,6 @@ export class StaffUI {
     this.kind = kind;
     cb.setPages(pages);
     cb.open(id);
-    cb.el?.style.setProperty('--hl', `url(${HILITE})`);
     return cb;
   }
   close(silent = false) {

@@ -193,7 +193,7 @@
 .eb-ptrack { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; background: #e8f0ff; box-shadow: inset 0 0 0 2px var(--eb-ink), 2px 2px 0 var(--eb-ink); font: 400 16px var(--eb-title); }
 .eb-ptrack:hover { background: #d0e2ff; }
 
-.eb-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.eb-main { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .eb-bar { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 10px 16px 8px; flex: none; box-shadow: inset 0 -3px 0 var(--eb-tan2); }
 .eb-crumb { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
 .eb-hi { display: flex; }
@@ -564,14 +564,47 @@
   .eb-dwell { max-width: 300px; }
 }
 @container ebuy (max-height: 480px) and (min-width: 641px) {
-  .eb-chrome { display: none; }
-  .eb-ticker { display: none; }
-  .eb-promo { display: none; }
-  .eb-bar { padding: 6px 12px 4px; }
+  /* phone landscape: the laptop shrinks to a thin bezel, everything tightens */
+  .ebuy { padding: 0; }
+  .eb-dev { max-height: none; }
+  .eb-bezel { padding: 6px 8px 0; }
+  .eb-chin { height: 14px; }
+  .eb-brand { font-size: 16px; line-height: 14px; letter-spacing: 1px; }
+  .eb-screen { padding: 3px; }
+  .eb-chrome, .eb-ticker, .eb-promo { display: none; }
+  .eb-top { padding: 4px 8px 6px; gap: 8px; }
+  .eb-top .eb-hback { display: flex; padding: 0 6px; }
+  .ebuy:not(.eb-deep) .eb-hback .eb-ia, .ebuy.eb-deep .eb-hback .eb-ix { display: none; }
+  .eb-logo { font-size: 28px; }
+  .eb-search { height: 32px; }
+  .eb-q { font-size: 18px; }
+  .eb-wallet, .eb-hb { height: 32px; font-size: 18px; }
+  .eb-hbt { display: none; }
+  .eb-side { width: 168px; padding: 6px; gap: 6px; }
+  .eb-cats { gap: 4px; }
+  .eb-cat { height: 32px; font-size: 16px; }
+  .eb-cati { width: 26px; }
+  .ebuy.eb-onhome .eb-bar { display: none; }
+  .eb-bar { padding: 4px 10px; }
   .eb-h { font-size: 22px; }
-  .eb-hero .eb-hwell { max-height: 150px; }
-  .eb-dwell { max-width: 220px; }
-  .eb-buy { height: 48px; font-size: 26px; }
+  .eb-chip, .eb-sortb { height: 26px; }
+  .eb-scroll { padding: 8px 10px; }
+  .eb-hero { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 10px; padding: 8px; margin-bottom: 12px; }
+  .eb-hero .eb-hwell { max-height: 150px; aspect-ratio: 1.3; }
+  .eb-ht { font-size: 22px; }
+  .eb-hj { display: none; }
+  .eb-hgo { height: 34px; font-size: 18px; }
+  .eb-dwrap { grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr); gap: 12px; padding: 8px 10px 12px; }
+  .eb-dwell { max-width: 160px; }
+  .eb-dt { font-size: 22px; }
+  .eb-dback { height: 30px; font-size: 18px; }
+  .eb-dr { gap: 8px; }
+  .eb-joke { order: 5; }
+  .eb-buybox { padding: 8px 10px; gap: 6px; }
+  .eb-tag.big { height: 34px; font-size: 24px; }
+  .eb-step, .eb-add { height: 36px; }
+  .eb-buy { height: 44px; font-size: 24px; }
+  .eb-buyc { height: 30px; font-size: 20px; }
 }
 
 /* ------------------------------------------------------------ phone */
@@ -583,13 +616,17 @@
   .eb-chin { height: 18px; }
   .eb-brand { font-size: 16px; letter-spacing: 1px; }
   .eb-screen { padding: 4px; }
-  .eb-top { flex-wrap: wrap; gap: 8px; padding: 8px; }
-  .eb-top .eb-hback { display: flex; padding: 0 8px; }
+  .eb-top { flex-wrap: wrap; gap: 6px; padding: 6px 8px 8px; }
+  .eb-top .eb-hback { display: flex; padding: 0 6px; }
+  .eb-home { padding: 0 2px 4px 0; }
   .ebuy:not(.eb-deep) .eb-hback .eb-ia, .ebuy.eb-deep .eb-hback .eb-ix { display: none; }
-  .eb-logo { font-size: 32px; }
+  .eb-logo { font-size: 28px; }
+  .eb-wallet { padding: 0 8px 0 4px; gap: 4px; }
+  .eb-n { display: none; }
   .eb-search { order: 9; flex: 1 1 100%; max-width: none; height: 36px; }
   .eb-wallet { height: 36px; font-size: 20px; }
-  .eb-hb { height: 36px; padding: 0 8px; }
+  .eb-hb { height: 36px; padding: 0 6px; box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 -5px 0 #e2d8c4, 2px 2px 0 var(--eb-ink); }
+  .eb-cart { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 -5px 0 #a8d890, 2px 2px 0 var(--eb-ink); }
   .eb-hbt { display: none; }
   .eb-body { flex-direction: column; }
   .eb-side { width: auto; flex-direction: row; padding: 6px; gap: 6px; overflow-x: auto; overflow-y: hidden; box-shadow: inset 0 -3px 0 var(--eb-ink); }
@@ -609,8 +646,10 @@
   .eb-deptg { grid-template-columns: 1fr 1fr; }
   .eb-dwrap { grid-template-columns: 1fr; gap: 14px; padding: 10px 12px 18px; }
   .eb-dl { position: static; }
-  .eb-dwell { max-width: 260px; }
+  .eb-dwell { max-width: 200px; }
   .eb-dt { font-size: 26px; }
+  .eb-joke { order: 5; }
+  .eb-shh > span { display: none; }
   .eb-stat small { width: 92px; }
   .eb-buy { height: 50px; font-size: 26px; }
   .eb-drawer { width: 100%; }

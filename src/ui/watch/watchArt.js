@@ -103,6 +103,8 @@ const TF = {
   N: ['k..k', 'kk.k', 'k.kk', 'k..k', 'k..k'], O: ['kkk', 'k.k', 'k.k', 'k.k', 'kkk'], R: ['kk.', 'k.k', 'kk.', 'k.k', 'k.k'], S: ['kkk', 'k..', 'kkk', '..k', 'kkk'],
   T: ['kkk', '.k.', '.k.', '.k.', '.k.'], U: ['k.k', 'k.k', 'k.k', 'k.k', 'kkk'], W: ['k...k', 'k...k', 'k.k.k', 'kk.kk', 'k...k'], '!': ['k', 'k', 'k', '.', 'k'],
   ':': ['.', 'k', '.', 'k', '.'], Z: ['kkk', '..k', '.k.', 'k..', 'kkk'],
+  // lowercase units for the countdown ("1h30", "45m")
+  h: ['k..', 'k..', 'kkk', 'k.k', 'k.k'], m: ['.....', 'kkkk.', 'k.k.k', 'k.k.k', 'k.k.k'],
 };
 // 5x7 chunky date digits (the calendar card)
 const BIG = {
@@ -130,6 +132,7 @@ export { TF, BIG };
 export const SPR = {
   // a tiny bear head (the feast pip, the countdown plaque)
   bear: ['oo.oo', 'ofFfo', 'fkfkf', 'ffsff', '.fff.'],
+  bearPip: ['.oo.oo.', 'oFfofFo', 'offfffo', 'ofkfkfo', 'offsffo', '.ofsfo.', '..ooo..'],
   bearL: ['.oo..oo.', 'oFfoofFo', 'offffffo', 'ofkffkfo', 'offssffo', '.ofsSfo.', '..oooo..'],
   bearChomp: ['.oo..oo.', 'oFfoofFo', 'offffffo', 'ofkffkfo', 'ofsoosfo', '.ofooffo.', '..oooo..'],
   bearS: ['f.f', 'fff', '.f.'],
@@ -156,7 +159,7 @@ const GOLD_PAL = () => ({ o: P.ink, h: P.g5, l: P.g4, m: P.g3, d: P.g2, D: P.g1,
 
 // weather icons, 7x5: y sun, Y sun core, o ray, w cloud, g cloud shade, b rain, l bolt, s snow, f fog, m moon, r heat
 export const WX = {
-  clear: ['o..o..o', '..yyy..', 'oyYYYyo', '..yyy..', 'o..o..o'],
+  clear: ['..yyy..', '.yYYYy.', 'oyYYYyo', '.yYYYy.', '..yyy..'],
   heat: ['o.o.o.o', '.rrrrr.', 'orYYYro', '.rrrrr.', 'o.o.o.o'],
   rain: ['..www..', '.wwwww.', 'wwgggww', '.b..b..', 'b..b..b'],
   storm: ['..ggg..', '.ggwgg.', 'ggggggg', '...ll..', '..ll...'],
@@ -176,7 +179,7 @@ export function geometry(size) {
       size: 'S', W: 75, H: 74, cx: 45, cy: 41, R: 21, band: 3, knurl: 1, rd: 15.5,
       trk: 2, tickR: 11.5, lidA: 10, rw: 7,
       ap: { w: 11, h: 7, y: -9 }, pl: { y: 2, h: 7 },
-      hands: { hour: 8, min: 12, sec: 13 },
+      hands: { hour: 8, min: 12, sec: 12 },
       chainTop: 0, bowY: 14, bowRx: 6, bowRy: 5, legY: 18, crown: { w: 9, y0: 13, y1: 17 }, pend: { w: 5, y0: 18, y1: 19 },
       tag: { w: 13, h: 7 }, card: { w: 16, h: 19 }, bell: SPR.bellS, link: [SPR.linkFS, SPR.linkES], swivelY: 7,
     };
@@ -185,7 +188,7 @@ export function geometry(size) {
     size: 'L', W: 104, H: 104, cx: 62, cy: 60, R: 32, band: 4, knurl: 2, rd: 24.5,
     trk: 3, tickR: 20, lidA: 13, rw: 11,
     ap: { w: 15, h: 9, y: -13 }, pl: { y: 5, h: 7 },
-    hands: { hour: 13, min: 19, sec: 21 },
+    hands: { hour: 13, min: 19, sec: 20 },
     chainTop: 0, bowY: 20, bowRx: 8, bowRy: 7, legY: 25, crown: { w: 11, y0: 18, y1: 24 }, pend: { w: 7, y0: 25, y1: 27 },
     tag: { w: 15, h: 8 }, card: { w: 17, h: 25 }, bell: SPR.bell, link: [SPR.linkF, SPR.linkE], swivelY: 10,
   };
@@ -319,8 +322,8 @@ export function buildDial(G, sections, dayOff) {
     if (rush) {
       const a = hourAngle(rush.from), rr = rd - trk / 2;
       const bx = Math.round(cx + Math.sin(a) * rr), by = Math.round(cy - Math.cos(a) * rr);
-      if (L) b.rows(SPR.bear, bx - 2, by - 2, { o: P.ink, f: P.fur, F: P.furD, k: P.ink, s: P.snout });
-      else b.rows(SPR.bearS, bx - 1, by - 1, { f: P.ink });
+      if (L) b.rows(SPR.bearPip, bx - 3, by - 3, { o: P.ink, f: hex('#c07a44'), F: P.snout, k: P.ink, s: P.snout });
+      else b.rows(['o.o', 'ooo', '.o.'], bx - 1, by - 1, { o: P.ink });
     }
   }
   // the window frames (the weather aperture and the countdown plaque): a dark cut with a gold bevel
@@ -530,8 +533,9 @@ export function buildLidIn(G, day, weekday, dayOff, tomorrowWx) {
     let br = (ex * 0.55 + ey * 0.83) * 0.85 + 0.1;
     if (Math.abs(e - 0.8) < 0.035 * (1 + Math.abs(ex))) br -= 0.45; // an engraved ring
     let c = goldOf(br, x, y);
-    // a long reflected streak
-    if (Math.abs(ex + 0.35 + ey * 0.25) < 0.09 && ey < 0.3 && ey > -0.75) c = ey < -0.2 ? P.w : P.g5;
+    // a crescent of reflected light on the far wall, a hot spot near the top
+    if (e > 0.6 && e < 0.73 && ex > 0.05 && ey > 0.1) c = e > 0.645 && e < 0.69 && ey > 0.3 && ey < 0.62 ? P.w : P.g5;
+    if (e > 0.5 && e < 0.64 && ex < -0.1 && ey < -0.45 && ey > -0.7) c = P.g5;
     b.set(x, y, c);
   }
   // the calendar card
@@ -658,12 +662,10 @@ export function drawPendant(b, G, ox = 0, oy = 0) {
 export function drawChainUp(b, G, ox = 0, oy = 0) {
   const [F, E] = G.link, pal = GOLD_PAL();
   const endY = G.swivelY + oy, cx = G.cx + ox;
+  const links = [];
   let y = endY - F.length + 1, i = 0;
-  while (y + F.length > 0) {
-    const s = i % 2 === 0 ? F : E;
-    b.rows(s, cx - (s[0].length >> 1), y, pal);
-    y -= s.length - 2; i++;
-  }
+  while (y + F.length > -2) { links.push([i % 2 === 0 ? F : E, y]); y -= F.length - 2; i++; }
+  for (let j = links.length - 1; j >= 0; j--) { const [s, ly] = links[j]; b.rows(s, cx - (s[0].length >> 1), ly, pal); }
   // the swivel ring onto the bow
   const sy = endY + 1;
   b.rows(G.size === 'L' ? ['.ooo.', 'oh.lo', 'olmmo', '.ooo.'] : ['.o.', 'olo', '.o.'], cx - (G.size === 'L' ? 2 : 1), sy, pal);
@@ -719,7 +721,7 @@ export function drawTag(b, G, speed, paused, ang = 0, glow = 0, ox = 0, oy = 0) 
   const cx0 = cx - 5 + shift;
   for (let i = 0; i < 3; i++) {
     const on = i < sp;
-    const col = on ? (glow > 0 && i === sp - 1 ? P.r2 : P.r1) : P.g2;
+    const col = on ? (glow > 0 && i === sp - 1 ? P.r2 : P.r1) : P.g1;
     b.rows(SPR.chev, cx0 + i * 4, cy0, { k: col });
     if (on) b.set(cx0 + i * 4, cy0, P.r2);
   }

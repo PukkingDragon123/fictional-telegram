@@ -107,10 +107,12 @@ def('town_stretch', {
   fn(t, p, f, s, rig, dt) {
     base(t, p, f, s, rig, dt);
     const w = K(t, [[0, 0], [0.55, 1, 'out'], [1.9, 1], [2.6, 0, 'io']]);
-    const top = rig.headPoint(p, 13, 0.5, _c);
-    for (const side of [1, -1]) rig.reach(p, side, lerp(4, 1.6, w), lerp(2, top[0], w), lerp(2, top[1], w), [1, 0.3, -0.2], w);
+    // chibi arms can't get over that big head: a wide "V" reach up and out instead
+    const D = rig.D, sy = D.SH[1], L = D.L_UP + D.L_FORE;
+    for (const side of [1, -1]) rig.reach(p, side, D.SH[0] + L * 0.62, sy + L * 0.7, -0.8, [0.2, -1, -0.6], w);
     p.handL = p.handR = w > 0.6 ? 'open' : 'relax';
-    p.chest.rx -= 0.2 * w; p.head.rx -= 0.28 * w;
+    p.wristL.rz += 0.4 * w; p.wristR.rz -= 0.4 * w;
+    p.chest.rx -= 0.16 * w; p.head.rx -= 0.24 * w;
     p.chest.rz += sin(t * 3) * 0.08 * w;
     p.mover.y += 0.5 * w * (1 + sin(t * 6) * 0.2);
     if (w > 0.5) { f.eyes = 'shut'; f.mouth = 'o'; }
@@ -179,15 +181,16 @@ def('town_read', {
     else base(t, p, f, s, rig, dt);
     const w = K(t, [[0, 0], [0.4, 1, 'out']]);
     P.book.visible = w > 0.3;
-    const by = 1.2, bz = 5.6;
+    // held up in front of the chest, tipped towards the face (and the camera)
+    const by = 2.8, bz = 6.8;
     P.book.position.set(0, by * VS, bz * VS);
-    P.book.rotation.set(-1.05, 0, 0);
-    P.book.scale.setScalar(Math.max(0.01, w));
-    for (const side of [1, -1]) rig.reach(p, side, 2.6, by + 0.6, bz - 0.4, [0.9, -0.6, -0.4], w);
+    P.book.rotation.set(-0.55, 0, 0);
+    P.book.scale.setScalar(Math.max(0.01, w) * 1.15);
+    for (const side of [1, -1]) rig.reach(p, side, 2.8, by + 0.8, bz - 0.8, [0.9, -0.6, -0.4], w);
     p.handL = p.handR = 'open';
     // reads down the page, flips it every few seconds
     const T = t % 5;
-    p.head.rx += (0.3 + T * 0.025) * w;
+    p.head.rx += (0.1 + T * 0.02) * w;
     p.head.ry += sin(t * 0.9) * 0.05 * w;
     const flip = pulse(T, 4.3, 0.5);
     p.wristL.rz += flip * 0.9; p.armL.rx -= flip * 0.25;
@@ -205,12 +208,13 @@ def('town_sweep', {
     const ph = t * 3.4;
     const swing = sin(ph);
     rig.stance(p, 0.7, 0.6, -0.4, 0.08);
-    p.hips.ry += swing * 0.12; p.chest.ry += swing * 0.18; p.chest.rx += 0.16;
-    p.head.rx += 0.22; p.head.ry -= swing * 0.1;
+    p.hips.ry += swing * 0.12; p.chest.ry += swing * 0.18 - 0.12; p.chest.rx += 0.08;
+    p.head.rx += 0.06; p.head.ry -= swing * 0.1 + 0.15;
     // the broom hangs from the right hand at chest height and swishes side to side
     const D = rig.D;
-    const topY = D.HIP_Y + D.WAIST + D.SH[1] - 1.6, topX = -1.4, topZ = 3.4;
-    const rx = -0.42, rz = swing * 0.42;
+    // held off to the right side so the big head doesn't hide it from the high camera
+    const topY = D.HIP_Y + D.WAIST + D.SH[1] - 0.6, topX = -D.SH[0] - 0.4, topZ = 2.4;
+    const rx = -0.5, rz = 0.3 + swing * 0.38;
     P.broom.visible = true;
     P.broom.position.set(topX * VS, topY * VS, topZ * VS);
     P.broom.rotation.set(rx, 0, rz);

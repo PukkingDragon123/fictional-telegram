@@ -4,9 +4,11 @@
 // Industry ledger (pollution breakdown + effects, power grids, storage use).
 // Resources are never listed here: they live in storage buildings (tap one).
 // Pure DOM on top of game.ui.showModal (the paper cards); styles injected once.
+// [v33 paper] The cards are sheets on a physical pixel-art clipboard now (src/ui/physical/Clipboard.js):
+// a pressed board, a spring clip, printed form sections, a pencil and a coffee ring; no web boxes.
 // Created lazily by src/game/Industry.js once #ui exists.
 import { spriteImg, hasSprite } from './sprites.js';
-import { openPaper } from './paper.js';
+import { Clipboard } from './physical/Clipboard.js'; // [v33 paper]
 import { RECIPES, POLLUTION_TIERS } from '../data/structuresIndustry.js';
 import { RECIPES_FOR, KEEP_DEFAULT } from '../data/structuresIndustry.js'; // [v26 power]
 import { STRUCTURES } from '../data/structures.js';
@@ -94,6 +96,42 @@ body.cine .ind-hud, body.lab-full .ind-hud { opacity: 0; pointer-events: none; }
 .ind-card .bat i { width: 7px; height: 12px; border: 2px solid #2a1a14; background: #3a2a1c; }
 .ind-card .bat i.on { background: #6aff6a; }
 .ind-card .tag.green { background: #2f6f4a; }
+
+/* [v33 paper] the cards on the clipboard: printed form sections, pixel edges, no gradients or round corners */
+.ind-pc { font-size: 15px; color: #2a1d16; }
+.ind-pc h2 { font-size: 26px; line-height: 1; color: #8a3418; padding-bottom: calc(var(--P) * 4); background: var(--squig) left bottom / calc(var(--P) * 10) calc(var(--P) * 4) repeat-x; image-rendering: pixelated; display: inline-block; min-width: 120px; }
+.ind-pc .ib { width: 52px; height: 52px; background: #fffdf6; border: 0; border-radius: 0; box-shadow: 0 0 0 var(--P) #7a6040, calc(var(--P) * 2) calc(var(--P) * 2) 0 var(--P) rgba(60, 30, 4, .25); }
+.ind-pc .st::before { border-radius: 0; width: calc(var(--P) * 4); height: calc(var(--P) * 4); border: var(--P) solid #2a1a14; }
+.ind-pc .st.good::before { background: #5ad25a; } .ind-pc .st.bad::before { background: #e8402e; } .ind-pc .st.idle::before { background: #f0b030; }
+.ind-pc .sec { margin: 10px 0 0; padding: 6px 2px 4px; background: linear-gradient(#8d9cc0, #8d9cc0) left top / 100% var(--P) no-repeat; border: 0; border-radius: 0; }
+.ind-pc .sec > b { font-size: 12px; color: #6d7ca8; letter-spacing: 1px; }
+.ind-pc .rc { border: 0; border-radius: 0; background: #fff6dc; box-shadow: 0 0 0 var(--P) #8a6a44; margin: 0 2px; }
+.ind-pc .rc.no { box-shadow: 0 0 0 var(--P) #b8a888; }
+.ind-pc .rc .dot { border-radius: 0; }
+.ind-pc .ord, .ind-pc .rcp { border: 0; border-radius: 0; background: linear-gradient(#c3cde3, #c3cde3) left bottom / 100% var(--P) no-repeat; padding: 4px 4px 5px; }
+.ind-pc .ord.on, .ind-pc .rcp.on { border: 0; box-shadow: none; background: var(--hl) 0 0 / calc(var(--P) * 8) calc(var(--P) * 8), linear-gradient(#c3cde3, #c3cde3) left bottom / 100% var(--P) no-repeat; image-rendering: pixelated; }
+.ind-pc .rcp:hover { background: var(--hl) 0 0 / calc(var(--P) * 8) calc(var(--P) * 8); }
+.ind-pc .prog, .ind-pc .gridbar { border: 0; border-radius: 0; background: #efe4c8; box-shadow: 0 0 0 var(--P) #4a4858; height: calc(var(--P) * 5); margin-top: 8px; }
+.ind-pc .prog i { background: repeating-linear-gradient(90deg, #e8b440 0 calc(var(--P) * 2), #c08414 calc(var(--P) * 2) calc(var(--P) * 3)); }
+.ind-pc .gridbar i { background: repeating-linear-gradient(90deg, #ffd23f 0 calc(var(--P) * 3), #e5a320 calc(var(--P) * 3) calc(var(--P) * 4)); }
+.ind-pc .meter { border: 0; border-radius: 0; box-shadow: 0 0 0 var(--P) #4a4858; height: calc(var(--P) * 7); }
+.ind-pc .meter span { opacity: .55; }
+.ind-pc .meter i { box-shadow: none; outline: var(--P) solid #fff; }
+.ind-pc .tag { border-radius: 0; box-shadow: 0 0 0 var(--P) #1a1d24; }
+.ind-pc .keep, .ind-pc .plus, .ind-pc .qchip { border: 0; border-radius: 0; box-shadow: 0 0 0 var(--P) #8a6a44, 0 var(--P) 0 var(--P) #8a6a44; }
+.ind-pc .plus { background: #6cc08a; box-shadow: 0 0 0 var(--P) #1f3f2c, 0 var(--P) 0 var(--P) #1f3f2c; }
+.ind-pc .keep:hover, .ind-pc .plus:hover, .ind-pc .qchip:hover { filter: none; transform: translateY(calc(var(--P) * -1)); }
+.ind-pc .qchip.cur { box-shadow: 0 0 0 var(--P) #2f6f4a; }
+.ind-pc .bat i { border: var(--P) solid #2a1a14; }
+.ind-pc .crew .row { border-bottom: 0; background: linear-gradient(#c3cde3, #c3cde3) left bottom / 100% var(--P) no-repeat; }
+.ind-pc .btns { margin-top: 14px; gap: 10px; }
+.ind-pc .btn { appearance: none; margin: 0; display: inline-flex; align-items: center; gap: 3px; padding: 2px 9px 3px; font-family: var(--font2); font-size: 14px; color: #2a1d16; text-shadow: none; cursor: pointer; border: 0; border-radius: 0;
+  background: #f6e2b4; box-shadow: inset 0 var(--P) 0 #fff6d8, 0 0 0 var(--P) #4a3020, 0 calc(var(--P) * 2) 0 var(--P) #4a3020; min-height: 0; }
+.ind-pc .btn img { image-rendering: pixelated; }
+.ind-pc .btn:hover { transform: translateY(calc(var(--P) * -1)); background: #fff0c8; filter: none; }
+.ind-pc .btn:active { transform: translateY(var(--P)); box-shadow: inset 0 var(--P) 0 #fff6d8, 0 0 0 var(--P) #4a3020; }
+.ind-pc .btn.red { background: #f8b8a6; } .ind-pc .btn.green { background: #b4e48a; } .ind-pc .btn.gold { background: #ffd860; }
+.ind-airstamp { right: calc(var(--P) * 14); top: calc(var(--P) * 16); }
 `;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -185,18 +223,32 @@ export class IndustryUI {
   // ------------------------------------------------------------ machine card
   // a paper card of our own (wider than the default letter)
   openCard(what, render) {
-    this.closeCard();
+    this.closeCard(true);
     const game = this.game;
-    game.audio.play('page', { volume: 0.35 });
-    const p = openPaper({ kind: 'letter', html: '<div class="ind-card"></div>', width: Math.min(500, innerWidth - 24), root: game.ui?.root || document.body,
-      onClose: () => { if (this.paper === p) { this.paper = null; this.card = null; } } });
-    this.paper = p;
-    const root = p.body.querySelector('.ind-card');
-    this.card = { s: what, body: root };
-    root.addEventListener('click', (e) => this.onAct(e));
-    render();
+    // [v33 paper] one sheet on a clipboard (was a parchment letter)
+    const cb = new Clipboard({
+      root: game.ui?.root || document.body, tabs: false, w: 600, h: 640, seed: 9, label: 'Industry', cls: 'ind-clip',
+      sfx: (n, o) => game.audio.play(n, { volume: 0.35, ...(o || {}) }),
+      onClose: () => { if (this.paper === cb) { this.paper = null; this.card = null; } },
+    });
+    const air = what === 'ledger' ? this.ind.summary().tier : null;
+    cb.setPages([{ id: 'card', seed: 21, coffee: { x: 228, y: 200, seed: 6, r: 15 }, render: (el, { el: page }) => {
+      const root = document.createElement('div');
+      root.className = 'ind-card ind-pc';
+      el.appendChild(root);
+      this.card = { s: what, body: root };
+      root.addEventListener('click', (e) => this.onAct(e));
+      if (air) {
+        const st = cb.stamp(air.id === 'clean' ? 'FRESH AIR' : String(air.name || air.id).toUpperCase(), air.id === 'clean' ? '#2f8f4a' : air.id === 'hazy' ? '#c07a10' : '#b8282c', { rot: 8, seed: 4 });
+        st.classList.add('ind-airstamp');
+        page.querySelector('.pc-page-deco')?.appendChild(st);
+      }
+    } }]);
+    this.paper = cb;
+    cb.open('card');
+    if (this.card) render();
   }
-  closeCard() { const p = this.paper; this.paper = null; this.card = null; try { p?.close?.(); } catch { /* already gone */ } }
+  closeCard(silent = false) { const p = this.paper; this.paper = null; this.card = null; try { p?.close?.(silent); } catch { /* already gone */ } }
   openMachine(s) { this.openCard(s, () => this.renderMachine(s)); }
   onAct(e) {
     const b = e.target.closest('[data-act]');

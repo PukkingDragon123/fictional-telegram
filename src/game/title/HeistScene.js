@@ -81,8 +81,8 @@ const FOX_PATH = [
   [37.7, 0.86, 0.22],
   [37.95, 2.4, 0.5, 'in'],
   [39.4, 12.5, 1.3, 'lin'],
-  [39.41, -5.7, -0.25, 'jump'],
-  [40.6, -5.7, -0.25],
+  [39.41, -5.0, -0.25, 'jump'],
+  [40.6, -5.0, -0.25],
   [44.0, -0.86, -0.28, 'io'],
   [45.55, -0.86, -0.28],
   [46.15, 0, -0.42, 'io'],
@@ -133,13 +133,14 @@ function evalPath(keys, t, out) {
 const SHOTS = [
   { id: 'A', t: 0, d: 6, cam: (u) => { const e = ease.io3(u); return { yaw: lerp(-0.32, -0.06, e), pitch: lerp(32, 14, e), wupp: lerp(0.021, 0.0158, e), at: [lerp(0, 0.1, e), lerp(0.55, 0.5, e), lerp(-0.3, -0.25, e)], sx: 0.16, sy: lerp(-0.02, 0.02, e) }; } },
   { id: 'B', t: 6, d: 6.2, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.34, 0.2, e), pitch: lerp(12, 13, e), wupp: lerp(0.0102, 0.0084, e), at: [0.02, 0.62, -0.38], sx: 0.14, sy: 0 }; } },
-  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.56, 0.48, u), pitch: 8, wupp: lerp(0.0029, 0.0025, ease.out(u)), at: [lerp(0.16, 0.21, u), 0.5, 0.03], sx: 0.1, sy: -0.12 }) },
+  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.56, 0.48, u), pitch: 9, wupp: lerp(0.0036, 0.0031, ease.out(u)), at: [lerp(0.16, 0.21, u), 0.5, 0.03], sx: 0.1, sy: -0.12 }) },
   { id: 'D1', t: 13.8, d: 2.55, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.95, 0.85, e), pitch: 11, wupp: lerp(0.0086, 0.0078, e), at: [0.02, 0.5, -0.25], sx: 0.12, sy: 0 }; } },
   { id: 'D2', t: 16.35, d: 2.65, cam: (u) => { const e = ease.io(u); return { yaw: lerp(-0.12, -0.04, e), pitch: lerp(6, 8, e), wupp: lerp(0.0104, 0.009, e), at: [0.05, 0.72, -0.45], sx: 0.15, sy: 0 }; } },
   { id: 'E', t: 19.0, d: 4.0, sun: 'back', cam: (u, t) => ({ yaw: 0.1, pitch: lerp(8, 7, u), wupp: lerp(0.0074, 0.0067, ease.io(u)) * (t > 22.25 ? 1 - 0.14 * Math.exp(-(t - 22.25) * 5) - 0.07 * smooth((t - 22.25) / 0.2) : 1), at: [0, 0.74, -0.42], sx: 0.12, sy: -0.06 }) },
   { id: 'G', t: 23.0, d: 1.6, cam: (u, t) => ({ yaw: 0.62, pitch: lerp(4, 5.5, u), wupp: lerp(0.0128, 0.0114, ease.out(u)) * (1 - 0.08 * Math.exp(-Math.max(0, t - 23.45) * 4) * (t > 23.45 ? 1 : 0)), at: [0.1, 1.15, -0.9], sx: 0.12, sy: 0.06 }) },
   { id: 'H', t: 24.6, d: 2.9, cam: (u, t) => { const p = smooth((t - 26.55) / 0.85); return { yaw: lerp(0.05, -0.05, p), pitch: 11, wupp: 0.0102 + p * 0.002, at: [lerp(0.1, 3.4, ease.in(p)), 0.66, lerp(-0.6, -0.2, p)], sx: 0.14, sy: 0 }; } },
-  { id: 'I', t: 27.5, d: 5.0, cam: (u) => ({ yaw: lerp(0.06, -0.26, ease.io(u)), pitch: lerp(12, 10, u), wupp: 0.0152, at: [lerp(5.4, 17.2, u), 0.7, lerp(0.5, 1.4, u)], sx: 0.2, sy: 0 }) },
+  // (yawed towards where they run, so they come at the camera three-quarters on, faces and sack showing)
+  { id: 'I', t: 27.5, d: 5.0, cam: (u) => ({ yaw: lerp(0.86, 0.62, ease.io(u)), pitch: lerp(12, 10, u), wupp: 0.0148, at: [lerp(5.0, 16.6, u), 0.7, lerp(0.45, 1.35, u)], sx: 0.2, sy: 0 }) },
   { id: 'J', t: 32.5, d: 7.0, cam: (u, t) => { const k = smooth((t - 35.5) / 0.5) * (1 - smooth((t - 36.2) / 0.4)); return { yaw: lerp(0.24, 0.19, u), pitch: 12, wupp: 0.0122 * (1 - 0.12 * k), at: [lerp(0.3, 0.5, k), 0.56, lerp(0.05, 0.15, k)], sx: 0.15, sy: 0 }; } },
   { id: 'K', t: 39.5, d: 7.5, cam: (u, t) => { const e = ease.io(smooth((t - 41.4) / 5.6)); return { yaw: lerp(0.19, -0.32, e), pitch: lerp(12, 34, e), wupp: lerp(0.0122, 0.024, e), at: [lerp(0.3, 0, e), lerp(0.56, 0.55, e), lerp(0.05, -0.3, e)], sx: lerp(0.15, 0.16, e), sy: lerp(0, -0.02, e) }; } },
 ];
@@ -306,19 +307,22 @@ export class HeistScene {
       // chase lane) goes; what stands behind the action stays as the backdrop
       const views = [];
       for (const sh of SHOTS) for (const u of [0, 0.5, 1]) { const c = sh.cam(u, sh.t + u * sh.d); views.push([c.at[0], c.at[2], Y0 + c.yaw, c.wupp * 330]); }
-      for (const d of world.decos) {
-        if (d.removed) continue;
-        const [r, f] = rf(d.x + 0.5, d.z + 0.5);
-        let hide = f > -3.0 && f <= 0 && r > -14 && r < 24; // the lane
+      const inFront = (r, f) => {
+        if (f > -3.0 && f <= 0 && r > -14 && r < 24) return true; // the chase lane
         for (const [vr, vf, yaw, hw] of views) {
-          if (hide) break;
           const dr = r - vr, df = f - vf;
           const a = yaw - Y0, ca = Math.cos(a), sa = Math.sin(a);
           // the view's own frame (rotated by the shot's yaw relative to the base view)
           const fr = dr * sa + df * ca, rr = dr * ca - df * sa;
-          if (fr > -1.2 && fr < 46 && Math.abs(rr) < hw + 3) hide = true;
+          if (fr > -1.2 && fr < 48 && Math.abs(rr) < hw + 3) return true;
         }
-        if (hide) { d.removed = true; this._hidden.push(d); }
+        return false;
+      };
+      this._inFront = inFront;
+      for (const d of world.decos) {
+        if (d.removed) continue;
+        const [r, f] = rf(d.x + 0.5, d.z + 0.5);
+        if (inFront(r, f)) { d.removed = true; this._hidden.push(d); }
       }
       this._hiddenClutter = [];
       const tall = /^(tallgrass|fireweed|lupine|aster|fern|swampgrass|glowcap)/;
@@ -341,6 +345,16 @@ export class HeistScene {
     }
     try { world.buildDecos(); } catch { /* keep going */ }
     try { world.buildClutter(); } catch (e) { console.warn('[title] clutter', e); }
+    // the forest's own trees (one batch, not decos): shrink the ones any shot would look through
+    if (on && world.treeTiles && world.treeBatch && this._inFront) {
+      const g = this.game.grid, S = this.S, R = this.R0, F = this.F0, B = world.treeBatch;
+      for (const [i, list] of world.treeTiles) {
+        const x = (i % g.w) + 0.5, z = Math.floor(i / g.w) + 0.5, dx = x - S.x, dz = z - S.z;
+        if (dx * dx + dz * dz > 60 * 60) continue;
+        if (this._inFront(dx * R.x + dz * R.z, dx * F.x + dz * F.z)) for (const [bi] of list) B.setScale(bi, 0, 0);
+      }
+      B.commit();
+    }
   }
 
   at(r, f, y = 0, out = new THREE.Vector3()) { const S = this.S, R = this.R0, F = this.F0; return out.set(S.x + R.x * r + F.x * f, y, S.z + R.z * r + F.z * f); }

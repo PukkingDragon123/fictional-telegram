@@ -289,6 +289,7 @@ export class TownLife {
       if (a.onScreen) vis.push(a);
     }
     vis.sort((p, q) => p.dist - q.dist);
+    if (this.handles.size) this.dropOffscreen();
     this.ranks.clear();
     vis.forEach((a, i) => this.ranks.set(a.id, i));
     // the homes: lights + smoke
@@ -711,8 +712,13 @@ export class TownLife {
       voice: v.cast?.voice || 'fox', mood: o.mood || 'normal', size: 's', key: 'npc' + v.id, chat: true,
       dur: o.dur ?? Math.min(4.2, 1.5 + text.length * 0.045),
     });
-    if (h) { this.handles.add(h); h.done?.then?.(() => this.handles.delete(h)); }
+    if (h) { h._town = a; this.handles.add(h); h.done?.then?.(() => this.handles.delete(h)); }
     return h;
+  }
+
+  // a chatter bubble whose speaker left the screen goes (it would stick to the screen edge)
+  dropOffscreen() {
+    for (const h of this.handles) if (h._town && !h._town.onScreen) { try { h.close?.(); } catch { /* ignore */ } this.handles.delete(h); }
   }
 
   solo(a, text, mood = 'normal', force = false) {

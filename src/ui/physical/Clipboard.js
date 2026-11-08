@@ -34,8 +34,11 @@ const BACK = A.PAPER_BACK;
 const INK = A.INK;
 const SHADOW = hexc('#2a1c10');
 
-let dimURL = null;
+let dimURL = null, hlURL = null, sqURL = null;
 const dimTile = () => (dimURL ||= A.paintDim().url());
+const hlTile = () => (hlURL ||= A.paintHighlight(8, 8).url());
+// a repeating pencil squiggle for underlines (10 x 4 art px)
+const squigTile = () => sqURL || (sqURL = (() => { const q = new Pix(10, 4), c = hexc('#e0763a'); for (let x = 0; x < 10; x++) { const y = 1 + Math.round(Math.sin((x / 10) * Math.PI * 2) * 1.1); q.set(x, y, c); if (x % 5 !== 2) q.set(x, y + 1, c, 130); } return q.url(); })());
 
 export class Clipboard {
   constructor(o = {}) {
@@ -136,7 +139,7 @@ export class Clipboard {
     const { w: vw, h: vh } = viewSize();
     const tabs = this.o.tabs !== false;
     const narrow = vw < 700;
-    const tabOut = tabs ? (narrow ? 20 : 28) : 0;
+    const tabOut = tabs ? (narrow ? 22 : 34) : 0;
     const BW = Math.floor(Math.min(this.o.w || 880, vw - 20 - tabOut * P) / P);
     const BH = Math.floor(Math.min(this.o.h || 640, vh - 16) / P);
     this.BW = BW; this.BH = BH; this.tabOut = tabOut;
@@ -151,6 +154,8 @@ export class Clipboard {
     ov.className = 'pc-ov' + (this.o.cls ? ' ' + this.o.cls : '');
     ov.style.setProperty('--P', P + 'px');
     ov.style.setProperty('--dim', `url(${dimTile()})`);
+    ov.style.setProperty('--hl', `url(${hlTile()})`); // highlighter swipe tile (hover rows)
+    ov.style.setProperty('--squig', `url(${squigTile()})`); // pencil squiggle (underlines)
     ov.innerHTML = `<div class="pc-dim"></div><div class="pc-stage" role="dialog" aria-modal="true" aria-label="${(this.o.label || 'Clipboard').replace(/"/g, '')}">
       <div class="pc-tabs"></div><div class="pc-stackw"></div><div class="pc-sheets"></div>
       <button type="button" class="pc-corner pc-next" aria-label="Next page"></button><button type="button" class="pc-corner pc-prev" aria-label="Previous page"></button>
@@ -285,7 +290,7 @@ export class Clipboard {
     let list = this.pages.map((p, i) => i).filter((i) => this.pages[i].tab);
     if (list.length * step > avail) list = list.filter((i) => i === this.index || this.pages[i].sectionStart);
     if (list.length * step > avail) list = list.slice(0, Math.floor(avail / step));
-    const narrow = this.tabOut < 28;
+    const narrow = this.tabOut < 34;
     list.forEach((i, k) => {
       const pg = this.pages[i], on = i === this.index;
       const b = document.createElement('button');
@@ -295,7 +300,7 @@ export class Clipboard {
       b.title = pg.title || pg.tab;
       b.setAttribute('aria-label', pg.title || pg.tab);
       const label = String(pg.tab || '').toUpperCase().slice(0, narrow ? 4 : 8);
-      b.appendChild(showCanvas(A.paintTab(label, pg.color || 'yellow', { on, w: narrow ? 34 : 46 }), P));
+      b.appendChild(showCanvas(A.paintTab(label, pg.color || 'yellow', { on, w: narrow ? 36 : 52 }), P));
       b.style.left = (this.sx + this.sw - 8 + (on ? 3 : 0)) * P + 'px';
       b.style.top = (top + k * step) * P + 'px';
       box.appendChild(b);
@@ -434,12 +439,17 @@ export class Clipboard {
       const sx = qx + nx * m, sy = qy + ny * m;
       if (sx < 0 || sy < 0 || sx > W || sy > H) continue;
       if (sx < 1 || sy < 1 || sx > W - 1 || sy > H - 1) { put(i, INK); continue; }
+      // the roll of the curl: a dark lip, a lit crest, then the flat back with a little falloff
       let c;
-      if (dd < 1.3) c = BACK[1];
-      else if (dd < 2.6) c = BACK[5];
-      else if (dd < 4.4) c = BACK[4];
-      else if (dd < 9) c = bay(x, y) < 0.5 ? BACK[3] : BACK[4];
-      else c = bay(x, y) < 0.18 ? BACK[2] : BACK[3];
+      const far = Math.min(sx - 1, sy - 1, W - 1 - sx, H - 1 - sy); // distance to the lifted sheet's free edge
+      if (dd < 1.4) c = BACK[0];
+      else if (dd < 2.6) c = BACK[2];
+      else if (dd < 5.2) c = BACK[5];
+      else if (dd < 7.4) c = bay(x, y) < 0.5 ? BACK[5] : BACK[4];
+      else if (dd < 12) c = BACK[4];
+      else if (dd < 18) c = bay(x, y) < 0.5 ? BACK[3] : BACK[4];
+      else c = bay(x, y) < 0.15 ? BACK[2] : BACK[3];
+      if (far < 3 && dd > 3) c = BACK[1]; // the shaded free edge
       put(i, c);
     }
     g.putImageData(img, 0, 0);

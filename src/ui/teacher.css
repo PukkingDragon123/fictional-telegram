@@ -187,7 +187,7 @@
 
 /* ---- a little fox-orange REYNARD name tab on his bubble (the Director's cast colour) */
 .tch-name {
-  position: absolute; left: calc(var(--px) * 6); top: calc(var(--px) * -7); z-index: 2;
+  position: absolute; left: calc(var(--px) * 6); top: calc(var(--px) * -14); z-index: 2;
   font-family: var(--font-title); font-size: 21px; line-height: 1; font-style: normal; letter-spacing: 1px;
   padding: 2px 7px 3px; color: #fff6e4; background: #ff9a3c; text-shadow: 1px 1px 0 #1a1420;
   border: 2px solid #1a1420;
@@ -223,7 +223,10 @@ body.cine .tutm-layer, body.cine .tutm-world { z-index: 29; } /* cutscenes: over
 @keyframes tutm-bob-u { 0%, 100% { transform: translateY(0); } 25%, 75% { transform: translateY(-2px); } 50% { transform: translateY(-4px); } }
 @keyframes tutm-bob-l { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(-2px); } 50% { transform: translateX(-4px); } }
 @keyframes tutm-bob-r { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(2px); } 50% { transform: translateX(4px); } }
-.tutm-hot { outline: 3px solid #ffd23a !important; outline-offset: 2px; animation: tutm-hot .5s steps(1) infinite; }
+.tutm-hot { outline: 4px solid #ffd23a !important; outline-offset: 3px; animation: tutm-hot .5s steps(1) infinite; }
+.tutm-uiarrow .tutm-uitag { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); animation: none; }
+.tutm-uiarrow[data-dir="up"] .tutm-uitag { top: auto; bottom: -30px; }
+.tutm-uiarrow[data-dir="left"] .tutm-uitag, .tutm-uiarrow[data-dir="right"] .tutm-uitag { top: -28px; }
 @keyframes tutm-hot { 0%, 100% { outline-color: #ffd23a; } 50% { outline-color: #fff6d0; } }
 .tutm-new { animation: tutm-new .8s steps(1) both !important; }
 @keyframes tutm-new { 0% { outline: 4px solid #fff6d0; outline-offset: 6px; } 25% { outline: 4px solid #ffd23a; outline-offset: 4px; } 50% { outline: 3px solid #e08a1a; outline-offset: 2px; } 75% { outline: 2px solid #ffd23a; outline-offset: 1px; } 100% { outline: 0 solid transparent; } }

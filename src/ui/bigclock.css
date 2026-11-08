@@ -6,8 +6,8 @@
   position: relative;
   pointer-events: auto;
   line-height: 0;
-  /* the chain hangs from the very top of the screen */
-  margin-top: -6px;
+  /* the chain hangs from the very top of the screen (the host sits 14px down: .hud 8px + 6px) */
+  margin-top: -14px;
   transition: opacity 0.2s steps(4), transform 0.2s steps(6);
 }
 .bclock.bclock-hidden { opacity: 0; transform: translateY(-12px); pointer-events: none; }

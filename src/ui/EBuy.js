@@ -399,7 +399,7 @@ class EBuy {
       addEventListener('pointercancel', up, true);
     });
     el.addEventListener('keydown', (e) => {
-      if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('eb-card')) { e.preventDefault(); e.target.click(); }
+      if ((e.key === 'Enter' || e.key === ' ') && (e.target.classList?.contains('eb-card') || e.target.classList?.contains('eb-hero'))) { e.preventDefault(); e.target.click(); }
     });
     let lastType = 0;
     this.$q.addEventListener('input', () => {

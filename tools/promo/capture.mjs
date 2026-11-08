@@ -75,11 +75,17 @@ async function renderAnim(name) {
   const N = await page.evaluate(async ([k, o]) => { const S = await import('/tools/promo/stage.js'); await S.setup(k, o); S.prepLoop(); return o.loop.frames; }, [P.scene || kind, { px: P.px, ...P.opts }]);
   const dir = path.join(REN, 'anim');
   fs.mkdirSync(dir, { recursive: true });
-  const raf2 = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
+  // [v5] two frames are enough (the pose is set, one render shows it); each extra one is a full SwiftShader render
+  const nRaf = P.rafs ?? 2;
+  const raf2 = () => page.evaluate((n) => new Promise((r) => { const f = (k) => (k ? requestAnimationFrame(() => f(k - 1)) : r()); f(n); }), nRaf);
+  // [v5] --resume: frames already on disk (with their masks) are kept; the loop is deterministic per frame
+  const resume = process.argv.includes('--resume');
+  const have = (ii) => [`${name}-f${ii}.png`, ...(P.masks || []).map((m) => `${name}-${[].concat(m).join('+')}-f${ii}.png`)].every((f) => fs.existsSync(path.join(dir, f)));
   for (let i = 0; i < N; i++) {
+    const ii = String(i).padStart(2, '0');
+    if (resume && have(ii)) { await page.evaluate(async (i) => { const S = await import('/tools/promo/stage.js'); S.frame(i); }, i); continue; }
     await page.evaluate(async (i) => { const S = await import('/tools/promo/stage.js'); S.frame(i); }, i);
     await raf2();
-    const ii = String(i).padStart(2, '0');
     await page.screenshot({ path: path.join(dir, `${name}-f${ii}.png`), timeout: 300000 }); // SwiftShader is slow
     for (const m of P.masks || []) {
       const out = path.join(dir, `${name}-${[].concat(m).join('+')}-f${ii}.png`);

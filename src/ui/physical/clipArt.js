@@ -181,7 +181,7 @@ export function paintTab(label, color = 'yellow', { w = 46, h = 13, on = false, 
   for (let x = 1; x < w - 3; x++) if (!p.a(x, h) && ((x & 1) === 0)) p.set(x, h, hexc('#1a0f08'), 110);
   if (label) {
     const t = textPix(label, { font: 'tiny', color: on ? '#21160f' : '#2e2016' });
-    const ox = 9, oy = Math.round((h - 7) / 2) - 1;
+    const ox = 12, oy = Math.round((h - 7) / 2) - 1; // clear of the sheet's edge
     p.blit(t, ox, oy);
   }
   void hover;

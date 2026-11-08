@@ -37,9 +37,15 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 const INK = [22, 17, 20];
 const PAPER = [255, 255, 255];
-const MARGIN = 9; // art px around the body inside the canvas (spikes, cloud puffs, outline, shadow)
+const MARGIN = 13; // art px around the body inside the canvas (spikes, cloud puffs, outline, shadow) [v33 paper] 9 -> 12: puffier clouds
 const TAIL_DEF = 7; // default tail length, art px
-const TAIL_MAX = 34;
+const TAIL_MAX = 38;
+// [v33 paper] gap from the body to the speaker per variant: cloud puffs hang below the body, a thought trails puffs
+const TAIL_OFF = { normal: 13, scared: 13, whisper: 12, shout: 9, think: 30 };
+const CLOUD = { normal: 1, think: 1, whisper: 1, scared: 1 };
+const INFLATE = [0.45, 0.75, 1.18, 1.08, 0.96, 1]; // puff size per pop-in frame
+const SHADE = [222, 226, 238]; // cool cloud shade
+const CREASE = [196, 202, 220];
 
 const MOODS = ['normal', 'happy', 'angry', 'shout', 'think', 'whisper', 'scared', 'excited', 'sad']; // [v31 kinetic] + sad (letters sag)
 const VARIANT = { shout: 'shout', think: 'think', whisper: 'whisper', scared: 'scared' };
@@ -76,30 +82,47 @@ function shapeFn(g) {
     const poly = spikePoly(g);
     return (px, py) => inPoly(poly, px, py) || tail(px, py);
   }
-  if (variant === 'think') {
-    const circ = cloudCircles(g);
-    const c = 6;
-    return (px, py) => {
-      if (px > c && px < bw - c && py > c && py < bh - c) return true;
-      for (let i = 0; i < circ.length; i++) {
-        const k = circ[i];
-        const dx = px - k[0], dy = py - k[1];
-        if (dx * dx + dy * dy <= k[2] * k[2]) return true;
-      }
-      return tail(px, py);
-    };
+  // [v33 paper] every other bubble is a puffy cartoon cloud: the body plus a ring of scalloped puffs
+  const circ = cloudPuffs(g);
+  return (px, py) => {
+    if (px >= 0 && px <= bw && py >= 0 && py <= bh) return true;
+    for (let i = 0; i < circ.length; i++) {
+      const k = circ[i];
+      const dx = px - k[0], dy = py - k[1];
+      if (dx * dx + dy * dy <= k[2] * k[2]) return true;
+    }
+    return tail(px, py);
+  };
+}
+
+// [v33 paper] the puffs of a cloud bubble, walked round the body's edge. g.inf inflates them
+// (the pop-in puffs up in a few pixel frames); g.frame makes scared clouds jitter and thought clouds boil.
+function cloudPuffs(g) {
+  if (g._puffs) return g._puffs;
+  const { bw, bh, variant } = g;
+  const r = rng(g.seed);
+  const base = variant === 'think' ? 8 : variant === 'whisper' ? 5.6 : variant === 'scared' ? 6.4 : 7;
+  const inf = g.inf ?? 1;
+  const ins = 2.5;
+  const L = ins, T = ins, Rr = bw - ins, B = bh - ins;
+  const w = Math.max(1, Rr - L), h = Math.max(1, B - T);
+  const per = 2 * (w + h);
+  const n = Math.max(5, Math.round(per / (base * 1.7)));
+  const off = r() * (per / n);
+  const jit = (i) => (variant === 'scared' ? Math.sin(g.frame * 2.3 + i * 1.7) * 1 : variant === 'think' ? Math.sin(g.frame * 0.9 + i * 1.3) * 0.5 : 0);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    let d = (i * per) / n + off, x, y, sd;
+    if (d < w) { x = L + d; y = T; sd = 1.14; }
+    else if ((d -= w) < h) { x = Rr; y = T + d; sd = 0.96; }
+    else if ((d -= h) < w) { x = Rr - d; y = B; sd = 0.88; }
+    else { d -= w; x = L; y = B - Math.min(d, h); sd = 0.96; }
+    out.push([x, y, Math.max(2.5, (base * sd + (r() - 0.5) * 2.2 + jit(i)) * inf), 1]);
   }
-  if (variant === 'scared') {
-    // wobbly edge that changes every frame (3 frames cycle)
-    const ph = g.frame * 2.1 + 0.7;
-    const k = Math.max(5, Math.round((bw + bh) / 7));
-    return (px, py) => {
-      const th = Math.atan2((py - bh / 2) / bh, (px - bw / 2) / bw);
-      const w = Math.round(Math.sin(th * k + ph) * 0.85 + Math.sin(th * (k + 3) - ph * 1.7) * 0.45);
-      return rr(px, py, bw, bh, R, w) || tail(px, py);
-    };
-  }
-  return (px, py) => rr(px, py, bw, bh, R, 0) || tail(px, py);
+  // corners always get a round puff
+  [[L + 1.5, T + 1.5, 1.02], [Rr - 1.5, T + 1.5, 1.02], [Rr - 1.5, B - 1.5, 0.9], [L + 1.5, B - 1.5, 0.9]].forEach(([x, y, k], i) => out.push([x, y, Math.max(2.5, (base * k + jit(n + i)) * inf), 0]));
+  g._puffs = out;
+  return out;
 }
 
 function rr(px, py, bw, bh, R, w) {
@@ -117,12 +140,18 @@ function tailFn(g, R) {
   const tipX = bw / 2 + tipDx;
   const baseX = bw / 2 + clamp(tipDx * 0.45, -lim, lim);
   if (variant === 'think') {
-    // three little bubbles drifting down towards the speaker
-    const dots = [
-      [0.3, 3.2],
-      [0.66, 2.3],
-      [1.0, 1.5],
-    ].map(([t, r]) => [baseX + (tipX - baseX) * t, bh + 2 + (tailLen - 2) * t - r * 0.3, r]);
+    // [v33 paper] little puffs trailing down to the thinker, each one smaller (they pulse in turn)
+    const rad = [3.4, 2.4, 1.6].map((v, i) => v * Math.min(1, g.inf ?? 1) + (g.frame % 3 === i ? 0.5 : 0));
+    const y0 = bh + 2, dxT = tipX - baseX, dyT = bh + tailLen - y0, len = Math.max(1, Math.hypot(dxT, dyT));
+    const dd = [6.5 + rad[0], 0, 0];
+    dd[1] = dd[0] + rad[0] + rad[1] + 4.5;
+    dd[2] = dd[1] + rad[1] + rad[2] + 4.5;
+    const sc = Math.min(1, len / (dd[2] + rad[2]));
+    const side = tipDx >= 0 ? -1 : 1, ux = dxT / len, uy = dyT / len;
+    const dots = dd.map((d, i) => {
+      const t = (d * sc) / len, bend = Math.sin(t * Math.PI) * 3 * side;
+      return [baseX + ux * d * sc - uy * bend, y0 + uy * d * sc + ux * bend, rad[i] * Math.max(0.75, sc)];
+    });
     return (px, py) => {
       for (const d of dots) {
         const dx = px - d[0], dy = py - d[1];
@@ -131,7 +160,7 @@ function tailFn(g, R) {
       return false;
     };
   }
-  const HW = variant === 'shout' ? 5 : variant === 'whisper' ? 3 : 4;
+  const HW = variant === 'shout' ? 5 : variant === 'whisper' ? 4 : 6; // [v33 paper] a chunkier cartoon tail out of the cloud
   const curl = variant === 'shout' ? 0 : 1;
   return (px, py) => {
     if (py < bh - 3 || py > bh + tailLen) return false;
@@ -176,27 +205,6 @@ function inPoly(p, x, y) {
   }
   return c;
 }
-function cloudCircles(g) {
-  const { bw, bh } = g;
-  const r = rng(g.seed);
-  const c = 6;
-  const L = c, T = c, Rr = bw - c, B = bh - c;
-  const out = [];
-  const side = (x0, y0, x1, y1) => {
-    const len = Math.hypot(x1 - x0, y1 - y0);
-    const n = Math.max(1, Math.round(len / 10));
-    for (let i = 0; i < n; i++) {
-      const t = i / n;
-      out.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 6 + r() * 1.8]);
-    }
-  };
-  side(L, T, Rr, T);
-  side(Rr, T, Rr, B);
-  side(Rr, B, L, B);
-  side(L, B, L, T);
-  return out;
-}
-
 // Render a bubble silhouette into `cv` (resized to fit). Returns body offset (art px).
 function drawBubble(cv, g) {
   const M = MARGIN;
@@ -230,22 +238,24 @@ function drawBubble(cv, g) {
       }
     }
   if (g.variant === 'whisper') {
-    // dashes: 3 on / 2 off, measured along the dominant edge direction
-    const cx = M + g.bw / 2, cy = M + g.bh / 2;
+    // [v33 paper] a dotted line: every other pixel along the run, whichever way it goes
+    const L = line.slice();
+    const on = (x, y) => x >= 0 && y >= 0 && x < W && y < H && L[y * W + x];
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
-        if (!line[i]) continue;
-        const horiz = Math.abs(y - cy) / g.bh > Math.abs(x - cx) / g.bw;
-        const s = horiz ? x : y;
-        if (y > M + g.bh + 1) continue; // keep the tail solid-ish
-        if (s % 5 >= 3) line[i] = 0;
+        if (!L[i]) continue;
+        const horiz = on(x - 1, y) || on(x + 1, y), vert = on(x, y - 1) || on(x, y + 1);
+        const keep = horiz && !vert ? x % 2 === 0 : vert && !horiz ? y % 2 === 0 : (x + (y >> 1)) % 2 === 0;
+        if (!keep) line[i] = 0;
       }
   }
   const img = new ImageData(W, H);
   const d = img.data;
   const solid = (i) => mask[i] || line[i];
   const SX = 1, SY = 2; // shadow offset
+  const cloud = !!CLOUD[g.variant];
+  const out = (x, y) => x < 0 || y < 0 || x >= W || y >= H || !mask[y * W + x];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x, o = i * 4;
@@ -253,10 +263,14 @@ function drawBubble(cv, g) {
       if (line[i]) c = INK;
       else if (mask[i]) {
         c = PAPER;
-        // soft dithered inner shade along the lower-right inside edge
-        const j = (y + 2) * W + x + 1;
-        if (y + 2 < H && x + 1 < W && line[j] && !line[(y + 1) * W + x] && ((x + y) & 1) === 0 && g.variant !== 'whisper') {
-          c = [214, 214, 222];
+        if (cloud && g.variant !== 'whisper') {
+          // [v33 paper] puffy volume: a dithered cool shade under every puff's lower edge
+          if ((out(x, y + 1) || out(x + 1, y + 1)) && ((x + y) & 1) === 0) c = SHADE;
+          else if (out(x, y + 2) && (x & 1) === 0 && (y & 1) === 1) c = SHADE;
+        } else if (!cloud) {
+          // soft dithered inner shade along the lower-right inside edge
+          const j = (y + 2) * W + x + 1;
+          if (y + 2 < H && x + 1 < W && line[j] && !line[(y + 1) * W + x] && ((x + y) & 1) === 0 && g.variant !== 'whisper') c = [214, 214, 222];
         }
       } else if (x >= SX && y >= SY && solid((y - SY) * W + x - SX) && ((x + y) & 1) === 0) {
         c = INK;
@@ -269,19 +283,37 @@ function drawBubble(cv, g) {
         d[o + 3] = a;
       }
     }
-  // gloss tick in the top-left (classic cartoon bubble shine)
-  if (g.variant === 'normal' || g.variant === 'scared') {
-    const gx = M + 3, gy = M + 2;
-    const tick = [[1, 0], [2, 0], [3, 0], [0, 1], [0, 2]];
-    for (const [tx, ty] of tick) {
-      const i = (gy + ty) * W + gx + tx;
-      if (mask[i] && !line[i]) {
-        d[i * 4] = INK[0];
-        d[i * 4 + 1] = INK[1];
-        d[i * 4 + 2] = INK[2];
-        d[i * 4 + 3] = 255;
-      }
+  const px = (x, y, c, onlyPaper = true) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const i = y * W + x;
+    if (onlyPaper && (!mask[i] || line[i])) return;
+    d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; d[i * 4 + 3] = 255;
+  };
+  if (cloud && g._puffs && g.variant !== 'whisper') {
+    // [v33 paper] little crease ticks where two puffs meet (the cartoon cloud's dimples)
+    const P = g._puffs.filter((k) => k[3]);
+    const cx = M + g.bw / 2, cy = M + g.bh / 2;
+    for (let k = 0; k < P.length; k++) {
+      const A = P[k], B = P[(k + 1) % P.length];
+      const ax = A[0] + M, ay = A[1] + M, bx = B[0] + M, by = B[1] + M;
+      const dd = Math.hypot(bx - ax, by - ay);
+      if (dd < 1 || dd > A[2] + B[2] - 0.5) continue;
+      const t = (dd * dd + A[2] * A[2] - B[2] * B[2]) / (2 * dd), hh = Math.sqrt(Math.max(0, A[2] * A[2] - t * t));
+      const mx = ax + ((bx - ax) * t) / dd, my = ay + ((by - ay) * t) / dd;
+      const nx = -(by - ay) / dd, ny = (bx - ax) / dd;
+      const p1 = [mx + nx * hh, my + ny * hh], p2 = [mx - nx * hh, my - ny * hh];
+      const P0 = Math.hypot(p1[0] - cx, p1[1] - cy) > Math.hypot(p2[0] - cx, p2[1] - cy) ? p1 : p2;
+      const ux = cx - P0[0], uy = cy - P0[1], ul = Math.hypot(ux, uy) || 1;
+      px(P0[0] + (ux / ul) * 1.6, P0[1] + (uy / ul) * 1.6, CREASE);
+      px(P0[0] + (ux / ul) * 2.6, P0[1] + (uy / ul) * 2.6, CREASE);
     }
+  }
+  // gloss tick in the top-left (classic cartoon bubble shine), riding the top-left puff
+  if (g.variant === 'normal' || g.variant === 'scared' || g.variant === 'think') {
+    const gx = M + 1, gy = M - 1;
+    const tick = [[2, 0], [3, 0], [1, 1], [0, 2], [0, 3]];
+    for (const [tx, ty] of tick) px(gx + tx, gy + ty, INK);
   }
   cv.getContext('2d').putImageData(img, 0, 0);
   return { W, H };
@@ -439,6 +471,8 @@ export class Bubbles {
       y: 0,
       frame: 0,
       frameT: 0,
+      infK: REDUCED ? 5 : 0,
+      infT: 0,
       jitT: 0.4,
       geomKey: '',
       bw: 20,
@@ -602,10 +636,10 @@ export class Bubbles {
       bw = Math.round(ax * 1.22 + 10);
       bh = Math.round(ay * 1.3 + 9);
     } else if (b.variant === 'think') {
-      bw = ax + 16;
-      bh = ay + 12;
+      bw = ax + 8; // [v33 paper] the big thought puffs sit outside the body
+      bh = ay + 5;
     } else {
-      const px = b.size === 's' ? 4 : 5, py = b.size === 's' ? 2 : 3;
+      const px = b.size === 's' ? 3 : 4, py = b.size === 's' ? 1 : 2; // [v33 paper] puffs add their own margin
       bw = ax + px * 2;
       bh = ay + py * 2;
     }
@@ -776,6 +810,18 @@ export class Bubbles {
         b.frameT = 0;
         b.frame = (b.frame + 1) % 3;
       }
+    } else if (b.variant === 'think') {
+      // [v33 paper] the thought cloud boils gently and its trail of puffs pulses toward the thinker
+      b.frameT += dt;
+      if (b.frameT > 0.26) {
+        b.frameT = 0;
+        b.frame = (b.frame + 1) % 6;
+      }
+    }
+    // [v33 paper] pop-in: the cloud puffs up over a few pixel frames
+    if (CLOUD[b.variant] && !REDUCED && (b.infK || 0) < INFLATE.length - 1) {
+      b.infT = (b.infT || 0) + dt;
+      b.infK = Math.min(INFLATE.length - 1, Math.floor(b.infT / 0.045));
     }
     if (!b.wait && b.t >= b.dur && b.typed) this._close(b, undefined);
   }
@@ -796,11 +842,11 @@ export class Bubbles {
       b.w = w;
       b.h = h;
       b.tx = b.ax - w / 2;
-      b.ty = b.ay - TAIL_DEF * S - h - (b.variant === 'think' ? 3 * S : 0);
+      b.ty = b.ay - (TAIL_OFF[b.variant] || TAIL_DEF) * S - h; // [v33 paper]
       arr.push(b);
     }
     // de-overlap: older bubbles get pushed up (stack), side-by-side ones nudge apart
-    const g = 3 * S;
+    const g = 9 * S; // [v33 paper] room for the cloud puffs
     for (let it = 0; it < 4; it++) {
       for (let i = 0; i < arr.length; i++)
         for (let j = i + 1; j < arr.length; j++) {
@@ -843,7 +889,7 @@ export class Bubbles {
       this._ry ??= this.root.getBoundingClientRect().top;
       const a = this._anchorPos(b);
       b.x = a.x - (b.bw * S) / 2;
-      b.y = a.y - b.offsetY - TAIL_DEF * S - b.bh * S;
+      b.y = a.y - b.offsetY - (TAIL_OFF[b.variant] || TAIL_DEF) * S - b.bh * S;
       b.ax = a.x;
       b.ay = a.y - b.offsetY;
     }
@@ -851,9 +897,10 @@ export class Bubbles {
     const tipDx = b.ax != null ? clamp(Math.round((b.ax - (x + (b.bw * S) / 2)) / S), -(b.bw / 2) - 14, b.bw / 2 + 14) : 0;
     let tailLen = b.ay != null ? Math.round((b.ay - (y + b.bh * S)) / S) : TAIL_DEF;
     tailLen = !Number.isFinite(tailLen) ? TAIL_DEF : tailLen < 3 ? 0 : Math.min(tailLen, TAIL_MAX);
-    const key = `${b.bw},${b.bh},${tipDx},${tailLen},${b.frame}`;
+    const inf = INFLATE[Math.min(INFLATE.length - 1, b.infK || 0)];
+    const key = `${b.bw},${b.bh},${tipDx},${tailLen},${b.frame},${inf}`;
     if (key !== b.geomKey) {
-      const got = Number.isFinite(tipDx) ? drawBubble(b.cv, { variant: b.variant, bw: b.bw, bh: b.bh, tipDx, tailLen, frame: b.frame, seed: b.seed }) : false;
+      const got = Number.isFinite(tipDx) ? drawBubble(b.cv, { variant: b.variant, bw: b.bw, bh: b.bh, tipDx, tailLen, frame: b.frame, seed: b.seed, inf }) : false;
       if (!got) return; // not measurable yet: retry next frame
       b.geomKey = key;
       const { W, H } = got;

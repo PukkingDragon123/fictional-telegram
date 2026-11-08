@@ -22,7 +22,7 @@ import { WATER_Y } from '../../world/grid.js';
 import '../../ui/teacher.css'; // the tags / arrows / outline styles
 
 const S = 3; // CSS px per art px (the world renders at pixelScale 3)
-const US = 2; // UI arrows: CSS px per art px (the UI's 2x pixel art)
+const US = 3; // UI arrows: CSS px per art px (big enough to spot over busy panels)
 const INK = '#1a1420';
 const PALS = {
   gold: { a: '#ffd23a', b: '#fff3b0', c: '#e08a1a' },
@@ -156,7 +156,7 @@ export class TourMarks {
     const el = document.createElement('div');
     el.className = 'tutm-uiarrow';
     this.top.appendChild(el);
-    const m = { target, el, side: o.side || 'auto', color: o.color || 'gold', dir: null, dead: false, hot: null };
+    const m = { target, el, side: o.side || 'auto', color: o.color || 'gold', dir: null, dead: false, hot: null, label: o.label || null };
     this.uiList.push(m);
     this._wake();
     return { stop: () => { m.dead = true; el.remove(); m.hot?.classList.remove('tutm-hot'); this._wake(); } };
@@ -301,6 +301,7 @@ export class TourMarks {
         img.src = c.toDataURL();
         img.width = c.width; img.height = c.height;
         m.el.appendChild(img);
+        if (m.label) { const t = document.createElement('b'); t.className = `tutm-tag tutm-${m.color} tutm-uitag`; t.textContent = m.label; m.el.appendChild(t); }
         m.el.dataset.dir = dir;
         m.w = c.width; m.h = c.height;
       }

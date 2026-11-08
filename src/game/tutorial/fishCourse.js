@@ -96,7 +96,7 @@ export async function feeding(T) {
     await c.walkNear(midOf(two[0], two[1])());
     c.hold('pellets');
     c.fox.act('present_trophy', 1.7);
-    c.low(c.fox, { zoom: 0.0115, pitch: 0.34, lift: game.fox.y + 0.8 });
+    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
     c.sfx('star_pop', { volume: 0.35 });
     await c.beat(1.3);
     await c.say(c.fox, '*Fish Pellets.* Crunchy. Nutritious. Legally food.', { style: 'excited' });
@@ -168,9 +168,10 @@ export async function fishScope(T) {
   const game = T.game, G = T.guide, two = T.pair;
   await T.part(3, 'The Fish Scope');
   await T.cine(async (c) => {
+    await c.walkNear(midOf(two[0], two[1])());
     c.hold('scope');
     c.fox.act('present_trophy', 1.6);
-    c.low(c.fox, { zoom: 0.0115, pitch: 0.34, lift: game.fox.y + 0.8 });
+    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
     c.sfx('star_pop', { volume: 0.35 });
     await c.beat(1.3);
     await c.say(c.fox, 'Behold: the *Fish Scope*. My finest invention. Patent pending. Forever.', { style: 'excited' });
@@ -255,7 +256,7 @@ async function scopeTour(T) {
   for (const st of steps) {
     if (!(await reopen())) break;
     const sel = `.fsc-call[data-k="${st.k}"]`;
-    const arrow = G.marks.ui(sel);
+    const arrow = G.marks.ui(sel, { label: 'TAP!' });
     say(`Tap ${st.label}.`, 'focused');
     const tapped = T.waitFor(() => { const s = scopeNow(); return !s || !!s.open?.[st.k]; });
     T.stage = 'scope:' + st.k;
@@ -284,7 +285,7 @@ async function scopeTour(T) {
     a.stop();
   }
   if (scopeNow()) {
-    const a = G.marks.ui('.fsc-x');
+    const a = G.marks.ui('.fsc-x', { label: 'CLOSE' });
     say('That\'s the Scope. Tap the X to close it.', 'happy');
     if (!(await T.within(T.waitFor(() => !scopeNow()), 20))) { try { scopeNow()?.close(); } catch { /* ignore */ } }
     a.stop();
@@ -475,7 +476,7 @@ export async function loveEggs(T) {
       await c.walkNear(e);
       c.hold('egg');
       c.fox.act('present_trophy', 1.4);
-      c.low(c.fox, { zoom: 0.0115, pitch: 0.34, lift: game.fox.y + 0.8 });
+      c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
       await c.beat(1.2);
       await c.say(c.fox, 'EGGS! Little orange money beans.', { style: 'excited' });
       c.ots(e, { zoom: 0.012 });
@@ -557,7 +558,7 @@ export async function genesMoney(T) {
   const [mum, dad] = two[0]?.g?.sex === 'F' ? two : [two[1], two[0]];
   const sp = (T.baby || mum || dad)?.sp || SPECIES_BY_ID.bluegill;
   await T.cine(async (c) => {
-    c.low(c.fox, { zoom: 0.0115, pitch: 0.36, lift: game.fox.y + 0.8 });
+    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
     c.expr('scheming', 3);
     const v = await c.ask(c.fox, 'Want the *secret* stuff? Genes. Money. Bear gossip.', [
       { label: 'Tell me everything', value: 'yes' },

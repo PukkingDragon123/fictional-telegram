@@ -86,12 +86,14 @@
 @keyframes bb-itembob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(var(--px) * -1)); } }
 
 /* ---- pop in / idle bob / close */
-.bb-pop { animation: bb-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.bb-pop { animation: bb-in 0.52s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; } /* [v33 paper] bouncier: pops, squashes, wobbles, settles (the cloud also puffs up in pixel frames, Bubbles.js) */
 @keyframes bb-in {
-  0% { transform: scale(0.15, 0.1); }
-  38% { transform: scale(1.14, 0.88); }
-  58% { transform: scale(0.93, 1.07); }
-  78% { transform: scale(1.03, 0.98); }
+  0% { transform: scale(0.12, 0.08); }
+  28% { transform: scale(1.2, 0.8); }
+  46% { transform: scale(0.86, 1.16); }
+  62% { transform: scale(1.08, 0.94); }
+  76% { transform: scale(0.97, 1.04); }
+  88% { transform: scale(1.01, 0.99); }
   100% { transform: scale(1, 1); }
 }
 .bb-v-shout .bb-pop { animation: bb-in-big 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both, bb-shake 0.3s steps(1) 0.42s 2; }
@@ -105,7 +107,8 @@
 .bb-v-whisper .bb-pop { animation: bb-in-soft 0.36s ease-out both; }
 @keyframes bb-in-soft {
   0% { transform: scale(0.5, 0.4); opacity: 0; }
-  60% { transform: scale(1.04, 0.97); opacity: 1; }
+  50% { transform: scale(1.06, 0.95); opacity: 1; }
+  75% { transform: scale(0.98, 1.02); }
   100% { transform: scale(1, 1); }
 }
 .bb.bb-out .bb-pop { animation: bb-outk 0.16s ease-in both; }
