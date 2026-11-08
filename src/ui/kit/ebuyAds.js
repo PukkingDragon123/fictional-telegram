@@ -18,7 +18,7 @@ export const COUPONS = {
   FISHY: { pct: 15, n: '15% off', from: 'TAP THE FISH' },
   BEARHUG: { flat: 10, n: '10 coins off', from: 'the hot single bears' },
   PONDEXE: { flat: 8, n: '8 coins off', from: 'Download more pond' },
-  MOOSE: { ship: 'turbo', n: 'free TURBO shipping', from: 'the Moose Express ad' },
+  MOOSE: { flat: 6, n: '6 coins off', from: 'the Moose Express ad' }, // [v33] no delivery options
   NOTASCAM: { pct: 5, n: '5% off (this is not a scam)', from: 'the boot screen' },
   STICKY: { pct: 5, n: '5% off (you touched every sticker)', from: 'the laptop stickers' }, // [v33 kit]
 };
@@ -56,7 +56,7 @@ export function adBanner(id, A) {
     case 'moose':
       return `<div class="eb-ad ad-moose" data-ad="moose" role="button" tabindex="0">${close('moose')}
         <span class="ad-road"><span class="ad-rider">${I('moose', 2)}${A.px('bike', 3)}</span><i class="ad-lines"></i></span>
-        <span class="ad-txt"><b class="ad-big">MOOSE EXPRESS <em>TURBO</em></b><span>2x FASTER delivery! He pedals like his rent is due. ${blink('Try it FREE')}</span></span></div>`;
+        <span class="ad-txt"><b class="ad-big">MOOSE EXPRESS</b><span>FREE delivery, every order! He pedals like his rent is due. ${blink('He insists')}</span></span></div>`;
     case 'mystery':
       return `<div class="eb-ad ad-mystery" data-ad="mystery" role="button" tabindex="0">${close('mystery')}
         <span class="ad-box"><img src="${mysteryArt()}" alt="" draggable="false"></span>

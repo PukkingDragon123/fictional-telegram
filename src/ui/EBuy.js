@@ -157,7 +157,7 @@ const REVIEWS = {
   gear: ['tool did tool things', 'very sturdy. hit a bear w/ it (sorry)', 'works great, no refunds tho'],
 };
 const NAMES = ['Gerald B.', 'Linda (bear)', 'Big Doug', 'xX_moose_Xx', 'Mrs. Beaver', 'Kevin', 'Brenda from HR', 'Chad Salmon', 'Deb'];
-const TICKER = ['FREE MOOSE SHIPPING', 'ALL SALES FINAL', '0% REFUNDS', 'TRUSTED SELLER (me)', 'DEALS DEALS DEALS', 'NOT A SCAM', 'PRICES SLASHED (then raised)', 'eh?', 'NEW: TURBO MOOSE', 'COUPON CODES HIDDEN EVERYWHERE', 'THE PASSWORD IS NOT A COUPON (or is it)', 'MYSTERY BOXES!!!'];
+const TICKER = ['FREE MOOSE SHIPPING', 'ALL SALES FINAL', '0% REFUNDS', 'TRUSTED SELLER (me)', 'DEALS DEALS DEALS', 'NOT A SCAM', 'PRICES SLASHED (then raised)', 'eh?', 'COUPON CODES HIDDEN EVERYWHERE', 'THE PASSWORD IS NOT A COUPON (or is it)', 'MYSTERY BOXES!!!'];
 // [v33 kit] delivery tiers: the fee and the joke here; the real speed comes from Delivery.SHIP (opts.shipTiers)
 const SHIPS = [
   { id: 'std', n: 'Moose Express', sub: 'FREE · he walks the bike up the hills', fee: 0, ic: 'van' },
@@ -898,9 +898,9 @@ class EBuy {
       }
       case 'moose': {
         const won = this._win('MOOSE');
-        SESSION.ship = 'turbo';
+        SESSION.ship = 'std'; // [v33] no delivery options
         this._sfx('bell');
-        this._adSay(el, `<b class="ad-big">TURBO MOOSE: ON</b><span>${won ? code('MOOSE', 'your Turbo delivery is FREE') : 'Turbo is now picked for your next order. Vroom.'}</span>`);
+        this._adSay(el, `<b class="ad-big">MOOSE EXPRESS</b><span>${won ? code('MOOSE', 'a coupon for your next order') : 'Free delivery on every order. He insists.'}</span>`);
         if (this.cur) { const l = this._byId(this.cur); if (l) this._renderDetail(l, true); }
         return;
       }
@@ -1217,8 +1217,8 @@ class EBuy {
         <span class="sl-art dl-pic"><img class="eb-img" src="${esc(imgSrc(d.image))}" alt="" draggable="false" />${d.cat === 'eggs' && d.kind !== 'fish' ? `<span class="eb-eggm">${this._eggIcon(d, 2)}</span>` : ''}<i class="dl-ped"></i><span class="eb-burst big"><b>-${pct}%</b></span></span></div>`);
     }
     S.push(`<div class="eb-slide sl-moose" data-hero="moose">
-        <span class="sl-txt ad-txt"><span class="sl-kick">${px('van', 1)}MOOSE EXPRESS</span><b class="sl-h">TURBO MOOSE is here</b>
-          <span class="sl-sub">2x faster delivery. He pedals like his rent is due. ROCKET Moose for the brave.</span><span class="sl-cta">Try TURBO ${px('arrowR', 1)}</span></span>
+        <span class="sl-txt ad-txt"><span class="sl-kick">${px('van', 1)}MOOSE EXPRESS</span><b class="sl-h">FREE Moose Express</b>
+          <span class="sl-sub">Every order, straight to your hut. He pedals like his rent is due.</span><span class="sl-cta">Track orders ${px('arrowR', 1)}</span></span>
         <span class="sl-art sl-road"><span class="sl-rider">${this._icon('moose', 3)}${px('bike', 4)}</span><i class="sl-lines"></i></span></div>`);
     S.push(`<div class="eb-slide sl-myst" data-hero="mystery">
         <span class="sl-txt ad-txt"><span class="sl-kick">${px('gift', 1)}MYSTERY BOX</span><b class="sl-h">??? could be ANYTHING</b>
@@ -1324,8 +1324,7 @@ class EBuy {
         <span class="eb-rate">${this._stars(this._rate(l))}<u>${fmt(this._revN(l))}</u></span>
         ${locked ? `<span class="eb-hint">${locked.icon ? this._icon(locked.icon, 1) : ''}${px('lockpad', 1)}<span>${esc(locked.reason || 'locked')}</span></span>` : ''}
         <span class="eb-prow"><span class="eb-tag">${this._coin(1)}<b>${fmt(l.price)}</b></span>${l.oldPrice > l.price ? `<span class="eb-was2">List: <s class="eb-old">${fmt(l.oldPrice)}</s></span>` : ''}</span>
-        ${open ? `<span class="eb-dlv">${px('van', 1)}<span><b>FREE</b> Moose Express <em>${this._cardEta(l, 'std') || 'today'}</em></span></span>
-        <span class="eb-dlv t">${px('flame', 1)}<span>or <b>TURBO</b> <em>${this._cardEta(l, 'turbo') || 'faster'}</em></span></span>` : ''}
+        ${open ? `<span class="eb-dlv">${px('van', 1)}<span><b>FREE</b> Moose Express <em>${this._cardEta(l, 'std') || 'today'}</em></span></span>` : ''}
         <span class="eb-meta">${this._stock(l)}${l.seller?.sold != null ? `<span class="eb-sold">${fmtK(l.seller.sold)} sold</span>` : ''}</span>
         ${open ? `<span class="eb-qadd eb-atc" role="button" aria-label="add to cart">${px('cart', 1)}<span>Add to Cart</span></span>` : `<span class="eb-atc off">${soldout ? 'Sold out' : 'Coming soon'}</span>`}
       </span>
@@ -1712,6 +1711,7 @@ class EBuy {
   }
   // the delivery picker (detail: compact pills; checkout: rows with the joke and the ETA)
   _shipPick(where, lines = null) {
+    if (true) return ''; // [v33] no delivery options: always the free Moose Express
     const cpn = this._cpn();
     return `<div class="eb-shipp sp-${where}">${where === 'd' ? '<span class="eb-shipl">Delivery</span>' : ''}${SHIPS.map((t) => {
       const free = !t.fee || cpn?.ship === t.id;
