@@ -1,19 +1,19 @@
-// [v33 tut] Parts 1-6 of the day-1 tour: the hands-on fish course.
+// [v33 tut] Parts 2-7 of the day-1 tour: the hands-on fish course. [v33 tut2] Practical, step by step:
+// every step is something you do in the real UI, and Reynard says it in the dialogue box.
 //
-//   1 First Fish     coins + e-Buy slots, buy the pair, unbox, meet them (name them)
-//   2 Feeding Time   the Food slot, Reynard holds up the pellet bag, a quiz, you feed them, the two meters
-//   3 The Fish Scope Reynard shows the Scope, you tap a fish, then every stat one by one (tap it, he says
-//                    what it means and why it matters, with this fish's own numbers)
-//   4 Fish Care      the Pet slot (pet to full), happiness, the pond (room, seaweed, bugs, a quiz),
-//                    the Tag slot (tag a favourite), bear-proofing, the Carry slot (drag a fish)
-//   5 Love & Eggs    top up the bellies, the date, Reynard holds up an egg, a quiz, dad fertilizes,
-//                    the eggs incubate, you hatch one, the fry
-//   6 Genes & Money  (optional branch) genes, morphs, value, what bears like, secrets
+//   2 Buying Fish    the e-Buy slot, buy the pair, unbox it, a boy + a girl
+//   3 Feeding        the Food slot, you feed them, hunger + the well-fed heart
+//   4 The Fish Scope you tap a fish, then every stat one by one (tap it, Reynard says what it means,
+//                    with this fish's own numbers), its worth
+//   5 Fish Care      the Pet slot (pet to full) + what happiness does, the pond's room, the Tag slot
+//                    (DO NOT EAT), the Carry slot (drag a fish)
+//   6 Eggs & Fry     top up the bellies, the date, the eggs, dad fertilizes, incubation, you hatch one, the fry
+//   7 What Sells     the Scope on the new fry: its worth, size + colour from the parents, the money rule
 //
 // Every number Reynard says comes from the game's own rules (FishSystem.js, genes.js, data/species.js,
 // data/foods.js, BearSystem.js); the comments next to the lines say where. Each wait the player has
 // to finish has a fallback, so no step can stall the tour.
-import { MORPHS, MUTATIONS, SPECIES_BY_ID } from '../../data/species.js';
+import { MORPHS, MUTATIONS } from '../../data/species.js';
 import { sizeLabel } from '../genes.js';
 import { openFishScope } from '../../ui/FishScope.js';
 import { toolPicked } from './hudIntro.js';
@@ -30,12 +30,13 @@ export function pondMid(game) {
 }
 const midOf = (a, b) => () => [(a.x + b.x) / 2, (a.z + b.z) / 2];
 const live = (f) => f && !f.dead;
+/** what a bear pays for a fish (the Fish Scope's WORTH: FishSystem.coinValue x 7 x the value mods) */
+const worthOf = (game, f) => { try { return Math.round(game.fish.coinValue(f) * 7 * (game.mods?.fishValueMult || 1) * (game.mods?.payMult || 1)); } catch { return 0; } };
 
-// ===================================================================== PART 1: FIRST FISH
+// ===================================================================== PART 2: BUYING FISH
 export async function firstFish(T) {
   const game = T.game, G = T.guide;
-  await T.part(1, 'First Fish');
-  await T.hud('coins', { line: 'This is the <b>money</b>. Your money. Well... <b>our</b> money. Mostly <b>mine</b>.', mood: 'smug' });
+  await T.part(2, 'Buying Fish');
   const pair = game.ebuyListings().find((l) => l.kind === 'fish' && !l.locked);
   game.quickEggs = true;
   T.force('ebuy', { ebuyFocus: pair?.id || null });
@@ -45,21 +46,21 @@ export async function firstFish(T) {
   const buyHand = G.marks.ui(() => (!document.querySelector('.pointer-hand.ebuy-ptr') && document.querySelector('.ebuy-host .eb-buy')) || null, { label: 'BUY!' });
   ordered.then(() => buyHand.stop(), () => buyHand.stop());
   await T.hud('ebuy', {
-    line: '<b>e-Buy</b>. Anything you want, delivered by a moose. Don\'t ask about the moose.', mood: 'excited',
+    line: '<b>e-Buy</b> is the shop: fish, eggs, food and buildings, paid in coins and delivered to the pond.', mood: 'happy',
     tryIt: () => ordered,
-    tryLine: 'Buy our first <b>2 fish</b>: a boy ♂ and a girl ♀. One pair!',
-    nagLine: 'Tap e-Buy and buy the fish pair!',
+    tryLine: 'Open <b>e-Buy</b> and buy the <b>fish pair</b>: one boy and one girl.',
+    nagLine: 'Open e-Buy and buy the fish pair.',
     timeout: 150,
     fallback: async () => {
-      G.bark('Fine. I\'ll click it. Fox fingers.', { mood: 'scheming' });
+      T.line('I\'ll order it for you this time.', { mood: 'happy' });
       try { game.ui?.closeEBuy?.(); if (pair) game.ebuyBuy(pair, 1); } catch (e) { console.warn('[tut] auto order', e); }
     },
   });
   T.force(null);
-  T.teach('Moose Express is on it. Four legs. Zero brakes.', { dur: 2.8, mood: 'happy' });
+  T.line('Ordered. The delivery moose drops the parcel by the hut.', { mood: 'happy' });
   await T.unboxStep((o) => o.items.some((it) => it.kind === 'fish'));
   const two = await T.firstPair();
-  T.holdLove = true; // no romance before Part 5 (Tutorial.update keeps their love timers up)
+  T.holdLove = true; // no romance before Part 6 (Tutorial.update keeps their love timers up)
   const [boy, girl] = two[0].g.sex === 'M' ? two : [two[1], two[0]];
   T.win('NEW FISH!', two[0]);
   // meet them: over his shoulder, down at the water
@@ -67,77 +68,39 @@ export async function firstFish(T) {
     const mid = midOf(boy, girl);
     await c.walkNear(mid());
     c.ots(mid(), { zoom: 0.0125 });
-    await c.beat(0.7);
-    const s1 = c.mark(boy, { label: '♂ BOY', color: 'blue' });
-    const s2 = c.mark(girl, { label: '♀ GIRL', color: 'pink' });
-    await c.say(c.fox, 'Our first *employees*. They work for pellets. Ha!', { style: 'laugh' });
-    c.point(boy, { ring: false, arrow: false });
-    await c.say(c.fox, 'Him: a *boy*. See the ♂ on his tag?', { style: 'say' });
-    c.point(girl, { ring: false, arrow: false });
-    await c.say(c.fox, 'Her: a *girl*. ♀. Boy plus girl equals... *BUSINESS*.', { style: 'excited' });
-    c.unpoint();
-    const v = await c.ask(c.fox, 'Name them! Fish with names sell better.', [
-      { label: 'Bonnie & Clyde', value: 'bc' },
-      { label: 'Salt & Pepper', value: 'sp' },
-      { label: 'Fish & Chips', value: 'fc' },
-    ]);
-    const N = { bc: ['Clyde', 'Bonnie', 'Outlaws! My kind of fish.'], sp: ['Salt', 'Pepper', 'Seasoned professionals. Love it.'], fc: ['Fish', 'Chips', 'Dark. Delicious. I LOVE it.'] }[v] || ['Clyde', 'Bonnie', 'Classic.'];
-    boy.name = N[0]; girl.name = N[1];
+    await c.beat(0.6);
+    const s1 = c.mark(boy, { label: 'BOY', color: 'blue' });
+    const s2 = c.mark(girl, { label: 'GIRL', color: 'pink' });
+    await c.say(c.fox, 'In they go: a <b>boy</b> and a <b>girl</b>. You need one of each to get eggs.', { style: 'happy' });
+    await c.say(c.fox, 'More fish means more for the bears to eat. Breeding them is free; buying them isn\'t.', { style: 'say' });
     s1(); s2();
-    c.mark(boy, { label: N[0].toUpperCase(), color: 'blue', arrow: false });
-    c.mark(girl, { label: N[1].toUpperCase(), color: 'pink', arrow: false });
-    await c.say(c.fox, N[2], { style: 'laugh', close: 0.011 });
   }, { id: 'tut:meet' });
   T.frame(midOf(boy, girl), 0.022); // the camera stays on the new pair
 }
 
-// ===================================================================== PART 2: FEEDING TIME
+// ===================================================================== PART 3: FEEDING
 export async function feeding(T) {
-  const game = T.game, G = T.guide, two = T.pair;
-  await T.part(2, 'Feeding Time');
-  await T.hud('feed', { line: 'The <b>FOOD</b> bag. Pick a food, tap the water. Fish come running.', mood: 'happy' });
-  await T.cine(async (c) => {
-    await c.walkNear(midOf(two[0], two[1])());
-    c.hold('pellets');
-    c.fox.act('present_trophy', 1.7);
-    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
-    c.sfx('star_pop', { volume: 0.35 });
-    await c.beat(1.3);
-    await c.say(c.fox, '*Fish Pellets.* Crunchy. Nutritious. Legally food.', { style: 'excited' });
-    const v = await c.ask(c.fox, 'Pop quiz! How much does a fish eat?', [
-      { label: 'A few pellets', value: 'few' },
-      { label: 'The whole bag!', value: 'bag' },
-      { label: 'Nothing. It\'s a fish.', value: 'none' },
-    ]);
-    // FishSystem.feedFish + data/foods.js: a pellet adds 0.34 to the 0..1 well-fed meter; uneaten pellets sink and expire (FoodSystem: life 26 s)
-    const R = {
-      few: ['Correct! Three pellets and a fish is *WELL FED*. Gold star.', 'happy'],
-      bag: ['Whoa, big spender. Pellets nobody eats sink and vanish. That\'s *money in the mud*.', 'scared'],
-      none: ['Nothing?! Then nothing is what we sell. *Wrong.*', 'angry'],
-    }[v] || ['Three pellets each. Easy.', 'say'];
-    await c.say(c.fox, R[0], { style: R[1] });
-    if (v !== 'few') await c.say(c.fox, 'About *three pellets* each fills the ♥ *well-fed* meter.', { style: 'say' });
-    await c.say(c.fox, 'Your turn. *Tap the water* right by them.', { style: 'excited', close: 0.011 });
-  }, { id: 'tut:pellets' });
+  const game = T.game, two = T.pair;
+  await T.part(3, 'Feeding');
+  await T.hud('feed', { line: 'The <b>FOOD</b> bag. Pick a food, then tap the water. Fish swim over and eat it.', mood: 'happy' });
   await feedPair(T, two, { first: true });
   T.win('FULL BELLIES!', two[1]);
   // what the two meters mean
   await T.cine(async (c) => {
     const f0 = live(two[0]) ? two[0] : two[1];
     c.low(f0, { zoom: 0.011, pitch: 0.46 });
-    const m = c.mark(f0, { label: 'WELL FED ♥', color: 'pink' });
-    await c.say(c.fox, 'Look at that belly. Now, *two meters* to know.', { style: 'happy' });
+    const m = c.mark(f0, { label: 'WELL FED', color: 'pink' });
     // FishSystem: HUNGER_RATE = 1/150 per second
-    await c.say(c.fox, '*HUNGER* creeps up all day. Full to starving: about *two and a half minutes*.', { style: 'say' });
-    // FishSystem: the fed meter drains at 1/420 per s, 1/90 per s once hunger > 0.7
-    await c.say(c.fox, 'The ♥ *WELL-FED* meter: full means ready for love. Starving fish burn it *5x faster*.', { style: 'say' });
-    // FishSystem: hunger x0.3 at night
-    await c.say(c.fox, 'Night trick: fish nap. Hunger runs *3x slower* in the dark.', { style: 'whisper' });
+    await c.say(c.fox, 'Two things to watch. <b>Hunger</b> climbs all day: full to starving in about two and a half minutes.', { style: 'say' });
+    // FishSystem.eligibleForLove: fed >= 0.9; the fed meter drains at 1/420 per s, 1/90 per s once hunger > 0.7
+    await c.say(c.fox, 'And the <b>well-fed heart</b>. Only a fish with a full heart will breed. Hungry fish empty it fast.', { style: 'say' });
+    // FishSystem: hunger x0.3 at night; data/foods.js
+    await c.say(c.fox, 'Fish get hungry three times slower at night. More foods come later: food bags on e-Buy, crops from your garden.', { style: 'happy' });
     m();
   }, { id: 'tut:meters' });
 }
 
-/** the hands-on feeding step (with the "watch the master" fallback) */
+/** the hands-on feeding step (with the "I'll show you" fallback) */
 export async function feedPair(T, two, { first = false } = {}) {
   const game = T.game, G = T.guide;
   game.setTool({ kind: 'feed' });
@@ -146,12 +109,13 @@ export async function feedPair(T, two, { first = false } = {}) {
   T.force('feed');
   T.frame(midOf(two[0], two[1]), 0.02);
   const stops = two.map((f, i) => G.mark(f, { color: i ? 'pink' : 'blue' }));
-  stops.push(await T.tell(two[0], first ? '*Tap the water* near the fish! Watch their ♥ fill up.' : 'Feed them again: *tap the water* by them!', { dur: 6 }));
-  T.nag(() => 'Tap the water near the fish to feed them!', { world: true });
+  // FishSystem.feedFish + data/foods.js: a pellet adds 0.34 to the well-fed meter
+  stops.push(await T.tell(two[0], first ? '<b>Tap the water</b> right next to the fish. About three pellets fill one up.' : 'Feed them again: <b>tap the water</b> next to them.'));
+  T.nag(() => 'Tap the water next to the fish to feed them.', { world: true });
   const fed = () => two.every((f) => !live(f) || f.fed >= 0.9);
   try {
     if (!(await T.within(T.waitFor(fed), first ? 55 : 40))) {
-      G.bark('Allow me. Watch the master.', { mood: 'scheming' });
+      T.line('Like this. Watch.', { mood: 'happy' });
       for (let k = 0; k < 4 && !fed(); k++) {
         for (const f of two) if (live(f) && f.fed < 0.9) { try { game.foodStore.throwAt(f.x, f.z); } catch { /* ignore */ } }
         await T.wait(2.4);
@@ -167,42 +131,22 @@ export async function feedPair(T, two, { first = false } = {}) {
   }
 }
 
-// ===================================================================== PART 3: THE FISH SCOPE
-export async function fishScope(T) {
-  const game = T.game, G = T.guide, two = T.pair;
-  await T.part(3, 'The Fish Scope');
-  await T.cine(async (c) => {
-    await c.walkNear(midOf(two[0], two[1])());
-    c.hold('scope');
-    c.fox.act('sci_peer', 2);
-    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
-    c.sfx('star_pop', { volume: 0.35 });
-    await c.beat(1.3);
-    await c.say(c.fox, 'Behold: the *Fish Scope*. My finest invention. Patent pending. Forever.', { style: 'excited' });
-    // through the eyepiece: what Reynard sees
-    const f = live(two[1]) ? two[1] : two[0];
-    c.lens(f);
-    const m = c.mark(f, { arrow: false, color: 'blue' });
-    await c.beat(1);
-    await c.say(c.fox, 'Look closer... every scale, every fin. And somewhere in there... a *PRICE TAG*.', { style: 'whisper' });
-    await c.say(c.fox, 'Hunger. Mood. Genes. Price. The Scope sees it *all*.', { style: 'laugh' });
-    m();
-    c.lens(null);
-    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8, dur: 0.6 });
-    await c.say(c.fox, 'Your turn. *Tap a fish.*', { style: 'say', close: 0.011 });
-  }, { id: 'tut:scope' });
+// ===================================================================== PART 4: THE FISH SCOPE
+/** tap a fish (or the tour opens the Scope on it); resolves with the open Scope or null */
+async function openScopeStep(T, fishes, line) {
+  const game = T.game, G = T.guide;
   game.setTool({ kind: 'feed' });
   T.force('feed');
-  T.frame(midOf(two[0], two[1]), 0.018);
-  const ms = two.map((f, i) => G.mark(f, { color: i ? 'pink' : 'blue', label: 'TAP ME' }));
-  ms.push(await T.tell(two[1], '*Tap a fish* to scan it!', { mood: 'excited' }));
-  T.nag(() => 'Tap one of the fish to open the Fish Scope!', { world: true });
-  let fish = null;
+  T.frame(fishes.length > 1 ? midOf(fishes[0], fishes[1]) : fishes[0], 0.018);
+  const ms = fishes.map((f, i) => G.mark(f, { color: i ? 'pink' : 'blue', label: 'TAP' }));
+  ms.push(await T.tell(fishes[fishes.length - 1], line, { mood: 'happy' }));
+  T.nag(() => 'Tap the fish to open the Fish Scope.', { world: true });
   try {
     if (!(await T.within(T.waitFor(() => !!scopeNow()), 40))) {
-      fish = two.find(live);
-      G.bark('Here, I\'ll aim it for you.', { mood: 'happy' });
-      if (fish) openFishScope(game, fish);
+      const f = fishes.find(live);
+      T.line('I\'ll open it for you.', { mood: 'happy' });
+      if (f) openFishScope(game, f);
+      await T.wait(0.6);
     }
   } finally {
     T.stopNag();
@@ -210,13 +154,44 @@ export async function fishScope(T) {
     T.clearChalk();
     T.frame(null);
   }
-  await T.hideTeacher();
-  game.ui?.bubbles?.clear?.((b) => b.key === 'tutbark'); // his "tap a fish" line goes once the Scope is up
-  await scopeTour(T);
+  return scopeNow();
+}
+
+export async function fishScope(T) {
+  const two = T.pair;
+  await T.part(4, 'The Fish Scope');
+  await openScopeStep(T, two.filter(live), '<b>Tap a fish</b> to look at it through the <b>Fish Scope</b>.');
+  await scopeLesson(T, (fish) => {
+    const g = fish.g;
+    const mo = MORPHS[g.morph] || MORPHS.normal;
+    const mu = g.mut ? MUTATIONS[g.mut] : null;
+    return [
+      // FishSystem: 1/150 per s hunger; the scope's 4 pips = the well-fed meter (fed >= 0.9 = full)
+      { k: 'hunger', label: 'HUNGER', why: () => `${pct(fish.hunger)}% hungry. The four pips are the well-fed heart: all four lit means ready to breed.` },
+      // Game.nurtureFish +0.2 a pet; FishSystem: love > 0.2 -> love timer x1.5; genes.breedGenes: nurtured parents x1.6 luck
+      { k: 'mood', label: 'MOOD', why: () => `${pct(fish.love)}% happy. Petting fills it. Happy fish breed sooner and have luckier babies.` },
+      { k: 'sex', label: 'SEX', why: () => (g.sex === 'M' ? 'A boy. After a date he swims over the eggs and fertilizes them.' : 'A girl. After a date she lays the eggs.') },
+      // data/species.js MORPHS values
+      { k: 'morph', label: 'COLOUR', why: () => `${mo.name}. Rare colours are worth more: Albino x1.6, Golden x5, Prismatic x8.` },
+      // genes.valueMult / mealMult: value and how full a bear gets scale with size
+      { k: 'size', label: 'SIZE', why: () => `${sizeLabel(g.size)}, x${g.size.toFixed(2)}. Bigger fish are worth more and fill a bear up more.` },
+      // genes.pickMutation: about 1 fresh roll in 5 gets one; MUTATIONS values
+      { k: 'mut', label: 'MUTATION', why: () => (mu ? `${mu.name}! A mutation multiplies the price: this one x${mu.value}.` : 'No mutation. About one fresh egg in five rolls one, and it multiplies the price.') },
+    ];
+  }, (fish) => [
+    // FishScope worth = coinValue * 7; FishSystem.coinValue = meal * value * valueMult(size x morph x mutation)
+    { sel: '.fsc-worth', text: `WORTH: ${worthOf(T.game, fish)} coins. That's what a bear pays to eat this fish.`, mood: 'greedy' },
+    { sel: '.fsc-btns', text: 'Tag and Pet buttons work right here in the Scope too.', mood: 'happy' },
+  ], { hello: (fish) => `${fish.name || 'This fish'} under the Scope. Let's read it, one stat at a time.` });
   T.force(null);
 }
 
-async function scopeTour(T) {
+/**
+ * The Fish Scope lesson: for each step the stat's callout is pointed at (you tap it, or it opens itself),
+ * then Reynard says what it means in the box; then the extra bits; then you close the Scope.
+ * steps(fish) -> [{ k, label, why() }], extras(fish) -> [{ sel, text, mood }]
+ */
+async function scopeLesson(T, steps, extras, { hello = null } = {}) {
   const game = T.game, G = T.guide;
   let S = scopeNow();
   if (!S) return;
@@ -228,108 +203,65 @@ async function scopeTour(T) {
     if (S) S.tipKey = '__tut'; // [v33 tut] no idle chatter over the lesson
     return S;
   };
-  const say = (text, expr = 'teacher') => { const s = scopeNow(); if (!s) return; try { s.tipKey = '__tut'; s.speak(text, expr); s.poseT = Math.max(s.poseT || 0, 5); } catch { /* ignore */ } };
-  const read = (text) => {
-    // auto-advance after reading time, or tap the speech line / press Enter
-    const secs = Math.min(7, 2 + text.length * 0.045);
-    return T.within(new Promise((res) => {
-      const s = scopeNow();
-      const el = s?.el?.querySelector('.fsc-say');
-      const k = (e) => { if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); off(); res(); } };
-      const c = () => { off(); res(); };
-      const off = () => { window.removeEventListener('keydown', k, true); el?.removeEventListener('click', c); };
-      window.addEventListener('keydown', k, true);
-      el?.addEventListener('click', c);
-      setTimeout(off, secs * 1000 + 100);
-    }), secs);
-  };
   await reopen();
   if (!S) return;
-  const g = fish.g;
-  const mo = MORPHS[g.morph] || MORPHS.normal;
-  const mu = g.mut ? MUTATIONS[g.mut] : null;
-  const nm = fish.name || fish.sp?.name || 'This one';
-  let worth = 0;
-  try { worth = Math.round(game.fish.coinValue(fish) * 7 * (game.mods?.fishValueMult || 1) * (game.mods?.payMult || 1)); } catch { /* ignore */ }
-  const hello = `${nm}, under the Scope! Let's read it. One stat at a time.`;
-  say(hello, 'excited');
-  await read(hello);
-  const steps = [
-    // FishSystem: 1/150 per s hunger; the scope's 4 pips = the well-fed meter (fed >= 0.9 = full)
-    { k: 'hunger', label: 'HUNGER', why: () => `${pct(fish.hunger)}% hungry. The 4 pips are the WELL-FED meter: all 4 lit = ready for love.` },
-    // Game.nurtureFish +0.2 a pet; FishSystem: love fades over 240 s; genes.breedGenes: nurtured parents x1.6 luck
-    { k: 'mood', label: 'MOOD', why: () => `Happy ${pct(fish.love)}%. Petting fills it. Happy parents roll luckier babies.` },
-    { k: 'sex', label: 'SEX', why: () => (g.sex === 'M' ? 'A boy. After a date, he swims over and fertilizes the eggs.' : 'A girl. After a date, she lays the eggs.') },
-    // data/species.js MORPHS values
-    { k: 'morph', label: 'COLOUR', why: () => `${mo.name}. Wild Type pays x1, Albino x1.6, Golden x5, Prismatic x8. I need a lie-down.` },
-    // genes.valueMult / mealMult: value scales with size; breedGenes: babies average their parents
-    { k: 'size', label: 'SIZE', why: () => `${sizeLabel(g.size)}, x${g.size.toFixed(2)}. Bigger feeds bears more and sells higher. Big parents, big babies.` },
-    // genes.pickMutation: about 0.2 of fresh rolls get one; galaxy x8
-    { k: 'mut', label: 'MUTATION', why: () => (mu ? `${mu.name}! Worth x${mu.value}. Mutants glow, burn or sparkle. Treasure it.` : 'No mutation. About 1 fresh egg in 5 rolls one. A Galaxy pays x8.') },
-  ];
-  for (const st of steps) {
+  const say = (text, { mood = 'teacher', target = null, wait = false } = {}) => T.getBox()?.say(text, { mood, target, wait, auto: wait ? Math.min(12, 4 + text.length * 0.06) : null }) || T.wait(wait ? 3 : 0.1);
+  if (hello) await T.g(say(hello(fish), { mood: 'excited', wait: true }));
+  for (const st of steps(fish)) {
     if (!(await reopen())) break;
     const sel = `.fsc-call[data-k="${st.k}"]`;
     const arrow = G.marks.ui(sel, { label: 'TAP!' });
-    say(`Tap ${st.label}.`, 'focused');
+    say(`Tap <b>${st.label}</b>.`, { mood: 'focused', target: sel });
     const tapped = T.waitFor(() => { const s = scopeNow(); return !s || !!s.open?.[st.k]; });
     T.stage = 'scope:' + st.k;
     await T.within(tapped, 14);
     if (!(await reopen())) { arrow.stop(); break; }
-    if (!S.open[st.k]) { try { S.toggle(st.k); } catch { /* ignore */ } }
+    if (!S.open?.[st.k]) { try { S.toggle(st.k); } catch { /* ignore */ } }
     arrow.stop();
-    const why = st.why();
-    say(why, 'teacher');
-    await read(why);
+    await T.g(say(st.why(), { mood: 'teacher', target: sel, wait: true }));
     const s = scopeNow();
     if (s?.open?.[st.k]) { s.open[st.k] = false; try { s.renderCalls(); } catch { /* ignore */ } }
   }
-  // worth, the action buttons, closing
-  const extra = [
-    // FishScope worth = coinValue * 7; FishSystem.coinValue = meal * value * valueMult(size x morph x mutation)
-    { sel: '.fsc-worth', text: `WORTH: ${worth} coins. That's what a bear pays to eat it. Size x colour x mutation.`, expr: 'greedy' },
-    { sel: '.fsc-btns', text: 'Tag and Pet buttons live down here too. Handy.', expr: 'smug' },
-  ];
-  for (const x of extra) {
+  for (const x of extras(fish)) {
     if (!(await reopen())) break;
     T.stage = 'scope:' + x.sel;
     const a = G.marks.ui(x.sel);
-    say(x.text, x.expr);
-    await read(x.text);
+    await T.g(say(x.text, { mood: x.mood, target: x.sel, wait: true }));
     a.stop();
   }
   if (scopeNow()) {
     const a = G.marks.ui('.fsc-x', { label: 'CLOSE' });
-    say('That\'s the Scope. Tap the X to close it.', 'happy');
+    say('Tap the <b>X</b> to close the Scope.', { mood: 'happy', target: '.fsc-x' });
     if (!(await T.within(T.waitFor(() => !scopeNow()), 20))) { try { scopeNow()?.close(); } catch { /* ignore */ } }
     a.stop();
   }
+  await T.hideTeacher();
   await T.wait(0.4);
 }
 
-// ===================================================================== PART 4: FISH CARE
+// ===================================================================== PART 5: FISH CARE
 export async function fishCare(T) {
   const game = T.game, G = T.guide, two = T.pair;
-  await T.part(4, 'Fish Care');
+  await T.part(5, 'Fish Care');
   // ---- petting
   const loved = () => two.some((f) => live(f) && f.love >= 0.99);
   T.frame(midOf(two[0], two[1]), 0.018);
   let ms = [];
   await T.hud('pet', {
-    line: '<b>PET</b>. Yes, we pet fish. Happy fish make <b>fancy</b> babies.', mood: 'happy',
-    tryLine: 'Tap <b>PET</b>, then tap a fish again and again!',
-    nagLine: 'Pet tool: tap a fish until its heart is full!',
+    line: '<b>PET</b> makes a fish happy. Happiness is the MOOD stat you just saw.', mood: 'happy',
+    tryLine: 'Pick <b>PET</b>, then tap a fish again and again until its heart is full.',
+    nagLine: 'Pet tool: tap a fish until its heart is full.',
     timeout: 70,
     tryIt: async () => {
       T.force('pet');
       if (!(await T.within(toolPicked(T, 'nurture'), 20))) game.setTool({ kind: 'nurture' });
-      ms = two.map((f, i) => G.mark(f, { color: 'pink', label: i ? null : 'PET ME' }));
-      T.nag(() => 'Pet tool: tap a fish until its heart is full!', { world: true });
-      ms.push(await T.tell(two[0], 'Now *tap a fish*, again and again, till its heart is full!'));
+      ms = two.map((f, i) => G.mark(f, { color: 'pink', label: i ? null : 'PET' }));
+      T.nag(() => 'Pet tool: tap a fish until its heart is full.', { world: true });
+      ms.push(await T.tell(two[0], 'Now <b>tap a fish</b> again and again until its heart is full.'));
       await T.waitFor(loved);
     },
     fallback: async () => {
-      G.bark('Like this. Gently. Pat pat.', { mood: 'happy' });
+      T.line('Like this: tap, tap, tap.', { mood: 'happy' });
       const f = two.find(live);
       for (let i = 0; i < 6 && f && !loved(); i++) { game.nurtureFish(f); await T.wait(0.45); }
     },
@@ -341,128 +273,80 @@ export async function fishCare(T) {
     const f = two.find((x) => live(x) && x.love >= 0.9) || two.find(live);
     c.low(f, { zoom: 0.011, pitch: 0.44 });
     const m = c.mark(f, { label: 'HAPPY', color: 'pink' });
-    await c.say(c.fox, 'Look at that face. *Nurtured.*', { style: 'happy' });
-    // FishSystem: love > 0.2 -> loveT ticks x1.5 and fry grow x(1 + nurtureMult) = x2
-    await c.say(c.fox, 'Happy fish fall in love *1.5x sooner*. Happy babies grow up *twice as fast*.', { style: 'excited' });
-    // genes.breedGenes: nurtured parents roll with x1.6 luck (morphs, traits, mutations)
-    await c.say(c.fox, 'And happy parents roll *luckier* babies. Rarer colours. Better traits.', { style: 'laugh' });
+    // FishSystem: love > 0.2 -> loveT ticks x1.5 and fry grow x(1 + nurtureMult) = x2; genes.breedGenes: x1.6 luck
+    await c.say(c.fox, 'Happy fish fall in love <b>1.5x sooner</b>, their fry grow <b>twice as fast</b>, and their babies roll rarer colours.', { style: 'happy' });
     // FishSystem: love -= dt / 240
-    await c.say(c.fox, 'It fades in about *four minutes*. Pet often. It\'s *free*. My favourite price.', { style: 'say' });
+    await c.say(c.fox, 'Happiness fades in about <b>four minutes</b>. Petting is free, so do it often.', { style: 'say' });
     m();
-  }, { id: 'tut:happy' });
-
-  // ---- the pond
-  await T.cine(async (c) => {
+    // ---- the pond's room
     const P = pondMid(game);
-    await c.walkNear(P);
     c.low(P, { zoom: 0.024, pitch: 0.62, lift: 0 });
     const cap = game.fish.capacity(), pop = game.fish.population();
     c.point(P, { label: `${pop} / ${cap} FISH`, r: 2.6, color: 'blue' });
-    await c.say(c.fox, 'The pond. Our *factory floor*.', { style: 'excited' });
-    // FishSystem.capacity: water tiles x 0.62
-    await c.say(c.fox, `Room for about *${cap} fish*. More water, more fish.`, { style: 'say' });
-    // FishSystem.update: canBreed only while population < capacity
-    await c.say(c.fox, 'Full pond? Nobody dates. No eggs. No money. *Tragic.*', { style: 'sad' });
+    // FishSystem.capacity: water tiles x 0.62; FishSystem.update: canBreed only while population < capacity
+    await c.say(c.fox, `The pond has room for about <b>${cap} fish</b>. When it's full, nobody breeds.`, { style: 'say' });
+    await c.say(c.fox, 'So sell the extras to the bears, or make the pond bigger. More water, more room.', { style: 'happy' });
     c.unpoint();
-    const weed = game.structures.list.filter((s) => s.type === 'seaweed' && s.built && !s.removed)
-      .sort((a, b) => Math.hypot(a.x - P[0], a.z - P[1]) - Math.hypot(b.x - P[0], b.z - P[1]))[0];
-    // FishSystem: hungry (> 0.4) fish graze seaweed; data/structures.js seaweed: shelterFry
-    if (weed && Math.hypot(weed.x - P[0], weed.z - P[1]) < 16) {
-      await c.walkNear(weed);
-      c.low(weed, { zoom: 0.013, pitch: 0.42 });
-      c.point(weed, { label: 'SEAWEED', color: 'green' });
-      await c.say(c.fox, '*Seaweed.* Free salad. Hungry fish graze it, and fry hide in it from bears.', { style: 'happy' });
-      c.unpoint();
-    } else {
-      await c.say(c.fox, 'Later: plant *seaweed*. Free salad, and fry hide in it from bears.', { style: 'happy' });
-    }
-    // FishSystem.startJump / updateJump: hungry adults leap for dipping bugs: -0.45 hunger, +0.3 fed, 30 s romance boost
-    await c.say(c.fox, 'Bug skimming the water? Hungry fish *JUMP* for it. A snack *and* a romance boost.', { style: 'excited' });
-    const v = await c.ask(c.fox, 'Pop quiz. The pond is FULL. We...', [
-      { label: 'Make it bigger', value: 'big' },
-      { label: 'Sell some to bears', value: 'sell' },
-      { label: 'Cry', value: 'cry' },
-    ]);
-    const R = {
-      big: ['Yes! More water, more room, more fish. *More money.*', 'excited'],
-      sell: ['Ruthless. Correct. At five, the bears eat the extras. And they *pay*.', 'laugh'],
-      cry: ['Crying adds water. Technically correct. Useless... but correct.', 'sad'],
-    }[v] || ['Both work. Crying doesn\'t.', 'say'];
-    await c.say(c.fox, R[0], { style: R[1], close: 0.011 });
-  }, { id: 'tut:pond' });
+  }, { id: 'tut:happy' });
 
   // ---- tags
   const girl = two.find((f) => live(f) && f.g.sex === 'F') || two.find(live);
   T.frame(midOf(two[0], two[1]), 0.018);
   let tagMs = [];
   await T.hud('tag', {
-    line: '<b>DO NOT EAT</b> tags. Bears can read. Mostly.', mood: 'scheming',
-    tryLine: 'Tap <b>TAG</b>, then tap your favourite fish!',
-    nagLine: 'Tag tool: tap a fish to tag it DO NOT EAT!',
+    line: '<b>TAG</b> puts a <b>DO NOT EAT</b> tag on a fish. Bears never touch a tagged fish.', mood: 'happy',
+    tryLine: 'Pick <b>TAG</b>, then tap the fish you want to keep.',
+    nagLine: 'Tag tool: tap a fish to tag it DO NOT EAT.',
     timeout: 60,
     tryIt: async () => {
       T.force('tag');
       const tagged = T.until('fishTagged');
       if (!(await T.within(toolPicked(T, 'tag'), 20))) game.setTool({ kind: 'tag' });
       tagMs = two.map((f) => G.mark(f, { color: 'red' }));
-      T.nag(() => 'Tag tool: tap a fish to tag it DO NOT EAT!', { world: true });
-      tagMs.push(await T.tell(girl, 'Now tap your *favourite* fish!'));
+      T.nag(() => 'Tag tool: tap a fish to tag it DO NOT EAT.', { world: true });
+      tagMs.push(await T.tell(girl, 'Now tap the fish you want to keep.'));
       await tagged;
     },
-    fallback: async () => { G.bark('Her. She has that star quality.', { mood: 'happy' }); if (girl && !girl.tagged) game.tagFish(girl); },
+    fallback: async () => { T.line('I\'ll tag her for you.', { mood: 'happy' }); if (girl && !girl.tagged) game.tagFish(girl); },
   });
   tagMs.forEach((s) => s());
   T.force(null);
   game.setTool({ kind: 'feed' });
-  await T.cine(async (c) => {
-    const f = two.find((x) => live(x) && x.tagged) || girl;
-    await c.walkNear(f);
-    c.ots(f, { zoom: 0.012 });
-    c.hold('tag');
-    const m = c.mark(f, { label: 'DO NOT EAT', color: 'red' });
-    // BearSystem / FishSystem.nearestFor: tagged fish are skipped
-    await c.say(c.fox, 'Tagged! No bear will touch that fish. *Ever.*', { style: 'happy' });
+  {
     // Game.tagLimit = 1 + research
     const n = game.tagLimit();
-    await c.say(c.fox, n <= 1 ? 'You get *ONE* tag. One. Choose your favourite child wisely.' : `You get *${n}* tags. Choose your favourites wisely.`, { style: 'laugh' });
-    // StructureSystem.isSheltered (lily pads, platforms) + tanks: bears can't reach
-    await c.say(c.fox, 'More bear-proofing later: *lily pads*, *stilt platforms*, *glass tanks*. Bears can\'t reach.', { style: 'scheming' });
-    m();
-  }, { id: 'tut:tag' });
+    await T.teach(n <= 1 ? 'You have <b>one tag</b> for now. Keep it on your best breeder.' : `You have <b>${n} tags</b>. Keep them on your best breeders.`, { wait: true, mood: 'happy' });
+  }
 
   // ---- carry
   const heldAny = () => game.fish.list.some((f) => f.held);
   T.frame(midOf(two[0], two[1]), 0.018);
   await T.hud('hand', {
-    line: '<b>CARRY</b>. Grab a fish, drag it anywhere. Matchmaking, eviction... moving day.', mood: 'happy',
-    tryLine: 'Tap <b>CARRY</b>, then press on a fish and drag it!',
-    nagLine: 'Carry tool: press on a fish and drag it!',
+    line: '<b>CARRY</b> picks a fish up so you can drop it somewhere else. Handy for putting a boy and a girl together.', mood: 'happy',
+    tryLine: 'Pick <b>CARRY</b>, then press on a fish and drag it.',
+    nagLine: 'Carry tool: press on a fish and drag it.',
     timeout: 45,
     tryIt: async () => {
       T.force('hand');
       if (!(await T.within(toolPicked(T, 'hand'), 20))) game.setTool({ kind: 'hand' });
       const m = two.map((f) => G.mark(f, { color: 'gold' }));
-      T.nag(() => 'Carry tool: press on a fish and drag it!', { world: true });
-      m.push(await T.tell(two[0], '*Press* on a fish and *drag* it. Wheee.'));
+      T.nag(() => 'Carry tool: press on a fish and drag it.', { world: true });
+      m.push(await T.tell(two[0], '<b>Press</b> on a fish and <b>drag</b> it.'));
       try { await T.waitFor(heldAny); await T.waitFor(() => !heldAny()); } finally { m.forEach((s) => s()); }
     },
-    fallback: async () => { G.bark('You\'ll get the hang of it. Moving on!', { mood: 'happy' }); },
+    fallback: async () => { T.line('You can try that one later.', { mood: 'happy' }); },
   });
   T.force(null);
   T.frame(null);
   game.setTool({ kind: 'feed' });
 }
 
-// ===================================================================== PART 5: LOVE & EGGS
+// ===================================================================== PART 6: EGGS & FRY
 export async function loveEggs(T) {
   const game = T.game, G = T.guide, two = T.pair;
-  await T.part(5, 'Love & Eggs');
+  await T.part(6, 'Eggs & Fry');
   if (two.some((f) => live(f) && f.fed < 0.9)) {
-    await T.cine(async (c) => {
-      c.low(midOf(two[0], two[1])(), { zoom: 0.013, pitch: 0.46 });
-      await c.say(c.fox, 'Hear that? Bellies rumbling. Love needs *full bellies*.', { style: 'say' });
-      await c.say(c.fox, 'Feed them again. You know how.', { style: 'smug', close: 0.011 });
-    }, { id: 'tut:refeed' });
+    await T.teach('To breed, both need a <b>full heart</b>. They\'re hungry again.', { wait: true, mood: 'happy' });
     await feedPair(T, two);
   }
   T.holdLove = false;
@@ -475,10 +359,11 @@ export async function loveEggs(T) {
   const fertP = T.until('eggFertilized').then(() => { seen.fert = true; });
   const hatched = T.until('eggHatched').then(() => { seen.hatch = true; });
   T.watchPair = two;
-  G.bark('Shh... watch them. Romance.', { mood: 'whisper', dur: 3 });
+  // FishSystem.eligibleForLove: adult, fed >= 0.9, hunger < 0.75, the love timer done
+  T.line('A well-fed boy and girl find each other and go on a <b>date</b>. Watch.', { mood: 'happy' });
   if (!seen.date) await T.within(Promise.race([dateP, laidP, fertP, hatched]), 35);
   if (!seen.date && !seen.laid && !seen.fert && !seen.hatch) { T.forceDate(two); await T.within(dateP, 6); }
-  if (seen.date && !seen.laid) G.bark('A *date*! Little loops. Hearts. Give them privacy.', { mood: 'excited', dur: 4 });
+  if (seen.date && !seen.laid) T.line('There\'s the date. Next, she lays the eggs.', { mood: 'excited' });
   if (!seen.laid && !seen.fert && !seen.hatch) await T.within(Promise.race([laidP, fertP, hatched]), 45);
   T.watchPair = null;
   // still nothing: a clutch appears the old-fashioned way (the tour can't wait forever)
@@ -487,37 +372,15 @@ export async function loveEggs(T) {
     if (live(a) && live(b)) { a.dateT = b.dateT = 0; try { game.fish.mate(a, b); } catch (e) { console.warn('[tut] mate', e); } }
   }
   const clutch = () => game.fish.eggs.find((e) => !e.bought && !e.dead);
-  // the eggs: Reynard holds one up and quizzes you
   if (!seen.hatch && clutch()) {
     await T.cine(async (c) => {
       const e = clutch();
       await c.walkNear(e);
-      c.hold('egg');
-      c.fox.act('present_trophy', 1.4);
-      c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
-      await c.beat(1.2);
-      await c.say(c.fox, 'EGGS! Little orange money beans.', { style: 'excited' });
-      c.lens(e, { zoom: 0.0065 });
-      const m0 = c.mark(e, { arrow: false, color: 'gold', r: 0.35 });
-      await c.beat(0.8);
-      await c.say(c.fox, 'Through the Scope... see the tiny *eye spots*? Babies in there.', { style: 'whisper' });
-      m0();
-      c.lens(null);
       c.ots(e, { zoom: 0.012 });
       const m = c.mark(e, { label: 'EGGS', color: 'gold' });
-      const v = await c.ask(c.fox, 'Mum laid them. Now who *fertilizes* the eggs?', [
-        { label: 'Dad', value: 'dad' },
-        { label: 'Mum', value: 'mum' },
-        { label: 'The stork', value: 'stork' },
-      ]);
-      const R = {
-        dad: ['Correct! Dad swims over and hovers on them. Very dignified.', 'happy'],
-        mum: ['Mum did her bit. Dad swims over and does the rest.', 'say'],
-        stork: ['The stork is a *con artist*. It\'s Dad. Dad does it.', 'angry'],
-      }[v] || ['Dad does it.', 'say'];
-      await c.say(c.fox, R[0], { style: R[1] });
+      await c.say(c.fox, 'Eggs! Now the dad swims over them and <b>fertilizes</b> them.', { style: 'excited' });
       // FishSystem: SPOIL_TIME = 90 s for a laid, unfertilized clutch
-      await c.say(c.fox, 'If Dad dawdles more than *90 seconds*, the eggs fizzle. Tick tock, Dad.', { style: 'scared' });
+      await c.say(c.fox, 'If he takes longer than <b>90 seconds</b>, they spoil. Keep the boy close to the girl.', { style: 'say' });
       m();
     }, { pause: true, id: 'tut:eggs' });
   }
@@ -528,7 +391,7 @@ export async function loveEggs(T) {
   }
   if (!seen.hatch) {
     // FishSystem.fertilize: incubation 150-210 s (the tour runs the express version)
-    G.bark('Fertilized! Now they *incubate*. A few minutes. Today: express service.', { mood: 'happy', dur: 4 });
+    T.line('Fertilized. Eggs <b>incubate</b> for about three minutes. Today I\'ll hurry them.', { mood: 'happy' });
     const bred = game.fish.eggs.find((e) => !e.bought && e.stage !== 'laid');
     if (bred && !bred.ready) bred.t = Math.min(bred.t, 5);
     if (!game.fish.eggs.some((e) => e.ready)) await T.within(Promise.race([T.until('eggReady'), hatched]), 30);
@@ -540,10 +403,10 @@ export async function loveEggs(T) {
       await T.wait(0.6);
       const st = ready ? G.mark(ready, { label: 'TAP!', color: 'gold' }) : null;
       // FishSystem.tickEgg: ready eggs wait for a tap
-      const stop = await T.tell(ready, 'Ready eggs wait for *you*. No rush... but I\'m rushing. *Tap the egg!*', { mood: 'excited', dur: 5 });
-      T.nag(() => 'Tap the glowing egg to hatch it!', { world: true });
+      const stop = await T.tell(ready, 'Ready eggs glow and wait for you. <b>Tap the egg</b> to hatch it.', { mood: 'excited' });
+      T.nag(() => 'Tap the glowing egg to hatch it.', { world: true });
       if (!(await T.within(hatched, 50))) {
-        G.bark('I\'ll do the honours.', { mood: 'happy' });
+        T.line('I\'ll hatch this one.', { mood: 'happy' });
         const e = game.fish.eggs.find((x) => x.ready);
         if (e) { try { game.ui.tapPondEgg(e); } catch { /* ignore */ } }
         if (!(await T.within(hatched, 20))) { const e2 = game.fish.eggs.find((x) => x.ready); if (e2) { const born = game.fish.hatchNow(e2); game.emit('eggHatched', born[0] || null); } }
@@ -564,84 +427,40 @@ export async function loveEggs(T) {
       await c.walkNear(baby);
       c.ots(baby, { zoom: 0.0115 });
       const m = c.mark(baby, { label: 'FRY', color: 'green' });
-      await c.say(c.fox, 'A *fry*! Our first baby. I\'m not crying. It\'s pond water.', { style: 'happy' });
+      // FishSystem.mate: 1 egg + a 25% chance of a 2nd
+      await c.say(c.fox, 'A <b>fry</b>! A clutch hatches one or two.', { style: 'happy' });
       // FishSystem: GROW_TIME 70 / species growth (bluegill 1.2) when hunger < 0.7; x0.35 when hungry
-      await c.say(c.fox, 'Fed fry grow up in about *a minute*. Hungry fry grow *3x slower*.', { style: 'say' });
-      // FishSystem.coinValue: fry x0.35
-      await c.say(c.fox, 'Bears pay only a *third* for a fry. Patience pays. Literally.', { style: 'scheming' });
+      await c.say(c.fox, 'Fed fry grow up in about <b>a minute</b>. Hungry fry grow three times slower.', { style: 'say' });
+      // FishSystem.mate: the love timer resets to 240-360 s
+      await c.say(c.fox, 'The parents rest four to six minutes, then they\'re ready for another date.', { style: 'say' });
       m();
     }, { id: 'tut:baby' });
   }
 }
 
-// ===================================================================== PART 6: GENES & MONEY
-export async function genesMoney(T) {
+// ===================================================================== PART 7: WHAT SELLS
+export async function whatSells(T) {
   const game = T.game, two = T.pair;
-  await T.part(6, 'Genes & Money');
+  await T.part(7, 'What Sells');
+  const baby = live(T.baby) && !T.baby.held ? T.baby : null;
   const [mum, dad] = two[0]?.g?.sex === 'F' ? two : [two[1], two[0]];
-  const sp = (T.baby || mum || dad)?.sp || SPECIES_BY_ID.bluegill;
-  await T.cine(async (c) => {
-    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
-    c.expr('scheming', 3);
-    const v = await c.ask(c.fox, 'Want the *secret* stuff? Genes. Money. Bear gossip.', [
-      { label: 'Tell me everything', value: 'yes' },
-      { label: 'Skip to building', value: 'no' },
-    ], { style: 'whisper' });
-    if (v === 'no') { await c.say(c.fox, 'Fine. Ignorance is cheaper. For now.', { style: 'smug' }); return; }
-    await c.say(c.fox, 'Lean in. This is the stuff they *don\'t* tell you.', { style: 'whisper' });
-    // ---- genes
-    c.hold('fish', { species: sp.id });
-    c.fox.act('present_trophy', 1.4);
-    await c.beat(1.2);
-    await c.say(c.fox, 'Every fish carries *genes*: size, colour, traits, mutations.', { style: 'say' });
-    const a = mum?.g?.size ?? 1.04, b = dad?.g?.size ?? 0.96;
-    const avg = (a + b) / 2;
-    const q = await c.ask(c.fox, `Mum is x${a.toFixed(2)}. Dad is x${b.toFixed(2)}. Their baby is about...`, [
-      { label: `x${(a + b).toFixed(2)}`, value: 'sum' },
-      { label: `x${avg.toFixed(2)}`, value: 'avg' },
-      { label: `x${Math.max(0.5, Math.min(a, b) - 0.3).toFixed(2)}`, value: 'small' },
-    ]);
-    const R = {
-      avg: ['Bingo. The *average*, give or take a wiggle. Breed big, get big.', 'happy'],
-      sum: ['They don\'t ADD UP. Fish aren\'t coins. Sadly. It\'s the *average*.', 'say'],
-      small: ['Pessimist! It\'s the *average*, give or take a wiggle.', 'say'],
-    }[q] || ['It\'s the average.', 'say'];
-    // genes.breedGenes: size = parents' mean + (rand - 0.45) x 0.14 x luck: a tiny upward lean
-    await c.say(c.fox, R[0], { style: R[1] });
-    await c.say(c.fox, 'Secret #1: the wiggle leans *up*. Breed the biggest, every generation gets a hair bigger.', { style: 'whisper' });
-    c.drop();
-    c.hold('fish', { species: sp.id, golden: true });
-    c.sfx('reveal_rare', { volume: 0.35 });
-    // genes.breedGenes inheritMorph: 38% per parent with a rare morph
-    await c.say(c.fox, 'Secret #2: colours run in families. A *Golden* parent passes it on about *4 times in 10*.', { style: 'excited' });
-    // genes.pickTraits: inherited traits 45%; mutations: a parent's passes 30%
-    await c.say(c.fox, 'Traits pass on almost *half* the time. Mutations, about *1 in 3*.', { style: 'say' });
-    // data/species.js: hybrids (30% of cross-species clutches with a recipe)
-    await c.say(c.fox, 'Secret #3: two *different* species can make a brand new one. A *hybrid*. Science! Or love.', { style: 'laugh' });
-    // data/foods.js: clover / moonberry / royal jelly luck -> FishSystem.mate foodLuck
-    await c.say(c.fox, 'Secret #4: fancy food like *Four-Leaf Clovers* makes the next babies luckier.', { style: 'whisper' });
-    c.drop();
-    const more2 = await c.ask(c.fox, 'Now... the *money* secrets?', [
-      { label: 'Show me the money', value: 'yes' },
-      { label: 'Enough. Let\'s build', value: 'no' },
-    ], { style: 'whisper' });
-    if (more2 === 'no') { await c.say(c.fox, 'A builder! I respect it. Money talk later.', { style: 'happy' }); return; }
-    // ---- money
-    c.hold('coins');
-    c.fox.act('present_trophy', 1.4);
-    c.sfx('coins', { volume: 0.4 });
-    await c.beat(1.2);
-    // genes.valueMult: size x morph x mutation, chonky x1.35
-    await c.say(c.fox, 'A fish\'s price: *size* x *colour* x *mutation*. Chonky fish add *35%*.', { style: 'greedy' });
-    // BearSystem.finishReview: golden / prismatic -> +1 star
-    await c.say(c.fox, 'Secret #5: a bear who eats a *Golden* fish gives an extra *star*. Gold is the best seasoning.', { style: 'laugh' });
-    // BearSystem.catchFish: lucky trait -> tips
-    await c.say(c.fox, 'Secret #6: *Lucky* fish make bears *tip* extra. Lucky for *us*.', { style: 'excited' });
-    // BearSystem: from day 5 some bears prefer a species; the wrong fish fills them 40% less and can cost a star
-    await c.say(c.fox, 'Secret #7: from day 5, some bears crave *one species*. Serve the wrong one and they stay hungrier.', { style: 'say' });
-    // BearSystem pay: 5 stars -> 25% tip, 4 stars -> 10%
-    await c.say(c.fox, 'Secret #8: a *5-star* bear tips a quarter on top. Happy bears, fat wallets.', { style: 'greedy' });
-    // FishSystem.nearestFor: bears go for adults first, fry last
-    await c.say(c.fox, 'Last one: bears grab *grown-ups* before fry. Keep your babies growing... somewhere safe.', { style: 'scheming', close: 0.011 });
-  }, { id: 'tut:genes' });
+  if (baby) {
+    await openScopeStep(T, [baby], '<b>Tap the fry</b> to scan it.');
+    await scopeLesson(T, (f) => [
+      // genes.breedGenes: size = the parents' mean + (rand - 0.45) x 0.14 x luck (a small lean up)
+      { k: 'size', label: 'SIZE', why: () => `Size x${f.g.size.toFixed(2)}. Babies get about the <b>average</b> of mum and dad, with a small nudge up. Breed your biggest.` },
+      // genes.breedGenes inheritMorph: 38% per parent with a rare morph; MORPHS.chance
+      { k: 'morph', label: 'COLOUR', why: () => 'Colours run in families: a rare-coloured parent passes it on about <b>4 times in 10</b>.' },
+    ], (f) => {
+      const w = worthOf(game, f);
+      // FishSystem.coinValue: fry x0.35
+      return [{ sel: '.fsc-worth', text: `Worth ${w} now. Fry are worth about a third, so grown up this one is worth about ${Math.round(w / 0.35)}.`, mood: 'greedy' }];
+    }, { hello: () => 'Our new fry. Two things it got from its parents...' });
+  }
+  void mum; void dad;
+  // the money rule (genes.valueMult: size x morph x mutation, chonky x1.35; BearSystem.finishReview: golden -> +1 star)
+  await T.teach('So the money rule: <b>big</b>, <b>rare colours</b> and <b>mutations</b> sell for the most. Breed your best with your best.', { wait: true, mood: 'greedy' });
+  await T.teach('A bear who eats a <b>Golden</b> fish even gives an extra star.', { wait: true, mood: 'happy' });
+  // BearSystem.planWave: from day 5, 15% of bears prefer a species; the wrong one can cost a star
+  await T.teach('From day 5, some bears want <b>one species</b>. More species come from e-Buy and research.', { wait: true, mood: 'happy' });
 }

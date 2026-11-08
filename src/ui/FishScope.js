@@ -1,15 +1,21 @@
 // Professor Reynard's Fish Scope: tapping a fish brings in Reynard in his lab
-// coat (goggles, clipboard, magnifier) who studies it, while a cyan hologram
-// overlay locks onto the real fish in the pond: corner brackets, a scan sweep,
-// a length ruler and leader-line arrows from big readable labels to the fish's
-// face, belly, body, tail and glow. Tap a label to expand it; the action bar
-// keeps Tag / Pet / Tank / Matchmaker / Close. The game runs in slow motion
-// while it's open and the camera glides onto the fish.
+// coat (goggles, clipboard, magnifier) who studies it. [v33 scope] It is a naturalist's
+// field kit, not a hologram: a brass magnifier sits over the real fish in the pond with a
+// boxwood ruler under it, manila luggage tags hang off both sides on twine pinned to the
+// fish (face, belly, fins, tail...), a museum specimen label with an ink rarity stamp and a
+// price tag sits on top, and his field notes + the action buttons lie on a wooden board at
+// the bottom. Tap a tag to turn it over (details); the buttons keep Tag / Pet / Tank /
+// Match / Vial / Close. The game runs in slow motion while it's open and the camera glides
+// onto the fish. All art is painted pixel by pixel in fishScopeArt.js.
 //
 //   import { openFishScope, closeFishScope, isFishScopeOpen } from './FishScope.js';
 //   openFishScope(game, fish);   // -> handle { close(), refresh(), fish, el } or null
 //   closeFishScope();
 //   createScopeFox(el, opts);    // the scientist bust on its own (preview / reuse)
+//
+// Tutorial hooks (src/game/tutorial/fishCourse.js) kept: .fsc .fsc-say .fsc-line
+// .fsc-call[data-k] (hunger mood sex morph size mut, + age breed) .fsc-worth .fsc-btns .fsc-x,
+// handle.open[k] / toggle(k) / renderCalls() / speak() / poseT / tipKey.
 //
 // Nothing is built at import time.
 import * as THREE from 'three';
@@ -18,13 +24,24 @@ import { propParts } from '../entities/foxProps.js';
 import { spriteImg, hasSprite } from './sprites.js';
 import { fishIconURL } from '../game/fishSprites.js';
 import { RARITIES, MORPHS, MUTATIONS, TRAITS, SPECIES_BY_ID } from '../data/species.js';
-import { sizeLabel } from '../game/genes.js';
+import { sizeLabel, valueMult } from '../game/genes.js';
+import { frameStyle } from './frames.js';
+import { deco, stamp as inkStamp } from './paper.js';
+import { pxTextCanvas } from './kinetic/pxfont.js';
+import { artPx } from './physical/pix.js';
+import { scopeArtCSS, eyeletURL, gaugeURL, heartsURL, swatchURL, tickURL, paintVignette, drawLens } from './fishScopeArt.js';
 import './fishscope.css';
 
 const GROW_TIME = 70; // FishSystem GROW_TIME (fry -> adult, sim seconds)
 const SLOWMO = 0.25;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ico = (n, s = 2) => (hasSprite(n) ? spriteImg(n, s) : '');
+// a painted piece (art w x h) shown at P CSS px per art px
+const pimg = (url, w, h, P, cls = '') => `<img class="px ${cls}" src="${url}" width="${Math.round(w * P)}" height="${Math.round(h * P)}" alt="" draggable="false">`;
+// rarity ink for the stamp (the RARITIES colours are made for dark panels; these read on paper)
+const RAR_INK = ['#6b5a44', '#2f7a3a', '#2e64b0', '#7a3ab0', '#c06a10'];
+// value ink on paper (morph / mutation colours are pale: they go on the paint swatch instead)
+const INKC = { ink: '#2a1a0c', blue: '#2e5aa0', pink: '#b8365e', green: '#2f6f4a', red: '#b0303a', brown: '#7a4a12', grey: '#6a5a46' };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const pct = (v) => Math.round(clamp(v || 0, 0, 1) * 100);
 const _v = new THREE.Vector3();
@@ -58,7 +75,32 @@ function facts(game, f) {
     mood: moodWord(f),
     fedFull: (f.fed || 0) >= 0.9,
     match: f.match && !f.match.dead ? f.match : null,
+    breed: breedInfo(f),
+    born: f.born || 1,
+    days: Math.max(0, ((game.state?.day || 1) - (f.born || 1))),
+    vmult: valueMult(g),
   };
+}
+
+// FishSystem.eligibleForLove: adult, well-fed meter full, not starving, love cooldown over, calm
+function breedInfo(f) {
+  const checks = [
+    { k: 'adult', ok: !!f.adult, label: 'Grown' },
+    { k: 'fed', ok: (f.fed || 0) >= 0.9, label: 'Well fed' },
+    { k: 'hunger', ok: (f.hunger || 0) < 0.75, label: 'Not starving' },
+    { k: 'rest', ok: (f.loveT || 0) <= 0, label: 'Rested' },
+  ];
+  const dating = f.state === 'court' || f.dateT > 0;
+  const ready = checks.every((c) => c.ok) && f.state !== 'flee';
+  let word;
+  if (dating) word = 'On a date!';
+  else if (!f.adult) word = 'Too young';
+  else if (ready) word = 'Ready!';
+  else if ((f.hunger || 0) >= 0.75) word = 'Starving';
+  else if ((f.fed || 0) < 0.9) word = 'Needs food';
+  else if ((f.loveT || 0) > 0) word = 'Resting';
+  else word = 'Scared';
+  return { checks, ready: ready || dating, dating, word, rest: Math.max(0, Math.ceil(f.loveT || 0)) };
 }
 
 // what Reynard says first (expression, line, magnifier pose first?)
@@ -150,29 +192,43 @@ export function createScopeFox(el, { game = null, turn = 0.5 } = {}) {
   return api;
 }
 
-// ------------------------------------------------------------------ callouts
-// u: along the body (head = +1), v: down (+1). Each label sits on the head or tail side.
+// ------------------------------------------------------------------ the tags
+// u: along the body (head = +1), v: down (+1): where each tag's twine is pinned on the fish.
+// Each tag hangs on the head or the tail side; slot = its row (0 top .. 3 bottom).
 const CALLS = [
-  { k: 'mut', side: 'head', slot: 0, label: 'MUTATION', icon: 'dna', at: [0.05, -1.35] },
+  { k: 'mut', side: 'head', slot: 0, label: 'MUTATION', icon: 'dna', at: [0.12, -0.62] },
   { k: 'mood', side: 'head', slot: 1, label: 'MOOD', icon: 'heart', at: [0.62, -0.18] },
-  { k: 'hunger', side: 'head', slot: 2, label: 'HUNGER', icon: 'food', at: [0.2, 0.6] },
-  { k: 'sex', side: 'tail', slot: 0, label: 'SEX', icon: null, at: [-0.68, -0.25] },
-  { k: 'morph', side: 'tail', slot: 1, label: 'COLOUR', icon: 'palette', at: [-0.12, 0.0] },
-  { k: 'size', side: 'tail', slot: 2, label: 'SIZE', icon: 'chart', at: [0, 'ruler'] },
+  { k: 'hunger', side: 'head', slot: 2, label: 'HUNGER', icon: 'food', at: [0.3, 0.42] },
+  { k: 'breed', side: 'head', slot: 3, label: 'BREEDING', icon: 'egg', at: [-0.05, 0.5] },
+  { k: 'sex', side: 'tail', slot: 0, label: 'SEX', icon: null, at: [-0.3, -0.5] },
+  { k: 'morph', side: 'tail', slot: 1, label: 'COLOUR', icon: 'palette', at: [-0.15, 0.02] },
+  { k: 'age', side: 'tail', slot: 2, label: 'AGE', icon: 'hourglass', at: [-0.78, 0.0] },
+  { k: 'size', side: 'tail', slot: 3, label: 'SIZE', icon: 'chart', at: [0, 'ruler'] },
 ];
+const SLOTS = 4;
 
-function callValue(k, F, f) {
+function callValue(k, F, f, P) {
   const g = F.g;
   switch (k) {
-    case 'mut': return F.mu ? { v: F.mu.name, c: F.mu.color, sub: `x${F.mu.value} value` } : { v: 'None', c: '#9adfe6', sub: 'no glow' };
-    case 'mood': return { v: F.mood, c: F.mood === 'Terrified' ? '#ffb060' : '#ff9ad0', meter: f.love || 0, mc: '#ff8ad0', sub: `Happy ${pct(f.love)}%` };
+    case 'mut': return F.mu
+      ? { v: F.mu.name, c: INKC.ink, swatch: F.mu.color, sub: `x${F.mu.value} value${F.mu.stars ? `, +${F.mu.stars} star${F.mu.stars > 1 ? 's' : ''}` : ''}` }
+      : { v: 'None', c: INKC.grey, sub: 'No glow' };
+    case 'mood': return { v: F.mood, c: F.mood === 'Terrified' ? INKC.red : INKC.pink, gauge: [gaugeURL(f.love || 0, 'pink', 50, P), 50], sub: `Happy ${pct(f.love)}%` };
     case 'hunger': {
       const fed = F.fedFull ? 4 : Math.floor((f.fed || 0) * 4);
-      return { v: F.hunger, c: (f.hunger || 0) > 0.75 ? '#ff7a6a' : '#b8ffb0', pips: fed, sub: !f.adult ? 'Too young to breed' : F.fedFull ? 'Well fed!' : 'Well-fed meter' };
+      const h = f.hunger || 0;
+      return { v: F.hunger, c: h > 0.75 ? INKC.red : h > 0.5 ? INKC.brown : INKC.green, hearts: fed, gauge: [gaugeURL(h, h > 0.75 ? 'red' : h > 0.5 ? 'orange' : 'green', 36, P), 36],
+        sub: !f.adult ? 'Too young to breed' : F.fedFull ? 'Well fed!' : 'Well-fed meter' };
     }
-    case 'sex': return { v: g.sex === 'M' ? 'Male' : 'Female', c: g.sex === 'M' ? '#7ccfff' : '#ff8ad0', glyph: g.sex === 'M' ? '♂' : '♀' };
-    case 'morph': return { v: F.mo.name, c: g.morph === 'normal' ? '#e8ffff' : '#ffe27a', sub: `x${F.mo.value} value` };
-    case 'size': return { v: `${F.size}  x${g.size.toFixed(2)}`, c: '#e8ffff', sub: F.grow < 1 ? `${pct(F.grow)}% grown` : 'full grown' };
+    case 'breed': {
+      const B = F.breed;
+      return { v: B.word, c: B.ready ? INKC.green : !f.adult ? INKC.grey : INKC.brown, checks: B.checks,
+        sub: B.dating ? 'Eggs soon' : F.match ? `Engaged: ${fishName(F.match)}` : !f.adult ? `${pct(F.grow)}% grown` : B.ready ? 'Looking for a mate' : B.rest && F.fedFull ? `Rests ~${B.rest}s` : `Fed ${pct(f.fed)}%` };
+    }
+    case 'sex': return { v: g.sex === 'M' ? 'Male' : 'Female', c: g.sex === 'M' ? INKC.blue : INKC.pink, glyph: g.sex === 'M' ? '♂' : '♀', sub: g.sex === 'M' ? 'Fertilizes the eggs' : 'Lays the eggs' };
+    case 'morph': return { v: F.mo.name, c: INKC.ink, morphPic: true, sub: `x${F.mo.value} value` };
+    case 'age': return { v: f.adult ? 'Adult' : `Fry ${pct(F.grow)}%`, c: f.adult ? INKC.ink : INKC.green, gauge: f.adult ? null : [gaugeURL(F.grow, 'green', 50, P), 50], sub: `Born day ${F.born}${F.days ? `, ${F.days} day${F.days > 1 ? 's' : ''} old` : ', today'}` };
+    case 'size': return { v: `${F.size}  x${g.size.toFixed(2)}`, c: INKC.ink, sub: F.grow < 1 ? `${pct(F.grow)}% grown` : 'Full grown' };
     default: return { v: '?' };
   }
 }
@@ -182,8 +238,17 @@ function callInfo(k, F, f) {
     case 'mut': return F.mu ? `${F.mu.name}: a rare egg-roll bonus. Worth x${F.mu.value} coins, +${F.mu.stars} star${F.mu.stars === 1 ? '' : 's'}. It trails ${F.mu.fx === 'none' ? 'no' : F.mu.fx} fx.` : 'No mutation. Fancy food and the Matchmaker raise the odds for the babies.';
     case 'mood': return `Happiness ${pct(f.love)}%. Pet fish to nurture them: nurtured parents make better babies.`;
     case 'hunger': return `Hunger ${pct(f.hunger)}%. Feed the pond until the 4 hearts are full: a well-fed adult falls in love.`;
+    case 'breed': {
+      const B = F.breed;
+      if (B.dating) return 'On a date right now. Eggs soon!';
+      if (!f.adult) return `A fry can't breed yet. It's ${pct(F.grow)}% grown: keep it fed.`;
+      if (B.ready) return 'Grown, well fed, rested: it will swim off to find a mate of the other sex.';
+      const miss = B.checks.filter((c) => !c.ok).map((c) => c.label.toLowerCase());
+      return `Not yet. It still needs to be: ${miss.join(', ')}.${B.rest && !B.checks[3].ok ? ` About ${B.rest}s of rest left.` : ''}`;
+    }
     case 'sex': return g.sex === 'M' ? 'A boy. He fertilizes the eggs a girl lays after their date.' : 'A girl. After a date she lays the eggs; a boy fertilizes them.';
     case 'morph': return g.morph === 'normal' ? 'Wild Type: natural colours. Rare morphs (Albino, Golden, Prismatic...) sell for much more.' : `${F.mo.name}: ${F.mo.desc || ''} Worth x${F.mo.value}.`;
+    case 'age': return f.adult ? `Born on day ${F.born}. Grown up: it can date, breed and be served.` : `Born on day ${F.born}. A fry, ${pct(F.grow)}% grown: fry grow on their own when fed, can't breed and are worth less.`;
     case 'size': return `Size ${F.size} = ${g.size.toFixed(2)}x normal. Bigger fish feed bears more and sell higher. Big parents, big babies.`;
     default: return '';
   }
@@ -204,36 +269,59 @@ export function openFishScope(game, fish) {
   return current;
 }
 
+let btnCSS = '';
+function injectButtonCSS(P) {
+  const key = String(P);
+  if (btnCSS === key || typeof document === 'undefined') return;
+  btnCSS = key;
+  const s = Math.max(1, Math.round(P));
+  const css = [
+    `.fsc-console{${frameStyle('wood', s)}}`,
+    `.fsc-btn{${frameStyle('button_gold', s)}}`,
+    `.fsc-btn.red{${frameStyle('button_red', s)}}`,
+    `.fsc-btn.vial{${frameStyle('button_green', s)}}`,
+    `.fsc-btn:disabled{${frameStyle('button_disabled', s)}}`,
+    `.fsc-btn.close,.fsc-x{${frameStyle('wood_dark', s)}}`,
+  ].join('\n');
+  let st = document.getElementById('fsc-btn-css');
+  if (!st) { st = document.createElement('style'); st.id = 'fsc-btn-css'; document.head.appendChild(st); }
+  st.textContent = css;
+}
+
 class Scope {
   constructor(game, fish) {
     this.game = game;
     this.fish = null;
-    this.open = {}; // expanded callouts
+    this.open = {}; // turned-over tags
     this.flip = null;
     this.t = 0;
     this.dead = false;
+    this.P = artPx();
+    scopeArtCSS(this.P);
+    injectButtonCSS(this.P);
     const el = (this.el = document.createElement('div'));
     el.className = 'fsc';
     el.setAttribute('role', 'dialog');
     el.innerHTML = `
       <div class="fsc-dim"></div>
-      <svg class="fsc-svg" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"></svg>
+      <canvas class="fsc-art"></canvas>
       <div class="fsc-hit" title="Pet"></div>
-      <div class="fsc-title fsc-holo"></div>
-      ${CALLS.map((c) => `<div class="fsc-call fsc-holo" data-k="${c.k}"></div>`).join('')}
-      <div class="fsc-console fsc-holo">
+      <div class="fsc-fx"></div>
+      ${CALLS.map((c, i) => `<div class="fsc-call fsc-tagR" data-k="${c.k}" style="--i:${i}"></div>`).join('')}
+      <div class="fsc-title fsc-card"></div>
+      <div class="fsc-console">
         <div class="fsc-foxbox"><div class="fsc-fox"></div></div>
-        <div class="fsc-main">
+        <div class="fsc-main fsc-sheet">
           <div class="fsc-say"><b>PROF. REYNARD</b><span class="fsc-line"></span></div>
           <div class="fsc-chips"></div>
-          <div class="fsc-btns"></div>
         </div>
+        <div class="fsc-btns"></div>
       </div>
-      <button class="fsc-x" title="Close (Esc)">✕</button>`;
+      <button class="fsc-x" title="Close (Esc)">${ico('cross', 2) || 'X'}</button>`;
     (document.body || game.ui?.root).appendChild(el);
     this.$ = (s) => el.querySelector(s);
-    this.svg = this.$('.fsc-svg');
-    this.calls = CALLS.map((c) => ({ ...c, el: el.querySelector(`.fsc-call[data-k="${c.k}"]`) }));
+    this.art = this.$('.fsc-art');
+    this.calls = CALLS.map((c) => ({ ...c, el: el.querySelector(`.fsc-call[data-k="${c.k}"]`), right: true }));
     // interaction
     this.$('.fsc-dim').addEventListener('click', () => this.close());
     this.$('.fsc-x').addEventListener('click', () => this.close());
@@ -247,7 +335,7 @@ class Scope {
       this.close();
     };
     window.addEventListener('keydown', this.onKey, true);
-    this.onResize = () => this.layout();
+    this.onResize = () => { this.P = artPx(); scopeArtCSS(this.P); injectButtonCSS(this.P); this.render(); this.layout(); };
     window.addEventListener('resize', this.onResize);
     // camera + slow motion
     const rig = game.rig;
@@ -258,7 +346,8 @@ class Scope {
     if (!this.fox) el.classList.add('nofox');
     this.setFish(fish);
     requestAnimationFrame(() => el.classList.add('on'));
-    game.audio?.play('crt_on', { volume: 0.35 });
+    game.audio?.play('paper', { volume: 0.4, pitch: 0.9 });
+    setTimeout(() => { if (!this.dead) game.audio?.play('stamp', { volume: 0.25 }); }, 380);
     this.last = performance.now();
     const loop = () => {
       if (this.dead) return;
@@ -273,11 +362,13 @@ class Scope {
 
   setFish(f) {
     const game = this.game, rig = game.rig;
+    const swap = !!this.fish && this.fish !== f;
     this.fish = f;
     this.open = {};
     this.tipKey = null;
     this.flip = null;
-    // glide onto the fish: zoom so it's ~140 css px wide, a little above centre (clear of the console)
+    this.lens = null;
+    // glide onto the fish: zoom so it's ~140 css px wide, in the free band between label and board
     const R = game.renderer;
     const ws = this.worldSize();
     const target = clamp(window.innerWidth * 0.13, 90, 190);
@@ -290,6 +381,7 @@ class Scope {
     };
     this.render();
     this.layout();
+    if (swap) { this.el.classList.remove('swap'); void this.el.offsetWidth; this.el.classList.add('swap'); }
     // Reynard's take
     const F = facts(game, f);
     this.lines = chatter(F, f);
@@ -314,7 +406,7 @@ class Scope {
     return { w: Math.max(0.05, w * k), h: Math.max(0.03, h * k) };
   }
 
-  // world offset that puts the fish in the middle of the free band between title and console
+  // world offset that puts the fish in the middle of the free band between the label and the board
   camOff() {
     const rig = this.game.rig, R = this.game.renderer;
     const band = this.band || { cy: window.innerHeight / 2 };
@@ -334,19 +426,26 @@ class Scope {
 
   // ---------------------------------------------------------------- DOM
   render() {
-    const game = this.game, f = this.fish;
+    const game = this.game, f = this.fish, P = this.P;
     const F = (this.F = facts(game, f));
-    const rarC = F.rar.color;
+    const small = window.innerWidth < 900 || window.innerHeight < 650;
     let stars = '';
-    for (let i = 1; i <= 5; i++) stars += ico(i <= F.g.stars ? 'star' : 'star_empty', 2);
+    for (let i = 1; i <= 5; i++) stars += ico(i <= F.g.stars ? 'star' : 'star_empty', small ? 1 : 2);
+    const rarI = clamp(F.g.stars - 1, 0, 4);
     this.$('.fsc-title').innerHTML = `
-      <div class="fsc-pic"><img class="px" src="${fishIconURL(f.sp.id, { morph: F.g.morph, scale: 3, fry: !f.adult })}" alt=""></div>
+      ${deco('tape', { variant: 'yellow', w: 22, h: 8, seed: 3 + (f.id % 5), px: P, cls: 'fsc-tape a' })}
+      ${deco('tape', { variant: 'yellow', w: 22, h: 8, seed: 7 + (f.id % 3), px: P, cls: 'fsc-tape b' })}
+      <div class="fsc-pic"><img class="px" src="${fishIconURL(f.sp.id, { morph: F.g.morph, scale: 2, fry: !f.adult })}" alt=""><span class="fsc-no"></span></div>
       <div class="fsc-tx">
-        <div class="fsc-name">${f.name ? `<span>${esc(f.name)}</span><small> the ${esc(F.sp.name)}</small>` : `<span>${esc(F.sp.name)}</span>`}<button class="fsc-ren" title="Rename">${ico('pen', 2) || '✎'}</button></div>
-        <div class="fsc-latin">${esc(F.sp.latin || '')}${f.adult ? '' : ' · FRY'}</div>
-        <div class="fsc-stars">${stars}<i style="--rc:${rarC}">${esc(F.rar.name.toUpperCase())}</i></div>
+        <div class="fsc-name">${f.name ? `<span>${esc(f.name)}</span><small> the ${esc(F.sp.name)}</small>` : `<span>${esc(F.sp.name)}</span>`}<button class="fsc-ren" title="Rename">${ico('pen', 2) || '&#9998;'}</button></div>
+        <div class="fsc-latin"></div>
+        <div class="fsc-stars">${stars}${inkStamp(F.rar.name, RAR_INK[rarI], -6, { anim: true, cls: 'fsc-rar' })}</div>
       </div>
-      <div class="fsc-worth" title="What a bear pays for it">${ico('coin', 3)}<b>${F.worth}</b><small>WORTH</small></div>`;
+      <div class="fsc-worth fsc-tagL" title="What a bear pays for it">${pimg(eyeletURL('L', P), 11, 11, P, 'fsc-eye')}${ico('coin', 2)}<b>${F.worth}</b><small>COINS</small><em>x${F.vmult.toFixed(2)}</em></div>`;
+    // pencil notes: the latin name and the specimen number, in the pixel script hand
+    const pen = (t, maxW) => pxTextCanvas(t, { font: 'script', color: '#4a4858', bleed: '#8a8698', scale: P, maxW });
+    if (F.sp.latin || !f.adult) this.$('.fsc-latin').appendChild(pen(`${F.sp.latin || ''}${f.adult ? '' : '  (fry)'}`));
+    this.$('.fsc-no').appendChild(pen(`No.${f.id}`));
     this.$('.fsc-ren').addEventListener('click', (e) => { e.stopPropagation(); this.rename(); });
     this.renderCalls();
     this.renderChips();
@@ -354,33 +453,39 @@ class Scope {
   }
 
   renderCalls() {
-    const F = this.F, f = this.fish;
+    const F = this.F, f = this.fish, P = this.P;
     for (const c of this.calls) {
-      const v = callValue(c.k, F, f);
+      const v = callValue(c.k, F, f, P);
+      const open = !!this.open[c.k];
       const icon = v.glyph ? `<span class="fsc-glyph" style="color:${v.c}">${v.glyph}</span>` : ico(c.icon, 2);
       let extra = '';
-      if (v.pips != null) extra = `<div class="fsc-pips">${[0, 1, 2, 3].map((i) => `<i class="${i < v.pips ? 'on' : ''}"></i>`).join('')}</div>`;
-      else if (v.meter != null) extra = `<div class="fsc-meter"><i style="width:${pct(v.meter)}%;background:${v.mc}"></i></div>`;
-      c.el.classList.toggle('open', !!this.open[c.k]);
-      c.el.innerHTML = `<div class="fsc-ic">${icon}</div><div class="fsc-cv"><div class="fsc-lb">${c.label}<em>${this.open[c.k] ? '−' : '+'}</em></div>
-        <div class="fsc-val" style="color:${v.c || '#e8ffff'}">${esc(v.v)}</div>${extra}${v.sub ? `<div class="fsc-sub">${esc(v.sub)}</div>` : ''}
-        ${this.open[c.k] ? `<div class="fsc-info">${esc(callInfo(c.k, F, f))}</div>` : ''}</div>`;
+      if (v.hearts != null) extra += `<span class="fsc-pips" title="Well-fed meter">${pimg(heartsURL(v.hearts, 4, P), 36, 7, P)}</span>`;
+      if (v.gauge) extra += `<span class="fsc-meter">${pimg(v.gauge[0], v.gauge[1], 9, P)}</span>`;
+      if (v.swatch) extra += `<span class="fsc-sw">${pimg(swatchURL(v.swatch, P), 12, 8, P)}</span>`;
+      if (v.morphPic) extra += `<span class="fsc-mpic"><img class="px" src="${fishIconURL(f.sp.id, { morph: F.g.morph, scale: Math.max(1, Math.round(P)), fry: !f.adult })}" alt=""></span>`;
+      const checks = v.checks ? `<div class="fsc-checks">${v.checks.map((x) => `<span class="${x.ok ? 'ok' : ''}">${pimg(tickURL(x.ok, P), 12, 11, P)}${esc(x.label)}</span>`).join('')}</div>` : '';
+      c.el.classList.toggle('open', open);
+      c.el.classList.toggle('fsc-tagR', c.right);
+      c.el.classList.toggle('fsc-tagL', !c.right);
+      c.el.innerHTML = `${pimg(eyeletURL(c.right ? 'R' : 'L', P), 11, 11, P, 'fsc-eye')}
+        <div class="fsc-ic">${icon}</div><div class="fsc-cv"><div class="fsc-lb">${c.label}<em>${open ? '-' : '+'}</em></div>
+        <div class="fsc-val" style="color:${v.c || INKC.ink}">${esc(v.v)}</div>${extra ? `<div class="fsc-ex">${extra}</div>` : ''}${v.sub ? `<div class="fsc-sub">${esc(v.sub)}</div>` : ''}
+        ${checks}${open ? `<div class="fsc-info">${esc(callInfo(c.k, F, f))}</div>` : ''}</div>`;
     }
   }
 
   renderChips() {
     const F = this.F, f = this.fish;
-    const chip = (key, icon, text, cls = '', style = '') => `<button class="fsc-chip ${cls}${this.tipKey === key ? ' sel' : ''}" data-tip="${key}" style="${style}">${icon}<span>${esc(text)}</span></button>`;
+    const chip = (key, icon, text, cls = '') => `<button class="fsc-chip fsc-lbl ${cls}${this.tipKey === key ? ' sel' : ''}" data-tip="${key}">${icon}<span>${esc(text)}</span></button>`;
     const out = [];
     for (const t of F.g.traits) { const T = TRAITS[t]; if (T) out.push(chip('trait:' + t, ico(T.icon, 2), T.name, T.good ? 'good' : 'bad')); }
     if (!F.g.traits.length) out.push(chip('notraits', ico('question', 2), 'No traits', 'dim'));
-    out.push(chip('age', ico(f.adult ? 'fish' : 'egg', 2), f.adult ? 'Adult' : `Fry ${pct(F.grow)}%`));
     out.push(chip('tag', ico('tag', 2), f.tagged ? 'DO NOT EAT' : 'On the menu', f.tagged ? 'warn' : 'dim'));
     out.push(chip('home', ico(f.tank ? 'tank' : 'pond', 2), f.tank ? 'In a tank' : 'In the pond'));
     if (F.match) out.push(chip('match', ico('heart', 2), `Engaged: ${fishName(F.match)}`, 'love'));
     else if (f.dateT > 0 || f.state === 'court') out.push(chip('date', ico('heart', 2), 'On a date!', 'love'));
     if (f.luck > 0.01) out.push(chip('luck', ico('clover', 2), `Luck +${Math.round(f.luck * 100)}%`, 'good'));
-    if (F.parents?.length) out.push(chip('parents', ico('egg', 2), F.parents.join(' x ')));
+    if (F.parents?.length) out.push(chip('parents', ico('egg', 2), `Parents: ${F.parents.join(' x ')}`));
     const box = this.$('.fsc-chips');
     box.innerHTML = out.join('');
     box.querySelectorAll('[data-tip]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.tip(b.dataset.tip); }));
@@ -397,7 +502,7 @@ class Scope {
       match: 'The Matchmaker engaged this pair: they only date each other.',
       date: 'On a date right now. Eggs soon!',
       luck: 'Fancy food raised its mutation luck for the next babies.',
-      parents: 'Its parents.',
+      parents: `Its parents: ${(F.parents || []).join(' and ')}. Babies inherit size, colour and traits.`,
     }[key] || '';
   }
   tip(key) {
@@ -425,7 +530,7 @@ class Scope {
       ${tankBtn}
       ${game.ui?.openMatchmaker ? `<button class="fsc-btn" data-a="match">${ico('heart', 2)}<span>Match</span></button>` : ''}
       ${game.digsite?.scopeButton?.(f) || ''}
-      <button class="fsc-btn close" data-a="close">${ico('cross', 2)}<span>Close</span></button>`;
+      <button class="fsc-btn close" data-a="close" title="Close">${ico('cross', 2)}<span>Close</span></button>`;
     this.$('.fsc-btns').querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.act(b.dataset.a); }));
   }
 
@@ -434,11 +539,14 @@ class Scope {
     if (a === 'close') { this.close(); return; }
     if (a === 'tag') {
       const ok = game.tagFish(f);
-      if (ok) this.speak(f.tagged ? 'Tagged! DO NOT EAT. Hands off, bears.' : 'Tag off. Back on the menu... heh.', f.tagged ? 'proud' : 'scheming');
+      if (ok) {
+        this.speak(f.tagged ? 'Tagged! DO NOT EAT. Hands off, bears.' : 'Tag off. Back on the menu... heh.', f.tagged ? 'proud' : 'scheming');
+        if (f.tagged) game.audio?.play('stamp', { volume: 0.3 });
+      }
     } else if (a === 'pet') {
       if (game.nurtureFish(f)) {
         if (Math.random() < 0.5 || (f.love || 0) >= 1) this.speak((f.love || 0) >= 1 ? 'Fully nurtured! Look at that smile.' : 'Pat pat. Happy fish, better babies.', 'love');
-        this.$('.fsc-hit').classList.remove('pet'); void this.$('.fsc-hit').offsetWidth; this.$('.fsc-hit').classList.add('pet');
+        this.petFx();
       }
     } else if (a === 'tank') {
       const T = game.tanks;
@@ -461,10 +569,27 @@ class Scope {
     this.layout();
   }
 
+  // little painted hearts hop up off the fish (stepped, no glow)
+  petFx() {
+    const fx = this.$('.fsc-fx'), c = this.lastC;
+    if (!fx || !c) return;
+    for (let i = 0; i < 4; i++) {
+      const h = document.createElement('span');
+      h.className = 'fsc-heart';
+      h.innerHTML = ico('heart', 2);
+      h.style.left = Math.round(c.x + (i - 1.5) * 22) + 'px';
+      h.style.top = Math.round(c.y - 10 - (i % 2) * 10) + 'px';
+      h.style.animationDelay = i * 70 + 'ms';
+      fx.appendChild(h);
+      setTimeout(() => h.remove(), 900 + i * 70);
+    }
+  }
+
   toggle(k) {
     this.open[k] = !this.open[k];
-    this.game.audio?.play('click', { volume: 0.3, pitch: this.open[k] ? 1.4 : 1.1 });
+    this.game.audio?.play('paper', { volume: 0.25, pitch: this.open[k] ? 1.35 : 1.15 });
     this.renderCalls();
+    this.place(true);
     if (this.open[k]) { this.speak(callInfo(k, this.F, this.fish), 'teacher'); this.poseT = Math.max(this.poseT, 5); }
   }
 
@@ -482,7 +607,7 @@ class Scope {
       if (v !== (f.name || '')) {
         f.name = v || null;
         try { this.game.save?.(); } catch { /* ignore */ }
-        if (v) this.speak(`${v}! A fine scientific name.`, 'proud');
+        if (v) { this.speak(`${v}! A fine scientific name.`, 'proud'); this.game.audio?.play('pen', { volume: 0.3 }); }
       }
       if (!this.dead) { this.render(); this.layout(); }
     };
@@ -498,31 +623,47 @@ class Scope {
     const W = window.innerWidth, H = window.innerHeight;
     const small = W < 900 || H < 650;
     this.el.classList.toggle('small', small);
-    const title = this.$('.fsc-title'), con = this.$('.fsc-console');
-    const tb = title.offsetHeight + 12, cb = con.offsetHeight + 12;
-    const top = tb + 8, bot = H - cb - 8;
-    this.band = { top, bot, cy: (top + bot) / 2 };
-    this.colW = clamp(W * 0.235, 196, 300);
+    const title = this.$('.fsc-title'), con = this.$('.fsc-console'), x = this.$('.fsc-x');
+    const m = small ? 8 : 12;
+    this.colW = Math.round(clamp(W * 0.235, small ? 188 : 196, 300));
+    // the label sits between the tag columns, so the tags can use the full height
+    title.style.maxWidth = Math.max(260, W - 2 * (m + this.colW + 8)) + 'px';
+    const tr = title.getBoundingClientRect();
+    const conTop = H - con.offsetHeight - (small ? 6 : 10);
+    // the X hangs off the label's bottom-right corner like a tab
+    const xl = Math.round(tr.right - x.offsetWidth - (small ? 6 : 12)), xt = Math.round(tr.bottom - (small ? 8 : 10));
+    x.style.left = xl + 'px';
+    x.style.top = xt + 'px';
+    const top = tr.bottom + 6;
+    this.band = { top, bot: conTop - 6, cy: (top + conTop - 6) / 2 };
+    const clash = tr.left < m + this.colW + 4 || tr.right > W - m - this.colW - 4;
+    this.colTop = clash ? tr.bottom + 8 : m;
+    this.colBot = conTop - (small ? 4 : 8);
     this.place(true);
   }
 
-  // put the callout columns on the head / tail side of the fish
+  // hang the tag columns on the head / tail side of the fish
   place(force) {
     const f = this.fish;
     const flip = !!f.flip;
     if (!force && flip === this.flip) return;
+    const flipped = this.flip !== null && flip !== this.flip;
     this.flip = flip;
     const W = window.innerWidth;
-    const { top, bot } = this.band;
+    const top = this.colTop ?? 12, bot = this.colBot ?? window.innerHeight - 200;
+    const m = this.el.classList.contains('small') ? 8 : 12;
     const headRight = !flip;
+    const h = (bot - top) / SLOTS;
+    let changed = false;
     for (const c of this.calls) {
       const right = (c.side === 'head') === headRight;
-      const n = 3, h = (bot - top) / n;
+      if (right !== c.right) { c.right = right; changed = true; }
       c.el.style.width = this.colW + 'px';
-      c.el.style.left = (right ? W - 14 - this.colW : 14) + 'px';
+      c.el.style.left = (right ? W - m - this.colW : m) + 'px';
       c.el.style.top = Math.round(top + h * c.slot + Math.max(0, (h - c.el.offsetHeight) * 0.5)) + 'px';
-      c.right = right;
     }
+    if (changed) this.renderCalls();
+    if (flipped) this.game.audio?.play('paper', { volume: 0.18, pitch: 1.5 });
   }
 
   // ---------------------------------------------------------------- frame
@@ -557,11 +698,12 @@ class Scope {
       this.renderCalls();
     }
     this.place(false);
-    this.draw();
+    this.draw(dt);
   }
 
-  draw() {
-    const game = this.game, f = this.fish;
+  // the lens layer: one art-resolution canvas (magnifier, ruler, twine, pins, light vignette)
+  draw(dt = 0) {
+    const game = this.game, f = this.fish, P = this.P;
     const W = window.innerWidth, H = window.innerHeight;
     const ui = game.ui;
     const c = ui.screenOf(f.x, f.y, f.z);
@@ -574,54 +716,62 @@ class Scope {
     const hw = Math.max(26, Math.abs(e.x - c.x) * 0.86), hh = Math.max(16, hw * (ws.h / ws.w) * 0.9);
     const s = f.flip ? -1 : 1;
     const cx = Math.round(c.x), cy = Math.round(c.y);
-    const P = (u, v) => [Math.round(cx + s * u * hw), Math.round(cy + v * hh)];
+    this.lastC = { x: cx, y: cy };
     // hit area for petting
     const hit = this.$('.fsc-hit');
     hit.style.transform = `translate(${cx - hw - 10}px, ${cy - hh - 10}px)`;
     hit.style.width = (hw * 2 + 20) + 'px'; hit.style.height = (hh * 2 + 20) + 'px';
-    const pad = 16;
-    const x0 = cx - hw - pad, x1 = cx + hw + pad, y0 = cy - hh - pad, y1 = cy + hh + pad;
-    const L = 14;
-    const flick = (Math.floor(this.t * 12) % 23 === 0) ? 0.55 : 1;
-    let o = `<g class="fsc-g" opacity="${flick}">`;
-    // corner brackets
-    const brD = `M${x0} ${y0 + L}V${y0}H${x0 + L}M${x1 - L} ${y0}H${x1}V${y0 + L}M${x1} ${y1 - L}V${y1}H${x1 - L}M${x0 + L} ${y1}H${x0}V${y1 - L}`;
-    o += `<path class="gl" d="${brD}"/><path class="br" d="M${x0} ${y0 + L}V${y0}H${x0 + L}M${x1 - L} ${y0}H${x1}V${y0 + L}M${x1} ${y1 - L}V${y1}H${x1 - L}M${x0 + L} ${y1}H${x0}V${y1 - L}"/>`;
-    // scan sweep
-    const sw = y0 + ((this.t * 0.7) % 1) * (y1 - y0);
-    o += `<rect class="sweep" x="${x0 + 2}" y="${Math.round(sw)}" width="${x1 - x0 - 4}" height="2"/><rect class="sweepg" x="${x0 + 2}" y="${Math.round(sw) - 8}" width="${x1 - x0 - 4}" height="8"/>`;
-    // ruler under the fish
-    const ry = y1 + 12, rx0 = cx - Math.round(hw), rx1 = cx + Math.round(hw);
-    o += `<path class="ru" d="M${rx0} ${ry}H${rx1}M${rx0} ${ry - 6}V${ry + 6}M${rx1} ${ry - 6}V${ry + 6}`;
-    for (let i = 1; i < 10; i++) { const x = Math.round(rx0 + (rx1 - rx0) * i / 10); o += `M${x} ${ry}V${ry + (i === 5 ? 6 : 3)}`; }
-    o += '"/>';
-    // mutation glow ring
-    const mu = f.g.mut ? MUTATIONS[f.g.mut] : null;
-    if (mu) o += `<ellipse class="glow" cx="${cx}" cy="${cy}" rx="${Math.round(hw + 8)}" ry="${Math.round(hh + 8)}" stroke="${mu.color}" stroke-dashoffset="${Math.round(this.t * 20)}"/>`;
-    // face reticle
-    const [ex, ey] = P(0.62, -0.18);
-    o += `<rect class="ret" x="${ex - 5}" y="${ey - 5}" width="10" height="10"/>`;
-    // leader lines + arrowheads
-    for (const k of this.calls) {
-      const r = k.el.getBoundingClientRect();
-      if (!r.width) continue;
-      const [ax, ay] = k.at[1] === 'ruler' ? [cx, ry + 2] : P(k.at[0], k.at[1]);
-      const sx = k.right ? Math.round(r.left) : Math.round(r.right);
-      const sy = Math.round(r.top + Math.min(34, r.height / 2));
-      const knee = k.right ? Math.min(sx - 18, Math.max(ax + 30, x1 + 22)) : Math.max(sx + 18, Math.min(ax - 30, x0 - 22));
-      const kx = Math.round(knee);
-      const dx = ax - kx, dy = ay - sy, d = Math.hypot(dx, dy) || 1;
-      const ux = dx / d, uy = dy / d;
-      const bx = Math.round(ax - ux * 4), by = Math.round(ay - uy * 4);
-      const hot = this.open[k.k] ? ' hot' : '';
-      o += `<path class="gl" d="M${sx} ${sy}H${kx}L${bx} ${by}"/><path class="ld${hot}" d="M${sx} ${sy}H${kx}L${bx} ${by}"/>`;
-      const px = -uy, py = ux;
-      o += `<path class="ah${hot}" d="M${ax} ${ay}L${Math.round(bx - ux * 8 + px * 7)} ${Math.round(by - uy * 8 + py * 7)}L${Math.round(bx - ux * 8 - px * 7)} ${Math.round(by - uy * 8 - py * 7)}Z"/>`;
-      o += `<rect class="dot${hot}" x="${sx + (k.right ? -4 : 0)}" y="${sy - 2}" width="4" height="4"/>`;
+    // ---- art space
+    const aw = Math.ceil(W / P), ah = Math.ceil(H / P);
+    const cv = this.art;
+    if (cv.width !== aw || cv.height !== ah || !this.img) {
+      cv.width = aw; cv.height = ah;
+      cv.style.width = aw * P + 'px'; cv.style.height = ah * P + 'px';
+      this.ctx = cv.getContext('2d');
+      this.img = this.ctx.createImageData(aw, ah);
+      this.buf = { w: aw, h: ah, d: new Uint32Array(this.img.data.buffer) };
+      this.vig = null; this.key = '';
     }
-    o += '</g>';
-    this.svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    this.svg.innerHTML = o;
+    // the lens eases after the fish (no jitter), sized to the fish, kept inside the free band
+    const L = (this.lens ||= { x: c.x, y: c.y });
+    const k = 1 - Math.exp(-dt * 7);
+    L.x += (c.x - L.x) * k; L.y += (c.y - L.y) * k;
+    const lx = Math.round(L.x / P), ly = Math.round(L.y / P);
+    const band = this.band || { top: 0, bot: H };
+    const gap = (W - 2 * ((this.colW || 200) + 12)) / 2;
+    const maxR = Math.floor(Math.min((band.bot - band.top) / 2, gap) / P) - 7;
+    const R = clamp(Math.round(Math.max(hw * 1.06, hh * 1.6) / P) + 6, 16, Math.max(16, maxR));
+    // anchor points on the fish (art px)
+    const A = (u, v) => [Math.round((cx + s * u * hw) / P), Math.round((cy + v * hh) / P)];
+    // boxwood ruler under the fish, inside the glass
+    let ry = Math.round((cy + hh) / P) + 3;
+    if (ry + 6 > ly + R - 2) ry = ly + R - 8;
+    const half = Math.max(6, Math.floor(Math.sqrt(Math.max(0, R * R - (ry + 6 - ly) ** 2))) - 4);
+    const rx0 = Math.max(Math.round((cx - hw) / P), lx - half), rx1 = Math.min(Math.round((cx + hw) / P), lx + half);
+    const ruler = { x0: rx0, x1: rx1, y: ry };
+    const strings = [];
+    for (const t of this.calls) {
+      const eye = t.el.firstElementChild;
+      if (!eye) continue;
+      const r = eye.getBoundingClientRect();
+      if (!r.width) continue;
+      const [ax, ay] = t.at[1] === 'ruler' ? [Math.round((rx0 + rx1) / 2), ry + 1] : A(t.at[0], t.at[1]);
+      strings.push({ x0: Math.round((r.left + r.width / 2) / P), y0: Math.round((r.top + r.height / 2) / P), x1: ax, y1: ay, hot: !!this.open[t.k] });
+    }
+    const key = `${lx},${ly},${R},${rx0},${rx1},${ry}|` + strings.map((q) => `${q.x0},${q.y0},${q.x1},${q.y1},${q.hot ? 1 : 0}`).join(';');
+    if (key === this.key) return;
+    this.key = key;
+    const vk = `${lx},${ly},${R}`;
+    if (this.vigKey !== vk || !this.vig) {
+      this.vigKey = vk;
+      const vb = { w: aw, h: ah, d: this.vig || new Uint32Array(aw * ah) };
+      vb.d.fill(0);
+      paintVignette(vb, lx, ly, R);
+      this.vig = vb.d;
+    }
+    this.buf.d.set(this.vig);
+    drawLens(this.buf, { cx: lx, cy: ly, R, ruler, strings });
+    this.ctx.putImageData(this.img, 0, 0);
   }
 
   close(quick = false) {
@@ -636,11 +786,11 @@ class Scope {
     rig.wuppGoal = this.saved.wupp;
     if (game.timeScale === SLOWMO) game.timeScale = this.saved.ts === SLOWMO ? 1 : this.saved.ts;
     if (current === this) current = null;
-    if (!quick) game.audio?.play('crt_off', { volume: 0.3 });
+    if (!quick) game.audio?.play('paper', { volume: 0.3, pitch: 1.2 });
     const el = this.el;
     el.classList.remove('on');
     el.classList.add('off');
-    setTimeout(() => { this.fox?.dispose(); el.remove(); }, quick ? 0 : 220);
+    setTimeout(() => { this.fox?.dispose(); el.remove(); }, quick ? 0 : 260);
   }
 }
 

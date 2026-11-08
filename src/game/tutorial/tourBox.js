@@ -196,7 +196,7 @@ export class TourBox {
     const step = (now) => {
       this._raf = 0;
       if (!this.el || !this.visible) return;
-      const dt = Math.min(0.1, (now - last) / 1000);
+      const dt = Math.min(0.5, (now - last) / 1000); // (a slow frame rate still types at reading speed)
       last = now;
       const t = this.type;
       if (t && !t.done) {
@@ -219,13 +219,12 @@ export class TourBox {
     el.classList.toggle('away', !!(game.ui?.ebuy || game.classroom?.active));
     const box = this.q('say');
     const h = (box && box.offsetHeight) || 124;
-    const scene = !!game.director?.active;
     let side = this.forcePlace || 'bottom';
     if (!this.forcePlace) {
       const r = this._rect(this.target);
       if (r) {
         const W = innerWidth, H = innerHeight, bw = Math.min(760, W - 24), bx0 = (W - bw) / 2, bx1 = bx0 + bw;
-        const pad = scene ? H * 0.11 : 14;
+        const pad = 14;
         const hits = (y0, y1) => r.right > bx0 && r.left < bx1 && r.bottom > y0 - 16 && r.top < y1 + 16;
         const bottomHit = hits(H - pad - h, H - pad), topHit = hits(pad, pad + h);
         if (bottomHit && !topHit) side = 'top';

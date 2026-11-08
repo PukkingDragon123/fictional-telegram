@@ -4,7 +4,7 @@
 // over his shoulder, nearly first person.
 //
 // Outside a cutscene (while you do things):  guide.walkNear(target) · guide.point(target) -> stop
-//   · guide.hold('pellets' | 'egg' | 'fish' | 'tag' | 'coins' | 'scope') / guide.drop() · guide.bark(text)
+//   · guide.hold('pellets' | 'egg' | 'fish' | 'tag' | 'coins' | 'scope') / guide.drop() · guide.bark(text) (a line in the box)
 //   · guide.mark(target, o) -> stop
 // Inside a Director scene, Tutorial.cine() adds the same as c.* (see extend()):
 //   c.walkNear(target) · c.point(target, { label, color }) · c.unpoint() · c.hold(name, o) · c.drop()
@@ -211,11 +211,9 @@ export class Guide {
     disposeProp(p);
   }
 
-  /** a short line over his head that doesn't wait (while you play) */
-  bark(text, { mood = 'happy', dur = 3.2 } = {}) {
-    const f = this.fox;
-    if (!f) return null;
-    return this.game.say({ getWorldPos: (v) => v.set(f.x, f.y + 1.75, f.z) }, text, { voice: 'fox', mood, dur, key: 'tutbark', size: 's' });
+  /** a short line that doesn't wait (while you play). [v33 tut2] It goes in the tour's dialogue box, not a bubble */
+  bark(text, { mood = 'happy' } = {}) {
+    return this.T.line ? this.T.line(text, { mood }) : null;
   }
 
   clear() { this.unpoint(); this.drop(); this.marks.clear(); lens(false); }

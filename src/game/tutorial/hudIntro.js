@@ -1,5 +1,5 @@
 // [v33 tut] The HUD arrives one piece at a time. Each piece: it appears (with a little ceremony),
-// Reynard hops over to it and says what it's for, then you try it.
+// Reynard says what it's for in the dialogue box (moved to the top, off the hotbar), then you try it.
 //
 // The hotbar is Reynard's leather tool roll (src/ui/kit/ToolKit.js): game.ui.kitIntroduce(feature) sews
 // the pocket in with its ceremony (and unlocks the feature), game.ui.kitSpotlight(feature, on) lights it
@@ -41,7 +41,7 @@ export async function introduce(T, feature, o = {}) {
     await T.wait(0.5);
   }
   if (!line && !tryIt) return;
-  // 2. Reynard hops over and tells you about it
+  // 2. Reynard tells you about it (the box keeps off the slot)
   const spot = (on) => {
     try { if (pocket && typeof ui?.kitSpotlight === 'function') { ui.kitSpotlight(feature, on); return; } } catch { /* ignore */ }
     const el = hudEl(game, feature);
@@ -52,11 +52,11 @@ export async function introduce(T, feature, o = {}) {
   const kitLit = pocket && typeof ui?.kitSpotlight === 'function';
   const arrow = kitLit ? { stop() {} } : T.guide.marks.ui(tgt); // the kit's spotlight already says "this one"
   try {
-    if (line) await T.teach(line, { target: tgt, circle: true, wait: true, mood });
+    if (line) await T.teach(line, { target: tgt, wait: true, mood }); // [v33 tut2] in the box (kept off the slot)
     // 3. you try it
     if (tryIt) {
       const p = Promise.resolve(tryIt());
-      if (tryLine) T.teach(tryLine, { target: tgt, dur: 5, mood: 'excited' });
+      if (tryLine) T.teach(tryLine, { target: tgt, mood: 'excited' }); // stays up while you try it
       if (nagLine) T.nag(() => nagLine);
       const done = await T.within(p, timeout);
       T.stopNag();

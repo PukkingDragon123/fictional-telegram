@@ -1,51 +1,49 @@
 import * as THREE from 'three';
-// First-day tutorial. [v33 tut] The big hands-on tour.
+// First-day tutorial. [v33 tut] The hands-on tour. [v33 tut2] Rewritten to teach the real game, step by
+// step, in Reynard's dialogue box (the classroom's speech box: src/game/tutorial/tourBox.js).
 //
-// It opens inside Reynard's room (a returning player can skip right there), a crane over the valley
-// lands on his empty pond, and then Reynard is IN THE WORLD: he walks to every thing he talks about,
-// points at it (his arm reaches for it, a pixel arrow + ring sit on it), holds things up in his paws
-// (real voxel props: a fish, an egg, the pellet bag, the Fish Scope, a tag, coins) and the camera goes
-// in low and close, over his shoulder. Talk beats are Director scenes (comic bubbles, close-ups,
-// c.ask reply buttons with real reactions); everything in between is you doing it, with a fallback
-// for every wait. The HUD arrives one piece at a time (src/game/tutorial/hudIntro.js): the slot
-// appears, Reynard hops over to it, you try it.
+// It opens inside Reynard's room (a returning player answers "I know the drill" there: the only way
+// to skip), then Reynard is IN THE WORLD: he walks to every thing he talks about, points at it (his arm
+// reaches for it, a pixel hand + ring sit on it) and the camera goes in close. Everything he says is in
+// the dialogue box at the bottom of the screen (at the top when what he teaches is down there, like
+// the hotbar). Talk beats are short Director scenes (camera moves; his lines in the same box); in
+// between, you do it in the real UI, with a fallback for every wait. The HUD arrives one piece at a
+// time (src/game/tutorial/hudIntro.js): the slot appears, Reynard explains it, you try it.
 //
-//   room -> opening crane + class "Pond Life" ->
-//   1 First Fish       coins, e-Buy: buy the pair, unbox, meet + name them
-//   2 Feeding Time     Food slot, the pellet bag + quiz, you feed them, the two meters
-//   3 The Fish Scope   tap a fish, every stat one by one with this fish's numbers, worth, buttons
-//   4 Fish Care        Pet slot (pet to full), happiness, the pond + quiz, Tag slot, bear-proofing, Carry slot
-//   5 Love & Eggs      refeed, the date, the egg + quiz, fertilize, incubate, hatch, the fry
-//   6 Genes & Money    (you can skip it) genes + quiz, morphs, hybrids, value, what bears like
-//   7 Science!         Lab slot, research Hire Beavers
-//   8 Hard Hats        order the crew, Build slot, place the lodge, research + place the Snack Bar
-//   9 Green Thumb      research carrots, plant, harvest, pay the beavers
-//  10 Timber!          Wood Garage, Destroy slot, box the trees
-//  11 Customers        class "Customers", the bears hear the news, the clock, tomorrow 5 PM, recap
+//   room -> the opening crane ->
+//   1 The Goal          coins + the clock: day, the 5 PM feast, the night report
+//   2 Buying Fish       e-Buy: buy the pair, unbox it, a boy + a girl
+//   3 Feeding           the Food slot, you feed them, hunger + the well-fed heart
+//   4 The Fish Scope    tap a fish, every stat one by one with this fish's numbers, its worth
+//   5 Fish Care         Pet (happiness), pond room, Tag (DO NOT EAT), Carry
+//   6 Eggs & Fry        the date, eggs, dad fertilizes, incubation, you hatch one, the fry
+//   7 What Sells        the Scope on the fry: worth, size + colour from the parents, the money rule
+//   8 The Feast         Bear Corp, the trail, what bears eat / pay / want, rating, rampage, the report
+//   9 Research          the Lab slot, research Hire Beavers
+//  10 Building          order the crew on e-Buy, the Build slot, place the lodge, research + place the Snack Bar
+//  11 Farming           research carrots, plant, harvest, pay the beavers
+//  12 Clearing Land     the Wood Garage, the Destroy slot, box the trees
+//  13 Your Day          the speed control, the daily loop, tomorrow 5 PM
 //
-// SKIP TOUR: a paper tag hangs at the top of the screen the whole time (src/game/tutorial/skip.js).
-// Every wait in here races the skip, so a skip ends the tour from any step and catches the save up.
+// No skip button: the room's first question is the way out. Every wait still races the internal
+// skip (skipNow), so it ends the tour from any step and catches the save up (finishSkipped).
 // Debug: ?autostart=new&tutfrom=<chapter> jumps straight to a chapter (ids in CHAPTERS below).
 import { HUT, OFFICE, MEADOW } from '../world/worldgen.js';
 import { STRUCTURES } from '../data/structures.js';
-import { COMBINED_LESSONS } from './lessonsCombined.js';
 import { ynPair } from '../ui/ynButtons.js'; // [v27 knobs] painted YES / NO planks
-import { TeacherOverlay } from '../ui/TeacherOverlay.js'; // the on-screen guide: Reynard hops onto the HUD and points
 import { TUT_SCENES } from './cine/tutorialScenes.js'; // [v31 guide]
 import { floatTitle } from '../ui/kinetic/floatText.js'; // [v31 guide]
 import { Guide } from './tutorial/stage.js'; // [v33 tut]
 import { worldOf } from './tutorial/marks.js'; // [v33 tut]
 import { introduce, hudTarget, toolPicked } from './tutorial/hudIntro.js'; // [v33 tut]
-import { SkipTag, finishSkipped, TOUR_FEATURES } from './tutorial/skip.js'; // [v33 tut]
-import { firstFish, feeding, fishScope, fishCare, loveEggs, genesMoney } from './tutorial/fishCourse.js'; // [v33 tut]
+import { finishSkipped, TOUR_FEATURES } from './tutorial/skip.js'; // [v33 tut]
+import { TourBox } from './tutorial/tourBox.js'; // [v33 tut2] the dialogue box
+import { firstFish, feeding, fishScope, fishCare, loveEggs, whatSells } from './tutorial/fishCourse.js'; // [v33 tut]
 import { rollGenes } from './genes.js';
-// [v32] the classroom is back: the day-1 lessons are classes again (src/game/Classroom.js)
-const clsMods = import.meta.glob('./Classroom.js', { eager: true });
-const Classroom = clsMods['./Classroom.js']?.Classroom || null;
-if (clsMods['./Classroom.js']?.LESSONS) Object.assign(clsMods['./Classroom.js'].LESSONS, COMBINED_LESSONS);
 
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const SKIP = { tutSkip: true }; // what every wait rejects with once the tour is skipped
+const strip = (t) => String(t).replace(/<[^>]+>/g, '').replace(/\*/g, '');
 
 // v17: the research tree's stable bits (src/ui/LabTree.js, owned by the labtree
 // helper). If the tree's markup changes, fix it here only.
@@ -57,22 +55,25 @@ const LAB_SEL = {
   labBtn: '.labui [data-a="research"]', // the "research" icon in Reynard's 3D lab (tree closed)
 };
 const TUT_RESEARCH_BOOST = 4; // research runs this many times faster during the tour
-const PARTS = 11;
+const PARTS = 13;
 
 export const ALL_FEATURES = ['coins', 'ebuy', 'build', 'clear', 'feed', 'hand', 'tag', 'pet', 'clock', 'speed', 'rating', 'lab', 'dex', 'reviews', 'match', 'terraform'];
 
 // the chapters in order: [id, features a finished chapter has unlocked (for ?tutfrom= jumps)]
 const CHAPTERS = [
-  ['room', []], ['opening', []], ['first', ['coins', 'ebuy']], ['feed', ['feed']], ['scope', []], ['care', ['pet', 'tag', 'hand']],
-  ['love', []], ['genes', []], ['science', ['lab']], ['hardhats', ['build']], ['green', []], ['timber', ['clear']], ['customers', ['clock', 'speed']],
+  ['room', []], ['opening', ['coins', 'clock']], ['first', ['ebuy']], ['feed', ['feed']], ['scope', []], ['care', ['pet', 'tag', 'hand']],
+  ['love', []], ['sells', []], ['feast', []], ['science', ['lab']], ['hardhats', ['build']], ['green', []], ['timber', ['clear']], ['wrap', ['speed']],
 ];
+
+/** a target for the pointing hand (marks.ui): 'sel:<css>' -> the selector */
+const uiTarget = (t) => (typeof t === 'string' && t.startsWith('sel:') ? t.slice(4) : t);
 
 export class Tutorial {
   constructor(game) {
     this.game = game;
     this.active = false;
-    this.teacher = null;
-    this.classroom = null;
+    this.teacher = null; // [v33 tut2] the old screen-space guide is retired (the dialogue box: this.box)
+    this.box = null;
     this.skipping = false;
     this.pair = [];
     this.holdLove = false;
@@ -115,32 +116,18 @@ export class Tutorial {
     }));
   }
 
-  /** SKIP TOUR (the paper tag): stop whatever is playing, reject every wait */
+  /** end the tour now ("I know the drill" in the room): stop whatever is playing, reject every wait */
   skipNow() {
     if (this.skipping || !this.active) return;
     this.skipping = true;
     this.stage = 'skipped';
     try { if (this.game.director?.active) this.game.director.skip(); } catch { /* ignore */ }
     try { if (this.game.classroom?.active) this.game.classroom.skip(); } catch { /* ignore */ }
-    try { this.teacher?.skip(); } catch { /* ignore */ }
+    try { this.box?.skip(); } catch { /* ignore */ }
     this._abortRej(SKIP);
   }
 
-  foxAnchor() {
-    const f = this.game.fox;
-    return { getWorldPos: (v) => v.set(f.x, f.y + 1.75, f.z) };
-  }
-
-  // a line from the in-world fox (fallback when the teacher overlay is missing)
-  async fox(text, { mood = 'normal', wait: w = true, expr = null, dur } = {}) {
-    const game = this.game;
-    if (expr) game.fox.react?.(expr, 1.5);
-    const h = game.say(this.foxAnchor(), text, { voice: 'fox', mood, wait: w, key: 'tutfox', size: 'm', dur });
-    if (w && h?.done) await this.g(Promise.race([h.done, sleep(12)]));
-    else await this.wait(dur || 1.6);
-  }
-
-  // [v31 guide] a part card between the tour's sections: PART n OF 11 + the name in Alagard
+  // [v31 guide] a part card between the tour's sections: PART n OF 13 + the name in Alagard
   async part(n, title) {
     const game = this.game;
     this.stage = 'part:' + n;
@@ -161,15 +148,35 @@ export class Tutorial {
     game.audio?.play?.('star_pop', { volume: 0.45 });
   }
 
-  // a Yes / No card under the fox's speech (resolves true for the first button)
+  // ------------------------------------------------------------ the dialogue box [v33 tut2]
+  getBox() {
+    if (!this.box) { try { this.box = new TourBox(this.game); } catch (e) { console.warn('[tut] box', e); this.box = null; } }
+    return this.box;
+  }
+  /** a line in the box that doesn't wait (an instruction stays up while you do it) */
+  line(text, { mood = 'happy', target = null, place = null } = {}) {
+    if (this.skipping) return null;
+    const b = this.getBox();
+    if (!b) return null;
+    try { return b.say(text, { mood, target, place }); } catch (e) { console.warn('[tut] line', e); return null; }
+  }
+  async hideTeacher() {
+    this._ptr?.(); this._ptr = null;
+    try { this.box?.hide(); } catch { /* ignore */ }
+  }
+  clearChalk() { this._ptr?.(); this._ptr = null; }
+
+  // a Yes / No pair of planks under Reynard's question (resolves true for the first button)
   ask(question, [yesLabel, noLabel]) {
     const game = this.game;
-    this.game.lab.say(question, 'happy', { mood: 'excited', wait: false, dur: 7 });
+    this.stage = 'ask:' + strip(question).slice(0, 20);
+    try { this.game.lab?.fox?.talk?.(strip(question)); } catch { /* ignore */ }
+    this.line(question, { mood: 'happy', place: 'top' });
     return this.g(new Promise((res) => {
       const el = document.createElement('div');
       el.className = 'tut-choice';
       el.innerHTML = `<button class="yes">${yesLabel}</button><button class="no">${noLabel}</button>`;
-      const done = (v) => { el.classList.add('bye'); game.audio.play(v ? 'pop_in' : 'click', { volume: 0.5 }); setTimeout(() => el.remove(), 250); game.ui?.hideBubble?.('labfox'); res(v); };
+      const done = (v) => { el.classList.add('bye'); game.audio.play(v ? 'pop_in' : 'click', { volume: 0.5 }); setTimeout(() => el.remove(), 250); res(v); };
       el.querySelector('.yes').addEventListener('click', (e) => { e.stopPropagation(); done(true); });
       el.querySelector('.no').addEventListener('click', (e) => { e.stopPropagation(); done(false); });
       document.body.appendChild(el);
@@ -178,78 +185,49 @@ export class Tutorial {
     }));
   }
 
+  /** a line in Reynard's room (the 3D fox talks, the words are in the box) */
   async lab(text, expr, mood = 'normal') {
-    const h = this.game.lab.say(text, expr, { mood, wait: true });
-    if (h?.done) await this.g(Promise.race([h.done, sleep(14)])); else await this.wait(2);
+    const L = this.game.lab;
+    this.stage = 'room:' + strip(text).slice(0, 20);
+    try { L?.fox?.talk?.(strip(text)); if (expr) L?.fox?.setExpression?.(expr, { hold: 2.5 }); } catch { /* ignore */ }
+    const b = this.getBox();
+    if (b) await this.g(b.say(text, { mood: expr || mood, wait: true, place: 'bottom' }));
+    else await this.wait(2);
   }
 
-  // the screen-space teacher (hops onto the HUD with his pointer stick)
-  getTeacher() {
-    if (this.teacher) return this.teacher;
-    try { this.teacher = new TeacherOverlay({ game: this.game, root: document.body, outfit: 'default' }); } catch (e) { console.warn('TeacherOverlay failed', e); this.teacher = null; }
-    return this.teacher;
-  }
-  async hideTeacher() {
-    const t = this.teacher;
-    if (!t?.visible) return;
-    try {
-      t.clearChalk();
-      const p = t.hide();
-      await Promise.race([p, sleep(1.4)]);
-      // still bowing / running off (a slow frame rate): snap him off screen so no scene starts with him in it
-      if (t.visible) { t.skip(); await Promise.race([p, sleep(0.4)]); }
-    } catch { /* ignore */ }
-  }
-  clearChalk() { try { this.teacher?.clearChalk(); } catch { /* ignore */ } }
-
-  // run to `target`, point at it (and circle it), say a line. Never throws (often not awaited):
-  // after a skip it just returns, and the tour's next wait stops it.
-  async teach(text, { target = null, circle = false, arrowTo = null, wait: w = false, dur = 4, mood = 'normal', doodle = null } = {}) {
+  /** Reynard says a line in the box. target: keep the box off it (a HUD slot, a selector, a world thing);
+   *  circle: also a pointing hand on it (until his next line). wait: tap to go on. Never throws. */
+  async teach(text, { target = null, circle = false, wait: w = false, mood = 'normal', place = null } = {}) {
     if (this.skipping) return;
-    const t = this.getTeacher();
-    this.stage = 'teach:' + text.replace(/<[^>]+>/g, '').slice(0, 24);
-    if (t) {
-      try {
-        if (!t.visible) await this.g(Promise.race([t.show({ greet: false }), sleep(3)]));
-        if (target) await this.g(Promise.race([t.goTo(target), sleep(3)]));
-        if (circle && target) t.circle(target, { color: 'yellow' });
-        if (arrowTo) t.arrow(target || { x: innerWidth / 2, y: innerHeight / 2 }, arrowTo);
-        if (doodle) t.doodle(doodle, target || { x: innerWidth / 2, y: innerHeight / 3 });
-        await this.g(t.say(text, { wait: w, dur, mood }));
-        return;
-      } catch (e) { if (this.isSkip(e)) return; console.warn('teacher', e); }
-    }
-    // fallback: the bouncing hand + a bubble from the fox in the world
-    const ptr = target && typeof target === 'string' ? this.game.ui?.pointAt?.(target) : null;
-    try { await this.fox(text.replace(/<[^>]+>/g, ''), { wait: w, dur, mood }); } catch { /* skipped */ }
-    if (ptr) setTimeout(() => ptr(), (dur || 3) * 1000);
+    this.stage = 'teach:' + strip(text).slice(0, 24);
+    this._ptr?.(); this._ptr = null;
+    if (circle && target) { const h = this.guide.marks.ui(uiTarget(target)); this._ptr = () => h.stop(); }
+    const b = this.getBox();
+    if (!b) { await this.wait(w ? 3 : 1); return; }
+    try { await this.g(b.say(text, { mood, wait: w, target: uiTarget(target), place })); } catch (e) { if (!this.isSkip(e)) console.warn('[tut] teach', e); }
   }
 
-  // keep the stick on something while we wait for the player
-  pointAt(target, { circle = true } = {}) {
-    const t = this.getTeacher();
-    if (t) {
-      t.goTo(target).catch?.(() => {});
-      if (circle) t.circle(target, { color: 'yellow' });
-      return () => { try { t.clearChalk(); } catch { /* ignore */ } };
-    }
-    return typeof target === 'string' ? this.game.ui?.pointAt?.(target) || (() => {}) : () => {};
+  // keep a pointing hand on a HUD / UI thing while we wait for the player
+  pointAt(target) {
+    const t = uiTarget(target);
+    if (!t) return () => {};
+    const h = this.guide.marks.ui(t);
+    return () => h.stop();
   }
 
   /** [v33 tut] a HUD piece arrives (src/game/tutorial/hudIntro.js) */
   hud(feature, o = {}) { return introduce(this, feature, o); }
   slot(feature) { return hudTarget(this.game, feature); }
 
-  /** [v33 tut] a world thing: Reynard himself walks over, points at it and says it (the on-screen guide
-   *  is for the HUD only). mark: also a ring + arrow (+ label) on it. Returns stop() for the pointing. */
-  async tell(target, text, { mark = false, label = null, color = 'gold', mood = 'happy', dur = 4.5, walk = true } = {}) {
+  /** [v33 tut] a world thing: Reynard walks over, points at it and says it in the box (the line stays up).
+   *  mark: also a ring + hand (+ label) on it. Returns stop() for the pointing. */
+  async tell(target, text, { mark = false, label = null, color = 'gold', mood = 'happy', walk = true } = {}) {
     if (this.skipping) return () => {};
-    await this.hideTeacher();
     const G = this.guide;
     if (walk && target) { try { await this.g(G.walkNear(target)); } catch (e) { if (this.isSkip(e)) return () => {}; } }
     const stop = target ? G.point(target, { ring: mark, arrow: mark, label: mark ? label : null, color }) : null;
-    G.bark(String(text).replace(/<\/?b>/g, '*'), { mood, dur });
-    this.stage = 'tell:' + String(text).replace(/<[^>]+>/g, '').slice(0, 20);
+    this.line(text, { mood, target });
+    this.stage = 'tell:' + strip(text).slice(0, 20);
     return stop || (() => {});
   }
 
@@ -263,31 +241,13 @@ export class Tutorial {
     if (zoom) this.game.rig.wuppGoal = zoom;
   }
 
-  // [v32] a full-screen classroom lesson; fallback: a few lines from the fox
-  async lesson(id) {
-    const game = this.game;
-    this.stage = 'lesson:' + id;
-    await this.hideTeacher();
-    this.guide.clear();
-    if (Classroom) {
-      try {
-        if (!this.classroom) this.classroom = game.classroom ||= new Classroom(game);
-        game.ui?.foodPicker?.hide?.();
-        await this.g(this.classroom.lesson(id));
-        game.ui?.syncFoodPicker?.();
-        return;
-      } catch (e) { if (this.isSkip(e)) throw e; console.warn('lesson failed', id, e); }
-    }
-    const lines = FALLBACK_LESSONS[id] || [];
-    for (const l of lines) await this.fox(l, { mood: 'happy' });
-  }
-
   // play one or more cutscenes from src/game/cine/tutorialScenes.js back to back (one letterbox)
   scene(...ids) {
     return this.cine(async (c) => { for (const id of ids) await TUT_SCENES[id]?.(c); }, { pause: true, id: 'tut:' + ids.join('+') });
   }
 
-  /** [v33 tut] a Director scene with the tour's stage helpers (c.point, c.hold, c.low, c.ots, c.mark...) */
+  /** [v33 tut] a Director scene with the tour's stage helpers (c.point, c.hold, c.low, c.ots, c.mark...).
+   *  [v33 tut2] Reynard's c.say lines go in the dialogue box (other characters keep their comic bubbles). */
   async cine(fn, { pause = false, id = 'tut' } = {}) {
     const game = this.game, D = game.director;
     if (this.skipping) throw SKIP;
@@ -295,18 +255,18 @@ export class Tutorial {
     this.stage = 'scene:' + id;
     await this.hideTeacher();
     game.ui?.foodPicker?.hide?.();
-    game.ui?.bubbles?.clear?.((b) => b.key === 'tutbark'); // his last aside goes: the scene talks now
     const rig = game.rig;
     const pitch0 = rig.pitchGoal ?? rig.pitch;
     const follow = this.follow;
     this.follow = false;
     let ok = false;
     try {
-      ok = await this.g(D.play(async (c) => { this.guide.extend(c); await fn(c); }, { pause, id }));
+      ok = await this.g(D.play(async (c) => { this.guide.extend(c); this.boxScene(c, D); await fn(c); }, { pause, id }));
     } catch (e) {
       if (this.isSkip(e)) throw e;
       console.warn('[tutorial] scene', id, e);
     } finally {
+      try { this.box?.hide(); } catch { /* ignore */ }
       rig.pitchGoal = pitch0;
       this.guide.clear();
       this.guide.keep();
@@ -314,6 +274,30 @@ export class Tutorial {
       game.ui?.syncFoodPicker?.();
     }
     return ok;
+  }
+
+  /** [v33 tut2] route Reynard's scene lines to the dialogue box (a tap / Enter moves on, like the bubbles) */
+  boxScene(c, D) {
+    const say0 = c.say;
+    const T = this;
+    c.say = async (who, text, o = {}) => {
+      if (who !== c.fox) return say0(who, text, o);
+      if (c.skipped || T.skipping) return;
+      const b = T.getBox();
+      if (!b) return say0(who, text, o);
+      const style = o.style || 'say';
+      const anim = o.anim || (style === 'laugh' ? 'laugh_evil' : style === 'scared' ? 'cower' : style === 'angry' ? 'angry_stomp' : 'talk');
+      try { who.hold?.(anim); } catch { /* ignore */ }
+      if (o.close && typeof who.x === 'number') c.shot([who.x, who.z], { zoom: typeof o.close === 'number' ? o.close : 0.0105, dur: 0.8, ease: 'out', lift: (typeof who.y === 'number' ? who.y : 0) + 0.55 });
+      const adv = () => { if (D.skipped) b.skip(); else b.advance(); };
+      D.adv = adv;
+      try { await b.say(text, { mood: style, wait: true, auto: o.auto ?? null, place: o.place || null, target: o.target || null }); } finally {
+        if (D.adv === adv) D.adv = null;
+        try { who.hold?.(null); } catch { /* ignore */ }
+      }
+      await c.beat(0.08);
+    };
+    return c;
   }
 
   // the parcel lands: point at it until it's unboxed
@@ -333,11 +317,11 @@ export class Tutorial {
     await this.wait(0.5);
     if (done) return;
     const ring = box ? this.guide.mark(box, { label: 'TAP!', color: 'gold' }) : null;
-    const stop = await this.tell(box, 'A parcel! <b>Tap the box</b> to unbox it!', { mood: 'excited' });
-    this.nag(() => 'Tap the box!', { world: true });
+    const stop = await this.tell(box, 'Your parcel is here. <b>Tap the box</b> to unbox it.', { mood: 'excited' });
+    this.nag(() => 'Tap the parcel to unbox it.', { world: true });
     this.stage = 'until:delivered';
     if (!(await this.within(delivered, 60))) {
-      this.guide.bark('Allow me. *Rip.*', { mood: 'happy' });
+      this.line('I\'ll open this one for you.', { mood: 'happy' });
       for (const p of game.delivery.waiting()) if (pred(p.order)) { try { game.delivery.unbox(p); } catch (e) { console.warn('[tut] unbox', e); } }
       await this.within(delivered, 8);
     }
@@ -390,8 +374,8 @@ export class Tutorial {
       this.game.researchBoost = 1; // research runs at normal speed after the tour (or if it fails)
       this.stopNag();
       this.holdLove = false;
-      this.skipTag?.remove();
-      this.skipTag = null;
+      try { this.box?.dispose(); } catch { /* ignore */ }
+      this.box = null;
     }
   }
 
@@ -402,14 +386,13 @@ export class Tutorial {
     game.state.unlocked = [];
     game.ui?.refreshUnlocks?.();
     this.guide = new Guide(this);
-    this.skipTag = new SkipTag(this);
     const from = new URLSearchParams(location.search).get('tutfrom');
     let start = 0;
     if (from && CHAPTERS.some(([id]) => id === from)) { start = CHAPTERS.findIndex(([id]) => id === from); await this.jumpTo(start); }
     const RUN = {
       room: () => this.chRoom(), opening: () => this.chOpening(), first: () => firstFish(this), feed: () => feeding(this), scope: () => fishScope(this),
-      care: () => fishCare(this), love: () => loveEggs(this), genes: () => genesMoney(this), science: () => this.chScience(), hardhats: () => this.chHardHats(),
-      green: () => this.chGreen(), timber: () => this.chTimber(), customers: () => this.chCustomers(),
+      care: () => fishCare(this), love: () => loveEggs(this), sells: () => whatSells(this), feast: () => this.chFeast(), science: () => this.chScience(),
+      hardhats: () => this.chHardHats(), green: () => this.chGreen(), timber: () => this.chTimber(), wrap: () => this.chWrap(),
     };
     for (let i = start; i < CHAPTERS.length; i++) {
       if (this.skipping) throw SKIP;
@@ -422,7 +405,8 @@ export class Tutorial {
 
   finish() {
     const game = this.game;
-    try { const t = this.teacher; if (t) { t.clearChalk(); t.hide(); } } catch { /* ignore */ }
+    try { this.box?.dispose(); } catch { /* ignore */ }
+    this.box = null;
     try { game.fox.rig?.setOutfit?.('default'); } catch { /* ignore */ }
     this.guide?.dispose();
     if (game.fox) game.fox.cine = null;
@@ -459,7 +443,7 @@ export class Tutorial {
     await this.wait(1.5);
   }
 
-  // ------------------------------------------------------------ the room + the opening
+  // ------------------------------------------------------------ the room + the opening (part 1: the goal)
   async chRoom() {
     const game = this.game;
     const L = game.lab;
@@ -468,37 +452,21 @@ export class Tutorial {
     try { L.fox?.setOutfit?.('default'); game.fox.rig?.setOutfit?.('default'); } catch { /* ignore */ }
     await this.wait(2.4);
     await this.g(L.tutorialStand());
-    await this.lab('Oh! A customer! ...No? A VISITOR. Even better. Visitors work for free.', 'shocked', 'excited');
-    await this.lab('Reynard. Fish tycoon. Genius. Extremely humble.', 'smug');
-    const fresh = await this.ask('First day in the fish business?', ['First time!', 'I know the drill']);
+    await this.lab('There you are! I\'m <b>Reynard</b>. I run the fish pond down the hill, and you\'re my new partner.', 'happy', 'excited');
+    const fresh = await this.ask('First day running a fish pond?', ['First time!', 'I know the drill']);
     if (!fresh) {
-      await this.lab('A professional! I can smell the ambition. Smells like money.', 'scheming', 'excited');
-      if (await this.ask('Skip my grand tour, then?', ['Skip it', 'Show me anyway'])) {
-        await this.lab('Fine! The pond is all yours. Make me RICH.', 'laugh', 'excited');
+      if (await this.ask('Skip the tour, then?', ['Skip the tour', 'Show me anyway'])) {
+        await this.lab('Then the pond is all yours. The bears come tomorrow at <b>5 PM</b>.', 'laugh', 'excited');
         this.skipNow();
         throw SKIP;
       }
-      await this.lab('A refresher. Smart. Smart people get rich. Like me.', 'greedy');
+      await this.lab('A refresher it is. Quick and practical.', 'smug');
     } else {
-      await this.lab('Fresh talent! I LOVE fresh talent. It\'s so... affordable.', 'greedy', 'excited');
-      // he asks... and does not take no for an answer
-      const pleas = [
-        ['No?! I made a whole TOUR.', 'shocked'],
-        ['There will be coins. And fish. Fish coins!', 'scheming'],
-        ['Pleeease? I\'ll throw in a free fish. Okay, half a fish.', 'sad'],
-        ['That was not really a question. LET\'S GO!', 'angry'],
-      ];
-      for (let k = 0; ; k++) {
-        const yes = await this.ask(k ? 'So... the tour?' : 'Want me to show you how to run a pond?', k ? ['Fine, yes!', 'Still no'] : ['Yes please!', 'No thanks']);
-        if (yes) { await this.lab('Splendid! Follow the fox.', 'excited', 'excited'); break; }
-        const [line, ex] = pleas[Math.min(k, pleas.length - 1)];
-        await this.lab(line, ex, 'excited');
-        if (k >= pleas.length - 1) break;
-      }
+      await this.lab('Then I\'ll walk you through it, step by step. You\'ll do every bit yourself.', 'happy');
     }
-    L.fox?.play(L.fox?.anims?.includes('laugh_evil') ? 'laugh_evil' : 'idle', { loop: false, onDone: () => L.fox?.play('idle', { loop: true }) });
-    await this.lab('Bears in suits eat here at five. We sell them FISH.', 'scheming', 'happy');
-    await this.lab('Grab your coat. We\'re going OUT!', 'excited', 'excited');
+    await this.lab('The business: bears from the office up the hill eat at our pond at <b>5 PM</b>. We raise the fish, they <b>pay coins</b>.', 'scheming');
+    await this.lab('Coins buy more fish, food and buildings. A bigger pond feeds more bears, and more bears pay more.', 'greedy');
+    await this.lab('Come on, the pond is outside.', 'excited', 'excited');
     await this.g(L.walkOut());
   }
 
@@ -516,72 +484,84 @@ export class Tutorial {
     this.follow = true;
     await this.wait(1.6);
     this.guide.keep();
-    // ---- the opening crane over the valley, then class: Pond Life
-    if (!(await this.scene('opening'))) await this.teach('Behold! The pond! ...It\'s <b>empty</b>.', { wait: true, mood: 'excited' });
-    await this.teach('Quick <b>class</b> first. Knowledge is money!', { dur: 2.2, mood: 'excited' });
-    await this.lesson('pondlife');
+    // ---- the opening crane over the valley: where the bears come from, down to the empty pond
+    await this.scene('opening');
+    await this.part(1, 'The Goal');
+    await this.hud('coins', { line: 'Your <b>coins</b>. Bears pay into this. You spend it on fish, food and buildings.', mood: 'greedy' });
+    await this.hud('clock', { line: 'The <b>clock</b> runs the day. Daytime: get ready. <b>5 PM</b>: the bears\' feast. Night: the <b>report</b> on how you did.', mood: 'happy' });
+    await this.teach('Today is <b>day 1</b>: no bears yet. The clock waits while I show you around.', { target: this.slot('clock'), wait: true, mood: 'happy' });
   }
 
-  // ------------------------------------------------------------ 7. SCIENCE
+  // ------------------------------------------------------------ 8. THE FEAST
+  async chFeast() {
+    const game = this.game;
+    await this.part(8, 'The Feast');
+    const ok = await this.cine(async (c) => {
+      const O = c.office || OFFICE;
+      const f = game.fox;
+      const P = game.shoreTiles?.()[0];
+      // up the mountain: Bear Corp
+      await c.shot([O.x, O.z + 4], { zoom: 0.034, dur: 1.4, lift: (O.h || 6) - 2 });
+      await c.say(c.fox, 'Up the hill is <b>Bear Corp</b>. From tomorrow, at <b>5 PM</b> every day but Sunday, the office empties.', { style: 'say' });
+      // down the trail to the pond
+      await c.shot([(O.x + f.x) / 2, (O.z + f.z) / 2], { zoom: 0.032, dur: 1.8 });
+      await c.say(c.fox, 'The bears run down this trail, jump in the pond and <b>catch fish</b>. They go for grown fish before fry.', { style: 'say' });
+      await c.shot([f.x - 0.4, f.z], { zoom: 0.02, dur: 1.4 });
+      if (P) c.point([P[0] + 0.5, P[1] + 0.5], { ring: false, arrow: false });
+      await c.say(c.fox, 'Each bear pays for what it eats: the fish\'s <b>worth</b>. Some also want a side dish from a <b>Snack Bowl</b>.', { style: 'greedy' });
+      await c.say(c.fox, 'Tagged fish are never eaten. Neither are fish in tanks or under shelters.', { style: 'say' });
+      await c.say(c.fox, 'A full bear leaves a good <b>review</b> and tips: <b>5 stars</b> add 25%, 4 stars 10%.', { style: 'happy' });
+      await c.say(c.fox, 'No fish left and out of patience? It <b>rampages</b>, smashes things and gives zero stars.', { style: 'scared' });
+      await c.say(c.fox, 'Reviews make your <b>rating</b>. A high rating brings more bears. Below 1 star, we\'re <b>closed</b>.', { style: 'say' });
+      await c.say(c.fox, 'After the feast, the night <b>report</b>: coins in and out, the reviews, and a grade for the day.', { style: 'happy' });
+    }, { pause: true, id: 'tut:feast' });
+    if (!ok) await this.teach('At 5 PM the bears eat our fish and pay their worth. Full bears give good reviews; hungry ones rampage.', { wait: true });
+    const stop = this.pointAt(this.slot('clock'));
+    await this.teach('So before <b>5 PM</b>: enough fish for every bear, fed and grown, and your best one tagged.', { target: this.slot('clock'), wait: true, mood: 'scheming' });
+    stop();
+  }
+
+  // ------------------------------------------------------------ 9. RESEARCH
   async chScience() {
     const game = this.game;
-    await this.part(7, 'Science!');
-    await this.cine(async (c) => {
-      c.low(c.fox, { zoom: 0.012, pitch: 0.4, lift: game.fox.y + 1 });
-      await c.say(c.fox, 'Fish: done. Now we need *workers*.', { style: 'say' });
-      const v = await c.ask(c.fox, '*BEAVERS!* Strong. Tireless. And we pay them in...?', [
-        { label: 'Coins', value: 'coins' },
-        { label: 'Snacks', value: 'snacks' },
-        { label: 'Compliments', value: 'nice' },
-      ]);
-      const R = {
-        coins: ['Coins?! Bite your tongue. Coins are for *ME*.', 'angry'],
-        snacks: ['SNACKS. Carrots, mostly. My dream employees.', 'laugh'],
-        nice: ['Ha! I tried that once. They stopped working. *Snacks* it is.', 'laugh'],
-      }[v] || ['Snacks.', 'say'];
-      await c.say(c.fox, R[0], { style: R[1] });
-      await c.say(c.fox, 'But first we *invent* them. Science!', { style: 'excited', close: 0.011 });
-    }, { id: 'tut:science' });
-    await this.hud('lab', { line: 'My <b>LAB</b>. Every building, plant and fish gets invented in there. For <b>free</b>!', mood: 'excited' });
+    await this.part(9, 'Research');
+    await this.hud('lab', { line: 'The <b>LAB</b>. Every building, crop and new fish is researched here first. Research is <b>free</b>, it just takes time.', mood: 'excited' });
     (game.state.tips ||= {}).lodge = true; // the tour teaches the lodge itself
     game.researchBoost = TUT_RESEARCH_BOOST; // short timers while the tour runs (reset in run())
     await this.enterLab();
     const beaversDone = this.until('research', (r) => r?.id === 'r_beavers');
-    await this.teach('My <b>research tree</b>! Every building, plant and fish starts <b>right here</b>.', { wait: true, mood: 'excited' });
-    await this.teach('This one: <b>Hire Beavers</b>!', { target: 'sel:' + LAB_SEL.node('r_beavers'), circle: true, wait: true, mood: 'happy' });
+    await this.teach('The <b>research tree</b>. We need workers first: <b>Hire Beavers</b>.', { target: 'sel:' + LAB_SEL.node('r_beavers'), circle: true, wait: true, mood: 'happy' });
     try { this.labTree()?.select?.('r_beavers'); } catch { /* ignore */ }
     await this.wait(0.4);
-    await this.teach('Research is <b>FREE</b>. My favourite price! It just takes <b>TIME</b>.', { target: 'sel:' + LAB_SEL.go, wait: true, mood: 'happy' });
-    this.teach('Tap <b>RESEARCH</b>!', { target: 'sel:' + LAB_SEL.go, circle: true, dur: 5, mood: 'excited' });
-    this.nag(() => 'Tap RESEARCH on Hire Beavers!');
+    this.teach('Tap <b>RESEARCH</b> to start it.', { target: 'sel:' + LAB_SEL.go, mood: 'excited' });
+    this.nag(() => 'Tap RESEARCH on Hire Beavers.');
     await this.guideResearch('r_beavers', { until: 'start', autoAfter: 60 });
     this.stopNag();
     if (!game.state.research.includes('r_beavers')) {
-      await this.teach('It\'s on the <b>BENCH</b>. One project per bench. More benches come later!', { target: 'sel:' + LAB_SEL.bench, wait: true, mood: 'happy' });
-      if (!game.state.research.includes('r_beavers')) await this.teach('Greyed-out stuff? Some needs a <b>NEIGHBOUR</b>. Meet them and more of the tree opens up!', { wait: true, mood: 'scheming' });
+      await this.teach('It runs on the <b>bench</b>. One project per bench at a time.', { target: 'sel:' + LAB_SEL.bench, wait: true, mood: 'happy' });
+      if (!game.state.research.includes('r_beavers')) await this.teach('Greyed-out ones need something first: an earlier project, or a neighbour you haven\'t met yet.', { wait: true, mood: 'happy' });
     }
     await this.guideResearch('r_beavers', { autoAfter: 90 });
     await this.within(beaversDone, 3);
     game.audio.play('fanfare', { volume: 0.5 });
     this.win('EUREKA!');
-    await this.teach('DING! <b>BEAVERS: INVENTED!</b> Science is beautiful. And profitable.', { wait: true, mood: 'excited' });
-    await this.teach('Back to the pond! The <b>flask</b> brings you back here anytime.', { dur: 3, mood: 'happy' });
+    await this.teach('Done! Whatever you research shows up in <b>e-Buy</b> or the <b>Build</b> menu.', { wait: true, mood: 'excited' });
     await this.leaveLab();
     await this.wait(0.4);
   }
 
-  // ------------------------------------------------------------ 8. HARD HATS
+  // ------------------------------------------------------------ 10. BUILDING
   async chHardHats() {
     const game = this.game;
-    await this.part(8, 'Hard Hats');
+    await this.part(10, 'Building');
     this.force('ebuy', { ebuyFocus: 'item_lodge' });
     const buyHand = this.guide.marks.ui(() => (!document.querySelector('.pointer-hand.ebuy-ptr') && document.querySelector('.ebuy-host .eb-buy')) || null, { label: 'BUY!' });
     let stop = this.pointAt(this.slot('ebuy'));
-    this.teach('Researched = for sale! Order a <b>BEAVER CREW</b> on e-Buy!', { target: this.slot('ebuy'), circle: true, dur: 5, mood: 'excited' });
-    this.nag(() => 'Tap e-Buy! Beaver crew!');
+    this.teach('Beavers are for sale now. Open <b>e-Buy</b> and order a <b>Beaver Crew</b>.', { target: this.slot('ebuy'), mood: 'excited' });
+    this.nag(() => 'Open e-Buy and order the Beaver Crew.');
     const ordered = this.until('ordered', (o) => o.items.some((it) => it.type === 'lodge'));
     if (!(await this.within(ordered, 120))) {
-      this.guide.bark('I\'ll order it. You owe me.', { mood: 'scheming' });
+      this.line('I\'ll order it for you this time.', { mood: 'happy' });
       try { game.ui?.closeEBuy?.(); const l = game.ebuyListings().find((x) => x.id === 'item_lodge' || x.type === 'lodge'); if (l) game.ebuyBuy(l, 1); } catch (e) { console.warn('[tut] lodge order', e); }
       if (!(await this.within(ordered, 6))) { const inv = (game.state.inventory ||= {}); inv.lodge = (inv.lodge || 0) + 1; game.emit('inventory', inv); }
     }
@@ -592,19 +572,19 @@ export class Tutorial {
     if (!(game.state.inventory?.lodge > 0)) await this.unboxStep((o) => o.items.some((it) => it.type === 'lodge'));
     await this.wait(0.6);
     await this.placeStep('lodge', {
-      hud: { line: '<b>BUILD</b>. Everything you own and haven\'t placed yet lives in here.', mood: 'happy' },
-      line: 'Place the lodge <b>in the water</b>, right by the shore!', nag: 'Build ▸ tap the shore water!', label: 'LODGE HERE?',
+      hud: { line: '<b>BUILD</b>. Everything you own but haven\'t placed yet is in here.', mood: 'happy' },
+      line: 'Pick the lodge and place it <b>in the water</b>, right by the shore.', nag: 'Build: place the lodge in the water by the shore.', label: 'LODGE HERE?',
     });
     this.win('BUILT!');
     game.state.beaverCredit = 0; // the signing bonus goes on the snack bar lesson instead
     await this.wait(0.8);
     // ---- the beavers' snack bar: research it, then they build it for free
-    await this.teach('Beavers only work when <b>PAID</b>. In food! They need a <b>Snack Bar</b>.', { wait: true, mood: 'scheming' });
-    await this.researchLesson('r_snackbar', 'Research the <b>Beaver Snack Bar</b> in the Lab!', 'Lab ▸ Beaver Snack Bar ▸ RESEARCH!');
+    await this.teach('Beavers build the big things for you, but only if they\'re <b>paid in food</b> at a <b>Snack Bar</b>.', { wait: true, mood: 'happy' });
+    await this.researchLesson('r_snackbar', 'Research the <b>Beaver Snack Bar</b> in the Lab.', 'Lab: Beaver Snack Bar, then RESEARCH.');
     const inv = (game.state.inventory ||= {});
     inv.beaverbar = (inv.beaverbar || 0) + 1; // a starter kit, on the house (only once it's researched)
     game.emit('inventory', inv);
-    await this.placeStep('beaverbar', { line: 'First one\'s on me. Place the <b>Snack Bar</b> on land near the lodge!', nag: 'Build ▸ place the Beaver Snack Bar on land!', label: 'SNACK BAR' });
+    await this.placeStep('beaverbar', { line: 'Here\'s one on the house. Place the <b>Snack Bar</b> on land near the lodge.', nag: 'Build: place the Beaver Snack Bar on land.', label: 'SNACK BAR' });
     const bar = () => game.structures.list.find((s) => s.type === 'beaverbar' && !s.removed);
     await this.builtStep(bar);
     await this.cine(async (c) => {
@@ -612,25 +592,25 @@ export class Tutorial {
       await c.walkNear(b);
       c.ots(b, { zoom: 0.013 });
       c.point(b, { label: 'SNACK BAR', color: 'green' });
-      await c.say(c.fox, 'Built for *free*! Beavers are not dumb. Just cheap.', { style: 'laugh' });
+      await c.say(c.fox, 'Big buildings go up as a <b>building site</b>, and the beavers finish them.', { style: 'happy' });
     }, { id: 'tut:bar' });
     stop = null;
   }
 
-  // ------------------------------------------------------------ 9. GREEN THUMB
+  // ------------------------------------------------------------ 11. FARMING
   async chGreen() {
     const game = this.game;
-    await this.part(9, 'Green Thumb');
-    await this.teach('Beavers eat <b>carrots</b>. We need <b>seeds</b>!', { dur: 2.5, mood: 'happy' });
-    await this.researchLesson('r_carrot', 'Research <b>Carrot Seeds</b> in the Lab!', 'Lab ▸ Carrot Seeds ▸ RESEARCH!');
+    await this.part(11, 'Farming');
+    await this.teach('The beavers\' pay is <b>carrots</b>, and carrots grow from <b>seeds</b>.', { wait: true, mood: 'happy' });
+    await this.researchLesson('r_carrot', 'Research <b>Carrot Seeds</b> in the Lab.', 'Lab: Carrot Seeds, then RESEARCH.');
     const inv = (game.state.inventory ||= {});
     inv.carrot = (inv.carrot || 0) + 2;
     game.emit('inventory', inv);
-    await this.placeStep('carrot', { line: 'Here, carrot seeds! <b>Plant them</b> on land.', nag: 'Build ▸ plant the carrot seeds on land!', label: 'PLANT HERE' });
+    await this.placeStep('carrot', { line: 'Two packs of seeds for you. <b>Plant them</b> on land from the Build menu.', nag: 'Build: plant the carrot seeds on land.', label: 'PLANT HERE' });
     game.quickCrops = true;
     const patch = game.structures.list.find((s) => s.type === 'carrot' && !s.removed);
     if (patch) this.frame(patch, 0.02);
-    const sp = await this.tell(patch, 'Seed... sprout... growing... Patience. Ugh.', { mood: 'happy', dur: 3.5 });
+    const sp = await this.tell(patch, 'Crops grow from seed to ripe over time. Today I\'ll hurry them along.', { mood: 'happy' });
     await this.wait(2);
     sp();
     if (!(await this.within(this.waitFor(() => game.harvest.ripeList().length > 0), 60))) {
@@ -638,19 +618,17 @@ export class Tutorial {
     }
     game.quickCrops = false;
     const ripe = game.harvest.ripeList()[0];
-    const ring = await this.tell(ripe, 'Ripe! <b>Tap the carrots</b> to harvest the batch!', { mark: true, label: 'RIPE!', color: 'green', mood: 'excited' });
-    const stop = null;
-    this.nag(() => 'Tap the ripe carrots to harvest them!', { world: true });
+    const ring = await this.tell(ripe, 'Ripe! <b>Tap the carrots</b> to harvest them.', { mark: true, label: 'RIPE!', color: 'green', mood: 'excited' });
+    this.nag(() => 'Tap the ripe carrots to harvest them.', { world: true });
     const harvested = this.until('harvested');
     if (!(await this.within(harvested, 60))) {
-      this.guide.bark('Yoink! Harvest is a team sport.', { mood: 'happy' });
+      this.line('I\'ll pick these for you.', { mood: 'happy' });
       const s = game.harvest.ripeList()[0];
       if (s) { try { game.harvest.harvest(s); } catch (e) { console.warn('[tut] harvest', e); } }
       await this.within(harvested, 5);
     }
     this.win('HARVEST!');
     this.stopNag();
-    stop?.();
     ring?.();
     await this.wait(1.2);
     // ---- pay the beavers with the carrots
@@ -660,114 +638,75 @@ export class Tutorial {
     game.ui?.syncFoodPicker?.();
     this.force('feed');
     if (bar()) this.frame(bar(), 0.022);
-    const pt = await this.tell(bar(), 'Carrots are in your Food bag. Now <b>tap the Snack Bar</b> to pay the crew!', { mark: true, label: 'PAY HERE', color: 'gold', dur: 6 });
-    const stop2 = null;
-    this.nag(() => 'Food tool: pick the carrots, then tap the Beaver Snack Bar!', { world: true });
+    const pt = await this.tell(bar(), 'Harvests go in your <b>Food</b> bag. With carrots picked, <b>tap the Snack Bar</b> to stock it.', { mark: true, label: 'PAY HERE', color: 'gold' });
+    this.nag(() => 'Food: pick the carrots, then tap the Beaver Snack Bar.', { world: true });
     const stocked = this.until('stocked', (d) => d.s.type === 'beaverbar');
     if (!(await this.within(stocked, 60))) {
-      this.guide.bark('Here\'s your wages, lads.', { mood: 'happy' });
+      this.line('I\'ll stock it this time.', { mood: 'happy' });
       if (bar()) { try { game.foodStore.fillStorage(bar(), 'carrot'); } catch (e) { console.warn('[tut] pay', e); } }
       await this.within(stocked, 5);
     }
     this.stopNag();
     this.force(null);
-    stop2?.();
     pt?.();
     this.frame(null);
     this.win('PAID!');
-    await this.teach('Paid! No pay, no work. <b>Snacks = jobs.</b>', { dur: 3, mood: 'excited' });
+    await this.teach('Stocked. Beavers eat from the Snack Bar while they work. <b>No food, no work.</b>', { wait: true, mood: 'happy' });
   }
 
-  // ------------------------------------------------------------ 10. TIMBER
+  // ------------------------------------------------------------ 12. CLEARING LAND
   async chTimber() {
     const game = this.game;
-    await this.part(10, 'Timber!');
-    await this.teach('Trees give <b>LOGS</b>! Logs need a home: the <b>Wood Garage</b>.', { wait: true, mood: 'excited' });
-    await this.researchLesson('r_woodgarage', 'Research the <b>Wood Garage</b> in the Lab!', 'Lab ▸ Wood Garage ▸ RESEARCH!');
+    await this.part(12, 'Clearing Land');
+    await this.teach('Your land ends at the trees. Clearing them makes room, and gives <b>logs</b>. Logs are kept in a <b>Wood Garage</b>.', { wait: true, mood: 'happy' });
+    await this.researchLesson('r_woodgarage', 'Research the <b>Wood Garage</b> in the Lab.', 'Lab: Wood Garage, then RESEARCH.');
     (game.state.inventory ||= {}).woodgarage = (game.state.inventory.woodgarage || 0) + 1;
     game.emit('inventory', game.state.inventory);
-    if (!game.structures.list.some((q) => q.type === 'woodgarage' && !q.removed)) await this.placeStep('woodgarage', { line: 'On the house again! Place the <b>Wood Garage</b> on your land!', nag: 'Build ▸ place the Wood Garage on land!', label: 'GARAGE' });
+    if (!game.structures.list.some((q) => q.type === 'woodgarage' && !q.removed)) await this.placeStep('woodgarage', { line: 'Another one on the house. Place the <b>Wood Garage</b> on land.', nag: 'Build: place the Wood Garage on land.', label: 'GARAGE' });
     // ---- clear trees with the beavers: the DESTROY button, then drag a box
     game.setTool({ kind: 'feed' });
     await this.hud('clear', {
-      line: 'More land = more money. <b>DESTROY</b>: box up trees and rocks, the beavers clear them.', mood: 'excited',
-      tryIt: () => { this.force('clear'); return toolPicked(this, 'clear'); }, tryLine: 'Tap the <b>DESTROY</b> button!', nagLine: 'Tap the Destroy button!',
+      line: '<b>DESTROY</b>: drag a box over trees and rocks, and the beavers clear them.', mood: 'happy',
+      tryIt: () => { this.force('clear'); return toolPicked(this, 'clear'); }, tryLine: 'Pick the <b>DESTROY</b> tool.', nagLine: 'Pick the Destroy tool.',
       timeout: 30, fallback: () => game.setTool({ kind: 'clear' }),
     });
     const edge = this.forestEdge();
     if (edge) this.frame([edge.x, edge.z], 0.024);
-    const pt = edge ? await this.tell([edge.x, edge.z], 'Now <b>drag a box</b> over these trees!', { mark: true, label: 'CHOP!', color: 'red', dur: 6 }) : null;
-    const stop = null;
-    this.nag(() => 'Destroy tool: drag a box over the trees at the edge!', { world: true });
+    const pt = edge ? await this.tell([edge.x, edge.z], 'Now <b>drag a box</b> over these trees.', { mark: true, label: 'CLEAR', color: 'red' }) : null;
+    this.nag(() => 'Destroy tool: drag a box over the trees at the edge.', { world: true });
     const area = this.until('clearArea');
     if (!(await this.within(area, 75)) && edge) {
-      this.guide.bark('Like this. Snip snip.', { mood: 'happy' });
+      this.line('Like this.', { mood: 'happy' });
       let n = 0;
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { try { if (game.beavers.queueClear(Math.floor(edge.x) + dx, Math.floor(edge.z) + dz).ok) n++; } catch { /* ignore */ } }
       game.emit('clearArea', { n });
     }
     this.stopNag();
-    stop?.();
     pt?.();
     this.force(null);
     this.frame(null);
-    this.teach('Red = marked! Tape goes up and the beavers chop them <b>bit by bit</b>.', { dur: 4.5, mood: 'happy' });
+    this.teach('Marked in red. The beavers chop them one by one.', { mood: 'happy' });
     await this.within(this.until('cleared'), 90);
     this.win('TIMBER!');
-    this.teach('Ka-ching! More land!', { dur: 1.8, mood: 'excited' });
-    await this.wait(2);
     game.setTool({ kind: 'feed' });
-    this.teach('Chopped trees fall into <b>LOGS</b>. Beavers haul them to the <b>Wood Garage</b>!', { dur: 4.5, mood: 'happy' });
-    await this.wait(1.5);
-    await this.teach('Wood = furniture from Chip... or cash from <b>Pip</b>, who visits tomorrow!', { wait: true, mood: 'scheming' });
+    await this.teach('Cleared land is yours to build on. The logs go to the <b>Wood Garage</b>.', { wait: true, mood: 'happy' });
+    await this.teach('Tomorrow morning <b>Pip</b> the chipmunk comes by. He buys logs for coins.', { wait: true, mood: 'scheming' });
   }
 
-  // ------------------------------------------------------------ 11. CUSTOMERS
-  async chCustomers() {
+  // ------------------------------------------------------------ 13. YOUR DAY
+  async chWrap() {
     const game = this.game;
-    await this.teach('Last class: our <b>customers</b>... gulp.', { dur: 2.2, mood: 'scared' });
-    await this.part(11, 'Customers');
-    await this.lesson('customers');
-    await this.scene('customers'); // meanwhile, up the mountain: the bears hear about the pond
-    // ---- the clock (bears come tomorrow), with a peek up the mountain
-    await this.hud('clock', { line: 'The <b>CLOCK</b>. At <b>5 PM</b> the bears come. Every. Single. Day.', mood: 'scared' });
-    // [v31 guide] the day-1 close: TOMORROW, 5:00 PM (a cinematic up at the tower)
-    if (!(await this.scene('tomorrow'))) {
-      await this.cineShots([
-        { at: { x: OFFICE.x, z: OFFICE.z + 7 }, wupp: 0.03, yaw: 0, dur: 2.8, sfx: 'growl', caption: 'Bear Corp, tomorrow...', sub: '4:59 PM. Four hundred empty stomachs.' },
-        { at: { x: game.fox.x, z: game.fox.z + 0.6 }, wupp: 0.02, dur: 2.2, caption: 'Meanwhile...', sub: 'Reynard has ONE day to get ready.' },
-      ]);
-    }
-    game.particles.confetti(game.fox.x, game.fox.y + 1.5, game.fox.z, 40);
-    // ---- recap: the money loop, and where NEW stuff comes from [v26 tutorial]
-    let stop = this.pointAt(this.slot('coins'));
-    await this.teach('The <b>money loop</b>: breed fish, bears pay at <b>5 PM</b>, <b>bigger + rarer</b> fish pay MORE.', { target: this.slot('coins'), circle: true, wait: true, mood: 'excited' });
-    stop?.();
-    await this.teach('Full bears <b>tip</b> and rate you. A good <b>rating</b> brings <b>more bears</b> tomorrow!', { wait: true, mood: 'happy' });
-    stop = this.pointAt(this.slot('lab'));
-    await this.teach('New stuff? The <b>LAB</b>: research is <b>FREE</b>, it just takes time. Neighbours open more!', { target: this.slot('lab'), circle: true, wait: true, mood: 'happy' });
-    stop?.();
+    await this.part(13, 'Your Day');
     await this.hud('speed', {
-      line: 'Time is money. <b>Tap the clock</b> to fast-forward. Tap again to slow down.', mood: 'smug',
-      tryIt: () => this.until('speed'), tryLine: 'Go on, <b>tap the clock</b>!', timeout: 25,
-      fallback: () => this.guide.bark('Later, then. Time waits for no fox.', { mood: 'happy' }),
+      line: 'Days are short. <b>Tap the clock</b> to fast-forward, and tap again to go back to normal speed.', mood: 'happy',
+      tryIt: () => this.until('speed'), tryLine: 'Try it: <b>tap the clock</b>.', timeout: 25,
+      fallback: () => this.line('You can try it later.', { mood: 'happy' }),
     });
-    await this.teach('I\'ll teach you the rest <b>as it happens</b>. Every lesson goes in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
-    await this.hideTeacher();
+    await this.teach('That\'s every day: buy, feed and breed in the daytime, the feast at <b>5 PM</b>, the report at night.', { wait: true, mood: 'happy' });
+    await this.teach('Spend the coins on research, buildings and better fish. New things get explained as they come up.', { wait: true, mood: 'happy' });
     await this.cine(async (c) => {
       c.low(c.fox, { zoom: 0.011, pitch: 0.38, lift: game.fox.y + 1 });
-      const v = await c.ask(c.fox, 'So. Ready for four hundred hungry bears?', [
-        { label: 'Born ready', value: 'ready' },
-        { label: 'Terrified', value: 'scared' },
-        { label: 'Show me the money', value: 'money' },
-      ]);
-      const R = {
-        ready: ['That\'s the spirit! Partner material. Seventy-thirty.', 'laugh'],
-        scared: ['Good. Fear keeps you *sharp*. Fear and full fish tanks.', 'scared'],
-        money: ['A fox after my own heart! Ha HA!', 'laugh'],
-      }[v] || ['Good.', 'say'];
-      await c.say(c.fox, R[0], { style: R[1] });
-      await c.say(c.fox, '*Tour dismissed!* Now go make me RICH!', { style: 'excited', close: 0.0105 });
+      await c.say(c.fox, 'Tomorrow at <b>5 PM</b>, the first bears. Let\'s have a pond full of fish ready.', { style: 'excited', close: 0.0105 });
     }, { id: 'tut:bye' });
   }
 
@@ -782,7 +721,7 @@ export class Tutorial {
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type, free: true } });
     const doIt = async () => {
       if (!(await this.within(built, 110))) {
-        this.guide.bark('Fine, I\'ll put it here. Fox knows best.', { mood: 'scheming' });
+        this.line('I\'ll place it for you this time.', { mood: 'happy' });
         game.ui?.blueprint?.exit?.();
         const s = this.goodSpot(type);
         if (s) game.placeStructure(type, s.x, s.z, { free: true });
@@ -794,7 +733,7 @@ export class Tutorial {
         await this.hud('build', { ...hud, tryIt: doIt, tryLine: line, nagLine: nag, timeout: 120 });
       } else {
         const stop = this.pointAt(this.slot('build'));
-        this.teach(line, { target: this.slot('build'), circle: true, dur: 5 });
+        this.teach(line, { target: this.slot('build'), mood: 'excited' });
         this.nag(() => nag);
         this.stage = 'until:built';
         await doIt();
@@ -906,6 +845,7 @@ export class Tutorial {
           where = w;
           const tgt = { go: 'sel:' + LAB_SEL.go, node: 'sel:' + LAB_SEL.node(id), job: 'sel:' + LAB_SEL.job(id), labBtn: 'sel:' + LAB_SEL.labBtn, tool: this.slot('lab') }[w];
           stop = tgt ? this.pointAt(tgt) : null;
+          if (tgt && this.box) this.box.target = uiTarget(tgt); // [v33 tut2] the box keeps off it
         }
         setTimeout(tick, 250);
       };
@@ -919,7 +859,7 @@ export class Tutorial {
     if (game.state.research.includes(id)) return;
     game.unlockFeature('lab');
     this.force('lab');
-    this.teach(line, { target: this.slot('lab'), dur: 5, mood: 'excited' }); // (guideResearch draws the circles)
+    this.teach(line, { target: this.slot('lab'), mood: 'excited' }); // (guideResearch draws the hands)
     this.nag(() => nagLine);
     await this.guideResearch(id, { autoAfter: 75 });
     this.stopNag();
@@ -927,16 +867,6 @@ export class Tutorial {
     game.audio.play('fanfare', { volume: 0.4 });
     await this.wait(1.4); // let the tree's "research complete" moment play
     await this.leaveLab();
-  }
-
-  // ------------------------------------------------------------ bits
-  // a cinematic on the real world (skipped quietly if cutscenes are missing)
-  async cineShots(shots) {
-    const game = this.game;
-    await this.hideTeacher();
-    game.ui?.foodPicker?.hide?.();
-    try { await this.g(game.cutscene?.play({ shots })); } catch (e) { if (this.isSkip(e)) throw e; console.warn('cutscene', e); }
-    game.ui?.syncFoodPicker?.();
   }
 
   // a clearable tree right at the edge of your land (for the Destroy lesson)
@@ -993,17 +923,14 @@ export class Tutorial {
     }
   }
 
-  // gentle reminders if the player dawdles
+  // gentle reminders if the player dawdles: the instruction comes back up in the box
   nag(text, { world = false } = {}) {
+    void world;
     this.stopNag();
     this.nagT = setInterval(() => {
       const g = this.game;
-      if (g.ui?.ebuy || g.ui?.blueprint?.open || g.director?.active || this.skipping) return;
-      // [v33 tut] the reminder comes from the Reynard already on screen (no second fox in the corner):
-      // in the world it's his own bubble, on the HUD it's the guide's
-      const t = this.teacher;
-      if (world || !t) { this.guide?.bark(text(), { mood: 'normal', dur: 4 }); return; }
-      if (!t.waiting) this.teach(text(), { dur: 4, mood: 'normal' });
+      if (g.ui?.ebuy || g.ui?.blueprint?.open || g.director?.active || this.skipping || this.box?.waiting) return;
+      this.line(text(), { mood: 'normal', target: this.box?.target || null });
     }, 15000);
   }
 
@@ -1030,9 +957,7 @@ export class Tutorial {
     if (!this.active) return;
     // [v33 tut] Reynard stays where the tour put him; the first pair waits for Part 5 to fall in love
     if (this.guide && game.fox && !game.fox.cine && !game.lab?.active) this.guide.keep();
-    // e-Buy fills the screen: the guide steps out of its way (the shop's own hand points at Buy It Now)
-    if (game.ui?.ebuy && this.teacher?.visible && !this._ebHide) { this._ebHide = true; try { this.teacher.skip(); } catch { /* ignore */ } this.hideTeacher(); }
-    else if (!game.ui?.ebuy) this._ebHide = false;
+    // (e-Buy fills the screen: the dialogue box steps out of its way by itself, src/game/tutorial/tourBox.js)
     if (this.holdLove) for (const f of this.pair) if (f && !f.dead) { f.loveT = Math.max(f.loveT, 6); if (f.state === 'court') { f.state = 'wander'; f.mate = null; } }
     // keep the action in view, but the player can always look around (we wait until they stop)
     if (performance.now() - (game.rig.userCamT || 0) < 7000) return;
@@ -1057,27 +982,6 @@ export class Tutorial {
     if (game.state.day >= 3) game.unlockFeature('tag');
   }
 }
-
-// older classroom builds: compose new lessons from the ones that exist
-const LESSON_FALLBACK = { fishlife: ['breeding'], build: [], bears: [], stars: [], pondlife: ['condition', 'breeding'], builder: ['plants'], customers: [] };
-void LESSON_FALLBACK;
-
-// if the classroom can't load, the fox explains in a few bubbles instead
-const FALLBACK_LESSONS = {
-  pondlife: ['Feed fish with the Food tool. Well fed boy ♂ + girl ♀ = a date, eggs... then YOU tap to hatch!'],
-  builder: ['Beavers build big stuff, but only when PAID in food. Plant seeds, harvest, pay them!'],
-  customers: ['Bears come at 5 to eat fish. Tag your best DO NOT EAT. Hungry bears RAMPAGE!'],
-  fishlife: ['Fed boy ♂ + girl ♀ = a date, eggs, dad fertilizes, YOU tap to hatch.', 'Babies inherit size, colour and traits... and sometimes MUTATE!'],
-  build: ['Build menu: small things pop in, big ones the beavers build (for food!).', 'Destroy tool: box the trees, beavers clear them. Pretty stuff = more bears.'],
-  bears: ['Bears come at 5 and eat fish. Stock Snack Bowls for side dishes.', 'Tag your best fish DO NOT EAT. Hungry bears RAMPAGE!'],
-  stars: ['Every bear leaves a review. Keep your rating above 1.0 or we\'re CLOSED!'],
-  condition: ['Every fish has a belly and a mood.', 'Feed them and they fill their ♥ meter. Full meter = ready to breed!'],
-  breeding: ['A boy ♂ + a girl ♀, both well fed...', 'Date, lay eggs, dad fertilizes, eggs incubate... then YOU tap to hatch!'],
-  genes: ['Babies get genes from mum and dad: size, colour, traits, stars.'],
-  mutations: ['Sometimes genes MUTATE! Rare = rich. Fancy food adds luck.'],
-  plants: ['Plants grow from seed. Tap a ripe plant to harvest the batch!', 'Rare batches give more... and maybe a golden carrot!'],
-  foods: ['Food bags on e-Buy, Bug Bites from the Bug Grinder, veggies from the garden.'],
-};
 
 void THREE;
 export { STRUCTURES };
