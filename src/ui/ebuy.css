@@ -108,6 +108,10 @@
   pointer-events: none;
 }
 .eb-note::before { content: ''; position: absolute; left: 20px; top: -7px; width: 38px; height: 12px; background: rgba(255, 255, 255, 0.55); transform: rotate(-6deg); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); }
+/* [v32 fix] the painted pixel bezel sits behind the screen; it was in the flow and pushed the screen off the bottom */
+.eb-bezc { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; image-rendering: pixelated; }
+.eb-bezel > :not(.eb-bezc) { position: relative; z-index: 1; }
+.eb-bezel > .eb-note { position: absolute; z-index: 3; }
 .eb-screen {
   position: relative;
   flex: 1;
