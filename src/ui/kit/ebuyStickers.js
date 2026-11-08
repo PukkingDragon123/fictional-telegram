@@ -554,8 +554,8 @@ function artBeaver() {
   shade(L);
   L.set(7, 11, H('#d8d0c0')); // the gap between the teeth
   const t = text('UNION', 'tiny', '#fffdf4');
-  const t2 = text('LOCAL 42', 'tiny', '#ffe478');
-  const w = Math.max(L.w + 6, t2.w + 6), h = L.h + t.h + t2.h + 9;
+  const t2 = text('LOCAL', 'tiny', '#ffe478');
+  const w = Math.max(L.w + 4, t.w + 6), h = L.h + t.h + t2.h + 9;
   const B = new Layer(w, h);
   // a shield: flat top, pointed bottom
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -789,18 +789,20 @@ export function stkHTML(id, o = {}) {
 
 // ------------------------------------------------------------ the laptop's sticker bomb
 // placed in CSS px from the bezel's edges (l/r/t/b), z for stacking (stickers on top of stickers)
+// (the bezel is 20 px on top, 22 px at the sides and a 30 px chin on desktop; outward the world shows)
+// wide: hangs out more than 40 px, hidden on narrower laptops
 export const BEZEL = [
-  { id: 'y2k', l: -34, t: -24, z: 2 },
-  { id: 'fish', l: -38, t: 64, z: 2 },
-  { id: 'maple', l: -28, t: 104, z: 3 },
-  { id: 'bear', l: -52, t: 228, z: 2 },
-  { id: 'googly', l: -38, t: 238, z: 4 },
-  { id: 'picked', l: -30, t: 336, z: 2 },
-  { id: 'logo', r: -28, t: -22, z: 3 },
-  { id: 'star', r: -36, t: 58, z: 2 },
-  { id: 'beaver', r: -60, t: 156, z: 2 },
-  { id: 'scam', r: -46, t: 228, z: 3 },
-  { id: 'smiley', r: -30, t: 330, z: 2 },
-  { id: 'moose', l: 64, b: -22, z: 2 },
-  { id: 'seal', r: 40, b: -40, z: 3 },
+  { id: 'y2k', l: -44, t: -10, z: 2, wide: true },
+  { id: 'fish', l: -40, t: 70, z: 2 },
+  { id: 'maple', l: -30, t: 106, z: 3 },
+  { id: 'bear', l: -56, t: 214, z: 2, wide: true },
+  { id: 'googly', l: -41, t: 204, z: 4, wide: true },
+  { id: 'picked', l: -32, t: 330, z: 2 },
+  { id: 'logo', r: -40, t: -10, z: 3 },
+  { id: 'star', r: -34, t: 58, z: 2 },
+  { id: 'beaver', r: -34, t: 146, z: 2 },
+  { id: 'scam', r: -46, t: 228, z: 3, wide: true },
+  { id: 'seal', r: -58, t: 380, z: 2, wide: true },
+  { id: 'moose', l: 70, b: -28, z: 2 },
+  { id: 'smiley', r: 124, b: -6, z: 2 },
 ];

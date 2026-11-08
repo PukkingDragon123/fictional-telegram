@@ -1100,13 +1100,15 @@ class EBuy {
     if (g.flip) el.classList.toggle('flip');
     if (g.spin) this._bump(el, 'spin');
     if (STK[id].wink) { el.classList.add('wink'); clearTimeout(el._wT); el._wT = this._later(() => el.classList.remove('wink'), 700); }
+    const host = el.closest('.eb-app') ? this.$fx : el.parentElement;
+    const r = el.getBoundingClientRect(), hr = host.getBoundingClientRect();
+    const cx = Math.round(r.left - hr.left + r.width / 2), cy = Math.round(r.top - hr.top);
     if (g.sparks && !reduced()) {
-      const host = el.parentElement;
       for (let i = 0; i < 6; i++) {
         const s = document.createElement('i');
         s.className = 'eb-stkspark';
         const a = (i / 6) * Math.PI * 2;
-        s.style.cssText = `left:${el.offsetLeft + (el.offsetWidth >> 1)}px;top:${el.offsetTop + (el.offsetHeight >> 1)}px;--dx:${Math.round(Math.cos(a) * 26)}px;--dy:${Math.round(Math.sin(a) * 26)}px`;
+        s.style.cssText = `left:${cx}px;top:${cy + Math.round(r.height / 2)}px;--dx:${Math.round(Math.cos(a) * 26)}px;--dy:${Math.round(Math.sin(a) * 26)}px`;
         s.innerHTML = px(i % 2 ? 'sparkY' : 'spark', 2);
         host.appendChild(s);
         this._later(() => s.remove(), 600);
@@ -1115,14 +1117,14 @@ class EBuy {
     const pop = document.createElement('span');
     pop.className = 'eb-stkpop';
     pop.textContent = g.say;
-    pop.style.cssText = `left:${el.offsetLeft + (el.offsetWidth >> 1)}px;top:${el.offsetTop}px`;
-    el.parentElement.appendChild(pop);
+    pop.style.cssText = `left:${cx}px;top:${Math.max(28, cy)}px`;
+    host.appendChild(pop);
     this._later(() => pop.remove(), 1500);
     // every sticker on the laptop touched once: a coupon
     if (el.closest('.eb-stks, .eb-note')) {
       (this._stkSeen ||= new Set()).add(id);
-      const all = BEZEL.filter((b) => !STK[b.id].tape).length + 1;
-      if (this._stkSeen.size >= all && this._win('STICKY')) { this._sfx('coins'); this._toast('You touched every sticker. Coupon STICKY: 5% off'); }
+      const shown = [...this.el.querySelectorAll('.eb-stks [data-stk], .eb-note [data-stk]')].filter((x) => x.offsetWidth && !x.classList.contains('stk-tape'));
+      if (shown.every((x) => this._stkSeen.has(x.dataset.stk)) && this._win('STICKY')) { this._sfx('coins'); this._toast('You touched every sticker. Coupon STICKY: 5% off'); }
     }
   }
   _fillBezel() {
@@ -1130,7 +1132,9 @@ class EBuy {
     this._bezelOn = true;
     const host = this.el.querySelector('.eb-stks');
     const pos = (b) => ['l', 't', 'r', 'b'].filter((k) => b[k] != null).map((k) => `${{ l: 'left', t: 'top', r: 'right', b: 'bottom' }[k]}:${b[k]}px`).join(';');
-    if (host) host.innerHTML = BEZEL.map((b, i) => stkHTML(b.id, { style: `${pos(b)};z-index:${b.z || 1};--ad:${(i * 0.7) % 4}s` })).join('');
+    if (host) host.innerHTML = '<i class="eb-screw s1"></i><i class="eb-screw s2"></i><i class="eb-screw s3"></i><i class="eb-screw s4"></i>'
+      + BEZEL.map((b, i) => stkHTML(b.id, { cls: b.wide ? 'stk-wide' : '', style: `${pos(b)};z-index:${b.z || 1};--ad:${(i * 0.7) % 4}s` })).join('');
+    this.el.querySelector('.eb-chin')?.insertAdjacentHTML('beforeend', '<i class="eb-grl"></i>');
     const note = this.el.querySelector('.eb-note');
     if (note) note.innerHTML = stkHTML('note', { cls: 'stk-note' });
     // the shop's own bits: a smiley on the cart, tape holding up the sidebar promo and the TAP THE FISH ad
@@ -1227,7 +1231,7 @@ class EBuy {
             <span class="eb-watch">${px('eye', 2)}${watching} watching</span>
             ${isDeal ? `<span class="eb-dealtag">${px('flame', 2)}<b>DEAL OF THE DAY</b><span>10% back · ends in <b class="eb-cd">${this._countdown()}</b></span></span>` : ''}
             <i class="eb-ped"></i>
-            ${this._stkKinds(l).map((k, i) => stkHTML(k === 'picked' ? 'pickedBig' : k, { cls: `stk-d stk-d${i}` })).join('')}
+            ${this._stkKinds(l).filter((k) => k !== 'picked').map((k, i) => stkHTML(k, { cls: `stk-d stk-d${i}` })).join('')}
           </div>
           <div class="eb-revs"><b class="eb-revh">Buyer reviews</b>${reviews.map(([t, n, s]) => `<div class="eb-rev">${this._stars(s)}<q>${esc(t)}</q><cite>${esc(n)}</cite></div>`).join('')}</div>
         </div>
@@ -1237,6 +1241,7 @@ class EBuy {
           ${l.sub || l.desc ? `<div class="eb-dsub">${esc(l.sub || '')}${l.desc ? `<span>${esc(l.desc)}</span>` : ''}</div>` : ''}
           <div class="eb-chips">${rar ? `<span class="eb-rchip">${rar.n}</span>` : ''}${this._mutChip(m, true)}</div>
           <div class="eb-buybox">
+            ${this._stkKinds(l).includes('picked') ? stkHTML('pickedBig', { cls: 'stk-bb', title: 'Hand-picked by Reynard' }) : ''}
             <div class="eb-dprice"><span class="eb-tag big">${this._coin(2)}<b>${fmt(l.price)}</b></span>${l.oldPrice > l.price ? `<span class="eb-was">was <s class="eb-old">${fmt(l.oldPrice)}</s>${pct ? ` <em>save ${pct}%</em>` : ''}</span>` : ''}</div>
             ${l.locked ? `<div class="eb-dlock">${px('lockpad', 2)}<span>${esc(l.locked.reason || 'Locked')}</span></div>` : ''}
             <div class="eb-qrow">

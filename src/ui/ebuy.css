@@ -1502,7 +1502,15 @@
 
 /* the laptop's sticker bomb: stuck across the bezel's edge, some on top of others */
 .eb-stks { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
-.eb-note { left: -40px; bottom: -4px; width: auto; padding: 0; background: none; transform: none; box-shadow: none; z-index: 7; }
+/* desktop: a proper bezel to stick things on (the screen inside keeps the v27 layout) */
+@container ebuy (min-width: 901px) and (min-height: 621px) {
+  .ebuy .eb-dev { width: min(1160px, calc(100% - 56px)); }
+  .ebuy .eb-bezel { padding: 20px 22px 0; }
+  .ebuy .eb-chin { height: 30px; }
+}
+@container ebuy (max-width: 1180px) { .eb-stks .stk-wide { display: none; } }
+@container ebuy (max-height: 620px) { .eb-stks { display: none; } }
+.eb-note { left: -52px; bottom: -2px; width: auto; padding: 0; background: none; transform: none; box-shadow: none; z-index: 7; }
 .eb-note::before { display: none; }
 .eb-note .eb-stk { position: relative; display: block; }
 /* on the product photos and the item page: in the free corners, under nothing you need to read */
@@ -1512,7 +1520,8 @@
 .eb-well .stk-d { z-index: 4; }
 .stk-d0 { left: 10px; top: 48px; }
 .stk-d1 { left: 10px; top: 104px; }
-.eb-well .stk-pickedBig { left: auto; top: auto; right: 6px; bottom: 10px; }
+.eb-buybox { position: relative; }
+.eb-buybox .stk-bb { right: -14px; top: -26px; z-index: 5; }
 /* the shop's own furniture */
 .eb-cart .stk-cart { left: -12px; top: -12px; z-index: 5; }
 .eb-promo .stk-tp { left: calc(50% - 23px); top: -11px; }
@@ -1524,8 +1533,97 @@
 .eb-club .stk-club { right: -8px; top: -14px; }
 @container ebuy (max-width: 640px) {
   .eb-stks { display: none; }
-  .eb-well .stk-pickedBig { right: 2px; bottom: 4px; }
+  .eb-buybox .stk-bb { right: -6px; top: -22px; }
 }
 @container ebuy (max-height: 480px) and (min-width: 641px) {
   .eb-stks { display: none; }
+}
+
+/* ------------------------------------------------------------ [v33 kit] surfaces: every flat box gets a material
+   (plastic grain, paper fibre, 2 px dithers, scuffs, screws) and a stepped bevel inside its ink outline:
+   a 2 px rim light on the top/left, a 2-step shade on the bottom/right. Hard pixels only. */
+:where(.ebuy) {
+  --tx-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' shape-rendering='crispEdges'%3E%3Crect x='20' y='8' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3Crect x='24' y='2' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='4' y='6' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='22' y='2' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3Crect x='12' y='2' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='4' y='26' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='26' y='4' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3Crect x='14' y='4' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='26' y='2' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='6' y='14' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3Crect x='2' y='24' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='2' y='14' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='2' y='8' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3Crect x='18' y='26' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='8' y='6' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='18' y='10' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3Crect x='6' y='12' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='22' y='6' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='4' y='2' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3Crect x='12' y='30' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='26' y='20' width='2' height='2' fill='%232a1a14' fill-opacity='0.07'/%3E%3Crect x='28' y='28' width='2' height='2' fill='%23ffffff' fill-opacity='0.3'/%3E%3C/svg%3E");
+  --tx-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' shape-rendering='crispEdges'%3E%3Crect x='10' y='18' width='4' height='2' fill='%238a6a40' fill-opacity='0.07'/%3E%3Crect x='24' y='10' width='4' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3Crect x='2' y='18' width='6' height='2' fill='%238a6a40' fill-opacity='0.07'/%3E%3Crect x='28' y='20' width='6' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3Crect x='8' y='4' width='2' height='2' fill='%238a6a40' fill-opacity='0.07'/%3E%3Crect x='16' y='26' width='4' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3Crect x='24' y='20' width='4' height='2' fill='%238a6a40' fill-opacity='0.07'/%3E%3Crect x='28' y='30' width='6' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3Crect x='0' y='4' width='4' height='2' fill='%238a6a40' fill-opacity='0.07'/%3E%3Crect x='10' y='22' width='6' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3Crect x='18' y='28' width='2' height='2' fill='%238a6a40' fill-opacity='0.07'/%3E%3Crect x='26' y='4' width='4' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3Crect x='14' y='4' width='2' height='2' fill='%238a6a40' fill-opacity='0.07'/%3E%3Crect x='22' y='18' width='6' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3C/svg%3E");
+  --tx-dith: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='2' height='2' fill='%232a1a14' fill-opacity='0.16'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%232a1a14' fill-opacity='0.16'/%3E%3C/svg%3E");
+  --tx-dithw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='2' height='2' fill='%23ffffff' fill-opacity='0.35'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23ffffff' fill-opacity='0.35'/%3E%3C/svg%3E");
+  --tx-scuff: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='18' shape-rendering='crispEdges'%3E%3Crect x='0' y='12' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='0' y='14' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='2' y='10' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='2' y='12' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='4' y='8' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='4' y='10' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='6' y='8' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='6' y='10' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='8' y='6' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='8' y='8' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='10' y='4' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='10' y='6' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='12' y='4' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='12' y='6' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='14' y='2' width='2' height='2' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='14' y='4' width='2' height='2' fill='%232a1a14' fill-opacity='0.1'/%3E%3Crect x='4' y='14' width='2' height='2' fill='%23ffffff' fill-opacity='0.5'/%3E%3Crect x='6' y='13' width='2' height='2' fill='%23ffffff' fill-opacity='0.4'/%3E%3Crect x='18' y='8' width='2' height='2' fill='%23ffffff' fill-opacity='0.45'/%3E%3C/svg%3E");
+  --tx-grille: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='2' height='2' fill='%232a1a14' fill-opacity='0.34'/%3E%3Crect x='0' y='2' width='2' height='1' fill='%23ffffff' fill-opacity='0.55'/%3E%3Crect x='4' y='4' width='2' height='2' fill='%232a1a14' fill-opacity='0.34'/%3E%3Crect x='4' y='6' width='2' height='1' fill='%23ffffff' fill-opacity='0.55'/%3E%3C/svg%3E");
+  --tx-screw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' shape-rendering='crispEdges'%3E%3Crect x='4' y='0' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='6' y='0' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='8' y='0' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='4' y='2' width='2' height='2' fill='%23ffffff' fill-opacity='1'/%3E%3Crect x='6' y='2' width='2' height='2' fill='%23efeae0' fill-opacity='1'/%3E%3Crect x='8' y='2' width='2' height='2' fill='%23efeae0' fill-opacity='1'/%3E%3Crect x='10' y='2' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='0' y='4' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='2' y='4' width='2' height='2' fill='%23efeae0' fill-opacity='1'/%3E%3Crect x='4' y='4' width='2' height='2' fill='%23efeae0' fill-opacity='1'/%3E%3Crect x='6' y='4' width='2' height='2' fill='%234a3e34' fill-opacity='1'/%3E%3Crect x='8' y='4' width='2' height='2' fill='%23efeae0' fill-opacity='1'/%3E%3Crect x='10' y='4' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='12' y='4' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='0' y='6' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='2' y='6' width='2' height='2' fill='%23efeae0' fill-opacity='1'/%3E%3Crect x='4' y='6' width='2' height='2' fill='%234a3e34' fill-opacity='1'/%3E%3Crect x='6' y='6' width='2' height='2' fill='%234a3e34' fill-opacity='1'/%3E%3Crect x='8' y='6' width='2' height='2' fill='%234a3e34' fill-opacity='1'/%3E%3Crect x='10' y='6' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='12' y='6' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='0' y='8' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='2' y='8' width='2' height='2' fill='%23efeae0' fill-opacity='1'/%3E%3Crect x='4' y='8' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='6' y='8' width='2' height='2' fill='%234a3e34' fill-opacity='1'/%3E%3Crect x='8' y='8' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='10' y='8' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='12' y='8' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='2' y='10' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='4' y='10' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='6' y='10' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='8' y='10' width='2' height='2' fill='%23b0a698' fill-opacity='1'/%3E%3Crect x='10' y='10' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='4' y='12' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='6' y='12' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3Crect x='8' y='12' width='2' height='2' fill='%235a4e44' fill-opacity='1'/%3E%3C/svg%3E");
+}
+/* the laptop: grained plastic, a two-step bevel, scuffs near the corners, screws, a speaker grille */
+.ebuy .eb-bezel {
+  background:
+    var(--tx-scuff) right 64px top 6px / 24px 18px no-repeat,
+    var(--tx-scuff) left 120px bottom 4px / 24px 18px no-repeat,
+    var(--tx-grain) 0 0 / 32px 32px,
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.03) 0 2px, transparent 2px 6px),
+    #d9d0bc;
+  box-shadow:
+    0 -4px 0 0 var(--eb-ink), 0 4px 0 0 var(--eb-ink), -4px 0 0 0 var(--eb-ink), 4px 0 0 0 var(--eb-ink),
+    inset 0 2px 0 #fbf6ea, inset 0 4px 0 #ece4d0, inset 2px 0 0 #f6efe0, inset 4px 0 0 #e6ddc8,
+    inset -2px 0 0 #a49880, inset -4px 0 0 #bcb198, inset 0 -2px 0 #a49880,
+    10px 14px 0 0 rgba(0, 0, 0, 0.35);
+}
+.eb-screw { position: absolute; z-index: 0; width: 14px; height: 14px; background: var(--tx-screw); pointer-events: none; }
+.eb-screw.s1 { left: 6px; top: 4px; } .eb-screw.s2 { right: 6px; top: 4px; }
+.eb-screw.s3 { left: 6px; bottom: 6px; } .eb-screw.s4 { right: 6px; bottom: 6px; }
+.eb-chin { gap: 14px; }
+.eb-chin::before { content: ''; order: -1; width: 88px; height: 8px; background: var(--tx-grille) 0 0 / 8px 8px; }
+.eb-brand + .eb-led { order: 2; }
+.eb-chin .eb-grl { width: 88px; height: 8px; order: 1; background: var(--tx-grille) 0 0 / 8px 8px; }
+.ebuy .eb-screen { box-shadow: inset 0 0 0 3px #11101a, inset 0 6px 0 #0c0b12, inset 0 -2px 0 #2c2838; }
+.ebuy .eb-base { background: var(--tx-grain) 0 0 / 32px 32px, #c4b9a2; box-shadow: 0 -4px 0 0 var(--eb-ink), 0 4px 0 0 var(--eb-ink), -4px 0 0 0 var(--eb-ink), 4px 0 0 0 var(--eb-ink), inset 0 2px 0 #e8dfca, inset 0 4px 0 #d6cbb4, inset 0 -2px 0 #a49880, 10px 10px 0 rgba(0, 0, 0, 0.35); }
+
+/* browser chrome, header, ticker: rim light on top, a dither strip and a hard shade above each ink line */
+.ebuy .eb-chrome { box-shadow: inset 0 2px 0 #d6ecfb, inset 0 -2px 0 #86b6da; }
+.ebuy .eb-top { background: var(--tx-paper) 0 0 / 32px 32px, var(--eb-cream); box-shadow: inset 0 2px 0 #fffdf6, inset 0 -2px 0 #ecdcb8; }
+.ebuy .eb-top::after { content: ''; position: absolute; left: 0; right: 0; bottom: 2px; height: 4px; background: var(--tx-dith) 0 0 / 4px 4px; opacity: 0.5; pointer-events: none; }
+.ebuy .eb-ticker { background: var(--tx-dith) 0 100% / 4px 4px repeat-x, var(--eb-red); box-shadow: inset 0 2px 0 #ff8a90, inset 0 -4px 0 #c83a44; }
+.ebuy .eb-ticker .eb-tick { padding-top: 1px; }
+/* the sidebar: a paper drawer with a shaded inner edge */
+.ebuy .eb-side { background: var(--tx-paper) 0 0 / 32px 32px, repeating-linear-gradient(0deg, rgba(120, 90, 50, 0.05) 0 1px, transparent 1px 6px), var(--eb-tan); box-shadow: inset -4px 0 0 #e6d2a8, inset -6px 0 0 #efdfbd; }
+.ebuy .eb-sideh { text-shadow: 0 2px 0 #fffaf0; }
+
+/* raised buttons: ink ring, 2 px rim light top + left, 2-step shade bottom + right */
+.ebuy .eb-nb { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #fffaea, inset 5px 0 0 #fbf1d6, inset 0 -7px 0 #d8c398, inset -5px 0 0 #e6d4ac; }
+.ebuy .eb-hb { background: var(--tx-paper) 0 0 / 32px 32px, #fffaf0; box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #ffffff, inset 5px 0 0 #ffffff, inset 0 -7px 0 #e2d8c4, inset -5px 0 0 #efe6d2, 0 3px 0 var(--eb-ink); }
+.ebuy .eb-hb:active { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 -4px 0 #e2d8c4, 0 1px 0 var(--eb-ink); }
+.ebuy .eb-cart { background: var(--tx-paper) 0 0 / 32px 32px, #d8f0c8; box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #f2fff0, inset 5px 0 0 #ecfbe6, inset 0 -7px 0 #a0d488, inset -5px 0 0 #bce4a8, 0 3px 0 var(--eb-ink); }
+.ebuy .eb-wallet { background: var(--tx-paper) 0 0 / 32px 32px, #fff1b8; box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #fffbe2, inset 5px 0 0 #fff8d6, inset 0 -7px 0 #f0cf68, inset -5px 0 0 #f6dc8c; }
+.ebuy .eb-sgo { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #7ab8ff, inset 5px 0 0 #6aa8f4, inset 0 -7px 0 #2a5ac0, inset -5px 0 0 #3068d0; }
+.ebuy .eb-search { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 7px 0 #ece6da, inset 5px 0 0 #f4efe4, inset 0 -5px 0 #fffdf8, 0 3px 0 var(--eb-ink); }
+.ebuy .eb-url { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 6px 0 #e9e4d8, inset 5px 0 0 #f2eee4; }
+.ebuy .eb-cat { background: var(--tx-paper) 0 0 / 32px 32px, var(--eb-paper); box-shadow: inset 0 0 0 2px rgba(42, 26, 20, 0.3), inset 0 4px 0 #fffdf6, inset 4px 0 0 #fffbf0, inset 0 -5px 0 #eadcbc, inset -4px 0 0 #f2e6ca, 0 2px 0 rgba(42, 26, 20, 0.2); }
+.ebuy .eb-cat:hover { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #fffdf6, inset 5px 0 0 #fffbf0, inset 0 -6px 0 #eadcbc, inset -5px 0 0 #f2e6ca, 0 2px 0 var(--eb-ink); }
+.ebuy .eb-cat.on { background: var(--tx-paper) 0 0 / 32px 32px, var(--eb-yel); box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #ffe590, inset 5px 0 0 #ffdc78, inset 0 -7px 0 #e09a16, inset -5px 0 0 #eeae2c, 3px 3px 0 var(--eb-ink); }
+.ebuy :is(.eb-chip, .eb-sortb) { box-shadow: inset 0 0 0 2px var(--eb-ink), inset 0 4px 0 #ffffff, inset 4px 0 0 #fffdf6, inset 0 -5px 0 #e6dcc6, inset -4px 0 0 #f0e8d6, 0 2px 0 var(--eb-ink); }
+.ebuy .eb-sortb { box-shadow: inset 0 0 0 2px var(--eb-ink), inset 0 4px 0 #fbf2dc, inset 4px 0 0 #f8edd2, inset 0 -5px 0 #d8c398, inset -4px 0 0 #e6d4ac, 0 2px 0 var(--eb-ink); }
+.ebuy .eb-chip.on { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #dcf6cc, inset 0 -6px 0 #8ccf72, 0 2px 0 var(--eb-ink); }
+.ebuy .eb-qadd { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #f2fff0, inset 5px 0 0 #ecfbe6, inset 0 -7px 0 #a0d488, inset -5px 0 0 #bce4a8; }
+.ebuy .eb-qadd i { box-shadow: 0 0 0 2px var(--eb-ink), inset 0 2px 0 #5ab86a, inset 0 -2px 0 #1a6a2a; }
+
+/* cards: paper fibre, a rim light down the left, a shaded foot, a glint in the photo's corner */
+.ebuy .eb-card { background: var(--tx-paper) 0 0 / 32px 32px, var(--eb-paper); box-shadow: inset 0 0 0 3px var(--eb-ink), inset 5px 0 0 #fffdf6, inset 0 -7px 0 #e8dabe, inset -5px 0 0 #f0e4ca, 0 4px 0 0 var(--eb-ink), 0 4px 0 3px rgba(42, 26, 20, 0.1); }
+.ebuy .eb-card:hover { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 5px 0 0 #fffdf6, inset 0 -7px 0 #e8dabe, inset -5px 0 0 #f0e4ca, 0 8px 0 0 var(--eb-ink), 0 8px 0 3px rgba(42, 26, 20, 0.1); }
+.ebuy .eb-card:active { box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 -4px 0 #e8dabe, 0 2px 0 0 var(--eb-ink); }
+.ebuy .eb-pic { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.75), inset 2px 0 0 rgba(255, 255, 255, 0.55), inset -2px 0 0 rgba(42, 26, 20, 0.08); }
+.ebuy .eb-info { position: relative; }
+/* the price tag: a glint on the brass, a dithered fold between its light and dark bands */
+.ebuy .eb-tag::before { background: linear-gradient(#fffbe0, #fffbe0) 12px 3px / 4px 2px no-repeat, linear-gradient(#fffbe0, #fffbe0) 18px 3px / 2px 2px no-repeat, var(--tx-dith) 0 16px / 4px 4px repeat-x, linear-gradient(#ffe478 0 7px, #ffd23f 7px 18px, #e5a320 18px); }
+.ebuy .eb-tag.big::before { background: linear-gradient(#fffbe0, #fffbe0) 20px 5px / 6px 2px no-repeat, linear-gradient(#fffbe0, #fffbe0) 28px 5px / 2px 2px no-repeat, var(--tx-dith) 0 28px / 4px 4px repeat-x, linear-gradient(#ffe478 0 12px, #ffd23f 12px 30px, #e5a320 30px); }
+/* panels: the promo, the buy box, the item well, the drawer body get paper and bevels */
+.ebuy .eb-promo { background: var(--tx-paper) 0 0 / 32px 32px, #fffdf6; box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #ffffff, inset 0 -7px 0 #ece2cc, inset -5px 0 0 #f4ecdc, 0 3px 0 var(--eb-ink); }
+.ebuy .eb-buybox { background: var(--tx-paper) 0 0 / 32px 32px, #fffdf8; box-shadow: inset 0 0 0 3px var(--eb-ink), inset 0 5px 0 #ffffff, inset 5px 0 0 #ffffff, inset 0 -7px 0 #ece2cc, inset -5px 0 0 #f4ecdc, 5px 5px 0 var(--eb-ink); }
+.ebuy .eb-well { box-shadow: inset 0 0 0 4px var(--eb-ink), inset 0 6px 0 rgba(255, 255, 255, 0.6), inset 6px 0 0 rgba(255, 255, 255, 0.45), inset 0 -8px 0 rgba(42, 26, 20, 0.12), 0 6px 0 var(--eb-ink); }
+.ebuy .eb-sky { background: var(--tx-paper) 0 0 / 32px 32px, #fff3cf; }
+.ebuy .eb-club { background: var(--tx-paper) 0 0 / 32px 32px, #fff3cf; box-shadow: inset 0 0 0 2px var(--eb-ink), inset 0 4px 0 #fffbe8, inset 0 -5px 0 #f0dca0, 0 3px 0 var(--eb-ink); }
+/* pixel scrollbars: a dithered groove and a bevelled wooden thumb */
+.ebuy :is(.eb-scroll, .eb-det, .eb-dbody) { scrollbar-width: auto; scrollbar-color: auto; }
+.ebuy :is(.eb-scroll, .eb-det, .eb-dbody)::-webkit-scrollbar { width: 12px; }
+.ebuy :is(.eb-scroll, .eb-det, .eb-dbody)::-webkit-scrollbar-track { background: var(--tx-dith) 0 0 / 4px 4px, #f3e6c4; box-shadow: inset 2px 0 0 #e0cca0; }
+.ebuy :is(.eb-scroll, .eb-det, .eb-dbody)::-webkit-scrollbar-thumb { background: #c9a87a; box-shadow: inset 0 0 0 2px var(--eb-ink), inset 4px 4px 0 0 #e6c89a, inset -4px -4px 0 0 #a8865a; }
+.ebuy :is(.eb-scroll, .eb-det, .eb-dbody)::-webkit-scrollbar-button { display: none; height: 0; }
+@container ebuy (max-width: 640px) {
+  .eb-screw, .eb-chin::before, .eb-chin .eb-grl { display: none; }
 }
