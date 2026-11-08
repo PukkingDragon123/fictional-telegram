@@ -463,7 +463,7 @@ export class HeistScene {
     g.add(this.coin);
     // loose bills
     this.bills = new BillFlurry(g, {
-      max: 16,
+      max: 16, size: 1.35,
       groundAt: (x, z) => {
         // on the crate top, or the grass
         const S = this.S, dx = x - S.x, dz = z - S.z;
@@ -751,12 +751,13 @@ export class HeistScene {
     if (this.carrying) {
       this.billT -= dt;
       if (this.billT <= 0) {
-        this.billT = rand(0.14, 0.26);
+        this.billT = rand(0.12, 0.22);
         const s = this.sack;
         s.updateWorldMatrix(true, false);
         const q = s.localToWorld(new THREE.Vector3(0, 0.5, 0));
-        const back = -1.2;
-        this.bills.fling(q.x, q.y + 0.05, q.z, this.R0.x * back + rand(-0.4, 0.4), rand(1.1, 1.8), this.R0.z * back + rand(-0.4, 0.4), { life: LOOP });
+        // up over his head and out behind him, a little towards the camera so they flutter in the open
+        const back = -1.1, side = rand(0.2, 0.7);
+        this.bills.fling(q.x, q.y + 0.08, q.z, this.R0.x * back + this.F0.x * side, rand(1.6, 2.4), this.R0.z * back + this.F0.z * side, { life: LOOP });
         if (Math.random() < 0.3) this._sfx('paper', { volume: 0.1, pitch: rand(1.1, 1.5) });
       }
     }

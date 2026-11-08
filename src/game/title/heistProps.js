@@ -326,8 +326,9 @@ export function makeDeskMoney() {
  *   B.fling(x, y, z, vx, vy, vz)   B.update(dt)   B.clear()
  */
 export class BillFlurry {
-  constructor(parent, { max = 14, groundAt = () => 0 } = {}) {
+  constructor(parent, { max = 14, groundAt = () => 0, size = 1 } = {}) {
     this.groundAt = groundAt;
+    this.size = size; // comic exaggeration: the loose bills read from a wide shot
     this.list = [];
     const geo = billGeometry();
     for (let i = 0; i < max; i++) {
@@ -347,7 +348,7 @@ export class BillFlurry {
     b.rx = Math.random() * 6; b.ry = Math.random() * 6; b.rz = Math.random() * 6;
     b.wx = (Math.random() - 0.5) * 14; b.wy = (Math.random() - 0.5) * 6; b.wz = (Math.random() - 0.5) * 14;
     b.m.visible = true;
-    b.m.scale.setScalar(1);
+    b.m.scale.setScalar(this.size);
     return b;
   }
   update(dt) {
@@ -376,7 +377,7 @@ export class BillFlurry {
         }
       } else if (b.t > b.life) {
         const k = Math.max(0, 1 - (b.t - b.life) / 0.6);
-        m.scale.setScalar(k);
+        m.scale.setScalar(k * this.size);
         if (k <= 0) { b.on = false; m.visible = false; }
       }
       m.position.copy(b.p);
