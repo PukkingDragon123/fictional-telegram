@@ -174,7 +174,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .tool.active { box-shadow: inset 0 0 0 2px var(--gold3), 0 0 0 2px var(--gold), 0 0 12px 2px rgba(255, 220, 90, .6); transform: translateY(-3px); }
 .tool.pulse { animation: toolpulse 1s ease-in-out infinite; }
 @keyframes toolpulse { 50% { transform: translateY(-6px); filter: brightness(1.3); } }
-.tool .bag { position: absolute; left: 7px; right: 7px; bottom: 3px; height: 4px; background: #2a1a0e; border-radius: 2px; overflow: hidden; }
+.tool .bag { display: none; } /* [v33] no food-level bar drawn over the Food icon (the user doesn't want it) */
 .tool .bag b { display: block; height: 100%; background: var(--green3); }
 .tool .cnt { position: absolute; top: 2px; right: 3px; font-style: normal; font-family: var(--font2); font-size: 13px; background: var(--red); color: #fff; border-radius: 6px; padding: 0 3px; }
 .toolhint { position: absolute; left: 50%; bottom: calc(86px + var(--safe-b)); transform: translateX(-50%); padding: 5px 10px; font-size: 16px; display: flex; gap: 6px; align-items: center; z-index: 13; max-width: calc(100vw - 16px); flex-wrap: wrap; justify-content: center; }

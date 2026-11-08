@@ -371,14 +371,14 @@ class EBuy {
           <div class="eb-screen">
             <div class="eb-app">
               <div class="eb-chrome">
-                <button class="eb-nb eb-back" aria-label="back">${px('arrow', 3)}</button>
-                <button class="eb-nb eb-fwd" tabindex="-1" aria-hidden="true">${px('arrowR', 3)}</button>
+                <button class="eb-nb eb-back" aria-label="back">${px('arrow', 2)}</button>
+                <button class="eb-nb eb-fwd" tabindex="-1" aria-hidden="true">${px('arrowR', 2)}</button>
                 <button class="eb-nb eb-reload" aria-label="reload">${px('reload', 3)}</button>
                 <div class="eb-url"><span class="eb-lock">${px('lockpad', 2)}</span><span class="eb-urlt">www.e-buy.ca<i class="eb-path">/</i></span>${px('starbm', 2, 'eb-bm')}</div>
                 <div class="eb-dots"><i></i><i></i><button class="eb-close eb-dclose" aria-label="close">${px('x', 2)}</button></div>
               </div>
               <header class="eb-top">
-                <button class="eb-hb eb-back eb-hback" aria-label="back">${px('arrow', 3, 'eb-ia')}${px('x', 3, 'eb-ix')}</button>
+                <button class="eb-hb eb-back eb-hback" aria-label="back">${px('arrow', 2, 'eb-ia')}${px('x', 3, 'eb-ix')}</button>
                 <button class="eb-home" aria-label="e-Buy home">${logo('eb-logo')}</button>
                 <label class="eb-search">${px('mag14', 2)}<input class="eb-q" type="text" placeholder="Search eggs, ducks, gnomes..." autocomplete="off" spellcheck="false" enterkeyhint="search" /><button class="eb-qx" aria-label="clear">${px('x', 2)}</button><span class="eb-sgo">Search</span></label>
                 <div class="eb-wallet" title="your coins"><span class="eb-coin">${this._coin(2)}</span><b class="eb-bal">${fmt(this.coins)}</b></div>

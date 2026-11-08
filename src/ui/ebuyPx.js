@@ -3,8 +3,9 @@
 // crisp inline <svg>. Strings are built once and cached.
 const INK = '#2a1a14';
 export const PX = {
-  arrow: [['...a....', '..aa....', '.aaaaaaa', 'aabbbbba', '.aaaaaaa', '..aa....', '...a....'], { a: INK, b: '#fff4dc' }],
-  arrowR: [['....a...', '....aa..', 'aaaaaaa.', 'abbbbbaa', 'aaaaaaa.', '....aa..', '....a...'], { a: INK, b: '#fff4dc' }],
+  // [v33 kit] the back / forward arrows, hand-shaded (rim light, a shade under the shaft, a glint)
+  arrow: [['....aa.....', '...awa.....', '..awbaaaaaa', '.awbbwwwwwa', 'abbbbbbbbba', '.acbbbbbbca', '..acbaaaaaa', '...aca.....', '....aa.....'], { a: INK, b: '#fff4dc', c: '#dcc496', w: '#ffffff' }, true],
+  arrowR: [['.....aa....', '.....awa...', 'aaaaaawba..', 'awwwwwbbwa.', 'abbbbbbbbba', 'acbbbbbbca.', 'aaaaaabca..', '.....aca...', '.....aa....'], { a: INK, b: '#fff4dc', c: '#dcc496', w: '#ffffff' }, true],
   reload: [['..aaaa.', '.a....a', 'a....aaa', 'a.....a.', 'a.......', '.a....a.', '..aaaa..'], { a: INK }],
   x: [['aa...aa', 'aaa.aaa', '.aaaaa.', '..aaa..', '.aaaaa.', 'aaa.aaa', 'aa...aa'], { a: INK }],
   bigx: [['.aa.....aa.', 'abba...abba', 'abbba.abbba', '.abbbabbba.', '..abbbbba..', '...abbba...', '..abbbbba..', '.abbbabbba.', 'abbba.abbba', 'abba...abba', '.aa.....aa.'], { a: '#5a0e14', b: '#ff3b3b' }],
@@ -66,21 +67,54 @@ export const PX = {
   ticket: [['aaaaaaaaaa', 'abbbbbbbba', '.abcbcbcba', 'abbbbbbbba', '.abcbcbcba', 'abbbbbbbba', 'aaaaaaaaaa'], { a: INK, b: '#ffd23f', c: '#e09a16' }],
 };
 
+// [v33 kit] polish: a flat-filled icon gets form shading inside its ink outline - a rim light where the
+// fill meets the outline on top (and a lighter step on the left), a shade step along the bottom, and one
+// white glint in the top-left of its biggest fill. Hand-shaded icons (the 16 px set, the sparkles, anything
+// with a third entry `true`) and outline-only glyphs are left exactly as drawn.
+const HAND = /^(d_|cart16|box16|mag14|moosec|spark|rainbow|planet|shiny|candy|doge|skull|titan|snow|flame|blueflame|bigx|antler|coinp|dot|tiny|plus)/;
+const hexRGB = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const lumH = (h) => { const [r, g, b] = hexRGB(h); return 0.3 * r + 0.59 * g + 0.11 * b; };
+const mixH = (h, to, t) => { const a = hexRGB(h), b = hexRGB(to); return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+function polished(name, rows, pal, hand) {
+  const h = rows.length, w = Math.max(...rows.map((r) => r.length));
+  const col = (x, y) => (y < 0 || y >= h || x < 0 || x >= w ? null : pal[rows[y][x]] || null);
+  const grid = rows.map((row, y) => [...row.padEnd(w, '.')].map((_, x) => col(x, y)));
+  if (hand || HAND.test(name) || w < 6 || h < 5) return grid;
+  const inkish = (c) => !c || lumH(c) < 70;
+  const fills = new Map();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = col(x, y); if (c && !inkish(c) && lumH(c) < 246) fills.set(c, (fills.get(c) || 0) + 1); }
+  if (!fills.size || ![...rows.join('')].some((ch) => pal[ch] && inkish(pal[ch]))) return grid; // outline-only glyph, or no outline
+  const big = [...fills.entries()].sort((a, b) => b[1] - a[1])[0];
+  let glint = big[1] >= 10 ? null : false;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = col(x, y);
+    if (!c || inkish(c) || lumH(c) >= 246) continue;
+    const up = inkish(col(x, y - 1)), dn = inkish(col(x, y + 1)), lf = inkish(col(x - 1, y)), rt = inkish(col(x + 1, y));
+    if (up && !dn) grid[y][x] = mixH(c, '#ffffff', 0.38);
+    else if (dn && !up) grid[y][x] = mixH(c, '#2a1a14', 0.2);
+    else if (lf && !rt) grid[y][x] = mixH(c, '#ffffff', 0.2);
+    else if (rt && !lf) grid[y][x] = mixH(c, '#2a1a14', 0.1);
+    if (glint === null && c === big[0] && up && lf && !inkish(col(x + 1, y + 1))) glint = [x + 1, y + 1];
+  }
+  if (glint) grid[glint[1]][glint[0]] = '#ffffff';
+  return grid;
+}
 const cache = new Map();
 export function px(name, s = 3, cls = '') {
   const k = name + '|' + s + '|' + cls;
   let out = cache.get(k);
   if (out) return out;
-  const [rows, pal] = PX[name] || PX.dot;
+  const [rows, pal, hand] = PX[name] || PX.dot;
   const h = rows.length, w = Math.max(...rows.map((r) => r.length));
+  const grid = polished(name, rows, pal, hand);
   let r = '';
-  rows.forEach((row, y) => {
+  grid.forEach((row, y) => {
     let x = 0;
     while (x < row.length) {
-      const c = pal[row[x]];
+      const c = row[x];
       if (!c) { x++; continue; }
       let n = 1;
-      while (row[x + n] === row[x]) n++;
+      while (row[x + n] === c) n++;
       r += `<rect x="${x}" y="${y}" width="${n}" height="1" fill="${c}"/>`;
       x += n;
     }
