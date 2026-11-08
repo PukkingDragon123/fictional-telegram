@@ -658,7 +658,7 @@ export class Classroom {
     try { res = await tp.run(); } finally { if (this._paper === tp) this._paper = null; }
     this._check();
     room.setDim?.(0);
-    this.cam('teacher');
+    this.cam(res && !res.skipped && /^[AB]/.test(res.grade) ? 'students' : 'wide');
     if (!res || res.skipped) {
       this._busy = true;
       const l = this._say('Skipping my test? Fine. It waits for you in my **notebook**.', 'smug');
@@ -879,7 +879,7 @@ export class Classroom {
     if (!shot || (shot === this._camA && !instant)) return;
     const prev = this._camKey;
     this._camA = shot; this._camKey = key;
-    const SOFT = { board: ['teacher', 'boardClose'], teacher: ['board', 'boardClose'], boardClose: ['board', 'teacher'], demo: ['demoClose', 'demoTop', 'demoHead'], demoClose: ['demo', 'demoTop', 'demoHead'], demoTop: ['demo', 'demoClose', 'demoHead'], demoHead: ['demo', 'demoClose', 'demoTop'] };
+    const SOFT = { board: ['teacher', 'boardClose'], teacher: ['board', 'boardClose'], boardClose: ['board', 'teacher'], demo: ['demoClose', 'demoTop', 'demoHead', 'demoHigh'], demoClose: ['demo', 'demoTop', 'demoHead', 'demoHigh'], demoTop: ['demo', 'demoClose', 'demoHead', 'demoHigh'], demoHead: ['demo', 'demoClose', 'demoTop', 'demoHigh'], demoHigh: ['demo', 'demoClose', 'demoTop', 'demoHead'] };
     if (!instant && prev && SOFT[prev]?.includes(key)) this.rig.move(shot, 0.9, 'inout');
     else this.rig.cut(shot);
   }

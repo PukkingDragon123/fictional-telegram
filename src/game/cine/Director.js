@@ -419,7 +419,7 @@ export class Director {
        *   style  say | shout | whisper | scared | happy | laugh | excited | angry | sad | think | radio | spooky | gold
        *   anim   the speaker's animation while talking (fox anims / bear poses), face: a bear face
        */
-      say: async (who, text, { style = 'say', anim, face, auto, ms, shake, sfx, name } = {}) => {
+      say: async (who, text, { style = 'say', anim, face, auto, ms, shake, sfx, name, close } = {}) => {
         if (!live()) return;
         const isFox = who === D.fox || who?.kind === 'fox';
         const talkAnim = anim || (isFox ? (style === 'shout' || style === 'angry' ? 'angry_stomp' : style === 'think' ? 'think' : style === 'laugh' ? 'laugh_evil' : style === 'scared' ? 'cower' : 'talk') : (style === 'shout' || style === 'angry' ? 'roar' : style === 'happy' || style === 'excited' || style === 'laugh' ? 'cheer' : style === 'sad' ? 'sad' : 'talk'));
@@ -428,6 +428,13 @@ export class Director {
           else who.act(talkAnim, 99);
         }
         if (face && who?.face) who.face(face, 3);
+        // [v32 cine] close: a close-up on the speaker (zoom in world units per px; shouts push in harder)
+        if (close && typeof who?.x === 'number' && who.kind !== 'spot') {
+          const zc = typeof close === 'number' ? close : 0.0105;
+          const hard = style === 'shout' || style === 'angry';
+          const dx = D.center ? (D.center.x - who.x) * 0.18 : 0, dz = D.center ? (D.center.z - who.z) * 0.18 : 0;
+          c.shot([who.x + dx, who.z + dz], { zoom: hard ? zc * 0.8 : zc, dur: hard ? 0.35 : 0.8, ease: 'out', lift: (typeof who.y === 'number' ? who.y : 0) + 0.55 });
+        } else
         // shot / reverse shot: the frame leans toward the speaker
         if (D.center && typeof who?.x === 'number' && who.kind !== 'spot') {
           const C0 = D.center;

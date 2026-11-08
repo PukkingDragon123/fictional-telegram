@@ -111,6 +111,14 @@ export function starSticker(R = 13) {
 }
 
 // ------------------------------------------------------------------ the grade stamp
+const STAMP_GLYPHS = {
+  A: ['..###..', '.#####.', '##...##', '##...##', '#######', '#######', '##...##', '##...##', '##...##'],
+  B: ['######.', '##...##', '##...##', '######.', '######.', '##...##', '##...##', '##...##', '######.'],
+  C: ['..#####', '.##...#', '##.....', '##.....', '##.....', '##.....', '##.....', '.##...#', '..#####'],
+  D: ['#####..', '##..##.', '##...##', '##...##', '##...##', '##...##', '##...##', '##..##.', '#####..'],
+  F: ['#######', '#######', '##.....', '##.....', '######.', '######.', '##.....', '##.....', '##.....'],
+  '+': ['..#..', '..#..', '#####', '..#..', '..#..'],
+};
 const STAMP_INK = { 'A+': '#c8202a', A: '#c8202a', B: '#c8202a', C: '#c8202a', D: '#c8202a', F: '#c8202a' };
 /** a rubber-stamp impression of the grade, already rotated (pixel-rotated, so it stays crisp) */
 export function gradeStamp(grade, { rot = -0.2, word } = {}) {
@@ -129,13 +137,13 @@ export function gradeStamp(grade, { rot = -0.2, word } = {}) {
     }
   };
   ring(0, 2); ring(4, 1);
-  // the letter: TBME Goofy big (16 px), doubled for weight
-  const g = goofyBitmap(GOOFY_HI, grade.replace('+', ''));
+  // the letter: hand-made bold stamp capitals (7x9 cells at 3x), a '+' beside an A
+  const G = STAMP_GLYPHS[grade.replace('+', '')] || STAMP_GLYPHS.F;
   const plus = grade.includes('+');
-  const gw = g.w * 2 + (plus ? 11 : 0), gh = g.h * 2;
-  const ox = Math.round((W - gw) / 2), oy = Math.round((H - gh) / 2) - 3;
-  g.rows.forEach((r, yy) => { for (let xx = 0; xx < r.length; xx++) if (r[xx] === '#') x.fillRect(ox + xx * 2, oy + yy * 2, 2, 2); });
-  if (plus) { const px = ox + g.w * 2 + 3, py = oy + Math.round(gh / 2) - 5; x.fillRect(px + 3, py, 3, 9); x.fillRect(px, py + 3, 9, 3); }
+  const K = 3, gw = 7 * K + (plus ? 4 + 5 * K : 0), gh = 9 * K;
+  const ox = Math.round((W - gw) / 2), oy = Math.round((H - gh) / 2) - 4;
+  G.forEach((r, yy) => { for (let xx = 0; xx < r.length; xx++) if (r[xx] === '#') x.fillRect(ox + xx * K, oy + yy * K, K, K); });
+  if (plus) STAMP_GLYPHS['+'].forEach((r, yy) => { for (let xx = 0; xx < r.length; xx++) if (r[xx] === '#') x.fillRect(ox + 7 * K + 4 + xx * K, oy + 2 * K + yy * K, K, K); });
   // a tiny word under it
   const tw = textCanvas(word || (grade === 'F' ? 'SEE ME' : 'POND SCHOOL'), 'tiny', ink);
   x.drawImage(tw.c, Math.round((W - tw.w) / 2), H - 12);

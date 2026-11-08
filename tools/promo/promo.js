@@ -676,16 +676,306 @@ function cinebanner() {
     },
   });
 }
-const SCENES = { thumb, banner, fsthumb, fsbanner, cinethumb, cinebanner };
+// ================================================================== [v5] "Dig & Dive Update" (kinds ddthumb, ddbanner)
+// Same pixel-exact canvas pipeline as the Cinematic art, with two renders per picture (&parts=a,b):
+// THE DIG (Bonebed Bluff, golden hour) and THE DIVE (under Loon Lake), merged along an animated
+// pixel waterline (cover) or a comic split (banner). The hero is the game's own Primordial Vial
+// sprite of the Sabre-tooth salmon, rotated RotSprite-style (EPX x8, nearest back to 1x) so its
+// pixels stay on one grid, scaled by a whole number.
+const PARTS = (Q.get('parts') || '').split(',').filter(Boolean);
+const partURL = (part, mask, i) => `./renders/anim/${part}${mask ? '-' + mask : ''}-f${pad(i)}.png${bust}`;
+const ST_DIG = {
+  fill: band([[1, '#fffbe4'], [2, '#ffe98a'], [3, '#ffc844'], [3, '#f29a2e'], [2, '#d8721e'], [3, '#a8501a']]),
+  hi: rgb('#fffff0'), hiK: 0.6, lo: rgb('#8a3a14'), loK: 0.35,
+  ext: [rgb('#9a4216'), rgb('#62260e')], outline: rgb('#1c0a06'),
+  shadow: { dx: 1, dy: 2, c: rgb('#140608'), a: 0.72 }, glintC: rgb('#fffff6'),
+};
+const ST_DIVE = {
+  fill: band([[1, '#f4ffff'], [2, '#c8f8ff'], [3, '#82e6f6'], [3, '#3cc4e2'], [2, '#1e96c6'], [3, '#146aa2']]),
+  hi: rgb('#ffffff'), hiK: 0.6, lo: rgb('#0c3e6a'), loK: 0.35,
+  ext: [rgb('#0e4e78'), rgb('#08304e')], outline: rgb('#040c18'),
+  shadow: { dx: 1, dy: 2, c: rgb('#040a14'), a: 0.72 }, glintC: rgb('#ffffff'),
+};
+const ST_AMP = { ...ST_DIG, fill: band([[2, '#ffffff'], [3, '#f6efe0'], [4, '#e4d6bc'], [5, '#c4ae8e']]), hi: rgb('#ffffff'), lo: rgb('#7a6a5a'), ext: [rgb('#6a5848'), rgb('#3e3028')] };
+const ST_KICK = { fill: band([[1, '#fffbe4'], [2, '#ffe773'], [3, '#ffcc3a'], [3, '#ffa42a'], [5, '#e8721e']]), hi: rgb('#fffff2'), hiK: 0.7, outline: rgb('#0e080c'), shadow: { dx: 1, dy: 1, c: rgb('#0a0610'), a: 0.7 } };
+
+// ------------------------------------------------------------------ sprite helpers
+// pixels of a canvas as { w, h, px: Uint32Array (0 = clear) }
+function spritePixels(cv) {
+  const x = cv.getContext('2d', { willReadFrequently: true }), d = x.getImageData(0, 0, cv.width, cv.height).data;
+  const px = new Uint32Array(cv.width * cv.height);
+  for (let i = 0; i < px.length; i++) px[i] = d[i * 4 + 3] > 127 ? (0xff000000 | (d[i * 4] << 16) | (d[i * 4 + 1] << 8) | d[i * 4 + 2]) >>> 0 : 0;
+  return { w: cv.width, h: cv.height, px };
+}
+// Scale2x (EPX): doubles a sprite, keeping its edges as pixel diagonals
+function epx(s) {
+  const W = s.w * 2, H = s.h * 2, o = new Uint32Array(W * H), g = (x, y) => (x < 0 || y < 0 || x >= s.w || y >= s.h ? 0 : s.px[y * s.w + x]);
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+    const P = g(x, y), A = g(x, y - 1), B = g(x + 1, y), C = g(x - 1, y), D = g(x, y + 1);
+    o[(2 * y) * W + 2 * x] = C === A && C !== D && A !== B ? A : P;
+    o[(2 * y) * W + 2 * x + 1] = A === B && A !== C && B !== D ? B : P;
+    o[(2 * y + 1) * W + 2 * x] = D === C && D !== B && C !== A ? C : P;
+    o[(2 * y + 1) * W + 2 * x + 1] = B === D && B !== A && D !== C ? D : P;
+  }
+  return { w: W, h: H, px: o };
+}
+// RotSprite-style rotation (radians, + = clockwise on screen), result at 1x
+const ROT_CACHE = new Map();
+function rotSprite(key, s, ang) {
+  const q = Math.round(ang / (Math.PI / 48)), k2 = key + '|' + q;
+  if (ROT_CACHE.has(k2)) return ROT_CACHE.get(k2);
+  const a = q * (Math.PI / 48), c = Math.cos(a), sn = Math.sin(a);
+  const big = s.big || (s.big = epx(epx(epx(s))));
+  const W = Math.ceil(Math.abs(s.w * c) + Math.abs(s.h * sn)) + 2, H = Math.ceil(Math.abs(s.w * sn) + Math.abs(s.h * c)) + 2;
+  const o = new Uint32Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = x + 0.5 - W / 2, dy = y + 0.5 - H / 2;
+    const sx = dx * c + dy * sn + s.w / 2, sy = -dx * sn + dy * c + s.h / 2;
+    const X = Math.floor(sx * 8), Y = Math.floor(sy * 8);
+    if (X >= 0 && Y >= 0 && X < big.w && Y < big.h) o[y * W + x] = big.px[Y * big.w + X];
+  }
+  const r = { w: W, h: H, px: o };
+  ROT_CACHE.set(k2, r);
+  return r;
+}
+// draw a sprite centred at (cx, cy), k output px per sprite px; flip = mirror; tint(x, y, rgb) -> rgb
+function drawSprite(F, s, cx, cy, k, { flip = false, tint = null, outline = null } = {}) {
+  const x0 = Math.round(cx - (s.w * k) / 2), y0 = Math.round(cy - (s.h * k) / 2);
+  const at = (x, y) => (x < 0 || y < 0 || x >= s.w || y >= s.h ? 0 : s.px[y * s.w + (flip ? s.w - 1 - x : x)]);
+  if (outline) for (let y = -1; y <= s.h; y++) for (let x = -1; x <= s.w; x++) {
+    if (at(x, y)) continue;
+    if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) F.block(x0 + x * k, y0 + y * k, k, outline);
+  }
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+    const v = at(x, y);
+    if (!v) continue;
+    let c = [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+    if (tint) c = tint(x0 + x * k, y0 + y * k, c);
+    F.block(x0 + x * k, y0 + y * k, k, c);
+  }
+}
+// a part render into the picture at (ox, oy), only where keep(x, y)
+function blitPart(F, P, ox, oy, keep = null) {
+  for (let y = 0; y < P.h; y++) {
+    const Y = y + oy;
+    if (Y < 0 || Y >= F.h) continue;
+    for (let x = 0; x < P.w; x++) {
+      const X = x + ox;
+      if (X < 0 || X >= F.w || (keep && !keep(X, Y))) continue;
+      const i = (y * P.w + x) * 4, o = (Y * F.w + X) * 4;
+      F.d[o] = P.d[i]; F.d[o + 1] = P.d[i + 1]; F.d[o + 2] = P.d[i + 2]; F.d[o + 3] = 255;
+    }
+  }
+}
+// a part's mask in picture coordinates (clipped by keep)
+function maskAt(m, pw, ph, W, H, ox, oy, keep = null) {
+  const out = new Uint8Array(W * H);
+  for (let y = 0; y < ph; y++) for (let x = 0; x < pw; x++) {
+    if (!m[y * pw + x]) continue;
+    const X = x + ox, Y = y + oy;
+    if (X < 0 || Y < 0 || X >= W || Y >= H || (keep && !keep(X, Y))) continue;
+    out[Y * W + X] = 1;
+  }
+  return out;
+}
+// clusters of a mask (the amber nuggets in the bluff): centres of ~cell x cell boxes that hold pixels
+function spotsOf(m, W, H, cell = 6) {
+  const out = [], seen = new Set();
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!m[y * W + x]) continue;
+    const k = Math.floor(x / cell) + ',' + Math.floor(y / cell);
+    if (seen.has(k)) continue;
+    seen.add(k); out.push([x, y]);
+  }
+  return out;
+}
+// water drops / foam bits flying out of a splash (age 0..1), pixel blocks
+function splashFx(F, x, y, age, seed, { n = 26, R = 46, Hh = 70, k = 2, gravity = 1, keep = null } = {}) {
+  if (age < 0 || age > 1) return;
+  const C = [rgb('#ffffff'), rgb('#e4fbff'), rgb('#a6ecfa'), rgb('#5ccbe6')];
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI * (0.08 + 0.84 * hash2(i, seed)), v = 0.45 + 0.55 * hash2(i + 50, seed);
+    const t = age;
+    const px = x + Math.cos(a) * R * v * t, py = y + Math.sin(a) * Hh * v * t * 2 + Hh * gravity * t * t * 1.4;
+    if (py > y + 4) continue;
+    const sz = (hash2(i + 9, seed) < 0.3 ? k + 1 : k) - (t > 0.7 ? 1 : 0);
+    if (sz <= 0) continue;
+    const X = Math.round(px), Y = Math.round(py);
+    if (keep && !keep(X, Y)) continue;
+    F.block(X, Y, sz, C[i % 4]);
+  }
+  // the foam crown on the surface: white spikes rising and falling
+  const crown = Math.sin(Math.min(1, age * 1.6) * Math.PI);
+  for (let j = -7; j <= 7; j++) {
+    const h = Math.round(crown * (10 - Math.abs(j) * 1.1) * (0.7 + 0.6 * hash2(j + 20, seed)));
+    for (let q = 0; q < h; q++) F.set(Math.round(x + j * 2.4), Math.round(y - q), q > h - 3 ? C[0] : C[1]);
+  }
+}
+
+// ------------------------------------------------------------------ the frame pipeline for part renders
+const DD = { spec: null, prep: null, fish: null };
+function ddStage(W, H, spec) {
+  Object.assign(stage.style, { width: W + 'px', height: H + 'px' });
+  const cv = el('canvas', 'px', { width: W + 'px', height: H + 'px' });
+  cv.width = W; cv.height = H;
+  Object.assign(DD, { cv, ctx: cv.getContext('2d'), W, H, spec });
+  // the hero: the game's Sabre-tooth salmon, Primordial Vial morph, 5 swim frames
+  DD.prep = import('../../src/game/fishSprites.js').then((FS) => {
+    DD.fish = [0, 1, 2, 3, 4].map((f) => spritePixels(FS.fishCanvasFor(spec.hero || 'sabertooth', { morph: 'ancient', frame: f, scale: 1 })));
+  });
+}
+async function ddFrame(i) {
+  const S = DD.spec, W = DD.W, H = DD.H;
+  const loads = [];
+  for (const p of S.parts) { loads.push(loadImg(partURL(p.name, null, i))); for (const m of p.masks || []) loads.push(loadImg(partURL(p.name, m, i))); }
+  const imgs = await Promise.all(loads);
+  let k = 0;
+  const parts = S.parts.map((p) => {
+    const img = imgs[k++];
+    const px = img ? sampleRender(img, p.w, p.h) : new Px(p.w, p.h);
+    const masks = {};
+    for (const m of p.masks || []) masks[m] = maskOf(imgs[k++], p.w, p.h);
+    return { ...p, px, masks };
+  });
+  const F = new Px(W, H);
+  S.draw(F, parts, (i % NF) / NF, i);
+  DD.ctx.putImageData(new ImageData(F.d, W, H), 0, 0);
+}
+const fishFrame = (fi) => DD.fish[Math.floor(fi / 2) % 5];
+// the leap: { x, y, ang, s } along an underwater run-up, an arc through the air and a dive back in
+function leapPath(ph, L) {
+  const s = since(ph, L.t0) / L.dur;
+  if (s > 1) return null;
+  const [ax, ay] = L.from, [bx, by] = L.breach, [ex, ey] = L.entry, [zx, zy] = L.to, a = L.air[0], b = L.air[1];
+  if (s < a) { const u = s / a; return { x: ax + (bx - ax) * u, y: ay + (by - ay) * u, ang: Math.atan2(by - ay, bx - ax), s, under: true }; }
+  if (s <= b) {
+    const u = (s - a) / (b - a);
+    const x = bx + (ex - bx) * u, y = by + (ey - by) * u - L.peak * 4 * u * (1 - u);
+    return { x, y, ang: Math.atan2((ey - by) - L.peak * 4 * (1 - 2 * u), ex - bx), s, under: false };
+  }
+  const u = (s - b) / (1 - b);
+  return { x: ex + (zx - ex) * u, y: ey + (zy - ey) * u, ang: Math.atan2(zy - ey, zx - ex), s, under: true };
+}
+// the "UPDATE" kicker: a riveted dark plate with a gold rim, the word in gold
+function kickerPlate(F, x, y, U, word, style, glint) {
+  const L = layout([{ text: word, x: 0, y: 0 }]), w = (L[L.length - 1].x + L[L.length - 1].adv) * U, h = 11 * U;
+  const x0 = x - 3 * U, y0 = y - 2 * U, x1 = x + w + 2 * U, y1 = y + h + 2 * U;
+  const C = { k: rgb('#0a0610'), r: rgb('#e8a83a'), R: rgb('#fff0b0'), p: rgb('#1c2238'), q: rgb('#262e4a') };
+  for (let Y = y0 - 1; Y <= y1 + 1; Y++) for (let X = x0 - 1; X <= x1 + 1; X++) {
+    const edge = Y === y0 - 1 || Y === y1 + 1 || X === x0 - 1 || X === x1 + 1;
+    const rim = Y === y0 || Y === y1 || X === x0 || X === x1;
+    if ((Y === y0 - 1 || Y === y1 + 1) && (X === x0 - 1 || X === x1 + 1)) continue;
+    F.set(X, Y, edge ? C.k : rim ? (Y === y0 || X === x0 ? C.R : C.r) : ((X + Y) & 3) === 0 ? C.q : C.p);
+  }
+  for (const [X, Y] of [[x0 + 2, y0 + 2], [x1 - 2, y0 + 2], [x0 + 2, y1 - 2], [x1 - 2, y1 - 2]]) { F.set(X, Y, C.R); F.set(X + 1, Y, C.r); F.set(X, Y + 1, C.r); }
+  drawLetters(F, L, x, y, U, style, null, glint);
+  return [x0, y0, x1, y1];
+}
+// sun motes: 1 px specks drifting up through the warm light (loop-periodic)
+function motes(F, n, box, ph, keep, seed = 3) {
+  const C = [rgb('#fff6c8'), rgb('#ffe08a'), rgb('#ffd060')];
+  for (let i = 0; i < n; i++) {
+    const u = (ph + hash2(i, seed)) % 1;
+    const x = Math.round(box[0] + hash2(i + 7, seed) * (box[2] - box[0]) + Math.sin((u + hash2(i, 9)) * TAU) * 6);
+    const y = Math.round(box[3] - u * (box[3] - box[1]));
+    if (keep && !keep(x, y)) continue;
+    const tw = Math.sin(u * TAU * 3 + i) > -0.3;
+    if (tw) F.set(x, y, C[i % 3]);
+    if (tw && i % 5 === 0) { F.set(x + 1, y, C[2], 0.6); F.set(x - 1, y, C[2], 0.6); F.set(x, y - 1, C[2], 0.6); F.set(x, y + 1, C[2], 0.6); }
+  }
+}
+// gold glints popping on the amber in the bluff (spots from its glow mask)
+function amberGlints(F, spots, ph, U = 1) {
+  if (!spots.length) return;
+  const N = Math.min(7, spots.length);
+  for (let k = 0; k < N; k++) {
+    const s = spots[Math.floor(hash2(k, 77) * spots.length)];
+    const age = Math.round(since(ph, k / N + 0.03) * NF);
+    const size = [1, 2, 3, 2, 1][age];
+    if (size) star(F, s[0], s[1], U, size, [255, 255, 236], [255, 196, 60]);
+  }
+}
+
+// ------------------------------------------------------------------ the cover (630 x 500)
+// The Dig above the waterline, the Dive below. "The Bear Must Eat" + "DIG &" (amber gold) over the
+// dig, the "UPDATE" kicker + "DIVE" (lake teal) over the dive. The sabre-tooth races up past Reynard,
+// breaks the surface, arcs over the yard in slow motion and dives back in behind "DIVE".
+// Loop (3.2 s): breach at ~0.32, the title hops letter by letter off the splash, entry at ~0.69.
+function ddthumb() {
+  const W = 630, H = 500;
+  const [dig, dive] = PARTS.length ? PARTS : ['ddThumbDig', 'ddThumbDive'];
+  const yW0 = (x) => 264 - (x - 315) * 0.03;
+  const yW = (x, ph) => Math.round(yW0(x) + 2.2 * Math.sin((x / 37 + ph) * TAU) + 1.2 * Math.sin((x / 13 - ph * 2) * TAU));
+  const LEAP = { t0: 0.1, dur: 0.82, from: [176, 560], breach: [262, yW0(262) + 6], entry: [454, yW0(454) + 6], to: [552, 560], air: [0.27, 0.73], peak: 150 };
+  const tB = LEAP.t0 + LEAP.air[0] * LEAP.dur, tE = LEAP.t0 + LEAP.air[1] * LEAP.dur;
+  const TT = lazy(() => layout([{ text: 'The Bear Must Eat', x: 0, y: 0 }]));
+  const T1 = lazy(() => layout([{ text: 'DIG &', x: 0, y: 0 }]));
+  const T2 = lazy(() => layout([{ text: 'DIVE', x: 0, y: 0 }]));
+  const HOP = { start: tB + 0.02, stagger: 0.03, dur: 0.15, H: 2 };
+  ddStage(W, H, {
+    hero: 'sabertooth',
+    parts: [{ name: dig, w: 630, h: 310, ox: 0, oy: 0, masks: ['snapp', 'bluffGlow'] }, { name: dive, w: 630, h: 280, ox: 0, oy: 220, masks: ['fox'] }],
+    draw(F, [Pd, Pv], ph, fi) {
+      const above = (x, y) => y < yW(x, ph);
+      grade(Pd.px, { sat: 1.12, con: 1.05, warm: 6 });
+      grade(Pv.px, { sat: 1.1, con: 1.06, warm: -3 });
+      blitPart(F, Pv.px, Pv.ox, Pv.oy);
+      blitPart(F, Pd.px, Pd.ox, Pd.oy, above);
+      // above the waterline: warm god rays from the low sun (upper left), sun motes, amber glints
+      godRays(F, -60, -40, { rays: 16, R: 760, k: 0.34, width: 0.4, rot: 0.08, mask: (x, y) => (above(x, y) ? 1 : 0) });
+      const snapp = maskAt(Pd.masks.snapp, Pd.w, Pd.h, W, H, Pd.ox, Pd.oy, above);
+      const glow = maskAt(Pd.masks.bluffGlow, Pd.w, Pd.h, W, H, Pd.ox, Pd.oy, above);
+      const fox = maskAt(Pv.masks.fox, Pv.w, Pv.h, W, H, Pv.ox, Pv.oy, (x, y) => !above(x, y));
+      rings(F, snapp, W, H, [{ r: 1, c: rgb('#fff2cf') }]);
+      rings(F, fox, W, H, [{ r: 1, c: rgb('#e6fdff') }]);
+      vignette(F, null, { r: 0.5, k: 1.1, top: [0.2, 0.55], bottom: [0.86, 0.75], max: 0.75 });
+      motes(F, 34, [250, 140, 630, 270], ph, above);
+      amberGlints(F, spotsOf(glow, W, H, 7), ph, 1);
+      // the waterline: dark edge, a pale foam crest, a dithered shimmer band under it
+      for (let x = 0; x < W; x++) {
+        const y = yW(x, ph);
+        F.set(x, y - 2, rgb('#ffffff'), 0.55);
+        F.set(x, y - 1, rgb('#f2fdff'));
+        F.set(x, y, rgb('#9ee6f6'));
+        F.set(x, y + 1, rgb('#0c3a52'));
+        for (let q = 2; q < 7; q++) if (dither(x, y + q, 0.35 - q * 0.05)) F.set(x, y + q, rgb('#bff2fb'), 0.5);
+      }
+      // the hero leap
+      const f = leapPath(ph, LEAP);
+      if (f) {
+        const s = rotSprite('sabre' + (Math.floor(fi / 2) % 5), fishFrame(fi), f.ang);
+        const tint = (x, y, c) => (y >= yW(x, ph) ? mixc(c, [38, 120, 150], 0.38) : c);
+        drawSprite(F, s, f.x, f.y, 3, { tint, outline: rgb('#0a0a14') });
+        // a bubble trail under water
+        if (f.under) for (let b = 1; b <= 4; b++) { const bx = Math.round(f.x - Math.cos(f.ang) * (40 + b * 14) + Math.sin(fi + b) * 3), by = Math.round(f.y - Math.sin(f.ang) * (40 + b * 14)); if (by > yW(bx, ph) + 3) { F.set(bx, by, rgb('#e8fdff')); F.set(bx + 1, by, rgb('#7ad8ee')); } }
+      }
+      splashFx(F, LEAP.breach[0], yW0(LEAP.breach[0]) - 1, since(ph, tB) / 0.24, 11, { n: 30, R: 54, Hh: 64, k: 3 });
+      splashFx(F, LEAP.entry[0], yW0(LEAP.entry[0]) - 1, since(ph, tE) / 0.24, 23, { n: 30, R: 54, Hh: 70, k: 3 });
+      // titles
+      drawLetters(F, TT(), 16, 10, 2, ST_KICK, null, glintAt(ph, 0.55, 0.85, -10, 150, 3));
+      drawLetters(F, T1(), 12, 38, 6, ST_DIG, (L) => ({ dy: hopAt(ph, L.i, HOP), col: L.ch === '&' ? ST_AMP.fill : null }), glintAt(ph, 0.02, 0.3, -12, 60, 3));
+      sparkles(F, [[14, 40, 0.06], [12 + 22 * 6, 44, 0.2], [12 + 40 * 6, 96, 0.5], [12 + 9 * 6, 112, 0.78]], ph, 2);
+      kickerPlate(F, 630 - 14 - 59 * 2, 362, 2, 'UPDATE', ST_KICK, glintAt(ph, 0.8, 1.0, -10, 70, 2));
+      const bob = (L) => { const w = Math.sin((ph * 2 - L.i * 0.18) * TAU); return { dy: w > 0.75 ? -1 : w < -0.75 ? 1 : 0 }; };
+      drawLetters(F, T2(), 630 - 12 - 35 * 6, 394, 6, ST_DIVE, bob, glintAt(ph, 0.4, 0.7, -12, 50, 3));
+      sparkles(F, [[630 - 14, 398, 0.33], [630 - 12 - 35 * 6 + 8, 452, 0.62]], ph, 2);
+    },
+  });
+}
+
+function ddbanner() { /* below */ }
+const SCENES = { thumb, banner, fsthumb, fsbanner, cinethumb, cinebanner, ddthumb, ddbanner };
 SCENES[kind]?.();
 if (CINE.scene) window.setFrame = (i) => cineFrame(i);
+if (DD.spec) window.setFrame = (i) => ddFrame(i);
 
 // ready once fonts and every image are in
 const urls = [];
 if (ANIM_NAME) for (let i = 0; i < NF; i++) for (const d of stage.querySelectorAll('[data-src],[data-mask]')) { if (d.dataset.src) urls.push(R(d.dataset.src, i)); if (d.dataset.mask) urls.push(R(d.dataset.mask, i)); }
 window.__imgs = [];
 urls.push(...[...stage.querySelectorAll('*')].flatMap((e) => [e.style.backgroundImage, e.style.maskImage, e.style.webkitMaskImage]).filter(Boolean).flatMap((s) => [...s.matchAll(/url\("?([^")]+)"?\)/g)].map((m) => m[1])));
-Promise.all([document.fonts.ready, document.fonts.load("40px 'TBME Title'"), CINE.scene && document.fonts.load('16px Alagard'), ...[...new Set(urls)].map((u) => new Promise((res) => { const i = new Image(); window.__imgs.push(i); i.onload = i.onerror = res; i.src = u; }))])
-  .then(() => (CINE.scene ? cineFrame(0) : null))
+Promise.all([document.fonts.ready, document.fonts.load("40px 'TBME Title'"), (CINE.scene || DD.spec) && document.fonts.load('16px Alagard'), ...[...new Set(urls)].map((u) => new Promise((res) => { const i = new Image(); window.__imgs.push(i); i.onload = i.onerror = res; i.src = u; }))])
+  .then(() => DD.prep)
+  .then(() => (CINE.scene ? cineFrame(0) : DD.spec ? ddFrame(0) : null))
   .then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
   .then(() => { window.__ready = true; });

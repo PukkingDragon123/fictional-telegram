@@ -95,7 +95,8 @@ async function renderAnim(name) {
 async function compositeAnim(name, dsf, outDir) {
   const P = PRESETS[name], Z = SIZES[P.kind], N = P.opts.loop.frames;
   const page = await newPage(Z.css[0], Z.css[1], dsf);
-  await page.goto(`${URL0}/tools/promo/promo.html?kind=${P.kind}&anim=${name}&n=${N}&t=${Date.now()}`, { waitUntil: 'load' });
+  const parts = P.parts ? `&parts=${P.parts.join(',')}` : ''; // [v5] multi-part pictures
+  await page.goto(`${URL0}/tools/promo/promo.html?kind=${P.kind}&anim=${name}&n=${N}${parts}&t=${Date.now()}`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 120000 });
   fs.mkdirSync(outDir, { recursive: true });
   const files = [];
@@ -114,6 +115,7 @@ const SIZES = { thumb: { css: [630, 500], files: ['itch-thumbnail-630x500.png', 
   banner: { css: [960, 240], files: ['itch-banner-960x240.png', 'itch-banner-1920x480.png'] } };
 SIZES.fsthumb = SIZES.thumb; SIZES.fsbanner = SIZES.banner;
 SIZES.cinethumb = SIZES.thumb; SIZES.cinebanner = SIZES.banner; // [v4 cinematic]
+SIZES.ddthumb = SIZES.thumb; SIZES.ddbanner = SIZES.banner; // [v5 dig & dive]
 async function composite(kind) {
   const Z = SIZES[kind];
   fs.mkdirSync(OUT, { recursive: true });
@@ -134,14 +136,20 @@ const LOOP_FRAMES = (n) => LOOP_FRAMES0[n];
 if (what === 'gif') {
   const out = process.argv[4] && !process.argv[4].startsWith('--') ? path.resolve(process.argv[4]) : path.join(OUT, 'v1');
   const big = process.argv.includes('--big');
-  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : which === 'fs' ? ['fsThumbAnim', 'fsBannerAnim'] : which === 'cine' ? ['cineThumbAnim', 'cineBannerAnim'] : [which];
+  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : which === 'fs' ? ['fsThumbAnim', 'fsBannerAnim'] : which === 'cine' ? ['cineThumbAnim', 'cineBannerAnim'] : which === 'dd' ? ['ddThumbAnim', 'ddBannerAnim'] : [which];
   const { execFileSync } = await import('child_process');
   // [v4] --frames N: a quick preview with fewer frames over the same loop; --big-only: just the 2x banner
   const fa = process.argv.indexOf('--frames'), nFrames = fa > 0 ? +process.argv[fa + 1] : 0;
+  // [v5] --only <part>: render just that part of a multi-part preset (the rest is reused)
+  const oa = process.argv.indexOf('--only'), only = oa > 0 ? process.argv[oa + 1].split(',') : null;
   for (const n of names) {
     const P = PRESETS[n], Z = SIZES[P.kind];
-    if (nFrames) { P.opts.loop = { ...P.opts.loop, frames: nFrames }; P.still = Math.round(((P.still || 0) / LOOP_FRAMES(n)) * nFrames) % nFrames; }
-    if (!process.argv.includes('--no-render')) await renderAnim(n);
+    const parts = P.parts || [n];
+    if (nFrames) {
+      P.still = Math.round(((P.still || 0) / LOOP_FRAMES(n)) * nFrames) % nFrames;
+      for (const q of new Set([n, ...parts])) PRESETS[q].opts.loop = { ...PRESETS[q].opts.loop, frames: nFrames };
+    }
+    if (!process.argv.includes('--no-render')) for (const q of parts) if (!only || only.includes(q)) await renderAnim(q);
     const tmp = path.join(REN, 'anim', 'comp');
     const sizes = process.argv.includes('--big-only') ? [] : [[1, Z.files[0]]];
     if (big && Z === SIZES.banner) sizes.push([2, Z.files[1]]);

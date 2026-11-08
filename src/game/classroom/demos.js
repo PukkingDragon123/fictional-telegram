@@ -606,8 +606,8 @@ class NurseryDemo extends Demo {
       if (this._ht <= 0) { this._ht = 0.55; const mid = dad.root.position.clone().lerp(mum.root.position, 0.5); this.emit('heart', mid.add(new THREE.Vector3(0, 0.06, 0)), { vel: [0, 0.09, 0], life: 1.3, texel: 0.0042 }); this.sfx?.('heart', { volume: 0.12, pitch: 1.4 }); }
     } else if (b === 'lay') {
       // mum quivers low over the nest and drops eggs; dad right beside her, a milky cloud fertilizes them
-      place(mum, N.x - 0.02 + Math.sin(t * 9) * 0.004, N.y + 0.07, N.z, N.x + 1, N.z, 2.5);
-      place(dad, N.x + 0.03, N.y + 0.12, N.z + 0.05, N.x + 1, N.z + 0.05, 2.5);
+      place(mum, N.x - 0.02 + Math.sin(t * 9) * 0.004, N.y + 0.07, N.z - 0.07, N.x + 1, N.z - 0.07, 2.5);
+      place(dad, N.x + 0.04, N.y + 0.13, N.z - 0.15, N.x + 1, N.z - 0.15, 2.5);
       mum.speed = 16; dad.speed = 10;
       if (bt > 0.8 && this.laid < this.eggs.length) {
         this._lt = (this._lt || 0) - dt;
@@ -621,7 +621,7 @@ class NurseryDemo extends Demo {
       if (bt > 2.2 && bt < 4.5) { this._mt = (this._mt || 0) - dt; if (this._mt <= 0) { this._mt = 0.12; this.emit('spark', N.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.18, 0.04 + Math.random() * 0.04, (Math.random() - 0.5) * 0.1)), { vel: [0, 0.03, 0], life: 0.9, texel: 0.003 }); } }
     } else if (b === 'guard' || b === 'develop' || b === 'cold' || b === 'hatch') {
       // dad hovers over the nest fanning it with his tail (fresh, oxygen-rich water); mum is gone
-      place(dad, N.x + Math.sin(t * 0.7) * 0.05, N.y + 0.11, N.z - 0.02, N.x + Math.sin(t * 0.7 + 1) * 0.1 + 0.2, N.z, 2);
+      place(dad, N.x + Math.sin(t * 0.7) * 0.05, N.y + 0.12, N.z - 0.15, N.x + Math.sin(t * 0.7 + 1) * 0.1 + 0.2, N.z - 0.15, 2);
       dad.speed = b === 'cold' ? 5 : 13; dad.amp = 0.1;
       place(mum, 0.4, 0.42, -0.15, 0.6, -0.2, 0.8); mum.speed = 4;
       if (b !== 'cold' && Math.random() < dt * 4) this.emit('bubble', N.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.2, 0.02, (Math.random() - 0.5) * 0.1)), { vel: [0, 0.05, 0], life: 1, texel: 0.0025 });
@@ -719,22 +719,27 @@ function logMesh(len = 9, r = 1.2, cap = 0xe8c890) {
 }
 
 // ------------------------------------------------------------------ dam: a stream becomes a wetland
-const sxDam = (z) => Math.round(Math.sin(z * 0.17) * 2.5 - 1);
+// The stream runs from a hill at the back (z-) down a little fall, through a shallow meadow basin
+// in the middle, over a low front bank where the beaver builds, and out at the front edge. Water
+// levels are plane heights in VD units: a plane at L covers every column whose top (h + 1) is under L.
+const sxDam = (z) => Math.round(Math.sin(z * 0.2 + 0.6) * 2.2);
+const DAMZ = 9; // the dam line
+const LV = { stream: 5.6, pond: 10.6, inflow: 13.5, down: 5.4 };
 function damH(x, z) {
   const n = hash2(x >> 1, z >> 1, 3);
   const dx = x - sxDam(z), ad = Math.abs(dx);
-  const bx = x / 18.5, bz = (z + 5) / 9.2;
+  const bx = x / 19.5, bz = (z + 2) / 11.5;
   const ib = bx * bx + bz * bz;
   let h;
-  if (ib < 1) h = 7 + Math.round(Math.max(0, ib - 0.72) * 12 + n * 0.8);
-  else h = 11 + Math.round(Math.min(5, (ib - 1) * 6) + n * 1.4);
-  if (z < -13) h = Math.max(h, 12 + Math.round(n));
-  // the stream bed and its banks
+  if (ib < 1) h = 7 + Math.round(Math.max(0, ib - 0.7) * 9 + n * 0.7); // the meadow floor, 7..9
+  else h = 11 + Math.round(Math.min(4, (ib - 1) * 5) + n * 1.2); // the rim, 11..15
+  if (z < -13) h = Math.max(h, 13 + Math.round(n * 2)); // the hill at the back
+  if (z >= DAMZ && ib >= 1) h = Math.min(h, 10 + Math.round(n)); // the low front bank (holds the pond)
   if (z >= -13) {
-    if (ad <= 1.5) h = Math.min(h, 4);
+    if (ad <= 1.5) h = Math.min(h, 4); // stream bed
     else if (ad <= 2.6) h = Math.min(h, 5);
-    else if (ad <= 3.6 && z > 4) h = Math.min(h, 7 + Math.round(n));
-  } else if (ad <= 1.5) h = Math.min(h, 10); // the inflow up on the back hill
+    else if (z > DAMZ + 1 && ad <= 4) h = Math.min(h, 7); // downstream banks
+  } else if (ad <= 1.5) h = Math.min(h, 12); // the inflow ledge up on the hill
   return h;
 }
 class DamDemo extends Demo {
@@ -746,55 +751,55 @@ class DamDemo extends Demo {
       const ad = Math.abs(x - sxDam(z));
       if (h <= 5 && z >= -13) return hash2(x, z, 9) < 0.3 ? 0xc8b08a : 0xa89070; // stream bed: sand and pebbles
       if (z < -13 && ad <= 1.5) return 0x8a8078;
-      if (h >= 11 && hash2(x, z, 2) < 0.05) return pickC([0xffffff, 0xf2c230, 0xe86a9a], hash2(z, x, 3)); // flowers
+      if (hash2(x, z, 2) < 0.05) return pickC([0xffffff, 0xf2c230, 0xe86a9a], hash2(z, x, 3)); // flowers
       if (ad <= 3.6 && h <= 8) return pickC(DIRT, hash2(x, z, 5));
       return pickC(GRASS, hash2(x >> 1, z, 4));
     });
-    // trees on the hills, chewed stumps and a log pile on the left bank
-    for (const [x, z, h] of [[-22, -15, 13], [-17, -16, 10], [21, -15, 14], [16, -16, 9], [23, 12, 11], [-23, 13, 12], [12, 14, 8]]) pine(R, x, damH(x, z) + 1, z, h, x * 3 + z);
-    for (const [x, z, h] of [[-20, 4, 7], [19, 2, 8], [-12, 15, 6]]) birch(R, x, damH(x, z) + 1, z, h);
-    stump(R, -16, damH(-16, 9) + 1, 9); stump(R, -21, damH(-21, 11) + 1, 11); stump(R, -12, damH(-12, 12) + 1, 12);
-    const pileY = damH(-15, 6) + 1;
-    for (const [dy, dz] of [[0, 0], [0, 2], [1, 1]]) for (let x = -19; x <= -13; x++) { R.set(x, pileY + dy, 5 + dz, x === -19 || x === -13 ? 0xe8c890 : 0x7a4a2a); }
-    // rocks on the banks
-    for (const [x, z] of [[-6, -9], [7, -3], [5, 10], [-9, 8], [10, -11]]) R.ellipsoid(x, damH(x, z) + 1, z, 1.4, 1, 1.2, (xx, yy, zz) => pickC(ROCK, hash3(xx, yy, zz, 1)));
+    // trees at the back and on the left; the front stays open for the camera
+    for (const [x, z, h] of [[-22, -16, 13], [-16, -16, 10], [-9, -17, 12], [9, -17, 11], [16, -16, 10], [22, -15, 14], [-23, -6, 11], [23, -4, 9]]) pine(R, x, damH(x, z) + 1, z, h, x * 3 + z);
+    for (const [x, z, h] of [[-20, 3, 8], [20, -9, 7], [-23, 12, 6]]) birch(R, x, damH(x, z) + 1, z, h);
+    for (const [x, z] of [[-17, 14], [-21, 9], [-13, 15]]) stump(R, x, damH(x, z) + 1, z);
+    const pileY = damH(-15, 12) + 1;
+    for (const [dy, dz] of [[0, 0], [0, 2], [1, 1]]) for (let x = -18; x <= -12; x++) R.set(x, pileY + dy, 11 + dz, x === -18 || x === -12 ? 0xe8c890 : 0x7a4a2a);
+    for (const [x, z] of [[-8, -9], [9, -5], [6, 13], [-10, 3], [12, -11]]) R.ellipsoid(x, damH(x, z) + 1, z, 1.4, 1, 1.2, (xx, yy, zz) => pickC(ROCK, hash3(xx, yy, zz, 1)));
     g.add(vmesh(R));
-    // water: the inflow up the hill, the waterfall, the basin (rises), downstream
+    // water planes
     const wplane = (x0, x1, z0, z1, y) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry((x1 - x0 + 1) * VD, (z1 - z0 + 1) * VD), mats().water);
       m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1 + 1) / 2 * VD, y, (z0 + z1 + 1) / 2 * VD); m.renderOrder = 2;
       g.add(m); return m;
     };
-    this.inflow = wplane(-4, 3, LZ0, -14, 10.7 * VD);
-    this.basin = wplane(-21, 20, -14, 4, 5.4 * VD);
-    this.down = wplane(-8, 6, 5, LZ1, 5.2 * VD);
+    this.inflow = wplane(sxDam(-16) - 2, sxDam(-16) + 2, LZ0, -14, LV.inflow * VD);
+    this.basin = wplane(-21, 20, -14, DAMZ, LV.stream * VD);
+    this.down = wplane(-8, 8, DAMZ + 1, LZ1, LV.down * VD);
     this.fall = new THREE.Mesh(new THREE.PlaneGeometry(3 * VD, 1), mats().fall);
-    this.fall.position.set(sxDam(-13.5) * VD + VD * 0.5, 0, -13.5 * VD); this.fall.renderOrder = 3;
+    this.fall.position.set((sxDam(-13.5) + 0.5) * VD, 0, -13.6 * VD); this.fall.renderOrder = 3;
     g.add(this.fall);
-    this.level = 5.4; this.levelGoal = 5.4;
-    // the dam: logs stacked across the channel at z 3..5 (appear one by one), then mud packed on top
+    this.level = LV.stream; this.levelGoal = LV.stream;
+    // the dam: logs across the channel (they appear one by one), then mud packed in on top
     this.damLogs = [];
-    const dcx = sxDam(4);
-    const spots = [[dcx - 4, 5, 3.5, 0.05], [dcx - 1, 5, 4.6, -0.08], [dcx - 4, 6.6, 4.2, 0.1], [dcx - 2, 7.6, 3.4, -0.06], [dcx - 5, 8.3, 4.5, 0.12], [dcx - 1, 9.2, 4, -0.1]];
+    const dcx = sxDam(DAMZ);
+    this.dcx = dcx;
+    const spots = [[dcx - 4, 4.6, DAMZ - 0.6, 0.05], [dcx - 4, 4.8, DAMZ + 0.8, -0.06], [dcx - 5, 6.4, DAMZ, 0.1], [dcx - 3, 7.8, DAMZ - 0.4, -0.08], [dcx - 4, 9, DAMZ + 0.4, 0.06]];
     for (const [x, y, z, rz] of spots) {
       const m = vmesh(logMesh(9, 1.3), mats().lit, { pivot: [0, 0, 0] });
       m.position.set(x * VD, (y + 1) * VD, z * VD); m.rotation.y = rz; m.visible = false;
       g.add(m); this.damLogs.push(m);
     }
     const mud = new VoxelModel();
-    for (let x = dcx - 5; x <= dcx + 5; x++) for (let z = 3; z <= 5; z++) for (let y = 5; y <= 10; y++) {
+    for (let x = dcx - 4; x <= dcx + 4; x++) for (let z = DAMZ - 1; z <= DAMZ + 1; z++) for (let y = 5; y <= 10; y++) {
       if (y > 9 && (x + z) % 2) continue;
       mud.set(x, y, z, hash3(x, y, z, 2) < 0.2 ? 0x8a5634 : hash3(x, y, z, 3) < 0.15 ? 0x5a8a3a : 0x6a4a30);
     }
-    for (let x = dcx - 5; x <= dcx + 5; x += 2) mud.set(x, 11, 4, 0x8a6a40); // sticks poking out
+    for (let x = dcx - 4; x <= dcx + 4; x += 2) mud.set(x, 11, DAMZ, 0x8a6a40); // sticks poking out
     this.mud = vmesh(mud); this.mud.visible = false; g.add(this.mud);
     // the beaver
     this.bv = new BeaverChibi({ outfit: 'overalls', seed: 7, shadows: true });
     this.bv.root.scale.setScalar(0.24);
     this.own(this.bv);
     g.add(this.bv.root);
-    this.pile = new THREE.Vector3(-14 * VD, (pileY + 1) * VD, 7.5 * VD);
-    this.damL = new THREE.Vector3((dcx - 5.5) * VD, 0, 4.2 * VD);
+    this.pile = new THREE.Vector3(-13.5 * VD, (pileY + 1) * VD, 14.5 * VD);
+    this.damL = new THREE.Vector3((dcx - 6) * VD, 0, (DAMZ + 1.5) * VD);
     this.bvPos = this.pile.clone(); this.bvHead = 0;
     this.bv.play('idle', { loop: true, fade: 0 });
     // wetland life (pops in on 'wetland')
@@ -802,49 +807,48 @@ class DamDemo extends Demo {
     const addLife = (obj, delay) => { obj.visible = false; g.add(obj); this.life.push({ obj, delay }); };
     const catt = (x, z) => {
       const v = new VoxelModel();
-      for (let k = 0; k < 4; k++) { const ox = k % 2, oz = (k >> 1) - 0; const hh = 6 + ((x + k) % 3); for (let y = 0; y < hh; y++) v.set(ox * 2, y, oz, y > hh - 3 ? 0x6a3a1a : 0x5a9a3a); v.set(ox * 2, hh, oz, 0x8ab04a); }
+      for (let k = 0; k < 4; k++) { const ox = k % 2, oz = k >> 1; const hh = 6 + ((x + k) % 3); for (let y = 0; y < hh; y++) v.set(ox * 2, y, oz, y > hh - 3 ? 0x6a3a1a : 0x5a9a3a); v.set(ox * 2, hh, oz, 0x8ab04a); }
       for (let y = 0; y < 4; y++) { v.set(-1, y, 1, 0x7ac04a); v.set(3, y, -1, 0x6ab03a); }
-      const m = vmesh(v); m.position.set(x * VD, 9 * VD, z * VD); return m;
+      const m = vmesh(v); m.position.set(x * VD, (damH(x, z) + 1) * VD, z * VD); return m;
     };
     let dl = 0.2;
-    for (const [x, z] of [[-15, -8], [-13, -3], [14, -6], [16, -1], [-8, -12], [9, -12], [-17, 0], [3, 1]]) addLife(catt(x, z), dl += 0.12);
+    for (const [x, z] of [[-16, -7], [-15, 1], [15, -6], [17, 0], [-9, -11], [8, -12], [-18, -3], [4, 6]]) addLife(catt(x, z), dl += 0.12);
     const lily = (x, z, flower) => {
       const v = new VoxelModel();
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { if (dx * dx + dz * dz > 5 || (dx === 1 && dz === 0) || (dx === 2 && dz === 0)) continue; v.set(dx, 0, dz, (dx + dz) % 3 ? 0x4a9a3a : 0x5aaa44); }
       if (flower) { v.set(0, 1, 0, 0xf6a8c4); v.set(-1, 1, 0, 0xffffff); v.set(0, 1, 1, 0xf6a8c4); v.set(0, 2, 0, 0xffe070); }
-      const m = vmesh(v, mats().lit, { cast: false }); m.position.set(x * VD, 10.05 * VD, z * VD); return m;
+      const m = vmesh(v, mats().lit, { cast: false }); m.position.set(x * VD, (LV.pond + 0.05) * VD, z * VD); return m;
     };
-    for (const [x, z, f] of [[-6, -6, true], [6, -9, false], [10, -3, true], [-3, -10, false], [-10, -4, false], [2, -5, true]]) addLife(lily(x, z, f), dl += 0.1);
+    for (const [x, z, f] of [[-6, -4, true], [6, -7, false], [10, 0, true], [-3, -9, false], [-11, -1, false], [2, 2, true]]) addLife(lily(x, z, f), dl += 0.1);
     // a frog on a lily pad
     const fv = new VoxelModel();
     fv.box(-1, 0, -1, 1, 1, 1, 0x5ab040); fv.box(-1, 2, 0, 1, 2, 1, 0x6ac04a); fv.set(-1, 3, 1, 0xffffff); fv.set(1, 3, 1, 0xffffff); fv.set(-1, 3, 2, 0x1a1a1a); fv.set(1, 3, 2, 0x1a1a1a);
     fv.set(-2, 0, 1, 0x4a9a30); fv.set(2, 0, 1, 0x4a9a30); fv.set(0, 1, 2, 0xe8d890);
-    this.frog = vmesh(fv); this.frog.position.set(-6 * VD, 11 * VD, -6 * VD); this.frog.scale.setScalar(0.8);
+    this.frog = vmesh(fv); this.frog.position.set(-6 * VD, (LV.pond + 1) * VD, -4 * VD); this.frog.scale.setScalar(0.8);
     addLife(this.frog, dl += 0.2);
     // a mallard drake paddling across the new pond
     try {
       this.duck = new Duck({ sex: 'm', breed: 'mallard', shadows: false, fx: false });
-      this.duck.root.scale.setScalar(0.32);
+      this.duck.root.scale.setScalar(0.3);
       this.duck.play?.('swim', { loop: true, fade: 0 });
       this.own(this.duck);
       addLife(this.duck.root, dl += 0.3);
     } catch { this.duck = null; }
-    // fish in the pond (little voxel fish under the surface)
+    // fish in the pond
     this.pondFish = [];
     for (let i = 0; i < 3; i++) {
       const f = new DemoFish(fishModel(i === 1 ? 'pumpkinseed' : 'bluegill', { L: 9, H: 6, W: 3 }), 0.009);
       f.speed = 9; this.own(f); addLife(f.root, dl += 0.15);
       this.pondFish.push({ f, ph: i * 2.1 });
     }
-    this.flies = [];
-    this.tag('dam', 'DAM', new THREE.Vector3((dcx - 2) * VD, 0.42, 9 * VD), new THREE.Vector3(dcx * VD, 9.5 * VD, 4.5 * VD));
-    this.tag('pond', 'NEW POND', new THREE.Vector3(-0.3, 0.46, -0.05), new THREE.Vector3(-6 * VD, 10 * VD, -5 * VD));
-    this.tag('wetland', 'WETLAND', new THREE.Vector3(0.3, 0.44, -0.1), new THREE.Vector3(14 * VD, 10 * VD, -6 * VD));
-    this.tag('stream', 'STREAM', new THREE.Vector3(0.24, 0.3, 0.3), new THREE.Vector3(sxDam(12) * VD, 5.5 * VD, 12 * VD));
+    this.tag('dam', 'DAM', new THREE.Vector3((dcx + 9) * VD, 0.32, (DAMZ + 9) * VD), new THREE.Vector3((dcx + 2) * VD, 10.5 * VD, DAMZ * VD));
+    this.tag('pond', 'NEW POND', new THREE.Vector3(-0.32, 0.46, 0.0), new THREE.Vector3(-5 * VD, 10.6 * VD, -3 * VD));
+    this.tag('wetland', 'WETLAND', new THREE.Vector3(0.26, 0.48, -0.12), new THREE.Vector3(15 * VD, 10.6 * VD, -5 * VD));
+    this.tag('stream', 'STREAM', new THREE.Vector3(0.18, 0.34, 0.06), new THREE.Vector3(sxDam(-4) * VD, 5.6 * VD, -4 * VD));
   }
   onBeat(b) {
     if (b === 'stream') {
-      this.levelGoal = 5.4; this.level = 5.4; this.placed = 0;
+      this.levelGoal = LV.stream; this.level = LV.stream; this.placed = 0;
       for (const m of this.damLogs) m.visible = false; this.mud.visible = false;
       for (const l of this.life) l.obj.visible = false;
       this.bvPos.copy(this.pile); this.trip = null;
@@ -853,7 +857,7 @@ class DamDemo extends Demo {
     if (b === 'wetland') {
       for (let i = this.placed || 0; i < this.damLogs.length; i++) this.pop(this.damLogs[i], i * 0.05);
       this.placed = this.damLogs.length; if (!this.mud.visible) this.pop(this.mud, 0.2);
-      this.levelGoal = 9.6;
+      this.levelGoal = LV.pond;
       for (const l of this.life) this.pop(l.obj, l.delay + 0.5, 0.4);
       this.trip = null;
     }
@@ -873,25 +877,26 @@ class DamDemo extends Demo {
       let a = Math.atan2(d.z, d.x) - this.bvHead; a = Math.atan2(Math.sin(a), Math.cos(a)); this.bvHead += a * Math.min(1, dt * 8);
       return false;
     };
-    if (tr && (b === 'build')) {
+    const N = this.damLogs.length;
+    if (tr && b === 'build') {
       tr.t += dt;
-      if (tr.phase === 'load') { anim = 'pickup'; if (tr.t > 0.5) { tr.phase = 'carry'; tr.t = 0; } }
-      else if (tr.phase === 'carry') { anim = 'carry_log'; if (goto(this.damL, 0.2)) { tr.phase = 'drop'; tr.t = 0; } }
+      if (tr.phase === 'load') { anim = 'pickup'; if (tr.t > 0.45) { tr.phase = 'carry'; tr.t = 0; } }
+      else if (tr.phase === 'carry') { anim = 'carry_log'; if (goto(this.damL, 0.3)) { tr.phase = 'drop'; tr.t = 0; } }
       else if (tr.phase === 'drop') {
         anim = 'idle';
-        if (tr.t > 0.15 && !tr.dropped && this.placed < this.damLogs.length) {
+        if (tr.t > 0.12 && !tr.dropped && this.placed < N) {
           tr.dropped = true;
           this.pop(this.damLogs[this.placed++], 0, 0.3);
           this.sfx?.('class_tap', { volume: 0.3, pitch: 0.7 });
-          this.levelGoal = 5.4 + (9.6 - 5.4) * (this.placed / this.damLogs.length) * 0.85;
-          for (let k = 0; k < 3; k++) this.emit('bubble', this.damL.clone().setY(9 * VD).add(new THREE.Vector3(0.06 + k * 0.02, 0, 0)), { vel: [0, 0.08, 0], life: 0.5, texel: 0.003 });
+          this.levelGoal = LV.stream + (LV.pond - LV.stream) * (this.placed / N) * 0.8;
+          for (let k = 0; k < 3; k++) this.emit('bubble', new THREE.Vector3((this.dcx - 2 + k * 2) * VD, 6 * VD, (DAMZ + 1) * VD), { vel: [0, 0.08, 0], life: 0.5, texel: 0.003 });
         }
-        if (tr.t > 0.55) { tr.phase = this.placed >= this.damLogs.length ? 'done' : 'back'; tr.t = 0; tr.dropped = false; }
-      } else if (tr.phase === 'back') { anim = 'walk'; if (goto(this.pile, 0.26)) { tr.phase = 'load'; tr.t = 0; } }
-      else if (tr.phase === 'done') { anim = 'cheer'; if (!this.mud.visible) { this.pop(this.mud, 0, 0.4); this.levelGoal = 9.6; } }
+        if (tr.t > 0.45) { tr.phase = this.placed >= N ? 'done' : 'back'; tr.t = 0; tr.dropped = false; }
+      } else if (tr.phase === 'back') { anim = 'walk'; if (goto(this.pile, 0.36)) { tr.phase = 'load'; tr.t = 0; } }
+      else if (tr.phase === 'done') { anim = 'cheer'; if (!this.mud.visible) { this.pop(this.mud, 0, 0.4); this.levelGoal = LV.pond; this.sfx?.('class_pop', { volume: 0.3 }); } }
     } else if (b === 'wetland') {
-      anim = 'sit';
-      goto(new THREE.Vector3((sxDam(4) - 7) * VD, 0, 6 * VD), 0.3);
+      anim = (t % 7) < 5 ? 'sit' : 'cheer';
+      goto(new THREE.Vector3((this.dcx - 7) * VD, 0, (DAMZ + 3) * VD), 0.3);
     } else {
       anim = (t % 6) < 4 ? 'idle' : 'stretch';
       goto(this.pile, 0.3);
@@ -902,22 +907,21 @@ class DamDemo extends Demo {
     bv.root.position.copy(this.bvPos);
     bv.root.rotation.y = Math.PI / 2 - this.bvHead;
     bv.update(dt);
-    // the water rises behind the dam
+    // the water rises behind the dam; the fall gets shorter
     this.level += (this.levelGoal - this.level) * Math.min(1, dt * 0.9);
     this.basin.position.y = this.level * VD;
-    const top = 10.7 * VD, bot = this.level * VD;
+    const top = LV.inflow * VD, bot = this.level * VD;
     this.fall.scale.y = Math.max(0.001, top - bot); this.fall.position.y = (top + bot) / 2;
     this.fall.material.opacity = 0.55 + Math.sin(t * 20) * 0.08;
-    // ripples / foam at the foot of the fall
-    if (Math.random() < dt * 6) this.emit('bubble', new THREE.Vector3(sxDam(-13) * VD + (Math.random() - 0.3) * 0.06, bot + 0.004, -12.6 * VD + Math.random() * 0.03), { vel: [0, 0.02, 0.03], life: 0.6, texel: 0.0025 });
+    if (Math.random() < dt * 6) this.emit('bubble', new THREE.Vector3(sxDam(-13) * VD + (Math.random() - 0.3) * 0.06, bot + 0.004, -12.8 * VD + Math.random() * 0.03), { vel: [0, 0.02, 0.03], life: 0.6, texel: 0.0025 });
     // wetland life
     if (b === 'wetland') {
       const k = this.bt;
-      if (this.duck) { const a = k * 0.35; this.duck.root.position.set(Math.cos(a) * 0.22, 10 * VD, -0.13 + Math.sin(a) * 0.1); this.duck.root.rotation.y = -a; this.duck.update?.(dt); }
-      for (const p of this.pondFish) { const a = t * 0.7 + p.ph; p.f.root.position.set(Math.cos(a) * 0.15, 8.6 * VD, -0.12 + Math.sin(a * 1.3) * 0.08); p.f.heading = a + Math.PI / 2; p.f.update(dt); }
-      this.frog.position.y = 10.6 * VD + Math.max(0, Math.sin(t * 2.2)) * 0.01;
-      if (Math.random() < dt * 1.5) this.emit('spark', new THREE.Vector3((Math.random() - 0.5) * 0.7, 0.32 + Math.random() * 0.1, -0.15 + (Math.random() - 0.5) * 0.3), { vel: [(Math.random() - 0.5) * 0.3, 0.02, (Math.random() - 0.5) * 0.2], life: 0.8, texel: 0.0025 });
-      if (Math.random() < dt * 0.6) this.emit('note', new THREE.Vector3(-6 * VD, 12 * VD, -6 * VD), { vel: [0.01, 0.06, 0], life: 1.2, texel: 0.0035 });
+      if (this.duck) { const a = k * 0.35; this.duck.root.position.set(Math.cos(a) * 0.2, LV.pond * VD, -0.05 + Math.sin(a) * 0.1); this.duck.root.rotation.y = -a; this.duck.update?.(dt); }
+      for (const p of this.pondFish) { const a = t * 0.7 + p.ph; p.f.root.position.set(Math.cos(a) * 0.15, 9.4 * VD, -0.05 + Math.sin(a * 1.3) * 0.07); p.f.heading = a + Math.PI / 2; p.f.update(dt); }
+      this.frog.position.y = (LV.pond + 0.5) * VD + Math.max(0, Math.sin(t * 2.2)) * 0.01;
+      if (Math.random() < dt * 1.5) this.emit('spark', new THREE.Vector3((Math.random() - 0.5) * 0.7, 0.36 + Math.random() * 0.1, -0.05 + (Math.random() - 0.5) * 0.3), { vel: [(Math.random() - 0.5) * 0.3, 0.02, (Math.random() - 0.5) * 0.2], life: 0.8, texel: 0.0025 });
+      if (Math.random() < dt * 0.6) this.emit('note', new THREE.Vector3(-6 * VD, (LV.pond + 3) * VD, -4 * VD), { vel: [0.01, 0.06, 0], life: 1.2, texel: 0.0035 });
     }
   }
 }
@@ -978,8 +982,19 @@ class BearsDemo extends Demo {
     birch(R, 21, bearH(21, -11) + 1, -11, 8);
     R.ellipsoid(19.5, bearH(21, -11) + 7, -11, 1.3, 1.8, 1.3, (xx, yy) => ((yy % 2) ? 0xf0c030 : 0xb88a20)); // beehive
     for (let x = 1; x <= 6; x++) R.set(x, 6, 7, 0x9a6a3a); R.set(1, 5, 7, 0x6a4428); R.set(6, 5, 7, 0x6a4428); // dock
-    R.box(-1, 7, 9, -1, 10, 9, 0x6a4428); R.box(-3, 10, 9, 1, 12, 9, (x, y) => (y === 11 && x % 2 === 0 ? 0x2a2a2a : 0xf0e0b0)); // the pond sign
     g.add(vmesh(R));
+    // Reynard's pond sign (a separate mesh: it gets knocked over in a rampage): a post, a board, a painted fish
+    {
+      const sv = new VoxelModel();
+      for (let y = 0; y < 5; y++) sv.set(0, y, 0, 0x6a4428);
+      for (let x = -3; x <= 3; x++) for (let y = 4; y <= 7; y++) sv.set(x, y, 0, x === -3 || x === 3 || y === 4 || y === 7 ? 0x8a5430 : 0xf0e0b0);
+      for (const [x, y] of [[-1, 5], [0, 5], [1, 5], [-1, 6], [0, 6], [1, 6], [-2, 5], [-2, 6]]) sv.set(x, y, 1, x === -2 ? 0x3a6ab8 : 0x5a8ad8);
+      sv.set(2, 5, 1, 0x3a6ab8); sv.set(2, 6, 1, 0x3a6ab8); sv.set(1, 6, 1, 0x1a1a1a);
+      this.sign = vmesh(sv, mats().lit, { pivot: [0, 0, 0.5] });
+      this.sign.position.set(-1 * VD, (bearH(-1, 9) + 1) * VD, 9.5 * VD);
+      this.sign.rotation.y = 0.35;
+      g.add(this.sign);
+    }
     this.pond = new THREE.Mesh(new THREE.CircleGeometry(POND[2] * VD, 20), mats().water);
     this.pond.rotation.x = -Math.PI / 2; this.pond.scale.y = 1 / 1.1; this.pond.position.set((POND[0] + 0.5) * VD, 5.5 * VD, (POND[1] + 0.5) * VD); this.pond.renderOrder = 2;
     g.add(this.pond);
@@ -996,7 +1011,7 @@ class BearsDemo extends Demo {
         const look = makeBearLook(T, def0, 1234 + i * 77);
         const rig = new BearRig(T, lookDef(def0, look));
         try { rig.personalize?.((1234 + i * 77) * 7.31); } catch { /* */ }
-        rig.root.scale.setScalar(0.085);
+        rig.root.scale.setScalar(0.072);
         g.add(rig.root);
         this.own({ dispose: () => rig.dispose() });
         this.bears.push({ rig, i, pos: new THREE.Vector3(), head: 0, pose: 'idle', seg: 0, k: 0, delay: i * 0.9, done: false });
@@ -1022,9 +1037,18 @@ class BearsDemo extends Demo {
       }
     }
     for (const F of this.fish) F.f.root.visible = b !== 'rampage';
+    this.signFall = b === 'rampage' ? 0 : null;
+    if (b !== 'rampage') this.sign.rotation.set(0, 0.35, 0);
   }
   update(dt) {
     const t = this.t, b = this.beatName || 'rush';
+    // a rampage knocks the pond sign flat
+    if (this.signFall != null) {
+      this.signFall = Math.min(1, this.signFall + dt * (this.bt > 1.2 ? 1.6 : 0));
+      const k = this.signFall;
+      this.sign.rotation.set(0, 0.35, -Math.min(1.45, k * k * 1.5));
+      if (k > 0.98 && !this._thud) { this._thud = true; this.sfx?.('class_rumble', { volume: 0.3 }); for (let i = 0; i < 4; i++) this.emit('bubble', this.sign.position.clone().add(new THREE.Vector3(0.08, 0.01, 0)), { vel: [(Math.random() - 0.5) * 0.1, 0.06, (Math.random() - 0.5) * 0.1], life: 0.5, texel: 0.003 }); }
+    } else this._thud = false;
     for (const F of this.fish) {
       if (!F.f.root.visible) continue;
       const a = t * 0.6 + F.ph;

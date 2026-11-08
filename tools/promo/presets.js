@@ -194,3 +194,67 @@ PRESETS.cineBannerAnim = {
     ],
     loopFx: [{ type: 'steam', spot: 'whistle', n: 10, rate: 2, rise: 0.7, drift: 0.3, size: 0.09, spread: 0.05 }] },
 };
+
+// ------------------------------------------------------------------ [v5] "Dig & Dive Update"
+// Two halves per picture, rendered separately and merged by the compositor (promo.js ddthumb /
+// ddbanner) along a pixel waterline (cover) or a split (banner):
+//   THE DIG  Bonebed Bluff in the Old Wood at golden hour (17.3): the strata bluff with its bones and
+//            amber, the lab hut, the glass case, the trenches, the giant ribcage; Prof. Snapp with
+//            his loupe (stage.js digyard / snapp, the yard's trees cleared like the fog lift does)
+//   THE DIVE under Loon Lake (the dive mode's own diorama, stage.js SCENES.dive): Reynard in mask,
+//            snorkel and top hat, Chief Buff, the farms with their fish, a lobe-fin coelacanth
+//            (Primordial Vial morph), bubbles
+// The hero sabre-tooth salmon leaping across the waterline is drawn by the compositor (the game's
+// own ancient fish sprite). A preset with `parts` renders each part, then composites them all.
+const LOOP_DD = { frames: 40, period: 3.2, timeAmp: 0.25 };
+const DIG_LOOK = { daylight: true, hour: 17.3, haze: 0.06, yaw: 0, pitch: 26, fill: 0.55, fillColor: 0xffe8d0, skyD: 9, clearWorld: [[84, 132, 106, 152]] };
+const snapp = (o = {}) => ({ kind: 'snapp', name: 'snapp', anim: 'loupe', t: 2.2, lean: -0.25, ry: -0.25, scale: 1.9, loop: { range: [1.2, 4.6], pingpong: true }, ...o });
+PRESETS.ddThumbDig = {
+  scene: 'banner', viewport: [1260, 620], px: 1, masks: ['snapp', 'bluffGlow'],
+  opts: { ...DIG_LOOK, loop: LOOP_DD, wupp: 0.016, focusWorld: [94.7, 137.7],
+    cast: [{ kind: 'digyard', skip: ['tent'] }, snapp({ wx: 98.4, wz: 140.4 })] },
+};
+PRESETS.ddThumbDive = {
+  scene: 'dive', viewport: [1260, 560], px: 1, masks: ['fox'],
+  opts: { daylight: true, loop: LOOP_DD, cam: { x: -3.2, y: 3.35, z: -0.8, pitch: 12, wupp: 0.02 },
+    cast: [
+      { kind: 'farm', type: 'pen', x: -1.6, z: -1.6, stock: { sp: 'perch', n: 6, pxPer: 1, laps: 1 } },
+      { kind: 'farm', type: 'nursery', x: 1.9, z: -2.6 },
+      { kind: 'farm', type: 'feeder', x: 0.6, z: -0.2 },
+      { kind: 'school', sp: 'bluegill', n: 7, x: -1.6, y: 2.4, z: -1.0, rx: 2.0, rz: 0.9, ry: 0.15, laps: 1, pxPer: 1, seed: 3 },
+      { kind: 'ancient', id: 'sturgeon', from: [-12, 4.5, -3.2], to: [6, 4.5, -3.2], pxPer: 1, bob: 0.06, off: 0.1 },
+      { kind: 'chief', x: -8.3, y: 4.3, z: 0.4, ry: 0.9, anim: 'swim', scale: 1.0, bob: 0.07, bobOff: 1.5 },
+      { kind: 'diver', name: 'fox', x: -6.6, y: 3.15, z: 1.8, scale: 1.5, facing: 1, swim: 0.6, yawOff: -1.0, pitch: 0.4, arms: 'reach', headUp: 0.15 },
+    ],
+    loopFx: [
+      { type: 'bubbles', spot: 'snorkel', n: 7, rate: 2, rise: 2.6, top: 6.0, spread: 0.12, px: 0.02, seed: 4 },
+      { type: 'bubbles', pos: [0.6, 1.4, -0.2], n: 9, rate: 1, rise: 4.5, top: 6.0, spread: 0.4, px: 0.02, seed: 8 },
+      { type: 'bubbles', pos: [-10.2, 0.6, -1.5], n: 6, rate: 1, rise: 5.4, top: 6.0, spread: 0.3, px: 0.02, seed: 13 },
+    ] },
+};
+PRESETS.ddThumbAnim = { kind: 'ddthumb', parts: ['ddThumbDig', 'ddThumbDive'], still: 12, opts: { loop: LOOP_DD } };
+// the banner: the waterline runs across at y ~118 (of 240); both halves 960 x 140 low-res, px 1.3
+PRESETS.ddBannerDig = {
+  scene: 'banner', viewport: [1920, 280], px: 1.3, masks: ['snapp', 'bluffGlow'],
+  opts: { ...DIG_LOOK, loop: LOOP_DD, pitch: 24, wupp: 0.024, focusWorld: [94.0, 137.0],
+    cast: [{ kind: 'digyard' }, snapp({ wx: 100.3, wz: 139.5, ry: -0.45, scale: 1.45 })] },
+};
+PRESETS.ddBannerDive = {
+  scene: 'dive', viewport: [1920, 280], px: 1.3, masks: ['fox'],
+  opts: { daylight: true, loop: LOOP_DD, cam: { x: -1.0, y: 2.25, z: -0.8, pitch: 12, wupp: 0.026 },
+    cast: [
+      { kind: 'farm', type: 'pen', x: -2.6, z: -1.6, stock: { sp: 'perch', n: 6, pxPer: 1, laps: 1 } },
+      { kind: 'farm', type: 'feeder', x: -0.4, z: -0.4 },
+      { kind: 'farm', type: 'nursery', x: 9.2, z: -2.4 },
+      { kind: 'farm', type: 'mussels', x: 2.2, z: -1.8 },
+      { kind: 'school', sp: 'bluegill', n: 7, x: -2.6, y: 2.2, z: -1.0, rx: 2.0, rz: 0.9, ry: 0.12, laps: 1, pxPer: 1, seed: 3 },
+      { kind: 'ancient', id: 'sturgeon', from: [-16, 3.4, -3.4], to: [12, 3.4, -3.4], pxPer: 1, bob: 0.05, off: 0.55 },
+      { kind: 'chief', x: -6.4, y: 2.5, z: 0.6, ry: 0.9, anim: 'swim', scale: 1.1, bob: 0.07, bobOff: 1.5 },
+      { kind: 'diver', name: 'fox', x: 6.2, y: 2.15, z: 1.8, scale: 1.55, facing: -1, swim: 0.6, yawOff: 1.0, pitch: 0.4, arms: 'reach', headUp: 0.15 },
+    ],
+    loopFx: [
+      { type: 'bubbles', spot: 'snorkel', n: 6, rate: 2, rise: 2.6, top: 6.0, spread: 0.12, px: 0.026, seed: 4 },
+      { type: 'bubbles', pos: [-0.4, 1.4, -0.4], n: 8, rate: 1, rise: 4.0, top: 6.0, spread: 0.4, px: 0.026, seed: 8 },
+    ] },
+};
+PRESETS.ddBannerAnim = { kind: 'ddbanner', parts: ['ddBannerDig', 'ddBannerDive'], still: 12, opts: { loop: LOOP_DD }, gif: { 2: ['--lossy', '36'] } };

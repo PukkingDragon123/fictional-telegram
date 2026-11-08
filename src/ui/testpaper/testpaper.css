@@ -17,7 +17,7 @@
   display: flex; -webkit-overflow-scrolling: touch;
 }
 .tp-sheet { margin: auto; flex: 0 0 auto; transform-origin: 50% 80%; will-change: transform; }
-.tp-tall .tp-sheet { margin: 4px auto calc(var(--tps) * 34) auto; }
+.tp-tall .tp-sheet { margin: 58px auto calc(var(--tps) * 34) auto; } /* clear of the class SKIP / x3 signs */
 .tp-paper { display: block; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: pan-y; cursor: none; }
 
 /* HAND IN / SKIP TEST / NEXT: painted signs */

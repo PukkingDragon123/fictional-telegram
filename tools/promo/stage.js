@@ -14,12 +14,24 @@ import { restaurantModel } from '../../src/entities/restaurantModels.js';
 import { picnicModel } from '../../src/entities/structureModels.js';
 import { voxelMaterial } from '../../src/core/voxel.js';
 import { fishCanvasFor, FISH_TPU } from '../../src/game/fishSprites.js';
-import { WATER_Y } from '../../src/world/grid.js';
+import { WATER_Y, KIND } from '../../src/world/grid.js';
 // [F&S] mining + industry art
 import * as MM from '../../src/entities/extra/miningModels.js';
 import * as IM from '../../src/entities/extra/industryModels.js';
 // [v4 cinematic] the Bear St. office tower
 import { officeModel } from '../../src/world/buildings.js';
+// [v5 dig & dive] Bonebed Bluff (Prof. Snapp) and the underwater scene under Loon Lake
+import { SnapperProf } from '../../src/entities/critterSnapper.js';
+import { makeBluff, makeLabHut, makeFieldTent, makeTrench, makeSieveBench, makeDisplayCase, makeRibcage, makeFindMini, makeSiteMound } from '../../src/entities/digModels.js';
+import { BONEBED } from '../../src/data/digSites.js';
+import { buildDiveScene, uwMat } from '../../src/entities/diveScene.js';
+import { diveGeo, gearModel, farmModel } from '../../src/entities/diveModels.js';
+import { FishPack } from '../../src/game/dive/life.js';
+import { ChiefBuff } from '../../src/entities/critterDuck2.js';
+import { NoodlesOtter } from '../../src/entities/critterOtter2.js';
+import { CameraRig } from '../../src/core/cameraRig.js';
+import { VS as KVS, FV as KFV, pixTex } from '../../src/entities/critterKit.js';
+import { FARMS } from '../../src/data/dive.js';
 
 const D2R = Math.PI / 180;
 const S = (window.__promo ||= { actors: [], t: 0, cfg: null, named: {} });
@@ -185,10 +197,27 @@ function front(T, sx, sy, d = 6) {
 
 // Clear world decos / clutter (trees, reeds, flowers) whose base lands inside screen rects
 // [sx0, sy0, sx1, sy1], so the cast is not hidden behind plants. Undone on the next setup.
-function clearRects(T, rects) {
+function clearRects(T, rects, worldRects = null) {
   const w = T.game.world, g = T.game.grid, cam = T.game.rig.camera;
   for (const d of S.cleared || []) d.removed = false;
   S.cleared = [];
+  // [v5] world rects [x0, z0, x1, z1] (tiles): everything standing in them goes, and forest tiles
+  // turn to grass (the trees of the big forest grow from the tile kind), like BeaverSystem.clearInstant
+  let landChanged = false;
+  for (const [i, kind, meadow] of S.landEdits || []) { g.kind[i] = kind; g.meadow[i] = meadow; landChanged = true; }
+  S.landEdits = [];
+  for (const [x0, z0, x1, z1] of worldRects || []) {
+    const inR = (x, z) => x >= x0 && x <= x1 && z >= z0 && z <= z1;
+    for (const d of w.decos) if (!d.removed && inR(d.x + 0.5, d.z + 0.5)) { d.removed = true; S.cleared.push(d); }
+    for (const c of w.clutter || []) if (!c.removed && inR(c.x, c.z)) { c.removed = true; S.cleared.push(c); }
+    for (let z = Math.floor(z0); z <= Math.floor(z1); z++) for (let x = Math.floor(x0); x <= Math.floor(x1); x++) {
+      if (!g.inb(x, z)) continue;
+      const i = z * g.w + x;
+      if (g.isWater(x, z)) continue;
+      if (g.kind[i] === KIND.FOREST || !g.meadow[i]) { S.landEdits.push([i, g.kind[i], g.meadow[i]]); if (g.kind[i] === KIND.FOREST) g.kind[i] = KIND.GRASS; g.meadow[i] = 1; landChanged = true; }
+    }
+  }
+  if (landChanged) { try { w.rebuildTerrain(); } catch (e) { console.warn('promo terrain', e); } }
   if (rects?.length) {
     const v = new THREE.Vector3();
     const test = (x, z) => {
@@ -457,6 +486,53 @@ const CINE_KINDS = {
   },
 };
 
+// ------------------------------------------------------------------ [v5] "Dig & Dive": Bonebed Bluff
+// The yard digsite.js builds when the fog lifts (the bluff face, Snapp's lab hut, tent, glass case,
+// sieve bench, trenches, the giant ribcage, flagged dig mounds), placed at BONEBED like
+// Villagers.makeProps does, and Prof. Snapp himself. Cast kinds; the trees on the yard go with
+// o.clearWorld (tile rects).
+const DD_KINDS = {
+  digyard(T, p, a) {
+    const B = BONEBED, g = T.game.grid, grp = new THREE.Group();
+    const gy = (x, z) => g.groundAt(x, z);
+    const put = (obj, q, ry = 0, dy = 0) => { obj.position.set(q.x, gy(q.x, q.z) + dy, q.z); obj.rotation.y = ry; grp.add(obj); obj.traverse((m) => { if (m.isMesh) m.castShadow = true; }); return obj; };
+    let low = 99;
+    for (let x = B.bluff.x - 4.4; x <= B.bluff.x + 4.4; x += 0.5) low = Math.min(low, gy(x, B.bluff.z + 0.6));
+    const bluff = makeBluff();
+    bluff.position.set(B.bluff.x, low - 0.12, B.bluff.z);
+    grp.add(bluff);
+    S.named.bluffGlow = bluff.userData.glow;
+    const skip = new Set(a.skip || []);
+    if (!skip.has('hut')) put(makeLabHut(), B.hut, 0.12);
+    if (!skip.has('tent')) put(makeFieldTent(), B.tent, -0.35);
+    if (!skip.has('case')) {
+      const C = put(makeDisplayCase(), B.case, 0.25);
+      (a.finds || ['ammonite', 'trilobite', 'amber', 'sabrefang', 'dinoegg', 'raptorclaw', 'sharktooth', 'amberbug', 'fishskull']).forEach((id, k) => {
+        if (!C.userData.slots?.[k]) return;
+        const m = makeFindMini(id); m.position.copy(C.userData.slots[k]); m.rotation.y = (k % 3 - 1) * 0.25; m.scale.setScalar(0.85); C.add(m);
+      });
+    }
+    if (!skip.has('bench')) put(makeSieveBench(), B.bench, -0.2);
+    if (!skip.has('trench')) B.trench.forEach((Tr, k) => put(makeTrench(Tr.w, Tr.d, k), Tr, k ? 0.3 : -0.08));
+    if (!skip.has('ribs')) put(makeRibcage(), B.ribs, -0.35, -0.04);
+    if (!skip.has('mounds')) for (const h of a.mounds || B.home) put(makeSiteMound('fresh', h.group || 'bone'), h, h.ry || 0);
+    T.group.add(grp);
+    return grp;
+  },
+  // Prof. Ambrose Snapp: anim scrubbed over a window of it (range, pingpong) or played `cycles` times a loop
+  snapp(T, p, a, o) {
+    const r = new SnapperProf({ shadows: true });
+    r.root.position.copy(p); r.root.rotation.set(a.lean ?? 0, yawOf(T, a), 0, 'YXZ'); r.root.scale.multiplyScalar(a.scale || 1); // lean < 0: face tipped up to the camera
+    T.group.add(r.root);
+    r.play(a.anim || 'loupe', { fade: 0 });
+    if (a.expr) r.setExpression?.(a.expr, { hold: 99 });
+    for (let k = 0; k < (a.t ?? 1.5); k += 1 / 60) r.update(1 / 60);
+    if (o.loop) S.drivers.push(loopNpc(r, { anim: a.anim || 'loupe', ...(a.loop || {}) }));
+    S.named.snappRig = r;
+    return r.root;
+  },
+};
+
 // one-shot effects inside the loop: everything starts at phase `at`, lasts `dur` (fractions of the loop)
 const SPLASH_COLS = [0xffffff, 0xfff6dc, 0xd8f6ff, 0x9fe2f8, 0xffffff, 0xbfeeff];
 const COIN_COLS = [0xffd84a, 0xffe98a, 0xe8a828, 0xfff2b0];
@@ -465,10 +541,51 @@ function fxCenter(T, L) {
   if (L.spot) { const v = S.spots[L.spot]?.clone() || new THREE.Vector3(); return v; }
   return L.wx != null ? new THREE.Vector3(L.wx, T.game.grid.groundAt(L.wx, L.wz), L.wz) : L.h != null ? ground(T, L.sx, L.sy, L.h) : ground(T, L.sx, L.sy);
 }
+// [v5] pixel bubbles (outlined rings with a highlight), 4 sizes, one texel = L.px world units
+const BUB2 = [
+  ['.kk.', 'kwbk', 'kbbk', '.kk.'],
+  ['.kkk.', 'kwwbk', 'kw.bk', 'kb.bk', '.kkk.'],
+  ['..kkk..', '.kwwbk.', 'kwb..bk', 'kw...bk', 'kb...bk', '.kbbbk.', '..kkk..'],
+  ['...kkkk...', '..kwwbbk..', '.kwb...bk.', 'kwb.....bk', 'kw......bk', 'kb......bk', 'kb.....bbk', '.kb...bbk.', '..kbbbbk..', '...kkkk...'],
+];
+let BUB2_MATS = null;
+function bub2Mats() {
+  if (BUB2_MATS) return BUB2_MATS;
+  const pal = { k: '#2a8aa8', w: '#ffffff', b: '#a8ecfa' };
+  BUB2_MATS = BUB2.map((rows) => {
+    const c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length;
+    const x = c.getContext('2d');
+    rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') { x.fillStyle = pal[r[i]]; x.fillRect(i, j, 1, 1); } });
+    return new THREE.SpriteMaterial({ map: pixTex(c), alphaTest: 0.5, fog: false, depthWrite: false });
+  });
+  return BUB2_MATS;
+}
 const CINE_FX = {
+  // [v5] a column of bubbles wobbling up from a point (a vent, a snorkel), `rate` waves a loop
+  bubbles(T, L) {
+    const g = new THREE.Group(); (S.fxParent || T.group).add(g); add(g);
+    const r = seeded(L.seed || 21), c = fxCenter(T, L), n = L.n || 8, parts = [], M = bub2Mats();
+    const sizes = L.sizes || [0, 1, 1, 2, 2, 3];
+    for (let i = 0; i < n; i++) {
+      const k = sizes[Math.floor(r() * sizes.length)];
+      const m = new THREE.Sprite(M[k]);
+      m.scale.setScalar(BUB2[k].length * (L.px ?? 0.02));
+      m.renderOrder = 20;
+      g.add(m);
+      parts.push({ m, off: i / n + r() * (0.6 / n), dx: (r() - 0.5) * (L.spread ?? 0.3), dz: (r() - 0.5) * (L.spread ?? 0.3) * 0.5, wob: r() * 6, sp: 0.75 + r() * 0.5 });
+    }
+    return (dt, ph) => {
+      for (const p of parts) {
+        const u = wrap01(ph * (L.rate || 1) + p.off);
+        const y = c.y + u * (L.rise ?? 2.5) * p.sp;
+        p.m.visible = y < (L.top ?? 1e9);
+        p.m.position.set(c.x + p.dx * (0.4 + u) + Math.sin(u * Math.PI * 2 * (L.wobN ?? 2) + p.wob) * (L.wob ?? 0.06), y, c.z + p.dz);
+      }
+    };
+  },
   // droplets thrown up and out under gravity (crown + spray)
   burst(T, L) {
-    const g = new THREE.Group(); T.group.add(g); add(g);
+    const g = new THREE.Group(); (S.fxParent || T.group).add(g); add(g);
     const r = seeded(L.seed || 7), c = fxCenter(T, L), n = L.n || 40, parts = [];
     const cols = L.colors || SPLASH_COLS;
     for (let i = 0; i < n; i++) {
@@ -493,7 +610,7 @@ const CINE_FX = {
   },
   // gold coins flung out of a briefcase, spinning
   coins(T, L) {
-    const g = new THREE.Group(); T.group.add(g); add(g);
+    const g = new THREE.Group(); (S.fxParent || T.group).add(g); add(g);
     const r = seeded(L.seed || 9), c = fxCenter(T, L), n = L.n || 10, parts = [];
     for (let i = 0; i < n; i++) {
       const s = (L.size || 0.14) * (0.8 + r() * 0.4);
@@ -516,7 +633,7 @@ const CINE_FX = {
   },
   // foam ring spreading on the water
   ring(T, L) {
-    const g = new THREE.Group(); T.group.add(g); add(g);
+    const g = new THREE.Group(); (S.fxParent || T.group).add(g); add(g);
     const r = seeded(L.seed || 5), c = fxCenter(T, L), n = L.n || 24, parts = [];
     for (let i = 0; i < n; i++) {
       const s = (L.size || 0.08) * (0.7 + r() * 0.6);
@@ -538,7 +655,7 @@ const CINE_FX = {
   },
   // steam / smoke puffs: like 'smoke' but opaque cubes that shrink away (crisp pixels, no alpha)
   steam(T, L) {
-    const g = new THREE.Group(); T.group.add(g); add(g);
+    const g = new THREE.Group(); (S.fxParent || T.group).add(g); add(g);
     const r = seeded(L.seed || 17), c = fxCenter(T, L), n = L.n || 10, parts = [];
     const cols = L.colors || [0xffffff, 0xfff2e0, 0xf0e4e8];
     for (let i = 0; i < n; i++) {
@@ -597,7 +714,7 @@ SCENES.thumb = (T, o) => {
 SCENES.banner = (T, o) => {
   const C = { lookUp: o.lookUp, yaw: o.yaw ?? facing(T, o.yawOff ?? 0), pitch: o.pitch ?? 17, wupp: o.wupp ?? 0.016, focus: o.focusWorld ? new THREE.Vector3(o.focusWorld[0], T.game.grid.groundAt(o.focusWorld[0], o.focusWorld[1]), o.focusWorld[1]) : T._at(o.camR ?? 0, o.camF ?? 0), sun: o.sun || [-0.3, 0.6], skyD: o.skyD };
   applyCamera(T, C);
-  clearRects(T, o.clear);
+  clearRects(T, o.clear, o.clearWorld);
   for (const a of o.cast || []) {
     let obj;
     const p = a.at ? (() => { const v = T._at(a.at[0], a.at[1]); v.y = Math.max(WATER_Y, T.game.grid.groundAt(v.x, v.z)); return v; })()
@@ -607,6 +724,7 @@ SCENES.banner = (T, o) => {
     let rig = null;
     if (FS_KINDS[a.kind]) { obj = FS_KINDS[a.kind](T, p, a, o); add(obj, a.name); continue; }
     if (CINE_KINDS[a.kind]) { obj = CINE_KINDS[a.kind](T, p, a, o); add(obj, a.name); continue; }
+    if (DD_KINDS[a.kind]) { obj = DD_KINDS[a.kind](T, p, a, o); add(obj, a.name); continue; }
     if (a.kind === 'fox' && a.shock) {
       rig = placeFox(T, p, { ...a, anim: null, shadow: false });
       shockedFox(rig, a.shock);
@@ -636,6 +754,185 @@ SCENES.banner = (T, o) => {
   return C;
 };
 
+// ------------------------------------------------------------------ [v5] "Dig & Dive": under Loon Lake
+// SCENES.dive swaps in the dive mode's own diorama (src/entities/diveScene.js) through
+// game.overrideScene / overrideRig, like DiveMode does, with its own camera (o.cam). Cast in the
+// dive scene's coordinates: { x, z } and y (absolute) or by (height above the lake bed).
+//   diver   Reynard in dive gear (mask + snorkel + top hat, or the brass helmet + tanks; flippers),
+//           kicking on the spot (loop-periodic version of DiveMode.animateDiver)
+//   chief / noodles   Chief Buff / Noodles the otter, any of their anims looped
+//   farm    a farm model on the bed; `stock` = { sp, n } circles inside the net (the game's FishPack)
+//   school  a FishPack circling an ellipse (rx, ry, rz), `laps` a loop
+//   ancient a prehistoric fish (the Primordial Vial morph) gliding from `from` to `to`, swim frames
+const DIVE_KINDS = {
+  diver(T, sc, p, a, o) {
+    const g = new THREE.Group(); sc.scene.add(g);
+    const F = new FoxRig({ shadows: false }), k = a.scale ?? 0.8;
+    F.setOutfit?.('default');
+    F.root.scale.setScalar(k); F.root.position.set(0, -6 * KVS * k, 0);
+    g.add(F.root);
+    F.play('idle', { loop: true, fade: 0 });
+    if (a.expr) F.setExpression?.(a.expr, { hold: 99 });
+    const mk = (kind) => { const geo = diveGeo('gear_' + kind, () => gearModel(kind), { scale: KFV }); return new THREE.Mesh(geo, uwMat(geo)); };
+    const tip = new THREE.Object3D(), helmet = a.gear === 'helmet';
+    if (!helmet) {
+      const mask = mk('mask'); mask.position.set(0, 6.9 * KVS, 8.2 * KVS); mask.scale.setScalar(1.1); F.head.add(mask);
+      const sn = mk('snorkel'); sn.position.set(7.4 * KVS, 4.0 * KVS, 2.6 * KVS); sn.rotation.set(0.15, 0, -0.1); F.head.add(sn);
+      tip.position.set(0.5 * KFV, 27 * KFV, 0.5 * KFV); sn.add(tip);
+    } else {
+      const hm = mk('helmet'); hm.position.set(0, 6.4 * KVS, 1.0 * KVS); hm.scale.setScalar(1.22); F.head.add(hm);
+      tip.position.set(0, 20 * KFV, -6 * KFV); hm.add(tip);
+      const tk = mk('tanks'); tk.position.set(0, -1 * KVS, -6.4 * KVS); F.chest.add(tk);
+    }
+    if (a.flippers !== false) for (const Lg of [F.legL, F.legR]) { const fl = mk('flipper'); fl.position.set(0, -3.1 * KVS, 0.4 * KVS); Lg.kn.add(fl); }
+    const facing = a.facing ?? 1, swim = a.swim ?? 0.8, P = o.loop?.period || 3.2;
+    const w = (n) => (2 * Math.PI * n) / P; // angular speed of n whole cycles a loop
+    const yaw = (facing > 0 ? Math.PI / 2 - 0.42 * (1 - swim * 0.6) : -Math.PI / 2 + 0.42 * (1 - swim * 0.6)) + (a.yawOff ?? 0);
+    const pitch = a.pitch ?? 0.18 + 1.02 * swim;
+    const e = new THREE.Euler();
+    const set = (grp, x, y, z, ord = 'XYZ') => { e.set(x, y, z, ord); grp.quaternion.setFromEuler(e); };
+    const pose = (dt, ph) => {
+      const t = ph * P;
+      g.position.set(p.x, p.y + Math.sin(w(1) * t) * (a.bob ?? 0.06), p.z);
+      g.rotation.set(pitch + Math.sin(w(1) * t + 1) * 0.04, yaw, Math.sin(w(1) * t) * 0.05, 'YXZ');
+      F.update(dt);
+      const kf = w(a.kicks ?? 4), amp = 0.25 + 0.3 * swim;
+      set(F.legL.th, Math.sin(t * kf) * amp + 0.15, 0, 0.12); set(F.legR.th, Math.sin(t * kf + Math.PI) * amp + 0.15, 0, -0.12);
+      set(F.legL.kn, 0.25 + Math.max(0, Math.sin(t * kf + 0.9)) * 0.55, 0, 0); set(F.legR.kn, 0.25 + Math.max(0, Math.sin(t * kf + Math.PI + 0.9)) * 0.55, 0, 0);
+      if (a.arms === 'back') { set(F.armL.sh, 0.35, 0, 0.25); set(F.armR.sh, 0.35, 0, -0.25); set(F.armL.el, -0.2, 0, 0); set(F.armR.el, -0.2, 0, 0); }
+      else if (a.arms === 'reach') { // both paws out in front, grabbing for something
+        const r = Math.sin(t * w(2)) * 0.12;
+        set(F.armL.sh, -2.5 + r, 0, 0.25); set(F.armR.sh, -2.5 - r, 0, -0.25); set(F.armL.el, -0.25, 0, 0); set(F.armR.el, -0.25, 0, 0);
+      } else {
+        const q = t * w(a.strokes ?? 2);
+        set(F.armL.sh, -1.3 + Math.sin(q) * 0.7 * (0.4 + swim), 0, 0.35 + Math.cos(q) * 0.2); set(F.armR.sh, -1.3 + Math.sin(q + Math.PI) * 0.7 * (0.4 + swim), 0, -0.35 - Math.cos(q + Math.PI) * 0.2);
+        set(F.armL.el, -0.6 - Math.max(0, Math.cos(q)) * 0.6, 0, 0); set(F.armR.el, -0.6 - Math.max(0, Math.cos(q + Math.PI)) * 0.6, 0, 0);
+      }
+      set(F.head, -pitch * 0.85 + 0.1 + (a.headUp ?? 0), a.headYaw ?? 0, 0);
+      F.tail.forEach((sg, i) => set(sg, 0.25 - pitch * 0.2, Math.sin(t * w(2) - i * 0.9) * (0.25 + swim * 0.25), 0, 'YXZ'));
+      if (helmet) { F.hat.visible = false; F.earL.visible = F.earR.visible = false; }
+      F.monocle.visible = false; F.chainGroup.visible = false;
+    };
+    pose(1 / 30, a.still ?? 0.3);
+    g.updateMatrixWorld(true);
+    S.spots.snorkel = tip.getWorldPosition(new THREE.Vector3());
+    if (o.loop) S.drivers.push(pose);
+    return g;
+  },
+  chief(T, sc, p, a, o) { return DIVE_KINDS._npc(new ChiefBuff({ shadows: false }), sc, p, a, o, 'swim', 0.85, -0.3); },
+  noodles(T, sc, p, a, o) { return DIVE_KINDS._npc(new NoodlesOtter({ shadows: false }), sc, p, a, o, 'idle', 0.9, 0); },
+  _npc(r, sc, p, a, o, anim0, k0, dy) {
+    const g = new THREE.Group(); g.add(r.root);
+    r.root.scale.setScalar(a.scale ?? k0); r.root.position.set(0, dy, 0);
+    g.position.copy(p); g.rotation.set(a.rx ?? 0, a.ry ?? Math.PI / 2, a.rz ?? 0, 'YXZ');
+    sc.scene.add(g);
+    r.play(a.anim || anim0, { fade: 0 });
+    if (a.expr) r.setExpression?.(a.expr, { hold: 99 });
+    for (let k = 0; k < (a.t ?? 1); k += 1 / 60) r.update(1 / 60);
+    if (o.loop) {
+      const L = loopNpc(r, { anim: a.anim || anim0, ...(a.loop || {}) });
+      S.drivers.push((dt, ph) => { g.position.y = p.y + Math.sin(ph * Math.PI * 2 + (a.bobOff ?? 0)) * (a.bob ?? 0.06); L(dt, ph); });
+    }
+    return g;
+  },
+  farm(T, sc, p, a, o) {
+    const d = FARMS[a.type] || FARMS.pen;
+    const geo = diveGeo('farm_' + a.type, () => farmModel(a.type), { scale: KVS });
+    const grp = new THREE.Group();
+    grp.add(new THREE.Mesh(geo, uwMat(geo, { emissive: a.type === 'feeder' ? 0x110a00 : 0 })));
+    grp.position.set(p.x, sc.bedH(p.x, p.z) - 0.04, p.z); grp.rotation.y = a.ry || 0;
+    sc.scene.add(grp);
+    if (a.stock) {
+      const st = a.stock, n = st.n || 6;
+      const fp = new FishPack(sc.scene, st.sp, n, { scale: st.pxPer ? st.pxPer * FISH_TPU * (o.cam?.wupp ?? 0.02) : st.scale ?? 1 });
+      const q0 = Array.from({ length: n }, (_, i) => ({ a: (i / n) * Math.PI * 2, r: 0.4 + (i % 3) * 0.22, y: 0.5 + (i % 4) * 0.35 }));
+      const set = (ph) => {
+        q0.forEach((q, i) => {
+          const ang = q.a + ph * Math.PI * 2 * (st.laps ?? 1);
+          const R = q.r * (d.r / 1.3) * 0.85;
+          fp.set(i, grp.position.x + Math.cos(ang) * R, grp.position.y + q.y * (d.r / 1.3) + Math.sin(ph * Math.PI * 4 + i) * 0.06, grp.position.z + Math.sin(ang) * R * 0.8, ang + Math.PI / 2);
+        });
+        fp.flush();
+      };
+      set(0);
+      if (o.loop) S.drivers.push((dt, ph) => set(ph));
+    }
+    return grp;
+  },
+  school(T, sc, p, a, o) {
+    const n = a.n || 8, fp = new FishPack(sc.scene, a.sp || 'perch', n, { scale: a.pxPer ? a.pxPer * FISH_TPU * (o.cam?.wupp ?? 0.02) : a.fscale ?? 1 });
+    const r = seeded(a.seed || 5);
+    const q0 = Array.from({ length: n }, () => ({ a: r() * Math.PI * 2, dr: 0.75 + r() * 0.5, dy: (r() - 0.5) * 0.6, dz: (r() - 0.5) * 0.6 }));
+    const dir = a.dir ?? 1;
+    const set = (ph) => {
+      q0.forEach((q, i) => {
+        const ang = q.a + dir * ph * Math.PI * 2 * (a.laps ?? 1);
+        const x = p.x + Math.cos(ang) * (a.rx ?? 2) * q.dr, z = p.z + Math.sin(ang) * (a.rz ?? 1) * q.dr;
+        fp.set(i, x, p.y + q.dy + Math.sin(ang * 2) * (a.ry ?? 0.2), z + q.dz, dir > 0 ? ang + Math.PI / 2 : ang - Math.PI / 2);
+      });
+      fp.flush();
+    };
+    set(0);
+    if (o.loop) S.drivers.push((dt, ph) => set(ph));
+    return fp.mesh || new THREE.Group();
+  },
+  ancient(T, sc, p, a, o) {
+    const frames = [0, 1, 2, 3, 4].map((f) => {
+      const cv = fishCanvasFor(a.id || 'sabertooth', { morph: 'ancient', frame: f, scale: 1 });
+      const tex = new THREE.CanvasTexture(cv);
+      tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.colorSpace = THREE.SRGBColorSpace;
+      return { tex, w: cv.width, h: cv.height };
+    });
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: frames[0].tex, alphaTest: 0.5, fog: false, color: a.tint ?? 0xffffff }));
+    m.renderOrder = 15;
+    sc.scene.add(m);
+    const A = new THREE.Vector3(...(a.from || [p.x - 4, p.y, p.z])), B = new THREE.Vector3(...(a.to || [p.x + 4, p.y, p.z]));
+    const dir = Math.sign(B.x - A.x) || 1, k = a.px ?? (a.pxPer ?? 1) * (o.cam?.wupp ?? 0.02), N = o.loop?.frames || 40;
+    const set = (ph) => {
+      const u = wrap01(ph * (a.laps ?? 1) + (a.off ?? 0));
+      m.position.lerpVectors(A, B, u);
+      m.position.y += Math.sin(u * Math.PI * 2 * (a.bobN ?? 2)) * (a.bob ?? 0.1);
+      const f = frames[Math.floor(Math.round(ph * N) / (a.frameStep ?? 2)) % 5];
+      m.material.map = f.tex;
+      m.scale.set(f.w * k * dir, f.h * k, 1);
+      m.visible = a.vis == null || u <= a.vis;
+    };
+    set(a.still ?? 0.3);
+    if (o.loop) S.drivers.push((dt, ph) => set(ph));
+    return m;
+  },
+};
+
+SCENES.dive = (T, o) => {
+  const game = T.game, R = game.renderer;
+  const sc = (S.dive = buildDiveScene({ wreck: o.wreck || 'old' }));
+  const D = o.cam || {};
+  const rig = (S.diveRig = new CameraRig());
+  rig.freeBounds = true; rig.minWupp = 0.001; rig.maxWupp = 1;
+  rig.yaw = rig.yawGoal = D.yaw ?? 0;
+  rig.pitch = rig.pitchGoal = (D.pitch ?? 12) * D2R;
+  rig.dist = D.dist ?? 30;
+  rig.wupp = rig.wuppGoal = D.wupp ?? 0.02;
+  rig.goal.set(D.x ?? 0, D.y ?? 2.7, D.z ?? -0.8); rig.target.copy(rig.goal);
+  rig.update(0, R);
+  game.overrideScene = sc.scene; game.overrideRig = rig;
+  S.fxParent = sc.scene;
+  const P = (a) => new THREE.Vector3(a.x ?? 0, a.y != null ? a.y : sc.bedH(a.x ?? 0, a.z ?? 0) + (a.by ?? 0), a.z ?? 0);
+  let diverP = null;
+  for (const a of o.cast || []) {
+    const fn = DIVE_KINDS[a.kind];
+    if (!fn) continue;
+    const obj = fn(T, sc, P(a), a, o);
+    if (a.kind === 'diver') diverP = obj.position;
+    add(obj, a.name);
+  }
+  const tb = o.loop?.timeBase ?? 100, amp = o.diveAmp ?? 1.2;
+  const step = (dt, ph) => { sc.update(dt, tb + amp * Math.sin(2 * Math.PI * ph), diverP); rig.wupp = rig.wuppGoal; rig.update(0, R); };
+  step(0, o.still ?? 0);
+  if (o.loop) { S.drivers.push(step); for (const L of o.loopFx || []) S.drivers.push(loopFx(T, L)); }
+  return { dive: true };
+};
+
 // ------------------------------------------------------------------ driver
 export async function setup(kind, o = {}) {
   const T = window.__title;
@@ -643,6 +940,9 @@ export async function setup(kind, o = {}) {
   S.cfg = o;
   for (const a of S.actors) a.obj.removeFromParent();
   S.actors = []; S.named = {}; S.t = 0; S.drivers = []; S.spots = {};
+  // [v5] leave a previous dive scene
+  if (S.dive) { const g0 = window.__title?.game; if (g0) { g0.overrideScene = null; g0.overrideRig = null; } try { S.dive.dispose(); } catch { /* */ } S.dive = null; S.diveRig = null; }
+  S.fxParent = null;
   S.loopOn = !!o.loop;
   for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
   hideTitleCast(T);
@@ -697,7 +997,8 @@ export async function setup(kind, o = {}) {
     L.target.position.copy(t);
     game.scene.add(L, L.target);
   }
-  T._updateCamera = () => applyCamera(T, cam);
+  const camOK = !cam?.dive; // [v5] the dive scene runs its own rig
+  T._updateCamera = () => { if (camOK) applyCamera(T, cam); };
   T.update = (dt) => {
     dt = Math.min(dt || 0, 0.05);
     S.t += dt;
@@ -710,9 +1011,9 @@ export async function setup(kind, o = {}) {
       T._updateWords(dt);
       game.world.sim.update(dt * 0.5, game.wind);
     }
-    applyCamera(T, cam);
+    if (camOK) applyCamera(T, cam);
   };
-  applyCamera(T, cam);
+  if (camOK) applyCamera(T, cam);
   if (o.loop) loopMode(game);
   return true;
 }
@@ -754,7 +1055,11 @@ function loopNpc(rig, L) {
   rig.play(L.anim, { fade: 0, loop: true, restart: true });
   if (L.range) { // scrub a time window of the anim, `cycles` times per loop
     const cur = rig._cur; cur.speed = 0;
-    return (dt, ph) => { const u = (ph * (L.cycles || 1) + (L.off || 0)) % 1; cur.t = L.range[0] + (L.range[1] - L.range[0]) * u; rig.update(dt); };
+    return (dt, ph) => {
+      let u = (ph * (L.cycles || 1) + (L.off || 0)) % 1;
+      if (L.pingpong) u = 0.5 - 0.5 * Math.cos(u * Math.PI * 2); // [v5] there and back: no jump at the wrap
+      cur.t = L.range[0] + (L.range[1] - L.range[0]) * u; rig.update(dt);
+    };
   }
   const cur = rig._cur, dur = cur.def.dur || L.dur || 2;
   cur.speed = (dur * (L.cycles || 1)) / P;
@@ -799,7 +1104,7 @@ const CONFETTI = [0xff5c5c, 0xffd23a, 0x5cccff, 0x7aff8a, 0xff8ae0, 0xffffff];
 function loopFx(T, L) {
   if (CINE_FX[L.type]) return CINE_FX[L.type](T, L);
   const g = new THREE.Group();
-  T.group.add(g);
+  (S.fxParent || T.group).add(g);
   add(g);
   const r = seeded(L.seed || 7);
   const c = L.wx != null ? new THREE.Vector3(L.wx, T.game.grid.groundAt(L.wx, L.wz), L.wz) : L.h != null ? ground(T, L.sx, L.sy, L.h) : ground(T, L.sx, L.sy);
@@ -873,10 +1178,10 @@ export function worldAt(sx, sy, h = null) { return ground(window.__title, sx, sy
 // low-res size (same camera). Everything else is drawn black so it still occludes
 // (the water surface by a stand-in plane); custom-shader meshes and sprites are skipped.
 export function mask(names) {
-  const T = window.__title, game = T.game, R = game.renderer, r = R.renderer, cam = game.rig.camera;
+  const T = window.__title, game = T.game, R = game.renderer, r = R.renderer, cam = (game.overrideRig || game.rig).camera;
   const keep = new Set();
   for (const n of names) S.named[n]?.traverse((o) => keep.add(o));
-  const scene = game.scene;
+  const scene = game.overrideScene || game.scene; // [v5] the dive scene renders through the override
   const white = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   const black = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
   const saved = [];
@@ -892,7 +1197,7 @@ export function mask(names) {
   });
   const water = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), black);
   water.position.set(cam.position.x, WATER_Y, cam.position.z);
-  scene.add(water);
+  if (!game.overrideScene) scene.add(water);
   const bg = scene.background, fog = scene.fog;
   scene.background = new THREE.Color(0, 0, 0);
   scene.fog = null;

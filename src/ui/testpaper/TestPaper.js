@@ -884,7 +884,7 @@ export class TestPaper {
     this.shake = 0.35;
     await this._wait(0.5);
     if (grade.startsWith('A')) {
-      this.sticker = { t: 0, x: GRADE.x - 30, y: 20, art: starSticker(12) };
+      this.sticker = { t: 0, x: GRADE.x - 30, y: GRADE.y + 12, art: starSticker(12) };
       this.sfx('sticker', { volume: 0.6 }); this.sfx('class_star', { volume: 0.5 });
       await this._wait(0.55);
     }
@@ -929,6 +929,12 @@ export class TestPaper {
     }
     if (this.ptr && this.kbd && this._lastPtr !== this.ptr) { this.kbd = false; }
     this._lastPtr = this.ptr;
+    // a sheet taller than the screen follows the red pen while it grades (and the stamp at the top)
+    if (this.phase === 'grade' && this.el.classList.contains('tp-tall')) {
+      const sc = this.scroll, h = sc.clientHeight;
+      const y = this.stamp || this.result ? 0 : (tl.y + MG) * this.s - h * 0.45;
+      sc.scrollTop += (Math.max(0, y) - sc.scrollTop) * Math.min(1, dt * 5);
+    }
     if (this.stamp) this.stamp.t += dt * sp;
     if (this.sticker) this.sticker.t += dt * sp;
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt);

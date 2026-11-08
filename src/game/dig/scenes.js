@@ -103,15 +103,31 @@ async function atBluff(c, v, lines) {
   const S = snappActor(c.game, v);
   c.fox.place(v.x + 2.1, v.z + 1.6, Math.PI);
   c.fox.lookAt(v.x, v.z);
-  if (v.rig) v.rig.root.rotation.y = 0.35;
-  await c.shot([v.x + 1, v.z + 1], { zoom: 0.021, dur: 0.1, cut: true });
+  // he half-turns to the fox, three-quarters to the camera
+  if (v.rig) v.rig.root.rotation.y = 0.62;
+  // [v32 cine] a wide establishing shot of the Bluff, a slow push, then cut in close for the talk
+  await c.shot([v.x + 0.6, v.z - 0.4], { zoom: 0.026, dur: 0.1, cut: true });
+  c.push(0.86, 1.4);
+  await c.beat(1.1);
   c.center(v.x + 1.05, v.z + 0.85);
-  await c.beat(0.4);
+  await c.shot([v.x + 0.35, v.z + 0.35], { zoom: 0.0112, dur: 0.1, cut: true, lift: (v.y || 0) + 0.55 });
+  await c.beat(0.3);
+  // face the lens: most of the way to the camera, a little toward the fox
+  const faceCam = () => {
+    if (!v.rig) return;
+    const yaw = c.game.rig?.yawGoal ?? 0, fa = Math.atan2(c.fox.x - v.x, c.fox.z - v.z);
+    const d = Math.atan2(Math.sin(fa - yaw), Math.cos(fa - yaw));
+    turnTo(v, yaw + d * 0.3, 0.5);
+  };
+  faceCam();
   for (const L of lines) {
     if (typeof L === 'function') { await L(c, S); continue; }
+    if (!L.fox) faceCam();
     const who = L.fox ? c.fox : S;
-    await c.say(who, L.t, { style: L.style || 'say', anim: L.anim, shake: L.shake, sfx: L.sfx });
+    await c.say(who, L.t, { style: L.style || 'say', anim: L.anim, shake: L.shake, sfx: L.sfx, close: L.fox ? 0.0108 : 0.0094 });
   }
+  // pull back out for the last beat
+  await c.shot([v.x + 1, v.z + 0.9], { zoom: 0.02, dur: 0.9 });
   if (v.rig) v.rig.play('idle', { loop: true });
 }
 
