@@ -186,17 +186,32 @@ const SORTS = [
   { id: 'high', n: 'Price: high' },
   { id: 'deal', n: 'Biggest deal' },
 ];
+// [v33 shop] the category page's filter sidebar: checkboxes (availability), a price band, rarities, reviews
 const FILTERS = [
-  { id: 'season', n: 'In season', ic: 'sprout' },
-  { id: 'afford', n: 'I can afford', ic: 'coinp' },
-  { id: 'locked', n: 'Hide locked', ic: 'lockpad' },
+  { id: 'stock', n: 'In stock' },
+  { id: 'afford', n: 'I can afford' },
+  { id: 'season', n: 'In season' },
+  { id: 'locked', n: 'Hide locked' },
+];
+const PRICES = [
+  { id: 'p1', n: 'Under 25', lo: 0, hi: 25 },
+  { id: 'p2', n: '25 to 100', lo: 25, hi: 100 },
+  { id: 'p3', n: '100 to 500', lo: 100, hi: 500 },
+  { id: 'p4', n: '500 & above', lo: 500, hi: Infinity },
+];
+const F0 = () => ({ season: false, afford: false, locked: false, stock: false, stars4: false, price: null, rar: [] });
+// [v33 shop] the front page's footer: joke link columns (plain text, nothing to click)
+const FOOT = [
+  ['Get to Know Us', ['About Reynard', 'Careers (none)', 'Moose Relations', 'Investor Relations (Reynard)']],
+  ['Make Coins with Us', ['Sell on e-Buy', 'Become a Moose', 'Advertise Your Pond', 'Self-Publish an Egg']],
+  ['Let Us Help You', ['Your Orders', 'Returns (no)', 'Shipping Rates & Moose', 'Help (also no)']],
 ];
 const PHASE = { packing: 'Packing...', riding: 'On the road', arriving: 'Almost there!', delivered: 'Delivered!' };
 const PHASES = ['packing', 'riding', 'arriving', 'delivered'];
 
 // session memory: the splash plays once per page session, the cart and the
 // browsing choices survive closing the shop
-const SESSION = { booted: false, cart: [], cat: null, sort: 'best', f: { season: false, afford: false, locked: false },
+const SESSION = { booted: false, cart: [], cat: null, sort: 'best', f: F0(),
   ship: 'std', gift: false, note: '', coupon: null, adsOff: {}, popDone: false, store: {} }; // [v33 kit]
 
 // ---------------------------------------------------------------- component
@@ -229,6 +244,8 @@ class EBuy {
     if (mode !== 'full') this._loadListings();
     this.cat = this._startCat();
     this.q = '';
+    this.scat = ''; // [v33 shop] the search bar's department ('' = all)
+    this.hi = 0; // [v33 shop] the front page hero's slide
     this.cur = null; // id of the open listing
     this.qty = 1;
     this.busy = false;
@@ -248,6 +265,7 @@ class EBuy {
     // [v33 kit] the sidebar's TAP THE FISH game, the deal clock, one pop-up ad a session (never on the tutorial's focus open)
     this._skyI = setInterval(() => this._skyStep(), 280);
     this._cdI = setInterval(() => this._tickDeal(), 1000);
+    this._heroI = setInterval(() => this._heroAuto(), 6500); // [v33 shop] the hero carousel turns by itself
     if (!o.focus && !SESSION.popDone) this._later(() => this._maybePopup(), 24000);
   }
 
@@ -345,11 +363,9 @@ class EBuy {
     }
     return out.length ? out : CATS.slice(0, 1);
   }
-  _catName(id) { return (CATS.find((c) => c.id === id) || { name: id ? id[0].toUpperCase() + id.slice(1) : '' }).name; }
-  _startCat() {
-    if (SESSION.cat && this.listings.some((l) => l.cat === SESSION.cat)) return SESSION.cat;
-    return this._cats()[0].id;
-  }
+  _catName(id) { return id === 'deals' ? "Today's Deals" : (CATS.find((c) => c.id === id) || { name: id ? id[0].toUpperCase() + id.slice(1) : '' }).name; }
+  // [v33 shop] the shop opens on its front page (null); a focus open jumps to the listing's department
+  _startCat() { return null; }
   _byId(id) { return this.listings.find((l) => String(l.id) === String(id)); }
   _pct(l) { return l.oldPrice > l.price ? Math.round((1 - l.price / l.oldPrice) * 100) : 0; }
   _maxQ(l) { return l.stock > 0 ? Math.min(99, l.stock) : 99; }
@@ -379,17 +395,31 @@ class EBuy {
               </div>
               <header class="eb-top">
                 <button class="eb-hb eb-back eb-hback" aria-label="back">${px('arrow', 2, 'eb-ia')}${px('x', 3, 'eb-ix')}</button>
-                <button class="eb-home" aria-label="e-Buy home">${logo('eb-logo')}</button>
-                <label class="eb-search">${px('mag14', 2)}<input class="eb-q" type="text" placeholder="Search eggs, ducks, gnomes..." autocomplete="off" spellcheck="false" enterkeyhint="search" /><button class="eb-qx" aria-label="clear">${px('x', 2)}</button><span class="eb-sgo">Search</span></label>
-                <div class="eb-wallet" title="your coins"><span class="eb-coin">${this._coin(2)}</span><b class="eb-bal">${fmt(this.coins)}</b></div>
-                ${this.o.orders ? `<button class="eb-hb eb-ordb" aria-label="my orders">${px('box16', 2)}<span class="eb-hbt">Orders</span><i class="eb-ordn"></i></button>` : ''}
-                <button class="eb-hb eb-cart" aria-label="cart">${px('cart16', 2)}<span class="eb-hbt">Cart</span><i class="eb-cartn"></i></button>
+                <button class="eb-home" aria-label="e-Buy home">${logo('eb-logo')}<i class="eb-dotca">.ca</i></button>
+                <button class="eb-loc" aria-label="deliver to Reynard's Hut">${px('pin', 2)}<span><small>Deliver to</small><b>Reynard's Hut</b></span></button>
+                <div class="eb-search">
+                  <button class="eb-scat" aria-label="search department"><span class="eb-scatn">All</span>${px('chev', 1)}</button>
+                  <input class="eb-q" type="text" placeholder="Search e-Buy.ca" autocomplete="off" spellcheck="false" enterkeyhint="search" />
+                  <button class="eb-qx" aria-label="clear">${px('x', 2)}</button>
+                  <button class="eb-sgo" aria-label="search">${px('mag14', 2)}</button>
+                </div>
+                <div class="eb-wallet" title="your coins"><span class="eb-coin">${this._coin(2)}</span><span class="eb-wt"><small>Your coins</small><b class="eb-bal">${fmt(this.coins)}</b></span></div>
+                ${this.o.orders ? `<button class="eb-hb eb-ordb" aria-label="my orders"><span class="eb-hbt"><small>No returns</small><b>&amp; Orders</b></span><i class="eb-ordn"></i></button>` : ''}
+                <button class="eb-hb eb-cart" aria-label="cart"><span class="eb-cartic">${px('cart16', 2)}<i class="eb-cartn"></i></span><span class="eb-hbt"><b>Cart</b></span></button>
               </header>
-              <div class="eb-ticker"><div class="eb-tick">${ticker}${ticker}</div></div>
+              <nav class="eb-nav">
+                <button class="eb-nl eb-nall" data-menu="nav"><i class="eb-burger"></i><span>All</span></button>
+                <button class="eb-nl eb-nhot" data-gocat="deals">Today's Deals</button>
+                <span class="eb-ncats"></span>
+                <button class="eb-nl" data-hero="mystery">Mystery Box</button>
+                ${this.o.orders ? `<button class="eb-nl eb-ptrack">Track orders</button>` : ''}
+                <span class="eb-marq" aria-hidden="true"><span class="eb-tick">${ticker}${ticker}</span></span>
+              </nav>
               <div class="eb-body">
                 <nav class="eb-side">
-                  <b class="eb-sideh">Departments</b>
+                  <b class="eb-sideh">Department</b>
                   <div class="eb-cats"></div>
+                  <div class="eb-filters"></div>
                   <div class="eb-promo">
                     <span class="eb-pmoose">${this._icon('moose', 3) || px('van', 3)}</span>
                     <b>FREE Moose Express</b>
@@ -402,13 +432,14 @@ class EBuy {
                     <div class="eb-crumb"><b class="eb-h"></b><span class="eb-n"></span></div>
                     <div class="eb-filt"></div>
                   </div>
-                  <div class="eb-scroll"><div class="eb-grid"></div><div class="eb-foot">© 1999 e-Buy Inc. · a Reynard company · all sales final</div></div>
-                  <div class="eb-det" hidden></div>
+                  <div class="eb-scroll"><div class="eb-homepg"></div><div class="eb-grid"></div><div class="eb-foot">© 1999 e-Buy Inc. · a Reynard company · all sales final</div></div>
                   <div class="eb-popwrap"></div>
                 </main>
+                <div class="eb-det" hidden></div>
+                <div class="eb-shade"></div>
+                <aside class="eb-drawer" aria-hidden="true"></aside>
               </div>
-              <div class="eb-shade"></div>
-              <aside class="eb-drawer" aria-hidden="true"></aside>
+              <div class="eb-smenu" hidden></div>
               <div class="eb-rc" hidden></div>
               <div class="eb-fx"></div>
             </div>
@@ -433,6 +464,11 @@ class EBuy {
     this.$app = $('.eb-app');
     this.$cats = $('.eb-cats');
     this.$grid = $('.eb-grid');
+    this.$home = $('.eb-homepg'); // [v33 shop] the front page
+    this.$filters = $('.eb-filters');
+    this.$ncats = $('.eb-ncats');
+    this.$menu = $('.eb-smenu');
+    this.$scatn = $('.eb-scatn');
     this.$scroll = $('.eb-scroll');
     this.$h = $('.eb-h');
     this.$n = $('.eb-n');
@@ -457,7 +493,7 @@ class EBuy {
     el.addEventListener('click', this._onClick);
     let lastHover = 0;
     el.addEventListener('pointerover', (e) => {
-      const c = e.target.closest?.('.eb-card,.eb-cat,.eb-buy,.eb-add,.eb-qadd,.eb-pay,.eb-gocheck');
+      const c = e.target.closest?.('.eb-card,.eb-cat,.eb-buy,.eb-add,.eb-qadd,.eb-pay,.eb-gocheck,.eb-nl,.eb-chk,.eb-hnav,.eb-rnav,.eb-tile,.eb-hb,.eb-sgo,.eb-scat,.eb-loc,.eb-mi,.eb-slide');
       if (!c || c.contains(e.relatedTarget)) return;
       const now = performance.now();
       if (now - lastHover > 70) { lastHover = now; this._sfx('hover'); }
@@ -560,9 +596,73 @@ class EBuy {
     if (this.drawer === 'checkout') return this._openDrawer('cart');
     if (this.drawer) return this._closeDrawer();
     if (this.cur) { this._sfx('page'); return this._closeDetail(); }
+    if (!this.$menu.hidden) return this._menu(null);
     if (this.q) { this.q = ''; this.$q.value = ''; this._sfx('click'); return this._render(true); }
+    if (this.cat) return this._goCat(null); // [v33 shop] a department page steps back to the front page
     this._userClose();
   }
+  // [v33 shop] go to a department (or 'deals', or null = the front page)
+  _goCat(id) {
+    this._sfx('click');
+    this._menu(null);
+    this.q = ''; this.$q.value = '';
+    if (this.drawer) this._closeDrawer();
+    if (this.cur) this._closeDetail(true);
+    this.cat = id || null; SESSION.cat = this.cat;
+    this._render(true);
+    this.$scroll.scrollTop = 0;
+  }
+  // [v33 shop] the pixel dropdown under the search bar's department button or the nav's All button
+  _menu(mode, anchor) {
+    if (!mode || (this._menuMode === mode && !this.$menu.hidden)) {
+      if (!this.$menu.hidden) { this.$menu.hidden = true; this._menuMode = null; for (const b of this.el.querySelectorAll('.eb-scat, .eb-nall')) b.classList.remove('open'); }
+      return;
+    }
+    this._menuMode = mode;
+    const cats = this._cats();
+    const on = mode === 'search' ? this.scat : this.cat;
+    const head = mode === 'search' ? 'Search in' : 'Shop by department';
+    this.$menu.innerHTML = `<b class="eb-mh">${head}</b>`
+      + (mode === 'search' ? `<button class="eb-mi${!on ? ' on' : ''}" data-mcat=""><span class="eb-mic">${px('mag14', 1)}</span><span>All departments</span></button>` : `<button class="eb-mi${on === 'deals' ? ' on' : ''}" data-mcat="deals"><span class="eb-mic">${px('flame', 2)}</span><span>Today's Deals</span></button>`)
+      + cats.map((c) => `<button class="eb-mi${on === c.id ? ' on' : ''}" data-mcat="${esc(c.id)}"><span class="eb-mic">${this._icon(c.icon, 1) || px('box', 1)}</span><span>${esc(c.name)}</span>${px('arrowR', 1, 'eb-mar')}</button>`).join('');
+    const ar = anchor.getBoundingClientRect(), pr = this.$app.getBoundingClientRect();
+    this.$menu.style.left = `${Math.round(Math.max(4, Math.min(ar.left - pr.left, pr.width - 230)))}px`;
+    this.$menu.style.top = `${Math.round(ar.bottom - pr.top + 4)}px`;
+    this.$menu.hidden = false;
+    for (const b of this.el.querySelectorAll('.eb-scat, .eb-nall')) b.classList.toggle('open', b === anchor);
+    this._bump(this.$menu, 'eb-dropin');
+    this._sfx('page');
+  }
+  _menuPick(id) {
+    const mode = this._menuMode;
+    this._menu(null);
+    if (mode === 'search') {
+      this.scat = id || '';
+      this.$scatn.textContent = id ? this._catName(id) : 'All';
+      this._sfx('click');
+      if (this.q) this._render(true);
+      this.$q.focus();
+      return;
+    }
+    this._goCat(id || null);
+  }
+  // [v33 shop] the hero carousel
+  _heroGo(i, instant = false) {
+    const tr = this.el.querySelector('.eb-htrack');
+    if (!tr) return;
+    const n = tr.children.length || 1;
+    this.hi = ((i % n) + n) % n;
+    tr.classList.toggle('instant', instant);
+    tr.style.setProperty('--hi', this.hi);
+    this.el.querySelectorAll('.eb-hdot').forEach((d, k) => d.classList.toggle('on', k === this.hi));
+  }
+  _heroAuto() {
+    if (this.dead || !this.booted || this.cur || this.drawer || this.q || this.cat || reduced()) return;
+    const h = this.el.querySelector('.eb-hero');
+    if (!h || h.matches(':hover')) return;
+    this._heroGo(this.hi + 1);
+  }
+  _fOn() { const f = SESSION.f; return !!(f.season || f.afford || f.locked || f.stock || f.stars4 || f.price || f.rar.length); }
   _userClose() {
     if (this.dead) return;
     if (this.o.onClose) { try { this.o.onClose(); } catch (err) { console.error(err); } }
@@ -595,6 +695,7 @@ class EBuy {
     clearInterval(this._ordI);
     clearInterval(this._skyI);
     clearInterval(this._cdI);
+    clearInterval(this._heroI);
     cancelAnimationFrame(this._coinRaf);
     document.removeEventListener('keydown', this._onKey);
     this.el.removeEventListener('click', this._onClick);
@@ -613,6 +714,49 @@ class EBuy {
     if (adx) { e.stopPropagation(); return this._adClose(adx.dataset.adx, adx); }
     const ad = t.closest('[data-ad]');
     if (ad && ad.dataset.ad !== 'sky') return this._adClick(ad.dataset.ad, ad);
+    // [v33 shop] the dropdown menu (search department / All departments), closed by any other click
+    const mi = t.closest('.eb-mi');
+    if (mi) return this._menuPick(mi.dataset.mcat);
+    const mopen = t.closest('[data-menu], .eb-scat');
+    if (!this.$menu.hidden && !mopen) this._menu(null);
+    if (mopen) return this._menu(mopen.classList.contains('eb-scat') ? 'search' : 'nav', mopen);
+    // [v33 shop] the front page: hero carousel, row arrows, department links, the deliver-to chip
+    const hn = t.closest('[data-hnav]');
+    if (hn) { this._sfx('click'); this._bump(hn, 'eb-press'); return this._heroGo(this.hi + +hn.dataset.hnav); }
+    const hd = t.closest('[data-hdot]');
+    if (hd) { this._sfx('tick'); return this._heroGo(+hd.dataset.hdot); }
+    const rn = t.closest('[data-rnav]');
+    if (rn) {
+      const row = rn.closest('.eb-rowwrap')?.querySelector('.eb-rowt');
+      this._sfx('click'); this._bump(rn, 'eb-press');
+      if (row) row.scrollBy({ left: +rn.dataset.rnav * Math.max(160, row.clientWidth - 80), behavior: reduced() ? 'auto' : 'smooth' });
+      return;
+    }
+    const hero = t.closest('[data-hero]');
+    if (hero) {
+      const k = hero.dataset.hero;
+      if (k === 'deal') { const l = this._byId(hero.dataset.deal); if (l) { this._sfx('ebuy_tok'); this._openDetail(l); } return; }
+      if (k === 'mystery') { if (this.drawer) this._closeDrawer(); return this._adClick('mystery', hero); }
+      return this._adClick(k, hero);
+    }
+    const gc = t.closest('[data-gocat]');
+    if (gc) return this._goCat(gc.dataset.gocat);
+    if (t.closest('.eb-loc')) { this._sfx('bell'); this._bump(t.closest('.eb-loc'), 'bump'); this._toast('Reynard\'s Hut, by the pond. The moose knows the way.'); return; }
+    const help = t.closest('.eb-helpful');
+    if (help) {
+      if (help.classList.contains('on')) return;
+      help.classList.add('on'); this._sfx('ebuy_tok'); this._bump(help, 'bump');
+      help.textContent = 'Thanks! Reynard noted it.';
+      return;
+    }
+    const th = t.closest('.eb-thumb');
+    if (th) {
+      this._sfx('tick');
+      const well = this.$det.querySelector('.eb-well');
+      for (const x of this.$det.querySelectorAll('.eb-thumb')) x.classList.toggle('on', x === th);
+      if (well) { well.classList.remove('v-0', 'v-1', 'v-2'); well.classList.add('v-' + th.dataset.v); this._bump(well.querySelector('.eb-bigimg'), 'eb-flipin'); }
+      return;
+    }
     const dealc = t.closest('.eb-deal');
     if (dealc) { const l = this._byId(dealc.dataset.deal); if (l) { this._sfx('ebuy_tok'); this._openDetail(l); } return; }
     const also = t.closest('[data-also]');
@@ -621,16 +765,16 @@ class EBuy {
     if (t.closest('.eb-close')) return this._userClose();
     if (t.closest('.eb-reload')) { this._sfx('click'); this._bump(this.el.querySelector('.eb-reload'), 'spin'); this._render(true); return; }
     if (t.closest('.eb-qx')) { e.preventDefault(); this.$q.value = ''; this.q = ''; this._sfx('click'); this._render(true); return; }
-    if (t.closest('.eb-sgo')) { e.preventDefault(); this.$q.blur(); this._sfx('click'); return; }
-    if (t.closest('.eb-home')) {
-      this._sfx('click');
-      this.q = ''; this.$q.value = '';
+    if (t.closest('.eb-sgo')) {
+      e.preventDefault(); this.$q.blur(); this._sfx('click'); this._bump(t.closest('.eb-sgo'), 'eb-press');
+      if (!this.q) { this.$q.focus(); return; }
       if (this.drawer) this._closeDrawer();
       if (this.cur) this._closeDetail(true);
-      this.cat = this._cats()[0].id; SESSION.cat = this.cat;
       this._render(true); this.$scroll.scrollTop = 0;
       return;
     }
+    if (t.closest('.eb-home')) return this._goCat(null);
+    if (t.closest('.eb-totop')) { this._sfx('whoosh'); this.$scroll.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' }); return; }
     if (t.closest('.eb-cart')) return this.drawer === 'cart' ? this._closeDrawer() : this._openDrawer('cart');
     if (t.closest('.eb-ordb, .eb-ptrack')) return this.drawer === 'orders' ? this._closeDrawer() : this._openDrawer('orders');
     if (t.closest('.eb-shade')) return this._closeDrawer();
@@ -638,17 +782,22 @@ class EBuy {
     if (this.drawer && t.closest('.eb-drawer')) return this._drawerClick(t);
     const cat = t.closest('.eb-cat');
     if (cat) {
-      this._sfx('click');
-      this.cat = cat.dataset.cat; SESSION.cat = this.cat;
-      if (this.q) { this.q = ''; this.$q.value = ''; }
-      if (this.cur) this._closeDetail(true);
-      this._render(true);
-      this.$scroll.scrollTop = 0;
+      this._goCat(cat.dataset.cat);
       cat.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
       return;
     }
-    const chip = t.closest('.eb-chip');
-    if (chip) { this._sfx('click'); SESSION.f[chip.dataset.f] = !SESSION.f[chip.dataset.f]; this._render(true); return; }
+    // [v33 shop] filter checkboxes: on / off, a single price band, any number of rarities
+    const chk = t.closest('.eb-chk');
+    if (chk) {
+      const f = SESSION.f, d = chk.dataset;
+      if (d.f) f[d.f] = !f[d.f];
+      else if (d.price) f.price = f.price === d.price ? null : d.price;
+      else if (d.rar) f.rar = f.rar.includes(d.rar) ? f.rar.filter((r) => r !== d.rar) : [...f.rar, d.rar];
+      this._sfx(chk.classList.contains('on') ? 'click' : 'tick');
+      this._render(true);
+      this._bump(this.$filters.querySelector(`.eb-chk[data-${d.f ? 'f' : d.price ? 'price' : 'rar'}="${d.f || d.price || d.rar}"] .eb-box`), 'bump');
+      return;
+    }
     if (t.closest('.eb-sortb')) {
       this._sfx('click');
       const i = SORTS.findIndex((s) => s.id === SESSION.sort);
@@ -656,7 +805,7 @@ class EBuy {
       this._render(true);
       return;
     }
-    if (t.closest('.eb-unfilter')) { this._sfx('click'); SESSION.f = { season: false, afford: false, locked: false }; this.q = ''; this.$q.value = ''; this._render(true); return; }
+    if (t.closest('.eb-unfilter')) { this._sfx('click'); const hadF = this._fOn(); SESSION.f = F0(); if (!hadF) { this.q = ''; this.$q.value = ''; } this._render(true); return; }
     const qadd = t.closest('.eb-qadd');
     if (qadd) {
       const card = qadd.closest('.eb-card');
