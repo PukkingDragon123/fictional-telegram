@@ -697,11 +697,13 @@ class EBuy {
     if (!W || !H) return;
     const t = texelOf(im) || 1;
     const aw = im.naturalWidth / t, ah = im.naturalHeight / t;
-    if (t === 1 && Math.max(aw, ah) > 48) return; // a painting, not pixel art: the CSS fit stays
     const big = im.classList.contains('eb-bigimg');
     const feat = !big && box.classList.contains('dl-pic'); // the deal of the day: a bigger showcase
     const fit = Math.min((W * (big ? 0.6 : 0.7)) / aw, (H * (big ? 0.6 : 0.66)) / ah);
-    const k = Math.max(1, Math.min(big ? 6 : feat ? 4 : 3, Math.floor(fit)));
+    // [v33] small pixels read as detail: at most 2 CSS px per art pixel on cards, 3 in the showcase and the
+    // detail page (HD art such as the fish, drawn 1:1 at 2-3x density, stays at 1-2), never the big chunky blow-up
+    const hd = t === 1 && Math.max(aw, ah) > 48;
+    const k = Math.max(1, Math.min(hd ? 2 : big || feat ? 3 : 2, Math.floor(fit)));
     im.style.width = `${aw * k}px`;
     im.style.height = `${ah * k}px`;
     im.classList.add('fit');
@@ -960,7 +962,9 @@ class EBuy {
     const ads = this._banners(2);
     const out = [];
     if (deal) out.push(this._dealCard(deal));
-    let n = deal ? Math.min(2, cols) : 0, adI = 0;
+    // the deal spans 2 columns (the whole row on a narrow shop), so the first row may already be full
+    const dealSpan = !deal ? 0 : (this.el?.clientWidth || 999) <= 640 ? cols : Math.min(2, cols);
+    let n = dealSpan % cols, adI = 0;
     const firstLocked = list.findIndex((l) => l.locked);
     list.forEach((l, i) => {
       if (i === firstLocked) { out.push(adUnder(this._A, list.length - firstLocked)); n = 0; }
@@ -1019,7 +1023,8 @@ class EBuy {
     return (l.badges || []).filter((b) => BADGES[b]).sort((a, b) => BADGE_ORDER.indexOf(a) - BADGE_ORDER.indexOf(b)).slice(0, max)
       .map((b) => `<span class="eb-bdg b-${b}">${BADGES[b].ic ? px(BADGES[b].ic, 2) : ''}${BADGES[b].t}</span>`).join('');
   }
-  _eggIcon(l, s) { return this._icon(`egg_${RAR[l.rarity] ? l.rarity : 'common'}_0`, s) || this._icon('egg', s); }
+  // [v33] the HD egg (2x density): 1 CSS px per pixel on cards, 2 on the detail page, to match the HD fish
+  _eggIcon(l, s) { const r = RAR[l.rarity] ? l.rarity : 'common'; return this._icon(`egg_${r}_hd`, s >= 4 ? 2 : 1) || this._icon(`egg_${r}_0`, s) || this._icon('egg', s); }
   _stock(l) {
     if (l.locked) return '';
     if (l.stock === 0) return '<span class="eb-stock s-out">Sold out</span>';

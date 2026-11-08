@@ -498,8 +498,10 @@ export async function loveEggs(T) {
       await c.beat(1.2);
       await c.say(c.fox, 'EGGS! Little orange money beans.', { style: 'excited' });
       c.lens(e, { zoom: 0.0065 });
+      const m0 = c.mark(e, { arrow: false, color: 'gold', r: 0.35 });
       await c.beat(0.8);
       await c.say(c.fox, 'Through the Scope... see the tiny *eye spots*? Babies in there.', { style: 'whisper' });
+      m0();
       c.lens(null);
       c.ots(e, { zoom: 0.012 });
       const m = c.mark(e, { label: 'EGGS', color: 'gold' });

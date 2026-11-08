@@ -12,6 +12,7 @@ import { createFoxTalk } from './FoxTalk3D.js';
 import { openFishScope } from './FishScope.js';
 import { Icons3D } from './icons3d.js';
 import { fishIconURL, fishCanvasFor } from '../game/fishSprites.js';
+import { fishCanvasHD, fishSize } from '../art/fishArt.js'; // [v33] HD fish for the shop
 import { SPECIES, SPECIES_BY_ID, RARITIES, MORPHS, MORPH_IDS, TRAITS } from '../data/species.js';
 import { STRUCTURES, BUILD_CATEGORIES, CHARM_CAP } from '../data/structures.js';
 import { RESEARCH, RESEARCH_BY_ID, BRANCHES, UNLOCKS_BUILD, UNLOCKS_SPECIES } from '../data/research.js';
@@ -641,7 +642,11 @@ export class UI {
     if (this._limg.has(key)) return this._limg.get(key);
     let img = null;
     try {
-      if (l.kind === 'egg' || l.kind === 'fish') img = fishCanvasFor(l.species, { morph: l.genes?.morph || 'normal', scale: 3 });
+      // [v33] the shop shows the HD fish: the same fish art compiled at 2-3x the texel density (about 80 px long)
+      if (l.kind === 'egg' || l.kind === 'fish') {
+        const k = Math.max(2, Math.min(3, Math.round(80 / (26 * (fishSize(l.species).w / 26 || 1)))));
+        try { img = fishCanvasHD(l.species, { morph: l.genes?.morph || 'normal', k }); } catch { img = fishCanvasFor(l.species, { morph: l.genes?.morph || 'normal', scale: 3 }); }
+      }
       else if (l.kind === 'food') {
         const BA = C('bagArt');
         const F = FOOD_ITEMS[l.foodId];

@@ -236,6 +236,8 @@ body.cine .tutm-layer { z-index: 29; } /* cutscenes: over the world, under the l
 .tut-skiptag:active, .tut-skiptag.pulled { transform: translateY(1px); box-shadow: 1px 1px 0 #000; }
 .tut-skiptag.off { opacity: 0; transform: translateY(-8px); }
 body.lab-mode .tut-skiptag { right: 16px; }
+/* in a cutscene it sits in the bottom letterbox bar (bubbles often hang at the top) */
+body.cine .tut-skiptag { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); }
 
 /* ---- the plank question card (skip + the room's questions) */
 .tut-choice.tut-ask { flex-direction: column; align-items: center; gap: 10px; bottom: 30%; z-index: 480; }

@@ -501,9 +501,9 @@
 .eb-burst.big b { font-size: 18px; }
 @keyframes eb-burstp { 0%, 100% { transform: rotate(14deg) scale(1); } 50% { transform: rotate(8deg) scale(1.1); } }
 
-.eb-eggm { position: absolute; right: 12%; bottom: 14%; z-index: 1; display: flex; transform: rotate(12deg); filter: drop-shadow(0 2px 0 rgba(42, 26, 20, 0.3)); animation: eb-eggwob 3s ease-in-out infinite; }
+.eb-eggm { position: absolute; right: 12%; bottom: 14%; z-index: 1; display: flex; filter: drop-shadow(0 2px 0 rgba(42, 26, 20, 0.3)); animation: eb-eggwob 3s steps(1) infinite; } /* [v33] no CSS rotation: it smears the pixels */
 .eb-eggm.big { right: 14%; bottom: 14%; z-index: 2; }
-@keyframes eb-eggwob { 0%, 80%, 100% { transform: rotate(12deg); } 85% { transform: rotate(-4deg); } 90% { transform: rotate(18deg); } 95% { transform: rotate(6deg); } }
+@keyframes eb-eggwob { 0%, 80%, 100% { transform: translate(0, 0); } 84% { transform: translate(-2px, -2px); } 88% { transform: translate(2px, -4px); } 92% { transform: translate(-1px, -2px); } 96% { transform: translate(1px, 0); } }
 .eb-mpos { position: absolute; left: 4px; bottom: 9px; z-index: 2; }
 .eb-rar { position: absolute; right: 5px; bottom: 9px; z-index: 2; font: 700 10px/1 var(--eb-title); letter-spacing: 0.5px; text-transform: uppercase; color: #fff; background: var(--rd); padding: 2px 4px; border-radius: 3px; }
 .eb-card.incart .eb-rar { display: none; }
@@ -1439,6 +1439,24 @@
   .ad-face.r, .ad-coin.r, .ad-docs, .ad-qs { display: none; }
   .eb-alsor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ebuy .eb-tag.big { height: 40px; }
+  /* stacked layout (side on top): the main column must shrink so the grid scrolls (v27 let it grow) */
+  .eb-main { min-height: 0; }
+  .eb-also { order: 9; }
+  /* a long review (nowrap) or the delivery pills must not widen the one-column detail */
+  .ebuy .eb-dwrap { grid-template-columns: minmax(0, 1fr); }
+  .eb-qrow { flex-wrap: wrap; row-gap: 6px; }
+  .sp-d .eb-shipl { flex-basis: 100%; }
+  .sp-d .eb-shipb .sh-n { white-space: normal; line-height: 1; }
+  .eb-ship { flex-wrap: wrap; }
+  /* reviews: stars + name on top, the quote wraps below (instead of "it ...") */
+  .eb-rev { flex-wrap: wrap; row-gap: 3px; }
+  .eb-rev q { order: 3; flex-basis: 100%; white-space: normal; }
+  .eb-rev cite { margin-left: auto; }
+}
+@container ebuy (max-width: 440px) {
+  .eb-buy .eb-buyt { font-size: 19px; white-space: nowrap; }
+  .eb-buy .eb-buyc { font-size: 16px; height: 30px; padding: 0 7px 0 4px; }
+  .eb-buy { gap: 6px; padding-left: 10px; padding-right: 10px; }
 }
 .eb-giftb > span:nth-child(2) { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 @container ebuy (max-height: 480px) {

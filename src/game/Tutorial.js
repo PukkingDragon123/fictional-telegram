@@ -295,6 +295,7 @@ export class Tutorial {
     this.stage = 'scene:' + id;
     await this.hideTeacher();
     game.ui?.foodPicker?.hide?.();
+    game.ui?.bubbles?.clear?.((b) => b.key === 'tutbark'); // his last aside goes: the scene talks now
     const rig = game.rig;
     const pitch0 = rig.pitchGoal ?? rig.pitch;
     const follow = this.follow;

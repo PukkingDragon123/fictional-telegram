@@ -2424,6 +2424,34 @@ export function fishCanvas(id, { morph = 'normal', frame = 0, fry = false, scale
   return cv;
 }
 
+// [v33 hd] The same fish compiled at k x the texel density: more pixels, the same design, palette and
+// shading (fin rays, scales and spots get finer, not bigger). For close-ups such as the e-Buy shop.
+//   fishCanvasHD(id, { morph, frame, k = 3 }) -> canvas at 1:1 (show it at 1-2 CSS px per texel)
+const _setsHD = new Map(), _canvHD = new Map();
+export function fishCanvasHD(id, { morph = 'normal', frame = 0, k = 3 } = {}) {
+  if (!MORPHS[morph]) morph = 'normal';
+  id = resolveId(id);
+  const key = `${id}|${morph}|${frame}|${k}`;
+  let cv = _canvHD.get(key);
+  if (cv) return cv;
+  const anc = morph === 'ancient';
+  const skey = `${id}|${anc ? 'a' : 'n'}|${k}`;
+  let S = _setsHD.get(skey);
+  if (!S) {
+    const def = anc ? ancientDef(defFor(id)) : defFor(id);
+    const W = Math.round((SPECIES_SIZE[id] || 1) * FISH_TEXELS_PER_UNIT * k);
+    const F = compile(def, W - 4);
+    S = cropShared([0, 1, 2, 3].map((f) => renderPose(F, swimPose(F, f, false))));
+    _setsHD.set(skey, S);
+  }
+  const B = S[frameIndex(frame, S.length)];
+  const img = colorize(B, paletteFor(id, morph), strSeed(`${id}|${frame}|0`));
+  cv = newCanvas(B.w, B.h);
+  cv.getContext('2d').putImageData(new ImageData(img, B.w, B.h), 0, 0);
+  _canvHD.set(key, cv);
+  return cv;
+}
+
 // Debug helper for the preview page: false-colour view of the semantic slots.
 export function _debugSlots(id, frame = 0, fry = false, scale = 8) {
   const S = spriteSet(id);
