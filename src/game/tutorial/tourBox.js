@@ -10,7 +10,7 @@
 //
 // It sits at the bottom of the screen and moves to the top when the thing being taught (target: an
 // Element, a selector, 'sel:<selector>', a screen point { x, y }, a world thing, or () => any of those)
-// would be under it. It steps out of the way while e-Buy or a class is on screen.
+// would be under it. It steps out of the way while e-Buy, a class or the Fish Scope (its own strip) is on screen.
 // A waiting line can always be tapped on (a clear layer over everything, Enter / Space too) and moves
 // on by itself after `auto` seconds, so it never blocks the tour.
 import '../../ui/classroom.css';
@@ -216,10 +216,18 @@ export class TourBox {
     if (!el) return;
     const game = this.game;
     // e-Buy fills the screen (its own hand points at Buy It Now), a class has its own box
-    el.classList.toggle('away', !!(game.ui?.ebuy || game.classroom?.active));
+    el.classList.toggle('away', !!(game.ui?.ebuy || game.classroom?.active || document.querySelector('.fsc'))); // (the Fish Scope has its own Reynard strip)
     const box = this.q('say');
     const h = (box && box.offsetHeight) || 124;
-    let side = this.forcePlace || 'bottom';
+    // out in the world the hotbar and the food picker live along the bottom: the box goes up top there;
+    // in a scene (the HUD is hidden), Reynard's room and the lab it sits at the bottom like the classroom's
+    let pref = 'bottom';
+    if (!game.director?.active && !game.lab?.active && !document.body.classList.contains('cine')) {
+      const tb = document.getElementById('toolbar');
+      const r = tb && tb.getClientRects().length ? tb.getBoundingClientRect() : null;
+      if (r && r.height > 0 && r.top > innerHeight * 0.5) pref = 'top';
+    }
+    let side = this.forcePlace || pref;
     if (!this.forcePlace) {
       const r = this._rect(this.target);
       if (r) {
@@ -227,7 +235,8 @@ export class TourBox {
         const pad = 14;
         const hits = (y0, y1) => r.right > bx0 && r.left < bx1 && r.bottom > y0 - 16 && r.top < y1 + 16;
         const bottomHit = hits(H - pad - h, H - pad), topHit = hits(pad, pad + h);
-        if (bottomHit && !topHit) side = 'top';
+        if (side === 'bottom' && bottomHit && !topHit) side = 'top';
+        else if (side === 'top' && topHit && !bottomHit) side = 'bottom';
       }
     }
     if (side !== this.place || !el.classList.contains(side)) { this.place = side; el.classList.toggle('top', side === 'top'); el.classList.toggle('bottom', side !== 'top'); }

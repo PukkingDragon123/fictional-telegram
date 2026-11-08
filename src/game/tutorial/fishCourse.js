@@ -166,11 +166,13 @@ export async function fishScope(T) {
     const mo = MORPHS[g.morph] || MORPHS.normal;
     const mu = g.mut ? MUTATIONS[g.mut] : null;
     return [
-      // FishSystem: 1/150 per s hunger; the scope's 4 pips = the well-fed meter (fed >= 0.9 = full)
-      { k: 'hunger', label: 'HUNGER', why: () => `${pct(fish.hunger)}% hungry. The four pips are the well-fed heart: all four lit means ready to breed.` },
+      // FishSystem: 1/150 per s hunger; the fed meter drains x4.7 faster once hunger > 0.7; eligibleForLove: hunger < 0.75
+      { k: 'hunger', label: 'HUNGER', why: () => `${pct(fish.hunger)}% hungry. Feed it before it climbs high: a starving fish won't breed and its well-fed heart drains.` },
       // Game.nurtureFish +0.2 a pet; FishSystem: love > 0.2 -> love timer x1.5; genes.breedGenes: nurtured parents x1.6 luck
       { k: 'mood', label: 'MOOD', why: () => `${pct(fish.love)}% happy. Petting fills it. Happy fish breed sooner and have luckier babies.` },
       { k: 'sex', label: 'SEX', why: () => (g.sex === 'M' ? 'A boy. After a date he swims over the eggs and fertilizes them.' : 'A girl. After a date she lays the eggs.') },
+      // FishScope breed checklist = FishSystem.eligibleForLove: adult, fed >= 0.9, hunger < 0.75, loveT <= 0
+      { k: 'breed', label: 'BREEDING', why: () => 'What it still needs before it can breed: grown up, well fed, not starving and rested. All ticked means ready.' },
       // data/species.js MORPHS values
       { k: 'morph', label: 'COLOUR', why: () => `${mo.name}. Rare colours are worth more: Albino x1.6, Golden x5, Prismatic x8.` },
       // genes.valueMult / mealMult: value and how full a bear gets scale with size
@@ -205,20 +207,39 @@ async function scopeLesson(T, steps, extras, { hello = null } = {}) {
   };
   await reopen();
   if (!S) return;
-  const say = (text, { mood = 'teacher', target = null, wait = false } = {}) => T.getBox()?.say(text, { mood, target, wait, auto: wait ? Math.min(12, 4 + text.length * 0.06) : null }) || T.wait(wait ? 3 : 0.1);
+  // [v33 tut2] inside the Scope, Reynard talks in the Scope's own dialogue strip (.fsc-say: his portrait +
+  // the typed line), so there's one box on screen, never two. A waiting line moves on with a tap on it,
+  // Enter / Space, or after its reading time.
+  await T.hideTeacher();
+  const say = (text, { mood = 'teacher', wait = false } = {}) => {
+    const s = scopeNow();
+    const plain = String(text).replace(/<[^>]+>/g, '');
+    if (s) { try { s.tipKey = '__tut'; s.speak(plain, mood); s.poseT = Math.max(s.poseT || 0, 6); } catch { /* ignore */ } }
+    if (!wait) return Promise.resolve();
+    const secs = Math.min(10, 2.5 + plain.length * 0.055);
+    return T.within(new Promise((res) => {
+      const el = scopeNow()?.el?.querySelector('.fsc-say');
+      const k = (e) => { if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); off(); res(); } };
+      const c = () => { off(); res(); };
+      const off = () => { window.removeEventListener('keydown', k, true); el?.removeEventListener('click', c); };
+      window.addEventListener('keydown', k, true);
+      el?.addEventListener('click', c);
+      setTimeout(off, secs * 1000 + 100);
+    }), secs);
+  };
   if (hello) await T.g(say(hello(fish), { mood: 'excited', wait: true }));
   for (const st of steps(fish)) {
     if (!(await reopen())) break;
     const sel = `.fsc-call[data-k="${st.k}"]`;
     const arrow = G.marks.ui(sel, { label: 'TAP!' });
-    say(`Tap <b>${st.label}</b>.`, { mood: 'focused', target: sel });
+    say(`Tap ${st.label}.`, { mood: 'focused' });
     const tapped = T.waitFor(() => { const s = scopeNow(); return !s || !!s.open?.[st.k]; });
     T.stage = 'scope:' + st.k;
     await T.within(tapped, 14);
     if (!(await reopen())) { arrow.stop(); break; }
     if (!S.open?.[st.k]) { try { S.toggle(st.k); } catch { /* ignore */ } }
     arrow.stop();
-    await T.g(say(st.why(), { mood: 'teacher', target: sel, wait: true }));
+    await T.g(say(st.why(), { mood: 'teacher', wait: true }));
     const s = scopeNow();
     if (s?.open?.[st.k]) { s.open[st.k] = false; try { s.renderCalls(); } catch { /* ignore */ } }
   }
@@ -226,12 +247,12 @@ async function scopeLesson(T, steps, extras, { hello = null } = {}) {
     if (!(await reopen())) break;
     T.stage = 'scope:' + x.sel;
     const a = G.marks.ui(x.sel);
-    await T.g(say(x.text, { mood: x.mood, target: x.sel, wait: true }));
+    await T.g(say(x.text, { mood: x.mood, wait: true }));
     a.stop();
   }
   if (scopeNow()) {
     const a = G.marks.ui('.fsc-x', { label: 'CLOSE' });
-    say('Tap the <b>X</b> to close the Scope.', { mood: 'happy', target: '.fsc-x' });
+    say('Tap the X to close the Scope.', { mood: 'happy' });
     if (!(await T.within(T.waitFor(() => !scopeNow()), 20))) { try { scopeNow()?.close(); } catch { /* ignore */ } }
     a.stop();
   }
@@ -450,6 +471,8 @@ export async function whatSells(T) {
       // genes.breedGenes: size = the parents' mean + (rand - 0.45) x 0.14 x luck (a small lean up)
       { k: 'size', label: 'SIZE', why: () => `Size x${f.g.size.toFixed(2)}. Babies get about the <b>average</b> of mum and dad, with a small nudge up. Breed your biggest.` },
       // genes.breedGenes inheritMorph: 38% per parent with a rare morph; MORPHS.chance
+      // FishSystem: GROW_TIME 70 s / species growth; x0.35 when hungry
+      { k: 'age', label: 'AGE', why: () => 'Still a fry. Fed fry grow up in about a minute; then they\'re worth full price.' },
       { k: 'morph', label: 'COLOUR', why: () => 'Colours run in families: a rare-coloured parent passes it on about <b>4 times in 10</b>.' },
     ], (f) => {
       const w = worthOf(game, f);

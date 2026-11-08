@@ -501,7 +501,7 @@ export class Tutorial {
       const f = game.fox;
       const P = game.shoreTiles?.()[0];
       // up the mountain: Bear Corp
-      await c.shot([O.x, O.z + 4], { zoom: 0.034, dur: 1.4, lift: (O.h || 6) - 2 });
+      await c.shot([O.x, O.z + 4], { zoom: 0.03, dur: 1.4, lift: (O.h || 6) + 2 }); // (the old 'tomorrow' framing: the tower in shot)
       await c.say(c.fox, 'Up the hill is <b>Bear Corp</b>. From tomorrow, at <b>5 PM</b> every day but Sunday, the office empties.', { style: 'say' });
       // down the trail to the pond
       await c.shot([(O.x + f.x) / 2, (O.z + f.z) / 2], { zoom: 0.032, dur: 1.8 });

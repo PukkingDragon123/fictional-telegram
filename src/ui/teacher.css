@@ -226,7 +226,7 @@ body.cine .tutm-layer { z-index: 29; } /* cutscenes: over the world, under the l
    (src/ui/classroom.css .cls-say) out in the world, at the bottom, or at the top when the lesson is down there */
 .cls-ui.tut-box { z-index: 460; }
 .cls-ui.tut-box.away { display: none; }
-.tut-box .cls-say { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+.tut-box .cls-say { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(720px, calc(100vw - 24px)); }
 .tut-box.top .cls-say { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }
 .tut-box .tut-box-hit { cursor: pointer; }
 
@@ -238,5 +238,3 @@ body.cine .tutm-layer { z-index: 29; } /* cutscenes: over the world, under the l
   background: #fff4c8; border: 4px solid #2a1a14; box-shadow: 0 5px 0 #2a1a14; /* the planks' own card look (style.css .tut-choice) */
 }
 
-/* ---- the Fish Scope's eyepiece (src/game/tutorial/stage.js lens): under the HUD and bubbles, over the world */
-.tut-lens { position: fixed; left: 0; top: 0; z-index: 9; pointer-events: none; image-rendering: pixelated; image-rendering: crisp-edges; }
