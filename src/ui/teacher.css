@@ -222,24 +222,15 @@ body.cine .tutm-layer { z-index: 29; } /* cutscenes: over the world, under the l
 .fsc-call.tutm-hot { outline: none; border-color: #ffe27a !important; }
 .tutm-new { animation: unlock-pop .7s cubic-bezier(.3, 1.8, .5, 1) !important; }
 
-/* ---- SKIP TOUR: the cutscenes' own SKIP button look (Director .dir-skip), pinned to the top */
-.tut-skiptag {
-  position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: calc(238px + env(safe-area-inset-right, 0px)); z-index: 470;
-  display: flex; align-items: center; gap: 6px; pointer-events: auto; cursor: pointer;
-  font-family: var(--font-title); font-size: 18px; color: #fff6e4; background: #1a1420;
-  border: 3px solid #fff6e4; box-shadow: 3px 3px 0 #000; padding: 2px 10px 4px 6px; image-rendering: pixelated;
-  opacity: 0; transform: translateY(-8px); transition: opacity .2s, transform .2s;
-}
-.tut-skiptag img { image-rendering: pixelated; }
-.tut-skiptag.on { opacity: .85; transform: none; }
-.tut-skiptag.on:hover { opacity: 1; transform: translateY(-1px); }
-.tut-skiptag:active, .tut-skiptag.pulled { transform: translateY(1px); box-shadow: 1px 1px 0 #000; }
-.tut-skiptag.off { opacity: 0; transform: translateY(-8px); }
-body.lab-mode .tut-skiptag { right: 16px; }
-/* in a cutscene it sits in the bottom letterbox bar (bubbles often hang at the top) */
-body.cine .tut-skiptag { top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); }
+/* ---- [v33 tut2] the tour's dialogue box (src/game/tutorial/tourBox.js): the classroom's speech box
+   (src/ui/classroom.css .cls-say) out in the world, at the bottom, or at the top when the lesson is down there */
+.cls-ui.tut-box { z-index: 460; }
+.cls-ui.tut-box.away { display: none; }
+.tut-box .cls-say { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+.tut-box.top .cls-say { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); }
+.tut-box .tut-box-hit { cursor: pointer; }
 
-/* ---- the plank question card (skip + the room's questions) */
+/* ---- the plank question card (the room's question) */
 .tut-choice.tut-ask { flex-direction: column; align-items: center; gap: 10px; bottom: 30%; z-index: 480; }
 .tut-choice.tut-ask .row { display: flex; gap: 16px; }
 .tut-choice.tut-ask .q {

@@ -35,7 +35,8 @@ import { WATER_Y } from '../world/grid.js';
 import { FX } from './Particles.js';
 import { comicWordSize, paintComicWord } from '../ui/goofyText.js';
 import { natureCanvas } from '../art/natureArt.js';
-import { HeistScene } from './title/HeistScene.js'; // [v33 title] the noon cinematic: Reynard counts his money, a bear, a chase
+import { HeistScene } from './title/HeistScene.js';
+import { PondView } from './title/PondView.js'; // [v33 menu] the default title: just your pond // [v33 title] the noon cinematic: Reynard counts his money, a bear, a chase
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -1811,6 +1812,9 @@ class PondTitleScene { // [v33 title] (was `export class TitleScene`: the defaul
 // [v33 title] The title is the noon heist cinematic (src/game/title/HeistScene.js): Reynard counting
 // money by the pond, a bear, a chase, a looping camera-directed short. ?title=pond (tools/promo
 // poses it) and ?title=sunset keep this golden-hour pond diorama.
+// [v33 menu] The default title is now just your pond (src/game/title/PondView.js; main.js loads your last
+// save behind the menu). ?title=heist keeps the noon heist cinematic.
 const sunsetPond = typeof location !== 'undefined' && /[?&]title=(pond|sunset)(&|$)/.test(location.search);
-export const TitleScene = sunsetPond ? PondTitleScene : HeistScene;
-export { PondTitleScene, HeistScene };
+const heist = typeof location !== 'undefined' && /[?&]title=heist(&|$)/.test(location.search);
+export const TitleScene = sunsetPond ? PondTitleScene : heist ? HeistScene : PondView;
+export { PondTitleScene, HeistScene, PondView };

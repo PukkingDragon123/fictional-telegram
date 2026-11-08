@@ -600,3 +600,5 @@ body.home-mode #toasts { display: none; }
 body.feast-cam .bb[data-key="notify"], body.cine .bb[data-key="notify"], body.cutscene-on .bb[data-key="notify"], body.pc-mode .bb[data-key="notify"], body.pc-walk .bb[data-key="notify"] { opacity: 0 !important; transition: none !important; }
 /* [v26 lead] during a feast event close-up only the event's cast talks: background chatter and craving pips are muted */
 body.feast-focus .bb[data-chat="1"] { opacity: 0 !important; transition: none !important; }
+/* [v33 menu] the title shows your pond: none of the HUD over it */
+body.at-title .qn, body.at-title .qn-peek, body.at-title .hud2 { display: none !important; }

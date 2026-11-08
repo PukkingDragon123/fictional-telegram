@@ -17,12 +17,15 @@ if (DEMO) demoBoot(); // [v26 demo] the demo build: its own saves + the DEMO rib
 //   ?title=valley               the 2D painted valley title (src/game/title/TitleWorld.js)
 const params = new URLSearchParams(location.search);
 const canvas = document.getElementById('game');
-const autostart = params.has('autostart') ? (params.get('autostart') === 'continue' ? 'continue' : 'new') : null;
+// [v33 menu] a choice made on a title that had loaded a save: the page reloads into it (see startGame)
+let bootPick = null;
+try { bootPick = JSON.parse(sessionStorage.getItem('tbme.boot') || 'null'); sessionStorage.removeItem('tbme.boot'); } catch { bootPick = null; }
+const autostart = params.has('autostart') ? (params.get('autostart') === 'continue' ? 'continue' : 'new') : bootPick ? (bootPick.mode === 'continue' ? 'continue' : 'new') : null;
 const pondTitle = !autostart && params.get('title') === 'pond';
 const valleyTitle = !autostart && params.get('title') === 'valley'; // [v26 title2]
 import settings from './ui/settings.js'; // [v26 menu] player settings (applied to the renderer here, the game once built)
-import { clampSlot, setLastSlot } from './game/saveSlots.js'; // [v26 menu] 3 save slots
-const startSlot = clampSlot(params.get('slot') || 1); // [v26 menu] ?slot=N for autostart (default 1)
+import { clampSlot, setLastSlot, lastSlot, hasSlot } from './game/saveSlots.js'; // [v26 menu] 3 save slots
+const startSlot = clampSlot(params.get('slot') || bootPick?.slot || 1); // [v26 menu] ?slot=N for autostart (default 1)
 
 const renderer = new PixelRenderer(canvas);
 try {
@@ -89,10 +92,19 @@ function bootGame() {
   return gameP;
 }
 
+let titleLoaded = 0; // [v33 menu] the save slot shown behind the title (0 = none)
 function startGame(choice) {
   // [v26 menu] choice: 'new' | 'continue' | { slot, mode: 'new' | 'continue' }
   const slot = clampSlot(typeof choice === 'object' ? choice.slot : startSlot);
   if (typeof choice === 'object') choice = choice.mode;
+  // [v33 menu] the title had your save loaded (and its fish swimming): start clean from a reload
+  if (titleLoaded) {
+    try {
+      sessionStorage.setItem('tbme.boot', JSON.stringify({ slot, mode: choice === 'continue' ? 'continue' : 'new' }));
+      location.reload();
+      return;
+    } catch { /* no session storage: carry on in place */ }
+  }
   game.slot = slot;
   setLastSlot(slot);
   mode = 'play';
@@ -187,10 +199,17 @@ if (autostart) {
   }).catch((e) => console.warn('TitleMenu failed', e));
   Promise.all([bootGame(), import('./game/TitleScene.js')]).then(([, { TitleScene }]) => {
     if (mode !== 'title' || starting) return;
-    game.state.hour = 17.4;
-    for (let i = 0; i < 10; i++) {
-      const p = game.fish.randomWaterPoint();
-      if (p) game.fish.spawn(['bluegill', 'perch', 'brook', 'sockeye', 'aurora'][i % 5], p.x, p.z, { adult: true });
+    // [v33 menu] your pond: the last save behind the menu, or the starter pond with a few fish
+    const pickSlot = TitleScene.isPondView ? [lastSlot(), 1, 2, 3].find((n) => hasSlot(n)) : 0;
+    if (pickSlot) {
+      try { game.slot = pickSlot; if (game.load()) titleLoaded = pickSlot; } catch (e) { console.warn('title: save failed to load', e); }
+    }
+    if (!titleLoaded) {
+      game.state.hour = 17.4;
+      for (let i = 0; i < (TitleScene.isPondView ? 6 : 10); i++) {
+        const p = game.fish.randomWaterPoint();
+        if (p) game.fish.spawn(['bluegill', 'perch', 'brook', 'sockeye', 'aurora'][i % 5], p.x, p.z, { adult: true });
+      }
     }
     titleScene = new TitleScene(game);
     titleScene.start();
