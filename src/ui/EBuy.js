@@ -390,7 +390,7 @@ class EBuy {
                   <button class="eb-sgo" aria-label="search">${px('mag14', 2)}</button>
                 </div>
                 <div class="eb-wallet" title="your coins"><span class="eb-coin">${this._coin(2)}</span><span class="eb-wt"><small>Your coins</small><b class="eb-bal">${fmt(this.coins)}</b></span></div>
-                ${this.o.orders ? `<button class="eb-hb eb-ordb" aria-label="my orders"><span class="eb-hbt"><small>No returns</small><b>&amp; Orders</b></span><i class="eb-ordn"></i></button>` : ''}
+                ${this.o.orders ? `<button class="eb-hb eb-ordb" aria-label="my orders"><span class="eb-ordic">${px('box16', 2)}</span><span class="eb-hbt"><small>No returns</small><b>&amp; Orders</b></span><i class="eb-ordn"></i></button>` : ''}
                 <button class="eb-hb eb-cart" aria-label="cart"><span class="eb-cartic">${px('cart16', 2)}<i class="eb-cartn"></i></span><span class="eb-hbt"><b>Cart</b></span></button>
               </header>
               <nav class="eb-nav">
@@ -1092,7 +1092,7 @@ class EBuy {
     if (!this.cur) this.$path.textContent = this.q ? '/s?k=' + this.q.replace(/\s+/g, '+') : home ? '/' : '/' + this.cat;
     // [v33 shop] the top sellers anywhere get a BEST SELLER sticker
     const pool = home ? this.listings : this._scope();
-    this._best = new Set(pool.filter((l) => !l.locked && l.stock !== 0 && l.seller?.sold).sort((a, b) => b.seller.sold - a.seller.sold).slice(0, Math.max(1, Math.round(pool.length / 9))).map((l) => l.id));
+    this._best = new Set(pool.filter((l) => !l.locked && l.stock !== 0 && l.seller?.sold).sort((a, b) => b.seller.sold - a.seller.sold).slice(0, home ? 2 : Math.max(1, Math.round(pool.length / 12))).map((l) => l.id));
     if (home) {
       this.$grid.innerHTML = '';
       this.$filters.innerHTML = '';
@@ -1214,8 +1214,7 @@ class EBuy {
         <span class="sl-txt ad-txt"><span class="sl-kick">${px('flame', 2)}DEAL OF THE DAY</span><b class="sl-h">${esc(this._short(d))}</b>
           <span class="sl-p"><span class="eb-tag">${this._coin(1)}<b>${fmt(d.price)}</b></span><s class="eb-old">${fmt(d.oldPrice)}</s></span>
           <span class="sl-sub">+10% back in coins · ends in <b class="eb-cd">${this._countdown()}</b></span><span class="sl-cta">Shop the deal ${px('arrowR', 1)}</span></span>
-        <span class="sl-art dl-pic"><img class="eb-img" src="${esc(imgSrc(d.image))}" alt="" draggable="false" />${d.cat === 'eggs' && d.kind !== 'fish' ? `<span class="eb-eggm">${this._eggIcon(d, 2)}</span>` : ''}<i class="dl-ped"></i></span>
-        <span class="eb-burst big"><b>-${pct}%</b></span></div>`);
+        <span class="sl-art dl-pic"><img class="eb-img" src="${esc(imgSrc(d.image))}" alt="" draggable="false" />${d.cat === 'eggs' && d.kind !== 'fish' ? `<span class="eb-eggm">${this._eggIcon(d, 2)}</span>` : ''}<i class="dl-ped"></i><span class="eb-burst big"><b>-${pct}%</b></span></span></div>`);
     }
     S.push(`<div class="eb-slide sl-moose" data-hero="moose">
         <span class="sl-txt ad-txt"><span class="sl-kick">${px('van', 1)}MOOSE EXPRESS</span><b class="sl-h">TURBO MOOSE is here</b>
@@ -1344,7 +1343,8 @@ class EBuy {
     return k;
   }
   _cardStk(l) {
-    const k = this._stkKinds(l)[0];
+    // [v33 shop] cards keep only Reynard's seal (the orange #1 Best Seller tag and the FRESH! line live elsewhere now)
+    const k = this._stkKinds(l).find((x) => x === 'picked');
     if (!k) return '';
     // the top-left corner is free unless the HOT / NEW badges live there
     return stkHTML(k, { cls: 'stk-c ' + (this._badges(l, 2).trim() ? 'stk-cbl' : 'stk-ctl') });
@@ -1960,9 +1960,9 @@ class EBuy {
         ${lines.length ? `<div class="eb-dfoot">
           <div class="eb-freeok">${px('check', 2)}<span>Your order qualifies for <b>FREE Moose Express</b>. He insists.</span></div>
           <div class="eb-sum big"><span>Subtotal (${n}):</span><i></i><b>${this._coin(1)}${fmt(total)}</b></div>
+          <button class="eb-gocheck${after < 0 ? ' poor' : ''}"><span>Proceed to checkout</span>${px('arrowR', 2)}</button>
           ${this._sumRows(q)}
           <div class="eb-sum sm${after < 0 ? ' bad' : ''}"><span>Wallet after</span><i></i><b>${this._coin(1)}${fmt(this.coins - total)}</b></div>
-          <button class="eb-gocheck${after < 0 ? ' poor' : ''}"><span>Proceed to checkout</span>${px('arrowR', 2)}</button>
           ${this._club(this.store.stamps)}
         </div>` : ''}`;
       return;
