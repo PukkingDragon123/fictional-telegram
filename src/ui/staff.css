@@ -70,7 +70,8 @@
 .sf-card { display: grid; grid-template-columns: 196px 1fr; gap: 18px; }
 .sf-cl { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .sf-cr { min-width: 0; }
-.sf-pers { margin-top: -18px; position: relative; z-index: 2; min-height: 10px; }
+.sf-pers { margin-top: 2px; position: relative; z-index: 2; min-height: 10px; }
+.sf-note { margin: 14px 0 0 auto; }
 .sf-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 .sf-chip { display: inline-block; padding: 0 6px 1px; font-size: 13px; font-family: var(--font2); color: #3a2a1c; background: #fff6dc; box-shadow: 0 0 0 var(--P) #8a6a44, var(--P) var(--P) 0 var(--P) rgba(60, 30, 4, .22); cursor: default; }
 .sf-chip.good { background: #d8f6c8; box-shadow: 0 0 0 var(--P) #2f6f4a, var(--P) var(--P) 0 var(--P) rgba(20, 60, 20, .22); }

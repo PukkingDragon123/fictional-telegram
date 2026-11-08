@@ -442,7 +442,9 @@ export class Ambient {
     const B = this.batch;
     B.clear();
     this.shoreT -= dt;
-    if (this.shoreT <= 0) { this.shoreT = 12; this.scanShore(); }
+    const cam0 = game.rig?.target; // [v33 town] rescan when the camera has moved on
+    if (cam0 && this._shoreCam && Math.hypot(cam0.x - this._shoreCam.x, cam0.z - this._shoreCam.z) > 12) this.shoreT = 0;
+    if (this.shoreT <= 0) { this.shoreT = 12; this.scanShore(); if (cam0) this._shoreCam = { x: cam0.x, z: cam0.z }; }
 
     // ---- loons and mallards paddle, dive and call
     for (const l of this.loons) {

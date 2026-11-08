@@ -133,7 +133,8 @@ function evalPath(keys, t, out) {
 const SHOTS = [
   { id: 'A', t: 0, d: 6, cam: (u) => { const e = ease.io3(u); return { yaw: lerp(-0.32, -0.06, e), pitch: lerp(32, 14, e), wupp: lerp(0.021, 0.0158, e), at: [lerp(0, 0.1, e), lerp(0.55, 0.5, e), lerp(-0.3, -0.25, e)], sx: 0.16, sy: lerp(-0.02, 0.02, e) }; } },
   { id: 'B', t: 6, d: 6.2, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.34, 0.2, e), pitch: lerp(12, 13, e), wupp: lerp(0.0102, 0.0084, e), at: [0.02, 0.62, -0.38], sx: 0.14, sy: 0 }; } },
-  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.56, 0.48, u), pitch: 9, wupp: lerp(0.0036, 0.0031, ease.out(u)), at: [lerp(0.16, 0.21, u), 0.5, 0.03], sx: 0.1, sy: -0.12 }) },
+  // macro insert from the front right: the coin stacks big in the frame, Reynard's grin out of focus behind
+  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.98, 0.9, u), pitch: 13, wupp: lerp(0.0024, 0.0021, ease.out(u)), at: [lerp(0.17, 0.2, u), 0.5, 0.03], sx: 0.06, sy: -0.14 }) },
   { id: 'D1', t: 13.8, d: 2.55, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.95, 0.85, e), pitch: 11, wupp: lerp(0.0086, 0.0078, e), at: [0.02, 0.5, -0.25], sx: 0.12, sy: 0 }; } },
   { id: 'D2', t: 16.35, d: 2.65, cam: (u) => { const e = ease.io(u); return { yaw: lerp(-0.12, -0.04, e), pitch: lerp(6, 8, e), wupp: lerp(0.0104, 0.009, e), at: [0.05, 0.72, -0.45], sx: 0.15, sy: 0 }; } },
   { id: 'E', t: 19.0, d: 4.0, sun: 'back', cam: (u, t) => ({ yaw: 0.1, pitch: lerp(8, 7, u), wupp: lerp(0.0074, 0.0067, ease.io(u)) * (t > 22.25 ? 1 - 0.14 * Math.exp(-(t - 22.25) * 5) - 0.07 * smooth((t - 22.25) / 0.2) : 1), at: [0, 0.74, -0.42], sx: 0.12, sy: -0.06 }) },
@@ -610,7 +611,7 @@ export class HeistScene {
         this.anim('horror', 0.06);
         fox.popHat?.(1.0, 2);
         const h = head();
-        word('YIPE!', 'yipe', h.add(R.clone().multiplyScalar(0.18)).setY(h.y + 0.12), { size: 1.0, life: 1.0 });
+        word('YIPE!', 'yipe', h.addScaledVector(R, 0.42).setY(h.y - 0.12), { size: 1.0, life: 1.0 });
         this._fx((P) => P.sprite('bang', h.x + R.x * 0.3, h.y + 0.1, h.z + R.z * 0.3, { vy: 1, life: 0.8, size: 0.24 }));
         this._sfx('fox_startle', { volume: 0.45 });
         this.game.rig.shake = Math.max(this.game.rig.shake || 0, 0.35);
@@ -871,7 +872,7 @@ export class HeistScene {
       P.fx.spawn('glow', q.x, q.y + 0.01, q.z, { life: 0.45, size: big ? 0.12 : 0.06, flags: FX.POP | FX.FADE, emissive: 2, bright: true });
     });
     if (big) {
-      this._word('TING!', 'ting', q.x + this.R0.x * 0.12, q.y + 0.14, q.z + this.R0.z * 0.12, { size: 0.55, life: 0.9 });
+      this._word('TING!', 'ting', q.x + this.R0.x * 0.08, q.y + 0.1, q.z + this.R0.z * 0.08, { size: 0.6, life: 1.0 });
       this._sfx('star_pop', { volume: 0.3, pitch: 1.5 });
     }
   }

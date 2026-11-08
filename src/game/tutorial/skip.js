@@ -105,8 +105,9 @@ export function finishSkipped(T) {
   tryy(() => {
     const inv = (game.state.inventory ||= {});
     const has = (t) => game.structures.list.some((s) => s.type === t && !s.removed) || (inv[t] || 0) > 0;
-    for (const t of ['lodge', 'beaverbar', 'woodgarage']) if (!has(t)) inv[t] = (inv[t] || 0) + 1;
-    if (!has('carrot')) inv.carrot = (inv.carrot || 0) + 2;
+    // the beaver crew's lodge (the questline gifts the Snack Bar, carrot seeds and Wood Garage itself
+    // once their research is done: src/data/questline.js)
+    if (!has('lodge')) inv.lodge = (inv.lodge || 0) + 1;
     game.emit('inventory', inv);
   });
   game.quickEggs = false;

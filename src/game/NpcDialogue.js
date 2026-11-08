@@ -5,6 +5,7 @@
 // milestones at 3 / 6 / 10 queue a cutscene (NpcScenes.queueEvent).
 // State: game.state.villagers[id] = { hearts, friend, giftDay, met, picked: {key: 1}, open: {topic: 1}, seen: {topic: day}, ms: {3: 1} }
 import { DIALOGUE } from '../data/npcDialogue.js';
+import { GOSSIP as GOSSIP_LINES } from './town/townLines.js'; // [v33 town]
 
 export const MILESTONES = [3, 6, 10];
 export const FRIEND_MAX = 10;
@@ -48,6 +49,21 @@ export class NpcDialogue {
     return out;
   }
 
+  // [v33 town] the latest news they'd mention (your newest fish, last night's feast, a quest, the weather)
+  townNews(v) {
+    const T = this.game.town;
+    const a = T?.actors?.get(v.id);
+    if (!a) return [];
+    try {
+      const n = T.news(a);
+      if (!n) return [];
+      const L = GOSSIP_LINES[n[0]];
+      if (!L?.length) return [];
+      T.markSaid(a, n);
+      return [T.fill(L[(this.game.state.day | 0) % L.length], n[1], a)];
+    } catch { return []; }
+  }
+
   dailyLine(v) {
     const D = this.data(v.id);
     if (!D?.daily?.length) return null;
@@ -67,7 +83,7 @@ export class NpcDialogue {
       const first = st.seen.today !== game.state.day;
       st.seen.today = game.state.day;
       card.setChoices([]);
-      card.setLines([this.dailyLine(v) || '...']);
+      card.setLines([this.dailyLine(v) || '...', ...this.townNews(v)]);
       // the first chat of the day: a small friendship nudge
       if (first && this.addFriend(v, 0.5) > 0) { card.update({ hearts: st.hearts }); }
       p?.play?.('wave');

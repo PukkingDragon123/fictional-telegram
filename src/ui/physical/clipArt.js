@@ -318,9 +318,9 @@ export function paintStamp(text, color = '#b8282c', { rot = -8, font = 'bold', s
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!p.a(x, y)) continue;
     const n = fbm(x * 1.7, y * 1.7, 5, seed);
-    if (n < 0.3 || noise(x, y, seed) < 0.07) p.set(x, y, [0, 0, 0], 0);
-    else if (n < 0.4) p.set(x, y, C, 150);
-    else p.set(x, y, C, 225);
+    if (n < 0.2 || noise(x, y, seed) < 0.035) p.set(x, y, [0, 0, 0], 0); // worn: a few gaps, stays readable
+    else if (n < 0.33) p.set(x, y, C, 160);
+    else p.set(x, y, C, 230);
   }
   return rotNN(p, rot);
 }

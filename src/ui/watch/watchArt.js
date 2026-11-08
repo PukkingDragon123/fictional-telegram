@@ -153,7 +153,7 @@ export const SPR = {
   // sparkle (4-point star)
   spark: ['..w..', '..w..', 'ww.ww', '..w..', '..w..'],
   sparkS: ['.w.', 'w.w', '.w.'],
-  zS: ['kk', '.k', 'kk'], zM: ['kkk', '..k', '.k.', 'kkk'], zL: ['kkkk', '...k', '..k.', '.k..', 'kkkk'],
+  zS: ['kkk', '.k.', 'kkk'], zM: ['kkkk', '..k.', '.k..', 'kkkk'], zL: ['kkkkk', '...k.', '..k..', '.k...', 'kkkkk'],
 };
 const GOLD_PAL = () => ({ o: P.ink, h: P.g5, l: P.g4, m: P.g3, d: P.g2, D: P.g1, w: P.w });
 
@@ -364,7 +364,7 @@ function apertureFrame(b, G) {
     }
   }
 }
-export function plaqueW(G) { return G.size === 'L' ? 25 : 16; }
+export function plaqueW(G) { return G.size === 'L' ? 25 : 18; }
 function plaqueFrame(b, G, w) {
   const { cx, cy } = G, { y: py, h } = G.pl;
   const x0 = cx - (w >> 1);

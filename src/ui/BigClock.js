@@ -23,6 +23,7 @@
 // Interaction (pointer):
 //   - hover: the watch swings on its chain, the bell charm and the speed tag dangle, it ticks in
 //     your ear, and a paper tag drops down with the exact time, countdown, weather and speed
+//     (phones: a long press drops the tag)
 //   - press the crown (or tap the dial / the speed tag): speed 1x -> 2x -> 3x -> 1x, onSpeed(n);
 //     the crown squashes in with a click ("Tap the clock to speed time up" still works)
 //   - click the lid: it snaps shut (a half-hunter: the time still shows through its window) or
@@ -47,7 +48,8 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const mod24 = (h) => ((h % 24) + 24) % 24;
 const LS_LID = 'tbme.watch.lid';
 const RING_DUR = 4.2;
-const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+let RM = null;
+const reduced = () => { try { RM = RM || matchMedia('(prefers-reduced-motion: reduce)'); return RM.matches; } catch { return false; } };
 const NIGHT_GLINT = hex('#b8c8ff');
 const WXNAME = { clear: 'Clear', heat: 'Heatwave', rain: 'Rain', storm: 'Storm', snow: 'Snow', fog: 'Fog', wind: 'Windy' };
 
@@ -118,6 +120,7 @@ export class BigClock {
     this.cv.addEventListener('pointermove', (e) => this._move(e));
     this.cv.addEventListener('pointerdown', (e) => this._down(e));
     for (const ev of ['pointerup', 'pointercancel']) this.cv.addEventListener(ev, () => this._up());
+    this.cv.addEventListener('contextmenu', (e) => e.preventDefault()); // a long press shows the paper tag instead
     this.btn.addEventListener('click', (e) => this._click(e));
     this._resize();
   }
@@ -151,6 +154,7 @@ export class BigClock {
   setVisible(on) { this.el.classList.toggle('bclock-hidden', !on); }
 
   destroy() {
+    clearTimeout(this._lpT);
     this._mq?.removeEventListener?.('change', this._onMq);
     window.removeEventListener('resize', this._onWin);
     this.el.remove();
@@ -217,21 +221,34 @@ export class BigClock {
     const r = this._region(ax, ay);
     this._press = r;
     if (r === 'crown') { this.crown.held = true; this.sfx('set_tick', { volume: 0.35, pitch: 1.15 }); }
+    // phones: a long press drops the paper tag (and doesn't change the speed)
+    clearTimeout(this._lpT);
+    if (e.pointerType === 'touch') {
+      this._lpT = setTimeout(() => {
+        this._longPress = true;
+        this._showTagT = 3;
+        this.crown.held = false;
+        this._press = null;
+        this.fob.v += 2;
+        this.sfx('paper', { volume: 0.3 });
+      }, 450);
+    }
   }
 
   _up() {
+    clearTimeout(this._lpT);
     if (this.crown.held) { this.crown.held = false; this.crown.v = -34; }
     this._press = null;
   }
 
   _click(e) {
+    if (this._longPress) { this._longPress = false; return; }
     if (!e.detail) { this._speedUp('key'); return; } // keyboard / programmatic click: the old behaviour
     const [ax, ay] = this._art(e);
     const r = this._region(ax, ay);
     if (r === 'crown' || r === 'dial' || r === 'tag') this._speedUp(r);
     else if (r === 'lid') this._toggleLid();
     else if (r === 'bell' || r === 'chain') this._jingle();
-    if (this._touch) this._showTagT = 2.6;
   }
 
   _speedUp(from) {
@@ -664,8 +681,8 @@ export class BigClock {
     for (let i = 0; i < 3; i++) {
       const p = (this.t * 0.38 + i / 3) % 1;
       if (p > 0.95) continue;
-      const zx = Math.round(G.cx + (L ? 9 : 6) + p * (L ? 22 : 14) + Math.sin(p * 8 + i * 2) * 1.6);
-      const zy = Math.round(G.bowY - (L ? 4 : 3) - p * (L ? 24 : 15));
+      const zx = Math.round(G.cx + (L ? 9 : 6) + p * (L ? 20 : 13) + Math.sin(p * 8 + i * 2) * 1.6);
+      const zy = Math.round(G.bowY + (L ? 2 : 1) - p * (L ? 22 : 14));
       const spr = p < 0.3 ? SPR.zS : p < 0.62 ? SPR.zM : SPR.zL;
       for (let y = 0; y < spr.length; y++) for (let x = 0; x < spr[y].length; x++) {
         if (spr[y][x] !== 'k') continue;

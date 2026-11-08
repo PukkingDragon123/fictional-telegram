@@ -125,12 +125,13 @@ body.cine .ind-hud, body.lab-full .ind-hud { opacity: 0; pointer-events: none; }
 .ind-pc .bat i { border: var(--P) solid #2a1a14; }
 .ind-pc .crew .row { border-bottom: 0; background: linear-gradient(#c3cde3, #c3cde3) left bottom / 100% var(--P) no-repeat; }
 .ind-pc .btns { margin-top: 14px; gap: 10px; }
-.ind-pc .btn { appearance: none; margin: 0; display: inline-flex; align-items: center; gap: 3px; padding: 2px 9px 3px; font-family: var(--font2); font-size: 14px; color: #2a1d16; text-shadow: none; cursor: pointer; border: 0; border-radius: 0;
-  background: #f6e2b4; box-shadow: inset 0 var(--P) 0 #fff6d8, 0 0 0 var(--P) #4a3020, 0 calc(var(--P) * 2) 0 var(--P) #4a3020; min-height: 0; }
-.ind-pc .btn img { image-rendering: pixelated; }
-.ind-pc .btn:hover { transform: translateY(calc(var(--P) * -1)); background: #fff0c8; filter: none; }
-.ind-pc .btn:active { transform: translateY(var(--P)); box-shadow: inset 0 var(--P) 0 #fff6d8, 0 0 0 var(--P) #4a3020; }
-.ind-pc .btn.red { background: #f8b8a6; } .ind-pc .btn.green { background: #b4e48a; } .ind-pc .btn.gold { background: #ffd860; }
+.ind-pc { padding-bottom: 10px; }
+html body .ind-pc .btn { appearance: none; margin: 0; display: inline-flex; align-items: center; gap: 3px; padding: 2px 9px 3px; font-family: var(--font2); font-size: 14px; font-weight: normal; color: #2a1d16; text-shadow: none; cursor: pointer;
+  border: 0; border-image: none; border-radius: 0; background: #f6e2b4; box-shadow: inset 0 var(--P) 0 #fff6d8, 0 0 0 var(--P) #4a3020, 0 calc(var(--P) * 2) 0 var(--P) #4a3020; min-height: 0; filter: none; }
+html body .ind-pc .btn img { image-rendering: pixelated; }
+html body .ind-pc .btn:hover { transform: translateY(calc(var(--P) * -1)); background: #fff0c8; filter: none; border-image: none; box-shadow: inset 0 var(--P) 0 #fff6d8, 0 0 0 var(--P) #4a3020, 0 calc(var(--P) * 2) 0 var(--P) #4a3020; }
+html body .ind-pc .btn:active { transform: translateY(var(--P)); border-image: none; box-shadow: inset 0 var(--P) 0 #fff6d8, 0 0 0 var(--P) #4a3020; }
+html body .ind-pc .btn.red { background: #f8b8a6; } html body .ind-pc .btn.green { background: #b4e48a; } html body .ind-pc .btn.gold { background: #ffd860; }
 .ind-airstamp { right: calc(var(--P) * 14); top: calc(var(--P) * 16); }
 `;
 

@@ -263,7 +263,7 @@ export class StaffUI {
       meta.appendChild(note);
     }
     const rows = el.querySelector('.sf-rows');
-    if (!L.length) rows.appendChild(cb.hand('No staff yet. Build a Beaver Lodge, or an Interview Tent and hire some.', { maxW: 300, color: INK_BLUE }));
+    if (!L.length) rows.appendChild(cb.hand('No staff yet. Build a Beaver Lodge, or an Interview Tent and hire some.', { maxW: 600, color: INK_BLUE }));
     for (const r of L) {
       const home = sys.byKey(r.home);
       const hurt = r.hurt && (r.hurt.state === 'down' || r.hurt.state === 'limp');
@@ -290,7 +290,7 @@ export class StaffUI {
       rows.appendChild(b);
     }
     if (k === nR - 1) {
-      const n = cb.hand('Wages are paid every morning, out of MY pocket. -R', { color: INK_BLUE, maxW: 300 });
+      const n = cb.hand('Wages are paid every morning, out of MY pocket. -R', { color: INK_BLUE, maxW: 600 });
       n.classList.add('sf-foot');
       el.appendChild(n);
     }
@@ -389,7 +389,7 @@ export class StaffUI {
     el.innerHTML = `<div class="sf-card"><div class="sf-cl">${this.polaroid('big')}<div class="sf-pers"></div><div class="sf-tags">${this.traitChips(r.traits)}</div><div class="sf-stats"></div><div class="sf-btns"></div></div>
       <div class="sf-cr"><div class="sf-sec sf-sjob"></div><div class="sf-opts sf-ojob"></div><div class="sf-sec sf-shome"></div><div class="sf-opts sf-ohome"></div><div class="sf-sec sf-sskill"></div></div></div>`;
     this.dress(el);
-    el.querySelector('.sf-pola-cap').appendChild(cb.hand(r.name, { maxW: 150 }));
+    el.querySelector('.sf-pola-cap').appendChild(cb.hand(r.name, { maxW: 172 }));
     if (P.name) { const st = cb.stamp(P.name.toUpperCase(), '#7a3aa0', { rot: -7, frame: 'single', seed: r.id }); el.querySelector('.sf-pers').appendChild(st); }
     const stats = el.querySelector('.sf-stats');
     const lv = document.createElement('span'); lv.className = 'sf-pair'; lv.append(cb.hand(`Lv ${r.level}`), cb.gauge((r.xp / xpN) * 100, 'gold', { w: 44, seed: r.id + 3 }));
@@ -436,6 +436,13 @@ export class StaffUI {
     ss.after(this.skillsBlock(r, { train: true, hi: J?.skill }));
     const p = this.portrait(el.querySelector('.sf-pp'), r, { outfit: sys.outfitOf(r), frame: 'half', anim: r.mood < 30 ? 'tap_foot' : 'idle' });
     if (p && r.mood < 30) p.mood('grumpy');
+    // a sticky note from the boss about this one
+    const note = P.desc || (r.traits || []).map((t) => TRAITS[t]?.desc).filter(Boolean)[0];
+    if (note) {
+      const n = cb.sticky(null, { w: 108, h: 30, seed: 20 + r.id, cls: 'sf-note' });
+      n.querySelector('.pc-sticky-in').appendChild(cb.hand(`${P.name ? P.name + ': ' : ''}${note}`, { color: INK_BLUE, maxW: 196 }));
+      el.querySelector('.sf-cr').appendChild(n);
+    }
   }
 
   // ------------------------------------------------------------------ interviews
@@ -463,7 +470,7 @@ export class StaffUI {
     const h = document.createElement('div');
     h.className = 'sf-istrip';
     h.innerHTML = `<span class="sf-fox">${ico('fox_smug', 1)}</span>`;
-    h.appendChild(cb.hand(list.length ? 'Next! Hire the hard workers. Wages are paid every morning, out of MY pocket.' : 'Nobody in line. Help Wanted posters bring more job seekers, and better ones.', { color: INK_BLUE, maxW: 250 }));
+    h.appendChild(cb.hand(list.length ? 'Next! Hire the hard workers. Wages are paid every morning, out of MY pocket.' : 'Nobody in line. Help Wanted posters bring more job seekers, and better ones.', { color: INK_BLUE, maxW: 470 }));
     const m = document.createElement('div');
     m.className = 'sf-imeta';
     m.innerHTML = `<span>${ico('st_poster', 1)} Posters ${Math.min(5, sys.cands.posters())}</span><span>Line ${list.length}/${sys.cands.capacity()}</span><span>${ico('st_tent', 1)} Recruiter: ${rec ? esc(firstName(rec)) : 'none'}</span>
@@ -490,13 +497,13 @@ export class StaffUI {
       <div class="sf-decide"><button class="sf-stampbtn hire" data-a="hire" data-i="${i}"><span>HIRE</span></button><button class="sf-stampbtn pass" data-a="pass" data-i="${i}"><span>PASS</span></button></div></div>`;
     el.appendChild(card);
     this.dress(card);
-    card.querySelector('.sf-pola-cap').appendChild(cb.hand(c.name, { maxW: 130 }));
+    card.querySelector('.sf-pola-cap').appendChild(cb.hand(c.name, { maxW: 150 }));
     if (P.name) card.querySelector('.sf-pers').appendChild(cb.stamp(P.name.toUpperCase(), '#7a3aa0', { rot: -7, frame: 'single', seed: c.seed || i }));
     const rh = card.querySelector('.sf-rh');
     rh.append(cb.title(`Resume ${i + 1}/${n}`), this.field('Asks', `${c.wage}/day`, { icon: 'coin' }));
     card.querySelector('.sf-rsk').appendChild(this.skillsBlock(c, { hi: best }));
     const qa = card.querySelector('.sf-qa');
-    qa.append(cb.print(c.answer?.q || 'Why should I hire you?', { cls: 'sf-q' }), cb.hand(`"${c.answer?.a || '...'}"`, { color: INK_BLUE, maxW: 230 }));
+    qa.append(cb.print(c.answer?.q || 'Why should I hire you?', { cls: 'sf-q' }), cb.hand(`"${c.answer?.a || '...'}"`, { color: INK_BLUE, maxW: 440 }));
     const pp = card.querySelector('.sf-pp');
     const p = this.portrait(pp, c, { outfit: 'tie', frame: 'bust', anim: 'idle', turn: 0.25 + (i % 2) * 0.12 });
     if (p) card.__p = p;
@@ -556,8 +563,8 @@ export class StaffUI {
         <div class="sf-decide"><button class="sf-btn green big" data-a="pay" data-id="${r.id}" ${can ? '' : 'disabled'}>${can ? `PAY ${ico('coin', 1)}${cost}` : 'NOT ENOUGH COINS'}</button><button class="sf-btn red big" data-a="close">LET THEM WALK IT OFF</button></div></div>`;
       this.dress(el);
       el.querySelector('.sf-rtop').append(cb.title('Beaver Down!', { color: '#b8282c', line: '#b8282c' }));
-      el.querySelector('.sf-pola-cap').appendChild(cb.hand(r.name, { maxW: 180 }));
-      el.querySelector('.sf-cause').appendChild(cb.hand(`${firstName(r)} ${r.hurt.cause === 'bear' ? 'got flattened by a bear' : r.hurt.cause === 'overwork' ? 'fainted from overwork' : 'got hurt'}. Seeing stars.`, { maxW: 300, align: 'center' }));
+      el.querySelector('.sf-pola-cap').appendChild(cb.hand(r.name, { maxW: 236 }));
+      el.querySelector('.sf-cause').appendChild(cb.hand(`${firstName(r)} ${r.hurt.cause === 'bear' ? 'got flattened by a bear' : r.hurt.cause === 'overwork' ? 'fainted from overwork' : 'got hurt'}. Seeing stars.`, { maxW: 420, align: 'center' }));
       const bill = el.querySelector('.sf-bill');
       bill.innerHTML = `<span>Stretcher crew</span><span>2 medics</span><span>Ride to ${esc(where)}</span><b>TOTAL ${ico('coin', 1)}</b>`;
       bill.querySelector('b').appendChild(cb.hand(String(cost), { color: RED_PENCIL }));

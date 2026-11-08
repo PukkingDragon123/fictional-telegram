@@ -244,10 +244,11 @@ export class TownLife {
   rigDt(v, dt) {
     if (!this.enabled) return dt;
     const a = this.actors.get(v.id);
-    const vis = a ? a.onScreen : this.onScreen(v.x, v.y + 0.8, v.z);
-    if (!vis) { if (a) a.acc = 0; return 0; }
+    // other systems' characters, and anyone while a scene is on: animated exactly as before
+    if (!a || this.frozen() || this.game.cutscene?.active) return dt;
+    if (!a.onScreen) { a.acc = 0; return 0; }
     const rank = this.ranks.get(v.id) ?? 0;
-    if (rank < 4 || !a) return dt;
+    if (rank < 4) return dt;
     a.acc = (a.acc || 0) + dt;
     if ((this.frame + rank) % 2) return 0;
     const d = a.acc; a.acc = 0;
@@ -294,8 +295,14 @@ export class TownLife {
     vis.forEach((a, i) => this.ranks.set(a.id, i));
     // the homes: lights + smoke
     this.homesFx(dt);
-    if (this.frozen()) { this.thawed = false; return; }
-    if (!this.thawed) { this.thawed = true; for (const a of this.actors.values()) a.want = null; }
+    if (this.frozen()) {
+      // a scene / their card plays standing anims: off the bench first (no floating at seat height)
+      if (game.npcScenes?.busy || game.director?.active || this.V.card) for (const a of this.actors.values()) {
+        if (a.seat === 2) { this.endAct(a); a.slide = null; this.place(a); }
+        if (a.hidden) { a.hidden = false; a.mode = 'home'; a.v.x = a.home.x; a.v.z = a.home.z; a.heading = a.home.ry; this.place(a); this.V.idle(a.v); } // out they come for their scene / your knock
+      }
+      return;
+    }
     let out = 0;
     for (const a of this.actors.values()) if (a.away) out++;
     this.outCount = out;
@@ -361,9 +368,10 @@ export class TownLife {
     // at home: a walk to the pond around midday?
     const day = game.state.day || 1;
     const h = game.state.hour;
-    if (P === 'day' && a.outDay !== day && h > 10.2 && h < 14.6 && !wet && a.role.out > 0) {
+    if (a.leaveDay !== day) { a.leaveDay = day; a.leaveH = rand(10.3, 13.6); } // everyone heads out at their own time
+    if (P === 'day' && a.outDay !== day && h > a.leaveH && h < 14.6 && !wet && a.role.out > 0 && this.outCount < MAX_OUT && !this.sceneSoon()) {
       a.outDay = day;
-      if (Math.random() < a.role.out && this.outCount < MAX_OUT && !this.sceneSoon()) { if (this.goOut(a)) return; }
+      if (Math.random() < a.role.out && this.goOut(a)) { this.outCount++; return; }
     }
     this.doHome(a, dt, P);
     this.place(a);
@@ -541,8 +549,11 @@ export class TownLife {
     if (a.pause > 0) { if (a.v.rig.current === 'walk') this.anim(a, 'idle'); this.place(a); return; }
     const sp = (a.role.speed || 1.1) * (a.speedK || 1) * (a.onScreen ? 1 : 1.8);
     if (!a.path) {
-      // no way back: pop home once nobody's looking
-      if (!a.onScreen) { v.x = a.home.x; v.z = a.home.z; this.arrive(a); }
+      // no way back (something got built in the way): look again now and then, pop home once nobody's looking
+      if (!a.onScreen) { v.x = a.home.x; v.z = a.home.z; this.arrive(a); return; }
+      if (v.rig.current === 'walk') this.anim(a, 'idle', true);
+      a.retry = (a.retry || 0) - dt;
+      if (a.retry <= 0) { a.retry = 4; const P = this.paths.find({ x: v.x, z: v.z }, { x: a.home.x, z: a.home.z }); if (P) this.startWalk(a, P, { kind: 'home' }); }
       return;
     }
     let left = sp * dt;

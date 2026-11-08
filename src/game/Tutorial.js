@@ -191,7 +191,7 @@ export class Tutorial {
   }
   async hideTeacher() {
     const t = this.teacher;
-    if (t?.visible) { try { t.clearChalk(); await Promise.race([t.hide(), sleep(2)]); } catch { /* ignore */ } }
+    if (t?.visible) { try { t.clearChalk(); await Promise.race([t.hide(), sleep(3.5)]); } catch { /* ignore */ } }
   }
   clearChalk() { try { this.teacher?.clearChalk(); } catch { /* ignore */ } }
 
@@ -232,6 +232,19 @@ export class Tutorial {
   /** [v33 tut] a HUD piece arrives (src/game/tutorial/hudIntro.js) */
   hud(feature, o = {}) { return introduce(this, feature, o); }
   slot(feature) { return hudTarget(this.game, feature); }
+
+  /** [v33 tut] a world thing: Reynard himself walks over, points at it and says it (the on-screen guide
+   *  is for the HUD only). mark: also a ring + arrow (+ label) on it. Returns stop() for the pointing. */
+  async tell(target, text, { mark = false, label = null, color = 'gold', mood = 'happy', dur = 4.5, walk = true } = {}) {
+    if (this.skipping) return () => {};
+    await this.hideTeacher();
+    const G = this.guide;
+    if (walk && target) { try { await this.g(G.walkNear(target)); } catch (e) { if (this.isSkip(e)) return () => {}; } }
+    const stop = target ? G.point(target, { ring: mark, arrow: mark, label: mark ? label : null, color }) : null;
+    G.bark(String(text).replace(/<\/?b>/g, '*'), { mood, dur });
+    this.stage = 'tell:' + String(text).replace(/<[^>]+>/g, '').slice(0, 20);
+    return stop || (() => {});
+  }
 
   /** [v33 tut] keep the camera on a thing while you play (a fish, [x, z], () => ...); null lets go */
   frame(target, zoom = 0.02) {
@@ -312,9 +325,8 @@ export class Tutorial {
     await this.wait(0.5);
     if (done) return;
     const ring = box ? this.guide.mark(box, { label: 'TAP!', color: 'gold' }) : null;
-    const stop = this.pointAt('sel:.parceltag');
-    this.teach('A parcel! <b>Tap the box</b> to unbox it!', { target: 'sel:.parceltag', dur: 4, mood: 'excited' });
-    this.nag(() => 'Tap the box!');
+    const stop = await this.tell(box, 'A parcel! <b>Tap the box</b> to unbox it!', { mood: 'excited' });
+    this.nag(() => 'Tap the box!', { world: true });
     this.stage = 'until:delivered';
     if (!(await this.within(delivered, 60))) {
       this.guide.bark('Allow me. *Rip.*', { mood: 'happy' });
@@ -608,16 +620,17 @@ export class Tutorial {
     game.quickCrops = true;
     const patch = game.structures.list.find((s) => s.type === 'carrot' && !s.removed);
     if (patch) this.frame(patch, 0.02);
-    await this.teach('Seed... sprout... growing...', { target: patch ? () => this.structScreen(patch) : null, dur: 3 });
+    const sp = await this.tell(patch, 'Seed... sprout... growing... Patience. Ugh.', { mood: 'happy', dur: 3.5 });
+    await this.wait(2);
+    sp();
     if (!(await this.within(this.waitFor(() => game.harvest.ripeList().length > 0), 60))) {
       for (const s of game.structures.list) if (s.type === 'carrot' && s.crop && s.built) { s.crop.stage = 3; }
     }
     game.quickCrops = false;
     const ripe = game.harvest.ripeList()[0];
-    const ring = ripe ? this.guide.point(ripe, { label: 'RIPE!', color: 'green' }) : null;
-    const stop = this.pointAt('sel:.croptag');
-    this.teach('Ripe! <b>Tap the tag</b> to harvest the batch!', { target: 'sel:.croptag', dur: 5, mood: 'excited' });
-    this.nag(() => 'Tap the ripe carrots to harvest them!');
+    const ring = await this.tell(ripe, 'Ripe! <b>Tap the carrots</b> to harvest the batch!', { mark: true, label: 'RIPE!', color: 'green', mood: 'excited' });
+    const stop = null;
+    this.nag(() => 'Tap the ripe carrots to harvest them!', { world: true });
     const harvested = this.until('harvested');
     if (!(await this.within(harvested, 60))) {
       this.guide.bark('Yoink! Harvest is a team sport.', { mood: 'happy' });
@@ -637,10 +650,9 @@ export class Tutorial {
     game.ui?.syncFoodPicker?.();
     this.force('feed');
     if (bar()) this.frame(bar(), 0.022);
-    const pt = bar() ? this.guide.point(bar(), { label: 'PAY HERE', color: 'gold' }) : null;
-    const stop2 = this.pointAt(() => this.structScreen(bar()));
-    this.teach('Carrots are in your Food bag. Now <b>tap the Snack Bar</b> to pay the crew!', { target: () => this.structScreen(bar()), dur: 6, mood: 'happy' });
-    this.nag(() => 'Food tool: pick the carrots, then tap the Beaver Snack Bar!');
+    const pt = await this.tell(bar(), 'Carrots are in your Food bag. Now <b>tap the Snack Bar</b> to pay the crew!', { mark: true, label: 'PAY HERE', color: 'gold', dur: 6 });
+    const stop2 = null;
+    this.nag(() => 'Food tool: pick the carrots, then tap the Beaver Snack Bar!', { world: true });
     const stocked = this.until('stocked', (d) => d.s.type === 'beaverbar');
     if (!(await this.within(stocked, 60))) {
       this.guide.bark('Here\'s your wages, lads.', { mood: 'happy' });
@@ -674,10 +686,9 @@ export class Tutorial {
     });
     const edge = this.forestEdge();
     if (edge) this.frame([edge.x, edge.z], 0.024);
-    const pt = edge ? this.guide.mark([edge.x, edge.z], { label: 'CHOP!', color: 'red', r: 1.4 }) : null;
-    const stop = edge ? this.pointAt(() => this.worldScreen(edge.x, 0.8, edge.z)) : () => {};
-    this.teach('Now <b>drag a box</b> over the trees next to your land!', { target: edge ? () => this.worldScreen(edge.x, 0.8, edge.z) : null, dur: 6 });
-    this.nag(() => 'Destroy tool: drag a box over the trees at the edge!');
+    const pt = edge ? await this.tell([edge.x, edge.z], 'Now <b>drag a box</b> over these trees!', { mark: true, label: 'CHOP!', color: 'red', dur: 6 }) : null;
+    const stop = null;
+    this.nag(() => 'Destroy tool: drag a box over the trees at the edge!', { world: true });
     const area = this.until('clearArea');
     if (!(await this.within(area, 75)) && edge) {
       this.guide.bark('Like this. Snip snip.', { mood: 'happy' });
@@ -973,15 +984,16 @@ export class Tutorial {
   }
 
   // gentle reminders if the player dawdles
-  nag(text) {
+  nag(text, { world = false } = {}) {
     this.stopNag();
     this.nagT = setInterval(() => {
       const g = this.game;
       if (g.ui?.ebuy || g.ui?.blueprint?.open || g.director?.active || this.skipping) return;
-      // [v33 tut] the reminder comes from the Reynard already on screen (no second fox in the corner)
+      // [v33 tut] the reminder comes from the Reynard already on screen (no second fox in the corner):
+      // in the world it's his own bubble, on the HUD it's the guide's
       const t = this.teacher;
-      if (t && !t.waiting) { this.teach(text(), { dur: 4, mood: 'normal' }); return; }
-      if (!t) g.notify(text(), 'info');
+      if (world || !t) { this.guide?.bark(text(), { mood: 'normal', dur: 4 }); return; }
+      if (!t.waiting) this.teach(text(), { dur: 4, mood: 'normal' });
     }, 15000);
   }
 

@@ -13,7 +13,7 @@
 //   Flip: tap a tab or a dog-eared corner, swipe, or the arrow keys / PageUp / PageDown.
 //
 // Drawing helpers (all crisp pixel art at cb.P):
-//   cb.hand(text, o)      pencil handwriting (pixel script font)       o: { color, maxW, write }
+//   cb.hand(text, o)      pencil handwriting (pixel script font)       o: { color, maxW (CSS px), align, write }
 //   cb.print(text, o)     printed form text (the game's pixel font)    o: { color, size: 's'|'l', cls, html }
 //   cb.title(text, o)     a page title (game title face + pencil squiggle)
 //   cb.stamp(text, color, o)  worn rubber stamp, pixel-rotated          o: { rot, font, frame, thunk }
@@ -542,7 +542,8 @@ export class Clipboard {
 
   // ------------------------------------------------------------------ drawing helpers
   hand(text, o = {}) {
-    const c = pxTextCanvas(String(text ?? ''), { font: 'script', color: o.color || A.GRAPHITE, bleed: o.bleed || (o.color ? undefined : A.GRAPHITE_LT), scale: this.P, maxW: o.maxW, maxLines: o.maxLines, align: o.align });
+    // o.maxW is in CSS px; the bitmap font wraps in art px
+    const c = pxTextCanvas(String(text ?? ''), { font: 'script', color: o.color || A.GRAPHITE, bleed: o.bleed || (o.color ? undefined : A.GRAPHITE_LT), scale: this.P, maxW: o.maxW ? Math.max(24, Math.floor(o.maxW / this.P)) : undefined, maxLines: o.maxLines, align: o.align });
     c.classList.add('pc-hand');
     if (o.write && !REDUCED) { c.classList.add('pc-write'); c.style.setProperty('--n', Math.max(3, Math.min(14, String(text).length))); }
     return c;

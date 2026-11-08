@@ -325,7 +325,7 @@ export class Villagers {
       if (!v.cleared || !v.rig) this.revealed(v.zone);
       // [v33 town] indoors at night / in the rain; a stage copy of them is at your pond
       const hide = !!life && (life.hidden(v) || (v.stageCopy > 0 && life.away(v)));
-      v.rig.root.visible = !hide;
+      if (v.rig.space) { v.rig.root.visible = true; v.rig.space.visible = !hide; } else v.rig.root.visible = !hide; // the body hides, the root stays: their door + card still answer a tap
       if (hide) continue;
       // only animate when near the camera
       const near = Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 40;

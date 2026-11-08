@@ -142,8 +142,8 @@ export async function feedPair(T, two, { first = false } = {}) {
   T.force('feed');
   T.frame(midOf(two[0], two[1]), 0.02);
   const stops = two.map((f, i) => G.mark(f, { color: i ? 'pink' : 'blue' }));
-  T.teach(first ? '<b>Tap the water</b> near the fish! Watch their ♥ fill up.' : 'Feed them again: <b>tap the water</b> by them!', { target: () => T.fishScreen(two[0]), dur: 6 });
-  T.nag(() => 'Tap the water near the fish to feed them!');
+  stops.push(await T.tell(two[0], first ? '*Tap the water* near the fish! Watch their ♥ fill up.' : 'Feed them again: *tap the water* by them!', { dur: 6 }));
+  T.nag(() => 'Tap the water near the fish to feed them!', { world: true });
   const fed = () => two.every((f) => !live(f) || f.fed >= 0.9);
   try {
     if (!(await T.within(T.waitFor(fed), first ? 55 : 40))) {
@@ -175,15 +175,24 @@ export async function fishScope(T) {
     c.sfx('star_pop', { volume: 0.35 });
     await c.beat(1.3);
     await c.say(c.fox, 'Behold: the *Fish Scope*. My finest invention. Patent pending. Forever.', { style: 'excited' });
-    await c.say(c.fox, 'Point it at a fish and it spills *everything*. Hunger. Mood. Genes. *Price.*', { style: 'laugh' });
-    await c.say(c.fox, 'Go on. *Tap a fish.*', { style: 'say', close: 0.011 });
+    // through the eyepiece: what Reynard sees
+    const f = live(two[1]) ? two[1] : two[0];
+    c.lens(f);
+    const m = c.mark(f, { arrow: false, color: 'blue' });
+    await c.beat(1);
+    await c.say(c.fox, 'Look closer... every scale, every fin. And somewhere in there... a *PRICE TAG*.', { style: 'whisper' });
+    await c.say(c.fox, 'Hunger. Mood. Genes. Price. The Scope sees it *all*.', { style: 'laugh' });
+    m();
+    c.lens(null);
+    c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8, dur: 0.6 });
+    await c.say(c.fox, 'Your turn. *Tap a fish.*', { style: 'say', close: 0.011 });
   }, { id: 'tut:scope' });
   game.setTool({ kind: 'feed' });
   T.force('feed');
   T.frame(midOf(two[0], two[1]), 0.018);
   const ms = two.map((f, i) => G.mark(f, { color: i ? 'pink' : 'blue', label: 'TAP ME' }));
-  T.teach('<b>Tap a fish</b> to scan it!', { target: () => T.fishScreen(two[1]), dur: 5, mood: 'excited' });
-  T.nag(() => 'Tap one of the fish to open the Fish Scope!');
+  ms.push(await T.tell(two[1], '*Tap a fish* to scan it!', { mood: 'excited' }));
+  T.nag(() => 'Tap one of the fish to open the Fish Scope!', { world: true });
   let fish = null;
   try {
     if (!(await T.within(T.waitFor(() => !!scopeNow()), 40))) {
@@ -310,7 +319,8 @@ export async function fishCare(T) {
       T.force('pet');
       if (!(await T.within(toolPicked(T, 'nurture'), 20))) game.setTool({ kind: 'nurture' });
       ms = two.map((f, i) => G.mark(f, { color: 'pink', label: i ? null : 'PET ME' }));
-      T.teach('Now <b>tap a fish</b>, again and again, till its heart is full!', { target: () => T.fishScreen(two[0]), dur: 5, mood: 'happy' });
+      T.nag(() => 'Pet tool: tap a fish until its heart is full!', { world: true });
+      ms.push(await T.tell(two[0], 'Now *tap a fish*, again and again, till its heart is full!'));
       await T.waitFor(loved);
     },
     fallback: async () => {
@@ -390,7 +400,8 @@ export async function fishCare(T) {
       const tagged = T.until('fishTagged');
       if (!(await T.within(toolPicked(T, 'tag'), 20))) game.setTool({ kind: 'tag' });
       tagMs = two.map((f) => G.mark(f, { color: 'red' }));
-      T.teach('Now tap your <b>favourite</b> fish!', { target: () => T.fishScreen(girl), dur: 5, mood: 'happy' });
+      T.nag(() => 'Tag tool: tap a fish to tag it DO NOT EAT!', { world: true });
+      tagMs.push(await T.tell(girl, 'Now tap your *favourite* fish!'));
       await tagged;
     },
     fallback: async () => { G.bark('Her. She has that star quality.', { mood: 'happy' }); if (girl && !girl.tagged) game.tagFish(girl); },
@@ -426,6 +437,8 @@ export async function fishCare(T) {
       T.force('hand');
       if (!(await T.within(toolPicked(T, 'hand'), 20))) game.setTool({ kind: 'hand' });
       const m = two.map((f) => G.mark(f, { color: 'gold' }));
+      T.nag(() => 'Carry tool: press on a fish and drag it!', { world: true });
+      m.push(await T.tell(two[0], '*Press* on a fish and *drag* it. Wheee.'));
       try { await T.waitFor(heldAny); await T.waitFor(() => !heldAny()); } finally { m.forEach((s) => s()); }
     },
     fallback: async () => { G.bark('You\'ll get the hang of it. Moving on!', { mood: 'happy' }); },
@@ -479,6 +492,10 @@ export async function loveEggs(T) {
       c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
       await c.beat(1.2);
       await c.say(c.fox, 'EGGS! Little orange money beans.', { style: 'excited' });
+      c.lens(e, { zoom: 0.0065 });
+      await c.beat(0.8);
+      await c.say(c.fox, 'Through the Scope... see the tiny *eye spots*? Babies in there.', { style: 'whisper' });
+      c.lens(null);
       c.ots(e, { zoom: 0.012 });
       const m = c.mark(e, { label: 'EGGS', color: 'gold' });
       const v = await c.ask(c.fox, 'Mum laid them. Now who *fertilizes* the eggs?', [
@@ -515,10 +532,9 @@ export async function loveEggs(T) {
       game.quickEggs = false;
       await T.wait(0.6);
       const st = ready ? G.mark(ready, { label: 'TAP!', color: 'gold' }) : null;
-      const stop = T.pointAt('sel:.eggtag.ready');
       // FishSystem.tickEgg: ready eggs wait for a tap
-      T.teach('Ready eggs wait for <b>you</b>. No rush... but I\'m rushing. <b>Tap the egg!</b>', { target: 'sel:.eggtag.ready', dur: 5, mood: 'excited' });
-      T.nag(() => 'Tap the glowing egg to hatch it!');
+      const stop = await T.tell(ready, 'Ready eggs wait for *you*. No rush... but I\'m rushing. *Tap the egg!*', { mood: 'excited', dur: 5 });
+      T.nag(() => 'Tap the glowing egg to hatch it!', { world: true });
       if (!(await T.within(hatched, 50))) {
         G.bark('I\'ll do the honours.', { mood: 'happy' });
         const e = game.fish.eggs.find((x) => x.ready);

@@ -15,6 +15,64 @@ import { makeProp, disposeProp } from './props3d.js';
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const PI4 = Math.PI / 4;
 
+// ------------------------------------------------------------------ the Fish Scope's eyepiece
+// A near-first-person look through Reynard's Fish Scope: everything outside a circle goes dark
+// (dithered at the edge), a brass ring with a highlight arc, a crosshair and tick marks. Drawn at
+// 3 CSS px per art px, under the HUD / bubbles, over the world. lens(true) irises it in, lens(false) out.
+const LS = 3;
+let lensCv = null, lensT = 0;
+function paintLens(k) {
+  const cv = lensCv, W = Math.ceil(innerWidth / LS), H = Math.ceil(innerHeight / LS);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; cv.style.width = W * LS + 'px'; cv.style.height = H * LS + 'px'; }
+  const x = cv.getContext('2d');
+  x.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H * 0.47, R = Math.round(H * 0.36 + (1 - k) * Math.max(W, H) * 0.7);
+  const img = x.createImageData(W, H), d = img.data;
+  const set = (i, r, g, b, a = 255) => { d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a; };
+  for (let y = 0; y < H; y++) for (let X = 0; X < W; X++) {
+    const dx = X + 0.5 - cx, dy = y + 0.5 - cy, r = Math.hypot(dx, dy), i = (y * W + X) * 4;
+    if (r > R + 5) { if (r < R + 9 && (X + y) & 1) continue; set(i, 18, 12, 22); continue; } // the dark (dithered edge)
+    if (r > R + 4) { set(i, 26, 20, 32); continue; } // ink outline
+    if (r > R) {
+      const a = Math.atan2(dy, dx); // brass: a bright arc top-left, a dark one bottom-right
+      const lit = Math.cos(a + 2.35);
+      set(i, ...(lit > 0.55 ? [255, 240, 160] : lit > -0.2 ? [232, 176, 64] : [176, 122, 26]));
+      continue;
+    }
+    if (r > R - 1) { set(i, 26, 20, 32); continue; }
+    // the glass: a faint cyan tint at the rim (dithered), clear in the middle
+    if (r > R - 4 && (X + y) % 2 === 0) set(i, 120, 220, 232, 70);
+  }
+  x.putImageData(img, 0, 0);
+  if (k < 1) return;
+  // crosshair + ticks (ink with a light edge)
+  x.fillStyle = 'rgba(26,20,32,0.85)';
+  const gap = 6, Lh = Math.round(R * 0.35);
+  x.fillRect(Math.round(cx - gap - Lh), Math.round(cy), Lh, 1); x.fillRect(Math.round(cx + gap), Math.round(cy), Lh, 1);
+  x.fillRect(Math.round(cx), Math.round(cy - gap - Lh), 1, Lh); x.fillRect(Math.round(cx), Math.round(cy + gap), 1, Lh);
+  for (let t = 0; t < 24; t++) {
+    const a = (t / 24) * Math.PI * 2, L = t % 6 === 0 ? 5 : 2;
+    for (let j = 0; j < L; j++) x.fillRect(Math.round(cx + Math.cos(a) * (R - 2 - j)), Math.round(cy + Math.sin(a) * (R - 2 - j)), 1, 1);
+  }
+  x.fillStyle = '#ffd23a';
+  x.fillRect(Math.round(cx) - 1, Math.round(cy) - 1, 3, 3);
+}
+export function lens(on, game = null) {
+  if (on) {
+    if (!lensCv) { lensCv = document.createElement('canvas'); lensCv.className = 'tut-lens'; document.body.appendChild(lensCv); }
+    const t = ++lensT;
+    game?.audio?.play?.('crt_on', { volume: 0.3 });
+    let k = 0;
+    const step = () => { if (t !== lensT || !lensCv) return; k = Math.min(1, k + 0.2); paintLens(k); if (k < 1) setTimeout(step, 60); };
+    step();
+  } else if (lensCv) {
+    const t = ++lensT, cv = lensCv;
+    let k = 1;
+    const step = () => { if (t !== lensT) return; k -= 0.25; if (k <= 0) { cv.remove(); if (lensCv === cv) lensCv = null; return; } paintLens(k); setTimeout(step, 50); };
+    step();
+  }
+}
+
 export class Guide {
   constructor(T) {
     this.T = T;
@@ -150,7 +208,7 @@ export class Guide {
     return this.game.say({ getWorldPos: (v) => v.set(f.x, f.y + 1.75, f.z) }, text, { voice: 'fox', mood, dur, key: 'tutbark', size: 's' });
   }
 
-  clear() { this.unpoint(); this.drop(); this.marks.clear(); }
+  clear() { this.unpoint(); this.drop(); this.marks.clear(); lens(false); }
   dispose() { this.clear(); this.marks.dispose(); }
 
   // ---------------------------------------------------------------- scene helpers
@@ -166,6 +224,12 @@ export class Guide {
     c.drop = () => G.drop();
     c.mark = (t, o) => G.mark(t, o);
     c.expr = (n, h) => G.expr(n, h);
+    /** look through the Fish Scope: the eyepiece on screen + the camera pushes in low and close */
+    c.lens = (t, { zoom = 0.0075, pitch = 0.55 } = {}) => {
+      if (!t) { lens(false); return Promise.resolve(); }
+      lens(true, game);
+      return c.low(t, { zoom, pitch, dur: 0.9 });
+    };
     /** a low, close shot on a thing: zoom = world units per px (smaller = closer), pitch in radians */
     c.low = (t, { zoom = 0.0125, pitch = 0.42, dur = 1.1, lift = null, dx = 0, dz = 0 } = {}) => {
       const p = worldOf(game, t) || { x: rig.goal.x, y: 0, z: rig.goal.z };

@@ -229,10 +229,13 @@ export class LandAnimals {
     const phase = game.state.phase;
     const quiet = phase === 'rush' || phase === 'report' || phase === 'gameover';
     this.spawnT -= dt;
+    // [v33 town] a downpour keeps the wild ones in their burrows (fewer visits, the ones out head home sooner)
+    const wx = game.seasons?.weather, wet = (wx === 'rain' || wx === 'storm') && (game.seasons?.intensity ?? 1) > 0.3;
     if (this.spawnT <= 0) {
-      this.spawnT = rand(14, 30);
-      if (!quiet && this.wild.length < MAX_WILD) this.spawnWild();
+      this.spawnT = rand(14, 30) * (wet ? 2.5 : 1);
+      if (!quiet && this.wild.length < (wet ? 2 : MAX_WILD)) this.spawnWild();
     }
+    if (wet) for (const a of this.wild) if (a.life > 20) a.life -= dt * 2;
     // tame bunnies: two move in with a new hutch; babies when there's room
     for (const s of this.hutches()) {
       if (!s.bunnyInit) { s.bunnyInit = true; if (!this.bunniesOf(s).length) { this.addBunny(s); this.addBunny(s); } }
