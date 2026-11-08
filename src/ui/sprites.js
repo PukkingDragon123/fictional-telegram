@@ -3912,29 +3912,6 @@ function eggSprite(rar, stage) {
   });
 }
 for (const rar of ['common', 'uncommon', 'rare', 'epic', 'legendary']) for (let st = 0; st < 4; st++) eggSprite(rar, st);
-// [v33 hd] the same eggs at 2x the pixel density for close-ups (e-Buy): the shell is drawn on a finer grid and
-// the low-res pattern is re-stamped as round dabs, so spots and vines get rounder instead of blockier.
-// egg_<rarity>_hd: 48x60, shown at 1 (cards) or 2 (detail) CSS px per pixel.
-const EGG_HD = 2;
-function eggSpriteHD(rar) {
-  draw(`egg_${rar}_hd`, () => {
-    const k = EGG_HD;
-    const lo = eggBase(rar);
-    const g = eggShape(new Grid(EGG_W * k, EGG_H * k), EGG_CX * k, EGG_CY * k, 9 * k, 13 * k, 10.4 * k, 'E');
-    const r2 = (0.66 * k) ** 2;
-    for (let y = 0; y < EGG_H; y++) for (let x = 0; x < EGG_W; x++) {
-      const ch = lo.get(x, y);
-      if (ch === '.' || ch === 'E') continue;
-      const cx = (x + 0.5) * k, cy = (y + 0.5) * k;
-      for (let yy = Math.floor(cy - k); yy <= cy + k; yy++) for (let xx = Math.floor(cx - k); xx <= cx + k; xx++) {
-        const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy;
-        if (dx * dx + dy * dy <= r2 && g.get(xx, yy) === 'E') g.set(xx, yy, ch);
-      }
-    }
-    return render(g, { ...EGG_KEYS[rar], L: '#fff6c0', l: '#ffe98a' });
-  });
-}
-for (const rar of ['common', 'uncommon', 'rare', 'epic', 'legendary']) eggSpriteHD(rar);
 
 // ===========================================================================
 // B&W EMOTES (12x12) for comic speech bubbles
