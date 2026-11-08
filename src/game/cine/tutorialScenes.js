@@ -1,4 +1,4 @@
-// [v31 guide] The day-1 tour's cutscenes, played by game.director (src/game/cine/Director.js) in
+// [v31 guide] [v33 tut: the hands-on fish scenes live in src/game/tutorial/fishCourse.js] The day-1 tour's cutscenes, played by game.director (src/game/cine/Director.js) in
 // between the classroom lessons. Real world, real camera, letterbox, comic speech bubbles, bears as
 // rigged actors.
 //
@@ -55,7 +55,7 @@ export const TUT_SCENES = {
     c.center(home.x, home.z);
     await c.say(c.fox, 'Behold! My pond! My empire! My...', { style: 'excited', anim: 'run_point' });
     c.push(0.86, 1.4);
-    await c.say(c.fox, '...my completely EMPTY pond.', { style: 'sad', anim: 'shrug' });
+    await c.say(c.fox, '...my completely EMPTY pond.', { style: 'sad', anim: 'shrug', close: 0.012 }); // [v33 tut] close-up on the sad face
     // he wants to know who he's talking to
     const who = await c.ask(c.fox, 'Before we start. Who are YOU, exactly?', [
       { label: 'Your new partner!', value: 'partner' },
@@ -63,13 +63,13 @@ export const TUT_SCENES = {
       { label: 'Here for the bears', value: 'bears' },
     ]);
     const reply = {
-      partner: ['Partner?! I like the confidence.', 'Seventy-thirty. In my favour. Shake on it later.'],
-      fan: ['A fish fan! Splendid.', 'Fish are the product. Love the product. Sell the product.'],
+      partner: ['Partner?! I like the confidence.', 'Seventy-thirty. In my favour. We\'ll shake on it later.'],
+      fan: ['A fish fan! Splendid.', 'Fish are the product. Love the product. SELL the product.'],
       bears: ['Ha! Keep that energy.', 'At five o\'clock tomorrow you\'ll need ALL of it.'],
     }[who] || ['Mysterious. I respect it.', 'Mysterious people pay in cash.'];
-    await c.say(c.fox, reply[0], { style: 'laugh', anim: 'laugh_evil' });
+    await c.say(c.fox, reply[0], { style: 'laugh', anim: 'laugh_evil', close: 0.0115 });
     await c.say(c.fox, reply[1], { style: 'say', anim: 'talk' });
-    await c.say(c.fox, 'Fish first. Then customers. Then the MONEY.', { style: 'excited', anim: 'greedy' });
+    await c.say(c.fox, 'Fish first. Then customers. Then the MONEY.', { style: 'excited', anim: 'greedy', close: 0.011 });
   },
 
   async customers(c) {

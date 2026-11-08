@@ -211,24 +211,24 @@ const DIG_LOOK = { daylight: true, hour: 17.3, haze: 0.06, yaw: 0, pitch: 26, fi
 const snapp = (o = {}) => ({ kind: 'snapp', name: 'snapp', anim: 'loupe', t: 2.2, lean: -0.25, ry: -0.25, scale: 1.9, loop: { range: [1.2, 4.6], pingpong: true }, ...o });
 PRESETS.ddThumbDig = {
   scene: 'banner', viewport: [1260, 620], px: 1, masks: ['snapp', 'bluffGlow'],
-  opts: { ...DIG_LOOK, loop: LOOP_DD, wupp: 0.016, focusWorld: [94.7, 137.7],
-    cast: [{ kind: 'digyard', skip: ['tent'] }, snapp({ wx: 98.4, wz: 140.4 })] },
+  opts: { ...DIG_LOOK, loop: LOOP_DD, pitch: 22, wupp: 0.015, focusWorld: [94.8, 137.0],
+    cast: [{ kind: 'digyard', skip: ['tent'] }, snapp({ wx: 98.15, wz: 138.75, lean: -0.15, scale: 1.85 })] },
 };
 PRESETS.ddThumbDive = {
   scene: 'dive', viewport: [1260, 560], px: 1, masks: ['fox'],
   opts: { daylight: true, loop: LOOP_DD, cam: { x: -3.2, y: 3.35, z: -0.8, pitch: 12, wupp: 0.02 },
     cast: [
-      { kind: 'farm', type: 'pen', x: -1.6, z: -1.6, stock: { sp: 'perch', n: 6, pxPer: 1, laps: 1 } },
-      { kind: 'farm', type: 'nursery', x: 1.9, z: -2.6 },
-      { kind: 'farm', type: 'feeder', x: 0.6, z: -0.2 },
-      { kind: 'school', sp: 'bluegill', n: 7, x: -1.6, y: 2.4, z: -1.0, rx: 2.0, rz: 0.9, ry: 0.15, laps: 1, pxPer: 1, seed: 3 },
-      { kind: 'ancient', id: 'sturgeon', from: [-12, 4.5, -3.2], to: [6, 4.5, -3.2], pxPer: 1, bob: 0.06, off: 0.1 },
-      { kind: 'chief', x: -8.3, y: 4.3, z: 0.4, ry: 0.9, anim: 'swim', scale: 1.0, bob: 0.07, bobOff: 1.5 },
-      { kind: 'diver', name: 'fox', x: -6.6, y: 3.15, z: 1.8, scale: 1.5, facing: 1, swim: 0.6, yawOff: -1.0, pitch: 0.4, arms: 'reach', headUp: 0.15 },
+      { kind: 'farm', type: 'pen', x: -3.6, z: -1.6, stock: { sp: 'perch', n: 6, pxPer: 1, laps: 1 } },
+      { kind: 'farm', type: 'nursery', x: 2.4, z: -2.6 },
+      { kind: 'farm', type: 'feeder', x: -1.0, z: -0.2 },
+      { kind: 'school', sp: 'bluegill', n: 7, x: -3.6, y: 2.4, z: -1.0, rx: 2.0, rz: 0.9, ry: 0.15, laps: 1, pxPer: 1, seed: 3 },
+      { kind: 'ancient', id: 'sturgeon', from: [-12, 4.9, -3.2], to: [6, 4.9, -3.2], pxPer: 1, bob: 0.06, off: 0.1 },
+      { kind: 'chief', x: -2.0, y: 3.95, z: 1.0, ry: 0.25, anim: 'salute', scale: 1.3, bob: 0.06, bobOff: 1.5, loop: { range: [0.9, 1.6], pingpong: true } },
+      { kind: 'diver', name: 'fox', x: -6.7, y: 3.45, z: 1.8, scale: 1.5, facing: 1, swim: 0.7, yawOff: -0.8, pitch: 0.75, arms: 'reach', headUp: 0.35 },
     ],
     loopFx: [
-      { type: 'bubbles', spot: 'snorkel', n: 7, rate: 2, rise: 2.6, top: 6.0, spread: 0.12, px: 0.02, seed: 4 },
-      { type: 'bubbles', pos: [0.6, 1.4, -0.2], n: 9, rate: 1, rise: 4.5, top: 6.0, spread: 0.4, px: 0.02, seed: 8 },
+      { type: 'bubbles', spot: 'snorkel', n: 7, rate: 2, rise: 2.4, top: 6.0, spread: 0.12, px: 0.02, seed: 4 },
+      { type: 'bubbles', pos: [-1.0, 1.4, -0.2], n: 9, rate: 1, rise: 4.5, top: 6.0, spread: 0.4, px: 0.02, seed: 8 },
       { type: 'bubbles', pos: [-10.2, 0.6, -1.5], n: 6, rate: 1, rise: 5.4, top: 6.0, spread: 0.3, px: 0.02, seed: 13 },
     ] },
 };
@@ -236,25 +236,25 @@ PRESETS.ddThumbAnim = { kind: 'ddthumb', parts: ['ddThumbDig', 'ddThumbDive'], s
 // the banner: the waterline runs across at y ~118 (of 240); both halves 960 x 140 low-res, px 1.3
 PRESETS.ddBannerDig = {
   scene: 'banner', viewport: [1920, 280], px: 1.3, masks: ['snapp', 'bluffGlow'],
-  opts: { ...DIG_LOOK, loop: LOOP_DD, pitch: 24, wupp: 0.024, focusWorld: [94.0, 137.0],
-    cast: [{ kind: 'digyard' }, snapp({ wx: 100.3, wz: 139.5, ry: -0.45, scale: 1.45 })] },
+  opts: { ...DIG_LOOK, loop: LOOP_DD, pitch: 24, wupp: 0.024, focusWorld: [94.0, 135.4],
+    cast: [{ kind: 'digyard' }, snapp({ wx: 101.6, wz: 136.2, ry: -0.4, lean: -0.15, scale: 1.5 })] },
 };
 PRESETS.ddBannerDive = {
   scene: 'dive', viewport: [1920, 280], px: 1.3, masks: ['fox'],
   opts: { daylight: true, loop: LOOP_DD, cam: { x: -1.0, y: 2.25, z: -0.8, pitch: 12, wupp: 0.026 },
     cast: [
-      { kind: 'farm', type: 'pen', x: -2.6, z: -1.6, stock: { sp: 'perch', n: 6, pxPer: 1, laps: 1 } },
-      { kind: 'farm', type: 'feeder', x: -0.4, z: -0.4 },
+      { kind: 'farm', type: 'pen', x: 0.5, z: -1.6, stock: { sp: 'perch', n: 6, pxPer: 1, laps: 1 } },
+      { kind: 'farm', type: 'feeder', x: 2.5, z: -0.4 },
       { kind: 'farm', type: 'nursery', x: 9.2, z: -2.4 },
-      { kind: 'farm', type: 'mussels', x: 2.2, z: -1.8 },
-      { kind: 'school', sp: 'bluegill', n: 7, x: -2.6, y: 2.2, z: -1.0, rx: 2.0, rz: 0.9, ry: 0.12, laps: 1, pxPer: 1, seed: 3 },
-      { kind: 'ancient', id: 'sturgeon', from: [-16, 3.4, -3.4], to: [12, 3.4, -3.4], pxPer: 1, bob: 0.05, off: 0.55 },
-      { kind: 'chief', x: -6.4, y: 2.5, z: 0.6, ry: 0.9, anim: 'swim', scale: 1.1, bob: 0.07, bobOff: 1.5 },
-      { kind: 'diver', name: 'fox', x: 6.2, y: 2.15, z: 1.8, scale: 1.55, facing: -1, swim: 0.6, yawOff: 1.0, pitch: 0.4, arms: 'reach', headUp: 0.15 },
+      { kind: 'farm', type: 'mussels', x: 4.2, z: -1.8 },
+      { kind: 'school', sp: 'bluegill', n: 7, x: 0.5, y: 2.2, z: -1.0, rx: 2.0, rz: 0.9, ry: 0.12, laps: 1, pxPer: 1, seed: 3 },
+      { kind: 'ancient', id: 'sturgeon', from: [-16, 3.5, -3.4], to: [12, 3.5, -3.4], pxPer: 1, bob: 0.05, off: 0.55 },
+      { kind: 'chief', x: -3.4, y: 2.3, z: 1.0, ry: 0.25, anim: 'salute', scale: 1.25, bob: 0.06, bobOff: 1.5, loop: { range: [0.9, 1.6], pingpong: true } },
+      { kind: 'diver', name: 'fox', x: 6.7, y: 2.3, z: 1.8, scale: 1.5, facing: -1, swim: 0.7, yawOff: 0.8, pitch: 0.75, arms: 'reach', headUp: 0.35 },
     ],
     loopFx: [
-      { type: 'bubbles', spot: 'snorkel', n: 6, rate: 2, rise: 2.6, top: 6.0, spread: 0.12, px: 0.026, seed: 4 },
-      { type: 'bubbles', pos: [-0.4, 1.4, -0.4], n: 8, rate: 1, rise: 4.0, top: 6.0, spread: 0.4, px: 0.026, seed: 8 },
+      { type: 'bubbles', spot: 'snorkel', n: 6, rate: 2, rise: 2.4, top: 6.0, spread: 0.12, px: 0.026, seed: 4 },
+      { type: 'bubbles', pos: [2.5, 1.4, -0.4], n: 8, rate: 1, rise: 4.0, top: 6.0, spread: 0.4, px: 0.026, seed: 8 },
     ] },
 };
 PRESETS.ddBannerAnim = { kind: 'ddbanner', parts: ['ddBannerDig', 'ddBannerDive'], still: 12, opts: { loop: LOOP_DD }, gif: { 2: ['--lossy', '36'] } };

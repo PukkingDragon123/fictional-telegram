@@ -563,7 +563,8 @@ export class NpcScenes {
     // the rig needs updating while out of its home slot
     vis.tick = (dt) => rig.update(dt);
     (this.visitors ||= new Set()).add(vis);
-    vis.remove = () => { vis.gone = true; this.visitors.delete(vis); rig.root.removeFromParent(); try { rig.dispose(); } catch { /* ignore */ } };
+    v.stageCopy = (v.stageCopy || 0) + 1; // [v33 town] if the real one is out at the pond too, it steps out of sight
+    vis.remove = () => { if (vis.gone) return; vis.gone = true; v.stageCopy = Math.max(0, (v.stageCopy || 1) - 1); this.visitors.delete(vis); rig.root.removeFromParent(); try { rig.dispose(); } catch { /* ignore */ } };
     return vis;
   }
 

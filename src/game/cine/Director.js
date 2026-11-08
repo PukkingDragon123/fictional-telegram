@@ -335,7 +335,7 @@ export class Director {
   }
   onPtr(e) {
     if (!this.active) return;
-    if (e.target?.closest?.('.dir-skip, .bb-pill')) return; // [v32 cine] reply buttons take their own clicks
+    if (e.target?.closest?.('.dir-skip, .bb-pill, .tut-skiptag, .tut-choice')) return; // [v32 cine] reply buttons take their own clicks // [v33 tut] + the tour's SKIP tag and its planks
     e.stopPropagation();
     this.adv?.();
   }

@@ -180,3 +180,92 @@
 .tch-catch.on { pointer-events: auto; cursor: pointer; }
 
 .tch-reduced *, .tch-reduced { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
+
+/* ======================================================================= [v33 tut]
+   The tour's physical pixel pieces. Hard edges, ink outlines, solid offset shadows, stepped
+   animation (no blur, no smooth gradients). One font pixel = 1 screen px at 21px, 2 at 42px. */
+
+/* ---- the brass REYNARD name plate on the paper bubble */
+.tch-name {
+  position: absolute; left: calc(var(--px) * 5); bottom: calc(var(--px) * -6); z-index: 2;
+  font-family: var(--font-title); font-size: 21px; line-height: 1; font-style: normal; letter-spacing: 1px;
+  padding: 2px 8px 3px; color: #3a2408; background: #e8b040;
+  border: 2px solid #2a1808;
+  box-shadow: inset 0 2px 0 #fff0a0, inset 0 -2px 0 #b07a1a, 2px 2px 0 #1a1420;
+  image-rendering: pixelated; pointer-events: none;
+}
+.tch-name::before, .tch-name::after { content: ''; position: absolute; top: 50%; width: 2px; height: 2px; margin-top: -1px; background: #7a4a10; box-shadow: 0 -2px 0 #fff0a0; }
+.tch-name::before { left: 3px; }
+.tch-name::after { right: 3px; }
+.tch-v-shout .tch-name, .tch-v-think .tch-name { display: none; }
+
+/* ---- world marks (src/game/tutorial/marks.js): the canvas sits on the world, under the HUD */
+.tutm-world { position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+.tutm-layer { position: fixed; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
+body.cine .tutm-layer, body.cine .tutm-world { z-index: 29; } /* cutscenes: over the letterbox's world, under its bars */
+.tutm-tag {
+  position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; white-space: nowrap;
+  font-family: var(--font-title); font-size: 21px; line-height: 1; color: #1a1420;
+  padding: 3px 8px 4px 6px; background: #f6ecd4;
+  border: 2px solid #1a1420; box-shadow: inset 4px 0 0 var(--c, #ffd23a), inset 0 -2px 0 #e2d2ae, 2px 2px 0 #1a1420;
+  animation: tutm-tag-in .24s steps(3) both;
+}
+.tutm-tag i { width: 4px; height: 4px; background: #1a1420; box-shadow: inset 1px 1px 0 #8a7a5a; margin-left: 2px; } /* the eyelet */
+.tutm-tag::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 2px; height: 4px; margin-left: -1px; background: #1a1420; } /* its string */
+.tutm-gold { --c: #ffd23a; } .tutm-blue { --c: #6ac8ff; } .tutm-pink { --c: #ff8ac8; } .tutm-green { --c: #8ae05a; } .tutm-red { --c: #ff6a4a; }
+@keyframes tutm-tag-in { 0% { margin-top: -8px; } 50% { margin-top: 2px; } 100% { margin-top: 0; } }
+
+/* ---- UI marks: a pixel arrow over a button, a stepped gold outline on it */
+.tutm-top { position: fixed; inset: 0; z-index: 465; pointer-events: none; }
+.tutm-uiarrow { position: absolute; left: 0; top: 0; pointer-events: none; }
+.tutm-uiarrow img { display: block; image-rendering: pixelated; animation: tutm-bob-d .44s steps(1) infinite; }
+.tutm-uiarrow[data-dir="up"] img { animation-name: tutm-bob-u; }
+.tutm-uiarrow[data-dir="left"] img { animation-name: tutm-bob-l; }
+.tutm-uiarrow[data-dir="right"] img { animation-name: tutm-bob-r; }
+@keyframes tutm-bob-d { 0%, 100% { transform: translateY(0); } 25%, 75% { transform: translateY(2px); } 50% { transform: translateY(4px); } }
+@keyframes tutm-bob-u { 0%, 100% { transform: translateY(0); } 25%, 75% { transform: translateY(-2px); } 50% { transform: translateY(-4px); } }
+@keyframes tutm-bob-l { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(-2px); } 50% { transform: translateX(-4px); } }
+@keyframes tutm-bob-r { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(2px); } 50% { transform: translateX(4px); } }
+.tutm-hot { outline: 3px solid #ffd23a !important; outline-offset: 2px; animation: tutm-hot .5s steps(1) infinite; }
+@keyframes tutm-hot { 0%, 100% { outline-color: #ffd23a; } 50% { outline-color: #fff6d0; } }
+.tutm-new { animation: tutm-new .8s steps(1) both !important; }
+@keyframes tutm-new { 0% { outline: 4px solid #fff6d0; outline-offset: 6px; } 25% { outline: 4px solid #ffd23a; outline-offset: 4px; } 50% { outline: 3px solid #e08a1a; outline-offset: 2px; } 75% { outline: 2px solid #ffd23a; outline-offset: 1px; } 100% { outline: 0 solid transparent; } }
+
+/* ---- SKIP TOUR: a paper luggage tag on a string from the top edge */
+.tut-skiptag {
+  position: fixed; top: 0; right: calc(214px + env(safe-area-inset-right, 0px)); z-index: 470;
+  display: flex; flex-direction: column; align-items: center; padding: 0; margin: 0; border: 0; background: none; cursor: pointer;
+  pointer-events: auto; transform: translateY(-100%); image-rendering: pixelated;
+}
+.tut-skiptag.on { transform: translateY(0); animation: tut-skip-in .5s steps(5) both; }
+.tut-skiptag.off { transform: translateY(-110%); transition: transform .3s steps(3); }
+@keyframes tut-skip-in { 0% { transform: translateY(-100%); } 60% { transform: translateY(6px); } 80% { transform: translateY(-2px); } 100% { transform: translateY(0); } }
+.tut-skiptag .str { display: block; width: 2px; height: 14px; background: #3a2a20; box-shadow: 2px 0 0 #8a6a4a; }
+.tut-skiptag .tg {
+  position: relative; display: flex; flex-direction: column; align-items: center; padding: 10px 10px 6px;
+  font-family: var(--font-title); color: #1a1420; line-height: 1;
+  background-color: #f3e6c8;
+  background-image: repeating-conic-gradient(#f3e6c8 0 25%, #ecdcb8 0 50%); background-size: 4px 4px; /* paper tooth (2 px checker) */
+  border: 2px solid #1a1420; box-shadow: inset 0 -3px 0 #d8c49a, 3px 3px 0 #1a1420;
+  animation: tut-skip-bob 2.4s steps(1) infinite;
+}
+.tut-skiptag .eye { position: absolute; top: 2px; left: 50%; width: 6px; height: 6px; margin-left: -3px; background: #e8b040; box-shadow: inset 2px 2px 0 #1a1420, 0 0 0 1px #7a4a10; }
+.tut-skiptag b { font-size: 21px; font-weight: 400; letter-spacing: 1px; }
+.tut-skiptag em { font-style: normal; font-size: 21px; color: #c0302a; letter-spacing: 1px; margin-top: 2px; }
+.tut-skiptag .ff { width: 14px; height: 6px; margin-top: 3px; background:
+  linear-gradient(#1a1420, #1a1420) 0 2px / 2px 2px no-repeat, linear-gradient(#1a1420, #1a1420) 2px 0 / 2px 6px no-repeat, linear-gradient(#1a1420, #1a1420) 4px 2px / 2px 2px no-repeat,
+  linear-gradient(#1a1420, #1a1420) 8px 2px / 2px 2px no-repeat, linear-gradient(#1a1420, #1a1420) 10px 0 / 2px 6px no-repeat, linear-gradient(#1a1420, #1a1420) 12px 2px / 2px 2px no-repeat; }
+@keyframes tut-skip-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1px); } }
+.tut-skiptag:hover .tg { background-color: #fff3d8; transform: translateY(3px); animation: none; }
+.tut-skiptag:hover .str { height: 17px; }
+.tut-skiptag:active .tg, .tut-skiptag.pulled .tg { transform: translateY(6px) scaleY(.94); box-shadow: inset 0 -3px 0 #d8c49a, 2px 2px 0 #1a1420; }
+.tut-skiptag:active .str, .tut-skiptag.pulled .str { height: 20px; }
+body.lab-mode .tut-skiptag, .classroom-on .tut-skiptag { right: 16px; }
+
+/* ---- the plank question card (skip + the room's questions) */
+.tut-choice.tut-ask { flex-direction: column; align-items: center; gap: 10px; bottom: 30%; z-index: 480; }
+.tut-choice.tut-ask .row { display: flex; gap: 16px; }
+.tut-choice.tut-ask .q {
+  font-family: var(--font-title); font-size: 42px; line-height: 1; color: #1a1420; padding: 10px 18px 12px;
+  background: #f6ecd4; border: 3px solid #1a1420; box-shadow: inset 0 -4px 0 #e2d2ae, 4px 4px 0 #1a1420;
+}

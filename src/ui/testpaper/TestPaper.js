@@ -615,6 +615,7 @@ export class TestPaper {
     this.sfx('pen', { volume: 0.3, pitch: 1.1 });
     this._mark(`q${q.i}:m${l}`, linePx(q.mPos.ldot + 2, ly, q.mPos.rdot - 2, ry, { wob: 1.1, seed: l * 7 + r, sag: 1.5 }));
   }
+  _blank(q) { return q.type === 'choice' ? q.ans == null : q.type === 'order' ? q.ans.length < q.steps.length : q.ans.some((x) => x == null); }
   answered() {
     return this.qs.every((q) => (q.type === 'choice' ? q.ans != null : q.type === 'order' ? q.ans.length === q.steps.length : q.ans.every((a) => a != null)));
   }
@@ -701,19 +702,25 @@ export class TestPaper {
     const T = this.targets;
     if (this.focus >= T.length) { this.focus = k === 'ArrowUp' || k === 'ArrowLeft' ? T.length - 1 : 0; return; }
     const c = T[this.focus];
-    const dir = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[k];
+    if (k === 'ArrowUp' || k === 'ArrowDown') {
+      // row by row (never skips a line of answers): the next row up / down, then the nearest across
+      const dn = k === 'ArrowDown' ? 1 : -1;
+      let rowY = null;
+      for (const t of T) { const dy = (t.cy - c.cy) * dn; if (dy > 3 && (rowY == null || dy < (rowY - c.cy) * dn)) rowY = t.cy; }
+      if (rowY == null) { if (dn > 0) this.focus = T.length; return; } // past the last row: HAND IN
+      let best = -1, bd = 1e9;
+      T.forEach((t, i) => { if (Math.abs(t.cy - rowY) <= 3) { const d = Math.abs(t.cx - c.cx); if (d < bd) { bd = d; best = i; } } });
+      if (best >= 0) this.focus = best;
+      return;
+    }
+    // left / right along the row, else on to the next / previous answer in reading order
+    const dir = k === 'ArrowRight' ? 1 : -1;
     let best = -1, bd = 1e9;
-    T.forEach((t, i) => {
-      if (i === this.focus) return;
-      const dx = t.cx - c.cx, dy = t.cy - c.cy;
-      const along = dx * dir[0] + dy * dir[1];
-      if (along <= 1) return;
-      const across = Math.abs(dx * dir[1]) + Math.abs(dy * dir[0]);
-      const sc = along + across * 2.5;
-      if (sc < bd) { bd = sc; best = i; }
-    });
-    if (best >= 0) this.focus = best;
-    else if (k === 'ArrowDown' || k === 'ArrowRight') this.focus = T.length; // on to HAND IN
+    T.forEach((t, i) => { if (i === this.focus || Math.abs(t.cy - c.cy) > 3) return; const dx = (t.cx - c.cx) * dir; if (dx > 1 && dx < bd) { bd = dx; best = i; } });
+    if (best >= 0) { this.focus = best; return; }
+    const order = T.map((t, i) => i).sort((a, b) => (T[a].cy - T[b].cy) || (T[a].cx - T[b].cx));
+    const at = order.indexOf(this.focus) + dir;
+    this.focus = at >= order.length ? T.length : order[Math.max(0, at)];
   }
   _showFocus() {
     this.kbd = true; this.dirty = true;
@@ -742,10 +749,13 @@ export class TestPaper {
   _handIn() {
     if (this.phase !== 'answer') return;
     if (!this.answered() && !this._warned) {
-      // one nudge, then it goes in as it is
-      this._warned = true;
-      this.say('Some blanks there. Hand it in anyway? Click again.', 'think');
+      // one nudge (the blank questions blink red), then it goes in as it is
+      this._warned = true; this.blinkT = 2.6;
+      this.say('Some blanks there! Hand it in anyway? Press it again.', 'think');
+      this.sfx('class_wrong', { volume: 0.35 });
       this.bHand.classList.add('nudge'); setTimeout(() => this.bHand.classList.remove('nudge'), 500);
+      const first = this.targets.findIndex((t) => this._blank(t.q));
+      if (first >= 0) { this.focus = first; this._showFocus(); }
       return;
     }
     this.phase = 'grade'; this.held = null; this.drag = null;
@@ -876,7 +886,7 @@ export class TestPaper {
     await this._wait(0.25);
     // the stamp
     this.tool.goal = [PW + 30, -20]; this.tool.from = [this.tool.x, this.tool.y]; this.tool.gt = 0; this.tool.gd = 0.3;
-    this.stampArt = gradeStamp(grade, { rot: -0.22 });
+    this.stampArt = gradeStamp(grade, { rot: -0.14 });
     this.stamp = { t: 0, x: GRADE.x + GRADE.w / 2 - this.stampArt.width / 2, y: GRADE.y + GRADE.h / 2 - this.stampArt.height / 2 };
     this.say(grade === 'A+' ? 'A PLUS!' : grade === 'A' ? 'An A!' : grade === 'F' ? 'Oh dear.' : `${grade}.`, grade.startsWith('A') ? 'excited' : grade === 'F' ? 'sad' : 'happy');
     await this._wait(0.42);
@@ -935,6 +945,7 @@ export class TestPaper {
       const y = this.stamp || this.result ? 0 : (tl.y + MG) * this.s - h * 0.45;
       sc.scrollTop += (Math.max(0, y) - sc.scrollTop) * Math.min(1, dt * 5);
     }
+    if (this.blinkT > 0) this.blinkT -= dt;
     if (this.stamp) this.stamp.t += dt * sp;
     if (this.sticker) this.sticker.t += dt * sp;
     if (this.shake > 0) this.shake = Math.max(0, this.shake - dt);
@@ -987,6 +998,7 @@ export class TestPaper {
         // valid drop spots blink
         if (Math.floor(this.t * 3) % 2 === 0) for (const t of this.targets) if (t.q === this.held.q && (t.kind === (this.held.kind === 'tag' ? 'slot' : 'mr'))) ants(t.r, '#8aa86a');
       }
+      if (this.blinkT > 0 && Math.floor(this.t * 5) % 2 === 0) for (const t of this.targets) if (this._blank(t.q) && t.kind !== 'tag' && t.kind !== 'mr') ants(t.r, '#d0262e');
       // dragging a line from a dot: a rubber band in pencil
       const d = this.drag;
       if (d && d.moved && d.t.kind === 'ml' && this.ptr) { o.fillStyle = GR[1]; for (const [px, py] of linePx(d.t.cx, d.t.cy, this.ptr[0], this.ptr[1])) o.fillRect(MG + px, MG + py, 1, 1); }

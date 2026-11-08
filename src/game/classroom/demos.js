@@ -310,7 +310,7 @@ function buildAquarium(g, { nest = false, deco = true } = {}) {
       const d = Math.hypot(x / 6, (z - 1) / 4.2);
       if (d > 1.05) continue;
       R.set(x, G, z, null);
-      R.set(x, G - 1, z, d > 0.8 ? 0xb89a72 : hash3(x, z, 3, 3) < 0.3 ? 0xf4ead0 : 0xe8dcbc);
+      R.set(x, G - 1, z, d > 0.8 ? 0xb89a72 : hash3(x, z, 3, 3) < 0.15 ? 0xfaf2dc : 0xefe4c8);
       if (d > 0.82 && d < 1.05) R.set(x, G + 1, z, pickC(GRAV, hash3(x, z, 7, 1)));
     }
   }
@@ -538,31 +538,33 @@ class NurseryDemo extends Demo {
     for (const f of [this.dad, this.mum]) { this.own(f); g.add(f.root); f.root.position.set(0, 0.3, 0); }
     // a clutch of eggs in the nest
     this.eggs = [];
-    const eggGeo = (() => { const v = new VoxelModel(); v.ellipsoid(0, 0, 0, 1, 1, 1, (x, y, z) => (y > 0 && x < 1 ? 0xfff0b0 : 0xf2c040)); return build(v, { scale: 0.0075 }); })();
+    // eggs drawn far bigger than life (real ones are a millimetre) so the class can see them
+    const eggGeo = (() => { const v = new VoxelModel(); v.ellipsoid(0, 0, 0, 1.6, 1.5, 1.6, (x, y, z) => (y > 0.5 && x < 0.5 ? 0xfff6c8 : y < -0.5 ? 0xd89a28 : 0xf2c040)); return build(v, { scale: 0.0085 }); })();
     this.own(eggGeo);
-    const eyeGeo = new THREE.BoxGeometry(0.006, 0.006, 0.006); this.own(eyeGeo);
+    const eyeGeo = new THREE.BoxGeometry(0.009, 0.009, 0.009); this.own(eyeGeo);
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a20 }); this.own(eyeMat);
     const rnd = mulberry32(42);
-    for (let i = 0; i < 26; i++) {
-      const a = rnd() * TAU, r = Math.sqrt(rnd()) * 0.1;
+    for (let i = 0; i < 22; i++) {
+      // a golden mound of eggs in the middle of the nest: a wide bottom layer, a few on top
+      const top = i >= 15, a = rnd() * TAU, r = Math.sqrt(rnd()) * (top ? 0.035 : 0.075);
       const e = new THREE.Mesh(eggGeo, mats().lit); e.userData.shared = true;
-      e.position.set(this.nest.x + Math.cos(a) * r * 1.3, this.nest.y + 0.008 + rnd() * 0.012, this.nest.z + Math.sin(a) * r * 0.85);
+      e.position.set(this.nest.x + Math.cos(a) * r * 1.2, this.nest.y + 0.012 + (top ? 0.024 : 0), this.nest.z + Math.sin(a) * r * 0.9);
       e.visible = false;
-      const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.userData.shared = true; eye.position.set(0.004, 0.003, 0.006); eye.visible = false; e.add(eye);
+      const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.userData.shared = true; eye.position.set(0.006, 0.006, 0.01); eye.visible = false; e.add(eye);
       g.add(e);
       this.eggs.push({ m: e, eye, ph: rnd() * 6, hatched: false, base: e.position.clone() });
     }
     // fry with yolk sacs
     this.fry = [];
     for (let i = 0; i < 9; i++) {
-      const fr = new DemoFish(fishModel('bluegill', { male: false, L: 9, H: 5, W: 3 }), 0.009);
-      const yv = new VoxelModel(); yv.ellipsoid(0, 0, 0, 1.6, 1.3, 1.3, (x, y) => (y > 0 ? 0xffe070 : 0xf2b030));
-      const yolk = new THREE.Mesh(build(yv, { scale: 0.009 }), mats().lit);
-      yolk.position.set(0.012, -0.018, 0); fr.root.add(yolk);
+      const fr = new DemoFish(fishModel('bluegill', { male: false, L: 11, H: 6, W: 3 }), 0.012);
+      const yv = new VoxelModel(); yv.ellipsoid(0, 0, 0, 2, 1.6, 1.6, (x, y) => (y > 0.5 ? 0xfff09a : y < -0.5 ? 0xe8a020 : 0xffd040));
+      const yolk = new THREE.Mesh(build(yv, { scale: 0.012 }), mats().lit);
+      yolk.position.set(0.018, -0.026, 0); fr.root.add(yolk);
       fr.root.visible = false; fr.speed = 14; fr.amp = 0.12;
       g.add(fr.root);
       this.own(fr); this.own(yolk.geometry);
-      this.fry.push({ f: fr, yolk, ph: i * 0.7, egg: this.eggs[i * 2 + 1] });
+      this.fry.push({ f: fr, yolk, ph: i * 0.7, egg: this.eggs[i * 2 + 1] || this.eggs[i] });
     }
     this.thermoK = 0.45;
     this.develop = 0; this.laid = 0; this.speedK = 1;

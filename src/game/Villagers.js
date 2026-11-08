@@ -9,6 +9,7 @@ import { SPECIES_BY_ID } from '../data/species.js';
 import { rollGenes } from './genes.js';
 import { NpcDialogue } from './NpcDialogue.js'; // [v19 npc]
 import { DIVE_CAST } from '../data/dive.js'; // [v32 dive]
+import { TownLife } from './town/TownLife.js'; // [v33 town] daily routines, chats, hellos, lit windows
 
 const c3 = import.meta.glob('../entities/critters3d.js', { eager: true });
 const C3 = c3['../entities/critters3d.js'] || {};
@@ -62,6 +63,7 @@ export class Villagers {
     this.group = new THREE.Group();
     game.scene.add(this.group);
     this.talk = new NpcDialogue(game); // [v19 npc] topics + choices + friendship
+    try { this.life = game.town = new TownLife(game, this); } catch (e) { console.warn('[town]', e); this.life = null; } // [v33 town]
     this.list = ZONES.map((Z) => ({ zone: Z, id: Z.npc.id, name: Z.npc.name, x: Z.npc.x, z: Z.npc.z, y: 0, rig: null, props: null, t: 4 + Math.random() * 6, cast: CAST[Z.npc.id] || {} }));
   }
 
@@ -146,6 +148,7 @@ export class Villagers {
   idle(v) {
     const r = v.rig;
     if (!r) return;
+    if (this.life?.idleFor(v)) return; // [v33 town] out on a walk / sitting on a bench: the town picks the pose
     if (v.id === 'dale' && hasAnim(r, 'sit_chair')) { r.play('sit_chair', { loop: true }); return; }
     if (v.id === 'granny' && hasAnim(r, 'sit_knit') && v.seat != null) { r.play('sit_knit', { loop: true }); return; }
     r.play?.('idle', { loop: true });
@@ -315,29 +318,40 @@ export class Villagers {
 
   update(dt) {
     const game = this.game;
+    const life = this.life; // [v33 town] routines + LOD (src/game/town/TownLife.js)
     for (const v of this.list) {
       const open = game.zones?.isOpen(v.zone.id);
       if (!open) { if (v.rig) v.rig.root.visible = false; continue; }
       if (!v.cleared || !v.rig) this.revealed(v.zone);
+      // [v33 town] indoors at night / in the rain; a stage copy of them is at your pond
+      const hide = !!life && (life.hidden(v) || (v.stageCopy > 0 && life.away(v)));
+      v.rig.root.visible = !hide;
+      if (hide) continue;
       // only animate when near the camera
       const near = Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 40;
-      v.rig.root.visible = true;
       if (!near) continue;
-      v.t -= dt;
-      if (v.t <= 0) {
-        v.t = 7 + Math.random() * 8;
-        const sp = v.cast.specials?.filter((n) => hasAnim(v.rig, n)) || [];
-        if (sp.length && !this.card) {
-          const n = pick(sp);
-          const loop = n === 'doze' || n === 'sit_knit';
-          v.rig.play(n, { loop, onDone: loop ? undefined : () => this.idle(v) });
-          if (loop) setTimeout(() => { if (v.rig?.current === n) { v.rig.play(n === 'doze' && hasAnim(v.rig, 'wake') ? 'wake' : 'idle', { loop: false, onDone: () => this.idle(v) }); } }, 6000);
+      if (!life?.managed(v)) { // [v33 town] the town runs the routine of the ones it manages
+        v.t -= dt;
+        if (v.t <= 0) {
+          v.t = 7 + Math.random() * 8;
+          const sp = v.cast.specials?.filter((n) => hasAnim(v.rig, n)) || [];
+          if (sp.length && !this.card) {
+            const n = pick(sp);
+            const loop = n === 'doze' || n === 'sit_knit';
+            v.rig.play(n, { loop, onDone: loop ? undefined : () => this.idle(v) });
+            if (loop) setTimeout(() => { if (v.rig?.current === n) { v.rig.play(n === 'doze' && hasAnim(v.rig, 'wake') ? 'wake' : 'idle', { loop: false, onDone: () => this.idle(v) }); } }, 6000);
+          }
+          if (Math.random() < 0.25 && !game.overrideScene && !life?.quiet() && Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 14) this.sayLine(v, pick(v.zone.lines), { dur: 2.6, size: 's', chat: true }); // [v20 npc homes] no outdoor chatter over an interior [v33 town] nor over cutscenes / UI
         }
-        if (Math.random() < 0.25 && !game.overrideScene && Math.hypot(v.x - game.rig.target.x, v.z - game.rig.target.z) < 14) this.sayLine(v, pick(v.zone.lines), { dur: 2.6 }); // [v20 npc homes] no outdoor chatter over an interior
+      } else if (v.t < 1e8) { // [v33 town] the old mutter, now and then, through the town's quiet checks
+        v.t -= dt;
+        if (v.t <= 0) { v.t = 18 + Math.random() * 16; if (Math.random() < 0.3) { const a = life.actors.get(v.id); if (a) life.solo(a, pick(v.zone.lines)); } }
       }
-      v.rig.update?.(dt);
+      const rdt = life ? life.rigDt(v, dt) : dt; // [v33 town] LOD: off screen = no rig update, far = half rate
+      if (rdt > 0) v.rig.update?.(rdt);
       v.propUpdate?.(dt);
     }
+    life?.update(dt); // [v33 town]
   }
 
   onLoad() {

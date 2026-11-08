@@ -33,6 +33,7 @@ import { WATER_Y } from '../world/grid.js';
 import { FX } from './Particles.js';
 import { comicWordSize, paintComicWord } from '../ui/goofyText.js';
 import { natureCanvas } from '../art/natureArt.js';
+import { HeistScene } from './title/HeistScene.js'; // [v33 title] the noon cinematic: Reynard counts his money, a bear, a chase
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -360,7 +361,7 @@ function makeDragonfly() {
 }
 
 // ---------------------------------------------------------------- the scene
-export class TitleScene {
+class PondTitleScene { // [v33 title] (was `export class TitleScene`: the default title is the noon heist now, see the end of the file)
   constructor(game) {
     this.game = game;
     this.active = false;
@@ -1804,3 +1805,10 @@ export class TitleScene {
     try { this.game.audio.play(name, o); } catch { /* audio is optional */ }
   }
 }
+
+// [v33 title] The title is the noon heist cinematic (src/game/title/HeistScene.js): Reynard counting
+// money by the pond, a bear, a chase, a looping camera-directed short. ?title=pond (tools/promo
+// poses it) and ?title=sunset keep this golden-hour pond diorama.
+const sunsetPond = typeof location !== 'undefined' && /[?&]title=(pond|sunset)(&|$)/.test(location.search);
+export const TitleScene = sunsetPond ? PondTitleScene : HeistScene;
+export { PondTitleScene, HeistScene };

@@ -507,6 +507,7 @@ export class Classroom {
     stopVoice();
     document.body.classList.remove('class-mode');
     this.room?.setDim?.(0);
+    this.room?.setBeams?.(1);
     this.fox?.setAim?.(null);
     this._paper?.abort(); this._paper = null;
     this._removeUI();
@@ -524,6 +525,7 @@ export class Classroom {
 
   async _outro() {
     this.room.setDim?.(0);
+    this.room.setBeams?.(1);
     this.cam('wide');
     this.fox?.setAim?.(null);
     this.demos?.labels([]);
@@ -539,6 +541,7 @@ export class Classroom {
   async _step(st) {
     if (st.show3d) return this._demoStep(st); // [v32 class]
     const room = this.room;
+    room.setBeams?.(1);
     if (st.erase) {
       this._hideSay();
       await this._erase();
@@ -605,6 +608,7 @@ export class Classroom {
       this._check();
     }
     const demo = this.demos?.show(st.show3d, st.beat);
+    room.setBeams?.(0.3); // the window rays would haze the diorama
     const cam = st.cam || 'demo';
     if (cam === 'orbit') this.cam(this.shots.demoOrbit(...(st.orbit || [])));
     else this.cam(this.shots[cam] ? cam : 'demo');

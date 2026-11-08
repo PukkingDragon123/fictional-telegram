@@ -37,6 +37,7 @@ import { injectPaperCSS, openPaper, setPaperSfx } from './paper.js';
 import { Tutorial } from '../game/Tutorial.js';
 import { ynPair, confirmHTML } from './ynButtons.js'; // [v27 knobs] painted YES / NO planks
 import { speakLine } from '../audio/voiceLines.js'; // [v32] voice lines
+import { kitMarkup, ToolKit } from './kit/ToolKit.js'; // [v33 kit] the hotbar as a leather tool roll
 const VOICE_WHO = { fox: 'fox', bear: 'bear', cub: 'cub', ceo: 'ceo', moose: 'bear', beaver: 'cub', deer: 'fox', turtle: 'turtle', otter: 'otter', duck: 'duck' };
 const C = (name) => comp[`./${name}.js`] || null;
 
@@ -112,6 +113,7 @@ export class UI {
     this.applyFrames();
     this.buildDOM();
     this.initV3();
+    try { this.kit = new ToolKit(this, TOOLS); } catch (e) { console.warn('tool kit', e); } // [v33 kit]
     game.on('coins', () => { this.popCoins(); this.refreshPanelSoon(); });
     game.on('research', () => this.refreshPanelSoon());
     game.on('tool', (t) => this.onTool(t));
@@ -126,11 +128,11 @@ export class UI {
     const map = [
       ['.panel, .modal, .fox .say, .clock, .toast', 'parchment'],
       ['.panel-head', 'ribbon_green'],
-      ['.toolbar, .eggtray', 'wood'],
+      ['.eggtray', 'wood'], // [v33 kit] the toolbar is a leather tool roll now (src/ui/kit)
       ['.plaque', 'plaque'],
       ['.tip, .toolhint', 'tooltip'],
-      ['.tool, .eslot, .iconbox', 'slot_gold'],
-      ['.tool.active, .eslot.ready', 'slot_gold_active'],
+      ['.eslot, .iconbox', 'slot_gold'], // [v33 kit]
+      ['.eslot.ready', 'slot_gold_active'],
       ['.btn, .rbtn', 'button_green'],
       ['.btn:hover, .rbtn:hover', 'button_green_hover'],
       ['.btn:active, .rbtn:active', 'button_green_down'],
@@ -172,9 +174,7 @@ export class UI {
         </div>
       </div>
       <div class="toolhint hidden f-tooltip" id="toolhint"></div>
-      <div class="toolbar f-wood" id="toolbar">
-        ${TOOLS.map((t) => `<button class="tool f-slot_gold ${t.tool === 'feed' ? 'active' : ''}" data-feature="${t.feature}" ${t.tool ? `data-tool="${t.tool}"` : `data-panel="${t.panel}"`} title="${esc(t.title)}${t.key ? ` (${t.key})` : ''}">${ico(t.icon, 2)}${t.tool === 'feed' ? '<i class="bag"><b id="bag"></b></i>' : ''}${t.tool === 'tag' ? '<em class="cnt" id="tagcnt"></em>' : ''}</button>`).join('')}
-      </div>
+      <div class="toolbar kit" id="toolbar">${kitMarkup(TOOLS) /* [v33 kit] Reynard's leather tool roll */}</div>
       <div class="panel hidden f-parchment" id="panel">
         <div class="panel-head f-ribbon_green"><h2 id="p-title"></h2><span class="coins-mini">${ico('coin', 1)}<span id="p-coins"></span></span><button class="xbtn" id="p-close" title="Close (Esc)">${ico('cross', 1)}</button></div>
         <div class="tabs" id="p-tabs"></div>
@@ -490,6 +490,11 @@ export class UI {
     this.hudc?.setVisible?.(game.isOpen('coins'), 'coins');
     this.hudc?.setVisible?.(game.isOpen('rating'), 'rating');
   }
+
+  // [v33 kit] tutorial API: a toolbar pocket is sewn in with a ceremony (resolves when done; unlocks the feature
+  // quietly if it isn't open yet) / a pulsing spotlight on one pocket
+  kitIntroduce(feature) { return this.kit ? this.kit.introduce(feature) : Promise.resolve(); }
+  kitSpotlight(feature, on = true) { this.kit?.spotlight(feature, on); }
 
   onUnlock(feature, quiet) {
     this.refreshUnlocks();

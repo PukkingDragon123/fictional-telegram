@@ -918,7 +918,7 @@ function ddthumb() {
     draw(F, [Pd, Pv], ph, fi) {
       const above = (x, y) => y < yW(x, ph);
       grade(Pd.px, { sat: 1.12, con: 1.05, warm: 6 });
-      grade(Pv.px, { sat: 1.1, con: 1.06, warm: -3 });
+      grade(Pv.px, { sat: 1.22, con: 1.06, warm: -5 });
       blitPart(F, Pv.px, Pv.ox, Pv.oy);
       blitPart(F, Pd.px, Pd.ox, Pd.oy, above);
       // above the waterline: warm god rays from the low sun (upper left), sun motes, amber glints
@@ -928,7 +928,7 @@ function ddthumb() {
       const fox = maskAt(Pv.masks.fox, Pv.w, Pv.h, W, H, Pv.ox, Pv.oy, (x, y) => !above(x, y));
       rings(F, snapp, W, H, [{ r: 1, c: rgb('#fff2cf') }]);
       rings(F, fox, W, H, [{ r: 1, c: rgb('#e6fdff') }]);
-      vignette(F, null, { r: 0.5, k: 1.1, top: [0.2, 0.55], bottom: [0.86, 0.75], max: 0.75 });
+      vignette(F, null, { r: 0.52, k: 1.0, top: [0.2, 0.55], bottom: [0.9, 0.45], max: 0.6 });
       motes(F, 34, [250, 140, 630, 270], ph, above);
       amberGlints(F, spotsOf(glow, W, H, 7), ph, 1);
       // the waterline: dark edge, a pale foam crest, a dithered shimmer band under it
@@ -944,7 +944,7 @@ function ddthumb() {
       const f = leapPath(ph, LEAP);
       if (f) {
         const s = rotSprite('sabre' + (Math.floor(fi / 2) % 5), fishFrame(fi), f.ang);
-        const tint = (x, y, c) => (y >= yW(x, ph) ? mixc(c, [38, 120, 150], 0.38) : c);
+        const tint = (x, y, c) => (y >= yW(x, ph) ? mixc(c, [52, 150, 176], 0.26) : c);
         drawSprite(F, s, f.x, f.y, 3, { tint, outline: rgb('#0a0a14') });
         // a bubble trail under water
         if (f.under) for (let b = 1; b <= 4; b++) { const bx = Math.round(f.x - Math.cos(f.ang) * (40 + b * 14) + Math.sin(fi + b) * 3), by = Math.round(f.y - Math.sin(f.ang) * (40 + b * 14)); if (by > yW(bx, ph) + 3) { F.set(bx, by, rgb('#e8fdff')); F.set(bx + 1, by, rgb('#7ad8ee')); } }
@@ -963,7 +963,73 @@ function ddthumb() {
   });
 }
 
-function ddbanner() { /* below */ }
+// ------------------------------------------------------------------ the banner (960 x 240)
+// The waterline runs across at ~118. Left: "The Bear Must Eat", "DIG &" above the water, "DIVE" + the
+// UPDATE plate below it. Right: the yard and Snapp above, the farms, Chief and the diver below; the
+// sabre-tooth leaps right to left across the middle (mirrored sprite, 2x).
+const mirror = (s) => { const px = new Uint32Array(s.w * s.h); for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) px[y * s.w + x] = s.px[y * s.w + s.w - 1 - x]; return { w: s.w, h: s.h, px }; };
+function ddbanner() {
+  const W = 960, H = 240;
+  const [dig, dive] = PARTS.length ? PARTS : ['ddBannerDig', 'ddBannerDive'];
+  const yW0 = (x) => 118 + (x - 480) * 0.008;
+  const yW = (x, ph) => Math.round(yW0(x) + 1.8 * Math.sin((x / 41 + ph) * TAU) + 1.0 * Math.sin((x / 15 - ph * 2) * TAU));
+  const LEAP = { t0: 0.1, dur: 0.82, from: [790, 300], breach: [662, yW0(662) + 4], entry: [440, yW0(440) + 4], to: [330, 300], air: [0.27, 0.73], peak: 92 };
+  const tB = LEAP.t0 + LEAP.air[0] * LEAP.dur, tE = LEAP.t0 + LEAP.air[1] * LEAP.dur;
+  const TT = lazy(() => layout([{ text: 'The Bear Must Eat', x: 0, y: 0 }]));
+  const T1 = lazy(() => layout([{ text: 'DIG &', x: 0, y: 0 }]));
+  const T2 = lazy(() => layout([{ text: 'DIVE', x: 0, y: 0 }]));
+  const HOP = { start: tB + 0.02, stagger: 0.03, dur: 0.15, H: 2 };
+  let fishL = null;
+  ddStage(W, H, {
+    hero: 'sabertooth',
+    parts: [{ name: dig, w: 960, h: 140, ox: 0, oy: 0, masks: ['snapp', 'bluffGlow'] }, { name: dive, w: 960, h: 140, ox: 0, oy: 100, masks: ['fox'] }],
+    draw(F, [Pd, Pv], ph, fi) {
+      fishL ||= DD.fish.map(mirror);
+      const above = (x, y) => y < yW(x, ph);
+      grade(Pd.px, { sat: 1.12, con: 1.05, warm: 6 });
+      grade(Pv.px, { sat: 1.22, con: 1.06, warm: -5 });
+      blitPart(F, Pv.px, Pv.ox, Pv.oy);
+      blitPart(F, Pd.px, Pd.ox, Pd.oy, above);
+      godRays(F, -80, -60, { rays: 18, R: 900, k: 0.3, width: 0.4, rot: 0.1, mask: (x, y) => (above(x, y) ? 1 : 0) });
+      const snapp = maskAt(Pd.masks.snapp, Pd.w, Pd.h, W, H, Pd.ox, Pd.oy, above);
+      const glow = maskAt(Pd.masks.bluffGlow, Pd.w, Pd.h, W, H, Pd.ox, Pd.oy, above);
+      const fox = maskAt(Pv.masks.fox, Pv.w, Pv.h, W, H, Pv.ox, Pv.oy, (x, y) => !above(x, y));
+      rings(F, snapp, W, H, [{ r: 1, c: rgb('#fff2cf') }]);
+      rings(F, fox, W, H, [{ r: 1, c: rgb('#e6fdff') }]);
+      // the type side: a dithered dark panel on the left, both halves
+      for (let y = 0; y < H; y++) for (let x = 0; x < 380; x++) { const a = x < 250 ? 0.62 : 0.62 * (1 - (x - 250) / 130); if (dither(x, y, a)) F.set(x, y, above(x, y) ? rgb('#1c0a14') : rgb('#04121e'), 0.55); }
+      vignette(F, null, { r: 0.5, ax: 1.0, ay: 0.5, k: 1.1, max: 0.55 });
+      motes(F, 40, [380, 10, 960, 112], ph, above);
+      amberGlints(F, spotsOf(glow, W, H, 7), ph, 1);
+      for (let x = 0; x < W; x++) {
+        const y = yW(x, ph);
+        F.set(x, y - 2, rgb('#ffffff'), 0.55);
+        F.set(x, y - 1, rgb('#f2fdff'));
+        F.set(x, y, rgb('#9ee6f6'));
+        F.set(x, y + 1, rgb('#0c3a52'));
+        for (let q = 2; q < 6; q++) if (dither(x, y + q, 0.32 - q * 0.05)) F.set(x, y + q, rgb('#bff2fb'), 0.5);
+      }
+      const f = leapPath(ph, LEAP);
+      if (f) {
+        let a = f.ang - Math.PI; if (a < -Math.PI) a += TAU;
+        const fr = Math.floor(fi / 2) % 5;
+        const s = rotSprite('sabreL' + fr, fishL[fr], a);
+        const tint = (x, y, c) => (y >= yW(x, ph) ? mixc(c, [52, 150, 176], 0.26) : c);
+        drawSprite(F, s, f.x, f.y, 2, { tint, outline: rgb('#0a0a14') });
+        if (f.under) for (let b = 1; b <= 4; b++) { const bx = Math.round(f.x - Math.cos(f.ang) * (28 + b * 10) + Math.sin(fi + b) * 2), by = Math.round(f.y - Math.sin(f.ang) * (28 + b * 10)); if (by > yW(bx, ph) + 3) { F.set(bx, by, rgb('#e8fdff')); F.set(bx + 1, by, rgb('#7ad8ee')); } }
+      }
+      splashFx(F, LEAP.breach[0], yW0(LEAP.breach[0]) - 1, since(ph, tB) / 0.24, 11, { n: 24, R: 38, Hh: 44, k: 2 });
+      splashFx(F, LEAP.entry[0], yW0(LEAP.entry[0]) - 1, since(ph, tE) / 0.24, 23, { n: 24, R: 38, Hh: 48, k: 2 });
+      drawLetters(F, TT(), 18, 9, 2, ST_KICK, null, glintAt(ph, 0.55, 0.85, -10, 150, 3));
+      drawLetters(F, T1(), 16, 36, 4, ST_DIG, (L) => ({ dy: hopAt(ph, L.i, HOP), col: L.ch === '&' ? ST_AMP.fill : null }), glintAt(ph, 0.02, 0.3, -12, 60, 3));
+      sparkles(F, [[18, 37, 0.06], [16 + 22 * 4, 40, 0.2], [16 + 40 * 4, 74, 0.5]], ph, 2);
+      const bob = (L) => { const w = Math.sin((ph * 2 - L.i * 0.18) * TAU); return { dy: w > 0.75 ? -1 : w < -0.75 ? 1 : 0 }; };
+      drawLetters(F, T2(), 30, 136, 4, ST_DIVE, bob, glintAt(ph, 0.4, 0.7, -12, 50, 3));
+      kickerPlate(F, 30 + 35 * 4 + 18, 153, 2, 'UPDATE', ST_KICK, glintAt(ph, 0.8, 1.0, -10, 70, 2));
+      sparkles(F, [[30 + 35 * 4 + 2, 140, 0.33], [34, 182, 0.62]], ph, 2);
+    },
+  });
+}
 const SCENES = { thumb, banner, fsthumb, fsbanner, cinethumb, cinebanner, ddthumb, ddbanner };
 SCENES[kind]?.();
 if (CINE.scene) window.setFrame = (i) => cineFrame(i);

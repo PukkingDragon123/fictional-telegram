@@ -137,13 +137,6 @@ export function gradeStamp(grade, { rot = -0.2, word } = {}) {
     }
   };
   ring(0, 2); ring(4, 1);
-  // the letter: hand-made bold stamp capitals (7x9 cells at 3x), a '+' beside an A
-  const G = STAMP_GLYPHS[grade.replace('+', '')] || STAMP_GLYPHS.F;
-  const plus = grade.includes('+');
-  const K = 3, gw = 7 * K + (plus ? 4 + 5 * K : 0), gh = 9 * K;
-  const ox = Math.round((W - gw) / 2), oy = Math.round((H - gh) / 2) - 4;
-  G.forEach((r, yy) => { for (let xx = 0; xx < r.length; xx++) if (r[xx] === '#') x.fillRect(ox + xx * K, oy + yy * K, K, K); });
-  if (plus) STAMP_GLYPHS['+'].forEach((r, yy) => { for (let xx = 0; xx < r.length; xx++) if (r[xx] === '#') x.fillRect(ox + 7 * K + 4 + xx * K, oy + 2 * K + yy * K, K, K); });
   // a tiny word under it
   const tw = textCanvas(word || (grade === 'F' ? 'SEE ME' : 'POND SCHOOL'), 'tiny', ink);
   x.drawImage(tw.c, Math.round((W - tw.w) / 2), H - 12);
@@ -157,6 +150,21 @@ export function gradeStamp(grade, { rot = -0.2, word } = {}) {
     else if (hash(xx, yy, 4) < 0.12) { d[i] = Math.min(255, d[i] + 40); d[i + 1] += 30; d[i + 2] += 30; }
   }
   x.putImageData(id, 0, 0);
+  // the letter: hand-made bold stamp capitals (7x9 cells at 3x), a '+' beside an A
+  const G = STAMP_GLYPHS[grade.replace('+', '')] || STAMP_GLYPHS.F;
+  const plus = grade.includes('+');
+  const K = 3, gw = 7 * K + (plus ? 4 + 5 * K : 0), gh = 9 * K;
+  const ox = Math.round((W - gw) / 2), oy = Math.round((H - gh) / 2) - 4;
+  G.forEach((r, yy) => { for (let xx = 0; xx < r.length; xx++) if (r[xx] === '#') x.fillRect(ox + xx * K, oy + yy * K, K, K); });
+  if (plus) STAMP_GLYPHS['+'].forEach((r, yy) => { for (let xx = 0; xx < r.length; xx++) if (r[xx] === '#') x.fillRect(ox + 7 * K + 4 + xx * K, oy + 2 * K + yy * K, K, K); });
+  // the letter takes the ink well: only a few dry specks, a lighter top edge where the rubber bites
+  const id2 = x.getImageData(0, 0, W, H), d2 = id2.data;
+  for (let yy = oy; yy < oy + gh; yy++) for (let xx = ox; xx < ox + gw; xx++) {
+    const i = (yy * W + xx) * 4;
+    if (!d2[i + 3]) continue;
+    if (hash(xx, yy, 21) < 0.035) d2[i + 3] = 0;
+  }
+  x.putImageData(id2, 0, 0);
   return rotatePx(c, rot);
 }
 /** nearest-neighbour rotation (crisp pixel-art rotate) */

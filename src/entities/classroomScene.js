@@ -1155,6 +1155,9 @@ export function buildClassroom(opts = {}) {
   const dim = { k: 0, goal: 0, applied: -1 };
   const DIM_TINT = new THREE.Color(0x6a4a9a);
   function setDim(k) { dim.goal = Math.max(0, Math.min(1, k || 0)); }
+  // [v32 class] soften the window god rays (they cross the science table and haze the 3D demos)
+  let beamK = 1, beamGoal = 1;
+  function setBeams(k) { beamGoal = Math.max(0, Math.min(1, k)); }
   function applyDim() {
     if (!base || Math.abs(dim.k - dim.applied) < 0.002) return;
     dim.applied = dim.k;
@@ -1162,7 +1165,7 @@ export function buildClassroom(opts = {}) {
     lights.hemi.intensity = base.hemi * f; lights.hemi.color.copy(base.hemiC).lerp(DIM_TINT, k * 0.6);
     lights.fill.intensity = base.fill * (1 - 0.8 * k); lights.sun.intensity = base.sun * (1 - 0.85 * k);
     lights.desk.intensity = base.desk + k * 1.4; lights.board.intensity = base.board * (1 - 0.4 * k);
-    beamMat.color.copy(base.beam).multiplyScalar(1 - 0.9 * k);
+    beamMat.color.copy(base.beam).multiplyScalar((1 - 0.9 * k) * beamK);
     moteMat.opacity = base.motes * (1 - k);
   }
   function setClock(hour) { clockHour = hour; drawClock(); }
@@ -1173,6 +1176,7 @@ export function buildClassroom(opts = {}) {
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
     time = t ?? time + dt;
     dim.k += (dim.goal - dim.k) * Math.min(1, dt * 4);
+    if (Math.abs(beamGoal - beamK) > 0.002) { beamK += (beamGoal - beamK) * Math.min(1, dt * 3); dim.applied = -1; }
     applyDim();
     chalk.update(dt);
     if (chalk.version !== boardVer) { boardVer = chalk.version; boardTex.needsUpdate = true; }
@@ -1286,5 +1290,5 @@ export function buildClassroom(opts = {}) {
   setNight(false);
   update(0, 0, null);
   group.userData.buildMs = performance.now() - t0;
-  return { group, anchors, board, students: studentsApi, update, setNight, setClock, setDim, dispose, lights, background: CLASS_BACKGROUND };
+  return { group, anchors, board, students: studentsApi, update, setNight, setClock, setDim, setBeams, dispose, lights, background: CLASS_BACKGROUND };
 }

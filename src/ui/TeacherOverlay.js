@@ -40,6 +40,11 @@
 //   busy | visible | waiting                    getters
 //   dispose()
 //
+// [v33 tut] LOOK: everything is a physical pixel object now. The bubble is a cream paper card (fibres,
+// a dog-eared corner, a strip of masking tape, an ink outline + dithered drop shadow) with a little
+// brass REYNARD name plate; the marks are a waxy grease pencil (solid colour, wax grain, ink edge)
+// instead of chalk on a see-through board; his ground shadow is dithered.
+//
 // RENDERING: three layers fixed over the whole viewport, all pointer-events: none
 // (the UI under them stays clickable):
 //   1. chalk canvas (2D, 1 px = 2 CSS px): chalk marks, pulses, dust, his blob shadow
@@ -78,6 +83,9 @@ const RUN_SPEED = 660; // CSS px / s
 const AIM_Z = 0.3; // world z of aim points (a little in front of him, so the arm stays visible)
 
 const INK = [22, 17, 20];
+// [v33 tut] paper card + masking tape (bubble art)
+const PAPER = [250, 242, 222], PAPER_L = [255, 252, 240], PAPER_D = [236, 224, 196], PAPER_S = [222, 204, 170], PAPER_B = [206, 186, 148];
+const TAPE = [240, 226, 172], TAPE_L = [250, 240, 200], TAPE_D = [208, 190, 132];
 const CHALK = {
   white: [[255, 253, 244], [238, 233, 218], [204, 197, 178]],
   yellow: [[255, 247, 190], [255, 224, 106], [228, 180, 62]],
@@ -256,7 +264,7 @@ function drawBubbleArt(cv, g) {
   const W = ceil(x1 - x0 + M * 2), H = ceil(y1 - y0 + M * 2);
   if (cv.width !== W) cv.width = W;
   if (cv.height !== H) cv.height = H;
-  const R = min(5, floor(bh / 2));
+  const R = variant === 'normal' ? 2 : min(5, floor(bh / 2)); // [v33 tut] a paper card: nearly square corners
   let body;
   if (variant === 'shout') { const p = spikePoly(bw, bh, g.seed); body = (px, py) => inPoly(p, px, py); }
   else if (variant === 'think') {
@@ -309,17 +317,34 @@ function drawBubbleArt(cv, g) {
       let c = null, a = 255;
       if (line[i]) c = INK;
       else if (mask[i]) {
-        c = [255, 255, 255];
-        const j = (y + 2) * W + x + 1; // soft dithered inner shade along the lower-right inside edge
-        if (y + 2 < H && x + 1 < W && line[j] && !line[(y + 1) * W + x] && ((x + y) & 1) === 0) c = [214, 214, 222];
+        // [v33 tut] cream paper with fibres (hand-placed specks, never a gradient)
+        const hh = hash2(x, y, g.seed & 1023);
+        c = hh < 0.06 ? PAPER_D : hh > 0.975 ? PAPER_L : PAPER;
+        const j = (y + 2) * W + x + 1; // dithered inner shade along the lower-right inside edge
+        if (y + 2 < H && x + 1 < W && line[j] && !line[(y + 1) * W + x] && ((x + y) & 1) === 0) c = PAPER_S;
       } else if (x >= 1 && y >= 2 && solid((y - 2) * W + x - 1) && ((x + y) & 1) === 0) { c = INK; a = 200; }
       if (c) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = a; }
     }
+  const put = (x, y, c, a = 255) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const o = (y * W + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = a; };
   if (variant === 'normal') {
-    // gloss tick in the top-left: the classic cartoon shine
-    for (const [tx, ty] of [[1, 0], [2, 0], [3, 0], [0, 1], [0, 2]]) {
-      const i = (oy + 2 + ty) * W + ox + 3 + tx;
-      if (mask[i] && !line[i]) { d[i * 4] = INK[0]; d[i * 4 + 1] = INK[1]; d[i * 4 + 2] = INK[2]; d[i * 4 + 3] = 255; }
+    // [v33 tut] the dog-eared top-right corner: the corner is folded down over the card. Local coords
+    // u, v (0 = the body's top-left); the fold line runs from (bw - F, 0) to (bw - 1, F - 1).
+    const F = min(6, floor(bh / 3));
+    if (F >= 3) {
+      const u0 = bw - F;
+      for (let v = -3; v < F; v++) for (let u = u0; u <= bw + 2; u++) if (u - u0 > v) put(ox + u, oy + v, INK, 0); // cut off (outline + shadow too)
+      for (let v = 0; v < F; v++) for (let u = u0; u <= u0 + v; u++) {
+        const edge = u === u0 || v === F - 1 || u - u0 === v;
+        put(ox + u, oy + v, edge ? INK : (u + v) & 1 ? PAPER_B : PAPER_S); // the flap shows the paper's back
+      }
+      put(ox + u0 + 1, oy + F, INK, 200); put(ox + u0 + 2, oy + F, INK, 200); // a hint of its shadow
+    }
+    // a strip of masking tape across the top-left, torn ends
+    const tx0 = ox + 3, tw = min(14, bw - 12), ty0 = oy - 2;
+    for (let y = 0; y < 5; y++) for (let x = 0; x < tw; x++) {
+      if ((x === 0 || x === tw - 1) && hash2(x, y, 77) < 0.5) continue; // torn
+      const edge = y === 0 || y === 4;
+      put(tx0 + x, ty0 + y, edge ? TAPE_D : hash2(x, y, 9) < 0.15 ? TAPE_L : TAPE, edge ? 255 : 235);
     }
   }
   cv.getContext('2d').putImageData(img, 0, 0);
@@ -1484,17 +1509,17 @@ export class TeacherOverlay {
       for (let x = xa; x <= xb; x++) {
         const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d2 = dx * dx + dy * dy;
         const j = y * W + x, i = j * 4;
+        // [v33 tut] grease pencil: a solid ink edge (one art px, a bit heavier below), waxy colour inside
         if (d2 <= r2) {
-          if (!inner[j]) { inner[j] = 1; ink[i] = INK[0]; ink[i + 1] = INK[1]; ink[i + 2] = INK[2]; ink[i + 3] = 105; }
-        } else if (!inner[j] && (d2 <= R2 || dx * dx + (dy - 0.75) * (dy - 0.75) <= R2) && ink[i + 3] < 170) {
-          ink[i] = INK[0]; ink[i + 1] = INK[1]; ink[i + 2] = INK[2]; ink[i + 3] = 170; // rim, a bit heavier below
+          inner[j] = 1;
+        } else if (!inner[j] && (d2 <= R2 || dx * dx + (dy - 0.75) * (dy - 0.75) <= R2)) {
+          ink[i] = INK[0]; ink[i + 1] = INK[1]; ink[i + 2] = INK[2]; ink[i + 3] = 255;
         }
         if (d2 > r2) continue;
         const h = hash2(x, y, m.seed);
-        const edge = d2 > (r - 0.6) * (r - 0.6) ? 0.38 : 0; // ragged edges
-        if (h < gap + edge) continue; // the board shows through the grain
+        const edge = d2 > (r - 0.6) * (r - 0.6) ? 0.3 : 0; // ragged wax edge: the ink shows
         const h2 = hash2(y + 31, x - 17, m.seed + 7);
-        const c = h2 < 0.24 ? pal[0] : h2 > 0.8 ? pal[2] : pal[1];
+        const c = h < edge * 0.6 ? INK : h < gap * 0.7 + edge ? pal[2] : h2 > 0.86 ? pal[0] : pal[1]; // wax grain = the deeper tone, a few shiny flecks
         ch[i] = c[0]; ch[i + 1] = c[1]; ch[i + 2] = c[2]; ch[i + 3] = 255;
       }
   }
@@ -1573,10 +1598,10 @@ export class TeacherOverlay {
       const k = 1 - clamp01(f.hop / 90) * 0.55;
       const w = round((this.ppu * 0.62 * k) / CS), h = max(2, round((this.ppu * 0.12 * k) / CS));
       const x = round(f.x / CS), y = round(f.y / CS);
-      g.fillStyle = 'rgba(22,17,20,0.28)';
+      g.fillStyle = 'rgba(22,17,20,0.6)'; // [v33 tut] dithered, not a soft blob
       for (let j = 0; j < h; j++) {
         const yy = (j + 0.5) / h * 2 - 1, half = round(w * sqrt(max(0, 1 - yy * yy)));
-        g.fillRect(x - half, y - h + j + 1, half * 2, 1);
+        for (let i = -half; i < half; i++) if (((x + i + y + j) & 1) === 0) g.fillRect(x + i, y - h + j + 1, 1, 1);
       }
     }
     // marks: every rim first, then every chalk body (strokes never hide each other)
@@ -1694,7 +1719,7 @@ export class TeacherOverlay {
     const p = new Promise((r) => (b.resolve = r));
     const el = document.createElement('div');
     el.className = `tch-bb tch-v-${b.variant} tch-m-${mood}` + (b.wait ? ' tch-wait' : '');
-    el.innerHTML = `<div class="tch-bb-bob"><div class="tch-bb-pop"><canvas class="tch-bb-bg"></canvas><div class="tch-bb-body"><div class="tch-bb-content"><div class="tch-text"></div></div></div>${b.wait ? '<i class="tch-more"></i>' : ''}</div></div>`;
+    el.innerHTML = `<div class="tch-bb-bob"><div class="tch-bb-pop"><canvas class="tch-bb-bg"></canvas><div class="tch-bb-body"><div class="tch-bb-content"><div class="tch-text"></div></div></div><i class="tch-name">REYNARD</i>${b.wait ? '<i class="tch-more"></i>' : ''}</div></div>`;
     b.el = el;
     b.bob = el.querySelector('.tch-bb-bob');
     b.pop = el.querySelector('.tch-bb-pop');
