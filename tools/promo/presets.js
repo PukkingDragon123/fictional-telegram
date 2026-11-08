@@ -210,7 +210,7 @@ const LOOP_DD = { frames: 40, period: 3.2, timeAmp: 0.25 };
 const DIG_LOOK = { daylight: true, hour: 17.3, haze: 0.06, yaw: 0, pitch: 26, fill: 0.55, fillColor: 0xffe8d0, skyD: 9, clearWorld: [[84, 132, 106, 152]] };
 const snapp = (o = {}) => ({ kind: 'snapp', name: 'snapp', anim: 'loupe', t: 2.2, lean: -0.25, ry: -0.25, scale: 1.9, loop: { range: [1.2, 4.6], pingpong: true }, ...o });
 PRESETS.ddThumbDig = {
-  scene: 'banner', viewport: [1260, 620], px: 1, masks: ['snapp', 'bluffGlow'],
+  scene: 'banner', viewport: [1260, 620], px: 1, masks: ['snapp', 'bluffGlow'], staticMasks: ['bluffGlow'],
   opts: { ...DIG_LOOK, loop: LOOP_DD, pitch: 22, wupp: 0.015, focusWorld: [94.8, 137.0],
     cast: [{ kind: 'digyard', skip: ['tent'] }, snapp({ wx: 98.15, wz: 138.75, lean: -0.15, scale: 1.85 })] },
 };
@@ -235,7 +235,7 @@ PRESETS.ddThumbDive = {
 PRESETS.ddThumbAnim = { kind: 'ddthumb', parts: ['ddThumbDig', 'ddThumbDive'], still: 12, opts: { loop: LOOP_DD } };
 // the banner: the waterline runs across at y ~118 (of 240); both halves 960 x 140 low-res, px 1.3
 PRESETS.ddBannerDig = {
-  scene: 'banner', viewport: [1920, 280], px: 1.3, masks: ['snapp', 'bluffGlow'],
+  scene: 'banner', viewport: [1920, 280], px: 1.3, masks: ['snapp', 'bluffGlow'], staticMasks: ['bluffGlow'],
   opts: { ...DIG_LOOK, loop: LOOP_DD, pitch: 24, wupp: 0.024, focusWorld: [94.0, 135.4],
     cast: [{ kind: 'digyard' }, snapp({ wx: 101.6, wz: 136.2, ry: -0.4, lean: -0.15, scale: 1.5 })] },
 };

@@ -65,17 +65,25 @@ export class Guide {
   }
 
   /** walk over next to `target` and face it. Resolves on arrival (or after `timeout` s) */
-  async walkNear(target, { timeout = 8 } = {}) {
+  async walkNear(target, { timeout = null } = {}) {
     const f = this.keep();
     const s = this.standNear(target);
     if (!f || !s) return false;
     f.cine.anim = null;
-    if (Math.hypot(s.x - f.x, s.z - f.z) > 0.25) {
+    const d0 = Math.hypot(s.x - f.x, s.z - f.z);
+    if (d0 > 0.25) {
       f.target = { x: s.x, z: s.z };
       const t0 = performance.now();
-      while (f.target && performance.now() - t0 < timeout * 1000) {
-        if (this.game.director?.skipped || this.T.skipping) { f.x = s.x; f.z = s.z; f.target = null; break; }
+      const T = (timeout ?? 2 + d0 / 2.5) * 1000; // he runs 4.2 tiles/s: plenty of slack
+      while (f.target && performance.now() - t0 < T) {
+        if (this.game.director?.skipped || this.T.skipping) break;
         await wait(0.06);
+      }
+      // still far (cut short by water, or a slow frame rate): he hops the rest in a puff
+      if (Math.hypot(s.x - f.x, s.z - f.z) > 0.9) {
+        try { this.game.particles?.puff?.(f.x, f.y + 0.3, f.z, 6, 0.25); } catch { /* ignore */ }
+        f.x = s.x; f.z = s.z;
+        try { this.game.particles?.puff?.(f.x, f.y + 0.3, f.z, 6, 0.25); } catch { /* ignore */ }
       }
       f.target = null;
     }
@@ -102,6 +110,9 @@ export class Guide {
     };
     tick();
     try { f?.rig?.setAim?.(v, { weight: 1 }); } catch { /* ignore */ }
+    // the gesture: a jab of the finger (a line he says next takes over the body, the arm keeps pointing)
+    if (f?.cine && !f.cine.anim) { f.cine.anim = 'point'; setTimeout(() => { if (f.cine?.anim === 'point') f.cine.anim = null; }, 1400); }
+    this.game.audio?.play?.('whoosh', { volume: 0.15, pitch: 1.6 });
     const stop = () => { if (!on) return; on = false; h?.stop(); try { f?.rig?.setAim?.(null); } catch { /* ignore */ } if (this._aim === stop) this._aim = null; };
     this._aim = stop;
     return stop;

@@ -1,0 +1,111 @@
+/* [v33 paper] The physical clipboard (Clipboard.js). --P = CSS px per art px.
+   Every motion is stepped in whole art pixels; nothing is blurred or smoothed. */
+.pc-ov { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; pointer-events: auto; color: #2a1d16; font-family: var(--font); }
+.pc-dim { position: absolute; inset: 0; background-image: var(--dim); background-size: calc(var(--P) * 4) calc(var(--P) * 4); image-rendering: pixelated; animation: pc-dimin .2s steps(3) both; }
+@keyframes pc-dimin { from { opacity: 0; } }
+.pc-px { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.pc-stage { position: relative; animation: pc-in .42s both; animation-timing-function: step-end; }
+.pc-stage > * { position: absolute; }
+@keyframes pc-in {
+  0% { transform: translateY(calc(var(--P) * 60)); opacity: 0; }
+  12% { transform: translateY(calc(var(--P) * 40)); opacity: 1; }
+  26% { transform: translateY(calc(var(--P) * 20)); }
+  40% { transform: translateY(calc(var(--P) * 6)); }
+  54% { transform: translateY(calc(var(--P) * -4)); }
+  68% { transform: translateY(calc(var(--P) * -2)); }
+  82% { transform: translateY(calc(var(--P) * 1)); }
+  100% { transform: none; }
+}
+.pc-bye .pc-stage { animation: pc-out .26s both; animation-timing-function: step-end; }
+.pc-bye .pc-dim { animation: pc-dimout .26s steps(3) both; }
+@keyframes pc-out {
+  0% { transform: none; }
+  20% { transform: translateY(calc(var(--P) * -3)); }
+  40% { transform: translateY(calc(var(--P) * 10)); }
+  60% { transform: translateY(calc(var(--P) * 30)); opacity: 1; }
+  80% { transform: translateY(calc(var(--P) * 56)); opacity: .5; }
+  100% { transform: translateY(calc(var(--P) * 80)); opacity: 0; }
+}
+@keyframes pc-dimout { to { opacity: 0; } }
+.pc-nudge .pc-sheets { animation: pc-nudge .24s both; animation-timing-function: step-end; }
+@keyframes pc-nudge { 0% { transform: translateX(var(--P)); } 25% { transform: translateX(calc(var(--P) * -1)); } 50% { transform: translateX(var(--P)); } 75%, 100% { transform: none; } }
+
+.pc-board { left: 0; top: 0; z-index: 0; }
+.pc-tabs { left: 0; top: 0; z-index: 1; }
+.pc-stackw { z-index: 2; }
+.pc-sheets { z-index: 3; }
+.pc-corner { z-index: 4; }
+.pc-clip { z-index: 6; pointer-events: none; }
+.pc-pencil { z-index: 7; pointer-events: none; }
+.pc-x { z-index: 8; }
+
+/* ---- the steel clip: lifts while a page goes over it, snaps back */
+.pc-clip .pc-clip-o { display: none; }
+.pc-flipping .pc-clip .pc-clip-c { display: none; }
+.pc-flipping .pc-clip .pc-clip-o { display: block; }
+.pc-snap .pc-clip { animation: pc-snap .16s both; animation-timing-function: step-end; }
+@keyframes pc-snap { 0% { transform: translateY(var(--P)); } 50% { transform: translateY(calc(var(--P) * -1)); } 100% { transform: none; } }
+
+/* ---- buttons that are physical bits */
+.pc-x, .pc-corner, .pc-tab { appearance: none; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; display: block; }
+.pc-x:hover { animation: pc-wig .3s both; animation-timing-function: step-end; }
+.pc-x:active { transform: translateY(var(--P)); }
+@keyframes pc-wig { 0% { transform: translateY(calc(var(--P) * -1)); } 50% { transform: translate(var(--P), calc(var(--P) * -1)); } 100% { transform: none; } }
+.pc-corner[hidden] { display: none; }
+.pc-corner .pc-de-b { display: none; }
+.pc-corner .pc-de-s { position: absolute; right: 0; bottom: 0; }
+.pc-prev .pc-de-s, .pc-prev .pc-de-b { left: 0; right: auto; }
+.pc-corner { width: calc(var(--P) * 18); height: calc(var(--P) * 18); }
+.pc-corner .pc-de-b { position: absolute; right: 0; bottom: 0; }
+.pc-corner:hover .pc-de-s, .pc-corner:focus-visible .pc-de-s { display: none; }
+.pc-corner:hover .pc-de-b, .pc-corner:focus-visible .pc-de-b { display: block; }
+.pc-tab { outline: none; }
+.pc-tab:hover, .pc-tab:focus-visible { transform: translateX(calc(var(--P) * 2)); }
+.pc-tab.on { cursor: default; }
+.pc-tab.past { filter: none; }
+.pc-tab:active { transform: translateX(var(--P)); }
+
+/* ---- sheets + the page flip */
+.pc-page { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; image-rendering: pixelated; box-shadow: 0 0 0 var(--P) #6a5636; }
+.pc-page-deco { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.pc-page-deco > * { position: absolute; }
+.pc-page-in { position: absolute; left: calc(var(--P) * 9); right: calc(var(--P) * 9); top: calc(var(--P) * 14); bottom: calc(var(--P) * 9); overflow-x: hidden; overflow-y: auto; scrollbar-width: none; touch-action: pan-y; }
+.pc-page-in::-webkit-scrollbar { display: none; }
+.pc-curl { position: absolute; left: 0; top: 0; z-index: 10; pointer-events: none; }
+.pc-folio { position: absolute; left: 50%; bottom: calc(var(--P) * 3); transform: translateX(-50%); font-size: 13px; color: #8d9cc0; white-space: nowrap; }
+.pc-flipping .pc-page-in { pointer-events: none; }
+
+/* ---- pencil + crumbs */
+.pc-pencil canvas { position: absolute; left: 0; top: 0; }
+.pc-crumb { position: absolute; z-index: 9; background: #e88a9c; pointer-events: none; animation: pc-crumb .5s both; animation-timing-function: steps(5); }
+.pc-crumb:nth-child(2n) { background: #8a8698; }
+@keyframes pc-crumb { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+
+/* ---- writing on the sheet */
+.pc-pr { font-family: var(--font); font-size: 15px; line-height: 1.15; color: #33405f; }
+.pc-pr-s { font-size: 13px; }
+.pc-pr-l { font-family: var(--font2); font-size: 18px; }
+.pc-ttl { position: relative; display: inline-block; font-family: var(--font2); font-size: 27px; line-height: 1; color: #8a3418; padding-bottom: calc(var(--P) * 3); white-space: nowrap; }
+.pc-ttl .pc-squig { position: absolute; left: 0; bottom: 0; }
+.pc-hand { display: inline-block; vertical-align: middle; }
+.pc-write { animation: pc-write .5s both; animation-timing-function: steps(var(--n, 8)); }
+@keyframes pc-write { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.pc-box { display: inline-block; vertical-align: middle; flex: none; }
+.pc-gauge { display: inline-block; vertical-align: middle; }
+.pc-stamp { display: block; pointer-events: none; }
+.pc-thunk { animation: pc-thunk .3s both; animation-timing-function: step-end; }
+@keyframes pc-thunk { 0% { transform: scale(1.6); opacity: 0; } 30% { transform: scale(1.25); opacity: 1; } 60% { transform: scale(.94); } 100% { transform: none; } }
+.pc-coffee { pointer-events: none; }
+.pc-tape { pointer-events: none; }
+
+/* sticky note */
+.pc-sticky { position: relative; display: block; appearance: none; margin: 0; padding: calc(var(--P) * 6) calc(var(--P) * 5) calc(var(--P) * 4); border: 0; text-align: left; color: #5a3a10;
+  background-size: 100% 100%; image-rendering: pixelated; box-shadow: calc(var(--P) * 1) calc(var(--P) * 2) 0 rgba(60, 30, 4, .35); font-family: var(--font); font-size: 15px; line-height: 1.2; }
+.pc-sticky-tape { position: absolute; left: 50%; top: calc(var(--P) * -4); margin-left: calc(var(--P) * -10); }
+button.pc-sticky { cursor: pointer; }
+button.pc-sticky:hover { transform: translateY(calc(var(--P) * -1)); box-shadow: calc(var(--P) * 1) calc(var(--P) * 3) 0 rgba(60, 30, 4, .35); }
+button.pc-sticky:active { transform: translateY(var(--P)); box-shadow: 0 var(--P) 0 rgba(60, 30, 4, .35); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-stage, .pc-bye .pc-stage, .pc-write, .pc-thunk { animation: none !important; }
+}

@@ -82,9 +82,13 @@ async function renderAnim(name) {
     const ii = String(i).padStart(2, '0');
     await page.screenshot({ path: path.join(dir, `${name}-f${ii}.png`), timeout: 300000 }); // SwiftShader is slow
     for (const m of P.masks || []) {
+      const out = path.join(dir, `${name}-${[].concat(m).join('+')}-f${ii}.png`);
+      // [v5] staticMasks: masks of things that never move in the shot are rendered once and copied
+      if (i > 0 && (P.staticMasks || []).includes(m)) { fs.copyFileSync(path.join(dir, `${name}-${[].concat(m).join('+')}-f00.png`), out); continue; }
       const url = await page.evaluate(async (n) => { const S = await import('/tools/promo/stage.js'); return S.mask(Array.isArray(n) ? n : [n]); }, m);
-      fs.writeFileSync(path.join(dir, `${name}-${[].concat(m).join('+')}-f${ii}.png`), Buffer.from(url.split(',')[1], 'base64'));
+      fs.writeFileSync(out, Buffer.from(url.split(',')[1], 'base64'));
     }
+    if (i % 5 === 4) console.log('  frame', i + 1, '/', N); // progress (slow under SwiftShader)
   }
   await page.close();
   console.log('rendered', name, N, 'frames');

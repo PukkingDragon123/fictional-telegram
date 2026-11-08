@@ -290,7 +290,9 @@ export class Tutorial {
     const landed = () => game.delivery.waiting().some((p) => pred(p.order));
     // listen for the unboxing right away: a quick tap must not slip past us
     const delivered = this.until('delivered', pred);
-    if (!landed()) await this.within(this.until('parcelLanded', (p) => pred(p.order)), 70);
+    // the moose takes its time: wait as long as an order is on its way (a slow machine runs game time slow)
+    if (!landed()) await this.within(this.waitFor(() => landed() || !(game.delivery.pending?.() > 0) && !game.delivery.waiting().length), 240);
+    if (!landed()) await this.within(this.until('parcelLanded', (p) => pred(p.order)), 20);
     // the camera swings over to the box so you can see what to tap
     const box = game.delivery.waiting().find((p) => pred(p.order));
     if (box) { this.follow = false; game.rig.lookAt(box.x, box.z); }
@@ -317,7 +319,10 @@ export class Tutorial {
   async firstPair() {
     const game = this.game;
     const adults = () => game.fish.list.filter((f) => f.adult && !f.tank && !f.dead);
-    if (!(await this.within(this.waitFor(() => adults().length >= 2), 45))) this.spawnPair(2 - adults().length);
+    // Reynard carries the bag to the pond (an errand): wait for him, then for the splash
+    const busy = () => game.fox.errands?.length > 0 || game.delivery.pending?.() > 0 || game.delivery.waiting().length > 0;
+    await this.within(this.waitFor(() => adults().length >= 2 || !busy()), 150);
+    if (!(await this.within(this.waitFor(() => adults().length >= 2), 8))) this.spawnPair(2 - adults().length);
     await this.wait(0.8);
     const all = adults();
     let boy = all.find((f) => f.g.sex === 'M'), girl = all.find((f) => f.g.sex === 'F' && f !== boy);
@@ -491,8 +496,18 @@ export class Tutorial {
     await this.cine(async (c) => {
       c.low(c.fox, { zoom: 0.012, pitch: 0.4, lift: game.fox.y + 1 });
       await c.say(c.fox, 'Fish: done. Now we need *workers*.', { style: 'say' });
-      await c.say(c.fox, '*BEAVERS!* Strong. Cheap. Paid in snacks. My dream employees.', { style: 'excited' });
-      await c.say(c.fox, 'But first we *invent* them. Science!', { style: 'laugh', close: 0.011 });
+      const v = await c.ask(c.fox, '*BEAVERS!* Strong. Tireless. And we pay them in...?', [
+        { label: 'Coins', value: 'coins' },
+        { label: 'Snacks', value: 'snacks' },
+        { label: 'Compliments', value: 'nice' },
+      ]);
+      const R = {
+        coins: ['Coins?! Bite your tongue. Coins are for *ME*.', 'angry'],
+        snacks: ['SNACKS. Carrots, mostly. My dream employees.', 'laugh'],
+        nice: ['Ha! I tried that once. They stopped working. *Snacks* it is.', 'laugh'],
+      }[v] || ['Snacks.', 'say'];
+      await c.say(c.fox, R[0], { style: R[1] });
+      await c.say(c.fox, 'But first we *invent* them. Science!', { style: 'excited', close: 0.011 });
     }, { id: 'tut:science' });
     await this.hud('lab', { line: 'My <b>LAB</b>. Every building, plant and fish gets invented in there. For <b>free</b>!', mood: 'excited' });
     (game.state.tips ||= {}).lodge = true; // the tour teaches the lodge itself
@@ -697,7 +712,22 @@ export class Tutorial {
     stop?.();
     await this.hud('speed', { line: 'Too slow? <b>Tap the clock</b> to speed time up. Too fast? Tap again.', mood: 'smug' });
     await this.teach('I\'ll teach you the rest <b>as it happens</b>. Every lesson goes in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
-    await this.teach('<b>Tour dismissed!</b> Now go make me RICH!', { wait: true, mood: 'excited' });
+    await this.hideTeacher();
+    await this.cine(async (c) => {
+      c.low(c.fox, { zoom: 0.011, pitch: 0.38, lift: game.fox.y + 1 });
+      const v = await c.ask(c.fox, 'So. Ready for four hundred hungry bears?', [
+        { label: 'Born ready', value: 'ready' },
+        { label: 'Terrified', value: 'scared' },
+        { label: 'Show me the money', value: 'money' },
+      ]);
+      const R = {
+        ready: ['That\'s the spirit! Partner material. Seventy-thirty.', 'laugh'],
+        scared: ['Good. Fear keeps you *sharp*. Fear and full fish tanks.', 'scared'],
+        money: ['A fox after my own heart! Ha HA!', 'laugh'],
+      }[v] || ['Good.', 'say'];
+      await c.say(c.fox, R[0], { style: R[1] });
+      await c.say(c.fox, '*Tour dismissed!* Now go make me RICH!', { style: 'excited', close: 0.0105 });
+    }, { id: 'tut:bye' });
   }
 
   // ------------------------------------------------------------ building steps (shared)
@@ -725,6 +755,7 @@ export class Tutorial {
         const stop = this.pointAt(this.slot('build'));
         this.teach(line, { target: this.slot('build'), circle: true, dur: 5 });
         this.nag(() => nag);
+        this.stage = 'until:built';
         await doIt();
         this.stopNag();
         stop?.();

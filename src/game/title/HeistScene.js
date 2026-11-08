@@ -138,7 +138,7 @@ const SHOTS = [
   { id: 'E', t: 19.0, d: 4.0, sun: 'back', cam: (u, t) => ({ yaw: 0.1, pitch: lerp(8, 7, u), wupp: lerp(0.0074, 0.0067, ease.io(u)) * (t > 22.25 ? 1 - 0.14 * Math.exp(-(t - 22.25) * 5) - 0.07 * smooth((t - 22.25) / 0.2) : 1), at: [0, 0.74, -0.42], sx: 0.12, sy: -0.06 }) },
   { id: 'G', t: 23.0, d: 1.6, cam: (u, t) => ({ yaw: 0.62, pitch: lerp(4, 5.5, u), wupp: lerp(0.0128, 0.0114, ease.out(u)) * (1 - 0.08 * Math.exp(-Math.max(0, t - 23.45) * 4) * (t > 23.45 ? 1 : 0)), at: [0.1, 1.15, -0.9], sx: 0.12, sy: 0.06 }) },
   { id: 'H', t: 24.6, d: 2.9, cam: (u, t) => { const p = smooth((t - 26.55) / 0.85); return { yaw: lerp(0.05, -0.05, p), pitch: 11, wupp: 0.0102 + p * 0.002, at: [lerp(0.1, 3.4, ease.in(p)), 0.66, lerp(-0.6, -0.2, p)], sx: 0.14, sy: 0 }; } },
-  { id: 'I', t: 27.5, d: 5.0, cam: (u) => ({ yaw: lerp(0.28, -0.16, ease.io(u)), pitch: lerp(13, 11, u), wupp: 0.0162, at: [lerp(6.2, 18.0, u), 0.7, lerp(0.5, 1.4, u)], sx: 0.06, sy: 0 }) },
+  { id: 'I', t: 27.5, d: 5.0, cam: (u) => ({ yaw: lerp(0.28, -0.16, ease.io(u)), pitch: lerp(13, 11, u), wupp: 0.0162, at: [lerp(5.6, 17.4, u), 0.7, lerp(0.5, 1.4, u)], sx: 0.2, sy: 0 }) },
   { id: 'J', t: 32.5, d: 7.0, cam: (u, t) => { const k = smooth((t - 35.5) / 0.5) * (1 - smooth((t - 36.2) / 0.4)); return { yaw: lerp(0.24, 0.19, u), pitch: 12, wupp: 0.0122 * (1 - 0.12 * k), at: [lerp(0.3, 0.5, k), 0.56, lerp(0.05, 0.15, k)], sx: 0.15, sy: 0 }; } },
   { id: 'K', t: 39.5, d: 7.5, cam: (u, t) => { const e = ease.io(smooth((t - 41.4) / 5.6)); return { yaw: lerp(0.19, -0.32, e), pitch: lerp(12, 34, e), wupp: lerp(0.0122, 0.024, e), at: [lerp(0.3, 0, e), lerp(0.56, 0.55, e), lerp(0.05, -0.3, e)], sx: lerp(0.15, 0.16, e), sy: lerp(0, -0.02, e) }; } },
 ];
@@ -203,6 +203,7 @@ export class HeistScene {
       extOwn: Object.prototype.hasOwnProperty.call(sky, 'setShadowExtent') ? sky.setShadowExtent : null,
       fishVisible: game.fish.batch?.mesh?.visible,
       hutVisible: game.world.hut ? game.world.hut.visible : null,
+      smokeOwn: Object.prototype.hasOwnProperty.call(game.particles, 'smoke') ? game.particles.smoke : null,
     };
     for (const k of ['haze', 'vignette', 'saturation', 'contrast', 'outlineAmt', 'highlightAmt']) this._saved.u[k] = U[k].value;
     for (const k of ['hazeColor', 'vignetteColor', 'grade', 'lift', 'outlineTint']) this._saved.u[k] = U[k].value.clone();
@@ -237,6 +238,9 @@ export class HeistScene {
     this._sunFor('front');
 
     this._patchSky();
+    // the cottage is hidden (it would stand in front of the camera): no chimney smoke from thin air
+    const parts = game.particles, smoke0 = this._saved.smokeOwn || Object.getPrototypeOf(parts).smoke;
+    parts.smoke = function (x, y, z, ...rest) { if (Math.hypot(x - 77.8, z - 41.8) < 3 && y > 2.5) return; return smoke0.call(this, x, y, z, ...rest); };
     this.sky = makeNoonSky();
     this.group.add(this.sky);
     this._hideForeground(true);
@@ -259,6 +263,7 @@ export class HeistScene {
     const rig = game.rig, R = game.renderer, U = R.postMat.uniforms, sky = game.sky;
     if (s.skyOwn) sky.update = s.skyOwn; else delete sky.update;
     if (s.extOwn) sky.setShadowExtent = s.extOwn; else delete sky.setShadowExtent;
+    if (s.smokeOwn) game.particles.smoke = s.smokeOwn; else delete game.particles.smoke;
     game.state.hour = s.hour; game.state.phase = s.phase;
     game.fox.rig.root.visible = s.foxVisible;
     if (game.fish.batch?.mesh) game.fish.batch.mesh.visible = s.fishVisible ?? true;
@@ -286,27 +291,42 @@ export class HeistScene {
     disposeHeistProps();
   }
 
-  // Trees, boulders and reeds between the camera and the set, or in the chase lane,
-  // are flagged removed while the title is up (the cottage too); stop() restores them.
+  // Trees, boulders and reeds between the camera and the set, or in the chase lane, are
+  // flagged removed while the title is up (the cottage too), and the tall meadow clutter
+  // (tall grass, fireweed, lupines) is thinned out of the stage, the lane and the
+  // foreground so the low camera sees the actors; stop() restores all of it.
   _hideForeground(on) {
     const world = this.game.world;
     if (on) {
       const S = this.S, R = this.R0, F = this.F0;
+      const rf = (x, z) => { const dx = x - S.x, dz = z - S.z; return [dx * R.x + dz * R.z, dx * F.x + dz * F.z]; };
       this._hidden = [];
       for (const d of world.decos) {
         if (d.removed) continue;
-        const dx = d.x + 0.5 - S.x, dz = d.z + 0.5 - S.z;
-        const r = dx * R.x + dz * R.z, f = dx * F.x + dz * F.z;
-        const front = f > -0.2 && f < 34 && r > -16 && r < 24;
-        const lane = f > -3.0 && f <= -0.2 && r > -14 && r < 23;
-        if (front || lane) { d.removed = true; this._hidden.push(d); }
+        const [r, f] = rf(d.x + 0.5, d.z + 0.5);
+        if (f > -3.0 && f < 44 && r > -26 && r < 32) { d.removed = true; this._hidden.push(d); }
+      }
+      this._hiddenClutter = [];
+      const tall = /^(tallgrass|fireweed|lupine|aster|fern|swampgrass|glowcap)/;
+      for (const c of world.clutter || []) {
+        if (c.removed) continue;
+        const [r, f] = rf(c.x, c.z);
+        const stage = Math.abs(r) < 3.6 && f > -2.8 && f < 2.2;
+        const lane = r > -8 && r < 23 && f > -1.6 && f < 2.8;
+        const front = f >= 2.2 && f < 16 && r > -12 && r < 24;
+        let name = '';
+        try { name = world.clutterSprite(c, 0) || ''; } catch { /* */ }
+        if (stage || ((lane || front) && tall.test(name))) { c.removed = true; this._hiddenClutter.push(c); }
       }
       if (world.hut) world.hut.visible = false;
     } else {
       for (const d of this._hidden || []) d.removed = false;
+      for (const c of this._hiddenClutter || []) c.removed = false;
       this._hidden = null;
+      this._hiddenClutter = null;
     }
     try { world.buildDecos(); } catch { /* keep going */ }
+    try { world.buildClutter(); } catch (e) { console.warn('[title] clutter', e); }
   }
 
   at(r, f, y = 0, out = new THREE.Vector3()) { const S = this.S, R = this.R0, F = this.F0; return out.set(S.x + R.x * r + F.x * f, y, S.z + R.z * r + F.z * f); }
@@ -360,7 +380,7 @@ export class HeistScene {
       sky.sun.intensity = 2.95;
       sky.hemi.color.setHex(0xb4d2ff);
       sky.hemi.groundColor.setHex(0x80894a);
-      sky.hemi.intensity = 1.06;
+      sky.hemi.intensity = this.sunKind === 'back' ? 1.32 : 1.06; // (backlit shot: a stronger sky fill)
       // the noon grade, warmed and saturated; a few cloud shadows, no light shafts
       const P = sky.post;
       P.fresh = true;
@@ -934,7 +954,9 @@ export class HeistScene {
     const tz = focus.z + sy * sx * W + cy * sp * syy * H;
     rig.goal.set(tx, ty, tz);
     rig.target.set(tx, ty, tz);
-    rig.dist = Math.max(24, ((H / 2) * cp + 0.8) / Math.max(0.05, sp));
+    // the eye sits just far enough back that the screen's bottom edge still sees ground: whatever
+    // stands further towards the camera (the forest across the meadow) is behind the eye, culled
+    rig.dist = ((H / 2) * cp + 0.7) / Math.max(0.05, sp) + 0.8;
     // the sky curtain behind the focus, with parallax from the orbit and pan
     const pan = (tx - this.S.x) * this.R0.x + (tz - this.S.z) * this.R0.z;
     this.sky.place(rig, R, { dist: SKY_D, yawRel: c.yaw, pan, time: this.T });

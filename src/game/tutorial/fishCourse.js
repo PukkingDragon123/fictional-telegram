@@ -252,7 +252,9 @@ async function scopeTour(T) {
     const sel = `.fsc-call[data-k="${st.k}"]`;
     const arrow = G.marks.ui(sel);
     say(`Tap ${st.label}.`, 'focused');
-    await T.within(T.waitFor(() => { const s = scopeNow(); return !s || !!s.open?.[st.k]; }), 14);
+    const tapped = T.waitFor(() => { const s = scopeNow(); return !s || !!s.open?.[st.k]; });
+    T.stage = 'scope:' + st.k;
+    await T.within(tapped, 14);
     if (!(await reopen())) { arrow.stop(); break; }
     if (!S.open[st.k]) { try { S.toggle(st.k); } catch { /* ignore */ } }
     arrow.stop();
@@ -270,6 +272,7 @@ async function scopeTour(T) {
   ];
   for (const x of extra) {
     if (!(await reopen())) break;
+    T.stage = 'scope:' + x.sel;
     const a = G.marks.ui(x.sel);
     say(x.text, x.expr);
     await read(x.text);

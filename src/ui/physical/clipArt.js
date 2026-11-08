@@ -9,10 +9,10 @@ import { pxTextBuf } from '../kinetic/pxfont.js';
 export const INK = hexc('#21160f');
 export const PRINT = hexc('#33405f'); // printed form ink (blue-black)
 export const PRINT_LT = hexc('#8d9cc0'); // printed rules
-export const GRAPHITE = '#45474f';
-export const GRAPHITE_LT = '#7e808c';
+export const GRAPHITE = '#4a4858';
+export const GRAPHITE_LT = '#8a8698';
 const STEEL = ramp(['#1b1d29', '#363a4d', '#555b71', '#7d849c', '#a9afc4', '#d3d8e6', '#f4f6fb']);
-const BOARD = ramp(['#24150c', '#3b2314', '#4f2f1c', '#643c24', '#784a2d', '#8b5936', '#9d6941', '#b07a4d', '#c48d5c']);
+const BOARD = ramp(['#3a2212', '#5a3419', '#74451f', '#8c5827', '#a26a30', '#b57c3a', '#c58e46', '#d5a256', '#e4b86c']); // warm honey hardboard
 export const PAPER_BACK = ramp(['#b7a57c', '#cdbd95', '#dccdaa', '#e9dcbe', '#f4ead3', '#fcf6e8']);
 
 // text -> Pix through the bitmap pixel fonts (src/ui/kinetic/pxfont.js)
@@ -402,5 +402,31 @@ export function paintCloseKnob() {
   }
   p.outline(INK);
   for (let x = 2; x < N - 2; x++) if (!p.a(x, N) && (x & 1) === 0) p.set(x, N, hexc('#1a0f08'), 120);
+  return p;
+}
+
+// ================================================================ pencil dots for 1..max ratings
+export function paintPips(n, max = 5, { color = GRAPHITE, hi = false } = {}) {
+  const p = new Pix(max * 6, 6);
+  const C = hexc(color), L = hexc(GRAPHITE_LT), Y = hexc('#ffe27a');
+  const DOT = ['.##.', '####', '####', '.##.'];
+  for (let i = 0; i < max; i++) {
+    const ox = i * 6, on = i < n;
+    if (hi && on) for (let y = 0; y < 6; y++) for (let x = -1; x < 5; x++) if (bay(ox + x, y) < 0.7) p.set(ox + x, y, Y, 200);
+    DOT.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch !== '#') return;
+      const edge = y === 0 || y === 3 || x === 0 || x === 3;
+      if (on) p.set(ox + x, 1 + y, C);
+      else if (edge) p.set(ox + x, 1 + y, L);
+    }));
+    if (on) p.set(ox + 1, 2, hexc('#a8a6b4'));
+  }
+  return p;
+}
+
+// ================================================================ highlighter swipe (a marker band, dithered)
+export function paintHighlight(w = 8, h = 8, color = '#fff07a') {
+  const p = new Pix(w, h), C = hexc(color);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (bay(x, y) < 0.62) p.set(x, y, C, 170);
   return p;
 }

@@ -49,7 +49,8 @@ export async function introduce(T, feature, o = {}) {
   };
   spot(true);
   const tgt = hudTarget(game, feature);
-  const arrow = T.guide.marks.ui(tgt);
+  const kitLit = pocket && typeof ui?.kitSpotlight === 'function';
+  const arrow = kitLit ? { stop() {} } : T.guide.marks.ui(tgt); // the kit's spotlight already says "this one"
   try {
     if (line) await T.teach(line, { target: tgt, circle: true, wait: true, mood });
     // 3. you try it
