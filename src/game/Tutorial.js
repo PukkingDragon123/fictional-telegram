@@ -567,6 +567,7 @@ export class Tutorial {
     const game = this.game;
     await this.part(8, 'Hard Hats');
     this.force('ebuy', { ebuyFocus: 'item_lodge' });
+    const buyHand = this.guide.marks.ui(() => (!document.querySelector('.pointer-hand.ebuy-ptr') && document.querySelector('.ebuy-host .eb-buy')) || null, { label: 'BUY!' });
     let stop = this.pointAt(this.slot('ebuy'));
     this.teach('Researched = for sale! Order a <b>BEAVER CREW</b> on e-Buy!', { target: this.slot('ebuy'), circle: true, dur: 5, mood: 'excited' });
     this.nag(() => 'Tap e-Buy! Beaver crew!');
@@ -579,6 +580,7 @@ export class Tutorial {
     this.stopNag();
     this.force(null);
     stop?.();
+    buyHand.stop();
     if (!(game.state.inventory?.lodge > 0)) await this.unboxStep((o) => o.items.some((it) => it.type === 'lodge'));
     await this.wait(0.6);
     await this.placeStep('lodge', {
@@ -1021,7 +1023,7 @@ export class Tutorial {
     // [v33 tut] Reynard stays where the tour put him; the first pair waits for Part 5 to fall in love
     if (this.guide && game.fox && !game.fox.cine && !game.lab?.active) this.guide.keep();
     // e-Buy fills the screen: the guide steps out of its way (the shop's own hand points at Buy It Now)
-    if (game.ui?.ebuy && this.teacher?.visible && !this.teacher.waiting && !this._ebHide) { this._ebHide = true; this.hideTeacher(); }
+    if (game.ui?.ebuy && this.teacher?.visible && !this._ebHide) { this._ebHide = true; try { this.teacher.skip(); } catch { /* ignore */ } this.hideTeacher(); }
     else if (!game.ui?.ebuy) this._ebHide = false;
     if (this.holdLove) for (const f of this.pair) if (f && !f.dead) { f.loveT = Math.max(f.loveT, 6); if (f.state === 'court') { f.state = 'wander'; f.mate = null; } }
     // keep the action in view, but the player can always look around (we wait until they stop)

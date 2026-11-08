@@ -40,6 +40,10 @@ export async function firstFish(T) {
   game.quickEggs = true;
   T.force('ebuy', { ebuyFocus: pair?.id || null });
   const ordered = T.until('ordered', (o) => o.items.some((it) => it.kind === 'fish'));
+  // the shop points at Buy It Now itself (UI.openEBuy, once, 0.9 s after it opens); if its listing
+  // is still loading then, the tour's hand takes over (never both)
+  const buyHand = G.marks.ui(() => (!document.querySelector('.pointer-hand.ebuy-ptr') && document.querySelector('.ebuy-host .eb-buy')) || null, { label: 'BUY!' });
+  ordered.then(() => buyHand.stop(), () => buyHand.stop());
   await T.hud('ebuy', {
     line: '<b>e-Buy</b>. Anything you want, delivered by a moose. Don\'t ask about the moose.', mood: 'excited',
     tryIt: () => ordered,

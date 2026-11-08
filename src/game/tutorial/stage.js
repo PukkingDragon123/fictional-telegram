@@ -248,11 +248,12 @@ export class Guide {
       return c.shot([p.x + dx, p.z + dz], { zoom, dur, lift: lift ?? p.y + 0.35 });
     };
     /** over Reynard's shoulder toward `subject`: the camera swings round behind him and goes low */
-    c.ots = (subject, { zoom = 0.0125, pitch = 0.4, dur = 1.3, bias = 0.62, snap = true } = {}) => {
+    // (Reynard already stands on the camera side of what he looks at, so the default keeps the view's yaw;
+    // turn: true swings the camera round behind him, snapped to the game's 45-degree views)
+    c.ots = (subject, { zoom = 0.0105, pitch = 0.4, dur = 1.3, bias = 0.7, turn = false } = {}) => {
       const f = G.fox, p = worldOf(game, subject);
       if (!f || !p) return Promise.resolve();
-      let yaw = Math.atan2(f.x - p.x, f.z - p.z);
-      if (snap) yaw = Math.round(yaw / PI4) * PI4;
+      const yaw = turn ? Math.round(Math.atan2(f.x - p.x, f.z - p.z) / PI4) * PI4 : undefined;
       rig.pitchGoal = pitch;
       const mx = f.x + (p.x - f.x) * bias, mz = f.z + (p.z - f.z) * bias;
       return c.shot([mx, mz], { zoom, dur, yaw, lift: (f.y + p.y) / 2 + 0.4 });
