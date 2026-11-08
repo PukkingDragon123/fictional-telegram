@@ -131,14 +131,15 @@ function evalPath(keys, t, out) {
 // sx / sy: where the focus sits on screen (fractions of the view, + = right / up);
 // wide screens keep the subject right of the menu.
 const SHOTS = [
-  { id: 'A', t: 0, d: 6, cam: (u) => { const e = ease.io3(u); return { yaw: lerp(-0.32, -0.06, e), pitch: lerp(34, 15, e), wupp: lerp(0.024, 0.0172, e), at: [lerp(0, 0.1, e), lerp(0.55, 0.5, e), lerp(-0.3, -0.25, e)], sx: 0.16, sy: lerp(-0.02, 0.02, e) }; } },
-  { id: 'B', t: 6, d: 6.2, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.34, 0.2, e), pitch: lerp(9, 10.5, e), wupp: lerp(0.0104, 0.0086, e), at: [0.02, 0.6, -0.38], sx: 0.14, sy: 0 }; } },
-  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.52, 0.46, u), pitch: 7, wupp: lerp(0.0054, 0.0047, ease.out(u)), at: [lerp(0.15, 0.24, u), 0.43, -0.02], sx: 0.1, sy: -0.06 }) },
-  { id: 'D', t: 13.8, d: 5.2, cam: (u) => { const e = ease.io(u); return { yaw: lerp(-0.2, -0.06, e), pitch: 12, wupp: lerp(0.0116, 0.0094, e), at: [0.05, 0.62, -0.4], sx: 0.15, sy: 0 }; } },
+  { id: 'A', t: 0, d: 6, cam: (u) => { const e = ease.io3(u); return { yaw: lerp(-0.32, -0.06, e), pitch: lerp(32, 14, e), wupp: lerp(0.021, 0.0158, e), at: [lerp(0, 0.1, e), lerp(0.55, 0.5, e), lerp(-0.3, -0.25, e)], sx: 0.16, sy: lerp(-0.02, 0.02, e) }; } },
+  { id: 'B', t: 6, d: 6.2, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.34, 0.2, e), pitch: lerp(12, 13, e), wupp: lerp(0.0102, 0.0084, e), at: [0.02, 0.62, -0.38], sx: 0.14, sy: 0 }; } },
+  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.56, 0.48, u), pitch: 8, wupp: lerp(0.0029, 0.0025, ease.out(u)), at: [lerp(0.16, 0.21, u), 0.5, 0.03], sx: 0.1, sy: -0.12 }) },
+  { id: 'D1', t: 13.8, d: 2.55, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.95, 0.85, e), pitch: 11, wupp: lerp(0.0086, 0.0078, e), at: [0.02, 0.5, -0.25], sx: 0.12, sy: 0 }; } },
+  { id: 'D2', t: 16.35, d: 2.65, cam: (u) => { const e = ease.io(u); return { yaw: lerp(-0.12, -0.04, e), pitch: lerp(6, 8, e), wupp: lerp(0.0104, 0.009, e), at: [0.05, 0.72, -0.45], sx: 0.15, sy: 0 }; } },
   { id: 'E', t: 19.0, d: 4.0, sun: 'back', cam: (u, t) => ({ yaw: 0.1, pitch: lerp(8, 7, u), wupp: lerp(0.0074, 0.0067, ease.io(u)) * (t > 22.25 ? 1 - 0.14 * Math.exp(-(t - 22.25) * 5) - 0.07 * smooth((t - 22.25) / 0.2) : 1), at: [0, 0.74, -0.42], sx: 0.12, sy: -0.06 }) },
   { id: 'G', t: 23.0, d: 1.6, cam: (u, t) => ({ yaw: 0.62, pitch: lerp(4, 5.5, u), wupp: lerp(0.0128, 0.0114, ease.out(u)) * (1 - 0.08 * Math.exp(-Math.max(0, t - 23.45) * 4) * (t > 23.45 ? 1 : 0)), at: [0.1, 1.15, -0.9], sx: 0.12, sy: 0.06 }) },
   { id: 'H', t: 24.6, d: 2.9, cam: (u, t) => { const p = smooth((t - 26.55) / 0.85); return { yaw: lerp(0.05, -0.05, p), pitch: 11, wupp: 0.0102 + p * 0.002, at: [lerp(0.1, 3.4, ease.in(p)), 0.66, lerp(-0.6, -0.2, p)], sx: 0.14, sy: 0 }; } },
-  { id: 'I', t: 27.5, d: 5.0, cam: (u) => ({ yaw: lerp(0.28, -0.16, ease.io(u)), pitch: lerp(13, 11, u), wupp: 0.0162, at: [lerp(5.6, 17.4, u), 0.7, lerp(0.5, 1.4, u)], sx: 0.2, sy: 0 }) },
+  { id: 'I', t: 27.5, d: 5.0, cam: (u) => ({ yaw: lerp(0.06, -0.26, ease.io(u)), pitch: lerp(12, 10, u), wupp: 0.0152, at: [lerp(5.4, 17.2, u), 0.7, lerp(0.5, 1.4, u)], sx: 0.2, sy: 0 }) },
   { id: 'J', t: 32.5, d: 7.0, cam: (u, t) => { const k = smooth((t - 35.5) / 0.5) * (1 - smooth((t - 36.2) / 0.4)); return { yaw: lerp(0.24, 0.19, u), pitch: 12, wupp: 0.0122 * (1 - 0.12 * k), at: [lerp(0.3, 0.5, k), 0.56, lerp(0.05, 0.15, k)], sx: 0.15, sy: 0 }; } },
   { id: 'K', t: 39.5, d: 7.5, cam: (u, t) => { const e = ease.io(smooth((t - 41.4) / 5.6)); return { yaw: lerp(0.19, -0.32, e), pitch: lerp(12, 34, e), wupp: lerp(0.0122, 0.024, e), at: [lerp(0.3, 0, e), lerp(0.56, 0.55, e), lerp(0.05, -0.3, e)], sx: lerp(0.15, 0.16, e), sy: lerp(0, -0.02, e) }; } },
 ];
@@ -301,10 +302,23 @@ export class HeistScene {
       const S = this.S, R = this.R0, F = this.F0;
       const rf = (x, z) => { const dx = x - S.x, dz = z - S.z; return [dx * R.x + dz * R.z, dx * F.x + dz * F.z]; };
       this._hidden = [];
+      // every shot's view: anything standing between that camera and its focus (or in the
+      // chase lane) goes; what stands behind the action stays as the backdrop
+      const views = [];
+      for (const sh of SHOTS) for (const u of [0, 0.5, 1]) { const c = sh.cam(u, sh.t + u * sh.d); views.push([c.at[0], c.at[2], Y0 + c.yaw, c.wupp * 330]); }
       for (const d of world.decos) {
         if (d.removed) continue;
         const [r, f] = rf(d.x + 0.5, d.z + 0.5);
-        if (f > -3.0 && f < 44 && r > -26 && r < 32) { d.removed = true; this._hidden.push(d); }
+        let hide = f > -3.0 && f <= 0 && r > -14 && r < 24; // the lane
+        for (const [vr, vf, yaw, hw] of views) {
+          if (hide) break;
+          const dr = r - vr, df = f - vf;
+          const a = yaw - Y0, ca = Math.cos(a), sa = Math.sin(a);
+          // the view's own frame (rotated by the shot's yaw relative to the base view)
+          const fr = dr * sa + df * ca, rr = dr * ca - df * sa;
+          if (fr > -1.2 && fr < 46 && Math.abs(rr) < hw + 3) hide = true;
+        }
+        if (hide) { d.removed = true; this._hidden.push(d); }
       }
       this._hiddenClutter = [];
       const tall = /^(tallgrass|fireweed|lupine|aster|fern|swampgrass|glowcap)/;
@@ -340,7 +354,7 @@ export class HeistScene {
     const R = this.R0, F = this.F0;
     if (kind === 'back') {
       // behind the bear (away from the camera), so its shadow falls over Reynard
-      const el = 50 * DEG, h = Math.cos(el);
+      const el = 31 * DEG, h = Math.cos(el);
       this.sunDir.set((-F.x + R.x * 0.12) * h, Math.sin(el), (-F.z + R.z * 0.12) * h).normalize();
     } else {
       // high over the camera's left shoulder: short crisp shadows falling back and to the right
@@ -412,6 +426,17 @@ export class HeistScene {
     money.group.position.set(0, crate.top, 0.01);
     crate.group.add(money.group);
     this.money = money;
+    // a few coins spilled out of the open sack onto the grass
+    this.spill = new THREE.Group();
+    for (const [r, f, ry, tilt] of [[-0.6, 0.36, 0.3, 0], [-0.47, 0.42, 1.2, 0.5], [-0.72, 0.3, 2.1, 0], [-0.4, 0.3, 0.8, 0]]) {
+      const c = new THREE.Mesh(coinGeometry(), voxelMaterial());
+      const q = this.at(r, f);
+      c.position.set(q.x, this.groundY(q.x, q.z) + 0.012 + tilt * 0.04, q.z);
+      c.rotation.set(tilt, ry, 0);
+      c.castShadow = true;
+      this.spill.add(c);
+    }
+    g.add(this.spill);
     this.sack = makeSack();
     this._parkSack();
     g.add(this.sack);
@@ -438,18 +463,20 @@ export class HeistScene {
     if (s.parent && s.parent !== this.group) s.removeFromParent();
     if (!s.parent) this.group.add(s);
     const p = this.at(SACK_SPOT[0], SACK_SPOT[1]);
-    s.position.set(p.x, this.groundY(p.x, p.z), p.z);
-    s.rotation.set(0, Y0 + 0.5, 0);
+    s.position.set(p.x, this.groundY(p.x, p.z) - 0.03, p.z);
+    s.rotation.set(0.42, Y0 + 0.35, 0.12, 'YXZ'); // slumped forward against the crate, the gold in its mouth showing
     s.scale.setScalar(1);
     s.visible = true;
+    if (this.spill) this.spill.visible = true;
   }
 
   _holdSack() {
     const s = this.sack;
     s.setKind('full');
     s.removeFromParent();
-    s.position.set(0, -0.26, 0.02);
-    s.rotation.set(0, 0, 0);
+    if (this.spill) this.spill.visible = false;
+    s.position.set(0, -0.3, 0.04);
+    s.rotation.set(0, -Math.PI / 2, 0); // the painted dollar sign out to his right side (the camera, as he runs right)
     s.scale.setScalar(0.9 / FOX_SCALE);
     this.fox.holdBoth(s);
     s.visible = true;
@@ -473,6 +500,12 @@ export class HeistScene {
     this.defs = {};
     for (const n of ['count_coins', 'laugh_evil', 'horror', 'run', 'tiptoe', 'greedy', 'walk', 'idle', 'cower']) this.defs[n] = borrow(fox, n);
     Object.assign(this.defs, HEIST_ANIMS);
+    // playing to the camera: the counting pose looks down into his paws; lift the chin so the
+    // low title camera sees his face, not the crown of his hat
+    const cc = this.defs.count_coins;
+    if (cc) this.defs.count_coins = { ...cc, fn(t, p, f, s2, rig) { cc.fn(t, p, f, s2, rig); p.hRx -= 0.26; p.chRx -= 0.07; } };
+    const gr = this.defs.greedy;
+    if (gr) this.defs.greedy = { ...gr, fn(t, p, f, s2, rig) { gr.fn(t, p, f, s2, rig); p.hRx -= 0.2; p.chRx -= 0.1; } };
     this.foxSt = { r: FOX_SPOT[0], f: FOX_SPOT[1], heading: Y0, face: null, look: null };
     this.anim('count_coins', 0);
   }
@@ -594,7 +627,7 @@ export class HeistScene {
       [27.6, () => { this.bear?.setFace('hungry', { hold: 6 }); }],
       [29.4, () => { fox.lookAt(bearHead()); fox.setExpression('horror', { hold: 1.0 }); }],
       [30.4, () => { fox.lookAt(null); }],
-      [32.2, () => { this.carrying = false; fox.holdBoth(null); this.sack.visible = false; this._parkSack(); this.sack.visible = false; }],
+      [32.2, () => { this.carrying = false; fox.holdBoth(null); this._parkSack(); this.sack.visible = false; this.spill.visible = false; }],
       // J: the coin gag
       [33.2, () => this._glintCoin()],
       [33.9, () => { this.anim('run', 0.05); this._sfx('whoosh', { volume: 0.3, pitch: 1.2 }); }],
@@ -759,6 +792,7 @@ export class HeistScene {
       if (k === 3) M.bundles[0].visible = false;
       if (k === 5) { M.stacks[0].visible = false; M.stacks[2].visible = false; }
       if (k === 7) M.bundles[1].visible = false;
+      if (k === 4 && this.spill) this.spill.visible = false;
       if (k === 8) M.stacks[1].visible = false;
       M.heap.scale.setScalar(Math.max(0.01, 1 - k / 10));
       if (k >= 10) { M.heap.visible = false; this._scoopK = 0; }

@@ -34,6 +34,7 @@ import { TeacherOverlay } from '../ui/TeacherOverlay.js'; // the on-screen guide
 import { TUT_SCENES } from './cine/tutorialScenes.js'; // [v31 guide]
 import { floatTitle } from '../ui/kinetic/floatText.js'; // [v31 guide]
 import { Guide } from './tutorial/stage.js'; // [v33 tut]
+import { worldOf } from './tutorial/marks.js'; // [v33 tut]
 import { introduce, hudTarget, toolPicked } from './tutorial/hudIntro.js'; // [v33 tut]
 import { SkipTag, finishSkipped, TOUR_FEATURES } from './tutorial/skip.js'; // [v33 tut]
 import { firstFish, feeding, fishScope, fishCare, loveEggs, genesMoney } from './tutorial/fishCourse.js'; // [v33 tut]
@@ -232,6 +233,16 @@ export class Tutorial {
   hud(feature, o = {}) { return introduce(this, feature, o); }
   slot(feature) { return hudTarget(this.game, feature); }
 
+  /** [v33 tut] keep the camera on a thing while you play (a fish, [x, z], () => ...); null lets go */
+  frame(target, zoom = 0.02) {
+    this.focus = target || null;
+    if (!target) return;
+    this.follow = false;
+    const p = worldOf(this.game, target);
+    if (p) this.game.rig.lookAt(p.x, p.z);
+    if (zoom) this.game.rig.wuppGoal = zoom;
+  }
+
   // [v32] a full-screen classroom lesson; fallback: a few lines from the fox
   async lesson(id) {
     const game = this.game;
@@ -295,7 +306,7 @@ export class Tutorial {
     if (!landed()) await this.within(this.until('parcelLanded', (p) => pred(p.order)), 20);
     // the camera swings over to the box so you can see what to tap
     const box = game.delivery.waiting().find((p) => pred(p.order));
-    if (box) { this.follow = false; game.rig.lookAt(box.x, box.z); }
+    if (box) this.frame(box, 0.02);
     let done = false;
     delivered.then(() => { done = true; }, () => {});
     await this.wait(0.5);
@@ -313,6 +324,7 @@ export class Tutorial {
     this.stopNag();
     stop?.();
     ring?.();
+    this.frame(null);
   }
 
   /** wait for the first two fish to reach the pond (Reynard carries the bag); spawn them if the bag got lost */
@@ -416,6 +428,7 @@ export class Tutorial {
     const after = (c) => idx > CHAPTERS.findIndex(([x]) => x === c);
     if (after('first')) { this.pair = this.spawnPair(2, ['Clyde', 'Bonnie']); this.holdLove = !after('care'); game.quickEggs = !after('love'); }
     if (after('feed')) for (const f of this.pair) { f.fed = 1; f.hunger = 0.1; }
+    if (this.pair.length === 2) { const [a, b] = this.pair; this.frame(() => [(a.x + b.x) / 2, (a.z + b.z) / 2], 0.022); }
     if (after('science')) game.research('r_beavers');
     if (after('hardhats')) game.research('r_snackbar');
     if (after('green')) game.research('r_carrot');
@@ -518,7 +531,7 @@ export class Tutorial {
     await this.teach('This one: <b>Hire Beavers</b>!', { target: 'sel:' + LAB_SEL.node('r_beavers'), circle: true, wait: true, mood: 'happy' });
     try { this.labTree()?.select?.('r_beavers'); } catch { /* ignore */ }
     await this.wait(0.4);
-    await this.teach('Research is <b>FREE</b>! No coins. It just takes <b>TIME</b>.', { target: 'sel:' + LAB_SEL.go, wait: true, mood: 'happy' });
+    await this.teach('Research is <b>FREE</b>. My favourite price! It just takes <b>TIME</b>.', { target: 'sel:' + LAB_SEL.go, wait: true, mood: 'happy' });
     this.teach('Tap <b>RESEARCH</b>!', { target: 'sel:' + LAB_SEL.go, circle: true, dur: 5, mood: 'excited' });
     this.nag(() => 'Tap RESEARCH on Hire Beavers!');
     await this.guideResearch('r_beavers', { until: 'start', autoAfter: 60 });
@@ -594,7 +607,7 @@ export class Tutorial {
     await this.placeStep('carrot', { line: 'Here, carrot seeds! <b>Plant them</b> on land.', nag: 'Build ▸ plant the carrot seeds on land!', label: 'PLANT HERE' });
     game.quickCrops = true;
     const patch = game.structures.list.find((s) => s.type === 'carrot' && !s.removed);
-    if (patch) game.rig.lookAt(patch.x + 0.5, patch.z + 0.5);
+    if (patch) this.frame(patch, 0.02);
     await this.teach('Seed... sprout... growing...', { target: patch ? () => this.structScreen(patch) : null, dur: 3 });
     if (!(await this.within(this.waitFor(() => game.harvest.ripeList().length > 0), 60))) {
       for (const s of game.structures.list) if (s.type === 'carrot' && s.crop && s.built) { s.crop.stage = 3; }
@@ -623,6 +636,7 @@ export class Tutorial {
     game.foodStore.select('carrot');
     game.ui?.syncFoodPicker?.();
     this.force('feed');
+    if (bar()) this.frame(bar(), 0.022);
     const pt = bar() ? this.guide.point(bar(), { label: 'PAY HERE', color: 'gold' }) : null;
     const stop2 = this.pointAt(() => this.structScreen(bar()));
     this.teach('Carrots are in your Food bag. Now <b>tap the Snack Bar</b> to pay the crew!', { target: () => this.structScreen(bar()), dur: 6, mood: 'happy' });
@@ -637,6 +651,7 @@ export class Tutorial {
     this.force(null);
     stop2?.();
     pt?.();
+    this.frame(null);
     this.win('PAID!');
     await this.teach('Paid! No pay, no work. <b>Snacks = jobs.</b>', { dur: 3, mood: 'excited' });
   }
@@ -658,7 +673,7 @@ export class Tutorial {
       timeout: 30, fallback: () => game.setTool({ kind: 'clear' }),
     });
     const edge = this.forestEdge();
-    if (edge) game.rig.lookAt(edge.x, edge.z);
+    if (edge) this.frame([edge.x, edge.z], 0.024);
     const pt = edge ? this.guide.mark([edge.x, edge.z], { label: 'CHOP!', color: 'red', r: 1.4 }) : null;
     const stop = edge ? this.pointAt(() => this.worldScreen(edge.x, 0.8, edge.z)) : () => {};
     this.teach('Now <b>drag a box</b> over the trees next to your land!', { target: edge ? () => this.worldScreen(edge.x, 0.8, edge.z) : null, dur: 6 });
@@ -674,6 +689,7 @@ export class Tutorial {
     stop?.();
     pt?.();
     this.force(null);
+    this.frame(null);
     this.teach('Red = marked! Tape goes up and the beavers chop them <b>bit by bit</b>.', { dur: 4.5, mood: 'happy' });
     await this.within(this.until('cleared'), 90);
     this.win('TIMBER!');
@@ -710,7 +726,11 @@ export class Tutorial {
     stop = this.pointAt(this.slot('lab'));
     await this.teach('New stuff? The <b>LAB</b>: research is <b>FREE</b>, it just takes time. Neighbours open more!', { target: this.slot('lab'), circle: true, wait: true, mood: 'happy' });
     stop?.();
-    await this.hud('speed', { line: 'Too slow? <b>Tap the clock</b> to speed time up. Too fast? Tap again.', mood: 'smug' });
+    await this.hud('speed', {
+      line: 'Time is money. <b>Tap the clock</b> to fast-forward. Tap again to slow down.', mood: 'smug',
+      tryIt: () => this.until('speed'), tryLine: 'Go on, <b>tap the clock</b>!', timeout: 25,
+      fallback: () => this.guide.bark('Later, then. Time waits for no fox.', { mood: 'happy' }),
+    });
     await this.teach('I\'ll teach you the rest <b>as it happens</b>. Every lesson goes in my <b>notebook</b>.', { wait: true, mood: 'scheming' });
     await this.hideTeacher();
     await this.cine(async (c) => {
@@ -737,7 +757,7 @@ export class Tutorial {
     const built = this.until('built', (s) => s?.type === type);
     const spot = this.goodSpot(type);
     let pt = null;
-    if (spot) { await this.guide.walkNear([spot.x + 0.5, spot.z + 0.5], { timeout: 6 }); pt = this.guide.point([spot.x + 0.5, spot.z + 0.5], { label, color: 'green', r: 0.7 }); }
+    if (spot) { this.frame([spot.x + 0.5, spot.z + 0.5], 0.022); await this.guide.walkNear([spot.x + 0.5, spot.z + 0.5]); pt = this.guide.point([spot.x + 0.5, spot.z + 0.5], { label, color: 'green', r: 0.7 }); }
     this.force('build', { bpTab: 'inv', bpSelect: { kind: 'build', type, free: true } });
     const doIt = async () => {
       if (!(await this.within(built, 110))) {
@@ -764,6 +784,7 @@ export class Tutorial {
       this.force(null);
       game.ui?.blueprint?.exit?.();
       pt?.();
+      this.frame(null);
     }
   }
 
@@ -954,7 +975,14 @@ export class Tutorial {
   // gentle reminders if the player dawdles
   nag(text) {
     this.stopNag();
-    this.nagT = setInterval(() => { if (!this.game.ui?.ebuy && !this.game.ui?.blueprint?.open && !this.game.director?.active) this.game.notify(text(), 'info'); }, 14000);
+    this.nagT = setInterval(() => {
+      const g = this.game;
+      if (g.ui?.ebuy || g.ui?.blueprint?.open || g.director?.active || this.skipping) return;
+      // [v33 tut] the reminder comes from the Reynard already on screen (no second fox in the corner)
+      const t = this.teacher;
+      if (t && !t.waiting) { this.teach(text(), { dur: 4, mood: 'normal' }); return; }
+      if (!t) g.notify(text(), 'info');
+    }, 15000);
   }
 
   stopNag() { clearInterval(this.nagT); this.nagT = null; }
@@ -987,6 +1015,9 @@ export class Tutorial {
     if (this.watchPair) {
       const [a, b] = this.watchPair;
       if (a && b && !a.dead && !b.dead) game.rig.lookAt((a.x + b.x) / 2, (a.z + b.z) / 2);
+    } else if (this.focus) {
+      const p = worldOf(game, this.focus);
+      if (p) game.rig.lookAt(p.x, p.z);
     } else if (this.follow) { const f = game.fox; game.rig.lookAt(f.x, f.z + 0.6); }
   }
 

@@ -63,9 +63,9 @@ export const HEIST_ANIMS = {
       life(t, p, 0.4);
       const C = 3.4, u = t % C, cyc = Math.floor(t / C);
       // the bundle in the left paw, held up close
-      p.ik(p.aL, 1.6, 3.2, 6.8, 1, -0.6, -0.5); p.pawL = 'fist';
+      p.ik(p.aL, 1.6, 3.6, 7.0, 1, -0.6, -0.5); p.pawL = 'fist';
       p.aL.wx = -0.5;
-      p.chRx += 0.1; p.hRx += 0.14;
+      p.chRx += 0.02; p.hRx -= 0.1; // (chin up: the low title camera wants his face)
       // lick the thumb
       const lw = win(u, 0.05, 0.75, 0.22, 0.2);
       // then flick, flick, flick through the bills
@@ -98,7 +98,7 @@ export const HEIST_ANIMS = {
     fn(t, p, f, s, rig) {
       const w = smooth(t / 0.35);
       const sq = abs(sin(t * 7)) * win(t, 0.4, 2.3, 0.2, 0.3);
-      p.lean = 0.42 * w; p.chRx += 0.36 * w + sq * 0.05; p.hRx += 0.12 * w;
+      p.lean = 0.34 * w; p.chRx += 0.3 * w + sq * 0.05; p.hRx -= 0.12 * w;
       p.hRz = 0.32 * w; p.hRy = -0.15 * w;
       p.hipY = -0.5 * w; p.lL.kn = p.lR.kn = 0.35 * w; p.lL.sw = p.lR.sw = -0.25 * w;
       // arms round the heap on the crate in front

@@ -206,8 +206,10 @@ export class FoodPicker {
       b.appendChild(art);
       if (it.locked) b.insertAdjacentHTML('beforeend', `<span class="fp-lock">${this.ico('lock', 1)}</span><span class="fp-buy fp-cart" data-buy="${it.id}" title="Find it on e-Buy">${this.ico('shop', 1)}</span>`);
       else if (empty) {
+        // [v33] no green Buy pill over the icon (the user hated it): tapping an empty bag opens e-Buy instead
+        b.title = f.kind === 'bag' ? 'Empty: tap to buy more on e-Buy' : b.title;
         b.insertAdjacentHTML('beforeend', f.kind === 'bag'
-          ? `<span class="fp-buy" data-buy="${it.id}" title="Buy more on e-Buy">${this.ico('shop', 1)}<i>Buy</i></span>`
+          ? ''
           : f.kind === 'made' ? `<span class="fp-src" title="Made by the Bug Grinder">${this.ico('buggrinder', 1)}</span>` : '');
       } else b.insertAdjacentHTML('beforeend', `<b class="fp-badge">${Math.floor(it.count)}</b>`);
       if (f.kind === 'special') b.insertAdjacentHTML('beforeend', '<i class="fp-glint"></i>');
@@ -285,6 +287,7 @@ export class FoodPicker {
     const id = it.dataset.id;
     const rec = this.items.find((x) => x.id === id);
     if (rec?.locked) { this.sfx('error', { volume: 0.25 }); this.o.onBuy?.(id); return; }
+    if (rec && isBag(id) && !(rec.count > 0)) { this.sfx("click"); this.o.onBuy?.(id); return; } // [v33] an empty bag: off to e-Buy for more
     if (id !== this.sel) {
       this.sel = id;
       this.refresh(true);

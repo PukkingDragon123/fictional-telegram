@@ -206,7 +206,7 @@ export class TownLife {
     const box = new THREE.Box3();
     v.props.updateMatrixWorld(true);
     for (const c of v.props.children) {
-      if (/dock|sign|mail|marker|cooler|cart/i.test(c.name || '')) continue;
+      if (/dock|sign|mail|marker|cooler|cart|townPool/i.test(c.name || '')) continue;
       box.setFromObject(c);
       if (box.isEmpty()) continue;
       const sx = box.max.x - box.min.x, sz = box.max.z - box.min.z;
@@ -886,6 +886,23 @@ export class TownLife {
     this.lights = [...mats].map((m) => ({ m, base: m.emissiveIntensity ?? 1 }));
     this.smoke = smoke;
     this.homesN = this.V.list.filter((v) => v.props).length;
+    // warm light spilling on the ground in front of each door at night (like Reynard's cottage)
+    for (const P of this.pools || []) P.removeFromParent();
+    this.pools = [];
+    for (const [id, d] of this.game.homes?.doors || []) {
+      const v = this.V.get(id);
+      if (!v?.props) continue;
+      const ry = d.house ? d.house.rotation.y : 0;
+      const q = new THREE.Mesh(POOL_GEO(), poolMat());
+      q.position.set(d.pos.x + Math.sin(ry) * 0.3, d.pos.y + 0.014, d.pos.z + Math.cos(ry) * 0.3);
+      q.rotation.y = ry;
+      q.renderOrder = 1;
+      q.visible = false;
+      q.name = 'townPool_' + id;
+      v.props.add(q);
+      v.props.worldToLocal(q.position);
+      this.pools.push(q);
+    }
   }
 
   setLights(k) {
@@ -902,6 +919,8 @@ export class TownLife {
     // dim-but-warm by day, glowing after dusk; a soft flicker like an oil lamp
     const k = 0.22 + lit * (1.15 + Math.sin(this.time * 7.3) * 0.04 + Math.sin(this.time * 2.1) * 0.03);
     this.setLights(k);
+    const po = Math.max(0, (lit - 0.25) / 0.75) * 0.6;
+    if (_poolMat) { _poolMat.opacity = po; for (const q of this.pools || []) q.visible = po > 0.01; }
     // chimneys: breakfast, supper, cold and wet days
     const P = this.phaseOf();
     const cold = (game.seasons?.temp ?? 15) < 8;
@@ -975,6 +994,29 @@ export class TownLife {
     this.paths._costT = -1;
     return ids.map((id) => [id, !!this.V.get(id)?.rig]);
   }
+}
+
+// stepped pixel-art light rings (additive), shared by every home
+let _poolMat = null, _poolGeo = null;
+function poolMat() {
+  if (_poolMat) return _poolMat;
+  const N = 16, data = new Uint8Array(N * N * 4);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = (x + 0.5) / N - 0.5, dy = (y + 0.5) / N - 0.5;
+    const d = Math.sqrt(dx * dx * 4 + dy * dy * 4);
+    const a = d < 0.42 ? 0.34 : d < 0.7 ? 0.2 : d < 0.95 ? 0.08 : 0;
+    data.set([255, 200, 120, Math.round(a * 255)], (y * N + x) * 4);
+  }
+  const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.needsUpdate = true;
+  _poolMat = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  return _poolMat;
+}
+function POOL_GEO() {
+  if (_poolGeo) return _poolGeo;
+  _poolGeo = new THREE.PlaneGeometry(1.7, 0.9);
+  _poolGeo.rotateX(-Math.PI / 2);
+  return _poolGeo;
 }
 
 const QUIET_CLASSES = ['cine', 'cutscene-on', 'feast-cam', 'feast-focus', 'lab-mode', 'lab-full', 'lt-pc', 'pc-mode', 'class-mode', 'bedtime-mode', 'ebuy-open', 'wd-open', 'mbk-reading', 'qn-open', 'blueprint', 'at-title', 'demo-over'];

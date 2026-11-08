@@ -3,6 +3,9 @@
 //   - hover: the slot lifts a little, a soft tick, its name on the game's tooltip frame
 //   - press: the icon squashes, the slot sinks; release springs it back (the click sound is UI.click)
 //   - the active slot: its icon bobs, a pixel sparkle twinkles in the corner
+//   - the icons come alive (src/ui/kit/iconAnim.js): the hammer taps, the potion bubbles, the heart beats, the
+//     eggs wobble, the tag swings, the trophy glints, a page flutters, the glove waves... on hover, when
+//     picked, and now and then one at a time while idle
 //   - a new slot (a quest / research unlock after load) appears with a ceremony
 //
 //   const hb = new Hotbar(ui, TOOLS)
@@ -15,6 +18,7 @@
 // Selectors the rest of the game uses are untouched: #toolbar .tool[data-tool] / [data-panel] /
 // [data-feature], classes .locked .active .pulse.
 import './hotbar.css';
+import { iconAnim, iconFactor } from './iconAnim.js';
 
 const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -67,7 +71,7 @@ export class Hotbar {
       b.removeAttribute('title');
       if (!b.querySelector('.hb-tw')) b.insertAdjacentHTML('beforeend', '<i class="hb-tw"></i>');
       b.querySelector('.hb-tw').style.backgroundImage = `url(${sprite('spark').url})`;
-      const s = { el: b, feature: b.dataset.feature, locked: b.classList.contains('locked'), active: b.classList.contains('active') };
+      const s = { el: b, feature: b.dataset.feature, icon: t.icon, img: b.querySelector('img.px'), locked: b.classList.contains('locked'), active: b.classList.contains('active') };
       s.known = !s.locked;
       this.slots.set(b, s);
       b.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') this._hover(s, true); });
@@ -84,6 +88,37 @@ export class Hotbar {
     this.mo = new MutationObserver((ms) => { for (const m of ms) this._onClass(m.target); });
     for (const s of this.slots.values()) this.mo.observe(s.el, { attributes: true, attributeFilter: ['class'] });
     this.ready = true;
+    // now and then one icon does its little thing (never two at once, never while you look elsewhere)
+    this.idleT = 4;
+    this._idleI = setInterval(() => this._idle(), 1000);
+  }
+
+  // ------------------------------------------------------------ icon animations
+  _anim(s) {
+    if (!s.img || s.animT || s.locked || reduced()) return;
+    const A = iconAnim(s.icon, iconFactor(s.icon, s.img));
+    if (!A) return;
+    const src0 = s.img.getAttribute('src');
+    let i = 0;
+    const step = () => {
+      if (i >= A.seq.length || !s.img.isConnected) { s.img.setAttribute('src', src0); s.animT = 0; return; }
+      const [f, ms] = A.seq[i++];
+      s.img.setAttribute('src', f ? A.frames[f] : src0);
+      s.animT = setTimeout(step, ms || 1);
+    };
+    step();
+  }
+  _idle() {
+    if (document.hidden || this.ceremony || !this.bar.isConnected || this.bar.classList.contains('empty')) return;
+    if (--this.idleT > 0) return;
+    this.idleT = 3 + Math.floor(Math.random() * 4);
+    const cs = getComputedStyle(this.bar);
+    if (cs.visibility === 'hidden' || +cs.opacity < 0.05) return;
+    const L = [...this.slots.values()].filter((s) => !s.locked && !s.animT && s.el.offsetParent && this.labelFor !== s);
+    if (!L.length) return;
+    // the tool in your hand fidgets a bit more often
+    const act = L.find((s) => s.active);
+    this._anim(act && Math.random() < 0.3 ? act : L[(Math.random() * L.length) | 0]);
   }
 
   el(feature) { for (const s of this.slots.values()) if (s.feature === feature || s.el.dataset.tool === feature || s.el.dataset.panel === feature) return s.el; return null; }
@@ -96,6 +131,7 @@ export class Hotbar {
   _hover(s, on) {
     if (on && !s.locked) {
       this.sfx('hover', { volume: 0.12 });
+      this._anim(s);
       clearTimeout(this.lblT);
       this.lblT = setTimeout(() => this._label(s), 220);
     } else if (!on) {
@@ -148,7 +184,7 @@ export class Hotbar {
     }
     if (active !== s.active) {
       s.active = active;
-      if (active && this.ready && !s.cer) this._bump(b, 'hb-lift');
+      if (active && this.ready && !s.cer) { this._bump(b, 'hb-lift'); this._anim(s); }
     }
   }
   _freshFlush() {
@@ -308,6 +344,7 @@ export class Hotbar {
 
   dispose() {
     for (const t of this.timers) clearTimeout(t);
+    clearInterval(this._idleI);
     this.mo?.disconnect();
     cancelAnimationFrame(this.raf);
     this.fx.remove();

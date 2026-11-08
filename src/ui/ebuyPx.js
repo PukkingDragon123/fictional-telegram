@@ -64,6 +64,15 @@ export const PX = {
   back: [['....aa..', '...aba..', '..abba..', '.abbbaaa', 'abbbbbba', '.abbbaaa', '..abba..', '...aba..', '....aa..'], { a: INK, b: '#fff4dc' }],
   cartP: [['aa..........', '.a..........', '.aaaaaaaaaa.', '.abbbbbbbba.', '.abbbbbbbba.', '..abbbbbba..', '..aaaaaaaa..', '...a....a...', '..aaa..aaa..'], { a: INK, b: '#fffaf0' }],
   ring: [['..aaa..', '.a...a.', 'a.....a', 'a.....a', 'a.....a', '.a...a.', '..aaa..'], { a: INK }],
+
+  // [v33 kit] front page + reviews
+  d_home: [['................', '.......kk.......', '......kyyk......', '.....kyyyyk.....', '...kkkkkkkkkk...', '..krrwwrrwwrrk..', '.krrwwrrwwrrwwk.', '.kkkkkkkkkkkkkk.', '..kssssssssssk..', '..kskkkskkkkssk.', '..kskbbkkwwkssk.', '..kskbbkkwwksk..', '..kskbbkkkkksk..', '..kskbbkssssssk.', '.kkkkkkkkkkkkkk.', '................'], { k: INK, y: '#ffd23f', r: '#d9453b', w: '#fff4dc', s: '#e2b070', b: '#8a5a30' }],
+  d_soon: [['................', '....kkkkkkk.....', '...kbbbbbbbk....', '..kbk.....kbk...', '..kbk.....kbk...', '..kbk.....kbk...', '.kkkkkkkkkkkkk..', '.kyyyyyyyyyyyk..', '.kyYYYYYYYYYyk..', '.kyYYYkkkYYYyk..', '.kyYYYkkkYYYyk..', '.kyYYYYkYYYYyk..', '.kyYYYYkYYYYyk..', '.kyyyyyyyyyyyk..', '.kkkkkkkkkkkkk..', '................'], { k: INK, b: '#b8b0a0', y: '#e5a320', Y: '#ffd23f' }],
+  bolt: [['....aaa', '...abba', '..abba.', '.abbaaa', 'abbbbba', 'aaabba.', '..abba.', '.abba..', '.aaa...'], { a: INK, b: '#ffd23f' }],
+  trophy: [['aaaaaaaaa', 'abbcbbbba', 'aabcbbbaa', '.abcbbba.', '..abbba..', '...aba...', '...aba...', '..aaaaa..', '..abbba..', '.aaaaaaa.'], { a: INK, b: '#ffd23f', c: '#fff2a0' }],
+  star: [['...a...', '..aba..', 'aaabaaa', 'abbcbba', '.abbba.', 'abbabba', 'aa...aa'], { a: INK, b: '#ffc22e', c: '#fff2a0' }],
+  starH: [['...a...', '..aba..', 'aaabaaa', 'abbcdda', '.abbda.', 'abbadda', 'aa...aa'], { a: INK, b: '#ffc22e', c: '#fff2a0', d: '#d8ccb4' }],
+  starE: [['...a...', '..ada..', 'aaadaaa', 'adddada', '.addda.', 'addadda', 'aa...aa'], { a: '#8a7a64', d: '#e8dcc4' }],
 };
 
 const cache = new Map();

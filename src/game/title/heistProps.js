@@ -18,7 +18,7 @@ export const CRATE_V = 0.04;
 const C = {
   gold: 0xf2be3a, goldL: 0xffe27a, goldH: 0xfff6c8, goldD: 0xb8801e, goldDD: 0x8a5a14,
   silver: 0xd6dce6, silverL: 0xf4f8ff, silverD: 0x8e98aa,
-  bill: 0x7cbc62, billL: 0xa6d886, billD: 0x4e8a42, billDD: 0x35662f, ink: 0x2c5a2a, band: 0xf2ead0, bandD: 0xc8b890, bandR: 0xc8483a,
+  bill: 0xd2ecb4, billL: 0xf0fadc, billD: 0x86c06a, billDD: 0x4a8a3e, ink: 0x2e6a32, // pale mint paper: reads on the grass band: 0xf2ead0, bandD: 0xc8b890, bandR: 0xc8483a,
   wood: 0xc28a50, woodL: 0xdcaa6a, woodD: 0x956236, woodDD: 0x5e3a1e, gap: 0x3a2414, nail: 0x6a6670, nailL: 0xaaa6b0,
   felt: 0x2f8a52, feltL: 0x46a868, feltD: 0x1f6a3c, trim: 0xe0b040,
   paint: 0x2c4a7a, paintL: 0x46689a,
@@ -225,16 +225,21 @@ export function sackGeometry(kind = 'full') {
     for (let y = 0; y < H; y++) {
       // bulging profile, flat-ish bottom
       const u = y / (H - 1);
-      const rx = full ? 5.6 * Math.sin(Math.PI * (0.22 + u * 0.66)) + 0.6 : 5.4 - u * 0.8 + (u > 0.8 ? 0.6 : 0);
+      // full: a fat round belly; open: slumped, wide at the bottom, pinched waist, a flared cuff
+      const rx = full ? 5.6 * Math.sin(Math.PI * (0.22 + u * 0.66)) + 0.6 : u < 0.75 ? 6.1 - u * 2.2 + Math.sin(u * 9) * 0.25 : 4.5 + (u - 0.75) * 5;
       const rz = rx * 0.82;
       for (let x = -7; x <= 7; x++)
         for (let z = -6; z <= 6; z++) {
-          const d = Math.hypot(x / rx, z / rz);
+          const a = Math.atan2(z, x);
+          const fold = full ? 0 : Math.sin(a * 5 + y * 0.35) * 0.07; // soft folds down the sides
+          const d = Math.hypot(x / rx, z / rz) + fold;
           if (d > 1) continue;
           if (!full && y >= H - 2 && d < 0.72) continue; // open mouth
           let c = weave(x, y, z);
           if (x - z < -rx * 0.6) c = c === C.sack ? C.sackL : c; // lit side
           if (x + z > rx * 0.9) c = c === C.sack ? C.sackD : c;
+          if (!full && fold < -0.05 && d > 0.8) c = C.sackD; // the creases
+          if (!full && y >= H - 2 && d > 0.85) c = (x + y) & 1 ? C.sackL : C.sack; // the folded-over cuff
           v.set(x, y, z, c);
         }
     }
@@ -259,6 +264,11 @@ export function sackGeometry(kind = 'full') {
         if (d <= 0.72) { v.set(x, H - 2, z, (x * 7 + z * 3) % 5 === 0 ? C.goldL : (x + z) % 3 === 0 ? C.goldD : C.gold); if (d < 0.4) v.set(x, H - 1, z, (x + z) & 1 ? C.goldL : C.gold); }
       }
       v.set(0, H, 0, C.goldH); v.set(1, H, -1, C.silver);
+      // the loose drawstring draped over the rim and down the front
+      for (const [x, y, z] of [[-2, H, 4], [-2, H - 1, 5], [-3, H - 2, 5], [-3, H - 3, 6], [-2, H - 4, 6], [-2, H - 5, 6]]) v.set(x, y, z, (y & 1) ? C.rope : C.ropeL);
+      // a painted dollar on the front, under the drawstring
+      const S2 = ['.kk', 'k..', '.k.', '..k', 'kk.'];
+      S2.forEach((row, j) => { for (let i = 0; i < 3; i++) if (row[i] === 'k') { const y = 5 - j, x = i - 1; for (let z = 7; z > 0; z--) if (v.has(x, y, z)) { v.set(x, y, z, C.dollar); break; } } });
     }
     return v.build({ pivot: [0, 0, 0], scale: CRATE_V });
   });

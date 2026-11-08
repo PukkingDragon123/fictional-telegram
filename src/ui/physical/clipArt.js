@@ -90,10 +90,10 @@ export function paintBoard(w, h, { seed = 3 } = {}) {
 // classic lever clip: riveted base plate, spring barrel, wire lever loop, pressing jaw.
 // open = lever pressed, jaw lifted off the paper.
 export function paintClip(open = false) {
-  const W = 78, H = 32, p = new Pix(W, H);
+  const W = 104, H = 32, p = new Pix(W, H);
   const S = (i) => STEEL[clamp(i, 0, 6)];
   // wire lever loop (2 px thick)
-  const ly0 = open ? 5 : 0, lh = open ? 6 : 11, lx0 = 23, lw = 32;
+  const lw = 40, ly0 = open ? 5 : 0, lh = open ? 6 : 11, lx0 = Math.round((W - lw) / 2);
   for (let y = ly0; y < ly0 + lh; y++) for (let x = lx0; x < lx0 + lw; x++) {
     const X = x - lx0, Y = y - ly0;
     if (!inRR(X, Y, lw, lh, 4) || inRR(X - 2, Y - 2, lw - 4, lh - 4, 3)) continue;

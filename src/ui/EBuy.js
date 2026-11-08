@@ -65,6 +65,19 @@ const CATS = [
   { id: 'restaurant', name: 'Restaurant', icon: 'd_restaurant' },
   { id: 'gear', name: 'Gear', icon: 'd_gear' },
 ];
+// [v33 kit] the front page and the coming-soon shelf live in the department list too
+const HOME = { id: 'home', name: 'Front page', icon: 'd_home' };
+const SOON = { id: 'soon', name: 'Coming soon', icon: 'd_soon' };
+// [v33 kit] customer reviews (flavour only): picked per listing from its id, stars from the seller's rating
+const REVIEWERS = ['BigPaw_42', 'honeyhunter', 'Grizz', 'salmon_sam', 'Hoot (verified owl)', 'MamaBear', 'cub_17', 'Shellby', 'pip_the_pup', 'BuckTooth', 'farmer_moe', 'anon_otter', 'Kevin (a moose)', 'TaxBear'];
+const REVIEWS = {
+  egg: ['Hatched a whole personality. 10/10', 'My egg winked at me.', 'Arrived warm. Suspicious.', 'Bought one egg. Now I have 40 fish??', 'Would hatch again.', 'The moose sat on it. Still hatched!', 'Rare egg. Very rare. Trust me.'],
+  fish: ['They kissed on the way home.', 'Came in a bag of pond water. Classy.', 'Two fish, zero instructions. Perfect.', 'They had babies before I got home.'],
+  food: ['My fish went feral. In a good way.', 'Tastes like crunchy dreams. -my fish', 'The moose ate half. Still 5 stars.', 'Fish now follow me everywhere.'],
+  item: ['Bears stare at it for hours.', 'Looks great, smells like moose.', 'Took 3 beavers and a nap to build.', 'My pond is FANCY now.', 'Neighbours are jealous. Good.'],
+  bird: ['Quacks at 5 AM. Every. Day.', 'Laid an egg in my hat.', 'Bit the moose. Love her.'],
+  upgrade: ['The beavers work faster. And louder.', 'Worth every coin. The beavers agree.'],
+};
 const RAR = {
   common: { n: 'Common', c: '#b8ac90', t: 1 },
   uncommon: { n: 'Uncommon', c: '#5cb83a', t: 2 },
@@ -184,11 +197,12 @@ class EBuy {
     }
     return out.length ? out : CATS.slice(0, 1);
   }
-  _catOf(id) { return CATS.find((c) => c.id === id) || { id, name: id ? id[0].toUpperCase() + id.slice(1) : '', icon: 'd_tag' }; }
+  _catOf(id) { return id === 'home' ? HOME : id === 'soon' ? SOON : CATS.find((c) => c.id === id) || { id, name: id ? id[0].toUpperCase() + id.slice(1) : '', icon: 'd_tag' }; }
   _catName(id) { return this._catOf(id).name; }
   _startCat() {
+    if (SESSION.cat === 'home' || (SESSION.cat === 'soon' && this.listings.some((l) => l.locked))) return SESSION.cat;
     if (SESSION.cat && this.listings.some((l) => l.cat === SESSION.cat)) return SESSION.cat;
-    return this._cats()[0].id;
+    return 'home'; // [v33 kit] e-Buy opens on its front page
   }
   _byId(id) { return this.listings.find((l) => String(l.id) === String(id)); }
   _pct(l) { return l.oldPrice > l.price ? Math.round((1 - l.price / l.oldPrice) * 100) : 0; }
@@ -214,7 +228,9 @@ class EBuy {
   // the unlock, short: "Research Perch", "Decrypt Pond & Bugs", "Meet Hoot", "Day 3"
   _why(l) {
     const r = String(l.locked?.reason || 'Locked');
-    let m = r.match(/^Research in the Lab: (.+)$/);
+    let m = r.match(/^Decrypt the (.+?) section.*?then research (.+)$/); // [v33 kit] name the research, not the section
+    if (m) return 'Research ' + m[2];
+    m = r.match(/^Research in the Lab: (.+)$/);
     if (m) return 'Research ' + m[1];
     m = r.match(/^Decrypt the (.+?) section/);
     if (m) return 'Decrypt ' + m[1];
@@ -222,6 +238,36 @@ class EBuy {
     if (m) return 'Meet ' + m[1];
     return r;
   }
+  // [v33 kit] how to get there, one line (the detail page)
+  _howTo(l) {
+    const r = String(l.locked?.reason || '');
+    let m = r.match(/^Decrypt the (.+?) section/);
+    if (m) return `In the Lab: crack the ${m[1]} files first.`;
+    if (/^Research/.test(r)) return 'Research it at the Lab (tap Reynard\'s hut).';
+    if (/^Meet /.test(r)) return 'Unlock that neighbour\'s land to meet them.';
+    if (/Hire beavers/.test(r)) return 'Hire beavers at the Lodge first.';
+    return r;
+  }
+  _reviews(l, n = 2) {
+    const R = rng(hash(l.id) ^ 0x51ed);
+    const pool = REVIEWS[l.kind === 'egg' ? 'egg' : l.kind === 'fish' ? 'fish' : l.kind === 'food' ? 'food' : l.kind === 'bird' ? 'bird' : l.kind === 'upgrade' ? 'upgrade' : 'item'];
+    const base = +l.seller?.stars || 4.5;
+    const out = [];
+    const used = new Set();
+    for (let i = 0; i < n; i++) {
+      let t = (R() * pool.length) | 0;
+      while (used.has(t) && used.size < pool.length) t = (t + 1) % pool.length;
+      used.add(t);
+      out.push({ who: REVIEWERS[(R() * REVIEWERS.length) | 0], text: pool[t], stars: Math.max(1, Math.min(5, Math.round((base + (R() - 0.6)) * 2) / 2)) });
+    }
+    return out;
+  }
+  _stars(v, s = 2) {
+    let h = '';
+    for (let i = 1; i <= 5; i++) h += px(v >= i - 0.25 ? 'star' : v >= i - 0.75 ? 'starH' : 'starE', s);
+    return `<span class="eb-stars" title="${(+v).toFixed(1)}">${h}</span>`;
+  }
+  _sold(l) { const n = +l.seller?.sold || 0; return n ? `${fmtK(n)} sold` : 'new seller'; }
   _lockIc(l, s = 2) { return px(LOCK_IC[l.locked?.icon] || 'lockpad', s); }
   _tone(l) {
     if (l.locked) return 'locked';
@@ -325,7 +371,7 @@ class EBuy {
     this._ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((ents) => {
       for (const e of ents) {
         const t = e.target, w = e.contentRect.width, h = e.contentRect.height;
-        if (t === this.$bezel) this._paintBezel(w, h);
+        if (t === this.$bezel) this._paintBezel(); // [v33 kit] its border box (contentRect leaves out the padding: the body came out too small)
         else this._paintWell(t, w, h);
       }
     }) : null;
@@ -526,6 +572,7 @@ class EBuy {
     for (const t of this._timers) clearTimeout(t);
     this._timers.clear();
     clearInterval(this._ordI);
+    clearInterval(this._cdI);
     cancelAnimationFrame(this._coinRaf);
     this._ro?.disconnect();
     window.removeEventListener('resize', this._onDpr);
@@ -547,7 +594,7 @@ class EBuy {
       this.q = ''; this.$q.value = '';
       if (this.drawer) this._closeDrawer();
       if (this.cur) this._closeDetail(true);
-      this.cat = this._cats()[0].id; SESSION.cat = this.cat;
+      this.cat = 'home'; SESSION.cat = this.cat;
       this._render(true); this.$scroll.scrollTop = 0;
       return;
     }
@@ -577,6 +624,16 @@ class EBuy {
       return;
     }
     if (t.closest('.eb-unfilter')) { this._sfx('click'); SESSION.f = { season: false, afford: false, locked: false }; this.q = ''; this.$q.value = ''; this._render(true); return; }
+    const go = t.closest('[data-go]');
+    if (go) {
+      this._sfx('click');
+      this.cat = go.dataset.go; SESSION.cat = this.cat;
+      this._render(true);
+      this.$scroll.scrollTop = 0;
+      return;
+    }
+    const hero = !t.closest('.eb-qadd') && t.closest('.eb-hero');
+    if (hero) { const l = this._byId(hero.dataset.id); if (l) { this._sfx('ebuy_tok'); this._openDetail(l); } return; }
     const qadd = t.closest('.eb-qadd');
     if (qadd) {
       const card = qadd.closest('.eb-card');
@@ -652,7 +709,7 @@ class EBuy {
 
   // ------------------------------------------------------------ list
   _scope() {
-    if (!this.q) return this.listings.filter((l) => l.cat === this.cat);
+    if (!this.q) return this.cat === 'soon' ? this.listings.filter((l) => l.locked) : this.listings.filter((l) => l.cat === this.cat);
     const words = this.q.split(/\s+/).filter(Boolean);
     return this.listings.filter((l) => {
       const hay = [l.title, l.sub, l.cat, this._catName(l.cat), l.rarity, l.mutation?.name, l.seller?.name, ...(l.badges || []).map((b) => BADGES[b]?.t || b)].join(' ').toLowerCase();
@@ -671,6 +728,23 @@ class EBuy {
   }
   _render(anim = false) {
     this._renderCats();
+    // [v33 kit] the front page: deal of the day, shelves, departments, coming soon
+    const home = !this.q && this.cat === 'home';
+    this.el.classList.toggle('eb-onhome', home);
+    this.el.classList.toggle('eb-onsoon', !this.q && this.cat === 'soon');
+    this.$grid.classList.toggle('eb-homeg', home);
+    if (home) {
+      this.$h.textContent = 'Today on e-Buy';
+      this.$hi.innerHTML = px('d_home', 2);
+      this.$n.textContent = `${this.listings.filter((l) => !l.locked && l.stock !== 0).length} in stock`;
+      this.$filt.innerHTML = '';
+      this.el.classList.remove('eb-searching');
+      this._deep();
+      if (!this.cur) this.$path.textContent = '/';
+      this._renderHome();
+      if (anim) this._cascade();
+      return;
+    }
     const scope = this._scope();
     const list = this._filtered(scope);
     const c = this._catOf(this.cat);
@@ -679,7 +753,7 @@ class EBuy {
     this.$n.textContent = `${list.length} item${list.length === 1 ? '' : 's'}`;
     const seasonN = scope.filter((l) => l.badges?.includes('inseason')).length;
     const sort = SORTS.find((s) => s.id === SESSION.sort) || SORTS[0];
-    this.$filt.innerHTML = FILTERS.filter((f) => f.id !== 'season' || seasonN || SESSION.f.season)
+    this.$filt.innerHTML = FILTERS.filter((f) => (f.id !== 'season' || seasonN || SESSION.f.season) && (this.cat !== 'soon' || this.q || f.id === 'season'))
       .map((f) => `<button class="eb-chip${SESSION.f[f.id] ? ' on' : ''}" data-f="${f.id}" aria-pressed="${!!SESSION.f[f.id]}" title="${f.n}"><span class="eb-cbox">${SESSION.f[f.id] ? px('check', 2) : ''}</span>${px(f.ic, 2)}<span class="eb-chipt">${f.n}</span></button>`).join('')
       + `<button class="eb-sortb" title="sort">${px('sort', 2)}<span>${sort.n}</span></button>`;
     this.el.classList.toggle('eb-searching', !!this.q);
@@ -687,13 +761,70 @@ class EBuy {
     if (!this.cur) this.$path.textContent = this.q ? '/search?q=' + this.q.replace(/\s+/g, '+') : '/' + this.cat;
     if (!list.length) {
       const filtered = scope.length > 0;
-      this.$grid.innerHTML = `<div class="eb-empty">${this._icon('fox_worried', 3) || px('mag', 8)}<b>${filtered ? 'Nothing left after those filters' : 'Nothing found'}</b><button class="eb-unfilter">${filtered ? 'Clear filters' : 'Clear search'}</button></div>`;
+      this.$grid.innerHTML = `<div class="eb-empty">${this._icon('fox_worried', 3) || px('mag', 8)}<b>${filtered ? 'Nothing left after those filters' : this.cat === 'soon' && !this.q ? 'You unlocked EVERYTHING. Wow.' : 'Nothing found'}</b>${filtered || this.q ? `<button class="eb-unfilter">${filtered ? 'Clear filters' : 'Clear search'}</button>` : ''}</div>`;
       return;
     }
     const inCart = new Map(SESSION.cart.map((x) => [String(x.id), x.qty]));
     this.$grid.innerHTML = list.map((l, i) => this._card(l, i, inCart.get(String(l.id)) || 0)).join('');
     this._observeWells(this.$grid);
     if (anim) this._cascade();
+  }
+  // [v33 kit] the front page
+  _renderHome() {
+    const L = this.listings;
+    const open = L.filter((l) => !l.locked && l.stock !== 0);
+    const locked = L.filter((l) => l.locked);
+    const inCart = new Map(SESSION.cart.map((x) => [String(x.id), x.qty]));
+    let ci = 0;
+    const card = (l, o) => this._card(l, ci++, inCart.get(String(l.id)) || 0, o);
+    const deals = open.filter((l) => this._pct(l) > 0).sort((a, b) => this._pct(b) - this._pct(a));
+    const hero = deals[0] || open[0];
+    const fresh = open.filter((l) => l !== hero && (l.badges?.includes('new') || l.badges?.includes('inseason') || l.mutation || (RAR[l.rarity]?.t || 0) >= 2 || l.kind === 'fish' || l.kind === 'bird'));
+    const best = open.slice().sort((a, b) => (+b.seller?.sold || 0) - (+a.seller?.sold || 0));
+    // coming soon: a few from every department
+    const byCat = new Map();
+    for (const l of locked) { if (!byCat.has(l.cat)) byCat.set(l.cat, []); byCat.get(l.cat).push(l); }
+    const lists = [...byCat.values()], soon = [];
+    for (let i = 0; soon.length < 10 && lists.some((x) => x.length > i); i++) for (const x of lists) if (x[i] && soon.length < 10) soon.push(x[i]);
+    const shelf = (cls, ic, title, sub, items, go, o) => (items.length ? `<section class="eb-shelf ${cls}"><header class="eb-shh">${px(ic, 2)}<b>${title}</b>${sub ? `<span>${sub}</span>` : ''}${go ? `<button class="eb-more" data-go="${go}">See all${px('arrowR', 2)}</button>` : ''}</header><div class="eb-shrow">${items.map((l) => card(l, o)).join('')}</div></section>` : '');
+    const depts = this._cats().map((c) => {
+      const all = L.filter((l) => l.cat === c.id), o = all.filter((l) => !l.locked).length;
+      return `<button class="eb-dept" data-go="${esc(c.id)}"><span class="eb-depti">${px(c.icon, 3)}</span><span class="eb-deptt"><b>${esc(c.name)}</b><span>${o} in stock${all.length - o ? ` · ${all.length - o} coming` : ''}</span></span></button>`;
+    }).join('');
+    let h = hero ? this._hero(hero) : '';
+    h += shelf('eb-sh-deals', 'bolt', 'Deals of the day', 'prices slashed (then raised)', deals.filter((l) => l !== hero).slice(0, 8), null);
+    h += shelf('eb-sh-new', 'spark', 'Fresh in', 'just hatched, just unboxed', fresh.slice(0, 8), null);
+    h += shelf('eb-sh-best', 'trophy', 'Best sellers', 'the whole forest buys these', best.slice(0, 6), null, { review: true });
+    h += `<section class="eb-shelf eb-sh-depts"><header class="eb-shh">${px('d_tag', 2)}<b>Departments</b><span>${L.length} things for sale</span></header><div class="eb-deptg">${depts}</div></section>`;
+    h += shelf('eb-sh-soon', 'lockpad', 'Coming soon', `${locked.length} more things unlock as you play`, soon, 'soon');
+    this.$grid.innerHTML = h;
+    this._observeWells(this.$grid);
+    this._tickClock(true);
+  }
+  _hero(l) {
+    const pct = this._pct(l), joke = this._joke(l);
+    return `<section class="eb-hero" data-id="${esc(l.id)}" role="button" tabindex="0">
+      <span class="eb-well eb-dwell eb-hwell" data-wid="${esc(l.id)}"><canvas class="eb-art" aria-hidden="true"></canvas>${pct ? `<span class="eb-burst"><b>-${pct}%</b></span>` : ''}</span>
+      <span class="eb-hinfo">
+        <span class="eb-kick">${px('bolt', 2)}<b>Deal of the day</b></span>
+        <b class="eb-ht">${esc(this._short(l))}</b>
+        ${joke ? `<span class="eb-hj">“${esc(joke)}”</span>` : ''}
+        <span class="eb-rate">${this._stars(+l.seller?.stars || 4.5, 2)}<i>${this._sold(l)}</i></span>
+        <span class="eb-hprice"><span class="eb-tag big">${this._coin(2)}<b>${fmt(l.price)}</b></span>${pct ? `<span class="eb-was"><s>${fmt(l.oldPrice)}</s><em>-${pct}%</em></span>` : ''}</span>
+        <span class="eb-hfoot"><span class="eb-clock">${px('clock', 2)}<span>ends in</span><b class="eb-cd">--:--:--</b></span><span class="eb-hgo">See the deal${px('arrowR', 2)}</span></span>
+      </span>
+    </section>`;
+  }
+  // the deal of the day ends at midnight (a real clock: it keeps ticking while you shop)
+  _tickClock(start = false) {
+    if (start && !this._cdI) this._cdI = setInterval(() => this._tickClock(), 1000);
+    const els = this.el.querySelectorAll('.eb-cd');
+    if (!els.length) { clearInterval(this._cdI); this._cdI = 0; return; }
+    const d = new Date(), end = new Date(d); end.setHours(24, 0, 0, 0);
+    let t = Math.max(0, Math.floor((end - d) / 1000));
+    const hh = String(Math.floor(t / 3600)).padStart(2, '0'); t %= 3600;
+    const txt = `${hh}:${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+    for (const e of els) e.textContent = txt;
   }
   _cascade() {
     if (!this.$grid) return;
@@ -710,10 +841,14 @@ class EBuy {
   }
   _renderCats() {
     const cats = this._cats();
-    const html = cats.map((c) => {
-      const n = this.listings.filter((l) => l.cat === c.id && !l.locked).length;
-      return `<button class="eb-cat${!this.q && c.id === this.cat ? ' on' : ''}" data-cat="${esc(c.id)}" title="${esc(c.name)}"><span class="eb-cati">${px(c.icon, 2)}</span><span class="eb-catn">${esc(c.name)}</span><i class="eb-catc">${n || ''}</i></button>`;
-    }).join('');
+    const btn = (c, open, soon, cls = '') => `<button class="eb-cat${cls}${!this.q && c.id === this.cat ? ' on' : ''}" data-cat="${esc(c.id)}" title="${esc(c.name)}"><span class="eb-cati">${px(c.icon, 2)}</span><span class="eb-catn">${esc(c.name)}</span>${open || soon ? `<span class="eb-catk">${open ? `<i class="eb-catc" title="in stock">${open}</i>` : ''}${soon ? `<i class="eb-catl" title="coming soon">${px('lockpad', 1)}${soon}</i>` : ''}</span>` : ''}</button>`;
+    const nSoon = this.listings.filter((l) => l.locked).length;
+    // [v33 kit] the front page first, every department with what's in stock and what's coming, then coming soon
+    const html = btn(HOME, 0, 0, ' eb-cat-home') + cats.map((c) => {
+      const all = this.listings.filter((l) => l.cat === c.id);
+      const open = all.filter((l) => !l.locked).length;
+      return btn(c, open, all.length - open);
+    }).join('') + (nSoon ? btn(SOON, 0, nSoon, ' eb-cat-soon') : '');
     if (html !== this._catsHtml) { this.$cats.innerHTML = html; this._catsHtml = html; }
   }
   _pips(l) {
@@ -732,7 +867,7 @@ class EBuy {
     if (!b) return '';
     return `<span class="eb-bdg b-${b}">${BADGES[b].ic ? px(BADGES[b].ic, 2) : ''}<b>${BADGES[b].t}</b></span>`;
   }
-  _card(l, i, inCart = 0) {
+  _card(l, i, inCart = 0, o = {}) {
     const mk = mutKey(l.mutation);
     const soldout = l.stock === 0;
     const locked = l.locked;
@@ -749,6 +884,8 @@ class EBuy {
         ${inCart ? `<span class="eb-inc">${px('cartW', 2)}<b>${inCart}</b></span>` : ''}
       </span>
       <span class="eb-nm">${esc(this._short(l))}</span>
+      ${locked ? '' : `<span class="eb-rate">${this._stars(+l.seller?.stars || 4.5, 1)}<i>${this._sold(l)}</i></span>`}
+      ${o.review && !locked ? (() => { const r = this._reviews(l, 1)[0]; return `<span class="eb-crev"><q>${esc(r.text)}</q><i>${esc(r.who)}</i></span>`; })() : ''}
       <span class="eb-row">${row}</span>
     </div>`;
   }
@@ -827,7 +964,7 @@ class EBuy {
     const badges = (l.badges || []).filter((b) => BADGES[b]).sort((a, b) => BADGE_ORDER.indexOf(a) - BADGE_ORDER.indexOf(b)).slice(0, 2)
       .map((b) => `<span class="eb-bdg b-${b}">${BADGES[b].ic ? px(BADGES[b].ic, 2) : ''}<b>${BADGES[b].t}</b></span>`).join('');
     const buy = l.locked
-      ? `<div class="eb-dlock">${px('lockpad', 4)}<span><b>Locked</b><span>${esc(l.locked.reason || 'Not yet')}</span></span></div>`
+      ? `<div class="eb-dlock">${this._lockIc(l, 4)}<span class="eb-dlt"><b>Coming soon</b><span class="eb-dwhy">${esc(this._why(l))}</span><small>${esc(this._howTo(l))}</small></span></div>`
       : `<div class="eb-dprice"><span class="eb-tag big">${this._coin(2)}<b>${fmt(l.price)}</b></span>${pct ? `<span class="eb-was"><s>${fmt(l.oldPrice)}</s><em>-${pct}%</em></span>` : ''}</div>
          <div class="eb-qrow">
            <div class="eb-step"><button class="eb-minus" aria-label="less">${px('minus', 2)}</button><b class="eb-qty">${this.qty}</b><button class="eb-plus" aria-label="more">${px('plusb', 2)}</button></div>
@@ -848,13 +985,23 @@ class EBuy {
         <div class="eb-dr">
           <div class="eb-dtop"><button class="eb-dback eb-back" aria-label="back">${px('back', 2)}<span>Back</span></button><span class="eb-dcat">${px(c.icon, 1)}${esc(c.name)}</span></div>
           <h2 class="eb-dt">${esc(this._short(l))}</h2>
-          ${joke ? `<p class="eb-joke">“${esc(joke)}”${sel?.name ? `<cite>${esc(sel.name)} ${px('starbm', 1)}${(+sel.stars || 4.5).toFixed(1)}</cite>` : ''}</p>` : ''}
-          <div class="eb-stats">${this._stats(l)}</div>
+          ${joke ? `<p class="eb-joke">“${esc(joke)}”</p>` : ''}
           <div class="eb-buybox">${buy}</div>
+          <div class="eb-stats">${this._stats(l)}</div>
+          ${this._revBlock(l)}
         </div>
       </div>`;
     this._observeWells(this.$det);
     this._updateTotal();
+  }
+  // [v33 kit] customer reviews under the buy box
+  _revBlock(l) {
+    const st = +l.seller?.stars || 4.5;
+    const revs = this._reviews(l, l.locked ? 1 : 2);
+    return `<div class="eb-revs">
+      <div class="eb-revh">${this._stars(st, 2)}<b>${st.toFixed(1)}</b><span>${esc(this._sold(l))}${l.seller?.name ? ` · sold by <u>${esc(l.seller.name)}</u>` : ''}</span></div>
+      ${revs.map((r) => `<div class="eb-rev"><span class="eb-revw">${this._stars(r.stars, 1)}<b>${esc(r.who)}</b></span><q>${esc(r.text)}</q></div>`).join('')}
+    </div>`;
   }
   _step(d) {
     const l = this._byId(this.cur);

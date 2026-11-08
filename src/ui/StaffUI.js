@@ -353,7 +353,7 @@ export class StaffUI {
     const k = sys.keyOf(s);
     const res = sys.residents(s), beds = sys.bedsOf(s);
     el.innerHTML = `<div class="sf-head"><div class="sf-hl"></div><div class="sf-hr"></div></div><div class="sf-form"></div>
-      <div class="sf-cols sf-bcols"><span>Lives here</span><span>Name</span><span>Sleeps at</span><span>Mood</span></div><div class="sf-rows sf-pick"></div>`;
+      <div class="sf-cols sf-bcols"><span>Lives here</span><span>Name</span><span>Sleeps at</span><span>Mood</span></div><div class="sf-rows sf-pick sf-b"></div>`;
     el.querySelector('.sf-hl').append(cb.title('Bunk List'), cb.print(`${s.def.name} · lights out at dusk`, { cls: 'sf-sub', size: 's' }));
     el.querySelector('.sf-hr').appendChild(cb.stamp(res.length >= beds ? 'FULL' : 'VACANCY', res.length >= beds ? '#b8282c' : '#2f8f4a', { rot: 7, seed: 13 }));
     const bedBoxes = document.createElement('span');

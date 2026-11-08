@@ -263,6 +263,7 @@ export class Fox {
 // the flowers, dragonflies over the water, frogs croaking on the shore,
 // squirrels darting between trees, moths at night, and V-flocks of geese.
 const SONGBIRDS = ['bluejay', 'cardinal', 'chickadee', 'robin', 'grayjay', 'crow'];
+const PERCH = new Set(['bench', 'birdhouse', 'birdbath', 'fence', 'mailbox', 'gnome', 'flag', 'arch', 'pinwheel', 'feeder', 'birdfeeder', 'waitbench', 'picnic', 'picnictable', 'stonelantern', 'scarecrow']); // [v33 town] songbirds sit on these
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -326,6 +327,15 @@ export class Ambient {
 
   meadowPoint() {
     const g = this.game.grid;
+    // [v33 town] wherever you're looking on your land (a neighbour's yard too), else the meadow
+    const cam = this.game.rig?.target;
+    if (cam) for (let k = 0; k < 16; k++) {
+      const x = cam.x + rand(-11, 11), z = cam.z + rand(-7, 8);
+      const tx = Math.floor(x), tz = Math.floor(z);
+      if (!g.inb(tx, tz)) continue;
+      const i = tz * g.w + tx;
+      if (g.meadow[i] && !g.isWater(tx, tz) && g.occ[i] < 0 && g.deco[i] < 0) return { x, z };
+    }
     for (let k = 0; k < 20; k++) {
       const x = rand(MEADOW.x0 + 4, MEADOW.x1 - 4), z = rand(MEADOW.z0 + 4, MEADOW.z1 - 3);
       const i = Math.floor(z) * g.w + Math.floor(x);
@@ -337,11 +347,57 @@ export class Ambient {
   scanShore() {
     const g = this.game.grid;
     this.shore.length = 0;
-    for (let z = MEADOW.z0 + 1; z < MEADOW.z1 - 1; z++)
-      for (let x = MEADOW.x0 + 2; x < MEADOW.x1 - 2; x++) {
+    // [v33 town] the pond, plus whatever water is round the camera (a neighbour's pond, the river bank)
+    const cam = this.game.rig?.target;
+    const X0 = Math.max(1, Math.min(MEADOW.x0 + 2, Math.floor((cam?.x ?? 70) - 18))), X1 = Math.min(g.w - 2, Math.max(MEADOW.x1 - 2, Math.ceil((cam?.x ?? 70) + 18)));
+    const Z0 = Math.max(1, Math.min(MEADOW.z0 + 1, Math.floor((cam?.z ?? 40) - 12))), Z1 = Math.min(g.h - 2, Math.max(MEADOW.z1 - 1, Math.ceil((cam?.z ?? 40) + 12)));
+    this.shoreLocal = [];
+    for (let z = Z0; z < Z1; z++)
+      for (let x = X0; x < X1; x++) {
+        if (!g.meadow[z * g.w + x] && !(x >= MEADOW.x0 + 2 && x < MEADOW.x1 - 2 && z >= MEADOW.z0 + 1 && z < MEADOW.z1 - 1)) continue;
         if (g.isWater(x, z) || g.occ[z * g.w + x] >= 0 || g.deco[z * g.w + x] >= 0) continue;
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (g.isWater(x + dx, z + dz)) { this.shore.push({ x: x + 0.5 + dx * 0.3, z: z + 0.5 + dz * 0.3, wx: x + dx + 0.5, wz: z + dz + 0.5 }); break; }
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (g.isWater(x + dx, z + dz)) {
+          const p = { x: x + 0.5 + dx * 0.3, z: z + 0.5 + dz * 0.3, wx: x + dx + 0.5, wz: z + dz + 0.5 };
+          // the pond's own shore stays the list the neighbours sit / fish at; frogs use the camera's too
+          if (x >= MEADOW.x0 + 2 && x < MEADOW.x1 - 2 && z >= MEADOW.z0 + 1 && z < MEADOW.z1 - 1) this.shore.push(p);
+          if (!cam || (Math.abs(p.x - cam.x) < 18 && Math.abs(p.z - cam.z) < 12)) this.shoreLocal.push(p);
+          break;
+        }
       }
+  }
+
+  // [v33 town] the weather the critters react to
+  wet() {
+    const S = this.game.seasons;
+    const w = S?.weather;
+    return (w === 'rain' || w === 'storm') && (S.intensity ?? 1) > 0.3;
+  }
+
+  // [v33 town] places a songbird can sit on: benches, birdhouses, fences, mailboxes, signposts...
+  perches() {
+    const game = this.game;
+    if (this._perchT && game.time - this._perchT < 8) return this._perch;
+    this._perchT = game.time;
+    const cam = game.rig?.target || { x: 70, z: 40 };
+    const out = [];
+    const box = this._pbox || (this._pbox = new THREE.Box3());
+    const top = (o) => { if (!o) return null; if (o.userData._perchTop == null) { o.updateMatrixWorld(true); box.setFromObject(o); o.userData._perchTop = box.isEmpty() ? null : box.max.y; } return o.userData._perchTop; };
+    for (const s of game.structures.list) {
+      if (!s.built || s.removed || !s.obj || !PERCH.has(s.type)) continue;
+      if (Math.abs(s.x - cam.x) > 15 || Math.abs(s.z - cam.z) > 11) continue;
+      const y = top(s.obj);
+      if (y != null) out.push({ x: s.x + 0.5, z: s.z + 0.5, y: y - 0.02 });
+    }
+    for (const v of game.villagers?.list || []) {
+      if (!v.props?.visible || Math.abs(v.x - cam.x) > 15 || Math.abs(v.z - cam.z) > 11) continue;
+      for (const c of v.props.children) {
+        if (!/sign|mail/i.test(c.name || '')) continue;
+        const y = top(c);
+        if (y != null) out.push({ x: c.position.x, z: c.position.z, y: y - 0.02 });
+      }
+    }
+    this._perch = out;
+    return out;
   }
 
   placeLoon(l) {
@@ -432,13 +488,18 @@ export class Ambient {
       while (this.birds.length < want) this.birds.push(this.newBird(false));
     }
     const dayish = night < 0.55;
+    const wet = this.wet(); // [v33 town] rain: birds shelter, butterflies hide, frogs sing
     for (let i = 0; i < this.birds.length; i++) {
       const b = this.birds[i];
       b.t -= dt;
       if (b.state === 'away') {
         const owl = !dayish && Math.random() < 0.08;
-        if (b.t <= 0 && (dayish || owl)) {
-          const p = this.meadowPoint();
+        if (b.t <= 0 && (dayish || owl) && !wet) {
+          // [v33 town] some land on a bench back, a birdhouse, a signpost...
+          const per = Math.random() < 0.35 ? this.perches() : null;
+          const pp = per?.length ? pick(per) : null;
+          const p = pp && !this.birds.some((o) => o.perch === pp) ? pp : this.meadowPoint();
+          b.perch = p === pp ? pp : null;
           if (p) {
             // fly in from off to the side and land on the target
             const a = Math.random() * Math.PI * 2;
@@ -452,7 +513,7 @@ export class Ambient {
       if (b.state === 'in') {
         const dx = b.tx - b.x, dz = b.tz - b.z, d = Math.hypot(dx, dz);
         const sp = 5;
-        if (d < 0.15) { b.state = 'land'; b.y = 0; b.t = rand(1, 3); }
+        if (d < 0.15) { b.state = 'land'; b.y = 0; b.t = rand(1, 3); if (b.perch && Math.random() < 0.5) game.audio.play('bird_chirp', { volume: 0.1, pitch: rand(1, 1.4) }); }
         else { b.x += (dx / d) * Math.min(d, sp * dt); b.z += (dz / d) * Math.min(d, sp * dt); b.y = Math.min(7, d * 0.5); b.face = this.faceOf(dx, dz, b.face); }
       } else if (b.state === 'out') {
         b.x += b.vx * dt; b.z += b.vz * dt; b.y += b.vy * dt; b.vy += dt * 1.5;
@@ -460,7 +521,9 @@ export class Ambient {
       } else {
         // on the ground
         const th = this.threat(b.x, b.z);
-        if (th < 1.8 || (!dayish && !b.night) || (dayish && b.night)) {
+        const far = Math.random() < dt * 0.2 && this.game.rig?.target && Math.hypot(b.x - this.game.rig.target.x, b.z - this.game.rig.target.z) > 26; // [v33 town] left behind off screen: fly on
+        if (th < 1.8 || (!dayish && !b.night) || (dayish && b.night) || (wet && Math.random() < dt * 0.8) || far) {
+          b.perch = null;
           const a = Math.atan2(b.z - game.fox.z, b.x - game.fox.x) + rand(-0.6, 0.6);
           b.state = 'out'; b.vx = Math.cos(a) * 4; b.vz = Math.sin(a) * 4; b.vy = 2.5; b.face = this.faceOf(b.vx, b.vz, b.face);
           parts.feathers?.(b.x, 0.2 + g.groundAt(b.x, b.z), b.z, 2);
@@ -474,7 +537,7 @@ export class Ambient {
           if (b.hop <= 0) { b.y = 0; b.state = 'land'; }
         } else if (b.t <= 0) {
           const r = Math.random();
-          if (r < 0.45) {
+          if (r < 0.45 && !b.perch) {
             const a = Math.random() * Math.PI * 2;
             b.vx = Math.cos(a) * 1.2; b.vz = Math.sin(a) * 1.2; b.hop = 0.25; b.face = this.faceOf(b.vx, b.vz, b.face);
             const nx = Math.floor(b.x + b.vx * 0.25), nz = Math.floor(b.z + b.vz * 0.25);
@@ -486,7 +549,7 @@ export class Ambient {
         }
       }
       if (b.state === 'away') continue;
-      const gy = g.groundAt(b.x, b.z);
+      const gy = b.perch && b.state !== 'out' ? b.perch.y : g.groundAt(b.x, b.z); // [v33 town] perched
       const y = Math.max(gy, b.y > 0.2 ? Math.max(gy, 0) + b.y : gy + b.y);
       const fl = { flip: b.face < 0 };
       if (b.state === 'in' || b.state === 'out') this.draw(`${b.sp}_fly`, Math.floor(T * 12 + b.seed), b.x, y, b.z, { ...fl, ay: 0.5 });
@@ -496,7 +559,9 @@ export class Ambient {
     }
 
     // ---- butterflies and bees drift between flowers (moths by night)
+    this.localFlowers(dt); // [v33 town] the flowers round the camera (your land anywhere)
     for (const f of this.flutter) {
+      if (wet) { f.t = 0; continue; } // [v33 town] sheltering from the rain
       f.t -= dt;
       if (f.t <= 0 && this.flowerSpots.length) {
         const s = pick(this.flowerSpots);
@@ -522,7 +587,7 @@ export class Ambient {
         .map((s) => ({ x: s.x + 0.5, z: s.z + 0.5, y: s.type === 'cattail' ? game.structures.baseY(s) + 1.25 : WATER_Y + 0.06 }));
     }
     for (const d of this.dragons) {
-      if (night > 0.6) break;
+      if (night > 0.6 || wet) break;
       if (!d.placed) { const p = this.game.fish.randomWaterPoint(-1); if (!p) continue; Object.assign(d, { x: p.x, z: p.z, y: 0.45, placed: true, mode: 'hover', t: rand(0.5, 1.5) }); }
       d.t -= dt;
       if (d.t <= 0) {
@@ -581,10 +646,16 @@ export class Ambient {
     }
 
     // ---- frogs on the shore croak, and plop into the water when startled
+    const fl = this.shoreLocal?.length ? this.shoreLocal : this.shore; // [v33 town]
+    const wantFrogs = wet || (hour > 18 && hour < 21) ? 6 : 3;
+    while (this.frogs.length < wantFrogs) this.frogs.push({ x: 0, z: 0, placed: false, t: rand(1, 4), croak: 0, jump: 0, seed: Math.random() * 9 });
+    if (this.frogs.length > wantFrogs && !this.frogs[this.frogs.length - 1].placed) this.frogs.pop();
     for (const f of this.frogs) {
+      const cam = game.rig?.target;
+      if (f.placed && cam && fl.length && Math.hypot(f.x - cam.x, f.z - cam.z) > 24 && !f.jump) f.placed = false; // [v33 town] follow the camera
       if (!f.placed) {
-        if (!this.shore.length) continue;
-        const s = pick(this.shore);
+        if (!fl.length) continue;
+        const s = pick(fl);
         Object.assign(f, { x: s.x, z: s.z, wx: s.wx, wz: s.wz, placed: true, jump: 0, face: Math.random() < 0.5 ? 1 : -1 });
       }
       if (f.jump > 0) {
@@ -598,7 +669,7 @@ export class Ambient {
       if (f.hidden > 0) { f.hidden -= dt; if (f.hidden > 0) { f.placed = false; continue; } }
       if (this.threat(f.x, f.z) < 1.6) { f.jump = 0.4; f.face = this.faceOf(f.wx - f.x, f.wz - f.z, f.face); continue; }
       f.t -= dt;
-      if (f.t <= 0) { f.t = rand(3, 9); f.croak = 0.8; if (Math.random() < 0.5) game.audio.play('frog_croak', { volume: 0.18, pitch: rand(0.85, 1.15) }); }
+      if (f.t <= 0) { f.t = wet ? rand(1.2, 4) : rand(3, 9); f.croak = 0.8; if (Math.random() < (wet ? 0.7 : 0.5)) game.audio.play('frog_croak', { volume: 0.18, pitch: rand(0.85, 1.15) }); }
       const gy = g.groundAt(f.x, f.z);
       if (f.croak > 0) { f.croak -= dt; this.draw('frog_croak', Math.floor(T * 6), f.x, gy, f.z, { flip: f.face < 0 }); }
       else this.draw('frog_idle', Math.floor(T * 0.8 + f.seed), f.x, gy, f.z, { flip: f.face < 0 });
@@ -606,7 +677,7 @@ export class Ambient {
 
     // ---- squirrels dash from tree to tree
     for (const q of this.squirrels) {
-      if (!this.treeSpots.length || night > 0.6) break;
+      if (!this.treeSpots.length || night > 0.6 || wet) break;
       if (!q.placed) { const d = pick(this.treeSpots); q.x = d.x + 0.5; q.z = d.z + 0.9; q.placed = true; }
       q.t -= dt;
       if (q.run <= 0 && (q.t <= 0 || this.threat(q.x, q.z) < 1.5)) {
@@ -653,7 +724,7 @@ export class Ambient {
     B.commit();
 
     // fireflies at night over the meadow
-    if (night > 0.4 && Math.random() < dt * 6 * night) {
+    if (night > 0.4 && !wet && Math.random() < dt * 6 * night) {
       const x = MEADOW.x0 + 4 + Math.random() * (MEADOW.x1 - MEADOW.x0 - 8), z = MEADOW.z0 + 3 + Math.random() * (MEADOW.z1 - MEADOW.z0 - 6);
       if (!g.isWater(Math.floor(x), Math.floor(z))) parts.firefly(x, 0.4 + Math.random() * 1.2, z);
     }
@@ -782,10 +853,35 @@ export class Ambient {
       parts.leaf(p.x, g.groundAt(p.x, p.z) + 2.6 + Math.random() * 1.6, p.z, cols[Math.floor(Math.random() * 3)]);
     }
     // fireflies in the glades at night
-    if (night > 0.4 && F.glades.length && Math.random() < dt * 4 * night) {
+    if (night > 0.4 && F.glades.length && !this.wet() && Math.random() < dt * 4 * night) {
       const p = tileXZ(F.glades[Math.floor(Math.random() * F.glades.length)], Math.random(), Math.random());
       parts.firefly(p.x, g.groundAt(p.x, p.z) + 0.3 + Math.random() * 1.1, p.z);
     }
+  }
+
+  // [v33 town] butterflies + bees follow the camera across your land: flowers round it now and
+  // then, and anyone left far behind off screen flits over to one of them
+  localFlowers(dt) {
+    const game = this.game, g = game.grid;
+    this._flT = (this._flT || 0) - dt;
+    if (this._flT > 0) return;
+    this._flT = 3;
+    const cam = game.rig?.target;
+    if (!cam) return;
+    const inMeadow = cam.x > MEADOW.x0 && cam.x < MEADOW.x1 && cam.z > MEADOW.z0 && cam.z < MEADOW.z1;
+    if (inMeadow && this._flHome) return;
+    const L = [];
+    for (const c of game.world.clutter) {
+      if (c.removed || c.type === 'tuft' || c.type === 'fern' || Math.abs(c.x - cam.x) > 14 || Math.abs(c.z - cam.z) > 10) continue;
+      const i = Math.floor(c.z) * g.w + Math.floor(c.x);
+      if (g.meadow[i]) L.push(c);
+    }
+    if (inMeadow) { this._flHome = true; if (!this._flMeadow) this._flMeadow = this.flowerSpots; this.flowerSpots = this._flMeadow; return; }
+    this._flHome = false;
+    if (L.length < 3) return;
+    this._flMeadow ||= this.flowerSpots;
+    this.flowerSpots = L;
+    for (const f of this.flutter) if (Math.hypot(f.x - cam.x, f.z - cam.z) > 22) { const c = pick(L); f.x = c.x + rand(-3, 3); f.z = c.z + rand(-2, 2); f.t = 0; }
   }
 
   nearBear(x, z) {

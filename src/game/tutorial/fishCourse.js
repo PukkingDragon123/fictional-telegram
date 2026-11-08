@@ -84,6 +84,7 @@ export async function firstFish(T) {
     c.mark(girl, { label: N[1].toUpperCase(), color: 'pink', arrow: false });
     await c.say(c.fox, N[2], { style: 'laugh', close: 0.011 });
   }, { id: 'tut:meet' });
+  T.frame(midOf(boy, girl), 0.022); // the camera stays on the new pair
 }
 
 // ===================================================================== PART 2: FEEDING TIME
@@ -95,7 +96,7 @@ export async function feeding(T) {
     await c.walkNear(midOf(two[0], two[1])());
     c.hold('pellets');
     c.fox.act('present_trophy', 1.7);
-    c.low(c.fox, { zoom: 0.0105, pitch: 0.34, lift: game.fox.y + 1.05 });
+    c.low(c.fox, { zoom: 0.0115, pitch: 0.34, lift: game.fox.y + 0.8 });
     c.sfx('star_pop', { volume: 0.35 });
     await c.beat(1.3);
     await c.say(c.fox, '*Fish Pellets.* Crunchy. Nutritious. Legally food.', { style: 'excited' });
@@ -139,6 +140,7 @@ export async function feedPair(T, two, { first = false } = {}) {
   try { game.foodStore.select('pellets'); } catch { /* ignore */ }
   game.ui?.syncFoodPicker?.();
   T.force('feed');
+  T.frame(midOf(two[0], two[1]), 0.02);
   const stops = two.map((f, i) => G.mark(f, { color: i ? 'pink' : 'blue' }));
   T.teach(first ? '<b>Tap the water</b> near the fish! Watch their ♥ fill up.' : 'Feed them again: <b>tap the water</b> by them!', { target: () => T.fishScreen(two[0]), dur: 6 });
   T.nag(() => 'Tap the water near the fish to feed them!');
@@ -157,6 +159,7 @@ export async function feedPair(T, two, { first = false } = {}) {
     stops.forEach((s) => s());
     T.force(null);
     T.clearChalk();
+    T.frame(null);
   }
 }
 
@@ -167,7 +170,7 @@ export async function fishScope(T) {
   await T.cine(async (c) => {
     c.hold('scope');
     c.fox.act('present_trophy', 1.6);
-    c.low(c.fox, { zoom: 0.0105, pitch: 0.34, lift: game.fox.y + 1.05 });
+    c.low(c.fox, { zoom: 0.0115, pitch: 0.34, lift: game.fox.y + 0.8 });
     c.sfx('star_pop', { volume: 0.35 });
     await c.beat(1.3);
     await c.say(c.fox, 'Behold: the *Fish Scope*. My finest invention. Patent pending. Forever.', { style: 'excited' });
@@ -176,6 +179,7 @@ export async function fishScope(T) {
   }, { id: 'tut:scope' });
   game.setTool({ kind: 'feed' });
   T.force('feed');
+  T.frame(midOf(two[0], two[1]), 0.018);
   const ms = two.map((f, i) => G.mark(f, { color: i ? 'pink' : 'blue', label: 'TAP ME' }));
   T.teach('<b>Tap a fish</b> to scan it!', { target: () => T.fishScreen(two[1]), dur: 5, mood: 'excited' });
   T.nag(() => 'Tap one of the fish to open the Fish Scope!');
@@ -190,6 +194,7 @@ export async function fishScope(T) {
     T.stopNag();
     ms.forEach((s) => s());
     T.clearChalk();
+    T.frame(null);
   }
   await T.hideTeacher();
   await scopeTour(T);
@@ -293,6 +298,7 @@ export async function fishCare(T) {
   await T.part(4, 'Fish Care');
   // ---- petting
   const loved = () => two.some((f) => live(f) && f.love >= 0.99);
+  T.frame(midOf(two[0], two[1]), 0.018);
   let ms = [];
   await T.hud('pet', {
     line: '<b>PET</b>. Yes, we pet fish. Happy fish make <b>fancy</b> babies.', mood: 'happy',
@@ -371,6 +377,7 @@ export async function fishCare(T) {
 
   // ---- tags
   const girl = two.find((f) => live(f) && f.g.sex === 'F') || two.find(live);
+  T.frame(midOf(two[0], two[1]), 0.018);
   let tagMs = [];
   await T.hud('tag', {
     line: '<b>DO NOT EAT</b> tags. Bears can read. Mostly.', mood: 'scheming',
@@ -408,6 +415,7 @@ export async function fishCare(T) {
 
   // ---- carry
   const heldAny = () => game.fish.list.some((f) => f.held);
+  T.frame(midOf(two[0], two[1]), 0.018);
   await T.hud('hand', {
     line: '<b>CARRY</b>. Grab a fish, drag it anywhere. Matchmaking, eviction... moving day.', mood: 'happy',
     tryLine: 'Tap <b>CARRY</b>, then press on a fish and drag it!',
@@ -422,6 +430,7 @@ export async function fishCare(T) {
     fallback: async () => { G.bark('You\'ll get the hang of it. Moving on!', { mood: 'happy' }); },
   });
   T.force(null);
+  T.frame(null);
   game.setTool({ kind: 'feed' });
 }
 
@@ -466,7 +475,7 @@ export async function loveEggs(T) {
       await c.walkNear(e);
       c.hold('egg');
       c.fox.act('present_trophy', 1.4);
-      c.low(c.fox, { zoom: 0.0105, pitch: 0.34, lift: game.fox.y + 1.05 });
+      c.low(c.fox, { zoom: 0.0115, pitch: 0.34, lift: game.fox.y + 0.8 });
       await c.beat(1.2);
       await c.say(c.fox, 'EGGS! Little orange money beans.', { style: 'excited' });
       c.ots(e, { zoom: 0.012 });
@@ -501,7 +510,7 @@ export async function loveEggs(T) {
     if (!seen.hatch) {
       const ready = game.fish.eggs.find((e) => e.ready) || game.fish.eggs.find((e) => !e.bought);
       if (ready && !ready.ready) { ready.t = 0; ready.ready = true; }
-      if (ready) { game.ui?.stopTracking?.(); game.rig.lookAt(ready.x, ready.z); }
+      if (ready) { game.ui?.stopTracking?.(); T.frame(ready, 0.018); }
       game.quickEggs = false;
       await T.wait(0.6);
       const st = ready ? G.mark(ready, { label: 'TAP!', color: 'gold' }) : null;
@@ -518,6 +527,7 @@ export async function loveEggs(T) {
       T.stopNag();
       stop?.();
       st?.();
+      T.frame(null);
     }
   }
   game.quickEggs = false;
@@ -547,7 +557,7 @@ export async function genesMoney(T) {
   const [mum, dad] = two[0]?.g?.sex === 'F' ? two : [two[1], two[0]];
   const sp = (T.baby || mum || dad)?.sp || SPECIES_BY_ID.bluegill;
   await T.cine(async (c) => {
-    c.low(c.fox, { zoom: 0.011, pitch: 0.36, lift: game.fox.y + 1.05 });
+    c.low(c.fox, { zoom: 0.0115, pitch: 0.36, lift: game.fox.y + 0.8 });
     c.expr('scheming', 3);
     const v = await c.ask(c.fox, 'Want the *secret* stuff? Genes. Money. Bear gossip.', [
       { label: 'Tell me everything', value: 'yes' },

@@ -160,7 +160,9 @@ export class Guide {
     c.walkNear = (t, o) => G.walkNear(t, o);
     c.point = (t, o) => G.point(t, o);
     c.unpoint = () => G.unpoint();
-    c.hold = (n, o) => G.hold(n, o);
+    /** turn to the camera (to show something off) */
+    c.faceCam = () => { const f = G.fox, y = rig.yawGoal ?? rig.yaw ?? 0; if (f) G.face(f.x + Math.sin(y) * 6, f.z + Math.cos(y) * 6); };
+    c.hold = (n, o) => { const p = G.hold(n, o); c.faceCam(); return p; };
     c.drop = () => G.drop();
     c.mark = (t, o) => G.mark(t, o);
     c.expr = (n, h) => G.expr(n, h);

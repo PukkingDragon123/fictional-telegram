@@ -59,7 +59,7 @@
 .pc-corner .pc-de-b { position: absolute; right: 0; bottom: 0; }
 .pc-corner:hover .pc-de-s, .pc-corner:focus-visible .pc-de-s { display: none; }
 .pc-corner:hover .pc-de-b, .pc-corner:focus-visible .pc-de-b { display: block; }
-.pc-tab { outline: none; }
+.pc-tab { position: absolute; outline: none; }
 .pc-tab:hover, .pc-tab:focus-visible { transform: translateX(calc(var(--P) * 2)); }
 .pc-tab.on { cursor: default; }
 .pc-tab.past { filter: none; }

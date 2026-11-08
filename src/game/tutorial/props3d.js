@@ -14,7 +14,7 @@ import { VoxelModel, voxelMaterial, shade, mix } from '../../core/voxel.js';
 import { fishVoxels } from '../../entities/fishModels.js';
 import { SPECIES_BY_ID } from '../../data/species.js';
 
-const FV = 0.022; // world units per prop voxel (the fox is 0.05 * 0.85)
+const FV = 0.03; // world units per prop voxel (the fox is 0.05 * 0.85): props read clearly in the close-ups
 const h3 = (x, y, z) => { let h = (x * 374761393 + y * 668265263 + z * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
 function meshOf(vm, scale = FV) {
@@ -177,7 +177,7 @@ export function makeProp(name, o = {}) {
   try {
     if (name === 'fish') {
       const vm = fishVoxels(fishModel(o.species || 'bluegill', o.male !== false), !!o.golden);
-      const g = meshOf(vm, o.scale || 0.021);
+      const g = meshOf(vm, o.scale || 0.027);
       g.rotation.y = o.turn ?? -0.35; // three-quarter view: the face toward us
       g.userData.kind = 'fish';
       return g;
