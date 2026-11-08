@@ -370,7 +370,7 @@ export class LandAnimals {
       const hop = a.anim === 'move' && (ART[a.art]?.gait === 'hop' || a.sp.move === 'hop') && a.hopFrame != null;
       const idx = hop ? Math.min(fr.length - 1, a.hopFrame) : Math.floor((this.time + a.seed) * fps) % fr.length;
       const sz = (LAND_BY_ID[a.sp.id]?.size ? 1 : 1) * a.scale;
-      B.push(fr[idx], a.x, a.y + a.hopY, a.z, { texels: 24, scale: sz, flip: a.face < 0 });
+      B.push(fr[idx], a.x, a.y + a.hopY, a.z, { texels: 34, scale: sz, flip: a.face < 0 }); // [v33] smaller (was 24)
     }
     B.commit();
   }
