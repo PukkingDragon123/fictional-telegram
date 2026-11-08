@@ -390,9 +390,8 @@ class EBuy {
                 <nav class="eb-side">
                   <b class="eb-sideh">Departments</b>
                   <div class="eb-cats"></div>
-                  ${adSky(this._A)}
                   <div class="eb-promo">
-                    <span class="eb-pmoose">${px('moosec', 2)}</span>
+                    <span class="eb-pmoose">${this._icon('moose', 3) || px('van', 3)}</span>
                     <b>FREE Moose Express</b>
                     <span>on every order. He insists.</span>
                     ${this.o.orders ? `<button class="eb-ptrack">${px('box', 2)}<span>Track my orders</span></button>` : ''}
@@ -1001,7 +1000,7 @@ class EBuy {
     const html = cats.map((c) => {
       const all = this.listings.filter((l) => l.cat === c.id);
       const n = all.filter((l) => !l.locked).length;
-      return `<button class="eb-cat${!this.q && c.id === this.cat ? ' on' : ''}" data-cat="${esc(c.id)}"><span class="eb-cati">${c.dpx ? px(c.dpx, 2) : this._icon(c.icon, 2) || px('d_tag', 2)}</span><span class="eb-catn">${esc(c.name)}</span><i class="eb-catc">${n || ''}</i></button>`;
+      return `<button class="eb-cat${!this.q && c.id === this.cat ? ' on' : ''}" data-cat="${esc(c.id)}"><span class="eb-cati">${this._icon(c.icon, 2) || px('box', 2)}</span><span class="eb-catn">${esc(c.name)}</span><i class="eb-catc">${n || ''}</i></button>`;
     }).join('');
     if (html !== this._catsHtml) { this.$cats.innerHTML = html; this._catsHtml = html; }
   }
