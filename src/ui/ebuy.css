@@ -1463,3 +1463,69 @@
   .eb-deal { min-height: 0; max-height: 170px; }
   .dl-pic { flex-basis: 36%; }
 }
+
+/* ------------------------------------------------------------ [v33 kit] stickers (src/ui/kit/ebuyStickers.js)
+   each sticker is a frame strip: 0 flat, 1 corner peeled up, 2+ its animation (holo sweep, googly eyes, wink).
+   --w is one frame's width; frames step with background-position (whole CSS px, never scaled or rotated). */
+.eb-stk { position: absolute; display: block; flex: none; z-index: 4; background-repeat: no-repeat; background-position: 0 0; image-rendering: pixelated; pointer-events: auto; cursor: pointer; }
+.eb-stk:hover, .eb-stk.peel, .eb-card:hover .eb-stk, .eb-deal:hover .eb-stk:not(.stk-tape) { background-position: calc(var(--w) * -1) 0; animation: none; }
+.eb-stk.hit { translate: 0 0; animation: stk-hop 0.36s steps(4); }
+@keyframes stk-hop { 0% { translate: 0 0; } 25% { translate: 0 -4px; } 50% { translate: 2px -2px; } 75% { translate: -2px 0; } 100% { translate: 0 0; } }
+.eb-stk.flip { transform: scaleX(-1); }
+.stk-tape, .stk-c { pointer-events: none; cursor: default; }
+.stk-tape:hover { background-position: 0 0; }
+/* holo foil: a stepped light sweep every few seconds, then a twinkle */
+.stk-holo { animation: stk-holo 4.4s steps(1) infinite; animation-delay: var(--ad, 0s); }
+@keyframes stk-holo {
+  0%, 70% { background-position: 0 0; }
+  72% { background-position: calc(var(--w) * -2) 0; }
+  74% { background-position: calc(var(--w) * -3) 0; }
+  76% { background-position: calc(var(--w) * -4) 0; }
+  78% { background-position: calc(var(--w) * -5) 0; }
+  80% { background-position: calc(var(--w) * -6) 0; }
+  82% { background-position: calc(var(--w) * -7) 0; }
+  84%, 87% { background-position: calc(var(--w) * -8) 0; }
+  88%, 91% { background-position: calc(var(--w) * -9) 0; }
+  92%, 100% { background-position: 0 0; }
+}
+/* googly eyes: a jiggle now and then; a click spins them */
+.stk-googly { animation: stk-goog 3.6s steps(1) infinite; }
+@keyframes stk-goog { 0%, 78% { background-position: 0 0; } 80% { background-position: calc(var(--w) * -2) 0; } 83% { background-position: calc(var(--w) * -3) 0; } 86% { background-position: calc(var(--w) * -2) 0; } 89% { background-position: calc(var(--w) * -3) 0; } 92%, 100% { background-position: 0 0; } }
+.stk-googly.spin { animation: stk-spin 0.36s steps(1) 3; }
+@keyframes stk-spin { 0% { background-position: calc(var(--w) * -4) 0; } 25% { background-position: calc(var(--w) * -5) 0; } 50% { background-position: calc(var(--w) * -7) 0; } 75% { background-position: calc(var(--w) * -6) 0; } 100% { background-position: calc(var(--w) * -4) 0; } }
+.stk-wink.wink { background-position: calc(var(--w) * -2) 0; animation: none; }
+/* the gag line and the star's sparks */
+.eb-stkpop { position: absolute; z-index: 40; transform: translate(-50%, -100%); padding: 2px 6px 1px; white-space: nowrap; pointer-events: none; font: 700 13px var(--eb-title); color: var(--eb-ink); background: #fffdf4; box-shadow: 0 0 0 2px var(--eb-ink), 2px 2px 0 2px rgba(42, 26, 20, 0.3); animation: stk-pop 1.5s steps(10) both; }
+@keyframes stk-pop { 0% { transform: translate(-50%, -60%) scale(0.4); opacity: 0; } 12% { transform: translate(-50%, -110%) scale(1.1); opacity: 1; } 20% { transform: translate(-50%, -100%); } 80% { transform: translate(-50%, -130%); opacity: 1; } 100% { transform: translate(-50%, -150%); opacity: 0; } }
+.eb-stkspark { position: absolute; z-index: 41; display: flex; margin: -7px 0 0 -7px; pointer-events: none; animation: stk-spark 0.56s steps(6) forwards; }
+@keyframes stk-spark { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+
+/* the laptop's sticker bomb: stuck across the bezel's edge, some on top of others */
+.eb-stks { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.eb-note { left: -40px; bottom: -4px; width: auto; padding: 0; background: none; transform: none; box-shadow: none; z-index: 7; }
+.eb-note::before { display: none; }
+.eb-note .eb-stk { position: relative; display: block; }
+/* on the product photos and the item page: in the free corners, under nothing you need to read */
+.eb-pic .stk-c { z-index: 2; }
+.stk-ctl { left: 2px; top: 2px; }
+.stk-cbl { left: 2px; bottom: 8px; }
+.eb-well .stk-d { z-index: 4; }
+.stk-d0 { left: 10px; top: 48px; }
+.stk-d1 { left: 10px; top: 104px; }
+.eb-well .stk-pickedBig { left: auto; top: auto; right: 6px; bottom: 10px; }
+/* the shop's own furniture */
+.eb-cart .stk-cart { left: -12px; top: -12px; z-index: 5; }
+.eb-promo .stk-tp { left: calc(50% - 23px); top: -11px; }
+.eb-sky .stk-tl { left: -8px; top: -6px; }
+.eb-sky .stk-tr { right: -8px; top: -7px; }
+.eb-deal .stk-dt { left: 60%; top: -8px; z-index: 5; }
+.eb-paperw .stk-rt { left: calc(50% - 19px); top: -6px; z-index: 6; }
+.eb-club { position: relative; }
+.eb-club .stk-club { right: -8px; top: -14px; }
+@container ebuy (max-width: 640px) {
+  .eb-stks { display: none; }
+  .eb-well .stk-pickedBig { right: 2px; bottom: 4px; }
+}
+@container ebuy (max-height: 480px) and (min-width: 641px) {
+  .eb-stks { display: none; }
+}

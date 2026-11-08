@@ -39,6 +39,7 @@
 import './ebuy.css';
 import { px } from './ebuyPx.js';
 import { adBanner, adSky, adPopup, adUnder, BANNERS, COUPONS, mysteryArt } from './kit/ebuyAds.js'; // [v33 kit] ads, coupons, the mystery box
+import { stkHTML, STK, BEZEL } from './kit/ebuyStickers.js'; // [v33 kit] the sticker bomb
 
 // ---------------------------------------------------------------- helpers
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -303,7 +304,7 @@ class EBuy {
   }
   _dealCard(l) {
     const pct = this._pct(l);
-    return `<button class="eb-deal" data-deal="${esc(l.id)}" style="${this._rarVars(l)}">
+    return `<button class="eb-deal" data-deal="${esc(l.id)}" style="${this._rarVars(l)}">${stkHTML('tapeC', { cls: 'stk-dt' })}
       <span class="dl-kick">${px('flame', 2)}DEAL OF THE DAY${px('flame', 2)}</span>
       <span class="dl-pic"><img class="eb-img" src="${esc(imgSrc(l.image))}" alt="" draggable="false" />${l.cat === 'eggs' && l.kind !== 'fish' ? `<span class="eb-eggm">${this._eggIcon(l, 2)}</span>` : ''}<i class="dl-ped"></i></span>
       <span class="dl-info">
@@ -365,7 +366,8 @@ class EBuy {
       <div class="eb-dev">
         <div class="eb-bezel">
           <i class="eb-cam"></i>
-          <div class="eb-note"><b>pw:</b> money<br>money123</div>
+          <div class="eb-stks"></div>
+          <div class="eb-note" aria-label="sticky note: pw money123"></div>
           <div class="eb-screen">
             <div class="eb-app">
               <div class="eb-chrome">
@@ -501,6 +503,7 @@ class EBuy {
       started = true;
       el.classList.add('eb-go');
       this._startBoot(mode);
+      this._later(() => this._fillBezel(), 30); // [v33 kit] the laptop's stickers, painted once the lid is moving
     };
     requestAnimationFrame(() => requestAnimationFrame(go));
     this._later(go, 300); // hidden tab: no frames
@@ -603,6 +606,9 @@ class EBuy {
   _click(e) {
     const t = e.target;
     if (!this.booted) return this._finishBoot();
+    // [v33 kit] a sticker (on the laptop, the item page, the cart, the club card) plays its gag
+    const stkEl = t.closest('[data-stk]');
+    if (stkEl && !stkEl.closest('.eb-card, .eb-deal')) { e.stopPropagation(); return this._stkGag(stkEl); }
     // [v33 kit] ads: close buttons first (the pop-up's runs away once), then the ads themselves
     const adx = t.closest('[data-adx]');
     if (adx) { e.stopPropagation(); return this._adClose(adx.dataset.adx, adx); }
@@ -937,6 +943,8 @@ class EBuy {
     this._renderCats();
     const scope = this._scope();
     const list = this._filtered(scope);
+    // [v33 kit] the top sellers in view get a BEST SELLER sticker
+    this._best = new Set(list.filter((l) => !l.locked && l.stock !== 0 && l.seller?.sold).sort((a, b) => b.seller.sold - a.seller.sold).slice(0, Math.max(1, Math.round(list.length / 9))).map((l) => l.id));
     // header + filters
     this.$h.textContent = this.q ? `“${this.q}”` : this._catName(this.cat);
     this.$n.textContent = `${list.length} result${list.length === 1 ? '' : 's'}${this.q ? ' in all departments' : ''}`;
@@ -1053,6 +1061,7 @@ class EBuy {
         ${locked ? `<span class="eb-lockov">${this._icon('lock', 3) || px('lockpad', 4)}</span>` : ''}
         ${soldout ? `<span class="eb-soldov">SOLD OUT</span>` : ''}
         ${inCart ? `<span class="eb-inc">${px('cartW', 2)}×${inCart}</span>` : ''}
+        ${this._cardStk(l)}
       </span>
       <span class="eb-info">
         <span class="eb-title">${esc(l.title)}</span>
@@ -1062,6 +1071,73 @@ class EBuy {
         ${sel ? `<span class="eb-sel">${this._stars(sel.stars)}<span class="eb-seln">${esc(sel.name || '')}</span></span>` : ''}
       </span>
     </button>`;
+  }
+
+  // [v33 kit] a sticker slapped on the product photo, in its free bottom-left corner (never on the price,
+  // the title or the badges): BEST SELLER on the top sellers, FRESH! on eggs, Reynard's seal on a few others
+  _stkKinds(l) {
+    if (l.locked || l.stock === 0) return [];
+    const k = [];
+    if (this._best?.has(l.id)) k.push('best');
+    if (l.cat === 'eggs' && l.kind === 'egg') k.push('fresh');
+    if (hash(String(l.id) + 'rey') % 4 === 0) k.push('picked');
+    return k;
+  }
+  _cardStk(l) {
+    const k = this._stkKinds(l)[0];
+    if (!k) return '';
+    // the top-left corner is free unless the HOT / NEW badges live there
+    return stkHTML(k, { cls: 'stk-c ' + (this._badges(l, 2).trim() ? 'stk-cbl' : 'stk-ctl') });
+  }
+  // a sticker gets clicked: its sound, a little hop, its gag line, and the odd special (the fish flips, the
+  // googly eyes spin, the smiley winks, the star throws sparks). Touch every laptop sticker for a coupon.
+  _stkGag(el) {
+    const id = el.dataset.stk, g = STK[id]?.gag;
+    if (!g) return;
+    this._sfx(g.sfx);
+    if (g.sfx !== 'sticker') this._sfx('sticker');
+    this._bump(el, 'hit');
+    if (g.flip) el.classList.toggle('flip');
+    if (g.spin) this._bump(el, 'spin');
+    if (STK[id].wink) { el.classList.add('wink'); clearTimeout(el._wT); el._wT = this._later(() => el.classList.remove('wink'), 700); }
+    if (g.sparks && !reduced()) {
+      const host = el.parentElement;
+      for (let i = 0; i < 6; i++) {
+        const s = document.createElement('i');
+        s.className = 'eb-stkspark';
+        const a = (i / 6) * Math.PI * 2;
+        s.style.cssText = `left:${el.offsetLeft + (el.offsetWidth >> 1)}px;top:${el.offsetTop + (el.offsetHeight >> 1)}px;--dx:${Math.round(Math.cos(a) * 26)}px;--dy:${Math.round(Math.sin(a) * 26)}px`;
+        s.innerHTML = px(i % 2 ? 'sparkY' : 'spark', 2);
+        host.appendChild(s);
+        this._later(() => s.remove(), 600);
+      }
+    }
+    const pop = document.createElement('span');
+    pop.className = 'eb-stkpop';
+    pop.textContent = g.say;
+    pop.style.cssText = `left:${el.offsetLeft + (el.offsetWidth >> 1)}px;top:${el.offsetTop}px`;
+    el.parentElement.appendChild(pop);
+    this._later(() => pop.remove(), 1500);
+    // every sticker on the laptop touched once: a coupon
+    if (el.closest('.eb-stks, .eb-note')) {
+      (this._stkSeen ||= new Set()).add(id);
+      const all = BEZEL.filter((b) => !STK[b.id].tape).length + 1;
+      if (this._stkSeen.size >= all && this._win('STICKY')) { this._sfx('coins'); this._toast('You touched every sticker. Coupon STICKY: 5% off'); }
+    }
+  }
+  _fillBezel() {
+    if (this._bezelOn || this.dead) return;
+    this._bezelOn = true;
+    const host = this.el.querySelector('.eb-stks');
+    const pos = (b) => ['l', 't', 'r', 'b'].filter((k) => b[k] != null).map((k) => `${{ l: 'left', t: 'top', r: 'right', b: 'bottom' }[k]}:${b[k]}px`).join(';');
+    if (host) host.innerHTML = BEZEL.map((b, i) => stkHTML(b.id, { style: `${pos(b)};z-index:${b.z || 1};--ad:${(i * 0.7) % 4}s` })).join('');
+    const note = this.el.querySelector('.eb-note');
+    if (note) note.innerHTML = stkHTML('note', { cls: 'stk-note' });
+    // the shop's own bits: a smiley on the cart, tape holding up the sidebar promo and the TAP THE FISH ad
+    this.$cart?.insertAdjacentHTML('beforeend', stkHTML('smileyS', { cls: 'stk-cart' }));
+    this.el.querySelector('.eb-promo')?.insertAdjacentHTML('afterbegin', stkHTML('tapeA', { cls: 'stk-tp' }));
+    const sky = this.el.querySelector('.eb-sky');
+    sky?.insertAdjacentHTML('afterbegin', stkHTML('tapeC', { cls: 'stk-tl' }) + stkHTML('tapeB', { cls: 'stk-tr' }));
   }
 
   // ------------------------------------------------------------ detail
@@ -1151,6 +1227,7 @@ class EBuy {
             <span class="eb-watch">${px('eye', 2)}${watching} watching</span>
             ${isDeal ? `<span class="eb-dealtag">${px('flame', 2)}<b>DEAL OF THE DAY</b><span>10% back · ends in <b class="eb-cd">${this._countdown()}</b></span></span>` : ''}
             <i class="eb-ped"></i>
+            ${this._stkKinds(l).map((k, i) => stkHTML(k === 'picked' ? 'pickedBig' : k, { cls: `stk-d stk-d${i}` })).join('')}
           </div>
           <div class="eb-revs"><b class="eb-revh">Buyer reviews</b>${reviews.map(([t, n, s]) => `<div class="eb-rev">${this._stars(s)}<q>${esc(t)}</q><cite>${esc(n)}</cite></div>`).join('')}</div>
         </div>
@@ -1358,7 +1435,7 @@ class EBuy {
   }
   // the e-Buy Club card: 10 stamps, the newest one thumps on
   _club(n, fresh = -1) {
-    return `<div class="eb-club"><span class="club-h">${px('stamp', 2)}<b>e-Buy Club</b><span>${this.store.free ? '<em>FREE item on this order!</em>' : `${CLUB_N - n} more for a FREE item`}</span></span><span class="club-row">${Array.from({ length: CLUB_N }, (_, i) => `<i class="${i < n ? 'on' : ''}${i === fresh ? ' new' : ''}">${i < n ? px('stamp', 2) : i + 1}</i>`).join('')}</span></div>`;
+    return `<div class="eb-club">${stkHTML('club', { cls: 'stk-club' })}<span class="club-h">${px('stamp', 2)}<b>e-Buy Club</b><span>${this.store.free ? '<em>FREE item on this order!</em>' : `${CLUB_N - n} more for a FREE item`}</span></span><span class="club-row">${Array.from({ length: CLUB_N }, (_, i) => `<i class="${i < n ? 'on' : ''}${i === fresh ? ' new' : ''}">${i < n ? px('stamp', 2) : i + 1}</i>`).join('')}</span></div>`;
   }
   _coinBurst(btn) {
     const wr = this.$fx.getBoundingClientRect(), br = btn.getBoundingClientRect();
@@ -1738,7 +1815,7 @@ class EBuy {
     const club = R.stamps ? (R.stamps.full ? `<div class="eb-clubfull">${px('stamp', 3)}<b>CLUB CARD FULL!</b><span>Your next order's cheapest item is FREE.</span></div>` : this._club(R.stamps.before + 1, R.stamps.before)) : '';
     this.$rc.innerHTML = `
       <div class="eb-slot"><i></i></div>
-      <div class="eb-paperw"><div class="eb-paper" style="clip-path:${ZIGZAG}">
+      <div class="eb-paperw">${stkHTML('tapeB', { cls: 'stk-rt' })}<div class="eb-paper" style="clip-path:${ZIGZAG}">
         <div class="eb-ph"><span class="eb-mini"><i class="l1">e</i><i class="l2">-</i><i class="l3">B</i><i class="l4">u</i><i class="l5">y</i></span><small>order #${no} · ${pad(d.getHours())}:${pad(d.getMinutes())}</small></div>
         ${shown.map((x) => `<div class="eb-pi"><img src="${esc(imgSrc(x.l.image))}" alt="" /><span class="eb-pin">${esc(this._short(x.l))}</span><span class="eb-pq">×${x.qty}</span></div>`).join('')}
         ${lines.length > shown.length ? `<div class="eb-pmore">+ ${lines.length - shown.length} more</div>` : ''}

@@ -20,6 +20,7 @@ export const COUPONS = {
   PONDEXE: { flat: 8, n: '8 coins off', from: 'Download more pond' },
   MOOSE: { ship: 'turbo', n: 'free TURBO shipping', from: 'the Moose Express ad' },
   NOTASCAM: { pct: 5, n: '5% off (this is not a scam)', from: 'the boot screen' },
+  STICKY: { pct: 5, n: '5% off (you touched every sticker)', from: 'the laptop stickers' }, // [v33 kit]
 };
 
 export const BANNERS = ['visitor', 'bears', 'doctors', 'pond', 'moose', 'mystery'];
