@@ -264,3 +264,16 @@ html.tmw-hand, html.tmw-hand * { cursor: pointer !important; }
 .tbx--3d .tbx-sign { right: calc(var(--b) * -4); bottom: calc(var(--b) * 3); transform: rotate(6deg); }
 .tbx--tall.tbx--3d .tbx-nap { width: calc(var(--b) * 100); height: calc(var(--b) * 112); }
 .tbx--tall.tbx--3d .tbx-sign { right: auto; left: calc(var(--b) * -6); bottom: calc(var(--b) * 4); transform: rotate(-6deg); }
+
+/* [v33 title] the credits roll (src/game/title/titleCredits.js): a tap-anywhere catcher over the scene and
+   a BACK plank under the letterbox bar; the cards themselves are the game's floating title cards */
+.tcr { position: fixed; inset: 0; z-index: 46; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tcr-back {
+  position: absolute; left: max(12px, 3vw); top: calc(11vh + 10px); padding: 0; border: 0; background: none; cursor: pointer;
+  filter: drop-shadow(var(--u) var(--u) 0 rgba(40, 12, 36, .45));
+  translate: -170% 0; transition: translate .4s cubic-bezier(.3,1.4,.5,1) .2s, transform .14s;
+}
+.tcr--in .tcr-back { translate: 0 0; }
+.tcr-back:hover, .tcr-back:focus-visible { transform: translateX(calc(var(--u) * -2)) rotate(2deg); outline: none; }
+.tcr-back:active { transform: scale(.95); }
+@media (prefers-reduced-motion: reduce) { .tcr-back { transition: none; } }

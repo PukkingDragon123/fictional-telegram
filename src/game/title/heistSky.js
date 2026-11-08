@@ -1,10 +1,10 @@
 // [v33 title] The noon sky curtain behind the title cinematic (src/game/title/HeistScene.js).
 //
 // A painted backdrop hung a few tiles behind the camera's focus, always facing the
-// camera: a clear blue noon sky in chunky dithered bands, a few fat cumulus clouds
+// camera: a clear blue noon sky in chunky dithered bands (the game's own noon sky key), a few fat cumulus clouds
 // (lit white crowns, blue-grey flat bellies) drifting by, a high cirrus streak, a far
 // blue range with sunlit snow, a nearer green range, and two tree lines painted from
-// the world's own tree sprites (a hazy far one and a sunlit near one). Every layer
+// the world's own tree sprites in their own colours (a hazy far one and a near one). Every layer
 // slides with the camera's orbit and pan at its own rate, so crane / dolly / orbit
 // moves get real parallax although the game camera is orthographic. Nothing smooth:
 // every gradient is banded and ordered-dithered on the low-res pixel grid.
@@ -90,12 +90,14 @@ void main() {
   // --- noon gradient in dithered bands: pale at the horizon, deep blue overhead
   float y = Y - lift + dith * 0.6;
   float yb = floor(y / 0.5) * 0.5;
-  vec3 col = vec3(0.80, 0.92, 0.99);
-  col = mix(col, vec3(0.64, 0.84, 0.99), smoothstep(4.4, 5.6, yb));
-  col = mix(col, vec3(0.50, 0.75, 0.98), smoothstep(5.6, 7.0, yb));
-  col = mix(col, vec3(0.38, 0.65, 0.96), smoothstep(7.0, 8.6, yb));
-  col = mix(col, vec3(0.30, 0.56, 0.93), smoothstep(8.6, 10.4, yb));
-  col = mix(col, vec3(0.24, 0.47, 0.88), smoothstep(10.4, 13.0, yb));
+  // the game's noon sky key (sky.js 12.8 h: bottom c8e6fa, top 4c96e6), banded
+  vec3 skyB = vec3(0.784, 0.902, 0.98), skyT = vec3(0.298, 0.588, 0.902);
+  vec3 col = skyB;
+  col = mix(col, mix(skyB, skyT, 0.25), smoothstep(4.4, 5.6, yb));
+  col = mix(col, mix(skyB, skyT, 0.48), smoothstep(5.6, 7.0, yb));
+  col = mix(col, mix(skyB, skyT, 0.68), smoothstep(7.0, 8.6, yb));
+  col = mix(col, mix(skyB, skyT, 0.86), smoothstep(8.6, 10.4, yb));
+  col = mix(col, skyT, smoothstep(10.4, 13.0, yb));
   // the sun is high behind the camera, over the left shoulder: a warm dithered glare in that corner
   float gl = clamp(1.0 - length(vec2(Xc * 0.02 + 0.55, (Y - lift) * 0.06 - 0.75)) * 1.4, 0.0, 1.0);
   col = mix(col, vec3(0.86, 0.95, 1.0), floor((gl + dith * 0.2) * 3.0) / 3.0 * 0.5);
@@ -113,7 +115,7 @@ void main() {
     vec2 cl = cumulus(vec2(Xc, Y), vec2(cx, cyy), s, fk * 13.0);
     if (cl.x > 0.5) {
       float sh = cl.y + dith * 0.32;
-      vec3 cc = sh < 0.3 ? vec3(1.0, 1.0, 1.0) : sh < 0.58 ? vec3(0.92, 0.95, 1.0) : sh < 0.82 ? vec3(0.78, 0.85, 0.95) : vec3(0.64, 0.74, 0.88);
+      vec3 cc = sh < 0.3 ? vec3(1.0, 1.0, 1.0) : sh < 0.58 ? vec3(0.94, 0.95, 0.97) : sh < 0.82 ? vec3(0.83, 0.86, 0.91) : vec3(0.72, 0.76, 0.84);
       col = cc;
     }
   }
@@ -130,9 +132,9 @@ void main() {
   float mh1 = 4.6 + lift + m1.x;
   if (Y < mh1) {
     float t = clamp((mh1 - Y) / 2.2, 0.0, 1.0);
-    vec3 mc = m1.y > 0.5 ? vec3(0.66, 0.76, 0.92) : vec3(0.52, 0.62, 0.82);
-    if (m1.x > 2.0 && Y > mh1 - 0.6 + dith * 0.25) mc = m1.y > 0.5 ? vec3(0.98, 0.99, 1.0) : vec3(0.78, 0.84, 0.96);
-    mc = mix(mc, vec3(0.78, 0.89, 0.98), floor((smoothstep(0.2, 1.0, t) + dith * 0.2) * 3.0) / 3.0 * 0.7);
+    vec3 mc = m1.y > 0.5 ? vec3(0.7, 0.76, 0.86) : vec3(0.58, 0.64, 0.76);
+    if (m1.x > 2.0 && Y > mh1 - 0.6 + dith * 0.25) mc = m1.y > 0.5 ? vec3(0.97, 0.98, 1.0) : vec3(0.8, 0.84, 0.92);
+    mc = mix(mc, vec3(0.8, 0.88, 0.95), floor((smoothstep(0.2, 1.0, t) + dith * 0.2) * 3.0) / 3.0 * 0.7);
     col = mc;
   }
   // --- near range: green-blue hills, ridges in the sun
@@ -140,9 +142,9 @@ void main() {
   float mh2 = 4.25 + lift + m2.x;
   if (Y < mh2) {
     float t = clamp((mh2 - Y) / 1.4, 0.0, 1.0);
-    vec3 mc = m2.y > 0.5 ? vec3(0.52, 0.7, 0.62) : vec3(0.38, 0.54, 0.58);
-    if (Y > mh2 - 0.07) mc = vec3(0.68, 0.82, 0.66);
-    mc = mix(mc, vec3(0.7, 0.86, 0.88), floor((smoothstep(0.25, 1.0, t) + dith * 0.2) * 3.0) / 3.0 * 0.55);
+    vec3 mc = m2.y > 0.5 ? vec3(0.56, 0.65, 0.6) : vec3(0.45, 0.53, 0.55);
+    if (Y > mh2 - 0.07) mc = vec3(0.66, 0.74, 0.66);
+    mc = mix(mc, vec3(0.74, 0.84, 0.88), floor((smoothstep(0.25, 1.0, t) + dith * 0.2) * 3.0) / 3.0 * 0.55);
     col = mc;
   }
   // --- tree lines from the game's own tree sprites
@@ -151,10 +153,10 @@ void main() {
     vec2 uv = vec2(xf / uFarS.x + 0.37, p.y / uFarS.y);
     vec4 tf = texture2D(uFar, uv);
     if (tf.a > 0.5) {
-      float l = dot(tf.rgb, vec3(0.3, 0.59, 0.11));
-      vec3 c2 = mix(vec3(0.3, 0.48, 0.48), vec3(0.42, 0.6, 0.52), step(0.45, l + dith * 0.2));
-      if (texture2D(uFar, uv + vec2(0.0, uFarS.z)).a < 0.5) c2 = vec3(0.6, 0.76, 0.58);
-      col = mix(c2, vec3(0.66, 0.82, 0.86), 0.28);
+      // the game's own tree colours, hazed by distance
+      vec3 c2 = tf.rgb;
+      if (texture2D(uFar, uv + vec2(0.0, uFarS.z)).a < 0.5) c2 = mix(c2, vec3(1.0, 1.0, 0.92), 0.2);
+      col = mix(c2, vec3(0.72, 0.82, 0.88), 0.5);
     }
   }
   float xn = p.x - 2.0 * uYaw + 0.55 * uPan;
@@ -162,11 +164,10 @@ void main() {
     vec2 uv = vec2(xn / uNearS.x + 0.11, p.y / uNearS.y);
     vec4 tn = texture2D(uNear, uv);
     if (tn.a > 0.5) {
-      float l = dot(tn.rgb, vec3(0.3, 0.59, 0.11));
-      float q = floor(clamp(l * 2.4 + dith * 0.35, 0.0, 2.99));
-      vec3 nc = q < 1.0 ? vec3(0.13, 0.3, 0.18) : q < 2.0 ? vec3(0.22, 0.44, 0.22) : vec3(0.38, 0.6, 0.27);
-      if (texture2D(uNear, uv + vec2(0.0, uNearS.z)).a < 0.5) nc = vec3(0.62, 0.8, 0.36); // the sun on the crowns
-      col = nc;
+      // the game's own tree colours with a breath of air between us and them
+      vec3 nc = tn.rgb;
+      if (texture2D(uNear, uv + vec2(0.0, uNearS.z)).a < 0.5) nc = mix(nc, vec3(1.0, 1.0, 0.9), 0.18); // the sun on the crowns
+      col = mix(nc, vec3(0.72, 0.82, 0.88), 0.14);
     }
   }
   gl_FragColor = vec4(srgb(max(col, 0.0)), 1.0);

@@ -699,8 +699,9 @@ class EBuy {
     const aw = im.naturalWidth / t, ah = im.naturalHeight / t;
     if (t === 1 && Math.max(aw, ah) > 48) return; // a painting, not pixel art: the CSS fit stays
     const big = im.classList.contains('eb-bigimg');
+    const feat = !big && box.classList.contains('dl-pic'); // the deal of the day: a bigger showcase
     const fit = Math.min((W * (big ? 0.6 : 0.7)) / aw, (H * (big ? 0.6 : 0.66)) / ah);
-    const k = Math.max(1, Math.min(big ? 6 : 3, Math.floor(fit)));
+    const k = Math.max(1, Math.min(big ? 6 : feat ? 4 : 3, Math.floor(fit)));
     im.style.width = `${aw * k}px`;
     im.style.height = `${ah * k}px`;
     im.classList.add('fit');

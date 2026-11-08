@@ -1,4 +1,5 @@
 // TitleMenu: the title screen's menu, made of things that live in the valley.
+// [v33 title] + a CREDITS plank: the credits roll over the title cinematic (src/game/title/titleCredits.js).
 // A wooden logo board hangs on two ropes (somebody took a bite out of its
 // corner), and a little trail signpost holds arrow planks: Continue (the last
 // save played, with its day), New game (opens the three save boxes, see
@@ -46,6 +47,15 @@ function pawPointer() {
   const rows = ['....kkkk....', '..kkoooOkkkk', '.koooooooook', 'kssoookkkkkk', 'ksssooook...', 'kssssooook..', '.kssssook...', '..kkkkkk....'];
   const P = { k: INK, o: '#ee7a36', O: '#ffb070', s: '#3a2c40' };
   const c = cv(12, 8), g = c.getContext('2d');
+  rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (P[r[x]]) { g.fillStyle = P[r[x]]; g.fillRect(x, y, 1, 1); } });
+  return c;
+}
+
+// [v33 title] a little gold star for the credits plank
+function starIcon() {
+  const rows = ['....k....', '...kwk...', '...kyk...', 'kkkkwykkk', 'kwyyyyyyk', '.kyyyyyk.', '..kyyyk..', '.kyykyyk.', 'kyyk.kyyk', 'kkk...kkk'];
+  const P = { k: INK, y: '#ffd23f', w: '#fffbe0' };
+  const c = cv(9, 10), g = c.getContext('2d');
   rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (P[r[x]]) { g.fillStyle = P[r[x]]; g.fillRect(x, y, 1, 1); } });
   return c;
 }
@@ -113,6 +123,7 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
   if (contBtn && !slotMeta(last)) slotInfo(last).then((i) => { if (!closed && i.meta) contBtn.repaint('CONTINUE', contSub(i.meta), WOOD.green); });
   btn('new', 'NEW GAME', has ? 'PICK A BOX' : null, 7, has ? null : WOOD.green);
   btn('settings', 'SETTINGS', null, 11, WOOD.dark, gearIcon());
+  btn('credits', 'CREDITS', null, 13, WOOD.dark, starIcon()); // [v33 title] the credits roll over the title scene
   root.appendChild(el);
   // [v27 title] floating words instead of the hanging board (they size the .tm-logo box themselves)
   const boardVars = [el.style.getPropertyValue('--bh'), el.querySelector('.tm-sign').style.getPropertyValue('--w')];
@@ -187,6 +198,14 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
       });
     }).catch((e) => { console.warn('settings failed', e); stepAside(false); });
   }
+  // [v33 title] the credits roll (src/game/title/titleCredits.js): the signpost steps aside meanwhile
+  function openCreditsRoll() {
+    stepAside(true);
+    import('../game/title/titleCredits.js').then(({ playCredits }) => {
+      if (closed) return;
+      sub = playCredits({ sfx: play, onClose: () => { sub = null; if (!closed) { stepAside(false); refocus('credits'); } } });
+    }).catch((e) => { console.warn('credits failed', e); stepAside(false); });
+  }
   const refocus = (c) => { const b = planks.querySelector(`[data-c="${c}"]`); b?.focus({ preventScroll: true }); pointAt(b); };
 
   for (const b of el.querySelectorAll('.tm-btn')) {
@@ -199,6 +218,7 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
       if (c === 'continue') choose({ slot: last, mode: 'continue' });
       else if (c === 'new') { play('click'); openBoxes(); }
       else if (c === 'settings') { play('click'); openSettingsPage(); }
+      else if (c === 'credits') { play('click'); openCreditsRoll(); } // [v33 title]
     });
   }
   planks.addEventListener('pointerleave', () => { if (!planks.contains(document.activeElement)) pointAt(null); });

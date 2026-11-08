@@ -23,16 +23,20 @@
 //           pours the money out, rubs his paws and starts counting as the camera cranes
 //           back up to the opening shot.
 //
-// Lighting: a high, bright, slightly warm sun from over the camera's left shoulder
-// (crisp short shadows), a clear blue sky with a few fat clouds (heistSky.js), drifting
-// cloud shadows, warm saturated grade. Shot E cheats the sun behind the bear so its
+// Lighting: the game's own noon (sky.js key, in-world grade, cloud shadows), with the high
+// sun placed over the camera's left shoulder (crisp short shadows) and a clear blue sky with
+// a few fat clouds behind (heistSky.js). Shot E cheats the sun behind the bear so its
 // shadow can fall over Reynard (a film cut cheat). Everything the scene touches
 // (renderer uniforms, sky, camera, hidden trees / hut / fish) is restored by stop().
+//
+// Credits (the menu's CREDITS plank, titleCredits.js -> 'tbme-title-credits' window event): the
+// loop pauses on a quiet shot of Reynard sitting on his crate counting coins in his lap, the
+// camera drifting slowly round him; when the roll ends the loop starts again from the crane.
 //
 //   const s = new HeistScene(game); s.start(); s.update(dt); s.stop();
 //   window.__title.seek(t)   jump to loop time t (tests);  ?heist=t  start at t
 import * as THREE from 'three';
-import { FoxRig } from '../../entities/foxRig.js';
+import { FoxRig, FOX_SEAT_SURFACE } from '../../entities/foxRig.js';
 import { BearRig } from '../../entities/bearRig.js';
 import { BEAR_TYPES } from '../../data/bears.js';
 import { FX } from '../Particles.js';
@@ -213,23 +217,12 @@ export class HeistScene {
     for (const k of ['haze', 'vignette', 'saturation', 'contrast', 'outlineAmt', 'highlightAmt']) this._saved.u[k] = U[k].value;
     for (const k of ['hazeColor', 'vignetteColor', 'grade', 'lift', 'outlineTint']) this._saved.u[k] = U[k].value.clone();
 
-    // --- high noon: bright, warm, saturated, crisp
+    // --- high noon in the game's own look: the renderer keeps its in-world grade (no title
+    // grade on top), the sky its noon key; only the sun's direction is directed per shot
     game.state.hour = 12.6;
     game.state.phase = 'day';
     game.fox.rig.root.visible = false; // our own Reynard acts instead
     if (game.fish.batch?.mesh) game.fish.batch.mesh.visible = false;
-    R.bloomStrength = 0.3;
-    R.brightPass.mat.uniforms.threshold.value = 0.9;
-    U.haze.value = 0.1;
-    U.hazeColor.value.set(0.86, 0.94, 1.0);
-    U.vignette.value = 0.2;
-    U.vignetteColor.value.set(0.62, 0.52, 0.48);
-    U.saturation.value = 1.16;
-    U.grade.value.set(1.06, 1.0, 0.93);
-    U.lift.value.set(0.01, 0.014, 0.034);
-    U.contrast.value = 1.07;
-    U.outlineTint.value.set(0.3, 0.26, 0.32);
-    game.world.waterUniforms?.uGlint?.value?.set?.(0xfffbe8);
     rig.viewGuard = null; // the title directs the camera itself (no auto-dodging of hills)
     rig.freeBounds = true;
     rig.follow = null;
@@ -258,6 +251,9 @@ export class HeistScene {
     const q = new URLSearchParams(location.search);
     if (q.has('heist')) this.seek(+q.get('heist') || 0);
     this._camera(0);
+    // the menu's CREDITS plank (titleCredits.js) asks for the quiet credits shot
+    this._onCredits = (e) => this.setCredits(!!e.detail?.on);
+    window.addEventListener('tbme-title-credits', this._onCredits);
     if (typeof window !== 'undefined') window.__title = this; // test hook
   }
 
@@ -266,6 +262,7 @@ export class HeistScene {
     const game = this.game, s = this._saved;
     this.active = false;
     const rig = game.rig, R = game.renderer, U = R.postMat.uniforms, sky = game.sky;
+    window.removeEventListener('tbme-title-credits', this._onCredits);
     if (s.skyOwn) sky.update = s.skyOwn; else delete sky.update;
     if (s.extOwn) sky.setShadowExtent = s.extOwn; else delete sky.setShadowExtent;
     if (s.smokeOwn) game.particles.smoke = s.smokeOwn; else delete game.particles.smoke;
@@ -406,19 +403,10 @@ export class HeistScene {
       sky.sun.target.position.copy(p);
       sky.sun.position.set(p.x + dir.x * 90, p.y + dir.y * 90, p.z + dir.z * 90);
       sky.sun.target.updateMatrixWorld();
-      // bright, a touch warm; a cool blue sky fill in the shade
-      sky.sun.color.setHex(0xfff1d8);
-      sky.sun.intensity = 2.95;
-      sky.hemi.color.setHex(0xb4d2ff);
-      sky.hemi.groundColor.setHex(0x80894a);
-      sky.hemi.intensity = this.sunKind === 'back' ? 1.32 : 1.06; // (backlit shot: a stronger sky fill)
-      // the noon grade, warmed and saturated; a few cloud shadows, no light shafts
-      const P = sky.post;
-      P.fresh = true;
-      P.mul.set(1.04, 1.0, 0.95);
-      P.sat = 1.12; P.con = 1.06;
-      P.cloud = 0.5; P.shaft = 0; P.glow = 0;
-      P.high.set(1.03, 1.0, 0.95);
+      // the game's noon light and grade as they are (sky.js keys); the backlit shot gets a
+      // little more sky fill so the bear's front isn't a black hole
+      if (this.sunKind === 'back') sky.hemi.intensity *= 1.25;
+      sky.post.fresh = true; // (the patch would otherwise mark the noon grade stale)
     };
     // crisper shadows in the close-ups (the game keeps at least 18 tiles of shadow map)
     sky.setShadowExtent = (ext) => {
@@ -521,6 +509,9 @@ export class HeistScene {
     // low title camera sees his face, not the crown of his hat
     const cc = this.defs.count_coins;
     if (cc) this.defs.count_coins = { ...cc, fn(t, p, f, s2, rig) { cc.fn(t, p, f, s2, rig); p.hRx -= 0.26; p.chRx -= 0.07; } };
+    // the credits: sitting on his crate, counting coins in his lap (the rig's sit + count_coins)
+    const sit = borrow(fox, 'sit'), ccRaw = borrow(fox, 'count_coins');
+    if (sit && ccRaw) this.defs.sit_count = { loop: true, expr: 'greedy', fn(t, p, f, s2, rig) { sit.fn(t, p, f, (s2.a ||= {}), rig); ccRaw.fn(t, p, f, (s2.b ||= {}), rig); p.hRx -= 0.18; p.chRx -= 0.04; } };
     const gr = this.defs.greedy;
     if (gr) this.defs.greedy = { ...gr, fn(t, p, f, s2, rig) { gr.fn(t, p, f, s2, rig); p.hRx -= 0.2; p.chRx -= 0.1; } };
     this.foxSt = { r: FOX_SPOT[0], f: FOX_SPOT[1], heading: Y0, face: null, look: null };
@@ -686,6 +677,34 @@ export class HeistScene {
     E.sort((a, b) => a[0] - b[0]);
   }
 
+  // ============================================================ the credits
+  /** The quiet credits shot (on), or back to the start of the loop (off). */
+  setCredits(on) {
+    if (!this.active || on === !!this.creditsOn) return;
+    if (on) {
+      this.creditsOn = true;
+      this.creditsT = 0;
+      this._resetLoop(true); // the bear goes home, the sack sits open by the crate
+      this.money.show(false); // he's sitting where the money was: he counts from his lap
+      this.anim(this.defs.sit_count ? 'sit_count' : 'count_coins', 0.2);
+      this.foxSt.heading = Y0 + 0.12;
+    } else {
+      this.creditsOn = false;
+      this.money.show(true);
+      this.seek(0); // the crane down onto the little bank again
+    }
+  }
+
+  _stepCredits(dt) {
+    this.creditsT += dt;
+    const fox = this.fox, p = this.at(0, -0.02);
+    fox.root.position.set(p.x, this.crateTop - FOX_SEAT_SURFACE * FOX_SCALE + 0.01, p.z);
+    fox.root.rotation.set(0, this.foxSt.heading, 0);
+    fox.update(dt);
+    this.bills.update(dt);
+    this._ambient(dt);
+  }
+
   // ============================================================ the clock
   /** Jump to loop time t (tests / ?heist=t): replays the loop silently from the start. */
   seek(t) {
@@ -714,6 +733,7 @@ export class HeistScene {
 
   _step(dt) {
     this.T += dt;
+    if (this.creditsOn) { this._stepCredits(dt); return; }
     let t = this.t + dt;
     const E = this.events;
     if (t >= LOOP) {
@@ -772,7 +792,8 @@ export class HeistScene {
       const fast = fox._cur?.name === 'run' || fox._cur?.name === 'windup';
       if (fast) this._fx((Pp) => Pp.kick(p.x, p.y, p.z, fox._cur?.name === 'windup' ? 3 : 2, fox._cur?.name === 'windup' ? null : new THREE.Vector3(Math.sin(this.foxSt.heading), 0, Math.cos(this.foxSt.heading))));
       if (Math.random() < 0.3) this._sfx('step', { volume: 0.08, pitch: rand(1.3, 1.6) });
-    } else if (name === 'catch') {
+    } else if (name === 'catch' && this.creditsOn) this._sfx('coin', { volume: 0.1, pitch: rand(1.4, 1.7) });
+    else if (name === 'catch') {
       // a counted coin goes onto a stack
       const i = this.stackI++ % 3;
       const m = this.money.stacks[i];
@@ -987,8 +1008,14 @@ export class HeistScene {
   _camera(dt) {
     const game = this.game, rig = game.rig, R = game.renderer;
     const t = this.t;
-    const s = this._shot(t);
-    const c = s.cam(clamp((t - s.t) / s.d, 0, 1), t);
+    let s = this._shot(t);
+    let c = s.cam(clamp((t - s.t) / s.d, 0, 1), t);
+    if (this.creditsOn) {
+      // the credits: a slow drift round him, breathing in a touch
+      const u = this.creditsT;
+      s = { sun: 'front' };
+      c = { yaw: 0.3 + Math.sin(u * 0.045) * 0.16, pitch: 9 + Math.sin(u * 0.07) * 1.2, wupp: 0.0128 * (1 - 0.08 * smooth(u / 30)), at: [-0.05, 0.62, -0.05], sx: 0.27, sy: -0.2 }; // (low right: the cards float above)
+    }
     // light for this shot (a cut can cheat the sun)
     const sunK = s.sun || 'front';
     if (sunK !== this.sunKind) this._sunFor(sunK);

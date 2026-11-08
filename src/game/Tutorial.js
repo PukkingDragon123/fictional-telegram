@@ -191,7 +191,14 @@ export class Tutorial {
   }
   async hideTeacher() {
     const t = this.teacher;
-    if (t?.visible) { try { t.clearChalk(); await Promise.race([t.hide(), sleep(3.5)]); } catch { /* ignore */ } }
+    if (!t?.visible) return;
+    try {
+      t.clearChalk();
+      const p = t.hide();
+      await Promise.race([p, sleep(1.4)]);
+      // still bowing / running off (a slow frame rate): snap him off screen so no scene starts with him in it
+      if (t.visible) { t.skip(); await Promise.race([p, sleep(0.4)]); }
+    } catch { /* ignore */ }
   }
   clearChalk() { try { this.teacher?.clearChalk(); } catch { /* ignore */ } }
 
