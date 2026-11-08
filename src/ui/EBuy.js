@@ -23,6 +23,14 @@
 // orders() -> [{ id, label, phase: 'packing'|'riding'|'arriving'|'delivered', eta, progress, count }]
 //   (Delivery.tracker()) feeds the Orders drawer and the badge; onTrack(id) = "watch the moose".
 // ship() -> { ride: seconds, night: bool } for the cart's delivery estimate.
+// [v33 kit] optional extras:
+//   onBuy(listing, qty, extra)   extra = { ship: 'std'|'turbo'|'rocket', gift, note, linger } (the delivery choice)
+//   onCharge(amount) -> bool     delivery fees / gift wrap (amount > 0) and coupons / club rewards / deal cash back (< 0)
+//   store                        a persistent object (saved with the game): the e-Buy Club stamp card, coupons won + used
+//   shipTiers                    { std|turbo|rocket: { mult, pack } } the courier's speed per tier (Delivery.SHIP)
+// Ads: banners between card rows, a TAP THE FISH skyscraper, one pop-up per session (its X runs away once);
+// extras: deal of the day (countdown, 10% back), Moose Express tiers, coupon codes, gift wrap + a note for the
+// moose, the Club stamp card (10 orders = a free item), a Mystery Box, "customers also bought", confetti.
 //
 // The boot splash plays once per page session (shorter when opened on a focus listing); later
 // opens skip it. Tap / any key skips it. The cart survives closing the shop.
@@ -30,6 +38,7 @@
 // `root` should be a positioned element with a size; the shop fills it.
 import './ebuy.css';
 import { px } from './ebuyPx.js';
+import { adBanner, adSky, adPopup, adUnder, BANNERS, COUPONS, mysteryArt } from './kit/ebuyAds.js'; // [v33 kit] ads, coupons, the mystery box
 
 // ---------------------------------------------------------------- helpers
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -111,7 +120,18 @@ const REVIEWS = {
   gear: ['tool did tool things', 'very sturdy. hit a bear w/ it (sorry)', 'works great, no refunds tho'],
 };
 const NAMES = ['Gerald B.', 'Linda (bear)', 'Big Doug', 'xX_moose_Xx', 'Mrs. Beaver', 'Kevin', 'Brenda from HR', 'Chad Salmon', 'Deb'];
-const TICKER = ['FREE MOOSE SHIPPING', 'ALL SALES FINAL', '0% REFUNDS', 'TRUSTED SELLER (me)', 'DEALS DEALS DEALS', 'NOT A SCAM', 'PRICES SLASHED (then raised)', 'eh?'];
+const TICKER = ['FREE MOOSE SHIPPING', 'ALL SALES FINAL', '0% REFUNDS', 'TRUSTED SELLER (me)', 'DEALS DEALS DEALS', 'NOT A SCAM', 'PRICES SLASHED (then raised)', 'eh?', 'NEW: TURBO MOOSE', 'COUPON CODES HIDDEN EVERYWHERE', 'THE PASSWORD IS NOT A COUPON (or is it)', 'MYSTERY BOXES!!!'];
+// [v33 kit] delivery tiers: the fee and the joke here; the real speed comes from Delivery.SHIP (opts.shipTiers)
+const SHIPS = [
+  { id: 'std', n: 'Moose Express', sub: 'FREE · he walks the bike up the hills', fee: 0, ic: 'van' },
+  { id: 'turbo', n: 'TURBO Moose', sub: 'pedals like his rent is due', fee: 12, ic: 'flame' },
+  { id: 'rocket', n: 'ROCKET Moose', sub: 'a rocket. on a bike. not legal.', fee: 40, ic: 'rocket' },
+];
+const SHIP_DEF = { std: { mult: 1, pack: 1 }, turbo: { mult: 2.2, pack: 0.45 }, rocket: { mult: 3.4, pack: 0.12 } };
+const GIFT_FEE = 3;
+const CLUB_N = 10; // stamps on the e-Buy Club card; a full card = the next order's cheapest item free
+const DEAL_BACK = 0.1; // the deal of the day: 10% back
+const MYSTERY_PRICE = 35;
 const ZIGZAG = (() => {
   const n = 22, pts = ['0 0', '100% 0'];
   for (let i = n; i >= 0; i--) pts.push(`${((i / n) * 100).toFixed(2)}% ${i % 2 ? '100%' : 'calc(100% - 7px)'}`);
@@ -139,7 +159,8 @@ const PHASES = ['packing', 'riding', 'arriving', 'delivered'];
 
 // session memory: the splash plays once per page session, the cart and the
 // browsing choices survive closing the shop
-const SESSION = { booted: false, cart: [], cat: null, sort: 'best', f: { season: false, afford: false, locked: false } };
+const SESSION = { booted: false, cart: [], cat: null, sort: 'best', f: { season: false, afford: false, locked: false },
+  ship: 'std', gift: false, note: '', coupon: null, adsOff: {}, popDone: false, store: {} }; // [v33 kit]
 
 // ---------------------------------------------------------------- component
 export function openEBuy(root, opts = {}) {
@@ -154,9 +175,16 @@ class EBuy {
     // listings may be a function: then the catalogue (and its item art) is built
     // behind the loading screen instead of before anything shows up
     this._listFn = typeof o.listings === 'function' ? o.listings : null;
-    this.listings = Array.isArray(o.listings) ? o.listings : [];
+    this.listings = Array.isArray(o.listings) ? this._withExtras(o.listings) : [];
     this.coins = +o.coins || 0;
     this.shownCoins = this.coins;
+    // [v33 kit] the Club card + coupons live in the save (opts.store); delivery tier speeds from the game
+    this.store = o.store || SESSION.store;
+    this.store.stamps = +this.store.stamps || 0;
+    this.store.used ||= {};
+    this.store.won ||= [];
+    this.tiers = { ...SHIP_DEF, ...(o.shipTiers || {}) };
+    this._A = { icon: (n, sc) => this._icon(n, sc), px, coin: (sc) => this._coin(sc) };
     const mode = SESSION.booted ? 'quick' : o.focus ? 'short' : 'full';
     // repeat opens: the art is cached by now (cheap). A focus open (the tutorial) needs its
     // Buy It Now on the page straight away, so it builds up front too.
@@ -179,6 +207,10 @@ class EBuy {
       this._ordI = setInterval(() => this._pollOrders(), 500);
       this._pollOrders();
     }
+    // [v33 kit] the sidebar's TAP THE FISH game, the deal clock, one pop-up ad a session (never on the tutorial's focus open)
+    this._skyI = setInterval(() => this._skyStep(), 280);
+    this._cdI = setInterval(() => this._tickDeal(), 1000);
+    if (!o.focus && !SESSION.popDone) this._later(() => this._maybePopup(), 24000);
   }
 
   _loadListings() {
@@ -187,7 +219,7 @@ class EBuy {
     this._listFn = null;
     let L = [];
     try { L = fn() || []; } catch (err) { console.error(err); }
-    this.listings = Array.isArray(L) ? L : [];
+    this.listings = this._withExtras(Array.isArray(L) ? L : []);
     if (!this.el || this.dead) return; // still in the constructor
     this.cat = this._startCat();
     this._render();
@@ -263,6 +295,7 @@ class EBuy {
                 <nav class="eb-side">
                   <b class="eb-sideh">Departments</b>
                   <div class="eb-cats"></div>
+                  ${adSky(this._A)}
                   <div class="eb-promo">
                     <span class="eb-pmoose">${this._icon('moose', 3) || px('van', 3)}</span>
                     <b>FREE Moose Express</b>
@@ -277,6 +310,7 @@ class EBuy {
                   </div>
                   <div class="eb-scroll"><div class="eb-grid"></div><div class="eb-foot">© 1999 e-Buy Inc. · a Reynard company · all sales final</div></div>
                   <div class="eb-det" hidden></div>
+                  <div class="eb-popwrap"></div>
                 </main>
               </div>
               <div class="eb-shade"></div>
@@ -290,7 +324,7 @@ class EBuy {
                 <div class="eb-btag">the pond's #1 marketplace*</div>
                 <div class="eb-bbar"><i class="eb-bfill"></i></div>
                 <div class="eb-bline">Connecting...</div>
-                <small class="eb-bfine">*only marketplace</small>
+                <small class="eb-bfine">*only marketplace · coupon NOTASCAM</small>
               </div>
               <div class="eb-bskip">tap to skip</div>
             </div>
@@ -461,6 +495,8 @@ class EBuy {
     for (const t of this._timers) clearTimeout(t);
     this._timers.clear();
     clearInterval(this._ordI);
+    clearInterval(this._skyI);
+    clearInterval(this._cdI);
     cancelAnimationFrame(this._coinRaf);
     document.removeEventListener('keydown', this._onKey);
     this.el.removeEventListener('click', this._onClick);
@@ -545,7 +581,7 @@ class EBuy {
     if (this.dead) return;
     if (Array.isArray(listings)) {
       this._listFn = null;
-      this.listings = listings;
+      this.listings = this._withExtras(listings);
       this._rerender();
       this._renderCartCount();
     }
