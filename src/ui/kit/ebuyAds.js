@@ -78,7 +78,7 @@ export function adSky(A) {
 }
 
 export function adPopup(id, A) {
-  return `<div class="eb-pop" data-pop="${id}" role="dialog" aria-label="advertisement">
+  return `<div class="eb-popad" data-pop="${id}" role="dialog" aria-label="advertisement">
     <div class="pop-bar"><span>${A.px('box', 1)} Pond_Lonely.exe</span><button class="pop-x" data-adx="popup" aria-label="close">${A.px('x', 2)}</button></div>
     <div class="pop-body">
       <span class="pop-fish">${A.icon('fish', 2)}${A.icon('heart', 1)}${A.icon('fish_gold', 2) || A.icon('fish', 2)}</span>

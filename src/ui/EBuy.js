@@ -70,6 +70,42 @@ const mixHex = (a, b, t) => {
 };
 const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
+// [v33 kit] the item art's own pixel size (its texel: the gcd of its colour runs), so it can be shown at a whole
+// number of CSS px per art pixel: crisp, never the uneven 66%-of-the-box scaling
+const TEXEL = new Map();
+function texelOf(img) {
+  const src = img.currentSrc || img.src;
+  if (TEXEL.has(src)) return TEXEL.get(src);
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h) return 0;
+  let t = 1;
+  try {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0);
+    const d = new Uint32Array(g.getImageData(0, 0, w, h).data.buffer);
+    for (let i = 0; i < d.length; i++) if ((d[i] >>> 24) < 8) d[i] = 0;
+    const gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+    let q = 0;
+    rows: for (let y = 0; y < h; y++) {
+      let run = 1;
+      for (let x = 1; x < w; x++) { if (d[y * w + x] === d[y * w + x - 1]) run++; else { q = gcd(q, run); run = 1; if (q === 1) break rows; } }
+      q = gcd(q, run);
+      if (q === 1) break;
+    }
+    if (q > 1) cols: for (let x = 0; x < w; x++) {
+      let run = 1;
+      for (let y = 1; y < h; y++) { if (d[y * w + x] === d[(y - 1) * w + x]) run++; else { q = gcd(q, run); run = 1; if (q === 1) break cols; } }
+      q = gcd(q, run);
+      if (q === 1) break;
+    }
+    t = Math.max(1, q || 1);
+  } catch { t = 1; }
+  TEXEL.set(src, t);
+  return t;
+}
+
 // image -> URL (canvases are converted once and cached)
 const imgCache = new WeakMap();
 function imgSrc(image) {
@@ -84,14 +120,14 @@ function imgSrc(image) {
 }
 
 // ---------------------------------------------------------------- data
-const CATS = [
-  { id: 'eggs', name: 'Fish & Eggs', icon: 'egg' },
-  { id: 'food', name: 'Fish Food', icon: 'food' },
-  { id: 'farm', name: 'Farm', icon: 'bug' },
-  { id: 'plants', name: 'Plants', icon: 'berry' },
-  { id: 'decor', name: 'Decor', icon: 'gnome' },
-  { id: 'restaurant', name: 'Restaurant', icon: 'chair' },
-  { id: 'gear', name: 'Gear', icon: 'shovel' },
+const CATS = [ // [v33 kit] dpx: the shop's own detailed 16x16 department icons
+  { id: 'eggs', name: 'Fish & Eggs', icon: 'egg', dpx: 'd_eggs' },
+  { id: 'food', name: 'Fish Food', icon: 'food', dpx: 'd_food' },
+  { id: 'farm', name: 'Farm', icon: 'bug', dpx: 'd_farm' },
+  { id: 'plants', name: 'Plants', icon: 'berry', dpx: 'd_plants' },
+  { id: 'decor', name: 'Decor', icon: 'gnome', dpx: 'd_decor' },
+  { id: 'restaurant', name: 'Restaurant', icon: 'chair', dpx: 'd_restaurant' },
+  { id: 'gear', name: 'Gear', icon: 'shovel', dpx: 'd_gear' },
 ];
 const RAR = {
   common: { n: 'Common', c: '#a89e86', g: '#ffffff', t: 1 },
@@ -165,7 +201,7 @@ const SESSION = { booted: false, cart: [], cat: null, sort: 'best', f: { season:
 // ---------------------------------------------------------------- component
 export function openEBuy(root, opts = {}) {
   const shop = new EBuy(root, opts);
-  return { refresh: (o) => shop.refresh(o), close: () => shop.close(), el: shop.el };
+  return { refresh: (o) => shop.refresh(o), close: () => shop.close(), el: shop.el, _shop: shop }; // [v33 kit] _shop: dev / tests
 }
 
 class EBuy {
@@ -185,6 +221,7 @@ class EBuy {
     this.store.won ||= [];
     this.tiers = { ...SHIP_DEF, ...(o.shipTiers || {}) };
     this._A = { icon: (n, sc) => this._icon(n, sc), px, coin: (sc) => this._coin(sc) };
+    if (o.focus) SESSION.ship = 'std'; // the tutorial's Buy It Now is always the free moose
     const mode = SESSION.booted ? 'quick' : o.focus ? 'short' : 'full';
     // repeat opens: the art is cached by now (cheap). A focus open (the tutorial) needs its
     // Buy It Now on the page straight away, so it builds up front too.
@@ -236,6 +273,62 @@ class EBuy {
     this._openDetail(f, true);
   }
 
+  // ------------------------------------------------------------ [v33 kit] extras: the Mystery Box, the deal of the day
+  _withExtras(L) {
+    if (L.some((l) => l.mystery)) return L;
+    return [...L, {
+      id: 'mystery_box', cat: 'gear', kind: 'mystery', mystery: true, title: 'MYSTERY BOX ??? could be ANYTHING (even good stuff)',
+      sub: 'Mystery Box', desc: 'A random thing from the shelves. Sometimes worth 3x. Sometimes... a bag of pellets.',
+      price: MYSTERY_PRICE, oldPrice: 99, badges: ['hot', 'new'], seller: { name: 'definitely_not_reynard', stars: 3.5, sold: 666 }, image: mysteryArt(),
+    }];
+  }
+  // the deepest cut you can actually buy (a different one each day)
+  _deal() {
+    const open = this.listings.filter((l) => !l.locked && l.stock !== 0 && !l.mystery && this._pct(l) > 0);
+    if (!open.length) return null;
+    const top = open.sort((a, b) => this._pct(b) - this._pct(a)).slice(0, 4);
+    const d = new Date();
+    return top[hash(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`) % top.length];
+  }
+  _countdown() {
+    const d = new Date(), end = new Date(d); end.setHours(24, 0, 0, 0);
+    let t = Math.max(0, Math.floor((end - d) / 1000));
+    const hh = String(Math.floor(t / 3600)).padStart(2, '0'); t %= 3600;
+    return `${hh}:${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+  }
+  _tickDeal() {
+    if (this.dead) return;
+    const txt = this._countdown();
+    for (const e of this.el.querySelectorAll('.eb-cd')) e.textContent = txt;
+  }
+  _dealCard(l) {
+    const pct = this._pct(l);
+    return `<button class="eb-deal" data-deal="${esc(l.id)}" style="${this._rarVars(l)}">
+      <span class="dl-kick">${px('flame', 2)}DEAL OF THE DAY${px('flame', 2)}</span>
+      <span class="dl-pic"><img class="eb-img" src="${esc(imgSrc(l.image))}" alt="" draggable="false" />${l.cat === 'eggs' && l.kind !== 'fish' ? `<span class="eb-eggm">${this._eggIcon(l, 2)}</span>` : ''}<i class="dl-ped"></i></span>
+      <span class="dl-info">
+        <b class="dl-t">${esc(this._short(l))}</b>
+        <span class="dl-p"><span class="eb-tag">${this._coin(1)}<b>${fmt(l.price)}</b></span><s class="eb-old">${fmt(l.oldPrice)}</s><em class="dl-pct">-${pct}%</em></span>
+        <span class="dl-back">+10% back in coins today</span>
+        <span class="dl-clock">${px('clock', 2)}ends in <b class="eb-cd">${this._countdown()}</b></span>
+      </span>
+      <span class="eb-burst"><b>-${pct}%</b></span>
+    </button>`;
+  }
+  _cols() {
+    try {
+      const n = getComputedStyle(this.$grid).gridTemplateColumns.split(' ').filter((x) => x && x !== 'none').length;
+      return Math.max(1, n || 4);
+    } catch { return 4; }
+  }
+  // the banners rotate per department; closed ones stay closed for the session
+  _banners(n) {
+    const pool = BANNERS.filter((b) => !SESSION.adsOff[b]);
+    if (!pool.length) return [];
+    const o = hash(this.cat || 'q') % pool.length;
+    return Array.from({ length: n }, (_, i) => pool[(o + i) % pool.length]).filter((b, i, a) => a.indexOf(b) === i);
+  }
+
   // ------------------------------------------------------------ utils
   _icon(name, s = 2) { try { return this.o.icon ? String(this.o.icon(name, s) || '') : ''; } catch { return ''; } }
   _sfx(name) { try { this.o.sfx?.(name); } catch { /* ignore */ } }
@@ -285,10 +378,10 @@ class EBuy {
               <header class="eb-top">
                 <button class="eb-hb eb-back eb-hback" aria-label="back">${px('arrow', 3, 'eb-ia')}${px('x', 3, 'eb-ix')}</button>
                 <button class="eb-home" aria-label="e-Buy home">${logo('eb-logo')}</button>
-                <label class="eb-search">${px('mag', 3)}<input class="eb-q" type="text" placeholder="Search eggs, ducks, gnomes..." autocomplete="off" spellcheck="false" enterkeyhint="search" /><button class="eb-qx" aria-label="clear">${px('x', 2)}</button><span class="eb-sgo">Search</span></label>
+                <label class="eb-search">${px('mag14', 2)}<input class="eb-q" type="text" placeholder="Search eggs, ducks, gnomes..." autocomplete="off" spellcheck="false" enterkeyhint="search" /><button class="eb-qx" aria-label="clear">${px('x', 2)}</button><span class="eb-sgo">Search</span></label>
                 <div class="eb-wallet" title="your coins"><span class="eb-coin">${this._coin(2)}</span><b class="eb-bal">${fmt(this.coins)}</b></div>
-                ${this.o.orders ? `<button class="eb-hb eb-ordb" aria-label="my orders">${px('box', 3)}<span class="eb-hbt">Orders</span><i class="eb-ordn"></i></button>` : ''}
-                <button class="eb-hb eb-cart" aria-label="cart">${px('cart', 3)}<span class="eb-hbt">Cart</span><i class="eb-cartn"></i></button>
+                ${this.o.orders ? `<button class="eb-hb eb-ordb" aria-label="my orders">${px('box16', 2)}<span class="eb-hbt">Orders</span><i class="eb-ordn"></i></button>` : ''}
+                <button class="eb-hb eb-cart" aria-label="cart">${px('cart16', 2)}<span class="eb-hbt">Cart</span><i class="eb-cartn"></i></button>
               </header>
               <div class="eb-ticker"><div class="eb-tick">${ticker}${ticker}</div></div>
               <div class="eb-body">
@@ -297,7 +390,7 @@ class EBuy {
                   <div class="eb-cats"></div>
                   ${adSky(this._A)}
                   <div class="eb-promo">
-                    <span class="eb-pmoose">${this._icon('moose', 3) || px('van', 3)}</span>
+                    <span class="eb-pmoose">${px('moosec', 2)}</span>
                     <b>FREE Moose Express</b>
                     <span>on every order. He insists.</span>
                     ${this.o.orders ? `<button class="eb-ptrack">${px('box', 2)}<span>Track my orders</span></button>` : ''}
@@ -355,6 +448,9 @@ class EBuy {
     this.$ordn = $('.eb-ordn');
     this.$drawer = $('.eb-drawer');
     this.$boot = $('.eb-boot');
+    // [v33 kit] checkout inputs: the note for the moose, Enter applies a coupon
+    this.$drawer.addEventListener('input', (e) => { if (e.target.classList?.contains('eb-notei')) SESSION.note = e.target.value; });
+    this.$drawer.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList?.contains('eb-cpi')) { e.preventDefault(); this._applyCoupon(e.target.value); } });
 
     this._onClick = (e) => this._click(e);
     el.addEventListener('click', this._onClick);
@@ -507,6 +603,15 @@ class EBuy {
   _click(e) {
     const t = e.target;
     if (!this.booted) return this._finishBoot();
+    // [v33 kit] ads: close buttons first (the pop-up's runs away once), then the ads themselves
+    const adx = t.closest('[data-adx]');
+    if (adx) { e.stopPropagation(); return this._adClose(adx.dataset.adx, adx); }
+    const ad = t.closest('[data-ad]');
+    if (ad && ad.dataset.ad !== 'sky') return this._adClick(ad.dataset.ad, ad);
+    const dealc = t.closest('.eb-deal');
+    if (dealc) { const l = this._byId(dealc.dataset.deal); if (l) { this._sfx('ebuy_tok'); this._openDetail(l); } return; }
+    const also = t.closest('[data-also]');
+    if (also) { const l = this._byId(also.dataset.also); if (l) { this._sfx('page'); this._openDetail(l); this.$det.scrollTop = 0; } return; }
     if (t.closest('.eb-back')) return this._back();
     if (t.closest('.eb-close')) return this._userClose();
     if (t.closest('.eb-reload')) { this._sfx('click'); this._bump(this.el.querySelector('.eb-reload'), 'spin'); this._render(true); return; }
@@ -565,6 +670,8 @@ class EBuy {
       }
       return this._openDetail(l);
     }
+    const shipb = t.closest('.eb-shipb');
+    if (shipb) return this._pickShip(shipb.dataset.ship, shipb);
     if (t.closest('.eb-minus')) return this._step(-1);
     if (t.closest('.eb-plus')) return this._step(1);
     if (t.closest('.eb-buy')) return this._buy();
@@ -574,6 +681,200 @@ class EBuy {
       return;
     }
     if (t.closest('.eb-rc')) return this._closeReceipt();
+  }
+
+  // ------------------------------------------------------------ [v33 kit] item art at a whole pixel scale
+  _fitImgs(root) {
+    for (const im of root.querySelectorAll('img.eb-img, img.eb-bigimg')) {
+      const go = () => this._fitImg(im);
+      if (im.complete && im.naturalWidth) go(); else im.addEventListener('load', go, { once: true });
+    }
+  }
+  _fitImg(im) {
+    const box = im.closest('.eb-pic, .eb-well, .dl-pic');
+    if (!box || this.dead) return;
+    const W = box.clientWidth, H = box.clientHeight;
+    if (!W || !H) return;
+    const t = texelOf(im) || 1;
+    const aw = im.naturalWidth / t, ah = im.naturalHeight / t;
+    if (t === 1 && Math.max(aw, ah) > 48) return; // a painting, not pixel art: the CSS fit stays
+    const big = im.classList.contains('eb-bigimg');
+    const fit = Math.min((W * (big ? 0.6 : 0.7)) / aw, (H * (big ? 0.6 : 0.66)) / ah);
+    const k = Math.max(1, Math.min(big ? 6 : 3, Math.floor(fit)));
+    im.style.width = `${aw * k}px`;
+    im.style.height = `${ah * k}px`;
+    im.classList.add('fit');
+    // the little pedestal goes right under the art
+    const ped = Math.round(H / 2 - (ah * k) / 2 - (big ? 12 : 8));
+    box.style.setProperty('--pedb', `${Math.max(4, ped)}px`);
+    box.style.setProperty('--pedw', `${Math.round(Math.min(W - 12, aw * k * 0.86 + 12))}px`);
+  }
+
+  // ------------------------------------------------------------ [v33 kit] ads
+  // a coupon won from an ad goes into the coupon wallet (once, ever)
+  _win(code) {
+    if (!COUPONS[code] || this.store.won.includes(code) || this.store.used[code]) return false;
+    this.store.won.push(code);
+    return true;
+  }
+  // the ad flips to its punchline for a moment
+  _adSay(el, html, ms = 2800) {
+    const t = el.querySelector('.ad-txt') || el;
+    if (el._orig == null) el._orig = t.innerHTML;
+    t.innerHTML = html;
+    this._bump(el, 'ad-hit');
+    clearTimeout(el._sayT);
+    el._sayT = this._later(() => { if (el.isConnected) t.innerHTML = el._orig; }, ms);
+  }
+  _adClick(id, el) {
+    const code = (c, what) => `Coupon <u class="ad-code">${c}</u>: ${what}. Use it at checkout.`;
+    switch (id) {
+      case 'visitor': {
+        const won = this._win('VISITOR');
+        this._sfx(won ? 'coins' : 'error');
+        this._adSay(el, won ? `<b class="ad-big">YOU WON!!! (really)</b><span>${code('VISITOR', '15 coins off')}</span>` : '<b class="ad-big">You already won.</b><span>Winning twice is greedy. Even for us.</span>');
+        if (won) this._confetti(el, 18);
+        return;
+      }
+      case 'bears': {
+        const won = this._win('BEARHUG');
+        this._sfx('growl');
+        this._adSay(el, `<b class="ad-big">...they are not single.</b><span>They are HUNGRY. ${won ? code('BEARHUG', '10 coins off (sorry)') : 'Buy more fish.'}</span>`);
+        return;
+      }
+      case 'doctors': { const d = this._deal(); this._sfx('ebuy_tok'); if (d) this._openDetail(d); else this._adSay(el, '<b class="ad-big">The trick: buy stuff.</b><span>Doctors are furious.</span>'); return; }
+      case 'pond': {
+        if (el.classList.contains('dl')) return;
+        el.classList.add('dl');
+        this._sfx('typing');
+        this._later(() => {
+          el.classList.remove('dl');
+          const won = this._win('PONDEXE');
+          this._sfx(won ? 'coins' : 'error');
+          this._adSay(el, won ? `<b class="ad-big">ERROR: pond too big.</b><span>${code('PONDEXE', '8 coins off')}</span>` : '<b class="ad-big">ERROR: pond STILL too big.</b><span>Try the shovel. In the game.</span>', 3400);
+        }, 1700);
+        return;
+      }
+      case 'moose': {
+        const won = this._win('MOOSE');
+        SESSION.ship = 'turbo';
+        this._sfx('bell');
+        this._adSay(el, `<b class="ad-big">TURBO MOOSE: ON</b><span>${won ? code('MOOSE', 'your Turbo delivery is FREE') : 'Turbo is now picked for your next order. Vroom.'}</span>`);
+        if (this.cur) { const l = this._byId(this.cur); if (l) this._renderDetail(l, true); }
+        return;
+      }
+      case 'mystery': { const m = this._byId('mystery_box'); if (m) { this._sfx('ebuy_tok'); this._openDetail(m); } return; }
+      case 'skyfish': return this._skyTap();
+      case 'popyes': {
+        this._sfx('pop_in');
+        this._popClose(true);
+        this.q = ''; this.$q.value = '';
+        if (this.cur) this._closeDetail(true);
+        this.cat = 'eggs'; SESSION.cat = 'eggs';
+        this._render(true);
+        this.$scroll.scrollTop = 0;
+        this._toast('Hot single eggs, right here. (they are eggs)');
+        return;
+      }
+      default:
+    }
+  }
+  _adClose(id, btn) {
+    if (id === 'popup') return this._popClose(false);
+    SESSION.adsOff[id] = true;
+    this._sfx('click');
+    const row = btn.closest('.eb-adrow');
+    if (row) { row.classList.add('ad-gone'); this._later(() => row.remove(), 260); }
+  }
+  // TAP THE FISH: the fish swims back and forth along the lane; tap while it's in the ring
+  _skyStep() {
+    const sky = this.el?.querySelector('.eb-sky');
+    if (!sky || !sky.offsetParent || this.dead) return;
+    this._skyP = ((this._skyP || 0) + 1) % 12;
+    const pos = this._skyP < 7 ? this._skyP : 12 - this._skyP; // 0..6..0
+    this._skyPos = pos;
+    sky.style.setProperty('--fx', pos);
+    sky.classList.toggle('hot', pos === 3);
+  }
+  _skyTap() {
+    const sky = this.el.querySelector('.eb-sky');
+    if (!sky) return;
+    const msg = sky.querySelector('.sky-msg');
+    if (this._skyPos === 3) {
+      const won = this._win('FISHY');
+      this._sfx(won ? 'coins' : 'tick');
+      msg.innerHTML = won ? 'WINNER!! code <u class="ad-code">FISHY</u> = 15% off' : 'WINNER again! (no more prizes)';
+      this._bump(sky, 'ad-hit');
+      if (won) this._confetti(sky, 14);
+    } else {
+      this._sfx('error');
+      msg.textContent = ['SO CLOSE!', 'MISS! try again', 'the fish dodged', 'nope!'][(Math.random() * 4) | 0];
+      this._bump(sky, 'ad-miss');
+    }
+  }
+  // one pop-up ad a session, only over the item grid (never over a Buy button)
+  _maybePopup() {
+    if (this.dead || SESSION.popDone) return;
+    if (!this.booted || this.cur || this.drawer || !this.$rc.hidden || this.q) { this._later(() => this._maybePopup(), 8000); return; }
+    SESSION.popDone = true;
+    const wrap = this.el.querySelector('.eb-popwrap');
+    wrap.innerHTML = adPopup('lonely', this._A);
+    this._popRan = false;
+    const pop = wrap.firstElementChild;
+    pop.style.setProperty('--px', '14%');
+    pop.style.setProperty('--py', '10%');
+    void pop.offsetWidth;
+    pop.classList.add('on');
+    this._sfx('beep');
+  }
+  _popClose(byYes) {
+    const pop = this.el.querySelector('.eb-popad');
+    if (!pop) return;
+    if (!byYes && !this._popRan) {
+      // the classic: the X runs away the first time
+      this._popRan = true;
+      pop.style.setProperty('--px', '46%');
+      pop.style.setProperty('--py', '38%');
+      pop.querySelector('.pop-h').textContent = 'Nice try!! Still lonely??';
+      this._bump(pop, 'pop-dodge');
+      this._sfx('whoosh');
+      return;
+    }
+    pop.classList.remove('on');
+    pop.classList.add('off');
+    this._sfx(byYes ? 'click' : 'page');
+    this._later(() => pop.remove(), 260);
+  }
+  _popHide() {
+    const pop = this.el?.querySelector('.eb-popad');
+    if (!pop) return;
+    pop.classList.remove('on');
+    pop.classList.add('off');
+    this._later(() => pop.remove(), 260);
+  }
+  _toast(text) {
+    const t = document.createElement('div');
+    t.className = 'eb-toast';
+    t.innerHTML = `${px('spark', 2)}<span>${esc(text)}</span>`;
+    this.$fx.appendChild(t);
+    this._later(() => t.remove(), 2600);
+  }
+  // paper confetti from an element (or the whole app)
+  _confetti(fromEl, n = 30) {
+    if (reduced()) return;
+    const wr = this.$fx.getBoundingClientRect();
+    const r = (fromEl || this.$app).getBoundingClientRect();
+    const cols = ['#f0505a', '#ffc22e', '#3a7ae0', '#6cc04a', '#ff9a3a', '#ffffff', '#ff6aa8'];
+    let h = '';
+    for (let i = 0; i < n; i++) {
+      const x = r.left - wr.left + Math.random() * r.width, y = r.top - wr.top + (fromEl ? r.height * 0.3 : 0);
+      h += `<i class="eb-conf" style="left:${x | 0}px;top:${y | 0}px;background:${cols[i % cols.length]};--dx:${((Math.random() - 0.5) * 160) | 0}px;--dy:${(80 + Math.random() * 220) | 0}px;--r:${((Math.random() - 0.5) * 900) | 0}deg;animation-delay:${(Math.random() * 0.25).toFixed(2)}s;width:${4 + (i % 3) * 2}px;height:${4 + ((i + 1) % 2) * 4}px"></i>`;
+    }
+    const box = document.createElement('div');
+    box.className = 'eb-burstfx';
+    box.innerHTML = h;
+    this.$fx.appendChild(box);
+    this._later(() => box.remove(), 1700);
   }
 
   // ------------------------------------------------------------ refresh
@@ -651,7 +952,23 @@ class EBuy {
       return;
     }
     const inCart = new Map(SESSION.cart.map((c) => [String(c.id), c.qty]));
-    this.$grid.innerHTML = list.map((l, i) => this._card(l, i, inCart.get(String(l.id)) || 0)).join('');
+    // [v33 kit] the deal of the day up top, banner ads between card rows, UNDER CONSTRUCTION above the locked cards
+    const cols = this._cols();
+    const deal = !this.q ? this._deal() : null;
+    const ads = this._banners(2);
+    const out = [];
+    if (deal) out.push(this._dealCard(deal));
+    let n = deal ? Math.min(2, cols) : 0, adI = 0;
+    const firstLocked = list.findIndex((l) => l.locked);
+    list.forEach((l, i) => {
+      if (i === firstLocked) { out.push(adUnder(this._A, list.length - firstLocked)); n = 0; }
+      out.push(this._card(l, i, inCart.get(String(l.id)) || 0));
+      n++;
+      const lockedZone = firstLocked >= 0 && i >= firstLocked - 1;
+      if (adI < ads.length && !lockedZone && n === cols * (adI === 0 ? 1 : 3)) { out.push(`<div class="eb-adrow">${adBanner(ads[adI++], this._A)}</div>`); n = 0; }
+    });
+    this.$grid.innerHTML = out.join('');
+    this._fitImgs(this.$grid);
     if (anim) this._cascade();
   }
   _cascade() {
@@ -672,7 +989,7 @@ class EBuy {
     const html = cats.map((c) => {
       const all = this.listings.filter((l) => l.cat === c.id);
       const n = all.filter((l) => !l.locked).length;
-      return `<button class="eb-cat${!this.q && c.id === this.cat ? ' on' : ''}" data-cat="${esc(c.id)}"><span class="eb-cati">${this._icon(c.icon, 2) || px('box', 2)}</span><span class="eb-catn">${esc(c.name)}</span><i class="eb-catc">${n || ''}</i></button>`;
+      return `<button class="eb-cat${!this.q && c.id === this.cat ? ' on' : ''}" data-cat="${esc(c.id)}"><span class="eb-cati">${c.dpx ? px(c.dpx, 2) : this._icon(c.icon, 2) || px('d_tag', 2)}</span><span class="eb-catn">${esc(c.name)}</span><i class="eb-catc">${n || ''}</i></button>`;
     }).join('');
     if (html !== this._catsHtml) { this.$cats.innerHTML = html; this._catsHtml = html; }
   }
@@ -745,6 +1062,7 @@ class EBuy {
 
   // ------------------------------------------------------------ detail
   _openDetail(l, instant = false) {
+    this._popHide(); // [v33 kit] the pop-up never sits over an item page
     if (!instant) this._sfx('page');
     this.cur = l.id;
     this.qty = 1;
@@ -800,7 +1118,14 @@ class EBuy {
     const sel = l.seller;
     const prevFx = keepFx ? this.$det.querySelector('.eb-fxl') : null;
     const fxHtml = prevFx ? prevFx.innerHTML : this._fx(mk, r);
-    const specs = [
+    const deal = this._deal();
+    const isDeal = deal && deal.id === l.id;
+    const specs = l.mystery ? [
+      ['Contents', '??? (one random thing from the shelves)'],
+      ['Odds', 'Sometimes worth 3x. Sometimes pellets.'],
+      ['Seller', `<b class="eb-seln">${esc(l.seller.name)}</b> ${this._stars(l.seller.stars)}`],
+      ['Ships from', 'Nobody knows'],
+    ] : [
       ['Condition', l.kind === 'egg' ? 'Fresh (probably)' : l.kind === 'fish' || l.kind === 'bird' ? 'Alive. Very alive.' : 'New-ish'],
       rar && ['Rarity', `<span class="eb-gems">${'<i></i>'.repeat(rar.t)}</span> ${rar.n}`],
       m?.mult && ['Resale value', `${this._coin(1)} ×${esc(m.mult)}`],
@@ -820,6 +1145,8 @@ class EBuy {
             ${pct ? `<span class="eb-burst big"><b>-${pct}%!!</b></span>` : ''}
             <span class="eb-bdgs">${this._badges(l)}</span>
             <span class="eb-watch">${px('eye', 2)}${watching} watching</span>
+            ${isDeal ? `<span class="eb-dealtag">${px('flame', 2)}<b>DEAL OF THE DAY</b><span>10% back · ends in <b class="eb-cd">${this._countdown()}</b></span></span>` : ''}
+            <i class="eb-ped"></i>
           </div>
           <div class="eb-revs"><b class="eb-revh">Buyer reviews</b>${reviews.map(([t, n, s]) => `<div class="eb-rev">${this._stars(s)}<q>${esc(t)}</q><cite>${esc(n)}</cite></div>`).join('')}</div>
         </div>
@@ -836,15 +1163,18 @@ class EBuy {
               <div class="eb-step"><button class="eb-minus" aria-label="less">−</button><b class="eb-qty">${this.qty}</b><button class="eb-plus" aria-label="more">+</button></div>
               <span class="eb-totl">Total <span class="eb-totv">${this._coin(1)}<b class="eb-tot2">${fmt(l.price * this.qty)}</b></span></span>
             </div>
+            ${l.locked ? '' : this._shipPick('d')}
             <div class="eb-poor"></div>
             <button class="eb-buy"><span class="eb-buyt">Buy It Now</span><span class="eb-buyc">${this._coin(2)}<b class="eb-tot">${fmt(l.price * this.qty)}</b></span><i class="eb-buyx">${px('bigx', 5)}</i></button>
             <button class="eb-add">${px('cart', 2)}<span>Add to cart</span>${inCart ? `<i>${inCart} in cart</i>` : ''}</button>
-            <div class="eb-ship">${px('van', 2)}<span><b>Moose Express</b> · FREE · <span class="eb-etad">${esc(this._etaText(this._eta([{ l, qty: this.qty }]), l.eta))}</span></span></div>
+            <div class="eb-ship">${px('van', 2)}<span><b class="eb-shipn"></b> · <span class="eb-shipf"></span> · <span class="eb-etad">${esc(this._etaText(this._eta([{ l, qty: this.qty }]), l.eta))}</span></span></div>
           </div>
           <table class="eb-specs"><tbody>${specs.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>
+          ${this._alsoBought(l)}
         </div>
       </div>`;
     this._updateTotal();
+    this._fitImgs(this.$det);
   }
   _step(d) {
     const l = this._byId(this.cur);
@@ -860,8 +1190,13 @@ class EBuy {
   _updateTotal() {
     const l = this.cur && this._byId(this.cur);
     if (!l) return;
-    const tot = l.price * this.qty;
-    for (const te of this.$det.querySelectorAll('.eb-tot, .eb-tot2')) te.textContent = fmt(tot);
+    const q = this._quote([{ l, qty: this.qty }], 'buy');
+    const tot = q.gross; // [v33 kit] the item(s) + the delivery tier
+    for (const te of this.$det.querySelectorAll('.eb-tot2')) te.textContent = fmt(l.price * this.qty);
+    for (const te of this.$det.querySelectorAll('.eb-tot')) te.textContent = fmt(tot);
+    const sn = this.$det.querySelector('.eb-shipn'), sf = this.$det.querySelector('.eb-shipf');
+    if (sn) sn.textContent = q.tier.n;
+    if (sf) sf.innerHTML = q.fee ? `${this._coin(1)}${q.fee}` : 'FREE';
     const poor = tot > this.coins;
     this.$det.querySelector('.eb-buy')?.classList.toggle('poor', poor);
     const pe = this.$det.querySelector('.eb-poor');
@@ -872,7 +1207,8 @@ class EBuy {
 
   // ------------------------------------------------------------ delivery estimate
   _orders() { try { return (this.o.orders?.() || []).filter(Boolean); } catch { return []; } }
-  _eta(lines) {
+  _eta(lines, ship = SESSION.ship) {
+    const T = this.tiers[ship] || this.tiers.std || { mult: 1, pack: 1 }; // [v33 kit]
     let info = null;
     try { info = this.o.ship?.() || null; } catch { info = null; }
     if (!info) return null;
@@ -883,10 +1219,10 @@ class EBuy {
       n += x.qty * (l.kind === 'fish' || l.pair ? 2 : l.qty || 1);
       if (l.kind === 'egg' || l.kind === 'fish' || l.kind === 'bird') fragile = true;
     }
-    const pack = Math.min(30, 7 + n * 2.5 + (fragile ? 3 : 0) + 1.5);
+    const pack = Math.min(30, 7 + n * 2.5 + (fragile ? 3 : 0) + 1.5) * (T.pack || 1);
     let wait = 0;
     for (const t of this._orders()) if (t.phase !== 'delivered' && t.eta > 0) wait = Math.max(wait, t.eta);
-    return { s: Math.max(pack + (+info.ride || 20), wait + 4) };
+    return { s: Math.max(pack + (+info.ride || 20) / (T.mult || 1), wait + 4) };
   }
   _etaText(e, fallback = 'ships today') {
     if (!e) return fallback && fallback !== 'Moose Express' ? fallback : 'ships today';
@@ -903,9 +1239,9 @@ class EBuy {
     this.busy = true;
     btn.classList.add('press');
     this._sfx('click');
-    let ok = false;
-    const qty = this.qty;
-    try { ok = !!(await this.o.onBuy?.(l, qty)); } catch (err) { console.error(err); ok = false; }
+    let res = { ok: false };
+    try { res = await this._purchase([{ l, qty: this.qty }], 'buy'); } catch (err) { console.error(err); }
+    const ok = res.ok;
     if (this.dead) return;
     btn.classList.remove('press');
     if (!ok) {
@@ -918,7 +1254,107 @@ class EBuy {
     }
     this._sfx('buy');
     this._coinBurst(btn);
-    this._later(() => { this.busy = false; this._showReceipt([{ l, qty }]); }, 520);
+    this._confetti(null, 36);
+    this._later(() => { this.busy = false; this._showReceipt(res); }, 520);
+  }
+
+  // ------------------------------------------------------------ [v33 kit] the money side of an order
+  _cpn() { const c = SESSION.coupon; return c && COUPONS[c] && !this.store.used[c] ? COUPONS[c] : null; }
+  // what an order costs: items + delivery tier + gift wrap, minus coupon / club freebie / the deal's 10% back
+  _quote(lines, from = 'cart') {
+    const ok = lines.filter((x) => !x.l.locked && x.l.stock !== 0);
+    const tier = SHIPS.find((t) => t.id === SESSION.ship) || SHIPS[0];
+    const cpn = this._cpn();
+    const items = ok.reduce((s, x) => s + x.l.price * x.qty, 0);
+    const fee = cpn?.ship === tier.id ? 0 : tier.fee;
+    const gift = from === 'cart' && SESSION.gift ? GIFT_FEE : 0;
+    const coupon = cpn && !cpn.ship ? (cpn.pct ? Math.round((items * cpn.pct) / 100) : Math.min(items, cpn.flat || 0)) : 0;
+    const club = this.store.free && ok.length ? Math.min(100, ...ok.map((x) => x.l.price)) : 0;
+    const d = this._deal();
+    const deal = d ? ok.filter((x) => x.l.id === d.id).reduce((s, x) => s + Math.round(x.l.price * x.qty * DEAL_BACK), 0) : 0;
+    const gross = items + fee + gift;
+    return { ok, tier, cpn, items, fee, gift, coupon, club, deal, gross, total: Math.max(0, gross - coupon - club - deal) };
+  }
+  // the Mystery Box: something random off the shelves that fits the budget (now and then a jackpot)
+  _mysteryPick(max) {
+    const pool = this.listings.filter((l) => !l.locked && l.stock !== 0 && !l.mystery && l.kind !== 'upgrade' && l.price >= 6 && l.price <= max).sort((a, b) => a.price - b.price);
+    if (!pool.length) return null;
+    if (Math.random() < 0.3) return pool[Math.max(0, pool.length - 1 - ((Math.random() * Math.min(3, pool.length)) | 0))];
+    return pool[(Math.random() * pool.length) | 0];
+  }
+  // place the order: each line through onBuy (with the delivery choice), then the fees / credits once
+  async _purchase(lines, from) {
+    const q = this._quote(lines, from);
+    if (!q.ok.length || q.gross > this.coins) return { ok: false, poor: q.gross > this.coins, q };
+    const extra = { ship: q.tier.id, gift: !!q.gift, note: from === 'cart' ? String(SESSION.note || '').trim() : '' };
+    const myst = q.ok.some((x) => x.l.mystery);
+    extra.linger = myst || this.store.stamps + 1 >= CLUB_N ? 4800 : 3400;
+    let budget = this.coins - q.fee - q.gift;
+    const done = [], reveals = [];
+    const order = [...q.ok.filter((x) => !x.l.mystery), ...q.ok.filter((x) => x.l.mystery)];
+    for (const x of order) {
+      if (x.l.mystery) {
+        let got = 0;
+        for (let k = 0; k < x.qty; k++) {
+          const pick = this._mysteryPick(budget);
+          let ok = false;
+          if (pick) { try { ok = !!(await this.o.onBuy?.(pick, 1, extra)); } catch (err) { console.error(err); } }
+          if (this.dead) return { ok: false };
+          if (!ok) continue;
+          got++;
+          reveals.push(pick);
+          budget -= pick.price;
+          // the box costs what it costs: the difference is charged / paid back
+          const diff = MYSTERY_PRICE - pick.price;
+          if (diff && this.o.onCharge) { try { this.o.onCharge(diff); budget -= diff; } catch (err) { console.error(err); } }
+        }
+        if (got) done.push({ l: x.l, qty: got });
+        continue;
+      }
+      let ok = false;
+      try { ok = !!(await this.o.onBuy?.(x.l, x.qty, extra)); } catch (err) { console.error(err); }
+      if (this.dead) return { ok: false };
+      if (ok) { done.push(x); budget -= x.l.price * x.qty; }
+    }
+    if (!done.length) return { ok: false, q };
+    const q2 = this._quote(done, from);
+    const net = q2.fee + q2.gift - q2.coupon - q2.club - q2.deal;
+    if (net && this.o.onCharge) { try { this.o.onCharge(net); } catch (err) { console.error(err); } }
+    // the coupon is spent, the club card gets a stamp (a full card makes the next order's cheapest item free)
+    const st = this.store, before = st.stamps;
+    const code = q2.cpn ? SESSION.coupon : null;
+    if (code) { st.used[code] = true; st.won = st.won.filter((c) => c !== code); SESSION.coupon = null; }
+    if (q2.club) st.free = false;
+    st.orders = (st.orders || 0) + 1;
+    st.stamps = before + 1;
+    const full = st.stamps >= CLUB_N;
+    if (full) { st.stamps = 0; st.free = true; }
+    if (from === 'cart') { SESSION.gift = false; SESSION.note = ''; }
+    SESSION.ship = 'std'; // the next order starts on the free moose again (no surprise fees)
+    return { ok: true, done, reveals, q: q2, code, from, stamps: { before, full } };
+  }
+  // the delivery picker (detail: compact pills; checkout: rows with the joke and the ETA)
+  _shipPick(where, lines = null) {
+    const cpn = this._cpn();
+    return `<div class="eb-shipp sp-${where}">${where === 'd' ? '<span class="eb-shipl">Delivery</span>' : ''}${SHIPS.map((t) => {
+      const free = !t.fee || cpn?.ship === t.id;
+      const eta = lines ? this._etaText(this._eta(lines, t.id)) : '';
+      return `<button class="eb-shipb sh-${t.id}${SESSION.ship === t.id ? ' on' : ''}" data-ship="${t.id}" aria-pressed="${SESSION.ship === t.id}"><span class="sh-ic">${px(t.ic, 2)}</span><span class="sh-n">${t.n}</span>${where === 'c' ? `<span class="sh-s">${t.sub}</span><span class="sh-e">${esc(eta)}</span>` : ''}<span class="sh-f">${free ? (t.fee ? '<s>' + t.fee + '</s> FREE' : 'FREE') : `${this._coin(1)}${t.fee}`}</span></button>`;
+    }).join('')}</div>`;
+  }
+  // a row of things that sell with this one
+  _alsoBought(l) {
+    const R = rng(hash(l.id) ^ 0x51ed);
+    const pool = this.listings.filter((x) => x !== l && !x.locked && x.stock !== 0);
+    if (!pool.length) return '';
+    const same = pool.filter((x) => x.cat === l.cat), other = pool.filter((x) => x.cat !== l.cat);
+    const pick = [];
+    for (const src of [same, other, same, other, same]) { if (!src.length || pick.length >= 4) continue; const x = src[(R() * src.length) | 0]; if (!pick.includes(x)) pick.push(x); }
+    return `<div class="eb-also"><b class="eb-alsoh">Customers also bought</b><div class="eb-alsor">${pick.map((x) => `<button class="eb-mcard" data-also="${esc(x.id)}" style="${this._rarVars(x)}"><span class="eb-pic sm"><img class="eb-img" src="${esc(imgSrc(x.image))}" alt="" draggable="false" /></span><span class="mc-t">${esc(this._short(x))}</span><span class="eb-tag">${this._coin(1)}<b>${fmt(x.price)}</b></span></button>`).join('')}</div></div>`;
+  }
+  // the e-Buy Club card: 10 stamps, the newest one thumps on
+  _club(n, fresh = -1) {
+    return `<div class="eb-club"><span class="club-h">${px('stamp', 2)}<b>e-Buy Club</b><span>${this.store.free ? '<em>FREE item on this order!</em>' : `${CLUB_N - n} more for a FREE item`}</span></span><span class="club-row">${Array.from({ length: CLUB_N }, (_, i) => `<i class="${i < n ? 'on' : ''}${i === fresh ? ' new' : ''}">${i < n ? px('stamp', 2) : i + 1}</i>`).join('')}</span></div>`;
   }
   _coinBurst(btn) {
     const wr = this.$fx.getBoundingClientRect(), br = btn.getBoundingClientRect();
@@ -1001,6 +1437,7 @@ class EBuy {
   // ------------------------------------------------------------ drawer: cart / checkout / orders
   _openDrawer(view) {
     if (this.busy) return;
+    this._popHide(); // [v33 kit]
     const was = this.drawer;
     this.drawer = view;
     this._renderDrawer();
@@ -1019,6 +1456,15 @@ class EBuy {
   }
   _drawerClick(t) {
     if (t.closest('.eb-dx')) return this._closeDrawer();
+    // [v33 kit] checkout options
+    const shipb = t.closest('.eb-shipb');
+    if (shipb) return this._pickShip(shipb.dataset.ship, shipb);
+    if (t.closest('[data-gift]')) { SESSION.gift = !SESSION.gift; this._sfx(SESSION.gift ? 'ebuy_cart' : 'click'); this._renderDrawer(); this._bump(this.$drawer.querySelector('[data-gift]'), 'bump'); return; }
+    if (t.closest('.eb-capply')) return this._applyCoupon(this.$drawer.querySelector('.eb-cpi')?.value);
+    const cpn = t.closest('.eb-cpn');
+    if (cpn) return this._applyCoupon(cpn.dataset.code);
+    if (t.closest('.eb-cpx')) { SESSION.coupon = null; this._sfx('page'); this._renderDrawer(); return; }
+    if (t.closest('input')) return;
     if (t.closest('.eb-dback')) return this._openDrawer('cart');
     if (t.closest('.eb-gocheck')) {
       const lines = this._cartLines().filter((x) => !x.l.locked && x.l.stock !== 0);
@@ -1053,6 +1499,47 @@ class EBuy {
     this._renderDrawer();
     this._renderCartCount();
   }
+  // [v33 kit] pick a delivery tier (detail page or checkout)
+  _pickShip(id, btn) {
+    if (!SHIPS.some((t) => t.id === id)) return;
+    if (SESSION.ship === id) { this._bump(btn, 'bump'); return; }
+    SESSION.ship = id;
+    this._sfx(id === 'rocket' ? 'whoosh' : id === 'turbo' ? 'bell' : 'click');
+    if (this.drawer) {
+      this._renderDrawer();
+      this._bump(this.$drawer.querySelector(`.eb-shipb[data-ship="${id}"]`), 'bump');
+    } else {
+      for (const b of this.$det.querySelectorAll('.eb-shipb')) { b.classList.toggle('on', b.dataset.ship === id); b.setAttribute('aria-pressed', b.dataset.ship === id); }
+      this._bump(this.$det.querySelector(`.eb-shipb[data-ship="${id}"]`), 'bump');
+      this._updateTotal();
+    }
+  }
+  _applyCoupon(raw) {
+    const code = String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!code) return;
+    const say = (m, bad) => {
+      const el = this.$drawer.querySelector('.cp-msg');
+      if (el) { el.textContent = m; el.classList.toggle('bad', !!bad); this._bump(el, bad ? 'shake' : 'bump'); }
+    };
+    if (!COUPONS[code]) { this._sfx('error'); return say('That is not a coupon. That is a typo.', true); }
+    if (this.store.used[code]) { this._sfx('error'); return say('Already used. Reynard remembers EVERYTHING.', true); }
+    SESSION.coupon = code;
+    if (!this.store.won.includes(code)) this.store.won.push(code);
+    this._sfx('coins');
+    this._renderDrawer();
+    say(`${code}: ${COUPONS[code].n}!`);
+    this._confetti(this.$drawer.querySelector('.eb-coupon'), 12);
+  }
+  _sumRows(q) {
+    const c = (v) => `${this._coin(1)}${fmt(v)}`;
+    return `<div class="eb-sum sm"><span>Items</span><i></i><b>${c(q.items)}</b></div>
+      <div class="eb-sum sm"><span>${px(q.tier.ic, 1)} ${q.tier.n}</span><i></i><b class="${q.fee ? '' : 'eb-free'}">${q.fee ? c(q.fee) : 'FREE'}</b></div>
+      ${q.gift ? `<div class="eb-sum sm"><span>${px('gift', 1)} Gift wrap</span><i></i><b>${c(q.gift)}</b></div>` : ''}
+      ${q.coupon || q.cpn?.ship ? `<div class="eb-sum sm good"><span>${px('ticket', 1)} Coupon ${esc(SESSION.coupon)}</span><i></i><b>${q.coupon ? '-' + c(q.coupon) : 'free Turbo'}</b></div>` : ''}
+      ${q.club ? `<div class="eb-sum sm good"><span>${px('stamp', 1)} Club card: 1 item FREE</span><i></i><b>-${c(q.club)}</b></div>` : ''}
+      ${q.deal ? `<div class="eb-sum sm good"><span>${px('flame', 1)} Deal of the day</span><i></i><b>-${c(q.deal)}</b></div>` : ''}`;
+  }
+
   _renderDrawer() {
     const v = this.drawer;
     if (!v) return;
@@ -1064,7 +1551,7 @@ class EBuy {
       const rows = list.map((o) => `<div class="eb-ord" data-oid="${esc(o.id)}">
           <span class="eb-oic"></span>
           <span class="eb-oinfo">
-            <b class="eb-olab">${esc(o.label || 'Parcel')}${o.count > 1 ? ` <em>${o.count} items</em>` : ''}</b>
+            <b class="eb-olab">${esc(o.label || 'Parcel')}${o.count > 1 ? ` <em>${o.count} items</em>` : ''}${o.ship && o.ship !== 'std' ? `<i class="eb-otier t-${esc(o.ship)}">${px(o.ship === 'rocket' ? 'rocket' : 'flame', 1)}${o.ship === 'rocket' ? 'ROCKET' : 'TURBO'}</i>` : ''}</b>
             <span class="eb-ophase"><span class="eb-ophl"></span><span class="eb-oeta"></span></span>
             <span class="eb-oroad"><i class="eb-ofill"></i><em>${px('van', 2)}</em><u></u></span>
             <span class="eb-osteps">${PHASES.map((p) => `<i title="${PHASE[p]}"></i>`).join('')}</span>
@@ -1073,23 +1560,24 @@ class EBuy {
         </div>`).join('');
       this.$drawer.innerHTML = `${head('My orders')}
         <div class="eb-dbody">${rows || `<div class="eb-dempty">${this._icon('fox_shocked', 3) || px('box', 6)}<b>No orders yet.</b><span>Reynard is shocked. Shocked!</span><button class="eb-keep">Go shopping</button></div>`}</div>
-        <div class="eb-dfoot eb-ofoot">${px('van', 2)}<span>Moose Express delivers to the hut. Tags on the left show the moose live.</span></div>`;
+        <div class="eb-dfoot eb-ofoot">${this._club(this.store.stamps)}<span class="eb-ofoot2">${px('van', 2)}<span>Moose Express delivers to the hut. Tags on the left show the moose live.</span></span></div>`;
       this._fillOrders(list);
       return;
     }
     const lines = this._cartLines();
-    const ok = lines.filter((x) => !x.l.locked && x.l.stock !== 0);
-    const total = ok.reduce((s, x) => s + x.l.price * x.qty, 0);
-    const after = this.coins - total;
+    const q = this._quote(lines, 'cart'); // [v33 kit]
+    const ok = q.ok;
+    const total = q.total;
+    const after = this.coins - q.gross;
     const n = lines.reduce((s, x) => s + x.qty, 0);
     if (v === 'cart') {
       const body = lines.length ? lines.map((x) => this._line(x, true)).join('') : `<div class="eb-dempty">${this._icon('fox_worried', 3) || px('cart', 6)}<b>Your cart is empty.</b><span>Reynard's wallet is sad. Tap ${px('cart', 1)}+ on anything.</span><button class="eb-keep">Keep shopping</button></div>`;
       this.$drawer.innerHTML = `${head(`Your cart <em>${n ? `(${n})` : ''}</em>`)}${steps(0)}
         <div class="eb-dbody">${body}</div>
         ${lines.length ? `<div class="eb-dfoot">
+          ${this._sumRows(q)}
           <div class="eb-sum"><span>Subtotal</span><i></i><b>${this._coin(1)}${fmt(total)}</b></div>
-          <div class="eb-sum sm"><span>Moose Express</span><i></i><b class="eb-free">FREE</b></div>
-          <div class="eb-sum sm${after < 0 ? ' bad' : ''}"><span>Wallet after</span><i></i><b>${this._coin(1)}${fmt(after)}</b></div>
+          <div class="eb-sum sm${after < 0 ? ' bad' : ''}"><span>Wallet after</span><i></i><b>${this._coin(1)}${fmt(this.coins - total)}</b></div>
           <button class="eb-gocheck${after < 0 ? ' poor' : ''}"><span>Checkout</span>${px('arrowR', 2)}</button>
         </div>` : ''}`;
       return;
@@ -1099,7 +1587,17 @@ class EBuy {
     this.$drawer.innerHTML = `${head('Checkout', true)}${steps(1)}
       <div class="eb-dbody">
         <div class="eb-cbox"><span class="eb-cbi">${px('pin', 3)}</span><span><small>Ship to</small><b>The Pond, behind the hut</b><em>the moose knows the way</em></span></div>
-        <div class="eb-cbox"><span class="eb-cbi">${this._icon('moose', 2) || px('van', 3)}</span><span><small>Delivery</small><b>Moose Express · FREE</b><em class="eb-ceta">${esc(this._etaText(eta))}</em></span></div>
+        <div class="eb-csec"><small class="eb-csh">Delivery</small>${this._shipPick('c', ok)}</div>
+        <button class="eb-cbox eb-giftb${SESSION.gift ? ' on' : ''}" data-gift><span class="eb-cbi">${px('gift', 3)}</span><span><small>Gift wrap · +${GIFT_FEE}</small><b>Pink paper + a bow</b><em>confetti when you unbox it</em></span><span class="eb-tick">${SESSION.gift ? px('check', 2) : ''}</span></button>
+        <label class="eb-cnote"><small>A note for the moose (he reads it out loud)</small><input class="eb-notei" type="text" maxlength="60" placeholder="e.g. Leave it by the pond, thanks!" value="${esc(SESSION.note || '')}" autocomplete="off" spellcheck="false" /></label>
+        <div class="eb-coupon"><small>Coupon code</small>
+          <span class="cp-row"><input class="eb-cpi" type="text" maxlength="12" placeholder="ENTER CODE" autocomplete="off" spellcheck="false" /><button class="eb-capply">Apply</button></span>
+          ${SESSION.coupon && this._cpn() ? `<span class="cp-on">${px('ticket', 2)}<b>${esc(SESSION.coupon)}</b><span>${esc(COUPONS[SESSION.coupon].n)}</span><button class="eb-cpx" aria-label="remove coupon">${px('x', 1)}</button></span>` : ''}
+          ${this.store.won.filter((c) => c !== SESSION.coupon && !this.store.used[c]).length ? `<span class="cp-won"><small>Your coupons:</small>${this.store.won.filter((c) => c !== SESSION.coupon && !this.store.used[c]).map((c) => `<button class="eb-cpn" data-code="${esc(c)}">${px('ticket', 1)}${esc(c)}</button>`).join('')}</span>` : ''}
+          <span class="cp-msg"></span>
+        </div>
+        ${this._club(this.store.stamps)}
+        <div class="eb-csum">${this._sumRows(q)}</div>
         <div class="eb-cbox"><span class="eb-cbi">${px('coinp', 3)}</span><span><small>Pay with</small><b>Coins (all of them)</b><em>${this._coin(1)}${fmt(this.coins)} → <span class="${after < 0 ? 'bad' : ''}">${this._coin(1)}${fmt(after)}</span></em></span></div>
         <div class="eb-clist">${ok.map((x) => this._line(x, false)).join('')}</div>
         ${ok.length < lines.length ? `<div class="eb-cwarn">${px('lockpad', 2)}<span>${lines.length - ok.length} locked item${lines.length - ok.length > 1 ? 's' : ''} stay${lines.length - ok.length > 1 ? '' : 's'} in the cart.</span></div>` : ''}
@@ -1107,6 +1605,7 @@ class EBuy {
       </div>
       <div class="eb-dfoot">
         <div class="eb-sum big"><span>Order total</span><i></i><b>${this._coin(2)}${fmt(total)}</b></div>
+        <div class="eb-sum sm"><span>${px(q.tier.ic, 1)} ${esc(q.tier.n)}</span><i></i><b class="eb-ceta">${esc(this._etaText(eta))}</b></div>
         ${after < 0 ? `<div class="eb-poor">${this._icon('fox_worried', 1)}<span>You need ${this._coin(1)}<b>${fmt(-after)}</b> more.</span></div>` : ''}
         <button class="eb-pay${after < 0 ? ' poor' : ''}"><span class="eb-buyt">Place order</span><i class="eb-buyx">${px('bigx', 4)}</i></button>
       </div>`;
@@ -1155,7 +1654,7 @@ class EBuy {
     if (this.busy) return;
     const btn = this.$drawer.querySelector('.eb-pay');
     const lines = this._cartLines().filter((x) => !x.l.locked && x.l.stock !== 0);
-    const total = lines.reduce((s, x) => s + x.l.price * x.qty, 0);
+    const total = this._quote(lines, 'cart').gross; // [v33 kit] items + delivery + gift wrap
     if (!lines.length || total > this.coins) {
       this._sfx('error');
       this._bump(btn, 'shake');
@@ -1166,16 +1665,11 @@ class EBuy {
     this.busy = true;
     btn?.classList.add('press');
     this._sfx('click');
-    const done = [];
-    for (const x of lines) {
-      let ok = false;
-      try { ok = !!(await this.o.onBuy?.(x.l, x.qty)); } catch (err) { console.error(err); ok = false; }
-      if (this.dead) return;
-      if (ok) {
-        done.push(x);
-        SESSION.cart = SESSION.cart.filter((c) => String(c.id) !== String(x.l.id));
-      }
-    }
+    let res = { ok: false };
+    try { res = await this._purchase(lines, 'cart'); } catch (err) { console.error(err); }
+    if (this.dead) return;
+    const done = res.done || [];
+    for (const x of done) SESSION.cart = SESSION.cart.filter((c) => String(c.id) !== String(x.l.id));
     btn?.classList.remove('press');
     this._renderCartCount();
     if (!done.length) {
@@ -1186,12 +1680,13 @@ class EBuy {
     }
     this._sfx('buy');
     if (btn) this._coinBurst(btn);
+    this._confetti(null, 40);
     this._later(() => {
       this.busy = false;
       this.drawer = null;
       this.el.classList.remove('eb-drawer-on');
       this.$drawer.setAttribute('aria-hidden', 'true');
-      this._showReceipt(done);
+      this._showReceipt(res);
     }, 420);
   }
 
@@ -1215,24 +1710,42 @@ class EBuy {
   }
 
   // ------------------------------------------------------------ receipt
-  _showReceipt(lines) {
+  _showReceipt(res) {
+    // [v33 kit] the receipt prints the delivery tier, discounts, the Mystery Box's contents and the Club card
+    const R = Array.isArray(res) ? { done: res, q: this._quote(res, 'buy'), reveals: [], stamps: null } : res;
+    const lines = R.done;
+    const q = R.q;
     const no = String(1000000 + (hash(lines.map((x) => x.l.id).join() + Date.now()) % 8999999));
     const d = new Date();
     const pad = (v) => String(v).padStart(2, '0');
-    const total = lines.reduce((s, x) => s + x.l.price * x.qty, 0);
+    const total = q ? q.total : lines.reduce((s, x) => s + x.l.price * x.qty, 0);
     const shown = lines.slice(0, 4);
-    const eta = this._etaText(this._eta(lines), lines[0]?.l.eta);
+    const tier = q?.tier || SHIPS[0];
+    const eta = this._etaText(this._eta(lines, tier.id), lines[0]?.l.eta);
+    const pl = (label, v, cls = '') => `<div class="eb-pl ${cls}"><span>${label}</span><i></i><span>${v}</span></div>`;
+    const extras = q ? [
+      pl(`${px(tier.ic, 1)} ${tier.n}`, q.fee ? `${this._coin(1)}${fmt(q.fee)}` : 'FREE'),
+      q.gift ? pl(`${px('gift', 1)} Gift wrap`, `${this._coin(1)}${q.gift}`) : '',
+      q.coupon ? pl(`${px('ticket', 1)} ${esc(R.code || 'Coupon')}`, `-${this._coin(1)}${fmt(q.coupon)}`, 'good') : '',
+      q.club ? pl(`${px('stamp', 1)} Club freebie`, `-${this._coin(1)}${fmt(q.club)}`, 'good') : '',
+      q.deal ? pl(`${px('flame', 1)} Deal 10% back`, `-${this._coin(1)}${fmt(q.deal)}`, 'good') : '',
+    ].join('') : '';
+    const mys = (R.reveals || []).length ? `<div class="eb-myst"><b>MYSTERY BOX had:</b>${R.reveals.map((x) => `<span class="my-i"><img src="${esc(imgSrc(x.image))}" alt="" /><span>${esc(this._short(x))}</span><em>${x.price > MYSTERY_PRICE ? `worth ${this._coin(1)}${fmt(x.price)}!` : 'a classic.'}</em></span>`).join('')}</div>` : '';
+    const club = R.stamps ? (R.stamps.full ? `<div class="eb-clubfull">${px('stamp', 3)}<b>CLUB CARD FULL!</b><span>Your next order's cheapest item is FREE.</span></div>` : this._club(R.stamps.before + 1, R.stamps.before)) : '';
     this.$rc.innerHTML = `
       <div class="eb-slot"><i></i></div>
       <div class="eb-paperw"><div class="eb-paper" style="clip-path:${ZIGZAG}">
         <div class="eb-ph"><span class="eb-mini"><i class="l1">e</i><i class="l2">-</i><i class="l3">B</i><i class="l4">u</i><i class="l5">y</i></span><small>order #${no} · ${pad(d.getHours())}:${pad(d.getMinutes())}</small></div>
         ${shown.map((x) => `<div class="eb-pi"><img src="${esc(imgSrc(x.l.image))}" alt="" /><span class="eb-pin">${esc(this._short(x.l))}</span><span class="eb-pq">×${x.qty}</span></div>`).join('')}
         ${lines.length > shown.length ? `<div class="eb-pmore">+ ${lines.length - shown.length} more</div>` : ''}
+        ${extras}
         <div class="eb-pl tot"><span>TOTAL</span><i></i><span>${this._coin(1)}${fmt(total)}</span></div>
+        ${mys}
         <div class="eb-pbar">${Array.from({ length: 34 }, (_, i) => `<i style="width:${1 + (hash(no + i) % 3)}px"></i>`).join('')}</div>
         <div class="eb-stamp"><b>SOLD!</b><span>Moose Express is on the way</span></div>
-        <div class="eb-road"><span class="eb-rider">${this._icon('moose', 3)}${px('bike', 3)}</span></div>
-        <div class="eb-eta">${px('clock', 2)}${esc(eta)}</div>
+        <div class="eb-road sh-${tier.id}"><span class="eb-rider">${px('moosec', 2)}${px('bike', 3)}${tier.id === 'rocket' ? `<i class="eb-flame">${px('flame', 3)}</i>` : ''}</span></div>
+        <div class="eb-eta">${px('clock', 2)}${esc(tier.n)} · ${esc(eta)}</div>
+        ${club}
         <div class="eb-tap">tap to keep shopping</div>
       </div></div>`;
     this.$rc.hidden = false;

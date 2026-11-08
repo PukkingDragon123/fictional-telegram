@@ -1,9 +1,10 @@
-// [v33 paper] Hand-placed pixel art for the physical clipboard (Clipboard.js) and other
-// paper objects: the pressed-board backing, the steel spring clip, sticky index tabs,
-// the dog-eared page corner, a pencil (lying and writing), printed tick boxes and
-// pencil ticks, colored-pencil gauges, worn rubber stamps, coffee rings, tape, the
-// sheet stack and the dithered backdrop. All painters return a Pix (art pixels).
-import { Pix, hexc, ramp, bay, noise, fbm, rng, clamp, rotNN } from './pix.js';
+// [v33 paper] Pixel art for the physical clipboard (Clipboard.js), in the game's own palettes
+// (frames.js wood / brass / gold / green / red, the old staff UI's bars and diamond pips):
+// the pressed-board backing, the brass spring clip, sticky index tabs, the dog-eared page
+// corner, printed tick boxes + pencil ticks, little bars, rating pips, the sheet stack and
+// the dithered backdrop. The pencil, coffee ring, tape and stamps are the game's existing
+// paper.js art (see Clipboard.js). All painters return a Pix (art pixels).
+import { Pix, hexc, ramp, bay, noise, fbm, rng, clamp } from './pix.js';
 import { pxTextBuf } from '../kinetic/pxfont.js';
 
 export const INK = hexc('#21160f');
@@ -213,55 +214,6 @@ export function paintDogEar(c = 12, { under = '#d6c59c', flip = false } = {}) {
   return p;
 }
 
-// ================================================================ pencil
-// axis angle in degrees (0 = lying, tip left). Returns { pix, tip: [x, y] }.
-export function paintPencil(angle = 0, { len = 40, eraserDown = false } = {}) {
-  const a = (angle * Math.PI) / 180;
-  const ax = -Math.cos(a), ay = Math.sin(a); // from eraser toward the tip
-  const px = -ay, py = ax; // perpendicular
-  const half = 2.6;
-  const ex = Math.abs(ax) * len + Math.abs(px) * half * 2 + 4, ey = Math.abs(ay) * len + Math.abs(py) * half * 2 + 4;
-  const W = Math.ceil(ex), H = Math.ceil(ey);
-  const p = new Pix(W, H);
-  // tip at u = len, eraser end at u = 0; center the shaft in the box
-  const cx = W / 2 - (ax * len) / 2, cy = H / 2 - (ay * len) / 2;
-  const YEL = ramp(['#7a4806', '#c47e10', '#eeb428', '#ffd658', '#fff0a6']);
-  const WOOD = ramp(['#9a6a3a', '#cfa068', '#efcc96']);
-  const LEAD = ramp(['#1e1e26', '#3e3f4c', '#62647a']);
-  const PINK = ramp(['#8e3a4e', '#c8607a', '#ee8ea2', '#ffbccb']);
-  const MET = ramp(['#4a4e60', '#7d849c', '#b6bccf', '#e8ebf3']);
-  let tip = [0, 0], end = [0, 0];
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
-    const u = dx * ax + dy * ay, v = dx * px + dy * py;
-    if (u < 0 || u > len) continue;
-    const tipLen = 8;
-    let r = half;
-    if (u > len - tipLen) r = half * ((len - u) / tipLen) + 0.35;
-    if (u < 1.2) r = half - 0.7; // rounded eraser end
-    if (Math.abs(v) > r) continue;
-    const f = v / half; // -1 .. 1 across the shaft (light from the top left)
-    let c;
-    if (u > len - 2.6) c = LEAD[f < -0.1 ? 2 : f < 0.4 ? 1 : 0];
-    else if (u > len - tipLen) c = WOOD[f < -0.2 ? 2 : f < 0.5 ? 1 : 0];
-    else if (u > 9) {
-      // hexagonal painted body: three facets + an edge glint
-      const t = f < -0.55 ? 4 : f < -0.15 ? 3 : f < 0.45 ? 2 : f < 0.8 ? 1 : 0;
-      c = YEL[t];
-      if (t === 2 && Math.abs(u - (len * 0.42)) < 0.6) c = YEL[1]; // a printed band
-    } else if (u > 4.5) {
-      const ring = Math.floor(u) % 2 === 0;
-      c = MET[clamp((f < -0.3 ? 3 : f < 0.4 ? 2 : 1) - (ring ? 1 : 0), 0, 3)];
-    } else c = PINK[f < -0.3 ? 3 : f < 0.4 ? 2 : 1];
-    p.set(x, y, c);
-    if (u > len - 1.5) tip = [x, y];
-    if (u < 1.5 && Math.abs(v) < 1) end = [x, y];
-  }
-  p.outline(INK);
-  void eraserDown;
-  return { pix: p, tip, end };
-}
-
 // ================================================================ printed tick box + pencil tick
 export const TICK_PATH = [[2, 6], [3, 7], [4, 8], [5, 9], [6, 8], [7, 7], [8, 5], [9, 4], [10, 2], [11, 1], [12, 0]];
 // box 9x9 at (1, 2) inside a 14 x 12 canvas so the tick can overshoot
@@ -295,69 +247,6 @@ export function paintGauge(v, color = 'green', { w = 36, h = 6, seed = 1 } = {})
   return p;
 }
 
-// ================================================================ worn rubber stamp (pixel rotated)
-export function paintStamp(text, color = '#b8282c', { rot = -8, font = 'bold', seed = 5, frame = 'double', pad = 3 } = {}) {
-  const t = textPix(text, { font, color });
-  const W = t.w + pad * 2 + 4, H = t.h + pad * 2 + 2;
-  const p = new Pix(W, H);
-  const C = hexc(color);
-  if (frame !== 'none') {
-    for (let x = 0; x < W; x++) { p.set(x, 0, C); p.set(x, H - 1, C); }
-    for (let y = 0; y < H; y++) { p.set(0, y, C); p.set(W - 1, y, C); }
-    if (frame === 'double') {
-      for (let x = 2; x < W - 2; x++) { p.set(x, 2, C); p.set(x, H - 3, C); }
-      for (let y = 2; y < H - 2; y++) { p.set(2, y, C); p.set(W - 3, y, C); }
-    }
-  }
-  p.blit(t, pad + 2, pad);
-  // ink wear: blotchy gaps and thin spots
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (!p.a(x, y)) continue;
-    const n = fbm(x * 1.7, y * 1.7, 5, seed);
-    if (n < 0.2 || noise(x, y, seed) < 0.035) p.set(x, y, [0, 0, 0], 0); // worn: a few gaps, stays readable
-    else if (n < 0.33) p.set(x, y, C, 160);
-    else p.set(x, y, C, 230);
-  }
-  return rotNN(p, rot);
-}
-
-// ================================================================ coffee ring
-export function paintCoffee(r = 17, seed = 2) {
-  const N = Math.ceil(r * 2 + 10), p = new Pix(N, N), c = N / 2, R = rng(seed);
-  const dark = hexc('#7a4a22'), mid = hexc('#a8703a');
-  const gap0 = R() * Math.PI * 2;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const dx = x + 0.5 - c, dy = y + 0.5 - c, d = Math.hypot(dx, dy), an = Math.atan2(dy, dx);
-    const rr = r + (fbm(Math.cos(an) * 8 + 20, Math.sin(an) * 8 + 20, 4, seed) - 0.5) * 2.4;
-    const ga = Math.abs(((an - gap0 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-    const thin = ga > Math.PI - 0.5 ? 0.5 : 1;
-    if (Math.abs(d - rr) < 0.75 * thin) p.set(x, y, dark, ga > Math.PI - 0.5 ? 90 : 160);
-    else if (d < rr && d > rr - 2.6 * thin) { if (bay(x, y) < 0.55) p.set(x, y, mid, 85); }
-    else if (d < rr - 2.6 && bay(x, y) < 0.08) p.set(x, y, mid, 45);
-  }
-  for (let k = 0; k < 3; k++) {
-    const an = R() * Math.PI * 2, dd = r + 3 + R() * 3;
-    const x = Math.round(c + Math.cos(an) * dd), y = Math.round(c + Math.sin(an) * dd);
-    p.set(x, y, dark, 150); if (R() < 0.6) { p.set(x + 1, y, mid, 110); p.set(x, y + 1, mid, 110); }
-  }
-  return p;
-}
-
-// ================================================================ tape strip (torn ends, translucent)
-export function paintTape(w = 26, h = 8, { color = '#efe0a0', seed = 3 } = {}) {
-  const p = new Pix(w, h), C = hexc(color), L = hexc('#fffbe4'), D = hexc('#c9b878');
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const jl = Math.floor(noise(0, y, seed) * 2.6), jr = Math.floor(noise(1, y, seed) * 2.6);
-    if (x < jl || x >= w - jr) continue;
-    let c = C, a = 175;
-    if (y === 1) { c = L; a = 200; }
-    else if (y === h - 1 || y === 0) { c = D; a = 190; }
-    else if (noise(x, y, seed + 4) < 0.06) { c = L; a = 190; }
-    p.set(x, y, c, a);
-  }
-  return p;
-}
-
 // ================================================================ the sheets under the top page (edges peek out)
 export function paintStack(w, h, n = 3) {
   const p = new Pix(w + 5, h + 6);
@@ -376,28 +265,6 @@ export function paintStack(w, h, n = 3) {
 export function paintDim() {
   const p = new Pix(4, 4), c = hexc('#120a12');
   for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) p.set(x, y, c, bay(x, y) < 0.5 ? 175 : 70);
-  return p;
-}
-
-// ================================================================ the close button: a red plastic push-button on the board
-export function paintCloseKnob() {
-  const N = 15, p = new Pix(N, N + 2), c = (N - 1) / 2;
-  const RED = ramp(['#4a0c10', '#8c1c20', '#c4322e', '#e8584a', '#ff9a86', '#ffe0d6']);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const dx = x - c, dy = y - c, d = Math.hypot(dx, dy);
-    if (d > c + 0.3) continue;
-    let t = 2.4 - (dx + dy) / N * 2.2;
-    if (d > c - 1.5) t -= 1.2; // rim
-    if (Math.hypot(dx + 3, dy + 3) < 1.6) t = 5;
-    p.set(x, y, RED[clamp(Math.floor(t + bay(x, y) * 0.8), 0, 5)]);
-  }
-  // the X, embossed
-  for (let i = -3; i <= 3; i++) for (const s of [1, -1]) {
-    const x = Math.round(c + i), y = Math.round(c + i * s);
-    p.set(x, y, hexc('#fff3ea')); p.set(x + 1, y + 1, RED[1]);
-  }
-  p.outline(INK);
-  for (let x = 2; x < N - 2; x++) if (!p.a(x, N) && (x & 1) === 0) p.set(x, N, hexc('#1a0f08'), 120);
   return p;
 }
 

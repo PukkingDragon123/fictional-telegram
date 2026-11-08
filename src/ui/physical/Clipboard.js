@@ -30,6 +30,19 @@ import { artPx, Pix, showCanvas, hexc, bay, rotNN } from './pix.js';
 import * as A from './clipArt.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// run fn(k) for k = 0..n-1 spread over ms, by the clock: on a slow frame it skips steps and still ends on time
+function stepper(n, ms, fn) {
+  return new Promise((res) => {
+    const t0 = performance.now();
+    let last = -1;
+    const go = () => {
+      const k = Math.min(n - 1, Math.floor(((performance.now() - t0) / ms) * n));
+      if (k !== last) { last = k; try { fn(k); } catch (e) { console.error('[clipboard] anim', e); } }
+      if (k >= n - 1) res(); else setTimeout(go, Math.max(8, ms / n / 2));
+    };
+    go();
+  });
+}
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const BACK = A.PAPER_BACK;
 const INK = A.INK;
@@ -62,6 +75,9 @@ export class Clipboard {
     this.P = artPx();
   }
   get root() { return this.o.root || document.body; }
+  // an animation holds the clipboard for a moment; never longer than a few seconds, whatever happens
+  get busy() { return this._busy && performance.now() - this._busyT < 4000; }
+  set busy(v) { this._busy = !!v; if (v) this._busyT = performance.now(); }
   get isOpen() { return !!this.el; }
   get page() { return this.pages[this.index] || null; }
   get pageEl() { return this.cur; }
@@ -382,11 +398,9 @@ export class Clipboard {
     const T = [0.06, 0.16, 0.28, 0.42, 0.57, 0.71, 0.84, 0.95, 1.01];
     const seq = dir > 0 ? T : [...T].reverse().concat([0]);
     if (dir < 0) this._frame(top, 1.01);
-    for (const t of seq) {
-      this._frame(top, t);
-      await wait(t > 0.3 && t < 0.8 ? 38 : 48);
-      if (!this.el) return false;
-    }
+    await stepper(seq.length, 400, (k) => { if (this.el) this._frame(top, seq[k]); });
+    await wait(40);
+    if (!this.el) return false;
     this._frame(top, 0);
     top.style.zIndex = '';
     under.style.zIndex = '';
@@ -402,11 +416,17 @@ export class Clipboard {
   }
   _afterFlip() {
     try { this.o.onFlip?.(this.page, this.index); } catch (e) { console.error('[clipboard] onFlip', e); }
-    if (this.queued != null) {
+    this._idle();
+  }
+  // free again: a page asked for while busy gets its flip now (after the caller's own follow-up)
+  _idle() {
+    this.busy = false;
+    if (this.queued == null) return;
+    setTimeout(() => {
       const q = this.queued;
       this.queued = null;
-      if (q !== this.index && q < this.pages.length) this._flipTo(q, true);
-    }
+      if (q != null && this.el && !this.busy && q !== this.index && q < this.pages.length) this._flipTo(q, true);
+    }, 0);
   }
   _nudge() {
     if (!this.el || this.busy) return;
@@ -482,11 +502,10 @@ export class Clipboard {
     const pen = this.pen, sp = pen[kind];
     const cx = parseFloat(pen.el.style.left) / this.P, cy = parseFloat(pen.el.style.top) / this.P;
     const ex = tx - sp.tip[0], ey = ty - sp.tip[1];
-    for (let s = 1; s <= steps; s++) {
-      const u = s / steps;
+    await stepper(steps, steps * 26, (k) => {
+      const u = (k + 1) / steps;
       this._penShow(kind, cx + (ex - cx) * u, cy + (ey - cy) * u - Math.sin(u * Math.PI) * 10);
-      await wait(26);
-    }
+    });
   }
   /** The pencil ticks a tickBox() canvas. */
   async tick(box) {
@@ -497,17 +516,17 @@ export class Clipboard {
     this.busy = true;
     await this._penTo('write', bx + path[0][0], by + path[0][1]);
     this.sfx('pen', { volume: 0.45 });
-    for (let n = 1; n <= path.length; n++) {
-      this._drawBox(box, n);
-      const [px, py] = path[n - 1];
-      this._penShow('write', bx + px - this.pen.write.tip[0], by + py - this.pen.write.tip[1]);
-      await wait(n < 4 ? 30 : 18);
+    await stepper(path.length, 250, (k) => {
       if (!this.el) return;
-    }
+      this._drawBox(box, k + 1);
+      const [px, py] = path[k];
+      this._penShow('write', bx + px - this.pen.write.tip[0], by + py - this.pen.write.tip[1]);
+    });
+    if (!this.el) { this.busy = false; return; }
     await wait(60);
     await this._penTo('write', bx + 16, by - 8, 2);
     this._penRest();
-    this.busy = false;
+    this._idle();
   }
   /** The pencil turns round and rubs a tick out. */
   async erase(box) {
@@ -519,20 +538,20 @@ export class Clipboard {
     const at = (x, y) => this._penShow('rub', x - rub.end[0], y - rub.end[1]);
     // hop over with the eraser end down
     const cx = parseFloat(this.pen.el.style.left) / this.P, cy = parseFloat(this.pen.el.style.top) / this.P;
-    for (let s = 1; s <= 3; s++) { const u = s / 3; this._penShow('rub', cx + (bx + 6 - rub.end[0] - cx) * u, cy + (by + 6 - rub.end[1] - cy) * u - Math.sin(u * Math.PI) * 10); await wait(26); }
+    await stepper(3, 80, (k) => { const u = (k + 1) / 3; this._penShow('rub', cx + (bx + 6 - rub.end[0] - cx) * u, cy + (by + 6 - rub.end[1] - cy) * u - Math.sin(u * Math.PI) * 10); });
     this.sfx('paper', { volume: 0.4, pitch: 1.5 });
     const n = A.TICK_PATH.length;
-    for (let f = 0; f < 7; f++) {
+    await stepper(7, 280, (f) => {
+      if (!this.el) return;
       at(bx + 5 + (f % 2 ? 4 : 0), by + 5 + (f % 3 === 1 ? 1 : 0));
       this._drawBox(box, Math.max(0, Math.round(n * (1 - (f + 1) / 6))));
       if (f === 3) this.sfx('paper', { volume: 0.3, pitch: 1.7 });
-      await wait(40);
-      if (!this.el) return;
-    }
+    });
+    if (!this.el) { this.busy = false; return; }
     this._crumbs(bx + 7, by + 9);
     this._drawBox(box, 0);
     this._penRest();
-    this.busy = false;
+    this._idle();
   }
   _drawBox(box, n) {
     const o = box._o || {};
