@@ -13,7 +13,7 @@ import { bagCanvas } from '../../ui/bagArt.js';
 import { fishCanvasFor } from '../fishSprites.js';
 
 // art px per world unit for each card (the fox stands ~1.6 units tall)
-const PPU = { fish: 44, pellets: 120, egg: 56, tag: 56, coins: 56 };
+const PPU = { fish: 36, pellets: 78, egg: 40, tag: 40, coins: 40 };
 
 function card(cv, ppu) {
   const tex = new THREE.CanvasTexture(cv);
@@ -37,7 +37,7 @@ export function makeProp(name, o = {}) {
     else if (name === 'pellets') cv = bagCanvas('pellets', { scale: 1, fill: 1 });
     else if (hasSprite(name)) cv = spriteCanvas(name, 1);
     if (!cv) return null;
-    const g = card(cv, PPU[name] || 56);
+    const g = card(cv, PPU[name] || 40);
     g.userData.kind = name;
     return g;
   } catch (e) {

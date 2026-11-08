@@ -211,6 +211,7 @@ export async function fishScope(T) {
     T.frame(null);
   }
   await T.hideTeacher();
+  game.ui?.bubbles?.clear?.((b) => b.key === 'tutbark'); // his "tap a fish" line goes once the Scope is up
   await scopeTour(T);
   T.force(null);
 }

@@ -818,6 +818,7 @@ class EBuy {
     if (this.dead || SESSION.popDone) return;
     if (!this.booted || this.cur || this.drawer || !this.$rc.hidden || this.q) { this._later(() => this._maybePopup(), 8000); return; }
     SESSION.popDone = true;
+    if (this.$app.clientHeight < 470 || this.$app.clientWidth < 660) return; // phones: no pop-ups (too much screen)
     const wrap = this.el.querySelector('.eb-popwrap');
     wrap.innerHTML = adPopup('lonely', this._A);
     this._popRan = false;
