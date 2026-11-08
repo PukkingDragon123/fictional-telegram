@@ -4,7 +4,8 @@
 // over his shoulder, nearly first person.
 //
 // Outside a cutscene (while you do things):  guide.walkNear(target) · guide.point(target) -> stop
-//   · guide.hold('pellets') / guide.drop() · guide.bark(text) · guide.mark(target, o) -> stop
+//   · guide.hold('pellets' | 'egg' | 'fish' | 'tag' | 'coins' | 'scope') / guide.drop() · guide.bark(text)
+//   · guide.mark(target, o) -> stop
 // Inside a Director scene, Tutorial.cine() adds the same as c.* (see extend()):
 //   c.walkNear(target) · c.point(target, { label, color }) · c.unpoint() · c.hold(name, o) · c.drop()
 //   · c.mark(target, o) · c.low(target, { zoom, pitch, lift }) · c.ots(subject, o) · c.expr(name)
@@ -16,9 +17,10 @@ const wait = (s) => new Promise((r) => setTimeout(r, s * 1000));
 const PI4 = Math.PI / 4;
 
 // ------------------------------------------------------------------ the Fish Scope's eyepiece
-// A near-first-person look through Reynard's Fish Scope: everything outside a circle goes dark
-// (dithered at the edge), a brass ring with a highlight arc, a crosshair and tick marks. Drawn at
-// 3 CSS px per art px, under the HUD / bubbles, over the world. lens(true) irises it in, lens(false) out.
+// A near-first-person look through Reynard's Fish Scope, in the Fish Scope's own hologram look
+// (src/ui/fishscope.css: cyan #7fd6e0 / #e8ffff, gold #ffe27a): everything outside a circle goes dark
+// (dithered at the edge), a cyan rim, a crosshair and tick marks. Drawn at 3 CSS px per art px,
+// under the HUD / bubbles, over the world. lens(true) irises it in, lens(false) out.
 const LS = 3;
 let lensCv = null, lensT = 0;
 function paintLens(k) {
@@ -34,9 +36,9 @@ function paintLens(k) {
     if (r > R + 5) { if (r < R + 9 && (X + y) & 1) continue; set(i, 18, 12, 22); continue; } // the dark (dithered edge)
     if (r > R + 4) { set(i, 26, 20, 32); continue; } // ink outline
     if (r > R) {
-      const a = Math.atan2(dy, dx); // brass: a bright arc top-left, a dark one bottom-right
+      const a = Math.atan2(dy, dx); // the scope's cyan rim, brighter top-left
       const lit = Math.cos(a + 2.35);
-      set(i, ...(lit > 0.55 ? [255, 240, 160] : lit > -0.2 ? [232, 176, 64] : [176, 122, 26]));
+      set(i, ...(lit > 0.55 ? [232, 255, 255] : [127, 214, 224]));
       continue;
     }
     if (r > R - 1) { set(i, 26, 20, 32); continue; }
@@ -46,7 +48,7 @@ function paintLens(k) {
   x.putImageData(img, 0, 0);
   if (k < 1) return;
   // crosshair + ticks (ink with a light edge)
-  x.fillStyle = 'rgba(26,20,32,0.85)';
+  x.fillStyle = '#7fd6e0';
   const gap = 6, Lh = Math.round(R * 0.35);
   x.fillRect(Math.round(cx - gap - Lh), Math.round(cy), Lh, 1); x.fillRect(Math.round(cx + gap), Math.round(cy), Lh, 1);
   x.fillRect(Math.round(cx), Math.round(cy - gap - Lh), 1, Lh); x.fillRect(Math.round(cx), Math.round(cy + gap), 1, Lh);
@@ -54,7 +56,7 @@ function paintLens(k) {
     const a = (t / 24) * Math.PI * 2, L = t % 6 === 0 ? 5 : 2;
     for (let j = 0; j < L; j++) x.fillRect(Math.round(cx + Math.cos(a) * (R - 2 - j)), Math.round(cy + Math.sin(a) * (R - 2 - j)), 1, 1);
   }
-  x.fillStyle = '#ffd23a';
+  x.fillStyle = '#ffe27a';
   x.fillRect(Math.round(cx) - 1, Math.round(cy) - 1, 3, 3);
 }
 export function lens(on, game = null) {
@@ -184,6 +186,13 @@ export class Guide {
   hold(name, o = {}) {
     this.drop();
     const f = this.fox;
+    if (name === 'scope') {
+      // the Fish Scope: the scientist's own 3D magnifier (foxProps), peered through like in the Scope
+      try { f?.rig?.holdProp?.('magnifier'); } catch { /* ignore */ }
+      this.propName = 'scope';
+      this.game.audio?.play?.('grab', { volume: 0.4 });
+      return true;
+    }
     const p = makeProp(name, o);
     if (!p || !f?.rig?.holdBoth) return null;
     if (o.y != null) p.position.y = o.y;
@@ -193,6 +202,7 @@ export class Guide {
     return p;
   }
   drop() {
+    if (this.propName === 'scope') { this.propName = null; try { this.fox?.rig?.holdProp?.(null); } catch { /* ignore */ } }
     const p = this.prop;
     if (!p) return;
     this.prop = null;

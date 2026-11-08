@@ -48,8 +48,11 @@
 
 /* ---- buttons that are physical bits */
 .pc-x, .pc-corner, .pc-tab { appearance: none; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; display: block; }
-.pc-x:hover { animation: pc-wig .3s both; animation-timing-function: step-end; }
-.pc-x:active { transform: translateY(var(--P)); }
+.pc-x { width: 30px; height: 28px; display: flex; align-items: center; justify-content: center; background: #e8c8b8; color: #2a1a14; font-family: var(--font2);
+  box-shadow: 0 0 0 3px #2a1a14, 0 4px 0 3px #2a1a14, inset 0 2px 0 #fff0e8; }
+.pc-x img { image-rendering: pixelated; }
+.pc-x:hover { background: #ffd8c8; animation: pc-wig .3s both; animation-timing-function: step-end; }
+.pc-x:active { transform: translateY(var(--P)); box-shadow: 0 0 0 3px #2a1a14, inset 0 2px 0 #fff0e8; }
 @keyframes pc-wig { 0% { transform: translateY(calc(var(--P) * -1)); } 50% { transform: translate(var(--P), calc(var(--P) * -1)); } 100% { transform: none; } }
 .pc-corner[hidden] { display: none; }
 .pc-corner .pc-de-b { display: none; }
@@ -85,14 +88,15 @@
 .pc-pr { font-family: var(--font); font-size: 15px; line-height: 1.15; color: #33405f; }
 .pc-pr-s { font-size: 13px; }
 .pc-pr-l { font-family: var(--font2); font-size: 18px; }
-.pc-ttl { position: relative; display: inline-block; font-family: var(--font2); font-size: 27px; line-height: 1; color: #8a3418; padding-bottom: calc(var(--P) * 3); white-space: nowrap; }
+.pc-ttl { position: relative; display: inline-block; font-family: var(--font2); font-size: 26px; line-height: 1; color: #6b2a14; padding-bottom: calc(var(--P) * 3); white-space: nowrap; }
 .pc-ttl .pc-squig { position: absolute; left: 0; bottom: 0; }
 .pc-hand { display: inline-block; vertical-align: middle; }
 .pc-write { animation: pc-write .5s both; animation-timing-function: steps(var(--n, 8)); }
 @keyframes pc-write { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 .pc-box { display: inline-block; vertical-align: middle; flex: none; }
 .pc-gauge { display: inline-block; vertical-align: middle; }
-.pc-stamp { display: block; pointer-events: none; }
+.pc-stamp { pointer-events: none; }
+.pc-stamp-s { font-size: 14px; padding: 2px 6px 1px; margin: 4px; border-width: 2px; outline-width: 2px; outline-offset: 2px; }
 .pc-thunk { animation: pc-thunk .3s both; animation-timing-function: step-end; }
 @keyframes pc-thunk { 0% { transform: scale(1.6); opacity: 0; } 30% { transform: scale(1.25); opacity: 1; } 60% { transform: scale(.94); } 100% { transform: none; } }
 .pc-coffee { pointer-events: none; }

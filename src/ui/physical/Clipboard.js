@@ -16,16 +16,17 @@
 //   cb.hand(text, o)      pencil handwriting (pixel script font)       o: { color, maxW (CSS px), align, write }
 //   cb.print(text, o)     printed form text (the game's pixel font)    o: { color, size: 's'|'l', cls, html }
 //   cb.title(text, o)     a page title (game title face + pencil squiggle)
-//   cb.stamp(text, color, o)  worn rubber stamp, pixel-rotated          o: { rot, font, frame, thunk }
+//   cb.stamp(text, color, o)  the game's rubber stamp (paper.js)         o: { rot, thunk, small }
 //   cb.gauge(v, color, o) colored-pencil gauge                          o: { w, h }
 //   cb.tickBox(on, o)     printed box (+ pencil tick)                   o: { cross, dim }
 //   cb.tick(box) / cb.erase(box) -> Promise   the pencil ticks / rubs out a box
 //   cb.tape(o) / cb.coffee(seed) / cb.sticky(html|node, o)
 import './clipboard.css';
-import { paperTexture } from '../paper.js';
+import { paperTexture, decoCanvas, stamp as paperStamp } from '../paper.js';
+import { spriteImg, hasSprite } from '../sprites.js';
 import { pxTextCanvas } from '../kinetic/pxfont.js';
 import { viewSize } from '../uiScale.js';
-import { artPx, Pix, showCanvas, hexc, bay } from './pix.js';
+import { artPx, Pix, showCanvas, hexc, bay, rotNN } from './pix.js';
 import * as A from './clipArt.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -34,6 +35,15 @@ const BACK = A.PAPER_BACK;
 const INK = A.INK;
 const SHADOW = hexc('#2a1c10');
 
+// the game's own desk props (src/ui/paper.js deco painters) as Pix, so they stay the same art
+function canvasPix(c) { const p = new Pix(c.width, c.height); p.d.set(c.getContext('2d').getImageData(0, 0, c.width, c.height).data); return p; }
+// the FinanceSheet's pencil, pixel-rotated into a pose; tip = graphite end, end = eraser end
+function pencilPose(deg, len) {
+  const src = canvasPix(decoCanvas('pencil', { len }));
+  const out = rotNN(src, deg), r = (deg * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r);
+  const map = (x, y) => { const u = x + 0.5 - src.w / 2, v = y + 0.5 - src.h / 2; return [Math.floor(out.w / 2 + u * c - v * sn), Math.floor(out.h / 2 + u * sn + v * c)]; };
+  return { pix: out, tip: map(src.w - 1, 3), end: map(0, 3) };
+}
 let dimURL = null, hlURL = null, sqURL = null;
 const dimTile = () => (dimURL ||= A.paintDim().url());
 const hlTile = () => (hlURL ||= A.paintHighlight(8, 8).url());
@@ -149,7 +159,6 @@ export class Clipboard {
     this.sh = BH - this.sy - 15;
     const board = A.paintBoard(BW, BH, { seed: this.o.seed || 3 });
     const clipC = A.paintClip(false), clipO = A.paintClip(true);
-    const knob = A.paintCloseKnob();
     const ov = document.createElement('div');
     ov.className = 'pc-ov' + (this.o.cls ? ' ' + this.o.cls : '');
     ov.style.setProperty('--P', P + 'px');
@@ -170,10 +179,11 @@ export class Clipboard {
     const clip = ov.querySelector('.pc-clip');
     clip.append(showCanvas(clipC, P, 'pc-clip-c'), showCanvas(clipO, P, 'pc-clip-o'));
     this._place(clip, Math.round(BW / 2 - clipC.w / 2), -7);
-    // close knob, top right of the board
+    // close button: the game's cross icon on a little tag (as on the old staff board)
     const x = ov.querySelector('.pc-x');
-    x.append(showCanvas(knob, P));
-    this._place(x, BW - knob.w - 3, 2);
+    x.innerHTML = hasSprite('cross') ? spriteImg('cross', 1) : 'X';
+    x.title = 'Close (Esc)';
+    this._place(x, BW - 19, 2);
     // sheets
     const sheets = ov.querySelector('.pc-sheets');
     this._place(sheets, this.sx, this.sy);
@@ -189,7 +199,7 @@ export class Clipboard {
     this.curlImg = this.curlG.createImageData(this.sw, this.sh);
     // the pencil, lying on the board's bottom edge
     const pen = ov.querySelector('.pc-pencil');
-    this.pen = { el: pen, rest: A.paintPencil(0, { len: 46 }), write: A.paintPencil(45, { len: 40 }), rub: A.paintPencil(-135, { len: 40 }) };
+    this.pen = { el: pen, rest: pencilPose(0, 48), write: pencilPose(135, 40), rub: pencilPose(-45, 40) };
     for (const k of ['rest', 'write', 'rub']) { const c = showCanvas(this.pen[k].pix, P, 'pc-pen-' + k); this.pen[k].cv = c; pen.appendChild(c); }
     this._penRest();
     this.el = ov;
@@ -568,9 +578,11 @@ export class Clipboard {
     e.appendChild(showCanvas(sq, this.P, 'pc-squig'));
     return e;
   }
+  /** The game's rubber stamp (src/ui/paper.js stamp(): same face, ink speckle and thunk). */
   stamp(text, color = '#b8282c', o = {}) {
-    const c = showCanvas(A.paintStamp(String(text), color, { rot: o.rot ?? -8, font: o.font || 'bold', frame: o.frame || 'double', seed: o.seed ?? String(text).length * 7 }), this.P, 'pc-stamp' + (o.thunk ? ' pc-thunk' : ''));
-    return c;
+    const w = document.createElement('div');
+    w.innerHTML = paperStamp(String(text), color, o.rot ?? -8, { anim: !!o.thunk, cls: 'pc-stamp' + (o.small ? ' pc-stamp-s' : '') });
+    return w.firstElementChild;
   }
   pips(n, max = 5, o = {}) { return showCanvas(A.paintPips(n, max, o), this.P, 'pc-pips'); }
   gauge(v, color = 'green', o = {}) { return showCanvas(A.paintGauge(v, color, { w: o.w || 36, h: o.h || 8, seed: o.seed || 1 }), this.P, 'pc-gauge'); }
@@ -579,8 +591,8 @@ export class Clipboard {
     box._o = { cross: o.cross, dim: o.dim };
     return box;
   }
-  tape(o = {}) { return showCanvas(A.paintTape(o.w || 24, o.h || 8, { color: o.color, seed: o.seed || 3 }), this.P, 'pc-tape'); }
-  coffee(seed = 2, r = 17) { return showCanvas(A.paintCoffee(r, seed), this.P, 'pc-coffee'); }
+  tape(o = {}) { return showCanvas(canvasPix(decoCanvas('tape', { variant: o.variant || 'yellow', w: o.w || 24, h: o.h || 8, seed: o.seed || 3 })), this.P, 'pc-tape'); }
+  coffee(seed = 2, r = 14) { return showCanvas(canvasPix(decoCanvas('coffee', { seed, r })), this.P, 'pc-coffee'); }
   /** A sticky note with tape, holding html / a node. */
   sticky(content, o = {}) {
     const P = this.P, w = o.w || 92, h = o.h || 34;

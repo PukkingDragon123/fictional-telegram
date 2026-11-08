@@ -1020,6 +1020,9 @@ export class Tutorial {
     if (!this.active) return;
     // [v33 tut] Reynard stays where the tour put him; the first pair waits for Part 5 to fall in love
     if (this.guide && game.fox && !game.fox.cine && !game.lab?.active) this.guide.keep();
+    // e-Buy fills the screen: the guide steps out of its way (the shop's own hand points at Buy It Now)
+    if (game.ui?.ebuy && this.teacher?.visible && !this.teacher.waiting && !this._ebHide) { this._ebHide = true; this.hideTeacher(); }
+    else if (!game.ui?.ebuy) this._ebHide = false;
     if (this.holdLove) for (const f of this.pair) if (f && !f.dead) { f.loveT = Math.max(f.loveT, 6); if (f.state === 'court') { f.state = 'wander'; f.mate = null; } }
     // keep the action in view, but the player can always look around (we wait until they stop)
     if (performance.now() - (game.rig.userCamT || 0) < 7000) return;

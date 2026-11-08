@@ -44,8 +44,8 @@ const TAIL_MAX = 38;
 const TAIL_OFF = { normal: 13, scared: 13, whisper: 12, shout: 9, think: 30 };
 const CLOUD = { normal: 1, think: 1, whisper: 1, scared: 1 };
 const INFLATE = [0.45, 0.75, 1.18, 1.08, 0.96, 1]; // puff size per pop-in frame
-const SHADE = [222, 226, 238]; // cool cloud shade
-const CREASE = [196, 202, 220];
+const SHADE = [214, 214, 222]; // the comic bubbles' own inner shade
+const CREASE = [214, 214, 222];
 
 const MOODS = ['normal', 'happy', 'angry', 'shout', 'think', 'whisper', 'scared', 'excited', 'sad']; // [v31 kinetic] + sad (letters sag)
 const VARIANT = { shout: 'shout', think: 'think', whisper: 'whisper', scared: 'scared' };

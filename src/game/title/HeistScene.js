@@ -1,14 +1,15 @@
 // [v33 title] HeistScene: the title screen as a looping noon cinematic.
 //
 // High noon by the pond. Reynard has set up a one-fox bank on an upturned fruit crate:
-// a felt pad, a heap of gold, coin stacks, bundles of bills and a burlap sack. The
+// a heap of his gold coins, coin stacks, bundles of bills and his burlap sack. The
 // camera directs a ~47 s comic short in shots (crane, orbit, slow push-ins, a macro
 // insert, a low-angle reveal, a tracking chase) and loops back seamlessly:
 //
 //   A  0.0  crane down onto the little bank by the pond, Reynard counting coins
 //   B  6.0  close: he licks his thumb and flicks through a bundle, then flips a coin
 //   C 12.2  macro insert: a coin lands on the stack, CLINK, the top coin glints, TING!
-//   D 13.8  he hugs the whole heap, then MWAHAHA... while a bear wanders in behind him
+//   D1 13.8 side angle: he hugs the whole heap (little hearts)
+//   D2 16.4 low front: MWAHAHA... while a bear wanders in behind him
 //   E 19.0  tight: a huge shadow falls over him. A glance up, back to counting, the
 //           double take: frozen, then YIPE! (hat pops, monocle drops)
 //   G 23.0  low angle: the bear looms over the crate and ROARS
@@ -81,8 +82,8 @@ const FOX_PATH = [
   [37.7, 0.86, 0.22],
   [37.95, 2.4, 0.5, 'in'],
   [39.4, 12.5, 1.3, 'lin'],
-  [39.41, -5.0, -0.25, 'jump'],
-  [40.6, -5.0, -0.25],
+  [39.41, -6.6, -0.25, 'jump'],
+  [40.4, -6.6, -0.25],
   [44.0, -0.86, -0.28, 'io'],
   [45.55, -0.86, -0.28],
   [46.15, 0, -0.42, 'io'],
@@ -134,7 +135,7 @@ const SHOTS = [
   { id: 'A', t: 0, d: 6, cam: (u) => { const e = ease.io3(u); return { yaw: lerp(-0.32, -0.06, e), pitch: lerp(32, 14, e), wupp: lerp(0.021, 0.0158, e), at: [lerp(0, 0.1, e), lerp(0.55, 0.5, e), lerp(-0.3, -0.25, e)], sx: 0.16, sy: lerp(-0.02, 0.02, e) }; } },
   { id: 'B', t: 6, d: 6.2, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.34, 0.2, e), pitch: lerp(12, 13, e), wupp: lerp(0.0102, 0.0084, e), at: [0.02, 0.62, -0.38], sx: 0.14, sy: 0 }; } },
   // macro insert from the front right: the coin stacks big in the frame, Reynard's grin out of focus behind
-  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.98, 0.9, u), pitch: 13, wupp: lerp(0.0024, 0.0021, ease.out(u)), at: [lerp(0.17, 0.2, u), 0.5, 0.03], sx: 0.06, sy: -0.14 }) },
+  { id: 'C', t: 12.2, d: 1.6, cam: (u) => ({ yaw: lerp(0.98, 0.9, u), pitch: 13, wupp: lerp(0.0024, 0.0021, ease.out(u)), at: [lerp(0.22, 0.26, u), 0.5, 0.0], sx: 0.06, sy: -0.14 }) },
   { id: 'D1', t: 13.8, d: 2.55, cam: (u) => { const e = ease.io(u); return { yaw: lerp(0.95, 0.85, e), pitch: 11, wupp: lerp(0.0086, 0.0078, e), at: [0.02, 0.5, -0.25], sx: 0.12, sy: 0 }; } },
   { id: 'D2', t: 16.35, d: 2.65, cam: (u) => { const e = ease.io(u); return { yaw: lerp(-0.12, -0.04, e), pitch: lerp(6, 8, e), wupp: lerp(0.0104, 0.009, e), at: [0.05, 0.72, -0.45], sx: 0.15, sy: 0 }; } },
   { id: 'E', t: 19.0, d: 4.0, sun: 'back', cam: (u, t) => ({ yaw: 0.1, pitch: lerp(8, 7, u), wupp: lerp(0.0074, 0.0067, ease.io(u)) * (t > 22.25 ? 1 - 0.14 * Math.exp(-(t - 22.25) * 5) - 0.07 * smooth((t - 22.25) / 0.2) : 1), at: [0, 0.74, -0.42], sx: 0.12, sy: -0.06 }) },
@@ -491,7 +492,7 @@ export class HeistScene {
     s.removeFromParent();
     if (this.spill) this.spill.visible = false;
     s.position.set(0, -0.3, 0.04);
-    s.rotation.set(0, -Math.PI / 2, 0); // the painted dollar sign out to his right side (the camera, as he runs right)
+    s.rotation.set(0, -Math.PI / 2, 0); // the fish logo out to his right side (the camera, as he runs right)
     s.scale.setScalar(0.9 / FOX_SCALE);
     this.fox.holdBoth(s);
     s.visible = true;
@@ -594,8 +595,8 @@ export class HeistScene {
       [6.0, () => this.anim('lick_count', 0.25)],
       [9.65, () => this.anim('count_coins', 0.3)],
       // C: the insert: a coin drops onto the stack, CLINK, the top glints
-      [12.25, () => this._dropOnStack(1, 0.42)],
-      [13.0, () => this._glintStack(1, true)],
+      [12.25, () => this._dropOnStack(2, 0.42)],
+      [13.0, () => this._glintStack(2, true)],
       // D: hug the heap, then the evil laugh (the bear wanders in behind)
       [13.8, () => this.anim('hug_pile', 0.25)],
       [15.0, () => this._spawnBear()],
@@ -675,7 +676,7 @@ export class HeistScene {
       // K: the reset
       [39.75, () => this.bills.fling(this.S.x + R.x * 0.05, this.crateTop + 1.9, this.S.z + R.z * 0.05, 0.05, -0.1, 0.02, { life: 6.5 })],
       [40.6, () => this._dropBear()],
-      [40.6, () => { this._holdSack(); this.anim('tiptoe', 0.1); }],
+      [40.4, () => { this._holdSack(); this.anim('tiptoe', 0.1); }],
       [44.0, () => { this.foxSt.face = Y0 + 1.0; this.anim('pour', 0.2); }],
       [45.55, () => { fox.holdBoth(null); this.sack.setKind('open'); this._parkSack(); this.foxSt.face = null; this.anim('walk', 0.2); this._fx((P) => P.dust(this.sack.position.x, this.sack.position.y, this.sack.position.z, 3)); this._sfx('thump', { volume: 0.18 }); }],
       [46.15, () => { this.anim('greedy', 0.25); }],
@@ -707,7 +708,7 @@ export class HeistScene {
     game.state.hour = 12.6;
     try { game.world.sim.update(dt * 0.5, game.wind); } catch { /* */ }
     this._camera(dt);
-    this._updateWords(dt);
+    this._updateWords(this.hold ? 0 : dt);
   }
 
   _step(dt) {
@@ -779,7 +780,7 @@ export class HeistScene {
       this._sfx('coin', { volume: 0.12, pitch: rand(1.4, 1.7) });
     } else if (name === 'coin') this._sfx('coin', { volume: 0.06, pitch: 2 });
     else if (name === 'flick') {
-      // a bill flicks off the bundle and lands on the felt
+      // a bill flicks off the bundle and lands on the crate
       fox.armL.grip.updateWorldMatrix(true, false);
       const q = fox.armL.grip.getWorldPosition(new THREE.Vector3());
       const to = this.at(0.12 + rand(-0.06, 0.06), rand(-0.06, 0.08), this.crateTop);
@@ -795,12 +796,15 @@ export class HeistScene {
       this._word('MWAHAHA!', 'mwaha', h.x + R.x * 0.15, h.y + 0.15, h.z + R.z * 0.15, { size: 1.0, life: 2.0 });
       this._sfx('fox_laugh', { volume: 0.4 });
     } else if (name === 'sweep') {
-      // the money flies off the felt into the sack, a few coins at a time
+      // the money flies off the crate into the sack, a few coins at a time
       const s = this.sack.position;
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         const a = this.at(rand(-0.2, 0.25), rand(-0.12, 0.12), this.crateTop + 0.05);
-        this._arcCoin(a, new THREE.Vector3(s.x, s.y + 0.36, s.z), rand(0.3, 0.42));
+        this._arcCoin(a, new THREE.Vector3(s.x, s.y + 0.36, s.z), rand(0.3, 0.42), 0.09);
       }
+      // the blur: a cartoon dust cloud boiling over the crate
+      const d = this.at(rand(-0.2, 0.2), rand(-0.1, 0.1), this.crateTop + rand(0.05, 0.3));
+      this._fx((Pp) => Pp.fx.spawn('dust', d.x, d.y, d.z, { vx: rand(-0.6, 0.6), vy: rand(0.2, 0.7), vz: rand(-0.6, 0.6), drag: 3, life: 0.5, size: rand(0.16, 0.26), fps: 6, flags: FX.FADE | FX.ONCE }));
       this._scoopK = (this._scoopK || 0) + 1;
       const k = this._scoopK;
       const M = this.money;
@@ -847,11 +851,11 @@ export class HeistScene {
   _updateBear(dt) { if (this.bear) this._bearPlace(dt); }
 
   // ------------------------------------------------------------ props: coins in flight, the dropped coin, the pour
-  _arcCoin(a, b, T) {
+  _arcCoin(a, b, T, size = 0.07) {
     // a coin sprite thrown from a to b in T seconds (ballistic)
     const g = 9;
     const vx = (b.x - a.x) / T, vz = (b.z - a.z) / T, vy = (b.y - a.y) / T + 0.5 * g * T;
-    this._fx((P) => P.fx.spawn('coin', a.x, a.y, a.z, { vx, vy, vz, grav: g, life: T, size: 0.07, fps: 14, flags: 0 }));
+    this._fx((P) => P.fx.spawn('coin', a.x, a.y, a.z, { vx, vy, vz, grav: g, life: T, size, fps: 14, flags: 0 }));
   }
 
   _dropOnStack(i, h) {
@@ -930,7 +934,7 @@ export class HeistScene {
       c.rotation.set(u < 1 ? cs.t * 14 : 0, cs.t * 3, 0);
       if (u >= 1) { this.coinSt = null; c.position.copy(cs.b); c.rotation.set(0, 0.6, 0); this._sfx('coin', { volume: 0.15, pitch: 1.9 }); }
     }
-    // the pour: coins stream from the sack onto the felt, the money grows back
+    // the pour: coins stream from the sack onto the crate, the money grows back
     const po = this.pours;
     if (po) {
       po.t += dt;
@@ -989,14 +993,14 @@ export class HeistScene {
     const aspect = (R.rtW || 16) / (R.rtH || 9);
     const wide = aspect > 1.25, tall = aspect < 0.95;
     const yaw = Y0 + c.yaw, pitch = c.pitch * DEG;
-    const wupp = c.wupp * (tall ? 1.3 : aspect < 1.25 ? 1.12 : 1);
+    const wupp = c.wupp * (tall ? 1.06 : aspect < 1.25 ? 1.1 : 1);
     rig.yaw = rig.yawGoal = yaw;
     rig.pitch = rig.pitchGoal = pitch;
     rig.wupp = rig.wuppGoal = wupp;
     const W = (R.rtW || 400) * wupp, H = (R.rtH || 300) * wupp;
     const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const focus = this.at(c.at[0], c.at[2], this.setY + c.at[1], this._fv || (this._fv = new THREE.Vector3()));
-    const sx = wide ? c.sx : 0, syy = (c.sy || 0) + (tall ? -0.08 : 0);
+    const sx = wide ? c.sx : 0, syy = (c.sy || 0) + (tall ? 0.03 : 0); // (portrait: the words sit above, the signpost below)
     // screen right (cy, 0, -sy), screen up (-sy*sp, cp, -cy*sp)
     const tx = focus.x - cy * sx * W + sy * sp * syy * H;
     const ty = focus.y - cp * syy * H;

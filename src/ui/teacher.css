@@ -185,89 +185,64 @@
    The tour's physical pixel pieces. Hard edges, ink outlines, solid offset shadows, stepped
    animation (no blur, no smooth gradients). One font pixel = 1 screen px at 21px, 2 at 42px. */
 
-/* ---- a little fox-orange REYNARD name tab on his bubble (the Director's cast colour) */
+/* ---- his name tag on the bubble: the game's egg-tag look (cream, ink border, a fox-orange stripe) */
 .tch-name {
-  position: absolute; left: calc(var(--px) * 6); top: calc(var(--px) * -14); z-index: 2;
-  font-family: var(--font-title); font-size: 21px; line-height: 1; font-style: normal; letter-spacing: 1px;
-  padding: 2px 7px 3px; color: #fff6e4; background: #ff9a3c; text-shadow: 1px 1px 0 #1a1420;
-  border: 2px solid #1a1420;
-  box-shadow: inset 0 2px 0 #ffc890, inset 0 -2px 0 #d8701e, 2px 2px 0 #1a1420;
-  image-rendering: pixelated; pointer-events: none;
+  position: absolute; left: calc(var(--px) * 6); bottom: calc(var(--px) * -11); z-index: 2;
+  font-family: var(--font2, var(--font-title)); font-size: 18px; line-height: 1.1; font-style: normal;
+  padding: 1px 6px; color: #1a1420; background: #fffbea;
+  border: 2px solid #1a1420; box-shadow: 0 2px 0 #1a1420, inset 0 -3px 0 #ff9a3c;
+  image-rendering: pixelated; pointer-events: none; white-space: nowrap;
 }
 .tch-v-shout .tch-name, .tch-v-think .tch-name { display: none; }
 
-/* ---- world marks (src/game/tutorial/marks.js): the canvas sits on the world, under the HUD */
-.tutm-world { position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+/* ---- world + UI marks (src/game/tutorial/marks.js): the game's own tutorial pointer (the cursor_hand
+   icon, styled exactly like UI.pointAt's .pointer-hand) and name tags in the .eggtag style */
 .tutm-layer { position: fixed; inset: 0; z-index: 7; pointer-events: none; overflow: hidden; }
-body.cine .tutm-layer, body.cine .tutm-world { z-index: 29; } /* cutscenes: over the letterbox's world, under its bars */
+body.cine .tutm-layer { z-index: 29; } /* cutscenes: over the world, under the letterbox bars */
+.tutm-hand { position: absolute; left: 0; top: 0; pointer-events: none; transform: translate(-50%, -100%) scaleY(-1); animation: ptr-bob-d .6s ease-in-out infinite alternate; filter: drop-shadow(2px 2px 0 #1a1420); }
+.tutm-hand img, .tutm-uihand img { display: block; image-rendering: pixelated; }
+.tutm-hand b, .tutm-uihand > b:not(.tutm-tag) { font-size: 36px; color: #fff; -webkit-text-stroke: 2px #1a1420; }
 .tutm-tag {
-  position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; white-space: nowrap;
-  font-family: var(--font-title); font-size: 21px; line-height: 1; color: #1a1420;
-  padding: 3px 8px 4px 6px; background: #f6ecd4;
-  border: 2px solid #1a1420; box-shadow: inset 4px 0 0 var(--c, #ffd23a), inset 0 -2px 0 #e2d2ae, 2px 2px 0 #1a1420;
-  animation: tutm-tag-in .24s steps(3) both;
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); white-space: nowrap; pointer-events: none;
+  display: flex; align-items: center; gap: 3px; padding: 1px 6px;
+  background: #fffbea; border: 2px solid #1a1420; box-shadow: 0 2px 0 #1a1420, inset 0 -3px 0 var(--rc, #d8d2c0);
+  font-family: var(--font2); font-size: 18px; font-weight: 400; color: #1a1420;
+  animation: unlock-pop .5s cubic-bezier(.3, 1.8, .5, 1) both;
 }
-.tutm-tag i { width: 4px; height: 4px; background: #1a1420; box-shadow: inset 1px 1px 0 #8a7a5a; margin-left: 2px; } /* the eyelet */
-.tutm-tag::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 2px; height: 4px; margin-left: -1px; background: #1a1420; } /* its string */
-.tutm-gold { --c: #ffd23a; } .tutm-blue { --c: #6ac8ff; } .tutm-pink { --c: #ff8ac8; } .tutm-green { --c: #8ae05a; } .tutm-red { --c: #ff6a4a; }
-@keyframes tutm-tag-in { 0% { margin-top: -8px; } 50% { margin-top: 2px; } 100% { margin-top: 0; } }
-
-/* ---- UI marks: a pixel arrow over a button, a stepped gold outline on it */
 .tutm-top { position: fixed; inset: 0; z-index: 465; pointer-events: none; }
-.tutm-uiarrow { position: absolute; left: 0; top: 0; pointer-events: none; }
-.tutm-uiarrow img { display: block; image-rendering: pixelated; animation: tutm-bob-d .44s steps(1) infinite; }
-.tutm-uiarrow[data-dir="up"] img { animation-name: tutm-bob-u; }
-.tutm-uiarrow[data-dir="left"] img { animation-name: tutm-bob-l; }
-.tutm-uiarrow[data-dir="right"] img { animation-name: tutm-bob-r; }
-@keyframes tutm-bob-d { 0%, 100% { transform: translateY(0); } 25%, 75% { transform: translateY(2px); } 50% { transform: translateY(4px); } }
-@keyframes tutm-bob-u { 0%, 100% { transform: translateY(0); } 25%, 75% { transform: translateY(-2px); } 50% { transform: translateY(-4px); } }
-@keyframes tutm-bob-l { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(-2px); } 50% { transform: translateX(-4px); } }
-@keyframes tutm-bob-r { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(2px); } 50% { transform: translateX(4px); } }
-.tutm-hot { outline: 4px solid #ffd23a !important; outline-offset: 3px; animation: tutm-hot .5s steps(1) infinite; }
-.tutm-uiarrow .tutm-uitag { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); animation: none; }
-.tutm-uiarrow[data-dir="up"] .tutm-uitag { top: auto; bottom: -30px; }
-.tutm-uiarrow[data-dir="left"] .tutm-uitag, .tutm-uiarrow[data-dir="right"] .tutm-uitag { top: -28px; }
-@keyframes tutm-hot { 0%, 100% { outline-color: #ffd23a; } 50% { outline-color: #fff6d0; } }
-.tutm-new { animation: tutm-new .8s steps(1) both !important; }
-@keyframes tutm-new { 0% { outline: 4px solid #fff6d0; outline-offset: 6px; } 25% { outline: 4px solid #ffd23a; outline-offset: 4px; } 50% { outline: 3px solid #e08a1a; outline-offset: 2px; } 75% { outline: 2px solid #ffd23a; outline-offset: 1px; } 100% { outline: 0 solid transparent; } }
+.tutm-uihand { position: absolute; left: 0; top: 0; pointer-events: none; filter: drop-shadow(2px 2px 0 #1a1420); animation: ptr-bob .6s ease-in-out infinite alternate; }
+.tutm-uihand[data-side="top"] { transform: translate(-50%, -100%) scaleY(-1); animation-name: ptr-bob-d; }
+.tutm-uihand[data-side="bottom"] { transform: translate(-50%, 0); }
+.tutm-uihand[data-side="left"] { transform: translate(-100%, -50%) rotate(90deg); }
+.tutm-uihand[data-side="right"] { transform: translate(0, -50%) rotate(-90deg); }
+.tutm-uihand .tutm-uitag { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 4px) scaleY(-1); animation: none; }
+.tutm-uihand[data-side="bottom"] .tutm-uitag { top: auto; bottom: 100%; transform: translate(-50%, -4px); }
+/* "this one": the scope's own gold for its callouts, a gold outline elsewhere */
+.tutm-hot { outline: 3px solid #ffe27a; outline-offset: 2px; }
+.fsc-call.tutm-hot { outline: none; border-color: #ffe27a !important; }
+.tutm-new { animation: unlock-pop .7s cubic-bezier(.3, 1.8, .5, 1) !important; }
 
-/* ---- SKIP TOUR: a paper luggage tag on a string from the top edge */
+/* ---- SKIP TOUR: the cutscenes' own SKIP button look (Director .dir-skip), pinned to the top */
 .tut-skiptag {
-  position: fixed; top: 0; right: calc(238px + env(safe-area-inset-right, 0px)); z-index: 470;
-  display: flex; flex-direction: column; align-items: center; padding: 0; margin: 0; border: 0; background: none; cursor: pointer;
-  pointer-events: auto; transform: translateY(-100%); image-rendering: pixelated;
+  position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: calc(238px + env(safe-area-inset-right, 0px)); z-index: 470;
+  display: flex; align-items: center; gap: 6px; pointer-events: auto; cursor: pointer;
+  font-family: var(--font-title); font-size: 18px; color: #fff6e4; background: #1a1420;
+  border: 3px solid #fff6e4; box-shadow: 3px 3px 0 #000; padding: 2px 10px 4px 6px; image-rendering: pixelated;
+  opacity: 0; transform: translateY(-8px); transition: opacity .2s, transform .2s;
 }
-.tut-skiptag.on { transform: translateY(0); animation: tut-skip-in .5s steps(5) both; }
-.tut-skiptag.off { transform: translateY(-110%); transition: transform .3s steps(3); }
-@keyframes tut-skip-in { 0% { transform: translateY(-100%); } 60% { transform: translateY(6px); } 80% { transform: translateY(-2px); } 100% { transform: translateY(0); } }
-.tut-skiptag .str { display: block; width: 2px; height: 14px; background: #3a2a20; box-shadow: 2px 0 0 #8a6a4a; }
-.tut-skiptag .tg {
-  position: relative; display: flex; flex-direction: column; align-items: center; padding: 10px 10px 6px;
-  font-family: var(--font-title); color: #1a1420; line-height: 1;
-  background-color: #f3e6c8;
-  background-image: repeating-conic-gradient(#f3e6c8 0 25%, #ecdcb8 0 50%); background-size: 4px 4px; /* paper tooth (2 px checker) */
-  border: 2px solid #1a1420; box-shadow: inset 0 -3px 0 #d8c49a, 3px 3px 0 #1a1420;
-  animation: tut-skip-bob 2.4s steps(1) infinite;
-}
-.tut-skiptag .eye { position: absolute; top: 2px; left: 50%; width: 6px; height: 6px; margin-left: -3px; background: #e8b040; box-shadow: inset 2px 2px 0 #1a1420, 0 0 0 1px #7a4a10; }
-.tut-skiptag b { font-size: 21px; font-weight: 400; letter-spacing: 1px; }
-.tut-skiptag em { font-style: normal; font-size: 21px; color: #c0302a; letter-spacing: 1px; margin-top: 2px; }
-.tut-skiptag .ff { width: 14px; height: 6px; margin-top: 3px; background:
-  linear-gradient(#1a1420, #1a1420) 0 2px / 2px 2px no-repeat, linear-gradient(#1a1420, #1a1420) 2px 0 / 2px 6px no-repeat, linear-gradient(#1a1420, #1a1420) 4px 2px / 2px 2px no-repeat,
-  linear-gradient(#1a1420, #1a1420) 8px 2px / 2px 2px no-repeat, linear-gradient(#1a1420, #1a1420) 10px 0 / 2px 6px no-repeat, linear-gradient(#1a1420, #1a1420) 12px 2px / 2px 2px no-repeat; }
-@keyframes tut-skip-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1px); } }
-.tut-skiptag:hover .tg { background-color: #fff3d8; transform: translateY(3px); animation: none; }
-.tut-skiptag:hover .str { height: 17px; }
-.tut-skiptag:active .tg, .tut-skiptag.pulled .tg { transform: translateY(6px) scaleY(.94); box-shadow: inset 0 -3px 0 #d8c49a, 2px 2px 0 #1a1420; }
-.tut-skiptag:active .str, .tut-skiptag.pulled .str { height: 20px; }
-body.lab-mode .tut-skiptag, .classroom-on .tut-skiptag { right: 16px; }
+.tut-skiptag img { image-rendering: pixelated; }
+.tut-skiptag.on { opacity: .85; transform: none; }
+.tut-skiptag.on:hover { opacity: 1; transform: translateY(-1px); }
+.tut-skiptag:active, .tut-skiptag.pulled { transform: translateY(1px); box-shadow: 1px 1px 0 #000; }
+.tut-skiptag.off { opacity: 0; transform: translateY(-8px); }
+body.lab-mode .tut-skiptag { right: 16px; }
 
 /* ---- the plank question card (skip + the room's questions) */
 .tut-choice.tut-ask { flex-direction: column; align-items: center; gap: 10px; bottom: 30%; z-index: 480; }
 .tut-choice.tut-ask .row { display: flex; gap: 16px; }
 .tut-choice.tut-ask .q {
-  font-family: var(--font-title); font-size: 42px; line-height: 1; color: #1a1420; padding: 10px 18px 12px;
-  background: #f6ecd4; border: 3px solid #1a1420; box-shadow: inset 0 -4px 0 #e2d2ae, 4px 4px 0 #1a1420;
+  font-family: var(--font-title); font-size: 36px; line-height: 1; color: #2a1a14; padding: 8px 20px 10px;
+  background: #fff4c8; border: 4px solid #2a1a14; box-shadow: 0 5px 0 #2a1a14; /* the planks' own card look (style.css .tut-choice) */
 }
 
 /* ---- the Fish Scope's eyepiece (src/game/tutorial/stage.js lens): under the HUD and bubbles, over the world */

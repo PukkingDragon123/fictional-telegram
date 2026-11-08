@@ -8,7 +8,7 @@
 //   installTownAnims(rig)          -> true when the rig can do them (BipedRig with legTo/reach)
 //   rig._townSeat = 0 | 1 | 2      standing / on the ground / on a bench (read + nap follow it)
 import * as THREE from 'three';
-import { VoxelModel, VS, FV, buildGeo, matFor, sin, cos, abs, max, lerp, K, win, pulse, tone } from '../../entities/critterKit.js';
+import { VoxelModel, VS, FV, buildGeo, matFor, sin, cos, abs, lerp, K, win, pulse, tone } from '../../entities/critterKit.js';
 
 const TOWN = {};
 const def = (name, o) => { TOWN[name] = o; };
@@ -242,4 +242,4 @@ export function installTownAnims(rig) {
 }
 
 export const TOWN_ANIMS = Object.keys(TOWN);
-export { max };
+

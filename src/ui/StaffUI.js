@@ -254,7 +254,7 @@ export class StaffUI {
     const hl = el.querySelector('.sf-hl'), hr = el.querySelector('.sf-hr');
     hl.appendChild(cb.title(nR > 1 ? `Staff Roster ${k + 1}/${nR}` : 'Staff Roster'));
     hl.appendChild(cb.print('Beaver Works Co. · form 7B · tap a name to open their sheet', { cls: 'sf-sub', size: 's' }));
-    hr.appendChild(cb.stamp(`DAY ${this.game.state.day || 1}`, '#3a64b0', { rot: 6, frame: 'single', seed: 3 }));
+    hr.appendChild(cb.stamp(`DAY ${this.game.state.day || 1}`, '#3a64b0', { rot: 6, small: true }));
     const meta = el.querySelector('.sf-meta');
     meta.append(this.field('Beavers', String(all.length)), this.field('Beds', String(beds), { icon: 'st_home' }), this.field('Wages', `${wages}/day`, { icon: 'coin' }));
     if (waiting) {
@@ -286,7 +286,7 @@ export class StaffUI {
       ch.appendChild(home ? cb.hand(home.def.name) : cb.hand('no bed!', { color: RED_PENCIL }));
       const cm = b.querySelector('.sf-cm');
       cm.append(cb.gauge(r.mood, 'red', { w: 40, seed: r.id }), cb.gauge(r.energy, 'green', { w: 40, seed: r.id + 9 }));
-      if (r.hurt) { const st = cb.stamp('HURT', '#b8282c', { rot: -10, frame: 'single', seed: r.id }); st.classList.add('sf-rowstamp'); b.appendChild(st); }
+      if (r.hurt) { const st = cb.stamp('HURT', '#b8282c', { rot: -10, small: true }); st.classList.add('sf-rowstamp'); b.appendChild(st); }
       rows.appendChild(b);
     }
     if (k === nR - 1) {
@@ -305,7 +305,7 @@ export class StaffUI {
       <div class="sf-cols sf-jcols"><span>On job</span><span>Name</span><span>Doing now</span><span>${esc(SKILL_INFO[J.skill]?.name || 'Skill')}</span><span>Mood</span></div><div class="sf-rows sf-pick"></div>`;
     el.querySelector('.sf-hl').append(cb.title('Job Sheet'), cb.print(`${s.def.name} · ${J.title || 'Worker'}`, { cls: 'sf-sub', size: 's' }));
     const open = !J.required || team.length > 0;
-    el.querySelector('.sf-hr').appendChild(cb.stamp(open ? 'OPEN' : 'CLOSED', open ? '#2f8f4a' : '#b8282c', { rot: open ? -7 : 8, seed: 9 }));
+    el.querySelector('.sf-hr').appendChild(cb.stamp(open ? 'OPEN' : 'CLOSED', open ? '#2f8f4a' : '#b8282c', { rot: open ? -7 : 8, small: true }));
     const form = el.querySelector('.sf-form');
     const slotBoxes = document.createElement('span');
     slotBoxes.className = 'sf-slots';
@@ -351,7 +351,7 @@ export class StaffUI {
     el.innerHTML = `<div class="sf-head"><div class="sf-hl"></div><div class="sf-hr"></div></div><div class="sf-form"></div>
       <div class="sf-cols sf-bcols"><span>Lives here</span><span>Name</span><span>Sleeps at</span><span>Mood</span></div><div class="sf-rows sf-pick sf-b"></div>`;
     el.querySelector('.sf-hl').append(cb.title('Bunk List'), cb.print(`${s.def.name} · lights out at dusk`, { cls: 'sf-sub', size: 's' }));
-    el.querySelector('.sf-hr').appendChild(cb.stamp(res.length >= beds ? 'FULL' : 'VACANCY', res.length >= beds ? '#b8282c' : '#2f8f4a', { rot: 7, seed: 13 }));
+    el.querySelector('.sf-hr').appendChild(cb.stamp(res.length >= beds ? 'FULL' : 'VACANCY', res.length >= beds ? '#b8282c' : '#2f8f4a', { rot: 7, small: true }));
     const bedBoxes = document.createElement('span');
     bedBoxes.className = 'sf-slots';
     for (let i = 0; i < beds; i++) bedBoxes.appendChild(cb.tickBox(i < res.length));
@@ -390,14 +390,14 @@ export class StaffUI {
       <div class="sf-cr"><div class="sf-sec sf-sjob"></div><div class="sf-opts sf-ojob"></div><div class="sf-sec sf-shome"></div><div class="sf-opts sf-ohome"></div><div class="sf-sec sf-sskill"></div></div></div>`;
     this.dress(el);
     el.querySelector('.sf-pola-cap').appendChild(cb.hand(r.name, { maxW: 172 }));
-    if (P.name) { const st = cb.stamp(P.name.toUpperCase(), '#7a3aa0', { rot: -7, frame: 'single', seed: r.id }); el.querySelector('.sf-pers').appendChild(st); }
+    if (P.name) el.querySelector('.sf-pers').innerHTML = `<span class="sf-perstag" title="${esc(P.desc || '')}">${esc(P.name)}</span>`;
     const stats = el.querySelector('.sf-stats');
-    const lv = document.createElement('span'); lv.className = 'sf-pair'; lv.append(cb.hand(`Lv ${r.level}`), cb.gauge((r.xp / xpN) * 100, 'gold', { w: 44, seed: r.id + 3 }));
-    const md = document.createElement('span'); md.className = 'sf-pair'; md.append(cb.gauge(r.mood, 'red', { w: 44, seed: r.id }), cb.hand(this.moodWord(r.mood)));
+    const lv = document.createElement('span'); lv.className = 'sf-pair'; lv.append(cb.hand(`Lv ${r.level}`), cb.gauge((r.xp / xpN) * 100, 'gold', { w: 36, seed: r.id + 3 }));
+    const md = document.createElement('span'); md.className = 'sf-pair'; md.append(cb.gauge(r.mood, 'red', { w: 36, seed: r.id }), cb.hand(this.moodWord(r.mood)));
     stats.append(
       this.field('Level', lv),
       this.field('Mood', md),
-      this.field('Energy', cb.gauge(r.energy, 'green', { w: 44, seed: r.id + 9 })),
+      this.field('Energy', cb.gauge(r.energy, 'green', { w: 36, seed: r.id + 9 })),
       this.field('Wage', r.origin === 'hire' ? `${r.wage}/day` : 'paid in snacks', { icon: r.origin === 'hire' ? 'coin' : null }),
       this.field('Now', sys.status(r)),
     );
@@ -498,7 +498,7 @@ export class StaffUI {
     el.appendChild(card);
     this.dress(card);
     card.querySelector('.sf-pola-cap').appendChild(cb.hand(c.name, { maxW: 150 }));
-    if (P.name) card.querySelector('.sf-pers').appendChild(cb.stamp(P.name.toUpperCase(), '#7a3aa0', { rot: -7, frame: 'single', seed: c.seed || i }));
+    if (P.name) card.querySelector('.sf-pers').innerHTML = `<span class="sf-perstag" title="${esc(P.desc || '')}">${esc(P.name)}</span>`;
     const rh = card.querySelector('.sf-rh');
     rh.append(cb.title(`Resume ${i + 1}/${n}`), this.field('Asks', `${c.wage}/day`, { icon: 'coin' }));
     card.querySelector('.sf-rsk').appendChild(this.skillsBlock(c, { hi: best }));

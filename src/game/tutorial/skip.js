@@ -1,8 +1,9 @@
-// [v33 tut] SKIP TOUR: a paper luggage tag on a string, hanging from the top of the screen for the
-// whole tour. Tap it, Reynard's painted YES / NO planks ask "Skip the whole tour?", and a yes ends
+// [v33 tut] SKIP TOUR: a button in the cutscenes' own SKIP look (Director .dir-skip), at the top of the
+// screen for the whole tour. Tap it, Reynard's painted YES / NO planks ask "Skip the whole tour?", and a yes ends
 // the tour at once with everything a finished tour leaves you (finishSkipped below).
 import { ynPair } from '../../ui/ynButtons.js';
 import { rollGenes } from '../genes.js';
+import { spriteImg, hasSprite } from '../../ui/sprites.js';
 
 export class SkipTag {
   constructor(T) {
@@ -11,7 +12,7 @@ export class SkipTag {
     el.type = 'button';
     el.className = 'tut-skiptag';
     el.title = 'Skip the tour';
-    el.innerHTML = '<i class="str"></i><span class="tg"><i class="eye"></i><b>SKIP</b><em>TOUR</em><i class="ff"></i></span>';
+    el.innerHTML = `${hasSprite('skip') ? spriteImg('skip', 2) : ''}<span>SKIP TOUR</span>`;
     el.addEventListener('pointerenter', () => T.game.audio?.play?.('hover', { volume: 0.3 }));
     el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); this.ask(); });
     document.body.appendChild(el);

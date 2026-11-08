@@ -67,11 +67,12 @@
 .sf-slots { display: inline-flex; align-items: center; gap: 3px; }
 
 /* the beaver sheet */
-.sf-card { display: grid; grid-template-columns: 196px 1fr; gap: 18px; }
+.sf-card { display: grid; grid-template-columns: 216px 1fr; gap: 16px; }
 .sf-cl { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .sf-cr { min-width: 0; }
 .sf-pers { margin-top: 2px; position: relative; z-index: 2; min-height: 10px; }
-.sf-note { margin: 14px 0 0 auto; }
+.sf-perstag { display: inline-block; padding: 0 6px 1px; font-size: 13px; font-family: var(--font2); background: #2a1a14; color: #fff3d0; transform: rotate(-3deg); } /* the old staff personality label */
+.sf-cr .sf-note { margin: 16px 6px 0 auto; }
 .sf-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 .sf-chip { display: inline-block; padding: 0 6px 1px; font-size: 13px; font-family: var(--font2); color: #3a2a1c; background: #fff6dc; box-shadow: 0 0 0 var(--P) #8a6a44, var(--P) var(--P) 0 var(--P) rgba(60, 30, 4, .22); cursor: default; }
 .sf-chip.good { background: #d8f6c8; box-shadow: 0 0 0 var(--P) #2f6f4a, var(--P) var(--P) 0 var(--P) rgba(20, 60, 20, .22); }
@@ -134,11 +135,11 @@
 .sf-q { font-size: 13px; color: #6d7ca8; }
 .sf-q::before { content: 'Q: '; font-family: var(--font2); }
 .sf-decide { display: flex; justify-content: center; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
-.sf-stampbtn { appearance: none; margin: 0; border: 0; cursor: pointer; padding: 6px 16px 7px; font-family: var(--font2); font-size: 20px; color: #fff8ec; letter-spacing: 1px;
-  background: #3a9a52; box-shadow: inset 0 calc(var(--P) * -2) 0 #1e6a34, inset 0 var(--P) 0 #7ad48a, 0 0 0 var(--P) #1a2a14, 0 calc(var(--P) * 3) 0 var(--P) #3a2414; }
-.sf-stampbtn.pass { background: #d8463a; box-shadow: inset 0 calc(var(--P) * -2) 0 #9a2620, inset 0 var(--P) 0 #ff8a78, 0 0 0 var(--P) #2a1010, 0 calc(var(--P) * 3) 0 var(--P) #3a2414; }
-.sf-stampbtn:hover { transform: translateY(calc(var(--P) * -2)); }
-.sf-stampbtn:active { transform: translateY(calc(var(--P) * 2)) scale(1.04, .92); }
+.sf-stampbtn { appearance: none; margin: 0; cursor: pointer; padding: 5px 18px 6px; font-family: var(--font2); font-size: 18px; color: #2a1a14; letter-spacing: 1px;
+  background: #9ad86a; border: 3px solid #2a1a14; box-shadow: 0 4px 0 #2a1a14; } /* the old HIRE / PASS buttons */
+.sf-stampbtn.pass { background: #f4b0a0; }
+.sf-stampbtn:hover { transform: translateY(-2px); }
+.sf-stampbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #2a1a14; }
 .sf-res.done .sf-stampbtn { pointer-events: none; opacity: .6; }
 .sf-bigstamp { position: absolute !important; left: 40%; top: 34%; z-index: 6; }
 .sf-tip { margin: 22px auto 0; }

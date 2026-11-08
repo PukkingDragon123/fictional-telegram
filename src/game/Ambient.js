@@ -1,6 +1,10 @@
 // Reynard the fox (in-world avatar) and ambient life: loons on the pond,
 // Canada geese flying over, fireflies, falling maple leaves, chimney smoke,
 // and the office whistle steam at 5 PM.
+// [v33 town] the songbirds, butterflies and frogs follow the camera across your
+// land (a neighbour's yard too), birds perch on benches / birdhouses / signposts,
+// and rain sends them to shelter (frogs sing louder). The neighbours' own day
+// lives in src/game/town/TownLife.js.
 import * as THREE from 'three';
 import { FoxRig } from '../entities/foxRig.js';
 import { SpriteBatch, SPRITE_UNIFORMS } from '../core/spriteBatch.js';

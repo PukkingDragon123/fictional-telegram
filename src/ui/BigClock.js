@@ -50,7 +50,7 @@ const LS_LID = 'tbme.watch.lid';
 const RING_DUR = 4.2;
 let RM = null;
 const reduced = () => { try { RM = RM || matchMedia('(prefers-reduced-motion: reduce)'); return RM.matches; } catch { return false; } };
-const NIGHT_GLINT = hex('#b8c8ff');
+const NIGHT_GLINT = hex('#9ab0d8');
 const WXNAME = { clear: 'Clear', heat: 'Heatwave', rain: 'Rain', storm: 'Storm', snow: 'Snow', fog: 'Fog', wind: 'Windy' };
 
 export class BigClock {
@@ -129,7 +129,6 @@ export class BigClock {
   _resize() {
     const small = !!this._mq?.matches;
     const G = geometry(small ? 'S' : 'L');
-    const first = !this.G;
     this.G = G;
     this.k = crispPx(2);
     this.cv.width = G.W;
@@ -145,8 +144,8 @@ export class BigClock {
     this._dialKey = '';
     this._lidKey = '';
     this.phiOpen = Math.acos(-G.lidA / G.R);
-    if (first) this.lid.a = this.lidOpen ? this.phiOpen : 0;
-    else this.lid.a = this.lidOpen ? this.phiOpen : 0;
+    this.lid.a = this.lidOpen ? this.phiOpen : 0;
+    this.lid.v = 0;
     this._tagKey = '';
     this._draw();
   }
@@ -216,6 +215,7 @@ export class BigClock {
   }
 
   _down(e) {
+    this._longPress = false;
     if (e.pointerType === 'touch') this._touch = true;
     const [ax, ay] = this._art(e);
     const r = this._region(ax, ay);
@@ -262,7 +262,7 @@ export class BigClock {
     this.tg.v += n % 2 ? 5 : -5;
     this._tagGlow = 0.45;
     const G = this.G, L = G.size === 'L';
-    const tx = G.cx - 5 + (n - 1) * 4 + 1, ty = G.cy + G.R + (L ? 3 : 2) + (L ? 1 : 1);
+    const tx = G.cx - 5 + (n - 1) * 4 + 1, ty = G.cy + G.R + (L ? 4 : 3);
     this._spark(tx, ty, 2);
     this.onSpeed(n);
     this._acc = 1;
@@ -546,14 +546,14 @@ export class BigClock {
     const G = this.G, hb = this.hb, L = G.size === 'L', H = G.hands, { cx, cy } = G;
     hb.clear();
     const ah = hourAngle(hour), am = (hour % 1) * TAU, as = (this.secIdx / 60) * TAU;
-    const blue = [P.b0, P.b1, P.b2];
-    drawHand(hb, cx, cy, am, L ? -4 : -3, H.min, (t) => (t < H.min * 0.62 ? 2.05 : 1.2), blue);
-    drawHand(hb, cx, cy, ah, L ? -3 : -2, H.hour, (t) => (t < 0 ? 2.2 : t < H.hour * 0.5 ? 3.1 : t < H.hour * 0.82 ? 2.1 : 1.3), blue);
-    if (L) { const mt = H.hour * 0.66; drawRing(hb, cx + Math.sin(ah) * mt, cy - Math.cos(ah) * mt, 1.05, 2.45, P.b1); }
-    // the seconds needle: thin dark red, a bright tip, a ring counterweight
-    drawHand(hb, cx, cy, as, L ? -6 : -4, H.sec, () => 1.05, [P.r0, P.r0, P.r0]);
-    drawHand(hb, cx, cy, as, H.sec - (L ? 4 : 3), H.sec, () => 1.05, [P.r1, P.r1, P.r1]);
-    if (L) drawRing(hb, cx - Math.sin(as) * 4.5, cy + Math.cos(as) * 4.5, -1, 1.25, P.r0);
+    // slim blued hands like the old clock's: a dark minute hand, a steel-blue hour hand with a Breguet moon
+    drawHand(hb, cx, cy, am, L ? -4 : -3, H.min, (t) => (t < H.min * 0.55 ? 1.8 : 1.1), [P.b0, P.b0, P.b1]);
+    drawHand(hb, cx, cy, ah, L ? -3 : -2, H.hour, (t) => (t < 0 ? 1.8 : t < H.hour * 0.8 ? 2.3 : 1.2), [P.b1, P.b1, P.b2]);
+    if (L) { const mt = H.hour * 0.66; drawRing(hb, cx + Math.sin(ah) * mt, cy - Math.cos(ah) * mt, 1.05, 2.3, P.b1); }
+    // the seconds needle: thin red, a brighter tip, a ring counterweight
+    drawHand(hb, cx, cy, as, L ? -6 : -4, H.sec, () => 1.05, [P.r1, P.r1, P.r1]);
+    drawHand(hb, cx, cy, as, H.sec - (L ? 4 : 3), H.sec, () => 1.05, [P.r2, P.r2, P.r2]);
+    if (L) drawRing(hb, cx - Math.sin(as) * 4.5, cy + Math.cos(as) * 4.5, -1, 1.25, P.r1);
     // the hands' crisp shadow on the enamel (one pixel down right), then the hands, then the hub
     const W = G.W, d = hb.d, bd = b.d;
     for (let i = 0; i < d.length - W - 1; i++) if (d[i] && !d[i + W + 1] && bd[i + W + 1]) bd[i + W + 1] = darken(bd[i + W + 1], 0.2);

@@ -170,7 +170,7 @@ export async function fishScope(T) {
   await T.cine(async (c) => {
     await c.walkNear(midOf(two[0], two[1])());
     c.hold('scope');
-    c.fox.act('present_trophy', 1.6);
+    c.fox.act('sci_peer', 2);
     c.low(c.fox, { zoom: 0.0115, pitch: 0.5, lift: game.fox.y + 0.8 });
     c.sfx('star_pop', { volume: 0.35 });
     await c.beat(1.3);

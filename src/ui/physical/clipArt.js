@@ -11,8 +11,9 @@ export const PRINT = hexc('#33405f'); // printed form ink (blue-black)
 export const PRINT_LT = hexc('#8d9cc0'); // printed rules
 export const GRAPHITE = '#4a4858';
 export const GRAPHITE_LT = '#8a8698';
-const STEEL = ramp(['#1b1d29', '#363a4d', '#555b71', '#7d849c', '#a9afc4', '#d3d8e6', '#f4f6fb']);
-const BOARD = ramp(['#3a2212', '#5a3419', '#74451f', '#8c5827', '#a26a30', '#b57c3a', '#c58e46', '#d5a256', '#e4b86c']); // warm honey hardboard
+const STEEL = ramp(['#2a1a0c', '#5c4219', '#8d6c32', '#b8924c', '#dcbd72', '#f6e6ac', '#fffbe0']); // brass (frames.js PAL.brass)
+// the game's wood palette (frames.js PAL.wood: the toolbar frame and the old staff clipboard)
+const BOARD = ramp(['#2a180c', '#3b2414', '#55331a', '#6b4220', '#7a4d24', '#8b5a2b', '#a86d38', '#c98f55', '#dcae74']);
 export const PAPER_BACK = ramp(['#b7a57c', '#cdbd95', '#dccdaa', '#e9dcbe', '#f4ead3', '#fcf6e8']);
 
 // text -> Pix through the bitmap pixel fonts (src/ui/kinetic/pxfont.js)
@@ -140,13 +141,13 @@ export function paintClip(open = false) {
   }
   // an embossed maker's mark on the jaw
   if (!open) {
-    const mark = textPix('FOXCO', { font: 'tiny', color: '#3a3e52' });
+    const mark = textPix('FOXCO', { font: 'tiny', color: '#5c4219' });
     for (let y = 0; y < mark.h; y++) for (let x = 0; x < mark.w; x++) if (mark.a(x, y)) {
       const X = Math.round(W / 2 - mark.w / 2) + x, Y = jy0 + 6 + y - 2;
       if (Y < jy0 + jh - 3) { p.set(X, Y, S(2)); if (!mark.a(x, y + 1)) p.set(X, Y + 1, S(6)); }
     }
   }
-  p.outline(hexc('#11131c'));
+  p.outline(hexc('#2a1a0c'));
   // dithered shadow the jaw throws on the paper
   const sy = jy0 + jh + 1;
   for (let y = sy; y < sy + (open ? 3 : 2); y++) for (let x = 8; x < W - 6; x++) if (((x + y) & 1) === 0 && !p.a(x, y)) p.set(x, y, hexc('#2a1c10'), open ? 70 : 120);
@@ -155,13 +156,13 @@ export function paintClip(open = false) {
 
 // ================================================================ sticky index tab
 export const TAB_COLORS = {
-  yellow: ramp(['#8a5a08', '#d99a16', '#f6c63a', '#ffe27a', '#fff3b8']),
+  yellow: ramp(['#b0661a', '#e5a320', '#ffd23f', '#fff3a3', '#fffbe0']), // frames.js PAL.gold
   orange: ramp(['#7a2c0c', '#c95a1e', '#f08838', '#ffb066', '#ffd8a8']),
   pink: ramp(['#7a1a3a', '#c2416a', '#ec7398', '#ffa2be', '#ffd4e2']),
-  green: ramp(['#1e4a1c', '#3a8a34', '#62b852', '#94dc7c', '#cff2b8']),
+  green: ramp(['#255a3c', '#2f6f4a', '#3f8f5f', '#6cc08a', '#aee6b0']), // frames.js PAL.green
   blue: ramp(['#173a6a', '#2e64b0', '#4c90dc', '#84bcf2', '#c4e2ff']),
   violet: ramp(['#3a1f68', '#6640a8', '#8f6ad6', '#b89cf0', '#e2d4ff']),
-  red: ramp(['#5e0e12', '#a8242a', '#d84a46', '#f68478', '#ffc0b4']),
+  red: ramp(['#80202e', '#b0303a', '#d9453b', '#f07a52', '#ffc9a0']), // frames.js PAL.red
   teal: ramp(['#0e4848', '#1f8484', '#3cb4aa', '#78d8c8', '#c0f2e8']),
 };
 export function paintTab(label, color = 'yellow', { w = 46, h = 13, on = false, hover = false } = {}) {
@@ -280,22 +281,17 @@ export function paintTickBox({ ticks = 0, cross = false, color = GRAPHITE, dim =
   return p;
 }
 
-// ================================================================ colored-pencil gauge (hand drawn box + hatching)
-const PENCILS = { red: ['#c23a4c', '#e47286'], green: ['#3c8a3a', '#78c060'], gold: ['#c08414', '#e8b440'], blue: ['#3a64b0', '#76a0e0'], grey: ['#5a5c66', '#8c8e98'] };
-export function paintGauge(v, color = 'green', { w = 36, h = 8, seed = 1 } = {}) {
-  const p = new Pix(w + 1, h + 1);
-  const [c0, c1] = (PENCILS[color] || PENCILS.grey).map(hexc);
-  const g = hexc(GRAPHITE), gl = hexc(GRAPHITE_LT);
-  const fill = Math.round(clamp(v, 0, 100) / 100 * (w - 3));
-  for (let y = 2; y < h - 1; y++) for (let x = 2; x < 2 + fill; x++) {
-    if ((x + y * 2) % 3 === 0) p.set(x, y, noise(x, y, seed) < 0.12 ? c1 : c0);
-    else if ((x + y * 2) % 3 === 1 && noise(x, y, seed + 3) < 0.25) p.set(x, y, c1);
+// ================================================================ a little bar (the old staff bars: mood pink, energy green, xp gold)
+const BARS = { red: ['#f08aa8', '#ffc2d2'], green: ['#6cc08a', '#aee6b0'], gold: ['#ffd23f', '#fff3a3'], blue: ['#6aa8e0', '#b4d6f6'], grey: ['#9a9aa0', '#c4c4c8'] };
+export function paintGauge(v, color = 'green', { w = 36, h = 6, seed = 1 } = {}) {
+  void seed;
+  const p = new Pix(w, h);
+  const [c0, c1] = (BARS[color] || BARS.grey).map(hexc), track = hexc('#3a2a1c'), ol = hexc('#2a1a14');
+  const fill = Math.round(clamp(v, 0, 100) / 100 * (w - 2));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1) { p.set(x, y, ol); continue; }
+    p.set(x, y, x - 1 < fill ? (y === 1 ? c1 : c0) : track);
   }
-  // the sketchy box: lines overshoot a corner or two
-  const jog = 3 + Math.floor(noise(seed, 1, 9) * (w - 8));
-  for (let x = 0; x < w; x++) { p.set(x, x > jog ? 1 : 0, g); p.set(x, h - 1, noise(x, 5, seed) < 0.2 ? gl : g); }
-  p.set(w, 0, gl); p.set(0, h, gl);
-  for (let y = 0; y < h; y++) { p.set(0, y, g); p.set(w - 1, y, noise(7, y, seed) < 0.25 ? gl : g); }
   return p;
 }
 
@@ -405,21 +401,18 @@ export function paintCloseKnob() {
   return p;
 }
 
-// ================================================================ pencil dots for 1..max ratings
-export function paintPips(n, max = 5, { color = GRAPHITE, hi = false } = {}) {
-  const p = new Pix(max * 6, 6);
-  const C = hexc(color), L = hexc(GRAPHITE_LT), Y = hexc('#ffe27a');
-  const DOT = ['.##.', '####', '####', '.##.'];
+// ================================================================ rating pips (the old staff diamonds: gold on, cream off)
+export function paintPips(n, max = 5, { hi = false } = {}) {
+  const p = new Pix(max * 7, 7);
+  const ON = hexc('#e5a320'), ONL = hexc('#ffd23f'), ONB = hexc('#7a4a12'), OFF = hexc('#f6ecd0'), OFFB = hexc('#6b4220'), Y = hexc('#fff0a8');
+  const D = ['..b..', '.bfb.', 'bfffb', '.bfb.', '..b..'];
   for (let i = 0; i < max; i++) {
-    const ox = i * 6, on = i < n;
-    if (hi && on) for (let y = 0; y < 6; y++) for (let x = -1; x < 5; x++) if (bay(ox + x, y) < 0.7) p.set(ox + x, y, Y, 200);
-    DOT.forEach((row, y) => [...row].forEach((ch, x) => {
-      if (ch !== '#') return;
-      const edge = y === 0 || y === 3 || x === 0 || x === 3;
-      if (on) p.set(ox + x, 1 + y, C);
-      else if (edge) p.set(ox + x, 1 + y, L);
+    const ox = i * 7 + 1, on = i < n;
+    if (hi && on) for (let y = 0; y < 7; y++) for (let x = -1; x < 6; x++) if (bay(ox + x, y) < 0.6) p.set(ox + x, y, Y, 200);
+    D.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch === '.') return;
+      p.set(ox + x, 1 + y, ch === 'b' ? (on ? ONB : OFFB) : on ? (y === 1 ? ONL : ON) : OFF);
     }));
-    if (on) p.set(ox + 1, 2, hexc('#a8a6b4'));
   }
   return p;
 }

@@ -40,10 +40,8 @@
 //   busy | visible | waiting                    getters
 //   dispose()
 //
-// [v33 tut] LOOK: the game's own cute comic bubble (white, ink outline, gloss tick, dithered shadow),
-// polished up with a little orange REYNARD name tab; the marks are bright waxy crayon strokes (solid
-// colour, wax grain, a crisp ink edge so they read on any background) instead of chalk on a
-// see-through board; his ground shadow is dithered.
+// [v33 tut] The look is the game's own: the comic bubble (white, ink outline, gloss tick, dithered
+// shadow) with a little REYNARD name tag in the egg-tag style, chalk marks, his top hat and pointer.
 //
 // RENDERING: three layers fixed over the whole viewport, all pointer-events: none
 // (the UI under them stays clickable):
@@ -1489,17 +1487,17 @@ export class TeacherOverlay {
       for (let x = xa; x <= xb; x++) {
         const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d2 = dx * dx + dy * dy;
         const j = y * W + x, i = j * 4;
-        // [v33 tut] grease pencil: a solid ink edge (one art px, a bit heavier below), waxy colour inside
         if (d2 <= r2) {
-          inner[j] = 1;
-        } else if (!inner[j] && (d2 <= R2 || dx * dx + (dy - 0.75) * (dy - 0.75) <= R2)) {
-          ink[i] = INK[0]; ink[i + 1] = INK[1]; ink[i + 2] = INK[2]; ink[i + 3] = 255;
+          if (!inner[j]) { inner[j] = 1; ink[i] = INK[0]; ink[i + 1] = INK[1]; ink[i + 2] = INK[2]; ink[i + 3] = 105; }
+        } else if (!inner[j] && (d2 <= R2 || dx * dx + (dy - 0.75) * (dy - 0.75) <= R2) && ink[i + 3] < 170) {
+          ink[i] = INK[0]; ink[i + 1] = INK[1]; ink[i + 2] = INK[2]; ink[i + 3] = 170; // rim, a bit heavier below
         }
         if (d2 > r2) continue;
         const h = hash2(x, y, m.seed);
-        const edge = d2 > (r - 0.6) * (r - 0.6) ? 0.3 : 0; // ragged wax edge: the ink shows
+        const edge = d2 > (r - 0.6) * (r - 0.6) ? 0.38 : 0; // ragged edges
+        if (h < gap + edge) continue; // the board shows through the grain
         const h2 = hash2(y + 31, x - 17, m.seed + 7);
-        const c = h < edge * 0.6 ? INK : h < gap * 0.7 + edge ? pal[2] : h2 > 0.86 ? pal[0] : pal[1]; // wax grain = the deeper tone, a few shiny flecks
+        const c = h2 < 0.24 ? pal[0] : h2 > 0.8 ? pal[2] : pal[1];
         ch[i] = c[0]; ch[i + 1] = c[1]; ch[i + 2] = c[2]; ch[i + 3] = 255;
       }
   }
@@ -1578,10 +1576,10 @@ export class TeacherOverlay {
       const k = 1 - clamp01(f.hop / 90) * 0.55;
       const w = round((this.ppu * 0.62 * k) / CS), h = max(2, round((this.ppu * 0.12 * k) / CS));
       const x = round(f.x / CS), y = round(f.y / CS);
-      g.fillStyle = 'rgba(22,17,20,0.6)'; // [v33 tut] dithered, not a soft blob
+      g.fillStyle = 'rgba(22,17,20,0.28)';
       for (let j = 0; j < h; j++) {
         const yy = (j + 0.5) / h * 2 - 1, half = round(w * sqrt(max(0, 1 - yy * yy)));
-        for (let i = -half; i < half; i++) if (((x + i + y + j) & 1) === 0) g.fillRect(x + i, y - h + j + 1, 1, 1);
+        g.fillRect(x - half, y - h + j + 1, half * 2, 1);
       }
     }
     // marks: every rim first, then every chalk body (strokes never hide each other)
@@ -1699,7 +1697,7 @@ export class TeacherOverlay {
     const p = new Promise((r) => (b.resolve = r));
     const el = document.createElement('div');
     el.className = `tch-bb tch-v-${b.variant} tch-m-${mood}` + (b.wait ? ' tch-wait' : '');
-    el.innerHTML = `<div class="tch-bb-bob"><div class="tch-bb-pop"><canvas class="tch-bb-bg"></canvas><div class="tch-bb-body"><div class="tch-bb-content"><div class="tch-text"></div></div></div><i class="tch-name">REYNARD</i>${b.wait ? '<i class="tch-more"></i>' : ''}</div></div>`;
+    el.innerHTML = `<div class="tch-bb-bob"><div class="tch-bb-pop"><canvas class="tch-bb-bg"></canvas><div class="tch-bb-body"><div class="tch-bb-content"><div class="tch-text"></div></div></div><i class="tch-name">REYNARD</i>${b.wait ? '<i class="tch-more"></i>' : ''}</div></div>`; // [v33 tut] + his name tag
     b.el = el;
     b.bob = el.querySelector('.tch-bb-bob');
     b.pop = el.querySelector('.tch-bb-pop');

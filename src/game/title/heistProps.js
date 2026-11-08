@@ -1,28 +1,27 @@
 // [v33 title] Voxel props for the noon title cinematic (src/game/title/HeistScene.js):
-// Reynard's makeshift bank by the pond. An upturned fruit crate with a green felt
-// counting pad, a heap of gold and silver coins, coin stacks that grow as he counts,
-// banded bundles of bills, loose bills that flutter, and a burlap money sack
-// (slumped open on the grass, or stuffed and tied for running away with).
-//
-// Everything is placed voxel by voxel: wood grain runs along each slat with gaps,
-// nail heads and a stencilled fish; coins have bright rims on their lit side and
-// dark rims on the shade side; bills carry a portrait oval and corner numbers.
+// Reynard's makeshift bank by the pond, built in the game's own prop style. The coins
+// and coin stacks are Reynard's own coin / stack voxel models (src/entities/foxRig.js:
+// coinModel, stackModel, the same palette, at the same fine voxel size), piled up; the
+// burlap sack is his money sack (same burlap tones, rope and blue fish logo), just
+// bigger; the crate is a plank crate like the storage and delivery crates, with a
+// stencilled fish; the bills are printed in the game's money green (the fx '$').
 // Geometry is built once and cached (the title runs for a long time).
 import * as THREE from 'three';
 import { VoxelModel, voxelMaterial } from '../../core/voxel.js';
 
-// fine voxels for money, coarser ones for the crate and sack
-export const MONEY_V = 0.022;
+// Reynard's prop voxels (foxRig FV 0.025 inside his 0.9 scale) for the money; the crate and sack in plank voxels
+export const MONEY_V = 0.0225;
 export const CRATE_V = 0.04;
 
 const C = {
-  gold: 0xffca3e, goldL: 0xffec96, goldH: 0xfffbe0, goldD: 0xe8a836, goldDD: 0xbc7c22,
-  silver: 0xd6dce6, silverL: 0xf4f8ff, silverD: 0x8e98aa,
-  bill: 0xd2ecb4, billL: 0xf0fadc, billD: 0x86c06a, billDD: 0x4a8a3e, ink: 0x2e6a32, // pale mint paper: reads on the grass band: 0xf2ead0, bandD: 0xc8b890, bandR: 0xc8483a,
-  wood: 0xc28a50, woodL: 0xdcaa6a, woodD: 0x956236, woodDD: 0x5e3a1e, gap: 0x3a2414, nail: 0x6a6670, nailL: 0xaaa6b0,
-  felt: 0x2f8a52, feltL: 0x46a868, feltD: 0x1f6a3c, trim: 0xe0b040,
-  paint: 0x2c4a7a, paintL: 0x46689a,
-  sack: 0xc8a06a, sackL: 0xe0bc84, sackD: 0x9a7444, sackDD: 0x6e5030, rope: 0x8a5a2a, ropeL: 0xb07a3a, dollar: 0x2f6a3a,
+  // Reynard's gold (foxRig.js palette: his coin, coin stack, monocle chain)
+  gold: 0xffdc4a, goldD: 0xf0b030, goldDD: 0xb87a1c, goldL: 0xfff6c4,
+  // the fx '$' green (fxAtlas 'dollar') on cream paper (his shirt cream), a red band
+  bill: 0xa6ec8c, billL: 0xd8fac4, billD: 0x5cb048, ink: 0x1a4a10, band: 0xf8eedc, bandD: 0xd9c2a2, bandR: 0xdc3a30,
+  // plank crate (storageModels PLANK / PLANK_D)
+  wood: 0xb48452, woodL: 0xc0905a, woodM: 0xa8784a, woodD: 0x7a5230, gap: 0x4a3020, nail: 0x6a6670, nailL: 0xaaa6b0,
+  // his money sack (foxRig.js: sack, sackD, sackL, rope, the blue fish logo)
+  sack: 0xd8b27a, sackD: 0xb08850, sackL: 0xecd09c, sackDD: 0x8a6a40, rope: 0x8a5a2a, ropeL: 0xa8743a, fish: 0x3c88d8,
 };
 
 // tiny deterministic hash (stable art between builds)
@@ -46,82 +45,83 @@ const mesh = (geo, { shadow = true } = {}) => {
   return m;
 };
 
-// ------------------------------------------------------------------ coins
-// a coin lying flat: radius ~2.5 voxels, one voxel thick. Lit from the upper left:
-// a bright rim arc on the far-left side, a dark rim arc on the near-right side.
-function coinDisc(v, cx, cy, cz, { r = 2.6, silver = false, seed = 0, dim = false } = {}) {
-  const P = silver ? [C.silver, C.silverL, C.silverD, C.silverD] : [C.gold, C.goldL, C.goldD, C.goldDD];
-  const R = Math.ceil(r);
-  for (let x = -R; x <= R; x++)
-    for (let z = -R; z <= R; z++) {
-      const d = Math.hypot(x, z);
-      if (d > r) continue;
-      let c = P[0];
-      if (d > r - 1) c = dim ? (x + z < -0.5 ? P[0] : P[3]) : x + z < -0.5 ? P[1] : x + z > 1.5 ? P[3] : P[2]; // (dim: the milled edge between stacked coins)
-      else if (Math.abs(x) + Math.abs(z) <= 1 && h3(x, z, cy, seed) < 0.5) c = P[1]; // the embossed face catches light
-      v.set(cx + x, cy, cz + z, c);
+// ------------------------------------------------------------------ coins (Reynard's coin)
+// foxRig coinModel: a 6 x 6 disc (|d| <= 3.1 round -0.5), a goldD rim, a goldL lit half.
+// edge: the stackModel look (a stacked coin seen edge-on: all goldD on odd layers).
+function coinDisc(v, cx, cy, cz, { edge = false } = {}) {
+  for (let x = -3; x <= 2; x++)
+    for (let z = -3; z <= 2; z++) {
+      const d = Math.hypot(x + 0.5, z + 0.5);
+      if (d > 3.1) continue;
+      v.set(cx + x, cy, cz + z, edge ? C.goldD : d > 2.2 ? C.goldD : x + z < -1 ? C.goldL : C.gold);
     }
 }
+const emboss = (v, cx, cy, cz) => { v.set(cx - 1, cy + 1, cz - 1, C.goldD); v.set(cx, cy + 1, cz, C.goldD); v.set(cx - 1, cy + 1, cz, C.gold); };
 
-/** A heap of coins: irregular, with a few coins standing on edge and some silver ones. */
+/** A heap of Reynard's coins: an irregular mound with a few coins standing on edge. */
 export function coinHeapGeometry(seed = 3) {
   return cached('heap' + seed, () => {
     const v = new VoxelModel();
     const rnd = rng(seed * 977 + 13);
-    const layers = [[7.2, 9], [6, 8], [4.8, 6], [3.4, 4], [2, 2]];
+    const layers = [[7.2, 9], [6, 8], [4.8, 6], [3.4, 4], [1.8, 2]];
     layers.forEach(([rad, n], y) => {
       for (let i = 0; i < n; i++) {
         const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * rad;
-        coinDisc(v, Math.round(Math.cos(a) * d), y, Math.round(Math.sin(a) * d * 0.8), { r: 2.2 + rnd() * 0.6, silver: rnd() < 0.18, seed: i + y * 31 });
+        const x = Math.round(Math.cos(a) * d), z = Math.round(Math.sin(a) * d * 0.8);
+        coinDisc(v, x, y, z, { edge: rnd() < 0.2 });
+        if (rnd() < 0.3) emboss(v, x, y, z);
       }
     });
     // coins standing on edge, leaning out of the heap
     for (const [x, z, y] of [[-3, 1, 2], [2, -2, 3], [4, 2, 1], [-1, -3, 2]]) {
-      for (let k = -2; k <= 2; k++) for (let j = 0; j <= 4; j++) {
-        const d = Math.hypot(k, j - 2);
-        if (d > 2.5) continue;
-        v.set(x + k, y + j, z, d > 1.6 ? C.goldD : k < 0 ? C.goldL : C.gold);
+      for (let k = -3; k <= 2; k++) for (let j = 0; j <= 5; j++) {
+        const d = Math.hypot(k + 0.5, j - 2.5);
+        if (d > 3.1) continue;
+        v.set(x + k, y + j, z, d > 2.2 ? C.goldD : k + (2.5 - j) < -1 ? C.goldL : C.gold);
       }
     }
-    // a top crown and glints
-    v.set(0, 5, 0, C.goldH); v.set(-1, 5, 0, C.goldL); v.set(0, 5, -1, C.goldL);
     return v.build({ pivot: [0, -0.5, 0], scale: MONEY_V });
   });
 }
 
-/** A neat stack of n coins (one voxel each), slightly staggered. */
-export function coinStackGeometry(n, silver = false) {
-  return cached('stack' + n + silver, () => {
+/** A stack of n of his coins: foxRig stackModel (staggered 0,1,0,-1,0,1; odd layers goldD), the top one face up. */
+export function coinStackGeometry(n) {
+  return cached('stack' + n, () => {
     const v = new VoxelModel();
     for (let i = 0; i < n; i++) {
-      const o = [0, 0, 1, 0, -1, 0, 0, 1, 0, -1, 0, 1][i % 12];
-      coinDisc(v, o * (i % 3 === 2 ? 1 : 0), i, (i % 5 === 3 ? 1 : 0), { r: 2.6, silver, seed: i, dim: i % 2 === 1 && i < n - 1 });
+      const o = [0, 1, 0, -1, 0, 1][i % 6];
+      if (i === n - 1) { coinDisc(v, o, i, 0); emboss(v, o, i, 0); continue; }
+      for (let x = -3; x <= 2; x++)
+        for (let z = -3; z <= 2; z++) {
+          const d = Math.hypot(x + 0.5, z + 0.5);
+          if (d > 3.1) continue;
+          v.set(x + o, i, z, i % 2 ? C.goldD : d > 2.4 ? C.goldD : C.gold);
+        }
     }
     return v.build({ pivot: [0, -0.5, 0], scale: MONEY_V });
   });
 }
 
-/** One coin (for the dropped coin on the grass, pours, the stack's newest coin). */
+/** One coin: exactly his coinModel (the dropped coin, the coin that lands on the stack). */
 export function coinGeometry() {
   return cached('coin', () => {
     const v = new VoxelModel();
-    coinDisc(v, 0, 0, 0, { r: 2.6 });
-    v.set(0, 1, 0, C.goldL); v.set(-1, 1, 0, C.gold); // the embossed fox head
+    coinDisc(v, 0, 0, 0);
+    emboss(v, 0, 0, 0);
     return v.build({ pivot: [0, -0.5, 0], scale: MONEY_V });
   });
 }
 
 // ------------------------------------------------------------------ bills
 function billFace(v, x0, y, z0, { top = true, seed = 0 } = {}) {
-  // 9 x 4 voxels: border, a portrait oval, corner numbers
+  // 9 x 4 voxels in the money green: an ink border, a gold coin seal, corner marks
   for (let x = 0; x < 9; x++)
     for (let z = 0; z < 4; z++) {
       const edge = x === 0 || x === 8 || z === 0 || z === 3;
       let c = edge ? C.billD : C.bill;
       if (top && !edge) {
-        if ((x === 4 || x === 5) && (z === 1 || z === 2)) c = (x + z) % 2 ? C.billDD : C.ink; // portrait
-        else if (x === 3 && z === 1) c = C.billL;
-        else if ((x === 1 && z === 1) || (x === 7 && z === 2)) c = C.ink; // numerals
+        if ((x === 4 || x === 5) && (z === 1 || z === 2)) c = x + z === 5 ? C.goldL : C.gold; // the coin seal
+        else if ((x === 1 && z === 1) || (x === 7 && z === 2)) c = C.ink;
         else if (h3(x, z, seed, 7) < 0.18) c = C.billL;
       }
       v.set(x0 + x, y, z0 + z, c);
@@ -151,12 +151,20 @@ export function billGeometry() {
   });
 }
 
+// the blue fish logo of Reynard's money sack (foxRig sackModel), k voxels per logo voxel,
+// facing +z at depth z, centred on (cx, cy)
+const FISH = [[-1, 0], [0, 0], [1, 0], [0, 1], [0, -1], [2, 1], [2, -1]];
+function fishLogo(v, cx, cy, z, k = 1, keep = () => true) {
+  for (const [fx, fy] of FISH)
+    for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) if (keep(fx * k + i, fy * k + j)) v.set(cx + fx * k + i, cy + fy * k + j, z, C.fish);
+}
+
 // ------------------------------------------------------------------ the crate desk
 /**
- * An upturned fruit crate (16 x 9 x 11 voxels at CRATE_V): slatted sides with dark gaps,
- * corner posts, a top of three planks with nail heads, a stencilled fish on the front,
- * and a green felt counting pad with a gold trim edge on top. Origin: centre of the
- * footprint on the ground. Returns { group, top } (top = height of the felt).
+ * An upturned plank crate (16 x 9 x 10 voxels at CRATE_V) in the game's crate planks:
+ * slatted sides with gaps, darker corner posts, a top of three planks with nail heads,
+ * and the blue fish logo stencilled on the front (the one on his money sack). Origin:
+ * centre of the footprint on the ground. Returns { group, top } (top = the plank top).
  */
 export function makeCrateDesk() {
   const geo = cached('crate', () => {
@@ -164,7 +172,7 @@ export function makeCrateDesk() {
     const W = 8, D = 5, H = 9; // half width, half depth, height (voxels)
     const grain = (x, y, z, k) => {
       const n = h3(x, y, z, k);
-      return n < 0.14 ? C.woodD : n > 0.9 ? C.woodL : C.wood;
+      return n < 0.14 ? C.woodD : n > 0.86 ? C.woodL : n > 0.6 ? C.woodM : C.wood;
     };
     for (let x = -W; x <= W - 1; x++)
       for (let z = -D; z <= D - 1; z++)
@@ -173,7 +181,7 @@ export function makeCrateDesk() {
           const post = sideX && sideZ;
           if (!sideX && !sideZ && y < H - 1) continue; // hollow
           let c;
-          if (post) c = y === H - 1 ? C.woodL : (x + z + y) % 3 ? C.woodD : C.woodDD;
+          if (post) c = C.woodD;
           else if (y === H - 1) {
             // the top: three planks across with gaps between them, grain along x
             const plank = Math.floor((z + D) / (2 * D / 3));
@@ -189,38 +197,30 @@ export function makeCrateDesk() {
           }
           v.set(x, y, z, c);
         }
-    // a stencilled fish on the front (z = D - 1 faces the camera), slightly worn
-    const fish = ['..pp....', '.pppp.p.', 'ppqppppp', '.pppp.p.', '..pp....'];
-    fish.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] !== '.' && h3(i, j, 9) > 0.12) v.set(-4 + i, 7 - j, D, row[i] === 'q' ? C.paintL : C.paint); });
-    // the felt pad (one voxel on top) with a gold trim
-    for (let x = -W + 1; x <= W - 2; x++)
-      for (let z = -D + 1; z <= D - 2; z++) {
-        const edge = x === -W + 1 || x === W - 2 || z === -D + 1 || z === D - 2;
-        v.set(x, H, z, edge ? (((x + z) & 1) ? C.trim : 0xc89a30) : h3(x, z, 2) < 0.12 ? C.feltL : h3(x, z, 3) < 0.1 ? C.feltD : C.felt);
-      }
+    // the fish logo stencilled on the front slats (z = D - 1 faces the camera), a little worn
+    fishLogo(v, -1, 4, D, 2, (i, j) => h3(i, j, 9) > 0.12);
     return v.build({ pivot: [0, 0, 0], scale: CRATE_V });
   });
   const g = new THREE.Group();
   g.name = 'heistCrate';
   g.add(mesh(geo));
-  return { group: g, top: 10 * CRATE_V };
+  return { group: g, top: 9 * CRATE_V };
 }
 
 // ------------------------------------------------------------------ the money sack
 /**
  * Burlap money sack. kind 'open': slumped on the grass, mouth rolled open and full
  * of gold. kind 'full': stuffed fat, the neck tied with rope, a coin poking out of the
- * knot, a big painted dollar sign. Origin: bottom centre.
+ * knot, his blue fish logo on the front. Origin: bottom centre.
  */
 export function sackGeometry(kind = 'full') {
   return cached('sack' + kind, () => {
     const v = new VoxelModel();
     const full = kind === 'full';
     const H = full ? 11 : 8;
-    const weave = (x, y, z) => {
+    const weave = (x, y, z) => { // his sack's burlap speckle (foxRig tone(): sack / sackD / sackL)
       const n = h3(x, y, z, 21);
-      if ((x + y * 2) % 4 === 0 && n < 0.5) return C.sackD;
-      return n < 0.1 ? C.sackDD : n > 0.86 ? C.sackL : C.sack;
+      return n < 0.1 ? C.sackD : n > 0.91 ? C.sackL : C.sack;
     };
     for (let y = 0; y < H; y++) {
       // bulging profile, flat-ish bottom
@@ -251,11 +251,11 @@ export function sackGeometry(kind = 'full') {
       v.set(0, H + 3, 0, C.gold); v.set(1, H + 3, 0, C.goldL); v.set(0, H + 4, 0, C.goldL);
       // the rope's loose end
       v.set(3, H - 1, 0, C.rope); v.set(3, H - 2, 1, C.ropeL); v.set(4, H - 3, 1, C.rope);
-      // the painted dollar sign on the front (z+), a little crooked
-      const S = ['.kk.', 'k...', '.kk.', '...k', '.kk.'];
-      const fz = (y) => { for (let z = 6; z >= 0; z--) if (v.has(0, y, z)) return z + 1; return 5; };
-      S.forEach((row, j) => { const y = 7 - j; const z = fz(y); for (let i = 0; i < 4; i++) if (row[i] === 'k') v.set(i - 2, y, z, C.dollar); });
-      for (const y of [8, 2]) v.set(0, y, fz(y), C.dollar);
+      // his sack's blue fish logo on the front (z+), painted on the burlap
+      for (const [fx, fy] of FISH) for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+        const x = fx * 2 + i - 1, y = 5 + fy * 2 + j;
+        for (let z = 7; z > 0; z--) if (v.has(x, y, z)) { v.set(x, y, z, C.fish); break; }
+      }
     } else {
       // the rolled rim and a mound of gold in the mouth
       for (let x = -5; x <= 5; x++) for (let z = -5; z <= 5; z++) {
@@ -263,12 +263,11 @@ export function sackGeometry(kind = 'full') {
         if (d > 0.72 && d <= 1.05) v.set(x, H, z, (x + z) & 1 ? C.sackL : C.sack);
         if (d <= 0.72) { v.set(x, H - 2, z, (x * 7 + z * 3) % 5 === 0 ? C.goldL : (x + z) % 3 === 0 ? C.goldD : C.gold); if (d < 0.4) v.set(x, H - 1, z, (x + z) & 1 ? C.goldL : C.gold); }
       }
-      v.set(0, H, 0, C.goldH); v.set(1, H, -1, C.silver);
+      v.set(0, H, 0, C.goldL); v.set(1, H, -1, C.goldD);
       // the loose drawstring draped over the rim and down the front
       for (const [x, y, z] of [[-2, H, 4], [-2, H - 1, 5], [-3, H - 2, 5], [-3, H - 3, 6], [-2, H - 4, 6], [-2, H - 5, 6]]) v.set(x, y, z, (y & 1) ? C.rope : C.ropeL);
-      // a painted dollar on the front, under the drawstring
-      const S2 = ['.kk', 'k..', '.k.', '..k', 'kk.'];
-      S2.forEach((row, j) => { for (let i = 0; i < 3; i++) if (row[i] === 'k') { const y = 5 - j, x = i - 1; for (let z = 7; z > 0; z--) if (v.has(x, y, z)) { v.set(x, y, z, C.dollar); break; } } });
+      // the fish logo on the front, under the drawstring
+      for (const [fx, fy] of FISH) { const x = fx, y = 3 + fy; for (let z = 7; z > 0; z--) if (v.has(x, y, z)) { v.set(x, y, z, C.fish); break; } }
     }
     return v.build({ pivot: [0, 0, 0], scale: CRATE_V });
   });
@@ -284,7 +283,7 @@ export function makeSack() {
 
 // ------------------------------------------------------------------ the money on the desk
 /**
- * The money on the felt: the coin heap (left of centre), three coin stacks (right) and
+ * The money on the crate: the coin heap (left of centre), three coin stacks (right) and
  * two bundles of bills (front left / back right). setStacks(a, b, c) swaps stack
  * heights; setCount(k) shows k of the stacks' coins in order (counting); visible flags
  * per part let the scoop / pour beats empty and refill the desk.
@@ -293,24 +292,24 @@ export function makeDeskMoney() {
   const g = new THREE.Group();
   g.name = 'heistMoney';
   const heap = mesh(coinHeapGeometry(3));
-  heap.position.set(-0.08, 0, 0.0);
+  heap.position.set(-0.12, 0, 0.0);
   heap.rotation.y = 0.3;
   const stacks = [0, 1, 2].map((i) => {
-    const m = mesh(coinStackGeometry(4, i === 1));
-    m.position.set(0.12 + i * 0.075, 0, -0.03 + (i % 2) * 0.05);
+    const m = mesh(coinStackGeometry(4));
+    m.position.set(0.075 + i * 0.095, 0, [-0.05, 0.05, -0.04][i]);
     m.n = 4;
     return m;
   });
   const bundles = [0, 1].map((i) => {
     const m = mesh(billBundleGeometry(i ? 4 : 3));
-    m.position.set(i ? 0.16 : -0.19, 0, i ? -0.11 : 0.1);
-    m.rotation.y = i ? -0.35 : 0.5;
+    m.position.set(i ? 0.19 : -0.2, 0, i ? -0.15 : 0.12);
+    m.rotation.y = i ? -0.15 : 0.45;
     return m;
   });
   g.add(heap, ...stacks, ...bundles);
   const api = {
     group: g, heap, stacks, bundles,
-    setStack(i, n) { const m = stacks[i]; n = Math.max(1, Math.min(12, n | 0)); if (m.n !== n) { m.n = n; m.geometry = coinStackGeometry(n, i === 1); } },
+    setStack(i, n) { const m = stacks[i]; n = Math.max(1, Math.min(12, n | 0)); if (m.n !== n) { m.n = n; m.geometry = coinStackGeometry(n); } },
     stackTop(i, out = new THREE.Vector3()) { const m = stacks[i]; m.updateWorldMatrix(true, false); return m.localToWorld(out.set(0, (m.n + 0.5) * MONEY_V, 0)); },
     show(on) { heap.visible = on; for (const m of stacks) m.visible = on; for (const m of bundles) m.visible = on; },
     reset() { [5, 3, 4].forEach((n, i) => api.setStack(i, n)); api.show(true); heap.scale.setScalar(1); },

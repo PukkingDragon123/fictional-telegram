@@ -22,36 +22,38 @@ export const darken = (c, t) => { const [r, g, b, a] = unpack(c); return pack(r 
 /** tint toward a colour (night glass, blood moon) */
 export const tint = (c, to, t) => { const [r, g, b, a] = unpack(c); const [R, G, B] = unpack(to); return pack(r + (R - r) * t, g + (G - g) * t, b + (B - b) * t, a); };
 
+// The old BigClock's palette (v26 antique alarm clock): patinated brass, ivory enamel, blued
+// steel, muted enamel inlays, verdigris. Kept so the watch matches the rest of the HUD art.
 export const P = {
-  ink: hex('#2a1a14'), inkSoft: hex('#5a3a26'),
-  // bright cartoon gold, darkest -> brightest
-  g0: hex('#6b3a10'), g1: hex('#a8621a'), g2: hex('#d8922a'), g3: hex('#f4bd40'), g4: hex('#ffdb6c'), g5: hex('#fff3b4'), w: hex('#ffffff'),
-  // cream enamel
-  e0: hex('#fffdf4'), e1: hex('#fff2d2'), e2: hex('#f4deaa'), e3: hex('#e0c48c'),
-  k: hex('#3a2418'), kl: hex('#b8946a'), hair: hex('#7a5232'),
+  ink: hex('#2a1c10'), inkSoft: hex('#54401c'),
+  // brass, darkest -> brightest (old brassDk, brassSh, brass, brassLt, brassHi + a polished glint)
+  g0: hex('#54401c'), g1: hex('#86642c'), g2: hex('#b08a42'), g3: hex('#cfac62'), g4: hex('#ecd28c'), g5: hex('#f6e6b4'), w: hex('#fbf6e8'),
+  verd: hex('#6f8f74'), verdL: hex('#8fae92'), dent: hex('#634a22'),
+  // ivory enamel
+  e0: hex('#fbf6e8'), e1: hex('#f1e6cb'), e2: hex('#e4d5b0'), e3: hex('#cdbb92'),
+  k: hex('#3a2a1c'), kl: hex('#8a7458'), hair: hex('#86642c'),
   // blued steel
-  b0: hex('#141c5e'), b1: hex('#2c4ad0'), b2: hex('#7ea2ff'),
+  b0: hex('#1a1420'), b1: hex('#2a3a6e'), b2: hex('#5a72b8'),
   // red enamel
-  r0: hex('#8a1820'), r1: hex('#ec3b3a'), r2: hex('#ff9070'),
-  // bear
-  fur: hex('#9a5a34'), furD: hex('#5e3018'), snout: hex('#f0c08e'),
+  r0: hex('#5a0e10'), r1: hex('#9a2a22'), r2: hex('#c8302a'),
+  // bear (the old feast pip)
+  fur: hex('#8a5a34'), furD: hex('#54401c'), snout: hex('#e8c8a0'),
   // paper
-  paper: hex('#fffaea'), paperSh: hex('#eadcb6'),
+  paper: hex('#fbf6e8'), paperSh: hex('#ddd2b8'),
   shadow: hex('#2a1a14', 72),
-  sky: hex('#8edaff'), skyL: hex('#c8f0ff'),
 };
-// the schedule inlays: [main, inner shade]
+// the schedule inlays (the old clock's): [main, inner shade]
 export const KIND = {
-  work: [hex('#7ad460'), hex('#4ea840')], lunch: [hex('#ffb33c'), hex('#e0861c')], rush: [hex('#ff5a4e'), hex('#cc2e2e')],
-  night: [hex('#5262c8'), hex('#36469e')], off: [hex('#8ad6ff'), hex('#52b0ea')],
+  work: [hex('#6f8a5c'), hex('#56704a')], lunch: [hex('#c08a46'), hex('#9a6c34')], rush: [hex('#8e2c26'), hex('#6a1e1a')],
+  night: [hex('#2e3864'), hex('#222a4c')], off: [hex('#7aa4c4'), hex('#5a86a8')],
 };
-// the sky in the weather window: [top, horizon]
+// the sky in the weather window: [top, horizon] (the old sub-dial's season tints for the light)
 const SKY = {
-  day: [hex('#7cd2ff'), hex('#c4eeff')], dawn: [hex('#ffa4a0'), hex('#ffe0a8')], dusk: [hex('#ff8f78'), hex('#ffcf80')], night: [hex('#262c6e'), hex('#3a4294')],
+  day: [hex('#8ab8d8'), hex('#dceaff')], dawn: [hex('#d8a090'), hex('#ffe9a0')], dusk: [hex('#c87a60'), hex('#f6c08a')], night: [hex('#222a4c'), hex('#2e3864')],
 };
 const HILLS = {
-  spring: [hex('#7ed866'), hex('#56b44a'), hex('#ff9ad2')], summer: [hex('#4cc44a'), hex('#329a38'), hex('#ffe14a')],
-  autumn: [hex('#ee9a3e'), hex('#c06a28'), hex('#d6402a')], winter: [hex('#f4f9ff'), hex('#b8d2f0'), hex('#ffffff')],
+  spring: [hex('#8aae6a'), hex('#6f8a5c'), hex('#e8b0c0')], summer: [hex('#7a9a52'), hex('#56704a'), hex('#f0c020')],
+  autumn: [hex('#c08a46'), hex('#9a6c34'), hex('#b8402a')], winter: [hex('#eef2f4'), hex('#c4d2dc'), hex('#fbf6e8')],
 };
 
 // ---------------------------------------------------------------- a tiny pixel buffer
@@ -126,7 +128,9 @@ export function drawText(b, s, x, y, col, font = TF) {
     ox += g[0].length + 1;
   }
 }
-export { TF, BIG };
+// the old dial's engraved Roman numerals
+const RN = { X: ['k.k', 'k.k', '.k.', 'k.k', 'k.k'], V: ['k.k', 'k.k', 'k.k', 'k.k', '.k.'], I: ['k', 'k', 'k', 'k', 'k'] };
+export { TF, BIG, RN };
 
 // ---------------------------------------------------------------- little sprites
 export const SPR = {
@@ -169,7 +173,8 @@ export const WX = {
   moon: ['..mm...', '.mm....', '.mm....', '.mm....', '..mm...'],
   cloud: ['..www..', '.wwwww.', 'wwgggww', '.......', '.......'],
 };
-const WXPAL = { y: hex('#ffd23f'), Y: hex('#fff3a0'), o: hex('#ff9f1a'), w: hex('#ffffff'), g: hex('#c8d4e8'), b: hex('#3a7ae8'), l: hex('#ffd21a'), s: hex('#ffffff'), f: hex('#eef4ff'), m: hex('#fff2a0'), r: hex('#ff5a2a') };
+// the old sub-dial's weather colours
+const WXPAL = { y: hex('#f0c020'), Y: hex('#f8e8a0'), o: hex('#f0a020'), w: hex('#f4f6f8'), g: hex('#a8b4c8'), b: hex('#3a7ad8'), l: hex('#f0c020'), s: hex('#fbf6e8'), f: hex('#dce4ec'), m: hex('#f4e6a8'), r: hex('#e0402a') };
 
 // ---------------------------------------------------------------- sizes
 // L: desktop (208 css px square at 2x), S: phones (150 x 148 css px)
@@ -220,8 +225,9 @@ export function buildCase(G) {
       let br = u < 0.34 ? lit * 0.95 : u < 0.72 ? 0.22 + lit * 0.42 : -lit * 0.55 - 0.05;
       // a little hand-placed wear: a few brighter rubs and darker nicks
       const hh = hsh(x, y);
-      if (hh < 0.03) br += 0.35; else if (hh > 0.975) br -= 0.4;
       let c = goldOf(br, x, y);
+      if (hh < 0.035) c = hh < 0.016 ? P.verd : P.verdL; // verdigris specks
+      else if (hh > 0.982) c = P.dent;
       // the specular streak on the top-left shoulder
       const sa = Math.abs(((ang - 5.55 + Math.PI) % TAU + TAU) % TAU - Math.PI);
       if (u > 0.3 && u < 0.62 && sa < 0.22) c = sa < 0.08 ? P.w : P.g5;
@@ -310,10 +316,10 @@ export function buildDial(G, sections, dayOff) {
   // numerals: noon at the top, 6 on either side, a little moon for midnight
   if (L) {
     const num = (s, h, rr) => {
-      const a = hourAngle(h), w = textW(s);
-      drawText(b, s, Math.round(cx + Math.sin(a) * rr - w / 2), Math.round(cy - Math.cos(a) * rr - 2.5), P.k);
+      const a = hourAngle(h), w = textW(s, RN);
+      drawText(b, s, Math.round(cx + Math.sin(a) * rr - w / 2), Math.round(cy - Math.cos(a) * rr - 2.5), P.k, RN);
     };
-    num('12', 12, 16); num('6', 18, 16); num('6', 6, 16);
+    num('XII', 12, 16); num('VI', 18, 15.5); num('VI', 6, 15.5);
     b.rows(SPR.moon, cx - 1, cy + 14, { m: P.b1 });
   }
   // pips on the track: a bear head where the feast starts
@@ -322,7 +328,7 @@ export function buildDial(G, sections, dayOff) {
     if (rush) {
       const a = hourAngle(rush.from), rr = rd - trk / 2;
       const bx = Math.round(cx + Math.sin(a) * rr), by = Math.round(cy - Math.cos(a) * rr);
-      if (L) b.rows(SPR.bearPip, bx - 3, by - 3, { o: P.ink, f: hex('#c07a44'), F: P.snout, k: P.ink, s: P.snout });
+      if (L) b.rows(SPR.bearPip, bx - 3, by - 3, { o: P.ink, f: hex('#a87848'), F: P.snout, k: P.ink, s: P.snout });
       else b.rows(['o.o', 'ooo', '.o.'], bx - 1, by - 1, { o: P.ink });
     }
   }
@@ -438,14 +444,14 @@ export function drawPlaque(b, G, p, t = 0) {
   let bg = P.e0, fg = P.k;
   if (p.kind === 'feast') { const on = Math.floor(t * 4) % 2 === 0; bg = on ? P.r1 : P.r0; fg = P.w; }
   else if (p.kind === 'off') { bg = KIND.off[0]; fg = P.ink; }
-  else if (p.kind === 'night') { bg = KIND.night[1]; fg = hex('#fff2a0'); }
+  else if (p.kind === 'night') { bg = KIND.night[1]; fg = hex('#f4e6a8'); }
   else if (p.red) fg = P.r1;
   for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) b.set(x0 + x, y0 + y, y === 1 && p.kind === 'count' ? P.w : bg);
   let tx = x0 + 2;
   if (L) {
     // the icon: a bear (chomping at the feast), a moon at night, a sun on a day off
-    if (p.kind === 'night') b.rows(SPR.moon, tx + 1, y0 + 1, { m: hex('#fff2a0') });
-    else if (p.kind === 'off') b.rows(['.y.y.', 'yyyyy', '.yYy.', 'yyyyy', '.y.y.'].map((r) => r), tx, y0 + 1, { y: hex('#ff9f1a'), Y: hex('#fff3a0') });
+    if (p.kind === 'night') b.rows(SPR.moon, tx + 1, y0 + 1, { m: hex('#f4e6a8') });
+    else if (p.kind === 'off') b.rows(['.y.y.', 'yyyyy', '.yYy.', 'yyyyy', '.y.y.'].map((r) => r), tx, y0 + 1, { y: hex('#f0a020'), Y: hex('#f8e8a0') });
     else {
       const chomp = p.kind === 'feast' && Math.floor(t * 6) % 2 === 0;
       const bear = chomp ? ['oo.oo', 'ofFfo', 'fkfkf', 'fsoof', '.fff.'] : SPR.bear;
@@ -475,7 +481,8 @@ export function buildLidOut(G) {
     if (r > rimR) { // the rounded rim, like the case
       const u = (R - 0.5 - r) / (R - 0.5 - rimR);
       const br = u < 0.4 ? lit * 0.95 : u < 0.75 ? 0.25 + lit * 0.4 : -lit * 0.5;
-      b.set(x, y, goldOf(br, x, y)); continue;
+      const hh = hsh(x + 7, y + 3);
+      b.set(x, y, hh < 0.03 ? P.verdL : hh > 0.985 ? P.dent : goldOf(br, x, y)); continue;
     }
     if (r > beadR - 1) { // a beaded ring
       const k = Math.floor((ang / TAU) * (L ? 56 : 40));
@@ -501,8 +508,8 @@ export function buildLidOut(G) {
   const rm = rw + (L ? 3 : 2.25);
   for (let h = 0; h < 24; h += 3) {
     const a = hourAngle(h), mx = Math.round(c0 + Math.sin(a) * rm - 0.5), my = Math.round(c0 - Math.cos(a) * rm - 0.5);
-    if (h === 12 && L) b.rows(['.y.', 'yYy', '.y.'], mx - 1, my - 1, { y: hex('#ffcf3a'), Y: P.w });
-    else if (h === 0 && L) b.rows(['mm', 'm.'], mx, my - 1, { m: hex('#fff2a0') });
+    if (h === 12 && L) b.rows(['.y.', 'yYy', '.y.'], mx - 1, my - 1, { y: hex('#e8b83a'), Y: P.w });
+    else if (h === 0 && L) b.rows(['mm', 'm.'], mx, my - 1, { m: hex('#f4e6a8') });
     else { b.set(mx, my, h % 6 === 0 ? P.g5 : P.g4); if (L && h % 6 === 0) b.set(mx + 1, my, P.g3); }
   }
   // four engraved sparkles on the sunburst
@@ -721,8 +728,8 @@ export function drawTag(b, G, speed, paused, ang = 0, glow = 0, ox = 0, oy = 0) 
   const cx0 = cx - 5 + shift;
   for (let i = 0; i < 3; i++) {
     const on = i < sp;
-    const col = on ? (glow > 0 && i === sp - 1 ? P.r2 : P.r1) : P.g1;
+    const col = on ? (glow > 0 && i === sp - 1 ? hex('#e06a4a') : P.r2) : P.g2;
     b.rows(SPR.chev, cx0 + i * 4, cy0, { k: col });
-    if (on) b.set(cx0 + i * 4, cy0, P.r2);
+    if (on) { b.set(cx0 + i * 4, cy0 + 4, P.r1); b.set(cx0 + i * 4 + 1, cy0 + 3, P.r1); }
   }
 }
