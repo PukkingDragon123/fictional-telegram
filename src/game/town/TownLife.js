@@ -815,7 +815,7 @@ export class TownLife {
   chat(a, b) {
     if (typeof a === 'string') a = this.actors.get(a);
     if (typeof b === 'string') b = this.actors.get(b);
-    if (!a || !b || this.conv || this.quiet()) return false;
+    if (!a || !b || this.conv || this.quiet() || !a.onScreen || !b.onScreen) return false;
     let lines = null;
     const P = PAIR_CHATS.filter((p) => (p.a === a.id && p.b === b.id) || (p.a === b.id && p.b === a.id));
     const n = this.news(null);
@@ -836,7 +836,7 @@ export class TownLife {
 
   tickConv(dt) {
     const C = this.conv;
-    if (this.quiet() || C.a.hidden || C.b.hidden) { this.endConv(); return; }
+    if (this.quiet() || C.a.hidden || C.b.hidden || !C.a.onScreen || !C.b.onScreen) { this.endConv(); return; }
     C.t -= dt;
     if (C.t > 0) return;
     // the previous speaker settles
@@ -963,6 +963,7 @@ export class TownLife {
       if (S) { S.arrive[id] = 1; S.visit[id] = 1; S.queue = S.queue.filter((z) => z !== v.zone.id); }
       this.V.revealed(v.zone);
       const st = this.V.vstate(v); st.met = true;
+      this.actor(v);
       // a 3-wide walkway to the pond's edge
       const tx = HUT.x - 4, tz = MEADOW.z1 - 3;
       const n = Math.ceil(Math.hypot(tx - v.x, tz - v.z) * 2);

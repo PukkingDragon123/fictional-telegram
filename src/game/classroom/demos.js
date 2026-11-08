@@ -139,7 +139,7 @@ function fishModel(spId, { male = true, L = 18, H = 12, W = 5, golden = false } 
 }
 function wiggleMat(k, { xray = false } = {}) {
   const u = { uPhase: { value: 0 }, uAmp: { value: 0 }, uK: { value: k } };
-  const m = new THREE.MeshLambertMaterial(xray ? { vertexColors: true, transparent: true, opacity: 0.34, depthWrite: false, emissive: 0x18243a } : { vertexColors: true, emissive: 0x141c24 });
+  const m = new THREE.MeshLambertMaterial(xray ? { vertexColors: true, transparent: true, opacity: 0.48, depthWrite: false, emissive: 0x1c3050 } : { vertexColors: true, emissive: 0x141c24 });
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
     sh.vertexShader = sh.vertexShader
@@ -434,7 +434,7 @@ class FishPartsDemo extends Demo {
     const ins = new THREE.Group();
     const bl = new VoxelModel();
     bl.ellipsoid(0, 0, 0, 8.5, 3, 2.6, (x, y, z) => (y > 1.5 ? 0xffffff : hash3(x, y, z, 2) < 0.3 ? 0xd8e8f0 : 0xeaf4fa));
-    this.bladder = new THREE.Mesh(build(bl, { scale: S }), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x6a8aa0, emissiveIntensity: 0.6 }));
+    this.bladder = new THREE.Mesh(build(bl, { scale: S }), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0xb8d8f0, emissiveIntensity: 0.85 }));
     this.bladder.position.copy(at(L * 0.45, 2.5));
     this.own(this.bladder.material); this.own(this.bladder.geometry);
     const sp = new VoxelModel();

@@ -233,7 +233,7 @@ body.cine .tutm-layer, body.cine .tutm-world { z-index: 29; } /* cutscenes: over
 
 /* ---- SKIP TOUR: a paper luggage tag on a string from the top edge */
 .tut-skiptag {
-  position: fixed; top: 0; right: calc(214px + env(safe-area-inset-right, 0px)); z-index: 470;
+  position: fixed; top: 0; right: calc(238px + env(safe-area-inset-right, 0px)); z-index: 470;
   display: flex; flex-direction: column; align-items: center; padding: 0; margin: 0; border: 0; background: none; cursor: pointer;
   pointer-events: auto; transform: translateY(-100%); image-rendering: pixelated;
 }
