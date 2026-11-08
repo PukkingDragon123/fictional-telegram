@@ -550,9 +550,9 @@ export class BigClock {
     drawHand(hb, cx, cy, am, L ? -4 : -3, H.min, (t) => (t < H.min * 0.55 ? 1.8 : 1.1), [P.b0, P.b0, P.b1]);
     drawHand(hb, cx, cy, ah, L ? -3 : -2, H.hour, (t) => (t < 0 ? 1.8 : t < H.hour * 0.8 ? 2.3 : 1.2), [P.b1, P.b1, P.b2]);
     if (L) { const mt = H.hour * 0.66; drawRing(hb, cx + Math.sin(ah) * mt, cy - Math.cos(ah) * mt, 1.05, 2.3, P.b1); }
-    // the seconds needle: thin red, a brighter tip, a ring counterweight
-    drawHand(hb, cx, cy, as, L ? -6 : -4, H.sec, () => 1.05, [P.r1, P.r1, P.r1]);
-    drawHand(hb, cx, cy, as, H.sec - (L ? 4 : 3), H.sec, () => 1.05, [P.r2, P.r2, P.r2]);
+    // the seconds needle: a thin warm-grey steel needle with a red tip and a red ring counterweight
+    drawHand(hb, cx, cy, as, L ? -6 : -4, H.sec, () => 1.05, [P.kl, P.kl, P.kl]);
+    drawHand(hb, cx, cy, as, H.sec - (L ? 5 : 3), H.sec, () => 1.05, [P.r1, P.r1, P.r1]);
     if (L) drawRing(hb, cx - Math.sin(as) * 4.5, cy + Math.cos(as) * 4.5, -1, 1.25, P.r1);
     // the hands' crisp shadow on the enamel (one pixel down right), then the hands, then the hub
     const W = G.W, d = hb.d, bd = b.d;

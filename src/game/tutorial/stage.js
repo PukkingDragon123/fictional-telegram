@@ -238,6 +238,7 @@ export class Guide {
     c.lens = (t, { zoom = 0.0075, pitch = 0.55 } = {}) => {
       if (!t) { lens(false); return Promise.resolve(); }
       lens(true, game);
+      G.T.stage = 'lens:' + (G.lensN = (G.lensN || 0) + 1); // (tests / debug: which look through the Scope)
       return c.low(t, { zoom, pitch, dur: 0.9 });
     };
     /** a low, close shot on a thing: zoom = world units per px (smaller = closer), pitch in radians */

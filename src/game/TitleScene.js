@@ -1,4 +1,6 @@
 // TitleScene: the cozy, majestic title-screen diorama.
+// [v33 title] The default title is now the noon heist cinematic (src/game/title/HeistScene.js);
+// this golden-hour pond diorama (PondTitleScene) stays for ?title=pond / ?title=sunset (tools/promo).
 //
 // Golden-hour sunset over the pond. Reynard lounges in a striped lawn chair
 // standing IN the shallows (legs in the water, little ripples), sipping a Daisy

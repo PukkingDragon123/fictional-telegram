@@ -144,7 +144,8 @@ const SHOTS = [
   // (yawed towards where they run, so they come at the camera three-quarters on, faces and sack showing)
   { id: 'I', t: 27.5, d: 5.0, cam: (u) => ({ yaw: lerp(0.86, 0.62, ease.io(u)), pitch: lerp(12, 10, u), wupp: 0.0148, at: [lerp(5.0, 16.6, u), 0.7, lerp(0.45, 1.35, u)], sx: 0.2, sy: 0 }) },
   { id: 'J', t: 32.5, d: 7.0, cam: (u, t) => { const k = smooth((t - 35.5) / 0.5) * (1 - smooth((t - 36.2) / 0.4)); return { yaw: lerp(0.24, 0.19, u), pitch: 12, wupp: 0.0122 * (1 - 0.12 * k), at: [lerp(0.3, 0.5, k), 0.56, lerp(0.05, 0.15, k)], sx: 0.15, sy: 0 }; } },
-  { id: 'K', t: 39.5, d: 7.5, cam: (u, t) => { const e = ease.io(smooth((t - 41.4) / 5.6)); return { yaw: lerp(0.19, -0.32, e), pitch: lerp(12, 34, e), wupp: lerp(0.0122, 0.024, e), at: [lerp(0.3, 0, e), lerp(0.56, 0.55, e), lerp(0.05, -0.3, e)], sx: lerp(0.15, 0.16, e), sy: lerp(0, -0.02, e) }; } },
+  // (K ends exactly on shot A's first frame: a seamless loop)
+  { id: 'K', t: 39.5, d: 7.5, cam: (u, t) => { const e = ease.io(smooth((t - 41.4) / 5.6)); return { yaw: lerp(0.19, -0.32, e), pitch: lerp(12, 32, e), wupp: lerp(0.0122, 0.021, e), at: [lerp(0.3, 0, e), lerp(0.56, 0.55, e), lerp(0.05, -0.3, e)], sx: lerp(0.15, 0.16, e), sy: lerp(0, -0.02, e) }; } },
 ];
 
 // ---------------------------------------------------------------- comic sound words (sprites in the world)
@@ -877,7 +878,7 @@ export class HeistScene {
       P.fx.spawn('glow', q.x, q.y + 0.01, q.z, { life: 0.45, size: big ? 0.12 : 0.06, flags: FX.POP | FX.FADE, emissive: 2, bright: true });
     });
     if (big) {
-      this._word('TING!', 'ting', q.x + this.R0.x * 0.08, q.y + 0.1, q.z + this.R0.z * 0.08, { size: 0.6, life: 1.0 });
+      this._word('TING!', 'ting', q.x + this.R0.x * 0.08, q.y + 0.1, q.z + this.R0.z * 0.08, { size: 0.9, life: 1.0 });
       this._sfx('star_pop', { volume: 0.3, pitch: 1.5 });
     }
   }

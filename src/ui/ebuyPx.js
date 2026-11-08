@@ -46,6 +46,11 @@ export const PX = {
   coinp: [['.aaaa.', 'abbbba', 'abccba', 'abccba', 'abbbba', '.aaaa.'], { a: '#7a4a12', b: '#ffd23f', c: '#fff2a0' }],
   heart: [['.aa.aa.', 'abbabba', 'abbbbba', '.abbba.', '..aba..', '...a...'], { a: INK, b: '#f0505a' }],
   ring: [['..aaa..', '.a...a.', 'a.....a', 'a.....a', 'a.....a', '.a...a.', '..aaa..'], { a: INK }],
+  // [v33 kit] shipping tiers, gift wrap, the club card
+  rocket: [['....a....', '...aba...', '..abcba..', '..abbba..', '..abdba..', '..abbba..', '.aabbbaa.', 'aeaaaaaea', '..f.f.f..', '...f.f...'], { a: INK, b: '#e8e8f0', c: '#3a7ae0', d: '#f0505a', e: '#f0505a', f: '#ffa030' }],
+  gift: [['..a...a..', '.aba.aba.', '..aaaaa..', 'aaaaaaaaa', 'abbbcbbba', 'aaaaaaaaa', '.abbcbba.', '.abbcbba.', '.abbcbba.', '.aaaaaaa.'], { a: INK, b: '#ff6aa8', c: '#ffd23f' }],
+  stamp: [['.aaaaa.', 'abbbbba', 'abcbcba', 'abbbbba', 'abcccba', 'abbbbba', '.aaaaa.'], { a: '#b02a32', b: '#f0505a', c: '#fff4dc' }],
+  ticket: [['aaaaaaaaaa', 'abbbbbbbba', '.abcbcbcba', 'abbbbbbbba', '.abcbcbcba', 'abbbbbbbba', 'aaaaaaaaaa'], { a: INK, b: '#ffd23f', c: '#e09a16' }],
 };
 
 const cache = new Map();

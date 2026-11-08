@@ -23,6 +23,13 @@ const VAN_ACCEL = 3.2, VAN_BRAKE = 4.2;
 const VAN_ITEMS = 3; // this many things (or any livestock) and the van comes
 const VAN_MAX_ORDERS = 6;
 const VAN_PARCEL_SCALE = 1.6; // van-sized boxes
+// [v33 kit] e-Buy shipping tiers: how fast the moose rides (and how quick the warehouse packs)
+export const SHIP = {
+  std: { mult: 1, pack: 1 },
+  turbo: { mult: 2.2, pack: 0.45 },
+  rocket: { mult: 3.4, pack: 0.12 },
+};
+const shipMult = (o) => SHIP[o?.ship]?.mult || 1;
 
 const FRAGILE = (it) => it.kind === 'egg' || it.kind === 'fish';
 const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -127,11 +134,12 @@ export class Delivery {
   // Every order is first packed at the e-Buy warehouse (a few seconds per
   // item), then the moose brings it over. tracker() reports each order's
   // phase and ETA for the HUD.
-  order(items, { label = 'Package', fast = false } = {}) {
+  order(items, { label = 'Package', fast = false, ship = 'std', gift = false, note = '' } = {}) {
     const n = items.reduce((a, it) => a + (it.qty || 1), 0);
     const fragile = items.some((it) => it.kind === 'egg' || it.kind === 'bird' || it.kind === 'fish');
-    const packT = fast ? 2 : Math.min(30, 7 + n * 2.5 + (fragile ? 3 : 0) + Math.random() * 3);
-    const o = { id: this.nextId++, items, label, packT, packTotal: packT };
+    const packT = fast ? 2 : Math.min(30, 7 + n * 2.5 + (fragile ? 3 : 0) + Math.random() * 3) * (SHIP[ship]?.pack || 1); // [v33 kit] faster tiers pack faster
+    const o = { id: this.nextId++, items, label, packT, packTotal: packT, ship: SHIP[ship] ? ship : 'std', gift: !!gift, note: String(note || '').slice(0, 60) };
+    this.lastOrder = o; // [v33 kit] e-Buy adds its shipping choice to the order it just placed (setShipping)
     this.queue.push(o);
     this.game.emit('ordered', o);
     // a van load coming: build the van while the warehouse packs
@@ -143,6 +151,18 @@ export class Delivery {
   }
 
   pending() { return this.queue.length + (this.active ? this.active.orders.length : 0); }
+
+  // [v33 kit] e-Buy's delivery options on an order still at the warehouse: tier (speed + packing), gift wrap, a note
+  setShipping(o, { ship = 'std', gift = false, note = '' } = {}) {
+    if (!o || !this.queue.includes(o)) return false;
+    const was = SHIP[o.ship]?.pack || 1, now = SHIP[ship]?.pack || 1;
+    o.ship = SHIP[ship] ? ship : 'std';
+    o.packT *= now / was;
+    o.packTotal = Math.max(0.5, (o.packTotal || o.packT) * (now / was));
+    o.gift = !!gift;
+    o.note = String(note || '').slice(0, 60);
+    return true;
+  }
 
   // length of the courier's route (cached), for ETAs
   routeLength() {
@@ -190,6 +210,7 @@ export class Delivery {
     const seen = new Set();
     const push = (o) => { if (!seen.has(o.id)) { seen.add(o.id); out.push(o); } };
     const ride = this.routeLength() / SPEED + 3;
+    const rideOf = (o) => this.routeLength() / (SPEED * shipMult(o)) + 3; // [v33 kit] per shipping tier
     const canRide = this.canRide();
     const a = this.active;
     let wait = 0; // a queued order also waits for the courier that's already out
@@ -197,14 +218,14 @@ export class Delivery {
       const rem = this.remaining(a);
       const van = a.kind === 'van';
       const coming = van ? a.state === 'drive' || a.state === 'park' || a.state === 'open' || a.state === 'unload' : a.state === 'ride' || a.state === 'brake' || a.state === 'toss';
-      const sp = van ? VAN_SPEED : SPEED;
+      const sp = (van ? VAN_SPEED : SPEED) * (a.mult || 1); // [v33 kit]
       let eta = 0.6;
       if (van) eta = a.state === 'drive' ? rem / sp + 3 : a.state === 'park' || a.state === 'open' ? 2.5 : 1;
       else eta = a.state === 'ride' ? rem / sp + 1.5 : a.state === 'brake' ? 1.2 : 0.6;
       const moving = van ? a.state === 'drive' : a.state === 'ride';
       const phase = moving && rem > 9 ? 'riding' : 'arriving';
-      const prog = 0.35 + 0.65 * Math.max(0, Math.min(1, 1 - (eta - 1) / ride));
-      if (coming) for (const o of a.orders) push({ id: o.id, label: o.label, phase, eta, progress: prog, count: o.items.length });
+      const prog = 0.35 + 0.65 * Math.max(0, Math.min(1, 1 - (eta - 1) / (ride / (a.mult || 1)))); // [v33 kit]
+      if (coming) for (const o of a.orders) push({ id: o.id, label: o.label, phase, eta, progress: prog, count: o.items.length, ship: o.ship || 'std' });
       const back = (van ? this.vanRouteLength() : this.routeLength()) / sp; // the trip back up the trail
       if (coming) wait = eta + 6 + back;
       else if (van && (a.state === 'close' || a.state === 'bye')) wait = 3 + back;
@@ -212,9 +233,9 @@ export class Delivery {
     }
     for (const o of this.queue) {
       const pk = Math.max(0, o.packT);
-      const eta = canRide ? Math.max(pk, wait) + ride : -1;
+      const eta = canRide ? Math.max(pk, wait) + rideOf(o) : -1; // [v33 kit]
       const prog = 0.35 * (1 - pk / (o.packTotal || 1));
-      push({ id: o.id, label: o.label, phase: 'packing', eta, progress: prog, count: o.items.length });
+      push({ id: o.id, label: o.label, phase: 'packing', eta, progress: prog, count: o.items.length, ship: o.ship || 'std' });
     }
     for (const p of this.parcels) push({ id: p.order.id, label: p.order.parent?.label || p.order.label, phase: 'delivered', eta: 0, progress: 1, count: (p.order.parent || p.order).items.length });
     for (const d of this.recent) push(d);
@@ -295,7 +316,7 @@ export class Delivery {
     this.group.add(rig.root);
     this.takeOrders(orders);
     const path = this.buildPath();
-    this.active = { kind: 'bike', rig, orders, path, i: 0, x: path[0].x, y: path[0].y, z: path[0].z, state: 'ride', t: 0, heading: 0, pop: 0 };
+    this.active = { kind: 'bike', rig, orders, path, i: 0, x: path[0].x, y: path[0].y, z: path[0].z, state: 'ride', t: 0, heading: 0, pop: 0, mult: Math.max(...orders.map(shipMult)), rocket: orders.some((o) => o.ship === 'rocket') }; // [v33 kit] mult: the fastest tier aboard
     rig.root.scale.setScalar(0.01);
     rig.play?.('ride', { loop: true });
     this.followCam(0.024);
@@ -312,7 +333,7 @@ export class Delivery {
       this.group.add(van.root);
       van.root.rotation.order = 'YXZ'; // yaw, then pitch along the slope
       const path = this.vanRoute('in');
-      const a = { kind: 'van', van, rig, orders, lots: this.packLots(orders), path, s: 0, v: VAN_SPEED * 0.8, x: 0, y: 0, z: 0, heading: 0, pitch: 0, state: 'drive', t: 0, pop: 0 };
+      const a = { kind: 'van', van, rig, orders, lots: this.packLots(orders), path, s: 0, v: VAN_SPEED * 0.8, x: 0, y: 0, z: 0, heading: 0, pitch: 0, state: 'drive', t: 0, pop: 0, mult: Math.max(...orders.map(shipMult)), rocket: orders.some((o) => o.ship === 'rocket') }; // [v33 kit]
       this.active = a;
       this.placeVan(a, 0, true);
       van.root.scale.setScalar(0.01);
@@ -393,7 +414,7 @@ export class Delivery {
       const tgt = a.path[a.i];
       const dx = tgt.x - a.x, dz = tgt.z - a.z;
       const dist = Math.hypot(dx, dz);
-      const step = SPEED * dt;
+      const step = SPEED * (a.mult || 1) * dt; // [v33 kit] Turbo / Rocket
       if (dist <= step) {
         a.x = tgt.x; a.z = tgt.z;
         a.i += 1;
@@ -408,12 +429,18 @@ export class Delivery {
       } else {
         a.x += (dx / dist) * step; a.z += (dz / dist) * step;
         a.heading = Math.atan2(dx, dz);
-        if (Math.random() < dt * 6) game.particles.dust(a.x, a.y + 0.05, a.z, 1);
+        if (Math.random() < dt * 6 * (a.mult || 1)) game.particles.dust(a.x, a.y + 0.05, a.z, 1);
+        // [v33 kit] Rocket Moose: a smoke trail and sparks behind the bike
+        if (a.rocket && Math.random() < dt * 22) {
+          const bx = a.x - Math.sin(a.heading) * 0.7, bz = a.z - Math.cos(a.heading) * 0.7;
+          game.particles.puff(bx, a.y + 0.45, bz, 1, 0.18);
+          if (Math.random() < 0.5) game.particles.sparkle(bx, a.y + 0.5, bz, 1, 0xffa030);
+        }
       }
       const ix = Math.floor(a.x), iz = Math.floor(a.z);
       const gy = g.inb(ix, iz) ? Math.max(g.surfaceY(ix, iz), WATER_Y) : 0;
       a.y += (gy - a.y) * Math.min(1, dt * 10);
-      if (a.state === 'ride' && a.i === a.path.length - 1 && dist < 6 && !a.rang) { a.rang = true; r.play?.('ring_bell', { loop: false, onDone: () => r.play?.('ride', { loop: true }) }); game.audio.play('bell', { volume: 0.45, pitch: 1.8 }); game.say?.(this.speaker(), 'Moose Express!', { voice: 'moose', mood: 'excited', dur: 1.8 }); }
+      if (a.state === 'ride' && a.i === a.path.length - 1 && dist < 6 && !a.rang) { a.rang = true; r.play?.('ring_bell', { loop: false, onDone: () => r.play?.('ride', { loop: true }) }); game.audio.play('bell', { volume: 0.45, pitch: 1.8 }); game.say?.(this.speaker(), a.rocket ? 'ROCKET MOOSE, COMING IN HOT!' : a.mult > 1 ? 'TURBO MOOSE! Make way!' : 'Moose Express!', { voice: 'moose', mood: 'excited', dur: 1.8 }); }
     } else if (a.state === 'brake') {
       if (a.t > 0.6) {
         a.state = 'toss'; a.t = 0;
@@ -429,7 +456,7 @@ export class Delivery {
         }
       }
     } else if (a.state === 'toss') {
-      if (a.t > 0.9 && !a.waved) { a.waved = true; r.play?.('wave', { loop: false }); game.say?.(this.speaker(), pick(['Sign here! ...nah.', 'Fresh from e-Buy!', 'Handle with care!', 'Have a moose-tastic day!']), { voice: 'moose', mood: 'happy', dur: 2 }); }
+      if (a.t > 0.9 && !a.waved) { a.waved = true; r.play?.('wave', { loop: false }); const note = a.orders.find((o) => o.note)?.note; game.say?.(this.speaker(), note ? `A note for you: "${note}"` : pick(['Sign here! ...nah.', 'Fresh from e-Buy!', 'Handle with care!', 'Have a moose-tastic day!']), { voice: 'moose', mood: 'happy', dur: note ? 3.2 : 2 }); } // [v33 kit] the buyer's note
       if (a.t > 2.4) {
         // ride back up the trail (the camera stays with the parcels)
         a.state = 'leave'; a.t = 0;
@@ -442,7 +469,7 @@ export class Delivery {
     }
     r.root.position.set(a.x, a.y, a.z);
     r.root.rotation.y = a.heading;
-    r.update?.(dt);
+    r.update?.(dt * (a.state === 'ride' || a.state === 'leave' ? a.mult || 1 : 1)); // [v33 kit] faster tiers pedal faster
   }
 
   // ---------------------------------------------------------------- the van
@@ -475,9 +502,10 @@ export class Delivery {
     const rem = P.length - a.s;
     const p0 = P.pointAt(a.s), p1 = P.pointAt(a.s + 1.5), p2 = P.pointAt(a.s + 4);
     const turn = Math.abs(wrapA(Math.atan2(p2.x - p1.x, p2.z - p1.z) - Math.atan2(p1.x - p0.x, p1.z - p0.z)));
-    let target = Math.min(VAN_SPEED, Math.max(VAN_SLOW, VAN_SPEED - turn * 4.5));
+    const M = a.mult || 1; // [v33 kit] Turbo / Rocket
+    let target = Math.min(VAN_SPEED * M, Math.max(VAN_SLOW * M, VAN_SPEED * M - turn * 4.5));
     target = Math.min(target, Math.sqrt(2 * VAN_BRAKE * rem) + 0.15); // creeps the last bit, never stalls
-    a.v += clamp(target - a.v, -VAN_BRAKE * 1.6 * dt, VAN_ACCEL * dt);
+    a.v += clamp(target - a.v, -VAN_BRAKE * 1.6 * M * dt, VAN_ACCEL * M * dt);
     a.s = Math.min(P.length, a.s + Math.max(0.15, a.v) * dt);
     this.placeVan(a, dt);
     // dust from the back wheels
@@ -548,7 +576,8 @@ export class Delivery {
     } else if (a.state === 'close') {
       if (van.backShut || a.t > 4) {
         a.state = 'bye'; a.t = 0; van.honk();
-        game.say?.(this.speaker(), pick(['Have a moose-tastic day!', 'Sign here! ...nah.', 'Handle with care!', 'Toot toot! See ya!']), { voice: 'moose', mood: 'happy', dur: 2.2 });
+        const note = a.orders.find((o) => o.note)?.note; // [v33 kit] the buyer's note
+        game.say?.(this.speaker(), note ? `A note for you: "${note}"` : pick(['Have a moose-tastic day!', 'Sign here! ...nah.', 'Handle with care!', 'Toot toot! See ya!']), { voice: 'moose', mood: 'happy', dur: note ? 3.2 : 2.2 });
       }
     } else if (a.state === 'bye') {
       if (a.t > 0.75 && !a.waved) { a.waved = true; r.play?.('drive_wave', { fade: 0.2 }); }
@@ -689,6 +718,7 @@ export class Delivery {
     game.particles.puff(p.x, p.y + 0.3, p.z, 12, 0.4);
     game.particles.confetti(p.x, p.y + 0.4, p.z, 18);
     game.audio.play('pop_in', { volume: 0.5 });
+    if ((p.order.parent || p.order).gift) { game.particles.confetti(p.x, p.y + 0.6, p.z, 36); game.audio.play('fanfare_small', { volume: 0.4 }); game.ui?.floatTextAt?.(p.x, p.y + 1.3, p.z, 'Gift-wrapped!', '#ff9ad0'); } // [v33 kit]
     // eggs and live fish: Reynard carries them down to the water
     const eggItems = p.order.items.filter((it) => it.kind === 'egg' || it.kind === 'fish');
     if (eggItems.length) {
@@ -737,11 +767,11 @@ export class Delivery {
       if (a.kind === 'van' && a.out) for (const l of a.lots.slice(a.out)) if (out(l.order)) all.push(l.sub);
     }
     all.push(...this.parcels.map((p) => p.order));
-    return all.map((o) => ({ items: o.items, label: o.label, packT: Math.max(0, o.packT || 0) }));
+    return all.map((o) => ({ items: o.items, label: o.label, packT: Math.max(0, o.packT || 0), ship: o.ship, gift: o.gift, note: o.note })); // [v33 kit] + shipping options
   }
 
   load(list) {
-    this.queue = (list || []).map((o) => ({ id: this.nextId++, items: o.items, label: o.label, packT: o.packT || 3, packTotal: Math.max(3, o.packT || 3) }));
+    this.queue = (list || []).map((o) => ({ id: this.nextId++, items: o.items, label: o.label, packT: o.packT || 3, packTotal: Math.max(3, o.packT || 3), ship: SHIP[o.ship] ? o.ship : 'std', gift: !!o.gift, note: o.note || '' })); // [v33 kit]
     this.wait = 3;
   }
 }

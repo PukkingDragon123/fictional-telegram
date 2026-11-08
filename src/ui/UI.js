@@ -38,6 +38,7 @@ import { Tutorial } from '../game/Tutorial.js';
 import { ynPair, confirmHTML } from './ynButtons.js'; // [v27 knobs] painted YES / NO planks
 import { speakLine } from '../audio/voiceLines.js'; // [v32] voice lines
 import { Hotbar } from './kit/hotbar.js'; // [v33 kit] hotbar polish: hover / press / unlock ceremony, the tutorial's kitIntroduce
+import { SHIP as SHIP_TIERS } from '../game/Delivery.js'; // [v33 kit] e-Buy shipping tiers
 const VOICE_WHO = { fox: 'fox', bear: 'bear', cub: 'cub', ceo: 'ceo', moose: 'bear', beaver: 'cub', deer: 'fox', turtle: 'turtle', otter: 'otter', duck: 'duck' };
 const C = (name) => comp[`./${name}.js`] || null;
 
@@ -587,13 +588,22 @@ export class UI {
       listings, coins: game.state.coins, focus, // [v26 ebuy] a function: the first open builds the item art behind e-Buy's loading screen
       icon: (n, sc) => (n === 'moose' && game.faces3d?.img({ who: 'npc', npc: 'moose', frame: 'bust' }, 20 * sc, 20 * sc)) || (hasSprite(n) ? ico(n, sc) : ''), // [v26 faces3d] the courier's face is his 3D rig, not the statue icon
       sfx: (n) => game.audio.play(n, { volume: 0.35 }),
-      onBuy: (l, qty) => {
+      onBuy: (l, qty, extra) => {
         const ok = game.ebuyBuy(l, qty);
+        if (ok && extra) game.delivery?.setShipping?.(game.delivery.lastOrder, extra); // [v33 kit] Turbo / Rocket, gift wrap, a note for the moose
         setTimeout(() => this.ebuy?.refresh({ coins: game.state.coins, listings: listings() }), 50);
         // order placed: show the receipt for a moment, then back to the pond
-        if (ok) { clearTimeout(this.ebuyExitT); this.ebuyExitT = setTimeout(() => this.closeEBuy(), 2600); }
+        if (ok) { clearTimeout(this.ebuyExitT); this.ebuyExitT = setTimeout(() => this.closeEBuy(), extra?.linger || 2600); }
         return ok;
       },
+      // [v33 kit] delivery fees, gift wrap (amount > 0) and coupons / club rewards (amount < 0) go through the wallet
+      onCharge: (amount) => {
+        const ok = amount > 0 ? game.spend(Math.round(amount), 'shop') : (game.earnMisc(Math.round(-amount), 'refunds'), true);
+        setTimeout(() => this.ebuy?.refresh({ coins: game.state.coins }), 30);
+        return ok;
+      },
+      store: (game.state.ebuyClub ||= {}), // [v33 kit] the e-Buy Club stamp card + coupons used (saved with the game)
+      shipTiers: SHIP_TIERS, // [v33 kit] Delivery's speed per tier, for the ETAs
       onClose: () => this.closeEBuy(),
       // [v26 ebuy] order tracking (Orders drawer) + the cart's delivery estimate
       orders: () => game.delivery?.tracker?.() || [],
