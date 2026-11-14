@@ -243,6 +243,7 @@ export class StatusBubbles {
       if (stage === 'fert') { level = e.fertP / breedTime(game, 12); cap = `${Math.min(99, Math.round(level * 100))}%`; } // FishSystem FERT_TIME
       else if (stage === 'inc') { level = 1 - e.t / Math.max(1, e.total || e.t || 1); cap = `${Math.floor(e.t / 60)}:${String(Math.ceil(e.t) % 60).padStart(2, '0')}`; }
       else if (stage === 'ready') { level = 1; cap = 'TAP!'; }
+      else level = 0.2; // laid: a little pink puddle while it waits for dad
       out.push({
         key: e, kind: 'egg', state: stage, level, cap, count: e.count > 1 ? e.count : 0, R: 10,
         icon: stage === 'fert' ? 'drop' : 'egg', rarity: e.rarity ?? Math.max(0, Math.min(4, best - 1)),

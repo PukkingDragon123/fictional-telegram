@@ -542,19 +542,11 @@ class Scope {
       ${game.digsite?.scopeButton?.(f) || ''}
       <button class="fsc-btn close" data-a="close" title="Close">${ico('cross', 2)}<span>Close</span></button>`;
     this.$('.fsc-btns').querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); if (b.dataset.a === 'pet' && this._petHeld) { this._petHeld = false; return; } this.act(b.dataset.a); }));
-    // [v33 bubble] hold Pet: a pat every ~0.4 s while held (Game.nurtureFish has its own 0.35 s cooldown)
+    // [v33 bubble] hold Pet: a pat every ~0.45 s while held (stepped in update(); Game.nurtureFish has its own cooldown)
     const pb = this.$('.fsc-btns [data-a="pet"]');
     if (pb) {
-      const stop = () => { clearInterval(this._petIv); this._petIv = 0; };
-      pb.addEventListener('pointerdown', () => {
-        stop();
-        this._petHeld = false;
-        this._petIv = setInterval(() => {
-          if (this.dead || !pb.isConnected) { stop(); return; }
-          this._petHeld = true;
-          this.pat();
-        }, 420);
-      });
+      const stop = () => { this._petDown = false; };
+      pb.addEventListener('pointerdown', () => { this._petDown = true; this._petAcc = 0; this._petHeld = false; });
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) pb.addEventListener(ev, stop);
     }
   }
@@ -713,6 +705,10 @@ class Scope {
 
   // ---------------------------------------------------------------- frame
   update(dt) {
+    if (this._petDown) { // [v33 bubble] holding Pet
+      this._petAcc = (this._petAcc || 0) + Math.min(dt, 0.1);
+      if (this._petAcc >= 0.45) { this._petAcc = 0; this._petHeld = true; this.pat(); }
+    }
     const f = this.fish, game = this.game;
     if (!f || f.dead || f.held) { this.close(); return; }
     this.t += dt;

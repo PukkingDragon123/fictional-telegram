@@ -1,14 +1,19 @@
 // LabTree: Reynard's research skill tree, shown on the lab computer.
 //
-// v30 "cozy polish": the detailed R&D-OS tree is back (it was swapped for a plain
-// green terminal in v26), warmed up: walnut + brass bezel, ornate pixel icon slots,
-// one coloured band per branch, pipes routed around the nodes, a detail panel with
-// the unlock art + names, time, requirements and a big RESEARCH button, the bench
-// bar of running jobs. No boot screen: it opens at once.
-// While a job runs, the detail panel shows Reynard at his lab computer (a real 3D
+// [v33 lab] "cozy lab": back to the v30 tree (the user's favourite: ornate pixel icon
+// slots, one coloured band per branch, a detail card with the unlock art, a big RESEARCH
+// button, the bench of running jobs) and made cute instead of techy: a cream plastic
+// computer case with stickers, warm graph-paper map with pastel branch bands, chunky
+// glass pipes that fill with coloured liquid, paper cards, a wooden bench shelf and a
+// friendly hint strip that always says what to do next. No terminal, no code rain, no
+// scanlines, no neon. Locked sections are padlocked crates you UNLOCK with a section key.
+// Cheap to run: the fox logo renders after the first frame (it compiled shaders on open),
+// pipes and glows are static (only running things animate), the showcase blits a cached
+// backdrop, progress bars update in place (no DOM rebuilds on ticks).
+//
+// While a job runs, the detail card shows Reynard at his lab computer (a real 3D
 // render of his rig, src/ui/lab/workbench.js) above a GREEN LIQUID progress tube
-// (a glass tube filling with bubbling green liquid, src/ui/lab/tube.js). Nobody
-// walks around the tree any more (the v26 lab fox is gone).
+// (src/ui/lab/tube.js).
 //
 // Research is FREE but TIMED: picking a node puts it on a lab "bench" and it
 // finishes after `time` seconds of game time. Running jobs can be rushed with
@@ -34,7 +39,7 @@
 //     rushPrice?: (id, mode) => number,  // mode 'half' (-50% time left) | 'now' (finish)
 //     onRush?: (id, mode) => ({ ok, msg }),
 //     sections?: { isOpen(b), key(b) => { needs:[{kind,ok,text,id}], coins, ready, canUnlock, demo? }, unlock(b) => ({ ok, msg }) },
-//     quiet?: () => bool,                // (kept for callers; nobody talks on the tree now)
+//     quiet?: () => bool,                // the tutorial is talking
 //     game?,                             // a Game: supplies coins/speed/rush/sections
 //   });
 //   tree.refresh(); tree.select(id); tree.destroy();
@@ -47,7 +52,7 @@
 import './labtree.css';
 import * as SPECIES_DATA from '../data/species.js';
 import * as STRUCT_DATA from '../data/structures.js';
-import { crispScale } from './uiScale.js';
+import { crispPx } from './uiScale.js';
 import { faceImg } from './faces3d.js';
 import { Workbench } from './lab/workbench.js';
 import { Tube } from './lab/tube.js';
@@ -206,10 +211,19 @@ function slotURLs() {
   const map = {};
   for (const [k, p] of Object.entries(SLOT_PALS)) {
     const src = slotCanvas(p);
-    const c = makeCanvas(src.width * u, src.height * u);
+    // [v33 lab] the drop shadow is baked into the art (2 art px down-right, warm brown):
+    // no CSS drop-shadow filter on 200+ nodes
+    const sh = makeCanvas(src.width, src.height);
+    const sx = sh.getContext('2d');
+    sx.drawImage(src, 0, 0);
+    sx.globalCompositeOperation = 'source-in';
+    sx.fillStyle = 'rgba(74,46,24,0.4)';
+    sx.fillRect(0, 0, sh.width, sh.height);
+    const c = makeCanvas((src.width + 2) * u, (src.height + 2) * u);
     const x = c.getContext('2d');
     x.imageSmoothingEnabled = false;
-    x.drawImage(src, 0, 0, c.width, c.height);
+    x.drawImage(sh, 2 * u, 2 * u, src.width * u, src.height * u);
+    x.drawImage(src, 0, 0, src.width * u, src.height * u);
     map[k] = c.toDataURL();
   }
   SLOT_URLS = { u, map };
@@ -226,7 +240,9 @@ function pixSVG(rows, pal, scale = 2, cls = '') {
       r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${pal[ch]}"/>`;
     }
   });
-  return `<svg class="${cls}" width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
+  // [v33 lab] one <img> per glyph (an inline SVG put a <rect> per pixel in the DOM: ~10k nodes)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${r}</svg>`;
+  return `<img class="${cls}" width="${w * scale}" height="${h * scale}" src="data:image/svg+xml,${encodeURIComponent(svg)}" alt="" aria-hidden="true" draggable="false">`;
 }
 const FOX_LOGO = pixSVG([
   'o.........o',
@@ -243,7 +259,7 @@ const FOX_LOGO = pixSVG([
 ], { o: '#ff9a3a', O: '#7a3a12', k: '#1a0c04', w: '#fff1d6' }, 3, 'lt-logo');
 
 // tiny glyphs drawn here so they never depend on the sprite sheet
-const G_CHECK = pixSVG(['......k', '.....kg', 'k...kg.', 'gk.kg..', '.gkg...', '..g....'], { k: '#2a8a3a', g: '#7dffa8' }, 2, 'lt-g');
+const G_CHECK = pixSVG(['......k', '.....kg', 'k...kg.', 'gk.kg..', '.gkg...', '..g....'], { k: '#1d6a32', g: '#ffffff' }, 2, 'lt-g');
 const G_CROSS = pixSVG(['r...r', '.r.r.', '..r..', '.r.r.', 'r...r'], { r: '#ff6a5a' }, 2, 'lt-g');
 const G_CLOCK = pixSVG(['.kkkk.', 'kwwkwk', 'kwwkwk', 'kwwkkk', 'kwwwwk', '.kkkk.'], { k: '#2b2a24', w: '#fff1c8' }, 2, 'lt-g');
 const G_LOCK = pixSVG(['.kkk.', 'k...k', 'k...k', 'kkkkk', 'kgggk', 'kgkgk', 'kgggk', 'kkkkk'], { k: '#1a1410', g: '#ffd23f' }, 2, 'lt-g');
@@ -251,39 +267,79 @@ const G_PAW = pixSVG(['.k.k.', 'k.k.k', '.....', '.kkk.', 'kkkkk', '.kkk.'], { k
 const G_BOLT = pixSVG(['...kk', '..kk.', '.kkkk', 'kkkk.', '..kk.', '.kk..', '.k...'], { k: '#ffe14a' }, 2, 'lt-g');
 const G_FF = pixSVG(['k..k...', 'kk.kk..', 'kkkkkk.', 'kkkkkkk', 'kkkkkk.', 'kk.kk..', 'k..k...'], { k: '#ffffff' }, 2, 'lt-g');
 const G_COIN = pixSVG(['.kkkk.', 'kyyyyk', 'kyhyyk', 'kyhyyk', 'kyyyyk', '.kkkk.'], { k: '#8a5a00', y: '#ffd23f', h: '#fff6c0' }, 2, 'lt-g lt-coin');
-const G_KEY = pixSVG(['.kkk.....', 'k...k....', 'k...kkkkk', 'k...k.k.k', '.kkk.....'], { k: '#7dffa8' }, 2, 'lt-g');
-const G_SEAL = pixSVG(['..kkkk..', '.k....k.', '.k....k.', 'kkkkkkkk', 'kgggggrk', 'kgggggrk', 'kggkkgrk', 'kggkkgrk', 'kgggggrk', 'kkkkkkkk'], { k: '#04161c', g: '#5fd0f0', r: '#2c9cc8' }, 4, 'lt-g lt-sealg');
-const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#f4ecd2' }, 3, 'lt-g');
+const G_KEY = pixSVG(['.kkk.....', 'kyyyk....', 'kyhykkkkk', 'kyyykykyk', '.kkk.k.k.'], { k: '#5a3200', y: '#ffd23f', h: '#fff6c0' }, 2, 'lt-g');
+// [v33 lab] the section padlock: a chunky brass lock with a keyhole (was a cyan "encryption" seal)
+const G_SEAL = pixSVG([
+  '...kkkkk...',
+  '..kSSSSSk..',
+  '.kSk...kSk.',
+  '.kSk...kSk.',
+  '.kSk...kSk.',
+  'kkkkkkkkkkk',
+  'kHyyyyyyyak',
+  'kyyyykyyyak',
+  'kyyykkkyyak',
+  'kyyyykyyyak',
+  'kyyyykyyyak',
+  'kaaaaaaaaak',
+  'kkkkkkkkkkk',
+], { k: '#3a2208', S: '#b9c2cc', H: '#fff6c0', y: '#f2b632', a: '#b87414' }, 4, 'lt-g lt-sealg');
+const G_FIT = pixSVG(['kk.kk', 'k...k', '.....', 'k...k', 'kk.kk'], { k: '#4a2e18' }, 3, 'lt-g');
 
-const G_PLUS = pixSVG(['..k..', '..k..', 'kkkkk', '..k..', '..k..'], { k: '#f4ecd2' }, 3, 'lt-g');
-const G_MINUS = pixSVG(['.....', '.....', 'kkkkk', '.....', '.....'], { k: '#f4ecd2' }, 3, 'lt-g');
+const G_PLUS = pixSVG(['..k..', '..k..', 'kkkkk', '..k..', '..k..'], { k: '#4a2e18' }, 3, 'lt-g');
+const G_MINUS = pixSVG(['.....', '.....', 'kkkkk', '.....', '.....'], { k: '#4a2e18' }, 3, 'lt-g');
 const G_X = pixSVG(['k...k', '.k.k.', '..k..', '.k.k.', 'k...k'], { k: '#ffffff' }, 3, 'lt-g');
+const G_STAR = pixSVG(['...k...', '..kyk..', 'kkkyykk', 'kyyyyyk', '.kyyyk.', '.kykyk.', 'kk...kk'], { k: '#7a4a00', y: '#ffd23f' }, 2, 'lt-g');
 
-// v19: the computer chrome (boot text, idle terminal chatter, side data streams)
-const IDLE_LOG = [
-  'scanning pond telemetry... 0 anomalies',
-  'cipher daemon idle. sectors standing by',
-  'coffee levels: CRITICAL',
-  'holo-projector calibrated',
-  'reticulating fish splines...',
-  'uplink to e-Buy: stable',
-  'beaver labour union: still not recognised',
-  'sweeping encrypted sectors...',
-  'quantum flask at 3.7 K',
-  'world domination plan: 2% complete',
-];
-const STREAMS = (() => {
-  const R = (() => { let a = 1234567; return () => ((a = (a * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); })();
-  const glyph = '01<>[]#=+*/ABCDEF0123456789';
-  let h = '';
-  for (let c = 0; c < 6; c++) {
-    let txt = '';
-    for (let i = 0; i < 40; i++) txt += glyph[Math.floor(R() * glyph.length)] + '\n';
-    txt += txt; // two copies: the column scrolls by half its height and loops seamlessly
-    h += `<i style="--x:${8 + c * 17 + Math.round(R() * 8)}%;--d:${(9 + R() * 9).toFixed(1)}s;--o:${(-R() * 9).toFixed(1)}s">${txt}</i>`;
+// [v33 lab] stickers on the computer case (painted pixel art, never emoji)
+const STK_FLASK = pixSVG([
+  '....kkkk....',
+  '....kwwk....',
+  '....kwwk....',
+  '...kkwwkk...',
+  '...kwwwwk...',
+  '..kwwwwwwk..',
+  '.kwwgggwwwk.',
+  '.kgggGgggGk.',
+  'kgGgggggggGk',
+  'kggggGggggk.',
+  '.kkkkkkkkkk.',
+], { k: '#2b1d14', w: '#e8f6ff', g: '#5ccf6e', G: '#c8ffd0' }, 2, 'lt-stk-a');
+const STK_HEART = pixSVG([
+  '.kk...kk.',
+  'krrk.krrk',
+  'krhrkrrrk',
+  'krrrrrrrk',
+  '.krrrrrk.',
+  '..krrrk..',
+  '...krk...',
+  '....k....',
+], { k: '#5a1020', r: '#ff5a7a', h: '#ffd0d8' }, 2, 'lt-stk-a');
+const STK_STAR = pixSVG([
+  '.....kk.....',
+  '....kyyk....',
+  '....kyyk....',
+  'kkkkkyykkkkk',
+  'kyhyyyyyyyyk',
+  '.kyyyyyyyyk.',
+  '..kyyyyyyk..',
+  '..kyykkyyk..',
+  '.kyyk..kyyk.',
+  '.kkk....kkk.',
+], { k: '#7a4a00', y: '#ffd23f', h: '#fff6c0' }, 2, 'lt-stk-a');
+// [v33 lab] "Research done!" confetti: square pixel bits flung out of the card (CSS only, plays once)
+const CONFETTI = (() => {
+  const R = rng(7);
+  const cols = ['#ff5a7a', '#ffd23f', '#5ccf6e', '#5fb8ff', '#b07bff', '#ff9a3a'];
+  let h = '<span class="lt-conf" aria-hidden="true">';
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2 + R() * 0.3;
+    const d = 90 + R() * 120;
+    h += `<i style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d * 0.6 - 30)}px;--c:${cols[i % cols.length]};--r:${Math.round(R() * 540 - 270)}deg;--dl:${Math.round(R() * 120)}ms"></i>`;
   }
-  return h;
+  return h + '</span>';
 })();
+const FISH_URLS = new Map();
 let PC_OPEN = 0; // trees on screen: the page body gets .lt-pc (the computer takes over)
 
 // ---------------------------------------------------------------- pipe router
@@ -450,7 +506,7 @@ const STATE_TEXT = {
   avail: 'Ready to research',
   zone: 'Needs a neighbour',
   locked: 'Locked',
-  sealed: 'Encrypted',
+  sealed: 'Locked section',
 };
 const SCRAMBLE = '#$%&@*+=?/<>[]{}01';
 function scramble(s, k = 1, seed = 1) {
@@ -571,6 +627,11 @@ export class LabTree {
   // ------------------------------------------------------------ public API
   refresh(initial = false) {
     if (!this._alive) return;
+    this._keyCache = new Map(); // [v33 lab] one sectionKey() per section per refresh
+    try { this._refresh(initial); } finally { this._keyCache = null; }
+  }
+
+  _refresh(initial) {
     const changed = [];
     const opened = [];
     for (const B of this.branches) {
@@ -618,11 +679,12 @@ export class LabTree {
     if (this.selSec && !this.selSec.sealed) { const B = this.selSec; this.selSec = null; const pick = B.nodes.find((n) => this._st.get(n.id) === 'avail') || B.nodes[0]; if (pick) this._select(pick, { pan: false, sound: false, open: false }); }
     const done = this.nodes.reduce((a, n) => a + (this._st.get(n.id) === 'done' ? 1 : 0), 0);
     const secs = this.branches.filter((B) => !B.sealed).length;
-    const cnt = `<b>${done}</b>/${this.nodes.length}<small>${secs}/${this.branches.length} SECTORS</small>`;
+    const cnt = `<b>${done}</b>/${this.nodes.length}<small>researched</small>`;
     if (cnt !== this._cntHtml) { this._cntHtml = cnt; this.$count.innerHTML = cnt; }
     this.$cbar.style.width = `${this.nodes.length ? (done / this.nodes.length) * 100 : 0}%`;
     this._updateChips();
     if (this.filter) this._applyFilter(false);
+    this._nextHint();
     if (this.selSec) { if (initial || this._secSig !== this._keySig(this.selSec)) this._renderDetail(); }
     else if (this.sel && (initial || changed.some(([n]) => n === this.sel || n.kids.includes(this.sel) || this.sel.req.includes(n.id)))) this._renderDetail();
     else if (this.sel) this._renderAct();
@@ -672,9 +734,13 @@ export class LabTree {
     try { return !this.o.sections.isOpen(B.b.id); } catch { return false; }
   }
   _secKey(B) {
+    const c = this._keyCache?.get(B);
+    if (c) return c;
     let k = null;
     try { k = this.o.sections?.key?.(B.b.id) || null; } catch { k = null; }
-    return k || { needs: [], coins: 0, ready: true, canUnlock: true };
+    k = k || { needs: [], coins: 0, ready: true, canUnlock: true };
+    this._keyCache?.set(B, k);
+    return k;
   }
   _coins() { try { const c = Number(this.o.coins?.()); return Number.isFinite(c) ? c : null; } catch { return null; } }
   _rushOK() { return typeof this.o.onRush === 'function' && typeof this.o.rushPrice === 'function'; }
@@ -737,7 +803,7 @@ export class LabTree {
     const st = this._st.get(n.id);
     if (st === 'done') return { ok: false, reason: 'Already researched' };
     if (st === 'run') return { ok: false, reason: 'Researching...' };
-    if (st === 'sealed') return { ok: false, reason: `Decrypt ${n.B.b.name} first` };
+    if (st === 'sealed') return { ok: false, reason: `Unlock ${n.B.b.name} first` };
     let r = null;
     if (this.o.canResearch) { try { r = this.o.canResearch(n.id); } catch { r = null; } }
     if (!r || typeof r !== 'object') r = { ok: st === 'avail' };
@@ -785,14 +851,22 @@ export class LabTree {
     const f = this._fishFrame(species, 0);
     if (!f) return '';
     const k = Math.min(box / f.width, (box * 0.8) / f.height, 3);
-    let url = '';
-    try { url = f.toDataURL(); } catch { url = ''; }
+    // [v33 lab] one data URL per species, shared by every tree (toDataURL is slow)
+    let url = FISH_URLS.get(species) || '';
+    if (!url) { try { url = f.toDataURL(); } catch { url = ''; } if (url) FISH_URLS.set(species, url); }
     if (!url) return '';
     return `<img class="px" src="${url}" width="${Math.round(f.width * k)}" height="${Math.round(f.height * k)}" alt="" draggable="false">`;
   }
   _nodeArt(n, box = WELL) {
     if (n.d.species) { const f = this._fishImg(n.d.species, box); if (f) return f; }
     return this._iconFit(n.d.icon, box);
+  }
+  // the raw art of a node (for the workbench CRT)
+  _artSrc(n) {
+    if (!n) return null;
+    if (n.d.species) { const f = this._fishFrame(n.d.species, 0); if (f) return f; }
+    const m = this._iconMeta(n.d.icon);
+    return m.ok ? m.img : null;
   }
   _buildArt(id, box) {
     const s = STRUCT_DATA.STRUCTURES?.[id];
@@ -805,25 +879,19 @@ export class LabTree {
     root.className = 'ltree';
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-label', 'Reynard Labs research tree');
-    // Reynard's face is a render of his real 3D rig (never 2D art); no WebGL: the pixel logo
-    let logo = '';
-    try { logo = faceImg({ who: 'fox', expr: 'scheming', frame: 'head', turn: 0.35 }, 44, 44, 'lt-logo3d'); } catch { logo = ''; }
     root.innerHTML = `
       <div class="lt-bezel">
         <div class="lt-screen">
           <header class="lt-head">
-            <span class="lt-logo">${logo || FOX_LOGO}</span>
-            <div class="lt-titles"><h1><span class="lt-h1t">Reynard Labs</span><span class="lt-ver">R&amp;D-OS v30</span></h1><span class="lt-tag"><span class="lt-prompt">&gt;</span> Research is <b>FREE</b>. Coins buy <b class="y">SPEED</b>.<i class="lt-cur"></i></span></div>
-            <div class="lt-coins" title="Your coins"${typeof this.o.coins === 'function' ? '' : ' hidden'}><span class="lt-coins-l">COINS</span><span class="lt-coins-v">${G_COIN}<b>0</b></span></div>
+            <span class="lt-logo">${FOX_LOGO}</span>
+            <div class="lt-titles"><h1><span class="lt-h1t">Reynard Labs</span></h1><span class="lt-sub">Research is <b>FREE</b>. Coins make it <b class="y">FASTER</b>.</span></div>
+            <div class="lt-coins" title="Your coins"${typeof this.o.coins === 'function' ? '' : ' hidden'}>${G_COIN}<b>0</b></div>
             <div class="lt-count" title="Researched"><span class="lt-count-t"></span><span class="lt-cbar"><i></i></span></div>
-            <button class="lt-close" type="button" aria-label="Close research (Esc)"><span class="lt-close-x">${G_X}</span><span>EXIT</span><kbd>ESC</kbd></button>
+            <button class="lt-close" type="button" aria-label="Close research (Esc)"><span class="lt-close-x">${G_X}</span><span>EXIT</span></button>
           </header>
           <nav class="lt-chips" aria-label="Branches"></nav>
           <div class="lt-body">
             <div class="lt-view" tabindex="0" aria-label="Research tree. Drag to pan, scroll or pinch to zoom.">
-              <div class="lt-par lt-par-a" aria-hidden="true"></div>
-              <div class="lt-par lt-par-b" aria-hidden="true"></div>
-              <div class="lt-streams" aria-hidden="true">${STREAMS}</div>
               <div class="lt-world"></div>
               <div class="lt-tabs" aria-hidden="true"></div>
               <div class="lt-zoom">
@@ -852,7 +920,7 @@ export class LabTree {
               <div class="lt-act">
                 <button class="lt-go" type="button"><span class="lt-go-fill"></span><span class="lt-go-l"></span><span class="lt-go-s"></span></button>
                 <div class="lt-rush" hidden>
-                  <button type="button" class="lt-rbtn" data-rush="half"><span class="lt-rbtn-l">${G_BOLT}RUSH <em>-50%</em></span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
+                  <button type="button" class="lt-rbtn" data-rush="half"><span class="lt-rbtn-l">${G_BOLT}HURRY <em>-50%</em></span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
                   <button type="button" class="lt-rbtn is-now" data-rush="now"><span class="lt-rbtn-l">${G_FF}FINISH NOW</span><span class="lt-rbtn-p">${G_COIN}<b></b></span></button>
                 </div>
               </div>
@@ -861,13 +929,11 @@ export class LabTree {
           <footer class="lt-bench">
             <span class="lt-bench-l">${this._iconFit('flask', 18)}<span>BENCH<small class="lt-bench-s"></small></span></span>
             <div class="lt-slots"></div>
-            <div class="lt-keys"><kbd>DRAG</kbd> pan <kbd>WHEEL</kbd> zoom <kbd>ENTER</kbd> research</div>
           </footer>
-          <div class="lt-term" aria-live="off"><span class="lt-term-p">&gt;</span><span class="lt-term-l"></span><span class="lt-term-r"><i class="lt-led"></i>LAB OK<b class="lt-term-clk">00:00</b></span></div>
+          <div class="lt-hint" aria-live="polite"><span class="lt-hint-i">${G_STAR}</span><span class="lt-hint-l"></span></div>
           <div class="lt-fx" aria-hidden="true"></div>
-          <div class="lt-scan" aria-hidden="true"></div>
         </div>
-        <div class="lt-frame" aria-hidden="true"><i class="lt-fc tl"></i><i class="lt-fc tr"></i><i class="lt-fc bl"></i><i class="lt-fc br"></i><span class="lt-fled"><i></i><i></i><i></i></span><span class="lt-fname">REYNARD-TEK  RESEARCH TERMINAL  NO.30</span></div>
+        <div class="lt-frame" aria-hidden="true"><span class="lt-stk s1">${STK_FLASK}</span><span class="lt-stk s2">${STK_HEART}</span><span class="lt-stk s3">${STK_STAR}</span><span class="lt-fname">LAB-O-MATIC 3000</span><span class="lt-fled"><i></i><i></i></span></div>
       </div>`;
     this.container.appendChild(root);
     this.root = root;
@@ -905,56 +971,72 @@ export class LabTree {
     this.$cbar = $('.lt-cbar i');
     this.$fxl = $('.lt-fx');
     this.$coins = $('.lt-coins');
-    this.$coinsV = $('.lt-coins-v b');
+    this.$coinsV = $('.lt-coins b');
     this.$rush = $('.lt-rush');
     this.$rushB = [...root.querySelectorAll('.lt-rush .lt-rbtn')].map((el) => ({ el, mode: el.dataset.rush, p: el.querySelector('.lt-rbtn-p b') }));
     this.$benchS = $('.lt-bench-s');
     this.$hUnl = $('.lt-h-unl');
     this.$hTime = $('.lt-h-time');
     this.$hReq = $('.lt-h-req');
-    this.$parA = $('.lt-par-a');
-    this.$parB = $('.lt-par-b');
-    this.$term = $('.lt-term-l');
-    this.$termClk = $('.lt-term-clk');
+    this.$hint = $('.lt-hint-l');
     this.tube = new Tube(this.$tube, { cssPx: 2, h: 16 });
     const rs = root.style;
     for (const [k, url] of Object.entries(slotURLs())) rs.setProperty(`--lt-slot-${k}`, `url(${url})`);
-    this._log('R&D-OS online. Welcome back, Doctor Reynard.', 'ok');
-    this._idleLog();
-  }
-
-  // ------------------------------------------------------------ v19: terminal ticker + glitch
-  // one line at the bottom of the screen, typed out; `delay` queues it after the boot text
-  _log(text, kind = '', delay = 0) {
-    if (!this._alive || !this.$term) return;
-    if (delay > 0) { this._later(() => this._log(text, kind), delay); return; }
-    const t = String(text || '');
-    this._logT = now();
-    const el = this.$term;
-    el.textContent = t;
-    el.className = `lt-term-l${kind ? ` is-${kind}` : ''}`;
-    el.style.setProperty('--n', Math.max(1, t.length));
-    el.classList.remove('is-type');
-    void el.offsetWidth;
-    el.classList.add('is-type');
-  }
-
-  // ambient chatter while nothing happens (one timer, never per frame)
-  _idleLog() {
+    // [v33 lab] Reynard's face is a render of his real 3D rig; it costs a WebGL warm-up the
+    // first time, so the pixel fox shows at once and the render swaps in after the first frames
     this._later(() => {
-      if (!this._alive) return;
-      if (now() - (this._logT || 0) > 6500) {
-        const R = IDLE_LOG;
-        this._idleI = ((this._idleI ?? (hashStr(String(this._t0)) % R.length)) + 1) % R.length;
-        const run = this._jobs.find((j) => j.n);
-        this._log(run && this._idleI % 3 === 0 ? `synthesizing ${run.n.d.name}... ${Math.round((run.k || 0) * 100)}%` : R[this._idleI], 'dim');
-      }
-      this._idleLog();
-    }, 7000);
+      let logo = '';
+      try { logo = faceImg({ who: 'fox', expr: 'happy', frame: 'head', turn: 0.35 }, 44, 44, 'lt-logo3d'); } catch { logo = ''; }
+      const el = root.querySelector('.lt-logo');
+      if (logo && el) el.innerHTML = logo;
+    }, 700);
   }
 
-  // a quick RGB-split slice glitch over the screen (filter changes, sectors, boot)
-  _glitch() { /* v30: no screen glitches (cozy) */ }
+  // ------------------------------------------------------------ [v33 lab] the hint strip
+  // one friendly line at the bottom: what just happened (for a few seconds), else what to do next
+  _log(text, kind = '', delay = 0) {
+    if (!this._alive || !this.$hint) return;
+    if (delay > 0) { this._later(() => this._log(text, kind), delay); return; }
+    this._logT = now();
+    this._logKind = kind;
+    this._setHint(String(text || ''), kind || 'say');
+  }
+  _setHint(t, kind) {
+    if (t === this._hintT && kind === this._hintK) return;
+    this._hintT = t;
+    this._hintK = kind;
+    const el = this.$hint;
+    const pop = kind !== 'next' || this._hintPK !== 'next';
+    this._hintPK = kind;
+    el.textContent = t;
+    el.className = `lt-hint-l is-${kind}`;
+    if (!pop) return;
+    el.parentElement.classList.remove('is-pop');
+    void el.offsetWidth;
+    el.parentElement.classList.add('is-pop');
+  }
+  // the "what next" line, from the current state (cheap: called with refresh)
+  _nextHint() {
+    if (!this.$hint || now() - (this._logT || 0) < 4200) return;
+    let ready = 0;
+    for (const n of this.nodes) if (this._st.get(n.id) === 'avail') ready++;
+    const free = this._timed() ? this._slots() - this._jobs.length : 1;
+    const job = this._jobs.find((j) => j.n);
+    let t;
+    if (job && free <= 0) t = `Reynard is researching ${job.n.d.name}: ready in ${fmtClock(job.left)}. Rush it with coins, or go play while you wait!`;
+    else if (ready && job) t = `${job.n.d.name} is cooking (${fmtClock(job.left)}). You have a free bench: pick another glowing project!`;
+    else if (ready) t = `${ready} project${ready > 1 ? 's' : ''} ready! Pick one that glows, then press RESEARCH.`;
+    else {
+      const key = this.branches.find((B) => B.sealed && this._secKey(B).canUnlock);
+      const zone = this.nodes.find((n) => this._st.get(n.id) === 'zone');
+      t = key ? `You can open the ${key.b.name} section! Tap its crate and UNLOCK it.`
+        : zone ? `Meet ${this._zoneName(zone.zone)} to open more research.`
+          : 'Nothing ready right now. Finish research or meet new neighbours to open more.';
+    }
+    this._setHint(t, 'next');
+  }
+
+  _glitch() { /* (no screen glitches) */ }
 
   _buildTree() {
     const W = this.W, H = this.H;
@@ -968,7 +1050,7 @@ export class LabTree {
     let seals = '';
     for (const B of this.branches) {
       const c = esc(B.color);
-      bands += `<div class="lt-band${B.i % 2 ? ' odd' : ''}" data-b="${B.i}" style="top:${B.y}px;height:${B.h}px;--bc:${c}"><span class="lt-band-id">SECTOR ${String(B.i + 1).padStart(2, '0')} // ${esc(B.b.name.toUpperCase())}</span></div>`;
+      bands += `<div class="lt-band${B.i % 2 ? ' odd' : ''}" data-b="${B.i}" style="top:${B.y}px;height:${B.h}px;--bc:${c}"><span class="lt-band-id">${esc(B.b.name)}</span></div>`;
       // the encrypted seal over a locked section
       let x0 = PADL + B.c0 * COLW + 6, x1 = PADL + (B.c1 + 1) * COLW - 6;
       if (x1 - x0 < 560) { x1 = Math.min(W - 6, x0 + 560); x0 = Math.max(6, x1 - 560); }
@@ -997,18 +1079,18 @@ export class LabTree {
     this.edges.forEach((e, i) => {
       const d = P(e.pts);
       e.d = d;
+      const bc = ` style="--bc:${esc(e.src.B.color)}"`; // [v33 lab] done pipes fill with the branch's colour
       lo += `<path class="lp-o" data-e="${i}" d="${d}"/>`;
-      lg += `<path class="lp-g" data-e="${i}" d="${d}"/>`;
-      lc += `<path class="lp-c" data-e="${i}" d="${d}"/>`;
+      lc += `<path class="lp-c" data-e="${i}"${bc} d="${d}"/>`;
       lf += `<path class="lp-f" data-e="${i}" d="${d}"/>`;
       for (const br of e.bridges) {
         const x = this._X(br.gx), y = this._Y(br.gy), L = 14;
         const bd = br.h ? `M${x - L} ${y}L${x + L} ${y}` : `M${x} ${y - L}L${x} ${y + L}`;
-        lx += `<path class="lp-o lp-bo" data-e="${i}" d="${bd}"/><path class="lp-c" data-e="${i}" d="${bd}"/>`;
+        lx += `<path class="lp-o lp-bo" data-e="${i}" d="${bd}"/><path class="lp-c" data-e="${i}"${bc} d="${bd}"/>`;
       }
     });
     const svg = `<svg class="lt-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
-      <g>${lo}</g><g>${lg}</g><g>${lc}</g><g>${lf}</g><g>${lx}</g></svg>`;
+      <g>${lo}</g><g>${lc}</g><g>${lf}</g><g>${lx}</g></svg>`;
 
     let nodes = '';
     for (const n of this.nodes) {
@@ -1102,9 +1184,6 @@ export class LabTree {
     this.filter = v;
     for (const c of this.$chipEls) c.classList.toggle('is-on', (c.dataset.f || null) === (v === null ? null : String(v)));
     this._sfx('filter');
-    this._glitch();
-    const fb = v === null ? null : this.branches[+v];
-    this._log(v === null ? 'filter cleared: all sectors' : v === '@ready' ? 'query: projects ready to research' : `routing view to sector ${String(+v + 1).padStart(2, '0')}: ${fb ? fb.b.name : v}`, 'dim');
     this._applyFilter(true);
   }
 
@@ -1358,14 +1437,16 @@ export class LabTree {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     const k = e.key;
+    const enter = k === 'Enter' || k === 'NumpadEnter' || k === ' ';
+    if (enter && this._modalWaiting()) return; // [v33 lab] a tutorial line / speech bubble waits for this key
     let handled = true;
     if (k === 'ArrowLeft') this._move(-1, 0);
     else if (k === 'ArrowRight') this._move(1, 0);
     else if (k === 'ArrowUp') this._move(0, -1);
     else if (k === 'ArrowDown') this._move(0, 1);
-    else if (k === 'Enter' || k === 'NumpadEnter' || k === ' ') {
+    else if (enter) {
       if (t && t.tagName === 'BUTTON' && !t.classList.contains('lt-node') && this.root.contains(t)) handled = false;
-      else this._research();
+      else if (this._canGo()) this._research(); // only when RESEARCH (or UNLOCK) would really go
     } else if (k === 'Escape') {
       if (this._compact && this._sheetOpen) { this._openSheet(false); this._sfx('click'); } else this._close();
     } else if (k === '+' || k === '=') this._zoomBy(1.3);
@@ -1374,6 +1455,27 @@ export class LabTree {
     else if (k === 'f' || k === 'F') { if (this.sel) this._centerOn(this.sel); }
     else handled = false;
     if (handled) { e.preventDefault(); e.stopPropagation(); }
+  }
+
+  // [v33 lab] something modal waits for a key (the tutorial teacher's line, a speech bubble, a catch layer)
+  _modalWaiting() {
+    const G = this.o.game || (typeof window !== 'undefined' ? window.__game : null);
+    try {
+      if (G?.tutorial?.teacher?.waiting) return true;
+      if (G?.ui?.bubbleWaiting?.()) return true;
+    } catch { /* ignore */ }
+    for (const el of document.querySelectorAll('.tt-catch, .tutorial, .tch-wait')) {
+      if (el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden') return true;
+    }
+    return false;
+  }
+
+  // [v33 lab] would the RESEARCH key (or UNLOCK) do something right now?
+  _canGo() {
+    if (this.selSec) return !!this._secKey(this.selSec).canUnlock;
+    const n = this.sel;
+    if (!n || this.$go.hidden || this.$go.disabled) return false;
+    return !!this._check(n).ok;
   }
 
   _close() {
@@ -1421,6 +1523,8 @@ export class LabTree {
     }
     this.root.classList.toggle('is-short', h < 640);
     this.root.classList.toggle('is-tiny', h < 460);
+    this._sizeHero();
+    if (this._isWorking) this._sizeWork();
     this._clampCam(this.cam);
     this._applyCam();
   }
@@ -1451,18 +1555,8 @@ export class LabTree {
   _applyCam() {
     const c = this._clampCam(this.cam);
     this.world.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.z})`;
-    const hz = 56 * c.z;
-    this.view.style.setProperty('--hex-pos', `${c.x.toFixed(1)}px ${c.y.toFixed(1)}px`);
-    this.view.style.setProperty('--hex-size', `${hz.toFixed(1)}px ${(hz * 100 / 56).toFixed(1)}px`);
-    // v19: holographic depth: two background layers drift slower than the tree (transform only)
-    if (this.$parA) {
-      const m = (v, t) => ((v % t) + t) % t - t;
-      this.$parA.style.transform = `translate3d(${m(c.x * 0.18, 96).toFixed(1)}px, ${m(c.y * 0.18, 96).toFixed(1)}px, 0)`;
-      this.$parB.style.transform = `translate3d(${m(c.x * 0.45, 240).toFixed(1)}px, ${m(c.y * 0.45, 160).toFixed(1)}px, 0)`;
-    }
     this.root.classList.toggle('is-far', c.z < 0.58);
     this.root.classList.toggle('is-vfar', c.z < 0.3);
-    this.root.style.setProperty('--lt-z', c.z.toFixed(3));
     // sticky branch tabs
     const vh = this.view.clientHeight;
     const x = Math.max(6, (PADL - 34) * c.z + c.x);
@@ -1496,7 +1590,8 @@ export class LabTree {
   _fitAll() { this._fitRect(0, 0, this.W, this.H, 1); }
 
   _baseZoom() {
-    const vw = this.view.clientWidth;
+    const vw = this.view.clientWidth, vh = this.view.clientHeight;
+    if (vh && vh < 260) return 0.68; // [v33 lab] phones in landscape: see a few neighbours too
     return vw < 520 ? 0.72 : vw < 760 ? 0.85 : 1;
   }
 
@@ -1554,7 +1649,6 @@ export class LabTree {
       if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
     }
     if (pan) this._ensureVisible(n);
-    if (sound && !same) this._log(`open ${n.id.replace(/^r_/, '')}.rnd  [${STATE_TEXT[this._st.get(n.id)] || ''}]`, 'dim');
   }
 
   // an encrypted section: the detail panel shows its section key
@@ -1572,7 +1666,6 @@ export class LabTree {
     if (!same) {
       this._renderDetail();
       if (!REDUCED) this._fx(this.$det, 'is-swap', 300);
-      if (sound) this._log(`sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}: ENCRYPTED. radar sweep active`, 'err');
     }
     if (pan) this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
   }
@@ -1592,7 +1685,10 @@ export class LabTree {
       const miss = n.req.map((r) => this.byId.get(r)).filter((p) => p && !this._isRes(p.id));
       line = miss.length ? `Needs ${miss.map((p) => p.d.name).slice(0, 2).join(' + ')}${miss.length > 2 ? '...' : ''}` : 'Locked';
     }
-    this.$tip.innerHTML = `<b>${esc(n.d.name)}</b><i class="st-${st}">${esc(line)}</i>`;
+    // [v33 lab] what it unlocks, at a glance (the game's own icons)
+    const items = st === 'locked' ? [] : this._unlockItems(n.d).slice(0, 4);
+    const unl = items.length ? `<span class="lt-tip-u">${items.map((it) => `<span class="lt-art sm">${it.art}</span>`).join('')}</span>` : '';
+    this.$tip.innerHTML = `<b>${esc(n.d.name)}</b><i class="st-${st}">${esc(line)}</i>${unl}`;
     this._tipNode = n;
     this._placeTip(n);
     this.$tip.classList.add('is-on');
@@ -1667,7 +1763,7 @@ export class LabTree {
     if (n.kids.length) {
       this.$secKids.hidden = false;
       this.$kids.innerHTML = n.kids.map((k) => (k.B.sealed
-        ? `<button type="button" class="lt-kid st-sealed" data-goto="${esc(k.id)}"><span class="lt-art sm">${G_LOCK}</span>${esc(scramble(k.d.name, 0.65, hashStr(k.id)))}</button>`
+        ? `<button type="button" class="lt-kid st-sealed" data-goto="${esc(k.id)}"><span class="lt-art sm">${G_LOCK}</span>Mystery project</button>`
         : `<button type="button" class="lt-kid st-${this._st.get(k.id)}" data-goto="${esc(k.id)}"><span class="lt-art sm">${this._nodeArt(k, 22)}</span>${esc(k.d.name)}</button>`)).join('');
     } else this.$secKids.hidden = true;
     this._renderAct();
@@ -1679,17 +1775,17 @@ export class LabTree {
     this.$det.dataset.state = 'sealed';
     this.$det.style.setProperty('--bc', B.color);
     this._setWorking(false);
-    this.$hUnl.textContent = 'Encrypted contents';
-    this.$hTime.textContent = 'Decrypt cost';
+    this.$hUnl.textContent = 'Inside the crate';
+    this.$hTime.textContent = 'Unlock cost';
     this.$hReq.textContent = 'Section key';
-    this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(B.b.icon, 16)}${esc(B.b.name)}</span><span class="lt-tier is-enc">ENCRYPTED</span>`;
+    this.$kicker.innerHTML = `<span class="lt-bchip">${this._iconFit(B.b.icon, 16)}${esc(B.b.name)}</span><span class="lt-tier is-enc">LOCKED SECTION</span>`;
     this.$name.textContent = B.b.name;
-    this.$heroSt.textContent = 'ENCRYPTED';
+    this.$heroSt.textContent = 'LOCKED';
     this.$heroSt.className = 'lt-hero-st st-sealed';
-    this.$desc.innerHTML = `<b>${B.nodes.length}</b> research projects are sealed in this sector. Use its <b>section key</b> to decrypt it.`;
+    this.$desc.innerHTML = `<b>${B.nodes.length}</b> research projects are packed in this crate. Get its <b>section key</b> and UNLOCK it to start researching them.`;
     let fish = 0, builds = 0, ups = 0, other = 0;
     for (const n of B.nodes) { if (n.d.species) fish++; else if (n.d.build) builds++; else if (n.d.mods) ups++; else other++; }
-    const row = (art, num, what) => (num ? `<li><span class="lt-art">${art}</span><span class="lt-unl-t"><b>${num} ${esc(what)}</b><small>${esc(scramble(what.toUpperCase(), 0.6, num * 31 + what.length))}</small></span></li>` : '');
+    const row = (art, num, what) => (num ? `<li><span class="lt-art">${art}</span><span class="lt-unl-t"><b>${num} ${esc(what)}</b><small>a surprise inside</small></span></li>` : '');
     this.$unl.innerHTML = row(this._iconFit('fish', 30), fish, fish === 1 ? 'fish species' : 'fish species') + row(this._iconFit('hammer', 30), builds, builds === 1 ? 'thing to build' : 'things to build') + row(this._iconFit('bolt', 28) || G_BOLT, ups, ups === 1 ? 'upgrade' : 'upgrades') + row(this._iconFit('gear', 28), other, 'secrets');
     this.$time.innerHTML = k.coins ? `${G_COIN}<b>${k.coins}</b><span>coins, once</span>` : '<b>FREE</b><span class="lt-free">KEY ONLY</span>';
     let reqs = '';
@@ -1717,11 +1813,11 @@ export class LabTree {
       const miss = (k.needs || []).find((x) => x.kind !== 'coins' && !x.ok);
       if (k.canUnlock) {
         b.classList.add('is-go');
-        this.$goL.innerHTML = `${G_KEY} DECRYPT SECTION`;
+        this.$goL.innerHTML = `${G_KEY} UNLOCK SECTION`;
         this.$goS.textContent = k.coins ? `Pay ${k.coins} coins` : 'Free!';
       } else {
         b.classList.add('is-no');
-        this.$goL.innerHTML = `${G_LOCK} ENCRYPTED`;
+        this.$goL.innerHTML = `${G_LOCK} LOCKED`;
         this.$goS.textContent = miss ? `Key: ${miss.text}` : `Needs ${k.coins} coins`;
       }
       return;
@@ -1817,9 +1913,21 @@ export class LabTree {
 
   _sizeWork() {
     const bw = this.$hero.clientWidth;
-    if (this.wb && bw) this.wb.fit(bw - 8, Math.round(Math.min(220, Math.max(120, bw * 0.6))));
-    const tw = this.$work.clientWidth;
-    if (tw) this.tube.fit(tw);
+    if (this.wb && bw) this.wb.fit(bw - 8, Math.round(Math.min(200, Math.max(110, bw * 0.5))));
+    const tw = (this.$tube.parentElement?.clientWidth || this.$work.clientWidth) - 8; // inside the tube's box
+    if (tw > 24) this.tube.fit(tw);
+  }
+
+  // [v33 lab] the showcase canvas at a whole number of device px per art px (crisp)
+  _sizeHero() {
+    const w = this.$hero.clientWidth;
+    if (!w) return;
+    const s = crispPx(2);
+    const pw = clamp(Math.floor((w - 4) / s), 96, 190), ph = clamp(Math.round(pw * 0.38), 48, 80);
+    if (pw === this._pw && ph === this._ph && s === this._ps) return;
+    this._pw = pw; this._ph = ph; this._ps = s;
+    this.pcv.style.width = `${pw * s}px`;
+    this.pcv.style.height = `${ph * s}px`;
   }
 
   // rush buttons: live price + "can't afford" state
@@ -1878,7 +1986,8 @@ export class LabTree {
     for (const s of this._jobEls || []) {
       const j = this._job(s.id);
       if (!j) continue;
-      s.bar.style.width = `${(j.k * 100).toFixed(1)}%`;
+      const w = `scaleX(${j.k.toFixed(3)})`; // [v33 lab] transform only: no layout per tick
+      if (s._w !== w) { s._w = w; s.bar.style.transform = w; }
       const txt = fmtClock(j.left);
       if (s.t.textContent !== txt) s.t.textContent = txt;
       if (s.rush.length) this._livePrices(s.rush, s.id);
@@ -1886,8 +1995,8 @@ export class LabTree {
     for (const j of this._jobs) {
       const n = j.n;
       if (!n?.$nbar) continue;
-      const w = `${(j.k * 100).toFixed(1)}%`;
-      if (n._nbw !== w) { n._nbw = w; n.$nbar.style.width = w; }
+      const w = `scaleX(${j.k.toFixed(3)})`;
+      if (n._nbw !== w) { n._nbw = w; n.$nbar.style.transform = w; }
       const txt = fmtClock(j.left);
       if (n._pillT !== txt) { n._pillT = txt; n.$pill.innerHTML = `<b>${txt}</b>`; n.$pill.hidden = false; }
     }
@@ -1904,7 +2013,7 @@ export class LabTree {
       this._fx(this.$go, 'is-shake', 400);
       this._fx(n.el, 'is-shake', 400);
       if (this._st.get(n.id) !== 'done' && this._st.get(n.id) !== 'run') this.$goS.textContent = /bench busy/i.test(chk.reason || '') ? this._busyText() : String(chk.reason || '');
-      if (chk.reason) this._log(`ERR: ${chk.reason}`, 'err');
+      if (chk.reason) this._log(`Not yet: ${chk.reason}.`, 'err');
       return;
     }
     let ok = false;
@@ -1923,7 +2032,8 @@ export class LabTree {
       this._sfx('start');
       this._fly(n);
       this._ring(n, 'start');
-      this._log(`synthesizing ${n.d.name}... ETA ${fmtDur(this._job(n.id)?.left || n.time)}`, 'run');
+      this._float(n, 'STARTED!', 'start');
+      this._log(`Research started: ${n.d.name}! Ready in ${fmtDur(this._job(n.id)?.left || n.time)}.`, 'run');
     }
     this.refresh();
     this._renderDetail();
@@ -1942,11 +2052,11 @@ export class LabTree {
       this._sfx('denied');
       if (src) this._fx(src, 'is-shake', 400);
       this._flash(src, res?.msg || 'Not enough coins');
-      this._log(`ERR: ${res?.msg || 'insufficient credits'}`, 'err');
+      this._log(res?.msg || 'Not enough coins for that.', 'err');
       return;
     }
     this._sfx(mode === 'now' ? 'rushnow' : 'rush');
-    this._log(mode === 'now' ? `overclock: ${n.d.name} forced to completion` : `turbo injected: ${n.d.name} -50% time`, 'warn');
+    this._log(mode === 'now' ? `Coins well spent: ${n.d.name} is done!` : `Extra coffee for Reynard: ${n.d.name} goes twice as fast!`, 'warn');
     this._coinsFly(src, n.$ico, Math.min(14, 4 + Math.round((price || 10) / 15)));
     this._float(n, mode === 'now' ? 'DONE!' : '-50% TIME', mode);
     this._ring(n, 'warp');
@@ -2024,14 +2134,14 @@ export class LabTree {
     seal._sig = sig;
     const needs = (k.needs || []).map((x) => `<li class="${x.ok ? 'ok' : 'bad'}"${x.kind === 'node' && this.byId.has(x.id) ? ` data-goto="${esc(x.id)}"` : ''}>${x.ok ? G_CHECK : G_CROSS}<span>${esc(x.text)}</span></li>`).join('');
     const body = `<div class="lt-seal-card">
-        <div class="lt-seal-top">${G_SEAL}<div class="lt-seal-tt"><span class="lt-seal-k">ENCRYPTED SECTOR</span><span class="lt-seal-n">${esc(B.b.name)}</span><span class="lt-seal-c">${B.nodes.length} PROJECTS LOCKED <i>${esc(scramble('XXXXXXXX', 1, hashStr(B.b.id)))}</i></span></div></div>
+        <div class="lt-seal-top">${G_SEAL}<div class="lt-seal-tt"><span class="lt-seal-k">LOCKED SECTION</span><span class="lt-seal-n">${esc(B.b.name)}</span><span class="lt-seal-c">${B.nodes.length} projects inside</span></div></div>
         ${needs ? `<ul class="lt-seal-req">${needs}</ul>` : ''}
-        <button type="button" class="lt-decrypt${k.canUnlock ? ' is-ready' : ''}">${G_KEY}<span>DECRYPT</span>${k.coins ? `<small>${G_COIN}${k.coins}</small>` : '<small>FREE</small>'}</button>
+        <button type="button" class="lt-decrypt${k.canUnlock ? ' is-ready' : ''}">${G_KEY}<span>UNLOCK</span>${k.coins ? `<small>${G_COIN}${k.coins}</small>` : '<small>FREE</small>'}</button>
       </div>`;
     if (first) {
       let ghosts = '';
       for (const n of B.nodes) ghosts += `<i style="left:${Math.round(n.x - B.sx - 28)}px;top:${Math.round(n.y - B.sy - 28)}px;--d:${hashStr(n.id) % 1200}ms"><b>?</b></i>`;
-      seal.innerHTML = `<div class="lt-seal-bg"><div class="lt-radar"><i></i><b></b></div></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
+      seal.innerHTML = `<div class="lt-seal-bg"><i class="lt-crate-l"></i><i class="lt-crate-r"></i></div><div class="lt-seal-ghosts">${ghosts}</div><div class="lt-seal-body">${body}</div>`;
     } else seal.querySelector('.lt-seal-body').innerHTML = body;
   }
 
@@ -2046,13 +2156,12 @@ export class LabTree {
       this._sfx('denied');
       if (src) this._fx(src, 'is-shake', 400);
       this._fx(B.seal, 'is-denied', 600);
-      this._flash(src || this.$go, res?.msg || 'Access denied');
-      this._log(`ACCESS DENIED: sector ${String(B.i + 1).padStart(2, '0')} ${B.b.name}`, 'err');
-      this._glitch();
+      this._flash(src || this.$go, res?.msg || 'Still locked');
+      this._log(`${B.b.name} is still locked: ${res?.msg || 'check its key'}.`, 'err');
       return;
     }
     this._sfx('decrypt');
-    this._log(`brute-forcing sector ${String(B.i + 1).padStart(2, '0')} cipher...`, 'warn');
+    this._log(`Unlocking ${B.b.name}...`, 'warn');
     if (k.coins) { this._coinsFly(src, B.seal.querySelector('.lt-seal-top') || B.seal, Math.min(14, 4 + Math.round(k.coins / 15))); this._bumpCoins(); }
     this.refresh();
   }
@@ -2062,7 +2171,7 @@ export class LabTree {
     if (seal) {
       seal.hidden = false;
       const t = seal.querySelector('.lt-seal-k');
-      if (t) t.textContent = 'ACCESS GRANTED';
+      if (t) t.textContent = 'UNLOCKED!';
       seal.classList.add('is-decrypt');
       this._later(() => { seal.classList.remove('is-decrypt', 'is-sel'); seal.hidden = true; }, REDUCED ? 10 : 1250);
     }
@@ -2070,9 +2179,8 @@ export class LabTree {
       n.el.classList.add('is-hide');
       this._later(() => { n.el.classList.remove('is-hide'); this._fx(n.el, 'is-reveal', 900); }, REDUCED ? 0 : 650 + Math.min(i, 14) * 70);
     });
-    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}"><span class="lt-toast-k">SECTOR DECRYPTED</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
-    this._log(`sector ${String(B.i + 1).padStart(2, '0')} decrypted: ${B.b.name} (${B.nodes.length} projects)`, 'ok', REDUCED ? 0 : 900);
-    this._glitch();
+    this._toast({ html: `<div class="lt-toast-c is-sec" style="--bc:${esc(B.color)}">${CONFETTI}<span class="lt-toast-k">NEW SECTION OPEN!</span><div class="lt-toast-r"><span class="lt-art">${this._iconFit(B.b.icon, 32)}</span><b>${esc(B.b.name)}</b></div><div class="lt-toast-n">${B.nodes.length} new research projects!</div></div>` });
+    this._log(`${B.b.name} is open: ${B.nodes.length} new projects to research!`, 'ok', REDUCED ? 0 : 900);
     this._fitRect(B.sx - 20, B.sy - 30, B.sx + B.sw + 20, B.sy + B.sh + 30, 1);
   }
 
@@ -2084,7 +2192,7 @@ export class LabTree {
     const a = n.$ico.getBoundingClientRect(), b = slot.getBoundingClientRect();
     if (!a.width || !b.width) return;
     const el = document.createElement('div');
-    el.className = 'lt-fly';
+    el.className = 'lt-flyart';
     el.innerHTML = this._nodeArt(n, 40);
     el.style.left = `${a.left + a.width / 2 - rr.left}px`;
     el.style.top = `${a.top + a.height / 2 - rr.top}px`;
@@ -2132,7 +2240,7 @@ export class LabTree {
     this._ring(n, 'done');
     this._fx(n.el, 'is-burst', 1100);
     this._sfx('done');
-    this._log(`${n.d.name}: research complete. blueprint compiled OK`, 'ok');
+    this._log(`Research done: ${n.d.name}!`, 'ok');
     if (prev === 'run' || prev === 'avail') this._toast(n);
     if (n === this.sel && !REDUCED) this._burstHero();
     this._later(() => { if (n.kids.some((k) => this._st.get(k.id) === 'avail')) this._sfx('unlock'); }, 450);
@@ -2155,11 +2263,11 @@ export class LabTree {
       }
       const items = this._unlockItems(m.d).slice(0, 3);
       const fresh = m.kids.filter((k) => this._st.get(k.id) === 'avail');
-      this.$toast.innerHTML = `<div class="lt-toast-c" style="--bc:${esc(m.B.color)}">
-        <span class="lt-toast-k">RESEARCH COMPLETE!</span>
+      this.$toast.innerHTML = `<div class="lt-toast-c" style="--bc:${esc(m.B.color)}">${CONFETTI}
+        <span class="lt-toast-k">${G_STAR}RESEARCH DONE!${G_STAR}</span>
         <div class="lt-toast-r"><span class="lt-art">${this._nodeArt(m, 44)}</span><b>${esc(m.d.name)}</b></div>
         ${items.length ? `<div class="lt-toast-u">${items.map((it) => `<span><span class="lt-art sm">${it.art}</span>${esc(it.name)}</span>`).join('')}</div>` : ''}
-        ${fresh.length ? `<div class="lt-toast-n">New: ${fresh.slice(0, 3).map((k) => esc(k.d.name)).join(', ')}${fresh.length > 3 ? '...' : ''}</div>` : ''}
+        ${fresh.length ? `<div class="lt-toast-n">Next up: ${fresh.slice(0, 3).map((k) => esc(k.d.name)).join(', ')}${fresh.length > 3 ? '...' : ''}</div>` : ''}
       </div>`;
       this.$toast.classList.remove('is-on');
       void this.$toast.offsetWidth;
@@ -2169,11 +2277,29 @@ export class LabTree {
     next();
   }
 
+  // [v33 lab] the tube boils over: pixel bubbles pop up out of it (was called but never defined in v30)
+  _tubeBurst() {
+    const box = this.$tube;
+    if (!box?.isConnected || !this.$fxl) return;
+    const rr = this.root.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (!b.width) return;
+    for (let i = 0; i < 16; i++) {
+      const el = document.createElement('i');
+      el.className = 'lt-tbub';
+      el.style.left = `${Math.round((b.left - rr.left + 10 + Math.random() * (b.width - 20)) / 2) * 2}px`;
+      el.style.top = `${Math.round((b.top - rr.top + b.height / 2) / 2) * 2}px`;
+      el.style.setProperty('--dy', `${-2 * Math.round(14 + Math.random() * 26)}px`);
+      el.style.animationDelay = `${i * 28}ms`;
+      this.$fxl.appendChild(el);
+      this._later(() => el.remove(), 1300);
+    }
+  }
+
   _burstHero() {
     const R = rng(now() | 0);
     for (let i = 0; i < 30; i++) {
       const a = R() * Math.PI * 2, v = 30 + R() * 70;
-      this._bursts.push({ x: PW / 2, y: PH / 2 - 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, t: 0, life: 0.6 + R() * 0.6, c: R() < 0.5 ? '#fff7c4' : R() < 0.5 ? '#7dffa8' : '#ffcc3a' });
+      this._bursts.push({ x: (this._pw || PW) / 2, y: (this._ph || PH) / 2 - 4, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, t: 0, life: 0.6 + R() * 0.6, c: ['#ff5a7a', '#ffd23f', '#5ccf6e', '#5fb8ff', '#b07bff'][Math.floor(R() * 5)] });
     }
   }
 
@@ -2197,6 +2323,7 @@ export class LabTree {
     if (this.o.fishCanvas) return;
     this._fish = m;
     this._fishFrames.clear();
+    FISH_URLS.clear();
     for (const n of this.nodes) if (n.d.species) n.$ico.innerHTML = this._nodeArt(n);
     if (this.sel?.d.species) this._renderDetail();
     this._renderBench();
@@ -2234,94 +2361,69 @@ export class LabTree {
       this.refresh();
     }
     this._liveAct();
+    // Reynard at his desk + the green liquid tube (only while the selected job runs), ~30 fps
+    if (this._isWorking && t - (this._lastWork || 0) >= 33) {
+      const dt = clamp((t - (this._lastWork || t)) / 1000, 1 / 60, 0.1);
+      this._lastWork = t;
+      const n = this.sel;
+      const k = this._tubeK ?? 0;
+      this.tube.draw((t - this._t0) / 1000, k, { done: !!(n && this._finish?.id === n.id), dt });
+      if (this.wb) {
+        this.wb.setJob({ title: n?.d.name || '', art: this._artSrc(n), k });
+        try { this.wb.update(dt); } catch (err) { console.warn('Workbench', err); this.wb = null; this._wbFailed = true; this.$hero.classList.remove('has-wb'); }
+      }
+    }
     // wallet
     const coins = this._coins();
     if (coins !== this._lastCoins && this.$coinsV) {
       this.$coinsV.textContent = coins == null ? '-' : Math.floor(coins).toLocaleString('en-US');
       this._lastCoins = coins;
     }
-    // v19: terminal uptime clock (text changes once a second)
-    const up = Math.floor((t - this._t0) / 1000);
-    if (up !== this._up && this.$termClk) { this._up = up; this.$termClk.textContent = fmtClock(up); }
-    // Reynard
-    // showcase canvas ~30fps
-    if (t - this._lastDraw >= 33) {
+    // showcase canvas ~20fps (it is pixel art: more frames add nothing)
+    if (t - this._lastDraw >= 50) {
       const dt = Math.min(0.1, (t - (this._lastDraw || t)) / 1000);
       this._lastDraw = t;
       this._drawHero((t - this._t0) / 1000, dt);
     }
   };
 
+  // [v33 lab] the showcase: a cached cozy backdrop (a shelf for things, a little fish tank for
+  // fish, a crate for a locked section) with only the item, sparkles and bubbles drawn per frame
   _drawHero(t, dt) {
-    if (this.selSec && this.$hero.offsetParent !== null) { this._drawSealHero(t); return; }
+    if (this.$hero.offsetParent === null || this.$hero.classList.contains('has-wb')) return;
+    const cv = this.pcv, ctx = this.pctx;
+    const W = this._pw || PW, H = this._ph || PH;
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    ctx.imageSmoothingEnabled = false;
+    if (this.selSec) {
+      ctx.drawImage(heroBackdrop('crate', 'locked', W, H), 0, 0);
+      drawPadlock(ctx, Math.round(W / 2), Math.round(H / 2) + 2 + (Math.floor(t * 2) % 2 ? 0 : 1));
+      drawSparkles(ctx, W, H, t, 99, 3);
+      this._drawBursts(ctx, dt);
+      return;
+    }
     const n = this.sel;
-    if (!n || this.$hero.offsetParent === null) return;
-    const cv = this.pcv, ctx = this.pctx;
+    if (!n) return;
     const st = this._st.get(n.id);
-    let custom = false;
-    if (this.o.preview && st !== 'locked' && st !== 'zone') {
-      try { custom = !!this.o.preview(n.d, cv, t); } catch { custom = false; }
+    const dark = st === 'locked' || st === 'zone';
+    const fish = n.d.species && this._fishFrame(n.d.species, 0);
+    if (fish) {
+      ctx.drawImage(heroBackdrop('tank', st, W, H), 0, 0);
+      this._drawFish(ctx, W, H, t, n.d.species, dark);
+    } else {
+      ctx.drawImage(heroBackdrop('shelf', st, W, H), 0, 0);
+      this._drawIcon(ctx, W, H, t, n, dark);
     }
-    if (!custom) {
-      if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
-      ctx.imageSmoothingEnabled = false;
-      const W = cv.width, H = cv.height;
-      drawBackdrop(ctx, W, H, t, st);
-      const dark = st === 'locked' || st === 'zone';
-      if (n.d.species && this._fishFrame(n.d.species, 0)) this._drawFish(ctx, W, H, t, n.d.species, dark);
-      else this._drawIcon(ctx, W, H, t, n, dark);
-      if (st === 'run') {
-        const j = this._job(n.id);
-        const k = j ? j.k : 0;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(8, H - 8, W - 16, 4);
-        ctx.fillStyle = '#5fd0f0';
-        ctx.fillRect(8, H - 8, Math.round((W - 16) * k), 4);
-      }
-      drawScan(ctx, W, H, t);
-      if (!dark) drawSparkles(ctx, W, H, t, hashStr(n.id), st === 'done' ? 7 : 4);
+    if (st === 'run') {
+      const j = this._job(n.id);
+      const k = j ? j.k : 0;
+      ctx.fillStyle = '#2b1d14';
+      ctx.fillRect(8, H - 7, W - 16, 4);
+      ctx.fillStyle = '#5ccf6e';
+      ctx.fillRect(9, H - 6, Math.round((W - 18) * k), 2);
     }
+    if (!dark) drawSparkles(ctx, W, H, t, hashStr(n.id), st === 'done' ? 6 : 3);
     this._drawBursts(ctx, dt);
-  }
-
-  // an encrypted sector: a glitching padlock over scrambled data
-  _drawSealHero(t) {
-    const cv = this.pcv, ctx = this.pctx;
-    if (cv.width !== PW || cv.height !== PH) { cv.width = PW; cv.height = PH; }
-    const W = PW, H = PH;
-    drawBackdrop(ctx, W, H, t, 'locked');
-    const R = rng(Math.floor(t * 8) + 1);
-    ctx.font = "8px 'TBME Body', monospace"; // [v18 font]
-    ctx.textAlign = 'left';
-    for (let i = 0; i < 9; i++) {
-      ctx.fillStyle = `rgba(95,208,240,${0.08 + R() * 0.18})`;
-      ctx.fillText(scramble('XXXXXXXXXXXXXXXXXXXXXXX', 1, Math.floor(t * 6) * 13 + i), -4 + ((i * 37) % 11), 8 + i * 8);
-    }
-    const g = R() < 0.12 ? Math.round((R() - 0.5) * 6) : 0;
-    const cx = Math.round(W / 2) + g, cy = Math.round(H / 2) + 4;
-    // padlock: dark outline, shackle, body with a keyhole
-    ctx.fillStyle = '#04161c';
-    ctx.fillRect(cx - 9, cy - 21, 18, 4);
-    ctx.fillRect(cx - 9, cy - 21, 5, 14);
-    ctx.fillRect(cx + 4, cy - 21, 5, 14);
-    ctx.fillRect(cx - 13, cy - 9, 26, 21);
-    ctx.fillStyle = '#9adff0';
-    ctx.fillRect(cx - 7, cy - 19, 14, 2);
-    ctx.fillRect(cx - 7, cy - 19, 2, 11);
-    ctx.fillRect(cx + 5, cy - 19, 2, 11);
-    ctx.fillStyle = '#5fd0f0';
-    ctx.fillRect(cx - 11, cy - 7, 22, 17);
-    ctx.fillStyle = '#2c9cc8';
-    ctx.fillRect(cx + 7, cy - 7, 4, 17);
-    ctx.fillRect(cx - 11, cy + 8, 22, 2);
-    ctx.fillStyle = '#d4fbff';
-    ctx.fillRect(cx - 11, cy - 7, 18, 1);
-    ctx.fillStyle = '#04161c';
-    ctx.fillRect(cx - 2, cy - 2, 4, 4);
-    ctx.fillRect(cx - 1, cy + 2, 2, 4);
-    if (g) { ctx.fillStyle = 'rgba(255,90,120,.5)'; ctx.fillRect(0, cy - 4 + g * 2, W, 2); }
-    drawScan(ctx, W, H, t);
-    this._drawBursts(ctx, 0.033);
   }
 
   _silhouette(img, w, h) {
@@ -2350,11 +2452,11 @@ export class LabTree {
     const bob = dark ? 0 : Math.round(Math.sin(t * 2.2) * 2.5);
     const x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2 - 5 + bob);
     const sw = Math.round(w * (0.62 - bob * 0.03));
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(Math.round(W / 2 - sw / 2), H - 15, sw, 3);
+    ctx.fillStyle = '#8a5228';
+    ctx.fillRect(Math.round(W / 2 - sw / 2), H - 14, sw, 2);
     if (dark) {
       try { ctx.drawImage(this._silhouette(img, w, h), x, y); } catch { /* ignore */ }
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillStyle = '#fff6dc';
       ctx.font = "24px 'TBME Title', monospace"; // [v18 font]
       ctx.textAlign = 'center';
       ctx.fillText('?', W / 2, H / 2 + 4);
@@ -2417,44 +2519,91 @@ export class LabTree {
 }
 
 // ---------------------------------------------------------------- showcase drawing
-const HERO_TINT = { done: [255, 214, 90], run: [95, 208, 240], avail: [125, 255, 168], zone: [255, 154, 58], locked: [140, 150, 170] };
-function drawBackdrop(ctx, W, H, t, st) {
-  const [r, g, b] = HERO_TINT[st] || HERO_TINT.avail;
+// [v33 lab] cozy backdrops, painted once per (kind, state, size) and blitted every frame
+const BACKDROPS = new Map();
+const TINT = { done: '#ffd23f', run: '#5fb8ff', avail: '#5ccf6e', zone: '#ff9a3a', locked: '#a89878' };
+function heroBackdrop(kind, st, W, H) {
+  const key = `${kind}|${st}|${W}x${H}`;
+  let c = BACKDROPS.get(key);
+  if (c) return c;
+  if (BACKDROPS.size > 40) BACKDROPS.clear();
+  c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const R = rng(hashStr(key));
+  const px = (col, X, Y, w = 1, h = 1) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
   const dark = st === 'locked' || st === 'zone';
-  ctx.fillStyle = dark ? '#0b0f12' : '#0a1a1e';
-  ctx.fillRect(0, 0, W, H);
-  const off = Math.floor(t * 4) % 8;
-  ctx.fillStyle = dark ? '#141a1e' : '#12303a';
-  for (let x = -off; x < W; x += 8) ctx.fillRect(x, 0, 1, H);
-  for (let y = off; y < H; y += 8) ctx.fillRect(0, y, W, 1);
-  const gr = ctx.createRadialGradient(W / 2, H / 2 - 4, 2, W / 2, H / 2, H * 0.8);
-  gr.addColorStop(0, `rgba(${r},${g},${b},${dark ? 0.08 : 0.24})`);
-  gr.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(0, 0, W, H);
-  const cx = W / 2, cy = H - 13;
-  for (let i = 0; i < 3; i++) {
-    const rx = 18 + i * 9, ry = 3 + i * 1.6;
-    const pulse = (t * 0.9 + i / 3) % 1;
-    const a = (dark ? 0.08 : 0.18) + (dark ? 0.15 : 0.5) * (1 - Math.abs(pulse - 0.5) * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
-    for (let k = 0; k < 64; k++) {
-      const ang = (k / 64) * Math.PI * 2;
-      ctx.fillRect(Math.round(cx + Math.cos(ang) * rx), Math.round(cy + Math.sin(ang) * ry), 1, 1);
+  if (kind === 'tank') {
+    // water in quantised bands with dithered seams, sand, pebbles and weeds, the glass rim
+    const bands = dark ? ['#5f7f8a', '#557580', '#4b6a76', '#425f6b'] : ['#9fe2f2', '#7fd0e8', '#62bcdf', '#4aa4d0'];
+    const bh = Math.ceil((H - 12) / bands.length);
+    bands.forEach((col, i) => {
+      px(col, 0, i * bh, W, bh);
+      if (i) for (let X = (i % 2); X < W; X += 2) px(bands[i - 1], X, i * bh, 1, 1);
+    });
+    for (let i = 0; i < 9; i++) { const X = Math.floor(R() * W); px(dark ? '#6f8f9a' : '#c8f0fa', X, 2 + Math.floor(R() * 4), 3 + Math.floor(R() * 6), 1); }
+    const sy = H - 12;
+    px(dark ? '#9a8a68' : '#f0d79a', 0, sy, W, 12);
+    px(dark ? '#7a6c50' : '#d9b878', 0, sy, W, 1);
+    for (let i = 0; i < W / 3; i++) px(R() < 0.5 ? (dark ? '#857659' : '#d9b878') : (dark ? '#b0a07c' : '#fff0c0'), Math.floor(R() * W), sy + 2 + Math.floor(R() * 9));
+    for (let i = 0; i < 4; i++) { const X = Math.floor(R() * (W - 8)); px('#2b1d14', X, sy + 4, 6, 4); px(['#c47a5a', '#8a9aa8', '#e0b060', '#7aa86a'][i], X + 1, sy + 4, 4, 3); px('#ffffff', X + 1, sy + 4); }
+    for (const wx of [6 + Math.floor(R() * 10), W - 14 - Math.floor(R() * 10), Math.floor(W * 0.36)]) {
+      const hgt = 18 + Math.floor(R() * 22);
+      for (let y = 0; y < hgt; y++) {
+        const off = Math.round(Math.sin((y / hgt) * 3 + wx) * 2);
+        px(dark ? '#3c5a40' : '#2f8a3e', wx + off, sy - y, 2, 1);
+        if (y % 5 === 2) px(dark ? '#4c6a50' : '#5ccf6e', wx + off + (y % 10 < 5 ? 2 : -2), sy - y, 2, 1);
+      }
     }
+    px('#d8f4ff', 0, 0, W, 1);
+    px('#2b1d14', 0, H - 1, W, 1);
+  } else if (kind === 'crate') {
+    // a wooden crate wall: planks, nail heads, a stencilled band
+    px('#8a5228', 0, 0, W, H);
+    for (let y = 0; y < H; y += 10) {
+      px('#a8693a', 0, y, W, 9);
+      px('#c98a52', 0, y, W, 1);
+      px('#5e3418', 0, y + 9, W, 1);
+      for (let i = 0; i < 6; i++) px('#96592e', Math.floor(R() * W), y + 2 + Math.floor(R() * 6), 4 + Math.floor(R() * 10), 1);
+    }
+    for (const X of [10, W - 16]) { px('#5e3418', X, 0, 6, H); px('#c98a52', X, 0, 1, H); for (let y = 5; y < H; y += 20) { px('#2b1d14', X + 2, y, 2, 2); px('#d8d0c0', X + 2, y, 1, 1); } }
+  } else {
+    // a warm wallpaper with a little dot pattern, a wooden shelf, a dithered spotlight in the state's colour
+    px(dark ? '#d8c8a8' : '#f6e7c6', 0, 0, W, H);
+    for (let y = 3; y < H - 14; y += 8) for (let X = (y % 16 === 3 ? 3 : 7); X < W; X += 8) px(dark ? '#c9b894' : '#ead3a6', X, y, 2, 2);
+    if (!dark) {
+      const cx = W / 2, cy = H / 2 + 2, rx = W * 0.3, ry = H * 0.42;
+      const tint = TINT[st] || TINT.avail;
+      for (let y = 0; y < H - 14; y++) for (let X = 0; X < W; X++) {
+        const d = ((X - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
+        if (d < 0.55) px('#fff6dc', X, y);
+        else if (d < 1 && (X + y) % 2 === 0) px('#fff6dc', X, y);
+        else if (d >= 1 && d < 1.12 && (X + y) % 2 === 0) px(tint, X, y);
+      }
+    }
+    const sy = H - 14;
+    px('#5e3418', 0, sy - 1, W, 1);
+    px('#c98a52', 0, sy, W, 2);
+    px('#a8693a', 0, sy + 2, W, 7);
+    px('#8a5228', 0, sy + 9, W, 3);
+    px('#5e3418', 0, sy + 12, W, 2);
+    for (let i = 0; i < W / 6; i++) px('#96592e', Math.floor(R() * W), sy + 3 + Math.floor(R() * 5), 3 + Math.floor(R() * 8), 1);
+    for (const X of [8, W - 12]) { px('#5e3418', X, sy + 12, 4, 2); px('#3a2208', X + 1, sy + 13, 2, 1); }
   }
+  BACKDROPS.set(key, c);
+  return c;
 }
 
-function drawScan(ctx, W, H, t) {
-  const y = Math.floor(((t * 34) % (H + 26)) - 12);
-  for (let i = 0; i < 8; i++) {
-    const yy = y - i;
-    if (yy < 0 || yy >= H) continue;
-    ctx.fillStyle = `rgba(200,240,255,${i === 0 ? 0.3 : 0.08 * (1 - i / 8)})`;
-    ctx.fillRect(0, yy, W, 1);
-  }
-  ctx.fillStyle = 'rgba(0,0,0,0.14)';
-  for (let yy = 1; yy < H; yy += 2) ctx.fillRect(0, yy, W, 1);
+// a chunky brass padlock (the locked section showcase)
+function drawPadlock(ctx, cx, cy) {
+  const p = (col, x, y, w, h) => { ctx.fillStyle = col; ctx.fillRect(x, y, w, h); };
+  p('#2b1d14', cx - 10, cy - 22, 20, 4); p('#2b1d14', cx - 10, cy - 22, 5, 15); p('#2b1d14', cx + 5, cy - 22, 5, 15);
+  p('#d8dee6', cx - 8, cy - 20, 16, 2); p('#d8dee6', cx - 8, cy - 20, 2, 12); p('#9aa4b0', cx + 6, cy - 20, 2, 12);
+  p('#2b1d14', cx - 15, cy - 9, 30, 24);
+  p('#f2b632', cx - 13, cy - 7, 26, 20);
+  p('#fff6c0', cx - 13, cy - 7, 22, 2);
+  p('#b87414', cx + 9, cy - 7, 4, 20); p('#b87414', cx - 13, cy + 10, 26, 3);
+  p('#2b1d14', cx - 2, cy - 1, 4, 4); p('#2b1d14', cx - 1, cy + 3, 2, 4);
 }
 
 function drawSparkles(ctx, W, H, t, seed, count) {
@@ -2466,7 +2615,7 @@ function drawSparkles(ctx, W, H, t, seed, count) {
     const x = Math.round(W * 0.22 + R() * W * 0.56), y = Math.round(H * 0.12 + R() * H * 0.62);
     if (ph > 0.6) continue;
     const s = ph < 0.2 || ph > 0.45 ? 0 : 1;
-    ctx.fillStyle = R() < 0.5 ? '#eafff0' : '#ffe890';
+    ctx.fillStyle = R() < 0.5 ? '#ffffff' : '#ffd23f';
     ctx.fillRect(x, y, 1, 1);
     if (s) { ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
   }

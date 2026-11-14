@@ -19,7 +19,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { FoxRig, FOX_DESK_HEIGHT } from '../../entities/foxRig.js';
 import { dpr } from '../uiScale.js';
 
-const FPS = 24;
+const FPS = 15; // [v33 lab] pixel diorama: 15 fps reads the same and costs ~40% less (was 24)
 const CSS_PX = 2; // css px per art px
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
