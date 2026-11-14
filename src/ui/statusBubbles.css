@@ -1,0 +1,33 @@
+/* [v33 bubble] round soap-bubble status markers over pond eggs, dates and fry (src/ui/statusBubbles.js).
+   They keep the .eggtag class (every "hide the egg tags" rule still applies) and drop the old paper tag look.
+   Three classes beat style.css's two-class .eggtag.ready / .eggtag.laid. */
+.eggtag.sbub, .eggtag.sbub.ready, .eggtag.sbub.laid {
+  display: block; padding: 0; gap: 0; background: none; border: 0; box-shadow: none; animation: none;
+  pointer-events: none; cursor: default; z-index: 6; --s: 2px;
+}
+.eggtag.sbub canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; pointer-events: none; }
+/* the round hit area (the canvas square is bigger than the bubble) */
+.eggtag.sbub .sbub-hit {
+  position: absolute; left: calc(var(--s) * 7); top: calc(var(--s) * 7); width: calc(var(--s) * 22); height: calc(var(--s) * 22);
+  border-radius: 50%; pointer-events: auto; cursor: pointer;
+}
+.eggtag.sbub.sb-fry .sbub-hit { left: calc(var(--s) * 10); top: calc(var(--s) * 10); width: calc(var(--s) * 16); height: calc(var(--s) * 16); }
+.eggtag.sbub.popped .sbub-hit { pointer-events: none; }
+.eggtag.sbub.sb-fry { opacity: .92; }
+/* caption under the bubble: pixel font, hard 4-way ink outline (no blur) */
+.eggtag.sbub .sbub-cap {
+  position: absolute; left: 50%; top: calc(var(--s) * 30); transform: translateX(-50%);
+  font-family: var(--font2); font-size: 16px; line-height: 16px; font-weight: normal; color: #fffbea; white-space: nowrap; pointer-events: none;
+  text-shadow: 2px 0 0 #1a1420, -2px 0 0 #1a1420, 0 2px 0 #1a1420, 0 -2px 0 #1a1420, 2px 2px 0 #1a1420, -2px 2px 0 #1a1420, 2px -2px 0 #1a1420, -2px -2px 0 #1a1420;
+}
+.eggtag.sbub .sbub-cap:empty { display: none; }
+.eggtag.sbub .sbub-cap.tap { font-family: var(--font-title, var(--font2)); font-size: 18px; color: #ffe070; top: calc(var(--s) * 31); }
+.eggtag.sbub .sbub-cap.tap span { display: inline-block; animation: sbub-hop .5s steps(1, end) infinite; }
+@keyframes sbub-hop { 0% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+/* clutch size: a tiny badge on the bubble's shoulder, in the rarity colour */
+.eggtag.sbub .sbub-n {
+  position: absolute; left: calc(var(--s) * 27); top: calc(var(--s) * 6); font-style: normal; opacity: 1; margin: 0;
+  font-family: var(--font2); font-size: 14px; line-height: 14px; color: var(--rc, #fffbea); pointer-events: none;
+  text-shadow: 2px 0 0 #1a1420, -2px 0 0 #1a1420, 0 2px 0 #1a1420, 0 -2px 0 #1a1420;
+}
+.eggtag.sbub .sbub-n:empty { display: none; }

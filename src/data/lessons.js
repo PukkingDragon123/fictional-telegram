@@ -7,10 +7,9 @@ const never = () => false;
 export const LESSON_QUESTS = [
   {
     id: 'lq_keeper', title: 'Keep the best one', icon: 'tag', reward: { coins: 30 }, when: never,
-    intro: 'Tag your most valuable fish DO NOT EAT. It is worth more as a parent.',
-    steps: [{ text: 'Tag a fish with 2+ stars DO NOT EAT', ev: 'fishTagged', test: (f) => (f?.g?.stars || 0) >= 2 }],
+    intro: 'Tap your most valuable fish and press Tag in the Fish Scope. It is worth more as a parent.', // [v33 bubble]
+    steps: [{ text: 'Tag a 2+ star fish in the Fish Scope', ev: 'fishTagged', test: (f) => (f?.g?.stars || 0) >= 2 }],
     check: (g) => g.fish.list.some((f) => !f.dead && f.tagged && f.g?.stars >= 2),
-    point: () => 'tool:tag',
   },
   {
     id: 'lq_3star', title: 'Breed up', icon: 'star', reward: { coins: 60 }, when: never,

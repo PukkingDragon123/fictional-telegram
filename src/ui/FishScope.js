@@ -530,14 +530,33 @@ class Scope {
         tankBtn = `<button class="fsc-btn" data-a="tank" ${s ? '' : `disabled title="${T.list?.().length ? 'All tanks are full' : 'Build a glass tank first'}"`}>${ico('tank', 2)}<span>To tank</span></button>`;
       }
     }
+    // [v33 bubble] Tag and Pet live here now (they left the hotbar); they appear once the feature is unlocked.
+    // Tag shows the tags left; Pet can be held to keep petting.
+    const open = (k) => (typeof game.isOpen === 'function' ? game.isOpen(k) : true);
+    const left = Math.max(0, (game.tagLimit?.() ?? 1) - (game.tagsUsed?.() ?? 0));
     this.$('.fsc-btns').innerHTML = `
-      <button class="fsc-btn ${f.tagged ? '' : 'red'}" data-a="tag">${ico('tag', 2)}<span>${f.tagged ? 'Untag' : 'Tag'}</span></button>
-      <button class="fsc-btn pink" data-a="pet">${ico('nurture', 2)}<span>Pet</span></button>
+      ${open('tag') ? `<button class="fsc-btn ${f.tagged ? '' : 'red'}" data-a="tag" data-feature="tag" title="DO NOT EAT tag: ${left} left">${ico('tag', 2)}<span>${f.tagged ? 'Untag' : `Tag <em class="fsc-left">${left}</em>`}</span></button>` : ''}
+      ${open('pet') ? `<button class="fsc-btn pink" data-a="pet" data-feature="pet" title="Pet (hold to keep petting)">${ico('nurture', 2)}<span>Pet</span></button>` : ''}
       ${tankBtn}
       ${game.ui?.openMatchmaker ? `<button class="fsc-btn" data-a="match">${ico('heart', 2)}<span>Match</span></button>` : ''}
       ${game.digsite?.scopeButton?.(f) || ''}
       <button class="fsc-btn close" data-a="close" title="Close">${ico('cross', 2)}<span>Close</span></button>`;
-    this.$('.fsc-btns').querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.act(b.dataset.a); }));
+    this.$('.fsc-btns').querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); if (b.dataset.a === 'pet' && this._petHeld) { this._petHeld = false; return; } this.act(b.dataset.a); }));
+    // [v33 bubble] hold Pet: a pat every ~0.4 s while held (Game.nurtureFish has its own 0.35 s cooldown)
+    const pb = this.$('.fsc-btns [data-a="pet"]');
+    if (pb) {
+      const stop = () => { clearInterval(this._petIv); this._petIv = 0; };
+      pb.addEventListener('pointerdown', () => {
+        stop();
+        this._petHeld = false;
+        this._petIv = setInterval(() => {
+          if (this.dead || !pb.isConnected) { stop(); return; }
+          this._petHeld = true;
+          this.pat();
+        }, 420);
+      });
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) pb.addEventListener(ev, stop);
+    }
   }
 
   act(a) {
@@ -548,12 +567,11 @@ class Scope {
       if (ok) {
         this.speak(f.tagged ? 'Tagged! DO NOT EAT. Hands off, bears.' : 'Tag off. Back on the menu... heh.', f.tagged ? 'proud' : 'scheming');
         if (f.tagged) game.audio?.play('stamp', { volume: 0.3 });
-      }
+        this.tagFx(f.tagged); // [v33 bubble]
+      } else if (!f.tagged) this.speak(`All ${game.tagLimit?.() ?? 1} tags are in use. Untag a fish first, or research the Label Maker.`, 'worried'); // [v33 bubble]
     } else if (a === 'pet') {
-      if (game.nurtureFish(f)) {
-        if (Math.random() < 0.5 || (f.love || 0) >= 1) this.speak((f.love || 0) >= 1 ? 'Fully nurtured! Look at that smile.' : 'Pat pat. Happy fish, better babies.', 'love');
-        this.petFx();
-      }
+      this.pat(); // [v33 bubble] the same Game.nurtureFish the old Pet tool used (+love, -hunger, hearts)
+      return;
     } else if (a === 'tank') {
       const T = game.tanks;
       if (f.tank) { if (T.release(f)) this.speak('Back to the pond you go!', 'happy'); }
@@ -573,6 +591,27 @@ class Scope {
     }
     this.render();
     this.layout();
+  }
+
+  // [v33 bubble] one pat (button tap, hold, or a tap on the fish): Game.nurtureFish, then the hearts + a line
+  pat() {
+    const game = this.game, f = this.fish;
+    if (!f || f.dead) return false;
+    if (!game.nurtureFish(f)) return false;
+    const full = (f.love || 0) >= 1;
+    if (full || (this.tipKey !== '__tut' && Math.random() < 0.4)) this.speak(full ? 'Fully nurtured! Look at that smile.' : `Pat pat. ${Math.round((f.love || 0) * 100)}% happy.`, 'love');
+    this.petFx();
+    try { this.F = facts(game, f); this.renderCalls(); this.renderChips(); this.layout(); } catch { /* ignore */ } // the MOOD call-out fills up (buttons stay, so a hold keeps going)
+    return true;
+  }
+
+  // [v33 bubble] the Tag button: a stamped tag hops off the button (stepped)
+  tagFx(on) {
+    const b = this.$('.fsc-btns [data-a="tag"]');
+    if (!b) return;
+    b.classList.remove('fsc-stamp'); void b.offsetWidth; b.classList.add('fsc-stamp');
+    setTimeout(() => b.classList.remove('fsc-stamp'), 500);
+    void on;
   }
 
   // little painted hearts hop up off the fish (stepped, no glow)

@@ -90,7 +90,7 @@ export const CHAPTERS = [
   // ------------------------------------------------------------------ 2
   {
     id: 'c2', title: 'Open for Business', sub: 'The bears are coming. Be ready.',
-    reward: { coins: 80, unlock: ['pet'], text: 'Pet tool' },
+    reward: { coins: 80, unlock: ['pet'], text: 'Pet button (Fish Scope)' }, // [v33 bubble]
     quests: [
       {
         id: 'm_bar', title: 'Pay the Crew', icon: 'beaverbar', cls: 'builder',
@@ -130,7 +130,7 @@ export const CHAPTERS = [
   // ------------------------------------------------------------------ 3
   {
     id: 'c3', title: 'Room to Grow', sub: 'More land, more ponds, more money.',
-    reward: { coins: 100, unlock: ['tag'], text: 'Tag tool' },
+    reward: { coins: 100, unlock: ['tag'], text: 'Tag button (Fish Scope)' }, // [v33 bubble]
     quests: [
       {
         id: 'm_garage', title: 'Lumber Yard', icon: 'hammer',
@@ -180,9 +180,9 @@ export const CHAPTERS = [
       },
       {
         id: 'm_keeper', title: 'Keep the Best', icon: 'tag', unlock: ['tag'],
-        steps: [{ text: 'Tag a 2-star fish DO NOT EAT', ev: 'fishTagged', test: (f) => (f?.g?.stars || 0) >= 2, done: (g) => alive(g).some((f) => f.tagged && (f.g?.stars || 0) >= 2) }],
+        // [v33 bubble] the Tag tool left the hotbar: tagging is a button in the Fish Scope (the hint reads the step out)
+        steps: [{ text: 'Tag a 2-star fish in the Fish Scope', ev: 'fishTagged', test: (f) => (f?.g?.stars || 0) >= 2, done: (g) => alive(g).some((f) => f.tagged && (f.g?.stars || 0) >= 2) }],
         reward: { coins: 40 },
-        point: () => 'tool:tag',
       },
       {
         id: 'm_cupid', title: 'Play Cupid', icon: 'heart', req: ['m_keeper'], unlock: ['match'],

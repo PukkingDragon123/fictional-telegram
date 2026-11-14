@@ -36,7 +36,7 @@ export const LESSONS = [
       ];
       if (worst && fishPrice(g, worst) < fishPrice(g, best)) out.push({ at: { fish: worst }, say: `This ${fishLabel(worst)}? ${B(fishPrice(g, worst) + ' coins')}. Same pond. Same food. Different ${B('genes')}.`, mood: 'smug' });
       out.push({ say: `Bears pay for ${B('size')}, ${B('colour')} and ${B('mutations')}: Golden x5, Galaxy x8. Stars are just the label.`, mood: 'happy' });
-      out.push({ at: 'tool:tag', say: `So: tag your best ${B('DO NOT EAT')} and breed MORE of it. Babies take after their parents!`, mood: 'excited' });
+      out.push({ at: { fish: best }, say: `So: tap your best, press ${B('Tag')} in the Fish Scope (${B('DO NOT EAT')}) and breed MORE of it. Babies take after their parents!`, mood: 'excited' }); // [v33 bubble]
       return out;
     },
   },

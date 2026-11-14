@@ -199,9 +199,28 @@ export async function fishScope(T) {
   }, (fish) => [
     // FishScope worth = coinValue * 7; FishSystem.coinValue = meal * value * valueMult(size x morph x mutation)
     { sel: '.fsc-worth', text: `A bear would pay ${worthOf(T.game, fish)} coins to eat ${T.nm(fish)}. That's the worth.`, mood: 'greedy' },
-    { sel: '.fsc-btns', text: `You can Tag or Pet ${T.nm(fish)} from these buttons too.`, mood: 'happy' },
+    { sel: '.fsc-btns', text: `Buttons down here do things to ${T.nm(fish)}. More of them turn up as we go.`, mood: 'happy' }, // [v33 bubble]
   ], { hello: (fish) => `That's ${T.nm(fish)}. Let's read ${T.him(fish)} one stat at a time.` });
   T.force(null);
+}
+
+/** [v33 tut2] Reynard talks in the Scope's own dialogue strip (.fsc-say). A waiting line moves on with a tap on it,
+ * Enter / Space, or after its reading time. */
+function scopeSay(T, text, { mood = 'teacher', wait = false } = {}) {
+  const s = scopeNow();
+  const plain = String(text).replace(/<[^>]+>/g, '');
+  if (s) { try { s.tipKey = '__tut'; s.speak(plain, mood); s.poseT = Math.max(s.poseT || 0, 6); } catch { /* ignore */ } }
+  if (!wait) return Promise.resolve();
+  const secs = Math.min(10, 2.5 + plain.length * 0.055);
+  return T.within(new Promise((res) => {
+    const el = scopeNow()?.el?.querySelector('.fsc-say');
+    const k = (e) => { if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); off(); res(); } };
+    const c = () => { off(); res(); };
+    const off = () => { window.removeEventListener('keydown', k, true); el?.removeEventListener('click', c); };
+    window.addEventListener('keydown', k, true);
+    el?.addEventListener('click', c);
+    setTimeout(off, secs * 1000 + 100);
+  }), secs);
 }
 
 /**
@@ -227,22 +246,7 @@ async function scopeLesson(T, steps, extras, { hello = null } = {}) {
   // the typed line), so there's one box on screen, never two. A waiting line moves on with a tap on it,
   // Enter / Space, or after its reading time.
   await T.hideTeacher();
-  const say = (text, { mood = 'teacher', wait = false } = {}) => {
-    const s = scopeNow();
-    const plain = String(text).replace(/<[^>]+>/g, '');
-    if (s) { try { s.tipKey = '__tut'; s.speak(plain, mood); s.poseT = Math.max(s.poseT || 0, 6); } catch { /* ignore */ } }
-    if (!wait) return Promise.resolve();
-    const secs = Math.min(10, 2.5 + plain.length * 0.055);
-    return T.within(new Promise((res) => {
-      const el = scopeNow()?.el?.querySelector('.fsc-say');
-      const k = (e) => { if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); off(); res(); } };
-      const c = () => { off(); res(); };
-      const off = () => { window.removeEventListener('keydown', k, true); el?.removeEventListener('click', c); };
-      window.addEventListener('keydown', k, true);
-      el?.addEventListener('click', c);
-      setTimeout(off, secs * 1000 + 100);
-    }), secs);
-  };
+  const say = (text, o) => scopeSay(T, text, o); // [v33 bubble] shared with the Tag / Pet lesson
   if (hello) await T.g(say(hello(fish), { mood: 'excited', wait: true }));
   for (const st of steps(fish)) {
     if (!(await reopen())) break;
@@ -288,37 +292,10 @@ async function scopeLesson(T, steps, extras, { hello = null } = {}) {
 export async function fishCare(T) {
   const game = T.game, G = T.guide, two = T.pair;
   await T.part(5, 'Fish Care');
-  // ---- petting
-  const loved = () => two.some((f) => live(f) && f.love >= 0.99);
-  T.frame(midOf(two[0], two[1]), 0.018);
-  let ms = [];
-  await T.hud('pet', {
-    line: '<b>PET</b> makes a fish happy. Happiness is the MOOD stat you just saw.', mood: 'happy',
-    tryLine: 'Pick <b>PET</b>, then tap a fish again and again until its heart is full.',
-    nagLine: 'Pet tool: tap a fish until its heart is full.',
-    timeout: 70,
-    tryIt: async () => {
-      T.force('pet');
-      if (!(await T.within(toolPicked(T, 'nurture'), 20))) game.setTool({ kind: 'nurture' });
-      ms = two.map((f, i) => G.mark(f, { color: 'pink', label: i ? null : 'PET' }));
-      T.nag(() => 'Pet tool: tap a fish until its heart is full.', { world: true });
-      ms.push(await T.tell(two[0], `Now <b>tap ${T.nm(two[0])} or ${T.nm(two[1])}</b> again and again until the heart is full.`));
-      let shown = -1;
-      const tick = setInterval(() => {
-        const f = two.filter(live).sort((x, y) => y.love - x.love)[0];
-        if (!f || loved() || T.skipping) { clearInterval(tick); return; }
-        const p = Math.floor(f.love * 5);
-        if (p !== shown && f.love > 0.05) { shown = p; T.line(`${T.nm(f)}: ${pct(f.love)}% happy. Keep tapping.`, { target: f }); }
-      }, 400);
-      try { await T.waitFor(loved); } finally { clearInterval(tick); }
-    },
-    fallback: async () => {
-      T.line('Like this: tap, tap, tap.', { mood: 'happy' });
-      const f = two.find(live);
-      for (let i = 0; i < 6 && f && !loved(); i++) { game.nurtureFish(f); await T.wait(0.45); }
-    },
-  });
-  ms.forEach((s) => s());
+  // ---- petting + tags: [v33 bubble] both are buttons in the Fish Scope now (they left the hotbar)
+  game.unlockFeature('pet', { quiet: true });
+  game.unlockFeature('tag', { quiet: true });
+  await scopeCare(T, two);
   T.force(null);
   game.setTool({ kind: 'feed' });
   await T.cine(async (c) => {
@@ -341,29 +318,6 @@ export async function fishCare(T) {
     c.unpoint();
   }, { id: 'tut:happy' });
 
-  // ---- tags
-  const girl = two.find((f) => live(f) && f.g.sex === 'F') || two.find(live);
-  T.frame(midOf(two[0], two[1]), 0.018);
-  let tagMs = [];
-  await T.hud('tag', {
-    line: '<b>TAG</b> puts a <b>DO NOT EAT</b> tag on a fish. Bears never touch a tagged fish.', mood: 'happy',
-    tryLine: 'Pick <b>TAG</b>, then tap the fish you want to keep.',
-    nagLine: 'Tag tool: tap a fish to tag it DO NOT EAT.',
-    timeout: 60,
-    tryIt: async () => {
-      T.force('tag');
-      const tagged = T.until('fishTagged');
-      if (!(await T.within(toolPicked(T, 'tag'), 20))) game.setTool({ kind: 'tag' });
-      tagMs = two.map((f) => G.mark(f, { color: 'red' }));
-      T.nag(() => 'Tag tool: tap a fish to tag it DO NOT EAT.', { world: true });
-      tagMs.push(await T.tell(girl, `Now tap the fish you want to keep: ${T.nm(two[0])} or ${T.nm(two[1])}.`));
-      T.taggedFish = await tagged;
-    },
-    fallback: async () => { T.line('I\'ll tag her for you.', { mood: 'happy' }); if (girl && !girl.tagged) game.tagFish(girl); },
-  });
-  tagMs.forEach((s) => s());
-  T.force(null);
-  game.setTool({ kind: 'feed' });
   {
     // Game.tagLimit = 1 + research
     const n = game.tagLimit();
@@ -398,6 +352,84 @@ export async function fishCare(T) {
   T.force(null);
   T.frame(null);
   game.setTool({ kind: 'feed' });
+}
+
+/**
+ * [v33 bubble] Pet and Tag, taught on the Fish Scope's buttons: open the Scope on one of the pair, pet it to a
+ * full heart (tap or hold PET), tag it DO NOT EAT, close the Scope. Every wait has a timeout + a fallback.
+ */
+async function scopeCare(T, two) {
+  const game = T.game, G = T.guide;
+  await openScopeStep(T, two.filter(live), `<b>Tap ${T.nm(two[0])} or ${T.nm(two[1])}</b> to open the <b>Fish Scope</b> again.`);
+  let S = scopeNow();
+  const fish = S?.fish || two.find(live);
+  if (!fish) return;
+  const reopen = async () => {
+    S = scopeNow();
+    if (!S && live(fish) && !fish.held) { S = openFishScope(game, fish); await T.wait(0.7); }
+    if (S) { S.tipKey = '__tut'; if (!S.el?.querySelector('.fsc-btn[data-a="pet"]')) { try { S.refresh(); } catch { /* ignore */ } } }
+    return S;
+  };
+  if (!(await reopen())) return;
+  await T.hideTeacher();
+  const say = (text, o) => scopeSay(T, text, o);
+  const n = T.nm(fish);
+  // ---- PET
+  // Game.nurtureFish: +0.2 love a pat (0.35 s cooldown) -> five pats to a full heart
+  const loved = () => !live(fish) || fish.love >= 0.99;
+  T.stage = 'scope:pet';
+  let arrow = G.marks.ui('.fsc-btn[data-a="pet"]', { label: 'PET' });
+  try {
+    if (!loved()) {
+      await T.g(say(`This is <b>PET</b>. It makes ${n} happy: that's the MOOD you just read.`, { mood: 'happy', wait: true }));
+      say(`Tap PET again and again (or hold it) until ${n} is 100% happy.`, { mood: 'excited' });
+      let shown = -1;
+      const tick = setInterval(() => {
+        if (loved() || T.skipping) { clearInterval(tick); return; }
+        if (!scopeNow()) { reopen(); return; }
+        const p = Math.floor(fish.love * 5);
+        if (p !== shown && fish.love > 0.05) { shown = p; say(`${n}: ${pct(fish.love)}% happy. Keep going!`, { mood: 'love' }); }
+      }, 400);
+      try {
+        if (!(await T.within(T.waitFor(loved), 60))) {
+          say('Like this: pat, pat, pat.', { mood: 'happy' });
+          for (let i = 0; i < 8 && !loved(); i++) { const s = scopeNow(); if (s?.pat) s.pat(); else game.nurtureFish(fish); await T.wait(0.45); }
+        }
+      } finally { clearInterval(tick); }
+      T.win();
+      await T.g(say(`Full heart! ${n} will breed sooner now.`, { mood: 'love', wait: true }));
+    }
+  } finally { arrow.stop(); }
+  // ---- TAG
+  T.stage = 'scope:tag';
+  if (live(fish) && !fish.tagged) {
+    await reopen();
+    const tagged = T.until('fishTagged');
+    arrow = G.marks.ui('.fsc-btn[data-a="tag"]', { label: 'TAG' });
+    try {
+      await T.g(say(`This is <b>TAG</b>. A tagged fish says <b>DO NOT EAT</b>, and bears never touch it.`, { mood: 'happy', wait: true }));
+      say(`Tap TAG to keep ${n} safe.`, { mood: 'excited' });
+      let nagT = 0;
+      const tick = setInterval(() => {
+        if (T.skipping || fish.tagged) return;
+        if (!scopeNow()) { reopen(); return; }
+        if (++nagT % 14 === 0) say(`Tap TAG to keep ${n} safe.`, { mood: 'focused' });
+      }, 600);
+      try {
+        if (await T.within(tagged.then((f) => { T.taggedFish = f; }), 45)) T.win();
+        else { say(`I'll tag ${n} for you.`, { mood: 'happy' }); if (!fish.tagged) game.tagFish(fish); }
+      } finally { clearInterval(tick); }
+    } finally { arrow.stop(); }
+  }
+  // ---- close it
+  if (scopeNow()) {
+    const a = G.marks.ui('.fsc-x', { label: 'CLOSE' });
+    say('Tap the X to close the Scope.', { mood: 'happy' });
+    if (!(await T.within(T.waitFor(() => !scopeNow()), 20))) { try { scopeNow()?.close(); } catch { /* ignore */ } }
+    a.stop();
+  }
+  await T.hideTeacher();
+  await T.wait(0.4);
 }
 
 // ===================================================================== PART 6: EGGS & FRY

@@ -37,6 +37,7 @@ import { injectPaperCSS, openPaper, setPaperSfx } from './paper.js';
 import { Tutorial } from '../game/Tutorial.js';
 import { ynPair, confirmHTML } from './ynButtons.js'; // [v27 knobs] painted YES / NO planks
 import { speakLine } from '../audio/voiceLines.js'; // [v32] voice lines
+import { StatusBubbles } from './statusBubbles.js'; // [v33 bubble] round status bubbles over eggs / dates / fry
 import { Hotbar } from './kit/hotbar.js'; // [v33 kit] hotbar polish: hover / press / unlock ceremony, the tutorial's kitIntroduce
 import { SHIP as SHIP_TIERS } from '../game/Delivery.js'; // [v33 kit] e-Buy shipping tiers
 const VOICE_WHO = { fox: 'fox', bear: 'bear', cub: 'cub', ceo: 'ceo', moose: 'bear', beaver: 'cub', deer: 'fox', turtle: 'turtle', otter: 'otter', duck: 'duck' };
@@ -72,24 +73,25 @@ const TUTORIAL = [
   { expr: 'smug', text: "Welcome to <b>Reynard's All-U-Can-Eat Pond</b>! The suits at Bear St. Holdings get off work at <b>5 PM</b>... and they are HUNGRY. Heh heh heh." },
   { expr: 'wink', text: 'Meet <b>Bonnie & Clyde</b>, our breeding pair. <b>Tap the pond</b> to toss them some food. Well-fed fish fall in love and make MORE fish.', wait: true, pulse: 'feed' },
   { expr: 'greedy', text: 'Buy more fish on <b>e-Buy</b>. Eggs incubate in your <b>egg tray</b>; tap a ready egg to hatch it. Rare eggs hide rare genes!', pulse: 'shop' },
-  { expr: 'worried', text: 'Bears eat EVERY fish they can reach. Use the <b>Tag</b> tool on a precious fish: tagged fish are "DO NOT EAT". Plant <b>blueberries</b> too: bears love a side dish!', pulse: 'tag' },
+  { expr: 'worried', text: 'Bears eat EVERY fish they can reach. Tap a precious fish and press <b>Tag</b> in the Fish Scope: tagged fish are "DO NOT EAT". Plant <b>blueberries</b> too: bears love a side dish!' }, // [v33 bubble]
   { expr: 'smug', text: 'Coins buy research in my secret <b>Lab</b> (tap my hut). New fish, beavers, dams, gadgets... Now go make me rich!', pulse: 'lab' },
 ];
 
 // toolbar: each tool only appears once it's unlocked (game.isOpen(feature))
+// [v33 bubble] the Tag and Pet tools left the hotbar: they're buttons in the Fish Scope (tap a fish).
+// Hotkeys follow the bar from left to right: 1 Food, 2 Carry, 3 e-Buy, 4 Build, 5 Destroy, 6 Lab, 7 Encyclopedia,
+// 8 Restaurant, 9 Staff (Match has none).
 const TOOLS = [
   { tool: 'feed', icon: 'food', label: 'Food', key: 1, title: 'Food: pick a bag or a harvest, then tap the water / a bowl', feature: 'feed' },
   { tool: 'hand', icon: 'hand', label: 'Carry', key: 2, title: 'Carry a fish', feature: 'hand' },
-  { tool: 'tag', icon: 'tag', label: 'Tag', key: 3, title: 'DO NOT EAT tag', feature: 'tag' },
-  { tool: 'nurture', icon: 'nurture', label: 'Pet', key: 4, title: 'Pet a fish', feature: 'pet' },
-  { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 5, title: 'e-Buy', feature: 'ebuy' },
-  { panel: 'build', icon: 'hammer', label: 'Build', key: 6, title: 'Build menu', feature: 'build' },
-  { tool: 'clear', icon: 'bang', label: 'Destroy', key: 0, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
-  { panel: 'lab', icon: 'flask', label: 'Lab', key: 7, title: 'Lab', feature: 'lab' },
+  { panel: 'ebuy', icon: 'shop', label: 'e-Buy', key: 3, title: 'e-Buy', feature: 'ebuy' },
+  { panel: 'build', icon: 'hammer', label: 'Build', key: 4, title: 'Build menu', feature: 'build' },
+  { tool: 'clear', icon: 'bang', label: 'Destroy', key: 5, title: 'Destroy: drag a box over trees, rocks & weeds for the beavers', feature: 'clear' },
+  { panel: 'lab', icon: 'flask', label: 'Lab', key: 6, title: 'Lab', feature: 'lab' },
   { panel: 'match', icon: 'heart', label: 'Match', key: 0, title: 'Matchmaker: pick the parents', feature: 'match' },
-  { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 8, title: 'Encyclopedia', feature: 'dex' },
-  { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 9, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
-  { panel: 'staff', icon: 'staff', label: 'Staff', key: 0, title: 'Staff roster: your beavers, jobs and homes', feature: 'staff' }, // [v26 staff]
+  { panel: 'dex', icon: 'book', label: 'Encyclopedia', key: 7, title: 'Encyclopedia', feature: 'dex' },
+  { panel: 'reviews', icon: 'trophy', label: 'Restaurant', key: 8, title: 'Chez Reynard: rating, reviews & trophies', feature: 'reviews' },
+  { panel: 'staff', icon: 'staff', label: 'Staff', key: 9, title: 'Staff roster: your beavers, jobs and homes', feature: 'staff' }, // [v26 staff]
 ];
 const stripTags = (t) => String(t).replace(/<[^>]+>/g, '');
 
@@ -176,7 +178,7 @@ export class UI {
       </div>
       <div class="toolhint hidden f-tooltip" id="toolhint"></div>
       <div class="toolbar f-wood" id="toolbar">
-        ${TOOLS.map((t) => `<button class="tool f-slot_gold ${t.tool === 'feed' ? 'active' : ''}" data-feature="${t.feature}" ${t.tool ? `data-tool="${t.tool}"` : `data-panel="${t.panel}"`} title="${esc(t.title)}${t.key ? ` (${t.key})` : ''}">${ico(t.icon, 2)}${t.tool === 'feed' ? '<i class="bag"><b id="bag"></b></i>' : ''}${t.tool === 'tag' ? '<em class="cnt" id="tagcnt"></em>' : ''}</button>`).join('')}
+        ${TOOLS.map((t) => `<button class="tool f-slot_gold ${t.tool === 'feed' ? 'active' : ''}" data-feature="${t.feature}" ${t.tool ? `data-tool="${t.tool}"` : `data-panel="${t.panel}"`} title="${esc(t.title)}${t.key ? ` (${t.key})` : ''}">${ico(t.icon, 2)}${t.tool === 'feed' ? '<i class="bag"><b id="bag"></b></i>' : ''}</button>`).join('')}
       </div>
       <div class="panel hidden f-parchment" id="panel">
         <div class="panel-head f-ribbon_green"><h2 id="p-title"></h2><span class="coins-mini">${ico('coin', 1)}<span id="p-coins"></span></span><button class="xbtn" id="p-close" title="Close (Esc)">${ico('cross', 1)}</button></div>
@@ -194,7 +196,7 @@ export class UI {
       <div id="title-root"></div>
     `;
     const h = this.hud;
-    for (const id of ['h-coinv', 'clockwrap', 'hudhost', 'bag', 'tagcnt', 'toolhint', 'panel', 'p-title', 'p-tabs', 'p-body', 'p-coins', 'toasts', 'tip', 'modal', 'modal-card', 'fox', 'fox-face', 'fox-say', 'fox-ok', 'h-coins', 'cineui', 'cinetitle', 'nightui', 'ceremony-root'])
+    for (const id of ['h-coinv', 'clockwrap', 'hudhost', 'bag', 'toolhint', 'panel', 'p-title', 'p-tabs', 'p-body', 'p-coins', 'toasts', 'tip', 'modal', 'modal-card', 'fox', 'fox-face', 'fox-say', 'fox-ok', 'h-coins', 'cineui', 'cinetitle', 'nightui', 'ceremony-root'])
       h[id] = document.getElementById(id);
     $('#toolbar').addEventListener('click', (e) => {
       const b = e.target.closest('.tool');
@@ -692,7 +694,6 @@ export class UI {
     this.hudT = (this.hudT || 0) - dt;
     if (this.hudT <= 0) {
       this.hudT = 0.5;
-      this.setText('tagcnt', `${game.tagLimit() - game.tagsUsed()}`);
       Tutorial.progress(game);
       this.syncFoodPicker();
       if (this.contract && game.tool.kind !== 'clear') this.closeContract?.();
@@ -713,7 +714,7 @@ export class UI {
     this.blueprint.update(dt);
     this.updateFloaters(dt);
     this.updateTracking();
-    this.updateEggTags();
+    this.updateEggTags(dt); // [v33 bubble]
     this.updateGhost();
     this.updateDeliveryTracker(dt);
     this.updateNestTags();
@@ -858,37 +859,10 @@ export class UI {
     }
   }
 
-  // pond eggs: a little paper tag above each bought egg with its timer
-  updateEggTags() {
-    const game = this.game;
-    const eggs = game.fish.eggs;
-    (this.eggTags ||= new Map());
-    for (const [e, el] of this.eggTags) if (!eggs.includes(e)) { el.remove(); this.eggTags.delete(e); }
-    for (const e of eggs) {
-      let el = this.eggTags.get(e);
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'eggtag';
-        el.addEventListener('click', (ev) => { ev.stopPropagation(); this.tapPondEgg(e); });
-        this.overlay.appendChild(el);
-        this.eggTags.set(e, el);
-      }
-      const p = e.tank ? this.screenOf(e.tank.x + 0.5, (game.structures.baseY?.(e.tank) || 0) + 1.15, e.tank.z + 0.5) : this.screenOf(e.x, 0.45, e.z);
-      el.style.display = p.visible === false || game.lab?.active ? 'none' : '';
-      el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -100%)`;
-      // stages: laid (waiting for dad) -> fertilizing -> incubating timer -> TAP!
-      const mm = (t) => `${Math.floor(t / 60)}:${String(Math.ceil(t) % 60).padStart(2, '0')}`;
-      const stage = e.ready ? 'ready' : e.stage === 'laid' ? (e.fertP > 0 ? 'fert' : 'laid') : 'inc';
-      const txt = stage === 'ready' ? 'TAP!' : stage === 'laid' ? 'Laid ♡' : stage === 'fert' ? `Fertilizing ${Math.round((e.fertP / 6) * 100)}%` : mm(e.t);
-      if (el.dataset.t !== txt) {
-        el.dataset.t = txt;
-        el.innerHTML = `${hasSprite('egg') ? ico('egg', 1) : ''}<b>${txt}</b>${e.count > 1 ? `<i>×${e.count}</i>` : ''}`;
-        el.classList.toggle('ready', stage === 'ready');
-        el.classList.toggle('laid', stage === 'laid' || stage === 'fert');
-        const best = Math.max(...(e.genes || [{ stars: 1 }]).map((g) => g?.stars || 1));
-        el.style.setProperty('--rc', RARITIES[e.rarity ?? Math.max(0, Math.min(4, best - 1))].color);
-      }
-    }
+  // [v33 bubble] pond eggs, dating couples and growing fry: round soap-bubble markers (src/ui/statusBubbles.js);
+  // tapping one pops it and runs tapPondEgg (eggs) as before. The old square paper tags are gone.
+  updateEggTags(dt = 1 / 60) {
+    try { (this.statusBubbles ||= new StatusBubbles(this)).update(dt); } catch (e) { if (!this._sbWarn) { this._sbWarn = true; console.warn('status bubbles', e); } }
   }
 
   pickPondEgg(sx, sy) {
@@ -980,7 +954,7 @@ export class UI {
   hover(sx, sy) {
     const tip = this.hud.tip;
     const k = this.game.tool.kind;
-    if (!['feed', 'hand', 'tag', 'nurture'].includes(k) || this.panel || this.game.inputLocked) { tip.classList.add('hidden'); return; }
+    if (!['feed', 'hand'].includes(k) || this.panel || this.game.inputLocked) { tip.classList.add('hidden'); return; }
     const b = k === 'feed' ? this.pickBear(sx, sy) : null;
     let html = '';
     if (b) {
@@ -1323,17 +1297,13 @@ export class UI {
       html = `${ico('trash', 1)} <b>Remove</b>: tap a build for move · store · sell, hold to drag it, or clear a tree/rock (${ico('coin', 1)}10)`; // [v19 buildings]
     } else if (t.kind === 'hand') {
       html = `${ico('hand', 1)} <b>Carry</b>: drag a fish anywhere in the pond`;
-    } else if (t.kind === 'tag') {
-      html = `${ico('tag', 1)} <b>DO NOT EAT</b>: tap a fish to tag it. Bears won't touch tagged fish. <span class="k">${g.tagLimit() - g.tagsUsed()} / ${g.tagLimit()} left</span>`;
-    } else if (t.kind === 'nurture') {
-      html = `${ico('nurture', 1)} <b>Pet</b>: tap or hold a fish. Petted fish grow faster and breed sooner`;
-    }
-    if (this.blueprint?.open || t.kind === 'hand' || t.kind === 'nurture' || t.kind === 'tag') html = '';
+    } // [v33 bubble] no Tag / Pet tool hints: those are Fish Scope buttons now
+    if (this.blueprint?.open || t.kind === 'hand') html = '';
     hint.innerHTML = html + (html ? ' <button class="btn small green" id="th-x">✕</button>' : '');
     hint.classList.toggle('hidden', !html);
     const x = $('#th-x', hint);
     if (x) x.onclick = () => { this.click(); this.game.setTool({ kind: 'feed' }); };
-    if (!['feed', 'hand', 'tag', 'nurture'].includes(t.kind)) this.hud.tip.classList.add('hidden');
+    if (!['feed', 'hand'].includes(t.kind)) this.hud.tip.classList.add('hidden'); // [v33 bubble]
     this.syncFoodPicker();
     this.game.land?.showOverlay(t.kind === 'land');
     if (t.kind === 'land') { const r = this.game.rig; r.wuppGoal = Math.max(r.wuppGoal, 0.05); }
