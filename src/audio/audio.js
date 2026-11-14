@@ -40,7 +40,7 @@
  *  constants & tiny helpers
  * ========================================================================== */
 
-import { SAMPLE_MAP, SAMPLE_GAIN } from './sampleMap.js'; // [v33 sfx]
+import { SAMPLE_MAP, SAMPLE_GAIN, SAMPLE_MIX } from './sampleMap.js'; // [v33 sfx]
 import { makeSampleSfx, loadAllSamples, specIds, sampleIds, sampleBuffer, sampleFailures } from './samples.js'; // [v33 sfx]
 
 const LS_MUTED = 'tbme.muted';
@@ -2726,7 +2726,7 @@ for (const m of Object.values(SFX_EXTRA)) {
 // level trim comes from SAMPLE_GAIN); the synth builder is kept on the entry for A/B renders (_debugRenderSfx synth)
 for (const [name, spec] of Object.entries(SAMPLE_MAP)) {
   const d = SFX[name] || { max: 3, gap: 0.05, g: 1, fn: null };
-  SFX[name] = { max: d.max, gap: d.gap, g: SAMPLE_GAIN[name] ?? 1, fn: makeSampleSfx(spec, SFX_KIT), synth: d.fn, synthG: d.g, ids: specIds(spec) };
+  SFX[name] = { max: d.max, gap: d.gap, g: (SAMPLE_GAIN[name] ?? 1) * (SAMPLE_MIX[name] ?? 1), fn: makeSampleSfx(spec, SFX_KIT), synth: d.fn, synthG: d.g, ids: specIds(spec) };
 }
 // the clips of the most-used names decode first after the unlock
 const SAMPLE_FIRST = ['click', 'hover', 'open', 'close', 'coin', 'coins', 'splash', 'plop', 'pop_in', 'paper', 'page', 'grab', 'drop', 'whoosh', 'error', 'buy', 'chomp', 'heart']

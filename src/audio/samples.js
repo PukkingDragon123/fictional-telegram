@@ -12,7 +12,7 @@ const loading = Object.create(null); // id -> Promise<AudioBuffer|null>
 const failed = Object.create(null);
 let decoder = null;
 
-const MAX_LATE = 0.25; // seconds a play may start late while its clip is still decoding
+const MAX_LATE = 0.35; // seconds a play may start late while its clip is still decoding
 
 function decodeWith(ctx, ab) {
   return new Promise((res, rej) => {

@@ -127,11 +127,19 @@ async function openPage(initScript, pageUrl = url) {
 
 // expected max audible length (s, incl. reverb tail); default 1.6 covers the "0.05-1.5 s" SFX brief
 const MAX_DUR = { discover: 2.1, whistle: 2.8, loon: 3.2, fanfare: 2.6, gameover: 2.6, day_start: 2.4, day_end: 2.6, fox_laugh: 2.1, fox_snore: 1.9, reveal_epic: 2.0, reveal_legendary: 3.4, offwork: 2.3, cinema: 2.5, sleep: 3.5, sunrise: 3.2, grade_bad: 2.3 };
+// [v33 sfx] recorded samples that are long by design (beds, rings, rolls, snores, tolls); their render window is 7 s
+Object.assign(MAX_DUR, {
+  loon: 3.6, bigsplash: 2.0, research: 1.9, bees: 2.3, fox_snore: 2.7, fox_yawn: 2.2, bear_yum: 1.9, bear_cheer: 2.2, reveal_rare: 1.9,
+  reveal_epic: 3.2, alarm: 1.7, lunch_bell: 1.9, offwork: 2.7, saw: 1.7, bed_yawn: 1.8, bed_snore: 1.9, bed_lullaby: 3.1, class_rumble: 2.2,
+  class_star: 1.9, dig_rumble: 5.5, dig_roar: 2.4, dv_plunge: 1.9, ev_twinkle: 2.6, boss_roar: 1.9, bm_toll: 3.7, bm_drone: 6.5, bm_dawn: 2.2,
+  water_blast: 1.8, feast_buzz: 2.6, feast_flies: 2.4, feast_snore: 2.5, feast_sizzle: 2.0, feast_drumroll: 2.1, harvest_special: 1.9,
+  ln_chime: 2.9, ln_gong: 3.6, drill_whirr: 1.9, rs_flush: 2.4, school_bell: 1.9, rain_loop: 4.9, thunder: 5.0, wind_gust: 2.9, fire_crackle: 2.0,
+});
 
 const offline = await (async () => {
   const { page, problems, ctx } = await openPage();
   const data = await withRetry('offline', () =>
-    page.evaluate(async () => {
+    page.evaluate(async (LONG) => {
       const audio = window.audio;
       await audio._debugLoadSamples(); // [v33 sfx] the recorded clips must be decoded before offline renders
       const analyze = (buf) => {
@@ -163,7 +171,7 @@ const offline = await (async () => {
         return { peak, rms: cnt ? Math.sqrt(s2 / cnt) : 0, dur: first < 0 ? 0 : (last - first) / sr, tail, nan, dc: dc / (n * chs.length), quarters: q };
       };
       const out = { sfx: {}, music: {}, amb: {}, names: audio.sfxNames.slice(), moods: audio.moods.slice() };
-      for (const n of audio.sfxNames) out.sfx[n] = analyze(await audio._debugRenderSfx(n, 4));
+      for (const n of audio.sfxNames) out.sfx[n] = analyze(await audio._debugRenderSfx(n, LONG.includes(n) ? 7 : 4));
       for (const m of audio.moods) out.music[m] = analyze(await audio._debugRenderMusic(m, 8));
       const A = { day: { hour: 11, night: 0 }, dusk: { hour: 19, night: 0.5 }, night: { hour: 23, night: 1 } };
       for (const [k, o] of Object.entries(A)) out.amb[k] = analyze(await audio._debugRenderAmbience(8, o));
@@ -188,7 +196,7 @@ const offline = await (async () => {
       out.pileSafe = analyze(await audio._debugRenderMix(pile, 4, { safety: true }));
       out.pileSafeLoud = analyze(await audio._debugRenderMix(pile, 4, { safety: true, volume: 2 }));
       return out;
-    }),
+    }, Object.keys(MAX_DUR).filter((n) => MAX_DUR[n] > 3.4)),
   );
   check('offline', 'no console/page errors', problems.length === 0, problems.join(' | '));
   await ctx.close();
@@ -584,8 +592,10 @@ if (!NO_LIVE) {
   const before = await page.evaluate(() => window.audio._debugState().ctxState);
   await page.mouse.click(30, 30);
   await page.waitForFunction(() => window.audio._debugState().ctxState === 'running', null, { timeout: 4000 }).catch(() => {});
-  const after = await page.evaluate(() => {
+  const after = await page.evaluate(async () => {
     window.audio.play('coin');
+    // [v33 sfx] a recorded clip may still be decoding right after the unlock: it starts as soon as it is ready
+    for (let i = 0; i < 40 && window.audio._debugState().stats.voices < 1; i++) await new Promise((r) => setTimeout(r, 25));
     const s = window.audio._debugState();
     return { state: s.ctxState, unlocked: s.unlocked, voices: s.stats.voices };
   });

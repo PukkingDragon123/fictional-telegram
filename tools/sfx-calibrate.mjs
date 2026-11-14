@@ -52,9 +52,16 @@ const res = await page.evaluate(async () => {
   const out = {};
   for (const n of info.sampled) {
     try {
-      const a = meas(await audio._debugRenderSfx(n, 7, { synth: true }));
-      const b = meas(await audio._debugRenderSfx(n, 7, { raw: true }));
-      out[n] = { synthSt: a.st, synthPk: a.peak, smpSt: b.st, smpPk: b.peak };
+      // several renders: variants and pitch jitter differ, so take the median loudness and the worst-case peak
+      const many = async (o, k) => {
+        const r = [];
+        for (let i = 0; i < k; i++) r.push(meas(await audio._debugRenderSfx(n, 7, o)));
+        const st = r.map((x) => x.st).sort((x, y) => x - y);
+        return { st: st[st.length >> 1], peak: Math.max(...r.map((x) => x.peak)), peakMed: r.map((x) => x.peak).sort((x, y) => x - y)[r.length >> 1] };
+      };
+      const a = await many({ synth: true }, 3);
+      const b = await many({ raw: true }, 6);
+      out[n] = { synthSt: a.st, synthPk: a.peakMed, smpSt: b.st, smpPk: b.peak };
     } catch (e) {
       out[n] = { err: String(e) };
     }

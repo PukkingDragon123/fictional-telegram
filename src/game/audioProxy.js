@@ -17,6 +17,7 @@ const proxy = {
   update: noop,
   babble: () => 0,
   stopBabble: noop,
+  sampleInfo: () => null, // [v33 sfx] which SFX play recorded samples (debug)
 };
 
 const mods = import.meta.glob('../audio/audio.js');

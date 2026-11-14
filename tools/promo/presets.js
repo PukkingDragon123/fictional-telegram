@@ -295,10 +295,10 @@ PRESETS.famFsBanner = {
 };
 // the six outputs (node tools/promo/capture.mjs gif fam promo/v7-family --big): sub-folder per set
 const fam = (kind, set, parts, sub, still, extra = {}) => ({ kind, parts, query: `&set=${set}`, sub, still, opts: { loop: LOOP_FAM }, ...extra });
-PRESETS.famBaseThumbAnim = fam('famthumb', 'base', ['cineThumbAnim'], 'base', 12);
-PRESETS.famBaseBannerAnim = fam('fambanner', 'base', ['cineBannerAnim'], 'base', 12, { gif: { 2: ['--lossy', '36'] } });
-PRESETS.famFsThumbAnim = fam('famthumb', 'fs', ['famFsThumb'], 'flint-steel', 6);
-PRESETS.famFsBannerAnim = fam('fambanner', 'fs', ['famFsBanner'], 'flint-steel', 6, { gif: { 2: ['--lossy', '36'] } });
+PRESETS.famBaseThumbAnim = fam('famthumb', 'base', ['cineThumbAnim', 'famBaseUnder'], 'base', 12, { gif: { 1: ['--lossy', '24'] } });
+PRESETS.famBaseBannerAnim = fam('fambanner', 'base', ['cineBannerAnim', 'famBaseUnderBanner'], 'base', 12, { gif: { 2: ['--lossy', '36'] } });
+PRESETS.famFsThumbAnim = fam('famthumb', 'fs', ['famFsRush'], 'flint-steel', 6);
+PRESETS.famFsBannerAnim = fam('fambanner', 'fs', ['famFsRushBanner'], 'flint-steel', 6, { gif: { 2: ['--lossy', '36'] } });
 PRESETS.famDdThumbAnim = fam('famthumb', 'dd', ['ddThumbDig', 'ddThumbDive'], 'digdive', 24);
 PRESETS.famDdBannerAnim = fam('fambanner', 'dd', ['ddBannerDig', 'ddBannerDive'], 'digdive', 20, { gif: { 2: ['--lossy', '36'] } });
 // the 3D title logo (src/game/title/logo3d.js) on a key colour, 340 x 150 low-res (2 screen px a pixel), cut out by
@@ -351,18 +351,18 @@ const rush = (o = {}) => ({ kind: 'rush', ry: 0.95, len: 30, ties: 18, bumps: 4,
   fox: { scale: 1.25, y: 0.22, ry: -0.95, anim: 'cheer', cycles: 2 }, ...o });
 PRESETS.famFsRush = {
   scene: 'banner', viewport: [1260, 1000], px: 1, masks: ['fox', 'cart'],
-  opts: { ...RUSH_LOOK, loop: LOOP_FAM, wupp: 0.0125, pitch: 16, focusWorld: [49.6, 14.5],
+  opts: { ...RUSH_LOOK, loop: LOOP_FAM, wupp: 0.0108, pitch: 30, focusWorld: [49.3, 14.6], clear: [[0, 0.62, 1, 1.2]],
     cast: [...famQuarry({ flint: { wx: 52.6, wz: 14.6, scale: 1.4, rot: -0.4 } }).filter((a) => a.make !== 'mine.makeOreBin' && a.kind !== 'cart' && a.kind !== 'rail' && a.kind !== 'beaver' && !(a.args && a.args[0] === 'copper')),
-      rush({ wx: 48.8, wz: 16.4, scale: 2.9 })],
+      rush({ wx: 48.9, wz: 16.3, scale: 2.7, fox: { scale: 1.7, y: 0.18, ry: -0.95, anim: 'cheer', cycles: 2 } })],
     loopFx: [...quarryFx.slice(0, 2), { type: 'smoke', wx: 52.95, wz: 11.9, y: 2.85, n: 9, rate: 1, rise: 1.9, drift: 0.5, size: 0.38, seed: 17 },
       { type: 'sparks', wx: 48.2, wz: 15.95, y: 0.05, n: 30, rate: 4, off: 0, radius: 0.9, height: 0.5, seed: 21 },
       { type: 'sparks', wx: 49.4, wz: 16.85, y: 0.05, n: 30, rate: 4, off: 0.5, radius: 0.9, height: 0.5, seed: 23 }] },
 };
 PRESETS.famFsRushBanner = {
   scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox', 'cart'],
-  opts: { ...RUSH_LOOK, loop: LOOP_FAM, wupp: 0.0165, pitch: 17, focusWorld: [47.6, 13.0],
+  opts: { ...RUSH_LOOK, loop: LOOP_FAM, wupp: 0.0155, pitch: 26, focusWorld: [47.6, 13.6], clear: [[0, 0.75, 1, 1.2]],
     cast: [...famQuarry({ bx: 50.6, windX: 54.0, windS: 0.5, bunX: 44.9, flint: { wx: 52.4, wz: 15.0, rot: -0.3 } }).filter((a) => a.kind !== 'cart' && a.kind !== 'rail' && !(a.args && a.args[0] === 'copper') && a.kind !== 'beaver'),
-      rush({ wx: 48.0, wz: 15.8, scale: 1.9 })],
+      rush({ wx: 48.2, wz: 16.0, scale: 2.1, fox: { scale: 1.6, y: 0.18, ry: -0.95, anim: 'cheer', cycles: 2 } })],
     loopFx: [...quarryFx.slice(0, 2), { type: 'smoke', wx: 52.95, wz: 11.9, y: 2.85, n: 9, rate: 1, rise: 1.9, drift: 0.5, size: 0.38, seed: 17 },
       { type: 'sparks', wx: 47.6, wz: 15.5, y: 0.05, n: 30, rate: 4, off: 0, radius: 0.8, height: 0.45, seed: 21 },
       { type: 'sparks', wx: 48.4, wz: 16.1, y: 0.05, n: 30, rate: 4, off: 0.5, radius: 0.8, height: 0.45, seed: 23 }] },

@@ -58,6 +58,9 @@ window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 window.visualViewport?.addEventListener('resize', () => { const v = viewSize(); if (`${v.w}x${v.h}@${window.devicePixelRatio || 1}` !== lastView) resize(); }); // [v26 uiscale] iPad Safari: toolbars, split view
 lockPageZoom(); // [v26 uiscale] a pinch / double-tap on the HUD must not zoom (and blur) the whole page on iOS
 resize();
+// [v33 title] the loading screen's 3D scene (a bear eating a salmon) on this renderer while the game boots;
+// it stops itself once the title / the game draws (src/game/title/loadingBear.js)
+if (window.__tbmeLoader && !window.__tbmeLoader.done) import('./game/title/loadingBear.js').then(({ startLoadingBear }) => startLoadingBear(renderer, { audio })).catch((e) => console.warn('loading scene', e));
 
 // a frame for the browser to breathe between the big build steps
 const breathe = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
@@ -99,6 +102,7 @@ function bootGame() {
 
 let titleLoaded = 0; // [v33 menu] the save slot shown behind the title (0 = none)
 function startGame(choice) {
+  window.__tbmeLoad?.(0.95); // [v33 title] the loading scene stops: the game draws now
   // [v26 menu] choice: 'new' | 'continue' | { slot, mode: 'new' | 'continue' }
   const slot = clampSlot(typeof choice === 'object' ? choice.slot : startSlot);
   if (typeof choice === 'object') choice = choice.mode;

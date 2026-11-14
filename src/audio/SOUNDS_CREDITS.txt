@@ -1,0 +1,370 @@
+The Bear Must Eat - recorded sound effects (src/audio/samples/*.mp3)
+
+Every clip is CC0 1.0 or public domain. Each was cut from the source recording named below, trimmed,
+converted to mono MP3 and loudness-normalised; some are played back at a different pitch or layered in
+src/audio/sampleMap.js. Licences were checked on each source page. Attribution is not required for CC0 /
+public domain, but we list everything gratefully anyway.
+
+Format: clip file | source (pack - original file) | source URL | licence
+
+alarm.mp3 | BigSoundBank #1373 "mechanical-alarm-clock-short-ring" | https://bigsoundbank.com/mechanical-alarm-clock-short-ring-s1373.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+anvil1.mp3 | 68 Workshop Sounds - workshop - metal hammering.wav | https://opengameart.org/content/68-workshop-sounds | CC0 1.0
+anvil2.mp3 | 68 Workshop Sounds - workshop - ping.wav | https://opengameart.org/content/68-workshop-sounds | CC0 1.0
+applause.mp3 | BigSoundBank #2363 "applause-1" | https://bigsoundbank.com/applause-1-s2363.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+apple1.mp3 | Apple Bite - apple_bite.ogg | https://opengameart.org/content/apple-bite | CC0 1.0
+apple2.mp3 | BigSoundBank #1113 "apple-crunched-1" | https://bigsoundbank.com/apple-crunched-1-s1113.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bang_snap.mp3 | BigSoundBank #0550 "bang-snaps" | https://bigsoundbank.com/bang-snaps-s0550.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bcrunch1.mp3 | 5 break, crunch impacts - impactcrunch01.mp3.flac | https://opengameart.org/content/5-break-crunch-impacts | CC0 1.0
+bcrunch2.mp3 | 5 break, crunch impacts - impactcrunch03.mp3.flac | https://opengameart.org/content/5-break-crunch-impacts | CC0 1.0
+bear1.mp3 | Bear Growls - bear_01.flac | https://opengameart.org/content/bear-growls | CC0 1.0
+bear2.mp3 | Bear Growls - bear_02.flac | https://opengameart.org/content/bear-growls | CC0 1.0
+beep.mp3 | BigSoundBank #2254 "digital-watch-beep-1" | https://bigsoundbank.com/digital-watch-beep-1-s2254.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bees.mp3 | BigSoundBank #1000 "bumblebee-1" | https://bigsoundbank.com/bumblebee-1-s1000.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bell_church.mp3 | BigSoundBank #0135 "church-bell" | https://bigsoundbank.com/church-bell-s0135.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bell_counter.mp3 | BigSoundBank #0479 "counter-bell" | https://bigsoundbank.com/counter-bell-s0479.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bell_hand.mp3 | BigSoundBank #0010 "small-bell" | https://bigsoundbank.com/small-bell-s0010.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bell_small1.mp3 | BigSoundBank #0292 "small-bell-1" | https://bigsoundbank.com/small-bell-1-s0292.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bell_small2.mp3 | BigSoundBank #0293 "small-bell-2" | https://bigsoundbank.com/small-bell-2-s0293.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bell_small3.mp3 | BigSoundBank #0294 "small-bell-3" | https://bigsoundbank.com/small-bell-3-s0294.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bell_tw.mp3 | BigSoundBank #2844 "typewriter-bell" | https://bigsoundbank.com/typewriter-bell-s2844.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bigsplash1.mp3 | BigSoundBank #1519 "splash-big-1" | https://bigsoundbank.com/splash-big-1-s1519.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bigsplash2.mp3 | BigSoundBank #1520 "splash-big-2" | https://bigsoundbank.com/splash-big-2-s1520.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bike_horn.mp3 | Bicycle Horn - bicycle-horn-1.wav | https://opengameart.org/content/bicycle-horn | CC0 1.0
+bird1.mp3 | Bird chirping sounds - birdchirping071414.wav | https://opengameart.org/content/bird-chirping-sounds | CC0 1.0
+bird2.mp3 | Bird chirping sounds - birdchirping071414.wav | https://opengameart.org/content/bird-chirping-sounds | CC0 1.0
+bird3.mp3 | Bird chirping sounds - birdchirping071414.wav | https://opengameart.org/content/bird-chirping-sounds | CC0 1.0
+bird4.mp3 | Forest bird sounds - Forest Birds 3.wav | https://opengameart.org/content/forest-bird-sounds | CC0 1.0
+blanket.mp3 | Owlish Media - Sound Effects Pack - 320138__owlstorm__blanket-movement-2.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+boil.mp3 | 30 CC0 SFX loops - water_boiling.ogg | https://opengameart.org/content/30-cc0-sfx-loops | CC0 1.0
+boing1.mp3 | BigSoundBank #2277 "boing-cartoon-1" | https://bigsoundbank.com/boing-cartoon-1-s2277.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+boing2.mp3 | BigSoundBank #2278 "boing-cartoon-2" | https://bigsoundbank.com/boing-cartoon-2-s2278.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+boing3.mp3 | BigSoundBank #2279 "boing-cartoon-3" | https://bigsoundbank.com/boing-cartoon-3-s2279.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+book_close.mp3 | Kenney - 50 RPG sound effects - bookClose.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+book_flip.mp3 | Kenney - 50 RPG sound effects - bookFlip2.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+book_open.mp3 | Kenney - 50 RPG sound effects - bookOpen.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+book_place1.mp3 | Kenney - 50 RPG sound effects - bookPlace1.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+book_place2.mp3 | Kenney - 50 RPG sound effects - bookPlace2.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+box1.mp3 | Kenney - 54 Casino sound effects - cards-pack-open-1.ogg | https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips | CC0 1.0
+break1.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_breaking_01.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+break2.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_breaking_02.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+breath.mp3 | 80 CC0 creature SFX - breath.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+brush.mp3 | BigSoundBank #0718 "toothbrush" | https://bigsoundbank.com/toothbrush-s0718.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+brush2.mp3 | BigSoundBank #0718 "toothbrush" | https://bigsoundbank.com/toothbrush-s0718.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bubble1.mp3 | 40 CC0 water / splash / slime SFX - bubble_01.ogg | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 1.0
+bubble2.mp3 | 40 CC0 water / splash / slime SFX - bubble_02.ogg | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 1.0
+bubble3.mp3 | 40 CC0 water / splash / slime SFX - bubble_03.ogg | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 1.0
+bubbles.mp3 | BigSoundBank #0150 "water-bubbles" | https://bigsoundbank.com/water-bubbles-s0150.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+bumble.mp3 | BigSoundBank #1001 "bumblebee-2" | https://bigsoundbank.com/bumblebee-2-s1001.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+burp1.mp3 | BigSoundBank #1707 "burp-1" | https://bigsoundbank.com/burp-1-s1707.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+burp2.mp3 | BigSoundBank #1708 "burp-2" | https://bigsoundbank.com/burp-2-s1708.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+burp3.mp3 | 80 CC0 creature SFX - burp_01.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+bwrap.mp3 | BigSoundBank #0462 "bubble-wrap-breakouts" | https://bigsoundbank.com/bubble-wrap-breakouts-s0462.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+camera1.mp3 | BigSoundBank #0307 "triggering-camera" | https://bigsoundbank.com/triggering-camera-s0307.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+camera2.mp3 | BigSoundBank #0011 "camera" | https://bigsoundbank.com/camera-s0011.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+camera3.mp3 | BigSoundBank #0448 "iphone-camera" | https://bigsoundbank.com/iphone-camera-s0448.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+cblock1.mp3 | BigSoundBank #2270 "cartoon-block-1" | https://bigsoundbank.com/cartoon-block-1-s2270.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+cblock2.mp3 | BigSoundBank #2271 "cartoon-block-2" | https://bigsoundbank.com/cartoon-block-2-s2271.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chain.mp3 | 80 CC0 RPG SFX - chain_01.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+chalk1.mp3 | BigSoundBank #0541 "chalk-on-blackboard" | https://bigsoundbank.com/chalk-on-blackboard-s0541.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chalk2.mp3 | BigSoundBank #0541 "chalk-on-blackboard" | https://bigsoundbank.com/chalk-on-blackboard-s0541.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chalk3.mp3 | BigSoundBank #0541 "chalk-on-blackboard" | https://bigsoundbank.com/chalk-on-blackboard-s0541.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chalk_tap.mp3 | BigSoundBank #0541 "chalk-on-blackboard" | https://bigsoundbank.com/chalk-on-blackboard-s0541.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chime_b1.mp3 | BigSoundBank #2087 "chimes-butterfly-1" | https://bigsoundbank.com/chimes-butterfly-1-s2087.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chime_cl.mp3 | BigSoundBank #2687 "cluster-chimes-1" | https://bigsoundbank.com/cluster-chimes-1-s2687.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chime_d1.mp3 | BigSoundBank #2079 "chimes-dream-1" | https://bigsoundbank.com/chimes-dream-1-s2079.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chime_d2.mp3 | BigSoundBank #2080 "chimes-dream-2" | https://bigsoundbank.com/chimes-dream-2-s2080.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chip1.mp3 | Kenney - 54 Casino sound effects - chip-lay-1.ogg | https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips | CC0 1.0
+chips1.mp3 | BigSoundBank #1430 "eating-potato-chips-1" | https://bigsoundbank.com/eating-potato-chips-1-s1430.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chips2.mp3 | BigSoundBank #1430 "eating-potato-chips-1" | https://bigsoundbank.com/eating-potato-chips-1-s1430.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+chips_stack.mp3 | Kenney - 54 Casino sound effects - chips-stack-2.ogg | https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips | CC0 1.0
+cloth1.mp3 | Kenney - 50 RPG sound effects - cloth1.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+cloth2.mp3 | Kenney - 50 RPG sound effects - cloth3.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+cloth3.mp3 | 202 More Sound Effects - Cloth_02.wav | https://opengameart.org/content/202-more-sound-effects | CC0 1.0
+coin1.mp3 | 80 CC0 RPG SFX - item_coins_01.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+coin2.mp3 | 80 CC0 RPG SFX - item_coins_02.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+coin3.mp3 | BigSoundBank #0339 "coin-in-cup-1" | https://bigsoundbank.com/coin-in-cup-1-s0339.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+coin4.mp3 | BigSoundBank #0340 "coin-in-cup-2" | https://bigsoundbank.com/coin-in-cup-2-s0340.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+coins1.mp3 | Kenney - 50 RPG sound effects - handleCoins.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+coins2.mp3 | Kenney - 50 RPG sound effects - handleCoins2.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+coins3.mp3 | Sack of Gold - gold_sack.wav | https://opengameart.org/content/sack-of-gold | CC0 1.0
+cork.mp3 | BigSoundBank #0211 "champagne-cork" | https://bigsoundbank.com/champagne-cork-s0211.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+cough1.mp3 | Owlish Media - Sound Effects Pack - cough1.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+cough2.mp3 | 80 CC0 creature SFX - cough_02.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+crate_open.mp3 | 100 CC0 SFX - wooded_box_open.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+creak1.mp3 | Kenney - 50 RPG sound effects - creak1.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+creak2.mp3 | Kenney - 50 RPG sound effects - creak2.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+creak3.mp3 | Kenney - 50 RPG sound effects - creak3.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+crow.mp3 | BigSoundBank #2764 "crow-1" | https://bigsoundbank.com/crow-1-s2764.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+crumple.mp3 | Owlish Media - Sound Effects Pack - crumples1.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+crunch1.mp3 | 7 Eating Crunches - crunch.1.ogg | https://opengameart.org/content/7-eating-crunches | CC0 1.0
+crunch2.mp3 | 7 Eating Crunches - crunch.2.ogg | https://opengameart.org/content/7-eating-crunches | CC0 1.0
+crunch3.mp3 | 7 Eating Crunches - crunch.3.ogg | https://opengameart.org/content/7-eating-crunches | CC0 1.0
+crunch4.mp3 | 7 Eating Crunches - crunch.5.ogg | https://opengameart.org/content/7-eating-crunches | CC0 1.0
+crunch5.mp3 | 7 Eating Crunches - crunch.6.ogg | https://opengameart.org/content/7-eating-crunches | CC0 1.0
+cute1.mp3 | 80 CC0 creature SFX - cute_01.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+cute2.mp3 | 80 CC0 creature SFX - cute_03.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+cute4.mp3 | 80 CC0 creature SFX - cute_08.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+cutlery1.mp3 | cutlery sounds - fork_on_dish_01.ogg | https://opengameart.org/content/cutlery-sounds | CC0 1.0
+cutlery2.mp3 | cutlery sounds - fork_on_dish_02.ogg | https://opengameart.org/content/cutlery-sounds | CC0 1.0
+cutlery3.mp3 | cutlery sounds - pick_cutlery_01.ogg | https://opengameart.org/content/cutlery-sounds | CC0 1.0
+dig1.mp3 | Different steps on wood, stone, leaves, gravel and mud - gravel.ogg | https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud | CC0 1.0
+dig2.mp3 | Different steps on wood, stone, leaves, gravel and mud - mud02.ogg | https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud | CC0 1.0
+dishes.mp3 | 100 CC0 SFX - dishes_02.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+door_close.mp3 | BigSoundBank #2431 "door-closing-1" | https://bigsoundbank.com/door-closing-1-s2431.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+drill.mp3 | BigSoundBank #0184 "drill" | https://bigsoundbank.com/drill-s0184.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+drink.mp3 | 202 More Sound Effects - Drink_02.wav | https://opengameart.org/content/202-more-sound-effects | CC0 1.0
+drip.mp3 | BigSoundBank #0183 "water-bubble-2" | https://bigsoundbank.com/water-bubble-2-s0183.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+drumroll.mp3 | BigSoundBank #2400 "drum-roll-1-s" | https://bigsoundbank.com/drum-roll-1-s-s2400.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+eat1.mp3 | 80 CC0 creature SFX - eat_01.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+eat2.mp3 | 80 CC0 creature SFX - eat_02.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+engine.mp3 | BigSoundBank #0966 "small-gasoline-engine" | https://bigsoundbank.com/small-gasoline-engine-s0966.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+explosion.mp3 | 100 CC0 SFX - explosion.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+fire.mp3 | Fire Crackling - fire-1.wav | https://opengameart.org/content/fire-crackling | CC0 1.0
+fireplace.mp3 | BigSoundBank #2855 "fireplace-3" | https://bigsoundbank.com/fireplace-3-s2855.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+flies.mp3 | BigSoundBank #0822 "many-flies" | https://bigsoundbank.com/many-flies-s0822.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+flush.mp3 | BigSoundBank #0033 "flush-1" | https://bigsoundbank.com/flush-1-s0033.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+frog1.mp3 | Frog Croaks - croak_01.mp3 | https://opengameart.org/content/frog-croaks | CC0 1.0
+frog2.mp3 | Frog Croaks - croak_03.mp3 | https://opengameart.org/content/frog-croaks | CC0 1.0
+frog3.mp3 | Ribbit Frog Sounds - ribbit_01.mp3 | https://opengameart.org/content/ribbit-frog-sounds | CC0 1.0
+gargle.mp3 | BigSoundBank #1652 "gargle-1" | https://bigsoundbank.com/gargle-1-s1652.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+gasp.mp3 | Owlish Media - Sound Effects Pack - gasp1.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+gem1.mp3 | 80 CC0 RPG SFX - item_gem_01.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+gem2.mp3 | 80 CC0 RPG SFX - item_gem_03.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+glass_break.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_glass_breaking_02.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+glass_clink.mp3 | BigSoundBank #0471 "clinking-of-empty-glass-toast" | https://bigsoundbank.com/clinking-of-empty-glass-toast-s0471.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+glass_set.mp3 | BigSoundBank #1204 "glass-placed-on-table" | https://bigsoundbank.com/glass-placed-on-table-s1204.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+gong_l.mp3 | BigSoundBank #1483 "gong-strong-1" | https://bigsoundbank.com/gong-strong-1-s1483.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+gong_s.mp3 | BigSoundBank #1482 "gong-sweet" | https://bigsoundbank.com/gong-sweet-s1482.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+goose1.mp3 | Yellowstone National Park Sound Library (nps-yell-sounds-canadagoose), NPS & MSU Acoustic Atlas | https://archive.org/details/nps-yell-sounds-canadagoose | Public Domain (U.S. National Park Service)
+goose2.mp3 | Yellowstone National Park Sound Library (nps-yell-sounds-canadagoose), NPS & MSU Acoustic Atlas | https://archive.org/details/nps-yell-sounds-canadagoose | Public Domain (U.S. National Park Service)
+goose3.mp3 | Yellowstone National Park Sound Library (nps-yell-sounds-canadagoose), NPS & MSU Acoustic Atlas | https://archive.org/details/nps-yell-sounds-canadagoose | Public Domain (U.S. National Park Service)
+gravel1.mp3 | BigSoundBank #0085 "step-on-gravel" | https://bigsoundbank.com/step-on-gravel-s0085.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+gravel2.mp3 | BigSoundBank #0085 "step-on-gravel" | https://bigsoundbank.com/step-on-gravel-s0085.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+growl1.mp3 | Animal or beast sounds - Growl.wav | https://opengameart.org/content/animal-or-beast-sounds | CC0 1.0
+growl2.mp3 | Animal or beast sounds - Growl 1.wav | https://opengameart.org/content/animal-or-beast-sounds | CC0 1.0
+grunt1.mp3 | 80 CC0 creature SFX - grunt_01.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+grunt2.mp3 | 80 CC0 creature SFX - grunt_03.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+gurgle.mp3 | BigSoundBank #1280 "stomach-gurgling-1" | https://bigsoundbank.com/stomach-gurgling-1-s1280.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+hammer1.mp3 | BigSoundBank #0005 "nail-and-hammer-1" | https://bigsoundbank.com/nail-and-hammer-1-s0005.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+hammer2.mp3 | BigSoundBank #0005 "nail-and-hammer-1" | https://bigsoundbank.com/nail-and-hammer-1-s0005.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+hammer3.mp3 | BigSoundBank #0006 "nail-and-hammer-2" | https://bigsoundbank.com/nail-and-hammer-2-s0006.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+hammering.mp3 | BigSoundBank #0005 "nail-and-hammer-1" | https://bigsoundbank.com/nail-and-hammer-1-s0005.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+heartbeat.mp3 | BigSoundBank #0243 "heartbeat-1" | https://bigsoundbank.com/heartbeat-1-s0243.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+heartbeat2.mp3 | BigSoundBank #0218 "heart-beat" | https://bigsoundbank.com/heart-beat-s0218.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+hit1.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_hit_02.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+hit2.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_hit_05.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+hit3.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_hit_09.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+holga.mp3 | Wikimedia Commons "Holga shuttersound" | https://commons.wikimedia.org/wiki/File:Holga_shuttersound.ogg | Public Domain
+j_dn1.mp3 | Kenney - 85 Short music jingles - jingles_SAX01.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_dn2.mp3 | Kenney - 85 Short music jingles - jingles_SAX14.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_dn3.mp3 | Kenney - 85 Short music jingles - jingles_SAX07.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_dn4.mp3 | Kenney - 85 Short music jingles - jingles_STEEL07.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_dn5.mp3 | Kenney - 85 Short music jingles - jingles_SAX05.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_hit1.mp3 | Kenney - 85 Short music jingles - jingles_HIT15.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_hit2.mp3 | Kenney - 85 Short music jingles - jingles_HIT11.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_hit3.mp3 | Kenney - 85 Short music jingles - jingles_HIT14.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_meh.mp3 | Kenney - 85 Short music jingles - jingles_SAX09.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up1.mp3 | Kenney - 85 Short music jingles - jingles_STEEL00.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up10.mp3 | Kenney - 85 Short music jingles - jingles_PIZZA08.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up11.mp3 | Kenney - 85 Short music jingles - jingles_PIZZA13.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up12.mp3 | Kenney - 85 Short music jingles - jingles_PIZZA16.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up13.mp3 | Kenney - 85 Short music jingles - jingles_SAX15.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up2.mp3 | Kenney - 85 Short music jingles - jingles_STEEL02.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up3.mp3 | Kenney - 85 Short music jingles - jingles_PIZZA02.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up4.mp3 | Kenney - 85 Short music jingles - jingles_PIZZA15.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up5.mp3 | Kenney - 85 Short music jingles - jingles_STEEL15.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up6.mp3 | Kenney - 85 Short music jingles - jingles_STEEL10.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up7.mp3 | Kenney - 85 Short music jingles - jingles_PIZZA10.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up8.mp3 | Kenney - 85 Short music jingles - jingles_SAX12.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+j_up9.mp3 | Kenney - 85 Short music jingles - jingles_SAX02.ogg | https://opengameart.org/content/85-short-music-jingles | CC0 1.0
+kdoor_close.mp3 | Kenney - 50 RPG sound effects - doorClose_2.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+key1.mp3 | Keyboard Soundpack #1 - keypress-003.wav | https://opengameart.org/content/keyboard-soundpack-1-typing-and-single-keystrokes | CC0 1.0
+key2.mp3 | Keyboard Soundpack #1 - keypress-011.wav | https://opengameart.org/content/keyboard-soundpack-1-typing-and-single-keystrokes | CC0 1.0
+key3.mp3 | Keyboard Soundpack #1 - keypress-020.wav | https://opengameart.org/content/keyboard-soundpack-1-typing-and-single-keystrokes | CC0 1.0
+kiss.mp3 | BigSoundBank #0178 "kisses" | https://bigsoundbank.com/kisses-s0178.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+knock.mp3 | BigSoundBank #0095 "door-knock" | https://bigsoundbank.com/door-knock-s0095.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+knock2.mp3 | BigSoundBank #0374 "knock-on-a-light-door" | https://bigsoundbank.com/knock-on-a-light-door-s0374.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+latch.mp3 | Kenney - 50 RPG sound effects - metalLatch.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+laugh1.mp3 | BigSoundBank #2092 "delirious-laughter-2" | https://bigsoundbank.com/delirious-laughter-2-s2092.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+leather.mp3 | Kenney - 50 RPG sound effects - handleSmallLeather.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+leather_drop.mp3 | Kenney - 50 RPG sound effects - dropLeather.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+leaves.mp3 | Different steps on wood, stone, leaves, gravel and mud - leaves01.ogg | https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud | CC0 1.0
+loon1.mp3 | Yellowstone National Park Sound Library (nps-yell-sounds-commonloon), NPS & MSU Acoustic Atlas | https://archive.org/details/nps-yell-sounds-commonloon | Public Domain (U.S. National Park Service)
+loon2.mp3 | Yellowstone National Park Sound Library (nps-yell-sounds-commonloon), NPS & MSU Acoustic Atlas | https://archive.org/details/nps-yell-sounds-commonloon | Public Domain (U.S. National Park Service)
+machine.mp3 | 30 CC0 SFX loops - machine_03.ogg | https://opengameart.org/content/30-cc0-sfx-loops | CC0 1.0
+magic1.mp3 | Magic Spell SFX - magical_1.ogg | https://opengameart.org/content/magic-spell-sfx | CC0 1.0
+mailbox.mp3 | 100 CC0 SFX #2 - sfx100v2_metal_01.ogg | https://opengameart.org/content/100-cc0-sfx-2 | CC0 1.0
+match.mp3 | BigSoundBank #0004 "match" | https://bigsoundbank.com/match-s0004.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+mbox1.mp3 | BigSoundBank #0415 "plush-music-box-1" | https://bigsoundbank.com/plush-music-box-1-s0415.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+mbox2.mp3 | BigSoundBank #0415 "plush-music-box-1" | https://bigsoundbank.com/plush-music-box-1-s0415.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+metal_click.mp3 | Kenney - 50 RPG sound effects - metalClick.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+metal_fall.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_metal_falling_02.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+metal_hit1.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_metal_hit_01.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+mic_switch1.mp3 | BigSoundBank #2026 "microphone-switch-1" | https://bigsoundbank.com/microphone-switch-1-s2026.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+mic_switch2.mp3 | BigSoundBank #2027 "microphone-switch-2" | https://bigsoundbank.com/microphone-switch-2-s2027.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+mouse_squeak.mp3 | BigSoundBank #0459 "mouse-screams" | https://bigsoundbank.com/mouse-screams-s0459.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+nail1.mp3 | BigSoundBank #0006 "nail-and-hammer-2" | https://bigsoundbank.com/nail-and-hammer-2-s0006.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+nail2.mp3 | BigSoundBank #0006 "nail-and-hammer-2" | https://bigsoundbank.com/nail-and-hammer-2-s0006.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+ooh_voice.mp3 | OoOoOoOoOoOoOo - oooooooooo.ogg | https://opengameart.org/content/oooooooooooooo | CC0 1.0
+page1.mp3 | Book Flip Sounds - BookFlip1.wav | https://opengameart.org/content/book-flip-sounds | CC0 1.0
+page2.mp3 | Book Flip Sounds - BookFlip4.wav | https://opengameart.org/content/book-flip-sounds | CC0 1.0
+page3.mp3 | Book Flip Sounds - BookFlip7.wav | https://opengameart.org/content/book-flip-sounds | CC0 1.0
+page4.mp3 | BigSoundBank #2210 "pages-that-turn-3" | https://bigsoundbank.com/pages-that-turn-3-s2210.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+page_big.mp3 | BigSoundBank #0362 "great-page-that-turns-1" | https://bigsoundbank.com/great-page-that-turns-1-s0362.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+paper1.mp3 | Various Paper Sound Effects - Paper Sound - 1.wav | https://opengameart.org/content/various-paper-sound-effects | CC0 1.0
+paper2.mp3 | Various Paper Sound Effects - Paper Sound - 3.wav | https://opengameart.org/content/various-paper-sound-effects | CC0 1.0
+paper_ball.mp3 | BigSoundBank #1220 "ball-paper-1" | https://bigsoundbank.com/ball-paper-1-s1220.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+paper_crush.mp3 | Various Paper Sound Effects - Paper Crushed - 1.wav | https://opengameart.org/content/various-paper-sound-effects | CC0 1.0
+paper_torn.mp3 | BigSoundBank #0018 "torn-paper" | https://bigsoundbank.com/torn-paper-s0018.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+party_horn.mp3 | BigSoundBank #1553 "party-horn-1" | https://bigsoundbank.com/party-horn-1-s1553.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+pen_click.mp3 | BigSoundBank #0613 "pen-click" | https://bigsoundbank.com/pen-click-s0613.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+pencil1.mp3 | Owlish Media - Sound Effects Pack - pencil-scratch-1.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+pencil2.mp3 | Owlish Media - Sound Effects Pack - pencil-scratch-1.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+pencil3.mp3 | BigSoundBank #0221 "pencil" | https://bigsoundbank.com/pencil-s0221.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+plop1.mp3 | 100 CC0 SFX - plop_01.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+plop2.mp3 | 100 CC0 SFX - plop_02.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+pop1.mp3 | 3 Pop Sounds - pop1.ogg | https://opengameart.org/content/3-pop-sounds | CC0 1.0
+pop2.mp3 | 3 Pop Sounds - pop2.ogg | https://opengameart.org/content/3-pop-sounds | CC0 1.0
+pop3.mp3 | 3 Pop Sounds - pop3.ogg | https://opengameart.org/content/3-pop-sounds | CC0 1.0
+pop4.mp3 | Pop sounds - pop2.ogg | https://opengameart.org/content/pop-sounds | CC0 1.0
+pop5.mp3 | Pop sounds - pop4.ogg | https://opengameart.org/content/pop-sounds | CC0 1.0
+purr.mp3 | BigSoundBank #0436 "cat-purr" | https://bigsoundbank.com/cat-purr-s0436.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+rain.mp3 | 30 CC0 SFX loops - rain.ogg | https://opengameart.org/content/30-cc0-sfx-loops | CC0 1.0
+ratchet.mp3 | 68 Workshop Sounds - workshop - ratchet1.wav | https://opengameart.org/content/68-workshop-sounds | CC0 1.0
+riffle.mp3 | BigSoundBank #2211 "pages-that-turn-4" | https://bigsoundbank.com/pages-that-turn-4-s2211.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+roar1.mp3 | 80 CC0 creature SFX - roar_01.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+roar2.mp3 | 80 CC0 creature SFX - roar_02.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+rock_fall1.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_rock_falling_02.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+rock_fall2.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_rock_falling_05.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+rock_hit.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_rock_hit_01.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+rolling.mp3 | 30 CC0 SFX loops - rolling.ogg | https://opengameart.org/content/30-cc0-sfx-loops | CC0 1.0
+rustle1.mp3 | 20 Rustles of dry leaves - rustle03.flac | https://opengameart.org/content/20-rustles-dry-leaves | CC0 1.0
+rustle2.mp3 | 20 Rustles of dry leaves - rustle09.flac | https://opengameart.org/content/20-rustles-dry-leaves | CC0 1.0
+saw1.mp3 | BigSoundBank #0559 "saw-wood" | https://bigsoundbank.com/saw-wood-s0559.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+saw2.mp3 | Action sounds - Saw.wav | https://opengameart.org/content/action-sounds | CC0 1.0
+scrape1.mp3 | Owlish Media - Sound Effects Pack - scrape1.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+scrape2.mp3 | 68 Workshop Sounds - workshop - scrape2.wav | https://opengameart.org/content/68-workshop-sounds | CC0 1.0
+sizzle.mp3 | BigSoundBank #0143 "frying-in-the-pan-1" | https://bigsoundbank.com/frying-in-the-pan-1-s0143.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+sizzle2.mp3 | BigSoundBank #0144 "frying-pan-2" | https://bigsoundbank.com/frying-pan-2-s0144.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+slime1.mp3 | 40 CC0 water / splash / slime SFX - slime_02.ogg | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 1.0
+slime2.mp3 | 40 CC0 water / splash / slime SFX - slime_05.ogg | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 1.0
+slime3.mp3 | 40 CC0 water / splash / slime SFX - slime_09.ogg | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 1.0
+sneeze.mp3 | BigSoundBank #0609 "a-man-sneezing" | https://bigsoundbank.com/a-man-sneezing-s0609.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+sniff.mp3 | BigSoundBank #0784 "sniff" | https://bigsoundbank.com/sniff-s0784.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+snore_baby.mp3 | BigSoundBank #0929 "14-month-old-baby-snoring" | https://bigsoundbank.com/14-month-old-baby-snoring-s0929.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+snore_cr.mp3 | 80 CC0 creature SFX - snore.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+snore_kid.mp3 | BigSoundBank #1809 "snoring-child-2" | https://bigsoundbank.com/snoring-child-2-s1809.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+snore_man.mp3 | BigSoundBank #0170 "man-snoring" | https://bigsoundbank.com/man-snoring-s0170.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+spit1.mp3 | 80 CC0 creature SFX - spit_01.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+spit2.mp3 | 80 CC0 creature SFX - spit_02.ogg | https://opengameart.org/content/80-cc0-creature-sfx | CC0 1.0
+splash1.mp3 | BigSoundBank #1529 "splash-small-1" | https://bigsoundbank.com/splash-small-1-s1529.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+splash2.mp3 | BigSoundBank #1530 "splash-small-2" | https://bigsoundbank.com/splash-small-2-s1530.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+splash3.mp3 | BigSoundBank #1531 "splash-small-3" | https://bigsoundbank.com/splash-small-3-s1531.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+splash4.mp3 | BigSoundBank #1532 "splash-small-4" | https://bigsoundbank.com/splash-small-4-s1532.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+spray.mp3 | Owlish Media - Sound Effects Pack - spray-bottle.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+spring1.mp3 | 100 CC0 SFX - spring_02.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+squish1.mp3 | 8 wet squish, slurp impacts - impactsplat01.mp3.flac | https://opengameart.org/content/8-wet-squish-slurp-impacts | CC0 1.0
+squish2.mp3 | 8 wet squish, slurp impacts - impactsplat03.mp3.flac | https://opengameart.org/content/8-wet-squish-slurp-impacts | CC0 1.0
+squish3.mp3 | 8 wet squish, slurp impacts - impactsplat05.mp3.flac | https://opengameart.org/content/8-wet-squish-slurp-impacts | CC0 1.0
+squish4.mp3 | 8 wet squish, slurp impacts - impactsplat07.mp3.flac | https://opengameart.org/content/8-wet-squish-slurp-impacts | CC0 1.0
+stapler.mp3 | BigSoundBank #0009 "stapler" | https://bigsoundbank.com/stapler-s0009.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+steam_hiss.mp3 | BigSoundBank #0227 "hiss-of-steam-train-1" | https://bigsoundbank.com/hiss-of-steam-train-1-s0227.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+steam_whistle.mp3 | Steam whistle - steam_whistle.wav | https://opengameart.org/content/steam-whistle | CC0 1.0
+step_grass1.mp3 | BigSoundBank #0854 "steps-in-the-short-grass" | https://bigsoundbank.com/steps-in-the-short-grass-s0854.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+step_grass2.mp3 | BigSoundBank #0854 "steps-in-the-short-grass" | https://bigsoundbank.com/steps-in-the-short-grass-s0854.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+step_grass3.mp3 | BigSoundBank #0854 "steps-in-the-short-grass" | https://bigsoundbank.com/steps-in-the-short-grass-s0854.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+step_grass4.mp3 | BigSoundBank #0854 "steps-in-the-short-grass" | https://bigsoundbank.com/steps-in-the-short-grass-s0854.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+step_heavy.mp3 | 80 CC0 creture SFX #2 - stomp_01.ogg | https://opengameart.org/content/80-cc0-creture-sfx-2 | CC0 1.0
+step_snow1.mp3 | BigSoundBank #2890 "footstep-in-the-snow-2" | https://bigsoundbank.com/footstep-in-the-snow-2-s2890.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+step_snow2.mp3 | BigSoundBank #2890 "footstep-in-the-snow-2" | https://bigsoundbank.com/footstep-in-the-snow-2-s2890.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+step_wood1.mp3 | Kenney - 50 RPG sound effects - footstep01.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+step_wood2.mp3 | Kenney - 50 RPG sound effects - footstep04.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+step_wood3.mp3 | Kenney - 50 RPG sound effects - footstep07.ogg | https://opengameart.org/content/50-rpg-sound-effects | CC0 1.0
+stone1.mp3 | 80 CC0 RPG SFX - item_stone_01.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+stone2.mp3 | 80 CC0 RPG SFX - item_stone_03.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+stones.mp3 | 80 CC0 RPG SFX - stones_02.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+straw.mp3 | BigSoundBank #0508 "straw-end-of-glass" | https://bigsoundbank.com/straw-end-of-glass-s0508.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+swallow1.mp3 | Liquid Bottle Drink Set - swallow-01.flac | https://opengameart.org/content/liquid-bottle-drink-set | CC0 1.0
+swallow2.mp3 | Liquid Bottle Drink Set - swallow-03.flac | https://opengameart.org/content/liquid-bottle-drink-set | CC0 1.0
+swish1.mp3 | Swishes Sound Pack - swish-1.wav | https://opengameart.org/content/swishes-sound-pack | CC0 1.0
+swish2.mp3 | Swishes Sound Pack - swish-4.wav | https://opengameart.org/content/swishes-sound-pack | CC0 1.0
+swish3.mp3 | Swishes Sound Pack - swish-7.wav | https://opengameart.org/content/swishes-sound-pack | CC0 1.0
+swish4.mp3 | Swishes Sound Pack - swish-10.wav | https://opengameart.org/content/swishes-sound-pack | CC0 1.0
+switch_a.mp3 | 100 CC0 SFX - switch_01.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+switch_b.mp3 | 100 CC0 SFX - switch_02.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+tape1.mp3 | BigSoundBank #0297 "adhesive-tape-1" | https://bigsoundbank.com/adhesive-tape-1-s0297.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+tape2.mp3 | BigSoundBank #0298 "adhesive-tape-2" | https://bigsoundbank.com/adhesive-tape-2-s0298.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+teeth.mp3 | BigSoundBank #2190 "chattering-teeth-2" | https://bigsoundbank.com/chattering-teeth-2-s2190.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+thud1.mp3 | 100 CC0 SFX #2 - sfx100v2_hit_01.ogg | https://opengameart.org/content/100-cc0-sfx-2 | CC0 1.0
+thud2.mp3 | 100 CC0 SFX #2 - sfx100v2_hit_02.ogg | https://opengameart.org/content/100-cc0-sfx-2 | CC0 1.0
+thunder.mp3 | BigSoundBank #2718 "thunder" | https://bigsoundbank.com/thunder-s2718.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+tick1.mp3 | BigSoundBank #1372 "tic-tac-mechanical-alarm-clock" | https://bigsoundbank.com/tic-tac-mechanical-alarm-clock-s1372.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+tick2.mp3 | BigSoundBank #1372 "tic-tac-mechanical-alarm-clock" | https://bigsoundbank.com/tic-tac-mechanical-alarm-clock-s1372.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+tock1.mp3 | BigSoundBank #1567 "grandfather-clock-ticking" | https://bigsoundbank.com/grandfather-clock-ticking-s1567.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+tock2.mp3 | BigSoundBank #1567 "grandfather-clock-ticking" | https://bigsoundbank.com/grandfather-clock-ticking-s1567.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+toy_horn.mp3 | BigSoundBank #1085 "toy-horn" | https://bigsoundbank.com/toy-horn-s1085.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+triangle.mp3 | BigSoundBank #1687 "triangle-1" | https://bigsoundbank.com/triangle-1-s1687.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+type_burst.mp3 | Keyboard Soundpack #1 - generated-004_medium.wav | https://opengameart.org/content/keyboard-soundpack-1-typing-and-single-keystrokes | CC0 1.0
+ui_back.mp3 | Kenney - Interface Sounds - back_002.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_click1.mp3 | Kenney - 51 UI sound effects - click1.wav | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | CC0 1.0
+ui_click2.mp3 | Kenney - 51 UI sound effects - click3.wav | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | CC0 1.0
+ui_click3.mp3 | Kenney - 51 UI sound effects - mouseclick1.wav | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | CC0 1.0
+ui_close1.mp3 | Kenney - Interface Sounds - close_001.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_close2.mp3 | Kenney - Interface Sounds - close_002.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_conf1.mp3 | Kenney - Interface Sounds - confirmation_001.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_conf2.mp3 | Kenney - Interface Sounds - confirmation_002.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_conf3.mp3 | Kenney - Interface Sounds - confirmation_003.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_det1.mp3 | Kenney - 51 UI sound effects - switch13.wav | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | CC0 1.0
+ui_det2.mp3 | Kenney - 51 UI sound effects - switch14.wav | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | CC0 1.0
+ui_drop1.mp3 | Kenney - Interface Sounds - drop_001.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_drop2.mp3 | Kenney - Interface Sounds - drop_002.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_error1.mp3 | Kenney - Interface Sounds - error_003.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_error2.mp3 | Kenney - Interface Sounds - error_004.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_glass1.mp3 | Kenney - Interface Sounds - glass_001.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_glass2.mp3 | Kenney - Interface Sounds - glass_002.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_max.mp3 | Kenney - Interface Sounds - maximize_004.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_min.mp3 | Kenney - Interface Sounds - minimize_004.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_open1.mp3 | Kenney - Interface Sounds - open_001.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_open2.mp3 | Kenney - Interface Sounds - open_002.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_pluck.mp3 | Kenney - Interface Sounds - pluck_001.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_scratch.mp3 | Kenney - Interface Sounds - scratch_002.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_select.mp3 | Kenney - Interface Sounds - select_003.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+ui_tick1.mp3 | Kenney - 51 UI sound effects - rollover2.wav | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | CC0 1.0
+ui_tick2.mp3 | Kenney - 51 UI sound effects - rollover3.wav | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | CC0 1.0
+ui_warn.mp3 | Kenney - Interface Sounds - error_006.ogg | https://opengameart.org/content/interface-sounds | CC0 1.0
+vinyl.mp3 | BigSoundBank #2858 "vinyl-scratch-1" | https://bigsoundbank.com/vinyl-scratch-1-s2858.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+waterfall.mp3 | 30 CC0 SFX loops - water_flowing.ogg | https://opengameart.org/content/30-cc0-sfx-loops | CC0 1.0
+wblock1.mp3 | BigSoundBank #0466 "block-meinl-in-wood" | https://bigsoundbank.com/block-meinl-in-wood-s0466.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+wblock2.mp3 | BigSoundBank #0466 "block-meinl-in-wood" | https://bigsoundbank.com/block-meinl-in-wood-s0466.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+wdrill.mp3 | 68 Workshop Sounds - workshop - drill short 1.wav | https://opengameart.org/content/68-workshop-sounds | CC0 1.0
+whip.mp3 | BigSoundBank #2949 "whip-crack-1" | https://bigsoundbank.com/whip-crack-1-s2949.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whistle_pea.mp3 | BigSoundBank #1017 "plastic-whistle" | https://bigsoundbank.com/plastic-whistle-s1017.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whistle_pl2.mp3 | BigSoundBank #1105 "whistle-plastic-2" | https://bigsoundbank.com/whistle-plastic-2-s1105.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whistle_pl3.mp3 | BigSoundBank #1141 "whistle-plastic-3" | https://bigsoundbank.com/whistle-plastic-3-s1141.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whoosh1.mp3 | BigSoundBank #0572 "whoosh-1" | https://bigsoundbank.com/whoosh-1-s0572.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whoosh2.mp3 | BigSoundBank #0573 "whoosh-2" | https://bigsoundbank.com/whoosh-2-s0573.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whoosh3.mp3 | BigSoundBank #1795 "whoosh-3" | https://bigsoundbank.com/whoosh-3-s1795.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whoosh4.mp3 | BigSoundBank #1796 "whoosh-4" | https://bigsoundbank.com/whoosh-4-s1796.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whoosh5.mp3 | BigSoundBank #1797 "whoosh-5" | https://bigsoundbank.com/whoosh-5-s1797.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+whoosh6.mp3 | BigSoundBank #1799 "whoosh-6" | https://bigsoundbank.com/whoosh-6-s1799.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+wind1.mp3 | Wind - Wind.ogg | https://opengameart.org/content/wind | CC0 1.0
+wind2.mp3 | Wind - Wind2.ogg | https://opengameart.org/content/wind | CC0 1.0
+winder1.mp3 | BigSoundBank #2664 "winder-3" | https://bigsoundbank.com/winder-3-s2664.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+wood_break1.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_wood_breaking_01.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+wood_break2.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_wood_breaking_02.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+wood_crack1.mp3 | 35 wooden cracks/hits/destructions - crack01.mp3.flac | https://opengameart.org/content/35-wooden-crackshitsdestructions | CC0 1.0
+wood_crack2.mp3 | 35 wooden cracks/hits/destructions - crack04.mp3.flac | https://opengameart.org/content/35-wooden-crackshitsdestructions | CC0 1.0
+wood_crack3.mp3 | 35 wooden cracks/hits/destructions - crack07.mp3.flac | https://opengameart.org/content/35-wooden-crackshitsdestructions | CC0 1.0
+wood_fall.mp3 | 75 CC0 breaking / falling / hit sfx - bfh1_wood_falling_01.ogg | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | CC0 1.0
+wood_hit1.mp3 | 35 wooden cracks/hits/destructions - impactwood03.mp3.flac | https://opengameart.org/content/35-wooden-crackshitsdestructions | CC0 1.0
+wood_hit2.mp3 | 35 wooden cracks/hits/destructions - impactwood08.mp3.flac | https://opengameart.org/content/35-wooden-crackshitsdestructions | CC0 1.0
+wood_hit3.mp3 | 35 wooden cracks/hits/destructions - impactwood14.mp3.flac | https://opengameart.org/content/35-wooden-crackshitsdestructions | CC0 1.0
+wood_hit4.mp3 | 35 wooden cracks/hits/destructions - impactwood20.mp3.flac | https://opengameart.org/content/35-wooden-crackshitsdestructions | CC0 1.0
+wood_item1.mp3 | 80 CC0 RPG SFX - item_wood_01.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+wood_item2.mp3 | 80 CC0 RPG SFX - item_wood_02.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+wood_item3.mp3 | 80 CC0 RPG SFX - item_wood_03.ogg | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 1.0
+yawn1.mp3 | BigSoundBank #1406 "yawn-1" | https://bigsoundbank.com/yawn-1-s1406.html | CC0 1.0 (Joseph Sardin, BigSoundBank)
+yawn2.mp3 | Owlish Media - Sound Effects Pack - yawn1.wav | https://opengameart.org/content/sound-effects-pack | CC0 1.0
+zap.mp3 | 100 CC0 SFX - weird_03.ogg | https://opengameart.org/content/100-cc0-sfx | CC0 1.0
+
+359 clips.
