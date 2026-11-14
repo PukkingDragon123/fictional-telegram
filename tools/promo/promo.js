@@ -1109,10 +1109,21 @@ function famRibbon(F, x, y, A, segs, ph, fi) {
 const FAM_T = lazy(() => layout([{ text: 'The Bear', x: 0, y: 0 }, { text: 'Must Eat', x: 7, y: 15 }]));
 const FAM_HOP = { start: 0.53, stagger: 0.025, dur: 0.15, H: 3 };
 function famTitle(F, x, y, U, ph, fi) {
-  if (FAM.logoPart) { // [v7] the 3D title logo, cut out along its mask
-    const P = FAM.logoPart;
-    for (let j = 0; j < P.h; j++) for (let i = 0; i < P.w; i++) if (P.mask[j * P.w + i]) { const s = (j * P.w + i) * 4; F.set(x + i, y + j, [P.px.d[s], P.px.d[s + 1], P.px.d[s + 2]]); }
+  if (FAM.logoPart) { // [v7] the 3D title logo, cut out along its key, a glint sweeping its letters
+    const P = FAM.logoPart, gl = glintAt(ph, 0.2, 0.5, -20, P.w + 40, 6, 0.5);
     rings(F, maskAt(P.mask, P.w, P.h, F.w, F.h, x, y), F.w, F.h, [{ r: 1, c: rgb('#0a0610') }, { r: 2, c: rgb('#0a0610'), dither: 0.5 }]);
+    for (let j = 0; j < P.h; j++) for (let i = 0; i < P.w; i++) {
+      if (!P.mask[j * P.w + i]) continue;
+      const s = (j * P.w + i) * 4;
+      let c = [P.px.d[s], P.px.d[s + 1], P.px.d[s + 2]];
+      const g = gl ? gl(i, j) : 0;
+      if (g > 0 && c[0] + c[1] > 300) c = mixc(c, [255, 252, 236], g * 0.75); // the sunlit letter faces only
+      F.set(x + i, y + j, c);
+    }
+    // a fish jumps out of the logo's pool (the game's sprite), once a loop
+    const k = P.w / 380; // positions measured on the 380-wide logo
+    famLeap(F, ph, fi, 'sockeye', { t0: 0.6, dur: 0.3, x0: x + Math.round(118 * k), x1: x + Math.round(186 * k), y: y + Math.round(112 * k), peak: 50 }, 1);
+    sparkles(F, [[x + 60 * k, y + 14 * k, 0.3], [x + 300 * k, y + 30 * k, 0.42], [x + 330 * k, y + 96 * k, 0.12], [x + 150 * k, y + 70 * k, 0.85]].map(([a, b, c]) => [Math.round(a), Math.round(b), c]), ph, 2);
     return;
   }
   drawLetters(F, FAM_T(), x, y, U, ST_TITLE, (L) => ({ dy: hopAt(ph, L.i, FAM_HOP) }), glintAt(ph, 0.2, 0.5, -12, 92, 4));
@@ -1147,7 +1158,7 @@ function famStage(W, H, spec) {
   cv.width = W; cv.height = H;
   Object.assign(FAM, { cv, ctx: cv.getContext('2d'), W, H, spec });
   FAM.prep = import('../../src/game/fishSprites.js').then((FS) => {
-    for (const [id, morph] of spec.fish || []) FAM.fish[id] = [0, 1, 2, 3, 4].map((f) => spritePixels(FS.fishCanvasFor(id, { morph, frame: f, scale: 1 })));
+    for (const [id, morph] of [...(spec.fish || []), ['sockeye', 'normal']]) FAM.fish[id] ||= [0, 1, 2, 3, 4].map((f) => spritePixels(FS.fishCanvasFor(id, { morph, frame: f, scale: 1 })));
   });
 }
 async function famFrameRender(i) {
@@ -1169,8 +1180,14 @@ async function famFrameRender(i) {
   if (L) { const a = imgs[k++]; if (a) { const px = sampleRender(a, L.w, L.h); FAM.logoPart = { w: L.w, h: L.h, px, mask: keyMask(px) }; } }
   const F = new Px(W, H);
   const ph = (i % NF) / NF;
+  FAM.hero = null;
   S.scene(F, parts, ph, i);
+  const keep = FAM.hero && FAM.logoPart ? F.copy() : null;
   S.overlay(F, ph, i);
+  if (keep) { // [v7] Reynard's hat in front of the logo island's foot, not under it
+    const m = FAM.hero, [x0, y0, y1] = FAM.heroBand;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < Math.min(W, x0 + 420); x++) if (m[y * W + x]) { const o = (y * W + x) * 4; F.d[o] = keep.d[o]; F.d[o + 1] = keep.d[o + 1]; F.d[o + 2] = keep.d[o + 2]; }
+  }
   FAM.ctx.putImageData(new ImageData(F.d, W, H), 0, 0);
 }
 // the logo render's key colour (sampled in a corner, after the game's grade) -> a mask of everything else;
@@ -1201,6 +1218,7 @@ const FAM_SCENES = {
         vignette(F, fox, thumb ? { r: 0.46, k: 1.2, bottom: [0.8, 0.8], top: [0.16, 0.45], max: 0.75 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.82, 0.7], max: 0.7 });
         rings(F, bears, W, H, [{ r: 1, c: rgb('#ffd98a') }]);
         rings(F, fox, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ffc24a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ffc24a'), dither: 0.5 }]);
+        if (thumb) { FAM.hero = dilate(fox, W, H, 4); FAM.heroBand = [3, 120, 188]; }
         if (thumb) {
           famLeap(F, ph, fi, 'goldfish', { t0: 0.66, dur: 0.24, x0: 300, x1: 372, y: 408, peak: 62 }, 2);
           famLeap(F, ph, fi, 'rainbow', { t0: 0.16, dur: 0.26, x0: 560, x1: 488, y: 330, peak: 54 }, 2);
@@ -1225,6 +1243,7 @@ const FAM_SCENES = {
         vignette(F, fox, thumb ? { r: 0.46, k: 1.2, bottom: [0.82, 0.8], top: [0.16, 0.5], max: 0.75 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.82, 0.7], max: 0.7 });
         rings(F, flint, W, H, [{ r: 1, c: rgb('#fff2cf') }, { r: 2, c: rgb('#ffb04a'), dither: 0.5 }]);
         rings(F, fox, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ff9a3a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ff9a3a'), dither: 0.5 }]);
+        if (thumb) { FAM.hero = dilate(fox, W, H, 4); FAM.heroBand = [3, 120, 188]; }
         famEmbers(F, thumb ? [470, 60, 630, 330] : [700, 20, 960, 200], ph, fox);
       },
     };
@@ -1310,7 +1329,7 @@ function famthumb() {
   famStage(W, H, {
     ...sc, logo: famLogoSpec('thumb'),
     overlay(F, ph, fi) {
-      famTitle(F, 14, 12, 4, ph, fi);
+      famTitle(F, FAM.logoPart ? 4 : 14, FAM.logoPart ? 2 : 12, 4, ph, fi);
       const ribW = (() => { const L = layout([{ text: T.ribbon.map((s) => s[0]).join(''), x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 2 + 24; })();
       famRibbon(F, W - 30 - ribW, H - 56, A, T.ribbon, ph, fi);
       const SW = (() => { const L = layout([{ text: T.shout, x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 3; })();
@@ -1325,8 +1344,8 @@ function fambanner() {
   famStage(W, H, {
     ...sc, logo: famLogoSpec('banner'),
     overlay(F, ph, fi) {
-      famTitle(F, 18, 14, 4, ph, fi);
-      famRibbon(F, 40, 158, A, T.ribbon, ph, fi);
+      famTitle(F, FAM.logoPart ? 6 : 18, FAM.logoPart ? 2 : 14, 4, ph, fi);
+      famRibbon(F, 40, FAM.logoPart ? 190 : 158, A, T.ribbon, ph, fi);
       const SW = (() => { const L = layout([{ text: T.shout, x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 2; })();
       famShout(F, T.shout, W - 30 - SW, 14, 2, ph, fi, shoutT[0], shoutT[1]);
       famFrame(F, A);
@@ -1337,7 +1356,7 @@ function fambanner() {
 // Off until those renders exist (&logo=1 turns it on), so the Alagard title stands in.
 function famLogoSpec(fmt) {
   if (Q.get('logo') !== '1') return null;
-  return { name: 'famLogo', w: 340, h: 150, frames: +(Q.get('logoFrames') || 40) };
+  return { name: 'famLogo', w: 440, h: 184, frames: +(Q.get('logoFrames') || 40) };
 }
 
 const SCENES = { thumb, banner, fsthumb, fsbanner, cinethumb, cinebanner, ddthumb, ddbanner, famthumb, fambanner };

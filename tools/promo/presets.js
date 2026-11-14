@@ -299,8 +299,8 @@ PRESETS.famBaseThumbAnim = fam('famthumb', 'base', ['cineThumbAnim'], 'base', 12
 PRESETS.famBaseBannerAnim = fam('fambanner', 'base', ['cineBannerAnim'], 'base', 12, { gif: { 2: ['--lossy', '36'] } });
 PRESETS.famFsThumbAnim = fam('famthumb', 'fs', ['famFsThumb'], 'flint-steel', 6);
 PRESETS.famFsBannerAnim = fam('fambanner', 'fs', ['famFsBanner'], 'flint-steel', 6, { gif: { 2: ['--lossy', '36'] } });
-PRESETS.famDdThumbAnim = fam('famthumb', 'dd', ['ddThumbDig', 'ddThumbDive'], 'digdive', 20);
+PRESETS.famDdThumbAnim = fam('famthumb', 'dd', ['ddThumbDig', 'ddThumbDive'], 'digdive', 24);
 PRESETS.famDdBannerAnim = fam('fambanner', 'dd', ['ddBannerDig', 'ddBannerDive'], 'digdive', 20, { gif: { 2: ['--lossy', '36'] } });
 // the 3D title logo (src/game/title/logo3d.js) on a key colour, 340 x 150 low-res (2 screen px a pixel), cut out by
 // the compositor: node tools/promo/capture.mjs renderanim famLogo, then gif fam ... --q '&logo=1'
-PRESETS.famLogo = { scene: 'logo', viewport: [680, 300], px: 0.5, opts: { loop: LOOP_FAM, logo: { voxel: 0.068, pitch: 17, fill: 0.96, key: 0xff00ff } } };
+PRESETS.famLogo = { scene: 'logo', viewport: [880, 368], px: 0.6, opts: { loop: LOOP_FAM, daylight: true, hour: 13, logo: { voxel: 0.068, pitch: 15, fill: 0.68, dy: -0.32, fish: false, key: 0xff00ff, sun: 0xfff2e0, sunI: 2.0, sky: 0xffffff, ground: 0x6a5a48, hemiI: 1.3 } } };

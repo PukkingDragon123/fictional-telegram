@@ -961,7 +961,9 @@ SCENES.logo = async (T, o) => {
   S.named.logo = logo.group;
   S.logoObj = logo;
   logo.intro?.(); // it starts hidden and rises out of the ground
-  for (let k = 0; k < (L.warm ?? 2.5); k += 1 / 30) logo.update?.(1 / 30);
+  // past the intro (3 s: letters grow in, the falls start), its own fish off (the compositor leaps fish in a loop)
+  const noFish = () => { if (L.fish === false) logo.group.traverse((q) => { if (q.isSprite) q.visible = false; }); };
+  for (let k = 0; k < (L.warm ?? 4); k += 1 / 30) { logo.update?.(1 / 30); noFish(); }
   const rig = (S.diveRig = new CameraRig());
   rig.freeBounds = true; rig.minWupp = 0.0005; rig.maxWupp = 1;
   rig.yaw = rig.yawGoal = 0;
@@ -991,7 +993,7 @@ SCENES.logo = async (T, o) => {
   R.bloomStrength = 0;
   S.dive = { dispose() { logo.dispose?.(); } };
   const P = o.loop?.period || 3.2;
-  if (o.loop) S.drivers.push((dt) => { if (!o.logoStill) logo.update?.(dt); rig.update(0, R); });
+  if (o.loop) S.drivers.push((dt) => { if (!o.logoStill) logo.update?.(dt); noFish(); rig.update(0, R); });
   return { dive: true };
 };
 
