@@ -130,7 +130,7 @@ const MAX_DUR = { discover: 2.1, whistle: 2.8, loon: 3.2, fanfare: 2.6, gameover
 // [v33 sfx] recorded samples that are long by design (beds, rings, rolls, snores, tolls); their render window is 7 s
 Object.assign(MAX_DUR, {
   loon: 3.6, bigsplash: 2.0, research: 1.9, bees: 2.3, fox_snore: 2.7, fox_yawn: 2.5, build: 2.3, bear_yum: 1.9, bear_cheer: 2.2, reveal_rare: 1.9,
-  reveal_epic: 3.2, alarm: 1.7, lunch_bell: 1.9, offwork: 2.7, saw: 1.7, bed_yawn: 1.8, bed_snore: 1.9, bed_lullaby: 3.1, class_rumble: 2.2,
+  reveal_epic: 3.2, alarm: 1.9, lunch_bell: 1.9, offwork: 2.7, saw: 1.7, bed_yawn: 1.8, bed_snore: 1.9, bed_lullaby: 3.1, class_rumble: 2.2,
   class_star: 1.9, dig_rumble: 5.5, dig_roar: 2.4, dv_plunge: 1.9, ev_twinkle: 2.6, boss_roar: 1.9, bm_toll: 3.7, bm_drone: 6.5, bm_dawn: 2.2,
   water_blast: 1.8, feast_buzz: 2.6, feast_flies: 2.4, feast_snore: 2.5, feast_sizzle: 2.0, feast_drumroll: 2.1, harvest_special: 1.9,
   ln_chime: 2.9, ln_gong: 3.6, drill_whirr: 1.9, rs_flush: 2.4, school_bell: 1.9, rain_loop: 4.9, thunder: 5.0, wind_gust: 2.9, fire_crackle: 2.0,
