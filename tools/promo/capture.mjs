@@ -105,7 +105,8 @@ async function renderAnim(name) {
 async function compositeAnim(name, dsf, outDir) {
   const P = PRESETS[name], Z = SIZES[P.kind], N = P.opts.loop.frames;
   const page = await newPage(Z.css[0], Z.css[1], dsf);
-  const parts = P.parts ? `&parts=${P.parts.join(',')}` : ''; // [v5] multi-part pictures
+  const qa = process.argv.indexOf('--q'), xq = qa > 0 ? process.argv[qa + 1] : ''; // [v7] --q '&logo=1': extra compositor query
+  const parts = (P.parts ? `&parts=${P.parts.join(',')}` : '') + (P.query || '') + xq; // [v5] multi-part pictures, [v7] extra query (&set=)
   await page.goto(`${URL0}/tools/promo/promo.html?kind=${P.kind}&anim=${name}&n=${N}${parts}&t=${Date.now()}`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 120000 });
   fs.mkdirSync(outDir, { recursive: true });
@@ -126,6 +127,7 @@ const SIZES = { thumb: { css: [630, 500], files: ['itch-thumbnail-630x500.png', 
 SIZES.fsthumb = SIZES.thumb; SIZES.fsbanner = SIZES.banner;
 SIZES.cinethumb = SIZES.thumb; SIZES.cinebanner = SIZES.banner; // [v4 cinematic]
 SIZES.ddthumb = SIZES.thumb; SIZES.ddbanner = SIZES.banner; // [v5 dig & dive]
+SIZES.famthumb = SIZES.thumb; SIZES.fambanner = SIZES.banner; // [v7 family]
 async function composite(kind) {
   const Z = SIZES[kind];
   fs.mkdirSync(OUT, { recursive: true });
@@ -142,11 +144,17 @@ async function composite(kind) {
 const [what = 'all', which = 'all'] = process.argv.slice(2);
 const LOOP_FRAMES0 = Object.fromEntries(Object.entries(PRESETS).map(([k, v]) => [k, v.opts?.loop?.frames || 1]));
 const LOOP_FRAMES = (n) => LOOP_FRAMES0[n];
+// [v7] only render the frames of animated parts:  node tools/promo/capture.mjs renderanim name1,name2 [--resume]
+if (what === 'renderanim') {
+  for (const n of which.split(',')) await renderAnim(n);
+  await browser.close();
+  process.exit(0);
+}
 // GIFs:  node tools/promo/capture.mjs gif [thumbAnim|bannerAnim|all] [outDir] [--big]
 if (what === 'gif') {
   const out = process.argv[4] && !process.argv[4].startsWith('--') ? path.resolve(process.argv[4]) : path.join(OUT, 'v1');
   const big = process.argv.includes('--big');
-  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : which === 'fs' ? ['fsThumbAnim', 'fsBannerAnim'] : which === 'cine' ? ['cineThumbAnim', 'cineBannerAnim'] : which === 'dd' ? ['ddThumbAnim', 'ddBannerAnim'] : [which];
+  const names = which === 'all' ? ['thumbAnim', 'bannerAnim'] : which === 'fs' ? ['fsThumbAnim', 'fsBannerAnim'] : which === 'cine' ? ['cineThumbAnim', 'cineBannerAnim'] : which === 'dd' ? ['ddThumbAnim', 'ddBannerAnim'] : which === 'fam' ? ['famBaseThumbAnim', 'famBaseBannerAnim', 'famFsThumbAnim', 'famFsBannerAnim', 'famDdThumbAnim', 'famDdBannerAnim'] : which.split(',');
   const { execFileSync } = await import('child_process');
   // [v4] --frames N: a quick preview with fewer frames over the same loop; --big-only: just the 2x banner
   const fa = process.argv.indexOf('--frames'), nFrames = fa > 0 ? +process.argv[fa + 1] : 0;
@@ -165,12 +173,13 @@ if (what === 'gif') {
     if (big && Z === SIZES.banner) sizes.push([2, Z.files[1]]);
     for (const [dsf, file] of sizes) {
       const frames = await compositeAnim(n, dsf, tmp);
-      const gif = path.join(out, file.replace(/\.png$/, '.gif'));
-      fs.mkdirSync(out, { recursive: true });
+      const odir = P.sub ? path.join(out, P.sub) : out; // [v7] per-set sub-folders
+      const gif = path.join(odir, file.replace(/\.png$/, '.gif'));
+      fs.mkdirSync(odir, { recursive: true });
       // the GIF starts on the still frame (itch shows the first frame until it plays)
       // P.gif = { <dsf>: [extra gif.py args] }, e.g. { 2: ['--lossy', '36'] } to keep the 2x banner under 3 MB
       execFileSync('python3', [path.join(HERE, 'gif.py'), gif, String(1000 / (P.opts.loop.frames / P.opts.loop.period)), '--start', String(P.still || 0), ...(P.gif?.[dsf] || []), ...frames], { stdio: 'inherit' });
-      if (dsf === 1) fs.copyFileSync(frames[P.still || 0], path.join(out, file));
+      if (dsf === 1) fs.copyFileSync(frames[P.still || 0], path.join(odir, file));
     }
   }
   await browser.close();

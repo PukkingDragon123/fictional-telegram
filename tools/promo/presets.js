@@ -258,3 +258,49 @@ PRESETS.ddBannerDive = {
     ] },
 };
 PRESETS.ddBannerAnim = { kind: 'ddbanner', parts: ['ddBannerDig', 'ddBannerDive'], still: 12, opts: { loop: LOOP_DD }, gif: { 2: ['--lossy', '36'] } };
+
+// ------------------------------------------------------------------ [v7] the itch family: base game / Flint & Steel / Dig & Dive
+// One layout grammar for all three (promo.js famthumb / fambanner): the game title top-left, a set ribbon
+// under it, a comic shout top-right, a framed scene. All loops 40 frames over 3.2 s.
+//   base   : the 5 PM feast at Reynard's pond (the cineThumbAnim / cineBannerAnim renders)
+//   fs     : Flint's Quarry with power + storage (famFsThumb / famFsBanner below)
+//   dd     : Bonebed Bluff over Loon Lake (the ddThumb* / ddBanner* renders)
+const LOOP_FAM = { frames: 40, period: 3.2, timeAmp: 0.25 };
+const famQuarry = (o = {}) => [
+  ...quarryCast(o).filter((a) => a.kind !== 'beaver'),
+  { kind: 'beaver', wx: o.bx ?? 51.9, wz: 16.75, ry: 2.28, off: 0 },
+  { kind: 'beaver', wx: (o.bx ?? 51.9) + 1.3, wz: 16.75, ry: -2.28, off: 0.5 },
+  { kind: 'model', make: 'mine.makeVein', args: ['copper', 4], wx: (o.bx ?? 51.9) + 0.65, wz: 17.15, ry: 0.2 },
+  { kind: 'model', make: 'pow.pw_wind', wx: o.windX ?? 53.9, wz: 10.4, ry: 0, spins: 2, scale: o.windS ?? 0.6 },
+  { kind: 'model', make: 'pow.pw_battery', wx: o.batX ?? 51.95, wz: 11.2, ry: 0, charge: 0.8 },
+  { kind: 'model', make: 'sto.st_coalbunker', wx: o.bunX ?? 43.9, wz: 14.0, ry: 0.3, contents: { coal: 70 } },
+];
+const famQuarryFx = (o = {}) => [
+  ...quarryFx.filter((L) => !(L.type === 'splash' && L.color === 0xd0763e) && !(L.type === 'sparks' && L.off === 0.743)),
+  { type: 'sparks', wx: (o.bx ?? 51.9) + 0.65, wz: 17.15, y: 0.1, n: 22, rate: 2, off: 0.743, radius: 0.5, height: 0.7, seed: 9 },
+  { type: 'sparks', wx: 50.3, wz: 16.6, y: 0.1, n: 18, rate: 2, off: 0.25, radius: 0.5, height: 0.7, seed: 31 },
+];
+PRESETS.famFsThumb = {
+  scene: 'banner', viewport: [1260, 1000], px: 1, masks: ['fox', ['flint']],
+  opts: { ...FS_LOOK, loop: LOOP_FAM, wupp: 0.0145, pitch: 19, focusWorld: [49.9, 12.3],
+    cast: [...famQuarry({ flint: { wx: 50.3, wz: 16.0, scale: 1.7, rot: -0.5 }, bunX: 44.6 }).filter((a) => a.make !== 'mine.makeOreBin'),
+      { kind: 'fox', sx: 0.2, sy: 1.12, front: 6, scale: 3.5, rot: 0.3, shock: { cheeks: true, expr: 'excited', blush: 1, calm: true, look: [0.7, 0], gasps: 3, gaspOff: 0.7, hop: 0.25 }, name: 'fox' }],
+    loopFx: famQuarryFx() },
+};
+PRESETS.famFsBanner = {
+  scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox', ['flint']],
+  opts: { ...FS_LOOK, loop: LOOP_FAM, wupp: 0.018, pitch: 20, focusWorld: [46.4, 12.7],
+    cast: [...famQuarry({ bx: 50.6, windX: 54.0, windS: 0.5, bunX: 44.9, flint: { wx: 46.2, wz: 15.4, rot: 0.3 } }), { kind: 'fox', wx: 47.6, wz: 16.6, scale: 1.3, rot: 0.15, shock: { cheeks: true, expr: 'excited', blush: 1, calm: true, gasps: 3, gaspOff: 0.7, hop: 0.25 }, name: 'fox' }],
+    loopFx: famQuarryFx({ bx: 50.6 }) },
+};
+// the six outputs (node tools/promo/capture.mjs gif fam promo/v7-family --big): sub-folder per set
+const fam = (kind, set, parts, sub, still, extra = {}) => ({ kind, parts, query: `&set=${set}`, sub, still, opts: { loop: LOOP_FAM }, ...extra });
+PRESETS.famBaseThumbAnim = fam('famthumb', 'base', ['cineThumbAnim'], 'base', 12);
+PRESETS.famBaseBannerAnim = fam('fambanner', 'base', ['cineBannerAnim'], 'base', 12, { gif: { 2: ['--lossy', '36'] } });
+PRESETS.famFsThumbAnim = fam('famthumb', 'fs', ['famFsThumb'], 'flint-steel', 6);
+PRESETS.famFsBannerAnim = fam('fambanner', 'fs', ['famFsBanner'], 'flint-steel', 6, { gif: { 2: ['--lossy', '36'] } });
+PRESETS.famDdThumbAnim = fam('famthumb', 'dd', ['ddThumbDig', 'ddThumbDive'], 'digdive', 20);
+PRESETS.famDdBannerAnim = fam('fambanner', 'dd', ['ddBannerDig', 'ddBannerDive'], 'digdive', 20, { gif: { 2: ['--lossy', '36'] } });
+// the 3D title logo (src/game/title/logo3d.js) on a key colour, 340 x 150 low-res (2 screen px a pixel), cut out by
+// the compositor: node tools/promo/capture.mjs renderanim famLogo, then gif fam ... --q '&logo=1'
+PRESETS.famLogo = { scene: 'logo', viewport: [680, 300], px: 0.5, opts: { loop: LOOP_FAM, logo: { voxel: 0.068, pitch: 17, fill: 0.96, key: 0xff00ff } } };

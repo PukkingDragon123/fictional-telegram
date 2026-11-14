@@ -18,6 +18,9 @@ import { WATER_Y, KIND } from '../../src/world/grid.js';
 // [F&S] mining + industry art
 import * as MM from '../../src/entities/extra/miningModels.js';
 import * as IM from '../../src/entities/extra/industryModels.js';
+// [v7 family] power + storage for the Flint & Steel plate
+import * as PM from '../../src/entities/extra/powerModels.js';
+import * as SM from '../../src/entities/extra/storageModels.js';
 // [v4 cinematic] the Bear St. office tower
 import { officeModel } from '../../src/world/buildings.js';
 // [v5 dig & dive] Bonebed Bluff (Prof. Snapp) and the underwater scene under Loon Lake
@@ -294,7 +297,11 @@ const FS_KINDS = {
   model(T, p, a, o) {
     const [lib, fn] = a.make.split('.');
     const L = lib === 'mine' ? MM : IM;
-    const obj = lib === 'ind' ? IM.STRUCTURE_MODELS[fn]({ seed: 1 }) : L[fn](...(a.args || []));
+    const obj = lib === 'ind' ? IM.STRUCTURE_MODELS[fn]({ seed: 1 }) : lib === 'pow' ? PM.STRUCTURE_MODELS[fn]({ seed: 1 }) : lib === 'sto' ? SM.STRUCTURE_MODELS[fn]({ seed: 1 }) : L[fn](...(a.args || []));
+    // [v7] power gear: battery charge, turbine spin (whole turns a loop, so it wraps seamlessly)
+    if (a.charge != null) obj.userData.setCharge?.(a.charge, a.chargeDir ?? 1);
+    if (a.contents) obj.userData.setContents?.(a.contents, a.cap ?? 100);
+    if (o.loop && a.spins) S.drivers.push((dt, ph) => { const st = obj.userData.st; if (st) st.spin = ph * Math.PI * 2 * a.spins; });
     obj.position.copy(p); obj.rotation.y = yawOf(T, a); if (a.scale) obj.scale.setScalar(a.scale);
     obj.traverse((m) => { if (m.isMesh && !m.userData.glow) m.castShadow = true; });
     if (a.st) Object.assign(obj.userData.st || {}, a.st);
@@ -933,6 +940,61 @@ SCENES.dive = (T, o) => {
   return { dive: true };
 };
 
+// ------------------------------------------------------------------ [v7] the 3D title logo on a key colour
+// SCENES.logo: the title helper's logo (src/game/title/logo3d.js buildTitleLogo) alone in its own scene
+// (game.overrideScene, like the dive) on a flat key colour, golden-hour light, fitted to the frame; post
+// effects that vary per pixel (vignette, bloom, haze) are switched off so the key stays flat and the
+// compositor (promo.js famTitle) can cut the logo out. o.logo = { voxel, pitch (deg), fill (0..1 of the
+// frame), key (hex), sun }. The logo animates with its own clock (water, sway, fish); o.logoStill freezes it.
+SCENES.logo = async (T, o) => {
+  const game = T.game, R = game.renderer;
+  const { buildTitleLogo } = await import('../../src/game/title/logo3d.js');
+  const L = o.logo || {};
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(L.key ?? 0xff00ff);
+  scene.add(new THREE.HemisphereLight(L.sky ?? 0xffe4d0, L.ground ?? 0x5a4a3a, L.hemiI ?? 1.35));
+  const sun = new THREE.DirectionalLight(L.sun ?? 0xffd6a0, L.sunI ?? 2.4);
+  sun.position.set(-6, 9, 8);
+  scene.add(sun);
+  const logo = buildTitleLogo(game, { voxel: L.voxel ?? 0.068, sfx: () => {} });
+  scene.add(logo.group);
+  S.named.logo = logo.group;
+  S.logoObj = logo;
+  logo.intro?.(); // it starts hidden and rises out of the ground
+  for (let k = 0; k < (L.warm ?? 2.5); k += 1 / 30) logo.update?.(1 / 30);
+  const rig = (S.diveRig = new CameraRig());
+  rig.freeBounds = true; rig.minWupp = 0.0005; rig.maxWupp = 1;
+  rig.yaw = rig.yawGoal = 0;
+  rig.pitch = rig.pitchGoal = (L.pitch ?? 14) * D2R;
+  rig.dist = 40;
+  // fit: the logo's own fit (fitTilt centres it for a view `rel` rad above, extent = its size in voxels),
+  // else its bounding box as this camera sees it
+  const fill = L.fill ?? 0.94, vox = L.voxel ?? 0.068;
+  let c = new THREE.Vector3(), hW, hH;
+  if (logo.fitTilt && logo.extent) {
+    logo.fitTilt(rig.pitch);
+    const e = logo.extent(rig.pitch);
+    hW = e.w * vox; hH = e.h * vox;
+    logo.group.updateMatrixWorld(true);
+    logo.group.getWorldPosition(c);
+  } else {
+    const box = new THREE.Box3().setFromObject(logo.group), size = box.getSize(new THREE.Vector3());
+    box.getCenter(c);
+    hW = size.x; hH = size.y * Math.cos(rig.pitch) + size.z * Math.sin(rig.pitch);
+  }
+  rig.wupp = rig.wuppGoal = Math.max(hW / (R.lowW * fill), hH / (R.lowH * fill));
+  rig.goal.set(c.x + (L.dx ?? 0), c.y + (L.dy ?? 0), c.z); rig.target.copy(rig.goal);
+  rig.update(0, R);
+  game.overrideScene = scene; game.overrideRig = rig;
+  const U = R.postMat.uniforms;
+  for (const k of ['vignette', 'haze']) if (U[k]) U[k].value = 0;
+  R.bloomStrength = 0;
+  S.dive = { dispose() { logo.dispose?.(); } };
+  const P = o.loop?.period || 3.2;
+  if (o.loop) S.drivers.push((dt) => { if (!o.logoStill) logo.update?.(dt); rig.update(0, R); });
+  return { dive: true };
+};
+
 // ------------------------------------------------------------------ driver
 export async function setup(kind, o = {}) {
   const T = window.__title;
@@ -978,7 +1040,7 @@ export async function setup(kind, o = {}) {
     f.__cineBase = base;
     game.sky.update = f;
   }
-  const cam = SCENES[kind](T, o);
+  const cam = await SCENES[kind](T, o);
   // optional soft fill light from the camera so faces read against the low sun
   if (S.fill) { S.fill.removeFromParent(); S.fill.target.removeFromParent(); S.fill = null; }
   if (o.fill) {

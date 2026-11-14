@@ -19,7 +19,7 @@
 import './titlemenu.css';
 import { anySave, lastSlot, slotMeta, slotInfo } from '../game/saveSlots.js';
 import { INK, cv, scaleEl, wood, arrowPlank, board, WOOD } from './titleArt.js';
-import { createTitleWords } from './TitleWords.js'; // [v27 title] the title as floating voxel words (the board is the no-WebGL fallback)
+import { createTitleWords, wordsMetrics } from './TitleWords.js'; // [v27 title] the title as floating voxel words (the board is the no-WebGL fallback)
 
 function soundTag(on) {
   const c = cv(15, 15), g = c.getContext('2d');
@@ -138,12 +138,30 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
   // [v27 title] floating words instead of the hanging board (they size the .tm-logo box themselves)
   const boardVars = [el.style.getPropertyValue('--bh'), el.querySelector('.tm-sign').style.getPropertyValue('--w')];
   const mountWords = () => {
+    // [v33 title] the 3D logo out of the valley's own land (src/game/title/logo3d.js), once the title scene has built it
+    const l3 = window.__tbmeLogo3d;
+    if (l3) {
+      const { V } = wordsMetrics();
+      // bigger than the words: the island needs ~3 screen px per voxel to show its grass and strata
+      const k = Math.min(1.7, (window.innerWidth - 24) / ((83 + 6) * V));
+      const logo = el.querySelector('.tm-logo'), bw = Math.round((83 + 6) * V * k), bh = Math.round((37 + 6) * V * k);
+      logo.style.width = `${bw}px`; logo.style.height = `${bh}px`;
+      el.querySelector('.tm-sign').style.setProperty('--w', `${bw}px`);
+      el.style.setProperty('--bh', `${bh}px`);
+      el.classList.add('tm--words', 'tm--logo3d');
+      l3.attach(logo);
+      l3.show(true);
+      return { leave: () => l3.show(false) };
+    }
     const w = createTitleWords(el, { sfx: play });
     el.classList.toggle('tm--words', !!w);
     if (!w) { el.style.setProperty('--bh', boardVars[0]); el.querySelector('.tm-sign').style.setProperty('--w', boardVars[1]); el.querySelector('.tm-logo').removeAttribute('style'); }
     return w;
   };
   let words = mountWords();
+  // [v33 title] the 3D logo is ready: the floating words float off, the island rises in their place
+  const onLogo3d = () => { if (closed || away || !window.__tbmeLogo3d) return; const old = words; words = null; old?.leave?.(); setTimeout(() => { if (!closed && !away && !words) words = mountWords(); }, 260); };
+  window.addEventListener('tbme-logo3d-ready', onLogo3d);
 
   const snd = el.querySelector('.tm-snd');
   const paintSnd = () => {
@@ -262,6 +280,7 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
     sub?.close?.();
     rain?.destroy(); rain = null; // [v33 menu]
     words?.leave(); words = null; // [v27 title]
+    window.removeEventListener('tbme-logo3d-ready', onLogo3d); // [v33 title]
     el.classList.add('tm--out');
     setTimeout(() => el.remove(), 420);
   }
