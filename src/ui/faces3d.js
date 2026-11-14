@@ -323,7 +323,7 @@ const EXTRA = {
   fe_sleep: { who: 'bear', type: 'office', expr: 'sleepy' },
   fe_tear: { who: 'bear', type: 'cub', expr: 'sad' },
   beaver: { who: 'beaver', outfit: 'toolbelt' },
-  staff: { who: 'beaver', outfit: 'hardhat' },
+  // [v33] staff: the hotbar's Staff icon stays 2D pixel art (the user asked for it)
   ind_worker: { who: 'beaver', outfit: 'hardhat' },
   fox: { who: 'fox', expr: 'smug', frame: 'head' },
 };
