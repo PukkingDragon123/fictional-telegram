@@ -5,8 +5,9 @@ import { PixelRenderer } from './core/pixelRenderer.js';
 import { viewSize, lockPageZoom } from './ui/uiScale.js'; // [v26 uiscale]
 import { DEMO, demoBoot } from './demo/demo.js'; // [v26 demo]
 if (DEMO) demoBoot(); // [v26 demo] the demo build: its own saves + the DEMO ribbon on the title sign
+window.__tbmeLoad?.(0.3); // [v33 title] the loading screen (index.html): the big script is in
 
-// Startup (v26): no loading screen. index.html shows the title's first frame
+// Startup (v26): no loading screen. [v33 title] Now there is one: a bear eating a salmon (index.html), fed by window.__tbmeLoad(p). index.html shows the title's first frame
 // inline before any module loads (a still of the pond diorama saved on the last
 // visit, else the painted valley); this file shows the menu (src/ui/TitleMenu.js)
 // at once, builds the game, starts the 3D pond diorama (src/game/TitleScene.js)
@@ -70,8 +71,11 @@ function bootGame() {
       import('./game/Game.js'), import('./ui/UI.js'), import('./game/Input.js'), import('./game/Ghost.js'),
       import('./game/Cinematic.js'), import('./game/LabMode.js'), import('./art/natureArt.js'),
     ]);
+    window.__tbmeLoad?.(0.42); // [v33 title]
     if (!autostart) { await breathe(); nature.buildNatureAtlas(); await breathe(); } // the world's sprites, in their own task
+    window.__tbmeLoad?.(0.55); // [v33 title]
     game = new Game(canvas, { renderer });
+    window.__tbmeLoad?.(0.75); // [v33 title]
     game.titleMode = !autostart;
     game.resize = resize;
     settings.bind({ game }); // [v26 menu] camera / particles / shadows on the real game
@@ -79,6 +83,7 @@ function bootGame() {
     if (!autostart) await breathe();
     ui = new UI(game);
     game.ui = ui;
+    window.__tbmeLoad?.(0.86); // [v33 title]
     game.input = new Input(game, canvas);
     game.ghost = new Ghost(game);
     game.cine = new Cinematic(game);
@@ -88,7 +93,7 @@ function bootGame() {
     if (titleWorld) titleWorld.gameReady = true;
     return game;
   })();
-  gameP.catch((e) => console.error('game boot failed', e));
+  gameP.catch((e) => { console.error('game boot failed', e); window.__tbmeLoad?.(1); }); // [v33 title] never leave the loader up
   return gameP;
 }
 
@@ -131,6 +136,7 @@ function startGame(choice) {
     setTimeout(() => ui.notify(`Welcome back! Day ${game.state.day}`, 'happy'), 800);
   }
   game.running = true;
+  requestAnimationFrame(() => requestAnimationFrame(() => window.__tbmeLoad?.(1))); // [v33 title] the game's first frames are drawn
 }
 
 // pixel-block iris over the title; the game (ready or getting ready) starts behind it
@@ -185,6 +191,7 @@ if (autostart) {
     titleWorld = new TitleWorld(renderer, { paint: window.__tbmePaint, audio });
     titleWorld.onCalm = () => setTimeout(() => bootGame(), 60);
     titleWorld.start();
+    window.__tbmeLoad?.(1); // [v33 title]
     if (game) titleWorld.gameReady = true;
   }).catch((e) => { console.warn('TitleWorld failed', e); bootGame(); });
   setTimeout(() => bootGame(), 9000);
@@ -213,8 +220,9 @@ if (autostart) {
     }
     titleScene = new TitleScene(game);
     titleScene.start();
+    window.__tbmeLoad?.(0.95); // [v33 title] (1 once its first frames are drawn: titleCover)
     mode = 'pond';
-  }).catch((e) => { console.error('title scene failed', e); });
+  }).catch((e) => { console.error('title scene failed', e); window.__tbmeLoad?.(1); }); // [v33 title]
 }
 
 // the cover frame: fade it out once the live scene is on screen, and keep a
@@ -224,6 +232,7 @@ let coverFading = false, stillDone = pondTitle;
 function titleCover(dt) {
   if (!titleScene) return;
   titleCover.frames = (titleCover.frames || 0) + 1;
+  if (titleCover.frames === 4) window.__tbmeLoad?.(1); // [v33 title] the title is on screen: the loader can go
   if (!stillDone && titleScene.T > 0.6) { stillDone = true; saveStill(); }
   if (!coverFading && titleCover.frames > 4 && titleScene.T > 0.3) {
     coverFading = true;

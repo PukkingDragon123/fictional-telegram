@@ -133,6 +133,7 @@ const offline = await (async () => {
   const data = await withRetry('offline', () =>
     page.evaluate(async () => {
       const audio = window.audio;
+      await audio._debugLoadSamples(); // [v33 sfx] the recorded clips must be decoded before offline renders
       const analyze = (buf) => {
         const n = buf.length, sr = buf.sampleRate, chs = [];
         for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c));
@@ -309,6 +310,12 @@ async function liveStage(handle) {
       audio.setMusic(null);
       audio.setVolumes({ ambience: 0 }); // keep ambience events out of the voice accounting below
       await sleep(2300);
+
+      // --- [v33 sfx] the recorded clips decode in the background after the unlock: all of them, without failures
+      await waitFor(() => audio.sampleInfo().missing.length === 0, 15000);
+      const si = audio.sampleInfo();
+      ok('every sampled SFX name resolves to decoded clips', si.missing.length === 0 && Object.keys(si.failed).length === 0, `missing ${si.missing.length}: ${si.missing.slice(0, 6).join(' ')} failed ${JSON.stringify(si.failed).slice(0, 200)}`);
+      ok('(near) zero synthesised SFX: only the babble voices', si.synth.every((n) => ['fox_talk', 'bear_talk', 'st_blip', 'ln_word'].includes(n)), si.synth.join(' '));
 
       // --- every SFX once, no exceptions, nothing dropped
       const s0 = st().stats;

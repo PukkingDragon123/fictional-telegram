@@ -73,18 +73,18 @@ const INK = hx('#1e0c10');
 // structure stone, farmModels berries). Same glyphs, ink outline and carved rims, so the words read.
 const STYLE = {
   building: [
-    { plank: [hx('#c8963c'), hx('#d4a448'), hx('#c08c36')], seam: hx('#96682a'), light: hx('#eec668'), post: hx('#7a4d24'), postL: hx('#9a6430'),
+    { plank: [hx('#f0c66a'), hx('#f6d27a'), hx('#e8bc60')], seam: hx('#b07a34'), light: hx('#fff0b0'), post: hx('#7a4d24'), postL: hx('#9a6430'),
       roof: [hx('#9a4a2e'), hx('#b45a36'), hx('#7e3a22')], stone: [hx('#8a8678'), hx('#9a968a'), hx('#6a665a')], side: hx('#6b4220') },
-    { plank: [hx('#b0562e'), hx('#bc6434'), hx('#a64e2a')], seam: hx('#843a20'), light: hx('#d8824e'), post: hx('#5e2616'), postL: hx('#7a3a1e'),
-      roof: [hx('#4a4e5e'), hx('#5a6070'), hx('#3a3e4c')], stone: [hx('#8a8678'), hx('#9a968a'), hx('#6a665a')], side: hx('#55331a') },
+    { plank: [hx('#f08a48'), hx('#f89a54'), hx('#e88040')], seam: hx('#a8502a'), light: hx('#ffc890'), post: hx('#6a2e18'), postL: hx('#9a4a24'),
+      roof: [hx('#9a4a2e'), hx('#b45a36'), hx('#7e3a22')], stone: [hx('#8a8678'), hx('#9a968a'), hx('#6a665a')], side: hx('#55331a') },
   ],
   rock: [
     { block: ['#c4c0b4', '#b8b4aa', '#aaa69a', '#cfcabd'].map(hx), mortar: hx('#6a6560'), light: hx('#e4e0d4'), dark: hx('#8a8478'), vein: [hx('#d07a3a'), hx('#ffb070'), hx('#a8562a')], gleam: hx('#fff0a0'), side: hx('#6a6262') },
     { block: ['#d8c088', '#d1b981', '#cab27a', '#e0c890'].map(hx), mortar: hx('#8a7048'), light: hx('#f0dca8'), dark: hx('#a89060'), vein: [hx('#e8b030'), hx('#fff0a0'), hx('#b07a18')], gleam: hx('#ffffff'), side: hx('#7a6a48') },
   ],
   berry: [
-    { leaf: ['#5aa03a', '#6ab84a', '#4e9434', '#74c050'].map(hx), light: hx('#a8e070'), dark: hx('#3a6e2a'), berry: [hx('#3a4ab8'), hx('#26307a'), hx('#8a9af0')], side: hx('#3a6a2a') },
-    { leaf: ['#5aa03a', '#6ab84a', '#4e9434', '#74c050'].map(hx), light: hx('#a8e070'), dark: hx('#3a6e2a'), berry: [hx('#d02a4a'), hx('#9a1834'), hx('#ff7a90')], side: hx('#3a6a2a') },
+    { leaf: ['#84d04c', '#92dc58', '#76c242', '#a0e464'].map(hx), light: hx('#d4f6a0'), dark: hx('#3e7e2c'), berry: [hx('#3a4ab8'), hx('#26307a'), hx('#8a9af0')], side: hx('#3a6a2a') },
+    { leaf: ['#84d04c', '#92dc58', '#76c242', '#a0e464'].map(hx), light: hx('#d4f6a0'), dark: hx('#3e7e2c'), berry: [hx('#d02a4a'), hx('#9a1834'), hx('#ff7a90')], side: hx('#3a6a2a') },
   ],
 };
 const LEAF_DARK = ['#3a6e2a', '#457a30', '#335f26'].map(hx);
@@ -137,12 +137,12 @@ function styleFace(style, l, x, y, has2, i, deco) {
   const r = h3(x, y, i, 97);
   if (style === 'building') {
     if (d != null) return d;
-    if (topE) return P.post; // the beam under the eaves
-    if (botE || y <= 1) return pick(P.stone, r); // a stone footing
-    if (leftE || rightE) return leftE ? P.postL : P.post; // corner posts
+    if (y <= 1 && botE) return pick(P.stone, r); // a stone footing
+    if (topE || leftE) return P.light; // lit edges (the shingles sit on top)
+    if (botE || rightE) return P.plank[2]; // the ink outline does the shading
     const row = Math.floor((y - 2) / 3);
-    if ((y - 2) % 3 === 2 && r < 0.7) return P.seam; // plank seams (boards 2 voxels tall)
-    if ((x + row * 4) % 9 === 0) return P.seam; // board ends
+    if ((y - 2) % 3 === 2 && r < 0.45) return P.seam; // plank seams (boards 2 voxels tall), broken up
+    if ((x + row * 4) % 11 === 0 && r < 0.6) return P.seam; // board ends
     if ((y - 2) % 3 === 0) return P.light; // each board's lit top edge
     return P.plank[(row + (x >> 3)) % 3];
   }
@@ -180,8 +180,8 @@ function styleBody(v, l, yb, zb, style, i) {
     for (const [k] of [...v.vox]) {
       const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
       if (z !== fz - 1 || v.has(x, y + 1, z)) continue;
-      v.set(x, y, fz, h3(x, y, 1, 88) < 0.5 ? P.roof[0] : P.roof[2]);
-      v.set(x, y + 1, z, P.roof[1]);
+      v.set(x, y + 1, z, P.roof[1]); // a shingle ridge on top (not over the face: it has to read)
+      if (!v.has(x, y + 1, z - 1)) v.set(x, y + 1, z - 1, h3(x, y, 1, 88) < 0.5 ? P.roof[0] : P.roof[2]);
     }
   }
   if (style === 'rock' && l.line === 0 && l.ch === 'R') { // a pickaxe stuck in the top of the R

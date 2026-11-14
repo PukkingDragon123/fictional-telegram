@@ -640,6 +640,309 @@
   } catch (e) { if (window.console) console.warn('title paint', e); }
 })();
     </script>
+    <script>
+/* [v33 title] The loading screen: a bear eats a big salmon as the loading bar. Inline and tiny, so it is
+   on screen before the big game script is even parsed. It chomps along the salmon from tail to head as
+   the game loads (src/main.js reports real progress: window.__tbmeLoad(p) with p 0..1, 1 = the title
+   or the game is on screen); a tap makes it take an extra bite. A finished salmon: the bear waddles off
+   happy and the next one (office, CEO, cub, construction, chef, lumberjack) walks in with a fresh one.
+   When the game is ready the last salmon goes down fast, READY! and it fades into the title.
+   ?noloader (and ?title=pond, the promo stage) skip it. Tests: window.__tbmeLoader. */
+(function () {
+  var Q = location.search;
+  if (/noloader|title=pond/.test(Q)) { window.__tbmeLoad = function () {}; return; }
+  var INK = '#1e0c10', BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  var cv = document.createElement('canvas'), g = cv.getContext('2d');
+  cv.id = 'tbme-loader';
+  cv.setAttribute('aria-label', 'Loading');
+  cv.style.cssText = 'position:fixed;left:0;top:0;z-index:200;image-rendering:pixelated;image-rendering:crisp-edges;cursor:pointer;touch-action:manipulation;transition:opacity .45s steps(5)';
+  document.documentElement.appendChild(cv);
+  var P = 2, AW = 0, AH = 0;
+  function fit() {
+    var dpr = window.devicePixelRatio || 1, w = window.innerWidth, h = window.innerHeight;
+    P = Math.max(2, Math.floor(Math.min(w * dpr / 230, h * dpr / 150)));
+    AW = Math.ceil(w * dpr / P); AH = Math.ceil(h * dpr / P);
+    cv.width = AW; cv.height = AH;
+    cv.style.width = (AW * P / dpr) + 'px'; cv.style.height = (AH * P / dpr) + 'px';
+  }
+  fit();
+  window.addEventListener('resize', fit);
+  function px(x, y, c) { g.fillStyle = c; g.fillRect(x | 0, y | 0, 1, 1); }
+  function rect(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x | 0, y | 0, w | 0, h | 0); }
+  function hash(n) { n = Math.sin(n * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); }
+  // ---- a 3x5 pixel font (digits, caps, a few signs)
+  var FONT = { A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111', F: '111100110100100', G: '011100101101011', H: '101101111101101', I: '111010010010111', K: '101101110101101', L: '100100100100111', M: '1000111011101011000110001', N: '110101101101101', O: '010101101101010', P: '110101110100100', R: '110101110101101', S: '011100010001110', T: '111010010010010', U: '101101101101111', V: '101101101101010', W: '1000110001101011101110001', X: '101101010101101', Y: '101101010010010', '0': '111101101101111', '1': '010110010010111', '2': '110001010100111', '3': '110001010001110', '4': '101101111001001', '5': '111100110001110', '6': '011100111101111', '7': '111001010010010', '8': '111101111101111', '9': '111101111001110', '!': '010010010000010', '+': '000010111010000', '%': '101001010100101', ':': '000010000010000', '.': '000000000000010', ' ': '000000000000000', '-': '000000111000000' };
+  function textW(s, k) { var w = 0; for (var i = 0; i < s.length; i++) w += ((FONT[s[i]] || FONT[' ']).length / 5 + 1) * k; return w - k; }
+  function text(s, x, y, col, k, shade) {
+    k = k || 1;
+    for (var pass = 0; pass < 3; pass++) {
+      var cx = x;
+      for (var i = 0; i < s.length; i++) {
+        var gl = FONT[s[i]] || FONT[' '], w = gl.length / 5;
+        for (var r = 0; r < 5; r++) for (var c = 0; c < w; c++) if (gl[r * w + c] === '1') {
+          if (pass === 0) for (var oy = -1; oy <= 2; oy++) for (var ox = -1; ox <= 1; ox++) rect(cx + c * k + ox, y + r * k + oy, k, k, INK); // ink ring + drop
+          else if (pass === 1) rect(cx + c * k, y + r * k + 1, k, k, shade || col);
+          else rect(cx + c * k, y + r * k, k, k, col);
+        }
+        cx += (w + 1) * k;
+      }
+    }
+  }
+  // ---- the bears (outfits from the game's cast)
+  var BEARS = [
+    { fur: '#8a5a34', furL: '#a8744a', furD: '#5e3a20', body: '#2c3a62', bodyL: '#3e4e7e', shirt: '#f4ecdc', tie: '#d8402e', name: 'OFFICE BEAR' },
+    { fur: '#6a4428', furL: '#86583a', furD: '#4a2c18', body: '#22202a', bodyL: '#34303e', shirt: '#f4ecdc', tie: '#ffd23f', hat: 'top', name: 'THE CEO' },
+    { fur: '#b07a48', furL: '#c8945e', furD: '#86562e', body: '#5a9ad8', bodyL: '#7ab4ea', shirt: '#f4ecdc', bib: 1, small: 1, name: 'A CUB' },
+    { fur: '#7a5030', furL: '#966844', furD: '#54341c', body: '#ff8a2a', bodyL: '#ffaa5a', shirt: '#ffe066', vest: 1, hat: 'hard', name: 'CONSTRUCTION BEAR' },
+    { fur: '#94643c', furL: '#ae7e52', furD: '#664224', body: '#f4f0e8', bodyL: '#ffffff', shirt: '#e0d8cc', tie: '#d8402e', hat: 'chef', name: 'THE CHEF' },
+    { fur: '#5e3e26', furL: '#7a5434', furD: '#3e2614', body: '#c0342a', bodyL: '#d85040', shirt: '#2a1a14', plaid: 1, name: 'LUMBERJACK BEAR' },
+  ];
+  // a small pixel grid per bear frame: shapes, shaded from the top left, then an ink outline
+  var GW = 44, GH = 50, grid = new Array(GW * GH);
+  function gset(x, y, c) { x = Math.round(x); y = Math.round(y); if (x >= 0 && y >= 0 && x < GW && y < GH) grid[y * GW + x] = c; }
+  function ell(cx, cy, rx, ry, c, cl, cd) {
+    for (var y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (var x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+      var dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry, d = dx * dx + dy * dy;
+      if (d > 1) continue;
+      var s = dx + dy, b = (BAY[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+      gset(x, y, cl && s < -0.75 - b * 0.3 && d > 0.25 ? cl : cd && s > 0.7 + b * 0.3 && d > 0.3 ? cd : c);
+    }
+  }
+  function box(x, y, w, h, c) { for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) gset(x + i, y + j, c); }
+  function drawBear(B, X, Y, o) {
+    // o: jaw 0..1, sq (squash), step, lean, happy
+    grid.fill(0);
+    var ox = 18, oy = GH - 2, sc = B.small ? 0.82 : 1, sq = o.sq || 0;
+    function at(x, y) { return [ox + x * sc * (1 + sq * 0.5), oy + y * sc * (1 - sq)]; }
+    var st = o.step || 0, l = o.lean || 0, p;
+    // legs
+    p = at(-4, -5); box(p[0] - 2, p[1] - Math.max(0, st) * 2, 5, 6, B.plaid ? '#2a3a5a' : B.vest ? '#3a4a6a' : B.body);
+    p = at(3, -5); box(p[0] - 2, p[1] + Math.min(0, st) * 2, 5, 6, B.plaid ? '#2a3a5a' : B.vest ? '#3a4a6a' : B.body);
+    p = at(-4, 0); box(p[0] - 3, p[1] - 1, 6, 2, '#2a1a14'); p = at(3, 0); box(p[0] - 3, p[1] - 1, 6, 2, '#2a1a14');
+    // body
+    p = at(0, -16);
+    ell(p[0], p[1], 10 * sc, 11 * sc, B.bib ? B.fur : B.body, B.bib ? B.furL : B.bodyL, '#1a1626');
+    if (B.bib) ell(p[0] + 4, p[1] + 1, 4, 6, B.body, B.bodyL);
+    else if (B.vest) { box(p[0] - 9, p[1] - 2, 18, 2, '#e8f0f0'); box(p[0] - 9, p[1] + 3, 18, 2, '#e8f0f0'); box(p[0] + 3, p[1] - 8, 3, 16, B.shirt); }
+    else if (B.plaid) { for (var yy = -9; yy < 9; yy += 3) box(p[0] - 9, p[1] + yy, 18, 1, '#6a1a14'); for (var xx = -8; xx < 9; xx += 4) box(p[0] + xx, p[1] - 9, 1, 18, '#6a1a14'); }
+    else { for (var k = 0; k < 7; k++) box(p[0] + 4 - (k >> 1), p[1] - 8 + k, 2 + k * 0.6, 1, B.shirt); if (B.tie) { box(p[0] + 5, p[1] - 6, 2, 8, B.tie); gset(p[0] + 5, p[1] + 2, B.tie); } }
+    // the arm reaching forward
+    p = at(8, -15 + (o.jaw || 0) * 2); ell(p[0], p[1], 4, 3.4, B.bib ? B.fur : B.body, B.bib ? B.furL : B.bodyL); ell(p[0] + 4, p[1] + 1, 2.4, 2.2, B.fur, B.furL, B.furD);
+    // head (leans into the bite)
+    var hx = 3 + l * 3, hy = -32 + l * 2 - (o.happy ? Math.abs(Math.sin(o.happy * 9)) * 2 : 0);
+    p = at(hx, hy);
+    ell(p[0] - 5, p[1] - 7, 2.8, 2.8, B.fur, B.furL, B.furD); ell(p[0] + 3, p[1] - 8, 2.8, 2.8, B.fur, B.furL, B.furD);
+    gset(p[0] - 5, p[1] - 7, '#e8a090'); gset(p[0] + 3, p[1] - 8, '#e8a090');
+    ell(p[0], p[1], 8.5, 7.5, B.fur, B.furL, B.furD);
+    // the jaw drops when it chomps
+    var j = (o.jaw || 0) * 4;
+    if (j > 0.5) { box(p[0] + 4, p[1] + 1, 7, Math.round(j), '#6a1a24'); gset(p[0] + 6, p[1] + 1, '#ffffff'); gset(p[0] + 9, p[1] + 1, '#ffffff'); }
+    ell(p[0] + 7, p[1] + 3 + j, 4, 1.8, B.furL, '#e8c8a0', B.furD); // lower jaw
+    ell(p[0] + 7, p[1], 4.4, 2.8, '#e8c8a0', '#f8e4c4', '#b89070'); // muzzle
+    box(p[0] + 10, p[1] - 2, 2, 2, '#2a1418'); gset(p[0] + 10, p[1] - 2, '#6a4a50');
+    if (o.happy) { gset(p[0] + 2, p[1] - 3, INK); gset(p[0] + 3, p[1] - 4, INK); gset(p[0] + 4, p[1] - 3, INK); }
+    else { box(p[0] + 3, p[1] - 4, 2, 2, INK); gset(p[0] + 3, p[1] - 4, '#ffffff'); }
+    gset(p[0] + 1, p[1] + 1, '#ff9aa8'); gset(p[0] + 2, p[1] + 1, '#ff9aa8'); // blush
+    // hats
+    if (B.hat === 'top') { box(p[0] - 6, p[1] - 9, 12, 2, '#22202a'); box(p[0] - 4, p[1] - 17, 8, 8, '#22202a'); box(p[0] - 4, p[1] - 11, 8, 1, '#c8402e'); }
+    if (B.hat === 'hard') { ell(p[0], p[1] - 7, 7, 3.5, '#ffd23f', '#ffe98a', '#c89a1a'); box(p[0] - 8, p[1] - 6, 16, 1, '#e5a320'); }
+    if (B.hat === 'chef') { box(p[0] - 5, p[1] - 9, 10, 3, '#f4f0e8'); ell(p[0], p[1] - 14, 6, 4, '#ffffff', '#ffffff', '#d8d4cc'); }
+    // ink outline, then blit
+    for (var y = 0; y < GH; y++) for (var x = 0; x < GW; x++) {
+      if (grid[y * GW + x]) continue;
+      if ((x > 0 && grid[y * GW + x - 1] && grid[y * GW + x - 1] !== INK) || (x < GW - 1 && grid[y * GW + x + 1] && grid[y * GW + x + 1] !== INK) || (y > 0 && grid[(y - 1) * GW + x] && grid[(y - 1) * GW + x] !== INK) || (y < GH - 1 && grid[(y + 1) * GW + x] && grid[(y + 1) * GW + x] !== INK)) grid[y * GW + x] = INK;
+    }
+    for (var y2 = 0; y2 < GH; y2++) for (var x2 = 0; x2 < GW; x2++) if (grid[y2 * GW + x2]) px(X - ox + x2, Y - oy + y2, grid[y2 * GW + x2]);
+  }
+  // ---- the salmon: tail on the left, head on the right; the eaten part (x < e) is bones
+  var FL = 118;
+  function fishH(t) { return t < 0.1 ? 0 : t < 0.16 ? 2 + (t - 0.1) * 60 : t > 0.93 ? 12 * Math.sqrt(Math.max(0, (1 - t) / 0.07)) : 6 + 6 * Math.sin(Math.min(1, (t - 0.16) / 0.6) * Math.PI * 0.5); }
+  function drawFish(X, Y, e) {
+    var E = e * FL;
+    for (var x = 0; x < FL; x++) {
+      var t = x / FL, h = fishH(t), eaten = x < E;
+      if (t < 0.1) { // the tail fin
+        var span = 3 + (0.1 - t) * 110, gap = (0.1 - t) * 55;
+        for (var yy = -span; yy <= span; yy++) {
+          if (Math.abs(yy) < gap - 3) continue;
+          if (eaten) { if ((x & 1) === 0 && Math.abs(yy) % 2 === 0) px(X + x, Y + yy, '#efe6d0'); continue; }
+          px(X + x, Y + yy, Math.abs(yy) > span - 1.5 ? '#2e4a64' : (x + yy) % 3 === 0 ? '#5a7a96' : '#7a96ae');
+        }
+        continue;
+      }
+      if (eaten) {
+        // the skeleton: spine, ribs, a bitten jagged front
+        px(X + x, Y, '#efe6d0'); px(X + x, Y + 1, '#c8b898'); px(X + x, Y - 1, INK); px(X + x, Y + 2, INK);
+        if (x % 3 === 0) for (var r = 2; r < h * 0.85; r++) { px(X + x, Y - r, '#efe6d0'); px(X + x, Y + r + 1, '#e2d6bc'); }
+        continue;
+      }
+      for (var y = -Math.round(h); y <= Math.round(h); y++) {
+        var v = (y + h) / (2 * h + 0.01), c;
+        if (Math.abs(y) >= Math.round(h)) c = INK;
+        else if (v < 0.3) c = (hash(x * 7 + y * 13) < 0.12) ? '#1e2e44' : '#3e5a78'; // the dark spotted back
+        else if (v < 0.45) c = '#9ab0c0';
+        else if (v < 0.6) c = '#f08a84'; // the pink stripe
+        else c = v > 0.85 ? '#d8ccc4' : '#f4ece4';
+        if (t > 0.84 && t < 0.86 && Math.abs(y) < h - 1) c = '#2e3a4a'; // the gill line
+        px(X + x, Y + y, c);
+      }
+      if (t > 0.5 && t < 0.62 && x % 2 === 0) px(X + x, Y - Math.round(h) - 1, '#5a7a96'); // dorsal fin
+    }
+    // the eye and the mouth
+    px(X + FL - 6, Y - 3, INK); px(X + FL - 5, Y - 3, INK); px(X + FL - 6, Y - 4, '#ffffff');
+    px(X + FL - 2, Y + 2, INK); px(X + FL - 3, Y + 2, INK);
+    // bite marks on the front of the flesh
+    if (e > 0.1 && e < 1) for (var k = -1; k <= 1; k++) { var bx = Math.round(E), by = Y + k * 4; px(X + bx, by, '#c85a5a'); px(X + bx + 1, by + 1, '#c85a5a'); }
+  }
+  // ---- state
+  var S = { shown: 0, target: 0, real: 0, ready: false, t: 0, e: 0, bank: 0, count: 0, combo: 0, lastTap: -9, bi: 0, phase: 'walkin', pt: 0, bx: -40, chomp: 0, jaw: 0, sq: 0, sv: 0, crumbs: [], pops: [], fade: -1, readyT: -1, done: false };
+  window.__tbmeLoader = S;
+  window.__tbmeLoad = function (p) {
+    S.real = Math.max(S.real, Math.min(1, p));
+    if (p >= 1 && !S.ready) { S.ready = true; S.readyT = S.t; if (quick) { S.done = true; cv.remove(); } }
+  };
+  // ---- sound (only after a tap)
+  var ac = null;
+  function blip(f, dur, type, vol, noise) {
+    if (!ac) return;
+    try {
+      var t0 = ac.currentTime, gn = ac.createGain();
+      gn.gain.setValueAtTime(vol, t0); gn.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      gn.connect(ac.destination);
+      if (noise) {
+        var b = ac.createBuffer(1, Math.ceil(ac.sampleRate * dur), ac.sampleRate), d = b.getChannelData(0);
+        for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+        var s = ac.createBufferSource(); s.buffer = b;
+        var fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = f;
+        s.connect(fl); fl.connect(gn); s.start(t0);
+      } else {
+        var o = ac.createOscillator(); o.type = type || 'square'; o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * 0.55, t0 + dur);
+        o.connect(gn); o.start(t0); o.stop(t0 + dur);
+      }
+    } catch (e) { /* no sound */ }
+  }
+  function chompSfx(k) { blip(900 + Math.random() * 500, 0.09, 0, 0.18, true); blip(140 + k * 30, 0.08, 'square', 0.07); }
+  // ---- bites, crumbs
+  function crumbs(n, big) {
+    var x = S.fx + S.e * FL, y = S.fy;
+    for (var i = 0; i < n; i++) S.crumbs.push({ x: x + Math.random() * 3, y: y + (Math.random() - 0.5) * 10, vx: (Math.random() - 0.3) * 50, vy: -30 - Math.random() * 50, c: ['#f08a84', '#f4ece4', '#3e5a78', '#efe6d0', '#ffb0a0'][i % 5], l: 0.7 + Math.random() * 0.4, s: big && i % 3 === 0 ? 2 : 1 });
+  }
+  function bite(amount, tap) {
+    if (S.phase !== 'eat') { S.sv -= 3; return; }
+    S.e = Math.min(1, S.e + amount);
+    S.chomp = 0.22; S.sv += tap ? 7 : 4;
+    crumbs(tap ? 9 : 4, tap);
+    chompSfx(S.combo);
+  }
+  function tap(ev) {
+    if (S.fade >= 0) return;
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
+    S.combo = S.t - S.lastTap < 0.45 ? S.combo + 1 : 1;
+    S.lastTap = S.t;
+    var extra = 0.065 + Math.min(5, S.combo) * 0.01;
+    bite(extra, true);
+    if (S.combo >= 3) S.pops = S.pops.filter(function (q) { return q.s.indexOf('COMBO') < 0; });
+    if (S.phase === 'eat') S.pops.push({ s: S.combo >= 3 ? 'COMBO X' + S.combo : '+1', x: S.fx + S.e * FL - 6, y: S.fy - 30, t: 0 });
+  }
+  cv.addEventListener('pointerdown', tap);
+  window.addEventListener('keydown', function (e) { if (S.fade < 0 && (e.key === ' ' || e.key === 'Enter')) tap(e); }, true);
+  // ---- the loop
+  var last = performance.now(), bg = null;
+  var quick = /autostart/.test(Q) && navigator.webdriver; // automated game tests: no 3 s finale over their first frames
+  function frame(now) {
+    if (S.done) return;
+    var dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now; S.t += dt;
+    // progress: real milestones from the game, and a slow creep while the big script downloads / parses
+    if (S.real !== S.lastReal) { S.lastReal = S.real; S.realT = S.t; }
+    var creep = Math.max(0.3 * (1 - Math.exp(-S.t / 2.6)), S.real + 0.08 * (1 - Math.exp(-(S.t - (S.realT || 0)) / 3)));
+    S.target = S.ready ? 1 : Math.min(0.99, creep);
+    var prev = S.shown;
+    S.shown += (S.target - S.shown) * (1 - Math.exp(-dt * 4));
+    S.bank += (S.shown - prev) * 1.0; // one salmon is about one load
+    var cx = Math.round(AW / 2), gy = Math.round(AH / 2 + 34);
+    S.fx = cx - 52; S.fy = gy - 14;
+    var B = BEARS[S.bi % BEARS.length];
+    // phases
+    S.pt += dt;
+    if (S.phase === 'walkin') {
+      S.bx += (S.fx - 12 - S.bx) * (1 - Math.exp(-dt * 5));
+      if (Math.abs(S.fx - 12 - S.bx) < 1.5) { S.phase = 'eat'; S.pt = 0; }
+    } else if (S.phase === 'eat') {
+      if (S.e < 1 && (S.bank > 0.025 || (S.ready && S.t - S.readyT > 0.1))) {
+        var a = S.ready ? 0.25 : Math.min(S.bank, 0.06);
+        if (S.chomp <= 0) { S.bank -= a; bite(a, false); }
+      }
+      var tx = S.fx + S.e * FL - 6;
+      S.bx += (tx - S.bx) * (1 - Math.exp(-dt * 6));
+      if (S.e >= 1 && S.chomp <= 0) {
+        S.count++; S.phase = 'leave'; S.pt = 0;
+        S.pops.push({ s: 'YUM!', x: S.bx - 4, y: S.fy - 44, t: 0 });
+        blip(520, 0.09, 'square', 0.06); setTimeout(function () { blip(780, 0.12, 'square', 0.06); }, 90);
+      }
+    } else if (S.phase === 'leave') {
+      S.bx += dt * 70;
+      if (S.bx > AW + 30 || (S.ready && S.pt > 0.5)) {
+        if (S.ready) { S.phase = 'over'; S.pt = 0; S.pops.push({ s: 'READY!', x: cx - 16, y: S.fy - 56, t: 0, big: 1 }); }
+        else { S.bi++; S.phase = 'walkin'; S.pt = 0; S.bx = -40; S.e = 0; }
+      }
+    } else if (S.phase === 'over') {
+      if (S.pt > 0.45 && S.fade < 0) { S.fade = 0; cv.style.opacity = '0'; cv.style.pointerEvents = 'none'; setTimeout(function () { S.done = true; cv.remove(); window.removeEventListener('resize', fit); }, 520); }
+    }
+    // springs
+    S.chomp -= dt; S.jaw = S.chomp > 0 ? Math.sin((1 - S.chomp / 0.22) * Math.PI) : 0;
+    S.sv += (-260 * S.sq - 14 * S.sv) * dt; S.sq += S.sv * dt * 0.02;
+    // ---- draw: a dusk sky in dithered bands, the meadow, a plank, the salmon and the bear
+    if (!bg || bg.width !== AW || bg.height !== AH) {
+      bg = document.createElement('canvas'); bg.width = AW; bg.height = AH;
+      var bc = bg.getContext('2d'), sky = ['#33396e', '#4a427e', '#614b87', '#8a5a8a', '#b8687e'];
+      for (var y = 0; y < gy; y++) {
+        var v = y / gy * (sky.length - 1);
+        for (var x = 0; x < AW; x += 2) {
+          var k = Math.floor(v + (BAY[(y & 3) * 4 + (x / 2 & 3)] / 16) * 0.999);
+          bc.fillStyle = sky[Math.min(sky.length - 1, k)]; bc.fillRect(x, y, 2, 1);
+        }
+      }
+    }
+    g.drawImage(bg, 0, 0);
+    for (var s = 0; s < 40; s++) { var sx = Math.floor(hash(s) * AW), sy = Math.floor(hash(s + 50) * gy * 0.6); if (Math.sin(S.t * 2 + s) > 0.2) px(sx, sy, '#fff6d8'); }
+    rect(0, gy, AW, AH - gy, '#4a7a32'); rect(0, gy, AW, 1, '#7ba444'); rect(0, gy + 1, AW, 1, '#658f38');
+    for (var tt = 0; tt < AW; tt += 5) { var th = 1 + Math.floor(hash(tt) * 3); rect(tt, gy - th, 1, th, '#6c963c'); }
+    rect(S.fx - 6, gy - 3, FL + 12, 4, '#a8683a'); rect(S.fx - 6, gy - 3, FL + 12, 1, '#ce9258'); rect(S.fx - 6, gy + 1, FL + 12, 1, '#7a4826'); // the plank
+    // the bear (body behind the fish, head over it)
+    var step = S.phase !== 'eat' ? Math.sin(S.t * 14) : 0;
+    var o = { jaw: S.jaw, sq: S.sq + (S.chomp > 0 ? 0.06 : 0), step: step, lean: S.jaw, happy: S.phase === 'leave' || S.phase === 'over' ? S.t : 0 };
+    var by = gy - 3 - (S.phase !== 'eat' ? Math.abs(step) * 2 : 0);
+    if (S.phase !== 'over') drawBear(B, Math.round(S.bx), Math.round(by), o);
+    if (S.phase !== 'leave' && S.phase !== 'over') drawFish(S.fx, S.fy, S.e); else drawFish(S.fx, S.fy, 1);
+    // crumbs and pops
+    for (var i = S.crumbs.length - 1; i >= 0; i--) {
+      var c = S.crumbs[i]; c.l -= dt; c.vy += 160 * dt; c.x += c.vx * dt; c.y += c.vy * dt;
+      if (c.y > gy - 3) { c.y = gy - 3; c.vy *= -0.3; c.vx *= 0.6; }
+      if (c.l <= 0) { S.crumbs.splice(i, 1); continue; }
+      rect(c.x, c.y, c.s, c.s, c.c);
+    }
+    if (S.crumbs.length > 90) S.crumbs.splice(0, S.crumbs.length - 90);
+    for (var j = S.pops.length - 1; j >= 0; j--) {
+      var p = S.pops[j]; p.t += dt;
+      if (p.t > 0.9) { S.pops.splice(j, 1); continue; }
+      text(p.s, Math.round(p.x), Math.round(p.y - p.t * 14), p.s === '+1' ? '#ffe066' : '#ffffff', p.big ? 2 : 1, '#ff8a3a');
+    }
+    // words
+    var title = 'THE BEAR MUST EAT';
+    text(title, cx - textW(title, 2) / 2, Math.max(4, gy - 96), '#ffe08a', 2, '#f0922e');
+    var pc = Math.min(100, Math.round(S.shown * 100)), lt = 'LOADING ' + pc + '%';
+    if (!S.ready) text(lt, cx - textW(lt, 1) / 2, gy - 74, '#f4ecdc', 1);
+    var ct = 'SALMON EATEN: ' + S.count;
+    text(ct, cx - textW(ct, 1) / 2, gy + 9, '#ffe066', 1);
+    if (!S.ready && Math.floor(S.t * 2) % 2 === 0) { var tt2 = 'TAP TO CHOMP!'; text(tt2, cx - textW(tt2, 1) / 2, gy + 19, '#ffffff', 1); }
+    var nm = B.name; if (S.phase === 'eat' || S.phase === 'walkin') text(nm, Math.round(S.bx) - textW(nm, 1) / 2, Math.round(by) - 58 > 6 ? Math.round(by) - 58 : 6, '#c8b8ff', 1);
+    if (S.t > 120 && !S.ready) window.__tbmeLoad(1); // never stuck forever
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+    </script>
   </head>
   <body>
     <canvas id="game"></canvas>

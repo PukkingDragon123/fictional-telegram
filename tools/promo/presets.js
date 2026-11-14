@@ -307,3 +307,63 @@ PRESETS.famLogo = { scene: 'logo', viewport: [880, 368], px: 0.6, opts: { loop: 
 // [v7.2] one logo per set, each in its own material (logo3d style): a still frame each (the compositor animates the glint + fish)
 for (const [name, style] of [['famLogoBuilding', 'building'], ['famLogoRock', 'rock'], ['famLogoBerry', 'berry']])
   PRESETS[name] = { ...PRESETS.famLogo, opts: { ...PRESETS.famLogo.opts, loop: { frames: 1, period: 3.2 }, logo: { ...PRESETS.famLogo.opts.logo, style } } };
+
+// ------------------------------------------------------------------ [v7.2] stronger covers
+// BASE: "5 PM, from below": the feast above the waterline (cineThumbAnim), the pond underneath: the bears
+// that just cannonballed in plunge down tucked and spinning in clouds of bubbles (timed to their impacts
+// above), coins sink, the fish scatter. Reynard stands in front of both halves.
+const plunge = (x, at, type, seed, face, k = 1.25, o = {}) => ({ kind: 'plunger', x, z: 0.6, type, seed, face, at, scale: k, dur: 0.48, ...o });
+PRESETS.famBaseUnder = {
+  scene: 'dive', viewport: [1260, 560], px: 1, masks: [],
+  opts: { daylight: true, diveFill: 1.6, loop: LOOP_FAM, cam: { x: -3.2, y: 3.35, z: -0.8, pitch: 12, wupp: 0.02 },
+    cast: [
+      plunge(-1.6, 0.53, 'ceo', 4.4, 'excited', 1.55, { spin: 2.2 }),
+      plunge(-4.0, 0.2, 'office', 3.7, 'cheer', 1.45, { spin: -2.4, roll: -0.3 }),
+      plunge(1.3, 0.87, 'gymbro', 7.7, 'roar', 1.45, { spin: 2.6 }),
+      { kind: 'coins', x: -1.6, z: 1.2, n: 16, spread: 6, top: 6.0, fall: 4.8, rate: 1, size: 0.14, seed: 4 },
+      { kind: 'school', sp: 'sockeye', n: 6, x: -6.5, y: 2.6, z: 0.4, rx: 2.4, rz: 0.8, ry: 0.2, laps: 1, pxPer: 1, seed: 3, dir: -1 },
+      { kind: 'school', sp: 'rainbow', n: 5, x: 1.8, y: 2.2, z: -0.6, rx: 2.0, rz: 0.7, ry: 0.2, laps: 1, pxPer: 1, seed: 5 },
+      { kind: 'school', sp: 'goldfish', n: 5, x: -2.8, y: 1.7, z: 1.4, rx: 1.6, rz: 0.6, ry: 0.15, laps: 2, pxPer: 1, seed: 8 },
+    ],
+    loopFx: [
+      { type: 'bubbles', pos: [-8.5, 0.6, -0.8], n: 7, rate: 1, rise: 5.4, top: 6.0, spread: 0.3, px: 0.02, seed: 13 },
+      { type: 'bubbles', pos: [2.8, 0.8, -1.2], n: 6, rate: 1, rise: 5.0, top: 6.0, spread: 0.3, px: 0.02, seed: 17 },
+    ] },
+};
+PRESETS.famBaseUnderBanner = {
+  scene: 'dive', viewport: [1920, 280], px: 1.3, masks: [],
+  opts: { daylight: true, diveFill: 1.6, loop: LOOP_FAM, cam: { x: -1.0, y: 2.25, z: -0.8, pitch: 12, wupp: 0.026 },
+    cast: [
+      plunge(5.6, 0.53, 'ceo', 4.4, 'excited', 1.1, { spin: 2.2, top: 6.3, bottom: 2.0, px: 0.026 }),
+      plunge(1.4, 0.2, 'office', 3.7, 'cheer', 1.0, { spin: -2.4, roll: -0.3, top: 6.3, bottom: 2.0, px: 0.026 }),
+      plunge(9.8, 0.87, 'gymbro', 7.7, 'roar', 1.0, { spin: 2.6, top: 6.3, bottom: 2.0, px: 0.026 }),
+      { kind: 'coins', x: 5.6, z: 1.2, n: 16, spread: 9, top: 6.0, fall: 4.2, rate: 1, size: 0.16, seed: 4 },
+      { kind: 'school', sp: 'sockeye', n: 6, x: -3.0, y: 2.6, z: 0.4, rx: 2.6, rz: 0.8, ry: 0.2, laps: 1, pxPer: 1, seed: 3, dir: -1 },
+      { kind: 'school', sp: 'rainbow', n: 5, x: 3.6, y: 2.0, z: -0.6, rx: 2.0, rz: 0.7, ry: 0.2, laps: 1, pxPer: 1, seed: 5 },
+      { kind: 'school', sp: 'goldfish', n: 5, x: 8.0, y: 1.6, z: 1.4, rx: 1.6, rz: 0.6, ry: 0.15, laps: 2, pxPer: 1, seed: 8 },
+    ],
+    loopFx: [{ type: 'bubbles', pos: [-6, 0.6, -0.8], n: 7, rate: 1, rise: 5.0, top: 6.0, spread: 0.3, px: 0.026, seed: 13 }] },
+};
+// FLINT & STEEL: "the gold rush": Reynard riding a mine cart heaped with gold at full tilt along the
+// quarry's rail at dusk (the smelter glowing), the rail racing under it, sparks off the wheels
+const RUSH_LOOK = { ...FS_LOOK, hour: 17.6, haze: 0.08, fill: 0.5, bloom: 0.9 };
+const rush = (o = {}) => ({ kind: 'rush', ry: 0.95, len: 30, ties: 18, bumps: 4, spins: 10, load: 'gold', name: 'cartG',
+  fox: { scale: 1.25, y: 0.22, ry: -0.95, anim: 'cheer', cycles: 2 }, ...o });
+PRESETS.famFsRush = {
+  scene: 'banner', viewport: [1260, 1000], px: 1, masks: ['fox', 'cart'],
+  opts: { ...RUSH_LOOK, loop: LOOP_FAM, wupp: 0.0125, pitch: 16, focusWorld: [49.6, 14.5],
+    cast: [...famQuarry({ flint: { wx: 52.6, wz: 14.6, scale: 1.4, rot: -0.4 } }).filter((a) => a.make !== 'mine.makeOreBin' && a.kind !== 'cart' && a.kind !== 'rail' && a.kind !== 'beaver' && !(a.args && a.args[0] === 'copper')),
+      rush({ wx: 48.8, wz: 16.4, scale: 2.9 })],
+    loopFx: [...quarryFx.slice(0, 2), { type: 'smoke', wx: 52.95, wz: 11.9, y: 2.85, n: 9, rate: 1, rise: 1.9, drift: 0.5, size: 0.38, seed: 17 },
+      { type: 'sparks', wx: 48.2, wz: 15.95, y: 0.05, n: 30, rate: 4, off: 0, radius: 0.9, height: 0.5, seed: 21 },
+      { type: 'sparks', wx: 49.4, wz: 16.85, y: 0.05, n: 30, rate: 4, off: 0.5, radius: 0.9, height: 0.5, seed: 23 }] },
+};
+PRESETS.famFsRushBanner = {
+  scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox', 'cart'],
+  opts: { ...RUSH_LOOK, loop: LOOP_FAM, wupp: 0.0165, pitch: 17, focusWorld: [47.6, 13.0],
+    cast: [...famQuarry({ bx: 50.6, windX: 54.0, windS: 0.5, bunX: 44.9, flint: { wx: 52.4, wz: 15.0, rot: -0.3 } }).filter((a) => a.kind !== 'cart' && a.kind !== 'rail' && !(a.args && a.args[0] === 'copper') && a.kind !== 'beaver'),
+      rush({ wx: 48.0, wz: 15.8, scale: 1.9 })],
+    loopFx: [...quarryFx.slice(0, 2), { type: 'smoke', wx: 52.95, wz: 11.9, y: 2.85, n: 9, rate: 1, rise: 1.9, drift: 0.5, size: 0.38, seed: 17 },
+      { type: 'sparks', wx: 47.6, wz: 15.5, y: 0.05, n: 30, rate: 4, off: 0, radius: 0.8, height: 0.45, seed: 21 },
+      { type: 'sparks', wx: 48.4, wz: 16.1, y: 0.05, n: 30, rate: 4, off: 0.5, radius: 0.8, height: 0.45, seed: 23 }] },
+};

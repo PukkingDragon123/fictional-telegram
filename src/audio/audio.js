@@ -1,8 +1,11 @@
 /**
- * The Bear Must Eat - procedural audio engine.
+ * The Bear Must Eat - audio engine.
  *
- * 100% synthesised with the Web Audio API: oscillators, generated noise buffers, Karplus-Strong pluck
- * buffers and a generated-impulse convolution reverb. No audio files, no dependencies.
+ * [v33 sfx] Sound effects are recorded samples (src/audio/samples/*.mp3, CC0 / public domain, credits in
+ * src/audio/SOUNDS_CREDITS.txt), mapped per name in sampleMap.js and played by samples.js. The synthesised builders
+ * below stay as the fallback for a name without a sample (today only the babble voices fox_talk / bear_talk /
+ * st_blip / ln_word). Music, ambience beds and babble are synthesised with the Web Audio API: oscillators,
+ * generated noise buffers, Karplus-Strong pluck buffers and a generated-impulse convolution reverb.
  *
  *   import audio from './audio/audio.js';
  *
@@ -36,6 +39,9 @@
 /* ========================================================================== *
  *  constants & tiny helpers
  * ========================================================================== */
+
+import { SAMPLE_MAP, SAMPLE_GAIN } from './sampleMap.js'; // [v33 sfx]
+import { makeSampleSfx, loadAllSamples, specIds, sampleIds, sampleBuffer, sampleFailures } from './samples.js'; // [v33 sfx]
 
 const LS_MUTED = 'tbme.muted';
 const LS_VOLUMES = 'tbme.volumes';
@@ -2716,6 +2722,15 @@ for (const m of Object.values(SFX_EXTRA)) {
     SFX[name] = { max: d.max ?? 3, gap: d.gap ?? 0.05, g: d.g ?? 1, fn: (ctx, dest, o) => fn(ctx, dest, o, SFX_KIT) };
   }
 }
+// [v33 sfx] recorded samples replace the synth builder of every name in SAMPLE_MAP (max / gap limits are kept, the
+// level trim comes from SAMPLE_GAIN); the synth builder is kept on the entry for A/B renders (_debugRenderSfx synth)
+for (const [name, spec] of Object.entries(SAMPLE_MAP)) {
+  const d = SFX[name] || { max: 3, gap: 0.05, g: 1, fn: null };
+  SFX[name] = { max: d.max, gap: d.gap, g: SAMPLE_GAIN[name] ?? 1, fn: makeSampleSfx(spec, SFX_KIT), synth: d.fn, synthG: d.g, ids: specIds(spec) };
+}
+// the clips of the most-used names decode first after the unlock
+const SAMPLE_FIRST = ['click', 'hover', 'open', 'close', 'coin', 'coins', 'splash', 'plop', 'pop_in', 'paper', 'page', 'grab', 'drop', 'whoosh', 'error', 'buy', 'chomp', 'heart']
+  .flatMap((n) => (SFX[n] && SFX[n].ids) || []);
 const SFX_NAMES = Object.freeze(Object.keys(SFX));
 
 /* ========================================================================== *
@@ -4020,6 +4035,7 @@ const S = {
   lastStart: {},
   amb: newAmbState(),
   analyser: null,
+  samples: null, // [v33 sfx] result of the background clip decode
 };
 
 let warned = false;
@@ -4070,6 +4086,11 @@ function ensureContext() {
   // The one-time buffer generation (reverb impulse, noise for the ambience beds) takes tens of milliseconds:
   // keep it out of the user-gesture handler, in two small timer tasks. Until then: no reverb / no beds.
   setTimeout(() => {
+    try {
+      loadAllSamples(ctx, SAMPLE_FIRST).then((r) => (S.samples = r)); // [v33 sfx]
+    } catch (e) {
+      reportOnce(e);
+    }
     try {
       if (S.rig && S.ctx === ctx) S.rig.attachReverb();
     } catch (e) {
@@ -4497,9 +4518,11 @@ function _debugRenderMix(names, seconds = 4, opts = {}) {
 function _debugRenderSfx(name, seconds = 4, opts = {}) {
   const def = SFX[name];
   if (!def) return Promise.reject(new Error('unknown sfx ' + name));
+  const synth = opts.synth && def.synth; // [v33 sfx] render the old synthesised builder instead of the sample
+  const fn = synth ? def.synth : def.fn, g = synth ? def.synthG : def.g;
   return renderOffline(seconds, (ctx, rig) => {
     const bus = rig.buses.sfx;
-    def.fn(ctx, bus.dry, { when: 0.02, volume: num(opts.volume, 1) * (opts.raw ? 1 : def.g), pitch: clamp(num(opts.pitch, 1), 0.25, 4), pan: num(opts.pan, 0), rev: bus.wet });
+    fn(ctx, bus.dry, { when: 0.02, volume: num(opts.volume, 1) * (opts.raw ? 1 : g), pitch: clamp(num(opts.pitch, 1), 0.25, 4), pan: num(opts.pan, 0), rev: bus.wet });
   });
 }
 
@@ -4572,6 +4595,26 @@ function _debugRenderAmbience(seconds = 8, o = {}) {
   });
 }
 
+/** [v33 sfx] decode every clip now (offline renders need them); resolves to { loaded, total, failed } */
+function _debugLoadSamples() {
+  const OAC = typeof window !== 'undefined' ? window.OfflineAudioContext || window.webkitOfflineAudioContext : null;
+  const ctx = S.ctx || (OAC ? new OAC(1, 1, OFFLINE_SR) : null);
+  return loadAllSamples(ctx, SAMPLE_FIRST);
+}
+/** [v33 sfx] which names play recorded samples, which are still synthesised, and which clips are not decoded */
+function sampleInfo() {
+  const sampled = [], synth = [], missing = [];
+  for (const n of SFX_NAMES) {
+    const d = SFX[n];
+    if (!d.ids) synth.push(n);
+    else {
+      sampled.push(n);
+      for (const id of d.ids) if (!sampleBuffer(id)) missing.push(n + ':' + id);
+    }
+  }
+  return { sampled, synth, missing, clips: sampleIds().length, failed: sampleFailures() };
+}
+
 function _debugState() {
   const c = S.ctx;
   if (c) prune(c.currentTime); // the live-voice list is pruned lazily, report the true count
@@ -4640,6 +4683,8 @@ export const audio = {
   _debugRenderBabble,
   _debugState,
   _debugLevel,
+  _debugLoadSamples,
+  sampleInfo,
 };
 
 export { SFX_NAMES, MOOD_NAMES };

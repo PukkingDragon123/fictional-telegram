@@ -359,6 +359,41 @@ const FS_KINDS = {
     if (o.loop) S.drivers.push((dt, ph) => set(ph));
     return g;
   },
+  // [v7.2] the gold rush: a long rail across the shot that slides one tie-gap a loop (seamless), the cart
+  // heaped with gold bouncing along it on the spot (wheels spinning), Reynard riding in it
+  rush(T, p, a, o) {
+    const g = new THREE.Group(); T.group.add(g);
+    g.position.copy(p); g.rotation.y = a.ry ?? Math.PI / 2;
+    const len = a.len ?? 24, k = a.scale ?? 1;
+    const rail = MM.makeRail(len); rail.position.set(0, a.railY ?? 0.02, -len / 2); g.add(rail);
+    const cart = MM.makeMineCart(); cart.userData.setLoad(a.load || 'gold'); cart.scale.setScalar(k);
+    cart.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+    g.add(cart);
+    let fox = null;
+    if (a.fox) {
+      fox = new FoxRig({ shadows: true }); fox.root.scale.setScalar((a.fox.scale ?? 0.9) / k); // (inside the scaled cart)
+      fox.root.position.set(0, a.fox.y ?? 0.3, 0); fox.root.rotation.y = a.fox.ry ?? -Math.PI / 2;
+      cart.add(fox.root);
+      fox.play(a.fox.anim || 'cheer', { fade: 0 });
+      if (a.fox.expr) fox.setExpression?.(a.fox.expr, { hold: 99 });
+      for (let q = 0; q < 1; q += 1 / 30) fox.update(1 / 30);
+      S.named.fox = fox.root;
+    }
+    const gap = 0.2, P = o.loop?.period || 3.2;
+    const fl = fox && loopFox(fox, { anim: a.fox.anim || 'cheer', cycles: a.fox.cycles || 2 });
+    const set = (dt, ph) => {
+      rail.position.z = -len / 2 + ((ph * (a.ties ?? 6)) % 1) * gap * (a.dir ?? 1) + (a.dir ?? 1) * gap * (a.ties ?? 6) * 0; // one tie per 1/ties of the loop
+      const bump = Math.abs(Math.sin(ph * TAU2 * (a.bumps ?? 4)));
+      cart.position.set(0, 0.04 + bump * 0.06 * k, 0);
+      cart.rotation.set(Math.sin(ph * TAU2 * (a.bumps ?? 4)) * 0.05, 0, Math.sin(ph * TAU2 * 2) * 0.04);
+      cart.userData.spin?.(ph * (a.spins ?? 8) * TAU2);
+      if (fl) fl(dt);
+    };
+    set(1 / 30, 0);
+    if (o.loop) S.drivers.push(set);
+    S.named.cart = cart;
+    return g;
+  },
   // beaver miner: pickaxe in the paw, drill helmet, chopping at the rock
   beaver(T, p, a, o) {
     const r = new C3.BeaverRig({ shadows: true });
@@ -910,6 +945,59 @@ const DIVE_KINDS = {
   },
 };
 
+// [v7.2] the base-game cover's underwater half: suited bears plunging in from the surface (tucked, spinning,
+// a bubble trail), staggered through the loop like their cannonballs above; gold coins sinking and rocking
+DIVE_KINDS.plunger = (T, sc, p, a, o) => {
+  const g = new THREE.Group(); sc.scene.add(g);
+  const b = makeBear(a.type || 'office', a.seed ?? 3.7);
+  b.root.scale.multiplyScalar(a.scale ?? 1);
+  g.add(b.root);
+  if (a.face) b.setFace(a.face, { hold: 999 });
+  const M = bub2Mats(), trail = [];
+  for (let i = 0; i < (a.bubbles ?? 14); i++) { const m = new THREE.Sprite(M[i % 4]); m.scale.setScalar(BUB2[i % 4].length * (a.px ?? 0.02)); m.renderOrder = 20; sc.scene.add(m); trail.push({ m, k: i / (a.bubbles ?? 14), dx: Math.sin(i * 2.3) * 0.25, dz: Math.cos(i * 1.7) * 0.2 }); }
+  const top = a.top ?? 6.3, bot = a.bottom ?? 1.4, dur = a.dur ?? 0.5;
+  const set = (ph, dt) => {
+    const u = wrap01(ph - (a.at ?? 0)) / dur;
+    const on = u <= 1;
+    g.visible = on;
+    const e = 1 - (1 - Math.min(1, u)) ** 2.2; // fast in, slowing down
+    const y = top + (bot - top) * e;
+    g.position.set(p.x + (a.drift ?? 0) * e, y, p.z);
+    g.rotation.set(a.lean ?? 0.35, a.ry ?? 0, (a.spin ?? 2.5) * e + (a.roll ?? 0), 'YXZ'); // tumbling in the picture plane: the face stays to camera
+    b.pose('cannonball', dt, { t01: 0.55, flip: 'tuck' });
+    for (const t of trail) {
+      const tu = u - t.k * 0.6;
+      t.m.visible = on && tu > 0 && u < 1.0;
+      const yy = top + (bot - top) * (1 - (1 - Math.min(1, Math.max(0, tu))) ** 2.2) + (u - Math.max(0, tu)) * 3.2 + 0.4;
+      t.m.position.set(p.x + t.dx * (1 + u), Math.min(yy, top - 0.1), p.z + t.dz + 0.4);
+    }
+  };
+  set(0.5, 1 / 30);
+  if (o.loop) S.drivers.push((dt, ph) => set(ph, dt));
+  return g;
+};
+DIVE_KINDS.coins = (T, sc, p, a, o) => {
+  const g = new THREE.Group(); sc.scene.add(g);
+  const r = seeded(a.seed || 9), n = a.n || 14, parts = [];
+  for (let i = 0; i < n; i++) {
+    const s = (a.size || 0.14) * (0.8 + r() * 0.4);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(s, s, s * 0.3), new THREE.MeshBasicMaterial({ color: COIN_COLS[i % COIN_COLS.length], fog: false }));
+    g.add(m);
+    parts.push({ m, x: (r() - 0.5) * (a.spread ?? 3), z: (r() - 0.5) * 0.8, off: r(), sp: 0.7 + r() * 0.5, ph: r() * 6 });
+  }
+  const set = (ph) => {
+    for (const q of parts) {
+      const u = wrap01(ph * (a.rate ?? 1) + q.off);
+      q.m.position.set(p.x + q.x + Math.sin(u * TAU2 * 2 + q.ph) * 0.18, (a.top ?? 6) - u * (a.fall ?? 4.5) * q.sp, p.z + q.z);
+      q.m.rotation.set(0.4, Math.sin(u * TAU2 * 2 + q.ph) * 1.2, Math.cos(u * TAU2 * 2 + q.ph) * 0.6);
+    }
+  };
+  set(0);
+  if (o.loop) S.drivers.push((dt, ph) => set(ph));
+  return g;
+};
+const TAU2 = Math.PI * 2;
+
 SCENES.dive = (T, o) => {
   const game = T.game, R = game.renderer;
   const sc = (S.dive = buildDiveScene({ wreck: o.wreck || 'old' }));
@@ -924,6 +1012,7 @@ SCENES.dive = (T, o) => {
   rig.update(0, R);
   game.overrideScene = sc.scene; game.overrideRig = rig;
   S.fxParent = sc.scene;
+  if (o.diveFill) { const L = new THREE.DirectionalLight(o.diveFillColor ?? 0xfff0dc, o.diveFill); L.position.set(D.x ?? 0, (D.y ?? 2.7) + 4, 20); L.target.position.set(D.x ?? 0, D.y ?? 2.7, 0); sc.scene.add(L, L.target); } // [v7.2] a front fill: faces read under water
   const P = (a) => new THREE.Vector3(a.x ?? 0, a.y != null ? a.y : sc.bedH(a.x ?? 0, a.z ?? 0) + (a.by ?? 0), a.z ?? 0);
   let diverP = null;
   for (const a of o.cast || []) {

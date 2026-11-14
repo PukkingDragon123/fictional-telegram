@@ -1111,7 +1111,7 @@ const FAM_HOP = { start: 0.53, stagger: 0.025, dur: 0.15, H: 3 };
 function famTitle(F, x, y, U, ph, fi) {
   if (FAM.logoPart) { // [v7] the 3D title logo, cut out along its key, a glint sweeping its letters
     const P = FAM.logoPart, gl = glintAt(ph, 0.2, 0.5, -20, P.w + 40, 6, 0.5);
-    rings(F, maskAt(P.mask, P.w, P.h, F.w, F.h, x, y), F.w, F.h, [{ r: 1, c: rgb('#0a0610') }, { r: 2, c: rgb('#0a0610'), dither: 0.5 }]);
+    rings(F, maskAt(P.mask, P.w, P.h, F.w, F.h, x, y), F.w, F.h, [{ r: 1, c: rgb('#0a0610') }, { r: 3, c: rgb('#0a0610'), a: 0.75 }, { r: 6, c: rgb('#0a0610'), dither: 0.55, a: 0.6 }, { r: 9, c: rgb('#0a0610'), dither: 0.25, a: 0.5 }]); // [v7.2] a dark halo: the logo reads on any scene
     for (let j = 0; j < P.h; j++) for (let i = 0; i < P.w; i++) {
       if (!P.mask[j * P.w + i]) continue;
       const s = (j * P.w + i) * 4;
@@ -1202,56 +1202,68 @@ function keyMask(P, tol = 14) {
 // ------------------------------------------------------------------ the scene plates
 // each draws its parts into F (grade, light, outlines, the set's own motion)
 const FAM_SCENES = {
-  // THE BASE GAME: the 5 PM feast (bears cannonballing in, coins), Reynard gasping, fish leaping
+  // THE BASE GAME: "5 PM, from below": the feast above the waterline (bears flying in, the tower, the sunset),
+  // the pond underneath (the bears that hit the water plunge down in clouds of bubbles, coins sink, fish
+  // scatter), a splash on the waterline at each impact; Reynard gasps in front of both halves
   base(thumb) {
+    const W = thumb ? 630 : 960;
+    const yW0 = thumb ? (x) => 262 - (x - 315) * 0.02 : (x) => 116 + (x - 480) * 0.006;
+    const yW = (x, ph) => Math.round(yW0(x) + 2 * Math.sin((x / 39 + ph) * TAU) + 1.1 * Math.sin((x / 14 - ph * 2) * TAU));
+    const hits = thumb ? [[395, 0.53], [275, 0.2], [540, 0.87]] : [[734, 0.53], [572, 0.2], [895, 0.87]];
     return {
       fish: [['sockeye', 'normal'], ['rainbow', 'normal'], ['goldfish', 'normal']],
-      parts: thumb ? [{ name: 'cineThumbAnim', w: 630, h: 500, masks: ['fox', 'b1+b2+b3'] }] : [{ name: 'cineBannerAnim', w: 960, h: 240, masks: ['fox', 'b1+b2+b3'] }],
-      scene(F, [P], ph, fi) {
-        const W = F.w, H = F.h;
-        blitPart(F, P.px, 0, 0);
-        const fox = P.masks.fox, bears = P.masks['b1+b2+b3'];
-        grade(F, { sat: 1.12, con: 1.05, warm: 5 });
+      parts: thumb ? [{ name: 'cineThumbAnim', w: 630, h: 500, ox: 0, oy: 0, masks: ['fox', 'b1+b2+b3'] }, { name: 'famBaseUnder', w: 630, h: 280, ox: 0, oy: 220, masks: [] }]
+        : [{ name: 'cineBannerAnim', w: 960, h: 240, ox: 0, oy: 0, masks: ['fox', 'b1+b2+b3'] }, { name: 'famBaseUnderBanner', w: 960, h: 140, ox: 0, oy: 100, masks: [] }],
+      scene(F, [Pa, Pu], ph, fi) {
+        const H = F.h, above = (x, y) => y < yW(x, ph);
+        const fox = Pa.masks.fox, bears = Pa.masks['b1+b2+b3'];
+        grade(Pa.px, { sat: 1.12, con: 1.05, warm: 5 });
+        grade(Pu.px, { sat: 1.2, con: 1.06, warm: -4 });
+        blitPart(F, Pu.px, Pu.ox, Pu.oy);
+        blitPart(F, Pa.px, 0, 0, above);
         const sun = sunOf(F, thumb ? [390, 120] : [560, 40]);
-        godRays(F, sun[0], sun[1], { rays: thumb ? 18 : 22, R: thumb ? 560 : 620, k: 0.34, width: 0.4, rot: 0.12, mask: (x, y) => (fox[y * W + x] ? 0 : 1) });
-        if (!thumb) famPanel(F, fox);
-        vignette(F, fox, thumb ? { r: 0.46, k: 1.2, bottom: [0.8, 0.8], top: [0.16, 0.45], max: 0.75 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.82, 0.7], max: 0.7 });
-        rings(F, bears, W, H, [{ r: 1, c: rgb('#ffd98a') }]);
+        godRays(F, sun[0], sun[1], { rays: thumb ? 18 : 22, R: thumb ? 560 : 620, k: 0.34, width: 0.4, rot: 0.12, mask: (x, y) => (above(x, y) && !fox[y * W + x] ? 1 : 0) });
+        famShafts(F, ph, (x, y) => !above(x, y) && !fox[y * W + x], thumb);
+        rings(F, bears, W, H, [{ r: 1, c: rgb('#ffd98a') }].map((r) => ({ ...r, only: above })));
+        // Reynard over both halves (his own pixels from the feast render)
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (fox[y * W + x]) { const o = (y * W + x) * 4; F.d[o] = Pa.px.d[o]; F.d[o + 1] = Pa.px.d[o + 1]; F.d[o + 2] = Pa.px.d[o + 2]; }
+        if (!thumb) famPanel(F, fox, (x, y) => (above(x, y) ? rgb('#1a0a1c') : rgb('#04121e')));
+        vignette(F, fox, thumb ? { r: 0.48, k: 1.1, bottom: [0.86, 0.6], top: [0.16, 0.45], max: 0.7 } : { r: 0.5, ax: 1.0, ay: 0.5, k: 1.1, max: 0.55 });
+        famWaterline(F, yW, ph, W, thumb ? 7 : 6);
         rings(F, fox, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ffc24a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ffc24a'), dither: 0.5 }]);
         if (thumb) { FAM.hero = dilate(fox, W, H, 4); FAM.heroBand = [3, 120, 188]; }
-        if (thumb) {
-          famLeap(F, ph, fi, 'goldfish', { t0: 0.66, dur: 0.24, x0: 300, x1: 372, y: 408, peak: 62 }, 2);
-          famLeap(F, ph, fi, 'rainbow', { t0: 0.16, dur: 0.26, x0: 560, x1: 488, y: 330, peak: 54 }, 2);
-        } else {
-          famLeap(F, ph, fi, 'goldfish', { t0: 0.66, dur: 0.24, x0: 760, x1: 812, y: 230, peak: 40 }, 2);
-          famLeap(F, ph, fi, 'sockeye', { t0: 0.2, dur: 0.26, x0: 900, x1: 850, y: 232, peak: 44 }, 2);
-        }
+        for (const [x, t] of hits) splashFx(F, x, yW0(x) - 1, since(ph, t) / 0.26, Math.round(x), thumb ? { n: 34, R: 58, Hh: 70, k: 3 } : { n: 26, R: 40, Hh: 46, k: 2 });
+        if (thumb) famLeap(F, ph, fi, 'goldfish', { t0: 0.7, dur: 0.24, x0: 470, x1: 548, y: 266, peak: 70 }, 2);
+        else famLeap(F, ph, fi, 'sockeye', { t0: 0.7, dur: 0.24, x0: 640, x1: 700, y: 118, peak: 50 }, 2);
       },
     };
   },
-  // FLINT & STEEL: the quarry at work (sparks are in the render), embers drifting from the smelter
+  // FLINT & STEEL: "the gold rush": Reynard riding a cart heaped with gold down the quarry rail at dusk,
+  // speed lines trailing it, sparks off the wheels, gold nuggets bouncing out, embers from the smelter
   fs(thumb) {
     return {
-      parts: thumb ? [{ name: 'famFsThumb', w: 630, h: 500, masks: ['fox', 'flint'] }] : [{ name: 'famFsBanner', w: 960, h: 240, masks: ['fox', 'flint'] }],
+      parts: thumb ? [{ name: 'famFsRush', w: 630, h: 500, masks: ['fox', 'cart'] }] : [{ name: 'famFsRushBanner', w: 960, h: 240, masks: ['fox', 'cart'] }],
       scene(F, [P], ph, fi) {
         const W = F.w, H = F.h;
         blitPart(F, P.px, 0, 0);
-        const fox = P.masks.fox, flint = P.masks.flint;
-        grade(F, { sat: 1.14, con: 1.06, warm: 7 });
-        godRays(F, W * 0.82, -40, { rays: 16, R: thumb ? 620 : 700, k: 0.3, width: 0.38, rot: 0.2, c: [40, 20, 4], mask: (x, y) => (fox[y * W + x] ? 0 : 1) });
-        if (!thumb) famPanel(F, fox);
-        vignette(F, fox, thumb ? { r: 0.46, k: 1.2, bottom: [0.82, 0.8], top: [0.16, 0.5], max: 0.75 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.82, 0.7], max: 0.7 });
-        rings(F, flint, W, H, [{ r: 1, c: rgb('#fff2cf') }, { r: 2, c: rgb('#ffb04a'), dither: 0.5 }]);
-        rings(F, fox, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ff9a3a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ff9a3a'), dither: 0.5 }]);
-        if (thumb) { FAM.hero = dilate(fox, W, H, 4); FAM.heroBand = [3, 120, 188]; }
-        famEmbers(F, thumb ? [470, 60, 630, 330] : [700, 20, 960, 200], ph, fox);
+        const fox = P.masks.fox, cart = P.masks.cart, hero = new Uint8Array(W * H);
+        for (let q = 0; q < hero.length; q++) hero[q] = fox[q] | cart[q];
+        grade(F, { sat: 1.16, con: 1.08, warm: 9 });
+        godRays(F, W * 0.88, -40, { rays: 16, R: thumb ? 640 : 720, k: 0.32, width: 0.38, rot: 0.2, c: [42, 22, 4], mask: (x, y) => (hero[y * W + x] ? 0 : 1) });
+        if (!thumb) famPanel(F, hero);
+        vignette(F, hero, thumb ? { r: 0.44, k: 1.3, bottom: [0.8, 0.85], top: [0.16, 0.5], max: 0.8 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.82, 0.7], max: 0.7 });
+        famSpeed(F, hero, ph, fi);
+        if (thumb) { FAM.hero = dilate(hero, W, H, 4); FAM.heroBand = [3, 120, 188]; }
+        rings(F, hero, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ff9a3a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ff9a3a'), dither: 0.5 }]);
+        famNuggets(F, hero, ph, fi, thumb);
+        famEmbers(F, thumb ? [470, 40, 630, 330] : [740, 20, 960, 200], ph, hero);
       },
     };
   },
   // DIG & DIVE: Bonebed Bluff above the waterline, Loon Lake below, the sabre-tooth leaping across
   dd(thumb) {
     const W = thumb ? 630 : 960;
-    const yW0 = thumb ? (x) => 264 - (x - 315) * 0.03 : (x) => 118 + (x - 480) * 0.008;
+    const yW0 = thumb ? (x) => 270 - (x - 315) * 0.045 : (x) => 118 + (x - 480) * 0.012;
     const yW = thumb ? (x, ph) => Math.round(yW0(x) + 2.2 * Math.sin((x / 37 + ph) * TAU) + 1.2 * Math.sin((x / 13 - ph * 2) * TAU))
       : (x, ph) => Math.round(yW0(x) + 1.8 * Math.sin((x / 41 + ph) * TAU) + 1.0 * Math.sin((x / 15 - ph * 2) * TAU));
     const LEAP = thumb ? { t0: 0.1, dur: 0.82, from: [176, 560], breach: [262, yW0(262) + 6], entry: [454, yW0(454) + 6], to: [552, 560], air: [0.27, 0.73], peak: 150 }
@@ -1274,8 +1286,9 @@ const FAM_SCENES = {
         const fox = maskAt(Pv.masks.fox, Pv.w, Pv.h, W, H, Pv.ox, Pv.oy, (x, y) => !above(x, y));
         rings(F, snapp, W, H, [{ r: 1, c: rgb('#fff2cf') }]);
         rings(F, fox, W, H, [{ r: 1, c: rgb('#e6fdff') }]);
+        famShafts(F, ph, (x, y) => !above(x, y) && !fox[y * W + x], thumb);
         if (!thumb) famPanel(F, null, (x, y) => (above(x, y) ? rgb('#1c0a14') : rgb('#04121e')));
-        vignette(F, null, thumb ? { r: 0.52, k: 1.0, top: [0.2, 0.55], bottom: [0.9, 0.45], max: 0.6 } : { r: 0.5, ax: 1.0, ay: 0.5, k: 1.1, max: 0.55 });
+        vignette(F, null, thumb ? { r: 0.5, k: 1.15, top: [0.2, 0.55], bottom: [0.8, 0.75], max: 0.7 } : { r: 0.5, ax: 1.0, ay: 0.5, k: 1.1, max: 0.55 });
         motes(F, thumb ? 34 : 40, thumb ? [250, 140, 630, 270] : [380, 10, 960, 112], ph, above);
         amberGlints(F, spotsOf(glow, W, H, 7), ph, 1);
         for (let x = 0; x < W; x++) {
@@ -1290,16 +1303,75 @@ const FAM_SCENES = {
           if (!thumb) { spr = (fr.m ||= fr.map(mirror))[n]; a = f.ang - Math.PI; if (a < -Math.PI) a += TAU; }
           const s = rotSprite('sabre' + (thumb ? 'R' : 'L') + n, spr, a);
           const tint = (x, y, c) => (y >= yW(x, ph) ? mixc(c, [52, 150, 176], 0.26) : c);
-          drawSprite(F, s, f.x, f.y, thumb ? 3 : 2, { tint, outline: rgb('#0a0a14') });
+          drawSprite(F, s, f.x, f.y, thumb ? 4 : 2, { tint, outline: rgb('#0a0a14') });
           if (f.under) for (let b = 1; b <= 4; b++) { const bx = Math.round(f.x - Math.cos(f.ang) * (40 + b * 14) + Math.sin(fi + b) * 3), by = Math.round(f.y - Math.sin(f.ang) * (40 + b * 14)); if (by > yW(bx, ph) + 3) { F.set(bx, by, rgb('#e8fdff')); F.set(bx + 1, by, rgb('#7ad8ee')); } }
         }
-        const sp = thumb ? { n: 30, R: 54, Hh: 64, k: 3 } : { n: 24, R: 38, Hh: 44, k: 2 };
+        const sp = thumb ? { n: 44, R: 70, Hh: 84, k: 3 } : { n: 28, R: 42, Hh: 48, k: 2 };
         splashFx(F, LEAP.breach[0], yW0(LEAP.breach[0]) - 1, since(ph, tB) / 0.24, 11, sp);
         splashFx(F, LEAP.entry[0], yW0(LEAP.entry[0]) - 1, since(ph, tE) / 0.24, 23, { ...sp, Hh: sp.Hh + 6 });
       },
     };
   },
 };
+// [v7.2] underwater light shafts slanting down from the surface (additive, dithered, slowly swaying)
+function famShafts(F, ph, keep, thumb) {
+  const n = thumb ? 6 : 9, W = F.w, H = F.h;
+  // depth: the deeper, the darker (dithered towards the lake's deep blue)
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (!keep(x, y)) continue; const a = Math.max(0, (y / H - 0.55) / 0.45) * 0.55; if (a > 0 && dither(x, y, a)) F.set(x, y, rgb('#06202e'), 0.5); }
+  for (let k = 0; k < n; k++) {
+    const x0 = (k + 0.3) * (W / n) + Math.sin((ph + k * 0.37) * TAU) * 6, w = 10 + (k * 7) % 14, slope = 0.32;
+    for (let y = 0; y < H; y++) for (let dx = 0; dx < w; dx++) {
+      const x = Math.round(x0 + dx + y * slope);
+      if (x < 0 || x >= W || !keep(x, y)) continue;
+      const a = 0.2 * (1 - y / H) * (1 - Math.abs(dx - w / 2) / (w / 2 + 1));
+      if (dither(x, y, a)) F.add(x, y, [20, 34, 30]);
+    }
+  }
+}
+// [v7.2] a pixel waterline: foam crest, a dark edge, a dithered shimmer band under it
+function famWaterline(F, yW, ph, W, n = 7) {
+  for (let x = 0; x < W; x++) {
+    const y = yW(x, ph);
+    F.set(x, y - 2, rgb('#ffffff'), 0.55); F.set(x, y - 1, rgb('#f2fdff')); F.set(x, y, rgb('#9ee6f6')); F.set(x, y + 1, rgb('#0c3a52'));
+    for (let q = 2; q < n; q++) if (dither(x, y + q, 0.35 - q * 0.05)) F.set(x, y + q, rgb('#bff2fb'), 0.5);
+  }
+}
+// [v7.2] speed lines trailing the cart (it heads down-right, towards the camera): dithered streaks up-left of it
+function famSpeed(F, hero, ph, fi) {
+  const W = F.w, H = F.h;
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (hero[y * W + x]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return;
+  const dx = -0.84, dy = -0.54; // travel is (0.84, 0.54) on screen
+  for (let k = 0; k < 16; k++) {
+    const t = hash2(k, 7), sy = y0 + (y1 - y0) * (0.1 + 0.8 * t), sx = x0 + (x1 - x0) * (0.3 + 0.4 * hash2(k, 9));
+    const L = 40 + hash2(k, 11) * 90, off = ((ph * 6 + hash2(k, 13)) % 1) * 60;
+    for (let q = 0; q < L; q++) {
+      const x = Math.round(sx + dx * (q + off + 30)), y = Math.round(sy + dy * (q + off + 30) * 0.4);
+      if (x < 0 || y < 0 || x >= W || y >= H || hero[y * W + x]) continue;
+      if (q < L * 0.35 || dither(x, y, 1 - q / L)) F.set(x, y, q < 6 ? rgb('#ffffff') : rgb('#ffe2a8'), 0.55 + 0.35 * (1 - q / L));
+    }
+  }
+}
+// [v7.2] gold nuggets bouncing out of the cart (little 3x3 pixel lumps, a highlight)
+function famNuggets(F, hero, ph, fi, thumb) {
+  const W = F.w, H = F.h;
+  let cx = 0, cy = 1e9, n = 0, x0 = 1e9, x1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (hero[y * W + x]) { cx += x; n++; if (y < cy) cy = y; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+  if (!n) return;
+  cx /= n;
+  const top = cy + (thumb ? 70 : 34), k = thumb ? 2 : 1;
+  const C = [rgb('#fff2a0'), rgb('#ffd040'), rgb('#e8a018'), rgb('#9a6008')];
+  for (let i = 0; i < 9; i++) {
+    const u = (ph * 2 + hash2(i, 31)) % 1, side = hash2(i, 33) < 0.5 ? -1 : 1;
+    const x = Math.round(cx + side * (10 + u * (thumb ? 70 : 40) * (0.6 + hash2(i, 35))) - u * 20);
+    const y = Math.round(top - (thumb ? 70 : 40) * 4 * u * (0.7 - u) * (0.6 + hash2(i, 37)));
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (Math.abs(a) + Math.abs(b) < 2) F.block(x + a * k, y + b * k, k, a === -1 || b === -1 ? C[1] : C[2]);
+    F.block(x - k, y - k, k, C[0]);
+    F.block(x + k, y + k, k, C[3]);
+  }
+}
 // the banner's type side: a dark dithered panel over the left of the scene (key = pixels to leave alone)
 function famPanel(F, key, colAt = null) {
   for (let y = 0; y < F.h; y++) for (let x = 0; x < 430; x++) {
@@ -1356,7 +1428,9 @@ function fambanner() {
 // Off until those renders exist (&logo=1 turns it on), so the Alagard title stands in.
 function famLogoSpec(fmt) {
   if (Q.get('logo') !== '1') return null;
-  return { name: 'famLogo', w: 440, h: 184, frames: +(Q.get('logoFrames') || 40) };
+  // [v7.2] each set's logo in its own material (logo3d style): building / rock / berry, one still render each
+  const name = { base: 'famLogoBuilding', fs: 'famLogoRock', dd: 'famLogoBerry' }[FAM_SET] || 'famLogo';
+  return { name, w: 440, h: 184, frames: name === 'famLogo' ? +(Q.get('logoFrames') || 40) : 1 };
 }
 
 const SCENES = { thumb, banner, fsthumb, fsbanner, cinethumb, cinebanner, ddthumb, ddbanner, famthumb, fambanner };
