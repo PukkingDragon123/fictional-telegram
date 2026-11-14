@@ -956,7 +956,7 @@ SCENES.logo = async (T, o) => {
   const sun = new THREE.DirectionalLight(L.sun ?? 0xffd6a0, L.sunI ?? 2.4);
   sun.position.set(-6, 9, 8);
   scene.add(sun);
-  const logo = buildTitleLogo(game, { voxel: L.voxel ?? 0.068, sfx: () => {} });
+  const logo = buildTitleLogo(game, { voxel: L.voxel ?? 0.068, sfx: () => {}, style: L.style }); // [v7.2] style: building | rock | berry
   scene.add(logo.group);
   S.named.logo = logo.group;
   S.logoObj = logo;
