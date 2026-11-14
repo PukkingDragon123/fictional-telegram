@@ -1253,7 +1253,7 @@ const FAM_SCENES = {
         if (!thumb) famPanel(F, hero);
         vignette(F, hero, thumb ? { r: 0.44, k: 1.3, bottom: [0.8, 0.85], top: [0.16, 0.5], max: 0.8 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.82, 0.7], max: 0.7 });
         famSpeed(F, hero, ph, fi);
-        if (thumb) { FAM.hero = dilate(hero, W, H, 4); FAM.heroBand = [3, 120, 188]; }
+        if (thumb) { FAM.hero = dilate(hero, W, H, 4); FAM.heroBand = [3, 150, 188]; } // (below the letters: they stay on top)
         rings(F, hero, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ff9a3a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ff9a3a'), dither: 0.5 }]);
         famNuggets(F, hero, ph, fi, thumb);
         famEmbers(F, thumb ? [470, 40, 630, 330] : [740, 20, 960, 200], ph, hero);
