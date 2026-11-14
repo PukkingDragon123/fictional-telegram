@@ -81,7 +81,7 @@ for (const [n, r] of Object.entries(res.out)) {
   const target = Math.exp(0.8 * Math.log(r.synthSt) + 0.2 * Math.log(0.12));
   const gRms = target / r.smpSt;
   const gPk = Math.min((1.5 * r.synthPk * target) / r.synthSt, 0.9) / r.smpPk;
-  const g = Math.max(0.03, Math.min(6, gRms, gPk));
+  const g = Math.max(0.03, 0.04 / r.smpPk, Math.min(6, gRms, gPk)); // never quieter than a 0.04 peak
   gains[n] = +g.toFixed(3);
   rows.push(`${n.padEnd(18)} g ${g.toFixed(3)}  synth st ${r.synthSt.toFixed(3)} pk ${r.synthPk.toFixed(3)} | sample st ${r.smpSt.toFixed(3)} pk ${r.smpPk.toFixed(3)}${gPk < gRms ? '  (peak-limited)' : ''}`);
 }

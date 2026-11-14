@@ -701,7 +701,7 @@
     if (!S.scene3d || S.real >= 0.95) { g.fillStyle = '#000'; g.fillRect(0, 0, AW, AH); }
     else g.clearRect(0, 0, AW, AH);
     var s = Math.min(100, Math.round(S.shown * 100)) + '%';
-    text(s, Math.round(AW / 2 - (s.length * 4 - 1) / 2), Math.round(AH * 0.8));
+    text(s, Math.round(AW / 2 - (s.length * 4 - 1) / 2), Math.round(AH * 0.89));
   }
   requestAnimationFrame(frame);
 })();

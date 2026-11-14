@@ -30,9 +30,9 @@ export function startLoadingBear(renderer, { audio = null } = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
   // light: one hard warm key from above front left, a cool rim from behind, almost no fill
-  const key = new THREE.SpotLight(0xffe2b8, 150, 30, 0.42, 0.0, 1.6);
-  key.position.set(-2.4, 7.5, 5.2);
-  key.target.position.set(0.2, 0.6, 0);
+  const key = new THREE.SpotLight(0xffe2b8, 200, 30, 0.42, 0.0, 1.6);
+  key.position.set(-1.2, 6.5, 6.8); // high, in front of the bear, a little left of the camera
+  key.target.position.set(0, 0.9, 0);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.bias = -0.0008;
@@ -40,7 +40,9 @@ export function startLoadingBear(renderer, { audio = null } = {}) {
   const rim = new THREE.DirectionalLight(0x9ab8ff, 1.6);
   rim.position.set(1.5, 3, -6);
   scene.add(rim);
-  scene.add(new THREE.HemisphereLight(0x302838, 0x000000, 0.35));
+  scene.add(new THREE.HemisphereLight(0x5a4a60, 0x000000, 0.7));
+  const fill = new THREE.DirectionalLight(0xffd8b0, 0.7); // a soft fill from the camera side so faces read
+  fill.position.set(3, 2, 6); scene.add(fill);
   // the spotlight's pool on the floor: crisp stepped rings, ordered-dithered at each step (no smooth
   // gradient), and a stepped shadow blob under the bear
   const floorU = { uBear: { value: new THREE.Vector2() } };
@@ -69,8 +71,8 @@ export function startLoadingBear(renderer, { audio = null } = {}) {
   rig.yaw = rig.yawGoal = CAMY;
   rig.pitch = rig.pitchGoal = 0.2;
   rig.dist = 40;
-  rig.target.set(0, 1.2, 0); rig.goal.copy(rig.target);
-  const fitZoom = () => { const h = renderer.rtH || 300, w = renderer.rtW || 400; rig.wupp = rig.wuppGoal = Math.max(4.3 / Math.max(80, h), 3.4 / Math.max(80, w)); }; // the bear ~55% of the screen height
+  rig.target.set(0, 1.25, 0); rig.goal.copy(rig.target);
+  const fitZoom = () => { const h = renderer.rtH || 300, w = renderer.rtW || 400; rig.wupp = rig.wuppGoal = Math.max(3.9 / Math.max(80, h), 3.2 / Math.max(80, w)); }; // the bear ~55% of the screen height
   fitZoom();
 
   // ---- the salmon: the chinook's own voxels, cut from the tail as it is eaten

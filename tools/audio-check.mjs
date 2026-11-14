@@ -129,7 +129,7 @@ async function openPage(initScript, pageUrl = url) {
 const MAX_DUR = { discover: 2.1, whistle: 2.8, loon: 3.2, fanfare: 2.6, gameover: 2.6, day_start: 2.4, day_end: 2.6, fox_laugh: 2.1, fox_snore: 1.9, reveal_epic: 2.0, reveal_legendary: 3.4, offwork: 2.3, cinema: 2.5, sleep: 3.5, sunrise: 3.2, grade_bad: 2.3 };
 // [v33 sfx] recorded samples that are long by design (beds, rings, rolls, snores, tolls); their render window is 7 s
 Object.assign(MAX_DUR, {
-  loon: 3.6, bigsplash: 2.0, research: 1.9, bees: 2.3, fox_snore: 2.7, fox_yawn: 2.2, bear_yum: 1.9, bear_cheer: 2.2, reveal_rare: 1.9,
+  loon: 3.6, bigsplash: 2.0, research: 1.9, bees: 2.3, fox_snore: 2.7, fox_yawn: 2.5, build: 2.3, bear_yum: 1.9, bear_cheer: 2.2, reveal_rare: 1.9,
   reveal_epic: 3.2, alarm: 1.7, lunch_bell: 1.9, offwork: 2.7, saw: 1.7, bed_yawn: 1.8, bed_snore: 1.9, bed_lullaby: 3.1, class_rumble: 2.2,
   class_star: 1.9, dig_rumble: 5.5, dig_roar: 2.4, dv_plunge: 1.9, ev_twinkle: 2.6, boss_roar: 1.9, bm_toll: 3.7, bm_drone: 6.5, bm_dawn: 2.2,
   water_blast: 1.8, feast_buzz: 2.6, feast_flies: 2.4, feast_snore: 2.5, feast_sizzle: 2.0, feast_drumroll: 2.1, harvest_special: 1.9,
