@@ -518,12 +518,77 @@ function reg(name, build) {
   });
 }
 
-// icon(name, key, rows, opt) - rows art with a key; opt.post(pix) post-process
+// [v33 icons] finishing pass shared by every icon: (1) lone shading-noise pixels (an interior pixel a
+// little off from four identical neighbours) take their neighbours' tone; (2) a reflected rim light: on
+// the shadow side (the inner edge along the bottom / right outline) a pixel darker than the form above-left
+// of it steps one tone up, picked from the icon's own palette in the same hue. Strong details (eyes,
+// sparkles, inner lines) differ by far more than a tone step, so they are left alone.
+const hueOf = (c) => {
+  const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  const l = (mx + mn) / 2, s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [((h / 6) + 1) % 1, s];
+};
+function finish(p) {
+  const { w: W, h: H, d } = p;
+  const A = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 127;
+  const C = (x, y) => { const i = (y * W + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+  const same = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+  const border = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (A(x, y) && (!A(x + 1, y) || !A(x - 1, y) || !A(x, y + 1) || !A(x, y - 1))) border[y * W + x] = 1;
+  const inner = (x, y) => A(x, y) && !border[y * W + x];
+  const base = new Uint8ClampedArray(d);
+  const B = (x, y) => { const i = (y * W + x) * 4; return [base[i], base[i + 1], base[i + 2]]; };
+  const set = (x, y, c) => { const i = (y * W + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; };
+  const pal = new Map();
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (A(x, y)) { const c = C(x, y); pal.set(c.join(), c); }
+  const cols = [...pal.values()];
+  // (1) lone noise pixels
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      if (!inner(x, y) || !inner(x + 1, y) || !inner(x - 1, y) || !inner(x, y + 1) || !inner(x, y - 1)) continue;
+      const c = B(x, y), n = B(x + 1, y);
+      if (same(c, n) || !same(n, B(x - 1, y)) || !same(n, B(x, y + 1)) || !same(n, B(x, y - 1)) || Math.abs(lum(c) - lum(n)) >= 45) continue;
+      if ([[1, 1], [-1, -1], [1, -1], [-1, 1]].some(([i, j]) => A(x + i, y + j) && same(B(x + i, y + j), c))) continue;
+      set(x, y, n);
+    }
+  // (2) rim light
+  const src = new Uint8ClampedArray(d);
+  const S = (x, y) => { const i = (y * W + x) * 4; return [src[i], src[i + 1], src[i + 2]]; };
+  const lighter = (c) => {
+    const [h, s] = hueOf(c), L = lum(c);
+    let best = null;
+    for (const q of cols) {
+      const lq = lum(q);
+      if (lq <= L + 6 || lq > L + 60) continue;
+      const [h2, s2] = hueOf(q), dh = Math.min(Math.abs(h - h2), 1 - Math.abs(h - h2));
+      if (s > 0.12 ? dh > 0.06 || s2 < 0.5 * s : s2 > 0.25) continue;
+      if (!best || lq < lum(best)) best = q;
+    }
+    return best;
+  };
+  for (let y = 1; y < H; y++)
+    for (let x = 1; x < W; x++) {
+      if (!inner(x, y)) continue;
+      const edge = (x + 1 < W && border[y * W + x + 1] && !A(x + 2, y)) || (y + 1 < H && border[(y + 1) * W + x] && !A(x, y + 2));
+      if (!edge || !inner(x - 1, y - 1)) continue;
+      const c = S(x, y), ref = S(x - 1, y - 1);
+      if (lum(ref) < lum(c) + 4 || lum(c) < 40) continue;
+      const q = lighter(c);
+      if (q && lum(q) <= lum(ref) + 2) set(x, y, q);
+    }
+  return p;
+}
+
+// icon(name, key, rows, opt) - rows art with a key; opt.post(pix) post-process; opt.finish false skips the
+// [v33 icons] finishing pass
 function icon(name, key, rows, opt = {}) {
   reg(name, () => {
     const g = Grid.from(typeof rows === 'function' ? rows() : rows);
     if (g.bad) render.warn.push('ragged rows');
     let p = render(g, key, opt);
+    if (opt.finish !== false) p = finish(p);
     if (opt.post) p = opt.post(p);
     return p;
   });
@@ -718,7 +783,8 @@ icon('star', STAR_KEY, () => starFacets(new Grid(20, 20), 10, 10.7, 9.1, 4.3, go
 icon('star_empty', STAR_KEY, () => starFacets(new Grid(20, 20), 10, 10.7, 9.1, 4.3, (t) => ' abcde'[t]).rows());
 icon('star_half', STAR_KEY, () => starFacets(new Grid(20, 20), 10, 10.7, 9.1, 4.3, (t, x) => (x < 10 ? goldT(t) : ' abcde'[t])).set(7, 6, '5').rows());
 
-const HEART = [
+// [v33 icons] fuller lobes, a crisp curved gloss on the left lobe and a sparkle dot
+icon('heart', { R: 'red.R', h: 'red:5', p: 'red:4' }, () => Grid.from(R([
   '....................',
   '....................',
   '...####......####...',
@@ -727,7 +793,7 @@ const HEART = [
   '.##################.',
   '.##################.',
   '.##################.',
-  '.##################.',
+  '..################..',
   '..################..',
   '...##############...',
   '....############....',
@@ -739,8 +805,7 @@ const HEART = [
   '....................',
   '....................',
   '....................',
-];
-icon('heart', { R: 'red.R' }, () => Grid.from(R(HEART, 'R')).set(4, 4, '+').set(3, 5, '+').rows());
+], 'R')).set(4, 4, '+').set(5, 4, 'h').set(3, 5, '+').set(3, 6, 'h').set(6, 3, 'p').set(7, 6, '+').rows());
 
 icon('heart_broken', { R: 'red.R@a', Q: 'red.R@b' }, () => {
   const src = Grid.from(R([
@@ -980,16 +1045,12 @@ icon('fish_gold', { B: 'gold.R@body', b: 'yellow.R@body', s: 'gold:2', F: 'gold.
     return g.rows();
   });
 
-icon('egg', { E: 'cream.R', d: 'syrup:3', D: 'syrup:2' }, () => {
+// [v33 icons] hand-placed freckles kept off the middle (sticker_egg puts a face there) and a gloss
+icon('egg', { E: 'cream.R', d: 'syrup:3', D: 'syrup:2', h: 'cream:5' }, () => {
   const g = eggShape(new Grid(20, 20), 10, 11.2, 6.6, 9, 7.2, 'E');
-  const r = rng(11);
-  for (let i = 0; i < 26; i++) {
-    const x = Math.floor(4 + r() * 12), y = Math.floor(3 + r() * 15);
-    if (g.get(x, y) !== 'E' || (x < 8 && y < 9)) continue;
-    g.set(x, y, r() < 0.4 ? 'D' : 'd');
-    if (r() < 0.25 && g.get(x + 1, y) === 'E') g.set(x + 1, y, 'd');
-  }
-  return g.rows();
+  for (const [x, y, c] of [[11, 4, 'd'], [13, 7, 'D'], [14, 7, 'd'], [9, 7, 'd'], [4, 11, 'd'], [5, 12, 'D'], [15, 11, 'd'], [15, 13, 'D'], [14, 16, 'd'], [13, 17, 'D'], [7, 17, 'd'], [10, 17, 'd'], [11, 17, 'D']])
+    if (g.get(x, y) === 'E') g.set(x, y, c);
+  return g.set(7, 5, '+').set(6, 6, '+').set(7, 6, 'h').set(6, 7, 'h').rows();
 });
 
 icon('honey', { r: 'red.r@cloth', w: 'cream:4@cloth', s: 'tan:3', G: 'glass.x@rim', H: 'honey.R@jar', h: 'honey:5', L: 'parch.f@lab', y: 'yellow:3', K: '#2a1a14', v: 'glass:4', d: 'honey:4' }, [
@@ -1372,15 +1433,34 @@ icon('tank', { G: 'glass.x@g', g: 'glass:4', W: 'water.r@w', w: 'water:5', D: 'w
 });
 
 // --- tools & objects ---------------------------------------------------------
-icon('hammer', { S: 'steel.R@head', s: 'steel:2', f: 'steel:4', W: 'lwood.x@h', G: 'leather.x@grip', g: 'leather:2' }, () => {
+// [v33 icons] hand-shaded: a bevelled steel head (bright striking face up-left, split claw down-right,
+// a dark eye band where the shaft goes in), a grained ash shaft, a brass ferrule and a wrapped leather grip
+icon('hammer', { ...T('steel'), ...T('lwood', 'abcdef'), ...T('leather', 'ghijkl'), ...T('brass', 'mnopqr') }, () => {
   const g = new Grid(20, 20);
-  bar(g, 3.4, 17.6, 12.4, 8.6, 2.8, 'W');
-  bar(g, 2.9, 18.1, 7, 14, 3.4, 'G');
-  g.line(4, 16, 6, 14, 'g');
-  rrect(g, 12.2, 7.8, Math.PI / 4, 12.2, 4.8, 'S');
-  // claw notch at the lower-right end, face highlight at the upper-left end
-  g.set(16, 12, '.').set(15, 13, '.').set(16, 13, '.');
-  g.set(8, 3, 'f').set(9, 3, 'f');
+  // shaft: three diagonals (x + y = 19..21), lit on its upper-left side
+  for (let y = 0; y < 20; y++)
+    for (let x = 0; x < 20; x++) {
+      const s = x + y, a = x - y;
+      if (s < 19 || s > 21 || a < -15 || a > 4) continue;
+      if (a < -7) g.set(x, y, (a + 16) % 3 === 0 ? (s === 21 ? 'g' : 'h') : s === 19 ? 'k' : s === 20 ? 'j' : 'h'); // leather wrap
+      else if (a < -5) g.set(x, y, s === 19 ? 'r' : s === 20 ? 'p' : 'n'); // brass ferrule
+      else g.set(x, y, s === 19 ? 'e' : s === 20 ? ((a + 1) % 5 === 0 ? 'c' : 'd') : 'c'); // ash with a grain fleck
+    }
+  // head: along x + y = 11..27, across x - y = 1..7 (7 = the upper-right edge)
+  for (let y = 0; y < 20; y++)
+    for (let x = 0; x < 20; x++) {
+      const s = x + y, a = x - y;
+      if (s < 11 || s > 27 || a < 1 || a > 7) continue;
+      if (s === 11 && (a === 1 || a === 7)) continue; // rounded face corners
+      if (s >= 24 && a >= 3 && a <= 5) continue; // the claw split
+      if (s >= 26 && (a === 1 || a === 7)) continue; // tapered claw tips
+      let t = a === 7 ? 4 : a === 6 ? 5 : a === 5 ? 4 : a >= 3 ? 3 : a === 2 ? 2 : 1;
+      if (s <= 12) t = s === 11 ? 5 : Math.max(t, 4); // the polished striking face
+      else if (s === 14) t = Math.max(1, t - 2); // neck groove
+      else if (s >= 19 && s <= 20) t = Math.max(1, t - 1); // the eye band over the shaft
+      if (s >= 22 && t === 5) t = 4;
+      g.set(x, y, String(t));
+    }
   return g.rows();
 });
 
@@ -1453,15 +1533,17 @@ icon('hand', { W: 'white.r@glove', w: 'white:2', C: 'white.y@cuff', c: 'white:2'
   '....................',
 ].map((r, y, a) => a[(y + 19) % 20]));
 
-icon('food', { F: 'tan.y@fold', f: 'tan:2', P: 'tan.r@bag', L: 'parch.f@lab', b: 'blue.r@fish', K: '#2a1a14', o: 'syrup.r@p1', O: 'syrup.r@p2', q: 'syrup.r@p3' }, [
+// [v33 icons] a plumper feed sack: crimped top seam, a clean fish on the label, three round pellets
+// [v33 icons] the feed sack: crimped top seam, a glossy fish on the label, lit pellets
+icon('food', { F: 'tan.y@fold', f: 'tan:2', t: 'tan:4', P: 'tan.r@bag', L: 'parch.f@lab', b: 'blue.r@fish', d: 'blue:5', K: '#2a1a14', o: 'syrup.r@p1', O: 'syrup.r@p2', q: 'syrup.r@p3' }, [
   '....................',
   '.....FFFFFFFFFF.....',
-  '.....ffffffffff.....',
+  '.....ftftftftft.....',
   '....PPPPPPPPPPPP....',
   '....PPPPPPPPPPPP....',
   '....PLLLLLLLLLLP....',
   '....PLLLLbbbLLLP....',
-  '....PLbLbbbbbLLP....',
+  '....PLbLbdbbbLLP....',
   '....PLbbbbbbKbLP....',
   '....PLbLbbbbbLLP....',
   '....PLLLLbbLLLLP....',
@@ -1476,43 +1558,45 @@ icon('food', { F: 'tan.y@fold', f: 'tan:2', P: 'tan.r@bag', L: 'parch.f@lab', b:
   '....................',
 ]);
 
-icon('nurture', { R: 'rose.R@h', W: 'white.r@hand', w: 'white:2', C: 'white.y@cuff', s: 'yellow:5', y: 'yellow:3' }, [
+// [v33 icons] two cupped gloves (a seam where they meet, curled fingertips, split cuffs) cradling the heart
+icon('nurture', { R: 'rose.R@h', W: 'white.r@hand', w: 'white:2', C: 'white.y@cuff', c: 'white:2', s: 'yellow:5', y: 'yellow:3', h: 'rose:5' }, [
   '....................',
   '....RRR....RRR......',
-  '...RRRRR..RRRRR...s.',
-  '...RRRRRRRRRRRR..sys',
-  '...RRRRRRRRRRRR...s.',
+  '...RhRRR..RRRRR...s.',
+  '...hRRRRRRRRRR...sys',
+  '...RRRRRRRRRRR....s.',
   '....RRRRRRRRRR......',
   '.....RRRRRRRR.......',
   '......RRRRRR........',
-  '.WW....RRRR.....WW..',
-  '.WWW....RR.....WWW..',
-  '..WWW.........WWWW..',
-  '..WWWWW.....WWWWW...',
-  '...WWWWWWWWWWWWWW...',
-  '...WWWWwWWwWWwWW....',
-  '....WWWWWWWWWWWW....',
-  '.....CCCCCCCCCC.....',
-  '.....CCCCCCCCCC.....',
+  '.WW....RRRR......WW.',
+  '.WWW....RR......WWW.',
+  '.WwWW..........WWwW.',
+  '..WwWWW......WWWwW..',
+  '..WWWWWWW.WWWWWWWW..',
+  '...WWWWWW.WWWWWWW...',
+  '....WWWWW.WWWWWW....',
+  '.....CCCC.CCCC......',
+  '.....CcCC.CcCC......',
   '....................',
   '....................',
   '....................',
 ]);
 
-icon('tag', { R: 'red.f@tag', r: 'red:2', o: 'steel.r@eye', h: 'dwood:2', s: 'tan.x@str', w: 'cream:5', K: 'red:0' }, [
+// [v33 icons] a twisted twine loop into a steel eyelet, a clean white label with two printed lines
+icon('tag', { R: 'red.f@tag', r: 'red:2', o: 'steel.r@eye', h: 'dwood:2', s: 'tan.x@str', t: 'tan:4', w: 'cream:5', K: 'red:0', e: 'steel:5' }, [
   '....................',
   '.s..................',
-  '..s.................',
+  '..t.................',
   '...s................',
-  '....s...............',
+  '....t...............',
   '.....s..RRRRRRRRRR..',
-  '.....s.RRRRRRRRRRR..',
-  '......RRRRRRRRRRRR..',
-  '.....RRoooRRwwwwRR..',
-  '....RRRohoRwKwwwwR..',
-  '....RRRohoRRKwwwRR..',
-  '.....RRoooRRRKRRRR..',
-  '......RRRRRRRRRKRR..',
+  '......tRRRRRRRRRRR..',
+  '......RsRRRRRRRRRR..',
+  '.....RReooRwwwwwwR..',
+  '....RRRohoRwKKKKwR..',
+  '....RRRohoRwwwwwwR..',
+  '.....RRoooRwKKKwwR..',
+  '......RRRRRwwwwwwR..',
   '.......RRRRRRRRRRR..',
   '........RRRRRRRRRR..',
   '....................',
@@ -1522,7 +1606,11 @@ icon('tag', { R: 'red.f@tag', r: 'red:2', o: 'steel.r@eye', h: 'dwood:2', s: 'ta
   '....................',
 ].map((r, y, a) => a[(y + 18) % 20]));
 
-icon('shop', { H: 'straw.R@h', A: 'cream.R@e1', B: 'sky.R@e2', C: 'tan.R@e3', d: 'syrup:3', W: 'straw.f@w1', V: 'straw:2', v: 'straw:4', M: 'straw.y@rim' }, () => {
+// [v33 icons] the e-Buy basket: three eggs kept apart by inner lines (each with a gloss, the tan one
+// speckled), a rope-twist rim and a proper over-under weave
+// [v33 icons] the e-Buy basket: three eggs kept apart by inner lines (each with a gloss, the tan one
+// speckled), a rope-twist rim and a proper over-under weave
+icon('shop', { H: 'straw.R@h', A: 'cream.R@e1', B: 'sky.R@e2', C: 'tan.R@e3', d: 'syrup:3', W: 'straw.f@w1', v: 'straw:4', u: 'straw:3', V: 'straw:2', U: 'straw:1', M: 'straw:3', m: 'straw:5', n: 'straw:2', k: 'line' }, () => {
   const g = new Grid(20, 20);
   // handle
   for (let y = 0; y < 20; y++)
@@ -1531,14 +1619,16 @@ icon('shop', { H: 'straw.R@h', A: 'cream.R@e1', B: 'sky.R@e2', C: 'tan.R@e3', d:
       const r = dx * dx + dy * dy;
       if (y < 10 && r <= 1.02 && r >= 0.62) g.set(x, y, 'H');
     }
-  eggShape(g, 7, 8.6, 2.6, 3.6, 2.8, 'A');
-  eggShape(g, 13, 8.2, 2.6, 3.6, 2.8, 'B');
-  eggShape(g, 10, 9.2, 2.6, 3.6, 2.8, 'C');
-  g.set(9, 8, 'd').set(11, 9, 'd').set(10, 11, 'd');
+  const egg = (cx, cy, ch) => { const t = eggShape(new Grid(20, 20), cx, cy, 2.6, 3.6, 2.8, '#'); layer(g, (x, y) => t.get(x, y) === '#', ch); };
+  egg(7, 8.6, 'A');
+  egg(13, 8.2, 'B');
+  egg(10, 9.2, 'C');
+  g.set(6, 6, '+').set(12, 6, '+').set(9, 7, '+');
+  g.set(11, 8, 'd').set(10, 10, 'd').set(12, 10, 'd');
   // basket
   g.poly([[1.5, 10.5], [18.5, 10.5], [16.2, 18.6], [3.8, 18.6]], 'W');
   for (let y = 12; y < 19; y++) for (let x = 0; x < 20; x++) if (g.get(x, y) === 'W') g.set(x, y, (Math.floor(x / 2) + y) % 2 ? 'V' : 'v');
-  g.rect(1, 10, 18, 2, 'M');
+  for (let x = 1; x < 19; x++) { g.set(x, 10, x % 3 === 1 ? 'n' : 'm'); g.set(x, 11, x % 3 === 2 ? 'n' : 'M'); }
   return g.rows();
 });
 
@@ -1941,19 +2031,20 @@ icon('bell', { G: 'gold.R@bell', g: 'gold:2', H: 'wood.x@h', h: 'wood:4', c: 'go
   '....................',
 ]);
 
-icon('lock', { G: 'gold.R@body', S: 'steel.x@sh', K: 'gold:0', k: 'line' }, [
+// [v33 icons] a proper keyhole, a polished glint on the body and the steel shackle
+icon('lock', { G: 'gold.R@body', S: 'steel.x@sh', s: 'steel:5', K: 'gold:0', k: 'line' }, [
   '................',
   '.....SSSSSS.....',
-  '....SSSSSSSS....',
-  '....SS....SS....',
+  '....SsSSSSSS....',
+  '....Ss....SS....',
   '....SS....SS....',
   '....SS....SS....',
   '..GGGGGGGGGGGG..',
-  '..GGGGGGGGGGGG..',
+  '..G+GGGGGGGGGG..',
+  '..GGGGGKKGGGGG..',
+  '..GGGGKKKKGGGG..',
   '..GGGGGKKGGGGG..',
   '..GGGGGKKGGGGG..',
-  '..GGGGGGKGGGGG..',
-  '..GGGGGGKGGGGG..',
   '..GGGGGGGGGGGG..',
   '...GGGGGGGGGG...',
   '................',
@@ -3313,20 +3404,22 @@ icon('note', { N: 'glyph.y' }, R([
   '............',
 ], 'N'));
 
-icon('bang', { R: 'red.R' }, R([
+// [v33 icons] a chunky italic "!" that tapers to the dot, hand-lit from the top-left
+// [v33 icons] a chunky italic "!" that tapers to the dot, hand-lit from the top-left
+icon('bang', T('red'), [
   '............',
-  '.....###....',
-  '....####....',
-  '....####....',
-  '....###.....',
-  '....###.....',
-  '....##......',
-  '....##......',
+  '.....5443...',
+  '.....5432...',
+  '....5432....',
+  '....5432....',
+  '....432.....',
+  '...432......',
+  '...32.......',
   '............',
-  '...###......',
-  '...###......',
+  '...543......',
+  '...432......',
   '............',
-].map((r) => '.' + r.slice(0, 11)), 'R'));
+]);
 
 icon('drop', { B: 'sky.R' }, R([
   '............',
@@ -4239,7 +4332,7 @@ function placeholder() {
 // (pixels fully opaque or fully transparent). Same name = override.
 const ICON_MODS = import.meta.glob('./icons/*.js', { eager: true });
 for (const m of Object.values(ICON_MODS)) {
-  for (const [name, fn] of Object.entries(m.UI_ICONS || {})) reg(name, () => { const r = fn(); return { w: r.w, h: r.h, d: r.d || r.data }; });
+  for (const [name, fn] of Object.entries(m.UI_ICONS || {})) reg(name, () => { const r = fn(); return finish({ w: r.w, h: r.h, d: r.d || r.data }); }); // [v33 icons] same finishing pass
 }
 
 export const FOX_EXPRESSIONS = ['smug', 'greedy', 'shocked', 'laugh', 'wink', 'angry', 'worried', 'sleepy', 'happy', 'proud', 'teacher', 'horror'];
