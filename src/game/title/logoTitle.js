@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { buildTitleLogo } from './logo3d.js';
 
-const REL = 0.3; // how far (radians) the camera looks down onto the logo
+const REL = 0.26; // how far (radians) the camera looks down onto the logo
 const DEPTH = 16; // world units in front of the camera's near plane
 
 export function mountTitleLogo(game) {

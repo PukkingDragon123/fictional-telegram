@@ -56,6 +56,12 @@ const FLOWERS = [['#f4f0e0', '#f2d24a'], ['#f2d24a', '#c8861a'], ['#e8a0c0', '#f
 const CATTAIL = { stalk: hx('#6a8a3a'), leaf: hx('#86a248'), head: hx('#6a4426'), headL: hx('#8a5a34') };
 const LILY = { pad: hx('#4e8a38'), padL: hx('#6aa848'), flower: hx('#f4b8d0'), flowerC: hx('#f2d24a') };
 const VINE = [hx('#4e7a32'), hx('#62903a'), hx('#7aa848')];
+// the letter faces: the old title words' gold (line 1) and orange (line 2), src/ui/TitleWords.js PAL
+const FACE_PAL = [
+  { hi: hx('#fff4c6'), top: hx('#ffe08a'), low: hx('#ffb84a'), bot: hx('#f0922e'), rim: hx('#d0702c'), side: hx('#9a4a22'), fleck: hx('#fff6d8') },
+  { hi: hx('#ffe4ae'), top: hx('#ffc070'), low: hx('#ff8a3a'), bot: hx('#e4662a'), rim: hx('#c0522a'), side: hx('#8a3a1e'), fleck: hx('#ffecc8') },
+];
+const INK = hx('#1e0c10');
 const WATER = { light: new THREE.Color('#9ae0d8'), mid: new THREE.Color('#4aa6a0'), deep: new THREE.Color('#2a6a8e'), foam: new THREE.Color('#f2fbff'), edge: new THREE.Color('#2f7f9a') };
 
 function h3(x, y, z, s = 0) {
@@ -244,15 +250,16 @@ if (aSway > 0.0) {
   const letters = layoutLetters();
   const wordGap = (() => { // x of the space between MUST and EAT (the centre waterfall)
     const l2 = letters.filter((l) => l.line === 1);
-    const i = l2.findIndex((l, k) => k > 0 && l.x0 - l2[k - 1].x1 > 3);
+    let i = 0, best = -1; // the widest gap between letters: the word space
+    for (let k = 1; k < l2.length; k++) { const g = l2[k].x0 - l2[k - 1].x1; if (g > best) { best = g; i = k; } }
     return i > 0 ? Math.round((l2[i - 1].x1 + l2[i].x0) / 2) : 0;
   })();
-  const X0 = Math.min(...letters.map((l) => l.x0)) - 9, X1 = Math.max(...letters.map((l) => l.x1)) + 9;
+  const X0 = Math.min(...letters.map((l) => l.x0)) - 8, X1 = Math.max(...letters.map((l) => l.x1)) + 8;
   const ZB = Z1 - 6, ZF = Z2 + DEP + 17; // island back / front edge
 
   // --- the pool: in front of line 2, from its front faces to near the island's front edge
   const poolZ0 = Z2 + DEP, poolZ1 = ZF - 4;
-  const poolX0 = X0 + 10, poolX1 = X1 - 14;
+  const poolX0 = X0 + 3, poolX1 = X1 - 3;
   const inPool = (x, z) => {
     if (z < poolZ0 || z > poolZ1 + Math.round(vn(x * 0.21, 4) * 2) - 1) return false;
     const ex = Math.round(vn(z * 0.5 + 3, 6) * 4);
@@ -261,12 +268,10 @@ if (aSway > 0.0) {
   const spillX = Math.round(poolX0 + (poolX1 - poolX0) * 0.68); // the overflow notch
   const inSpill = (x, z) => x >= spillX - 1 && x <= spillX + 2 && z > poolZ1 - 3 && z <= ZF + 1;
   // two narrow falls behind MUST EAT in the widest gaps between its letters (curtains of water behind the words)
-  const curtains = (() => {
-    const l2 = letters.filter((l) => l.line === 1), gaps = [];
-    for (let k = 1; k < l2.length; k++) { const a = l2[k - 1].x1, b = l2[k].x0; if (b - a >= 2 && b - a < 5) gaps.push({ x: Math.round((a + b) / 2), w: b - a }); }
-    return gaps.sort((p, q) => q.w - p.w).slice(0, 2).map((g) => g.x);
-  })();
-  const brooks = [[wordGap - 1, wordGap + 2], ...curtains.map((x) => [x - 1, x + 1])];
+  // [readability] no water crosses a letter: falls only between the words and off the island's sides
+  const LX0 = Math.min(...letters.map((l) => l.x0)), LX1 = Math.max(...letters.map((l) => l.x1));
+  const curtains = [LX0 - 5, LX1 + 5];
+  const brooks = [[wordGap - 1, wordGap + 1], ...curtains.map((x) => [x - 1, x + 1])];
   const inBrook = (x, z) => z >= ZC && z < poolZ0 + 1 && brooks.some(([a, b]) => x >= a && x <= b); // runnels from the falls to the pool
 
   // --- the island
@@ -324,7 +329,8 @@ if (aSway > 0.0) {
     const frontOfWords = y === -1 && z > Z2 + DEP && x > X0 + 12 && x < X1 - 12;
     if (frontOfWords && r > 0.12) continue;
     if (frontOfWords) { tuft(plantsIsle, x, y + 1, z, 0.1); continue; }
-    if (nearWater && r < 0.1) cattail(plantsIsle, x, y + 1, z, h3(x, 0, z, 8));
+    const besideWords = x < LX0 - 1 || x > LX1 + 1;
+    if (nearWater && r < 0.14 && besideWords) cattail(plantsIsle, x, y + 1, z, h3(x, 0, z, 8));
     else if (r < 0.2) tuft(plantsIsle, x, y + 1, z, h3(x, z, 1, 9));
     else if (r < 0.225) flower(plantsIsle, x, y + 1, z, h3(x, z, 2, 10));
     else if (r < 0.235 && !nearWater) fern(plantsIsle, x, y + 1, z, h3(z, x, 3, 11));
@@ -352,7 +358,7 @@ if (aSway > 0.0) {
   // --- the letters
   // the springs: both T's of MUST EAT bubble up at the end of their right arm and spill over it,
   // falling free under the arm into the pool (the letter's stroke stays clear)
-  for (const l of letters.filter((q) => q.line === 1 && q.ch === 'T')) {
+  for (const l of letters.filter((q) => false && q.line === 1 && q.ch === 'T')) { // [readability] off: no falls over the letters
     const arm = [];
     for (let x = l.x1; x > l.x0; x--) { if (l.vox.some((p) => p[0] === x && p[1] === 0)) break; arm.push(x); }
     if (arm.length < 2) continue;
@@ -364,6 +370,29 @@ if (aSway > 0.0) {
     const zb = l.line === 0 ? Z1 : Z2, yb = l.line === 0 ? TIER : 0;
     for (const [x, y] of l.vox) for (let z = zb; z < zb + DEP; z++) v.set(x, y + yb, z, 1);
     paintLand(v, null, { seed: 100 + i, baseY: yb, letter: true });
+    // [readability] the face: the old title board's gold / orange (TitleWords palette), a darker
+    // carved rim round the glyph, and an ink outline one voxel behind it; the sides stay earth
+    const P2 = FACE_PAL[l.line];
+    const on = new Set(l.vox.map(([x, y]) => `${x},${y}`));
+    const has2 = (x, y) => on.has(`${x},${y}`);
+    const fz = zb + DEP - 1;
+    let hmax = 0;
+    for (const [, y] of l.vox) hmax = Math.max(hmax, y);
+    for (const [x, y] of l.vox) {
+      const rim = !has2(x + 1, y) || !has2(x - 1, y) || !has2(x, y + 1) || !has2(x, y - 1);
+      const upper = y >= hmax / 2;
+      let c = upper ? (has2(x, y + 1) ? P2.top : P2.hi) : (has2(x, y - 1) ? P2.low : P2.bot);
+      if (rim && !(upper && !has2(x, y + 1))) c = P2.rim; // carved rim (top edges keep their highlight)
+      if (h3(x, y, i, 71) < 0.06 && !rim) c = P2.fleck;
+      v.set(x, y + yb, fz, c);
+      // the layer behind: the face's shaded bevel
+      if (rim) v.set(x, y + yb, fz - 1, P2.side);
+    }
+    for (const [x, y] of l.vox) for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      const xx = x + a, yy = y + b;
+      if (yy < 0 || has2(xx, yy)) continue;
+      v.set(xx, yy + yb, fz - 1, INK); // the ink outline, just behind the face
+    }
     if (l.spring != null) {
       // water bubbling up on the top, running out over a notch in the front lip
       for (let x = l.spring; x < l.spring + l.springW; x++)
@@ -385,14 +414,15 @@ if (aSway > 0.0) {
     for (const [x, y, z] of tp) {
       if (l.spring != null && x >= l.spring - 1 && x <= l.spring + l.springW) continue;
       const r = h3(x, y, z, 61 + i);
-      if (z < zb + 2) continue; // keep the front edge clean: the letter's shape reads
+      if (z > zb + DEP - 4 || v.get(x, y, z) === INK) continue; // plants only on the top, behind the face
+      if (l.line === 1) { if (r < 0.06) tuft(pl, x, y + 1, z, 0.1); continue; } // low: never across THE BEAR
       if (r < 0.07) tuft(pl, x, y + 1, z, h3(x, z, y, 62) * 0.6);
-      else if (r < 0.115) flower(pl, x, y + 1, z, h3(x, z, y, 63));
+      else if (r < 0.11) flower(pl, x, y + 1, z, h3(x, z, y, 63) * 0.34);
     }
     // a vine or two hanging from the front top edge
     const front = zb + DEP;
     for (let x = l.x0; x <= l.x1; x++) {
-      if (h3(x, i, 0, 64) > 0.012) continue;
+      if (true) continue; // [readability] no vines across the faces
       let y = yb + l.h + 1;
       while (y > yb && !v.has(x, y, front - 1)) y--;
       if (y > yb + 3 && (l.spring == null || x < l.spring - 1 || x > l.spring + l.springW)) vine(pl, x, y, front, 2 + Math.floor(h3(x, y, 1, 65) * 5));
@@ -506,9 +536,9 @@ uniform vec3 uLight; uniform vec3 uMid; uniform vec3 uDeep; uniform vec3 uFoam; 
       falls.push({ x: x0 + w / 2, y: yBot, z, w, len, foam: foamAt });
     };
     // centre: from the upper terrace's lip down between the words
-    strip(wordGap - 1, 4, TIER + 0.05, -0.3, ZC + 0.15, 999, [wordGap + 1, ZC + 2, 2.2]);
+    strip(wordGap - 1.5, 3, TIER + 0.05, -0.3, ZC + 0.15, 999, [wordGap, ZC + 2, 2]);
     // curtains behind the words
-    for (const x of curtains) strip(x - 0.5, 2, TIER + 0.05, -0.3, ZC + 0.15, 999, [x + 0.5, ZC + 2, 1.4]);
+    for (const x of curtains) strip(x - 1, 3, TIER + 0.05, -0.3, ZC + 0.15, 999, [x + 0.5, ZC + 2, 1.8]);
     // off the arms of the T's into the pool
     for (const l of L) if (l.spring != null) strip(l.spring, l.springW, l.colTop + 0.05, POOL_Y, Z2 + DEP + 0.12, 999, [l.spring + 1, Z2 + DEP + 1.2, 1.6]);
     // the overflow off the island's edge into the air
@@ -580,7 +610,7 @@ uniform vec3 uLight; uniform vec3 uMid; uniform vec3 uDeep; uniform vec3 uFoam; 
 
   // --- the bounding box (for fitting into a screen box)
   // the fitting box: the letters and a little island round them (the island's roots hang below it)
-  const box = new THREE.Box3(new THREE.Vector3((X0 + 6) * S, -9 * S, Z1 * S), new THREE.Vector3((X1 - 5) * S, (TIER + 17) * S, (ZF - 2) * S));
+  const box = new THREE.Box3(new THREE.Vector3((LX0 - 3) * S, -5 * S, Z1 * S), new THREE.Vector3((LX1 + 4) * S, (TIER + 16) * S, (Z2 + DEP + 3) * S));
   function extent(rel) {
     const c = Math.cos(rel), s = Math.sin(rel);
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
@@ -617,9 +647,9 @@ uniform vec3 uLight; uniform vec3 uMid; uniform vec3 uDeep; uniform vec3 uFoam; 
     f.s.material.map = tex; f.s.material.needsUpdate = true;
     const x0 = from != null ? from + rand(-5, 5) : rand(poolX0 + 6, poolX1 - 6);
     const dir = Math.random() < 0.5 ? -1 : 1;
-    const z = rand(poolZ0 + 2.5, poolZ1 - 1.5);
+    const z = rand(poolZ1 - 5, poolZ1 - 1.5);
     const span = rand(8, 13);
-    f.on = true; f.t = 0; f.dur = rand(0.85, 1.05); f.x0 = x0; f.x1 = clamp(x0 + dir * span, poolX0 + 2, poolX1 - 2); f.z = z; f.h = rand(13, 20); f.dir = Math.sign(f.x1 - f.x0) || 1;
+    f.on = true; f.t = 0; f.dur = rand(0.85, 1.05); f.x0 = x0; f.x1 = clamp(x0 + dir * span, poolX0 + 2, poolX1 - 2); f.z = z; f.h = rand(7, 12); f.dir = Math.sign(f.x1 - f.x0) || 1;
     f.w = tex.userData.w * 9; f.hh = tex.userData.h * 9; // ~ the size of a real fish against the letters
     f.s.visible = true;
     fishOn.push(f);
