@@ -849,9 +849,9 @@ body.lt-pc .labui .lab-tree { inset: 0; z-index: 5; }
 
 /* ---- phones in landscape: the map gets every pixel */
 .ltree.is-tiny .lt-zoom { display: none; }
-.ltree.is-tiny .lt-toast { top: 8px; }
+.ltree.is-tiny .lt-toast { top: 14px; }
 .ltree.is-tiny .lt-toast-c { padding: 4px 14px 6px; gap: 2px; }
-.ltree.is-tiny .lt-toast-k { margin-top: -14px; font-size: 16px; padding: 2px 8px; }
+.ltree.is-tiny .lt-toast-k { margin-top: -12px; font-size: 16px; padding: 2px 8px; }
 .ltree.is-tiny .lt-toast-r b { font-size: 20px; }
 .ltree.is-tiny .lt-toast-r .lt-art { width: 32px; height: 32px; }
 .ltree.is-tiny .lt-toast-r .lt-art img { max-width: 28px; max-height: 28px; }
