@@ -57,9 +57,12 @@ const CATTAIL = { stalk: hx('#6a8a3a'), leaf: hx('#86a248'), head: hx('#6a4426')
 const LILY = { pad: hx('#4e8a38'), padL: hx('#6aa848'), flower: hx('#f4b8d0'), flowerC: hx('#f2d24a') };
 const VINE = [hx('#4e7a32'), hx('#62903a'), hx('#7aa848')];
 // the letter faces: the old title words' gold (line 1) and orange (line 2), src/ui/TitleWords.js PAL
+// carved wood faces, from the game's own wood: THE BEAR in honey wood (the signpost's gold plank,
+// src/ui/titleArt.js WOOD.gold), MUST EAT in a richer reddish wood (the plain signpost plank pushed
+// towards the red plank / src/ui/frames.js wood). base, grain line, light grain, worn edge, carved groove, knot
 const FACE_PAL = [
-  { hi: hx('#fff4c6'), top: hx('#ffe08a'), low: hx('#ffb84a'), bot: hx('#f0922e'), rim: hx('#d0702c'), side: hx('#9a4a22'), fleck: hx('#fff6d8') },
-  { hi: hx('#ffe4ae'), top: hx('#ffc070'), low: hx('#ff8a3a'), bot: hx('#e4662a'), rim: hx('#c0522a'), side: hx('#8a3a1e'), fleck: hx('#ffecc8') },
+  { base: hx('#c8963c'), alt: hx('#d4a448'), grain: hx('#96682a'), light: hx('#eec668'), worn: hx('#fbe2a0'), groove: hx('#7a4d24'), knot: hx('#5a3418'), side: hx('#6b4220') },
+  { base: hx('#b0562e'), alt: hx('#bc6434'), grain: hx('#843a20'), light: hx('#d8824e'), worn: hx('#f0aa6e'), groove: hx('#5e2616'), knot: hx('#421a10'), side: hx('#55331a') },
 ];
 const INK = hx('#1e0c10');
 const WATER = { light: new THREE.Color('#9ae0d8'), mid: new THREE.Color('#4aa6a0'), deep: new THREE.Color('#2a6a8e'), foam: new THREE.Color('#f2fbff'), edge: new THREE.Color('#2f7f9a') };
@@ -378,15 +381,25 @@ if (aSway > 0.0) {
     const fz = zb + DEP - 1;
     let hmax = 0;
     for (const [, y] of l.vox) hmax = Math.max(hmax, y);
+    // grain runs along each stroke: horizontal in bars, vertical in stems (by the longer run here)
+    const run = (x, y, dx, dy) => { let n = 0; for (let k = 1; k < 9 && has2(x + dx * k, y + dy * k); k++) n++; return n; };
+    const knots = l.vox.filter(([x, y]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => has2(x + a, y + b) && has2(x + 2 * a, y + 2 * b))).filter((p, k) => h3(p[0], p[1], i, 73) < 0.12).slice(0, 1);
+    const seed = i * 3.7;
     for (const [x, y] of l.vox) {
-      const rim = !has2(x + 1, y) || !has2(x - 1, y) || !has2(x, y + 1) || !has2(x, y - 1);
-      const upper = y >= hmax / 2;
-      let c = upper ? (has2(x, y + 1) ? P2.top : P2.hi) : (has2(x, y - 1) ? P2.low : P2.bot);
-      if (rim && !(upper && !has2(x, y + 1))) c = P2.rim; // carved rim (top edges keep their highlight)
-      if (h3(x, y, i, 71) < 0.06 && !rim) c = P2.fleck;
+      const horiz = run(x, y, 1, 0) + run(x, y, -1, 0) > run(x, y, 0, 1) + run(x, y, 0, -1);
+      const along = horiz ? x : y, across = horiz ? y : x;
+      const g = Math.sin(across * 1.9 + Math.sin(along * 0.33 + seed) * 1.5 + seed);
+      let c = (across + Math.floor(along / 5)) & 1 ? P2.base : P2.alt;
+      if (g > 0.8) c = P2.grain; else if (g < -0.88) c = P2.light;
+      // worn light edges on top / left, carved dark grooves on bottom / right
+      if (!has2(x, y + 1) || !has2(x - 1, y)) c = h3(x, y, i, 74) < 0.75 ? P2.worn : P2.light;
+      if (!has2(x, y - 1) || !has2(x + 1, y)) c = P2.groove;
+      for (const [kx, ky] of knots) {
+        const d = Math.max(Math.abs(x - kx), Math.abs(y - ky));
+        if (d === 0) c = P2.knot; else if (d === 1 && (x === kx || y === ky)) c = P2.grain;
+      }
       v.set(x, y + yb, fz, c);
-      // the layer behind: the face's shaded bevel
-      if (rim) v.set(x, y + yb, fz - 1, P2.side);
+      if (!has2(x, y - 1) || !has2(x + 1, y) || !has2(x, y + 1) || !has2(x - 1, y)) v.set(x, y + yb, fz - 1, P2.side); // the shaded bevel behind the edge
     }
     for (const [x, y] of l.vox) for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
       const xx = x + a, yy = y + b;
@@ -437,6 +450,54 @@ if (aSway > 0.0) {
     inner.add(m);
     return { ...l, mesh: m, i, cx, yb, zb, top: yb + l.h - 1, base: m.position.clone(), wob: 0, wv: 0, sq: 0, sv: 0, grow: 0, delay: 0, tilt: (h3(i, 7, 7, 66) - 0.5) * 0.06 };
   });
+
+  // --- fish on the letters (the game's fish sprites): one hangs on a line from the arm of the T of
+  // EAT, one leaps over the A of BEAR. Neither crosses a stroke.
+  const letterFish = [];
+  {
+    const tex = (id) => {
+      try {
+        const cv = fishCanvasFor(id, { scale: 1 });
+        const t = new THREE.CanvasTexture(cv);
+        t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+        return { t, ar: cv.height / cv.width };
+      } catch { return null; }
+    };
+    const T = L.filter((l) => l.line === 1 && l.ch === 'T').pop();
+    if (T) {
+      const arm = [];
+      for (let x = T.x1; x > T.x0; x--) { if (T.vox.some((p) => p[0] === x && p[1] === 0)) break; arm.push(x); }
+      const armBot = arm.length ? Math.min(...T.vox.filter((p) => arm.includes(p[0])).map((p) => p[1])) : 0;
+      const tx = tex('bluegill');
+      if (tx && arm.length >= 3 && armBot >= 8) {
+        const hx2 = arm[Math.floor(arm.length / 2)] + 0.5 - T.cx;
+        // the line + hook: a few voxels in the letter's own mesh would be re-meshed; a thin box is enough
+        const lineM = new THREE.Mesh(new THREE.BoxGeometry(0.35 * S, 2.2 * S, 0.35 * S), new THREE.MeshLambertMaterial({ color: 0xe8e0c8 }));
+        lineM.position.set(hx2 * S, (armBot - 1.1) * S, (DEP / 2 + 0.4) * S);
+        T.mesh.add(lineM);
+        const len = Math.min(8, armBot - 3.5);
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx.t, alphaTest: 0.5, transparent: false, rotation: Math.PI / 2 }));
+        sp.scale.set(len * S, len * tx.ar * S, 1);
+        sp.position.set(hx2 * S, (armBot - 2.2 - len / 2) * S, (DEP / 2 + 0.6) * S);
+        sp.renderOrder = 4;
+        T.mesh.add(sp);
+        sp.userData.letterFish = true; // (tools/promo hides the pool's leapers, not these)
+        letterFish.push({ s: sp, kind: 'hang', y0: sp.position.y, x0: sp.position.x, line: lineM, ph: 0 });
+      }
+    }
+    const A = L.find((l) => l.line === 0 && l.ch === 'A');
+    const tx2 = tex('rainbow');
+    if (A && tx2) {
+      const len = 10;
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx2.t, alphaTest: 0.5, transparent: false }));
+      sp.scale.set(len * S, len * tx2.ar * S, 1);
+      sp.position.set(0, (A.h + 3.2) * S, (DEP / 2 + 0.6) * S);
+      sp.renderOrder = 4;
+      A.mesh.add(sp);
+      sp.userData.letterFish = true;
+      letterFish.push({ s: sp, kind: 'leap', y0: sp.position.y, x0: 0, ph: 1.3 });
+    }
+  }
 
   // --- water: the pool + runnels (flat) and the falls (vertical), one shader each
   const waterU = { uTime: { value: 0 }, uFall: { value: 1 }, uLight: { value: WATER.light }, uMid: { value: WATER.mid }, uDeep: { value: WATER.deep }, uFoam: { value: WATER.foam }, uEdge: { value: WATER.edge }, uK: { value: 1 },
@@ -563,6 +624,7 @@ uniform vec3 uLight; uniform vec3 uMid; uniform vec3 uDeep; uniform vec3 uFoam; 
     const s = new THREE.Sprite(m);
     s.visible = false;
     s.renderOrder = 4;
+    s.userData.leapFish = true; // the pool's leapers
     inner.add(s);
     return { s, on: false };
   });
@@ -723,6 +785,23 @@ uniform vec3 uLight; uniform vec3 uMid; uniform vec3 uDeep; uniform vec3 uFoam; 
       m.scale.set((1 - sq * 0.5) , gr * (1 + sq), (1 - sq * 0.5));
       m.position.y = l.base.y + Math.max(0, l.sq) * 0.04 + Math.sin(T * 1.3 + l.i * 0.8) * 0.004;
     }
+    // the fish on the letters: the hanging one turns and swings on its line, the leaper arcs over its A
+    for (const f of letterFish) {
+      const m = f.s.material;
+      if (f.kind === 'hang') {
+        const sw = Math.sin(T * 1.6 + f.ph) * 0.12 + Math.sin(T * 5.3) * 0.03;
+        m.rotation = Math.PI / 2 + sw;
+        f.s.position.x = f.x0 + Math.sin(T * 1.6 + f.ph) * 0.06;
+      } else {
+        // a slow hop to and fro over the apex, nose following the arc, tail flicking
+        const u = (Math.sin(T * 0.9) + 1) / 2;
+        const ax = (u - 0.5) * 9;
+        f.s.position.set(ax * S, f.y0 + Math.cos((u - 0.5) * Math.PI) * 1.6 * S, f.s.position.z);
+        const dir = Math.cos(T * 0.9) >= 0 ? 1 : -1;
+        f.s.scale.x = Math.abs(f.s.scale.x) * dir;
+        m.rotation = -(u - 0.5) * 1.1 * dir * dir + Math.sin(T * 9) * 0.05;
+      }
+    }
     // ambient fish
     if (showGoal && introT < 0) {
       leapT -= dt;
@@ -736,7 +815,7 @@ uniform vec3 uLight; uniform vec3 uMid; uniform vec3 uDeep; uniform vec3 uFoam; 
       const x = f.x0 + (f.x1 - f.x0) * u, y = POOL_Y + Math.sin(u * Math.PI) * f.h;
       f.s.position.set(x * S, y * S, f.z * S);
       f.s.material.rotation = Math.cos(u * Math.PI) * 0.9 * f.dir;
-      f.s.scale.set(f.w * S * f.dir * -1, f.hh * S, 1);
+      f.s.scale.set(f.w * S * f.dir, f.hh * S, 1); // (the fish art faces right)
     }
     // a little spray at the foot of each fall
     const p = P();
@@ -767,6 +846,7 @@ uniform vec3 uLight; uniform vec3 uMid; uniform vec3 uDeep; uniform vec3 uFoam; 
     group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     mat.dispose(); poolMat.dispose(); fallMat.dispose();
     for (const m of fishMats) m.dispose();
+    for (const f of letterFish) { f.s.material.map?.dispose(); f.s.material.dispose(); f.line?.material.dispose(); }
     for (const t of fishTex.values()) t?.dispose();
   }
 

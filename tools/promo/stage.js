@@ -962,7 +962,7 @@ SCENES.logo = async (T, o) => {
   S.logoObj = logo;
   logo.intro?.(); // it starts hidden and rises out of the ground
   // past the intro (3 s: letters grow in, the falls start), its own fish off (the compositor leaps fish in a loop)
-  const noFish = () => { if (L.fish === false) logo.group.traverse((q) => { if (q.isSprite) q.visible = false; }); };
+  const noFish = () => { if (L.fish === false) logo.group.traverse((q) => { if (q.isSprite && !q.userData.letterFish) q.visible = false; }); };
   for (let k = 0; k < (L.warm ?? 4); k += 1 / 30) { logo.update?.(1 / 30); noFish(); }
   const rig = (S.diveRig = new CameraRig());
   rig.freeBounds = true; rig.minWupp = 0.0005; rig.maxWupp = 1;
