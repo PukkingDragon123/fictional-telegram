@@ -4,13 +4,15 @@
 //   openPondTimes({ sfx, onClose })  the open paper over the title: { close() }
 //
 // The open paper is a sheet of newsprint painted on the pixel grid (fibres, a fold cross, worn
-// edges, a coffee ring), its text set in the game's pixel fonts (TBME Goofy, the masthead in Alagard),
-// with halftone pictures printed from the game's own art (3D face renders, sprites, fish). One issue
-// per major update, newest first: flip the pages (arrow tabs, arrow keys, a swipe), click a headline
-// to read its feature list, Esc / tap outside / the FOLD tab to put it away.
+// edges, a coffee ring), text in the game's pixel fonts (the masthead in Alagard). Two tabs:
+// DEVLOG (every update, newest first: version, date, a headline, a summary, a few bullets) and
+// FEEDBACK / REPORT A BUG (no backend: the report is copied to the clipboard, plus a mailto / itch.io
+// link when FEEDBACK_EMAIL / ITCH_URL are set in pondTimesIssues.js; sent reports are kept in
+// localStorage). Esc / tap outside / the FOLD stamp puts it away.
 import './pondtimes.css';
-import { ISSUES } from './pondTimesIssues.js';
-import { INK, cv, scaleEl, measure, text as bmText } from './titleArt.js';
+import { anySave, lastSlot, slotMeta } from '../game/saveSlots.js';
+import { ISSUES, FEEDBACK_EMAIL, ITCH_URL, GAME_VERSION } from './pondTimesIssues.js';
+import { INK, cv, measure, text as bmText } from './titleArt.js';
 import { GOOFY_SMALL } from './goofyFont.js';
 import { pxTextCanvas } from './kinetic/pxfont.js';
 
@@ -22,7 +24,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 // ------------------------------------------------------------------ the folded paper on the menu
 /** a folded newspaper tacked to the post: masthead, the newest headline, a photo, fake columns */
-export function paperProp({ headline = ISSUES[0].lead.kicker } = {}) {
+export function paperProp({ headline = 'DEVLOG ' + ISSUES[0].v } = {}) {
   const W = 66, H = 48;
   const c = cv(W, H), g = c.getContext('2d');
   const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
@@ -69,53 +71,6 @@ export function paperProp({ headline = ISSUES[0].lead.kicker } = {}) {
   return c;
 }
 
-// ------------------------------------------------------------------ halftone printing of the game's art
-/** print a source canvas as two-ink newsprint halftone (ordered dither), w x h art px */
-function halftone(src, w, h) {
-  const out = cv(w, h, 'ptm-px');
-  if (!src) return out;
-  const t = document.createElement('canvas'); t.width = w; t.height = h;
-  const tg = t.getContext('2d', { willReadFrequently: true });
-  tg.imageSmoothingEnabled = false;
-  const k = Math.min(w / src.width, h / src.height);
-  const dw = Math.max(1, Math.round(src.width * k)), dh = Math.max(1, Math.round(src.height * k));
-  tg.drawImage(src, Math.round((w - dw) / 2), Math.round((h - dh) / 2), dw, dh);
-  const d = tg.getImageData(0, 0, w, h).data;
-  const og = out.getContext('2d');
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = (y * w + x) * 4;
-    if (d[i + 3] < 128) continue;
-    const l = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255;
-    const b = bay(x, y);
-    // three steps: solid ink in the darks, grey dots in the mids, paper in the lights
-    if (l < 0.22 + b * 0.18) og.fillStyle = NEWS_INK;
-    else if (l < 0.55 + b * 0.3) og.fillStyle = (x + y) % 2 ? GREY_INK : '#a89c8c';
-    else if (l < 0.85 && b < 0.25) og.fillStyle = '#c8bca8';
-    else continue;
-    og.fillRect(x, y, 1, 1);
-  }
-  return out;
-}
-
-let ART = null;
-async function loadArt() {
-  if (ART) return ART;
-  const [sp, fishM, faces] = await Promise.all([
-    import('./sprites.js').catch(() => null), import('../game/fishSprites.js').catch(() => null), import('./faces3d.js').catch(() => null),
-  ]);
-  ART = {
-    src(pic, size = 64) {
-      try {
-        if (pic.face && faces) { const c = faces.faceCanvas(pic.face, size, size); if (c) return c; }
-        if (pic.icon && sp) return sp.spriteCanvas(pic.icon, 4);
-        if (pic.fish && fishM) return fishM.fishCanvasFor(pic.fish, { scale: 2 });
-      } catch (e) { console.warn('[pond times] art', e); }
-      return null;
-    },
-  };
-  return ART;
-}
-
 // ------------------------------------------------------------------ the newsprint sheet
 function newsprint(w, h, seed) {
   const c = cv(w, h, 'ptm-px'), g = c.getContext('2d');
@@ -147,154 +102,134 @@ function newsprint(w, h, seed) {
   return c;
 }
 
-// ------------------------------------------------------------------ the open paper
+// ------------------------------------------------------------------ the open paper: a devlog + feedback
+const REPORTS_KEY = 'tbme.feedbackSent';
+function sentList() { try { return JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]'); } catch { return []; } }
+function gameInfo() {
+  const info = { version: GAME_VERSION, browser: navigator.userAgent, screen: `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio || 1}x` };
+  try { if (anySave()) { const m = slotMeta(lastSlot()); if (m) { info.day = m.day; info.coins = m.coins; } } } catch { /* no save */ }
+  return info;
+}
+
 export function openPondTimes({ sfx, onClose } = {}) {
   const play = (n, o) => { try { sfx?.(n, o); } catch { /* optional */ } };
-  let page = 0, busy = false, closed = false;
+  let tab = 'log', closed = false, kind = 'Bug';
   const el = document.createElement('div');
   el.className = 'ptm';
   el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', 'The Pond Times');
+  el.setAttribute('aria-label', 'The Pond Times devlog');
   el.innerHTML = `
     <div class="ptm-dim"></div>
-    <div class="ptm-sheet">
-      <div class="ptm-page" tabindex="-1"></div>
-    </div>
-    <button class="ptm-tab ptm-prev" aria-label="Newer issue"><span>&lsaquo; NEWER</span></button>
-    <button class="ptm-tab ptm-next" aria-label="Older issue"><span>OLDER &rsaquo;</span></button>
+    <div class="ptm-sheet"><div class="ptm-page" tabindex="-1"></div></div>
     <button class="ptm-fold" aria-label="Fold the paper">FOLD</button>`;
   document.body.appendChild(el);
   const sheet = el.querySelector('.ptm-sheet'), pageEl = el.querySelector('.ptm-page');
-  const vw = () => window.innerWidth, vh = () => window.innerHeight;
   let P = 2;
-  // size the sheet on whole art pixels and paint its newsprint
   function layout() {
-    P = vw() >= 1500 && vh() >= 900 ? 3 : 2;
-    const W = Math.floor(Math.min(vw() - 24, 1080) / P) * P, H = Math.floor(Math.min(vh() - (vw() < 600 ? 70 : 64), 900) / P) * P;
+    P = window.innerWidth >= 1500 && window.innerHeight >= 900 ? 3 : 2;
+    const W = Math.floor(Math.min(window.innerWidth - 24, 760) / P) * P, H = Math.floor(Math.min(window.innerHeight - 40, 860) / P) * P;
     sheet.style.width = `${W}px`; sheet.style.height = `${H}px`;
     el.style.setProperty('--P', `${P}px`);
-    const tex = newsprint(W / P, H / P, page * 17 + 3);
+    const tex = newsprint(W / P, H / P, 3);
     sheet.style.backgroundImage = `url(${tex.toDataURL()})`;
     sheet.style.backgroundSize = `${W}px ${H}px`;
-    el.classList.toggle('ptm--narrow', W < 700);
+    el.classList.toggle('ptm--narrow', W < 600);
   }
-
-  function pic(spec, w, h, cls = '') {
-    const wrap = document.createElement('span');
-    wrap.className = 'ptm-pic ' + cls;
-    const src = ART?.src(spec, 96);
-    wrap.appendChild(scaleEl(halftone(src, w, h), P));
-    return wrap;
-  }
-
-  function render() {
-    const I = ISSUES[page];
-    const narrow = el.classList.contains('ptm--narrow');
+  function head() {
     const mast = pxTextCanvas('The Pond Times', { font: 'alagard', color: NEWS_INK });
-    mast.className = 'ptm-mast-c';
-    mast.style.width = `${mast.width * P * (narrow ? 1 : 2)}px`; mast.style.height = `${mast.height * P * (narrow ? 1 : 2)}px`;
+    const k = el.classList.contains('ptm--narrow') ? 1 : 2;
+    mast.className = 'ptm-mast-c'; mast.style.width = `${mast.width * P * k / 2 * (k === 1 ? 2 : 1)}px`; mast.style.height = `${mast.height * P * k / 2 * (k === 1 ? 2 : 1)}px`;
+    return mast;
+  }
+  function render() {
+    const sent = sentList();
     pageEl.innerHTML = `
-      <header class="ptm-head">
-        <div class="ptm-ear ptm-ear--l"><b>WEATHER</b><span class="ptm-wx"></span><small>${esc(I.weather.text)}</small></div>
-        <div class="ptm-mast"></div>
-        <div class="ptm-ear ptm-ear--r"><b>No. ${I.no}</b><small>${esc(I.edition)}</small><small>Price: ${esc(I.price)}</small></div>
-      </header>
-      <div class="ptm-dateline"><span>${esc(I.date)}</span><span>${esc(I.edition.toUpperCase())}</span><span>Page ${page + 1} of ${ISSUES.length}</span></div>
-      <section class="ptm-lead">
-        <div class="ptm-lead-pic"></div>
-        <div class="ptm-lead-t"><small class="ptm-kicker">${esc(I.lead.kicker)}</small><h2>${esc(I.lead.title)}</h2><p class="ptm-cap">${esc(I.lead.caption)}</p></div>
-      </section>
-      <div class="ptm-cols">
-        ${I.stories.map((s, i) => `<article class="ptm-story${i === 0 ? ' open' : ''}" data-i="${i}">
-          <h3 tabindex="0" role="button" aria-expanded="${i === 0}">${esc(s.h)}</h3>
-          <p class="ptm-lede">${esc(s.lede)}</p>
-          <ul>${s.list.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
-        </article>`).join('')}
-        <aside class="ptm-side">
-          ${I.ads.map((a) => `<div class="ptm-ad"><span class="ptm-ad-i" data-icon="${esc(a.icon)}"></span><b>${esc(a.h)}</b><small>${esc(a.t)}</small></div>`).join('')}
-        </aside>
-      </div>
-      <section class="ptm-comic" aria-label="Comic strip">
-        <b class="ptm-comic-t">REYNARD &amp; FRIENDS</b>
-        <div class="ptm-panels">${I.comic.map((p) => `<div class="ptm-panel"><span class="ptm-bal">${esc(p.say)}</span><span class="ptm-face"></span></div>`).join('')}</div>
-      </section>`;
-    pageEl.querySelector('.ptm-mast').appendChild(mast);
-    pageEl.querySelector('.ptm-wx').appendChild(pic({ icon: I.weather.icon }, 14, 14, 'ptm-pic--wx'));
-    pageEl.querySelector('.ptm-lead-pic').appendChild(pic(I.lead.pic, narrow ? 64 : 96, narrow ? 56 : 84, 'ptm-pic--lead'));
-    pageEl.querySelectorAll('.ptm-story').forEach((a) => {
-      const s = I.stories[+a.dataset.i];
-      if (s.pic) a.insertBefore(pic(s.pic, 40, 32), a.querySelector('.ptm-lede'));
+      <header class="ptm-head1"><div class="ptm-mast"></div><small>DEVLOG &amp; LETTERS TO THE EDITOR</small></header>
+      <nav class="ptm-tabs" role="tablist">
+        <button role="tab" data-t="log" aria-selected="${tab === 'log'}">DEVLOG</button>
+        <button role="tab" data-t="fb" aria-selected="${tab === 'fb'}">FEEDBACK / REPORT A BUG</button>
+      </nav>
+      ${tab === 'log' ? `<div class="ptm-log">${ISSUES.map((I, i) => `
+        <article class="ptm-entry">
+          <div class="ptm-vh"><b class="ptm-ver">${esc(I.v)}</b><span>${esc(I.date)}</span>${i === 0 ? '<em class="ptm-new">NEW</em>' : ''}</div>
+          <h3>${esc(I.title)}</h3>
+          <p class="ptm-lede">${esc(I.sum)}</p>
+          <ul>${I.list.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+        </article>`).join('')}</div>` : `
+      <form class="ptm-fb" autocomplete="off">
+        <p class="ptm-lede">Found a bug? Have an idea? Love a fish? Write to the editor.</p>
+        <div class="ptm-kinds" role="radiogroup" aria-label="Type">
+          ${['Bug', 'Idea', 'Love it'].map((k) => `<button type="button" role="radio" data-k="${k}" aria-checked="${k === kind}">${k.toUpperCase()}</button>`).join('')}
+        </div>
+        <textarea class="ptm-text" rows="6" maxlength="2000" placeholder="What happened? What did you expect?"></textarea>
+        <label class="ptm-check"><input type="checkbox" checked> <span class="ptm-box"></span> Include game info (version, browser, screen, day, coins)</label>
+        <div class="ptm-actions">
+          <button type="submit" class="ptm-send">COPY REPORT</button>
+          ${FEEDBACK_EMAIL ? '<a class="ptm-link ptm-mail" href="#">Send by email</a>' : ''}
+          ${ITCH_URL ? `<a class="ptm-link" href="${esc(ITCH_URL)}" target="_blank" rel="noopener">Open itch.io page</a>` : ''}
+        </div>
+        <p class="ptm-status" role="status"></p>
+        ${sent.length ? `<div class="ptm-sent"><b>SENT</b><ul>${sent.slice(-5).reverse().map((r) => `<li><span class="ptm-stamp">SENT</span> ${esc(r.kind)}: ${esc(r.text.slice(0, 60))}${r.text.length > 60 ? '...' : ''}</li>`).join('')}</ul></div>` : ''}
+      </form>`}`;
+    pageEl.querySelector('.ptm-mast').appendChild(head());
+    pageEl.querySelectorAll('.ptm-tabs button').forEach((b) => b.addEventListener('click', () => { if (tab !== b.dataset.t) { tab = b.dataset.t; play('page', { volume: 0.5 }); sheet.classList.add('ptm-in-r'); setTimeout(() => sheet.classList.remove('ptm-in-r'), 280); render(); } }));
+    const form = pageEl.querySelector('.ptm-fb');
+    if (!form) return;
+    form.querySelectorAll('.ptm-kinds button').forEach((b) => b.addEventListener('click', () => { kind = b.dataset.k; form.querySelectorAll('.ptm-kinds button').forEach((x) => x.setAttribute('aria-checked', String(x === b))); play('click', { volume: 0.4 }); }));
+    const report = () => {
+      const txt = form.querySelector('.ptm-text').value.trim();
+      const lines = [`[The Bear Must Eat] ${kind.toUpperCase()}`, '', txt || '(no text)'];
+      if (form.querySelector('.ptm-check input').checked) {
+        const I = gameInfo();
+        lines.push('', '--- game info ---', `Version: ${I.version}`, `Browser: ${I.browser}`, `Screen: ${I.screen}`);
+        if (I.day != null) lines.push(`Day: ${I.day}`, `Coins: ${I.coins}`);
+      }
+      return { txt, body: lines.join('\n') };
+    };
+    const status = form.querySelector('.ptm-status');
+    const remember = (txt) => { try { const l = sentList(); l.push({ kind, text: txt, at: Date.now() }); localStorage.setItem(REPORTS_KEY, JSON.stringify(l.slice(-30))); } catch { /* storage off */ } };
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { txt, body } = report();
+      if (!txt) { status.textContent = 'Write something first!'; play('error', { volume: 0.4 }); return; }
+      let ok = false;
+      try { await navigator.clipboard.writeText(body); ok = true; } catch {
+        try { const t = document.createElement('textarea'); t.value = body; document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove(); } catch { ok = false; }
+      }
+      remember(txt);
+      play('stamp', { volume: 0.5 });
+      render();
+      const st = pageEl.querySelector('.ptm-status');
+      if (st) st.textContent = ok ? `Copied! ${FEEDBACK_EMAIL ? 'Send it by email' : ITCH_URL ? 'Paste it in the itch.io comments' : 'Paste it wherever you talk to us'}. Thank you!` : 'Could not copy: select the text and copy it by hand.';
+      if (!ok) { const t = pageEl.querySelector('.ptm-text'); if (t) { t.value = body; t.select(); } }
     });
-    pageEl.querySelectorAll('.ptm-ad-i').forEach((n) => n.appendChild(pic({ icon: n.dataset.icon }, 16, 16, 'ptm-pic--ad')));
-    pageEl.querySelectorAll('.ptm-panel').forEach((n, i) => n.querySelector('.ptm-face').appendChild(pic(I.comic[i].face, 40, 40, 'ptm-pic--face')));
-    el.querySelector('.ptm-prev').disabled = page === 0;
-    el.querySelector('.ptm-next').disabled = page === ISSUES.length - 1;
-    pageEl.scrollTop = 0;
+    form.querySelector('.ptm-mail')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const { txt, body } = report();
+      if (txt) remember(txt);
+      location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('The Bear Must Eat: ' + kind)}&body=${encodeURIComponent(body)}`;
+    });
   }
-
-  // headlines expand / fold their feature lists
-  pageEl.addEventListener('click', (e) => {
-    const h = e.target.closest?.('.ptm-story h3');
-    if (!h) return;
-    const a = h.parentElement, on = !a.classList.contains('open');
-    a.classList.toggle('open', on);
-    h.setAttribute('aria-expanded', String(on));
-    play('page', { volume: 0.35, pitch: 1.3 });
-  });
-  pageEl.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.ptm-story h3')) { e.preventDefault(); e.target.click(); } });
-
-  // flipping: the sheet turns in stepped frames, the new page is printed under it
-  function flip(dir) {
-    const n = page + dir;
-    if (busy || n < 0 || n >= ISSUES.length) return;
-    busy = true;
-    play('page', { volume: 0.5 });
-    sheet.classList.remove('ptm-in-l', 'ptm-in-r');
-    sheet.classList.add(dir > 0 ? 'ptm-out-l' : 'ptm-out-r');
-    setTimeout(() => {
-      page = n;
-      layout(); render();
-      sheet.classList.remove('ptm-out-l', 'ptm-out-r');
-      sheet.classList.add(dir > 0 ? 'ptm-in-r' : 'ptm-in-l');
-      setTimeout(() => { busy = false; sheet.classList.remove('ptm-in-l', 'ptm-in-r'); }, 260);
-    }, 220);
-  }
-  el.querySelector('.ptm-prev').addEventListener('click', () => flip(-1));
-  el.querySelector('.ptm-next').addEventListener('click', () => flip(1));
-  for (const b of el.querySelectorAll('.ptm-tab, .ptm-fold')) b.addEventListener('pointerenter', () => play('hover', { volume: 0.4 }));
   el.querySelector('.ptm-fold').addEventListener('click', () => close());
+  el.querySelector('.ptm-fold').addEventListener('pointerenter', () => play('hover', { volume: 0.4 }));
   el.querySelector('.ptm-dim').addEventListener('click', () => close());
-  // a swipe flips too (phones)
-  let sx = null;
-  sheet.addEventListener('pointerdown', (e) => { sx = e.clientX; });
-  sheet.addEventListener('pointerup', (e) => { if (sx != null && Math.abs(e.clientX - sx) > 70) flip(e.clientX < sx ? 1 : -1); sx = null; });
-  const onKey = (e) => {
-    if (closed) return;
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
-    else if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); flip(1); }
-    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); flip(-1); }
-  };
+  const onKey = (e) => { if (!closed && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
   window.addEventListener('keydown', onKey, true);
   const onResize = () => { layout(); render(); };
   window.addEventListener('resize', onResize);
-
-  layout();
-  loadArt().then(() => { if (!closed) render(); });
-  render(); // (text first, the pictures print as soon as the art is ready)
+  layout(); render();
   play('paper', { volume: 0.55 });
   requestAnimationFrame(() => el.classList.add('ptm--in'));
   pageEl.focus({ preventScroll: true });
-
   function close() {
     if (closed) return;
     closed = true;
     window.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
     play('paper', { volume: 0.45, pitch: 1.15 });
-    el.classList.remove('ptm--in');
-    el.classList.add('ptm--out');
+    el.classList.remove('ptm--in'); el.classList.add('ptm--out');
     setTimeout(() => el.remove(), 380);
     try { onClose?.(); } catch (e) { console.warn(e); }
   }
-  return { close, el, flip, get page() { return page; } };
+  return { close, el, tab: (t) => { tab = t; render(); } };
 }
