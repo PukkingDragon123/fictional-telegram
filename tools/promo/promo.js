@@ -1194,7 +1194,7 @@ async function famFrameRender(i) {
 // tiny specks (stray dither) are dropped
 function keyMask(P, tol = 14) {
   const d = P.d, k = [d[8], d[9], d[10]], m = new Uint8Array(P.w * P.h);
-  for (let i = 0; i < m.length; i++) m[i] = Math.abs(d[i * 4] - k[0]) + Math.abs(d[i * 4 + 1] - k[1]) + Math.abs(d[i * 4 + 2] - k[2]) > tol ? 1 : 0;
+  for (let i = 0; i < m.length; i++) m[i] = Math.abs(d[i * 4] - k[0]) + Math.abs(d[i * 4 + 1] - k[1]) + Math.abs(d[i * 4 + 2] - k[2]) > tol && !(d[i * 4 + 2] > 150 && d[i * 4] > 170 && d[i * 4 + 1] < 130) ? 1 : 0; // (+ key-tinted fringe pixels)
   for (let y = 1; y < P.h - 1; y++) for (let x = 1; x < P.w - 1; x++) { const i = y * P.w + x; if (m[i] && !m[i - 1] && !m[i + 1] && !m[i - P.w] && !m[i + P.w]) m[i] = 0; }
   return m;
 }

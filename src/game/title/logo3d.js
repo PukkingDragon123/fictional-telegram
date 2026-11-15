@@ -253,6 +253,44 @@ const MATS = {
   },
 };
 const matOf = (style, line) => STYLE[style]?.[line]?.mat || null;
+// [v33 promo] quarry ground for the 'iron' logo: dirt + gravel tops, rock strata with ore veins (iron, copper,
+// gold glints, coal), no meadow plants; the pool and falls run molten (MOLTEN), a pickaxe and a rail stub on the edge
+const MOLTEN = { light: new THREE.Color('#ffd060'), mid: new THREE.Color('#ff8a2a'), deep: new THREE.Color('#d84a1a'), foam: new THREE.Color('#fff4c0'), edge: new THREE.Color('#8a2a12') };
+const QDIRT = ['#4a3a2e', '#54422f', '#5e4a34', '#3e3028'].map(hx), QGRAVEL = ['#7a746a', '#8a847a', '#6a645c', '#9a948a'].map(hx);
+const QROCK = ['#5a5458', '#645e60', '#6e6868', '#4e484c', '#7a7270'].map(hx);
+const ORE = { iron: [hx('#8aa0c0'), hx('#b8c8e0')], copper: [hx('#d07a3a'), hx('#ffb070')], gold: [hx('#ffd040'), hx('#fff6b0')], coal: [hx('#1e1c20'), hx('#3a3840')] };
+function quarryIsland(iv, plants, X0, X1, ZF) {
+  plants.length = 0;
+  for (const [k, c] of [...iv.vox]) {
+    const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
+    const r = h3(x, y, z, 401);
+    const sandy = c === SAND[0] - 0x0c0c0c || SAND.includes(c) || c === SAND[1] - 0x0c0c0c || c === SAND[2] - 0x0c0c0c;
+    let col;
+    if (!iv.has(x, y + 1, z)) col = sandy ? hx('#2a1a14') : r < 0.45 ? pick(QGRAVEL, r * 2) : pick(QDIRT, r); // the pit's banks are scorched dark
+    else if (!iv.has(x, y + 2, z)) col = pick(QDIRT, r);
+    else {
+      // rock strata with ore veins winding through them
+      const band = Math.floor((y + vn(x * 0.2, 7) * 2) / 3) & 3;
+      col = band === 1 ? pick(QDIRT, r) : pick(QROCK, r);
+      const w = Math.sin(x * 0.31 + y * 0.9 + z * 0.2) + Math.sin(x * 0.13 - y * 0.5);
+      const kind = (Math.floor((x + 200) / 9) + Math.floor((y + 50) / 5)) % 4;
+      if (Math.abs(w - 0.3) < 0.18) { const o = ORE[['iron', 'copper', 'iron', 'coal'][kind]]; col = r < 0.3 ? o[1] : o[0]; }
+      else if (r < 0.012) col = ORE.gold[r < 0.006 ? 1 : 0];
+    }
+    iv.set(x, y, z, col);
+  }
+  // a few ore nuggets and pebbles on the ground, a pickaxe stuck in the edge, a rail stub
+  const tops = [];
+  for (const k of iv.vox.keys()) { const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512; if (!iv.has(x, y + 1, z) && (y === -1 || y === TIER - 1)) tops.push([x, y, z]); }
+  for (const [x, y, z] of tops) {
+    const r = h3(x, y, z, 402);
+    if (r < 0.025) plants.push([x, y + 1, z, ORE.copper[0], 0]); else if (r < 0.04) plants.push([x, y + 1, z, ORE.iron[0], 0]); else if (r < 0.046) plants.push([x, y + 1, z, ORE.gold[0], 0]);
+  }
+  const px = X0 + 6, pz = ZF - 2;
+  for (let k = 1; k <= 7; k++) plants.push([px + Math.floor(k / 3), k - 1, pz, k < 7 ? hx('#a8743e') : hx('#7e5228'), 0]);
+  for (let a = -3; a <= 3; a++) plants.push([px + 2 + a, 7 - Math.round(Math.abs(a) * 0.5), pz, Math.abs(a) === 3 ? hx('#c4ccd4') : hx('#76808c'), 0]);
+  for (let x = X1 - 12; x <= X1 - 3; x++) { plants.push([x, 0, ZF - 3, hx('#b8c0cc'), 0, 0.5]); plants.push([x, 0, ZF - 6, hx('#b8c0cc'), 0, 0.5]); if (x % 3 === 0) for (let z = ZF - 7; z <= ZF - 2; z++) plants.push([x, -0.3, z, hx('#7a4a26'), 0, 0.3]); }
+}
 // decorations on a letter face: key 'x,y' -> colour (windows and a door / ore veins / berry clusters + flowers)
 function styleDeco(style, l, has2, i) {
   const deco = new Map(), P = STYLE[style][l.line];
@@ -653,6 +691,7 @@ if (aSway > 0.0) {
     if (!inPool(x, z) || Math.abs(x - wordGap) < 4) continue;
     lily(plantsIsle, x, z, i);
   }
+  if (style === 'iron') quarryIsland(iv, plantsIsle, X0, X1, ZF); // [v33 promo] the Flint & Steel title stands on quarry ground
   const isle = new THREE.Mesh(mergeGeo(iv.build({ pivot: [0, 0, 0], scale: S }), plantArrays(plantsIsle, [0, 0, 0], 15), 15), mat);
   isle.castShadow = false; isle.receiveShadow = true;
   inner.add(isle);
@@ -806,7 +845,8 @@ if (aSway > 0.0) {
   }
 
   // --- water: the pool + runnels (flat) and the falls (vertical), one shader each
-  const waterU = { uTime: { value: 0 }, uFall: { value: 1 }, uLight: { value: WATER.light }, uMid: { value: WATER.mid }, uDeep: { value: WATER.deep }, uFoam: { value: WATER.foam }, uEdge: { value: WATER.edge }, uK: { value: 1 },
+  const WC = style === 'iron' ? MOLTEN : WATER; // [v33 promo] molten metal instead of water under the iron letters
+  const waterU = { uTime: { value: 0 }, uFall: { value: 1 }, uLight: { value: WC.light }, uMid: { value: WC.mid }, uDeep: { value: WC.deep }, uFoam: { value: WC.foam }, uEdge: { value: WC.edge }, uK: { value: 1 },
     uFoamAt: { value: Array.from({ length: 6 }, () => new THREE.Vector4()) } };
   const COMMON = /* glsl */ `
 float wh(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
