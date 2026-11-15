@@ -19,6 +19,7 @@
 import './titlemenu.css';
 import { anySave, lastSlot, slotMeta, slotInfo } from '../game/saveSlots.js';
 import { INK, cv, scaleEl, wood, arrowPlank, board, WOOD } from './titleArt.js';
+import { paperProp, openPondTimes } from './PondTimes.js'; // [v33 title] THE POND TIMES: the newspaper of recent updates
 import { createTitleWords, wordsMetrics } from './TitleWords.js'; // [v27 title] the title as floating voxel words (the board is the no-WebGL fallback)
 
 function soundTag(on) {
@@ -134,6 +135,13 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
   btn('settings', 'SETTINGS', null, 11, WOOD.dark, gearIcon());
   btn('credits', 'CREDITS', null, 13, WOOD.dark, starIcon()); // [v33 title] the credits roll over the title scene
   btn('fish', 'FISH', null, 17, WOOD.dark, fishIcon()); // [v33 menu] it rains fish (src/ui/fishRain.js)
+  // [v33 title] THE POND TIMES, folded and pinned to the post next to the planks (its headline: the newest update)
+  const paper = document.createElement('button');
+  paper.className = 'tm-paper';
+  paper.setAttribute('aria-label', 'The Pond Times: recent updates');
+  paper.title = 'The Pond Times';
+  paper.appendChild(scaleEl(paperProp(), S));
+  el.querySelector('.tm-post').appendChild(paper);
   root.appendChild(el);
   // [v27 title] floating words instead of the hanging board (they size the .tm-logo box themselves)
   const boardVars = [el.style.getPropertyValue('--bh'), el.querySelector('.tm-sign').style.getPropertyValue('--w')];
@@ -234,6 +242,13 @@ export function showTitleMenu(root, { onStart, sfx, onSound, isMuted } = {}) {
       sub = playCredits({ sfx: play, onClose: () => { sub = null; if (!closed) { stepAside(false); refocus('credits'); } } });
     }).catch((e) => { console.warn('credits failed', e); stepAside(false); });
   }
+  // [v33 title] the newspaper opens over the pond; the signpost steps aside meanwhile
+  function openPaper() {
+    stepAside(true);
+    sub = openPondTimes({ sfx: play, onClose: () => { sub = null; if (!closed) { stepAside(false); paper.focus({ preventScroll: true }); } } });
+  }
+  paper.addEventListener('pointerenter', () => { if (!away) play('paper', { volume: 0.35, pitch: 1.2 + Math.random() * 0.3 }); });
+  paper.addEventListener('click', () => { if (away || closed) return; paper.classList.remove('is-hit'); void paper.offsetWidth; paper.classList.add('is-hit'); openPaper(); });
   const refocus = (c) => { const b = planks.querySelector(`[data-c="${c}"]`); b?.focus({ preventScroll: true }); pointAt(b); };
 
   for (const b of el.querySelectorAll('.tm-btn')) {

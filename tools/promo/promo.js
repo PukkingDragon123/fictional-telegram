@@ -1047,7 +1047,7 @@ const FAM_ACC = {
   dd: { d: rgb('#0b456c'), b: rgb('#1a8cc0'), l: rgb('#58ceec'), ll: rgb('#b8f2fc') }, // lake teal
 };
 const FAM_TXT = {
-  base: { ribbon: [['OPEN AT 5 PM!', 0]], shout: 'FOOOOD!!' },
+  base: { ribbon: [['BUILD, BREED ', 0], ['& FEED!', 1]], shout: null }, // [v7.3] the pond town: no shout, no '5 PM'
   fs: { ribbon: [['FLINT & STEEL ', 0], ['UPDATE', 1]], shout: 'CLANG!' },
   dd: { ribbon: [['DIG & DIVE ', 0], ['UPDATE', 1]], shout: 'SPLASH!' },
 };
@@ -1202,39 +1202,28 @@ function keyMask(P, tol = 14) {
 // ------------------------------------------------------------------ the scene plates
 // each draws its parts into F (grade, light, outlines, the set's own motion)
 const FAM_SCENES = {
-  // THE BASE GAME: "5 PM, from below": the feast above the waterline (bears flying in, the tower, the sunset),
-  // the pond underneath (the bears that hit the water plunge down in clouds of bubbles, coins sink, fish
-  // scatter), a splash on the waterline at each impact; Reynard gasps in front of both halves
+  // THE BASE GAME [v7.3]: the pond town at golden hour: Reynard's hut, the Daisy Beer bar under string lights,
+  // the Bear Resort (hot tub, spa, umbrellas), the shops, farms and the forest round the pond, mountains behind;
+  // sun motes drifting, fish leaping in the pond, Reynard cheering on the shore
   base(thumb) {
-    const W = thumb ? 630 : 960;
-    const yW0 = thumb ? (x) => 262 - (x - 315) * 0.02 : (x) => 116 + (x - 480) * 0.006;
-    const yW = (x, ph) => Math.round(yW0(x) + 2 * Math.sin((x / 39 + ph) * TAU) + 1.1 * Math.sin((x / 14 - ph * 2) * TAU));
-    const hits = thumb ? [[395, 0.53], [275, 0.2], [540, 0.87]] : [[734, 0.53], [572, 0.2], [895, 0.87]];
     return {
       fish: [['sockeye', 'normal'], ['rainbow', 'normal'], ['goldfish', 'normal']],
-      parts: thumb ? [{ name: 'cineThumbAnim', w: 630, h: 500, ox: 0, oy: 0, masks: ['fox', 'b1+b2+b3'] }, { name: 'famBaseUnder', w: 630, h: 280, ox: 0, oy: 220, masks: [] }]
-        : [{ name: 'cineBannerAnim', w: 960, h: 240, ox: 0, oy: 0, masks: ['fox', 'b1+b2+b3'] }, { name: 'famBaseUnderBanner', w: 960, h: 140, ox: 0, oy: 100, masks: [] }],
-      scene(F, [Pa, Pu], ph, fi) {
-        const H = F.h, above = (x, y) => y < yW(x, ph);
-        const fox = Pa.masks.fox, bears = Pa.masks['b1+b2+b3'];
-        grade(Pa.px, { sat: 1.12, con: 1.05, warm: 5 });
-        grade(Pu.px, { sat: 1.2, con: 1.06, warm: -4 });
-        blitPart(F, Pu.px, Pu.ox, Pu.oy);
-        blitPart(F, Pa.px, 0, 0, above);
-        const sun = sunOf(F, thumb ? [390, 120] : [560, 40]);
-        godRays(F, sun[0], sun[1], { rays: thumb ? 18 : 22, R: thumb ? 560 : 620, k: 0.34, width: 0.4, rot: 0.12, mask: (x, y) => (above(x, y) && !fox[y * W + x] ? 1 : 0) });
-        famShafts(F, ph, (x, y) => !above(x, y) && !fox[y * W + x], thumb);
-        rings(F, bears, W, H, [{ r: 1, c: rgb('#ffd98a') }].map((r) => ({ ...r, only: above })));
-        // Reynard over both halves (his own pixels from the feast render)
-        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (fox[y * W + x]) { const o = (y * W + x) * 4; F.d[o] = Pa.px.d[o]; F.d[o + 1] = Pa.px.d[o + 1]; F.d[o + 2] = Pa.px.d[o + 2]; }
-        if (!thumb) famPanel(F, fox, (x, y) => (above(x, y) ? rgb('#1a0a1c') : rgb('#04121e')));
-        vignette(F, fox, thumb ? { r: 0.48, k: 1.1, bottom: [0.86, 0.6], top: [0.16, 0.45], max: 0.7 } : { r: 0.5, ax: 1.0, ay: 0.5, k: 1.1, max: 0.55 });
-        famWaterline(F, yW, ph, W, thumb ? 7 : 6);
-        rings(F, fox, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ffc24a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ffc24a'), dither: 0.5 }]);
-        if (thumb) { FAM.hero = dilate(fox, W, H, 4); FAM.heroBand = [3, 120, 188]; }
-        for (const [x, t] of hits) splashFx(F, x, yW0(x) - 1, since(ph, t) / 0.26, Math.round(x), thumb ? { n: 34, R: 58, Hh: 70, k: 3 } : { n: 26, R: 40, Hh: 46, k: 2 });
-        if (thumb) famLeap(F, ph, fi, 'goldfish', { t0: 0.7, dur: 0.24, x0: 470, x1: 548, y: 266, peak: 70 }, 2);
-        else famLeap(F, ph, fi, 'sockeye', { t0: 0.7, dur: 0.24, x0: 640, x1: 700, y: 118, peak: 50 }, 2);
+      parts: thumb ? [{ name: 'famTownThumb', w: 630, h: 500, masks: ['fox'] }] : [{ name: 'famTownBanner', w: 960, h: 240, masks: ['fox'] }],
+      scene(F, [P], ph, fi) {
+        const W = F.w, H = F.h;
+        blitPart(F, P.px, 0, 0);
+        const fox = P.masks.fox;
+        grade(F, { sat: 1.1, con: 1.05, warm: 5 });
+        const sun = sunOf(F, thumb ? [515, 70] : [880, 18]);
+        godRays(F, sun[0], sun[1], { rays: thumb ? 20 : 24, R: thumb ? 620 : 700, k: 0.3, width: 0.4, rot: 0.1, mask: (x, y) => (fox[y * W + x] ? 0 : 1) });
+        if (!thumb) famPanel(F, fox);
+        vignette(F, fox, thumb ? { r: 0.5, k: 1.1, bottom: [0.86, 0.6], top: [0.2, 0.3], max: 0.65 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.1, max: 0.6 });
+        motes(F, thumb ? 40 : 46, thumb ? [180, 150, 630, 470] : [430, 30, 960, 230], ph, null);
+        rings(F, fox, W, H, thumb ? [{ r: 1, c: rgb('#fff2cf') }, { r: 2, c: rgb('#ffc24a'), dither: 0.5 }] : [{ r: 1, c: rgb('#fff2cf') }]);
+        if (thumb) {
+          famLeap(F, ph, fi, 'goldfish', { t0: 0.15, dur: 0.24, x0: 250, x1: 292, y: 404, peak: 34 }, 1);
+          famLeap(F, ph, fi, 'rainbow', { t0: 0.62, dur: 0.26, x0: 372, x1: 330, y: 386, peak: 30 }, 1);
+        }
       },
     };
   },
@@ -1404,8 +1393,7 @@ function famthumb() {
       famTitle(F, FAM.logoPart ? 4 : 14, FAM.logoPart ? 2 : 12, 4, ph, fi);
       const ribW = (() => { const L = layout([{ text: T.ribbon.map((s) => s[0]).join(''), x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 2 + 24; })();
       famRibbon(F, W - 30 - ribW, H - 56, A, T.ribbon, ph, fi);
-      const SW = (() => { const L = layout([{ text: T.shout, x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 3; })();
-      famShout(F, T.shout, W - 26 - SW, 20, 3, ph, fi, shoutT[0], shoutT[1]);
+      if (T.shout) { const SW = (() => { const L = layout([{ text: T.shout, x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 3; })(); famShout(F, T.shout, W - 26 - SW, 20, 3, ph, fi, shoutT[0], shoutT[1]); }
       famFrame(F, A);
     },
   });
@@ -1418,8 +1406,7 @@ function fambanner() {
     overlay(F, ph, fi) {
       famTitle(F, FAM.logoPart ? 6 : 18, FAM.logoPart ? 2 : 14, 4, ph, fi);
       famRibbon(F, 40, FAM.logoPart ? 190 : 158, A, T.ribbon, ph, fi);
-      const SW = (() => { const L = layout([{ text: T.shout, x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 2; })();
-      famShout(F, T.shout, W - 30 - SW, 14, 2, ph, fi, shoutT[0], shoutT[1]);
+      if (T.shout) { const SW = (() => { const L = layout([{ text: T.shout, x: 0, y: 0 }]); const l = L[L.length - 1]; return (l.x + l.adv) * 2; })(); famShout(F, T.shout, W - 30 - SW, 14, 2, ph, fi, shoutT[0], shoutT[1]); }
       famFrame(F, A);
     },
   });
@@ -1429,7 +1416,7 @@ function fambanner() {
 function famLogoSpec(fmt) {
   if (Q.get('logo') !== '1') return null;
   // [v7.2] each set's logo in its own material (logo3d style): building / rock / berry, one still render each
-  const name = { base: 'famLogoBuilding', fs: 'famLogoRock', dd: 'famLogoBerry' }[FAM_SET] || 'famLogo';
+  const name = { base: 'famLogoGrove', fs: 'famLogoIron', dd: 'famLogoDigdive' }[FAM_SET] || 'famLogo'; // [v7.3] round 3 materials
   return { name, w: 440, h: 184, frames: name === 'famLogo' ? +(Q.get('logoFrames') || 40) : 1 };
 }
 

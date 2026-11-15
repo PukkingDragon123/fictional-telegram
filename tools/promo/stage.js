@@ -534,6 +534,27 @@ const CINE_KINDS = {
 // Villagers.makeProps does, and Prof. Snapp himself. Cast kinds; the trees on the yard go with
 // o.clearWorld (tile rects).
 const DD_KINDS = {
+  // [v7.3] any player structure, built by the game's own StructureSystem.previewObject(type), placed in the
+  // world (at: [r, f] title-relative, or wx/wz); ry = yaw offset from facing the camera
+  build(T, p, a, o) {
+    let obj = null;
+    try { obj = T.game.structures.previewObject(a.type); } catch (e) { console.warn('[promo] build', a.type, e); }
+    if (!obj) return new THREE.Group();
+    obj.position.copy(p); obj.position.y += a.lift ?? 0;
+    obj.rotation.y = a.yaw != null ? a.yaw : facing(T, a.ry ?? 0);
+    if (a.scale) obj.scale.setScalar(a.scale);
+    obj.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+    T.group.add(obj);
+    // animated parts (signs, fans, wheels): the structure system's own per-part anims, on the loop clock
+    if (o.loop && obj.userData.parts) S.drivers.push((dt, ph) => { try { T.game.structures.animateParts(obj, 100 + ph * (o.loop.period || 3.2)); } catch { /* */ } });
+    return obj;
+  },
+  // [v7.3] the title's foreground trees back (it hides the ones between the camera and the pond): framing
+  unhide(T) {
+    for (const d of T._hidden || []) d.removed = false;
+    try { T.game.world.buildDecos(); } catch { /* */ }
+    return new THREE.Group();
+  },
   digyard(T, p, a) {
     const B = BONEBED, g = T.game.grid, grp = new THREE.Group();
     const gy = (x, z) => g.groundAt(x, z);
@@ -1098,6 +1119,9 @@ export async function setup(kind, o = {}) {
   S.fxParent = null;
   S.loopOn = !!o.loop;
   for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
+  // [v7.3] other canvases too (the loading screen's): only the game's own renderer canvas shows
+  const gameCv = window.__title?.game?.renderer?.renderer?.domElement || window.__title?.game?.renderer?.domElement;
+  for (const el of document.querySelectorAll('canvas')) if (gameCv && el !== gameCv && !el.contains(gameCv)) el.style.visibility = 'hidden';
   hideTitleCast(T);
   T.gag = null; T.gagT = 1e9; T.beatT = 1e9; T.flyT = 1e9;
   const game = T.game;
@@ -1380,4 +1404,15 @@ export function mask(names) {
   }
   ctx.putImageData(id, 0, 0);
   return cv.toDataURL('image/png');
+}
+
+// [v7.3] debug: what the view ray through screen point (sx, sy) hits (names up the parent chain)
+export function pickAt(sx, sy) {
+  const g = window.__title.game, rc = new THREE.Raycaster();
+  rc.setFromCamera(new THREE.Vector2(sx * 2 - 1, 1 - sy * 2), (g.overrideRig || g.rig).camera);
+  return rc.intersectObjects((g.overrideScene || g.scene).children, true).slice(0, 4).map((h) => {
+    const n = []; let q = h.object;
+    while (q && n.length < 6) { n.push((q.name || q.type) + (q.isMesh || q.isSprite ? `[${q.material?.type}${q.material?.map ? ' map' : ''}]` : '')); q = q.parent; }
+    return n.join(' < ') + ' @' + h.point.toArray().map((v) => v.toFixed(1)).join(',');
+  });
 }

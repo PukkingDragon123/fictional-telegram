@@ -88,9 +88,175 @@ const STYLE = {
   ],
 };
 const LEAF_DARK = ['#3a6e2a', '#457a30', '#335f26'].map(hx);
+// [v33 promo] round 3: two materials per logo, one per line (THE BEAR / MUST EAT), so the words contrast
+//   'grove'   : honey planks with grain, a shingle ridge, a lantern, a bird / a berry hedge, blue + red berries, a mushroom
+//   'iron'    : riveted steel plates, a brass cog, hazard stripes, a furnace glow / rail track (rails + ties), a copper pipe S with a valve
+//   'digdive' : fossil bone with vertebrae, amber, an ammonite, a trilobite, a fish skeleton / kelp fronds on sand, bubbles, little fish
+STYLE.grove = [
+  { mat: 'plank', base: ['#f0c66a', '#f6d27a', '#e8bc60'].map(hx), seam: hx('#b07a34'), grain: hx('#c89a48'), light: hx('#fff0b0'), edge: hx('#d8a24e'), knot: hx('#8a5a28'),
+    roof: [hx('#9a4a2e'), hx('#b45a36'), hx('#7e3a22')], side: hx('#6b4220') },
+  { ...STYLE.berry[0], mat: 'hedge', berries: [[hx('#3a4ab8'), hx('#26307a'), hx('#8a9af0')], [hx('#d02a4a'), hx('#9a1834'), hx('#ff7a90')]] },
+];
+STYLE.iron = [
+  { mat: 'girder', base: hx('#b4bccc'), alt: hx('#a4acbe'), light: hx('#eef2f8'), dark: hx('#626880'), rivet: hx('#ffffff'), rust: [hx('#b8643a'), hx('#8a4a2a')],
+    glow: [hx('#ff8a2a'), hx('#ffd060')], brass: [hx('#f0c45a'), hx('#a8822a'), hx('#3a3a42')], haz: [hx('#f2c230'), hx('#2a2a2e')], side: hx('#4a4e5c') },
+  { mat: 'track', rail: hx('#f0f4fa'), railD: hx('#b8c0cc'), tie: hx('#b06a34'), tieL: hx('#d08a48'), ballast: hx('#3e3632'), gravel: [hx('#8a8478'), hx('#767068'), hx('#9a948a')],
+    pipe: [hx('#f0a468'), hx('#c86a3a'), hx('#8a4224')], flange: hx('#e0b44a'), valve: [hx('#e8483a'), hx('#8a1e18')], glow: [hx('#ff8a2a'), hx('#ffd060')], side: hx('#3a3a42') },
+];
+STYLE.digdive = [
+  { mat: 'fossil', bone: hx('#f2e6ca'), boneA: hx('#e6d8b8'), light: hx('#fffaea'), edge: hx('#c8b088'), joint: hx('#b49c72'), pore: hx('#9a8258'),
+    amber: [hx('#f0a020'), hx('#c06a10'), hx('#ffd860'), hx('#ffffff')], amm: [hx('#d0a058'), hx('#8a6034'), hx('#5a3a1e')], tri: [hx('#7a8090'), hx('#5a6070'), hx('#3a404c')],
+    stone: [hx('#c8b48a'), hx('#b8a27a'), hx('#a89060')], side: hx('#8a7450') },
+  { mat: 'kelp', kelp: [0x2c4a1e, 0x3e6226, 0x547e2e, 0x6e9a36, 0x8cb446], olive: [0x76762a, 0xa8962e, 0xc8b442], hi: hx('#ecec88'),
+    sand: [hx('#e0c080'), hx('#d0ac6c'), hx('#b89858')], bubble: [hx('#f4fdff'), hx('#9ae4f4')], fish: [hx('#f08a2a'), hx('#ffd060')], side: hx('#24401a') },
+];
+// a letter's stroke at (x, y): the run along it and the position across it
+function strokeAt(has2, x, y) {
+  const run = (dx, dy) => { let n = 0; for (let k = 1; k < 9 && has2(x + dx * k, y + dy * k); k++) n++; return n; };
+  const horiz = run(1, 0) + run(-1, 0) > run(0, 1) + run(0, -1);
+  return { horiz, along: horiz ? x : y, across: horiz ? y : x };
+}
+// paint a pattern (rows top to bottom, '.' = skip) on the face at (x0, y0) = its bottom-left
+function stamp(put, x0, y0, rows, pal) { rows.forEach((r, j) => { for (let k = 0; k < r.length; k++) { const c = pal[r[k]]; if (c != null) put(x0 + k, y0 + rows.length - 1 - j, c); } }); }
+// the first spot where a w x h solid block fits (by a seeded order; prefer the middle height)
+function spotFor(l, has2, w, h, seed, used) {
+  const solid = (x0, y0) => { for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) if (!has2(x, y) || used(x, y)) return false; return true; };
+  const c = l.vox.filter(([x, y]) => y >= 2 && solid(x, y)).sort((a, b) => Math.abs(a[1] - 7) - Math.abs(b[1] - 7) + (h3(a[0], a[1], seed, 5) - h3(b[0], b[1], seed, 5)) * 6);
+  return c[0] || null;
+}
+const MATS = {
+  plank: {
+    deco(l, has2, i, P, put, used) {
+      // a knot, and a lantern hanging on the E of THE (iron frame, warm glass)
+      const k = spotFor(l, has2, 1, 1, i + 3, used); if (k) put(k[0], k[1], P.knot);
+      if (l.ch === 'E' && i < 3) { const s = spotFor(l, has2, 3, 4, i, used); if (s) stamp(put, s[0], s[1], ['.k.', 'kyk', 'yYy', 'kkk'], { k: hx('#3a3a42'), y: hx('#ffd050'), Y: hx('#fff6c0') }); }
+    },
+    face(P, e, st, r, i) {
+      if (e.top || e.left) return P.light;
+      if (e.bot || e.right) return P.edge;
+      if (st.along % 4 === 0) return P.seam; // board joints across the stroke
+      const g = Math.sin(st.across * 2.1 + Math.sin(st.along * 0.4 + i) * 1.4);
+      return g > 0.75 ? P.grain : P.base[(Math.floor(st.along / 4) + i) % 3];
+    },
+    body(v, l, yb, zb, i, P, top) {
+      for (const [x, y, z, isTop, r] of top) v.set(x, y, z, isTop ? pick(P.roof, r) : ((y + z) & 1 ? P.side : P.edge));
+      const fz = zb + DEP; // a shingle ridge along each top edge
+      for (const [k] of [...v.vox]) { const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512; if (z !== fz - 1 || v.has(x, y + 1, z)) continue; v.set(x, y + 1, z, P.roof[1]); if (!v.has(x, y + 1, z - 1)) v.set(x, y + 1, z - 1, h3(x, y, 1, 88) < 0.5 ? P.roof[0] : P.roof[2]); }
+      if (l.ch === 'T' && i === 0) { // a little bird on the T
+        let ty = 0; for (const [, y] of l.vox) ty = Math.max(ty, y);
+        const bx = l.x0 + 2, by = ty + yb + 3, z = zb + DEP - 2;
+        for (const [dx, dy, c] of [[-1, 0, '#5a3a20'], [0, 0, '#8a5a34'], [1, 0, '#8a5a34'], [0, -1, '#f4ecd8'], [1, -1, '#f4ecd8'], [1, 1, '#6a4226'], [2, 1, '#f0a020'], [0, 1, '#6a4226']]) v.set(bx + dx, by + dy, z, hx(c));
+      }
+    },
+  },
+  hedge: {
+    deco(l, has2, i, P, put, used) {
+      let n = 0;
+      for (const [x, y] of l.vox) {
+        if ((x + y + i) % 4 !== 0 || h3(x, y, i, 95) > 0.7) continue;
+        if (!(has2(x, y) && has2(x + 1, y) && has2(x, y + 1) && has2(x + 1, y + 1)) || used(x - 1, y - 1) || used(x + 2, y + 2) || used(x, y) || used(x + 1, y + 1)) continue;
+        const B = P.berries[(n++ + i) % 2];
+        put(x, y, B[0]); put(x + 1, y, B[1]); put(x, y + 1, B[2]); put(x + 1, y + 1, B[0]);
+      }
+      for (const [x, y] of l.vox) if (!used(x, y) && h3(x, y, i, 96) < 0.05) put(x, y, h3(x, y, i, 97) < 0.5 ? hx('#f4f0e0') : hx('#f8b8d0'));
+    },
+    face(P, e, st, r, i, x, y) {
+      if (e.top || e.left) return r < 0.7 ? P.light : P.leaf[3];
+      if (e.bot || e.right) return P.dark;
+      const n = Math.sin(x * 1.7 + y * 2.3) + Math.sin(x * 0.9 - y * 1.3 + i);
+      return n > 1.2 ? P.leaf[3] : n < -1.1 ? P.dark : P.leaf[Math.floor(r * 3)];
+    },
+    body(v, l, yb, zb, i, P, top) {
+      for (const [x, y, z, isTop, r] of top) v.set(x, y, z, isTop ? (r < 0.1 ? P.berries[(x + i) & 1][0] : pick(P.leaf, r)) : pick(LEAF_DARK, r));
+      if (l.ch === 'M') { // a red mushroom on the M
+        let ty = 0; for (const [x, y] of l.vox) if (x <= l.x0 + 3) ty = Math.max(ty, y);
+        const mx = l.x0 + 2, z = zb + DEP - 3, y0 = ty + yb + 1;
+        for (const [dx, dy, c] of [[0, 0, '#f4ecd8'], [0, 1, '#f4ecd8'], [-1, 2, '#d8302a'], [0, 2, '#ffffff'], [1, 2, '#d8302a'], [-2, 2, '#b02420'], [2, 2, '#b02420'], [-1, 3, '#d8302a'], [0, 3, '#d8302a'], [1, 3, '#ffffff']]) v.set(mx + dx, y0 + dy, z, hx(c));
+      }
+    },
+    top(pl, x, y, z, r, l, i, P) { if (r < 0.22) pl.push([x, y + 1, z, pick(P.leaf, h3(x, z, y, 64)), 0.5]); else if (r < 0.27) pl.push([x, y + 1, z, P.berries[(x + i) & 1][0], 0.5]); },
+  },
+  girder: {
+    deco(l, has2, i, P, put, used) {
+      // a brass cog on the B and the R, hazard stripes on the foot of the T
+      if (l.ch === 'B' || l.ch === 'R') { const s = spotFor(l, has2, 3, 3, i, used); if (s) stamp(put, s[0], s[1], ['bab', 'aca', 'bab'], { a: P.brass[0], b: P.brass[1], c: P.brass[2] }); }
+      if (l.ch === 'T') for (const [x, y] of l.vox) if (y <= 1) put(x, y, ((x + y) >> 1) & 1 ? P.haz[0] : P.haz[1]);
+    },
+    face(P, e, st, r, i, x) {
+      if (e.top || e.left) return P.light;
+      if (e.bot) return i % 3 === 1 ? P.glow[x & 1] : P.dark; // a furnace glow along the foot of some letters
+      if (e.right) return P.dark;
+      if (r < 0.06) return P.rust[r < 0.03 ? 1 : 0];
+      if (st.along % 3 === 1) return P.rivet;
+      return Math.floor(st.along / 6) & 1 ? P.alt : P.base;
+    },
+    body(v, l, yb, zb, i, P, top) { for (const [x, y, z, isTop, r] of top) v.set(x, y, z, isTop ? ((x + z) % 3 === 0 ? P.light : P.alt) : (r < 0.08 ? P.rust[1] : P.side)); },
+  },
+  track: {
+    deco(l, has2, i, P, put, used) {
+      // the S is a copper pipe with brass flanges and a red valve wheel
+      if (l.ch === 'S') {
+        for (const [x, y] of l.vox) { const st = strokeAt(has2, x, y); put(x, y, st.along % 5 === 0 ? P.flange : !has2(x, y + 1) || !has2(x - 1, y) ? P.pipe[0] : !has2(x, y - 1) || !has2(x + 1, y) ? P.pipe[2] : P.pipe[1]); }
+        const s = spotFor(l, has2, 3, 3, i, () => false); if (s) stamp(put, s[0], s[1], ['.a.', 'aba', '.a.'], { a: P.valve[0], b: P.valve[1] });
+      }
+    },
+    face(P, e, st, r, i, x) {
+      // a rail track bent into the letter: rails along both edges of each stroke, wooden ties across, gravel
+      // (a ladder: a tie right across the stroke every 3, light rails along the edges, dark ballast between)
+      if (st.along % 3 === 0) return (st.horiz ? e.top : e.left) ? P.tieL : P.tie;
+      const edgeA = st.horiz ? e.top : e.left, edgeB = st.horiz ? e.bot : e.right;
+      if (edgeA || e.top || e.left) return P.rail;
+      if (edgeB || e.bot || e.right) return i % 4 === 3 && st.horiz && e.bot ? P.glow[x & 1] : P.railD;
+      return P.ballast;
+    },
+    body(v, l, yb, zb, i, P, top) { for (const [x, y, z, isTop, r] of top) v.set(x, y, z, isTop ? ((x + z) % 3 === 0 ? P.tie : pick(P.gravel, r)) : P.side); },
+  },
+  fossil: {
+    deco(l, has2, i, P, put, used) {
+      const k = 'TEBEAR'.indexOf(l.ch) >= 0 ? ['amber', 'ammonite', 'trilobite', 'fish', 'amber', 'ammonite', 'trilobite'][i % 7] : 'amber';
+      if (k === 'amber') { const s = spotFor(l, has2, 3, 3, i, used); if (s) stamp(put, s[0], s[1], ['ab.', 'cad', '.bb'], { a: P.amber[0], b: P.amber[1], c: P.amber[2], d: P.amber[3] }); }
+      if (k === 'ammonite') { const s = spotFor(l, has2, 3, 3, i, used); if (s) stamp(put, s[0], s[1], ['aba', 'bcb', 'abb'], { a: P.amm[1], b: P.amm[0], c: P.amm[2] }); }
+      if (k === 'trilobite') { const s = spotFor(l, has2, 3, 5, i, used); if (s) stamp(put, s[0], s[1], ['aba', 'bcb', 'aca', 'bcb', '.a.'], { a: P.tri[1], b: P.tri[0], c: P.tri[2] }); }
+      if (k === 'fish') { const s = spotFor(l, has2, 3, 6, i, used); if (s) stamp(put, s[0], s[1], ['.a.', 'aaa', 'bab', 'bab', 'bab', 'a.a'], { a: P.pore, b: P.joint }); }
+      // tiny amber chips in the bone
+      for (const [x, y] of l.vox) if (!used(x, y) && has2(x - 1, y) && has2(x + 1, y) && h3(x, y, i, 98) < 0.03) put(x, y, P.amber[0]);
+    },
+    face(P, e, st, r) {
+      if (e.top || e.left) return P.light;
+      if (e.bot || e.right) return P.edge;
+      if (st.along % 3 === 0) return P.joint; // vertebrae: a joint across the bone every 3
+      return r < 0.05 ? P.pore : st.along % 3 === 1 ? P.bone : P.boneA;
+    },
+    body(v, l, yb, zb, i, P, top) { for (const [x, y, z, isTop, r] of top) v.set(x, y, z, isTop ? (r < 0.5 ? P.bone : P.boneA) : P.stone[(y + Math.floor(r * 2)) % 3]); },
+  },
+  kelp: {
+    deco(l, has2, i, P, put, used) {
+      // air bubbles in the fronds
+      let n = 0;
+      for (const [x, y] of l.vox) if (y > 3 && n < 3 && has2(x - 1, y) && has2(x + 1, y) && has2(x, y + 1) && h3(x, y, i, 99) < 0.08 && !used(x, y - 2)) { put(x, y, P.bubble[0]); put(x, y + 1, P.bubble[1]); n++; }
+    },
+    face(P, e, st, r, i, x, y) {
+      if (y <= 1) return P.sand[(x + y) & 1 ? 0 : r < 0.3 ? 2 : 1]; // a sandy base
+      // olive-gold fronds (giant kelp), lit edges, green notches between the blades
+      if (st.along % 4 === 0) return e.top || e.left ? P.kelp[4] : P.kelp[2];
+      if (e.top || e.left) return P.hi;
+      if (e.bot || e.right) return P.kelp[1];
+      return st.along % 4 === 2 ? P.olive[2] : P.olive[1];
+    },
+    body(v, l, yb, zb, i, P, top) { for (const [x, y, z, isTop, r] of top) v.set(x, y, z, y <= yb + 1 ? P.sand[2] : isTop ? pick(P.kelp.slice(2), r) : (r < 0.5 ? P.side : P.kelp[0])); },
+    top(pl, x, y, z, r, l, i, P) {
+      // fronds rising off the tops (they sway), the odd little fish and bubble above
+      if (r < 0.16) { const n = 2 + Math.floor(h3(x, z, y, 71) * 4); for (let k = 0; k < n; k++) pl.push([x + (k > 1 && (x & 1) ? 1 : 0), y + 1 + k, z, k === n - 1 ? P.hi : P.kelp[2 + (k % 3)], k * 0.8]); }
+      else if (r < 0.18 && l.ch !== 'M') { pl.push([x, y + 3, z, P.fish[0], 0.6]); pl.push([x + 1, y + 3, z, P.fish[1], 0.6]); }
+      else if (r < 0.21) pl.push([x, y + 4 + Math.floor(h3(x, y, z, 72) * 3), z, P.bubble[1], 1.5, 0.6]);
+    },
+  },
+};
+const matOf = (style, line) => STYLE[style]?.[line]?.mat || null;
 // decorations on a letter face: key 'x,y' -> colour (windows and a door / ore veins / berry clusters + flowers)
 function styleDeco(style, l, has2, i) {
   const deco = new Map(), P = STYLE[style][l.line];
+  if (P.mat) { MATS[P.mat].deco(l, has2, i, P, (x, y, c) => deco.set(`${x},${y}`, c), (x, y) => deco.has(`${x},${y}`)); return deco; } // [v33 promo] round 3
   const solid = (x0, y0, w, h) => { for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) if (!has2(x, y)) return false; return true; };
   const free = (x0, y0, w, h) => { for (let x = x0; x < x0 + w; x++) for (let y = y0; y < y0 + h; y++) if (deco.has(`${x},${y}`)) return false; return true; };
   const put = (x, y, c) => deco.set(`${x},${y}`, c);
@@ -135,6 +301,7 @@ function styleFace(style, l, x, y, has2, i, deco) {
   const P = STYLE[style][l.line], d = deco.get(`${x},${y}`);
   const topE = !has2(x, y + 1), leftE = !has2(x - 1, y), botE = !has2(x, y - 1), rightE = !has2(x + 1, y);
   const r = h3(x, y, i, 97);
+  if (P.mat) return d != null ? d : MATS[P.mat].face(P, { top: topE, left: leftE, bot: botE, right: rightE }, strokeAt(has2, x, y), r, i, x, y); // [v33 promo] round 3
   if (style === 'building') {
     if (d != null) return d;
     if (y <= 1 && botE) return pick(P.stone, r); // a stone footing
@@ -166,6 +333,12 @@ function styleFace(style, l, x, y, has2, i, deco) {
 // the rest of a letter (sides, top, back) in the style's material; + props on top (eaves, a pickaxe)
 function styleBody(v, l, yb, zb, style, i) {
   const P = STYLE[style][l.line];
+  if (P.mat) { // [v33 promo] round 3
+    const top = [];
+    for (const [k] of [...v.vox]) { const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512; top.push([x, y, z, !v.has(x, y + 1, z), h3(x, y, z, 99)]); }
+    MATS[P.mat].body(v, l, yb, zb, i, P, top);
+    return;
+  }
   for (const [k] of [...v.vox]) {
     const x = (k & 1023) - 512, y = ((k >> 10) & 1023) - 512, z = ((k >> 20) & 1023) - 512;
     const r = h3(x, y, z, 99), top = !v.has(x, y + 1, z);
@@ -557,6 +730,7 @@ if (aSway > 0.0) {
       if (l.spring != null && x >= l.spring - 1 && x <= l.spring + l.springW) continue;
       const r = h3(x, y, z, 61 + i);
       if (z > zb + DEP - 4 || v.get(x, y, z) === INK) continue; // plants only on the top, behind the face
+      { const mt = matOf(style, l.line); if (mt) { MATS[mt].top?.(pl, x, y, z, r, l, i, STYLE[style][l.line]); continue; } } // [v33 promo] round 3
       if (style === 'building') continue; // [v33 promo] roofs: no grass
       if (style === 'berry') { if (r < 0.22) pl.push([x, y + 1, z, pick(STYLE.berry[l.line].leaf, h3(x, z, y, 64)), 0.5]); else if (r < 0.27) pl.push([x, y + 1, z, STYLE.berry[l.line].berry[0], 0.5]); continue; } // [v33 promo] leafy bumps
       if (style === 'rock') { if (r < 0.05) tuft(pl, x, y + 1, z, 0.1); continue; } // [v33 promo] a few weeds in the rubble

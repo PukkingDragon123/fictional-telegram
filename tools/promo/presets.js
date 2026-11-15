@@ -295,8 +295,8 @@ PRESETS.famFsBanner = {
 };
 // the six outputs (node tools/promo/capture.mjs gif fam promo/v7-family --big): sub-folder per set
 const fam = (kind, set, parts, sub, still, extra = {}) => ({ kind, parts, query: `&set=${set}`, sub, still, opts: { loop: LOOP_FAM }, ...extra });
-PRESETS.famBaseThumbAnim = fam('famthumb', 'base', ['cineThumbAnim', 'famBaseUnder'], 'base', 12, { gif: { 1: ['--lossy', '24'] } });
-PRESETS.famBaseBannerAnim = fam('fambanner', 'base', ['cineBannerAnim', 'famBaseUnderBanner'], 'base', 12, { gif: { 2: ['--lossy', '36'] } });
+PRESETS.famBaseThumbAnim = fam('famthumb', 'base', ['famTownThumb'], 'base', 12, { gif: { 1: ['--lossy', '20'] } });
+PRESETS.famBaseBannerAnim = fam('fambanner', 'base', ['famTownBanner'], 'base', 12, { gif: { 2: ['--lossy', '36'] } });
 PRESETS.famFsThumbAnim = fam('famthumb', 'fs', ['famFsRush'], 'flint-steel', 20);
 PRESETS.famFsBannerAnim = fam('fambanner', 'fs', ['famFsRushBanner'], 'flint-steel', 6, { gif: { 2: ['--lossy', '36'] } });
 PRESETS.famDdThumbAnim = fam('famthumb', 'dd', ['ddThumbDig', 'ddThumbDive'], 'digdive', 24);
@@ -367,3 +367,46 @@ PRESETS.famFsRushBanner = {
       { type: 'sparks', wx: 47.6, wz: 15.5, y: 0.05, n: 30, rate: 4, off: 0, radius: 0.8, height: 0.45, seed: 21 },
       { type: 'sparks', wx: 48.4, wz: 16.1, y: 0.05, n: 30, rate: 4, off: 0.5, radius: 0.8, height: 0.45, seed: 23 }] },
 };
+
+// ------------------------------------------------------------------ [v7.3] the base game: the pond town at golden hour
+// A wide view across Reynard's pond (the title's own sunset grade and painted sky with mountains), the town
+// built up round it from the game's real structures (StructureSystem.previewObject): the Daisy Beer bar,
+// picnic and umbrella tables under string lights, the Bear Resort (hot tub, sauna, spa, ice cream, beach
+// umbrellas), the wood garage, the greenhouse, staff cabins, a beaver lodge in the shallows, farm rows, the
+// hut; bears strolling in, beavers at work, the forest framing it.
+const B = (type, r, f, o = {}) => ({ kind: 'build', type, at: [r, f], ...o });
+const TOWN = [
+  // the far shore, behind Reynard's seat: the Daisy Beer bar + the patio under string lights
+  B('bar', -1.2, 3.4), B('umbrellatable', 2.2, 2.2), B('picnictable', 3.9, 3.2, { ry: 0.3 }), B('umbrellatable', -4.0, 2.0),
+  B('stringlights', -2.8, 1.6), B('stringlights', 0.6, 1.6), B('tikitorch', -5.4, 1.4), B('tikitorch', 5.2, 1.6), B('jukebox', 5.0, 3.4),
+  // the Bear Resort, on the right
+  B('rs_hottub', 7.4, 0.6), B('rs_sauna', 9.6, 2.4), B('rs_spa', 7.0, 4.4), B('rs_umbrella', 6.0, -1.2), B('rs_umbrella', 8.6, -0.8), B('rs_icecream', 10.4, 0.2), B('rs_towels', 5.6, 2.0),
+  // the left: the franchise office, staff cabin, shed, the beaver bar, a feed silo + rabbit hutch
+  B('franchise', -8.0, 1.2), B('shovelshed', -10.2, 3.4), B('beaverbar', -6.6, 5.0), B('toolbox', -6.0, -0.6), B('wd_barrel', -5.6, 0.2),
+  B('beaverbar', -9.6, -2.0), B('feedsilo', -11.4, 0.4), B('rabbithutch', -7.6, -3.4), B('planterbox', -5.8, -2.4),
+  // the near side: the hatchery on the shore, a beaver lodge in the shallows, a firepit, the mailbox
+  B('lodge', -3.6, -5.6, { yaw: 0.6 }), B('hatchery', 3.8, -1.4), B('firepit', 7.8, -3.4), B('hangout', 9.8, -4.2), B('mailbox', 1.6, 5.0),
+  // the back meadow, towards the forest: the garage, the greenhouse, staff cabins, a silo
+  B('woodgarage', -6.0, 6.8), B('greenhouse', -9.6, 6.0), B('rs_restroom', 4.6, 7.2), B('rs_souvenir', 7.4, 7.6), B('rs_lockers', 9.4, 6.4), B('feedsilo', -3.0, 8.6), B('rs_ticket', 2.6, 6.0),
+];
+const TOWN_FOLK = [
+  { kind: 'runner', type: 'office', seed: 1.3, from: { at: [-2.6, 7.5] }, to: { at: [-1.4, 4.4] }, scale: 0.85, off: 0, strides: 4, pose: 'walk', speed: 1.1, face: 'happy' },
+  { kind: 'runner', type: 'tourist', seed: 3.1, from: { at: [7.4, 6.4] }, to: { at: [6.4, 2.6] }, scale: 0.85, off: 0.5, strides: 4, pose: 'walk', speed: 1.1, face: 'happy' },
+  { kind: 'bear', type: 'cub', at: [7.6, 1.0], pose: 'cheer', scale: 0.85, loop: { range: [0, 1] }, seed: 2.2 },
+  { kind: 'beaver', at: [-6.6, -0.4], ry: 0.6, off: 0 },
+  { kind: 'beaver', at: [-9.6, -7.6], ry: -0.6, off: 0.5, anim: 'chop' },
+];
+PRESETS.famTownThumb = {
+  scene: 'banner', viewport: [1260, 1000], px: 1, masks: ['fox'],
+  opts: { loop: LOOP_FAM, wupp: 0.034, pitch: 23, lookUp: 3.4, camR: 1.0, camF: 0.4, sun: [0.32, 0.62], skyD: 14, fill: 0.5,
+    cast: [{ kind: 'unhide' }, ...TOWN, ...TOWN_FOLK,
+      { kind: 'fox', at: [5.6, -6.4], scale: 1.7, rot: 0.25, anim: 'cheer', t: 1.2, name: 'fox', loop: { cycles: 2 } }] },
+};
+PRESETS.famTownBanner = {
+  scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox'],
+  opts: { loop: LOOP_FAM, wupp: 0.033, pitch: 21, lookUp: 3.0, camR: -1.0, camF: 1.2, sun: [0.36, 0.7], skyD: 14, fill: 0.5,
+    cast: [{ kind: 'unhide' }, ...TOWN, ...TOWN_FOLK, { kind: 'fox', at: [1.4, -0.4], scale: 1.6, rot: 0.25, anim: 'cheer', t: 1.2, name: 'fox', loop: { cycles: 2 } }] },
+};
+// [v7.3] round 3 logos: two materials each (logo3d styles grove / iron / digdive)
+for (const [name, style] of [['famLogoGrove', 'grove'], ['famLogoIron', 'iron'], ['famLogoDigdive', 'digdive']])
+  PRESETS[name] = { ...PRESETS.famLogo, opts: { ...PRESETS.famLogo.opts, loop: { frames: 1, period: 3.2 }, logo: { ...PRESETS.famLogo.opts.logo, style } } };
