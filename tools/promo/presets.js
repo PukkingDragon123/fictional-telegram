@@ -297,8 +297,8 @@ PRESETS.famFsBanner = {
 const fam = (kind, set, parts, sub, still, extra = {}) => ({ kind, parts, query: `&set=${set}`, sub, still, opts: { loop: LOOP_FAM }, ...extra });
 PRESETS.famBaseThumbAnim = fam('famthumb', 'base', ['famTownThumb'], 'base', 12, { gif: { 1: ['--lossy', '20'] } });
 PRESETS.famBaseBannerAnim = fam('fambanner', 'base', ['famTownBanner'], 'base', 12, { gif: { 2: ['--lossy', '36'] } });
-PRESETS.famFsThumbAnim = fam('famthumb', 'fs', ['famFsRush'], 'flint-steel', 20);
-PRESETS.famFsBannerAnim = fam('fambanner', 'fs', ['famFsRushBanner'], 'flint-steel', 6, { gif: { 2: ['--lossy', '36'] } });
+PRESETS.famFsThumbAnim = fam('famthumb', 'fs', ['famFsLine'], 'flint-steel', 6);
+PRESETS.famFsBannerAnim = fam('fambanner', 'fs', ['famFsLineBanner'], 'flint-steel', 6, { gif: { 2: ['--lossy', '36'] } });
 PRESETS.famDdThumbAnim = fam('famthumb', 'dd', ['ddThumbDig', 'ddThumbDive'], 'digdive', 24);
 PRESETS.famDdBannerAnim = fam('fambanner', 'dd', ['ddBannerDig', 'ddBannerDive'], 'digdive', 20, { gif: { 2: ['--lossy', '36'] } });
 // the 3D title logo (src/game/title/logo3d.js) on a key colour, 340 x 150 low-res (2 screen px a pixel), cut out by
@@ -410,3 +410,52 @@ PRESETS.famTownBanner = {
 // [v7.3] round 3 logos: two materials each (logo3d styles grove / iron / digdive)
 for (const [name, style] of [['famLogoGrove', 'grove'], ['famLogoIron', 'iron'], ['famLogoDigdive', 'digdive']])
   PRESETS[name] = { ...PRESETS.famLogo, opts: { ...PRESETS.famLogo.opts, loop: { frames: 1, period: 3.2 }, logo: { ...PRESETS.famLogo.opts.logo, style } } };
+
+// ------------------------------------------------------------------ [v7.4] Flint & Steel: the factory line at dusk
+// Left to right across the quarry floor: the Bear Mine -> ore carts on the rail -> the smelter (fire, smoke) ->
+// a conveyor of ingots -> the machine shop + assembly bench (sparks) -> crates in the warehouse; the turbine,
+// battery and poles behind power it. Construction bears and beavers at the stations, Reynard as foreman.
+const LINE_LOOK = { daylight: true, hour: 18.6, haze: 0.05, fill: 0.7, fillColor: 0xffc890, bloom: 1.0, yaw: 0, skyD: 14, clear: [[0, 0, 1, 3]] };
+const FLINE = (o = {}) => [
+  { kind: 'model', make: 'mine.makeMineEntrance', wx: 45.2, wz: 10.6, ry: 0 },
+  { kind: 'rail', wx: 45.2, wz: 11.4, wx2: 45.2, wz2: 15.6 },
+  { kind: 'cart', wx: 45.2, wz: 11.6, wx2: 45.2, wz2: 15.0, load: 'iron' },
+  { kind: 'cart', wx: 45.2, wz: 11.6, wx2: 45.2, wz2: 15.0, load: 'copper', off: 0.5 },
+  { kind: 'model', make: 'mine.makeOreBin', wx: 46.4, wz: 15.6, ry: 0, fill: 0.9 },
+  { kind: 'model', make: 'ind.ind_smelter', wx: 48.2, wz: 13.6, ry: 0, st: { on: true, k: 1, lamp: 'on' } },
+  { kind: 'belt', wx: 49.3, wz: 14.6, ry: Math.PI / 2, n: 4, per: 2, laps: 2, items: ['ingot_iron', 'ingot_copper', 'gear', 'ingot_gold'] },
+  { kind: 'model', make: 'ind.ind_shop', wx: 52.8, wz: 13.4, ry: 0, st: { on: true, k: 1, lamp: 'on' } },
+  { kind: 'model', make: 'ind.ind_assembly', wx: 54.4, wz: 15.0, ry: -0.3, st: { on: true, k: 1, lamp: 'on' } },
+  { kind: 'model', make: 'sto.st_warehouse', wx: 56.4, wz: 13.0, ry: 0 },
+  { kind: 'model', make: 'pow.pw_wind', wx: 50.6, wz: 10.8, ry: 0, spins: 2, scale: 0.75 },
+  { kind: 'model', make: 'pow.pw_battery', wx: 52.2, wz: 11.2, ry: 0, charge: 0.85 },
+  { kind: 'model', make: 'pow.pw_pole', wx: 47.4, wz: 11.6, ry: 0 },
+  { kind: 'model', make: 'pow.pw_pole', wx: 54.6, wz: 11.6, ry: 0 },
+  { kind: 'model', make: 'sto.st_coalbunker', wx: 47.0, wz: 11.4, ry: 0, contents: { coal: 80 } },
+  { kind: 'bear', type: 'construction', wx: 44.2, wz: 12.4, rot: 0.3, pose: 'smash', t01: 0.55, scale: 0.78, seed: 2.1, pick: PICK, name: 'b1', loop: { range: [0, 1], off: 0 } },
+  { kind: 'bear', type: 'construction', wx: 51.6, wz: 15.6, rot: -0.2, pose: 'smash', t01: 0.3, scale: 0.78, seed: 8.2, pick: PICK, name: 'b2', loop: { range: [0, 1], off: 0.5 } },
+  { kind: 'beaver', wx: 47.0, wz: 15.9, ry: 0.4, off: 0 },
+  { kind: 'beaver', wx: 55.4, wz: 16.0, ry: -0.5, off: 0.5 },
+  { kind: 'badger', wx: 49.6, wz: 16.2, rot: 0.2, name: 'flint' },
+];
+const FLINE_FX = [
+  { type: 'smoke', wx: 47.75, wz: 13.1, y: 2.85, n: 10, rate: 1, rise: 2.2, drift: 0.6, size: 0.4, seed: 17 },
+  { type: 'smoke', wx: 53.75, wz: 12.6, y: 1.5, n: 7, rate: 1, rise: 1.6, drift: 0.4, size: 0.3, seed: 19 },
+  { type: 'sparks', wx: 52.8, wz: 14.4, y: 0.6, n: 30, rate: 2, off: 0.2, radius: 0.8, height: 0.9, seed: 3 },
+  { type: 'sparks', wx: 54.4, wz: 15.6, y: 0.5, n: 26, rate: 2, off: 0.7, radius: 0.7, height: 0.8, seed: 5 },
+  { type: 'sparks', wx: 48.6, wz: 14.4, y: 0.5, n: 22, rate: 1, off: 0.4, radius: 0.6, height: 0.7, seed: 7 },
+  { type: 'sparks', wx: 44.6, wz: 11.8, y: 0.3, n: 22, rate: 1, off: 0.5, radius: 0.6, height: 0.8, seed: 9 },
+  { type: 'steam', wx: 52.2, wz: 13.0, y: 1.9, n: 8, rate: 2, rise: 1.0, drift: 0.3, size: 0.18, spread: 0.1, seed: 23 },
+];
+PRESETS.famFsLine = {
+  scene: 'banner', viewport: [1260, 1000], px: 1, masks: ['fox'],
+  opts: { ...LINE_LOOK, loop: LOOP_FAM, wupp: 0.0215, pitch: 30, lookUp: 1.6, focusWorld: [50.6, 13.0],
+    cast: [...FLINE(), { kind: 'fox', wx: 47.9, wz: 17.3, scale: 1.25, rot: 0.35, anim: 'point', t: 0.8, name: 'fox', loop: { cycles: 2 } }],
+    loopFx: FLINE_FX },
+};
+PRESETS.famFsLineBanner = {
+  scene: 'banner', viewport: [1920, 480], px: 1.3, masks: ['fox'],
+  opts: { ...LINE_LOOK, loop: LOOP_FAM, wupp: 0.019, pitch: 26, lookUp: 1.0, focusWorld: [46.0, 13.4],
+    cast: [...FLINE(), { kind: 'fox', wx: 48.6, wz: 16.3, scale: 1.2, rot: 0.35, anim: 'point', t: 0.8, name: 'fox', loop: { cycles: 2 } }],
+    loopFx: FLINE_FX },
+};

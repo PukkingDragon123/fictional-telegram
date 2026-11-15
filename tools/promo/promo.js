@@ -1228,25 +1228,22 @@ const FAM_SCENES = {
       },
     };
   },
-  // FLINT & STEEL: "the gold rush": Reynard riding a cart heaped with gold down the quarry rail at dusk,
-  // speed lines trailing it, sparks off the wheels, gold nuggets bouncing out, embers from the smelter
+  // FLINT & STEEL [v7.4]: the factory line at dusk: the Bear Mine -> ore carts -> the smelter (fire, smoke) -> the
+  // ingot conveyor -> the machine shop + assembly bench (sparks) -> the warehouse; turbine + battery behind
   fs(thumb) {
     return {
-      parts: thumb ? [{ name: 'famFsRush', w: 630, h: 500, masks: ['fox', 'cart'] }] : [{ name: 'famFsRushBanner', w: 960, h: 240, masks: ['fox', 'cart'] }],
+      parts: thumb ? [{ name: 'famFsLine', w: 630, h: 500, masks: ['fox'] }] : [{ name: 'famFsLineBanner', w: 960, h: 240, masks: ['fox'] }],
       scene(F, [P], ph, fi) {
         const W = F.w, H = F.h;
         blitPart(F, P.px, 0, 0);
-        const fox = P.masks.fox, cart = P.masks.cart, hero = new Uint8Array(W * H);
-        for (let q = 0; q < hero.length; q++) hero[q] = fox[q] | cart[q];
-        grade(F, { sat: 1.16, con: 1.08, warm: 9 });
-        godRays(F, W * 0.88, -40, { rays: 16, R: thumb ? 640 : 720, k: 0.32, width: 0.38, rot: 0.2, c: [42, 22, 4], mask: (x, y) => (hero[y * W + x] ? 0 : 1) });
-        if (!thumb) famPanel(F, hero);
-        vignette(F, hero, thumb ? { r: 0.44, k: 1.3, bottom: [0.8, 0.85], top: [0.16, 0.5], max: 0.8 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.82, 0.7], max: 0.7 });
-        famSpeed(F, hero, ph, fi);
-        if (thumb) { FAM.hero = dilate(hero, W, H, 4); FAM.heroBand = [3, 150, 188]; } // (below the letters: they stay on top)
-        rings(F, hero, W, H, thumb ? [{ r: 2, c: rgb('#fff2cf') }, { r: 4, c: rgb('#ff9a3a'), dither: 0.5 }] : [{ r: 2, c: rgb('#fff2cf') }, { r: 3, c: rgb('#ff9a3a'), dither: 0.5 }]);
-        famNuggets(F, hero, ph, fi, thumb);
-        famEmbers(F, thumb ? [470, 40, 630, 330] : [740, 20, 960, 200], ph, hero);
+        const fox = P.masks.fox;
+        grade(F, { sat: 1.18, con: 1.1, warm: 10 });
+        godRays(F, W * 0.9, -40, { rays: 16, R: thumb ? 640 : 720, k: 0.26, width: 0.38, rot: 0.2 + ph, c: [42, 22, 4], mask: (x, y) => (fox[y * W + x] ? 0 : 1) });
+        famHotGlow(F, ph);
+        if (!thumb) famPanel(F, fox);
+        vignette(F, fox, thumb ? { r: 0.46, k: 1.2, bottom: [0.86, 0.7], top: [0.14, 0.4], max: 0.7 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.2, bottom: [0.86, 0.6], max: 0.65 });
+        rings(F, fox, W, H, [{ r: 1, c: rgb('#fff2cf') }, { r: 2, c: rgb('#ff9a3a'), dither: 0.5 }]);
+        famEmbers(F, thumb ? [60, 120, 630, 420] : [440, 20, 960, 230], ph, fox);
       },
     };
   },
@@ -1303,6 +1300,17 @@ const FAM_SCENES = {
     };
   },
 };
+// [v7.4] molten glow: the brightest warm pixels (furnace mouth, lamps, hot ingots) get a dithered pulsing halo
+function famHotGlow(F, ph) {
+  const W = F.w, H = F.h, hot = [];
+  for (let y = 2; y < H - 2; y += 2) for (let x = 2; x < W - 2; x += 2) { const i = (y * W + x) * 4, d = F.d; if (d[i] > 235 && d[i + 1] > 140 && d[i + 1] < 235 && d[i + 2] < 120) hot.push([x, y]); }
+  const k = 0.45 + 0.15 * Math.sin(ph * TAU * 2);
+  for (const [cx, cy] of hot) for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
+    const r = Math.hypot(dx, dy); if (r > 6) continue;
+    const x = cx + dx, y = cy + dy; if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    if (dither(x, y, k * (1 - r / 6) * 0.25)) F.add(x, y, [26, 12, 0]);
+  }
+}
 // [v7.3] birds gliding across the sunset: little pixel 'v's flapping, wrapping round the loop (seamless)
 function famBirds(F, ph, fi, box, n) {
   const C = rgb('#3a2040');
