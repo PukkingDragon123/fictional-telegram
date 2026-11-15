@@ -1,150 +1,24 @@
-// [v33 title] THE POND TIMES: one issue per major update, newest first (the title menu's newspaper,
-// src/ui/PondTimes.js). Every story is a headline in the paper's voice, a one-line lede and the
-// plain feature list (from the git history, the promo builds and the code). Pictures are the
-// game's own art, printed as halftone: { face: faces3d spec } | { icon: sprite name } | { fish: id }.
+// [v33 title] THE POND TIMES devlog: one entry per update, newest first (src/ui/PondTimes.js).
+// Each entry: version, date, a headline (a bit of humour is fine), a one-line summary, 4-8 bullets.
+
+// ---- feedback: where reports go. Empty = hidden (the report is only copied to the clipboard).
+export const FEEDBACK_EMAIL = ''; // e.g. 'hello@example.com': shows a "Send by email" link
+export const ITCH_URL = ''; // e.g. 'https://you.itch.io/the-bear-must-eat': shows "Open itch.io page"
+export const GAME_VERSION = 'v33';
 
 export const ISSUES = [
-  {
-    no: 6, date: 'Saturday, November 14, 2026', edition: 'The Polish Edition', price: '1 coin',
-    weather: { icon: 'sun', text: 'Sunny over the pond. 100% chance of fish, 0% chance of bears before 5 PM.' },
-    lead: { kicker: 'FRESH PAINT ON EVERYTHING', title: 'VALLEY GETS A MAKEOVER; BEARS SAY THE FISH TASTE THE SAME', pic: { face: { who: 'fox', expr: 'proud', frame: 'head' } }, caption: 'Reynard, pictured in front of the new everything.' },
-    stories: [
-      { h: 'TOWN NAME NOW FLOATS OVER POND, MADE OF ACTUAL DIRT', lede: 'The title screen is your own pond now, with a logo you can poke.',
-        list: ['Your own pond and fish behind the menu', 'A 3D logo island: carved wood letters, waterfalls, plants and leaping fish', 'Hover a letter to wobble it, click it for a splash, a fish or a flower', 'A CREDITS roll and a FISH plank that makes it rain fish', 'This newspaper'], pic: { icon: 'newspaper' } },
-      { h: 'FOX BUYS COMPUTER, IMMEDIATELY GOOGLES "HOW TO FISH"', lede: 'The Research Lab is Reynard\'s own desktop.',
-        list: ['Research on Reynard\'s computer: a desktop of topic apps', 'Each topic opens over a real 3D scene', 'Cuter, clearer and much faster than before'], pic: { icon: 'flask' } },
-      { h: 'ONLINE STORE OPENS; MOOSE DELIVERS EVERYTHING FREE, PEDALS LIKE HIS RENT IS DUE', lede: 'e-Buy is a whole pixel-art web shop.',
-        list: ['A big online store with departments, search and silly ads', 'Every order ships free by Moose Express', 'The game\'s own fish and egg sprites on every listing'], pic: { face: { who: 'npc', npc: 'moose' } } },
-      { h: 'FOX GIVES GUIDED TOUR, POINTS AT THINGS FOR TWENTY MINUTES', lede: 'The tutorial teaches the real game, hands on.',
-        list: ['A day-1 tour with Reynard walking, pointing and holding things up', 'A dialogue box with live lines, no SKIP TOUR needed'], pic: { face: { who: 'fox', expr: 'teacher', frame: 'head' } } },
-      { h: 'NEIGHBOURS SPOTTED HAVING LIVES', lede: 'The town wakes up, works, visits and gossips.',
-        list: ['Neighbours keep daily routines: porch, chores, naps, bedtime', 'They walk to your pond, sit on your benches and fish', 'Two neighbours who meet stop for a chat'], pic: { face: { who: 'npc', npc: 'granny' } } },
-      { h: 'SCHOOL IS IN; TEST PAPERS GRADED IN RED PEN', lede: 'The classroom has real lessons.',
-        list: ['3D demos on a science table', 'A graded pixel test paper', 'Voiced lessons'], pic: { icon: 'book' } },
-      { h: 'FISH SCOPE TRADES NEON FOR TWEED', lede: 'The Fish Scope is a naturalist\'s field kit.',
-        list: ['A field-kit look instead of the neon hologram', 'Breeding status shown as round bubbles', 'Tag and Pet live inside the Fish Scope'], pic: { icon: 'magnifier' } },
-      { h: 'POND NOW GOES "SPLASH" FOR REAL', lede: 'Real recorded sound effects.',
-        list: ['301 of 305 sound effects are CC0 / public-domain recordings'], pic: { icon: 'speaker_on' } },
-      { h: 'BEAR EATS ENTIRE SALMON WHILE YOU WAIT', lede: 'The loading screen has a hungry guest.',
-        list: ['A 3D bear eats a voxel salmon in a spotlight while the game loads', 'Tap to make it bite; the next bear walks in with a new salmon'], pic: { fish: 'chinook' } },
-      { h: 'ALSO IN THIS ISSUE', lede: 'Small things, polished.',
-        list: ['A brass pocket watch on the HUD', 'The wooden hotbar is back, polished in its own style', 'Smaller animals: birds, squirrels, frogs and butterflies', 'Cutscenes zoom in on whoever talks'] },
-    ],
-    ads: [
-      { h: 'MOOSE EXPRESS', t: 'Free delivery. Always. He insists.', icon: 'moose' },
-      { h: 'LOST: ONE MONOCLE', t: 'Answers to "Gerald". Reward: a fish.', icon: 'magnifier' },
-    ],
-    comic: [
-      { face: { who: 'fox', expr: 'proud', frame: 'head' }, say: 'New title screen!' },
-      { face: { who: 'bear', type: 'office', expr: 'hungry' }, say: 'Is it edible?' },
-      { face: { who: 'fox', expr: 'worried', frame: 'head' }, say: 'It\'s made of dirt.' },
-    ],
-  },
-  {
-    no: 5, date: 'Wednesday, November 4, 2026', edition: 'Dig & Dive', price: '2 fossils',
-    weather: { icon: 'drop', text: 'Fog over Bonebed Bluff, clearing by noon. Loon Lake calm and deep.' },
-    lead: { kicker: 'SCIENCE!', title: 'LOCAL TURTLE YELLS AT ROCKS, FINDS 100-MILLION-YEAR-OLD FISH', pic: { face: { who: 'npc', npc: 'snapp' } }, caption: 'Prof. Snapp, who asked not to be photographed.' },
-    stories: [
-      { h: '"DON\'T. MOVE." SAYS PROFESSOR TO EVERYONE', lede: 'The Dig: a grumpy palaeontologist moves into Bonebed Bluff.',
-        list: ['Prof. Snapp, a snapping turtle, and his dig site', 'Fossil digs in the bluff\'s strata: brush, trowel, amber, maps', 'His lab bench: clean fossils and study finds', 'Brew a Primordial Vial (1 amber + 3 cleaned fossils)', 'Feed it to a fish: a prehistoric fish wakes up (Sabre-tooth, Armoured, Fossil, Lobe-fin or Thornback)', 'Gerald the lure. Don\'t look at him.'], pic: { icon: 'dig_vial' } },
-      { h: 'OTTER CATCHES FISH WITH BARE HANDS; NOBODY ASKS HOW', lede: 'The Dive: Loon Lake opens up the river.',
-        list: ['A bottle floats into the pond and leads to Loon Lake', 'Noodles the otter brings you one wild catch a day by Moose Express', 'Chief Buff\'s dive school: snorkel, flippers, then the helmet', 'Dive Loon Lake and build underwater farms', 'Pearls, a wreck, and Old Whiskers in the Deep Hole'], pic: { face: { who: 'npc', npc: 'noodles' } } },
-      { h: 'CHIEF SAYS NO DIVING WITHOUT GEAR, MEANS IT', lede: 'Lessons before the deep end.',
-        list: ['Lesson cards pinned up and ticked off with a pen', 'Gear unlocks step by step through the story'], pic: { face: { who: 'npc', npc: 'buff' } } },
-      { h: 'EVERYBODY NOW TALKS OUT LOUD', lede: 'Voices for the cast.',
-        list: ['NPC voice lines (Settings, Sound: Voice lines toggle)', 'Cutscenes cut in close on whoever talks'], pic: { icon: 'speech' } },
-    ],
-    ads: [
-      { h: 'GERALD THE LURE', t: 'Don\'t look at him. He gets ideas.', icon: 'dig_fang' },
-      { h: 'DIVE SCHOOL', t: 'Chief Buff. No gear, no dive. No exceptions.', icon: 'dv_mask' },
-    ],
-    comic: [
-      { face: { who: 'npc', npc: 'snapp' }, say: 'DON\'T. MOVE.' },
-      { face: { who: 'fox', expr: 'shocked', frame: 'head' }, say: 'I wasn\'t moving!' },
-      { face: { who: 'npc', npc: 'snapp' }, say: 'I meant the fossil.' },
-    ],
-  },
-  {
-    no: 4, date: 'Tuesday, November 3, 2026', edition: 'The Cinematic Update', price: '1 ticket',
-    weather: { icon: 'sunrise', text: 'Golden hour all afternoon. Good light for close-ups.' },
-    lead: { kicker: 'NOW SHOWING', title: 'BEARS KNOCK ON FOX\'S DOOR WITH FAVOURS; FOX CHARGES FOR THE DOOR', pic: { face: { who: 'bear', type: 'intern', expr: 'happy' } }, caption: 'Kevin the intern, who needs a story.' },
-    stories: [
-      { h: 'POND NOW SHOT LIKE A MOVIE', lede: 'Talk scenes with camera work.',
-        list: ['Cinematic talk scenes on the real world: push-ins, reverse shots, close-ups', 'Comic speech bubbles, letterbox bars, Alagard title cards', 'A 5 PM opener when the bears clock off'], pic: { icon: 'camera' } },
-      { h: 'BEARS ASK FOR FAVOURS BEFORE BREAKFAST', lede: 'Bear errands.',
-        list: ['Most mornings a bear knocks with a favour', 'Kevin the intern, Chad the gym bro, a cub naming the babies, the food critic, the CEO and his golden fish'], pic: { face: { who: 'bear', type: 'ceo', expr: 'neutral' } } },
-      { h: 'NINE SECRETS HIDDEN AROUND POND, SAYS SOURCE', lede: 'Easter eggs.',
-        list: ['Nine secrets to find; the game tells you when you find one'], pic: { icon: 'question' } },
-      { h: 'MOUNTAINS LOOK MORE LIKE MOUNTAINS', lede: 'Light and particles.',
-        list: ['Time-of-day light and grade, cloud shadows and light shafts', 'Pixel particles: splashes, dust, leaves, sparks'], pic: { icon: 'sun' } },
-    ],
-    ads: [{ h: 'FOX STUDIOS', t: 'Now casting bears. Must love fish.', icon: 'camera' }, { h: 'CRITIC IN TOWN', t: 'Five stars or else.', icon: 'star' }],
-    comic: [
-      { face: { who: 'bear', type: 'critic', expr: 'neutral' }, say: 'Impress me.' },
-      { face: { who: 'fox', expr: 'greedy', frame: 'head' }, say: 'Golden fish?' },
-      { face: { who: 'bear', type: 'critic', expr: 'happy' }, say: '...Five stars.' },
-    ],
-  },
-  {
-    no: 3, date: 'Saturday, October 10, 2026', edition: 'The Big Feast', price: '3 fish',
-    weather: { icon: 'sunrise', text: 'Busy at 5 PM. Expect bears, crumbs and a raccoon.' },
-    lead: { kicker: 'DINNER RUSH', title: '5 PM FEAST NOW AN EVENT; CRITIC SPOTTED, RACCOONS DINE AND DASH', pic: { face: { who: 'bear', type: 'boss', expr: 'happy' } }, caption: 'A satisfied customer, moments before seconds.' },
-    stories: [
-      { h: 'FEAST GETS A DIRECTOR', lede: 'The 5 PM feast with a free camera and events.',
-        list: ['Critics, birthdays, phones in the pond, influencers, proposals', 'Inspectors, lost cubs, raccoons and dine-and-dashers', 'Equipment acts up mid-service'], pic: { icon: 'fe_critic' } },
-      { h: 'BEARS GET A HOT TUB; HOT TUB SPRINGS A LEAK', lede: 'The Bear Resort.',
-        list: ['Hot tub, sauna, Bear Necessities, ticket booth, towel room', 'Breakdowns close a facility until the next morning'], pic: { icon: 'st_cabin' } },
-      { h: 'BEAVER STAFF DEMAND BREAKS, GET THEM', lede: 'Hire a crew.',
-        list: ['Hire beaver staff on a clipboard', 'Tired beavers down tools; overworked ones faint'], pic: { face: { who: 'beaver', outfit: 'toolbelt' } } },
-      { h: 'FOX RESHAPES THE LAND, NAMES EVERY PUDDLE', lede: 'Terraform, seasons and a bigger world.',
-        list: ['Raise, lower and paint your land; dig and name ponds', 'Seasons and weather', 'A bigger valley: the Old Wood, the Deep, the Highland, the Massif', 'A power grid (poles, solar, water wheels, wind, batteries, a coal steam generator) and storage buildings for the factory'], pic: { icon: 'map' } },
-    ],
-    ads: [{ h: 'BEAR RESORT', t: 'Towels sold separately.', icon: 'st_cabin' }, { h: 'NO PAY NO WORK', t: 'The Beaver Union, Local 5.', icon: 'staff' }],
-    comic: [
-      { face: { who: 'bear', type: 'cub', expr: 'sad' }, say: 'I lost my mom.' },
-      { face: { who: 'fox', expr: 'worried', frame: 'head' }, say: 'Which one is she?' },
-      { face: { who: 'bear', type: 'cub', expr: 'happy' }, say: 'The hungry one.' },
-    ],
-  },
-  {
-    no: 2, date: 'Earlier this autumn', edition: 'Flint & Steel', price: '1 ingot',
-    weather: { icon: 'drop', text: 'Smog advisory near the smelter. Fish feeling a bit sad.' },
-    lead: { kicker: 'INDUSTRY', title: 'BADGER FINDS ROCKS; BEARS IN HARD HATS GO ON STRIKE OVER LUNCH', pic: { face: { who: 'npc', npc: 'flint' } }, caption: 'Flint, prospector, who has found a rock.' },
-    stories: [
-      { h: 'THERE\'S GOLD IN THEM HILLS (AND COAL, IRON, COPPER, CRYSTAL)', lede: 'Mining.',
-        list: ['Ore veins glitter on the north mountain and in Flint\'s Quarry', 'Mark a vein; beavers with pickaxes mine it and haul the sacks', 'Veins run dry and grow back a little every morning'], pic: { icon: 'pickaxe' } },
-      { h: 'BEARS HIRED TO DIG, EAT EVERYTHING IN CANTEEN', lede: 'The Bear Mine.',
-        list: ['Dig a mine into the quarry wall and hire worker bears', 'Feed them lunch or they go on STRIKE', 'Ore Drill, Ore Cart Rail and Steam Excavator dig more'], pic: { icon: 'hardhat' } },
-      { h: 'POND GETS A FACTORY', lede: 'Industry.',
-        list: ['Smelter, Machine Shop, Circuit Fab, Assembly Bench, worked by beavers', 'Conveyor belts and supply chutes', 'Pollution: smog murks the pond and makes bears grumpy'], pic: { icon: 'ind_smelter' } },
-    ],
-    ads: [{ h: 'ORE FOR SALE', t: 'Barely used. Ask for Flint.', icon: 'res_gold' }, { h: 'LUNCH PAIL LINE', t: 'Keeps the miners happy.', icon: 'lunchbox' }],
-    comic: [
-      { face: { who: 'npc', npc: 'flint' }, say: 'Found a rock!' },
-      { face: { who: 'fox', expr: 'greedy', frame: 'head' }, say: 'Is it gold?' },
-      { face: { who: 'npc', npc: 'flint' }, say: 'It\'s a nice rock.' },
-    ],
-  },
-  {
-    no: 1, date: 'The very first edition', edition: 'Grand Opening', price: 'Free',
-    weather: { icon: 'sun', text: 'Clear skies. The bears clock off at 5 PM sharp.' },
-    lead: { kicker: 'GRAND OPENING', title: 'FOX OPENS ALL-YOU-CAN-EAT POND; BEARS IN SUITS ATTEND', pic: { face: { who: 'fox', expr: 'smug', frame: 'head' } }, caption: 'Reynard, owner, monocle, top hat.' },
-    stories: [
-      { h: 'EVERY WEEKDAY AT 5 PM, THE STEAM WHISTLE BLOWS', lede: 'The pond.',
-        list: ['Bears run down the mountain, cannonball in and eat your fish', 'Happy bears pay coins and leave 5-star reviews; hungry bears rampage', 'Keep your rating above 1.0 or the pond is shut down'], pic: { icon: 'briefcase' } },
-      { h: 'FISH FALL IN LOVE, POND FILLS UP', lede: 'Breeding.',
-        list: ['Well-fed fish lay eggs and the fry grow up', 'Cross-breed hybrids like the Tiger Trout and Aurora Salmon', 'A rare golden fish is worth 5x; the Maple Leaf Koi is legendary'], pic: { fish: 'goldfish' } },
-      { h: 'BEAVERS BUILD, BUT ONLY FOR SNACKS', lede: 'Build and grow.',
-        list: ['Dams, log fences, sluice gates, stilt platforms, feeders, aerators', 'Research upgrades, dig the pond bigger, survive the Friday CEO', 'Retire at Franchise Empire for golden fox tails'], pic: { icon: 'dam' } },
-    ],
-    ads: [{ h: 'FISH FOOD', t: 'Tap the water. That\'s it.', icon: 'food' }, { h: 'BEAR ST. HOLDINGS', t: 'Now hiring. Lunch at 5.', icon: 'necktie' }],
-    comic: [
-      { face: { who: 'fox', expr: 'smug', frame: 'head' }, say: 'All you can eat!' },
-      { face: { who: 'bear', type: 'office', expr: 'happy' }, say: 'All of it?' },
-      { face: { who: 'fox', expr: 'shocked', frame: 'head' }, say: 'Not ALL of it!' },
-    ],
-  },
+  { v: 'v33', date: 'Nov 14, 2026', title: 'Fresh Paint on Everything', sum: 'A big polish pass over the whole game.',
+    list: ['New title screen: your own pond, a 3D logo island you can poke', 'Research Lab on Reynard\'s computer', 'e-Buy online store, free Moose Express delivery', 'Hands-on day-1 tutorial', 'Neighbours have daily routines and visit your pond', 'Classroom with 3D demos; Fish Scope field kit', 'Real recorded sound effects', 'Loading screen: a bear eats a salmon'] },
+  { v: 'v32', date: 'Nov 4, 2026', title: 'Dig & Dive', sum: 'Local turtle yells at rocks, finds a 100-million-year-old fish.',
+    list: ['Prof. Snapp and fossil digs at Bonebed Bluff', 'Lab bench: brew a Primordial Vial', 'Prehistoric fish: Sabre-tooth, Armoured, Fossil, Lobe-fin, Thornback', 'Loon Lake, Noodles the otter and his daily catch', 'Chief Buff\'s dive school and underwater farms', 'NPC voice lines'] },
+  { v: 'v31', date: 'Nov 3, 2026', title: 'The Cinematic Update', sum: 'The pond, shot like a movie.',
+    list: ['Cinematic talk scenes with close-ups and speech bubbles', 'Bear errands: a bear knocks most mornings', 'Nine secrets hidden around the pond', 'Time-of-day light, cloud shadows and pixel particles'] },
+  { v: 'v26', date: 'Oct 10, 2026', title: 'The Big Feast', sum: 'Dinner rush with events, a resort and staff.',
+    list: ['5 PM feast events: critics, birthdays, raccoons, inspectors', 'Bear Resort: hot tub, sauna and breakdowns', 'Hire beaver staff', 'Terraform your land, seasons and weather', 'Bigger valley, power grid and storage buildings'] },
+  { v: 'F&S', date: 'Autumn 2026', title: 'Flint & Steel', sum: 'Badger finds rocks; bears in hard hats strike over lunch.',
+    list: ['Ore veins and beaver miners', 'The Bear Mine with hired worker bears', 'Smelter, Machine Shop, Circuit Fab, conveyor belts', 'Pollution that murks the pond'] },
+  { v: 'v1', date: 'Grand Opening', title: 'Fox Opens All-You-Can-Eat Pond', sum: 'Bears in suits attend.',
+    list: ['Bears clock off at 5 PM and eat your fish', 'Breed fish and cross-breed hybrids', 'Beavers build dams, fences and feeders', 'Research, ratings and the Friday CEO'] },
 ];
 
-/** the headline on the folded paper on the menu (the newest issue) */
 export const LATEST = ISSUES[0];
