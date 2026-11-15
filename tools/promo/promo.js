@@ -1215,7 +1215,8 @@ const FAM_SCENES = {
         const fox = P.masks.fox;
         grade(F, { sat: 1.1, con: 1.05, warm: 5 });
         const sun = sunOf(F, thumb ? [515, 70] : [880, 18]);
-        godRays(F, sun[0], sun[1], { rays: thumb ? 20 : 24, R: thumb ? 620 : 700, k: 0.3, width: 0.4, rot: 0.1, mask: (x, y) => (fox[y * W + x] ? 0 : 1) });
+        godRays(F, sun[0], sun[1], { rays: thumb ? 20 : 24, R: thumb ? 620 : 700, k: 0.3, width: 0.4, rot: 0.1 + ph, mask: (x, y) => (fox[y * W + x] ? 0 : 1) }); // turning one ray a loop
+        famBirds(F, ph, fi, thumb ? [150, 20, 630, 150] : [430, 8, 960, 60], thumb ? 7 : 6);
         if (!thumb) famPanel(F, fox);
         vignette(F, fox, thumb ? { r: 0.5, k: 1.1, bottom: [0.86, 0.6], top: [0.2, 0.3], max: 0.65 } : { r: 0.5, ax: 1.0, ay: 0.55, k: 1.1, max: 0.6 });
         motes(F, thumb ? 40 : 46, thumb ? [180, 150, 630, 470] : [430, 30, 960, 230], ph, null);
@@ -1302,6 +1303,17 @@ const FAM_SCENES = {
     };
   },
 };
+// [v7.3] birds gliding across the sunset: little pixel 'v's flapping, wrapping round the loop (seamless)
+function famBirds(F, ph, fi, box, n) {
+  const C = rgb('#3a2040');
+  for (let k = 0; k < n; k++) {
+    const u = (ph * (1 + (k % 2)) + hash2(k, 51)) % 1;
+    const x = Math.round(box[0] - 20 + u * (box[2] - box[0] + 40)), y = Math.round(box[1] + hash2(k, 53) * (box[3] - box[1]) + Math.sin((u * 2 + hash2(k, 55)) * TAU) * 3);
+    const up = ((fi + k * 3) >> 1) & 1;
+    const big = hash2(k, 57) < 0.4;
+    for (const [dx, dy] of up ? [[-2, -1], [-1, 0], [0, 0], [1, 0], [2, -1]] : [[-2, 1], [-1, 0], [0, 0], [1, 0], [2, 1]]) { F.set(x + dx, y + dy, C); if (big) F.set(x + dx * 2 + (dx > 0 ? -1 : dx < 0 ? 1 : 0), y + dy, C); }
+  }
+}
 // [v7.2] underwater light shafts slanting down from the surface (additive, dithered, slowly swaying)
 function famShafts(F, ph, keep, thumb) {
   const n = thumb ? 6 : 9, W = F.w, H = F.h;
