@@ -285,6 +285,37 @@ Everything loops seamlessly. Animated props have `_sheet.png` files (frames side
 - **Nothing floats:** props that stand on something carry a soft contact shadow. Wall and hanging pieces carry a drop shadow on the wall behind them. These shadows are semi-transparent, so they work wherever a prop is dropped.
 - **A fantasy script:** every word in the teahouse is written in its own runes, angular glyphs like the enchanting-table alphabet. That covers the recipe steps, recipe cards, jar labels, menu tags, receipts, the unpaid tab and the fire charm. The strings in the code are plain English (SENCHA 80C 2 MIN), so you can read what each sign says. `RUNES` in `pixel.py` holds the alphabet; `text(..., script='latin')` writes readable letters.
 
+## The Traveler's Kit
+
+![The seal beast plush](traveler_kit/seal_plush_clean/seal_plush_clean_4x.png)
+
+`traveler_kit/` holds the props of the wandering tea brewer. Each is pixel art you can turn all the way round and use.
+
+| Thing | What it does |
+| --- | --- |
+| Seal beast plush | squish (dust puff; stuffing flies out of the torn one), wiggle, roar |
+| Omamori charm | sways, jingles |
+| Tea kit | opens; the kyusu pours a cup |
+| Kyusu, yunomi, chasen, chashaku, tea caddy, tea tin | pour, fill, whisk, scoop, open |
+| Old suitcase | opens and slams shut |
+| Travel bag | opens, is dropped |
+| World map | unrolls; the route draws itself |
+| Postcard | flips |
+| Train ticket | is punched |
+| Boat pass | is stamped |
+
+- **Conditions:** every thing comes `clean`, `worn`, `dirty` and `repaired`. The plush also comes `torn`, with stuffing out of the rips and an eye hanging by its thread. The papers also have a plain "in use" version.
+- **The turn:** every thing has a `turn` animation, a full turn in 24–32 frames. Drag through it to rotate the thing in your hands.
+- **How it's made:** the rounded things are sculpted as distance fields (`sculpt.py`) and drawn as pixel art. Each material gets hue-shifted bands, details are painted onto the surface so they turn with it, and every frame gets a selective outline. The papers are drawn by hand front and back, then laid on thin 3D sheets.
+- **Files per thing:** each folder has a still at 1x and 4x, one sheet per animation (frames left to right), a 4x GIF per animation, and a JSON file with frame sizes and fps (12).
+
+Code: `kit3d.py` + `kit3d_build.py` (the plush and the charm), `kit_tea.py`, `kit_luggage.py`, and `kit_papers.py` (with `kit_papers_art.py` and `kit_papers_render.py`). They all write through `kit_export.py`.
+
+```bash
+python3 teahouse-assets/generator/kit_pack.py viewer OUT --inline   # the drag-to-turn viewer as one page
+python3 teahouse-assets/generator/kit_pack.py zip Traveler_Kit.zip   # two zips of every prop
+```
+
 ## Folder map
 
 ```
@@ -309,6 +340,7 @@ seasons/<season>/ spring, rain, summer, autumn, winter, eclipse, bloodmoon: laye
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
+traveler_kit/     the traveller's props, each in its conditions: stills, sheets, gifs, json; viewer/
 generator/        the Python that draws all of it (deterministic, seeded)
 ```
 

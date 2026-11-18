@@ -135,7 +135,7 @@ button.chip[aria-pressed="true"] { background: var(--red); border-color: #e0705d
     ar.querySelectorAll('button').forEach(b => b.remove());
     Object.keys(vdata().animations).filter(a => a !== 'turn' && a !== 'idle').forEach(a => {
       const b = document.createElement('button');
-      b.className = 'chip'; b.type = 'button'; b.textContent = a.replace(/_/g, ' ');
+      b.className = 'chip'; b.type = 'button'; b.textContent = (it.labels && it.labels[a]) || a.replace(/_/g, ' ');
       b.addEventListener('click', () => play(a));
       ar.appendChild(b);
     });
