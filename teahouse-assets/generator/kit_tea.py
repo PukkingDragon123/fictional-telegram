@@ -10,7 +10,7 @@ every frame is styled as pixel art the way you would draw it:
     a sharp highlight: a glossy streak down the wall and a lit rim
   - details painted onto the object's own surface so they turn with it:
     glaze dips and drips, the unglazed foot ring, kintsugi, chips, stains,
-    the maki-e pine, the furoshiki's asanoha, rune labels
+    the maki-e plum blossom and moon, the furoshiki's dots, rune labels
   - a selective outline: a darker shade of the colour inside on the lit
     side, a warm near-black on the shadow side, a line wherever a near part
     crosses a far one; then lone specks cleaned away
@@ -22,8 +22,9 @@ lid can lift, a pot can tip and pour, a cord can slide off.
 Props (each in four variants: clean = the main one with every animation,
 worn, dirty, repaired), written to teahouse-assets/traveler_kit/<name>/:
 
-  tea_kit_*    the chabako on its furoshiki: idle, turn, open (+ brew,
-               turn_open on the clean one)
+  tea_kit_*    the chabako (black urushi, vermilion rim, gold plum and silver
+               moon on the lid, purple silk cord) on an indigo furoshiki:
+               idle, turn, open (+ brew, turn_open on the clean one)
   kyusu_*      side-handled tokoname teapot: idle, turn, use (pours)
   yunomi_*     tall cup of sencha: idle (steam), turn, use (fills)
   chasen_*     bamboo whisk: idle, turn, use (whisks)
@@ -1226,11 +1227,11 @@ def tea_tin(variant='clean', at=(0, 0, 0), rot=None, face=0.0, lid_lift=0.0, lid
 
 # ================================================================ the chabako and its furoshiki
 # a travelling tea box: a shallow tray with a deep covering lid, black urushi
-# outside (over a red undercoat that shows where it is rubbed), red inside, a
-# gold maki-e pine and full moon on the lid, tied with a purple silk cord in
-# a bow. It sits on an indigo furoshiki printed with asanoha. Kit units = icon
-# units; the kit is drawn at KIT_SCALE.
-KIT_SCALE = 0.8
+# (over a red undercoat that shows where it is rubbed), a vermilion rim on the
+# tray, red inside the lid, gold maki-e plum blossom and a silver full moon on
+# the lid, tied with a purple silk cord in a bow. It sits on an indigo
+# furoshiki dyed with white dots. Kit units = icon units; drawn at KIT_SCALE.
+KIT_SCALE = 0.76
 BX_W, BX_D, BX_TH = 46.0, 29.0, 11.0          # tray half width, half depth, height
 BX_FLOOR = 2.6
 LD_W, LD_D, LD_H = 47.9, 30.9, 15.0           # lid half extents
@@ -1681,15 +1682,6 @@ def kit_parts(variant='clean', lid_T=None, lid_R=None, cord=0.0, bow=1.0, ky_lif
 KIT_YAW = 0.32
 
 
-def lid_open_pose(t):
-    """The lid from on (t=0) to standing on its long edge behind the tray (t=1)."""
-    ang = math.radians(82) * t
-    R = rot_x(ang)
-    # its front-bottom edge pivots; in the end the lid stands with its top facing us, behind the tray
-    end_T = np.array((0.0, LD_D * math.sin(math.radians(82)) * 0 + 0.0, 0.0))
-    return R
-
-
 # ================================================================ 2D effects drawn over the frames
 STEAM = [(236, 236, 234), (204, 204, 210), (168, 168, 180)]
 LEAFP = [(22, 44, 34), (38, 66, 40), (62, 94, 46)]
@@ -1742,8 +1734,7 @@ def sparkle(out, x, y, size):
     """A glint: a dot, a small cross, a long cross."""
     if size <= 0:
         return
-    W = (255, 252, 236)
-    _put(out, x, y, W)
+    _put(out, x, y, (255, 252, 236))
     if size >= 2:
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             _put(out, x + dx, y + dy, (236, 228, 196))
@@ -1820,7 +1811,7 @@ def leaves2d(out, x0, y0, t, n=7, seed=1, power=1.0):
 
 # ================================================================ keyframes
 def keys(f, table):
-    """Smooth (Catmull-Rom) interpolation through keyframes {frame: value or tuple}."""
+    """Smooth (Catmull-Rom) interpolation through keyframes {frame: value}."""
     ks = sorted(table)
     if f <= ks[0]:
         return np.asarray(table[ks[0]], float)
@@ -1841,14 +1832,14 @@ ICON = dict(
     kyusu=dict(scale=0.95, size=(72, 64), origin=(36, 40), yaw=KY_YAW),
     yunomi=dict(scale=1.25, size=(56, 72), origin=(28, 58), yaw=0.35),
     chasen=dict(scale=1.35, size=(56, 64), origin=(28, 54), yaw=0.4),
-    chashaku=dict(scale=1.32, size=(80, 72), origin=(40, 40), yaw=0.55),
+    chashaku=dict(scale=1.25, size=(80, 72), origin=(40, 40), yaw=0.55),
     tea_caddy=dict(scale=2.0, size=(64, 72), origin=(32, 52), yaw=0.4),
     tea_tin=dict(scale=2.0, size=(64, 72), origin=(32, 52), yaw=0.4),
     tea_kit=dict(scale=KIT_SCALE, size=(168, 160), origin=(84, 100), yaw=KIT_YAW),
 )
 LID_END_ANG = math.radians(82)
 LID_END_T = np.array((0.0, LD_D * math.sin(LID_END_ANG) + 0.5, -BX_D - LD_H - 3.0))
-SHAKU_TILT = 0.5
+SHAKU_TILT = 0.8
 
 
 def _lid(y, z, ang):
@@ -1859,7 +1850,6 @@ def kit_frame(variant, anim, f, n):
     I = ICON['tea_kit']
     sc, (w, h), o, yaw = I['scale'], I['size'], I['origin'], I['yaw']
     kw = dict(variant=variant, yaw=yaw)
-    overlay = []
     if anim in ('idle', 'turn'):
         t = f / n
         sway = 0.7 * math.sin(2 * math.pi * t)
@@ -1879,39 +1869,37 @@ def kit_frame(variant, anim, f, n):
                 if info['z'][int(y), int(x)] < z + 2:
                     sparkle(rgba, int(x), int(y), sz)
         return rgba
-    if anim in ('open',):
+    if anim == 'open':
+        # the bow unties, the cord slides off onto the cloth; the lid dips, lifts, swings back to stand
+        # behind the tray, overshoots and settles; the things inside give a little hop as it lands
         tab_y = {0: LD_REST, 8: LD_REST, 9: LD_REST - 0.9, 10: LD_REST + 2, 13: LD_REST + 19, 16: LD_REST + 24,
                  18: LID_END_T[1] + 3, 19: LID_END_T[1], 23: LID_END_T[1]}
         tab_z = {0: 0.0, 12: 0.0, 13: -3.0, 16: -28.0, 18: LID_END_T[2], 23: LID_END_T[2]}
         tab_a = {0: 0.0, 9: 0.0, 10: -3.0, 13: 10.0, 16: 52.0, 18: 88.0, 19: 85.0, 20: 79.5, 21: 83.0, 22: 81.6, 23: 82.0}
-        y = float(keys(f, tab_y))
-        z = float(keys(f, tab_z))
-        a = float(keys(f, tab_a))
-        T, R = _lid(y, z, a)
+        T, R_ = _lid(float(keys(f, tab_y)), float(keys(f, tab_z)), float(keys(f, tab_a)))
         bow = 1.0 - ease_in(seg(f, 1, 5))
         cord = ease_io(seg(f, 3, 11))
         jig = {}
         if 19 <= f <= 21:
             jig = {k: [0.0, 0.7, 0.2][f - 19] for k in ('cupA', 'cupB', 'caddy', 'chasen', 'kyusu')}
-        parts = kit_parts(lid_T=T, lid_R=R, cord=cord, bow=bow, items=f >= 9, sway=1.5 * math.sin(f * 1.3) * bow,
+        parts = kit_parts(lid_T=T, lid_R=R_, cord=cord, bow=bow, items=f >= 9, sway=1.5 * math.sin(f * 1.3) * bow,
                           jig=jig, **kw)
-        rgba, info = render(parts, w, h, sc, o, yaw=yaw)
-        return rgba
+        return render(parts, w, h, sc, o, yaw=yaw)[0]
     if anim in ('turn_open', 'brew'):
-        T, R = LID_END_T, rot_x(LID_END_ANG)
+        T, R_ = LID_END_T, rot_x(LID_END_ANG)
         if anim == 'turn_open':
             yaw = yaw + 2 * math.pi * f / n
             kw['yaw'] = yaw
-            parts = kit_parts(lid_T=T, lid_R=R, cord=1.0, bow=0.0, **kw)
+            parts = kit_parts(lid_T=T, lid_R=R_, cord=1.0, bow=0.0, **kw)
             return render(parts, w, h, sc, o, yaw=yaw)[0]
-        # brew: lean back, lift and tip, pour, right itself with an overshoot, settle
+        # brew: lean back, lift high, tip and pour (tipping further as it empties), snap upright past
+        # level, lower and settle with a small bounce; the cup fills, steam curls up after
         tilt = float(keys(f, {0: 0, 2: -7, 3: -6, 6: -2, 9: 8, 11: 44, 12: 52, 18: 56, 24: 62, 25: 54, 27: -9,
                               28: -6, 31: 2, 32: -1, 33: 0, 35: 0}))
         lift = float(keys(f, {0: 0, 2: -0.6, 3: 1.0, 6: 22, 9: 33, 12: 33.5, 24: 34.5, 26: 34, 27: 31, 29: 14,
                               31: 0.6, 32: 0, 33: 0.4, 34: 0, 35: 0}))
         fill = 0.92 * ease_out(seg(f, 13, 26))
-        ripple = 0.0
-        parts = kit_parts(lid_T=T, lid_R=R, cord=1.0, bow=0.0, ky_lift=lift, ky_tilt=math.radians(tilt), fill=fill,
+        parts = kit_parts(lid_T=T, lid_R=R_, cord=1.0, bow=0.0, ky_lift=lift, ky_tilt=math.radians(tilt), fill=fill,
                           **kw)
         rgba, info = render(parts, w, h, sc, o, yaw=yaw)
         x, z, _ = KIT_LAYOUT['kyusu']
@@ -1921,10 +1909,8 @@ def kit_frame(variant, anim, f, n):
         cx, cz, _ = KIT_LAYOUT['cupB']
         level = BX_FLOOR + tea_level(max(fill, 0.05))
         if 11 <= f <= 27:
-            head = ease_out(seg(f, 11, 13))
-            tail = ease_in(seg(f, 25, 27.5))
-            stream3d(rgba, info, tip, sp_dir * 7.0, 2.0, level, sc, o, head=head, tail=tail,
-                     wob=0.4 if 14 <= f <= 23 and f % 2 else 0.0)
+            stream3d(rgba, info, tip, sp_dir * 7.0, 2.0, level, sc, o, head=ease_out(seg(f, 11, 13)),
+                     tail=ease_in(seg(f, 25, 27.5)), wob=0.4 if 14 <= f <= 23 and f % 2 else 0.0)
         cup_top = project(np.array((cx, BX_FLOOR + YU_RIM, cz)), info['V'], sc, o)
         if f >= 16:
             steam(rgba, cup_top[0], cup_top[1] - 2, ((f - 16) / 20.0) * 1.4, n=3, height=20, seed=3,
@@ -1939,18 +1925,18 @@ def kit_frame(variant, anim, f, n):
 def item_parts(prop, variant, **pose):
     face = facing(ICON[prop]['yaw'])
     if prop == 'kyusu':
-        at, R = kyusu_pose((0, 0, 0), pose.get('lift', 0.0), pose.get('tilt', 0.0))
-        return kyusu(variant, at=at, rot=R, face=face)
+        at, Rk = kyusu_pose((0, 0, 0), pose.get('lift', 0.0), pose.get('tilt', 0.0))
+        return kyusu(variant, at=at, rot=Rk, face=face)
     if prop == 'yunomi':
         return yunomi(variant, 'nuka', fill=pose.get('fill', 0.92), face=face, ripple=pose.get('ripple', 0.0),
                       at=(0, pose.get('lift', 0.0), 0))
     if prop == 'chasen':
-        R = rot_z(pose.get('tilt', 0.0)) @ rot_y(pose.get('spin', 0.0))
-        at = np.array((0, pose.get('lift', 0.0), 0)) + np.array((0, 14, 0)) - R @ np.array((0, 14, 0))
-        return chasen(variant, at=at, rot=R, face=face, splay=pose.get('splay', 0.0))
+        Rc = rot_z(pose.get('tilt', 0.0)) @ rot_y(pose.get('spin', 0.0))
+        at = np.array((0, pose.get('lift', 0.0), 0)) + np.array((0, 14, 0)) - Rc @ np.array((0, 14, 0))
+        return chasen(variant, at=at, rot=Rc, face=face, splay=pose.get('splay', 0.0))
     if prop == 'chashaku':
-        R = rot_z(SHAKU_TILT + pose.get('tilt', 0.0))
-        return chashaku(variant, at=(0, pose.get('lift', 0.0), 0), rot=R, face=face, heap=pose.get('heap', 0.0))
+        Rs = rot_z(SHAKU_TILT + pose.get('tilt', 0.0))
+        return chashaku(variant, at=(0, pose.get('lift', 0.0), 0), rot=Rs, face=face, heap=pose.get('heap', 0.0))
     if prop == 'tea_caddy':
         return tea_caddy(variant, face=face, lid_lift=pose.get('lid', 0.0), lid_tilt=pose.get('ltilt', 0.0),
                          lid_spin=pose.get('lspin', 0.0), at=(0, pose.get('lift', 0.0), 0))
@@ -1966,13 +1952,10 @@ def item_frame(prop, variant, anim, f, n):
     t = f / n
     if anim == 'turn':
         yaw = yaw + 2 * math.pi * f / n
-        pose = {}
-        if prop == 'chashaku':
-            pose = {}
-        rgba, info = render(item_parts(prop, variant, **pose), w, h, sc, o, yaw=yaw)
+        rgba, info = render(item_parts(prop, variant), w, h, sc, o, yaw=yaw)
         if prop == 'yunomi':
             top = project(np.array((0, YU_RIM, 0)), info['V'], sc, o)
-            steam(rgba, top[0], top[1] - 2, t * 2, n=2, height=14, seed=2, strength=0.8)
+            steam(rgba, top[0], top[1] - 2, t * 2, n=2, height=11, seed=2, strength=0.8)
         return rgba
     if prop == 'kyusu':
         if anim == 'idle':
@@ -1980,6 +1963,7 @@ def item_frame(prop, variant, anim, f, n):
             tip = project(KY_TIP + np.array((0, 0.6, 0)), info['V'], sc, o)
             steam(rgba, tip[0], tip[1] - 1, t, n=2, height=12, seed=4, strength=0.85, spread=1.2)
             return rgba
+        # use: lean back, lift and tip, pour, snap back past upright, settle
         tilt = float(keys(f, {0: 0, 2: -6, 3: -5, 6: 40, 8: 46, 10: 48, 11: 30, 12: -7, 13: 3, 14: -1, 15: 0}))
         lift = float(keys(f, {0: 0, 2: -0.3, 3: 1, 6: 6, 10: 6.5, 12: 1.5, 13: 0, 15: 0}))
         rgba, info = render(item_parts(prop, variant, lift=lift, tilt=math.radians(tilt)), w, h, sc, o, yaw=yaw)
@@ -1994,8 +1978,9 @@ def item_frame(prop, variant, anim, f, n):
         if anim == 'idle':
             rgba, info = render(item_parts(prop, variant), w, h, sc, o, yaw=yaw)
             top = project(np.array((0, YU_RIM, 0)), info['V'], sc, o)
-            steam(rgba, top[0], top[1] - 2, t, n=3, height=18, seed=2)
+            steam(rgba, top[0], top[1] - 2, t, n=3, height=13, seed=2)
             return rgba
+        # use: a stream from above fills the cup, rings spreading where it lands; it bobs as it settles
         fill = 0.92 * ease_out(seg(f, 2, 11))
         lift = float(keys(f, {0: 0, 11: 0, 12: -0.5, 13: 0.4, 14: 0, 15: 0}))
         rgba, info = render(item_parts(prop, variant, fill=max(0.0, fill), lift=lift,
@@ -2006,7 +1991,7 @@ def item_frame(prop, variant, anim, f, n):
                      head=ease_out(seg(f, 1, 3)), tail=ease_in(seg(f, 10, 12.5)))
         if f >= 6:
             top = project(np.array((0, YU_RIM, 0)), info['V'], sc, o)
-            steam(rgba, top[0], top[1] - 2, (f - 6) / 12.0, n=3, height=16, seed=5, strength=min(1, (f - 5) / 4))
+            steam(rgba, top[0], top[1] - 2, (f - 6) / 12.0, n=3, height=12, seed=5, strength=min(1, (f - 5) / 4))
         return rgba
     if prop == 'chasen':
         if anim == 'idle':
@@ -2014,11 +1999,12 @@ def item_frame(prop, variant, anim, f, n):
             rgba, info = render(item_parts(prop, variant, tilt=tl), w, h, sc, o, yaw=yaw)
             u = seg(f, 3, 8)
             if 0 < u < 1:
-                p = rot_z(tl) @ np.array((-2.2, 17 + 9 * u, 1.4)) + np.array((0, 14, 0)) - rot_z(tl) @ np.array((0, 14, 0))
+                p = rot_z(tl) @ np.array((-2.2, 17 + 9 * u, 1.4)) + np.array((0, 14, 0)) - \
+                    rot_z(tl) @ np.array((0, 14, 0))
                 x, y, _ = project(p, info['V'], sc, o)
                 sparkle(rgba, int(x), int(y), 2 if 0.3 < u < 0.7 else 1)
             return rgba
-        # whisking: a quick M stroke back and forth, the tines lagging and splaying, then a flourish
+        # use: a quick M stroke back and forth, the tines lagging and splaying, then a flourish
         tilt = float(keys(f, {0: 0, 1: 0.12, 3: -0.3, 5: 0.3, 7: -0.3, 9: 0.25, 10: 0.05, 11: 0}))
         spin = 0.9 * math.sin(2 * math.pi * f / n * 2)
         splay = float(keys(f, {0: 0, 2: 0.6, 3: 1.0, 4: 0.3, 5: 1.0, 6: 0.3, 7: 1.0, 8: 0.3, 9: 0.8, 10: 0.2, 11: 0}))
@@ -2038,6 +2024,7 @@ def item_frame(prop, variant, anim, f, n):
                 x, y, _ = project(p, info['V'], sc, o)
                 sparkle(rgba, int(x), int(y), 2 if 0.3 < u < 0.7 else 1)
             return rgba
+        # use: dip into the tea, come up with a heap, hold, tip it off; the powder falls
         tilt = float(keys(f, {0: 0, 2: -0.38, 4: -0.42, 5: 0.12, 6: 0.06, 8: 0.05, 9: -0.5, 10: -0.6, 11: 0}))
         lift = float(keys(f, {0: 0, 2: -3, 4: -3.5, 5: 3, 6: 2, 8: 2, 9: 0, 11: 0}))
         heap = float(keys(f, {0: 0, 3: 0, 4: 0.8, 5: 1.0, 8: 1.0, 9: 0.5, 10: 0.0, 11: 0}))
@@ -2064,11 +2051,13 @@ def item_frame(prop, variant, anim, f, n):
                 sparkle(rgba, int(x), int(y), 2 if 0.3 < u < 0.7 else 1)
             return rgba
         if prop == 'tea_caddy':
+            # the lid eased up (a squeeze first), tipped and turned as leaves puff out, then dropped back
             lid = float(keys(f, {0: 0, 2: -0.3, 3: 0.0, 5: 4.5, 7: 5.8, 9: 5.4, 11: 3, 12: 0.0, 13: 0.5, 14: 0, 15: 0}))
             ltilt = float(keys(f, {0: 0, 3: 0, 5: 0.35, 7: 0.5, 9: 0.3, 11: 0.1, 12: 0, 15: 0}))
             lspin = float(keys(f, {0: 0, 3: 0, 9: 0.8, 12: 1.0, 15: 1.0}))
             lift = float(keys(f, {0: 0, 2: -0.4, 3: 0, 12: 0, 13: -0.3, 14: 0, 15: 0}))
         else:
+            # the tin rattles, the lid pops off with a flip, leaves hop out, it clinks back and bounces
             lid = float(keys(f, {0: 0, 1: -0.2, 2: 0.2, 3: -0.2, 4: 5.0, 6: 6.8, 8: 5.6, 10: 2.2, 11: 0.0, 12: 0.9,
                                 13: 0, 14: 0.25, 15: 0}))
             ltilt = float(keys(f, {0: 0, 3: 0, 4: -0.5, 6: -0.8, 8: -0.4, 10: -0.1, 11: 0, 15: 0}))
@@ -2079,7 +2068,7 @@ def item_frame(prop, variant, anim, f, n):
         if lid > 3 or 4 <= f <= 11:
             x, y, _ = project(np.array((0, top_y - 4.5, 0)), info['V'], sc, o)
             leaves2d(rgba, x, y, seg(f, 4, 13) * 1.3, n=8, seed=3 if prop == 'tea_caddy' else 5,
-                     power=1.0 if prop == 'tea_caddy' else 0.8)
+                     power=0.75 if prop == 'tea_caddy' else 0.62)
         return rgba
     raise ValueError((prop, anim))
 
@@ -2125,7 +2114,27 @@ def crop_all(anims, pad=1):
     return {k: [a[y0:y1, x0:x1] for a in v] for k, v in anims.items()}
 
 
+NOTES = {
+    'tea_kit': "A travelling tea-brewer's chabako: black urushi box with a vermilion rim, gold maki-e plum and a "
+               "silver moon on the lid, tied in purple silk cord, on an indigo furoshiki dyed with white dots.",
+    'kyusu': 'Tokoname red-clay kyusu with a side handle.',
+    'yunomi': 'Yunomi: iron-brown glaze dipped in white nuka ash glaze that ran in drips; bare foot ring; sencha.',
+    'chasen': 'Bamboo tea whisk: a handle with its node, black thread, curled tines.',
+    'chashaku': 'Smoked-bamboo tea scoop with a node and a bent tip.',
+    'tea_caddy': 'Kabazaiku tea caddy skinned in wild-cherry bark, a blossom inlaid on the lid.',
+    'tea_tin': 'Travel tin of sencha with a washi label lettered in runes and a red seal.',
+}
+VARIANT_NOTES = {
+    'clean': 'clean - lovingly kept (the main one, every animation).',
+    'worn': 'worn - rubbed edges, faded finish, chips.',
+    'dirty': 'dirty - tea stains, soot, grime, dust.',
+    'repaired': 'repaired - kintsugi, twine wraps, staples, a mismatched part.',
+}
+
+
 def build(props=None, variants=VARIANTS, procs=4, outdir=None):
+    """Render every frame (in parallel), crop each prop to one frame size and
+    export it with kit_export.export_prop as <prop>_<variant>."""
     from multiprocessing import Pool
     from kit_export import export_prop
     props = props or list(ANIMS)
@@ -2149,24 +2158,6 @@ def build(props=None, variants=VARIANTS, procs=4, outdir=None):
         note = NOTES.get(p, '') + ' Variant: ' + VARIANT_NOTES[v]
         written.append(export_prop(f'{p}_{v}', anims, fps=12, note=note, **kw))
     return written
-
-
-NOTES = {
-    'tea_kit': 'A travelling tea-brewer\'s chabako: black urushi box with a vermilion rim, gold maki-e plum and a '
-               'silver moon on the lid, tied in purple silk cord, on an indigo seigaiha furoshiki.',
-    'kyusu': 'Tokoname red-clay kyusu with a side handle.',
-    'yunomi': 'Yunomi: iron-brown glaze dipped in white nuka ash glaze that ran in drips; bare foot ring; sencha.',
-    'chasen': 'Bamboo tea whisk: a handle with its node, black thread, curled tines.',
-    'chashaku': 'Smoked-bamboo tea scoop with a node and a bent tip.',
-    'tea_caddy': 'Kabazaiku tea caddy skinned in wild-cherry bark, a blossom inlaid on the lid.',
-    'tea_tin': 'Travel tin of sencha with a washi label lettered in runes and a red seal.',
-}
-VARIANT_NOTES = {
-    'clean': 'clean - lovingly kept (the main one, every animation).',
-    'worn': 'worn - rubbed edges, faded finish, chips.',
-    'dirty': 'dirty - tea stains, soot, grime, dust.',
-    'repaired': 'repaired - kintsugi, twine wraps, staples, a mismatched part.',
-}
 
 
 # ---------------------------------------------------------------- previews

@@ -67,7 +67,7 @@ LUG = {
     'lug_dust':   [(118, 104, 92), (150, 136, 118), (180, 168, 146), (208, 198, 176)],
     'lug_hole':   [(14, 10, 16), (26, 18, 26), (40, 28, 36)],
     # the travel bag: boro indigo, its patches, bamboo, straw, a gourd
-    'lug_aiw':    [(34, 40, 58), (50, 62, 86), (72, 88, 116), (100, 118, 146), (136, 152, 174), (178, 190, 204)],
+    'lug_aiw':    [(30, 34, 54), (44, 54, 80), (64, 78, 108), (90, 106, 138), (124, 140, 166), (168, 180, 198)],
     'lug_kaki':   [(58, 24, 24), (96, 40, 32), (140, 64, 42), (182, 96, 58), (214, 134, 86), (236, 176, 128)],
     'lug_asagi':  [(40, 58, 74), (60, 88, 104), (88, 122, 136), (124, 160, 168), (170, 198, 198)],
     'lug_ochre':  [(70, 50, 24), (112, 84, 36), (156, 120, 50), (196, 160, 74), (226, 198, 118)],
@@ -107,8 +107,8 @@ MATS[M_STRAP] = Mat('lug_strap', [0.25, 0.45, 0.62, 0.8, 0.97])
 MATS[M_BRASS] = Mat('lug_brass', [0.34, 0.56, 0.74, 0.9, 0.995], gloss=0.95)
 MATS[M_TARN] = Mat('lug_tarn', [0.3, 0.5, 0.68, 0.88, 0.995], gloss=0.985)
 MATS[M_STEEL] = Mat('lug_steel', [0.3, 0.5, 0.66, 0.84, 0.99], gloss=0.95)
-MATS[M_LINING] = Mat('lug_lining', [0.2, 0.36, 0.52, 0.7, 0.9], soft=0.08)
-MATS[M_POCKET] = Mat('lug_lining', [0.24, 0.4, 0.56, 0.76, 0.93], soft=0.08)
+MATS[M_LINING] = Mat('lug_lining', [0.2, 0.36, 0.52, 0.7, 0.9], soft=0.035)
+MATS[M_POCKET] = Mat('lug_lining', [0.24, 0.4, 0.56, 0.76, 0.93], soft=0.035)
 MATS[M_CARD] = Mat('lug_card', [0.3, 0.5, 0.7, 0.88])
 MATS[M_STRING] = Mat('lug_string', [0.35, 0.6, 0.85])
 MATS[M_AI] = Mat('lug_ai', [0.24, 0.4, 0.56, 0.74, 0.93], soft=0.1)
@@ -120,8 +120,8 @@ MATS[M_TAPE] = Mat('lug_tape', [0.35, 0.6, 0.85])
 MATS[M_MUD] = Mat('lug_mud', [0.3, 0.5, 0.7, 0.9])
 MATS[M_THREAD] = Mat('lug_thread', [0.35, 0.6, 0.85])
 MATS[M_HOLE] = Mat('lug_hole', [0.5, 0.8])
-MATS[M_BAG] = Mat('lug_ai', [0.24, 0.42, 0.6, 0.8, 0.96], soft=0.06)
-MATS[M_BAGW] = Mat('lug_aiw', [0.24, 0.42, 0.6, 0.8, 0.96], soft=0.06)
+MATS[M_BAG] = Mat('lug_ai', [0.24, 0.42, 0.6, 0.8, 0.96], soft=0.03)
+MATS[M_BAGW] = Mat('lug_aiw', [0.26, 0.46, 0.66, 0.86, 0.98], soft=0.03)
 MATS[M_KAKI] = Mat('lug_kaki', [0.22, 0.38, 0.54, 0.72, 0.92], soft=0.06)
 MATS[M_ASAGI] = Mat('lug_asagi', [0.24, 0.42, 0.6, 0.8], soft=0.06)
 MATS[M_OCHRE] = Mat('lug_ochre', [0.24, 0.42, 0.6, 0.8], soft=0.06)
@@ -130,7 +130,7 @@ MATS[M_STRAW] = Mat('lug_straw', [0.3, 0.5, 0.7, 0.9])
 MATS[M_GOURD] = Mat('lug_gourd', [0.26, 0.44, 0.62, 0.8, 0.96], gloss=0.95)
 MATS[M_CORD] = Mat('lug_beni', [0.24, 0.42, 0.6, 0.78, 0.94])
 MATS[M_WOOD] = Mat('wood', [0.2, 0.32, 0.44, 0.58, 0.74, 0.92])
-MATS[M_TINE] = Mat('lug_cream', [0.22, 0.4, 0.6, 0.82])
+MATS[M_TINE] = Mat('lug_bamboo', [0.18, 0.3, 0.46, 0.64, 0.84])
 MATS[M_TWINE] = Mat('lug_twine', [0.3, 0.55, 0.8], soft=0.05)
 
 NMAT = 64                                # mat id = group * NMAT + material
@@ -1637,8 +1637,8 @@ def bag_rig(pose, variant):
     wl, wt = pose.get('whisk', (0.0, 0.0))
     Rw = rot_z(0.5 + wt) @ rot_x(0.12)
     R.group(G_WHISK, Rw, np.array((-0.36, 0.66 + wl - 0.05 * sag, 0.03)))
-    R.cap((0, 0, 0), (0, 0.25, 0), 0.03, mat=M_BAMBOO)
-    R.ell((0, 0.34, 0), (0.068, 0.11, 0.068), k=0.03, mat=M_TINE)
+    R.cap((0, 0, 0), (0, 0.22, 0), 0.032, mat=M_BAMBOO)
+    R.ell((0, 0.34, 0), (0.08, 0.135, 0.08), k=0.04, mat=M_TINE)
     # the gourd charm swinging from the front ring
     sw, sw2 = pose.get('charm', (0.0, 0.0))
     hang = Rf @ np.array((0.06, 2 * RING_R - 0.04 - RING_T, 0.0)) + pf
@@ -1724,8 +1724,6 @@ def render_bag(pose, variant='clean', yaw=None, pitch=None, size=None, ground=No
     F.band()
     # kasuri: little white splashes woven into the indigo
     u = th * 0.68
-    kx = (np.mod(u * 6.0 + 0.5 * np.floor(yv * 7.0), 1.0) < 0.16) & (np.mod(yv * 7.0, 1.0) < 0.16)
-    F.colour(body & ~pm & kx & (F.idx >= 1), 'lug_aiw' if vr['faded'] else 'lug_asagi', di=-1)
     # stripes on the ochre patch, a check on the persimmon one
     oc = F.sel(G_BODY, M_OCHRE)
     F.idx[oc & (np.mod(yv * 22.0, 1.0) < 0.35)] -= 1
@@ -1742,7 +1740,6 @@ def render_bag(pose, variant='clean', yaw=None, pitch=None, size=None, ground=No
         ths = [t0 + dt * i / 8 for i in range(9)]
         ys = [0.86 - 0.04 * pose.get('sag', 0.0) - 0.05 * i for i in range(9)]
         F.line3d(G_BODY, bag_curve(arrs, ths, ys), crease, mats=cloth_m + [M_KAKI, M_ASAGI, M_OCHRE], tol=0.07)
-        F.line3d(G_BODY, bag_curve(arrs, [t - 0.05 for t in ths], ys), glow, mats=cloth_m, tol=0.07)
     # sashiko: white running stitches round each patch and in rows across them, and round the base
     def stitch(ys, xs):
         sel = np.zeros(F.hit.shape, bool)
@@ -1762,9 +1759,16 @@ def render_bag(pose, variant='clean', yaw=None, pitch=None, size=None, ground=No
             yr = y0 + (y1 - y0) * (r + 1) / (rows + 1)
             F.line3d(G_BODY, bag_curve(arrs, [t0 + 0.07 + (t1 - t0 - 0.14) * i / 10 for i in range(11)], [yr] * 11),
                      stitch, dash=(0.04, duty), dash_phase=0.5 * r, mats=allm, tol=0.07)
-    for yr in (0.09, 0.15):
-        ths = [-math.pi + TAU * i / 60 for i in range(61)]
-        F.line3d(G_BODY, bag_curve(arrs, ths, [yr] * 61), stitch, dash=(0.05, duty), mats=allm, tol=0.07)
+    def row(ys, xs):                                           # sashiko rows right round the body
+        sel = np.zeros(F.hit.shape, bool)
+        sel[ys, xs] = True
+        sel &= ~pm
+        F.colour(sel, 'lug_aiw' if vr['faded'] else 'lug_asagi', idx=np.clip(F.idx + 1, 2, 4))
+        F.keep[sel] = True
+    for k, yr in enumerate((0.09, 0.15, 0.27, 0.39, 0.51, 0.63)):
+        ths = [-math.pi + TAU * i / 72 for i in range(73)]
+        F.line3d(G_BODY, bag_curve(arrs, ths, [yr - 0.04 * pose.get('sag', 0.0) * (yr > 0.3)] * 73),
+                 stitch if k < 2 else row, dash=(0.05, duty), dash_phase=0.5 * k, mats=allm, tol=0.07)
     # bamboo: nodes round the rings, a lit stripe
     for k in range(2):
         bm = F.sel(G_RING + k, M_BAMBOO)
@@ -1774,10 +1778,10 @@ def render_bag(pose, variant='clean', yaw=None, pitch=None, size=None, ground=No
     wb = F.sel(G_WHISK, M_BAMBOO)
     F.idx[wb & (np.abs(q[..., 1] - 0.12) < 0.012)] = 1
     tn = F.sel(G_WHISK, M_TINE)
-    F.idx[tn & (np.mod(np.arctan2(q[..., 0], q[..., 2]) * 5 / math.pi, 1.0) < 0.34) & (q[..., 1] < 0.41)] -= 2
-    crown = tn & (np.hypot(q[..., 0], q[..., 2]) < 0.036) & (q[..., 1] > 0.4)
-    F.colour(crown, 'lug_ochre', idx=1)                        # the tips curled in round a dark hollow
-    F.idx[tn & (q[..., 1] < 0.26)] -= 1
+    F.idx[tn & (np.mod(np.arctan2(q[..., 0], q[..., 2]) * 4 / math.pi, 1.0) < 0.42) & (q[..., 1] < 0.44)] -= 2
+    crown = tn & (np.abs(np.hypot(q[..., 0], q[..., 2]) - 0.03) < 0.014) & (q[..., 1] > 0.43)
+    F.colour(crown, 'lug_ochre', idx=1)                        # the tips curled in at the crown
+    F.idx[tn & (q[..., 1] < 0.25)] -= 1
     # the straw mat: woven along its length, its rolled end spiralling, red ties
     st = F.sel(G_MAT, M_STRAW)
     a0, _, Rm = mat_axis(pose.get('mat_rot', 0.0))
@@ -1957,9 +1961,9 @@ def bag_drop():
             cs = rest['charm']
         fx = []
         if f >= 2:
-            for j, (x, z, vx, vz, r) in enumerate(((-0.85, 0.25, -0.45, 0.1, 4.5), (0.85, 0.3, 0.45, 0.1, 4.0),
-                                                   (-0.35, 0.55, -0.2, 0.35, 4.5), (0.4, 0.55, 0.2, 0.35, 5.0),
-                                                   (-0.7, -0.35, -0.4, -0.1, 3.5))):
+            for j, (x, z, vx, vz, r) in enumerate(((-0.8, 0.25, -0.25, 0.1, 4.5), (0.8, 0.3, 0.22, 0.1, 4.0),
+                                                   (-0.35, 0.55, -0.15, 0.3, 4.5), (0.35, 0.55, 0.12, 0.3, 5.0),
+                                                   (-0.65, -0.3, -0.2, -0.1, 3.5))):
                 tt = (f - 2 - 0.4 * (j % 2)) / 8.0
                 e = 1 - (1 - min(1.0, max(0.0, tt))) ** 2
                 fx.append(('puff', (x + vx * e, 0.05 + 0.12 * e, z + vz * e), r, tt, 80 + j))

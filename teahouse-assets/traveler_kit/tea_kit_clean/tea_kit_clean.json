@@ -4,40 +4,40 @@
   "idle": {
    "frames": 12,
    "fps": 12,
-   "frame_w": 134,
-   "frame_h": 109,
+   "frame_w": 128,
+   "frame_h": 104,
    "sheet": "idle_sheet.png",
    "gif": "idle.gif"
   },
   "turn": {
    "frames": 32,
    "fps": 12,
-   "frame_w": 134,
-   "frame_h": 109,
+   "frame_w": 128,
+   "frame_h": 104,
    "sheet": "turn_sheet.png",
    "gif": "turn.gif"
   },
   "open": {
    "frames": 24,
    "fps": 12,
-   "frame_w": 134,
-   "frame_h": 109,
+   "frame_w": 128,
+   "frame_h": 104,
    "sheet": "open_sheet.png",
    "gif": "open.gif"
   },
   "brew": {
    "frames": 36,
    "fps": 12,
-   "frame_w": 134,
-   "frame_h": 109,
+   "frame_w": 128,
+   "frame_h": 104,
    "sheet": "brew_sheet.png",
    "gif": "brew.gif"
   },
   "turn_open": {
    "frames": 32,
    "fps": 12,
-   "frame_w": 134,
-   "frame_h": 109,
+   "frame_w": 128,
+   "frame_h": 104,
    "sheet": "turn_open_sheet.png",
    "gif": "turn_open.gif"
   }

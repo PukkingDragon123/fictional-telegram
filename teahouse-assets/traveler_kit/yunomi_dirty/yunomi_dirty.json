@@ -5,7 +5,7 @@
    "frames": 12,
    "fps": 12,
    "frame_w": 26,
-   "frame_h": 55,
+   "frame_h": 50,
    "sheet": "idle_sheet.png",
    "gif": "idle.gif"
   },
@@ -13,7 +13,7 @@
    "frames": 24,
    "fps": 12,
    "frame_w": 26,
-   "frame_h": 55,
+   "frame_h": 50,
    "sheet": "turn_sheet.png",
    "gif": "turn.gif"
   },
@@ -21,7 +21,7 @@
    "frames": 16,
    "fps": 12,
    "frame_w": 26,
-   "frame_h": 55,
+   "frame_h": 50,
    "sheet": "use_sheet.png",
    "gif": "use.gif"
   }

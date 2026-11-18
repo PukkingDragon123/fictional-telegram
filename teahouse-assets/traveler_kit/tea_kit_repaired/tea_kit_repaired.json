@@ -4,24 +4,24 @@
   "idle": {
    "frames": 12,
    "fps": 12,
-   "frame_w": 119,
-   "frame_h": 107,
+   "frame_w": 113,
+   "frame_h": 103,
    "sheet": "idle_sheet.png",
    "gif": "idle.gif"
   },
   "turn": {
    "frames": 32,
    "fps": 12,
-   "frame_w": 119,
-   "frame_h": 107,
+   "frame_w": 113,
+   "frame_h": 103,
    "sheet": "turn_sheet.png",
    "gif": "turn.gif"
   },
   "open": {
    "frames": 24,
    "fps": 12,
-   "frame_w": 119,
-   "frame_h": 107,
+   "frame_w": 113,
+   "frame_h": 103,
    "sheet": "open_sheet.png",
    "gif": "open.gif"
   }
