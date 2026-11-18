@@ -1,0 +1,30 @@
+{
+ "name": "world_map_repaired",
+ "animations": {
+  "idle": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 152,
+   "frame_h": 104,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 28,
+   "fps": 12,
+   "frame_w": 152,
+   "frame_h": 104,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "route": {
+   "frames": 22,
+   "fps": 12,
+   "frame_w": 152,
+   "frame_h": 104,
+   "sheet": "route_sheet.png",
+   "gif": "route.gif"
+  }
+ },
+ "note": "The traveller's world map, a hand scroll on washi: an island chain with a snow volcano, forests, compass rose, rune labels and the dotted route by foot, ferry and rail to where the tea grows. idle: the stave end curls up and settles; turn: a full 3D turn (front, edge, back with the title slip and notes); unroll: the cord slips off and it unrolls left to right; route: the route draws itself. State: repaired."
+}

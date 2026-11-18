@@ -31,6 +31,10 @@ SHADOW_RGBA = (44, 26, 40, 92)         # flat drop shadow
 LIGHT = np.array([-0.52, -0.62, 0.59])
 LIGHT = LIGHT / np.linalg.norm(LIGHT)
 
+# shadows are cast by a steeper light than the shading: short contact shadows read best in a sprite
+SHADOW_L = np.array([-0.2, -0.24, 1.0])
+SHADOW_L = SHADOW_L / np.linalg.norm(SHADOW_L)
+
 SHEET, RIM = 1, 2                      # materials 3+ are solids (wood, steel, cord...)
 SHEET_BACK = 11                        # the back layer of a sheet (drawn as SHEET, face 1)
 
@@ -449,8 +453,9 @@ def lookup(g, front, back, sal_f=None, sal_b=None):
     TH, TW = front.shape[:2]
     out = np.zeros((h, w, 4), np.uint8)
     sheet = g['mat'] == SHEET
+    exact = np.zeros((h, w), bool)
     if not sheet.any():
-        return out, sheet
+        return out, sheet, exact
     surf = np.where(sheet, g['face'] + 1, 0)
     same = np.zeros((h, w, 2), bool)
     same[:, :-1, 0] = (surf[:, :-1] == surf[:, 1:]) & (surf[:, :-1] > 0)
@@ -475,11 +480,12 @@ def lookup(g, front, back, sal_f=None, sal_b=None):
         ext_x = np.maximum(np.hypot(txx, txy), 1.0)
         ext_y = np.maximum(np.hypot(tyx, tyy), 1.0)
         _lookup(tex, sal.astype(np.float64), tx, TY, ext_x, ext_y, sel, out)
-    return out, sheet
+        exact[sel] = ((ext_x <= 1.08) & (ext_y <= 1.08))[sel]
+    return out, sheet, exact
 
 
 # ---------------------------------------------------------------- light
-def bands(g, sel, n0=(0, 0, 1), cuts=(-0.42, -0.14, 0.2), flip_back=True):
+def bands(g, sel, n0=(0, 0, 1), cuts=(-1.02, -0.3, 0.24), flip_back=True):
     """Light step per pixel: 0 where the surface faces the way it did at rest."""
     n = g['n'].copy()
     if flip_back:
@@ -597,19 +603,38 @@ def specks(tex):
     return (key != up) & (key != dn) & (key != lf) & (key != rt)
 
 
-def shadow_mask(mesh, cam, plane_z=0.0, min_h=0.4, light=LIGHT):
-    """Where the parts of mesh lifted above plane_z throw their shadow onto it."""
+def shadow_height(mesh, cam, plane_z=0.0, min_h=1.2, light=SHADOW_L):
+    """Shadow map: for every point of the table (z = plane_z) the height of
+    the highest thing between it and the light (-1e9 where nothing is)."""
     P = mesh.P
     lifted = P[:, 2] > plane_z + min_h
     tl = lifted[mesh.T].any(1)
+    h, w = cam.h, cam.w
     if not tl.any():
-        return np.zeros((cam.h, cam.w), bool)
+        return np.full((h, w), -1e9)
     s = (P[:, 2] - plane_z) / light[2]
     Q = P - light[None, :] * s[:, None]
     Q[:, 2] = plane_z
+    sx, sy, _ = cam.project(Q)
     m = Mesh(Q, np.tile([0, 0, 1.0], (len(Q), 1)), np.zeros((len(Q), 2)), mesh.T[tl], 9)
-    g = raster(m, cam)
-    return g['mat'] == 9
+    g = dict(z=np.full((h, w), -1e9), mat=np.zeros((h, w), np.int64), face=np.zeros((h, w), np.int64),
+             u=np.zeros((h, w)), v=np.zeros((h, w)), n=np.zeros((h, w, 3)), tri=np.full((h, w), -1, np.int64))
+    _raster(sx, sy, P[:, 2].copy(), m.T, m.mat, m.bias, m.UV, m.N, 1, 1, np.ones((1, 1), np.bool_),
+            np.ones((1, 1), np.bool_), g['z'], g['mat'], g['face'], g['u'], g['v'], g['n'], g['tri'])
+    return g['z']
+
+
+def shadowed(H, z, sel, gap=1.0, light=SHADOW_L):
+    """Pixels (with their height z) that something at least `gap` higher
+    shades from the light."""
+    h, w = H.shape
+    ys, xs = np.nonzero(sel)
+    zz = z[ys, xs]
+    px = np.clip(np.round(xs - light[0] / light[2] * zz).astype(int), 0, w - 1)
+    py = np.clip(np.round(ys - light[1] / light[2] * zz).astype(int), 0, h - 1)
+    out = np.zeros((h, w), bool)
+    out[ys, xs] = H[py, px] > zz + gap
+    return out
 
 
 def compose(parts, w, h):

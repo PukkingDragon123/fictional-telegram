@@ -1,0 +1,30 @@
+{
+ "name": "train_ticket",
+ "animations": {
+  "idle": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 84,
+   "frame_h": 60,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 28,
+   "fps": 12,
+   "frame_w": 84,
+   "frame_h": 60,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "punch": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 84,
+   "frame_h": 60,
+   "sheet": "punch_sheet.png",
+   "gif": "punch.gif"
+  }
+ },
+ "note": "An Edmondson train ticket: salmon card, blue-black print, a vermilion class stripe, the loco, a violet date. idle: a corner lifts; turn: full 3D turn; punch: the conductor's punch bites a hole. State: hero."
+}

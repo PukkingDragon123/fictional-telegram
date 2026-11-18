@@ -1,0 +1,30 @@
+{
+ "name": "boat_pass_dirty",
+ "animations": {
+  "idle": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 104,
+   "frame_h": 64,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 28,
+   "fps": 12,
+   "frame_w": 104,
+   "frame_h": 64,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "stamp": {
+   "frames": 14,
+   "fps": 12,
+   "frame_w": 104,
+   "frame_h": 64,
+   "sheet": "stamp_sheet.png",
+   "gif": "stamp.gif"
+  }
+ },
+ "note": "A ferry pass tag on jute string: sea-glass card, brass eyelet, a ship roundel, corner punched. idle: corner and string stir; turn: full 3D turn; stamp: a wooden hanko leaves a crooked red seal. State: dirty."
+}

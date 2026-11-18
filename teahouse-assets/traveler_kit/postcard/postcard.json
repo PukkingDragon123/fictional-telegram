@@ -1,0 +1,30 @@
+{
+ "name": "postcard",
+ "animations": {
+  "idle": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 96,
+   "frame_h": 80,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 28,
+   "fps": 12,
+   "frame_w": 96,
+   "frame_h": 80,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "flip": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 96,
+   "frame_h": 80,
+   "sheet": "flip_sheet.png",
+   "gif": "flip.gif"
+  }
+ },
+ "note": "A postcard: a dusk volcano over a lake with a torii in the water and black pines; the back has the message, a stamp and postmark. idle: a dog-ear flutters; turn: full 3D turn; flip: it is flipped over in the air and back. State: hero."
+}
