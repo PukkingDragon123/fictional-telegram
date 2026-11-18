@@ -1,0 +1,29 @@
+{
+ "name": "omamori_charm_worn",
+ "animations": {
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 96,
+   "frame_h": 148,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "idle": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 96,
+   "frame_h": 148,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "jingle": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 96,
+   "frame_h": 148,
+   "sheet": "jingle_sheet.png",
+   "gif": "jingle.gif"
+  }
+ }
+}

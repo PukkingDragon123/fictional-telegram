@@ -1,0 +1,29 @@
+{
+ "name": "seal_plush_torn",
+ "animations": {
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 176,
+   "frame_h": 128,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "idle": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 176,
+   "frame_h": 128,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "squish": {
+   "frames": 20,
+   "fps": 12,
+   "frame_w": 176,
+   "frame_h": 128,
+   "sheet": "squish_sheet.png",
+   "gif": "squish.gif"
+  }
+ }
+}
