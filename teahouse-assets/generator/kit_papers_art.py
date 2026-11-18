@@ -9,8 +9,7 @@ import math
 import random
 import numpy as np
 from scipy import ndimage
-import pixel
-from pixel import Canvas, PAL, RAMPS, LOOKUP, step, text, text_width, RUNES
+from pixel import Canvas, PAL, step, text, text_width
 import kit_papers_render as KR
 
 # ---------------------------------------------------------------- colours (dark -> light, hue-shifted)
@@ -312,11 +311,7 @@ def tear_corner(t, corner, size, rng, fibre=None):
     if corner in ('bl', 'br'):
         yy = h - 1 - yy
     # inside the corner triangle (below the jagged line from (sx,0) to (0,sy))
-    gone = np.zeros((h, w), bool)
     path = np.array(pts)
-    for y in range(h):
-        for x in range(min(w, sx + 3)):
-            pass
     lx = np.interp(yy + 0.5, path[:, 1], path[:, 0], left=sx, right=-1)
     gone = (xx + 0.5 < lx) & (yy < sy + 1)
     gone = clean_mask(gone, 2)
@@ -341,7 +336,6 @@ def tape(t, x, y, w, h, angle=0.0, seed=0):
     edge = m & ~ndimage.binary_erosion(m)
     inner = m & ~edge
     shift(t, inner, 1)
-    rgb = t.a[..., :3]
     t.a[edge & (t.a[..., 3] > 0), :3] = P('pap_tape0')
     # ragged cut ends
     ends = m & (np.abs(u) > w / 2 - 1) & (((xx + yy) % 2) == 0)
@@ -1048,7 +1042,6 @@ def seal_mark(t, cx, cy, angle=-0.2, size=9, word='FU', rng=None):
     strokes = [(-2.6, -2.2, -0.6, -2.2), (-1.6, -2.2, -1.6, 2.6), (-2.6, 0.2, -0.6, 0.2), (-2.6, 2.6, -0.4, 1.6),
                (0.8, -2.6, 0.8, 2.6), (0.8, -2.6, 2.6, -2.6), (2.6, -2.6, 2.6, 0.0), (0.8, 0.0, 2.6, 0.0),
                (1.6, 0.0, 2.8, 2.6)]
-    tmp = Tex(t.w, t.h, (255, 255, 255))
     for (x0, y0, x1, y1) in strokes:
         a, b = R(x0, y0), R(x1, y1)
         for (x, y) in bres(math.floor(a[0]), math.floor(a[1]), math.floor(b[0]), math.floor(b[1])):
@@ -1147,7 +1140,6 @@ def postcard_front(seed=41):
     w, h = PC_W, PC_H
     t = Tex(w, h, 'pap_cream3')
     x0, y0, x1, y1 = PC_B, PC_B, w - PC_B - 1, h - PC_B - 1
-    pw, ph = x1 - x0 + 1, y1 - y0 + 1                         # 58 x 38
     HOR = y0 + 23                                             # the far shore / horizon
     # sky in bands, dusk violet at the top to gold at the horizon
     bands = [(0, 'pap_dusk0'), (5, 'pap_dusk1'), (10, 'pap_dusk2'), (14, 'pap_dusk3'), (18, 'pap_dusk4'),

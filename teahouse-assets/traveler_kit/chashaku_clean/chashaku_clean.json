@@ -1,0 +1,30 @@
+{
+ "name": "chashaku_clean",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 52,
+   "frame_h": 49,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 52,
+   "frame_h": 49,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "use": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 52,
+   "frame_h": 49,
+   "sheet": "use_sheet.png",
+   "gif": "use.gif"
+  }
+ },
+ "note": "Smoked-bamboo tea scoop with a node and a bent tip. Variant: clean - lovingly kept (the main one, every animation)."
+}

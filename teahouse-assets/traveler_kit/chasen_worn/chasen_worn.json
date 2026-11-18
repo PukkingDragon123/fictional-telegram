@@ -1,0 +1,30 @@
+{
+ "name": "chasen_worn",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 38,
+   "frame_h": 43,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 38,
+   "frame_h": 43,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "use": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 38,
+   "frame_h": 43,
+   "sheet": "use_sheet.png",
+   "gif": "use.gif"
+  }
+ },
+ "note": "Bamboo tea whisk: a handle with its node, black thread, curled tines. Variant: worn - rubbed edges, faded finish, chips."
+}

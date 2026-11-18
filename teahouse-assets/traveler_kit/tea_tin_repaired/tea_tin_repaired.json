@@ -1,0 +1,30 @@
+{
+ "name": "tea_tin_repaired",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 38,
+   "frame_h": 58,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 38,
+   "frame_h": 58,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "use": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 38,
+   "frame_h": 58,
+   "sheet": "use_sheet.png",
+   "gif": "use.gif"
+  }
+ },
+ "note": "Travel tin of sencha with a washi label lettered in runes and a red seal. Variant: repaired - kintsugi, twine wraps, staples, a mismatched part."
+}

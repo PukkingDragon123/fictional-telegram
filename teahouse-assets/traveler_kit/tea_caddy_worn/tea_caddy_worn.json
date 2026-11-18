@@ -1,0 +1,30 @@
+{
+ "name": "tea_caddy_worn",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 35,
+   "frame_h": 51,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 35,
+   "frame_h": 51,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "use": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 35,
+   "frame_h": 51,
+   "sheet": "use_sheet.png",
+   "gif": "use.gif"
+  }
+ },
+ "note": "Kabazaiku tea caddy skinned in wild-cherry bark, a blossom inlaid on the lid. Variant: worn - rubbed edges, faded finish, chips."
+}

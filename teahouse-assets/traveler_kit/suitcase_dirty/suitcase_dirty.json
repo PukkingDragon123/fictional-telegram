@@ -1,0 +1,30 @@
+{
+ "name": "suitcase_dirty",
+ "animations": {
+  "idle": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 136,
+   "frame_h": 92,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 32,
+   "fps": 12,
+   "frame_w": 136,
+   "frame_h": 92,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "open": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 136,
+   "frame_h": 128,
+   "sheet": "open_sheet.png",
+   "gif": "open.gif"
+  }
+ },
+ "note": "3/4 view from slightly above, light from the upper left. idle and turn frames are 136x92; open and close frames are 136x128 (taller, for the lid): same width, and the ground under the case sits on the same row counted from the bottom (32 px up), so anchor every animation bottom-centre. turn is a full 360 degree turn in 32 even steps (drag to rotate). The last frame of close equals the first frame of idle."
+}

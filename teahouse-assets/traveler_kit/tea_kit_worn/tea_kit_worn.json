@@ -1,0 +1,30 @@
+{
+ "name": "tea_kit_worn",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 119,
+   "frame_h": 107,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 32,
+   "fps": 12,
+   "frame_w": 119,
+   "frame_h": 107,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "open": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 119,
+   "frame_h": 107,
+   "sheet": "open_sheet.png",
+   "gif": "open.gif"
+  }
+ },
+ "note": "A travelling tea-brewer's chabako: black urushi box with a vermilion rim, gold maki-e plum and a silver moon on the lid, tied in purple silk cord, on an indigo seigaiha furoshiki. Variant: worn - rubbed edges, faded finish, chips."
+}

@@ -1,0 +1,30 @@
+{
+ "name": "travel_bag_repaired",
+ "animations": {
+  "idle": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 128,
+   "frame_h": 116,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 32,
+   "fps": 12,
+   "frame_w": 128,
+   "frame_h": 116,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "drop": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 128,
+   "frame_h": 116,
+   "sheet": "drop_sheet.png",
+   "gif": "drop.gif"
+  }
+ },
+ "note": "3/4 view from slightly above, light from the upper left. All frames 128x116; the ground under the bag is 20 px above the bottom edge (anchor bottom-centre). turn is a full 360 degree turn in 32 even steps (drag to rotate). drop ends on the first frame of idle."
+}

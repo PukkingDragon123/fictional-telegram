@@ -160,7 +160,7 @@ HOLE = _mat('hole', 'hole', 'matte', 0.2, 0.0)
 GRIME = _mat('grime', 'grime', 'matte', 0.4, 0.2, 0.12)
 STAIN = _mat('stain', 'stain', 'satin', 0.35, 0.1, 0.06)
 RUST = _mat('rust', 'rust', 'matte', 0.35, 0.1, 0.15)
-DUST = _mat('dust', 'dust', 'matte', 0.5, 0.2, 0.1)
+DUST = _mat('dust', 'dust', 'matte', 0.5, -0.2, 0.0)
 SASHIKO = _mat('sashiko', 'sashiko', 'matte', 0.5, 0.3)
 MAKIE = _mat('makie', 'gold', 'matte', 0.6, 0.9)
 SILVER = _mat('silver', 'tin', 'matte', 0.6, 1.4)
@@ -1411,7 +1411,8 @@ def kit_box_parts(variant, lid_T=None, lid_R=None, closed=True):
         lac = hit & (mat == LACQ)
         if worn:
             ed = edge_dist(P - (0, BX_TH / 2, 0), (BX_W, BX_TH / 2, BX_D))
-            mat[lac & (ed < 1.3 + 1.6 * vnoise(P * 0.4, 1.0))] = SHU
+            patchy = np.clip((fbm(P * 0.12, 1.0) - 0.45) / 0.25, 0, 1)
+            mat[lac & (ed < 0.15 + 3.0 * patchy)] = SHU
         if dirty:
             mat[lac & (P[..., 1] < 3.0 + 2 * vnoise(P * 0.3, 1.0))] = GRIME
             mat[hit & (mat == SHU) & (fbm(P * 0.3, 1.0) > 0.6)] = GRIME
@@ -1440,10 +1441,11 @@ def kit_box_parts(variant, lid_T=None, lid_R=None, closed=True):
         g['moonmark'] = top & moon & (np.hypot(-x - 31, z + 16) < 3.2)
         if worn:
             ed = edge_dist(P, (LD_W, LD_H, LD_D))
-            mat[lac & (ed < 1.4 + 2.2 * vnoise(P * 0.35, 1.0))] = SHU
+            patchy = np.clip((fbm(P * 0.12, 1.0) - 0.45) / 0.25, 0, 1)
+            mat[lac & (ed < 0.15 + 3.4 * patchy)] = SHU
             mat[top & (np.hypot(x - 20, z - 4) < 7 + 4 * vnoise(P * 0.3, 1.0)) & (mat == LACQ)] = SHU
         if dirty:
-            mat[top & (fbm(P * 0.35, 1.0) > 0.55)] = DUST
+            mat[top & (fbm(P * 0.09, 1.0) > 0.6)] = DUST
             for (sx, sz) in ((-24, -14), (14, 18)):
                 d = np.hypot(x - sx, z - sz)
                 mat[top & (np.abs(d - 7.0) < 0.6 + 0.4 * vnoise(P, 1.0))] = STAIN

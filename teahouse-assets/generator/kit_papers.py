@@ -16,10 +16,8 @@ Props (each also as _clean, _worn, _dirty, _repaired):
   postcard       idle, turn, flip
 """
 import math
-import random
 import sys
 import numpy as np
-import pixel
 from pixel import PAL, RAMPS
 import kit_papers_render as KR
 import kit_papers_art as A
@@ -465,7 +463,7 @@ def map_route(variant='hero', n=22):
     sched = [0.0, 0.0] + sched[:-1]
     for k in range(n):
         if k < len(sched):
-            r, pulse, ring = sched[k], 0, False
+            r, pulse = sched[k], 0
         else:
             r = 1.0
             pulse = [0, 6.0, 7.5, 9.0, 0, 0][min(5, k - len(sched))]
@@ -474,19 +472,12 @@ def map_route(variant='hero', n=22):
     return out
 
 
-def map_faces_route(variant, r, pulse, mark):
-    f = A.map_front(variant, r, pulse, mark=mark)
-    b = A.map_back()
-    fa, ba = f.a.copy(), b.a.copy()
-    ba[..., 3] = fa[:, ::-1, 3]
-    return fa, ba
-
-
 # ================================================================ cards
 class Card:
     """A stiff card W x H texels with its top-left at (ox, oy). curl: a corner
     lifting about a diagonal fold (corner, size px, angle rad, radius); bow:
-    the whole card arching; lift: raised off the table."""
+    the whole card arching; lift: raised off the table; dent: pressed in
+    under a stamp (u, v, radius, depth)."""
 
     def __init__(self, W, H, ox, oy, curl=None, bow=0.0, lift=0.0, dent=None):
         self.W, self.H, self.ox, self.oy = W, H, ox, oy
@@ -502,12 +493,10 @@ class Card:
         if self.bow:
             k = (U - self.W / 2) / (self.W / 2)
             z += self.bow * (1 - k * k)
-            dz = -self.bow * 2 * k / (self.W / 2)
-            n[:, 0] = -dz
-        if self.dent is not None:                          # pressed in under a stamp / punch
+            n[:, 0] = self.bow * 2 * k / (self.W / 2)
+        if self.dent is not None:
             cx, cy, r, depth = self.dent
-            d2 = ((U - cx) ** 2 + (V - cy) ** 2) / (r * r)
-            bump = np.exp(-d2 * 1.5)
+            bump = np.exp(-((U - cx) ** 2 + (V - cy) ** 2) / (r * r) * 1.5)
             z -= depth * bump
             n[:, 0] += depth * bump * 3.0 * (U - cx) / (r * r)
             n[:, 1] += depth * bump * 3.0 * (V - cy) / (r * r)
@@ -516,8 +505,7 @@ class Card:
             cx = self.W if corner[1] == 'r' else 0.0
             cy = self.H if corner[0] == 'b' else 0.0
             d = np.array([1.0 if cx == 0 else -1.0, 1.0 if cy == 0 else -1.0]) / math.sqrt(2)
-            s_ = (U - cx) * d[0] + (V - cy) * d[1]
-            e = size - s_
+            e = size - ((U - cx) * d[0] + (V - cy) * d[1])         # how far into the corner flap
             m = e > 0
             if m.any() and ang > 0:
                 ee = e[m]
@@ -528,24 +516,16 @@ class Card:
                 x[m] += d[0] * (ee - delta)
                 y[m] += d[1] * (ee - delta)
                 z[m] += zz
-                nn = np.stack([d[0] * np.sin(phi), d[1] * np.sin(phi), np.cos(phi)], 1)
-                n[m] = nn
+                n[m] = np.stack([d[0] * np.sin(phi), d[1] * np.sin(phi), np.cos(phi)], 1)
         n /= np.linalg.norm(n, axis=1, keepdims=True)
-        P = np.stack([self.ox + x, self.oy + y, z], 1)
-        return P, n
-
-
-def card_mesh(card, alpha, tau, du=1.0):
-    return KR.sheet_mesh(card.surf, card.W, card.H, du, du, alpha, tau)
+        return np.stack([self.ox + x, self.oy + y, z], 1), n
 
 
 def card_render(card, faces, fw, fh, tau, rim=('pap_card', 2), R=None, about=None, extras=(), overlay=None,
-                table=True, f=200.0, lit=True, cast_extra=True):
+                table=True, f=200.0, lit=True):
     front, back = faces
-    alpha = front[..., 3] > 0
-    mesh = card_mesh(card, alpha, tau)
-    parts = [mesh] + [e for e in extras if e is not None]
-    full = KR.Mesh.join(parts)
+    mesh = KR.sheet_mesh(card.surf, card.W, card.H, 1.0, 1.0, front[..., 3] > 0, tau)
+    full = KR.Mesh.join([mesh] + [e for e in extras if e is not None])
     if R is not None:
         about = about if about is not None else (card.ox + card.W / 2, card.oy + card.H / 2, 0)
         full = full.transformed(R, about=about)
@@ -555,36 +535,51 @@ def card_render(card, faces, fw, fh, tau, rim=('pap_card', 2), R=None, about=Non
 
 
 def faces_of(front, back):
+    """RGBA of both faces; the back's outline is the front's, mirrored."""
     fa, ba = front.a.copy(), back.a.copy()
-    ba[..., 3] = fa[:, ::-1, 3] * (ba[..., 3] > 0) if ba.shape == fa.shape else ba[..., 3]
     ba[..., 3] = np.where(fa[:, ::-1, 3] > 0, 255, 0)
     return fa, ba
 
 
 def card_idle(card_args, faces, fw, fh, tau, rim, corner, n=16, base=0.12, amp=0.42, size=8, rad=2.6,
-              overlay_fn=None, extras_fn=None):
+              overlay_fn=None):
     """A corner of the card lifts in the draught and lies back down."""
     out = []
     for k in range(n):
         t = k / n
         c = 0.5 - 0.5 * math.cos(2 * math.pi * t)
-        ang = base + amp * c ** 1.4
-        card = Card(*card_args, curl=(corner, size, ang, rad))
-        ov = overlay_fn(t, card) if overlay_fn else None
-        ex = extras_fn(t, card) if extras_fn else ()
-        out.append(card_render(card, faces, fw, fh, tau, rim, overlay=ov, extras=ex))
+        card = Card(*card_args, curl=(corner, size, base + amp * c ** 1.4, rad))
+        out.append(card_render(card, faces, fw, fh, tau, rim, overlay=overlay_fn(t, card) if overlay_fn else None))
     return out
 
 
 def card_turn(card_args, faces, fw, fh, tau, rim, n=28, tilt=0.3, overlay_fn=None, f=200.0):
+    """All the way round in the hand: front, edge, back, edge, front, tipping
+    toward the viewer as it goes side-on."""
     out = []
     for k in range(n):
         a, tl = turn_pose(k, n, tilt)
         card = Card(*card_args)
         R = rot_x(tl) @ rot_y(a)
-        ov = overlay_fn(card, R) if overlay_fn else None
-        out.append(card_render(card, faces, fw, fh, tau, rim, R=R, table=False, overlay=ov, f=f))
+        out.append(card_render(card, faces, fw, fh, tau, rim, R=R, table=False,
+                               overlay=overlay_fn(card, R) if overlay_fn else None, f=f))
     return out
+
+
+def accent(frame, x, y, kind, col=None):
+    """Hand-drawn impact marks: little snap lines round a bite, puffs either
+    side of a slam."""
+    col = col or PAL['white']
+    h, w = frame.shape[:2]
+    if kind == 'snap':
+        pts = [(-3, -3), (-4, -4), (3, -3), (4, -4), (-4, 0), (-5, 0), (4, 1), (5, 1)]
+    else:
+        pts = [(-7, 1), (-8, 1), (-9, 0), (7, 1), (8, 1), (9, 0), (-6, 3), (6, 3)]
+    for dx, dy in pts:
+        xx, yy = int(x + dx), int(y + dy)
+        if 0 <= xx < w and 0 <= yy < h:
+            frame[yy, xx, :3] = col
+            frame[yy, xx, 3] = 255
 
 
 # ---------------------------------------------------------------- the train ticket
@@ -610,15 +605,11 @@ def punch_tool(open_, hx, hy, approach=0.0, tau=TK_TAU):
     parts = []
     piv = np.array([hx + 9.0 + approach, hy + 0.5, 0.0])
     for sgn in (1, -1):
-        b = sgn * open_
-        R = rot_y(-b)                      # rotation about the pivot axis (local y)
-        arm = []
-        # the jaw: a fat beak from the pivot to over the hole
-        arm.append(KR.box((-4.6, 0, sgn * (tau / 2 + 1.6)), (4.6, 2.4, 1.4), mat=STEEL))
-        arm.append(KR.box((-9.0, 0, sgn * (tau / 2 + 1.9)), (1.8, 2.8, 1.8), mat=STEEL))
-        # the handle crosses over to the other side and runs off to the right
-        arm.append(KR.box((8.0, 0, -sgn * 3.0), (8.0, 2.0, 1.2), R=rot_y(sgn * 0.2), mat=STEEL))
-        arm.append(KR.box((20.0, 0, -sgn * 5.6), (5.0, 2.6, 1.9), R=rot_y(sgn * 0.14), mat=KNOB))
+        R = rot_y(-sgn * open_)                    # about the pivot axis (local y)
+        arm = [KR.box((-4.6, 0, sgn * (tau / 2 + 1.6)), (4.6, 2.4, 1.4), mat=STEEL),       # the jaw
+               KR.box((-9.0, 0, sgn * (tau / 2 + 1.9)), (1.8, 2.8, 1.8), mat=STEEL),       # its fat beak
+               KR.box((8.0, 0, -sgn * 3.0), (8.0, 2.0, 1.2), R=rot_y(sgn * 0.2), mat=STEEL),  # the handle crosses over
+               KR.box((20.0, 0, -sgn * 5.6), (5.0, 2.6, 1.9), R=rot_y(sgn * 0.14), mat=KNOB)]  # lacquered grip
         for m_ in arm:
             parts.append(m_.transformed(R).transformed(None, t=piv))
     parts.append(KR.lathe([(0, 2.0), (1, 2.0)], piv + (0, -3.0, 0), piv + (0, 3.0, 0), BRASS, seg=12))
@@ -640,6 +631,7 @@ def ticket_punch(variant='hero'):
     hx, hy = A.TK_HOLE
     hx_w, hy_w = TK_OX + hx, TK_OY + hy
     about = (TK_OX + A.TK_W / 2, TK_OY + A.TK_H / 2, 0)
+    cam = KR.Camera(TK_FW, TK_FH, f=200.0, zref=TK_TAU / 2)
     # (tip-back angle, lift, jaw open, tool approach, hole?, chad t or None, card dx)
     keys = [(0.0, 0, None, None, 0, None, 0),
             (-0.08, 0.6, None, None, 0, None, 0),     # anticipation: dips toward us
@@ -662,15 +654,13 @@ def ticket_punch(variant='hero'):
         card = Card(A.TK_W, A.TK_H, TK_OX + dx, TK_OY, lift=lift)
         extras = [punch_tool(jaw, hx_w + dx, hy_w, appr).transformed(None, t=(0, 0, lift))] if jaw is not None else []
         R = rot_x(tip)
-        faces = after if hole else before
-        frame = card_render(card, faces, TK_FW, TK_FH, TK_TAU, TK_RIM, R=R, about=about, extras=extras)
+        frame = card_render(card, after if hole else before, TK_FW, TK_FH, TK_TAU, TK_RIM, R=R, about=about,
+                            extras=extras)
         if ch is not None:
             # the chad: out of the die under the card, falling free and tumbling
             t = ch
             hp = (np.array([hx_w + 0.5, hy_w + 0.5, lift - 2.0]) - about) @ R.T + about
-            m = chad_mesh(hp[0] + 5 * t, hp[1] + 4 + 40 * t * t, hp[2], 9 * t + 0.6, 6 * t)
-            cam = KR.Camera(TK_FW, TK_FH, f=200.0, zref=TK_TAU / 2)
-            g = KR.raster(m, cam)
+            g = KR.raster(chad_mesh(hp[0] + 5 * t, hp[1] + 4 + 40 * t * t, hp[2], 9 * t + 0.6, 6 * t), cam)
             sel = g['mat'] == CHAD
             if sel.any():
                 col = KR.solid_shade(g, sel, 'pap_card', (0.3, 0.55, 0.75, 0.9))
@@ -681,7 +671,6 @@ def ticket_punch(variant='hero'):
                 mm = layer[..., 3] > 0
                 frame[mm] = layer[mm]
         if jaw == 0.0 and dx != 0:
-            cam = KR.Camera(TK_FW, TK_FH, f=200.0, zref=TK_TAU / 2)
             hp = (np.array([[hx_w + dx + 0.5, hy_w + 0.5, lift]]) - about) @ R.T + about
             sx_, sy_, _ = cam.project(hp)
             accent(frame, sx_[0], sy_[0] - 2, 'snap')
@@ -715,9 +704,8 @@ def pass_string(sway=0.0, ox=BP_OX, oy=BP_OY, z=0.6):
         pts = []
         for i in range(12):
             t = i / 11
-            x = ox - 3 - t * 14 - sway * t * t * 2.5
-            y = ey - 1.5 + off * (1 - t * 0.6) + t * 13 + math.sin(t * 3.0 + off) * 2.0
-            pts.append((x, y, z))
+            pts.append((ox - 3 - t * 14 - sway * t * t * 2.5,
+                        ey - 1.5 + off * (1 - t * 0.6) + t * 13 + math.sin(t * 3.0 + off) * 2.0, z))
         strands.append(pts)
     return loop, strands
 
@@ -731,22 +719,19 @@ def draw_string(rgba, g, cam, loop, strands, R=None, about=None):
         return list((p - a) @ np.asarray(R).T + a)
     col = lambda i, d, z: JUTE[i % 4]
     line3d(rgba, g, cam, tr(loop), col, bias=0.4)
-    for k, st in enumerate(strands):
+    for st in strands:
         line3d(rgba, g, cam, tr(loop[-1:] + st), col, bias=0.4)
     # the knot and the frayed ends
-    end = tr([strands[0][7], strands[0][-1], strands[1][-1]])
-    sx, sy, sz = cam.project(np.asarray(end, float))
+    sx, sy, sz = cam.project(np.asarray(tr([strands[0][7], strands[0][-1], strands[1][-1]]), float))
     h, w = rgba.shape[:2]
-    kx, ky = int(sx[0]), int(sy[0])
-    for dx, dy, c in ((0, 0, 'pap_jute1'), (1, 0, 'pap_jute2'), (0, 1, 'pap_jute0'), (1, 1, 'pap_jute1'),
-                      (-1, 0, 'pap_jute2')):
-        if 0 <= kx + dx < w and 0 <= ky + dy < h:
-            rgba[ky + dy, kx + dx, :3] = PAL[c]; rgba[ky + dy, kx + dx, 3] = 255
-    for i in (1, 2):
-        ex, ey = int(sx[i]), int(sy[i])
-        for dx, dy, c in ((-1, 1, 'pap_jute3'), (0, 1, 'pap_jute2'), (-2, 1, 'pap_jute2')):
-            if 0 <= ex + dx < w and 0 <= ey + dy < h:
-                rgba[ey + dy, ex + dx, :3] = PAL[c]; rgba[ey + dy, ex + dx, 3] = 255
+    marks = [((0, 0, 'pap_jute1'), (1, 0, 'pap_jute2'), (0, 1, 'pap_jute0'), (1, 1, 'pap_jute1'), (-1, 0, 'pap_jute2'))]
+    marks += [((-1, 1, 'pap_jute3'), (0, 1, 'pap_jute2'), (-2, 1, 'pap_jute2'))] * 2
+    for i, mk in enumerate(marks):
+        px_, py_ = int(sx[i]), int(sy[i])
+        for dx, dy, c in mk:
+            if 0 <= px_ + dx < w and 0 <= py_ + dy < h:
+                rgba[py_ + dy, px_ + dx, :3] = PAL[c]
+                rgba[py_ + dy, px_ + dx, 3] = 255
 
 
 def pass_overlay(sway=0.0, R=None, about=None, dx=0, dy=0):
@@ -759,7 +744,8 @@ def pass_overlay(sway=0.0, R=None, about=None, dx=0, dy=0):
 
 def hanko_mesh(cx, cy, h, sq=1.0, tau=BP_TAU):
     """The wooden stamp, standing on the card's normal: red rubber face, a
-    boxwood body, a waisted neck and a lacquered knob. sq < 1 squashes it."""
+    boxwood body, a waisted neck and a lacquered knob. sq < 1 squashes it
+    (and fattens it, keeping its volume)."""
     ws = 1.0 / math.sqrt(sq)
     z0 = tau / 2 + h
     H = 17.0 * sq
@@ -779,6 +765,7 @@ def pass_stamp(variant='hero'):
     after = pass_faces(variant, stamped=True)
     sx, sy = BP_OX + A.BP_SEAL[0] + 0.5, BP_OY + A.BP_SEAL[1] + 0.5
     about = (BP_OX + A.BP_W / 2, BP_OY + A.BP_H / 2, 0)
+    cam = KR.Camera(BP_FW, BP_FH, f=200.0, zref=BP_TAU / 2)
     # (tip, hanko height or None, squash, stamped?, dent, dy)
     keys = [(0.0, None, 1, 0, 0, 0),
             (0.22, 22, 1.0, 0, 0, 0),
@@ -790,7 +777,7 @@ def pass_stamp(variant='hero'):
             (0.62, 11, 1.04, 1, 0, 0),
             (0.46, 19, 1.0, 1, 0, 0),
             (0.20, None, 1, 1, 0, 0),
-            (-0.08, None, 1, 1, 0, 0),
+            (-0.08, None, 1, 1, 0, 0),        # overshoot past flat
             (0.04, None, 1, 1, 0, 0),
             (-0.01, None, 1, 1, 0, 0),
             (0.0, None, 1, 1, 0, 0)]
@@ -803,7 +790,6 @@ def pass_stamp(variant='hero'):
         fr = card_render(card, after if st else before, BP_FW, BP_FH, BP_TAU, BP_RIM, R=R, about=about,
                          extras=extras, overlay=pass_overlay(0.0, R, about, 0, dy))
         if sq < 0.8:
-            cam = KR.Camera(BP_FW, BP_FH, f=200.0, zref=BP_TAU / 2)
             hp = (np.array([[sx, sy + dy, BP_TAU / 2]]) - about) @ R.T + about
             sx_, sy_, _ = cam.project(hp)
             accent(fr, sx_[0], sy_[0], 'puff', PAL['pap_aqua4'])
@@ -838,26 +824,9 @@ def postcard_flip(variant='hero'):
     out = []
     for (a, lift, bow) in seq:
         card = Card(*PC_ARGS, bow=bow, lift=lift)
-        R = rot_y(a)
-        about = (about_c[0], about_c[1], lift)
-        out.append(card_render(card, faces, PC_FW, PC_FH, PC_TAU, PC_RIM, R=R, about=about, f=220.0))
+        out.append(card_render(card, faces, PC_FW, PC_FH, PC_TAU, PC_RIM, R=rot_y(a),
+                               about=(about_c[0], about_c[1], lift), f=220.0))
     return out
-
-
-def accent(frame, x, y, kind, col=None):
-    """Hand-drawn impact marks: little snap lines round a bite, puffs round a
-    slam. Drawn only where the frame is empty or on the object's edge."""
-    col = col or PAL['white']
-    h, w = frame.shape[:2]
-    if kind == 'snap':
-        pts = [(-3, -3), (-4, -4), (3, -3), (4, -4), (-4, 0), (-5, 0), (4, 1), (5, 1)]
-    else:
-        pts = [(-7, 1), (-8, 1), (-9, 0), (7, 1), (8, 1), (9, 0), (-6, 3), (6, 3)]
-    for dx, dy in pts:
-        xx, yy = int(x + dx), int(y + dy)
-        if 0 <= xx < w and 0 <= yy < h:
-            frame[yy, xx, :3] = col
-            frame[yy, xx, 3] = 255
 
 
 def contact(frames, path, cols=8, scale=3, bg=(34, 28, 36)):
@@ -870,18 +839,6 @@ def contact(frames, path, cols=8, scale=3, bg=(34, 28, 36)):
         im = Image.fromarray(f, 'RGBA')
         sheet.paste(im, ((i % cols) * w, (i // cols) * h), im)
     sheet.resize((w * cols * scale, h * rows * scale), Image.NEAREST).save(path)
-
-
-def _save_test():
-    from PIL import Image
-    faces = map_faces()
-    frames = [map_frame(Scroll(), faces)]
-    for a in (0.5, 1.2, 1.5708, 2.4, 3.1416):
-        frames.append(map_frame(Scroll(), faces, R=rot_x(0.22 * math.sin(a) ** 2) @ rot_y(a), cast=False))
-    for ur in (2, 40, 80):
-        frames.append(map_frame(Scroll(ur=ur), faces, cord='none'))
-    for i, f in enumerate(frames):
-        Image.fromarray(f).resize((MAP_FW * 4, MAP_FH * 4), Image.NEAREST).save(f'{sys.argv[2]}/t{i}.png')
 
 
 def export_all(which=None, variants=('hero',) + A.VARIANTS):
@@ -947,9 +904,7 @@ if __name__ == '__main__':
         for d in export_all(sys.argv[1]):
             print(d)
         sys.exit(0)
-    if len(sys.argv) > 1 and sys.argv[1] == 'test':
-        _save_test()
-    elif len(sys.argv) > 1 and sys.argv[1] == 'tkcheck':
+    if len(sys.argv) > 1 and sys.argv[1] == 'tkcheck':
         d = sys.argv[2]
         faces = ticket_faces()
         contact(card_idle(TK_ARGS, faces, TK_FW, TK_FH, TK_TAU, TK_RIM, 'br'), f'{d}/tk_idle.png', 8, 3)

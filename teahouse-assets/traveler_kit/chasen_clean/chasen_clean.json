@@ -1,0 +1,30 @@
+{
+ "name": "chasen_clean",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 32,
+   "frame_h": 40,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 32,
+   "frame_h": 40,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "use": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 32,
+   "frame_h": 40,
+   "sheet": "use_sheet.png",
+   "gif": "use.gif"
+  }
+ },
+ "note": "Bamboo tea whisk: a handle with its node, black thread, curled tines. Variant: clean - lovingly kept (the main one, every animation)."
+}

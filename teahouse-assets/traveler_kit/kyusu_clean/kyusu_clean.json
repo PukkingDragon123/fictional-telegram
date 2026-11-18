@@ -1,0 +1,30 @@
+{
+ "name": "kyusu_clean",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 49,
+   "frame_h": 34,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 49,
+   "frame_h": 34,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "use": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 49,
+   "frame_h": 34,
+   "sheet": "use_sheet.png",
+   "gif": "use.gif"
+  }
+ },
+ "note": "Tokoname red-clay kyusu with a side handle. Variant: clean - lovingly kept (the main one, every animation)."
+}

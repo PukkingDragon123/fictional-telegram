@@ -1,0 +1,30 @@
+{
+ "name": "yunomi_dirty",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 26,
+   "frame_h": 55,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 26,
+   "frame_h": 55,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "use": {
+   "frames": 16,
+   "fps": 12,
+   "frame_w": 26,
+   "frame_h": 55,
+   "sheet": "use_sheet.png",
+   "gif": "use.gif"
+  }
+ },
+ "note": "Yunomi: iron-brown glaze dipped in white nuka ash glaze that ran in drips; bare foot ring; sencha. Variant: dirty - tea stains, soot, grime, dust."
+}

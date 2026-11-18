@@ -1,0 +1,46 @@
+{
+ "name": "tea_kit_clean",
+ "animations": {
+  "idle": {
+   "frames": 12,
+   "fps": 12,
+   "frame_w": 134,
+   "frame_h": 109,
+   "sheet": "idle_sheet.png",
+   "gif": "idle.gif"
+  },
+  "turn": {
+   "frames": 32,
+   "fps": 12,
+   "frame_w": 134,
+   "frame_h": 109,
+   "sheet": "turn_sheet.png",
+   "gif": "turn.gif"
+  },
+  "open": {
+   "frames": 24,
+   "fps": 12,
+   "frame_w": 134,
+   "frame_h": 109,
+   "sheet": "open_sheet.png",
+   "gif": "open.gif"
+  },
+  "brew": {
+   "frames": 36,
+   "fps": 12,
+   "frame_w": 134,
+   "frame_h": 109,
+   "sheet": "brew_sheet.png",
+   "gif": "brew.gif"
+  },
+  "turn_open": {
+   "frames": 32,
+   "fps": 12,
+   "frame_w": 134,
+   "frame_h": 109,
+   "sheet": "turn_open_sheet.png",
+   "gif": "turn_open.gif"
+  }
+ },
+ "note": "A travelling tea-brewer's chabako: black urushi box with a vermilion rim, gold maki-e plum and a silver moon on the lid, tied in purple silk cord, on an indigo seigaiha furoshiki. Variant: clean - lovingly kept (the main one, every animation)."
+}

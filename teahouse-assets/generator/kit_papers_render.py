@@ -81,25 +81,6 @@ def ramp_shift(rgb, mask, k):
     return rgb
 
 
-def ramp_index(rgb):
-    """(ramp name or None, index) arrays for an image."""
-    keys = _key(rgb)
-    uniq, inv = np.unique(keys.reshape(-1), return_inverse=True)
-    idx = np.full(len(uniq), -1)
-    length = np.zeros(len(uniq), int)
-    for i, kk in enumerate(uniq):
-        c = (int(kk) >> 16 & 255, int(kk) >> 8 & 255, int(kk) & 255)
-        r = LOOKUP.get(c)
-        if r:
-            idx[i] = r[1]
-            length[i] = len(RAMPS[r[0]])
-    return idx[inv].reshape(keys.shape), length[inv].reshape(keys.shape)
-
-
-def to_index(rgb, ramp_name, i):
-    return RAMPS[ramp_name][i]
-
-
 # ---------------------------------------------------------------- meshes
 class Mesh:
     """Triangles with per-vertex position, normal and (u, v); per-triangle
@@ -634,19 +615,4 @@ def shadowed(H, z, sel, gap=1.0, light=SHADOW_L):
     py = np.clip(np.round(ys - light[1] / light[2] * zz).astype(int), 0, h - 1)
     out = np.zeros((h, w), bool)
     out[ys, xs] = H[py, px] > zz + gap
-    return out
-
-
-def compose(parts, w, h):
-    """Stack RGBA layers (first = bottom)."""
-    out = np.zeros((h, w, 4), np.uint8)
-    for p in parts:
-        if p is None:
-            continue
-        cv = pixel.Canvas(w, h)
-        cv.a = out
-        src = pixel.Canvas(w, h)
-        src.a = p
-        cv.blit(src, 0, 0)
-        out = cv.a
     return out
