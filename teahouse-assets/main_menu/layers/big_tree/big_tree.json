@@ -1,0 +1,22 @@
+{
+ "name": "big_tree",
+ "frames": 96,
+ "fps": 12,
+ "x": 320,
+ "y": 0,
+ "w": 320,
+ "h": 360,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "big_tree_sheet.png",
+ "sheet_columns": 3,
+ "sheet_rows": 32,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "big_tree.png",
+ "preview": "big_tree_preview_3x.png",
+ "loops": true,
+ "wind": "leans with menu_layout.wind at its own x (one gust left to right per loop)",
+ "note": "the old flowering tree in the right foreground: draw over the river and the meadow"
+}

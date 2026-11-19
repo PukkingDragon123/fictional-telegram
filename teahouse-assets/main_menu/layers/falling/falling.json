@@ -1,0 +1,22 @@
+{
+ "name": "falling",
+ "frames": 96,
+ "fps": 12,
+ "x": 343,
+ "y": 0,
+ "w": 297,
+ "h": 339,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "falling_sheet.png",
+ "sheet_columns": 3,
+ "sheet_rows": 32,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "falling.png",
+ "preview": "falling_preview_3x.png",
+ "loops": true,
+ "wind": "leans with menu_layout.wind at its own x (one gust left to right per loop)",
+ "note": "petals and leaves shed from the big tree on the gust: draw over everything but the menu"
+}

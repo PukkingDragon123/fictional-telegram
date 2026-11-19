@@ -1,0 +1,1462 @@
+"""The teahouse seen from the meadow, for the main menu (menu_layout.py).
+
+The same old teahouse as the four rooms, now from outside: faded vermilion
+lacquered plank walls with the jade rail and the wooden wainscot, the big
+lattice window glowing warm, an indigo noren over the door, two red paper
+lanterns under the eaves, a glass wind chime, a hipped-and-gabled roof of
+weathered dark tiles with green copper ridge caps and upturned eaves, a grey
+engawa on stone footings, the stone chimney of the furnace, a stone lantern,
+stepping stones, ferns and moss.
+
+It is drawn in an oblique 3/4 view from the front left: the front face is
+flat to the screen, depth runs up and to the left at 2:1 (so every receding
+edge is a clean 2-pixel stair), and the roof pitches are chosen so the tile
+channels, hips and courses land on 1:1, 1:2 and 2:1 stairs too. Each face is
+painted flat, in its own coordinates, with the pack's own recipes (the plank
+wall, its ageing, the rail and wainscot, the wood-grain pass, chipped
+lacquer, the furnace's rough stones, moss cushions), then laid onto the
+building with an exact affine map. Only the pack's palette ramps are used.
+
+Animated over menu_layout.N frames (looping) with the scene's shared wind:
+the noren billows and its panels swing apart, the lanterns swing on their
+cords a little behind the gust, the chime's paper strip flutters, smoke
+leans and drifts off the chimney, grass on the roof and at the footings
+nods, and the window light breathes.
+
+Run as a script to write main_menu/layers/teahouse/."""
+import math
+import os
+import json
+import random
+import numpy as np
+from PIL import Image
+from numba import njit
+from pixel import Canvas, PAL, RAMPS, step, text, blob_mask
+import woodgrain as WG
+import moss as MOSS
+from shapes import chip
+import room as ROOM
+import counter as CT
+import objects as OBJ
+import meadow as MD
+import menu_layout as L
+from menu_layout import N, FPS, W, H, wind, sway
+
+BAYER4 = ROOM.BAYER4
+
+# ---------------------------------------------------------------- projection
+A, B = 0.5, 0.25          # one unit of depth (z, away from you) = half a pixel left, a quarter up
+SX0, SY0 = 194, 242       # screen position of the world origin (front-left corner of the floor plan)
+
+
+def P(x, y, z):
+    """World (x right along the front, y up, z back) -> screen (float)."""
+    return SX0 + x - A * z, SY0 - y - B * z
+
+
+def PI(x, y, z):
+    sx, sy = P(x, y, z)
+    return int(math.floor(sx)), int(math.floor(sy))
+
+
+# ---------------------------------------------------------------- the building's measures (world units ~ px)
+BX0, BX1 = 0, 112          # body, along the front
+BZ0, BZ1 = 0, 44           # body, front to back
+FLOOR = 10                 # floor / veranda height
+WALL_TOP = 66
+EAVE = 70                  # roof surface height at the eave edge (before the corners sweep up)
+EAVE_T = 6                 # eave thickness: tile ends, fascia board, rafter ends
+EZ0, EZ1 = -20, 60         # eaves, front and back
+EX0, EX1 = -16, 128        # eaves, left and right
+RIDGE_Z = (EZ0 + EZ1) / 2  # 20
+GX0, GX1 = 2, 110          # the two gables (irimoya): hips below them, gables above
+BARGE = 3                  # the upper roof overhangs each gable by this much
+BARGE_T = 3                # thickness of the barge board
+KICK, KICK_R = 6.0, 26.0   # how far the eave corners sweep up, and over what reach
+RIDGE_W, RIDGE_H = 2.0, 4.0
+CHIM = (20, 32, 24, 32, 130)   # chimney x0, x1, z0, z1, top
+
+
+def prof(d):
+    """Height of the roof above its eave at plan distance d in from the eave edge: a
+    concave Japanese curve, shallow (0.5) at the eave and steep (1.6) at the ridge."""
+    d = max(0.0, d)
+    return 0.5 * d + 0.01375 * d * d
+
+
+RIDGE_Y = EAVE + prof(RIDGE_Z - EZ0)          # 112
+HG = prof(GX0 - EX0)                          # gable base, above the eave
+GABLE_Y = EAVE + HG
+VZ0 = -16                  # veranda front edge
+DOOR = (23, 43)            # door opening (x), up to y = DOOR_TOP
+DOOR_TOP = 52
+WIN = (54, 102, 27, 52)    # big lattice window x0, x1, y0 (sill), y1 (head)
+POSTS_FRONT = [(0, 3), (20, 23), (43, 46), (109, 112)]
+
+
+# ---------------------------------------------------------------- warping a flat face onto the building
+def warp(dst, tex, O, U, V, layer_id=None, ids=None):
+    """Lay canvas `tex` onto the plane through O spanned by U (one texel across)
+    and V (one texel down): texel (i, j) covers O + [i, i+1) U + [j, j+1) V.
+    Every screen pixel takes the texel under its centre (exact, so straight
+    texture lines come out as clean stairs)."""
+    s0 = np.array(P(*O))
+    pu = np.array([U[0] - A * U[2], -U[1] - B * U[2]])
+    pv = np.array([V[0] - A * V[2], -V[1] - B * V[2]])
+    M = np.array([[pu[0], pv[0]], [pu[1], pv[1]]])
+    Mi = np.linalg.inv(M)
+    tw, th = tex.w, tex.h
+    cs = [s0, s0 + pu * tw, s0 + pv * th, s0 + pu * tw + pv * th]
+    x0 = int(math.floor(min(c[0] for c in cs))) - 1
+    x1 = int(math.ceil(max(c[0] for c in cs))) + 1
+    y0 = int(math.floor(min(c[1] for c in cs))) - 1
+    y1 = int(math.ceil(max(c[1] for c in cs))) + 1
+    x0, y0 = max(0, x0), max(0, y0)
+    x1, y1 = min(dst.w, x1), min(dst.h, y1)
+    if x1 <= x0 or y1 <= y0:
+        return
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    dx = xx + 0.5 - s0[0]
+    dy = yy + 0.5 - s0[1]
+    u = Mi[0, 0] * dx + Mi[0, 1] * dy
+    v = Mi[1, 0] * dx + Mi[1, 1] * dy
+    i = np.floor(u + 1e-7).astype(int)
+    j = np.floor(v + 1e-7).astype(int)
+    ok = (i >= 0) & (i < tw) & (j >= 0) & (j < th)
+    ii, jj = np.where(ok, i, 0), np.where(ok, j, 0)
+    ok &= tex.a[jj, ii, 3] > 0
+    dst.a[yy[ok], xx[ok]] = tex.a[jj[ok], ii[ok]]
+    if ids is not None and layer_id is not None:
+        ids[yy[ok], xx[ok]] = layer_id
+
+
+# ---------------------------------------------------------------- wall recipes (the rooms', at outdoor scale)
+def planks(cv, rng, x0, x1, y0, y1, base=('red2', 'red1'), widths=(4, 5, 5, 6), seam='red0', lit_edge=True,
+           fade=0.3, seed=0.0):
+    """room._plank_wall at a quarter of the size: lacquered vertical boards, some
+    sun-faded from the top (Bayer hand-off), the pack's grain pass, a dark seam
+    and a lit edge, nail heads top and bottom."""
+    x = x0
+    while x < x1:
+        pw = min(rng.choice(widths), x1 - x)
+        b = base[0] if rng.random() < 0.78 else base[1]
+        cv.rect(x, y0, pw, y1 - y0, b)
+        if rng.random() < fade:
+            f_y = rng.randint(y0 + (y1 - y0) // 4, y0 + (y1 - y0) * 3 // 4)
+            lite = step(PAL[b], 1)
+            cv.rect(x, y0, pw, f_y - y0 - 2, lite)
+            for yy in range(f_y - 2, f_y + 2):
+                for xx in range(x, x + pw):
+                    if BAYER4[yy % 4][xx % 4] / 16 > (yy - f_y + 2) / 4:
+                        cv.px(xx, yy, lite)
+        WG.grain_pass(cv, x + 1, y0, x + pw, y1, 'v', seed=seed + x * 0.37, board=pw, contrast=0.55, ramps=('red',))
+        cv.vline(x, y0, y1 - 1, seam)
+        if lit_edge and pw > 3:
+            cv.vline(x + 1, y0, y1 - 1, step(PAL[b], 1))
+        x += pw
+
+
+def age_planks(cv, rng, x0, x1, y0, y1, n_peel=3, keep=None):
+    """room._age_planks at outdoor scale: lacquer peeled back to grey bare wood
+    with a curled lip, rain run-off from the eaves, grime at top and bottom."""
+    for _ in range(n_peel):
+        pw, ph = rng.randint(3, 7), rng.randint(4, 10)
+        px_, py_ = rng.randint(x0, x1 - pw), rng.randint(y0 + 2, y1 - ph - 1)
+        m = blob_mask(rng, pw, ph, n=rng.randint(3, 5), rmin=1.0, rmax=min(pw, ph) * 0.45)
+        for yy in range(ph):
+            for xx in range(pw):
+                X, Y = px_ + xx, py_ + yy
+                if not (x0 <= X < x1) or (keep is not None and not keep(X, Y)):
+                    continue
+                if m[yy, xx]:
+                    old = cv.get(X, Y)[:3]
+                    cv.px(X, Y, 'wood0' if old == PAL['red0'] else ('wood3' if (xx + yy) % 5 else 'wood2'))
+                else:
+                    up = yy + 1 < ph and m[yy + 1, xx]
+                    lf = xx + 1 < pw and m[yy, xx + 1]
+                    dn = yy > 0 and m[yy - 1, xx]
+                    if up or lf:
+                        cv.px(X, Y, 'red3')
+                    elif dn:
+                        cv.px(X, Y, 'red0')
+    for _ in range(max(1, (x1 - x0) // 22)):          # rain run-off from the roof
+        sx = rng.randint(x0 + 1, x1 - 3)
+        ln = rng.randint(6, max(7, (y1 - y0) * 2 // 3))
+        w = rng.randint(1, 2)
+        for k in range(ln):
+            for d in range(w):
+                if (keep is None or keep(sx + d, y0 + k)) and (k < ln * 0.6 or (d + k) % 2 == 0):
+                    cv.shift(sx + d, y0 + k, -1)
+    for yy in list(range(y1 - 4, y1)):                 # grime above the rail
+        t = (y1 - yy) / 4
+        for xx in range(x0, x1):
+            if BAYER4[yy % 4][xx % 4] / 16 > t and (keep is None or keep(xx, yy)):
+                cv.shift(xx, yy, -1)
+
+
+def rail_and_wainscot(cv, rng, x0, x1, rail_y, wains_y1, base_y1, seed=0.0):
+    """room._rail_wains_base at outdoor scale: the jade rail, three courses of
+    wainscot boards with the grain pass, and the sill beam."""
+    cv.rect(x0, rail_y, x1 - x0, 3, 'jade2')
+    cv.hline(x0, x1 - 1, rail_y, 'jade4')
+    cv.hline(x0, x1 - 1, rail_y + 2, 'jade0')
+    for _ in range(max(1, (x1 - x0) // 40)):
+        cx = rng.randint(x0, max(x0, x1 - 6))
+        for k in range(rng.randint(2, 4)):
+            cv.px(cx + k, rail_y + 1, 'wood2')
+        cv.px(cx, rail_y, 'jade0')
+    y0 = rail_y + 3
+    hh = max(2, (wains_y1 - y0) // 3)
+    yy = y0
+    k = 0
+    while yy < wains_y1:
+        h_ = min(hh, wains_y1 - yy) if k < 2 else wains_y1 - yy
+        cv.rect(x0, yy, x1 - x0, h_, 'wood2')
+        cv.hline(x0, x1 - 1, yy, 'wood3')
+        cv.hline(x0, x1 - 1, yy + h_ - 1, 'wood0')
+        x = x0 - rng.randint(0, 20)
+        while x < x1:
+            if x > x0:
+                cv.vline(x, yy, yy + h_ - 1, 'wood0')
+            x += rng.randint(26, 48)
+        yy += h_
+        k += 1
+    WG.grain_pass(cv, x0, y0 + 1, x1, wains_y1 - 1, 'h', seed=seed + 1, board=hh, contrast=1.0)
+    cv.rect(x0, wains_y1, x1 - x0, base_y1 - wains_y1, 'wood1')
+    cv.hline(x0, x1 - 1, wains_y1, 'wood3')
+    cv.hline(x0, x1 - 1, base_y1 - 1, 'wood0')
+    for xx in range(x0, x1):                           # rot creeping up from the footings
+        h = int(1 + 2 * abs(math.sin(xx * 0.13)) + 1.5 * abs(math.sin(xx * 0.41)))
+        for yy in range(wains_y1 - h, wains_y1):
+            if (xx + yy) % 2 == 0 or yy > wains_y1 - 2:
+                cv.shift(xx, yy, -1)
+
+
+def post(cv, x0, x1, y0, y1, seed=0.0):
+    """A square timber post like room._corner_post: lit left face, dark right edge."""
+    w = x1 - x0
+    for k in range(w):
+        c = 'wood3' if k == 0 else ('wood1' if k == w - 1 else 'wood2')
+        cv.vline(x0 + k, y0, y1 - 1, c)
+    WG.grain_pass(cv, x0 + 1, y0, x1 - 1, y1, 'v', seed=seed, board=max(1, w - 2), contrast=0.8)
+
+
+def beam(cv, x0, x1, y0, y1, seed=0.0):
+    """room._girder: a beam with a lit top, dark under-edge and a shade below."""
+    cv.rect(x0, y0, x1 - x0, y1 - y0, 'wood2')
+    cv.hline(x0, x1 - 1, y0, 'wood3')
+    cv.hline(x0, x1 - 1, y1 - 1, 'wood0')
+    WG.grain_pass(cv, x0, y0 + 1, x1, y1 - 1, 'h', seed=seed, board=max(1, y1 - y0 - 2), contrast=1.0)
+
+
+# ---------------------------------------------------------------- the front wall
+def front_wall(rng):
+    """Texture of the front wall: x = world x (0..112), row = WALL_TOP - y."""
+    w, h = BX1 - BX0, WALL_TOP - FLOOR
+    cv = Canvas(w, h)
+    r = lambda y: WALL_TOP - y                       # world height -> texture row
+    rail = r(25)
+    planks(cv, rng, 0, w, 0, rail, seed=1.0)
+    age_planks(cv, rng, 0, w, r(58), rail, n_peel=6)
+    beam(cv, 0, w, r(62), r(57), seed=3.0)          # the head beam under the eaves
+    rail_and_wainscot(cv, rng, 0, w, rail, r(13), r(FLOOR), seed=2.0)
+    # door: a dark warm room behind the noren, the floor boards catching lantern light
+    x0, x1 = DOOR
+    cv.rect(x0, r(DOOR_TOP), x1 - x0, r(FLOOR) - r(DOOR_TOP), 'wood0')
+    for yy in range(r(22), r(FLOOR)):
+        t = (yy - r(22)) / (r(FLOOR) - r(22))
+        for xx in range(x0, x1):
+            c = 'wood1' if t < 0.45 else ('wood2' if t < 0.8 else 'wood3')
+            if BAYER4[yy % 4][xx % 4] / 16 < t * 1.4:
+                cv.px(xx, yy, c)
+    cv.rect(x0 + 3, r(34), x1 - x0 - 6, 2, 'hinoki2')                     # the counter's edge inside
+    cv.hline(x0 + 3, x1 - 4, r(34), 'hinoki4')
+    cv.rect(x0 + 3, r(32), x1 - x0 - 6, r(FLOOR) - r(32) - 4, 'wood0')
+    cv.rect(x0 - 1, r(DOOR_TOP + 2), x1 - x0 + 2, 2, 'wood2')            # lintel
+    cv.hline(x0 - 1, x1, r(DOOR_TOP + 2), 'wood3')
+    cv.hline(x0 - 1, x1, r(DOOR_TOP + 1), 'wood0')
+    cv.rect(x0 - 1, r(FLOOR + 1), x1 - x0 + 2, 1, 'wood3')               # threshold, worn pale
+    cv.hline(x0 + 4, x1 - 5, r(FLOOR + 1), 'wood4')
+    # the big lattice window
+    window(cv, rng, *WIN, r)
+    # posts
+    for (a, b) in POSTS_FRONT:
+        post(cv, a, b, r(WALL_TOP), r(FLOOR), seed=a * 0.3)
+    return cv
+
+
+def window(cv, rng, x0, x1, y0, y1, r):
+    """room._main_window at outdoor scale: lacquer frame ring, deep sill, four
+    sashes with a small-pane transom, and the warm room behind the glass."""
+    ty0, ty1 = r(y1), r(y0)
+    ring = ['wood0', 'red1', 'red3', 'wood0']
+    for i, c in enumerate(ring):
+        cv.frame(x0 - 2 + i, ty0 - 2 + i, x1 - x0 + 4 - 2 * i, ty1 - ty0 + 4 - 2 * i, c)
+    gx0, gy0, gx1, gy1 = x0 + 2, ty0 + 2, x1 - 2, ty1 - 2         # glass
+    inside(cv, gx0, gy0, gx1, gy1)
+    fw = gx1 - gx0
+    cols = [gx0 + fw * k // 4 for k in range(1, 4)]
+    tr = gy0 + 6
+    for cx in cols:
+        cv.vline(cx, gy0, gy1 - 1, 'wood2')
+        cv.vline(cx - 1, gy0, gy1 - 1, 'wood3')
+        cv.vline(cx + 1, gy0, gy1 - 1, 'wood0')
+    cv.hline(gx0, gx1 - 1, tr, 'wood3')
+    cv.hline(gx0, gx1 - 1, tr + 1, 'wood0')
+    for k in range(1, 12):
+        mx = gx0 + fw * k // 12
+        if any(abs(mx - c) < 2 for c in cols):
+            continue
+        cv.vline(mx, gy0, tr - 1, 'wood1')
+    # deep sill, its top showing
+    sy = ty1 + 2
+    cv.rect(x0 - 4, sy, x1 - x0 + 8, 3, 'wood3')
+    cv.hline(x0 - 4, x1 + 3, sy, 'wood4')
+    cv.hline(x0 - 4, x1 + 3, sy + 2, 'wood0')
+    for bx in (x0 + 4, x1 - 6):
+        cv.px(bx, sy + 3, 'wood2'); cv.px(bx + 1, sy + 3, 'wood1')
+        cv.px(bx, sy + 4, 'wood1')
+    for _ in range(3):
+        chip(cv, rng.randint(x0, x1 - 6), ty0 - 2, rng.randint(3, 5), 2, rng, under='wood2', under_dark='wood0',
+             n=2, rmin=0.8, rmax=1.4, elong=0.6)
+
+
+GLASS_ID = 7
+
+
+def inside(cv, x0, y0, x1, y1):
+    """What you see through the window: the seating room, lantern-lit. Dark
+    beams overhead, the warm glow of the two red lanterns, the jade drapes at the
+    sides, the hinoki counter catching the light, and the sky glinting on the glass."""
+    w, h = x1 - x0, y1 - y0
+    lamps = [(x0 + int(w * 0.3), y0 + 4), (x0 + int(w * 0.7), y0 + 4)]
+    for yy in range(y0, y1):
+        for xx in range(x0, x1):
+            g = 0.0
+            for (lx, ly) in lamps:
+                d = math.hypot((xx - lx) / 1.3, yy - ly - 2)
+                g = max(g, 1.0 - d / 12.0)
+            t = (yy - y0) / max(1, h - 1)
+            v = 0.3 + 0.75 * g + 0.15 * t + (BAYER4[yy % 4][xx % 4] / 16 - 0.5) * 0.16
+            c = ('wood0' if v < 0.36 else 'red0' if v < 0.48 else 'red1' if v < 0.6 else 'copper2' if v < 0.74
+                 else 'copper3' if v < 0.88 else 'gold3')
+            if yy == y0:
+                c = 'wood0'
+            cv.px(xx, yy, c)
+    for xx in list(range(x0, x0 + 4)) + list(range(x1 - 4, x1)):          # jade drapes
+        k = (xx - x0) if xx < x0 + 4 else (x1 - 1 - xx)
+        for yy in range(y0 + 1, y1):
+            cv.px(xx, yy, ['jade1', 'jade3', 'jade2', 'jade1'][k])
+    cy = y0 + h - 5                                                         # the counter
+    cv.hline(x0 + 4, x1 - 5, cy, 'hinoki4')
+    cv.hline(x0 + 4, x1 - 5, cy + 1, 'hinoki2')
+    cv.rect(x0 + 4, cy + 2, w - 8, h - (cy + 2 - y0), 'wood1')
+    for (lx, ly) in lamps:                                                  # the lanterns inside
+        cv.vline(lx, y0, ly - 1, 'wood0')
+        for (dx, dy, c) in ((-1, 0, 'red3'), (0, 0, 'fire4'), (1, 0, 'red3'), (-1, 1, 'fire3'), (0, 1, 'fire5'),
+                            (1, 1, 'fire3'), (-1, 2, 'red3'), (0, 2, 'fire4'), (1, 2, 'red2'), (0, 3, 'wood0')):
+            cv.px(lx + dx, ly + dy, c)
+    for k in range(4):                                                      # sky on the glass
+        cv.px(x0 + 6 + k, y0 + 9 - k, 'paper3')
+        cv.px(x0 + 8 + k, y0 + 9 - k, 'paper2')
+
+
+# ---------------------------------------------------------------- the side wall (x = 0, seen at 2:1)
+def side_wall(rng):
+    """Texture of the left (gable-end) wall, lit by the sun. Columns are half
+    units of depth from the back (z = 44) to the front corner (z = 0)."""
+    w, h = (BZ1 - BZ0) // 2, WALL_TOP - FLOOR
+    cv = Canvas(w, h)
+    r = lambda y: WALL_TOP - y
+    rail = r(25)
+    planks(cv, rng, 0, w, 0, rail, base=('red3', 'red2'), widths=(3, 3, 2), seam='red1', lit_edge=False, fade=0.4,
+           seed=5.0)
+    age_planks(cv, rng, 0, w, r(60), rail, n_peel=2)
+    beam(cv, 0, w, r(62), r(57), seed=7.0)
+    rail_and_wainscot(cv, rng, 0, w, rail, r(13), r(FLOOR), seed=6.0)
+    for yy in range(r(25), r(FLOOR)):                 # the lit side: lift the wood one step
+        for xx in range(w):
+            cv.shift(xx, yy, 1, only=('wood', 'jade'))
+    post(cv, 0, 2, r(WALL_TOP), r(FLOOR), seed=8.0)   # back corner post
+    # moon window (room 4's): a circle on the wall, an ellipse in these half-depth columns
+    cz, cy, rad = 20, 41, 8.5
+    for yy in range(h):
+        for xx in range(w):
+            dz = (BZ1 - (xx + 0.5) * 2) - cz
+            dy = (WALL_TOP - (yy + 0.5)) - cy
+            d = math.hypot(dz, dy)
+            a = math.atan2(dy, -dz)                    # angle, 0 = toward the front corner
+            lit = math.cos(a - 2.4)                    # the frame's upper-left catches the sun
+            if d < rad - 2.0:
+                c = 'red0' if dy > 3 else ('red1' if dy > -2 else 'copper2')
+                if abs(dz) < 1.0 or abs(dy - 1) < 0.6:
+                    c = 'paper1'                       # bamboo bars
+                cv.px(xx, yy, c)
+            elif d < rad - 0.9:
+                cv.px(xx, yy, 'wood1' if lit > 0 else 'wood3')
+            elif d < rad + 0.4:
+                cv.px(xx, yy, 'wood4' if lit > 0.3 else ('wood3' if lit > -0.4 else 'wood2'))
+            elif d < rad + 1.3:
+                cv.px(xx, yy, 'wood1')
+    return cv
+
+
+# ---------------------------------------------------------------- the roof: a ray-marched heightfield
+# Faces the march can report (what the eye ray hits first)
+F_FRONT, F_HIP, F_BACK, F_RHIP = 1, 2, 3, 4
+F_FASCIA, F_SFASCIA, F_RFASCIA = 10, 11, 12
+F_BARGE, F_BARGE_U, F_GABLE = 20, 21, 25
+F_RIDGE, F_RIDGE_TOP, F_RIDGE_END = 30, 31, 32
+F_CHIM, F_CHIM_L, F_CHIM_TOP = 40, 41, 42
+F_HIPR = 50
+
+
+@njit(cache=True)
+def _prof(d):
+    if d < 0.0:
+        d = 0.0
+    return 0.5 * d + 0.01375 * d * d
+
+
+@njit(cache=True)
+def _kick(x, z):
+    k = 0.0
+    for cx, cz in ((EX0, EZ0), (EX1, EZ0), (EX0, EZ1), (EX1, EZ1)):
+        r = math.sqrt((x - cx) ** 2 + (z - cz) ** 2)
+        if r < KICK_R:
+            t = 1.0 - r / KICK_R
+            v = KICK * t * t * t
+            if v > k:
+                k = v
+    return k
+
+
+@njit(cache=True)
+def _roof(x, z):
+    """(top height, thickness, part) of the roof shell over plan point (x, z).
+    part: 0 the long slopes (front / back), 1 the hips (left / right), 2 the upper roof
+    over a gable's overhang."""
+    dF, dB, dL, dR = z - EZ0, EZ1 - z, x - EX0, EX1 - x
+    df = min(dF, dB)
+    ds = min(dL, dR)
+    hf = _prof(df)
+    hs = _prof(ds)
+    k = _kick(x, z)
+    if GX0 - BARGE <= x <= GX1 + BARGE and hf >= HG:
+        t = EAVE_T
+        if x < GX0 or x > GX1:
+            t = BARGE_T
+        return EAVE + hf + k, t, 2 if (x < GX0 or x > GX1) else 0
+    if hf <= hs:
+        return EAVE + hf + k, EAVE_T, 0
+    return EAVE + hs + k, EAVE_T, 1
+
+
+@njit(cache=True)
+def _ridge_top(x):
+    """Ridge height along x; the ends rise into onigawara."""
+    x0, x1 = GX0 - BARGE - 1.0, GX1 + BARGE + 1.0
+    top = EAVE + _prof(RIDGE_Z - EZ0) + RIDGE_H
+    e = min(x - x0, x1 - x)
+    if e < 5.0:
+        top += 4.0 * (1.0 - e / 5.0) ** 1.5 + 1.0
+    return top
+
+
+@njit(cache=True)
+def _inside(x, y, z):
+    """Which solid (x, y, z) is in: 0 none, 1 roof shell, 2 attic behind the gables,
+    3 ridge, 4 chimney, 5 hip ridge."""
+    cx0, cx1, cz0, cz1, ctop = CHIM
+    if cx0 <= x <= cx1 and cz0 <= z <= cz1 and y <= ctop and y >= EAVE:
+        return 4
+    if cx0 - 1 <= x <= cx1 + 1 and cz0 - 1 <= z <= cz1 + 1 and ctop <= y <= ctop + 2:
+        return 4
+    if GX0 - BARGE - 1.0 <= x <= GX1 + BARGE + 1.0 and abs(z - RIDGE_Z) <= RIDGE_W:
+        if EAVE + _prof(RIDGE_Z - EZ0) - 3.0 <= y <= _ridge_top(x):
+            return 3
+    if not (EX0 <= x <= EX1 and EZ0 <= z <= EZ1):
+        return 0
+    top, t, part = _roof(x, z)
+    if part == 1 or (part == 0 and _prof(min(z - EZ0, EZ1 - z)) < HG):
+        # hip ridges: where the long slope meets a hip, below the gables
+        dF, dB, dL, dR = z - EZ0, EZ1 - z, x - EX0, EX1 - x
+        g = min(abs(min(dF, dB) - min(dL, dR)), 9.0)
+        if g < 1.6 and min(min(dF, dB), min(dL, dR)) < GX0 - EX0:
+            bump = 2.2 * (1.0 - (g / 1.6) ** 2)
+            if top - t <= y <= top + bump:
+                return 5
+    if top - t <= y <= top:
+        return 1
+    if GX0 <= x <= GX1 and y <= top and y >= EAVE + HG - 2.0:
+        if _prof(min(z - EZ0, EZ1 - z)) >= HG - 0.5:
+            return 2
+    return 0
+
+
+@njit(cache=True)
+def _march(sx0, sy0, w, h, dz):
+    """For every screen pixel in the box, march the eye ray front to back and
+    report what it hits: solid, face and the world point."""
+    out_s = np.zeros((h, w), np.int32)
+    out_f = np.zeros((h, w), np.int32)
+    out_p = np.zeros((h, w, 3))
+    nz = int((EZ1 - EZ0 + 8.0) / dz)
+    for j in range(h):
+        for i in range(w):
+            X0 = sx0 + i + 0.5 - SX0
+            Y0 = SY0 - (sy0 + j + 0.5)
+            px, py, pz = 0.0, 0.0, 0.0
+            prev = 0
+            for k in range(nz):
+                z = EZ0 - 4.0 + k * dz
+                x = X0 + A * z
+                y = Y0 - B * z
+                s = _inside(x, y, z)
+                if s != 0:
+                    f = 0
+                    if s == 4:
+                        cx0, cx1, cz0, cz1, ctop = CHIM
+                        if py > ctop - 0.05 or y > ctop:
+                            f = F_CHIM_TOP
+                        elif px < cx0 - 0.0 and pz >= cz0 - 1:
+                            f = F_CHIM_L
+                        else:
+                            f = F_CHIM
+                    elif s == 3:
+                        if py > _ridge_top(px):
+                            f = F_RIDGE_TOP
+                        elif px < GX0 - BARGE - 1.0:
+                            f = F_RIDGE_END
+                        else:
+                            f = F_RIDGE
+                    elif s == 5:
+                        f = F_HIPR
+                    elif s == 2:
+                        f = F_GABLE if x < GX1 else F_RHIP
+                    else:
+                        top, t, part = _roof(x, z)
+                        ptop, pt, ppart = _roof(px, pz) if k > 0 else (top, t, part)
+                        above = k > 0 and EX0 <= px <= EX1 and EZ0 <= pz <= EZ1 and py > ptop and ppart == part
+                        if part == 2 and abs(x - (GX0 - BARGE)) < 0.35 and y < top - 0.35:
+                            f = F_BARGE
+                        elif part == 2 and y < top - BARGE_T + 0.4:
+                            f = F_BARGE_U
+                        elif above or y > top - 0.35:
+                            if part == 1:
+                                f = F_HIP if x < (EX0 + EX1) / 2 else F_RHIP
+                            else:
+                                f = F_FRONT if z < RIDGE_Z else F_BACK
+                        elif pz < EZ0:
+                            f = F_FASCIA
+                        elif px < EX0:
+                            f = F_SFASCIA
+                        elif part == 2:
+                            f = F_BARGE
+                        elif abs(x - GX0) < 0.35 and _prof(min(z - EZ0, EZ1 - z)) >= HG:
+                            f = F_GABLE
+                        elif abs(x - GX1) < 0.35:
+                            f = F_RHIP
+                        else:
+                            f = F_RFASCIA
+                    out_s[j, i] = s
+                    out_f[j, i] = f
+                    out_p[j, i, 0] = x
+                    out_p[j, i, 1] = y
+                    out_p[j, i, 2] = z
+                    break
+                px, py, pz = x, y, z
+    return out_s, out_f, out_p
+
+
+def march(box=(120, 90, 360, 200), dz=0.05):
+    x0, y0, x1, y1 = box
+    return _march(float(x0), float(y0), x1 - x0, y1 - y0, dz)
+
+# ---------------------------------------------------------------- shading the roof
+TILE = ['fgrey0', 'fgrey1', 'fgrey2', 'fgrey3', 'fgrey4']
+CH = 5.0                   # tile channel spacing on the long slopes (px)
+CHZ = 8.0                  # ... on the hips (z units: 4 px along a course)
+COURSE = 6.0               # rows per course
+VPROF = np.vectorize(prof)
+
+
+def _hash2(a, b, salt=0):
+    h = (np.asarray(a, np.int64) * 73856093) ^ (np.asarray(b, np.int64) * 19349663) ^ (salt * 83492791)
+    h = (h ^ (h >> 13)) * 1274126177
+    return ((h ^ (h >> 16)) & 0xffff) / 65535.0
+
+
+def _tile_idx(k, r, lift):
+    """Tone index of a hongawara pixel: k = place across the channel (0..4: the
+    round tile's lit flank, crown and shaded flank, the dark gap, the pan), r =
+    row in the course (0 the lit tile ends .. COURSE-1 the shadow under the ends
+    of the course above)."""
+    body = np.array([2, 2, 1, 0, 1])
+    ends = np.array([3, 3, 2, 0, 1])
+    under = np.array([1, 1, 0, 0, 0])
+    t = np.where(r == 0, ends[k], np.where(r == int(COURSE) - 1, under[k], body[k]))
+    return t + lift
+
+
+def _weather(idx, ci, qi, k, salt):
+    """Old roof: rain streaks darken a channel down a few courses, the odd tile
+    sits darker or was replaced with a paler one."""
+    h = _hash2(ci, qi, salt)
+    idx = np.where((h < 0.025) & (k < 3), idx - 1, idx)
+    idx = np.where((h > 0.985) & (k < 3), idx + 1, idx)
+    streak = _hash2(ci, 7, salt + 1)
+    start = (_hash2(ci, 8, salt + 3) * 7).astype(int)
+    run = (_hash2(ci, 9, salt + 2) * 3).astype(int) + 2
+    idx = np.where((streak < 0.22) & (qi >= start) & (qi < start + run) & (k >= 1), idx - 1, idx)
+    return idx
+
+
+def shade_roof(s, f, p, rng):
+    """Turn the march result into pixels (RGBA, the march box's size)."""
+    h, w = f.shape
+    out = np.zeros((h, w, 4), np.uint8)
+    X, Y, Z = p[..., 0], p[..., 1], p[..., 2]
+    names = np.full((h, w), '', object)
+
+    def put(m, idx, ramp):
+        idx = np.clip(idx, 0, len(ramp) - 1)
+        for i, c in enumerate(ramp):
+            mm = m & (idx == i)
+            names[mm] = c
+
+    # the long front slope
+    m = f == F_FRONT
+    d = Z - EZ0
+    q = VPROF(d) + 0.25 * d
+    r = np.floor(np.mod(q, COURSE)).astype(int)
+    qi = np.floor(q / COURSE).astype(int)
+    ph = np.mod(X - EX0, CH)
+    k = np.floor(ph).astype(int).clip(0, 4)
+    ci = np.floor((X - EX0) / CH).astype(int)
+    idx = _tile_idx(k, r, 0)
+    idx = _weather(idx, ci, qi, k, 1)
+    near_ridge = (RIDGE_Y - (EAVE + VPROF(d) + 0)) < 4.0
+    idx = np.where(near_ridge & (k < 3), idx - 1, idx)
+    put(m, idx, TILE)
+    # the left hip: lit by the sun
+    m = f == F_HIP
+    d = X - EX0
+    q = VPROF(d)
+    r = np.floor(np.mod(q, COURSE)).astype(int)
+    qi = np.floor(q / COURSE).astype(int)
+    ph = np.mod(EZ1 - Z, CHZ) / (CHZ / 4)
+    k = np.floor(ph).astype(int).clip(0, 3)
+    k = np.array([0, 1, 2, 4])[k]
+    ci = np.floor((EZ1 - Z) / CHZ).astype(int)
+    idx = _tile_idx(k, r, 1)
+    idx = _weather(idx, ci, qi, k, 2)
+    put(m, idx, TILE)
+    # the eave fascias: round tile ends, a dark gap, the fascia board, rafter ends
+    for face, along, lit in ((F_FASCIA, X - EX0, 0), (F_SFASCIA, (EZ1 - Z) / (CHZ / CH), 1), (F_RFASCIA, X, -1)):
+        m = f == face
+        if not m.any():
+            continue
+        tops = np.zeros((h, w))
+        ys, xs = np.nonzero(m)
+        for yy, xx in zip(ys, xs):
+            tops[yy, xx] = _roof(X[yy, xx], Z[yy, xx])[0]
+        t = tops - Y
+        k = np.floor(np.mod(along, CH)).astype(int).clip(0, 4)
+        row0 = np.array([3, 4, 2, 1, 1])[k] + lit
+        row1 = np.array([2, 3, 1, 0, 0])[k] + lit
+        tile_part = m & (t < 2.2)
+        put(tile_part & (t < 1.2), row0, TILE)
+        put(tile_part & (t >= 1.2), row1, TILE)
+        names[m & (t >= 2.2) & (t < 3.0)] = 'wood0'
+        names[m & (t >= 3.0) & (t < 3.8)] = ['wood3', 'wood4', 'wood2'][lit + 1 if lit >= 0 else 2]
+        names[m & (t >= 3.8) & (t < 4.6)] = ['wood2', 'wood3', 'wood1'][lit + 1 if lit >= 0 else 2]
+        rk = np.mod(along, 3.0)
+        raf = m & (t >= 4.6)
+        names[raf] = 'wood0'
+        names[raf & (rk < 1.0)] = 'wood3' if lit > 0 else 'wood2'
+        names[raf & (rk >= 1.0) & (rk < 2.0)] = 'wood2' if lit > 0 else 'wood1'
+    # the barge boards over the gable, with gilt studs
+    m = f == F_BARGE
+    if m.any():
+        tops = np.zeros((h, w))
+        for yy, xx in zip(*np.nonzero(m)):
+            tops[yy, xx] = _roof(X[yy, xx], Z[yy, xx])[0]
+        t = tops - Y
+        names[m] = 'wood3'
+        names[m & (t < 1.0)] = 'fgrey3'
+        names[m & (t >= 1.0) & (t < 1.8)] = 'wood4'
+        names[m & (t >= 2.4)] = 'wood1'
+        stud = m & (np.mod(Z - GZ0f() + 2.0, 8.0) < 1.6) & (t >= 1.0) & (t < 2.4)
+        names[stud] = 'gold3'
+    m = f == F_BARGE_U                       # under the verge: the rafter ends in shade
+    names[m] = 'wood0'
+    names[m & (np.mod(Z, 4.0) < 1.6)] = 'wood1'
+    # the gable: old plaster under the barge boards, a tie beam, a gilt gegyo at the apex
+    m = f == F_GABLE
+    if m.any():
+        under = np.zeros((h, w))
+        for yy, xx in zip(*np.nonzero(m)):
+            under[yy, xx] = _roof(GX0 - 0.5, Z[yy, xx])[0] - BARGE_T - Y[yy, xx]
+        base = EAVE + HG
+        names[m] = 'paper3'
+        stain = m & (_hash2(np.floor(Z / 3), np.floor(Y / 2), 5) < 0.18)
+        names[stain] = 'paper2'
+        names[m & (under < 1.6)] = 'paper1'
+        names[m & (under < 0.7)] = 'wood0'
+        names[m & (Y < base + 1.5)] = 'wood1'
+        names[m & (Y >= base + 1.5) & (Y < base + 2.6)] = 'wood3'
+        names[m & (Y >= base + 2.6) & (Y < base + 3.4)] = 'wood1'
+        kp = m & (np.abs(Z - RIDGE_Z) < 1.7) & (Y >= base + 2.6)
+        names[kp] = 'wood2'
+        names[kp & (Z < RIDGE_Z - 0.6)] = 'wood3'
+        names[kp & (Z > RIDGE_Z + 0.9)] = 'wood1'
+        apex = m & (np.abs(Z - RIDGE_Z) < 2.6) & (under < 4.0) & (under >= 0.7)
+        names[apex] = 'gold2'
+        names[apex & (Z < RIDGE_Z - 0.4)] = 'gold3'
+        names[apex & (np.abs(Z - RIDGE_Z) > 1.8)] = 'gold1'
+    # the ridge: stacked noshi tiles under a green copper cap; onigawara at the ends
+    m = (f == F_RIDGE) | (f == F_RIDGE_END)
+    if m.any():
+        rt = np.zeros((h, w))
+        for yy, xx in zip(*np.nonzero(m)):
+            rt[yy, xx] = _ridge_top(X[yy, xx])
+        t = rt - Y
+        end = m & (np.minimum(X - (GX0 - BARGE - 1), (GX1 + BARGE + 1) - X) < 5.0)
+        nl = np.floor((t - 2.0) / 1.25).astype(int)
+        names[m] = np.where(nl % 2 == 0, 'fgrey3', 'fgrey1')[m]
+        names[m & (t >= 2.0 + 1.25 * 4)] = 'fgrey0'
+        names[m & (t < 2.0)] = 'teal2'
+        names[m & (t < 0.9)] = 'teal3'
+        names[m & (t >= 2.0) & (t < 2.6)] = 'teal1'
+        names[end & (t >= 2.0)] = 'fgrey2'
+        names[end & (t >= 2.0) & (np.mod(t, 3.0) < 0.9)] = 'fgrey3'
+        names[m & (f == F_RIDGE_END)] = 'teal1'
+    names[f == F_RIDGE_TOP] = 'teal3'
+    # hip ridges, copper capped like the ridge
+    m = f == F_HIPR
+    if m.any():
+        dF, dB, dL, dR = Z - EZ0, EZ1 - Z, X - EX0, EX1 - X
+        g = np.minimum(dF, dB) - np.minimum(dL, dR)
+        names[m] = 'teal2'
+        names[m & (g > 0.35)] = 'teal3'
+        names[m & (np.abs(g) <= 0.35)] = 'teal3'
+        names[m & (g < -0.9)] = 'teal1'
+    # the chimney: rough stones, sooty at the top, a cap slab
+    for face in (F_CHIM, F_CHIM_L, F_CHIM_TOP):
+        m = f == face
+        if not m.any():
+            continue
+        if face == F_CHIM_TOP:
+            names[m] = 'stone3'
+            hole = m & (np.abs(X - (CHIM[0] + CHIM[1]) / 2) < 3) & (np.abs(Z - (CHIM[2] + CHIM[3]) / 2) < 2.5)
+            names[hole] = 'ink'
+            continue
+        tex = CHIM_TEX[0] if face == F_CHIM else CHIM_TEX[1]
+        u = (X - CHIM[0]) if face == F_CHIM else (CHIM[3] - Z) / 2.0
+        v = CHIM[4] + 2 - Y
+        ui = np.clip(np.floor(u).astype(int), 0, tex.w - 1)
+        vi = np.clip(np.floor(v).astype(int), 0, tex.h - 1)
+        ys, xs = np.nonzero(m)
+        for yy, xx in zip(ys, xs):
+            c = tuple(int(cc) for cc in tex.a[vi[yy, xx], ui[yy, xx], :3])
+            out[yy, xx, :3] = c
+            out[yy, xx, 3] = 255
+    for nm in set(names[names != ''].tolist()):
+        mm = names == nm
+        out[mm, :3] = PAL[nm]
+        out[mm, 3] = 255
+    return out
+
+
+def GZ0f():
+    """z where the front slope reaches the gable base."""
+    return EZ0 + (GX0 - EX0)
+
+
+def stone(cv, rng, x, y, w, h, ramp=None, tone=None):
+    """A small rough stone in the furnace's manner (counter._rock, which needs
+    4 px or more): clipped corners, lit top-left bevel, dark lower-right."""
+    if w >= 4 and h >= 4:
+        CT._rock(cv, rng, x, y, w, h, ramp or CT.STONE)
+        return
+    ramp = ramp or CT.STONE
+    t = rng.choice((0, 1, 1)) if tone is None else tone
+    for yy in range(h):
+        for xx in range(w):
+            corner = (xx in (0, w - 1)) and (yy in (0, h - 1)) and w > 2 and h > 2
+            if corner:
+                continue
+            i = t + 1
+            if yy == 0 or xx == 0:
+                i += 1
+            if yy == h - 1 or xx == w - 1:
+                i -= 1
+            cv.px(x + xx, y + yy, ramp[max(0, min(len(ramp) - 1, i))])
+
+
+def chimney_textures(rng):
+    """Front and side faces of the furnace chimney, built rock by rock like the
+    furnace (counter._rock), at outdoor scale; soot toward the top."""
+    cx0, cx1, cz0, cz1, top = CHIM
+    hgt = int(top + 2 - EAVE)
+    out = []
+    for wdt, ramp_lift in ((cx1 - cx0 + 1, 0), ((cz1 - cz0) // 2 + 1, 1)):
+        cv = Canvas(int(wdt), hgt)
+        cv.rect(0, 0, cv.w, cv.h, 'stone0')
+        y = 2
+        row = 0
+        while y < hgt:
+            rh = rng.randint(3, 4)
+            x = -rng.randint(0, 3)
+            while x < cv.w:
+                sw = rng.randint(4, 6) if ramp_lift == 0 else rng.randint(2, 3)
+                ramp = CT.WARM_STONE if rng.random() < 0.15 else CT.STONE
+                if ramp_lift:
+                    ramp = ramp[1:] + ramp[-1:]
+                stone(cv, rng, x, y, sw - 1, rh - 1, ramp)
+                x += sw
+            y += rh
+            row += 1
+        cv.rect(0, 0, cv.w, 2, 'stone2' if ramp_lift == 0 else 'stone3')     # cap slab edge
+        cv.hline(0, cv.w - 1, 0, 'stone4')
+        cv.hline(0, cv.w - 1, 2, 'stone0')
+        for yy in range(3, 8):                                          # soot from the flue
+            for xx in range(cv.w):
+                if BAYER4[yy % 4][xx % 4] / 16 > (yy - 3) / 5:
+                    cv.shift(xx, yy, -1)
+        out.append(cv)
+    return out
+
+
+CHIM_TEX = chimney_textures(random.Random(5))
+
+# ---------------------------------------------------------------- sunlight
+SUN = np.array([-0.75, 0.85, -1.0])
+SUN = SUN / np.linalg.norm(SUN)       # toward the sun: from the upper left, in front
+VPOSTS = ((-4.0, -2.0, -15.0, -13.0), (114.0, 116.0, -15.0, -13.0))   # veranda posts x0, x1, z0, z1
+
+
+@njit(cache=True)
+def _solid_all(x, y, z):
+    if _inside(x, y, z) != 0:
+        return True
+    if BX0 <= x <= BX1 and BZ0 <= z <= BZ1 and 0.0 <= y <= WALL_TOP + 14.0:
+        return True
+    if -4.0 <= x <= 116.0 and VZ0 <= z <= 0.0 and FLOOR - 3.0 <= y <= FLOOR:
+        return True
+    for (a, b, c, d) in VPOSTS:
+        if a <= x <= b and c <= z <= d and FLOOR <= y <= EAVE:
+            return True
+    return False
+
+
+@njit(cache=True)
+def _shadowed(pts, lx, ly, lz):
+    n = pts.shape[0]
+    out = np.zeros(n, np.bool_)
+    for i in range(n):
+        x, y, z = pts[i, 0], pts[i, 1], pts[i, 2]
+        t = 0.7
+        while t < 160.0:
+            yy = y + ly * t
+            if yy > 140.0:
+                break
+            if _solid_all(x + lx * t, yy, z + lz * t):
+                out[i] = True
+                break
+            t += 0.5
+    return out
+
+
+def shadowed(pts, sun=None):
+    sun = SUN if sun is None else sun
+    pts = np.ascontiguousarray(np.asarray(pts, float).reshape(-1, 3))
+    return _shadowed(pts, sun[0], sun[1], sun[2])
+
+
+GROUND_SUN = np.array([-0.55, 1.5, -0.45])
+GROUND_SUN = GROUND_SUN / np.linalg.norm(GROUND_SUN)   # the shade on the grass is drawn short and close
+
+
+# ---------------------------------------------------------------- the veranda and the footings
+def veranda_top(rng):
+    """The engawa's boards (grey, weathered), texels = 4 units deep (one screen row)."""
+    w = 120
+    cv = Canvas(w, 4)
+    for row in range(4):
+        cv.hline(0, w - 1, row, 'stone2' if row in (0, 1) else 'stone3')
+    for k, row in enumerate((0, 2)):
+        x = rng.randint(4, 30)
+        while x < w:
+            cv.vline(x, row, row + 1, 'stone1')
+            x += rng.randint(26, 44)
+    WG.grain_pass(cv, 0, 0, w, 4, 'h', seed=4.0, board=2, contrast=0.8, ramps=('stone',))
+    for xx in range(26, 50):                                       # worn pale in front of the door
+        if (xx * 7) % 5:
+            cv.px(xx, 3, 'stone4')
+    return cv
+
+
+def veranda_front(rng):
+    w = 120
+    cv = Canvas(w, 10)
+    cv.hline(0, w - 1, 0, 'stone4')
+    cv.hline(0, w - 1, 1, 'stone2')
+    cv.hline(0, w - 1, 2, 'stone1')
+    WG.grain_pass(cv, 0, 1, w, 3, 'h', seed=9.0, board=2, contrast=0.8, ramps=('stone',))
+    cv.rect(0, 3, w, 7, 'ink')                                     # dark under the floor
+    cv.hline(0, w - 1, 3, 'stone0')
+    return cv
+
+
+def side_foundation(rng):
+    w = (BZ1 - BZ0) // 2
+    cv = Canvas(w, FLOOR)
+    cv.rect(0, 0, w, FLOOR, 'ink')
+    cv.hline(0, w - 1, 0, 'wood1')
+    cv.hline(0, w - 1, 1, 'wood0')
+    return cv
+
+
+def post3d(cv, x0, x1, z0, z1, y0, y1):
+    """A square post: its front face and its lit left face (one px at 2:1)."""
+    fx = Canvas(int(x1 - x0), int(y1 - y0))
+    post(fx, 0, fx.w, 0, fx.h, seed=x0)
+    warp(cv, fx, (x0, y1, z0), (1, 0, 0), (0, -1, 0))
+    sd = Canvas(1, int(y1 - y0))
+    sd.vline(0, 0, sd.h - 1, 'wood3')
+    warp(cv, sd, (x0, y1, z1), (0, 0, -(z1 - z0)), (0, -1, 0))
+
+
+def footings(cv, rng):
+    """Tsuka-ishi under the posts and along the front, half sunk in the ground."""
+    spots = [(-3, VZ0 + 1, 7, 5), (115, VZ0 + 1, 7, 5), (30, VZ0 + 2, 6, 4), (70, VZ0 + 2, 6, 4),
+             (96, VZ0 + 2, 6, 4), (-1, 2, 5, 4), (-1, 22, 5, 4), (-1, 42, 5, 4)]
+    for (x, z, w, h) in spots:
+        sx, sy = P(x, 0, z)
+        stone(cv, rng, int(sx - w / 2), int(sy - h + 1), w, h)
+
+
+# ---------------------------------------------------------------- putting it together
+MARCH_BOX = (120, 90, 360, 200)
+
+
+def build_static(seed=11):
+    """Everything that does not move, as one 640x360 canvas."""
+    rng = random.Random(seed)
+    cv = Canvas(W, H)
+    walls = Canvas(W, H)
+    warp(walls, side_foundation(rng), (0, FLOOR, BZ1), (0, 0, -2), (0, -1, 0))
+    warp(walls, side_wall(rng), (BX0, WALL_TOP, BZ1), (0, 0, -2), (0, -1, 0))
+    warp(walls, front_wall(rng), (BX0, WALL_TOP, 0), (1, 0, 0), (0, -1, 0))
+    # light and shade on the walls: what the eaves and posts keep from the sun
+    ys, xs = np.nonzero(walls.a[..., 3] > 0)
+    zf = np.zeros(len(xs))
+    wx = xs + 0.5 - SX0
+    wy = SY0 - (ys + 0.5)
+    on_front = wx >= 0
+    wz = np.where(on_front, 0.01, 2 * (SX0 - (xs + 0.5)))
+    wx = np.where(on_front, wx, -0.01)
+    wy = np.where(on_front, wy, SY0 - (ys + 0.5) - B * wz)
+    glass = on_front & (((wx > WIN[0]) & (wx < WIN[1]) & (wy > WIN[2]) & (wy < WIN[3])) |
+                        ((wx > DOOR[0]) & (wx < DOOR[1]) & (wy < DOOR_TOP) & (wy > FLOOR)))
+    sh = shadowed(np.stack([wx, wy, wz], 1)) & ~glass & (wy > FLOOR + 0.5)
+    for y, x in zip(ys[sh], xs[sh]):
+        walls.shift(x, y, -1)
+    cv.blit(walls, 0, 0)
+    wall_mask = np.zeros((H, W), bool)
+    wall_mask[ys[on_front & ~glass], xs[on_front & ~glass]] = True
+    # the veranda
+    ver = Canvas(W, H)
+    warp(ver, veranda_front(rng), (-4, FLOOR, VZ0), (1, 0, 0), (0, -1, 0))
+    warp(ver, veranda_top(rng), (-4, FLOOR, 0), (1, 0, 0), (0, 0, -4))
+    ys, xs = np.nonzero(ver.a[..., 3] > 0)
+    top = np.array([tuple(ver.a[y, x, :3]) != PAL['ink'] for y, x in zip(ys, xs)], bool)
+    wz = np.clip((SY0 - FLOOR - (ys + 0.5)) / B, VZ0, 0)
+    pts = np.stack([xs + 0.5 - SX0 + A * wz, np.full(len(xs), FLOOR + 0.2), wz], 1)
+    sh = shadowed(pts) & top
+    for y, x in zip(ys[sh], xs[sh]):
+        ver.shift(x, y, -1)
+    cv.blit(ver, 0, 0)
+    for (a, b, c, d) in VPOSTS:
+        post3d(cv, a, b, c, d, FLOOR, WALL_TOP)
+    footings(cv, rng)
+    # the roof
+    s, f, p = march(MARCH_BOX)
+    roof = shade_roof(s, f, p, rng)
+    x0, y0, x1, y1 = MARCH_BOX
+    reg = cv.a[y0:y1, x0:x1]
+    m = roof[..., 3] > 0
+    reg[m] = roof[m]
+    wall_mask &= cv.a[..., 3] > 0
+    wall_mask[y0:y1, x0:x1] &= ~m
+    return cv, wall_mask
+
+
+# ---------------------------------------------------------------- the things that move
+LANTERNS = [(15.0, -8.0, 0.0), (49.0, -8.0, 2.0)]     # world x, z, extra lag (frames)
+FURIN = (-9.0, -17.0)
+NOREN_PANELS = (24, 31, 38)                             # left edges (world x) of the three panels, 6 wide
+NOREN_LEN = 15
+
+
+def _sx(x, z=0.0):
+    return int(math.floor(SX0 + x - A * z))
+
+
+def _sy(y, z=0.0):
+    return int(math.floor(SY0 - y - B * z))
+
+
+def noren(cv, f):
+    """Indigo noren over the door: three panels on a rod, a white teacup crest.
+    The gust lifts them, pushes them out and swings them apart, each panel a
+    little behind the one to its left."""
+    y0 = _sy(DOOR_TOP) + 1
+    x0, x1 = _sx(DOOR[0]) - 1, _sx(DOOR[1])
+    spr = Canvas(40, 26)
+    ox, oy = x0 - 8, y0
+    g = max(0.0, wind(x0 + 10, f) - 0.25)                  # the gust part of the wind
+    for p, px0 in enumerate(NOREN_PANELS):
+        sx0 = _sx(px0) - ox
+        s = sway(_sx(px0 + 3), f, amp=1.25, lag=1.0 + p * 1.6)
+        spread = (p - 1) * g * 1.4
+        lift = int(round(max(0.0, s) * 0.9 + g * 1.5))
+        L = NOREN_LEN - lift - (1 if p == 1 else 0)
+        for row in range(L):
+            t = row / max(1, L - 1)
+            dx = (s + spread) * t * t * 1.5
+            xx = sx0 + int(round(dx))
+            bulge = s * 4 * t * (1 - t)                    # billowing out: the middle catches the light
+            for k in range(6):
+                c = ['indigo3', 'indigo2', 'indigo2', 'indigo2', 'indigo1', 'indigo1'][k]
+                if bulge > 0.9 and k in (1, 2) and 0.3 < t < 0.85:
+                    c = 'indigo3'
+                if bulge < -0.6 and k in (3, 4):
+                    c = 'indigo0'
+                if row == 0:
+                    c = 'indigo1' if k < 5 else 'indigo0'
+                if row == L - 1:
+                    c = 'indigo1' if k < 4 else 'indigo0'
+                    if (k + p * 2) % 5 == 3:
+                        continue                             # frayed hem
+                spr.px(xx + k, row + 1, c)
+            if p == 1 and 3 <= row <= 7:                     # the crest: a white ring mon round a tea leaf
+                crest = {3: '.###.', 4: '#..##', 5: '#.#.#', 6: '##..#', 7: '.###.'}[row]
+                for k, ch in enumerate(crest):
+                    if ch == '#':
+                        spr.px(xx + k, row + 1, 'paper4' if (k < 2 or row < 5) else 'paper3')
+    out = OBJ.outline(spr)
+    for xx in range(x0 - 1, x1 + 2):                         # the rod
+        cv.px(xx, y0, 'wood3')
+    cv.px(x0 - 2, y0, 'wood1'); cv.px(x1 + 2, y0, 'wood1')
+    cv.blit(out, ox - 1, oy - 1)
+    for xx in range(x0 - 1, x1 + 2):
+        cv.px(xx, y0, 'wood3' if xx % 7 else 'wood4')
+
+
+def _lantern_sprite(f, flick):
+    """A chochin, 7 px across: black lacquer caps with a gilt rim, red paper
+    glowing from the candle inside, bamboo ribs, a tassel."""
+    rows = ['..kkk..',
+            '.gGGGg.',
+            '.rRFRr.',
+            'rRFHFRr',
+            'dRFHFRd',
+            'rRFHFRr',
+            '.rRFRr.',
+            '.gGGGg.',
+            '..kkk..']
+    hot = 'fire5' if flick else 'fire4'
+    cmap = {'k': 'wood0', 'g': 'gold1', 'G': 'gold2', 'r': 'red2', 'R': 'red4', 'F': 'fire3', 'H': hot,
+            'd': 'red1'}
+    spr = Canvas(9, 14)
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != '.':
+                spr.px(x + 1, y + 1, cmap[ch])
+    for x in range(2, 7):                                    # a rib across the middle, darker
+        spr.shift(x, 5, -1)
+    return spr
+
+
+def lanterns(cv, f, wall_mask=None):
+    for i, (x, z, lag) in enumerate(LANTERNS):
+        ax, ay = _sx(x, z), _sy(EAVE - EAVE_T + 1, EZ0)      # the cord comes out under the eave
+        s = sway(ax, f, amp=1.2, lag=4.0 + lag)
+        dx = int(round(s))
+        flick = (f * 5 // 7 + i * 3) % 9 not in (0, 4)
+        top = ay + 7
+        cx = ax + dx
+        cv.line(ax, ay, cx, top - 1, 'wood1')
+        spr = OBJ.outline(_lantern_sprite(f, flick))
+        cv.blit(spr, cx - 5, top - 2)
+        tx = cx + int(round(sway(ax, f, amp=0.8, lag=6.0 + lag) - s * 0.6))   # tassel trails
+        for k in range(3):
+            cv.px(cx + (tx - cx) * k // 3, top + 9 + k, 'red1' if k < 2 else 'gold2')
+
+
+def lantern_glow(cv, f, wall_mask):
+    """The lanterns warm the wall behind them (one step up the ramp, dithered edge)."""
+    for i, (x, z, lag) in enumerate(LANTERNS):
+        ax, ay = _sx(x, z), _sy(EAVE - EAVE_T + 1, EZ0)
+        s = sway(ax, f, amp=1.2, lag=4.0 + lag)
+        cx, cy = ax + s, ay + 12
+        for yy in range(int(cy) - 9, int(cy) + 10):
+            for xx in range(int(cx) - 8, int(cx) + 9):
+                if not (0 <= xx < W and 0 <= yy < H) or not wall_mask[yy, xx]:
+                    continue
+                d = math.hypot((xx + 0.5 - cx) / 7.0, (yy + 0.5 - cy) / 8.0)
+                if d < 0.7 or (d < 1.0 and BAYER4[yy % 4][xx % 4] / 16 < (1.0 - d) / 0.3):
+                    cv.shift(xx, yy, 1, only=('red', 'wood'))
+
+
+def furin(cv, f):
+    """The glass wind chime under the eave corner; its paper strip flutters."""
+    x, z = FURIN
+    ax = _sx(x, z)
+    ay = int(math.floor(SY0 - (EAVE - EAVE_T + _kick_py(x, EZ0)) - B * EZ0)) + 1
+    w = wind(ax, f)
+    s = sway(ax, f, amp=1.0, lag=1.0)
+    bx = ax + int(round(s * 0.5))
+    cv.line(ax, ay, bx, ay + 2, 'paper1')
+    by = ay + 3
+    for (dx, dy, c) in ((-1, 0, 'sky2'), (0, 0, 'cloud3'), (1, 0, 'sky1'), (-1, 1, 'sky3'), (0, 1, 'sky2'),
+                        (1, 1, 'sky1'), (-2, 1, 'sky0'), (2, 1, 'sky0'), (-2, 2, 'red3'), (-1, 2, 'sky2'),
+                        (0, 2, 'leaf3'), (1, 2, 'sky1'), (2, 2, 'sky0')):
+        cv.px(bx + dx, by + dy, c)
+    cv.hline(bx - 2, bx + 2, by - 1, 'sky0')
+    cv.px(bx - 1, by - 1, 'sky1'); cv.px(bx, by - 1, 'sky1')
+    sx = bx + int(round(s * 0.8))
+    cv.px(sx, by + 3, 'gold2')
+    cv.px(sx, by + 4, 'paper1')
+    for j in range(6):                                       # the tanzaku
+        t = (j + 1) / 6
+        fl = 0.9 * w * math.sin(2 * math.pi * f * 6 / N + t * 2.2)
+        xx = sx + int(round((s * 1.6 + fl) * t))
+        wide = abs(math.sin(2 * math.pi * f * 4 / N + t * 1.7 + 0.5)) > 0.35 * w + 0.15
+        cv.px(xx, by + 5 + j, 'paper4' if j != 2 else 'red2')
+        if wide:
+            cv.px(xx + 1, by + 5 + j, 'paper2')
+
+
+def _kick_py(x, z):
+    return _kick(float(x), float(z))
+
+
+SMOKE_TOP = (sum(CHIM[:2]) / 2, CHIM[4] + 2, sum(CHIM[2:4]) / 2)
+
+
+def smoke(f):
+    """A thin curl of smoke off the furnace chimney: small puffs rising, growing
+    and thinning out, pushed over by the same gust as everything else.
+    Quantised to three soft levels like the furnace's smoke."""
+    cx, cy = P(*SMOKE_TOP)
+    K, LIFE = 16, 64
+    w, h = 110, 70
+    ox, oy = int(cx) - 12, int(cy) - h + 4
+    yy, xx = np.mgrid[0:h, 0:w]
+    D = np.zeros((h, w))
+    for j in range(-K, K):
+        b = j * N / K
+        age = f - b
+        age = age % N if age >= LIFE else age
+        if not (0 <= age < LIFE):
+            continue
+        a = age / LIFE
+        drift = 0.0
+        for i in range(int(age)):
+            drift += 0.1 + 0.85 * wind(cx + drift, f - i)
+        y = cy - a * 52 - 2
+        x = cx + drift * (0.35 + 0.65 * a) + math.sin(a * 7.0 + j * 1.3) * 2.0 * a
+        r = 1.2 + 4.2 * a
+        amp = min(1.0, a / 0.08) * (1 - a) ** 1.3
+        D += amp * np.exp(-(((xx + 0.5 - (x - ox)) ** 2) / (r * r * 1.6) + ((yy + 0.5 - (y - oy)) ** 2) / (r * r)))
+    out = np.zeros((h, w, 4), np.uint8)
+    levels = [(0.95, 'cloud3', 190), (0.55, 'cloud2', 140), (0.28, 'cloud1', 90)]
+    done = np.zeros((h, w), bool)
+    for th, c, al in levels:
+        m = (D > th) & ~done
+        out[m, :3] = PAL[c]
+        out[m, 3] = al
+        done |= m
+    faint = (out[..., 3] == 90) & ((xx + yy) % 2 == 0)
+    out[faint] = 0
+    return out, ox, oy
+
+
+ROOF_TUFTS = [(-9.0, 2.0), (88.0, -15.0), (118.0, -14.0), (60.0, -16.5)]     # world x, z on the roof
+
+
+def roof_tufts(cv, f):
+    """A few blades of grass have rooted in the moss on the roof; they nod in the gust."""
+    rng = random.Random(41)
+    for (x, z) in ROOF_TUFTS:
+        top = _roof(float(x), float(z))[0]
+        bx, by = _sx(x, z), _sy(top, z)
+        s = sway(bx, f, amp=1.0, lag=0.5)
+        for b in range(rng.randint(3, 4)):
+            hgt = rng.randint(2, 4)
+            base = bx + b - 1
+            lean = rng.choice((-1, 0, 0, 1))
+            for k in range(1, hgt + 1):
+                t = k / hgt
+                xx = base + int(round((s + lean * 0.6) * t * t))
+                cv.px(xx, by - k, 'leaf4' if k == hgt else ('leaf3' if k > 1 else 'leaf2'))
+
+
+# ---------------------------------------------------------------- the sign, the stone lantern, the ground
+def sign(rng):
+    """A vertical signboard hung on the wall by the door, its runes gilded
+    (the pack's rune script: CHA, tea)."""
+    w, h = 7, 21
+    cv = Canvas(w, h)
+    cv.rect(0, 0, w, h, 'wood2')
+    WG.grain_pass(cv, 1, 0, w - 1, h, 'v', seed=3.3, board=w - 2, contrast=0.8)
+    cv.vline(0, 0, h - 1, 'wood3')
+    cv.hline(0, w - 1, 0, 'wood3')
+    cv.vline(w - 1, 0, h - 1, 'wood1')
+    cv.hline(0, w - 1, h - 1, 'wood1')
+    for i, ch in enumerate('CHA'):
+        text(cv, 2, 2 + 6 * i, ch, 'gold3')
+        for gy in range(5):                                  # the gilt is worn on the lower strokes
+            for gx in range(3):
+                if cv.get(2 + gx, 2 + 6 * i + gy)[:3] == PAL['gold3'] and (gx + gy) % 3 == 2:
+                    cv.px(2 + gx, 2 + 6 * i + gy, 'gold2')
+    chip(cv, 3, 15, 3, 3, rng, under='wood3', under_dark='wood1', n=1, rmin=0.8, rmax=1.2, elong=1.0)
+    return OBJ.outline(cv)
+
+
+def toro(rng):
+    """A kasuga stone lantern: base, round post, platform, the fire box with its
+    window glowing, an umbrella cap with curled corners and a jewel on top.
+    Stones lit from the upper left like the furnace's; moss on the cap and base."""
+    S = ['stone0', 'stone1', 'stone2', 'stone3', 'stone4']
+    w, h = 17, 31
+    cv = Canvas(w, h)
+    def slab(x0, x1, y0, y1, lift=0):
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                i = 2 + lift
+                if y == y0:
+                    i += 1
+                if x == x0:
+                    i += 1
+                if x == x1 - 1 or y == y1 - 1:
+                    i -= 1
+                cv.px(x, y, S[max(0, min(4, i))])
+        cv.px(x0, y1 - 1, S[1 + lift]); cv.px(x1 - 1, y0, S[2 + lift])
+    slab(3, 14, h - 3, h)                                    # kiso, the base
+    slab(4, 13, h - 5, h - 3, 0)
+    for y in range(h - 14, h - 5):                           # sao, the round post
+        for k, c in enumerate(('stone3', 'stone3', 'stone2', 'stone2', 'stone1')):
+            cv.px(6 + k, y, c)
+    cv.hline(6, 10, h - 10, 'stone1')                        # a ring cut round the post
+    cv.hline(6, 7, h - 9, 'stone4')
+    slab(3, 14, h - 17, h - 14)                              # chudai, the platform
+    slab(5, 12, h - 23, h - 17)                              # hibukuro, the fire box
+    for y in range(h - 22, h - 18):                          # its window, a candle inside
+        for x in range(7, 10):
+            cv.px(x, y, 'fire3' if y > h - 21 else 'fire2')
+    cv.px(8, h - 20, 'fire5'); cv.px(8, h - 19, 'fire4')
+    cv.vline(6, h - 22, h - 18, 'stone1')
+    for y in range(h - 28, h - 23):                          # kasa, the cap: wide, sloped, curled up corners
+        t = (y - (h - 28)) / 4
+        half = 2 + t * 6.5
+        x0, x1 = int(round(8.5 - half)), int(round(8.5 + half))
+        for x in range(x0, x1):
+            c = 'stone3' if x < 8.5 - half * 0.2 else 'stone2'
+            if y == h - 24:
+                c = 'stone1' if x > 5 else 'stone2'
+            if y == h - 28:
+                c = 'stone4' if x < 9 else 'stone3'
+            cv.px(x, y, c)
+    cv.px(1, h - 25, 'stone3'); cv.px(15, h - 25, 'stone2')  # curled corners
+    cv.px(0, h - 26, 'stone3'); cv.px(16, h - 26, 'stone1')
+    cv.hline(2, 14, h - 23, 'stone0')
+    for (x, y, c) in ((7, h - 30, 'stone3'), (8, h - 30, 'stone3'), (9, h - 30, 'stone2'), (8, h - 31, 'stone4'),
+                      (7, h - 29, 'stone2'), (8, h - 29, 'stone2'), (9, h - 29, 'stone1')):
+        cv.px(x, y, c)                                        # hoju, the jewel
+    MOSS.clump(cv, rng, 2, h - 26, 7, 2, 'ledge', spores=0.0, shadow=False)
+    MOSS.clump(cv, rng, 9, h - 16, 4, 2, 'ledge', spores=0.0, shadow=False)
+    MOSS.clump(cv, rng, 3, h - 3, 5, 2, 'ledge', spores=0.4, shadow=False)
+    for (x, y) in ((11, h - 2), (5, h - 12), (12, h - 15)):  # lichen
+        cv.px(x, y, 'paper2')
+    return OBJ.outline(cv)
+
+
+def fern(rng, n=5, size=8, flip=False):
+    """A clump of fern: arching fronds with leaflets, lit on top."""
+    w, h = size * 3, size + 4
+    cv = Canvas(w, h)
+    bx, by = w // 2, h - 1
+    for k in range(n):
+        a = math.pi * (0.15 + 0.7 * (k + rng.uniform(-0.2, 0.2)) / max(1, n - 1))
+        L = size * rng.uniform(0.7, 1.0)
+        pts = []
+        for i in range(int(L * 2) + 1):
+            t = i / (L * 2)
+            x = bx + math.cos(a) * L * t * 1.25
+            y = by - math.sin(a) * L * t + (L * 0.55) * t * t
+            pts.append((int(round(x)), int(round(y))))
+        for i, (x, y) in enumerate(pts):
+            t = i / max(1, len(pts) - 1)
+            cv.px(x, y, 'leaf2' if t < 0.3 else 'leaf3')
+            if 0.2 < t < 0.95 and i % 2 == 0:
+                cv.px(x, y - 1, 'leaf4' if t > 0.4 else 'leaf3')
+                cv.px(x, y + 1, 'leaf1')
+    out = OBJ.outline(cv)
+    if flip:
+        out.a = out.a[:, ::-1].copy()
+    return out
+
+
+def ground_shadow():
+    """Where the building keeps the sun off the meadow: a soft see-through shade."""
+    x0, y0, x1, y1 = 140, 200, 380, 262
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    z = (SY0 - (yy + 0.5)) / B
+    x = xx + 0.5 - SX0 + A * z
+    ok = (z > VZ0 - 8) & (z < BZ1 + 30) & (x > EX0 - 6) & (x < EX1 + 18)
+    pts = np.stack([x[ok], np.full(ok.sum(), 0.2), z[ok]], 1)
+    sh = shadowed(pts, GROUND_SUN)
+    m = np.zeros(xx.shape, bool)
+    m[ok] = sh
+    out = np.zeros((H, W, 4), np.uint8)
+    reg = out[y0:y1, x0:x1]
+    core = m.copy()
+    for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        core &= np.roll(m, d, (0, 1))
+    reg[m] = (*PAL['ink'], 60)
+    reg[core] = (*PAL['ink'], 105)
+    return out
+
+
+def ground_items(rng):
+    """The things at the building's foot, as (y_sort, x, frames or sprite)."""
+    items = []
+    # the shoe stone at the door, and stepping stones running into the meadow path
+    st = Canvas(20, 7)
+    CT._rock(st, rng, 0, 0, 19, 6, CT.STONE)
+    MOSS.clump(st, rng, 13, 6, 5, 2, 'ledge', spores=0.0, shadow=False)
+    items.append((247, _sx(24, -19), 241, st))
+    for (x, y, w_) in ((230, 250, 9), (222, 254, 9), (216, 258, 8)):
+        s = Canvas(w_ + 1, 5)
+        CT._rock(s, rng, 0, 0, w_, 4, CT.STONE)
+        s.px(w_ - 2, 3, 'leaf2')
+        items.append((y + 3, x - 1, y - 1, OBJ.outline(s)))
+    # the stone lantern at the near corner
+    t = toro(rng)
+    items.append((252, 172, 252 - t.h + 1, t))
+    # ferns at the corners
+    for (x, y, n, sz, fl) in ((186, 249, 6, 7, False), (300, 248, 5, 6, True), (163, 240, 4, 6, False)):
+        fr = fern(rng, n, sz, fl)
+        items.append((y, x - fr.w // 2, y - fr.h + 1, fr))
+    # grass tufts along the footings, swaying with the scene's meadow
+    spots = [(158, 238, 6, 4), (176, 244, 7, 5), (196, 247, 5, 4), (214, 248, 6, 4), (258, 248, 6, 5),
+             (276, 248, 5, 4), (292, 249, 7, 5), (312, 247, 6, 4), (168, 253, 8, 6), (249, 250, 5, 3)]
+    for (x, y, hgt, nb) in spots:
+        MD._GUST = -2 * math.pi * x / (W / 2.0)
+        fr = MD.tuft(rng, hgt, nb, 0 if y > 246 else 1)
+        items.append((y, x - fr[0].w // 2, y - fr[0].h + 1, fr))
+    MD._GUST = 0.0
+    items.sort(key=lambda it: it[0])
+    return items
+
+
+def roof_moss(cv, rng):
+    """Moss on the old roof, where the damp sits: cushions along the eave edge and
+    at the foot of the hips, a few patches in the shaded channels, a short
+    curtain hanging off the fascia on the right."""
+    for (x, z, w_, h_) in ((-6, -19.5, 9, 3), (30, -19.7, 6, 2), (72, -19.7, 12, 3), (104, -19.4, 9, 3),
+                           (-15.5, 10.0, 6, 3), (-15.5, 34.0, 8, 3)):
+        top = _roof(float(x), float(z))[0]
+        MOSS.clump(cv, rng, _sx(x, z), _sy(top, z) + 2, w_, h_, 'ledge', spores=0.35)
+    for (x, z, w_) in ((90, -8, 8), (60, -12, 6), (14, -12, 6), (98, 6, 6)):
+        top = _roof(float(x), float(z))[0]
+        MOSS.clump(cv, rng, _sx(x, z), _sy(top, z), w_, max(3, w_ // 2), 'wall')
+    for (x, w_, d_) in ((84, 9, 5), (12, 6, 4)):
+        bot = _roof(float(x), float(EZ0))[0] - EAVE_T
+        MOSS.clump(cv, rng, _sx(x, EZ0), _sy(bot, EZ0), w_, d_, 'hang')
+
+
+def foot_moss(cv, rng):
+    """Moss creeping on the footings, the sill and the lowest boards."""
+    for x in range(-2, 118, 9):
+        if rng.random() < 0.6:
+            MOSS.clump(cv, rng, _sx(x, VZ0), _sy(FLOOR - 3, VZ0) + 1, rng.randint(4, 7), 2, 'ledge', spores=0.2)
+    for z in range(2, 44, 10):
+        MOSS.clump(cv, rng, _sx(0, z) - 3, _sy(FLOOR + 3, z), 4, 3, 'wall')
+
+
+# ---------------------------------------------------------------- the whole thing, frame by frame
+_CACHE = {}
+
+
+def _base():
+    if 'base' in _CACHE:
+        return _CACHE['base']
+    rng = random.Random(23)
+    bld, wall_mask = build_static()
+    roof_moss(bld, rng)
+    foot_moss(bld, rng)
+    s = sign(rng)
+    bld.blit(s, _sx(7) - 1, _sy(48) - 1)
+    for cx in (_sx(8), _sx(12)):
+        bld.vline(cx, _sy(57), _sy(48) - 2, 'wood1')
+    out = OBJ.outline(bld)
+    full = Canvas(W, H)
+    full.a = ground_shadow()
+    full.blit(out.crop(1, 1, W, H), 0, 0)
+    _CACHE['base'] = (full, wall_mask, ground_items(rng))
+    return _CACHE['base']
+
+
+def window_light(cv, f):
+    """The lanterns inside breathe a little."""
+    x0, x1, y0, y1 = WIN
+    k = 0.5 + 0.5 * math.sin(2 * math.pi * f * 3 / N) * math.sin(2 * math.pi * f * 5 / N + 1.0)
+    if k < 0.25:
+        for yy in range(_sy(y1), _sy(y0)):
+            for xx in range(_sx(x0), _sx(x1)):
+                if cv.get(xx, yy)[:3] == PAL['fire5']:
+                    cv.px(xx, yy, 'fire4')
+
+
+def frame(f):
+    base, wall_mask, items = _base()
+    cv = base.copy()
+    window_light(cv, f)
+    lantern_glow(cv, f, wall_mask)
+    noren(cv, f)
+    lanterns(cv, f)
+    furin(cv, f)
+    roof_tufts(cv, f)
+    for (_, x, y, spr) in items:
+        s = spr[f % len(spr)] if isinstance(spr, list) else spr
+        cv.blit(s, x, y)
+    sm, ox, oy = smoke(f)
+    tmp = Canvas(sm.shape[1], sm.shape[0])
+    tmp.a = sm
+    cv.blit(tmp, ox, oy)
+    return cv
+
+
+def teahouse_frames():
+    """N RGBA arrays, 640x360, transparent except the teahouse and its foot."""
+    return [frame(f).a for f in range(N)]
+
+
+def preview(cv, path, scale=3, bg=(150, 196, 110)):
+    im = Image.new('RGBA', (cv.w, cv.h), bg + (255,))
+    im.alpha_composite(cv.image())
+    im = im.resize((cv.w * scale, cv.h * scale), Image.NEAREST)
+    im.save(path)
+
+
+if __name__ == '__main__':
+    import sys
+    out = sys.argv[1] if len(sys.argv) > 1 else '/tmp/th.png'
+    c = frame(int(sys.argv[2]) if len(sys.argv) > 2 else 0)
+    preview(c.crop(130, 70, 220, 200), out, 3)

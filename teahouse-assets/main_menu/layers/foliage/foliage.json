@@ -1,0 +1,22 @@
+{
+ "name": "foliage",
+ "frames": 96,
+ "fps": 12,
+ "x": 0,
+ "y": 207,
+ "w": 640,
+ "h": 153,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "foliage_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 96,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "foliage.png",
+ "preview": "foliage_preview_3x.png",
+ "loops": true,
+ "wind": "leans with menu_layout.wind at its own x (one gust left to right per loop)",
+ "note": "reeds and irises on the banks, ferns and a hydrangea at the big tree's foot, tall grass in the bottom-left corner: draw over the big tree"
+}

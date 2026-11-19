@@ -1,0 +1,22 @@
+{
+ "name": "far_trees",
+ "frames": 96,
+ "fps": 12,
+ "x": 1,
+ "y": 128,
+ "w": 639,
+ "h": 138,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "far_trees_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 96,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "far_trees.png",
+ "preview": "far_trees_preview_3x.png",
+ "loops": true,
+ "wind": "leans with menu_layout.wind at its own x (one gust left to right per loop)",
+ "note": "the tree line on the far meadow edge and the trees in the middle distance (black pine, two hinoki cypresses, an oak, a willow at the river bend): draw over the meadow, under the teahouse"
+}
