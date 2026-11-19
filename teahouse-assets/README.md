@@ -316,6 +316,31 @@ python3 teahouse-assets/generator/kit_pack.py viewer OUT --inline   # the drag-t
 python3 teahouse-assets/generator/kit_pack.py zip Traveler_Kit.zip   # two zips of every prop
 ```
 
+## The main menu
+
+![The main menu](main_menu/preview/main_menu_3x.png)
+
+`main_menu/` is an animated title screen for the teahouse game: 640×360, 96 frames at 12 fps, looping.
+
+- **Scenery:** the far half is the pack's own summer view: the sky, the clouds, the mountains, the lake with its koi and ducks, the birds, the grown trees along the shore and the flower bed. It is moved down so it leaves room for the menu.
+- **Near half:** the meadow carries on to the bottom edge in the pack's grass tufts, flowers and pampas. A trodden path runs from the teahouse door, and a stream of the lake's own water runs toward you, with koi leaping out of it.
+- **Wind:** one gust rolls across the screen every loop, and everything leans with it.
+
+| What | Where |
+| --- | --- |
+| The teahouse seen from outside: dark tiled roof with moss, red plank walls and jade rail, the glowing lattice window, the noren and lanterns in the wind, smoke from the furnace chimney | `layers/teahouse` (`menu_teahouse.py`) |
+| A big blossoming tree in front on the right, swaying, shedding petals and leaves; mid-distance pines, cypresses and a willow; reeds, irises, ferns and hydrangeas by the water | `layers/big_tree`, `falling`, `far_trees`, `foliage` (`menu_trees.py`) |
+| Sky, clouds, mountains, lake, meadow, path, stream and koi | `layers/00_sky` … `10_wind` (`menu_scene.py`) |
+| Menu art: the hanging signboard (blank, or lettered with the game's name by `menu_ui.py --title "Name"`), five arrow boards on a signpost (normal, hover, pressed, disabled), a calligraphy brush cursor, `layout.json` | `ui/` (`menu_ui.py`) |
+
+- **Draw order and data:** `scene.json` gives the draw order. Each layer folder has a sheet (frames row by row), frame 0 and a JSON with the crop, frame count and fps.
+- **Previews:** `preview/` has stills, a 1x GIF and a 1080p video.
+
+```bash
+python3 teahouse-assets/generator/menu_build.py                         # layers, previews, scene.json
+python3 teahouse-assets/generator/menu_build.py --page OUT/index.html   # the playable menu as one page
+```
+
 ## Folder map
 
 ```
@@ -340,6 +365,7 @@ seasons/<season>/ spring, rain, summer, autumn, winter, eclipse, bloodmoon: laye
 scene.json        draw order, parallax, vanishing points, surfaces, every prop with its default x/y
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
+main_menu/        the animated title screen: layers/, ui/, scene.json, preview/
 traveler_kit/     the traveller's props, each in its conditions: stills, sheets, gifs, json; viewer/
 generator/        the Python that draws all of it (deterministic, seeded)
 ```

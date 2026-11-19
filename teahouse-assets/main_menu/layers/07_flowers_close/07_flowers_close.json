@@ -1,0 +1,19 @@
+{
+ "name": "07_flowers_close",
+ "frames": 8,
+ "fps": 12,
+ "x": 0,
+ "y": 207,
+ "w": 640,
+ "h": 35,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "07_flowers_close_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 8,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "07_flowers_close.png",
+ "loops": true
+}

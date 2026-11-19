@@ -1,0 +1,20 @@
+{
+ "name": "01_clouds",
+ "frames": 1,
+ "fps": 12,
+ "x": 0,
+ "y": 8,
+ "w": 640,
+ "h": 164,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "01_clouds_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 1,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "01_clouds.png",
+ "loops": true,
+ "scroll": "optional: the strip tiles sideways; scroll it slowly (0.25 px per frame) for drifting clouds"
+}

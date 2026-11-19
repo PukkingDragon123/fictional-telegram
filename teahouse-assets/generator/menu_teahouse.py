@@ -2,28 +2,34 @@
 
 The same old teahouse as the four rooms, now from outside: faded vermilion
 lacquered plank walls with the jade rail and the wooden wainscot, the big
-lattice window glowing warm, an indigo noren over the door, two red paper
-lanterns under the eaves, a glass wind chime, a hipped-and-gabled roof of
-weathered dark tiles with green copper ridge caps and upturned eaves, a grey
-engawa on stone footings, the stone chimney of the furnace, a stone lantern,
-stepping stones, ferns and moss.
+lattice window glowing with the seating room's lanterns, room 4's moon window
+on the side, an indigo noren with a white mon over the door, a gilt rune
+signboard, two red paper lanterns and a glass wind chime under the eaves, an
+irimoya (hipped-and-gabled) roof of weathered dark tiles with copper ridge
+caps, onigawara and upturned corners, a plastered gable, a grey engawa on
+stone footings, the furnace's stone chimney, a stone lantern, stepping
+stones to the meadow path, ferns, grass and moss.
 
-It is drawn in an oblique 3/4 view from the front left: the front face is
-flat to the screen, depth runs up and to the left at 2:1 (so every receding
-edge is a clean 2-pixel stair), and the roof pitches are chosen so the tile
-channels, hips and courses land on 1:1, 1:2 and 2:1 stairs too. Each face is
-painted flat, in its own coordinates, with the pack's own recipes (the plank
-wall, its ageing, the rail and wainscot, the wood-grain pass, chipped
-lacquer, the furnace's rough stones, moss cushions), then laid onto the
-building with an exact affine map. Only the pack's palette ramps are used.
+The view is oblique 3/4 from the front left: the front is flat to the
+screen and depth runs up and to the left at 2:1, so receding edges are clean
+2-pixel stairs. The walls, veranda and posts are flat textures painted in
+their own coordinates with the pack's recipes (room.py's plank wall, its
+ageing, rail and wainscot, beams and posts; woodgrain.grain_pass; shapes.chip;
+counter._rock; moss.clump) and laid on with an exact affine map. The roof is
+a small ray-marched heightfield with the concave Japanese profile and swept
+corners, so its tile courses, moss and fascia follow the curve. The eaves'
+shade on the walls is found by tracing toward the sun. Only the pack's
+palette ramps are used.
 
-Animated over menu_layout.N frames (looping) with the scene's shared wind:
-the noren billows and its panels swing apart, the lanterns swing on their
-cords a little behind the gust, the chime's paper strip flutters, smoke
-leans and drifts off the chimney, grass on the roof and at the footings
-nods, and the window light breathes.
+Animated over menu_layout.N frames, looping exactly, with the scene's wind
+(menu_layout.wind / sway, read round the loop): the noren lifts, billows and
+its panels swing apart, the lanterns swing behind the gust and warm the wall,
+the chime's strip flutters, a thin curl of smoke leans off the chimney, roof
+grass nods and the window light breathes. The grass at the footings is the
+meadow's own tufts (meadow.tuft, in step with the scene's meadow).
 
-Run as a script to write main_menu/layers/teahouse/."""
+teahouse_frames() returns the frames; run as a script to write
+main_menu/layers/teahouse/."""
 import math
 import os
 import json
@@ -31,7 +37,8 @@ import random
 import numpy as np
 from PIL import Image
 from numba import njit
-from pixel import Canvas, PAL, RAMPS, step, text, blob_mask
+from scipy import ndimage
+from pixel import Canvas, PAL, step, text, blob_mask
 import woodgrain as WG
 import moss as MOSS
 from shapes import chip
@@ -40,7 +47,21 @@ import counter as CT
 import objects as OBJ
 import meadow as MD
 import menu_layout as L
-from menu_layout import N, FPS, W, H, wind, sway
+from menu_layout import N, FPS, W, H
+from menu_layout import wind as _wind_raw
+
+
+def wind(x, f):
+    """menu_layout.wind with the frame taken round the loop, so lags and the smoke's
+    drift history that reach back past frame 0 read the end of the loop."""
+    return _wind_raw(x, f % N)
+
+
+def sway(x, f, amp=1.0, lag=0.0):
+    """menu_layout.sway (same formula), on the looped wind."""
+    w0 = wind(x, f - lag)
+    w1 = wind(x, f - lag - 3)
+    return amp * (w0 * 1.6 + (w0 - w1) * 2.2 - 0.3)
 
 BAYER4 = ROOM.BAYER4
 
@@ -52,11 +73,6 @@ SX0, SY0 = 194, 242       # screen position of the world origin (front-left corn
 def P(x, y, z):
     """World (x right along the front, y up, z back) -> screen (float)."""
     return SX0 + x - A * z, SY0 - y - B * z
-
-
-def PI(x, y, z):
-    sx, sy = P(x, y, z)
-    return int(math.floor(sx)), int(math.floor(sy))
 
 
 # ---------------------------------------------------------------- the building's measures (world units ~ px)
@@ -95,7 +111,7 @@ POSTS_FRONT = [(0, 3), (20, 23), (43, 46), (109, 112)]
 
 
 # ---------------------------------------------------------------- warping a flat face onto the building
-def warp(dst, tex, O, U, V, layer_id=None, ids=None):
+def warp(dst, tex, O, U, V):
     """Lay canvas `tex` onto the plane through O spanned by U (one texel across)
     and V (one texel down): texel (i, j) covers O + [i, i+1) U + [j, j+1) V.
     Every screen pixel takes the texel under its centre (exact, so straight
@@ -126,8 +142,6 @@ def warp(dst, tex, O, U, V, layer_id=None, ids=None):
     ii, jj = np.where(ok, i, 0), np.where(ok, j, 0)
     ok &= tex.a[jj, ii, 3] > 0
     dst.a[yy[ok], xx[ok]] = tex.a[jj[ok], ii[ok]]
-    if ids is not None and layer_id is not None:
-        ids[yy[ok], xx[ok]] = layer_id
 
 
 # ---------------------------------------------------------------- wall recipes (the rooms', at outdoor scale)
@@ -321,9 +335,6 @@ def window(cv, rng, x0, x1, y0, y1, r):
              n=2, rmin=0.8, rmax=1.4, elong=0.6)
 
 
-GLASS_ID = 7
-
-
 def inside(cv, x0, y0, x1, y1):
     """What you see through the window: the seating room, lantern-lit. Dark
     beams overhead, the warm glow of the two red lanterns, the jade drapes at the
@@ -378,27 +389,31 @@ def side_wall(rng):
         for xx in range(w):
             cv.shift(xx, yy, 1, only=('wood', 'jade'))
     post(cv, 0, 2, r(WALL_TOP), r(FLOOR), seed=8.0)   # back corner post
-    # moon window (room 4's): a circle on the wall, an ellipse in these half-depth columns
-    cz, cy, rad = 20, 41, 8.5
-    for yy in range(h):
-        for xx in range(w):
-            dz = (BZ1 - (xx + 0.5) * 2) - cz
-            dy = (WALL_TOP - (yy + 0.5)) - cy
-            d = math.hypot(dz, dy)
-            a = math.atan2(dy, -dz)                    # angle, 0 = toward the front corner
-            lit = math.cos(a - 2.4)                    # the frame's upper-left catches the sun
-            if d < rad - 2.0:
-                c = 'red0' if dy > 3 else ('red1' if dy > -2 else 'copper2')
-                if abs(dz) < 1.0 or abs(dy - 1) < 0.6:
-                    c = 'paper1'                       # bamboo bars
-                cv.px(xx, yy, c)
-            elif d < rad - 0.9:
-                cv.px(xx, yy, 'wood1' if lit > 0 else 'wood3')
-            elif d < rad + 0.4:
-                cv.px(xx, yy, 'wood4' if lit > 0.3 else ('wood3' if lit > -0.4 else 'wood2'))
-            elif d < rad + 1.3:
-                cv.px(xx, yy, 'wood1')
     return cv
+
+
+def moon_window(cv):
+    """Room 4's moon window on the side wall, drawn the way you would by hand:
+    an upright ellipse (the circle seen at an angle), a lacquered ring lit on its
+    upper left, a gilt bead, warm lamplight behind a cross of bamboo bars."""
+    cx, cy = P(0, 41, 21)
+    rx, ry = 5.0, 9.5
+    for yy in range(int(cy - ry) - 3, int(cy + ry) + 4):
+        for xx in range(int(cx - rx) - 3, int(cx + rx) + 4):
+            u, v = (xx + 0.5 - cx) / rx, (yy + 0.5 - cy) / ry
+            d = math.hypot(u, v)
+            lit = -0.6 * u - 0.8 * v
+            if d < 0.72:
+                c = 'red0' if v < -0.35 else ('red1' if v < 0.15 else 'copper2')
+                if abs(xx + 0.5 - cx) < 0.6 or abs(yy - int(cy) + 1) < 0.6:
+                    c = 'hinoki2' if v < 0 else 'hinoki1'
+                cv.px(xx, yy, c)
+            elif d < 0.86:
+                cv.px(xx, yy, 'gold2' if lit > 0.2 else 'gold1')
+            elif d < 1.08:
+                cv.px(xx, yy, 'wood4' if lit > 0.35 else ('wood3' if lit > -0.3 else 'wood2'))
+            elif d < 1.22:
+                cv.px(xx, yy, 'wood0')
 
 
 # ---------------------------------------------------------------- the roof: a ray-marched heightfield
@@ -507,7 +522,6 @@ def _march(sx0, sy0, w, h, dz):
             X0 = sx0 + i + 0.5 - SX0
             Y0 = SY0 - (sy0 + j + 0.5)
             px, py, pz = 0.0, 0.0, 0.0
-            prev = 0
             for k in range(nz):
                 z = EZ0 - 4.0 + k * dz
                 x = X0 + A * z
@@ -612,6 +626,40 @@ def _weather(idx, ci, qi, k, salt):
     return idx
 
 
+def _moss_on(names, m, U, V, d, k, r, salt, blobs=()):
+    """Moss grown into the tiles where the damp sits: a ragged band along the
+    lowest courses and a few cushions further up. Its ragged edge creeps along
+    the pans first; each cushion is shaded like moss.clump's (lit upper-left rim,
+    bumpy body, dark lower-right rim)."""
+    n = WG.noise2(U / 6.0, V / 4.0, 3.0 + salt) * 0.7 + WG.noise2(U / 2.5, V / 2.0, 9.0 + salt) * 0.3
+    dens = n + 0.62 * np.clip(1 - d / 11.0, 0, 1) ** 1.5 - 0.7
+    for (bu, bv, ru, rv) in blobs:
+        dens = np.maximum(dens, n * 0.6 + 0.62 - np.hypot((U - bu) / ru, (V - bv) / rv) - 0.3)
+    hh, ww = m.shape
+    def sh(a, dy, dx):
+        o = np.zeros_like(a)
+        o[max(0, dy):hh + min(0, dy), max(0, dx):ww + min(0, dx)] = a[max(0, -dy):hh - max(0, dy), max(0, -dx):ww - max(0, dx)]
+        return o
+    pan = (k >= 3) | (r == int(COURSE) - 1)
+    grow = m & ((dens > 0.07) | ((dens > 0.0) & pan))
+    grow = ndimage.binary_closing(grow, np.ones((2, 3), bool)) & m          # cushions, not threads
+    grow &= (sh(grow, 1, 0) | sh(grow, -1, 0)) & (sh(grow, 0, 1) | sh(grow, 0, -1))
+    lab, nl = ndimage.label(grow)
+    if nl:
+        size = ndimage.sum(grow, lab, np.arange(1, nl + 1))
+        grow &= np.isin(lab, np.nonzero(size >= 14)[0] + 1)          # no specks
+    hsh = _hash2(np.arange(hh)[:, None] * 3 + np.arange(ww)[None, :] * 0, np.arange(ww)[None, :], 17 + salt)
+    names[grow] = 'leaf2'
+    names[grow & (hsh < 0.16)] = 'leaf3'
+    names[grow & (hsh > 0.9)] = 'leaf1'
+    lit = grow & ~sh(grow, 1, 1)
+    names[lit] = 'leaf3'
+    names[lit & ~sh(grow, 1, 0) & (hsh < 0.5)] = 'leaf4'
+    dark = grow & ~sh(grow, -1, -1)
+    names[dark] = 'leaf1'
+    names[grow & ~sh(grow, -1, 0)] = 'leaf0'
+
+
 def shade_roof(s, f, p, rng):
     """Turn the march result into pixels (RGBA, the march box's size)."""
     h, w = f.shape
@@ -638,7 +686,12 @@ def shade_roof(s, f, p, rng):
     idx = _weather(idx, ci, qi, k, 1)
     near_ridge = (RIDGE_Y - (EAVE + VPROF(d) + 0)) < 4.0
     idx = np.where(near_ridge & (k < 3), idx - 1, idx)
+    # whole tiles drift lighter toward the sunny left end and darker to the right
+    tone = 0.55 - 0.75 * (X - EX0) / (EX1 - EX0) + 0.5 * (_hash2(ci, qi, 11) - 0.5)
+    idx = np.where((tone > 0.42) & (k < 3) & (r > 0), idx + 1, idx)
+    idx = np.where((tone < -0.32) & (k < 3) & (r > 0), idx - 1, idx)
     put(m, idx, TILE)
+    _moss_on(names, m, X, Z, d, k, r, 1, blobs=((92, -10, 9, 4), (18, -9, 6, 3), (62, 0, 5, 2.5)))
     # the left hip: lit by the sun
     m = f == F_HIP
     d = X - EX0
@@ -652,6 +705,7 @@ def shade_roof(s, f, p, rng):
     idx = _tile_idx(k, r, 1)
     idx = _weather(idx, ci, qi, k, 2)
     put(m, idx, TILE)
+    _moss_on(names, m, Z * 0.7, X * 1.4, d * 1.4, k, r, 2, blobs=((14, -8, 6, 3),))
     # the eave fascias: round tile ends, a dark gap, the fascia board, rafter ends
     for face, along, lit in ((F_FASCIA, X - EX0, 0), (F_SFASCIA, (EZ1 - Z) / (CHZ / CH), 1), (F_RFASCIA, X, -1)):
         m = f == face
@@ -770,7 +824,7 @@ def shade_roof(s, f, p, rng):
 
 
 def GZ0f():
-    """z where the front slope reaches the gable base."""
+    """z where the long slope reaches the gable base (the hips are 45 degrees in plan)."""
     return EZ0 + (GX0 - EX0)
 
 
@@ -905,17 +959,20 @@ def veranda_front(rng):
     cv.hline(0, w - 1, 1, 'stone2')
     cv.hline(0, w - 1, 2, 'stone1')
     WG.grain_pass(cv, 0, 1, w, 3, 'h', seed=9.0, board=2, contrast=0.8, ramps=('stone',))
-    cv.rect(0, 3, w, 7, 'ink')                                     # dark under the floor
-    cv.hline(0, w - 1, 3, 'stone0')
+    cv.rect(0, 3, w, 7, 'wood0')                                   # dark under the floor
+    cv.hline(0, w - 1, 3, 'ink')
+    for x in range(6, w, 26):                                      # the footings further in
+        for (dx, dy, c) in ((0, 7, 'stone1'), (1, 7, 'stone1'), (2, 7, 'stone0'), (0, 6, 'stone1'), (1, 6, 'stone2')):
+            cv.px(x + dx, dy + 1, c)
     return cv
 
 
 def side_foundation(rng):
     w = (BZ1 - BZ0) // 2
     cv = Canvas(w, FLOOR)
-    cv.rect(0, 0, w, FLOOR, 'ink')
-    cv.hline(0, w - 1, 0, 'wood1')
-    cv.hline(0, w - 1, 1, 'wood0')
+    cv.rect(0, 0, w, FLOOR, 'wood0')
+    cv.hline(0, w - 1, 0, 'wood2')
+    cv.hline(0, w - 1, 1, 'ink')
     return cv
 
 
@@ -952,7 +1009,6 @@ def build_static(seed=11):
     warp(walls, front_wall(rng), (BX0, WALL_TOP, 0), (1, 0, 0), (0, -1, 0))
     # light and shade on the walls: what the eaves and posts keep from the sun
     ys, xs = np.nonzero(walls.a[..., 3] > 0)
-    zf = np.zeros(len(xs))
     wx = xs + 0.5 - SX0
     wy = SY0 - (ys + 0.5)
     on_front = wx >= 0
@@ -964,6 +1020,7 @@ def build_static(seed=11):
     sh = shadowed(np.stack([wx, wy, wz], 1)) & ~glass & (wy > FLOOR + 0.5)
     for y, x in zip(ys[sh], xs[sh]):
         walls.shift(x, y, -1)
+    moon_window(walls)
     cv.blit(walls, 0, 0)
     wall_mask = np.zeros((H, W), bool)
     wall_mask[ys[on_front & ~glass], xs[on_front & ~glass]] = True
@@ -972,7 +1029,7 @@ def build_static(seed=11):
     warp(ver, veranda_front(rng), (-4, FLOOR, VZ0), (1, 0, 0), (0, -1, 0))
     warp(ver, veranda_top(rng), (-4, FLOOR, 0), (1, 0, 0), (0, 0, -4))
     ys, xs = np.nonzero(ver.a[..., 3] > 0)
-    top = np.array([tuple(ver.a[y, x, :3]) != PAL['ink'] for y, x in zip(ys, xs)], bool)
+    top = (ys + 0.5) < SY0 - FLOOR - B * VZ0 + 0.5                       # the boards, not the dark under them
     wz = np.clip((SY0 - FLOOR - (ys + 0.5)) / B, VZ0, 0)
     pts = np.stack([xs + 0.5 - SX0 + A * wz, np.full(len(xs), FLOOR + 0.2), wz], 1)
     sh = shadowed(pts) & top
@@ -1081,12 +1138,12 @@ def _lantern_sprite(f, flick):
     return spr
 
 
-def lanterns(cv, f, wall_mask=None):
+def lanterns(cv, f):
     for i, (x, z, lag) in enumerate(LANTERNS):
         ax, ay = _sx(x, z), _sy(EAVE - EAVE_T + 1, EZ0)      # the cord comes out under the eave
         s = sway(ax, f, amp=1.2, lag=4.0 + lag)
         dx = int(round(s))
-        flick = (f * 5 // 7 + i * 3) % 9 not in (0, 4)
+        flick = math.sin(2 * math.pi * (f * 7 / N + i * 0.37)) + 0.6 * math.sin(2 * math.pi * f * 17 / N) > -0.9
         top = ay + 7
         cx = ax + dx
         cv.line(ax, ay, cx, top - 1, 'wood1')
@@ -1153,6 +1210,7 @@ def smoke(f):
     and thinning out, pushed over by the same gust as everything else.
     Quantised to three soft levels like the furnace's smoke."""
     cx, cy = P(*SMOKE_TOP)
+    f = f % N
     K, LIFE = 16, 64
     w, h = 110, 70
     ox, oy = int(cx) - 12, int(cy) - h + 4
@@ -1161,7 +1219,6 @@ def smoke(f):
     for j in range(-K, K):
         b = j * N / K
         age = f - b
-        age = age % N if age >= LIFE else age
         if not (0 <= age < LIFE):
             continue
         a = age / LIFE
@@ -1169,19 +1226,21 @@ def smoke(f):
         for i in range(int(age)):
             drift += 0.1 + 0.85 * wind(cx + drift, f - i)
         y = cy - a * 52 - 2
-        x = cx + drift * (0.35 + 0.65 * a) + math.sin(a * 7.0 + j * 1.3) * 2.0 * a
-        r = 1.2 + 4.2 * a
-        amp = min(1.0, a / 0.08) * (1 - a) ** 1.3
+        ph = 2 * math.pi * 3 * b / N                     # a curl that rises with the smoke
+        x = cx + drift * (0.35 + 0.65 * a) + math.sin(a * 5.5 - ph) * 3.2 * a
+        r = 1.7 + 3.6 * a
+        amp = 1.45 * min(1.0, 0.35 + a / 0.05) * (1 - a) ** 1.25
+        amp *= 1.0 - 0.45 * a * (0.5 + 0.5 * math.sin(2 * math.pi * 4 * b / N))   # it thins into puffs
         D += amp * np.exp(-(((xx + 0.5 - (x - ox)) ** 2) / (r * r * 1.6) + ((yy + 0.5 - (y - oy)) ** 2) / (r * r)))
     out = np.zeros((h, w, 4), np.uint8)
-    levels = [(0.95, 'cloud3', 190), (0.55, 'cloud2', 140), (0.28, 'cloud1', 90)]
+    levels = [(1.0, 'cloud3', 215), (0.6, 'cloud2', 165), (0.3, 'cloud1', 105)]
     done = np.zeros((h, w), bool)
     for th, c, al in levels:
         m = (D > th) & ~done
         out[m, :3] = PAL[c]
         out[m, 3] = al
         done |= m
-    faint = (out[..., 3] == 90) & ((xx + yy) % 2 == 0)
+    faint = (out[..., 3] == 105) & ((xx + yy) % 2 == 0) & (D < 0.2 + 0.1)
     out[faint] = 0
     return out, ox, oy
 
@@ -1366,17 +1425,12 @@ def ground_items(rng):
 
 
 def roof_moss(cv, rng):
-    """Moss on the old roof, where the damp sits: cushions along the eave edge and
-    at the foot of the hips, a few patches in the shaded channels, a short
-    curtain hanging off the fascia on the right."""
-    for (x, z, w_, h_) in ((-6, -19.5, 9, 3), (30, -19.7, 6, 2), (72, -19.7, 12, 3), (104, -19.4, 9, 3),
-                           (-15.5, 10.0, 6, 3), (-15.5, 34.0, 8, 3)):
+    """Cushions of moss bulging over the eave edge, and short curtains hanging
+    off the fascia where the gutter-less rain runs."""
+    for (x, z, w_, h_) in ((-7, -19.5, 9, 3), (74, -19.7, 11, 3), (106, -19.4, 8, 3), (-15.5, 30.0, 8, 3)):
         top = _roof(float(x), float(z))[0]
-        MOSS.clump(cv, rng, _sx(x, z), _sy(top, z) + 2, w_, h_, 'ledge', spores=0.35)
-    for (x, z, w_) in ((90, -8, 8), (60, -12, 6), (14, -12, 6), (98, 6, 6)):
-        top = _roof(float(x), float(z))[0]
-        MOSS.clump(cv, rng, _sx(x, z), _sy(top, z), w_, max(3, w_ // 2), 'wall')
-    for (x, w_, d_) in ((84, 9, 5), (12, 6, 4)):
+        MOSS.clump(cv, rng, _sx(x, z), _sy(top, z) + 2, w_, h_, 'ledge', spores=0.0)
+    for (x, w_, d_) in ((84, 9, 5), (12, 6, 4), (52, 5, 3)):
         bot = _roof(float(x), float(EZ0))[0] - EAVE_T
         MOSS.clump(cv, rng, _sx(x, EZ0), _sy(bot, EZ0), w_, d_, 'hang')
 
@@ -1385,9 +1439,68 @@ def foot_moss(cv, rng):
     """Moss creeping on the footings, the sill and the lowest boards."""
     for x in range(-2, 118, 9):
         if rng.random() < 0.6:
-            MOSS.clump(cv, rng, _sx(x, VZ0), _sy(FLOOR - 3, VZ0) + 1, rng.randint(4, 7), 2, 'ledge', spores=0.2)
+            MOSS.clump(cv, rng, _sx(x, VZ0), _sy(FLOOR - 3, VZ0) + 1, rng.randint(4, 7), 2, 'ledge', spores=0.0)
     for z in range(2, 44, 10):
         MOSS.clump(cv, rng, _sx(0, z) - 3, _sy(FLOOR + 3, z), 4, 3, 'wall')
+
+
+def ridge_ends(cv, rng):
+    """Onigawara at both ends of the ridge: a rounded clay plate with a mon, rising
+    over the copper cap; verdigris run-off staining the tiles under the cap."""
+    plate = ['.aab.',
+             'abbbc',
+             'ab.bc',
+             'abbbc',
+             'abbcc',
+             'bbbcc']
+    cmap = {'a': 'fgrey3', 'b': 'fgrey2', 'c': 'fgrey1', '.': None}
+    for x in (GX0 - BARGE - 0.5, GX1 + BARGE - 2.5):
+        sx = _sx(x, RIDGE_Z - RIDGE_W)
+        sy = _sy(_ridge_top(float(x) + 1.0), RIDGE_Z - RIDGE_W) - 2
+        spr = Canvas(5, 6)
+        for yy, row in enumerate(plate):
+            for xx, ch in enumerate(row):
+                if ch != '.':
+                    spr.px(xx, yy, cmap[ch])
+                elif 0 < xx < 4:
+                    spr.px(xx, yy, 'teal2')                       # a copper mon in the middle
+        cv.blit(OBJ.outline(spr), sx - 2, sy - 1)
+    y_cap = _sy(RIDGE_Y + RIDGE_H - 2.0, RIDGE_Z - RIDGE_W) + 1
+    for _ in range(9):                                            # copper run-off
+        x = rng.uniform(GX0 + 4, GX1 - 6)
+        sx = _sx(x, RIDGE_Z - RIDGE_W)
+        for k in range(rng.randint(1, 3)):
+            p_ = cv.get(sx, y_cap + k)
+            if p_[3] and p_[:3] in (PAL['fgrey1'], PAL['fgrey3'], PAL['fgrey0'], PAL['fgrey2']):
+                cv.px(sx, y_cap + k, 'teal1' if k else 'teal2')
+
+
+def veranda_props(cv, rng):
+    """A potted shrub at the far end of the engawa and a broom by the door."""
+    pot = Canvas(9, 12)
+    for yy in range(7, 12):
+        hw = 3 - (yy - 7) // 3
+        for xx in range(4 - hw, 5 + hw):
+            pot.px(xx, yy, 'copper3' if xx < 3 else ('copper2' if xx < 6 else 'copper1'))
+    pot.hline(1, 7, 7, 'copper4')
+    pot.hline(1, 7, 8, 'copper1')
+    for (x, y, c) in ((2, 4, 'leaf3'), (3, 3, 'leaf4'), (4, 2, 'leaf3'), (5, 3, 'leaf2'), (6, 4, 'leaf2'),
+                      (3, 5, 'leaf3'), (4, 4, 'leaf3'), (5, 5, 'leaf2'), (4, 6, 'leaf1'), (2, 6, 'leaf2'),
+                      (6, 6, 'leaf1'), (1, 5, 'leaf2'), (7, 5, 'leaf1'), (4, 1, 'leaf4'), (5, 2, 'leaf3'),
+                      (3, 6, 'leaf2'), (5, 6, 'leaf1'), (4, 5, 'leaf2'), (3, 4, 'leaf4')):
+        pot.px(x, y, c)
+    sx, sy = P(104, FLOOR, -6)
+    cv.blit(OBJ.outline(pot), int(sx) - 5, int(sy) - 12)
+    br = Canvas(6, 18)                                            # a bamboo-handled broom
+    for k in range(12):
+        br.px(4 - k // 6, k, 'hinoki4' if k % 3 else 'hinoki2')
+    br.hline(2, 3, 12, 'red2')
+    for yy in range(13, 18):
+        half = 1 + (yy - 13) * 0.6
+        for xx in range(int(round(2.5 - half)), int(round(2.5 + half)) + 1):
+            br.px(xx, yy, 'gold3' if xx < 2.5 else ('gold2' if (xx + yy) % 2 else 'gold1'))
+    sx, sy = P(47.5, FLOOR, -1)
+    cv.blit(OBJ.outline(br), int(sx) - 2, int(sy) - 18)
 
 
 # ---------------------------------------------------------------- the whole thing, frame by frame
@@ -1400,7 +1513,9 @@ def _base():
     rng = random.Random(23)
     bld, wall_mask = build_static()
     roof_moss(bld, rng)
+    ridge_ends(bld, rng)
     foot_moss(bld, rng)
+    veranda_props(bld, rng)
     s = sign(rng)
     bld.blit(s, _sx(7) - 1, _sy(48) - 1)
     for cx in (_sx(8), _sx(12)):
@@ -1425,6 +1540,7 @@ def window_light(cv, f):
 
 
 def frame(f):
+    f = f % N
     base, wall_mask, items = _base()
     cv = base.copy()
     window_light(cv, f)
@@ -1455,8 +1571,70 @@ def preview(cv, path, scale=3, bg=(150, 196, 110)):
     im.save(path)
 
 
+OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'main_menu', 'layers', 'teahouse')
+SHEET_COLS = 12
+
+
+def export(out_dir=OUT_DIR, frames=None):
+    """Write the layer: the cropped frames as a grid sheet, frame 0 full size, its
+    record (crop box, frames, fps, sheet layout) and a 3x preview on plain grass."""
+    os.makedirs(out_dir, exist_ok=True)
+    frames = frames if frames is not None else teahouse_frames()
+    alpha = np.zeros((H, W), bool)
+    for a in frames:
+        alpha |= a[..., 3] > 0
+    ys, xs = np.nonzero(alpha)
+    x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+    w, h = x1 - x0, y1 - y0
+    rows = (len(frames) + SHEET_COLS - 1) // SHEET_COLS
+    sheet = np.zeros((rows * h, SHEET_COLS * w, 4), np.uint8)
+    for i, a in enumerate(frames):
+        r, c = divmod(i, SHEET_COLS)
+        sheet[r * h:(r + 1) * h, c * w:(c + 1) * w] = a[y0:y1, x0:x1]
+    Image.fromarray(sheet, 'RGBA').save(os.path.join(out_dir, 'teahouse_sheet.png'), optimize=True)
+    Image.fromarray(frames[0][y0:y1, x0:x1], 'RGBA').save(os.path.join(out_dir, 'teahouse.png'), optimize=True)
+    rec = {
+        'name': 'teahouse',
+        'frames': len(frames),
+        'fps': FPS,
+        'x': x0, 'y': y0, 'w': w, 'h': h,
+        'screen': [W, H],
+        'sheet': 'teahouse_sheet.png',
+        'sheet_columns': SHEET_COLS,
+        'sheet_cols': SHEET_COLS,
+        'sheet_rows': rows,
+        'sheet_order': 'row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns',
+        'frame0': 'teahouse.png',
+        'loops': True,
+        'ground_centre': list(L.TEAHOUSE),
+        'draw_after': '08_meadow_back',
+        'draw_before': '09_meadow_front',
+        'note': ('teahouse.png is frame 0, cropped like every sheet cell to the box x, y, w, h; draw at (x, y). '
+                 'Loops seamlessly over the frames with menu_layout.wind / sway: the noren billows and its panels '
+                 'swing apart, the lanterns swing behind the gust, the chime strip flutters, the chimney smoke '
+                 'leans and drifts, roof grass nods, the window light breathes; the grass at the footings uses '
+                 'the meadow tufts (meadow.F frames, the same gust phase as the scene\'s meadow). The ground '
+                 'shadow is see-through (ink at alpha 60 / 105).'),
+    }
+    with open(os.path.join(out_dir, 'teahouse.json'), 'w') as fh:
+        json.dump(rec, fh, indent=1)
+    preview(_cv(frames[0]).crop(max(0, x0 - 12), max(0, y0 - 12), min(W, x1 + 12) - max(0, x0 - 12),
+                                min(H, y1 + 12) - max(0, y0 - 12)),
+            os.path.join(out_dir, 'teahouse_preview_3x.png'), 3)
+    return rec
+
+
+def _cv(a):
+    c = Canvas(a.shape[1], a.shape[0])
+    c.a = a
+    return c
+
+
 if __name__ == '__main__':
     import sys
-    out = sys.argv[1] if len(sys.argv) > 1 else '/tmp/th.png'
-    c = frame(int(sys.argv[2]) if len(sys.argv) > 2 else 0)
-    preview(c.crop(130, 70, 220, 200), out, 3)
+    if len(sys.argv) > 1 and sys.argv[1] == '--frame':
+        c = frame(int(sys.argv[3]) if len(sys.argv) > 3 else 0)
+        preview(c.crop(130, 70, 220, 200), sys.argv[2], 3)
+    else:
+        rec = export()
+        print(json.dumps({k: rec[k] for k in ('frames', 'fps', 'x', 'y', 'w', 'h', 'sheet_columns', 'sheet_rows')}))

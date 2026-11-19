@@ -11,3 +11,4 @@ tools/promo/renders/anim/
 # python bytecode
 __pycache__/
 
+teahouse-assets/main_menu/preview/*.mp4

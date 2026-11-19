@@ -1,0 +1,19 @@
+{
+ "name": "04_birds",
+ "frames": 144,
+ "fps": 12,
+ "x": 0,
+ "y": 58,
+ "w": 640,
+ "h": 108,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "04_birds_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 144,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "04_birds.png",
+ "loops": true
+}

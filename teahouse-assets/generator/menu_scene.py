@@ -32,6 +32,7 @@ from menu_layout import W, H, N, HORIZON
 X0 = 300                                   # where the 640-wide menu view sits in the pack's 1280 tile
 DY = HORIZON - outside.HORIZON             # how far the pack's view moves down
 SHORE = outside.HORIZON + 64 + DY          # the near edge of the flower bed: the menu's meadow starts here
+RIVER_TOP = HORIZON + 30                   # the stream leaves the lake here, behind the flower bed
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
 
 
@@ -83,6 +84,13 @@ def pack_view():
         if name == '07_flowers_close':                     # below the bed is the menu's own meadow
             for a in fr:
                 a[SHORE + 2:] = 0
+        if name == '06_garden_trees':                      # the garden's flat ground fill is opened where the
+            yy, xx = np.mgrid[0:H, 0:W]                    # stream runs out of the lake (bushes stay in front)
+            chan = ((yy >= 212) & (np.abs(xx - np.vectorize(L.river_centre)(yy)) < np.vectorize(L.river_half)(yy) + 1)) \
+                | (yy >= SHORE - 10)                       # and below the shore the menu's own ground shows
+            for a in fr:
+                flat = (a[..., 0] == PAL['leaf1'][0]) & (a[..., 1] == PAL['leaf1'][1]) & (a[..., 2] == PAL['leaf1'][2])
+                a[chan & flat] = 0
         out[name] = [_cv(a) for a in fr]
     return out
 
@@ -99,17 +107,16 @@ def path_half(y):
 
 
 def river_centre(y):
-    t = np.clip((y - SHORE + 8) / (H - SHORE + 8), 0, 1)
-    return 452 + 26 * np.sin(t * 3.0 + 0.4) + 60 * t ** 1.5
+    """The river follows menu_layout's line (the reeds and irises are planted on it)."""
+    return np.vectorize(L.river_centre)(y) if np.ndim(y) else L.river_centre(y)
 
 
 def river_half(y):
-    t = np.clip((y - SHORE + 8) / (H - SHORE + 8), 0, 1)
-    return 5 + 52 * t ** 1.2
+    return np.vectorize(L.river_half)(y) if np.ndim(y) else L.river_half(y)
 
 
 def _in_river(x, y, pad=0.0):
-    return y >= SHORE - 8 and abs(x - river_centre(y)) < river_half(y) + pad
+    return y >= RIVER_TOP and abs(x - river_centre(y)) < river_half(y) + pad
 
 
 def _in_path(x, y, pad=0.0):
@@ -120,7 +127,7 @@ def ground():
     """The meadow floor (the pack's soil green, with the path and the river's banks)."""
     a = np.zeros((H, W, 4), np.uint8)
     yy, xx = np.mgrid[0:H, 0:W]
-    g = yy >= SHORE - 6
+    g = yy >= SHORE - 12
     a[g, :3] = PAL['leaf1']
     a[g, 3] = 255
     pat = g & (((xx * 7 + yy * 13) % 23 == 0) | ((xx * 3 + yy * 5) % 31 == 0))
@@ -143,10 +150,10 @@ def ground():
     # the river's bed and banks: dark earth, a lit lip of grass on the far side
     rc, rh = river_centre(yy), river_half(yy)
     d = np.abs(xx - rc)
-    bank = g & (yy >= SHORE - 8) & (d < rh + 2 + (yy - SHORE) * 0.03)
+    bank = g & (yy >= RIVER_TOP) & (d < rh + 2 + (yy - SHORE) * 0.03)
     a[bank, :3] = PAL['wood1']
     a[bank & (xx > rc) & (d > rh - 1), :3] = PAL['wood0']
-    lip = g & (yy >= SHORE - 8) & (d >= rh + 2 + (yy - SHORE) * 0.03) & (d < rh + 3.5 + (yy - SHORE) * 0.04)
+    lip = g & (yy >= RIVER_TOP) & (d >= rh + 2 + (yy - SHORE) * 0.03) & (d < rh + 3.5 + (yy - SHORE) * 0.04)
     a[lip, :3] = PAL['leaf3']
     return _cv(a)
 
@@ -157,7 +164,7 @@ def river(lake_frames):
     them and their loop are the pack's. Repeated to N frames."""
     yy, xx = np.mgrid[0:H, 0:W]
     rc, rh = river_centre(yy), river_half(yy)
-    water = (yy >= SHORE - 8) & (np.abs(xx - rc) < rh)
+    water = (yy >= RIVER_TOP) & (np.abs(xx - rc) < rh)
     lake_top = HORIZON + 8
     rows = lake_top + ((yy - SHORE) * 0.45).astype(int) % 22          # rows of the lake's nearer water
     across = np.clip(((xx - rc) / np.maximum(rh, 1) * 0.5 + 0.5) * 300, 0, 299).astype(int)
@@ -218,14 +225,17 @@ def koi_jumps(river_frames):
                 for (sx, k0) in ((jx, 2), (jx + d * span, 10)):
                     if k >= k0:
                         rr = 1.5 + (k - k0) * 0.9 * sc
-                        al = int(220 * (1 - (k - k0) / 20.0))
-                        if al <= 0:
+                        life = (k - k0) / 20.0                 # fading: the ring breaks up rather than going see-through
+                        if life >= 1:
                             continue
-                        for q in range(int(rr * 7) + 6):
-                            ang = 2 * math.pi * q / (int(rr * 7) + 6)
+                        n = int(rr * 7) + 6
+                        for q in range(n):
+                            if (q * 7 % 10) / 10.0 < life:
+                                continue
+                            ang = 2 * math.pi * q / n
                             X, Y = sx + rr * math.cos(ang), jy + rr * 0.3 * math.sin(ang)
                             if _in_river(X, Y, -1):
-                                _px(a, X, Y, 'haze3' if math.sin(ang) < 0 else 'haze2', al)
+                                _px(a, X, Y, 'haze3' if math.sin(ang) < 0 else 'haze2')
     return [_cv(a) for a in frames]
 
 
@@ -247,7 +257,8 @@ def near_meadow():
         x = rng.uniform(0, spc)
         while x < W + 10:
             yj = gy + rng.randint(-1, 1)
-            if not (_in_river(x, yj, 4) or _in_path(x, yj, 3)):
+            veranda = 168 < x < 318 and yj < L.TEAHOUSE[1] + 16     # keep the teahouse's footings and stones clear
+            if not (_in_river(x, yj, 4) or _in_path(x, yj, 3) or veranda):
                 MD._GUST = -2 * math.pi * x / (W / 2.0)
                 r = rng.random()
                 if r < 0.03:

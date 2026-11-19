@@ -1,0 +1,19 @@
+{
+ "name": "00_sky",
+ "frames": 1,
+ "fps": 12,
+ "x": 0,
+ "y": 0,
+ "w": 640,
+ "h": 360,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "00_sky_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 1,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "00_sky.png",
+ "loops": true
+}

@@ -1,0 +1,19 @@
+{
+ "name": "05_hills_trees",
+ "frames": 1,
+ "fps": 12,
+ "x": 0,
+ "y": 165,
+ "w": 640,
+ "h": 195,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "05_hills_trees_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 1,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "05_hills_trees.png",
+ "loops": true
+}

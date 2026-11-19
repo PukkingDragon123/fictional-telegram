@@ -1,0 +1,19 @@
+{
+ "name": "09_meadow_front",
+ "frames": 8,
+ "fps": 12,
+ "x": 0,
+ "y": 230,
+ "w": 640,
+ "h": 130,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "09_meadow_front_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 8,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "09_meadow_front.png",
+ "loops": true
+}

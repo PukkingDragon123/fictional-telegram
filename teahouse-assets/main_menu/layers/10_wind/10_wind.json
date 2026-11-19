@@ -1,0 +1,19 @@
+{
+ "name": "10_wind",
+ "frames": 24,
+ "fps": 12,
+ "x": 0,
+ "y": 26,
+ "w": 640,
+ "h": 334,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "10_wind_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 24,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "10_wind.png",
+ "loops": true
+}

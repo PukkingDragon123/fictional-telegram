@@ -40,7 +40,7 @@ import meadow
 import moss
 import life
 from grove import noise, _hash, LIGHT
-from pixel import Canvas, PAL, step
+from pixel import Canvas, PAL
 from trees import _catmull
 
 W, H, N, FPS = ML.W, ML.H, ML.N, ML.FPS
@@ -400,9 +400,12 @@ class Hero:
         self.twig = np.clip(1 - self.r / 3.5, 0, 1)
 
     def offsets(self, f):
-        """Integer (dx, dy) of every node on frame f."""
+        """Integer (dx, dy) of every node on frame f: the limbs bend slowly and late (a
+        heavy spring, 30 frames), the twigs add a quick one (11 frames) on top, both
+        driven by the gust at the node's own x and scaled by how far out it is; the long
+        branch lifts a little as it swings."""
         X = self.nodes[:, 0] + HX0
-        slow = np.array([lean(x, f, 30, 0.28) for x in X[::1]])
+        slow = np.array([lean(x, f, 30, 0.28) for x in X])
         fast = np.array([lean(x, f, 11, 0.22) for x in X])
         dx = 7.0 * self.flex * slow + 2.2 * self.twig * self.flex * fast
         dy = -0.35 * np.abs(dx) * (X < 520)
@@ -639,8 +642,8 @@ LINE_SETS = [(3, ('teal0', 'jade1', 'teal1', 'jade2', 'jade3')), (2, ('jade0', '
              (1, ('teal0', 'teal1', 'jade2', 'teal2', 'jade3'))]
 LINE_BACK = ('jade1', 'teal1', 'jade2', 'teal2', 'teal2')
 # the grown trees in the middle distance: (kind, seed, k, screen x of the foot, y of the foot, haze steps)
-MID_TREES = [('oak', 23, 0.5, 32, 216, 1), ('pine', 2, 0.64, 84, 231, 1), ('cypress', 22, 0.7, 120, 233, 1),
-             ('cypress', 25, 0.58, 134, 224, 1), ('willow', 7, 0.46, 424, 262, 0)]
+MID_TREES = [('oak', 23, 0.46, 30, 210, 2), ('pine', 2, 0.62, 76, 234, 1), ('cypress', 22, 0.66, 121, 230, 1),
+             ('cypress', 25, 0.52, 139, 220, 2), ('willow', 7, 0.46, 424, 262, 0)]
 
 
 def _grove_frames(T, x_screen, amp=1.4, period=16):
@@ -1021,18 +1024,19 @@ LEAVES = life.FALL['summer'] + (('leaf4', 'leaf2'),)
 
 
 def _petal_cells(pose, c1, c2, leaf):
-    """The tumbling sprite: face on, edge on, the other face, end on (life.garden_fall's
-    two cells, a third for a leaf)."""
-    if pose == 0:
-        cells = [(0, 0, c1), (1, 0, c1 if leaf else c2)]
-    elif pose == 1:
-        cells = [(0, 0, c2)]
-    elif pose == 2:
-        cells = [(0, 0, c2), (1, 0, c1)]
-    else:
-        cells = [(0, 0, c1), (0, 1, c2)]
-    if leaf and pose != 1:
-        cells.append((1, 1, c2) if pose != 3 else (1, 1, c1))
+    """The tumbling sprite, eight poses round one turn: the light face (3 px), three
+    quarters, edge on (1 px), three quarters, the dark face, and back (life.garden_fall's
+    two-cell flip, with a third cell when it lies flat to us; a leaf keeps 3 px)."""
+    cells = ([(0, 0, c1), (1, 0, c1), (1, 1, c2)] if pose == 0 else
+             [(0, 0, c1), (1, 0, c2)] if pose in (1, 7) else
+             [(0, 0, c2)] if pose in (2, 6) else
+             [(0, 0, c2), (1, 0, c1)] if pose in (3, 5) else
+             [(0, 0, c2), (1, 0, c2), (0, 1, c1)])
+    if leaf:
+        if pose in (2, 6):
+            cells = [(0, 0, c2), (0, 1, c2), (1, 1, c1)]
+        elif len(cells) < 3:
+            cells = cells + [(1, 1, c2)]
     return cells
 
 
@@ -1064,7 +1068,7 @@ def _fly(rng, x, y, s, leaf):
         if x > W + 3 or y > H + 3 or x < -4:
             break
         left = life_ - age
-        track.append((f, x, y, int((th % (2 * math.pi)) / (math.pi / 2)) % 4, 255 if left > 8 else int(255 * left / 9)))
+        track.append((f, x, y, int((th % (2 * math.pi)) / (math.pi / 4)) % 8, 255 if left > 8 else int(255 * left / 9)))
     return track
 
 
@@ -1077,7 +1081,7 @@ def falling():
     leaf_src = [(c_, c_[0] + math.cos(a) * c_[3] * 0.9, c_[1] + math.sin(a) * c_[3] * 0.8)
                 for c_ in T.clumps for a in (rng.uniform(-3.1, 0.3),) if c_[6] or rng.random() < 0.4]
     tracks = []
-    for (src, n, leaf) in ((petal_src, 96, False), (leaf_src, 26, True)):
+    for (src, n, leaf) in ((petal_src, 140, False), (leaf_src, 30, True)):
         xs = np.array([p[1] + HX0 for p in src])
         wts = np.array([[gust(x, f) ** 3 for f in range(N)] for x in xs])
         flat = (wts / wts.sum()).ravel()

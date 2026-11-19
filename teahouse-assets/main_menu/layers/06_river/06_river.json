@@ -1,0 +1,19 @@
+{
+ "name": "06_river",
+ "frames": 96,
+ "fps": 12,
+ "x": 408,
+ "y": 206,
+ "w": 155,
+ "h": 154,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "06_river_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 96,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "06_river.png",
+ "loops": true
+}

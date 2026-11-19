@@ -1,0 +1,19 @@
+{
+ "name": "04_lake_life",
+ "frames": 96,
+ "fps": 12,
+ "x": 0,
+ "y": 174,
+ "w": 640,
+ "h": 57,
+ "screen": [
+  640,
+  360
+ ],
+ "sheet": "04_lake_life_sheet.png",
+ "sheet_columns": 1,
+ "sheet_rows": 96,
+ "sheet_order": "row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns",
+ "frame0": "04_lake_life.png",
+ "loops": true
+}
