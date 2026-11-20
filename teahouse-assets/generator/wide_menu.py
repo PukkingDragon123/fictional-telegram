@@ -343,9 +343,10 @@ def ground_birds():
     rng = random.Random(17)
     birds = []
     for gx in (110, 520, 760, 1110):
-        xs, n = [], rng.randint(2, 4)
-        while len(xs) < n:
-            x = gx + rng.uniform(-30, 30)
+        xs, n, tries = [], rng.randint(2, 4), 0
+        while len(xs) < n and tries < 200:
+            tries += 1
+            x = gx + rng.uniform(-36, 36)
             if any(abs(x - q) < 13 for q in xs):
                 continue
             xs.append(x)
