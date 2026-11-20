@@ -35,6 +35,8 @@ from PIL import Image
 import pixel
 from pixel import Canvas, PAL
 import golden_palette as G
+import leaf_shapes
+leaf_shapes.install()             # leaves you can see one by one, on every tree
 import season
 import outside
 import meadow as MD
@@ -52,7 +54,7 @@ SPEED = 8.0                   # camera pan, px per second at rate 1
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'main_menu_wide')
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
 RATE = {'sky': 0.0, 'clouds': 0.05, 'mountains': 0.08, 'hills': 0.16, 'lake': 0.24, 'lake_life': 0.24,
-        'shore': 0.40, 'flowers': 0.40, 'meadow': 0.62, 'teahouse': 0.62, 'big_tree': 0.80, 'front': 1.0}
+        'birds': 0.2, 'shore': 0.40, 'flowers': 0.40, 'meadow': 0.62, 'ground_birds': 0.62, 'teahouse': 0.62, 'big_tree': 0.80, 'front': 1.0}
 TEAHOUSE_X, TEAHOUSE_BASE = 330, 300        # in the meadow plane's tile
 BIG_TREE_X = 980                            # its trunk's x in the near plane's tile
 
@@ -137,6 +139,7 @@ def pack_planes():
     out['hills'] = [G.swap(P['05_hills_trees'][0])]
     out['lake'] = [G.swap(a) for a in P['03_lake']]
     out['lake_life'] = [G.swap(a) for a in P['04_lake_life']]
+    out['birds'] = [G.swap(a) for a in P['04_birds']]            # swallows over the water, egrets, sparrows
     trees = []
     for a in P['06_garden_trees']:                       # the trees without the garden's flat ground fill
         b = a.copy()
@@ -154,7 +157,108 @@ def pack_planes():
 
 
 # ---------------------------------------------------------------- the meadow plane and the front
-def _meadow_plane(rows, ground_fill=True, dark_shift=0, seed=5, flowers=0.12, susuki=0.03, avoid=None):
+ROAD_W0, ROAD_K = 5.0, 0.16                    # the road's width at the meadow's far edge, and how it widens toward you
+
+
+def road_y(x):
+    """The middle of the dirt road that wanders the length of the meadow (meadow plane, tile x).
+    It swings up to pass just below the teahouse's step."""
+    t = 2 * math.pi * x / TW
+    y = 316 + 8 * math.sin(t + 1.0) + 4 * math.sin(2 * t + 0.3) + 2 * math.sin(3 * t + 2.2)
+    d = (x - TEAHOUSE_X) / 120.0
+    return y - (y - (TEAHOUSE_BASE + 14)) * math.exp(-d * d)
+
+
+def road_half(y):
+    return (ROAD_W0 + (y - 262) * ROAD_K) / 2
+
+
+def on_road(x, y, pad=0.0):
+    """Within the road (or its door path) at meadow-plane (x, y), widened by pad."""
+    if abs(y - road_y(x)) <= road_half(y) + pad:
+        return True
+    # the short path from the teahouse door down to the road
+    y0, y1 = TEAHOUSE_BASE - 2, road_y(TEAHOUSE_X + 6)
+    if y0 <= y <= y1 + 1:
+        cx = TEAHOUSE_X + 6 + (y - y0) * 0.25
+        return abs(x - cx) <= 4 + (y - y0) * 0.12 + pad
+    return False
+
+
+def _noise(x, y, s):
+    """Tileable value noise on the TW-wide tile (x wraps)."""
+    from grove import noise
+    t = 2 * math.pi * x / TW
+    return noise(np.cos(t) * TW / (2 * math.pi) / s[0] + 50, np.sin(t) * TW / (2 * math.pi) / s[0] + y / s[1], s[2])
+
+
+def ground_tex():
+    """The meadow's ground, in pack colours: short grass with sunlit and shaded swathes, worn
+    patches of bare earth with pebbles, clover; and the road: packed earth in two wheel ruts with
+    a grass ridge between them, stones, a lit lip along its far edge and grass overhanging its near edge."""
+    yy, xx = np.mgrid[0:H, 0:TW].astype(np.float64)
+    g = np.array([ground_line(x) for x in range(TW)])
+    below = yy >= np.round(g)[None, :]
+    depth = np.clip((yy - 262) / 98.0, 0.05, 1)                          # 0 far .. 1 at the bottom edge
+    h = lambda k: ((np.sin(xx * 12.9898 + yy * 78.233 + k) * 43758.5453) % 1.0)
+    out = np.empty((H, TW), object)
+    out[:] = None
+    sw = _noise(xx, yy, (34, 9, 3.1))                                     # swathes of light and shade
+    lawn = np.where(sw > 0.6, 'leaf3', np.where(sw < 0.36, 'leaf1', 'leaf2')).astype(object)
+    blade = h(1) < 0.16 + 0.1 * depth                                    # short blades, upright strokes
+    up = np.roll(blade, -1, 0)
+    lawn = np.where(blade & (sw > 0.45), 'leaf4', lawn)
+    lawn = np.where(up & ~blade & (sw <= 0.45), 'leaf1', lawn)
+    lawn = np.where((h(2) < 0.012) & (sw > 0.5), 'leaf5', lawn)          # clover leaves catching the light
+    # worn patches of bare earth
+    soil = (_noise(xx, yy, (22, 6, 7.7)) > 0.7) & (yy > g[None, :] + 5)
+    earth = np.where(h(3) < 0.25, 'wood3', 'wood4').astype(object)
+    earth = np.where(soil & ~np.roll(soil, 1, 0), 'wood5', earth)      # its far lip in the sun
+    lawn = np.where(soil, earth, lawn)
+    # the road
+    ry = np.array([road_y(x) for x in range(TW)])[None, :]
+    half = (ROAD_W0 + (yy - 262) * ROAD_K) / 2
+    door = np.zeros_like(below)
+    for y in range(H):
+        for x in range(int(TEAHOUSE_X - 30), int(TEAHOUSE_X + 40)):
+            if on_road(x, y) and abs(y - ry[0, x]) > half[y, x]:
+                door[y, x] = True
+    dist = np.abs(yy - ry) / half
+    road = (dist <= 1) | door
+    ragged = (dist > 0.86) & (dist <= 1) & (h(4) < 0.45)                # the edges eaten by grass
+    road &= ~ragged
+    across = (yy - ry) / half                                             # -1 far edge .. +1 near edge
+    rut = (np.abs(np.abs(across) - 0.5) < 0.17) & ~door
+    ridge = (np.abs(across) < 0.14) & (h(5) < 0.55) & ~door
+    dirt = np.where(h(6) < 0.3, 'hinoki2', 'hinoki3').astype(object)
+    dirt = np.where(rut, np.where(h(7) < 0.4, 'hinoki0', 'hinoki1'), dirt)
+    dirt = np.where(ridge, np.where(h(8) < 0.5, 'leaf2', 'leaf3'), dirt)
+    lip = road & ~np.roll(road, 1, 0)
+    dirt = np.where(lip, 'hinoki4', dirt)
+    under = road & ~np.roll(road, -1, 0)
+    dirt = np.where(under, 'hinoki1', dirt)
+    lawn = np.where(road, dirt, lawn)
+    # pebbles on the road and the bare earth: a dark stone with a lit top
+    peb = (road | soil) & (h(9) < 0.012) & ~rut
+    lawn = np.where(peb, 'stone2', lawn)
+    lawn = np.where(np.roll(peb, 1, 0) & (road | soil), np.where(np.roll(peb, 1, 0), 'stone1', lawn), lawn)
+    lawn = np.where(np.roll(peb, -1, 0), 'stone3', lawn)
+    # the meadow's top edge: a lit rim
+    rim = below & ~np.roll(below, 1, 0)
+    lawn = np.where(rim, 'leaf3', lawn)
+    lawn = np.where(np.roll(rim, 1, 0), 'leaf2', lawn)
+    a = np.zeros((H, TW, 4), np.uint8)
+    cols = {}
+    for name in set(lawn[below].tolist()):
+        cols[name] = PAL[name]
+    for name, c in cols.items():
+        m = below & (lawn == name)
+        a[m, :3] = c
+        a[m, 3] = 255
+    return a
+
+
+def _meadow_plane(rows, ground=None, dark_shift=0, seed=5, flowers=0.16, susuki=0.04, avoid=None):
     rng = random.Random(seed)
     items = []
     for (yo, th, nb, dark, spc) in rows:
@@ -178,15 +282,9 @@ def _meadow_plane(rows, ground_fill=True, dark_shift=0, seed=5, flowers=0.12, su
     frames = []
     for f in range(MD.F):
         cv = Canvas(TW, H, wrap=True)
-        if ground_fill:
-            for x in range(TW):
-                g = int(round(ground_line(x)))
-                cv.vline(x, g, H - 1, 'leaf1')
-                cv.px(x, g, 'leaf3')
-                cv.px(x, g + 1, 'leaf2')
-                for y in range(g + 3, H, 5):
-                    if (x * 7 + y * 3) % 11 == 0:
-                        cv.px(x, y, 'leaf2')
+        if ground is not None:
+            m = ground[..., 3] > 0
+            cv.a[m] = ground[m]
         for (gy, x, fr) in items:
             s = fr[f]
             cv.blit(s, int(x - s.w / 2), int(gy) - s.h + 1)
@@ -195,10 +293,78 @@ def _meadow_plane(rows, ground_fill=True, dark_shift=0, seed=5, flowers=0.12, su
 
 
 def meadow_plane():
-    near_house = lambda x, y: abs(x - TEAHOUSE_X) < 78 and y < TEAHOUSE_BASE + 4
-    rows = [(2, 12, 6, 1, 7), (8, 14, 7, 0, 8), (16, 18, 7, 1, 9), (28, 22, 8, 0, 10), (44, 26, 9, 1, 11),
-            (62, 30, 9, 0, 12), (84, 34, 10, 1, 13)]
-    return _meadow_plane(rows, True, 0, 5, avoid=near_house)
+    """Clumps of grass and flowers with the ground showing between them, thicker along the
+    road's edges and at the meadow's far rim, none on the road or round the teahouse."""
+    def avoid(x, y):
+        if abs(x - TEAHOUSE_X) < 78 and y < TEAHOUSE_BASE + 4:
+            return True
+        if on_road(x, y, pad=1.5):
+            return True
+        # open ground: thin the meadow away from the road and the far rim, in drifts
+        near_road = abs(y - road_y(x)) - road_half(y) < 9
+        far_rim = y < ground_line(x) + 9
+        thin = _noise(np.array(x), np.array(y), (60, 20, 5.3))
+        return not (near_road or far_rim) and float(thin) < 0.55
+    rows = [(2, 11, 6, 1, 9), (7, 13, 6, 0, 14), (15, 16, 7, 1, 19), (27, 20, 7, 0, 22), (42, 24, 8, 1, 26),
+            (60, 28, 8, 0, 30), (82, 32, 9, 1, 34)]
+    return _meadow_plane(rows, ground_tex(), 0, 5, avoid=avoid)
+
+
+# ---------------------------------------------------------------- birds on the ground
+# a sparrow seen side-on, facing right: h head, e eye, k beak, b back, w wing (dark streaked),
+# p pale breast, t tail, l legs
+SPARROW = dict(
+    stand=['...hh..', '..hhhek', 'tbwwhp.', '.bwwpp.', '..l.l..'],
+    look=['..hh...', '.hhhek.', 'tbwwhp.', '.bwwpp.', '..l.l..'],
+    peck=['.......', 'tbw....', '.bwwhh.', '..wpphe', '..l.lk.'],
+    hop=['...hh..', '..hhhek', 'tbwwhp.', '.bwwpp.', '.......'])
+SPARROW_COL = dict(h='wood4', e='ink0', k='gold2', b='wood3', w='wood1', p='paper2', t='wood2', l='wood0')
+
+
+def _sparrow(a, x, y, pose, flip):
+    rows = SPARROW[pose]
+    for r, row in enumerate(rows):
+        for c, ch in enumerate(row):
+            if ch == '.':
+                continue
+            xx = x + ((len(row) - 1 - c) if flip else c)
+            yy = y + r
+            if 0 <= yy < H:
+                a[yy, xx % TW, :3] = PAL[SPARROW_COL[ch]]
+                a[yy, xx % TW, 3] = 255
+
+
+def ground_birds():
+    """Little flocks of sparrows on the road: pecking, looking round, hopping a step and back."""
+    rng = random.Random(17)
+    birds = []
+    for gx in (110, 520, 760, 1110):
+        for k in range(rng.randint(2, 4)):
+            x = gx + rng.uniform(-22, 22)
+            y = road_y(x) + rng.uniform(-0.6, 0.6) * road_half(road_y(x)) - 4
+            birds.append(dict(x=x, y=y, flip=rng.random() < 0.5, ph=rng.randrange(N), hop=rng.choice((3, 4)),
+                              seq=rng.choice(('ppslpp', 'pslspp', 'llppss'))))
+    frames = []
+    for f in range(N):
+        a = np.zeros((H, TW, 4), np.uint8)
+        for b in sorted(birds, key=lambda b: b['y']):
+            t = (f + b['ph']) % N
+            # a 96-frame day: hop forward at 24, back (turned round) at 72
+            out = 24 <= t < 72
+            dx = 0
+            if t in (24, 25):
+                dx, pose = b['hop'] * (t - 23) / 2, 'hop'
+            elif t in (72, 73):
+                dx, pose = b['hop'] * (1 - (t - 71) / 2), 'hop'
+            else:
+                dx = b['hop'] if out else 0
+                pose = {'p': 'peck', 's': 'stand', 'l': 'look'}[b['seq'][(t // 4) % len(b['seq'])]]
+            flip = b['flip'] ^ out
+            lift = -2 if pose == 'hop' else 0
+            sgn = -1 if b['flip'] else 1
+            _sparrow(a, int(round(b['x'] + sgn * dx)), int(round(b['y'])) + lift, pose, flip)
+        frames.append(G.swap(a))
+    return frames
 
 
 def front_plane():
@@ -214,7 +380,7 @@ def front_plane():
         else:
             fr = MD.tuft(rng, rng.randint(22, 44), rng.randint(8, 13), 0)
         items.append((gy, x, fr))
-        x += rng.uniform(5, 16) * (3 if (int(x) // 300) % 2 else 1)          # gaps, so the meadow shows
+        x += rng.uniform(9, 22) * (3 if (int(x) // 300) % 2 else 1)          # gaps, so the meadow shows
     frames = []
     for f in range(MD.F):
         cv = Canvas(TW, H, wrap=True)
@@ -262,14 +428,14 @@ def build_planes():
     planes = {
         'sky': [sky()], 'clouds': pp['clouds'], 'mountains': pp['mountains'], 'hills': pp['hills'],
         'lake': pp['lake'], 'lake_life': pp['lake_life'], 'shore': pp['shore'], 'flowers': pp['flowers'],
-        'meadow': meadow_plane(), 'front': front_plane(),
+        'birds': pp['birds'], 'meadow': meadow_plane(), 'ground_birds': ground_birds(), 'front': front_plane(),
     }
     th = sprite_layer('teahouse', 238, TEAHOUSE_BASE - 246, TEAHOUSE_X)
     return planes, {'teahouse': th, 'big_tree': hero_tree()}
 
 
-ORDER = ['sky', 'clouds', 'mountains', 'hills', 'lake', 'lake_life', 'shore', 'flowers', 'meadow', 'teahouse',
-         'big_tree', 'front']
+ORDER = ['sky', 'clouds', 'mountains', 'hills', 'lake', 'lake_life', 'birds', 'shore', 'flowers', 'meadow',
+         'ground_birds', 'teahouse', 'big_tree', 'front']
 
 
 # ---------------------------------------------------------------- composing a frame
@@ -483,7 +649,7 @@ def ui_overlay():
 
 def render(planes, sprites, t, cam, ui=None):
     f = int(t * FPS)
-    rgb, lake, skym = compose(planes, sprites, f % N, cam)
+    rgb, lake, skym = compose(planes, sprites, f, cam)
     rgb = motes(rgb, f)
     out = shade(rgb, lake, skym, t)
     if ui is not None:

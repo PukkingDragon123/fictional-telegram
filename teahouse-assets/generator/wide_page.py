@@ -172,7 +172,7 @@ p { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
   function tick(t) {
     const dt = lastT === null ? 0 : Math.min(0.1, (t - lastT) / 1000); lastT = t;
     if (!reduce) {
-      if (t - lastF >= 1000 / D.fps) { lastF = t; f = (f + 1) % D.frames; }
+      if (t - lastF >= 1000 / D.fps) { lastF = t; f = (f + 1) % 5760; }
       idle += dt; if (!drag && idle > 1.5) cam += D.speed * dt;
     }
     scene(f, cam);
