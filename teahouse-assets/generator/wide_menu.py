@@ -157,7 +157,7 @@ def pack_planes():
 
 
 # ---------------------------------------------------------------- the meadow plane and the front
-ROAD_W0, ROAD_K = 5.0, 0.16                    # the road's width at the meadow's far edge, and how it widens toward you
+ROAD_W0, ROAD_K = 9.0, 0.24                    # the road's width at the meadow's far edge, and how it widens toward you
 
 
 def road_y(x):
@@ -211,9 +211,11 @@ def ground_tex():
     lawn = np.where(up & ~blade & (sw <= 0.45), 'leaf1', lawn)
     lawn = np.where((h(2) < 0.012) & (sw > 0.5), 'leaf5', lawn)          # clover leaves catching the light
     # worn patches of bare earth
-    soil = (_noise(xx, yy, (22, 6, 7.7)) > 0.7) & (yy > g[None, :] + 5)
-    earth = np.where(h(3) < 0.25, 'wood3', 'wood4').astype(object)
-    earth = np.where(soil & ~np.roll(soil, 1, 0), 'wood5', earth)      # its far lip in the sun
+    sn = _noise(xx, yy, (16, 5, 7.7))
+    bayer = BAYER[yy.astype(int) % 4, xx.astype(int) % 4]
+    soil = (sn + (bayer - 0.5) * 0.06 > 0.76) & (yy > g[None, :] + 5)
+    earth = np.where(h(3) < 0.3, 'wood3', 'wood4').astype(object)
+    earth = np.where(soil & ~np.roll(soil, 1, 0) & (h(10) < 0.6), 'wood5', earth)   # its far lip in the sun
     lawn = np.where(soil, earth, lawn)
     # the road
     ry = np.array([road_y(x) for x in range(TW)])[None, :]
@@ -225,24 +227,25 @@ def ground_tex():
                 door[y, x] = True
     dist = np.abs(yy - ry) / half
     road = (dist <= 1) | door
-    ragged = (dist > 0.86) & (dist <= 1) & (h(4) < 0.45)                # the edges eaten by grass
+    ragged = (dist > 0.8) & (dist <= 1) & (_noise(xx, yy, (3, 2, 9.1)) < 0.5)                # the edges eaten by grass
     road &= ~ragged
     across = (yy - ry) / half                                             # -1 far edge .. +1 near edge
-    rut = (np.abs(np.abs(across) - 0.5) < 0.17) & ~door
-    ridge = (np.abs(across) < 0.14) & (h(5) < 0.55) & ~door
-    dirt = np.where(h(6) < 0.3, 'hinoki2', 'hinoki3').astype(object)
-    dirt = np.where(rut, np.where(h(7) < 0.4, 'hinoki0', 'hinoki1'), dirt)
+    wear = _noise(xx, yy, (9, 3, 2.2))                                    # where the ruts are worn deep
+    rut = (np.abs(np.abs(across) - 0.48) < 0.11 + 0.08 * wear) & (wear > 0.38) & ~door
+    ridge = (np.abs(across) < 0.12) & (h(5) < 0.35) & (wear > 0.45) & ~door
+    tone = _noise(xx, yy, (12, 4, 4.4)) + (h(6) - 0.5) * 0.25
+    dirt = np.where(tone > 0.62, 'hinoki4', np.where(tone > 0.36, 'hinoki3', 'hinoki2')).astype(object)
+    dirt = np.where(rut, np.where(h(7) < 0.3, 'hinoki1', 'hinoki2'), dirt)
     dirt = np.where(ridge, np.where(h(8) < 0.5, 'leaf2', 'leaf3'), dirt)
-    lip = road & ~np.roll(road, 1, 0)
-    dirt = np.where(lip, 'hinoki4', dirt)
     under = road & ~np.roll(road, -1, 0)
-    dirt = np.where(under, 'hinoki1', dirt)
+    dirt = np.where(under & (h(11) < 0.7), 'hinoki1', dirt)                # the near edge drops a little
     lawn = np.where(road, dirt, lawn)
     # pebbles on the road and the bare earth: a dark stone with a lit top
-    peb = (road | soil) & (h(9) < 0.012) & ~rut
-    lawn = np.where(peb, 'stone2', lawn)
-    lawn = np.where(np.roll(peb, 1, 0) & (road | soil), np.where(np.roll(peb, 1, 0), 'stone1', lawn), lawn)
-    lawn = np.where(np.roll(peb, -1, 0), 'stone3', lawn)
+    peb = (road | soil) & (h(9) < 0.008) & ~rut
+    peb |= np.roll(peb, 1, 1) & (h(12) < 0.5)                            # some two wide
+    lawn = np.where(peb, 'hinoki1', lawn)
+    lawn = np.where(np.roll(peb, -1, 0) & ~peb, 'hinoki5', lawn)        # the lit top
+    lawn = np.where(np.roll(peb, 1, 0) & ~peb & road, 'hinoki0', lawn)  # its shadow
     # the meadow's top edge: a lit rim
     rim = below & ~np.roll(below, 1, 0)
     lawn = np.where(rim, 'leaf3', lawn)
@@ -311,14 +314,15 @@ def meadow_plane():
 
 
 # ---------------------------------------------------------------- birds on the ground
-# a sparrow seen side-on, facing right: h head, e eye, k beak, b back, w wing (dark streaked),
-# p pale breast, t tail, l legs
+# a house sparrow seen side-on, facing right: c grey crown, n chestnut nape, w white cheek, e eye,
+# k beak, d black bib, b chestnut back, s dark wing streaks, p pale breast, t tail, l legs
 SPARROW = dict(
-    stand=['...hh..', '..hhhek', 'tbwwhp.', '.bwwpp.', '..l.l..'],
-    look=['..hh...', '.hhhek.', 'tbwwhp.', '.bwwpp.', '..l.l..'],
-    peck=['.......', 'tbw....', '.bwwhh.', '..wpphe', '..l.lk.'],
-    hop=['...hh..', '..hhhek', 'tbwwhp.', '.bwwpp.', '.......'])
-SPARROW_COL = dict(h='wood4', e='ink0', k='gold2', b='wood3', w='wood1', p='paper2', t='wood2', l='wood0')
+    stand=['.....cc..', '....nccek', '...bnwwd.', 'tbbssbpd.', '.tbbsppp.', '...bppp..', '...l.l...'],
+    look=['....cc...', '...ncce..', '...bnwwk.', 'tbbssbwd.', '.tbbsppp.', '...bppp..', '...l.l...'],
+    peck=['.........', '.........', '...bbn...', 'tbbssncc.', '.tbbspwce', '...bppddk', '...l.l...'],
+    hop=['.....cc..', '....nccek', '...bnwwd.', 'tbbssbpd.', '.tbbsppp.', '...bppp..', '.........'])
+SPARROW_COL = dict(c='stone2', n='wood4', w='paper4', e='ink0', k='ink1', d='ink1', b='wood4', s='wood1',
+                   p='paper3', t='wood2', l='wood1')
 
 
 def _sparrow(a, x, y, pose, flip):
@@ -339,9 +343,14 @@ def ground_birds():
     rng = random.Random(17)
     birds = []
     for gx in (110, 520, 760, 1110):
-        for k in range(rng.randint(2, 4)):
-            x = gx + rng.uniform(-22, 22)
-            y = road_y(x) + rng.uniform(-0.6, 0.6) * road_half(road_y(x)) - 4
+        xs, n = [], rng.randint(2, 4)
+        while len(xs) < n:
+            x = gx + rng.uniform(-30, 30)
+            if any(abs(x - q) < 13 for q in xs):
+                continue
+            xs.append(x)
+        for x in xs:
+            y = road_y(x) + rng.uniform(-0.7, 0.1) * road_half(road_y(x)) - 6
             birds.append(dict(x=x, y=y, flip=rng.random() < 0.5, ph=rng.randrange(N), hop=rng.choice((3, 4)),
                               seq=rng.choice(('ppslpp', 'pslspp', 'llppss'))))
     frames = []
@@ -362,7 +371,16 @@ def ground_birds():
             flip = b['flip'] ^ out
             lift = -2 if pose == 'hop' else 0
             sgn = -1 if b['flip'] else 1
-            _sparrow(a, int(round(b['x'] + sgn * dx)), int(round(b['y'])) + lift, pose, flip)
+            bx, by = int(round(b['x'] + sgn * dx)), int(round(b['y']))
+            for k in range(-1, 6):                                     # its shadow on the dirt
+                a[by + 7, (bx + 2 + k) % TW] = (*PAL['hinoki1'], 255)
+            _sparrow(a, bx, by + lift, pose, flip)
+        # a dark outline round every bird, so it reads against the road at a glance
+        body = a[..., 3] > 0
+        bird = body & ~np.all(a[..., :3] == PAL['hinoki1'], -1)
+        ring = (np.roll(bird, 1, 0) | np.roll(bird, -1, 0) | np.roll(bird, 1, 1) | np.roll(bird, -1, 1)) & ~bird
+        a[ring, :3] = PAL['wood0']
+        a[ring, 3] = 255
         frames.append(G.swap(a))
     return frames
 
