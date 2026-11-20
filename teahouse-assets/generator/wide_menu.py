@@ -507,7 +507,7 @@ def previews(planes, sprites, seconds=32, fps=30, pan=36.0):
     mp4 = os.path.join(P, 'golden_hour_scroll_1080p.mp4')
     p = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}',
                           '-r', str(fps), '-i', '-', '-vf', 'scale=1920:1080:flags=neighbor', '-c:v', 'libx264',
-                          '-preset', 'slow', '-crf', '22', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4],
+                          '-preset', 'slow', '-crf', '28', '-tune', 'animation', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4],
                          stdin=subprocess.PIPE)
     gif = []
     for k in range(seconds * fps):
