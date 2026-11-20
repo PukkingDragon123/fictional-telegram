@@ -1,0 +1,19 @@
+{
+ "image": "title_plaque.png",
+ "frame0": "title_plaque_anim_f0.png",
+ "sheet": "title_plaque_anim_sheet.png",
+ "gif": "title_plaque_anim_3x.gif",
+ "frames": 96,
+ "fps": 12,
+ "frame_w": 282,
+ "frame_h": 101,
+ "sheet_cols": 8,
+ "sheet_rows": 12,
+ "order": "row-major",
+ "text": "Old Rundown Teahouse",
+ "screen_xy": [
+  19,
+  0
+ ],
+ "note": "The sign swings gently on its cords with menu_layout.sway (the board stays level, the tassels lag behind) and a glint runs over the gilt once per loop (frames 18-41). Frame i is at column i % sheet_cols, row i // sheet_cols."
+}

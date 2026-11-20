@@ -1,0 +1,13 @@
+{
+ "name": "sky",
+ "sheet": "sky_sheet.png",
+ "frames": 1,
+ "fps": 12,
+ "w": 640,
+ "h": 360,
+ "sheet_cols": 1,
+ "x": 0,
+ "y": 0,
+ "parallax": 0.0,
+ "tile_w": 0
+}

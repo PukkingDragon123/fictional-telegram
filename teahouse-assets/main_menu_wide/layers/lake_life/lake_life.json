@@ -1,0 +1,13 @@
+{
+ "name": "lake_life",
+ "sheet": "lake_life_sheet.png",
+ "frames": 96,
+ "fps": 12,
+ "w": 1280,
+ "h": 57,
+ "sheet_cols": 3,
+ "x": 0,
+ "y": 194,
+ "parallax": 0.24,
+ "tile_w": 1280
+}

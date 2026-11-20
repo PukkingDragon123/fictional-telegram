@@ -1,0 +1,13 @@
+{
+ "image": "cursor.png",
+ "strip": "cursor_strip.png",
+ "frames": 4,
+ "fps": 4,
+ "frame_w": 23,
+ "frame_h": 24,
+ "hotspot": [
+  2,
+  2
+ ],
+ "note": "A calligraphy brush; the hotspot is its inked point (it stays put while the handle wiggles)."
+}

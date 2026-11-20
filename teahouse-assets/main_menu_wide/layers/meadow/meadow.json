@@ -1,0 +1,13 @@
+{
+ "name": "meadow",
+ "sheet": "meadow_sheet.png",
+ "frames": 8,
+ "fps": 12,
+ "w": 1280,
+ "h": 127,
+ "sheet_cols": 3,
+ "x": 0,
+ "y": 233,
+ "parallax": 0.62,
+ "tile_w": 1280
+}

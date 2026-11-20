@@ -1,0 +1,48 @@
+{
+ "name": "Main menu - golden hour",
+ "screen": [
+  640,
+  360
+ ],
+ "scale": "integer, nearest-neighbour",
+ "fps": 12,
+ "frames": 96,
+ "tile_w": 1280,
+ "scroll_px_per_s": 8.0,
+ "horizon": 196,
+ "sun": [
+  328,
+  104
+ ],
+ "draw_order": [
+  "sky",
+  "clouds",
+  "mountains",
+  "hills",
+  "lake",
+  "lake_life",
+  "shore",
+  "flowers",
+  "meadow",
+  "teahouse",
+  "big_tree",
+  "front"
+ ],
+ "layers": {
+  "sky": "layers/sky/sky.json",
+  "clouds": "layers/clouds/clouds.json",
+  "mountains": "layers/mountains/mountains.json",
+  "hills": "layers/hills/hills.json",
+  "lake": "layers/lake/lake.json",
+  "lake_life": "layers/lake_life/lake_life.json",
+  "shore": "layers/shore/shore.json",
+  "flowers": "layers/flowers/flowers.json",
+  "meadow": "layers/meadow/meadow.json",
+  "teahouse": "layers/teahouse/teahouse.json",
+  "big_tree": "layers/big_tree/big_tree.json",
+  "front": "layers/front/front.json"
+ },
+ "shader": "wide_shader.glsl",
+ "ui": "ui/layout.json",
+ "how": "Each layer's screen x = x - floor(cam * parallax) mod tile_w (also drawn one tile_w to the right); cam grows by scroll_px_per_s. Then the shader pass over the 640x360 frame, with a mask of the open sky and of the lake's water."
+}

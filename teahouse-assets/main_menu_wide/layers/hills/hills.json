@@ -1,0 +1,13 @@
+{
+ "name": "hills",
+ "sheet": "hills_sheet.png",
+ "frames": 1,
+ "fps": 12,
+ "w": 1280,
+ "h": 175,
+ "sheet_cols": 1,
+ "x": 0,
+ "y": 185,
+ "parallax": 0.16,
+ "tile_w": 1280
+}

@@ -1,0 +1,13 @@
+{
+ "name": "shore",
+ "sheet": "shore_sheet.png",
+ "frames": 16,
+ "fps": 12,
+ "w": 1280,
+ "h": 172,
+ "sheet_cols": 3,
+ "x": 0,
+ "y": 87,
+ "parallax": 0.4,
+ "tile_w": 1280
+}

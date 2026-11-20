@@ -1,0 +1,201 @@
+{
+ "screen": [
+  640,
+  360
+ ],
+ "scale": 3,
+ "frames": 96,
+ "fps": 12,
+ "note": "All positions are the top-left of each PNG on the 640x360 screen. Draw order: title plaque, signpost, the buttons top to bottom, the hovered / pressed button last (its glow and tea sprig overlap its neighbours), the cursor on top. Every state of a button has the same canvas size and spot (the hover nudge and press offset are drawn inside it).",
+ "title": {
+  "x": 19,
+  "y": 0,
+  "w": 282,
+  "h": 101,
+  "image": "title_plaque.png",
+  "blank": "title_plaque_blank.png",
+  "anim": {
+   "sheet": "title_plaque_anim_sheet.png",
+   "frames": 96,
+   "fps": 12,
+   "cols": 8,
+   "json": "title_plaque_anim.json"
+  },
+  "board_rect": [
+   36,
+   34,
+   248,
+   43
+  ],
+  "lettering_rect": [
+   43,
+   41,
+   234,
+   29
+  ],
+  "title_box": [
+   20,
+   16,
+   300,
+   96
+  ]
+ },
+ "signpost": {
+  "x": 14,
+  "y": 218,
+  "w": 29,
+  "h": 145,
+  "image": "signpost.png"
+ },
+ "buttons": [
+  {
+   "id": "continue",
+   "label": "Continue",
+   "x": 15,
+   "y": 232,
+   "w": 121,
+   "h": 32,
+   "hit_rect": [
+    22,
+    239,
+    106,
+    19
+   ],
+   "states": {
+    "normal": "btn_continue_normal.png",
+    "hover": "btn_continue_hover.png",
+    "pressed": "btn_continue_pressed.png",
+    "disabled": "btn_continue_disabled.png"
+   },
+   "hover_anim": {
+    "strip": "btn_continue_hover_strip.png",
+    "frames": 8,
+    "fps": 8,
+    "frame_w": 121,
+    "frame_h": 32
+   }
+  },
+  {
+   "id": "new_journey",
+   "label": "New Journey",
+   "x": 15,
+   "y": 254,
+   "w": 121,
+   "h": 32,
+   "hit_rect": [
+    22,
+    261,
+    106,
+    19
+   ],
+   "states": {
+    "normal": "btn_new_journey_normal.png",
+    "hover": "btn_new_journey_hover.png",
+    "pressed": "btn_new_journey_pressed.png"
+   },
+   "hover_anim": {
+    "strip": "btn_new_journey_hover_strip.png",
+    "frames": 8,
+    "fps": 8,
+    "frame_w": 121,
+    "frame_h": 32
+   }
+  },
+  {
+   "id": "settings",
+   "label": "Settings",
+   "x": 15,
+   "y": 276,
+   "w": 121,
+   "h": 32,
+   "hit_rect": [
+    22,
+    283,
+    106,
+    19
+   ],
+   "states": {
+    "normal": "btn_settings_normal.png",
+    "hover": "btn_settings_hover.png",
+    "pressed": "btn_settings_pressed.png"
+   },
+   "hover_anim": {
+    "strip": "btn_settings_hover_strip.png",
+    "frames": 8,
+    "fps": 8,
+    "frame_w": 121,
+    "frame_h": 32
+   }
+  },
+  {
+   "id": "credits",
+   "label": "Credits",
+   "x": 15,
+   "y": 298,
+   "w": 121,
+   "h": 32,
+   "hit_rect": [
+    22,
+    305,
+    106,
+    19
+   ],
+   "states": {
+    "normal": "btn_credits_normal.png",
+    "hover": "btn_credits_hover.png",
+    "pressed": "btn_credits_pressed.png"
+   },
+   "hover_anim": {
+    "strip": "btn_credits_hover_strip.png",
+    "frames": 8,
+    "fps": 8,
+    "frame_w": 121,
+    "frame_h": 32
+   }
+  },
+  {
+   "id": "quit",
+   "label": "Quit",
+   "x": 15,
+   "y": 320,
+   "w": 121,
+   "h": 32,
+   "hit_rect": [
+    22,
+    327,
+    106,
+    19
+   ],
+   "states": {
+    "normal": "btn_quit_normal.png",
+    "hover": "btn_quit_hover.png",
+    "pressed": "btn_quit_pressed.png"
+   },
+   "hover_anim": {
+    "strip": "btn_quit_hover_strip.png",
+    "frames": 8,
+    "fps": 8,
+    "frame_w": 121,
+    "frame_h": 32
+   }
+  }
+ ],
+ "cursor": {
+  "image": "cursor.png",
+  "strip": "cursor_strip.png",
+  "frames": 4,
+  "fps": 4,
+  "hotspot": [
+   2,
+   2
+  ],
+  "w": 23,
+  "h": 24
+ },
+ "menu_box": [
+  20,
+  236,
+  170,
+  346
+ ]
+}

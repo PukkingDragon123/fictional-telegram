@@ -341,6 +341,22 @@ python3 teahouse-assets/generator/menu_build.py                         # layers
 python3 teahouse-assets/generator/menu_build.py --page OUT/index.html   # the playable menu as one page
 ```
 
+## The golden-hour menu (wide scroll)
+
+![The golden-hour menu](main_menu_wide/preview/still_1_3x.png)
+
+`main_menu_wide/` is a second title screen: one wide panorama that drifts past slowly in parallax, lit by a low sun.
+
+- **Palette:** every ramp of the pack has a golden-hour partner of the same length and role (`generator/golden_palette.py`). The art is swapped colour for colour, so every hand-placed cluster stays where it was: lights go gold and peach, shadows go violet and slate, greens go olive and teal, the water picks up the sky's rose.
+- **Scroll:** twelve planes, from the sky (still) to the front grass (full speed). Each plane tiles every 1280 px and moves at its own `parallax` rate. Back to front they are: clouds, mountains, hills, lake, koi and ducks, the shore's trees, flower bed, meadow, teahouse, the big blossoming tree, and dark front grass.
+- **Shader:** `wide_shader.glsl` is a WebGL pass over the 640×360 frame. It mirrors the trees in the lake with ripples, draws the sun's road of glints, casts sun rays through the leaves and adds a glow round the sun, the lanterns and the window. It finishes with a warm vignette. The light is dithered into six steps on the pixel grid, so the frame still reads as pixel art. `wide_menu.py` has the same pass in numpy, and the previews use it.
+- **Menu:** the pack's signboard, signpost, buttons and brush cursor, swapped into the golden palette (`ui/`).
+
+```bash
+python3 teahouse-assets/generator/wide_menu.py                 # layers, ui, scene.json, previews
+python3 teahouse-assets/generator/wide_page.py OUT/index.html  # the playable menu, shader and all, as one page
+```
+
 ## Folder map
 
 ```
@@ -366,6 +382,7 @@ scene.json        draw order, parallax, vanishing points, surfaces, every prop w
 demo/index.html   open in a browser: drag props, pan the rooms, cycle the fire's moods, ring the bell
 preview/          full panorama, each room at 1080p, animated GIFs, a parallax pan (.webp)
 main_menu/        the animated title screen: layers/, ui/, scene.json, preview/
+main_menu_wide/   the golden-hour wide-scroll menu: layers/, ui/, scene.json, wide_shader.glsl, preview/
 traveler_kit/     the traveller's props, each in its conditions: stills, sheets, gifs, json; viewer/
 generator/        the Python that draws all of it (deterministic, seeded)
 ```
@@ -442,6 +459,6 @@ python3 teahouse-assets/generator/package.py out.zip  # the tidy game-ready zips
 | Teaware | `teaware.py` |
 | Fire spirit | `fire.py` |
 | Trees and garden | `grove.py` (grown trees, butterflies, dragonflies), `life.py` (birds, fish, ducks, falling leaves, wind), `outside.py`, `meadow.py`, `trees.py`, `leaves.py` |
-| Colours | `RAMPS` in `pixel.py` |
+| Colours | `RAMPS` in `pixel.py`; the golden hour in `golden_palette.py` |
 
 You can also drag props around in `demo/index.html` and press **copy layout JSON** to get their new positions.

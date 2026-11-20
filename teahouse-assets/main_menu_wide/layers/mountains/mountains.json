@@ -1,0 +1,13 @@
+{
+ "name": "mountains",
+ "sheet": "mountains_sheet.png",
+ "frames": 1,
+ "fps": 12,
+ "w": 1280,
+ "h": 64,
+ "sheet_cols": 1,
+ "x": 0,
+ "y": 132,
+ "parallax": 0.08,
+ "tile_w": 1280
+}

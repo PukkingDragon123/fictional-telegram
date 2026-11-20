@@ -1,0 +1,13 @@
+{
+ "name": "teahouse",
+ "sheet": "teahouse_sheet.png",
+ "frames": 96,
+ "fps": 12,
+ "w": 192,
+ "h": 203,
+ "sheet_cols": 21,
+ "x": 239,
+ "y": 114,
+ "parallax": 0.62,
+ "tile_w": 1280
+}

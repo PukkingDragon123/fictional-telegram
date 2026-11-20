@@ -1,0 +1,13 @@
+{
+ "name": "lake",
+ "sheet": "lake_sheet.png",
+ "frames": 12,
+ "fps": 12,
+ "w": 1280,
+ "h": 164,
+ "sheet_cols": 3,
+ "x": 0,
+ "y": 196,
+ "parallax": 0.24,
+ "tile_w": 1280
+}
