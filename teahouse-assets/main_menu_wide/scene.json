@@ -21,9 +21,11 @@
   "hills",
   "lake",
   "lake_life",
+  "birds",
   "shore",
   "flowers",
   "meadow",
+  "ground_birds",
   "teahouse",
   "big_tree",
   "front"
@@ -35,9 +37,11 @@
   "hills": "layers/hills/hills.json",
   "lake": "layers/lake/lake.json",
   "lake_life": "layers/lake_life/lake_life.json",
+  "birds": "layers/birds/birds.json",
   "shore": "layers/shore/shore.json",
   "flowers": "layers/flowers/flowers.json",
   "meadow": "layers/meadow/meadow.json",
+  "ground_birds": "layers/ground_birds/ground_birds.json",
   "teahouse": "layers/teahouse/teahouse.json",
   "big_tree": "layers/big_tree/big_tree.json",
   "front": "layers/front/front.json"

@@ -1,0 +1,13 @@
+{
+ "name": "birds",
+ "sheet": "birds_sheet.png",
+ "frames": 144,
+ "fps": 12,
+ "w": 1280,
+ "h": 108,
+ "sheet_cols": 3,
+ "x": 0,
+ "y": 78,
+ "parallax": 0.2,
+ "tile_w": 1280
+}

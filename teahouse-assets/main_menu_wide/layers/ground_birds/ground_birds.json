@@ -1,0 +1,13 @@
+{
+ "name": "ground_birds",
+ "sheet": "ground_birds_sheet.png",
+ "frames": 96,
+ "fps": 12,
+ "w": 1280,
+ "h": 36,
+ "sheet_cols": 3,
+ "x": 0,
+ "y": 293,
+ "parallax": 0.62,
+ "tile_w": 1280
+}
