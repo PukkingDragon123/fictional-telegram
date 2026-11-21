@@ -1190,7 +1190,7 @@ def _noren_crest():
         rows = ['.###.', '#..##', '#.#.#', '##..#', '.###.']
         return [''.join(('#' if (k < 2 or r < 2) else '+') if ch == '#' else '.' for k, ch in enumerate(row))
                 for r, row in enumerate(rows)]
-    n = max(5, NOREN_W - 1 - (NOREN_W % 2 == 0))             # odd, a pixel in from each edge
+    n = max(5, NOREN_W - 1 - (NOREN_W % 2))                 # odd, a pixel in from each edge
     c = (n - 1) / 2
     out = []
     for y in range(n):
@@ -1209,55 +1209,94 @@ def _noren_crest():
 def _lantern_sprite(f, flick):
     """A chochin, 7 px across: black lacquer caps with a gilt rim, red paper
     glowing from the candle inside, bamboo ribs, a tassel."""
-    rows = ['..kkk..',
-            '.gGGGg.',
-            '.rRFRr.',
-            'rRFHFRr',
-            'dRFHFRd',
-            'rRFHFRr',
-            '.rRFRr.',
-            '.gGGGg.',
-            '..kkk..']
+    rows = LANTERN_ROWS
     hot = 'fire5' if flick else 'fire4'
     cmap = {'k': 'wood0', 'g': 'gold1', 'G': 'gold2', 'r': 'red2', 'R': 'red4', 'F': 'fire3', 'H': hot,
             'd': 'red1'}
-    spr = Canvas(9, 14)
+    lw, lh = len(rows[0]), len(rows)
+    spr = Canvas(lw + 2, lh + 5)
     for y, row in enumerate(rows):
         for x, ch in enumerate(row):
             if ch != '.':
                 spr.px(x + 1, y + 1, cmap[ch])
-    for x in range(2, 7):                                    # a rib across the middle, darker
-        spr.shift(x, 5, -1)
+    for ry in LANTERN_RIBS:                                  # ribs across the body, darker
+        for x in range(2, lw):
+            spr.shift(x, ry + 1, -1)
     return spr
+
+
+def _lantern_rows():
+    """The chochin's pixels as rows: k cap, g/G gilt rim, r/R red paper, F/H the candle's glow, d shade."""
+    if S == 1.0:
+        return (['..kkk..', '.gGGGg.', '.rRFRr.', 'rRFHFRr', 'dRFHFRd', 'rRFHFRr', '.rRFRr.', '.gGGGg.', '..kkk..'],
+                [4])
+    lw = 2 * si(3.5) - 1 if si(7) % 2 == 0 else si(7)        # odd width
+    lh = si(9)
+    c = (lw - 1) / 2
+    rows = []
+    body0, body1 = 2, lh - 3
+    for y in range(lh):
+        if y in (0, lh - 1):
+            rows.append('.' * 2 + 'k' * (lw - 4) + '.' * 2)
+            continue
+        if y in (1, lh - 2):
+            rows.append('.' + 'g' + 'G' * (lw - 4) + 'g' + '.')
+            continue
+        t = (y - body0) / max(1, body1 - body0)              # 0 .. 1 down the body
+        half = c - (1 if (y in (body0, body1)) else 0)       # the paper bellies out
+        mid = abs(t - 0.5) < 0.3
+        row = ''
+        for x in range(lw):
+            u = abs(x - c)
+            if u > half + 0.01:
+                row += '.'
+            elif u > half - 0.99:
+                row += 'd' if (mid and abs(t - 0.5) < 0.12) else 'r'
+            elif u > half - 1.99:
+                row += 'R'
+            elif u < 0.5 and mid:
+                row += 'H'
+            elif u < 1.5 + 0.5 * (not mid):
+                row += 'F'
+            else:
+                row += 'R'
+        rows.append(row)
+    ribs = [int(round(body0 + (body1 - body0) * k / 3)) for k in (1, 2)]
+    return rows, ribs
+
+
+LANTERN_ROWS, LANTERN_RIBS = _lantern_rows()
 
 
 def lanterns(cv, f):
     for i, (x, z, lag) in enumerate(LANTERNS):
         ax, ay = _sx(x, z), _sy(EAVE - EAVE_T + 1, EZ0)      # the cord comes out under the eave
-        s = sway(ax, f, amp=1.2, lag=4.0 + lag)
+        s = sway(ax, f, amp=1.2, lag=4.0 + lag) * S
         dx = int(round(s))
         flick = math.sin(2 * math.pi * (f * 7 / N + i * 0.37)) + 0.6 * math.sin(2 * math.pi * f * 17 / N) > -0.9
-        top = ay + 7
+        top = ay + si(7)
         cx = ax + dx
         cv.line(ax, ay, cx, top - 1, 'wood1')
         spr = OBJ.outline(_lantern_sprite(f, flick))
-        cv.blit(spr, cx - 5, top - 2)
-        tx = cx + int(round(sway(ax, f, amp=0.8, lag=6.0 + lag) - s * 0.6))   # tassel trails
-        for k in range(3):
-            cv.px(cx + (tx - cx) * k // 3, top + 9 + k, 'red1' if k < 2 else 'gold2')
+        lw, lh = len(LANTERN_ROWS[0]), len(LANTERN_ROWS)
+        cv.blit(spr, cx - lw // 2 - 2, top - 2)
+        tx = cx + int(round(sway(ax, f, amp=0.8, lag=6.0 + lag) * S - s * 0.6))   # tassel trails
+        nt = si(3)
+        for k in range(nt):
+            cv.px(cx + (tx - cx) * k // nt, top + lh + k, 'red1' if k < nt - 1 else 'gold2')
 
 
 def lantern_glow(cv, f, wall_mask):
     """The lanterns warm the wall behind them (one step up the ramp, dithered edge)."""
     for i, (x, z, lag) in enumerate(LANTERNS):
         ax, ay = _sx(x, z), _sy(EAVE - EAVE_T + 1, EZ0)
-        s = sway(ax, f, amp=1.2, lag=4.0 + lag)
-        cx, cy = ax + s, ay + 12
-        for yy in range(int(cy) - 9, int(cy) + 10):
-            for xx in range(int(cx) - 8, int(cx) + 9):
+        s = sway(ax, f, amp=1.2, lag=4.0 + lag) * S
+        cx, cy = ax + s, ay + si(12)
+        for yy in range(int(cy) - si(9), int(cy) + si(10)):
+            for xx in range(int(cx) - si(8), int(cx) + si(9)):
                 if not (0 <= xx < W and 0 <= yy < H) or not wall_mask[yy, xx]:
                     continue
-                d = math.hypot((xx + 0.5 - cx) / 7.0, (yy + 0.5 - cy) / 8.0)
+                d = math.hypot((xx + 0.5 - cx) / sf(7.0), (yy + 0.5 - cy) / sf(8.0))
                 if d < 0.7 or (d < 1.0 and BAYER4[yy % 4][xx % 4] / 16 < (1.0 - d) / 0.3):
                     cv.shift(xx, yy, 1, only=('red', 'wood'))
 
@@ -1268,27 +1307,55 @@ def furin(cv, f):
     ax = _sx(x, z)
     ay = int(math.floor(SY0 - (EAVE - EAVE_T + _kick_py(x, EZ0)) - B * EZ0)) + 1
     w = wind(ax, f)
-    s = sway(ax, f, amp=1.0, lag=1.0)
+    s = sway(ax, f, amp=1.0, lag=1.0) * S
     bx = ax + int(round(s * 0.5))
-    cv.line(ax, ay, bx, ay + 2, 'paper1')
-    by = ay + 3
-    for (dx, dy, c) in ((-1, 0, 'sky2'), (0, 0, 'cloud3'), (1, 0, 'sky1'), (-1, 1, 'sky3'), (0, 1, 'sky2'),
-                        (1, 1, 'sky1'), (-2, 1, 'sky0'), (2, 1, 'sky0'), (-2, 2, 'red3'), (-1, 2, 'sky2'),
-                        (0, 2, 'leaf3'), (1, 2, 'sky1'), (2, 2, 'sky0')):
-        cv.px(bx + dx, by + dy, c)
-    cv.hline(bx - 2, bx + 2, by - 1, 'sky0')
-    cv.px(bx - 1, by - 1, 'sky1'); cv.px(bx, by - 1, 'sky1')
+    cv.line(ax, ay, bx, ay + si(2), 'paper1')
+    by = ay + si(3)
+    if S == 1.0:
+        for (dx, dy, c) in ((-1, 0, 'sky2'), (0, 0, 'cloud3'), (1, 0, 'sky1'), (-1, 1, 'sky3'), (0, 1, 'sky2'),
+                            (1, 1, 'sky1'), (-2, 1, 'sky0'), (2, 1, 'sky0'), (-2, 2, 'red3'), (-1, 2, 'sky2'),
+                            (0, 2, 'leaf3'), (1, 2, 'sky1'), (2, 2, 'sky0')):
+            cv.px(bx + dx, by + dy, c)
+        cv.hline(bx - 2, bx + 2, by - 1, 'sky0')
+        cv.px(bx - 1, by - 1, 'sky1'); cv.px(bx, by - 1, 'sky1')
+        bh = 3
+    else:
+        bh = _furin_bell(cv, bx, by)
     sx = bx + int(round(s * 0.8))
-    cv.px(sx, by + 3, 'gold2')
-    cv.px(sx, by + 4, 'paper1')
-    for j in range(6):                                       # the tanzaku
-        t = (j + 1) / 6
-        fl = 0.9 * w * math.sin(2 * math.pi * f * 6 / N + t * 2.2)
+    cv.px(sx, by + bh, 'gold2')                              # the clapper
+    cv.px(sx, by + bh + 1, 'paper1')
+    nj = si(6)
+    for j in range(nj):                                      # the tanzaku
+        t = (j + 1) / nj
+        fl = 0.9 * w * math.sin(2 * math.pi * f * 6 / N + t * 2.2) * S
         xx = sx + int(round((s * 1.6 + fl) * t))
         wide = abs(math.sin(2 * math.pi * f * 4 / N + t * 1.7 + 0.5)) > 0.35 * w + 0.15
-        cv.px(xx, by + 5 + j, 'paper4' if j != 2 else 'red2')
-        if wide:
-            cv.px(xx + 1, by + 5 + j, 'paper2')
+        cv.px(xx, by + bh + 2 + j, 'paper4' if j != si(2) else 'red2')
+        if wide or S != 1.0:
+            cv.px(xx + 1, by + bh + 2 + j, 'paper2' if wide else 'paper3')
+
+
+def _furin_bell(cv, bx, by):
+    """The chime's glass bell, drawn at the bigger size: a dome lit on its left,
+    a painted red goldfish and green weed, a dark rim. Returns its height."""
+    r = si(2)                                                # half width
+    bh = si(3)                                               # height of the bell below its crown
+    cv.hline(bx - r + 1, bx + r - 1, by - 1, 'sky0')         # the crown
+    cv.px(bx - 1, by - 1, 'sky1'); cv.px(bx, by - 1, 'sky1')
+    for dy in range(bh):
+        half = min(r, int(round(r * math.sqrt((dy + 1.0) / bh) + 0.3)))
+        for dx in range(-half, half + 1):
+            u = dx / max(1, half)
+            c = 'sky3' if u < -0.5 else ('sky2' if u < 0.1 else ('sky1' if u < 0.7 else 'sky0'))
+            if dy == 0 and dx == 0:
+                c = 'cloud3'                                 # the glint
+            if dy == bh - 1:
+                c = 'sky0' if abs(u) > 0.7 else c
+            cv.px(bx + dx, by + dy, c)
+    cv.px(bx - r + 1, by + bh - 2, 'red3')                   # the painted goldfish
+    cv.px(bx - r + 2, by + bh - 2, 'red2')
+    cv.px(bx + 1, by + bh - 1, 'leaf3')                      # and a strand of weed
+    return bh
 
 
 def _kick_py(x, z):
@@ -1305,8 +1372,8 @@ def smoke(f):
     cx, cy = P(*SMOKE_TOP)
     f = f % N
     K, LIFE = 16, 64
-    w, h = 110, 70
-    ox, oy = int(cx) - 12, int(cy) - h + 4
+    w, h = si(110), si(70)
+    ox, oy = int(cx) - si(12), int(cy) - h + si(4)
     yy, xx = np.mgrid[0:h, 0:w]
     D = np.zeros((h, w))
     for j in range(-K, K):
@@ -1318,10 +1385,10 @@ def smoke(f):
         drift = 0.0
         for i in range(int(age)):
             drift += 0.1 + 0.85 * wind(cx + drift, f - i)
-        y = cy - a * 52 - 2
+        y = cy - a * sf(52) - sf(2)
         ph = 2 * math.pi * 3 * b / N                     # a curl that rises with the smoke
-        x = cx + drift * (0.35 + 0.65 * a) + math.sin(a * 5.5 - ph) * 3.2 * a
-        r = 1.7 + 3.6 * a
+        x = cx + drift * S * (0.35 + 0.65 * a) + math.sin(a * 5.5 - ph) * sf(3.2) * a
+        r = sf(1.7 + 3.6 * a)
         amp = 1.45 * min(1.0, 0.35 + a / 0.05) * (1 - a) ** 1.25
         amp *= 1.0 - 0.45 * a * (0.5 + 0.5 * math.sin(2 * math.pi * 4 * b / N))   # it thins into puffs
         D += amp * np.exp(-(((xx + 0.5 - (x - ox)) ** 2) / (r * r * 1.6) + ((yy + 0.5 - (y - oy)) ** 2) / (r * r)))
@@ -1338,7 +1405,7 @@ def smoke(f):
     return out, ox, oy
 
 
-ROOF_TUFTS = [(-9.0, 2.0), (88.0, -15.0), (118.0, -14.0), (60.0, -16.5)]     # world x, z on the roof
+ROOF_TUFTS = [(sf(-9.0), sf(2.0)), (sf(88.0), sf(-15.0)), (sf(118.0), sf(-14.0)), (sf(60.0), sf(-16.5))]   # x, z
 
 
 def roof_tufts(cv, f):
@@ -1347,9 +1414,9 @@ def roof_tufts(cv, f):
     for (x, z) in ROOF_TUFTS:
         top = _roof(float(x), float(z))[0]
         bx, by = _sx(x, z), _sy(top, z)
-        s = sway(bx, f, amp=1.0, lag=0.5)
+        s = sway(bx, f, amp=1.0, lag=0.5) * S
         for b in range(rng.randint(3, 4)):
-            hgt = rng.randint(2, 4)
+            hgt = si(rng.randint(2, 4))
             base = bx + b - 1
             lean = rng.choice((-1, 0, 0, 1))
             for k in range(1, hgt + 1):
@@ -1362,7 +1429,7 @@ def roof_tufts(cv, f):
 def sign(rng):
     """A vertical signboard hung on the wall by the door, its runes gilded
     (the pack's rune script: CHA, tea)."""
-    w, h = 7, 21
+    w, h = SIGN_W, SIGN_H
     cv = Canvas(w, h)
     cv.rect(0, 0, w, h, 'wood2')
     WG.grain_pass(cv, 1, 0, w - 1, h, 'v', seed=3.3, board=w - 2, contrast=0.8)
@@ -1370,22 +1437,42 @@ def sign(rng):
     cv.hline(0, w - 1, 0, 'wood3')
     cv.vline(w - 1, 0, h - 1, 'wood1')
     cv.hline(0, w - 1, h - 1, 'wood1')
+    if S != 1.0:                                             # a raised frame round a sunk, darker field
+        cv.rect(2, 2, w - 4, h - 4, 'wood1')
+        WG.grain_pass(cv, 2, 2, w - 2, h - 2, 'v', seed=4.1, board=w - 4, contrast=0.6)
+        cv.vline(2, 2, h - 3, 'wood0')
+        cv.hline(2, w - 3, 2, 'wood0')
+        cv.vline(w - 2, 1, h - 2, 'wood1')
+        cv.hline(1, w - 2, h - 2, 'wood1')
+    gx0 = (w - 3) // 2
+    pitch = (h - 4 - 15 - (2 if S != 1.0 else 0)) // 2 + 5   # three runes spread down the board
+    gy0 = (h - 2 * pitch - 5) // 2
     for i, ch in enumerate('CHA'):
-        text(cv, 2, 2 + 6 * i, ch, 'gold3')
+        text(cv, gx0, gy0 + pitch * i, ch, 'gold3')
         for gy in range(5):                                  # the gilt is worn on the lower strokes
             for gx in range(3):
-                if cv.get(2 + gx, 2 + 6 * i + gy)[:3] == PAL['gold3'] and (gx + gy) % 3 == 2:
-                    cv.px(2 + gx, 2 + 6 * i + gy, 'gold2')
-    chip(cv, 3, 15, 3, 3, rng, under='wood3', under_dark='wood1', n=1, rmin=0.8, rmax=1.2, elong=1.0)
+                if cv.get(gx0 + gx, gy0 + pitch * i + gy)[:3] == PAL['gold3'] and (gx + gy) % 3 == 2:
+                    cv.px(gx0 + gx, gy0 + pitch * i + gy, 'gold2')
+                elif S != 1.0 and cv.get(gx0 + gx, gy0 + pitch * i + gy)[:3] == PAL['gold3'] and \
+                        cv.get(gx0 + gx + 1, gy0 + pitch * i + gy + 1)[:3] not in (PAL['gold3'], PAL['gold2']):
+                    cv.px(gx0 + gx + 1, gy0 + pitch * i + gy + 1, 'wood0')     # carved: a shadow under the gilt
+    chip(cv, gx0 + 1, h - 6, 3, 3, rng, under='wood3', under_dark='wood1', n=1, rmin=0.8, rmax=1.2, elong=1.0)
     return OBJ.outline(cv)
+
+
+SIGN_W, SIGN_H = si(7) + (si(7) % 2 == 0), si(21)           # odd, so the runes sit in the middle
+SIGN_X, SIGN_Y = si(7), si(48)                               # its left edge (world x) and top (height)
 
 
 def toro(rng):
     """A kasuga stone lantern: base, round post, platform, the fire box with its
     window glowing, an umbrella cap with curled corners and a jewel on top.
     Stones lit from the upper left like the furnace's; moss on the cap and base."""
-    S = ['stone0', 'stone1', 'stone2', 'stone3', 'stone4']
-    w, h = 17, 31
+    SR = ['stone0', 'stone1', 'stone2', 'stone3', 'stone4']
+    w, h = si(17), si(31)
+    q = si
+    Y = lambda v: h - si(v)                                  # a row counted up from the foot
+    cx = w / 2
     cv = Canvas(w, h)
     def slab(x0, x1, y0, y1, lift=0):
         for y in range(y0, y1):
@@ -1397,43 +1484,59 @@ def toro(rng):
                     i += 1
                 if x == x1 - 1 or y == y1 - 1:
                     i -= 1
-                cv.px(x, y, S[max(0, min(4, i))])
-        cv.px(x0, y1 - 1, S[1 + lift]); cv.px(x1 - 1, y0, S[2 + lift])
-    slab(3, 14, h - 3, h)                                    # kiso, the base
-    slab(4, 13, h - 5, h - 3, 0)
-    for y in range(h - 14, h - 5):                           # sao, the round post
-        for k, c in enumerate(('stone3', 'stone3', 'stone2', 'stone2', 'stone1')):
-            cv.px(6 + k, y, c)
-    cv.hline(6, 10, h - 10, 'stone1')                        # a ring cut round the post
-    cv.hline(6, 7, h - 9, 'stone4')
-    slab(3, 14, h - 17, h - 14)                              # chudai, the platform
-    slab(5, 12, h - 23, h - 17)                              # hibukuro, the fire box
-    for y in range(h - 22, h - 18):                          # its window, a candle inside
-        for x in range(7, 10):
-            cv.px(x, y, 'fire3' if y > h - 21 else 'fire2')
-    cv.px(8, h - 20, 'fire5'); cv.px(8, h - 19, 'fire4')
-    cv.vline(6, h - 22, h - 18, 'stone1')
-    for y in range(h - 28, h - 23):                          # kasa, the cap: wide, sloped, curled up corners
-        t = (y - (h - 28)) / 4
-        half = 2 + t * 6.5
-        x0, x1 = int(round(8.5 - half)), int(round(8.5 + half))
+                cv.px(x, y, SR[max(0, min(4, i))])
+        cv.px(x0, y1 - 1, SR[1 + lift]); cv.px(x1 - 1, y0, SR[2 + lift])
+    slab(q(3), w - q(3), Y(3), h)                            # kiso, the base
+    slab(q(4), w - q(4), Y(5), Y(3), 0)
+    pc = ('stone3', 'stone3', 'stone2', 'stone2', 'stone1')
+    pn = q(11) - q(6)
+    for y in range(Y(14), Y(5)):                             # sao, the round post
+        for k in range(pn):
+            cv.px(q(6) + k, y, pc[k * 5 // pn])
+    cv.hline(q(6), q(11) - 1, Y(10), 'stone1')               # a ring cut round the post
+    cv.hline(q(6), q(6) + 1, Y(9), 'stone4')
+    slab(q(3), w - q(3), Y(17), Y(14))                       # chudai, the platform
+    slab(q(5), w - q(5), Y(23), Y(17))                       # hibukuro, the fire box
+    for y in range(Y(22), Y(18)):                            # its window, a candle inside
+        for x in range(q(7), q(10)):
+            cv.px(x, y, 'fire3' if y > Y(21) else 'fire2')
+    xc = int(cx)
+    cv.px(xc, Y(20), 'fire5'); cv.px(xc, Y(19), 'fire4')
+    if S != 1.0:
+        cv.px(xc + 1, Y(20), 'fire4'); cv.px(xc, Y(20) - 1, 'fire4')
+    cv.vline(q(6), Y(22), Y(18), 'stone1')
+    nrow = Y(23) - Y(28) - 1
+    for y in range(Y(28), Y(23)):                            # kasa, the cap: wide, sloped, curled up corners
+        t = (y - Y(28)) / nrow
+        half = (2 + t * 6.5) * S
+        x0, x1 = int(round(cx - half)), int(round(cx + half))
         for x in range(x0, x1):
-            c = 'stone3' if x < 8.5 - half * 0.2 else 'stone2'
-            if y == h - 24:
-                c = 'stone1' if x > 5 else 'stone2'
-            if y == h - 28:
-                c = 'stone4' if x < 9 else 'stone3'
+            c = 'stone3' if x < cx - half * 0.2 else 'stone2'
+            if y == Y(24):
+                c = 'stone1' if x > q(5) else 'stone2'
+            if y == Y(28):
+                c = 'stone4' if x < cx + 0.5 * S else 'stone3'
             cv.px(x, y, c)
-    cv.px(1, h - 25, 'stone3'); cv.px(15, h - 25, 'stone2')  # curled corners
-    cv.px(0, h - 26, 'stone3'); cv.px(16, h - 26, 'stone1')
-    cv.hline(2, 14, h - 23, 'stone0')
-    for (x, y, c) in ((7, h - 30, 'stone3'), (8, h - 30, 'stone3'), (9, h - 30, 'stone2'), (8, h - 31, 'stone4'),
-                      (7, h - 29, 'stone2'), (8, h - 29, 'stone2'), (9, h - 29, 'stone1')):
-        cv.px(x, y, c)                                        # hoju, the jewel
-    MOSS.clump(cv, rng, 2, h - 26, 7, 2, 'ledge', spores=0.0, shadow=False)
-    MOSS.clump(cv, rng, 9, h - 16, 4, 2, 'ledge', spores=0.0, shadow=False)
-    MOSS.clump(cv, rng, 3, h - 3, 5, 2, 'ledge', spores=0.4, shadow=False)
-    for (x, y) in ((11, h - 2), (5, h - 12), (12, h - 15)):  # lichen
+    cv.px(q(1), Y(25), 'stone3'); cv.px(w - 1 - q(1), Y(25), 'stone2')   # curled corners
+    cv.px(0, Y(26), 'stone3'); cv.px(w - 1, Y(26), 'stone1')
+    cv.hline(q(2), w - 1 - q(2), Y(23), 'stone0')
+    if S == 1.0:
+        for (x, y, c) in ((7, h - 30, 'stone3'), (8, h - 30, 'stone3'), (9, h - 30, 'stone2'), (8, h - 31, 'stone4'),
+                          (7, h - 29, 'stone2'), (8, h - 29, 'stone2'), (9, h - 29, 'stone1')):
+            cv.px(x, y, c)                                    # hoju, the jewel
+    else:
+        jr = Y(28)                                            # the jewel fills the rows above the cap
+        for i in range(jr):
+            hw = max(0, int(round(sf(1.3) * math.sin(math.pi * (i + 0.8) / (jr + 0.6)))))
+            for x in range(xc - hw, xc + hw + 1):
+                c = 'stone4' if (i == 0 or x < xc) else ('stone3' if x == xc else 'stone2')
+                if i == jr - 1:
+                    c = 'stone2' if x <= xc else 'stone1'
+                cv.px(x, i, c)
+    MOSS.clump(cv, rng, q(2), Y(26), q(7), 2, 'ledge', spores=0.0, shadow=False)
+    MOSS.clump(cv, rng, q(9), Y(16), q(4), 2, 'ledge', spores=0.0, shadow=False)
+    MOSS.clump(cv, rng, q(3), Y(3), q(5), 2, 'ledge', spores=0.4, shadow=False)
+    for (x, y) in ((q(11), Y(2)), (q(5), Y(12)), (q(12), Y(15))):  # lichen
         cv.px(x, y, 'paper2')
     return OBJ.outline(cv)
 
@@ -1466,11 +1569,13 @@ def fern(rng, n=5, size=8, flip=False):
 
 def ground_shadow():
     """Where the building keeps the sun off the meadow: a soft see-through shade."""
-    x0, y0, x1, y1 = 140, 200, 380, 262
+    x0, y0 = T(140, 200)
+    x1, y1 = T(380, 262)
+    x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
     yy, xx = np.mgrid[y0:y1, x0:x1]
     z = (SY0 - (yy + 0.5)) / B
     x = xx + 0.5 - SX0 + A * z
-    ok = (z > VZ0 - 8) & (z < BZ1 + 30) & (x > EX0 - 6) & (x < EX1 + 18)
+    ok = (z > VZ0 - sf(8)) & (z < BZ1 + sf(30)) & (x > EX0 - sf(6)) & (x < EX1 + sf(18))
     pts = np.stack([x[ok], np.full(ok.sum(), 0.2), z[ok]], 1)
     sh = shadowed(pts, GROUND_SUN)
     m = np.zeros(xx.shape, bool)
@@ -1485,32 +1590,47 @@ def ground_shadow():
     return out
 
 
+STEP_Z = sf(-19)                     # the shoe stone in front of the door (its front, world z)
+STEP_GROUND = (int(math.floor(SX0 + (DOOR[0] + DOOR[1]) / 2 - A * (STEP_Z - sf(1)))),
+               int(math.floor(SY0 - B * (STEP_Z - sf(1)))))
+# the screen point under the middle of the door's step, where it meets the ground (y: the row just below it)
+
+
 def ground_items(rng):
     """The things at the building's foot, as (y_sort, x, frames or sprite)."""
     items = []
     # the shoe stone at the door, and stepping stones running into the meadow path
-    st = Canvas(20, 7)
-    CT._rock(st, rng, 0, 0, 19, 6, CT.STONE)
-    MOSS.clump(st, rng, 13, 6, 5, 2, 'ledge', spores=0.0, shadow=False)
-    items.append((247, _sx(24, -19), 241, st))
+    sw, sh = si(19), si(6)
+    st = Canvas(sw + 1, sh + 1)
+    CT._rock(st, rng, 0, 0, sw, sh, CT.STONE)
+    MOSS.clump(st, rng, si(13), sh, si(5), 2, 'ledge', spores=0.0, shadow=False)
+    gy = STEP_GROUND[1]
+    items.append((gy, _sx(DOOR[0] + si(1), STEP_Z), gy - sh, st))
     for (x, y, w_) in ((230, 250, 9), (222, 254, 9), (216, 258, 8)):
-        s = Canvas(w_ + 1, 5)
-        CT._rock(s, rng, 0, 0, w_, 4, CT.STONE)
-        s.px(w_ - 2, 3, 'leaf2')
-        items.append((y + 3, x - 1, y - 1, OBJ.outline(s)))
+        x, y = T(x, y)
+        w_, h_ = si(w_), si(4)
+        s = Canvas(w_ + 1, h_ + 1)
+        CT._rock(s, rng, 0, 0, w_, h_, CT.STONE)
+        s.px(w_ - 2, h_ - 1, 'leaf2')
+        items.append((y + si(3), x - 1, y - 1, OBJ.outline(s)))
     # the stone lantern at the near corner
     t = toro(rng)
-    items.append((252, 172, 252 - t.h + 1, t))
+    x, y = T(172, 252)
+    items.append((y, x, y - t.h + 1, t))
     # ferns at the corners
     for (x, y, n, sz, fl) in ((186, 249, 6, 7, False), (300, 248, 5, 6, True), (163, 240, 4, 6, False)):
-        fr = fern(rng, n, sz, fl)
+        x, y = T(x, y)
+        fr = fern(rng, si(n), si(sz), fl)
         items.append((y, x - fr.w // 2, y - fr.h + 1, fr))
-    # grass tufts along the footings, swaying with the scene's meadow
+    # grass tufts along the footings, swaying with the scene's meadow (the meadow's own size)
     spots = [(158, 238, 6, 4), (176, 244, 7, 5), (196, 247, 5, 4), (214, 248, 6, 4), (258, 248, 6, 5),
              (276, 248, 5, 4), (292, 249, 7, 5), (312, 247, 6, 4), (168, 253, 8, 6), (249, 250, 5, 3)]
+    if S != 1.0:                       # a longer foot: a few more tufts between them
+        spots += [(205, 248, 5, 3), (267, 249, 6, 4), (302, 248, 5, 4), (186, 246, 6, 4), (322, 245, 5, 3)]
     for (x, y, hgt, nb) in spots:
+        x, y = T(x, y)
         MD._GUST = -2 * math.pi * x / (W / 2.0)
-        fr = MD.tuft(rng, hgt, nb, 0 if y > 246 else 1)
+        fr = MD.tuft(rng, hgt, nb, 0 if y > T(0, 246)[1] else 1)
         items.append((y, x - fr[0].w // 2, y - fr[0].h + 1, fr))
     MD._GUST = 0.0
     items.sort(key=lambda it: it[0])
@@ -1520,47 +1640,85 @@ def ground_items(rng):
 def roof_moss(cv, rng):
     """Cushions of moss bulging over the eave edge, and short curtains hanging
     off the fascia where the gutter-less rain runs."""
-    for (x, z, w_, h_) in ((-7, -19.5, 9, 3), (74, -19.7, 11, 3), (106, -19.4, 8, 3), (-15.5, 30.0, 8, 3)):
+    cush = [(-7, -19.5, 9, 3), (74, -19.7, 11, 3), (106, -19.4, 8, 3), (-15.5, 30.0, 8, 3)]
+    hang = [(84, 9, 5), (12, 6, 4), (52, 5, 3)]
+    if S != 1.0:                       # a longer eave: a few more cushions and curtains
+        cush += [(36, -19.6, 8, 3), (-15.6, 8.0, 7, 3)]
+        hang += [(30, 5, 3), (104, 6, 4)]
+    for (x, z, w_, h_) in cush:
+        x, z = sf(x), sf(z)
         top = _roof(float(x), float(z))[0]
         MOSS.clump(cv, rng, _sx(x, z), _sy(top, z) + 2, w_, h_, 'ledge', spores=0.0)
-    for (x, w_, d_) in ((84, 9, 5), (12, 6, 4), (52, 5, 3)):
+    for (x, w_, d_) in hang:
+        x = sf(x)
         bot = _roof(float(x), float(EZ0))[0] - EAVE_T
         MOSS.clump(cv, rng, _sx(x, EZ0), _sy(bot, EZ0), w_, d_, 'hang')
 
 
 def foot_moss(cv, rng):
     """Moss creeping on the footings, the sill and the lowest boards."""
-    for x in range(-2, 118, 9):
+    for x in range(si(-2), VX1 + si(2), 9):
         if rng.random() < 0.6:
-            MOSS.clump(cv, rng, _sx(x, VZ0), _sy(FLOOR - 3, VZ0) + 1, rng.randint(4, 7), 2, 'ledge', spores=0.0)
-    for z in range(2, 44, 10):
-        MOSS.clump(cv, rng, _sx(0, z) - 3, _sy(FLOOR + 3, z), 4, 3, 'wall')
+            MOSS.clump(cv, rng, _sx(x, VZ0), _sy(FLOOR - VT, VZ0) + 1, rng.randint(4, 7), 2, 'ledge', spores=0.0)
+    for z in range(si(2), BZ1, 10):
+        MOSS.clump(cv, rng, _sx(0, z) - 3, _sy(FLOOR + si(3), z), 4, 3, 'wall')
+
+
+def _oni_plate():
+    """The onigawara as rows: a rounded clay plate (a lit, b mid, c shade) with a
+    copper mon ('.' inside the plate) in the middle."""
+    if S == 1.0:
+        return ['.aab.', 'abbbc', 'ab.bc', 'abbbc', 'abbcc', 'bbbcc']
+    pw, ph = si(5), si(6)
+    pw += (pw % 2 == 0)
+    c = (pw - 1) / 2
+    my = ph * 0.42                                                # the mon's centre row
+    rows = []
+    for y in range(ph):
+        row = ''
+        for x in range(pw):
+            if y == 0 and x in (0, pw - 1):
+                row += '.'                                        # rounded shoulders
+                continue
+            if math.hypot(x - c, (y - my) * 1.1) < pw * 0.2:
+                row += '.' if (x >= c or y >= my) else 'm'        # the mon, its upper-left edge catching light
+                continue
+            u = x / (pw - 1)
+            ch = 'a' if (u < 0.25 or y == 0) else ('b' if u < 0.7 else 'c')
+            if y >= ph - 2 and u > 0.5:
+                ch = 'c'
+            if y == ph - 1 and u < 0.25:
+                ch = 'b'
+            row += ch
+        rows.append(row)
+    return rows
+
+
+ONI_PLATE = _oni_plate()
 
 
 def ridge_ends(cv, rng):
     """Onigawara at both ends of the ridge: a rounded clay plate with a mon, rising
     over the copper cap; verdigris run-off staining the tiles under the cap."""
-    plate = ['.aab.',
-             'abbbc',
-             'ab.bc',
-             'abbbc',
-             'abbcc',
-             'bbbcc']
+    plate = ONI_PLATE
+    pw = len(plate[0])
     cmap = {'a': 'fgrey3', 'b': 'fgrey2', 'c': 'fgrey1', '.': None}
-    for x in (GX0 - BARGE - 0.5, GX1 + BARGE - 2.5):
+    for x in (GX0 - BARGE - sf(0.5), GX1 + BARGE - sf(2.5)):
         sx = _sx(x, RIDGE_Z - RIDGE_W)
-        sy = _sy(_ridge_top(float(x) + 1.0), RIDGE_Z - RIDGE_W) - 2
-        spr = Canvas(5, 6)
+        sy = _sy(_ridge_top(float(x) + sf(1.0)), RIDGE_Z - RIDGE_W) - si(2)
+        spr = Canvas(pw, len(plate))
         for yy, row in enumerate(plate):
             for xx, ch in enumerate(row):
-                if ch != '.':
+                if ch == 'm':
+                    spr.px(xx, yy, 'teal3')                       # the mon's lit edge
+                elif ch != '.':
                     spr.px(xx, yy, cmap[ch])
-                elif 0 < xx < 4:
+                elif 0 < xx < pw - 1:
                     spr.px(xx, yy, 'teal2')                       # a copper mon in the middle
-        cv.blit(OBJ.outline(spr), sx - 2, sy - 1)
+        cv.blit(OBJ.outline(spr), sx - pw // 2, sy - 1)
     y_cap = _sy(RIDGE_Y + RIDGE_H - 2.0, RIDGE_Z - RIDGE_W) + 1
-    for _ in range(9):                                            # copper run-off
-        x = rng.uniform(GX0 + 4, GX1 - 6)
+    for _ in range(si(9)):                                        # copper run-off
+        x = rng.uniform(GX0 + si(4), GX1 - si(6))
         sx = _sx(x, RIDGE_Z - RIDGE_W)
         for k in range(rng.randint(1, 3)):
             p_ = cv.get(sx, y_cap + k)
@@ -1570,30 +1728,67 @@ def ridge_ends(cv, rng):
 
 def veranda_props(cv, rng):
     """A potted shrub at the far end of the engawa and a broom by the door."""
-    pot = Canvas(9, 12)
-    for yy in range(7, 12):
-        hw = 3 - (yy - 7) // 3
-        for xx in range(4 - hw, 5 + hw):
-            pot.px(xx, yy, 'copper3' if xx < 3 else ('copper2' if xx < 6 else 'copper1'))
-    pot.hline(1, 7, 7, 'copper4')
-    pot.hline(1, 7, 8, 'copper1')
-    for (x, y, c) in ((2, 4, 'leaf3'), (3, 3, 'leaf4'), (4, 2, 'leaf3'), (5, 3, 'leaf2'), (6, 4, 'leaf2'),
-                      (3, 5, 'leaf3'), (4, 4, 'leaf3'), (5, 5, 'leaf2'), (4, 6, 'leaf1'), (2, 6, 'leaf2'),
-                      (6, 6, 'leaf1'), (1, 5, 'leaf2'), (7, 5, 'leaf1'), (4, 1, 'leaf4'), (5, 2, 'leaf3'),
-                      (3, 6, 'leaf2'), (5, 6, 'leaf1'), (4, 5, 'leaf2'), (3, 4, 'leaf4')):
-        pot.px(x, y, c)
-    sx, sy = P(104, FLOOR, -6)
-    cv.blit(OBJ.outline(pot), int(sx) - 5, int(sy) - 12)
-    br = Canvas(6, 18)                                            # a bamboo-handled broom
-    for k in range(12):
-        br.px(4 - k // 6, k, 'hinoki4' if k % 3 else 'hinoki2')
-    br.hline(2, 3, 12, 'red2')
-    for yy in range(13, 18):
-        half = 1 + (yy - 13) * 0.6
-        for xx in range(int(round(2.5 - half)), int(round(2.5 + half)) + 1):
-            br.px(xx, yy, 'gold3' if xx < 2.5 else ('gold2' if (xx + yy) % 2 else 'gold1'))
-    sx, sy = P(47.5, FLOOR, -1)
-    cv.blit(OBJ.outline(br), int(sx) - 2, int(sy) - 18)
+    if S == 1.0:
+        pot = Canvas(9, 12)
+        for yy in range(7, 12):
+            hw = 3 - (yy - 7) // 3
+            for xx in range(4 - hw, 5 + hw):
+                pot.px(xx, yy, 'copper3' if xx < 3 else ('copper2' if xx < 6 else 'copper1'))
+        pot.hline(1, 7, 7, 'copper4')
+        pot.hline(1, 7, 8, 'copper1')
+        for (x, y, c) in ((2, 4, 'leaf3'), (3, 3, 'leaf4'), (4, 2, 'leaf3'), (5, 3, 'leaf2'), (6, 4, 'leaf2'),
+                          (3, 5, 'leaf3'), (4, 4, 'leaf3'), (5, 5, 'leaf2'), (4, 6, 'leaf1'), (2, 6, 'leaf2'),
+                          (6, 6, 'leaf1'), (1, 5, 'leaf2'), (7, 5, 'leaf1'), (4, 1, 'leaf4'), (5, 2, 'leaf3'),
+                          (3, 6, 'leaf2'), (5, 6, 'leaf1'), (4, 5, 'leaf2'), (3, 4, 'leaf4')):
+            pot.px(x, y, c)
+    else:
+        pot = _pot_big(rng)
+    sx, sy = P(sf(104), FLOOR, sf(-6))
+    cv.blit(OBJ.outline(pot), int(sx) - pot.w // 2 - 1, int(sy) - pot.h)
+    bh, hl = si(18), si(12)                                       # a bamboo-handled broom
+    br = Canvas(si(6), bh)
+    for k in range(hl):
+        br.px(br.w - 2 - k * 2 // hl, k, 'hinoki4' if k % 3 else 'hinoki2')
+    br.hline(2, br.w - 3, hl, 'red2')
+    if S != 1.0:
+        br.hline(2, br.w - 3, hl + 1, 'red1')
+    bw = br.w / 2 - 0.5
+    for yy in range(hl + 1 + (S != 1.0), bh):
+        half = 1 + (yy - hl - 1 - (S != 1.0)) * 0.6 / S
+        for xx in range(int(round(bw - half)), int(round(bw + half)) + 1):
+            br.px(xx, yy, 'gold3' if xx < bw else ('gold2' if (xx + yy) % 2 else 'gold1'))
+    sx, sy = P(sf(47.5), FLOOR, sf(-1))
+    cv.blit(OBJ.outline(br), int(sx) - br.w // 2 + 1, int(sy) - bh)
+
+
+def _pot_big(rng):
+    """The potted shrub at the bigger size: a tapering copper pot with a lit rim,
+    a round shrub of small leaves lit from the upper left."""
+    w, h = si(9) + (si(9) % 2 == 0), si(12)
+    pot = Canvas(w, h)
+    c = (w - 1) / 2
+    ph = si(5)                                                    # the pot's height
+    top = h - ph
+    for yy in range(top, h):
+        hw = (w - 1) / 2 - 1 - (yy - top) * 1.0 / max(1, ph - 1) * 1.2
+        for xx in range(int(math.ceil(c - hw)), int(math.floor(c + hw)) + 1):
+            u = (xx - (c - hw)) / max(1.0, 2 * hw)
+            pot.px(xx, yy, 'copper3' if u < 0.3 else ('copper2' if u < 0.72 else 'copper1'))
+    pot.hline(1, w - 2, top, 'copper4')
+    pot.hline(1, w - 2, top + 1, 'copper1')
+    r = (w - 2) / 2                                               # the shrub
+    cy = top - r * 0.75
+    for yy in range(0, top + 1):
+        for xx in range(w):
+            d = math.hypot((xx - c) / r, (yy - cy) / (r * 0.95))
+            if d > 1.0 or (d > 0.85 and (xx * 3 + yy * 5) % 4 == 0):
+                continue
+            lit = -(xx - c) / r * 0.6 - (yy - cy) / r * 0.8 + 0.35 * (rng.random() - 0.5)
+            col = 'leaf4' if lit > 0.75 else ('leaf3' if lit > 0.15 else ('leaf2' if lit > -0.45 else 'leaf1'))
+            if yy == top:
+                col = 'leaf1'
+            pot.px(xx, yy, col)
+    return pot
 
 
 # ---------------------------------------------------------------- the whole thing, frame by frame
@@ -1610,9 +1805,9 @@ def _base():
     foot_moss(bld, rng)
     veranda_props(bld, rng)
     s = sign(rng)
-    bld.blit(s, _sx(7) - 1, _sy(48) - 1)
-    for cx in (_sx(8), _sx(12)):
-        bld.vline(cx, _sy(57), _sy(48) - 2, 'wood1')
+    bld.blit(s, _sx(SIGN_X) - 1, _sy(SIGN_Y) - 1)
+    for cx in (_sx(SIGN_X + 1), _sx(SIGN_X + SIGN_W - 2)):
+        bld.vline(cx, _sy(si(57)), _sy(SIGN_Y) - 2, 'wood1')
     out = OBJ.outline(bld)
     full = Canvas(W, H)
     full.a = ground_shadow()
@@ -1668,7 +1863,10 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'main_m
 SHEET_COLS = 12
 
 
-def export(out_dir=OUT_DIR, frames=None):
+BIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'main_menu_wide', 'teahouse_big')
+
+
+def export(out_dir=OUT_DIR, frames=None, ground_centre=None):
     """Write the layer: the cropped frames as a grid sheet, frame 0 full size, its
     record (crop box, frames, fps, sheet layout) and a 3x preview on plain grass."""
     os.makedirs(out_dir, exist_ok=True)
@@ -1699,7 +1897,7 @@ def export(out_dir=OUT_DIR, frames=None):
         'sheet_order': 'row by row, left to right: frame i is at column i % sheet_columns, row i // sheet_columns',
         'frame0': 'teahouse.png',
         'loops': True,
-        'ground_centre': list(L.TEAHOUSE),
+        'ground_centre': list(ground_centre or L.TEAHOUSE),
         'draw_after': '08_meadow_back',
         'draw_before': '09_meadow_front',
         'note': ('teahouse.png is frame 0, cropped like every sheet cell to the box x, y, w, h; draw at (x, y). '
@@ -1717,6 +1915,35 @@ def export(out_dir=OUT_DIR, frames=None):
     return rec
 
 
+def export_scaled(out_dir=BIG_DIR, s=1.35):
+    """The teahouse redrawn s times bigger at the same pixel density (every measure
+    scaled, textures and detail kept at their pixel size), written as the same layer
+    as export(). ground_centre is the screen point under the middle of the door's
+    step where it meets the ground. The module is built for one scale (numba freezes
+    its measures), so another scale is rendered in a fresh interpreter."""
+    if float(s) != S:
+        import subprocess
+        import sys
+        env = dict(os.environ, TEAHOUSE_SCALE=repr(float(s)))
+        subprocess.run([sys.executable, os.path.abspath(__file__), '--scaled', out_dir, repr(float(s))],
+                             env=env, check=True, capture_output=True, text=True,
+                             cwd=os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(out_dir, 'teahouse.json')) as fh:
+            return json.load(fh)
+    frames = teahouse_frames()
+    for a in frames:                     # nothing may touch the canvas edge (it would be clipped)
+        ys, xs = np.nonzero(a[..., 3] > 0)
+        assert xs.min() > 0 and ys.min() > 0 and xs.max() < W - 1 and ys.max() < H - 1, 'teahouse clipped'
+    rec = export(out_dir, frames, ground_centre=STEP_GROUND)
+    rec['scale'] = S
+    rec['note'] += (' Drawn at %.2fx the size of main_menu/layers/teahouse at the same pixel density '
+                    '(a redraw with more planks, tiles and detail, not an upscale). ground_centre is the screen '
+                    'point under the middle of the door\'s step where it meets the ground.' % S)
+    with open(os.path.join(out_dir, 'teahouse.json'), 'w') as fh:
+        json.dump(rec, fh, indent=1)
+    return rec
+
+
 def _cv(a):
     c = Canvas(a.shape[1], a.shape[0])
     c.a = a
@@ -1728,6 +1955,12 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '--frame':
         c = frame(int(sys.argv[3]) if len(sys.argv) > 3 else 0)
         preview(c.crop(130, 70, 220, 200), sys.argv[2], 3)
+    elif len(sys.argv) > 1 and sys.argv[1] in ('--scaled', '--big'):
+        # python3 menu_teahouse.py --big [out_dir [scale]]   (default: main_menu_wide/teahouse_big at 1.35x)
+        out = sys.argv[2] if len(sys.argv) > 2 else BIG_DIR
+        sc = float(sys.argv[3]) if len(sys.argv) > 3 else 1.35
+        rec = export_scaled(out, sc)
+        print(json.dumps({k: rec[k] for k in ('frames', 'fps', 'x', 'y', 'w', 'h', 'ground_centre', 'scale')}))
     else:
         rec = export()
         print(json.dumps({k: rec[k] for k in ('frames', 'fps', 'x', 'y', 'w', 'h', 'sheet_columns', 'sheet_rows')}))
