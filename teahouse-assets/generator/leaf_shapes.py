@@ -45,19 +45,24 @@ def _leaves(Xt, Yt, lcx, lcy, R, flat, gnorm, seed, L, Wd, sx, sy):
         for di in (-1, 0, 1):
             gx = gx0 + di
             h1, h2, h3 = _hash(gx, gy, seed + 11), _hash(gx, gy, seed + 23), _hash(gx, gy, seed + 37)
-            ccx = (gx + stag + 0.2 + 0.6 * h1) * sx
-            ccy = (gy + 0.2 + 0.6 * h2) * sy
+            ccx = (gx + stag + 0.5 + 0.95 * (h1 - 0.5)) * sx         # well off the grid
+            ccy = (gy + 0.5 + 0.9 * (h2 - 0.5)) * sy
             ox, oy = (ccx - lcx) / R, (ccy - lcy) / (R * flat)
             rc = np.sqrt(ox * ox + oy * oy)
             # a little cluster of leaves: a lobed blob, flattened a touch, size varying
-            rb = L * (0.82 + 0.36 * h3)
+            rb = L * (0.6 + 0.85 * h3 * h3 + 0.15 * h1)              # mostly small, a few big ones
             dx, dy = Xt - ccx, Yt - ccy
-            th_ = np.arctan2(dy, dx)
-            rad = np.sqrt(dx * dx + (dy / 0.82) ** 2)
-            lobe = 1 + 0.2 * np.cos(3 * th_ + h1 * 6.3) + 0.08 * np.cos(5 * th_ + h2 * 6.3)
+            ang = np.arctan2(oy + 0.7, ox) + (h2 - 0.5) * 1.6         # each hangs its own way, drooping out
+            ca, sa = np.cos(ang), np.sin(ang)
+            u_, v_ = dx * ca + dy * sa, -dx * sa + dy * ca
+            el = 1.15 + 0.45 * h1                                     # drawn out along its droop
+            rad = np.sqrt((u_ / el) ** 2 + v_ ** 2)
+            th_ = np.arctan2(v_, u_)
+            nl = np.floor(2 + h2 * 3)                                 # two to four lobes
+            lobe = 1 + 0.26 * np.cos(nl * th_ + h1 * 6.3) + 0.1 * np.cos((nl + 2) * th_ + h3 * 6.3)
             t = rad / (rb * lobe)                                     # 0 middle .. 1 edge
             half = np.ones_like(t)
-            inl = (t <= 1.0) & (rc < 1.08)
+            inl = (t <= 1.0) & (rc < 1.08 + 0.12 * h3) & (h2 > 0.08)  # some gaps where no cluster grew
             a, b = dx, dy
             # the light on the clump at the leaf's centre
             q = np.clip(rc, 0, 1)
@@ -97,9 +102,9 @@ def _clump(self, c, R, z, gnorm, mat, seed, flat=0.85, base_v=0.0, depth=0.0, ho
     lx, ly = (X - cx) / R, (Y - cy) / (R * flat)
     rr = np.sqrt(lx * lx + ly * ly)
     th = np.arctan2(ly, lx)
-    edge = 1 + 0.09 * np.sin(th * 4 + seed) + 0.06 * np.sin(th * 7 + seed * 1.3)
-    edge = edge + (noise(Xt * 0.3, Yt * 0.3, seed) - 0.5) * 0.2
-    core = rr < edge * 0.86
+    edge = 1 + 0.12 * np.sin(th * 3 + seed) + 0.08 * np.sin(th * 5 + seed * 1.3) + 0.05 * np.sin(th * 9 + seed * 2.1)
+    edge = edge + (noise(Xt * 0.16, Yt * 0.16, seed) - 0.5) * 0.36       # a lumpy, uneven mass
+    core = rr < edge * 0.8
     size = (leaf or 2.6) / 2.6
     L, Wd = 3.3 * size, 0
     cov, litc, side, hsh, tt, oyc, edge_ = _leaves(Xt, Yt, cx - off[0], cy - off[1], R, flat, gnorm, seed,

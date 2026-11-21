@@ -71,6 +71,8 @@ BAYER4 = ROOM.BAYER4
 # courses, grain, moss, dither) stays in pixels, so a bigger wall gets more planks and
 # tiles - a real redraw, never an upscale. S = 1 is the original, pixel for pixel.
 S = float(os.environ.get('TEAHOUSE_SCALE', '1'))
+if S != 1.0:                       # a bigger house gets a taller working canvas, so its smoke stays on it
+    H = H + int(260 * (S - 1))
 _JIT = dict(cache=(S == 1.0))      # numba freezes module globals: only cache the default build
 
 
@@ -90,7 +92,7 @@ SX00, SY00 = 194, 242     # the original (S = 1) screen position of the world or
 # the screen position of the world origin (front-left corner of the floor plan): scaled about the
 # ground centre, and moved down a little when bigger so the chimney's smoke stays on the canvas
 SX0 = SX00 if S == 1.0 else int(round(L.TEAHOUSE[0] + S * (SX00 - L.TEAHOUSE[0])))
-SY0 = SY00 if S == 1.0 else int(round(L.TEAHOUSE[1] + S * (SY00 - L.TEAHOUSE[1]) + 46 * (S - 1)))
+SY0 = SY00 if S == 1.0 else int(round(L.TEAHOUSE[1] + S * (SY00 - L.TEAHOUSE[1]) + 46 * (S - 1) + 200 * (S - 1)))
 
 
 def T(x, y):

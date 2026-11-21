@@ -35,6 +35,16 @@ from PIL import Image
 import pixel
 from pixel import Canvas, PAL
 import golden_palette as G
+LOOK_NAME = os.environ.get('MENU_LOOK', 'afternoon')
+G.use(LOOK_NAME)
+# the light pass's settings for each look (wide_shader.glsl gets the same as uniforms)
+LOOKS = {
+    'golden': dict(ray_t=150, glow_t=200, sky_glow_t=200, light=(255, 196, 140), light_k=0.55, vig=(40, 26, 58),
+                   vig_k=0.55, tint=(0.82, 0.8, 0.95)),
+    'afternoon': dict(ray_t=238, glow_t=196, sky_glow_t=246, light=(255, 244, 214), light_k=0.38, vig=(16, 30, 54),
+                      vig_k=0.4, tint=(0.86, 0.92, 1.0)),
+}
+LOOK = LOOKS[LOOK_NAME]
 import leaf_shapes
 leaf_shapes.install()             # leaves you can see one by one, on every tree
 import season
@@ -48,13 +58,13 @@ N = 96                        # animation frames per loop (12 fps)
 FPS = 12
 HORIZON = 196                 # the lake's far line
 DY = HORIZON - outside.HORIZON
-SUN = (328, 104)              # the sun's centre on screen (it does not scroll), low over the ranges
+SUN = (328, 104) if LOOK_NAME == 'golden' else (328, 64)              # the sun's centre on screen (it does not scroll), low over the ranges
 TREE_K = 1.0                  # the shore's trees at the pack's own size
 SPEED = 8.0                   # camera pan, px per second at rate 1
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'main_menu_wide')
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
-RATE = {'sky': 0.0, 'mountains': 0.08, 'hills': 0.16, 'far_houses': 0.16, 'lake': 0.24, 'lake_life': 0.24,
-        'shore_houses': 0.4, 'shore_birds': 0.4, 'roof_birds': 0.62,
+RATE = {'sky': 0.0, 'mountains': 0.08, 'hills': 0.16, 'lake': 0.24, 'lake_life': 0.24,
+        'roof_birds': 0.62,
         'birds': 0.2, 'shore': 0.40, 'flowers': 0.40, 'meadow': 0.62, 'ground_birds': 0.62, 'teahouse': 0.62, 'big_tree': 0.80, 'front': 1.0}
 TEAHOUSE_X, TEAHOUSE_BASE = 330, 300        # in the meadow plane's tile
 BIG_TREE_X = 980                            # its trunk's x in the near plane's tile
@@ -72,7 +82,7 @@ def ground_line(x):
 def sky():
     a = np.zeros((H, W, 4), np.uint8)
     yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    ramp = np.array(G.GOLD['g_sky'], np.uint8)
+    ramp = np.array(G.CUR['g_sky'], np.uint8)
     k = len(ramp) - 1
     d = np.hypot((xx - SUN[0]) / 1.6, (yy - SUN[1]))          # warmer round the sun
     v = np.clip(yy / 205.0, 0, 1) ** 1.25 * (k - 1.4) + np.clip(1 - d / 330, 0, 1) ** 1.8 * 2.2
@@ -80,7 +90,7 @@ def sky():
     a[..., :3] = ramp[np.clip(np.floor(v + 0.5), 0, k).astype(int)]
     a[..., 3] = 255
     # the sun: a soft disc low over the mountains
-    sun = np.array(G.GOLD['g_sun'], np.uint8)
+    sun = np.array(G.CUR['g_sun'], np.uint8)
     r = np.hypot(xx - SUN[0], yy - SUN[1])
     for rr, c in ((15, 0), (12, 1), (9, 2)):
         m = r < rr + (BAYER[yy.astype(int) % 4, xx.astype(int) % 4] - 0.5) * (1.5 if c == 0 else 0)
@@ -111,7 +121,7 @@ def _tile(fr, off, dy=DY):
 def _haze(a, k):
     """Aerial perspective: far things fade toward the warm haze of the low sun."""
     b = a.copy()
-    haze = np.array(G.GOLD['g_sky'][5], np.float32)
+    haze = np.array(G.CUR['g_sky'][5], np.float32)
     b[..., :3] = np.clip(a[..., :3] * (1 - k) + haze * k + 0.5, 0, 255).astype(np.uint8)
     return b
 
@@ -209,11 +219,33 @@ def ground_tex():
     sw = _noise(xx, yy, (46, 22, 3.1)) * 0.75 + _noise(xx, yy, (12, 7, 8.3)) * 0.25   # swathes of light and shade
     sw = sw + (BAYER[yy.astype(int) % 4, xx.astype(int) % 4] - 0.5) * 0.05
     lawn = np.where(sw > 0.64, 'leaf3', np.where(sw < 0.3, 'leaf1', 'leaf2')).astype(object)
-    blade = h(1) < 0.16 + 0.1 * depth                                    # short blades, upright strokes
-    up = np.roll(blade, -1, 0)
-    lawn = np.where(blade & (sw > 0.45), 'leaf4', lawn)
-    lawn = np.where(up & ~blade & (sw <= 0.45), 'leaf1', lawn)
-    lawn = np.where((h(2) < 0.012) & (sw > 0.5), 'leaf5', lawn)          # clover leaves catching the light
+    # the grass itself: little clumps of blades, small and close-packed far off, longer near you,
+    # each with a dark root, a body and a lit tip, lighter in the sunlit swathes
+    rng = random.Random(77)
+    TONES = {2: ('leaf2', 'leaf3', 'leaf4'), 1: ('leaf1', 'leaf2', 'leaf3'), 0: ('leaf0', 'leaf1', 'leaf2')}
+    gy0 = int(np.min(g))
+    y = float(gy0)
+    while y < H + 4:
+        d = float(np.clip((y - 262) / 98.0, 0.05, 1))
+        sx_, sy_ = 2.6 + 4.2 * d, 1.6 + 2.6 * d
+        x = rng.uniform(0, sx_)
+        while x < TW:
+            xi, yi = int(x) % TW, int(y + rng.uniform(-0.5, 0.5) * sy_)
+            if 0 <= yi < H and yi >= g[xi] + 1:
+                band = 2 if sw[min(yi, H - 1), xi] > 0.62 else (1 if sw[min(yi, H - 1), xi] > 0.32 else 0)
+                root, body, tip = TONES[band]
+                hgt = int(round(1 + 4.5 * d * rng.uniform(0.6, 1.2)))
+                for b in range(rng.choice((2, 3, 3))):
+                    lean = rng.uniform(-0.6, 0.6) + (b - 1) * 0.5
+                    bx = xi + b - 1
+                    for j in range(hgt + 1):
+                        yy_ = yi - j
+                        xx_ = (bx + int(round(lean * j / max(1, hgt) * 1.5))) % TW
+                        if yy_ < g[xx_]:
+                            break
+                        lawn[yy_, xx_] = root if j == 0 else (tip if j == hgt else body)
+            x += sx_ * rng.uniform(0.6, 1.3)
+        y += sy_
     # worn patches of bare earth
     sn = _noise(xx, yy, (15, 8, 7.7))
     bayer = BAYER[yy.astype(int) % 4, xx.astype(int) % 4]
@@ -265,6 +297,15 @@ def ground_tex():
     return a
 
 
+def _soft(frames):
+    """A meadow tuft without its dark outline: only its own blades, so it melts into the grass."""
+    ink = np.array(PAL['leaf0'], np.uint8)
+    for cv in frames:
+        m = np.all(cv.a[..., :3] == ink, -1) & (cv.a[..., 3] > 0)
+        cv.a[m] = 0
+    return frames
+
+
 def _meadow_plane(rows, ground=None, dark_shift=0, seed=5, flowers=0.16, susuki=0.04, avoid=None):
     rng = random.Random(seed)
     items = []
@@ -282,7 +323,7 @@ def _meadow_plane(rows, ground=None, dark_shift=0, seed=5, flowers=0.16, susuki=
                     fr = MD.flower_plant(rng, rng.choice(('daisy', 'cosmos_white', 'bellflower', 'cosmos')),
                                          h=int(th * rng.uniform(0.9, 1.5)))
                 else:
-                    fr = MD.tuft(rng, int(th * rng.uniform(0.7, 1.15)), nb + rng.randint(-1, 2), dark + dark_shift)
+                    fr = _soft(MD.tuft(rng, int(th * rng.uniform(0.7, 1.15)), nb + rng.randint(-1, 2), dark + dark_shift))
                 items.append((gy, x, fr))
             x += spc * rng.uniform(0.55, 1.1)
     MD._GUST = 0.0
@@ -304,7 +345,7 @@ def meadow_plane():
     """Clumps of grass and flowers with the ground showing between them, thicker along the
     road's edges and at the meadow's far rim, none on the road or round the teahouse."""
     def avoid(x, y):
-        if abs(x - TEAHOUSE_X) < 78 and y < TEAHOUSE_BASE + 4:
+        if -150 < x - TEAHOUSE_X < 84 and y < TEAHOUSE_BASE + 4:          # the (bigger) teahouse stands here
             return True
         if on_road(x, y, pad=1.5):
             return True
@@ -312,91 +353,13 @@ def meadow_plane():
         near_road = abs(y - road_y(x)) - road_half(y) < 9
         far_rim = y < ground_line(x) + 9
         thin = _noise(np.array(x), np.array(y), (60, 20, 5.3))
-        return not (near_road or far_rim) and float(thin) < 0.55
+        return not (near_road or far_rim) and float(thin) < 0.68
     rows = [(2, 11, 6, 1, 9), (7, 13, 6, 0, 14), (15, 16, 7, 1, 19), (27, 20, 7, 0, 22), (42, 24, 8, 1, 26),
             (60, 28, 8, 0, 30), (82, 32, 9, 1, 34)]
     return _meadow_plane(rows, ground_tex(), 0, 5, avoid=avoid)
 
 
-# ---------------------------------------------------------------- houses across the water
-def small_house(w, rng, lit=True):
-    """A little farmhouse seen from the same 3/4 angle as the teahouse: plaster walls between dark posts,
-    a hipped roof of dark tiles in courses, a lit window, the eave's shadow. w = front width in px."""
-    d = max(4, int(w * 0.42))                   # depth, receding up and to the left at 2:1
-    hw = max(4, int(w * 0.34))                  # wall height
-    rh = max(4, int(w * 0.36))                  # roof height
-    ov = max(1, w // 12)                        # eave overhang
-    sx, sy = d // 2, d // 4
-    W_, H_ = w + sx + 2 * ov + 2, hw + rh + sy + 3
-    cv = Canvas(W_, H_)
-    bx, by = sx + ov + 1, H_ - 1                # front wall's bottom-left
-    # the side wall (in shade), receding up-left
-    for k in range(sx + 1):
-        top = by - hw - k // 2
-        cv.vline(bx - k, top, by - k // 2, 'paper2' if k % 4 else 'wood1')
-    # the front wall: plaster between posts, a sill, a lit window or a door
-    for x in range(w):
-        cv.vline(bx + x, by - hw, by, 'paper3')
-    for x in range(0, w, max(4, w // 5)):
-        cv.vline(bx + x, by - hw, by, 'wood1')
-    cv.vline(bx + w - 1, by - hw, by, 'wood1')
-    cv.hline(bx, bx + w - 1, by, 'wood0')
-    cv.hline(bx, bx + w - 1, by - hw, 'wood1')
-    if w >= 14:
-        wx0, wx1 = bx + w // 2, bx + w // 2 + max(3, w // 4)
-        wy0, wy1 = by - hw + 2, by - max(2, hw // 3)
-        for y in range(wy0, wy1 + 1):
-            cv.hline(wx0, wx1, y, 'fire4' if lit else 'wood2')
-        if wx1 - wx0 >= 4:
-            cv.vline((wx0 + wx1) // 2, wy0, wy1, 'wood1')
-        dx0 = bx + max(2, w // 6)
-        for y in range(by - hw + 3, by):
-            cv.hline(dx0, dx0 + max(2, w // 8), y, 'wood0')
-    # the roof: a hipped roof in courses of dark tile, lit on its upper left
-    ey = by - hw - 1                            # eave line
-    for y in range(rh + 1):
-        t = y / max(1, rh)
-        x0 = int(bx - ov - sx * (1 - t) * 0.5 + (w * 0.22) * t)
-        x1 = int(bx + w - 1 + ov - (w * 0.22) * t)
-        yy = ey - y - int(sy * 0.5 * (1 - t))
-        for x in range(x0 - int(sx * (1 - t) * 0.5), x1 + 1):
-            back = x < bx - ov + int(w * 0.22 * t)
-            c = 'stone1' if (y % 2 == 0) else 'stone2'
-            if back:
-                c = 'stone2' if (y % 2 == 0) else 'stone3'        # the hip toward the sun
-            cv.px(x, yy, c)
-    rx0, rx1 = int(bx + w * 0.22) - sx // 2, int(bx + w - 1 - w * 0.22)
-    cv.hline(rx0, rx1, ey - rh - sy // 2, 'stone0')
-    cv.hline(rx0, rx1, ey - rh - sy // 2 - 1, 'stone3')
-    cv.hline(bx - ov, bx + w - 1 + ov, ey, 'ink0')                # eave edge
-    cv.hline(bx, bx + w - 1, ey + 1, 'paper1')                   # its shadow on the wall
-    return cv.a
-
-
-def far_houses():
-    """A hamlet on the far shore (hills plane) and a few farmhouses among the near shore's trees
-    (shore plane, behind the trees), with sparrows and a crow on some ridges."""
-    rng = random.Random(61)
-    far = np.zeros((H, TW, 4), np.uint8)
-    near = np.zeros((H, TW, 4), np.uint8)
-    roofs = []
-    for (x, w, lit) in ((90, 11, True), (104, 9, False), (300, 13, True), (318, 10, True), (640, 12, False),
-                        (655, 9, True), (930, 14, True), (1180, 10, True)):
-        a = small_house(w, rng, lit)
-        y = HORIZON - a.shape[0] + 2
-        m = a[..., 3] > 0
-        far[y:y + a.shape[0], x:x + a.shape[1]][m] = a[m]
-    for (x, w) in ((215, 30), (470, 34), (1000, 28)):
-        a = small_house(w, rng)
-        y = outside.HORIZON + 58 + DY - a.shape[0] + 1     # on the bank, the meadow's rim tucks in its footings
-        m = a[..., 3] > 0
-        near[y:y + a.shape[0], x:x + a.shape[1]][m] = a[m]
-        roofs.append((x, y, a))
-    far = _haze(G.swap(far), 0.28)
-    near = _haze(G.swap(near), 0.1)
-    return [far], [near], roofs
-
-
+# ---------------------------------------------------------------- birds perched on the teahouse
 def perched(roofs_xy, kinds, frames_n=N, seed=5):
     """Birds sitting on ridges: (x, y) of each foothold. They look round, preen, and now and then
     one flicks its wings."""
@@ -536,7 +499,7 @@ def front_plane():
         else:
             fr = MD.tuft(rng, rng.randint(22, 44), rng.randint(8, 13), 0)
         items.append((gy, x, fr))
-        x += rng.uniform(9, 22) * (3 if (int(x) // 300) % 2 else 1)          # gaps, so the meadow shows
+        x += rng.uniform(14, 34) * (3 if (int(x) // 300) % 2 else 1)          # gaps, so the meadow shows
     frames = []
     for f in range(MD.F):
         cv = Canvas(TW, H, wrap=True)
@@ -581,19 +544,10 @@ def hero_tree():
 
 def build_planes():
     pp = pack_planes()
-    fh, sh, roofs = far_houses()
-    rng = random.Random(8)
-    pts, kinds = [], []
-    for (x, y, a) in roofs:
-        for p in ridge_points(a, x, y, rng.randint(1, 2), rng):
-            pts.append(p)
-            kinds.append('sparrow' if rng.random() < 0.6 else 'crow')
-    sh_birds = perched(pts, kinds, seed=3)
     planes = {
         'sky': [sky()], 'mountains': pp['mountains'], 'hills': pp['hills'],
         'lake': pp['lake'], 'lake_life': pp['lake_life'], 'shore': pp['shore'], 'flowers': pp['flowers'],
         'birds': pp['birds'], 'meadow': meadow_plane(), 'ground_birds': ground_birds(), 'front': front_plane(),
-        'far_houses': fh, 'shore_houses': sh, 'shore_birds': sh_birds,
     }
     th = teahouse_sprite()
     # sparrows and a crow on the teahouse's ridge and eaves
@@ -613,8 +567,7 @@ def teahouse_sprite():
     return sprite_layer('teahouse', 238, TEAHOUSE_BASE - 246, TEAHOUSE_X)
 
 
-ORDER = ['sky', 'mountains', 'hills', 'lake', 'far_houses', 'lake_life', 'birds', 'shore', 'flowers',
-         'shore_houses', 'shore_birds', 'meadow', 'ground_birds', 'teahouse', 'roof_birds', 'big_tree', 'front']
+ORDER = ['sky', 'mountains', 'hills', 'lake', 'lake_life', 'birds', 'shore', 'flowers', 'meadow', 'ground_birds', 'teahouse', 'roof_birds', 'big_tree', 'front']
 
 
 # ---------------------------------------------------------------- composing a frame
@@ -678,7 +631,7 @@ def shade(rgb, lake, skym, t):
     rip = np.round(np.sin(ly * 0.9 + t * 3.1) * amp + np.sin(ly * 2.3 - t * 4.7) * amp * 0.4).astype(int)
     sy = np.clip(2 * HORIZON - ly - 1, 0, h - 1)
     sx = np.clip(lx + rip, 0, w - 1)
-    refl = rgb[sy, sx] * np.array([0.82, 0.8, 0.95])
+    refl = rgb[sy, sx] * np.array(LOOK['tint'])
     water = rgb[ly, lx]
     k = np.clip(0.62 - depth * 0.006, 0.25, 0.62)[:, None]
     out[ly, lx] = water * (1 - k) + refl * k
@@ -686,10 +639,10 @@ def shade(rgb, lake, skym, t):
     road = np.exp(-((lx - SUN[0]) / (8 + depth * 1.4)) ** 2)
     sparkle = np.sin(np.floor(lx / 3) * 2.1 + ly * 5.3 + t * 6) * np.sin(np.floor(lx / 3) * 0.9 - ly * 3.1 - t * 4.4)
     glint = (sparkle > 0.8 - 0.45 * road) & (road > 0.2) & (ly % 2 == 0) & (lx % 3 != 2)     # short dashes
-    out[ly[glint], lx[glint]] = np.array(G.GOLD['g_sun'][1], np.float32)
+    out[ly[glint], lx[glint]] = np.array(G.CUR['g_sun'][1], np.float32)
     # 2 sun rays: the bright sky smeared out from the sun, fanning past the peaks and through the leaves
     lum = rgb @ np.array([0.3, 0.59, 0.11])
-    bright = np.where(skym, np.clip((lum - 150) / 90, 0, 1), 0)
+    bright = np.where(skym, np.clip((lum - LOOK['ray_t']) / 90, 0, 1), 0)
     acc = np.zeros((h, w), np.float32)
     dx, dy = (SUN[0] - xx), (SUN[1] - yy)
     for i in range(28):
@@ -701,7 +654,8 @@ def shade(rgb, lake, skym, t):
     dist = np.hypot(dx, dy)
     rays = acc * np.clip(1 - dist / 560, 0, 1) * 1.5
     # 3 glow round bright things (the sun, the lanterns, the window, the glints): three box blurs
-    hot = np.clip((lum - 200) / 55, 0, 1) * ((rgb[..., 0] > rgb[..., 2] + 20) | skym)
+    hot = np.clip((lum - LOOK['glow_t']) / 55, 0, 1) * (rgb[..., 0] > rgb[..., 2] + 20) \
+        + np.clip((lum - LOOK['sky_glow_t']) / 20, 0, 1) * skym
 
     def box(m, r):
         c = np.cumsum(np.pad(m, ((r + 1, r), (0, 0))), 0)
@@ -713,12 +667,12 @@ def shade(rgb, lake, skym, t):
     # dithered into steps so the light lands as pixel clusters
     steps = 6
     light = np.floor(light * steps + BAYER[yy % 4, xx % 4]) / steps
-    warm = np.array([255, 196, 140], np.float32)
-    out = out + (warm - out * 0.5) * light[..., None] * 0.55
+    warm = np.array(LOOK['light'], np.float32)
+    out = out + (warm - out * 0.5) * light[..., None] * LOOK['light_k']
     # 4 the warm vignette
     v = np.hypot((xx - w / 2) / (w * 0.62), (yy - h * 0.45) / (h * 0.75))
-    vig = np.clip(v - 0.55, 0, 1) ** 1.5 * 0.55
-    out = out * (1 - vig[..., None]) + np.array([40, 26, 58], np.float32) * vig[..., None]
+    vig = np.clip(v - 0.55, 0, 1) ** 1.5 * LOOK['vig_k']
+    out = out * (1 - vig[..., None]) + np.array(LOOK['vig'], np.float32) * vig[..., None]
     return np.clip(out + 0.5, 0, 255).astype(np.uint8)
 
 
@@ -732,7 +686,7 @@ def motes(rgb, f_abs):
         tw = 0.5 + 0.5 * math.sin(f_abs * 0.3 + ph)
         if tw > 0.35 and 0 <= int(y) < H:
             near = math.hypot(x - SUN[0], y - SUN[1]) < 260
-            c = G.GOLD['g_sun'][1] if near else G.GOLD['gold'][3]
+            c = G.CUR['g_sun'][1] if near else G.CUR['gold'][3]
             rgb[int(y), int(x)] = c
     return rgb
 

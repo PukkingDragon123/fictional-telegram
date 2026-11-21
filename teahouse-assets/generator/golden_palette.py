@@ -51,25 +51,63 @@ GOLD['g_sky'] = [(40, 42, 92), (60, 58, 120), (94, 76, 146), (138, 96, 160), (18
                  (246, 172, 138), (254, 206, 150), (255, 232, 178)]
 GOLD['g_sun'] = [(255, 214, 150), (255, 236, 190), (255, 250, 228)]
 
-# register them so drawing code can use 'g_sky3' etc.
-for _r, _cols in GOLD.items():
-    if _r.startswith('g_'):
-        pixel.RAMPS[_r] = _cols
-        for _i, _c in enumerate(_cols):
-            pixel.PAL[f'{_r}{_i}'] = _c
-            pixel.LOOKUP.setdefault(_c, (_r, _i))
+# a second look: a clear summer afternoon. The sun is high and soft, the sky deep blue overhead going pale
+# at the horizon, the greens fresh (emerald to lime, sunlit leaves gold-green), shadows cool teal and navy,
+# the water blue, the old wood and the lacquer warm. Ramps not listed keep the pack's own colours.
+AFTERNOON = {
+    'ink':    [(14, 16, 28), (30, 32, 48)],
+    'wood':   [(36, 22, 26), (58, 34, 32), (86, 50, 38), (118, 72, 48), (154, 100, 62), (190, 136, 84), (226, 184, 126)],
+    'red':    [(80, 20, 30), (124, 30, 36), (170, 46, 42), (206, 72, 50), (232, 116, 72), (250, 170, 120)],
+    'jade':   [(20, 52, 56), (30, 82, 74), (46, 116, 92), (80, 150, 104), (132, 184, 120), (196, 218, 160)],
+    'gold':   [(110, 70, 34), (168, 118, 44), (216, 170, 62), (244, 212, 110), (255, 240, 180)],
+    'paper':  [(128, 108, 96), (176, 152, 128), (214, 196, 162), (238, 224, 192), (252, 244, 222)],
+    'sky':    [(60, 100, 170), (90, 138, 196), (132, 176, 214), (184, 212, 226), (226, 236, 232)],
+    'cloud':  [(150, 170, 196), (196, 212, 226), (232, 238, 240), (255, 255, 250)],
+    'smoke':  [(88, 96, 116), (128, 136, 150), (176, 180, 186)],
+    'haze':   [(96, 132, 176), (132, 164, 200), (172, 196, 218), (208, 222, 230)],
+    'leaf':   [(16, 38, 46), (24, 64, 52), (36, 96, 58), (70, 134, 62), (128, 176, 72), (196, 214, 110)],
+    'bark':   [(34, 24, 30), (58, 38, 40), (88, 58, 50), (122, 84, 62), (160, 116, 80), (204, 160, 110)],
+    'pink':   [(130, 56, 90), (188, 90, 120), (236, 140, 160), (250, 190, 196), (255, 228, 226)],
+    'purp':   [(60, 44, 96), (98, 74, 140), (146, 116, 182), (196, 170, 220)],
+    'alien':  [(40, 76, 60), (80, 120, 64), (140, 164, 70), (200, 196, 96), (240, 230, 150)],
+    'stone':  [(36, 40, 58), (60, 66, 88), (96, 104, 124), (144, 150, 162), (196, 198, 196)],
+    'water':  [(54, 92, 140), (84, 132, 176), (150, 196, 214)],
+    'fire':   [(110, 30, 30), (176, 56, 36), (226, 104, 44), (248, 160, 64), (255, 214, 120), (255, 244, 210)],
+    'indigo': [(24, 28, 64), (36, 44, 100), (56, 70, 140), (90, 108, 176), (140, 156, 206)],
+    'teal':   [(24, 48, 62), (36, 78, 86), (60, 116, 110), (110, 156, 134)],
+    'hinoki': [(112, 80, 58), (154, 116, 80), (196, 156, 108), (222, 192, 140), (240, 220, 174), (252, 240, 210)],
+    'gloss':  [(12, 14, 26), (24, 28, 48), (40, 48, 82), (64, 76, 122), (100, 114, 168)],
+}
+AFTERNOON['g_sky'] = [(30, 58, 122), (40, 76, 148), (54, 98, 172), (74, 122, 192), (100, 148, 208), (132, 174, 220),
+                      (168, 200, 228), (204, 222, 230), (232, 236, 226)]
+AFTERNOON['g_sun'] = [(255, 246, 214), (255, 250, 232), (255, 255, 246)]
+PALETTES = {'golden': GOLD, 'afternoon': AFTERNOON}
+CUR = GOLD
 
-_SRC, _DST = [], []
-for _ramp, _cols in pixel.RAMPS.items():
-    if _ramp.startswith('g_') or _ramp not in GOLD:
-        continue
-    new = GOLD[_ramp]
-    for _i, _c in enumerate(_cols):
-        _SRC.append(_c)
-        _DST.append(new[min(len(new) - 1, round(_i * (len(new) - 1) / max(1, len(_cols) - 1)))])
-_SRC = np.array(_SRC, np.float32)
-_DST = np.array(_DST, np.uint8)
-_EXACT = {tuple(int(v) for v in s): tuple(int(v) for v in d) for s, d in zip(_SRC, _DST)}
+
+def use(name):
+    """Choose the look that swap() maps the pack into ('golden' or 'afternoon')."""
+    global CUR, _SRC, _DST
+    CUR = PALETTES[name]
+    for _r, _cols in CUR.items():
+        if _r.startswith('g_'):
+            pixel.RAMPS[_r] = _cols
+            for _i, _c in enumerate(_cols):
+                pixel.PAL[f'{_r}{_i}'] = _c
+                pixel.LOOKUP.setdefault(_c, (_r, _i))
+    src, dst = [], []
+    for _ramp, _cols in pixel.RAMPS.items():
+        if _ramp.startswith('g_'):
+            continue
+        new = CUR.get(_ramp, _cols)
+        for _i, _c in enumerate(_cols):
+            src.append(_c)
+            dst.append(new[min(len(new) - 1, round(_i * (len(new) - 1) / max(1, len(_cols) - 1)))])
+    _SRC = np.array(src, np.float32)
+    _DST = np.array(dst, np.uint8)
+
+
+use('golden')
 
 
 def swap(rgba):

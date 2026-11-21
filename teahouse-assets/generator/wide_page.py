@@ -128,6 +128,8 @@ p { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(0, 0, W / 4, H / 4); gl.useProgram(P1);
     bind(P1, 0, 'uScene', T.scene); bind(P1, 1, 'uSky', T.sky);
     gl.uniform2f(gl.getUniformLocation(P1, 'uRes'), W, H);
+    gl.uniform1f(gl.getUniformLocation(P1, 'uGlowT'), D.look.glow_t);
+    gl.uniform1f(gl.getUniformLocation(P1, 'uSkyGlowT'), D.look.sky_glow_t);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H); gl.useProgram(P2);
     bind(P2, 0, 'uScene', T.scene); bind(P2, 1, 'uSky', T.sky); bind(P2, 2, 'uLake', T.lake); bind(P2, 3, 'uHot', T.hot);
@@ -135,6 +137,11 @@ p { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
     gl.uniform2f(gl.getUniformLocation(P2, 'uSun'), D.sun[0], D.sun[1]);
     gl.uniform1f(gl.getUniformLocation(P2, 'uHorizon'), D.horizon);
     gl.uniform1f(gl.getUniformLocation(P2, 'uTime'), time);
+    const L = D.look, u3 = (n, c, k) => gl.uniform3f(gl.getUniformLocation(P2, n), c[0] / k, c[1] / k, c[2] / k);
+    gl.uniform1f(gl.getUniformLocation(P2, 'uRayT'), L.ray_t);
+    gl.uniform1f(gl.getUniformLocation(P2, 'uLightK'), L.light_k);
+    gl.uniform1f(gl.getUniformLocation(P2, 'uVigK'), L.vig_k);
+    u3('uLight', L.light, 255); u3('uVig', L.vig, 255); u3('uTint', L.tint, 1); u3('uGlint', L.glint, 255);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
@@ -224,7 +231,7 @@ def page(out_html, start=300.0):
                           p=rng.uniform(0, 6.28)))
     hexc = lambda c: '#%02x%02x%02x' % tuple(c)
     data = dict(fps=WM.FPS, frames=WM.N, tile_w=WM.TW, speed=WM.SPEED, horizon=WM.HORIZON, sun=list(WM.SUN),
-                start=start, layers=layers, title=title, post=post, buttons=buttons, cursor=cursor, motes=motes,
+                start=start, look=dict(WM.LOOK, glint=list(WM.G.CUR['g_sun'][1])), layers=layers, title=title, post=post, buttons=buttons, cursor=cursor, motes=motes,
                 mote_near=hexc(WM.G.GOLD['g_sun'][1]), mote_far=hexc(WM.G.GOLD['gold'][3]))
     shader = open(os.path.join(ROOT, 'wide_shader.glsl')).read()
     html = PAGE.replace('__DATA__', json.dumps(data)).replace('__SHADER__', shader)

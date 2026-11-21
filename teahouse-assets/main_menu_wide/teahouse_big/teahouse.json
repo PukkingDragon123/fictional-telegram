@@ -2,13 +2,13 @@
  "name": "teahouse",
  "frames": 96,
  "fps": 12,
- "x": 115,
- "y": 11,
- "w": 260,
- "h": 274,
+ "x": 93,
+ "y": 97,
+ "w": 308,
+ "h": 323,
  "screen": [
   640,
-  360
+  516
  ],
  "sheet": "teahouse_sheet.png",
  "sheet_columns": 12,
@@ -19,10 +19,10 @@
  "loops": true,
  "ground_centre": [
   237,
-  263
+  395
  ],
  "draw_after": "08_meadow_back",
  "draw_before": "09_meadow_front",
- "note": "teahouse.png is frame 0, cropped like every sheet cell to the box x, y, w, h; draw at (x, y). Loops seamlessly over the frames with menu_layout.wind / sway: the noren billows and its panels swing apart, the lanterns swing behind the gust, the chime strip flutters, the chimney smoke leans and drifts, roof grass nods, the window light breathes; the grass at the footings uses the meadow tufts (meadow.F frames, the same gust phase as the scene's meadow). The ground shadow is see-through (ink at alpha 60 / 105). Drawn at 1.35x the size of main_menu/layers/teahouse at the same pixel density (a redraw with more planks, tiles and detail, not an upscale). ground_centre is the screen point under the middle of the door's step where it meets the ground.",
- "scale": 1.35
+ "note": "teahouse.png is frame 0, cropped like every sheet cell to the box x, y, w, h; draw at (x, y). Loops seamlessly over the frames with menu_layout.wind / sway: the noren billows and its panels swing apart, the lanterns swing behind the gust, the chime strip flutters, the chimney smoke leans and drifts, roof grass nods, the window light breathes; the grass at the footings uses the meadow tufts (meadow.F frames, the same gust phase as the scene's meadow). The ground shadow is see-through (ink at alpha 60 / 105). Drawn at 1.60x the size of main_menu/layers/teahouse at the same pixel density (a redraw with more planks, tiles and detail, not an upscale). ground_centre is the screen point under the middle of the door's step where it meets the ground.",
+ "scale": 1.6
 }
