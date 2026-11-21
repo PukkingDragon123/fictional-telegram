@@ -49,14 +49,16 @@ def _leaves(Xt, Yt, lcx, lcy, R, flat, gnorm, seed, L, Wd, sx, sy):
             ccy = (gy + 0.2 + 0.6 * h2) * sy
             ox, oy = (ccx - lcx) / R, (ccy - lcy) / (R * flat)
             rc = np.sqrt(ox * ox + oy * oy)
-            ang = np.arctan2(oy + 0.55, ox) + (h3 - 0.5) * 1.3      # outward, drooping
-            ca, sa = np.cos(ang), np.sin(ang)
+            # a little cluster of leaves: a lobed blob, flattened a touch, size varying
+            rb = L * (0.82 + 0.36 * h3)
             dx, dy = Xt - ccx, Yt - ccy
-            a = dx * ca + dy * sa
-            b = -dx * sa + dy * ca
-            t = a / L + 0.5
-            half = Wd * np.sin(np.pi * np.clip(t, 0, 1)) ** 0.8
-            inl = (t >= -0.02) & (t <= 1.02) & (np.abs(b) <= half + 0.3) & (rc < 1.08)
+            th_ = np.arctan2(dy, dx)
+            rad = np.sqrt(dx * dx + (dy / 0.82) ** 2)
+            lobe = 1 + 0.2 * np.cos(3 * th_ + h1 * 6.3) + 0.08 * np.cos(5 * th_ + h2 * 6.3)
+            t = rad / (rb * lobe)                                     # 0 middle .. 1 edge
+            half = np.ones_like(t)
+            inl = (t <= 1.0) & (rc < 1.08)
+            a, b = dx, dy
             # the light on the clump at the leaf's centre
             q = np.clip(rc, 0, 1)
             nz = np.sqrt(np.clip(1 - q * q, 0, 1))
@@ -70,14 +72,14 @@ def _leaves(Xt, Yt, lcx, lcy, R, flat, gnorm, seed, L, Wd, sx, sy):
             best = np.where(win, pri, best)
             cov |= inl
             litc = np.where(win, lc, litc)
-            # which half: the side of the midrib that faces the light
-            px_, py_ = dx - a * ca, dy - a * sa
-            sd = np.where(px_ * LIGHT2[0] + py_ * LIGHT2[1] > 0.0, 1.0, -1.0)
+            # which part faces the light: the cluster's upper left catches it, its lower right is in shade
+            dl = (dx * LIGHT2[0] + dy * LIGHT2[1]) / np.maximum(rb, 1e-6)
+            sd = np.where(dl > 0.3, 1.0, np.where(dl < -0.25, -1.0, 0.0))
             side = np.where(win, sd, side)
             hsh = np.where(win, h1, hsh)
             tt = np.where(win, t, tt)
             rc_ = np.where(win, oy, rc_)
-            rm = ((np.abs(b) > half - 0.75) & (sd < 0)) | (t > 0.93) | (t < 0.06)
+            rm = (t > 0.78) & (dl < 0.1)                              # its shaded edge parts it from the next
             rim = np.where(win, rm, rim)
     return cov, litc, side, hsh, tt, rc_, rim
 
@@ -99,9 +101,9 @@ def _clump(self, c, R, z, gnorm, mat, seed, flat=0.85, base_v=0.0, depth=0.0, ho
     edge = edge + (noise(Xt * 0.3, Yt * 0.3, seed) - 0.5) * 0.2
     core = rr < edge * 0.86
     size = (leaf or 2.6) / 2.6
-    L, Wd = 8.6 * size, 2.5 * size
+    L, Wd = 3.3 * size, 0
     cov, litc, side, hsh, tt, oyc, edge_ = _leaves(Xt, Yt, cx - off[0], cy - off[1], R, flat, gnorm, seed,
-                                                   L, Wd, 5.6 * size, 3.9 * size)
+                                                   L, Wd, 4.4 * size, 3.5 * size)
     inside = core | cov
     if holes:
         inside &= ~((noise(Xt * 0.2, Yt * 0.2, seed + 4) < holes) & (rr < 0.82) & (rr > 0.25))
@@ -109,8 +111,9 @@ def _clump(self, c, R, z, gnorm, mat, seed, flat=0.85, base_v=0.0, depth=0.0, ho
         return
     # a leaf: one tone from the light at its centre, its lit half a step up, its shaded half a step down
     val = 0.06 + 0.94 * litc + base_v - 0.24 * np.clip(oyc, 0, 1) ** 1.4 + (hsh - 0.5) * 0.12
-    val = val + np.where(side > 0, 0.1, 0.0)                     # the half facing the sun
-    val = val - np.where(edge_, 0.2, 0.0)                         # its shaded rim parts it from the next leaf
+    val = val + side * 0.11                                       # lit top, shaded underside of each cluster
+    val = val - np.where(edge_, 0.16, 0.0)                        # its shaded edge parts it from the next
+    val = val + np.where((side > 0) & (hsh > 0.8) & (litc > 0.45), 0.1, 0.0)   # a few leaves flash in the sun
     # between the leaves: deep shade, darker toward the clump's underside
     q = np.clip(rr / np.maximum(edge, 0.3), 0, 1)
     nz = np.sqrt(np.clip(1 - q * q, 0, 1))

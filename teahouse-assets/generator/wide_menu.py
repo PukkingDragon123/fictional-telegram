@@ -46,14 +46,15 @@ W, H = 640, 360
 TW = 1280                     # every plane tiles every TW px
 N = 96                        # animation frames per loop (12 fps)
 FPS = 12
-HORIZON = 196                 # the lake's far line
+HORIZON = 104                 # the lake's far line: eye level, above the teahouse roof (we see the roof
+                              # from above, so the eye must be higher than it)
 DY = HORIZON - outside.HORIZON
-SUN = (328, 104)              # the sun's centre on screen (it does not scroll): where the passing trees
-                              # and clouds leave it clear most of the time
+SUN = (328, 58)               # the sun's centre on screen (it does not scroll), low over the ranges
+TREE_K = 0.62                 # the shore's trees grown smaller: from up here they stand well back
 SPEED = 8.0                   # camera pan, px per second at rate 1
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'main_menu_wide')
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
-RATE = {'sky': 0.0, 'clouds': 0.05, 'mountains': 0.08, 'hills': 0.16, 'lake': 0.24, 'lake_life': 0.24,
+RATE = {'sky': 0.0, 'mountains': 0.08, 'hills': 0.16, 'lake': 0.24, 'lake_life': 0.24,
         'birds': 0.2, 'shore': 0.40, 'flowers': 0.40, 'meadow': 0.62, 'ground_birds': 0.62, 'teahouse': 0.62, 'big_tree': 0.80, 'front': 1.0}
 TEAHOUSE_X, TEAHOUSE_BASE = 330, 300        # in the meadow plane's tile
 BIG_TREE_X = 980                            # its trunk's x in the near plane's tile
@@ -62,7 +63,7 @@ BIG_TREE_X = 980                            # its trunk's x in the near plane's 
 def ground_line(x):
     """The meadow's rolling top edge (meadow plane, tile x)."""
     t = 2 * math.pi * x / TW
-    y = 268 + 7 * math.sin(t + 0.4) + 4 * math.sin(2 * t + 1.9) + 2 * math.sin(5 * t)
+    y = 176 + 5 * math.sin(t + 0.4) + 4 * math.sin(2 * t + 1.9) + 2 * math.sin(5 * t)
     d = (x - TEAHOUSE_X) / 150.0                       # the teahouse stands on a little rise
     return y - 10 * math.exp(-d * d)
 
@@ -74,23 +75,10 @@ def sky():
     ramp = np.array(G.GOLD['g_sky'], np.uint8)
     k = len(ramp) - 1
     d = np.hypot((xx - SUN[0]) / 1.6, (yy - SUN[1]))          # warmer round the sun
-    v = np.clip(yy / 205.0, 0, 1) ** 1.25 * (k - 1.4) + np.clip(1 - d / 330, 0, 1) ** 1.8 * 2.2
+    v = np.clip(yy / (HORIZON + 6.0), 0, 1) ** 1.15 * (k - 1.4) + np.clip(1 - d / 260, 0, 1) ** 1.8 * 2.2
     v = v + BAYER[yy.astype(int) % 4, xx.astype(int) % 4] - 0.5
     a[..., :3] = ramp[np.clip(np.floor(v + 0.5), 0, k).astype(int)]
     a[..., 3] = 255
-    # thin streaks of high cloud catching the light
-    rng = random.Random(7)
-    for _ in range(16):
-        x, y = rng.uniform(0, W), rng.uniform(30, 128)
-        ln = rng.randint(40, 120)
-        for i in range(ln):
-            yy_ = int(y + math.sin(i * 0.05 + x) * 2)
-            if rng.random() < 0.85:
-                xi = int(x + i) % W
-                lvl = int(np.clip(np.floor(v[yy_, xi] + 0.5), 0, k))
-                a[yy_, xi, :3] = ramp[min(k, lvl + 1)]
-                if 6 < i < ln - 8 and rng.random() < 0.5:
-                    a[yy_ + 1, xi, :3] = ramp[min(k, lvl + 2)]
     # the sun: a soft disc low over the mountains
     sun = np.array(G.GOLD['g_sun'], np.uint8)
     r = np.hypot(xx - SUN[0], yy - SUN[1])
@@ -120,23 +108,30 @@ def _tile(fr, off, dy=DY):
     return a
 
 
+def _haze(a, k):
+    """Aerial perspective: far things fade toward the warm haze of the low sun."""
+    b = a.copy()
+    haze = np.array(G.GOLD['g_sky'][5], np.float32)
+    b[..., :3] = np.clip(a[..., :3] * (1 - k) + haze * k + 0.5, 0, 255).astype(np.uint8)
+    return b
+
+
 def pack_planes():
     season.set_season('summer')
+    import grove
+    import functools
+    for name in ('oak', 'zelkova', 'birch', 'willow', 'cypress', 'black_pine'):      # grown smaller
+        fn = getattr(grove, name)
+        if not getattr(fn, '_small', False):
+            g = functools.partial(lambda fn_, *a, k=1.0, **kw: fn_(*a, k=k * TREE_K, **kw), fn)
+            g._small = True
+            setattr(grove, name, g)
     P = {}
     for name, frames, fac, *off in outside.all_layers():
         P[name] = [_tile(f, off) for f in frames]
     out = {}
-    out['clouds'] = [G.swap(P['01_clouds'][0])]
-    # and a second, higher band of the same clouds from further along the tile
-    hi = np.roll(P['01_clouds'][0], 610, axis=1)
-    hi = np.roll(hi, -96, axis=0)
-    hi[H - 96:] = 0
-    c = out['clouds'][0]
-    hg = G.swap(hi)
-    m = (hg[..., 3] > 0) & (c[..., 3] == 0)
-    c[m] = hg[m]
     out['mountains'] = [G.swap(P['02_mountains'][0])]
-    out['hills'] = [G.swap(P['05_hills_trees'][0])]
+    out['hills'] = [_haze(G.swap(P['05_hills_trees'][0]), 0.22)]
     out['lake'] = [G.swap(a) for a in P['03_lake']]
     out['lake_life'] = [G.swap(a) for a in P['04_lake_life']]
     out['birds'] = [G.swap(a) for a in P['04_birds']]            # swallows over the water, egrets, sparrows
@@ -145,7 +140,7 @@ def pack_planes():
         b = a.copy()
         flat = (b[..., 0] == PAL['leaf1'][0]) & (b[..., 1] == PAL['leaf1'][1]) & (b[..., 2] == PAL['leaf1'][2])
         b[(np.arange(H)[:, None] > outside.HORIZON + 64 + DY - 2) & flat] = 0
-        trees.append(G.swap(b))
+        trees.append(_haze(G.swap(b), 0.08))
     out['shore'] = trees
     fl = []
     for a in P['07_flowers_close']:
@@ -157,20 +152,20 @@ def pack_planes():
 
 
 # ---------------------------------------------------------------- the meadow plane and the front
-ROAD_W0, ROAD_K = 9.0, 0.24                    # the road's width at the meadow's far edge, and how it widens toward you
+ROAD_W0, ROAD_K = 2.0, 0.15                    # the road's width at the meadow's far edge, and how it widens toward you
 
 
 def road_y(x):
     """The middle of the dirt road that wanders the length of the meadow (meadow plane, tile x).
     It swings up to pass just below the teahouse's step."""
     t = 2 * math.pi * x / TW
-    y = 316 + 8 * math.sin(t + 1.0) + 4 * math.sin(2 * t + 0.3) + 2 * math.sin(3 * t + 2.2)
+    y = 286 + 34 * math.sin(t + 1.0) + 12 * math.sin(2 * t + 0.3) + 4 * math.sin(3 * t + 2.2)   # winding in depth
     d = (x - TEAHOUSE_X) / 120.0
     return y - (y - (TEAHOUSE_BASE + 14)) * math.exp(-d * d)
 
 
 def road_half(y):
-    return (ROAD_W0 + (y - 262) * ROAD_K) / 2
+    return (ROAD_W0 + (y - 170) * ROAD_K) / 2
 
 
 def on_road(x, y, pad=0.0):
@@ -199,7 +194,7 @@ def ground_tex():
     yy, xx = np.mgrid[0:H, 0:TW].astype(np.float64)
     g = np.array([ground_line(x) for x in range(TW)])
     below = yy >= np.round(g)[None, :]
-    depth = np.clip((yy - 262) / 98.0, 0.05, 1)                          # 0 far .. 1 at the bottom edge
+    depth = np.clip((yy - 170) / 190.0, 0.05, 1)                          # 0 far .. 1 at the bottom edge
     h = lambda k: ((np.sin(xx * 12.9898 + yy * 78.233 + k) * 43758.5453) % 1.0)
     out = np.empty((H, TW), object)
     out[:] = None
@@ -219,7 +214,7 @@ def ground_tex():
     lawn = np.where(soil, earth, lawn)
     # the road
     ry = np.array([road_y(x) for x in range(TW)])[None, :]
-    half = (ROAD_W0 + (yy - 262) * ROAD_K) / 2
+    half = (ROAD_W0 + (yy - 170) * ROAD_K) / 2
     door = np.zeros_like(below)
     for y in range(H):
         for x in range(int(TEAHOUSE_X - 30), int(TEAHOUSE_X + 40)):
@@ -305,11 +300,12 @@ def meadow_plane():
             return True
         # open ground: thin the meadow away from the road and the far rim, in drifts
         near_road = abs(y - road_y(x)) - road_half(y) < 9
-        far_rim = y < ground_line(x) + 9
+        far_rim = y < ground_line(x) + 5
         thin = _noise(np.array(x), np.array(y), (60, 20, 5.3))
         return not (near_road or far_rim) and float(thin) < 0.55
-    rows = [(2, 11, 6, 1, 9), (7, 13, 6, 0, 14), (15, 16, 7, 1, 19), (27, 20, 7, 0, 22), (42, 24, 8, 1, 26),
-            (60, 28, 8, 0, 30), (82, 32, 9, 1, 34)]
+    rows = [(2, 6, 4, 1, 7), (6, 7, 5, 0, 10), (11, 9, 5, 1, 12), (18, 11, 6, 0, 15), (27, 13, 6, 1, 17),
+            (38, 15, 7, 0, 19), (52, 18, 7, 1, 22), (68, 21, 8, 0, 25), (88, 25, 8, 1, 28), (112, 29, 9, 0, 31),
+            (140, 33, 9, 1, 34), (170, 37, 10, 0, 37)]
     return _meadow_plane(rows, ground_tex(), 0, 5, avoid=avoid)
 
 
@@ -445,7 +441,7 @@ def hero_tree():
 def build_planes():
     pp = pack_planes()
     planes = {
-        'sky': [sky()], 'clouds': pp['clouds'], 'mountains': pp['mountains'], 'hills': pp['hills'],
+        'sky': [sky()], 'mountains': pp['mountains'], 'hills': pp['hills'],
         'lake': pp['lake'], 'lake_life': pp['lake_life'], 'shore': pp['shore'], 'flowers': pp['flowers'],
         'birds': pp['birds'], 'meadow': meadow_plane(), 'ground_birds': ground_birds(), 'front': front_plane(),
     }
@@ -453,7 +449,7 @@ def build_planes():
     return planes, {'teahouse': th, 'big_tree': hero_tree()}
 
 
-ORDER = ['sky', 'clouds', 'mountains', 'hills', 'lake', 'lake_life', 'birds', 'shore', 'flowers', 'meadow',
+ORDER = ['sky', 'mountains', 'hills', 'lake', 'lake_life', 'birds', 'shore', 'flowers', 'meadow',
          'ground_birds', 'teahouse', 'big_tree', 'front']
 
 
