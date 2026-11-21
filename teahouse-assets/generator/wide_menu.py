@@ -388,7 +388,7 @@ def far_houses():
         far[y:y + a.shape[0], x:x + a.shape[1]][m] = a[m]
     for (x, w) in ((215, 30), (470, 34), (1000, 28)):
         a = small_house(w, rng)
-        y = outside.HORIZON + 64 + DY - a.shape[0] + 1
+        y = outside.HORIZON + 58 + DY - a.shape[0] + 1     # on the bank, the meadow's rim tucks in its footings
         m = a[..., 3] > 0
         near[y:y + a.shape[0], x:x + a.shape[1]][m] = a[m]
         roofs.append((x, y, a))
@@ -613,8 +613,8 @@ def teahouse_sprite():
     return sprite_layer('teahouse', 238, TEAHOUSE_BASE - 246, TEAHOUSE_X)
 
 
-ORDER = ['sky', 'mountains', 'hills', 'lake', 'far_houses', 'lake_life', 'birds', 'shore_houses', 'shore_birds',
-         'shore', 'flowers', 'meadow', 'ground_birds', 'teahouse', 'roof_birds', 'big_tree', 'front']
+ORDER = ['sky', 'mountains', 'hills', 'lake', 'far_houses', 'lake_life', 'birds', 'shore', 'flowers',
+         'shore_houses', 'shore_birds', 'meadow', 'ground_birds', 'teahouse', 'roof_birds', 'big_tree', 'front']
 
 
 # ---------------------------------------------------------------- composing a frame
