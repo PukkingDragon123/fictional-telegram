@@ -65,9 +65,39 @@ def sway(x, f, amp=1.0, lag=0.0):
 
 BAYER4 = ROOM.BAYER4
 
+# ---------------------------------------------------------------- scale
+# The whole building can be drawn bigger at the same pixel density: every geometric
+# measure and position is multiplied by S, while texture detail (plank widths, tile
+# courses, grain, moss, dither) stays in pixels, so a bigger wall gets more planks and
+# tiles - a real redraw, never an upscale. S = 1 is the original, pixel for pixel.
+S = float(os.environ.get('TEAHOUSE_SCALE', '1'))
+_JIT = dict(cache=(S == 1.0))      # numba freezes module globals: only cache the default build
+
+
+def si(v):
+    """An integer world measure, scaled."""
+    return int(round(v * S))
+
+
+def sf(v):
+    """A float world measure, scaled."""
+    return v * S
+
+
 # ---------------------------------------------------------------- projection
 A, B = 0.5, 0.25          # one unit of depth (z, away from you) = half a pixel left, a quarter up
-SX0, SY0 = 194, 242       # screen position of the world origin (front-left corner of the floor plan)
+SX00, SY00 = 194, 242     # the original (S = 1) screen position of the world origin
+# the screen position of the world origin (front-left corner of the floor plan): scaled about the
+# ground centre, and moved down a little when bigger so the chimney's smoke stays on the canvas
+SX0 = SX00 if S == 1.0 else int(round(L.TEAHOUSE[0] + S * (SX00 - L.TEAHOUSE[0])))
+SY0 = SY00 if S == 1.0 else int(round(L.TEAHOUSE[1] + S * (SY00 - L.TEAHOUSE[1]) + 46 * (S - 1)))
+
+
+def T(x, y):
+    """A screen point placed for the original (S = 1) teahouse -> where it goes on the scaled one."""
+    if S == 1.0:
+        return x, y
+    return int(round(SX0 + (x - SX00) * S)), int(round(SY0 + (y - SY00) * S))
 
 
 def P(x, y, z):
@@ -76,38 +106,41 @@ def P(x, y, z):
 
 
 # ---------------------------------------------------------------- the building's measures (world units ~ px)
-BX0, BX1 = 0, 112          # body, along the front
-BZ0, BZ1 = 0, 44           # body, front to back
-FLOOR = 10                 # floor / veranda height
-WALL_TOP = 66
-EAVE = 70                  # roof surface height at the eave edge (before the corners sweep up)
-EAVE_T = 6                 # eave thickness: tile ends, fascia board, rafter ends
-EZ0, EZ1 = -20, 60         # eaves, front and back
-EX0, EX1 = -16, 128        # eaves, left and right
+BX0, BX1 = 0, si(112)      # body, along the front
+BZ0, BZ1 = 0, 4 * si(11)   # body, front to back (a multiple of 4: the side wall's texels are 2 deep)
+FLOOR = si(10)             # floor / veranda height
+WALL_TOP = si(66)
+EAVE = si(70)              # roof surface height at the eave edge (before the corners sweep up)
+EAVE_T = si(6)             # eave thickness: tile ends, fascia board, rafter ends
+EZ0, EZ1 = si(-20), si(60)  # eaves, front and back
+EX0, EX1 = si(-16), si(128)  # eaves, left and right
 RIDGE_Z = (EZ0 + EZ1) / 2  # 20
-GX0, GX1 = 2, 110          # the two gables (irimoya): hips below them, gables above
-BARGE = 3                  # the upper roof overhangs each gable by this much
-BARGE_T = 3                # thickness of the barge board
-KICK, KICK_R = 6.0, 26.0   # how far the eave corners sweep up, and over what reach
-RIDGE_W, RIDGE_H = 2.0, 4.0
-CHIM = (20, 32, 24, 32, 130)   # chimney x0, x1, z0, z1, top
+GX0, GX1 = si(2), si(110)  # the two gables (irimoya): hips below them, gables above
+BARGE = si(3)              # the upper roof overhangs each gable by this much
+BARGE_T = si(3)            # thickness of the barge board
+KICK, KICK_R = sf(6.0), sf(26.0)   # how far the eave corners sweep up, and over what reach
+RIDGE_W, RIDGE_H = sf(2.0), sf(4.0)
+CHIM = (si(20), si(32), si(24), si(32), si(130))   # chimney x0, x1, z0, z1, top
 
 
 def prof(d):
     """Height of the roof above its eave at plan distance d in from the eave edge: a
-    concave Japanese curve, shallow (0.5) at the eave and steep (1.6) at the ridge."""
+    concave Japanese curve, shallow (0.5) at the eave and steep (1.6) at the ridge
+    (scaled with the building: S * prof1(d / S))."""
     d = max(0.0, d)
-    return 0.5 * d + 0.01375 * d * d
+    return 0.5 * d + 0.01375 * d * d / S
 
 
 RIDGE_Y = EAVE + prof(RIDGE_Z - EZ0)          # 112
 HG = prof(GX0 - EX0)                          # gable base, above the eave
 GABLE_Y = EAVE + HG
-VZ0 = -16                  # veranda front edge
-DOOR = (23, 43)            # door opening (x), up to y = DOOR_TOP
-DOOR_TOP = 52
-WIN = (54, 102, 27, 52)    # big lattice window x0, x1, y0 (sill), y1 (head)
-POSTS_FRONT = [(0, 3), (20, 23), (43, 46), (109, 112)]
+VZ0 = -4 * si(4)           # veranda front edge (a multiple of 4: its boards are one screen row per 4 deep)
+VX0, VX1 = si(-4), BX1 + si(4)   # veranda, left and right
+VT = si(3)                 # thickness of the veranda boards
+DOOR = (si(23), si(43))    # door opening (x), up to y = DOOR_TOP
+DOOR_TOP = si(52)
+WIN = (si(54), si(102), si(27), si(52))    # big lattice window x0, x1, y0 (sill), y1 (head)
+POSTS_FRONT = [(0, si(3)), (DOOR[0] - si(3), DOOR[0]), (DOOR[1], DOOR[1] + si(3)), (BX1 - si(3), BX1)]
 
 
 # ---------------------------------------------------------------- warping a flat face onto the building
@@ -269,28 +302,30 @@ def front_wall(rng):
     w, h = BX1 - BX0, WALL_TOP - FLOOR
     cv = Canvas(w, h)
     r = lambda y: WALL_TOP - y                       # world height -> texture row
-    rail = r(25)
+    rail = r(si(25))
     planks(cv, rng, 0, w, 0, rail, seed=1.0)
-    age_planks(cv, rng, 0, w, r(58), rail, n_peel=6)
-    beam(cv, 0, w, r(62), r(57), seed=3.0)          # the head beam under the eaves
-    rail_and_wainscot(cv, rng, 0, w, rail, r(13), r(FLOOR), seed=2.0)
+    age_planks(cv, rng, 0, w, r(si(58)), rail, n_peel=si(6 * S))
+    beam(cv, 0, w, r(si(62)), r(si(57)), seed=3.0)          # the head beam under the eaves
+    rail_and_wainscot(cv, rng, 0, w, rail, r(si(13)), r(FLOOR), seed=2.0)
     # door: a dark warm room behind the noren, the floor boards catching lantern light
     x0, x1 = DOOR
     cv.rect(x0, r(DOOR_TOP), x1 - x0, r(FLOOR) - r(DOOR_TOP), 'wood0')
-    for yy in range(r(22), r(FLOOR)):
-        t = (yy - r(22)) / (r(FLOOR) - r(22))
+    for yy in range(r(si(22)), r(FLOOR)):
+        t = (yy - r(si(22))) / (r(FLOOR) - r(si(22)))
         for xx in range(x0, x1):
             c = 'wood1' if t < 0.45 else ('wood2' if t < 0.8 else 'wood3')
             if BAYER4[yy % 4][xx % 4] / 16 < t * 1.4:
                 cv.px(xx, yy, c)
-    cv.rect(x0 + 3, r(34), x1 - x0 - 6, 2, 'hinoki2')                     # the counter's edge inside
-    cv.hline(x0 + 3, x1 - 4, r(34), 'hinoki4')
-    cv.rect(x0 + 3, r(32), x1 - x0 - 6, r(FLOOR) - r(32) - 4, 'wood0')
-    cv.rect(x0 - 1, r(DOOR_TOP + 2), x1 - x0 + 2, 2, 'wood2')            # lintel
-    cv.hline(x0 - 1, x1, r(DOOR_TOP + 2), 'wood3')
+    i3 = si(3)
+    cv.rect(x0 + i3, r(si(34)), x1 - x0 - 2 * i3, 2, 'hinoki2')           # the counter's edge inside
+    cv.hline(x0 + i3, x1 - i3 - 1, r(si(34)), 'hinoki4')
+    cv.rect(x0 + i3, r(si(32)), x1 - x0 - 2 * i3, r(FLOOR) - r(si(32)) - si(4), 'wood0')
+    lt = si(2)                                                            # lintel
+    cv.rect(x0 - 1, r(DOOR_TOP + lt), x1 - x0 + 2, lt, 'wood2')
+    cv.hline(x0 - 1, x1, r(DOOR_TOP + lt), 'wood3')
     cv.hline(x0 - 1, x1, r(DOOR_TOP + 1), 'wood0')
     cv.rect(x0 - 1, r(FLOOR + 1), x1 - x0 + 2, 1, 'wood3')               # threshold, worn pale
-    cv.hline(x0 + 4, x1 - 5, r(FLOOR + 1), 'wood4')
+    cv.hline(x0 + si(4), x1 - si(5), r(FLOOR + 1), 'wood4')
     # the big lattice window
     window(cv, rng, *WIN, r)
     # posts
@@ -310,27 +345,29 @@ def window(cv, rng, x0, x1, y0, y1, r):
     inside(cv, gx0, gy0, gx1, gy1)
     fw = gx1 - gx0
     cols = [gx0 + fw * k // 4 for k in range(1, 4)]
-    tr = gy0 + 6
+    tr = gy0 + si(6)
     for cx in cols:
         cv.vline(cx, gy0, gy1 - 1, 'wood2')
         cv.vline(cx - 1, gy0, gy1 - 1, 'wood3')
         cv.vline(cx + 1, gy0, gy1 - 1, 'wood0')
     cv.hline(gx0, gx1 - 1, tr, 'wood3')
     cv.hline(gx0, gx1 - 1, tr + 1, 'wood0')
-    for k in range(1, 12):
-        mx = gx0 + fw * k // 12
+    npane = si(12)
+    for k in range(1, npane):
+        mx = gx0 + fw * k // npane
         if any(abs(mx - c) < 2 for c in cols):
             continue
         cv.vline(mx, gy0, tr - 1, 'wood1')
     # deep sill, its top showing
     sy = ty1 + 2
-    cv.rect(x0 - 4, sy, x1 - x0 + 8, 3, 'wood3')
-    cv.hline(x0 - 4, x1 + 3, sy, 'wood4')
-    cv.hline(x0 - 4, x1 + 3, sy + 2, 'wood0')
-    for bx in (x0 + 4, x1 - 6):
+    so = si(4)
+    cv.rect(x0 - so, sy, x1 - x0 + 2 * so, 3, 'wood3')
+    cv.hline(x0 - so, x1 + so - 1, sy, 'wood4')
+    cv.hline(x0 - so, x1 + so - 1, sy + 2, 'wood0')
+    for bx in (x0 + si(4), x1 - si(6)):
         cv.px(bx, sy + 3, 'wood2'); cv.px(bx + 1, sy + 3, 'wood1')
         cv.px(bx, sy + 4, 'wood1')
-    for _ in range(3):
+    for _ in range(si(3)):
         chip(cv, rng.randint(x0, x1 - 6), ty0 - 2, rng.randint(3, 5), 2, rng, under='wood2', under_dark='wood0',
              n=2, rmin=0.8, rmax=1.4, elong=0.6)
 
@@ -340,13 +377,13 @@ def inside(cv, x0, y0, x1, y1):
     beams overhead, the warm glow of the two red lanterns, the jade drapes at the
     sides, the hinoki counter catching the light, and the sky glinting on the glass."""
     w, h = x1 - x0, y1 - y0
-    lamps = [(x0 + int(w * 0.3), y0 + 4), (x0 + int(w * 0.7), y0 + 4)]
+    lamps = [(x0 + int(w * 0.3), y0 + si(4)), (x0 + int(w * 0.7), y0 + si(4))]
     for yy in range(y0, y1):
         for xx in range(x0, x1):
             g = 0.0
             for (lx, ly) in lamps:
-                d = math.hypot((xx - lx) / 1.3, yy - ly - 2)
-                g = max(g, 1.0 - d / 12.0)
+                d = math.hypot((xx - lx) / 1.3, yy - ly - sf(2))
+                g = max(g, 1.0 - d / sf(12.0))
             t = (yy - y0) / max(1, h - 1)
             v = 0.3 + 0.75 * g + 0.15 * t + (BAYER4[yy % 4][xx % 4] / 16 - 0.5) * 0.16
             c = ('wood0' if v < 0.36 else 'red0' if v < 0.48 else 'red1' if v < 0.6 else 'copper2' if v < 0.74
@@ -354,22 +391,23 @@ def inside(cv, x0, y0, x1, y1):
             if yy == y0:
                 c = 'wood0'
             cv.px(xx, yy, c)
-    for xx in list(range(x0, x0 + 4)) + list(range(x1 - 4, x1)):          # jade drapes
-        k = (xx - x0) if xx < x0 + 4 else (x1 - 1 - xx)
+    dw = si(4)
+    for xx in list(range(x0, x0 + dw)) + list(range(x1 - dw, x1)):        # jade drapes
+        k = (xx - x0) if xx < x0 + dw else (x1 - 1 - xx)
         for yy in range(y0 + 1, y1):
-            cv.px(xx, yy, ['jade1', 'jade3', 'jade2', 'jade1'][k])
-    cy = y0 + h - 5                                                         # the counter
-    cv.hline(x0 + 4, x1 - 5, cy, 'hinoki4')
-    cv.hline(x0 + 4, x1 - 5, cy + 1, 'hinoki2')
-    cv.rect(x0 + 4, cy + 2, w - 8, h - (cy + 2 - y0), 'wood1')
+            cv.px(xx, yy, ['jade1', 'jade3', 'jade2', 'jade1'][k * 4 // dw])
+    cy = y0 + h - si(5)                                                     # the counter
+    cv.hline(x0 + dw, x1 - dw - 1, cy, 'hinoki4')
+    cv.hline(x0 + dw, x1 - dw - 1, cy + 1, 'hinoki2')
+    cv.rect(x0 + dw, cy + 2, w - 2 * dw, h - (cy + 2 - y0), 'wood1')
     for (lx, ly) in lamps:                                                  # the lanterns inside
         cv.vline(lx, y0, ly - 1, 'wood0')
         for (dx, dy, c) in ((-1, 0, 'red3'), (0, 0, 'fire4'), (1, 0, 'red3'), (-1, 1, 'fire3'), (0, 1, 'fire5'),
                             (1, 1, 'fire3'), (-1, 2, 'red3'), (0, 2, 'fire4'), (1, 2, 'red2'), (0, 3, 'wood0')):
             cv.px(lx + dx, ly + dy, c)
-    for k in range(4):                                                      # sky on the glass
-        cv.px(x0 + 6 + k, y0 + 9 - k, 'paper3')
-        cv.px(x0 + 8 + k, y0 + 9 - k, 'paper2')
+    for k in range(si(4)):                                                  # sky on the glass
+        cv.px(x0 + si(6) + k, y0 + si(9) - k, 'paper3')
+        cv.px(x0 + si(8) + k, y0 + si(9) - k, 'paper2')
 
 
 # ---------------------------------------------------------------- the side wall (x = 0, seen at 2:1)
@@ -379,16 +417,16 @@ def side_wall(rng):
     w, h = (BZ1 - BZ0) // 2, WALL_TOP - FLOOR
     cv = Canvas(w, h)
     r = lambda y: WALL_TOP - y
-    rail = r(25)
+    rail = r(si(25))
     planks(cv, rng, 0, w, 0, rail, base=('red3', 'red2'), widths=(3, 3, 2), seam='red1', lit_edge=False, fade=0.4,
            seed=5.0)
-    age_planks(cv, rng, 0, w, r(60), rail, n_peel=2)
-    beam(cv, 0, w, r(62), r(57), seed=7.0)
-    rail_and_wainscot(cv, rng, 0, w, rail, r(13), r(FLOOR), seed=6.0)
-    for yy in range(r(25), r(FLOOR)):                 # the lit side: lift the wood one step
+    age_planks(cv, rng, 0, w, r(si(60)), rail, n_peel=si(2 * S))
+    beam(cv, 0, w, r(si(62)), r(si(57)), seed=7.0)
+    rail_and_wainscot(cv, rng, 0, w, rail, r(si(13)), r(FLOOR), seed=6.0)
+    for yy in range(r(si(25)), r(FLOOR)):             # the lit side: lift the wood one step
         for xx in range(w):
             cv.shift(xx, yy, 1, only=('wood', 'jade'))
-    post(cv, 0, 2, r(WALL_TOP), r(FLOOR), seed=8.0)   # back corner post
+    post(cv, 0, si(2), r(WALL_TOP), r(FLOOR), seed=8.0)   # back corner post
     return cv
 
 
@@ -396,8 +434,8 @@ def moon_window(cv):
     """Room 4's moon window on the side wall, drawn the way you would by hand:
     an upright ellipse (the circle seen at an angle), a lacquered ring lit on its
     upper left, a gilt bead, warm lamplight behind a cross of bamboo bars."""
-    cx, cy = P(0, 41, 21)
-    rx, ry = 5.0, 9.5
+    cx, cy = P(0, sf(41), sf(21))
+    rx, ry = sf(5.0), sf(9.5)
     for yy in range(int(cy - ry) - 3, int(cy + ry) + 4):
         for xx in range(int(cx - rx) - 3, int(cx + rx) + 4):
             u, v = (xx + 0.5 - cx) / rx, (yy + 0.5 - cy) / ry
@@ -426,14 +464,14 @@ F_CHIM, F_CHIM_L, F_CHIM_TOP = 40, 41, 42
 F_HIPR = 50
 
 
-@njit(cache=True)
+@njit(**_JIT)
 def _prof(d):
     if d < 0.0:
         d = 0.0
-    return 0.5 * d + 0.01375 * d * d
+    return 0.5 * d + 0.01375 * d * d / S
 
 
-@njit(cache=True)
+@njit(**_JIT)
 def _kick(x, z):
     k = 0.0
     for cx, cz in ((EX0, EZ0), (EX1, EZ0), (EX0, EZ1), (EX1, EZ1)):
@@ -446,7 +484,7 @@ def _kick(x, z):
     return k
 
 
-@njit(cache=True)
+@njit(**_JIT)
 def _roof(x, z):
     """(top height, thickness, part) of the roof shell over plan point (x, z).
     part: 0 the long slopes (front / back), 1 the hips (left / right), 2 the upper roof
@@ -467,18 +505,26 @@ def _roof(x, z):
     return EAVE + hs + k, EAVE_T, 1
 
 
-@njit(cache=True)
+ONI_E, ONI_H, ONI_H1 = sf(5.0), sf(4.0), sf(1.0)   # the onigawara: reach along the ridge, rise, step
+
+
+@njit(**_JIT)
 def _ridge_top(x):
     """Ridge height along x; the ends rise into onigawara."""
     x0, x1 = GX0 - BARGE - 1.0, GX1 + BARGE + 1.0
     top = EAVE + _prof(RIDGE_Z - EZ0) + RIDGE_H
     e = min(x - x0, x1 - x)
-    if e < 5.0:
-        top += 4.0 * (1.0 - e / 5.0) ** 1.5 + 1.0
+    if e < ONI_E:
+        top += ONI_H * (1.0 - e / ONI_E) ** 1.5 + ONI_H1
     return top
 
 
-@njit(cache=True)
+RIDGE_D = sf(3.0)                      # how far the ridge's noshi stack sinks into the slopes
+HIPR_W, HIPR_H = sf(1.6), sf(2.2)      # hip ridges: half width, height
+GABLE_D, GABLE_E = sf(2.0), sf(0.5)    # the attic behind the gables: how far below the gable base, and slack
+
+
+@njit(**_JIT)
 def _inside(x, y, z):
     """Which solid (x, y, z) is in: 0 none, 1 roof shell, 2 attic behind the gables,
     3 ridge, 4 chimney, 5 hip ridge."""
@@ -488,7 +534,7 @@ def _inside(x, y, z):
     if cx0 - 1 <= x <= cx1 + 1 and cz0 - 1 <= z <= cz1 + 1 and ctop <= y <= ctop + 2:
         return 4
     if GX0 - BARGE - 1.0 <= x <= GX1 + BARGE + 1.0 and abs(z - RIDGE_Z) <= RIDGE_W:
-        if EAVE + _prof(RIDGE_Z - EZ0) - 3.0 <= y <= _ridge_top(x):
+        if EAVE + _prof(RIDGE_Z - EZ0) - RIDGE_D <= y <= _ridge_top(x):
             return 3
     if not (EX0 <= x <= EX1 and EZ0 <= z <= EZ1):
         return 0
@@ -497,33 +543,36 @@ def _inside(x, y, z):
         # hip ridges: where the long slope meets a hip, below the gables
         dF, dB, dL, dR = z - EZ0, EZ1 - z, x - EX0, EX1 - x
         g = min(abs(min(dF, dB) - min(dL, dR)), 9.0)
-        if g < 1.6 and min(min(dF, dB), min(dL, dR)) < GX0 - EX0:
-            bump = 2.2 * (1.0 - (g / 1.6) ** 2)
+        if g < HIPR_W and min(min(dF, dB), min(dL, dR)) < GX0 - EX0:
+            bump = HIPR_H * (1.0 - (g / HIPR_W) ** 2)
             if top - t <= y <= top + bump:
                 return 5
     if top - t <= y <= top:
         return 1
-    if GX0 <= x <= GX1 and y <= top and y >= EAVE + HG - 2.0:
-        if _prof(min(z - EZ0, EZ1 - z)) >= HG - 0.5:
+    if GX0 <= x <= GX1 and y <= top and y >= EAVE + HG - GABLE_D:
+        if _prof(min(z - EZ0, EZ1 - z)) >= HG - GABLE_E:
             return 2
     return 0
 
 
-@njit(cache=True)
+MARCH_PAD = sf(4.0)
+
+
+@njit(**_JIT)
 def _march(sx0, sy0, w, h, dz):
     """For every screen pixel in the box, march the eye ray front to back and
     report what it hits: solid, face and the world point."""
     out_s = np.zeros((h, w), np.int32)
     out_f = np.zeros((h, w), np.int32)
     out_p = np.zeros((h, w, 3))
-    nz = int((EZ1 - EZ0 + 8.0) / dz)
+    nz = int((EZ1 - EZ0 + MARCH_PAD * 2.0) / dz)
     for j in range(h):
         for i in range(w):
             X0 = sx0 + i + 0.5 - SX0
             Y0 = SY0 - (sy0 + j + 0.5)
             px, py, pz = 0.0, 0.0, 0.0
             for k in range(nz):
-                z = EZ0 - 4.0 + k * dz
+                z = EZ0 - MARCH_PAD + k * dz
                 x = X0 + A * z
                 y = Y0 - B * z
                 s = _inside(x, y, z)
@@ -583,7 +632,8 @@ def _march(sx0, sy0, w, h, dz):
     return out_s, out_f, out_p
 
 
-def march(box=(120, 90, 360, 200), dz=0.05):
+def march(box=None, dz=0.05):
+    box = MARCH_BOX if box is None else box
     x0, y0, x1, y1 = box
     return _march(float(x0), float(y0), x1 - x0, y1 - y0, dz)
 
@@ -660,6 +710,14 @@ def _moss_on(names, m, U, V, d, k, r, salt, blobs=()):
     names[grow & ~sh(grow, -1, 0)] = 'leaf0'
 
 
+# moss cushions on the slopes: (u, v) where they sit (scaled with the roof), (ru, rv) their size (px)
+MOSS_FRONT = ((sf(92), sf(-10), 9, 4), (sf(18), sf(-9), 6, 3), (sf(62), sf(0), 5, 2.5))
+MOSS_HIP = ((sf(14), sf(-8), 6, 3),)
+if S != 1.0:                     # a bigger roof holds a few more
+    MOSS_FRONT += ((sf(40), sf(-12), 6, 3), (sf(110), sf(-3), 5, 2.5))
+    MOSS_HIP += ((sf(30), sf(-12), 5, 2.5),)
+
+
 def shade_roof(s, f, p, rng):
     """Turn the march result into pixels (RGBA, the march box's size)."""
     h, w = f.shape
@@ -691,7 +749,7 @@ def shade_roof(s, f, p, rng):
     idx = np.where((tone > 0.42) & (k < 3) & (r > 0), idx + 1, idx)
     idx = np.where((tone < -0.32) & (k < 3) & (r > 0), idx - 1, idx)
     put(m, idx, TILE)
-    _moss_on(names, m, X, Z, d, k, r, 1, blobs=((92, -10, 9, 4), (18, -9, 6, 3), (62, 0, 5, 2.5)))
+    _moss_on(names, m, X, Z, d, k, r, 1, blobs=MOSS_FRONT)
     # the left hip: lit by the sun
     m = f == F_HIP
     d = X - EX0
@@ -705,7 +763,7 @@ def shade_roof(s, f, p, rng):
     idx = _tile_idx(k, r, 1)
     idx = _weather(idx, ci, qi, k, 2)
     put(m, idx, TILE)
-    _moss_on(names, m, Z * 0.7, X * 1.4, d * 1.4, k, r, 2, blobs=((14, -8, 6, 3),))
+    _moss_on(names, m, Z * 0.7, X * 1.4, d * 1.4, k, r, 2, blobs=MOSS_HIP)
     # the eave fascias: round tile ends, a dark gap, the fascia board, rafter ends
     for face, along, lit in ((F_FASCIA, X - EX0, 0), (F_SFASCIA, (EZ1 - Z) / (CHZ / CH), 1), (F_RFASCIA, X, -1)):
         m = f == face
@@ -765,10 +823,10 @@ def shade_roof(s, f, p, rng):
         names[kp] = 'wood2'
         names[kp & (Z < RIDGE_Z - 0.6)] = 'wood3'
         names[kp & (Z > RIDGE_Z + 0.9)] = 'wood1'
-        apex = m & (np.abs(Z - RIDGE_Z) < 2.6) & (under < 4.0) & (under >= 0.7)
+        apex = m & (np.abs(Z - RIDGE_Z) < sf(2.6)) & (under < sf(4.0)) & (under >= 0.7)
         names[apex] = 'gold2'
-        names[apex & (Z < RIDGE_Z - 0.4)] = 'gold3'
-        names[apex & (np.abs(Z - RIDGE_Z) > 1.8)] = 'gold1'
+        names[apex & (Z < RIDGE_Z - sf(0.4))] = 'gold3'
+        names[apex & (np.abs(Z - RIDGE_Z) > sf(1.8))] = 'gold1'
     # the ridge: stacked noshi tiles under a green copper cap; onigawara at the ends
     m = (f == F_RIDGE) | (f == F_RIDGE_END)
     if m.any():
@@ -776,10 +834,10 @@ def shade_roof(s, f, p, rng):
         for yy, xx in zip(*np.nonzero(m)):
             rt[yy, xx] = _ridge_top(X[yy, xx])
         t = rt - Y
-        end = m & (np.minimum(X - (GX0 - BARGE - 1), (GX1 + BARGE + 1) - X) < 5.0)
+        end = m & (np.minimum(X - (GX0 - BARGE - 1), (GX1 + BARGE + 1) - X) < ONI_E)
         nl = np.floor((t - 2.0) / 1.25).astype(int)
         names[m] = np.where(nl % 2 == 0, 'fgrey3', 'fgrey1')[m]
-        names[m & (t >= 2.0 + 1.25 * 4)] = 'fgrey0'
+        names[m & (t >= 2.0 + 1.25 * 4 * S)] = 'fgrey0'
         names[m & (t < 2.0)] = 'teal2'
         names[m & (t < 0.9)] = 'teal3'
         names[m & (t >= 2.0) & (t < 2.6)] = 'teal1'
@@ -803,7 +861,7 @@ def shade_roof(s, f, p, rng):
             continue
         if face == F_CHIM_TOP:
             names[m] = 'stone3'
-            hole = m & (np.abs(X - (CHIM[0] + CHIM[1]) / 2) < 3) & (np.abs(Z - (CHIM[2] + CHIM[3]) / 2) < 2.5)
+            hole = m & (np.abs(X - (CHIM[0] + CHIM[1]) / 2) < sf(3)) & (np.abs(Z - (CHIM[2] + CHIM[3]) / 2) < sf(2.5))
             names[hole] = 'ink'
             continue
         tex = CHIM_TEX[0] if face == F_CHIM else CHIM_TEX[1]
@@ -888,16 +946,22 @@ CHIM_TEX = chimney_textures(random.Random(5))
 # ---------------------------------------------------------------- sunlight
 SUN = np.array([-0.75, 0.85, -1.0])
 SUN = SUN / np.linalg.norm(SUN)       # toward the sun: from the upper left, in front
-VPOSTS = ((-4.0, -2.0, -15.0, -13.0), (114.0, 116.0, -15.0, -13.0))   # veranda posts x0, x1, z0, z1
+_vp = (VZ0 + si(1), VZ0 + si(1) + si(2))
+VPOSTS = ((float(VX0), float(VX0 + si(2)), float(_vp[0]), float(_vp[1])),
+          (float(BX1 + si(2)), float(BX1 + 2 * si(2)), float(_vp[0]), float(_vp[1])))   # veranda posts x0, x1, z0, z1
 
 
-@njit(cache=True)
+BODY_UP = sf(14.0)                     # the body as a sun blocker reaches up into the roof
+SHADOW_T, SHADOW_Y = sf(160.0), sf(140.0)   # how far to trace toward the sun, and to what height
+
+
+@njit(**_JIT)
 def _solid_all(x, y, z):
     if _inside(x, y, z) != 0:
         return True
-    if BX0 <= x <= BX1 and BZ0 <= z <= BZ1 and 0.0 <= y <= WALL_TOP + 14.0:
+    if BX0 <= x <= BX1 and BZ0 <= z <= BZ1 and 0.0 <= y <= WALL_TOP + BODY_UP:
         return True
-    if -4.0 <= x <= 116.0 and VZ0 <= z <= 0.0 and FLOOR - 3.0 <= y <= FLOOR:
+    if VX0 <= x <= VX1 and VZ0 <= z <= 0.0 and FLOOR - VT <= y <= FLOOR:
         return True
     for (a, b, c, d) in VPOSTS:
         if a <= x <= b and c <= z <= d and FLOOR <= y <= EAVE:
@@ -905,16 +969,16 @@ def _solid_all(x, y, z):
     return False
 
 
-@njit(cache=True)
+@njit(**_JIT)
 def _shadowed(pts, lx, ly, lz):
     n = pts.shape[0]
     out = np.zeros(n, np.bool_)
     for i in range(n):
         x, y, z = pts[i, 0], pts[i, 1], pts[i, 2]
         t = 0.7
-        while t < 160.0:
+        while t < SHADOW_T:
             yy = y + ly * t
-            if yy > 140.0:
+            if yy > SHADOW_Y:
                 break
             if _solid_all(x + lx * t, yy, z + lz * t):
                 out[i] = True
@@ -936,34 +1000,36 @@ GROUND_SUN = GROUND_SUN / np.linalg.norm(GROUND_SUN)   # the shade on the grass 
 # ---------------------------------------------------------------- the veranda and the footings
 def veranda_top(rng):
     """The engawa's boards (grey, weathered), texels = 4 units deep (one screen row)."""
-    w = 120
-    cv = Canvas(w, 4)
-    for row in range(4):
-        cv.hline(0, w - 1, row, 'stone2' if row in (0, 1) else 'stone3')
-    for k, row in enumerate((0, 2)):
+    w = VX1 - VX0
+    nr = -VZ0 // 4
+    cv = Canvas(w, nr)
+    for row in range(nr):
+        cv.hline(0, w - 1, row, 'stone2' if (row // 2) % 2 == 0 else 'stone3')
+    for k, row in enumerate(range(0, nr, 2)):
         x = rng.randint(4, 30)
         while x < w:
             cv.vline(x, row, row + 1, 'stone1')
             x += rng.randint(26, 44)
-    WG.grain_pass(cv, 0, 0, w, 4, 'h', seed=4.0, board=2, contrast=0.8, ramps=('stone',))
-    for xx in range(26, 50):                                       # worn pale in front of the door
+    WG.grain_pass(cv, 0, 0, w, nr, 'h', seed=4.0, board=2, contrast=0.8, ramps=('stone',))
+    for xx in range(DOOR[0] - VX0 - si(1), DOOR[1] - VX0 + si(3)):   # worn pale in front of the door
         if (xx * 7) % 5:
-            cv.px(xx, 3, 'stone4')
+            cv.px(xx, nr - 1, 'stone4')
     return cv
 
 
 def veranda_front(rng):
-    w = 120
-    cv = Canvas(w, 10)
+    w = VX1 - VX0
+    cv = Canvas(w, FLOOR)
     cv.hline(0, w - 1, 0, 'stone4')
     cv.hline(0, w - 1, 1, 'stone2')
-    cv.hline(0, w - 1, 2, 'stone1')
-    WG.grain_pass(cv, 0, 1, w, 3, 'h', seed=9.0, board=2, contrast=0.8, ramps=('stone',))
-    cv.rect(0, 3, w, 7, 'wood0')                                   # dark under the floor
-    cv.hline(0, w - 1, 3, 'ink')
-    for x in range(6, w, 26):                                      # the footings further in
+    for row in range(2, VT):
+        cv.hline(0, w - 1, row, 'stone1')
+    WG.grain_pass(cv, 0, 1, w, VT, 'h', seed=9.0, board=2, contrast=0.8, ramps=('stone',))
+    cv.rect(0, VT, w, FLOOR - VT, 'wood0')                         # dark under the floor
+    cv.hline(0, w - 1, VT, 'ink')
+    for x in range(si(6), w, si(26)):                              # the footings further in
         for (dx, dy, c) in ((0, 7, 'stone1'), (1, 7, 'stone1'), (2, 7, 'stone0'), (0, 6, 'stone1'), (1, 6, 'stone2')):
-            cv.px(x + dx, dy + 1, c)
+            cv.px(x + dx, dy + 1 + FLOOR - 10, c)
     return cv
 
 
@@ -988,15 +1054,17 @@ def post3d(cv, x0, x1, z0, z1, y0, y1):
 
 def footings(cv, rng):
     """Tsuka-ishi under the posts and along the front, half sunk in the ground."""
-    spots = [(-3, VZ0 + 1, 7, 5), (115, VZ0 + 1, 7, 5), (30, VZ0 + 2, 6, 4), (70, VZ0 + 2, 6, 4),
-             (96, VZ0 + 2, 6, 4), (-1, 2, 5, 4), (-1, 22, 5, 4), (-1, 42, 5, 4)]
+    big, small, side = (si(7), si(5)), (si(6), si(4)), (si(5), si(4))
+    spots = [(VPOSTS[0][0] + 1, VZ0 + 1) + big, (VPOSTS[1][0] + 1, VZ0 + 1) + big, (sf(30), VZ0 + 2) + small,
+             (sf(70), VZ0 + 2) + small, (sf(96), VZ0 + 2) + small, (-1, 2) + side, (-1, sf(22)) + side,
+             (-1, sf(42)) + side]
     for (x, z, w, h) in spots:
         sx, sy = P(x, 0, z)
         stone(cv, rng, int(sx - w / 2), int(sy - h + 1), w, h)
 
 
 # ---------------------------------------------------------------- putting it together
-MARCH_BOX = (120, 90, 360, 200)
+MARCH_BOX = T(120, 90) + T(360, 200)
 
 
 def build_static(seed=11):
@@ -1026,8 +1094,8 @@ def build_static(seed=11):
     wall_mask[ys[on_front & ~glass], xs[on_front & ~glass]] = True
     # the veranda
     ver = Canvas(W, H)
-    warp(ver, veranda_front(rng), (-4, FLOOR, VZ0), (1, 0, 0), (0, -1, 0))
-    warp(ver, veranda_top(rng), (-4, FLOOR, 0), (1, 0, 0), (0, 0, -4))
+    warp(ver, veranda_front(rng), (VX0, FLOOR, VZ0), (1, 0, 0), (0, -1, 0))
+    warp(ver, veranda_top(rng), (VX0, FLOOR, 0), (1, 0, 0), (0, 0, -4))
     ys, xs = np.nonzero(ver.a[..., 3] > 0)
     top = (ys + 0.5) < SY0 - FLOOR - B * VZ0 + 0.5                       # the boards, not the dark under them
     wz = np.clip((SY0 - FLOOR - (ys + 0.5)) / B, VZ0, 0)
@@ -1052,10 +1120,11 @@ def build_static(seed=11):
 
 
 # ---------------------------------------------------------------- the things that move
-LANTERNS = [(15.0, -8.0, 0.0), (49.0, -8.0, 2.0)]     # world x, z, extra lag (frames)
-FURIN = (-9.0, -17.0)
-NOREN_PANELS = (24, 31, 38)                             # left edges (world x) of the three panels, 6 wide
-NOREN_LEN = 15
+LANTERNS = [(sf(15.0), sf(-8.0), 0.0), (sf(49.0), sf(-8.0), 2.0)]     # world x, z, extra lag (frames)
+FURIN = (sf(-9.0), sf(-17.0))
+NOREN_W = si(6)                                         # width of a noren panel
+NOREN_PANELS = tuple(DOOR[0] + si(1) + p * (NOREN_W + si(1)) for p in range(3))   # their left edges (world x)
+NOREN_LEN = si(15)
 
 
 def _sx(x, z=0.0):
@@ -1072,38 +1141,40 @@ def noren(cv, f):
     little behind the one to its left."""
     y0 = _sy(DOOR_TOP) + 1
     x0, x1 = _sx(DOOR[0]) - 1, _sx(DOOR[1])
-    spr = Canvas(40, 26)
+    spr = Canvas(DOOR[1] - DOOR[0] + 20, NOREN_LEN + 11)
     ox, oy = x0 - 8, y0
     g = max(0.0, wind(x0 + 10, f) - 0.25)                  # the gust part of the wind
+    pw = NOREN_W
+    crest = _noren_crest()
     for p, px0 in enumerate(NOREN_PANELS):
         sx0 = _sx(px0) - ox
-        s = sway(_sx(px0 + 3), f, amp=1.25, lag=1.0 + p * 1.6)
-        spread = (p - 1) * g * 1.4
-        lift = int(round(max(0.0, s) * 0.9 + g * 1.5))
+        s = sway(_sx(px0 + pw // 2), f, amp=1.25, lag=1.0 + p * 1.6) * S
+        spread = (p - 1) * g * 1.4 * S
+        lift = int(round(max(0.0, s) * 0.9 + g * 1.5 * S))
         L = NOREN_LEN - lift - (1 if p == 1 else 0)
         for row in range(L):
             t = row / max(1, L - 1)
             dx = (s + spread) * t * t * 1.5
             xx = sx0 + int(round(dx))
             bulge = s * 4 * t * (1 - t)                    # billowing out: the middle catches the light
-            for k in range(6):
-                c = ['indigo3', 'indigo2', 'indigo2', 'indigo2', 'indigo1', 'indigo1'][k]
-                if bulge > 0.9 and k in (1, 2) and 0.3 < t < 0.85:
+            for k in range(pw):
+                c = 'indigo3' if k == 0 else ('indigo1' if k >= pw - 2 else 'indigo2')
+                if bulge > 0.9 * S and 1 <= k < pw // 2 and 0.3 < t < 0.85:
                     c = 'indigo3'
-                if bulge < -0.6 and k in (3, 4):
+                if bulge < -0.6 * S and pw // 2 <= k < pw - 1:
                     c = 'indigo0'
                 if row == 0:
-                    c = 'indigo1' if k < 5 else 'indigo0'
+                    c = 'indigo1' if k < pw - 1 else 'indigo0'
                 if row == L - 1:
-                    c = 'indigo1' if k < 4 else 'indigo0'
+                    c = 'indigo1' if k < pw - 2 else 'indigo0'
                     if (k + p * 2) % 5 == 3:
                         continue                             # frayed hem
                 spr.px(xx + k, row + 1, c)
-            if p == 1 and 3 <= row <= 7:                     # the crest: a white ring mon round a tea leaf
-                crest = {3: '.###.', 4: '#..##', 5: '#.#.#', 6: '##..#', 7: '.###.'}[row]
-                for k, ch in enumerate(crest):
-                    if ch == '#':
-                        spr.px(xx + k, row + 1, 'paper4' if (k < 2 or row < 5) else 'paper3')
+            cr = row - si(3)
+            if p == 1 and 0 <= cr < len(crest):              # the crest: a white ring mon round a tea leaf
+                for k, ch in enumerate(crest[cr]):
+                    if ch in '#+':
+                        spr.px(xx + (pw - len(crest[cr])) // 2 + k, row + 1, 'paper4' if ch == '#' else 'paper3')
     out = OBJ.outline(spr)
     for xx in range(x0 - 1, x1 + 2):                         # the rod
         cv.px(xx, y0, 'wood3')
@@ -1111,6 +1182,28 @@ def noren(cv, f):
     cv.blit(out, ox - 1, oy - 1)
     for xx in range(x0 - 1, x1 + 2):
         cv.px(xx, y0, 'wood3' if xx % 7 else 'wood4')
+
+
+def _noren_crest():
+    """The white ring mon round a tea leaf, as rows ('#' lit, '+' shaded)."""
+    if S == 1.0:
+        rows = ['.###.', '#..##', '#.#.#', '##..#', '.###.']
+        return [''.join(('#' if (k < 2 or r < 2) else '+') if ch == '#' else '.' for k, ch in enumerate(row))
+                for r, row in enumerate(rows)]
+    n = max(5, NOREN_W - 1 - (NOREN_W % 2 == 0))             # odd, a pixel in from each edge
+    c = (n - 1) / 2
+    out = []
+    for y in range(n):
+        row = ''
+        for x in range(n):
+            d = math.hypot(x - c, y - c)
+            ring = c - 0.65 <= d <= c + 0.45
+            u, v = (x - c) / c, (y - c) / c                  # the leaf: a slanted lens with a midrib
+            leaf = abs(u + v) < 0.42 and abs(u - v) < 0.75 * (1 - abs(u + v) / 0.5) + 0.25
+            leaf = leaf and d < c - 1.0
+            row += ('#' if (x < c or y < c) else '+') if (ring or leaf) else '.'
+        out.append(row)
+    return out
 
 
 def _lantern_sprite(f, flick):
