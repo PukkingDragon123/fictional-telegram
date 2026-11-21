@@ -1,0 +1,13 @@
+{
+ "name": "roof_birds",
+ "sheet": "roof_birds_sheet.png",
+ "frames": 96,
+ "fps": 12,
+ "w": 1280,
+ "h": 31,
+ "sheet_cols": 3,
+ "x": 0,
+ "y": 122,
+ "parallax": 0.62,
+ "tile_w": 1280
+}

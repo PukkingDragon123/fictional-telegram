@@ -1,0 +1,13 @@
+{
+ "name": "far_houses",
+ "sheet": "far_houses_sheet.png",
+ "frames": 1,
+ "fps": 12,
+ "w": 1280,
+ "h": 12,
+ "sheet_cols": 1,
+ "x": 0,
+ "y": 186,
+ "parallax": 0.16,
+ "tile_w": 1280
+}
