@@ -46,15 +46,15 @@ W, H = 640, 360
 TW = 1280                     # every plane tiles every TW px
 N = 96                        # animation frames per loop (12 fps)
 FPS = 12
-HORIZON = 104                 # the lake's far line: eye level, above the teahouse roof (we see the roof
-                              # from above, so the eye must be higher than it)
+HORIZON = 196                 # the lake's far line
 DY = HORIZON - outside.HORIZON
-SUN = (328, 58)               # the sun's centre on screen (it does not scroll), low over the ranges
-TREE_K = 0.62                 # the shore's trees grown smaller: from up here they stand well back
+SUN = (328, 104)              # the sun's centre on screen (it does not scroll), low over the ranges
+TREE_K = 1.0                  # the shore's trees at the pack's own size
 SPEED = 8.0                   # camera pan, px per second at rate 1
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'main_menu_wide')
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
-RATE = {'sky': 0.0, 'mountains': 0.08, 'hills': 0.16, 'lake': 0.24, 'lake_life': 0.24,
+RATE = {'sky': 0.0, 'mountains': 0.08, 'hills': 0.16, 'far_houses': 0.16, 'lake': 0.24, 'lake_life': 0.24,
+        'shore_houses': 0.4, 'shore_birds': 0.4, 'roof_birds': 0.62,
         'birds': 0.2, 'shore': 0.40, 'flowers': 0.40, 'meadow': 0.62, 'ground_birds': 0.62, 'teahouse': 0.62, 'big_tree': 0.80, 'front': 1.0}
 TEAHOUSE_X, TEAHOUSE_BASE = 330, 300        # in the meadow plane's tile
 BIG_TREE_X = 980                            # its trunk's x in the near plane's tile
@@ -63,7 +63,7 @@ BIG_TREE_X = 980                            # its trunk's x in the near plane's 
 def ground_line(x):
     """The meadow's rolling top edge (meadow plane, tile x)."""
     t = 2 * math.pi * x / TW
-    y = 176 + 5 * math.sin(t + 0.4) + 4 * math.sin(2 * t + 1.9) + 2 * math.sin(5 * t)
+    y = 268 + 7 * math.sin(t + 0.4) + 4 * math.sin(2 * t + 1.9) + 2 * math.sin(5 * t)
     d = (x - TEAHOUSE_X) / 150.0                       # the teahouse stands on a little rise
     return y - 10 * math.exp(-d * d)
 
@@ -75,7 +75,7 @@ def sky():
     ramp = np.array(G.GOLD['g_sky'], np.uint8)
     k = len(ramp) - 1
     d = np.hypot((xx - SUN[0]) / 1.6, (yy - SUN[1]))          # warmer round the sun
-    v = np.clip(yy / (HORIZON + 6.0), 0, 1) ** 1.15 * (k - 1.4) + np.clip(1 - d / 260, 0, 1) ** 1.8 * 2.2
+    v = np.clip(yy / 205.0, 0, 1) ** 1.25 * (k - 1.4) + np.clip(1 - d / 330, 0, 1) ** 1.8 * 2.2
     v = v + BAYER[yy.astype(int) % 4, xx.astype(int) % 4] - 0.5
     a[..., :3] = ramp[np.clip(np.floor(v + 0.5), 0, k).astype(int)]
     a[..., 3] = 255
@@ -134,7 +134,14 @@ def pack_planes():
     out['hills'] = [_haze(G.swap(P['05_hills_trees'][0]), 0.22)]
     out['lake'] = [G.swap(a) for a in P['03_lake']]
     out['lake_life'] = [G.swap(a) for a in P['04_lake_life']]
-    out['birds'] = [G.swap(a) for a in P['04_birds']]            # swallows over the water, egrets, sparrows
+    import life
+    birds = [a.copy() for a in P['04_birds']]                  # swallows over the water, egrets, sparrows
+    rng = random.Random(29)                                    # and more: geese in a skein high up, rooks going home
+    lift = lambda x0, y0, vx: (lambda f: (x0 + vx * TW * f / len(birds), y0 + 3 * math.sin(2 * math.pi * f / len(birds))))
+    life._flock(birds, rng, 'goose', 9, 0, 0, 9, big=True, beat=8, shape='v', path=lift(200, 96, 1))
+    life._flock(birds, rng, 'crow', 7, 0, 0, 14, beat=5, path=lift(820, 128, -1))
+    life._flock(birds, rng, 'starling', 14, 0, 0, 16, beat=3, path=lift(560, 150, 1))
+    out['birds'] = [G.swap(a) for a in birds]
     trees = []
     for a in P['06_garden_trees']:                       # the trees without the garden's flat ground fill
         b = a.copy()
@@ -152,20 +159,20 @@ def pack_planes():
 
 
 # ---------------------------------------------------------------- the meadow plane and the front
-ROAD_W0, ROAD_K = 2.0, 0.15                    # the road's width at the meadow's far edge, and how it widens toward you
+ROAD_W0, ROAD_K = 9.0, 0.24                    # the road's width at the meadow's far edge, and how it widens toward you
 
 
 def road_y(x):
     """The middle of the dirt road that wanders the length of the meadow (meadow plane, tile x).
     It swings up to pass just below the teahouse's step."""
     t = 2 * math.pi * x / TW
-    y = 286 + 34 * math.sin(t + 1.0) + 12 * math.sin(2 * t + 0.3) + 4 * math.sin(3 * t + 2.2)   # winding in depth
+    y = 316 + 8 * math.sin(t + 1.0) + 4 * math.sin(2 * t + 0.3) + 2 * math.sin(3 * t + 2.2)
     d = (x - TEAHOUSE_X) / 120.0
     return y - (y - (TEAHOUSE_BASE + 14)) * math.exp(-d * d)
 
 
 def road_half(y):
-    return (ROAD_W0 + (y - 170) * ROAD_K) / 2
+    return (ROAD_W0 + (y - 262) * ROAD_K) / 2
 
 
 def on_road(x, y, pad=0.0):
@@ -195,7 +202,7 @@ def ground_tex():
     yy, xx = np.mgrid[0:H, 0:TW].astype(np.float64)
     g = np.array([ground_line(x) for x in range(TW)])
     below = yy >= np.round(g)[None, :]
-    depth = np.clip((yy - 170) / 190.0, 0.05, 1)                          # 0 far .. 1 at the bottom edge
+    depth = np.clip((yy - 262) / 98.0, 0.05, 1)                          # 0 far .. 1 at the bottom edge
     h = lambda k: ((np.sin(xx * 12.9898 + yy * 78.233 + k) * 43758.5453) % 1.0)
     out = np.empty((H, TW), object)
     out[:] = None
@@ -216,7 +223,7 @@ def ground_tex():
     lawn = np.where(soil, earth, lawn)
     # the road
     ry = np.array([road_y(x) for x in range(TW)])[None, :]
-    half = (ROAD_W0 + (yy - 170) * ROAD_K) / 2
+    half = (ROAD_W0 + (yy - 262) * ROAD_K) / 2
     door = np.zeros_like(below)
     for y in range(H):
         for x in range(int(TEAHOUSE_X - 30), int(TEAHOUSE_X + 40)):
@@ -303,13 +310,144 @@ def meadow_plane():
             return True
         # open ground: thin the meadow away from the road and the far rim, in drifts
         near_road = abs(y - road_y(x)) - road_half(y) < 9
-        far_rim = y < ground_line(x) + 5
+        far_rim = y < ground_line(x) + 9
         thin = _noise(np.array(x), np.array(y), (60, 20, 5.3))
         return not (near_road or far_rim) and float(thin) < 0.55
-    rows = [(2, 6, 4, 1, 7), (6, 7, 5, 0, 10), (11, 9, 5, 1, 12), (18, 11, 6, 0, 15), (27, 13, 6, 1, 17),
-            (38, 15, 7, 0, 19), (52, 18, 7, 1, 22), (68, 21, 8, 0, 25), (88, 25, 8, 1, 28), (112, 29, 9, 0, 31),
-            (140, 33, 9, 1, 34), (170, 37, 10, 0, 37)]
+    rows = [(2, 11, 6, 1, 9), (7, 13, 6, 0, 14), (15, 16, 7, 1, 19), (27, 20, 7, 0, 22), (42, 24, 8, 1, 26),
+            (60, 28, 8, 0, 30), (82, 32, 9, 1, 34)]
     return _meadow_plane(rows, ground_tex(), 0, 5, avoid=avoid)
+
+
+# ---------------------------------------------------------------- houses across the water
+def small_house(w, rng, lit=True):
+    """A little farmhouse seen from the same 3/4 angle as the teahouse: plaster walls between dark posts,
+    a hipped roof of dark tiles in courses, a lit window, the eave's shadow. w = front width in px."""
+    d = max(4, int(w * 0.42))                   # depth, receding up and to the left at 2:1
+    hw = max(4, int(w * 0.34))                  # wall height
+    rh = max(4, int(w * 0.36))                  # roof height
+    ov = max(1, w // 12)                        # eave overhang
+    sx, sy = d // 2, d // 4
+    W_, H_ = w + sx + 2 * ov + 2, hw + rh + sy + 3
+    cv = Canvas(W_, H_)
+    bx, by = sx + ov + 1, H_ - 1                # front wall's bottom-left
+    # the side wall (in shade), receding up-left
+    for k in range(sx + 1):
+        top = by - hw - k // 2
+        cv.vline(bx - k, top, by - k // 2, 'paper2' if k % 4 else 'wood1')
+    # the front wall: plaster between posts, a sill, a lit window or a door
+    for x in range(w):
+        cv.vline(bx + x, by - hw, by, 'paper3')
+    for x in range(0, w, max(4, w // 5)):
+        cv.vline(bx + x, by - hw, by, 'wood1')
+    cv.vline(bx + w - 1, by - hw, by, 'wood1')
+    cv.hline(bx, bx + w - 1, by, 'wood0')
+    cv.hline(bx, bx + w - 1, by - hw, 'wood1')
+    if w >= 14:
+        wx0, wx1 = bx + w // 2, bx + w // 2 + max(3, w // 4)
+        wy0, wy1 = by - hw + 2, by - max(2, hw // 3)
+        for y in range(wy0, wy1 + 1):
+            cv.hline(wx0, wx1, y, 'fire4' if lit else 'wood2')
+        if wx1 - wx0 >= 4:
+            cv.vline((wx0 + wx1) // 2, wy0, wy1, 'wood1')
+        dx0 = bx + max(2, w // 6)
+        for y in range(by - hw + 3, by):
+            cv.hline(dx0, dx0 + max(2, w // 8), y, 'wood0')
+    # the roof: a hipped roof in courses of dark tile, lit on its upper left
+    ey = by - hw - 1                            # eave line
+    for y in range(rh + 1):
+        t = y / max(1, rh)
+        x0 = int(bx - ov - sx * (1 - t) * 0.5 + (w * 0.22) * t)
+        x1 = int(bx + w - 1 + ov - (w * 0.22) * t)
+        yy = ey - y - int(sy * 0.5 * (1 - t))
+        for x in range(x0 - int(sx * (1 - t) * 0.5), x1 + 1):
+            back = x < bx - ov + int(w * 0.22 * t)
+            c = 'stone1' if (y % 2 == 0) else 'stone2'
+            if back:
+                c = 'stone2' if (y % 2 == 0) else 'stone3'        # the hip toward the sun
+            cv.px(x, yy, c)
+    rx0, rx1 = int(bx + w * 0.22) - sx // 2, int(bx + w - 1 - w * 0.22)
+    cv.hline(rx0, rx1, ey - rh - sy // 2, 'stone0')
+    cv.hline(rx0, rx1, ey - rh - sy // 2 - 1, 'stone3')
+    cv.hline(bx - ov, bx + w - 1 + ov, ey, 'ink0')                # eave edge
+    cv.hline(bx, bx + w - 1, ey + 1, 'paper1')                   # its shadow on the wall
+    return cv.a
+
+
+def far_houses():
+    """A hamlet on the far shore (hills plane) and a few farmhouses among the near shore's trees
+    (shore plane, behind the trees), with sparrows and a crow on some ridges."""
+    rng = random.Random(61)
+    far = np.zeros((H, TW, 4), np.uint8)
+    near = np.zeros((H, TW, 4), np.uint8)
+    roofs = []
+    for (x, w, lit) in ((90, 11, True), (104, 9, False), (300, 13, True), (318, 10, True), (640, 12, False),
+                        (655, 9, True), (930, 14, True), (1180, 10, True)):
+        a = small_house(w, rng, lit)
+        y = HORIZON - a.shape[0] + 2
+        m = a[..., 3] > 0
+        far[y:y + a.shape[0], x:x + a.shape[1]][m] = a[m]
+    for (x, w) in ((215, 30), (470, 34), (1000, 28)):
+        a = small_house(w, rng)
+        y = outside.HORIZON + 64 + DY - a.shape[0] + 1
+        m = a[..., 3] > 0
+        near[y:y + a.shape[0], x:x + a.shape[1]][m] = a[m]
+        roofs.append((x, y, a))
+    far = _haze(G.swap(far), 0.28)
+    near = _haze(G.swap(near), 0.1)
+    return [far], [near], roofs
+
+
+def perched(roofs_xy, kinds, frames_n=N, seed=5):
+    """Birds sitting on ridges: (x, y) of each foothold. They look round, preen, and now and then
+    one flicks its wings."""
+    rng = random.Random(seed)
+    birds = [dict(x=x, y=y, flip=rng.random() < 0.5, ph=rng.randrange(frames_n), kind=k) for (x, y), k in
+             zip(roofs_xy, kinds)]
+    frames = []
+    for f in range(frames_n):
+        a = np.zeros((H, TW, 4), np.uint8)
+        for b in birds:
+            t = (f + b['ph']) % frames_n
+            pose = 'look' if (t // 9) % 3 == 1 else 'stand'
+            flip = b['flip'] ^ ((t // 40) % 2 == 1)
+            if b['kind'] == 'sparrow':
+                _sparrow(a, int(b['x']) - 4, int(b['y']) - 6, pose, flip)
+            else:                                       # a crow: a dark silhouette, bigger
+                rows = CROW[pose]
+                for r, row in enumerate(rows):
+                    for c, ch in enumerate(row):
+                        if ch != '.':
+                            xx = int(b['x']) - 5 + ((len(row) - 1 - c) if flip else c)
+                            a[int(b['y']) - len(rows) + 1 + r, xx % TW] = (*PAL[CROW_COL[ch]], 255)
+        body = a[..., 3] > 0
+        ring = (np.roll(body, 1, 0) | np.roll(body, -1, 0) | np.roll(body, 1, 1) | np.roll(body, -1, 1)) & ~body
+        a[ring, :3] = PAL['wood0']
+        a[ring, 3] = 255
+        frames.append(G.swap(a))
+    return frames
+
+
+CROW = dict(stand=['....gg...', '...ggge.k', 'tgggggg..', '.gggggg..', '..g..g...'],
+            look=['...gg....', '..gggek..', 'tgggggg..', '.gggggg..', '..g..g...'])
+CROW_COL = dict(g='gloss1', e='gold3', k='ink0', t='gloss0')
+
+
+def ridge_points(a, x0, y0, n, rng, lo=0.2, hi=0.8):
+    """n footholds along the top of a sprite (its highest opaque pixel per column), spread out."""
+    al = a[..., 3] == 255
+    solid = al & np.roll(al, -1, 0) & np.roll(al, -2, 0)        # not a wisp of smoke: solid below the top
+    al = solid
+    w = a.shape[1]
+    cols = [c for c in range(int(w * lo), int(w * hi)) if al[:, c].any()]
+    pts = []
+    for _ in range(n * 30):
+        if len(pts) >= n or not cols:
+            break
+        c = rng.choice(cols)
+        if any(abs(c - p[0]) < 12 for p in pts):
+            continue
+        pts.append((c, int(np.argmax(al[:, c]))))
+    return [(x0 + c, y0 + r) for c, r in pts]
 
 
 # ---------------------------------------------------------------- birds on the ground
@@ -415,9 +553,9 @@ def front_plane():
     return frames
 
 
-def sprite_layer(name, x_at, y_shift, tile_x):
+def sprite_layer(name, x_at, y_shift, tile_x, d=None):
     """An agent-drawn animated layer (main_menu/layers/<name>) as frames + where it sits in its plane's tile."""
-    d = os.path.join(os.path.dirname(ROOT), 'main_menu', 'layers', name)
+    d = d or os.path.join(os.path.dirname(ROOT), 'main_menu', 'layers', name)
     meta = json.load(open(os.path.join(d, f'{name}.json')))
     sheet = np.asarray(Image.open(os.path.join(d, meta['sheet'])).convert('RGBA'))
     w, h = meta['w'], meta['h']
@@ -443,17 +581,40 @@ def hero_tree():
 
 def build_planes():
     pp = pack_planes()
+    fh, sh, roofs = far_houses()
+    rng = random.Random(8)
+    pts, kinds = [], []
+    for (x, y, a) in roofs:
+        for p in ridge_points(a, x, y, rng.randint(1, 2), rng):
+            pts.append(p)
+            kinds.append('sparrow' if rng.random() < 0.6 else 'crow')
+    sh_birds = perched(pts, kinds, seed=3)
     planes = {
         'sky': [sky()], 'mountains': pp['mountains'], 'hills': pp['hills'],
         'lake': pp['lake'], 'lake_life': pp['lake_life'], 'shore': pp['shore'], 'flowers': pp['flowers'],
         'birds': pp['birds'], 'meadow': meadow_plane(), 'ground_birds': ground_birds(), 'front': front_plane(),
+        'far_houses': fh, 'shore_houses': sh, 'shore_birds': sh_birds,
     }
-    th = sprite_layer('teahouse', 238, TEAHOUSE_BASE - 246, TEAHOUSE_X)
+    th = teahouse_sprite()
+    # sparrows and a crow on the teahouse's ridge and eaves
+    al = th['frames'][0]
+    pts = ridge_points(al, th['x'], th['y'], 4, random.Random(12), lo=0.15, hi=0.9)
+    planes['roof_birds'] = perched(pts, ['sparrow', 'crow', 'sparrow', 'sparrow'][:len(pts)], seed=9)
     return planes, {'teahouse': th, 'big_tree': hero_tree()}
 
 
-ORDER = ['sky', 'mountains', 'hills', 'lake', 'lake_life', 'birds', 'shore', 'flowers', 'meadow',
-         'ground_birds', 'teahouse', 'big_tree', 'front']
+def teahouse_sprite():
+    """The teahouse: the larger redraw (main_menu_wide/teahouse_big) when it has been made, else the menu's."""
+    big = os.path.join(ROOT, 'teahouse_big')
+    if os.path.exists(os.path.join(big, 'teahouse.json')):
+        meta = json.load(open(os.path.join(big, 'teahouse.json')))
+        gx, gy = meta['ground_centre']
+        return sprite_layer('teahouse', gx, TEAHOUSE_BASE - gy, TEAHOUSE_X, d=big)
+    return sprite_layer('teahouse', 238, TEAHOUSE_BASE - 246, TEAHOUSE_X)
+
+
+ORDER = ['sky', 'mountains', 'hills', 'lake', 'far_houses', 'lake_life', 'birds', 'shore_houses', 'shore_birds',
+         'shore', 'flowers', 'meadow', 'ground_birds', 'teahouse', 'roof_birds', 'big_tree', 'front']
 
 
 # ---------------------------------------------------------------- composing a frame
