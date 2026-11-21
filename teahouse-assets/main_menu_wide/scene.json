@@ -9,14 +9,13 @@
  "frames": 96,
  "tile_w": 1280,
  "scroll_px_per_s": 8.0,
- "horizon": 196,
+ "horizon": 104,
  "sun": [
   328,
-  104
+  58
  ],
  "draw_order": [
   "sky",
-  "clouds",
   "mountains",
   "hills",
   "lake",
@@ -32,7 +31,6 @@
  ],
  "layers": {
   "sky": "layers/sky/sky.json",
-  "clouds": "layers/clouds/clouds.json",
   "mountains": "layers/mountains/mountains.json",
   "hills": "layers/hills/hills.json",
   "lake": "layers/lake/lake.json",
