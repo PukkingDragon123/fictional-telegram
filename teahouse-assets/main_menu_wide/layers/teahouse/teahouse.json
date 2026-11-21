@@ -3,11 +3,11 @@
  "sheet": "teahouse_sheet.png",
  "frames": 96,
  "fps": 12,
- "w": 260,
- "h": 274,
- "sheet_cols": 15,
- "x": 208,
- "y": 48,
+ "w": 308,
+ "h": 323,
+ "sheet_cols": 13,
+ "x": 186,
+ "y": 2,
  "parallax": 0.62,
  "tile_w": 1280
 }
