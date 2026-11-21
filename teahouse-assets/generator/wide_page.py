@@ -14,11 +14,11 @@ def uri(path):
     return 'data:image/png;base64,' + base64.b64encode(open(path, 'rb').read()).decode()
 
 
-PAGE = r'''<title>Golden Hour Teahouse</title>
+PAGE = r'''<title>Summer Teahouse Menu</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400&display=swap">
 <style>
-/* One screen: the game's main menu at golden hour, scaled up crisp on a dusk-violet surround. */
+/* One screen: the game's main menu on a summer afternoon, scaled up crisp on a deep-blue surround. */
 :root { --bg: #16101f; --ink: #f2dcc0; --muted: #a58f9a; --gold: #f6c864; color-scheme: dark;
   --ui: "Pixelify Sans", "Courier New", monospace; }
 html, body { height: 100%; }

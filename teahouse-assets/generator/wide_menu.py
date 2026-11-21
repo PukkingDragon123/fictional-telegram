@@ -85,7 +85,10 @@ def sky():
     ramp = np.array(G.CUR['g_sky'], np.uint8)
     k = len(ramp) - 1
     d = np.hypot((xx - SUN[0]) / 1.6, (yy - SUN[1]))          # warmer round the sun
-    v = np.clip(yy / 205.0, 0, 1) ** 1.25 * (k - 1.4) + np.clip(1 - d / 330, 0, 1) ** 1.8 * 2.2
+    if LOOK_NAME == 'golden':
+        v = np.clip(yy / 205.0, 0, 1) ** 1.25 * (k - 1.4) + np.clip(1 - d / 330, 0, 1) ** 1.8 * 2.2
+    else:                                                     # a bright day: mid blue overhead, pale at the horizon
+        v = 2.3 + np.clip(yy / 200.0, 0, 1) ** 1.3 * (k - 2.3) + np.clip(1 - d / 160, 0, 1) ** 2 * 1.6
     v = v + BAYER[yy.astype(int) % 4, xx.astype(int) % 4] - 0.5
     a[..., :3] = ramp[np.clip(np.floor(v + 0.5), 0, k).astype(int)]
     a[..., 3] = 255
@@ -249,7 +252,7 @@ def ground_tex():
     # worn patches of bare earth
     sn = _noise(xx, yy, (15, 8, 7.7))
     bayer = BAYER[yy.astype(int) % 4, xx.astype(int) % 4]
-    soil = (sn + (bayer - 0.5) * 0.06 > 0.76) & (yy > g[None, :] + 5)
+    soil = (sn + (bayer - 0.5) * 0.06 > 0.83) & (yy > g[None, :] + 5)
     earth = np.where(h(3) < 0.3, 'wood3', 'wood4').astype(object)
     earth = np.where(soil & ~np.roll(soil, 1, 0) & (h(10) < 0.6), 'wood5', earth)   # its far lip in the sun
     lawn = np.where(soil, earth, lawn)
