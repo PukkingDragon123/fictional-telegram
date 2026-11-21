@@ -181,10 +181,11 @@ def on_road(x, y, pad=0.0):
 
 
 def _noise(x, y, s):
-    """Tileable value noise on the TW-wide tile (x wraps)."""
+    """Value noise that tiles across the TW-wide tile: two copies a tile apart, blended across it."""
     from grove import noise
-    t = 2 * math.pi * x / TW
-    return noise(np.cos(t) * TW / (2 * math.pi) / s[0] + 50, np.sin(t) * TW / (2 * math.pi) / s[0] + y / s[1], s[2])
+    w = np.asarray(x, np.float64) / TW
+    v = np.asarray(y, np.float64) / s[1]
+    return noise(x / s[0], v, s[2]) * (1 - w) + noise((x - TW) / s[0], v, s[2]) * w
 
 
 def ground_tex():
@@ -198,15 +199,16 @@ def ground_tex():
     h = lambda k: ((np.sin(xx * 12.9898 + yy * 78.233 + k) * 43758.5453) % 1.0)
     out = np.empty((H, TW), object)
     out[:] = None
-    sw = _noise(xx, yy, (34, 9, 3.1))                                     # swathes of light and shade
-    lawn = np.where(sw > 0.6, 'leaf3', np.where(sw < 0.36, 'leaf1', 'leaf2')).astype(object)
+    sw = _noise(xx, yy, (46, 22, 3.1)) * 0.75 + _noise(xx, yy, (12, 7, 8.3)) * 0.25   # swathes of light and shade
+    sw = sw + (BAYER[yy.astype(int) % 4, xx.astype(int) % 4] - 0.5) * 0.05
+    lawn = np.where(sw > 0.64, 'leaf3', np.where(sw < 0.3, 'leaf1', 'leaf2')).astype(object)
     blade = h(1) < 0.16 + 0.1 * depth                                    # short blades, upright strokes
     up = np.roll(blade, -1, 0)
     lawn = np.where(blade & (sw > 0.45), 'leaf4', lawn)
     lawn = np.where(up & ~blade & (sw <= 0.45), 'leaf1', lawn)
     lawn = np.where((h(2) < 0.012) & (sw > 0.5), 'leaf5', lawn)          # clover leaves catching the light
     # worn patches of bare earth
-    sn = _noise(xx, yy, (16, 5, 7.7))
+    sn = _noise(xx, yy, (15, 8, 7.7))
     bayer = BAYER[yy.astype(int) % 4, xx.astype(int) % 4]
     soil = (sn + (bayer - 0.5) * 0.06 > 0.76) & (yy > g[None, :] + 5)
     earth = np.where(h(3) < 0.3, 'wood3', 'wood4').astype(object)
@@ -259,10 +261,11 @@ def ground_tex():
 def _meadow_plane(rows, ground=None, dark_shift=0, seed=5, flowers=0.16, susuki=0.04, avoid=None):
     rng = random.Random(seed)
     items = []
-    for (yo, th, nb, dark, spc) in rows:
+    for ri, (yo, th, nb, dark, spc) in enumerate(rows):
+        gap = (rows[ri + 1][0] - yo) if ri + 1 < len(rows) else 20
         x = rng.uniform(0, spc)
         while x < TW:
-            gy = ground_line(x) + yo + rng.randint(-1, 1)
+            gy = ground_line(x) + yo + rng.uniform(-0.5, 0.5) * gap        # no rows lined up
             if avoid is None or not avoid(x, gy):
                 MD._GUST = -2 * math.pi * x / (TW / 4.0)
                 r = rng.random()
