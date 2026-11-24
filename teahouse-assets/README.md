@@ -359,6 +359,12 @@ python3 teahouse-assets/generator/wide_menu.py                 # layers, ui, sce
 python3 teahouse-assets/generator/wide_page.py OUT/index.html  # the playable menu, shader and all, as one page
 ```
 
+## Game-ready sprite zips
+
+`generator/export_game_assets.py OUT_DIR` packs the current art into eight zips of PNGs only: the teahouse building (96 frames, pack colours and summer afternoon), the rooms, decor props at 1x and 3x, characters and creatures, the traveler kit with its worn / dirty / repaired variants, trees and plants, seamless tiles, the scrolling menu and its UI, and the window views for every season. A sheet's name carries its geometry (`name_<frames>f_<w>x<h>[_<cols>c].png`); a scroll plane also carries its place (`_x<X>_y<Y>_p<parallax*100>`). The alien lucky cat is left out.
+
+`generator/tile_textures.py` draws the 14 seamless tiles (64 px, 3x too): wood floor, red and grey plank walls, plaster, roof tiles (plain and mossy), stone paving, lawn, dirt path, moss, tatami, shoji paper, and 4-frame water.
+
 ## Folder map
 
 ```
